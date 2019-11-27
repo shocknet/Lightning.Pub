@@ -1,0 +1,6 @@
+{
+  "requirePragma": true,
+  "semi": false,
+  "singleQuote": true,
+  "endOfLine": "lf"
+}

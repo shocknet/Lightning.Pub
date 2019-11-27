@@ -1,0 +1,9 @@
+node_modules
+services/auth/secrets.json
+.env
+*.log
+.directory
+
+radata/
+*.cert
+*.key

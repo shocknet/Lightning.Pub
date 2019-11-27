@@ -1,0 +1,70 @@
+{
+  "extends": ["eslint:all", "prettier", "plugin:jest/all"],
+  "plugins": ["prettier", "jest", "babel"],
+  "rules": {
+    "prettier/prettier": "error",
+    "strict": "off",
+    "id-length": ["error", { "exceptions": ["_"] }],
+
+    "no-console": "off",
+
+    "max-statements": "off",
+
+    "global-require": "off",
+
+    "new-cap": "off",
+
+    "one-var": "off",
+
+    "max-lines-per-function": "off",
+
+    "no-underscore-dangle": "off",
+
+    "no-implicit-coercion": "off",
+
+    "no-magic-numbers": "off",
+
+    "no-negated-condition": "off",
+
+    "capitalized-comments": "off",
+
+    "max-params": "off",
+
+    "multiline-comment-style": "off",
+
+    "spaced-comment": "off",
+
+    "no-inline-comments": "off",
+
+    "sort-keys": "off",
+
+    "max-lines": "off",
+
+    "prefer-template": "off",
+
+    "callback-return": "off",
+
+    "no-ternary": "off",
+
+    "no-invalid-this": "off",
+
+    "babel/no-invalid-this": "error",
+
+    "complexity": "off",
+
+    "yoda": "off",
+
+    "prefer-promise-reject-errors": "off",
+
+    "camelcase": "off",
+
+    "consistent-return": "off",
+
+    "no-shadow": "off"
+  },
+  "parser": "babel-eslint",
+  "env": {
+    "node": true,
+    "es6": true
+  }
+}
