@@ -73,6 +73,7 @@ module.exports = async (protoPath, lndHost, lndCertPath, macaroonPath) => {
       throw error;
     }
   } catch (err) {
+    logger.error(err);
     if (err.code === 14) {
       throw {
         field: "unknown",
