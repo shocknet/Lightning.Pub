@@ -251,7 +251,6 @@ const server = program => {
   };
 
   startServer();
-  return "Server started";
 };
 
 module.exports = server;
