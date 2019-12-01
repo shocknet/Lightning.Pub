@@ -14,5 +14,12 @@ module.exports = {
     2. Not initializing your wallet before using the ShockAPI
   `,
   CERT_MISSING: () =>
-    "Required LND certificate path missing from application configuration."
+    "Required LND certificate path missing from application configuration.",
+  CERT_AND_MACAROON_MISSING: (macaroonPath, lndCertPath) =>
+    `
+    You neither specified an LND cert path nor a Macaroon path. Please make sure both files exist in the paths you've specified:
+    
+    Macaroon Path: ${macaroonPath ? macaroonPath : "N/A"}
+    LND Certificates path: ${lndCertPath ? lndCertPath : "N/A"}
+    `
 };

@@ -68,7 +68,7 @@ module.exports = async (protoPath, lndHost, lndCertPath, macaroonPath) => {
       logger.error(error);
       throw error;
     } else {
-      const error = errorConstants.MACAROON_PATH(macaroonPath);
+      const error = errorConstants.CERT_AND_MACAROON_MISSING(macaroonPath, lndCertPath);
       logger.error(error);
       throw error;
     }
