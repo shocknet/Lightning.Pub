@@ -1,4 +1,4 @@
-This is an early test release of the [ShockWallet](shockwallet.app) API.
+This is an early test release of the [ShockWallet](https://shockwallet.app) API.
 
 For easy setup on your Laptop/Desktop, [a wizard is available here.](https://github.com/shocknet/wizard)
 
