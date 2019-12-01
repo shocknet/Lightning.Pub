@@ -242,7 +242,7 @@ const server = program => {
       // 	console.log('t', t.url);
       // });
     } catch (err) {
-      console.error(err);
+      logger.error(err);
       logger.info("Restarting server in 30 seconds...");
       await wait(30);
       startServer();
