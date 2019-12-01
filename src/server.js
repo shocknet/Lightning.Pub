@@ -61,7 +61,7 @@ const server = program => {
         lndProto: defaults.lndProto,
         lndHost,
         lndCertPath,
-        macaroonPath
+        macaroonPath: macaroonExists ? macaroonPath : null
       };
 
       // init lnd module =================
