@@ -71,6 +71,8 @@ const server = program => {
         GET: {
           "/healthz": true,
           "/ping": true,
+          // Errors out when viewing an API page from the browser
+          "/favicon.ico": true,
           "/api/lnd/connect": true,
           "/api/lnd/wallet/status": true,
           "/api/lnd/auth": true
@@ -87,7 +89,7 @@ const server = program => {
       const auth = require("../services/auth/auth");
 
       app.use(async (req, res, next) => {
-        
+        console.log("Route:", req.path)
         if (unprotectedRoutes[req.method][req.path]) {
           next();
         } else {
@@ -249,6 +251,7 @@ const server = program => {
   };
 
   startServer();
+  return "Server started";
 };
 
 module.exports = server;
