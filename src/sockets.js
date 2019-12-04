@@ -77,7 +77,7 @@ module.exports = (
     // with the GunDB service.
     Mediator.createMediator(socket);
     
-    const macaroonExists = await FS.access(lnServicesData.macaroonPath);
+    const macaroonExists = await (lnServicesData.macaroonPath ? FS.access(lnServicesData.macaroonPath) : false);
     const lnServices = await require("../services/lnd/lightning")(
       lnServicesData.lndProto,
       lnServicesData.lndHost,
@@ -88,7 +88,7 @@ module.exports = (
     lightning = lnServices.lightning;
 
     mySocketsEvents.addListener("updateLightning", async () => {
-      const newMacaroonExists = await FS.access(lnServicesData.macaroonPath);
+      const newMacaroonExists = await (lnServicesData.macaroonPath ? FS.access(lnServicesData.macaroonPath) : false);
       const newLNServices = await require("../services/lnd/lightning")(
         lnServicesData.lndProto,
         lnServicesData.lndHost,
