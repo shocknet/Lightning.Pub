@@ -53,7 +53,7 @@ const server = program => {
         defaults.lndProto,
         lndHost,
         lndCertPath,
-        macaroonExists ? macaroonPath : null
+        macaroonExists ? macaroonPath : macaroonPath
       );
       const { lightning } = lnServices;
       const { walletUnlocker } = lnServices;
