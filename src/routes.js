@@ -221,9 +221,11 @@ module.exports = (
         walletStatus: walletStatus ? availableService.walletStatus : null
       })
     } catch (err) {
+      logger.error(err);
+      const sanitizedMessage = sanitizeLNDError(err.message);
       res.status(500).json({
-        walletStatus: sanitizeLNDError(err.message),
-        code: err.code
+        walletExists: null,
+        walletStatus: sanitizedMessage ? sanitizedMessage : "An unknown error has occurred, please try restarting your LND and API servers"
       });
     }
   });
