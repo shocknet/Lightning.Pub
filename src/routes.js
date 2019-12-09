@@ -326,132 +326,138 @@ module.exports = (
   });
 
   app.post("/api/lnd/wallet", async (req, res) => {
-    const { password, alias } = req.body;
-    const healthResponse = await checkHealth();
-    if (!alias) {
-      return res.status(400).json({
-        field: "alias",
-        errorMessage: "Please specify an alias for your new wallet"
-      });
-    }
-
-    if (!password) {
-      return res.status(400).json({
-        field: "password",
-        errorMessage: "Please specify a password for your new wallet"
-      });
-    }
-
-    if (password.length < 8) {
-      return res.status(400).json({
-        field: "password",
-        errorMessage: "Please specify a password that's longer than 8 characters"
-      });
-    }
-
-    if (healthResponse.LNDStatus.service !== "walletUnlocker") {
-      return res.status(400).json({
-        field: "wallet",
-        errorMessage: "Wallet is already unlocked"
-      });
-    }
-
-    walletUnlocker.genSeed({}, async (genSeedErr, genSeedResponse) => {
-      if (genSeedErr) {
-        logger.debug("GenSeed Error:", genSeedErr);
-
-        const healthResponse = await checkHealth();
-        if (healthResponse.LNDStatus.success) {
-          const message = genSeedErr.details;
-          return res
-            .status(400)
-            .send({ field: "GenSeed", errorMessage, success: false });
-        }
-
-        return res
-          .status(500)
-          .send({ field: "health", errorMessage: "LND is down", success: false });
+    try {
+      const { password, alias } = req.body;
+      const healthResponse = await checkHealth();
+      if (!alias) {
+        return res.status(400).json({
+          field: "alias",
+          errorMessage: "Please specify an alias for your new wallet"
+        });
       }
 
-      logger.debug("GenSeed:", genSeedResponse);
-      const mnemonicPhrase = genSeedResponse.cipher_seed_mnemonic;
-      const walletArgs = {
-        wallet_password: Buffer.from(password, "utf8"),
-        cipher_seed_mnemonic: mnemonicPhrase
-      };
+      if (!password) {
+        return res.status(400).json({
+          field: "password",
+          errorMessage: "Please specify a password for your new wallet"
+        });
+      }
 
-      // Register user before creating wallet
-      const publicKey = await GunDB.register(alias, password);
+      if (password.length < 8) {
+        return res.status(400).json({
+          field: "password",
+          errorMessage: "Please specify a password that's longer than 8 characters"
+        });
+      }
 
-      walletUnlocker.initWallet(
-        walletArgs,
-        async (initWalletErr, initWalletResponse) => {
-          if (initWalletErr) {
-            logger.error("initWallet Error:", initWalletErr.message);
-            const healthResponse = await checkHealth();
-            if (healthResponse.LNDStatus.success) {
-              const errorMessage = initWalletErr.details;
+      if (healthResponse.LNDStatus.service !== "walletUnlocker") {
+        return res.status(400).json({
+          field: "wallet",
+          errorMessage: "Wallet is already unlocked"
+        });
+      }
 
-              return res.status(400).json({
-                field: "initWallet",
-                errorMessage,
+      walletUnlocker.genSeed({}, async (genSeedErr, genSeedResponse) => {
+        if (genSeedErr) {
+          logger.debug("GenSeed Error:", genSeedErr);
+
+          const healthResponse = await checkHealth();
+          if (healthResponse.LNDStatus.success) {
+            const errorMessage = genSeedErr.details;
+            return res
+              .status(400)
+              .send({ field: "GenSeed", errorMessage, success: false });
+          }
+
+          return res
+            .status(500)
+            .send({ field: "health", errorMessage: "LND is down", success: false });
+        }
+
+        logger.debug("GenSeed:", genSeedResponse);
+        const mnemonicPhrase = genSeedResponse.cipher_seed_mnemonic;
+        const walletArgs = {
+          wallet_password: Buffer.from(password, "utf8"),
+          cipher_seed_mnemonic: mnemonicPhrase
+        };
+
+        // Register user before creating wallet
+        const publicKey = await GunDB.register(alias, password);
+
+        walletUnlocker.initWallet(
+          walletArgs,
+          async (initWalletErr, initWalletResponse) => {
+            if (initWalletErr) {
+              logger.error("initWallet Error:", initWalletErr.message);
+              const healthResponse = await checkHealth();
+              if (healthResponse.LNDStatus.success) {
+                const errorMessage = initWalletErr.details;
+
+                return res.status(400).json({
+                  field: "initWallet",
+                  errorMessage,
+                  success: false
+                });
+              }
+              return res.status(500).json({
+                field: "health",
+                errorMessage: "LND is down",
                 success: false
               });
             }
-            return res.status(500).json({
-              field: "health",
-              errorMessage: "LND is down",
-              success: false
-            });
-          }
-          logger.debug("initWallet:", initWalletResponse);
+            logger.debug("initWallet:", initWalletResponse);
 
-          const waitUntilFileExists = seconds => {
-            logger.debug(
-              `Waiting for admin.macaroon to be created. Seconds passed: ${seconds}`
-            );
-            setTimeout(async () => {
-              try {
-                const macaroonExists = await FS.access(
-                  lnServicesData.macaroonPath
-                );
-                if (!macaroonExists) {
-                  return waitUntilFileExists(seconds + 1);
-                }
-
-                logger.debug("admin.macaroon file created");
-
-                mySocketsEvents.emit("updateLightning");
-                const lnServices = await require("../services/lnd/lightning")(
-                  lnServicesData.lndProto,
-                  lnServicesData.lndHost,
-                  lnServicesData.lndCertPath,
-                  lnServicesData.macaroonPath
-                );
-                lightning = lnServices.lightning;
-                walletUnlocker = lnServices.walletUnlocker;
-                const token = await auth.generateToken();
-                return res.json({
-                  mnemonicPhrase,
-                  authorization: token,
-                  user: {
-                    alias,
-                    publicKey
+            const waitUntilFileExists = seconds => {
+              logger.debug(
+                `Waiting for admin.macaroon to be created. Seconds passed: ${seconds}`
+              );
+              setTimeout(async () => {
+                try {
+                  const macaroonExists = await FS.access(
+                    lnServicesData.macaroonPath
+                  );
+                  if (!macaroonExists) {
+                    return waitUntilFileExists(seconds + 1);
                   }
-                });
-              } catch (err) {
-                res.status(400).json({
-                  field: "unknown",
-                  errorMessage: sanitizeLNDError(err.message)
-                });
-              }
-            }, 1000);
-          };
 
-          waitUntilFileExists(1);
-        }
-      );
-    });
+                  logger.debug("admin.macaroon file created");
+
+                  mySocketsEvents.emit("updateLightning");
+                  const lnServices = await require("../services/lnd/lightning")(
+                    lnServicesData.lndProto,
+                    lnServicesData.lndHost,
+                    lnServicesData.lndCertPath,
+                    lnServicesData.macaroonPath
+                  );
+                  lightning = lnServices.lightning;
+                  walletUnlocker = lnServices.walletUnlocker;
+                  const token = await auth.generateToken();
+                  return res.json({
+                    mnemonicPhrase,
+                    authorization: token,
+                    user: {
+                      alias,
+                      publicKey
+                    }
+                  });
+                } catch (err) {
+                  res.status(400).json({
+                    field: "unknown",
+                    errorMessage: sanitizeLNDError(err.message)
+                  });
+                }
+              }, 1000);
+            };
+
+            waitUntilFileExists(1);
+          }
+        );
+      });
+    } catch (err) {
+      return res.status(500).json({
+        errorMessage: err.message
+      })
+    }
   });
 
   app.post("/api/lnd/wallet/existing", async (req, res) => {
