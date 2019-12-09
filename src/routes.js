@@ -357,102 +357,103 @@ module.exports = (
         });
       }
 
-      walletUnlocker.genSeed({}, async (genSeedErr, genSeedResponse) => {
-        if (genSeedErr) {
-          logger.debug("GenSeed Error:", genSeedErr);
+      const [genSeedErr, genSeedResponse] = await new Promise(res => {
+        walletUnlocker.genSeed({}, async (genSeedErr, genSeedResponse) => {
+          res([genSeedErr, genSeedResponse])
+        })
+      })
 
-          const healthResponse = await checkHealth();
-          if (healthResponse.LNDStatus.success) {
-            const errorMessage = genSeedErr.details;
-            return res
-              .status(400)
-              .send({ field: "GenSeed", errorMessage, success: false });
-          }
-
+      if (genSeedErr) {
+        logger.debug("GenSeed Error:", genSeedErr);
+        const healthResponse = await checkHealth();
+        if (healthResponse.LNDStatus.success) {
+          const errorMessage = genSeedErr.details;
           return res
             .status(500)
-            .send({ field: "health", errorMessage: "LND is down", success: false });
+            .json({ errorMessage });
         }
 
-        logger.debug("GenSeed:", genSeedResponse);
-        const mnemonicPhrase = genSeedResponse.cipher_seed_mnemonic;
-        const walletArgs = {
-          wallet_password: Buffer.from(password, "utf8"),
-          cipher_seed_mnemonic: mnemonicPhrase
-        };
+        return res
+          .status(500)
+          .send({ errorMessage: "LND is down" });
+      }
 
-        // Register user before creating wallet
-        const publicKey = await GunDB.register(alias, password);
+      logger.debug("GenSeed:", genSeedResponse);
+      const mnemonicPhrase = genSeedResponse.cipher_seed_mnemonic;
+      const walletArgs = {
+        wallet_password: Buffer.from(password, "utf8"),
+        cipher_seed_mnemonic: mnemonicPhrase
+      };
 
+      // Register user before creating wallet
+      const publicKey = await GunDB.register(alias, password);
+
+      const [ initWalletErr, initWalletResponse ] = await new Promise(res => {
         walletUnlocker.initWallet(
           walletArgs,
-          async (initWalletErr, initWalletResponse) => {
-            if (initWalletErr) {
-              logger.error("initWallet Error:", initWalletErr.message);
-              const healthResponse = await checkHealth();
-              if (healthResponse.LNDStatus.success) {
-                const errorMessage = initWalletErr.details;
+          (initWalletErr, initWalletResponse) => {
+            res([initWalletErr, initWalletResponse])
+          })
+      })
 
-                return res.status(400).json({
-                  field: "initWallet",
-                  errorMessage,
-                  success: false
-                });
-              }
-              return res.status(500).json({
-                field: "health",
-                errorMessage: "LND is down",
-                success: false
-              });
-            }
-            logger.debug("initWallet:", initWalletResponse);
+      if (initWalletErr) {
+        logger.error("initWallet Error:", initWalletErr.message);
+        const healthResponse = await checkHealth();
+        if (healthResponse.LNDStatus.success) {
+          const errorMessage = initWalletErr.details;
 
-            const waitUntilFileExists = seconds => {
-              logger.debug(
-                `Waiting for admin.macaroon to be created. Seconds passed: ${seconds}`
-              );
-              setTimeout(async () => {
-                try {
-                  const macaroonExists = await FS.access(
-                    lnServicesData.macaroonPath
-                  );
-                  if (!macaroonExists) {
-                    return waitUntilFileExists(seconds + 1);
-                  }
+          return res.status(500).json({
+            errorMessage,
+          });
+        }
+        return res.status(500).json({
+          errorMessage: "LND is down",
+        });
+      }
+      logger.debug("initWallet:", initWalletResponse);
 
-                  logger.debug("admin.macaroon file created");
-
-                  mySocketsEvents.emit("updateLightning");
-                  const lnServices = await require("../services/lnd/lightning")(
-                    lnServicesData.lndProto,
-                    lnServicesData.lndHost,
-                    lnServicesData.lndCertPath,
-                    lnServicesData.macaroonPath
-                  );
-                  lightning = lnServices.lightning;
-                  walletUnlocker = lnServices.walletUnlocker;
-                  const token = await auth.generateToken();
-                  return res.json({
-                    mnemonicPhrase,
-                    authorization: token,
-                    user: {
-                      alias,
-                      publicKey
-                    }
-                  });
-                } catch (err) {
-                  res.status(400).json({
-                    field: "unknown",
-                    errorMessage: sanitizeLNDError(err.message)
-                  });
-                }
-              }, 1000);
-            };
-
-            waitUntilFileExists(1);
-          }
+      const waitUntilFileExists = seconds => {
+        logger.debug(
+          `Waiting for admin.macaroon to be created. Seconds passed: ${seconds}`
         );
-      });
+        setTimeout(async () => {
+          try {
+            const macaroonExists = await FS.access(
+              lnServicesData.macaroonPath
+            );
+            if (!macaroonExists) {
+              return waitUntilFileExists(seconds + 1);
+            }
+
+            logger.debug("admin.macaroon file created");
+
+            mySocketsEvents.emit("updateLightning");
+            const lnServices = await require("../services/lnd/lightning")(
+              lnServicesData.lndProto,
+              lnServicesData.lndHost,
+              lnServicesData.lndCertPath,
+              lnServicesData.macaroonPath
+            );
+            lightning = lnServices.lightning;
+            walletUnlocker = lnServices.walletUnlocker;
+            const token = await auth.generateToken();
+            return res.json({
+              mnemonicPhrase,
+              authorization: token,
+              user: {
+                alias,
+                publicKey
+              }
+            });
+          } catch (err) {
+            res.status(500).json({
+              errorMessage: sanitizeLNDError(err.message)
+            });
+          }
+        }, 1000);
+      };
+
+      waitUntilFileExists(1);
     } catch (err) {
       return res.status(500).json({
         errorMessage: err.message
