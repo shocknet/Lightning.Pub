@@ -853,14 +853,13 @@ const register = async (alias, pass) => {
 
   _isRegistering = false
 
-  const mySecret = await mySEA.secret(user._.sea.epub, user._.sea)
-  if (typeof mySecret !== 'string') {
-    throw new Error('Could not generate secret for user.')
-  }
-
   if (typeof ack.err === 'string') {
     throw new Error(ack.err)
-  } else if (typeof ack.pub === 'string') {
+  }
+
+  const mySecret = await mySEA.secret(user._.sea.epub, user._.sea)
+
+  if (typeof ack.pub === 'string') {
     _currentAlias = alias
     _currentPass = await mySEA.encrypt(pass, mySecret)
   } else {
