@@ -413,8 +413,9 @@ module.exports = (
                   setTimeout(async () => {
                     try {
                       const macaroonExists = await FS.access(
-                        LightningServices.servicesData.macaroonPath
+                        LightningServices.servicesConfig.macaroonPath
                       );
+
                       if (!macaroonExists) {
                         return waitUntilFileExists(seconds + 1);
                       }
