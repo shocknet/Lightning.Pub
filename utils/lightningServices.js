@@ -31,6 +31,10 @@ class LightningServices {
     return this.lnServicesData;
   }
 
+  get servicesConfig() {
+    return this.config;
+  }
+
   init = async () => {
     const { macaroonPath, lndHost, lndCertPath } = this.config;
     const macaroonExists = await FS.access(macaroonPath);
