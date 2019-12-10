@@ -404,10 +404,10 @@ module.exports = (
                     success: false
                   });
                 }
-                logger.debug("initWallet:", initWalletResponse);
+                logger.info("initWallet:", initWalletResponse);
       
                 const waitUntilFileExists = seconds => {
-                  logger.debug(
+                  logger.info(
                     `Waiting for admin.macaroon to be created. Seconds passed: ${seconds}`
                   );
                   setTimeout(async () => {
@@ -419,9 +419,8 @@ module.exports = (
                         return waitUntilFileExists(seconds + 1);
                       }
       
-                      logger.debug("admin.macaroon file created");
+                      logger.info("admin.macaroon file created");
       
-                      mySocketsEvents.emit("updateLightning");
                       await LightningServices.init();
 
                       const token = await auth.generateToken();
@@ -434,6 +433,7 @@ module.exports = (
                         }
                       });
                     } catch (err) {
+                      console.error(err);
                       res.status(400).json({
                         field: "unknown",
                         errorMessage: sanitizeLNDError(err.message)
