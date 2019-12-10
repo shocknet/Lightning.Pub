@@ -408,7 +408,7 @@ module.exports = (
       
                 const waitUntilFileExists = seconds => {
                   logger.info(
-                    `Waiting for admin.macaroon to be created. Seconds passed: ${seconds}`
+                    `Waiting for admin.macaroon to be created. Seconds passed: ${seconds} Path: ${LightningServices.servicesConfig.macaroonPath}`
                   );
                   setTimeout(async () => {
                     try {
