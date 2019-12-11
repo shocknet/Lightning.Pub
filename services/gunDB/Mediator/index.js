@@ -15,6 +15,9 @@ const mySEA = {}
 const $$__SHOCKWALLET__MSG__ = '$$__SHOCKWALLET__MSG__'
 const $$__SHOCKWALLET__ENCRYPTED__ = '$$_SHOCKWALLET__ENCRYPTED__'
 
+// TO DO: Move this constant to common repo
+const IS_GUN_AUTH = 'IS_GUN_AUTH'
+
 mySEA.encrypt = (msg, secret) => {
   if (typeof msg !== 'string') {
     throw new TypeError('mySEA.encrypt() -> expected msg to be an string')
@@ -99,13 +102,15 @@ const Event = require('../event-constants')
  * @typedef {import('../contact-api/SimpleGUN').UserGUNNode} UserGUNNode
  */
 
+// TO DO: move to common repo
 /**
  * @typedef {object} Emission
  * @prop {boolean} ok
- * @prop {string|null|Record<string, any>} msg
+ * @prop {any} msg
  * @prop {Record<string, any>} origBody
  */
 
+// TO DO: move to common repo
 /**
  * @typedef {object} SimpleSocket
  * @prop {(eventName: string, data: Emission) => void} emit
@@ -206,6 +211,7 @@ const instantiateGun = async () => {
 
   gun = /** @type {GUNNode} */ (__gun)
 
+  // eslint-disable-next-line require-atomic-updates
   user = gun.user()
 
   if (_currentAlias && _currentPass) {
@@ -288,6 +294,28 @@ class Mediator {
     socket.on(Event.ON_HANDSHAKE_ADDRESS, this.onHandshakeAddress)
     socket.on(Event.ON_RECEIVED_REQUESTS, this.onReceivedRequests)
     socket.on(Event.ON_SENT_REQUESTS, this.onSentRequests)
+
+    socket.on(IS_GUN_AUTH, this.isGunAuth)
+  }
+
+  isGunAuth = () => {
+    try {
+      const isGunAuth = isAuthenticated()
+
+      this.socket.emit(IS_GUN_AUTH, {
+        ok: true,
+        msg: {
+          isGunAuth
+        },
+        origBody: {}
+      })
+    } catch (err) {
+      this.socket.emit(IS_GUN_AUTH, {
+        ok: false,
+        msg: err.message,
+        origBody: {}
+      })
+    }
   }
 
   /**
