@@ -15,6 +15,9 @@ const mySEA = {}
 const $$__SHOCKWALLET__MSG__ = '$$__SHOCKWALLET__MSG__'
 const $$__SHOCKWALLET__ENCRYPTED__ = '$$_SHOCKWALLET__ENCRYPTED__'
 
+// TO DO: Move this constant to common repo
+const IS_GUN_AUTH = 'IS_GUN_AUTH'
+
 mySEA.encrypt = (msg, secret) => {
   if (typeof msg !== 'string') {
     throw new TypeError('mySEA.encrypt() -> expected msg to be an string')
@@ -288,6 +291,28 @@ class Mediator {
     socket.on(Event.ON_HANDSHAKE_ADDRESS, this.onHandshakeAddress)
     socket.on(Event.ON_RECEIVED_REQUESTS, this.onReceivedRequests)
     socket.on(Event.ON_SENT_REQUESTS, this.onSentRequests)
+
+    socket.on(IS_GUN_AUTH, this.isGunAuth)
+  }
+
+  isGunAuth = () => {
+    try {
+      const isGunAuth = isAuthenticated()
+
+      this.socket.emit(IS_GUN_AUTH, {
+        ok: true,
+        msg: {
+          isGunAuth
+        },
+        origBody: {}
+      })
+    } catch (err) {
+      this.socket.emit(IS_GUN_AUTH, {
+        ok: false,
+        msg: err.message,
+        origBody: {}
+      })
+    }
   }
 
   /**
