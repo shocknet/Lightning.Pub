@@ -102,13 +102,15 @@ const Event = require('../event-constants')
  * @typedef {import('../contact-api/SimpleGUN').UserGUNNode} UserGUNNode
  */
 
+// TO DO: move to common repo
 /**
  * @typedef {object} Emission
  * @prop {boolean} ok
- * @prop {string|null|Record<string, any>} msg
+ * @prop {any} msg
  * @prop {Record<string, any>} origBody
  */
 
+// TO DO: move to common repo
 /**
  * @typedef {object} SimpleSocket
  * @prop {(eventName: string, data: Emission) => void} emit
@@ -209,6 +211,7 @@ const instantiateGun = async () => {
 
   gun = /** @type {GUNNode} */ (__gun)
 
+  // eslint-disable-next-line require-atomic-updates
   user = gun.user()
 
   if (_currentAlias && _currentPass) {
