@@ -12,6 +12,7 @@ const responseTime = require("response-time");
 const getListPage = require("../utils/paginate");
 const auth = require("../services/auth/auth");
 const FS = require("../utils/fs");
+const LightningServices = require("../utils/lightningServices");
 const GunDB = require("../services/gunDB/Mediator");
 
 const DEFAULT_MAX_NUM_ROUTES_TO_QUERY = 10;
@@ -19,10 +20,7 @@ const DEFAULT_MAX_NUM_ROUTES_TO_QUERY = 10;
 // module.exports = (app) => {
 module.exports = (
   app,
-  lightning,
   config,
-  walletUnlocker,
-  lnServicesData,
   mySocketsEvents,
   { serverPort }
 ) => {
@@ -34,6 +32,8 @@ module.exports = (
   
   const getAvailableService = () =>
     new Promise((resolve, reject) => {
+      const { lightning } = LightningServices.services;
+
       lightning.getInfo({}, (err, response) => {
         if (err) {
           if (err.message.includes("unknown service lnrpc.Lightning")) {
@@ -118,16 +118,7 @@ module.exports = (
   };
 
   const recreateLnServices = async () => {
-    const lnServices = await require("../services/lnd/lightning")(
-      lnServicesData.lndProto,
-      lnServicesData.lndHost,
-      lnServicesData.lndCertPath,
-      lnServicesData.macaroonPath
-    );
-    // eslint-disable-next-line prefer-destructuring, no-param-reassign
-    lightning = lnServices.lightning;
-    // eslint-disable-next-line prefer-destructuring, no-param-reassign
-    walletUnlocker = lnServices.walletUnlocker;
+    await LightningServices.init();
 
     return true;
   };
@@ -138,6 +129,7 @@ module.exports = (
         const args = {
           wallet_password: Buffer.from(password, "utf-8")
         };
+        const { walletUnlocker } = LightningServices.services;
         walletUnlocker.unlockWallet(args, (unlockErr, unlockResponse) => {
           if (unlockErr) {
             reject(unlockErr);
@@ -221,9 +213,11 @@ module.exports = (
         walletStatus: walletStatus ? availableService.walletStatus : null
       })
     } catch (err) {
+      logger.error(err);
+      const sanitizedMessage = sanitizeLNDError(err.message);
       res.status(500).json({
-        walletStatus: sanitizeLNDError(err.message),
-        code: err.code
+        walletExists: null,
+        walletStatus: sanitizedMessage ? sanitizedMessage : "An unknown error has occurred, please try restarting your LND and API servers"
       });
     }
   });
@@ -279,6 +273,7 @@ module.exports = (
       return false;
     } catch (err) {
       logger.debug("Unlock Error:", err);
+      console.error(err);
       res.status(400);
       res.send({ field: "user", errorMessage: sanitizeLNDError(err.message), success: false });
       return err;
@@ -286,6 +281,7 @@ module.exports = (
   });
 
   app.post("/api/lnd/connect", (req, res) => {
+    const { lightning, walletUnlocker } = LightningServices.services;
     const args = {
       wallet_password: Buffer.from(req.body.password, "utf-8")
     };
@@ -326,132 +322,152 @@ module.exports = (
   });
 
   app.post("/api/lnd/wallet", async (req, res) => {
-    const { password, alias } = req.body;
-    const healthResponse = await checkHealth();
-    if (!alias) {
-      return res.status(400).json({
-        field: "alias",
-        errorMessage: "Please specify an alias for your new wallet"
-      });
-    }
-
-    if (!password) {
-      return res.status(400).json({
-        field: "password",
-        errorMessage: "Please specify a password for your new wallet"
-      });
-    }
-
-    if (password.length < 8) {
-      return res.status(400).json({
-        field: "password",
-        errorMessage: "Please specify a password that's longer than 8 characters"
-      });
-    }
-
-    if (healthResponse.LNDStatus.service !== "walletUnlocker") {
-      return res.status(400).json({
-        field: "wallet",
-        errorMessage: "Wallet is already unlocked"
-      });
-    }
-
-    walletUnlocker.genSeed({}, async (genSeedErr, genSeedResponse) => {
-      if (genSeedErr) {
-        logger.debug("GenSeed Error:", genSeedErr);
-
-        const healthResponse = await checkHealth();
-        if (healthResponse.LNDStatus.success) {
-          const message = genSeedErr.details;
-          return res
-            .status(400)
-            .send({ field: "GenSeed", errorMessage, success: false });
-        }
-
-        return res
-          .status(500)
-          .send({ field: "health", errorMessage: "LND is down", success: false });
+    try {
+      const {  walletUnlocker } = LightningServices.services;
+      const { password, alias } = req.body;
+      const healthResponse = await checkHealth();
+      if (!alias) {
+        return res.status(400).json({
+          field: "alias",
+          errorMessage: "Please specify an alias for your new wallet"
+        });
       }
-
-      logger.debug("GenSeed:", genSeedResponse);
-      const mnemonicPhrase = genSeedResponse.cipher_seed_mnemonic;
-      const walletArgs = {
-        wallet_password: Buffer.from(password, "utf8"),
-        cipher_seed_mnemonic: mnemonicPhrase
-      };
-
-      // Register user before creating wallet
-      const publicKey = await GunDB.register(alias, password);
-
-      walletUnlocker.initWallet(
-        walletArgs,
-        async (initWalletErr, initWalletResponse) => {
-          if (initWalletErr) {
-            logger.error("initWallet Error:", initWalletErr.message);
+  
+      if (!password) {
+        return res.status(400).json({
+          field: "password",
+          errorMessage: "Please specify a password for your new wallet"
+        });
+      }
+  
+      if (password.length < 8) {
+        return res.status(400).json({
+          field: "password",
+          errorMessage: "Please specify a password that's longer than 8 characters"
+        });
+      }
+  
+      if (healthResponse.LNDStatus.service !== "walletUnlocker") {
+        return res.status(400).json({
+          field: "wallet",
+          errorMessage: "Wallet is already unlocked"
+        });
+      }
+  
+      walletUnlocker.genSeed({}, async (genSeedErr, genSeedResponse) => {
+        try {
+          if (genSeedErr) {
+            logger.debug("GenSeed Error:", genSeedErr);
+    
             const healthResponse = await checkHealth();
             if (healthResponse.LNDStatus.success) {
-              const errorMessage = initWalletErr.details;
-
-              return res.status(400).json({
-                field: "initWallet",
-                errorMessage,
-                success: false
-              });
+              const message = genSeedErr.details;
+              return res
+                .status(400)
+                .send({ field: "GenSeed", errorMessage: message, success: false });
             }
-            return res.status(500).json({
-              field: "health",
-              errorMessage: "LND is down",
-              success: false
-            });
+    
+            return res
+              .status(500)
+              .send({ field: "health", errorMessage: "LND is down", success: false });
           }
-          logger.debug("initWallet:", initWalletResponse);
-
-          const waitUntilFileExists = seconds => {
-            logger.debug(
-              `Waiting for admin.macaroon to be created. Seconds passed: ${seconds}`
-            );
-            setTimeout(async () => {
-              try {
-                const macaroonExists = await FS.access(
-                  lnServicesData.macaroonPath
-                );
-                if (!macaroonExists) {
-                  return waitUntilFileExists(seconds + 1);
-                }
-
-                logger.debug("admin.macaroon file created");
-
-                mySocketsEvents.emit("updateLightning");
-                const lnServices = await require("../services/lnd/lightning")(
-                  lnServicesData.lndProto,
-                  lnServicesData.lndHost,
-                  lnServicesData.lndCertPath,
-                  lnServicesData.macaroonPath
-                );
-                lightning = lnServices.lightning;
-                walletUnlocker = lnServices.walletUnlocker;
-                const token = await auth.generateToken();
-                return res.json({
-                  mnemonicPhrase,
-                  authorization: token,
-                  user: {
-                    alias,
-                    publicKey
-                  }
-                });
-              } catch (err) {
-                res.status(400).json({
-                  field: "unknown",
-                  errorMessage: sanitizeLNDError(err.message)
-                });
-              }
-            }, 1000);
+    
+          logger.debug("GenSeed:", genSeedResponse);
+          const mnemonicPhrase = genSeedResponse.cipher_seed_mnemonic;
+          const walletArgs = {
+            wallet_password: Buffer.from(password, "utf8"),
+            cipher_seed_mnemonic: mnemonicPhrase
           };
+    
+          // Register user before creating wallet
+          const publicKey = await GunDB.register(alias, password);
+    
+          walletUnlocker.initWallet(
+            walletArgs,
+            async (initWalletErr, initWalletResponse) => {
+              try {
+                if (initWalletErr) {
+                  logger.error("initWallet Error:", initWalletErr.message);
+                  const healthResponse = await checkHealth();
+                  if (healthResponse.LNDStatus.success) {
+                    const errorMessage = initWalletErr.details;
+      
+                    return res.status(400).json({
+                      field: "initWallet",
+                      errorMessage,
+                      success: false
+                    });
+                  }
+                  return res.status(500).json({
+                    field: "health",
+                    errorMessage: "LND is down",
+                    success: false
+                  });
+                }
+                logger.info("initWallet:", initWalletResponse);
+      
+                const waitUntilFileExists = seconds => {
+                  logger.info(
+                    `Waiting for admin.macaroon to be created. Seconds passed: ${seconds} Path: ${LightningServices.servicesConfig.macaroonPath}`
+                  );
+                  setTimeout(async () => {
+                    try {
+                      const macaroonExists = await FS.access(
+                        LightningServices.servicesConfig.macaroonPath
+                      );
 
-          waitUntilFileExists(1);
+                      if (!macaroonExists) {
+                        return waitUntilFileExists(seconds + 1);
+                      }
+      
+                      logger.info("admin.macaroon file created");
+      
+                      await LightningServices.init();
+
+                      const token = await auth.generateToken();
+                      return res.json({
+                        mnemonicPhrase,
+                        authorization: token,
+                        user: {
+                          alias,
+                          publicKey
+                        }
+                      });
+                    } catch (err) {
+                      console.error(err);
+                      res.status(400).json({
+                        field: "unknown",
+                        errorMessage: sanitizeLNDError(err.message)
+                      });
+                    }
+                  }, 1000);
+                };
+      
+                waitUntilFileExists(1);
+              } catch (err) {
+                console.error(err);
+                return res.status(500).json({
+                  field: "unknown",
+                  errorMessage: err
+                })
+              }
+            }
+          );
+        } catch (err) {
+          console.error(err);
+          return res.status(500).json({
+            field: "unknown",
+            errorMessage: err
+          })
         }
-      );
-    });
+      });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({
+        field: "unknown",
+        errorMessage: err
+      })
+    }
   });
 
   app.post("/api/lnd/wallet/existing", async (req, res) => {
@@ -519,7 +535,8 @@ module.exports = (
 
   // get lnd info
   app.get("/api/lnd/getinfo", (req, res) => {
-    // logger.debug("Estimated Fee:", lightning.estimateFee);
+    const { lightning } = LightningServices.services;
+    
     lightning.getInfo({}, async (err, response) => {
       if (err) {
         logger.error("GetInfo Error:", err);
@@ -546,6 +563,8 @@ module.exports = (
 
   // get lnd node info
   app.post("/api/lnd/getnodeinfo", (req, res) => {
+    const { lightning } = LightningServices.services;
+
     lightning.getNodeInfo(
       { pub_key: req.body.pubkey },
       async (err, response) => {
@@ -570,6 +589,7 @@ module.exports = (
   });
 
   app.get("/api/lnd/getnetworkinfo", (req, res) => {
+    const { lightning } = LightningServices.services;
     lightning.getNetworkInfo({}, async (err, response) => {
       if (err) {
         logger.debug("GetNetworkInfo Error:", err);
@@ -591,6 +611,7 @@ module.exports = (
 
   // get lnd node active channels list
   app.get("/api/lnd/listpeers", (req, res) => {
+    const { lightning } = LightningServices.services;
     lightning.listPeers({}, async (err, response) => {
       if (err) {
         logger.debug("ListPeers Error:", err);
@@ -612,6 +633,7 @@ module.exports = (
 
   // newaddress
   app.post("/api/lnd/newaddress", (req, res) => {
+    const { lightning } = LightningServices.services;
     lightning.newAddress({ type: req.body.type }, async (err, response) => {
       if (err) {
         logger.debug("NewAddress Error:", err);
@@ -633,6 +655,7 @@ module.exports = (
 
   // connect peer to lnd node
   app.post("/api/lnd/connectpeer", async (req, res) => {
+    const { lightning } = LightningServices.services;
     if (req.limituser) {
       const health = await checkHealth();
       if (health.LNDStatus.success) {
@@ -663,6 +686,7 @@ module.exports = (
 
   // disconnect peer from lnd node
   app.post("/api/lnd/disconnectpeer", async (req, res) => {
+    const { lightning } = LightningServices.services;
     if (req.limituser) {
       const health = await checkHealth();
       if (health.LNDStatus.success) {
@@ -690,6 +714,7 @@ module.exports = (
 
   // get lnd node opened channels list
   app.get("/api/lnd/listchannels", (req, res) => {
+    const { lightning } = LightningServices.services;
     lightning.listChannels({}, async (err, response) => {
       if (err) {
         logger.debug("ListChannels Error:", err);
@@ -711,6 +736,7 @@ module.exports = (
 
   // get lnd node pending channels list
   app.get("/api/lnd/pendingchannels", (req, res) => {
+    const { lightning } = LightningServices.services;
     lightning.pendingChannels({}, async (err, response) => {
       if (err) {
         logger.debug("PendingChannels Error:", err);
@@ -731,6 +757,7 @@ module.exports = (
   });
 
   app.get("/api/lnd/unifiedTrx", (req, res) => {
+    const { lightning } = LightningServices.services;
     const { itemsPerPage, page, reversed = true } = req.query;
     const offset = (page - 1) * itemsPerPage;
     lightning.listPayments({}, (err, { payments = [] } = {}) => {
@@ -776,6 +803,7 @@ module.exports = (
 
   // get lnd node payments list
   app.get("/api/lnd/listpayments", (req, res) => {
+    const { lightning } = LightningServices.services;
     const { itemsPerPage, page, paginate = true } = req.query;
     lightning.listPayments({
       include_incomplete: !!req.include_incomplete,
@@ -796,6 +824,7 @@ module.exports = (
 
   // get lnd node invoices list
   app.get("/api/lnd/listinvoices", (req, res) => {
+    const { lightning } = LightningServices.services;
     const { page, itemsPerPage, reversed = true } = req.query;
     const offset = (page - 1) * itemsPerPage;
     // const limit = page * itemsPerPage;
@@ -826,6 +855,7 @@ module.exports = (
 
   // get lnd node forwarding history
   app.get("/api/lnd/forwardinghistory", (req, res) => {
+    const { lightning } = LightningServices.services;
     lightning.forwardingHistory({}, async (err, response) => {
       if (err) {
         logger.debug("ForwardingHistory Error:", err);
@@ -847,6 +877,7 @@ module.exports = (
 
   // get the lnd node wallet balance
   app.get("/api/lnd/walletbalance", (req, res) => {
+    const { lightning } = LightningServices.services;
     lightning.walletBalance({}, async (err, response) => {
       if (err) {
         logger.debug("WalletBalance Error:", err);
@@ -868,6 +899,7 @@ module.exports = (
 
   // get the lnd node wallet balance and channel balance
   app.get("/api/lnd/balance", async (req, res) => {
+    const { lightning } = LightningServices.services;
     const health = await checkHealth();
     lightning.walletBalance({}, (err, walletBalance) => {
       if (err) {
@@ -910,6 +942,7 @@ module.exports = (
   });
 
   app.post("/api/lnd/decodePayReq", (req, res) => {
+    const { lightning } = LightningServices.services;
     const { payReq } = req.body;
     lightning.decodePayReq({ pay_req: payReq }, async (err, paymentRequest) => {
       if (err) {
@@ -932,6 +965,7 @@ module.exports = (
   });
 
   app.get("/api/lnd/channelbalance", (req, res) => {
+    const { lightning } = LightningServices.services;
     lightning.channelBalance({}, async (err, response) => {
       if (err) {
         logger.debug("ChannelBalance Error:", err);
@@ -953,6 +987,7 @@ module.exports = (
 
   // openchannel
   app.post("/api/lnd/openchannel", async (req, res) => {
+    const { lightning } = LightningServices.services;
     if (req.limituser) {
       const health = await checkHealth();
       if (health.LNDStatus.success) {
@@ -994,6 +1029,7 @@ module.exports = (
 
   // closechannel
   app.post("/api/lnd/closechannel", async (req, res) => {
+    const { lightning } = LightningServices.services;
     if (req.limituser) {
       const health = await checkHealth();
       if (health.LNDStatus.success) {
@@ -1043,6 +1079,7 @@ module.exports = (
 
   // sendpayment
   app.post("/api/lnd/sendpayment", async (req, res) => {
+    const { lightning } = LightningServices.services;
     if (req.limituser) {
       const health = await checkHealth();
       if (health.LNDStatus.success) {
@@ -1095,6 +1132,7 @@ module.exports = (
 
   // addinvoice
   app.post("/api/lnd/addinvoice", async (req, res) => {
+    const { lightning } = LightningServices.services;
     if (req.limituser) {
       const health = await checkHealth();
       if (health.LNDStatus.success) {
@@ -1134,6 +1172,7 @@ module.exports = (
 
   // signmessage
   app.post("/api/lnd/signmessage", async (req, res) => {
+    const { lightning } = LightningServices.services;
     if (req.limituser) {
       const health = await checkHealth();
       if (health.LNDStatus.success) {
@@ -1164,6 +1203,7 @@ module.exports = (
 
   // verifymessage
   app.post("/api/lnd/verifymessage", (req, res) => {
+    const { lightning } = LightningServices.services;
     lightning.verifyMessage(
       { msg: Buffer.from(req.body.msg, "utf8"), signature: req.body.signature },
       async (err, response) => {
@@ -1185,6 +1225,7 @@ module.exports = (
 
   // sendcoins
   app.post("/api/lnd/sendcoins", async (req, res) => {
+    const { lightning } = LightningServices.services;
     if (req.limituser) {
       const health = await checkHealth();
       if (health.LNDStatus.success) {
@@ -1217,6 +1258,7 @@ module.exports = (
 
   // queryroute
   app.post("/api/lnd/queryroute", (req, res) => {
+    const { lightning } = LightningServices.services;
     const numRoutes =
       config.maxNumRoutesToQuery || DEFAULT_MAX_NUM_ROUTES_TO_QUERY;
     lightning.queryRoutes(
@@ -1239,6 +1281,7 @@ module.exports = (
   });
 
   app.post("/api/lnd/estimatefee", (req, res) => {
+    const { lightning } = LightningServices.services;
     const { amount, confirmationBlocks } = req.body;
     lightning.estimateFee(
       {
@@ -1267,6 +1310,7 @@ module.exports = (
   });
 
   app.post("/api/lnd/listunspent", (req, res) => {
+    const { lightning } = LightningServices.services;
     const { minConfirmations = 3, maxConfirmations = 6 } = req.body;
     lightning.listUnspent(
       {
@@ -1284,6 +1328,7 @@ module.exports = (
   });
 
   app.get("/api/lnd/transactions", (req, res) => {
+    const { lightning } = LightningServices.services;
     const { page, paginate = true, itemsPerPage } = req.query;
     lightning.getTransactions({}, (err, { transactions = [] } = {}) => {
       if (err) {
@@ -1299,6 +1344,7 @@ module.exports = (
   });
 
   app.post("/api/lnd/sendmany", (req, res) => {
+    const { lightning } = LightningServices.services;
     const { addresses } = req.body;
     lightning.sendMany({ AddrToAmount: addresses }, (err, transactions) => {
       if (err) {
@@ -1310,6 +1356,7 @@ module.exports = (
   });
 
   app.get("/api/lnd/closedchannels", (req, res) => {
+    const { lightning } = LightningServices.services;
     const { closeTypeFilters = [] } = req.query;
     const lndFilters = closeTypeFilters.reduce(
       (filters, filter) => ({ ...filters, [filter]: true }),
@@ -1325,6 +1372,7 @@ module.exports = (
   });
 
   app.post("/api/lnd/exportchanbackup", (req, res) => {
+    const { lightning } = LightningServices.services;
     const { channelPoint } = req.body;
     lightning.exportChannelBackup(
       { chan_point: { funding_txid_str: channelPoint } },
@@ -1339,6 +1387,7 @@ module.exports = (
   });
 
   app.post("/api/lnd/exportallchanbackups", (req, res) => {
+    const { lightning } = LightningServices.services;
     lightning.exportAllChannelBackups({}, (err, channelBackups) => {
       if (err) {
         return handleError(res, err);

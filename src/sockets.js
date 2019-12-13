@@ -1,18 +1,14 @@
 // app/sockets.js
 
 const logger = require("winston");
-const FS = require("../utils/fs");
 
 module.exports = (
   io,
-  lightning,
   lnd,
   login,
   pass,
   limitlogin,
-  limitpass,
-  lndLogfile,
-  lnServicesData
+  limitpass
 ) => {
   const Mediator = require("../services/gunDB/Mediator/index.js");
   const EventEmitter = require("events");
@@ -72,32 +68,10 @@ module.exports = (
     return null;
   };
 
-  io.on("connection", async socket => {
+  io.on("connection", socket => {
     // this is where we create the websocket connection
     // with the GunDB service.
     Mediator.createMediator(socket);
-    
-    const macaroonExists = await (lnServicesData.macaroonPath ? FS.access(lnServicesData.macaroonPath) : false);
-    const lnServices = await require("../services/lnd/lightning")(
-      lnServicesData.lndProto,
-      lnServicesData.lndHost,
-      lnServicesData.lndCertPath,
-      macaroonExists ? lnServicesData.macaroonPath : null
-    );
-    // eslint-disable-next-line prefer-destructuring, no-param-reassign
-    lightning = lnServices.lightning;
-
-    mySocketsEvents.addListener("updateLightning", async () => {
-      const newMacaroonExists = await (lnServicesData.macaroonPath ? FS.access(lnServicesData.macaroonPath) : false);
-      const newLNServices = await require("../services/lnd/lightning")(
-        lnServicesData.lndProto,
-        lnServicesData.lndHost,
-        lnServicesData.lndCertPath,
-        newMacaroonExists ? lnServicesData.macaroonPath : null
-      );
-      // eslint-disable-next-line prefer-destructuring, no-param-reassign
-      lightning = newLNServices.lightning;
-    });
 
     logger.debug("socket.handshake", socket.handshake);
 

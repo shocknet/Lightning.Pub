@@ -7,8 +7,7 @@ const server = program => {
   const Https = require("https");
   const Http = require("http");
   const Express = require("express");
-  // const Cluster = require("cluster");
-  // const OS = require("os");
+  const LightningServices = require("../utils/lightningServices");
   const app = Express();
 
   const FS = require("../utils/fs");
@@ -32,12 +31,6 @@ const server = program => {
   // utilities functions =================
   require("../utils/server-utils")(module);
 
-  // setup lightning client =================
-  const lnrpc = require("../services/lnd/lightning");
-  const lndHost = program.lndhost || defaults.lndHost;
-  const lndCertPath = program.lndCertPath || defaults.lndCertPath;
-  const macaroonPath = program.macaroonPath || defaults.macaroonPath;
-
   logger.info("Mainnet Mode:", !!program.mainnet);
 
   const wait = seconds =>
@@ -48,24 +41,11 @@ const server = program => {
   // eslint-disable-next-line consistent-return
   const startServer = async () => {
     try {
-      const macaroonExists = await FS.access(macaroonPath);
-      const lnServices = await lnrpc(
-        defaults.lndProto,
-        lndHost,
-        lndCertPath,
-        macaroonExists ? macaroonPath : null
-      );
-      const { lightning } = lnServices;
-      const { walletUnlocker } = lnServices;
-      const lnServicesData = {
-        lndProto: defaults.lndProto,
-        lndHost,
-        lndCertPath,
-        macaroonPath: macaroonExists ? macaroonPath : null
-      };
+      LightningServices.setDefaults(program);
+      await LightningServices.init();
 
       // init lnd module =================
-      const lnd = require("../services/lnd/lnd")(lightning);
+      const lnd = require("../services/lnd/lnd")(LightningServices.services.lightning);
 
       const unprotectedRoutes = {
         GET: {
@@ -166,7 +146,7 @@ const server = program => {
         logger.error(err);
         res
           .status(500)
-          .send({ status: 500, message: "internal error", type: "internal" });
+          .send({ status: 500, errorMessage: "internal error" });
       });
 
       const createServer = async () => {
@@ -193,27 +173,18 @@ const server = program => {
 
       const io = require("socket.io")(serverInstance);
 
-      // setup sockets =================
-      const lndLogfile = program.lndlogfile || defaults.lndLogFile;
-
       const Sockets = require("./sockets")(
         io,
-        lightning,
         lnd,
         program.user,
         program.pwd,
         program.limituser,
-        program.limitpwd,
-        lndLogfile,
-        lnServicesData
+        program.limitpwd
       );
 
       require("./routes")(
         app,
-        lightning,
         defaults,
-        walletUnlocker,
-        lnServicesData,
         Sockets,
         {
           serverHost: module.serverHost,
