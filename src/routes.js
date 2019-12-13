@@ -45,7 +45,7 @@ module.exports = (
               success: true
             });
           } else if (err.code === 14) {
-            resolve({
+            reject({
               service: "unknown",
               message:
                 "Failed to connect to LND server, make sure it's up and running.",
@@ -157,22 +157,27 @@ module.exports = (
   
   // Hack to check whether or not a wallet exists
   const walletExists = async () => {
-    const availableService = await getAvailableService();
-    if (availableService.service === "lightning") {
-      return true;
-    }
-
-    if (availableService.service === "walletUnlocker") {
-      const randomPassword = Crypto.randomBytes(4).toString('hex');
-      try {
-        await unlockWallet(randomPassword);
+    try {
+      const availableService = await getAvailableService();
+      if (availableService.service === "lightning") {
         return true;
-      } catch (err) {
-        if (err.message.indexOf("invalid passphrase") > -1) {
-          return true;
-        }
-        return false;
       }
+  
+      if (availableService.service === "walletUnlocker") {
+        const randomPassword = Crypto.randomBytes(4).toString('hex');
+        try {
+          await unlockWallet(randomPassword);
+          return true;
+        } catch (err) {
+          if (err.message.indexOf("invalid passphrase") > -1) {
+            return true;
+          }
+          return false;
+        }
+      }
+    } catch(err) {
+      logger.error("LND error:", err);
+      return false;
     }
   };
 
@@ -216,8 +221,8 @@ module.exports = (
       logger.error(err);
       const sanitizedMessage = sanitizeLNDError(err.message);
       res.status(500).json({
-        walletExists: null,
-        walletStatus: sanitizedMessage ? sanitizedMessage : "An unknown error has occurred, please try restarting your LND and API servers"
+        field: "LND",
+        errorMessage: sanitizedMessage ? sanitizedMessage : "An unknown error has occurred, please try restarting your LND and API servers"
       });
     }
   });
