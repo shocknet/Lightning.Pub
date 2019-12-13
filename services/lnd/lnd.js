@@ -1,6 +1,5 @@
 // app/lnd.js
 
-const debug = require("debug")("lncliweb:lnd");
 const logger = require("winston");
 
 // TODO
