@@ -2711,10 +2711,10 @@ grpc@^1.21.1:
     node-pre-gyp "^0.13.0"
     protobufjs "^5.0.3"
 
-gun@^0.2019.1120:
-  version "0.2019.1120"
-  resolved "https://registry.yarnpkg.com/gun/-/gun-0.2019.1120.tgz#76f93b682cf77aca2300cbd0d138f0244ecc2d42"
-  integrity sha512-YWoFNxuWuMt4afWBsHDZ+WkxTqUIywXY7ql5QniJqeCqi6KEwFZ6Kg5dNSDbBJ7G3bHxRh6ELKawUySVnTYnOQ==
+gun@^0.2019.1211:
+  version "0.2019.1211"
+  resolved "https://registry.yarnpkg.com/gun/-/gun-0.2019.1211.tgz#37aa58217f86256b5d6f126450c8860f7bca384e"
+  integrity sha512-wueemUJBtNfVcZDeXK7wYbth+eu7tNFo5T54gAbA3N0VAN3zoPNE12saeekzrkVeMiKVxG8/kiR35BhykQ+CJg==
   dependencies:
     ws "~>7.1.0"
   optionalDependencies:
