@@ -60,7 +60,9 @@
 
     "consistent-return": "off",
 
-    "no-shadow": "off"
+    "no-shadow": "off",
+    // We're usually throwing objects throughout the API to allow for more detailed error messages
+    "no-throw-literal": "off"
   },
   "parser": "babel-eslint",
   "env": {
