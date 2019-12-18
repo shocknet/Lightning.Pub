@@ -9,11 +9,12 @@ const server = program => {
   const Express = require("express");
   const LightningServices = require("../utils/lightningServices");
   const app = Express();
-
+  
   const FS = require("../utils/fs");
   const bodyParser = require("body-parser");
   const session = require("express-session");
   const methodOverride = require("method-override");
+  const { unprotectedRoutes, sensitiveRoutes } = require("../utils/protectedRoutes");
   // load app default configuration data
   const defaults = require("../config/defaults")(program.mainnet);
   // define useful global variables ======================================
@@ -46,26 +47,6 @@ const server = program => {
 
       // init lnd module =================
       const lnd = require("../services/lnd/lnd")(LightningServices.services.lightning);
-
-      const unprotectedRoutes = {
-        GET: {
-          "/healthz": true,
-          "/ping": true,
-          // Errors out when viewing an API page from the browser
-          "/favicon.ico": true,
-          "/api/lnd/connect": true,
-          "/api/lnd/wallet/status": true,
-          "/api/lnd/auth": true
-        },
-        POST: {
-          "/api/lnd/connect": true,
-          "/api/lnd/wallet": true,
-          "/api/lnd/wallet/existing": true,
-          "/api/lnd/auth": true
-        },
-        PUT: {},
-        DELETE: {}
-      };
       const auth = require("../services/auth/auth");
 
       app.use(async (req, res, next) => {
@@ -80,24 +61,19 @@ const server = program => {
             if (response.valid) {
               next();
             } else {
-              res.status(401).json({ message: "Please log in" });
+              res.status(401).json({ field: "authorization", errorMessage: "The authorization token you've supplied is invalid" });
             }
           } catch (err) {
-            logger.error(err);
-            res.status(401).json({ message: "Please log in" });
+            logger.error(
+              !req.headers.authorization 
+                ? "Please add an Authorization header" 
+                : err
+            );
+            res.status(401).json({ field: "authorization", errorMessage: "Please log in" });
           }
         }
       });
 
-      const sensitiveRoutes = {
-        GET: {},
-        POST: {
-          "/api/lnd/connect": true,
-          "/api/lnd/wallet": true
-        },
-        PUT: {},
-        DELETE: {}
-      };
       app.use((req, res, next) => {
         if (sensitiveRoutes[req.method][req.path]) {
           console.log(
