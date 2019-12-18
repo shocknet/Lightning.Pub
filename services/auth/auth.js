@@ -108,6 +108,9 @@ class Auth {
       const key = jwt.decode(token).data.timestamp
       const secrets = await this.readSecrets()
       const secret = secrets[key]
+      if (!secret) {
+        throw { valid: false }
+      }
       return new Promise((resolve, reject) => {
         jwt.verify(token, secret, (err, decoded) => {
           if (err) {

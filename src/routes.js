@@ -14,6 +14,7 @@ const auth = require("../services/auth/auth");
 const FS = require("../utils/fs");
 const LightningServices = require("../utils/lightningServices");
 const GunDB = require("../services/gunDB/Mediator");
+const { unprotectedRoutes } = require("../utils/protectedRoutes");
 
 const DEFAULT_MAX_NUM_ROUTES_TO_QUERY = 10;
 
@@ -180,6 +181,54 @@ module.exports = (
       return false;
     }
   };
+
+  app.use(async (req, res, next) => {
+    try {
+      console.log("Route:", req.path)
+
+      if (unprotectedRoutes[req.method][req.path]) {
+        next();
+        return;
+      }
+
+      if (req.path.includes("/api/lnd")) {
+        const walletStatus = await walletExists();
+        const availableService = await getAvailableService();
+        const statusMessage = availableService.walletStatus;
+        if (walletStatus) {
+          if (statusMessage === "unlocked") {
+            return next();
+          }
+
+          return res
+            .status(401)
+            .json({ 
+              field: "wallet", 
+              errorMessage: statusMessage 
+                ? statusMessage 
+                : "unknown" 
+            })
+        }
+
+        return res
+          .status(401)
+          .json({ 
+            field: "wallet", 
+            errorMessage: "Please create a wallet before using the API" 
+          });
+      }
+    } catch (err) {
+      logger.error(err);
+      res
+        .status(500)
+        .json({ 
+          field: "wallet", 
+          errorMessage: err.message 
+            ? err.message 
+            : err 
+        });
+    }
+  });
 
   app.use(["/ping"], responseTime());
 
