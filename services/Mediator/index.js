@@ -5,11 +5,11 @@ const Gun = require('gun')
 const debounce = require('lodash/debounce')
 const once = require('lodash/once')
 
-/** @type {import('../contact-api/SimpleGUN').ISEA} */
+/** @type {import('../gunDB/contact-api/SimpleGUN').ISEA} */
 // @ts-ignore
 const SEAx = require('gun/sea')
 
-/** @type {import('../contact-api/SimpleGUN').ISEA} */
+/** @type {import('../gunDB/contact-api/SimpleGUN').ISEA} */
 const mySEA = {}
 
 const $$__SHOCKWALLET__MSG__ = '$$__SHOCKWALLET__MSG__'
@@ -90,16 +90,16 @@ mySEA.secret = (recipientOrSenderEpub, recipientOrSenderSEA) => {
   })
 }
 
-const auth = require('../../auth/auth')
+const auth = require('../auth/auth')
 
-const Action = require('../action-constants.js')
-const API = require('../contact-api/index')
-const Config = require('../config')
-const Event = require('../event-constants')
+const Action = require('../gunDB/action-constants.js')
+const API = require('../gunDB/contact-api/index')
+const Config = require('../gunDB/config')
+const Event = require('../gunDB/event-constants')
 
 /**
- * @typedef {import('../contact-api/SimpleGUN').GUNNode} GUNNode
- * @typedef {import('../contact-api/SimpleGUN').UserGUNNode} UserGUNNode
+ * @typedef {import('../gunDB/contact-api/SimpleGUN').GUNNode} GUNNode
+ * @typedef {import('../gunDB/contact-api/SimpleGUN').UserGUNNode} UserGUNNode
  */
 
 // TO DO: move to common repo
@@ -874,7 +874,7 @@ const register = async (alias, pass) => {
 
   _isRegistering = true
 
-  /** @type {import('../contact-api/SimpleGUN').CreateAck} */
+  /** @type {import('../gunDB/contact-api/SimpleGUN').CreateAck} */
   const ack = await new Promise(res =>
     user.create(alias, pass, ack => res(ack))
   )

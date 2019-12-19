@@ -10,7 +10,7 @@ module.exports = (
   limitlogin,
   limitpass
 ) => {
-  const Mediator = require("../services/gunDB/Mediator/index.js");
+  const Mediator = require("../services/Mediator/index.js");
   const EventEmitter = require("events");
 
   class MySocketsEvents extends EventEmitter {}

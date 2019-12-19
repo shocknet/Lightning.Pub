@@ -41,8 +41,8 @@ const timeout10 = promise => {
 const tryAndWait = promGen =>
   timeout10(
     promGen(
-      require('../Mediator/index').getGun(),
-      require('../Mediator/index').getUser()
+      require('../../Mediator/index').getGun(),
+      require('../../Mediator/index').getUser()
     )
   )
 
