@@ -146,6 +146,12 @@ const isRegistering = () => _isRegistering
  */
 const authenticate = async (alias, pass) => {
   if (isAuthenticated()) {
+    const currAlias = user.is && user.is.alias
+    if (alias !== currAlias) {
+      throw new Error(
+        `Tried to re-authenticate with an alias different to that of stored one, tried: ${alias} - stored: ${currAlias}, logoff first if need to change aliases.`
+      )
+    }
     // move this to a subscription; implement off() ? todo
     API.Jobs.onAcceptedRequests(user, mySEA)
     return user._.sea.pub
@@ -186,6 +192,10 @@ const authenticate = async (alias, pass) => {
   } else {
     throw new Error('Unknown error.')
   }
+}
+
+const logoff = () => {
+  user.leave()
 }
 
 const instantiateGun = async () => {
@@ -934,6 +944,7 @@ const getUser = () => {
 
 module.exports = {
   authenticate,
+  logoff,
   createMediator,
   isAuthenticated,
   isAuthenticating,
