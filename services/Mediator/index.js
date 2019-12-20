@@ -1,233 +1,12 @@
 /**
- * @format
+ * @typedef {object} SimpleSocket
  */
-const Gun = require('gun')
 const debounce = require('lodash/debounce')
 const once = require('lodash/once')
-
-/** @type {import('../gunDB/contact-api/SimpleGUN').ISEA} */
-// @ts-ignore
-const SEAx = require('gun/sea')
-
-/** @type {import('../gunDB/contact-api/SimpleGUN').ISEA} */
-const mySEA = {}
-
-const $$__SHOCKWALLET__MSG__ = '$$__SHOCKWALLET__MSG__'
-const $$__SHOCKWALLET__ENCRYPTED__ = '$$_SHOCKWALLET__ENCRYPTED__'
-
+const gunDB = require('../gunDB')
+const auth = require('../auth/auth')
 // TO DO: Move this constant to common repo
 const IS_GUN_AUTH = 'IS_GUN_AUTH'
-
-mySEA.encrypt = (msg, secret) => {
-  if (typeof msg !== 'string') {
-    throw new TypeError('mySEA.encrypt() -> expected msg to be an string')
-  }
-
-  if (msg.length === 0) {
-    throw new TypeError(
-      'mySEA.encrypt() -> expected msg to be a populated string'
-    )
-  }
-
-  // Avoid this: https://github.com/amark/gun/issues/804 and any other issues
-  const sanitizedMsg = $$__SHOCKWALLET__MSG__ + msg
-
-  return SEAx.encrypt(sanitizedMsg, secret).then(encMsg => {
-    return $$__SHOCKWALLET__ENCRYPTED__ + encMsg
-  })
-}
-
-mySEA.decrypt = (encMsg, secret) => {
-  if (typeof encMsg !== 'string') {
-    throw new TypeError('mySEA.encrypt() -> expected encMsg to be an string')
-  }
-
-  if (encMsg.length === 0) {
-    throw new TypeError(
-      'mySEA.encrypt() -> expected encMsg to be a populated string'
-    )
-  }
-
-  if (typeof secret !== 'string') {
-    throw new TypeError('mySea.decrypt() -> expected secret to be an string')
-  }
-
-  if (secret.length === 0) {
-    throw new TypeError(
-      'mySea.decrypt() -> expected secret to be a populated string'
-    )
-  }
-
-  if (encMsg.indexOf($$__SHOCKWALLET__ENCRYPTED__) !== 0) {
-    throw new TypeError(
-      'Trying to pass a non prefixed encrypted string to mySea.decrypt(): ' +
-        encMsg
-    )
-  }
-
-  return SEAx.decrypt(
-    encMsg.slice($$__SHOCKWALLET__ENCRYPTED__.length),
-    secret
-  ).then(decodedMsg => {
-    if (typeof decodedMsg !== 'string') {
-      throw new TypeError('Could not decrypt')
-    }
-
-    return decodedMsg.slice($$__SHOCKWALLET__MSG__.length)
-  })
-}
-
-mySEA.secret = (recipientOrSenderEpub, recipientOrSenderSEA) => {
-  if (recipientOrSenderEpub === recipientOrSenderSEA.pub) {
-    throw new Error('Do not use pub for mysecret')
-  }
-  return SEAx.secret(recipientOrSenderEpub, recipientOrSenderSEA).then(sec => {
-    if (typeof sec !== 'string') {
-      throw new TypeError('Could not generate secret')
-    }
-
-    return sec
-  })
-}
-
-const auth = require('../auth/auth')
-
-const Action = require('../gunDB/action-constants.js')
-const API = require('../gunDB/contact-api/index')
-const Config = require('../gunDB/config')
-const Event = require('../gunDB/event-constants')
-
-/**
- * @typedef {import('../gunDB/contact-api/SimpleGUN').GUNNode} GUNNode
- * @typedef {import('../gunDB/contact-api/SimpleGUN').UserGUNNode} UserGUNNode
- */
-
-// TO DO: move to common repo
-/**
- * @typedef {object} Emission
- * @prop {boolean} ok
- * @prop {any} msg
- * @prop {Record<string, any>} origBody
- */
-
-// TO DO: move to common repo
-/**
- * @typedef {object} SimpleSocket
- * @prop {(eventName: string, data: Emission) => void} emit
- * @prop {(eventName: string, handler: (data: any) => void) => void} on
- */
-
-/* eslint-disable init-declarations */
-
-/** @type {GUNNode} */
-// @ts-ignore
-let gun
-
-/** @type {UserGUNNode} */
-let user
-
-/* eslint-enable init-declarations */
-
-let _currentAlias = ''
-let _currentPass = ''
-
-let _isAuthenticating = false
-let _isRegistering = false
-
-const isAuthenticated = () => typeof user.is === 'object' && user.is !== null
-const isAuthenticating = () => _isAuthenticating
-const isRegistering = () => _isRegistering
-
-/**
- * Returns a promise containing the public key of the newly created user.
- * @param {string} alias
- * @param {string} pass
- * @returns {Promise<string>}
- */
-const authenticate = async (alias, pass) => {
-  if (isAuthenticated()) {
-    // move this to a subscription; implement off() ? todo
-    API.Jobs.onAcceptedRequests(user, mySEA)
-    return user._.sea.pub
-  }
-
-  if (isAuthenticating()) {
-    throw new Error(
-      'Cannot authenticate while another authentication attempt is going on'
-    )
-  }
-
-  _isAuthenticating = true
-
-  const ack = await new Promise(res => {
-    user.auth(alias, pass, _ack => {
-      res(_ack)
-    })
-  })
-
-  _isAuthenticating = false
-
-  if (typeof ack.err === 'string') {
-    throw new Error(ack.err)
-  } else if (typeof ack.sea === 'object') {
-    API.Jobs.onAcceptedRequests(user, mySEA)
-
-    const mySec = await mySEA.secret(user._.sea.epub, user._.sea)
-    if (typeof mySec !== 'string') {
-      throw new TypeError('mySec not an string')
-    }
-
-    _currentAlias = user.is ? user.is.alias : ''
-    _currentPass = await mySEA.encrypt(pass, mySec)
-
-    await new Promise(res => setTimeout(res, 5000))
-
-    return ack.sea.pub
-  } else {
-    throw new Error('Unknown error.')
-  }
-}
-
-const instantiateGun = async () => {
-  let mySecret = ''
-
-  if (user && user.is) {
-    mySecret = /** @type {string} */ (await mySEA.secret(
-      user._.sea.epub,
-      user._.sea
-    ))
-  }
-  if (typeof mySecret !== 'string') {
-    throw new TypeError("typeof mySec !== 'string'")
-  }
-
-  const _gun = new Gun({
-    axe: false,
-    peers: Config.PEERS
-  })
-
-  // please typescript
-  const __gun = /** @type {unknown} */ (_gun)
-
-  gun = /** @type {GUNNode} */ (__gun)
-
-  // eslint-disable-next-line require-atomic-updates
-  user = gun.user()
-
-  if (_currentAlias && _currentPass) {
-    const pass = await mySEA.decrypt(_currentPass, mySecret)
-
-    if (typeof pass !== 'string') {
-      throw new Error('could not decrypt stored in memory current pass')
-    }
-
-    user.leave()
-
-    await authenticate(_currentAlias, pass)
-  }
-}
-
-instantiateGun()
 
 /**
  * @param {string} token
@@ -263,7 +42,6 @@ const throwOnInvalidToken = async token => {
     throw new Error('Token expired.')
   }
 }
-
 class Mediator {
   /**
    * @param {Readonly<SimpleSocket>} socket
@@ -275,32 +53,32 @@ class Mediator {
 
     socket.on('disconnect', this.onDisconnect)
 
-    socket.on(Action.ACCEPT_REQUEST, this.acceptRequest)
-    socket.on(Action.BLACKLIST, this.blacklist)
-    socket.on(Action.GENERATE_NEW_HANDSHAKE_NODE, this.generateHandshakeNode)
-    socket.on(Action.SEND_HANDSHAKE_REQUEST, this.sendHandshakeRequest)
+    socket.on(gunDB.Action.ACCEPT_REQUEST, this.acceptRequest)
+    socket.on(gunDB.Action.BLACKLIST, this.blacklist)
+    socket.on(gunDB.Action.GENERATE_NEW_HANDSHAKE_NODE, this.generateHandshakeNode)
+    socket.on(gunDB.Action.SEND_HANDSHAKE_REQUEST, this.sendHandshakeRequest)
     socket.on(
-      Action.SEND_HANDSHAKE_REQUEST_WITH_INITIAL_MSG,
+      gunDB.Action.SEND_HANDSHAKE_REQUEST_WITH_INITIAL_MSG,
       this.sendHRWithInitialMsg
     )
-    socket.on(Action.SEND_MESSAGE, this.sendMessage)
-    socket.on(Action.SET_AVATAR, this.setAvatar)
-    socket.on(Action.SET_DISPLAY_NAME, this.setDisplayName)
+    socket.on(gunDB.Action.SEND_MESSAGE, this.sendMessage)
+    socket.on(gunDB.Action.SET_AVATAR, this.setAvatar)
+    socket.on(gunDB.Action.SET_DISPLAY_NAME, this.setDisplayName)
 
-    socket.on(Event.ON_AVATAR, this.onAvatar)
-    socket.on(Event.ON_BLACKLIST, this.onBlacklist)
-    socket.on(Event.ON_CHATS, this.onChats)
-    socket.on(Event.ON_DISPLAY_NAME, this.onDisplayName)
-    socket.on(Event.ON_HANDSHAKE_ADDRESS, this.onHandshakeAddress)
-    socket.on(Event.ON_RECEIVED_REQUESTS, this.onReceivedRequests)
-    socket.on(Event.ON_SENT_REQUESTS, this.onSentRequests)
+    socket.on(gunDB.Event.ON_AVATAR, this.onAvatar)
+    socket.on(gunDB.Event.ON_BLACKLIST, this.onBlacklist)
+    socket.on(gunDB.Event.ON_CHATS, this.onChats)
+    socket.on(gunDB.Event.ON_DISPLAY_NAME, this.onDisplayName)
+    socket.on(gunDB.Event.ON_HANDSHAKE_ADDRESS, this.onHandshakeAddress)
+    socket.on(gunDB.Event.ON_RECEIVED_REQUESTS, this.onReceivedRequests)
+    socket.on(gunDB.Event.ON_SENT_REQUESTS, this.onSentRequests)
 
     socket.on(IS_GUN_AUTH, this.isGunAuth)
   }
 
   isGunAuth = () => {
     try {
-      const isGunAuth = isAuthenticated()
+      const isGunAuth = gunDB.isAuthenticated()
 
       this.socket.emit(IS_GUN_AUTH, {
         ok: true,
@@ -327,25 +105,30 @@ class Mediator {
 
       await throwOnInvalidToken(token)
 
-      await API.Actions.acceptRequest(requestID, gun, user, mySEA)
+      await gunDB.API.Actions.acceptRequest(
+        requestID, 
+        gunDB.getGun(), 
+        gunDB.getUser(), 
+        gunDB.getMySEA()
+      )
 
-      this.socket.emit(Action.ACCEPT_REQUEST, {
+      this.socket.emit(gunDB.Action.ACCEPT_REQUEST, {
         ok: true,
         msg: null,
         origBody: body
       })
 
       // refresh received requests
-      API.Events.onSimplerReceivedRequests(
+      gunDB.API.Events.onSimplerReceivedRequests(
         debounce(
           once(receivedRequests => {
-            if (Config.SHOW_LOG) {
+            if (gunDB.Config.SHOW_LOG) {
               console.log('---received requests---')
               console.log(receivedRequests)
               console.log('-----------------------')
             }
 
-            this.socket.emit(Event.ON_RECEIVED_REQUESTS, {
+            this.socket.emit(gunDB.Event.ON_RECEIVED_REQUESTS, {
               msg: receivedRequests,
               ok: true,
               origBody: body
@@ -353,13 +136,13 @@ class Mediator {
           }),
           300
         ),
-        gun,
-        user,
-        mySEA
+        gunDB.getGun(),
+        gunDB.getUser(),
+        gunDB.getMySEA()
       )
     } catch (err) {
       console.log(err)
-      this.socket.emit(Action.ACCEPT_REQUEST, {
+      this.socket.emit(gunDB.Action.ACCEPT_REQUEST, {
         ok: false,
         msg: err.message,
         origBody: body
@@ -376,16 +159,16 @@ class Mediator {
 
       await throwOnInvalidToken(token)
 
-      await API.Actions.blacklist(publicKey, user)
+      await gunDB.API.Actions.blacklist(publicKey, gunDB.getUser())
 
-      this.socket.emit(Action.BLACKLIST, {
+      this.socket.emit(gunDB.Action.BLACKLIST, {
         ok: true,
         msg: null,
         origBody: body
       })
     } catch (err) {
       console.log(err)
-      this.socket.emit(Action.BLACKLIST, {
+      this.socket.emit(gunDB.Action.BLACKLIST, {
         ok: false,
         msg: err.message,
         origBody: body
@@ -406,16 +189,16 @@ class Mediator {
 
       await throwOnInvalidToken(token)
 
-      await API.Actions.generateHandshakeAddress(user)
+      await gunDB.API.Actions.generateHandshakeAddress(gunDB.getUser())
 
-      this.socket.emit(Action.GENERATE_NEW_HANDSHAKE_NODE, {
+      this.socket.emit(gunDB.Action.GENERATE_NEW_HANDSHAKE_NODE, {
         ok: true,
         msg: null,
         origBody: body
       })
     } catch (err) {
       console.log(err)
-      this.socket.emit(Action.GENERATE_NEW_HANDSHAKE_NODE, {
+      this.socket.emit(gunDB.Action.GENERATE_NEW_HANDSHAKE_NODE, {
         ok: false,
         msg: err.message,
         origBody: body
@@ -428,7 +211,7 @@ class Mediator {
    */
   sendHandshakeRequest = async body => {
     try {
-      if (Config.SHOW_LOG) {
+      if (gunDB.Config.SHOW_LOG) {
         console.log('\n')
         console.log('------------------------------')
         console.log('will now try to send a handshake request')
@@ -440,14 +223,14 @@ class Mediator {
 
       await throwOnInvalidToken(token)
 
-      await API.Actions.sendHandshakeRequest(
+      await gunDB.API.Actions.sendHandshakeRequest(
         recipientPublicKey,
-        gun,
-        user,
-        mySEA
+        gunDB.getGun(),
+        gunDB.getUser(),
+        gunDB.getMySEA()
       )
 
-      if (Config.SHOW_LOG) {
+      if (gunDB.Config.SHOW_LOG) {
         console.log('\n')
         console.log('------------------------------')
         console.log('handshake request successfuly sent')
@@ -455,16 +238,16 @@ class Mediator {
         console.log('\n')
       }
 
-      this.socket.emit(Action.SEND_HANDSHAKE_REQUEST, {
+      this.socket.emit(gunDB.Action.SEND_HANDSHAKE_REQUEST, {
         ok: true,
         msg: null,
         origBody: body
       })
 
-      API.Events.onSimplerSentRequests(
+      gunDB.API.Events.onSimplerSentRequests(
         debounce(
           once(srs => {
-            this.socket.emit(Event.ON_SENT_REQUESTS, {
+            this.socket.emit(gunDB.Event.ON_SENT_REQUESTS, {
               ok: true,
               msg: srs,
               origBody: body
@@ -472,12 +255,12 @@ class Mediator {
           }),
           350
         ),
-        gun,
-        user,
-        mySEA
+        gunDB.getGun(),
+        gunDB.getUser(),
+        gunDB.getMySEA()
       )
     } catch (err) {
-      if (Config.SHOW_LOG) {
+      if (gunDB.Config.SHOW_LOG) {
         console.log('\n')
         console.log('------------------------------')
         console.log('handshake request send fail: ' + err.message)
@@ -485,7 +268,7 @@ class Mediator {
         console.log('\n')
       }
 
-      this.socket.emit(Action.SEND_HANDSHAKE_REQUEST, {
+      this.socket.emit(gunDB.Action.SEND_HANDSHAKE_REQUEST, {
         ok: false,
         msg: err.message,
         origBody: body
@@ -502,22 +285,22 @@ class Mediator {
 
       await throwOnInvalidToken(token)
 
-      await API.Actions.sendHRWithInitialMsg(
+      await gunDB.API.Actions.sendHRWithInitialMsg(
         initialMsg,
         recipientPublicKey,
-        gun,
-        user,
-        mySEA
+        gunDB.getGun(),
+        gunDB.getUser(),
+        gunDB.getMySEA()
       )
 
-      this.socket.emit(Action.SEND_HANDSHAKE_REQUEST_WITH_INITIAL_MSG, {
+      this.socket.emit(gunDB.Action.SEND_HANDSHAKE_REQUEST_WITH_INITIAL_MSG, {
         ok: true,
         msg: null,
         origBody: body
       })
     } catch (err) {
       console.log(err)
-      this.socket.emit(Action.SEND_HANDSHAKE_REQUEST_WITH_INITIAL_MSG, {
+      this.socket.emit(gunDB.Action.SEND_HANDSHAKE_REQUEST_WITH_INITIAL_MSG, {
         ok: false,
         msg: err.message,
         origBody: body
@@ -534,16 +317,16 @@ class Mediator {
 
       await throwOnInvalidToken(token)
 
-      await API.Actions.sendMessage(recipientPublicKey, body, user, mySEA)
+      await gunDB.API.Actions.sendMessage(recipientPublicKey, body, gunDB.getUser(), gunDB.getMySEA())
 
-      this.socket.emit(Action.SEND_MESSAGE, {
+      this.socket.emit(gunDB.Action.SEND_MESSAGE, {
         ok: true,
         msg: null,
         origBody: reqBody
       })
     } catch (err) {
       console.log(err)
-      this.socket.emit(Action.SEND_MESSAGE, {
+      this.socket.emit(gunDB.Action.SEND_MESSAGE, {
         ok: false,
         msg: err.message,
         origBody: reqBody
@@ -560,16 +343,16 @@ class Mediator {
 
       await throwOnInvalidToken(token)
 
-      await API.Actions.setAvatar(avatar, user)
+      await gunDB.API.Actions.setAvatar(avatar, gunDB.getUser())
 
-      this.socket.emit(Action.SET_AVATAR, {
+      this.socket.emit(gunDB.Action.SET_AVATAR, {
         ok: true,
         msg: null,
         origBody: body
       })
     } catch (err) {
       console.log(err)
-      this.socket.emit(Action.SET_AVATAR, {
+      this.socket.emit(gunDB.Action.SET_AVATAR, {
         ok: false,
         msg: err.message,
         origBody: body
@@ -586,16 +369,16 @@ class Mediator {
 
       await throwOnInvalidToken(token)
 
-      await API.Actions.setDisplayName(displayName, user)
+      await gunDB.API.Actions.setDisplayName(displayName, gunDB.getUser())
 
-      this.socket.emit(Action.SET_DISPLAY_NAME, {
+      this.socket.emit(gunDB.Action.SET_DISPLAY_NAME, {
         ok: true,
         msg: null,
         origBody: body
       })
     } catch (err) {
       console.log(err)
-      this.socket.emit(Action.SET_DISPLAY_NAME, {
+      this.socket.emit(gunDB.Action.SET_DISPLAY_NAME, {
         ok: false,
         msg: err.message,
         origBody: body
@@ -614,22 +397,22 @@ class Mediator {
 
       await throwOnInvalidToken(token)
 
-      API.Events.onAvatar(avatar => {
-        if (Config.SHOW_LOG) {
+      gunDB.API.Events.onAvatar(avatar => {
+        if (gunDB.Config.SHOW_LOG) {
           console.log('---avatar---')
           console.log(avatar)
           console.log('-----------------------')
         }
 
-        this.socket.emit(Event.ON_AVATAR, {
+        this.socket.emit(gunDB.Event.ON_AVATAR, {
           msg: avatar,
           ok: true,
           origBody: body
         })
-      }, user)
+      }, gunDB.getUser())
     } catch (err) {
       console.log(err)
-      this.socket.emit(Event.ON_AVATAR, {
+      this.socket.emit(gunDB.Event.ON_AVATAR, {
         ok: false,
         msg: err.message,
         origBody: body
@@ -646,22 +429,22 @@ class Mediator {
 
       await throwOnInvalidToken(token)
 
-      API.Events.onBlacklist(blacklist => {
-        if (Config.SHOW_LOG) {
+      gunDB.API.Events.onBlacklist(blacklist => {
+        if (gunDB.Config.SHOW_LOG) {
           console.log('---blacklist---')
           console.log(blacklist)
           console.log('-----------------------')
         }
 
-        this.socket.emit(Event.ON_BLACKLIST, {
+        this.socket.emit(gunDB.Event.ON_BLACKLIST, {
           msg: blacklist,
           ok: true,
           origBody: body
         })
-      }, user)
+      }, gunDB.getUser())
     } catch (err) {
       console.log(err)
-      this.socket.emit(Event.ON_BLACKLIST, {
+      this.socket.emit(gunDB.Event.ON_BLACKLIST, {
         ok: false,
         msg: err.message,
         origBody: body
@@ -678,27 +461,27 @@ class Mediator {
 
       await throwOnInvalidToken(token)
 
-      API.Events.onChats(
+      gunDB.API.Events.onChats(
         chats => {
-          if (Config.SHOW_LOG) {
+          if (gunDB.Config.SHOW_LOG) {
             console.log('---chats---')
             console.log(chats)
             console.log('-----------------------')
           }
 
-          this.socket.emit(Event.ON_CHATS, {
+          this.socket.emit(gunDB.Event.ON_CHATS, {
             msg: chats,
             ok: true,
             origBody: body
           })
         },
-        gun,
-        user,
-        mySEA
+        gunDB.getGun(),
+        gunDB.getUser(),
+        gunDB.getMySEA()
       )
     } catch (err) {
       console.log(err)
-      this.socket.emit(Event.ON_CHATS, {
+      this.socket.emit(gunDB.Event.ON_CHATS, {
         ok: false,
         msg: err.message,
         origBody: body
@@ -715,22 +498,22 @@ class Mediator {
 
       await throwOnInvalidToken(token)
 
-      API.Events.onDisplayName(displayName => {
-        if (Config.SHOW_LOG) {
+      gunDB.API.Events.onDisplayName(displayName => {
+        if (gunDB.Config.SHOW_LOG) {
           console.log('---displayName---')
           console.log(displayName)
           console.log('-----------------------')
         }
 
-        this.socket.emit(Event.ON_DISPLAY_NAME, {
+        this.socket.emit(gunDB.Event.ON_DISPLAY_NAME, {
           msg: displayName,
           ok: true,
           origBody: body
         })
-      }, user)
+      }, gunDB.getUser())
     } catch (err) {
       console.log(err)
-      this.socket.emit(Event.ON_DISPLAY_NAME, {
+      this.socket.emit(gunDB.Event.ON_DISPLAY_NAME, {
         ok: false,
         msg: err.message,
         origBody: body
@@ -747,22 +530,22 @@ class Mediator {
 
       await throwOnInvalidToken(token)
 
-      API.Events.onCurrentHandshakeAddress(addr => {
-        if (Config.SHOW_LOG) {
+      gunDB.API.Events.onCurrentHandshakeAddress(addr => {
+        if (gunDB.Config.SHOW_LOG) {
           console.log('---addr---')
           console.log(addr)
           console.log('-----------------------')
         }
 
-        this.socket.emit(Event.ON_HANDSHAKE_ADDRESS, {
+        this.socket.emit(gunDB.Event.ON_HANDSHAKE_ADDRESS, {
           ok: true,
           msg: addr,
           origBody: body
         })
-      }, user)
+      }, gunDB.getUser())
     } catch (err) {
       console.log(err)
-      this.socket.emit(Event.ON_HANDSHAKE_ADDRESS, {
+      this.socket.emit(gunDB.Event.ON_HANDSHAKE_ADDRESS, {
         ok: false,
         msg: err.message,
         origBody: body
@@ -779,27 +562,27 @@ class Mediator {
 
       await throwOnInvalidToken(token)
 
-      API.Events.onSimplerReceivedRequests(
+      gunDB.API.Events.onSimplerReceivedRequests(
         receivedRequests => {
-          if (Config.SHOW_LOG) {
+          if (gunDB.Config.SHOW_LOG) {
             console.log('---receivedRequests---')
             console.log(receivedRequests)
             console.log('-----------------------')
           }
 
-          this.socket.emit(Event.ON_RECEIVED_REQUESTS, {
+          this.socket.emit(gunDB.Event.ON_RECEIVED_REQUESTS, {
             msg: receivedRequests,
             ok: true,
             origBody: body
           })
         },
-        gun,
-        user,
-        mySEA
+        gunDB.getGun(),
+        gunDB.getUser(),
+        gunDB.getMySEA()
       )
     } catch (err) {
       console.log(err)
-      this.socket.emit(Event.ON_RECEIVED_REQUESTS, {
+      this.socket.emit(gunDB.Event.ON_RECEIVED_REQUESTS, {
         msg: err.message,
         ok: false,
         origBody: body
@@ -816,97 +599,33 @@ class Mediator {
 
       await throwOnInvalidToken(token)
 
-      await API.Events.onSimplerSentRequests(
+      await gunDB.API.Events.onSimplerSentRequests(
         sentRequests => {
-          if (Config.SHOW_LOG) {
+          if (gunDB.Config.SHOW_LOG) {
             console.log('---sentRequests---')
             console.log(sentRequests)
             console.log('-----------------------')
           }
 
-          this.socket.emit(Event.ON_SENT_REQUESTS, {
+          this.socket.emit(gunDB.Event.ON_SENT_REQUESTS, {
             msg: sentRequests,
             ok: true,
             origBody: body
           })
         },
-        gun,
-        user,
-        mySEA
+        gunDB.getGun(),
+        gunDB.getUser(),
+        gunDB.getMySEA()
       )
     } catch (err) {
       console.log(err)
-      this.socket.emit(Event.ON_SENT_REQUESTS, {
+      this.socket.emit(gunDB.Event.ON_SENT_REQUESTS, {
         msg: err.message,
         ok: false,
         origBody: body
       })
     }
   }
-}
-
-/**
- * Creates an user for gun. Returns a promise containing the public key of the
- * newly created user.
- * @param {string} alias
- * @param {string} pass
- * @throws {Error} If gun is authenticated or is in the process of
- * authenticating. Use `isAuthenticating()` and `isAuthenticated()` to check for
- * this first. It can also throw if the alias is already registered on gun.
- * @returns {Promise<string>}
- */
-const register = async (alias, pass) => {
-  if (isRegistering()) {
-    throw new Error('Already registering.')
-  }
-
-  if (isAuthenticating()) {
-    throw new Error(
-      'Cannot register while gun is being authenticated (reminder: there should only be one user created for each node).'
-    )
-  }
-
-  if (isAuthenticated()) {
-    throw new Error(
-      'Cannot register if gun is already authenticated (reminder: there should only be one user created for each node).'
-    )
-  }
-
-  _isRegistering = true
-
-  /** @type {import('../gunDB/contact-api/SimpleGUN').CreateAck} */
-  const ack = await new Promise(res =>
-    user.create(alias, pass, ack => res(ack))
-  )
-
-  _isRegistering = false
-
-  const mySecret = await mySEA.secret(user._.sea.epub, user._.sea)
-  if (typeof mySecret !== 'string') {
-    throw new Error('Could not generate secret for user.')
-  }
-
-  if (typeof ack.err === 'string') {
-    throw new Error(ack.err)
-  } else if (typeof ack.pub === 'string') {
-    _currentAlias = alias
-    _currentPass = await mySEA.encrypt(pass, mySecret)
-  } else {
-    throw new Error('unknown error')
-  }
-
-  // restart instances so write to user graph work, there's an issue with gun
-  // (at least on node) where after initial user creation, writes to user graph
-  // don't work
-  await instantiateGun()
-
-  user.leave()
-
-  return authenticate(alias, pass).then(async pub => {
-    await API.Actions.setDisplayName('anon' + pub.slice(0, 8), user)
-    await API.Actions.generateHandshakeAddress(user)
-    return pub
-  })
 }
 
 /**
@@ -923,23 +642,4 @@ const createMediator = socket => {
 
   return new Mediator(socket)
 }
-
-const getGun = () => {
-  return gun
-}
-
-const getUser = () => {
-  return user
-}
-
-module.exports = {
-  authenticate,
-  createMediator,
-  isAuthenticated,
-  isAuthenticating,
-  isRegistering,
-  register,
-  instantiateGun,
-  getGun,
-  getUser
-}
+module.exports = {createMediator}

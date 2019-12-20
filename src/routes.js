@@ -13,7 +13,7 @@ const getListPage = require("../utils/paginate");
 const auth = require("../services/auth/auth");
 const FS = require("../utils/fs");
 const LightningServices = require("../utils/lightningServices");
-const GunDB = require("../services/Mediator");
+const GunDB = require("../services/gunDB");
 const { unprotectedRoutes } = require("../utils/protectedRoutes");
 
 const DEFAULT_MAX_NUM_ROUTES_TO_QUERY = 10;
