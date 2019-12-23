@@ -26,10 +26,12 @@ module.exports = (
   { serverPort }
 ) => {
   const sanitizeLNDError = (message = "") =>
-    message
-      .split("UNKNOWN: ")
-      .slice(1)
-      .join("")
+    message.toLowerCase().includes("unknown")
+      ? message
+          .split("UNKNOWN: ")
+          .slice(1)
+          .join("")
+      : message
   
   const getAvailableService = () =>
     new Promise((resolve, reject) => {
@@ -287,6 +289,10 @@ module.exports = (
 
         await recreateLnServices();
 
+        if (GunDB.isAuthenticated()) {
+          GunDB.logoff();
+        }
+
         const publicKey = await GunDB.authenticate(alias, password);
 
         if (walletInitialized && health.LNDStatus.walletStatus === "locked" && publicKey) {
@@ -327,7 +333,6 @@ module.exports = (
       return false;
     } catch (err) {
       logger.debug("Unlock Error:", err);
-      console.error(err);
       res.status(400);
       res.send({ field: "user", errorMessage: sanitizeLNDError(err.message), success: false });
       return err;
