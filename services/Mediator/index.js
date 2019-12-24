@@ -5,6 +5,7 @@ const debounce = require('lodash/debounce')
 const once = require('lodash/once')
 const gunDB = require('../gunDB')
 const auth = require('../auth/auth')
+const lndEvents = require('../lnd/event-constants')
 // TO DO: Move this constant to common repo
 const IS_GUN_AUTH = 'IS_GUN_AUTH'
 
@@ -42,13 +43,16 @@ const throwOnInvalidToken = async token => {
     throw new Error('Token expired.')
   }
 }
+
+const localLnd = require('../lnd/lnd')
 class Mediator {
   /**
    * @param {Readonly<SimpleSocket>} socket
+   * @param {typeof localLnd} lnd
    */
-  constructor(socket) {
+  constructor(socket,lnd) {
     this.socket = socket
-
+    this.lnd = lnd
     this.connected = true
 
     socket.on('disconnect', this.onDisconnect)
@@ -74,6 +78,26 @@ class Mediator {
     socket.on(gunDB.Event.ON_SENT_REQUESTS, this.onSentRequests)
 
     socket.on(IS_GUN_AUTH, this.isGunAuth)
+
+    socket.on(lndEvents.ON_INVOICE,this.onLndInvoice)
+  }
+
+  onLndInvoice = () =>{
+    /**
+     * @typedef {{memo:string,settle_date:number, settled:boolean}} LndInvoiceData
+     * @typedef {{dataReceived(data:LndInvoiceData):void}} Listener
+     */
+    /**
+     * @param {Listener} listener
+     */
+    const listener = {
+      /**
+       * @param {LndInvoiceData} lndInvoiceData
+       */
+      dataReceived : (lndInvoiceData)=>{
+        console.log(lndInvoiceData)
+      }
+    }
   }
 
   isGunAuth = () => {
@@ -630,16 +654,17 @@ class Mediator {
 
 /**
  * @param {SimpleSocket} socket
+ * @param {object} lnd
  * @throws {Error} If gun is not authenticated or is in the process of
  * authenticating. Use `isAuthenticating()` and `isAuthenticated()` to check for
  * this first.
  * @returns {Mediator}
  */
-const createMediator = socket => {
+const createMediator = (socket,lnd) => {
   // if (isAuthenticating() || !isAuthenticated()) {
   //   throw new Error("Gun must be authenticated to create a Mediator");
   // }
 
-  return new Mediator(socket)
+  return new Mediator(socket,lnd)
 }
 module.exports = {createMediator}

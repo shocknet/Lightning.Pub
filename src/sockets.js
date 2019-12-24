@@ -71,7 +71,7 @@ module.exports = (
   io.on("connection", socket => {
     // this is where we create the websocket connection
     // with the GunDB service.
-    Mediator.createMediator(socket);
+    Mediator.createMediator(socket,lnd);
 
     logger.debug("socket.handshake", socket.handshake);
 
