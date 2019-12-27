@@ -44,11 +44,14 @@ const throwOnInvalidToken = async token => {
   }
 }
 
-const localLnd = require('../lnd/lnd')
+
 class Mediator {
   /**
    * @param {Readonly<SimpleSocket>} socket
-   * @param {typeof localLnd} lnd
+   * @param {{registerInvoiceListener(listener: any): void; 
+   *          unregisterInvoiceListener(listener: any): void;
+   *          registerTransactionsListener(listener: any): void;
+   *          unregisterTransactionsListener(listener: any): void;}} lnd
    */
   constructor(socket,lnd) {
     this.socket = socket
@@ -80,9 +83,29 @@ class Mediator {
     socket.on(IS_GUN_AUTH, this.isGunAuth)
 
     socket.on(lndEvents.ON_INVOICE,this.onLndInvoice)
+    socket.on(lndEvents.ON_TRANSACTION,this.onLndTransaction)
   }
-
-  onLndInvoice = () =>{
+  /**
+   * @param {object} body
+   */
+  onLndTransaction = async body =>{
+    console.log("got lnd transaction request")
+    let {token} = JSON.parse(body)
+    await throwOnInvalidToken(token)
+    const listener = {
+      dataReceived : transactionData =>{
+        this.socket.emit(lndEvents.ON_TRANSACTION,transactionData)
+      }
+    }
+    this.lnd.registerTransactionsListener(listener)
+  }
+  /**
+   * @param {object} body
+   */
+  onLndInvoice = async body =>{
+    let {token} = JSON.parse(body)
+    await throwOnInvalidToken(token)
+    //this.socket.emit(lndEvents.ON_INVOICE,{swaaag:"looool"})
     /**
      * @typedef {{memo:string,settle_date:number, settled:boolean}} LndInvoiceData
      * @typedef {{dataReceived(data:LndInvoiceData):void}} Listener
@@ -95,9 +118,10 @@ class Mediator {
        * @param {LndInvoiceData} lndInvoiceData
        */
       dataReceived : (lndInvoiceData)=>{
-        console.log(lndInvoiceData)
+        this.socket.emit(lndEvents.ON_INVOICE,lndInvoiceData)
       }
     }
+    this.lnd.registerInvoiceListener(listener)
   }
 
   isGunAuth = () => {

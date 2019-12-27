@@ -7,8 +7,47 @@ module.exports = function(lightning) {
   const module = {};
 
   const invoiceListeners = [];
+  const transactionsListeners = [];
 
+  let lndTransactionsStream = null;
   let lndInvoicesStream = null;
+  const openLndTransactionsStream = function(){
+    
+    if(lndTransactionsStream){
+      logger.debug("Lnd transactions subscription stream already opened.");
+      return
+    }
+    logger.debug("Opening lnd transactions subscription stream...");
+    lndTransactionsStream = lightning.subscribeTransactions({})
+    logger.debug("Lnd transactions subscription stream opened.");
+    lndTransactionsStream.on("data", function(data) {
+      
+      logger.debug("SubscribeInvoices Data", data);
+      for (let i = 0; i < transactionsListeners.length; i++) {
+        try {
+          transactionsListeners[i].dataReceived(data);
+        } catch (err) {
+          logger.warn(err);
+        }
+      }
+    });
+    lndTransactionsStream.on("end", function() {
+      logger.debug("SubscribeInvoices End");
+      lndTransactionsStream = null;
+      openLndTransactionsStream(); // try opening stream again
+    });
+    lndTransactionsStream.on("error", function(err) {
+      logger.debug("SubscribeInvoices Error", err);
+    });
+    lndTransactionsStream.on("status", function(status) {
+      logger.debug("SubscribeInvoices Status", status);
+      if (status.code == 14) {
+        // Unavailable
+        lndTransactionsStream = null;
+        openLndTransactionsStream(); // try opening stream again
+      }
+    });
+  }
 
   const openLndInvoicesStream = function() {
     if (lndInvoicesStream) {
@@ -55,6 +94,23 @@ module.exports = function(lightning) {
         " listening now"
     );
   };
+  module.registerTransactionsListener = function(listener){
+    
+    transactionsListeners.push(listener)
+    logger.debug(
+      "New lnd Transactions listener registered, " +
+      transactionsListeners.length +
+        " listening now"
+    );
+  }
+  module.unregisterTransactionsListener = function(listener){
+    transactionsListeners.splice(transactionsListeners.indexOf(listener), 1);
+    logger.debug(
+      "Lnd transactions listener unregistered, " +
+      transactionsListeners.length +
+        " still listening"
+    );
+  }
 
   // unregister invoice listener
   module.unregisterInvoiceListener = function(listener) {
@@ -68,11 +124,15 @@ module.exports = function(lightning) {
 
   // open lnd invoices stream on start
   openLndInvoicesStream();
+  openLndTransactionsStream();
 
   // check every minute that lnd invoices stream is still opened
   setInterval(function() {
     if (!lndInvoicesStream) {
       openLndInvoicesStream();
+    }
+    if (!lndTransactionsStream) {
+      openLndTransactionsStream();
     }
   }, 60 * 1000);
 
