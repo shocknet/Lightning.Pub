@@ -154,6 +154,7 @@ const authenticate = async (alias, pass) => {
     }
     // move this to a subscription; implement off() ? todo
     API.Jobs.onAcceptedRequests(user, mySEA)
+    API.Jobs.onOrders(user, gun, mySEA)
     return user._.sea.pub
   }
 
@@ -177,6 +178,7 @@ const authenticate = async (alias, pass) => {
     throw new Error(ack.err)
   } else if (typeof ack.sea === 'object') {
     API.Jobs.onAcceptedRequests(user, mySEA)
+    API.Jobs.onOrders(user, gun, mySEA)
 
     const mySec = await mySEA.secret(user._.sea.epub, user._.sea)
     if (typeof mySec !== 'string') {
