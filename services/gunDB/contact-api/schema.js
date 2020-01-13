@@ -1,5 +1,5 @@
 /**
- * @prettier
+ * @format
  */
 /**
  * @typedef {object} HandshakeRequest
@@ -316,7 +316,6 @@ exports.isPartialOutgoing = item => {
 }
 
 /**
- *
  * @param {any} item
  * @returns {item is Outgoing}
  */
@@ -336,4 +335,42 @@ exports.isOutgoing = item => {
   )
 
   return typeof obj.with === 'string' && messagesAreMessages
+}
+
+/**
+ * @typedef {object} Order
+ * @prop {string} from Public key of sender.
+ * @prop {string} amount Encrypted
+ * @prop {string} memo Encrypted
+ * @prop {number} timestamp
+ */
+
+/**
+ * @param {any} item
+ * @returns {item is Order}
+ */
+exports.isOrder = item => {
+  if (typeof item !== 'object') {
+    return false
+  }
+
+  if (item === null) {
+    return false
+  }
+
+  const obj = /** @type {Order} */ (item)
+
+  if (typeof obj.amount !== 'string') {
+    return false
+  }
+
+  if (typeof obj.from !== 'string') {
+    return false
+  }
+
+  if (typeof obj.memo !== 'string') {
+    return false
+  }
+
+  return typeof obj.timestamp === 'number'
 }
