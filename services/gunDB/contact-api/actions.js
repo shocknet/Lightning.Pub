@@ -917,6 +917,27 @@ const sendPayment = async (to, amount, memo, gun, user, SEA) => {
   )
 }
 
+/**
+ * @param {UserGUNNode} user
+ * @returns {Promise<void>}
+ */
+const generateOrderAddress = user =>
+  new Promise((res, rej) => {
+    if (!user.is) {
+      throw new Error(ErrorCode.NOT_AUTH)
+    }
+
+    const address = uuidv1()
+
+    user.get(Key.CURRENT_ORDER_ADDRESS).put(address, ack => {
+      if (ack.err) {
+        rej(new Error(ack.err))
+      } else {
+        res()
+      }
+    })
+  })
+
 module.exports = {
   INITIAL_MSG,
   __createOutgoingFeed,
@@ -930,5 +951,6 @@ module.exports = {
   sendHRWithInitialMsg,
   setAvatar,
   setDisplayName,
-  sendPayment
+  sendPayment,
+  generateOrderAddress
 }
