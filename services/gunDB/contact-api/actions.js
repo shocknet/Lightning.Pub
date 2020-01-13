@@ -857,7 +857,7 @@ const sendPayment = async (to, amount, memo, gun, user, SEA) => {
   const order = {
     amount: await SEA.encrypt(amount.toString(), ourSecret),
     from: user._.sea.pub,
-    memo: await SEA.encrypt(memo, ourSecret),
+    memo: await SEA.encrypt(memo || 'no memo', ourSecret),
     timestamp: Date.now()
   }
 
