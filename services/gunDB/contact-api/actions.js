@@ -3,6 +3,7 @@
  */
 const uuidv1 = require('uuid/v1')
 const ErrorCode = require('./errorCode')
+const Getters = require('./getters')
 const Key = require('./key')
 const Utils = require('./utils')
 const { isHandshakeRequest } = require('./schema')
@@ -15,6 +16,8 @@ const { isHandshakeRequest } = require('./schema')
  * @typedef {import('./schema').Message} Message
  * @typedef {import('./schema').Outgoing} Outgoing
  * @typedef {import('./schema').PartialOutgoing} PartialOutgoing
+ * @typedef {import('./schema').Order} Order
+ * @typedef {import('./SimpleGUN').Ack} Ack
  */
 
 /**
@@ -831,6 +834,89 @@ const sendHRWithInitialMsg = async (
   await sendMessage(recipientPublicKey, initialMsg, user, SEA)
 }
 
+/**
+ * @param {string} to
+ * @param {number} amount
+ * @param {string} memo
+ * @param {GUNNode} gun
+ * @param {UserGUNNode} user
+ * @param {ISEA} SEA
+ * @throws {Error} If no response in less than 20 seconds from the recipient, or
+ * lightning cannot find a route for the payment.
+ * @returns {Promise<void>}
+ */
+const sendPayment = async (to, amount, memo, gun, user, SEA) => {
+  const recipientEpub = await Utils.pubToEpub(to)
+  const ourSecret = await SEA.secret(recipientEpub, user._.sea)
+
+  if (amount < 1) {
+    throw new RangeError('Amount must be at least 1 sat.')
+  }
+
+  /** @type {Order} */
+  const order = {
+    amount: await SEA.encrypt(amount.toString(), ourSecret),
+    from: user._.sea.pub,
+    memo: await SEA.encrypt(memo, ourSecret),
+    timestamp: Date.now()
+  }
+
+  const currOrderAddress = await Getters.currentOrderAddress(to, gun)
+
+  order.timestamp = Date.now()
+
+  /** @type {string} */
+  const orderID = await new Promise((res, rej) => {
+    const ord = gun
+      .get(Key.ORDER_NODES)
+      .get(currOrderAddress)
+      .set(order, ack => {
+        if (ack.err) {
+          rej(
+            new Error(
+              `Error writing order to order node: ${currOrderAddress} for pub: ${to}: ${ack.err}`
+            )
+          )
+        } else {
+          res(ord._.get)
+        }
+      })
+  })
+
+  const bob = gun.user(to)
+
+  /** @type {string} */
+  const invoice = await Promise.race([
+    new Promise((res, rej) => {
+      bob
+        .get(Key.ORDER_TO_RESPONSE)
+        .get(orderID)
+        .on(data => {
+          if (typeof data !== 'string') {
+            rej(
+              `Expected order response from pub ${to} to be an string, instead got: ${typeof data}`
+            )
+          } else {
+            res(data)
+          }
+        })
+    }),
+    new Promise((_, rej) => {
+      setTimeout(() => {
+        rej(new Error(ErrorCode.ORDER_NOT_ANSWERED_IN_TIME))
+      }, 20000)
+    })
+  ])
+
+  if (Math.random() > 0.5) {
+    return Promise.resolve()
+  }
+
+  return Promise.reject(
+    new Error('Lightning could not find a route to pay invoice: ' + invoice)
+  )
+}
+
 module.exports = {
   INITIAL_MSG,
   __createOutgoingFeed,
@@ -843,5 +929,6 @@ module.exports = {
   sendMessage,
   sendHRWithInitialMsg,
   setAvatar,
-  setDisplayName
+  setDisplayName,
+  sendPayment
 }
