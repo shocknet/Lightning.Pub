@@ -408,18 +408,8 @@ const sendHandshakeRequest = async (recipientPublicKey, gun, user, SEA) => {
   console.log('sendHR() -> before mySecret')
 
   const mySecret = await SEA.secret(user._.sea.epub, user._.sea)
-  if (typeof mySecret !== 'string') {
-    throw new TypeError(
-      "sendHandshakeRequest() -> typeof mySecret !== 'string'"
-    )
-  }
   console.log('sendHR() -> before ourSecret')
   const ourSecret = await SEA.secret(recipientEpub, user._.sea)
-  if (typeof ourSecret !== 'string') {
-    throw new TypeError(
-      "sendHandshakeRequest() -> typeof ourSecret !== 'string'"
-    )
-  }
 
   // check if successful handshake is present
 
