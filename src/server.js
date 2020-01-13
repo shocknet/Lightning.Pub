@@ -125,12 +125,15 @@ const server = program => {
           .send({ status: 500, errorMessage: "internal error" });
       });
 
+      const CA = LightningServices.servicesConfig.lndCertPath
+      const CA_KEY = CA.replace("cert", "key")
+
       const createServer = async () => {
         try {
-          if (program.usetls) {
+          if (LightningServices.servicesConfig.lndCertPath && program.usetls) {
             const [key, cert] = await Promise.all([
-              FS.readFile(program.usetls + "/key.pem"),
-              FS.readFile(program.usetls + "/cert.pem")
+              FS.readFile(CA_KEY),
+              FS.readFile(CA)
             ]);
             const httpsServer = Https.createServer({ key, cert }, app);
 
@@ -141,7 +144,10 @@ const server = program => {
           return httpServer;
         } catch (err) {
           logger.error(err.message);
-          throw err;
+          logger.error("An error has occurred while finding an LND cert to use to open an HTTPS server")
+          logger.warn("Falling back to opening an HTTP server...")
+          const httpServer = Http.Server(app);
+          return httpServer
         }
       };
 
@@ -164,7 +170,10 @@ const server = program => {
         Sockets,
         {
           serverHost: module.serverHost,
-          serverPort: module.serverPort
+          serverPort: module.serverPort,
+          usetls: program.usetls,
+          CA,
+          CA_KEY
         }
       );
 

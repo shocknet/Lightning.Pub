@@ -5,9 +5,10 @@
  */
 "use strict";
 
-const Http = require("axios");
+const Axios = require("axios");
 const Crypto = require("crypto");
 const logger = require("winston");
+const httpsAgent = require("https");
 const responseTime = require("response-time");
 const getListPage = require("../utils/paginate");
 const auth = require("../services/auth/auth");
@@ -19,12 +20,18 @@ const { unprotectedRoutes } = require("../utils/protectedRoutes");
 const DEFAULT_MAX_NUM_ROUTES_TO_QUERY = 10;
 
 // module.exports = (app) => {
-module.exports = (
+module.exports = async (
   app,
   config,
   mySocketsEvents,
-  { serverPort }
+  { serverPort, CA, CA_KEY, usetls }
 ) => {
+  const Http = Axios.create({
+    httpsAgent: new httpsAgent.Agent({  
+      ca: await FS.readFile(CA)
+    })
+  })
+  
   const sanitizeLNDError = (message = "") =>
     message.toLowerCase().includes("unknown")
       ? message
@@ -81,7 +88,7 @@ module.exports = (
     const serviceStatus = await getAvailableService();
     const LNDStatus = serviceStatus;
     try {
-      const APIHealth = await Http.get(`http://localhost:${serverPort}/ping`);
+      const APIHealth = await Http.get(`${usetls ? 'https' : 'http'}://localhost:${serverPort}/ping`);
       const APIStatus = {
         message: APIHealth.data,
         responseTime: APIHealth.headers["x-response-time"],
@@ -92,6 +99,7 @@ module.exports = (
         APIStatus
       };
     } catch (err) {
+      console.error(err);
       const APIStatus = {
         message: err.response.data,
         responseTime: err.response.headers["x-response-time"],
@@ -258,6 +266,10 @@ module.exports = (
     logger.debug("Mobile error:", JSON.stringify(req.body));
     res.json({ msg: "OK" });
   });
+
+  app.post("/api/security/exchangeKeys", (req, res) => {
+
+  })
 
   app.get("/api/lnd/wallet/status", async (req, res) => {
     try {
