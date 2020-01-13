@@ -912,8 +912,10 @@ const sendPayment = async (to, amount, memo, gun, user, SEA) => {
     return Promise.resolve()
   }
 
+  const decInvoice = await SEA.decrypt(invoice, ourSecret)
+
   return Promise.reject(
-    new Error('Lightning could not find a route to pay invoice: ' + invoice)
+    new Error('Lightning could not find a route to pay invoice: ' + decInvoice)
   )
 }
 
