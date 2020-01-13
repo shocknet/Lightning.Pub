@@ -659,6 +659,64 @@ const sendMessage = async (recipientPublicKey, body, user, SEA) => {
 }
 
 /**
+ * @param {string} recipientPub
+ * @param {string} msgID
+ * @param {UserGUNNode} user
+ * @param {ISEA} SEA
+ * @returns {Promise<void>}
+ */
+const deleteMessage = async (recipientPub, msgID, user, SEA) => {
+  if (!user.is) {
+    throw new Error(ErrorCode.NOT_AUTH)
+  }
+
+  if (typeof recipientPub !== 'string') {
+    throw new TypeError(
+      `expected recipientPublicKey to be an string, but instead got: ${typeof recipientPub}`
+    )
+  }
+
+  if (recipientPub.length === 0) {
+    throw new TypeError(
+      'expected recipientPublicKey to be an string of length greater than zero'
+    )
+  }
+
+  if (typeof msgID !== 'string') {
+    throw new TypeError(
+      `expected msgID to be an string, instead got: ${typeof msgID}`
+    )
+  }
+
+  if (msgID.length === 0) {
+    throw new TypeError(
+      'expected msgID to be an string of length greater than zero'
+    )
+  }
+
+  const outgoingID = await Utils.recipientToOutgoingID(recipientPub, user, SEA)
+
+  if (outgoingID === null) {
+    throw new Error(`Could not fetch an outgoing id for user: ${recipientPub}`)
+  }
+
+  return new Promise((res, rej) => {
+    user
+      .get(Key.OUTGOINGS)
+      .get(outgoingID)
+      .get(Key.MESSAGES)
+      .get(msgID)
+      .put(null, ack => {
+        if (ack.err) {
+          rej(new Error(ack.err))
+        } else {
+          res()
+        }
+      })
+  })
+}
+
+/**
  * @param {string|null} avatar
  * @param {UserGUNNode} user
  * @throws {TypeError} Rejects if avatar is not an string or an empty string.
@@ -781,6 +839,7 @@ module.exports = {
   blacklist,
   generateHandshakeAddress,
   sendHandshakeRequest,
+  deleteMessage,
   sendMessage,
   sendHRWithInitialMsg,
   setAvatar,
