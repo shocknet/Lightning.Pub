@@ -650,7 +650,7 @@ const sendMessage = async (recipientPublicKey, body, user, SEA) => {
       .get(Key.MESSAGES)
       .set(newMessage, ack => {
         if (ack.err) {
-          rej(ack.err)
+          rej(new Error(ack.err))
         } else {
           res()
         }
