@@ -921,18 +921,31 @@ const sendPayment = async (to, amount, memo, gun, user, SEA) => {
     services: { lightning }
   } = LightningServices
 
+  /**
+   * Partial
+   * https://api.lightning.community/#grpc-response-sendresponse-2
+   * @typedef {object} SendResponse
+   * @prop {string|null} payment_error
+   * @prop {any[]|null} payment_route
+   */
+
   await new Promise((rej, resolve) => {
     lightning.sendPaymentSync(
       {
         payment_request: decInvoice
       },
-      (/** @type {any} */ err, /** @type {any} */ res) => {
-        if (err) {
-          console.log(err)
-          rej(err)
-        } else {
-          console.log(res)
+      (_, /** @type {SendResponse} */ res) => {
+        if (res.payment_error) {
+          rej(new Error(res.payment_error))
+        } else if (res.payment_route) {
           resolve()
+        } else {
+          rej(
+            new Error(
+              'Unexpected response from sendPaymentSync() -> ' +
+                JSON.stringify(res)
+            )
+          )
         }
       }
     )
