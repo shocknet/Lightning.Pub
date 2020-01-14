@@ -62,7 +62,10 @@
 
     "no-shadow": "off",
     // We're usually throwing objects throughout the API to allow for more detailed error messages
-    "no-throw-literal": "off"
+    "no-throw-literal": "off",
+
+    // lightning has sync methods and this rule bans them
+    "no-sync": "off"
   },
   "parser": "babel-eslint",
   "env": {

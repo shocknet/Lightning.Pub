@@ -154,6 +154,7 @@ const authenticate = async (alias, pass) => {
     }
     // move this to a subscription; implement off() ? todo
     API.Jobs.onAcceptedRequests(user, mySEA)
+    API.Jobs.onOrders(user, gun, mySEA)
     return user._.sea.pub
   }
 
@@ -177,6 +178,7 @@ const authenticate = async (alias, pass) => {
     throw new Error(ack.err)
   } else if (typeof ack.sea === 'object') {
     API.Jobs.onAcceptedRequests(user, mySEA)
+    API.Jobs.onOrders(user, gun, mySEA)
 
     const mySec = await mySEA.secret(user._.sea.epub, user._.sea)
     if (typeof mySec !== 'string') {
@@ -294,6 +296,7 @@ class Mediator {
       this.sendHRWithInitialMsg
     )
     socket.on(Action.SEND_MESSAGE, this.sendMessage)
+    socket.on(Action.SEND_PAYMENT, this.sendPayment)
     socket.on(Action.SET_AVATAR, this.setAvatar)
     socket.on(Action.SET_DISPLAY_NAME, this.setDisplayName)
 
@@ -554,6 +557,39 @@ class Mediator {
     } catch (err) {
       console.log(err)
       this.socket.emit(Action.SEND_MESSAGE, {
+        ok: false,
+        msg: err.message,
+        origBody: reqBody
+      })
+    }
+  }
+
+  /**
+   * @param {Readonly<{ uuid: string, recipientPub: string, amount: number, memo: string, token: string }>} reqBody
+   */
+  sendPayment = async reqBody => {
+    try {
+      const { recipientPub, amount, memo, token } = reqBody
+
+      await throwOnInvalidToken(token)
+
+      await API.Actions.sendPayment(
+        recipientPub,
+        amount,
+        memo,
+        gun,
+        user,
+        mySEA
+      )
+
+      this.socket.emit(Action.SEND_PAYMENT, {
+        ok: true,
+        msg: null,
+        origBody: reqBody
+      })
+    } catch (err) {
+      console.log(err)
+      this.socket.emit(Action.SEND_PAYMENT, {
         ok: false,
         msg: err.message,
         origBody: reqBody
@@ -915,6 +951,7 @@ const register = async (alias, pass) => {
   return authenticate(alias, pass).then(async pub => {
     await API.Actions.setDisplayName('anon' + pub.slice(0, 8), user)
     await API.Actions.generateHandshakeAddress(user)
+    await API.Actions.generateOrderAddress(user)
     return pub
   })
 }
