@@ -25,57 +25,65 @@ let currentOrderAddr = ''
  * @returns {(order: ListenerData, orderID: string) => void}
  */
 const listenerForAddr = (addr, user, SEA) => async (order, orderID) => {
-  if (addr !== currentOrderAddr) {
-    return
-  }
+  try {
+    if (addr !== currentOrderAddr) {
+      return
+    }
 
-  if (!Schema.isOrder(order)) {
-    throw new Error(`Expected an order instead got: ${JSON.stringify(order)}`)
-  }
+    if (!Schema.isOrder(order)) {
+      throw new Error(`Expected an order instead got: ${JSON.stringify(order)}`)
+    }
 
-  const senderEpub = await Utils.pubToEpub(order.from)
-  const secret = await SEA.secret(senderEpub, user._.sea)
+    const orderToResponse = user.get(Key.ORDER_TO_RESPONSE)
 
-  const amount = Number(await SEA.decrypt(order.amount, secret))
-  const memo = await SEA.decrypt(order.memo, secret)
+    if (await orderToResponse.get(orderID).then()) {
+      return
+    }
 
-  /**
-   * @type {[any , string]}
-   */
-  const [err, invoice] = await new Promise(resolve => {
-    const {
-      services: { lightning }
-    } = LightningServices
+    const senderEpub = await Utils.pubToEpub(order.from)
+    const secret = await SEA.secret(senderEpub, user._.sea)
 
-    lightning.addInvoice(
-      {
-        expiry: 36000,
-        memo,
-        value: amount
-      },
-      (
-        /** @type {any} */ error,
-        /** @type {{ payment_request: string }} */ response
-      ) => {
-        resolve([error, response.payment_request])
-      }
-    )
-  })
+    const amount = Number(await SEA.decrypt(order.amount, secret))
+    const memo = await SEA.decrypt(order.memo, secret)
 
-  if (err) {
-    console.log(new Error(err))
-  }
+    /**
+     * @type {string}
+     */
+    const invoice = await new Promise((resolve, rej) => {
+      const {
+        services: { lightning }
+      } = LightningServices
 
-  const encInvoice = await SEA.encrypt(invoice, secret)
+      lightning.addInvoice(
+        {
+          expiry: 36000,
+          memo,
+          value: amount
+        },
+        (
+          /** @type {any} */ error,
+          /** @type {{ payment_request: string }} */ response
+        ) => {
+          if (error) {
+            rej(error)
+          } else {
+            resolve(response.payment_request)
+          }
+        }
+      )
+    })
 
-  user
-    .get(Key.ORDER_TO_RESPONSE)
-    .get(orderID)
-    .put(encInvoice, ack => {
+    const encInvoice = await SEA.encrypt(invoice, secret)
+
+    orderToResponse.get(orderID).put(encInvoice, ack => {
       if (ack.err) {
         console.error(`error saving order response: ${ack.err}`)
       }
     })
+  } catch (err) {
+    console.error('error inside onOrders:')
+    console.error(err)
+  }
 }
 
 /**
