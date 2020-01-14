@@ -2,6 +2,9 @@
  * @format
  */
 const uuidv1 = require('uuid/v1')
+
+const LightningServices = require('../../../utils/lightningServices')
+
 const ErrorCode = require('./errorCode')
 const Getters = require('./getters')
 const Key = require('./key')
@@ -908,15 +911,28 @@ const sendPayment = async (to, amount, memo, gun, user, SEA) => {
     })
   ])
 
-  if (Math.random() > 0.5) {
-    return Promise.resolve()
-  }
-
   const decInvoice = await SEA.decrypt(invoice, ourSecret)
 
-  return Promise.reject(
-    new Error('Lightning could not find a route to pay invoice: ' + decInvoice)
-  )
+  const {
+    services: { lightning }
+  } = LightningServices
+
+  await new Promise((rej, resolve) => {
+    lightning.sendPaymentSync(
+      {
+        payment_request: decInvoice
+      },
+      (/** @type {any} */ err, /** @type {any} */ res) => {
+        if (err) {
+          console.log(err)
+          rej(err)
+        } else {
+          console.log(res)
+          resolve()
+        }
+      }
+    )
+  })
 }
 
 /**
