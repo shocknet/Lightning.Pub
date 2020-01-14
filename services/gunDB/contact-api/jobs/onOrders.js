@@ -1,6 +1,9 @@
 /**
  * @format
  */
+
+const LightningServices = require('../../../../utils/lightningServices')
+
 const ErrorCode = require('../errorCode')
 const Key = require('../key')
 const Schema = require('../schema')
@@ -36,9 +39,32 @@ const listenerForAddr = (addr, user, SEA) => async (order, orderID) => {
   const amount = Number(await SEA.decrypt(order.amount, secret))
   const memo = await SEA.decrypt(order.memo, secret)
 
-  // create invoice here..
+  /**
+   * @type {[any , string]}
+   */
+  const [err, invoice] = await new Promise(resolve => {
+    const {
+      services: { lightning }
+    } = LightningServices
 
-  const invoice = `INVOICE_${amount}_${memo}`
+    lightning.addInvoice(
+      {
+        expiry: 36000,
+        memo,
+        value: amount
+      },
+      (
+        /** @type {any} */ error,
+        /** @type {{ payment_request: string }} */ response
+      ) => {
+        resolve([error, response.payment_request])
+      }
+    )
+  })
+
+  if (err) {
+    console.log(new Error(err))
+  }
 
   const encInvoice = await SEA.encrypt(invoice, secret)
 
