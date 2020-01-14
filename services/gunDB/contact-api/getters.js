@@ -1,4 +1,5 @@
 const Key = require('./key')
+
 /**
  * @param {string} pub
  * @param {import('./SimpleGUN').GUNNode} gun
