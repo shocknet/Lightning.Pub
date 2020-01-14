@@ -868,7 +868,7 @@ const sendPayment = async (to, amount, memo, gun, user, SEA) => {
     timestamp: Date.now()
   }
 
-  const currOrderAddress = await Getters.currentOrderAddress(to, gun)
+  const currOrderAddress = await Getters.currentOrderAddress(to)
 
   order.timestamp = Date.now()
 
