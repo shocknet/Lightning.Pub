@@ -922,6 +922,11 @@ const sendPayment = async (to, amount, memo, gun, user, SEA) => {
   } = LightningServices
 
   /**
+   * @typedef {object} SendErr
+   * @prop {string} details
+   */
+
+  /**
    * Partial
    * https://api.lightning.community/#grpc-response-sendresponse-2
    * @typedef {object} SendResponse
@@ -929,17 +934,14 @@ const sendPayment = async (to, amount, memo, gun, user, SEA) => {
    * @prop {any[]|null} payment_route
    */
 
-  await new Promise((rej, resolve) => {
+  await new Promise((resolve, rej) => {
     lightning.sendPaymentSync(
       {
         payment_request: decInvoice
       },
-      (/*** @type {any} */ err, /** @type {SendResponse} */ res) => {
-        console.log(`sendPaymentSync err: ${JSON.stringify(err)}`)
-        console.log(`sendPaymentSync res: ${JSON.stringify(res)}`)
-
-        if (err || typeof err === 'number') {
-          rej(new Error(`sendPaymentSync error: ${JSON.stringify(err)}`))
+      (/** @type {SendErr=} */ err, /** @type {SendResponse} */ res) => {
+        if (err) {
+          rej(new Error(err.details))
         } else if (res) {
           if (res.payment_error) {
             rej(
