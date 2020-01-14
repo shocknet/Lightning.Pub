@@ -934,18 +934,32 @@ const sendPayment = async (to, amount, memo, gun, user, SEA) => {
       {
         payment_request: decInvoice
       },
-      (_, /** @type {SendResponse} */ res) => {
-        if (res.payment_error) {
-          rej(new Error(res.payment_error))
-        } else if (res.payment_route) {
-          resolve()
-        } else {
-          rej(
-            new Error(
-              'Unexpected response from sendPaymentSync() -> ' +
-                JSON.stringify(res)
+      (/*** @type {any} */ err, /** @type {SendResponse} */ res) => {
+        console.log(`sendPaymentSync err: ${JSON.stringify(err)}`)
+        console.log(`sendPaymentSync res: ${JSON.stringify(res)}`)
+
+        if (err || typeof err === 'number') {
+          rej(new Error(`sendPaymentSync error: ${JSON.stringify(err)}`))
+        } else if (res) {
+          if (res.payment_error) {
+            rej(
+              new Error(
+                `sendPaymentSync error response: ${JSON.stringify(res)}`
+              )
             )
-          )
+          } else if (!res.payment_route) {
+            rej(
+              new Error(
+                `sendPaymentSync no payment route response: ${JSON.stringify(
+                  res
+                )}`
+              )
+            )
+          } else {
+            resolve()
+          }
+        } else {
+          rej(new Error('no error or response received from sendPaymentSync'))
         }
       }
     )
