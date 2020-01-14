@@ -849,6 +849,10 @@ const sendHRWithInitialMsg = async (
  * @returns {Promise<void>}
  */
 const sendPayment = async (to, amount, memo, gun, user, SEA) => {
+  if (!user.is) {
+    throw new Error(ErrorCode.NOT_AUTH)
+  }
+
   const recipientEpub = await Utils.pubToEpub(to)
   const ourSecret = await SEA.secret(recipientEpub, user._.sea)
 
