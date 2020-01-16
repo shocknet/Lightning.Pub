@@ -989,6 +989,39 @@ const generateOrderAddress = user =>
     })
   })
 
+/**
+ * @param {string|null} bio
+ * @param {UserGUNNode} user
+ * @throws {TypeError} Rejects if avatar is not an string or an empty string.
+ * @returns {Promise<void>}
+ */
+const setBio = (bio, user) =>
+  new Promise((resolve, reject) => {
+    if (!user.is) {
+      throw new Error(ErrorCode.NOT_AUTH)
+    }
+
+    if (typeof bio === 'string' && bio.length === 0) {
+      throw new TypeError(
+        "'bio' must be an string and have length greater than one or be null"
+      )
+    }
+
+    if (typeof bio !== 'string' && bio !== null) {
+      throw new TypeError(
+        "'bio' must be an string and have length greater than one or be null"
+      )
+    }
+
+    user.get(Key.BIO).put(bio, ack => {
+      if (ack.err) {
+        reject(new Error(ack.err))
+      } else {
+        resolve()
+      }
+    })
+  })
+
 module.exports = {
   INITIAL_MSG,
   __createOutgoingFeed,
@@ -1003,5 +1036,6 @@ module.exports = {
   setAvatar,
   setDisplayName,
   sendPayment,
-  generateOrderAddress
+  generateOrderAddress,
+  setBio
 }

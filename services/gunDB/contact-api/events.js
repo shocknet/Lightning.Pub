@@ -1204,6 +1204,32 @@ const onSimplerSentRequests = async (cb, gun, user, SEA) => {
     })
 }
 
+/** @type {string|null} */
+let currentBio = null
+
+/**
+ * @param {(bio: string|null) => void} cb
+ * @param {UserGUNNode} user Pass only for testing purposes.
+ * @throws {Error} If user hasn't been auth.
+ * @returns {void}
+ */
+const onBio = (cb, user) => {
+  if (!user.is) {
+    throw new Error(ErrorCode.NOT_AUTH)
+  }
+
+  const callb = debounce(cb, DEBOUNCE_WAIT_TIME)
+  // Initial value if avvatar is undefined in gun
+  callb(currentBio)
+
+  user.get(Key.BIO).on(bio => {
+    if (typeof bio === 'string' || bio === null) {
+      currentBio = bio
+      callb(bio)
+    }
+  })
+}
+
 module.exports = {
   __onSentRequestToUser,
   __onUserToIncoming,
@@ -1215,5 +1241,6 @@ module.exports = {
   onOutgoing,
   onChats,
   onSimplerReceivedRequests,
-  onSimplerSentRequests
+  onSimplerSentRequests,
+  onBio
 }
