@@ -30,3 +30,5 @@ exports.CURRENT_ORDER_ADDRESS = 'currentOrderAddress'
 exports.ORDER_NODES = 'orderNodes'
 
 exports.ORDER_TO_RESPONSE = 'orderToResponse'
+
+exports.BIO = 'bio'

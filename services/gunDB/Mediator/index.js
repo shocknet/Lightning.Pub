@@ -299,6 +299,7 @@ class Mediator {
     socket.on(Action.SEND_PAYMENT, this.sendPayment)
     socket.on(Action.SET_AVATAR, this.setAvatar)
     socket.on(Action.SET_DISPLAY_NAME, this.setDisplayName)
+    socket.on(Action.SET_BIO, this.setBio)
 
     socket.on(Event.ON_AVATAR, this.onAvatar)
     socket.on(Event.ON_BLACKLIST, this.onBlacklist)
@@ -307,6 +308,7 @@ class Mediator {
     socket.on(Event.ON_HANDSHAKE_ADDRESS, this.onHandshakeAddress)
     socket.on(Event.ON_RECEIVED_REQUESTS, this.onReceivedRequests)
     socket.on(Event.ON_SENT_REQUESTS, this.onSentRequests)
+    socket.on(Event.ON_BIO, this.onBio)
 
     socket.on(IS_GUN_AUTH, this.isGunAuth)
   }
@@ -885,6 +887,58 @@ class Mediator {
       this.socket.emit(Event.ON_SENT_REQUESTS, {
         msg: err.message,
         ok: false,
+        origBody: body
+      })
+    }
+  }
+
+  /**
+   * @param {Readonly<{ token: string }>} body
+   */
+  onBio = async body => {
+    try {
+      const { token } = body
+
+      await throwOnInvalidToken(token)
+
+      API.Events.onBio(bio => {
+        this.socket.emit(Event.ON_BIO, {
+          msg: bio,
+          ok: true,
+          origBody: body
+        })
+      }, user)
+    } catch (err) {
+      console.log(err)
+      this.socket.emit(Event.ON_BIO, {
+        ok: false,
+        msg: err.message,
+        origBody: body
+      })
+    }
+  }
+
+  /**
+   * @param {Readonly<{ bio: string|null , token: string }>} body
+   */
+  setBio = async body => {
+    try {
+      const { bio, token } = body
+
+      await throwOnInvalidToken(token)
+
+      await API.Actions.setBio(bio, user)
+
+      this.socket.emit(Action.SET_BIO, {
+        ok: true,
+        msg: null,
+        origBody: body
+      })
+    } catch (err) {
+      console.log(err)
+      this.socket.emit(Action.SET_BIO, {
+        ok: false,
+        msg: err.message,
         origBody: body
       })
     }
