@@ -224,7 +224,12 @@ module.exports = async (
         console.error("Unknown Device", error)
         return res.status(401).json(error);
       }
-      
+
+      if (req.method === "GET") {
+        console.log("Method:", req.method);
+        return next();
+      }
+
       console.log("Body:", req.body)
       console.log("Decrypt params:", { deviceId, message: req.body.encryptionKey })
       const decryptedKey = Encryption.decryptKey({ deviceId, message: req.body.encryptionKey });
