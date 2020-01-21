@@ -89,16 +89,6 @@ const Encryption = {
   },
   authorizeDevice: ({ deviceId, publicKey }) =>
     new Promise((resolve, reject) => {
-      if (authorizedDevices.has(deviceId)) {
-        const devicePublicKey = APIKeyPair.get(deviceId).publicKey
-        const deviceExists = {
-          success: true,
-          APIPublicKey: devicePublicKey
-        }
-        resolve(deviceExists)
-        return deviceExists
-      }
-
       authorizedDevices.set(deviceId, publicKey)
       Crypto.generateKeyPair(
         'rsa',
