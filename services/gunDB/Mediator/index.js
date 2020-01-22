@@ -4,6 +4,7 @@
 const Gun = require('gun')
 const debounce = require('lodash/debounce')
 const once = require('lodash/once')
+const Encryption = require('../../../utils/encryptionStore')
 
 /** @type {import('../contact-api/SimpleGUN').ISEA} */
 // @ts-ignore
@@ -96,6 +97,7 @@ const Action = require('../action-constants.js')
 const API = require('../contact-api/index')
 const Config = require('../config')
 const Event = require('../event-constants')
+// const { nonEncryptedRoutes } = require('../../../utils/protectedRoutes')
 
 /**
  * @typedef {import('../contact-api/SimpleGUN').GUNNode} GUNNode
@@ -279,33 +281,110 @@ class Mediator {
    * @param {Readonly<SimpleSocket>} socket
    */
   constructor(socket) {
-    this.socket = socket
+    this.socket = this.encryptSocketInstance(socket)
 
     this.connected = true
 
-    socket.on('disconnect', this.onDisconnect)
+    this.socket.on('disconnect', this.onDisconnect)
 
-    socket.on(Action.ACCEPT_REQUEST, this.acceptRequest)
-    socket.on(Action.BLACKLIST, this.blacklist)
-    socket.on(Action.GENERATE_NEW_HANDSHAKE_NODE, this.generateHandshakeNode)
-    socket.on(Action.SEND_HANDSHAKE_REQUEST, this.sendHandshakeRequest)
-    socket.on(
+    this.socket.on(Action.ACCEPT_REQUEST, this.acceptRequest)
+    this.socket.on(Action.BLACKLIST, this.blacklist)
+    this.socket.on(
+      Action.GENERATE_NEW_HANDSHAKE_NODE,
+      this.generateHandshakeNode
+    )
+    this.socket.on(Action.SEND_HANDSHAKE_REQUEST, this.sendHandshakeRequest)
+    this.socket.on(
       Action.SEND_HANDSHAKE_REQUEST_WITH_INITIAL_MSG,
       this.sendHRWithInitialMsg
     )
-    socket.on(Action.SEND_MESSAGE, this.sendMessage)
-    socket.on(Action.SET_AVATAR, this.setAvatar)
-    socket.on(Action.SET_DISPLAY_NAME, this.setDisplayName)
+    this.socket.on(Action.SEND_MESSAGE, this.sendMessage)
+    this.socket.on(Action.SET_AVATAR, this.setAvatar)
+    this.socket.on(Action.SET_DISPLAY_NAME, this.setDisplayName)
 
-    socket.on(Event.ON_AVATAR, this.onAvatar)
-    socket.on(Event.ON_BLACKLIST, this.onBlacklist)
-    socket.on(Event.ON_CHATS, this.onChats)
-    socket.on(Event.ON_DISPLAY_NAME, this.onDisplayName)
-    socket.on(Event.ON_HANDSHAKE_ADDRESS, this.onHandshakeAddress)
-    socket.on(Event.ON_RECEIVED_REQUESTS, this.onReceivedRequests)
-    socket.on(Event.ON_SENT_REQUESTS, this.onSentRequests)
+    this.socket.on(Event.ON_AVATAR, this.onAvatar)
+    this.socket.on(Event.ON_BLACKLIST, this.onBlacklist)
+    this.socket.on(Event.ON_CHATS, this.onChats)
+    this.socket.on(Event.ON_DISPLAY_NAME, this.onDisplayName)
+    this.socket.on(Event.ON_HANDSHAKE_ADDRESS, this.onHandshakeAddress)
+    this.socket.on(Event.ON_RECEIVED_REQUESTS, this.onReceivedRequests)
+    this.socket.on(Event.ON_SENT_REQUESTS, this.onSentRequests)
 
-    socket.on(IS_GUN_AUTH, this.isGunAuth)
+    this.socket.on(IS_GUN_AUTH, this.isGunAuth)
+  }
+
+  encryptSocketInstance = socket => {
+    return {
+      on: (eventName, cb) => {
+        const deviceId = socket.handshake.query['x-shockwallet-device-id']
+        socket.on(eventName, data => {
+          try {
+            // if (nonEncryptedEvents.includes(eventName)) {
+            //   return cb(data)
+            // }
+
+            if (!data) {
+              return cb(data)
+            }
+
+            if (!deviceId) {
+              const error = {
+                field: 'deviceId',
+                message: 'Please specify a device ID'
+              }
+              console.error(error)
+              return false
+            }
+
+            if (!Encryption.isAuthorizedDevice({ deviceId })) {
+              const error = {
+                field: 'deviceId',
+                message: 'Please specify a device ID'
+              }
+              console.error('Unknown Device', error)
+              return false
+            }
+
+            console.log('Event:', eventName)
+            console.log('Data:', data)
+            console.log('Decrypt params:', {
+              deviceId,
+              message: data.encryptedKey
+            })
+            const decryptedKey = Encryption.decryptKey({
+              deviceId,
+              message: data.encryptedKey
+            })
+            const decryptedMessage = Encryption.decryptMessage({
+              message: data.encryptedData,
+              key: decryptedKey,
+              iv: data.iv
+            })
+            const decryptedData = JSON.parse(decryptedMessage)
+            return cb(decryptedData)
+          } catch (err) {
+            console.error(err)
+            return false
+          }
+        })
+      },
+      emit: (eventName, data) => {
+        try {
+          const deviceId = socket.handshake.query['x-shockwallet-device-id']
+          const authorized = Encryption.isAuthorizedDevice({ deviceId })
+          const encryptedMessage = authorized
+            ? Encryption.encryptMessage({
+                message: data,
+                deviceId
+              })
+            : data
+          console.log('Sending Message...', eventName, data, encryptedMessage)
+          socket.emit(eventName, encryptedMessage)
+        } catch (err) {
+          console.error(err)
+        }
+      }
+    }
   }
 
   isGunAuth = () => {
@@ -685,6 +764,8 @@ class Mediator {
   onChats = async body => {
     try {
       const { token } = body
+
+      console.log('ON_CHATS', body)
 
       await throwOnInvalidToken(token)
 
