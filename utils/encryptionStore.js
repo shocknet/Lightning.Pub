@@ -75,12 +75,6 @@ const Encryption = {
     return decryptedData.toString()
   },
   isAuthorizedDevice: ({ deviceId }) => {
-    console.log(
-      'deviceId',
-      deviceId,
-      Object.fromEntries(authorizedDevices.entries()),
-      authorizedDevices.has(deviceId)
-    )
     if (authorizedDevices.has(deviceId)) {
       return true
     }
