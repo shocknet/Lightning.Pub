@@ -1230,6 +1230,31 @@ const onBio = (cb, user) => {
   })
 }
 
+/** @type {string|null} */
+let currentSeedBackup = null
+
+/**
+ * @param {(seedBackup: string|null) => void} cb
+ * @param {UserGUNNode} user
+ * @throws {Error} If user hasn't been auth.
+ * @returns {void}
+ */
+const onSeedBackup = (cb, user) => {
+  if (!user.is) {
+    throw new Error(ErrorCode.NOT_AUTH)
+  }
+
+  const callb = debounce(cb, DEBOUNCE_WAIT_TIME)
+  callb(currentSeedBackup)
+
+  user.get(Key.SEED_BACKUP).on(seedBackup => {
+    if (typeof seedBackup === 'string' || seedBackup === null) {
+      currentSeedBackup = seedBackup
+      callb(seedBackup)
+    }
+  })
+}
+
 module.exports = {
   __onSentRequestToUser,
   __onUserToIncoming,
@@ -1242,5 +1267,6 @@ module.exports = {
   onChats,
   onSimplerReceivedRequests,
   onSimplerSentRequests,
-  onBio
+  onBio,
+  onSeedBackup
 }
