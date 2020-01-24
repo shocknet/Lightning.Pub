@@ -14,6 +14,7 @@ const auth = require("../services/auth/auth");
 const FS = require("../utils/fs");
 const LightningServices = require("../utils/lightningServices");
 const GunDB = require("../services/gunDB/Mediator");
+const GunActions = require("../services/gunDB/contact-api/actions")
 const { unprotectedRoutes } = require("../utils/protectedRoutes");
 
 const DEFAULT_MAX_NUM_ROUTES_TO_QUERY = 10;
@@ -440,7 +441,13 @@ module.exports = (
     
           // Register user before creating wallet
           const publicKey = await GunDB.register(alias, password);
-    
+
+          await GunActions.saveSeedBackup(
+            mnemonicPhrase,
+            GunDB.getUser(),
+            GunDB.mySEA
+          )
+
           walletUnlocker.initWallet(
             walletArgs,
             async (initWalletErr, initWalletResponse) => {
