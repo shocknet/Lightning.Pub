@@ -1043,5 +1043,6 @@ module.exports = {
   register,
   instantiateGun,
   getGun,
-  getUser
+  getUser,
+  mySEA
 }
