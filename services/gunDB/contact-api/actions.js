@@ -1022,6 +1022,35 @@ const setBio = (bio, user) =>
     })
   })
 
+/**
+ * @param {string[]} mnemonicPhrase
+ * @param {UserGUNNode} user
+ * @param {ISEA} SEA
+ * @returns {Promise<void>}
+ */
+const saveSeedBackup = async (mnemonicPhrase, user, SEA) => {
+  if (
+    !Array.isArray(mnemonicPhrase) ||
+    mnemonicPhrase.some(word => typeof word !== 'string') ||
+    mnemonicPhrase.length === 0
+  ) {
+    throw new TypeError('expected mnemonicPhrase to be an string array')
+  }
+
+  const mySecret = await SEA.secret(user._.sea.epub, user._.sea)
+  const encryptedSeed = await SEA.encrypt(mnemonicPhrase.join(' '), mySecret)
+
+  return new Promise((res, rej) => {
+    user.get(Key.SEED_BACKUP).put(encryptedSeed, ack => {
+      if (ack.err) {
+        rej(ack.err)
+      } else {
+        res()
+      }
+    })
+  })
+}
+
 module.exports = {
   INITIAL_MSG,
   __createOutgoingFeed,
@@ -1037,5 +1066,6 @@ module.exports = {
   setDisplayName,
   sendPayment,
   generateOrderAddress,
-  setBio
+  setBio,
+  saveSeedBackup
 }
