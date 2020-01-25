@@ -1,7 +1,7 @@
 /**
  * @format
  */
-const { getUser, mySEA: SEA } = require('../../Mediator')
+const { getUser, mySEA: SEA, getGun } = require('../../Mediator')
 const ErrorCode = require('../errorCode')
 const Key = require('../key')
 
@@ -288,6 +288,21 @@ const dataHasSoul = listenerData =>
  */
 const defaultName = pub => 'anon' + pub.slice(0, 8)
 
+/**
+ * @param {string} pub
+ * @param {string} incomingID
+ * @returns {Promise<boolean>}
+ */
+const didDisconnect = async (pub, incomingID) => {
+  const feed = await getGun()
+    .user(pub)
+    .get(Key.OUTGOINGS)
+    .get(incomingID)
+    .then()
+
+  return feed === null
+}
+
 module.exports = {
   asyncMap,
   asyncFilter,
@@ -303,5 +318,6 @@ module.exports = {
   currHandshakeAddress,
   tryAndWait,
   mySecret,
-  promisifyGunNode: require('./promisifygun')
+  promisifyGunNode: require('./promisifygun'),
+  didDisconnect
 }
