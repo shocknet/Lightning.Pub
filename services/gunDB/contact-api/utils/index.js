@@ -1,13 +1,13 @@
 /**
  * @format
  */
-const ErrorCode = require('./errorCode')
-const Key = require('./key')
+const ErrorCode = require('../errorCode')
+const Key = require('../key')
 
 /**
- * @typedef {import('./SimpleGUN').GUNNode} GUNNode
- * @typedef {import('./SimpleGUN').ISEA} ISEA
- * @typedef {import('./SimpleGUN').UserGUNNode} UserGUNNode
+ * @typedef {import('../SimpleGUN').GUNNode} GUNNode
+ * @typedef {import('../SimpleGUN').ISEA} ISEA
+ * @typedef {import('../SimpleGUN').UserGUNNode} UserGUNNode
  */
 
 /**
@@ -41,8 +41,8 @@ const timeout10 = promise => {
 const tryAndWait = promGen =>
   timeout10(
     promGen(
-      require('../Mediator/index').getGun(),
-      require('../Mediator/index').getUser()
+      require('../../Mediator/index').getGun(),
+      require('../../Mediator/index').getUser()
     )
   )
 
@@ -266,8 +266,8 @@ const asyncFilter = async (arr, cb) => {
 }
 
 /**
- * @param {import('./SimpleGUN').ListenerData} listenerData
- * @returns {listenerData is import('./SimpleGUN').ListenerObj}
+ * @param {import('../SimpleGUN').ListenerData} listenerData
+ * @returns {listenerData is import('../SimpleGUN').ListenerObj}
  */
 const dataHasSoul = listenerData =>
   typeof listenerData === 'object' && listenerData !== null
