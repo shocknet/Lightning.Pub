@@ -1,6 +1,7 @@
 /**
  * @format
  */
+const { getUser, mySEA: SEA } = require('../../Mediator')
 const ErrorCode = require('../errorCode')
 const Key = require('../key')
 
@@ -15,6 +16,14 @@ const Key = require('../key')
  * @returns {Promise<void>}
  */
 const delay = ms => new Promise(res => setTimeout(res, ms))
+
+/**
+ * @returns {Promise<string>}
+ */
+const mySecret = () => {
+  const user = getUser()
+  return SEA.secret(user._.sea.epub, user._.sea)
+}
 
 /**
  * @template T
@@ -292,5 +301,6 @@ module.exports = {
   reqWasAccepted,
   currHandshakeAddress,
   tryAndWait,
+  mySecret,
   promisifyGunNode: require('./promisifygun')
 }
