@@ -3,8 +3,11 @@
  */
 const debounce = require('lodash/debounce')
 
+const { getGun } = require('../Mediator/index')
+
 const Actions = require('./actions')
 const ErrorCode = require('./errorCode')
+const Getters = require('./getters')
 const Key = require('./key')
 const Schema = require('./schema')
 const Utils = require('./utils')
@@ -175,7 +178,7 @@ const __onSentRequestToUser = async (cb, user, SEA) => {
 }
 
 /**
- * @param {(userToOutgoing: Record<string, string>) => void} cb
+ * @param {(userToIncoming: Record<string, string>) => void} cb
  * @param {UserGUNNode} user Pass only for testing purposes.
  * @param {ISEA} SEA
  * @returns {Promise<void>}
@@ -188,7 +191,7 @@ const __onUserToIncoming = async (cb, user, SEA) => {
   const callb = debounce(cb, DEBOUNCE_WAIT_TIME)
 
   /** @type {Record<string, string>} */
-  const userToOutgoing = {}
+  const userToIncoming = {}
 
   const mySecret = await SEA.secret(user._.sea.epub, user._.sea)
   if (typeof mySecret !== 'string') {
@@ -200,7 +203,14 @@ const __onUserToIncoming = async (cb, user, SEA) => {
     .map()
     .on(async (encryptedIncomingID, userPub) => {
       if (typeof encryptedIncomingID !== 'string') {
-        console.error('got a non string value')
+        if (encryptedIncomingID === null) {
+          // on disconnect
+          delete userToIncoming[userPub]
+        } else {
+          console.error(
+            'got a non string non null value inside user to incoming'
+          )
+        }
         return
       }
 
@@ -216,9 +226,9 @@ const __onUserToIncoming = async (cb, user, SEA) => {
         return
       }
 
-      userToOutgoing[userPub] = incomingID
+      userToIncoming[userPub] = incomingID
 
-      callb(userToOutgoing)
+      callb(userToIncoming)
     })
 }
 
@@ -434,13 +444,25 @@ const onOutgoing = async (
    */
   const outgoingsWithMessageListeners = []
 
+  /** @type {Set<string>} */
+  const outgoingsDisconnected = new Set()
+
   user
     .get(Key.OUTGOINGS)
     .map()
     .on(async (data, key) => {
       if (!Schema.isPartialOutgoing(data)) {
-        console.warn('not partial outgoing')
-        console.warn(JSON.stringify(data))
+        // if user disconnected
+        if (data === null) {
+          delete outgoings[key]
+          outgoingsDisconnected.add(key)
+        } else {
+          console.warn('not partial outgoing')
+          console.warn(JSON.stringify(data))
+        }
+
+        callb(outgoings)
+
         return
       }
 
@@ -464,6 +486,10 @@ const onOutgoing = async (
         onOutgoingMessage(
           key,
           (msg, msgKey) => {
+            if (outgoingsDisconnected.has(key)) {
+              return
+            }
+
             outgoings[key].messages = {
               ...outgoings[key].messages,
               [msgKey]: msg
@@ -517,6 +543,9 @@ const onChats = (cb, gun, user, SEA) => {
    */
   const usersWithIncomingListeners = []
 
+  /** @type {Set<string>} */
+  const userWithDisconnectionListeners = new Set()
+
   const _callCB = () => {
     // Only provide chats that have incoming listeners which would be contacts
     // that were actually accepted / are going on
@@ -544,16 +573,21 @@ const onChats = (cb, gun, user, SEA) => {
   callCB()
 
   onOutgoing(
-    outgoings => {
-      for (const outgoing of Object.values(outgoings)) {
+    async outgoings => {
+      await Utils.asyncForEach(Object.values(outgoings), async outgoing => {
         const recipientPK = outgoing.with
+        const incomingID = await Getters.userToIncomingID(recipientPK)
 
         if (!recipientPKToChat[recipientPK]) {
+          // eslint-disable-next-line require-atomic-updates
           recipientPKToChat[recipientPK] = {
             messages: [],
             recipientAvatar: '',
             recipientDisplayName: Utils.defaultName(recipientPK),
-            recipientPublicKey: recipientPK
+            recipientPublicKey: recipientPK,
+            didDisconnect:
+              !!incomingID &&
+              (await Utils.didDisconnect(recipientPK, incomingID))
           }
         }
 
@@ -569,7 +603,7 @@ const onChats = (cb, gun, user, SEA) => {
             })
           }
         }
-      }
+      })
 
       callCB()
     },
@@ -578,77 +612,101 @@ const onChats = (cb, gun, user, SEA) => {
   )
 
   __onUserToIncoming(
-    uti => {
-      for (const [recipientPK, incomingFeedID] of Object.entries(uti)) {
-        if (!recipientPKToChat[recipientPK]) {
-          recipientPKToChat[recipientPK] = {
-            messages: [],
-            recipientAvatar: '',
-            recipientDisplayName: Utils.defaultName(recipientPK),
-            recipientPublicKey: recipientPK
+    async uti => {
+      await Utils.asyncForEach(
+        Object.entries(uti),
+        async ([recipientPK, incomingFeedID]) => {
+          if (!recipientPKToChat[recipientPK]) {
+            // eslint-disable-next-line require-atomic-updates
+            recipientPKToChat[recipientPK] = {
+              messages: [],
+              recipientAvatar: '',
+              recipientDisplayName: Utils.defaultName(recipientPK),
+              recipientPublicKey: recipientPK,
+              didDisconnect: await Utils.didDisconnect(
+                recipientPK,
+                incomingFeedID
+              )
+            }
+          }
+
+          const chat = recipientPKToChat[recipientPK]
+
+          if (!userWithDisconnectionListeners.has(recipientPK)) {
+            userWithDisconnectionListeners.add(recipientPK)
+
+            getGun()
+              .user(recipientPK)
+              .get(Key.OUTGOINGS)
+              .get(incomingFeedID)
+              .on(data => {
+                if (data === null) {
+                  chat.didDisconnect = true
+
+                  callCB()
+                }
+              })
+          }
+
+          if (!usersWithIncomingListeners.includes(recipientPK)) {
+            usersWithIncomingListeners.push(recipientPK)
+
+            onIncomingMessages(
+              msgs => {
+                for (const [msgK, msg] of Object.entries(msgs)) {
+                  const { messages } = chat
+
+                  if (!messages.find(_msg => _msg.id === msgK)) {
+                    messages.push({
+                      body: msg.body,
+                      id: msgK,
+                      outgoing: false,
+                      timestamp: msg.timestamp
+                    })
+                  }
+                }
+
+                callCB()
+              },
+              recipientPK,
+              incomingFeedID,
+              gun,
+              user,
+              SEA
+            )
+          }
+
+          if (!usersWithAvatarListeners.includes(recipientPK)) {
+            usersWithAvatarListeners.push(recipientPK)
+
+            gun
+              .user(recipientPK)
+              .get(Key.PROFILE)
+              .get(Key.AVATAR)
+              .on(avatar => {
+                if (typeof avatar === 'string') {
+                  chat.recipientAvatar = avatar
+                  callCB()
+                }
+              })
+          }
+
+          if (!usersWithDisplayNameListeners.includes(recipientPK)) {
+            usersWithDisplayNameListeners.push(recipientPK)
+
+            gun
+              .user(recipientPK)
+              .get(Key.PROFILE)
+              .get(Key.DISPLAY_NAME)
+              .on(displayName => {
+                if (typeof displayName === 'string') {
+                  chat.recipientDisplayName = displayName
+                  callCB()
+                }
+              })
           }
         }
-
-        const chat = recipientPKToChat[recipientPK]
-
-        if (!usersWithIncomingListeners.includes(recipientPK)) {
-          usersWithIncomingListeners.push(recipientPK)
-
-          onIncomingMessages(
-            msgs => {
-              for (const [msgK, msg] of Object.entries(msgs)) {
-                const { messages } = chat
-
-                if (!messages.find(_msg => _msg.id === msgK)) {
-                  messages.push({
-                    body: msg.body,
-                    id: msgK,
-                    outgoing: false,
-                    timestamp: msg.timestamp
-                  })
-                }
-              }
-
-              callCB()
-            },
-            recipientPK,
-            incomingFeedID,
-            gun,
-            user,
-            SEA
-          )
-        }
-
-        if (!usersWithAvatarListeners.includes(recipientPK)) {
-          usersWithAvatarListeners.push(recipientPK)
-
-          gun
-            .user(recipientPK)
-            .get(Key.PROFILE)
-            .get(Key.AVATAR)
-            .on(avatar => {
-              if (typeof avatar === 'string') {
-                chat.recipientAvatar = avatar
-                callCB()
-              }
-            })
-        }
-
-        if (!usersWithDisplayNameListeners.includes(recipientPK)) {
-          usersWithDisplayNameListeners.push(recipientPK)
-
-          gun
-            .user(recipientPK)
-            .get(Key.PROFILE)
-            .get(Key.DISPLAY_NAME)
-            .on(displayName => {
-              if (typeof displayName === 'string') {
-                chat.recipientDisplayName = displayName
-                callCB()
-              }
-            })
-        }
-      }
+      )
     },
     user,
     SEA
