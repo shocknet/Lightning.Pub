@@ -642,6 +642,7 @@ const onChats = (cb, gun, user, SEA) => {
               .on(data => {
                 if (data === null) {
                   chat.didDisconnect = true
+                  chat.messages = chat.messages.filter(m => m.outgoing)
 
                   callCB()
                 }
