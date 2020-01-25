@@ -291,5 +291,6 @@ module.exports = {
   recipientToOutgoingID,
   reqWasAccepted,
   currHandshakeAddress,
-  tryAndWait
+  tryAndWait,
+  promisifyGunNode: require('./promisifygun')
 }
