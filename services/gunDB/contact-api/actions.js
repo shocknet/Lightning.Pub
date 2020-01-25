@@ -4,6 +4,7 @@
 const uuidv1 = require('uuid/v1')
 
 const LightningServices = require('../../../utils/lightningServices')
+const { getUser } = require('../Mediator')
 
 const ErrorCode = require('./errorCode')
 const Getters = require('./getters')
@@ -625,11 +626,7 @@ const sendMessage = async (recipientPublicKey, body, user, SEA) => {
     )
   }
 
-  const outgoingID = await Utils.recipientToOutgoingID(
-    recipientPublicKey,
-    user,
-    SEA
-  )
+  const outgoingID = await Utils.recipientToOutgoingID(recipientPublicKey)
 
   if (outgoingID === null) {
     throw new Error(
@@ -668,10 +665,9 @@ const sendMessage = async (recipientPublicKey, body, user, SEA) => {
  * @param {string} recipientPub
  * @param {string} msgID
  * @param {UserGUNNode} user
- * @param {ISEA} SEA
  * @returns {Promise<void>}
  */
-const deleteMessage = async (recipientPub, msgID, user, SEA) => {
+const deleteMessage = async (recipientPub, msgID, user) => {
   if (!user.is) {
     throw new Error(ErrorCode.NOT_AUTH)
   }
@@ -700,7 +696,7 @@ const deleteMessage = async (recipientPub, msgID, user, SEA) => {
     )
   }
 
-  const outgoingID = await Utils.recipientToOutgoingID(recipientPub, user, SEA)
+  const outgoingID = await Utils.recipientToOutgoingID(recipientPub)
 
   if (outgoingID === null) {
     throw new Error(`Could not fetch an outgoing id for user: ${recipientPub}`)
