@@ -69,6 +69,7 @@ exports.isChatMessage = item => {
  * @prop {string} recipientPublicKey A way to uniquely identify each chat.
  * @prop {ChatMessage[]} messages Sorted from most recent to least recent.
  * @prop {string|null} recipientDisplayName
+ * @prop {boolean} didDisconnect True if the recipient performed a disconnect.
  */
 
 /**
@@ -99,6 +100,10 @@ exports.isChat = item => {
   }
 
   if (obj.recipientPublicKey.length === 0) {
+    return false
+  }
+
+  if (typeof obj.didDisconnect !== 'boolean') {
     return false
   }
 
