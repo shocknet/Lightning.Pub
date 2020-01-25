@@ -143,31 +143,32 @@ const successfulHandshakeAlreadyExists = async recipientPub => {
     return userToIncoming.get(recipientPub).then()
   })
 
-  return typeof maybeIncomingID === 'string'
+  const maybeOutgoingID = await tryAndWait((_, user) => {
+    const recipientToOutgoing = user.get(Key.RECIPIENT_TO_OUTGOING)
+
+    return recipientToOutgoing.get(recipientPub).then()
+  })
+
+  return (
+    typeof maybeIncomingID === 'string' && typeof maybeOutgoingID === 'string'
+  )
 }
 
 /**
  * @param {string} recipientPub
- * @param {UserGUNNode} user
- * @param {ISEA} SEA
  * @returns {Promise<string|null>}
  */
-const recipientToOutgoingID = async (recipientPub, user, SEA) => {
-  const mySecret = await SEA.secret(user._.sea.epub, user._.sea)
-
-  if (typeof mySecret !== 'string') {
-    throw new TypeError('could not get mySecret')
-  }
-
-  const maybeEncryptedOutgoingID = await tryAndWait((_, user) =>
-    user
-      .get(Key.RECIPIENT_TO_OUTGOING)
-      .get(recipientPub)
-      .then()
-  )
+const recipientToOutgoingID = async recipientPub => {
+  const maybeEncryptedOutgoingID = await getUser()
+    .get(Key.RECIPIENT_TO_OUTGOING)
+    .get(recipientPub)
+    .then()
 
   if (typeof maybeEncryptedOutgoingID === 'string') {
-    const outgoingID = await SEA.decrypt(maybeEncryptedOutgoingID, mySecret)
+    const outgoingID = await SEA.decrypt(
+      maybeEncryptedOutgoingID,
+      await mySecret()
+    )
 
     return outgoingID || null
   }
@@ -196,7 +197,7 @@ const reqWasAccepted = async (reqResponse, recipientPub, user, SEA) => {
       throw new TypeError('typeof decryptedResponse !== "string"')
     }
 
-    const myFeedID = await recipientToOutgoingID(recipientPub, user, SEA)
+    const myFeedID = await recipientToOutgoingID(recipientPub)
 
     if (typeof myFeedID === 'string' && decryptedResponse === myFeedID) {
       return false
