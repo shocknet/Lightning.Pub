@@ -8,7 +8,8 @@ const Actions = {
   SEND_PAYMENT: "SEND_PAYMENT",
   SET_AVATAR: "SET_AVATAR",
   SET_DISPLAY_NAME: "SET_DISPLAY_NAME",
-  SET_BIO: "SET_BIO"
+  SET_BIO: "SET_BIO",
+  DISCONNECT: "DISCONNECT"
 };
 
 module.exports = Actions;

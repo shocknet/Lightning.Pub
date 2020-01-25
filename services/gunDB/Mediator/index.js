@@ -305,6 +305,7 @@ class Mediator {
     this.socket.on(Action.SET_DISPLAY_NAME, this.setDisplayName)
     this.socket.on(Action.SEND_PAYMENT, this.sendPayment)
     this.socket.on(Action.SET_BIO, this.setBio)
+    this.socket.on(Action.DISCONNECT, this.disconnect)
 
     this.socket.on(Event.ON_AVATAR, this.onAvatar)
     this.socket.on(Event.ON_BLACKLIST, this.onBlacklist)
@@ -319,8 +320,12 @@ class Mediator {
     this.socket.on(IS_GUN_AUTH, this.isGunAuth)
   }
 
+  /** @param {SimpleSocket} socket */
   encryptSocketInstance = socket => {
     return {
+      /**
+       * @type {SimpleSocket['on']}
+       */
       on: (eventName, cb) => {
         const deviceId = socket.handshake.query['x-shockwallet-device-id']
         socket.on(eventName, data => {
@@ -1059,6 +1064,29 @@ class Mediator {
       this.socket.emit(Event.ON_SEED_BACKUP, {
         ok: false,
         msg: err.message,
+        origBody: body
+      })
+    }
+  }
+
+  /** @param {Readonly<{ pub: string, token: string }>} body */
+  disconnect = async body => {
+    try {
+      const { pub, token } = body
+
+      await throwOnInvalidToken(token)
+
+      await API.Actions.disconnect(pub)
+
+      this.socket.emit(Action.DISCONNECT, {
+        ok: true,
+        msg: null,
+        origBody: body
+      })
+    } catch (err) {
+      this.socket.emit(Action.DISCONNECT, {
+        ok: true,
+        msg: null,
         origBody: body
       })
     }
