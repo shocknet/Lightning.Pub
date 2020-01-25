@@ -65,7 +65,9 @@
     "no-throw-literal": "off",
 
     // lightning has sync methods and this rule bans them
-    "no-sync": "off"
+    "no-sync": "off",
+
+    "id-length": "off"
   },
   "parser": "babel-eslint",
   "env": {
