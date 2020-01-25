@@ -1230,6 +1230,34 @@ const onBio = (cb, user) => {
   })
 }
 
+/** @type {string|null} */
+let currentSeedBackup = null
+
+/**
+ * @param {(seedBackup: string|null) => void} cb
+ * @param {UserGUNNode} user
+ * @param {ISEA} SEA
+ * @throws {Error} If user hasn't been auth.
+ * @returns {Promise<void>}
+ */
+const onSeedBackup = async (cb, user, SEA) => {
+  if (!user.is) {
+    throw new Error(ErrorCode.NOT_AUTH)
+  }
+
+  const mySecret = await SEA.secret(user._.sea.epub, user._.sea)
+
+  const callb = debounce(cb, DEBOUNCE_WAIT_TIME)
+  callb(currentSeedBackup)
+
+  user.get(Key.SEED_BACKUP).on(async seedBackup => {
+    if (typeof seedBackup === 'string') {
+      currentSeedBackup = await SEA.decrypt(seedBackup, mySecret)
+      callb(currentSeedBackup)
+    }
+  })
+}
+
 module.exports = {
   __onSentRequestToUser,
   __onUserToIncoming,
@@ -1242,5 +1270,6 @@ module.exports = {
   onChats,
   onSimplerReceivedRequests,
   onSimplerSentRequests,
-  onBio
+  onBio,
+  onSeedBackup
 }
