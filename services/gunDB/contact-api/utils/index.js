@@ -240,6 +240,18 @@ const currHandshakeAddress = async userPub => {
 
 /**
  * @template T
+ * @param {T[]} arr
+ * @param {(item: T) => void} cb
+ * @returns {Promise<void>}
+ */
+const asyncForEach = async (arr, cb) => {
+  const promises = arr.map(item => cb(item))
+
+  await Promise.all(promises)
+}
+
+/**
+ * @template T
  * @template U
  * @param {T[]} arr
  * @param {(item: T) => Promise<U>} cb
@@ -319,5 +331,6 @@ module.exports = {
   tryAndWait,
   mySecret,
   promisifyGunNode: require('./promisifygun'),
-  didDisconnect
+  didDisconnect,
+  asyncForEach
 }
