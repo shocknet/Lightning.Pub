@@ -1236,21 +1236,24 @@ let currentSeedBackup = null
 /**
  * @param {(seedBackup: string|null) => void} cb
  * @param {UserGUNNode} user
+ * @param {ISEA} SEA
  * @throws {Error} If user hasn't been auth.
- * @returns {void}
+ * @returns {Promise<void>}
  */
-const onSeedBackup = (cb, user) => {
+const onSeedBackup = async (cb, user, SEA) => {
   if (!user.is) {
     throw new Error(ErrorCode.NOT_AUTH)
   }
 
+  const mySecret = await SEA.secret(user._.sea.epub, user._.sea)
+
   const callb = debounce(cb, DEBOUNCE_WAIT_TIME)
   callb(currentSeedBackup)
 
-  user.get(Key.SEED_BACKUP).on(seedBackup => {
-    if (typeof seedBackup === 'string' || seedBackup === null) {
-      currentSeedBackup = seedBackup
-      callb(seedBackup)
+  user.get(Key.SEED_BACKUP).on(async seedBackup => {
+    if (typeof seedBackup === 'string') {
+      currentSeedBackup = await SEA.decrypt(seedBackup, mySecret)
+      callb(currentSeedBackup)
     }
   })
 }
