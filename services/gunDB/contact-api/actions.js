@@ -1077,24 +1077,10 @@ const disconnect = async pub => {
     .get(pub)
     .put(null)
 
-  const msgs = getUser()
+  await user
     .get(Key.OUTGOINGS)
     .get(outGoingID)
-    .get(Key.MESSAGES)
-
-  msgs
-    .once()
-    .map()
-    .once((_, key) => {
-      msgs.get(key).put(null)
-    })
-
-  // give it a bit of time so it can delete the messages
-  return new Promise(res => {
-    setTimeout(() => {
-      res()
-    }, 500)
-  })
+    .put(null)
 }
 
 module.exports = {
