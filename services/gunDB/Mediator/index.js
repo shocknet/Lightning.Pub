@@ -309,6 +309,7 @@ class Mediator {
     socket.on(Event.ON_RECEIVED_REQUESTS, this.onReceivedRequests)
     socket.on(Event.ON_SENT_REQUESTS, this.onSentRequests)
     socket.on(Event.ON_BIO, this.onBio)
+    socket.on(Event.ON_SEED_BACKUP, this.onSeedBackup)
 
     socket.on(IS_GUN_AUTH, this.isGunAuth)
   }
@@ -937,6 +938,36 @@ class Mediator {
     } catch (err) {
       console.log(err)
       this.socket.emit(Action.SET_BIO, {
+        ok: false,
+        msg: err.message,
+        origBody: body
+      })
+    }
+  }
+
+  /**
+   * @param {Readonly<{ token: string }>} body
+   */
+  onSeedBackup = async body => {
+    try {
+      const { token } = body
+
+      await throwOnInvalidToken(token)
+
+      await API.Events.onSeedBackup(
+        seedBackup => {
+          this.socket.emit(Event.ON_SEED_BACKUP, {
+            ok: true,
+            msg: seedBackup,
+            origBody: body
+          })
+        },
+        user,
+        mySEA
+      )
+    } catch (err) {
+      console.log(err)
+      this.socket.emit(Event.ON_SEED_BACKUP, {
         ok: false,
         msg: err.message,
         origBody: body
