@@ -10,6 +10,7 @@ const ErrorCode = require('./errorCode')
 const Getters = require('./getters')
 const Key = require('./key')
 const Utils = require('./utils')
+const { promisifyGunNode: p } = Utils
 const { isHandshakeRequest } = require('./schema')
 /**
  * @typedef {import('./SimpleGUN').GUNNode} GUNNode
@@ -1047,6 +1048,55 @@ const saveSeedBackup = async (mnemonicPhrase, user, SEA) => {
   })
 }
 
+/**
+ * @param {string} pub
+ * @returns {Promise<void>}
+ */
+const disconnect = async pub => {
+  const user = p(getUser())
+  if (!(await Utils.successfulHandshakeAlreadyExists(pub))) {
+    throw new Error('No handshake exists for this pub')
+  }
+
+  const outGoingID = /** @type {string} */ (await Utils.recipientToOutgoingID(
+    pub
+  ))
+
+  await user
+    .get(Key.USER_TO_INCOMING)
+    .get(pub)
+    .put(null)
+
+  await user
+    .get(Key.RECIPIENT_TO_OUTGOING)
+    .get(pub)
+    .put(null)
+
+  await user
+    .get(Key.USER_TO_LAST_REQUEST_SENT)
+    .get(pub)
+    .put(null)
+
+  const msgs = getUser()
+    .get(Key.OUTGOINGS)
+    .get(outGoingID)
+    .get(Key.MESSAGES)
+
+  msgs
+    .once()
+    .map()
+    .once((_, key) => {
+      msgs.get(key).put(null)
+    })
+
+  // give it a bit of time so it can delete the messages
+  return new Promise(res => {
+    setTimeout(() => {
+      res()
+    }, 500)
+  })
+}
+
 module.exports = {
   INITIAL_MSG,
   __createOutgoingFeed,
@@ -1063,5 +1113,6 @@ module.exports = {
   sendPayment,
   generateOrderAddress,
   setBio,
-  saveSeedBackup
+  saveSeedBackup,
+  disconnect
 }
