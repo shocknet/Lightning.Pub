@@ -954,13 +954,17 @@ class Mediator {
 
       await throwOnInvalidToken(token)
 
-      API.Events.onSeedBackup(seedBackup => {
-        this.socket.emit(Event.ON_SEED_BACKUP, {
-          ok: true,
-          msg: seedBackup,
-          origBody: body
-        })
-      }, user)
+      API.Events.onSeedBackup(
+        seedBackup => {
+          this.socket.emit(Event.ON_SEED_BACKUP, {
+            ok: true,
+            msg: seedBackup,
+            origBody: body
+          })
+        },
+        user,
+        mySEA
+      )
     } catch (err) {
       console.log(err)
       this.socket.emit(Event.ON_SEED_BACKUP, {
