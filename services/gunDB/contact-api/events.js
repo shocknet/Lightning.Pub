@@ -577,17 +577,16 @@ const onChats = (cb, gun, user, SEA) => {
       await Utils.asyncForEach(Object.values(outgoings), async outgoing => {
         const recipientPK = outgoing.with
         const incomingID = await Getters.userToIncomingID(recipientPK)
+        const didDisconnect =
+          !!incomingID && (await Utils.didDisconnect(recipientPK, incomingID))
 
         if (!recipientPKToChat[recipientPK]) {
-          // eslint-disable-next-line require-atomic-updates
           recipientPKToChat[recipientPK] = {
             messages: [],
             recipientAvatar: '',
             recipientDisplayName: Utils.defaultName(recipientPK),
             recipientPublicKey: recipientPK,
-            didDisconnect:
-              !!incomingID &&
-              (await Utils.didDisconnect(recipientPK, incomingID))
+            didDisconnect
           }
         }
 
@@ -616,17 +615,17 @@ const onChats = (cb, gun, user, SEA) => {
       await Utils.asyncForEach(
         Object.entries(uti),
         async ([recipientPK, incomingFeedID]) => {
+          const didDisconnect = await Utils.didDisconnect(
+            recipientPK,
+            incomingFeedID
+          )
           if (!recipientPKToChat[recipientPK]) {
-            // eslint-disable-next-line require-atomic-updates
             recipientPKToChat[recipientPK] = {
               messages: [],
               recipientAvatar: '',
               recipientDisplayName: Utils.defaultName(recipientPK),
               recipientPublicKey: recipientPK,
-              didDisconnect: await Utils.didDisconnect(
-                recipientPK,
-                incomingFeedID
-              )
+              didDisconnect
             }
           }
 
