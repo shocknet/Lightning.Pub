@@ -3,8 +3,6 @@
  */
 const debounce = require('lodash/debounce')
 
-const { getGun } = require('../Mediator/index')
-
 const Actions = require('./actions')
 const ErrorCode = require('./errorCode')
 const Getters = require('./getters')
@@ -636,7 +634,8 @@ const onChats = (cb, gun, user, SEA) => {
           if (!userWithDisconnectionListeners.has(recipientPK)) {
             userWithDisconnectionListeners.add(recipientPK)
 
-            getGun()
+            require('../Mediator')
+              .getGun()
               .user(recipientPK)
               .get(Key.OUTGOINGS)
               .get(incomingFeedID)
