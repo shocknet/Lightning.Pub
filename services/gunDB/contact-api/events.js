@@ -586,7 +586,8 @@ const onChats = (cb, gun, user, SEA) => {
             recipientAvatar: '',
             recipientDisplayName: Utils.defaultName(recipientPK),
             recipientPublicKey: recipientPK,
-            didDisconnect
+            didDisconnect,
+            id: recipientPK + incomingID
           }
         }
 
@@ -625,7 +626,8 @@ const onChats = (cb, gun, user, SEA) => {
               recipientAvatar: '',
               recipientDisplayName: Utils.defaultName(recipientPK),
               recipientPublicKey: recipientPK,
-              didDisconnect
+              didDisconnect,
+              id: recipientPK + incomingFeedID
             }
           }
 
