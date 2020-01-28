@@ -9,7 +9,7 @@ const ErrorCode = require('./errorCode')
 const Getters = require('./getters')
 const Key = require('./key')
 const Utils = require('./utils')
-const { promisifyGunNode: p } = Utils
+// const { promisifyGunNode: p } = Utils
 const { isHandshakeRequest } = require('./schema')
 /**
  * @typedef {import('./SimpleGUN').GUNNode} GUNNode
@@ -1052,7 +1052,7 @@ const saveSeedBackup = async (mnemonicPhrase, user, SEA) => {
  * @returns {Promise<void>}
  */
 const disconnect = async pub => {
-  const user = p(require('../Mediator').getUser())
+  const user = require('../Mediator').getUser()
   if (!(await Utils.successfulHandshakeAlreadyExists(pub))) {
     throw new Error('No handshake exists for this pub')
   }
@@ -1061,25 +1061,57 @@ const disconnect = async pub => {
     pub
   ))
 
-  await user
-    .get(Key.USER_TO_INCOMING)
-    .get(pub)
-    .put(null)
+  await new Promise((res, rej) => {
+    user
+      .get(Key.USER_TO_INCOMING)
+      .get(pub)
+      .put(null, ack => {
+        if (ack.err) {
+          rej(new Error(ack.err))
+        } else {
+          res()
+        }
+      })
+  })
 
-  await user
-    .get(Key.RECIPIENT_TO_OUTGOING)
-    .get(pub)
-    .put(null)
+  await new Promise((res, rej) => {
+    user
+      .get(Key.RECIPIENT_TO_OUTGOING)
+      .get(pub)
+      .put(null, ack => {
+        if (ack.err) {
+          rej(new Error(ack.err))
+        } else {
+          res()
+        }
+      })
+  })
 
-  await user
-    .get(Key.USER_TO_LAST_REQUEST_SENT)
-    .get(pub)
-    .put(null)
+  await new Promise((res, rej) => {
+    user
+      .get(Key.USER_TO_LAST_REQUEST_SENT)
+      .get(pub)
+      .put(null, ack => {
+        if (ack.err) {
+          rej(new Error(ack.err))
+        } else {
+          res()
+        }
+      })
+  })
 
-  await user
-    .get(Key.OUTGOINGS)
-    .get(outGoingID)
-    .put(null)
+  await new Promise((res, rej) => {
+    user
+      .get(Key.OUTGOINGS)
+      .get(outGoingID)
+      .put(null, ack => {
+        if (ack.err) {
+          rej(new Error(ack.err))
+        } else {
+          res()
+        }
+      })
+  })
 }
 
 module.exports = {
