@@ -1,5 +1,3 @@
-const {getUser} = require('../Mediator')
-
 const Key = require('./key')
 const Utils = require('./utils')
 

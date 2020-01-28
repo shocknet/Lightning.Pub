@@ -4,7 +4,6 @@
 const uuidv1 = require('uuid/v1')
 
 const LightningServices = require('../../../utils/lightningServices')
-const { getUser } = require('../Mediator')
 
 const ErrorCode = require('./errorCode')
 const Getters = require('./getters')
