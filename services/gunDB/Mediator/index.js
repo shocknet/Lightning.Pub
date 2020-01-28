@@ -156,6 +156,7 @@ const authenticate = async (alias, pass) => {
     }
     // move this to a subscription; implement off() ? todo
     API.Jobs.onAcceptedRequests(user, mySEA)
+    API.Jobs.onOrders(user, gun, mySEA)
     return user._.sea.pub
   }
 
@@ -179,6 +180,7 @@ const authenticate = async (alias, pass) => {
     throw new Error(ack.err)
   } else if (typeof ack.sea === 'object') {
     API.Jobs.onAcceptedRequests(user, mySEA)
+    API.Jobs.onOrders(user, gun, mySEA)
 
     const mySec = await mySEA.secret(user._.sea.epub, user._.sea)
     if (typeof mySec !== 'string') {
@@ -301,6 +303,8 @@ class Mediator {
     this.socket.on(Action.SEND_MESSAGE, this.sendMessage)
     this.socket.on(Action.SET_AVATAR, this.setAvatar)
     this.socket.on(Action.SET_DISPLAY_NAME, this.setDisplayName)
+    this.socket.on(Action.SEND_PAYMENT, this.sendPayment)
+    this.socket.on(Action.SET_BIO, this.setBio)
 
     this.socket.on(Event.ON_AVATAR, this.onAvatar)
     this.socket.on(Event.ON_BLACKLIST, this.onBlacklist)
@@ -309,6 +313,8 @@ class Mediator {
     this.socket.on(Event.ON_HANDSHAKE_ADDRESS, this.onHandshakeAddress)
     this.socket.on(Event.ON_RECEIVED_REQUESTS, this.onReceivedRequests)
     this.socket.on(Event.ON_SENT_REQUESTS, this.onSentRequests)
+    this.socket.on(Event.ON_BIO, this.onBio)
+    this.socket.on(Event.ON_SEED_BACKUP, this.onSeedBackup)
 
     this.socket.on(IS_GUN_AUTH, this.isGunAuth)
   }
@@ -641,6 +647,39 @@ class Mediator {
   }
 
   /**
+   * @param {Readonly<{ uuid: string, recipientPub: string, amount: number, memo: string, token: string }>} reqBody
+   */
+  sendPayment = async reqBody => {
+    try {
+      const { recipientPub, amount, memo, token } = reqBody
+
+      await throwOnInvalidToken(token)
+
+      await API.Actions.sendPayment(
+        recipientPub,
+        amount,
+        memo,
+        gun,
+        user,
+        mySEA
+      )
+
+      this.socket.emit(Action.SEND_PAYMENT, {
+        ok: true,
+        msg: null,
+        origBody: reqBody
+      })
+    } catch (err) {
+      console.log(err)
+      this.socket.emit(Action.SEND_PAYMENT, {
+        ok: false,
+        msg: err.message,
+        origBody: reqBody
+      })
+    }
+  }
+
+  /**
    * @param {Readonly<{ avatar: string|null , token: string }>} body
    */
   setAvatar = async body => {
@@ -934,6 +973,88 @@ class Mediator {
       })
     }
   }
+
+  /**
+   * @param {Readonly<{ token: string }>} body
+   */
+  onBio = async body => {
+    try {
+      const { token } = body
+
+      await throwOnInvalidToken(token)
+
+      API.Events.onBio(bio => {
+        this.socket.emit(Event.ON_BIO, {
+          msg: bio,
+          ok: true,
+          origBody: body
+        })
+      }, user)
+    } catch (err) {
+      console.log(err)
+      this.socket.emit(Event.ON_BIO, {
+        ok: false,
+        msg: err.message,
+        origBody: body
+      })
+    }
+  }
+
+  /**
+   * @param {Readonly<{ bio: string|null , token: string }>} body
+   */
+  setBio = async body => {
+    try {
+      const { bio, token } = body
+
+      await throwOnInvalidToken(token)
+
+      await API.Actions.setBio(bio, user)
+
+      this.socket.emit(Action.SET_BIO, {
+        ok: true,
+        msg: null,
+        origBody: body
+      })
+    } catch (err) {
+      console.log(err)
+      this.socket.emit(Action.SET_BIO, {
+        ok: false,
+        msg: err.message,
+        origBody: body
+      })
+    }
+  }
+
+  /**
+   * @param {Readonly<{ token: string }>} body
+   */
+  onSeedBackup = async body => {
+    try {
+      const { token } = body
+
+      await throwOnInvalidToken(token)
+
+      await API.Events.onSeedBackup(
+        seedBackup => {
+          this.socket.emit(Event.ON_SEED_BACKUP, {
+            ok: true,
+            msg: seedBackup,
+            origBody: body
+          })
+        },
+        user,
+        mySEA
+      )
+    } catch (err) {
+      console.log(err)
+      this.socket.emit(Event.ON_SEED_BACKUP, {
+        ok: false,
+        msg: err.message,
+        origBody: body
+      })
+    }
+  }
 }
 
 /**
@@ -996,6 +1117,7 @@ const register = async (alias, pass) => {
   return authenticate(alias, pass).then(async pub => {
     await API.Actions.setDisplayName('anon' + pub.slice(0, 8), user)
     await API.Actions.generateHandshakeAddress(user)
+    await API.Actions.generateOrderAddress(user)
     return pub
   })
 }
@@ -1033,5 +1155,6 @@ module.exports = {
   register,
   instantiateGun,
   getGun,
-  getUser
+  getUser,
+  mySEA
 }

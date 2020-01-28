@@ -24,3 +24,13 @@ exports.DISPLAY_NAME = 'displayName'
  * Maps user to the last request sent to them.
  */
 exports.USER_TO_LAST_REQUEST_SENT = 'USER_TO_LAST_REQUEST_SENT'
+
+exports.CURRENT_ORDER_ADDRESS = 'currentOrderAddress'
+
+exports.ORDER_NODES = 'orderNodes'
+
+exports.ORDER_TO_RESPONSE = 'orderToResponse'
+
+exports.BIO = 'bio'
+
+exports.SEED_BACKUP = 'seedBackup'
