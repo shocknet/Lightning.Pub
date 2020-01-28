@@ -1,7 +1,6 @@
 /**
  * @format
  */
-const { getUser, mySEA: SEA, getGun } = require('../../Mediator')
 const ErrorCode = require('../errorCode')
 const Key = require('../key')
 
@@ -21,8 +20,11 @@ const delay = ms => new Promise(res => setTimeout(res, ms))
  * @returns {Promise<string>}
  */
 const mySecret = () => {
-  const user = getUser()
-  return SEA.secret(user._.sea.epub, user._.sea)
+  const user = require('../../Mediator/index').getUser()
+  return require('../../Mediator/index').mySEA.secret(
+    user._.sea.epub,
+    user._.sea
+  )
 }
 
 /**
@@ -159,13 +161,14 @@ const successfulHandshakeAlreadyExists = async recipientPub => {
  * @returns {Promise<string|null>}
  */
 const recipientToOutgoingID = async recipientPub => {
-  const maybeEncryptedOutgoingID = await getUser()
+  const maybeEncryptedOutgoingID = await require('../../Mediator/index')
+    .getUser()
     .get(Key.RECIPIENT_TO_OUTGOING)
     .get(recipientPub)
     .then()
 
   if (typeof maybeEncryptedOutgoingID === 'string') {
-    const outgoingID = await SEA.decrypt(
+    const outgoingID = await require('../../Mediator/index').mySEA.decrypt(
       maybeEncryptedOutgoingID,
       await mySecret()
     )
@@ -306,7 +309,8 @@ const defaultName = pub => 'anon' + pub.slice(0, 8)
  * @returns {Promise<boolean>}
  */
 const didDisconnect = async (pub, incomingID) => {
-  const feed = await getGun()
+  const feed = await require('../../Mediator/index')
+    .getGun()
     .user(pub)
     .get(Key.OUTGOINGS)
     .get(incomingID)

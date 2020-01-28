@@ -1053,7 +1053,7 @@ const saveSeedBackup = async (mnemonicPhrase, user, SEA) => {
  * @returns {Promise<void>}
  */
 const disconnect = async pub => {
-  const user = p(getUser())
+  const user = p(require('../Mediator').getUser())
   if (!(await Utils.successfulHandshakeAlreadyExists(pub))) {
     throw new Error('No handshake exists for this pub')
   }
