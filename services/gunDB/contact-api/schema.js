@@ -65,6 +65,8 @@ exports.isChatMessage = item => {
  * outgoing/incoming feed paradigm. It combines both the outgoing and incoming
  * messages into one data structure plus metada about the chat.
  * @typedef {object} Chat
+ * @prop {string} id Chats now have IDs because of disconnect.
+ * RecipientPublicKey will no longer be unique.
  * @prop {string|null} recipientAvatar Base64 encoded image.
  * @prop {string} recipientPublicKey A way to uniquely identify each chat.
  * @prop {ChatMessage[]} messages Sorted from most recent to least recent.
@@ -104,6 +106,10 @@ exports.isChat = item => {
   }
 
   if (typeof obj.didDisconnect !== 'boolean') {
+    return false
+  }
+
+  if (typeof obj.id !== 'string') {
     return false
   }
 
