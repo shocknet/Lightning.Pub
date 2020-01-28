@@ -1085,7 +1085,7 @@ class Mediator {
       })
     } catch (err) {
       this.socket.emit(Action.DISCONNECT, {
-        ok: true,
+        ok: false,
         msg: null,
         origBody: body
       })
