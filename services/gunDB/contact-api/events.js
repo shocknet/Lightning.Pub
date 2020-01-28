@@ -1204,6 +1204,60 @@ const onSimplerSentRequests = async (cb, gun, user, SEA) => {
     })
 }
 
+/** @type {string|null} */
+let currentBio = null
+
+/**
+ * @param {(bio: string|null) => void} cb
+ * @param {UserGUNNode} user Pass only for testing purposes.
+ * @throws {Error} If user hasn't been auth.
+ * @returns {void}
+ */
+const onBio = (cb, user) => {
+  if (!user.is) {
+    throw new Error(ErrorCode.NOT_AUTH)
+  }
+
+  const callb = debounce(cb, DEBOUNCE_WAIT_TIME)
+  // Initial value if avvatar is undefined in gun
+  callb(currentBio)
+
+  user.get(Key.BIO).on(bio => {
+    if (typeof bio === 'string' || bio === null) {
+      currentBio = bio
+      callb(bio)
+    }
+  })
+}
+
+/** @type {string|null} */
+let currentSeedBackup = null
+
+/**
+ * @param {(seedBackup: string|null) => void} cb
+ * @param {UserGUNNode} user
+ * @param {ISEA} SEA
+ * @throws {Error} If user hasn't been auth.
+ * @returns {Promise<void>}
+ */
+const onSeedBackup = async (cb, user, SEA) => {
+  if (!user.is) {
+    throw new Error(ErrorCode.NOT_AUTH)
+  }
+
+  const mySecret = await SEA.secret(user._.sea.epub, user._.sea)
+
+  const callb = debounce(cb, DEBOUNCE_WAIT_TIME)
+  callb(currentSeedBackup)
+
+  user.get(Key.SEED_BACKUP).on(async seedBackup => {
+    if (typeof seedBackup === 'string') {
+      currentSeedBackup = await SEA.decrypt(seedBackup, mySecret)
+      callb(currentSeedBackup)
+    }
+  })
+}
+
 module.exports = {
   __onSentRequestToUser,
   __onUserToIncoming,
@@ -1215,5 +1269,7 @@ module.exports = {
   onOutgoing,
   onChats,
   onSimplerReceivedRequests,
-  onSimplerSentRequests
+  onSimplerSentRequests,
+  onBio,
+  onSeedBackup
 }
