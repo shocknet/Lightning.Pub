@@ -497,7 +497,7 @@ const processChats = () => {
     Streams.onDisplayName(() => {}, out.with)
   }
 
-  currentChats = chats
+  currentChats = chats.filter(c => c.messages.length > 0)
   notifyChatsListeners()
 }
 
