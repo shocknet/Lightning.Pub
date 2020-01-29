@@ -150,13 +150,29 @@ const onIncoming = cb => {
               return
             }
 
-            if (!Schema.isOutgoing(data)) {
+            if (typeof data !== 'object') {
               return
             }
 
+            if (typeof data.with !== 'string') {
+              return
+            }
+
+            if (typeof data.messages !== 'object') {
+              return
+            }
+
+            if (data.messages === null) {
+              return
+            }
+
+            const msgs = /** @type {[string, Schema.Message][]} */ (Object.entries(
+              data.messages
+            ).filter(([_, msg]) => Schema.isMessage(msg)))
+
             // eslint-disable-next-line require-atomic-updates
             pubToIncoming[pub] = await Utils.asyncMap(
-              Object.entries(data.messages),
+              msgs,
               async ([msgid, msg]) => {
                 let decryptedBody = ''
 
