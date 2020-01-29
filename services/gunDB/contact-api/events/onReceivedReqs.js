@@ -29,9 +29,6 @@ let pubToAvatar = {}
 /** @type {Streams.DisplayNames} */
 let pubToDn = {}
 
-/** @type {Streams.Incomings} */
-let pubToIncoming = {}
-
 /** @type {SimpleReceivedRequest[]} */
 let currentReqs = []
 
@@ -44,6 +41,7 @@ let currentNode = {}
 const react = () => {
   /** @type {SimpleReceivedRequest[]} */
   const finalReqs = []
+  const pubToIncoming = Streams.getPubToIncoming()
 
   for (const [id, req] of Object.entries(currentNode)) {
     const notAccepted = typeof pubToIncoming[req.from] === 'undefined'
