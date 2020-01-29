@@ -87,6 +87,12 @@ mySEA.decrypt = (encMsg, secret) => {
 }
 
 mySEA.secret = (recipientOrSenderEpub, recipientOrSenderSEA) => {
+  if (typeof recipientOrSenderEpub !== 'string') {
+    throw new TypeError('epub has to be an string')
+  }
+  if (typeof recipientOrSenderSEA !== 'object') {
+    throw new TypeError('sea has to be an object')
+  }
   if (recipientOrSenderEpub === recipientOrSenderSEA.pub) {
     throw new Error('Do not use pub for mysecret')
   }
