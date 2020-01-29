@@ -205,10 +205,6 @@ const onIncoming = cb => {
                 }
               )
 
-              console.log('--------------------------------')
-              console.log(`msgs: ${JSON.stringify(msgs)}`)
-              console.log('--------------------------------')
-
               notifyIncomingsListeners()
             })
         }
@@ -263,7 +259,7 @@ const processStoredReqs = async () => {
   storedRequestsListeners.forEach(l => l(currentStoredReqs))
 }
 
-let subbed = false
+let storedReqsSubbed = false
 
 /**
  * @param {StoredRequestsListener} cb
@@ -271,7 +267,7 @@ let subbed = false
 const onStoredReqs = cb => {
   storedRequestsListeners.add(cb)
 
-  if (!subbed) {
+  if (!storedReqsSubbed) {
     require('../../Mediator')
       .getUser()
       .get(Key.STORED_REQS)
@@ -285,7 +281,7 @@ const onStoredReqs = cb => {
         processStoredReqs()
       })
 
-    subbed = true
+    storedReqsSubbed = true
   }
 
   cb(currentStoredReqs)
