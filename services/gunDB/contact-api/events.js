@@ -315,17 +315,17 @@ const onIncomingMessages = (cb, userPK, incomingFeedID, gun, user, SEA) => {
 /**
  * @type {Outgoings}
  */
-export let currentOutgoings = {}
+let currentOutgoings = {}
 
 /**
  * @type {Outgoings}
  */
-export let encryptedOutgoings = {}
+let encryptedOutgoings = {}
 
 /** @type {Set<OutgoingsListener>} */
 const outgoingsListeners = new Set()
 
-export const notifyOutgoingsListeners = () => {
+const notifyOutgoingsListeners = () => {
   outgoingsListeners.forEach(l => l(currentOutgoings))
 }
 
