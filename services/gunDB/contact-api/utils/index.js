@@ -116,8 +116,9 @@ const reqToRecipientPub = async (reqID, SEA, mySecret) => {
 
 /**
  * Should only be called with a recipient pub that has already been contacted.
+ * If returns null, a disconnect happened.
  * @param {string} recipientPub
- * @returns {Promise<string>}
+ * @returns {Promise<string|null>}
  */
 const recipientPubToLastReqSentID = async recipientPub => {
   const lastReqSentID = await tryAndWait(async (_, user) => {
@@ -125,7 +126,7 @@ const recipientPubToLastReqSentID = async recipientPub => {
     const data = await userToLastReqSent.get(recipientPub).then()
 
     if (typeof data !== 'string') {
-      throw new TypeError("typeof latestReqSentID !== 'string'")
+      return null
     }
 
     return data
