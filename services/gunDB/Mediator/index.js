@@ -23,7 +23,10 @@ const IS_GUN_AUTH = 'IS_GUN_AUTH'
 
 mySEA.encrypt = (msg, secret) => {
   if (typeof msg !== 'string') {
-    throw new TypeError('mySEA.encrypt() -> expected msg to be an string')
+    throw new TypeError(
+      'mySEA.encrypt() -> expected msg to be an string instead got: ' +
+        typeof msg
+    )
   }
 
   if (msg.length === 0) {
@@ -42,7 +45,10 @@ mySEA.encrypt = (msg, secret) => {
 
 mySEA.decrypt = (encMsg, secret) => {
   if (typeof encMsg !== 'string') {
-    throw new TypeError('mySEA.encrypt() -> expected encMsg to be an string')
+    throw new TypeError(
+      'mySEA.encrypt() -> expected encMsg to be an string instead got: ' +
+        typeof encMsg
+    )
   }
 
   if (encMsg.length === 0) {
