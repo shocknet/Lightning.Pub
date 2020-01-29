@@ -56,7 +56,7 @@ const react = () => {
       id: sentReqID,
       recipientAvatar: pubToAvatar[recipientPub] || null,
       recipientChangedRequestAddress:
-        typeof currAddress && handshakeAddress !== currAddress,
+        typeof currAddress !== 'undefined' && handshakeAddress !== currAddress,
       recipientDisplayName: pubToDN[recipientPub] || null,
       recipientPublicKey: recipientPub,
       timestamp
