@@ -337,6 +337,7 @@ const processOutgoings = async () => {
   encryptedOutgoings = {}
   const mySecret = await Utils.mySecret()
   const SEA = require('../Mediator').mySEA
+  const user = require('../Mediator').getUser()
   await Utils.asyncForEach(Object.entries(outs), async ([id, out]) => {
     if (out === null) {
       currentOutgoings[id] = null
@@ -366,6 +367,11 @@ const processOutgoings = async () => {
     // on each open() only "messages" should change, not "with"
     // also messages are non-nullable and non-editable
 
+    const ourSecret = await SEA.secret(
+      await Utils.pubToEpub(currentOut.with),
+      user._.sea
+    )
+
     await Utils.asyncForEach(
       Object.entries(out.messages),
       async ([msgID, msg]) => {
@@ -378,7 +384,7 @@ const processOutgoings = async () => {
           if (msg.body === Actions.INITIAL_MSG) {
             decryptedBody = Actions.INITIAL_MSG
           } else {
-            decryptedBody = await SEA.decrypt(msg.body, mySecret)
+            decryptedBody = await SEA.decrypt(msg.body, ourSecret)
           }
           // each callback only looks at one particular msgID
           // eslint-disable-next-line require-atomic-updates
