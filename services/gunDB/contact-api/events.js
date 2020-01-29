@@ -581,7 +581,7 @@ const onChats = (cb, gun, user, SEA) => {
         if (!recipientPKToChat[recipientPK]) {
           recipientPKToChat[recipientPK] = {
             messages: [],
-            recipientAvatar: '',
+            recipientAvatar: null,
             recipientDisplayName: Utils.defaultName(recipientPK),
             recipientPublicKey: recipientPK,
             didDisconnect,
@@ -621,7 +621,7 @@ const onChats = (cb, gun, user, SEA) => {
           if (!recipientPKToChat[recipientPK]) {
             recipientPKToChat[recipientPK] = {
               messages: [],
-              recipientAvatar: '',
+              recipientAvatar: null,
               recipientDisplayName: Utils.defaultName(recipientPK),
               recipientPublicKey: recipientPK,
               didDisconnect,
