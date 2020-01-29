@@ -365,10 +365,16 @@ const processOutgoings = async () => {
       Object.entries(out.messages),
       async ([msgID, msg]) => {
         if (!currentOut.messages[msgID]) {
+          let decryptedBody = ''
+          if (msg.body === Actions.INITIAL_MSG) {
+            decryptedBody = Actions.INITIAL_MSG
+          } else {
+            decryptedBody = await SEA.decrypt(msg.body, mySecret)
+          }
           // each callback only looks at one particular msgID
           // eslint-disable-next-line require-atomic-updates
           currentOut.messages[msgID] = {
-            body: await SEA.decrypt(msg.body, mySecret),
+            body: decryptedBody,
             timestamp: msg.timestamp
           }
         }
