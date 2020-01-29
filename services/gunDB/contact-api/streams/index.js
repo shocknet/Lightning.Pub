@@ -120,6 +120,8 @@ const notifyIncomingsListeners = () => {
 /** @type {Set<string>} */
 const pubFeedPairsWithIncomingListeners = new Set()
 
+let subbed = false
+
 /**
  * @param {IncomingsListener} cb
  */
@@ -129,81 +131,92 @@ const onIncoming = cb => {
   const user = require('../../Mediator').getUser()
   const SEA = require('../../Mediator').mySEA
 
-  user.get(Key.USER_TO_INCOMING).open(uti => {
-    if (typeof uti !== 'object' || uti === null) {
-      return
-    }
-
-    Object.entries(uti).forEach(async ([pub, encFeed]) => {
-      if (typeof encFeed !== 'string') {
+  if (!subbed) {
+    user.get(Key.USER_TO_INCOMING).open(uti => {
+      if (typeof uti !== 'object' || uti === null) {
         return
       }
-      const ourSecret = await SEA.secret(await Utils.pubToEpub(pub), user._.sea)
-      const mySecret = await Utils.mySecret()
 
-      const feed = await SEA.decrypt(encFeed, mySecret)
+      Object.entries(uti).forEach(async ([pub, encFeed]) => {
+        if (typeof encFeed !== 'string') {
+          return
+        }
+        const ourSecret = await SEA.secret(
+          await Utils.pubToEpub(pub),
+          user._.sea
+        )
+        const mySecret = await Utils.mySecret()
 
-      if (pubFeedPairsWithIncomingListeners.add(pub + '--' + feed)) {
-        require('../../Mediator')
-          .getGun()
-          .user(pub)
-          .get(Key.OUTGOINGS)
-          .get(feed)
-          .open(async data => {
-            if (data === null) {
-              pubToIncoming[pub] = null
-              return
-            }
+        const feed = await SEA.decrypt(encFeed, mySecret)
 
-            if (typeof data !== 'object') {
-              return
-            }
-
-            if (typeof data.with !== 'string') {
-              return
-            }
-
-            if (typeof data.messages !== 'object') {
-              return
-            }
-
-            if (data.messages === null) {
-              return
-            }
-
-            const msgs = /** @type {[string, Schema.Message][]} */ (Object.entries(
-              data.messages
-            ).filter(([_, msg]) => Schema.isMessage(msg)))
-
-            // eslint-disable-next-line require-atomic-updates
-            pubToIncoming[pub] = await Utils.asyncMap(
-              msgs,
-              async ([msgid, msg]) => {
-                let decryptedBody = ''
-
-                if (msg.body === INITIAL_MSG) {
-                  decryptedBody = INITIAL_MSG
-                } else {
-                  decryptedBody = await SEA.decrypt(msg.body, ourSecret)
-                }
-
-                /** @type {Schema.ChatMessage} */
-                const finalMsg = {
-                  body: decryptedBody,
-                  id: msgid,
-                  outgoing: false,
-                  timestamp: msg.timestamp
-                }
-
-                return finalMsg
+        if (pubFeedPairsWithIncomingListeners.add(pub + '--' + feed)) {
+          require('../../Mediator')
+            .getGun()
+            .user(pub)
+            .get(Key.OUTGOINGS)
+            .get(feed)
+            .open(async data => {
+              if (data === null) {
+                pubToIncoming[pub] = null
+                return
               }
-            )
 
-            notifyIncomingsListeners()
-          })
-      }
+              if (typeof data !== 'object') {
+                return
+              }
+
+              if (typeof data.with !== 'string') {
+                return
+              }
+
+              if (typeof data.messages !== 'object') {
+                return
+              }
+
+              if (data.messages === null) {
+                return
+              }
+
+              const msgs = /** @type {[string, Schema.Message][]} */ (Object.entries(
+                data.messages
+              ).filter(([_, msg]) => Schema.isMessage(msg)))
+
+              // eslint-disable-next-line require-atomic-updates
+              pubToIncoming[pub] = await Utils.asyncMap(
+                msgs,
+                async ([msgid, msg]) => {
+                  let decryptedBody = ''
+
+                  if (msg.body === INITIAL_MSG) {
+                    decryptedBody = INITIAL_MSG
+                  } else {
+                    decryptedBody = await SEA.decrypt(msg.body, ourSecret)
+                  }
+
+                  /** @type {Schema.ChatMessage} */
+                  const finalMsg = {
+                    body: decryptedBody,
+                    id: msgid,
+                    outgoing: false,
+                    timestamp: msg.timestamp
+                  }
+
+                  return finalMsg
+                }
+              )
+
+              console.log('--------------------------------')
+              console.log(`msgs: ${JSON.stringify(msgs)}`)
+              console.log('--------------------------------')
+
+              notifyIncomingsListeners()
+            })
+        }
+      })
     })
-  })
+
+    subbed = true
+  }
 
   return () => {
     incomingsListeners.delete(cb)
