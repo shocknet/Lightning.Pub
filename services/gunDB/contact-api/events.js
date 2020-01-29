@@ -398,6 +398,7 @@ const processOutgoings = async () => {
  * @returns {() => void}
  */
 const onOutgoing = cb => {
+  outgoingsListeners.add(cb)
   cb(currentOutgoings)
 
   const currentUser = require('../Mediator').getUser()
