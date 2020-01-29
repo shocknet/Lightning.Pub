@@ -205,8 +205,83 @@ const onIncoming = cb => {
   }
 }
 
+/**
+ * @typedef {import('./schema').StoredRequest} StoredRequest
+ * @typedef {(reqs: StoredRequest[]) => void} StoredRequestsListener
+ */
+
+/** @type {Set<StoredRequestsListener>} */
+const storedRequestsListeners = new Set()
+
+/**
+ * @type {StoredRequest[]}
+ */
+let encryptedStoredReqs = []
+
+/**
+ * @type {StoredRequest[]}
+ */
+let currentStoredReqs = []
+
+const getStoredReqs = () => currentStoredReqs
+
+const processStoredReqs = async () => {
+  const ereqs = encryptedStoredReqs
+  encryptedStoredReqs = []
+  const mySecret = await Utils.mySecret()
+  const SEA = require('../Mediator').mySEA
+  const finalReqs = await Utils.asyncMap(ereqs, async er => {
+    /** @type {StoredRequest} */
+    const r = {
+      handshakeAddress: await SEA.decrypt(er.handshakeAddress, mySecret),
+      recipientPub: await SEA.decrypt(er.recipientPub, mySecret),
+      sentReqID: await SEA.decrypt(er.sentReqID, mySecret),
+      timestamp: er.timestamp
+    }
+
+    return r
+  })
+  currentStoredReqs = finalReqs
+  storedRequestsListeners.forEach(l => l(currentStoredReqs))
+}
+
+let subbed = false
+
+/**
+ *
+ * @param {StoredRequestsListener} cb
+ */
+const onStoredReqs = cb => {
+  storedRequestsListeners.add(cb)
+
+  if (!subbed) {
+    require('../Mediator')
+      .getUser()
+      .get(Key.STORED_REQS)
+      .open(d => {
+        if (typeof d === 'object' && d !== null) {
+          encryptedStoredReqs = /** @type {StoredRequest[]} */ (Object.values(
+            d
+          ).filter(i => Schema.isStoredRequest(i)))
+        }
+
+        processStoredReqs()
+      })
+
+    subbed = true
+  }
+
+  cb(currentStoredReqs)
+
+  return () => {
+    storedRequestsListeners.delete(cb)
+  }
+}
+
 module.exports = {
   onAvatar,
   onDisplayName,
-  onIncoming
+  onIncoming,
+  onStoredReqs,
+  getStoredReqs
 }
