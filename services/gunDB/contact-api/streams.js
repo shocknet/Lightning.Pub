@@ -83,7 +83,7 @@ const onDisplayName = (cb, pub) => {
         if (typeof dn === 'string' || dn === null) {
           pubToDisplayName[pub] = dn || null
         } else {
-          pubToDisplayName
+          pubToDisplayName[pub] = null
         }
         notifyDisplayNameListeners()
       })
