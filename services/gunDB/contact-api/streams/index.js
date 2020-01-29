@@ -134,17 +134,15 @@ const onIncoming = cb => {
       return
     }
 
-    Object.entries(uti).forEach(async ([pub, feed]) => {
-      if (typeof feed !== 'string') {
+    Object.entries(uti).forEach(async ([pub, encFeed]) => {
+      if (typeof encFeed !== 'string') {
         return
       }
+      const ourSecret = await SEA.secret(await Utils.pubToEpub(pub), user._.sea)
+
+      const feed = await SEA.decrypt(encFeed, ourSecret)
 
       if (pubFeedPairsWithIncomingListeners.add(pub + '--' + feed)) {
-        const ourSecret = await SEA.secret(
-          await Utils.pubToEpub(pub),
-          user._.sea
-        )
-
         require('../../Mediator')
           .getGun()
           .user(pub)
