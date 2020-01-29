@@ -37,8 +37,10 @@ const onAvatar = (cb, pub) => {
       .on(av => {
         if (typeof av === 'string' || av === null) {
           pubToAvatar[pub] = av || null
-          notifyAvatarListeners()
+        } else {
+          pubToAvatar[pub] = null
         }
+        notifyAvatarListeners()
       })
   }
   return () => {
@@ -80,8 +82,10 @@ const onDisplayName = (cb, pub) => {
       .on(dn => {
         if (typeof dn === 'string' || dn === null) {
           pubToDisplayName[pub] = dn || null
-          notifyDisplayNameListeners()
+        } else {
+          pubToDisplayName
         }
+        notifyDisplayNameListeners()
       })
   }
   return () => {

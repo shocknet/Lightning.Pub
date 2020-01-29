@@ -491,10 +491,14 @@ const processChats = () => {
 
     chats.push(chat)
 
-    // eslint-disable-next-line no-empty-function
-    Streams.onAvatar(() => {}, out.with)
-    // eslint-disable-next-line no-empty-function
-    Streams.onDisplayName(() => {}, out.with)
+    if (typeof pubToAvatar[out.with] === 'undefined') {
+      // eslint-disable-next-line no-empty-function
+      Streams.onAvatar(() => {}, out.with)
+    }
+    if (typeof pubToDn[out.with] === 'undefined') {
+      // eslint-disable-next-line no-empty-function
+      Streams.onDisplayName(() => {}, out.with)
+    }
   }
 
   currentChats = chats.filter(c => c.messages.length > 0)
