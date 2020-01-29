@@ -1112,6 +1112,8 @@ const disconnect = async pub => {
         }
       })
   })
+
+  await generateHandshakeAddress(require('../Mediator').getUser())
 }
 
 module.exports = {
