@@ -139,8 +139,9 @@ const onIncoming = cb => {
         return
       }
       const ourSecret = await SEA.secret(await Utils.pubToEpub(pub), user._.sea)
+      const mySecret = await Utils.mySecret()
 
-      const feed = await SEA.decrypt(encFeed, ourSecret)
+      const feed = await SEA.decrypt(encFeed, mySecret)
 
       if (pubFeedPairsWithIncomingListeners.add(pub + '--' + feed)) {
         require('../../Mediator')
