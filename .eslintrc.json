@@ -4,7 +4,6 @@
   "rules": {
     "prettier/prettier": "error",
     "strict": "off",
-    "id-length": ["error", { "exceptions": ["_"] }],
 
     "no-console": "off",
 
@@ -67,7 +66,10 @@
     // lightning has sync methods and this rule bans them
     "no-sync": "off",
 
-    "id-length": "off"
+    "id-length": "off",
+
+    // typescript does this
+    "no-unused-vars": "off"
   },
   "parser": "babel-eslint",
   "env": {
