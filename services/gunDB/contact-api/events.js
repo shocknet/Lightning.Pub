@@ -5,9 +5,9 @@ const debounce = require('lodash/debounce')
 
 const Actions = require('./actions')
 const ErrorCode = require('./errorCode')
-const Getters = require('./getters')
 const Key = require('./key')
 const Schema = require('./schema')
+const Streams = require('./streams')
 const Utils = require('./utils')
 const Config = require('../config')
 /**
@@ -430,214 +430,108 @@ const onOutgoing = cb => {
     outgoingsListeners.delete(cb)
   }
 }
+////////////////////////////////////////////////////////////////////////////////
+/** @type {Outgoings} */
+let outgoings = {}
+
+/** @type {Streams.Avatars} */
+let pubToAvatar = {}
+
+/** @type {Streams.DisplayNames} */
+let pubToDn = {}
+
+/** @type {Streams.Incomings} */
+let pubToIncoming = {}
+/**
+ * @typedef {(chats: Chat[]) => void} ChatsListener
+ */
+
+/** @type {Chat[]} */
+let currentChats = []
+
+/** @type {Set<ChatsListener>} */
+const chatsListeners = new Set()
+
+const notifyChatsListeners = () => {
+  chatsListeners.forEach(l => l(currentChats))
+}
+
+const processChats = () => {
+  const existingOutgoings = /** @type {[string, Outgoing][]} */ (Object.entries(
+    outgoings
+  ).filter(([_, o]) => o !== null))
+
+  /** @type {Chat[]} */
+  const chats = []
+
+  for (const [outID, out] of existingOutgoings) {
+    /** @type {ChatMessage[]} */
+    let msgs = Object.entries(out.messages).map(([mid, m]) => ({
+      id: mid,
+      outgoing: true,
+      body: m.body,
+      timestamp: m.timestamp
+    }))
+
+    const incoming = pubToIncoming[out.with]
+
+    if (Array.isArray(incoming)) {
+      msgs = [...msgs, ...incoming]
+    }
+
+    /** @type {Chat} */
+    const chat = {
+      recipientPublicKey: out.with,
+      didDisconnect: incoming === null,
+      id: out.with + outID,
+      messages: msgs,
+      recipientAvatar: pubToAvatar[out.with] || null,
+      recipientDisplayName: pubToDn[out.with] || null
+    }
+
+    chats.push(chat)
+
+    // eslint-disable-next-line no-empty-function
+    Streams.onAvatar(() => {}, out.with)
+    // eslint-disable-next-line no-empty-function
+    Streams.onDisplayName(() => {}, out.with)
+  }
+
+  currentChats = chats
+  notifyChatsListeners()
+}
 
 /**
  * Massages all of the more primitive data structures into a more manageable
  * 'Chat' paradigm.
- * @param {(chats: Chat[]) => void} cb
- * @param {GUNNode} gun
- * @param {UserGUNNode} user
- * @param {ISEA} SEA
- * @returns {void}
+ * @param {ChatsListener} cb
+ * @returns {() => void}
  */
-const onChats = (cb, gun, user, SEA) => {
-  if (!user.is) {
-    throw new Error(ErrorCode.NOT_AUTH)
-  }
+const onChats = cb => {
+  chatsListeners.add(cb)
+  cb(currentChats)
 
-  /**
-   * @type {Record<string, Chat>}
-   */
-  const recipientPKToChat = {}
-
-  /**
-   * Keep track of the users for which we already set up avatar listeners.
-   * @type {string[]}
-   */
-  const usersWithAvatarListeners = []
-
-  /**
-   * Keep track of the users for which we already set up display name listeners.
-   * @type {string[]}
-   */
-  const usersWithDisplayNameListeners = []
-
-  /**
-   * Keep track of the user for which we already set up incoming feed listeners.
-   * @type {string[]}
-   */
-  const usersWithIncomingListeners = []
-
-  /** @type {Set<string>} */
-  const userWithDisconnectionListeners = new Set()
-
-  const _callCB = () => {
-    // Only provide chats that have incoming listeners which would be contacts
-    // that were actually accepted / are going on
-    // Only provide chats that have received at least 1 message from gun
-    const chats = Object.values(recipientPKToChat)
-      .filter(chat =>
-        usersWithIncomingListeners.includes(chat.recipientPublicKey)
-      )
-      .filter(chat => Schema.isChat(chat))
-      .filter(chat => chat.messages.length > 0)
-
-    // in case someone else elsewhere forgets about sorting
-    chats.forEach(chat => {
-      chat.messages = chat.messages
-        .slice(0)
-        .sort((msgA, msgB) => msgA.timestamp - msgB.timestamp)
-    })
-
-    cb(chats)
-  }
-
-  // chats seem to require a bit more of debounce time
-  const callCB = debounce(_callCB, DEBOUNCE_WAIT_TIME + 200)
-
-  callCB()
-
-  onOutgoing(async outgoings => {
-    await Utils.asyncForEach(Object.values(outgoings), async outgoing => {
-      if (outgoing === null) {
-        return
-      }
-      const recipientPK = outgoing.with
-      const incomingID = await Getters.userToIncomingID(recipientPK)
-      const didDisconnect =
-        !!incomingID && (await Utils.didDisconnect(recipientPK, incomingID))
-
-      if (!recipientPKToChat[recipientPK]) {
-        recipientPKToChat[recipientPK] = {
-          messages: [],
-          recipientAvatar: null,
-          recipientDisplayName: Utils.defaultName(recipientPK),
-          recipientPublicKey: recipientPK,
-          didDisconnect,
-          id: recipientPK + incomingID
-        }
-      }
-
-      const { messages } = recipientPKToChat[recipientPK]
-
-      for (const [msgK, msg] of Object.entries(outgoing.messages)) {
-        if (!messages.find(_msg => _msg.id === msgK)) {
-          messages.push({
-            body: msg.body,
-            id: msgK,
-            outgoing: true,
-            timestamp: msg.timestamp
-          })
-        }
-      }
-    })
-
-    callCB()
+  onOutgoing(outs => {
+    outgoings = outs
+    processChats()
   })
 
-  __onUserToIncoming(
-    async uti => {
-      await Utils.asyncForEach(
-        Object.entries(uti),
-        async ([recipientPK, incomingFeedID]) => {
-          const didDisconnect = await Utils.didDisconnect(
-            recipientPK,
-            incomingFeedID
-          )
-          if (!recipientPKToChat[recipientPK]) {
-            recipientPKToChat[recipientPK] = {
-              messages: [],
-              recipientAvatar: null,
-              recipientDisplayName: Utils.defaultName(recipientPK),
-              recipientPublicKey: recipientPK,
-              didDisconnect,
-              id: recipientPK + incomingFeedID
-            }
-          }
+  Streams.onAvatar(pta => {
+    pubToAvatar = pta
+    processChats()
+  })
+  Streams.onDisplayName(ptd => {
+    pubToDn = ptd
+    processChats()
+  })
+  Streams.onIncoming(pti => {
+    pubToIncoming = pti
+    processChats()
+  })
 
-          const chat = recipientPKToChat[recipientPK]
-
-          if (!userWithDisconnectionListeners.has(recipientPK)) {
-            userWithDisconnectionListeners.add(recipientPK)
-
-            require('../Mediator')
-              .getGun()
-              .user(recipientPK)
-              .get(Key.OUTGOINGS)
-              .get(incomingFeedID)
-              .on(data => {
-                if (data === null) {
-                  chat.didDisconnect = true
-                  chat.messages = chat.messages.filter(m => m.outgoing)
-
-                  callCB()
-                }
-              })
-          }
-
-          if (!usersWithIncomingListeners.includes(recipientPK)) {
-            usersWithIncomingListeners.push(recipientPK)
-
-            onIncomingMessages(
-              msgs => {
-                for (const [msgK, msg] of Object.entries(msgs)) {
-                  const { messages } = chat
-
-                  if (!messages.find(_msg => _msg.id === msgK)) {
-                    messages.push({
-                      body: msg.body,
-                      id: msgK,
-                      outgoing: false,
-                      timestamp: msg.timestamp
-                    })
-                  }
-                }
-
-                callCB()
-              },
-              recipientPK,
-              incomingFeedID,
-              gun,
-              user,
-              SEA
-            )
-          }
-
-          if (!usersWithAvatarListeners.includes(recipientPK)) {
-            usersWithAvatarListeners.push(recipientPK)
-
-            gun
-              .user(recipientPK)
-              .get(Key.PROFILE)
-              .get(Key.AVATAR)
-              .on(avatar => {
-                if (typeof avatar === 'string') {
-                  chat.recipientAvatar = avatar
-                  callCB()
-                }
-              })
-          }
-
-          if (!usersWithDisplayNameListeners.includes(recipientPK)) {
-            usersWithDisplayNameListeners.push(recipientPK)
-
-            gun
-              .user(recipientPK)
-              .get(Key.PROFILE)
-              .get(Key.DISPLAY_NAME)
-              .on(displayName => {
-                if (typeof displayName === 'string') {
-                  chat.recipientDisplayName = displayName
-                  callCB()
-                }
-              })
-          }
-        }
-      )
-    },
-    user,
-    SEA
-  )
+  return () => {
+    chatsListeners.delete(cb)
+  }
 }
 
 /**
