@@ -474,10 +474,7 @@ class Mediator {
             })
           }),
           300
-        ),
-        gun,
-        user,
-        mySEA
+        )
       )
     } catch (err) {
       console.log(err)
@@ -593,10 +590,7 @@ class Mediator {
             })
           }),
           350
-        ),
-        gun,
-        user,
-        mySEA
+        )
       )
     } catch (err) {
       if (Config.SHOW_LOG) {
@@ -835,24 +829,19 @@ class Mediator {
 
       await throwOnInvalidToken(token)
 
-      API.Events.onChats(
-        chats => {
-          if (Config.SHOW_LOG) {
-            console.log('---chats---')
-            console.log(chats)
-            console.log('-----------------------')
-          }
+      API.Events.onChats(chats => {
+        if (Config.SHOW_LOG) {
+          console.log('---chats---')
+          console.log(chats)
+          console.log('-----------------------')
+        }
 
-          this.socket.emit(Event.ON_CHATS, {
-            msg: chats,
-            ok: true,
-            origBody: body
-          })
-        },
-        gun,
-        user,
-        mySEA
-      )
+        this.socket.emit(Event.ON_CHATS, {
+          msg: chats,
+          ok: true,
+          origBody: body
+        })
+      })
     } catch (err) {
       console.log(err)
       this.socket.emit(Event.ON_CHATS, {
@@ -936,24 +925,19 @@ class Mediator {
 
       await throwOnInvalidToken(token)
 
-      API.Events.onSimplerReceivedRequests(
-        receivedRequests => {
-          if (Config.SHOW_LOG) {
-            console.log('---receivedRequests---')
-            console.log(receivedRequests)
-            console.log('-----------------------')
-          }
+      API.Events.onSimplerReceivedRequests(receivedRequests => {
+        if (Config.SHOW_LOG) {
+          console.log('---receivedRequests---')
+          console.log(receivedRequests)
+          console.log('-----------------------')
+        }
 
-          this.socket.emit(Event.ON_RECEIVED_REQUESTS, {
-            msg: receivedRequests,
-            ok: true,
-            origBody: body
-          })
-        },
-        gun,
-        user,
-        mySEA
-      )
+        this.socket.emit(Event.ON_RECEIVED_REQUESTS, {
+          msg: receivedRequests,
+          ok: true,
+          origBody: body
+        })
+      })
     } catch (err) {
       console.log(err)
       this.socket.emit(Event.ON_RECEIVED_REQUESTS, {
@@ -973,24 +957,19 @@ class Mediator {
 
       await throwOnInvalidToken(token)
 
-      await API.Events.onSimplerSentRequests(
-        sentRequests => {
-          if (Config.SHOW_LOG) {
-            console.log('---sentRequests---')
-            console.log(sentRequests)
-            console.log('-----------------------')
-          }
+      await API.Events.onSimplerSentRequests(sentRequests => {
+        if (Config.SHOW_LOG) {
+          console.log('---sentRequests---')
+          console.log(sentRequests)
+          console.log('-----------------------')
+        }
 
-          this.socket.emit(Event.ON_SENT_REQUESTS, {
-            msg: sentRequests,
-            ok: true,
-            origBody: body
-          })
-        },
-        gun,
-        user,
-        mySEA
-      )
+        this.socket.emit(Event.ON_SENT_REQUESTS, {
+          msg: sentRequests,
+          ok: true,
+          origBody: body
+        })
+      })
     } catch (err) {
       console.log(err)
       this.socket.emit(Event.ON_SENT_REQUESTS, {

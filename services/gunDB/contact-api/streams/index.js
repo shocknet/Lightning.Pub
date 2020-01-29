@@ -1,8 +1,8 @@
 /** @format */
-const { INITIAL_MSG } = require('./actions')
-const Key = require('./key')
-const Schema = require('./schema')
-const Utils = require('./utils')
+const { INITIAL_MSG } = require('../actions')
+const Key = require('../key')
+const Schema = require('../schema')
+const Utils = require('../utils')
 /**
  * @typedef {Record<string, string|null|undefined>} Avatars
  * @typedef {(avatars: Avatars) => void} AvatarListener
@@ -10,6 +10,8 @@ const Utils = require('./utils')
 
 /** @type {Avatars} */
 const pubToAvatar = {}
+
+const getPubToAvatar = () => pubToAvatar
 
 /** @type {Set<AvatarListener>} */
 const avatarListeners = new Set()
@@ -29,7 +31,7 @@ const onAvatar = (cb, pub) => {
   avatarListeners.add(cb)
   cb(pubToAvatar)
   if (pub && pubsWithAvatarListeners.add(pub)) {
-    require('../Mediator')
+    require('../../Mediator')
       .getGun()
       .user(pub)
       .get(Key.PROFILE)
@@ -56,6 +58,8 @@ const onAvatar = (cb, pub) => {
 /** @type {DisplayNames} */
 const pubToDisplayName = {}
 
+const getPubToDn = () => pubToDisplayName
+
 /** @type {Set<DisplayNameListener>} */
 const displayNameListeners = new Set()
 
@@ -74,7 +78,7 @@ const onDisplayName = (cb, pub) => {
   displayNameListeners.add(cb)
   cb(pubToDisplayName)
   if (pub && pubsWithDisplayNameListeners.add(pub)) {
-    require('../Mediator')
+    require('../../Mediator')
       .getGun()
       .user(pub)
       .get(Key.PROFILE)
@@ -94,7 +98,7 @@ const onDisplayName = (cb, pub) => {
 }
 
 /**
- * @typedef {import('./schema').ChatMessage[]} Message
+ * @typedef {import('../schema').ChatMessage[]} Message
  * @typedef {Record<string, Message|null>} Incomings
  * @typedef {(incomings: Incomings) => void} IncomingsListener
  */
@@ -103,6 +107,8 @@ const onDisplayName = (cb, pub) => {
  * @type {Incomings}
  */
 const pubToIncoming = {}
+
+const getPubToIncoming = () => pubToIncoming
 
 /** @type {Set<IncomingsListener>} */
 const incomingsListeners = new Set()
@@ -120,8 +126,8 @@ const pubFeedPairsWithIncomingListeners = new Set()
 const onIncoming = cb => {
   incomingsListeners.add(cb)
 
-  const user = require('../Mediator').getUser()
-  const SEA = require('../Mediator').mySEA
+  const user = require('../../Mediator').getUser()
+  const SEA = require('../../Mediator').mySEA
 
   user.get(Key.USER_TO_INCOMING).open(uti => {
     if (typeof uti !== 'object' || uti === null) {
@@ -139,7 +145,7 @@ const onIncoming = cb => {
           user._.sea
         )
 
-        require('../Mediator')
+        require('../../Mediator')
           .getGun()
           .user(pub)
           .get(Key.OUTGOINGS)
@@ -206,7 +212,7 @@ const onIncoming = cb => {
 }
 
 /**
- * @typedef {import('./schema').StoredRequest} StoredRequest
+ * @typedef {import('../schema').StoredRequest} StoredRequest
  * @typedef {(reqs: StoredRequest[]) => void} StoredRequestsListener
  */
 
@@ -229,7 +235,7 @@ const processStoredReqs = async () => {
   const ereqs = encryptedStoredReqs
   encryptedStoredReqs = []
   const mySecret = await Utils.mySecret()
-  const SEA = require('../Mediator').mySEA
+  const SEA = require('../../Mediator').mySEA
   const finalReqs = await Utils.asyncMap(ereqs, async er => {
     /** @type {StoredRequest} */
     const r = {
@@ -248,14 +254,13 @@ const processStoredReqs = async () => {
 let subbed = false
 
 /**
- *
  * @param {StoredRequestsListener} cb
  */
 const onStoredReqs = cb => {
   storedRequestsListeners.add(cb)
 
   if (!subbed) {
-    require('../Mediator')
+    require('../../Mediator')
       .getUser()
       .get(Key.STORED_REQS)
       .open(d => {
@@ -280,8 +285,15 @@ const onStoredReqs = cb => {
 
 module.exports = {
   onAvatar,
+  getPubToAvatar,
   onDisplayName,
+  getPubToDn,
   onIncoming,
+  getPubToIncoming,
   onStoredReqs,
-  getStoredReqs
+  getStoredReqs,
+  onAddresses: require('./addresses').onAddresses,
+  getAddresses: require('./addresses').getAddresses,
+  onLastSentReqIDs: require('./lastSentReqID').onLastSentReqIDs,
+  getSentReqIDs: require('./lastSentReqID').getSentReqIDs
 }
