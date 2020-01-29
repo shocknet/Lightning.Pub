@@ -23,6 +23,10 @@ export type ListenerObj = Record<string, ListenerObjSoul | Primitive | null> & {
 
 export type ListenerData = Primitive | null | ListenerObj | undefined
 
+interface OpenListenerDataObj {
+  [k: string]: OpenListenerData
+}
+
 export type Listener = (data: ListenerData, key: string) => void
 export type Callback = (ack: Ack) => void
 
@@ -31,6 +35,9 @@ export interface Soul {
   put: Primitive | null | object | undefined
 }
 
+export type OpenListenerData = Primitive | null | OpenListenerDataObj
+export type OpenListener = (data: OpenListenerData, key: string) => void
+
 export interface GUNNodeBase {
   _: Soul
 
@@ -38,6 +45,8 @@ export interface GUNNodeBase {
 
   on(this: GUNNode, cb: Listener): void
   once(this: GUNNode, cb?: Listener): GUNNode
+
+  open(this: GUNNode, cb?: OpenListener): GUNNode
 
   off(): void
   user(): UserGUNNode
