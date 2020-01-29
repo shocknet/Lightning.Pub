@@ -1,5 +1,4 @@
 /** @format */
-const Events = require('./index')
 const Key = require('../key')
 const Schema = require('../schema')
 const Streams = require('../streams')
@@ -101,7 +100,7 @@ const onReceivedReqs = cb => {
   listeners.add(cb)
 
   if (!subbed) {
-    Events.onCurrentHandshakeAddress(addr => {
+    require('./index').onCurrentHandshakeAddress(addr => {
       if (currentAddress !== addr) {
         currentAddress = addr
         currentNode = {}
