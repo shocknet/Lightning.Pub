@@ -372,7 +372,7 @@ const processOutgoings = async () => {
     )
 
     await Utils.asyncForEach(
-      Object.entries(out.messages),
+      Object.entries(currentOut.messages),
       async ([msgID, msg]) => {
         if (!Schema.isMessage(msg)) {
           // incomplete data
