@@ -343,6 +343,11 @@ const processOutgoings = async () => {
       return
     }
 
+    if (!Schema.isPartialOutgoing(out)) {
+      // incomplete data
+      return
+    }
+
     if (typeof currentOutgoings[id] === 'undefined') {
       // We disable this rule because we are awaiting the result of the whole
       // for each AND each callback looks only at one single ID
@@ -364,6 +369,10 @@ const processOutgoings = async () => {
     await Utils.asyncForEach(
       Object.entries(out.messages),
       async ([msgID, msg]) => {
+        if (!Schema.isMessage(msg)) {
+          // incomplete data
+          return
+        }
         if (!currentOut.messages[msgID]) {
           let decryptedBody = ''
           if (msg.body === Actions.INITIAL_MSG) {
