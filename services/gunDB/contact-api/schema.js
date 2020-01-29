@@ -146,6 +146,8 @@ exports.isStoredRequest = item => {
   const obj = /** @type {StoredRequest} */ (item)
   if (typeof obj.recipientPub !== 'string') return false
   if (typeof obj.handshakeAddress !== 'string') return false
+  if (typeof obj.handshakeAddress !== 'string') return false
+  if (typeof obj.timestamp !== 'number') return false
   return true
 }
 
