@@ -501,7 +501,9 @@ const processChats = () => {
     }
   }
 
-  currentChats = chats.filter(c => c.messages.length > 0)
+  currentChats = chats
+    .filter(c => c.messages.length > 0)
+    .filter(c => typeof pubToIncoming[c.recipientPublicKey] !== 'undefined')
   notifyChatsListeners()
 }
 
