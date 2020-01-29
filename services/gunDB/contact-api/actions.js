@@ -1061,61 +1061,59 @@ const disconnect = async pub => {
     pub
   ))
 
-  await Promise.all([
-    new Promise((res, rej) => {
-      user
-        .get(Key.USER_TO_INCOMING)
-        .get(pub)
-        .put(null, ack => {
-          if (ack.err) {
-            rej(new Error(ack.err))
-          } else {
-            res()
-          }
-        })
-    }),
+  await new Promise((res, rej) => {
+    user
+      .get(Key.USER_TO_INCOMING)
+      .get(pub)
+      .put(null, ack => {
+        if (ack.err) {
+          rej(new Error(ack.err))
+        } else {
+          res()
+        }
+      })
+  })
 
-    new Promise((res, rej) => {
-      user
-        .get(Key.RECIPIENT_TO_OUTGOING)
-        .get(pub)
-        .put(null, ack => {
-          if (ack.err) {
-            rej(new Error(ack.err))
-          } else {
-            res()
-          }
-        })
-    }),
+  await new Promise((res, rej) => {
+    user
+      .get(Key.RECIPIENT_TO_OUTGOING)
+      .get(pub)
+      .put(null, ack => {
+        if (ack.err) {
+          rej(new Error(ack.err))
+        } else {
+          res()
+        }
+      })
+  })
 
-    new Promise((res, rej) => {
-      user
-        .get(Key.USER_TO_LAST_REQUEST_SENT)
-        .get(pub)
-        .put(null, ack => {
-          if (ack.err) {
-            rej(new Error(ack.err))
-          } else {
-            res()
-          }
-        })
-    }),
+  await new Promise((res, rej) => {
+    user
+      .get(Key.USER_TO_LAST_REQUEST_SENT)
+      .get(pub)
+      .put(null, ack => {
+        if (ack.err) {
+          rej(new Error(ack.err))
+        } else {
+          res()
+        }
+      })
+  })
 
-    new Promise((res, rej) => {
-      user
-        .get(Key.OUTGOINGS)
-        .get(outGoingID)
-        .put(null, ack => {
-          if (ack.err) {
-            rej(new Error(ack.err))
-          } else {
-            res()
-          }
-        })
-    }),
+  await new Promise((res, rej) => {
+    user
+      .get(Key.OUTGOINGS)
+      .get(outGoingID)
+      .put(null, ack => {
+        if (ack.err) {
+          rej(new Error(ack.err))
+        } else {
+          res()
+        }
+      })
+  })
 
-    await generateHandshakeAddress(require('../Mediator').getUser())
-  ])
+  await generateHandshakeAddress(require('../Mediator').getUser())
 }
 
 module.exports = {
