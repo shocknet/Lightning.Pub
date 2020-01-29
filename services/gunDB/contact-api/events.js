@@ -918,8 +918,13 @@ const onSimplerReceivedRequests = (cb, gun, user, SEA) => {
     user
       .get(Key.USER_TO_INCOMING)
       .map()
-      .on((_, userPK) => {
-        requestorsAlreadyAccepted.add(userPK)
+      .on((incomingID, userPK) => {
+        const disconnected = incomingID === null
+        if (disconnected) {
+          requestorsAlreadyAccepted.delete(userPK)
+        } else {
+          requestorsAlreadyAccepted.add(userPK)
+        }
 
         callCB()
       })
