@@ -38,6 +38,10 @@ const react = () => {
   const pubToAvatar = Streams.getPubToAvatar()
   const pubToDN = Streams.getPubToDn()
 
+  console.log(
+    `pubToLastSentREqID: ${JSON.stringify(pubToLastSentReqID, null, 4)}`
+  )
+
   for (const storedReq of storedReqs) {
     const { handshakeAddress, recipientPub, sentReqID, timestamp } = storedReq
     const currAddress = pubToHAddr[recipientPub]
