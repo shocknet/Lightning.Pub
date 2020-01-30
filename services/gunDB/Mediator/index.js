@@ -350,7 +350,9 @@ class Mediator {
               console.error('Unknown Device', error)
               return false
             }
-
+            if(typeof data === 'string'){
+              data = JSON.parse(data)
+            }
             console.log('Event:', eventName)
             console.log('Data:', data)
             console.log('Decrypt params:', {
