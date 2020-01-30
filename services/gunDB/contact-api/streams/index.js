@@ -1,5 +1,4 @@
 /** @format */
-const { INITIAL_MSG } = require('../actions')
 const Key = require('../key')
 const Schema = require('../schema')
 const Utils = require('../utils')
