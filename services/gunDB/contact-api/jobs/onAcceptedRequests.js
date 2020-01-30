@@ -33,7 +33,7 @@ const onAcceptedRequests = async (user, SEA) => {
   user
     .get(Key.STORED_REQS)
     .map()
-    .once(async storedReq => {
+    .once(async (storedReq, id) => {
       try {
         if (!Schema.isStoredRequest(storedReq)) {
           throw new TypeError('Stored request not an StoredRequest')
@@ -123,10 +123,31 @@ const onAcceptedRequests = async (user, SEA) => {
                     mySecret
                   )
 
-                  user
-                    .get(Key.USER_TO_INCOMING)
-                    .get(recipientPub)
-                    .put(encryptedForMeIncomingID)
+                  await new Promise((res, rej) => {
+                    user
+                      .get(Key.USER_TO_INCOMING)
+                      .get(recipientPub)
+                      .put(encryptedForMeIncomingID, ack => {
+                        if (ack.err) {
+                          rej(new Error(ack.err))
+                        } else {
+                          res()
+                        }
+                      })
+                  })
+
+                  await new Promise((res, rej) => {
+                    user
+                      .get(Key.STORED_REQS)
+                      .get(id)
+                      .put(null, ack => {
+                        if (ack.err) {
+                          rej(new Error(ack.err))
+                        } else {
+                          res()
+                        }
+                      })
+                  })
 
                   // ensure this listeners gets called at least once
                   res()
