@@ -63,6 +63,13 @@ const react = () => {
     })
   }
 
+  if (finalSentReqs.length > 0) {
+    console.log('-------------------------')
+    console.log('pub to incoming')
+    console.log(pubToIncoming)
+    console.log('-------------------------')
+  }
+
   currentReqs = finalSentReqs
 
   listeners.forEach(l => l(currentReqs))
