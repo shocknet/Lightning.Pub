@@ -406,7 +406,10 @@ const onOutgoing = cb => {
                   typeof msg.timestamp === 'number'
                 ) {
                   newOuts[id].messages[mid] = {
-                    body: await SEA.decrypt(msg.body, ourSec),
+                    body:
+                      msg.body === Actions.INITIAL_MSG
+                        ? Actions.INITIAL_MSG
+                        : await SEA.decrypt(msg.body, ourSec),
                     timestamp: msg.timestamp
                   }
                 }
