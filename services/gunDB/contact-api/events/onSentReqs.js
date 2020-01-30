@@ -44,10 +44,9 @@ const react = () => {
 
     const lastReqID = pubToLastSentReqID[recipientPub]
     const isStale = typeof lastReqID !== 'undefined' && lastReqID !== sentReqID
-    const aHandshakeWasEstablishedAtSomePoint =
-      typeof pubToIncoming[recipientPub] !== 'undefined'
+    const isConnected = typeof pubToIncoming[recipientPub] !== 'undefined'
 
-    if (isStale && aHandshakeWasEstablishedAtSomePoint) {
+    if (isStale || isConnected) {
       // eslint-disable-next-line no-continue
       continue
     }
