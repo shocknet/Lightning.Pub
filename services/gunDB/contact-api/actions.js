@@ -407,6 +407,10 @@ const sendHandshakeRequest = async (recipientPublicKey, gun, user, SEA) => {
     throw new TypeError('recipientPublicKey is an string of length 0')
   }
 
+  if (recipientPublicKey === user.is.pub) {
+    throw new Error('Do not send a request to yourself')
+  }
+
   console.log('sendHR() -> before recipientEpub')
 
   /** @type {string} */
