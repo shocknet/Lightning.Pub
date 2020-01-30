@@ -133,6 +133,8 @@ const onIncoming = cb => {
     subbed = true
   }
 
+  cb(getPubToIncoming())
+
   return () => {
     incomingsListeners.delete(cb)
   }
