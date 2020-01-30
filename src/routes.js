@@ -5,27 +5,37 @@
  */
 "use strict";
 
-const Http = require("axios");
+const Axios = require("axios");
 const Crypto = require("crypto");
 const logger = require("winston");
+const httpsAgent = require("https");
 const responseTime = require("response-time");
+const uuid = require("uuid/v4");
 const getListPage = require("../utils/paginate");
 const auth = require("../services/auth/auth");
 const FS = require("../utils/fs");
+const Encryption = require("../utils/encryptionStore");
 const LightningServices = require("../utils/lightningServices");
 const GunDB = require("../services/gunDB/Mediator");
+const { unprotectedRoutes, nonEncryptedRoutes } = require("../utils/protectedRoutes");
 const GunActions = require("../services/gunDB/contact-api/actions")
-const { unprotectedRoutes } = require("../utils/protectedRoutes");
 
 const DEFAULT_MAX_NUM_ROUTES_TO_QUERY = 10;
+const SESSION_ID = uuid();
 
 // module.exports = (app) => {
-module.exports = (
+module.exports = async (
   app,
   config,
   mySocketsEvents,
-  { serverPort }
+  { serverPort, CA, CA_KEY, usetls }
 ) => {
+  const Http = Axios.create({
+    httpsAgent: new httpsAgent.Agent({  
+      ca: await FS.readFile(CA)
+    })
+  })
+  
   const sanitizeLNDError = (message = "") =>
     message.toLowerCase().includes("unknown")
       ? message
@@ -82,7 +92,7 @@ module.exports = (
     const serviceStatus = await getAvailableService();
     const LNDStatus = serviceStatus;
     try {
-      const APIHealth = await Http.get(`http://localhost:${serverPort}/ping`);
+      const APIHealth = await Http.get(`${usetls ? 'https' : 'http'}://localhost:${serverPort}/ping`);
       const APIStatus = {
         message: APIHealth.data,
         responseTime: APIHealth.headers["x-response-time"],
@@ -93,6 +103,7 @@ module.exports = (
         APIStatus
       };
     } catch (err) {
+      console.error(err);
       const APIStatus = {
         message: err.response.data,
         responseTime: err.response.headers["x-response-time"],
@@ -109,7 +120,7 @@ module.exports = (
     const health = await checkHealth();
     if (health.LNDStatus.success) {
       if (err) {
-        res.send({
+        res.json({
           errorMessage: sanitizeLNDError(err.message)
         });
       } else {
@@ -117,7 +128,7 @@ module.exports = (
       }
     } else {
       res.status(500);
-      res.send({ errorMessage: "LND is down" });
+      res.json({ errorMessage: "LND is down" });
     }
   };
 
@@ -185,6 +196,58 @@ module.exports = (
     }
   };
 
+  app.use((req, res, next) => {
+    res.setHeader("x-session-id", SESSION_ID)
+    next()
+  })
+
+  app.use((req, res, next) => {
+    const deviceId = req.headers["x-shockwallet-device-id"];
+    try {
+      if (nonEncryptedRoutes.includes(req.path)) {
+        return next();
+      }
+  
+      if (!deviceId) {
+        const error = {
+          field: "deviceId",
+          message: "Please specify a device ID"
+        };
+        console.error(error)
+        return res.status(401).json(error);
+      }
+
+      if (!Encryption.isAuthorizedDevice({ deviceId })) {
+        const error = {
+          field: "deviceId",
+          message: "Please specify a device ID"
+        };
+        console.error("Unknown Device", error)
+        return res.status(401).json(error);
+      }
+
+      if (req.method === "GET") {
+        console.log("Method:", req.method);
+        return next();
+      }
+
+      console.log("Body:", req.body)
+      console.log("Decrypt params:", { deviceId, message: req.body.encryptionKey })
+      const decryptedKey = Encryption.decryptKey({ deviceId, message: req.body.encryptionKey });
+      console.log("decryptedKey", decryptedKey)
+      const decryptedMessage = Encryption.decryptMessage({ message: req.body.data, key: decryptedKey, iv: req.body.iv })
+      req.body = JSON.parse(decryptedMessage);
+      return next();
+    } catch (err) {
+      console.error(err);
+      return res
+        .status(401)
+        .json(
+          err
+        );
+    }
+  })
+
   app.use(async (req, res, next) => {
     try {
       console.log("Route:", req.path)
@@ -240,7 +303,7 @@ module.exports = (
    */
   app.get("/health", async (req, res) => {
     const health = await checkHealth();
-    res.send(health);
+    res.json(health);
   });
 
   /**
@@ -248,17 +311,49 @@ module.exports = (
    */
   app.get("/healthz", async (req, res) => {
     const health = await checkHealth();
-    res.send(health);
+    res.json(health);
   });
 
   app.get("/ping", (req, res) => {
-    res.send("OK");
+    res.json({ message: "OK" });
   });
 
   app.post("/api/mobile/error", (req, res) => {
     logger.debug("Mobile error:", JSON.stringify(req.body));
     res.json({ msg: "OK" });
   });
+
+  app.post("/api/security/exchangeKeys", async (req, res) => {
+    try {
+      const { publicKey, deviceId } = req.body;
+  
+      if (!publicKey || publicKey.length < 600) {
+        return res.status(400).json({
+          field: 'publicKey',
+          message: "Please provide a valid public key"
+        })
+      }
+
+      if (!deviceId ||
+        !/^[0-9A-F]{8}-[0-9A-F]{4}-4[0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}$/iu
+          .test(deviceId)) {
+        return res.status(400).json({
+          field: 'deviceId',
+          message: "Please provide a valid device ID"
+        })
+      }
+  
+      const authorizedDevice = await Encryption.authorizeDevice({ deviceId, publicKey })
+      console.log(authorizedDevice)
+      return res.status(200).json(authorizedDevice)
+    } catch (err) {
+      console.error(err)
+      return res.status(401).json({
+        field: 'unknown',
+        message: err
+      })
+    }
+  })
 
   app.get("/api/lnd/wallet/status", async (req, res) => {
     try {
@@ -281,6 +376,7 @@ module.exports = (
 
   app.post("/api/lnd/auth", async (req, res) => {
     try {
+      console.log("/api/lnd/auth Body:", req.body)
       const health = await checkHealth();
       const walletInitialized = await walletExists();
       // If we're connected to lnd, unlock the wallet using the password supplied
@@ -326,7 +422,7 @@ module.exports = (
       }
 
       res.status(500);
-      res.send({
+      res.json({
         field: "health",
         errorMessage: sanitizeLNDError(health.LNDStatus.message),
         success: false
@@ -335,7 +431,7 @@ module.exports = (
     } catch (err) {
       logger.debug("Unlock Error:", err);
       res.status(400);
-      res.send({ field: "user", errorMessage: sanitizeLNDError(err.message), success: false });
+      res.json({ field: "user", errorMessage: sanitizeLNDError(err.message), success: false });
       return err;
     }
   });
@@ -357,10 +453,10 @@ module.exports = (
             const health = await checkHealth();
             if (health.LNDStatus.success) {
               res.status(400);
-              res.send({ field: "WalletUnlocker", errorMessage: unlockErr.message });
+              res.json({ field: "WalletUnlocker", errorMessage: unlockErr.message });
             } else {
               res.status(500);
-              res.send({ errorMessage: "LND is down" });
+              res.json({ errorMessage: "LND is down" });
             }
           } else {
             await recreateLnServices();
@@ -424,12 +520,12 @@ module.exports = (
               const message = genSeedErr.details;
               return res
                 .status(400)
-                .send({ field: "GenSeed", errorMessage: message, success: false });
+                .json({ field: "GenSeed", errorMessage: message, success: false });
             }
     
             return res
               .status(500)
-              .send({ field: "health", errorMessage: "LND is down", success: false });
+              .json({ field: "health", errorMessage: "LND is down", success: false });
           }
     
           logger.debug("GenSeed:", genSeedResponse);
@@ -608,13 +704,13 @@ module.exports = (
         logger.error("GetInfo Error:", err);
         const health = await checkHealth();
         if (health.LNDStatus.success) {
-          res.status(400).send({
+          res.status(400).json({
             field: "getInfo",
             errorMessage: sanitizeLNDError(err.message)
           });
         } else {
           res.status(500);
-          res.send({ errorMessage: "LND is down" });
+          res.json({ errorMessage: "LND is down" });
         }
       }
       logger.info("GetInfo:", response);
@@ -639,13 +735,13 @@ module.exports = (
           const health = await checkHealth();
           if (health.LNDStatus.success) {
             res.status(400);
-            res.send({
+            res.json({
               field: "getNodeInfo",
               errorMessage: sanitizeLNDError(err.message)
             });
           } else {
             res.status(500);
-            res.send({ errorMessage: "LND is down" });
+            res.json({ errorMessage: "LND is down" });
           }
         }
         logger.debug("GetNodeInfo:", response);
@@ -661,13 +757,13 @@ module.exports = (
         logger.debug("GetNetworkInfo Error:", err);
         const health = await checkHealth();
         if (health.LNDStatus.success) {
-          res.status(400).send({
+          res.status(400).json({
             field: "getNodeInfo",
             errorMessage: sanitizeLNDError(err.message)
           });
         } else {
           res.status(500);
-          res.send({ errorMessage: "LND is down" });
+          res.json({ errorMessage: "LND is down" });
         }
       }
       logger.debug("GetNetworkInfo:", response);
@@ -683,13 +779,13 @@ module.exports = (
         logger.debug("ListPeers Error:", err);
         const health = await checkHealth();
         if (health.LNDStatus.success) {
-          res.status(400).send({
+          res.status(400).json({
             field: "listPeers",
             errorMessage: sanitizeLNDError(err.message)
           });
         } else {
           res.status(500);
-          res.send({ errorMessage: "LND is down" });
+          res.json({ errorMessage: "LND is down" });
         }
       }
       logger.debug("ListPeers:", response);
@@ -705,13 +801,13 @@ module.exports = (
         logger.debug("NewAddress Error:", err);
         const health = await checkHealth();
         if (health.LNDStatus.success) {
-          res.status(400).send({
+          res.status(400).json({
             field: "newAddress",
             errorMessage: sanitizeLNDError(err.message)
           });
         } else {
           res.status(500);
-          res.send({ errorMessage: "LND is down" });
+          res.json({ errorMessage: "LND is down" });
         }
       }
       logger.debug("NewAddress:", response);
@@ -726,13 +822,13 @@ module.exports = (
       const health = await checkHealth();
       if (health.LNDStatus.success) {
         res.status(403);
-        return res.send({
+        return res.json({
           field: "limituser",
           errorMessage: "User limited"
         });
       }
       res.status(500);
-      res.send({ errorMessage: "LND is down" });
+      res.json({ errorMessage: "LND is down" });
     }
     const connectRequest = {
       addr: { pubkey: req.body.pubkey, host: req.body.host },
@@ -742,7 +838,7 @@ module.exports = (
     lightning.connectPeer(connectRequest, (err, response) => {
       if (err) {
         logger.debug("ConnectPeer Error:", err);
-        res.status(500).send({ field: "connectPeer", errorMessage: sanitizeLNDError(err.message) });
+        res.status(500).json({ field: "connectPeer", errorMessage: sanitizeLNDError(err.message) });
       } else {
         logger.debug("ConnectPeer:", response);
         res.json(response);
@@ -757,20 +853,20 @@ module.exports = (
       const health = await checkHealth();
       if (health.LNDStatus.success) {
         res.status(403);
-        return res.send({
+        return res.json({
           field: "limituser",
           errorMessage: "User limited"
         });
       }
       res.status(500);
-      res.send({ errorMessage: "LND is down" });
+      res.json({ errorMessage: "LND is down" });
     }
     const disconnectRequest = { pub_key: req.body.pubkey };
     logger.debug("DisconnectPeer Request:", disconnectRequest);
     lightning.disconnectPeer(disconnectRequest, (err, response) => {
       if (err) {
         logger.debug("DisconnectPeer Error:", err);
-        res.status(400).send({ field: "disconnectPeer", errorMessage: sanitizeLNDError(err.message) });
+        res.status(400).json({ field: "disconnectPeer", errorMessage: sanitizeLNDError(err.message) });
       } else {
         logger.debug("DisconnectPeer:", response);
         res.json(response);
@@ -786,13 +882,13 @@ module.exports = (
         logger.debug("ListChannels Error:", err);
         const health = await checkHealth();
         if (health.LNDStatus.success) {
-          res.status(400).send({
+          res.status(400).json({
             field: "listChannels",
             errorMessage: sanitizeLNDError(err.message)
           });
         } else {
           res.status(500);
-          res.send({ errorMessage: "LND is down" });
+          res.json({ errorMessage: "LND is down" });
         }
       }
       logger.debug("ListChannels:", response);
@@ -808,13 +904,13 @@ module.exports = (
         logger.debug("PendingChannels Error:", err);
         const health = await checkHealth();
         if (health.LNDStatus.success) {
-          res.status(400).send({
+          res.status(400).json({
             field: "pendingChannels",
             errorMessage: sanitizeLNDError(err.message)
           });
         } else {
           res.status(500);
-          res.send({ errorMessage: "LND is down" });
+          res.json({ errorMessage: "LND is down" });
         }
       }
       logger.debug("PendingChannels:", response);
@@ -901,10 +997,10 @@ module.exports = (
           logger.debug("ListInvoices Error:", err);
           const health = await checkHealth();
           if (health.LNDStatus.success) {
-            res.status(400).send({ errorMessage: sanitizeLNDError(err.message), success: false });
+            res.status(400).json({ errorMessage: sanitizeLNDError(err.message), success: false });
           } else {
             res.status(500);
-            res.send({ errorMessage: health.LNDStatus.message, success: false });
+            res.json({ errorMessage: health.LNDStatus.message, success: false });
           }
         } else {
           // logger.debug("ListInvoices:", response);
@@ -927,13 +1023,13 @@ module.exports = (
         logger.debug("ForwardingHistory Error:", err);
         const health = await checkHealth();
         if (health.LNDStatus.success) {
-          res.status(400).send({
+          res.status(400).json({
             field: "forwardingHistory",
             errorMessage: sanitizeLNDError(err.message)
           });
         } else {
           res.status(500);
-          res.send({ errorMessage: "LND is down" });
+          res.json({ errorMessage: "LND is down" });
         }
       }
       logger.debug("ForwardingHistory:", response);
@@ -949,13 +1045,13 @@ module.exports = (
         logger.debug("WalletBalance Error:", err);
         const health = await checkHealth();
         if (health.LNDStatus.success) {
-          res.status(400).send({
+          res.status(400).json({
             field: "walletBalance",
             errorMessage: sanitizeLNDError(err.message)
           });
         } else {
           res.status(500);
-          res.send({ errorMessage: "LND is down" });
+          res.json({ errorMessage: "LND is down" });
         }
       }
       logger.debug("WalletBalance:", response);
@@ -971,13 +1067,13 @@ module.exports = (
       if (err) {
         logger.debug("WalletBalance Error:", err);
         if (health.LNDStatus.success) {
-          res.status(400).send({
+          res.status(400).json({
             field: "walletBalance",
             errorMessage: sanitizeLNDError(err.message)
           });
         } else {
           res.status(500);
-          res.send(health.LNDStatus);
+          res.json(health.LNDStatus);
         }
         return err;
       }
@@ -986,13 +1082,13 @@ module.exports = (
         if (err) {
           logger.debug("ChannelBalance Error:", err);
           if (health.LNDStatus.success) {
-            res.status(400).send({
+            res.status(400).json({
               field: "channelBalance",
               errorMessage: sanitizeLNDError(err.message)
             });
           } else {
             res.status(500);
-            res.send(health.LNDStatus);
+            res.json(health.LNDStatus);
           }
           return err;
         }
@@ -1015,11 +1111,11 @@ module.exports = (
         logger.debug("DecodePayReq Error:", err);
         const health = await checkHealth();
         if (health.LNDStatus.success) {
-          res.status(500).send({ 
+          res.status(500).json({ 
             errorMessage: sanitizeLNDError(err.message)
           });
         } else {
-          res.status(500).send({ errorMessage: "LND is down" });
+          res.status(500).json({ errorMessage: "LND is down" });
         }
       } else {
         logger.info("DecodePayReq:", paymentRequest);
@@ -1037,13 +1133,13 @@ module.exports = (
         logger.debug("ChannelBalance Error:", err);
         const health = await checkHealth();
         if (health.LNDStatus.success) {
-          res.status(400).send({
+          res.status(400).json({
             field: "channelBalance",
             errorMessage: sanitizeLNDError(err.message)
           });
         } else {
           res.status(500);
-          res.send({ errorMessage: "LND is down" });
+          res.json({ errorMessage: "LND is down" });
         }
       }
       logger.debug("ChannelBalance:", response);
@@ -1060,7 +1156,7 @@ module.exports = (
         res.sendStatus(403);
       } else {
         res.status(500);
-        res.send({ errorMessage: "LND is down" });
+        res.json({ errorMessage: "LND is down" });
       }
       return;
     }
@@ -1084,10 +1180,10 @@ module.exports = (
       logger.info("OpenChannelRequest Error:", err);
       const health = await checkHealth();
       if (health.LNDStatus.success && !res.headersSent) {
-        res.status(500).send({ field: "openChannelRequest", errorMessage: sanitizeLNDError(err.message) });
+        res.status(500).json({ field: "openChannelRequest", errorMessage: sanitizeLNDError(err.message) });
       } else if (!res.headersSent) {
         res.status(500);
-        res.send({ errorMessage: "LND is down" });
+        res.json({ errorMessage: "LND is down" });
       }
     });
     openedChannel.write(openChannelRequest)
@@ -1103,7 +1199,7 @@ module.exports = (
         res.sendStatus(403);
       } else {
         res.status(500);
-        res.send({ errorMessage: "LND is down" });
+        res.json({ errorMessage: "LND is down" });
       }
     }
     const { channelPoint, outputIndex } = req.body;
@@ -1131,13 +1227,13 @@ module.exports = (
       if (!res.headersSent) {
         if (health.LNDStatus.success) {
           logger.debug("CloseChannelRequest Error:", err);
-          res.status(400).send({
+          res.status(400).json({
             field: "closeChannel",
             errorMessage: sanitizeLNDError(err.message)
           });
         } else {
           res.status(500);
-          res.send({ errorMessage: "LND is down" });
+          res.json({ errorMessage: "LND is down" });
         }
       }
     });
@@ -1152,7 +1248,7 @@ module.exports = (
         res.sendStatus(403);
       } else {
         res.status(500);
-        res.send({ errorMessage: "LND is down" });
+        res.json({ errorMessage: "LND is down" });
       }
     }
     const paymentRequest = { payment_request: req.body.payreq };
@@ -1184,12 +1280,12 @@ module.exports = (
       logger.error("SendPayment Error:", err);
       const health = await checkHealth();
       if (health.LNDStatus.success) {
-        res.status(500).send({
+        res.status(500).json({
           errorMessage: sanitizeLNDError(err.message)
         });
       } else {
         res.status(500);
-        res.send({ errorMessage: "LND is down" });
+        res.json({ errorMessage: "LND is down" });
       }
     });
 
@@ -1205,7 +1301,7 @@ module.exports = (
         res.sendStatus(403);
       } else {
         res.status(500);
-        res.send({ errorMessage: "LND is down" });
+        res.json({ errorMessage: "LND is down" });
       }
       return false;
     }
@@ -1221,13 +1317,13 @@ module.exports = (
         logger.debug("AddInvoice Error:", err);
         const health = await checkHealth();
         if (health.LNDStatus.success) {
-          res.status(400).send({
+          res.status(400).json({
             field: "addInvoice",
             errorMessage: sanitizeLNDError(err.message)
           });
         } else {
           res.status(500);
-          res.send({ errorMessage: "LND is down" });
+          res.json({ errorMessage: "LND is down" });
         }
         return err;
       }
@@ -1245,7 +1341,7 @@ module.exports = (
         res.sendStatus(403);
       } else {
         res.status(500);
-        res.send({ errorMessage: "LND is down" });
+        res.json({ errorMessage: "LND is down" });
       }
     }
     lightning.signMessage(
@@ -1255,10 +1351,10 @@ module.exports = (
           logger.debug("SignMessage Error:", err);
           const health = await checkHealth();
           if (health.LNDStatus.success) {
-            res.status(400).send({ field: "signMessage", errorMessage: sanitizeLNDError(err.message) });
+            res.status(400).json({ field: "signMessage", errorMessage: sanitizeLNDError(err.message) });
           } else {
             res.status(500);
-            res.send({ errorMessage: "LND is down" });
+            res.json({ errorMessage: "LND is down" });
           }
         }
         logger.debug("SignMessage:", response);
@@ -1277,10 +1373,10 @@ module.exports = (
           logger.debug("VerifyMessage Error:", err);
           const health = await checkHealth();
           if (health.LNDStatus.success) {
-            res.status(400).send({ field: "verifyMessage", errorMessage: sanitizeLNDError(err.message) });
+            res.status(400).json({ field: "verifyMessage", errorMessage: sanitizeLNDError(err.message) });
           } else {
             res.status(500);
-            res.send({ errorMessage: "LND is down" });
+            res.json({ errorMessage: "LND is down" });
           }
         }
         logger.debug("VerifyMessage:", response);
@@ -1298,7 +1394,7 @@ module.exports = (
         res.sendStatus(403);
       } else {
         res.status(500);
-        res.send({ errorMessage: "LND is down" });
+        res.json({ errorMessage: "LND is down" });
       }
     }
     const sendCoinsRequest = { addr: req.body.addr, amount: req.body.amount };
@@ -1308,13 +1404,13 @@ module.exports = (
         logger.debug("SendCoins Error:", err);
         const health = await checkHealth();
         if (health.LNDStatus.success) {
-          res.status(400).send({
+          res.status(400).json({
             field: "sendCoins",
             errorMessage: sanitizeLNDError(err.message)
           });
         } else {
           res.status(500);
-          res.send({ errorMessage: "LND is down" });
+          res.json({ errorMessage: "LND is down" });
         }
       }
       logger.debug("SendCoins:", response);
@@ -1334,10 +1430,10 @@ module.exports = (
           logger.debug("QueryRoute Error:", err);
           const health = await checkHealth();
           if (health.LNDStatus.success) {
-            res.status(400).send({ field: "queryRoute", errorMessage: sanitizeLNDError(err.message) });
+            res.status(400).json({ field: "queryRoute", errorMessage: sanitizeLNDError(err.message) });
           } else {
             res.status(500);
-            res.send({ errorMessage: "LND is down" });
+            res.json({ errorMessage: "LND is down" });
           }
         }
         logger.debug("QueryRoute:", response);
@@ -1360,12 +1456,12 @@ module.exports = (
         if (err) {
           const health = await checkHealth();
           if (health.LNDStatus.success) {
-            res.status(400).send({
+            res.status(400).json({
               error: err.message
             });
           } else {
             res.status(500);
-            res.send({ errorMessage: "LND is down" });
+            res.json({ errorMessage: "LND is down" });
           }
         } else {
           logger.debug("EstimateFee:", fee);
