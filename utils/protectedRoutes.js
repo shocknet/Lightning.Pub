@@ -13,7 +13,8 @@ module.exports = {
       "/api/lnd/connect": true,
       "/api/lnd/wallet": true,
       "/api/lnd/wallet/existing": true,
-      "/api/lnd/auth": true
+      "/api/lnd/auth": true,
+      "/api/security/exchangeKeys": true
     },
     PUT: {},
     DELETE: {}
@@ -26,5 +27,6 @@ module.exports = {
     },
     PUT: {},
     DELETE: {}
-  }
+  },
+  nonEncryptedRoutes: ['/api/security/exchangeKeys', '/healthz', '/ping', '/api/lnd/wallet/status']
 }
