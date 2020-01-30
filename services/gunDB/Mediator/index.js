@@ -4,6 +4,8 @@
 const Gun = require('gun')
 // @ts-ignore
 require('gun/lib/open')
+// @ts-ignore
+require('gun/lib/load')
 const debounce = require('lodash/debounce')
 const once = require('lodash/once')
 const Encryption = require('../../../utils/encryptionStore')
@@ -195,6 +197,12 @@ const authenticate = async (alias, pass) => {
   } else if (typeof ack.sea === 'object') {
     API.Jobs.onAcceptedRequests(user, mySEA)
     API.Jobs.onOrders(user, gun, mySEA)
+
+    setInterval(() => {
+      user.get('outgoings').load(data => {
+        console.log(JSON.stringify(data, null, 4))
+      })
+    }, 1000)
 
     const mySec = await mySEA.secret(user._.sea.epub, user._.sea)
     if (typeof mySec !== 'string') {
