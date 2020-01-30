@@ -333,7 +333,6 @@ let lastUserWithListener = null
 
 const processOutgoings = async () => {
   const outs = encryptedOutgoings
-  encryptedOutgoings = {}
   const mySecret = await Utils.mySecret()
   const SEA = require('../../Mediator').mySEA
   const user = require('../../Mediator').getUser()
