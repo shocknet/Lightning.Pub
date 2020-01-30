@@ -342,18 +342,21 @@ const processOutgoings = async () => {
       return
     }
 
+    const withPub = await SEA.decrypt(out.with, mySecret)
+    const ourSecret = await SEA.secret(
+      await Utils.pubToEpub(withPub),
+      user._.sea
+    )
+
     if (!Schema.isPartialOutgoing(out)) {
       // incomplete data
       return
     }
 
     if (typeof currentOutgoings[id] === 'undefined') {
-      // We disable this rule because we are awaiting the result of the whole
-      // for each AND each callback looks only at one single ID
-      // eslint-disable-next-line require-atomic-updates
       currentOutgoings[id] = {
         messages: {},
-        with: await SEA.decrypt(out.with, mySecret)
+        with: withPub
       }
     }
 
@@ -362,30 +365,22 @@ const processOutgoings = async () => {
       return
     }
 
-    // on each open() only "messages" should change, not "with"
-    // also messages are non-nullable and non-editable
-
-    const ourSecret = await SEA.secret(
-      await Utils.pubToEpub(currentOut.with),
-      user._.sea
-    )
-
     await Utils.asyncForEach(
-      Object.entries(currentOut.messages),
+      Object.entries(currentOut.messages || {}),
       async ([msgID, msg]) => {
         if (!Schema.isMessage(msg)) {
           // incomplete data
           return
         }
+        let decryptedBody = ''
+        if (msg.body === Actions.INITIAL_MSG) {
+          decryptedBody = Actions.INITIAL_MSG
+        } else {
+          decryptedBody = await SEA.decrypt(msg.body, ourSecret)
+        }
+
         if (!currentOut.messages[msgID]) {
-          let decryptedBody = ''
-          if (msg.body === Actions.INITIAL_MSG) {
-            decryptedBody = Actions.INITIAL_MSG
-          } else {
-            decryptedBody = await SEA.decrypt(msg.body, ourSecret)
-          }
           // each callback only looks at one particular msgID
-          // eslint-disable-next-line require-atomic-updates
           currentOut.messages[msgID] = {
             body: decryptedBody,
             timestamp: msg.timestamp
@@ -438,9 +433,6 @@ let pubToAvatar = {}
 /** @type {Streams.DisplayNames} */
 let pubToDn = {}
 
-/** @type {Streams.Incomings} */
-let pubToIncoming = {}
-
 /**
  * @typedef {(chats: Chat[]) => void} ChatsListener
  */
@@ -472,7 +464,7 @@ const processChats = () => {
       timestamp: m.timestamp
     }))
 
-    const incoming = pubToIncoming[out.with]
+    const incoming = Streams.getPubToIncoming()[out.with]
 
     if (Array.isArray(incoming)) {
       msgs = [...msgs, ...incoming]
@@ -502,7 +494,10 @@ const processChats = () => {
 
   currentChats = chats
     .filter(c => c.messages.length > 0)
-    .filter(c => typeof pubToIncoming[c.recipientPublicKey] !== 'undefined')
+    .filter(
+      c =>
+        typeof Streams.getPubToIncoming()[c.recipientPublicKey] !== 'undefined'
+    )
   notifyChatsListeners()
 }
 
@@ -529,10 +524,7 @@ const onChats = cb => {
     pubToDn = ptd
     processChats()
   })
-  Streams.onIncoming(pti => {
-    pubToIncoming = pti
-    processChats()
-  })
+  Streams.onIncoming(processChats)
 
   return () => {
     chatsListeners.delete(cb)
