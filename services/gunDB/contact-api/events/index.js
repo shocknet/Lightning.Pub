@@ -465,6 +465,11 @@ const processChats = () => {
       msgs = [...msgs, ...incoming]
     }
 
+    console.log('-------------------------------------------------')
+    console.log(`msgs before filtering`)
+    console.log(msgs)
+    console.log('-------------------------------------------------')
+
     /** @type {Chat} */
     const chat = {
       recipientPublicKey: out.with,
