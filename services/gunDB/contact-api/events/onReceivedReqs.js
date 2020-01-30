@@ -43,6 +43,15 @@ const react = () => {
     const notAccepted = typeof pubToIncoming[req.from] === 'undefined'
 
     if (notAccepted) {
+      if (typeof pubToAvatar[req.from] === 'undefined') {
+        // eslint-disable-next-line no-empty-function
+        Streams.onAvatar(() => {}, req.from)
+      }
+      if (typeof pubToDn[req.from] === 'undefined') {
+        // eslint-disable-next-line no-empty-function
+        Streams.onDisplayName(() => {}, req.from)
+      }
+
       finalReqs.push({
         id,
         requestorAvatar: pubToAvatar[req.from] || null,

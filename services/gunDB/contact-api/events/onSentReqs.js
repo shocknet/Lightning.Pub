@@ -55,6 +55,15 @@ const react = () => {
       continue
     }
 
+    if (typeof pubToAvatar[recipientPub] === 'undefined') {
+      // eslint-disable-next-line no-empty-function
+      Streams.onAvatar(() => {}, recipientPub)
+    }
+    if (typeof pubToDN[recipientPub] === 'undefined') {
+      // eslint-disable-next-line no-empty-function
+      Streams.onDisplayName(() => {}, recipientPub)
+    }
+
     finalSentReqs.push({
       id: sentReqID,
       recipientAvatar: pubToAvatar[recipientPub] || null,
