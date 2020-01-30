@@ -432,12 +432,6 @@ const onOutgoing = cb => {
 /** @type {Outgoings} */
 let outgoings = {}
 
-/** @type {Streams.Avatars} */
-let pubToAvatar = {}
-
-/** @type {Streams.DisplayNames} */
-let pubToDn = {}
-
 /**
  * @typedef {(chats: Chat[]) => void} ChatsListener
  */
@@ -453,6 +447,8 @@ const notifyChatsListeners = () => {
 }
 
 const processChats = () => {
+  const pubToAvatar = Streams.getPubToAvatar()
+  const pubToDn = Streams.getPubToDn()
   const existingOutgoings = /** @type {[string, Outgoing][]} */ (Object.entries(
     outgoings
   ).filter(([_, o]) => o !== null))
@@ -521,14 +517,8 @@ const onChats = cb => {
     processChats()
   })
 
-  Streams.onAvatar(pta => {
-    pubToAvatar = pta
-    processChats()
-  })
-  Streams.onDisplayName(ptd => {
-    pubToDn = ptd
-    processChats()
-  })
+  Streams.onAvatar(processChats)
+  Streams.onDisplayName(processChats)
   Streams.onIncoming(processChats)
 
   return () => {
