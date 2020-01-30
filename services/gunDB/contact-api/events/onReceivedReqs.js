@@ -23,12 +23,6 @@ const Streams = require('../streams')
 
 const listeners = new Set()
 
-/** @type {Streams.Avatars} */
-let pubToAvatar = {}
-
-/** @type {Streams.DisplayNames} */
-let pubToDn = {}
-
 /** @type {SimpleReceivedRequest[]} */
 let currentReqs = []
 
@@ -42,6 +36,8 @@ const react = () => {
   /** @type {SimpleReceivedRequest[]} */
   const finalReqs = []
   const pubToIncoming = Streams.getPubToIncoming()
+  const pubToAvatar = Streams.getPubToAvatar()
+  const pubToDn = Streams.getPubToDn()
 
   for (const [id, req] of Object.entries(currentNode)) {
     const notAccepted = typeof pubToIncoming[req.from] === 'undefined'
@@ -115,18 +111,9 @@ const onReceivedReqs = cb => {
       }
     }, require('../../Mediator').getUser())
 
-    Streams.onAvatar(pta => {
-      pubToAvatar = pta
-      react()
-    })
-    Streams.onDisplayName(ptd => {
-      pubToDn = ptd
-      react()
-    })
-    Streams.onIncoming(pti => {
-      pubToIncoming = pti
-      react()
-    })
+    Streams.onAvatar(react)
+    Streams.onDisplayName(react)
+    Streams.onIncoming(react)
 
     subbed = true
   }
