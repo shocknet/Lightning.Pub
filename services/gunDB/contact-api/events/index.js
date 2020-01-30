@@ -331,67 +331,6 @@ const notifyOutgoingsListeners = () => {
 /** @type {UserGUNNode|null} */
 let lastUserWithListener = null
 
-const processOutgoings = async () => {
-  const outs = encryptedOutgoings
-  const mySecret = await Utils.mySecret()
-  const SEA = require('../../Mediator').mySEA
-  const user = require('../../Mediator').getUser()
-  await Utils.asyncForEach(Object.entries(outs), async ([id, out]) => {
-    if (out === null) {
-      currentOutgoings[id] = null
-      return
-    }
-
-    const withPub = await SEA.decrypt(out.with, mySecret)
-    const ourSecret = await SEA.secret(
-      await Utils.pubToEpub(withPub),
-      user._.sea
-    )
-
-    if (!Schema.isPartialOutgoing(out)) {
-      // incomplete data
-      return
-    }
-
-    if (typeof currentOutgoings[id] === 'undefined') {
-      currentOutgoings[id] = {
-        messages: {},
-        with: withPub
-      }
-    }
-
-    const currentOut = currentOutgoings[id]
-    if (currentOut === null) {
-      return
-    }
-
-    await Utils.asyncForEach(
-      Object.entries(currentOut.messages || {}),
-      async ([msgID, msg]) => {
-        if (!Schema.isMessage(msg)) {
-          // incomplete data
-          return
-        }
-        let decryptedBody = ''
-        if (msg.body === Actions.INITIAL_MSG) {
-          decryptedBody = Actions.INITIAL_MSG
-        } else {
-          decryptedBody = await SEA.decrypt(msg.body, ourSecret)
-        }
-
-        if (!currentOut.messages[msgID]) {
-          // each callback only looks at one particular msgID
-          currentOut.messages[msgID] = {
-            body: decryptedBody,
-            timestamp: msg.timestamp
-          }
-        }
-      }
-    )
-  })
-  notifyOutgoingsListeners()
-}
-
 /**
  * @param {OutgoingsListener} cb
  * @returns {() => void}
@@ -408,14 +347,77 @@ const onOutgoing = cb => {
     encryptedOutgoings = {}
     lastUserWithListener = currentUser
 
-    currentUser.get(Key.OUTGOINGS).open(data => {
+    currentUser.get(Key.OUTGOINGS).open(async data => {
       // deactivate this listener when user changes
       if (lastUserWithListener !== require('../../Mediator').getUser()) {
         return
       }
-      // @ts-ignore Let's skip schema checks for perf reasons
-      encryptedOutgoings = data
-      processOutgoings()
+
+      if (typeof data !== 'object' || data === null) {
+        currentOutgoings = {}
+        notifyOutgoingsListeners()
+        return
+      }
+
+      /** @type {Record<string, Outgoing>} */
+      const newOuts = {}
+
+      const SEA = require('../../Mediator').mySEA
+      const mySecret = await Utils.mySecret()
+
+      await Utils.asyncForEach(Object.entries(data), async ([id, out]) => {
+        if (typeof out !== 'object') {
+          return
+        }
+
+        if (out === null) {
+          // @ts-ignore
+          newOuts[id] = null
+          return
+        }
+
+        const { with: encPub, messages } = out
+
+        if (typeof encPub !== 'string') {
+          return
+        }
+
+        const pub = await SEA.decrypt(encPub, mySecret)
+
+        if (!newOuts[id]) {
+          newOuts[id] = {
+            with: pub,
+            messages: {}
+          }
+        }
+
+        const ourSec = await SEA.secret(
+          await Utils.pubToEpub(pub),
+          require('../../Mediator').getUser()._.sea
+        )
+
+        if (typeof messages === 'object' && messages !== null) {
+          await Utils.asyncForEach(
+            Object.entries(messages),
+            async ([mid, msg]) => {
+              if (typeof msg === 'object' && msg !== null) {
+                if (
+                  typeof msg.body === 'string' &&
+                  typeof msg.timestamp === 'number'
+                ) {
+                  newOuts[id].messages[mid] = {
+                    body: await SEA.decrypt(msg.body, ourSec),
+                    timestamp: msg.timestamp
+                  }
+                }
+              }
+            }
+          )
+        }
+      })
+
+      currentOutgoings = newOuts
+      notifyOutgoingsListeners()
     })
   }
 
