@@ -316,11 +316,6 @@ const onIncomingMessages = (cb, userPK, incomingFeedID, gun, user, SEA) => {
  */
 let currentOutgoings = {}
 
-/**
- * @type {Outgoings}
- */
-let encryptedOutgoings = {}
-
 /** @type {Set<OutgoingsListener>} */
 const outgoingsListeners = new Set()
 
@@ -344,7 +339,6 @@ const onOutgoing = cb => {
   if (lastUserWithListener !== currentUser) {
     // in case user changed gun alias
     currentOutgoings = {}
-    encryptedOutgoings = {}
     lastUserWithListener = currentUser
 
     currentUser.get(Key.OUTGOINGS).open(async data => {
