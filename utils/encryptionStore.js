@@ -87,7 +87,7 @@ const Encryption = {
       Crypto.generateKeyPair(
         'rsa',
         {
-          modulusLength: 4096,
+          modulusLength: 2048,
           privateKeyEncoding: {
             type: 'pkcs1',
             format: 'pem'
