@@ -6,7 +6,10 @@ const { Buffer } = require('buffer')
 const APIKeyPair = new Map()
 const authorizedDevices = new Map()
 
+const nonEncryptedEvents = ['ping', 'disconnect']
+
 const Encryption = {
+  isNonEncrypted: event => nonEncryptedEvents.includes(event),
   encryptKey: ({ deviceId, message }) => {
     if (!authorizedDevices.has(deviceId)) {
       throw { field: 'deviceId', message: 'Unknown Device ID' }
