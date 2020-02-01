@@ -327,7 +327,7 @@ module.exports = async (
     try {
       const { publicKey, deviceId } = req.body;
   
-      if (!publicKey || publicKey.length < 600) {
+      if (!publicKey) {
         return res.status(400).json({
           field: 'publicKey',
           message: "Please provide a valid public key"
