@@ -6,7 +6,10 @@ const { Buffer } = require('buffer')
 const APIKeyPair = new Map()
 const authorizedDevices = new Map()
 
+const nonEncryptedEvents = ['ping', 'disconnect']
+
 const Encryption = {
+  isNonEncrypted: event => nonEncryptedEvents.includes(event),
   encryptKey: ({ deviceId, message }) => {
     if (!authorizedDevices.has(deviceId)) {
       throw { field: 'deviceId', message: 'Unknown Device ID' }
@@ -87,7 +90,7 @@ const Encryption = {
       Crypto.generateKeyPair(
         'rsa',
         {
-          modulusLength: 4096,
+          modulusLength: 2048,
           privateKeyEncoding: {
             type: 'pkcs1',
             format: 'pem'

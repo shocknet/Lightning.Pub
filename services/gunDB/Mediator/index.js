@@ -325,9 +325,9 @@ class Mediator {
         const deviceId = socket.handshake.query['x-shockwallet-device-id']
         socket.on(eventName, data => {
           try {
-            // if (nonEncryptedEvents.includes(eventName)) {
-            //   return cb(data)
-            // }
+            if (Encryption.isNonEncrypted(eventName)) {
+              return cb(data)
+            }
 
             if (!data) {
               return cb(data)
@@ -350,7 +350,8 @@ class Mediator {
               console.error('Unknown Device', error)
               return false
             }
-            if(typeof data === 'string'){
+            console.log('Emitting Data...', data)
+            if (typeof data === 'string') {
               data = JSON.parse(data)
             }
             console.log('Event:', eventName)
@@ -378,6 +379,11 @@ class Mediator {
       },
       emit: (eventName, data) => {
         try {
+          if (Encryption.isNonEncrypted(eventName)) {
+            socket.emit(eventName, data)
+            return
+          }
+
           const deviceId = socket.handshake.query['x-shockwallet-device-id']
           const authorized = Encryption.isAuthorizedDevice({ deviceId })
           const encryptedMessage = authorized
