@@ -131,6 +131,7 @@ const Event = require('../event-constants')
  * @typedef {object} SimpleSocket
  * @prop {(eventName: string, data: Emission) => void} emit
  * @prop {(eventName: string, handler: (data: any) => void) => void} on
+ * @prop {{ query: { 'x-shockwallet-device-id': string }}} handshake
  */
 
 /* eslint-disable init-declarations */
@@ -342,15 +343,17 @@ class Mediator {
        */
       on: (eventName, cb) => {
         const deviceId = socket.handshake.query['x-shockwallet-device-id']
-        socket.on(eventName, data => {
+        socket.on(eventName, _data => {
           try {
             if (Encryption.isNonEncrypted(eventName)) {
               return cb(data)
             }
 
-            if (!data) {
-              return cb(data)
+            if (!_data) {
+              return cb(_data)
             }
+
+            let data = _data
 
             if (!deviceId) {
               const error = {
@@ -396,6 +399,7 @@ class Mediator {
           }
         })
       },
+      /** @type {SimpleSocket['emit']} */
       emit: (eventName, data) => {
         try {
           if (Encryption.isNonEncrypted(eventName)) {
