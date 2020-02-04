@@ -346,7 +346,7 @@ class Mediator {
         socket.on(eventName, _data => {
           try {
             if (Encryption.isNonEncrypted(eventName)) {
-              return cb(data)
+              return cb(_data)
             }
 
             if (!_data) {
