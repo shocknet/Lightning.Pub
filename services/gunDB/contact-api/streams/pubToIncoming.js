@@ -6,7 +6,7 @@ const Utils = require('../utils')
 
 /**
  * @typedef {import('../schema').ChatMessage} Message
- * @typedef {Record<string, Message[]|null>} Incomings
+ * @typedef {Record<string, Message[]|null|undefined>} Incomings
  * @typedef {(incomings: Incomings) => void} IncomingsListener
  */
 
