@@ -460,26 +460,6 @@ class Mediator {
         msg: null,
         origBody: body
       })
-
-      // refresh received requests
-      API.Events.onSimplerReceivedRequests(
-        debounce(
-          once(receivedRequests => {
-            if (Config.SHOW_LOG) {
-              console.log('---received requests---')
-              console.log(receivedRequests)
-              console.log('-----------------------')
-            }
-
-            this.socket.emit(Event.ON_RECEIVED_REQUESTS, {
-              msg: receivedRequests,
-              ok: true,
-              origBody: body
-            })
-          }),
-          300
-        )
-      )
     } catch (err) {
       console.log(err)
       this.socket.emit(Action.ACCEPT_REQUEST, {
