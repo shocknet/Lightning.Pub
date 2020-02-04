@@ -583,19 +583,6 @@ class Mediator {
         msg: null,
         origBody: body
       })
-
-      API.Events.onSimplerSentRequests(
-        debounce(
-          once(srs => {
-            this.socket.emit(Event.ON_SENT_REQUESTS, {
-              ok: true,
-              msg: srs,
-              origBody: body
-            })
-          }),
-          350
-        )
-      )
     } catch (err) {
       if (Config.SHOW_LOG) {
         console.log('\n')
