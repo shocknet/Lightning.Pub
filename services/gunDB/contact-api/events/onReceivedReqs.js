@@ -8,7 +8,7 @@ const Streams = require('../streams')
  */
 
 /**
- * @typedef {(chats: SimpleReceivedRequest[]) => void} Listener
+ * @typedef {(reqs: SimpleReceivedRequest[]) => void} Listener
  */
 
 const listeners = new Set()
