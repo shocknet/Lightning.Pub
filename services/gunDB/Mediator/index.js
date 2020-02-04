@@ -921,20 +921,14 @@ class Mediator {
 
       await throwOnInvalidToken(token)
 
-      await API.Events.onSimplerSentRequests(
+      API.Events.onSimplerSentRequests(
         debounce(sentRequests => {
-          if (Config.SHOW_LOG) {
-            console.log('---sentRequests---')
-            console.log(sentRequests)
-            console.log('-----------------------')
-          }
-
           this.socket.emit(Event.ON_SENT_REQUESTS, {
             msg: sentRequests,
             ok: true,
             origBody: body
           })
-        }, 200)
+        }, 1000)
       )
     } catch (err) {
       console.log(err)
