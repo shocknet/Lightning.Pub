@@ -12,7 +12,6 @@ exports.RECIPIENT_TO_OUTGOING = 'recipientToOutgoing'
 exports.USER_TO_INCOMING = 'userToIncoming'
 
 exports.STORED_REQS = 'storedReqs'
-exports.REQUEST_TO_USER = 'requestToUser'
 
 exports.BLACKLIST = 'blacklist'
 

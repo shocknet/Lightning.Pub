@@ -86,35 +86,6 @@ const pubToEpub = async pub => {
 }
 
 /**
- * @param {string} reqID
- * @param {ISEA} SEA
- * @param {string} mySecret
- * @returns {Promise<string>}
- */
-const reqToRecipientPub = async (reqID, SEA, mySecret) => {
-  const maybeEncryptedForMeRecipientPub = await tryAndWait(async (_, user) => {
-    const reqToUser = user.get(Key.REQUEST_TO_USER)
-    const data = await reqToUser.get(reqID).then()
-
-    if (typeof data !== 'string') {
-      throw new TypeError("typeof maybeEncryptedForMeRecipientPub !== 'string'")
-    }
-
-    return data
-  })
-
-  const encryptedForMeRecipientPub = maybeEncryptedForMeRecipientPub
-
-  const recipientPub = await SEA.decrypt(encryptedForMeRecipientPub, mySecret)
-
-  if (typeof recipientPub !== 'string') {
-    throw new TypeError("typeof recipientPub !== 'string'")
-  }
-
-  return recipientPub
-}
-
-/**
  * Should only be called with a recipient pub that has already been contacted.
  * If returns null, a disconnect happened.
  * @param {string} recipientPub
@@ -327,7 +298,6 @@ module.exports = {
   defaultName,
   delay,
   pubToEpub,
-  reqToRecipientPub,
   recipientPubToLastReqSentID,
   successfulHandshakeAlreadyExists,
   recipientToOutgoingID,

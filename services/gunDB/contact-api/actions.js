@@ -542,8 +542,6 @@ const sendHandshakeRequest = async (recipientPublicKey, gun, user, SEA) => {
       })
   })
 
-  // save request id to REQUEST_TO_USER
-
   const encryptedForMeRecipientPublicKey = await SEA.encrypt(
     recipientPublicKey,
     mySecret
@@ -552,22 +550,6 @@ const sendHandshakeRequest = async (recipientPublicKey, gun, user, SEA) => {
   // This needs to come before the write to sent requests. Because that write
   // triggers Jobs.onAcceptedRequests and it in turn reads from request-to-user
   // This also triggers Events.onSimplerSentRequests
-  await new Promise((res, rej) => {
-    user
-      .get(Key.REQUEST_TO_USER)
-      .get(newHandshakeRequestID)
-      .put(encryptedForMeRecipientPublicKey, ack => {
-        if (ack.err) {
-          rej(
-            new Error(
-              `Error saving recipient public key to request to user: ${ack.err}`
-            )
-          )
-        } else {
-          res()
-        }
-      })
-  })
 
   /**
    * @type {StoredReq}
