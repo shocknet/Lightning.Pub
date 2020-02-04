@@ -514,6 +514,11 @@ const sendHandshakeRequest = async (recipientPublicKey, gun, user, SEA) => {
     timestamp
   }
 
+  const encryptedForMeRecipientPublicKey = await SEA.encrypt(
+    recipientPublicKey,
+    mySecret
+  )
+
   console.log('sendHR() -> before newHandshakeRequestID')
   /** @type {string} */
   const newHandshakeRequestID = await new Promise((res, rej) => {
@@ -542,14 +547,8 @@ const sendHandshakeRequest = async (recipientPublicKey, gun, user, SEA) => {
       })
   })
 
-  const encryptedForMeRecipientPublicKey = await SEA.encrypt(
-    recipientPublicKey,
-    mySecret
-  )
-
   // This needs to come before the write to sent requests. Because that write
   // triggers Jobs.onAcceptedRequests and it in turn reads from request-to-user
-  // This also triggers Events.onSimplerSentRequests
 
   /**
    * @type {StoredReq}

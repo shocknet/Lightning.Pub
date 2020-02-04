@@ -372,16 +372,9 @@ class Mediator {
               console.error('Unknown Device', error)
               return false
             }
-            console.log('Emitting Data...', data)
             if (typeof data === 'string') {
               data = JSON.parse(data)
             }
-            console.log('Event:', eventName)
-            console.log('Data:', data)
-            console.log('Decrypt params:', {
-              deviceId,
-              message: data.encryptedKey
-            })
             const decryptedKey = Encryption.decryptKey({
               deviceId,
               message: data.encryptedKey
@@ -415,7 +408,7 @@ class Mediator {
                 deviceId
               })
             : data
-          console.log('Sending Message...', eventName, data, encryptedMessage)
+
           socket.emit(eventName, encryptedMessage)
         } catch (err) {
           console.error(err)
@@ -928,19 +921,21 @@ class Mediator {
 
       await throwOnInvalidToken(token)
 
-      await API.Events.onSimplerSentRequests(sentRequests => {
-        if (Config.SHOW_LOG) {
-          console.log('---sentRequests---')
-          console.log(sentRequests)
-          console.log('-----------------------')
-        }
+      await API.Events.onSimplerSentRequests(
+        debounce(sentRequests => {
+          if (Config.SHOW_LOG) {
+            console.log('---sentRequests---')
+            console.log(sentRequests)
+            console.log('-----------------------')
+          }
 
-        this.socket.emit(Event.ON_SENT_REQUESTS, {
-          msg: sentRequests,
-          ok: true,
-          origBody: body
-        })
-      })
+          this.socket.emit(Event.ON_SENT_REQUESTS, {
+            msg: sentRequests,
+            ok: true,
+            origBody: body
+          })
+        }, 200)
+      )
     } catch (err) {
       console.log(err)
       this.socket.emit(Event.ON_SENT_REQUESTS, {
