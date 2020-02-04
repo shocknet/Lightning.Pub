@@ -55,13 +55,18 @@ const react = () => {
       continue
     }
 
+    if (typeof currAddress === 'undefined') {
+      // eslint-disable-next-line no-empty-function
+      Streams.onAddresses(() => {}, recipientPub)()
+    }
+
     if (typeof pubToAvatar[recipientPub] === 'undefined') {
       // eslint-disable-next-line no-empty-function
-      Streams.onAvatar(() => {}, recipientPub)
+      Streams.onAvatar(() => {}, recipientPub)()
     }
     if (typeof pubToDN[recipientPub] === 'undefined') {
       // eslint-disable-next-line no-empty-function
-      Streams.onDisplayName(() => {}, recipientPub)
+      Streams.onDisplayName(() => {}, recipientPub)()
     }
 
     finalSentReqs.push({
@@ -74,14 +79,6 @@ const react = () => {
       timestamp
     })
   }
-
-  if (finalSentReqs.length > 0) {
-    console.log('-------------------------')
-    console.log('pub to incoming')
-    console.log(pubToIncoming)
-    console.log('-------------------------')
-  }
-
   currentReqs = finalSentReqs
 
   listeners.forEach(l => l(currentReqs))
