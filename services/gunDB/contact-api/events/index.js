@@ -323,8 +323,7 @@ const notifyOutgoingsListeners = () => {
   outgoingsListeners.forEach(l => l(currentOutgoings))
 }
 
-/** @type {UserGUNNode|null} */
-let lastUserWithListener = null
+let outSubbed = false
 
 /**
  * @param {OutgoingsListener} cb
@@ -334,88 +333,92 @@ const onOutgoing = cb => {
   outgoingsListeners.add(cb)
   cb(currentOutgoings)
 
-  const currentUser = require('../../Mediator').getUser()
-
-  if (lastUserWithListener !== currentUser) {
-    // in case user changed gun alias
-    currentOutgoings = {}
-    lastUserWithListener = currentUser
-
-    currentUser.get(Key.OUTGOINGS).open(async data => {
-      // deactivate this listener when user changes
-      if (lastUserWithListener !== require('../../Mediator').getUser()) {
-        return
-      }
-
-      if (typeof data !== 'object' || data === null) {
-        currentOutgoings = {}
-        notifyOutgoingsListeners()
-        return
-      }
-
-      /** @type {Record<string, Outgoing>} */
-      const newOuts = {}
-
-      const SEA = require('../../Mediator').mySEA
-      const mySecret = await Utils.mySecret()
-
-      await Utils.asyncForEach(Object.entries(data), async ([id, out]) => {
-        if (typeof out !== 'object') {
-          return
-        }
-
-        if (out === null) {
-          // @ts-ignore
-          newOuts[id] = null
-          return
-        }
-
-        const { with: encPub, messages } = out
-
-        if (typeof encPub !== 'string') {
-          return
-        }
-
-        const pub = await SEA.decrypt(encPub, mySecret)
-
-        if (!newOuts[id]) {
-          newOuts[id] = {
-            with: pub,
-            messages: {}
+  if (!outSubbed) {
+    const user = require('../../Mediator').getUser()
+    user.get(Key.OUTGOINGS).open(
+      debounce(async data => {
+        try {
+          if (typeof data !== 'object' || data === null) {
+            currentOutgoings = {}
+            notifyOutgoingsListeners()
+            return
           }
-        }
 
-        const ourSec = await SEA.secret(
-          await Utils.pubToEpub(pub),
-          require('../../Mediator').getUser()._.sea
-        )
+          /** @type {Record<string, Outgoing|null>} */
+          const newOuts = {}
 
-        if (typeof messages === 'object' && messages !== null) {
-          await Utils.asyncForEach(
-            Object.entries(messages),
-            async ([mid, msg]) => {
-              if (typeof msg === 'object' && msg !== null) {
-                if (
-                  typeof msg.body === 'string' &&
-                  typeof msg.timestamp === 'number'
-                ) {
-                  newOuts[id].messages[mid] = {
-                    body:
-                      msg.body === Actions.INITIAL_MSG
-                        ? Actions.INITIAL_MSG
-                        : await SEA.decrypt(msg.body, ourSec),
-                    timestamp: msg.timestamp
-                  }
-                }
+          const SEA = require('../../Mediator').mySEA
+          const mySecret = await Utils.mySecret()
+
+          await Utils.asyncForEach(Object.entries(data), async ([id, out]) => {
+            if (typeof out !== 'object') {
+              return
+            }
+
+            if (out === null) {
+              newOuts[id] = null
+              return
+            }
+
+            const { with: encPub, messages } = out
+
+            if (typeof encPub !== 'string') {
+              return
+            }
+
+            const pub = await SEA.decrypt(encPub, mySecret)
+
+            if (!newOuts[id]) {
+              newOuts[id] = {
+                with: pub,
+                messages: {}
               }
             }
-          )
-        }
-      })
 
-      currentOutgoings = newOuts
-      notifyOutgoingsListeners()
-    })
+            const ourSec = await SEA.secret(
+              await Utils.pubToEpub(pub),
+              user._.sea
+            )
+
+            if (typeof messages === 'object' && messages !== null) {
+              await Utils.asyncForEach(
+                Object.entries(messages),
+                async ([mid, msg]) => {
+                  if (typeof msg === 'object' && msg !== null) {
+                    if (
+                      typeof msg.body === 'string' &&
+                      typeof msg.timestamp === 'number'
+                    ) {
+                      const newOut = newOuts[id]
+                      if (!newOut) {
+                        return
+                      }
+                      newOut.messages[mid] = {
+                        body:
+                          msg.body === Actions.INITIAL_MSG
+                            ? Actions.INITIAL_MSG
+                            : await SEA.decrypt(msg.body, ourSec),
+                        timestamp: msg.timestamp
+                      }
+                    }
+                  }
+                }
+              )
+            }
+          })
+
+          currentOutgoings = newOuts
+          notifyOutgoingsListeners()
+        } catch (e) {
+          console.log('--------------------------')
+          console.log('Events -> onOutgoing')
+          console.log(e)
+          console.log('--------------------------')
+        }
+      }, 400)
+    )
+
+    outSubbed = true
   }
 
   return () => {
