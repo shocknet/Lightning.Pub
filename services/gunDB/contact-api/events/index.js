@@ -27,55 +27,6 @@ const Utils = require('../utils')
 const DEBOUNCE_WAIT_TIME = 500
 
 /**
- * Maps a sent request ID to the public key of the user it was sent to.
- * @param {(requestToUser: Record<string, string>) => void} cb
- * @param {UserGUNNode} user Pass only for testing purposes.
- * @param {ISEA} SEA
- * @returns {Promise<void>}
- */
-const __onSentRequestToUser = async (cb, user, SEA) => {
-  if (!user.is) {
-    throw new Error(ErrorCode.NOT_AUTH)
-  }
-
-  const callb = debounce(cb, DEBOUNCE_WAIT_TIME)
-
-  /** @type {Record<string, string>} */
-  const requestToUser = {}
-  callb(requestToUser)
-
-  const mySecret = await SEA.secret(user._.sea.epub, user._.sea)
-  if (typeof mySecret !== 'string') {
-    throw new TypeError(
-      "__onSentRequestToUser() -> typeof mySecret !== 'string'"
-    )
-  }
-
-  user
-    .get(Key.REQUEST_TO_USER)
-    .map()
-    .on(async (encryptedUserPub, requestID) => {
-      if (typeof encryptedUserPub !== 'string') {
-        console.error('got a non string value')
-        return
-      }
-      if (encryptedUserPub.length === 0) {
-        console.error('got an empty string value')
-        return
-      }
-
-      const userPub = await SEA.decrypt(encryptedUserPub, mySecret)
-      if (typeof userPub !== 'string') {
-        console.log(`__onSentRequestToUser() -> typeof userPub !== 'string'`)
-        return
-      }
-
-      requestToUser[requestID] = userPub
-      callb(requestToUser)
-    })
-}
-
-/**
  * @param {(userToIncoming: Record<string, string>) => void} cb
  * @param {UserGUNNode} user Pass only for testing purposes.
  * @param {ISEA} SEA
@@ -583,7 +534,6 @@ const onSeedBackup = async (cb, user, SEA) => {
 }
 
 module.exports = {
-  __onSentRequestToUser,
   __onUserToIncoming,
   onAvatar,
   onBlacklist,
