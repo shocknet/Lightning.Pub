@@ -3,17 +3,7 @@ const Key = require('../key')
 const Schema = require('../schema')
 const Streams = require('../streams')
 /**
- * @typedef {import('../SimpleGUN').UserGUNNode} UserGUNNode
- * @typedef {import('../SimpleGUN').GUNNode} GUNNode
- * @typedef {import('../SimpleGUN').ISEA} ISEA
- * @typedef {import('../SimpleGUN').ListenerData} ListenerData
  * @typedef {import('../schema').HandshakeRequest} HandshakeRequest
- * @typedef {import('../schema').Message} Message
- * @typedef {import('../schema').Outgoing} Outgoing
- * @typedef {import('../schema').PartialOutgoing} PartialOutgoing
- * @typedef {import('../schema').Chat} Chat
- * @typedef {import('../schema').ChatMessage} ChatMessage
- * @typedef {import('../schema').SimpleSentRequest} SimpleSentRequest
  * @typedef {import('../schema').SimpleReceivedRequest} SimpleReceivedRequest
  */
 
