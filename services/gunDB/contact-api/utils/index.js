@@ -152,52 +152,6 @@ const recipientToOutgoingID = async recipientPub => {
 }
 
 /**
- * @param {string} reqResponse
- * @param {string} recipientPub
- * @param {UserGUNNode} user
- * @param {ISEA} SEA
- * @returns {Promise<boolean>}
- */
-const reqWasAccepted = async (reqResponse, recipientPub, user, SEA) => {
-  try {
-    const recipientEpub = await pubToEpub(recipientPub)
-    const ourSecret = await SEA.secret(recipientEpub, user._.sea)
-    if (typeof ourSecret !== 'string') {
-      throw new TypeError('typeof ourSecret !== "string"')
-    }
-
-    const decryptedResponse = await SEA.decrypt(reqResponse, ourSecret)
-
-    if (typeof decryptedResponse !== 'string') {
-      throw new TypeError('typeof decryptedResponse !== "string"')
-    }
-
-    const myFeedID = await recipientToOutgoingID(recipientPub)
-
-    if (typeof myFeedID === 'string' && decryptedResponse === myFeedID) {
-      return false
-    }
-
-    const recipientFeedID = decryptedResponse
-
-    const maybeFeed = await tryAndWait(gun =>
-      gun
-        .user(recipientPub)
-        .get(Key.OUTGOINGS)
-        .get(recipientFeedID)
-        .then()
-    )
-
-    const feedExistsOnRecipient =
-      typeof maybeFeed === 'object' && maybeFeed !== null
-
-    return feedExistsOnRecipient
-  } catch (err) {
-    throw new Error(`reqWasAccepted() -> ${err.message}`)
-  }
-}
-
-/**
  *
  * @param {string} userPub
  * @returns {Promise<string|null>}
@@ -301,7 +255,6 @@ module.exports = {
   recipientPubToLastReqSentID,
   successfulHandshakeAlreadyExists,
   recipientToOutgoingID,
-  reqWasAccepted,
   currHandshakeAddress,
   tryAndWait,
   mySecret,
