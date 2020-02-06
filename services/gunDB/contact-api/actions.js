@@ -364,17 +364,15 @@ const blacklist = (publicKey, user) =>
   })
 
 /**
- * @param {UserGUNNode} user
  * @returns {Promise<void>}
  */
-const generateHandshakeAddress = user =>
-  new Promise((res, rej) => {
-    if (!user.is) {
-      throw new Error(ErrorCode.NOT_AUTH)
-    }
+const generateHandshakeAddress = async () => {
+  const gun = require('../Mediator').getGun()
+  const user = require('../Mediator').getUser()
 
-    const address = uuidv1()
+  const address = uuidv1()
 
+  await new Promise((res, rej) => {
     user.get(Key.CURRENT_HANDSHAKE_ADDRESS).put(address, ack => {
       if (ack.err) {
         rej(new Error(ack.err))
@@ -383,6 +381,20 @@ const generateHandshakeAddress = user =>
       }
     })
   })
+
+  await new Promise((res, rej) => {
+    gun
+      .get(Key.HANDSHAKE_NODES)
+      .get(address)
+      .put({ unused: 0 }, ack => {
+        if (ack.err) {
+          rej(new Error(ack.err))
+        } else {
+          res()
+        }
+      })
+  })
+}
 
 /**
  * @param {string} recipientPublicKey
@@ -1098,7 +1110,7 @@ const disconnect = async pub => {
       })
   })
 
-  await generateHandshakeAddress(require('../Mediator').getUser())
+  await generateHandshakeAddress()
 }
 
 module.exports = {

@@ -502,7 +502,7 @@ class Mediator {
 
       await throwOnInvalidToken(token)
 
-      await API.Actions.generateHandshakeAddress(user)
+      await API.Actions.generateHandshakeAddress()
 
       this.socket.emit(Action.GENERATE_NEW_HANDSHAKE_NODE, {
         ok: true,
@@ -1105,7 +1105,7 @@ const register = async (alias, pass) => {
 
   return authenticate(alias, pass).then(async pub => {
     await API.Actions.setDisplayName('anon' + pub.slice(0, 8), user)
-    await API.Actions.generateHandshakeAddress(user)
+    await API.Actions.generateHandshakeAddress()
     await API.Actions.generateOrderAddress(user)
     return pub
   })
