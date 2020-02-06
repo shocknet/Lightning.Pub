@@ -148,6 +148,11 @@ let user
 let _currentAlias = ''
 let _currentPass = ''
 
+let mySec = ''
+
+/** @returns {string} */
+const getMySecret = () => mySec
+
 let _isAuthenticating = false
 let _isRegistering = false
 
@@ -197,10 +202,7 @@ const authenticate = async (alias, pass) => {
     API.Jobs.onAcceptedRequests(user, mySEA)
     API.Jobs.onOrders(user, gun, mySEA)
 
-    const mySec = await mySEA.secret(user._.sea.epub, user._.sea)
-    if (typeof mySec !== 'string') {
-      throw new TypeError('mySec not an string')
-    }
+    mySec = await mySEA.secret(user._.sea.epub, user._.sea)
 
     _currentAlias = user.is ? user.is.alias : ''
     _currentPass = await mySEA.encrypt(pass, mySec)
@@ -1083,9 +1085,6 @@ const register = async (alias, pass) => {
   _isRegistering = false
 
   const mySecret = await mySEA.secret(user._.sea.epub, user._.sea)
-  if (typeof mySecret !== 'string') {
-    throw new Error('Could not generate secret for user.')
-  }
 
   if (typeof ack.err === 'string') {
     throw new Error(ack.err)
@@ -1145,5 +1144,6 @@ module.exports = {
   instantiateGun,
   getGun,
   getUser,
-  mySEA
+  mySEA,
+  getMySecret
 }

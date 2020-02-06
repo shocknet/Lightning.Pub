@@ -19,13 +19,7 @@ const delay = ms => new Promise(res => setTimeout(res, ms))
 /**
  * @returns {Promise<string>}
  */
-const mySecret = () => {
-  const user = require('../../Mediator/index').getUser()
-  return require('../../Mediator/index').mySEA.secret(
-    user._.sea.epub,
-    user._.sea
-  )
-}
+const mySecret = () => Promise.resolve(require('../../Mediator').getMySecret())
 
 /**
  * @template T
