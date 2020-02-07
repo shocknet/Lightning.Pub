@@ -48,7 +48,7 @@ const server = program => {
     if (!nonEncryptedRoutes.includes(req.path)) {
       res.send = (...args) => {
         if (args[0] && args[0].encryptedData && args[0].encryptionKey) {
-          console.log('Response loop detected', req.path, args[0])
+          logger.warn('Response loop detected!')
           oldSend.apply(res, args)
         } else {
           // arguments[0] (or `data`) contains the response body

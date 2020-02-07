@@ -392,7 +392,6 @@ class Mediator {
                 deviceId
               })
             : data
-          console.log('Sending Message...', eventName, data, encryptedMessage)
           socket.emit(eventName, encryptedMessage)
         } catch (err) {
           console.error(err)
