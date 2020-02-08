@@ -39,7 +39,7 @@ const Encryption = {
       },
       data
     )
-    console.log('Decrypted Data:', encryptedData)
+
     return encryptedData.toString()
   },
   encryptMessage: ({ deviceId, message }) => {
@@ -74,7 +74,7 @@ const Encryption = {
       Buffer.from(cipher.final())
     ])
     const decryptedData = decryptedBuffer.toString()
-    console.log('Decrypted Data:', decryptedData)
+
     return decryptedData.toString()
   },
   isAuthorizedDevice: ({ deviceId }) => {
