@@ -42,10 +42,7 @@ const __onUserToIncoming = async (cb, user, SEA) => {
   /** @type {Record<string, string>} */
   const userToIncoming = {}
 
-  const mySecret = await SEA.secret(user._.sea.epub, user._.sea)
-  if (typeof mySecret !== 'string') {
-    throw new TypeError("__onUserToIncoming() -> typeof mySecret !== 'string'")
-  }
+  const mySecret = require('../../Mediator').getMySecret()
 
   user
     .get(Key.USER_TO_INCOMING)
@@ -520,7 +517,7 @@ const onSeedBackup = async (cb, user, SEA) => {
     throw new Error(ErrorCode.NOT_AUTH)
   }
 
-  const mySecret = await SEA.secret(user._.sea.epub, user._.sea)
+  const mySecret = require('../../Mediator').getMySecret()
 
   const callb = debounce(cb, DEBOUNCE_WAIT_TIME)
   callb(currentSeedBackup)

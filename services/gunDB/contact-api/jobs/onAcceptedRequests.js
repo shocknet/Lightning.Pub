@@ -23,7 +23,7 @@ const onAcceptedRequests = async (user, SEA) => {
     throw new Error(ErrorCode.NOT_AUTH)
   }
 
-  const mySecret = await SEA.secret(user._.sea.epub, user._.sea)
+  const mySecret = require('../../Mediator').getMySecret()
 
   if (typeof mySecret !== 'string') {
     console.log("Jobs.onAcceptedRequests() -> typeof mySecret !== 'string'")

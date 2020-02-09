@@ -58,12 +58,7 @@ const __createOutgoingFeed = async (withPublicKey, user, SEA) => {
     throw new Error(ErrorCode.NOT_AUTH)
   }
 
-  const mySecret = await SEA.secret(user._.sea.epub, user._.sea)
-  if (typeof mySecret !== 'string') {
-    throw new TypeError(
-      "__createOutgoingFeed() -> typeof mySecret !== 'string'"
-    )
-  }
+  const mySecret = require('../Mediator').getMySecret()
   const encryptedForMeRecipientPub = await SEA.encrypt(withPublicKey, mySecret)
 
   const maybeEncryptedForMeOutgoingFeedID = await Utils.tryAndWait(
@@ -254,10 +249,7 @@ const acceptRequest = async (
     SEA
   )
 
-  const mySecret = await SEA.secret(user._.sea.epub, user._.sea)
-  if (typeof mySecret !== 'string') {
-    throw new TypeError("acceptRequest() -> typeof mySecret !== 'string'")
-  }
+  const mySecret = require('../Mediator').getMySecret()
   const encryptedForMeIncomingID = await SEA.encrypt(incomingID, mySecret)
 
   await new Promise((res, rej) => {
@@ -430,7 +422,7 @@ const sendHandshakeRequest = async (recipientPublicKey, gun, user, SEA) => {
 
   console.log('sendHR() -> before mySecret')
 
-  const mySecret = await SEA.secret(user._.sea.epub, user._.sea)
+  const mySecret = require('../Mediator').getMySecret()
   console.log('sendHR() -> before ourSecret')
   const ourSecret = await SEA.secret(recipientEpub, user._.sea)
 
@@ -1030,7 +1022,7 @@ const saveSeedBackup = async (mnemonicPhrase, user, SEA) => {
     throw new TypeError('expected mnemonicPhrase to be an string array')
   }
 
-  const mySecret = await SEA.secret(user._.sea.epub, user._.sea)
+  const mySecret = require('../Mediator').getMySecret()
   const encryptedSeed = await SEA.encrypt(mnemonicPhrase.join(' '), mySecret)
 
   return new Promise((res, rej) => {
