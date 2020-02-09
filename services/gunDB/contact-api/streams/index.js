@@ -180,5 +180,6 @@ module.exports = {
   onAddresses: require('./addresses').onAddresses,
   getAddresses: require('./addresses').getAddresses,
   onLastSentReqIDs: require('./lastSentReqID').onLastSentReqIDs,
-  getSentReqIDs: require('./lastSentReqID').getSentReqIDs
+  getSentReqIDs: require('./lastSentReqID').getSentReqIDs,
+  PubToIncoming: require('./pubToIncoming')
 }
