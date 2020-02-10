@@ -8,7 +8,9 @@ const jsonfile = require('jsonfile')
 const path = require('path')
 const logger = require('winston')
 const FS = require('../../utils/fs')
-const secretsFilePath = path.resolve(__dirname, 'secrets.json')
+
+const rootFolder = process.resourcesPath || __dirname
+const secretsFilePath = path.resolve(rootFolder, 'secrets.json')
 
 class Auth {
   verifySecretsFile = async () => {
