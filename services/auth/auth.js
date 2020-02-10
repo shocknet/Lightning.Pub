@@ -15,7 +15,6 @@ const secretsFilePath = path.resolve(rootFolder, 'secrets.json')
 class Auth {
   verifySecretsFile = async () => {
     try {
-      logger.info('Verifying secrets file...', secretsFilePath)
       const fileExists = await FS.access(secretsFilePath)
 
       if (!fileExists) {
@@ -61,7 +60,7 @@ class Auth {
         .then(() => {
           jsonfile.readFile(secretsFilePath, (err, allSecrets) => {
             if (err) {
-              logger.info('readSecrets err', err)
+              logger.error('readSecrets err', err)
               reject('Problem reading secrets file')
             } else {
               resolve(allSecrets)
