@@ -13,6 +13,7 @@ const secretsFilePath = path.resolve(__dirname, 'secrets.json')
 class Auth {
   verifySecretsFile = async () => {
     try {
+      logger.info('Verifying secrets file...', secretsFilePath)
       const fileExists = await FS.access(secretsFilePath)
 
       if (!fileExists) {
@@ -37,6 +38,7 @@ class Auth {
     const { exists, parsable } = await this.verifySecretsFile()
 
     if (exists && parsable) {
+      logger.info('Secrets file exists!')
       return true
     }
 
@@ -53,44 +55,47 @@ class Auth {
 
   readSecrets = () =>
     new Promise((resolve, reject) => {
-      this.initSecretsFile().then(() => {
-        jsonfile.readFile(secretsFilePath, (err, allSecrets) => {
-          if (err) {
-            logger.info('readSecrets err', err)
-            reject('Problem reading secrets file')
-          } else {
-            resolve(allSecrets)
-          }
+      this.initSecretsFile()
+        .then(() => {
+          jsonfile.readFile(secretsFilePath, (err, allSecrets) => {
+            if (err) {
+              logger.info('readSecrets err', err)
+              reject('Problem reading secrets file')
+            } else {
+              resolve(allSecrets)
+            }
+          })
         })
-      })
+        .catch(reject)
     })
 
-  writeSecrets(key, value) {
-    return this.initSecretsFile()
-      .then(() => this.readSecrets())
-      .then(allSecrets => {
-        return new Promise((resolve, reject) => {
-          allSecrets[key] = value
-          jsonfile.writeFile(
-            secretsFilePath,
-            allSecrets,
-            { spaces: 2, EOL: '\r\n' },
-            err => {
-              if (err) {
-                logger.info('writeSecrets err', err)
-                reject(err)
-              } else {
-                resolve(true)
-              }
-            }
-          )
-        })
-      })
+  async writeSecrets(key, value) {
+    await this.initSecretsFile()
+    const allSecrets = await this.readSecrets()
+    return new Promise((resolve, reject) => {
+      allSecrets[key] = value
+      logger.info('Writing new secret:', secretsFilePath)
+      jsonfile.writeFile(
+        secretsFilePath,
+        allSecrets,
+        { spaces: 2, EOL: '\r\n' },
+        err => {
+          if (err) {
+            logger.error('writeSecrets err', err)
+            reject(err)
+          } else {
+            logger.info('New secret saved!')
+            resolve(true)
+          }
+        }
+      )
+    })
   }
 
   async generateToken() {
     const timestamp = Date.now()
     const secret = uuidv1()
+    logger.info('Generating new secret...')
     const token = jwt.sign(
       {
         data: { timestamp }
@@ -98,6 +103,7 @@ class Auth {
       secret,
       { expiresIn: '500h' }
     )
+    logger.info('Saving secret...')
     await this.writeSecrets(timestamp, secret)
     return token
   }
