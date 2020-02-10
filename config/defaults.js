@@ -2,8 +2,6 @@ const os = require("os");
 const path = require("path");
 const platform = os.platform();
 const homeDir = os.homedir();
-// @ts-ignore
-const rootFolder = process.resourcesPath || __dirname
 
 const getLndDirectory = () => {
   if (platform === "darwin") {
@@ -37,7 +35,7 @@ module.exports = (mainnet = false) => {
     sessionMaxAge: 300000,
     lndAddress: "127.0.0.1:9735",
     maxNumRoutesToQuery: 20,
-    lndProto: parsePath(`${rootFolder}/rpc.proto`),
+    lndProto: parsePath(`${__dirname}/rpc.proto`),
     lndHost: "localhost:10009",
     lndCertPath: parsePath(`${lndDirectory}/tls.cert`),
     macaroonPath: parsePath(
