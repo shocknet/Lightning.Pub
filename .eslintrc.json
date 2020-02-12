@@ -69,7 +69,13 @@
     "id-length": "off",
 
     // typescript does this
-    "no-unused-vars": "off"
+    "no-unused-vars": "off",
+
+    // https://github.com/prettier/eslint-config-prettier/issues/132
+    "line-comment-position": "off",
+
+    // if someone does this it's probably intentional
+    "no-useless-concat": "off"
   },
   "parser": "babel-eslint",
   "env": {
