@@ -11,6 +11,7 @@ const Streams = require('../streams')
  * @typedef {(reqs: SimpleReceivedRequest[]) => void} Listener
  */
 
+/** @type {Set<Listener>} */
 const listeners = new Set()
 
 /** @type {SimpleReceivedRequest[]} */
@@ -30,16 +31,17 @@ const react = () => {
   const pubToDn = Streams.getPubToDn()
 
   for (const [id, req] of Object.entries(currentNode)) {
+    // HERE
     const notAccepted = typeof pubToIncoming[req.from] === 'undefined'
 
     if (notAccepted) {
       if (typeof pubToAvatar[req.from] === 'undefined') {
         // eslint-disable-next-line no-empty-function
-        Streams.onAvatar(() => {}, req.from)
+        Streams.onAvatar(() => {}, req.from)()
       }
       if (typeof pubToDn[req.from] === 'undefined') {
         // eslint-disable-next-line no-empty-function
-        Streams.onDisplayName(() => {}, req.from)
+        Streams.onDisplayName(() => {}, req.from)()
       }
 
       finalReqs.push({
@@ -59,7 +61,6 @@ const react = () => {
 }
 
 /**
- *
  * @param {string} addr
  * @returns {(data: import('../SimpleGUN').OpenListenerData) => void}
  */
