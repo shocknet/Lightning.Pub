@@ -30,9 +30,9 @@ const DEBOUNCE_WAIT_TIME = 500
  * @param {(userToIncoming: Record<string, string>) => void} cb
  * @param {UserGUNNode} user Pass only for testing purposes.
  * @param {ISEA} SEA
- * @returns {Promise<void>}
+ * @returns {void}
  */
-const __onUserToIncoming = async (cb, user, SEA) => {
+const __onUserToIncoming = (cb, user, SEA) => {
   if (!user.is) {
     throw new Error(ErrorCode.NOT_AUTH)
   }
@@ -233,17 +233,7 @@ const onIncomingMessages = (cb, userPK, incomingFeedID, gun, user, SEA) => {
       const secret = await SEA.secret(recipientEpub, user._.sea)
 
       let { body } = data
-
-      if (body !== Actions.INITIAL_MSG) {
-        const decrypted = await SEA.decrypt(body, secret)
-
-        if (typeof decrypted !== 'string') {
-          console.log("onIncommingMessages() -> typeof decrypted !== 'string'")
-          return
-        }
-
-        body = decrypted
-      }
+      body = await SEA.decrypt(body, secret)
 
       messages[key] = {
         body,
@@ -342,10 +332,7 @@ const onOutgoing = cb => {
                         return
                       }
                       newOut.messages[mid] = {
-                        body:
-                          msg.body === Actions.INITIAL_MSG
-                            ? Actions.INITIAL_MSG
-                            : await SEA.decrypt(msg.body, ourSec),
+                        body: await SEA.decrypt(msg.body, ourSec),
                         timestamp: msg.timestamp
                       }
                     }
