@@ -254,6 +254,8 @@ const onIncomingMessages = (cb, userPK, incomingFeedID, gun, user, SEA) => {
  */
 let currentOutgoings = {}
 
+const getCurrentOutgoings = () => currentOutgoings
+
 /** @type {Set<OutgoingsListener>} */
 const outgoingsListeners = new Set()
 
@@ -497,9 +499,9 @@ let currentSeedBackup = null
  * @param {UserGUNNode} user
  * @param {ISEA} SEA
  * @throws {Error} If user hasn't been auth.
- * @returns {Promise<void>}
+ * @returns {void}
  */
-const onSeedBackup = async (cb, user, SEA) => {
+const onSeedBackup = (cb, user, SEA) => {
   if (!user.is) {
     throw new Error(ErrorCode.NOT_AUTH)
   }
@@ -525,7 +527,7 @@ module.exports = {
   onDisplayName,
   onIncomingMessages,
   onOutgoing,
-  onChats,
+  getCurrentOutgoings,
   onSimplerReceivedRequests: require('./onReceivedReqs'),
   onSimplerSentRequests: require('./onSentReqs').onSentReqs,
   getCurrentSentReqs: require('./onSentReqs').getCurrentSentReqs,
