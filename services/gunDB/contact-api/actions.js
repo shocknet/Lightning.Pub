@@ -30,14 +30,6 @@ const { isHandshakeRequest } = require('./schema')
 const INITIAL_MSG = '$$__SHOCKWALLET__INITIAL__MESSAGE'
 
 /**
- * @returns {Message}
- */
-const __createInitialMessage = () => ({
-  body: INITIAL_MSG,
-  timestamp: Date.now()
-})
-
-/**
  * Create a an outgoing feed. The feed will have an initial special acceptance
  * message. Returns a promise that resolves to the id of the newly-created
  * outgoing feed.
@@ -60,6 +52,10 @@ const __createOutgoingFeed = async (withPublicKey, user, SEA) => {
 
   const mySecret = require('../Mediator').getMySecret()
   const encryptedForMeRecipientPub = await SEA.encrypt(withPublicKey, mySecret)
+  const ourSecret = await SEA.secret(
+    await Utils.pubToEpub(withPublicKey),
+    user._.sea
+  )
 
   const maybeEncryptedForMeOutgoingFeedID = await Utils.tryAndWait(
     (_, user) =>
@@ -99,12 +95,18 @@ const __createOutgoingFeed = async (withPublicKey, user, SEA) => {
       throw new TypeError('typeof newOutgoingFeedID !== "string"')
     }
 
+    /** @type {Message} */
+    const initialMsg = {
+      body: await SEA.encrypt(INITIAL_MSG, ourSecret),
+      timestamp: Date.now()
+    }
+
     await new Promise((res, rej) => {
       user
         .get(Key.OUTGOINGS)
         .get(newOutgoingFeedID)
         .get(Key.MESSAGES)
-        .set(__createInitialMessage(), ack => {
+        .set(initialMsg, ack => {
           if (ack.err) {
             rej(new Error(ack.err))
           } else {
@@ -117,12 +119,6 @@ const __createOutgoingFeed = async (withPublicKey, user, SEA) => {
       newOutgoingFeedID,
       mySecret
     )
-
-    if (typeof encryptedForMeNewOutgoingFeedID === 'undefined') {
-      throw new TypeError(
-        "typeof encryptedForMeNewOutgoingFeedID === 'undefined'"
-      )
-    }
 
     await new Promise((res, rej) => {
       user
@@ -1106,7 +1102,6 @@ const disconnect = async pub => {
 }
 
 module.exports = {
-  INITIAL_MSG,
   __createOutgoingFeed,
   acceptRequest,
   authenticate,
