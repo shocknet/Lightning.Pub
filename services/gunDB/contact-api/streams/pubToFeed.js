@@ -156,9 +156,8 @@ const react = () => {
 
   const gun = require('../../Mediator').getGun()
 
-  const newPubToFeed = {
-    ...getPubToFeed()
-  }
+  /** @type {Feeds} */
+  const newPubToFeed = {}
 
   for (const [pub, inc] of Object.entries(pubToIncoming)) {
     /**
@@ -195,7 +194,10 @@ const react = () => {
   }
 
   if (Object.keys(newPubToFeed).length > 0) {
-    setPubToFeed(newPubToFeed)
+    setPubToFeed({
+      ...getPubToFeed(),
+      ...newPubToFeed
+    })
   }
 }
 
