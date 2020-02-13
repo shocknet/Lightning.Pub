@@ -1,4 +1,6 @@
 /** @format */
+const debounce = require('lodash/debounce')
+
 const Streams = require('../streams')
 /**
  * @typedef {import('../SimpleGUN').UserGUNNode} UserGUNNode
@@ -27,14 +29,14 @@ let currentReqs = []
 
 const getCurrentSentReqs = () => currentReqs
 
-const react = () => {
+const react = debounce(() => {
   /** @type {SimpleSentRequest[]} */
-  const finalSentReqs = []
+  const newReqs = []
 
   const pubToHAddr = Streams.getAddresses()
   const storedReqs = Streams.getStoredReqs()
   const pubToLastSentReqID = Streams.getSentReqIDs()
-  const pubToIncoming = Streams.getPubToIncoming()
+  const pubToFeed = Streams.getPubToFeed()
   const pubToAvatar = Streams.getPubToAvatar()
   const pubToDN = Streams.getPubToDn()
 
@@ -48,7 +50,7 @@ const react = () => {
 
     const lastReqID = pubToLastSentReqID[recipientPub]
     const isStale = typeof lastReqID !== 'undefined' && lastReqID !== sentReqID
-    const isConnected = typeof pubToIncoming[recipientPub] !== 'undefined'
+    const isConnected = Array.isArray(pubToFeed[recipientPub])
 
     if (isStale || isConnected) {
       // eslint-disable-next-line no-continue
@@ -59,7 +61,6 @@ const react = () => {
       // eslint-disable-next-line no-empty-function
       Streams.onAddresses(() => {}, recipientPub)()
     }
-
     if (typeof pubToAvatar[recipientPub] === 'undefined') {
       // eslint-disable-next-line no-empty-function
       Streams.onAvatar(() => {}, recipientPub)()
@@ -69,7 +70,7 @@ const react = () => {
       Streams.onDisplayName(() => {}, recipientPub)()
     }
 
-    finalSentReqs.push({
+    newReqs.push({
       id: sentReqID,
       recipientAvatar: pubToAvatar[recipientPub] || null,
       recipientChangedRequestAddress:
@@ -79,10 +80,11 @@ const react = () => {
       timestamp
     })
   }
-  currentReqs = finalSentReqs
+
+  currentReqs = newReqs
 
   listeners.forEach(l => l(currentReqs))
-}
+}, 750)
 
 let subbed = false
 
@@ -94,19 +96,18 @@ let subbed = false
  */
 const onSentReqs = cb => {
   listeners.add(cb)
+  cb(currentReqs)
 
   if (!subbed) {
     Streams.onAddresses(react)
     Streams.onStoredReqs(react)
     Streams.onLastSentReqIDs(react)
-    Streams.onIncoming(react)
+    Streams.onPubToFeed(react)
     Streams.onAvatar(react)
     Streams.onDisplayName(react)
 
     subbed = true
   }
-
-  cb(currentReqs)
 
   return () => {
     listeners.delete(cb)
