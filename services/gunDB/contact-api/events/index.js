@@ -3,7 +3,6 @@
  */
 const debounce = require('lodash/debounce')
 
-const Actions = require('../actions')
 const ErrorCode = require('../errorCode')
 const Key = require('../key')
 const Schema = require('../schema')
@@ -363,9 +362,6 @@ const onOutgoing = cb => {
   }
 }
 ////////////////////////////////////////////////////////////////////////////////
-/** @type {Outgoings} */
-let outgoings = {}
-
 /**
  * @typedef {(chats: Chat[]) => void} ChatsListener
  */
@@ -380,17 +376,27 @@ const notifyChatsListeners = () => {
   chatsListeners.forEach(l => l(currentChats))
 }
 
-const processChats = () => {
+const processChats = debounce(() => {
   const pubToAvatar = Streams.getPubToAvatar()
   const pubToDn = Streams.getPubToDn()
   const existingOutgoings = /** @type {[string, Outgoing][]} */ (Object.entries(
-    outgoings
+    getCurrentOutgoings()
   ).filter(([_, o]) => o !== null))
+  const pubToFeed = Streams.getPubToFeed()
 
   /** @type {Chat[]} */
-  const chats = []
+  const newChats = []
 
   for (const [outID, out] of existingOutgoings) {
+    if (typeof pubToAvatar[out.with] === 'undefined') {
+      // eslint-disable-next-line no-empty-function
+      Streams.onAvatar(() => {}, out.with)
+    }
+    if (typeof pubToDn[out.with] === 'undefined') {
+      // eslint-disable-next-line no-empty-function
+      Streams.onDisplayName(() => {}, out.with)
+    }
+
     /** @type {ChatMessage[]} */
     let msgs = Object.entries(out.messages).map(([mid, m]) => ({
       id: mid,
@@ -399,16 +405,11 @@ const processChats = () => {
       timestamp: m.timestamp
     }))
 
-    const incoming = Streams.getPubToIncoming()[out.with]
+    const incoming = pubToFeed[out.with]
 
     if (Array.isArray(incoming)) {
       msgs = [...msgs, ...incoming]
     }
-
-    console.log('-------------------------------------------------')
-    console.log(`msgs before filtering`)
-    console.log(msgs)
-    console.log('-------------------------------------------------')
 
     /** @type {Chat} */
     const chat = {
@@ -420,26 +421,15 @@ const processChats = () => {
       recipientDisplayName: pubToDn[out.with] || null
     }
 
-    chats.push(chat)
-
-    if (typeof pubToAvatar[out.with] === 'undefined') {
-      // eslint-disable-next-line no-empty-function
-      Streams.onAvatar(() => {}, out.with)
-    }
-    if (typeof pubToDn[out.with] === 'undefined') {
-      // eslint-disable-next-line no-empty-function
-      Streams.onDisplayName(() => {}, out.with)
-    }
+    newChats.push(chat)
   }
 
-  currentChats = chats
-    .filter(c => c.messages.length > 0)
-    .filter(
-      c =>
-        typeof Streams.getPubToIncoming()[c.recipientPublicKey] !== 'undefined'
-    )
+  currentChats = newChats
+
   notifyChatsListeners()
-}
+}, 750)
+
+let onChatsSubbed = false
 
 /**
  * Massages all of the more primitive data structures into a more manageable
@@ -448,20 +438,24 @@ const processChats = () => {
  * @returns {() => void}
  */
 const onChats = cb => {
-  chatsListeners.add(cb)
+  if (!chatsListeners.add(cb)) {
+    throw new Error('Tried to subscribe twice')
+  }
   cb(currentChats)
 
-  onOutgoing(outs => {
-    outgoings = outs
-    processChats()
-  })
+  if (!onChatsSubbed) {
+    onOutgoing(processChats)
+    Streams.onAvatar(processChats)
+    Streams.onDisplayName(processChats)
+    Streams.onPubToFeed(processChats)
 
-  Streams.onAvatar(processChats)
-  Streams.onDisplayName(processChats)
-  Streams.onIncoming(processChats)
+    onChatsSubbed = true
+  }
 
   return () => {
-    chatsListeners.delete(cb)
+    if (!chatsListeners.delete(cb)) {
+      throw new Error('Tried to unsubscribe twice')
+    }
   }
 }
 
@@ -532,5 +526,6 @@ module.exports = {
   onSimplerSentRequests: require('./onSentReqs').onSentReqs,
   getCurrentSentReqs: require('./onSentReqs').getCurrentSentReqs,
   onBio,
-  onSeedBackup
+  onSeedBackup,
+  onChats
 }
