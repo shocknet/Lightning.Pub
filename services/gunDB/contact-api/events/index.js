@@ -424,7 +424,11 @@ const processChats = debounce(() => {
     newChats.push(chat)
   }
 
-  currentChats = newChats
+  currentChats = newChats.filter(
+    c =>
+      // initial state, means non connected
+      typeof pubToFeed[c.recipientPublicKey] !== 'undefined'
+  )
 
   notifyChatsListeners()
 }, 750)
