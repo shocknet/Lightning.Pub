@@ -173,8 +173,14 @@ module.exports = {
   getPubToAvatar,
   onDisplayName,
   getPubToDn,
-  onIncoming: require('./pubToIncoming').onIncoming,
+
+  onPubToIncoming: require('./pubToIncoming').onPubToIncoming,
   getPubToIncoming: require('./pubToIncoming').getPubToIncoming,
+  setPubToIncoming: require('./pubToIncoming').setPubToIncoming,
+
+  onPubToFeed: require('./pubToFeed').onPubToFeed,
+  getPubToFeed: require('./pubToFeed').getPubToFeed,
+
   onStoredReqs,
   getStoredReqs,
   onAddresses: require('./addresses').onAddresses,
