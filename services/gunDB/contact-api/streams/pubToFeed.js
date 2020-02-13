@@ -83,6 +83,13 @@ const onOpenForPubFeedPair = ([pub, feed]) =>
           `onOpenForPubFeedPair -> didDisconnect -> pub: ${pub} - feed: ${feed}`
         )
       })
+      // signal disconnect to listeners listeners should rely on pubToFeed for
+      // disconnect status instead of pub-to-incoming. Only the latter will
+      // detect remote disconnection
+      setPubToFeed({
+        ...getPubToFeed(),
+        [pub]: null
+      })
       return
     }
 
