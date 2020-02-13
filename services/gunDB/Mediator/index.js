@@ -5,7 +5,6 @@ const Gun = require('gun')
 // @ts-ignore
 require('gun/lib/open')
 const debounce = require('lodash/debounce')
-const once = require('lodash/once')
 const Encryption = require('../../../utils/encryptionStore')
 
 /** @type {import('../contact-api/SimpleGUN').ISEA} */
@@ -414,6 +413,7 @@ class Mediator {
           socket.emit(eventName, encryptedMessage)
         } catch (err) {
           console.error(err)
+
         }
       }
     }
