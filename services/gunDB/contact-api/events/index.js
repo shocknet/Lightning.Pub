@@ -522,7 +522,7 @@ module.exports = {
   onIncomingMessages,
   onOutgoing,
   getCurrentOutgoings,
-  onSimplerReceivedRequests: require('./onReceivedReqs'),
+  onSimplerReceivedRequests: require('./onReceivedReqs').onReceivedReqs,
   onSimplerSentRequests: require('./onSentReqs').onSentReqs,
   getCurrentSentReqs: require('./onSentReqs').getCurrentSentReqs,
   onBio,
