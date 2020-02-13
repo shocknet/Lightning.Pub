@@ -77,9 +77,6 @@ const listenerForAddr = addr => data => {
     return
   }
 
-  console.log('data for address: ' + addr)
-  console.log(data)
-
   if (typeof data !== 'object' || data === null) {
     currAddressData = {}
   } else {
@@ -90,6 +87,9 @@ const listenerForAddr = addr => data => {
       }
     }
   }
+
+  console.log('data for address: ' + addr)
+  console.log(currAddressData)
 
   react()
 }
