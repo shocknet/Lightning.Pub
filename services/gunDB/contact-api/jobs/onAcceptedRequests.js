@@ -16,9 +16,9 @@ const Utils = require('../utils')
  * @throws {Error} NOT_AUTH
  * @param {UserGUNNode} user
  * @param {ISEA} SEA
- * @returns {Promise<void>}
+ * @returns {void}
  */
-const onAcceptedRequests = async (user, SEA) => {
+const onAcceptedRequests = (user, SEA) => {
   if (!user.is) {
     throw new Error(ErrorCode.NOT_AUTH)
   }
