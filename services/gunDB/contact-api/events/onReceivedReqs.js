@@ -77,6 +77,9 @@ const listenerForAddr = addr => data => {
     return
   }
 
+  console.log('data')
+  console.log(data)
+
   if (typeof data !== 'object' || data === null) {
     currAddressData = {}
   } else {
