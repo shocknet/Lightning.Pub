@@ -1,128 +1,138 @@
 /** @format */
+const debounce = require('lodash/debounce')
+
 const Key = require('../key')
 const Schema = require('../schema')
 const Streams = require('../streams')
-/**
- * @typedef {import('../schema').HandshakeRequest} HandshakeRequest
- * @typedef {import('../schema').SimpleReceivedRequest} SimpleReceivedRequest
- */
 
 /**
- * @typedef {(reqs: SimpleReceivedRequest[]) => void} Listener
+ * @typedef {Readonly<Schema.SimpleReceivedRequest>} SimpleReceivedRequest
+ * @typedef {(reqs: ReadonlyArray<SimpleReceivedRequest>) => void} Listener
  */
 
 /** @type {Set<Listener>} */
 const listeners = new Set()
 
-/** @type {SimpleReceivedRequest[]} */
-let currentReqs = []
-
 /** @type {string|null} */
 let currentAddress = null
 
-/** @type {Record<string, HandshakeRequest>} */
-let currentNode = {}
+/** @type {Record<string, SimpleReceivedRequest>} */
+let currReceivedReqsMap = {}
 
-const react = () => {
-  /** @type {SimpleReceivedRequest[]} */
-  const finalReqs = []
-  const pubToIncoming = Streams.getPubToIncoming()
+/**
+ * Unprocessed requests in current handshake node.
+ * @type {Record<string, Schema.HandshakeRequest>}
+ */
+let currAddressData = {}
+
+/** @returns {SimpleReceivedRequest[]} */
+const getReceivedReqs = () => Object.values(currReceivedReqsMap)
+/** @param {Record<string, SimpleReceivedRequest>} reqs */
+const setReceivedReqsMap = reqs => {
+  currReceivedReqsMap = reqs
+  listeners.forEach(l => l(getReceivedReqs()))
+}
+
+const react = debounce(() => {
+  /** @type {Record<string, SimpleReceivedRequest>} */
+  const newReceivedReqsMap = {}
+
+  const pubToFeed = Streams.getPubToFeed()
   const pubToAvatar = Streams.getPubToAvatar()
   const pubToDn = Streams.getPubToDn()
 
-  for (const [id, req] of Object.entries(currentNode)) {
-    // HERE
-    const notAccepted = typeof pubToIncoming[req.from] === 'undefined'
+  for (const [id, req] of Object.entries(currAddressData)) {
+    const inContact = Array.isArray(pubToFeed[req.from])
 
-    if (notAccepted) {
-      if (typeof pubToAvatar[req.from] === 'undefined') {
-        // eslint-disable-next-line no-empty-function
-        Streams.onAvatar(() => {}, req.from)()
-      }
-      if (typeof pubToDn[req.from] === 'undefined') {
-        // eslint-disable-next-line no-empty-function
-        Streams.onDisplayName(() => {}, req.from)()
-      }
+    if (typeof pubToAvatar[req.from] === 'undefined') {
+      // eslint-disable-next-line no-empty-function
+      Streams.onAvatar(() => {}, req.from)()
+    }
+    if (typeof pubToDn[req.from] === 'undefined') {
+      // eslint-disable-next-line no-empty-function
+      Streams.onDisplayName(() => {}, req.from)()
+    }
 
-      finalReqs.push({
+    if (!inContact) {
+      newReceivedReqsMap[req.from] = {
         id,
         requestorAvatar: pubToAvatar[req.from] || null,
         requestorDisplayName: pubToDn[req.from] || null,
         requestorPK: req.from,
-        response: req.response,
         timestamp: req.timestamp
-      })
+      }
     }
   }
 
-  currentReqs = finalReqs
-
-  listeners.forEach(l => l(currentReqs))
-}
+  setReceivedReqsMap(newReceivedReqsMap)
+}, 750)
 
 /**
  * @param {string} addr
  * @returns {(data: import('../SimpleGUN').OpenListenerData) => void}
  */
 const listenerForAddr = addr => data => {
+  // did invalidate
   if (addr !== currentAddress) {
     return
   }
 
-  if (typeof data === 'object' && data !== null) {
+  if (typeof data !== 'object' || data === null) {
+    currAddressData = {}
+  } else {
     for (const [id, req] of Object.entries(data)) {
-      if (!Schema.isHandshakeRequest(req)) {
-        return
+      // no need to update them just write them once
+      if (Schema.isHandshakeRequest(req) && !currAddressData[id]) {
+        currAddressData[id] = req
       }
-
-      currentNode[id] = req
     }
-
-    react()
   }
+
+  react()
 }
 
 let subbed = false
 
 /**
- * Massages all of the more primitive data structures into a more manageable
- * 'Chat' paradigm.
  * @param {Listener} cb
  * @returns {() => void}
  */
 const onReceivedReqs = cb => {
   listeners.add(cb)
+  cb(getReceivedReqs())
 
   if (!subbed) {
     require('./index').onCurrentHandshakeAddress(addr => {
-      if (currentAddress !== addr) {
-        currentAddress = addr
-        currentNode = {}
+      if (currentAddress === addr) {
+        return
+      }
 
-        if (typeof addr === 'string') {
-          require('../../Mediator')
-            .getGun()
-            .get(Key.HANDSHAKE_NODES)
-            .get(addr)
-            .open(listenerForAddr(addr))
-        }
+      currentAddress = addr
+      currAddressData = {}
+      setReceivedReqsMap({})
 
-        react()
+      if (typeof addr === 'string') {
+        require('../../Mediator')
+          .getGun()
+          .get(Key.HANDSHAKE_NODES)
+          .get(addr)
+          .open(listenerForAddr(addr))
       }
     }, require('../../Mediator').getUser())
 
     Streams.onAvatar(react)
     Streams.onDisplayName(react)
-    Streams.onIncoming(react)
+    Streams.onPubToFeed(react)
 
     subbed = true
   }
-
-  cb(currentReqs)
 
   return () => {
     listeners.delete(cb)
   }
 }
 
-module.exports = onReceivedReqs
+module.exports = {
+  getReceivedReqs,
+  onReceivedReqs
+}

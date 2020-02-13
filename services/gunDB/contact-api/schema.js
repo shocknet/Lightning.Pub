@@ -213,7 +213,6 @@ exports.isSimpleSentRequest = item => {
  * @prop {string|null} requestorAvatar
  * @prop {string|null} requestorDisplayName
  * @prop {string} requestorPK
- * @prop {string} response
  * @prop {number} timestamp
  */
 
@@ -248,10 +247,6 @@ exports.isSimpleReceivedRequest = item => {
   }
 
   if (typeof obj.requestorPK !== 'string') {
-    return false
-  }
-
-  if (typeof obj.response !== 'string') {
     return false
   }
 
