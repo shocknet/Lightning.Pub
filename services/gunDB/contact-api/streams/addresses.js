@@ -9,6 +9,9 @@ const pubToAddress = {}
 
 /** @type {Set<() => void>} */
 const listeners = new Set()
+
+listeners.add(() => `pubToAddress: ${JSON.stringify(pubToAddress, null, 4)}`)
+
 const notify = () => listeners.forEach(l => l())
 
 /** @type {Set<string>} */
