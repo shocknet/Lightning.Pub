@@ -232,7 +232,7 @@ const instantiateGun = async () => {
   }
 
   const _gun = new Gun({
-    axe: false,
+    axe: true,
     peers: Config.PEERS
   })
 
@@ -413,7 +413,6 @@ class Mediator {
           socket.emit(eventName, encryptedMessage)
         } catch (err) {
           console.error(err)
-
         }
       }
     }
