@@ -198,15 +198,15 @@ const authenticate = async (alias, pass) => {
   if (typeof ack.err === 'string') {
     throw new Error(ack.err)
   } else if (typeof ack.sea === 'object') {
-    API.Jobs.onAcceptedRequests(user, mySEA)
-    API.Jobs.onOrders(user, gun, mySEA)
-
     mySec = await mySEA.secret(user._.sea.epub, user._.sea)
 
     _currentAlias = user.is ? user.is.alias : ''
     _currentPass = await mySEA.encrypt(pass, mySec)
 
     await new Promise(res => setTimeout(res, 5000))
+
+    API.Jobs.onAcceptedRequests(user, mySEA)
+    API.Jobs.onOrders(user, gun, mySEA)
 
     return ack.sea.pub
   } else {
