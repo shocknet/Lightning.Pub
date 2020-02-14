@@ -232,7 +232,7 @@ const instantiateGun = async () => {
   }
 
   const _gun = new Gun({
-    axe: true,
+    axe: false,
     peers: Config.PEERS
   })
 
