@@ -34,7 +34,9 @@ const setReceivedReqsMap = reqs => {
 }
 
 listeners.add(() => {
-  console.log(`new received reqs: ${getReceivedReqs()}`)
+  console.log(
+    `new received reqs: ${JSON.stringify(getReceivedReqs(), null, 4)}`
+  )
 })
 
 const react = debounce(() => {
