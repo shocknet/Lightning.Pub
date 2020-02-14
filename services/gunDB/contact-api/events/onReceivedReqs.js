@@ -95,7 +95,7 @@ const listenerForAddr = addr => data => {
   }
 
   console.log('data for address: ' + addr)
-  console.log(currAddressData)
+  console.log(JSON.stringify(data, null, 4))
 
   react()
 }
