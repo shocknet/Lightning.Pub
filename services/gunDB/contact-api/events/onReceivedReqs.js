@@ -33,6 +33,10 @@ const setReceivedReqsMap = reqs => {
   listeners.forEach(l => l(getReceivedReqs()))
 }
 
+listeners.add(() => {
+  console.log(`new received reqs: ${getReceivedReqs()}`)
+})
+
 const react = debounce(() => {
   /** @type {Record<string, SimpleReceivedRequest>} */
   const newReceivedReqsMap = {}
