@@ -27,6 +27,10 @@ const listeners = new Set()
 /** @type {SimpleSentRequest[]} */
 let currentReqs = []
 
+listeners.add(() => {
+  console.log(`new reqs: ${JSON.stringify(currentReqs)}`)
+})
+
 const getCurrentSentReqs = () => currentReqs
 
 const react = debounce(() => {
