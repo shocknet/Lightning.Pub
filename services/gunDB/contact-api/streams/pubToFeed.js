@@ -28,6 +28,10 @@ let pubToFeed = {}
 
 const getPubToFeed = () => pubToFeed
 
+feedsListeners.add(() => {
+  console.log(`new pubToFeed: ${getPubToFeed()}`)
+})
+
 /** @param {Feeds} ptf */
 const setPubToFeed = ptf => {
   pubToFeed = ptf
