@@ -385,6 +385,72 @@ const generateHandshakeAddress = async () => {
 }
 
 /**
+ *
+ * @param {string} pub
+ * @throws {Error}
+ * @returns {Promise<void>}
+ */
+const cleanup = async pub => {
+  const user = require('../Mediator').getUser()
+
+  const outGoingID = await Utils.recipientToOutgoingID(pub)
+
+  await new Promise((res, rej) => {
+    user
+      .get(Key.USER_TO_INCOMING)
+      .get(pub)
+      .put(null, ack => {
+        if (ack.err) {
+          rej(new Error(ack.err))
+        } else {
+          res()
+        }
+      })
+  })
+
+  await new Promise((res, rej) => {
+    user
+      .get(Key.RECIPIENT_TO_OUTGOING)
+      .get(pub)
+      .put(null, ack => {
+        if (ack.err) {
+          rej(new Error(ack.err))
+        } else {
+          res()
+        }
+      })
+  })
+
+  await new Promise((res, rej) => {
+    user
+      .get(Key.USER_TO_LAST_REQUEST_SENT)
+      .get(pub)
+      .put(null, ack => {
+        if (ack.err) {
+          rej(new Error(ack.err))
+        } else {
+          res()
+        }
+      })
+  })
+
+  if (outGoingID) {
+    await new Promise((res, rej) => {
+      user
+        .get(Key.OUTGOINGS)
+        .get(outGoingID)
+        .put(null, ack => {
+          if (ack.err) {
+            rej(new Error(ack.err))
+          } else {
+            res()
+          }
+        })
+    })
+  }
+}
+
+/**
  * @param {string} recipientPublicKey
  * @param {GUNNode} gun
  * @param {UserGUNNode} user
@@ -396,6 +462,8 @@ const sendHandshakeRequest = async (recipientPublicKey, gun, user, SEA) => {
   if (!user.is) {
     throw new Error(ErrorCode.NOT_AUTH)
   }
+
+  await cleanup(recipientPublicKey)
 
   if (typeof recipientPublicKey !== 'string') {
     throw new TypeError(
@@ -1037,66 +1105,11 @@ const saveSeedBackup = async (mnemonicPhrase, user, SEA) => {
  * @returns {Promise<void>}
  */
 const disconnect = async pub => {
-  const user = require('../Mediator').getUser()
   if (!(await Utils.successfulHandshakeAlreadyExists(pub))) {
     throw new Error('No handshake exists for this pub')
   }
 
-  const outGoingID = /** @type {string} */ (await Utils.recipientToOutgoingID(
-    pub
-  ))
-
-  await new Promise((res, rej) => {
-    user
-      .get(Key.USER_TO_INCOMING)
-      .get(pub)
-      .put(null, ack => {
-        if (ack.err) {
-          rej(new Error(ack.err))
-        } else {
-          res()
-        }
-      })
-  })
-
-  await new Promise((res, rej) => {
-    user
-      .get(Key.RECIPIENT_TO_OUTGOING)
-      .get(pub)
-      .put(null, ack => {
-        if (ack.err) {
-          rej(new Error(ack.err))
-        } else {
-          res()
-        }
-      })
-  })
-
-  await new Promise((res, rej) => {
-    user
-      .get(Key.USER_TO_LAST_REQUEST_SENT)
-      .get(pub)
-      .put(null, ack => {
-        if (ack.err) {
-          rej(new Error(ack.err))
-        } else {
-          res()
-        }
-      })
-  })
-
-  await new Promise((res, rej) => {
-    user
-      .get(Key.OUTGOINGS)
-      .get(outGoingID)
-      .put(null, ack => {
-        if (ack.err) {
-          rej(new Error(ack.err))
-        } else {
-          res()
-        }
-      })
-  })
+  await cleanup(pub)
 
   await generateHandshakeAddress()
 }
