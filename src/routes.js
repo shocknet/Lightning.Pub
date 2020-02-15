@@ -213,7 +213,7 @@ module.exports = async (
           field: "deviceId",
           message: "Please specify a device ID"
         };
-        console.error(error)
+        logger.error("Please specify a device ID")
         return res.status(401).json(error);
       }
 
@@ -222,19 +222,15 @@ module.exports = async (
           field: "deviceId",
           message: "Please specify a device ID"
         };
-        console.error("Unknown Device", error)
+        logger.error("Unknown Device")
         return res.status(401).json(error);
       }
 
       if (req.method === "GET") {
-        console.log("Method:", req.method);
         return next();
       }
 
-      console.log("Body:", req.body)
-      console.log("Decrypt params:", { deviceId, message: req.body.encryptionKey })
       const decryptedKey = Encryption.decryptKey({ deviceId, message: req.body.encryptionKey });
-      console.log("decryptedKey", decryptedKey)
       const decryptedMessage = Encryption.decryptMessage({ message: req.body.data, key: decryptedKey, iv: req.body.iv })
       req.body = JSON.parse(decryptedMessage);
       return next();
