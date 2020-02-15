@@ -924,7 +924,7 @@ class Mediator {
 
       API.Events.onSimplerSentRequests(
         debounce(sentRequests => {
-          console.log(`new Reqss in mediator: ${sentRequests}`)
+          console.log(`new Reqss in mediator: ${JSON.stringify(sentRequests)}`)
           this.socket.emit(Event.ON_SENT_REQUESTS, {
             msg: sentRequests,
             ok: true,
