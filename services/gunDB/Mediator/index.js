@@ -6,6 +6,7 @@ const Gun = require('gun')
 require('gun/lib/open')
 const debounce = require('lodash/debounce')
 const Encryption = require('../../../utils/encryptionStore')
+const logger = require('winston')
 
 /** @type {import('../contact-api/SimpleGUN').ISEA} */
 // @ts-ignore
@@ -412,6 +413,7 @@ class Mediator {
 
           socket.emit(eventName, encryptedMessage)
         } catch (err) {
+          logger.error(err.message)
           console.error(err)
         }
       }
@@ -927,14 +929,18 @@ class Mediator {
       if (!this.onSentRequestsSubbed) {
         this.onSentRequestsSubbed = true
 
-        API.Events.onSimplerSentRequests(sentRequests => {
-          console.log(`new Reqss in mediator: ${JSON.stringify(sentRequests)}`)
-          this.socket.emit(Event.ON_SENT_REQUESTS, {
-            msg: sentRequests,
-            ok: true,
-            origBody: body
-          })
-        })
+        API.Events.onSimplerSentRequests(
+          debounce(sentRequests => {
+            console.log(
+              `new Reqss in mediator: ${JSON.stringify(sentRequests)}`
+            )
+            this.socket.emit(Event.ON_SENT_REQUESTS, {
+              msg: sentRequests,
+              ok: true,
+              origBody: body
+            })
+          }, 1000)
+        )
       }
     } catch (err) {
       console.log(err)
