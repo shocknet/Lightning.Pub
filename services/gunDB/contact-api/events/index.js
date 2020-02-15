@@ -424,11 +424,11 @@ const processChats = debounce(() => {
     newChats.push(chat)
   }
 
-  currentChats = newChats
-    // initial state, means non connected
-    .filter(c => typeof pubToFeed[c.recipientPublicKey] !== 'undefined')
-    // disconnected from this side
-    .filter(c => pubToFeed[c.recipientPublicKey] !== null)
+  currentChats = newChats.filter(
+    c =>
+      Array.isArray(pubToFeed[c.recipientPublicKey]) ||
+      pubToFeed[c.recipientPublicKey] === 'disconnected'
+  )
 
   notifyChatsListeners()
 }, 750)
