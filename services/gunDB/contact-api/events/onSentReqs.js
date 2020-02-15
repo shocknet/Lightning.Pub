@@ -28,7 +28,7 @@ const listeners = new Set()
 let currentReqs = []
 
 listeners.add(() => {
-  console.log(`new reqs: ${JSON.stringify(currentReqs)}`)
+  console.log(`new sent reqs: ${JSON.stringify(currentReqs)}`)
 })
 
 const getCurrentSentReqs = () => currentReqs
