@@ -1198,14 +1198,14 @@ module.exports = async (
         res.json({ errorMessage: "LND is down" });
       }
     }
-    const { channelPoint, outputIndex } = req.body;
+    const { channelPoint, outputIndex, force } = req.body;
     const closeChannelRequest = {
       channel_point: {
         funding_txid_bytes: Buffer.from(channelPoint, "hex"),
         funding_txid_str: channelPoint,
         output_index: outputIndex
       },
-      force: true
+      force: force
     };
     logger.info("CloseChannelRequest", closeChannelRequest);
     const closedChannel = lightning.closeChannel(closeChannelRequest);
