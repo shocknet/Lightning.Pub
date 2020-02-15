@@ -9,6 +9,7 @@ const ErrorCode = require('./errorCode')
 const Getters = require('./getters')
 const Key = require('./key')
 const Utils = require('./utils')
+// const { promisifyGunNode: p } = Utils
 const { isHandshakeRequest } = require('./schema')
 /**
  * @typedef {import('./SimpleGUN').GUNNode} GUNNode
@@ -27,14 +28,6 @@ const { isHandshakeRequest } = require('./schema')
  * An special message signaling the acceptance.
  */
 const INITIAL_MSG = '$$__SHOCKWALLET__INITIAL__MESSAGE'
-
-/**
- * @returns {Message}
- */
-const __createInitialMessage = () => ({
-  body: INITIAL_MSG,
-  timestamp: Date.now()
-})
 
 /**
  * Create a an outgoing feed. The feed will have an initial special acceptance
@@ -57,13 +50,12 @@ const __createOutgoingFeed = async (withPublicKey, user, SEA) => {
     throw new Error(ErrorCode.NOT_AUTH)
   }
 
-  const mySecret = await SEA.secret(user._.sea.epub, user._.sea)
-  if (typeof mySecret !== 'string') {
-    throw new TypeError(
-      "__createOutgoingFeed() -> typeof mySecret !== 'string'"
-    )
-  }
+  const mySecret = require('../Mediator').getMySecret()
   const encryptedForMeRecipientPub = await SEA.encrypt(withPublicKey, mySecret)
+  const ourSecret = await SEA.secret(
+    await Utils.pubToEpub(withPublicKey),
+    user._.sea
+  )
 
   const maybeEncryptedForMeOutgoingFeedID = await Utils.tryAndWait(
     (_, user) =>
@@ -103,12 +95,18 @@ const __createOutgoingFeed = async (withPublicKey, user, SEA) => {
       throw new TypeError('typeof newOutgoingFeedID !== "string"')
     }
 
+    /** @type {Message} */
+    const initialMsg = {
+      body: await SEA.encrypt(INITIAL_MSG, ourSecret),
+      timestamp: Date.now()
+    }
+
     await new Promise((res, rej) => {
       user
         .get(Key.OUTGOINGS)
         .get(newOutgoingFeedID)
         .get(Key.MESSAGES)
-        .set(__createInitialMessage(), ack => {
+        .set(initialMsg, ack => {
           if (ack.err) {
             rej(new Error(ack.err))
           } else {
@@ -121,12 +119,6 @@ const __createOutgoingFeed = async (withPublicKey, user, SEA) => {
       newOutgoingFeedID,
       mySecret
     )
-
-    if (typeof encryptedForMeNewOutgoingFeedID === 'undefined') {
-      throw new TypeError(
-        "typeof encryptedForMeNewOutgoingFeedID === 'undefined'"
-      )
-    }
 
     await new Promise((res, rej) => {
       user
@@ -253,10 +245,7 @@ const acceptRequest = async (
     SEA
   )
 
-  const mySecret = await SEA.secret(user._.sea.epub, user._.sea)
-  if (typeof mySecret !== 'string') {
-    throw new TypeError("acceptRequest() -> typeof mySecret !== 'string'")
-  }
+  const mySecret = require('../Mediator').getMySecret()
   const encryptedForMeIncomingID = await SEA.encrypt(incomingID, mySecret)
 
   await new Promise((res, rej) => {
@@ -363,17 +352,15 @@ const blacklist = (publicKey, user) =>
   })
 
 /**
- * @param {UserGUNNode} user
  * @returns {Promise<void>}
  */
-const generateHandshakeAddress = user =>
-  new Promise((res, rej) => {
-    if (!user.is) {
-      throw new Error(ErrorCode.NOT_AUTH)
-    }
+const generateHandshakeAddress = async () => {
+  const gun = require('../Mediator').getGun()
+  const user = require('../Mediator').getUser()
 
-    const address = uuidv1()
+  const address = uuidv1()
 
+  await new Promise((res, rej) => {
     user.get(Key.CURRENT_HANDSHAKE_ADDRESS).put(address, ack => {
       if (ack.err) {
         rej(new Error(ack.err))
@@ -382,6 +369,86 @@ const generateHandshakeAddress = user =>
       }
     })
   })
+
+  await new Promise((res, rej) => {
+    gun
+      .get(Key.HANDSHAKE_NODES)
+      .get(address)
+      .put({ unused: 0 }, ack => {
+        if (ack.err) {
+          rej(new Error(ack.err))
+        } else {
+          res()
+        }
+      })
+  })
+}
+
+/**
+ *
+ * @param {string} pub
+ * @throws {Error}
+ * @returns {Promise<void>}
+ */
+const cleanup = async pub => {
+  const user = require('../Mediator').getUser()
+
+  const outGoingID = await Utils.recipientToOutgoingID(pub)
+
+  await new Promise((res, rej) => {
+    user
+      .get(Key.USER_TO_INCOMING)
+      .get(pub)
+      .put(null, ack => {
+        if (ack.err) {
+          rej(new Error(ack.err))
+        } else {
+          res()
+        }
+      })
+  })
+
+  await new Promise((res, rej) => {
+    user
+      .get(Key.RECIPIENT_TO_OUTGOING)
+      .get(pub)
+      .put(null, ack => {
+        if (ack.err) {
+          rej(new Error(ack.err))
+        } else {
+          res()
+        }
+      })
+  })
+
+  await new Promise((res, rej) => {
+    user
+      .get(Key.USER_TO_LAST_REQUEST_SENT)
+      .get(pub)
+      .put(null, ack => {
+        if (ack.err) {
+          rej(new Error(ack.err))
+        } else {
+          res()
+        }
+      })
+  })
+
+  if (outGoingID) {
+    await new Promise((res, rej) => {
+      user
+        .get(Key.OUTGOINGS)
+        .get(outGoingID)
+        .put(null, ack => {
+          if (ack.err) {
+            rej(new Error(ack.err))
+          } else {
+            res()
+          }
+        })
+    })
+  }
+}
 
 /**
  * @param {string} recipientPublicKey
@@ -396,6 +463,8 @@ const sendHandshakeRequest = async (recipientPublicKey, gun, user, SEA) => {
     throw new Error(ErrorCode.NOT_AUTH)
   }
 
+  await cleanup(recipientPublicKey)
+
   if (typeof recipientPublicKey !== 'string') {
     throw new TypeError(
       `recipientPublicKey is not string, got: ${typeof recipientPublicKey}`
@@ -406,6 +475,10 @@ const sendHandshakeRequest = async (recipientPublicKey, gun, user, SEA) => {
     throw new TypeError('recipientPublicKey is an string of length 0')
   }
 
+  if (recipientPublicKey === user.is.pub) {
+    throw new Error('Do not send a request to yourself')
+  }
+
   console.log('sendHR() -> before recipientEpub')
 
   /** @type {string} */
@@ -413,7 +486,7 @@ const sendHandshakeRequest = async (recipientPublicKey, gun, user, SEA) => {
 
   console.log('sendHR() -> before mySecret')
 
-  const mySecret = await SEA.secret(user._.sea.epub, user._.sea)
+  const mySecret = require('../Mediator').getMySecret()
   console.log('sendHR() -> before ourSecret')
   const ourSecret = await SEA.secret(recipientEpub, user._.sea)
 
@@ -509,6 +582,11 @@ const sendHandshakeRequest = async (recipientPublicKey, gun, user, SEA) => {
     timestamp
   }
 
+  const encryptedForMeRecipientPublicKey = await SEA.encrypt(
+    recipientPublicKey,
+    mySecret
+  )
+
   console.log('sendHR() -> before newHandshakeRequestID')
   /** @type {string} */
   const newHandshakeRequestID = await new Promise((res, rej) => {
@@ -537,32 +615,8 @@ const sendHandshakeRequest = async (recipientPublicKey, gun, user, SEA) => {
       })
   })
 
-  // save request id to REQUEST_TO_USER
-
-  const encryptedForMeRecipientPublicKey = await SEA.encrypt(
-    recipientPublicKey,
-    mySecret
-  )
-
   // This needs to come before the write to sent requests. Because that write
   // triggers Jobs.onAcceptedRequests and it in turn reads from request-to-user
-  // This also triggers Events.onSimplerSentRequests
-  await new Promise((res, rej) => {
-    user
-      .get(Key.REQUEST_TO_USER)
-      .get(newHandshakeRequestID)
-      .put(encryptedForMeRecipientPublicKey, ack => {
-        if (ack.err) {
-          rej(
-            new Error(
-              `Error saving recipient public key to request to user: ${ack.err}`
-            )
-          )
-        } else {
-          res()
-        }
-      })
-  })
 
   /**
    * @type {StoredReq}
@@ -625,11 +679,7 @@ const sendMessage = async (recipientPublicKey, body, user, SEA) => {
     )
   }
 
-  const outgoingID = await Utils.recipientToOutgoingID(
-    recipientPublicKey,
-    user,
-    SEA
-  )
+  const outgoingID = await Utils.recipientToOutgoingID(recipientPublicKey)
 
   if (outgoingID === null) {
     throw new Error(
@@ -668,10 +718,9 @@ const sendMessage = async (recipientPublicKey, body, user, SEA) => {
  * @param {string} recipientPub
  * @param {string} msgID
  * @param {UserGUNNode} user
- * @param {ISEA} SEA
  * @returns {Promise<void>}
  */
-const deleteMessage = async (recipientPub, msgID, user, SEA) => {
+const deleteMessage = async (recipientPub, msgID, user) => {
   if (!user.is) {
     throw new Error(ErrorCode.NOT_AUTH)
   }
@@ -700,7 +749,7 @@ const deleteMessage = async (recipientPub, msgID, user, SEA) => {
     )
   }
 
-  const outgoingID = await Utils.recipientToOutgoingID(recipientPub, user, SEA)
+  const outgoingID = await Utils.recipientToOutgoingID(recipientPub)
 
   if (outgoingID === null) {
     throw new Error(`Could not fetch an outgoing id for user: ${recipientPub}`)
@@ -1037,7 +1086,7 @@ const saveSeedBackup = async (mnemonicPhrase, user, SEA) => {
     throw new TypeError('expected mnemonicPhrase to be an string array')
   }
 
-  const mySecret = await SEA.secret(user._.sea.epub, user._.sea)
+  const mySecret = require('../Mediator').getMySecret()
   const encryptedSeed = await SEA.encrypt(mnemonicPhrase.join(' '), mySecret)
 
   return new Promise((res, rej) => {
@@ -1051,8 +1100,21 @@ const saveSeedBackup = async (mnemonicPhrase, user, SEA) => {
   })
 }
 
+/**
+ * @param {string} pub
+ * @returns {Promise<void>}
+ */
+const disconnect = async pub => {
+  if (!(await Utils.successfulHandshakeAlreadyExists(pub))) {
+    throw new Error('No handshake exists for this pub')
+  }
+
+  await cleanup(pub)
+
+  await generateHandshakeAddress()
+}
+
 module.exports = {
-  INITIAL_MSG,
   __createOutgoingFeed,
   acceptRequest,
   authenticate,
@@ -1067,5 +1129,6 @@ module.exports = {
   sendPayment,
   generateOrderAddress,
   setBio,
-  saveSeedBackup
+  saveSeedBackup,
+  disconnect
 }

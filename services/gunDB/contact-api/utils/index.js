@@ -1,13 +1,13 @@
 /**
  * @format
  */
-const ErrorCode = require('./errorCode')
-const Key = require('./key')
+const ErrorCode = require('../errorCode')
+const Key = require('../key')
 
 /**
- * @typedef {import('./SimpleGUN').GUNNode} GUNNode
- * @typedef {import('./SimpleGUN').ISEA} ISEA
- * @typedef {import('./SimpleGUN').UserGUNNode} UserGUNNode
+ * @typedef {import('../SimpleGUN').GUNNode} GUNNode
+ * @typedef {import('../SimpleGUN').ISEA} ISEA
+ * @typedef {import('../SimpleGUN').UserGUNNode} UserGUNNode
  */
 
 /**
@@ -15,6 +15,11 @@ const Key = require('./key')
  * @returns {Promise<void>}
  */
 const delay = ms => new Promise(res => setTimeout(res, ms))
+
+/**
+ * @returns {Promise<string>}
+ */
+const mySecret = () => Promise.resolve(require('../../Mediator').getMySecret())
 
 /**
  * @template T
@@ -41,8 +46,8 @@ const timeout10 = promise => {
 const tryAndWait = promGen =>
   timeout10(
     promGen(
-      require('../Mediator/index').getGun(),
-      require('../Mediator/index').getUser()
+      require('../../Mediator/index').getGun(),
+      require('../../Mediator/index').getUser()
     )
   )
 
@@ -75,38 +80,10 @@ const pubToEpub = async pub => {
 }
 
 /**
- * @param {string} reqID
- * @param {ISEA} SEA
- * @param {string} mySecret
- * @returns {Promise<string>}
- */
-const reqToRecipientPub = async (reqID, SEA, mySecret) => {
-  const maybeEncryptedForMeRecipientPub = await tryAndWait(async (_, user) => {
-    const reqToUser = user.get(Key.REQUEST_TO_USER)
-    const data = await reqToUser.get(reqID).then()
-
-    if (typeof data !== 'string') {
-      throw new TypeError("typeof maybeEncryptedForMeRecipientPub !== 'string'")
-    }
-
-    return data
-  })
-
-  const encryptedForMeRecipientPub = maybeEncryptedForMeRecipientPub
-
-  const recipientPub = await SEA.decrypt(encryptedForMeRecipientPub, mySecret)
-
-  if (typeof recipientPub !== 'string') {
-    throw new TypeError("typeof recipientPub !== 'string'")
-  }
-
-  return recipientPub
-}
-
-/**
  * Should only be called with a recipient pub that has already been contacted.
+ * If returns null, a disconnect happened.
  * @param {string} recipientPub
- * @returns {Promise<string>}
+ * @returns {Promise<string|null>}
  */
 const recipientPubToLastReqSentID = async recipientPub => {
   const lastReqSentID = await tryAndWait(async (_, user) => {
@@ -114,7 +91,7 @@ const recipientPubToLastReqSentID = async recipientPub => {
     const data = await userToLastReqSent.get(recipientPub).then()
 
     if (typeof data !== 'string') {
-      throw new TypeError("typeof latestReqSentID !== 'string'")
+      return null
     }
 
     return data
@@ -134,82 +111,38 @@ const successfulHandshakeAlreadyExists = async recipientPub => {
     return userToIncoming.get(recipientPub).then()
   })
 
-  return typeof maybeIncomingID === 'string'
+  const maybeOutgoingID = await tryAndWait((_, user) => {
+    const recipientToOutgoing = user.get(Key.RECIPIENT_TO_OUTGOING)
+
+    return recipientToOutgoing.get(recipientPub).then()
+  })
+
+  return (
+    typeof maybeIncomingID === 'string' && typeof maybeOutgoingID === 'string'
+  )
 }
 
 /**
  * @param {string} recipientPub
- * @param {UserGUNNode} user
- * @param {ISEA} SEA
  * @returns {Promise<string|null>}
  */
-const recipientToOutgoingID = async (recipientPub, user, SEA) => {
-  const mySecret = await SEA.secret(user._.sea.epub, user._.sea)
-
-  if (typeof mySecret !== 'string') {
-    throw new TypeError('could not get mySecret')
-  }
-
-  const maybeEncryptedOutgoingID = await tryAndWait((_, user) =>
-    user
-      .get(Key.RECIPIENT_TO_OUTGOING)
-      .get(recipientPub)
-      .then()
-  )
+const recipientToOutgoingID = async recipientPub => {
+  const maybeEncryptedOutgoingID = await require('../../Mediator/index')
+    .getUser()
+    .get(Key.RECIPIENT_TO_OUTGOING)
+    .get(recipientPub)
+    .then()
 
   if (typeof maybeEncryptedOutgoingID === 'string') {
-    const outgoingID = await SEA.decrypt(maybeEncryptedOutgoingID, mySecret)
+    const outgoingID = await require('../../Mediator/index').mySEA.decrypt(
+      maybeEncryptedOutgoingID,
+      await mySecret()
+    )
 
     return outgoingID || null
   }
 
   return null
-}
-
-/**
- * @param {string} reqResponse
- * @param {string} recipientPub
- * @param {UserGUNNode} user
- * @param {ISEA} SEA
- * @returns {Promise<boolean>}
- */
-const reqWasAccepted = async (reqResponse, recipientPub, user, SEA) => {
-  try {
-    const recipientEpub = await pubToEpub(recipientPub)
-    const ourSecret = await SEA.secret(recipientEpub, user._.sea)
-    if (typeof ourSecret !== 'string') {
-      throw new TypeError('typeof ourSecret !== "string"')
-    }
-
-    const decryptedResponse = await SEA.decrypt(reqResponse, ourSecret)
-
-    if (typeof decryptedResponse !== 'string') {
-      throw new TypeError('typeof decryptedResponse !== "string"')
-    }
-
-    const myFeedID = await recipientToOutgoingID(recipientPub, user, SEA)
-
-    if (typeof myFeedID === 'string' && decryptedResponse === myFeedID) {
-      return false
-    }
-
-    const recipientFeedID = decryptedResponse
-
-    const maybeFeed = await tryAndWait(gun =>
-      gun
-        .user(recipientPub)
-        .get(Key.OUTGOINGS)
-        .get(recipientFeedID)
-        .then()
-    )
-
-    const feedExistsOnRecipient =
-      typeof maybeFeed === 'object' && maybeFeed !== null
-
-    return feedExistsOnRecipient
-  } catch (err) {
-    throw new Error(`reqWasAccepted() -> ${err.message}`)
-  }
 }
 
 /**
@@ -226,6 +159,18 @@ const currHandshakeAddress = async userPub => {
   )
 
   return typeof maybeAddr === 'string' ? maybeAddr : null
+}
+
+/**
+ * @template T
+ * @param {T[]} arr
+ * @param {(item: T) => void} cb
+ * @returns {Promise<void>}
+ */
+const asyncForEach = async (arr, cb) => {
+  const promises = arr.map(item => cb(item))
+
+  await Promise.all(promises)
 }
 
 /**
@@ -266,8 +211,8 @@ const asyncFilter = async (arr, cb) => {
 }
 
 /**
- * @param {import('./SimpleGUN').ListenerData} listenerData
- * @returns {listenerData is import('./SimpleGUN').ListenerObj}
+ * @param {import('../SimpleGUN').ListenerData} listenerData
+ * @returns {listenerData is import('../SimpleGUN').ListenerObj}
  */
 const dataHasSoul = listenerData =>
   typeof listenerData === 'object' && listenerData !== null
@@ -278,6 +223,22 @@ const dataHasSoul = listenerData =>
  */
 const defaultName = pub => 'anon' + pub.slice(0, 8)
 
+/**
+ * @param {string} pub
+ * @param {string} incomingID
+ * @returns {Promise<boolean>}
+ */
+const didDisconnect = async (pub, incomingID) => {
+  const feed = await require('../../Mediator/index')
+    .getGun()
+    .user(pub)
+    .get(Key.OUTGOINGS)
+    .get(incomingID)
+    .then()
+
+  return feed === null
+}
+
 module.exports = {
   asyncMap,
   asyncFilter,
@@ -285,11 +246,13 @@ module.exports = {
   defaultName,
   delay,
   pubToEpub,
-  reqToRecipientPub,
   recipientPubToLastReqSentID,
   successfulHandshakeAlreadyExists,
   recipientToOutgoingID,
-  reqWasAccepted,
   currHandshakeAddress,
-  tryAndWait
+  tryAndWait,
+  mySecret,
+  promisifyGunNode: require('./promisifygun'),
+  didDisconnect,
+  asyncForEach
 }
