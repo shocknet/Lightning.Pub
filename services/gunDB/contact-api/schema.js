@@ -65,10 +65,13 @@ exports.isChatMessage = item => {
  * outgoing/incoming feed paradigm. It combines both the outgoing and incoming
  * messages into one data structure plus metada about the chat.
  * @typedef {object} Chat
+ * @prop {string} id Chats now have IDs because of disconnect.
+ * RecipientPublicKey will no longer be unique.
  * @prop {string|null} recipientAvatar Base64 encoded image.
  * @prop {string} recipientPublicKey A way to uniquely identify each chat.
  * @prop {ChatMessage[]} messages Sorted from most recent to least recent.
  * @prop {string|null} recipientDisplayName
+ * @prop {boolean} didDisconnect True if the recipient performed a disconnect.
  */
 
 /**
@@ -99,6 +102,14 @@ exports.isChat = item => {
   }
 
   if (obj.recipientPublicKey.length === 0) {
+    return false
+  }
+
+  if (typeof obj.didDisconnect !== 'boolean') {
+    return false
+  }
+
+  if (typeof obj.id !== 'string') {
     return false
   }
 
@@ -135,6 +146,8 @@ exports.isStoredRequest = item => {
   const obj = /** @type {StoredRequest} */ (item)
   if (typeof obj.recipientPub !== 'string') return false
   if (typeof obj.handshakeAddress !== 'string') return false
+  if (typeof obj.handshakeAddress !== 'string') return false
+  if (typeof obj.timestamp !== 'number') return false
   return true
 }
 
@@ -200,7 +213,6 @@ exports.isSimpleSentRequest = item => {
  * @prop {string|null} requestorAvatar
  * @prop {string|null} requestorDisplayName
  * @prop {string} requestorPK
- * @prop {string} response
  * @prop {number} timestamp
  */
 
@@ -235,10 +247,6 @@ exports.isSimpleReceivedRequest = item => {
   }
 
   if (typeof obj.requestorPK !== 'string') {
-    return false
-  }
-
-  if (typeof obj.response !== 'string') {
     return false
   }
 
