@@ -183,8 +183,8 @@ const react = () => {
       // pub feed pair fire up again, etc. Now. When the user disconnects from
       // this side of things. He will overwrite the pub to incoming with null.
       // Let's allow that.
-      newIncoming === pubToLastIncoming[pub] ||
-      (pubToFeed[pub] === 'disconnected' && newIncoming !== null)
+      newIncoming === pubToLastIncoming[pub] &&
+      !(pubToFeed[pub] === 'disconnected' && newIncoming === null)
     ) {
       // eslint-disable-next-line no-continue
       continue
