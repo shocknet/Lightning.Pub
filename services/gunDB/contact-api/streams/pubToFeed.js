@@ -14,7 +14,7 @@ const Utils = require('../utils')
 const PubToIncoming = require('./pubToIncoming')
 
 /**
- * @typedef {Record<string, Message[]|null|undefined>} Feeds
+ * @typedef {Record<string, Message[]|null|undefined|'disconnected'>} Feeds
  * @typedef {(feeds: Feeds) => void} FeedsListener
  */
 
@@ -88,14 +88,14 @@ const onOpenForPubFeedPair = ([pub, feed]) =>
       // detect remote disconnection
       setPubToFeed({
         ...getPubToFeed(),
-        [pub]: null
+        [pub]: /** @type {'disconnected'} */ ('disconnected')
       })
       return
     }
 
     const incoming = /** @type {Schema.Outgoing} */ (data)
 
-    // incomplete data
+    // incomplete data, let's not assume anything
     if (
       typeof incoming.with !== 'string' ||
       typeof incoming.messages !== 'object'
