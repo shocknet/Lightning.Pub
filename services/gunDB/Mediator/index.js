@@ -913,6 +913,8 @@ class Mediator {
     }
   }
 
+  onSentRequestsSubbed = false
+
   /**
    * @param {Readonly<{ token: string }>} body
    */
@@ -922,16 +924,18 @@ class Mediator {
 
       await throwOnInvalidToken(token)
 
-      API.Events.onSimplerSentRequests(
-        debounce(sentRequests => {
+      if (!this.onSentRequestsSubbed) {
+        this.onSentRequestsSubbed = true
+
+        API.Events.onSimplerSentRequests(sentRequests => {
           console.log(`new Reqss in mediator: ${JSON.stringify(sentRequests)}`)
           this.socket.emit(Event.ON_SENT_REQUESTS, {
             msg: sentRequests,
             ok: true,
             origBody: body
           })
-        }, 1000)
-      )
+        })
+      }
     } catch (err) {
       console.log(err)
       this.socket.emit(Event.ON_SENT_REQUESTS, {
