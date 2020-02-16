@@ -23,6 +23,10 @@ export type ListenerObj = Record<string, ListenerObjSoul | Primitive | null> & {
 
 export type ListenerData = Primitive | null | ListenerObj | undefined
 
+interface OpenListenerDataObj {
+  [k: string]: OpenListenerData
+}
+
 export type Listener = (data: ListenerData, key: string) => void
 export type Callback = (ack: Ack) => void
 
@@ -31,20 +35,31 @@ export interface Soul {
   put: Primitive | null | object | undefined
 }
 
-export interface GUNNode {
+export type OpenListenerData = Primitive | null | OpenListenerDataObj
+export type OpenListener = (data: OpenListenerData, key: string) => void
+
+export interface GUNNodeBase {
   _: Soul
-  get(key: string): GUNNode
+
   map(): GUNNode
-  put(data: ValidDataValue | GUNNode, cb?: Callback): GUNNode
+
   on(this: GUNNode, cb: Listener): void
   once(this: GUNNode, cb?: Listener): GUNNode
-  set(data: ValidDataValue | GUNNode, cb?: Callback): GUNNode
+
+  open(this: GUNNode, cb?: OpenListener): GUNNode
+
   off(): void
   user(): UserGUNNode
   user(epub: string): GUNNode
 
   then(): Promise<ListenerData>
   then<T>(cb: (v: ListenerData) => T): Promise<ListenerData>
+}
+
+export interface GUNNode extends GUNNodeBase {
+  get(key: string): GUNNode
+  put(data: ValidDataValue | GUNNode, cb?: Callback): GUNNode
+  set(data: ValidDataValue | GUNNode, cb?: Callback): GUNNode
 }
 
 export interface CreateAck {
