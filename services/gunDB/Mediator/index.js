@@ -2,9 +2,11 @@
  * @format
  */
 const Gun = require('gun')
+// @ts-ignore
+require('gun/lib/open')
 const debounce = require('lodash/debounce')
-const once = require('lodash/once')
 const Encryption = require('../../../utils/encryptionStore')
+const logger = require('winston')
 
 /** @type {import('../contact-api/SimpleGUN').ISEA} */
 // @ts-ignore
@@ -21,7 +23,10 @@ const IS_GUN_AUTH = 'IS_GUN_AUTH'
 
 mySEA.encrypt = (msg, secret) => {
   if (typeof msg !== 'string') {
-    throw new TypeError('mySEA.encrypt() -> expected msg to be an string')
+    throw new TypeError(
+      'mySEA.encrypt() -> expected msg to be an string instead got: ' +
+        typeof msg
+    )
   }
 
   if (msg.length === 0) {
@@ -40,7 +45,10 @@ mySEA.encrypt = (msg, secret) => {
 
 mySEA.decrypt = (encMsg, secret) => {
   if (typeof encMsg !== 'string') {
-    throw new TypeError('mySEA.encrypt() -> expected encMsg to be an string')
+    throw new TypeError(
+      'mySEA.encrypt() -> expected encMsg to be an string instead got: ' +
+        typeof encMsg
+    )
   }
 
   if (encMsg.length === 0) {
@@ -79,6 +87,12 @@ mySEA.decrypt = (encMsg, secret) => {
 }
 
 mySEA.secret = (recipientOrSenderEpub, recipientOrSenderSEA) => {
+  if (typeof recipientOrSenderEpub !== 'string') {
+    throw new TypeError('epub has to be an string')
+  }
+  if (typeof recipientOrSenderSEA !== 'object') {
+    throw new TypeError('sea has to be an object')
+  }
   if (recipientOrSenderEpub === recipientOrSenderSEA.pub) {
     throw new Error('Do not use pub for mysecret')
   }
@@ -117,6 +131,7 @@ const Event = require('../event-constants')
  * @typedef {object} SimpleSocket
  * @prop {(eventName: string, data: Emission) => void} emit
  * @prop {(eventName: string, handler: (data: any) => void) => void} on
+ * @prop {{ query: { 'x-shockwallet-device-id': string }}} handshake
  */
 
 /* eslint-disable init-declarations */
@@ -132,6 +147,11 @@ let user
 
 let _currentAlias = ''
 let _currentPass = ''
+
+let mySec = ''
+
+/** @returns {string} */
+const getMySecret = () => mySec
 
 let _isAuthenticating = false
 let _isRegistering = false
@@ -179,18 +199,15 @@ const authenticate = async (alias, pass) => {
   if (typeof ack.err === 'string') {
     throw new Error(ack.err)
   } else if (typeof ack.sea === 'object') {
-    API.Jobs.onAcceptedRequests(user, mySEA)
-    API.Jobs.onOrders(user, gun, mySEA)
-
-    const mySec = await mySEA.secret(user._.sea.epub, user._.sea)
-    if (typeof mySec !== 'string') {
-      throw new TypeError('mySec not an string')
-    }
+    mySec = await mySEA.secret(user._.sea.epub, user._.sea)
 
     _currentAlias = user.is ? user.is.alias : ''
     _currentPass = await mySEA.encrypt(pass, mySec)
 
     await new Promise(res => setTimeout(res, 5000))
+
+    API.Jobs.onAcceptedRequests(user, mySEA)
+    API.Jobs.onOrders(user, gun, mySEA)
 
     return ack.sea.pub
   } else {
@@ -305,6 +322,7 @@ class Mediator {
     this.socket.on(Action.SET_DISPLAY_NAME, this.setDisplayName)
     this.socket.on(Action.SEND_PAYMENT, this.sendPayment)
     this.socket.on(Action.SET_BIO, this.setBio)
+    this.socket.on(Action.DISCONNECT, this.disconnect)
 
     this.socket.on(Event.ON_AVATAR, this.onAvatar)
     this.socket.on(Event.ON_BLACKLIST, this.onBlacklist)
@@ -319,19 +337,25 @@ class Mediator {
     this.socket.on(IS_GUN_AUTH, this.isGunAuth)
   }
 
+  /** @param {SimpleSocket} socket */
   encryptSocketInstance = socket => {
     return {
+      /**
+       * @type {SimpleSocket['on']}
+       */
       on: (eventName, cb) => {
         const deviceId = socket.handshake.query['x-shockwallet-device-id']
-        socket.on(eventName, data => {
+        socket.on(eventName, _data => {
           try {
             if (Encryption.isNonEncrypted(eventName)) {
-              return cb(data)
+              return cb(_data)
             }
 
-            if (!data) {
-              return cb(data)
+            if (!_data) {
+              return cb(_data)
             }
+
+            let data = _data
 
             if (!deviceId) {
               const error = {
@@ -350,16 +374,9 @@ class Mediator {
               console.error('Unknown Device', error)
               return false
             }
-            console.log('Emitting Data...', data)
             if (typeof data === 'string') {
               data = JSON.parse(data)
             }
-            console.log('Event:', eventName)
-            console.log('Data:', data)
-            console.log('Decrypt params:', {
-              deviceId,
-              message: data.encryptedKey
-            })
             const decryptedKey = Encryption.decryptKey({
               deviceId,
               message: data.encryptedKey
@@ -377,6 +394,7 @@ class Mediator {
           }
         })
       },
+      /** @type {SimpleSocket['emit']} */
       emit: (eventName, data) => {
         try {
           if (Encryption.isNonEncrypted(eventName)) {
@@ -392,8 +410,10 @@ class Mediator {
                 deviceId
               })
             : data
+
           socket.emit(eventName, encryptedMessage)
         } catch (err) {
+          logger.error(err.message)
           console.error(err)
         }
       }
@@ -436,29 +456,6 @@ class Mediator {
         msg: null,
         origBody: body
       })
-
-      // refresh received requests
-      API.Events.onSimplerReceivedRequests(
-        debounce(
-          once(receivedRequests => {
-            if (Config.SHOW_LOG) {
-              console.log('---received requests---')
-              console.log(receivedRequests)
-              console.log('-----------------------')
-            }
-
-            this.socket.emit(Event.ON_RECEIVED_REQUESTS, {
-              msg: receivedRequests,
-              ok: true,
-              origBody: body
-            })
-          }),
-          300
-        ),
-        gun,
-        user,
-        mySEA
-      )
     } catch (err) {
       console.log(err)
       this.socket.emit(Action.ACCEPT_REQUEST, {
@@ -508,7 +505,7 @@ class Mediator {
 
       await throwOnInvalidToken(token)
 
-      await API.Actions.generateHandshakeAddress(user)
+      await API.Actions.generateHandshakeAddress()
 
       this.socket.emit(Action.GENERATE_NEW_HANDSHAKE_NODE, {
         ok: true,
@@ -562,22 +559,6 @@ class Mediator {
         msg: null,
         origBody: body
       })
-
-      API.Events.onSimplerSentRequests(
-        debounce(
-          once(srs => {
-            this.socket.emit(Event.ON_SENT_REQUESTS, {
-              ok: true,
-              msg: srs,
-              origBody: body
-            })
-          }),
-          350
-        ),
-        gun,
-        user,
-        mySEA
-      )
     } catch (err) {
       if (Config.SHOW_LOG) {
         console.log('\n')
@@ -815,24 +796,19 @@ class Mediator {
 
       await throwOnInvalidToken(token)
 
-      API.Events.onChats(
-        chats => {
-          if (Config.SHOW_LOG) {
-            console.log('---chats---')
-            console.log(chats)
-            console.log('-----------------------')
-          }
+      API.Events.onChats(chats => {
+        if (Config.SHOW_LOG) {
+          console.log('---chats---')
+          console.log(chats)
+          console.log('-----------------------')
+        }
 
-          this.socket.emit(Event.ON_CHATS, {
-            msg: chats,
-            ok: true,
-            origBody: body
-          })
-        },
-        gun,
-        user,
-        mySEA
-      )
+        this.socket.emit(Event.ON_CHATS, {
+          msg: chats,
+          ok: true,
+          origBody: body
+        })
+      })
     } catch (err) {
       console.log(err)
       this.socket.emit(Event.ON_CHATS, {
@@ -916,24 +892,19 @@ class Mediator {
 
       await throwOnInvalidToken(token)
 
-      API.Events.onSimplerReceivedRequests(
-        receivedRequests => {
-          if (Config.SHOW_LOG) {
-            console.log('---receivedRequests---')
-            console.log(receivedRequests)
-            console.log('-----------------------')
-          }
+      API.Events.onSimplerReceivedRequests(receivedRequests => {
+        if (Config.SHOW_LOG) {
+          console.log('---receivedRequests---')
+          console.log(receivedRequests)
+          console.log('-----------------------')
+        }
 
-          this.socket.emit(Event.ON_RECEIVED_REQUESTS, {
-            msg: receivedRequests,
-            ok: true,
-            origBody: body
-          })
-        },
-        gun,
-        user,
-        mySEA
-      )
+        this.socket.emit(Event.ON_RECEIVED_REQUESTS, {
+          msg: receivedRequests,
+          ok: true,
+          origBody: body
+        })
+      })
     } catch (err) {
       console.log(err)
       this.socket.emit(Event.ON_RECEIVED_REQUESTS, {
@@ -944,6 +915,8 @@ class Mediator {
     }
   }
 
+  onSentRequestsSubbed = false
+
   /**
    * @param {Readonly<{ token: string }>} body
    */
@@ -953,24 +926,22 @@ class Mediator {
 
       await throwOnInvalidToken(token)
 
-      await API.Events.onSimplerSentRequests(
-        sentRequests => {
-          if (Config.SHOW_LOG) {
-            console.log('---sentRequests---')
-            console.log(sentRequests)
-            console.log('-----------------------')
-          }
+      if (!this.onSentRequestsSubbed) {
+        this.onSentRequestsSubbed = true
 
-          this.socket.emit(Event.ON_SENT_REQUESTS, {
-            msg: sentRequests,
-            ok: true,
-            origBody: body
-          })
-        },
-        gun,
-        user,
-        mySEA
-      )
+        API.Events.onSimplerSentRequests(
+          debounce(sentRequests => {
+            console.log(
+              `new Reqss in mediator: ${JSON.stringify(sentRequests)}`
+            )
+            this.socket.emit(Event.ON_SENT_REQUESTS, {
+              msg: sentRequests,
+              ok: true,
+              origBody: body
+            })
+          }, 1000)
+        )
+      }
     } catch (err) {
       console.log(err)
       this.socket.emit(Event.ON_SENT_REQUESTS, {
@@ -1062,6 +1033,29 @@ class Mediator {
       })
     }
   }
+
+  /** @param {Readonly<{ pub: string, token: string }>} body */
+  disconnect = async body => {
+    try {
+      const { pub, token } = body
+
+      await throwOnInvalidToken(token)
+
+      await API.Actions.disconnect(pub)
+
+      this.socket.emit(Action.DISCONNECT, {
+        ok: true,
+        msg: null,
+        origBody: body
+      })
+    } catch (err) {
+      this.socket.emit(Action.DISCONNECT, {
+        ok: false,
+        msg: err.message,
+        origBody: body
+      })
+    }
+  }
 }
 
 /**
@@ -1101,9 +1095,6 @@ const register = async (alias, pass) => {
   _isRegistering = false
 
   const mySecret = await mySEA.secret(user._.sea.epub, user._.sea)
-  if (typeof mySecret !== 'string') {
-    throw new Error('Could not generate secret for user.')
-  }
 
   if (typeof ack.err === 'string') {
     throw new Error(ack.err)
@@ -1123,7 +1114,7 @@ const register = async (alias, pass) => {
 
   return authenticate(alias, pass).then(async pub => {
     await API.Actions.setDisplayName('anon' + pub.slice(0, 8), user)
-    await API.Actions.generateHandshakeAddress(user)
+    await API.Actions.generateHandshakeAddress()
     await API.Actions.generateOrderAddress(user)
     return pub
   })
@@ -1163,5 +1154,6 @@ module.exports = {
   instantiateGun,
   getGun,
   getUser,
-  mySEA
+  mySEA,
+  getMySecret
 }
