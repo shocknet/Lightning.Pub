@@ -89,26 +89,31 @@ module.exports = async (
     });
   
   const checkHealth = async () => {
+    logger.info("Getting service status...")
     const serviceStatus = await getAvailableService();
+    logger.info("Received status:", serviceStatus);
     const LNDStatus = serviceStatus;
     try {
+      logger.info("Getting API status...");
       const APIHealth = await Http.get(`${usetls ? 'https' : 'http'}://localhost:${serverPort}/ping`);
       const APIStatus = {
         message: APIHealth.data,
         responseTime: APIHealth.headers["x-response-time"],
         success: true
       };
+      logger.info("Received API status!", APIStatus);
       return {
         LNDStatus,
         APIStatus
       };
     } catch (err) {
-      console.error(err);
+      logger.error(err);
       const APIStatus = {
         message: err.response.data,
         responseTime: err.response.headers["x-response-time"],
         success: false
       };
+      logger.warn("Failed to retrieve API status", APIStatus);
       return {
         LNDStatus,
         APIStatus
@@ -307,10 +312,12 @@ module.exports = async (
    */
   app.get("/healthz", async (req, res) => {
     const health = await checkHealth();
+    logger.info("Healthz response:", health);
     res.json(health);
   });
 
   app.get("/ping", (req, res) => {
+    logger.info("Ping completed!");
     res.json({ message: "OK" });
   });
 
@@ -1205,7 +1212,7 @@ module.exports = async (
         funding_txid_str: channelPoint,
         output_index: outputIndex
       },
-      force: force
+      force
     };
     logger.info("CloseChannelRequest", closeChannelRequest);
     const closedChannel = lightning.closeChannel(closeChannelRequest);
