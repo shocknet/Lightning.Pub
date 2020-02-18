@@ -2,6 +2,7 @@
  * @format
  */
 const Gun = require('gun')
+Gun.log = () => {}
 // @ts-ignore
 require('gun/lib/open')
 const debounce = require('lodash/debounce')
