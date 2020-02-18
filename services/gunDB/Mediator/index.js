@@ -2,6 +2,7 @@
  * @format
  */
 const Gun = require('gun')
+Gun.log = () => {}
 // @ts-ignore
 require('gun/lib/open')
 const debounce = require('lodash/debounce')
@@ -792,7 +793,7 @@ class Mediator {
     try {
       const { token } = body
 
-      console.log('ON_CHATS', body)
+      // console.log('ON_CHATS', body)
 
       await throwOnInvalidToken(token)
 
@@ -894,9 +895,9 @@ class Mediator {
 
       API.Events.onSimplerReceivedRequests(receivedRequests => {
         if (Config.SHOW_LOG) {
-          console.log('---receivedRequests---')
-          console.log(receivedRequests)
-          console.log('-----------------------')
+          // console.log('---receivedRequests---')
+          // console.log(receivedRequests)
+          // console.log('-----------------------')
         }
 
         this.socket.emit(Event.ON_RECEIVED_REQUESTS, {
@@ -931,9 +932,9 @@ class Mediator {
 
         API.Events.onSimplerSentRequests(
           debounce(sentRequests => {
-            console.log(
-              `new Reqss in mediator: ${JSON.stringify(sentRequests)}`
-            )
+            // console.log(
+            //   `new Reqss in mediator: ${JSON.stringify(sentRequests)}`
+            // )
             this.socket.emit(Event.ON_SENT_REQUESTS, {
               msg: sentRequests,
               ok: true,
