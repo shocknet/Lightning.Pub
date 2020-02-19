@@ -68,40 +68,53 @@ module.exports = (
     return null;
   };
 
+
   io.on("connection", socket => {
+
+    logger.info(`io.onconnection`)
+
     // this is where we create the websocket connection
     // with the GunDB service.
     Mediator.createMediator(socket);
 
-    logger.debug("socket.handshake", socket.handshake);
+    logger.info(`socket after createmediator`)
+
+    logger.info("socket.handshake", socket.handshake);
 
     if (authEnabled) {
+      logger.info('io.onconnection -> authEnabled')
       try {
         const authorizationHeaderToken = getSocketAuthToken(socket);
+        logger.info('io.onconnection -> authHEaderTOken: ' + JSON.stringify(authorizationHeaderToken))
 
         if (authorizationHeaderToken === userToken) {
+          logger.info('io.onconnection -> setting socket._limitUser to false')
           socket._limituser = false;
         } else if (authorizationHeaderToken === limitUserToken) {
+          logger.info('io.onconnection -> setting socket._limitUser to true')
           socket._limituser = true;
         } else {
+          logger.info('io.onconnection -> disconnecting socket as unauth')
           socket.disconnect("unauthorized");
           return;
         }
       } catch (err) {
+        logger.info('io.onconnection -> error caught:')
         // probably because of missing authorization header
-        logger.debug(err);
+        logger.info(JSON.stringify(err));
+        logger.info('WILL DISCONNECT SOCKET')
         socket.disconnect("unauthorized");
         return;
       }
     } else {
+      logger.info('io.onconnection -> no auth enabled so setting socket._limituser to false')
       socket._limituser = false;
     }
 
     /** printing out the client who joined */
-    logger.debug("New socket client connected (id=" + socket.id + ").");
+    logger.info("New socket client connected (id=" + socket.id + ").");
 
     socket.emit("hello", { limitUser: socket._limituser });
-
     socket.broadcast.emit("hello", { remoteAddress: socket.handshake.address });
 
     /** pushing new client to client array*/
@@ -113,7 +126,7 @@ module.exports = (
     socket.on("disconnect", () => {
       clients.splice(clients.indexOf(socket), 1);
       unregisterSocketListeners(socket);
-      logger.debug("client disconnected (id=" + socket.id + ").");
+      logger.info("client disconnected (id=" + socket.id + ").");
     });
   });
 
