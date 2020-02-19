@@ -1,9 +1,9 @@
 // app/sockets.js
 
 const logger = require("winston");
+const io = require('socket.io')
 
 module.exports = (
-  io,
   lnd,
 ) => {
   const Mediator = require("../services/gunDB/Mediator/index.js");
