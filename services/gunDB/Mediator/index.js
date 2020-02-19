@@ -296,6 +296,14 @@ const throwOnInvalidToken = async token => {
   }
 }
 
+const getGun = () => {
+  return gun
+}
+
+const getUser = () => {
+  return user
+}
+
 class Mediator {
   /**
    * @param {Readonly<SimpleSocket>} socket
@@ -336,6 +344,34 @@ class Mediator {
     this.socket.on(Event.ON_SEED_BACKUP, this.onSeedBackup)
 
     this.socket.on(IS_GUN_AUTH, this.isGunAuth)
+
+    this.socket.on('SET_LAST_SEEN_APP', async body => {
+      try {
+        await throwOnInvalidToken(body.token)
+        await new Promise((res, rej) => {
+          getUser()
+            .get('lastSeenApp')
+            .put(Date.now(), ack => {
+              if (ack.err) {
+                rej(new Error(ack.err))
+              } else {
+                res()
+              }
+            })
+        })
+        this.socket.emit('SET_LAST_SEEN_APP', {
+          ok: true,
+          msg: null,
+          origBody: body
+        })
+      } catch (e) {
+        this.socket.emit('SET_LAST_SEEN_APP', {
+          ok: false,
+          msg: e.message,
+          origBody: body
+        })
+      }
+    })
   }
 
   /** @param {SimpleSocket} socket */
@@ -1134,14 +1170,6 @@ const createMediator = socket => {
   // }
 
   return new Mediator(socket)
-}
-
-const getGun = () => {
-  return gun
-}
-
-const getUser = () => {
-  return user
 }
 
 module.exports = {
