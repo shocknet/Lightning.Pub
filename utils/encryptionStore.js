@@ -6,7 +6,12 @@ const { Buffer } = require('buffer')
 const APIKeyPair = new Map()
 const authorizedDevices = new Map()
 
-const nonEncryptedEvents = ['ping', 'disconnect', 'IS_GUN_AUTH']
+const nonEncryptedEvents = [
+  'ping',
+  'disconnect',
+  'IS_GUN_AUTH',
+  'SET_LAST_SEEN_APP'
+]
 
 const Encryption = {
   isNonEncrypted: event => nonEncryptedEvents.includes(event),
