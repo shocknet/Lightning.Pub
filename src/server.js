@@ -196,7 +196,7 @@ const server = program => {
 
       const io = require('socket.io')(serverInstance)
 
-      const Sockets = require('./sockets')(lnd)
+      const Sockets = require('./sockets')(io, lnd)
 
       require('./routes')(app, defaults, Sockets, {
         serverHost: module.serverHost,
