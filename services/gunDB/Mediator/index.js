@@ -296,6 +296,14 @@ const throwOnInvalidToken = async token => {
   }
 }
 
+const getGun = () => {
+  return gun
+}
+
+const getUser = () => {
+  return user
+}
+
 class Mediator {
   /**
    * @param {Readonly<SimpleSocket>} socket
@@ -1134,14 +1142,6 @@ const createMediator = socket => {
   // }
 
   return new Mediator(socket)
-}
-
-const getGun = () => {
-  return gun
-}
-
-const getUser = () => {
-  return user
 }
 
 module.exports = {
