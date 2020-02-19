@@ -3,34 +3,17 @@
 const logger = require("winston");
 
 module.exports = (
+  /** @type {import('socket.io').Server} */
   io,
   lnd,
-  login,
-  pass,
-  limitlogin,
-  limitpass
 ) => {
+  
   const Mediator = require("../services/gunDB/Mediator/index.js");
   const EventEmitter = require("events");
 
   class MySocketsEvents extends EventEmitter {}
 
   const mySocketsEvents = new MySocketsEvents();
-
-  const clients = [];
-
-  const authEnabled = (login && pass) || (limitlogin && limitpass);
-
-  let userToken = null;
-  let limitUserToken = null;
-  if (login && pass) {
-    userToken = Buffer.from(login + ":" + pass).toString("base64");
-  }
-  if (limitlogin && limitpass) {
-    limitUserToken = Buffer.from(limitlogin + ":" + limitpass).toString(
-      "base64"
-    );
-  }
 
   // register the lnd invoices listener
   const registerLndInvoiceListener = socket => {
@@ -57,65 +40,53 @@ module.exports = (
     unregisterLndInvoiceListener(socket);
   };
 
-  const getSocketAuthToken = socket => {
-    if (socket.handshake.query.auth) {
-      return socket.handshake.query.auth;
-    } else if (socket.handshake.headers.authorization) {
-      return socket.handshake.headers.authorization.substr(6);
-    }
-
-    socket.disconnect("unauthorized");
-    return null;
-  };
 
   io.on("connection", socket => {
-    // this is where we create the websocket connection
-    // with the GunDB service.
-    Mediator.createMediator(socket);
+    logger.info(`io.onconnection`)
 
-    logger.debug("socket.handshake", socket.handshake);
-
-    if (authEnabled) {
-      try {
-        const authorizationHeaderToken = getSocketAuthToken(socket);
-
-        if (authorizationHeaderToken === userToken) {
-          socket._limituser = false;
-        } else if (authorizationHeaderToken === limitUserToken) {
-          socket._limituser = true;
-        } else {
-          socket.disconnect("unauthorized");
-          return;
-        }
-      } catch (err) {
-        // probably because of missing authorization header
-        logger.debug(err);
-        socket.disconnect("unauthorized");
-        return;
-      }
-    } else {
-      socket._limituser = false;
-    }
+    logger.info("socket.handshake", socket.handshake);
 
     /** printing out the client who joined */
-    logger.debug("New socket client connected (id=" + socket.id + ").");
+    logger.info("New socket client connected (id=" + socket.id + ").");
 
-    socket.emit("hello", { limitUser: socket._limituser });
+    const isOneTimeUseSocket = !!socket.handshake.query.IS_GUN_AUTH
 
-    socket.broadcast.emit("hello", { remoteAddress: socket.handshake.address });
+    if (isOneTimeUseSocket) {
+      logger.info('New socket is one time use')
+      socket.on('IS_GUN_AUTH', () => {
+        try {
+          const isGunAuth = Mediator.isAuthenticated()
+          socket.emit('IS_GUN_AUTH', {
+            ok: true,
+            msg: {
+              isGunAuth
+            },
+            origBody: {}
+          })
+          socket.disconnect()
+        } catch (err) {
+          socket.emit('IS_GUN_AUTH', {
+            ok: false,
+            msg: err.message,
+            origBody: {}
+          })
+          socket.disconnect()
+        }
+      })
+    } else {
+      logger.info('New socket is NOT one time use')
+      // this is where we create the websocket connection
+      // with the GunDB service.
+      Mediator.createMediator(socket);
+      registerSocketListeners(socket);
 
-    /** pushing new client to client array*/
-    clients.push(socket);
-
-    registerSocketListeners(socket);
-
-    /** listening if client has disconnected */
-    socket.on("disconnect", () => {
-      clients.splice(clients.indexOf(socket), 1);
-      unregisterSocketListeners(socket);
-      logger.debug("client disconnected (id=" + socket.id + ").");
-    });
-  });
+      /** listening if client has disconnected */
+      socket.on("disconnect", () => {
+        unregisterSocketListeners(socket);
+        logger.info("client disconnected (id=" + socket.id + ").");
+      });
+    }
+  })
 
   return mySocketsEvents;
 };
