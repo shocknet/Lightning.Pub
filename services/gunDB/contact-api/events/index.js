@@ -598,6 +598,7 @@ module.exports = {
   onSimplerReceivedRequests: require('./onReceivedReqs').onReceivedReqs,
   onSimplerSentRequests: require('./onSentReqs').onSentReqs,
   getCurrentSentReqs: require('./onSentReqs').getCurrentSentReqs,
+  getCurrentReceivedReqs: require('./onReceivedReqs').getReceivedReqs,
   onBio,
   onSeedBackup,
   onChats,
