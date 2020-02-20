@@ -77,29 +77,52 @@ const __onUserToIncoming = (cb, user, SEA) => {
     })
 }
 
+/** @type {Set<(av: string|null) => void>} */
+const avatarListeners = new Set()
+
+/** @type {string|null} */
+let currentAvatar = null
+
+const getAvatar = () => currentAvatar
+
+/** @param {string|null} av */
+const setAvatar = av => {
+  currentAvatar = av
+  avatarListeners.forEach(l => l(currentAvatar))
+}
+
+let avatarSubbed = false
+
 /**
  * @param {(avatar: string|null) => void} cb
  * @param {UserGUNNode} user Pass only for testing purposes.
  * @throws {Error} If user hasn't been auth.
- * @returns {void}
+ * @returns {() => void}
  */
 const onAvatar = (cb, user) => {
   if (!user.is) {
     throw new Error(ErrorCode.NOT_AUTH)
   }
 
-  const callb = debounce(cb, DEBOUNCE_WAIT_TIME)
-  // Initial value if avvatar is undefined in gun
-  callb(null)
+  avatarListeners.add(cb)
 
-  user
-    .get(Key.PROFILE)
-    .get(Key.AVATAR)
-    .on(avatar => {
-      if (typeof avatar === 'string' || avatar === null) {
-        callb(avatar)
-      }
-    })
+  cb(currentAvatar)
+
+  if (!avatarSubbed) {
+    avatarSubbed = true
+    user
+      .get(Key.PROFILE)
+      .get(Key.AVATAR)
+      .on(avatar => {
+        if (typeof avatar === 'string' || avatar === null) {
+          setAvatar(avatar)
+        }
+      })
+  }
+
+  return () => {
+    avatarListeners.delete(cb)
+  }
 }
 
 /**
@@ -531,5 +554,6 @@ module.exports = {
   getCurrentSentReqs: require('./onSentReqs').getCurrentSentReqs,
   onBio,
   onSeedBackup,
-  onChats
+  onChats,
+  getAvatar
 }
