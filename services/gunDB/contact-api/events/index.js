@@ -156,33 +156,55 @@ const onBlacklist = (cb, user) => {
     })
 }
 
+/** @type {Set<(addr: string|null) => void>} */
+const addressListeners = new Set()
+
+/** @type {string|null} */
+let currentAddress = null
+
+const getHandshakeAddress = () => currentAddress
+
+/** @param {string|null} addr */
+const setAddress = addr => {
+  currentAddress = addr
+  addressListeners.forEach(l => l(currentAddress))
+}
+
+let addrSubbed = false
+
 /**
  * @param {(currentHandshakeAddress: string|null) => void} cb
  * @param {UserGUNNode} user
- * @returns {void}
+ * @returns {() => void}
  */
 const onCurrentHandshakeAddress = (cb, user) => {
   if (!user.is) {
     throw new Error(ErrorCode.NOT_AUTH)
   }
 
-  const callb = debounce(cb, DEBOUNCE_WAIT_TIME)
+  addressListeners.add(cb)
 
-  // If undefined, callback below wont be called. Let's supply null as the
-  // initial value.
-  callb(null)
+  cb(currentAddress)
 
-  user.get(Key.CURRENT_HANDSHAKE_ADDRESS).on(addr => {
-    if (typeof addr !== 'string') {
-      console.error('expected handshake address to be an string')
+  if (!addrSubbed) {
+    addrSubbed = true
 
-      callb(null)
+    user.get(Key.CURRENT_HANDSHAKE_ADDRESS).on(addr => {
+      if (typeof addr !== 'string') {
+        console.error('expected handshake address to be an string')
 
-      return
-    }
+        setAddress(null)
 
-    callb(addr)
-  })
+        return
+      }
+
+      setAddress(addr)
+    })
+  }
+
+  return () => {
+    addressListeners.delete(cb)
+  }
 }
 
 /** @type {Set<(dn: string|null) => void>} */
@@ -578,5 +600,6 @@ module.exports = {
   onSeedBackup,
   onChats,
   getAvatar,
-  getDisplayName
+  getDisplayName,
+  getHandshakeAddress
 }
