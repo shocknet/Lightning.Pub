@@ -436,6 +436,8 @@ const onOutgoing = cb => {
 /** @type {Chat[]} */
 let currentChats = []
 
+export const getChats = () => currentChats
+
 /** @type {Set<ChatsListener>} */
 const chatsListeners = new Set()
 
