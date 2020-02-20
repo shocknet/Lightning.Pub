@@ -185,30 +185,52 @@ const onCurrentHandshakeAddress = (cb, user) => {
   })
 }
 
+/** @type {Set<(dn: string|null) => void>} */
+const dnListeners = new Set()
+
+/** @type {string|null} */
+let currentDn = null
+
+const getDisplayName = () => currentDn
+
+/** @param {string|null} dn */
+const setDn = dn => {
+  currentDn = dn
+  dnListeners.forEach(l => l(currentDn))
+}
+
+let dnSubbed = false
+
 /**
  * @param {(displayName: string|null) => void} cb
  * @param {UserGUNNode} user Pass only for testing purposes.
  * @throws {Error} If user hasn't been auth.
- * @returns {void}
+ * @returns {() => void}
  */
 const onDisplayName = (cb, user) => {
   if (!user.is) {
     throw new Error(ErrorCode.NOT_AUTH)
   }
 
-  const callb = debounce(cb, DEBOUNCE_WAIT_TIME)
+  cb(currentDn)
 
-  // Initial value if display name is undefined in gun
-  callb(null)
+  dnListeners.add(cb)
 
-  user
-    .get(Key.PROFILE)
-    .get(Key.DISPLAY_NAME)
-    .on(displayName => {
-      if (typeof displayName === 'string' || displayName === null) {
-        callb(displayName)
-      }
-    })
+  if (!dnSubbed) {
+    dnSubbed = true
+    user
+      .get(Key.PROFILE)
+      .get(Key.DISPLAY_NAME)
+      .on(displayName => {
+        if (typeof displayName === 'string' || displayName === null) {
+          setDn(displayName)
+        }
+      })
+  }
+
+  return () => {
+    dnListeners.delete(cb)
+  }
 }
 
 /**
@@ -555,5 +577,6 @@ module.exports = {
   onBio,
   onSeedBackup,
   onChats,
-  getAvatar
+  getAvatar,
+  getDisplayName
 }
