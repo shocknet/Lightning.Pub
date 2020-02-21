@@ -58,7 +58,8 @@ const listenerForAddr = (addr, user, SEA) => async (order, orderID) => {
         {
           expiry: 36000,
           memo,
-          value: amount
+          value: amount,
+          private: true
         },
         (
           /** @type {any} */ error,
