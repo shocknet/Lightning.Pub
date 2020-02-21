@@ -1566,6 +1566,7 @@ module.exports = async (
   const GunEvent = require('../services/gunDB/event-constants')
   const Events = require('../services/gunDB/contact-api/events')
   const user = require('../services/gunDB/Mediator').getUser()
+  const Key = require('../services/gunDB/contact-api/key')
 
   app.get(`/api/gun/${GunEvent.ON_RECEIVED_REQUESTS}`, (_, res) => {
     try {
@@ -1612,13 +1613,10 @@ module.exports = async (
     }
   })
 
-  app.get(`/api/gun/${GunEvent.ON_AVATAR}`, (_, res) => {
+  app.get(`/api/gun/${GunEvent.ON_AVATAR}`, async (_, res) => {
     try {
-      // spinup
-      Events.onAvatar(() => {}, user )()
-      const data =  Events.getAvatar()
       res.json({
-        data
+        data: await user.get(Key.PROFILE).get(Key.AVATAR).then()
       })
     } catch (err) {
       res.status(500).json({
@@ -1627,13 +1625,10 @@ module.exports = async (
     }
   })
 
-  app.get(`/api/gun/${GunEvent.ON_DISPLAY_NAME}`, (_, res) => {
+  app.get(`/api/gun/${GunEvent.ON_DISPLAY_NAME}`, async (_, res) => {
     try {
-      // spinup
-      Events.onDisplayName(() => {}, user)()
-      const data = Events.getDisplayName()
       res.json({
-        data
+        data: await user.get(Key.PROFILE).get(Key.DISPLAY_NAME).then()
       })
     } catch (err) {
       res.status(500).json({
@@ -1642,13 +1637,10 @@ module.exports = async (
     }
   })
 
-  app.get(`/api/gun/${GunEvent.ON_HANDSHAKE_ADDRESS}`, (_, res) => {
+  app.get(`/api/gun/${GunEvent.ON_HANDSHAKE_ADDRESS}`, async (_, res) => {
     try {
-      // spinup
-      Events.onCurrentHandshakeAddress(() => {}, user)()
-      const data =  Events.getHandshakeAddress()
       res.json({
-        data
+        data: await user.get(Key.CURRENT_HANDSHAKE_ADDRESS).then()
       })
     } catch (err) {
       res.status(500).json({
