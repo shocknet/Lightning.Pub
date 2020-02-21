@@ -436,6 +436,8 @@ const onOutgoing = cb => {
 /** @type {Chat[]} */
 let currentChats = []
 
+const getChats = () => currentChats
+
 /** @type {Set<ChatsListener>} */
 const chatsListeners = new Set()
 
@@ -596,10 +598,12 @@ module.exports = {
   onSimplerReceivedRequests: require('./onReceivedReqs').onReceivedReqs,
   onSimplerSentRequests: require('./onSentReqs').onSentReqs,
   getCurrentSentReqs: require('./onSentReqs').getCurrentSentReqs,
+  getCurrentReceivedReqs: require('./onReceivedReqs').getReceivedReqs,
   onBio,
   onSeedBackup,
   onChats,
   getAvatar,
   getDisplayName,
-  getHandshakeAddress
+  getHandshakeAddress,
+  getChats
 }
