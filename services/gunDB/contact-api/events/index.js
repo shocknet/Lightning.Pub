@@ -77,29 +77,52 @@ const __onUserToIncoming = (cb, user, SEA) => {
     })
 }
 
+/** @type {Set<(av: string|null) => void>} */
+const avatarListeners = new Set()
+
+/** @type {string|null} */
+let currentAvatar = null
+
+const getAvatar = () => currentAvatar
+
+/** @param {string|null} av */
+const setAvatar = av => {
+  currentAvatar = av
+  avatarListeners.forEach(l => l(currentAvatar))
+}
+
+let avatarSubbed = false
+
 /**
  * @param {(avatar: string|null) => void} cb
  * @param {UserGUNNode} user Pass only for testing purposes.
  * @throws {Error} If user hasn't been auth.
- * @returns {void}
+ * @returns {() => void}
  */
 const onAvatar = (cb, user) => {
   if (!user.is) {
     throw new Error(ErrorCode.NOT_AUTH)
   }
 
-  const callb = debounce(cb, DEBOUNCE_WAIT_TIME)
-  // Initial value if avvatar is undefined in gun
-  callb(null)
+  avatarListeners.add(cb)
 
-  user
-    .get(Key.PROFILE)
-    .get(Key.AVATAR)
-    .on(avatar => {
-      if (typeof avatar === 'string' || avatar === null) {
-        callb(avatar)
-      }
-    })
+  cb(currentAvatar)
+
+  if (!avatarSubbed) {
+    avatarSubbed = true
+    user
+      .get(Key.PROFILE)
+      .get(Key.AVATAR)
+      .on(avatar => {
+        if (typeof avatar === 'string' || avatar === null) {
+          setAvatar(avatar)
+        }
+      })
+  }
+
+  return () => {
+    avatarListeners.delete(cb)
+  }
 }
 
 /**
@@ -133,59 +156,103 @@ const onBlacklist = (cb, user) => {
     })
 }
 
+/** @type {Set<(addr: string|null) => void>} */
+const addressListeners = new Set()
+
+/** @type {string|null} */
+let currentAddress = null
+
+const getHandshakeAddress = () => currentAddress
+
+/** @param {string|null} addr */
+const setAddress = addr => {
+  currentAddress = addr
+  addressListeners.forEach(l => l(currentAddress))
+}
+
+let addrSubbed = false
+
 /**
  * @param {(currentHandshakeAddress: string|null) => void} cb
  * @param {UserGUNNode} user
- * @returns {void}
+ * @returns {() => void}
  */
 const onCurrentHandshakeAddress = (cb, user) => {
   if (!user.is) {
     throw new Error(ErrorCode.NOT_AUTH)
   }
 
-  const callb = debounce(cb, DEBOUNCE_WAIT_TIME)
+  addressListeners.add(cb)
 
-  // If undefined, callback below wont be called. Let's supply null as the
-  // initial value.
-  callb(null)
+  cb(currentAddress)
 
-  user.get(Key.CURRENT_HANDSHAKE_ADDRESS).on(addr => {
-    if (typeof addr !== 'string') {
-      console.error('expected handshake address to be an string')
+  if (!addrSubbed) {
+    addrSubbed = true
 
-      callb(null)
+    user.get(Key.CURRENT_HANDSHAKE_ADDRESS).on(addr => {
+      if (typeof addr !== 'string') {
+        console.error('expected handshake address to be an string')
 
-      return
-    }
+        setAddress(null)
 
-    callb(addr)
-  })
+        return
+      }
+
+      setAddress(addr)
+    })
+  }
+
+  return () => {
+    addressListeners.delete(cb)
+  }
 }
+
+/** @type {Set<(dn: string|null) => void>} */
+const dnListeners = new Set()
+
+/** @type {string|null} */
+let currentDn = null
+
+const getDisplayName = () => currentDn
+
+/** @param {string|null} dn */
+const setDn = dn => {
+  currentDn = dn
+  dnListeners.forEach(l => l(currentDn))
+}
+
+let dnSubbed = false
 
 /**
  * @param {(displayName: string|null) => void} cb
  * @param {UserGUNNode} user Pass only for testing purposes.
  * @throws {Error} If user hasn't been auth.
- * @returns {void}
+ * @returns {() => void}
  */
 const onDisplayName = (cb, user) => {
   if (!user.is) {
     throw new Error(ErrorCode.NOT_AUTH)
   }
 
-  const callb = debounce(cb, DEBOUNCE_WAIT_TIME)
+  cb(currentDn)
 
-  // Initial value if display name is undefined in gun
-  callb(null)
+  dnListeners.add(cb)
 
-  user
-    .get(Key.PROFILE)
-    .get(Key.DISPLAY_NAME)
-    .on(displayName => {
-      if (typeof displayName === 'string' || displayName === null) {
-        callb(displayName)
-      }
-    })
+  if (!dnSubbed) {
+    dnSubbed = true
+    user
+      .get(Key.PROFILE)
+      .get(Key.DISPLAY_NAME)
+      .on(displayName => {
+        if (typeof displayName === 'string' || displayName === null) {
+          setDn(displayName)
+        }
+      })
+  }
+
+  return () => {
+    dnListeners.delete(cb)
+  }
 }
 
 /**
@@ -531,5 +598,8 @@ module.exports = {
   getCurrentSentReqs: require('./onSentReqs').getCurrentSentReqs,
   onBio,
   onSeedBackup,
-  onChats
+  onChats,
+  getAvatar,
+  getDisplayName,
+  getHandshakeAddress
 }
