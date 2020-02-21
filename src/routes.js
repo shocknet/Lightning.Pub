@@ -284,7 +284,6 @@ module.exports = async (
             errorMessage: "Please create a wallet before using the API" 
           });
       }
-      next()
     } catch (err) {
       logger.error(err);
       res
