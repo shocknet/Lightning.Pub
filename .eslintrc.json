@@ -5,6 +5,8 @@
     "prettier/prettier": "error",
     "strict": "off",
 
+    "no-empty-function": "off",
+
     "no-console": "off",
 
     "max-statements": "off",
