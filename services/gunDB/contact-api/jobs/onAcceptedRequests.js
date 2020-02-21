@@ -36,7 +36,10 @@ const onAcceptedRequests = (user, SEA) => {
     .once(async (storedReq, id) => {
       try {
         if (!Schema.isStoredRequest(storedReq)) {
-          throw new TypeError('Stored request not an StoredRequest')
+          throw new TypeError(
+            'Stored request not an StoredRequest, instead got: ' +
+              JSON.stringify(storedReq)
+          )
         }
         const recipientPub = await SEA.decrypt(storedReq.recipientPub, mySecret)
 
@@ -156,6 +159,7 @@ const onAcceptedRequests = (user, SEA) => {
         )
       } catch (err) {
         console.warn(`Jobs.onAcceptedRequests() -> ${err.message}`)
+        console.log(err)
       }
     })
 }
