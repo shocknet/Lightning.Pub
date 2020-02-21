@@ -1565,6 +1565,7 @@ module.exports = async (
 
   const GunEvent = require('../services/gunDB/event-constants')
   const Events = require('../services/gunDB/contact-api/events')
+  const user = require('../services/gunDB/Mediator').getUser()
 
   app.get(`/api/gun/${GunEvent.ON_RECEIVED_REQUESTS}`, (_, res) => {
     try {
@@ -1614,7 +1615,7 @@ module.exports = async (
   app.get(`/api/gun/${GunEvent.ON_AVATAR}`, (_, res) => {
     try {
       // spinup
-      Events.onAvatar(() => {})()
+      Events.onAvatar(() => {}, user )()
       const data =  Events.getAvatar()
       res.json({
         data
@@ -1629,7 +1630,7 @@ module.exports = async (
   app.get(`/api/gun/${GunEvent.ON_DISPLAY_NAME}`, (_, res) => {
     try {
       // spinup
-      Events.onDisplayName(() => {})()
+      Events.onDisplayName(() => {}, user)()
       const data = Events.getDisplayName()
       res.json({
         data
@@ -1644,7 +1645,7 @@ module.exports = async (
   app.get(`/api/gun/${GunEvent.ON_HANDSHAKE_ADDRESS}`, (_, res) => {
     try {
       // spinup
-      Events.onCurrentHandshakeAddress(() => {})()
+      Events.onCurrentHandshakeAddress(() => {}, user)()
       const data =  Events.getHandshakeAddress()
       res.json({
         data
