@@ -1576,7 +1576,7 @@ module.exports = async (
       })
     } catch (err) {
       res.status(500).json({
-        errorMessage: (typeof err === 'object' && err.message) || 'Unknown error'
+        errorMessage: typeof err === 'string' ? err : err.message
       })
     }
   })
@@ -1591,7 +1591,7 @@ module.exports = async (
       })
     } catch (err) {
       res.status(500).json({
-        errorMessage: (typeof err === 'object' && err.message) || 'Unknown error'
+        errorMessage: typeof err === 'string' ? err : err.message
       })
     }
   })
@@ -1606,7 +1606,7 @@ module.exports = async (
       })
     } catch (err) {
       res.status(500).json({
-        errorMessage: (typeof err === 'object' && err.message) || 'Unknown error'
+        errorMessage: typeof err === 'string' ? err : err.message
       })
     }
   })
@@ -1621,7 +1621,7 @@ module.exports = async (
       })
     } catch (err) {
       res.status(500).json({
-        errorMessage: (typeof err === 'object' && err.message) || 'Unknown error'
+        errorMessage: typeof err === 'string' ? err : err.message
       })
     }
   })
@@ -1630,13 +1630,13 @@ module.exports = async (
     try {
       // spinup
       Events.onDisplayName(() => {})()
-      const data =  Events.getDisplayName()
+      const data = Events.getDisplayName()
       res.json({
         data
       })
     } catch (err) {
       res.status(500).json({
-        errorMessage: (typeof err === 'object' && err.message) || 'Unknown error'
+        errorMessage: typeof err === 'string' ? err : err.message
       })
     }
   })
@@ -1651,7 +1651,7 @@ module.exports = async (
       })
     } catch (err) {
       res.status(500).json({
-        errorMessage: (typeof err === 'object' && err.message) || 'Unknown error'
+        errorMessage: typeof err === 'string' ? err : err.message
       })
     }
   })
