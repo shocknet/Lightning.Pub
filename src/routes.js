@@ -1309,7 +1309,7 @@ module.exports = async (
       }
       return false;
     }
-    const invoiceRequest = { memo: req.body.memo };
+    const invoiceRequest = { memo: req.body.memo, private: true };
     if (req.body.value) {
       invoiceRequest.value = req.body.value;
     }
