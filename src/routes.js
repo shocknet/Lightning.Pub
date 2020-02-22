@@ -36,13 +36,17 @@ module.exports = async (
     })
   })
   
-  const sanitizeLNDError = (message = "") =>
-    message.toLowerCase().includes("unknown")
-      ? message
-          .split("UNKNOWN: ")
-          .slice(1)
-          .join("")
-      : message
+  const sanitizeLNDError = (message = "") => {
+    if (message.toLowerCase().includes("unknown")) {
+      const splittedMessage = message
+        .split("UNKNOWN: ");
+      return splittedMessage.length > 1
+        ? splittedMessage.slice(1).join("")
+        : splittedMessage.join("")
+    }
+
+    return message
+  }
   
   const getAvailableService = () =>
     new Promise((resolve, reject) => {
@@ -395,7 +399,6 @@ module.exports = async (
         }
 
         const publicKey = await GunDB.authenticate(alias, password);
-
         if (walletInitialized && health.LNDStatus.walletStatus === "locked" && publicKey) {
           await unlockWallet(password);
         }
@@ -433,9 +436,9 @@ module.exports = async (
       });
       return false;
     } catch (err) {
-      logger.debug("Unlock Error:", err);
+      logger.error("Unlock Error:", err);
       res.status(400);
-      res.json({ field: "user", errorMessage: sanitizeLNDError(err.message), success: false });
+      res.json({ field: "user", errorMessage: err.message ? sanitizeLNDError(err.message) : err, success: false });
       return err;
     }
   });
