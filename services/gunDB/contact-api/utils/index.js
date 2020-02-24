@@ -74,7 +74,9 @@ const tryAndWait = async promGen => {
         require('../../Mediator/index').getUser()
       )
     )
-  } catch (_) {}
+  } catch (e) {
+    logger.error(e)
+  }
 
   logger.info(`\n retrying \n`)
 
@@ -87,7 +89,9 @@ const tryAndWait = async promGen => {
         require('../../Mediator/index').getUser()
       )
     )
-  } catch (_) {}
+  } catch (e) {
+    logger.error(e)
+  }
 
   logger.info(`\n recreating gun and retrying one last time \n`)
 
