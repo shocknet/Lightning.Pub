@@ -59,21 +59,32 @@ const timeout5 = promise => {
  * @template T
  * @param {(gun: GUNNode, user: UserGUNNode) => Promise<T>} promGen The function
  * receives the most recent gun and user instances.
+ * @param {((resolvedValue: unknown) => boolean)=} shouldRetry
  * @returns {Promise<T>}
  */
-const tryAndWait = async promGen => {
+const tryAndWait = async (promGen, shouldRetry = () => false) => {
   /* eslint-disable no-empty */
+  /* eslint-disable init-declarations */
 
   // If hang stop at 10, wait 3, retry, if hang stop at 5, reinstate, warm for
   // 5, retry, stop at 10, err
 
+  /** @type {T} */
+  let resolvedValue
+
   try {
-    return await timeout10(
+    resolvedValue = await timeout10(
       promGen(
         require('../../Mediator/index').getGun(),
         require('../../Mediator/index').getUser()
       )
     )
+
+    if (shouldRetry(resolvedValue)) {
+      throw new Error('force retrying')
+    }
+
+    return resolvedValue
   } catch (e) {
     logger.error(e)
   }
@@ -83,12 +94,18 @@ const tryAndWait = async promGen => {
   await delay(3000)
 
   try {
-    return await timeout5(
+    resolvedValue = await timeout5(
       promGen(
         require('../../Mediator/index').getGun(),
         require('../../Mediator/index').getUser()
       )
     )
+
+    if (shouldRetry(resolvedValue)) {
+      throw new Error('force retrying')
+    }
+
+    return resolvedValue
   } catch (e) {
     logger.error(e)
   }
@@ -104,6 +121,7 @@ const tryAndWait = async promGen => {
     )
   )
   /* eslint-enable no-empty */
+  /* eslint-enable init-declarations */
 }
 
 /**
