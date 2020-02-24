@@ -1,6 +1,8 @@
 /**
  * @format
  */
+const logger = require('winston')
+
 const ErrorCode = require('../errorCode')
 const Key = require('../key')
 
@@ -39,17 +41,66 @@ const timeout10 = promise => {
 
 /**
  * @template T
+ * @param {Promise<T>} promise
+ * @returns {Promise<T>}
+ */
+const timeout5 = promise => {
+  return Promise.race([
+    promise,
+    new Promise((_, rej) => {
+      setTimeout(() => {
+        rej(new Error(ErrorCode.TIMEOUT_ERR))
+      }, 5000)
+    })
+  ])
+}
+
+/**
+ * @template T
  * @param {(gun: GUNNode, user: UserGUNNode) => Promise<T>} promGen The function
  * receives the most recent gun and user instances.
  * @returns {Promise<T>}
  */
-const tryAndWait = promGen =>
-  timeout10(
+const tryAndWait = async promGen => {
+  /* eslint-disable no-empty */
+
+  // If hang stop at 10, wait 3, retry, if hang stop at 5, reinstate, warm for
+  // 5, retry, stop at 10, err
+
+  try {
+    return await timeout10(
+      promGen(
+        require('../../Mediator/index').getGun(),
+        require('../../Mediator/index').getUser()
+      )
+    )
+  } catch (_) {}
+
+  logger.info(`\n retrying \n`)
+
+  await delay(3000)
+
+  try {
+    return await timeout5(
+      promGen(
+        require('../../Mediator/index').getGun(),
+        require('../../Mediator/index').getUser()
+      )
+    )
+  } catch (_) {}
+
+  logger.info(`\n recreating gun and retrying one last time \n`)
+
+  await require('../../Mediator/index').instantiateGun()
+
+  return timeout10(
     promGen(
       require('../../Mediator/index').getGun(),
       require('../../Mediator/index').getUser()
     )
   )
+  /* eslint-enable no-empty */
+}
 
 /**
  * @param {string} pub
@@ -74,7 +125,7 @@ const pubToEpub = async pub => {
 
     return epub
   } catch (err) {
-    console.log(err)
+    logger.error(err)
     throw new Error(`pubToEpub() -> ${err.message}`)
   }
 }
