@@ -159,18 +159,20 @@ const pubToEpub = async pub => {
  * @returns {Promise<string|null>}
  */
 const recipientPubToLastReqSentID = async recipientPub => {
-  const lastReqSentID = await tryAndWait(async (_, user) => {
-    const userToLastReqSent = user.get(Key.USER_TO_LAST_REQUEST_SENT)
-    const data = await userToLastReqSent.get(recipientPub).then()
+  const maybeLastReqSentID = await tryAndWait(
+    (_, user) => {
+      const userToLastReqSent = user.get(Key.USER_TO_LAST_REQUEST_SENT)
+      return userToLastReqSent.get(recipientPub).then()
+    },
+    // retry on undefined, in case it is a false negative
+    v => typeof v === 'undefined'
+  )
 
-    if (typeof data !== 'string') {
-      return null
-    }
+  if (typeof maybeLastReqSentID !== 'string') {
+    return null
+  }
 
-    return data
-  })
-
-  return lastReqSentID
+  return maybeLastReqSentID
 }
 
 /**
