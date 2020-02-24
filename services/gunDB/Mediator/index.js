@@ -2,6 +2,7 @@
  * @format
  */
 const Gun = require('gun')
+// @ts-ignore
 Gun.log = () => {}
 // @ts-ignore
 require('gun/lib/open')
@@ -127,10 +128,17 @@ const Event = require('../event-constants')
  * @prop {Record<string, any>} origBody
  */
 
+/**
+ * @typedef {object} EncryptedEmission
+ * @prop {string} encryptedData
+ * @prop {string} encryptedKey
+ * @prop {string} iv
+ */
+
 // TO DO: move to common repo
 /**
  * @typedef {object} SimpleSocket
- * @prop {(eventName: string, data: Emission) => void} emit
+ * @prop {(eventName: string, data: Emission|EncryptedEmission) => void} emit
  * @prop {(eventName: string, handler: (data: any) => void) => void} on
  * @prop {{ query: { 'x-shockwallet-device-id': string }}} handshake
  */
