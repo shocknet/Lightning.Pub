@@ -1138,7 +1138,7 @@ const register = async (alias, pass) => {
     _currentAlias = alias
     _currentPass = await mySEA.encrypt(pass, mySecret)
   } else {
-    throw new Error('unknown error')
+    throw new Error('unknown error, ack: ' + JSON.stringify(ack))
   }
 
   // restart instances so write to user graph work, there's an issue with gun
