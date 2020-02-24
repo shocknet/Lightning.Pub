@@ -518,8 +518,8 @@ const sendHandshakeRequest = async (recipientPublicKey, gun, user, SEA) => {
     const lastRequestIDSentToUser = maybeLastRequestIDSentToUser
 
     console.log('sendHR() -> before alreadyContactedOnCurrHandshakeNode')
-    /** @type {boolean} */
-    const alreadyContactedOnCurrHandshakeNode = await Utils.tryAndWait(
+
+    const hrInHandshakeNode = await Utils.tryAndWait(
       gun =>
         new Promise(res => {
           gun
@@ -527,10 +527,15 @@ const sendHandshakeRequest = async (recipientPublicKey, gun, user, SEA) => {
             .get(currentHandshakeAddress)
             .get(lastRequestIDSentToUser)
             .once(data => {
-              res(typeof data !== 'undefined')
+              res(data)
             })
-        })
+        }),
+      // force retry on undefined in case the undefined was a false negative
+      v => typeof v === 'undefined'
     )
+
+    const alreadyContactedOnCurrHandshakeNode =
+      typeof hrInHandshakeNode !== 'undefined'
 
     if (alreadyContactedOnCurrHandshakeNode) {
       throw new Error(ErrorCode.ALREADY_REQUESTED_HANDSHAKE)
