@@ -182,20 +182,11 @@ const successfulHandshakeAlreadyExists = async recipientPub => {
  * @returns {Promise<string|null>}
  */
 const recipientToOutgoingID = async recipientPub => {
-  const maybeEncryptedOutgoingID = await tryAndWait(async (_, user) => {
-    const oid = await user
-      .get(Key.RECIPIENT_TO_OUTGOING)
-      .get(recipientPub)
-      .then()
-
-    if (typeof oid !== 'string' && oid !== null) {
-      throw new Error(
-        'Expected outgoing id from recipient-to-outgoing-id map to be an string or null'
-      )
-    }
-
-    return oid
-  })
+  const maybeEncryptedOutgoingID = await require('../../Mediator/index')
+    .getUser()
+    .get(Key.RECIPIENT_TO_OUTGOING)
+    .get(recipientPub)
+    .then()
 
   if (typeof maybeEncryptedOutgoingID === 'string') {
     const outgoingID = await require('../../Mediator/index').mySEA.decrypt(
