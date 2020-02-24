@@ -104,7 +104,7 @@ const onAcceptedRequests = (user, SEA) => {
                     throw new TypeError("typeof feedID !== 'string'")
                   }
 
-                  const feedIDExistsOnRecipientsOutgoings = await Utils.tryAndWait(
+                  const maybeFeedOnRecipientsOutgoings = await Utils.tryAndWait(
                     gun =>
                       new Promise(res => {
                         gun
@@ -112,10 +112,16 @@ const onAcceptedRequests = (user, SEA) => {
                           .get(Key.OUTGOINGS)
                           .get(feedID)
                           .once(feed => {
-                            res(typeof feed !== 'undefined')
+                            res(feed)
                           })
-                      })
+                      }),
+                    // retry on undefined, might be a false negative
+                    v => typeof v === 'undefined'
                   )
+
+                  const feedIDExistsOnRecipientsOutgoings =
+                    typeof maybeFeedOnRecipientsOutgoings === 'object' &&
+                    maybeFeedOnRecipientsOutgoings !== null
 
                   if (!feedIDExistsOnRecipientsOutgoings) {
                     return
