@@ -202,11 +202,15 @@ const successfulHandshakeAlreadyExists = async recipientPub => {
  * @returns {Promise<string|null>}
  */
 const recipientToOutgoingID = async recipientPub => {
-  const maybeEncryptedOutgoingID = await require('../../Mediator/index')
-    .getUser()
-    .get(Key.RECIPIENT_TO_OUTGOING)
-    .get(recipientPub)
-    .then()
+  const maybeEncryptedOutgoingID = await tryAndWait(
+    (_, user) =>
+      user
+        .get(Key.RECIPIENT_TO_OUTGOING)
+        .get(recipientPub)
+        .then(),
+    // force retry in case undefined is a false negative
+    v => typeof v === 'undefined'
+  )
 
   if (typeof maybeEncryptedOutgoingID === 'string') {
     const outgoingID = await require('../../Mediator/index').mySEA.decrypt(
