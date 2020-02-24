@@ -201,28 +201,6 @@ const recipientToOutgoingID = async recipientPub => {
 }
 
 /**
- *
- * @param {string} userPub
- * @returns {Promise<string|null>}
- */
-const currHandshakeAddress = async userPub => {
-  const maybeAddr = await tryAndWait(async gun => {
-    const addr = await gun
-      .user(userPub)
-      .get(Key.CURRENT_HANDSHAKE_ADDRESS)
-      .then()
-
-    if (typeof addr !== 'string' && addr !== null) {
-      throw new TypeError('Expected handshake address to be string or null')
-    }
-
-    return addr
-  })
-
-  return typeof maybeAddr === 'string' ? maybeAddr : null
-}
-
-/**
  * @template T
  * @param {T[]} arr
  * @param {(item: T) => void} cb
@@ -284,22 +262,6 @@ const dataHasSoul = listenerData =>
  */
 const defaultName = pub => 'anon' + pub.slice(0, 8)
 
-/**
- * @param {string} pub
- * @param {string} incomingID
- * @returns {Promise<boolean>}
- */
-const didDisconnect = async (pub, incomingID) => {
-  const feed = await require('../../Mediator/index')
-    .getGun()
-    .user(pub)
-    .get(Key.OUTGOINGS)
-    .get(incomingID)
-    .then()
-
-  return feed === null
-}
-
 module.exports = {
   asyncMap,
   asyncFilter,
@@ -310,10 +272,8 @@ module.exports = {
   recipientPubToLastReqSentID,
   successfulHandshakeAlreadyExists,
   recipientToOutgoingID,
-  currHandshakeAddress,
   tryAndWait,
   mySecret,
   promisifyGunNode: require('./promisifygun'),
-  didDisconnect,
   asyncForEach
 }
