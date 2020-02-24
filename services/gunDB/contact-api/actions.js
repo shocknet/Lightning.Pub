@@ -57,22 +57,12 @@ const __createOutgoingFeed = async (withPublicKey, user, SEA) => {
     user._.sea
   )
 
-  const maybeEncryptedForMeOutgoingFeedID = await Utils.tryAndWait(
-    (_, user) =>
-      new Promise(res => {
-        user
-          .get(Key.RECIPIENT_TO_OUTGOING)
-          .get(withPublicKey)
-          .once(data => {
-            res(data)
-          })
-      })
-  )
+  const maybeOutgoingID = await Utils.recipientToOutgoingID(withPublicKey)
 
   let outgoingFeedID = ''
 
   // if there was no stored outgoing, create an outgoing feed
-  if (typeof maybeEncryptedForMeOutgoingFeedID !== 'string') {
+  if (typeof maybeOutgoingID !== 'string') {
     /** @type {PartialOutgoing} */
     const newPartialOutgoingFeed = {
       with: encryptedForMeRecipientPub
@@ -138,18 +128,7 @@ const __createOutgoingFeed = async (withPublicKey, user, SEA) => {
 
   // otherwise decrypt stored outgoing
   else {
-    const decryptedOID = await SEA.decrypt(
-      maybeEncryptedForMeOutgoingFeedID,
-      mySecret
-    )
-
-    if (typeof decryptedOID !== 'string') {
-      throw new TypeError(
-        "__createOutgoingFeed() -> typeof decryptedOID !== 'string'"
-      )
-    }
-
-    outgoingFeedID = decryptedOID
+    outgoingFeedID = maybeOutgoingID
   }
 
   if (typeof outgoingFeedID === 'undefined') {
