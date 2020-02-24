@@ -206,12 +206,18 @@ const recipientToOutgoingID = async recipientPub => {
  * @returns {Promise<string|null>}
  */
 const currHandshakeAddress = async userPub => {
-  const maybeAddr = await tryAndWait(gun =>
-    gun
+  const maybeAddr = await tryAndWait(async gun => {
+    const addr = await gun
       .user(userPub)
       .get(Key.CURRENT_HANDSHAKE_ADDRESS)
       .then()
-  )
+
+    if (typeof addr !== 'string' && addr !== null) {
+      throw new TypeError('Expected handshake address to be string or null')
+    }
+
+    return addr
+  })
 
   return typeof maybeAddr === 'string' ? maybeAddr : null
 }
