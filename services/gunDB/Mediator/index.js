@@ -13,6 +13,8 @@ const logger = require('winston')
 /** @type {import('../contact-api/SimpleGUN').ISEA} */
 // @ts-ignore
 const SEAx = require('gun/sea')
+// @ts-ignore
+SEAx.throw = true
 
 /** @type {import('../contact-api/SimpleGUN').ISEA} */
 const mySEA = {}
@@ -34,6 +36,20 @@ mySEA.encrypt = (msg, secret) => {
   if (msg.length === 0) {
     throw new TypeError(
       'mySEA.encrypt() -> expected msg to be a populated string'
+    )
+  }
+
+  if (typeof secret !== 'string') {
+    throw new TypeError(
+      `mySEA.encrypt() -> expected secret to be a an string, args: |msg| -- ${JSON.stringify(
+        secret
+      )}`
+    )
+  }
+
+  if (secret.length < 1) {
+    throw new TypeError(
+      `mySEA.encrypt() -> expected secret to be a populated string`
     )
   }
 
@@ -88,7 +104,7 @@ mySEA.decrypt = (encMsg, secret) => {
   })
 }
 
-mySEA.secret = (recipientOrSenderEpub, recipientOrSenderSEA) => {
+mySEA.secret = async (recipientOrSenderEpub, recipientOrSenderSEA) => {
   if (typeof recipientOrSenderEpub !== 'string') {
     throw new TypeError(
       'epub has to be an string, args:' +
@@ -113,6 +129,16 @@ mySEA.secret = (recipientOrSenderEpub, recipientOrSenderSEA) => {
         )}`
     )
   }
+
+  if (recipientOrSenderSEA === null) {
+    throw new TypeError(
+      'sea has to be nont null, args: ' +
+        `${JSON.stringify(recipientOrSenderEpub)} -- ${JSON.stringify(
+          recipientOrSenderSEA
+        )}`
+    )
+  }
+
   if (recipientOrSenderEpub === recipientOrSenderSEA.pub) {
     throw new Error(
       'Do not use pub for mysecret, args: ' +
@@ -121,25 +147,26 @@ mySEA.secret = (recipientOrSenderEpub, recipientOrSenderSEA) => {
         )}`
     )
   }
-  return SEAx.secret(recipientOrSenderEpub, recipientOrSenderSEA).then(sec => {
-    if (typeof sec !== 'string') {
-      throw new TypeError(
-        `Could not generate secret, args: ${JSON.stringify(
-          recipientOrSenderEpub
-        )} -- ${JSON.stringify(recipientOrSenderSEA)}`
-      )
-    }
 
-    if (sec.length === 0) {
-      throw new TypeError(
-        `SEA.secret returned an empty string!, args: ${JSON.stringify(
-          recipientOrSenderEpub
-        )} -- ${JSON.stringify(recipientOrSenderSEA)}`
-      )
-    }
+  const sec = await SEAx.secret(recipientOrSenderEpub, recipientOrSenderSEA)
 
-    return sec
-  })
+  if (typeof sec !== 'string') {
+    throw new TypeError(
+      `Could not generate secret, args: ${JSON.stringify(
+        recipientOrSenderEpub
+      )} -- ${JSON.stringify(recipientOrSenderSEA)}`
+    )
+  }
+
+  if (sec.length === 0) {
+    throw new TypeError(
+      `SEA.secret returned an empty string!, args: ${JSON.stringify(
+        recipientOrSenderEpub
+      )} -- ${JSON.stringify(recipientOrSenderSEA)}`
+    )
+  }
+
+  return sec
 }
 
 const auth = require('../../auth/auth')
