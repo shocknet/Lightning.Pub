@@ -81,15 +81,21 @@ const tryAndWait = async (promGen, shouldRetry = () => false) => {
     )
 
     if (shouldRetry(resolvedValue)) {
-      throw new Error('force retrying')
+      logger.info(
+        'force retrying' +
+          ` args: ${promGen.toString()} -- ${shouldRetry.toString()}`
+      )
+    } else {
+      return resolvedValue
     }
-
-    return resolvedValue
   } catch (e) {
     logger.error(e)
   }
 
-  logger.info(`\n retrying \n`)
+  logger.info(
+    `\n retrying \n` +
+      ` args: ${promGen.toString()} -- ${shouldRetry.toString()}`
+  )
 
   await delay(3000)
 
@@ -102,24 +108,25 @@ const tryAndWait = async (promGen, shouldRetry = () => false) => {
     )
 
     if (shouldRetry(resolvedValue)) {
-      throw new Error('force retrying')
+      logger.info(
+        'force retrying' +
+          ` args: ${promGen.toString()} -- ${shouldRetry.toString()}`
+      )
+    } else {
+      return resolvedValue
     }
-
-    return resolvedValue
   } catch (e) {
     logger.error(e)
   }
 
-  logger.info(`\n recreating gun and retrying one last time \n`)
-
-  await require('../../Mediator/index').instantiateGun()
-
-  return timeout10(
-    promGen(
-      require('../../Mediator/index').getGun(),
-      require('../../Mediator/index').getUser()
-    )
+  logger.info(
+    `\n recreating a fresh gun and retrying one last time \n` +
+      ` args: ${promGen.toString()} -- ${shouldRetry.toString()}`
   )
+
+  const { gun, user } = await require('../../Mediator/index').freshGun()
+
+  return timeout10(promGen(gun, user))
   /* eslint-enable no-empty */
   /* eslint-enable init-declarations */
 }
