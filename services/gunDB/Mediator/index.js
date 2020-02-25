@@ -261,9 +261,6 @@ const authenticate = async (alias, pass, user = getUser()) => {
     if (typeof ack.err === 'string') {
       throw new Error(ack.err)
     } else if (typeof ack.sea === 'object') {
-      API.Jobs.onAcceptedRequests(user, mySEA)
-      API.Jobs.onOrders(user, gun, mySEA)
-
       return ack.sea.pub
     } else {
       throw new Error('Unknown error.')
