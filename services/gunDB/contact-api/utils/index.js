@@ -299,5 +299,6 @@ module.exports = {
   tryAndWait,
   mySecret,
   promisifyGunNode: require('./promisifygun'),
-  asyncForEach
+  asyncForEach,
+  timeout5
 }
