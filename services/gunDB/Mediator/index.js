@@ -90,17 +90,52 @@ mySEA.decrypt = (encMsg, secret) => {
 
 mySEA.secret = (recipientOrSenderEpub, recipientOrSenderSEA) => {
   if (typeof recipientOrSenderEpub !== 'string') {
-    throw new TypeError('epub has to be an string')
+    throw new TypeError(
+      'epub has to be an string, args:' +
+        `${JSON.stringify(recipientOrSenderEpub)} -- ${JSON.stringify(
+          recipientOrSenderSEA
+        )}`
+    )
+  }
+  if (recipientOrSenderEpub.length === 0) {
+    throw new TypeError(
+      'epub has to be populated string, args: ' +
+        `${JSON.stringify(recipientOrSenderEpub)} -- ${JSON.stringify(
+          recipientOrSenderSEA
+        )}`
+    )
   }
   if (typeof recipientOrSenderSEA !== 'object') {
-    throw new TypeError('sea has to be an object')
+    throw new TypeError(
+      'sea has to be an object, args: ' +
+        `${JSON.stringify(recipientOrSenderEpub)} -- ${JSON.stringify(
+          recipientOrSenderSEA
+        )}`
+    )
   }
   if (recipientOrSenderEpub === recipientOrSenderSEA.pub) {
-    throw new Error('Do not use pub for mysecret')
+    throw new Error(
+      'Do not use pub for mysecret, args: ' +
+        `${JSON.stringify(recipientOrSenderEpub)} -- ${JSON.stringify(
+          recipientOrSenderSEA
+        )}`
+    )
   }
   return SEAx.secret(recipientOrSenderEpub, recipientOrSenderSEA).then(sec => {
     if (typeof sec !== 'string') {
-      throw new TypeError('Could not generate secret')
+      throw new TypeError(
+        `Could not generate secret, args: ${JSON.stringify(
+          recipientOrSenderEpub
+        )} -- ${JSON.stringify(recipientOrSenderSEA)}`
+      )
+    }
+
+    if (sec.length === 0) {
+      throw new TypeError(
+        `SEA.secret returned an empty string!, args: ${JSON.stringify(
+          recipientOrSenderEpub
+        )} -- ${JSON.stringify(recipientOrSenderSEA)}`
+      )
     }
 
     return sec
@@ -236,9 +271,6 @@ const instantiateGun = async () => {
       user._.sea.epub,
       user._.sea
     ))
-  }
-  if (typeof mySecret !== 'string') {
-    throw new TypeError("typeof mySec !== 'string'")
   }
 
   const _gun = new Gun({
