@@ -1570,6 +1570,7 @@ module.exports = async (
   const Events = require('../services/gunDB/contact-api/events')
   const user = require('../services/gunDB/Mediator').getUser()
   const Key = require('../services/gunDB/contact-api/key')
+  const {timeout5} = require('../services/gunDB/contact-api/utils')
 
   app.get(`/api/gun/${GunEvent.ON_RECEIVED_REQUESTS}`, (_, res) => {
     try {
@@ -1619,7 +1620,7 @@ module.exports = async (
   app.get(`/api/gun/${GunEvent.ON_AVATAR}`, async (_, res) => {
     try {
       res.json({
-        data: await user.get(Key.PROFILE).get(Key.AVATAR).then()
+        data: await timeout5(user.get(Key.PROFILE).get(Key.AVATAR).then())
       })
     } catch (err) {
       res.status(500).json({
@@ -1631,7 +1632,7 @@ module.exports = async (
   app.get(`/api/gun/${GunEvent.ON_DISPLAY_NAME}`, async (_, res) => {
     try {
       res.json({
-        data: await user.get(Key.PROFILE).get(Key.DISPLAY_NAME).then()
+        data: await timeout5(user.get(Key.PROFILE).get(Key.DISPLAY_NAME).then())
       })
     } catch (err) {
       res.status(500).json({
@@ -1643,7 +1644,7 @@ module.exports = async (
   app.get(`/api/gun/${GunEvent.ON_HANDSHAKE_ADDRESS}`, async (_, res) => {
     try {
       res.json({
-        data: await user.get(Key.CURRENT_HANDSHAKE_ADDRESS).then()
+        data: await timeout5(user.get(Key.CURRENT_HANDSHAKE_ADDRESS).then())
       })
     } catch (err) {
       res.status(500).json({
