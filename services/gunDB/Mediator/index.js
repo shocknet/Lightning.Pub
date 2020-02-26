@@ -2,6 +2,7 @@
  * @format
  */
 const Gun = require('gun')
+// @ts-ignore
 Gun.log = () => {}
 // @ts-ignore
 require('gun/lib/open')
@@ -12,6 +13,8 @@ const logger = require('winston')
 /** @type {import('../contact-api/SimpleGUN').ISEA} */
 // @ts-ignore
 const SEAx = require('gun/sea')
+// @ts-ignore
+SEAx.throw = true
 
 /** @type {import('../contact-api/SimpleGUN').ISEA} */
 const mySEA = {}
@@ -33,6 +36,20 @@ mySEA.encrypt = (msg, secret) => {
   if (msg.length === 0) {
     throw new TypeError(
       'mySEA.encrypt() -> expected msg to be a populated string'
+    )
+  }
+
+  if (typeof secret !== 'string') {
+    throw new TypeError(
+      `mySEA.encrypt() -> expected secret to be a an string, args: |msg| -- ${JSON.stringify(
+        secret
+      )}`
+    )
+  }
+
+  if (secret.length < 1) {
+    throw new TypeError(
+      `mySEA.encrypt() -> expected secret to be a populated string`
     )
   }
 
@@ -87,23 +104,69 @@ mySEA.decrypt = (encMsg, secret) => {
   })
 }
 
-mySEA.secret = (recipientOrSenderEpub, recipientOrSenderSEA) => {
+mySEA.secret = async (recipientOrSenderEpub, recipientOrSenderSEA) => {
   if (typeof recipientOrSenderEpub !== 'string') {
-    throw new TypeError('epub has to be an string')
+    throw new TypeError(
+      'epub has to be an string, args:' +
+        `${JSON.stringify(recipientOrSenderEpub)} -- ${JSON.stringify(
+          recipientOrSenderSEA
+        )}`
+    )
+  }
+  if (recipientOrSenderEpub.length === 0) {
+    throw new TypeError(
+      'epub has to be populated string, args: ' +
+        `${JSON.stringify(recipientOrSenderEpub)} -- ${JSON.stringify(
+          recipientOrSenderSEA
+        )}`
+    )
   }
   if (typeof recipientOrSenderSEA !== 'object') {
-    throw new TypeError('sea has to be an object')
+    throw new TypeError(
+      'sea has to be an object, args: ' +
+        `${JSON.stringify(recipientOrSenderEpub)} -- ${JSON.stringify(
+          recipientOrSenderSEA
+        )}`
+    )
   }
-  if (recipientOrSenderEpub === recipientOrSenderSEA.pub) {
-    throw new Error('Do not use pub for mysecret')
-  }
-  return SEAx.secret(recipientOrSenderEpub, recipientOrSenderSEA).then(sec => {
-    if (typeof sec !== 'string') {
-      throw new TypeError('Could not generate secret')
-    }
 
-    return sec
-  })
+  if (recipientOrSenderSEA === null) {
+    throw new TypeError(
+      'sea has to be nont null, args: ' +
+        `${JSON.stringify(recipientOrSenderEpub)} -- ${JSON.stringify(
+          recipientOrSenderSEA
+        )}`
+    )
+  }
+
+  if (recipientOrSenderEpub === recipientOrSenderSEA.pub) {
+    throw new Error(
+      'Do not use pub for mysecret, args: ' +
+        `${JSON.stringify(recipientOrSenderEpub)} -- ${JSON.stringify(
+          recipientOrSenderSEA
+        )}`
+    )
+  }
+
+  const sec = await SEAx.secret(recipientOrSenderEpub, recipientOrSenderSEA)
+
+  if (typeof sec !== 'string') {
+    throw new TypeError(
+      `Could not generate secret, args: ${JSON.stringify(
+        recipientOrSenderEpub
+      )} -- ${JSON.stringify(recipientOrSenderSEA)}`
+    )
+  }
+
+  if (sec.length === 0) {
+    throw new TypeError(
+      `SEA.secret returned an empty string!, args: ${JSON.stringify(
+        recipientOrSenderEpub
+      )} -- ${JSON.stringify(recipientOrSenderSEA)}`
+    )
+  }
+
+  return sec
 }
 
 const auth = require('../../auth/auth')
@@ -127,10 +190,17 @@ const Event = require('../event-constants')
  * @prop {Record<string, any>} origBody
  */
 
+/**
+ * @typedef {object} EncryptedEmission
+ * @prop {string} encryptedData
+ * @prop {string} encryptedKey
+ * @prop {string} iv
+ */
+
 // TO DO: move to common repo
 /**
  * @typedef {object} SimpleSocket
- * @prop {(eventName: string, data: Emission) => void} emit
+ * @prop {(eventName: string, data: Emission|EncryptedEmission) => void} emit
  * @prop {(eventName: string, handler: (data: any) => void) => void} on
  * @prop {{ query: { 'x-shockwallet-device-id': string }}} handshake
  */
@@ -146,13 +216,16 @@ let user
 
 /* eslint-enable init-declarations */
 
-let _currentAlias = ''
-let _currentPass = ''
+/** @type {string|null} */
+let _currentAlias = null
+/** @type {string|null} */
+let _currentPass = null
 
-let mySec = ''
+/** @type {string|null} */
+let mySec = null
 
 /** @returns {string} */
-const getMySecret = () => mySec
+const getMySecret = () => /** @type {string} */ (mySec)
 
 let _isAuthenticating = false
 let _isRegistering = false
@@ -161,18 +234,43 @@ const isAuthenticated = () => typeof user.is === 'object' && user.is !== null
 const isAuthenticating = () => _isAuthenticating
 const isRegistering = () => _isRegistering
 
+const getGun = () => {
+  return gun
+}
+
+const getUser = () => {
+  return user
+}
+
 /**
  * Returns a promise containing the public key of the newly created user.
  * @param {string} alias
  * @param {string} pass
+ * @param {UserGUNNode=} user
  * @returns {Promise<string>}
  */
-const authenticate = async (alias, pass) => {
+const authenticate = async (alias, pass, user = getUser()) => {
+  const isFreshGun = user !== getUser()
+  if (isFreshGun) {
+    const ack = await new Promise(res => {
+      user.auth(alias, pass, _ack => {
+        res(_ack)
+      })
+    })
+
+    if (typeof ack.err === 'string') {
+      throw new Error(ack.err)
+    } else if (typeof ack.sea === 'object') {
+      return ack.sea.pub
+    } else {
+      throw new Error('Unknown error.')
+    }
+  }
+
   if (isAuthenticated()) {
-    const currAlias = user.is && user.is.alias
-    if (alias !== currAlias) {
+    if (alias !== _currentAlias) {
       throw new Error(
-        `Tried to re-authenticate with an alias different to that of stored one, tried: ${alias} - stored: ${currAlias}, logoff first if need to change aliases.`
+        `Tried to re-authenticate with an alias different to that of stored one, tried: ${alias} - stored: ${_currentAlias}, logoff first if need to change aliases.`
       )
     }
     // move this to a subscription; implement off() ? todo
@@ -202,7 +300,7 @@ const authenticate = async (alias, pass) => {
   } else if (typeof ack.sea === 'object') {
     mySec = await mySEA.secret(user._.sea.epub, user._.sea)
 
-    _currentAlias = user.is ? user.is.alias : ''
+    _currentAlias = alias
     _currentPass = await mySEA.encrypt(pass, mySec)
 
     await new Promise(res => setTimeout(res, 5000))
@@ -220,46 +318,43 @@ const logoff = () => {
   user.leave()
 }
 
-const instantiateGun = async () => {
-  let mySecret = ''
-
-  if (user && user.is) {
-    mySecret = /** @type {string} */ (await mySEA.secret(
-      user._.sea.epub,
-      user._.sea
-    ))
-  }
-  if (typeof mySecret !== 'string') {
-    throw new TypeError("typeof mySec !== 'string'")
-  }
-
-  const _gun = new Gun({
+const instantiateGun = () => {
+  const _gun = /** @type {unknown} */ (new Gun({
     axe: false,
     peers: Config.PEERS
-  })
+  }))
 
-  // please typescript
-  const __gun = /** @type {unknown} */ (_gun)
+  gun = /** @type {GUNNode} */ (_gun)
 
-  gun = /** @type {GUNNode} */ (__gun)
-
-  // eslint-disable-next-line require-atomic-updates
   user = gun.user()
-
-  if (_currentAlias && _currentPass) {
-    const pass = await mySEA.decrypt(_currentPass, mySecret)
-
-    if (typeof pass !== 'string') {
-      throw new Error('could not decrypt stored in memory current pass')
-    }
-
-    user.leave()
-
-    await authenticate(_currentAlias, pass)
-  }
 }
 
 instantiateGun()
+
+const freshGun = async () => {
+  const _gun = /** @type {unknown} */ (new Gun({
+    axe: false,
+    peers: Config.PEERS
+  }))
+
+  const gun = /** @type {GUNNode} */ (_gun)
+
+  const user = gun.user()
+
+  if (!_currentAlias || !_currentPass || !mySec) {
+    throw new Error('Called freshGun() without alias, pass and secret cached')
+  }
+
+  const pass = await mySEA.decrypt(_currentPass, mySec)
+
+  if (typeof pass !== 'string') {
+    throw new Error('could not decrypt stored in memory current pass')
+  }
+
+  await authenticate(_currentAlias, pass, user)
+
+  return { gun, user }
+}
 
 /**
  * @param {string} token
@@ -294,14 +389,6 @@ const throwOnInvalidToken = async token => {
   if (!isValid) {
     throw new Error('Token expired.')
   }
-}
-
-const getGun = () => {
-  return gun
-}
-
-const getUser = () => {
-  return user
 }
 
 class Mediator {
@@ -1144,9 +1231,7 @@ const register = async (alias, pass) => {
   // restart instances so write to user graph work, there's an issue with gun
   // (at least on node) where after initial user creation, writes to user graph
   // don't work
-  await instantiateGun()
-
-  user.leave()
+  instantiateGun()
 
   return authenticate(alias, pass).then(async pub => {
     await API.Actions.setDisplayName('anon' + pub.slice(0, 8), user)
@@ -1179,9 +1264,9 @@ module.exports = {
   isAuthenticating,
   isRegistering,
   register,
-  instantiateGun,
   getGun,
   getUser,
   mySEA,
-  getMySecret
+  getMySecret,
+  freshGun
 }

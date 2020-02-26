@@ -57,22 +57,12 @@ const __createOutgoingFeed = async (withPublicKey, user, SEA) => {
     user._.sea
   )
 
-  const maybeEncryptedForMeOutgoingFeedID = await Utils.tryAndWait(
-    (_, user) =>
-      new Promise(res => {
-        user
-          .get(Key.RECIPIENT_TO_OUTGOING)
-          .get(withPublicKey)
-          .once(data => {
-            res(data)
-          })
-      })
-  )
+  const maybeOutgoingID = await Utils.recipientToOutgoingID(withPublicKey)
 
   let outgoingFeedID = ''
 
   // if there was no stored outgoing, create an outgoing feed
-  if (typeof maybeEncryptedForMeOutgoingFeedID !== 'string') {
+  if (typeof maybeOutgoingID !== 'string') {
     /** @type {PartialOutgoing} */
     const newPartialOutgoingFeed = {
       with: encryptedForMeRecipientPub
@@ -138,18 +128,7 @@ const __createOutgoingFeed = async (withPublicKey, user, SEA) => {
 
   // otherwise decrypt stored outgoing
   else {
-    const decryptedOID = await SEA.decrypt(
-      maybeEncryptedForMeOutgoingFeedID,
-      mySecret
-    )
-
-    if (typeof decryptedOID !== 'string') {
-      throw new TypeError(
-        "__createOutgoingFeed() -> typeof decryptedOID !== 'string'"
-      )
-    }
-
-    outgoingFeedID = decryptedOID
+    outgoingFeedID = maybeOutgoingID
   }
 
   if (typeof outgoingFeedID === 'undefined') {
@@ -539,8 +518,8 @@ const sendHandshakeRequest = async (recipientPublicKey, gun, user, SEA) => {
     const lastRequestIDSentToUser = maybeLastRequestIDSentToUser
 
     console.log('sendHR() -> before alreadyContactedOnCurrHandshakeNode')
-    /** @type {boolean} */
-    const alreadyContactedOnCurrHandshakeNode = await Utils.tryAndWait(
+
+    const hrInHandshakeNode = await Utils.tryAndWait(
       gun =>
         new Promise(res => {
           gun
@@ -548,10 +527,15 @@ const sendHandshakeRequest = async (recipientPublicKey, gun, user, SEA) => {
             .get(currentHandshakeAddress)
             .get(lastRequestIDSentToUser)
             .once(data => {
-              res(typeof data !== 'undefined')
+              res(data)
             })
-        })
+        }),
+      // force retry on undefined in case the undefined was a false negative
+      v => typeof v === 'undefined'
     )
+
+    const alreadyContactedOnCurrHandshakeNode =
+      typeof hrInHandshakeNode !== 'undefined'
 
     if (alreadyContactedOnCurrHandshakeNode) {
       throw new Error(ErrorCode.ALREADY_REQUESTED_HANDSHAKE)

@@ -1,6 +1,8 @@
 /**
  * @format
  */
+const logger = require('winston')
+
 const ErrorCode = require('../errorCode')
 const Key = require('../key')
 
@@ -39,17 +41,95 @@ const timeout10 = promise => {
 
 /**
  * @template T
- * @param {(gun: GUNNode, user: UserGUNNode) => Promise<T>} promGen The function
- * receives the most recent gun and user instances.
+ * @param {Promise<T>} promise
  * @returns {Promise<T>}
  */
-const tryAndWait = promGen =>
-  timeout10(
-    promGen(
-      require('../../Mediator/index').getGun(),
-      require('../../Mediator/index').getUser()
+const timeout5 = promise => {
+  return Promise.race([
+    promise,
+    new Promise((_, rej) => {
+      setTimeout(() => {
+        rej(new Error(ErrorCode.TIMEOUT_ERR))
+      }, 5000)
+    })
+  ])
+}
+
+/**
+ * @template T
+ * @param {(gun: GUNNode, user: UserGUNNode) => Promise<T>} promGen The function
+ * receives the most recent gun and user instances.
+ * @param {((resolvedValue: unknown) => boolean)=} shouldRetry
+ * @returns {Promise<T>}
+ */
+const tryAndWait = async (promGen, shouldRetry = () => false) => {
+  /* eslint-disable no-empty */
+  /* eslint-disable init-declarations */
+
+  // If hang stop at 10, wait 3, retry, if hang stop at 5, reinstate, warm for
+  // 5, retry, stop at 10, err
+
+  /** @type {T} */
+  let resolvedValue
+
+  try {
+    resolvedValue = await timeout10(
+      promGen(
+        require('../../Mediator/index').getGun(),
+        require('../../Mediator/index').getUser()
+      )
     )
+
+    if (shouldRetry(resolvedValue)) {
+      logger.info(
+        'force retrying' +
+          ` args: ${promGen.toString()} -- ${shouldRetry.toString()}`
+      )
+    } else {
+      return resolvedValue
+    }
+  } catch (e) {
+    logger.error(e)
+  }
+
+  logger.info(
+    `\n retrying \n` +
+      ` args: ${promGen.toString()} -- ${shouldRetry.toString()}`
   )
+
+  await delay(3000)
+
+  try {
+    resolvedValue = await timeout5(
+      promGen(
+        require('../../Mediator/index').getGun(),
+        require('../../Mediator/index').getUser()
+      )
+    )
+
+    if (shouldRetry(resolvedValue)) {
+      logger.info(
+        'force retrying' +
+          ` args: ${promGen.toString()} -- ${shouldRetry.toString()}`
+      )
+    } else {
+      return resolvedValue
+    }
+  } catch (e) {
+    logger.error(e)
+  }
+
+  logger.info(
+    `\n recreating a fresh gun and retrying one last time \n` +
+      ` args: ${promGen.toString()} -- ${shouldRetry.toString()}`
+  )
+
+  const { gun, user } = await require('../../Mediator/index').freshGun()
+
+  return timeout10(promGen(gun, user))
+  /* eslint-enable no-empty */
+  /* eslint-enable init-declarations */
+}
 
 /**
  * @param {string} pub
@@ -74,7 +154,7 @@ const pubToEpub = async pub => {
 
     return epub
   } catch (err) {
-    console.log(err)
+    logger.error(err)
     throw new Error(`pubToEpub() -> ${err.message}`)
   }
 }
@@ -86,18 +166,20 @@ const pubToEpub = async pub => {
  * @returns {Promise<string|null>}
  */
 const recipientPubToLastReqSentID = async recipientPub => {
-  const lastReqSentID = await tryAndWait(async (_, user) => {
-    const userToLastReqSent = user.get(Key.USER_TO_LAST_REQUEST_SENT)
-    const data = await userToLastReqSent.get(recipientPub).then()
+  const maybeLastReqSentID = await tryAndWait(
+    (_, user) => {
+      const userToLastReqSent = user.get(Key.USER_TO_LAST_REQUEST_SENT)
+      return userToLastReqSent.get(recipientPub).then()
+    },
+    // retry on undefined, in case it is a false negative
+    v => typeof v === 'undefined'
+  )
 
-    if (typeof data !== 'string') {
-      return null
-    }
+  if (typeof maybeLastReqSentID !== 'string') {
+    return null
+  }
 
-    return data
-  })
-
-  return lastReqSentID
+  return maybeLastReqSentID
 }
 
 /**
@@ -127,11 +209,15 @@ const successfulHandshakeAlreadyExists = async recipientPub => {
  * @returns {Promise<string|null>}
  */
 const recipientToOutgoingID = async recipientPub => {
-  const maybeEncryptedOutgoingID = await require('../../Mediator/index')
-    .getUser()
-    .get(Key.RECIPIENT_TO_OUTGOING)
-    .get(recipientPub)
-    .then()
+  const maybeEncryptedOutgoingID = await tryAndWait(
+    (_, user) =>
+      user
+        .get(Key.RECIPIENT_TO_OUTGOING)
+        .get(recipientPub)
+        .then(),
+    // force retry in case undefined is a false negative
+    v => typeof v === 'undefined'
+  )
 
   if (typeof maybeEncryptedOutgoingID === 'string') {
     const outgoingID = await require('../../Mediator/index').mySEA.decrypt(
@@ -143,22 +229,6 @@ const recipientToOutgoingID = async recipientPub => {
   }
 
   return null
-}
-
-/**
- *
- * @param {string} userPub
- * @returns {Promise<string|null>}
- */
-const currHandshakeAddress = async userPub => {
-  const maybeAddr = await tryAndWait(gun =>
-    gun
-      .user(userPub)
-      .get(Key.CURRENT_HANDSHAKE_ADDRESS)
-      .then()
-  )
-
-  return typeof maybeAddr === 'string' ? maybeAddr : null
 }
 
 /**
@@ -223,22 +293,6 @@ const dataHasSoul = listenerData =>
  */
 const defaultName = pub => 'anon' + pub.slice(0, 8)
 
-/**
- * @param {string} pub
- * @param {string} incomingID
- * @returns {Promise<boolean>}
- */
-const didDisconnect = async (pub, incomingID) => {
-  const feed = await require('../../Mediator/index')
-    .getGun()
-    .user(pub)
-    .get(Key.OUTGOINGS)
-    .get(incomingID)
-    .then()
-
-  return feed === null
-}
-
 module.exports = {
   asyncMap,
   asyncFilter,
@@ -249,10 +303,9 @@ module.exports = {
   recipientPubToLastReqSentID,
   successfulHandshakeAlreadyExists,
   recipientToOutgoingID,
-  currHandshakeAddress,
   tryAndWait,
   mySecret,
   promisifyGunNode: require('./promisifygun'),
-  didDisconnect,
-  asyncForEach
+  asyncForEach,
+  timeout5
 }

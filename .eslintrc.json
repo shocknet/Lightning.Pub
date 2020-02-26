@@ -77,7 +77,9 @@
     "line-comment-position": "off",
 
     // if someone does this it's probably intentional
-    "no-useless-concat": "off"
+    "no-useless-concat": "off",
+
+    "no-plusplus": "off"
   },
   "parser": "babel-eslint",
   "env": {
