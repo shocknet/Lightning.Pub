@@ -1594,6 +1594,7 @@ module.exports = async (
       // spinup
       Events.onSimplerSentRequests(() => {})()
       const data = Events.getCurrentSentReqs()
+      logger.info(`Sent requests poll: ${JSON.stringify(data, null, 4)}`)
       res.json({
         data,
       })
@@ -1611,6 +1612,7 @@ module.exports = async (
       // spinup
       Events.onChats(() => {})()
       const data =  Events.getChats()
+      logger.info(`Chats polled: ${JSON.stringify(data, null, 4)}`)
       res.json({
         data
       })

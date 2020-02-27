@@ -26,6 +26,9 @@ let currentOrderAddr = ''
  * @returns {(order: ListenerData, orderID: string) => void}
  */
 const listenerForAddr = (addr, user, SEA) => async (order, orderID) => {
+  if (!user.is) {
+    logger.warn('onOrders -> listenerForAddr() -> tried to sub without authing')
+  }
   try {
     if (addr !== currentOrderAddr) {
       return
@@ -97,6 +100,7 @@ const listenerForAddr = (addr, user, SEA) => async (order, orderID) => {
  */
 const onOrders = (user, gun, SEA) => {
   if (!user.is) {
+    logger.warn('onOrders() -> tried to sub without authing')
     throw new Error(ErrorCode.NOT_AUTH)
   }
 

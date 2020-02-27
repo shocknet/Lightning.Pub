@@ -82,6 +82,9 @@ const onPubToIncoming = cb => {
 
   if (!subbed) {
     const user = require('../../Mediator').getUser()
+    if (!user.is) {
+      logger.warn(`subscribing to pubToIncoming on a unauth user`)
+    }
     user.get(USER_TO_INCOMING).open(onOpen)
     subbed = true
   }

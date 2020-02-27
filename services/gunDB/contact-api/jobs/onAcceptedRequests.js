@@ -24,6 +24,7 @@ let procid = 0
  */
 const onAcceptedRequests = (user, SEA) => {
   if (!user.is) {
+    logger.warn('onAcceptedRequests() -> tried to sub without authing')
     throw new Error(ErrorCode.NOT_AUTH)
   }
 
