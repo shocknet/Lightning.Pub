@@ -250,10 +250,11 @@ const getUser = () => {
  * Returns a promise containing the public key of the newly created user.
  * @param {string} alias
  * @param {string} pass
- * @param {UserGUNNode=} _user
+ * @param {UserGUNNode=} __user
  * @returns {Promise<string>}
  */
-const authenticate = async (alias, pass, _user = user) => {
+const authenticate = async (alias, pass, __user) => {
+  const _user = __user || user
   const isFreshGun = _user !== user
   if (isFreshGun) {
     const ack = await new Promise(res => {
