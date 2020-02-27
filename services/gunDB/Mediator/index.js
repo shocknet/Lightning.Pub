@@ -2,13 +2,13 @@
  * @format
  */
 const Gun = require('gun')
+const logger = require('winston')
 // @ts-ignore
 Gun.log = () => {}
 // @ts-ignore
 require('gun/lib/open')
 const debounce = require('lodash/debounce')
 const Encryption = require('../../../utils/encryptionStore')
-const logger = require('winston')
 
 /** @type {import('../contact-api/SimpleGUN').ISEA} */
 // @ts-ignore
@@ -486,7 +486,7 @@ class Mediator {
                 field: 'deviceId',
                 message: 'Please specify a device ID'
               }
-              console.error(error)
+              logger.error(error)
               return false
             }
 
@@ -495,7 +495,7 @@ class Mediator {
                 field: 'deviceId',
                 message: 'Please specify a device ID'
               }
-              console.error('Unknown Device', error)
+              logger.error('Unknown Device', error)
               return false
             }
             if (typeof data === 'string') {
@@ -513,7 +513,7 @@ class Mediator {
             const decryptedData = JSON.parse(decryptedMessage)
             return cb(decryptedData)
           } catch (err) {
-            console.error(err)
+            logger.error(err)
             return false
           }
         })
@@ -538,7 +538,7 @@ class Mediator {
           socket.emit(eventName, encryptedMessage)
         } catch (err) {
           logger.error(err.message)
-          console.error(err)
+          logger.error(err)
         }
       }
     }
@@ -581,7 +581,7 @@ class Mediator {
         origBody: body
       })
     } catch (err) {
-      console.log(err)
+      logger.info(err)
       this.socket.emit(Action.ACCEPT_REQUEST, {
         ok: false,
         msg: err.message,
@@ -607,7 +607,7 @@ class Mediator {
         origBody: body
       })
     } catch (err) {
-      console.log(err)
+      logger.info(err)
       this.socket.emit(Action.BLACKLIST, {
         ok: false,
         msg: err.message,
@@ -637,7 +637,7 @@ class Mediator {
         origBody: body
       })
     } catch (err) {
-      console.log(err)
+      logger.info(err)
       this.socket.emit(Action.GENERATE_NEW_HANDSHAKE_NODE, {
         ok: false,
         msg: err.message,
@@ -652,11 +652,11 @@ class Mediator {
   sendHandshakeRequest = async body => {
     try {
       if (Config.SHOW_LOG) {
-        console.log('\n')
-        console.log('------------------------------')
-        console.log('will now try to send a handshake request')
-        console.log('------------------------------')
-        console.log('\n')
+        logger.info('\n')
+        logger.info('------------------------------')
+        logger.info('will now try to send a handshake request')
+        logger.info('------------------------------')
+        logger.info('\n')
       }
 
       const { recipientPublicKey, token } = body
@@ -671,11 +671,11 @@ class Mediator {
       )
 
       if (Config.SHOW_LOG) {
-        console.log('\n')
-        console.log('------------------------------')
-        console.log('handshake request successfuly sent')
-        console.log('------------------------------')
-        console.log('\n')
+        logger.info('\n')
+        logger.info('------------------------------')
+        logger.info('handshake request successfuly sent')
+        logger.info('------------------------------')
+        logger.info('\n')
       }
 
       this.socket.emit(Action.SEND_HANDSHAKE_REQUEST, {
@@ -685,11 +685,11 @@ class Mediator {
       })
     } catch (err) {
       if (Config.SHOW_LOG) {
-        console.log('\n')
-        console.log('------------------------------')
-        console.log('handshake request send fail: ' + err.message)
-        console.log('------------------------------')
-        console.log('\n')
+        logger.info('\n')
+        logger.info('------------------------------')
+        logger.info('handshake request send fail: ' + err.message)
+        logger.info('------------------------------')
+        logger.info('\n')
       }
 
       this.socket.emit(Action.SEND_HANDSHAKE_REQUEST, {
@@ -723,7 +723,7 @@ class Mediator {
         origBody: body
       })
     } catch (err) {
-      console.log(err)
+      logger.info(err)
       this.socket.emit(Action.SEND_HANDSHAKE_REQUEST_WITH_INITIAL_MSG, {
         ok: false,
         msg: err.message,
@@ -749,7 +749,7 @@ class Mediator {
         origBody: reqBody
       })
     } catch (err) {
-      console.log(err)
+      logger.info(err)
       this.socket.emit(Action.SEND_MESSAGE, {
         ok: false,
         msg: err.message,
@@ -782,7 +782,7 @@ class Mediator {
         origBody: reqBody
       })
     } catch (err) {
-      console.log(err)
+      logger.info(err)
       this.socket.emit(Action.SEND_PAYMENT, {
         ok: false,
         msg: err.message,
@@ -808,7 +808,7 @@ class Mediator {
         origBody: body
       })
     } catch (err) {
-      console.log(err)
+      logger.info(err)
       this.socket.emit(Action.SET_AVATAR, {
         ok: false,
         msg: err.message,
@@ -834,7 +834,7 @@ class Mediator {
         origBody: body
       })
     } catch (err) {
-      console.log(err)
+      logger.info(err)
       this.socket.emit(Action.SET_DISPLAY_NAME, {
         ok: false,
         msg: err.message,
@@ -856,9 +856,9 @@ class Mediator {
 
       API.Events.onAvatar(avatar => {
         if (Config.SHOW_LOG) {
-          console.log('---avatar---')
-          console.log(avatar)
-          console.log('-----------------------')
+          logger.info('---avatar---')
+          logger.info(avatar || 'null')
+          logger.info('-----------------------')
         }
 
         this.socket.emit(Event.ON_AVATAR, {
@@ -868,7 +868,7 @@ class Mediator {
         })
       }, user)
     } catch (err) {
-      console.log(err)
+      logger.info(err)
       this.socket.emit(Event.ON_AVATAR, {
         ok: false,
         msg: err.message,
@@ -888,9 +888,9 @@ class Mediator {
 
       API.Events.onBlacklist(blacklist => {
         if (Config.SHOW_LOG) {
-          console.log('---blacklist---')
-          console.log(blacklist)
-          console.log('-----------------------')
+          logger.info('---blacklist---')
+          logger.info(blacklist.join(','))
+          logger.info('-----------------------')
         }
 
         this.socket.emit(Event.ON_BLACKLIST, {
@@ -900,7 +900,7 @@ class Mediator {
         })
       }, user)
     } catch (err) {
-      console.log(err)
+      logger.info(err)
       this.socket.emit(Event.ON_BLACKLIST, {
         ok: false,
         msg: err.message,
@@ -916,15 +916,15 @@ class Mediator {
     try {
       const { token } = body
 
-      // console.log('ON_CHATS', body)
+      // logger.info('ON_CHATS', body)
 
       await throwOnInvalidToken(token)
 
       API.Events.onChats(chats => {
         if (Config.SHOW_LOG) {
-          console.log('---chats---')
-          console.log(chats)
-          console.log('-----------------------')
+          logger.info('---chats---')
+          logger.info(chats)
+          logger.info('-----------------------')
         }
 
         this.socket.emit(Event.ON_CHATS, {
@@ -934,7 +934,7 @@ class Mediator {
         })
       })
     } catch (err) {
-      console.log(err)
+      logger.info(err)
       this.socket.emit(Event.ON_CHATS, {
         ok: false,
         msg: err.message,
@@ -954,9 +954,9 @@ class Mediator {
 
       API.Events.onDisplayName(displayName => {
         if (Config.SHOW_LOG) {
-          console.log('---displayName---')
-          console.log(displayName)
-          console.log('-----------------------')
+          logger.info('---displayName---')
+          logger.info(displayName)
+          logger.info('-----------------------')
         }
 
         this.socket.emit(Event.ON_DISPLAY_NAME, {
@@ -966,7 +966,7 @@ class Mediator {
         })
       }, user)
     } catch (err) {
-      console.log(err)
+      logger.info(err)
       this.socket.emit(Event.ON_DISPLAY_NAME, {
         ok: false,
         msg: err.message,
@@ -986,9 +986,9 @@ class Mediator {
 
       API.Events.onCurrentHandshakeAddress(addr => {
         if (Config.SHOW_LOG) {
-          console.log('---addr---')
-          console.log(addr)
-          console.log('-----------------------')
+          logger.info('---addr---')
+          logger.info(addr)
+          logger.info('-----------------------')
         }
 
         this.socket.emit(Event.ON_HANDSHAKE_ADDRESS, {
@@ -998,7 +998,7 @@ class Mediator {
         })
       }, user)
     } catch (err) {
-      console.log(err)
+      logger.info(err)
       this.socket.emit(Event.ON_HANDSHAKE_ADDRESS, {
         ok: false,
         msg: err.message,
@@ -1017,12 +1017,6 @@ class Mediator {
       await throwOnInvalidToken(token)
 
       API.Events.onSimplerReceivedRequests(receivedRequests => {
-        if (Config.SHOW_LOG) {
-          // console.log('---receivedRequests---')
-          // console.log(receivedRequests)
-          // console.log('-----------------------')
-        }
-
         this.socket.emit(Event.ON_RECEIVED_REQUESTS, {
           msg: receivedRequests,
           ok: true,
@@ -1030,7 +1024,7 @@ class Mediator {
         })
       })
     } catch (err) {
-      console.log(err)
+      logger.info(err)
       this.socket.emit(Event.ON_RECEIVED_REQUESTS, {
         msg: err.message,
         ok: false,
@@ -1055,7 +1049,7 @@ class Mediator {
 
         API.Events.onSimplerSentRequests(
           debounce(sentRequests => {
-            // console.log(
+            // logger.info(
             //   `new Reqss in mediator: ${JSON.stringify(sentRequests)}`
             // )
             this.socket.emit(Event.ON_SENT_REQUESTS, {
@@ -1067,7 +1061,7 @@ class Mediator {
         )
       }
     } catch (err) {
-      console.log(err)
+      logger.info(err)
       this.socket.emit(Event.ON_SENT_REQUESTS, {
         msg: err.message,
         ok: false,
@@ -1093,7 +1087,7 @@ class Mediator {
         })
       }, user)
     } catch (err) {
-      console.log(err)
+      logger.info(err)
       this.socket.emit(Event.ON_BIO, {
         ok: false,
         msg: err.message,
@@ -1119,7 +1113,7 @@ class Mediator {
         origBody: body
       })
     } catch (err) {
-      console.log(err)
+      logger.info(err)
       this.socket.emit(Action.SET_BIO, {
         ok: false,
         msg: err.message,
@@ -1149,7 +1143,7 @@ class Mediator {
         mySEA
       )
     } catch (err) {
-      console.log(err)
+      logger.info(err)
       this.socket.emit(Event.ON_SEED_BACKUP, {
         ok: false,
         msg: err.message,

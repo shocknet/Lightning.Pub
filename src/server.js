@@ -85,7 +85,7 @@ const server = program => {
       const auth = require('../services/auth/auth')
 
       app.use(async (req, res, next) => {
-        console.log('Route:', req.path)
+        logger.info('Route:', req.path)
         if (unprotectedRoutes[req.method][req.path]) {
           next()
         } else {
@@ -117,7 +117,7 @@ const server = program => {
 
       app.use((req, res, next) => {
         if (sensitiveRoutes[req.method][req.path]) {
-          console.log(
+          logger.info(
             JSON.stringify({
               time: new Date(),
               ip: req.ip,
@@ -127,7 +127,7 @@ const server = program => {
             })
           )
         } else {
-          console.log(
+          logger.info(
             JSON.stringify({
               time: new Date(),
               ip: req.ip,
@@ -224,8 +224,8 @@ const server = program => {
       // const localtunnel = require('localtunnel');
       //
       // const tunnel = localtunnel(port, (err, t) => {
-      // 	console.log('err', err);
-      // 	console.log('t', t.url);
+      // 	logger.info('err', err);
+      // 	logger.info('t', t.url);
       // });
     } catch (err) {
       logger.info(err)

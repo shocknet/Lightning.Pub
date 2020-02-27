@@ -2,6 +2,7 @@
  * @prettier
  */
 const debounce = require('lodash/debounce')
+const logger = require('winston')
 
 const ErrorCode = require('../errorCode')
 const Key = require('../key')
@@ -52,7 +53,7 @@ const __onUserToIncoming = (cb, user, SEA) => {
           // on disconnect
           delete userToIncoming[userPub]
         } else {
-          console.error(
+          logger.error(
             'got a non string non null value inside user to incoming'
           )
         }
@@ -60,14 +61,14 @@ const __onUserToIncoming = (cb, user, SEA) => {
       }
 
       if (encryptedIncomingID.length === 0) {
-        console.error('got an empty string value')
+        logger.error('got an empty string value')
         return
       }
 
       const incomingID = await SEA.decrypt(encryptedIncomingID, mySecret)
 
       if (typeof incomingID === 'undefined') {
-        console.warn('could not decrypt incomingID inside __onUserToIncoming')
+        logger.warn('could not decrypt incomingID inside __onUserToIncoming')
         return
       }
 
@@ -151,7 +152,7 @@ const onBlacklist = (cb, user) => {
         blacklist.push(publicKey)
         callb(blacklist)
       } else {
-        console.warn('Invalid public key received for blacklist')
+        logger.warn('Invalid public key received for blacklist')
       }
     })
 }
@@ -191,7 +192,7 @@ const onCurrentHandshakeAddress = (cb, user) => {
 
     user.get(Key.CURRENT_HANDSHAKE_ADDRESS).on(addr => {
       if (typeof addr !== 'string') {
-        console.error('expected handshake address to be an string')
+        logger.error('expected handshake address to be an string')
 
         setAddress(null)
 
@@ -289,7 +290,7 @@ const onIncomingMessages = (cb, userPK, incomingFeedID, gun, user, SEA) => {
     .map()
     .on(async (data, key) => {
       if (!Schema.isMessage(data)) {
-        console.warn('non-message received')
+        logger.warn('non-message received')
         return
       }
 
@@ -413,10 +414,10 @@ const onOutgoing = cb => {
           currentOutgoings = newOuts
           notifyOutgoingsListeners()
         } catch (e) {
-          console.log('--------------------------')
-          console.log('Events -> onOutgoing')
-          console.log(e)
-          console.log('--------------------------')
+          logger.info('--------------------------')
+          logger.info('Events -> onOutgoing')
+          logger.info(e)
+          logger.info('--------------------------')
         }
       }, 400)
     )

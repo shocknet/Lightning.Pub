@@ -30,7 +30,7 @@ class Auth {
 
       return { exists: true, parsable: true }
     } catch (err) {
-      console.error(err)
+      logger.error(err)
       return { exists: true, parsable: false }
     }
   }
@@ -130,7 +130,7 @@ class Auth {
         })
       })
     } catch (err) {
-      console.error(err)
+      logger.error(err)
       throw err
     }
   }

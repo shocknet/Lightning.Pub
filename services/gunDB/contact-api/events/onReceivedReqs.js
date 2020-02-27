@@ -1,5 +1,6 @@
 /** @format */
 const debounce = require('lodash/debounce')
+const logger = require('winston')
 
 const Key = require('../key')
 const Schema = require('../schema')
@@ -34,7 +35,7 @@ const setReceivedReqsMap = reqs => {
 }
 
 listeners.add(() => {
-  console.log(
+  logger.info(
     `new received reqs: ${JSON.stringify(getReceivedReqs(), null, 4)}`
   )
 })
@@ -94,8 +95,8 @@ const listenerForAddr = addr => data => {
     }
   }
 
-  console.log('data for address: ' + addr)
-  console.log(JSON.stringify(data, null, 4))
+  logger.info('data for address: ' + addr)
+  logger.info(JSON.stringify(data, null, 4))
 
   react()
 }

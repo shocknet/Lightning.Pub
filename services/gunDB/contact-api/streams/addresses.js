@@ -1,4 +1,6 @@
 /** @format */
+const logger = require('winston')
+
 const Key = require('../key')
 /**
  * @typedef {Record<string, string|null|undefined>} Addresses
@@ -11,7 +13,7 @@ const pubToAddress = {}
 const listeners = new Set()
 
 listeners.add(() => {
-  console.log(`pubToAddress: ${JSON.stringify(pubToAddress, null, 4)}`)
+  logger.info(`pubToAddress: ${JSON.stringify(pubToAddress, null, 4)}`)
 })
 
 const notify = () => listeners.forEach(l => l())
