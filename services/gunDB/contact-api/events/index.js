@@ -527,11 +527,11 @@ const onChats = cb => {
 
   if (!onChatsSubbed) {
     const Streams = require('../streams')
-    onChatsSubbed = true
     onOutgoing(processChats)
     Streams.onAvatar(processChats)
     Streams.onDisplayName(processChats)
     Streams.onPubToFeed(processChats)
+    onChatsSubbed = true
   }
 
   return () => {
