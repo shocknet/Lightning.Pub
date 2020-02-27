@@ -1,3 +1,4 @@
+/* eslint-disable init-declarations */
 /**
  * @format
  */
@@ -29,10 +30,16 @@ const mySecret = () => Promise.resolve(require('../../Mediator').getMySecret())
  * @returns {Promise<T>}
  */
 const timeout10 = promise => {
+   /** @type {NodeJS.Timeout} */
+  // @ts-ignore
+  let timeoutID
   return Promise.race([
-    promise,
+    promise.then(() => {
+      clearTimeout(timeoutID)
+    }),
+
     new Promise((_, rej) => {
-      setTimeout(() => {
+      timeoutID = setTimeout(() => {
         rej(new Error(ErrorCode.TIMEOUT_ERR))
       }, 10000)
     })
@@ -45,10 +52,16 @@ const timeout10 = promise => {
  * @returns {Promise<T>}
  */
 const timeout5 = promise => {
+  /** @type {NodeJS.Timeout} */
+  // @ts-ignore
+  let timeoutID
   return Promise.race([
-    promise,
+    promise.then(() => {
+      clearTimeout(timeoutID)
+    }),
+
     new Promise((_, rej) => {
-      setTimeout(() => {
+      timeoutID = setTimeout(() => {
         rej(new Error(ErrorCode.TIMEOUT_ERR))
       }, 5000)
     })
