@@ -250,14 +250,14 @@ const getUser = () => {
  * Returns a promise containing the public key of the newly created user.
  * @param {string} alias
  * @param {string} pass
- * @param {UserGUNNode=} user
+ * @param {UserGUNNode=} _user
  * @returns {Promise<string>}
  */
-const authenticate = async (alias, pass, user = getUser()) => {
-  const isFreshGun = user !== getUser()
+const authenticate = async (alias, pass, _user = user) => {
+  const isFreshGun = _user !== user
   if (isFreshGun) {
     const ack = await new Promise(res => {
-      user.auth(alias, pass, _ack => {
+      _user.auth(alias, pass, _ack => {
         res(_ack)
       })
     })
@@ -278,9 +278,9 @@ const authenticate = async (alias, pass, user = getUser()) => {
       )
     }
     // move this to a subscription; implement off() ? todo
-    API.Jobs.onAcceptedRequests(user, mySEA)
-    API.Jobs.onOrders(user, gun, mySEA)
-    return user._.sea.pub
+    API.Jobs.onAcceptedRequests(_user, mySEA)
+    API.Jobs.onOrders(_user, gun, mySEA)
+    return _user._.sea.pub
   }
 
   if (isAuthenticating()) {
@@ -292,7 +292,7 @@ const authenticate = async (alias, pass, user = getUser()) => {
   _isAuthenticating = true
 
   const ack = await new Promise(res => {
-    user.auth(alias, pass, _ack => {
+    _user.auth(alias, pass, _ack => {
       res(_ack)
     })
   })
@@ -302,15 +302,15 @@ const authenticate = async (alias, pass, user = getUser()) => {
   if (typeof ack.err === 'string') {
     throw new Error(ack.err)
   } else if (typeof ack.sea === 'object') {
-    mySec = await mySEA.secret(user._.sea.epub, user._.sea)
+    mySec = await mySEA.secret(_user._.sea.epub, _user._.sea)
 
     _currentAlias = alias
     _currentPass = await mySEA.encrypt(pass, mySec)
 
     await new Promise(res => setTimeout(res, 5000))
 
-    API.Jobs.onAcceptedRequests(user, mySEA)
-    API.Jobs.onOrders(user, gun, mySEA)
+    API.Jobs.onAcceptedRequests(_user, mySEA)
+    API.Jobs.onOrders(_user, gun, mySEA)
 
     return ack.sea.pub
   } else {
