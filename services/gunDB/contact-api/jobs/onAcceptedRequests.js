@@ -169,8 +169,8 @@ const onAcceptedRequests = (user, SEA) => {
             })
         })
       } catch (err) {
-        console.warn(`Jobs.onAcceptedRequests() -> ${err.message}`)
-        console.log(err)
+        logger.warn(`Jobs.onAcceptedRequests() -> ${err.message}`)
+        logger.error(err)
       }
     })
 }

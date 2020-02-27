@@ -3,6 +3,7 @@
  */
 
 const LightningServices = require('../../../../utils/lightningServices')
+const logger = require('winston')
 
 const ErrorCode = require('../errorCode')
 const Key = require('../key')
@@ -78,12 +79,12 @@ const listenerForAddr = (addr, user, SEA) => async (order, orderID) => {
 
     orderToResponse.get(orderID).put(encInvoice, ack => {
       if (ack.err) {
-        console.error(`error saving order response: ${ack.err}`)
+        logger.error(`error saving order response: ${ack.err}`)
       }
     })
   } catch (err) {
-    console.error('error inside onOrders:')
-    console.error(err)
+    logger.error('error inside onOrders:')
+    logger.error(err)
   }
 }
 

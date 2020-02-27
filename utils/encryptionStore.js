@@ -3,6 +3,8 @@
  */
 const Crypto = require('crypto')
 const { Buffer } = require('buffer')
+const logger = require('winston')
+
 const APIKeyPair = new Map()
 const authorizedDevices = new Map()
 
@@ -107,7 +109,7 @@ const Encryption = {
         },
         (err, publicKey, privateKey) => {
           if (err) {
-            console.error(err)
+            logger.error(err)
             reject(err)
             return err
           }
