@@ -1659,6 +1659,19 @@ module.exports = async (
     }
   })
 
+  app.get(`/api/gun/${GunEvent.ON_BIO}`, async (_, res) => {
+    try {
+      res.json({
+        data: await timeout5(user.get(Key.BIO).then())
+      })
+    } catch (err) {
+      logger.error(err)
+      res.status(500).json({
+        errorMessage: typeof err === 'string' ? err : err.message
+      })
+    }
+  })
+
   /**
    * Return app so that it can be used by express.
    */
