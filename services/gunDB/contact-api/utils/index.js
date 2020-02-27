@@ -105,6 +105,9 @@ const tryAndWait = async (promGen, shouldRetry = () => false) => {
     }
   } catch (e) {
     logger.error(e)
+    if (e.message === 'NOT_AUTH') {
+      throw e
+    }
   }
 
   logger.info(
@@ -132,6 +135,9 @@ const tryAndWait = async (promGen, shouldRetry = () => false) => {
     }
   } catch (e) {
     logger.error(e)
+    if (e.message === 'NOT_AUTH') {
+      throw e
+    }
   }
 
   logger.info(
