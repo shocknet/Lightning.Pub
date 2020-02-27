@@ -68,98 +68,103 @@ const pubToLastUpdate = {}
  */
 const onOpenForPubFeedPair = ([pub, feed]) =>
   debounce(async data => {
-    // did invalidate
-    if (pubToLastIncoming[pub] !== feed) {
-      return
-    }
-
-    if (
-      // did disconnect
-      data === null ||
-      // interpret as disconnect
-      typeof data !== 'object'
-    ) {
-      // invalidate this listener. If a reconnection happens it will be for a
-      // different pub-feed pair.
-      pubToLastIncoming[pub] = null
-      setImmediate(() => {
-        logger.info(
-          `onOpenForPubFeedPair -> didDisconnect -> pub: ${pub} - feed: ${feed}`
-        )
-      })
-      // signal disconnect to listeners listeners should rely on pubToFeed for
-      // disconnect status instead of pub-to-incoming. Only the latter will
-      // detect remote disconnection
-      setPubToFeed({
-        ...getPubToFeed(),
-        [pub]: /** @type {'disconnected'} */ ('disconnected')
-      })
-      return
-    }
-
-    const incoming = /** @type {Schema.Outgoing} */ (data)
-
-    // incomplete data, let's not assume anything
-    if (
-      typeof incoming.with !== 'string' ||
-      typeof incoming.messages !== 'object'
-    ) {
-      return
-    }
-
-    /** @type {Schema.ChatMessage[]} */
-    const newMsgs = Object.entries(incoming.messages)
-      // filter out messages with incomplete data
-      .filter(([_, msg]) => Schema.isMessage(msg))
-      .map(([id, msg]) => {
-        /** @type {Schema.ChatMessage} */
-        const m = {
-          // we'll decrypt later
-          body: msg.body,
-          id,
-          outgoing: false,
-          timestamp: msg.timestamp
-        }
-
-        return m
-      })
-
-    if (newMsgs.length === 0) {
-      setPubToFeed({
-        ...getPubToFeed(),
-        [pub]: []
-      })
-      return
-    }
-
-    const thisUpdate = uuidv1()
-    pubToLastUpdate[pub] = thisUpdate
-
-    const user = require('../../Mediator').getUser()
-    const SEA = require('../../Mediator').mySEA
-
-    const ourSecret = await SEA.secret(await Utils.pubToEpub(pub), user._.sea)
-
-    const decryptedMsgs = await Utils.asyncMap(newMsgs, async m => {
-      /** @type {Schema.ChatMessage} */
-      const decryptedMsg = {
-        ...m,
-        body: await SEA.decrypt(m.body, ourSecret)
+    try {
+      // did invalidate
+      if (pubToLastIncoming[pub] !== feed) {
+        return
       }
 
-      return decryptedMsg
-    })
+      if (
+        // did disconnect
+        data === null ||
+        // interpret as disconnect
+        typeof data !== 'object'
+      ) {
+        // invalidate this listener. If a reconnection happens it will be for a
+        // different pub-feed pair.
+        pubToLastIncoming[pub] = null
+        setImmediate(() => {
+          logger.info(
+            `onOpenForPubFeedPair -> didDisconnect -> pub: ${pub} - feed: ${feed}`
+          )
+        })
+        // signal disconnect to listeners listeners should rely on pubToFeed for
+        // disconnect status instead of pub-to-incoming. Only the latter will
+        // detect remote disconnection
+        setPubToFeed({
+          ...getPubToFeed(),
+          [pub]: /** @type {'disconnected'} */ ('disconnected')
+        })
+        return
+      }
 
-    // this listener got invalidated while we were awaiting the async operations
-    // above.
-    if (pubToLastUpdate[pub] !== thisUpdate) {
-      return
+      const incoming = /** @type {Schema.Outgoing} */ (data)
+
+      // incomplete data, let's not assume anything
+      if (
+        typeof incoming.with !== 'string' ||
+        typeof incoming.messages !== 'object'
+      ) {
+        return
+      }
+
+      /** @type {Schema.ChatMessage[]} */
+      const newMsgs = Object.entries(incoming.messages)
+        // filter out messages with incomplete data
+        .filter(([_, msg]) => Schema.isMessage(msg))
+        .map(([id, msg]) => {
+          /** @type {Schema.ChatMessage} */
+          const m = {
+            // we'll decrypt later
+            body: msg.body,
+            id,
+            outgoing: false,
+            timestamp: msg.timestamp
+          }
+
+          return m
+        })
+
+      if (newMsgs.length === 0) {
+        setPubToFeed({
+          ...getPubToFeed(),
+          [pub]: []
+        })
+        return
+      }
+
+      const thisUpdate = uuidv1()
+      pubToLastUpdate[pub] = thisUpdate
+
+      const user = require('../../Mediator').getUser()
+      const SEA = require('../../Mediator').mySEA
+
+      const ourSecret = await SEA.secret(await Utils.pubToEpub(pub), user._.sea)
+
+      const decryptedMsgs = await Utils.asyncMap(newMsgs, async m => {
+        /** @type {Schema.ChatMessage} */
+        const decryptedMsg = {
+          ...m,
+          body: await SEA.decrypt(m.body, ourSecret)
+        }
+
+        return decryptedMsg
+      })
+
+      // this listener got invalidated while we were awaiting the async operations
+      // above.
+      if (pubToLastUpdate[pub] !== thisUpdate) {
+        return
+      }
+
+      setPubToFeed({
+        ...getPubToFeed(),
+        [pub]: decryptedMsgs
+      })
+    } catch (err) {
+      logger.warn(`error inside pub to pk-feed pair: ${pub} -- ${feed}`)
+      logger.error(err)
     }
-
-    setPubToFeed({
-      ...getPubToFeed(),
-      [pub]: decryptedMsgs
-    })
   }, 750)
 
 const react = () => {
