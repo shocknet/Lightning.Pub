@@ -34,8 +34,9 @@ const timeout10 = promise => {
   // @ts-ignore
   let timeoutID
   return Promise.race([
-    promise.then(() => {
+    promise.then((v) => {
       clearTimeout(timeoutID)
+      return v
     }),
 
     new Promise((_, rej) => {
@@ -56,8 +57,9 @@ const timeout5 = promise => {
   // @ts-ignore
   let timeoutID
   return Promise.race([
-    promise.then(() => {
+    promise.then((v) => {
       clearTimeout(timeoutID)
+      return v
     }),
 
     new Promise((_, rej) => {

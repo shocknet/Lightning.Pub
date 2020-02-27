@@ -1625,8 +1625,10 @@ module.exports = async (
 
   app.get(`/api/gun/${GunEvent.ON_AVATAR}`, async (_, res) => {
     try {
+      const data = await timeout5(user.get(Key.PROFILE).get(Key.AVATAR).then())
+      logger.info(`avatar poll:${data}`)
       res.json({
-        data: await timeout5(user.get(Key.PROFILE).get(Key.AVATAR).then())
+        data
       })
     } catch (err) {
       logger.info('Error in Avatar poll:')
@@ -1639,8 +1641,10 @@ module.exports = async (
 
   app.get(`/api/gun/${GunEvent.ON_DISPLAY_NAME}`, async (_, res) => {
     try {
+      const data = await timeout5(user.get(Key.PROFILE).get(Key.DISPLAY_NAME).then())
+      logger.info(`display name poll:${data}`)
       res.json({
-        data: await timeout5(user.get(Key.PROFILE).get(Key.DISPLAY_NAME).then())
+        data
       })
     } catch (err) {
       logger.info('Error in Display Name poll:')
@@ -1653,8 +1657,10 @@ module.exports = async (
 
   app.get(`/api/gun/${GunEvent.ON_HANDSHAKE_ADDRESS}`, async (_, res) => {
     try {
+      const data = await timeout5(user.get(Key.CURRENT_HANDSHAKE_ADDRESS).then())
+      logger.info(`handshake address poll:${data}`)
       res.json({
-        data: await timeout5(user.get(Key.CURRENT_HANDSHAKE_ADDRESS).then())
+        data
       })
     } catch (err) {
       logger.info('Error in Handshake Address poll:')
@@ -1667,8 +1673,10 @@ module.exports = async (
 
   app.get(`/api/gun/${GunEvent.ON_BIO}`, async (_, res) => {
     try {
+      const data = await timeout5(user.get(Key.BIO).then())
+      console.log(data)
       res.json({
-        data: await timeout5(user.get(Key.BIO).then())
+        data
       })
     } catch (err) {
       logger.info('Error in BIO poll:')
