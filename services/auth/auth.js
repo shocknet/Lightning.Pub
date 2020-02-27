@@ -39,7 +39,7 @@ class Auth {
     const { exists, parsable } = await this.verifySecretsFile()
 
     if (exists && parsable) {
-      logger.info('Secrets file exists!')
+      // logger.info('Secrets file exists!')
       return true
     }
 
