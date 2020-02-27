@@ -7,7 +7,6 @@ const logger = require('winston')
 const ErrorCode = require('../errorCode')
 const Key = require('../key')
 const Schema = require('../schema')
-const Streams = require('../streams')
 const Utils = require('../utils')
 /**
  * @typedef {import('../SimpleGUN').UserGUNNode} UserGUNNode
@@ -455,6 +454,7 @@ const notifyChatsListeners = () => {
 }
 
 const processChats = debounce(() => {
+  const Streams = require('../streams')
   const pubToAvatar = Streams.getPubToAvatar()
   const pubToDn = Streams.getPubToDn()
   const existingOutgoings = /** @type {[string, Outgoing][]} */ (Object.entries(
@@ -526,12 +526,12 @@ const onChats = cb => {
   cb(currentChats)
 
   if (!onChatsSubbed) {
+    const Streams = require('../streams')
+    onChatsSubbed = true
     onOutgoing(processChats)
     Streams.onAvatar(processChats)
     Streams.onDisplayName(processChats)
     Streams.onPubToFeed(processChats)
-
-    onChatsSubbed = true
   }
 
   return () => {
