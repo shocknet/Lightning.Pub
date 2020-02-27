@@ -1581,6 +1581,7 @@ module.exports = async (
         data,
       })
     } catch (err) {
+      logger.error(err)
       res.status(500).json({
         errorMessage: typeof err === 'string' ? err : err.message
       })
@@ -1596,6 +1597,7 @@ module.exports = async (
         data,
       })
     } catch (err) {
+      logger.error(err)
       res.status(500).json({
         errorMessage: typeof err === 'string' ? err : err.message
       })
@@ -1611,6 +1613,7 @@ module.exports = async (
         data
       })
     } catch (err) {
+      logger.error(err)
       res.status(500).json({
         errorMessage: typeof err === 'string' ? err : err.message
       })
@@ -1623,6 +1626,7 @@ module.exports = async (
         data: await timeout5(user.get(Key.PROFILE).get(Key.AVATAR).then())
       })
     } catch (err) {
+      logger.error(err)
       res.status(500).json({
         errorMessage: typeof err === 'string' ? err : err.message
       })
@@ -1635,6 +1639,7 @@ module.exports = async (
         data: await timeout5(user.get(Key.PROFILE).get(Key.DISPLAY_NAME).then())
       })
     } catch (err) {
+      logger.error(err)
       res.status(500).json({
         errorMessage: typeof err === 'string' ? err : err.message
       })
@@ -1647,6 +1652,7 @@ module.exports = async (
         data: await timeout5(user.get(Key.CURRENT_HANDSHAKE_ADDRESS).then())
       })
     } catch (err) {
+      logger.error(err)
       res.status(500).json({
         errorMessage: typeof err === 'string' ? err : err.message
       })
