@@ -1582,7 +1582,7 @@ module.exports = async (
     } catch (err) {
       logger.info('Error in Received Requests poll:')
       logger.error(err)
-      res.status(500).json({
+      res.status(err.message === 'NON_AUTH' ? 401 : 500).json({
         errorMessage: typeof err === 'string' ? err : err.message
       })
     }
@@ -1600,7 +1600,7 @@ module.exports = async (
     } catch (err) {
       logger.info('Error in sentRequests poll:')
       logger.error(err)
-      res.status(500).json({
+      res.status(err.message === 'NON_AUTH' ? 401 : 500).json({
         errorMessage: typeof err === 'string' ? err : err.message
       })
     }
@@ -1618,7 +1618,7 @@ module.exports = async (
     } catch (err) {
       logger.info('Error in Chats poll:')
       logger.error(err)
-      res.status(500).json({
+      res.status(err.message === 'NON_AUTH' ? 401 : 500).json({
         errorMessage: typeof err === 'string' ? err : err.message
       })
     }
@@ -1635,7 +1635,7 @@ module.exports = async (
     } catch (err) {
       logger.info('Error in Avatar poll:')
       logger.error(err)
-      res.status(500).json({
+      res.status(err.message === 'NON_AUTH' ? 401 : 500).json({
         errorMessage: typeof err === 'string' ? err : err.message
       })
     }
@@ -1652,7 +1652,7 @@ module.exports = async (
     } catch (err) {
       logger.info('Error in Display Name poll:')
       logger.error(err)
-      res.status(500).json({
+      res.status(err.message === 'NON_AUTH' ? 401 : 500).json({
         errorMessage: typeof err === 'string' ? err : err.message
       })
     }
@@ -1669,7 +1669,7 @@ module.exports = async (
     } catch (err) {
       logger.info('Error in Handshake Address poll:')
       logger.error(err)
-      res.status(500).json({
+      res.status(err.message === 'NON_AUTH' ? 401 : 500).json({
         errorMessage: typeof err === 'string' ? err : err.message
       })
     }
@@ -1686,7 +1686,7 @@ module.exports = async (
     } catch (err) {
       logger.info('Error in BIO poll:')
       logger.error(err)
-      res.status(500).json({
+      res.status(err.message === 'NON_AUTH' ? 401 : 500).json({
         errorMessage: typeof err === 'string' ? err : err.message
       })
     }
