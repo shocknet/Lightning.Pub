@@ -1581,6 +1581,7 @@ module.exports = async (
         data,
       })
     } catch (err) {
+      logger.info('Error in Received Requests poll:')
       logger.error(err)
       res.status(500).json({
         errorMessage: typeof err === 'string' ? err : err.message
@@ -1597,6 +1598,7 @@ module.exports = async (
         data,
       })
     } catch (err) {
+      logger.info('Error in sentRequests poll:')
       logger.error(err)
       res.status(500).json({
         errorMessage: typeof err === 'string' ? err : err.message
@@ -1613,6 +1615,7 @@ module.exports = async (
         data
       })
     } catch (err) {
+      logger.info('Error in Chats poll:')
       logger.error(err)
       res.status(500).json({
         errorMessage: typeof err === 'string' ? err : err.message
@@ -1626,6 +1629,7 @@ module.exports = async (
         data: await timeout5(user.get(Key.PROFILE).get(Key.AVATAR).then())
       })
     } catch (err) {
+      logger.info('Error in Avatar poll:')
       logger.error(err)
       res.status(500).json({
         errorMessage: typeof err === 'string' ? err : err.message
@@ -1639,6 +1643,7 @@ module.exports = async (
         data: await timeout5(user.get(Key.PROFILE).get(Key.DISPLAY_NAME).then())
       })
     } catch (err) {
+      logger.info('Error in Display Name poll:')
       logger.error(err)
       res.status(500).json({
         errorMessage: typeof err === 'string' ? err : err.message
@@ -1652,6 +1657,7 @@ module.exports = async (
         data: await timeout5(user.get(Key.CURRENT_HANDSHAKE_ADDRESS).then())
       })
     } catch (err) {
+      logger.info('Error in Handshake Address poll:')
       logger.error(err)
       res.status(500).json({
         errorMessage: typeof err === 'string' ? err : err.message
@@ -1665,6 +1671,7 @@ module.exports = async (
         data: await timeout5(user.get(Key.BIO).then())
       })
     } catch (err) {
+      logger.info('Error in BIO poll:')
       logger.error(err)
       res.status(500).json({
         errorMessage: typeof err === 'string' ? err : err.message
