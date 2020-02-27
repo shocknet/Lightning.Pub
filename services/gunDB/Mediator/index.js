@@ -1231,6 +1231,7 @@ const register = async (alias, pass) => {
     await API.Actions.setDisplayName('anon' + pub.slice(0, 8), user)
     await API.Actions.generateHandshakeAddress()
     await API.Actions.generateOrderAddress(user)
+    await API.Actions.setBio('A little bit about myself.', user)
     return pub
   })
 }
