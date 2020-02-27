@@ -1,4 +1,6 @@
 /** @format */
+const logger = require('winston')
+
 const Key = require('../key')
 
 /** @type {Record<string, string|null|undefined>} */
@@ -18,22 +20,25 @@ const onLastSentReqIDs = cb => {
   cb()
 
   if (!subbed) {
-    require('../../Mediator')
-      .getUser()
-      .get(Key.USER_TO_LAST_REQUEST_SENT)
-      .open(data => {
-        if (typeof data === 'object' && data !== null) {
-          for (const [pub, id] of Object.entries(data)) {
-            if (typeof id === 'string' || id === null) {
-              pubToLastSentReqID[pub] = id
-            }
-          }
-        } else {
-          pubToLastSentReqID = {}
-        }
+    const user = require('../../Mediator').getUser()
+    if (!user.is) {
+      logger.warn('lastSentReqID() -> tried to sub without authing')
+      throw new Error('NOT_AUTH')
+    }
 
-        notify()
-      })
+    user.get(Key.USER_TO_LAST_REQUEST_SENT).open(data => {
+      if (typeof data === 'object' && data !== null) {
+        for (const [pub, id] of Object.entries(data)) {
+          if (typeof id === 'string' || id === null) {
+            pubToLastSentReqID[pub] = id
+          }
+        }
+      } else {
+        pubToLastSentReqID = {}
+      }
+
+      notify()
+    })
     subbed = true
   }
 

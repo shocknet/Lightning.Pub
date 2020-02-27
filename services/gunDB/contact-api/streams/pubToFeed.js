@@ -137,6 +137,9 @@ const onOpenForPubFeedPair = ([pub, feed]) =>
       pubToLastUpdate[pub] = thisUpdate
 
       const user = require('../../Mediator').getUser()
+      if (!user.is) {
+        logger.warn('pubToFeed -> onOpenForPubFeedPair() -> user is not auth')
+      }
       const SEA = require('../../Mediator').mySEA
 
       const ourSecret = await SEA.secret(await Utils.pubToEpub(pub), user._.sea)

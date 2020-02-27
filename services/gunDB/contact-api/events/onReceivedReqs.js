@@ -112,6 +112,10 @@ const onReceivedReqs = cb => {
   cb(getReceivedReqs())
 
   if (!subbed) {
+    const user = require('../../Mediator').getUser()
+    if (!user.is) {
+      logger.warn('Tried subscribing to onReceivedReqs without authing')
+    }
     require('./index').onCurrentHandshakeAddress(addr => {
       if (currentAddress === addr) {
         return
@@ -128,7 +132,7 @@ const onReceivedReqs = cb => {
           .get(addr)
           .open(listenerForAddr(addr))
       }
-    }, require('../../Mediator').getUser())
+    }, user)
 
     Streams.onAvatar(react)
     Streams.onDisplayName(react)
