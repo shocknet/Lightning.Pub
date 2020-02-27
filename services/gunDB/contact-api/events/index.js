@@ -326,6 +326,10 @@ const getCurrentOutgoings = () => currentOutgoings
 /** @type {Set<OutgoingsListener>} */
 const outgoingsListeners = new Set()
 
+outgoingsListeners.add(o => {
+  logger.info(`new outgoings: ${JSON.stringify(o, null, 4)}`)
+})
+
 const notifyOutgoingsListeners = () => {
   outgoingsListeners.forEach(l => l(currentOutgoings))
 }
@@ -442,6 +446,10 @@ const getChats = () => currentChats
 /** @type {Set<ChatsListener>} */
 const chatsListeners = new Set()
 
+chatsListeners.add(c => {
+  logger.info(`new Chats: ${JSON.stringify(c, null, 4)}`)
+})
+
 const notifyChatsListeners = () => {
   chatsListeners.forEach(l => l(currentChats))
 }
@@ -540,7 +548,7 @@ let currentBio = null
  * @param {(bio: string|null) => void} cb
  * @param {UserGUNNode} user Pass only for testing purposes.
  * @throws {Error} If user hasn't been auth.
- * @returns {void}
+ * @returns {void}outgoingsListeners.forEach()
  */
 const onBio = (cb, user) => {
   if (!user.is) {

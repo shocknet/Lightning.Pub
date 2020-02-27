@@ -1,6 +1,7 @@
 /** @format */
 const uuidv1 = require('uuid/v1')
 const debounce = require('lodash/debounce')
+const logger = require('winston')
 
 const { USER_TO_INCOMING } = require('../key')
 const { asyncForEach } = require('../utils')
@@ -27,6 +28,12 @@ const setPubToIncoming = pti => {
 }
 
 let latestUpdate = uuidv1()
+
+listeners.add(() => {
+  logger.info(
+    `new pubToIncoming: ${JSON.stringify(getPubToIncoming(), null, 4)}`
+  )
+})
 
 const onOpen = debounce(async uti => {
   const SEA = require('../../Mediator').mySEA
