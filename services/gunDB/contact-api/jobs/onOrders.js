@@ -55,6 +55,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       .then()
 
     if (alreadyAnswered) {
+      logger.info('this order is already answered, quitting')
       return
     }
 
