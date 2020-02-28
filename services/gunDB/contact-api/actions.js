@@ -958,19 +958,19 @@ const sendPayment = async (to, amount, memo) => {
     let timeoutID
 
     const invoice = await Promise.race([
-      Utils.tryAndWait(
-        gun =>
-          gun
-            .user(to)
-            .get(Key.ORDER_TO_RESPONSE)
-            .get(orderID)
-            .then()
-            .then(v => {
+      new Promise(res => {
+        require('../Mediator')
+          .getGun()
+          .user(to)
+          .get(Key.ORDER_TO_RESPONSE)
+          .get(orderID)
+          .on(inv => {
+            if (typeof inv === 'string') {
               clearTimeout(timeoutID)
-              return v
-            }),
-        v => typeof v !== 'string'
-      ),
+              res(inv)
+            }
+          })
+      }),
       new Promise((_, rej) => {
         setTimeout(() => {
           rej(new Error(ErrorCode.ORDER_NOT_ANSWERED_IN_TIME))
