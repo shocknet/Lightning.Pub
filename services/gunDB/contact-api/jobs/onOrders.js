@@ -49,23 +49,10 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       )} -- addr: ${addr}`
     )
 
-    let hasRetried = false
-
-    const alreadyAnswered = Utils.tryAndWait(
-      (_, user) =>
-        user
-          .get(Key.ORDER_TO_RESPONSE)
-          .get(orderID)
-          .then(),
-      v => {
-        // only retry once, because of the timeout
-        if (hasRetried) {
-          return false
-        }
-        hasRetried = true
-        return typeof v === 'undefined'
-      }
-    )
+    const alreadyAnswered = getUser()
+      .get(Key.ORDER_TO_RESPONSE)
+      .get(orderID)
+      .then()
 
     if (alreadyAnswered) {
       return

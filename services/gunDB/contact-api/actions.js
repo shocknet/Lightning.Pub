@@ -957,7 +957,6 @@ const sendPayment = async (to, amount, memo) => {
     // eslint-disable-next-line init-declarations
     let timeoutID
 
-    /** @type {string} */
     const invoice = await Promise.race([
       Utils.tryAndWait(
         gun =>
@@ -978,6 +977,13 @@ const sendPayment = async (to, amount, memo) => {
         }, 20000)
       })
     ])
+
+    if (typeof invoice !== 'string') {
+      throw new Error(
+        'received invoice not an string, isntead got: ' +
+          JSON.stringify(invoice)
+      )
+    }
 
     const decInvoice = await SEA.decrypt(invoice, ourSecret)
 
