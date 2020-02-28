@@ -3,6 +3,9 @@
  */
 const uuidv1 = require('uuid/v1')
 const logger = require('winston')
+const isFinite = require('lodash/isFinite')
+const isNumber = require('lodash/isNumber')
+const isNaN = require('lodash/isNaN')
 
 const LightningServices = require('../../../utils/lightningServices')
 
@@ -882,124 +885,160 @@ const sendHRWithInitialMsg = async (
  * lightning cannot find a route for the payment.
  * @returns {Promise<void>}
  */
-const sendPayment = async (to, amount, memo, gun, user, SEA) => {
-  if (!user.is) {
-    throw new Error(ErrorCode.NOT_AUTH)
-  }
+const sendPayment = async (to, amount, memo) => {
+  try {
+    const SEA = require('../Mediator').mySEA
+    const getUser = () => require('../Mediator').getUser()
+    const recipientEpub = await Utils.pubToEpub(to)
+    const ourSecret = await SEA.secret(recipientEpub, getUser()._.sea)
 
-  const recipientEpub = await Utils.pubToEpub(to)
-  const ourSecret = await SEA.secret(recipientEpub, user._.sea)
+    if (amount < 1) {
+      throw new RangeError('Amount must be at least 1 sat.')
+    }
 
-  if (amount < 1) {
-    throw new RangeError('Amount must be at least 1 sat.')
-  }
+    const currOrderAddress = await Getters.currentOrderAddress(to)
 
-  /** @type {Order} */
-  const order = {
-    amount: await SEA.encrypt(amount.toString(), ourSecret),
-    from: user._.sea.pub,
-    memo: await SEA.encrypt(memo || 'no memo', ourSecret),
-    timestamp: Date.now()
-  }
+    logger.info('sendPayment() -> will now create order:')
 
-  const currOrderAddress = await Getters.currentOrderAddress(to)
+    /** @type {Order} */
+    const order = {
+      amount: amount.toString(),
+      from: getUser()._.sea.pub,
+      memo: memo || 'no memo',
+      timestamp: Date.now()
+    }
 
-  order.timestamp = Date.now()
+    logger.info(JSON.stringify(order))
 
-  /** @type {string} */
-  const orderID = await new Promise((res, rej) => {
-    const ord = gun
-      .get(Key.ORDER_NODES)
-      .get(currOrderAddress)
-      .set(order, ack => {
-        if (ack.err) {
-          rej(
-            new Error(
-              `Error writing order to order node: ${currOrderAddress} for pub: ${to}: ${ack.err}`
-            )
-          )
-        } else {
-          res(ord._.get)
-        }
-      })
-  })
+    /* eslint-disable require-atomic-updates */
+    const [encMemo, encAmount] = await Promise.all([
+      SEA.encrypt(order.memo, ourSecret),
+      SEA.encrypt(order.amount, ourSecret)
+    ])
 
-  const bob = gun.user(to)
+    order.memo = encMemo
+    order.amount = encAmount
+    order.timestamp = Date.now() // most up to date timestamp
+    logger.info(`sendPayment() -> encrypted order: ${JSON.stringify(order)}`)
 
-  /** @type {string} */
-  const invoice = await Promise.race([
-    new Promise((res, rej) => {
-      bob
-        .get(Key.ORDER_TO_RESPONSE)
-        .get(orderID)
-        .on(data => {
-          if (typeof data !== 'string') {
+    /* eslint-enable require-atomic-updates */
+
+    logger.info(
+      `sendPayment() -> will now place order into address: ${currOrderAddress} for PK: ${to}`
+    )
+
+    /** @type {string} */
+    const orderID = await new Promise((res, rej) => {
+      const ord = require('../Mediator')
+        .getGun()
+        .get(Key.ORDER_NODES)
+        .get(currOrderAddress)
+        .set(order, ack => {
+          if (ack.err) {
             rej(
-              `Expected order response from pub ${to} to be an string, instead got: ${typeof data}`
+              new Error(
+                `Error writing order to order node: ${currOrderAddress} for pub: ${to}: ${ack.err}`
+              )
             )
           } else {
-            res(data)
+            res(ord._.get)
           }
         })
-    }),
-    new Promise((_, rej) => {
-      setTimeout(() => {
-        rej(new Error(ErrorCode.ORDER_NOT_ANSWERED_IN_TIME))
-      }, 20000)
     })
-  ])
 
-  const decInvoice = await SEA.decrypt(invoice, ourSecret)
+    if (typeof orderID !== 'string') {
+      const msg = `orderID returned by gun not an string, got: ${JSON.stringify(
+        orderID
+      )}`
+      throw new Error(msg)
+    }
 
-  const {
-    services: { lightning }
-  } = LightningServices
+    /** @type {ReturnType<typeof setTimeout>} */
+    // eslint-disable-next-line init-declarations
+    let timeoutID
 
-  /**
-   * @typedef {object} SendErr
-   * @prop {string} details
-   */
+    /** @type {string} */
+    const invoice = await Promise.race([
+      Utils.tryAndWait(
+        gun =>
+          gun
+            .user(to)
+            .get(Key.ORDER_TO_RESPONSE)
+            .get(orderID)
+            .then()
+            .then(v => {
+              clearTimeout(timeoutID)
+              return v
+            }),
+        v => typeof v !== 'string'
+      ),
+      new Promise((_, rej) => {
+        setTimeout(() => {
+          rej(new Error(ErrorCode.ORDER_NOT_ANSWERED_IN_TIME))
+        }, 20000)
+      })
+    ])
 
-  /**
-   * Partial
-   * https://api.lightning.community/#grpc-response-sendresponse-2
-   * @typedef {object} SendResponse
-   * @prop {string|null} payment_error
-   * @prop {any[]|null} payment_route
-   */
+    const decInvoice = await SEA.decrypt(invoice, ourSecret)
 
-  await new Promise((resolve, rej) => {
-    lightning.sendPaymentSync(
-      {
-        payment_request: decInvoice
-      },
-      (/** @type {SendErr=} */ err, /** @type {SendResponse} */ res) => {
-        if (err) {
-          rej(new Error(err.details))
-        } else if (res) {
-          if (res.payment_error) {
-            rej(
-              new Error(
-                `sendPaymentSync error response: ${JSON.stringify(res)}`
+    logger.info('decoded invoice: ' + decInvoice)
+
+    const {
+      services: { lightning }
+    } = LightningServices
+
+    /**
+     * @typedef {object} SendErr
+     * @prop {string} details
+     */
+
+    /**
+     * Partial
+     * https://api.lightning.community/#grpc-response-sendresponse-2
+     * @typedef {object} SendResponse
+     * @prop {string|null} payment_error
+     * @prop {any[]|null} payment_route
+     */
+
+    logger.info('Will now send payment through lightning')
+
+    await new Promise((resolve, rej) => {
+      lightning.sendPaymentSync(
+        {
+          payment_request: decInvoice
+        },
+        (/** @type {SendErr=} */ err, /** @type {SendResponse} */ res) => {
+          if (err) {
+            rej(new Error(err.details))
+          } else if (res) {
+            if (res.payment_error) {
+              rej(
+                new Error(
+                  `sendPaymentSync error response: ${JSON.stringify(res)}`
+                )
               )
-            )
-          } else if (!res.payment_route) {
-            rej(
-              new Error(
-                `sendPaymentSync no payment route response: ${JSON.stringify(
-                  res
-                )}`
+            } else if (!res.payment_route) {
+              rej(
+                new Error(
+                  `sendPaymentSync no payment route response: ${JSON.stringify(
+                    res
+                  )}`
+                )
               )
-            )
+            } else {
+              resolve()
+            }
           } else {
-            resolve()
+            rej(new Error('no error or response received from sendPaymentSync'))
           }
-        } else {
-          rej(new Error('no error or response received from sendPaymentSync'))
         }
-      }
-    )
-  })
+      )
+    })
+  } catch (e) {
+    logger.error('Error inside sendPayment()')
+    logger.error(e)
+    throw e
+  }
 }
 
 /**
