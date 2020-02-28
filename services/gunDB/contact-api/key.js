@@ -28,6 +28,9 @@ exports.CURRENT_ORDER_ADDRESS = 'currentOrderAddress'
 
 exports.ORDER_NODES = 'orderNodes'
 
+/**
+ * Another user that placed an order can look for a response in here.
+ */
 exports.ORDER_TO_RESPONSE = 'orderToResponse'
 
 exports.BIO = 'bio'
