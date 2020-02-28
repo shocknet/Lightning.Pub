@@ -133,8 +133,10 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
         .get(orderID)
         .put(encInvoice, ack => {
           if (ack.err) {
-            throw new Error(
-              `Error saving encrypted invoice to order to response usergraph: ${ack}`
+            rej(
+              new Error(
+                `Error saving encrypted invoice to order to response usergraph: ${ack}`
+              )
             )
           } else {
             res()
