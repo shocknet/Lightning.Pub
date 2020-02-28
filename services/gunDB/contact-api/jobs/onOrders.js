@@ -2,13 +2,18 @@
  * @format
  */
 
-const LightningServices = require('../../../../utils/lightningServices')
 const logger = require('winston')
+const isFinite = require('lodash/isFinite')
+const isNumber = require('lodash/isNumber')
+const isNaN = require('lodash/isNaN')
 
+const LightningServices = require('../../../../utils/lightningServices')
 const ErrorCode = require('../errorCode')
 const Key = require('../key')
 const Schema = require('../schema')
 const Utils = require('../utils')
+
+const getUser = () => require('../../Mediator').getUser()
 
 /**
  * @typedef {import('../SimpleGUN').GUNNode} GUNNode
@@ -21,34 +26,88 @@ let currentOrderAddr = ''
 
 /**
  * @param {string} addr
- * @param {UserGUNNode} user
  * @param {ISEA} SEA
  * @returns {(order: ListenerData, orderID: string) => void}
  */
-const listenerForAddr = (addr, user, SEA) => async (order, orderID) => {
-  if (!user.is) {
-    logger.warn('onOrders -> listenerForAddr() -> tried to sub without authing')
-  }
+const listenerForAddr = (addr, SEA) => async (order, orderID) => {
   try {
     if (addr !== currentOrderAddr) {
+      logger.info(
+        `order address: ${addr} invalidated (current address: ${currentOrderAddr})`
+      )
       return
     }
 
     if (!Schema.isOrder(order)) {
-      throw new Error(`Expected an order instead got: ${JSON.stringify(order)}`)
+      logger.info(`Expected an order instead got: ${JSON.stringify(order)}`)
+      return
     }
 
-    const orderToResponse = user.get(Key.ORDER_TO_RESPONSE)
+    logger.info(
+      `onOrders() -> processing order: ${orderID} -- ${JSON.stringify(
+        order
+      )} -- addr: ${addr}`
+    )
 
-    if (await orderToResponse.get(orderID).then()) {
+    let hasRetried = false
+
+    const alreadyAnswered = Utils.tryAndWait(
+      (_, user) =>
+        user
+          .get(Key.ORDER_TO_RESPONSE)
+          .get(orderID)
+          .then(),
+      v => {
+        // only retry once, because of the timeout
+        if (typeof v === 'undefined' && hasRetried) {
+          return false
+        }
+        hasRetried = true
+        return true
+      }
+    )
+
+    if (alreadyAnswered) {
       return
     }
 
     const senderEpub = await Utils.pubToEpub(order.from)
-    const secret = await SEA.secret(senderEpub, user._.sea)
+    const secret = await SEA.secret(senderEpub, getUser()._.sea)
 
-    const amount = Number(await SEA.decrypt(order.amount, secret))
+    const decryptedAmount = await SEA.decrypt(order.amount, secret)
+
+    const amount = Number(decryptedAmount)
+
+    if (!isNumber(amount)) {
+      throw new TypeError(
+        `Could not parse decrypted amount as a number, not a number?, decryptedAmount: ${decryptedAmount}`
+      )
+    }
+
+    if (isNaN(amount)) {
+      throw new TypeError(
+        `Could not parse decrypted amount as a number, got NaN, decryptedAmount: ${decryptedAmount}`
+      )
+    }
+
+    if (!isFinite(amount)) {
+      throw new TypeError(
+        `Amount was correctly decrypted, but got a non finite number, decryptedAmount: ${decryptedAmount}`
+      )
+    }
+
     const memo = await SEA.decrypt(order.memo, secret)
+
+    const invoiceReq = {
+      expiry: 36000,
+      memo,
+      value: amount,
+      private: true
+    }
+
+    logger.info(
+      `onOrders() -> Will now create an invoice : ${JSON.stringify(invoiceReq)}`
+    )
 
     /**
      * @type {string}
@@ -58,35 +117,48 @@ const listenerForAddr = (addr, user, SEA) => async (order, orderID) => {
         services: { lightning }
       } = LightningServices
 
-      lightning.addInvoice(
-        {
-          expiry: 36000,
-          memo,
-          value: amount,
-          private: true
-        },
-        (
-          /** @type {any} */ error,
-          /** @type {{ payment_request: string }} */ response
-        ) => {
-          if (error) {
-            rej(error)
-          } else {
-            resolve(response.payment_request)
-          }
+      lightning.addInvoice(invoiceReq, (
+        /** @type {any} */ error,
+        /** @type {{ payment_request: string }} */ response
+      ) => {
+        if (error) {
+          rej(error)
+        } else {
+          resolve(response.payment_request)
         }
-      )
+      })
     })
+
+    logger.info(
+      'onOrders() -> Successfully created the invoice, will now encrypt it'
+    )
 
     const encInvoice = await SEA.encrypt(invoice, secret)
 
-    orderToResponse.get(orderID).put(encInvoice, ack => {
-      if (ack.err) {
-        logger.error(`error saving order response: ${ack.err}`)
-      }
+    logger.info(
+      `onOrders() -> Will now place the encrypted invoice in order to response usergraph: ${addr}`
+    )
+
+    await new Promise((res, rej) => {
+      getUser()
+        .get(Key.ORDER_TO_RESPONSE)
+        .get(orderID)
+        .put(encInvoice, ack => {
+          if (ack.err) {
+            throw new Error(
+              `Error saving encrypted invoice to order to response usergraph: ${ack}`
+            )
+          } else {
+            res()
+          }
+        })
     })
   } catch (err) {
-    logger.error('error inside onOrders:')
+    logger.error(
+      `error inside onOrders, orderAddr: ${addr}, orderID: ${orderID}, order: ${JSON.stringify(
+        order
+      )}`
+    )
     logger.error(err)
   }
 }
@@ -105,17 +177,24 @@ const onOrders = (user, gun, SEA) => {
   }
 
   user.get(Key.CURRENT_ORDER_ADDRESS).on(addr => {
-    if (typeof addr !== 'string') {
-      throw new TypeError('Expected current order address to be an string')
+    try {
+      if (typeof addr !== 'string') {
+        logger.error('Expected current order address to be an string')
+        return
+      }
+
+      currentOrderAddr = addr
+      logger.info(`listening to address: ${addr}`)
+
+      gun
+        .get(Key.ORDER_NODES)
+        .get(addr)
+        .map()
+        .on(listenerForAddr(currentOrderAddr, SEA))
+    } catch (e) {
+      logger.error(`Could not subscribe to order node: ${addr}, error:`)
+      logger.error(e)
     }
-
-    currentOrderAddr = addr
-
-    gun
-      .get(Key.ORDER_NODES)
-      .get(addr)
-      .map()
-      .on(listenerForAddr(currentOrderAddr, user, SEA))
   })
 }
 
