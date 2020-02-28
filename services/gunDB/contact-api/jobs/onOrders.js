@@ -59,11 +59,11 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
           .then(),
       v => {
         // only retry once, because of the timeout
-        if (typeof v === 'undefined' && hasRetried) {
+        if (hasRetried) {
           return false
         }
         hasRetried = true
-        return true
+        return typeof v === 'undefined'
       }
     )
 
