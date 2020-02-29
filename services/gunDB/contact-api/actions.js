@@ -954,20 +954,35 @@ const sendPayment = async (to, amount, memo) => {
     // eslint-disable-next-line init-declarations
     let timeoutID
 
-    const invoice = await Promise.race([
-      new Promise(res => {
-        require('../Mediator')
-          .getGun()
+    const onMethod = new Promise(res => {
+      require('../Mediator')
+        .getGun()
+        .user(to)
+        .get(Key.ORDER_TO_RESPONSE)
+        .get(orderID)
+        .on(inv => {
+          if (typeof inv === 'string') {
+            res(inv)
+          }
+        })
+    })
+
+    const freshGunMethod = Utils.tryAndWait(
+      gun =>
+        gun
           .user(to)
           .get(Key.ORDER_TO_RESPONSE)
           .get(orderID)
-          .on(inv => {
-            if (typeof inv === 'string') {
-              clearTimeout(timeoutID)
-              res(inv)
-            }
-          })
+          .then(),
+      v => typeof v === 'undefined'
+    )
+
+    const invoice = await Promise.race([
+      Promise.race([onMethod, freshGunMethod]).then(v => {
+        clearTimeout(timeoutID)
+        return v
       }),
+
       new Promise((_, rej) => {
         setTimeout(() => {
           rej(new Error(ErrorCode.ORDER_NOT_ANSWERED_IN_TIME))
