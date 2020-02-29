@@ -878,9 +878,6 @@ const sendHRWithInitialMsg = async (
  * @param {string} to
  * @param {number} amount
  * @param {string} memo
- * @param {GUNNode} gun
- * @param {UserGUNNode} user
- * @param {ISEA} SEA
  * @throws {Error} If no response in less than 20 seconds from the recipient, or
  * lightning cannot find a route for the payment.
  * @returns {Promise<void>}
