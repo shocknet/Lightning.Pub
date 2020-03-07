@@ -212,6 +212,7 @@ module.exports = async (
 
   app.use((req, res, next) => {
     const deviceId = req.headers["x-shockwallet-device-id"];
+    console.log("Decrypting route...")
     try {
       if (nonEncryptedRoutes.includes(req.path)) {
         return next();

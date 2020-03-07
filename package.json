@@ -5,7 +5,7 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node --experimental-modules src/server.js",
-    "dev": "node main.js -h 0.0.0.0",
+    "dev": "node --max-old-space-size=4096 main.js -h 0.0.0.0",
     "dev:watch": "nodemon main.js -- -h 0.0.0.0",
     "test": "jest --no-cache",
     "test:watch": "jest --no-cache --watch",
