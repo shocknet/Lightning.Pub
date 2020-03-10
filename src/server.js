@@ -15,6 +15,7 @@ const server = program => {
   const app = Express()
 
   const FS = require('../utils/fs')
+  const compression = require('compression')
   const bodyParser = require('body-parser')
   const session = require('express-session')
   const methodOverride = require('method-override')
@@ -120,6 +121,8 @@ const server = program => {
         LightningServices.services.lightning
       )
       const auth = require('../services/auth/auth')
+
+      app.use(compression())
 
       app.use(async (req, res, next) => {
         logger.info('Route:', req.path)
