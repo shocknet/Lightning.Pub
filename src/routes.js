@@ -443,47 +443,6 @@ module.exports = async (
     }
   });
 
-  app.post("/api/lnd/connect", (req, res) => {
-    const { lightning, walletUnlocker } = LightningServices.services;
-    const args = {
-      wallet_password: Buffer.from(req.body.password, "utf-8")
-    };
-
-    lightning.getInfo({}, async err => {
-      if (err) {
-        // try to unlock wallet
-        await recreateLnServices();
-        return walletUnlocker.unlockWallet(args, async unlockErr => {
-          if (unlockErr) {
-            unlockErr.error = unlockErr.message;
-            logger.error("Unlock Error:", unlockErr);
-            const health = await checkHealth();
-            if (health.LNDStatus.success) {
-              res.status(400);
-              res.json({ field: "WalletUnlocker", errorMessage: unlockErr.message });
-            } else {
-              res.status(500);
-              res.json({ errorMessage: "LND is down" });
-            }
-          } else {
-            await recreateLnServices();
-            mySocketsEvents.emit("updateLightning");
-            const token = await auth.generateToken();
-            res.json({
-              authorization: token
-            });
-          }
-        });
-      }
-
-      const token = await auth.generateToken();
-
-      return res.json({
-        authorization: token
-      });
-    });
-  });
-
   app.post("/api/lnd/wallet", async (req, res) => {
     try {
       const {  walletUnlocker } = LightningServices.services;
