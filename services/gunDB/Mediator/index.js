@@ -316,7 +316,10 @@ const authenticate = async (alias, pass, __user) => {
 
     return ack.sea.pub
   } else {
-    throw new Error('Unknown error.')
+    logger.error(
+      `Unknown error, wrong password? Ack looks like: ${JSON.stringify(ack)}`
+    )
+    throw new Error(`Didn't work, bad password?`)
   }
 }
 
