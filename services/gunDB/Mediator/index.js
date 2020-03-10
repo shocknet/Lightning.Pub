@@ -13,8 +13,9 @@ const Encryption = require('../../../utils/encryptionStore')
 /** @type {import('../contact-api/SimpleGUN').ISEA} */
 // @ts-ignore
 const SEAx = require('gun/sea')
-// @ts-ignore
-SEAx.throw = true
+// Re-enable in the future, when SEA errors inside user.auth/etc actually
+// propagate up.
+// SEAx.throw = true
 
 /** @type {import('../contact-api/SimpleGUN').ISEA} */
 const mySEA = {}
