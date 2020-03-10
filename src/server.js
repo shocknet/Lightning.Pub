@@ -74,7 +74,7 @@ const server = program => {
           return
         }
 
-        const dataHash = hashData(args[0])
+        const dataHash = hashData(args[0]).slice(-8)
         res.set('ETag', dataHash)
 
         console.log('ETag:', req.headers.etag)
