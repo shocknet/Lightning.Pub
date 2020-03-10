@@ -640,66 +640,72 @@ module.exports = async (
   });
 
   app.post("/api/lnd/wallet/existing", async (req, res) => {
-    const { password, alias } = req.body;
-    const healthResponse = await checkHealth();
-    const exists = await walletExists();
-    if (!exists) {
-      return res.status(500).json({
-        field: "wallet",
-        errorMessage: "LND wallet does not exist, please create a new one"
-      });
-    }
-
-    if (!alias) {
-      return res.status(400).json({
-        field: "alias",
-        errorMessage: "Please specify an alias for your wallet"
-      });
-    }
-
-    if (!password) {
-      return res.status(400).json({
-        field: "password",
-        errorMessage: "Please specify a password for your wallet alias"
-      });
-    }
-
-    if (password.length < 8) {
-      return res.status(400).json({
-        field: "password",
-        errorMessage: "Please specify a password that's longer than 8 characters"
-      });
-    }
-
-    if (healthResponse.LNDStatus.service !== "walletUnlocker") {
-      return res.status(400).json({
-        field: "wallet",
-        errorMessage: "Wallet is already unlocked. Please restart your LND instance and try again."
-      });
-    }
-
     try {
-      await unlockWallet(password);
-    } catch(err) {
-      return res.status(401).json({
-        field: "wallet",
-        errorMessage: "Invalid LND wallet password"
-      });
-    }
-
-    // Register user after verifying wallet password
-    const publicKey = await GunDB.register(alias, password);
-
-    // Generate Access Token
-    const token = await auth.generateToken();
-
-    res.json({
-      authorization: token,
-      user: {
-        alias,
-        publicKey
+      const { password, alias } = req.body;
+      const healthResponse = await checkHealth();
+      const exists = await walletExists();
+      if (!exists) {
+        return res.status(500).json({
+          field: "wallet",
+          errorMessage: "LND wallet does not exist, please create a new one"
+        });
       }
-    })
+
+      if (!alias) {
+        return res.status(400).json({
+          field: "alias",
+          errorMessage: "Please specify an alias for your wallet"
+        });
+      }
+
+      if (!password) {
+        return res.status(400).json({
+          field: "password",
+          errorMessage: "Please specify a password for your wallet alias"
+        });
+      }
+
+      if (password.length < 8) {
+        return res.status(400).json({
+          field: "password",
+          errorMessage: "Please specify a password that's longer than 8 characters"
+        });
+      }
+
+      if (healthResponse.LNDStatus.service !== "walletUnlocker") {
+        return res.status(400).json({
+          field: "wallet",
+          errorMessage: "Wallet is already unlocked. Please restart your LND instance and try again."
+        });
+      }
+
+      try {
+        await unlockWallet(password);
+      } catch(err) {
+        return res.status(401).json({
+          field: "wallet",
+          errorMessage: "Invalid LND wallet password"
+        });
+      }
+
+      // Register user after verifying wallet password
+      const publicKey = await GunDB.register(alias, password);
+
+      // Generate Access Token
+      const token = await auth.generateToken();
+
+      res.json({
+        authorization: token,
+        user: {
+          alias,
+          publicKey
+        }
+      })
+    } catch (err) {
+      return res.status(500).json({
+        errorMessage: err.message,
+      })
+    }
   });
 
   // get lnd info
