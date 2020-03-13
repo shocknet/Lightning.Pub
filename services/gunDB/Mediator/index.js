@@ -13,8 +13,9 @@ const Encryption = require('../../../utils/encryptionStore')
 /** @type {import('../contact-api/SimpleGUN').ISEA} */
 // @ts-ignore
 const SEAx = require('gun/sea')
-// @ts-ignore
-SEAx.throw = true
+// Re-enable in the future, when SEA errors inside user.auth/etc actually
+// propagate up.
+// SEAx.throw = true
 
 /** @type {import('../contact-api/SimpleGUN').ISEA} */
 const mySEA = {}
@@ -315,7 +316,10 @@ const authenticate = async (alias, pass, __user) => {
 
     return ack.sea.pub
   } else {
-    throw new Error('Unknown error.')
+    logger.error(
+      `Unknown error, wrong password? Ack looks like: ${JSON.stringify(ack)}`
+    )
+    throw new Error(`Didn't work, bad password?`)
   }
 }
 
