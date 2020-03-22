@@ -49,7 +49,7 @@ const Encryption = {
 
     return encryptedData.toString()
   },
-  encryptMessage: ({ deviceId, message }) => {
+  encryptMessage: ({ deviceId, message, metadata }) => {
     const parsedMessage =
       typeof message === 'object' ? JSON.stringify(message) : message
     const data = Buffer.from(parsedMessage)
@@ -66,7 +66,7 @@ const Encryption = {
       Buffer.from(cipher.final())
     ])
     const encryptedData = encryptedBuffer.toString('base64')
-    return { encryptedData, encryptedKey, iv: iv.toString('hex') }
+    return { encryptedData, encryptedKey, iv: iv.toString('hex'), metadata }
   },
   decryptMessage: ({ message, key, iv }) => {
     const data = Buffer.from(message, 'base64')

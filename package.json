@@ -5,7 +5,8 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node --experimental-modules src/server.js",
-    "dev": "node --trace-warnings main.js -h 0.0.0.0",
+    "dev": "node --trace-warnings --max-old-space-size=4096 main.js -h 0.0.0.0",
+    "dev": "node  main.js -h 0.0.0.0",
     "dev:watch": "nodemon main.js -- -h 0.0.0.0",
     "test": "jest --no-cache",
     "test:watch": "jest --no-cache --watch",
@@ -30,6 +31,7 @@
     "colors": "^1.3.0",
     "command-exists": "^1.2.6",
     "commander": "^2.9.0",
+    "compression": "^1.7.4",
     "cors": "^2.8.4",
     "debug": "^3.1.0",
     "dotenv": "^8.1.0",
