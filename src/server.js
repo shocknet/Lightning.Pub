@@ -9,11 +9,13 @@ const server = program => {
   const Https = require('https')
   const Http = require('http')
   const Express = require('express')
+  const Crypto = require('crypto')
   const LightningServices = require('../utils/lightningServices')
   const Encryption = require('../utils/encryptionStore')
   const app = Express()
 
   const FS = require('../utils/fs')
+  const compression = require('compression')
   const bodyParser = require('body-parser')
   const session = require('express-session')
   const methodOverride = require('method-override')
@@ -41,6 +43,25 @@ const server = program => {
 
   logger.info('Mainnet Mode:', !!program.mainnet)
 
+  const stringifyData = data => {
+    if (typeof data === 'object') {
+      const stringifiedData = JSON.stringify(data)
+      return stringifiedData
+    }
+
+    if (data.toString) {
+      return data.toString()
+    }
+
+    return data
+  }
+
+  const hashData = data => {
+    return Crypto.createHash('SHA256')
+      .update(Buffer.from(stringifyData(data)))
+      .digest('hex')
+  }
+
   const modifyResponseBody = (req, res, next) => {
     const deviceId = req.headers['x-shockwallet-device-id']
     const oldSend = res.send
@@ -50,18 +71,35 @@ const server = program => {
         if (args[0] && args[0].encryptedData && args[0].encryptionKey) {
           logger.warn('Response loop detected!')
           oldSend.apply(res, args)
-        } else {
-          // arguments[0] (or `data`) contains the response body
-          const authorized = Encryption.isAuthorizedDevice({ deviceId })
-          const encryptedMessage = authorized
-            ? Encryption.encryptMessage({
-                message: args[0],
-                deviceId
-              })
-            : args[0]
-          args[0] = JSON.stringify(encryptedMessage)
-          oldSend.apply(res, args)
+          return
         }
+
+        const dataHash = hashData(args[0]).slice(-8)
+        res.set('ETag', dataHash)
+
+        console.log('ETag:', req.headers.etag)
+        console.log('Data Hash:', dataHash)
+        if (req.headers.etag === dataHash) {
+          console.log('Same Hash Detected!')
+          args[0] = null
+          res.status(304)
+          oldSend.apply(res, args)
+          return
+        }
+
+        // arguments[0] (or `data`) contains the response body
+        const authorized = Encryption.isAuthorizedDevice({ deviceId })
+        const encryptedMessage = authorized
+          ? Encryption.encryptMessage({
+              message: args[0],
+              deviceId,
+              metadata: {
+                hash: dataHash
+              }
+            })
+          : args[0]
+        args[0] = JSON.stringify(encryptedMessage)
+        oldSend.apply(res, args)
       }
     }
     next()
@@ -83,6 +121,8 @@ const server = program => {
         LightningServices.services.lightning
       )
       const auth = require('../services/auth/auth')
+
+      app.use(compression())
 
       app.use(async (req, res, next) => {
         logger.info('Route:', req.path)
