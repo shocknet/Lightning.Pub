@@ -995,7 +995,7 @@ const sendPayment = async (to, amount, memo) => {
 
     if (!isOrderResponse(encryptedOrderRes)) {
       throw new Error(
-        'received response not an OrderResponse, isntead got: ' +
+        'received response not an OrderResponse, instead got: ' +
           JSON.stringify(encryptedOrderRes)
       )
     }
