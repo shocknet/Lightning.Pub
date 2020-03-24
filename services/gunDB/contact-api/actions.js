@@ -14,7 +14,7 @@ const Getters = require('./getters')
 const Key = require('./key')
 const Utils = require('./utils')
 // const { promisifyGunNode: p } = Utils
-const { isHandshakeRequest } = require('./schema')
+const { isHandshakeRequest, isOrderResponse } = require('./schema')
 /**
  * @typedef {import('./SimpleGUN').GUNNode} GUNNode
  * @typedef {import('./SimpleGUN').ISEA} ISEA
@@ -977,7 +977,10 @@ const sendPayment = async (to, amount, memo) => {
       v => typeof v === 'undefined'
     )
 
-    const invoice = await Promise.race([
+    /**
+     * @type {import('./schema').OrderResponse}
+     */
+    const encryptedOrderRes = await Promise.race([
       Promise.race([onMethod, freshGunMethod]).then(v => {
         clearTimeout(timeoutID)
         return v
@@ -990,16 +993,24 @@ const sendPayment = async (to, amount, memo) => {
       })
     ])
 
-    if (typeof invoice !== 'string') {
+    if (!isOrderResponse(encryptedOrderRes)) {
       throw new Error(
-        'received invoice not an string, isntead got: ' +
-          JSON.stringify(invoice)
+        'received response not an OrderResponse, instead got: ' +
+          JSON.stringify(encryptedOrderRes)
       )
     }
 
-    const decInvoice = await SEA.decrypt(invoice, ourSecret)
+    /** @type {import('./schema').OrderResponse} */
+    const orderResponse = {
+      response: await SEA.decrypt(encryptedOrderRes.response, ourSecret),
+      type: encryptedOrderRes.type
+    }
 
-    logger.info('decoded invoice: ' + decInvoice)
+    logger.info('decoded orderResponse: ' + JSON.stringify(orderResponse))
+
+    if (orderResponse.type === 'err') {
+      throw new Error(orderResponse.response)
+    }
 
     const {
       services: { lightning }
@@ -1020,37 +1031,40 @@ const sendPayment = async (to, amount, memo) => {
 
     logger.info('Will now send payment through lightning')
 
+    const sendPaymentSyncArgs = {
+      /** @type {string} */
+      payment_request: orderResponse.response
+    }
+
     await new Promise((resolve, rej) => {
-      lightning.sendPaymentSync(
-        {
-          payment_request: decInvoice
-        },
-        (/** @type {SendErr=} */ err, /** @type {SendResponse} */ res) => {
-          if (err) {
-            rej(new Error(err.details))
-          } else if (res) {
-            if (res.payment_error) {
-              rej(
-                new Error(
-                  `sendPaymentSync error response: ${JSON.stringify(res)}`
-                )
+      lightning.sendPaymentSync(sendPaymentSyncArgs, (
+        /** @type {SendErr=} */ err,
+        /** @type {SendResponse} */ res
+      ) => {
+        if (err) {
+          rej(new Error(err.details))
+        } else if (res) {
+          if (res.payment_error) {
+            rej(
+              new Error(
+                `sendPaymentSync error response: ${JSON.stringify(res)}`
               )
-            } else if (!res.payment_route) {
-              rej(
-                new Error(
-                  `sendPaymentSync no payment route response: ${JSON.stringify(
-                    res
-                  )}`
-                )
+            )
+          } else if (!res.payment_route) {
+            rej(
+              new Error(
+                `sendPaymentSync no payment route response: ${JSON.stringify(
+                  res
+                )}`
               )
-            } else {
-              resolve()
-            }
+            )
           } else {
-            rej(new Error('no error or response received from sendPaymentSync'))
+            resolve()
           }
+        } else {
+          rej(new Error('no error or response received from sendPaymentSync'))
         }
-      )
+      })
     })
   } catch (e) {
     logger.error('Error inside sendPayment()')
