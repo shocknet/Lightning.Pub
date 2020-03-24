@@ -382,3 +382,31 @@ exports.isOrder = item => {
 
   return typeof obj.timestamp === 'number'
 }
+
+/**
+ * @typedef {object} OrderResponse
+ * @prop {'err'|'invoice'} type
+ * @prop {string} response
+ */
+
+/**
+ * @param {*} o
+ * @returns {o is OrderResponse}
+ */
+exports.isOrderResponse = o => {
+  if (typeof o !== 'object') {
+    return false
+  }
+
+  if (o === null) {
+    return false
+  }
+
+  const obj = /** @type {OrderResponse} */ (o)
+
+  if (typeof obj.response !== 'string') {
+    return false
+  }
+
+  return obj.type === 'err' || obj.type === 'invoice'
+}
