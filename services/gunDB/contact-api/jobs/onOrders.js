@@ -127,11 +127,17 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       `onOrders() -> Will now place the encrypted invoice in order to response usergraph: ${addr}`
     )
 
+    /** @type {Schema.OrderResponse} */
+    const orderResponse = {
+      response: encInvoice,
+      type: 'invoice'
+    }
+
     await new Promise((res, rej) => {
       getUser()
         .get(Key.ORDER_TO_RESPONSE)
         .get(orderID)
-        .put(encInvoice, ack => {
+        .put(orderResponse, ack => {
           if (ack.err) {
             rej(
               new Error(
@@ -150,6 +156,23 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       )}`
     )
     logger.error(err)
+
+    /** @type {Schema.OrderResponse} */
+    const orderResponse = {
+      response: err.message,
+      type: 'err'
+    }
+
+    getUser()
+      .get(Key.ORDER_TO_RESPONSE)
+      .get(orderID)
+      .put(orderResponse, ack => {
+        if (ack.err) {
+          logger.error(
+            `Error saving encrypted invoice to order to response usergraph: ${ack}`
+          )
+        }
+      })
   }
 }
 
