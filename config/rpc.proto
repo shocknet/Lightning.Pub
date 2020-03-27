@@ -1,7 +1,5 @@
 syntax = "proto3";
 
-import "google/api/annotations.proto";
-
 package lnrpc;
 
 option go_package = "github.com/lightningnetwork/lnd/lnrpc";
