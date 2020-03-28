@@ -468,7 +468,7 @@ exports.decodeSpontPayment = sp => {
     }
 
     if (isNaN(amt)) {
-      throw new TypeError(`Could not amount as a number, got NaN.`)
+      throw new TypeError(`Could not parse amount as a number, got NaN.`)
     }
 
     if (!isFinite(amt)) {
