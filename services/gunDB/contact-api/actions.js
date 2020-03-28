@@ -3,9 +3,6 @@
  */
 const uuidv1 = require('uuid/v1')
 const logger = require('winston')
-const isFinite = require('lodash/isFinite')
-const isNumber = require('lodash/isNumber')
-const isNaN = require('lodash/isNaN')
 
 const LightningServices = require('../../../utils/lightningServices')
 
