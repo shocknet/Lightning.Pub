@@ -495,7 +495,7 @@ class Mediator {
                 field: 'deviceId',
                 message: 'Please specify a device ID'
               }
-              logger.error(error)
+              logger.error(JSON.stringify(error))
               return false
             }
 
@@ -925,7 +925,7 @@ class Mediator {
       API.Events.onChats(chats => {
         if (Config.SHOW_LOG) {
           logger.info('---chats---')
-          logger.info(chats)
+          logger.info(JSON.stringify(chats))
           logger.info('-----------------------')
         }
 
@@ -957,7 +957,7 @@ class Mediator {
       API.Events.onDisplayName(displayName => {
         if (Config.SHOW_LOG) {
           logger.info('---displayName---')
-          logger.info(displayName)
+          logger.info(displayName || 'null or empty string')
           logger.info('-----------------------')
         }
 
@@ -989,7 +989,7 @@ class Mediator {
       API.Events.onCurrentHandshakeAddress(addr => {
         if (Config.SHOW_LOG) {
           logger.info('---addr---')
-          logger.info(addr)
+          logger.info(addr || 'null or empty string')
           logger.info('-----------------------')
         }
 
