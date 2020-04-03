@@ -776,11 +776,11 @@ class Mediator {
 
       await throwOnInvalidToken(token)
 
-      await API.Actions.sendPayment(recipientPub, amount, memo)
+      const preimage = await API.Actions.sendPayment(recipientPub, amount, memo)
 
       this.socket.emit(Action.SEND_PAYMENT, {
         ok: true,
-        msg: null,
+        msg: preimage,
         origBody: reqBody
       })
     } catch (err) {
