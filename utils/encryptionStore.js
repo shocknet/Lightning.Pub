@@ -16,7 +16,14 @@ const nonEncryptedEvents = [
 ]
 
 const Encryption = {
+  /**
+   * @param {string} event
+   * @returns {boolean}
+   */
   isNonEncrypted: event => nonEncryptedEvents.includes(event),
+  /**
+   * @param {{ deviceId: string , message: string }} arg0
+   */
   encryptKey: ({ deviceId, message }) => {
     if (!authorizedDevices.has(deviceId)) {
       throw { field: 'deviceId', message: 'Unknown Device ID' }
@@ -33,6 +40,9 @@ const Encryption = {
     )
     return encryptedData.toString('base64')
   },
+  /**
+   * @param {{ deviceId: string , message: string }} arg0
+   */
   decryptKey: ({ deviceId, message }) => {
     if (!authorizedDevices.has(deviceId)) {
       throw { field: 'deviceId', message: 'Unknown Device ID' }
@@ -49,6 +59,9 @@ const Encryption = {
 
     return encryptedData.toString()
   },
+  /**
+   * @param {{ deviceId: string , message: any , metadata?: any}} arg0
+   */
   encryptMessage: ({ deviceId, message, metadata }) => {
     const parsedMessage =
       typeof message === 'object' ? JSON.stringify(message) : message
@@ -68,6 +81,9 @@ const Encryption = {
     const encryptedData = encryptedBuffer.toString('base64')
     return { encryptedData, encryptedKey, iv: iv.toString('hex'), metadata }
   },
+  /**
+   * @param {{ message: string , key: string , iv: string }} arg0
+   */
   decryptMessage: ({ message, key, iv }) => {
     const data = Buffer.from(message, 'base64')
     const cipher = Crypto.createDecipheriv(
@@ -84,6 +100,9 @@ const Encryption = {
 
     return decryptedData.toString()
   },
+  /**
+   * @param {{ deviceId: string }} arg0
+   */
   isAuthorizedDevice: ({ deviceId }) => {
     if (authorizedDevices.has(deviceId)) {
       return true
@@ -91,6 +110,9 @@ const Encryption = {
 
     return false
   },
+  /**
+   * @param {{ deviceId: string , publicKey: string }} arg0
+   */
   authorizeDevice: ({ deviceId, publicKey }) =>
     new Promise((resolve, reject) => {
       authorizedDevices.set(deviceId, publicKey)
@@ -109,9 +131,10 @@ const Encryption = {
         },
         (err, publicKey, privateKey) => {
           if (err) {
+            // @ts-ignore
             logger.error(err)
             reject(err)
-            return err
+            return
           }
 
           const exportedKey = {
@@ -127,6 +150,9 @@ const Encryption = {
         }
       )
     }),
+  /**
+   * @param {{ deviceId: string }} arg0
+   */
   unAuthorizeDevice: ({ deviceId }) => {
     authorizedDevices.delete(deviceId)
   }
