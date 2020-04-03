@@ -876,12 +876,13 @@ const sendHRWithInitialMsg = async (
 }
 
 /**
+ * Returns the preimage corresponding to the payment.
  * @param {string} to
  * @param {number} amount
  * @param {string} memo
  * @throws {Error} If no response in less than 20 seconds from the recipient, or
  * lightning cannot find a route for the payment.
- * @returns {Promise<void>}
+ * @returns {Promise<string>} The payment's preimage.
  */
 const sendPayment = async (to, amount, memo) => {
   try {
@@ -1073,11 +1074,13 @@ const sendPayment = async (to, amount, memo) => {
     if (Utils.successfulHandshakeAlreadyExists(to)) {
       await sendMessage(
         to,
-        encodeSpontaneousPayment(to, memo || 'no memo', preimage),
+        encodeSpontaneousPayment(amount, memo || 'no memo', preimage),
         require('../Mediator').getUser(),
         require('../Mediator').mySEA
       )
     }
+
+    return preimage
   } catch (e) {
     logger.error('Error inside sendPayment()')
     logger.error(e)
