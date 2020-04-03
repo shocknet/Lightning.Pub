@@ -3,9 +3,6 @@
  */
 const uuidv1 = require('uuid/v1')
 const logger = require('winston')
-const isFinite = require('lodash/isFinite')
-const isNumber = require('lodash/isNumber')
-const isNaN = require('lodash/isNaN')
 
 const LightningServices = require('../../../utils/lightningServices')
 
@@ -14,7 +11,11 @@ const Getters = require('./getters')
 const Key = require('./key')
 const Utils = require('./utils')
 // const { promisifyGunNode: p } = Utils
-const { isHandshakeRequest, isOrderResponse } = require('./schema')
+const {
+  isHandshakeRequest,
+  isOrderResponse,
+  encodeSpontaneousPayment
+} = require('./schema')
 /**
  * @typedef {import('./SimpleGUN').GUNNode} GUNNode
  * @typedef {import('./SimpleGUN').ISEA} ISEA
@@ -1027,6 +1028,7 @@ const sendPayment = async (to, amount, memo) => {
      * @typedef {object} SendResponse
      * @prop {string|null} payment_error
      * @prop {any[]|null} payment_route
+     * @prop {string} payment_preimage
      */
 
     logger.info('Will now send payment through lightning')
@@ -1036,7 +1038,8 @@ const sendPayment = async (to, amount, memo) => {
       payment_request: orderResponse.response
     }
 
-    await new Promise((resolve, rej) => {
+    /** @type {string} */
+    const preimage = await new Promise((resolve, rej) => {
       lightning.sendPaymentSync(sendPaymentSyncArgs, (
         /** @type {SendErr=} */ err,
         /** @type {SendResponse} */ res
@@ -1050,22 +1053,31 @@ const sendPayment = async (to, amount, memo) => {
                 `sendPaymentSync error response: ${JSON.stringify(res)}`
               )
             )
-          } else if (!res.payment_route) {
+          } else if (!res.payment_route || !res.payment_preimage) {
             rej(
               new Error(
-                `sendPaymentSync no payment route response: ${JSON.stringify(
+                `sendPaymentSync no payment route response or preimage: ${JSON.stringify(
                   res
                 )}`
               )
             )
           } else {
-            resolve()
+            resolve(res.payment_preimage)
           }
         } else {
           rej(new Error('no error or response received from sendPaymentSync'))
         }
       })
     })
+
+    if (Utils.successfulHandshakeAlreadyExists(to)) {
+      await sendMessage(
+        to,
+        encodeSpontaneousPayment(to, memo || 'no memo', preimage),
+        require('../Mediator').getUser(),
+        require('../Mediator').mySEA
+      )
+    }
   } catch (e) {
     logger.error('Error inside sendPayment()')
     logger.error(e)
