@@ -776,14 +776,7 @@ class Mediator {
 
       await throwOnInvalidToken(token)
 
-      await API.Actions.sendPayment(
-        recipientPub,
-        amount,
-        memo,
-        gun,
-        user,
-        mySEA
-      )
+      await API.Actions.sendPayment(recipientPub, amount, memo)
 
       this.socket.emit(Action.SEND_PAYMENT, {
         ok: true,
