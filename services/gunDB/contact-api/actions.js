@@ -1073,7 +1073,7 @@ const sendPayment = async (to, amount, memo) => {
     if (Utils.successfulHandshakeAlreadyExists(to)) {
       await sendMessage(
         to,
-        encodeSpontaneousPayment(to, memo || 'no memo', preimage),
+        encodeSpontaneousPayment(amount, memo || 'no memo', preimage),
         require('../Mediator').getUser(),
         require('../Mediator').mySEA
       )
