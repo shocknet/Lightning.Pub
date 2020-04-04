@@ -77,10 +77,10 @@ const server = program => {
         const dataHash = hashData(args[0]).slice(-8)
         res.set('ETag', dataHash)
 
-        console.log('ETag:', req.headers.etag)
-        console.log('Data Hash:', dataHash)
+        logger.debug('ETag:', req.headers.etag)
+        logger.debug('Data Hash:', dataHash)
         if (req.headers.etag === dataHash) {
-          console.log('Same Hash Detected!')
+          logger.debug('Same Hash Detected!')
           args[0] = null
           res.status(304)
           oldSend.apply(res, args)
