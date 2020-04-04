@@ -212,7 +212,7 @@ module.exports = async (
 
   app.use((req, res, next) => {
     const deviceId = req.headers["x-shockwallet-device-id"];
-    console.log("Decrypting route...")
+    logger.debug("Decrypting route...")
     try {
       if (nonEncryptedRoutes.includes(req.path)) {
         return next();
@@ -1671,7 +1671,7 @@ module.exports = async (
     try {
       const user = require('../services/gunDB/Mediator').getUser()
       const data = await timeout5(user.get(Key.BIO).then())
-      console.log(data)
+      logger.debug(data)
       res.json({
         data
       })
