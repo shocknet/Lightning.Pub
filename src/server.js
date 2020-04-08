@@ -236,10 +236,7 @@ const server = program => {
 
       const io = require('socket.io')(serverInstance)
 
-      const Sockets = require('./sockets')(
-        io,
-        LightningServices.services.lightning
-      )
+      const Sockets = require('./sockets')(io)
 
       require('./routes')(app, defaults, Sockets, {
         serverHost: module.serverHost,

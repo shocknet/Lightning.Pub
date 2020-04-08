@@ -1,17 +1,20 @@
 // app/sockets.js
 
 const logger = require("winston");
+const LightningServices = require("../utils/lightningServices");
 
 module.exports = (
   /** @type {import('socket.io').Server} */
-  io,
-  lightning,
+  io
 ) => {
   const Mediator = require("../services/gunDB/Mediator/index.js");
   
   const onNewInvoice = socket => {
-    const stream = lightning.subscribeInvoice({});
+    const { lightning } = LightningServices.services;
+    logger.warn("Subscribing to invoices socket...")
+    const stream = lightning.subscribeInvoices({});
     stream.on("data", data => {
+      logger.info("[SOCKET] New invoice data:", data);
       socket.emit("invoice:new", data)
     })
     stream.on("end", () => {
@@ -30,8 +33,11 @@ module.exports = (
   }
 
   const onNewTransaction = socket => {
-    const stream = lightning.subscribeTransaction({});
+    const { lightning } = LightningServices.services;
+    const stream = lightning.subscribeTransactions({});
+    logger.warn("Subscribing to transactions socket...")
     stream.on("data", data => {
+      logger.info("[SOCKET] New transaction data:", data);
       socket.emit("transaction:new", data)
     })
     stream.on("end", () => {
@@ -58,6 +64,7 @@ module.exports = (
     logger.info("New socket client connected (id=" + socket.id + ").");
 
     const isOneTimeUseSocket = !!socket.handshake.query.IS_GUN_AUTH
+    const isLNDSocket = !!socket.handshake.query.IS_LND_SOCKET
 
     if (isOneTimeUseSocket) {
       logger.info('New socket is one time use')
@@ -86,8 +93,10 @@ module.exports = (
       // this is where we create the websocket connection
       // with the GunDB service.
       Mediator.createMediator(socket);
-      onNewInvoice(socket);
-      onNewTransaction(socket);
+      if (isLNDSocket) {
+        onNewInvoice(socket);
+        onNewTransaction(socket);
+      }
 
       /** listening if client has disconnected */
       socket.on("disconnect", () => {
