@@ -633,11 +633,12 @@ const sendHandshakeRequest = async (recipientPublicKey, gun, user, SEA) => {
 }
 
 /**
+ * Returns the message id.
  * @param {string} recipientPublicKey
  * @param {string} body
  * @param {UserGUNNode} user
  * @param {ISEA} SEA
- * @returns {Promise<void>}
+ * @returns {Promise<string>} The message id.
  */
 const sendMessage = async (recipientPublicKey, body, user, SEA) => {
   if (!user.is) {
@@ -689,7 +690,7 @@ const sendMessage = async (recipientPublicKey, body, user, SEA) => {
   }
 
   return new Promise((res, rej) => {
-    user
+    const msgNode = user
       .get(Key.OUTGOINGS)
       .get(outgoingID)
       .get(Key.MESSAGES)
@@ -697,7 +698,7 @@ const sendMessage = async (recipientPublicKey, body, user, SEA) => {
         if (ack.err) {
           rej(new Error(ack.err))
         } else {
-          res()
+          res(msgNode._.get)
         }
       })
   })
