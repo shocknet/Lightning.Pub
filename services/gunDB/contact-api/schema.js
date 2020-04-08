@@ -420,7 +420,7 @@ exports.isOrderResponse = o => {
  * @typedef {import('./schema-types').EncSpontPayment} EncSpontPayment
  */
 
-const ENC_SPONT_PAYMENT_PREFIX = '$$__SHOCKWALLET__SPONT__PAYMENT__'
+const ENC_SPONT_PAYMENT_PREFIX = '$$__SHOCKWALLET__SPONT__PAYMENT'
 
 /**
  * @param {string} s
@@ -446,7 +446,7 @@ exports.isEncodedSpontPayment = isEncodedSpontPayment
 exports.decodeSpontPayment = sp => {
   try {
     const [preimage, amtStr, memo] = sp
-      .slice(ENC_SPONT_PAYMENT_PREFIX.length)
+      .slice((ENC_SPONT_PAYMENT_PREFIX + '__').length)
       .split('__')
 
     if (typeof preimage !== 'string') {
@@ -490,13 +490,24 @@ exports.decodeSpontPayment = sp => {
 }
 
 /**
- *
  * @param {number} amt
  * @param {string} memo
  * @param {string} preimage
  * @returns {EncSpontPayment}
  */
 exports.encodeSpontaneousPayment = (amt, memo, preimage) => {
+  if (typeof amt !== 'number') {
+    throw new TypeError('amt must be a number')
+  }
+
+  if (typeof memo !== 'string') {
+    throw new TypeError('memo must be an string')
+  }
+
+  if (typeof preimage !== 'string') {
+    throw new TypeError('preimage must be an string')
+  }
+
   if (amt <= 0) {
     throw new RangeError('Amt must be greater than zero')
   }
