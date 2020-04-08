@@ -750,11 +750,14 @@ class Mediator {
 
       await throwOnInvalidToken(token)
 
-      await API.Actions.sendMessage(recipientPublicKey, body, user, mySEA)
-
       this.socket.emit(Action.SEND_MESSAGE, {
         ok: true,
-        msg: null,
+        msg: await API.Actions.sendMessage(
+          recipientPublicKey,
+          body,
+          user,
+          mySEA
+        ),
         origBody: reqBody
       })
     } catch (err) {
