@@ -1160,12 +1160,13 @@ module.exports = async (
       return;
     }
 
-    const { pubkey, channelCapacity, channelPushAmount } = req.body;
+    const { pubkey, channelCapacity, channelPushAmount,satPerByte } = req.body;
 
     const openChannelRequest = {
       node_pubkey: Buffer.from(pubkey, 'hex'),
       local_funding_amount: channelCapacity,
-      push_sat: channelPushAmount
+      push_sat: channelPushAmount,
+      sat_per_byte:satPerByte,
     };
     logger.info("OpenChannelRequest", openChannelRequest);
     const openedChannel = lightning.openChannel(openChannelRequest);
@@ -1201,12 +1202,13 @@ module.exports = async (
         res.json({ errorMessage: "LND is down" });
       }
     }
-    const { channelPoint, outputIndex, force } = req.body;
+    const { channelPoint, outputIndex, force,satPerByte } = req.body;
     const closeChannelRequest = {
       channel_point: {
         funding_txid_bytes: Buffer.from(channelPoint, "hex"),
         funding_txid_str: channelPoint,
-        output_index: outputIndex
+        output_index: outputIndex,
+        sat_per_byte:satPerByte,
       },
       force
     };
@@ -1396,7 +1398,11 @@ module.exports = async (
         res.json({ errorMessage: "LND is down" });
       }
     }
-    const sendCoinsRequest = { addr: req.body.addr, amount: req.body.amount };
+    const sendCoinsRequest = { 
+      addr: req.body.addr, 
+      amount: req.body.amount,
+      sat_per_byte:req.body.satPerByte 
+    };
     logger.debug("SendCoins", sendCoinsRequest);
     lightning.sendCoins(sendCoinsRequest, async (err, response) => {
       if (err) {
@@ -1506,8 +1512,8 @@ module.exports = async (
 
   app.post("/api/lnd/sendmany", (req, res) => {
     const { lightning } = LightningServices.services;
-    const { addresses } = req.body;
-    lightning.sendMany({ AddrToAmount: addresses }, (err, transactions) => {
+    const { addresses,satPerByte } = req.body;
+    lightning.sendMany({ AddrToAmount: addresses,sat_per_byte:satPerByte }, (err, transactions) => {
       if (err) {
         return handleError(res, err);
       }
