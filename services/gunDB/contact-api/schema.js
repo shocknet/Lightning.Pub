@@ -77,6 +77,7 @@ exports.isChatMessage = item => {
  * @prop {ChatMessage[]} messages Sorted from most recent to least recent.
  * @prop {string|null} recipientDisplayName
  * @prop {boolean} didDisconnect True if the recipient performed a disconnect.
+ * @prop {number|undefined|null} lastSeenApp
  */
 
 /**

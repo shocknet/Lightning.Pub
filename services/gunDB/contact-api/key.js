@@ -36,3 +36,5 @@ exports.ORDER_TO_RESPONSE = 'orderToResponse'
 exports.BIO = 'bio'
 
 exports.SEED_BACKUP = 'seedBackup'
+
+exports.LAST_SEEN_APP = 'lastSeenApp'

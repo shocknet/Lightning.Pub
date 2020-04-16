@@ -457,6 +457,7 @@ const processChats = debounce(() => {
   const Streams = require('../streams')
   const pubToAvatar = Streams.getPubToAvatar()
   const pubToDn = Streams.getPubToDn()
+  const pubToLastSeenApp = Streams.getPubToLastSeenApp()
   const existingOutgoings = /** @type {[string, Outgoing][]} */ (Object.entries(
     getCurrentOutgoings()
   ).filter(([_, o]) => o !== null))
@@ -468,11 +469,15 @@ const processChats = debounce(() => {
   for (const [outID, out] of existingOutgoings) {
     if (typeof pubToAvatar[out.with] === 'undefined') {
       // eslint-disable-next-line no-empty-function
-      Streams.onAvatar(() => {}, out.with)
+      Streams.onAvatar(() => {}, out.with)()
     }
     if (typeof pubToDn[out.with] === 'undefined') {
       // eslint-disable-next-line no-empty-function
-      Streams.onDisplayName(() => {}, out.with)
+      Streams.onDisplayName(() => {}, out.with)()
+    }
+    if (typeof pubToLastSeenApp[out.with] === 'undefined') {
+      // eslint-disable-next-line no-empty-function
+      Streams.onPubToLastSeenApp(() => {}, out.with)()
     }
 
     /** @type {ChatMessage[]} */
@@ -496,7 +501,8 @@ const processChats = debounce(() => {
       id: out.with + outID,
       messages: msgs,
       recipientAvatar: pubToAvatar[out.with] || null,
-      recipientDisplayName: pubToDn[out.with] || null
+      recipientDisplayName: pubToDn[out.with] || null,
+      lastSeenApp: pubToLastSeenApp[out.with] || null
     }
 
     newChats.push(chat)
@@ -531,6 +537,7 @@ const onChats = cb => {
     Streams.onAvatar(processChats)
     Streams.onDisplayName(processChats)
     Streams.onPubToFeed(processChats)
+    Streams.onPubToLastSeenApp(processChats)
     onChatsSubbed = true
   }
 

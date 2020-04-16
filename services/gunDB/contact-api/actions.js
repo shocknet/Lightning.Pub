@@ -1186,6 +1186,23 @@ const disconnect = async pub => {
   await generateHandshakeAddress()
 }
 
+/**
+ * @returns {Promise<void>}
+ */
+const setLastSeenApp = () =>
+  new Promise((res, rej) => {
+    require('../Mediator')
+      .getUser()
+      .get(Key.LAST_SEEN_APP)
+      .put(Date.now(), ack => {
+        if (ack.err) {
+          rej(new Error(ack.err))
+        } else {
+          res()
+        }
+      })
+  })
+
 module.exports = {
   __createOutgoingFeed,
   acceptRequest,
@@ -1202,5 +1219,6 @@ module.exports = {
   generateOrderAddress,
   setBio,
   saveSeedBackup,
-  disconnect
+  disconnect,
+  setLastSeenApp
 }
