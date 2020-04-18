@@ -79,7 +79,9 @@
     // if someone does this it's probably intentional
     "no-useless-concat": "off",
 
-    "no-plusplus": "off"
+    "no-plusplus": "off",
+
+    "no-undefined": "off"
   },
   "parser": "babel-eslint",
   "env": {
