@@ -147,6 +147,14 @@ module.exports = async (
     return true;
   };
 
+  const lastSeenMiddleware = (req, res, next) => {
+    const {authorization} = req.headers
+    const {path} = req
+    if (!nonEncryptedRoutes.includes(path) && authorization) {
+      GunActions.setLastSeenApp()
+    }
+  }
+
   const unlockWallet = password =>
     new Promise((resolve, reject) => {
       try {
@@ -302,6 +310,8 @@ module.exports = async (
         });
     }
   });
+
+  app.use(lastSeenMiddleware);
 
   app.use(["/ping"], responseTime());
 
