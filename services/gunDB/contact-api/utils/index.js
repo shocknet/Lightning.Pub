@@ -1,7 +1,7 @@
-/* eslint-disable init-declarations */
 /**
  * @format
  */
+/* eslint-disable init-declarations */
 const logger = require('winston')
 
 const ErrorCode = require('../errorCode')
@@ -30,11 +30,11 @@ const mySecret = () => Promise.resolve(require('../../Mediator').getMySecret())
  * @returns {Promise<T>}
  */
 const timeout10 = promise => {
-   /** @type {NodeJS.Timeout} */
+  /** @type {NodeJS.Timeout} */
   // @ts-ignore
   let timeoutID
   return Promise.race([
-    promise.then((v) => {
+    promise.then(v => {
       clearTimeout(timeoutID)
       return v
     }),
@@ -57,7 +57,7 @@ const timeout5 = promise => {
   // @ts-ignore
   let timeoutID
   return Promise.race([
-    promise.then((v) => {
+    promise.then(v => {
       clearTimeout(timeoutID)
       return v
     }),
@@ -314,6 +314,37 @@ const dataHasSoul = listenerData =>
  */
 const defaultName = pub => 'anon' + pub.slice(0, 8)
 
+const LAST_SEEN_NODE_INTERVAL = 10000
+
+/**
+ * @param {string} pub
+ * @returns {Promise<boolean>}
+ */
+const isNodeOnline = async pub => {
+  const SET_LAST_SEEN_APP_INTERVAL = 15000
+
+  /**
+   * @param {any} lastSeen
+   * @returns {boolean}
+   */
+  const isAppOnline = lastSeen =>
+    typeof lastSeen === 'number' &&
+    Date.now() - lastSeen < SET_LAST_SEEN_APP_INTERVAL * 2
+
+  const userNode = require('../../Mediator')
+    .getGun()
+    .user(pub)
+
+  const isOnlineApp = isAppOnline(await userNode.get(Key.LAST_SEEN_APP).then())
+  const lastSeenNode = await userNode.get(Key.LAST_SEEN_NODE).then()
+
+  return (
+    isOnlineApp ||
+    (typeof lastSeenNode === 'number' &&
+      Date.now() - lastSeenNode < LAST_SEEN_NODE_INTERVAL * 2)
+  )
+}
+
 module.exports = {
   asyncMap,
   asyncFilter,
@@ -328,5 +359,7 @@ module.exports = {
   mySecret,
   promisifyGunNode: require('./promisifygun'),
   asyncForEach,
-  timeout5
+  timeout5,
+  LAST_SEEN_NODE_INTERVAL,
+  isNodeOnline
 }

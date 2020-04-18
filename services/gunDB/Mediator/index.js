@@ -282,6 +282,7 @@ const authenticate = async (alias, pass, __user) => {
     // move this to a subscription; implement off() ? todo
     API.Jobs.onAcceptedRequests(_user, mySEA)
     API.Jobs.onOrders(_user, gun, mySEA)
+    API.Jobs.lastSeenNode(_user)
     return _user._.sea.pub
   }
 
@@ -313,6 +314,7 @@ const authenticate = async (alias, pass, __user) => {
 
     API.Jobs.onAcceptedRequests(_user, mySEA)
     API.Jobs.onOrders(_user, gun, mySEA)
+    API.Jobs.lastSeenNode(_user)
 
     return ack.sea.pub
   } else {
