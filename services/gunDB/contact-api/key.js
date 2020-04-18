@@ -38,3 +38,5 @@ exports.BIO = 'bio'
 exports.SEED_BACKUP = 'seedBackup'
 
 exports.LAST_SEEN_APP = 'lastSeenApp'
+
+exports.LAST_SEEN_NODE = 'lastSeenNode'
