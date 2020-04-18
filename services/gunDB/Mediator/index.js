@@ -533,6 +533,7 @@ class Mediator {
 
   /** @param {{ token: string }} body */
   setLastSeenApp = async body => {
+    logger.info('setLastSeen Called')
     try {
       await throwOnInvalidToken(body.token)
       await API.Actions.setLastSeenApp()
