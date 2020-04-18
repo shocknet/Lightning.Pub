@@ -442,6 +442,10 @@ class Mediator {
     this.socket.on(IS_GUN_AUTH, this.isGunAuth)
 
     this.socket.on(Action.SET_LAST_SEEN_APP, this.setLastSeenApp)
+
+    Object.values(Action).forEach(actionConstant =>
+      this.socket.on(actionConstant, this.setLastSeenApp)
+    )
   }
 
   /** @param {SimpleSocket} socket */
