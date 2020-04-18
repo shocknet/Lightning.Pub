@@ -11,8 +11,10 @@
 
 const onAcceptedRequests = require('./onAcceptedRequests')
 const onOrders = require('./onOrders')
+const lastSeenNode = require('./lastSeenNode')
 
 module.exports = {
   onAcceptedRequests,
-  onOrders
+  onOrders,
+  lastSeenNode
 }
