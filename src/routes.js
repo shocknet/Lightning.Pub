@@ -148,9 +148,9 @@ module.exports = async (
   };
 
   const lastSeenMiddleware = (req, res, next) => {
-    const {authorization} = req.headers
-    const {path} = req
-    if (!nonEncryptedRoutes.includes(path) && authorization) {
+    const { authorization } = req.headers
+    const { path, method } = req
+    if (!unprotectedRoutes[method][path] && authorization && GunDB.isAuthenticated()) {
       GunActions.setLastSeenApp()
     }
   }
