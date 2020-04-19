@@ -153,6 +153,8 @@ module.exports = async (
     if (!unprotectedRoutes[method][path] && authorization && GunDB.isAuthenticated()) {
       GunActions.setLastSeenApp()
     }
+
+    next()
   }
 
   const unlockWallet = password =>
