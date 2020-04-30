@@ -1,45 +1,59 @@
 // app/sockets.js
 
 const logger = require("winston");
+const LightningServices = require("../utils/lightningServices");
 
 module.exports = (
   /** @type {import('socket.io').Server} */
-  io,
-  lnd,
+  io
 ) => {
-  
   const Mediator = require("../services/gunDB/Mediator/index.js");
-  const EventEmitter = require("events");
-
-  class MySocketsEvents extends EventEmitter {}
-
-  const mySocketsEvents = new MySocketsEvents();
-
-  // register the lnd invoices listener
-  const registerLndInvoiceListener = socket => {
-    socket._invoiceListener = {
-      dataReceived(data) {
-        socket.emit("invoice", data);
+  
+  const onNewInvoice = socket => {
+    const { lightning } = LightningServices.services;
+    logger.warn("Subscribing to invoices socket...")
+    const stream = lightning.subscribeInvoices({});
+    stream.on("data", data => {
+      logger.info("[SOCKET] New invoice data:", data);
+      socket.emit("invoice:new", data)
+    })
+    stream.on("end", () => {
+      logger.info("New invoice stream ended, starting a new one...")
+      onNewInvoice(socket);
+    })
+    stream.on("error", err => {
+      logger.error("New invoice stream error:", err);
+    })
+    stream.on("status", status => {
+      logger.error("New invoice stream status:", status);
+      if (status.code === 14) {
+        onNewInvoice(socket);
       }
-    };
-    lnd.registerInvoiceListener(socket._invoiceListener);
-  };
+    })
+  }
 
-  // unregister the lnd invoices listener
-  const unregisterLndInvoiceListener = socket => {
-    lnd.unregisterInvoiceListener(socket._invoiceListener);
-  };
-
-  // register the socket listeners
-  const registerSocketListeners = socket => {
-    registerLndInvoiceListener(socket);
-  };
-
-  // unregister the socket listeners
-  const unregisterSocketListeners = socket => {
-    unregisterLndInvoiceListener(socket);
-  };
-
+  const onNewTransaction = socket => {
+    const { lightning } = LightningServices.services;
+    const stream = lightning.subscribeTransactions({});
+    logger.warn("Subscribing to transactions socket...")
+    stream.on("data", data => {
+      logger.info("[SOCKET] New transaction data:", data);
+      socket.emit("transaction:new", data)
+    })
+    stream.on("end", () => {
+      logger.info("New invoice stream ended, starting a new one...")
+      onNewTransaction(socket);
+    })
+    stream.on("error", err => {
+      logger.error("New invoice stream error:", err);
+    })
+    stream.on("status", status => {
+      logger.error("New invoice stream status:", status);
+      if (status.code === 14) {
+        onNewTransaction(socket);
+      }
+    })
+  }
 
   io.on("connection", socket => {
     logger.info(`io.onconnection`)
@@ -50,6 +64,7 @@ module.exports = (
     logger.info("New socket client connected (id=" + socket.id + ").");
 
     const isOneTimeUseSocket = !!socket.handshake.query.IS_GUN_AUTH
+    const isLNDSocket = !!socket.handshake.query.IS_LND_SOCKET
 
     if (isOneTimeUseSocket) {
       logger.info('New socket is one time use')
@@ -78,15 +93,17 @@ module.exports = (
       // this is where we create the websocket connection
       // with the GunDB service.
       Mediator.createMediator(socket);
-      registerSocketListeners(socket);
+      if (isLNDSocket) {
+        onNewInvoice(socket);
+        onNewTransaction(socket);
+      }
 
       /** listening if client has disconnected */
       socket.on("disconnect", () => {
-        unregisterSocketListeners(socket);
         logger.info("client disconnected (id=" + socket.id + ").");
       });
     }
   })
 
-  return mySocketsEvents;
+  return io;
 };
