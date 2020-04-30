@@ -207,17 +207,17 @@ const server = program => {
       const CA = LightningServices.servicesConfig.lndCertPath
       const CA_KEY = CA.replace('cert', 'key')
 
-      const createServer = async () => {
+      const createServer = () => {
         try {
-          if (LightningServices.servicesConfig.lndCertPath && program.usetls) {
-            const [key, cert] = await Promise.all([
-              FS.readFile(CA_KEY),
-              FS.readFile(CA)
-            ])
-            const httpsServer = Https.createServer({ key, cert }, app)
+          // if (LightningServices.servicesConfig.lndCertPath && program.usetls) {
+          //   const [key, cert] = await Promise.all([
+          //     FS.readFile(CA_KEY),
+          //     FS.readFile(CA)
+          //   ])
+          //   const httpsServer = Https.createServer({ key, cert }, app)
 
-            return httpsServer
-          }
+          //   return httpsServer
+          // }
 
           const httpServer = Http.Server(app)
           return httpServer
@@ -236,7 +236,7 @@ const server = program => {
 
       const io = require('socket.io')(serverInstance)
 
-      const Sockets = require('./sockets')(io, lnd)
+      const Sockets = require('./sockets')(io)
 
       require('./routes')(app, defaults, Sockets, {
         serverHost: module.serverHost,
