@@ -1165,6 +1165,29 @@ const saveSeedBackup = async (mnemonicPhrase, user, SEA) => {
 }
 
 /**
+ * @param {string} backups
+ * @param {UserGUNNode} user
+ * @param {ISEA} SEA
+ * @returns {Promise<void>}
+ */
+const saveChannelsBackup = async (backups,user,SEA) => {
+  if (backups == '') {
+    throw new TypeError('cant save an empty channel backup')
+  }
+  const mySecret = require('../Mediator').getMySecret()
+  const encryptBackups = await SEA.encrypt(backups,mySecret)
+  return new Promise((res,rej) => {
+    user.get(Key.CHANNELS_BACKUP).put(encryptBackups,ack => {
+      if(ack.err) {
+        rej(ack.err)
+      } else {
+        res()
+      }
+    })
+  })
+}
+
+/**
  * @param {string} pub
  * @returns {Promise<void>}
  */
@@ -1211,6 +1234,7 @@ module.exports = {
   generateOrderAddress,
   setBio,
   saveSeedBackup,
+  saveChannelsBackup,
   disconnect,
   setLastSeenApp
 }
