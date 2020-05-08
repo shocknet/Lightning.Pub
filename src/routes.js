@@ -422,6 +422,33 @@ module.exports = async (
         // Send an event to update lightning's status
         mySocketsEvents.emit("updateLightning");
 
+        //register to listen for channel backups
+        const user = require('../services/gunDB/Mediator').getUser()
+        const SEA = require('../services/gunDB/Mediator').mySEA
+        const onNewChannelBackup  = () => {
+          const { lightning } = LightningServices.services;
+          logger.warn("Subscribing to channel backup ...")
+          const stream = lightning.SubscribeChannelBackups({})
+          stream.on("data", data => {
+            logger.info(" New channel backup data")
+            GunActions.saveChannelsBackup(JSON.stringify(data),user,SEA)
+          })
+          stream.on("end", ()=>{
+            logger.info("Channel backup stream ended, starting a new one...")
+            onNewChannelBackup()
+          })
+          stream.on("error", err => {
+            logger.error("Channel backup stream error:", err);
+          })
+          stream.on("status", status => {
+            logger.error("Channel backup stream status:", status);
+            if (status.code === 14) {
+              onNewChannelBackup();
+            }
+          })
+        }
+        onNewChannelBackup();
+
         // Generate auth token and send it as a JSON response
         const token = await auth.generateToken();
         res.json({
@@ -1580,8 +1607,23 @@ module.exports = async (
   });
 
   const GunEvent = Common.Constants.Event
-  const Events = require('../services/gunDB/contact-api/events')
   const Key = require('../services/gunDB/contact-api/key')
+  app.get("/api/gun/lndchanbackups", async (req,res) => {
+    try{
+    const user = require('../services/gunDB/Mediator').getUser()
+    
+    const SEA = require('../services/gunDB/Mediator').mySEA
+    const mySecret = require('../services/gunDB/Mediator').getMySecret()
+    const encBackup = await user.get(Key.CHANNELS_BACKUP).then()
+    const backup = await SEA.decrypt(encBackup,mySecret)
+    res.json({data:backup})
+    } catch (err) {
+      res.json({ok:"err"})
+    }
+  })
+
+  const Events = require('../services/gunDB/contact-api/events')
+  
   const {timeout5} = require('../services/gunDB/contact-api/utils')
 
   app.get(`/api/gun/${GunEvent.ON_RECEIVED_REQUESTS}`, (_, res) => {
