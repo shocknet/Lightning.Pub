@@ -1610,13 +1610,14 @@ module.exports = async (
   const Key = require('../services/gunDB/contact-api/key')
   app.get("/api/gun/lndchanbackups", async (req,res) => {
     try{
-    const user = require('../services/gunDB/Mediator').getUser()
-    
-    const SEA = require('../services/gunDB/Mediator').mySEA
-    const mySecret = require('../services/gunDB/Mediator').getMySecret()
-    const encBackup = await user.get(Key.CHANNELS_BACKUP).then()
-    const backup = await SEA.decrypt(encBackup,mySecret)
-    res.json({data:backup})
+      const user = require('../services/gunDB/Mediator').getUser()
+      
+      const SEA = require('../services/gunDB/Mediator').mySEA
+      const mySecret = require('../services/gunDB/Mediator').getMySecret()
+      const encBackup = await timeout5(user.get(Key.CHANNELS_BACKUP).then())
+      const backup = await SEA.decrypt(encBackup,mySecret)
+      logger.info(backup)
+      res.json({data:backup})
     } catch (err) {
       res.json({ok:"err"})
     }
