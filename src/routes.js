@@ -422,11 +422,20 @@ module.exports = async (
         // Send an event to update lightning's status
         mySocketsEvents.emit("updateLightning");
 
-        //register to listen for channel backups
+        //get the latest channel backups before subscribing
         const user = require('../services/gunDB/Mediator').getUser()
         const SEA = require('../services/gunDB/Mediator').mySEA
+        const { lightning } = LightningServices.services;
+        lightning.exportAllChannelBackups({}, (err, channelBackups) => {
+          if (err) {
+            return handleError(res, err);
+          }
+          GunActions.saveChannelsBackup(JSON.stringify(channelBackups),user,SEA)
+          
+        });
+
+        //register to listen for channel backups
         const onNewChannelBackup  = () => {
-          const { lightning } = LightningServices.services;
           logger.warn("Subscribing to channel backup ...")
           const stream = lightning.SubscribeChannelBackups({})
           stream.on("data", data => {
