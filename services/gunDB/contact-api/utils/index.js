@@ -3,8 +3,8 @@
  */
 /* eslint-disable init-declarations */
 const logger = require('winston')
+const { Constants } = require('shock-common')
 
-const ErrorCode = require('../errorCode')
 const Key = require('../key')
 
 /**
@@ -41,7 +41,7 @@ const timeout10 = promise => {
 
     new Promise((_, rej) => {
       timeoutID = setTimeout(() => {
-        rej(new Error(ErrorCode.TIMEOUT_ERR))
+        rej(new Error(Constants.ErrorCode.TIMEOUT_ERR))
       }, 10000)
     })
   ])
@@ -64,7 +64,7 @@ const timeout5 = promise => {
 
     new Promise((_, rej) => {
       timeoutID = setTimeout(() => {
-        rej(new Error(ErrorCode.TIMEOUT_ERR))
+        rej(new Error(Constants.ErrorCode.TIMEOUT_ERR))
       }, 5000)
     })
   ])
@@ -253,68 +253,11 @@ const recipientToOutgoingID = async recipientPub => {
 }
 
 /**
- * @template T
- * @param {T[]} arr
- * @param {(item: T) => void} cb
- * @returns {Promise<void>}
- */
-const asyncForEach = async (arr, cb) => {
-  const promises = arr.map(item => cb(item))
-
-  await Promise.all(promises)
-}
-
-/**
- * @template T
- * @template U
- * @param {T[]} arr
- * @param {(item: T) => Promise<U>} cb
- * @returns {Promise<U[]>}
- */
-const asyncMap = (arr, cb) => {
-  if (arr.length === 0) {
-    return Promise.resolve([])
-  }
-
-  const promises = arr.map(item => cb(item))
-
-  return Promise.all(promises)
-}
-
-/**
- * @template T
- * @param {T[]} arr
- * @param {(item: T) => Promise<boolean>} cb
- * @returns {Promise<T[]>}
- */
-const asyncFilter = async (arr, cb) => {
-  if (arr.length === 0) {
-    return []
-  }
-
-  /** @type {Promise<boolean>[]} */
-  const promises = arr.map(item => cb(item))
-
-  /** @type {boolean[]} */
-  const results = await Promise.all(promises)
-
-  return arr.filter((_, idx) => results[idx])
-}
-
-/**
  * @param {import('../SimpleGUN').ListenerData} listenerData
  * @returns {listenerData is import('../SimpleGUN').ListenerObj}
  */
 const dataHasSoul = listenerData =>
   typeof listenerData === 'object' && listenerData !== null
-
-/**
- * @param {string} pub
- * @returns {string}
- */
-const defaultName = pub => 'anon' + pub.slice(0, 8)
-
-const LAST_SEEN_NODE_INTERVAL = 10000
 
 /**
  * @param {string} pub
@@ -341,15 +284,12 @@ const isNodeOnline = async pub => {
   return (
     isOnlineApp ||
     (typeof lastSeenNode === 'number' &&
-      Date.now() - lastSeenNode < LAST_SEEN_NODE_INTERVAL * 2)
+      Date.now() - lastSeenNode < Constants.Misc.LAST_SEEN_NODE_INTERVAL * 2)
   )
 }
 
 module.exports = {
-  asyncMap,
-  asyncFilter,
   dataHasSoul,
-  defaultName,
   delay,
   pubToEpub,
   recipientPubToLastReqSentID,
@@ -358,8 +298,6 @@ module.exports = {
   tryAndWait,
   mySecret,
   promisifyGunNode: require('./promisifygun'),
-  asyncForEach,
   timeout5,
-  LAST_SEEN_NODE_INTERVAL,
   isNodeOnline
 }

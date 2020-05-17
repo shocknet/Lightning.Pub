@@ -3,24 +3,27 @@
  */
 const debounce = require('lodash/debounce')
 const logger = require('winston')
+const {
+  Constants: { ErrorCode },
+  Schema,
+  Utils: CommonUtils
+} = require('shock-common')
 
-const ErrorCode = require('../errorCode')
 const Key = require('../key')
-const Schema = require('../schema')
 const Utils = require('../utils')
 /**
  * @typedef {import('../SimpleGUN').UserGUNNode} UserGUNNode
  * @typedef {import('../SimpleGUN').GUNNode} GUNNode
  * @typedef {import('../SimpleGUN').ISEA} ISEA
  * @typedef {import('../SimpleGUN').ListenerData} ListenerData
- * @typedef {import('../schema').HandshakeRequest} HandshakeRequest
- * @typedef {import('../schema').Message} Message
- * @typedef {import('../schema').Outgoing} Outgoing
- * @typedef {import('../schema').PartialOutgoing} PartialOutgoing
- * @typedef {import('../schema').Chat} Chat
- * @typedef {import('../schema').ChatMessage} ChatMessage
- * @typedef {import('../schema').SimpleSentRequest} SimpleSentRequest
- * @typedef {import('../schema').SimpleReceivedRequest} SimpleReceivedRequest
+ * @typedef {import('shock-common').Schema.HandshakeRequest} HandshakeRequest
+ * @typedef {import('shock-common').Schema.Message} Message
+ * @typedef {import('shock-common').Schema.Outgoing} Outgoing
+ * @typedef {import('shock-common').Schema.PartialOutgoing} PartialOutgoing
+ * @typedef {import('shock-common').Schema.Chat} Chat
+ * @typedef {import('shock-common').Schema.ChatMessage} ChatMessage
+ * @typedef {import('shock-common').Schema.SimpleSentRequest} SimpleSentRequest
+ * @typedef {import('shock-common').Schema.SimpleReceivedRequest} SimpleReceivedRequest
  */
 
 const DEBOUNCE_WAIT_TIME = 500
@@ -360,59 +363,62 @@ const onOutgoing = cb => {
           const SEA = require('../../Mediator').mySEA
           const mySecret = await Utils.mySecret()
 
-          await Utils.asyncForEach(Object.entries(data), async ([id, out]) => {
-            if (typeof out !== 'object') {
-              return
-            }
-
-            if (out === null) {
-              newOuts[id] = null
-              return
-            }
-
-            const { with: encPub, messages } = out
-
-            if (typeof encPub !== 'string') {
-              return
-            }
-
-            const pub = await SEA.decrypt(encPub, mySecret)
-
-            if (!newOuts[id]) {
-              newOuts[id] = {
-                with: pub,
-                messages: {}
+          await CommonUtils.asyncForEach(
+            Object.entries(data),
+            async ([id, out]) => {
+              if (typeof out !== 'object') {
+                return
               }
-            }
 
-            const ourSec = await SEA.secret(
-              await Utils.pubToEpub(pub),
-              user._.sea
-            )
+              if (out === null) {
+                newOuts[id] = null
+                return
+              }
 
-            if (typeof messages === 'object' && messages !== null) {
-              await Utils.asyncForEach(
-                Object.entries(messages),
-                async ([mid, msg]) => {
-                  if (typeof msg === 'object' && msg !== null) {
-                    if (
-                      typeof msg.body === 'string' &&
-                      typeof msg.timestamp === 'number'
-                    ) {
-                      const newOut = newOuts[id]
-                      if (!newOut) {
-                        return
-                      }
-                      newOut.messages[mid] = {
-                        body: await SEA.decrypt(msg.body, ourSec),
-                        timestamp: msg.timestamp
+              const { with: encPub, messages } = out
+
+              if (typeof encPub !== 'string') {
+                return
+              }
+
+              const pub = await SEA.decrypt(encPub, mySecret)
+
+              if (!newOuts[id]) {
+                newOuts[id] = {
+                  with: pub,
+                  messages: {}
+                }
+              }
+
+              const ourSec = await SEA.secret(
+                await Utils.pubToEpub(pub),
+                user._.sea
+              )
+
+              if (typeof messages === 'object' && messages !== null) {
+                await CommonUtils.asyncForEach(
+                  Object.entries(messages),
+                  async ([mid, msg]) => {
+                    if (typeof msg === 'object' && msg !== null) {
+                      if (
+                        typeof msg.body === 'string' &&
+                        typeof msg.timestamp === 'number'
+                      ) {
+                        const newOut = newOuts[id]
+                        if (!newOut) {
+                          return
+                        }
+                        newOut.messages[mid] = {
+                          body: await SEA.decrypt(msg.body, ourSec),
+                          timestamp: msg.timestamp
+                        }
                       }
                     }
                   }
-                }
-              )
+                )
+              }
             }
-          })
+          )
 
           currentOutgoings = newOuts
           notifyOutgoingsListeners()

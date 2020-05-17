@@ -6,11 +6,14 @@ const logger = require('winston')
 const isFinite = require('lodash/isFinite')
 const isNumber = require('lodash/isNumber')
 const isNaN = require('lodash/isNaN')
+const {
+  Constants: { ErrorCode },
+  Schema
+} = require('shock-common')
 
 const LightningServices = require('../../../../utils/lightningServices')
-const ErrorCode = require('../errorCode')
+
 const Key = require('../key')
-const Schema = require('../schema')
 const Utils = require('../utils')
 
 const getUser = () => require('../../Mediator').getUser()
@@ -127,7 +130,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       `onOrders() -> Will now place the encrypted invoice in order to response usergraph: ${addr}`
     )
 
-    /** @type {Schema.OrderResponse} */
+    /** @type {import('shock-common').Schema.OrderResponse} */
     const orderResponse = {
       response: encInvoice,
       type: 'invoice'
@@ -157,7 +160,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
     )
     logger.error(err)
 
-    /** @type {Schema.OrderResponse} */
+    /** @type {import('shock-common').Schema.OrderResponse} */
     const orderResponse = {
       response: err.message,
       type: 'err'

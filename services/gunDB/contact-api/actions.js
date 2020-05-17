@@ -3,36 +3,28 @@
  */
 const uuidv1 = require('uuid/v1')
 const logger = require('winston')
+const { Constants, Schema } = require('shock-common')
+
+const { ErrorCode } = Constants
 
 const LightningServices = require('../../../utils/lightningServices')
 
-const ErrorCode = require('./errorCode')
 const Getters = require('./getters')
 const Key = require('./key')
 const Utils = require('./utils')
-// const { promisifyGunNode: p } = Utils
-const {
-  isHandshakeRequest,
-  isOrderResponse,
-  encodeSpontaneousPayment
-} = require('./schema')
+
 /**
  * @typedef {import('./SimpleGUN').GUNNode} GUNNode
  * @typedef {import('./SimpleGUN').ISEA} ISEA
  * @typedef {import('./SimpleGUN').UserGUNNode} UserGUNNode
- * @typedef {import('./schema').HandshakeRequest} HandshakeRequest
- * @typedef {import('./schema').StoredRequest} StoredReq
- * @typedef {import('./schema').Message} Message
- * @typedef {import('./schema').Outgoing} Outgoing
- * @typedef {import('./schema').PartialOutgoing} PartialOutgoing
- * @typedef {import('./schema').Order} Order
+ * @typedef {import('shock-common').Schema.HandshakeRequest} HandshakeRequest
+ * @typedef {import('shock-common').Schema.StoredRequest} StoredReq
+ * @typedef {import('shock-common').Schema.Message} Message
+ * @typedef {import('shock-common').Schema.Outgoing} Outgoing
+ * @typedef {import('shock-common').Schema.PartialOutgoing} PartialOutgoing
+ * @typedef {import('shock-common').Schema.Order} Order
  * @typedef {import('./SimpleGUN').Ack} Ack
  */
-
-/**
- * An special message signaling the acceptance.
- */
-const INITIAL_MSG = '$$__SHOCKWALLET__INITIAL__MESSAGE'
 
 /**
  * Create a an outgoing feed. The feed will have an initial special acceptance
@@ -92,7 +84,7 @@ const __createOutgoingFeed = async (withPublicKey, user, SEA) => {
 
     /** @type {Message} */
     const initialMsg = {
-      body: await SEA.encrypt(INITIAL_MSG, ourSecret),
+      body: await SEA.encrypt(Constants.Misc.INITIAL_MSG, ourSecret),
       timestamp: Date.now()
     }
 
@@ -203,7 +195,7 @@ const acceptRequest = async (
       .get(requestID)
       .then()
 
-    if (!isHandshakeRequest(hr)) {
+    if (!Schema.isHandshakeRequest(hr)) {
       throw new Error(ErrorCode.TRIED_TO_ACCEPT_AN_INVALID_REQUEST)
     }
 
@@ -981,7 +973,7 @@ const sendPayment = async (to, amount, memo) => {
     )
 
     /**
-     * @type {import('./schema').OrderResponse}
+     * @type {import('shock-common').Schema.OrderResponse}
      */
     const encryptedOrderRes = await Promise.race([
       Promise.race([onMethod, freshGunMethod]).then(v => {
@@ -996,14 +988,14 @@ const sendPayment = async (to, amount, memo) => {
       })
     ])
 
-    if (!isOrderResponse(encryptedOrderRes)) {
+    if (!Schema.isOrderResponse(encryptedOrderRes)) {
       throw new Error(
         'received response not an OrderResponse, instead got: ' +
           JSON.stringify(encryptedOrderRes)
       )
     }
 
-    /** @type {import('./schema').OrderResponse} */
+    /** @type {import('shock-common').Schema.OrderResponse} */
     const orderResponse = {
       response: await SEA.decrypt(encryptedOrderRes.response, ourSecret),
       type: encryptedOrderRes.type
@@ -1075,7 +1067,7 @@ const sendPayment = async (to, amount, memo) => {
     if (Utils.successfulHandshakeAlreadyExists(to)) {
       await sendMessage(
         to,
-        encodeSpontaneousPayment(amount, memo || 'no memo', preimage),
+        Schema.encodeSpontaneousPayment(amount, memo || 'no memo', preimage),
         require('../Mediator').getUser(),
         require('../Mediator').mySEA
       )
