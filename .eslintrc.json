@@ -81,7 +81,9 @@
 
     "no-plusplus": "off",
 
-    "no-undefined": "off"
+    "no-undefined": "off",
+
+    "no-process-env": "off"
   },
   "parser": "babel-eslint",
   "env": {
