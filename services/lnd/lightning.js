@@ -5,6 +5,13 @@ const logger = require("winston");
 const errorConstants = require("../../constants/errors");
 
 // expose the routes to our app with module.exports
+/**
+ * @param {string} protoPath
+ * @param {string} lndHost
+ * @param {string} lndCertPath
+ * @param {string|null} macaroonPath
+ * @returns {Promise<any>}
+ */
 module.exports = async (protoPath, lndHost, lndCertPath, macaroonPath) => {
   try {
     process.env.GRPC_SSL_CIPHER_SUITES = "HIGH+ECDSA";
@@ -28,7 +35,7 @@ module.exports = async (protoPath, lndHost, lndCertPath, macaroonPath) => {
 
         if (macaroonExists) {
           const macaroonCreds = grpc.credentials.createFromMetadataGenerator(
-            async (args, callback) => {
+            async (_, callback) => {
               const adminMacaroon = await fs.readFile(macaroonPath);
               const metadata = new grpc.Metadata();
               metadata.add("macaroon", adminMacaroon.toString("hex"));
@@ -55,7 +62,9 @@ module.exports = async (protoPath, lndHost, lndCertPath, macaroonPath) => {
       if (certExists) {
         const credentials = await getCredentials();
 
+        // @ts-ignore
         const lightning = new lnrpc.Lightning(lndHost, credentials);
+        // @ts-ignore
         const walletUnlocker = new lnrpc.WalletUnlocker(lndHost, credentials);
 
         return {
