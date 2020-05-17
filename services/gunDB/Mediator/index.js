@@ -23,9 +23,6 @@ const mySEA = {}
 const $$__SHOCKWALLET__MSG__ = '$$__SHOCKWALLET__MSG__'
 const $$__SHOCKWALLET__ENCRYPTED__ = '$$_SHOCKWALLET__ENCRYPTED__'
 
-// TO DO: Move this constant to common repo
-const IS_GUN_AUTH = 'IS_GUN_AUTH'
-
 mySEA.encrypt = (msg, secret) => {
   if (typeof msg !== 'string') {
     throw new TypeError(
@@ -172,10 +169,11 @@ mySEA.secret = async (recipientOrSenderEpub, recipientOrSenderSEA) => {
 
 const auth = require('../../auth/auth')
 
-const Action = require('../action-constants.js')
+const { Constants } = require('shock-common')
+const { Action, Event } = Constants
+
 const API = require('../contact-api/index')
 const Config = require('../config')
-const Event = require('../event-constants')
 // const { nonEncryptedRoutes } = require('../../../utils/protectedRoutes')
 
 /**
@@ -441,7 +439,7 @@ class Mediator {
     this.socket.on(Event.ON_BIO, this.onBio)
     this.socket.on(Event.ON_SEED_BACKUP, this.onSeedBackup)
 
-    this.socket.on(IS_GUN_AUTH, this.isGunAuth)
+    this.socket.on(Constants.Misc.IS_GUN_AUTH, this.isGunAuth)
 
     this.socket.on(Action.SET_LAST_SEEN_APP, this.setLastSeenApp)
 
@@ -557,7 +555,7 @@ class Mediator {
     try {
       const isGunAuth = isAuthenticated()
 
-      this.socket.emit(IS_GUN_AUTH, {
+      this.socket.emit(Constants.Misc.IS_GUN_AUTH, {
         ok: true,
         msg: {
           isGunAuth
@@ -565,7 +563,7 @@ class Mediator {
         origBody: {}
       })
     } catch (err) {
-      this.socket.emit(IS_GUN_AUTH, {
+      this.socket.emit(Constants.Misc.IS_GUN_AUTH, {
         ok: false,
         msg: err.message,
         origBody: {}

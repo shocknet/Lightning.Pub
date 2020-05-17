@@ -2,12 +2,12 @@
 const uuidv1 = require('uuid/v1')
 const logger = require('winston')
 const debounce = require('lodash/debounce')
+const { Schema, Utils: CommonUtils } = require('shock-common')
 
-const Schema = require('../schema')
 const Key = require('../key')
 const Utils = require('../utils')
 /**
- * @typedef {import('../schema').ChatMessage} Message
+ * @typedef {import('shock-common').Schema.ChatMessage} Message
  * @typedef {import('../SimpleGUN').OpenListenerData} OpenListenerData
  */
 
@@ -98,7 +98,7 @@ const onOpenForPubFeedPair = ([pub, feed]) =>
         return
       }
 
-      const incoming = /** @type {Schema.Outgoing} */ (data)
+      const incoming = /** @type {import('shock-common').Schema.Outgoing} */ (data)
 
       // incomplete data, let's not assume anything
       if (
@@ -108,12 +108,12 @@ const onOpenForPubFeedPair = ([pub, feed]) =>
         return
       }
 
-      /** @type {Schema.ChatMessage[]} */
+      /** @type {import('shock-common').Schema.ChatMessage[]} */
       const newMsgs = Object.entries(incoming.messages)
         // filter out messages with incomplete data
         .filter(([_, msg]) => Schema.isMessage(msg))
         .map(([id, msg]) => {
-          /** @type {Schema.ChatMessage} */
+          /** @type {import('shock-common').Schema.ChatMessage} */
           const m = {
             // we'll decrypt later
             body: msg.body,
@@ -144,8 +144,8 @@ const onOpenForPubFeedPair = ([pub, feed]) =>
 
       const ourSecret = await SEA.secret(await Utils.pubToEpub(pub), user._.sea)
 
-      const decryptedMsgs = await Utils.asyncMap(newMsgs, async m => {
-        /** @type {Schema.ChatMessage} */
+      const decryptedMsgs = await CommonUtils.asyncMap(newMsgs, async m => {
+        /** @type {import('shock-common').Schema.ChatMessage} */
         const decryptedMsg = {
           ...m,
           body: await SEA.decrypt(m.body, ourSecret)
