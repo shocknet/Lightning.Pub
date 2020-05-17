@@ -4,9 +4,13 @@
 
 const logger = require('winston')
 
-const ErrorCode = require('../errorCode')
+const {
+  Constants: {
+    ErrorCode,
+    Misc: { LAST_SEEN_NODE_INTERVAL }
+  }
+} = require('shock-common')
 const Key = require('../key')
-const { LAST_SEEN_NODE_INTERVAL } = require('../utils')
 
 /**
  * @typedef {import('../SimpleGUN').GUNNode} GUNNode

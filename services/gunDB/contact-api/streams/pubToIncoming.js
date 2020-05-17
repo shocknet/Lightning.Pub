@@ -2,9 +2,9 @@
 const uuidv1 = require('uuid/v1')
 const debounce = require('lodash/debounce')
 const logger = require('winston')
+const { Utils: CommonUtils } = require('shock-common')
 
 const { USER_TO_INCOMING } = require('../key')
-const { asyncForEach } = require('../utils')
 /** @typedef {import('../SimpleGUN').OpenListenerData} OpenListenerData */
 
 /**
@@ -49,16 +49,19 @@ const onOpen = debounce(async uti => {
   /** @type {PubToIncoming} */
   const newPubToIncoming = {}
 
-  await asyncForEach(Object.entries(uti), async ([pub, encFeedID]) => {
-    if (encFeedID === null) {
-      newPubToIncoming[pub] = null
-      return
-    }
+  await CommonUtils.asyncForEach(
+    Object.entries(uti),
+    async ([pub, encFeedID]) => {
+      if (encFeedID === null) {
+        newPubToIncoming[pub] = null
+        return
+      }
 
-    if (typeof encFeedID === 'string') {
-      newPubToIncoming[pub] = await SEA.decrypt(encFeedID, mySec)
+      if (typeof encFeedID === 'string') {
+        newPubToIncoming[pub] = await SEA.decrypt(encFeedID, mySec)
+      }
     }
-  })
+  )
 
   // avoid old data from overwriting new data if decrypting took longer to
   // process for the older open() call than for the newer open() call

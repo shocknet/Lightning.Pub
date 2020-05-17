@@ -1,13 +1,13 @@
 /** @format */
 const debounce = require('lodash/debounce')
 const logger = require('winston')
+const { Schema } = require('shock-common')
 
 const Key = require('../key')
-const Schema = require('../schema')
 const Streams = require('../streams')
 
 /**
- * @typedef {Readonly<Schema.SimpleReceivedRequest>} SimpleReceivedRequest
+ * @typedef {Readonly<import('shock-common').Schema.SimpleReceivedRequest>} SimpleReceivedRequest
  * @typedef {(reqs: ReadonlyArray<SimpleReceivedRequest>) => void} Listener
  */
 
@@ -22,7 +22,7 @@ let currReceivedReqsMap = {}
 
 /**
  * Unprocessed requests in current handshake node.
- * @type {Record<string, Schema.HandshakeRequest>}
+ * @type {Record<string, import('shock-common').Schema.HandshakeRequest>}
  */
 let currAddressData = {}
 
