@@ -8,14 +8,14 @@ const Streams = require('../streams')
  * @typedef {import('../SimpleGUN').GUNNode} GUNNode
  * @typedef {import('../SimpleGUN').ISEA} ISEA
  * @typedef {import('../SimpleGUN').ListenerData} ListenerData
- * @typedef {import('../schema').HandshakeRequest} HandshakeRequest
- * @typedef {import('../schema').Message} Message
- * @typedef {import('../schema').Outgoing} Outgoing
- * @typedef {import('../schema').PartialOutgoing} PartialOutgoing
- * @typedef {import('../schema').Chat} Chat
- * @typedef {import('../schema').ChatMessage} ChatMessage
- * @typedef {import('../schema').SimpleSentRequest} SimpleSentRequest
- * @typedef {import('../schema').SimpleReceivedRequest} SimpleReceivedRequest
+ * @typedef {import('shock-common').Schema.HandshakeRequest} HandshakeRequest
+ * @typedef {import('shock-common').Schema.Message} Message
+ * @typedef {import('shock-common').Schema.Outgoing} Outgoing
+ * @typedef {import('shock-common').Schema.PartialOutgoing} PartialOutgoing
+ * @typedef {import('shock-common').Schema.Chat} Chat
+ * @typedef {import('shock-common').Schema.ChatMessage} ChatMessage
+ * @typedef {import('shock-common').Schema.SimpleSentRequest} SimpleSentRequest
+ * @typedef {import('shock-common').Schema.SimpleReceivedRequest} SimpleReceivedRequest
  */
 
 /**

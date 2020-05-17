@@ -1,6 +1,7 @@
 /** @format */
+const { Schema, Utils: CommonUtils } = require('shock-common')
+
 const Key = require('../key')
-const Schema = require('../schema')
 const Utils = require('../utils')
 /**
  * @typedef {Record<string, string|null|undefined>} Avatars
@@ -97,7 +98,7 @@ const onDisplayName = (cb, pub) => {
 }
 
 /**
- * @typedef {import('../schema').StoredRequest} StoredRequest
+ * @typedef {import('shock-common').Schema.StoredRequest} StoredRequest
  * @typedef {(reqs: StoredRequest[]) => void} StoredRequestsListener
  */
 
@@ -121,7 +122,7 @@ const processStoredReqs = async () => {
   encryptedStoredReqs = []
   const mySecret = await Utils.mySecret()
   const SEA = require('../../Mediator').mySEA
-  const finalReqs = await Utils.asyncMap(ereqs, async er => {
+  const finalReqs = await CommonUtils.asyncMap(ereqs, async er => {
     /** @type {StoredRequest} */
     const r = {
       handshakeAddress: await SEA.decrypt(er.handshakeAddress, mySecret),

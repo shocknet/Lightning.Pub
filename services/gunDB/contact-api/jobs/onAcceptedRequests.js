@@ -2,10 +2,12 @@
  * @format
  */
 const logger = require('winston')
+const {
+  Constants: { ErrorCode },
+  Schema
+} = require('shock-common')
 
-const ErrorCode = require('../errorCode')
 const Key = require('../key')
-const Schema = require('../schema')
 const Utils = require('../utils')
 
 /**
