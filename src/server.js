@@ -73,11 +73,11 @@ const server = program => {
         }
 
         const dataHash = hashData(args[0]).slice(-8)
-        res.set('ETag', dataHash)
+        res.set('shock-cache-hash', dataHash)
 
-        logger.debug('ETag:', req.headers.etag)
+        logger.debug('shock-cache-hash:', req.headers['shock-cache-hash'])
         logger.debug('Data Hash:', dataHash)
-        if (req.headers.etag === dataHash) {
+        if (req.headers['shock-cache-hash'] === dataHash) {
           logger.debug('Same Hash Detected!')
           args[0] = null
           res.status(304)
