@@ -38,6 +38,7 @@ const Encryption = {
       },
       data
     )
+
     return encryptedData.toString('base64')
   },
   /**
@@ -62,7 +63,7 @@ const Encryption = {
   /**
    * @param {{ deviceId: string , message: any , metadata?: any}} arg0
    */
-  encryptMessage: ({ deviceId, message, metadata }) => {
+  encryptMessage: ({ deviceId, message, metadata = {} }) => {
     const parsedMessage =
       typeof message === 'object' ? JSON.stringify(message) : message
     const data = Buffer.from(parsedMessage)
@@ -79,7 +80,14 @@ const Encryption = {
       Buffer.from(cipher.final())
     ])
     const encryptedData = encryptedBuffer.toString('base64')
-    return { encryptedData, encryptedKey, iv: iv.toString('hex'), metadata }
+    const encryptedMessage = {
+      encryptedData,
+      encryptedKey,
+      iv: iv.toString('hex'),
+      metadata
+    }
+
+    return encryptedMessage
   },
   /**
    * @param {{ message: string , key: string , iv: string }} arg0
