@@ -1,18 +1,61 @@
 const FS = require("../utils/fs");
 const lnrpc = require("../services/lnd/lightning");
 
-class LightningServices {
-  setDefaults = program => {
-    const defaults = require("../config/defaults")(program.mainnet);
+/**
+ * @typedef {import('commander').Command} Command
+ */
 
-    this.defaults = defaults;
-    this.config = {
+/**
+ * @typedef {object} Config
+ * @prop {boolean} useTLS
+ * @prop {number} serverPort
+ * @prop {string} serverHost
+ * @prop {string} lndHost
+ * @prop {string} lndCertPath
+ * @prop {string} macaroonPath
+ * @prop {string} lndProto
+ */
+
+class LightningServices {
+  /**
+   * @type {Config|null}
+   */
+  _config = null
+
+  /**
+   * @type {Config|null}
+   */
+  _defaults = null
+
+  /**
+   * @param {Config} newDefaults
+   */
+  set defaults(newDefaults) {
+    this._defaults = newDefaults
+  }
+
+  /**
+   * @param {Command} program
+   */
+  setDefaults = program => {
+    /**
+     * @type {Config}
+     */
+    const newDefaults = {
+      ...require("../config/defaults")(program.mainnet),
+      useTLS: false,
+    }
+
+    this.defaults = newDefaults;
+
+    this._config = {
       useTLS: program.usetls,
-      serverPort: program.serverport || defaults.serverPort,
-      serverHost: program.serverhost || defaults.serverHost,
-      lndHost: program.lndhost || defaults.lndHost,
-      lndCertPath: program.lndCertPath || defaults.lndCertPath,
-      macaroonPath: program.macaroonPath || defaults.macaroonPath
+      serverPort: program.serverport || newDefaults.serverPort,
+      serverHost: program.serverhost || newDefaults.serverHost,
+      lndHost: program.lndhost || newDefaults.lndHost,
+      lndCertPath: program.lndCertPath || newDefaults.lndCertPath,
+      macaroonPath: program.macaroonPath || newDefaults.macaroonPath,
+      lndProto: newDefaults.lndProto
     };
   }
 
@@ -31,8 +74,34 @@ class LightningServices {
     return this.lnServicesData;
   }
 
+  /**
+   * @returns {Config}
+   */
   get servicesConfig() {
-    return this.config;
+    if (this._config) {
+      return this._config
+    }
+
+    throw new Error('Tried to access LightningServices.servicesConfig without setting defaults first.')
+  }
+
+  get config() {
+    if (this._config) {
+      return this._config
+    }
+
+    throw new Error('Tried to access LightningServices.config without setting defaults first.')
+  }
+
+  /**
+   * @returns {Config}
+   */
+  get defaults() {
+    if (this._defaults) {
+      return this._defaults
+    }
+
+    throw new Error('Tried to access LightningServices.defaults without setting them first.')
   }
 
   init = async () => {
@@ -44,6 +113,9 @@ class LightningServices {
       lndCertPath,
       macaroonExists ? macaroonPath : null
     );
+    if (!lnServices) {
+      throw new Error(`Could not init lnServices`)
+    }
     const { lightning, walletUnlocker } = lnServices;
     this.lightning = lightning;
     this.walletUnlocker = walletUnlocker
