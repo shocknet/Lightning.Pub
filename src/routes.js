@@ -11,6 +11,9 @@ const logger = require("winston");
 const httpsAgent = require("https");
 const responseTime = require("response-time");
 const uuid = require("uuid/v4");
+const Common = require('shock-common')
+
+
 const getListPage = require("../utils/paginate");
 const auth = require("../services/auth/auth");
 const FS = require("../utils/fs");
@@ -1576,7 +1579,7 @@ module.exports = async (
     });
   });
 
-  const GunEvent = require('../services/gunDB/event-constants')
+  const GunEvent = Common.Constants.Event
   const Events = require('../services/gunDB/contact-api/events')
   const Key = require('../services/gunDB/contact-api/key')
   const {timeout5} = require('../services/gunDB/contact-api/utils')
