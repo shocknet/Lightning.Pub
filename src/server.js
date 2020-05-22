@@ -6,7 +6,6 @@
  * Module dependencies.
  */
 const server = program => {
-  const Https = require('https')
   const Http = require('http')
   const Express = require('express')
   const Crypto = require('crypto')
@@ -14,7 +13,6 @@ const server = program => {
   const Encryption = require('../utils/encryptionStore')
   const app = Express()
 
-  const FS = require('../utils/fs')
   const compression = require('compression')
   const bodyParser = require('body-parser')
   const session = require('express-session')
