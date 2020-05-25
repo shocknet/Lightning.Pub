@@ -436,12 +436,14 @@ module.exports = async (
           
         });
         
+        /*
         const feedObj = {
           feed: [
               {
                   id:'bd7acbea-c1b1-46c2-aed5-3ad53abb28ba',
                   paragraphs:[
                       "SOme text and stuff 12"
+                      "SOme text and stuff"
                   ],
                   profilePic:"",
                   username:"bobni",
@@ -491,6 +493,13 @@ module.exports = async (
         user.get("FEED_POC").put(JSON.stringify(feedObj), ack => {
           if (ack.err) {
             //rej(new Error(ack.err))
+        }*/
+        const feedObj = {
+          feed :{}
+        }
+        user.get("FEED_POC").put(feedObj, ack => {
+          if (ack.err) {
+            //rej(ack.err)
             logger.log(ack.err)
           } else {
             logger.log(ack.err)
@@ -1677,7 +1686,7 @@ module.exports = async (
       res.json(channelBackups);
     });
   });
-
+  
   const GunEvent = Common.Constants.Event
   const Key = require('../services/gunDB/contact-api/key')
   
@@ -1695,7 +1704,7 @@ module.exports = async (
       res.json({ok:"err"})
     }
   })
-  app.get("/api/gun/feedpoc", async (req,res) =>{
+  app.get("api/gun/feedpoc", async (req,res) =>{
     try{
       logger.warn("FEED POC")
       const user = require('../services/gunDB/Mediator').getUser()
@@ -1709,7 +1718,7 @@ module.exports = async (
   })
 
   const Events = require('../services/gunDB/contact-api/events')
-
+  
   app.get(`/api/gun/${GunEvent.ON_RECEIVED_REQUESTS}`, (_, res) => {
     try {
       // spinup
