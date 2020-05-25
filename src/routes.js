@@ -433,13 +433,13 @@ module.exports = async (
           GunActions.saveChannelsBackup(JSON.stringify(channelBackups),user,SEA)
           
         });
-        /*
+        
         const feedObj = {
           feed: [
               {
                   id:'bd7acbea-c1b1-46c2-aed5-3ad53abb28ba',
                   paragraphs:[
-                      "SOme text and stuff"
+                      "SOme text and stuff 12"
                   ],
                   profilePic:"",
                   username:"bobni",
@@ -485,11 +485,8 @@ module.exports = async (
                   ]
               }
           ]
-        }*/
-        const feedObj = {
-          feed :{}
         }
-        user.get("FEED_POC").put(feedObj, ack => {
+        user.get("FEED_POC").put(JSON.stringify(feedObj), ack => {
           if (ack.err) {
             //rej(ack.err)
             logger.log(ack.err)
@@ -1696,14 +1693,14 @@ module.exports = async (
       res.json({ok:"err"})
     }
   })
-  app.get("api/gun/feedpoc", async (req,res) =>{
+  app.get("/api/gun/feedpoc", async (req,res) =>{
     try{
       logger.warn("FEED POC")
       const user = require('../services/gunDB/Mediator').getUser()
       const feedObj = await timeout5(user.get("FEED_POC").then())
       logger.warn(feedObj)
       
-      res.json({data:"feedObj"})
+      res.json({data:feedObj})
     } catch (err) {
       //res.json({ok:"err"})
     }
