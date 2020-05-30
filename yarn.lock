@@ -5877,9 +5877,9 @@ shellwords@^0.1.1:
   integrity sha512-vFwSUfQvqybiICwZY5+DAWIPLKsWO31Q91JSKl3UYv+K5c2QRPzn0qzec6QPu1Qc9eHYItiP3NdJqNVqetYAww==
 
 shock-common@0.x.x:
-  version "0.2.0"
-  resolved "https://registry.yarnpkg.com/shock-common/-/shock-common-0.2.0.tgz#b942d4b8730890aaf192eb873957c235333eddca"
-  integrity sha512-K9UysxR4LnArhljK3kRNdRM2yeI52YxPe0dZ62SNvsHO5oJgE6wDV0qGy9UZYS5FoAprF5QRzzADxgqmGWin+Q==
+  version "0.3.0"
+  resolved "https://registry.yarnpkg.com/shock-common/-/shock-common-0.3.0.tgz#2e8a9c2cd1eda300a8461ea9648d250237f22f78"
+  integrity sha512-K0xOKkrOAvD4rlWVQD5WXASiKyfatEX2cj114LC8Wddi3wXpex5yLNdWBXNGFpL6Vc5Wzhza/sEHs4p+Q3xBmw==
   dependencies:
     lodash "^4.17.15"
     normalizr "^3.6.0"
