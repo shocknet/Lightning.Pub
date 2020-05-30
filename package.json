@@ -78,9 +78,12 @@
     "typescript": "^3.6.3"
   },
   "lint-staged": {
-    "*.{js,ts}": [
+    "*.js": [
       "prettier --check",
       "eslint"
+    ],
+    "*.ts": [
+      "prettier --check"
     ]
   },
   "husky": {
