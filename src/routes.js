@@ -33,6 +33,8 @@ module.exports = async (
   mySocketsEvents,
   { serverPort, CA, CA_KEY, usetls }
 ) => {
+  const {timeout5} = require('../services/gunDB/contact-api/utils')
+
   const Http = Axios.create({
     httpsAgent: new httpsAgent.Agent({  
       ca: await FS.readFile(CA)
@@ -1675,7 +1677,6 @@ module.exports = async (
       res.json(channelBackups);
     });
   });
-  const {timeout5} = require('../services/gunDB/contact-api/utils')
   const GunEvent = Common.Constants.Event
   const Key = require('../services/gunDB/contact-api/key')
   
@@ -1707,7 +1708,7 @@ module.exports = async (
   })
 
   const Events = require('../services/gunDB/contact-api/events')
-  
+
   app.get(`/api/gun/${GunEvent.ON_RECEIVED_REQUESTS}`, (_, res) => {
     try {
       // spinup
