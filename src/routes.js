@@ -12,6 +12,7 @@ const httpsAgent = require("https");
 const responseTime = require("response-time");
 const uuid = require("uuid/v4");
 const Common = require('shock-common')
+const fromPairs = require('lodash/fromPairs')
 
 
 const getListPage = require("../utils/paginate");
@@ -1829,6 +1830,110 @@ module.exports = async (
       })
     }
   })
+
+  /////////////////////////////////
+
+  /**
+   * @typedef {import('express-serve-static-core').Application} Application
+   * @typedef {import('express-serve-static-core').Response} Response
+   * @typedef {import('shock-common').APISchema.FollowRequest} FollowRequest
+   * @typedef {import('shock-common').APISchema.UnfollowRequest} UnfollowRequest
+   * @typedef {import('shock-common').APISchema.GetFollowsResponse} GetFollowsResponse
+   * @typedef {import('shock-common').Schema.Follow} Follow
+   */
+
+  const ap = /** @type {Application} */ (app);
+
+  /**
+   * @param {*} _
+   * @param {Response} res
+   */
+  const apiGunFollowsGet =  async (_, res) => {
+    try {
+      const user = require('../services/gunDB/Mediator').getUser();
+
+      /**
+       * @type {import('../services/gunDB/contact-api/SimpleGUN').OpenListenerData}
+       */
+      const followsData = await timeout5(new Promise(res => {
+        user.get(Key.FOLLOWS).load(data => {
+          res(data)
+        })
+      }))
+
+       /**
+       * @type {GetFollowsResponse}
+       */
+      const response = {
+        follows: {}
+    }
+
+      if (Common.Schema.isObj(followsData)) {
+        response.follows = fromPairs(
+          Object.entries(followsData)
+            .filter(([_, f]) => Common.Schema.isFollow(f))
+        )
+      } else {
+        logger.warn('followsData not a map, expected for old users');
+      }
+
+      return res.status(200).json(response)
+    } catch (err) {
+      return res.json(500).json({
+        errorMessage: err.message
+      })
+    }
+  }
+  
+  
+  /**
+   * @param {{ body: FollowRequest }} req
+   * @param {Response} res
+   */
+  const apiGunFollowsPost = (req, res) => {
+    try {
+      const user = require('../services/gunDB/Mediator').getUser()
+      const { body: { publicKey }} = req
+
+      /** @type {Follow} */
+      const newFollow = {
+        private: false,
+        status: 'ok',
+        user: publicKey
+      }
+
+      user.get(Key.FOLLOWS).get(publicKey).put(newFollow)
+
+      return res.status(200)
+    } catch (err) {
+      return res.status(500).json({
+        errorMessage: err.message || 'Unknown error inside /api/gun/follow'
+      })
+    }
+  }
+
+  /**
+    * @param {{ body: UnfollowRequest }} req
+    * @param {Response} res
+    */
+   const apiGunFollowsDelete = (req, res) => {
+    try {
+      const user = require('../services/gunDB/Mediator').getUser()
+      const { body: { publicKey }} = req
+
+      user.get(Key.FOLLOWS).get(publicKey).put(null)
+
+      return res.status(200)
+    } catch (err) {
+      return res.status(500).json({
+        errorMessage: err.message || 'Unknown error inside /api/gun/follow'
+      })
+    }
+  }
+
+  ap.get('api/gun/follows', apiGunFollowsGet)
+  ap.post(`/api/gun/follows`, apiGunFollowsPost)
+  ap.delete(`api/gun/follows`, apiGunFollowsDelete)
 
   /**
    * Return app so that it can be used by express.
