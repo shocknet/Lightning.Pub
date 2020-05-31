@@ -1893,7 +1893,6 @@ module.exports = async (
    * @param {Response} res
    */
   const apiGunFollowsPost = async (req, res) => {
-    process.exit(1)
     try {
       const user = require('../services/gunDB/Mediator').getUser()
       const { body: { publicKey }} = req
@@ -1919,8 +1918,6 @@ module.exports = async (
 
 
         console.log('NEWFOLLOW POSTED')
-        // eslint-disable-next-line no-process-exit
-        process.exit(1)
 
       return res.status(200).send()
     } catch (err) {
