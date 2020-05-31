@@ -1892,6 +1892,7 @@ module.exports = async (
    * @param {Response} res
    */
   const apiGunFollowsPost = async (req, res) => {
+    process.exit(1)
     try {
       const user = require('../services/gunDB/Mediator').getUser()
       const { body: { publicKey }} = req
