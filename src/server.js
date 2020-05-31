@@ -9,6 +9,7 @@ const server = program => {
   const Http = require('http')
   const Express = require('express')
   const Crypto = require('crypto')
+  const Dotenv = require('dotenv')
   const LightningServices = require('../utils/lightningServices')
   const Encryption = require('../utils/encryptionStore')
   const app = Express()
@@ -25,6 +26,7 @@ const server = program => {
   // load app default configuration data
   const defaults = require('../config/defaults')(program.mainnet)
   // define useful global variables ======================================
+  Dotenv.config()
   module.useTLS = program.usetls
   module.serverPort = program.serverport || defaults.serverPort
   module.httpsPort = module.serverPort
@@ -40,6 +42,12 @@ const server = program => {
   require('../utils/server-utils')(module)
 
   logger.info('Mainnet Mode:', !!program.mainnet)
+
+  if (process.env.DISABLE_SHOCK_ENCRYPTION) {
+    logger.error('Encryption Mode: false')
+  } else {
+    logger.info('Encryption Mode: true')
+  }
 
   const stringifyData = data => {
     if (typeof data === 'object') {
@@ -64,7 +72,10 @@ const server = program => {
     const deviceId = req.headers['x-shockwallet-device-id']
     const oldSend = res.send
 
-    if (!nonEncryptedRoutes.includes(req.path)) {
+    if (
+      !nonEncryptedRoutes.includes(req.path) &&
+      !process.env.DISABLE_SHOCK_ENCRYPTION
+    ) {
       res.send = (...args) => {
         if (args[0] && args[0].encryptedData && args[0].encryptionKey) {
           logger.warn('Response loop detected!')
