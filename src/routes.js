@@ -1678,7 +1678,7 @@ module.exports = async (
       res.json(channelBackups);
     });
   });
-  const {timeout5} = require('../services/gunDB/contact-api/utils')
+
   const GunEvent = Common.Constants.Event
   const Key = require('../services/gunDB/contact-api/key')
   app.get("/api/gun/lndchanbackups", async (req,res) => {
