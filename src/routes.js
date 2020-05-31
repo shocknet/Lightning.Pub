@@ -1918,8 +1918,10 @@ module.exports = async (
 
         console.log('NEWFOLLOW POSTED')
 
-      return res.status(200).send()
+      return res.status(200)
     } catch (err) {
+      console.log(err)
+      process.exit(1)
       return res.status(500).json({
         errorMessage: err.message || 'Unknown error inside /api/gun/follow'
       })
