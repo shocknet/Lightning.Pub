@@ -1951,9 +1951,9 @@ module.exports = async (
     }
   }
 
-  ap.get('api/gun/follows', apiGunFollowsGet)
+  ap.get('/api/gun/follows', apiGunFollowsGet)
   ap.post(`/api/gun/follow`, apiGunFollowsPost)
-  ap.delete(`api/gun/follows/:publickey`, apiGunFollowsDelete)
+  ap.delete(`/api/gun/follows/:publickey`, apiGunFollowsDelete)
 
   /**
    * Return app so that it can be used by express.
