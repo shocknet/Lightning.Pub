@@ -1920,8 +1920,6 @@ module.exports = async (
 
       return res.status(200)
     } catch (err) {
-      console.log(err)
-      process.exit(1)
       return res.status(500).json({
         errorMessage: err.message || 'Unknown error inside /api/gun/follow'
       })
