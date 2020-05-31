@@ -1952,7 +1952,7 @@ module.exports = async (
   }
 
   ap.get('api/gun/follows', apiGunFollowsGet)
-  ap.post(`/api/gun/follows`, apiGunFollowsPost)
+  ap.post(`/api/gun/follow`, apiGunFollowsPost)
   ap.delete(`api/gun/follows/:publickey`, apiGunFollowsDelete)
 
   /**
