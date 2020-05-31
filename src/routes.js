@@ -1881,7 +1881,7 @@ module.exports = async (
 
       return res.status(200).json(response)
     } catch (err) {
-      return res.json(500).json({
+      return res.status(500).json({
         errorMessage: err.message
       })
     }
