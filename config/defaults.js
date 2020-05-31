@@ -36,6 +36,8 @@ module.exports = (mainnet = false) => {
     lndAddress: "127.0.0.1:9735",
     maxNumRoutesToQuery: 20,
     lndProto: parsePath(`${__dirname}/rpc.proto`),
+    routerProto: parsePath(`${__dirname}/router.proto`),
+    walletUnlockerProto: parsePath(`${__dirname}/walletunlocker.proto`),
     lndHost: "localhost:10009",
     lndCertPath: parsePath(`${lndDirectory}/tls.cert`),
     macaroonPath: parsePath(
@@ -47,6 +49,7 @@ module.exports = (mainnet = false) => {
     lndLogFile: parsePath(`${lndDirectory}/logs/bitcoin/${network}/lnd.log`),
     lndDirPath: lndDirectory,
     peers: ["http://gun.shock.network:8765/gun"],
+    useTLS: false,
     tokenExpirationMS: 4500000
   }; 
 };
