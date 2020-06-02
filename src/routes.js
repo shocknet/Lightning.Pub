@@ -1863,7 +1863,7 @@ module.exports = async (
         })
       }))
 
-       /**
+      /**
        * @type {GetFollowsResponse}
        */
       const response = {
