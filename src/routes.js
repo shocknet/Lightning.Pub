@@ -12,8 +12,6 @@ const httpsAgent = require("https");
 const responseTime = require("response-time");
 const uuid = require("uuid/v4");
 const Common = require('shock-common')
-const fromPairs = require('lodash/fromPairs')
-
 
 const getListPage = require("../utils/paginate");
 const auth = require("../services/auth/auth");
@@ -23,6 +21,7 @@ const LightningServices = require("../utils/lightningServices");
 const GunDB = require("../services/gunDB/Mediator");
 const { unprotectedRoutes, nonEncryptedRoutes } = require("../utils/protectedRoutes");
 const GunActions = require("../services/gunDB/contact-api/actions")
+const GunGetters = require('../services/gunDB/contact-api/getters')
 
 const DEFAULT_MAX_NUM_ROUTES_TO_QUERY = 10;
 const SESSION_ID = uuid();
@@ -1833,10 +1832,13 @@ module.exports = async (
   })
 
   /////////////////////////////////
+  /**
+   * @template P
+   * @typedef {import('express-serve-static-core').RequestHandler<P>} RequestHandler
+   */
 
   /**
-   * @typedef {import('express-serve-static-core').Application} Application
-   * @typedef {import('express-serve-static-core').Response} Response
+   * 
    * @typedef {import('shock-common').APISchema.FollowRequest} FollowRequest
    * @typedef {import('shock-common').APISchema.UnfollowRequest} UnfollowRequest
    * @typedef {import('shock-common').APISchema.GetFollowsResponse} GetFollowsResponse
@@ -1846,111 +1848,72 @@ module.exports = async (
   const ap = /** @type {Application} */ (app);
 
   /**
-   * @param {*} _
-   * @param {Response} res
+   * @typedef {object} FollowsRouteParams
+   * @prop {(string|undefined)=} publicKey
    */
-  const apiGunFollowsGet =  async (_, res) => {
+
+  
+  /**
+   * @type {RequestHandler<FollowsRouteParams>}
+   */
+  const apiGunFollowsGet =  async (req, res) => {
     try {
-      const user = require('../services/gunDB/Mediator').getUser();
+      const { publicKey } = req.params;
+      const currFollows = await GunGetters.currentFollows()
 
-      /**
-       * @type {import('../services/gunDB/contact-api/SimpleGUN').OpenListenerData}
-       */
-      const followsData = await timeout5(new Promise(res => {
-        user.get(Key.FOLLOWS).load(data => {
-          res(data)
-        })
-      }))
-
-      /**
-       * @type {GetFollowsResponse}
-       */
-      const response = {
-        follows: {}
-    }
-
-      if (Common.Schema.isObj(followsData)) {
-        response.follows = fromPairs(
-          Object.entries(followsData)
-            .filter(([_, f]) => Common.Schema.isFollow(f))
-        )
-      } else {
-        logger.warn('followsData not a map, expected for old users');
-      }
-
-      return res.status(200).json(response)
+      return res.status(200).json(publicKey ? currFollows[publicKey] : currFollows)
     } catch (err) {
       return res.status(500).json({
-        errorMessage: err.message
+        errorMessage: err.message || 'Unknown ERR at GET /api/follows'
       })
     }
   }
   
   
   /**
-   * @param {{ body: FollowRequest }} req
-   * @param {Response} res
+   * @type {RequestHandler<FollowsRouteParams>}
    */
-  const apiGunFollowsPost = async (req, res) => {
+  const apiGunFollowsPostOrPut = async (req, res) => {
     try {
-      const user = require('../services/gunDB/Mediator').getUser()
-      const { body: { publicKey }} = req
-
-      /** @type {Follow} */
-      const newFollow = {
-        private: false,
-        status: 'ok',
-        user: publicKey
+      const { publicKey } = req.params;
+      if (!publicKey) {
+        throw new Error(`Missing publicKey route param.`)
       }
 
-      console.log('NEWFOLLOW WILL POST  ' + publicKey)
+      await GunActions.follow(req.params.publicKey, req.body.private)
 
-      await new Promise((res, rej) => {
-        user.get(Key.FOLLOWS).get(publicKey).put(newFollow, ack => {
-          if (ack.err) {
-            rej(new Error(ack.err))
-          } else {
-            res()
-          }
-        })
-      })
-
-
-        console.log('NEWFOLLOW POSTED')
-
+      // 201 would be extraneous here
       return res.status(200)
     } catch (err) {
       return res.status(500).json({
-        errorMessage: err.message || 'Unknown error inside /api/gun/follow'
+        errorMessage: err.message || 'Unknown error inside /api/gun/follows/'
       })
     }
   }
 
   /**
-    * @param {{ body: UnfollowRequest }} req
-    * @param {Response} res
+    * @type {RequestHandler<FollowsRouteParams>}
     */
-  const apiGunFollowsDelete = (req, res) => {
+  const apiGunFollowsDelete = async (req, res) => {
     try {
-      const user = require('../services/gunDB/Mediator').getUser()
-      /**
-       * @type {string}
-       */
-      const publicKey = req.params.publickey
+      const { publicKey } = req.params;
+      if (!publicKey) {
+        throw new Error(`Missing publicKey route param.`)
+      }
 
-      user.get(Key.FOLLOWS).get(publicKey).put(null)
-
+      await GunActions.unfollow(req.params.publicKey)
       return res.status(200)
     } catch (err) {
       return res.status(500).json({
-        errorMessage: err.message || 'Unknown error inside /api/gun/follow'
+        errorMessage: err.message || 'Unknown error inside /api/gun/follows/'
       })
     }
   }
 
-  ap.get('/api/gun/follows', apiGunFollowsGet)
-  ap.post(`/api/gun/follows`, apiGunFollowsPost)
-  ap.delete(`/api/gun/follows/:publickey`, apiGunFollowsDelete)
+  ap.get('/api/gun/follows/:publicKey', apiGunFollowsGet)
+  ap.post(`/api/gun/follows/:publicKey`, apiGunFollowsPostOrPut)
+  ap.put(`/api/gun/follows/:publicKey`,apiGunFollowsPostOrPut)
+  ap.delete(`/api/gun/follows/:publicKey`, apiGunFollowsDelete)
 
   /**
    * Return app so that it can be used by express.
