@@ -1223,7 +1223,7 @@ const setLastSeenApp = () =>
  * @param {boolean} isPrivate
  * @returns {Promise<string>}
  */
-const follow = (publicKey, isPrivate = false) => {
+const follow = (publicKey, isPrivate) => {
   /** @type {import('shock-common').Schema.Follow} */
   const newFollow = {
     private: isPrivate,
