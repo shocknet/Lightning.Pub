@@ -1218,6 +1218,54 @@ const setLastSeenApp = () =>
       })
   })
 
+/**
+ * @param {string} publicKey
+ * @param {boolean} isPrivate
+ * @returns {Promise<string>}
+ */
+const follow = (publicKey, isPrivate = false) => {
+  /** @type {import('shock-common').Schema.Follow} */
+  const newFollow = {
+    private: isPrivate,
+    status: 'ok',
+    user: publicKey
+  }
+
+  return new Promise((res, rej) => {
+    require('../Mediator')
+      .getUser()
+      .get(Key.FOLLOWS)
+      .get(publicKey)
+      // @ts-ignore
+      .put(newFollow, ack => {
+        if (ack.err) {
+          rej(ack.err)
+        } else {
+          res()
+        }
+      })
+  })
+}
+
+/**
+ * @param {string} publicKey
+ * @returns {Promise<void>}
+ */
+const unfollow = publicKey =>
+  new Promise((res, rej) => {
+    require('../Mediator')
+      .getUser()
+      .get(Key.FOLLOWS)
+      .get(publicKey)
+      .put(null, ack => {
+        if (ack.err) {
+          rej(new Error(ack.err))
+        } else {
+          res()
+        }
+      })
+  })
+
 module.exports = {
   __createOutgoingFeed,
   acceptRequest,
@@ -1236,5 +1284,7 @@ module.exports = {
   saveSeedBackup,
   saveChannelsBackup,
   disconnect,
-  setLastSeenApp
+  setLastSeenApp,
+  follow,
+  unfollow
 }
