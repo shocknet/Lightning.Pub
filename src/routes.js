@@ -1837,13 +1837,6 @@ module.exports = async (
    * @typedef {import('express-serve-static-core').RequestHandler<P>} RequestHandler
    */
 
-  /**
-   * 
-   * @typedef {import('shock-common').APISchema.FollowRequest} FollowRequest
-   * @typedef {import('shock-common').APISchema.UnfollowRequest} UnfollowRequest
-   * @typedef {import('shock-common').APISchema.GetFollowsResponse} GetFollowsResponse
-   * @typedef {import('shock-common').Schema.Follow} Follow
-   */
 
   const ap = /** @type {Application} */ (app);
 
@@ -1880,7 +1873,7 @@ module.exports = async (
         throw new Error(`Missing publicKey route param.`)
       }
 
-      await GunActions.follow(req.params.publicKey, req.body.private)
+      await GunActions.follow(req.params.publicKey, req.body.private || false)
 
       // 201 would be extraneous here
       return res.status(200)
