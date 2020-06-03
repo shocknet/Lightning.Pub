@@ -1874,7 +1874,7 @@ module.exports = async (
         throw new Error(`Missing publicKey route param.`)
       }
 
-      await GunActions.follow(req.params.publicKey, req.body.private || false)
+      await GunActions.follow(req.params.publicKey, false)
 
       // 201 would be extraneous here
       return res.status(200)
