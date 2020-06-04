@@ -2,13 +2,13 @@
  * @format
  */
 const Common = require('shock-common')
+const Logger = require('winston')
 /**
  * @typedef {import('shock-common').Schema.Follow} Follow
  */
-const Logger = require('winston')
 
-const Key = require('./key')
-const Utils = require('./utils')
+const Key = require('../key')
+const Utils = require('../utils')
 
 /**
  * @param {string} pub
@@ -34,7 +34,7 @@ exports.currentOrderAddress = async pub => {
  * @returns {Promise<string|null>}
  */
 exports.userToIncomingID = async pub => {
-  const incomingID = await require('../Mediator')
+  const incomingID = await require('../../Mediator')
     .getUser()
     .get(Key.USER_TO_INCOMING)
     .get(pub)
@@ -49,7 +49,7 @@ exports.userToIncomingID = async pub => {
  * @returns {Promise<Record<string, Follow>>}
  */
 exports.currentFollows = () => {
-  const user = require('../Mediator').getUser()
+  const user = require('../../Mediator').getUser()
 
   return new Promise(res => {
     user.get(Key.FOLLOWS).load(data => {
