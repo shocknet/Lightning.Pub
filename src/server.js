@@ -89,7 +89,7 @@ const server = program => {
         const authorized = Encryption.isAuthorizedDevice({ deviceId })
         const encryptedMessage = authorized
           ? Encryption.encryptMessage({
-              message: args[0],
+              message: args[0] ? args[0] : {},
               deviceId,
               metadata: {
                 hash: dataHash
