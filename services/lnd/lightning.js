@@ -50,7 +50,7 @@ module.exports = async ({
     const [lnrpcProto, routerProto, walletUnlockerProto] = await Promise.all([protoLoader.load(lnrpcProtoPath, protoLoaderConfig), protoLoader.load(routerProtoPath, protoLoaderConfig), protoLoader.load(walletUnlockerProtoPath, protoLoaderConfig)]);
     const { lnrpc } = grpc.loadPackageDefinition(lnrpcProto);
     const { routerrpc } = grpc.loadPackageDefinition(routerProto);
-    const { walletunlockerrpc } = grpc.loadPackageDefinition(walletUnlockerProto);
+    const { lnrpc: walletunlockerrpc } = grpc.loadPackageDefinition(walletUnlockerProto);
 
     const getCredentials = async () => {
       const lndCert = await fs.readFile(lndCertPath);
