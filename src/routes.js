@@ -1293,7 +1293,7 @@ module.exports = async (
 
   // sendpayment
   app.post("/api/lnd/sendpayment", async (req, res) => {
-    const { lightning } = LightningServices.services;
+    const { router } = LightningServices.services;
     if (req.limituser) {
       const health = await checkHealth();
       if (health.LNDStatus.success) {
@@ -1303,14 +1303,17 @@ module.exports = async (
         res.json({ errorMessage: "LND is down" });
       }
     }
-    const paymentRequest = { payment_request: req.body.payreq };
+
+    const { maxParts = 3, payreq } = req.body;
+
+    const paymentRequest = { payment_request: payreq, max_parts: maxParts };
 
     if (req.body.amt) {
       paymentRequest.amt = req.body.amt;
     }
 
     logger.info("Sending payment", paymentRequest);
-    const sentPayment = lightning.sendPayment(paymentRequest);
+    const sentPayment = router.sendPaymentV2(paymentRequest);
 
     sentPayment.on("data", response => {
       if (response.payment_error) {
@@ -1342,6 +1345,101 @@ module.exports = async (
     });
 
     sentPayment.write(paymentRequest);
+  });
+
+  app.post("/api/lnd/trackpayment", async (req, res) => {
+    const { router } = LightningServices.services;
+    const { paymentHash, inflightUpdates = true } = req.body;
+    if (req.limituser) {
+      const health = await checkHealth();
+      if (health.LNDStatus.success) {
+        res.sendStatus(403);
+      } else {
+        res.status(500);
+        res.json({ errorMessage: "LND is down" });
+      }
+    }
+
+    logger.info("Tracking payment payment", { paymentHash, inflightUpdates });
+    const trackedPayment = router.trackPaymentV2({
+      payment_hash: paymentHash,
+      no_inflight_updates: !inflightUpdates
+    });
+
+    trackedPayment.on("data", response => {
+      if (response.payment_error) {
+        logger.error("TrackPayment Info:", response)
+        return res.status(500).json({
+          errorMessage: response.payment_error
+        });
+      }
+      
+      logger.info("TrackPayment Data:", response);
+      return res.json(response);
+    });
+
+    trackedPayment.on("status", status => {
+      logger.info("TrackPayment Status:", status);
+    });
+
+    trackedPayment.on("error", async err => {
+      logger.error("TrackPayment Error:", err);
+      const health = await checkHealth();
+      if (health.LNDStatus.success) {
+        res.status(500).json({
+          errorMessage: sanitizeLNDError(err.message)
+        });
+      } else {
+        res.status(500);
+        res.json({ errorMessage: "LND is down" });
+      }
+    });
+  });
+
+  app.post("/api/lnd/sendtoroute", async (req, res) => {
+    const { router } = LightningServices.services;
+    const { paymentHash, route } = req.body;
+    if (req.limituser) {
+      const health = await checkHealth();
+      if (health.LNDStatus.success) {
+        res.sendStatus(403);
+      } else {
+        res.status(500);
+        res.json({ errorMessage: "LND is down" });
+      }
+    }
+
+    router.sendToRoute({ payment_hash: paymentHash, route }, (err, data) => {
+      if (err) {
+        logger.error("SendToRoute Error:", err);
+        return res.status(400).json(err);
+      }
+
+      return res.status(200).json(data);
+    });
+  });
+
+  app.post("/api/lnd/estimateroutefee", async (req, res) => {
+    const { router } = LightningServices.services;
+    const { dest, amount } = req.body;
+    if (req.limituser) {
+      const health = await checkHealth();
+      if (health.LNDStatus.success) {
+        res.sendStatus(403);
+      } else {
+        res.status(500);
+        res.json({ errorMessage: "LND is down" });
+      }
+    }
+
+    router.estimateRouteFee({ dest, amt_sat: amount }, (err, data) => {
+      if (err) {
+        logger.error("EstimateRouteFee Error:", err);
+        return res.status(400).json(err);
+      }
+
+      return res.status(200).json(data);
+    });
   });
 
   // addinvoice
@@ -1617,6 +1715,8 @@ module.exports = async (
 
   const GunEvent = Common.Constants.Event
   const Key = require('../services/gunDB/contact-api/key')
+  const { timeout5 } = require('../services/gunDB/contact-api/utils')
+  
   app.get("/api/gun/lndchanbackups", async (req,res) => {
     try{
       const user = require('../services/gunDB/Mediator').getUser()
@@ -1633,8 +1733,6 @@ module.exports = async (
   })
 
   const Events = require('../services/gunDB/contact-api/events')
-  
-  const {timeout5} = require('../services/gunDB/contact-api/utils')
 
   app.get(`/api/gun/${GunEvent.ON_RECEIVED_REQUESTS}`, (_, res) => {
     try {
