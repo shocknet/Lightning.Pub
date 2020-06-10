@@ -1156,7 +1156,7 @@ const saveSeedBackup = async (mnemonicPhrase, user, SEA) => {
   return new Promise((res, rej) => {
     user.get(Key.SEED_BACKUP).put(encryptedSeed, ack => {
       if (ack.err) {
-        rej(ack.err)
+        rej(new Error(ack.err))
       } else {
         res()
       }
@@ -1179,7 +1179,7 @@ const saveChannelsBackup = async (backups, user, SEA) => {
   return new Promise((res, rej) => {
     user.get(Key.CHANNELS_BACKUP).put(encryptBackups, ack => {
       if (ack.err) {
-        rej(ack.err)
+        rej(new Error(ack.err))
       } else {
         res()
       }
@@ -1239,7 +1239,7 @@ const follow = (publicKey, isPrivate) => {
       // @ts-ignore
       .put(newFollow, ack => {
         if (ack.err) {
-          rej(ack.err)
+          rej(new Error(ack.err))
         } else {
           res()
         }
