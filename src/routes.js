@@ -1866,7 +1866,7 @@ module.exports = async (
   /**
    * @type {RequestHandler<FollowsRouteParams>}
    */
-  const apiGunFollowsPostOrPut = async (req, res) => {
+  const apiGunFollowsPut = async (req, res) => {
     try {
       const { publicKey } = req.params;
       if (!publicKey) {
@@ -1908,8 +1908,7 @@ module.exports = async (
   }
 
   ap.get('/api/gun/follows/:publicKey', apiGunFollowsGet)
-  ap.post(`/api/gun/follows/:publicKey`, apiGunFollowsPostOrPut)
-  ap.put(`/api/gun/follows/:publicKey`,apiGunFollowsPostOrPut)
+  ap.put(`/api/gun/follows/:publicKey`,apiGunFollowsPut)
   ap.delete(`/api/gun/follows/:publicKey`, apiGunFollowsDelete)
 
   /**
