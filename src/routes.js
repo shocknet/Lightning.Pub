@@ -1876,7 +1876,7 @@ module.exports = async (
 
       await GunActions.follow(req.params.publicKey, false)
 
-      // 201 would be extraneous here
+      // 201 would be extraneous here. Implement it inside app.put
       return res.status(200)
     } catch (err) {
       return res.status(500).json({
