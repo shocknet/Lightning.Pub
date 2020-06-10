@@ -1876,7 +1876,9 @@ module.exports = async (
       await GunActions.follow(req.params.publicKey, false)
 
       // 201 would be extraneous here. Implement it inside app.put
-      return res.status(200)
+      return res.status(200).json({
+        ok: true
+      })
     } catch (err) {
       return res.status(500).json({
         errorMessage: err.message || 'Unknown error inside /api/gun/follows/'
@@ -1895,7 +1897,9 @@ module.exports = async (
       }
 
       await GunActions.unfollow(req.params.publicKey)
-      return res.status(200)
+      return res.status(200).json({
+        ok: true
+      })
     } catch (err) {
       return res.status(500).json({
         errorMessage: err.message || 'Unknown error inside /api/gun/follows/'
