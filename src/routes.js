@@ -1866,14 +1866,14 @@ module.exports = async (
   /**
    * @type {RequestHandler<FollowsRouteParams>}
    */
-  const apiGunFollowsPut = async (req, res) => {
+  const apiGunFollowsPut = (req, res) => {
     try {
       const { publicKey } = req.params;
       if (!publicKey) {
         throw new Error(`Missing publicKey route param.`)
       }
 
-      await GunActions.follow(req.params.publicKey, false)
+      // await GunActions.follow(req.params.publicKey, false)
 
       // 201 would be extraneous here. Implement it inside app.put
       return res.status(200).json({
@@ -1889,14 +1889,15 @@ module.exports = async (
   /**
     * @type {RequestHandler<FollowsRouteParams>}
     */
-  const apiGunFollowsDelete = async (req, res) => {
+  const apiGunFollowsDelete = (req, res) => {
     try {
       const { publicKey } = req.params;
       if (!publicKey) {
         throw new Error(`Missing publicKey route param.`)
       }
 
-      await GunActions.unfollow(req.params.publicKey)
+      // await GunActions.unfollow(req.params.publicKey)
+
       return res.status(200).json({
         ok: true
       })
