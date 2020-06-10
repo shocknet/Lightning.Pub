@@ -1908,6 +1908,7 @@ module.exports = async (
     }
   }
 
+  ap.get('/api/gun/follows/', apiGunFollowsGet)
   ap.get('/api/gun/follows/:publicKey', apiGunFollowsGet)
   ap.put(`/api/gun/follows/:publicKey`,apiGunFollowsPut)
   ap.delete(`/api/gun/follows/:publicKey`, apiGunFollowsDelete)
