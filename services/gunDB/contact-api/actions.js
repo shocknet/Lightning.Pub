@@ -1220,7 +1220,7 @@ const setLastSeenApp = () =>
 
 /**
  * @param {string} publicKey
- * @param {boolean} isPrivate
+ * @param {boolean} isPrivate Will overwrite previous private status.
  * @returns {Promise<string>}
  */
 const follow = (publicKey, isPrivate) => {
