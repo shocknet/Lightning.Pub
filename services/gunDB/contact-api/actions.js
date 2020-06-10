@@ -1235,7 +1235,7 @@ const follow = (publicKey, isPrivate) => {
     require('../Mediator')
       .getUser()
       .get(Key.FOLLOWS)
-      .get(`$$__PK__${publicKey}`)
+      .get(publicKey)
       // @ts-ignore
       .put(newFollow, ack => {
         if (ack.err) {
@@ -1256,7 +1256,7 @@ const unfollow = publicKey =>
     require('../Mediator')
       .getUser()
       .get(Key.FOLLOWS)
-      .get(`$$__PK__${publicKey}`)
+      .get(publicKey)
       .put(null, ack => {
         if (ack.err) {
           rej(new Error(ack.err))
