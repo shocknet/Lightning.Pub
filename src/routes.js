@@ -490,7 +490,7 @@ module.exports = async (
         }
         user.get("FEED_POC").put(JSON.stringify(feedObj), ack => {
           if (ack.err) {
-            //rej(ack.err)
+            //rej(new Error(ack.err))
             logger.log(ack.err)
           } else {
             logger.log(ack.err)
