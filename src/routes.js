@@ -1849,12 +1849,12 @@ module.exports = async (
   /**
    * @type {RequestHandler<FollowsRouteParams>}
    */
-  const apiGunFollowsGet =  async (req, res) => {
+  const apiGunFollowsGet =   (_, res) => {
     try {
-      const { publicKey } = req.params;
-      const currFollows = await GunGetters.currentFollows()
+      // const { publicKey } = req.params;
+      // const currFollows = await GunGetters.currentFollows()
 
-      return res.status(200).json(publicKey ? currFollows[publicKey] : currFollows)
+      return res.status(200).json({})
     } catch (err) {
       return res.status(500).json({
         errorMessage: err.message || 'Unknown ERR at GET /api/follows'
