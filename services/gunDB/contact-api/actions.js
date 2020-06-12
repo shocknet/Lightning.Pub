@@ -1217,6 +1217,87 @@ const setLastSeenApp = () =>
         }
       })
   })
+const maxPostPerPage = 10
+/**
+ * @param {string} tags
+ * @param {string} title
+ * @param {Record<string,import('shock-common').Schema.ContentItem>} content
+ * @returns {Promise<void>}
+ */
+const createPost = async (tags, title, content) => {
+  const user = require('../Mediator').getUser()
+  const wall = user.get(Key.WALL)
+  if (!wall) {
+    throw new Error('wall not found')
+  }
+  let lastPageNum = await wall.get(Key.NUM_OF_PAGES).then()
+  if (typeof lastPageNum !== 'number') {
+    throw new Error('page not found')
+  }
+  const lastPage = await new Promise(res => {
+    if (typeof lastPageNum !== 'number') {
+      throw new Error('page not found')
+    }
+    wall
+      .get(Key.PAGES)
+      .get(lastPageNum.toString())
+      //@ts-ignore
+      .load(res)
+  })
+
+  const numPosts = Object.keys(lastPage).length
+  if (numPosts === maxPostPerPage) {
+    lastPageNum++
+    await new Promise((res, rej) => {
+      if (typeof lastPageNum !== 'number') {
+        throw new Error('page not found')
+      }
+      wall.get(Key.NUM_OF_PAGES).put(lastPageNum, ack => {
+        if (ack.err) {
+          rej(ack.err)
+        } else {
+          res()
+        }
+      })
+    })
+  }
+  /**
+   * @type {import('shock-common').Schema.Post}
+   */
+  const post = {
+    contentItems: content,
+    date: +Date(),
+    status: 'publish',
+    tags,
+    title
+  }
+  //** @type {string} */
+  /*const newPostID = */ await new Promise((res, rej) => {
+    if (typeof lastPageNum !== 'number') {
+      throw new Error('page not found')
+    }
+    const _wallNode = wall
+      .get(Key.PAGES)
+      .get(lastPageNum.toString())
+      //@ts-ignore
+      .set(post, ack => {
+        if (ack.err) {
+          rej(new Error(ack.err))
+        } else {
+          res(_wallNode._.get)
+        }
+      })
+  })
+}
+/**
+ * @param {string} postId
+ * @returns {Promise<void>}
+ */
+const deletePost = async postId => {
+  await new Promise(res => {
+    res(postId)
+  })
+}
 
 module.exports = {
   __createOutgoingFeed,
@@ -1236,5 +1317,7 @@ module.exports = {
   saveSeedBackup,
   saveChannelsBackup,
   disconnect,
-  setLastSeenApp
+  setLastSeenApp,
+  createPost,
+  deletePost
 }
