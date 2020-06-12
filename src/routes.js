@@ -1616,8 +1616,8 @@ module.exports = async (
   });
 
   const GunEvent = Common.Constants.Event
+  const {timeout5} = require('../services/gunDB/contact-api/utils')
   const Key = require('../services/gunDB/contact-api/key')
-  const { timeout5 } = require('../services/gunDB/contact-api/utils')
 
   app.get("/api/gun/lndchanbackups", async (req,res) => {
     try{
@@ -1755,6 +1755,27 @@ module.exports = async (
         errorMessage: typeof err === 'string' ? err : err.message
       })
     }
+  })
+
+  app.post(`/api/gun/wall`, async (req,res) => {
+    try{
+      const {tags,title,contentItems} = req.body
+      res.status(201).json(await GunActions.createPost(title,tags,contentItems))
+    } catch(e) {
+      const {tags,title,contentItems} = req.body
+      if(!tags || !title || !contentItems) {
+        res.status(400).json({
+          errorMessage: 'missing params'
+        })
+      }
+      res.status(500).json({
+        errorMessage: typeof e === 'string' ? e : e.message
+      })
+    }
+  })
+
+  app.delete(`/api/gun/wall/:postID`,async (req,res) => {
+    //res.status(200).json(await GunActions.deletePost(postID))
   })
 
   /**
