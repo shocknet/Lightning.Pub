@@ -47,6 +47,7 @@ export interface GUNNodeBase {
   once(this: GUNNode, cb?: Listener): GUNNode
 
   open(this: GUNNode, cb?: OpenListener): GUNNode
+  load(this: GUNNode, cb?: OpenListener): GUNNode
 
   off(): void
   user(): UserGUNNode
