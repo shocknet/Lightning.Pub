@@ -1757,19 +1757,18 @@ module.exports = async (
     }
   })
 
-  app.post(`/api/gun/wall`, async (req,res) => {
+  app.post(`/api/gun/wall/`, async (req,res) => {
     try{
       const {tags,title,contentItems} = req.body
-      res.status(201).json(await GunActions.createPost(title,tags,contentItems))
+      return res.status(201).json(await GunActions.createPost(
+        tags,
+        title,
+        contentItems
+      ))
     } catch(e) {
-      const {tags,title,contentItems} = req.body
-      if(!tags || !title || !contentItems) {
-        res.status(400).json({
-          errorMessage: 'missing params'
-        })
-      }
-      res.status(500).json({
-        errorMessage: typeof e === 'string' ? e : e.message
+      return res.status(500).json({
+        errorMessage: (typeof e === 'string' ? e : e.message)
+          || 'Unknown error.'
       })
     }
   })
