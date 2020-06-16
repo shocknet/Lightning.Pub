@@ -13,7 +13,6 @@ const responseTime = require("response-time");
 const uuid = require("uuid/v4");
 const Common = require('shock-common')
 
-
 const getListPage = require("../utils/paginate");
 const auth = require("../services/auth/auth");
 const FS = require("../utils/fs");
@@ -22,6 +21,7 @@ const LightningServices = require("../utils/lightningServices");
 const GunDB = require("../services/gunDB/Mediator");
 const { unprotectedRoutes, nonEncryptedRoutes } = require("../utils/protectedRoutes");
 const GunActions = require("../services/gunDB/contact-api/actions")
+const GunGetters = require('../services/gunDB/contact-api/getters')
 
 const DEFAULT_MAX_NUM_ROUTES_TO_QUERY = 10;
 const SESSION_ID = uuid();
@@ -33,6 +33,8 @@ module.exports = async (
   mySocketsEvents,
   { serverPort, CA, CA_KEY, usetls }
 ) => {
+  const {timeout5} = require('../services/gunDB/contact-api/utils')
+
   const Http = Axios.create({
     httpsAgent: new httpsAgent.Agent({  
       ca: await FS.readFile(CA)
@@ -433,6 +435,67 @@ module.exports = async (
           GunActions.saveChannelsBackup(JSON.stringify(channelBackups),user,SEA)
           
         });
+        
+        const feedObj = {
+          feed: [
+              {
+                  id:'bd7acbea-c1b1-46c2-aed5-3ad53abb28ba',
+                  paragraphs:[
+                      "SOme text and stuff 12"
+                  ],
+                  profilePic:"",
+                  username:"bobni",
+                  media:[
+                      {
+                          type:'VIDEO',
+                          ratio_x: 1024,
+                          ratio_y: 436,
+                          magnetUri:'magnet:?xt=urn:btih:08ada5a7a6183aae1e09d831df6748d566095a10&dn=Sintel&tr=udp%3A%2F%2Fexplodie.org%3A6969&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Ftracker.empire-js.us%3A1337&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337&tr=wss%3A%2F%2Ftracker.btorrent.xyz&tr=wss%3A%2F%2Ftracker.fastcast.nz&tr=wss%3A%2F%2Ftracker.openwebtorrent.com&ws=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2F&xs=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2Fsintel.torrent',
+                      },
+                  ]
+              },
+              {
+                  id:'3ac68afc-c605-48d3-a4f8-fbd91aa97f63',
+                  paragraphs:[
+                      "SOme text and stuff"
+                  ],
+                  profilePic:"",
+                  username:"bobni",
+                  media:[
+                      {
+                          type:'VIDEO',
+                          ratio_x: 1920,
+                          ratio_y: 804,
+                          magnetUri:'magnet:?xt=urn:btih:c9e15763f722f23e98a29decdfae341b98d53056&dn=Cosmos+Laundromat&tr=udp%3A%2F%2Fexplodie.org%3A6969&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Ftracker.empire-js.us%3A1337&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337&tr=wss%3A%2F%2Ftracker.btorrent.xyz&tr=wss%3A%2F%2Ftracker.fastcast.nz&tr=wss%3A%2F%2Ftracker.openwebtorrent.com&ws=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2F&xs=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2Fcosmos-laundromat.torrent',
+                      },
+                  ]
+              },
+              {
+                  id:'58694a0f-3da1-471f-bd96-145571e29d72',
+                  paragraphs:[
+                      "SOme text and stuff"
+                  ],
+                  profilePic:"",
+                  username:"bobni",
+                  media:[
+                      {
+                          type:'VIDEO',
+                          ratio_x: 1920,
+                          ratio_y: 1080,
+                          magnetUri:'magnet:?xt=urn:btih:dd8255ecdc7ca55fb0bbf81323d87062db1f6d1c&dn=Big+Buck+Bunny&tr=udp%3A%2F%2Fexplodie.org%3A6969&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Ftracker.empire-js.us%3A1337&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337&tr=wss%3A%2F%2Ftracker.btorrent.xyz&tr=wss%3A%2F%2Ftracker.fastcast.nz&tr=wss%3A%2F%2Ftracker.openwebtorrent.com&ws=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2F&xs=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2Fbig-buck-bunny.torrent',
+                      },
+                  ]
+              }
+          ]
+        }
+        user.get("FEED_POC").put(JSON.stringify(feedObj), ack => {
+          if (ack.err) {
+            //rej(new Error(ack.err))
+            logger.log(ack.err)
+          } else {
+            logger.log(ack.err)
+          }
+        })
 
         //register to listen for channel backups
         const onNewChannelBackup  = () => {
@@ -1617,8 +1680,7 @@ module.exports = async (
 
   const GunEvent = Common.Constants.Event
   const Key = require('../services/gunDB/contact-api/key')
-  const { timeout5 } = require('../services/gunDB/contact-api/utils')
-
+  
   app.get("/api/gun/lndchanbackups", async (req,res) => {
     try{
       const user = require('../services/gunDB/Mediator').getUser()
@@ -1631,6 +1693,18 @@ module.exports = async (
       res.json({data:backup})
     } catch (err) {
       res.json({ok:"err"})
+    }
+  })
+  app.get("/api/gun/feedpoc", async (req,res) =>{
+    try{
+      logger.warn("FEED POC")
+      const user = require('../services/gunDB/Mediator').getUser()
+      const feedObj = await timeout5(user.get("FEED_POC").then())
+      logger.warn(feedObj)
+      
+      res.json({data:feedObj})
+    } catch (err) {
+      //res.json({ok:"err"})
     }
   })
 
@@ -1756,6 +1830,88 @@ module.exports = async (
       })
     }
   })
+
+  /////////////////////////////////
+  /**
+   * @template P
+   * @typedef {import('express-serve-static-core').RequestHandler<P>} RequestHandler
+   */
+
+
+  const ap = /** @type {Application} */ (app);
+
+  /**
+   * @typedef {object} FollowsRouteParams
+   * @prop {(string|undefined)=} publicKey
+   */
+
+  
+  /**
+   * @type {RequestHandler<FollowsRouteParams>}
+   */
+  const apiGunFollowsGet =   (_, res) => {
+    try {
+      // const { publicKey } = req.params;
+      // const currFollows = await GunGetters.currentFollows()
+
+      return res.status(200).json({})
+    } catch (err) {
+      return res.status(500).json({
+        errorMessage: err.message || 'Unknown ERR at GET /api/follows'
+      })
+    }
+  }
+  
+  
+  /**
+   * @type {RequestHandler<FollowsRouteParams>}
+   */
+  const apiGunFollowsPut = (req, res) => {
+    try {
+      const { publicKey } = req.params;
+      if (!publicKey) {
+        throw new Error(`Missing publicKey route param.`)
+      }
+
+      // await GunActions.follow(req.params.publicKey, false)
+
+      // 201 would be extraneous here. Implement it inside app.put
+      return res.status(200).json({
+        ok: true
+      })
+    } catch (err) {
+      return res.status(500).json({
+        errorMessage: err.message || 'Unknown error inside /api/gun/follows/'
+      })
+    }
+  }
+
+  /**
+    * @type {RequestHandler<FollowsRouteParams>}
+    */
+  const apiGunFollowsDelete = (req, res) => {
+    try {
+      const { publicKey } = req.params;
+      if (!publicKey) {
+        throw new Error(`Missing publicKey route param.`)
+      }
+
+      // await GunActions.unfollow(req.params.publicKey)
+
+      return res.status(200).json({
+        ok: true
+      })
+    } catch (err) {
+      return res.status(500).json({
+        errorMessage: err.message || 'Unknown error inside /api/gun/follows/'
+      })
+    }
+  }
+
+  ap.get('/api/gun/follows/', apiGunFollowsGet)
+  ap.get('/api/gun/follows/:publicKey', apiGunFollowsGet)
+  ap.put(`/api/gun/follows/:publicKey`,apiGunFollowsPut)
+  ap.delete(`/api/gun/follows/:publicKey`, apiGunFollowsDelete)
 
   /**
    * Return app so that it can be used by express.

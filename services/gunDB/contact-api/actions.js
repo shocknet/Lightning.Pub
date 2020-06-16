@@ -1156,7 +1156,7 @@ const saveSeedBackup = async (mnemonicPhrase, user, SEA) => {
   return new Promise((res, rej) => {
     user.get(Key.SEED_BACKUP).put(encryptedSeed, ack => {
       if (ack.err) {
-        rej(ack.err)
+        rej(new Error(ack.err))
       } else {
         res()
       }
@@ -1179,7 +1179,7 @@ const saveChannelsBackup = async (backups, user, SEA) => {
   return new Promise((res, rej) => {
     user.get(Key.CHANNELS_BACKUP).put(encryptBackups, ack => {
       if (ack.err) {
-        rej(ack.err)
+        rej(new Error(ack.err))
       } else {
         res()
       }
@@ -1218,6 +1218,54 @@ const setLastSeenApp = () =>
       })
   })
 
+/**
+ * @param {string} publicKey
+ * @param {boolean} isPrivate Will overwrite previous private status.
+ * @returns {Promise<string>}
+ */
+const follow = (publicKey, isPrivate) => {
+  /** @type {import('shock-common').Schema.Follow} */
+  const newFollow = {
+    private: isPrivate,
+    status: 'ok',
+    user: publicKey
+  }
+
+  return new Promise((res, rej) => {
+    require('../Mediator')
+      .getUser()
+      .get(Key.FOLLOWS)
+      .get(publicKey)
+      // @ts-ignore
+      .put(newFollow, ack => {
+        if (ack.err) {
+          rej(new Error(ack.err))
+        } else {
+          res()
+        }
+      })
+  })
+}
+
+/**
+ * @param {string} publicKey
+ * @returns {Promise<void>}
+ */
+const unfollow = publicKey =>
+  new Promise((res, rej) => {
+    require('../Mediator')
+      .getUser()
+      .get(Key.FOLLOWS)
+      .get(publicKey)
+      .put(null, ack => {
+        if (ack.err) {
+          rej(new Error(ack.err))
+        } else {
+          res()
+        }
+      })
+  })
+
 module.exports = {
   __createOutgoingFeed,
   acceptRequest,
@@ -1236,5 +1284,7 @@ module.exports = {
   saveSeedBackup,
   saveChannelsBackup,
   disconnect,
-  setLastSeenApp
+  setLastSeenApp,
+  follow,
+  unfollow
 }
