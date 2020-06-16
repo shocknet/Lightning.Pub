@@ -227,7 +227,7 @@ module.exports = async (
     const deviceId = req.headers["x-shockwallet-device-id"];
     logger.debug("Decrypting route...")
     try {
-      if (nonEncryptedRoutes.includes(req.path)) {
+      if (nonEncryptedRoutes.includes(req.path) || process.env.DISABLE_SHOCK_ENCRYPTION) {
         return next();
       }
   
@@ -1618,7 +1618,7 @@ module.exports = async (
   const GunEvent = Common.Constants.Event
   const Key = require('../services/gunDB/contact-api/key')
   const { timeout5 } = require('../services/gunDB/contact-api/utils')
-  
+
   app.get("/api/gun/lndchanbackups", async (req,res) => {
     try{
       const user = require('../services/gunDB/Mediator').getUser()
