@@ -1133,7 +1133,21 @@ const setBio = (bio, user) =>
         resolve()
       }
     })
-  })
+  }).then(
+    () =>
+      new Promise((resolve, reject) => {
+        user
+          .get(Key.PROFILE)
+          .get(Key.BIO)
+          .put(bio, ack => {
+            if (ack.err) {
+              reject(new Error(ack.err))
+            } else {
+              resolve()
+            }
+          })
+      })
+  )
 
 /**
  * @param {string[]} mnemonicPhrase
@@ -1216,8 +1230,23 @@ const setLastSeenApp = () =>
           res()
         }
       })
-  })
-const maxPostPerPage = 10
+  }).then(
+    () =>
+      new Promise((res, rej) => {
+        require('../Mediator')
+          .getUser()
+          .get(Key.PROFILE)
+          .get(Key.LAST_SEEN_APP)
+          .put(Date.now(), ack => {
+            if (ack.err) {
+              rej(new Error(ack.err))
+            } else {
+              res()
+            }
+          })
+      })
+  )
+
 /**
  * @param {string} tags
  * @param {string} title
