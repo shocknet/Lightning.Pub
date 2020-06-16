@@ -249,7 +249,7 @@ module.exports = async (
         return res.status(401).json(error);
       }
 
-      if (req.method === "GET") {
+      if (req.method === "GET" || req.method === "DELETE" || !req.body.encryptionKey && !req.body.iv) {
         return next();
       }
 
@@ -1618,6 +1618,7 @@ module.exports = async (
   const GunEvent = Common.Constants.Event
   const Key = require('../services/gunDB/contact-api/key')
   const { timeout5 } = require('../services/gunDB/contact-api/utils')
+
   app.get("/api/gun/lndchanbackups", async (req,res) => {
     try{
       const user = require('../services/gunDB/Mediator').getUser()
