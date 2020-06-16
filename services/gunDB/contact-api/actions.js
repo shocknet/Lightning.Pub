@@ -3,7 +3,8 @@
  */
 const uuidv1 = require('uuid/v1')
 const logger = require('winston')
-const { Constants, Schema } = require('shock-common')
+const Common = require('shock-common')
+const { Constants, Schema } = Common
 
 const { ErrorCode } = Constants
 
@@ -1248,76 +1249,94 @@ const setLastSeenApp = () =>
   )
 
 /**
- * @param {string} tags
+ * @param {string[]} tags
  * @param {string} title
- * @param {Record<string,import('shock-common').Schema.ContentItem>} content
- * @returns {Promise<void>}
+ * @param {Common.Schema.ContentItem[]} content
+ * @returns {Promise<Common.Schema.Post>}
  */
 const createPost = async (tags, title, content) => {
   const user = require('../Mediator').getUser()
   const wall = user.get(Key.WALL)
-  if (!wall) {
-    throw new Error('wall not found')
-  }
-  let lastPageNum = await wall.get(Key.NUM_OF_PAGES).then()
-  if (typeof lastPageNum !== 'number') {
-    throw new Error('page not found')
-  }
-  const lastPage = await new Promise(res => {
-    if (typeof lastPageNum !== 'number') {
-      throw new Error('page not found')
-    }
-    wall
-      .get(Key.PAGES)
-      .get(lastPageNum.toString())
-      //@ts-ignore
-      .load(res)
-  })
+  const pages = wall.get(Key.PAGES)
 
-  const numPosts = Object.keys(lastPage).length
-  if (numPosts === maxPostPerPage) {
-    lastPageNum++
-    await new Promise((res, rej) => {
-      if (typeof lastPageNum !== 'number') {
-        throw new Error('page not found')
-      }
-      wall.get(Key.NUM_OF_PAGES).put(lastPageNum, ack => {
+  const numOfPages = await (async () => {
+    const maybeNumOfPages = await Utils.tryAndWait(() =>
+      wall.get(Key.NUM_OF_PAGES).then()
+    )
+
+    return (typeof maybeNumOfPages === 'number' && maybeNumOfPages) || 0
+  })()
+
+  const pageIdx = Math.max(0, numOfPages - 1).toString()
+  let page = pages.get(pageIdx)
+
+  const count = (await page.get(Key.COUNT).then()) || 0
+
+  let isNewPage = false
+  if (count >= Common.Constants.Misc.NUM_OF_POSTS_PER_WALL_PAGE) {
+    // eslint-disable-next-line require-atomic-updates
+    page = wall.get(Key.PAGES)
+    isNewPage = true
+  }
+
+  /** @type {string} */
+  const postID = await new Promise((res, rej) => {
+    const _n = page.set(
+      {
+        date: Date.now(),
+        status: 'publish',
+        tags: tags.join('-'),
+        title
+      },
+      ack => {
         if (ack.err) {
           rej(ack.err)
         } else {
-          res()
+          res(_n._.get)
         }
-      })
-    })
-  }
-  /**
-   * @type {import('shock-common').Schema.Post}
-   */
-  const post = {
-    contentItems: content,
-    date: +Date(),
-    status: 'publish',
-    tags,
-    title
-  }
-  //** @type {string} */
-  /*const newPostID = */ await new Promise((res, rej) => {
-    if (typeof lastPageNum !== 'number') {
-      throw new Error('page not found')
-    }
-    const _wallNode = wall
-      .get(Key.PAGES)
-      .get(lastPageNum.toString())
-      //@ts-ignore
-      .set(post, ack => {
-        if (ack.err) {
-          rej(new Error(ack.err))
-        } else {
-          res(_wallNode._.get)
-        }
-      })
+      }
+    )
   })
+
+  if (isNewPage) {
+    await Utils.promisifyGunNode(wall.get(Key.NUM_OF_PAGES)).put(numOfPages + 1)
+  }
+
+  const post = page.get(postID)
+
+  await Promise.all(
+    content.map(ci => {
+      // @ts-ignore
+      return Utils.promisifyGunNode(post).set(ci)
+    })
+  )
+
+  const loadedPost = await new Promise(res => {
+    post.load(data => {
+      res(data)
+    })
+  })
+
+  /** @type {Common.Schema.User} */
+  const userForPost = await Getters.getMyUser()
+
+  /** @type {Common.Schema.Post} */
+  const completePost = {
+    ...loadedPost,
+    author: userForPost
+  }
+
+  if (!Common.Schema.isPost(completePost)) {
+    throw new Error(
+      `completePost not a Post inside Actions.createPost(): ${JSON.stringify(
+        createPost
+      )}`
+    )
+  }
+
+  return completePost
 }
+
 /**
  * @param {string} postId
  * @returns {Promise<void>}
