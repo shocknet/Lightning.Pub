@@ -42,3 +42,5 @@ exports.CHANNELS_BACKUP = 'channelsBackup'
 exports.LAST_SEEN_APP = 'lastSeenApp'
 
 exports.LAST_SEEN_NODE = 'lastSeenNode'
+
+exports.FOLLOWS = 'follows'
