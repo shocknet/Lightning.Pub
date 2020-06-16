@@ -1323,7 +1323,8 @@ const createPost = async (tags, title, content) => {
   /** @type {Common.Schema.Post} */
   const completePost = {
     ...loadedPost,
-    author: userForPost
+    author: userForPost,
+    id: postID
   }
 
   if (!Common.Schema.isPost(completePost)) {
