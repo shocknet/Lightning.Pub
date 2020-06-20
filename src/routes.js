@@ -229,7 +229,7 @@ module.exports = async (
     const deviceId = req.headers["x-shockwallet-device-id"];
     logger.debug("Decrypting route...")
     try {
-      if (nonEncryptedRoutes.includes(req.path) || process.env.DISABLE_SHOCK_ENCRYPTION) {
+      if (nonEncryptedRoutes.includes(req.path) || process.env.DISABLE_SHOCK_ENCRYPTION === "true") {
         return next();
       }
   
