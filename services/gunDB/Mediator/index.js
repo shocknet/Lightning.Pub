@@ -1206,6 +1206,15 @@ const register = async (alias, pass) => {
     )
   }
 
+  // Check if alias is unique
+  gun.get(`~@${alias}`).once(user => {
+    if (user) {
+      throw new Error(
+        'The given alias has been used before, use an unique alias instead.'
+      )
+    }
+  })
+
   _isRegistering = true
 
   /** @type {import('../contact-api/SimpleGUN').CreateAck} */
