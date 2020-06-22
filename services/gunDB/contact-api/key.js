@@ -52,3 +52,4 @@ exports.PAGES = 'pages'
 exports.COUNT = 'count'
 
 exports.CONTENT_ITEMS = 'contentItems'
+exports.FOLLOWS = 'follows'
