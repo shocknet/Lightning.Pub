@@ -38,6 +38,9 @@ export interface Soul {
 export type OpenListenerData = Primitive | null | OpenListenerDataObj
 export type OpenListener = (data: OpenListenerData, key: string) => void
 
+export type LoadListenerData = OpenListenerData
+export type LoadListener = (data: LoadListenerData, key: string) => void
+
 export interface GUNNodeBase {
   _: Soul
 
@@ -48,6 +51,8 @@ export interface GUNNodeBase {
 
   open(this: GUNNode, cb?: OpenListener): GUNNode
   load(this: GUNNode, cb?: OpenListener): GUNNode
+
+  load(this: GUNNode, cb?: LoadListener): GUNNode
 
   off(): void
   user(): UserGUNNode
