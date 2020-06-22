@@ -328,6 +328,17 @@ const logoff = () => {
 }
 
 const instantiateGun = () => {
+  if (user) {
+    user.leave()
+  }
+  // @ts-ignore
+  user = null
+  if (gun) {
+    gun.off()
+  }
+  // @ts-ignore
+  gun = null
+
   const _gun = /** @type {unknown} */ (new Gun({
     axe: false,
     peers: Config.PEERS
