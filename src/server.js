@@ -43,7 +43,7 @@ const server = program => {
 
   logger.info('Mainnet Mode:', !!program.mainnet)
 
-  if (process.env.DISABLE_SHOCK_ENCRYPTION) {
+  if (process.env.DISABLE_SHOCK_ENCRYPTION === 'true') {
     logger.error('Encryption Mode: false')
   } else {
     logger.info('Encryption Mode: true')
@@ -72,10 +72,7 @@ const server = program => {
     const deviceId = req.headers['x-shockwallet-device-id']
     const oldSend = res.send
 
-    if (
-      !nonEncryptedRoutes.includes(req.path) &&
-      !process.env.DISABLE_SHOCK_ENCRYPTION
-    ) {
+    if (!nonEncryptedRoutes.includes(req.path)) {
       res.send = (...args) => {
         if (args[0] && args[0].encryptedData && args[0].encryptionKey) {
           logger.warn('Response loop detected!')
@@ -260,7 +257,9 @@ const server = program => {
       // app.use(bodyParser.json({limit: '100000mb'}));
       app.use(bodyParser.json({ limit: '50mb' }))
       app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }))
-      app.use(modifyResponseBody)
+      if (process.env.DISABLE_SHOCK_ENCRYPTION !== 'true') {
+        app.use(modifyResponseBody)
+      }
 
       serverInstance.listen(module.serverPort, module.serverhost)
 
