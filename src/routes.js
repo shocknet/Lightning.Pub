@@ -1704,7 +1704,7 @@ module.exports = async (
       res.json({ok:"err"})
     }
   })
-  app.get("api/gun/feedpoc", async (req,res) =>{
+  app.get("/api/gun/feedpoc", async (req,res) =>{
     try{
       logger.warn("FEED POC")
       const user = require('../services/gunDB/Mediator').getUser()
