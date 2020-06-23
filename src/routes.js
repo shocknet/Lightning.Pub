@@ -1843,7 +1843,7 @@ module.exports = async (
   app.post(`/api/gun/wall/`, async (req,res) => {
     try{
       const {tags,title,contentItems} = req.body
-      return res.status(201).json(await GunActions.createPost(
+      return res.status(200).json(await GunActions.createPost(
         tags,
         title,
         contentItems
