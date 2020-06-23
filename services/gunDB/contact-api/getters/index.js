@@ -89,3 +89,4 @@ const getMyUser = async () => {
 
 module.exports.getMyUser = getMyUser
 module.exports.Follows = require('./follows')
+module.exports.Wall = require('./wall')
