@@ -1856,9 +1856,9 @@ module.exports = async (
     }
   })
 
-  app.delete(`/api/gun/wall/:postID`,async (req,res) => {
-    //res.status(200).json(await GunActions.deletePost(postID))
-  })
+  app.delete(`/api/gun/wall/:postID`, (_, res) => res.status(200).json({
+    ok: 'true'
+  }))
   /////////////////////////////////
   /**
    * @template P
