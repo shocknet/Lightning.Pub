@@ -1839,6 +1839,19 @@ module.exports = async (
       })
     }
   })
+////////////////////////////////////////////////////////////////////////////////
+
+  app.get(`/api/gun/wall`, async (req, res) => {
+    try {
+      const { page } = req.query;
+
+      return res.status(200).json(await GunGetters.Wall.getWallPage(page))
+    } catch (err) {
+      return res.status(500).json({
+        errorMessage: err.message
+      })
+    }
+  })
 
   app.post(`/api/gun/wall/`, async (req,res) => {
     try{
