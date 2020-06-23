@@ -7,6 +7,8 @@ const logger = require('winston')
 Gun.log = () => {}
 // @ts-ignore
 require('gun/lib/open')
+// @ts-ignore
+require('gun/lib/load')
 const debounce = require('lodash/debounce')
 const Encryption = require('../../../utils/encryptionStore')
 
