@@ -8,15 +8,18 @@ const Key = require('../key')
 /**
  * @returns {Promise<number>}
  */
-const getWallTotalPages = () =>
-  /** @type {Promise<number>} */ (Utils.tryAndWait(
+const getWallTotalPages = async () => {
+  const totalPages = await Utils.tryAndWait(
     (_, user) =>
       user
         .get(Key.WALL)
         .get(Key.NUM_OF_PAGES)
         .then(),
     v => typeof v !== 'number'
-  )) || 0
+  )
+
+  return typeof totalPages === 'number' ? totalPages : 0
+}
 
 /**
  * Won't fail if given an invalid page, will return an empty set.
