@@ -1259,76 +1259,132 @@ const createPost = async (tags, title, content) => {
     throw new Error(`A post must contain at least one paragraph/image/video`)
   }
 
-  const user = require('../Mediator').getUser()
-  const wall = user.get(Key.WALL)
-  const pages = wall.get(Key.PAGES)
-
   const numOfPages = await (async () => {
-    const maybeNumOfPages = await Utils.tryAndWait(() =>
-      wall.get(Key.NUM_OF_PAGES).then()
+    const maybeNumOfPages = await Utils.tryAndWait(
+      (_, user) => user.get(Key.NUM_OF_PAGES).then(),
+      v => typeof v !== 'number'
     )
 
-    return (typeof maybeNumOfPages === 'number' && maybeNumOfPages) || 0
+    return typeof maybeNumOfPages === 'number' ? maybeNumOfPages : 0
   })()
 
-  const pageIdx = Math.max(0, numOfPages - 1).toString()
-  let page = pages.get(pageIdx)
+  let pageIdx = Math.max(0, numOfPages - 1).toString()
 
-  const count = (await page.get(Key.COUNT).then()) || 0
+  const count =
+    numOfPages === 0
+      ? 0
+      : /** @type {number} */ (await Utils.tryAndWait(
+          (_, user) =>
+            user
+              .get(Key.WALL)
+              .get(Key.PAGES)
+              .get(pageIdx)
+              .get(Key.COUNT)
+              .then(),
+          v => typeof v !== 'number'
+        ))
 
-  let isNewPage = false
-  if (count >= Common.Constants.Misc.NUM_OF_POSTS_PER_WALL_PAGE) {
-    // eslint-disable-next-line require-atomic-updates
-    page = wall.get(Key.PAGES)
-    isNewPage = true
+  const shouldBeNewPage =
+    count >= Common.Constants.Misc.NUM_OF_POSTS_PER_WALL_PAGE
+
+  if (shouldBeNewPage) {
+    pageIdx = Number(pageIdx + 1).toString()
   }
 
   /** @type {string} */
   const postID = await new Promise((res, rej) => {
-    const _n = page.set(
-      {
-        date: Date.now(),
-        status: 'publish',
-        tags: tags.join('-'),
-        title
-      },
-      ack => {
-        if (ack.err) {
-          rej(ack.err)
-        } else {
-          res(_n._.get)
+    const _n = require('../Mediator')
+      .getUser()
+      .get(Key.WALL)
+      .get(Key.PAGES)
+      .get(pageIdx)
+      .set(
+        {
+          date: Date.now(),
+          status: 'publish',
+          tags: tags.join('-'),
+          title
+        },
+        ack => {
+          if (ack.err) {
+            rej(ack.err)
+          } else {
+            res(_n._.get)
+          }
         }
-      }
-    )
+      )
   })
 
-  if (isNewPage) {
-    await Utils.promisifyGunNode(wall.get(Key.NUM_OF_PAGES)).put(numOfPages + 1)
+  if (shouldBeNewPage) {
+    await new Promise(res => {
+      require('../Mediator')
+        .getUser()
+        .get(Key.WALL)
+        .get(Key.NUM_OF_PAGES)
+        .put(numOfPages + 1, ack => {
+          if (ack.err) {
+            throw new Error(ack.err)
+          }
+
+          res()
+        })
+    })
   }
 
-  const post = page.get(postID)
-  const contentItems = post.get(Key.CONTENT_ITEMS)
+  const contentItems = require('../Mediator')
+    .getUser()
+    .get(Key.WALL)
+    .get(Key.PAGES)
+    .get(pageIdx)
+    .get(postID)
+    .get(Key.CONTENT_ITEMS)
 
-  await Promise.all(
-    content.map(
-      ci =>
-        new Promise(res => {
-          // @ts-ignore
-          contentItems.set(ci, ack => {
-            if (ack.err) {
-              throw new Error(ack.err)
-            }
+  try {
+    await Promise.all(
+      content.map(
+        ci =>
+          new Promise(res => {
+            // @ts-ignore
+            contentItems.set(ci, ack => {
+              if (ack.err) {
+                throw new Error(ack.err)
+              }
 
-            res()
+              res()
+            })
           })
-        })
+      )
     )
-  )
+  } catch (e) {
+    await new Promise(res => {
+      require('../Mediator')
+        .getUser()
+        .get(Key.WALL)
+        .get(Key.PAGES)
+        .get(pageIdx)
+        .get(postID)
+        .put(null, ack => {
+          if (ack.err) {
+            throw new Error(ack.err)
+          }
+
+          res()
+        })
+    })
+
+    throw e
+  }
 
   const loadedPost = await new Promise(res => {
-    post.load(data => {
-      res(data)
-    })
+    require('../Mediator')
+      .getUser()
+      .get(Key.WALL)
+      .get(Key.PAGES)
+      .get(pageIdx)
+      .get(postID)
+      .load(data => {
+        res(data)
+      })
   })
 
   /** @type {Common.Schema.User} */
