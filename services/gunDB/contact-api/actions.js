@@ -1303,11 +1303,12 @@ const createPost = async (tags, title, content) => {
   }
 
   const post = page.get(postID)
+  const contentItems = post.get(Key.CONTENT_ITEMS)
 
   await Promise.all(
     content.map(ci => {
       // @ts-ignore
-      return Utils.promisifyGunNode(post).set(ci)
+      return Utils.promisifyGunNode(contentItems).set(ci)
     })
   )
 
