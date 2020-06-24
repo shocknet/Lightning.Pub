@@ -1261,7 +1261,11 @@ const createPost = async (tags, title, content) => {
 
   const numOfPages = await (async () => {
     const maybeNumOfPages = await Utils.tryAndWait(
-      (_, user) => user.get(Key.NUM_OF_PAGES).then(),
+      (_, user) =>
+        user
+          .get(Key.WALL)
+          .get(Key.NUM_OF_PAGES)
+          .then(),
       v => typeof v !== 'number'
     )
 
