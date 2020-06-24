@@ -1255,6 +1255,10 @@ const setLastSeenApp = () =>
  * @returns {Promise<Common.Schema.Post>}
  */
 const createPost = async (tags, title, content) => {
+  if (content.length === 0) {
+    throw new Error(`A post must contain at least one paragraph/image/video`)
+  }
+
   const user = require('../Mediator').getUser()
   const wall = user.get(Key.WALL)
   const pages = wall.get(Key.PAGES)
