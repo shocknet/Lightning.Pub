@@ -33,7 +33,7 @@ const getWallPage = async page => {
     posts: {}
   }
 
-  if (page === 0) {
+  if (page === 0 || totalPages === 0) {
     return empty
   }
 
