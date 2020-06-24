@@ -1295,6 +1295,22 @@ const createPost = async (tags, title, content) => {
     pageIdx = Number(pageIdx + 1).toString()
   }
 
+  await new Promise(res => {
+    require('../Mediator')
+      .getUser()
+      .get(Key.WALL)
+      .get(Key.PAGES)
+      .get(pageIdx)
+      .get(Key.COUNT)
+      .put(count + 1, ack => {
+        if (ack.err) {
+          throw new Error(ack.err)
+        }
+
+        res()
+      })
+  })
+
   /** @type {string} */
   const postID = await new Promise((res, rej) => {
     const _n = require('../Mediator')
@@ -1302,6 +1318,7 @@ const createPost = async (tags, title, content) => {
       .get(Key.WALL)
       .get(Key.PAGES)
       .get(pageIdx)
+      .get(Key.POSTS)
       .set(
         {
           date: Date.now(),
