@@ -53,3 +53,5 @@ exports.COUNT = 'count'
 
 exports.CONTENT_ITEMS = 'contentItems'
 exports.FOLLOWS = 'follows'
+
+exports.POSTS = 'posts'
