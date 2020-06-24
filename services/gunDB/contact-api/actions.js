@@ -1310,10 +1310,19 @@ const createPost = async (tags, title, content) => {
   const contentItems = post.get(Key.CONTENT_ITEMS)
 
   await Promise.all(
-    content.map(ci => {
-      // @ts-ignore
-      return Utils.promisifyGunNode(contentItems).set(ci)
-    })
+    content.map(
+      ci =>
+        new Promise(res => {
+          // @ts-ignore
+          contentItems.set(ci, ack => {
+            if (ack.err) {
+              throw new Error(ack.err)
+            }
+
+            res()
+          })
+        })
+    )
   )
 
   const loadedPost = await new Promise(res => {
