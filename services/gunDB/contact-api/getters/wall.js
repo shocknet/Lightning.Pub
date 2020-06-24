@@ -8,7 +8,7 @@ const Key = require('../key')
 /**
  * @returns {Promise<number>}
  */
-const getTotalPages = () =>
+const getWallTotalPages = () =>
   /** @type {Promise<number>} */ (Utils.tryAndWait(
     (_, user) =>
       user
@@ -24,7 +24,7 @@ const getTotalPages = () =>
  * @returns {Promise<Common.SchemaTypes.WallPage>}
  */
 const getWallPage = async page => {
-  const totalPages = await getTotalPages()
+  const totalPages = await getWallTotalPages()
   const empty = {
     count: 0,
     posts: {}
@@ -55,6 +55,6 @@ const getWallPage = async page => {
 }
 
 module.exports = {
-  getTotalPages,
+  getWallTotalPages,
   getWallPage
 }

@@ -1845,7 +1845,7 @@ module.exports = async (
     try {
       const { page } = req.query;
 
-      return res.status(200).json(await GunGetters.Wall.getWallPage(page))
+      return res.status(200).json(await GunGetters.getWallPage(page))
     } catch (err) {
       return res.status(500).json({
         errorMessage: err.message
