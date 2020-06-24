@@ -16,7 +16,7 @@ const getWallTotalPages = () =>
         .get(Key.NUM_OF_PAGES)
         .then(),
     v => typeof v !== 'number'
-  ))
+  )) || 0
 
 /**
  * Won't fail if given an invalid page, will return an empty set.
