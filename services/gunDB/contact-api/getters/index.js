@@ -6,6 +6,8 @@ const Common = require('shock-common')
 const Key = require('../key')
 const Utils = require('../utils')
 
+const Wall = require('./wall')
+
 /**
  * @param {string} pub
  * @returns {Promise<string>}
@@ -89,4 +91,6 @@ const getMyUser = async () => {
 
 module.exports.getMyUser = getMyUser
 module.exports.Follows = require('./follows')
-module.exports.Wall = require('./wall')
+
+module.exports.getWallPage = Wall.getWallPage
+module.exports.getWallTotalPages = Wall.getWallTotalPages
