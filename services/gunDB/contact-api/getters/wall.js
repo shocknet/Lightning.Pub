@@ -50,22 +50,18 @@ const getWallPage = async page => {
       })
   )
 
-  if (Common.Schema.isWallPage(thePage)) {
-    const clean = {
-      ...thePage
-    }
-
-    // delete unsuccessful writes
-    Object.keys(clean.posts).forEach(k => {
-      if (clean.posts[k] === null) {
-        delete clean.posts[k]
-      }
-    })
-
-    return thePage
+  const clean = {
+    ...thePage
   }
 
-  return empty
+  // delete unsuccessful writes
+  Object.keys(clean.posts).forEach(k => {
+    if (clean.posts[k] === null) {
+      delete clean.posts[k]
+    }
+  })
+
+  return Common.Schema.isWallPage(clean) ? clean : empty
 }
 
 module.exports = {
