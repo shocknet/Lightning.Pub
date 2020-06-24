@@ -47,7 +47,8 @@ const getWallPage = async page => {
           .get(Key.PAGES)
           .get(actualPageIdx.toString())
           .load(res)
-      })
+      }),
+    v => typeof v !== 'object'
   )
 
   const clean = {
