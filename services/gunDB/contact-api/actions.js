@@ -1315,7 +1315,7 @@ const createPost = async (tags, title, content) => {
       )
   })
 
-  if (shouldBeNewPage) {
+  if (shouldBeNewPage || numOfPages === 0) {
     await new Promise(res => {
       require('../Mediator')
         .getUser()
