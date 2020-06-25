@@ -68,6 +68,46 @@ const server = program => {
       .digest('hex')
   }
 
+  const cacheCheck = ({ req, res, args, send }) => {
+    if (
+      (process.env.SHOCK_CACHE === 'true' || !process.env.SHOCK_CACHE) &&
+      req.method === 'GET'
+    ) {
+      const dataHash = hashData(args[0]).slice(-8)
+      res.set('shock-cache-hash', dataHash)
+
+      logger.debug('shock-cache-hash:', req.headers['shock-cache-hash'])
+      logger.debug('Data Hash:', dataHash)
+      if (
+        !req.headers['shock-cache-hash'] &&
+        (process.env.CACHE_HEADERS_MANDATORY === 'true' ||
+          !process.env.CACHE_HEADERS_MANDATORY)
+      ) {
+        logger.warn(
+          "Request is missing 'shock-cache-hash' header, please make sure to include that in each GET request in order to benefit from reduced data usage"
+        )
+        return { cached: false, hash: dataHash }
+      }
+
+      if (req.headers['shock-cache-hash'] === dataHash) {
+        logger.debug('Same Hash Detected!')
+        args[0] = null
+        res.status(304)
+        send.apply(res, args)
+        return { cached: true, hash: dataHash }
+      }
+
+      return { cached: false, hash: dataHash }
+    }
+
+    return { cached: false, hash: null }
+  }
+
+  /**
+   * @param {Express.Request} req
+   * @param {Express.Response} res
+   * @param {(() => void)} next
+   */
   const modifyResponseBody = (req, res, next) => {
     const deviceId = req.headers['x-shockwallet-device-id']
     const oldSend = res.send
@@ -80,16 +120,9 @@ const server = program => {
           return
         }
 
-        const dataHash = hashData(args[0]).slice(-8)
-        res.set('shock-cache-hash', dataHash)
+        const { cached, hash } = cacheCheck({ req, res, args, send: oldSend })
 
-        logger.debug('shock-cache-hash:', req.headers['shock-cache-hash'])
-        logger.debug('Data Hash:', dataHash)
-        if (req.headers['shock-cache-hash'] === dataHash) {
-          logger.debug('Same Hash Detected!')
-          args[0] = null
-          res.status(304)
-          oldSend.apply(res, args)
+        if (cached) {
           return
         }
 
@@ -100,7 +133,7 @@ const server = program => {
               message: args[0] ? args[0] : {},
               deviceId,
               metadata: {
-                hash: dataHash
+                hash
               }
             })
           : args[0]
