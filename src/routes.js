@@ -1848,7 +1848,7 @@ module.exports = async (
 
       const pageNum = Number(page)
 
-      if (isARealUsableNumber(pageNum)) {
+      if (!isARealUsableNumber(pageNum)) {
         return res.status(400).json({
           field: 'page',
           errorMessage: 'Not a number'
