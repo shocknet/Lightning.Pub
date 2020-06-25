@@ -1846,7 +1846,7 @@ module.exports = async (
       const { page } = req.query;
 
       const totalPages = await GunGetters.getWallTotalPages()
-      const fetchedPage = await GunGetters.getWallPage(page)
+      const fetchedPage = await GunGetters.getWallPage(Number(page))
 
       return res.status(200).json({
         ...fetchedPage,
