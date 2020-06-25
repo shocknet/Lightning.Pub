@@ -1302,7 +1302,7 @@ const createPost = async (tags, title, content) => {
       .get(Key.PAGES)
       .get(pageIdx)
       .get(Key.COUNT)
-      .put(count + 1, ack => {
+      .put(shouldBeNewPage ? 1 : count + 1, ack => {
         if (ack.err) {
           throw new Error(ack.err)
         }
