@@ -64,6 +64,14 @@ const getWallPage = async page => {
     }
   })
 
+  for (const [key, post] of Object.entries(clean.posts)) {
+    if (post === null) {
+      delete clean.posts[key]
+    } else {
+      post.id = key
+    }
+  }
+
   if (!Common.Schema.isWallPage(clean)) {
     throw new Error(
       `Fetched page not a wall page, instead got: ${JSON.stringify(clean)}`
