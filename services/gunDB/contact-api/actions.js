@@ -1301,14 +1301,21 @@ const createPost = async (tags, title, content) => {
       .get(Key.WALL)
       .get(Key.PAGES)
       .get(pageIdx)
-      .get(Key.COUNT)
-      .put(shouldBeNewPage ? 1 : count + 1, ack => {
-        if (ack.err) {
-          throw new Error(ack.err)
-        }
+      .put(
+        {
+          [Key.COUNT]: shouldBeNewPage ? 1 : count + 1,
+          posts: {
+            unused: null
+          }
+        },
+        ack => {
+          if (ack.err) {
+            throw new Error(ack.err)
+          }
 
-        res()
-      })
+          res()
+        }
+      )
   })
 
   /** @type {string} */
