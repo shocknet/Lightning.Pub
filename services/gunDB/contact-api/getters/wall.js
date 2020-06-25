@@ -22,23 +22,24 @@ const getWallTotalPages = async () => {
 }
 
 /**
- * Won't fail if given an invalid page, will return an empty set.
  * @param {number} page
  * @returns {Promise<Common.SchemaTypes.WallPage>}
  */
 const getWallPage = async page => {
   const totalPages = await getWallTotalPages()
-  const empty = {
-    count: 0,
-    posts: {}
-  }
 
   if (page === 0 || totalPages === 0) {
-    return empty
+    return {
+      count: 0,
+      posts: {}
+    }
   }
 
   const actualPageIdx = page < 0 ? totalPages + (page + 1) : page - 1
 
+  /**
+   * @type {Common.SchemaTypes.WallPage}
+   */
   const thePage = await Utils.tryAndWait(
     (_, user) =>
       new Promise(res => {
@@ -46,6 +47,7 @@ const getWallPage = async page => {
           .get(Key.WALL)
           .get(Key.PAGES)
           .get(actualPageIdx.toString())
+          // @ts-ignore
           .load(res)
       }),
     v => typeof v !== 'object'
@@ -62,7 +64,13 @@ const getWallPage = async page => {
     }
   })
 
-  return Common.Schema.isWallPage(clean) ? clean : empty
+  if (!Common.Schema.isWallPage(clean)) {
+    throw new Error(
+      `Fetched page not a wall page, instead got: ${JSON.stringify(clean)}`
+    )
+  }
+
+  return clean
 }
 
 module.exports = {
