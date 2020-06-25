@@ -23,6 +23,8 @@ const getWallTotalPages = async () => {
 
 /**
  * @param {number} page
+ * @throws {TypeError}
+ * @throws {RangeError}
  * @returns {Promise<Common.SchemaTypes.WallPage>}
  */
 const getWallPage = async page => {
@@ -36,6 +38,10 @@ const getWallPage = async page => {
   }
 
   const actualPageIdx = page < 0 ? totalPages + (page + 1) : page - 1
+
+  if (actualPageIdx > totalPages - 1) {
+    throw new RangeError(`Requested a page out of bounds`)
+  }
 
   /**
    * @type {Common.SchemaTypes.WallPage}
