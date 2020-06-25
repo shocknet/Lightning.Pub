@@ -37,7 +37,7 @@ const getWallPage = async page => {
     }
   }
 
-  const actualPageIdx = page < 0 ? totalPages + (page + 1) : page - 1
+  const actualPageIdx = page < 0 ? totalPages + page : page - 1
 
   if (actualPageIdx > totalPages - 1) {
     throw new RangeError(`Requested a page out of bounds`)
