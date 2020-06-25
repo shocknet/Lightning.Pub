@@ -12,6 +12,7 @@ const httpsAgent = require("https");
 const responseTime = require("response-time");
 const uuid = require("uuid/v4");
 const Common = require('shock-common')
+const isARealUsableNumber = require('lodash/isFinite')
 
 const getListPage = require("../utils/paginate");
 const auth = require("../services/auth/auth");
@@ -1845,8 +1846,17 @@ module.exports = async (
     try {
       const { page } = req.query;
 
+      const pageNum = Number(page)
+
+      if (isARealUsableNumber(pageNum)) {
+        return res.status(400).json({
+          field: 'page',
+          errorMessage: 'Not a number'
+        })
+      }
+
       const totalPages = await GunGetters.getWallTotalPages()
-      const fetchedPage = await GunGetters.getWallPage(Number(page))
+      const fetchedPage = await GunGetters.getWallPage(pageNum)
 
       return res.status(200).json({
         ...fetchedPage,
