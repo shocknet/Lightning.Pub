@@ -63,14 +63,8 @@ const getWallPage = async page => {
     ...thePage
   }
 
-  // delete unsuccessful writes
-  Object.keys(clean.posts).forEach(k => {
-    if (clean.posts[k] === null) {
-      delete clean.posts[k]
-    }
-  })
-
   for (const [key, post] of Object.entries(clean.posts)) {
+    // delete unsuccessful writes
     if (post === null) {
       delete clean.posts[key]
     } else {
