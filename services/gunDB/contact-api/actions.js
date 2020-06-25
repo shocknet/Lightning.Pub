@@ -1357,6 +1357,7 @@ const createPost = async (tags, title, content) => {
     .get(Key.WALL)
     .get(Key.PAGES)
     .get(pageIdx)
+    .get(Key.POSTS)
     .get(postID)
     .get(Key.CONTENT_ITEMS)
 
