@@ -1295,7 +1295,7 @@ const createPost = async (tags, title, content) => {
     pageIdx = Number(pageIdx + 1).toString()
   }
 
-  await new Promise(res => {
+  await new Promise((res, rej) => {
     require('../Mediator')
       .getUser()
       .get(Key.WALL)
@@ -1310,7 +1310,7 @@ const createPost = async (tags, title, content) => {
         },
         ack => {
           if (ack.err) {
-            throw new Error(ack.err)
+            rej(new Error(ack.err))
           }
 
           res()
@@ -1335,7 +1335,7 @@ const createPost = async (tags, title, content) => {
         },
         ack => {
           if (ack.err) {
-            rej(ack.err)
+            rej(new Error(ack.err))
           } else {
             res(_n._.get)
           }
