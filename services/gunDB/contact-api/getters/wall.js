@@ -56,7 +56,28 @@ const getWallPage = async page => {
           // @ts-ignore
           .load(res)
       }),
-    v => typeof v !== 'object'
+    maybePage => {
+      if (typeof maybePage !== 'object' || maybePage === null) {
+        return true
+      }
+
+      const clean = {
+        ...maybePage
+      }
+
+      // @ts-ignore
+      for (const [key, post] of Object.entries(clean.posts)) {
+        // delete unsuccessful writes
+        if (post === null) {
+          // @ts-ignore
+          delete clean.posts[key]
+        } else {
+          post.id = key
+        }
+      }
+
+      return !Common.Schema.isWallPage(clean)
+    }
   )
 
   const clean = {
