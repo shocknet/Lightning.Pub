@@ -1274,19 +1274,24 @@ const createPost = async (tags, title, content) => {
 
   let pageIdx = Math.max(0, numOfPages - 1).toString()
 
-  const count =
-    numOfPages === 0
-      ? 0
-      : /** @type {number} */ (await Utils.tryAndWait(
-          (_, user) =>
-            user
-              .get(Key.WALL)
-              .get(Key.PAGES)
-              .get(pageIdx)
-              .get(Key.COUNT)
-              .then(),
-          v => typeof v !== 'number'
-        ))
+  const count = await (async () => {
+    if (numOfPages === 0) {
+      return 0
+    }
+
+    const maybeCount = await Utils.tryAndWait(
+      (_, user) =>
+        user
+          .get(Key.WALL)
+          .get(Key.PAGES)
+          .get(pageIdx)
+          .get(Key.COUNT)
+          .then(),
+      v => typeof v !== 'number'
+    )
+
+    return typeof maybeCount === 'number' ? maybeCount : 0
+  })()
 
   const shouldBeNewPage =
     count >= Common.Constants.Misc.NUM_OF_POSTS_PER_WALL_PAGE
