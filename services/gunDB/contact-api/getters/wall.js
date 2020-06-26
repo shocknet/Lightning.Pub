@@ -76,6 +76,12 @@ const getWallPage = async page => {
         }
       }
 
+      // .load() sometimes doesn't load all data on first call
+      // @ts-ignore
+      if (Object.keys(clean.posts).length === 0) {
+        return true
+      }
+
       return !Common.Schema.isWallPage(clean)
     }
   )
