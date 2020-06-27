@@ -6,15 +6,19 @@ const Utils = require('../utils')
 const Key = require('../key')
 
 /**
+ * @param {string=} publicKey
  * @returns {Promise<number>}
  */
-const getWallTotalPages = async () => {
+const getWallTotalPages = async publicKey => {
   const totalPages = await Utils.tryAndWait(
-    (_, user) =>
-      user
+    (gun, u) => {
+      const user = publicKey ? gun.get(`~${publicKey}`) : u
+
+      return user
         .get(Key.WALL)
         .get(Key.NUM_OF_PAGES)
-        .then(),
+        .then()
+    },
     v => typeof v !== 'number'
   )
 
@@ -23,12 +27,13 @@ const getWallTotalPages = async () => {
 
 /**
  * @param {number} page
+ * @param {string=} publicKey
  * @throws {TypeError}
  * @throws {RangeError}
  * @returns {Promise<Common.SchemaTypes.WallPage>}
  */
-const getWallPage = async page => {
-  const totalPages = await getWallTotalPages()
+const getWallPage = async (page, publicKey) => {
+  const totalPages = await getWallTotalPages(publicKey)
 
   if (page === 0 || totalPages === 0) {
     return {
@@ -47,15 +52,18 @@ const getWallPage = async page => {
    * @type {Common.SchemaTypes.WallPage}
    */
   const thePage = await Utils.tryAndWait(
-    (_, user) =>
-      new Promise(res => {
+    (g, u) => {
+      const user = publicKey ? g.get(`~${publicKey}`) : u
+
+      return new Promise(res => {
         user
           .get(Key.WALL)
           .get(Key.PAGES)
           .get(actualPageIdx.toString())
           // @ts-ignore
           .load(res)
-      }),
+      })
+    },
     maybePage => {
       if (typeof maybePage !== 'object' || maybePage === null) {
         return true
