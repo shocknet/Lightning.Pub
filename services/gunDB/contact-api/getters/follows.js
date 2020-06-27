@@ -1,6 +1,11 @@
+/**
+ * @format
+ */
 const Common = require('shock-common')
 const Logger = require('winston')
+const size = require('lodash/size')
 
+const Utils = require('../utils')
 const Key = require('../key')
 
 /**
@@ -8,43 +13,47 @@ const Key = require('../key')
  */
 
 /**
+ * @throws {TypeError}
  * @returns {Promise<Record<string, Common.Schema.Follow>>}
  */
-exports.currentFollows = () => {
-  const user = require('../../Mediator').getUser()
-
-  return new Promise(res => {
-    user.get(Key.FOLLOWS).load(data => {
-      if (typeof data !== 'object' || data === null) {
-        Logger.warn(
-          `GunDb -> getters -> currentFollows() -> Current follows data as fetched from gun is not an object but ${typeof data}. This can happen if Gun lost its cache and it's still retrieving data from the network.`
-        )
-        res({})
-        return
+exports.currentFollows = async () => {
+  /**
+   * @type {Record<string, Common.Schema.Follow>}
+   */
+  const raw = await Utils.tryAndWait(
+    // @ts-ignore
+    (_, user) => new Promise(res => user.get(Key.FOLLOWS).load(res)),
+    v => {
+      if (typeof v !== 'object' || v === null) {
+        return true
       }
 
-      const rejected = Object.entries(data).filter(
-        ([_, follow]) => !Common.Schema.isFollow(follow)
-      )
+      if (size(v) === 0) {
+        return true
+      }
 
-      rejected.forEach(([key, item]) => {
-        // expected when unfollowed
-        if (item !== null) {
-          Logger.warn(
-            `GunDb -> getters -> currentFollows() -> Item not conforming to schema found inside follows data. Key: ${key}, item: ${JSON.stringify(
-              item
-            )}.`
-          )
-        }
-      })
+      return false
+    }
+  )
 
-      const passed = Object.entries(data).filter(([_, follow]) =>
-        Common.Schema.isFollow(follow)
-      )
+  if (typeof raw !== 'object' || raw === null) {
+    Logger.error(
+      `Expected user.follows to be an object but instead got: ${JSON.stringify(
+        raw
+      )}`
+    )
+    throw new TypeError('Could not get follows, not an object')
+  }
 
-      const p = /** @type {unknown} */ (passed)
+  const clean = {
+    ...raw
+  }
 
-      res(/** @type {Record<string, Follow>} */ (p))
-    })
-  })
+  for (const [key, followOrNull] of Object.entries(clean)) {
+    if (!Common.Schema.isFollow(followOrNull)) {
+      delete clean[key]
+    }
+  }
+
+  return clean
 }
