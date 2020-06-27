@@ -1842,7 +1842,7 @@ module.exports = async (
   })
 ////////////////////////////////////////////////////////////////////////////////
 
-  app.get(`/api/gun/wall/:publicKey`, async (req, res) => {
+  app.get(`/api/gun/wall/:publicKey?`, async (req, res) => {
     try {
       const { page } = req.query;
       const {publicKey} = req.params
