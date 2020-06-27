@@ -71,6 +71,8 @@ const getWallPage = async page => {
         if (post === null) {
           // @ts-ignore
           delete clean.posts[key]
+          // @ts-ignore
+          clean.count--
         } else {
           post.id = key
         }
