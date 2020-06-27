@@ -1972,6 +1972,48 @@ module.exports = async (
   ap.delete(`/api/gun/follows/:publicKey`, apiGunFollowsDelete)
 
   /**
+    * @type {RequestHandler<{}>}
+    */
+   const apiGunFeedGet = async (req, res) => {
+    try {
+      const { page } = req.query;
+
+      if (!isFinite(page)) {
+        return res.json(401).json({
+          field: page,
+          errorMessage: 'page must be a number'
+        })
+      }
+
+      if (!isFinite(page)) {
+        return res.json(400).json({
+          field: page,
+          errorMessage: 'page must be a number'
+        })
+      }
+
+      if (page < 1) {
+        return res.json(400).json({
+          field: page,
+          errorMessage: 'page must be a positive number'
+        })
+      }
+
+
+
+      return res.status(200).json({
+        posts: await GunGetters.getFeedPage(page)
+      })
+    } catch (err) {
+      return res.status(500).json({
+        errorMessage: err.message || 'Unknown error inside /api/gun/follows/'
+      })
+    }
+  }
+
+  ap.get(`/api/gun/feed`, apiGunFeedGet)
+
+  /**
    * Return app so that it can be used by express.
    */
   // return app;
