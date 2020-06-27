@@ -1,8 +1,12 @@
 /**
  * @format
  */
+const Common = require('shock-common')
+
 const Key = require('../key')
 const Utils = require('../utils')
+
+const Wall = require('./wall')
 
 /**
  * @param {string} pub
@@ -39,4 +43,54 @@ exports.userToIncomingID = async pub => {
   return null
 }
 
+/**
+ * @returns {Promise<Common.SchemaTypes.User>}
+ */
+const getMyUser = async () => {
+  const oldProfile = await Utils.tryAndWait(
+    (_, user) => new Promise(res => user.get(Key.PROFILE).load(res)),
+    v => typeof v !== 'object'
+  )
+
+  const bio = await Utils.tryAndWait(
+    (_, user) => user.get(Key.BIO).then(),
+    v => typeof v !== 'string'
+  )
+
+  const lastSeenApp = await Utils.tryAndWait(
+    (_, user) => user.get(Key.LAST_SEEN_APP).then(),
+    v => typeof v !== 'number'
+  )
+
+  const lastSeenNode = await Utils.tryAndWait(
+    (_, user) => user.get(Key.LAST_SEEN_NODE).then(),
+    v => typeof v !== 'number'
+  )
+
+  const publicKey = await Utils.tryAndWait(
+    (_, user) => Promise.resolve(user.is && user.is.pub),
+    v => typeof v !== 'string'
+  )
+
+  /** @type {Common.SchemaTypes.User} */
+  const u = {
+    avatar: oldProfile.avatar,
+    // @ts-ignore
+    bio,
+    displayName: oldProfile.displayName,
+    // @ts-ignore
+    lastSeenApp,
+    // @ts-ignore
+    lastSeenNode,
+    // @ts-ignore
+    publicKey
+  }
+
+  return u
+}
+
+module.exports.getMyUser = getMyUser
 module.exports.Follows = require('./follows')
+
+module.exports.getWallPage = Wall.getWallPage
+module.exports.getWallTotalPages = Wall.getWallTotalPages

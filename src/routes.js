@@ -12,6 +12,7 @@ const httpsAgent = require("https");
 const responseTime = require("response-time");
 const uuid = require("uuid/v4");
 const Common = require('shock-common')
+const isARealUsableNumber = require('lodash/isFinite')
 
 const getListPage = require("../utils/paginate");
 const auth = require("../services/auth/auth");
@@ -1689,7 +1690,7 @@ module.exports = async (
   
   const GunEvent = Common.Constants.Event
   const Key = require('../services/gunDB/contact-api/key')
-  
+
   app.get("/api/gun/lndchanbackups", async (req,res) => {
     try{
       const user = require('../services/gunDB/Mediator').getUser()
@@ -1839,7 +1840,54 @@ module.exports = async (
       })
     }
   })
+////////////////////////////////////////////////////////////////////////////////
 
+  app.get(`/api/gun/wall`, async (req, res) => {
+    try {
+      const { page } = req.query;
+
+      const pageNum = Number(page)
+
+      if (!isARealUsableNumber(pageNum)) {
+        return res.status(400).json({
+          field: 'page',
+          errorMessage: 'Not a number'
+        })
+      }
+
+      const totalPages = await GunGetters.getWallTotalPages()
+      const fetchedPage = await GunGetters.getWallPage(pageNum)
+
+      return res.status(200).json({
+        ...fetchedPage,
+        totalPages,
+      })
+    } catch (err) {
+      return res.status(500).json({
+        errorMessage: err.message
+      })
+    }
+  })
+
+  app.post(`/api/gun/wall/`, async (req,res) => {
+    try{
+      const {tags,title,contentItems} = req.body
+      return res.status(200).json(await GunActions.createPost(
+        tags,
+        title,
+        contentItems
+      ))
+    } catch(e) {
+      return res.status(500).json({
+        errorMessage: (typeof e === 'string' ? e : e.message)
+          || 'Unknown error.'
+      })
+    }
+  })
+
+  app.delete(`/api/gun/wall/:postID`, (_, res) => res.status(200).json({
+    ok: 'true'
+  }))
   /////////////////////////////////
   /**
    * @template P

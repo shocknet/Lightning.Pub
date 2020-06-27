@@ -43,4 +43,15 @@ exports.LAST_SEEN_APP = 'lastSeenApp'
 
 exports.LAST_SEEN_NODE = 'lastSeenNode'
 
+exports.WALL = 'wall'
+
+exports.NUM_OF_PAGES = 'numOfPages'
+
+exports.PAGES = 'pages'
+
+exports.COUNT = 'count'
+
+exports.CONTENT_ITEMS = 'contentItems'
 exports.FOLLOWS = 'follows'
+
+exports.POSTS = 'posts'
