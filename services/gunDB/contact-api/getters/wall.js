@@ -71,8 +71,6 @@ const getWallPage = async page => {
         if (post === null) {
           // @ts-ignore
           delete clean.posts[key]
-          // @ts-ignore
-          clean.count--
         } else {
           post.id = key
         }
@@ -96,6 +94,7 @@ const getWallPage = async page => {
     // delete unsuccessful writes
     if (post === null) {
       delete clean.posts[key]
+      clean.count--
     } else {
       post.id = key
     }
