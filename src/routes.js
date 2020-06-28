@@ -1979,7 +1979,7 @@ module.exports = async (
 
       if (!isARealUsableNumber(page)) {
         return res.status(400).json({
-          field: page,
+          field: 'page',
           errorMessage: 'page must be a number'
         })
       }
