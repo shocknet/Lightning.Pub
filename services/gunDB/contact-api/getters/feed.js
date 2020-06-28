@@ -18,7 +18,7 @@ const calculateFeedPage = (numberOfPublicKeyGroups, pageRequested) => {
   // thanks to sebassdc
 
   return [
-    ((pageRequested - 1) % numberOfPublicKeyGroups) + 1,
+    (pageRequested - 1) % numberOfPublicKeyGroups,
     Math.ceil(pageRequested / numberOfPublicKeyGroups)
   ]
 }
