@@ -1906,12 +1906,11 @@ module.exports = async (
   /**
    * @type {RequestHandler<FollowsRouteParams>}
    */
-  const apiGunFollowsGet =   (_, res) => {
+  const apiGunFollowsGet =   async (_, res) => {
     try {
-      // const { publicKey } = req.params;
-      // const currFollows = await GunGetters.currentFollows()
+      const currFollows = await GunGetters.Follows.currentFollows()
 
-      return res.status(200).json({})
+      return res.status(200).json(currFollows)
     } catch (err) {
       return res.status(500).json({
         errorMessage: err.message || 'Unknown ERR at GET /api/follows'
@@ -1923,14 +1922,14 @@ module.exports = async (
   /**
    * @type {RequestHandler<FollowsRouteParams>}
    */
-  const apiGunFollowsPut = (req, res) => {
+  const apiGunFollowsPut = async (req, res) => {
     try {
       const { publicKey } = req.params;
       if (!publicKey) {
         throw new Error(`Missing publicKey route param.`)
       }
 
-      // await GunActions.follow(req.params.publicKey, false)
+      await GunActions.follow(req.params.publicKey, false)
 
       // 201 would be extraneous here. Implement it inside app.put
       return res.status(200).json({
@@ -1946,14 +1945,14 @@ module.exports = async (
   /**
     * @type {RequestHandler<FollowsRouteParams>}
     */
-  const apiGunFollowsDelete = (req, res) => {
+  const apiGunFollowsDelete = async (req, res) => {
     try {
       const { publicKey } = req.params;
       if (!publicKey) {
         throw new Error(`Missing publicKey route param.`)
       }
 
-      // await GunActions.unfollow(req.params.publicKey)
+      await GunActions.unfollow(req.params.publicKey)
 
       return res.status(200).json({
         ok: true

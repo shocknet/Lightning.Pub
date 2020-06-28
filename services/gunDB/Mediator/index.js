@@ -12,6 +12,8 @@ require('gun/lib/load')
 const debounce = require('lodash/debounce')
 const Encryption = require('../../../utils/encryptionStore')
 
+const Key = require('../contact-api/key')
+
 /** @type {import('../contact-api/SimpleGUN').ISEA} */
 // @ts-ignore
 const SEAx = require('gun/sea')
@@ -267,6 +269,21 @@ const authenticate = async (alias, pass, __user) => {
     if (typeof ack.err === 'string') {
       throw new Error(ack.err)
     } else if (typeof ack.sea === 'object') {
+      await new Promise((res, rej) => {
+        _user.get(Key.FOLLOWS).put(
+          {
+            unused: null
+          },
+          ack => {
+            if (ack.err) {
+              rej(new Error(`Error initializing follows: ${ack.err}`))
+            } else {
+              res()
+            }
+          }
+        )
+      })
+
       return ack.sea.pub
     } else {
       throw new Error('Unknown error.')
@@ -279,6 +296,22 @@ const authenticate = async (alias, pass, __user) => {
         `Tried to re-authenticate with an alias different to that of stored one, tried: ${alias} - stored: ${_currentAlias}, logoff first if need to change aliases.`
       )
     }
+
+    await new Promise((res, rej) => {
+      _user.get(Key.FOLLOWS).put(
+        {
+          unused: null
+        },
+        ack => {
+          if (ack.err) {
+            rej(new Error(`Error initializing follows: ${ack.err}`))
+          } else {
+            res()
+          }
+        }
+      )
+    })
+
     // move this to a subscription; implement off() ? todo
     API.Jobs.onAcceptedRequests(_user, mySEA)
     API.Jobs.onOrders(_user, gun, mySEA)
@@ -311,6 +344,21 @@ const authenticate = async (alias, pass, __user) => {
     _currentPass = await mySEA.encrypt(pass, mySec)
 
     await new Promise(res => setTimeout(res, 5000))
+
+    await new Promise((res, rej) => {
+      _user.get(Key.FOLLOWS).put(
+        {
+          unused: null
+        },
+        ack => {
+          if (ack.err) {
+            rej(new Error(`Error initializing follows: ${ack.err}`))
+          } else {
+            res()
+          }
+        }
+      )
+    })
 
     API.Jobs.onAcceptedRequests(_user, mySEA)
     API.Jobs.onOrders(_user, gun, mySEA)
