@@ -2,6 +2,8 @@
  * @format
  */
 const Gun = require('gun')
+// @ts-ignore
+require('gun/nts')
 const logger = require('winston')
 // @ts-ignore
 Gun.log = () => {}
