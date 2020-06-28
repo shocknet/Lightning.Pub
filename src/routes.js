@@ -1842,9 +1842,10 @@ module.exports = async (
   })
 ////////////////////////////////////////////////////////////////////////////////
 
-  app.get(`/api/gun/wall`, async (req, res) => {
+  app.get(`/api/gun/wall/:publicKey?`, async (req, res) => {
     try {
       const { page } = req.query;
+      const {publicKey} = req.params
 
       const pageNum = Number(page)
 
@@ -1855,8 +1856,8 @@ module.exports = async (
         })
       }
 
-      const totalPages = await GunGetters.getWallTotalPages()
-      const fetchedPage = await GunGetters.getWallPage(pageNum)
+      const totalPages = await GunGetters.getWallTotalPages(publicKey)
+      const fetchedPage = await GunGetters.getWallPage(pageNum, publicKey)
 
       return res.status(200).json({
         ...fetchedPage,
@@ -1968,6 +1969,40 @@ module.exports = async (
   ap.get('/api/gun/follows/:publicKey', apiGunFollowsGet)
   ap.put(`/api/gun/follows/:publicKey`,apiGunFollowsPut)
   ap.delete(`/api/gun/follows/:publicKey`, apiGunFollowsDelete)
+
+  /**
+    * @type {RequestHandler<{}>}
+    */
+   const apiGunFeedGet = async (req, res) => {
+    try {
+      const { page: pageStr } = req.query;
+      const page = Number(pageStr)
+
+      if (!isARealUsableNumber(page)) {
+        return res.status(400).json({
+          field: 'page',
+          errorMessage: 'page must be a number'
+        })
+      }
+
+      if (page < 1) {
+        return res.status(400).json({
+          field: page,
+          errorMessage: 'page must be a positive number'
+        })
+      }
+
+      return res.status(200).json({
+        posts: await GunGetters.getFeedPage(page)
+      })
+    } catch (err) {
+      return res.status(500).json({
+        errorMessage: err.message || 'Unknown error inside /api/gun/follows/'
+      })
+    }
+  }
+
+  ap.get(`/api/gun/feed`, apiGunFeedGet)
 
   /**
    * Return app so that it can be used by express.
