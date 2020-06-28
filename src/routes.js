@@ -1979,27 +1979,18 @@ module.exports = async (
       const page = Number(pageStr)
 
       if (!isFinite(page)) {
-        return res.json(401).json({
-          field: page,
-          errorMessage: 'page must be a number'
-        })
-      }
-
-      if (!isFinite(page)) {
-        return res.json(400).json({
+        return res.status(400).json({
           field: page,
           errorMessage: 'page must be a number'
         })
       }
 
       if (page < 1) {
-        return res.json(400).json({
+        return res.status(400).json({
           field: page,
           errorMessage: 'page must be a positive number'
         })
       }
-
-
 
       return res.status(200).json({
         posts: await GunGetters.getFeedPage(page)
