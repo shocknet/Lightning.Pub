@@ -10,9 +10,9 @@ const Follows = require('./follows')
 const Wall = require('./wall')
 
 /**
- *
  * @param {number} numberOfPublicKeyGroups
  * @param {number} pageRequested
+ * @returns {[ number , number ]}
  */
 const calculateFeedPage = (numberOfPublicKeyGroups, pageRequested) => {
   // thanks to sebassdc
