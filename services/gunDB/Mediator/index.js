@@ -271,6 +271,9 @@ const authenticate = async (alias, pass, __user) => {
     if (typeof ack.err === 'string') {
       throw new Error(ack.err)
     } else if (typeof ack.sea === 'object') {
+      // clock skew
+      await new Promise(res => setTimeout(res, 2000))
+
       await new Promise((res, rej) => {
         _user.get(Key.FOLLOWS).put(
           {
@@ -298,6 +301,9 @@ const authenticate = async (alias, pass, __user) => {
         `Tried to re-authenticate with an alias different to that of stored one, tried: ${alias} - stored: ${_currentAlias}, logoff first if need to change aliases.`
       )
     }
+
+    // clock skew
+    await new Promise(res => setTimeout(res, 2000))
 
     await new Promise((res, rej) => {
       _user.get(Key.FOLLOWS).put(
