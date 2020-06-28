@@ -1975,8 +1975,7 @@ module.exports = async (
     */
    const apiGunFeedGet = async (req, res) => {
     try {
-      const { pageStr } = req.query;
-      const page = Number(pageStr)
+      const { page } = req.query;
 
       if (!isFinite(page)) {
         return res.status(400).json({
