@@ -1286,7 +1286,7 @@ const register = async (alias, pass) => {
 
   if (typeof ack.err === 'string') {
     throw new Error(ack.err)
-  } else if (typeof ack.pub === 'string') {
+  } else if (typeof ack.pub === 'string' || typeof user._.sea === 'object') {
     const mySecret = await mySEA.secret(user._.sea.epub, user._.sea)
     _currentAlias = alias
     _currentPass = await mySEA.encrypt(pass, mySecret)
