@@ -107,8 +107,11 @@ const getWallPage = async (page, publicKey) => {
       delete clean.posts[key]
       clean.count--
     } else {
-      // eslint-disable-next-line no-await-in-loop
-      post.author = await Wall.getMyUser()
+      post.author = publicKey
+        ? // eslint-disable-next-line no-await-in-loop
+          await Wall.getAnUser(publicKey)
+        : // eslint-disable-next-line no-await-in-loop
+          await Wall.getMyUser()
       post.id = key
     }
   }
