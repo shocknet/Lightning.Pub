@@ -1977,7 +1977,7 @@ module.exports = async (
     try {
       const { page } = req.query;
 
-      if (!isFinite(page)) {
+      if (!isARealUsableNumber(page)) {
         return res.status(400).json({
           field: page,
           errorMessage: 'page must be a number'
