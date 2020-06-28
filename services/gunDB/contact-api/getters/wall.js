@@ -2,8 +2,11 @@
  * @format
  */
 const Common = require('shock-common')
+
 const Utils = require('../utils')
 const Key = require('../key')
+
+const Wall = require('./user')
 
 /**
  * @returns {Promise<number>}
@@ -95,6 +98,8 @@ const getWallPage = async page => {
     if (post === null) {
       delete clean.posts[key]
     } else {
+      // eslint-disable-next-line no-await-in-loop
+      post.author = await Wall.getMyUser()
       post.id = key
     }
   }
