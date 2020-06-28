@@ -6,44 +6,61 @@ const Common = require('shock-common')
 const Key = require('../key')
 const Utils = require('../utils')
 
-const Wall = require('./wall')
-const Feed = require('./feed')
-const User = require('./user')
-
 /**
- * @param {string} pub
- * @returns {Promise<string>}
+ * @param {string} publicKey
+ * @returns {Promise<Common.SchemaTypes.User>}
  */
-exports.currentOrderAddress = async pub => {
-  const currAddr = await Utils.tryAndWait(gun =>
-    gun
-      .user(pub)
-      .get(Key.CURRENT_ORDER_ADDRESS)
-      .then()
+const getAnUser = async publicKey => {
+  const oldProfile = await Utils.tryAndWait(
+    g => {
+      const user = g.get(`~${publicKey}`)
+
+      return new Promise(res => user.get(Key.PROFILE).load(res))
+    },
+    v => typeof v !== 'object'
   )
 
-  if (typeof currAddr !== 'string') {
-    throw new TypeError('Expected user.currentOrderAddress to be an string')
+  const bio = await Utils.tryAndWait(
+    g =>
+      g
+        .get(`~${publicKey}`)
+        .get(Key.BIO)
+        .then(),
+    v => typeof v !== 'string'
+  )
+
+  const lastSeenApp = await Utils.tryAndWait(
+    g =>
+      g
+        .get(`~${publicKey}`)
+        .get(Key.LAST_SEEN_APP)
+        .then(),
+    v => typeof v !== 'number'
+  )
+
+  const lastSeenNode = await Utils.tryAndWait(
+    (_, user) => user.get(Key.LAST_SEEN_NODE).then(),
+    v => typeof v !== 'number'
+  )
+
+  /** @type {Common.SchemaTypes.User} */
+  const u = {
+    avatar: oldProfile.avatar,
+    // @ts-ignore
+    bio,
+    displayName: oldProfile.displayName,
+    // @ts-ignore
+    lastSeenApp,
+    // @ts-ignore
+    lastSeenNode,
+    // @ts-ignore
+    publicKey
   }
 
-  return currAddr
+  return u
 }
 
-/**
- * @param {string} pub
- * @returns {Promise<string|null>}
- */
-exports.userToIncomingID = async pub => {
-  const incomingID = await require('../../Mediator')
-    .getUser()
-    .get(Key.USER_TO_INCOMING)
-    .get(pub)
-    .then()
-
-  if (typeof incomingID === 'string') return incomingID
-
-  return null
-}
+module.exports.getAnUser = getAnUser
 
 /**
  * @returns {Promise<Common.SchemaTypes.User>}
@@ -92,10 +109,3 @@ const getMyUser = async () => {
 }
 
 module.exports.getMyUser = getMyUser
-module.exports.Follows = require('./follows')
-
-module.exports.getWallPage = Wall.getWallPage
-module.exports.getWallTotalPages = Wall.getWallTotalPages
-
-module.exports.getFeedPage = Feed.getFeedPage
-module.exports.getAnUser = User.getAnUser

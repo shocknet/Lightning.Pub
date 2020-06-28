@@ -2,8 +2,11 @@
  * @format
  */
 const Common = require('shock-common')
+
 const Utils = require('../utils')
 const Key = require('../key')
+
+const Wall = require('./user')
 
 /**
  * @param {string=} publicKey
@@ -104,6 +107,8 @@ const getWallPage = async (page, publicKey) => {
       delete clean.posts[key]
       clean.count--
     } else {
+      // eslint-disable-next-line no-await-in-loop
+      post.author = await Wall.getMyUser()
       post.id = key
     }
   }
