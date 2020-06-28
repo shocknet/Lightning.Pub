@@ -7,6 +7,7 @@ const Key = require('../key')
 const Utils = require('../utils')
 
 const Wall = require('./wall')
+const Feed = require('./feed')
 const User = require('./user')
 
 /**
@@ -96,4 +97,5 @@ module.exports.Follows = require('./follows')
 module.exports.getWallPage = Wall.getWallPage
 module.exports.getWallTotalPages = Wall.getWallTotalPages
 
-module.exports.getUser = User.getAnUser
+module.exports.getFeedPage = Feed.getFeedPage
+module.exports.getAnUser = User.getAnUser
