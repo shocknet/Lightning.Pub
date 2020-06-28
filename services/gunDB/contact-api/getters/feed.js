@@ -10,6 +10,20 @@ const Follows = require('./follows')
 const Wall = require('./wall')
 
 /**
+ *
+ * @param {number} numberOfPublicKeyGroups
+ * @param {number} pageRequested
+ */
+const calculateFeedPage = (numberOfPublicKeyGroups, pageRequested) => {
+  // thanks to sebassdc
+
+  return [
+    ((pageRequested - 1) % numberOfPublicKeyGroups) + 1,
+    Math.ceil(pageRequested / numberOfPublicKeyGroups)
+  ]
+}
+
+/**
  * @param {number} page
  * @throws {TypeError}
  * @throws {RangeError}
@@ -38,25 +52,26 @@ const getFeedPage = async page => {
   // page 3: page 2 from first 10 public keys
   // page 4: page 2 from first 10 public keys
   // etc
+  // thanks to sebassdc (github)
 
   const pagedPublicKeys = R.splitEvery(10, shuffle(subbedPublicKeys))
 
-  if (pagedPublicKeys.length === 1) {
-    const [publicKeys] = pagedPublicKeys
+  const [publicKeyGroupIdx, pageToRequest] = calculateFeedPage(
+    pagedPublicKeys.length,
+    page
+  )
 
-    const fetchedPages = await Promise.all(
-      publicKeys.map(pk => Wall.getWallPage(page, pk))
-    )
+  const publicKeys = pagedPublicKeys[publicKeyGroupIdx]
 
-    const allPosts = fetchedPages.map(fp => Object.values(fp.posts))
-    const posts = R.flatten(allPosts)
-    // @ts-ignore
-    const sorted = R.sortBy((a, b) => b.date - a.date, posts)
+  const fetchedPages = await Promise.all(
+    publicKeys.map(pk => Wall.getWallPage(pageToRequest, pk))
+  )
 
-    return sorted
-  }
+  const fetchedPostsGroups = fetchedPages.map(wp => Object.values(wp.posts))
+  const fetchedPosts = R.flatten(fetchedPostsGroups)
+  const sortered = R.sort((a, b) => b.date - a.date, fetchedPosts)
 
-  return []
+  return sortered
 }
 
 module.exports = {
