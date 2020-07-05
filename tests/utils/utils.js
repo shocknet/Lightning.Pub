@@ -127,6 +127,16 @@ const LogWriter = (log, handler) => {
       break;
 
      case 'info':
+       if (log.message.done) {
+        console.log(colors.rainbow("===+++==="));
+        console.log(
+          colors.bgCyan.black(`Total: ${handler.State.Fail+handler.State.Pass}`),
+          colors.bgGreen.black(`Passed: ${handler.State.Pass}`),
+          colors.bgRed.white(`Failed: ${handler.State.Fail}`),
+        )
+        console.log(colors.rainbow("===+++==="));
+        break;
+       }
       console.log(
         colors.bgWhite.black('INFO:'),
         colors.white(log.message)
