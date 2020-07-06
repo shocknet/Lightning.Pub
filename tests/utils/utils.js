@@ -152,7 +152,36 @@ const LogWriter = (log, handler) => {
   // TODO_ADD: An map tree which includes failure, success and asserts
 }
 
+/**
+ * @param {string} pub
+ * @returns {Promise<string>}
+ */
+const pubToEpub = async pub => {
+  try {
+    const epub = await tryAndWait(async gun => {
+      const _epub = await gun
+        .user(pub)
+        .get('epub')
+        .then()
+
+      if (typeof _epub !== 'string') {
+        throw new TypeError(
+          `Expected gun.user(pub).get(epub) to be an string. Instead got: ${typeof _epub}`
+        )
+      }
+
+      return _epub
+    })
+
+    return epub
+  } catch (err) {
+    console.error(err)
+    throw new Error(`pubToEpub() -> ${err.message}`)
+  }
+}
+
 module.exports = {
   tryAndWait,
-  LogWriter
+  LogWriter,
+  pubToEpub
 };
