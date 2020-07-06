@@ -8,7 +8,8 @@ const winston = require('winston')
 const Utils = require("./utils/utils");
 
 const tests = {
-  ...require('./functional')
+  ...require('./functional'),
+  ...require('./unit')
 }
 
 /** @typedef {{
