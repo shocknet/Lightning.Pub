@@ -20,7 +20,7 @@ const addAliceToGraph = async (handler) => {
 
   const { user, pub } = trio;
 
-  handler.Assertor.info({message: `[PUB]: ${pub}`});
+  handler.Assertor.info({message: `(Alice) [PUB]: ${pub}`});
 
   handler.Assertor.info({message:`Alice is writing her name to her user graph`});
 
@@ -52,7 +52,7 @@ const addAliceToGraph = async (handler) => {
  */
 const onBobsPub = async (bobsPub) => {
   try {
-    Handler.Assertor.info({message: `Alice received bob's pub from bob: ${bobsPub}`});
+    Handler.Assertor.info({message: `(Bob) [PUB]: Alice received: ${bobsPub}`});
     Handler.Assertor.info(
       {message:`Alice is now trying to fetch bobs name and will retry and even re-instantiate gun if bobs name is not an string`}
     );
@@ -64,7 +64,7 @@ const onBobsPub = async (bobsPub) => {
       (v) => typeof v !== "string"
     );
 
-    Handler.Assertor.info({message: `Alice found bobs name to be: ${bobsName}`});
+    Handler.Assertor.info({message: `Alice found bob's name to be: ${bobsName}`});
     Handler.Assertor.info(
       {message: `Alice will now place an ack on her usergraph telling bob she found her name`}
     );
@@ -100,11 +100,9 @@ const sendFromBobToAlice = async (handler) => {
 
   const { gun, user, pub } = trio;
 
-  handler.Assertor.info(`\n PUB: \n`);
-  handler.Assertor.info(pub);
-  handler.Assertor.info(`\n`);
+  Handler.Assertor.info({message: `\n(Bob) [PUB]: ${pub}\n`});
 
-  handler.Assertor.info(`\nBob is writing his name to her user graph`);
+  handler.Assertor.info(`\nBob is writing his name to his user graph`);
 
   await new Promise((res, rej) => {
     // @ts-ignore
@@ -124,12 +122,7 @@ const sendFromBobToAlice = async (handler) => {
 
   const ALICES_PUB = handler.Nodes.find(({Name}) => (Name === "Alice")).Pub
 
-  handler.Assertor.info(`\nalices pub:`);
-  handler.Assertor.info(`\n${JSON.stringify(handler.Nodes.find(({Name}) => (Name === "Alice")))}`);
-
-  handler.Assertor.info(`\n${ALICES_PUB}`);
-
-  handler.Assertor.info(`\n`);
+  Handler.Assertor.info({message: `(Alice) [PUB]: Bob received: ${ALICES_PUB}`});
 
   const alice = gun.get(`~${ALICES_PUB}`);
 
@@ -140,7 +133,7 @@ const sendFromBobToAlice = async (handler) => {
     (v) => typeof v !== "string"
   );
 
-  handler.Assertor.info(`\n alice's name is: ${alicesName}`);
+  handler.Assertor.info(`\nAlice's name is: ${alicesName}`);
 
   handler.Assertor.info(
     `\nBob is placing a listener in alice.acks.bobsPub to listen for ack`

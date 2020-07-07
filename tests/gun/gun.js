@@ -23,7 +23,7 @@ const Peer = {
 let gun, user;
 
 const freshGun = async () => {
-  console.log(`\n creating fresh gun`);
+  console.log(`[GUN]: Creating a fresh instance of Gun`);
   user = null;
 
   gun = new Gun({

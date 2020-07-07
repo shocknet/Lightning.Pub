@@ -10,6 +10,8 @@ const Utils = require("../../utils/utils");
  * @param {import('../../index').Handler} handler
  */
 const SEAEncrypt = async (handler) => {
+  handler.Assertor.info({message:"[Test]: Encrypt and decrypt a message using a single pair"});
+
   const TEXT = 'hello world'
   const {gun, user, pub} = await Gun.freshGun()
 
