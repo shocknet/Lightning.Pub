@@ -9,6 +9,7 @@ const server = program => {
   const Http = require('http')
   const Express = require('express')
   const Crypto = require('crypto')
+  const Dotenv = require('dotenv')
   const LightningServices = require('../utils/lightningServices')
   const Encryption = require('../utils/encryptionStore')
   const app = Express()
@@ -25,6 +26,7 @@ const server = program => {
   // load app default configuration data
   const defaults = require('../config/defaults')(program.mainnet)
   // define useful global variables ======================================
+  Dotenv.config()
   module.useTLS = program.usetls
   module.serverPort = program.serverport || defaults.serverPort
   module.httpsPort = module.serverPort
@@ -40,6 +42,12 @@ const server = program => {
   require('../utils/server-utils')(module)
 
   logger.info('Mainnet Mode:', !!program.mainnet)
+
+  if (process.env.DISABLE_SHOCK_ENCRYPTION === 'true') {
+    logger.error('Encryption Mode: false')
+  } else {
+    logger.info('Encryption Mode: true')
+  }
 
   const stringifyData = data => {
     if (typeof data === 'object') {
@@ -60,6 +68,46 @@ const server = program => {
       .digest('hex')
   }
 
+  const cacheCheck = ({ req, res, args, send }) => {
+    if (
+      (process.env.SHOCK_CACHE === 'true' || !process.env.SHOCK_CACHE) &&
+      req.method === 'GET'
+    ) {
+      const dataHash = hashData(args[0]).slice(-8)
+      res.set('shock-cache-hash', dataHash)
+
+      logger.debug('shock-cache-hash:', req.headers['shock-cache-hash'])
+      logger.debug('Data Hash:', dataHash)
+      if (
+        !req.headers['shock-cache-hash'] &&
+        (process.env.CACHE_HEADERS_MANDATORY === 'true' ||
+          !process.env.CACHE_HEADERS_MANDATORY)
+      ) {
+        logger.warn(
+          "Request is missing 'shock-cache-hash' header, please make sure to include that in each GET request in order to benefit from reduced data usage"
+        )
+        return { cached: false, hash: dataHash }
+      }
+
+      if (req.headers['shock-cache-hash'] === dataHash) {
+        logger.debug('Same Hash Detected!')
+        args[0] = null
+        res.status(304)
+        send.apply(res, args)
+        return { cached: true, hash: dataHash }
+      }
+
+      return { cached: false, hash: dataHash }
+    }
+
+    return { cached: false, hash: null }
+  }
+
+  /**
+   * @param {Express.Request} req
+   * @param {Express.Response} res
+   * @param {(() => void)} next
+   */
   const modifyResponseBody = (req, res, next) => {
     const deviceId = req.headers['x-shockwallet-device-id']
     const oldSend = res.send
@@ -72,16 +120,9 @@ const server = program => {
           return
         }
 
-        const dataHash = hashData(args[0]).slice(-8)
-        res.set('shock-cache-hash', dataHash)
+        const { cached, hash } = cacheCheck({ req, res, args, send: oldSend })
 
-        logger.debug('shock-cache-hash:', req.headers['shock-cache-hash'])
-        logger.debug('Data Hash:', dataHash)
-        if (req.headers['shock-cache-hash'] === dataHash) {
-          logger.debug('Same Hash Detected!')
-          args[0] = null
-          res.status(304)
-          oldSend.apply(res, args)
+        if (cached) {
           return
         }
 
@@ -89,10 +130,10 @@ const server = program => {
         const authorized = Encryption.isAuthorizedDevice({ deviceId })
         const encryptedMessage = authorized
           ? Encryption.encryptMessage({
-              message: args[0],
+              message: args[0] ? args[0] : {},
               deviceId,
               metadata: {
-                hash: dataHash
+                hash
               }
             })
           : args[0]
@@ -249,7 +290,9 @@ const server = program => {
       // app.use(bodyParser.json({limit: '100000mb'}));
       app.use(bodyParser.json({ limit: '50mb' }))
       app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }))
-      app.use(modifyResponseBody)
+      if (process.env.DISABLE_SHOCK_ENCRYPTION !== 'true') {
+        app.use(modifyResponseBody)
+      }
 
       serverInstance.listen(module.serverPort, module.serverhost)
 
