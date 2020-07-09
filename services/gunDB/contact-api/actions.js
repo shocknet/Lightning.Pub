@@ -3,7 +3,8 @@
  */
 const uuidv1 = require('uuid/v1')
 const logger = require('winston')
-const { Constants, Schema } = require('shock-common')
+const Common = require('shock-common')
+const { Constants, Schema } = Common
 
 const { ErrorCode } = Constants
 
@@ -1133,7 +1134,21 @@ const setBio = (bio, user) =>
         resolve()
       }
     })
-  })
+  }).then(
+    () =>
+      new Promise((resolve, reject) => {
+        user
+          .get(Key.PROFILE)
+          .get(Key.BIO)
+          .put(bio, ack => {
+            if (ack.err) {
+              reject(new Error(ack.err))
+            } else {
+              resolve()
+            }
+          })
+      })
+  )
 
 /**
  * @param {string[]} mnemonicPhrase
@@ -1156,7 +1171,7 @@ const saveSeedBackup = async (mnemonicPhrase, user, SEA) => {
   return new Promise((res, rej) => {
     user.get(Key.SEED_BACKUP).put(encryptedSeed, ack => {
       if (ack.err) {
-        rej(ack.err)
+        rej(new Error(ack.err))
       } else {
         res()
       }
@@ -1179,7 +1194,7 @@ const saveChannelsBackup = async (backups, user, SEA) => {
   return new Promise((res, rej) => {
     user.get(Key.CHANNELS_BACKUP).put(encryptBackups, ack => {
       if (ack.err) {
-        rej(ack.err)
+        rej(new Error(ack.err))
       } else {
         res()
       }
@@ -1216,6 +1231,275 @@ const setLastSeenApp = () =>
           res()
         }
       })
+  }).then(
+    () =>
+      new Promise((res, rej) => {
+        require('../Mediator')
+          .getUser()
+          .get(Key.PROFILE)
+          .get(Key.LAST_SEEN_APP)
+          .put(Date.now(), ack => {
+            if (ack.err) {
+              rej(new Error(ack.err))
+            } else {
+              res()
+            }
+          })
+      })
+  )
+
+/**
+ * @param {string[]} tags
+ * @param {string} title
+ * @param {Common.Schema.ContentItem[]} content
+ * @returns {Promise<Common.Schema.Post>}
+ */
+const createPost = async (tags, title, content) => {
+  if (content.length === 0) {
+    throw new Error(`A post must contain at least one paragraph/image/video`)
+  }
+
+  const numOfPages = await (async () => {
+    const maybeNumOfPages = await Utils.tryAndWait(
+      (_, user) =>
+        user
+          .get(Key.WALL)
+          .get(Key.NUM_OF_PAGES)
+          .then(),
+      v => typeof v !== 'number'
+    )
+
+    return typeof maybeNumOfPages === 'number' ? maybeNumOfPages : 0
+  })()
+
+  let pageIdx = Math.max(0, numOfPages - 1).toString()
+
+  const count = await (async () => {
+    if (numOfPages === 0) {
+      return 0
+    }
+
+    const maybeCount = await Utils.tryAndWait(
+      (_, user) =>
+        user
+          .get(Key.WALL)
+          .get(Key.PAGES)
+          .get(pageIdx)
+          .get(Key.COUNT)
+          .then(),
+      v => typeof v !== 'number'
+    )
+
+    return typeof maybeCount === 'number' ? maybeCount : 0
+  })()
+
+  const shouldBeNewPage =
+    count >= Common.Constants.Misc.NUM_OF_POSTS_PER_WALL_PAGE
+
+  if (shouldBeNewPage) {
+    pageIdx = Number(pageIdx + 1).toString()
+  }
+
+  await new Promise((res, rej) => {
+    require('../Mediator')
+      .getUser()
+      .get(Key.WALL)
+      .get(Key.PAGES)
+      .get(pageIdx)
+      .put(
+        {
+          [Key.COUNT]: shouldBeNewPage ? 1 : count + 1,
+          posts: {
+            unused: null
+          }
+        },
+        ack => {
+          if (ack.err) {
+            rej(new Error(ack.err))
+          }
+
+          res()
+        }
+      )
+  })
+
+  /** @type {string} */
+  const postID = await new Promise((res, rej) => {
+    const _n = require('../Mediator')
+      .getUser()
+      .get(Key.WALL)
+      .get(Key.PAGES)
+      .get(pageIdx)
+      .get(Key.POSTS)
+      .set(
+        {
+          date: Date.now(),
+          status: 'publish',
+          tags: tags.join('-'),
+          title
+        },
+        ack => {
+          if (ack.err) {
+            rej(new Error(ack.err))
+          } else {
+            res(_n._.get)
+          }
+        }
+      )
+  })
+
+  if (shouldBeNewPage || numOfPages === 0) {
+    await new Promise(res => {
+      require('../Mediator')
+        .getUser()
+        .get(Key.WALL)
+        .get(Key.NUM_OF_PAGES)
+        .put(numOfPages + 1, ack => {
+          if (ack.err) {
+            throw new Error(ack.err)
+          }
+
+          res()
+        })
+    })
+  }
+
+  const contentItems = require('../Mediator')
+    .getUser()
+    .get(Key.WALL)
+    .get(Key.PAGES)
+    .get(pageIdx)
+    .get(Key.POSTS)
+    .get(postID)
+    .get(Key.CONTENT_ITEMS)
+
+  try {
+    await Promise.all(
+      content.map(
+        ci =>
+          new Promise(res => {
+            // @ts-ignore
+            contentItems.set(ci, ack => {
+              if (ack.err) {
+                throw new Error(ack.err)
+              }
+
+              res()
+            })
+          })
+      )
+    )
+  } catch (e) {
+    await new Promise(res => {
+      require('../Mediator')
+        .getUser()
+        .get(Key.WALL)
+        .get(Key.PAGES)
+        .get(pageIdx)
+        .get(Key.POSTS)
+        .get(postID)
+        .put(null, ack => {
+          if (ack.err) {
+            throw new Error(ack.err)
+          }
+
+          res()
+        })
+    })
+
+    throw e
+  }
+
+  const loadedPost = await new Promise(res => {
+    require('../Mediator')
+      .getUser()
+      .get(Key.WALL)
+      .get(Key.PAGES)
+      .get(pageIdx)
+      .get(Key.POSTS)
+      .get(postID)
+      .load(data => {
+        res(data)
+      })
+  })
+
+  /** @type {Common.Schema.User} */
+  const userForPost = await Getters.getMyUser()
+
+  /** @type {Common.Schema.Post} */
+  const completePost = {
+    ...loadedPost,
+    author: userForPost,
+    id: postID
+  }
+
+  if (!Common.Schema.isPost(completePost)) {
+    throw new Error(
+      `completePost not a Post inside Actions.createPost(): ${JSON.stringify(
+        createPost
+      )}`
+    )
+  }
+
+  return completePost
+}
+
+/**
+ * @param {string} postId
+ * @returns {Promise<void>}
+ */
+const deletePost = async postId => {
+  await new Promise(res => {
+    res(postId)
+  })
+}
+
+/**
+ * @param {string} publicKey
+ * @param {boolean} isPrivate Will overwrite previous private status.
+ * @returns {Promise<string>}
+ */
+const follow = (publicKey, isPrivate) => {
+  /** @type {import('shock-common').Schema.Follow} */
+  const newFollow = {
+    private: isPrivate,
+    status: 'ok',
+    user: publicKey
+  }
+
+  return new Promise((res, rej) => {
+    require('../Mediator')
+      .getUser()
+      .get(Key.FOLLOWS)
+      .get(publicKey)
+      // @ts-ignore
+      .put(newFollow, ack => {
+        if (ack.err) {
+          rej(new Error(ack.err))
+        } else {
+          res()
+        }
+      })
+  })
+}
+
+/**
+ * @param {string} publicKey
+ * @returns {Promise<void>}
+ */
+const unfollow = publicKey =>
+  new Promise((res, rej) => {
+    require('../Mediator')
+      .getUser()
+      .get(Key.FOLLOWS)
+      .get(publicKey)
+      .put(null, ack => {
+        if (ack.err) {
+          rej(new Error(ack.err))
+        } else {
+          res()
+        }
+      })
   })
 
 module.exports = {
@@ -1236,5 +1520,9 @@ module.exports = {
   saveSeedBackup,
   saveChannelsBackup,
   disconnect,
-  setLastSeenApp
+  setLastSeenApp,
+  createPost,
+  deletePost,
+  follow,
+  unfollow
 }

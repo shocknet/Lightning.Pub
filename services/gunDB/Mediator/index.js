@@ -2,13 +2,19 @@
  * @format
  */
 const Gun = require('gun')
+// @ts-ignore
+require('gun/nts')
 const logger = require('winston')
 // @ts-ignore
 Gun.log = () => {}
 // @ts-ignore
 require('gun/lib/open')
+// @ts-ignore
+require('gun/lib/load')
 const debounce = require('lodash/debounce')
 const Encryption = require('../../../utils/encryptionStore')
+
+const Key = require('../contact-api/key')
 
 /** @type {import('../contact-api/SimpleGUN').ISEA} */
 // @ts-ignore
@@ -265,6 +271,24 @@ const authenticate = async (alias, pass, __user) => {
     if (typeof ack.err === 'string') {
       throw new Error(ack.err)
     } else if (typeof ack.sea === 'object') {
+      // clock skew
+      await new Promise(res => setTimeout(res, 2000))
+
+      await new Promise((res, rej) => {
+        _user.get(Key.FOLLOWS).put(
+          {
+            unused: null
+          },
+          ack => {
+            if (ack.err) {
+              rej(new Error(`Error initializing follows: ${ack.err}`))
+            } else {
+              res()
+            }
+          }
+        )
+      })
+
       return ack.sea.pub
     } else {
       throw new Error('Unknown error.')
@@ -277,6 +301,25 @@ const authenticate = async (alias, pass, __user) => {
         `Tried to re-authenticate with an alias different to that of stored one, tried: ${alias} - stored: ${_currentAlias}, logoff first if need to change aliases.`
       )
     }
+
+    // clock skew
+    await new Promise(res => setTimeout(res, 2000))
+
+    await new Promise((res, rej) => {
+      _user.get(Key.FOLLOWS).put(
+        {
+          unused: null
+        },
+        ack => {
+          if (ack.err) {
+            rej(new Error(`Error initializing follows: ${ack.err}`))
+          } else {
+            res()
+          }
+        }
+      )
+    })
+
     // move this to a subscription; implement off() ? todo
     API.Jobs.onAcceptedRequests(_user, mySEA)
     API.Jobs.onOrders(_user, gun, mySEA)
@@ -310,6 +353,21 @@ const authenticate = async (alias, pass, __user) => {
 
     await new Promise(res => setTimeout(res, 5000))
 
+    await new Promise((res, rej) => {
+      _user.get(Key.FOLLOWS).put(
+        {
+          unused: null
+        },
+        ack => {
+          if (ack.err) {
+            rej(new Error(`Error initializing follows: ${ack.err}`))
+          } else {
+            res()
+          }
+        }
+      )
+    })
+
     API.Jobs.onAcceptedRequests(_user, mySEA)
     API.Jobs.onOrders(_user, gun, mySEA)
     API.Jobs.lastSeenNode(_user)
@@ -328,6 +386,17 @@ const logoff = () => {
 }
 
 const instantiateGun = () => {
+  if (user) {
+    user.leave()
+  }
+  // @ts-ignore
+  user = null
+  if (gun) {
+    gun.off()
+  }
+  // @ts-ignore
+  gun = null
+
   const _gun = /** @type {unknown} */ (new Gun({
     axe: false,
     peers: Config.PEERS
@@ -1217,7 +1286,7 @@ const register = async (alias, pass) => {
 
   if (typeof ack.err === 'string') {
     throw new Error(ack.err)
-  } else if (typeof ack.pub === 'string') {
+  } else if (typeof ack.pub === 'string' || typeof user._.sea === 'object') {
     const mySecret = await mySEA.secret(user._.sea.epub, user._.sea)
     _currentAlias = alias
     _currentPass = await mySEA.encrypt(pass, mySecret)

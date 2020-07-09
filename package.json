@@ -41,11 +41,12 @@
     "lodash": "^4.17.15",
     "method-override": "^2.3.7",
     "promise": "^8.0.1",
+    "ramda": "^0.27.0",
     "request": "^2.87.0",
     "request-promise": "^4.2.2",
     "response-time": "^2.3.2",
     "shelljs": "^0.8.2",
-    "shock-common": "^0.0.1",
+    "shock-common": "4.0.1",
     "socket.io": "2.1.1",
     "text-encoding": "^0.7.0",
     "tingodb": "^0.6.1",
@@ -61,6 +62,7 @@
     "@types/jest": "^24.0.18",
     "@types/jsonwebtoken": "^8.3.7",
     "@types/lodash": "^4.14.141",
+    "@types/ramda": "types/npm-ramda#dist",
     "@types/socket.io": "^2.1.4",
     "@types/uuid": "^3.4.5",
     "babel-eslint": "^10.0.3",
@@ -78,9 +80,12 @@
     "typescript": "^3.6.3"
   },
   "lint-staged": {
-    "*.{js,ts}": [
+    "*.js": [
       "prettier --check",
       "eslint"
+    ],
+    "*.ts": [
+      "prettier --check"
     ]
   },
   "husky": {
