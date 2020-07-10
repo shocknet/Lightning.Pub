@@ -121,7 +121,8 @@ module.exports = (
     })
     stream.on('end', () => {
       logger.info('New invoice stream ended, starting a new one...')
-      onNewInvoice(socket)
+      // Prevents call stack overflow exceptions
+      process.nextTick(() => onNewInvoice(socket))
     })
     stream.on('error', err => {
       logger.error('New invoice stream error:', err)
@@ -129,7 +130,8 @@ module.exports = (
     stream.on('status', status => {
       logger.warn('New invoice stream status:', status)
       if (status.code === 14) {
-        onNewInvoice(socket)
+        // Prevents call stack overflow exceptions
+        process.nextTick(() => onNewInvoice(socket))
       }
     })
   }
@@ -144,7 +146,7 @@ module.exports = (
     })
     stream.on('end', () => {
       logger.info('New invoice stream ended, starting a new one...')
-      onNewTransaction(socket)
+      process.nextTick(() => onNewTransaction(socket))
     })
     stream.on('error', err => {
       logger.error('New invoice stream error:', err)
@@ -152,7 +154,7 @@ module.exports = (
     stream.on('status', status => {
       logger.error('New invoice stream status:', status)
       if (status.code === 14) {
-        onNewTransaction(socket)
+        process.nextTick(() => onNewTransaction(socket))
       }
     })
   }
