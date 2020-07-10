@@ -939,20 +939,8 @@ module.exports = async (
   });
 
   // connect peer to lnd node
-  app.post("/api/lnd/connectpeer", async (req, res) => {
+  app.post("/api/lnd/connectpeer", (req, res) => {
     const { lightning } = LightningServices.services;
-    if (req.limituser) {
-      const health = await checkHealth();
-      if (health.LNDStatus.success) {
-        res.status(403);
-        return res.json({
-          field: "limituser",
-          errorMessage: "User limited"
-        });
-      }
-      res.status(500);
-      res.json({ errorMessage: "LND is down" });
-    }
     const connectRequest = {
       addr: { pubkey: req.body.pubkey, host: req.body.host },
       perm: true
@@ -970,20 +958,8 @@ module.exports = async (
   });
 
   // disconnect peer from lnd node
-  app.post("/api/lnd/disconnectpeer", async (req, res) => {
+  app.post("/api/lnd/disconnectpeer", (req, res) => {
     const { lightning } = LightningServices.services;
-    if (req.limituser) {
-      const health = await checkHealth();
-      if (health.LNDStatus.success) {
-        res.status(403);
-        return res.json({
-          field: "limituser",
-          errorMessage: "User limited"
-        });
-      }
-      res.status(500);
-      res.json({ errorMessage: "LND is down" });
-    }
     const disconnectRequest = { pub_key: req.body.pubkey };
     logger.debug("DisconnectPeer Request:", disconnectRequest);
     lightning.disconnectPeer(disconnectRequest, (err, response) => {
@@ -1271,18 +1247,8 @@ module.exports = async (
   });
 
   // openchannel
-  app.post("/api/lnd/openchannel", async (req, res) => {
+  app.post("/api/lnd/openchannel", (req, res) => {
     const { lightning } = LightningServices.services;
-    if (req.limituser) {
-      const health = await checkHealth();
-      if (health.LNDStatus.success) {
-        res.sendStatus(403);
-      } else {
-        res.status(500);
-        res.json({ errorMessage: "LND is down" });
-      }
-      return;
-    }
 
     const { pubkey, channelCapacity, channelPushAmount,satPerByte } = req.body;
 
@@ -1314,18 +1280,8 @@ module.exports = async (
   });
 
   // closechannel
-  app.post("/api/lnd/closechannel", async (req, res) => {
+  app.post("/api/lnd/closechannel", (req, res) => {
     const { lightning } = LightningServices.services;
-    if (req.limituser) {
-      const health = await checkHealth();
-      if (health.LNDStatus.success) {
-        // return res.sendStatus(403);
-        res.sendStatus(403);
-      } else {
-        res.status(500);
-        res.json({ errorMessage: "LND is down" });
-      }
-    }
     const { channelPoint, outputIndex, force,satPerByte } = req.body;
     const closeChannelRequest = {
       channel_point: {
@@ -1365,18 +1321,8 @@ module.exports = async (
   });
 
   // sendpayment
-  app.post("/api/lnd/sendpayment", async (req, res) => {
+  app.post("/api/lnd/sendpayment", (req, res) => {
     const { router } = LightningServices.services;
-    if (req.limituser) {
-      const health = await checkHealth();
-      if (health.LNDStatus.success) {
-        res.sendStatus(403);
-      } else {
-        res.status(500);
-        res.json({ errorMessage: "LND is down" });
-      }
-    }
-
     const { maxParts = 3, payreq } = req.body;
 
     const paymentRequest = { payment_request: payreq, max_parts: maxParts };
@@ -1420,18 +1366,9 @@ module.exports = async (
     sentPayment.write(paymentRequest);
   });
 
-  app.post("/api/lnd/trackpayment", async (req, res) => {
+  app.post("/api/lnd/trackpayment", (req, res) => {
     const { router } = LightningServices.services;
     const { paymentHash, inflightUpdates = true } = req.body;
-    if (req.limituser) {
-      const health = await checkHealth();
-      if (health.LNDStatus.success) {
-        res.sendStatus(403);
-      } else {
-        res.status(500);
-        res.json({ errorMessage: "LND is down" });
-      }
-    }
 
     logger.info("Tracking payment payment", { paymentHash, inflightUpdates });
     const trackedPayment = router.trackPaymentV2({
@@ -1469,18 +1406,9 @@ module.exports = async (
     });
   });
 
-  app.post("/api/lnd/sendtoroute", async (req, res) => {
+  app.post("/api/lnd/sendtoroute", (req, res) => {
     const { router } = LightningServices.services;
     const { paymentHash, route } = req.body;
-    if (req.limituser) {
-      const health = await checkHealth();
-      if (health.LNDStatus.success) {
-        res.sendStatus(403);
-      } else {
-        res.status(500);
-        res.json({ errorMessage: "LND is down" });
-      }
-    }
 
     router.sendToRoute({ payment_hash: paymentHash, route }, (err, data) => {
       if (err) {
@@ -1492,18 +1420,9 @@ module.exports = async (
     });
   });
 
-  app.post("/api/lnd/estimateroutefee", async (req, res) => {
+  app.post("/api/lnd/estimateroutefee", (req, res) => {
     const { router } = LightningServices.services;
     const { dest, amount } = req.body;
-    if (req.limituser) {
-      const health = await checkHealth();
-      if (health.LNDStatus.success) {
-        res.sendStatus(403);
-      } else {
-        res.status(500);
-        res.json({ errorMessage: "LND is down" });
-      }
-    }
 
     router.estimateRouteFee({ dest, amt_sat: amount }, (err, data) => {
       if (err) {
@@ -1516,18 +1435,8 @@ module.exports = async (
   });
 
   // addinvoice
-  app.post("/api/lnd/addinvoice", async (req, res) => {
+  app.post("/api/lnd/addinvoice", (req, res) => {
     const { lightning } = LightningServices.services;
-    if (req.limituser) {
-      const health = await checkHealth();
-      if (health.LNDStatus.success) {
-        res.sendStatus(403);
-      } else {
-        res.status(500);
-        res.json({ errorMessage: "LND is down" });
-      }
-      return false;
-    }
     const invoiceRequest = { memo: req.body.memo, private: true };
     if (req.body.value) {
       invoiceRequest.value = req.body.value;
@@ -1556,17 +1465,8 @@ module.exports = async (
   });
 
   // signmessage
-  app.post("/api/lnd/signmessage", async (req, res) => {
+  app.post("/api/lnd/signmessage", (req, res) => {
     const { lightning } = LightningServices.services;
-    if (req.limituser) {
-      const health = await checkHealth();
-      if (health.LNDStatus.success) {
-        res.sendStatus(403);
-      } else {
-        res.status(500);
-        res.json({ errorMessage: "LND is down" });
-      }
-    }
     lightning.signMessage(
       { msg: Buffer.from(req.body.msg, "utf8") },
       async (err, response) => {
@@ -1609,17 +1509,8 @@ module.exports = async (
   });
 
   // sendcoins
-  app.post("/api/lnd/sendcoins", async (req, res) => {
+  app.post("/api/lnd/sendcoins", (req, res) => {
     const { lightning } = LightningServices.services;
-    if (req.limituser) {
-      const health = await checkHealth();
-      if (health.LNDStatus.success) {
-        res.sendStatus(403);
-      } else {
-        res.status(500);
-        res.json({ errorMessage: "LND is down" });
-      }
-    }
     const sendCoinsRequest = { 
       addr: req.body.addr, 
       amount: req.body.amount,
