@@ -1,5 +1,3 @@
-
-
 const grpc = require("grpc");
 const protoLoader = require("@grpc/proto-loader");
 const fs = require("../../utils/fs");

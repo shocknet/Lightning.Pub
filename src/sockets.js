@@ -162,11 +162,12 @@ module.exports = (
 
     logger.info('socket.handshake', socket.handshake)
 
-    /** printing out the client who joined */
-    logger.info('New socket client connected (id=' + socket.id + ').')
-
     const isOneTimeUseSocket = !!socket.handshake.query.IS_GUN_AUTH
     const isLNDSocket = !!socket.handshake.query.IS_LND_SOCKET
+    if (!isLNDSocket) {
+      /** printing out the client who joined */
+      logger.info('New socket client connected (id=' + socket.id + ').')
+    }
 
     if (isOneTimeUseSocket) {
       logger.info('New socket is one time use')
@@ -191,14 +192,16 @@ module.exports = (
         }
       })
     } else {
+      if (isLNDSocket) {
+        logger.info('[LND] New LND Socket created')
+        onNewInvoice(socket)
+        onNewTransaction(socket)
+        return
+      }
       logger.info('New socket is NOT one time use')
       // this is where we create the websocket connection
       // with the GunDB service.
       Mediator.createMediator(socket)
-      if (isLNDSocket) {
-        onNewInvoice(socket)
-        onNewTransaction(socket)
-      }
 
       /** listening if client has disconnected */
       socket.on('disconnect', () => {
