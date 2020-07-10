@@ -372,7 +372,7 @@ module.exports = async (
   
       const authorizedDevice = await Encryption.authorizeDevice({ deviceId, publicKey })
       logger.info(authorizedDevice)
-      return res.status(200).json(authorizedDevice)
+      return res.json(authorizedDevice)
     } catch (err) {
       logger.error(err)
       return res.status(401).json({
@@ -1416,7 +1416,7 @@ module.exports = async (
         return res.status(400).json(err);
       }
 
-      return res.status(200).json(data);
+      return res.json(data);
     });
   });
 
@@ -1430,7 +1430,7 @@ module.exports = async (
         return res.status(400).json(err);
       }
 
-      return res.status(200).json(data);
+      return res.json(data);
     });
   });
 
