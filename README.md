@@ -14,7 +14,7 @@ For easy setup on your Laptop/Desktop, [a wizard is available here.](https://git
 #### Steps:
 1) Run [LND](https://github.com/lightningnetwork/lnd/releases) - *Example mainnet startup*:
 
- ```./lnd --bitcoin.active --bitcoin.mainnet --bitcoin.node=neutrino --neutrino.connect=neutrino.shock.network --routing.assumechanvalid=1```
+ ```./lnd --bitcoin.active --bitcoin.mainnet --bitcoin.node=neutrino --neutrino.connect=neutrino.shock.network --routing.assumechanvalid=1 --allow-circular-route=1`
 
 
 2) Download and Install API
@@ -25,5 +25,5 @@ cd api
 yarn install
 ```
 
-3) Run with `node main -h -c 0.0.0.0` // remove -c for testnet
+3) Run with `node main -c -h 0.0.0.0` // remove -c for testnet
 4) Connect with ShockWallet
