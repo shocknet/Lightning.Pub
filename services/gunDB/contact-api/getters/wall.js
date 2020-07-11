@@ -15,7 +15,14 @@ const Wall = require('./user')
 const getWallTotalPages = async publicKey => {
   const totalPages = await Utils.tryAndWait(
     (gun, u) => {
-      const user = publicKey ? gun.get(`~${publicKey}`) : u
+      /**
+       * @type {import('../SimpleGUN').GUNNode}
+       */
+      let user = u
+
+      if (publicKey && u._.sea.pub !== publicKey) {
+        user = gun.user(publicKey)
+      }
 
       return user
         .get(Key.WALL)
@@ -65,7 +72,14 @@ const getWallPage = async (page, publicKey) => {
   // @ts-ignore
   const count = await Utils.tryAndWait(
     (g, u) => {
-      const user = publicKey ? g.get(`~${publicKey}`) : u
+      /**
+       * @type {import('../SimpleGUN').GUNNode}
+       */
+      let user = u
+
+      if (publicKey && u._.sea.pub === publicKey) {
+        user = g.user(publicKey)
+      }
 
       return user
         .get(Key.WALL)
@@ -86,7 +100,14 @@ const getWallPage = async (page, publicKey) => {
    */
   const thePage = await Utils.tryAndWait(
     (g, u) => {
-      const user = publicKey ? g.get(`~${publicKey}`) : u
+      /**
+       * @type {import('../SimpleGUN').GUNNode}
+       */
+      let user = u
+
+      if (publicKey && u._.sea.pub) {
+        user = g.user(publicKey)
+      }
 
       return new Promise(res => {
         user
