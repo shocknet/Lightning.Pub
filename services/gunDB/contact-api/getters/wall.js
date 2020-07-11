@@ -38,11 +38,10 @@ const getWallTotalPages = async publicKey => {
 const getWallPage = async (page, publicKey) => {
   const totalPages = await getWallTotalPages(publicKey)
 
-  if (page === 0 || totalPages === 0) {
-    return {
-      count: 0,
-      posts: {}
-    }
+  if (page === 0) {
+    throw new RangeError(
+      `Page number cannot be zero, only positive and negative integers are allowed.`
+    )
   }
 
   const actualPageIdx = page < 0 ? totalPages + page : page - 1
