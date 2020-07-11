@@ -1502,6 +1502,62 @@ const unfollow = publicKey =>
       })
   })
 
+/**
+ * @throws {Error}
+ * @returns {Promise<void>}
+ */
+const initWall = async () => {
+  const user = require('../Mediator').getUser()
+
+  await new Promise((res, rej) => {
+    user
+      .get(Key.WALL)
+      .get(Key.NUM_OF_PAGES)
+      .put(1, ack => {
+        if (ack.err) {
+          rej(new Error(ack.err))
+        } else {
+          res()
+        }
+      })
+  })
+
+  await new Promise((res, rej) => {
+    user
+      .get(Key.WALL)
+      .get(Key.PAGES)
+      .get('0')
+      .get(Key.POSTS)
+      .put(
+        {
+          unused: null
+        },
+        ack => {
+          if (ack.err) {
+            rej(new Error(ack.err))
+          } else {
+            res()
+          }
+        }
+      )
+  })
+
+  await new Promise((res, rej) => {
+    user
+      .get(Key.WALL)
+      .get(Key.PAGES)
+      .get('0')
+      .get(Key.COUNT)
+      .put(0, ack => {
+        if (ack.err) {
+          rej(new Error(ack.err))
+        } else {
+          res()
+        }
+      })
+  })
+}
+
 module.exports = {
   __createOutgoingFeed,
   acceptRequest,
@@ -1524,5 +1580,6 @@ module.exports = {
   createPost,
   deletePost,
   follow,
-  unfollow
+  unfollow,
+  initWall
 }
