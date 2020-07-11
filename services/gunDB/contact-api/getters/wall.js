@@ -44,6 +44,13 @@ const getWallPage = async (page, publicKey) => {
     )
   }
 
+  if (totalPages === 0) {
+    return {
+      count: 0,
+      posts: {}
+    }
+  }
+
   const actualPageIdx = page < 0 ? totalPages + page : page - 1
 
   if (actualPageIdx > totalPages - 1) {

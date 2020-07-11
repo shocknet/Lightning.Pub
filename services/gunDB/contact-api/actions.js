@@ -1513,7 +1513,7 @@ const initWall = async () => {
     user
       .get(Key.WALL)
       .get(Key.NUM_OF_PAGES)
-      .put(1, ack => {
+      .put(0, ack => {
         if (ack.err) {
           rej(new Error(ack.err))
         } else {
