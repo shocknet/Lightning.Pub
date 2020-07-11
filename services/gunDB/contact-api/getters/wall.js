@@ -44,17 +44,41 @@ const getWallPage = async (page, publicKey) => {
     )
   }
 
+  const empty = {
+    count: 0,
+    posts: {}
+  }
+
   if (totalPages === 0) {
-    return {
-      count: 0,
-      posts: {}
-    }
+    return empty
   }
 
   const actualPageIdx = page < 0 ? totalPages + page : page - 1
 
   if (actualPageIdx > totalPages - 1) {
     throw new RangeError(`Requested a page out of bounds`)
+  }
+
+  /**
+   * @type {number}
+   */
+  // @ts-ignore
+  const count = await Utils.tryAndWait(
+    (g, u) => {
+      const user = publicKey ? g.get(`~${publicKey}`) : u
+
+      return user
+        .get(Key.WALL)
+        .get(Key.PAGES)
+        .get(actualPageIdx.toString())
+        .get(Key.COUNT)
+        .then()
+    },
+    v => typeof v !== 'number'
+  )
+
+  if (count === 0) {
+    return empty
   }
 
   /**
