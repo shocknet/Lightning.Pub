@@ -1856,6 +1856,13 @@ module.exports = async (
         })
       }
 
+      if (pageNum === 0) {
+        return res.status(400).json({
+          field: 'page',
+          errorMessage: 'Page must be a non-zero integer'
+        })
+      }
+
       const totalPages = await GunGetters.getWallTotalPages(publicKey)
       const fetchedPage = await GunGetters.getWallPage(pageNum, publicKey)
 
