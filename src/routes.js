@@ -517,7 +517,8 @@ module.exports = async (
           })
           stream.on("end", ()=>{
             logger.info("Channel backup stream ended, starting a new one...")
-            onNewChannelBackup()
+            // Prevents call stack overflow exceptions
+            process.nextTick(onNewChannelBackup)
           })
           stream.on("error", err => {
             logger.error("Channel backup stream error:", err);
@@ -525,7 +526,9 @@ module.exports = async (
           stream.on("status", status => {
             logger.error("Channel backup stream status:", status);
             if (status.code === 14) {
-              onNewChannelBackup();
+              // Prevents call stack overflow exceptions
+              process.nextTick(onNewChannelBackup)
+              
             }
           })
         }
