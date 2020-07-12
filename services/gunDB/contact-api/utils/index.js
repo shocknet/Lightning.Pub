@@ -98,7 +98,7 @@ const tryAndWait = async (promGen, shouldRetry = () => false) => {
     if (shouldRetry(resolvedValue)) {
       logger.info(
         'force retrying' +
-          ` args: ${promGen.toString()} -- ${shouldRetry.toString()}`
+          ` args: ${promGen.toString()} -- ${shouldRetry.toString()} \n resolvedValue: ${resolvedValue}, type: ${typeof resolvedValue}`
       )
     } else {
       return resolvedValue
@@ -129,7 +129,7 @@ const tryAndWait = async (promGen, shouldRetry = () => false) => {
     if (shouldRetry(resolvedValue)) {
       logger.info(
         'force retrying' +
-          ` args: ${promGen.toString()} -- ${shouldRetry.toString()}`
+          ` args: ${promGen.toString()} -- ${shouldRetry.toString()} \n resolvedValue: ${resolvedValue}, type: ${typeof resolvedValue}`
       )
     } else {
       return resolvedValue
