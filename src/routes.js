@@ -1260,6 +1260,7 @@ module.exports = async (
     };
     logger.info("OpenChannelRequest", openChannelRequest);
     const openedChannel = lightning.openChannel(openChannelRequest);
+    // only emits one event
     openedChannel.on("data", response => {
       logger.debug("OpenChannelRequest:", response);
       if (!res.headersSent) {
@@ -1323,6 +1324,7 @@ module.exports = async (
   // sendpayment
   app.post("/api/lnd/sendpayment", (req, res) => {
     const { router } = LightningServices.services;
+    // this is the recommended value from lightning labs
     const { maxParts = 3, payreq } = req.body;
 
     const paymentRequest = { payment_request: payreq, max_parts: maxParts };
@@ -1334,6 +1336,7 @@ module.exports = async (
     logger.info("Sending payment", paymentRequest);
     const sentPayment = router.sendPaymentV2(paymentRequest);
 
+    // only emits one event
     sentPayment.on("data", response => {
       if (response.payment_error) {
         logger.error("SendPayment Info:", response)
@@ -1376,6 +1379,7 @@ module.exports = async (
       no_inflight_updates: !inflightUpdates
     });
 
+    // only emits one event
     trackedPayment.on("data", response => {
       if (response.payment_error) {
         logger.error("TrackPayment Info:", response)
