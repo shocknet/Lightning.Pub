@@ -77,7 +77,7 @@ const getWallPage = async (page, publicKey) => {
        */
       let user = u
 
-      if (publicKey && u._.sea.pub === publicKey) {
+      if (publicKey && u._.sea.pub !== publicKey) {
         user = g.user(publicKey)
       }
 
@@ -105,7 +105,7 @@ const getWallPage = async (page, publicKey) => {
        */
       let user = u
 
-      if (publicKey && u._.sea.pub) {
+      if (publicKey && u._.sea.pub !== publicKey) {
         user = g.user(publicKey)
       }
 
