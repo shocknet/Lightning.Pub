@@ -14,6 +14,8 @@ const lnrpc = require("../services/lnd/lightning");
  * @prop {string} lndCertPath
  * @prop {string} macaroonPath
  * @prop {string} lndProto
+ * @prop {string} routerProto
+ * @prop {string} walletUnlockerProto
  */
 
 class LightningServices {
@@ -41,21 +43,18 @@ class LightningServices {
     /**
      * @type {Config}
      */
-    const newDefaults = {
-      ...require("../config/defaults")(program.mainnet),
-      useTLS: false,
-    }
+    const newDefaults = require("../config/defaults")(program.mainnet)
 
     this.defaults = newDefaults;
 
     this._config = {
+      ...newDefaults,
       useTLS: program.usetls,
       serverPort: program.serverport || newDefaults.serverPort,
       serverHost: program.serverhost || newDefaults.serverHost,
       lndHost: program.lndhost || newDefaults.lndHost,
       lndCertPath: program.lndCertPath || newDefaults.lndCertPath,
-      macaroonPath: program.macaroonPath || newDefaults.macaroonPath,
-      lndProto: newDefaults.lndProto
+      macaroonPath: program.macaroonPath || newDefaults.macaroonPath
     };
   }
 
@@ -67,6 +66,7 @@ class LightningServices {
     return {
       lightning: this.lightning,
       walletUnlocker: this.walletUnlocker,
+      router: this.router
     };
   }
 
@@ -108,17 +108,22 @@ class LightningServices {
     const { macaroonPath, lndHost, lndCertPath } = this.config;
     const macaroonExists = await FS.access(macaroonPath);
     const lnServices = await lnrpc(
-      this.defaults.lndProto,
-      lndHost,
-      lndCertPath,
-      macaroonExists ? macaroonPath : null
+      {
+        lnrpcProtoPath: this.defaults.lndProto,
+        routerProtoPath: this.defaults.routerProto,
+        walletUnlockerProtoPath: this.defaults.walletUnlockerProto,
+        lndHost, 
+        lndCertPath, 
+        macaroonPath: macaroonExists ? macaroonPath : null
+      }
     );
     if (!lnServices) {
       throw new Error(`Could not init lnServices`)
     }
-    const { lightning, walletUnlocker } = lnServices;
+    const { lightning, walletUnlocker, router } = lnServices;
     this.lightning = lightning;
     this.walletUnlocker = walletUnlocker
+    this.router = router;
     this.lnServicesData = {
       lndProto: this.defaults.lndProto,
       lndHost,
