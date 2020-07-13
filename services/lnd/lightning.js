@@ -6,25 +6,49 @@ const errorConstants = require("../../constants/errors");
 
 // expose the routes to our app with module.exports
 /**
- * @param {string} protoPath
- * @param {string} lndHost
- * @param {string} lndCertPath
- * @param {string|null} macaroonPath
- * @returns {Promise<any>}
+ * @typedef LightningConfig
+ * @prop {string} lnrpcProtoPath
+ * @prop {string} routerProtoPath
+ * @prop {string} walletUnlockerProtoPath
+ * @prop {string} lndHost
+ * @prop {string} lndCertPath
+ * @prop {string?} macaroonPath
  */
-module.exports = async (protoPath, lndHost, lndCertPath, macaroonPath) => {
+
+/** 
+ * @typedef LightningServices
+ * @prop {any} lightning
+ * @prop {any} walletUnlocker
+ * @prop {any} router
+ */
+
+/** 
+ * @param {LightningConfig} args0
+ * @returns {Promise<LightningServices>}
+ */
+module.exports = async ({
+  lnrpcProtoPath,
+  routerProtoPath,
+  walletUnlockerProtoPath,
+  lndHost, 
+  lndCertPath, 
+  macaroonPath 
+}) => {
   try {
     process.env.GRPC_SSL_CIPHER_SUITES = "HIGH+ECDSA";
-
-    const packageDefinition = await protoLoader.load(protoPath, {
+    const protoLoaderConfig = {
       keepCase: true,
       longs: String,
       enums: String,
       defaults: true,
       oneofs: true,
       includeDirs: ["node_modules/google-proto-files", "proto"]
-    });
-    const { lnrpc } = grpc.loadPackageDefinition(packageDefinition);
+    }
+
+    const [lnrpcProto, routerProto, walletUnlockerProto] = await Promise.all([protoLoader.load(lnrpcProtoPath, protoLoaderConfig), protoLoader.load(routerProtoPath, protoLoaderConfig), protoLoader.load(walletUnlockerProtoPath, protoLoaderConfig)]);
+    const { lnrpc } = grpc.loadPackageDefinition(lnrpcProto);
+    const { routerrpc } = grpc.loadPackageDefinition(routerProto);
+    const { lnrpc: walletunlockerrpc } = grpc.loadPackageDefinition(walletUnlockerProto);
 
     const getCredentials = async () => {
       const lndCert = await fs.readFile(lndCertPath);
@@ -65,11 +89,14 @@ module.exports = async (protoPath, lndHost, lndCertPath, macaroonPath) => {
         // @ts-ignore
         const lightning = new lnrpc.Lightning(lndHost, credentials);
         // @ts-ignore
-        const walletUnlocker = new lnrpc.WalletUnlocker(lndHost, credentials);
+        const walletUnlocker = new walletunlockerrpc.WalletUnlocker(lndHost, credentials);
+        // @ts-ignore
+        const router = new routerrpc.Router(lndHost, credentials);
 
         return {
           lightning,
-          walletUnlocker
+          walletUnlocker,
+          router
         };
       }
 
@@ -90,5 +117,6 @@ module.exports = async (protoPath, lndHost, lndCertPath, macaroonPath) => {
           "Failed to connect to LND server, make sure it's up and running."
       };
     }
+    throw err;
   }
 };
