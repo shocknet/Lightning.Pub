@@ -13,6 +13,7 @@ const responseTime = require("response-time");
 const uuid = require("uuid/v4");
 const Common = require('shock-common')
 const isARealUsableNumber = require('lodash/isFinite')
+const Big = require('big.js')
 
 const getListPage = require("../utils/paginate");
 const auth = require("../services/auth/auth");
@@ -22,7 +23,7 @@ const LightningServices = require("../utils/lightningServices");
 const GunDB = require("../services/gunDB/Mediator");
 const { unprotectedRoutes, nonEncryptedRoutes } = require("../utils/protectedRoutes");
 const GunActions = require("../services/gunDB/contact-api/actions")
-const GunGetters = require('../services/gunDB/contact-api/getters')
+const GunGetters = require('../services/gunDB/contact-api/getters');
 
 const DEFAULT_MAX_NUM_ROUTES_TO_QUERY = 10;
 const SESSION_ID = uuid();
@@ -1440,7 +1441,7 @@ module.exports = async (
     if (req.body.expiry) {
       invoiceRequest.expiry = req.body.expiry;
     }
-    lightning.addInvoice(invoiceRequest, async (err, response) => {
+    lightning.addInvoice(invoiceRequest, async (err, newInvoice) => {
       if (err) {
         logger.debug("AddInvoice Error:", err);
         const health = await checkHealth();
@@ -1455,8 +1456,37 @@ module.exports = async (
         }
         return err;
       }
-      logger.debug("AddInvoice:", response);
-      res.json(response);
+      logger.debug("AddInvoice:", newInvoice);
+      if (req.body.value) {
+        logger.debug("AddInvoice liquidity check:");
+        lightning.listChannels({}, async (err, response) => {
+          if (err) {
+            logger.debug("ListChannels Error:", err);
+            const health = await checkHealth();
+            if (health.LNDStatus.success) {
+              res.status(400).json({
+                field: "listChannels",
+                errorMessage: sanitizeLNDError(err.message)
+              });
+            } else {
+              res.status(500);
+              res.json({ errorMessage: "LND is down" });
+            }
+          }
+          logger.debug("ListChannels:", response);
+          const channelsList = response.channels
+          let remoteBalance = Big(0)
+          channelsList.forEach(element=>{
+            remoteBalance = remoteBalance.plus(Big(element.remote_balance))
+          })
+          newInvoice.liquidityCheck = remoteBalance > req.body.value
+          newInvoice.remoteBalance = remoteBalance 
+          res.json(newInvoice);
+        });
+      } else {
+        res.json(newInvoice);
+      }
+      
     });
   });
 
