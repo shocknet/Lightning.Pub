@@ -1480,7 +1480,7 @@ module.exports = async (
             remoteBalance = remoteBalance.plus(Big(element.remote_balance))
           })
           newInvoice.liquidityCheck = remoteBalance > req.body.value
-          newInvoice.remoteBalance = remoteBalance 
+          //newInvoice.remoteBalance = remoteBalance 
           res.json(newInvoice);
         });
       } else {
