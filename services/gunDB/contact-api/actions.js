@@ -1269,7 +1269,15 @@ const createPost = async (tags, title, content) => {
       v => typeof v !== 'number'
     )
 
-    return typeof maybeNumOfPages === 'number' ? maybeNumOfPages : 0
+    if (typeof maybeNumOfPages !== 'number') {
+      throw new TypeError(
+        `Could not fetch number of pages from wall, instead got: ${JSON.stringify(
+          maybeNumOfPages
+        )}`
+      )
+    }
+
+    return maybeNumOfPages
   })()
 
   let pageIdx = Math.max(0, numOfPages - 1).toString()
