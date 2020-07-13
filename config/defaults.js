@@ -46,7 +46,7 @@ module.exports = (mainnet = false) => {
     logfile: "shockapi.log",
     lndLogFile: parsePath(`${lndDirectory}/logs/bitcoin/${network}/lnd.log`),
     lndDirPath: lndDirectory,
-    peers: ["http://guntest.shock.network:8765/gun"],
+    peers: ["http://gun.shock.network:8765/gun"],
     tokenExpirationMS: 4500000
   }; 
 };
