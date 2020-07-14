@@ -1470,7 +1470,7 @@ module.exports = async (
       logger.debug("AddInvoice:", newInvoice);
       if (req.body.value) {
         logger.debug("AddInvoice liquidity check:");
-        lightning.listChannels({}, async (err, response) => {
+        lightning.listChannels({active_only:true}, async (err, response) => {
           if (err) {
             logger.debug("ListChannels Error:", err);
             const health = await checkHealth();
@@ -1488,7 +1488,10 @@ module.exports = async (
           const channelsList = response.channels
           let remoteBalance = Big(0)
           channelsList.forEach(element=>{
-            remoteBalance = remoteBalance.plus(Big(element.remote_balance))
+            const remB = Big(element.remote_balance)
+            if(remB.gt(remoteBalance)){
+              remoteBalance = remB
+            }
           })
           newInvoice.liquidityCheck = remoteBalance > req.body.value
           //newInvoice.remoteBalance = remoteBalance 
