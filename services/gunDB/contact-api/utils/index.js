@@ -98,13 +98,14 @@ const tryAndWait = async (promGen, shouldRetry = () => false) => {
     if (shouldRetry(resolvedValue)) {
       logger.info(
         'force retrying' +
-          ` args: ${promGen.toString()} -- ${shouldRetry.toString()}`
+          ` args: ${promGen.toString()} -- ${shouldRetry.toString()} \n resolvedValue: ${resolvedValue}, type: ${typeof resolvedValue}`
       )
     } else {
       return resolvedValue
     }
   } catch (e) {
     logger.error(e)
+    logger.info(JSON.stringify(e))
     if (e.message === 'NOT_AUTH') {
       throw e
     }
@@ -128,7 +129,7 @@ const tryAndWait = async (promGen, shouldRetry = () => false) => {
     if (shouldRetry(resolvedValue)) {
       logger.info(
         'force retrying' +
-          ` args: ${promGen.toString()} -- ${shouldRetry.toString()}`
+          ` args: ${promGen.toString()} -- ${shouldRetry.toString()} \n resolvedValue: ${resolvedValue}, type: ${typeof resolvedValue}`
       )
     } else {
       return resolvedValue
