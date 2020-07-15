@@ -47,7 +47,7 @@ export interface GUNNodeBase {
   map(): GUNNode
 
   on(this: GUNNode, cb: Listener): void
-  once(this: GUNNode, cb?: Listener): GUNNode
+  once(this: GUNNode, cb?: Listener, opts?: { wait: number }): GUNNode
 
   open(this: GUNNode, cb?: OpenListener): GUNNode
   load(this: GUNNode, cb?: OpenListener): GUNNode
