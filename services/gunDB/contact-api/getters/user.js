@@ -12,8 +12,8 @@ const Utils = require('../utils')
  */
 const getAnUser = async publicKey => {
   const oldProfile = await Utils.tryAndWait(
-    g => {
-      const user = g.get(`~${publicKey}`)
+    (g, u) => {
+      const user = u._.sea.pub === publicKey ? u : g.user(publicKey)
 
       return new Promise(res => user.get(Key.PROFILE).load(res))
     },
@@ -21,25 +21,29 @@ const getAnUser = async publicKey => {
   )
 
   const bio = await Utils.tryAndWait(
-    g =>
-      g
-        .get(`~${publicKey}`)
-        .get(Key.BIO)
-        .then(),
+    (g, u) => {
+      const user = u._.sea.pub === publicKey ? u : g.user(publicKey)
+
+      return user.get(Key.BIO).then()
+    },
     v => typeof v !== 'string'
   )
 
   const lastSeenApp = await Utils.tryAndWait(
-    g =>
-      g
-        .get(`~${publicKey}`)
-        .get(Key.LAST_SEEN_APP)
-        .then(),
+    (g, u) => {
+      const user = u._.sea.pub === publicKey ? u : g.user(publicKey)
+
+      return user.get(Key.LAST_SEEN_APP).then()
+    },
     v => typeof v !== 'number'
   )
 
   const lastSeenNode = await Utils.tryAndWait(
-    (_, user) => user.get(Key.LAST_SEEN_NODE).then(),
+    (g, u) => {
+      const user = u._.sea.pub === publicKey ? u : g.user(publicKey)
+
+      return user.get(Key.LAST_SEEN_NODE).then()
+    },
     v => typeof v !== 'number'
   )
 
