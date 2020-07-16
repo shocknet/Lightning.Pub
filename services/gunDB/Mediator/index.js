@@ -12,8 +12,10 @@ require('gun/lib/open')
 // @ts-ignore
 require('gun/lib/load')
 const debounce = require('lodash/debounce')
-const Encryption = require('../../../utils/encryptionStore')
 
+const Encryption = require('../../../utils/encryptionStore')
+const { SHOCK_SUPER_PEER } = require('../../../config/defaults')
+const { PEERS } = require('../config')
 const Key = require('../contact-api/key')
 
 /** @type {import('../contact-api/SimpleGUN').ISEA} */
@@ -1273,6 +1275,25 @@ const register = async (alias, pass) => {
     throw new Error(
       'Cannot register if gun is already authenticated (reminder: there should only be one user created for each node).'
     )
+  }
+
+  const shocknetPeerInUse = PEERS.includes(SHOCK_SUPER_PEER)
+
+  if (shocknetPeerInUse) {
+    /**
+     * @type {Record<string, any>}
+     */
+    // @ts-ignore
+    const currPeers = gun._.opt.peers
+    // This is a very basic test, only checks that the websocket is there but
+    // doesn't necessarily mean it is connected or that super peer is UP
+    const shocknetPeerConnected = !!currPeers[SHOCK_SUPER_PEER].wire
+
+    if (!shocknetPeerConnected) {
+      throw new Error(
+        `API Must be connected to super peer to check for duplicate aliases`
+      )
+    }
   }
 
   // this import is done here to avoid circular dependency hell
