@@ -25,6 +25,8 @@ const parsePath = (filePath = "") => {
 
 const lndDirectory = getLndDirectory();
 
+const SHOCK_SUPER_PEER = "http://gun.shock.network:8765/gun"
+
 module.exports = (mainnet = false) => {
   const network = mainnet ? "mainnet" : "testnet";
 
@@ -48,8 +50,10 @@ module.exports = (mainnet = false) => {
     logfile: "shockapi.log",
     lndLogFile: parsePath(`${lndDirectory}/logs/bitcoin/${network}/lnd.log`),
     lndDirPath: lndDirectory,
-    peers: ["http://gun.shock.network:8765/gun"],
+    peers: [SHOCK_SUPER_PEER],
     useTLS: false,
     tokenExpirationMS: 4500000
   }; 
 };
+
+module.exports.SHOCK_SUPER_PEER = SHOCK_SUPER_PEER
