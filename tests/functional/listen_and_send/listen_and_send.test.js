@@ -2,45 +2,49 @@
 const Gun = require("../../gun/gun");
 require("gun/lib/load");
 require("gun/lib/then");
-const Utils = require("../../utils/utils");
+require('gun/sea')
 
-/** @type {import('../../index').Handler} */
-let Handler = null;
+
+const Utils = require("../../utils/utils");
+const Config = require("../../config/config");
+
+/** @type [{ Name: string, Pub: string}] */
+let Nodes = null;
 
 /**
  * Test helper to add a node called Alice to the graph
- * @param {import('../../index').Handler} handler
  */
-const addAliceToGraph = async (handler) => {
+const addAliceToGraph = async () => {
   let trio = await Gun.freshGun();
 
-  if (handler.Reinstantiate) {
+  if (Config.Reinstantiate) {
     trio = await Gun.freshGun();
   }
 
   const { user, pub } = trio;
 
-  handler.Assertor.info({message: `(Alice) [PUB]: ${pub}`});
+  console.log({message: `(Alice) [PUB]: ${pub}`});
 
-  handler.Assertor.info({message:`Alice is writing her name to her user graph`});
+  console.log({message:`Alice is writing her name to her user graph`});
 
   await new Promise((res, rej) => {
     // @ts-ignore
     user.get("name").put("alice", (ack) => {
       if (ack.err) {
+        console.log('\n\n\n',ack,'\n\n\n');
         rej(new Error(`Error putting alices name: ${ack.err}`));
       } else {
-        if (handler.Nodes !== null) {
-          handler.Nodes.push({Name: "Alice", Pub: pub})
+        if (Nodes !== null) {
+          Nodes.push({Name: "Alice", Pub: pub})
         } else {
-          handler.Nodes =  [{Name: "Alice", Pub: pub}]
+          Nodes =  [{Name: "Alice", Pub: pub}]
         }
         res();
       }
     });
   });
 
-  handler.Assertor.info(
+  console.log(
     {message:`Alice is listening to her public mailbox for bobs message (he will send his pub)`}
   );
 
@@ -52,8 +56,8 @@ const addAliceToGraph = async (handler) => {
  */
 const onBobsPub = async (bobsPub) => {
   try {
-    Handler.Assertor.info({message: `(Bob) [PUB]: Alice received: ${bobsPub}`});
-    Handler.Assertor.info(
+    console.log({message: `(Bob) [PUB]: Alice received: ${bobsPub}`});
+    console.log(
       {message:`Alice is now trying to fetch bobs name and will retry and even re-instantiate gun if bobs name is not an string`}
     );
 
@@ -64,8 +68,8 @@ const onBobsPub = async (bobsPub) => {
       (v) => typeof v !== "string"
     );
 
-    Handler.Assertor.info({message: `Alice found bob's name to be: ${bobsName}`});
-    Handler.Assertor.info(
+    console.log({message: `Alice found bob's name to be: ${bobsName}`});
+    console.log(
       {message: `Alice will now place an ack on her usergraph telling bob she found her name`}
     );
 
@@ -77,32 +81,30 @@ const onBobsPub = async (bobsPub) => {
           if (ack.err) {
             rej(new Error());
           } else {
-            Handler.Assertor.info(ack);
-            res();
+            res(ack);
           }
         });
     });
   } catch (e) {
-    Handler.Assertor.error({message: `Unexpected error:\n${e}`});
+    console.log({message: `Unexpected error:\n${e}`});
   }
 };
 
 /**
  * Test helper to add a node called Bob to the graph (2nd)
- * @param {import('../../index').Handler} handler
  */
-const sendFromBobToAlice = async (handler) => {
+const sendFromBobToAlice = async () => {
   let trio = await Gun.freshGun();
 
-  if (handler.Reinstantiate) {
+  if (Config.Reinstantiate) {
     trio = await Gun.freshGun();
   }
 
   const { gun, user, pub } = trio;
 
-  Handler.Assertor.info({message: `\n(Bob) [PUB]: ${pub}\n`});
+  console.log({message: `\n(Bob) [PUB]: ${pub}\n`});
 
-  handler.Assertor.info(`\nBob is writing his name to his user graph`);
+  console.log(`\nBob is writing his name to his user graph`);
 
   await new Promise((res, rej) => {
     // @ts-ignore
@@ -110,32 +112,32 @@ const sendFromBobToAlice = async (handler) => {
       if (ack.err) {
         rej(new Error(`Error putting bobs name: ${ack.err}`));
       } else {
-        if (handler.Nodes !== null) {
-          handler.Nodes.push({Name: "Bob", Pub: pub})
+        if (Nodes !== null) {
+          Nodes.push({Name: "Bob", Pub: pub})
         } else {
-          handler.Nodes =  [{Name: "Bob", Pub: pub}]
+          Nodes = [{Name: "Bob", Pub: pub}]
         }
         res();
       }
     });
   });
 
-  const ALICES_PUB = handler.Nodes.find(({Name}) => (Name === "Alice")).Pub
+  const ALICES_PUB = Nodes.find(({Name}) => (Name === "Alice")).Pub
 
-  Handler.Assertor.info({message: `(Alice) [PUB]: Bob received: ${ALICES_PUB}`});
+  console.log({message: `(Alice) [PUB]: Bob received: ${ALICES_PUB}`});
 
   const alice = gun.get(`~${ALICES_PUB}`);
 
-  handler.Assertor.info(`\nBob will try to read alice's name`);
+  console.log(`\nBob will try to read alice's name`);
 
   const alicesName = await Utils.tryAndWait(
     () => alice.get("name").then(),
     (v) => typeof v !== "string"
   );
 
-  handler.Assertor.info(`\nAlice's name is: ${alicesName}`);
+  console.log(`\nAlice's name is: ${alicesName}`);
 
-  handler.Assertor.info(
+  console.log(
     `\nBob is placing a listener in alice.acks.bobsPub to listen for ack`
   );
 
@@ -143,42 +145,39 @@ const sendFromBobToAlice = async (handler) => {
     .get("acks")
     .get(pub)
     .on((data) => {
-      handler.Assertor.info(`\nBob got alice's ack: ${data}`);
+      console.log(`\nBob got alice's ack: ${data}`);
     });
   
-  handler.Assertor.info(`\nBob is placing a message to alice containing his pub`);
+    console.log(`\nBob is placing a message to alice containing his pub`);
   
-  await new Promise((res, rej) => {
+  const ack = await new Promise((res, rej) => {
       gun
         .get("publicmailbox")
-        .get(handler.Nodes.find(({Name}) => (Name === "Alice")).Pub)
+        .get(Nodes.find(({Name}) => (Name === "Alice")).Pub)
+        // @ts-ignore
         .put(pub, (ack) => {
           if (ack.err) {
             rej((new Error(ack.err.message)));
           } else {
-            res();
+            res(ack);
           }
         });
     });
+    return ack
 }
 
-/**
- * @param {import('../../index').Handler} handler
- */
-const ListenAndSend = async (handler) => {
-  Handler = handler
-  handler.Assertor.info({message:"[Test]: Add a node called Alice to the Gun graph"});
 
-  const {gun,user,pub} = await addAliceToGraph(handler)
+describe('prepare communication between two nodes', () => {
+  jest.setTimeout(15000)
+  it('adds a node called Alice to the Gun graph', async () => {
+    expect.hasAssertions()
+    const {gun,user,pub} = await addAliceToGraph()
+  
+    gun.get("publicmailbox").get(pub).on(onBobsPub); 
+  
+    const ack = await sendFromBobToAlice();
 
-  gun.get("publicmailbox").get(pub).on(onBobsPub);
-
-  try {
-    await sendFromBobToAlice(handler);
-    handler.Assertor.notice('Sent a message from Bob to Alice and they both returned ack')
-  } catch (error) {
-    handler.Assertor.error("Unexpected failure: ", error)
-  }
-}
-
-module.exports = ListenAndSend
+    // @ts-ignore
+    expect(ack.ok).toBe(1);
+  })
+})

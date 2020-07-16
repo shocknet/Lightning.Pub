@@ -1,5 +1,5 @@
 // @ts-check
-const Gun = require("gun");
+const Gun = require("gun/gun");
 
 const ALIAS_AND_PASS = Math.round(Math.random() * 10000).toString();
 
@@ -24,6 +24,7 @@ let gun, user;
 
 const freshGun = async () => {
   console.log(`[GUN]: Creating a fresh instance of Gun`);
+  gun = null;
   user = null;
 
   gun = new Gun({

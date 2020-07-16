@@ -104,53 +104,6 @@ const tryAndWait = async (promGen, shouldRetry = () => false) => {
   return timeout(promGen(gun, user), 10000);
 };
 
-/**
- * @param {any} log
- * @param {import('../index').Handler} handler
- */
-const LogWriter = (log, handler) => {
-  switch (log.level) {
-    case 'notice':
-      console.log(
-        colors.bgGreen('SUCCESS:'),
-        colors.white.underline(log.message)
-      )
-      handler.State.Pass += 1
-      break;
-  
-    case 'error':
-      console.log(
-        colors.bgRed.white('FAILURE:'),
-        colors.white.underline(log.message)
-      )
-      handler.State.Fail += 1
-      break;
-
-     case 'info':
-       if (log.message.done) {
-        console.log(colors.rainbow("===+++==="));
-        console.log(
-          colors.bgCyan.black(`Total: ${handler.State.Fail+handler.State.Pass}`),
-          colors.bgGreen.black(`Passed: ${handler.State.Pass}`),
-          colors.bgRed.white(`Failed: ${handler.State.Fail}`),
-        )
-        console.log(colors.rainbow("===+++==="));
-        break;
-       }
-      console.log(
-        colors.bgWhite.black('INFO:'),
-        colors.white(log.message)
-      )
-      break;
-    default:
-      console.log(
-        colors.grey(log.message)
-      );
-      break;
-  }
-  
-  // TODO_ADD: An map tree which includes failure, success and asserts
-}
 
 /**
  * @param {string} pub
@@ -182,6 +135,5 @@ const pubToEpub = async pub => {
 
 module.exports = {
   tryAndWait,
-  LogWriter,
   pubToEpub
 };
