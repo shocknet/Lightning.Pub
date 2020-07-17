@@ -33,7 +33,9 @@ export type Callback = (ack: Ack) => void
 export interface Peer {
   url: string
   id: string
-  wire: Record<string, unknown>
+  wire?: {
+    readyState: number
+  }
 }
 
 export interface Soul {

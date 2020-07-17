@@ -12,10 +12,8 @@ require('gun/lib/open')
 // @ts-ignore
 require('gun/lib/load')
 const debounce = require('lodash/debounce')
-const size = require('lodash/size')
 
 const Encryption = require('../../../utils/encryptionStore')
-const { DISABLE_PEER_ALIAS_CHECK } = require('../config')
 const Key = require('../contact-api/key')
 
 /** @type {import('../contact-api/SimpleGUN').ISEA} */
@@ -1280,73 +1278,51 @@ const register = async (alias, pass) => {
   /**
    * Peers provided to gun.
    */
-  const currPeers = gun._.opt.peers
+  const peers = Object.values(gun._.opt.peers)
 
-  if (DISABLE_PEER_ALIAS_CHECK) {
-    if (size(currPeers)) {
-      logger.info(
-        `Unexpected: disabled peer alias check while peers were specified.`
-      )
-      throw new Error(
-        `Unexpected: disabled peer alias check while peers were specified.`
-      )
-    }
-
-    logger.warn(
-      `DISABLE_PEER_ALIAS_CHECK true, use only for testing purposes with no peers connected`
-    )
-  } else {
-    if (size(currPeers) === 0) {
-      logger.info(
-        `Unexpected: Duplicate alias check enabled but Gun has no peers set. If you're testing gun without peers set DISABLE_PEER_ALIAS_CHECK to true.`
-      )
-      throw new Error(
-        `Unexpected: Duplicate alias check enabled but Gun has no peers set.`
-      )
-    }
-
-    /**
-     * Of those, how many are actually connected
-     */
-    const connectedPeers = Object.values(currPeers).filter(p => !!p.wire).length
-
-    if (connectedPeers === 0) {
-      throw new Error(
-        `No connected peers, therefore cannot check for duplicate aliases.`
-      )
-    } // else it's connected to at least one
-  }
-
-  // this import is done here to avoid circular dependency hell
-  const { timeout5 } = require('../contact-api/utils')
-
-  let userData = await timeout5(
-    new Promise(res => {
-      gun.get(`~@${alias}`).once(ud => res(ud))
-    })
+  const theresPeers = peers.length > 0
+  const atLeastOneIsConnected = peers.some(
+    p => p.wire && p.wire.readyState === 1
   )
 
-  if (userData) {
+  if (theresPeers && !atLeastOneIsConnected) {
     throw new Error(
-      'The given alias has been used before, use an unique alias instead.'
+      'No connected to any peers for checking of duplicate aliases'
     )
   }
 
-  await new Promise(res => setTimeout(res, 300))
+  if (theresPeers && atLeastOneIsConnected) {
+    // this import is done here to avoid circular dependency hell
+    const { timeout5 } = require('../contact-api/utils')
 
-  userData = await timeout5(
-    new Promise(res => {
-      gun.get(`~@${alias}`).once(ud => res(ud), {
-        // https://github.com/amark/gun/pull/971#issue-438630761
-        wait: 1500
+    let userData = await timeout5(
+      new Promise(res => {
+        gun.get(`~@${alias}`).once(ud => res(ud))
       })
-    })
-  )
-
-  if (userData) {
-    throw new Error(
-      'The given alias has been used before, use an unique alias instead. (Caught at 2nd try)'
     )
+
+    if (userData) {
+      throw new Error(
+        'The given alias has been used before, use an unique alias instead.'
+      )
+    }
+
+    await new Promise(res => setTimeout(res, 300))
+
+    userData = await timeout5(
+      new Promise(res => {
+        gun.get(`~@${alias}`).once(ud => res(ud), {
+          // https://github.com/amark/gun/pull/971#issue-438630761
+          wait: 1500
+        })
+      })
+    )
+
+    if (userData) {
+      throw new Error(
+        'The given alias has been used before, use an unique alias instead. (Caught at 2nd try)'
+      )
+    }
   }
 
   _isRegistering = true
