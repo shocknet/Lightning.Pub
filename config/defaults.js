@@ -55,5 +55,3 @@ module.exports = (mainnet = false) => {
     tokenExpirationMS: 4500000
   }; 
 };
-
-module.exports.SHOCK_SUPER_PEER = SHOCK_SUPER_PEER
