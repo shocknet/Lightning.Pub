@@ -30,9 +30,20 @@ interface OpenListenerDataObj {
 export type Listener = (data: ListenerData, key: string) => void
 export type Callback = (ack: Ack) => void
 
+export interface Peer {
+  url: string
+  id: string
+  wire?: {
+    readyState: number
+  }
+}
+
 export interface Soul {
   get: string
   put: Primitive | null | object | undefined
+  opt: {
+    peers: Record<string, Peer>
+  }
 }
 
 export type OpenListenerData = Primitive | null | OpenListenerDataObj

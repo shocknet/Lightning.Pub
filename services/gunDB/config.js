@@ -11,7 +11,9 @@ dotenv.config()
 // @ts-ignore Let it crash if undefined
 exports.DATA_FILE_NAME = process.env.DATA_FILE_NAME || defaults.dataFileName
 
-// @ts-ignore Let it crash if undefined
+/**
+ * @type {string[]}
+ */
 exports.PEERS = process.env.PEERS
   ? JSON.parse(process.env.PEERS)
   : defaults.peers
