@@ -12,10 +12,10 @@ require('gun/lib/open')
 // @ts-ignore
 require('gun/lib/load')
 const debounce = require('lodash/debounce')
+const size = require('lodash/size')
 
 const Encryption = require('../../../utils/encryptionStore')
-const { SHOCK_SUPER_PEER } = require('../../../config/defaults')
-const { PEERS } = require('../config')
+const { DISABLE_PEER_ALIAS_CHECK } = require('../config')
 const Key = require('../contact-api/key')
 
 /** @type {import('../contact-api/SimpleGUN').ISEA} */
@@ -1277,23 +1277,33 @@ const register = async (alias, pass) => {
     )
   }
 
-  const shocknetPeerInUse = PEERS.includes(SHOCK_SUPER_PEER)
-
-  if (shocknetPeerInUse) {
+  if (DISABLE_PEER_ALIAS_CHECK) {
+    logger.warn(`DISABLE_PEER_ALIAS_CHECK true, use only for testing purposes`)
+  } else {
     /**
-     * @type {Record<string, any>}
+     * Peers provided to gun.
      */
-    // @ts-ignore
     const currPeers = gun._.opt.peers
-    // This is a very basic test, only checks that the websocket is there but
-    // doesn't necessarily mean it is connected or that super peer is UP
-    const shocknetPeerConnected = !!currPeers[SHOCK_SUPER_PEER].wire
 
-    if (!shocknetPeerConnected) {
+    if (size(currPeers) === 0) {
+      logger.info(
+        `Unexpected: Duplicate alias check enabled but Gun has no peers set. If you're testing gun without peers set DISABLE_PEER_ALIAS_CHECK to true.`
+      )
       throw new Error(
-        `API Must be connected to super peer to check for duplicate aliases`
+        `Unexpected: Duplicate alias check enabled but Gun has no peers set.`
       )
     }
+
+    /**
+     * Of those, how many are actually connected
+     */
+    const connectedPeers = Object.values(currPeers).filter(p => !!p.wire).length
+
+    if (connectedPeers === 0) {
+      throw new Error(
+        `No connected peers, therefore cannot check for duplicate aliases.`
+      )
+    } // else it's connected to at least one
   }
 
   // this import is done here to avoid circular dependency hell
