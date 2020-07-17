@@ -713,7 +713,7 @@ module.exports = async (
           logger.error(err);
           return res.status(500).json({
             field: "unknown",
-            errorMessage: err
+            errorMessage: err.message || err
           })
         }
       });
