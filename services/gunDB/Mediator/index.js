@@ -1277,14 +1277,25 @@ const register = async (alias, pass) => {
     )
   }
 
-  if (DISABLE_PEER_ALIAS_CHECK) {
-    logger.warn(`DISABLE_PEER_ALIAS_CHECK true, use only for testing purposes`)
-  } else {
-    /**
-     * Peers provided to gun.
-     */
-    const currPeers = gun._.opt.peers
+  /**
+   * Peers provided to gun.
+   */
+  const currPeers = gun._.opt.peers
 
+  if (DISABLE_PEER_ALIAS_CHECK) {
+    if (size(currPeers)) {
+      logger.info(
+        `Unexpected: disabled peer alias check while peers were specified.`
+      )
+      throw new Error(
+        `Unexpected: disabled peer alias check while peers were specified.`
+      )
+    }
+
+    logger.warn(
+      `DISABLE_PEER_ALIAS_CHECK true, use only for testing purposes with no peers connected`
+    )
+  } else {
     if (size(currPeers) === 0) {
       logger.info(
         `Unexpected: Duplicate alias check enabled but Gun has no peers set. If you're testing gun without peers set DISABLE_PEER_ALIAS_CHECK to true.`
