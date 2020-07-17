@@ -257,8 +257,14 @@ module.exports = async (
       }
 
       const decryptedKey = Encryption.decryptKey({ deviceId, message: req.body.encryptionKey });
-      const decryptedMessage = Encryption.decryptMessage({ message: req.body.data, key: decryptedKey, iv: req.body.iv })
+      const decryptedMessage = Encryption.decryptMessage({ message: req.body.data, key: decryptedKey, iv: req.body.iv });
+      const decryptedToken = req.body.token ? Encryption.decryptMessage({ message: req.body.token, key: decryptedKey, iv: req.body.iv }) : null;
       req.body = JSON.parse(decryptedMessage);
+
+      if (decryptedToken) {
+        req.headers.authorization = decryptedToken;
+      }
+
       return next();
     } catch (err) {
       logger.error(err);
@@ -267,6 +273,37 @@ module.exports = async (
         .json(
           err
         );
+    }
+  })
+
+  app.use(async (req, res, next) => {
+    logger.info('Route:', req.path)
+    if (unprotectedRoutes[req.method][req.path]) {
+      next()
+    } else {
+      try {
+        const response = await auth.validateToken(
+          req.headers.authorization.replace('Bearer ', '')
+        )
+        if (response.valid) {
+          next()
+        } else {
+          res.status(401).json({
+            field: 'authorization',
+            errorMessage:
+              "The authorization token you've supplied is invalid"
+          })
+        }
+      } catch (err) {
+        logger.error(
+          !req.headers.authorization
+            ? 'Please add an Authorization header'
+            : err
+        )
+        res
+          .status(401)
+          .json({ field: 'authorization', errorMessage: 'Please log in' })
+      }
     }
   })
 
