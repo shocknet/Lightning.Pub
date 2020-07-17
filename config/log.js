@@ -12,25 +12,18 @@ const winstonAttached = new Map();
  */
 module.exports = (logFileName, logLevel) => {
   if (!winstonAttached.has(logFileName)) {
-    const logger = winston.createLogger({
-      level: logLevel,
-      transports: [
-        // Add "winston-daily-rotate-file" transport
-        new (winston.transports.DailyRotateFile)({
-          filename: logFileName,
-          datePattern: "yyyy-MM-dd.",
-          json: false,
-          maxSize: 1000000,
-          maxFiles: 7,
-          level: logLevel
-        }),
-      ]
-    })
-
-    winstonAttached.set(logFileName, logger)
-  
-    return logger;
+    winston.add(new (winston.transports.DailyRotateFile)({
+      filename: logFileName,
+      datePattern: "yyyy-MM-dd.",
+      json: false,
+      maxSize: 1000000,
+      maxFiles: 7,
+      level: logLevel
+    }))
+    winston.add(new winston.transports.Console())
+    winston.level = logLevel
+    winstonAttached.set(logFileName, winston)
   }
-
-  return winstonAttached.get(logFileName);
-};
+  
+  return winstonAttached.get(logFileName)
+}
