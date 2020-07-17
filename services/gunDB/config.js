@@ -23,3 +23,6 @@ exports.MS_TO_TOKEN_EXPIRATION = Number(
 )
 
 exports.SHOW_LOG = process.env.SHOW_GUN_DB_LOG === 'true'
+
+exports.DISABLE_PEER_ALIAS_CHECK =
+  process.env.DISABLE_PEER_ALIAS_CHECK === 'true'
