@@ -1,5 +1,5 @@
 {
-  "name": "sw-server",
+  "name": "shockapi",
   "version": "1.0.0",
   "description": "",
   "main": "src/server.js",
@@ -33,7 +33,7 @@
     "google-proto-files": "^1.0.3",
     "graphviz": "0.0.8",
     "grpc": "^1.21.1",
-    "gun": "git://github.com/amark/gun#c59e0e95f92779ce6bb3aab823d318bc16b20c33",
+    "gun": "git://github.com/amark/gun#97aa976c97e6219a9f93095d32c220dcd371ca62",
     "husky": "^4.2.5",
     "jsonfile": "^4.0.0",
     "jsonwebtoken": "^8.3.0",
