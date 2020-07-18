@@ -329,7 +329,11 @@ const getCurrentOutgoings = () => currentOutgoings
 const outgoingsListeners = new Set()
 
 outgoingsListeners.add(o => {
-  logger.info(`new outgoings: ${JSON.stringify(o, null, 4)}`)
+  const values = Object.values(o)
+  const nulls = values.filter(x => x === null).length
+  const nonNulls = values.length - nulls
+
+  logger.info(`new outgoings, ${nulls} nulls and ${nonNulls} nonNulls`)
 })
 
 const notifyOutgoingsListeners = () => {
