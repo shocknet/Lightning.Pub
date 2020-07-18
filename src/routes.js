@@ -2006,6 +2006,54 @@ module.exports = async (
 
   ap.get(`/api/gun/feed`, apiGunFeedGet)
 
+   /**
+   * @type {RequestHandler<{}>}
+   */
+  const apiGunMeGet = async (_, res) => {
+    try {
+      return res.status(200).json(await GunGetters.getMyUser())
+    } catch (err) {
+      logger.error(err)
+      return res.status(500).json({
+        errorMessage: err.message
+      })
+    }
+  }
+
+  
+  /**
+   * @type {RequestHandler<{}>}
+   */
+  const apiGunMePut = async (req, res) => {
+    try {
+      const { avatar, bio , displayName} = /** @type {Partial<Omit<Common.Schema.User, 'publicKey'>>} */ (req.body)
+
+    if (avatar) {
+       await GunActions.setAvatar(avatar, require('../services/gunDB/Mediator').getUser())
+    }
+
+    if (bio) {
+      await GunActions.setBio(bio, require('../services/gunDB/Mediator').getUser())
+    }
+
+     if (displayName) {
+       await GunActions.setDisplayName(displayName, require('../services/gunDB/Mediator').getUser())
+     }
+
+     return res.status(200).json({
+       ok: true
+     })
+    } catch (err) {
+      logger.error(err)
+      return res.status(500).json({
+        errorMessage: err.message
+      })
+    }
+  }
+
+  ap.get(`/api/gun/me`, apiGunMeGet)
+  ap.put(`/api/gun/me`, apiGunMePut)
+
   /**
    * Return app so that it can be used by express.
    */
