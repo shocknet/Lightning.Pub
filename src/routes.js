@@ -1772,7 +1772,7 @@ module.exports = async (
     try {
       const user = require('../services/gunDB/Mediator').getUser()
       const data = await timeout5(user.get(Key.PROFILE).get(Key.AVATAR).then())
-      logger.info(`avatar poll:${data}`)
+      logger.info(`avatar poll:${data.length} chars`)
       res.json({
         data
       })
