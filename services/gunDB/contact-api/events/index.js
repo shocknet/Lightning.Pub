@@ -452,7 +452,7 @@ const getChats = () => currentChats
 const chatsListeners = new Set()
 
 chatsListeners.add(c => {
-  logger.info(`new Chats: ${JSON.stringify(c, null, 4)}`)
+  logger.info(`Chats: ${c.length}`)
 })
 
 const notifyChatsListeners = () => {
