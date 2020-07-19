@@ -1,0 +1,21 @@
+name: Update Wizard
+
+on:
+  push:
+    branches: [ 'feature/synchronized-wizard-builds' ]
+  pull_request:
+    branches: [ 'feature/synchronized-wizard-builds' ]
+
+jobs:
+  dispatch:
+    strategy:
+      matrix:
+        repo: ['shocknet/Wizard']
+    runs-on: ubuntu-latest
+    steps:
+      - name: Repository Dispatch
+        uses: peter-evans/repository-dispatch@v1
+        with:
+          token: ${{ secrets.REPO_ACCESS_TOKEN }}
+          repository: ${{ matrix.repo }}
+          event-type: api-update
