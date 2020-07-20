@@ -1755,7 +1755,7 @@ module.exports = async (
       // spinup
       Events.onChats(() => {})()
       const data =  Events.getChats()
-      logger.info(`Chats polled: ${JSON.stringify(data, null, 4)}`)
+      logger.info(`Chats polled: ${data.length}`)
       res.json({
         data
       })
