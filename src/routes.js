@@ -23,6 +23,7 @@ const GunDB = require("../services/gunDB/Mediator");
 const { unprotectedRoutes, nonEncryptedRoutes } = require("../utils/protectedRoutes");
 const GunActions = require("../services/gunDB/contact-api/actions")
 const GunGetters = require('../services/gunDB/contact-api/getters')
+const GunKey = require('../services/gunDB/contact-api/key')
 
 const DEFAULT_MAX_NUM_ROUTES_TO_QUERY = 10;
 const SESSION_ID = uuid();
@@ -2222,6 +2223,129 @@ module.exports = async (
   ap.get(`/api/gun/requests/sent`, apiGunRequestsSentGet)
   ap.post('/api/gun/requests/', apiGunRequestsPost)
   ap.put(`/api/gun/requests/:requestID?`, apiGunRequestsPut)
+
+
+
+  ap.get(`/api/gun/dev/userToIncoming`, async (_, res) => {
+    try {
+      const {tryAndWait} = require('../services/gunDB/contact-api/utils')
+
+      const data = await tryAndWait((_, u) => new Promise(res => {
+        u.get(GunKey.USER_TO_INCOMING).load(data => {
+          res(data)
+        })
+      }))
+
+      return res.status(200).json({
+        data
+      })
+    } catch (err) {
+      return res.status(500).json({
+        errorMessage: err.message
+      })
+    }
+  })
+
+  ap.get(`/api/gun/dev/recipientToOutgoing`, async (_, res) => {
+    try {
+      const {tryAndWait} = require('../services/gunDB/contact-api/utils')
+
+      const data = await tryAndWait((_, u) => new Promise(res => {
+        u.get(GunKey.RECIPIENT_TO_OUTGOING).load(data => {
+          res(data)
+        })
+      }))
+
+      return res.status(200).json({
+        data
+      })
+    } catch (err) {
+      return res.status(500).json({
+        errorMessage: err.message
+      })
+    }
+  })
+
+  ap.get(`/api/gun/dev/outgoings`, async (_, res) => {
+    try {
+      const {tryAndWait} = require('../services/gunDB/contact-api/utils')
+
+      const data = await tryAndWait((_, u) => new Promise(res => {
+        u.get(GunKey.OUTGOINGS).load(data => {
+          res(data)
+        })
+      }))
+
+      return res.status(200).json({
+        data
+      })
+    } catch (err) {
+      return res.status(500).json({
+        errorMessage: err.message
+      })
+    }
+  })
+
+  
+  ap.get(`/api/gun/dev/currentHandshakeAddress`, async (_, res) => {
+    try {
+      const {tryAndWait} = require('../services/gunDB/contact-api/utils')
+
+      const data = await tryAndWait((_, u) => u.get(GunKey.CURRENT_HANDSHAKE_ADDRESS).then())
+
+      return res.status(200).json({
+        data
+      })
+    } catch (err) {
+      return res.status(500).json({
+        errorMessage: err.message
+      })
+    }
+  })
+
+  ap.get(`/api/gun/dev/handshakeNodes/:handshakeAddress`, async (req, res) => {
+    try {
+      const {tryAndWait} = require('../services/gunDB/contact-api/utils')
+
+      const data = await tryAndWait((g) => 
+        new Promise((res) => {
+          g.get(GunKey.HANDSHAKE_NODES).get(req.params.handshakeAddress).load(data => {
+            res(data)
+          })
+        })
+      )
+
+      return res.status(200).json({
+        data
+      })
+    } catch (err) {
+      return res.status(500).json({
+        errorMessage: err.message
+      })
+    }
+  })
+
+  ap.get(`/api/gun/dev/user/:publicKey`, async (req, res) => {
+    try {
+      const {tryAndWait} = require('../services/gunDB/contact-api/utils')
+
+      const data = await tryAndWait((g) => 
+        new Promise((res) => {
+          g.user(req.params.publicKey).load(data => {
+            res(data)
+          })
+        })
+      )
+
+      return res.status(200).json({
+        data
+      })
+    } catch (err) {
+      return res.status(500).json({
+        errorMessage: err.message
+      })
+    }
+  })
 
   /**
    * Return app so that it can be used by express.
