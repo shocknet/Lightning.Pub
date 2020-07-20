@@ -2090,7 +2090,34 @@ module.exports = async (
     }
   }
 
+  /**
+   * @type {RequestHandler<ChatsRouteParams>}
+   */
+  const apiGunChatsDelete = async (req, res) => {
+    const { publicKey } = req.params
+
+    if (!publicKey) {
+      return res.status(400).json({
+        errorMessage: `Must specify a publicKey route param for DELETING a chat`
+      })
+    }
+
+    try {
+      await GunActions.disconnect(publicKey)
+
+      return res.status(200).json({
+        ok: true
+      })
+    } catch (err) {
+      logger.error(err)
+      return res.status(500).json({
+        errorMessage: err.message
+      })
+    }
+  }
+
   ap.post(`/api/gun/chats/:publicKey?`, apiGunChatsPost)
+  ap.delete(`/api/gun/chats/:publicKey?`, apiGunChatsDelete)
 
   /**
    * @typedef {object} RequestsRouteParams
