@@ -2055,6 +2055,175 @@ module.exports = async (
   ap.put(`/api/gun/me`, apiGunMePut)
 
   /**
+   * @typedef {object} ChatsRouteParams
+   * @prop {(string|undefined)=} publicKey
+   */
+
+  /**
+   * @type {RequestHandler<ChatsRouteParams>}
+   */
+  const apiGunChatsPost = async (req, res) => {
+    const { publicKey } = req.params
+    const { body } = req.body
+
+    if (!publicKey) {
+      return res.status(400).json({
+        errorMessage: `Must specify a publicKey route param for POSTing a message`
+      })
+    }
+
+    try {
+      const user = GunDB.getUser()
+      const SEA = GunDB.mySEA
+
+      await GunActions.sendMessage(publicKey,body, user, SEA)
+
+      return res.status(200).json({
+        ok: true
+      })
+    } catch (err) {
+      logger.error(err)
+      return res.status(500).json({
+        errorMessage: err.message
+      })
+    }
+  }
+
+  ap.post(`/api/gun/chats/:publicKey?`, apiGunChatsPost)
+
+  /**
+   * @typedef {object} RequestsRouteParams
+   * @prop {(string|undefined)=} requestID
+   */
+
+  /**
+   * @type {RequestHandler<{}>}
+   */
+  const apiGunRequestsReceivedGet =  (_, res) => {
+    try {
+      // spinup
+      Events.onSimplerReceivedRequests(() => {})()
+      const data = Events.getCurrentReceivedReqs()
+
+      return res.status(200).json({
+        data
+      })
+    } catch (err) {
+      logger.error(err)
+      return res.status(500).json({
+        errorMessage: err.message
+      })
+    }
+  }
+
+  /**
+   * @type {RequestHandler<{}>}
+   */
+  const apiGunRequestsSentGet = (_, res) => {
+    try {
+      // spinup
+      Events.onSimplerSentRequests(() => {})()
+      const data = Events.getCurrentSentReqs()
+
+      return res.status(200).json({
+        data
+      })
+    } catch (err) {
+      logger.error(err)
+      return res.status(500).json({
+        errorMessage: err.message
+      })
+    }
+  }
+
+  /**
+   * @typedef {object} RequestsRoutePOSTBody
+   * @prop {string=} initialMsg
+   * @prop {string} publicKey
+   */
+
+  /**
+   * @type {RequestHandler<{}>}
+   */
+  const apiGunRequestsPost = async (req, res) => {
+    const { initialMsg, publicKey } = /** @type {RequestsRoutePOSTBody} */(req.body)
+
+    if (!publicKey) {
+      return res.status(400).json({
+        errorMessage: `Must specify a publicKey route param for POSTing a message`
+      })
+    }
+
+    try {
+      const gun = require('../services/gunDB/Mediator').getGun()
+      const user = require('../services/gunDB/Mediator').getUser()
+      const SEA = require('../services/gunDB/Mediator').mySEA
+
+      if (initialMsg) {
+        await GunActions.sendHRWithInitialMsg(initialMsg, publicKey, gun, user, SEA)
+      } else {
+        await GunActions.sendHandshakeRequest(publicKey, gun, user, SEA)
+      }
+
+      return res.status(200).json({
+        ok: true
+      })
+    } catch (err) {
+      logger.error(err);
+      return res.status(500).json({
+        errorMessage: err.message
+      })
+    }
+  }
+
+  /**
+   * @typedef {object} RequestsRoutePUTBody
+   * @prop {boolean=} accept
+   */
+
+  /**
+   * @type {RequestHandler<RequestsRouteParams>}
+   */
+  const apiGunRequestsPut = async (req, res) => {
+    const { requestID } = req.params
+    const { accept } = /** @type {RequestsRoutePUTBody} */(req.body)
+
+    if (!requestID) {
+      return res.status(400).json({
+        errorMessage: `Must specify a requestID route param for accepting a request`
+      })
+    }
+
+    if (!accept) {
+      return res.status(200).json({
+        ok: true
+      })
+    }
+
+    try {
+      const gun = require('../services/gunDB/Mediator').getGun()
+      const user = require('../services/gunDB/Mediator').getUser()
+      const SEA = require('../services/gunDB/Mediator').mySEA
+
+      await GunActions.acceptRequest(requestID, gun, user, SEA)
+
+      return res.status(200).json({
+        ok: true
+      })
+    } catch (err) {
+      logger.error(err);
+      return res.status(500).json({
+        errorMessage: err.message
+      })
+    }
+  }
+
+  ap.get(`/api/gun/requests/received`, apiGunRequestsReceivedGet)
+  ap.get(`/api/gun/requests/sent`, apiGunRequestsSentGet)
+  ap.post('/api/gun/requests/', apiGunRequestsPost)
+  ap.put(`/api/gun/requests/:requestID?`, apiGunRequestsPut)
+
+  /**
    * Return app so that it can be used by express.
    */
   // return app;
