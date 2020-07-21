@@ -1720,9 +1720,12 @@ module.exports = async (
     try {
       // spinup
       Events.onSimplerReceivedRequests(() => {})()
-      const data = Events.getCurrentReceivedReqs()
-      res.json({
-        data,
+      // ensure event data gets updated before fetching it
+      process.nextTick(() => {
+        const data = Events.getCurrentReceivedReqs()
+        res.json({
+          data,
+        })
       })
     } catch (err) {
       logger.info('Error in Received Requests poll:')
@@ -1737,10 +1740,14 @@ module.exports = async (
     try {
       // spinup
       Events.onSimplerSentRequests(() => {})()
-      const data = Events.getCurrentSentReqs()
-      logger.info(`Sent requests poll: ${JSON.stringify(data, null, 4)}`)
-      res.json({
-        data,
+      
+      // ensure event data gets updated before fetching it
+      process.nextTick(() => {
+        const data = Events.getCurrentSentReqs()
+        logger.info(`Sent requests poll: ${JSON.stringify(data, null, 4)}`)
+        res.json({
+          data,
+        })
       })
     } catch (err) {
       logger.info('Error in sentRequests poll:')
@@ -1755,10 +1762,14 @@ module.exports = async (
     try {
       // spinup
       Events.onChats(() => {})()
-      const data =  Events.getChats()
-      logger.info(`Chats polled: ${data.length}`)
-      res.json({
-        data
+
+      // ensure event data gets updated before fetching it
+      process.nextTick(() => {
+        const data =  Events.getChats()
+        logger.info(`Chats polled: ${data.length}`)
+        res.json({
+          data,
+        })
       })
     } catch (err) {
       logger.info('Error in Chats poll:')
@@ -2131,10 +2142,13 @@ module.exports = async (
     try {
       // spinup
       Events.onSimplerReceivedRequests(() => {})()
-      const data = Events.getCurrentReceivedReqs()
 
-      return res.status(200).json({
-        data
+      // ensure event data gets updated before fetching it
+      process.nextTick(() => {
+        const data = Events.getCurrentReceivedReqs()
+        res.json({
+          data,
+        })
       })
     } catch (err) {
       logger.error(err)
@@ -2151,10 +2165,14 @@ module.exports = async (
     try {
       // spinup
       Events.onSimplerSentRequests(() => {})()
-      const data = Events.getCurrentSentReqs()
+      
 
-      return res.status(200).json({
-        data
+      // ensure event data gets updated before fetching it
+      process.nextTick(() => {
+        const data = Events.getCurrentSentReqs()
+        res.json({
+          data,
+        })
       })
     } catch (err) {
       logger.error(err)
