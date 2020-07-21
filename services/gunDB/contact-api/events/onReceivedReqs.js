@@ -50,6 +50,7 @@ const react = debounce(() => {
 
   for (const [id, req] of Object.entries(currAddressData)) {
     const inContact = Array.isArray(pubToFeed[req.from])
+    const isDisconnected = pubToFeed[req.from] === 'disconnected'
 
     if (typeof pubToAvatar[req.from] === 'undefined') {
       // eslint-disable-next-line no-empty-function
@@ -60,7 +61,7 @@ const react = debounce(() => {
       Streams.onDisplayName(() => {}, req.from)()
     }
 
-    if (!inContact) {
+    if (!inContact && !isDisconnected) {
       newReceivedReqsMap[req.from] = {
         id,
         requestorAvatar: pubToAvatar[req.from] || null,
