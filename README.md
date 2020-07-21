@@ -12,7 +12,8 @@ For easy setup on your Laptop/Desktop, [a wizard is available here.](https://git
 * Requires [Node.js](https://nodejs.org) 12
 
 #### Steps:
-1) Run [LND](https://github.com/lightningnetwork/lnd/releases) - *Example mainnet startup*:
+1) Run [LND](https://github.com/shocknet/lnd/releases) - *Example mainnet startup*:
+(Neutrino example requires builds with experimental flags, our binaries include them.)
 
  ```./lnd --bitcoin.active --bitcoin.mainnet --bitcoin.node=neutrino --neutrino.connect=neutrino.shock.network --routing.assumechanvalid=1 --allow-circular-route=1```
 
