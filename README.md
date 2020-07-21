@@ -16,7 +16,7 @@ For easy setup on your Laptop/Desktop, [a wizard is available here.](https://git
 
 (Neutrino example requires builds with experimental flags, our binaries include them.)
 
- ```./lnd --bitcoin.active=1 --bitcoin.mainnet --bitcoin.node=neutrino --neutrino.connect=neutrino.shock.network --routing.assumechanvalid=1 --allow-circular-route=1```
+ ```./lnd --bitcoin.active --bitcoin.mainnet --bitcoin.node=neutrino --neutrino.connect=neutrino.shock.network --routing.assumechanvalid --allow-circular-route```
 
 
 2) Download and Install API
