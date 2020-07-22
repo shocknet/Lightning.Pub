@@ -1718,14 +1718,9 @@ module.exports = async (
   
   app.get(`/api/gun/${GunEvent.ON_RECEIVED_REQUESTS}`, (_, res) => {
     try {
-      // spinup
-      Events.onSimplerReceivedRequests(() => {})()
-      // ensure event data gets updated before fetching it
-      process.nextTick(() => {
-        const data = Events.getCurrentReceivedReqs()
-        res.json({
-          data,
-        })
+      const data = Events.getCurrentReceivedReqs()
+      res.json({
+        data,
       })
     } catch (err) {
       logger.info('Error in Received Requests poll:')
@@ -1738,16 +1733,10 @@ module.exports = async (
 
   app.get(`/api/gun/${GunEvent.ON_SENT_REQUESTS}`, (_, res) => {
     try {
-      // spinup
-      Events.onSimplerSentRequests(() => {})()
-      
-      // ensure event data gets updated before fetching it
-      process.nextTick(() => {
-        const data = Events.getCurrentSentReqs()
-        logger.info(`Sent requests poll: ${JSON.stringify(data, null, 4)}`)
-        res.json({
-          data,
-        })
+      const data = Events.getCurrentSentReqs()
+      logger.info(`Sent requests poll: ${JSON.stringify(data, null, 4)}`)
+      res.json({
+        data,
       })
     } catch (err) {
       logger.info('Error in sentRequests poll:')
@@ -1760,16 +1749,10 @@ module.exports = async (
 
   app.get(`/api/gun/${GunEvent.ON_CHATS}`, (_, res) => {
     try {
-      // spinup
-      Events.onChats(() => {})()
-
-      // ensure event data gets updated before fetching it
-      process.nextTick(() => {
-        const data =  Events.getChats()
-        logger.info(`Chats polled: ${data.length}`)
-        res.json({
-          data,
-        })
+      const data =  Events.getChats()
+      logger.info(`Chats polled: ${data.length}`)
+      res.json({
+        data,
       })
     } catch (err) {
       logger.info('Error in Chats poll:')
@@ -2140,15 +2123,9 @@ module.exports = async (
    */
   const apiGunRequestsReceivedGet =  (_, res) => {
     try {
-      // spinup
-      Events.onSimplerReceivedRequests(() => {})()
-
-      // ensure event data gets updated before fetching it
-      process.nextTick(() => {
-        const data = Events.getCurrentReceivedReqs()
-        res.json({
-          data,
-        })
+      const data = Events.getCurrentReceivedReqs()
+      res.json({
+        data,
       })
     } catch (err) {
       logger.error(err)
@@ -2163,16 +2140,9 @@ module.exports = async (
    */
   const apiGunRequestsSentGet = (_, res) => {
     try {
-      // spinup
-      Events.onSimplerSentRequests(() => {})()
-      
-
-      // ensure event data gets updated before fetching it
-      process.nextTick(() => {
-        const data = Events.getCurrentSentReqs()
-        res.json({
-          data,
-        })
+      const data = Events.getCurrentSentReqs()
+      res.json({
+        data,
       })
     } catch (err) {
       logger.error(err)
