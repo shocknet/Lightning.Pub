@@ -1,6 +1,7 @@
 /** @format */
 const debounce = require('lodash/debounce')
 const logger = require('winston')
+const size = require('lodash/size')
 
 const Streams = require('../streams')
 /**
@@ -29,7 +30,7 @@ const listeners = new Set()
 let currentReqs = []
 
 listeners.add(() => {
-  logger.info(`new sent reqs: ${JSON.stringify(currentReqs)}`)
+  logger.info(`new sent reqs length: ${currentReqs}`)
 })
 
 const getCurrentSentReqs = () => currentReqs
@@ -55,9 +56,7 @@ const react = debounce(() => {
   // pk to display name
   const pubToDN = Streams.getPubToDn()
 
-  logger.info(
-    `pubToLastSentREqID: ${JSON.stringify(pubToLastSentReqID, null, 4)}`
-  )
+  logger.info(`pubToLastSentREqID length: ${size(pubToLastSentReqID)}`)
 
   for (const storedReq of storedReqs) {
     const { handshakeAddress, recipientPub, sentReqID, timestamp } = storedReq

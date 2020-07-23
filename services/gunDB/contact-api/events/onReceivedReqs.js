@@ -2,6 +2,7 @@
 const debounce = require('lodash/debounce')
 const logger = require('winston')
 const { Schema } = require('shock-common')
+const size = require('lodash/size')
 
 const Key = require('../key')
 const Streams = require('../streams')
@@ -96,7 +97,7 @@ const listenerForAddr = addr => data => {
     }
   }
 
-  logger.info('data for address: ' + addr)
+  logger.info('data for address length: ' + size(addr))
   logger.info(JSON.stringify(data, null, 4))
 
   react()
