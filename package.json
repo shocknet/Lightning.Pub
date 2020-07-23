@@ -1,5 +1,5 @@
 {
-  "name": "sw-server",
+  "name": "shockapi",
   "version": "1.0.0",
   "description": "",
   "main": "src/server.js",
@@ -34,12 +34,12 @@
     "google-proto-files": "^1.0.3",
     "graphviz": "0.0.8",
     "grpc": "^1.21.1",
-    "gun": "git://github.com/amark/gun#3e678b8568a4a8a825b84b26759d4dd4f3b0988e",
+    "gun": "git://github.com/amark/gun#97aa976c97e6219a9f93095d32c220dcd371ca62",
     "husky": "^4.2.5",
     "jsonfile": "^4.0.0",
     "jsonwebtoken": "^8.3.0",
     "localtunnel": "^1.9.0",
-    "lodash": "^4.17.15",
+    "lodash": "^4.17.19",
     "method-override": "^2.3.7",
     "promise": "^8.0.1",
     "ramda": "^0.27.0",
@@ -78,7 +78,7 @@
     "nodemon": "^1.19.3",
     "prettier": "^1.18.2",
     "ts-type": "^1.2.16",
-    "typescript": "^3.6.3"
+    "typescript": "^3.9.6"
   },
   "lint-staged": {
     "*.js": [

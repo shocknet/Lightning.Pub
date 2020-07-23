@@ -30,9 +30,20 @@ interface OpenListenerDataObj {
 export type Listener = (data: ListenerData, key: string) => void
 export type Callback = (ack: Ack) => void
 
+export interface Peer {
+  url: string
+  id: string
+  wire?: {
+    readyState: number
+  }
+}
+
 export interface Soul {
   get: string
   put: Primitive | null | object | undefined
+  opt: {
+    peers: Record<string, Peer>
+  }
 }
 
 export type OpenListenerData = Primitive | null | OpenListenerDataObj
@@ -47,7 +58,7 @@ export interface GUNNodeBase {
   map(): GUNNode
 
   on(this: GUNNode, cb: Listener): void
-  once(this: GUNNode, cb?: Listener): GUNNode
+  once(this: GUNNode, cb?: Listener, opts?: { wait: number }): GUNNode
 
   open(this: GUNNode, cb?: OpenListener): GUNNode
   load(this: GUNNode, cb?: OpenListener): GUNNode

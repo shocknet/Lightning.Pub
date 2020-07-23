@@ -49,14 +49,14 @@ const getAnUser = async publicKey => {
 
   /** @type {Common.SchemaTypes.User} */
   const u = {
-    avatar: oldProfile.avatar,
+    avatar: oldProfile.avatar || null,
     // @ts-ignore
-    bio,
-    displayName: oldProfile.displayName,
+    bio: bio || null,
+    displayName: oldProfile.displayName || null,
     // @ts-ignore
-    lastSeenApp,
+    lastSeenApp: lastSeenApp || 0,
     // @ts-ignore
-    lastSeenNode,
+    lastSeenNode: lastSeenNode || 0,
     // @ts-ignore
     publicKey
   }
