@@ -13,6 +13,7 @@ const responseTime = require("response-time");
 const uuid = require("uuid/v4");
 const Common = require('shock-common')
 const isARealUsableNumber = require('lodash/isFinite')
+const size = require('lodash/size')
 
 const getListPage = require("../utils/paginate");
 const auth = require("../services/auth/auth");
@@ -2249,7 +2250,18 @@ module.exports = async (
         u.get(GunKey.USER_TO_INCOMING).load(data => {
           res(data)
         })
-      }))
+      }), v => {
+        if (typeof v !== 'object') {
+          return true
+        }
+  
+        if (v === null) {
+          return true
+        }
+  
+        // load sometimes returns an empty set on the first try
+        return size(v) === 0
+      })
 
       return res.status(200).json({
         data
@@ -2269,7 +2281,18 @@ module.exports = async (
         u.get(GunKey.RECIPIENT_TO_OUTGOING).load(data => {
           res(data)
         })
-      }))
+      }), v => {
+        if (typeof v !== 'object') {
+          return true
+        }
+  
+        if (v === null) {
+          return true
+        }
+  
+        // load sometimes returns an empty set on the first try
+        return size(v) === 0
+      })
 
       return res.status(200).json({
         data
@@ -2289,7 +2312,18 @@ module.exports = async (
         u.get(GunKey.OUTGOINGS).load(data => {
           res(data)
         })
-      }))
+      }), v => {
+        if (typeof v !== 'object') {
+          return true
+        }
+  
+        if (v === null) {
+          return true
+        }
+  
+        // load sometimes returns an empty set on the first try
+        return size(v) === 0
+      })
 
       return res.status(200).json({
         data
@@ -2328,7 +2362,18 @@ module.exports = async (
             res(data)
           })
         })
-      )
+      , v => {
+        if (typeof v !== 'object') {
+          return true
+        }
+  
+        if (v === null) {
+          return true
+        }
+  
+        // load sometimes returns an empty set on the first try
+        return size(v) === 0
+      })
 
       return res.status(200).json({
         data
@@ -2350,7 +2395,18 @@ module.exports = async (
             res(data)
           })
         })
-      )
+      , v => {
+        if (typeof v !== 'object') {
+          return true
+        }
+  
+        if (v === null) {
+          return true
+        }
+  
+        // load sometimes returns an empty set on the first try
+        return size(v) === 0
+      })
 
       return res.status(200).json({
         data
