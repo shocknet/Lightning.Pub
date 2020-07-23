@@ -272,8 +272,6 @@ module.exports = async (
 
   app.use(async (req, res, next) => {
     try {
-      logger.info("Route:", req.path)
-
       if (unprotectedRoutes[req.method][req.path]) {
         next();
         return;
