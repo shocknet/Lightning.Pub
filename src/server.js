@@ -10,6 +10,8 @@ const server = program => {
   const Express = require('express')
   const Crypto = require('crypto')
   const Dotenv = require('dotenv')
+  const Storage = require('node-persist')
+  const Path = require('path')
   const LightningServices = require('../utils/lightningServices')
   const Encryption = require('../utils/encryptionStore')
   const app = Express()
@@ -25,6 +27,7 @@ const server = program => {
   } = require('../utils/protectedRoutes')
   // load app default configuration data
   const defaults = require('../config/defaults')(program.mainnet)
+  const rootFolder = process.resourcesPath || __dirname
   // define useful global variables ======================================
   Dotenv.config()
   module.useTLS = program.usetls
@@ -220,9 +223,28 @@ const server = program => {
         }
         next()
       })
+
+      await Storage.init({
+        dir: Path.resolve(rootFolder, '../.storage')
+      })
+
+      const getSessionSecret = async () => {
+        const sessionSecret = await Storage.getItem('config/sessionSecret')
+
+        if (sessionSecret) {
+          return sessionSecret
+        }
+
+        const newSecret = await Encryption.generateRandomString()
+        await Storage.setItem('config/sessionSecret', newSecret)
+        return newSecret
+      }
+
+      const sessionSecret = await getSessionSecret()
+
       app.use(
         session({
-          secret: defaults.sessionSecret,
+          secret: sessionSecret,
           cookie: { maxAge: defaults.sessionMaxAge },
           resave: true,
           rolling: true,
