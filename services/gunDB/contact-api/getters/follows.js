@@ -28,6 +28,7 @@ exports.currentFollows = async () => {
         return true
       }
 
+      // load sometimes returns an empty set on the first try
       if (size(v) === 0) {
         return true
       }
