@@ -372,50 +372,13 @@ const cleanup = async pub => {
 
   const outGoingID = await Utils.recipientToOutgoingID(pub)
 
-  await new Promise((res, rej) => {
-    user
-      .get(Key.USER_TO_INCOMING)
-      .get(pub)
-      .put(null, ack => {
-        if (ack.err) {
-          rej(new Error(ack.err))
-        } else {
-          res()
-        }
-      })
-  })
+  const promises = []
 
-  await new Promise((res, rej) => {
-    user
-      .get(Key.RECIPIENT_TO_OUTGOING)
-      .get(pub)
-      .put(null, ack => {
-        if (ack.err) {
-          rej(new Error(ack.err))
-        } else {
-          res()
-        }
-      })
-  })
-
-  await new Promise((res, rej) => {
-    user
-      .get(Key.USER_TO_LAST_REQUEST_SENT)
-      .get(pub)
-      .put(null, ack => {
-        if (ack.err) {
-          rej(new Error(ack.err))
-        } else {
-          res()
-        }
-      })
-  })
-
-  if (outGoingID) {
-    await new Promise((res, rej) => {
+  promises.push(
+    new Promise((res, rej) => {
       user
-        .get(Key.OUTGOINGS)
-        .get(outGoingID)
+        .get(Key.USER_TO_INCOMING)
+        .get(pub)
         .put(null, ack => {
           if (ack.err) {
             rej(new Error(ack.err))
@@ -424,7 +387,56 @@ const cleanup = async pub => {
           }
         })
     })
+  )
+
+  promises.push(
+    new Promise((res, rej) => {
+      user
+        .get(Key.RECIPIENT_TO_OUTGOING)
+        .get(pub)
+        .put(null, ack => {
+          if (ack.err) {
+            rej(new Error(ack.err))
+          } else {
+            res()
+          }
+        })
+    })
+  )
+
+  promises.push(
+    new Promise((res, rej) => {
+      user
+        .get(Key.USER_TO_LAST_REQUEST_SENT)
+        .get(pub)
+        .put(null, ack => {
+          if (ack.err) {
+            rej(new Error(ack.err))
+          } else {
+            res()
+          }
+        })
+    })
+  )
+
+  if (outGoingID) {
+    promises.push(
+      new Promise((res, rej) => {
+        user
+          .get(Key.OUTGOINGS)
+          .get(outGoingID)
+          .put(null, ack => {
+            if (ack.err) {
+              rej(new Error(ack.err))
+            } else {
+              res()
+            }
+          })
+      })
+    )
   }
+
+  await Promise.all(promises)
 }
 
 /**
@@ -1227,9 +1239,7 @@ const disconnect = async pub => {
     throw new Error('No handshake exists for this pub')
   }
 
-  await cleanup(pub)
-
-  await generateHandshakeAddress()
+  await Promise.all([cleanup(pub), generateHandshakeAddress()])
 }
 
 /**
