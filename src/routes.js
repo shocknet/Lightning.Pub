@@ -2317,6 +2317,35 @@ module.exports = async (
     }
   })
 
+
+ ap.get(`/api/gun/dev/storedReqs`, async (req, res) => {
+    try {
+      const {tryAndWait} = require('../services/gunDB/contact-api/utils')
+
+      const data = await tryAndWait((_, u) => 
+        new Promise((res) =>  u.get(Key.STORED_REQS).load(res))
+      , v => {
+        if (typeof v !== 'object') {
+          return true
+        }
+  
+        if (v === null) {
+          return true
+        }
+  
+        // load sometimes returns an empty set on the first try
+        return size(v) === 0
+      })
+
+      return res.status(200).json({
+        data
+      })
+    } catch (err) {
+      return res.status(500).json({
+        errorMessage: err.message
+      })
+    }
+  })
   /**
    * Return app so that it can be used by express.
    */
