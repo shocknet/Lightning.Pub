@@ -1920,8 +1920,13 @@ module.exports = async (
    * @type {RequestHandler<{}>}
    */
   const apiGunMePut = async (req, res) => {
+    /**
+     * @typedef {Omit<Common.Schema.User, 'publicKey'>} UserWithoutPK
+     * @typedef {{ handshakeAddress: boolean }} HasHandshakeAddress
+     * @typedef {UserWithoutPK & HasHandshakeAddress} MePutBody
+     */
     try {
-      const { avatar, bio , displayName} = /** @type {Partial<Omit<Common.Schema.User, 'publicKey'>>} */ (req.body)
+      const { avatar, bio , displayName, handshakeAddress } = /** @type {Partial<MePutBody>} */ (req.body)
 
     if (avatar) {
        await GunActions.setAvatar(avatar, require('../services/gunDB/Mediator').getUser())
@@ -1933,6 +1938,10 @@ module.exports = async (
 
      if (displayName) {
        await GunActions.setDisplayName(displayName, require('../services/gunDB/Mediator').getUser())
+     }
+
+     if (handshakeAddress) {
+       await GunActions.generateHandshakeAddress();
      }
 
      return res.status(200).json({
