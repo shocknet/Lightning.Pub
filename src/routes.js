@@ -2041,11 +2041,9 @@ module.exports = async (
       const user = GunDB.getUser()
       const SEA = GunDB.mySEA
 
-      await GunActions.sendMessage(publicKey,body, user, SEA)
-
-      return res.status(200).json({
-        ok: true
-      })
+      return res.status(200).json(
+        await GunActions.sendMessageNew(publicKey,body, user, SEA)
+      )
     } catch (err) {
       logger.error(err)
       return res.status(500).json({
