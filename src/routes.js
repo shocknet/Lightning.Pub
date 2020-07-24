@@ -1717,37 +1717,6 @@ module.exports = async (
 
   const Events = require('../services/gunDB/contact-api/events')
   
-  app.get(`/api/gun/${GunEvent.ON_RECEIVED_REQUESTS}`, (_, res) => {
-    try {
-      const data = Events.getCurrentReceivedReqs()
-      res.json({
-        data,
-      })
-    } catch (err) {
-      logger.info('Error in Received Requests poll:')
-      logger.error(err)
-      res.status(err.message === 'NON_AUTH' ? 401 : 500).json({
-        errorMessage: typeof err === 'string' ? err : err.message
-      })
-    }
-  })
-
-  app.get(`/api/gun/${GunEvent.ON_SENT_REQUESTS}`, (_, res) => {
-    try {
-      const data = Events.getCurrentSentReqs()
-      logger.info(`Sent requests poll: ${JSON.stringify(data, null, 4)}`)
-      res.json({
-        data,
-      })
-    } catch (err) {
-      logger.info('Error in sentRequests poll:')
-      logger.error(err)
-      res.status(err.message === 'NON_AUTH' ? 401 : 500).json({
-        errorMessage: typeof err === 'string' ? err : err.message
-      })
-    }
-  })
-
   app.get(`/api/gun/${GunEvent.ON_CHATS}`, (_, res) => {
     try {
       const data =  Events.getChats()
@@ -2235,6 +2204,8 @@ module.exports = async (
     }
   }
 
+  ap.get(`/api/gun/${GunEvent.ON_RECEIVED_REQUESTS}`, apiGunRequestsReceivedGet)
+  ap.get(`/api/gun/${GunEvent.ON_SENT_REQUESTS}`, apiGunRequestsSentGet)
   ap.get(`/api/gun/requests/received`, apiGunRequestsReceivedGet)
   ap.get(`/api/gun/requests/sent`, apiGunRequestsSentGet)
   ap.post('/api/gun/requests/', apiGunRequestsPost)
