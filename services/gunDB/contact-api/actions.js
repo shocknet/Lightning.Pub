@@ -631,9 +631,9 @@ const sendHandshakeRequest = async (recipientPublicKey, gun, user, SEA) => {
  * @param {string} body
  * @param {UserGUNNode} user
  * @param {ISEA} SEA
- * @returns {Promise<string>} The message id.
+ * @returns {Promise<import('shock-common').Schema.ChatMessage>} The message id.
  */
-const sendMessage = async (recipientPublicKey, body, user, SEA) => {
+const sendMessageNew = async (recipientPublicKey, body, user, SEA) => {
   if (!user.is) {
     throw new Error(ErrorCode.NOT_AUTH)
   }
@@ -691,11 +691,27 @@ const sendMessage = async (recipientPublicKey, body, user, SEA) => {
         if (ack.err) {
           rej(new Error(ack.err))
         } else {
-          res(msgNode._.get)
+          res({
+            body,
+            id: msgNode._.get,
+            outgoing: true,
+            timestamp: newMessage.timestamp
+          })
         }
       })
   })
 }
+
+/**
+ * Returns the message id.
+ * @param {string} recipientPublicKey
+ * @param {string} body
+ * @param {UserGUNNode} user
+ * @param {ISEA} SEA
+ * @returns {Promise<string>} The message id.
+ */
+const sendMessage = async (recipientPublicKey, body, user, SEA) =>
+  (await sendMessageNew(recipientPublicKey, body, user, SEA)).id
 
 /**
  * @param {string} recipientPub
@@ -1589,5 +1605,6 @@ module.exports = {
   deletePost,
   follow,
   unfollow,
-  initWall
+  initWall,
+  sendMessageNew
 }

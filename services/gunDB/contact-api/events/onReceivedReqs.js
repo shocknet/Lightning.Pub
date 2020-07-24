@@ -98,7 +98,6 @@ const listenerForAddr = addr => data => {
   }
 
   logger.info('data for address length: ' + size(addr))
-  logger.info(JSON.stringify(data, null, 4))
 
   react()
 }
