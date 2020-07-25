@@ -6,6 +6,7 @@ const {
   Constants: { ErrorCode },
   Schema
 } = require('shock-common')
+const size = require('lodash/size')
 
 const Key = require('../key')
 const Utils = require('../utils')
@@ -126,8 +127,8 @@ const onAcceptedRequests = (user, SEA) => {
                         res(feed)
                       })
                   }),
-                // retry on undefined, might be a false negative
-                v => typeof v === 'undefined'
+                // @ts-expect-error
+                v => size(v) === 0
               )
 
               const feedIDExistsOnRecipientsOutgoings =
