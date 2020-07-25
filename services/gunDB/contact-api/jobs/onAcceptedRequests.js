@@ -51,14 +51,20 @@ const onAcceptedRequests = (user, SEA) => {
               ' this can be due to nulling out an old request (if null) or something else happened (please look at the output)'
           )
         }
+        // get the recipient pub from the stored request to avoid an attacker
+        // overwriting the handshake request in the root graph
         const recipientPub = await SEA.decrypt(storedReq.recipientPub, mySecret)
 
         if (typeof recipientPub !== 'string') {
-          throw new TypeError()
+          throw new TypeError(
+            `Expected storedReq.recipientPub to be an string, instead got: ${recipientPub}`
+          )
         }
+
         if (await Utils.successfulHandshakeAlreadyExists(recipientPub)) {
           return
         }
+
         const requestAddress = await SEA.decrypt(
           storedReq.handshakeAddress,
           mySecret
@@ -101,9 +107,9 @@ const onAcceptedRequests = (user, SEA) => {
                 return
               }
 
-              // The response can be decrypted with the same secret regardless of who
-              // wrote to it last (see HandshakeRequest definition).
-              // This could be our feed ID for the recipient, or the recipient's feed
+              // The response can be decrypted with the same secret regardless
+              // of who wrote to it last (see HandshakeRequest definition). This
+              // could be our feed ID for the recipient, or the recipient's feed
               // id if he accepted the request.
               const feedID = await SEA.decrypt(sentReq.response, ourSecret)
 
