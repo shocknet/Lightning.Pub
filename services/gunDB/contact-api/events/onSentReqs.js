@@ -30,7 +30,7 @@ const listeners = new Set()
 let currentReqs = []
 
 listeners.add(() => {
-  logger.info(`new sent reqs length: ${currentReqs}`)
+  logger.info(`new sent reqs length: ${size(currentReqs)}`)
 })
 
 const getCurrentSentReqs = () => currentReqs
