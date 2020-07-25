@@ -40,15 +40,16 @@ const onAcceptedRequests = (user, SEA) => {
       logger.info(
         `------------------------------------\nPROCID:${procid} (used for debugging memory leaks in jobs)\n---------------------------------------`
       )
+
       const mySecret = require('../../Mediator').getMySecret()
+
       try {
         if (!Schema.isStoredRequest(storedReq)) {
-          logger.warn(
+          throw new Error(
             'Stored request not an StoredRequest, instead got: ' +
               JSON.stringify(storedReq) +
               ' this can be due to nulling out an old request (if null) or something else happened (please look at the output)'
           )
-          return
         }
         const recipientPub = await SEA.decrypt(storedReq.recipientPub, mySecret)
 
