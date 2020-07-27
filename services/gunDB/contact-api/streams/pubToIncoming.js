@@ -3,6 +3,7 @@ const uuidv1 = require('uuid/v1')
 const debounce = require('lodash/debounce')
 const logger = require('winston')
 const { Utils: CommonUtils } = require('shock-common')
+const size = require('lodash/size')
 
 const { USER_TO_INCOMING } = require('../key')
 /** @typedef {import('../SimpleGUN').OpenListenerData} OpenListenerData */
@@ -30,9 +31,7 @@ const setPubToIncoming = pti => {
 let latestUpdate = uuidv1()
 
 listeners.add(() => {
-  logger.info(
-    `new pubToIncoming: ${JSON.stringify(getPubToIncoming(), null, 4)}`
-  )
+  logger.info(`new pubToIncoming length: ${size(getPubToIncoming())}`)
 })
 
 const onOpen = debounce(async uti => {

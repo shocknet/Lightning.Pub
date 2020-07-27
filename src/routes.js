@@ -13,6 +13,7 @@ const responseTime = require("response-time");
 const uuid = require("uuid/v4");
 const Common = require('shock-common')
 const isARealUsableNumber = require('lodash/isFinite')
+const size = require('lodash/size')
 
 const getListPage = require("../utils/paginate");
 const auth = require("../services/auth/auth");
@@ -23,6 +24,7 @@ const GunDB = require("../services/gunDB/Mediator");
 const { unprotectedRoutes, nonEncryptedRoutes } = require("../utils/protectedRoutes");
 const GunActions = require("../services/gunDB/contact-api/actions")
 const GunGetters = require('../services/gunDB/contact-api/getters')
+const GunKey = require('../services/gunDB/contact-api/key')
 
 const DEFAULT_MAX_NUM_ROUTES_TO_QUERY = 10;
 const SESSION_ID = uuid();
@@ -272,8 +274,6 @@ module.exports = async (
 
   app.use(async (req, res, next) => {
     try {
-      logger.info("Route:", req.path)
-
       if (unprotectedRoutes[req.method][req.path]) {
         next();
         return;
@@ -437,76 +437,6 @@ module.exports = async (
           
         });
         
-        /*
-        const feedObj = {
-          feed: [
-              {
-                  id:'bd7acbea-c1b1-46c2-aed5-3ad53abb28ba',
-                  paragraphs:[
-                      "SOme text and stuff 12"
-                      "SOme text and stuff"
-                  ],
-                  profilePic:"",
-                  username:"bobni",
-                  media:[
-                      {
-                          type:'VIDEO',
-                          ratio_x: 1024,
-                          ratio_y: 436,
-                          magnetUri:'magnet:?xt=urn:btih:08ada5a7a6183aae1e09d831df6748d566095a10&dn=Sintel&tr=udp%3A%2F%2Fexplodie.org%3A6969&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Ftracker.empire-js.us%3A1337&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337&tr=wss%3A%2F%2Ftracker.btorrent.xyz&tr=wss%3A%2F%2Ftracker.fastcast.nz&tr=wss%3A%2F%2Ftracker.openwebtorrent.com&ws=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2F&xs=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2Fsintel.torrent',
-                      },
-                  ]
-              },
-              {
-                  id:'3ac68afc-c605-48d3-a4f8-fbd91aa97f63',
-                  paragraphs:[
-                      "SOme text and stuff"
-                  ],
-                  profilePic:"",
-                  username:"bobni",
-                  media:[
-                      {
-                          type:'VIDEO',
-                          ratio_x: 1920,
-                          ratio_y: 804,
-                          magnetUri:'magnet:?xt=urn:btih:c9e15763f722f23e98a29decdfae341b98d53056&dn=Cosmos+Laundromat&tr=udp%3A%2F%2Fexplodie.org%3A6969&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Ftracker.empire-js.us%3A1337&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337&tr=wss%3A%2F%2Ftracker.btorrent.xyz&tr=wss%3A%2F%2Ftracker.fastcast.nz&tr=wss%3A%2F%2Ftracker.openwebtorrent.com&ws=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2F&xs=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2Fcosmos-laundromat.torrent',
-                      },
-                  ]
-              },
-              {
-                  id:'58694a0f-3da1-471f-bd96-145571e29d72',
-                  paragraphs:[
-                      "SOme text and stuff"
-                  ],
-                  profilePic:"",
-                  username:"bobni",
-                  media:[
-                      {
-                          type:'VIDEO',
-                          ratio_x: 1920,
-                          ratio_y: 1080,
-                          magnetUri:'magnet:?xt=urn:btih:dd8255ecdc7ca55fb0bbf81323d87062db1f6d1c&dn=Big+Buck+Bunny&tr=udp%3A%2F%2Fexplodie.org%3A6969&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Ftracker.empire-js.us%3A1337&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337&tr=wss%3A%2F%2Ftracker.btorrent.xyz&tr=wss%3A%2F%2Ftracker.fastcast.nz&tr=wss%3A%2F%2Ftracker.openwebtorrent.com&ws=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2F&xs=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2Fbig-buck-bunny.torrent',
-                      },
-                  ]
-              }
-          ]
-        }
-        user.get("FEED_POC").put(JSON.stringify(feedObj), ack => {
-          if (ack.err) {
-            //rej(new Error(ack.err))
-        }*/
-        const feedObj = {
-          feed :{}
-        }
-        user.get("FEED_POC").put(feedObj, ack => {
-          if (ack.err) {
-            //rej(ack.err)
-            logger.log(ack.err)
-          } else {
-            logger.log(ack.err)
-          }
-        })
-
         //register to listen for channel backups
         const onNewChannelBackup  = () => {
           logger.warn("Subscribing to channel backup ...")
@@ -1715,49 +1645,12 @@ module.exports = async (
 
   const Events = require('../services/gunDB/contact-api/events')
   
-  app.get(`/api/gun/${GunEvent.ON_RECEIVED_REQUESTS}`, (_, res) => {
-    try {
-      // spinup
-      Events.onSimplerReceivedRequests(() => {})()
-      const data = Events.getCurrentReceivedReqs()
-      res.json({
-        data,
-      })
-    } catch (err) {
-      logger.info('Error in Received Requests poll:')
-      logger.error(err)
-      res.status(err.message === 'NON_AUTH' ? 401 : 500).json({
-        errorMessage: typeof err === 'string' ? err : err.message
-      })
-    }
-  })
-
-  app.get(`/api/gun/${GunEvent.ON_SENT_REQUESTS}`, (_, res) => {
-    try {
-      // spinup
-      Events.onSimplerSentRequests(() => {})()
-      const data = Events.getCurrentSentReqs()
-      logger.info(`Sent requests poll: ${JSON.stringify(data, null, 4)}`)
-      res.json({
-        data,
-      })
-    } catch (err) {
-      logger.info('Error in sentRequests poll:')
-      logger.error(err)
-      res.status(err.message === 'NON_AUTH' ? 401 : 500).json({
-        errorMessage: typeof err === 'string' ? err : err.message
-      })
-    }
-  })
-
   app.get(`/api/gun/${GunEvent.ON_CHATS}`, (_, res) => {
     try {
-      // spinup
-      Events.onChats(() => {})()
       const data =  Events.getChats()
-      logger.info(`Chats polled: ${JSON.stringify(data, null, 4)}`)
+      logger.info(`Chats polled: ${data.length}`)
       res.json({
-        data
+        data,
       })
     } catch (err) {
       logger.info('Error in Chats poll:')
@@ -1772,7 +1665,7 @@ module.exports = async (
     try {
       const user = require('../services/gunDB/Mediator').getUser()
       const data = await timeout5(user.get(Key.PROFILE).get(Key.AVATAR).then())
-      logger.info(`avatar poll:${data}`)
+      logger.info(`avatar poll:${(data || '').length} chars`)
       res.json({
         data
       })
@@ -2025,8 +1918,13 @@ module.exports = async (
    * @type {RequestHandler<{}>}
    */
   const apiGunMePut = async (req, res) => {
+    /**
+     * @typedef {Omit<Common.Schema.User, 'publicKey'>} UserWithoutPK
+     * @typedef {{ handshakeAddress: boolean }} HasHandshakeAddress
+     * @typedef {UserWithoutPK & HasHandshakeAddress} MePutBody
+     */
     try {
-      const { avatar, bio , displayName} = /** @type {Partial<Omit<Common.Schema.User, 'publicKey'>>} */ (req.body)
+      const { avatar, bio , displayName, handshakeAddress } = /** @type {Partial<MePutBody>} */ (req.body)
 
     if (avatar) {
        await GunActions.setAvatar(avatar, require('../services/gunDB/Mediator').getUser())
@@ -2038,6 +1936,10 @@ module.exports = async (
 
      if (displayName) {
        await GunActions.setDisplayName(displayName, require('../services/gunDB/Mediator').getUser())
+     }
+
+     if (handshakeAddress) {
+       await GunActions.generateHandshakeAddress();
      }
 
      return res.status(200).json({
@@ -2054,6 +1956,432 @@ module.exports = async (
   ap.get(`/api/gun/me`, apiGunMeGet)
   ap.put(`/api/gun/me`, apiGunMePut)
 
+  /**
+   * @typedef {object} ChatsRouteParams
+   * @prop {(string|undefined)=} publicKey
+   */
+
+  /**
+   * @type {RequestHandler<ChatsRouteParams>}
+   */
+  const apiGunChatsPost = async (req, res) => {
+    const { publicKey } = req.params
+    const { body } = req.body
+
+    if (!publicKey) {
+      return res.status(400).json({
+        errorMessage: `Must specify a publicKey route param for POSTing a message`
+      })
+    }
+
+    try {
+      const user = GunDB.getUser()
+      const SEA = GunDB.mySEA
+
+      return res.status(200).json(
+        await GunActions.sendMessageNew(publicKey,body, user, SEA)
+      )
+    } catch (err) {
+      logger.error(err)
+      return res.status(500).json({
+        errorMessage: err.message
+      })
+    }
+  }
+
+  /**
+   * @type {RequestHandler<ChatsRouteParams>}
+   */
+  const apiGunChatsDelete = async (req, res) => {
+    const { publicKey } = req.params
+
+    if (!publicKey) {
+      return res.status(400).json({
+        errorMessage: `Must specify a publicKey route param for DELETING a chat`
+      })
+    }
+
+    try {
+      await GunActions.disconnect(publicKey)
+
+      return res.status(200).json({
+        ok: true
+      })
+    } catch (err) {
+      logger.error(err)
+      return res.status(500).json({
+        errorMessage: err.message
+      })
+    }
+  }
+
+  ap.post(`/api/gun/chats/:publicKey?`, apiGunChatsPost)
+  ap.delete(`/api/gun/chats/:publicKey?`, apiGunChatsDelete)
+
+  /**
+   * @typedef {object} RequestsRouteParams
+   * @prop {(string|undefined)=} requestID
+   */
+
+  /**
+   * @type {RequestHandler<{}>}
+   */
+  const apiGunRequestsReceivedGet =  (_, res) => {
+    try {
+      const data = Events.getCurrentReceivedReqs()
+      res.json({
+        data,
+      })
+    } catch (err) {
+      logger.error(err)
+      return res.status(500).json({
+        errorMessage: err.message
+      })
+    }
+  }
+
+  /**
+   * @type {RequestHandler<{}>}
+   */
+  const apiGunRequestsSentGet = (_, res) => {
+    try {
+      const data = Events.getCurrentSentReqs()
+      res.json({
+        data,
+      })
+    } catch (err) {
+      logger.error(err)
+      return res.status(500).json({
+        errorMessage: err.message
+      })
+    }
+  }
+
+  /**
+   * @typedef {object} RequestsRoutePOSTBody
+   * @prop {string=} initialMsg
+   * @prop {string} publicKey
+   */
+
+  /**
+   * @type {RequestHandler<{}>}
+   */
+  const apiGunRequestsPost = async (req, res) => {
+    const { initialMsg, publicKey } = /** @type {RequestsRoutePOSTBody} */(req.body)
+
+    if (!publicKey) {
+      return res.status(400).json({
+        errorMessage: `Must specify a publicKey route param for POSTing a message`
+      })
+    }
+
+    try {
+      const gun = require('../services/gunDB/Mediator').getGun()
+      const user = require('../services/gunDB/Mediator').getUser()
+      const SEA = require('../services/gunDB/Mediator').mySEA
+
+      if (initialMsg) {
+        await GunActions.sendHRWithInitialMsg(initialMsg, publicKey, gun, user, SEA)
+      } else {
+        await GunActions.sendHandshakeRequest(publicKey, gun, user, SEA)
+      }
+
+      return res.status(200).json({
+        ok: true
+      })
+    } catch (err) {
+      logger.error(err);
+      return res.status(500).json({
+        errorMessage: err.message
+      })
+    }
+  }
+
+  /**
+   * @typedef {object} RequestsRoutePUTBody
+   * @prop {boolean=} accept
+   */
+
+  /**
+   * @type {RequestHandler<RequestsRouteParams>}
+   */
+  const apiGunRequestsPut = async (req, res) => {
+    const { requestID } = req.params
+    const { accept } = /** @type {RequestsRoutePUTBody} */(req.body)
+
+    if (!requestID) {
+      return res.status(400).json({
+        errorMessage: `Must specify a requestID route param for accepting a request`
+      })
+    }
+
+    if (!accept) {
+      return res.status(200).json({
+        ok: true
+      })
+    }
+
+    try {
+      const gun = require('../services/gunDB/Mediator').getGun()
+      const user = require('../services/gunDB/Mediator').getUser()
+      const SEA = require('../services/gunDB/Mediator').mySEA
+
+      await GunActions.acceptRequest(requestID, gun, user, SEA)
+
+      return res.status(200).json({
+        ok: true
+      })
+    } catch (err) {
+      logger.error(err);
+      return res.status(500).json({
+        errorMessage: err.message
+      })
+    }
+  }
+
+  ap.get(`/api/gun/${GunEvent.ON_RECEIVED_REQUESTS}`, apiGunRequestsReceivedGet)
+  ap.get(`/api/gun/${GunEvent.ON_SENT_REQUESTS}`, apiGunRequestsSentGet)
+  ap.get(`/api/gun/requests/received`, apiGunRequestsReceivedGet)
+  ap.get(`/api/gun/requests/sent`, apiGunRequestsSentGet)
+  ap.post('/api/gun/requests/', apiGunRequestsPost)
+  ap.put(`/api/gun/requests/:requestID?`, apiGunRequestsPut)
+
+
+
+  ap.get(`/api/gun/dev/userToIncoming`, async (_, res) => {
+    try {
+      const {tryAndWait} = require('../services/gunDB/contact-api/utils')
+
+      const data = await tryAndWait((_, u) => new Promise(res => {
+        u.get(GunKey.USER_TO_INCOMING).load(data => {
+          res(data)
+        })
+      }), v => {
+        if (typeof v !== 'object') {
+          return true
+        }
+  
+        if (v === null) {
+          return true
+        }
+  
+        // load sometimes returns an empty set on the first try
+        return size(v) === 0
+      })
+
+      return res.status(200).json({
+        data
+      })
+    } catch (err) {
+      return res.status(500).json({
+        errorMessage: err.message
+      })
+    }
+  })
+
+  ap.get(`/api/gun/dev/recipientToOutgoing`, async (_, res) => {
+    try {
+      const {tryAndWait} = require('../services/gunDB/contact-api/utils')
+
+      const data = await tryAndWait((_, u) => new Promise(res => {
+        u.get(GunKey.RECIPIENT_TO_OUTGOING).load(data => {
+          res(data)
+        })
+      }), v => {
+        if (typeof v !== 'object') {
+          return true
+        }
+  
+        if (v === null) {
+          return true
+        }
+  
+        // load sometimes returns an empty set on the first try
+        return size(v) === 0
+      })
+
+      return res.status(200).json({
+        data
+      })
+    } catch (err) {
+      return res.status(500).json({
+        errorMessage: err.message
+      })
+    }
+  })
+
+  ap.get(`/api/gun/dev/outgoings`, async (_, res) => {
+    try {
+      const {tryAndWait} = require('../services/gunDB/contact-api/utils')
+
+      const data = await tryAndWait((_, u) => new Promise(res => {
+        u.get(GunKey.OUTGOINGS).load(data => {
+          res(data)
+        })
+      }), v => {
+        if (typeof v !== 'object') {
+          return true
+        }
+  
+        if (v === null) {
+          return true
+        }
+  
+        // load sometimes returns an empty set on the first try
+        return size(v) === 0
+      })
+
+      return res.status(200).json({
+        data
+      })
+    } catch (err) {
+      return res.status(500).json({
+        errorMessage: err.message
+      })
+    }
+  })
+
+  
+  ap.get(`/api/gun/dev/currentHandshakeAddress`, async (_, res) => {
+    try {
+      const {tryAndWait} = require('../services/gunDB/contact-api/utils')
+
+      const data = await tryAndWait((_, u) => u.get(GunKey.CURRENT_HANDSHAKE_ADDRESS).then())
+
+      return res.status(200).json({
+        data
+      })
+    } catch (err) {
+      return res.status(500).json({
+        errorMessage: err.message
+      })
+    }
+  })
+
+  ap.get(`/api/gun/dev/handshakeNodes/:handshakeAddress`, async (req, res) => {
+    try {
+      const {tryAndWait} = require('../services/gunDB/contact-api/utils')
+
+      const data = await tryAndWait((g) => 
+        new Promise((res) => {
+          g.get(GunKey.HANDSHAKE_NODES).get(req.params.handshakeAddress).load(data => {
+            res(data)
+          })
+        })
+      , v => {
+        if (typeof v !== 'object') {
+          return true
+        }
+  
+        if (v === null) {
+          return true
+        }
+  
+        // load sometimes returns an empty set on the first try
+        return size(v) === 0
+      })
+
+      return res.status(200).json({
+        data
+      })
+    } catch (err) {
+      return res.status(500).json({
+        errorMessage: err.message
+      })
+    }
+  })
+
+  ap.get(`/api/gun/dev/user/:publicKey`, async (req, res) => {
+    try {
+      const {tryAndWait} = require('../services/gunDB/contact-api/utils')
+
+      const data = await tryAndWait((g) => 
+        new Promise((res) => {
+          g.user(req.params.publicKey).load(data => {
+            res(data)
+          })
+        })
+      , v => {
+        if (typeof v !== 'object') {
+          return true
+        }
+  
+        if (v === null) {
+          return true
+        }
+  
+        // load sometimes returns an empty set on the first try
+        return size(v) === 0
+      })
+
+      return res.status(200).json({
+        data
+      })
+    } catch (err) {
+      return res.status(500).json({
+        errorMessage: err.message
+      })
+    }
+  })
+
+
+ ap.get(`/api/gun/dev/storedReqs`, async (req, res) => {
+    try {
+      const {tryAndWait} = require('../services/gunDB/contact-api/utils')
+
+      const data = await tryAndWait((_, u) => 
+        new Promise((res) =>  u.get(Key.STORED_REQS).load(res))
+      , v => {
+        if (typeof v !== 'object') {
+          return true
+        }
+  
+        if (v === null) {
+          return true
+        }
+  
+        // load sometimes returns an empty set on the first try
+        return size(v) === 0
+      })
+
+      return res.status(200).json({
+        data
+      })
+    } catch (err) {
+      return res.status(500).json({
+        errorMessage: err.message
+      })
+    }
+  })
+
+  ap.get(`/api/gun/dev/userToLastReqSent`, async (req, res) => {
+    try {
+      const {tryAndWait} = require('../services/gunDB/contact-api/utils')
+
+      const data = await tryAndWait((_, u) => 
+        new Promise((res) =>  u.get(Key.USER_TO_LAST_REQUEST_SENT).load(res))
+      , v => {
+        if (typeof v !== 'object') {
+          return true
+        }
+  
+        if (v === null) {
+          return true
+        }
+  
+        // load sometimes returns an empty set on the first try
+        return size(v) === 0
+      })
+
+      return res.status(200).json({
+        data
+      })
+    } catch (err) {
+      return res.status(500).json({
+        errorMessage: err.message
+      })
+    }
+  })
   /**
    * Return app so that it can be used by express.
    */
