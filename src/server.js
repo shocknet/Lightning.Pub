@@ -195,31 +195,34 @@ const server = program => {
       })
 
       app.use((req, res, next) => {
-        if (sensitiveRoutes[req.method][req.path]) {
-          logger.info(
-            JSON.stringify({
-              time: new Date(),
-              ip: req.ip,
-              method: req.method,
-              path: req.path,
-              sessionId: req.sessionId
-            })
-          )
-        } else {
-          logger.info(
-            JSON.stringify({
-              time: new Date(),
-              ip: req.ip,
-              method: req.method,
-              path: req.path,
-              body: req.body,
-              query: req.query,
-              sessionId: req.sessionId
-            })
-          )
+        if (process.env.ROUTE_LOGGING === 'true') {
+          if (sensitiveRoutes[req.method][req.path]) {
+            logger.info(
+              JSON.stringify({
+                time: new Date(),
+                ip: req.ip,
+                method: req.method,
+                path: req.path,
+                sessionId: req.sessionId
+              })
+            )
+          } else {
+            logger.info(
+              JSON.stringify({
+                time: new Date(),
+                ip: req.ip,
+                method: req.method,
+                path: req.path,
+                body: req.body,
+                query: req.query,
+                sessionId: req.sessionId
+              })
+            )
+          }
         }
         next()
       })
+
       app.use(
         session({
           secret: defaults.sessionSecret,
