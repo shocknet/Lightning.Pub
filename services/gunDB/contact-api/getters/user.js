@@ -2,6 +2,7 @@
  * @format
  */
 const Common = require('shock-common')
+const size = require('lodash/size')
 
 const Key = require('../key')
 const Utils = require('../utils')
@@ -72,7 +73,18 @@ module.exports.getAnUser = getAnUser
 const getMyUser = async () => {
   const oldProfile = await Utils.tryAndWait(
     (_, user) => new Promise(res => user.get(Key.PROFILE).load(res)),
-    v => typeof v !== 'object'
+    v => {
+      if (typeof v !== 'object') {
+        return true
+      }
+
+      if (v === null) {
+        return true
+      }
+
+      // load sometimes returns an empty set on the first try
+      return size(v) === 0
+    }
   )
 
   const bio = await Utils.tryAndWait(
