@@ -7,7 +7,9 @@ module.exports = {
       "/favicon.ico": true,
       "/api/lnd/connect": true,
       "/api/lnd/wallet/status": true,
-      "/api/lnd/auth": true
+      "/api/lnd/auth": true,
+      //
+      "/api/gun/auth": true
     },
     POST: {
       "/api/lnd/connect": true,
@@ -28,5 +30,5 @@ module.exports = {
     PUT: {},
     DELETE: {}
   },
-  nonEncryptedRoutes: ['/api/security/exchangeKeys', '/healthz', '/ping', '/api/lnd/wallet/status']
+  nonEncryptedRoutes: ['/api/security/exchangeKeys', '/healthz', '/ping', '/api/lnd/wallet/status', '/api/gun/auth']
 }

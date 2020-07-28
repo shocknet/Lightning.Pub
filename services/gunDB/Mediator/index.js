@@ -324,6 +324,18 @@ const authenticate = async (alias, pass, __user) => {
     API.Jobs.onAcceptedRequests(_user, mySEA)
     API.Jobs.onOrders(_user, gun, mySEA)
     API.Jobs.lastSeenNode(_user)
+
+    API.Events.onAvatar(() => {}, user)()
+    API.Events.onBio(() => {}, user)
+    API.Events.onBlacklist(() => {}, user)
+    API.Events.onChats(() => {})()
+    API.Events.onCurrentHandshakeAddress(() => {}, user)()
+    API.Events.onDisplayName(() => {}, user)()
+    API.Events.onOutgoing(() => {})()
+    API.Events.onSeedBackup(() => {}, user, mySEA)
+    API.Events.onSimplerReceivedRequests(() => {})()
+    API.Events.onSimplerSentRequests(() => {})()
+
     return _user._.sea.pub
   }
 
@@ -371,6 +383,17 @@ const authenticate = async (alias, pass, __user) => {
     API.Jobs.onAcceptedRequests(_user, mySEA)
     API.Jobs.onOrders(_user, gun, mySEA)
     API.Jobs.lastSeenNode(_user)
+
+    API.Events.onAvatar(() => {}, user)()
+    API.Events.onBio(() => {}, user)
+    API.Events.onBlacklist(() => {}, user)
+    API.Events.onChats(() => {})()
+    API.Events.onCurrentHandshakeAddress(() => {}, user)()
+    API.Events.onDisplayName(() => {}, user)()
+    API.Events.onOutgoing(() => {})()
+    API.Events.onSeedBackup(() => {}, user, mySEA)
+    API.Events.onSimplerReceivedRequests(() => {})()
+    API.Events.onSimplerSentRequests(() => {})()
 
     return ack.sea.pub
   } else {

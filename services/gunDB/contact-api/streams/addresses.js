@@ -1,5 +1,6 @@
 /** @format */
 const logger = require('winston')
+const size = require('lodash/size')
 
 const Key = require('../key')
 /**
@@ -13,7 +14,7 @@ const pubToAddress = {}
 const listeners = new Set()
 
 listeners.add(() => {
-  logger.info(`pubToAddress: ${JSON.stringify(pubToAddress, null, 4)}`)
+  logger.info(`pubToAddress length: ${size(pubToAddress)}`)
 })
 
 const notify = () => listeners.forEach(l => l())
