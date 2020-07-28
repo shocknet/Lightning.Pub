@@ -2382,6 +2382,14 @@ module.exports = async (
       })
     }
   })
+
+  ap.get(`/api/gun/auth`, (_, res) => {
+    const { isAuthenticated } = require('../services/gunDB/Mediator')
+
+    return res.status(200).json({
+      data: isAuthenticated()
+    })
+  })
   /**
    * Return app so that it can be used by express.
    */
