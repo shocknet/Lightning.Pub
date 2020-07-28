@@ -9,6 +9,7 @@ const Utils = require('../utils')
 const Wall = require('./wall')
 const Feed = require('./feed')
 const User = require('./user')
+const { size } = require('lodash')
 
 /**
  * @param {string} pub
@@ -51,7 +52,18 @@ exports.userToIncomingID = async pub => {
 const getMyUser = async () => {
   const oldProfile = await Utils.tryAndWait(
     (_, user) => new Promise(res => user.get(Key.PROFILE).load(res)),
-    v => typeof v !== 'object'
+    v => {
+      if (typeof v !== 'object') {
+        return true
+      }
+
+      if (v === null) {
+        return true
+      }
+
+      // load sometimes returns an empty set on the first try
+      return size(v) === 0
+    }
   )
 
   const bio = await Utils.tryAndWait(

@@ -3,6 +3,7 @@ const uuidv1 = require('uuid/v1')
 const logger = require('winston')
 const debounce = require('lodash/debounce')
 const { Schema, Utils: CommonUtils } = require('shock-common')
+const size = require('lodash/size')
 
 const Key = require('../key')
 const Utils = require('../utils')
@@ -29,7 +30,7 @@ let pubToFeed = {}
 const getPubToFeed = () => pubToFeed
 
 feedsListeners.add(() => {
-  logger.info(`new pubToFeed: ${JSON.stringify(getPubToFeed())}`)
+  logger.info(`new pubToFeed length: ${size(getPubToFeed())}`)
 })
 
 /** @param {Feeds} ptf */
