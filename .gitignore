@@ -2,6 +2,8 @@ node_modules
 services/auth/secrets.json
 .env
 *.log
+# New logger date format
+*.log.*
 .directory
 
 radata/
