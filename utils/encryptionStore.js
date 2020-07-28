@@ -163,7 +163,19 @@ const Encryption = {
    */
   unAuthorizeDevice: ({ deviceId }) => {
     authorizedDevices.delete(deviceId)
-  }
+  },
+  generateRandomString: (length = 16) =>
+    new Promise((resolve, reject) => {
+      Crypto.randomBytes(length, (err, buffer) => {
+        if (err) {
+          reject(err)
+          return
+        }
+
+        const token = buffer.toString('hex')
+        resolve(token)
+      })
+    })
 }
 
 module.exports = Encryption

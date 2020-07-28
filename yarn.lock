@@ -388,7 +388,7 @@
 
 "@peculiar/asn1-schema@^2.0.1", "@peculiar/asn1-schema@^2.0.8":
   version "2.0.8"
-  resolved "https://registry.yarnpkg.com/@peculiar/asn1-schema/-/asn1-schema-2.0.8.tgz#bafb74388590f6ec3d53d1b2a4fdbe66d44224a4"
+  resolved "https://registry.npmjs.org/@peculiar/asn1-schema/-/asn1-schema-2.0.8.tgz#bafb74388590f6ec3d53d1b2a4fdbe66d44224a4"
   integrity sha512-D8ZqT61DdzuXfrILNvtdf7MUcTY2o9WHwmF0WgTKPEGNY5SDxNAjBY3enuwV9SXcSuCAwWac9c9v0vsswB1NIw==
   dependencies:
     "@types/asn1js" "^0.0.1"
@@ -398,14 +398,14 @@
 
 "@peculiar/json-schema@^1.1.10":
   version "1.1.12"
-  resolved "https://registry.yarnpkg.com/@peculiar/json-schema/-/json-schema-1.1.12.tgz#fe61e85259e3b5ba5ad566cb62ca75b3d3cd5339"
+  resolved "https://registry.npmjs.org/@peculiar/json-schema/-/json-schema-1.1.12.tgz#fe61e85259e3b5ba5ad566cb62ca75b3d3cd5339"
   integrity sha512-coUfuoMeIB7B8/NMekxaDzLhaYmp0HZNPEjYRm9goRou8UZIC3z21s0sL9AWoCw4EG876QyO3kYrc61WNF9B/w==
   dependencies:
     tslib "^2.0.0"
 
 "@peculiar/webcrypto@^1.1.1":
   version "1.1.2"
-  resolved "https://registry.yarnpkg.com/@peculiar/webcrypto/-/webcrypto-1.1.2.tgz#3114da877ddd9d2d0be10188371e15855aa71368"
+  resolved "https://registry.npmjs.org/@peculiar/webcrypto/-/webcrypto-1.1.2.tgz#3114da877ddd9d2d0be10188371e15855aa71368"
   integrity sha512-BkgD5iH2n3+Fdd/+xfhac8VbISo4MPvECPhK1kRpuYC7PnhxaJe2rpU7B4udvMeEL8lhJlvCWybo8Y7A29u/xQ==
   dependencies:
     "@peculiar/asn1-schema" "^2.0.8"
@@ -476,7 +476,7 @@
 
 "@types/asn1js@^0.0.1":
   version "0.0.1"
-  resolved "https://registry.yarnpkg.com/@types/asn1js/-/asn1js-0.0.1.tgz#ef8b9f9708cb1632a1c3a9cd27717caabe793bc2"
+  resolved "https://registry.npmjs.org/@types/asn1js/-/asn1js-0.0.1.tgz#ef8b9f9708cb1632a1c3a9cd27717caabe793bc2"
   integrity sha1-74uflwjLFjKhw6nNJ3F8qr55O8I=
   dependencies:
     "@types/pvutils" "*"
@@ -652,7 +652,7 @@
 
 "@types/pvutils@*":
   version "0.0.2"
-  resolved "https://registry.yarnpkg.com/@types/pvutils/-/pvutils-0.0.2.tgz#e21684962cfa58ac920fd576d90556032dc86009"
+  resolved "https://registry.npmjs.org/@types/pvutils/-/pvutils-0.0.2.tgz#e21684962cfa58ac920fd576d90556032dc86009"
   integrity sha512-CgQAm7pjyeF3Gnv78ty4RBVIfluB+Td+2DR8iPaU0prF18pkzptHHP+DoKPfpsJYknKsVZyVsJEu5AuGgAqQ5w==
 
 "@types/ramda@types/npm-ramda#dist":
@@ -4693,6 +4693,11 @@ node-notifier@^5.4.2:
     shellwords "^0.1.1"
     which "^1.3.0"
 
+node-persist@^3.1.0:
+  version "3.1.0"
+  resolved "https://registry.npmjs.org/node-persist/-/node-persist-3.1.0.tgz#9d4b03950bba70d37d13d3d3551840e25fd17e09"
+  integrity sha512-/j+fd/u71wNgKf3V2bx4tnDm+3GvLnlCuvf2MXbJ3wern+67IAb6zN9Leu1tCWPlPNZ+v1hLSibVukkPK2HqJw==
+
 node-pre-gyp@^0.12.0:
   version "0.12.0"
   resolved "https://registry.yarnpkg.com/node-pre-gyp/-/node-pre-gyp-0.12.0.tgz#39ba4bb1439da030295f899e3b520b7785766149"
@@ -5389,7 +5394,7 @@ punycode@^2.1.0, punycode@^2.1.1:
 
 pvtsutils@^1.0.10:
   version "1.0.10"
-  resolved "https://registry.yarnpkg.com/pvtsutils/-/pvtsutils-1.0.10.tgz#157d0fcb853f570d32e0f8788179f3057eacdf38"
+  resolved "https://registry.npmjs.org/pvtsutils/-/pvtsutils-1.0.10.tgz#157d0fcb853f570d32e0f8788179f3057eacdf38"
   integrity sha512-8ZKQcxnZKTn+fpDh7wL4yKax5fdl3UJzT8Jv49djZpB/dzPxacyN1Sez90b6YLdOmvIr9vaySJ5gw4aUA1EdSw==
   dependencies:
     tslib "^1.10.0"
@@ -6594,12 +6599,12 @@ tslib@^1.10.0, tslib@^1.9.0:
 
 tslib@^1.11.1, tslib@^1.11.2:
   version "1.13.0"
-  resolved "https://registry.yarnpkg.com/tslib/-/tslib-1.13.0.tgz#c881e13cc7015894ed914862d276436fa9a47043"
+  resolved "https://registry.npmjs.org/tslib/-/tslib-1.13.0.tgz#c881e13cc7015894ed914862d276436fa9a47043"
   integrity sha512-i/6DQjL8Xf3be4K/E6Wgpekn5Qasl1usyw++dAA35Ue5orEn65VIxOA+YvNNl9HV3qv70T7CNwjODHZrLwvd1Q==
 
 tslib@^2.0.0:
   version "2.0.0"
-  resolved "https://registry.yarnpkg.com/tslib/-/tslib-2.0.0.tgz#18d13fc2dce04051e20f074cc8387fd8089ce4f3"
+  resolved "https://registry.npmjs.org/tslib/-/tslib-2.0.0.tgz#18d13fc2dce04051e20f074cc8387fd8089ce4f3"
   integrity sha512-lTqkx847PI7xEDYJntxZH89L2/aXInsyF2luSafe/+0fHOMjlBNXdH6th7f70qxLDhul7KZK0zC8V5ZIyHl0/g==
 
 tunnel-agent@^0.6.0:
@@ -6844,7 +6849,7 @@ wcwidth@^1.0.1:
 
 webcrypto-core@^1.1.2:
   version "1.1.2"
-  resolved "https://registry.yarnpkg.com/webcrypto-core/-/webcrypto-core-1.1.2.tgz#c522a9e5596688f2b6bb19e2d336f68efa8bdd57"
+  resolved "https://registry.npmjs.org/webcrypto-core/-/webcrypto-core-1.1.2.tgz#c522a9e5596688f2b6bb19e2d336f68efa8bdd57"
   integrity sha512-LxM/dTcXr/ZnwwKLox0tGEOIqvP7KIJ4Hk/fFPX20tr1EgqTmpEFZinmu4FzoGVbs6e4jI1priQKCDrOBD3L6w==
   dependencies:
     "@peculiar/asn1-schema" "^2.0.1"
@@ -7044,7 +7049,7 @@ ws@^5.2.0:
 
 ws@^7.2.1:
   version "7.3.1"
-  resolved "https://registry.yarnpkg.com/ws/-/ws-7.3.1.tgz#d0547bf67f7ce4f12a72dfe31262c68d7dc551c8"
+  resolved "https://registry.npmjs.org/ws/-/ws-7.3.1.tgz#d0547bf67f7ce4f12a72dfe31262c68d7dc551c8"
   integrity sha512-D3RuNkynyHmEJIpD2qrgVkc9DQ23OrN/moAwZX4L8DfvszsJxpjQuUq3LMx6HoYji9fbIOBY18XWBsAux1ZZUA==
 
 ws@~3.3.1:
