@@ -5,26 +5,39 @@ require("winston-daily-rotate-file");
 
 const winstonAttached = new Map();
 
+/**
+ * @param {string} logFileName
+ * @param {string} logLevel
+ * @returns {import("winston").Logger}
+ */
 module.exports = (logFileName, logLevel) => {
   if (!winstonAttached.has(logFileName)) {
-    winston.cli();
-  
-    winston.level = logLevel;
-  
-    winston.add(winston.transports.DailyRotateFile, {
+    winston.add(new (winston.transports.DailyRotateFile)({
       filename: logFileName,
-      datePattern: "yyyy-MM-dd.",
-      prepend: true,
+      datePattern: "yyyy-MM-DD",
       json: false,
       maxSize: 1000000,
       maxFiles: 7,
       level: logLevel
-    });
+    }))
+    winston.add(new winston.transports.Console({
+      format: winston.format.combine(
+        winston.format.colorize(),
+        winston.format.timestamp(),
+        winston.format.align(),
+        winston.format.printf((info) => {
+          const {
+            timestamp, level, message, ...args
+          } = info;
 
+          const ts = timestamp.slice(0, 19).replace('T', ' ');
+          return `${ts} [${level}]: ${message} ${Object.keys(args).length ? JSON.stringify(args, null, 2) : ''}`;
+        }),
+      )
+    }))
+    winston.level = logLevel
     winstonAttached.set(logFileName, winston)
-  
-    return winston;
   }
-
-  return winstonAttached.get(logFileName);
-};
+  
+  return winstonAttached.get(logFileName)
+}
