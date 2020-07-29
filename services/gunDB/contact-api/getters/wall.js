@@ -6,7 +6,7 @@ const Common = require('shock-common')
 const Utils = require('../utils')
 const Key = require('../key')
 
-const Wall = require('./user')
+const User = require('./user')
 
 /**
  * @param {string=} publicKey
@@ -160,9 +160,9 @@ const getWallPage = async (page, publicKey) => {
     } else {
       post.author = publicKey
         ? // eslint-disable-next-line no-await-in-loop
-          await Wall.getAnUser(publicKey)
+          await User.getAnUser(publicKey)
         : // eslint-disable-next-line no-await-in-loop
-          await Wall.getMyUser()
+          await User.getMyUser()
       post.id = key
     }
   }
