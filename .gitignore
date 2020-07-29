@@ -1,7 +1,10 @@
 node_modules
+.storage
 services/auth/secrets.json
 .env
 *.log
+# New logger date format
+*.log.*
 .directory
 
 radata/
