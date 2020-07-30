@@ -2,11 +2,14 @@
  * @format
  */
 const Common = require('shock-common')
+const pickBy = require('lodash/pickBy')
+const size = require('lodash/size')
+const mapValues = require('lodash/mapValues')
 
 const Utils = require('../utils')
 const Key = require('../key')
 
-const Wall = require('./user')
+const User = require('./user')
 
 /**
  * @param {string=} publicKey
@@ -96,6 +99,11 @@ const getWallPage = async (page, publicKey) => {
   }
 
   /**
+   * We just use it so Common.Schema.isWallPage passes.
+   */
+  const mockUser = await User.getMyUser()
+
+  /**
    * @type {Common.SchemaTypes.WallPage}
    */
   const thePage = await Utils.tryAndWait(
@@ -110,41 +118,57 @@ const getWallPage = async (page, publicKey) => {
       }
 
       return new Promise(res => {
+        // forces data fetch
         user
           .get(Key.WALL)
           .get(Key.PAGES)
           .get(actualPageIdx.toString())
           // @ts-ignore
-          .load(res)
+          .load(() => {})
+
+        process.nextTick(() => {
+          user
+            .get(Key.WALL)
+            .get(Key.PAGES)
+            .get(actualPageIdx.toString())
+            // @ts-ignore
+            .load(res)
+        })
       })
     },
     maybePage => {
-      if (typeof maybePage !== 'object' || maybePage === null) {
+      // sometimes load() returns an empty object on the first call
+      if (size(/** @type {any} */ (maybePage)) === 0) {
         return true
       }
 
-      const clean = {
-        ...maybePage
+      const page = /** @type {Common.Schema.WallPage} */ (maybePage)
+
+      if (typeof page.count !== 'number') {
+        return true
       }
 
-      // @ts-ignore
-      for (const [key, post] of Object.entries(clean.posts)) {
-        // delete unsuccessful writes
-        if (post === null) {
-          // @ts-ignore
-          delete clean.posts[key]
-        } else {
-          post.id = key
-        }
-      }
+      // removes 'unused' initializer and aborted writes
+      page.posts = pickBy(page.posts, v => v !== null)
 
       // .load() sometimes doesn't load all data on first call
-      // @ts-ignore
-      if (Object.keys(clean.posts).length === 0) {
+      if (size(page.posts) === 0) {
         return true
       }
 
-      return !Common.Schema.isWallPage(clean)
+      // Give ids based on keys
+      page.posts = mapValues(page.posts, (v, k) => ({
+        ...v,
+        id: k
+      }))
+
+      page.posts = mapValues(page.posts, v => ({
+        ...v,
+        // isWallPage() would otherwise not pass
+        author: mockUser
+      }))
+
+      return !Common.Schema.isWallPage(page)
     }
   )
 
@@ -160,9 +184,9 @@ const getWallPage = async (page, publicKey) => {
     } else {
       post.author = publicKey
         ? // eslint-disable-next-line no-await-in-loop
-          await Wall.getAnUser(publicKey)
+          await User.getAnUser(publicKey)
         : // eslint-disable-next-line no-await-in-loop
-          await Wall.getMyUser()
+          await User.getMyUser()
       post.id = key
     }
   }
