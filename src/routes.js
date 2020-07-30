@@ -1193,25 +1193,38 @@ module.exports = async (
       sat_per_byte:satPerByte,
     };
     logger.info("OpenChannelRequest", openChannelRequest);
+    let finalEvent = null //Object to send to the socket, depends on final event from the stream
     const openedChannel = lightning.openChannel(openChannelRequest);
-    // only emits one event
     openedChannel.on("data", response => {
       logger.debug("OpenChannelRequest:", response);
-      if (!res.headersSent) {
+      if(res.headersSent){//if res was already sent
+        if(response.update === 'chan_open'){
+          finalEvent = {status:'chan_open'}
+        }
+      } else {
         res.json(response);
       }
+      
     });
     openedChannel.on("error", async err => {
       logger.info("OpenChannelRequest Error:", err);
-      const health = await checkHealth();
-      if (health.LNDStatus.success && !res.headersSent) {
-        res.status(500).json({ field: "openChannelRequest", errorMessage: sanitizeLNDError(err.message) });
-      } else if (!res.headersSent) {
-        res.status(500);
-        res.json({ errorMessage: "LND is down" });
+      if(res.headersSent){
+        finalEvent = {error:err.details}//send error on socket if http has already finished
+      } else {
+        const health = await checkHealth();
+        if (health.LNDStatus.success) {
+          res.status(500).json({ field: "openChannelRequest", errorMessage: sanitizeLNDError(err.details) });
+        } else if (!res.headersSent) {
+          res.status(500);
+          res.json({ errorMessage: "LND is down" });
+        }
       }
     });
-    openedChannel.write(openChannelRequest)
+    openedChannel.on('end',()=> {
+      if(finalEvent !== null){//send the last event got from the stream
+        //TO DO send finalEvent on socket
+      }
+    })
   });
 
   // closechannel
@@ -1261,7 +1274,11 @@ module.exports = async (
     // this is the recommended value from lightning labs
     const { maxParts = 3, payreq } = req.body;
 
-    const paymentRequest = { payment_request: payreq, max_parts: maxParts };
+    const paymentRequest = { 
+      payment_request: payreq, 
+      max_parts: maxParts,
+      timeout_seconds:5
+    };
 
     if (req.body.amt) {
       paymentRequest.amt = req.body.amt;
@@ -1269,18 +1286,24 @@ module.exports = async (
 
     logger.info("Sending payment", paymentRequest);
     const sentPayment = router.sendPaymentV2(paymentRequest);
-
-    // only emits one event
+    let finalEvent = null //Object to send to the socket, depends on final event from the stream
     sentPayment.on("data", response => {
-      if (response.payment_error) {
-        logger.error("SendPayment Info:", response)
-        return res.status(500).json({
-          errorMessage: response.payment_error
-        });
+      if(res.headersSent){//if res was already sent
+        if(response.failure_reason !== 'FAILURE_REASON_NONE'){//if the operation failed
+          finalEvent = {error:response.failure_reason}
+        } else {
+          finalEvent = {status:response.status}
+        }
+      } else {
+        if (response.failure_reason !== 'FAILURE_REASON_NONE') {
+          logger.error("SendPayment Info:", response)
+          return res.status(500).json({
+            errorMessage: response.failure_reason
+          });
+        } 
+        logger.info("SendPayment Data:", response);
+        return res.json(response);
       }
-      
-      logger.info("SendPayment Data:", response);
-      return res.json(response);
     });
 
     sentPayment.on("status", status => {
@@ -1289,18 +1312,25 @@ module.exports = async (
 
     sentPayment.on("error", async err => {
       logger.error("SendPayment Error:", err);
-      const health = await checkHealth();
-      if (health.LNDStatus.success) {
-        res.status(500).json({
-          errorMessage: sanitizeLNDError(err.message)
-        });
+      if(res.headersSent){
+        finalEvent = {error:err.details}//send error on socket if http has already finished
       } else {
-        res.status(500);
-        res.json({ errorMessage: "LND is down" });
+        const health = await checkHealth();
+        if (health.LNDStatus.success) {
+          res.status(500).json({
+            errorMessage: sanitizeLNDError(err.details)
+          });
+        } else {
+          res.status(500);
+          res.json({ errorMessage: "LND is down" });
+        }
       }
     });
-
-    sentPayment.write(paymentRequest);
+    sentPayment.on('end',()=>{
+      if(finalEvent !== null){//send the last event got from the stream
+        //TO DO send finalEvent on socket
+      }
+    })
   });
 
   app.post("/api/lnd/trackpayment", (req, res) => {
