@@ -110,12 +110,22 @@ const getWallPage = async (page, publicKey) => {
       }
 
       return new Promise(res => {
+        // forces data fetch
         user
           .get(Key.WALL)
           .get(Key.PAGES)
           .get(actualPageIdx.toString())
           // @ts-ignore
-          .load(res)
+          .load(() => {})
+
+        process.nextTick(() => {
+          user
+            .get(Key.WALL)
+            .get(Key.PAGES)
+            .get(actualPageIdx.toString())
+            // @ts-ignore
+            .load(res)
+        })
       })
     },
     maybePage => {
