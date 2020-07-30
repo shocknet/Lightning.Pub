@@ -134,7 +134,7 @@ const onAcceptedRequests = (user, SEA) => {
                         res(feed)
                       })
                   }),
-                // @ts-expect-error
+                // @ts-ignore
                 v => size(v) === 0
               )
 

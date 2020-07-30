@@ -13,6 +13,7 @@ const responseTime = require("response-time");
 const uuid = require("uuid/v4");
 const Common = require('shock-common')
 const isARealUsableNumber = require('lodash/isFinite')
+const Big = require('big.js')
 const size = require('lodash/size')
 
 const getListPage = require("../utils/paginate");
@@ -1188,29 +1189,42 @@ module.exports = async (
     const openChannelRequest = {
       node_pubkey: Buffer.from(pubkey, 'hex'),
       local_funding_amount: channelCapacity,
-      push_sat: channelPushAmount,
+      push_sat: channelPushAmount === '' ? '0' : channelPushAmount,
       sat_per_byte:satPerByte,
     };
     logger.info("OpenChannelRequest", openChannelRequest);
+    let finalEvent = null //Object to send to the socket, depends on final event from the stream
     const openedChannel = lightning.openChannel(openChannelRequest);
-    // only emits one event
     openedChannel.on("data", response => {
       logger.debug("OpenChannelRequest:", response);
-      if (!res.headersSent) {
+      if(res.headersSent){//if res was already sent
+        if(response.update === 'chan_open'){
+          finalEvent = {status:'chan_open'}
+        }
+      } else {
         res.json(response);
       }
+      
     });
     openedChannel.on("error", async err => {
       logger.info("OpenChannelRequest Error:", err);
-      const health = await checkHealth();
-      if (health.LNDStatus.success && !res.headersSent) {
-        res.status(500).json({ field: "openChannelRequest", errorMessage: sanitizeLNDError(err.message) });
-      } else if (!res.headersSent) {
-        res.status(500);
-        res.json({ errorMessage: "LND is down" });
+      if(res.headersSent){
+        finalEvent = {error:err.details}//send error on socket if http has already finished
+      } else {
+        const health = await checkHealth();
+        if (health.LNDStatus.success) {
+          res.status(500).json({ field: "openChannelRequest", errorMessage: sanitizeLNDError(err.details) });
+        } else if (!res.headersSent) {
+          res.status(500);
+          res.json({ errorMessage: "LND is down" });
+        }
       }
     });
-    openedChannel.write(openChannelRequest)
+    openedChannel.on('end',()=> {
+      if(finalEvent !== null){//send the last event got from the stream
+        //TO DO send finalEvent on socket
+      }
+    })
   });
 
   // closechannel
@@ -1260,7 +1274,11 @@ module.exports = async (
     // this is the recommended value from lightning labs
     const { maxParts = 3, payreq } = req.body;
 
-    const paymentRequest = { payment_request: payreq, max_parts: maxParts };
+    const paymentRequest = { 
+      payment_request: payreq, 
+      max_parts: maxParts,
+      timeout_seconds:5
+    };
 
     if (req.body.amt) {
       paymentRequest.amt = req.body.amt;
@@ -1268,18 +1286,24 @@ module.exports = async (
 
     logger.info("Sending payment", paymentRequest);
     const sentPayment = router.sendPaymentV2(paymentRequest);
-
-    // only emits one event
+    let finalEvent = null //Object to send to the socket, depends on final event from the stream
     sentPayment.on("data", response => {
-      if (response.payment_error) {
-        logger.error("SendPayment Info:", response)
-        return res.status(500).json({
-          errorMessage: response.payment_error
-        });
+      if(res.headersSent){//if res was already sent
+        if(response.failure_reason !== 'FAILURE_REASON_NONE'){//if the operation failed
+          finalEvent = {error:response.failure_reason}
+        } else {
+          finalEvent = {status:response.status}
+        }
+      } else {
+        if (response.failure_reason !== 'FAILURE_REASON_NONE') {
+          logger.error("SendPayment Info:", response)
+          return res.status(500).json({
+            errorMessage: response.failure_reason
+          });
+        } 
+        logger.info("SendPayment Data:", response);
+        return res.json(response);
       }
-      
-      logger.info("SendPayment Data:", response);
-      return res.json(response);
     });
 
     sentPayment.on("status", status => {
@@ -1288,18 +1312,25 @@ module.exports = async (
 
     sentPayment.on("error", async err => {
       logger.error("SendPayment Error:", err);
-      const health = await checkHealth();
-      if (health.LNDStatus.success) {
-        res.status(500).json({
-          errorMessage: sanitizeLNDError(err.message)
-        });
+      if(res.headersSent){
+        finalEvent = {error:err.details}//send error on socket if http has already finished
       } else {
-        res.status(500);
-        res.json({ errorMessage: "LND is down" });
+        const health = await checkHealth();
+        if (health.LNDStatus.success) {
+          res.status(500).json({
+            errorMessage: sanitizeLNDError(err.details)
+          });
+        } else {
+          res.status(500);
+          res.json({ errorMessage: "LND is down" });
+        }
       }
     });
-
-    sentPayment.write(paymentRequest);
+    sentPayment.on('end',()=>{
+      if(finalEvent !== null){//send the last event got from the stream
+        //TO DO send finalEvent on socket
+      }
+    })
   });
 
   app.post("/api/lnd/trackpayment", (req, res) => {
@@ -1381,7 +1412,7 @@ module.exports = async (
     if (req.body.expiry) {
       invoiceRequest.expiry = req.body.expiry;
     }
-    lightning.addInvoice(invoiceRequest, async (err, response) => {
+    lightning.addInvoice(invoiceRequest, async (err, newInvoice) => {
       if (err) {
         logger.debug("AddInvoice Error:", err);
         const health = await checkHealth();
@@ -1396,8 +1427,40 @@ module.exports = async (
         }
         return err;
       }
-      logger.debug("AddInvoice:", response);
-      res.json(response);
+      logger.debug("AddInvoice:", newInvoice);
+      if (req.body.value) {
+        logger.debug("AddInvoice liquidity check:");
+        lightning.listChannels({active_only:true}, async (err, response) => {
+          if (err) {
+            logger.debug("ListChannels Error:", err);
+            const health = await checkHealth();
+            if (health.LNDStatus.success) {
+              res.status(400).json({
+                field: "listChannels",
+                errorMessage: sanitizeLNDError(err.message)
+              });
+            } else {
+              res.status(500);
+              res.json({ errorMessage: "LND is down" });
+            }
+          }
+          logger.debug("ListChannels:", response);
+          const channelsList = response.channels
+          let remoteBalance = Big(0)
+          channelsList.forEach(element=>{
+            const remB = Big(element.remote_balance)
+            if(remB.gt(remoteBalance)){
+              remoteBalance = remB
+            }
+          })
+          newInvoice.liquidityCheck = remoteBalance > req.body.value
+          //newInvoice.remoteBalance = remoteBalance 
+          res.json(newInvoice);
+        });
+      } else {
+        res.json(newInvoice);
+      }
+      
     });
   });
 
