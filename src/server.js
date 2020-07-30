@@ -166,37 +166,6 @@ const server = program => {
 
       app.use(compression())
 
-      app.use(async (req, res, next) => {
-        logger.info('Route:', req.path)
-        if (unprotectedRoutes[req.method][req.path]) {
-          next()
-        } else {
-          try {
-            const response = await auth.validateToken(
-              req.headers.authorization.replace('Bearer ', '')
-            )
-            if (response.valid) {
-              next()
-            } else {
-              res.status(401).json({
-                field: 'authorization',
-                errorMessage:
-                  "The authorization token you've supplied is invalid"
-              })
-            }
-          } catch (err) {
-            logger.error(
-              !req.headers.authorization
-                ? 'Please add an Authorization header'
-                : err
-            )
-            res
-              .status(401)
-              .json({ field: 'authorization', errorMessage: 'Please log in' })
-          }
-        }
-      })
-
       app.use((req, res, next) => {
         if (process.env.ROUTE_LOGGING === 'true') {
           if (sensitiveRoutes[req.method][req.path]) {
