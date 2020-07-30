@@ -1189,7 +1189,7 @@ module.exports = async (
     const openChannelRequest = {
       node_pubkey: Buffer.from(pubkey, 'hex'),
       local_funding_amount: channelCapacity,
-      push_sat: channelPushAmount,
+      push_sat: channelPushAmount === '' ? '0' : channelPushAmount,
       sat_per_byte:satPerByte,
     };
     logger.info("OpenChannelRequest", openChannelRequest);
