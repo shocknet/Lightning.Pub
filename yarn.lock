@@ -2971,15 +2971,9 @@ grpc@^1.21.1:
     node-pre-gyp "^0.13.0"
     protobufjs "^5.0.3"
 
-<<<<<<< HEAD
-"gun@git://github.com/amark/gun#3e678b8568a4a8a825b84b26759d4dd4f3b0988e":
-  version "0.2020.520"
-  resolved "git://github.com/amark/gun#3e678b8568a4a8a825b84b26759d4dd4f3b0988e"
-=======
 "gun@git://github.com/amark/gun#97aa976c97e6219a9f93095d32c220dcd371ca62":
   version "0.2020.520"
   resolved "git://github.com/amark/gun#97aa976c97e6219a9f93095d32c220dcd371ca62"
->>>>>>> master
   dependencies:
     ws "^7.2.1"
   optionalDependencies:
