@@ -11,3 +11,5 @@ radata/
 radata-*.tmp
 *.cert
 *.key
+
+*-audit.json
