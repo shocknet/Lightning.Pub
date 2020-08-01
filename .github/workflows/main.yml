@@ -2,9 +2,9 @@ name: Update Wizard
 
 on:
   push:
-    branches: [ 'feature/synchronized-wizard-builds' ]
+    branches: [ 'master' ]
   pull_request:
-    branches: [ 'feature/synchronized-wizard-builds' ]
+    branches: [ 'master' ]
 
 jobs:
   dispatch:
