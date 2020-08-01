@@ -441,7 +441,6 @@ module.exports = async (
 
   app.post("/api/lnd/auth", async (req, res) => {
     try {
-      logger.info("/api/lnd/auth Body:", req.body)
       const health = await checkHealth();
       const walletInitialized = await walletExists();
       // If we're connected to lnd, unlock the wallet using the password supplied
