@@ -116,6 +116,36 @@ const tryAndWait = async (promGen, shouldRetry = () => false) => {
       ` args: ${promGen.toString()} -- ${shouldRetry.toString()}`
   )
 
+  await delay(200)
+
+  try {
+    resolvedValue = await timeout5(
+      promGen(
+        require('../../Mediator/index').getGun(),
+        require('../../Mediator/index').getUser()
+      )
+    )
+
+    if (shouldRetry(resolvedValue)) {
+      logger.info(
+        'force retrying' +
+          ` args: ${promGen.toString()} -- ${shouldRetry.toString()} \n resolvedValue: ${resolvedValue}, type: ${typeof resolvedValue}`
+      )
+    } else {
+      return resolvedValue
+    }
+  } catch (e) {
+    logger.error(e)
+    if (e.message === 'NOT_AUTH') {
+      throw e
+    }
+  }
+
+  logger.info(
+    `\n retrying \n` +
+      ` args: ${promGen.toString()} -- ${shouldRetry.toString()}`
+  )
+
   await delay(3000)
 
   try {
