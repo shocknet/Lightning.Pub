@@ -1,0 +1,14 @@
+{
+  "configurations": [
+    {
+      "name": "Launch Program",
+      "program": "${workspaceFolder}/main.js",
+      "args": ["-h", "0.0.0.0", "-c"],
+      "request": "launch",
+      "skipFiles": ["<node_internals>/**"],
+      "type": "node",
+      "envFile": "${workspaceFolder}/.env",
+      "outputCapture": "std"
+    }
+  ]
+}
