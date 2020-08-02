@@ -88,7 +88,7 @@ const tryAndWait = async (promGen, shouldRetry = () => false) => {
   let resolvedValue
 
   try {
-    resolvedValue = await timeout10(
+    resolvedValue = await timeout5(
       promGen(
         require('../../Mediator/index').getGun(),
         require('../../Mediator/index').getUser()
