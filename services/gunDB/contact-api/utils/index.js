@@ -72,6 +72,29 @@ const timeout5 = promise => {
 
 /**
  * @template T
+ * @param {Promise<T>} promise
+ * @returns {Promise<T>}
+ */
+const timeout2 = promise => {
+  /** @type {NodeJS.Timeout} */
+  // @ts-ignore
+  let timeoutID
+  return Promise.race([
+    promise.then(v => {
+      clearTimeout(timeoutID)
+      return v
+    }),
+
+    new Promise((_, rej) => {
+      timeoutID = setTimeout(() => {
+        rej(new Error(Constants.ErrorCode.TIMEOUT_ERR))
+      }, 2000)
+    })
+  ])
+}
+
+/**
+ * @template T
  * @param {(gun: GUNNode, user: UserGUNNode) => Promise<T>} promGen The function
  * receives the most recent gun and user instances.
  * @param {((resolvedValue: unknown) => boolean)=} shouldRetry
@@ -330,5 +353,6 @@ module.exports = {
   mySecret,
   promisifyGunNode: require('./promisifygun'),
   timeout5,
+  timeout2,
   isNodeOnline
 }
