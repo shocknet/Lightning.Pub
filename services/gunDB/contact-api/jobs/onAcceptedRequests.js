@@ -156,7 +156,7 @@ const onAcceptedRequests = (user, SEA) => {
                   .get(Key.USER_TO_INCOMING)
                   .get(recipientPub)
                   .put(encryptedForMeIncomingID, ack => {
-                    if (ack.err) {
+                    if (ack.err && typeof ack.err !== 'number') {
                       rej(new Error(ack.err))
                     } else {
                       res()
@@ -169,7 +169,7 @@ const onAcceptedRequests = (user, SEA) => {
                   .get(Key.STORED_REQS)
                   .get(id)
                   .put(null, ack => {
-                    if (ack.err) {
+                    if (ack.err && typeof ack.err !== 'number') {
                       rej(new Error(ack.err))
                     } else {
                       res()
