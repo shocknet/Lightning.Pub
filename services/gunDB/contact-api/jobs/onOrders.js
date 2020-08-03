@@ -141,7 +141,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
         .get(Key.ORDER_TO_RESPONSE)
         .get(orderID)
         .put(orderResponse, ack => {
-          if (ack.err) {
+          if (ack.err && typeof ack.err !== 'number') {
             rej(
               new Error(
                 `Error saving encrypted invoice to order to response usergraph: ${ack}`
@@ -170,7 +170,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       .get(Key.ORDER_TO_RESPONSE)
       .get(orderID)
       .put(orderResponse, ack => {
-        if (ack.err) {
+        if (ack.err && typeof ack.err !== 'number') {
           logger.error(
             `Error saving encrypted invoice to order to response usergraph: ${ack}`
           )
