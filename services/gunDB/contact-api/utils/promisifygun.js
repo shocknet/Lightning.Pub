@@ -20,7 +20,7 @@ const promisify = node => {
   pnode.put = data =>
     new Promise((res, rej) => {
       oldPut(data, ack => {
-        if (ack.err) {
+        if (ack.err && typeof ack.err !== 'number') {
           rej(new Error(ack.err))
         } else {
           res()
@@ -31,7 +31,7 @@ const promisify = node => {
   pnode.set = data =>
     new Promise((res, rej) => {
       oldSet(data, ack => {
-        if (ack.err) {
+        if (ack.err && typeof ack.err !== 'number') {
           rej(new Error(ack.err))
         } else {
           res()

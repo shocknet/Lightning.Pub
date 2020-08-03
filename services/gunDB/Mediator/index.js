@@ -280,7 +280,7 @@ const authenticate = async (alias, pass, __user) => {
             unused: null
           },
           ack => {
-            if (ack.err) {
+            if (ack.err && typeof ack.err !== 'number') {
               rej(new Error(`Error initializing follows: ${ack.err}`))
             } else {
               res()
@@ -311,7 +311,7 @@ const authenticate = async (alias, pass, __user) => {
           unused: null
         },
         ack => {
-          if (ack.err) {
+          if (ack.err && typeof ack.err !== 'number') {
             rej(new Error(`Error initializing follows: ${ack.err}`))
           } else {
             res()
@@ -371,7 +371,7 @@ const authenticate = async (alias, pass, __user) => {
           unused: null
         },
         ack => {
-          if (ack.err) {
+          if (ack.err && typeof ack.err !== 'number') {
             rej(new Error(`Error initializing follows: ${ack.err}`))
           } else {
             res()

@@ -71,7 +71,7 @@ const __createOutgoingFeed = async (withPublicKey, user, SEA) => {
       const _outFeedNode = user
         .get(Key.OUTGOINGS)
         .set(newPartialOutgoingFeed, ack => {
-          if (ack.err) {
+          if (ack.err && typeof ack.err !== 'number') {
             rej(new Error(ack.err))
           } else {
             res(_outFeedNode._.get)
@@ -95,7 +95,7 @@ const __createOutgoingFeed = async (withPublicKey, user, SEA) => {
         .get(newOutgoingFeedID)
         .get(Key.MESSAGES)
         .set(initialMsg, ack => {
-          if (ack.err) {
+          if (ack.err && typeof ack.err !== 'number') {
             rej(new Error(ack.err))
           } else {
             res()
@@ -113,7 +113,7 @@ const __createOutgoingFeed = async (withPublicKey, user, SEA) => {
         .get(Key.RECIPIENT_TO_OUTGOING)
         .get(withPublicKey)
         .put(encryptedForMeNewOutgoingFeedID, ack => {
-          if (ack.err) {
+          if (ack.err && typeof ack.err !== 'number') {
             rej(Error(ack.err))
           } else {
             res()
@@ -230,7 +230,7 @@ const acceptRequest = async (
       .get(Key.USER_TO_INCOMING)
       .get(senderPublicKey)
       .put(encryptedForMeIncomingID, ack => {
-        if (ack.err) {
+        if (ack.err && typeof ack.err !== 'number') {
           rej(new Error(ack.err))
         } else {
           res()
@@ -259,7 +259,7 @@ const acceptRequest = async (
           response: encryptedForUsOutgoingID
         },
         ack => {
-          if (ack.err) {
+          if (ack.err && typeof ack.err !== 'number') {
             rej(new Error(ack.err))
           } else {
             res()
@@ -297,7 +297,7 @@ const authenticate = (user, pass, userNode) =>
     }
 
     userNode.auth(user, pass, ack => {
-      if (ack.err) {
+      if (ack.err && typeof ack.err !== 'number') {
         reject(new Error(ack.err))
       } else if (!userNode.is) {
         reject(new Error('authentication failed'))
@@ -320,7 +320,7 @@ const blacklist = (publicKey, user) =>
     }
 
     user.get(Key.BLACKLIST).set(publicKey, ack => {
-      if (ack.err) {
+      if (ack.err && typeof ack.err !== 'number') {
         reject(new Error(ack.err))
       } else {
         resolve()
@@ -339,7 +339,7 @@ const generateHandshakeAddress = async () => {
 
   await new Promise((res, rej) => {
     user.get(Key.CURRENT_HANDSHAKE_ADDRESS).put(address, ack => {
-      if (ack.err) {
+      if (ack.err && typeof ack.err !== 'number') {
         rej(new Error(ack.err))
       } else {
         res()
@@ -352,7 +352,7 @@ const generateHandshakeAddress = async () => {
       .get(Key.HANDSHAKE_NODES)
       .get(address)
       .put({ unused: 0 }, ack => {
-        if (ack.err) {
+        if (ack.err && typeof ack.err !== 'number') {
           rej(new Error(ack.err))
         } else {
           res()
@@ -380,7 +380,7 @@ const cleanup = async pub => {
         .get(Key.USER_TO_INCOMING)
         .get(pub)
         .put(null, ack => {
-          if (ack.err) {
+          if (ack.err && typeof ack.err !== 'number') {
             rej(new Error(ack.err))
           } else {
             res()
@@ -395,7 +395,7 @@ const cleanup = async pub => {
         .get(Key.RECIPIENT_TO_OUTGOING)
         .get(pub)
         .put(null, ack => {
-          if (ack.err) {
+          if (ack.err && typeof ack.err !== 'number') {
             rej(new Error(ack.err))
           } else {
             res()
@@ -410,7 +410,7 @@ const cleanup = async pub => {
         .get(Key.USER_TO_LAST_REQUEST_SENT)
         .get(pub)
         .put(null, ack => {
-          if (ack.err) {
+          if (ack.err && typeof ack.err !== 'number') {
             rej(new Error(ack.err))
           } else {
             res()
@@ -426,7 +426,7 @@ const cleanup = async pub => {
           .get(Key.OUTGOINGS)
           .get(outGoingID)
           .put(null, ack => {
-            if (ack.err) {
+            if (ack.err && typeof ack.err !== 'number') {
               rej(new Error(ack.err))
             } else {
               res()
@@ -588,7 +588,7 @@ const sendHandshakeRequest = async (recipientPublicKey, gun, user, SEA) => {
       .get(Key.HANDSHAKE_NODES)
       .get(currentHandshakeAddress)
       .set(handshakeRequestData, ack => {
-        if (ack.err) {
+        if (ack.err && typeof ack.err !== 'number') {
           rej(new Error(`Error trying to create request: ${ack.err}`))
         } else {
           res(hr._.get)
@@ -601,7 +601,7 @@ const sendHandshakeRequest = async (recipientPublicKey, gun, user, SEA) => {
       .get(Key.USER_TO_LAST_REQUEST_SENT)
       .get(recipientPublicKey)
       .put(newHandshakeRequestID, ack => {
-        if (ack.err) {
+        if (ack.err && typeof ack.err !== 'number') {
           rej(new Error(ack.err))
         } else {
           res()
@@ -624,7 +624,7 @@ const sendHandshakeRequest = async (recipientPublicKey, gun, user, SEA) => {
 
   await new Promise((res, rej) => {
     user.get(Key.STORED_REQS).set(storedReq, ack => {
-      if (ack.err) {
+      if (ack.err && typeof ack.err !== 'number') {
         rej(
           new Error(
             `Error saving newly created request to sent requests: ${ack.err}`
@@ -700,7 +700,7 @@ const sendMessageNew = async (recipientPublicKey, body, user, SEA) => {
       .get(outgoingID)
       .get(Key.MESSAGES)
       .set(newMessage, ack => {
-        if (ack.err) {
+        if (ack.err && typeof ack.err !== 'number') {
           rej(new Error(ack.err))
         } else {
           res({
@@ -773,7 +773,7 @@ const deleteMessage = async (recipientPub, msgID, user) => {
       .get(Key.MESSAGES)
       .get(msgID)
       .put(null, ack => {
-        if (ack.err) {
+        if (ack.err && typeof ack.err !== 'number') {
           rej(new Error(ack.err))
         } else {
           res()
@@ -810,7 +810,7 @@ const setAvatar = (avatar, user) =>
       .get(Key.PROFILE)
       .get(Key.AVATAR)
       .put(avatar, ack => {
-        if (ack.err) {
+        if (ack.err && typeof ack.err !== 'number') {
           reject(new Error(ack.err))
         } else {
           resolve()
@@ -843,7 +843,7 @@ const setDisplayName = (displayName, user) =>
       .get(Key.PROFILE)
       .get(Key.DISPLAY_NAME)
       .put(displayName, ack => {
-        if (ack.err) {
+        if (ack.err && typeof ack.err !== 'number') {
           reject(new Error(ack.err))
         } else {
           resolve()
@@ -955,7 +955,7 @@ const sendPayment = async (to, amount, memo) => {
         .get(Key.ORDER_NODES)
         .get(currOrderAddress)
         .set(order, ack => {
-          if (ack.err) {
+          if (ack.err && typeof ack.err !== 'number') {
             rej(
               new Error(
                 `Error writing order to order node: ${currOrderAddress} for pub: ${to}: ${ack.err}`
@@ -1123,7 +1123,7 @@ const generateOrderAddress = user =>
     const address = uuidv1()
 
     user.get(Key.CURRENT_ORDER_ADDRESS).put(address, ack => {
-      if (ack.err) {
+      if (ack.err && typeof ack.err !== 'number') {
         rej(new Error(ack.err))
       } else {
         res()
@@ -1156,7 +1156,7 @@ const setBio = (bio, user) =>
     }
 
     user.get(Key.BIO).put(bio, ack => {
-      if (ack.err) {
+      if (ack.err && typeof ack.err !== 'number') {
         reject(new Error(ack.err))
       } else {
         resolve()
@@ -1169,7 +1169,7 @@ const setBio = (bio, user) =>
           .get(Key.PROFILE)
           .get(Key.BIO)
           .put(bio, ack => {
-            if (ack.err) {
+            if (ack.err && typeof ack.err !== 'number') {
               reject(new Error(ack.err))
             } else {
               resolve()
@@ -1198,7 +1198,7 @@ const saveSeedBackup = async (mnemonicPhrase, user, SEA) => {
 
   return new Promise((res, rej) => {
     user.get(Key.SEED_BACKUP).put(encryptedSeed, ack => {
-      if (ack.err) {
+      if (ack.err && typeof ack.err !== 'number') {
         rej(new Error(ack.err))
       } else {
         res()
@@ -1221,7 +1221,7 @@ const saveChannelsBackup = async (backups, user, SEA) => {
   const encryptBackups = await SEA.encrypt(backups, mySecret)
   return new Promise((res, rej) => {
     user.get(Key.CHANNELS_BACKUP).put(encryptBackups, ack => {
-      if (ack.err) {
+      if (ack.err && typeof ack.err !== 'number') {
         rej(new Error(ack.err))
       } else {
         res()
@@ -1251,7 +1251,7 @@ const setLastSeenApp = () =>
       .getUser()
       .get(Key.LAST_SEEN_APP)
       .put(Date.now(), ack => {
-        if (ack.err) {
+        if (ack.err && typeof ack.err !== 'number') {
           rej(new Error(ack.err))
         } else {
           res()
@@ -1265,7 +1265,7 @@ const setLastSeenApp = () =>
           .get(Key.PROFILE)
           .get(Key.LAST_SEEN_APP)
           .put(Date.now(), ack => {
-            if (ack.err) {
+            if (ack.err && typeof ack.err !== 'number') {
               rej(new Error(ack.err))
             } else {
               res()
@@ -1348,7 +1348,7 @@ const createPost = async (tags, title, content) => {
           }
         },
         ack => {
-          if (ack.err) {
+          if (ack.err && typeof ack.err !== 'number') {
             rej(new Error(ack.err))
           }
 
@@ -1373,7 +1373,7 @@ const createPost = async (tags, title, content) => {
           title
         },
         ack => {
-          if (ack.err) {
+          if (ack.err && typeof ack.err !== 'number') {
             rej(new Error(ack.err))
           } else {
             res(_n._.get)
@@ -1389,7 +1389,7 @@ const createPost = async (tags, title, content) => {
         .get(Key.WALL)
         .get(Key.NUM_OF_PAGES)
         .put(numOfPages + 1, ack => {
-          if (ack.err) {
+          if (ack.err && typeof ack.err !== 'number') {
             throw new Error(ack.err)
           }
 
@@ -1414,7 +1414,7 @@ const createPost = async (tags, title, content) => {
           new Promise(res => {
             // @ts-ignore
             contentItems.set(ci, ack => {
-              if (ack.err) {
+              if (ack.err && typeof ack.err !== 'number') {
                 throw new Error(ack.err)
               }
 
@@ -1433,7 +1433,7 @@ const createPost = async (tags, title, content) => {
         .get(Key.POSTS)
         .get(postID)
         .put(null, ack => {
-          if (ack.err) {
+          if (ack.err && typeof ack.err !== 'number') {
             throw new Error(ack.err)
           }
 
@@ -1508,7 +1508,7 @@ const follow = (publicKey, isPrivate) => {
       .get(publicKey)
       // @ts-ignore
       .put(newFollow, ack => {
-        if (ack.err) {
+        if (ack.err && typeof ack.err !== 'number') {
           rej(new Error(ack.err))
         } else {
           res()
@@ -1528,7 +1528,7 @@ const unfollow = publicKey =>
       .get(Key.FOLLOWS)
       .get(publicKey)
       .put(null, ack => {
-        if (ack.err) {
+        if (ack.err && typeof ack.err !== 'number') {
           rej(new Error(ack.err))
         } else {
           res()
@@ -1551,7 +1551,7 @@ const initWall = async () => {
         .get(Key.WALL)
         .get(Key.NUM_OF_PAGES)
         .put(0, ack => {
-          if (ack.err) {
+          if (ack.err && typeof ack.err !== 'number') {
             rej(new Error(ack.err))
           } else {
             res()
@@ -1572,7 +1572,7 @@ const initWall = async () => {
             unused: null
           },
           ack => {
-            if (ack.err) {
+            if (ack.err && typeof ack.err !== 'number') {
               rej(new Error(ack.err))
             } else {
               res()
@@ -1590,7 +1590,7 @@ const initWall = async () => {
         .get('0')
         .get(Key.COUNT)
         .put(0, ack => {
-          if (ack.err) {
+          if (ack.err && typeof ack.err !== 'number') {
             rej(new Error(ack.err))
           } else {
             res()
