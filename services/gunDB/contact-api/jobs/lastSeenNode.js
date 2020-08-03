@@ -33,7 +33,7 @@ const lastSeenNode = user => {
   setInterval(() => {
     if (user.is) {
       user.get(Key.LAST_SEEN_NODE).put(Date.now(), ack => {
-        if (ack.err) {
+        if (ack.err && typeof ack.err !== 'number') {
           logger.error(`Error inside lastSeenNode job: ${ack.err}`)
         }
       })
@@ -42,7 +42,7 @@ const lastSeenNode = user => {
         .get(Key.PROFILE)
         .get(Key.LAST_SEEN_NODE)
         .put(Date.now(), ack => {
-          if (ack.err) {
+          if (ack.err && typeof ack.err !== 'number') {
             logger.error(`Error inside lastSeenNode job: ${ack.err}`)
           }
         })
