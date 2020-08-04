@@ -72,6 +72,29 @@ const timeout5 = promise => {
 
 /**
  * @template T
+ * @param {Promise<T>} promise
+ * @returns {Promise<T>}
+ */
+const timeout2 = promise => {
+  /** @type {NodeJS.Timeout} */
+  // @ts-ignore
+  let timeoutID
+  return Promise.race([
+    promise.then(v => {
+      clearTimeout(timeoutID)
+      return v
+    }),
+
+    new Promise((_, rej) => {
+      timeoutID = setTimeout(() => {
+        rej(new Error(Constants.ErrorCode.TIMEOUT_ERR))
+      }, 2000)
+    })
+  ])
+}
+
+/**
+ * @template T
  * @param {(gun: GUNNode, user: UserGUNNode) => Promise<T>} promGen The function
  * receives the most recent gun and user instances.
  * @param {((resolvedValue: unknown) => boolean)=} shouldRetry
@@ -88,7 +111,7 @@ const tryAndWait = async (promGen, shouldRetry = () => false) => {
   let resolvedValue
 
   try {
-    resolvedValue = await timeout10(
+    resolvedValue = await timeout2(
       promGen(
         require('../../Mediator/index').getGun(),
         require('../../Mediator/index').getUser()
@@ -106,6 +129,36 @@ const tryAndWait = async (promGen, shouldRetry = () => false) => {
   } catch (e) {
     logger.error(e)
     logger.info(JSON.stringify(e))
+    if (e.message === 'NOT_AUTH') {
+      throw e
+    }
+  }
+
+  logger.info(
+    `\n retrying \n` +
+      ` args: ${promGen.toString()} -- ${shouldRetry.toString()}`
+  )
+
+  await delay(200)
+
+  try {
+    resolvedValue = await timeout5(
+      promGen(
+        require('../../Mediator/index').getGun(),
+        require('../../Mediator/index').getUser()
+      )
+    )
+
+    if (shouldRetry(resolvedValue)) {
+      logger.info(
+        'force retrying' +
+          ` args: ${promGen.toString()} -- ${shouldRetry.toString()} \n resolvedValue: ${resolvedValue}, type: ${typeof resolvedValue}`
+      )
+    } else {
+      return resolvedValue
+    }
+  } catch (e) {
+    logger.error(e)
     if (e.message === 'NOT_AUTH') {
       throw e
     }
@@ -300,5 +353,6 @@ module.exports = {
   mySecret,
   promisifyGunNode: require('./promisifygun'),
   timeout5,
+  timeout2,
   isNodeOnline
 }
