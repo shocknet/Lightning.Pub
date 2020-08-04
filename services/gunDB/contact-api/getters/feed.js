@@ -14,7 +14,7 @@ const Wall = require('./wall')
  * @param {number} pageRequested
  * @returns {[ number , number ]}
  */
-const calculateFeedPage = (numberOfPublicKeyGroups, pageRequested) => {
+const calculateWallRequest = (numberOfPublicKeyGroups, pageRequested) => {
   // thanks to sebassdc
 
   return [
@@ -56,7 +56,7 @@ const getFeedPage = async page => {
 
   const pagedPublicKeys = R.splitEvery(10, shuffle(subbedPublicKeys))
 
-  const [publicKeyGroupIdx, pageToRequest] = calculateFeedPage(
+  const [publicKeyGroupIdx, pageToRequest] = calculateWallRequest(
     pagedPublicKeys.length,
     page
   )
