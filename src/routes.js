@@ -2078,7 +2078,9 @@ module.exports = async (
         return res.status(200).json({
           posts: await GunGetters.getFeedPage(page)
         })
-      } else if (try_until) {
+      }
+
+      if (try_until) {
         const pages = range(1, MAX_PAGES_TO_FETCH_FOR_TRY_UNTIL)
         const promises = pages.map(p => GunGetters.getFeedPage(p))
 
@@ -2090,12 +2092,20 @@ module.exports = async (
 
         if (idxIfFound > -1) {
           results = results.slice(0, idxIfFound + 1)
+
+          const posts = flatten(results)
+
+          return res.status(200).json({
+            posts
+          })
         }
 
-        const posts = flatten(results)
+        // we couldn't find the posts leading up to the requested post
+        // (try_until) Let's just return the ones we found with together with a
+        // 205 code (client should refresh UI)
 
-        return res.status(200).json({
-          posts
+        return res.status(205).json({
+          posts: results[0] || []
         })
       }
 
