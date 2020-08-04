@@ -131,7 +131,10 @@ module.exports = (
       logger.warn('New invoice stream status:', status)
       if (status.code === 14) {
         // Prevents call stack overflow exceptions
-        process.nextTick(() => onNewInvoice(socket))
+        logger.error(
+          '[event:invoice:new] LND disconnected, sockets reconnecting in 30 seconds...'
+        )
+        process.nextTick(() => setTimeout(() => onNewInvoice(socket), 30000))
       }
     })
   }
@@ -154,7 +157,12 @@ module.exports = (
     stream.on('status', status => {
       logger.error('New invoice stream status:', status)
       if (status.code === 14) {
-        process.nextTick(() => onNewTransaction(socket))
+        logger.error(
+          '[event:transaction:new] LND disconnected, sockets reconnecting in 30 seconds...'
+        )
+        process.nextTick(() =>
+          setTimeout(() => onNewTransaction(socket), 30000)
+        )
       }
     })
   }
