@@ -99,7 +99,7 @@ module.exports = async (
           success: true
         })
       })
-    })
+  })
 
   const checkHealth = async () => {
     logger.info('Getting service status...')
@@ -202,7 +202,7 @@ module.exports = async (
           message: sanitizeLNDError(err.message)
         })
       }
-    })
+  })
 
   // Hack to check whether or not a wallet exists
   const walletExists = async () => {
@@ -263,32 +263,43 @@ module.exports = async (
         logger.error('Unknown Device')
         return res.status(401).json(error)
       }
-
-      if (
-        req.method === 'GET' ||
-        req.method === 'DELETE' ||
-        (!req.body.encryptionKey && !req.body.iv)
-      ) {
+      if (!req.body.encryptionKey && !req.body.iv && !req.headers["x-shock-encryption-token"]){
         return next()
       }
-
+      let encryptedToken,encryptedKey,IV,data
+      if(req.method === 'GET' || req.method === 'DELETE'){
+        if(req.headers["x-shock-encryption-token"]){
+          encryptedToken = req.headers["x-shock-encryption-token"]
+          encryptedKey =req.headers["x-shock-encryption-key"]
+          IV =req.headers["x-shock-encryption-iv"]
+        }
+      } else {
+        encryptedToken = req.body.token
+        encryptedKey = req.body.encryptionKey
+        IV = req.body.iv
+        data = req.body.data
+      }
       const decryptedKey = Encryption.decryptKey({
         deviceId,
-        message: req.body.encryptionKey
+        message: encryptedKey
       })
-      const decryptedMessage = Encryption.decryptMessage({
-        message: req.body.data,
-        key: decryptedKey,
-        iv: req.body.iv
-      })
-      const decryptedToken = req.body.token
+      if(data){
+        const decryptedMessage = Encryption.decryptMessage({
+          message: data,
+          key: decryptedKey,
+          iv: IV
+        })
+        req.body = JSON.parse(decryptedMessage)
+      }
+      
+      const decryptedToken = encryptedToken
         ? Encryption.decryptMessage({
-            message: req.body.token,
+            message: encryptedToken,
             key: decryptedKey,
-            iv: req.body.iv
+            iv: IV
           })
         : null
-      req.body = JSON.parse(decryptedMessage)
+      
 
       if (decryptedToken) {
         req.headers.authorization = decryptedToken
