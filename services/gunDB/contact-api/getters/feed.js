@@ -6,6 +6,8 @@ const isFinite = require('lodash/isFinite')
 const shuffle = require('lodash/shuffle')
 const R = require('ramda')
 
+const { asyncFilter } = require('../../../../utils')
+
 const Follows = require('./follows')
 const Wall = require('./wall')
 
@@ -14,7 +16,7 @@ const Wall = require('./wall')
  * @param {number} pageRequested
  * @returns {[ number , number ]}
  */
-const calculateFeedPage = (numberOfPublicKeyGroups, pageRequested) => {
+const calculateWallRequest = (numberOfPublicKeyGroups, pageRequested) => {
   // thanks to sebassdc
 
   return [
@@ -56,12 +58,18 @@ const getFeedPage = async page => {
 
   const pagedPublicKeys = R.splitEvery(10, shuffle(subbedPublicKeys))
 
-  const [publicKeyGroupIdx, pageToRequest] = calculateFeedPage(
+  const [publicKeyGroupIdx, pageToRequest] = calculateWallRequest(
     pagedPublicKeys.length,
     page
   )
 
-  const publicKeys = pagedPublicKeys[publicKeyGroupIdx]
+  const publicKeysRaw = pagedPublicKeys[publicKeyGroupIdx]
+  const publicKeys = await asyncFilter(
+    publicKeysRaw,
+    // reject public keys for which the page to request would result in an out
+    // of bounds error
+    async pk => pageToRequest <= (await Wall.getWallTotalPages(pk))
+  )
 
   const fetchedPages = await Promise.all(
     publicKeys.map(pk => Wall.getWallPage(pageToRequest, pk))

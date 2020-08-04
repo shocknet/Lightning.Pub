@@ -13,6 +13,7 @@ const Common = require('shock-common')
 const isARealUsableNumber = require('lodash/isFinite')
 const Big = require('big.js')
 const size = require('lodash/size')
+const { range, flatten } = require('ramda')
 
 const getListPage = require('../utils/paginate')
 const auth = require('../services/auth/auth')
@@ -2055,25 +2056,72 @@ module.exports = async (
    */
   const apiGunFeedGet = async (req, res) => {
     try {
+      const MAX_PAGES_TO_FETCH_FOR_TRY_UNTIL = 4
+
       const { page: pageStr } = req.query
-      const page = Number(pageStr)
 
-      if (!isARealUsableNumber(page)) {
-        return res.status(400).json({
-          field: 'page',
-          errorMessage: 'page must be a number'
+      /**
+       * Similar to a "before" query param in cursor based pagination. We call
+       * it "try" because it is likely that this item lies beyond
+       * MAX_PAGES_TO_FETCH_FOR_TRY_UNTIL in which case we gracefully just send
+       * 2 pages and 205 response.
+       */
+      // eslint-disable-next-line prefer-destructuring
+      const try_until = req.query.try_until
+
+      if (pageStr) {
+        const page = Number(pageStr)
+
+        if (!isARealUsableNumber(page)) {
+          return res.status(400).json({
+            field: 'page',
+            errorMessage: 'page must be a number'
+          })
+        }
+
+        if (page < 1) {
+          return res.status(400).json({
+            field: page,
+            errorMessage: 'page must be a positive number'
+          })
+        }
+
+        return res.status(200).json({
+          posts: await GunGetters.getFeedPage(page)
         })
       }
 
-      if (page < 1) {
-        return res.status(400).json({
-          field: page,
-          errorMessage: 'page must be a positive number'
+      if (try_until) {
+        const pages = range(1, MAX_PAGES_TO_FETCH_FOR_TRY_UNTIL)
+        const promises = pages.map(p => GunGetters.getFeedPage(p))
+
+        let results = await Promise.all(promises)
+
+        const idxIfFound = results.findIndex(pp =>
+          pp.some(p => p.id === try_until)
+        )
+
+        if (idxIfFound > -1) {
+          results = results.slice(0, idxIfFound + 1)
+
+          const posts = flatten(results)
+
+          return res.status(200).json({
+            posts
+          })
+        }
+
+        // we couldn't find the posts leading up to the requested post
+        // (try_until) Let's just return the ones we found with together with a
+        // 205 code (client should refresh UI)
+
+        return res.status(205).json({
+          posts: results[0] || []
         })
       }
 
-      return res.status(200).json({
-        posts: await GunGetters.getFeedPage(page)
+      return res.status(400).json({
+        errorMessage: `Must provide at least a page or a try_until query param.`
       })
     } catch (err) {
       return res.status(500).json({

@@ -21,8 +21,11 @@ exports.currentFollows = async () => {
    * @type {Record<string, Common.Schema.Follow>}
    */
   const raw = await Utils.tryAndWait(
-    // @ts-ignore
-    (_, user) => new Promise(res => user.get(Key.FOLLOWS).load(res)),
+    (_, user) =>
+      new Promise(res =>
+        // @ts-expect-error
+        user.get(Key.FOLLOWS).load(res)
+      ),
     v => {
       if (typeof v !== 'object' || v === null) {
         return true
@@ -33,7 +36,10 @@ exports.currentFollows = async () => {
         return true
       }
 
-      return false
+      // sometimes it returns empty sub objects
+      return Object.values(v)
+        .filter(Common.Schema.isObj)
+        .some(obj => size(obj) === 0)
     }
   )
 
