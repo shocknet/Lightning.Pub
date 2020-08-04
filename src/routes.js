@@ -13,8 +13,7 @@ const Common = require('shock-common')
 const isARealUsableNumber = require('lodash/isFinite')
 const Big = require('big.js')
 const size = require('lodash/size')
-const { range } = require('ramda')
-const flattenDeep = require('lodash/flattenDeep')
+const { range, flatten } = require('ramda')
 
 const getListPage = require('../utils/paginate')
 const auth = require('../services/auth/auth')
@@ -2046,16 +2045,17 @@ module.exports = async (
    */
   const apiGunFeedGet = async (req, res) => {
     try {
-      const { page: pageStr } = req.query
-      const page = Number(pageStr)
-
       const MAX_PAGES_TO_FETCH_FOR_TRY_UNTIL = 4
+
+      const { page: pageStr } = req.query
+
       /**
        * Similar to a "before" query param in cursor based pagination. We call
        * it "try" because it is likely that this item lies beyond
        * MAX_PAGES_TO_FETCH_FOR_TRY_UNTIL in which case we gracefully just send
        * 2 pages and 205 response.
        */
+      // eslint-disable-next-line prefer-destructuring
       const try_until = req.query.try_until
 
       if (pageStr) {
@@ -2079,9 +2079,8 @@ module.exports = async (
           posts: await GunGetters.getFeedPage(page)
         })
       } else if (try_until) {
-        const promises = range(1, MAX_PAGES_TO_FETCH_FOR_TRY_UNTIL).map(p =>
-          GunGetters.getFeedPage(p)
-        )
+        const pages = range(1, MAX_PAGES_TO_FETCH_FOR_TRY_UNTIL)
+        const promises = pages.map(p => GunGetters.getFeedPage(p))
 
         let results = await Promise.all(promises)
 
@@ -2090,10 +2089,10 @@ module.exports = async (
         )
 
         if (idxIfFound > -1) {
-          results = results.slice(0, idxIfFound)
+          results = results.slice(0, idxIfFound + 1)
         }
 
-        const posts = flattenDeep(results)
+        const posts = flatten(results)
 
         return res.status(200).json({
           posts
