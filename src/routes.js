@@ -2056,7 +2056,7 @@ module.exports = async (
        * MAX_PAGES_TO_FETCH_FOR_TRY_UNTIL in which case we gracefully just send
        * 2 pages and 205 response.
        */
-      const try_until = req.query
+      const try_until = req.query.try_until
 
       if (pageStr) {
         const page = Number(pageStr)
