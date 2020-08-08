@@ -5,6 +5,7 @@
 
 const Axios = require('axios')
 const Crypto = require('crypto')
+const Storage = require('node-persist')
 const logger = require('winston')
 const httpsAgent = require('https')
 const responseTime = require('response-time')
@@ -100,7 +101,7 @@ module.exports = async (
           success: true
         })
       })
-  })
+    })
 
   const checkHealth = async () => {
     logger.info('Getting service status...')
@@ -203,7 +204,7 @@ module.exports = async (
           message: sanitizeLNDError(err.message)
         })
       }
-  })
+    })
 
   // Hack to check whether or not a wallet exists
   const walletExists = async () => {
@@ -264,27 +265,30 @@ module.exports = async (
         logger.error('Unknown Device')
         return res.status(401).json(error)
       }
-      if (!req.body.encryptionKey && !req.body.iv && !req.headers["x-shock-encryption-token"]){
+      if (
+        !req.body.encryptionKey &&
+        !req.body.iv &&
+        !req.headers['x-shock-encryption-token']
+      ) {
         return next()
       }
-      let encryptedToken,encryptedKey,IV,data
-      if(req.method === 'GET' || req.method === 'DELETE'){
-        if(req.headers["x-shock-encryption-token"]){
-          encryptedToken = req.headers["x-shock-encryption-token"]
-          encryptedKey =req.headers["x-shock-encryption-key"]
-          IV =req.headers["x-shock-encryption-iv"]
+
+      const { data } = req.body
+      let IV = req.body.iv
+      let encryptedKey = req.body.encryptionKey
+      let encryptedToken = req.body.token
+      if (req.method === 'GET' || req.method === 'DELETE') {
+        if (req.headers['x-shock-encryption-token']) {
+          encryptedToken = req.headers['x-shock-encryption-token']
+          encryptedKey = req.headers['x-shock-encryption-key']
+          IV = req.headers['x-shock-encryption-iv']
         }
-      } else {
-        encryptedToken = req.body.token
-        encryptedKey = req.body.encryptionKey
-        IV = req.body.iv
-        data = req.body.data
       }
       const decryptedKey = Encryption.decryptKey({
         deviceId,
         message: encryptedKey
       })
-      if(data){
+      if (data) {
         const decryptedMessage = Encryption.decryptMessage({
           message: data,
           key: decryptedKey,
@@ -292,7 +296,7 @@ module.exports = async (
         })
         req.body = JSON.parse(decryptedMessage)
       }
-      
+
       const decryptedToken = encryptedToken
         ? Encryption.decryptMessage({
             message: encryptedToken,
@@ -300,7 +304,6 @@ module.exports = async (
             iv: IV
           })
         : null
-      
 
       if (decryptedToken) {
         req.headers.authorization = decryptedToken
@@ -470,6 +473,15 @@ module.exports = async (
     }
   })
 
+  const validateToken = async token => {
+    try {
+      const tokenValid = await auth.validateToken(token)
+      return tokenValid
+    } catch (err) {
+      return err
+    }
+  }
+
   app.post('/api/lnd/auth', async (req, res) => {
     try {
       const health = await checkHealth()
@@ -486,12 +498,44 @@ module.exports = async (
         }
 
         const publicKey = await GunDB.authenticate(alias, password)
-        if (
-          walletInitialized &&
-          health.LNDStatus.walletStatus === 'locked' &&
-          publicKey
-        ) {
+
+        if (!publicKey) {
+          res.status(400).json({
+            field: 'alias',
+            errorMessage: 'Invalid alias/password combination',
+            success: false
+          })
+          return false
+        }
+
+        const trustedKeys = await Storage.get('trustedPKs')
+        const [isKeyTrusted] = trustedKeys.filter(
+          trustedKey => trustedKey === publicKey
+        )
+        const walletUnlocked = health.LNDStatus.walletStatus === 'unlocked'
+
+        if (!walletUnlocked) {
           await unlockWallet(password)
+
+          if (!isKeyTrusted) {
+            await Storage.set('trustedPKs', [...trustedKeys, publicKey])
+          }
+        }
+
+        if (walletUnlocked && !isKeyTrusted) {
+          const { authorization = '' } = req.headers
+          const validatedToken = await validateToken(
+            authorization.replace('Bearer ', '')
+          )
+
+          if (!validatedToken) {
+            res.status(403).json({
+              field: 'alias',
+              errorMessage: 'Invalid alias/password combination',
+              success: false
+            })
+            return
+          }
         }
 
         // Send an event to update lightning's status
@@ -650,6 +694,12 @@ module.exports = async (
             GunDB.getUser(),
             GunDB.mySEA
           )
+
+          const trustedPKs = await Storage.get('trustedPKs')
+          await Storage.setItem('trustedPKs', [
+            ...(trustedPKs || []),
+            publicKey
+          ])
 
           walletUnlocker.initWallet(
             walletArgs,
