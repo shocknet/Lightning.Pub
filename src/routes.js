@@ -100,7 +100,7 @@ module.exports = async (
           success: true
         })
       })
-  })
+    })
 
   const checkHealth = async () => {
     logger.info('Getting service status...')
@@ -203,7 +203,7 @@ module.exports = async (
           message: sanitizeLNDError(err.message)
         })
       }
-  })
+    })
 
   // Hack to check whether or not a wallet exists
   const walletExists = async () => {
@@ -264,15 +264,19 @@ module.exports = async (
         logger.error('Unknown Device')
         return res.status(401).json(error)
       }
-      if (!req.body.encryptionKey && !req.body.iv && !req.headers["x-shock-encryption-token"]){
+      if (
+        !req.body.encryptionKey &&
+        !req.body.iv &&
+        !req.headers['x-shock-encryption-token']
+      ) {
         return next()
       }
-      let encryptedToken,encryptedKey,IV,data
-      if(req.method === 'GET' || req.method === 'DELETE'){
-        if(req.headers["x-shock-encryption-token"]){
-          encryptedToken = req.headers["x-shock-encryption-token"]
-          encryptedKey =req.headers["x-shock-encryption-key"]
-          IV =req.headers["x-shock-encryption-iv"]
+      let IV, data, encryptedKey, encryptedToken
+      if (req.method === 'GET' || req.method === 'DELETE') {
+        if (req.headers['x-shock-encryption-token']) {
+          encryptedToken = req.headers['x-shock-encryption-token']
+          encryptedKey = req.headers['x-shock-encryption-key']
+          IV = req.headers['x-shock-encryption-iv']
         }
       } else {
         encryptedToken = req.body.token
@@ -284,7 +288,7 @@ module.exports = async (
         deviceId,
         message: encryptedKey
       })
-      if(data){
+      if (data) {
         const decryptedMessage = Encryption.decryptMessage({
           message: data,
           key: decryptedKey,
@@ -292,7 +296,7 @@ module.exports = async (
         })
         req.body = JSON.parse(decryptedMessage)
       }
-      
+
       const decryptedToken = encryptedToken
         ? Encryption.decryptMessage({
             message: encryptedToken,
@@ -300,7 +304,6 @@ module.exports = async (
             iv: IV
           })
         : null
-      
 
       if (decryptedToken) {
         req.headers.authorization = decryptedToken
@@ -1045,45 +1048,51 @@ module.exports = async (
     const { lightning } = LightningServices.services
     const { itemsPerPage, page, reversed = true } = req.query
     const offset = (page - 1) * itemsPerPage
-    lightning.listPayments({}, (err, { payments = [] } = {}) => {
-      if (err) {
-        return handleError(res, err)
-      }
+    lightning.listPayments(
+      {
+        // Shows ongoing payments
+        include_incomplete: true
+      },
+      (err, { payments = [] } = {}) => {
+        if (err) {
+          return handleError(res, err)
+        }
 
-      lightning.listInvoices(
-        { reversed, index_offset: offset, num_max_invoices: itemsPerPage },
-        (err, { invoices, last_index_offset }) => {
-          if (err) {
-            return handleError(res, err)
-          }
-
-          lightning.getTransactions({}, (err, { transactions = [] } = {}) => {
+        lightning.listInvoices(
+          { reversed, index_offset: offset, num_max_invoices: itemsPerPage },
+          (err, { invoices, last_index_offset }) => {
             if (err) {
               return handleError(res, err)
             }
 
-            res.json({
-              transactions: getListPage({
-                entries: transactions,
-                itemsPerPage,
-                page
-              }),
-              payments: getListPage({
-                entries: payments,
-                itemsPerPage,
-                page
-              }),
-              invoices: {
-                content: invoices,
-                page,
-                totalPages: Math.ceil(last_index_offset / itemsPerPage),
-                totalItems: last_index_offset
+            lightning.getTransactions({}, (err, { transactions = [] } = {}) => {
+              if (err) {
+                return handleError(res, err)
               }
+
+              res.json({
+                transactions: getListPage({
+                  entries: transactions,
+                  itemsPerPage,
+                  page
+                }),
+                payments: getListPage({
+                  entries: payments,
+                  itemsPerPage,
+                  page
+                }),
+                invoices: {
+                  content: invoices,
+                  page,
+                  totalPages: Math.ceil(last_index_offset / itemsPerPage),
+                  totalItems: last_index_offset
+                }
+              })
             })
-          })
-        }
-      )
-    })
+          }
+        )
+      }
+    )
   })
 
   // get lnd node payments list
