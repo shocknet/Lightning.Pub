@@ -1,13 +1,14 @@
+/** @prettier */
 // @ts-check
-const Gun = require("../gun/gun");
-const colors = require('colors');
-const TIMEOUT_ERR = "Timeout Error";
+const Gun = require('../gun/gun')
+const colors = require('colors')
+const TIMEOUT_ERR = 'Timeout Error'
 
 /**
  * @param {number} ms
  * @returns {Promise<void>}
  */
-const delay = (ms) => new Promise((res) => setTimeout(res, ms));
+const delay = ms => new Promise(res => setTimeout(res, ms))
 
 /**
  * @template T
@@ -18,21 +19,21 @@ const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 const timeout = (promise, timeout) => {
   /** @type {NodeJS.Timeout} */
   // eslint-disable-next-line init-declarations
-  let timeoutID;
+  let timeoutID
 
   return Promise.race([
-    promise.then((v) => {
-      clearTimeout(timeoutID);
-      return v;
+    promise.then(v => {
+      clearTimeout(timeoutID)
+      return v
     }),
 
     new Promise((_, rej) => {
       timeoutID = setTimeout(() => {
-        rej(new Error(TIMEOUT_ERR));
-      }, timeout);
-    }),
-  ]);
-};
+        rej(new Error(TIMEOUT_ERR))
+      }, timeout)
+    })
+  ])
+}
 
 /**
  * @template T
@@ -49,61 +50,60 @@ const tryAndWait = async (promGen, shouldRetry = () => false) => {
   // 5, retry, stop at 10, err
 
   /** @type {T} */
-  let resolvedValue;
+  let resolvedValue
 
   try {
-    resolvedValue = await timeout(promGen(Gun.getGun(), Gun.getUser()), 10000);
+    resolvedValue = await timeout(promGen(Gun.getGun(), Gun.getUser()), 10000)
 
     if (shouldRetry(resolvedValue)) {
       console.log(
-        "force retrying" +
+        'force retrying' +
           ` args: ${promGen.toString()} -- ${shouldRetry.toString()}`
-      );
+      )
     } else {
-      return resolvedValue;
+      return resolvedValue
     }
   } catch (e) {
-    console.log(e);
-    if (e.message === "NOT_AUTH") {
-      throw e;
+    console.log(e)
+    if (e.message === 'NOT_AUTH') {
+      throw e
     }
   }
 
   console.log(
     `\n retrying \n` +
       ` args: ${promGen.toString()} -- ${shouldRetry.toString()}`
-  );
+  )
 
-  await delay(3000);
+  await delay(3000)
 
   try {
-    resolvedValue = await timeout(promGen(Gun.getGun(), Gun.getUser()), 5000);
+    resolvedValue = await timeout(promGen(Gun.getGun(), Gun.getUser()), 5000)
 
     if (shouldRetry(resolvedValue)) {
       console.log(
-        "force retrying" +
+        'force retrying' +
           ` args: ${promGen.toString()} -- ${shouldRetry.toString()}`
-      );
+      )
     } else {
-      return resolvedValue;
+      return resolvedValue
     }
   } catch (e) {
-    console.log(e);
-    if (e.message === "NOT_AUTH") {
-      throw e;
+    console.log(e)
+    if (e.message === 'NOT_AUTH') {
+      throw e
     }
   }
 
   console.log(
     `\n recreating a fresh gun and retrying one last time \n` +
       ` args: ${promGen.toString()} -- ${shouldRetry.toString()}`
-  );
+  )
 
-  const { gun, user } = await Gun.freshGun();
+  const { gun, user } = await Gun.freshGun()
 
-  return timeout(promGen(gun, user), 10000);
-};
-
+  return timeout(promGen(gun, user), 10000)
+}
 
 /**
  * @param {string} pub
@@ -133,7 +133,36 @@ const pubToEpub = async pub => {
   }
 }
 
+const addUserToGun = async (gun, user, pass) => {
+  await new Promise((res, rej) => {
+    gun.create(user, pass, ack => {
+      if (ack.err === `User already created!`) {
+        res(
+          new Promise((res, rej) => {
+            gun.auth(user, pass, ack => {
+              if (ack.err) {
+                console.log(ack)
+                rej(ack.err)
+              } else {
+                res(ack.sea.pub)
+              }
+            })
+          })
+        )
+
+        return
+      }
+      if (ack.err) {
+        rej(new Error(ack.err))
+      } else {
+        res(ack.pub)
+      }
+    })
+  })
+}
+
 module.exports = {
   tryAndWait,
-  pubToEpub
-};
+  pubToEpub,
+  addUserToGun
+}
