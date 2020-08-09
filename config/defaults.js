@@ -31,8 +31,6 @@ module.exports = (mainnet = false) => {
   return {
     serverPort: 9835,
     serverHost: "localhost",
-    sessionSecret: "my session secret",
-    sessionMaxAge: 300000,
     lndAddress: "127.0.0.1:9735",
     maxNumRoutesToQuery: 20,
     lndProto: parsePath(`${__dirname}/rpc.proto`),
@@ -50,6 +48,6 @@ module.exports = (mainnet = false) => {
     lndDirPath: lndDirectory,
     peers: ['http://gun.shock.network:8765/gun'],
     useTLS: false,
-    tokenExpirationMS: 4500000
+    tokenExpirationMS: 259200000
   }; 
 };
