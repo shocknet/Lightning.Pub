@@ -190,9 +190,10 @@ module.exports = async (
           resolve(unlockResponse)
         })
       } catch (err) {
-        logger.error(err)
+        logger.error('Unlock Error:', err)
         if (err.message === 'unknown service lnrpc.WalletUnlocker') {
           resolve({
+            field: 'walletUnlocker',
             message: 'Wallet already unlocked'
           })
           return
@@ -478,7 +479,7 @@ module.exports = async (
       const tokenValid = await auth.validateToken(token)
       return tokenValid
     } catch (err) {
-      return err
+      return false
     }
   }
 
@@ -500,7 +501,7 @@ module.exports = async (
         const publicKey = await GunDB.authenticate(alias, password)
 
         if (!publicKey) {
-          res.status(400).json({
+          res.status(401).json({
             field: 'alias',
             errorMessage: 'Invalid alias/password combination',
             success: false
@@ -508,16 +509,19 @@ module.exports = async (
           return false
         }
 
+        const trustedKeysEnabled =
+          process.env.TRUSTED_KEYS === 'true' || !process.env.TRUSTED_KEYS
         const trustedKeys = await Storage.get('trustedPKs')
-        const [isKeyTrusted] = trustedKeys.filter(
+        // Falls back to true if trusted keys is disabled in .env
+        const [isKeyTrusted = !trustedKeysEnabled] = (trustedKeys || []).filter(
           trustedKey => trustedKey === publicKey
         )
         const walletUnlocked = health.LNDStatus.walletStatus === 'unlocked'
 
         if (!walletUnlocked) {
-          await unlockWallet(password)
+          const unlockedWallet = await unlockWallet(password)
 
-          if (!isKeyTrusted) {
+          if (!isKeyTrusted && unlockedWallet.field !== 'walletUnlocker') {
             await Storage.set('trustedPKs', [...trustedKeys, publicKey])
           }
         }
@@ -529,7 +533,7 @@ module.exports = async (
           )
 
           if (!validatedToken) {
-            res.status(403).json({
+            res.status(401).json({
               field: 'alias',
               errorMessage: 'Invalid alias/password combination',
               success: false
@@ -695,9 +699,9 @@ module.exports = async (
             GunDB.mySEA
           )
 
-          const trustedPKs = await Storage.get('trustedPKs')
+          const trustedKeys = await Storage.get('trustedPKs')
           await Storage.setItem('trustedPKs', [
-            ...(trustedPKs || []),
+            ...(trustedKeys || []),
             publicKey
           ])
 
