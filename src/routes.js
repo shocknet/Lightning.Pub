@@ -190,7 +190,6 @@ module.exports = async (
           resolve(unlockResponse)
         })
       } catch (err) {
-        logger.error('Unlock Error:', err)
         if (err.message === 'unknown service lnrpc.WalletUnlocker') {
           resolve({
             field: 'walletUnlocker',
@@ -198,6 +197,8 @@ module.exports = async (
           })
           return
         }
+
+        logger.error('Unlock Error:', err)
 
         reject({
           field: 'wallet',
