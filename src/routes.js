@@ -5,6 +5,7 @@
 
 const Axios = require('axios')
 const Crypto = require('crypto')
+const Storage = require('node-persist')
 const logger = require('winston')
 const httpsAgent = require('https')
 const responseTime = require('response-time')
@@ -189,13 +190,15 @@ module.exports = async (
           resolve(unlockResponse)
         })
       } catch (err) {
-        logger.error(err)
         if (err.message === 'unknown service lnrpc.WalletUnlocker') {
           resolve({
+            field: 'walletUnlocker',
             message: 'Wallet already unlocked'
           })
           return
         }
+
+        logger.error('Unlock Error:', err)
 
         reject({
           field: 'wallet',
@@ -476,6 +479,15 @@ module.exports = async (
     }
   })
 
+  const validateToken = async token => {
+    try {
+      const tokenValid = await auth.validateToken(token)
+      return tokenValid
+    } catch (err) {
+      return false
+    }
+  }
+
   app.post('/api/lnd/auth', async (req, res) => {
     try {
       const health = await checkHealth()
@@ -492,12 +504,47 @@ module.exports = async (
         }
 
         const publicKey = await GunDB.authenticate(alias, password)
-        if (
-          walletInitialized &&
-          health.LNDStatus.walletStatus === 'locked' &&
-          publicKey
-        ) {
-          await unlockWallet(password)
+
+        if (!publicKey) {
+          res.status(401).json({
+            field: 'alias',
+            errorMessage: 'Invalid alias/password combination',
+            success: false
+          })
+          return false
+        }
+
+        const trustedKeysEnabled =
+          process.env.TRUSTED_KEYS === 'true' || !process.env.TRUSTED_KEYS
+        const trustedKeys = await Storage.get('trustedPKs')
+        // Falls back to true if trusted keys is disabled in .env
+        const [isKeyTrusted = !trustedKeysEnabled] = (trustedKeys || []).filter(
+          trustedKey => trustedKey === publicKey
+        )
+        const walletUnlocked = health.LNDStatus.walletStatus === 'unlocked'
+
+        if (!walletUnlocked) {
+          const unlockedWallet = await unlockWallet(password)
+
+          if (!isKeyTrusted && unlockedWallet.field !== 'walletUnlocker') {
+            await Storage.set('trustedPKs', [...trustedKeys, publicKey])
+          }
+        }
+
+        if (walletUnlocked && !isKeyTrusted) {
+          const { authorization = '' } = req.headers
+          const validatedToken = await validateToken(
+            authorization.replace('Bearer ', '')
+          )
+
+          if (!validatedToken) {
+            res.status(401).json({
+              field: 'alias',
+              errorMessage: 'Invalid alias/password combination',
+              success: false
+            })
+            return
+          }
         }
 
         // Send an event to update lightning's status
@@ -656,6 +703,12 @@ module.exports = async (
             GunDB.getUser(),
             GunDB.mySEA
           )
+
+          const trustedKeys = await Storage.get('trustedPKs')
+          await Storage.setItem('trustedPKs', [
+            ...(trustedKeys || []),
+            publicKey
+          ])
 
           walletUnlocker.initWallet(
             walletArgs,
