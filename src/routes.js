@@ -274,25 +274,29 @@ module.exports = async (
       ) {
         return next()
       }
-
-      const { data } = req.body
-      let IV = req.body.iv
-      let encryptedKey = req.body.encryptionKey
-      let encryptedToken = req.body.token
+      let reqData = null
+      let IV = null
+      let encryptedKey = null
+      let encryptedToken = null
       if (req.method === 'GET' || req.method === 'DELETE') {
         if (req.headers['x-shock-encryption-token']) {
           encryptedToken = req.headers['x-shock-encryption-token']
           encryptedKey = req.headers['x-shock-encryption-key']
           IV = req.headers['x-shock-encryption-iv']
         }
+      } else {
+        encryptedToken = req.body.token
+        encryptedKey = req.body.encryptionKey
+        IV = req.body.iv
+        reqData = req.body.data
       }
       const decryptedKey = Encryption.decryptKey({
         deviceId,
         message: encryptedKey
       })
-      if (data) {
+      if (reqData) {
         const decryptedMessage = Encryption.decryptMessage({
-          message: data,
+          message: reqData,
           key: decryptedKey,
           iv: IV
         })
@@ -1427,16 +1431,48 @@ module.exports = async (
   app.post('/api/lnd/sendpayment', (req, res) => {
     const { router } = LightningServices.services
     // this is the recommended value from lightning labs
-    const { maxParts = 3, payreq } = req.body
+    let paymentRequest = {}
+    const { keysend, maxParts = 3, timeoutSeconds = 5 } = req.body
+    if (keysend) {
+      const { dest, amt, finalCltvDelta = 40 } = req.body
+      if (!dest || !amt) {
+        return res.status(500).json({
+          errorMessage: 'please provide "dest" and "amt" for keysend payments'
+        })
+      }
+      const preimage = Crypto.randomBytes(32)
+      const r_hash = Crypto.createHash('sha256')
+        .update(preimage)
+        .digest()
+      //https://github.com/lightningnetwork/lnd/blob/master/record/experimental.go#L5:2
+      //might break in future updates
+      const KeySendType = 5482373484
+      //https://api.lightning.community/#featurebit
+      const TLV_ONION_REQ = 8
+      paymentRequest = {
+        dest: Buffer.from(dest, 'hex'),
+        amt,
+        final_cltv_delta: finalCltvDelta,
+        dest_features: [TLV_ONION_REQ],
+        dest_custom_records: {
+          [KeySendType]: preimage
+        },
+        payment_hash: r_hash,
+        max_parts: maxParts,
+        timeout_seconds: timeoutSeconds
+      }
+    } else {
+      const { payreq } = req.body
 
-    const paymentRequest = {
-      payment_request: payreq,
-      max_parts: maxParts,
-      timeout_seconds: 5
-    }
+      paymentRequest = {
+        payment_request: payreq,
+        max_parts: maxParts,
+        timeout_seconds: timeoutSeconds
+      }
 
-    if (req.body.amt) {
-      paymentRequest.amt = req.body.amt
+      if (req.body.amt) {
+        paymentRequest.amt = req.body.amt
+      }
     }
 
     logger.info('Sending payment', paymentRequest)
