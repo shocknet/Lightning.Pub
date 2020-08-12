@@ -861,6 +861,9 @@ module.exports = async (
       // Register user after verifying wallet password
       const publicKey = await GunDB.register(alias, password)
 
+      const trustedKeys = await Storage.get('trustedPKs')
+      await Storage.setItem('trustedPKs', [...(trustedKeys || []), publicKey])
+
       // Generate Access Token
       const token = await auth.generateToken()
 
