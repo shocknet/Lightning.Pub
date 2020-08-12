@@ -582,13 +582,15 @@ module.exports = async (
             logger.error('Channel backup stream error:', err)
           })
           stream.on('status', status => {
-            logger.error('Channel backup stream status:', status)
             if (status.code === 14) {
               // Prevents call stack overflow exceptions
-              process.nextTick(onNewChannelBackup)
+              process.nextTick(() => setTimeout(onNewChannelBackup, 30000))
+            } else {
+              logger.error('Channel backup stream status:', status)
             }
           })
         }
+
         onNewChannelBackup()
 
         // Generate auth token and send it as a JSON response
