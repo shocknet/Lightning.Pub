@@ -522,17 +522,22 @@ module.exports = async (
           trustedKey => trustedKey === publicKey
         )
         const walletUnlocked = health.LNDStatus.walletStatus === 'unlocked'
+        const { authorization = '' } = req.headers
 
         if (!walletUnlocked) {
-          const unlockedWallet = await unlockWallet(password)
+          await unlockWallet(password)
+        }
 
-          if (!isKeyTrusted && unlockedWallet.field !== 'walletUnlocker') {
-            await Storage.set('trustedPKs', [...trustedKeys, publicKey])
-          }
+        if (walletUnlocked && !authorization && !isKeyTrusted) {
+          res.status(401).json({
+            field: 'alias',
+            errorMessage: 'Invalid alias/password combination',
+            success: false
+          })
+          return
         }
 
         if (walletUnlocked && !isKeyTrusted) {
-          const { authorization = '' } = req.headers
           const validatedToken = await validateToken(
             authorization.replace('Bearer ', '')
           )
@@ -545,6 +550,10 @@ module.exports = async (
             })
             return
           }
+        }
+
+        if (!isKeyTrusted) {
+          await Storage.set('trustedPKs', [...(trustedKeys || []), publicKey])
         }
 
         // Send an event to update lightning's status
