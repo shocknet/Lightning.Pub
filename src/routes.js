@@ -1459,7 +1459,8 @@ module.exports = async (
         },
         payment_hash: r_hash,
         max_parts: maxParts,
-        timeout_seconds: timeoutSeconds
+        timeout_seconds: timeoutSeconds,
+        no_inflight_updates: true
       }
     } else {
       const { payreq } = req.body
@@ -1467,7 +1468,8 @@ module.exports = async (
       paymentRequest = {
         payment_request: payreq,
         max_parts: maxParts,
-        timeout_seconds: timeoutSeconds
+        timeout_seconds: timeoutSeconds,
+        no_inflight_updates: true
       }
 
       if (req.body.amt) {
@@ -1481,17 +1483,17 @@ module.exports = async (
     sentPayment.on('data', response => {
       if (res.headersSent) {
         //if res was already sent
-        if (response.failure_reason !== 'FAILURE_REASON_NONE') {
+        if (response.status !== 'SUCCEEDED') {
           //if the operation failed
           finalEvent = { error: response.failure_reason }
         } else {
           finalEvent = { status: response.status }
         }
       } else {
-        if (response.failure_reason !== 'FAILURE_REASON_NONE') {
+        if (response.status !== 'SUCCEEDED') {
           logger.error('SendPayment Info:', response)
           return res.status(500).json({
-            errorMessage: response.failure_reason
+            errorMessage: sanitizeLNDError(response.details)
           })
         }
         logger.info('SendPayment Data:', response)
