@@ -1479,26 +1479,9 @@ module.exports = async (
 
     logger.info('Sending payment', paymentRequest)
     const sentPayment = router.sendPaymentV2(paymentRequest)
-    let finalEvent = null //Object to send to the socket, depends on final event from the stream
     sentPayment.on('data', response => {
-      if (res.headersSent) {
-        //if res was already sent
-        if (response.status !== 'SUCCEEDED') {
-          //if the operation failed
-          logger.error('Sen payment failure', response.details)
-        } else {
-          finalEvent = { status: response.status }
-        }
-      } else {
-        if (response.status !== 'SUCCEEDED') {
-          logger.error('Sen payment failure', response.details)
-          return res.status(500).json({
-            errorMessage: sanitizeLNDError(response.details)
-          })
-        }
-        logger.info('SendPayment Data:', response)
-        return res.json(response)
-      }
+      logger.info('SendPayment Data:', response)
+      res.json(response)
     })
 
     sentPayment.on('status', status => {
@@ -1507,26 +1490,17 @@ module.exports = async (
 
     sentPayment.on('error', async err => {
       logger.error('SendPayment Error:', err)
-      if (res.headersSent) {
-        logger.error('Sen payment failure', err)
+      const health = await checkHealth()
+      if (health.LNDStatus.success) {
+        res.status(500).json({
+          errorMessage: sanitizeLNDError(err.details)
+        })
       } else {
-        const health = await checkHealth()
-        if (health.LNDStatus.success) {
-          res.status(500).json({
-            errorMessage: sanitizeLNDError(err)
-          })
-        } else {
-          res.status(500)
-          res.json({ errorMessage: 'LND is down' })
-        }
+        res.status(500)
+        res.json({ errorMessage: 'LND is down' })
       }
     })
-    sentPayment.on('end', () => {
-      if (finalEvent !== null) {
-        //send the last event got from the stream
-        //TO DO send finalEvent on socket
-      }
-    })
+    //sentPayment.on('end', () => {})
   })
 
   app.post('/api/lnd/trackpayment', (req, res) => {
