@@ -1499,13 +1499,13 @@ module.exports = async (
         //if res was already sent
         if (response.status !== 'SUCCEEDED') {
           //if the operation failed
-          finalEvent = { error: response.failure_reason }
+          logger.error('Sen payment failure', response.details)
         } else {
           finalEvent = { status: response.status }
         }
       } else {
         if (response.status !== 'SUCCEEDED') {
-          logger.error('SendPayment Info:', response)
+          logger.error('Sen payment failure', response.details)
           return res.status(500).json({
             errorMessage: sanitizeLNDError(response.details)
           })
@@ -1522,12 +1522,12 @@ module.exports = async (
     sentPayment.on('error', async err => {
       logger.error('SendPayment Error:', err)
       if (res.headersSent) {
-        finalEvent = { error: err.details } //send error on socket if http has already finished
+        logger.error('Sen payment failure', err)
       } else {
         const health = await checkHealth()
         if (health.LNDStatus.success) {
           res.status(500).json({
-            errorMessage: sanitizeLNDError(err.details)
+            errorMessage: sanitizeLNDError(err)
           })
         } else {
           res.status(500)
