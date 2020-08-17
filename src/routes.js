@@ -2767,8 +2767,4 @@ module.exports = async (
       data: isAuthenticated()
     })
   })
-  /**
-   * Return app so that it can be used by express.
-   */
-  // return app;
 }
