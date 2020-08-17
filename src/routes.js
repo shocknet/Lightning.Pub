@@ -591,13 +591,15 @@ module.exports = async (
             logger.error('Channel backup stream error:', err)
           })
           stream.on('status', status => {
-            logger.error('Channel backup stream status:', status)
             if (status.code === 14) {
               // Prevents call stack overflow exceptions
-              process.nextTick(onNewChannelBackup)
+              process.nextTick(() => setTimeout(onNewChannelBackup, 30000))
+            } else {
+              logger.error('Channel backup stream status:', status)
             }
           })
         }
+
         onNewChannelBackup()
 
         // Generate auth token and send it as a JSON response
@@ -1471,7 +1473,8 @@ module.exports = async (
         },
         payment_hash: r_hash,
         max_parts: maxParts,
-        timeout_seconds: timeoutSeconds
+        timeout_seconds: timeoutSeconds,
+        no_inflight_updates: true
       }
     } else {
       const { payreq } = req.body
@@ -1479,7 +1482,8 @@ module.exports = async (
       paymentRequest = {
         payment_request: payreq,
         max_parts: maxParts,
-        timeout_seconds: timeoutSeconds
+        timeout_seconds: timeoutSeconds,
+        no_inflight_updates: true
       }
 
       if (req.body.amt) {
@@ -1493,17 +1497,17 @@ module.exports = async (
     sentPayment.on('data', response => {
       if (res.headersSent) {
         //if res was already sent
-        if (response.failure_reason !== 'FAILURE_REASON_NONE') {
+        if (response.status !== 'SUCCEEDED') {
           //if the operation failed
-          finalEvent = { error: response.failure_reason }
+          logger.error('Sen payment failure', response.details)
         } else {
           finalEvent = { status: response.status }
         }
       } else {
-        if (response.failure_reason !== 'FAILURE_REASON_NONE') {
-          logger.error('SendPayment Info:', response)
+        if (response.status !== 'SUCCEEDED') {
+          logger.error('Sen payment failure', response.details)
           return res.status(500).json({
-            errorMessage: response.failure_reason
+            errorMessage: sanitizeLNDError(response.details)
           })
         }
         logger.info('SendPayment Data:', response)
@@ -1518,12 +1522,12 @@ module.exports = async (
     sentPayment.on('error', async err => {
       logger.error('SendPayment Error:', err)
       if (res.headersSent) {
-        finalEvent = { error: err.details } //send error on socket if http has already finished
+        logger.error('Sen payment failure', err)
       } else {
         const health = await checkHealth()
         if (health.LNDStatus.success) {
           res.status(500).json({
-            errorMessage: sanitizeLNDError(err.details)
+            errorMessage: sanitizeLNDError(err)
           })
         } else {
           res.status(500)
