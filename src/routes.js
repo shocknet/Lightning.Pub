@@ -1432,7 +1432,13 @@ module.exports = async (
     const { router } = LightningServices.services
     // this is the recommended value from lightning labs
     let paymentRequest = {}
-    const { keysend, maxParts = 3, timeoutSeconds = 5 } = req.body
+    const { keysend, maxParts = 3, timeoutSeconds = 5, feeLimit } = req.body
+    logger.error('FEE LIMIT', feeLimit)
+    if (!feeLimit) {
+      return res.status(500).json({
+        errorMessage: 'please provide a "feeLimit" to the send payment request'
+      })
+    }
     if (keysend) {
       const { dest, amt, finalCltvDelta = 40 } = req.body
       if (!dest || !amt) {
@@ -1460,7 +1466,8 @@ module.exports = async (
         payment_hash: r_hash,
         max_parts: maxParts,
         timeout_seconds: timeoutSeconds,
-        no_inflight_updates: true
+        no_inflight_updates: true,
+        fee_limit_sat: feeLimit
       }
     } else {
       const { payreq } = req.body
@@ -1469,7 +1476,8 @@ module.exports = async (
         payment_request: payreq,
         max_parts: maxParts,
         timeout_seconds: timeoutSeconds,
-        no_inflight_updates: true
+        no_inflight_updates: true,
+        fee_limit_sat: feeLimit
       }
 
       if (req.body.amt) {
