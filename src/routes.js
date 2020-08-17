@@ -1433,7 +1433,6 @@ module.exports = async (
     // this is the recommended value from lightning labs
     let paymentRequest = {}
     const { keysend, maxParts = 3, timeoutSeconds = 5, feeLimit } = req.body
-    logger.error('FEE LIMIT', feeLimit)
     if (!feeLimit) {
       return res.status(500).json({
         errorMessage: 'please provide a "feeLimit" to the send payment request'
