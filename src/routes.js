@@ -2200,34 +2200,6 @@ module.exports = async (
       }
 
       if (before) {
-        return res.status(200).json({
-          posts: [
-            {
-              author: {
-                avatar: null,
-                bio: null,
-                displayName: `user-1`,
-                lastSeenApp: 0,
-                lastSeenNode: 0,
-                publicKey: (Math.random() * 100).toString()
-              },
-              contentItems: {
-                [Math.random().toString()]: {
-                  type: 'text/paragraph',
-                  text:
-                    'Lorem ipsum dolor Lorem ipsum dolor Lorem ipsum dolor Lorem ipsum dolor Lorem ipsum dolor Lorem ipsum dolor Lorem ipsum dolor Lorem ipsum dolor Lorem ipsum dolor Lorem ipsum dolor Lorem ipsum dolor'
-                }
-              },
-              date: Date.now(),
-              id: '-1',
-              status: 'publish',
-              tags: '',
-              title: 'jashdkjashjkashjd'
-            }
-          ],
-          page: 1
-        })
-
         const pages = range(1, MAX_PAGES_TO_FETCH_FOR_TRY_UNTIL)
         const promises = pages.map(p => GunGetters.getFeedPage(p))
 
@@ -2244,7 +2216,7 @@ module.exports = async (
 
           return res.status(200).json({
             posts,
-            page: idx
+            page: idxIfFound
           })
         }
 
@@ -2253,8 +2225,8 @@ module.exports = async (
         // 205 code (client should refresh UI)
 
         return res.status(205).json({
-          posts: results[0] || []
-          ,page: 1
+          posts: results[0] || [],
+          page: 1
         })
       }
 
