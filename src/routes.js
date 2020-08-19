@@ -2243,7 +2243,8 @@ module.exports = async (
           const posts = flatten(results)
 
           return res.status(200).json({
-            posts
+            posts,
+            page: idx
           })
         }
 
@@ -2253,6 +2254,7 @@ module.exports = async (
 
         return res.status(205).json({
           posts: results[0] || []
+          ,page: 1
         })
       }
 
