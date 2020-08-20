@@ -12,6 +12,7 @@ const server = program => {
   const Dotenv = require('dotenv')
   const Storage = require('node-persist')
   const Path = require('path')
+  const { Logger: CommonLogger } = require('shock-common')
   const LightningServices = require('../utils/lightningServices')
   const Encryption = require('../utils/encryptionStore')
   const app = Express()
@@ -40,6 +41,8 @@ const server = program => {
     program.logfile || defaults.logfile,
     program.loglevel || defaults.loglevel
   )
+
+  CommonLogger.setLogger(logger)
 
   // utilities functions =================
   require('../utils/server-utils')(module)
