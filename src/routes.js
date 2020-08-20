@@ -1488,7 +1488,13 @@ module.exports = async (
     const sentPayment = router.sendPaymentV2(paymentRequest)
     sentPayment.on('data', response => {
       logger.info('SendPayment Data:', response)
-      res.json(response)
+      if (response.failure_reason !== 'FAILURE_REASON_NONE') {
+        res.status(500).json({
+          errorMessage: response.failure_reason
+        })
+      } else {
+        res.json(response)
+      }
     })
 
     sentPayment.on('status', status => {
@@ -1992,6 +1998,53 @@ module.exports = async (
     }
   })
   ////////////////////////////////////////////////////////////////////////////////
+
+  app.post(`/api/gun/sendpayment`, async (req, res) => {
+    const {
+      recipientPub,
+      amount,
+      memo,
+      maxParts,
+      timeoutSeconds,
+      feeLimit,
+      sessionUuid
+    } = req.body
+    logger.info('handling spont pay')
+    if (!feeLimit) {
+      logger.error(
+        'please provide a "feeLimit" to the send spont payment request'
+      )
+      return res.status(500).json({
+        errorMessage:
+          'please provide a "feeLimit" to the send spont payment request'
+      })
+    }
+    if (!recipientPub || !amount) {
+      logger.info(
+        'please provide a "recipientPub" and "amount" to the send spont payment request'
+      )
+      return res.status(500).json({
+        errorMessage:
+          'please provide a "recipientPub" and "amount" to the send spont payment request'
+      })
+    }
+    try {
+      const preimage = await GunActions.sendPayment(
+        recipientPub,
+        amount,
+        memo,
+        feeLimit,
+        maxParts,
+        timeoutSeconds
+      )
+      res.json({ preimage, sessionUuid })
+    } catch (err) {
+      logger.info('spont pay err:', err)
+      return res.status(500).json({
+        errorMessage: err.message
+      })
+    }
+  })
 
   app.get(`/api/gun/wall/:publicKey?`, async (req, res) => {
     try {
