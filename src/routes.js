@@ -1446,7 +1446,12 @@ module.exports = async (
     const { router } = LightningServices.services
     // this is the recommended value from lightning labs
     let paymentRequest = {}
-    const { keysend, maxParts = 3, timeoutSeconds = 5 } = req.body
+    const { keysend, maxParts = 3, timeoutSeconds = 5, feeLimit } = req.body
+    if (!feeLimit) {
+      return res.status(500).json({
+        errorMessage: 'please provide a "feeLimit" to the send payment request'
+      })
+    }
     if (keysend) {
       const { dest, amt, finalCltvDelta = 40 } = req.body
       if (!dest || !amt) {
@@ -1474,7 +1479,8 @@ module.exports = async (
         payment_hash: r_hash,
         max_parts: maxParts,
         timeout_seconds: timeoutSeconds,
-        no_inflight_updates: true
+        no_inflight_updates: true,
+        fee_limit_sat: feeLimit
       }
     } else {
       const { payreq } = req.body
@@ -1483,7 +1489,8 @@ module.exports = async (
         payment_request: payreq,
         max_parts: maxParts,
         timeout_seconds: timeoutSeconds,
-        no_inflight_updates: true
+        no_inflight_updates: true,
+        fee_limit_sat: feeLimit
       }
 
       if (req.body.amt) {
@@ -1493,25 +1500,14 @@ module.exports = async (
 
     logger.info('Sending payment', paymentRequest)
     const sentPayment = router.sendPaymentV2(paymentRequest)
-    let finalEvent = null //Object to send to the socket, depends on final event from the stream
     sentPayment.on('data', response => {
-      if (res.headersSent) {
-        //if res was already sent
-        if (response.status !== 'SUCCEEDED') {
-          //if the operation failed
-          logger.error('Sen payment failure', response.details)
-        } else {
-          finalEvent = { status: response.status }
-        }
+      logger.info('SendPayment Data:', response)
+      if (response.failure_reason !== 'FAILURE_REASON_NONE') {
+        res.status(500).json({
+          errorMessage: response.failure_reason
+        })
       } else {
-        if (response.status !== 'SUCCEEDED') {
-          logger.error('Sen payment failure', response.details)
-          return res.status(500).json({
-            errorMessage: sanitizeLNDError(response.details)
-          })
-        }
-        logger.info('SendPayment Data:', response)
-        return res.json(response)
+        res.json(response)
       }
     })
 
@@ -1521,26 +1517,17 @@ module.exports = async (
 
     sentPayment.on('error', async err => {
       logger.error('SendPayment Error:', err)
-      if (res.headersSent) {
-        logger.error('Sen payment failure', err)
+      const health = await checkHealth()
+      if (health.LNDStatus.success) {
+        res.status(500).json({
+          errorMessage: sanitizeLNDError(err.details)
+        })
       } else {
-        const health = await checkHealth()
-        if (health.LNDStatus.success) {
-          res.status(500).json({
-            errorMessage: sanitizeLNDError(err)
-          })
-        } else {
-          res.status(500)
-          res.json({ errorMessage: 'LND is down' })
-        }
+        res.status(500)
+        res.json({ errorMessage: 'LND is down' })
       }
     })
-    sentPayment.on('end', () => {
-      if (finalEvent !== null) {
-        //send the last event got from the stream
-        //TO DO send finalEvent on socket
-      }
-    })
+    //sentPayment.on('end', () => {})
   })
 
   app.post('/api/lnd/trackpayment', (req, res) => {
@@ -2025,6 +2012,53 @@ module.exports = async (
     }
   })
   ////////////////////////////////////////////////////////////////////////////////
+
+  app.post(`/api/gun/sendpayment`, async (req, res) => {
+    const {
+      recipientPub,
+      amount,
+      memo,
+      maxParts,
+      timeoutSeconds,
+      feeLimit,
+      sessionUuid
+    } = req.body
+    logger.info('handling spont pay')
+    if (!feeLimit) {
+      logger.error(
+        'please provide a "feeLimit" to the send spont payment request'
+      )
+      return res.status(500).json({
+        errorMessage:
+          'please provide a "feeLimit" to the send spont payment request'
+      })
+    }
+    if (!recipientPub || !amount) {
+      logger.info(
+        'please provide a "recipientPub" and "amount" to the send spont payment request'
+      )
+      return res.status(500).json({
+        errorMessage:
+          'please provide a "recipientPub" and "amount" to the send spont payment request'
+      })
+    }
+    try {
+      const preimage = await GunActions.sendPayment(
+        recipientPub,
+        amount,
+        memo,
+        feeLimit,
+        maxParts,
+        timeoutSeconds
+      )
+      res.json({ preimage, sessionUuid })
+    } catch (err) {
+      logger.info('spont pay err:', err)
+      return res.status(500).json({
+        errorMessage: err.message
+      })
+    }
+  })
 
   app.get(`/api/gun/wall/:publicKey?`, async (req, res) => {
     try {
