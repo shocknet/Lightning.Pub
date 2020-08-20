@@ -902,11 +902,21 @@ const sendHRWithInitialMsg = async (
  * @param {string} to
  * @param {number} amount
  * @param {string} memo
+ * @param {number} feeLimit
+ * @param {number=} maxParts
+ * @param {number=} timeoutSeconds
  * @throws {Error} If no response in less than 20 seconds from the recipient, or
  * lightning cannot find a route for the payment.
  * @returns {Promise<string>} The payment's preimage.
  */
-const sendPayment = async (to, amount, memo) => {
+const sendPayment = async (
+  to,
+  amount,
+  memo,
+  feeLimit,
+  maxParts = 3,
+  timeoutSeconds = 5
+) => {
   try {
     const SEA = require('../Mediator').mySEA
     const getUser = () => require('../Mediator').getUser()
@@ -1037,7 +1047,7 @@ const sendPayment = async (to, amount, memo) => {
     }
 
     const {
-      services: { lightning }
+      services: { router }
     } = LightningServices
 
     /**
@@ -1047,50 +1057,46 @@ const sendPayment = async (to, amount, memo) => {
 
     /**
      * Partial
-     * https://api.lightning.community/#grpc-response-sendresponse-2
+     * https://api.lightning.community/#sendpaymentv2
      * @typedef {object} SendResponse
-     * @prop {string|null} payment_error
-     * @prop {any[]|null} payment_route
+     * @prop {string} failure_reason
      * @prop {string} payment_preimage
      */
 
     logger.info('Will now send payment through lightning')
 
-    const sendPaymentSyncArgs = {
+    const sendPaymentV2Args = {
       /** @type {string} */
-      payment_request: orderResponse.response
+      payment_request: orderResponse.response,
+      max_parts: maxParts,
+      timeout_seconds: timeoutSeconds,
+      no_inflight_updates: true,
+      fee_limit_sat: feeLimit
     }
 
-    /** @type {string} */
-    const preimage = await new Promise((resolve, rej) => {
-      lightning.sendPaymentSync(sendPaymentSyncArgs, (
-        /** @type {SendErr=} */ err,
-        /** @type {SendResponse} */ res
-      ) => {
-        if (err) {
-          rej(new Error(err.details))
-        } else if (res) {
-          if (res.payment_error) {
-            rej(
-              new Error(
-                `sendPaymentSync error response: ${JSON.stringify(res)}`
-              )
-            )
-          } else if (!res.payment_route || !res.payment_preimage) {
-            rej(
-              new Error(
-                `sendPaymentSync no payment route response or preimage: ${JSON.stringify(
-                  res
-                )}`
-              )
-            )
-          } else {
-            resolve(res.payment_preimage)
-          }
+    const preimage = await new Promise((res, rej) => {
+      const sentPaymentStream = router.sendPaymentV2(sendPaymentV2Args)
+      /**
+       * @param {SendResponse} response
+       */
+      const dataCB = response => {
+        logger.info('SendPayment Data:', response)
+        if (response.failure_reason !== 'FAILURE_REASON_NONE') {
+          rej(new Error(response.failure_reason))
         } else {
-          rej(new Error('no error or response received from sendPaymentSync'))
+          res(response.payment_preimage)
         }
-      })
+      }
+      sentPaymentStream.on('data', dataCB)
+      /**
+       *
+       * @param {SendErr} err
+       */
+      const errCB = err => {
+        logger.error('SendPayment Error:', err)
+        rej(err.details)
+      }
+      sentPaymentStream.on('error', errCB)
     })
 
     if (Utils.successfulHandshakeAlreadyExists(to)) {

@@ -509,6 +509,7 @@ class Mediator {
       Action.GENERATE_NEW_HANDSHAKE_NODE,
       this.generateHandshakeNode
     )
+    this.socket.on('GENERATE_ORDER_ADDRESS', this.generateOrderAddress)
     this.socket.on(Action.SEND_HANDSHAKE_REQUEST, this.sendHandshakeRequest)
     this.socket.on(
       Action.SEND_HANDSHAKE_REQUEST_WITH_INITIAL_MSG,
@@ -746,6 +747,32 @@ class Mediator {
   }
 
   /**
+   * @param {Readonly<{ token: string }>} body
+   */
+  generateOrderAddress = async body => {
+    try {
+      const { token } = body
+
+      await throwOnInvalidToken(token)
+
+      await API.Actions.generateOrderAddress(user)
+
+      this.socket.emit('GENERATE_ORDER_ADDRESS', {
+        ok: true,
+        msg: null,
+        origBody: body
+      })
+    } catch (err) {
+      logger.info(err)
+      this.socket.emit('GENERATE_ORDER_ADDRESS', {
+        ok: false,
+        msg: err.message,
+        origBody: body
+      })
+    }
+  }
+
+  /**
    * @param {Readonly<{ recipientPublicKey: string , token: string }>} body
    */
   sendHandshakeRequest = async body => {
@@ -861,15 +888,20 @@ class Mediator {
   }
 
   /**
-   * @param {Readonly<{ uuid: string, recipientPub: string, amount: number, memo: string, token: string }>} reqBody
+   * @param {Readonly<{ uuid: string, recipientPub: string, amount: number, memo: string, token: string, feeLimit:number }>} reqBody
    */
   sendPayment = async reqBody => {
     try {
-      const { recipientPub, amount, memo, token } = reqBody
+      const { recipientPub, amount, memo, feeLimit, token } = reqBody
 
       await throwOnInvalidToken(token)
 
-      const preimage = await API.Actions.sendPayment(recipientPub, amount, memo)
+      const preimage = await API.Actions.sendPayment(
+        recipientPub,
+        amount,
+        memo,
+        feeLimit
+      )
 
       this.socket.emit(Action.SEND_PAYMENT, {
         ok: true,
