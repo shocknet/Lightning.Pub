@@ -1190,6 +1190,20 @@ module.exports = async (
         })
       }
 
+      if (!isARealUsableNumber(feeLimit)) {
+        return res.status(400).json({
+          field: 'feeLimit',
+          errorMessage: 'Not an usable number'
+        })
+      }
+
+      if (feeLimit < 1) {
+        return res.status(400).json({
+          field: 'feeLimit',
+          errorMessage: 'Must be 1 or greater.'
+        })
+      }
+
       return res
         .status(200)
         .json(await GunActions.sendSpontaneousPayment(to, amt, memo, feeLimit))

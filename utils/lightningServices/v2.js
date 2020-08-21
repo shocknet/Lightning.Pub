@@ -284,7 +284,9 @@ const sendPaymentV2Keysend = params => {
   } = params
 
   if (!isValidSendPaymentKeysendParams(params)) {
-    throw new TypeError('Invalid SendPaymentKeysendParams')
+    throw new TypeError(
+      `Invalid SendPaymentKeysendParams: ${JSON.stringify(params)}`
+    )
   }
 
   const preimage = Crypto.randomBytes(32)
@@ -321,7 +323,9 @@ const sendPaymentV2Invoice = params => {
   } = params
 
   if (!isValidSendPaymentInvoiceParams(params)) {
-    throw new TypeError('Invalid SendPaymentInvoiceParams')
+    throw new TypeError(
+      `Invalid SendPaymentInvoiceParams: ${JSON.stringify(params)}`
+    )
   }
 
   return sendPaymentV2({
