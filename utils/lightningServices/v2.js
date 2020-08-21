@@ -145,7 +145,7 @@ const isValidSendPaymentKeysendParams = sendPaymentKeysendParams => {
     return false
   }
 
-  if (typeof feeLimit !== 'string') {
+  if (typeof feeLimit !== 'number') {
     return false
   }
 
@@ -189,7 +189,7 @@ const isValidSendPaymentInvoiceParams = sendPaymentInvoiceParams => {
     return false
   }
 
-  if (typeof feeLimit !== 'string') {
+  if (typeof feeLimit !== 'number') {
     return false
   }
 

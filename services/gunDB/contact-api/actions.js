@@ -1044,7 +1044,7 @@ const sendSpontaneousPayment = async (to, amount, memo, feeLimit) => {
     logger.info('Will now send payment through lightning')
 
     const payment = await sendPaymentV2Invoice({
-      feeLimit: feeLimit.toString(),
+      feeLimit,
       payment_request: orderResponse.response
     })
 

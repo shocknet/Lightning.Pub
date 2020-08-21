@@ -17,9 +17,9 @@ export interface PaymentV2 {
 
   status: 'UNKNOWN' | 'IN_FLIGHT' | 'SUCCEEDED' | 'FAILED'
 
-  fee_sat: string
+  fee_sat: number
 
-  fee_msat: string
+  fee_msat: number
 
   creation_time_ns: string
 
@@ -85,7 +85,7 @@ interface _SendPaymentV2Request {
 
   payment_request: string
 
-  fee_limit_sat: string
+  fee_limit_sat: number
 }
 
 export type SendPaymentV2Request = Partial<_SendPaymentV2Request>
@@ -93,7 +93,7 @@ export type SendPaymentV2Request = Partial<_SendPaymentV2Request>
 export interface SendPaymentKeysendParams {
   amt: string
   dest: string
-  feeLimit: string
+  feeLimit: number
   finalCltvDelta?: number
   maxParts?: number
   timeoutSeconds?: number
@@ -101,7 +101,7 @@ export interface SendPaymentKeysendParams {
 
 export interface SendPaymentInvoiceParams {
   amt?: string
-  feeLimit: string
+  feeLimit: number
   max_parts?: number
   payment_request: string
   timeoutSeconds?: number
