@@ -1,12 +1,12 @@
 /**
  * @format
  */
-const FS = require('../utils/fs')
-const lnrpc = require('../services/lnd/lightning')
-
 /**
  * @typedef {import('commander').Command} Command
  */
+
+const FS = require('../../utils/fs')
+const lnrpc = require('../../services/lnd/lightning')
 
 /**
  * @typedef {object} Config
@@ -46,7 +46,7 @@ class LightningServices {
     /**
      * @type {Config}
      */
-    const newDefaults = require('../config/defaults')(program.mainnet)
+    const newDefaults = require('../../config/defaults')(program.mainnet)
 
     this.defaults = newDefaults
 
