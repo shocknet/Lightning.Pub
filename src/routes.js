@@ -1163,7 +1163,7 @@ module.exports = async (
     })
   })
 
-  app.post('api/lnd/unifiedTrx', async (req, res) => {
+  app.post('/api/lnd/unifiedTrx', async (req, res) => {
     try {
       const { type, amt, to, memo, feeLimit } = req.body
 
