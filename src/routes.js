@@ -1163,6 +1163,27 @@ module.exports = async (
     })
   })
 
+  app.post('api/lnd/unifiedTrx', async (req, res) => {
+    try {
+      const { type, amt, to, memo, feeLimit } = req.body
+
+      if (type !== 'spont') {
+        return res.status(415).json({
+          field: 'type',
+          errorMessage: `Only 'spont' payments supported via this endpoint for now.`
+        })
+      }
+
+      return res
+        .status(200)
+        .json(await GunActions.sendSpontaneousPayment(to, amt, memo, feeLimit))
+    } catch (e) {
+      return res.status(500).json({
+        errorMessage: e.message
+      })
+    }
+  })
+
   // get lnd node payments list
   app.get('/api/lnd/listpayments', (req, res) => {
     const { lightning } = LightningServices.services
