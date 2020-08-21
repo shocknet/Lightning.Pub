@@ -1,5 +1,5 @@
 {
-  "include": ["./services/gunDB/**/*.*"],
+  "include": ["./services/gunDB/**/*.*", "./utils/lightningServices/**/*.*"],
   "compilerOptions": {
     /* Basic Options */
     // "incremental": true,                   /* Enable incremental compilation */
