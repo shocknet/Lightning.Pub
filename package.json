@@ -39,7 +39,7 @@
     "jsonfile": "^4.0.0",
     "jsonwebtoken": "^8.3.0",
     "localtunnel": "^1.9.0",
-    "lodash": "^4.17.19",
+    "lodash": "^4.17.20",
     "method-override": "^2.3.7",
     "node-persist": "^3.1.0",
     "promise": "^8.0.1",
