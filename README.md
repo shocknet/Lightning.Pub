@@ -1,10 +1,10 @@
 <h1>ShockAPI</h1>
 
 ![GitHub last commit](https://img.shields.io/github/last-commit/shocknet/wallet?style=flat-square)
-![GitHub](https://img.shields.io/github/license/shocknet/wallet?label=license&style=flat-square)
+![GitHub](https://img.shields.io/github/license/shocknet/apihttp://bitcoin:bc1q2pn0rf92mt3pznjxq9gg3wkmjv0cmuy88tmfl8?label=license&style=flat-square)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com) 
 [![Chat](https://img.shields.io/badge/chat-on%20Telegram-blue?style=flat-square)](https://t.me/Shockwallet)
-![Twitter Follow](https://img.shields.io/twitter/follow/ShockBTC?style=flat-square)
+[![Twitter Follow](https://img.shields.io/twitter/follow/ShockBTC?style=flat-square)](https://twitter.com/shockbtc)
 
 <p></p>
 
