@@ -1,4 +1,14 @@
-This is an alpha release of the [ShockWallet](https://shockwallet.app) API.
+<h1>ShockAPI</h1>
+
+![GitHub last commit](https://img.shields.io/github/last-commit/shocknet/wallet?style=flat-square)
+![GitHub](https://img.shields.io/github/license/shocknet/wallet?label=license&style=flat-square)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com) 
+[![Chat](https://img.shields.io/badge/chat-on%20Telegram-blue?style=flat-square)](https://t.me/Shockwallet)
+![Twitter Follow](https://img.shields.io/twitter/follow/ShockBTC?style=flat-square)
+
+<p></p>
+
+This is an alpha release of the Shockwallet backend service.<br>
 
 For easy setup on your Laptop/Desktop, [a wizard is available here.](https://github.com/shocknet/wizard)
 
@@ -27,5 +37,5 @@ cd api
 yarn install
 ```
 
-3) Run with `node main -c -h 0.0.0.0` // remove -c for testnet
-4) Connect with ShockWallet
+3) Run with `yarn start`
+4) Connect with Shockwallet (Provide your node IP, or Scan QR if using ShockWizard)
