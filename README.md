@@ -32,7 +32,7 @@ For easy setup on your Laptop/Desktop, [a wizard is available here.](https://git
 2) Download and Install API
 
 ```
-git pull https://github.com/shocknet/api
+git clone https://github.com/shocknet/api
 cd api
 yarn install
 ```
