@@ -39,6 +39,3 @@ yarn install
 
 3) Run with `yarn start`
 4) Connect with Shockwallet *(Provide your nodes IP manually or scan QR from ShockWizard)*
-
-
-./lnd --bitcoin.active --bitcoin.mainnet --bitcoin.node=neutrino --neutrino.connect=neutrino.shock.network --routing.assumechanvalid --accept-keysend --allow-circular-route
