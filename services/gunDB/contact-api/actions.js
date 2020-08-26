@@ -8,7 +8,11 @@ const { Constants, Schema } = Common
 
 const { ErrorCode } = Constants
 
-const LightningServices = require('../../../utils/lightningServices')
+const { sendPaymentV2Invoice } = require('../../../utils/lightningServices/v2')
+
+/**
+ * @typedef {import('../../../utils/lightningServices/types').PaymentV2} PaymentV2
+ */
 
 const Getters = require('./getters')
 const Key = require('./key')
@@ -903,20 +907,11 @@ const sendHRWithInitialMsg = async (
  * @param {number} amount
  * @param {string} memo
  * @param {number} feeLimit
- * @param {number=} maxParts
- * @param {number=} timeoutSeconds
  * @throws {Error} If no response in less than 20 seconds from the recipient, or
  * lightning cannot find a route for the payment.
- * @returns {Promise<string>} The payment's preimage.
+ * @returns {Promise<PaymentV2>} The payment's preimage.
  */
-const sendPayment = async (
-  to,
-  amount,
-  memo,
-  feeLimit,
-  maxParts = 3,
-  timeoutSeconds = 5
-) => {
+const sendSpontaneousPayment = async (to, amount, memo, feeLimit) => {
   try {
     const SEA = require('../Mediator').mySEA
     const getUser = () => require('../Mediator').getUser()
@@ -1046,74 +1041,47 @@ const sendPayment = async (
       throw new Error(orderResponse.response)
     }
 
-    const {
-      services: { router }
-    } = LightningServices
-
-    /**
-     * @typedef {object} SendErr
-     * @prop {string} details
-     */
-
-    /**
-     * Partial
-     * https://api.lightning.community/#sendpaymentv2
-     * @typedef {object} SendResponse
-     * @prop {string} failure_reason
-     * @prop {string} payment_preimage
-     */
-
     logger.info('Will now send payment through lightning')
 
-    const sendPaymentV2Args = {
-      /** @type {string} */
-      payment_request: orderResponse.response,
-      max_parts: maxParts,
-      timeout_seconds: timeoutSeconds,
-      no_inflight_updates: true,
-      fee_limit_sat: feeLimit
-    }
-
-    const preimage = await new Promise((res, rej) => {
-      const sentPaymentStream = router.sendPaymentV2(sendPaymentV2Args)
-      /**
-       * @param {SendResponse} response
-       */
-      const dataCB = response => {
-        logger.info('SendPayment Data:', response)
-        if (response.failure_reason !== 'FAILURE_REASON_NONE') {
-          rej(new Error(response.failure_reason))
-        } else {
-          res(response.payment_preimage)
-        }
-      }
-      sentPaymentStream.on('data', dataCB)
-      /**
-       *
-       * @param {SendErr} err
-       */
-      const errCB = err => {
-        logger.error('SendPayment Error:', err)
-        rej(err.details)
-      }
-      sentPaymentStream.on('error', errCB)
+    const payment = await sendPaymentV2Invoice({
+      feeLimit,
+      payment_request: orderResponse.response
     })
 
     if (Utils.successfulHandshakeAlreadyExists(to)) {
       await sendMessage(
         to,
-        Schema.encodeSpontaneousPayment(amount, memo || 'no memo', preimage),
+        Schema.encodeSpontaneousPayment(
+          amount,
+          memo || 'no memo',
+          payment.payment_preimage
+        ),
         require('../Mediator').getUser(),
         require('../Mediator').mySEA
       )
     }
 
-    return preimage
+    return payment
   } catch (e) {
     logger.error('Error inside sendPayment()')
     logger.error(e)
     throw e
   }
+}
+
+/**
+ * Returns the preimage corresponding to the payment.
+ * @param {string} to
+ * @param {number} amount
+ * @param {string} memo
+ * @param {number} feeLimit
+ * @throws {Error} If no response in less than 20 seconds from the recipient, or
+ * lightning cannot find a route for the payment.
+ * @returns {Promise<string>} The payment's preimage.
+ */
+const sendPayment = async (to, amount, memo, feeLimit) => {
+  const payment = await sendSpontaneousPayment(to, amount, memo, feeLimit)
+  return payment.payment_preimage
 }
 
 /**
@@ -1632,5 +1600,6 @@ module.exports = {
   follow,
   unfollow,
   initWall,
-  sendMessageNew
+  sendMessageNew,
+  sendSpontaneousPayment
 }
