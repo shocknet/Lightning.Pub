@@ -29,6 +29,10 @@ const {
 const GunActions = require('../services/gunDB/contact-api/actions')
 const GunGetters = require('../services/gunDB/contact-api/getters')
 const GunKey = require('../services/gunDB/contact-api/key')
+const {
+  sendPaymentV2Keysend,
+  sendPaymentV2Invoice
+} = require('../utils/lightningServices/v2')
 
 const DEFAULT_MAX_NUM_ROUTES_TO_QUERY = 10
 const SESSION_ID = uuid()
@@ -1159,6 +1163,57 @@ module.exports = async (
     })
   })
 
+  app.post('/api/lnd/unifiedTrx', async (req, res) => {
+    try {
+      const { type, amt, to, memo, feeLimit } = req.body
+
+      if (type !== 'spont') {
+        return res.status(415).json({
+          field: 'type',
+          errorMessage: `Only 'spont' payments supported via this endpoint for now.`
+        })
+      }
+
+      const amount = Number(amt)
+
+      if (!isARealUsableNumber(amount)) {
+        return res.status(400).json({
+          field: 'amt',
+          errorMessage: 'Not an usable number'
+        })
+      }
+
+      if (amount < 1) {
+        return res.status(400).json({
+          field: 'amt',
+          errorMessage: 'Must be 1 or greater.'
+        })
+      }
+
+      if (!isARealUsableNumber(feeLimit)) {
+        return res.status(400).json({
+          field: 'feeLimit',
+          errorMessage: 'Not an usable number'
+        })
+      }
+
+      if (feeLimit < 1) {
+        return res.status(400).json({
+          field: 'feeLimit',
+          errorMessage: 'Must be 1 or greater.'
+        })
+      }
+
+      return res
+        .status(200)
+        .json(await GunActions.sendSpontaneousPayment(to, amt, memo, feeLimit))
+    } catch (e) {
+      return res.status(500).json({
+        errorMessage: e.message
+      })
+    }
+  })
+
   // get lnd node payments list
   app.get('/api/lnd/listpayments', (req, res) => {
     const { lightning } = LightningServices.services
@@ -1442,92 +1497,46 @@ module.exports = async (
   })
 
   // sendpayment
-  app.post('/api/lnd/sendpayment', (req, res) => {
-    const { router } = LightningServices.services
+  app.post('/api/lnd/sendpayment', async (req, res) => {
     // this is the recommended value from lightning labs
-    let paymentRequest = {}
     const { keysend, maxParts = 3, timeoutSeconds = 5, feeLimit } = req.body
+
     if (!feeLimit) {
-      return res.status(500).json({
+      return res.status(400).json({
         errorMessage: 'please provide a "feeLimit" to the send payment request'
       })
     }
+
     if (keysend) {
       const { dest, amt, finalCltvDelta = 40 } = req.body
       if (!dest || !amt) {
-        return res.status(500).json({
+        return res.status(400).json({
           errorMessage: 'please provide "dest" and "amt" for keysend payments'
         })
       }
-      const preimage = Crypto.randomBytes(32)
-      const r_hash = Crypto.createHash('sha256')
-        .update(preimage)
-        .digest()
-      //https://github.com/lightningnetwork/lnd/blob/master/record/experimental.go#L5:2
-      //might break in future updates
-      const KeySendType = 5482373484
-      //https://api.lightning.community/#featurebit
-      const TLV_ONION_REQ = 8
-      paymentRequest = {
-        dest: Buffer.from(dest, 'hex'),
+
+      const payment = await sendPaymentV2Keysend({
         amt,
-        final_cltv_delta: finalCltvDelta,
-        dest_features: [TLV_ONION_REQ],
-        dest_custom_records: {
-          [KeySendType]: preimage
-        },
-        payment_hash: r_hash,
-        max_parts: maxParts,
-        timeout_seconds: timeoutSeconds,
-        no_inflight_updates: true,
-        fee_limit_sat: feeLimit
-      }
-    } else {
-      const { payreq } = req.body
+        dest,
+        feeLimit,
+        finalCltvDelta,
+        maxParts,
+        timeoutSeconds
+      })
 
-      paymentRequest = {
-        payment_request: payreq,
-        max_parts: maxParts,
-        timeout_seconds: timeoutSeconds,
-        no_inflight_updates: true,
-        fee_limit_sat: feeLimit
-      }
-
-      if (req.body.amt) {
-        paymentRequest.amt = req.body.amt
-      }
+      return res.status(200).json(payment)
     }
+    const { payreq } = req.body
 
-    logger.info('Sending payment', paymentRequest)
-    const sentPayment = router.sendPaymentV2(paymentRequest)
-    sentPayment.on('data', response => {
-      logger.info('SendPayment Data:', response)
-      if (response.failure_reason !== 'FAILURE_REASON_NONE') {
-        res.status(500).json({
-          errorMessage: response.failure_reason
-        })
-      } else {
-        res.json(response)
-      }
+    const payment = await sendPaymentV2Invoice({
+      feeLimit,
+      payment_request: payreq,
+      amt: req.body.amt,
+      max_parts: maxParts,
+      timeoutSeconds
     })
 
-    sentPayment.on('status', status => {
-      logger.info('SendPayment Status:', status)
-    })
-
-    sentPayment.on('error', async err => {
-      logger.error('SendPayment Error:', err)
-      const health = await checkHealth()
-      if (health.LNDStatus.success) {
-        res.status(500).json({
-          errorMessage: sanitizeLNDError(err.details)
-        })
-      } else {
-        res.status(500)
-        res.json({ errorMessage: 'LND is down' })
-      }
-    })
-    //sentPayment.on('end', () => {})
+    return res.status(200).json(payment)
   })
 
   app.post('/api/lnd/trackpayment', (req, res) => {

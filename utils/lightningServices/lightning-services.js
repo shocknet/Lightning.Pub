@@ -1,9 +1,12 @@
-const FS = require("../utils/fs");
-const lnrpc = require("../services/lnd/lightning");
-
+/**
+ * @format
+ */
 /**
  * @typedef {import('commander').Command} Command
  */
+
+const FS = require('../../utils/fs')
+const lnrpc = require('../../services/lnd/lightning')
 
 /**
  * @typedef {object} Config
@@ -43,9 +46,9 @@ class LightningServices {
     /**
      * @type {Config}
      */
-    const newDefaults = require("../config/defaults")(program.mainnet)
+    const newDefaults = require('../../config/defaults')(program.mainnet)
 
-    this.defaults = newDefaults;
+    this.defaults = newDefaults
 
     this._config = {
       ...newDefaults,
@@ -55,11 +58,11 @@ class LightningServices {
       lndHost: program.lndhost || newDefaults.lndHost,
       lndCertPath: program.lndCertPath || newDefaults.lndCertPath,
       macaroonPath: program.macaroonPath || newDefaults.macaroonPath
-    };
+    }
   }
 
   isInitialized = () => {
-    return !!(this.lightning && this.walletUnlocker);
+    return !!(this.lightning && this.walletUnlocker)
   }
 
   get services() {
@@ -67,11 +70,11 @@ class LightningServices {
       lightning: this.lightning,
       walletUnlocker: this.walletUnlocker,
       router: this.router
-    };
+    }
   }
 
   get servicesData() {
-    return this.lnServicesData;
+    return this.lnServicesData
   }
 
   /**
@@ -82,7 +85,9 @@ class LightningServices {
       return this._config
     }
 
-    throw new Error('Tried to access LightningServices.servicesConfig without setting defaults first.')
+    throw new Error(
+      'Tried to access LightningServices.servicesConfig without setting defaults first.'
+    )
   }
 
   get config() {
@@ -90,7 +95,9 @@ class LightningServices {
       return this._config
     }
 
-    throw new Error('Tried to access LightningServices.config without setting defaults first.')
+    throw new Error(
+      'Tried to access LightningServices.config without setting defaults first.'
+    )
   }
 
   /**
@@ -101,38 +108,38 @@ class LightningServices {
       return this._defaults
     }
 
-    throw new Error('Tried to access LightningServices.defaults without setting them first.')
+    throw new Error(
+      'Tried to access LightningServices.defaults without setting them first.'
+    )
   }
 
   init = async () => {
-    const { macaroonPath, lndHost, lndCertPath } = this.config;
-    const macaroonExists = await FS.access(macaroonPath);
-    const lnServices = await lnrpc(
-      {
-        lnrpcProtoPath: this.defaults.lndProto,
-        routerProtoPath: this.defaults.routerProto,
-        walletUnlockerProtoPath: this.defaults.walletUnlockerProto,
-        lndHost, 
-        lndCertPath, 
-        macaroonPath: macaroonExists ? macaroonPath : null
-      }
-    );
+    const { macaroonPath, lndHost, lndCertPath } = this.config
+    const macaroonExists = await FS.access(macaroonPath)
+    const lnServices = await lnrpc({
+      lnrpcProtoPath: this.defaults.lndProto,
+      routerProtoPath: this.defaults.routerProto,
+      walletUnlockerProtoPath: this.defaults.walletUnlockerProto,
+      lndHost,
+      lndCertPath,
+      macaroonPath: macaroonExists ? macaroonPath : null
+    })
     if (!lnServices) {
       throw new Error(`Could not init lnServices`)
     }
-    const { lightning, walletUnlocker, router } = lnServices;
-    this.lightning = lightning;
+    const { lightning, walletUnlocker, router } = lnServices
+    this.lightning = lightning
     this.walletUnlocker = walletUnlocker
-    this.router = router;
+    this.router = router
     this.lnServicesData = {
       lndProto: this.defaults.lndProto,
       lndHost,
       lndCertPath,
       macaroonPath: macaroonExists ? macaroonPath : null
-    };
+    }
   }
 }
 
-const lightningServices = new LightningServices();
+const lightningServices = new LightningServices()
 
-module.exports = lightningServices;
+module.exports = lightningServices
