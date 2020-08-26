@@ -2217,7 +2217,7 @@ module.exports = async (
        * 2 pages and 205 response.
        */
       // eslint-disable-next-line prefer-destructuring
-      const try_until = req.query.try_until
+      const before = req.query.before
 
       if (pageStr) {
         const page = Number(pageStr)
@@ -2237,18 +2237,19 @@ module.exports = async (
         }
 
         return res.status(200).json({
-          posts: await GunGetters.getFeedPage(page)
+          posts: await GunGetters.getFeedPage(page),
+          page
         })
       }
 
-      if (try_until) {
+      if (before) {
         const pages = range(1, MAX_PAGES_TO_FETCH_FOR_TRY_UNTIL)
         const promises = pages.map(p => GunGetters.getFeedPage(p))
 
         let results = await Promise.all(promises)
 
         const idxIfFound = results.findIndex(pp =>
-          pp.some(p => p.id === try_until)
+          pp.some(p => p.id === before)
         )
 
         if (idxIfFound > -1) {
@@ -2257,7 +2258,8 @@ module.exports = async (
           const posts = flatten(results)
 
           return res.status(200).json({
-            posts
+            posts,
+            page: idxIfFound
           })
         }
 
@@ -2266,7 +2268,8 @@ module.exports = async (
         // 205 code (client should refresh UI)
 
         return res.status(205).json({
-          posts: results[0] || []
+          posts: results[0] || [],
+          page: 1
         })
       }
 
