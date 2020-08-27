@@ -1507,36 +1507,41 @@ module.exports = async (
       })
     }
 
-    if (keysend) {
-      const { dest, amt, finalCltvDelta = 40 } = req.body
-      if (!dest || !amt) {
-        return res.status(400).json({
-          errorMessage: 'please provide "dest" and "amt" for keysend payments'
-        })
-      }
+    try {
+      if (keysend) {
+        const { dest, amt, finalCltvDelta = 40 } = req.body
+        if (!dest || !amt) {
+          return res.status(400).json({
+            errorMessage: 'please provide "dest" and "amt" for keysend payments'
+          })
+        }
 
-      const payment = await sendPaymentV2Keysend({
-        amt,
-        dest,
+        const payment = await sendPaymentV2Keysend({
+          amt,
+          dest,
+          feeLimit,
+          finalCltvDelta,
+          maxParts,
+          timeoutSeconds
+        })
+
+        return res.status(200).json(payment)
+      }
+      const { payreq } = req.body
+
+      const payment = await sendPaymentV2Invoice({
         feeLimit,
-        finalCltvDelta,
-        maxParts,
+        payment_request: payreq,
+        amt: req.body.amt,
+        max_parts: maxParts,
         timeoutSeconds
       })
 
       return res.status(200).json(payment)
+    } catch (e) {
+      logger.error(e)
+      return res.status(500).json({ errorMessage: e })
     }
-    const { payreq } = req.body
-
-    const payment = await sendPaymentV2Invoice({
-      feeLimit,
-      payment_request: payreq,
-      amt: req.body.amt,
-      max_parts: maxParts,
-      timeoutSeconds
-    })
-
-    return res.status(200).json(payment)
   })
 
   app.post('/api/lnd/trackpayment', (req, res) => {
