@@ -327,7 +327,7 @@ module.exports = async (
   })
 
   app.use(async (req, res, next) => {
-    logger.info('Route:', req.path)
+    logger.info(`Route: ${req.path}`)
     if (unprotectedRoutes[req.method][req.path]) {
       next()
     } else {
@@ -1937,7 +1937,6 @@ module.exports = async (
   app.get(`/api/gun/${GunEvent.ON_CHATS}`, (_, res) => {
     try {
       const data = Events.getChats()
-      logger.info(`Chats polled: ${data.length}`)
       res.json({
         data
       })
@@ -1961,7 +1960,6 @@ module.exports = async (
           .get(Key.AVATAR)
           .then()
       )
-      logger.info(`avatar poll:${(data || '').length} chars`)
       res.json({
         data
       })
@@ -1985,7 +1983,6 @@ module.exports = async (
           .get(Key.DISPLAY_NAME)
           .then()
       )
-      logger.info(`display name poll:${data}`)
       res.json({
         data
       })
@@ -2006,7 +2003,6 @@ module.exports = async (
       const data = await timeout5(
         user.get(Key.CURRENT_HANDSHAKE_ADDRESS).then()
       )
-      logger.info(`handshake address poll:${data}`)
       res.json({
         data
       })
