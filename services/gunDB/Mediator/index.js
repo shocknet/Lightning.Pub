@@ -510,6 +510,7 @@ class Mediator {
       this.generateHandshakeNode
     )
     this.socket.on('GENERATE_ORDER_ADDRESS', this.generateOrderAddress)
+    this.socket.on('INIT_FEED_WALL', this.initWall)
     this.socket.on(Action.SEND_HANDSHAKE_REQUEST, this.sendHandshakeRequest)
     this.socket.on(
       Action.SEND_HANDSHAKE_REQUEST_WITH_INITIAL_MSG,
@@ -765,6 +766,32 @@ class Mediator {
     } catch (err) {
       logger.info(err)
       this.socket.emit('GENERATE_ORDER_ADDRESS', {
+        ok: false,
+        msg: err.message,
+        origBody: body
+      })
+    }
+  }
+
+  /**
+   * @param {Readonly<{ token: string }>} body
+   */
+  initWall = async body => {
+    try {
+      const { token } = body
+
+      await throwOnInvalidToken(token)
+
+      await API.Actions.initWall()
+
+      this.socket.emit('INIT_FEED_WALL', {
+        ok: true,
+        msg: null,
+        origBody: body
+      })
+    } catch (err) {
+      logger.info(err)
+      this.socket.emit('INIT_FEED_WALL', {
         ok: false,
         msg: err.message,
         origBody: body
