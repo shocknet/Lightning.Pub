@@ -98,7 +98,7 @@ const onOpenForPubFeedPair = ([pub, feed]) =>
         })
         return
       }
-
+      //@ts-ignore
       const incoming = /** @type {import('shock-common').Schema.Outgoing} */ (data)
 
       // incomplete data, let's not assume anything
