@@ -19,6 +19,11 @@ const Utils = require('../utils')
 const getUser = () => require('../../Mediator').getUser()
 
 /**
+ * @type {Set<string>}
+ */
+const ordersProcessed = new Set()
+
+/**
  * @typedef {import('../SimpleGUN').GUNNode} GUNNode
  * @typedef {import('../SimpleGUN').ListenerData} ListenerData
  * @typedef {import('../SimpleGUN').ISEA} ISEA
@@ -45,6 +50,15 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       logger.info(`Expected an order instead got: ${JSON.stringify(order)}`)
       return
     }
+
+    if (ordersProcessed.has(orderID)) {
+      logger.warn(
+        `skipping already processed order: ${orderID}, this means orders are being processed twice!`
+      )
+      return
+    }
+
+    ordersProcessed.add(orderID)
 
     logger.info(
       `onOrders() -> processing order: ${orderID} -- ${JSON.stringify(
