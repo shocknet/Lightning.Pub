@@ -1,5 +1,6 @@
 /** @format */
 const logger = require('winston')
+const { Constants } = require('shock-common')
 
 const Key = require('../key')
 
@@ -23,7 +24,7 @@ const onLastSentReqIDs = cb => {
     const user = require('../../Mediator').getUser()
     if (!user.is) {
       logger.warn('lastSentReqID() -> tried to sub without authing')
-      throw new Error('NOT_AUTH')
+      throw new Error(Constants.ErrorCode.NOT_AUTH)
     }
 
     user.get(Key.USER_TO_LAST_REQUEST_SENT).open(data => {
