@@ -1944,9 +1944,11 @@ module.exports = async (
     } catch (err) {
       logger.info('Error in Chats poll:')
       logger.error(err)
-      res.status(err.message === 'NON_AUTH' ? 401 : 500).json({
-        errorMessage: typeof err === 'string' ? err : err.message
-      })
+      res
+        .status(err.message === Common.Constants.ErrorCode.NOT_AUTH ? 401 : 500)
+        .json({
+          errorMessage: typeof err === 'string' ? err : err.message
+        })
     }
   })
 
@@ -1966,9 +1968,11 @@ module.exports = async (
     } catch (err) {
       logger.info('Error in Avatar poll:')
       logger.error(err)
-      res.status(err.message === 'NON_AUTH' ? 401 : 500).json({
-        errorMessage: typeof err === 'string' ? err : err.message
-      })
+      res
+        .status(err.message === Common.Constants.ErrorCode.NOT_AUTH ? 401 : 500)
+        .json({
+          errorMessage: typeof err === 'string' ? err : err.message
+        })
     }
   })
 
@@ -1988,9 +1992,11 @@ module.exports = async (
     } catch (err) {
       logger.info('Error in Display Name poll:')
       logger.error(err)
-      res.status(err.message === 'NON_AUTH' ? 401 : 500).json({
-        errorMessage: typeof err === 'string' ? err : err.message
-      })
+      res
+        .status(err.message === Common.Constants.ErrorCode.NOT_AUTH ? 401 : 500)
+        .json({
+          errorMessage: typeof err === 'string' ? err : err.message
+        })
     }
   })
 
@@ -2007,9 +2013,11 @@ module.exports = async (
     } catch (err) {
       logger.info('Error in Handshake Address poll:')
       logger.error(err)
-      res.status(err.message === 'NON_AUTH' ? 401 : 500).json({
-        errorMessage: typeof err === 'string' ? err : err.message
-      })
+      res
+        .status(err.message === Common.Constants.ErrorCode.NOT_AUTH ? 401 : 500)
+        .json({
+          errorMessage: typeof err === 'string' ? err : err.message
+        })
     }
   })
 
@@ -2024,9 +2032,11 @@ module.exports = async (
     } catch (err) {
       logger.info('Error in BIO poll:')
       logger.error(err)
-      res.status(err.message === 'NON_AUTH' ? 401 : 500).json({
-        errorMessage: typeof err === 'string' ? err : err.message
-      })
+      res
+        .status(err.message === Common.Constants.ErrorCode.NOT_AUTH ? 401 : 500)
+        .json({
+          errorMessage: typeof err === 'string' ? err : err.message
+        })
     }
   })
   ////////////////////////////////////////////////////////////////////////////////
