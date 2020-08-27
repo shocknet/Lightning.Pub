@@ -983,51 +983,26 @@ const sendSpontaneousPayment = async (to, amount, memo, feeLimit) => {
     // eslint-disable-next-line init-declarations
     let timeoutID
 
-    const onMethod = new Promise(res => {
+    /**
+     * @type {import('shock-common').Schema.OrderResponse}
+     */
+    const encryptedOrderRes = await new Promise((res, rej) => {
       require('../Mediator')
         .getGun()
         .user(to)
         .get(Key.ORDER_TO_RESPONSE)
         .get(orderID)
-        .on(inv => {
-          if (typeof inv === 'string') {
-            res(inv)
+        .on(orderResponse => {
+          if (Schema.isOrderResponse(orderResponse)) {
+            clearTimeout(timeoutID)
+            res(orderResponse)
           }
         })
+
+      timeoutID = setTimeout(() => {
+        rej(new Error(ErrorCode.ORDER_NOT_ANSWERED_IN_TIME))
+      }, 20000)
     })
-
-    const freshGunMethod = Utils.tryAndWait(
-      gun =>
-        gun
-          .user(to)
-          .get(Key.ORDER_TO_RESPONSE)
-          .get(orderID)
-          .then(),
-      v => typeof v === 'undefined'
-    )
-
-    /**
-     * @type {import('shock-common').Schema.OrderResponse}
-     */
-    const encryptedOrderRes = await Promise.race([
-      Promise.race([onMethod, freshGunMethod]).then(v => {
-        clearTimeout(timeoutID)
-        return v
-      }),
-
-      new Promise((_, rej) => {
-        setTimeout(() => {
-          rej(new Error(ErrorCode.ORDER_NOT_ANSWERED_IN_TIME))
-        }, 20000)
-      })
-    ])
-
-    if (!Schema.isOrderResponse(encryptedOrderRes)) {
-      throw new Error(
-        'received response not an OrderResponse, instead got: ' +
-          JSON.stringify(encryptedOrderRes)
-      )
-    }
 
     /** @type {import('shock-common').Schema.OrderResponse} */
     const orderResponse = {
