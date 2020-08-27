@@ -979,30 +979,22 @@ const sendSpontaneousPayment = async (to, amount, memo, feeLimit) => {
       throw new Error(msg)
     }
 
-    /** @type {ReturnType<typeof setTimeout>} */
-    // eslint-disable-next-line init-declarations
-    let timeoutID
-
-    /**
-     * @type {import('shock-common').Schema.OrderResponse}
-     */
-    const encryptedOrderRes = await new Promise((res, rej) => {
-      require('../Mediator')
-        .getGun()
-        .user(to)
-        .get(Key.ORDER_TO_RESPONSE)
-        .get(orderID)
-        .on(orderResponse => {
-          if (Schema.isOrderResponse(orderResponse)) {
-            clearTimeout(timeoutID)
-            res(orderResponse)
-          }
-        })
-
-      timeoutID = setTimeout(() => {
-        rej(new Error(ErrorCode.ORDER_NOT_ANSWERED_IN_TIME))
-      }, 20000)
-    })
+    /** @type {import('shock-common').Schema.OrderResponse} */
+    const encryptedOrderRes = await Utils.tryAndWait(
+      gun =>
+        new Promise(res => {
+          gun
+            .user(to)
+            .get(Key.ORDER_TO_RESPONSE)
+            .get(orderID)
+            .on(orderResponse => {
+              if (Schema.isOrderResponse(orderResponse)) {
+                res(orderResponse)
+              }
+            })
+        }),
+      v => !Schema.isOrderResponse(v)
+    )
 
     /** @type {import('shock-common').Schema.OrderResponse} */
     const orderResponse = {
