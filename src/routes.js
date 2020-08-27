@@ -1539,8 +1539,12 @@ module.exports = async (
 
       return res.status(200).json(payment)
     } catch (e) {
+      let msg = 'Unknown Error'
+
+      if (e.message) msg = e.message
+
       logger.error(e)
-      return res.status(500).json({ errorMessage: e })
+      return res.status(500).json({ errorMessage: msg })
     }
   })
 
