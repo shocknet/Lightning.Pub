@@ -996,6 +996,14 @@ const sendSpontaneousPayment = async (to, amount, memo, feeLimit) => {
       v => !Schema.isOrderResponse(v)
     )
 
+    if (!Schema.isOrderResponse(encryptedOrderRes)) {
+      const e = TypeError(
+        `Expected OrderResponse got: ${typeof encryptedOrderRes}`
+      )
+      logger.error(e)
+      throw e
+    }
+
     /** @type {import('shock-common').Schema.OrderResponse} */
     const orderResponse = {
       response: await SEA.decrypt(encryptedOrderRes.response, ourSecret),
