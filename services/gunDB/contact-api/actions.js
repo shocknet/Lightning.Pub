@@ -74,6 +74,7 @@ const __createOutgoingFeed = async (withPublicKey, user, SEA) => {
     const newOutgoingFeedID = await new Promise((res, rej) => {
       const _outFeedNode = user
         .get(Key.OUTGOINGS)
+        //@ts-ignore
         .set(newPartialOutgoingFeed, ack => {
           if (ack.err && typeof ack.err !== 'number') {
             rej(new Error(ack.err))
@@ -98,6 +99,7 @@ const __createOutgoingFeed = async (withPublicKey, user, SEA) => {
         .get(Key.OUTGOINGS)
         .get(newOutgoingFeedID)
         .get(Key.MESSAGES)
+        //@ts-ignore
         .set(initialMsg, ack => {
           if (ack.err && typeof ack.err !== 'number') {
             rej(new Error(ack.err))
@@ -591,6 +593,7 @@ const sendHandshakeRequest = async (recipientPublicKey, gun, user, SEA) => {
     const hr = gun
       .get(Key.HANDSHAKE_NODES)
       .get(currentHandshakeAddress)
+      //@ts-ignore
       .set(handshakeRequestData, ack => {
         if (ack.err && typeof ack.err !== 'number') {
           rej(new Error(`Error trying to create request: ${ack.err}`))
@@ -627,6 +630,7 @@ const sendHandshakeRequest = async (recipientPublicKey, gun, user, SEA) => {
   }
 
   await new Promise((res, rej) => {
+    //@ts-ignore
     user.get(Key.STORED_REQS).set(storedReq, ack => {
       if (ack.err && typeof ack.err !== 'number') {
         rej(
@@ -959,6 +963,7 @@ const sendSpontaneousPayment = async (to, amount, memo, feeLimit) => {
         .getGun()
         .get(Key.ORDER_NODES)
         .get(currOrderAddress)
+        //@ts-ignore
         .set(order, ack => {
           if (ack.err && typeof ack.err !== 'number') {
             rej(
