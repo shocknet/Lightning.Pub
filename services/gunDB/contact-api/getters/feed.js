@@ -1,6 +1,7 @@
 /**
  * @format
  */
+//@ts-ignore
 const Common = require('shock-common')
 const isFinite = require('lodash/isFinite')
 const shuffle = require('lodash/shuffle')
@@ -29,8 +30,9 @@ const calculateWallRequest = (numberOfPublicKeyGroups, pageRequested) => {
  * @param {number} page
  * @throws {TypeError}
  * @throws {RangeError}
- * @returns {Promise<Common.SchemaTypes.Post[]>}
+ * @returns {Promise<any>}
  */
+//@returns {Promise<Common.SchemaTypes.Post[]>}
 const getFeedPage = async page => {
   if (!isFinite(page)) {
     throw new TypeError(`Please provide an actual number for [page]`)
