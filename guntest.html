@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Document</title>
+</head>
+<body>
+  
+</body>
+<script src="node_modules/gun/gun.js"></script>
+<script src="node_modules/gun/sea.js"></script>
+<script src="node_modules/gun/lib/open.js"></script>
+<script src="node_modules/gun/lib/open.js"></script>
+<script src="node_modules/gun/lib/load.js"></script>
+<script src="node_modules/gun/lib/unset.js"></script>
+<script src="node_modules/gun/lib/promise.js"></script>
+<script src="node_modules/gun/lib/then.js"></script>
+<script src="node_modules/gun/nts.js"></script>
+<script>
+
+  gun = Gun({
+    peers: [
+      `http://guntest.shock.network:8765/gun`
+    ],
+    axe: false
+  })
+
+  node = gun.get('foo').get('bar')
+
+  const UPPER = 100
+
+  put = async () => {
+    const res = await fetch(`https://jsonplaceholder.typicode.com/posts`)
+    /** @type {Array<any>} */
+    const data = await res.json()
+
+    const obj = {}
+
+    data.slice(0, UPPER).forEach((v, i) => obj[i] = v)
+
+    node.put(obj, ack => {
+      console.log(ack.err ? `err: ${ack.err}` : 'ok')
+    })
+  }
+
+  erase = () => {
+    (new Array(UPPER)).fill(null).map((_, i) => i).forEach(n => {
+      node.get(n).put(null, ack => {
+        console.log(ack.err ? `err: ${ack.err}` : 'ok')
+      })
+    })
+  }
+  
+</script>
+<style>
+
+  body {
+    background-color: black;
+  }
+</style>
+</html>
