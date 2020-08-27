@@ -151,6 +151,7 @@ const onStoredReqs = cb => {
       .get(Key.STORED_REQS)
       .open(d => {
         if (typeof d === 'object' && d !== null) {
+          //@ts-ignore
           encryptedStoredReqs = /** @type {StoredRequest[]} */ (Object.values(
             d
           ).filter(i => Schema.isStoredRequest(i)))

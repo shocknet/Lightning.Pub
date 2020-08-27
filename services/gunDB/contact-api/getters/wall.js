@@ -43,8 +43,9 @@ const getWallTotalPages = async publicKey => {
  * @param {string=} publicKey
  * @throws {TypeError}
  * @throws {RangeError}
- * @returns {Promise<Common.SchemaTypes.WallPage>}
+ * @returns {Promise<any>}
  */
+////@returns {Promise<Common.SchemaTypes.WallPage>}
 const getWallPage = async (page, publicKey) => {
   const totalPages = await getWallTotalPages(publicKey)
 
@@ -103,9 +104,10 @@ const getWallPage = async (page, publicKey) => {
    */
   const mockUser = await User.getMyUser()
 
-  /**
+  /*
    * @type {Common.SchemaTypes.WallPage}
    */
+  //@ts-ignore
   const thePage = await Utils.tryAndWait(
     (g, u) => {
       /**

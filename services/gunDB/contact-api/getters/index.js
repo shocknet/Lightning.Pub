@@ -47,8 +47,9 @@ exports.userToIncomingID = async pub => {
 }
 
 /**
- * @returns {Promise<Common.SchemaTypes.User>}
+ * @returns {Promise<any>}
  */
+//@returns {Promise<Common.SchemaTypes.User>}
 const getMyUser = async () => {
   const oldProfile = await Utils.tryAndWait(
     (_, user) => new Promise(res => user.get(Key.PROFILE).load(res)),
@@ -85,7 +86,7 @@ const getMyUser = async () => {
     (_, user) => Promise.resolve(user.is && user.is.pub),
     v => typeof v !== 'string'
   )
-
+  //@ts-ignore
   /** @type {Common.SchemaTypes.User} */
   const u = {
     avatar: oldProfile.avatar,
