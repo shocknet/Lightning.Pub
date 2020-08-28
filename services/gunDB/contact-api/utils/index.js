@@ -129,7 +129,7 @@ const tryAndWait = async (promGen, shouldRetry = () => false) => {
   } catch (e) {
     logger.error(e)
     logger.info(JSON.stringify(e))
-    if (e.message === 'NOT_AUTH') {
+    if (e.message === Constants.ErrorCode.NOT_AUTH) {
       throw e
     }
   }
@@ -159,7 +159,7 @@ const tryAndWait = async (promGen, shouldRetry = () => false) => {
     }
   } catch (e) {
     logger.error(e)
-    if (e.message === 'NOT_AUTH') {
+    if (e.message === Constants.ErrorCode.NOT_AUTH) {
       throw e
     }
   }
@@ -189,7 +189,7 @@ const tryAndWait = async (promGen, shouldRetry = () => false) => {
     }
   } catch (e) {
     logger.error(e)
-    if (e.message === 'NOT_AUTH') {
+    if (e.message === Constants.ErrorCode.NOT_AUTH) {
       throw e
     }
   }

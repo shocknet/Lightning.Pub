@@ -327,7 +327,7 @@ module.exports = async (
   })
 
   app.use(async (req, res, next) => {
-    logger.info('Route:', req.path)
+    logger.info(`Route: ${req.path}`)
     if (unprotectedRoutes[req.method][req.path]) {
       next()
     } else {
@@ -1507,36 +1507,45 @@ module.exports = async (
       })
     }
 
-    if (keysend) {
-      const { dest, amt, finalCltvDelta = 40 } = req.body
-      if (!dest || !amt) {
-        return res.status(400).json({
-          errorMessage: 'please provide "dest" and "amt" for keysend payments'
-        })
-      }
+    try {
+      if (keysend) {
+        const { dest, amt, finalCltvDelta = 40 } = req.body
+        if (!dest || !amt) {
+          return res.status(400).json({
+            errorMessage: 'please provide "dest" and "amt" for keysend payments'
+          })
+        }
 
-      const payment = await sendPaymentV2Keysend({
-        amt,
-        dest,
+        const payment = await sendPaymentV2Keysend({
+          amt,
+          dest,
+          feeLimit,
+          finalCltvDelta,
+          maxParts,
+          timeoutSeconds
+        })
+
+        return res.status(200).json(payment)
+      }
+      const { payreq } = req.body
+
+      const payment = await sendPaymentV2Invoice({
         feeLimit,
-        finalCltvDelta,
-        maxParts,
+        payment_request: payreq,
+        amt: req.body.amt,
+        max_parts: maxParts,
         timeoutSeconds
       })
 
       return res.status(200).json(payment)
+    } catch (e) {
+      let msg = 'Unknown Error'
+
+      if (e.message) msg = e.message
+
+      logger.error(e)
+      return res.status(500).json({ errorMessage: msg })
     }
-    const { payreq } = req.body
-
-    const payment = await sendPaymentV2Invoice({
-      feeLimit,
-      payment_request: payreq,
-      amt: req.body.amt,
-      max_parts: maxParts,
-      timeoutSeconds
-    })
-
-    return res.status(200).json(payment)
   })
 
   app.post('/api/lnd/trackpayment', (req, res) => {
@@ -1928,16 +1937,17 @@ module.exports = async (
   app.get(`/api/gun/${GunEvent.ON_CHATS}`, (_, res) => {
     try {
       const data = Events.getChats()
-      logger.info(`Chats polled: ${data.length}`)
       res.json({
         data
       })
     } catch (err) {
       logger.info('Error in Chats poll:')
       logger.error(err)
-      res.status(err.message === 'NON_AUTH' ? 401 : 500).json({
-        errorMessage: typeof err === 'string' ? err : err.message
-      })
+      res
+        .status(err.message === Common.Constants.ErrorCode.NOT_AUTH ? 401 : 500)
+        .json({
+          errorMessage: typeof err === 'string' ? err : err.message
+        })
     }
   })
 
@@ -1950,16 +1960,17 @@ module.exports = async (
           .get(Key.AVATAR)
           .then()
       )
-      logger.info(`avatar poll:${(data || '').length} chars`)
       res.json({
         data
       })
     } catch (err) {
       logger.info('Error in Avatar poll:')
       logger.error(err)
-      res.status(err.message === 'NON_AUTH' ? 401 : 500).json({
-        errorMessage: typeof err === 'string' ? err : err.message
-      })
+      res
+        .status(err.message === Common.Constants.ErrorCode.NOT_AUTH ? 401 : 500)
+        .json({
+          errorMessage: typeof err === 'string' ? err : err.message
+        })
     }
   })
 
@@ -1972,16 +1983,17 @@ module.exports = async (
           .get(Key.DISPLAY_NAME)
           .then()
       )
-      logger.info(`display name poll:${data}`)
       res.json({
         data
       })
     } catch (err) {
       logger.info('Error in Display Name poll:')
       logger.error(err)
-      res.status(err.message === 'NON_AUTH' ? 401 : 500).json({
-        errorMessage: typeof err === 'string' ? err : err.message
-      })
+      res
+        .status(err.message === Common.Constants.ErrorCode.NOT_AUTH ? 401 : 500)
+        .json({
+          errorMessage: typeof err === 'string' ? err : err.message
+        })
     }
   })
 
@@ -1991,16 +2003,17 @@ module.exports = async (
       const data = await timeout5(
         user.get(Key.CURRENT_HANDSHAKE_ADDRESS).then()
       )
-      logger.info(`handshake address poll:${data}`)
       res.json({
         data
       })
     } catch (err) {
       logger.info('Error in Handshake Address poll:')
       logger.error(err)
-      res.status(err.message === 'NON_AUTH' ? 401 : 500).json({
-        errorMessage: typeof err === 'string' ? err : err.message
-      })
+      res
+        .status(err.message === Common.Constants.ErrorCode.NOT_AUTH ? 401 : 500)
+        .json({
+          errorMessage: typeof err === 'string' ? err : err.message
+        })
     }
   })
 
@@ -2015,9 +2028,11 @@ module.exports = async (
     } catch (err) {
       logger.info('Error in BIO poll:')
       logger.error(err)
-      res.status(err.message === 'NON_AUTH' ? 401 : 500).json({
-        errorMessage: typeof err === 'string' ? err : err.message
-      })
+      res
+        .status(err.message === Common.Constants.ErrorCode.NOT_AUTH ? 401 : 500)
+        .json({
+          errorMessage: typeof err === 'string' ? err : err.message
+        })
     }
   })
   ////////////////////////////////////////////////////////////////////////////////

@@ -65,7 +65,7 @@ class Auth {
             logger.info('validateToken err', err)
             reject(err)
           } else {
-            logger.info('decoded', decoded)
+            // logger.info('decoded', decoded)
             resolve({ valid: true })
           }
         })
