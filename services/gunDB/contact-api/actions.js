@@ -1424,7 +1424,7 @@ const createPost = async (tags, title, content) => {
   if (!Common.Schema.isPost(completePost)) {
     throw new Error(
       `completePost not a Post inside Actions.createPost(): ${JSON.stringify(
-        createPost
+        completePost
       )}`
     )
   }
