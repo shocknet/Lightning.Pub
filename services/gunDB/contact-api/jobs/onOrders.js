@@ -154,6 +154,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       getUser()
         .get(Key.ORDER_TO_RESPONSE)
         .get(orderID)
+        //@ts-ignore
         .put(orderResponse, ack => {
           if (ack.err && typeof ack.err !== 'number') {
             rej(
@@ -183,6 +184,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
     getUser()
       .get(Key.ORDER_TO_RESPONSE)
       .get(orderID)
+      //@ts-ignore
       .put(orderResponse, ack => {
         if (ack.err && typeof ack.err !== 'number') {
           logger.error(

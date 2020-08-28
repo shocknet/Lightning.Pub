@@ -9,8 +9,9 @@ const Utils = require('../utils')
 
 /**
  * @param {string} publicKey
- * @returns {Promise<Common.SchemaTypes.User>}
+ * @returns {Promise<any>}
  */
+//@returns {Promise<Common.SchemaTypes.User>}
 const getAnUser = async publicKey => {
   const oldProfile = await Utils.tryAndWait(
     (g, u) => {
@@ -47,7 +48,7 @@ const getAnUser = async publicKey => {
     },
     v => typeof v !== 'number'
   )
-
+  //@ts-ignore
   /** @type {Common.SchemaTypes.User} */
   const u = {
     avatar: oldProfile.avatar || null,
@@ -68,8 +69,9 @@ const getAnUser = async publicKey => {
 module.exports.getAnUser = getAnUser
 
 /**
- * @returns {Promise<Common.SchemaTypes.User>}
+ * @returns {Promise<any>}
  */
+//@returns {Promise<Common.SchemaTypes.User>}
 const getMyUser = async () => {
   const oldProfile = await Utils.tryAndWait(
     (_, user) => new Promise(res => user.get(Key.PROFILE).load(res)),
@@ -106,7 +108,7 @@ const getMyUser = async () => {
     (_, user) => Promise.resolve(user.is && user.is.pub),
     v => typeof v !== 'string'
   )
-
+  //@ts-ignore
   /** @type {Common.SchemaTypes.User} */
   const u = {
     avatar: oldProfile.avatar,

@@ -246,7 +246,7 @@ const getGun = () => {
 const getUser = () => {
   if (!user.is) {
     logger.warn('called getUser() without being authed')
-    throw new Error('NOT_AUTH')
+    throw new Error(Constants.ErrorCode.NOT_AUTH)
   }
   return user
 }
