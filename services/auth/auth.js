@@ -11,7 +11,6 @@ const Storage = require('node-persist')
 const FS = require('../../utils/fs')
 
 const rootFolder = process.resourcesPath || __dirname
-const secretsFilePath = path.resolve(rootFolder, 'secrets.json')
 
 class Auth {
   readSecrets = async () => {
