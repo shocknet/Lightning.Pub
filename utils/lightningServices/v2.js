@@ -263,7 +263,7 @@ const sendPaymentV2 = sendPaymentRequest => {
        */ err => {
         logger.error('SendPaymentV2 Error:', err)
 
-        rej(err.details || err)
+        rej(new Error(err.details) || err)
       }
     )
   })
