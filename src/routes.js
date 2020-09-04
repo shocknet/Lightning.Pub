@@ -14,7 +14,7 @@ const Common = require('shock-common')
 const isARealUsableNumber = require('lodash/isFinite')
 const Big = require('big.js')
 const size = require('lodash/size')
-const { range, flatten } = require('ramda')
+const { range, flatten, evolve } = require('ramda')
 
 const getListPage = require('../utils/paginate')
 const auth = require('../services/auth/auth')
@@ -31,7 +31,8 @@ const GunGetters = require('../services/gunDB/contact-api/getters')
 const GunKey = require('../services/gunDB/contact-api/key')
 const {
   sendPaymentV2Keysend,
-  sendPaymentV2Invoice
+  sendPaymentV2Invoice,
+  listPayments
 } = require('../utils/lightningServices/v2')
 
 const DEFAULT_MAX_NUM_ROUTES_TO_QUERY = 10
@@ -1235,6 +1236,60 @@ module.exports = async (
           }
         }
       }
+    )
+  })
+
+  app.get('/api/lnd/payments', async (req, res) => {
+    const {
+      include_incomplete,
+      index_offset,
+      max_payments,
+      reversed
+    } = /** @type {Common.APISchema.ListPaymentsRequest} */ (evolve(
+      {
+        include_incomplete: x => x === 'true',
+        index_offset: x => Number(x),
+        max_payments: x => Number(x),
+        reversed: x => x === 'true'
+      },
+      req.query
+    ))
+
+    if (typeof include_incomplete !== 'boolean') {
+      return res.status(400).json({
+        field: 'include_incomplete',
+        errorMessage: 'include_incomplete not a boolean'
+      })
+    }
+
+    if (!isARealUsableNumber(index_offset)) {
+      return res.status(400).json({
+        field: 'index_offset',
+        errorMessage: 'index_offset not a number'
+      })
+    }
+
+    if (!isARealUsableNumber(max_payments)) {
+      return res.status(400).json({
+        field: 'max_payments',
+        errorMessage: 'max_payments not a number'
+      })
+    }
+
+    if (typeof reversed !== 'boolean') {
+      return res.status(400).json({
+        field: 'reversed',
+        errorMessage: 'reversed not a boolean'
+      })
+    }
+
+    return res.status(200).json(
+      await listPayments({
+        include_incomplete,
+        index_offset,
+        max_payments,
+        reversed
+      })
     )
   })
 
