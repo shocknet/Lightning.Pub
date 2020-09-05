@@ -30,7 +30,34 @@ const ordersProcessed = new Set()
  * @typedef {import('../SimpleGUN').UserGUNNode} UserGUNNode
  */
 
+/**
+ * @typedef {object} InvoiceRequest
+ * @prop {number} expiry
+ * @prop {string} memo
+ * @prop {number} value
+ * @prop {boolean} private
+ */
+
 let currentOrderAddr = ''
+
+/** @param {InvoiceRequest} invoiceReq */
+const _addInvoice = invoiceReq =>
+  new Promise((resolve, rej) => {
+    const {
+      services: { lightning }
+    } = LightningServices
+
+    lightning.addInvoice(invoiceReq, (
+      /** @type {any} */ error,
+      /** @type {{ payment_request: string }} */ response
+    ) => {
+      if (error) {
+        rej(error)
+      } else {
+        resolve(response.payment_request)
+      }
+    })
+  })
 
 /**
  * @param {string} addr
@@ -66,12 +93,12 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       )} -- addr: ${addr}`
     )
 
-    const alreadyAnswered = getUser()
+    const alreadyAnswered = await getUser()
       .get(Key.ORDER_TO_RESPONSE)
       .get(orderID)
       .then()
 
-    if (await alreadyAnswered) {
+    if (alreadyAnswered) {
       logger.info('this order is already answered, quitting')
       return
     }
@@ -79,7 +106,10 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
     const senderEpub = await Utils.pubToEpub(order.from)
     const secret = await SEA.secret(senderEpub, getUser()._.sea)
 
-    const decryptedAmount = await SEA.decrypt(order.amount, secret)
+    const [decryptedAmount, memo] = await Promise.all([
+      SEA.decrypt(order.amount, secret),
+      SEA.decrypt(order.memo, secret)
+    ])
 
     const amount = Number(decryptedAmount)
 
@@ -101,8 +131,6 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       )
     }
 
-    const memo = await SEA.decrypt(order.memo, secret)
-
     const invoiceReq = {
       expiry: 36000,
       memo,
@@ -117,22 +145,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
     /**
      * @type {string}
      */
-    const invoice = await new Promise((resolve, rej) => {
-      const {
-        services: { lightning }
-      } = LightningServices
-
-      lightning.addInvoice(invoiceReq, (
-        /** @type {any} */ error,
-        /** @type {{ payment_request: string }} */ response
-      ) => {
-        if (error) {
-          rej(error)
-        } else {
-          resolve(response.payment_request)
-        }
-      })
-    })
+    const invoice = await _addInvoice(invoiceReq)
 
     logger.info(
       'onOrders() -> Successfully created the invoice, will now encrypt it'
@@ -154,7 +167,6 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       getUser()
         .get(Key.ORDER_TO_RESPONSE)
         .get(orderID)
-        //@ts-ignore
         .put(orderResponse, ack => {
           if (ack.err && typeof ack.err !== 'number') {
             rej(
@@ -184,7 +196,6 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
     getUser()
       .get(Key.ORDER_TO_RESPONSE)
       .get(orderID)
-      //@ts-ignore
       .put(orderResponse, ack => {
         if (ack.err && typeof ack.err !== 'number') {
           logger.error(
