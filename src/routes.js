@@ -21,6 +21,7 @@ const auth = require('../services/auth/auth')
 const FS = require('../utils/fs')
 const Encryption = require('../utils/encryptionStore')
 const LightningServices = require('../utils/lightningServices')
+const lndErrorManager = require('../utils/lightningServices/errors')
 const GunDB = require('../services/gunDB/Mediator')
 const {
   unprotectedRoutes,
@@ -63,7 +64,10 @@ module.exports = async (
     return message
   }
 
-  const getAvailableService = () =>
+  const getAvailableService = () => {
+    return lndErrorManager.getAvailableService()
+  }
+  /*
     new Promise((resolve, reject) => {
       const { lightning } = LightningServices.services
 
@@ -105,13 +109,22 @@ module.exports = async (
           success: true
         })
       })
-    })
+    })*/
 
   const checkHealth = async () => {
     logger.info('Getting service status...')
-    const serviceStatus = await getAvailableService()
-    logger.info('Received status:', serviceStatus)
-    const LNDStatus = serviceStatus
+    let LNDStatus = {}
+    try {
+      const serviceStatus = await getAvailableService()
+      logger.info('Received status:', serviceStatus)
+      LNDStatus = serviceStatus
+    } catch (e) {
+      LNDStatus = {
+        message: e.message,
+        success: false
+      }
+    }
+
     try {
       logger.info('Getting API status...')
       const APIHealth = await Http.get(
