@@ -25,6 +25,7 @@ class LNDErrorManager {
    */
   _healthListeners = []
 
+  //rejects if(err && err.code !== 12)  
   getAvailableService(){
     
     //require('shock-common').Utils.makePromise((res, rej) => ...)
@@ -54,6 +55,15 @@ class LNDErrorManager {
               message:
                 "Failed to connect to LND server, make sure it's up and running.",
               code: 14,
+              walletStatus: 'unknown',
+              success: false
+            })
+          } else if(err.code === 4){
+            rej({
+              service: 'unknown',
+              message:
+                "LND Timeout",
+              code: 4,
               walletStatus: 'unknown',
               success: false
             })
