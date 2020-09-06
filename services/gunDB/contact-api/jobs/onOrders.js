@@ -85,6 +85,8 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       return
     }
 
+    const listenerStartTime = Date.now()
+
     ordersProcessed.add(orderID)
 
     logger.info(
@@ -92,6 +94,8 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
         order
       )} -- addr: ${addr}`
     )
+
+    const orderAnswerStartTime = Date.now()
 
     const alreadyAnswered = await getUser()
       .get(Key.ORDER_TO_RESPONSE)
@@ -103,6 +107,12 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       return
     }
 
+    const orderAnswerEndTime = Date.now() - orderAnswerStartTime
+
+    logger.info(`[PERF] Order Already Answered: ${orderAnswerEndTime}ms`)
+
+    const decryptStartTime = Date.now()
+
     const senderEpub = await Utils.pubToEpub(order.from)
     const secret = await SEA.secret(senderEpub, getUser()._.sea)
 
@@ -110,6 +120,10 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       SEA.decrypt(order.amount, secret),
       SEA.decrypt(order.memo, secret)
     ])
+
+    const decryptEndTime = Date.now() - decryptStartTime
+
+    logger.info(`[PERF] Decrypt invoice info: ${decryptEndTime}ms`)
 
     const amount = Number(decryptedAmount)
 
@@ -142,16 +156,28 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       `onOrders() -> Will now create an invoice : ${JSON.stringify(invoiceReq)}`
     )
 
+    const invoiceStartTime = Date.now()
+
     /**
      * @type {string}
      */
     const invoice = await _addInvoice(invoiceReq)
 
+    const invoiceEndTime = Date.now() - invoiceStartTime
+
+    logger.info(`[PERF] LND Invoice created in ${invoiceEndTime}ms`)
+
     logger.info(
       'onOrders() -> Successfully created the invoice, will now encrypt it'
     )
 
+    const invoiceEncryptStartTime = Date.now()
+
     const encInvoice = await SEA.encrypt(invoice, secret)
+
+    const invoiceEncryptEndTime = Date.now() - invoiceEncryptStartTime
+
+    logger.info(`[PERF] Invoice encrypted in ${invoiceEncryptEndTime}ms`)
 
     logger.info(
       `onOrders() -> Will now place the encrypted invoice in order to response usergraph: ${addr}`
@@ -162,6 +188,8 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       response: encInvoice,
       type: 'invoice'
     }
+
+    const invoicePutStartTime = Date.now()
 
     await new Promise((res, rej) => {
       getUser()
@@ -179,6 +207,14 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
           }
         })
     })
+
+    const invoicePutEndTime = Date.now() - invoicePutStartTime
+
+    logger.info(`[PERF] Added invoice to GunDB in ${invoicePutEndTime}ms`)
+
+    const listenerEndTime = Date.now() - listenerStartTime
+
+    logger.info(`[PERF] Invoice generation completed in ${listenerEndTime}ms`)
   } catch (err) {
     logger.error(
       `error inside onOrders, orderAddr: ${addr}, orderID: ${orderID}, order: ${JSON.stringify(
