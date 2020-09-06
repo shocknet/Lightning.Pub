@@ -2832,4 +2832,103 @@ module.exports = async (
       data: isAuthenticated()
     })
   })
+
+  /**
+   * @typedef {object} HandleGunFetchParams
+   * @prop {'once'|'load'} type
+   * @prop {boolean} startFromUserGraph
+   * @prop {string} path
+   * @prop {string=} publicKey
+   */
+  /**
+   * @param {HandleGunFetchParams} args0
+   * @returns {Promise<unknown>}
+   */
+  const handleGunFetch = ({ type, startFromUserGraph, path, publicKey }) => {
+    const keys = path.split('.')
+    const { tryAndWait } = require('../services/gunDB/contact-api/utils')
+    console.log(keys)
+    return tryAndWait((gun, user) => {
+      // eslint-disable-next-line no-nested-ternary
+      let node = startFromUserGraph
+        ? user
+        : publicKey
+        ? gun.user(publicKey)
+        : gun
+      keys.forEach(key => (node = node.get(key)))
+
+      return new Promise(res => {
+        if (type === 'once') node.once(data => res(data))
+        if (type === 'load') node.load(data => res(data))
+      })
+    })
+  }
+
+  ap.get('/api/gun/once/:path', async (req, res) => {
+    const { path } = req.params
+    res.status(200).json({
+      data: await handleGunFetch({
+        path,
+        startFromUserGraph: false,
+        type: 'once'
+      })
+    })
+  })
+
+  ap.get('/api/gun/load/:path', async (req, res) => {
+    const { path } = req.params
+    res.status(200).json({
+      data: await handleGunFetch({
+        path,
+        startFromUserGraph: false,
+        type: 'load'
+      })
+    })
+  })
+
+  ap.get('/api/gun/user/once/:path', async (req, res) => {
+    const { path } = req.params
+    res.status(200).json({
+      data: await handleGunFetch({
+        path,
+        startFromUserGraph: true,
+        type: 'once'
+      })
+    })
+  })
+
+  ap.get('/api/gun/user/load/:path', async (req, res) => {
+    const { path } = req.params
+    res.status(200).json({
+      data: await handleGunFetch({
+        path,
+        startFromUserGraph: true,
+        type: 'load'
+      })
+    })
+  })
+
+  ap.get('/api/gun/otheruser/:publicKey/once/:path', async (req, res) => {
+    const { path, publicKey } = req.params
+    res.status(200).json({
+      data: await handleGunFetch({
+        path,
+        startFromUserGraph: false,
+        type: 'once',
+        publicKey
+      })
+    })
+  })
+
+  ap.get('/api/gun/otheruser/:publicKey/load/:path', async (req, res) => {
+    const { path, publicKey } = req.params
+    res.status(200).json({
+      data: await handleGunFetch({
+        path,
+        startFromUserGraph: false,
+        type: 'load',
+        publicKey
+      })
+    })
+  })
 }
