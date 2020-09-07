@@ -31,7 +31,7 @@
     "dotenv": "^8.1.0",
     "express": "^4.14.1",
     "express-session": "^1.15.1",
-    "google-proto-files": "^1.0.3",
+    "google-proto-files": "^2.2.0",
     "graphviz": "0.0.8",
     "grpc": "^1.21.1",
     "gun": "git://github.com/amark/gun#97aa976c97e6219a9f93095d32c220dcd371ca62",
