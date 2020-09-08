@@ -191,8 +191,6 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
 
     const invoicePutStartTime = Date.now()
 
-    // Calling .put on an object on GunDB seems
-    // to take a lot of time for some users
     await new Promise((res, rej) => {
       getUser()
         .get(Key.ORDER_TO_RESPONSE)
