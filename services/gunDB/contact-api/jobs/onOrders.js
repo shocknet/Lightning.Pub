@@ -193,42 +193,22 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
 
     // Calling .put on an object on GunDB seems
     // to take a lot of time for some users
-    await Promise.all([
-      new Promise((res, rej) => {
-        getUser()
-          .get(Key.ORDER_TO_RESPONSE)
-          .get(orderID)
-          .get('response')
-          .put(orderResponse.response, ack => {
-            if (ack.err && typeof ack.err !== 'number') {
-              rej(
-                new Error(
-                  `Error saving encrypted invoice to order to response usergraph: ${ack}`
-                )
+    await new Promise((res, rej) => {
+      getUser()
+        .get(Key.ORDER_TO_RESPONSE)
+        .get(orderID)
+        .put(orderResponse, ack => {
+          if (ack.err && typeof ack.err !== 'number') {
+            rej(
+              new Error(
+                `Error saving encrypted invoice to order to response usergraph: ${ack}`
               )
-            } else {
-              res()
-            }
-          })
-      }),
-      await new Promise((res, rej) => {
-        getUser()
-          .get(Key.ORDER_TO_RESPONSE)
-          .get(orderID)
-          .get('type')
-          .put(orderResponse.type, ack => {
-            if (ack.err && typeof ack.err !== 'number') {
-              rej(
-                new Error(
-                  `Error saving encrypted invoice to order to response usergraph: ${ack}`
-                )
-              )
-            } else {
-              res()
-            }
-          })
-      })
-    ])
+            )
+          } else {
+            res()
+          }
+        })
+    })
 
     const invoicePutEndTime = Date.now() - invoicePutStartTime
 
