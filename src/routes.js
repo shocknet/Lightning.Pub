@@ -2986,4 +2986,24 @@ module.exports = async (
       })
     })
   })
+
+  ap.get('/api/lnd/cb/:methodName', (req, res) => {
+    const { lightning } = LightningServices.services
+    const { methodName } = req.params
+    const args = req.body
+
+    lightning[methodName](args, (err, lres) => {
+      if (err) {
+        res.status(500).json({
+          errorMessage: err.details
+        })
+      } else if (lres) {
+        res.status(200).json(lres)
+      } else {
+        res.status(500).json({
+          errorMessage: 'Unknown error'
+        })
+      }
+    })
+  })
 }
