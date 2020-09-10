@@ -36,7 +36,7 @@
     "grpc": "^1.21.1",
     "gun": "git://github.com/amark/gun#97aa976c97e6219a9f93095d32c220dcd371ca62",
     "husky": "^4.2.5",
-    "jsonfile": "^4.0.0",
+    "jsonfile": "^6.0.1",
     "jsonwebtoken": "^8.3.0",
     "localtunnel": "^1.9.0",
     "lodash": "^4.17.20",
