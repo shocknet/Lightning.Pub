@@ -107,7 +107,7 @@ class LNDErrorManager {
       this._healthListeners.length = 0
       this._isCheckingHealth = false
     }
-    const deadline = Date.now() + 2000
+    const deadline = Date.now() + 4000
     lightning.getInfo({},{deadline}, callback)
   }
 
