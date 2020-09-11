@@ -568,6 +568,17 @@ module.exports = async (
         const user = require('../services/gunDB/Mediator').getUser()
         const SEA = require('../services/gunDB/Mediator').mySEA
         const { lightning } = LightningServices.services
+
+        const { identity_pubkey } = await Common.makePromise((res, rej) => {
+          lightning.getInfo({}, (err, lres) => {
+            if (err) {
+              rej(new Error(err.details))
+            } else {
+              res(lres)
+            }
+          })
+        })
+
         lightning.exportAllChannelBackups({}, (err, channelBackups) => {
           if (err) {
             return handleError(res, err)
@@ -614,7 +625,8 @@ module.exports = async (
           user: {
             alias,
             publicKey
-          }
+          },
+          lightningPublicKey: identity_pubkey
         })
 
         return true
