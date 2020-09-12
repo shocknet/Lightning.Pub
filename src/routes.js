@@ -21,6 +21,7 @@ const auth = require('../services/auth/auth')
 const FS = require('../utils/fs')
 const Encryption = require('../utils/encryptionStore')
 const LightningServices = require('../utils/lightningServices')
+const lndErrorManager = require('../utils/lightningServices/errors')
 const GunDB = require('../services/gunDB/Mediator')
 const {
   unprotectedRoutes,
@@ -63,7 +64,10 @@ module.exports = async (
     return message
   }
 
-  const getAvailableService = () =>
+  const getAvailableService = () => {
+    return lndErrorManager.getAvailableService()
+  }
+  /*
     new Promise((resolve, reject) => {
       const { lightning } = LightningServices.services
 
@@ -105,13 +109,22 @@ module.exports = async (
           success: true
         })
       })
-    })
+    })*/
 
   const checkHealth = async () => {
     logger.info('Getting service status...')
-    const serviceStatus = await getAvailableService()
-    logger.info('Received status:', serviceStatus)
-    const LNDStatus = serviceStatus
+    let LNDStatus = {}
+    try {
+      const serviceStatus = await getAvailableService()
+      logger.info('Received status:', serviceStatus)
+      LNDStatus = serviceStatus
+    } catch (e) {
+      LNDStatus = {
+        message: e.message,
+        success: false
+      }
+    }
+
     try {
       logger.info('Getting API status...')
       const APIHealth = await Http.get(
@@ -367,14 +380,31 @@ module.exports = async (
         const walletStatus = await walletExists()
         const availableService = await getAvailableService()
         const statusMessage = availableService.walletStatus
+        if (availableService.code === 12) {
+          return res.status(401).json({
+            field: 'lnd_locked',
+            errorMessage: availableService.message
+              ? availableService.message
+              : 'unknown'
+          })
+        }
+        if (availableService.code === 14) {
+          return res.status(401).json({
+            field: 'lnd_dead',
+            errorMessage: availableService.message
+              ? availableService.message
+              : 'unknown'
+          })
+        }
         if (walletStatus) {
           if (statusMessage === 'unlocked') {
             return next()
           }
-
           return res.status(401).json({
             field: 'wallet',
-            errorMessage: statusMessage ? statusMessage : 'unknown'
+            errorMessage: availableService.message
+              ? availableService.message
+              : 'unknown'
           })
         }
 
@@ -386,6 +416,18 @@ module.exports = async (
       next()
     } catch (err) {
       logger.error(err)
+      if (err.code === 12) {
+        return res.status(401).json({
+          field: 'lnd_locked',
+          errorMessage: err.message ? err.message : 'unknown'
+        })
+      }
+      if (err.code === 14) {
+        return res.status(401).json({
+          field: 'lnd_dead',
+          errorMessage: err.message ? err.message : 'unknown'
+        })
+      }
       res.status(500).json({
         field: 'wallet',
         errorMessage: err.message ? err.message : err
@@ -589,17 +631,46 @@ module.exports = async (
           stream.on('end', () => {
             logger.info('Channel backup stream ended, starting a new one...')
             // Prevents call stack overflow exceptions
-            process.nextTick(onNewChannelBackup)
+            //process.nextTick(onNewChannelBackup)
           })
           stream.on('error', err => {
             logger.error('Channel backup stream error:', err)
           })
           stream.on('status', status => {
-            if (status.code === 14) {
-              // Prevents call stack overflow exceptions
-              process.nextTick(() => setTimeout(onNewChannelBackup, 30000))
-            } else {
-              logger.error('Channel backup stream status:', status)
+            logger.error('Channel backup stream status:', status)
+            switch (status.code) {
+              case 0: {
+                logger.info('Channel backup stream ok')
+                break
+              }
+              case 2: {
+                //Happens to fire when the grpc client lose access to macaroon file
+                logger.warn('Channel backup got UNKNOWN error status')
+                break
+              }
+              case 12: {
+                logger.warn(
+                  'Channel backup LND locked, new registration in 60 seconds'
+                )
+                process.nextTick(() =>
+                  setTimeout(() => onNewTransaction(socket, subID), 60000)
+                )
+                break
+              }
+              case 13: {
+                //https://grpc.github.io/grpc/core/md_doc_statuscodes.html
+                logger.error('Channel backup INTERNAL LND error')
+                break
+              }
+              case 14: {
+                logger.error(
+                  'Channel backup LND disconnected, sockets reconnecting in 30 seconds...'
+                )
+                process.nextTick(() =>
+                  setTimeout(() => onNewTransaction(socket, subID), 30000)
+                )
+                break
+              }
             }
           })
         }
