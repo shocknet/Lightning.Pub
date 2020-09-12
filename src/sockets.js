@@ -122,21 +122,45 @@ module.exports = (
     stream.on('end', () => {
       logger.info('New invoice stream ended, starting a new one...')
       // Prevents call stack overflow exceptions
-      process.nextTick(() => onNewInvoice(socket))
+      //process.nextTick(() => onNewInvoice(socket))
     })
     stream.on('error', err => {
       logger.error('New invoice stream error:' + subID, err)
     })
     stream.on('status', status => {
       logger.warn('New invoice stream status:' + subID, status)
-      if (status.code === 14) {
-        // Prevents call stack overflow exceptions
-        logger.error(
-          '[event:invoice:new] LND disconnected, sockets reconnecting in 30 seconds...'
-        )
-        process.nextTick(() =>
-          setTimeout(() => onNewInvoice(socket, subID), 30000)
-        )
+      switch (status.code) {
+        case 0: {
+          logger.info('[event:invoice:new] stream ok')
+          break
+        }
+        case 2: {
+          logger.warn('[event:invoice:new] got UNKNOWN error status')
+          break
+        }
+        case 12: {
+          logger.warn(
+            '[event:invoice:new] LND locked, new registration in 60 seconds'
+          )
+          process.nextTick(() =>
+            setTimeout(() => onNewInvoice(socket, subID), 60000)
+          )
+          break
+        }
+        case 13: {
+          //https://grpc.github.io/grpc/core/md_doc_statuscodes.html
+          logger.error('[event:invoice:new] INTERNAL LND error')
+          break
+        }
+        case 14: {
+          logger.error(
+            '[event:invoice:new] LND disconnected, sockets reconnecting in 30 seconds...'
+          )
+          process.nextTick(() =>
+            setTimeout(() => onNewInvoice(socket, subID), 30000)
+          )
+          break
+        }
       }
     })
     return () => {
@@ -154,20 +178,46 @@ module.exports = (
     })
     stream.on('end', () => {
       logger.info('New transactions stream ended, starting a new one...')
-      process.nextTick(() => onNewTransaction(socket))
+      //process.nextTick(() => onNewTransaction(socket))
     })
     stream.on('error', err => {
       logger.error('New transactions stream error:' + subID, err)
     })
     stream.on('status', status => {
       logger.error('New transactions stream status:' + subID, status)
-      if (status.code === 14) {
-        logger.error(
-          '[event:transaction:new] LND disconnected, sockets reconnecting in 30 seconds...'
-        )
-        process.nextTick(() =>
-          setTimeout(() => onNewTransaction(socket, subID), 30000)
-        )
+      switch (status.code) {
+        case 0: {
+          logger.info('[event:transaction:new] stream ok')
+          break
+        }
+        case 2: {
+          //Happens to fire when the grpc client lose access to macaroon file
+          logger.warn('[event:transaction:new] got UNKNOWN error status')
+          break
+        }
+        case 12: {
+          logger.warn(
+            '[event:transaction:new] LND locked, new registration in 60 seconds'
+          )
+          process.nextTick(() =>
+            setTimeout(() => onNewTransaction(socket, subID), 60000)
+          )
+          break
+        }
+        case 13: {
+          //https://grpc.github.io/grpc/core/md_doc_statuscodes.html
+          logger.error('[event:transaction:new] INTERNAL LND error')
+          break
+        }
+        case 14: {
+          logger.error(
+            '[event:transaction:new] LND disconnected, sockets reconnecting in 30 seconds...'
+          )
+          process.nextTick(() =>
+            setTimeout(() => onNewTransaction(socket, subID), 30000)
+          )
+          break
+        }
       }
     })
     return () => {
