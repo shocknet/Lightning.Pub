@@ -654,7 +654,7 @@ module.exports = async (
                   'Channel backup LND locked, new registration in 60 seconds'
                 )
                 process.nextTick(() =>
-                  setTimeout(() => onNewTransaction(socket, subID), 60000)
+                  setTimeout(() => onNewChannelBackup(), 60000)
                 )
                 break
               }
@@ -668,9 +668,12 @@ module.exports = async (
                   'Channel backup LND disconnected, sockets reconnecting in 30 seconds...'
                 )
                 process.nextTick(() =>
-                  setTimeout(() => onNewTransaction(socket, subID), 30000)
+                  setTimeout(() => onNewChannelBackup(), 30000)
                 )
                 break
+              }
+              default: {
+                logger.error('[event:transaction:new] UNKNOWN LND error')
               }
             }
           })
