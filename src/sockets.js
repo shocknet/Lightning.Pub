@@ -134,6 +134,12 @@ module.exports = (
           logger.info('[event:invoice:new] stream ok')
           break
         }
+        case 1: {
+          logger.info(
+            '[event:invoice:new] stream canceled, probably socket disconnected'
+          )
+          break
+        }
         case 2: {
           logger.warn('[event:invoice:new] got UNKNOWN error status')
           break
@@ -161,6 +167,9 @@ module.exports = (
           )
           break
         }
+        default: {
+          logger.error('[event:invoice:new] UNKNOWN LND error')
+        }
       }
     })
     return () => {
@@ -184,10 +193,16 @@ module.exports = (
       logger.error('New transactions stream error:' + subID, err)
     })
     stream.on('status', status => {
-      logger.error('New transactions stream status:' + subID, status)
+      logger.info('New transactions stream status:' + subID, status)
       switch (status.code) {
         case 0: {
           logger.info('[event:transaction:new] stream ok')
+          break
+        }
+        case 1: {
+          logger.info(
+            '[event:transaction:new] stream canceled, probably socket disconnected'
+          )
           break
         }
         case 2: {
@@ -217,6 +232,9 @@ module.exports = (
             setTimeout(() => onNewTransaction(socket, subID), 30000)
           )
           break
+        }
+        default: {
+          logger.error('[event:transaction:new] UNKNOWN LND error')
         }
       }
     })
