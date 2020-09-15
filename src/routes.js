@@ -571,6 +571,10 @@ module.exports = async (
         const walletUnlocked = health.LNDStatus.walletStatus === 'unlocked'
         const { authorization = '' } = req.headers
 
+        if (!isKeyTrusted) {
+          logger.warn('Untrusted public key!')
+        }
+
         if (!walletUnlocked) {
           await unlockWallet(password)
         }
@@ -578,7 +582,8 @@ module.exports = async (
         if (walletUnlocked && !authorization && !isKeyTrusted) {
           res.status(401).json({
             field: 'alias',
-            errorMessage: 'Invalid alias/password combination',
+            errorMessage:
+              'Invalid alias/password combination (Untrusted Device)',
             success: false
           })
           return
@@ -592,7 +597,8 @@ module.exports = async (
           if (!validatedToken) {
             res.status(401).json({
               field: 'alias',
-              errorMessage: 'Invalid alias/password combination',
+              errorMessage:
+                'Invalid alias/password combination (Untrusted Auth Token)',
               success: false
             })
             return
