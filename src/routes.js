@@ -694,7 +694,8 @@ module.exports = async (
           user: {
             alias,
             publicKey
-          }
+          },
+          follows: await GunGetters.Follows.currentFollows()
         })
 
         return true
