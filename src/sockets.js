@@ -5,6 +5,18 @@ const logger = require('winston')
 const Encryption = require('../utils/encryptionStore')
 const LightningServices = require('../utils/lightningServices')
 
+const onPing = (socket, subID) => {
+  logger.warn('Subscribing to pings socket...' + subID)
+
+  const intervalID = setInterval(() => {
+    socket.emit('shockping')
+  }, 3000)
+
+  return () => {
+    clearInterval(intervalID)
+  }
+}
+
 module.exports = (
   /** @type {import('socket.io').Server} */
   io
@@ -286,10 +298,12 @@ module.exports = (
         logger.info('[LND] New LND Socket created:' + isNotifications + subID)
         const cancelInvoiceStream = onNewInvoice(socket, subID)
         const cancelTransactionStream = onNewTransaction(socket, subID)
+        const cancelPingStream = onPing(socket, subID)
         socket.on('disconnect', () => {
           logger.info('LND socket disconnected:' + isNotifications + subID)
           cancelInvoiceStream()
           cancelTransactionStream()
+          cancelPingStream()
         })
         return
       }
