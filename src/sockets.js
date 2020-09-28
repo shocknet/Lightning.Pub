@@ -1,5 +1,5 @@
 /** @prettier */
-// app/sockets.js
+// @ts-check
 
 const logger = require('winston')
 const Encryption = require('../utils/encryptionStore')
@@ -21,8 +21,6 @@ module.exports = (
   /** @type {import('socket.io').Server} */
   io
 ) => {
-  const Mediator = require('../services/gunDB/Mediator/index.js')
-
   // This should be used for encrypting and emitting your data
   const emitEncryptedEvent = ({ eventName, data, socket }) => {
     try {
@@ -260,61 +258,27 @@ module.exports = (
 
     logger.info('socket.handshake', socket.handshake)
 
-    const isOneTimeUseSocket = !!socket.handshake.query.IS_GUN_AUTH
     const isLNDSocket = !!socket.handshake.query.IS_LND_SOCKET
     const isNotificationsSocket = !!socket.handshake.query
       .IS_NOTIFICATIONS_SOCKET
+
     if (!isLNDSocket) {
       /** printing out the client who joined */
       logger.info('New socket client connected (id=' + socket.id + ').')
     }
 
-    if (isOneTimeUseSocket) {
-      logger.info('New socket is one time use')
-      socket.on('IS_GUN_AUTH', () => {
-        try {
-          const isGunAuth = Mediator.isAuthenticated()
-          socket.emit('IS_GUN_AUTH', {
-            ok: true,
-            msg: {
-              isGunAuth
-            },
-            origBody: {}
-          })
-          socket.disconnect()
-        } catch (err) {
-          socket.emit('IS_GUN_AUTH', {
-            ok: false,
-            msg: err.message,
-            origBody: {}
-          })
-          socket.disconnect()
-        }
-      })
-    } else {
-      if (isLNDSocket) {
-        const subID = Math.floor(Math.random() * 1000).toString()
-        const isNotifications = isNotificationsSocket ? 'notifications' : ''
-        logger.info('[LND] New LND Socket created:' + isNotifications + subID)
-        const cancelInvoiceStream = onNewInvoice(socket, subID)
-        const cancelTransactionStream = onNewTransaction(socket, subID)
-        const cancelPingStream = onPing(socket, subID)
-        socket.on('disconnect', () => {
-          logger.info('LND socket disconnected:' + isNotifications + subID)
-          cancelInvoiceStream()
-          cancelTransactionStream()
-          cancelPingStream()
-        })
-        return
-      }
-      logger.info('New socket is NOT one time use')
-      // this is where we create the websocket connection
-      // with the GunDB service.
-      Mediator.createMediator(socket)
-
-      /** listening if client has disconnected */
+    if (isLNDSocket) {
+      const subID = Math.floor(Math.random() * 1000).toString()
+      const isNotifications = isNotificationsSocket ? 'notifications' : ''
+      logger.info('[LND] New LND Socket created:' + isNotifications + subID)
+      const cancelInvoiceStream = onNewInvoice(socket, subID)
+      const cancelTransactionStream = onNewTransaction(socket, subID)
+      const cancelPingStream = onPing(socket, subID)
       socket.on('disconnect', () => {
-        logger.info('client disconnected (id=' + socket.id + ').')
+        logger.info('LND socket disconnected:' + isNotifications + subID)
+        cancelInvoiceStream()
+        cancelTransactionStream()
+        cancelPingStream()
       })
     }
   })
