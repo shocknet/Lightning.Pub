@@ -695,7 +695,24 @@ module.exports = async (
             alias,
             publicKey
           },
-          follows: await GunGetters.Follows.currentFollows()
+          follows: await GunGetters.Follows.currentFollows(),
+          data: {
+            invoices: await Common.makePromise((res, rej) => {
+              lightning.listInvoices(
+                {
+                  reversed: true,
+                  num_max_invoices: 50
+                },
+                (err, lres) => {
+                  if (err) {
+                    rej(new Error(err.details))
+                  } else {
+                    res(lres)
+                  }
+                }
+              )
+            })
+          }
         })
 
         return true
@@ -3069,22 +3086,32 @@ module.exports = async (
   })
 
   ap.post('/api/lnd/cb/:methodName', (req, res) => {
-    const { lightning } = LightningServices.services
-    const { methodName } = req.params
-    const args = req.body
+    try {
+      const { lightning } = LightningServices.services
+      const { methodName } = req.params
+      const args = req.body
 
-    lightning[methodName](args, (err, lres) => {
-      if (err) {
-        res.status(500).json({
-          errorMessage: err.details
-        })
-      } else if (lres) {
-        res.status(200).json(lres)
-      } else {
-        res.status(500).json({
-          errorMessage: 'Unknown error'
-        })
-      }
-    })
+      lightning[methodName](args, (err, lres) => {
+        if (err) {
+          res.status(500).json({
+            errorMessage: err.details
+          })
+        } else if (lres) {
+          res.status(200).json(lres)
+        } else {
+          res.status(500).json({
+            errorMessage: 'Unknown error'
+          })
+        }
+      })
+    } catch (err) {
+      logger.warn(`Error inside api cb:`)
+      logger.error(err)
+      logger.error(err.message)
+
+      return res.status(500).json({
+        errorMessage: err.message
+      })
+    }
   })
 }
