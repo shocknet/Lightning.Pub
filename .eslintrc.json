@@ -83,7 +83,12 @@
 
     "no-undefined": "off",
 
-    "no-process-env": "off"
+    "no-process-env": "off",
+
+    // I am now convinced TODO comments closer to the relevant code are better
+    // than GH issues. Especially when it only concerns a single function /
+    // routine.
+    "no-warning-comments": "off"
   },
   "parser": "babel-eslint",
   "env": {
