@@ -253,9 +253,8 @@ module.exports = (
     }
   }
 
-  io.on('connection', socket => {
+  io.of('default').on('connection', socket => {
     logger.info(`io.onconnection`)
-
     logger.info('socket.handshake', socket.handshake)
 
     const isLNDSocket = !!socket.handshake.query.IS_LND_SOCKET
