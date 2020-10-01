@@ -4,6 +4,11 @@
 const logger = require('winston')
 const Encryption = require('../utils/encryptionStore')
 const LightningServices = require('../utils/lightningServices')
+const {
+  getGun,
+  getUser,
+  isAuthenticated
+} = require('../services/gunDB/Mediator')
 
 const onPing = (socket, subID) => {
   logger.warn('Subscribing to pings socket...' + subID)
@@ -279,6 +284,66 @@ module.exports = (
         cancelTransactionStream()
         cancelPingStream()
       })
+    }
+  })
+
+  io.of('gun').on('connect', socket => {
+    // TODO: off()
+
+    try {
+      if (!isAuthenticated()) {
+        socket.emit('$shock', 'NOT_AUTH')
+        return
+      }
+
+      const { $shock } = socket.handshake.query
+
+      const [root, path, method] = $shock.split('::')
+
+      // eslint-disable-next-line init-declarations
+      let node
+
+      if (root === '$gun') {
+        node = getGun()
+      } else if (root === '$user') {
+        node = getUser()
+      } else {
+        node = getGun().user(root)
+      }
+
+      for (const bit of path.split('.')) {
+        node = node.get(bit)
+      }
+
+      /**
+       * @param {unknown} data
+       * @param {string} key
+       */
+      const listener = (data, key) => {
+        try {
+          socket.emit('$shock', data, key)
+        } catch (err) {
+          logger.error(
+            `Error for gun rpc socket, query ${$shock} -> ${err.message}`
+          )
+        }
+      }
+
+      if (method === 'on') {
+        node.on(listener)
+      } else if (method === 'open') {
+        node.open(listener)
+      } else if (method === 'map.on') {
+        node.map().on(listener)
+      } else if (method === 'map.once') {
+        node.map().once(listener)
+      } else {
+        throw new TypeError(
+          `Invalid method for gun rpc call : ${method}, query: ${$shock}`
+        )
+      }
+    } catch (err) {
+      logger.error('GUNRPC: ' + err.message)
     }
   })
 
