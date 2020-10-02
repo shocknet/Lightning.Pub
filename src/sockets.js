@@ -376,7 +376,8 @@ module.exports = (
       })
 
       call.on('error', err => {
-        socket.emit('error', err)
+        // 'error' is a reserved event name we can't use it
+        socket.emit('$error', err)
       })
 
       // Possibly allow streaming writes such as sendPaymentV2
