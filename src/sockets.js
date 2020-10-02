@@ -347,5 +347,46 @@ module.exports = (
     }
   })
 
+  io.of('/lndstreaming').on('connect', socket => {
+    // TODO: unsubscription
+
+    /**
+     * Streaming stuff in LND uses these events: data, status, end, error.
+     */
+
+    try {
+      const { services } = LightningServices
+
+      const { service, method, args: unParsed } = socket.handshake.query
+
+      const args = JSON.parse(unParsed)
+
+      const call = services[service][method](args)
+
+      call.on('data', data => {
+        socket.emit('data', data)
+      })
+
+      call.on('status', status => {
+        socket.emit('status', status)
+      })
+
+      call.on('end', () => {
+        socket.emit('end')
+      })
+
+      call.on('error', err => {
+        socket.emit('error', err)
+      })
+
+      // Possibly allow streaming writes such as sendPaymentV2
+      socket.on('write', args => {
+        call.write(args)
+      })
+    } catch (err) {
+      logger.error('LNDRPC: ' + err.message)
+    }
+  })
+
   return io
 }
