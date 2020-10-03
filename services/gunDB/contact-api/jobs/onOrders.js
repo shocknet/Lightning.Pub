@@ -2,6 +2,7 @@
  * @format
  */
 
+const { performance } = require('perf_hooks')
 const logger = require('winston')
 const isFinite = require('lodash/isFinite')
 const isNumber = require('lodash/isNumber')
@@ -38,9 +39,18 @@ const ordersProcessed = new Set()
  * @prop {boolean} private
  */
 
+/**
+ * @typedef {object} InvoiceResponse
+ * @prop {string} payment_request
+ * @prop {Buffer} r_hash
+ */
+
 let currentOrderAddr = ''
 
-/** @param {InvoiceRequest} invoiceReq */
+/**
+ * @param {InvoiceRequest} invoiceReq
+ * @returns {Promise<InvoiceResponse>}
+ */
 const _addInvoice = invoiceReq =>
   new Promise((resolve, rej) => {
     const {
@@ -49,12 +59,12 @@ const _addInvoice = invoiceReq =>
 
     lightning.addInvoice(invoiceReq, (
       /** @type {any} */ error,
-      /** @type {{ payment_request: string }} */ response
+      /** @type {InvoiceResponse} */ response
     ) => {
       if (error) {
         rej(error)
       } else {
-        resolve(response.payment_request)
+        resolve(response)
       }
     })
   })
@@ -85,7 +95,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       return
     }
 
-    const listenerStartTime = Date.now()
+    const listenerStartTime = performance.now()
 
     ordersProcessed.add(orderID)
 
@@ -95,7 +105,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       )} -- addr: ${addr}`
     )
 
-    const orderAnswerStartTime = Date.now()
+    const orderAnswerStartTime = performance.now()
 
     const alreadyAnswered = await getUser()
       .get(Key.ORDER_TO_RESPONSE)
@@ -107,11 +117,11 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       return
     }
 
-    const orderAnswerEndTime = Date.now() - orderAnswerStartTime
+    const orderAnswerEndTime = performance.now() - orderAnswerStartTime
 
     logger.info(`[PERF] Order Already Answered: ${orderAnswerEndTime}ms`)
 
-    const decryptStartTime = Date.now()
+    const decryptStartTime = performance.now()
 
     const senderEpub = await Utils.pubToEpub(order.from)
     const secret = await SEA.secret(senderEpub, getUser()._.sea)
@@ -121,7 +131,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       SEA.decrypt(order.memo, secret)
     ])
 
-    const decryptEndTime = Date.now() - decryptStartTime
+    const decryptEndTime = performance.now() - decryptStartTime
 
     logger.info(`[PERF] Decrypt invoice info: ${decryptEndTime}ms`)
 
@@ -156,14 +166,11 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       `onOrders() -> Will now create an invoice : ${JSON.stringify(invoiceReq)}`
     )
 
-    const invoiceStartTime = Date.now()
+    const invoiceStartTime = performance.now()
 
-    /**
-     * @type {string}
-     */
     const invoice = await _addInvoice(invoiceReq)
 
-    const invoiceEndTime = Date.now() - invoiceStartTime
+    const invoiceEndTime = performance.now() - invoiceStartTime
 
     logger.info(`[PERF] LND Invoice created in ${invoiceEndTime}ms`)
 
@@ -171,11 +178,11 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       'onOrders() -> Successfully created the invoice, will now encrypt it'
     )
 
-    const invoiceEncryptStartTime = Date.now()
+    const invoiceEncryptStartTime = performance.now()
 
-    const encInvoice = await SEA.encrypt(invoice, secret)
+    const encInvoice = await SEA.encrypt(invoice.payment_request, secret)
 
-    const invoiceEncryptEndTime = Date.now() - invoiceEncryptStartTime
+    const invoiceEncryptEndTime = performance.now() - invoiceEncryptStartTime
 
     logger.info(`[PERF] Invoice encrypted in ${invoiceEncryptEndTime}ms`)
 
@@ -189,7 +196,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       type: 'invoice'
     }
 
-    const invoicePutStartTime = Date.now()
+    const invoicePutStartTime = performance.now()
 
     await new Promise((res, rej) => {
       getUser()
@@ -209,13 +216,35 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
         })
     })
 
-    const invoicePutEndTime = Date.now() - invoicePutStartTime
+    const invoicePutEndTime = performance.now() - invoicePutStartTime
 
     logger.info(`[PERF] Added invoice to GunDB in ${invoicePutEndTime}ms`)
 
-    const listenerEndTime = Date.now() - listenerStartTime
+    const listenerEndTime = performance.now() - listenerStartTime
 
     logger.info(`[PERF] Invoice generation completed in ${listenerEndTime}ms`)
+
+    const hash = invoice.r_hash.toString('base64')
+
+    if (order.targetType === 'post') {
+      getUser()
+        .get(Key.TIPS_PAYMENT_STATUS)
+        .get(hash)
+        .put(
+          {
+            hash,
+            state: 'OPEN',
+            targetType: order.targetType,
+            // @ts-ignore
+            postID: order.postID,
+            // @ts-ignore
+            postPage: order.postPage
+          },
+          response => {
+            console.log(response)
+          }
+        )
+    }
   } catch (err) {
     logger.error(
       `error inside onOrders, orderAddr: ${addr}, orderID: ${orderID}, order: ${JSON.stringify(

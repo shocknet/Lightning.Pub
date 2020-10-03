@@ -48,7 +48,7 @@
     "request-promise": "^4.2.2",
     "response-time": "^2.3.2",
     "shelljs": "^0.8.2",
-    "shock-common": "8.0.0",
+    "shock-common": "shocknet/shock-common#49aa269c723b2c2ee803662c98ba2ddd1f68f57e",
     "socket.io": "2.1.1",
     "text-encoding": "^0.7.0",
     "tingodb": "^0.6.1",

@@ -35,6 +35,7 @@ const {
   sendPaymentV2Invoice,
   listPayments
 } = require('../utils/lightningServices/v2')
+const { startTipStatusJob } = require('../utils/lndJobs')
 
 const DEFAULT_MAX_NUM_ROUTES_TO_QUERY = 10
 const SESSION_ID = uuid()
@@ -686,6 +687,7 @@ module.exports = async (
         }
 
         onNewChannelBackup()
+        startTipStatusJob()
 
         // Generate auth token and send it as a JSON response
         const token = await auth.generateToken()
