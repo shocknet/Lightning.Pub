@@ -26,15 +26,16 @@ const server = program => {
     sensitiveRoutes,
     nonEncryptedRoutes
   } = require('../utils/protectedRoutes')
+
   // load app default configuration data
   const defaults = require('../config/defaults')(program.mainnet)
   const rootFolder = process.resourcesPath || __dirname
-  // define useful global variables ======================================
+
+  // define env variables
   Dotenv.config()
-  module.useTLS = program.usetls
-  module.serverPort = program.serverport || defaults.serverPort
-  module.httpsPort = module.serverPort
-  module.serverHost = program.serverhost || defaults.serverHost
+
+  const serverPort = program.serverport || defaults.serverPort
+  const serverHost = program.serverhost || defaults.serverHost
 
   // setup winston logging ==========
   const logger = require('../config/log')(
@@ -274,8 +275,8 @@ const server = program => {
       const Sockets = require('./sockets')(io)
 
       require('./routes')(app, defaults, Sockets, {
-        serverHost: module.serverHost,
-        serverPort: module.serverPort,
+        serverHost,
+        serverPort,
         usetls: program.usetls,
         CA,
         CA_KEY
@@ -290,20 +291,11 @@ const server = program => {
         app.use(modifyResponseBody)
       }
 
-      serverInstance.listen(module.serverPort, module.serverhost)
+      serverInstance.listen(serverPort, serverHost)
 
-      logger.info(
-        'App listening on ' + module.serverHost + ' port ' + module.serverPort
-      )
+      logger.info('App listening on ' + serverHost + ' port ' + serverPort)
 
       module.server = serverInstance
-
-      // const localtunnel = require('localtunnel');
-      //
-      // const tunnel = localtunnel(port, (err, t) => {
-      // 	logger.info('err', err);
-      // 	logger.info('t', t.url);
-      // });
     } catch (err) {
       logger.info(err)
       logger.info('Restarting server in 30 seconds...')
