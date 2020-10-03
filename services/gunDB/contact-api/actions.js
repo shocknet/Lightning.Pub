@@ -935,7 +935,8 @@ const sendSpontaneousPayment = async (to, amount, memo, feeLimit) => {
       amount: amount.toString(),
       from: getUser()._.sea.pub,
       memo: memo || 'no memo',
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      targetType: 'user'
     }
 
     logger.info(JSON.stringify(order))

@@ -55,3 +55,8 @@ exports.CONTENT_ITEMS = 'contentItems'
 exports.FOLLOWS = 'follows'
 
 exports.POSTS = 'posts'
+
+// Tips counter for posts
+exports.TOTAL_TIPS = 'totalTips'
+
+exports.TIPS_PAYMENT_STATUS = 'tipsPaymentStatus'
