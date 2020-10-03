@@ -1,9 +1,14 @@
 /** @prettier */
-// app/sockets.js
+// @ts-check
 
 const logger = require('winston')
 const Encryption = require('../utils/encryptionStore')
 const LightningServices = require('../utils/lightningServices')
+const {
+  getGun,
+  getUser,
+  isAuthenticated
+} = require('../services/gunDB/Mediator')
 
 const onPing = (socket, subID) => {
   logger.warn('Subscribing to pings socket...' + subID)
@@ -21,8 +26,6 @@ module.exports = (
   /** @type {import('socket.io').Server} */
   io
 ) => {
-  const Mediator = require('../services/gunDB/Mediator/index.js')
-
   // This should be used for encrypting and emitting your data
   const emitEncryptedEvent = ({ eventName, data, socket }) => {
     try {
@@ -255,67 +258,134 @@ module.exports = (
     }
   }
 
-  io.on('connection', socket => {
+  io.of('default').on('connection', socket => {
     logger.info(`io.onconnection`)
-
     logger.info('socket.handshake', socket.handshake)
 
-    const isOneTimeUseSocket = !!socket.handshake.query.IS_GUN_AUTH
     const isLNDSocket = !!socket.handshake.query.IS_LND_SOCKET
     const isNotificationsSocket = !!socket.handshake.query
       .IS_NOTIFICATIONS_SOCKET
+
     if (!isLNDSocket) {
       /** printing out the client who joined */
       logger.info('New socket client connected (id=' + socket.id + ').')
     }
 
-    if (isOneTimeUseSocket) {
-      logger.info('New socket is one time use')
-      socket.on('IS_GUN_AUTH', () => {
-        try {
-          const isGunAuth = Mediator.isAuthenticated()
-          socket.emit('IS_GUN_AUTH', {
-            ok: true,
-            msg: {
-              isGunAuth
-            },
-            origBody: {}
-          })
-          socket.disconnect()
-        } catch (err) {
-          socket.emit('IS_GUN_AUTH', {
-            ok: false,
-            msg: err.message,
-            origBody: {}
-          })
-          socket.disconnect()
-        }
+    if (isLNDSocket) {
+      const subID = Math.floor(Math.random() * 1000).toString()
+      const isNotifications = isNotificationsSocket ? 'notifications' : ''
+      logger.info('[LND] New LND Socket created:' + isNotifications + subID)
+      const cancelInvoiceStream = onNewInvoice(socket, subID)
+      const cancelTransactionStream = onNewTransaction(socket, subID)
+      const cancelPingStream = onPing(socket, subID)
+      socket.on('disconnect', () => {
+        logger.info('LND socket disconnected:' + isNotifications + subID)
+        cancelInvoiceStream()
+        cancelTransactionStream()
+        cancelPingStream()
       })
-    } else {
-      if (isLNDSocket) {
-        const subID = Math.floor(Math.random() * 1000).toString()
-        const isNotifications = isNotificationsSocket ? 'notifications' : ''
-        logger.info('[LND] New LND Socket created:' + isNotifications + subID)
-        const cancelInvoiceStream = onNewInvoice(socket, subID)
-        const cancelTransactionStream = onNewTransaction(socket, subID)
-        const cancelPingStream = onPing(socket, subID)
-        socket.on('disconnect', () => {
-          logger.info('LND socket disconnected:' + isNotifications + subID)
-          cancelInvoiceStream()
-          cancelTransactionStream()
-          cancelPingStream()
-        })
+    }
+  })
+
+  io.of('gun').on('connect', socket => {
+    // TODO: off()
+
+    try {
+      if (!isAuthenticated()) {
+        socket.emit('$shock', 'NOT_AUTH')
         return
       }
-      logger.info('New socket is NOT one time use')
-      // this is where we create the websocket connection
-      // with the GunDB service.
-      Mediator.createMediator(socket)
 
-      /** listening if client has disconnected */
-      socket.on('disconnect', () => {
-        logger.info('client disconnected (id=' + socket.id + ').')
+      const { $shock } = socket.handshake.query
+
+      const [root, path, method] = $shock.split('::')
+
+      // eslint-disable-next-line init-declarations
+      let node
+
+      if (root === '$gun') {
+        node = getGun()
+      } else if (root === '$user') {
+        node = getUser()
+      } else {
+        node = getGun().user(root)
+      }
+
+      for (const bit of path.split('.')) {
+        node = node.get(bit)
+      }
+
+      /**
+       * @param {unknown} data
+       * @param {string} key
+       */
+      const listener = (data, key) => {
+        try {
+          socket.emit('$shock', data, key)
+        } catch (err) {
+          logger.error(
+            `Error for gun rpc socket, query ${$shock} -> ${err.message}`
+          )
+        }
+      }
+
+      if (method === 'on') {
+        node.on(listener)
+      } else if (method === 'open') {
+        node.open(listener)
+      } else if (method === 'map.on') {
+        node.map().on(listener)
+      } else if (method === 'map.once') {
+        node.map().once(listener)
+      } else {
+        throw new TypeError(
+          `Invalid method for gun rpc call : ${method}, query: ${$shock}`
+        )
+      }
+    } catch (err) {
+      logger.error('GUNRPC: ' + err.message)
+    }
+  })
+
+  io.of('/lndstreaming').on('connect', socket => {
+    // TODO: unsubscription
+
+    /**
+     * Streaming stuff in LND uses these events: data, status, end, error.
+     */
+
+    try {
+      const { services } = LightningServices
+
+      const { service, method, args: unParsed } = socket.handshake.query
+
+      const args = JSON.parse(unParsed)
+
+      const call = services[service][method](args)
+
+      call.on('data', data => {
+        socket.emit('data', data)
       })
+
+      call.on('status', status => {
+        socket.emit('status', status)
+      })
+
+      call.on('end', () => {
+        socket.emit('end')
+      })
+
+      call.on('error', err => {
+        // 'error' is a reserved event name we can't use it
+        socket.emit('$error', err)
+      })
+
+      // Possibly allow streaming writes such as sendPaymentV2
+      socket.on('write', args => {
+        call.write(args)
+      })
+    } catch (err) {
+      logger.error('LNDRPC: ' + err.message)
     }
   })
 
