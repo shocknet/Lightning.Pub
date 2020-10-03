@@ -45,6 +45,15 @@ const ordersProcessed = new Set()
  * @prop {Buffer} r_hash
  */
 
+/**
+ * @typedef {object} TipPaymentStatus
+ * @prop {string} hash
+ * @prop {import('shock-common').Schema.InvoiceState} state
+ * @prop {string} targetType
+ * @prop {(string)=} postID
+ * @prop {(number)=} postPage
+ */
+
 let currentOrderAddr = ''
 
 /**
@@ -227,23 +236,21 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
     const hash = invoice.r_hash.toString('base64')
 
     if (order.targetType === 'post') {
+      /** @type {TipPaymentStatus} */
+      const paymentStatus = {
+        hash,
+        state: 'OPEN',
+        targetType: order.targetType,
+        postID: order.postID,
+        postPage: order.postPage
+      }
       getUser()
         .get(Key.TIPS_PAYMENT_STATUS)
         .get(hash)
-        .put(
-          {
-            hash,
-            state: 'OPEN',
-            targetType: order.targetType,
-            // @ts-ignore
-            postID: order.postID,
-            // @ts-ignore
-            postPage: order.postPage
-          },
-          response => {
-            console.log(response)
-          }
-        )
+        // @ts-ignore
+        .put(paymentStatus, response => {
+          console.log(response)
+        })
     }
   } catch (err) {
     logger.error(
