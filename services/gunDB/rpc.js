@@ -2,13 +2,55 @@
  * @format
  */
 // @ts-check
-const { makePromise, Constants } = require('shock-common')
+const { makePromise, Constants, Schema } = require('shock-common')
+const mapValues = require('lodash/mapValues')
+const Bluebird = require('bluebird')
 
-const { getGun, getUser } = require('./Mediator')
+const { pubToEpub } = require('./contact-api/utils')
+const { getGun, getUser, mySEA: SEA, getMySecret } = require('./Mediator')
+/**
+ * @typedef {import('./contact-api/SimpleGUN').ValidDataValue} ValidDataValue
+ */
+
+/**
+ * @param {ValidDataValue} value
+ * @returns {Promise<ValidDataValue>}
+ */
+const deepEncryptIfNeeded = async value => {
+  const u = getUser()
+
+  if (!u.is) {
+    throw new Error(Constants.ErrorCode.NOT_AUTH)
+  }
+
+  if (!Schema.isObj(value)) {
+    return value
+  }
+
+  const pk = /** @type {string|undefined} */ (value.$$__ENCRYPT__FOR)
+
+  if (!pk) {
+    return Bluebird.props(mapValues(value, deepEncryptIfNeeded))
+  }
+
+  const actualValue = /** @type {string} */ (value.value)
+
+  let encryptedValue = ''
+
+  if (pk === u.is.pub) {
+    encryptedValue = await SEA.encrypt(actualValue, getMySecret())
+  } else {
+    const sec = await SEA.secret(await pubToEpub(pk), u._.sea)
+
+    encryptedValue = await SEA.encrypt(actualValue, sec)
+  }
+
+  return encryptedValue
+}
 
 /**
  * @param {string} rawPath
- * @param {import('./contact-api/SimpleGUN').ValidDataValue} value
+ * @param {ValidDataValue} value
  * @returns {Promise<void>}
  */
 const put = async (rawPath, value) => {
@@ -41,8 +83,10 @@ const put = async (rawPath, value) => {
     return _node
   })()
 
+  const encryptedIfNeededValue = await deepEncryptIfNeeded(value)
+
   await makePromise((res, rej) => {
-    node.put(value, ack => {
+    node.put(encryptedIfNeededValue, ack => {
       if (ack.err && typeof ack.err !== 'number') {
         rej(new Error(ack.err))
       } else {
@@ -54,7 +98,7 @@ const put = async (rawPath, value) => {
 
 /**
  * @param {string} rawPath
- * @param {import('./contact-api/SimpleGUN').ValidDataValue} value
+ * @param {ValidDataValue} value
  * @returns {Promise<string>}
  */
 const set = async (rawPath, value) => {
@@ -87,8 +131,10 @@ const set = async (rawPath, value) => {
     return _node
   })()
 
+  const encryptedIfNeededValue = await deepEncryptIfNeeded(value)
+
   const id = await makePromise((res, rej) => {
-    const subNode = node.set(value, ack => {
+    const subNode = node.set(encryptedIfNeededValue, ack => {
       if (ack.err && typeof ack.err !== 'number') {
         rej(new Error(ack.err))
       } else {
