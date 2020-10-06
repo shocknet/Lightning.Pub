@@ -21,6 +21,7 @@
     "basic-auth": "^2.0.0",
     "big.js": "^5.2.2",
     "bitcore-lib": "^0.15.0",
+    "bluebird": "^3.7.2",
     "body-parser": "^1.16.0",
     "colors": "^1.4.0",
     "command-exists": "^1.2.6",
@@ -57,6 +58,7 @@
   },
   "devDependencies": {
     "@babel/plugin-proposal-class-properties": "^7.5.5",
+    "@types/bluebird": "^3.5.32",
     "@types/dotenv": "^6.1.1",
     "@types/express": "^4.17.1",
     "@types/gun": "^0.9.2",
