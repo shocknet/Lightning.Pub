@@ -3,12 +3,15 @@
  */
 // @ts-check
 const { makePromise, Constants } = require('shock-common')
+/**
+ * @typedef {import('./contact-api/SimpleGUN').ValidDataValue} ValidDataValue
+ */
 
 const { getGun, getUser } = require('./Mediator')
 
 /**
  * @param {string} rawPath
- * @param {import('./contact-api/SimpleGUN').ValidDataValue} value
+ * @param {ValidDataValue} value
  * @returns {Promise<void>}
  */
 const put = async (rawPath, value) => {
@@ -54,7 +57,7 @@ const put = async (rawPath, value) => {
 
 /**
  * @param {string} rawPath
- * @param {import('./contact-api/SimpleGUN').ValidDataValue} value
+ * @param {ValidDataValue} value
  * @returns {Promise<string>}
  */
 const set = async (rawPath, value) => {
