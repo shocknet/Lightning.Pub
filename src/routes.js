@@ -36,6 +36,7 @@ const {
   listPayments
 } = require('../utils/lightningServices/v2')
 const { startTipStatusJob } = require('../utils/lndJobs')
+const GunWriteRPC = require('../services/gunDB/rpc')
 
 const DEFAULT_MAX_NUM_ROUTES_TO_QUERY = 10
 const SESSION_ID = uuid()
@@ -3114,6 +3115,43 @@ module.exports = async (
       return res.status(500).json({
         errorMessage: err.message
       })
+    }
+  })
+
+  ap.post('/api/gun/put', async (req, res) => {
+    try {
+      const { path, value } = req.body
+
+      await GunWriteRPC.put(path, value)
+
+      res.status(200).json({
+        ok: true
+      })
+    } catch (err) {
+      res
+        .status(err.message === Common.Constants.ErrorCode.NOT_AUTH ? 401 : 500)
+        .json({
+          errorMessage: err.message
+        })
+    }
+  })
+
+  ap.post('/api/gun/set', async (req, res) => {
+    try {
+      const { path, value } = req.body
+
+      const id = await GunWriteRPC.set(path, value)
+
+      res.status(200).json({
+        ok: true,
+        id
+      })
+    } catch (err) {
+      res
+        .status(err.message === Common.Constants.ErrorCode.NOT_AUTH ? 401 : 500)
+        .json({
+          errorMessage: err.message
+        })
     }
   })
 }
