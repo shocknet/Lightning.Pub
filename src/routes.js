@@ -2995,12 +2995,19 @@ module.exports = async (
    * @prop {boolean} startFromUserGraph
    * @prop {string} path
    * @prop {string=} publicKey
+   * @prop {string=} publicKeyForDecryption
    */
   /**
    * @param {HandleGunFetchParams} args0
    * @returns {Promise<unknown>}
    */
-  const handleGunFetch = ({ type, startFromUserGraph, path, publicKey }) => {
+  const handleGunFetch = ({
+    type,
+    startFromUserGraph,
+    path,
+    publicKey,
+    publicKeyForDecryption
+  }) => {
     const keys = path.split('.')
     const { tryAndWait } = require('../services/gunDB/contact-api/utils')
     console.log(keys)
@@ -3014,76 +3021,106 @@ module.exports = async (
       keys.forEach(key => (node = node.get(key)))
 
       return new Promise(res => {
-        if (type === 'once') node.once(data => res(data))
-        if (type === 'load') node.load(data => res(data))
+        const listener = async data => {
+          if (publicKeyForDecryption) {
+            res(
+              await GunWriteRPC.deepDecryptIfNeeded(
+                data,
+                publicKeyForDecryption
+              )
+            )
+          } else {
+            res(data)
+          }
+        }
+
+        if (type === 'once') node.once(listener)
+        if (type === 'load') node.load(listener)
       })
     })
   }
 
+  /**
+   * Used decryption of incoming data.
+   */
+  const PUBKEY_FOR_DECRYPT_HEADER = 'public-key-for-decryption'
+
   ap.get('/api/gun/once/:path', async (req, res) => {
+    const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
     const { path } = req.params
     res.status(200).json({
       data: await handleGunFetch({
         path,
         startFromUserGraph: false,
-        type: 'once'
+        type: 'once',
+        publicKeyForDecryption
       })
     })
   })
 
   ap.get('/api/gun/load/:path', async (req, res) => {
+    const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
     const { path } = req.params
     res.status(200).json({
       data: await handleGunFetch({
         path,
         startFromUserGraph: false,
-        type: 'load'
+        type: 'load',
+        publicKeyForDecryption
       })
     })
   })
 
   ap.get('/api/gun/user/once/:path', async (req, res) => {
+    const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
     const { path } = req.params
     res.status(200).json({
       data: await handleGunFetch({
         path,
         startFromUserGraph: true,
-        type: 'once'
+        type: 'once',
+        publicKeyForDecryption
       })
     })
   })
 
   ap.get('/api/gun/user/load/:path', async (req, res) => {
+    const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
     const { path } = req.params
     res.status(200).json({
       data: await handleGunFetch({
         path,
         startFromUserGraph: true,
-        type: 'load'
+        type: 'load',
+        publicKeyForDecryption
       })
     })
   })
 
   ap.get('/api/gun/otheruser/:publicKey/once/:path', async (req, res) => {
+    const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
     const { path, publicKey } = req.params
     res.status(200).json({
       data: await handleGunFetch({
         path,
         startFromUserGraph: false,
         type: 'once',
-        publicKey
+        publicKey,
+        publicKeyForDecryption
       })
     })
   })
 
   ap.get('/api/gun/otheruser/:publicKey/load/:path', async (req, res) => {
+    const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
     const { path, publicKey } = req.params
     res.status(200).json({
       data: await handleGunFetch({
         path,
         startFromUserGraph: false,
         type: 'load',
-        publicKey
+        publicKey,
+        publicKeyForDecryption
       })
     })
   })
