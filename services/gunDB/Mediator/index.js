@@ -1475,5 +1475,6 @@ module.exports = {
   getUser,
   mySEA,
   getMySecret,
-  freshGun
+  freshGun,
+  $$__SHOCKWALLET__ENCRYPTED__
 }
