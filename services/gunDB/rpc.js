@@ -7,10 +7,52 @@ const mapValues = require('lodash/mapValues')
 const Bluebird = require('bluebird')
 
 const { pubToEpub } = require('./contact-api/utils')
-const { getGun, getUser, mySEA: SEA, getMySecret } = require('./Mediator')
+const {
+  getGun,
+  getUser,
+  mySEA: SEA,
+  getMySecret,
+  $$__SHOCKWALLET__ENCRYPTED__
+} = require('./Mediator')
 /**
  * @typedef {import('./contact-api/SimpleGUN').ValidDataValue} ValidDataValue
  */
+
+/**
+ * @param {ValidDataValue} value
+ * @param {string} publicKey
+ * @returns {Promise<ValidDataValue>}
+ */
+const deepDecryptIfNeeded = async (value, publicKey) => {
+  if (Schema.isObj(value)) {
+    return Bluebird.props(
+      mapValues(value, o => deepDecryptIfNeeded(o, publicKey))
+    )
+  }
+
+  if (
+    typeof value === 'string' &&
+    value.indexOf($$__SHOCKWALLET__ENCRYPTED__) === 0
+  ) {
+    const user = getUser()
+    if (!user.is) {
+      throw new Error(Constants.ErrorCode.NOT_AUTH)
+    }
+
+    let sec = ''
+    if (user.is.pub === publicKey) {
+      sec = getMySecret()
+    } else {
+      sec = await SEA.secret(publicKey, user._.sea)
+    }
+
+    const decrypted = SEA.decrypt(value, sec)
+
+    return decrypted
+  }
+
+  return value
+}
 
 /**
  * @param {ValidDataValue} value
@@ -148,5 +190,7 @@ const set = async (rawPath, value) => {
 
 module.exports = {
   put,
-  set
+  set,
+  deepDecryptIfNeeded,
+  deepEncryptIfNeeded
 }
