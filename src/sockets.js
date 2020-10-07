@@ -1,7 +1,10 @@
-/** @prettier */
+/**
+ * @format
+ */
 // @ts-check
 
 const logger = require('winston')
+
 const Encryption = require('../utils/encryptionStore')
 const LightningServices = require('../utils/lightningServices')
 const {
@@ -9,7 +12,16 @@ const {
   getUser,
   isAuthenticated
 } = require('../services/gunDB/Mediator')
+const { deepDecryptIfNeeded } = require('../services/gunDB/rpc')
+/**
+ * @typedef {import('../services/gunDB/Mediator').SimpleSocket} SimpleSocket
+ * @typedef {import('../services/gunDB/contact-api/SimpleGUN').ValidDataValue} ValidDataValue
+ */
 
+/**
+ * @param {SimpleSocket} socket
+ * @param {string} subID
+ */
 const onPing = (socket, subID) => {
   logger.warn('Subscribing to pings socket...' + subID)
 
@@ -296,7 +308,7 @@ module.exports = (
         return
       }
 
-      const { $shock } = socket.handshake.query
+      const { $shock, publicKeyForDecryption } = socket.handshake.query
 
       const [root, path, method] = $shock.split('::')
 
@@ -316,12 +328,21 @@ module.exports = (
       }
 
       /**
-       * @param {unknown} data
+       * @param {ValidDataValue} data
        * @param {string} key
        */
-      const listener = (data, key) => {
+      const listener = async (data, key) => {
         try {
-          socket.emit('$shock', data, key)
+          if (publicKeyForDecryption) {
+            const decData = await deepDecryptIfNeeded(
+              data,
+              publicKeyForDecryption
+            )
+
+            socket.emit('$shock', decData, key)
+          } else {
+            socket.emit('$shock', data, key)
+          }
         } catch (err) {
           logger.error(
             `Error for gun rpc socket, query ${$shock} -> ${err.message}`

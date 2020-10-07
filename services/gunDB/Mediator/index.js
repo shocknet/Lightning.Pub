@@ -205,7 +205,7 @@ const Config = require('../config')
 // TO DO: move to common repo
 /**
  * @typedef {object} SimpleSocket
- * @prop {(eventName: string, data: Emission|EncryptedEmission) => void} emit
+ * @prop {(eventName: string, data?: Emission|EncryptedEmission) => void} emit
  * @prop {(eventName: string, handler: (data: any) => void) => void} on
  * @prop {{ query: { 'x-shockwallet-device-id': string }}} handshake
  */
@@ -1475,5 +1475,6 @@ module.exports = {
   getUser,
   mySEA,
   getMySecret,
-  freshGun
+  freshGun,
+  $$__SHOCKWALLET__ENCRYPTED__
 }
