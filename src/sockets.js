@@ -1,7 +1,10 @@
-/** @prettier */
+/**
+ * @format
+ */
 // @ts-check
 
 const logger = require('winston')
+
 const Encryption = require('../utils/encryptionStore')
 const LightningServices = require('../utils/lightningServices')
 const {
