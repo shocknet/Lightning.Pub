@@ -306,9 +306,9 @@ module.exports = async (
         }
       } else {
         encryptedToken = req.body.token
-        encryptedKey = req.body.encryptionKey
+        encryptedKey = req.body.encryptionKey || req.body.encryptedKey
         IV = req.body.iv
-        reqData = req.body.data
+        reqData = req.body.data || req.body.encryptedData
       }
       const decryptedKey = Encryption.decryptKey({
         deviceId,
@@ -2367,6 +2367,17 @@ module.exports = async (
     }
   }
 
+  ap.get('/api/gun/initwall', async (req, res) => {
+    try {
+      await GunActions.initWall()
+      res.json({ ok: true })
+    } catch (err) {
+      logger.error(err)
+      return res.status(500).json({
+        errorMessage: err.message
+      })
+    }
+  })
   ap.get('/api/gun/follows/', apiGunFollowsGet)
   ap.get('/api/gun/follows/:publicKey', apiGunFollowsGet)
   ap.put(`/api/gun/follows/:publicKey`, apiGunFollowsPut)
