@@ -43,7 +43,7 @@ const deepDecryptIfNeeded = async (value, publicKey) => {
     if (user.is.pub === publicKey) {
       sec = getMySecret()
     } else {
-      sec = await SEA.secret(publicKey, user._.sea)
+      sec = await SEA.secret(await pubToEpub(publicKey), user._.sea)
     }
 
     const decrypted = SEA.decrypt(value, sec)
