@@ -3010,7 +3010,6 @@ module.exports = async (
   }) => {
     const keys = path.split('.')
     const { tryAndWait } = require('../services/gunDB/contact-api/utils')
-    console.log(keys)
     return tryAndWait((gun, user) => {
       // eslint-disable-next-line no-nested-ternary
       let node = startFromUserGraph
