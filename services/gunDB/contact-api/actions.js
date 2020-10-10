@@ -1325,6 +1325,7 @@ const createPost = async (tags, title, content) => {
           date: Date.now(),
           status: 'publish',
           tags: tags.join('-'),
+          page: pageIdx,
           title
         },
         ack => {
@@ -1435,11 +1436,25 @@ const createPost = async (tags, title, content) => {
 
 /**
  * @param {string} postId
+ * @param {string} page
  * @returns {Promise<void>}
  */
-const deletePost = async postId => {
-  await new Promise(res => {
-    res(postId)
+const deletePost = async (postId, page) => {
+  await new Promise((res, rej) => {
+    require('../Mediator')
+      .getUser()
+      .get(Key.WALL)
+      .get(Key.PAGES)
+      .get(page)
+      .get(Key.POSTS)
+      .get(postId)
+      .put(null, ack => {
+        if (ack.err && typeof ack.err !== 'number') {
+          rej(new Error(ack.err))
+        } else {
+          res()
+        }
+      })
   })
 }
 

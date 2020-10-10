@@ -2289,11 +2289,25 @@ module.exports = async (
     }
   })
 
-  app.delete(`/api/gun/wall/:postID`, (_, res) =>
-    res.status(200).json({
-      ok: 'true'
-    })
-  )
+  app.delete(`/api/gun/wall/:postInfo`, async (req, res) => {
+    try {
+      const { postInfo } = req.params
+      const parts = postInfo.split('&')
+      const [page, postId] = parts
+      if (!page || !postId) {
+        throw new Error(`please provide a "postId" and a "page"`)
+      }
+      await GunActions.deletePost(postId, page)
+      return res.status(200).json({
+        ok: 'true'
+      })
+    } catch (e) {
+      return res.status(500).json({
+        errorMessage:
+          (typeof e === 'string' ? e : e.message) || 'Unknown error.'
+      })
+    }
+  })
   /////////////////////////////////
   /**
    * @template P
