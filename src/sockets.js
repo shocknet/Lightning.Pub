@@ -4,6 +4,8 @@
 // @ts-check
 
 const logger = require('winston')
+const Common = require('shock-common')
+const mapValues = require('lodash/mapValues')
 
 const Encryption = require('../utils/encryptionStore')
 const LightningServices = require('../utils/lightningServices')
@@ -384,7 +386,22 @@ module.exports = (
 
       const call = services[service][method](args)
 
-      call.on('data', data => {
+      call.on('data', _data => {
+        // socket.io serializes buffers differently from express
+        const data = (() => {
+          if (!Common.Schema.isObj(_data)) {
+            return _data
+          }
+
+          return mapValues(_data, (item, key) => {
+            if (!(item instanceof Buffer)) {
+              return item
+            }
+
+            return item.toJSON()
+          })
+        })()
+
         socket.emit('data', data)
       })
 
