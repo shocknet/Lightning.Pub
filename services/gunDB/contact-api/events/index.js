@@ -114,7 +114,7 @@ const onAvatar = (cb, user) => {
   if (!avatarSubbed) {
     avatarSubbed = true
     user
-      .get(Key.PROFILE)
+      .get(Key.PROFILE_BINARY)
       .get(Key.AVATAR)
       .on(avatar => {
         if (typeof avatar === 'string' || avatar === null) {

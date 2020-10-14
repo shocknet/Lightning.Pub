@@ -815,7 +815,7 @@ const setAvatar = (avatar, user) =>
     }
 
     user
-      .get(Key.PROFILE)
+      .get(Key.PROFILE_BINARY)
       .get(Key.AVATAR)
       .put(avatar, ack => {
         if (ack.err && typeof ack.err !== 'number') {

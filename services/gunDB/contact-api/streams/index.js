@@ -34,7 +34,7 @@ const onAvatar = (cb, pub) => {
     require('../../Mediator')
       .getGun()
       .user(pub)
-      .get(Key.PROFILE)
+      .get(Key.PROFILE_BINARY)
       .get(Key.AVATAR)
       .on(av => {
         if (typeof av === 'string' || av === null) {
