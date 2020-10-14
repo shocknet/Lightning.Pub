@@ -60,3 +60,5 @@ exports.POSTS = 'posts'
 exports.TOTAL_TIPS = 'totalTips'
 
 exports.TIPS_PAYMENT_STATUS = 'tipsPaymentStatus'
+
+exports.PROFILE_BINARY = 'profileBinary'

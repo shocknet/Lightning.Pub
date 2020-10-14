@@ -2107,29 +2107,6 @@ module.exports = async (
     }
   })
 
-  app.get(`/api/gun/${GunEvent.ON_AVATAR}`, async (_, res) => {
-    try {
-      const user = require('../services/gunDB/Mediator').getUser()
-      const data = await timeout5(
-        user
-          .get(Key.PROFILE)
-          .get(Key.AVATAR)
-          .then()
-      )
-      res.json({
-        data
-      })
-    } catch (err) {
-      logger.info('Error in Avatar poll:')
-      logger.error(err)
-      res
-        .status(err.message === Common.Constants.ErrorCode.NOT_AUTH ? 401 : 500)
-        .json({
-          errorMessage: typeof err === 'string' ? err : err.message
-        })
-    }
-  })
-
   app.get(`/api/gun/${GunEvent.ON_DISPLAY_NAME}`, async (_, res) => {
     try {
       const user = require('../services/gunDB/Mediator').getUser()
