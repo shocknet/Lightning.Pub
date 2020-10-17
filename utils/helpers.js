@@ -19,6 +19,13 @@ const asyncFilter = async (arr, cb) => {
   return arr.filter((_, i) => results[i])
 }
 
+const wait = (seconds = 0) =>
+  new Promise(resolve => {
+    /** @type {NodeJS.Timeout} */
+    const timer = setTimeout(() => resolve(timer), seconds * 1000)
+  })
+
 module.exports = {
-  asyncFilter
+  asyncFilter,
+  wait
 }
