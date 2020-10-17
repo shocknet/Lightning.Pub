@@ -103,8 +103,40 @@ const getMyUser = async () => {
 
   return u
 }
+/**
+ * @param {string} publicKey
+ */
+const getUserInfo = async publicKey => {
+  const userInfo = await Utils.tryAndWait(
+    gun =>
+      new Promise(res =>
+        gun
+          .user(publicKey)
+          .get(Key.PROFILE)
+          .load(res)
+      ),
+    v => {
+      if (typeof v !== 'object') {
+        return true
+      }
+
+      if (v === null) {
+        return true
+      }
+
+      // load sometimes returns an empty set on the first try
+      return size(v) === 0
+    }
+  )
+  return {
+    publicKey,
+    avatar: userInfo.avatar,
+    displayName: userInfo.displayName
+  }
+}
 
 module.exports.getMyUser = getMyUser
+module.exports.getUserInfo = getUserInfo
 module.exports.Follows = require('./follows')
 
 module.exports.getWallPage = Wall.getWallPage
