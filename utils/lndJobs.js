@@ -133,8 +133,10 @@ const _getTipData = (invoiceHash, tries = 0) =>
 
             if (tip) {
               resolve(tip)
+              return
             }
 
+            reject(new Error('Malformed data'))
             return
           }
 
