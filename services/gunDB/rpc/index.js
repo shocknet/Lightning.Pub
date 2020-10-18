@@ -138,6 +138,10 @@ const put = async (rawPath, value) => {
 
   if (Array.isArray(theValue)) {
     await Promise.all(theValue.map(v => set(rawPath, v)))
+
+    // Do not remove this return, an array is also an object
+    // eslint-disable-next-line no-useless-return
+    return
   } else if (Schema.isObj(theValue)) {
     const writes = mapValues(theValue, (v, k) => put(`${rawPath}.${k}`, v))
 
