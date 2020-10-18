@@ -1,10 +1,12 @@
 /**
  * @format
  */
+/* eslint-disable no-use-before-define */
 // @ts-check
 const { makePromise, Constants, Schema } = require('shock-common')
 const mapValues = require('lodash/mapValues')
 const Bluebird = require('bluebird')
+const Gun = require('gun')
 
 const { pubToEpub } = require('../contact-api/utils')
 const {
@@ -16,6 +18,8 @@ const {
 } = require('../Mediator')
 /**
  * @typedef {import('../contact-api/SimpleGUN').ValidDataValue} ValidDataValue
+ * @typedef {import('./types').ValidRPCDataValue} ValidRPCDataValue
+ * @typedef {import('./types').RPCData} RPCData
  */
 
 /**
@@ -55,10 +59,11 @@ const deepDecryptIfNeeded = async (value, publicKey) => {
 }
 
 /**
- * @param {ValidDataValue} value
- * @returns {Promise<ValidDataValue>}
+ * @param {ValidRPCDataValue} value
+ * @returns {Promise<ValidRPCDataValue>}
  */
-const deepEncryptIfNeeded = async value => {
+// eslint-disable-next-line func-style
+async function deepEncryptIfNeeded(value) {
   const u = getUser()
 
   if (!u.is) {
@@ -67,6 +72,10 @@ const deepEncryptIfNeeded = async value => {
 
   if (!Schema.isObj(value)) {
     return value
+  }
+
+  if (Array.isArray(value)) {
+    return Promise.all(value.map(v => deepEncryptIfNeeded(v)))
   }
 
   const pk = /** @type {string|undefined} */ (value.$$__ENCRYPT__FOR)
@@ -92,7 +101,7 @@ const deepEncryptIfNeeded = async value => {
 
 /**
  * @param {string} rawPath
- * @param {ValidDataValue} value
+ * @param {ValidRPCDataValue} value
  * @returns {Promise<void>}
  */
 const put = async (rawPath, value) => {
@@ -125,25 +134,34 @@ const put = async (rawPath, value) => {
     return _node
   })()
 
-  const encryptedIfNeededValue = await deepEncryptIfNeeded(value)
+  const theValue = await deepEncryptIfNeeded(value)
 
-  await makePromise((res, rej) => {
-    node.put(encryptedIfNeededValue, ack => {
-      if (ack.err && typeof ack.err !== 'number') {
-        rej(new Error(ack.err))
-      } else {
-        res()
-      }
+  if (Array.isArray(theValue)) {
+    await Promise.all(theValue.map(v => set(rawPath, v)))
+  } else if (Schema.isObj(theValue)) {
+    const writes = mapValues(theValue, (v, k) => put(`${rawPath}.${k}`, v))
+
+    await Bluebird.props(writes)
+  } /* is primitive */ else {
+    await makePromise((res, rej) => {
+      node.put(/** @type {ValidDataValue} */ (theValue), ack => {
+        if (ack.err && typeof ack.err !== 'number') {
+          rej(new Error(ack.err))
+        } else {
+          res()
+        }
+      })
     })
-  })
+  }
 }
 
 /**
  * @param {string} rawPath
- * @param {ValidDataValue} value
+ * @param {ValidRPCDataValue} value
  * @returns {Promise<string>}
  */
-const set = async (rawPath, value) => {
+// eslint-disable-next-line func-style
+async function set(rawPath, value) {
   const [root, ...path] = rawPath.split('.')
 
   const node = (() => {
@@ -173,10 +191,39 @@ const set = async (rawPath, value) => {
     return _node
   })()
 
-  const encryptedIfNeededValue = await deepEncryptIfNeeded(value)
+  const theValue = await deepEncryptIfNeeded(value)
+
+  if (Array.isArray(theValue)) {
+    // we'll create a set of sets
+
+    // @ts-expect-error
+    const uuid = Gun.text.random()
+
+    // here we are simulating the top-most set()
+    const subPath = rawPath + '.' + uuid
+
+    const writes = theValue.map(v => set(subPath, v))
+
+    await Promise.all(writes)
+
+    return uuid
+  } else if (Schema.isObj(theValue)) {
+    // @ts-expect-error
+    const uuid = Gun.text.random() // we'll handle UUID ourselves
+
+    // so we can use our own put()
+
+    const subPath = rawPath + '.' + uuid
+
+    await put(subPath, theValue)
+
+    return uuid
+  }
+
+  /* else is primitive */
 
   const id = await makePromise((res, rej) => {
-    const subNode = node.set(encryptedIfNeededValue, ack => {
+    const subNode = node.set(theValue, ack => {
       if (ack.err && typeof ack.err !== 'number') {
         rej(new Error(ack.err))
       } else {
