@@ -422,6 +422,7 @@ const instantiateGun = () => {
 
   const _gun = /** @type {unknown} */ (new Gun({
     axe: false,
+    multicast: false,
     peers: Config.PEERS
   }))
 
@@ -435,6 +436,7 @@ instantiateGun()
 const freshGun = async () => {
   const _gun = /** @type {unknown} */ (new Gun({
     axe: false,
+    multicast: false,
     peers: Config.PEERS
   }))
 
