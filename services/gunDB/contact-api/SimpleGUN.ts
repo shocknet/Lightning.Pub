@@ -1,7 +1,7 @@
 /**
  * @prettier
  */
-type Primitive = boolean | string | number
+export type Primitive = boolean | string | number
 
 export interface Data {
   [K: string]: ValidDataValue
