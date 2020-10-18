@@ -6,16 +6,16 @@ const { makePromise, Constants, Schema } = require('shock-common')
 const mapValues = require('lodash/mapValues')
 const Bluebird = require('bluebird')
 
-const { pubToEpub } = require('./contact-api/utils')
+const { pubToEpub } = require('../contact-api/utils')
 const {
   getGun,
   getUser,
   mySEA: SEA,
   getMySecret,
   $$__SHOCKWALLET__ENCRYPTED__
-} = require('./Mediator')
+} = require('../Mediator')
 /**
- * @typedef {import('./contact-api/SimpleGUN').ValidDataValue} ValidDataValue
+ * @typedef {import('../contact-api/SimpleGUN').ValidDataValue} ValidDataValue
  */
 
 /**
