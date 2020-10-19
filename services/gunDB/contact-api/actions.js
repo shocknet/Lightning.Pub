@@ -5,6 +5,7 @@ const uuidv1 = require('uuid/v1')
 const logger = require('winston')
 const Common = require('shock-common')
 const { Constants, Schema } = Common
+const Gun = require('gun')
 
 const { ErrorCode } = Constants
 
@@ -1233,6 +1234,49 @@ const setLastSeenApp = () =>
  * @param {string[]} tags
  * @param {string} title
  * @param {Common.Schema.ContentItem[]} content
+ * @returns {Promise<[string, Common.Schema.RawPost]>}
+ */
+const createPostNew = async (tags, title, content) => {
+  /** @type {Common.Schema.RawPost} */
+  const newPost = {
+    date: Date.now(),
+    status: 'publish',
+    tags: tags.join('-'),
+    title,
+    contentItems: {}
+  }
+
+  content.forEach(c => {
+    // @ts-expect-error
+    const uuid = Gun.text.random()
+    newPost.contentItems[uuid] = c
+  })
+
+  /** @type {string} */
+  const postID = await Common.makePromise((res, rej) => {
+    const _n = require('../Mediator')
+      .getUser()
+      .get(Key.POSTS_NEW)
+      .set(
+        // @ts-expect-error
+        newPost,
+        ack => {
+          if (ack.err && typeof ack.err !== 'number') {
+            rej(new Error(ack.err))
+          } else {
+            res(_n._.get)
+          }
+        }
+      )
+  })
+
+  return [postID, newPost]
+}
+
+/**
+ * @param {string[]} tags
+ * @param {string} title
+ * @param {Common.Schema.ContentItem[]} content
  * @returns {Promise<Common.Schema.Post>}
  */
 const createPost = async (tags, title, content) => {
@@ -1312,27 +1356,24 @@ const createPost = async (tags, title, content) => {
       )
   })
 
-  /** @type {string} */
-  const postID = await new Promise((res, rej) => {
-    const _n = require('../Mediator')
+  const [postID, newPost] = await createPostNew(tags, title, content)
+
+  await Common.makePromise((res, rej) => {
+    require('../Mediator')
       .getUser()
       .get(Key.WALL)
       .get(Key.PAGES)
       .get(pageIdx)
       .get(Key.POSTS)
-      .set(
-        {
-          date: Date.now(),
-          status: 'publish',
-          tags: tags.join('-'),
-          page: pageIdx,
-          title
-        },
+      .get(postID)
+      .put(
+        // @ts-expect-error
+        newPost,
         ack => {
           if (ack.err && typeof ack.err !== 'number') {
             rej(new Error(ack.err))
           } else {
-            res(_n._.get)
+            res()
           }
         }
       )
@@ -1352,52 +1393,6 @@ const createPost = async (tags, title, content) => {
           res()
         })
     })
-  }
-
-  const contentItems = require('../Mediator')
-    .getUser()
-    .get(Key.WALL)
-    .get(Key.PAGES)
-    .get(pageIdx)
-    .get(Key.POSTS)
-    .get(postID)
-    .get(Key.CONTENT_ITEMS)
-
-  try {
-    await Promise.all(
-      content.map(
-        ci =>
-          new Promise(res => {
-            // @ts-ignore
-            contentItems.set(ci, ack => {
-              if (ack.err && typeof ack.err !== 'number') {
-                throw new Error(ack.err)
-              }
-
-              res()
-            })
-          })
-      )
-    )
-  } catch (e) {
-    await new Promise(res => {
-      require('../Mediator')
-        .getUser()
-        .get(Key.WALL)
-        .get(Key.PAGES)
-        .get(pageIdx)
-        .get(Key.POSTS)
-        .get(postID)
-        .put(null, ack => {
-          if (ack.err && typeof ack.err !== 'number') {
-            throw new Error(ack.err)
-          }
-
-          res()
-        })
-    })
-
-    throw e
   }
 
   const loadedPost = await new Promise(res => {
