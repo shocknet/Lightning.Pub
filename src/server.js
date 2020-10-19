@@ -199,6 +199,11 @@ const server = program => {
         next()
       })
 
+      app.use((req, res, next) => {
+        res.set('Version', program.version())
+        next()
+      })
+
       await Storage.init({
         dir: Path.resolve(rootFolder, '../.storage')
       })
