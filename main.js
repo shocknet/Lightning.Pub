@@ -1,8 +1,10 @@
 const program = require("commander");
 
+const {version} = (JSON.parse(require('fs').readFileSync("./package.json", "utf-8")))
+
 // parse command line parameters
 program
-	.version("1.0.0")
+	.version(version)
 	.option("-s, --serverport [port]", "web server http listening port (defaults to 8280)")
 	.option("-x, --httpsport [port]", "web server https listening port (defaults to 8283)")
 	.option("-h, --serverhost [host]", "web server listening host (defaults to localhost)")
