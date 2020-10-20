@@ -224,7 +224,6 @@ let user
 /** @type {string|null} */
 let _currentAlias = null
 /** @type {string|null} */
-let _currentPass = null
 
 /** @type {string|null} */
 let mySec = null
@@ -361,7 +360,6 @@ const authenticate = async (alias, pass, __user) => {
     mySec = await mySEA.secret(_user._.sea.epub, _user._.sea)
 
     _currentAlias = alias
-    _currentPass = await mySEA.encrypt(pass, mySec)
 
     await new Promise(res => setTimeout(res, 5000))
 
@@ -433,30 +431,11 @@ const instantiateGun = () => {
 
 instantiateGun()
 
-const freshGun = async () => {
-  const _gun = /** @type {unknown} */ (new Gun({
-    axe: false,
-    multicast: false,
-    peers: Config.PEERS
-  }))
-
-  const gun = /** @type {GUNNode} */ (_gun)
-
-  const user = gun.user()
-
-  if (!_currentAlias || !_currentPass || !mySec) {
-    throw new Error('Called freshGun() without alias, pass and secret cached')
+const freshGun = () => {
+  return {
+    gun,
+    user
   }
-
-  const pass = await mySEA.decrypt(_currentPass, mySec)
-
-  if (typeof pass !== 'string') {
-    throw new Error('could not decrypt stored in memory current pass')
-  }
-
-  await authenticate(_currentAlias, pass, user)
-
-  return { gun, user }
 }
 
 /**
@@ -1428,9 +1407,7 @@ const register = async (alias, pass) => {
   if (typeof ack.err === 'string') {
     throw new Error(ack.err)
   } else if (typeof ack.pub === 'string' || typeof user._.sea === 'object') {
-    const mySecret = await mySEA.secret(user._.sea.epub, user._.sea)
-    _currentAlias = alias
-    _currentPass = await mySEA.encrypt(pass, mySecret)
+    // OK
   } else {
     throw new Error('unknown error, ack: ' + JSON.stringify(ack))
   }

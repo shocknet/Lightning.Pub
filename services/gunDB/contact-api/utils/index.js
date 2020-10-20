@@ -195,11 +195,11 @@ const tryAndWait = async (promGen, shouldRetry = () => false) => {
   }
 
   logger.info(
-    `\n recreating a fresh gun and retrying one last time \n` +
+    `\n NOT recreating a fresh gun but retrying one last time \n` +
       ` args: ${promGen.toString()} -- ${shouldRetry.toString()}`
   )
 
-  const { gun, user } = await require('../../Mediator/index').freshGun()
+  const { gun, user } = require('../../Mediator/index').freshGun()
 
   return timeout10(promGen(gun, user))
   /* eslint-enable no-empty */
