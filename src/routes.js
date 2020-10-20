@@ -2097,7 +2097,7 @@ module.exports = async (
         return { ...mex, recipientAvatar: null }
       })
       res.json({
-        noAvatar
+        data: noAvatar
       })
     } catch (err) {
       logger.info('Error in Chats poll:')
