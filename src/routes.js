@@ -2093,8 +2093,11 @@ module.exports = async (
   app.get(`/api/gun/${GunEvent.ON_CHATS}`, (_, res) => {
     try {
       const data = Events.getChats()
+      const noAvatar = data.map(mex => {
+        return { ...mex, recipientAvatar: null }
+      })
       res.json({
-        data
+        noAvatar
       })
     } catch (err) {
       logger.info('Error in Chats poll:')
