@@ -2626,8 +2626,11 @@ module.exports = async (
   const apiGunRequestsReceivedGet = (_, res) => {
     try {
       const data = Events.getCurrentReceivedReqs()
+      const noAvatar = data.map(req => {
+        return { ...req, recipientAvatar: null }
+      })
       res.json({
-        data
+        data: noAvatar
       })
     } catch (err) {
       logger.error(err)
@@ -2643,8 +2646,11 @@ module.exports = async (
   const apiGunRequestsSentGet = (_, res) => {
     try {
       const data = Events.getCurrentSentReqs()
+      const noAvatar = data.map(req => {
+        return { ...req, recipientAvatar: null }
+      })
       res.json({
-        data
+        data: noAvatar
       })
     } catch (err) {
       logger.error(err)
