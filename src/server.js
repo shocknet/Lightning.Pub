@@ -160,12 +160,24 @@ const server = program => {
   const startServer = async () => {
     try {
       LightningServices.setDefaults(program)
-      await LightningServices.init()
+      if (!LightningServices.isInitialized()) {
+        await LightningServices.init()
+      }
 
       // init lnd module =================
       const lnd = require('../services/lnd/lnd')(
         LightningServices.services.lightning
       )
+      await new Promise((resolve, reject) => {
+        LightningServices.services.lightning.getInfo({}, (err, res) => {
+          if (err && err.code !== 12) {
+            reject(err)
+          } else {
+            resolve()
+          }
+        })
+      })
+
       const auth = require('../services/auth/auth')
 
       app.use(compression())
