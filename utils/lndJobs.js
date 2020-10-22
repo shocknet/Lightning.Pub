@@ -2,11 +2,13 @@
  * @prettier
  */
 const Logger = require('winston')
+const { wait } = require('./helpers')
 const Key = require('../services/gunDB/contact-api/key')
 const { getUser } = require('../services/gunDB/Mediator')
 const LightningServices = require('./lightningServices')
 
 const ERROR_TRIES_THRESHOLD = 3
+const ERROR_TRIES_DELAY = 500
 const INVOICE_STATE = {
   OPEN: 'OPEN',
   SETTLED: 'SETTLED',
@@ -113,18 +115,35 @@ const _updateTipData = (invoiceHash, data) =>
     }
   })
 
-const _getTipData = invoiceHash =>
+const _getTipData = (invoiceHash, tries = 0) =>
   new Promise((resolve, reject) => {
+    if (tries >= ERROR_TRIES_THRESHOLD) {
+      reject(new Error('Malformed data'))
+      return
+    }
+
     getUser()
       .get(Key.TIPS_PAYMENT_STATUS)
       .get(invoiceHash)
-      .once(tip => {
-        if (tip === undefined) {
-          reject(new Error('Malformed data'))
-          return
-        }
+      .once(async tip => {
+        try {
+          if (tip === undefined) {
+            await wait(ERROR_TRIES_DELAY)
+            const tip = await _getTipData(invoiceHash, tries + 1)
 
-        resolve(tip)
+            if (tip) {
+              resolve(tip)
+              return
+            }
+
+            reject(new Error('Malformed data'))
+            return
+          }
+
+          resolve(tip)
+        } catch (err) {
+          reject(err)
+        }
       })
   })
 
