@@ -208,6 +208,9 @@ const startTipStatusJob = () => {
       executeTipAction(tip, invoice)
     }
   })
+  stream.on('error', err => {
+    Logger.error('Tip Job error' + err.details)
+  })
 }
 
 module.exports = {
