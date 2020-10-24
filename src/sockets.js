@@ -7,6 +7,7 @@ const logger = require('winston')
 const Common = require('shock-common')
 const mapValues = require('lodash/mapValues')
 
+const auth = require('../services/auth/auth')
 const Encryption = require('../utils/encryptionStore')
 const LightningServices = require('../utils/lightningServices')
 const {
@@ -19,22 +20,6 @@ const { deepDecryptIfNeeded } = require('../services/gunDB/rpc')
  * @typedef {import('../services/gunDB/Mediator').SimpleSocket} SimpleSocket
  * @typedef {import('../services/gunDB/contact-api/SimpleGUN').ValidDataValue} ValidDataValue
  */
-
-/**
- * @param {SimpleSocket} socket
- * @param {string} subID
- */
-const onPing = (socket, subID) => {
-  logger.warn('Subscribing to pings socket...' + subID)
-
-  const intervalID = setInterval(() => {
-    socket.emit('shockping')
-  }, 3000)
-
-  return () => {
-    clearInterval(intervalID)
-  }
-}
 
 module.exports = (
   /** @type {import('socket.io').Server} */
@@ -291,12 +276,10 @@ module.exports = (
       logger.info('[LND] New LND Socket created:' + isNotifications + subID)
       const cancelInvoiceStream = onNewInvoice(socket, subID)
       const cancelTransactionStream = onNewTransaction(socket, subID)
-      const cancelPingStream = onPing(socket, subID)
       socket.on('disconnect', () => {
         logger.info('LND socket disconnected:' + isNotifications + subID)
         cancelInvoiceStream()
         cancelTransactionStream()
-        cancelPingStream()
       })
     }
   })
@@ -431,6 +414,76 @@ module.exports = (
       logger.error('LNDRPC: ' + err.message)
     }
   })
+
+  /**
+   * @param {string} token
+   * @returns {Promise<boolean>}
+   */
+  const isValidToken = async token => {
+    const validation = await auth.validateToken(token)
+
+    if (typeof validation !== 'object') {
+      return false
+    }
+
+    if (validation === null) {
+      return false
+    }
+
+    if (typeof validation.valid !== 'boolean') {
+      return false
+    }
+
+    return validation.valid
+  }
+
+  /** @type {null|NodeJS.Timeout} */
+  let pingIntervalID = null
+
+  io.of('shockping').on(
+    'connect',
+    // TODO: make this sync
+    async socket => {
+      try {
+        if (!isAuthenticated()) {
+          socket.emit(Common.Constants.ErrorCode.NOT_AUTH)
+
+          return
+        }
+
+        const { token } = socket.handshake.query
+
+        const isAuth = await isValidToken(token)
+
+        if (!isAuth) {
+          logger.warn('invalid token for socket ping')
+          socket.emit(Common.Constants.ErrorCode.NOT_AUTH)
+          return
+        }
+
+        if (pingIntervalID !== null) {
+          logger.error('Tried to set ping socket twice')
+          return
+        }
+
+        socket.emit('shockping')
+
+        pingIntervalID = setInterval(() => {
+          socket.emit('shockping')
+        }, 3000)
+
+        socket.on('disconnect', () => {
+          logger.warn('ping socket disconnected')
+          if (pingIntervalID !== null) {
+            clearInterval(pingIntervalID)
+            pingIntervalID = null
+          }
+        })
+      } catch (err) {
+        logger.error('GUNRPC: ' + err.message)
+      }
+    }
+  )
 
   return io
 }
