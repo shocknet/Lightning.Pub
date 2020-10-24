@@ -306,7 +306,7 @@ module.exports = (
 
     try {
       if (!isAuthenticated()) {
-        socket.emit('$shock', 'NOT_AUTH')
+        socket.emit(Common.Constants.ErrorCode.NOT_AUTH)
         return
       }
 
@@ -370,7 +370,7 @@ module.exports = (
     }
   })
 
-  io.of('/lndstreaming').on('connect', socket => {
+  io.of('lndstreaming').on('connect', socket => {
     // TODO: unsubscription
 
     /**
@@ -378,6 +378,11 @@ module.exports = (
      */
 
     try {
+      if (!isAuthenticated()) {
+        socket.emit(Common.Constants.ErrorCode.NOT_AUTH)
+        return
+      }
+
       const { services } = LightningServices
 
       const { service, method, args: unParsed } = socket.handshake.query
