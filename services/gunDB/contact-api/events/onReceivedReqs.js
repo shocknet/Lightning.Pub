@@ -36,9 +36,7 @@ const setReceivedReqsMap = reqs => {
 }
 
 listeners.add(() => {
-  logger.info(
-    `new received reqs: ${JSON.stringify(getReceivedReqs(), null, 4)}`
-  )
+  logger.info(`new received reqs: ${size(getReceivedReqs())}`)
 })
 
 const react = debounce(() => {
