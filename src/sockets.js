@@ -463,7 +463,6 @@ module.exports = (
 
         if (pingIntervalID !== null) {
           logger.error('Tried to set ping socket twice')
-          return
         }
 
         socket.emit('shockping')
