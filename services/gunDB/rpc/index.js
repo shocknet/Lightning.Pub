@@ -105,7 +105,7 @@ async function deepEncryptIfNeeded(value) {
  * @returns {Promise<void>}
  */
 const put = async (rawPath, value) => {
-  const [root, ...path] = rawPath.split('.')
+  const [root, ...path] = rawPath.split('>')
 
   const node = (() => {
     // eslint-disable-next-line init-declarations
@@ -166,7 +166,7 @@ const put = async (rawPath, value) => {
  */
 // eslint-disable-next-line func-style
 async function set(rawPath, value) {
-  const [root, ...path] = rawPath.split('.')
+  const [root, ...path] = rawPath.split('>')
 
   const node = (() => {
     // eslint-disable-next-line init-declarations

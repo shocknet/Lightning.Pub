@@ -308,7 +308,7 @@ module.exports = (
         node = getGun().user(root)
       }
 
-      for (const bit of path.split('.')) {
+      for (const bit of path.split('>')) {
         node = node.get(bit)
       }
 
