@@ -3041,7 +3041,7 @@ module.exports = async (
     publicKey,
     publicKeyForDecryption
   }) => {
-    const keys = path.split('.')
+    const keys = path.split('>')
     const { tryAndWait } = require('../services/gunDB/contact-api/utils')
     return tryAndWait((gun, user) => {
       // eslint-disable-next-line no-nested-ternary
