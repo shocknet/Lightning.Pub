@@ -416,6 +416,17 @@ module.exports = async (
           errorMessage: 'Please create a wallet before using the API'
         })
       }
+
+      if (req.path.includes('/api/gun')) {
+        const authenticated = GunDB.isAuthenticated()
+
+        if (!authenticated) {
+          return res.status(401).json({
+            field: 'gun',
+            errorMessage: 'Please login in order to perform this action'
+          })
+        }
+      }
       next()
     } catch (err) {
       logger.error(err)
