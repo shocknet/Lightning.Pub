@@ -1267,12 +1267,12 @@ module.exports = async (
 
   app.post('/api/lnd/unifiedTrx', async (req, res) => {
     try {
-      const { type, amt, to, memo, feeLimit } = req.body
+      const { type, amt, to, memo, feeLimit, postID } = req.body
 
-      if (type !== 'spont') {
+      if (type !== 'spont' && type !== 'post') {
         return res.status(415).json({
           field: 'type',
-          errorMessage: `Only 'spont' payments supported via this endpoint for now.`
+          errorMessage: `Only 'spont' and 'post' payments supported via this endpoint for now.`
         })
       }
 
@@ -1306,9 +1306,19 @@ module.exports = async (
         })
       }
 
-      return res
-        .status(200)
-        .json(await GunActions.sendSpontaneousPayment(to, amt, memo, feeLimit))
+      if (type === 'post' && typeof postID !== 'string') {
+        return res.status(400).json({
+          field: 'postID',
+          errorMessage: `Send postID`
+        })
+      }
+
+      return res.status(200).json(
+        await GunActions.sendSpontaneousPayment(to, amt, memo, feeLimit, {
+          type,
+          postID
+        })
+      )
     } catch (e) {
       return res.status(500).json({
         errorMessage: e.message
