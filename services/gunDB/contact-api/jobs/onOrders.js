@@ -241,8 +241,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
         hash,
         state: 'OPEN',
         targetType: order.targetType,
-        postID: order.postID,
-        postPage: order.postPage
+        postID: order.postID
       }
       getUser()
         .get(Key.TIPS_PAYMENT_STATUS)
