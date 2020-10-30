@@ -907,16 +907,29 @@ const sendHRWithInitialMsg = async (
 }
 
 /**
+ * @typedef {object} SpontPaymentOptions
+ * @prop {Common.Schema.OrderTargetType} type
+ * @prop {string=} postID
+ */
+
+/**
  * Returns the preimage corresponding to the payment.
  * @param {string} to
  * @param {number} amount
  * @param {string} memo
  * @param {number} feeLimit
+ * @param {SpontPaymentOptions} opts
  * @throws {Error} If no response in less than 20 seconds from the recipient, or
  * lightning cannot find a route for the payment.
  * @returns {Promise<PaymentV2>} The payment's preimage.
  */
-const sendSpontaneousPayment = async (to, amount, memo, feeLimit) => {
+const sendSpontaneousPayment = async (
+  to,
+  amount,
+  memo,
+  feeLimit,
+  opts = { type: 'user' }
+) => {
   try {
     const SEA = require('../Mediator').mySEA
     const getUser = () => require('../Mediator').getUser()
@@ -937,7 +950,11 @@ const sendSpontaneousPayment = async (to, amount, memo, feeLimit) => {
       from: getUser()._.sea.pub,
       memo: memo || 'no memo',
       timestamp: Date.now(),
-      targetType: 'user'
+      targetType: opts.type
+    }
+
+    if (opts.type === 'post') {
+      order.postID = opts.postID
     }
 
     logger.info(JSON.stringify(order))
