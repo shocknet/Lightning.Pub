@@ -51,7 +51,6 @@ const ordersProcessed = new Set()
  * @prop {import('shock-common').Schema.InvoiceState} state
  * @prop {string} targetType
  * @prop {(string)=} postID
- * @prop {(number)=} postPage
  */
 
 let currentOrderAddr = ''
@@ -241,8 +240,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
         hash,
         state: 'OPEN',
         targetType: order.targetType,
-        postID: order.postID,
-        postPage: order.postPage
+        postID: order.postID
       }
       getUser()
         .get(Key.TIPS_PAYMENT_STATUS)
