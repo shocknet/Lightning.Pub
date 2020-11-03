@@ -1044,7 +1044,9 @@ const sendSpontaneousPayment = async (
 
     const payment = await sendPaymentV2Invoice({
       feeLimit,
-      payment_request: orderResponse.response
+      payment_request: orderResponse.response,
+      // avoid malformed invoice amount
+      amt: amount.toString()
     })
 
     if (Utils.successfulHandshakeAlreadyExists(to)) {
