@@ -381,8 +381,31 @@ const listPayments = req => {
   })
 }
 
+/**
+ * @param {string} payReq
+ * @returns {Promise<Common.Schema.InvoiceWhenDecoded>}
+ */
+const decodePayReq = payReq =>
+  Common.Utils.makePromise((res, rej) => {
+    lightningServices.lightning.decodePayReq(
+      { pay_req: payReq },
+      /**
+       * @param {{ message: any; }} err
+       * @param {any} paymentRequest
+       */
+      (err, paymentRequest) => {
+        if (err) {
+          rej(new Error(err.message))
+        } else {
+          res(paymentRequest)
+        }
+      }
+    )
+  })
+
 module.exports = {
   sendPaymentV2Keysend,
   sendPaymentV2Invoice,
-  listPayments
+  listPayments,
+  decodePayReq
 }
