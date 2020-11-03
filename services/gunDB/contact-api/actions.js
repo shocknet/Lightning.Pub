@@ -9,7 +9,10 @@ const Gun = require('gun')
 
 const { ErrorCode } = Constants
 
-const { sendPaymentV2Invoice } = require('../../../utils/lightningServices/v2')
+const {
+  sendPaymentV2Invoice,
+  decodePayReq
+} = require('../../../utils/lightningServices/v2')
 
 /**
  * @typedef {import('../../../utils/lightningServices/types').PaymentV2} PaymentV2
@@ -1038,6 +1041,21 @@ const sendSpontaneousPayment = async (
 
     if (orderResponse.type === 'err') {
       throw new Error(orderResponse.response)
+    }
+
+    logger.info('Will now check for invoice amount mismatch')
+
+    const encodedInvoice = orderResponse.response
+
+    const { num_satoshis: decodedAmt } = await decodePayReq(encodedInvoice)
+
+    if (decodedAmt !== amount.toString()) {
+      throw new Error('Invoice amount mismatch')
+    }
+
+    // double check
+    if (Number(decodedAmt) !== amount) {
+      throw new Error('Invoice amount mismatch')
     }
 
     logger.info('Will now send payment through lightning')
