@@ -10,7 +10,7 @@ on:
       name:
         description: 'Bump Wizard Version'
         required: false
-        default: 'Mona the Octocat'
+        default: 'yes'
 
 jobs:
   dispatch:
