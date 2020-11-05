@@ -1,16 +1,30 @@
-/** @prettier */
-// app/sockets.js
+/**
+ * @format
+ */
+// @ts-check
 
 const logger = require('winston')
+const Common = require('shock-common')
+const mapValues = require('lodash/mapValues')
+
+const auth = require('../services/auth/auth')
 const Encryption = require('../utils/encryptionStore')
 const LightningServices = require('../utils/lightningServices')
+const {
+  getGun,
+  getUser,
+  isAuthenticated
+} = require('../services/gunDB/Mediator')
+const { deepDecryptIfNeeded } = require('../services/gunDB/rpc')
+/**
+ * @typedef {import('../services/gunDB/Mediator').SimpleSocket} SimpleSocket
+ * @typedef {import('../services/gunDB/contact-api/SimpleGUN').ValidDataValue} ValidDataValue
+ */
 
 module.exports = (
   /** @type {import('socket.io').Server} */
   io
 ) => {
-  const Mediator = require('../services/gunDB/Mediator/index.js')
-
   // This should be used for encrypting and emitting your data
   const emitEncryptedEvent = ({ eventName, data, socket }) => {
     try {
@@ -134,6 +148,12 @@ module.exports = (
           logger.info('[event:invoice:new] stream ok')
           break
         }
+        case 1: {
+          logger.info(
+            '[event:invoice:new] stream canceled, probably socket disconnected'
+          )
+          break
+        }
         case 2: {
           logger.warn('[event:invoice:new] got UNKNOWN error status')
           break
@@ -161,6 +181,9 @@ module.exports = (
           )
           break
         }
+        default: {
+          logger.error('[event:invoice:new] UNKNOWN LND error')
+        }
       }
     })
     return () => {
@@ -184,10 +207,16 @@ module.exports = (
       logger.error('New transactions stream error:' + subID, err)
     })
     stream.on('status', status => {
-      logger.error('New transactions stream status:' + subID, status)
+      logger.info('New transactions stream status:' + subID, status)
       switch (status.code) {
         case 0: {
           logger.info('[event:transaction:new] stream ok')
+          break
+        }
+        case 1: {
+          logger.info(
+            '[event:transaction:new] stream canceled, probably socket disconnected'
+          )
           break
         }
         case 2: {
@@ -218,6 +247,9 @@ module.exports = (
           )
           break
         }
+        default: {
+          logger.error('[event:transaction:new] UNKNOWN LND error')
+        }
       }
     })
     return () => {
@@ -225,67 +257,232 @@ module.exports = (
     }
   }
 
-  io.on('connection', socket => {
+  io.of('default').on('connection', socket => {
     logger.info(`io.onconnection`)
-
     logger.info('socket.handshake', socket.handshake)
 
-    const isOneTimeUseSocket = !!socket.handshake.query.IS_GUN_AUTH
     const isLNDSocket = !!socket.handshake.query.IS_LND_SOCKET
     const isNotificationsSocket = !!socket.handshake.query
       .IS_NOTIFICATIONS_SOCKET
+
     if (!isLNDSocket) {
       /** printing out the client who joined */
       logger.info('New socket client connected (id=' + socket.id + ').')
     }
 
-    if (isOneTimeUseSocket) {
-      logger.info('New socket is one time use')
-      socket.on('IS_GUN_AUTH', () => {
-        try {
-          const isGunAuth = Mediator.isAuthenticated()
-          socket.emit('IS_GUN_AUTH', {
-            ok: true,
-            msg: {
-              isGunAuth
-            },
-            origBody: {}
-          })
-          socket.disconnect()
-        } catch (err) {
-          socket.emit('IS_GUN_AUTH', {
-            ok: false,
-            msg: err.message,
-            origBody: {}
-          })
-          socket.disconnect()
-        }
-      })
-    } else {
-      if (isLNDSocket) {
-        const subID = Math.floor(Math.random() * 1000).toString()
-        const isNotifications = isNotificationsSocket ? 'notifications' : ''
-        logger.info('[LND] New LND Socket created:' + isNotifications + subID)
-        const cancelInvoiceStream = onNewInvoice(socket, subID)
-        const cancelTransactionStream = onNewTransaction(socket, subID)
-        socket.on('disconnect', () => {
-          logger.info('LND socket disconnected:' + isNotifications + subID)
-          cancelInvoiceStream()
-          cancelTransactionStream()
-        })
-        return
-      }
-      logger.info('New socket is NOT one time use')
-      // this is where we create the websocket connection
-      // with the GunDB service.
-      Mediator.createMediator(socket)
-
-      /** listening if client has disconnected */
+    if (isLNDSocket) {
+      const subID = Math.floor(Math.random() * 1000).toString()
+      const isNotifications = isNotificationsSocket ? 'notifications' : ''
+      logger.info('[LND] New LND Socket created:' + isNotifications + subID)
+      const cancelInvoiceStream = onNewInvoice(socket, subID)
+      const cancelTransactionStream = onNewTransaction(socket, subID)
       socket.on('disconnect', () => {
-        logger.info('client disconnected (id=' + socket.id + ').')
+        logger.info('LND socket disconnected:' + isNotifications + subID)
+        cancelInvoiceStream()
+        cancelTransactionStream()
       })
     }
   })
+
+  io.of('gun').on('connect', socket => {
+    // TODO: off()
+
+    try {
+      if (!isAuthenticated()) {
+        socket.emit(Common.Constants.ErrorCode.NOT_AUTH)
+        return
+      }
+
+      const { $shock, publicKeyForDecryption } = socket.handshake.query
+
+      const [root, path, method] = $shock.split('::')
+
+      // eslint-disable-next-line init-declarations
+      let node
+
+      if (root === '$gun') {
+        node = getGun()
+      } else if (root === '$user') {
+        node = getUser()
+      } else {
+        node = getGun().user(root)
+      }
+
+      for (const bit of path.split('>')) {
+        node = node.get(bit)
+      }
+
+      /**
+       * @param {ValidDataValue} data
+       * @param {string} key
+       */
+      const listener = async (data, key) => {
+        try {
+          if (publicKeyForDecryption) {
+            const decData = await deepDecryptIfNeeded(
+              data,
+              publicKeyForDecryption
+            )
+
+            socket.emit('$shock', decData, key)
+          } else {
+            socket.emit('$shock', data, key)
+          }
+        } catch (err) {
+          logger.error(
+            `Error for gun rpc socket, query ${$shock} -> ${err.message}`
+          )
+        }
+      }
+
+      if (method === 'on') {
+        node.on(listener)
+      } else if (method === 'open') {
+        node.open(listener)
+      } else if (method === 'map.on') {
+        node.map().on(listener)
+      } else if (method === 'map.once') {
+        node.map().once(listener)
+      } else {
+        throw new TypeError(
+          `Invalid method for gun rpc call : ${method}, query: ${$shock}`
+        )
+      }
+    } catch (err) {
+      logger.error('GUNRPC: ' + err.message)
+    }
+  })
+
+  io.of('lndstreaming').on('connect', socket => {
+    // TODO: unsubscription
+
+    /**
+     * Streaming stuff in LND uses these events: data, status, end, error.
+     */
+
+    try {
+      if (!isAuthenticated()) {
+        socket.emit(Common.Constants.ErrorCode.NOT_AUTH)
+        return
+      }
+
+      const { services } = LightningServices
+
+      const { service, method, args: unParsed } = socket.handshake.query
+
+      const args = JSON.parse(unParsed)
+
+      const call = services[service][method](args)
+
+      call.on('data', _data => {
+        // socket.io serializes buffers differently from express
+        const data = (() => {
+          if (!Common.Schema.isObj(_data)) {
+            return _data
+          }
+
+          return mapValues(_data, (item, key) => {
+            if (!(item instanceof Buffer)) {
+              return item
+            }
+
+            return item.toJSON()
+          })
+        })()
+
+        socket.emit('data', data)
+      })
+
+      call.on('status', status => {
+        socket.emit('status', status)
+      })
+
+      call.on('end', () => {
+        socket.emit('end')
+      })
+
+      call.on('error', err => {
+        // 'error' is a reserved event name we can't use it
+        socket.emit('$error', err)
+      })
+
+      // Possibly allow streaming writes such as sendPaymentV2
+      socket.on('write', args => {
+        call.write(args)
+      })
+    } catch (err) {
+      logger.error('LNDRPC: ' + err.message)
+    }
+  })
+
+  /**
+   * @param {string} token
+   * @returns {Promise<boolean>}
+   */
+  const isValidToken = async token => {
+    const validation = await auth.validateToken(token)
+
+    if (typeof validation !== 'object') {
+      return false
+    }
+
+    if (validation === null) {
+      return false
+    }
+
+    if (typeof validation.valid !== 'boolean') {
+      return false
+    }
+
+    return validation.valid
+  }
+
+  /** @type {null|NodeJS.Timeout} */
+  let pingIntervalID = null
+
+  io.of('shockping').on(
+    'connect',
+    // TODO: make this sync
+    async socket => {
+      try {
+        if (!isAuthenticated()) {
+          socket.emit(Common.Constants.ErrorCode.NOT_AUTH)
+
+          return
+        }
+
+        const { token } = socket.handshake.query
+
+        const isAuth = await isValidToken(token)
+
+        if (!isAuth) {
+          logger.warn('invalid token for socket ping')
+          socket.emit(Common.Constants.ErrorCode.NOT_AUTH)
+          return
+        }
+
+        if (pingIntervalID !== null) {
+          logger.error('Tried to set ping socket twice')
+        }
+
+        socket.emit('shockping')
+
+        pingIntervalID = setInterval(() => {
+          socket.emit('shockping')
+        }, 3000)
+
+        socket.on('disconnect', () => {
+          logger.warn('ping socket disconnected')
+          if (pingIntervalID !== null) {
+            clearInterval(pingIntervalID)
+            pingIntervalID = null
+          }
+        })
+      } catch (err) {
+        logger.error('GUNRPC: ' + err.message)
+      }
+    }
+  )
 
   return io
 }

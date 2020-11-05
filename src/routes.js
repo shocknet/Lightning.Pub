@@ -14,7 +14,7 @@ const Common = require('shock-common')
 const isARealUsableNumber = require('lodash/isFinite')
 const Big = require('big.js')
 const size = require('lodash/size')
-const { range, flatten } = require('ramda')
+const { range, flatten, evolve } = require('ramda')
 
 const getListPage = require('../utils/paginate')
 const auth = require('../services/auth/auth')
@@ -32,8 +32,11 @@ const GunGetters = require('../services/gunDB/contact-api/getters')
 const GunKey = require('../services/gunDB/contact-api/key')
 const {
   sendPaymentV2Keysend,
-  sendPaymentV2Invoice
+  sendPaymentV2Invoice,
+  listPayments
 } = require('../utils/lightningServices/v2')
+const { startTipStatusJob } = require('../utils/lndJobs')
+const GunWriteRPC = require('../services/gunDB/rpc')
 
 const DEFAULT_MAX_NUM_ROUTES_TO_QUERY = 10
 const SESSION_ID = uuid()
@@ -303,9 +306,9 @@ module.exports = async (
         }
       } else {
         encryptedToken = req.body.token
-        encryptedKey = req.body.encryptionKey
+        encryptedKey = req.body.encryptionKey || req.body.encryptedKey
         IV = req.body.iv
-        reqData = req.body.data
+        reqData = req.body.data || req.body.encryptedData
       }
       const decryptedKey = Encryption.decryptKey({
         deviceId,
@@ -412,6 +415,17 @@ module.exports = async (
           field: 'wallet',
           errorMessage: 'Please create a wallet before using the API'
         })
+      }
+
+      if (req.path.includes('/api/gun')) {
+        const authenticated = GunDB.isAuthenticated()
+
+        if (!authenticated) {
+          return res.status(401).json({
+            field: 'gun',
+            errorMessage: 'Please login in order to perform this action'
+          })
+        }
       }
       next()
     } catch (err) {
@@ -659,7 +673,7 @@ module.exports = async (
                   'Channel backup LND locked, new registration in 60 seconds'
                 )
                 process.nextTick(() =>
-                  setTimeout(() => onNewTransaction(socket, subID), 60000)
+                  setTimeout(() => onNewChannelBackup(), 60000)
                 )
                 break
               }
@@ -673,15 +687,19 @@ module.exports = async (
                   'Channel backup LND disconnected, sockets reconnecting in 30 seconds...'
                 )
                 process.nextTick(() =>
-                  setTimeout(() => onNewTransaction(socket, subID), 30000)
+                  setTimeout(() => onNewChannelBackup(), 30000)
                 )
                 break
+              }
+              default: {
+                logger.error('[event:transaction:new] UNKNOWN LND error')
               }
             }
           })
         }
 
         onNewChannelBackup()
+        startTipStatusJob()
 
         // Generate auth token and send it as a JSON response
         const token = await auth.generateToken()
@@ -690,6 +708,24 @@ module.exports = async (
           user: {
             alias,
             publicKey
+          },
+          follows: await GunGetters.Follows.currentFollows(),
+          data: {
+            invoices: await Common.makePromise((res, rej) => {
+              lightning.listInvoices(
+                {
+                  reversed: true,
+                  num_max_invoices: 50
+                },
+                (err, lres) => {
+                  if (err) {
+                    rej(new Error(err.details))
+                  } else {
+                    res(lres)
+                  }
+                }
+              )
+            })
           }
         })
 
@@ -1242,12 +1278,12 @@ module.exports = async (
 
   app.post('/api/lnd/unifiedTrx', async (req, res) => {
     try {
-      const { type, amt, to, memo, feeLimit } = req.body
+      const { type, amt, to, memo, feeLimit, postID } = req.body
 
-      if (type !== 'spont') {
+      if (type !== 'spont' && type !== 'post') {
         return res.status(415).json({
           field: 'type',
-          errorMessage: `Only 'spont' payments supported via this endpoint for now.`
+          errorMessage: `Only 'spont' and 'post' payments supported via this endpoint for now.`
         })
       }
 
@@ -1281,9 +1317,19 @@ module.exports = async (
         })
       }
 
-      return res
-        .status(200)
-        .json(await GunActions.sendSpontaneousPayment(to, amt, memo, feeLimit))
+      if (type === 'post' && typeof postID !== 'string') {
+        return res.status(400).json({
+          field: 'postID',
+          errorMessage: `Send postID`
+        })
+      }
+
+      return res.status(200).json(
+        await GunActions.sendSpontaneousPayment(to, amt, memo, feeLimit, {
+          type,
+          postID
+        })
+      )
     } catch (e) {
       return res.status(500).json({
         errorMessage: e.message
@@ -1312,6 +1358,60 @@ module.exports = async (
           }
         }
       }
+    )
+  })
+
+  app.get('/api/lnd/payments', async (req, res) => {
+    const {
+      include_incomplete,
+      index_offset,
+      max_payments,
+      reversed
+    } = /** @type {Common.APISchema.ListPaymentsRequest} */ (evolve(
+      {
+        include_incomplete: x => x === 'true',
+        index_offset: x => Number(x),
+        max_payments: x => Number(x),
+        reversed: x => x === 'true'
+      },
+      req.query
+    ))
+
+    if (typeof include_incomplete !== 'boolean') {
+      return res.status(400).json({
+        field: 'include_incomplete',
+        errorMessage: 'include_incomplete not a boolean'
+      })
+    }
+
+    if (!isARealUsableNumber(index_offset)) {
+      return res.status(400).json({
+        field: 'index_offset',
+        errorMessage: 'index_offset not a number'
+      })
+    }
+
+    if (!isARealUsableNumber(max_payments)) {
+      return res.status(400).json({
+        field: 'max_payments',
+        errorMessage: 'max_payments not a number'
+      })
+    }
+
+    if (typeof reversed !== 'boolean') {
+      return res.status(400).json({
+        field: 'reversed',
+        errorMessage: 'reversed not a boolean'
+      })
+    }
+
+    return res.status(200).json(
+      await listPayments({
+        include_incomplete,
+        index_offset,
+        max_payments,
+        reversed
+      })
     )
   })
 
@@ -2014,34 +2114,14 @@ module.exports = async (
   app.get(`/api/gun/${GunEvent.ON_CHATS}`, (_, res) => {
     try {
       const data = Events.getChats()
+      const noAvatar = data.map(mex => {
+        return { ...mex, recipientAvatar: null }
+      })
       res.json({
-        data
+        data: noAvatar
       })
     } catch (err) {
       logger.info('Error in Chats poll:')
-      logger.error(err)
-      res
-        .status(err.message === Common.Constants.ErrorCode.NOT_AUTH ? 401 : 500)
-        .json({
-          errorMessage: typeof err === 'string' ? err : err.message
-        })
-    }
-  })
-
-  app.get(`/api/gun/${GunEvent.ON_AVATAR}`, async (_, res) => {
-    try {
-      const user = require('../services/gunDB/Mediator').getUser()
-      const data = await timeout5(
-        user
-          .get(Key.PROFILE)
-          .get(Key.AVATAR)
-          .then()
-      )
-      res.json({
-        data
-      })
-    } catch (err) {
-      logger.info('Error in Avatar poll:')
       logger.error(err)
       res
         .status(err.message === Common.Constants.ErrorCode.NOT_AUTH ? 401 : 500)
@@ -2210,11 +2290,47 @@ module.exports = async (
     }
   })
 
-  app.delete(`/api/gun/wall/:postID`, (_, res) =>
-    res.status(200).json({
-      ok: 'true'
-    })
-  )
+  app.delete(`/api/gun/wall/:postInfo`, async (req, res) => {
+    try {
+      const { postInfo } = req.params
+      const parts = postInfo.split('&')
+      const [page, postId] = parts
+      if (!page || !postId) {
+        throw new Error(`please provide a "postId" and a "page"`)
+      }
+      await GunActions.deletePost(postId, page)
+      return res.status(200).json({
+        ok: 'true'
+      })
+    } catch (e) {
+      return res.status(500).json({
+        errorMessage:
+          (typeof e === 'string' ? e : e.message) || 'Unknown error.'
+      })
+    }
+  })
+
+  app.post(`/api/gun/userInfo`, async (req, res) => {
+    try {
+      const { pubs } = req.body
+      const reqs = pubs.map(
+        e =>
+          new Promise((res, rej) => {
+            GunGetters.getUserInfo(e)
+              .then(r => res(r))
+              .catch(e => rej(e))
+          })
+      )
+      const infos = await Promise.all(reqs)
+      return res.status(200).json({
+        pubInfos: infos
+      })
+    } catch (err) {
+      return res.status(500).json({
+        errorMessage: err.message
+      })
+    }
+  })
   /////////////////////////////////
   /**
    * @template P
@@ -2288,6 +2404,17 @@ module.exports = async (
     }
   }
 
+  ap.get('/api/gun/initwall', async (req, res) => {
+    try {
+      await GunActions.initWall()
+      res.json({ ok: true })
+    } catch (err) {
+      logger.error(err)
+      return res.status(500).json({
+        errorMessage: err.message
+      })
+    }
+  })
   ap.get('/api/gun/follows/', apiGunFollowsGet)
   ap.get('/api/gun/follows/:publicKey', apiGunFollowsGet)
   ap.put(`/api/gun/follows/:publicKey`, apiGunFollowsPut)
@@ -2520,8 +2647,11 @@ module.exports = async (
   const apiGunRequestsReceivedGet = (_, res) => {
     try {
       const data = Events.getCurrentReceivedReqs()
+      const noAvatar = data.map(req => {
+        return { ...req, recipientAvatar: null }
+      })
       res.json({
-        data
+        data: noAvatar
       })
     } catch (err) {
       logger.error(err)
@@ -2537,8 +2667,11 @@ module.exports = async (
   const apiGunRequestsSentGet = (_, res) => {
     try {
       const data = Events.getCurrentSentReqs()
+      const noAvatar = data.map(req => {
+        return { ...req, recipientAvatar: null }
+      })
       res.json({
-        data
+        data: noAvatar
       })
     } catch (err) {
       logger.error(err)
@@ -2908,5 +3041,207 @@ module.exports = async (
     return res.status(200).json({
       data: isAuthenticated()
     })
+  })
+
+  /**
+   * @typedef {object} HandleGunFetchParams
+   * @prop {'once'|'load'} type
+   * @prop {boolean} startFromUserGraph
+   * @prop {string} path
+   * @prop {string=} publicKey
+   * @prop {string=} publicKeyForDecryption
+   */
+  /**
+   * @param {HandleGunFetchParams} args0
+   * @returns {Promise<unknown>}
+   */
+  const handleGunFetch = ({
+    type,
+    startFromUserGraph,
+    path,
+    publicKey,
+    publicKeyForDecryption
+  }) => {
+    const keys = path.split('>')
+    const { tryAndWait } = require('../services/gunDB/contact-api/utils')
+    return tryAndWait((gun, user) => {
+      // eslint-disable-next-line no-nested-ternary
+      let node = startFromUserGraph
+        ? user
+        : publicKey
+        ? gun.user(publicKey)
+        : gun
+      keys.forEach(key => (node = node.get(key)))
+
+      return new Promise(res => {
+        const listener = async data => {
+          if (publicKeyForDecryption) {
+            res(
+              await GunWriteRPC.deepDecryptIfNeeded(
+                data,
+                publicKeyForDecryption
+              )
+            )
+          } else {
+            res(data)
+          }
+        }
+
+        if (type === 'once') node.once(listener)
+        if (type === 'load') node.load(listener)
+      })
+    })
+  }
+
+  /**
+   * Used decryption of incoming data.
+   */
+  const PUBKEY_FOR_DECRYPT_HEADER = 'public-key-for-decryption'
+
+  ap.get('/api/gun/once/:path', async (req, res) => {
+    const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
+    const { path } = req.params
+    res.status(200).json({
+      data: await handleGunFetch({
+        path,
+        startFromUserGraph: false,
+        type: 'once',
+        publicKeyForDecryption
+      })
+    })
+  })
+
+  ap.get('/api/gun/load/:path', async (req, res) => {
+    const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
+    const { path } = req.params
+    res.status(200).json({
+      data: await handleGunFetch({
+        path,
+        startFromUserGraph: false,
+        type: 'load',
+        publicKeyForDecryption
+      })
+    })
+  })
+
+  ap.get('/api/gun/user/once/:path', async (req, res) => {
+    const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
+    const { path } = req.params
+    res.status(200).json({
+      data: await handleGunFetch({
+        path,
+        startFromUserGraph: true,
+        type: 'once',
+        publicKeyForDecryption
+      })
+    })
+  })
+
+  ap.get('/api/gun/user/load/:path', async (req, res) => {
+    const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
+    const { path } = req.params
+    res.status(200).json({
+      data: await handleGunFetch({
+        path,
+        startFromUserGraph: true,
+        type: 'load',
+        publicKeyForDecryption
+      })
+    })
+  })
+
+  ap.get('/api/gun/otheruser/:publicKey/once/:path', async (req, res) => {
+    const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
+    const { path, publicKey } = req.params
+    res.status(200).json({
+      data: await handleGunFetch({
+        path,
+        startFromUserGraph: false,
+        type: 'once',
+        publicKey,
+        publicKeyForDecryption
+      })
+    })
+  })
+
+  ap.get('/api/gun/otheruser/:publicKey/load/:path', async (req, res) => {
+    const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
+    const { path, publicKey } = req.params
+    res.status(200).json({
+      data: await handleGunFetch({
+        path,
+        startFromUserGraph: false,
+        type: 'load',
+        publicKey,
+        publicKeyForDecryption
+      })
+    })
+  })
+
+  ap.post('/api/lnd/cb/:methodName', (req, res) => {
+    try {
+      const { lightning } = LightningServices.services
+      const { methodName } = req.params
+      const args = req.body
+
+      lightning[methodName](args, (err, lres) => {
+        if (err) {
+          res.status(500).json({
+            errorMessage: err.details
+          })
+        } else if (lres) {
+          res.status(200).json(lres)
+        } else {
+          res.status(500).json({
+            errorMessage: 'Unknown error'
+          })
+        }
+      })
+    } catch (err) {
+      logger.warn(`Error inside api cb:`)
+      logger.error(err)
+      logger.error(err.message)
+
+      return res.status(500).json({
+        errorMessage: err.message
+      })
+    }
+  })
+
+  ap.post('/api/gun/put', async (req, res) => {
+    try {
+      const { path, value } = req.body
+
+      await GunWriteRPC.put(path, value)
+
+      res.status(200).json({
+        ok: true
+      })
+    } catch (err) {
+      res
+        .status(err.message === Common.Constants.ErrorCode.NOT_AUTH ? 401 : 500)
+        .json({
+          errorMessage: err.message
+        })
+    }
+  })
+
+  ap.post('/api/gun/set', async (req, res) => {
+    try {
+      const { path, value } = req.body
+
+      const id = await GunWriteRPC.set(path, value)
+
+      res.status(200).json({
+        ok: true,
+        id
+      })
+    } catch (err) {
+      res
+        .status(err.message === Common.Constants.ErrorCode.NOT_AUTH ? 401 : 500)
+        .json({
+          errorMessage: err.message
+        })
+    }
   })
 }
