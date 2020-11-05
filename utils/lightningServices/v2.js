@@ -3,6 +3,8 @@
  */
 const Crypto = require('crypto')
 const logger = require('winston')
+const Common = require('shock-common')
+const Ramda = require('ramda')
 
 const lightningServices = require('./lightning-services')
 /**
@@ -337,7 +339,73 @@ const sendPaymentV2Invoice = params => {
   })
 }
 
+/**
+ * @param {Common.APISchema.ListPaymentsRequest} req
+ * @throws {TypeError}
+ * @returns {Promise<Common.APISchema.ListPaymentsResponseParsed>}
+ */
+const listPayments = req => {
+  return Common.Utils.makePromise((res, rej) => {
+    lightningServices.lightning.listPayments(
+      req,
+      /**
+       * @param {{ details: any; }} err
+       * @param {unknown} lpres
+       */ (err, lpres) => {
+        if (err) {
+          return rej(new Error(err.details || err))
+        }
+
+        if (!Common.APISchema.isListPaymentsResponse(lpres)) {
+          return rej(new TypeError(`Response from LND not in expected format.`))
+        }
+
+        /** @type {Common.APISchema.ListPaymentsResponseParsed} */
+        // @ts-expect-error
+        const parsed = Ramda.evolve(
+          {
+            first_index_offset: x => Number(x),
+            last_index_offset: x => Number(x),
+            payments: x => x
+          },
+          lpres
+        )
+
+        if (Common.APISchema.isListPaymentsResponseParsed(parsed)) {
+          return res(parsed)
+        }
+
+        return rej(new TypeError(`could not parse response from LND`))
+      }
+    )
+  })
+}
+
+/**
+ * @param {string} payReq
+ * @returns {Promise<Common.Schema.InvoiceWhenDecoded>}
+ */
+const decodePayReq = payReq =>
+  Common.Utils.makePromise((res, rej) => {
+    lightningServices.lightning.decodePayReq(
+      { pay_req: payReq },
+      /**
+       * @param {{ message: any; }} err
+       * @param {any} paymentRequest
+       */
+      (err, paymentRequest) => {
+        if (err) {
+          rej(new Error(err.message))
+        } else {
+          res(paymentRequest)
+        }
+      }
+    )
+  })
+
 module.exports = {
   sendPaymentV2Keysend,
-  sendPaymentV2Invoice
+  sendPaymentV2Invoice,
+  listPayments,
+  decodePayReq
 }

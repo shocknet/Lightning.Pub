@@ -26,15 +26,16 @@ const server = program => {
     sensitiveRoutes,
     nonEncryptedRoutes
   } = require('../utils/protectedRoutes')
+
   // load app default configuration data
   const defaults = require('../config/defaults')(program.mainnet)
   const rootFolder = process.resourcesPath || __dirname
-  // define useful global variables ======================================
+
+  // define env variables
   Dotenv.config()
-  module.useTLS = program.usetls
-  module.serverPort = program.serverport || defaults.serverPort
-  module.httpsPort = module.serverPort
-  module.serverHost = program.serverhost || defaults.serverHost
+
+  const serverPort = program.serverport || defaults.serverPort
+  const serverHost = program.serverhost || defaults.serverHost
 
   // setup winston logging ==========
   const logger = require('../config/log')(
@@ -159,12 +160,24 @@ const server = program => {
   const startServer = async () => {
     try {
       LightningServices.setDefaults(program)
-      await LightningServices.init()
+      if (!LightningServices.isInitialized()) {
+        await LightningServices.init()
+      }
 
       // init lnd module =================
       const lnd = require('../services/lnd/lnd')(
         LightningServices.services.lightning
       )
+      await new Promise((resolve, reject) => {
+        LightningServices.services.lightning.getInfo({}, (err, res) => {
+          if (err && err.code !== 12) {
+            reject(err)
+          } else {
+            resolve()
+          }
+        })
+      })
+
       const auth = require('../services/auth/auth')
 
       app.use(compression())
@@ -195,6 +208,11 @@ const server = program => {
             )
           }
         }
+        next()
+      })
+
+      app.use((req, res, next) => {
+        res.set('Version', program.version())
         next()
       })
 
@@ -274,8 +292,8 @@ const server = program => {
       const Sockets = require('./sockets')(io)
 
       require('./routes')(app, defaults, Sockets, {
-        serverHost: module.serverHost,
-        serverPort: module.serverPort,
+        serverHost,
+        serverPort,
         usetls: program.usetls,
         CA,
         CA_KEY
@@ -290,20 +308,11 @@ const server = program => {
         app.use(modifyResponseBody)
       }
 
-      serverInstance.listen(module.serverPort, module.serverhost)
+      serverInstance.listen(serverPort, serverHost)
 
-      logger.info(
-        'App listening on ' + module.serverHost + ' port ' + module.serverPort
-      )
+      logger.info('App listening on ' + serverHost + ' port ' + serverPort)
 
       module.server = serverInstance
-
-      // const localtunnel = require('localtunnel');
-      //
-      // const tunnel = localtunnel(port, (err, t) => {
-      // 	logger.info('err', err);
-      // 	logger.info('t', t.url);
-      // });
     } catch (err) {
       logger.info(err)
       logger.info('Restarting server in 30 seconds...')

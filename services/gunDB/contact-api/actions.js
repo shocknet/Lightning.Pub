@@ -5,10 +5,14 @@ const uuidv1 = require('uuid/v1')
 const logger = require('winston')
 const Common = require('shock-common')
 const { Constants, Schema } = Common
+const Gun = require('gun')
 
 const { ErrorCode } = Constants
 
-const { sendPaymentV2Invoice } = require('../../../utils/lightningServices/v2')
+const {
+  sendPaymentV2Invoice,
+  decodePayReq
+} = require('../../../utils/lightningServices/v2')
 
 /**
  * @typedef {import('../../../utils/lightningServices/types').PaymentV2} PaymentV2
@@ -815,7 +819,7 @@ const setAvatar = (avatar, user) =>
     }
 
     user
-      .get(Key.PROFILE)
+      .get(Key.PROFILE_BINARY)
       .get(Key.AVATAR)
       .put(avatar, ack => {
         if (ack.err && typeof ack.err !== 'number') {
@@ -906,16 +910,29 @@ const sendHRWithInitialMsg = async (
 }
 
 /**
+ * @typedef {object} SpontPaymentOptions
+ * @prop {Common.Schema.OrderTargetType} type
+ * @prop {string=} postID
+ */
+
+/**
  * Returns the preimage corresponding to the payment.
  * @param {string} to
  * @param {number} amount
  * @param {string} memo
  * @param {number} feeLimit
+ * @param {SpontPaymentOptions} opts
  * @throws {Error} If no response in less than 20 seconds from the recipient, or
  * lightning cannot find a route for the payment.
  * @returns {Promise<PaymentV2>} The payment's preimage.
  */
-const sendSpontaneousPayment = async (to, amount, memo, feeLimit) => {
+const sendSpontaneousPayment = async (
+  to,
+  amount,
+  memo,
+  feeLimit,
+  opts = { type: 'user' }
+) => {
   try {
     const SEA = require('../Mediator').mySEA
     const getUser = () => require('../Mediator').getUser()
@@ -935,7 +952,12 @@ const sendSpontaneousPayment = async (to, amount, memo, feeLimit) => {
       amount: amount.toString(),
       from: getUser()._.sea.pub,
       memo: memo || 'no memo',
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      targetType: opts.type
+    }
+
+    if (opts.type === 'post') {
+      order.postID = opts.postID
     }
 
     logger.info(JSON.stringify(order))
@@ -1019,6 +1041,21 @@ const sendSpontaneousPayment = async (to, amount, memo, feeLimit) => {
 
     if (orderResponse.type === 'err') {
       throw new Error(orderResponse.response)
+    }
+
+    logger.info('Will now check for invoice amount mismatch')
+
+    const encodedInvoice = orderResponse.response
+
+    const { num_satoshis: decodedAmt } = await decodePayReq(encodedInvoice)
+
+    if (decodedAmt !== amount.toString()) {
+      throw new Error('Invoice amount mismatch')
+    }
+
+    // double check
+    if (Number(decodedAmt) !== amount) {
+      throw new Error('Invoice amount mismatch')
     }
 
     logger.info('Will now send payment through lightning')
@@ -1232,6 +1269,49 @@ const setLastSeenApp = () =>
  * @param {string[]} tags
  * @param {string} title
  * @param {Common.Schema.ContentItem[]} content
+ * @returns {Promise<[string, Common.Schema.RawPost]>}
+ */
+const createPostNew = async (tags, title, content) => {
+  /** @type {Common.Schema.RawPost} */
+  const newPost = {
+    date: Date.now(),
+    status: 'publish',
+    tags: tags.join('-'),
+    title,
+    contentItems: {}
+  }
+
+  content.forEach(c => {
+    // @ts-expect-error
+    const uuid = Gun.text.random()
+    newPost.contentItems[uuid] = c
+  })
+
+  /** @type {string} */
+  const postID = await Common.makePromise((res, rej) => {
+    const _n = require('../Mediator')
+      .getUser()
+      .get(Key.POSTS_NEW)
+      .set(
+        // @ts-expect-error
+        newPost,
+        ack => {
+          if (ack.err && typeof ack.err !== 'number') {
+            rej(new Error(ack.err))
+          } else {
+            res(_n._.get)
+          }
+        }
+      )
+  })
+
+  return [postID, newPost]
+}
+
+/**
+ * @param {string[]} tags
+ * @param {string} title
+ * @param {Common.Schema.ContentItem[]} content
  * @returns {Promise<Common.Schema.Post>}
  */
 const createPost = async (tags, title, content) => {
@@ -1311,26 +1391,24 @@ const createPost = async (tags, title, content) => {
       )
   })
 
-  /** @type {string} */
-  const postID = await new Promise((res, rej) => {
-    const _n = require('../Mediator')
+  const [postID, newPost] = await createPostNew(tags, title, content)
+
+  await Common.makePromise((res, rej) => {
+    require('../Mediator')
       .getUser()
       .get(Key.WALL)
       .get(Key.PAGES)
       .get(pageIdx)
       .get(Key.POSTS)
-      .set(
-        {
-          date: Date.now(),
-          status: 'publish',
-          tags: tags.join('-'),
-          title
-        },
+      .get(postID)
+      .put(
+        // @ts-expect-error
+        newPost,
         ack => {
           if (ack.err && typeof ack.err !== 'number') {
             rej(new Error(ack.err))
           } else {
-            res(_n._.get)
+            res()
           }
         }
       )
@@ -1350,52 +1428,6 @@ const createPost = async (tags, title, content) => {
           res()
         })
     })
-  }
-
-  const contentItems = require('../Mediator')
-    .getUser()
-    .get(Key.WALL)
-    .get(Key.PAGES)
-    .get(pageIdx)
-    .get(Key.POSTS)
-    .get(postID)
-    .get(Key.CONTENT_ITEMS)
-
-  try {
-    await Promise.all(
-      content.map(
-        ci =>
-          new Promise(res => {
-            // @ts-ignore
-            contentItems.set(ci, ack => {
-              if (ack.err && typeof ack.err !== 'number') {
-                throw new Error(ack.err)
-              }
-
-              res()
-            })
-          })
-      )
-    )
-  } catch (e) {
-    await new Promise(res => {
-      require('../Mediator')
-        .getUser()
-        .get(Key.WALL)
-        .get(Key.PAGES)
-        .get(pageIdx)
-        .get(Key.POSTS)
-        .get(postID)
-        .put(null, ack => {
-          if (ack.err && typeof ack.err !== 'number') {
-            throw new Error(ack.err)
-          }
-
-          res()
-        })
-    })
-
-    throw e
   }
 
   const loadedPost = await new Promise(res => {
@@ -1434,11 +1466,25 @@ const createPost = async (tags, title, content) => {
 
 /**
  * @param {string} postId
+ * @param {string} page
  * @returns {Promise<void>}
  */
-const deletePost = async postId => {
-  await new Promise(res => {
-    res(postId)
+const deletePost = async (postId, page) => {
+  await new Promise((res, rej) => {
+    require('../Mediator')
+      .getUser()
+      .get(Key.WALL)
+      .get(Key.PAGES)
+      .get(page)
+      .get(Key.POSTS)
+      .get(postId)
+      .put(null, ack => {
+        if (ack.err && typeof ack.err !== 'number') {
+          rej(new Error(ack.err))
+        } else {
+          res()
+        }
+      })
   })
 }
 
