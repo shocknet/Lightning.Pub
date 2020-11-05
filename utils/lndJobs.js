@@ -1,6 +1,7 @@
 /**
  * @prettier
  */
+// @ts-check
 const Logger = require('winston')
 const { wait } = require('./helpers')
 const Key = require('../services/gunDB/contact-api/key')
@@ -36,16 +37,13 @@ const _lookupInvoice = hash =>
     })
   })
 
-const _getPostTipInfo = ({ postID, page }) =>
-  new Promise((resolve, reject) => {
+const _getPostTipInfo = ({ postID }) =>
+  new Promise(resolve => {
     getUser()
-      .get(Key.WALL)
-      .get(Key.PAGES)
-      .get(page)
       .get(Key.POSTS)
       .get(postID)
       .once(post => {
-        if (post && post.date) {
+        if (typeof post === 'object' && post && post.date) {
           const { tipCounter, tipValue } = post
           console.log(post)
           resolve({
@@ -58,7 +56,7 @@ const _getPostTipInfo = ({ postID, page }) =>
       })
   })
 
-const _incrementPost = ({ postID, page, orderAmount }) =>
+const _incrementPost = ({ postID, orderAmount }) =>
   new Promise((resolve, reject) => {
     const parsedAmount = parseFloat(orderAmount)
 
@@ -69,7 +67,7 @@ const _incrementPost = ({ postID, page, orderAmount }) =>
 
     Logger.info('[POST TIP] Getting Post Tip Values...')
 
-    return _getPostTipInfo({ postID, page })
+    return _getPostTipInfo({ postID })
       .then(({ tipValue, tipCounter }) => {
         const updatedTip = {
           tipCounter: tipCounter + 1,
@@ -77,9 +75,6 @@ const _incrementPost = ({ postID, page, orderAmount }) =>
         }
 
         getUser()
-          .get(Key.WALL)
-          .get(Key.PAGES)
-          .get(page)
           .get(Key.POSTS)
           .get(postID)
           .put(updatedTip, () => {
@@ -158,7 +153,6 @@ const executeTipAction = (tip, invoice) => {
   if (tip.targetType === 'post') {
     _incrementPost({
       postID: tip.postID,
-      page: tip.postPage,
       orderAmount: invoice.amt_paid_sat
     })
   }
@@ -172,14 +166,18 @@ const updateUnverifiedTips = () => {
       try {
         if (
           !tip ||
+          // @ts-expect-error
           tip.state !== INVOICE_STATE.OPEN ||
+          // @ts-expect-error
           (tip._errorCount && tip._errorCount >= ERROR_TRIES_THRESHOLD)
         ) {
           return
         }
         Logger.info('Unverified invoice found!', tip)
+        // @ts-expect-error
         const invoice = await _lookupInvoice(tip.hash)
         Logger.info('Invoice located:', invoice)
+        // @ts-expect-error
         if (invoice.state !== tip.state) {
           await _updateTipData(id, { state: invoice.state })
 
@@ -188,6 +186,7 @@ const updateUnverifiedTips = () => {
         }
       } catch (err) {
         Logger.error('[TIP] An error has occurred while updating invoice', err)
+        // @ts-expect-error
         const errorCount = tip._errorCount ? tip._errorCount : 0
         _updateTipData(id, {
           _errorCount: errorCount + 1
