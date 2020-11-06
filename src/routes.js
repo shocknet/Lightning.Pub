@@ -70,49 +70,6 @@ module.exports = async (
   const getAvailableService = () => {
     return lndErrorManager.getAvailableService()
   }
-  /*
-    new Promise((resolve, reject) => {
-      const { lightning } = LightningServices.services
-
-      lightning.getInfo({}, (err, response) => {
-        if (err) {
-          if (err.message.includes('unknown service lnrpc.Lightning')) {
-            resolve({
-              service: 'walletUnlocker',
-              message: 'Wallet locked',
-              code: err.code,
-              walletStatus: 'locked',
-              success: true
-            })
-          } else if (err.code === 14) {
-            reject({
-              service: 'unknown',
-              message:
-                "Failed to connect to LND server, make sure it's up and running.",
-              code: 14,
-              walletStatus: 'unknown',
-              success: false
-            })
-          } else {
-            reject({
-              service: 'lightning',
-              message: sanitizeLNDError(err.message),
-              code: err.code,
-              walletStatus: 'unlocked',
-              success: false
-            })
-          }
-        }
-
-        resolve({
-          service: 'lightning',
-          message: response,
-          code: null,
-          walletStatus: 'unlocked',
-          success: true
-        })
-      })
-    })*/
 
   const checkHealth = async () => {
     logger.info('Getting service status...')
