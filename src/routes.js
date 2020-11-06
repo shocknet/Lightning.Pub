@@ -655,15 +655,20 @@ module.exports = async (
         const user = require('../services/gunDB/Mediator').getUser()
         const SEA = require('../services/gunDB/Mediator').mySEA
 
-        lightning.exportAllChannelBackups({}, (err, channelBackups) => {
-          if (err) {
-            return handleError(res, err)
-          }
-          GunActions.saveChannelsBackup(
-            JSON.stringify(channelBackups),
-            user,
-            SEA
-          )
+        await Common.Utils.makePromise((res, rej) => {
+          lightning.exportAllChannelBackups({}, (err, channelBackups) => {
+            if (err) {
+              return rej(new Error(err.details))
+            }
+
+            res(
+              GunActions.saveChannelsBackup(
+                JSON.stringify(channelBackups),
+                user,
+                SEA
+              )
+            )
+          })
         })
 
         // Send an event to update lightning's status
