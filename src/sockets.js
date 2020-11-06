@@ -439,7 +439,11 @@ module.exports = (
         }
 
         if (pingIntervalID !== null) {
-          logger.error('Tried to set ping socket twice')
+          logger.error(
+            'Tried to set ping socket twice, this might be due to an app restart and the old socket not being recycled by socket.io in time, will disable the older ping interval, which means the old socket wont work and will ping this new socket instead'
+          )
+          clearInterval(pingIntervalID)
+          pingIntervalID = null
         }
 
         socket.emit('shockping')
