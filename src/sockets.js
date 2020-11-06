@@ -447,14 +447,18 @@ module.exports = (
     // TODO: make this sync
     async socket => {
       try {
+        logger.info('Received connect request for shockping socket')
         if (!isAuthenticated()) {
+          logger.info(
+            'not authenticated in gun for shockping socket, will send NOT_AUTH'
+          )
           socket.emit(Common.Constants.ErrorCode.NOT_AUTH)
 
           return
         }
 
+        logger.info('now checking token')
         const { token } = socket.handshake.query
-
         const isAuth = await isValidToken(token)
 
         if (!isAuth) {
