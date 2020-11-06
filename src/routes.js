@@ -622,13 +622,39 @@ module.exports = async (
           await Storage.set('trustedPKs', [...(trustedKeys || []), publicKey])
         }
 
-        // Send an event to update lightning's status
-        mySocketsEvents.emit('updateLightning')
+        const { lightning } = LightningServices.services
+
+        // Generate auth token and send it as a JSON response
+        const token = await auth.generateToken()
+
+        // wait for wallet to warm up
+        await Common.Utils.makePromise((res, rej) => {
+          let tries = 0
+          let intervalID = null
+
+          intervalID = setInterval(() => {
+            if (tries === 3) {
+              rej(new Error(`Wallet did not warm up in under 3 seconds.`))
+
+              clearInterval(intervalID)
+              return
+            }
+
+            tries++
+
+            lightning.listInvoices({}, err => {
+              if (!err) {
+                clearInterval(intervalID)
+                res()
+              }
+            })
+          }, 1000)
+        })
 
         //get the latest channel backups before subscribing
         const user = require('../services/gunDB/Mediator').getUser()
         const SEA = require('../services/gunDB/Mediator').mySEA
-        const { lightning } = LightningServices.services
+
         lightning.exportAllChannelBackups({}, (err, channelBackups) => {
           if (err) {
             return handleError(res, err)
@@ -639,6 +665,9 @@ module.exports = async (
             SEA
           )
         })
+
+        // Send an event to update lightning's status
+        mySocketsEvents.emit('updateLightning')
 
         //register to listen for channel backups
         const onNewChannelBackup = () => {
@@ -701,8 +730,6 @@ module.exports = async (
         onNewChannelBackup()
         startTipStatusJob()
 
-        // Generate auth token and send it as a JSON response
-        const token = await auth.generateToken()
         res.json({
           authorization: token,
           user: {
