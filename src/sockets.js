@@ -265,9 +265,11 @@ module.exports = (
     const isNotificationsSocket = !!socket.handshake.query
       .IS_NOTIFICATIONS_SOCKET
 
+    logger.info('New socket client connected (id=' + socket.id + ').')
+
     if (!isLNDSocket) {
-      /** printing out the client who joined */
-      logger.info('New socket client connected (id=' + socket.id + ').')
+      // let's not allow this
+      return
     }
 
     if (isLNDSocket) {
