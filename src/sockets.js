@@ -446,9 +446,8 @@ module.exports = (
           pingIntervalID = null
         }
 
-        socket.emit('shockping')
-
         pingIntervalID = setInterval(() => {
+          logger.info('emitting shockping event to ping socket')
           socket.emit('shockping')
         }, 3000)
 
@@ -460,7 +459,8 @@ module.exports = (
           }
         })
       } catch (err) {
-        logger.error('GUNRPC: ' + err.message)
+        logger.error('Error inside shockping connect: ' + err.message)
+        socket.emit('$error', err.message)
       }
     }
   )
