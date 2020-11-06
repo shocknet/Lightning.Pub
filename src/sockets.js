@@ -447,7 +447,6 @@ module.exports = (
         }
 
         pingIntervalID = setInterval(() => {
-          logger.info('emitting shockping event to ping socket')
           socket.emit('shockping')
         }, 3000)
 
