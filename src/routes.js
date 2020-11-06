@@ -708,24 +708,6 @@ module.exports = async (
           user: {
             alias,
             publicKey
-          },
-          follows: await GunGetters.Follows.currentFollows(),
-          data: {
-            invoices: await Common.makePromise((res, rej) => {
-              lightning.listInvoices(
-                {
-                  reversed: true,
-                  num_max_invoices: 50
-                },
-                (err, lres) => {
-                  if (err) {
-                    rej(new Error(err.details))
-                  } else {
-                    res(lres)
-                  }
-                }
-              )
-            })
           }
         })
 
