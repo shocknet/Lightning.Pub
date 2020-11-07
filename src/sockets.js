@@ -257,6 +257,33 @@ module.exports = (
     }
   }
 
+  io.of('default').on('connection', socket => {
+    logger.info(`io.onconnection`)
+    logger.info('socket.handshake', socket.handshake)
+
+    const isLNDSocket = !!socket.handshake.query.IS_LND_SOCKET
+    const isNotificationsSocket = !!socket.handshake.query
+      .IS_NOTIFICATIONS_SOCKET
+
+    if (!isLNDSocket) {
+      /** printing out the client who joined */
+      logger.info('New socket client connected (id=' + socket.id + ').')
+    }
+
+    if (isLNDSocket) {
+      const subID = Math.floor(Math.random() * 1000).toString()
+      const isNotifications = isNotificationsSocket ? 'notifications' : ''
+      logger.info('[LND] New LND Socket created:' + isNotifications + subID)
+      const cancelInvoiceStream = onNewInvoice(socket, subID)
+      const cancelTransactionStream = onNewTransaction(socket, subID)
+      socket.on('disconnect', () => {
+        logger.info('LND socket disconnected:' + isNotifications + subID)
+        cancelInvoiceStream()
+        cancelTransactionStream()
+      })
+    }
+  })
+
   io.of('gun').on('connect', socket => {
     // TODO: off()
 
