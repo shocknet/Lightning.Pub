@@ -445,14 +445,18 @@ module.exports = (
     // TODO: make this sync
     async socket => {
       try {
+        logger.info('Received connect request for shockping socket')
         if (!isAuthenticated()) {
+          logger.info(
+            'not authenticated in gun for shockping socket, will send NOT_AUTH'
+          )
           socket.emit(Common.Constants.ErrorCode.NOT_AUTH)
 
           return
         }
 
+        logger.info('now checking token')
         const { token } = socket.handshake.query
-
         const isAuth = await isValidToken(token)
 
         if (!isAuth) {
@@ -462,10 +466,12 @@ module.exports = (
         }
 
         if (pingIntervalID !== null) {
-          logger.error('Tried to set ping socket twice')
+          logger.error(
+            'Tried to set ping socket twice, this might be due to an app restart and the old socket not being recycled by socket.io in time, will disable the older ping interval, which means the old socket wont work and will ping this new socket instead'
+          )
+          clearInterval(pingIntervalID)
+          pingIntervalID = null
         }
-
-        socket.emit('shockping')
 
         pingIntervalID = setInterval(() => {
           socket.emit('shockping')
@@ -479,7 +485,8 @@ module.exports = (
           }
         })
       } catch (err) {
-        logger.error('GUNRPC: ' + err.message)
+        logger.error('Error inside shockping connect: ' + err.message)
+        socket.emit('$error', err.message)
       }
     }
   )

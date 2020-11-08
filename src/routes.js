@@ -70,49 +70,6 @@ module.exports = async (
   const getAvailableService = () => {
     return lndErrorManager.getAvailableService()
   }
-  /*
-    new Promise((resolve, reject) => {
-      const { lightning } = LightningServices.services
-
-      lightning.getInfo({}, (err, response) => {
-        if (err) {
-          if (err.message.includes('unknown service lnrpc.Lightning')) {
-            resolve({
-              service: 'walletUnlocker',
-              message: 'Wallet locked',
-              code: err.code,
-              walletStatus: 'locked',
-              success: true
-            })
-          } else if (err.code === 14) {
-            reject({
-              service: 'unknown',
-              message:
-                "Failed to connect to LND server, make sure it's up and running.",
-              code: 14,
-              walletStatus: 'unknown',
-              success: false
-            })
-          } else {
-            reject({
-              service: 'lightning',
-              message: sanitizeLNDError(err.message),
-              code: err.code,
-              walletStatus: 'unlocked',
-              success: false
-            })
-          }
-        }
-
-        resolve({
-          service: 'lightning',
-          message: response,
-          code: null,
-          walletStatus: 'unlocked',
-          success: true
-        })
-      })
-    })*/
 
   const checkHealth = async () => {
     logger.info('Getting service status...')
@@ -622,23 +579,57 @@ module.exports = async (
           await Storage.set('trustedPKs', [...(trustedKeys || []), publicKey])
         }
 
-        // Send an event to update lightning's status
-        mySocketsEvents.emit('updateLightning')
+        const { lightning } = LightningServices.services
+
+        // Generate auth token and send it as a JSON response
+        const token = await auth.generateToken()
+
+        // wait for wallet to warm up
+        await Common.Utils.makePromise((res, rej) => {
+          let tries = 0
+          let intervalID = null
+
+          intervalID = setInterval(() => {
+            if (tries === 3) {
+              rej(new Error(`Wallet did not warm up in under 3 seconds.`))
+
+              clearInterval(intervalID)
+              return
+            }
+
+            tries++
+
+            lightning.listInvoices({}, err => {
+              if (!err) {
+                clearInterval(intervalID)
+                res()
+              }
+            })
+          }, 1000)
+        })
 
         //get the latest channel backups before subscribing
         const user = require('../services/gunDB/Mediator').getUser()
         const SEA = require('../services/gunDB/Mediator').mySEA
-        const { lightning } = LightningServices.services
-        lightning.exportAllChannelBackups({}, (err, channelBackups) => {
-          if (err) {
-            return handleError(res, err)
-          }
-          GunActions.saveChannelsBackup(
-            JSON.stringify(channelBackups),
-            user,
-            SEA
-          )
+
+        await Common.Utils.makePromise((res, rej) => {
+          lightning.exportAllChannelBackups({}, (err, channelBackups) => {
+            if (err) {
+              return rej(new Error(err.details))
+            }
+
+            res(
+              GunActions.saveChannelsBackup(
+                JSON.stringify(channelBackups),
+                user,
+                SEA
+              )
+            )
+          })
         })
+
+        // Send an event to update lightning's status
+        mySocketsEvents.emit('updateLightning')
 
         //register to listen for channel backups
         const onNewChannelBackup = () => {
@@ -701,31 +692,11 @@ module.exports = async (
         onNewChannelBackup()
         startTipStatusJob()
 
-        // Generate auth token and send it as a JSON response
-        const token = await auth.generateToken()
         res.json({
           authorization: token,
           user: {
             alias,
             publicKey
-          },
-          follows: await GunGetters.Follows.currentFollows(),
-          data: {
-            invoices: await Common.makePromise((res, rej) => {
-              lightning.listInvoices(
-                {
-                  reversed: true,
-                  num_max_invoices: 50
-                },
-                (err, lres) => {
-                  if (err) {
-                    rej(new Error(err.details))
-                  } else {
-                    res(lres)
-                  }
-                }
-              )
-            })
           }
         })
 
