@@ -49,7 +49,7 @@
     "request-promise": "^4.2.2",
     "response-time": "^2.3.2",
     "shelljs": "^0.8.2",
-    "shock-common": "16.x.x",
+    "shock-common": "17.x.x",
     "socket.io": "2.1.1",
     "text-encoding": "^0.7.0",
     "tingodb": "^0.6.1",
