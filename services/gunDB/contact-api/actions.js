@@ -1065,19 +1065,6 @@ const sendSpontaneousPayment = async (
       payment_request: orderResponse.response
     })
 
-    if (Utils.successfulHandshakeAlreadyExists(to)) {
-      await sendMessage(
-        to,
-        Schema.encodeSpontaneousPayment(
-          amount,
-          memo || 'no memo',
-          payment.payment_preimage
-        ),
-        require('../Mediator').getUser(),
-        require('../Mediator').mySEA
-      )
-    }
-
     return payment
   } catch (e) {
     logger.error('Error inside sendPayment()')
