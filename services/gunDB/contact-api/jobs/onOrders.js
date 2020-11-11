@@ -51,7 +51,6 @@ const ordersProcessed = new Set()
  * @prop {import('shock-common').Schema.InvoiceState} state
  * @prop {string} targetType
  * @prop {(string)=} postID
- * @prop {(number)=} postPage
  */
 
 let currentOrderAddr = ''

@@ -48,6 +48,7 @@ const _getPostTipInfo = ({ postID }) =>
             tipCounter: typeof tipCounter === 'number' ? tipCounter : 0,
             tipValue: typeof tipValue === 'number' ? tipValue : 0
           })
+          return
         }
 
         resolve(post)
