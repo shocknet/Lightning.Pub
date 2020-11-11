@@ -16,6 +16,7 @@ const {
   isAuthenticated
 } = require('../services/gunDB/Mediator')
 const { deepDecryptIfNeeded } = require('../services/gunDB/rpc')
+const GunEvents = require('../services/gunDB/contact-api/events')
 /**
  * @typedef {import('../services/gunDB/Mediator').SimpleSocket} SimpleSocket
  * @typedef {import('../services/gunDB/contact-api/SimpleGUN').ValidDataValue} ValidDataValue
@@ -490,6 +491,145 @@ module.exports = (
       }
     }
   )
+
+  // TODO: do this through rpc
+
+  const emptyUnsub = () => {}
+
+  let chatsUnsub = emptyUnsub
+
+  io.of('chats').on('connect', async socket => {
+    try {
+      if (!isAuthenticated()) {
+        logger.info(
+          'not authenticated in gun for chats socket, will send NOT_AUTH'
+        )
+        socket.emit(Common.Constants.ErrorCode.NOT_AUTH)
+
+        return
+      }
+
+      logger.info('now checking token for chats socket')
+      const { token } = socket.handshake.query
+      const isAuth = await isValidToken(token)
+
+      if (!isAuth) {
+        logger.warn('invalid token for chats socket')
+        socket.emit(Common.Constants.ErrorCode.NOT_AUTH)
+        return
+      }
+
+      if (chatsUnsub !== emptyUnsub) {
+        logger.error(
+          'Tried to set chats socket twice, this might be due to an app restart and the old socket not being recycled by socket.io in time, will disable the older subscription, which means the old socket wont work and data will be sent to this new socket instead'
+        )
+        chatsUnsub()
+        chatsUnsub = emptyUnsub
+      }
+
+      GunEvents.onChats(chats => {
+        socket.emit(Common.Constants.Event.ON_CHATS, chats)
+      })
+
+      socket.on('disconnect', () => {
+        chatsUnsub()
+        chatsUnsub = emptyUnsub
+      })
+    } catch (e) {
+      logger.error('Error inside chats socket connect: ' + e.message)
+      socket.emit('$error', e.message)
+    }
+  })
+
+  let sentReqsUnsub = emptyUnsub
+
+  io.of('sentReqs').on('connect', async socket => {
+    try {
+      if (!isAuthenticated()) {
+        logger.info(
+          'not authenticated in gun for sentReqs socket, will send NOT_AUTH'
+        )
+        socket.emit(Common.Constants.ErrorCode.NOT_AUTH)
+
+        return
+      }
+
+      logger.info('now checking token for sentReqs socket')
+      const { token } = socket.handshake.query
+      const isAuth = await isValidToken(token)
+
+      if (!isAuth) {
+        logger.warn('invalid token for sentReqs socket')
+        socket.emit(Common.Constants.ErrorCode.NOT_AUTH)
+        return
+      }
+
+      if (sentReqsUnsub !== emptyUnsub) {
+        logger.error(
+          'Tried to set sentReqs socket twice, this might be due to an app restart and the old socket not being recycled by socket.io in time, will disable the older subscription, which means the old socket wont work and data will be sent to this new socket instead'
+        )
+        sentReqsUnsub()
+        sentReqsUnsub = emptyUnsub
+      }
+
+      GunEvents.onSimplerSentRequests(sentReqs => {
+        socket.emit(Common.Constants.Event.ON_SENT_REQUESTS, sentReqs)
+      })
+
+      socket.on('disconnect', () => {
+        sentReqsUnsub()
+        sentReqsUnsub = emptyUnsub
+      })
+    } catch (e) {
+      logger.error('Error inside sentReqs socket connect: ' + e.message)
+      socket.emit('$error', e.message)
+    }
+  })
+
+  let receivedReqsUnsub = emptyUnsub
+
+  io.of('receivedReqs').on('connect', async socket => {
+    try {
+      if (!isAuthenticated()) {
+        logger.info(
+          'not authenticated in gun for receivedReqs socket, will send NOT_AUTH'
+        )
+        socket.emit(Common.Constants.ErrorCode.NOT_AUTH)
+
+        return
+      }
+
+      logger.info('now checking token for receivedReqs socket')
+      const { token } = socket.handshake.query
+      const isAuth = await isValidToken(token)
+
+      if (!isAuth) {
+        logger.warn('invalid token for receivedReqs socket')
+        socket.emit(Common.Constants.ErrorCode.NOT_AUTH)
+        return
+      }
+
+      if (receivedReqsUnsub !== emptyUnsub) {
+        logger.error(
+          'Tried to set receivedReqs socket twice, this might be due to an app restart and the old socket not being recycled by socket.io in time, will disable the older subscription, which means the old socket wont work and data will be sent to this new socket instead'
+        )
+        receivedReqsUnsub()
+        receivedReqsUnsub = emptyUnsub
+      }
+
+      GunEvents.onSimplerReceivedRequests(receivedReqs => {
+        socket.emit(Common.Constants.Event.ON_RECEIVED_REQUESTS, receivedReqs)
+      })
+
+      socket.on('disconnect', () => {
+        receivedReqsUnsub()
+        receivedReqsUnsub = emptyUnsub
+      })
+    } catch (e) {
+      logger.error('Error inside receivedReqs socket connect: ' + e.message)
+      socket.emit('$error', e.message)
+    }
+  })
 
   return io
 }
