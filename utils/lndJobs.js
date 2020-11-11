@@ -36,7 +36,7 @@ const _lookupInvoice = hash =>
     })
   })
 
-const _getPostTipInfo = ({ postID, page }) =>
+const _getPostTipInfo = ({ postID }) =>
   new Promise((resolve, reject) => {
     getUser()
       .get(Key.POSTS_NEW)
@@ -44,7 +44,6 @@ const _getPostTipInfo = ({ postID, page }) =>
       .once(post => {
         if (post && post.date) {
           const { tipCounter, tipValue } = post
-          console.log(post)
           resolve({
             tipCounter: typeof tipCounter === 'number' ? tipCounter : 0,
             tipValue: typeof tipValue === 'number' ? tipValue : 0
