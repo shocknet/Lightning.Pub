@@ -39,10 +39,7 @@ const _lookupInvoice = hash =>
 const _getPostTipInfo = ({ postID, page }) =>
   new Promise((resolve, reject) => {
     getUser()
-      .get(Key.WALL)
-      .get(Key.PAGES)
-      .get(page)
-      .get(Key.POSTS)
+      .get(Key.POSTS_NEW)
       .get(postID)
       .once(post => {
         if (post && post.date) {
@@ -52,13 +49,14 @@ const _getPostTipInfo = ({ postID, page }) =>
             tipCounter: typeof tipCounter === 'number' ? tipCounter : 0,
             tipValue: typeof tipValue === 'number' ? tipValue : 0
           })
+          return
         }
 
         resolve(post)
       })
   })
 
-const _incrementPost = ({ postID, page, orderAmount }) =>
+const _incrementPost = ({ postID, orderAmount }) =>
   new Promise((resolve, reject) => {
     const parsedAmount = parseFloat(orderAmount)
 
@@ -69,7 +67,7 @@ const _incrementPost = ({ postID, page, orderAmount }) =>
 
     Logger.info('[POST TIP] Getting Post Tip Values...')
 
-    return _getPostTipInfo({ postID, page })
+    return _getPostTipInfo({ postID })
       .then(({ tipValue, tipCounter }) => {
         const updatedTip = {
           tipCounter: tipCounter + 1,
@@ -77,10 +75,7 @@ const _incrementPost = ({ postID, page, orderAmount }) =>
         }
 
         getUser()
-          .get(Key.WALL)
-          .get(Key.PAGES)
-          .get(page)
-          .get(Key.POSTS)
+          .get(Key.POSTS_NEW)
           .get(postID)
           .put(updatedTip, () => {
             Logger.info('[POST TIP] Successfully updated Post tip info')
@@ -158,7 +153,6 @@ const executeTipAction = (tip, invoice) => {
   if (tip.targetType === 'post') {
     _incrementPost({
       postID: tip.postID,
-      page: tip.postPage,
       orderAmount: invoice.amt_paid_sat
     })
   }
