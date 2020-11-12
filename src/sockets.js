@@ -527,8 +527,8 @@ module.exports = (
         chatsUnsub = emptyUnsub
       }
 
-      GunEvents.onChats(chats => {
-        socket.emit(Common.Constants.Event.ON_CHATS, chats)
+      chatsUnsub = GunEvents.onChats(chats => {
+        socket.emit('$shock', chats)
       })
 
       socket.on('disconnect', () => {
@@ -572,8 +572,8 @@ module.exports = (
         sentReqsUnsub = emptyUnsub
       }
 
-      GunEvents.onSimplerSentRequests(sentReqs => {
-        socket.emit(Common.Constants.Event.ON_SENT_REQUESTS, sentReqs)
+      sentReqsUnsub = GunEvents.onSimplerSentRequests(sentReqs => {
+        socket.emit('$shock', sentReqs)
       })
 
       socket.on('disconnect', () => {
@@ -617,8 +617,8 @@ module.exports = (
         receivedReqsUnsub = emptyUnsub
       }
 
-      GunEvents.onSimplerReceivedRequests(receivedReqs => {
-        socket.emit(Common.Constants.Event.ON_RECEIVED_REQUESTS, receivedReqs)
+      receivedReqsUnsub = GunEvents.onSimplerReceivedRequests(receivedReqs => {
+        socket.emit('$shock', receivedReqs)
       })
 
       socket.on('disconnect', () => {
