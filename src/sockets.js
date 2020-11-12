@@ -527,9 +527,37 @@ module.exports = (
         chatsUnsub = emptyUnsub
       }
 
-      chatsUnsub = GunEvents.onChats(chats => {
-        socket.emit('$shock', chats)
-      })
+      /**
+       * @param {Common.Schema.Chat[]} chats
+       */
+      const onChats = chats => {
+        const processed = chats.map(
+          ({
+            didDisconnect,
+            id,
+            lastSeenApp,
+            messages,
+            recipientPublicKey
+          }) => {
+            /** @type {Common.Schema.Chat} */
+            const stripped = {
+              didDisconnect,
+              id,
+              lastSeenApp,
+              messages,
+              recipientAvatar: null,
+              recipientDisplayName: null,
+              recipientPublicKey
+            }
+
+            return stripped
+          }
+        )
+
+        socket.emit('$shock', processed)
+      }
+
+      chatsUnsub = GunEvents.onChats(onChats)
 
       socket.on('disconnect', () => {
         chatsUnsub()
@@ -572,9 +600,36 @@ module.exports = (
         sentReqsUnsub = emptyUnsub
       }
 
-      sentReqsUnsub = GunEvents.onSimplerSentRequests(sentReqs => {
-        socket.emit('$shock', sentReqs)
-      })
+      /**
+       * @param {Common.Schema.SimpleSentRequest[]} sentReqs
+       */
+      const onSentReqs = sentReqs => {
+        const processed = sentReqs.map(
+          ({
+            id,
+            recipientChangedRequestAddress,
+            recipientPublicKey,
+            timestamp
+          }) => {
+            /**
+             * @type {Common.Schema.SimpleSentRequest}
+             */
+            const stripped = {
+              id,
+              recipientAvatar: null,
+              recipientChangedRequestAddress,
+              recipientDisplayName: null,
+              recipientPublicKey,
+              timestamp
+            }
+
+            return stripped
+          }
+        )
+        socket.emit('$shock', processed)
+      }
+
+      sentReqsUnsub = GunEvents.onSimplerSentRequests(onSentReqs)
 
       socket.on('disconnect', () => {
         sentReqsUnsub()
@@ -617,9 +672,27 @@ module.exports = (
         receivedReqsUnsub = emptyUnsub
       }
 
-      receivedReqsUnsub = GunEvents.onSimplerReceivedRequests(receivedReqs => {
-        socket.emit('$shock', receivedReqs)
-      })
+      /**
+       * @param {Common.Schema.SimpleReceivedRequest[]} receivedReqs
+       */
+      const onReceivedReqs = receivedReqs => {
+        const processed = receivedReqs.map(({ id, requestorPK, timestamp }) => {
+          /** @type {Common.Schema.SimpleReceivedRequest} */
+          const stripped = {
+            id,
+            requestorAvatar: null,
+            requestorDisplayName: null,
+            requestorPK,
+            timestamp
+          }
+
+          return stripped
+        })
+
+        socket.emit('$shock', processed)
+      }
+
+      receivedReqsUnsub = GunEvents.onSimplerReceivedRequests(onReceivedReqs)
 
       socket.on('disconnect', () => {
         receivedReqsUnsub()
