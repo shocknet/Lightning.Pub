@@ -1,6 +1,9 @@
 const program = require("commander");
 
-const {version} = (JSON.parse(require('fs').readFileSync("./package.json", "utf-8")))
+const version = (require('child_process')
+// eslint-disable-next-line no-template-curly-in-string
+.execSync("API_TAG=$(git --no-pager log --no-walk --tags -n 1 --pretty=format:'%h');API_HASH=$(git --no-pager log -n 1 --pretty=format:'%h'); [[ \"$API_TAG\" = \"$API_HASH\" ]] && echo $API_TAG || echo \"dev-${API_HASH}\"")
+.toString().trim())
 
 // parse command line parameters
 program
