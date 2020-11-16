@@ -45,6 +45,8 @@ module.exports = async ({
       includeDirs: ["node_modules/google-proto-files", "proto"]
     }
 
+    logger.info("Proto file location:", lnrpcProtoPath, routerProtoPath);
+
     const [lnrpcProto, routerProto, walletUnlockerProto] = await Promise.all([protoLoader.load(lnrpcProtoPath, protoLoaderConfig), protoLoader.load(routerProtoPath, protoLoaderConfig), protoLoader.load(walletUnlockerProtoPath, protoLoaderConfig)]);
     const { lnrpc } = grpc.loadPackageDefinition(lnrpcProto);
     const { routerrpc } = grpc.loadPackageDefinition(routerProto);
