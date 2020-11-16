@@ -314,7 +314,7 @@ const server = program => {
 
       module.server = serverInstance
     } catch (err) {
-      logger.info(err)
+      logger.error({ exception: err, message: err.message, code: err.code })
       logger.info('Restarting server in 30 seconds...')
       await wait(30)
       startServer()
