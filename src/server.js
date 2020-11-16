@@ -212,7 +212,7 @@ const server = program => {
       })
 
       app.use((req, res, next) => {
-        res.set('Version', program.version())
+        res.set('Version', program.version ? program.version() : 'N/A')
         next()
       })
 
