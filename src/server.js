@@ -29,7 +29,7 @@ const server = program => {
 
   // load app default configuration data
   const defaults = require('../config/defaults')(program.mainnet)
-  const rootFolder = process.resourcesPath || __dirname
+  const rootFolder = program.rootPath || process.resourcesPath || __dirname
 
   // define env variables
   Dotenv.config()
@@ -212,12 +212,14 @@ const server = program => {
       })
 
       app.use((req, res, next) => {
-        res.set('Version', program.version())
+        res.set('Version', program.version ? program.version() : 'N/A')
         next()
       })
 
+      const storageDirectory = Path.resolve(rootFolder, `${program.rootPath ? '.' : '..'}/.storage`);
+
       await Storage.init({
-        dir: Path.resolve(rootFolder, '../.storage')
+        dir: storageDirectory
       })
 
       const getSessionSecret = async () => {
