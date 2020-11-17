@@ -515,11 +515,20 @@ const sendHandshakeRequest = async (recipientPublicKey, gun, user, SEA) => {
 
   logger.info('sendHR() -> before currentHandshakeAddress')
 
-  const currentHandshakeAddress = await Utils.tryAndWait(gun =>
-    gun
-      .user(recipientPublicKey)
-      .get(Key.CURRENT_HANDSHAKE_ADDRESS)
-      .then()
+  const currentHandshakeAddress = await Utils.tryAndWait(
+    gun =>
+      Common.Utils.makePromise(res => {
+        gun
+          .user(recipientPublicKey)
+          .get(Key.CURRENT_HANDSHAKE_ADDRESS)
+          .once(
+            data => {
+              res(data)
+            },
+            { wait: 1000 }
+          )
+      }),
+    data => typeof data !== 'string'
   )
 
   if (typeof currentHandshakeAddress !== 'string') {
