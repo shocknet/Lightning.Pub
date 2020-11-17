@@ -1,7 +1,8 @@
+const Path = require("path");
 const grpc = require("grpc");
 const protoLoader = require("@grpc/proto-loader");
-const fs = require("../../utils/fs");
 const logger = require("winston");
+const fs = require("../../utils/fs");
 const errorConstants = require("../../constants/errors");
 
 // expose the routes to our app with module.exports
@@ -42,7 +43,7 @@ module.exports = async ({
       enums: String,
       defaults: true,
       oneofs: true,
-      includeDirs: ["node_modules/google-proto-files", "proto"]
+      includeDirs: ["node_modules/google-proto-files", "proto", Path.resolve(__dirname, "../../config")]
     }
 
     const [lnrpcProto, routerProto, walletUnlockerProto] = await Promise.all([protoLoader.load(lnrpcProtoPath, protoLoaderConfig), protoLoader.load(routerProtoPath, protoLoaderConfig), protoLoader.load(walletUnlockerProtoPath, protoLoaderConfig)]);
