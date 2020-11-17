@@ -3,7 +3,7 @@
  */
 /* eslint-disable init-declarations */
 const logger = require('winston')
-const { Constants } = require('shock-common')
+const { Constants, Utils: CommonUtils } = require('shock-common')
 
 const Key = require('../key')
 
@@ -213,10 +213,19 @@ const tryAndWait = async (promGen, shouldRetry = () => false) => {
 const pubToEpub = async pub => {
   try {
     const epub = await tryAndWait(async gun => {
-      const _epub = await gun
-        .user(pub)
-        .get('epub')
-        .then()
+      const _epub = await CommonUtils.makePromise(res => {
+        gun
+          .user(pub)
+          .get('epub')
+          .once(
+            data => {
+              res(data)
+            },
+            {
+              wait: 1000
+            }
+          )
+      })
 
       if (typeof _epub !== 'string') {
         throw new TypeError(
