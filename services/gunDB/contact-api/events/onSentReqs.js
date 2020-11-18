@@ -95,13 +95,13 @@ const react = debounce(() => {
 
     newReqs.push({
       id: sentReqID,
-      recipientAvatar: pubToAvatar[recipientPub] || null,
+      recipientAvatar: null,
       recipientChangedRequestAddress:
         // if we haven't received the other's user current handshake address,
         // let's assume he hasn't changed it and that this request is still
         // valid
         typeof currAddress !== 'undefined' && handshakeAddress !== currAddress,
-      recipientDisplayName: pubToDN[recipientPub] || null,
+      recipientDisplayName: null,
       recipientPublicKey: recipientPub,
       timestamp
     })

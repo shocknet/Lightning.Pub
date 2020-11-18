@@ -63,8 +63,8 @@ const react = debounce(() => {
     if (!inContact && !isDisconnected) {
       newReceivedReqsMap[req.from] = {
         id,
-        requestorAvatar: pubToAvatar[req.from] || null,
-        requestorDisplayName: pubToDn[req.from] || null,
+        requestorAvatar: null,
+        requestorDisplayName: null,
         requestorPK: req.from,
         timestamp: req.timestamp
       }
