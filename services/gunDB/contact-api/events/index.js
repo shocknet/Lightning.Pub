@@ -513,8 +513,8 @@ const processChats = debounce(() => {
       didDisconnect: pubToFeed[out.with] === 'disconnected',
       id: out.with + outID,
       messages: msgs,
-      recipientAvatar: pubToAvatar[out.with] || null,
-      recipientDisplayName: pubToDn[out.with] || null,
+      recipientAvatar: null,
+      recipientDisplayName: null,
       lastSeenApp: pubToLastSeenApp[out.with] || null
     }
 
