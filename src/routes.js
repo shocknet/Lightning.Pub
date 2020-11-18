@@ -2252,7 +2252,7 @@ module.exports = async (
       const { tags, title, contentItems } = req.body
       return res
         .status(200)
-        .json(await GunActions.createPost(tags, title, contentItems))
+        .json(await GunActions.createPostNew(tags, title, contentItems))
     } catch (e) {
       return res.status(500).json({
         errorMessage:

@@ -1624,5 +1624,6 @@ module.exports = {
   unfollow,
   initWall,
   sendMessageNew,
-  sendSpontaneousPayment
+  sendSpontaneousPayment,
+  createPostNew
 }
