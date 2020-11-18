@@ -491,12 +491,15 @@ const processChats = debounce(() => {
     }
 
     /** @type {ChatMessage[]} */
-    let msgs = Object.entries(out.messages).map(([mid, m]) => ({
-      id: mid,
-      outgoing: true,
-      body: m.body,
-      timestamp: m.timestamp
-    }))
+    let msgs = Object.entries(out.messages)
+      .map(([mid, m]) => ({
+        id: mid,
+        outgoing: true,
+        body: m.body,
+        timestamp: m.timestamp
+      }))
+      // filter out null messages
+      .filter(m => typeof m.body === 'string')
 
     const incoming = pubToFeed[out.with]
 
