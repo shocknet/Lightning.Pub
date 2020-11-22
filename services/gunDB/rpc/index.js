@@ -22,6 +22,8 @@ const {
  * @typedef {import('./types').RPCData} RPCData
  */
 
+const PATH_SEPARATOR = '>'
+
 /**
  * @param {ValidDataValue} value
  * @param {string} publicKey
@@ -105,7 +107,7 @@ async function deepEncryptIfNeeded(value) {
  * @returns {Promise<void>}
  */
 const put = async (rawPath, value) => {
-  const [root, ...path] = rawPath.split('>')
+  const [root, ...path] = rawPath.split(PATH_SEPARATOR)
 
   const node = (() => {
     // eslint-disable-next-line init-declarations
@@ -143,7 +145,9 @@ const put = async (rawPath, value) => {
     // eslint-disable-next-line no-useless-return
     return
   } else if (Schema.isObj(theValue)) {
-    const writes = mapValues(theValue, (v, k) => put(`${rawPath}.${k}`, v))
+    const writes = mapValues(theValue, (v, k) =>
+      put(rawPath + PATH_SEPARATOR + k, v)
+    )
 
     await Bluebird.props(writes)
   } /* is primitive */ else {
@@ -166,7 +170,7 @@ const put = async (rawPath, value) => {
  */
 // eslint-disable-next-line func-style
 async function set(rawPath, value) {
-  const [root, ...path] = rawPath.split('>')
+  const [root, ...path] = rawPath.split(PATH_SEPARATOR)
 
   const node = (() => {
     // eslint-disable-next-line init-declarations
@@ -204,7 +208,7 @@ async function set(rawPath, value) {
     const uuid = Gun.text.random()
 
     // here we are simulating the top-most set()
-    const subPath = rawPath + '.' + uuid
+    const subPath = rawPath + PATH_SEPARATOR + uuid
 
     const writes = theValue.map(v => set(subPath, v))
 
@@ -217,7 +221,7 @@ async function set(rawPath, value) {
 
     // so we can use our own put()
 
-    const subPath = rawPath + '.' + uuid
+    const subPath = rawPath + PATH_SEPARATOR + uuid
 
     await put(subPath, theValue)
 
