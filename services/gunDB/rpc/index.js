@@ -145,11 +145,44 @@ const put = async (rawPath, value) => {
     // eslint-disable-next-line no-useless-return
     return
   } else if (Schema.isObj(theValue)) {
-    const writes = mapValues(theValue, (v, k) =>
-      put(rawPath + PATH_SEPARATOR + k, v)
-    )
+    const currValue = await node.then()
 
-    await Bluebird.props(writes)
+    if (Schema.isObj(currValue)) {
+      const writes = mapValues(theValue, (v, k) =>
+        put(rawPath + PATH_SEPARATOR + k, v)
+      )
+
+      await Bluebird.props(writes)
+    } else {
+      // if the value at path foo is null or another primitive, then
+      // foo.get('bar').put(baz) will NOT work, the write needs to happen like so:
+      // foo.put({ bar: baz }). Doing foo.put({}) also works but it won't replace
+      // the primitive value with an empty object but with the last object
+      // representation of that node. Doing foo.put({ anything: whatever }) will
+      // merge that new object with the previous representation too. Both of which
+      // can result in inconsistent states so please thread carefully. What I
+      // chose to do here was put without waiting for ack, and if the actual
+      // user-generated puts fail, roll back to the previous local state in order
+      // to accomplish some kind of atomicity. This bug will mostly affect maps
+      // instead of sets as deleted keys in a set should not be reused.
+      // Maps should conform to an schema to avoid inconsistent data.
+      try {
+        node.put({}) // changes from current primitive value to last known object value
+
+        const writes = mapValues(theValue, (v, k) =>
+          put(rawPath + PATH_SEPARATOR + k, v)
+        )
+
+        await Bluebird.props(writes)
+      } catch (e) {
+        if (typeof currValue !== 'undefined') {
+          // if write was somehow unsuccessful, revert to last known primitive value
+          node.put(currValue)
+        }
+
+        throw e
+      }
+    }
   } /* is primitive */ else {
     await makePromise((res, rej) => {
       node.put(/** @type {ValidDataValue} */ (theValue), ack => {
