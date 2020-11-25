@@ -319,7 +319,11 @@ module.exports = (
        */
       const listener = async (data, key) => {
         try {
-          if (publicKeyForDecryption) {
+          if (
+            typeof publicKeyForDecryption === 'string' &&
+            publicKeyForDecryption !== 'undefined' &&
+            publicKeyForDecryption.length > 15
+          ) {
             const decData = await deepDecryptIfNeeded(
               data,
               publicKeyForDecryption
