@@ -15,7 +15,8 @@ module.exports = (logFileName, logLevel) => {
     winston.add(new (winston.transports.DailyRotateFile)({
       filename: logFileName,
       datePattern: "yyyy-MM-DD",
-      json: false,
+      // https://github.com/winstonjs/winston-daily-rotate-file/issues/188
+      json: true,
       maxSize: 1000000,
       maxFiles: 7,
       level: logLevel

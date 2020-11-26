@@ -3215,4 +3215,35 @@ module.exports = async (
         })
     }
   })
+
+  ap.get('/api/log', async (_, res) => {
+    try {
+      // https://github.com/winstonjs/winston#querying-logs
+      /**
+       * @type {import('winston').QueryOptions}
+       */
+      const options = {
+        from: new Date() - 1 * 60 * 60 * 1000,
+        until: new Date()
+      }
+
+      const results = await Common.Utils.makePromise((res, rej) => {
+        logger.query(options, (err, results) => {
+          if (err) {
+            rej(err)
+          } else {
+            res(results)
+          }
+        })
+      })
+
+      res.status(200).json(results)
+    } catch (e) {
+      res
+        .status(e.message === Common.Constants.ErrorCode.NOT_AUTH ? 401 : 500)
+        .json({
+          errorMessage: e.message
+        })
+    }
+  })
 }
