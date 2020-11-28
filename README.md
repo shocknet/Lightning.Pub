@@ -39,6 +39,6 @@ yarn install
 3) Run with `yarn start`
 4) Connect with Shockwallet *(Provide your nodes IP manually or scan QR from ShockWizard)*
 
-#### Docker for Raspberry Pi
+### Docker for Raspberry Pi
 
-[Instructions](https://gist.github.com/boufni95/3f4e1f19cf9525c3b7741b7a29f122bc)
+* [Instructions](https://gist.github.com/boufni95/3f4e1f19cf9525c3b7741b7a29f122bc)
