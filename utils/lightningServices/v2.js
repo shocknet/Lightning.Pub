@@ -229,16 +229,8 @@ const sendPaymentV2 = sendPaymentRequest => {
     )
   }
 
-  /**
-   * @type {SendPaymentV2Request}
-   */
-  const paymentRequest = {
-    ...sendPaymentRequest,
-    no_inflight_updates: true
-  }
-
   return new Promise((res, rej) => {
-    const stream = router.sendPaymentV2(paymentRequest)
+    const stream = router.sendPaymentV2(sendPaymentRequest)
 
     stream.on(
       'data',
@@ -247,8 +239,12 @@ const sendPaymentV2 = sendPaymentRequest => {
        */ streamingPaymentV2 => {
         if (streamingPaymentV2.failure_reason !== 'FAILURE_REASON_NONE') {
           rej(new Error(streamingPaymentV2.failure_reason))
-        } else {
+        } else if (streamingPaymentV2.status === 'FAILED') {
+          rej(new Error(streamingPaymentV2.failure_reason))
+        } else if (streamingPaymentV2.status === 'SUCCEEDED') {
           res(streamingPaymentV2)
+        } else {
+          logger.info(`sendPaymentV2 -> status: ${streamingPaymentV2.status}`)
         }
       }
     )
@@ -256,6 +252,9 @@ const sendPaymentV2 = sendPaymentRequest => {
     // @ts-expect-error
     stream.on('status', status => {
       logger.info('SendPaymentV2 Status:', status)
+      if (status === 'FAILED') {
+        rej(new Error('Status == FAILED'))
+      }
     })
 
     stream.on(
