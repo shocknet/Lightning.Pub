@@ -1,16 +1,17 @@
 /**
  * @format
  */
-
+// @ts-check
 const { performance } = require('perf_hooks')
 const logger = require('winston')
 const isFinite = require('lodash/isFinite')
 const isNumber = require('lodash/isNumber')
 const isNaN = require('lodash/isNaN')
+const Common = require('shock-common')
 const {
   Constants: { ErrorCode },
   Schema
-} = require('shock-common')
+} = Common
 
 const LightningServices = require('../../../../utils/lightningServices')
 
@@ -226,30 +227,49 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
 
     const invoicePutEndTime = performance.now() - invoicePutStartTime
 
+    const hash = invoice.r_hash.toString('base64')
+
+    // invoices should be settled right away so we can rely on this single
+    // subscription instead of life-long all invoices subscription
+    if (order.targetType === 'post') {
+      const { subscribeSingleInvoice } = LightningServices.invoices
+      const { postID } = order
+
+      if (!Common.isPopulatedString(postID)) {
+        throw new TypeError(`postID not a a populated string`)
+      }
+
+      const stream = subscribeSingleInvoice({ r_hash: hash })
+
+      /**
+       * @param {Common.Invoice} invoice
+       */
+      const onData = invoice => {
+        if (invoice.settled) {
+          getUser()
+            .get('postToTipCount')
+            .get(postID)
+            .set(null) // each item in the set is a tip
+
+          stream.off()
+        }
+      }
+
+      stream.on('data', onData)
+
+      stream.on('status', (/** @type {any} */ status) => {
+        logger.info(`Post tip, post: ${postID}, invoice status: ${status}`)
+      })
+      stream.on('end', () => {
+        logger.warn(`Post tip, post: ${postID}, invoice stream ended`)
+      })
+    }
+
     logger.info(`[PERF] Added invoice to GunDB in ${invoicePutEndTime}ms`)
 
     const listenerEndTime = performance.now() - listenerStartTime
 
     logger.info(`[PERF] Invoice generation completed in ${listenerEndTime}ms`)
-
-    const hash = invoice.r_hash.toString('base64')
-
-    if (order.targetType === 'post') {
-      /** @type {TipPaymentStatus} */
-      const paymentStatus = {
-        hash,
-        state: 'OPEN',
-        targetType: order.targetType,
-        postID: order.postID
-      }
-      getUser()
-        .get(Key.TIPS_PAYMENT_STATUS)
-        .get(hash)
-        // @ts-ignore
-        .put(paymentStatus, response => {
-          console.log(response)
-        })
-    }
   } catch (err) {
     logger.error(
       `error inside onOrders, orderAddr: ${addr}, orderID: ${orderID}, order: ${JSON.stringify(
