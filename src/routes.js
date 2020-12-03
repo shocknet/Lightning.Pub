@@ -35,7 +35,6 @@ const {
   sendPaymentV2Invoice,
   listPayments
 } = require('../utils/lightningServices/v2')
-const { startTipStatusJob } = require('../utils/lndJobs')
 const GunWriteRPC = require('../services/gunDB/rpc')
 
 const DEFAULT_MAX_NUM_ROUTES_TO_QUERY = 10
@@ -690,7 +689,6 @@ module.exports = async (
         }
 
         onNewChannelBackup()
-        startTipStatusJob()
 
         res.json({
           authorization: token,
