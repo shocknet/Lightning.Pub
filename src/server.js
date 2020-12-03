@@ -6,6 +6,7 @@
  * Module dependencies.
  */
 const server = program => {
+  const localtunnel = require('localtunnel')
   const Http = require('http')
   const Express = require('express')
   const Crypto = require('crypto')
@@ -21,6 +22,7 @@ const server = program => {
   const bodyParser = require('body-parser')
   const session = require('express-session')
   const methodOverride = require('method-override')
+  const qrcode = require('qrcode-terminal')
   const {
     unprotectedRoutes,
     sensitiveRoutes,
@@ -36,6 +38,7 @@ const server = program => {
 
   const serverPort = program.serverport || defaults.serverPort
   const serverHost = program.serverhost || defaults.serverHost
+  const tunnelHost = process.env.LOCAL_TUNNEL_SERVER || defaults.localtunnelHost
 
   // setup winston logging ==========
   const logger = require('../config/log')(
@@ -216,11 +219,56 @@ const server = program => {
         next()
       })
 
-      const storageDirectory = Path.resolve(rootFolder, `${program.rootPath ? '.' : '..'}/.storage`);
+      const storageDirectory = Path.resolve(
+        rootFolder,
+        `${program.rootPath ? '.' : '..'}/.storage`
+      )
 
       await Storage.init({
         dir: storageDirectory
       })
+      if (program.tunnel) {
+        // setup localtunnel ==========
+        const [tunnelToken, tunnelSubdomain, tunnelUrl] = await Promise.all([
+          Storage.getItem('tunnel/token'),
+          Storage.getItem('tunnel/subdomain'),
+          Storage.getItem('tunnel/url')
+        ])
+        const tunnelOpts = { port: serverPort, host: tunnelHost }
+        if (tunnelToken && tunnelSubdomain) {
+          tunnelOpts.tunnelToken = tunnelToken
+          tunnelOpts.subdomain = tunnelSubdomain
+          logger.info('Recreating tunnel... with subdomain: ' + tunnelSubdomain)
+        } else {
+          logger.info('Creating new tunnel... ')
+        }
+        const tunnel = await localtunnel(tunnelOpts)
+        logger.info('Tunnel created! connect to: ' + tunnel.url + ':80')
+        const dataToQr = JSON.stringify({
+          internalIP: tunnel.url,
+          walletPort: 80, //change to 443 for https
+          externalIP: tunnel.url
+        })
+        qrcode.generate(dataToQr, { small: true })
+        if (!tunnelToken) {
+          await Promise.all([
+            Storage.setItem('tunnel/token', tunnel.token),
+            Storage.setItem('tunnel/subdomain', tunnel.clientId),
+            Storage.setItem('tunnel/url', tunnel.url)
+          ])
+        }
+        if (tunnelUrl && tunnel.url !== tunnelUrl) {
+          logger.error('New tunnel URL different from OLD tunnel url')
+          logger.error('OLD: ' + tunnelUrl + ':80')
+          logger.error('NEW: ' + tunnel.url + ':80')
+          logger.error('New pair required')
+          await Promise.all([
+            Storage.setItem('tunnel/token', tunnel.token),
+            Storage.setItem('tunnel/subdomain', tunnel.clientId),
+            Storage.setItem('tunnel/url', tunnel.url)
+          ])
+        }
+      }
 
       const getSessionSecret = async () => {
         const sessionSecret = await Storage.getItem('config/sessionSecret')

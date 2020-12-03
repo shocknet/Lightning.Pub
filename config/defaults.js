@@ -48,6 +48,7 @@ module.exports = (mainnet = false) => {
     lndDirPath: lndDirectory,
     peers: ['https://gun.shock.network:8765/gun'],
     useTLS: false,
-    tokenExpirationMS: 259200000
+    tokenExpirationMS: 259200000,
+    localtunnelHost:'http://tunnel.example.com'
   }; 
 };
