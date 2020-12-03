@@ -21,6 +21,7 @@ const errorConstants = require("../../constants/errors");
  * @prop {any} lightning
  * @prop {any} walletUnlocker
  * @prop {any} router
+ * @prop {any} invoices
  */
 
 /** 
@@ -93,11 +94,15 @@ module.exports = async ({
         const walletUnlocker = new walletunlockerrpc.WalletUnlocker(lndHost, credentials);
         // @ts-ignore
         const router = new routerrpc.Router(lndHost, credentials);
+        // @ts-expect-error
+        const invoices = new lnrpc.Invoices(lndHost, credentials)
+
 
         return {
           lightning,
           walletUnlocker,
-          router
+          router,
+          invoices
         };
       }
 
