@@ -127,10 +127,11 @@ class LightningServices {
     if (!lnServices) {
       throw new Error(`Could not init lnServices`)
     }
-    const { lightning, walletUnlocker, router } = lnServices
+    const { lightning, walletUnlocker, router, invoices } = lnServices
     this.lightning = lightning
     this.walletUnlocker = walletUnlocker
     this.router = router
+    this.invoices = invoices
     this.lnServicesData = {
       lndProto: this.defaults.lndProto,
       lndHost,
