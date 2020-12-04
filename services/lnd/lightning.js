@@ -1,5 +1,5 @@
 const Path = require("path");
-const grpc = require("grpc");
+const grpc = require("@grpc/grpc-js");
 const protoLoader = require("@grpc/proto-loader");
 const logger = require("winston");
 const fs = require("../../utils/fs");
