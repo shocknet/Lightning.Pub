@@ -19,15 +19,15 @@ jobs:
         echo $(if [ "$API_TAG" = "$RELEASE_TAG" ]; then echo "UPGRADEABLE=true"; else echo "UPGRADEABLE=false"; fi) >> $GITHUB_ENV
     
     - name: Update and Commit files
-      if: ${{ env.UPGRADEABLE == "true" }}
+      if: ${{ env.UPGRADEABLE == 'true' }}
       run: |
         echo $(cat ./package.json | jq -r --arg API_TAG "$API_TAG" '.version = $API_TAG') > package.json
         git config --local user.email "actions@shock.network"
         git config --local user.name "Version Update Action"
         git commit -m "version upgraded to ${API_TAG}" -a
     - name: Push changes
-      if: ${{ env.UPGRADEABLE == "true" }}
+      if: ${{ env.UPGRADEABLE == 'true' }}
       uses: ad-m/github-push-action@master
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
-        branch: "master"
+        branch: master
