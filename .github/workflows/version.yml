@@ -3,7 +3,7 @@ on:
     types: [prereleased, released, published]
 
 jobs:
-  build:
+  version-bump:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@master
@@ -21,7 +21,7 @@ jobs:
     - name: Update and Commit files
       if: ${{ env.UPGRADEABLE == "true" }}
       run: |
-        echo $(cat ./package.json | jq -r --arg API_TAG "$API_TAG" '.version = $API_TAG')
+        echo $(cat ./package.json | jq -r --arg API_TAG "$API_TAG" '.version = $API_TAG') > package.json
         git config --local user.email "actions@shock.network"
         git config --local user.name "Version Update Action"
         git commit -m "version upgraded to ${API_TAG}" -a
