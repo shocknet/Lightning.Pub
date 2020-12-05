@@ -18,6 +18,7 @@ const lnrpc = require('../../services/lnd/lightning')
  * @prop {string} macaroonPath
  * @prop {string} lndProto
  * @prop {string} routerProto
+ * @prop {string} invoicesProto
  * @prop {string} walletUnlockerProto
  */
 
@@ -119,6 +120,7 @@ class LightningServices {
     const lnServices = await lnrpc({
       lnrpcProtoPath: this.defaults.lndProto,
       routerProtoPath: this.defaults.routerProto,
+      invoicesProtoPath: this.defaults.invoicesProto,
       walletUnlockerProtoPath: this.defaults.walletUnlockerProto,
       lndHost,
       lndCertPath,

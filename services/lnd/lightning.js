@@ -10,6 +10,7 @@ const errorConstants = require("../../constants/errors");
  * @typedef LightningConfig
  * @prop {string} lnrpcProtoPath
  * @prop {string} routerProtoPath
+ * @prop {string} invoicesProtoPath
  * @prop {string} walletUnlockerProtoPath
  * @prop {string} lndHost
  * @prop {string} lndCertPath
@@ -31,10 +32,11 @@ const errorConstants = require("../../constants/errors");
 module.exports = async ({
   lnrpcProtoPath,
   routerProtoPath,
+  invoicesProtoPath,
   walletUnlockerProtoPath,
-  lndHost, 
-  lndCertPath, 
-  macaroonPath 
+  lndHost,
+  lndCertPath,
+  macaroonPath
 }) => {
   try {
     process.env.GRPC_SSL_CIPHER_SUITES = "HIGH+ECDSA";
@@ -47,9 +49,15 @@ module.exports = async ({
       includeDirs: ["node_modules/google-proto-files", "proto", Path.resolve(__dirname, "../../config")]
     }
 
-    const [lnrpcProto, routerProto, walletUnlockerProto] = await Promise.all([protoLoader.load(lnrpcProtoPath, protoLoaderConfig), protoLoader.load(routerProtoPath, protoLoaderConfig), protoLoader.load(walletUnlockerProtoPath, protoLoaderConfig)]);
+    const [lnrpcProto, routerProto, walletUnlockerProto, invoicesProto] = await Promise.all([
+      protoLoader.load(lnrpcProtoPath, protoLoaderConfig),
+      protoLoader.load(routerProtoPath, protoLoaderConfig),
+      protoLoader.load(walletUnlockerProtoPath, protoLoaderConfig),
+      protoLoader.load(invoicesProtoPath, protoLoaderConfig)
+    ]);
     const { lnrpc } = grpc.loadPackageDefinition(lnrpcProto);
     const { routerrpc } = grpc.loadPackageDefinition(routerProto);
+    const { invoicesrpc } = grpc.loadPackageDefinition(invoicesProto);
     const { lnrpc: walletunlockerrpc } = grpc.loadPackageDefinition(walletUnlockerProto);
 
     const getCredentials = async () => {
@@ -94,10 +102,8 @@ module.exports = async ({
         const walletUnlocker = new walletunlockerrpc.WalletUnlocker(lndHost, credentials);
         // @ts-ignore
         const router = new routerrpc.Router(lndHost, credentials);
-        // @ts-expect-error
-        const invoices = new lnrpc.Invoices(lndHost, credentials)
-
-
+        // @ts-ignore
+        const invoices = new invoicesrpc.Invoices(lndHost, credentials);
         return {
           lightning,
           walletUnlocker,
