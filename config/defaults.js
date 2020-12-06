@@ -49,6 +49,6 @@ module.exports = (mainnet = false) => {
     peers: ['https://gun.shock.network:8765/gun'],
     useTLS: false,
     tokenExpirationMS: 259200000,
-    localtunnelHost:'http://tunnel.example.com'
+    localtunnelHost:'https://tunnel.rip'
   }; 
 };
