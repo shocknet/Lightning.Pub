@@ -51,7 +51,7 @@
     "response-time": "^2.3.2",
     "shelljs": "^0.8.2",
     "shock-common": "24.x.x",
-    "socket.io": "2.1.1",
+    "socket.io": "3.0.4",
     "text-encoding": "^0.7.0",
     "tingodb": "^0.6.1",
     "winston": "^3.3.3",
