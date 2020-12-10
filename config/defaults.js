@@ -15,6 +15,18 @@ const getLndDirectory = () => {
   return homeDir + "/.lnd";
 };
 
+const getLoopDirectory = () => {
+  if (platform === "darwin") {
+    return homeDir + "/Library/Application Support/Loop";
+  } else if (platform === "win32") {
+    // eslint-disable-next-line no-process-env
+    const { APPDATA = "" } = process.env;
+    return path.resolve(APPDATA, "../Local/Loop");
+  }
+
+  return homeDir + "/.loop";
+};
+
 const parsePath = (filePath = "") => {
   if (platform === "win32") {
     return filePath.replace("/", "\\");
@@ -24,6 +36,7 @@ const parsePath = (filePath = "") => {
 };
 
 const lndDirectory = getLndDirectory();
+const loopDirectory = getLoopDirectory();
 
 module.exports = (mainnet = false) => {
   const network = mainnet ? "mainnet" : "testnet";
@@ -36,10 +49,18 @@ module.exports = (mainnet = false) => {
     lndProto: parsePath(`${__dirname}/rpc.proto`),
     routerProto: parsePath(`${__dirname}/router.proto`),
     walletUnlockerProto: parsePath(`${__dirname}/walletunlocker.proto`),
+    loopClientProto: parsePath(`${__dirname}/loopClient.proto`),
+    chainnotifierProto: parsePath(`${__dirname}/chainnotifier.proto`),
     lndHost: "localhost:10009",
     lndCertPath: parsePath(`${lndDirectory}/tls.cert`),
     macaroonPath: parsePath(
       `${lndDirectory}/data/chain/bitcoin/${network}/admin.macaroon`
+    ),
+    loopEnabled:false,
+    loopHost: "localhost:11010",
+    loopCertPath: parsePath(`${loopDirectory}/${network}/tls.cert`),
+    loopMacaroonPath: parsePath(
+      `${loopDirectory}/${network}/loop.macaroon`
     ),
     dataPath: parsePath(`${lndDirectory}/data`),
     loglevel: "info",
@@ -49,5 +70,5 @@ module.exports = (mainnet = false) => {
     peers: ['https://gun.shock.network:8765/gun'],
     useTLS: false,
     tokenExpirationMS: 259200000
-  }; 
+  };
 };
