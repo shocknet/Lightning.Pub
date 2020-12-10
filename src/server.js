@@ -164,10 +164,6 @@ const server = program => {
         await LightningServices.init()
       }
 
-      // init lnd module =================
-      const lnd = require('../services/lnd/lnd')(
-        LightningServices.services.lightning
-      )
       await new Promise((resolve, reject) => {
         LightningServices.services.lightning.getInfo({}, (err, res) => {
           if (err && err.code !== 12) {
@@ -216,7 +212,10 @@ const server = program => {
         next()
       })
 
-      const storageDirectory = Path.resolve(rootFolder, `${program.rootPath ? '.' : '..'}/.storage`);
+      const storageDirectory = Path.resolve(
+        rootFolder,
+        `${program.rootPath ? '.' : '..'}/.storage`
+      )
 
       await Storage.init({
         dir: storageDirectory
