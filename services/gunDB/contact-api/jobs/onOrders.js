@@ -238,7 +238,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       const { r_hash } = invoice
 
       // A post tip order lifecycle is short enough that we can do it like this.
-      const stream = LightningServices.invoices.subsribeSingleInvoice({
+      const stream = LightningServices.invoices.subscribeSingleInvoice({
         r_hash
       })
 
