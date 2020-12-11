@@ -259,7 +259,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       stream.on('data', onData)
 
       stream.on('status', (/** @type {any} */ status) => {
-        logger.info(`Post tip, post: ${postID}, invoice status: ${status}`)
+        logger.info(`Post tip, post: ${postID}, invoice status:`, status)
       })
       stream.on('end', () => {
         logger.warn(`Post tip, post: ${postID}, invoice stream ended`)
