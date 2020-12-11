@@ -227,19 +227,20 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
 
     const invoicePutEndTime = performance.now() - invoicePutStartTime
 
-    const hash = invoice.r_hash.toString('base64')
-
     // invoices should be settled right away so we can rely on this single
     // subscription instead of life-long all invoices subscription
     if (order.targetType === 'post') {
-      const { subscribeSingleInvoice } = LightningServices.invoices
       const { postID } = order
-
       if (!Common.isPopulatedString(postID)) {
         throw new TypeError(`postID not a a populated string`)
       }
 
-      const stream = subscribeSingleInvoice({ r_hash: hash })
+      const { r_hash } = invoice
+
+      // A post tip order lifecycle is short enough that we can do it like this.
+      const stream = LightningServices.invoices.subsribeSingleInvoice({
+        r_hash
+      })
 
       /**
        * @param {Common.Invoice} invoice
@@ -262,6 +263,9 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       })
       stream.on('end', () => {
         logger.warn(`Post tip, post: ${postID}, invoice stream ended`)
+      })
+      stream.on('error', (/** @type {any} */ e) => {
+        logger.warn(`Post tip, post: ${postID}, error:`, e)
       })
     }
 
