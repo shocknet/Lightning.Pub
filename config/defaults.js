@@ -48,6 +48,7 @@ module.exports = (mainnet = false) => {
     maxNumRoutesToQuery: 20,
     lndProto: parsePath(`${__dirname}/rpc.proto`),
     routerProto: parsePath(`${__dirname}/router.proto`),
+    invoicesProto: parsePath(`${__dirname}/invoices.proto`),
     walletUnlockerProto: parsePath(`${__dirname}/walletunlocker.proto`),
     loopClientProto: parsePath(`${__dirname}/loopClient.proto`),
     chainnotifierProto: parsePath(`${__dirname}/chainnotifier.proto`),

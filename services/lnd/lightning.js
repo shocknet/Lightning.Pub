@@ -10,6 +10,7 @@ const errorConstants = require("../../constants/errors");
  * @typedef LightningConfig
  * @prop {string} lnrpcProtoPath
  * @prop {string} routerProtoPath
+ * @prop {string} invoicesProtoPath
  * @prop {string} walletUnlockerProtoPath
  * @prop {string} loopClientProtoPath
  * @prop {string} chainnotifierProtoPath
@@ -29,6 +30,7 @@ const errorConstants = require("../../constants/errors");
  * @prop {any} router
  * @prop {any} chainNotifier
  * @prop {any=} swapClient
+ * @prop {any} invoices
  */
 
 /** 
@@ -38,16 +40,17 @@ const errorConstants = require("../../constants/errors");
 module.exports = async ({
   lnrpcProtoPath,
   routerProtoPath,
+  invoicesProtoPath,
   walletUnlockerProtoPath,
   loopClientProtoPath,
   chainnotifierProtoPath,
-  lndHost, 
-  lndCertPath, 
+  lndHost,
+  lndCertPath,
   macaroonPath,
   loopEnabled,
-  loopHost, 
-  loopCertPath, 
-  loopMacaroonPath 
+  loopHost,
+  loopCertPath,
+  loopMacaroonPath
 }) => {
   try {
     process.env.GRPC_SSL_CIPHER_SUITES = "HIGH+ECDSA";
@@ -61,30 +64,33 @@ module.exports = async ({
     }
 
     const [
-      lnrpcProto, 
-      routerProto, 
+      lnrpcProto,
+      routerProto,
       walletUnlockerProto,
       chainnotifierProto,
-      looprpcProto
+      looprpcProto,
+      invoicesProto
     ] = await Promise.all([
-      protoLoader.load(lnrpcProtoPath, protoLoaderConfig), 
-      protoLoader.load(routerProtoPath, protoLoaderConfig), 
+      protoLoader.load(lnrpcProtoPath, protoLoaderConfig),
+      protoLoader.load(routerProtoPath, protoLoaderConfig),
       protoLoader.load(walletUnlockerProtoPath, protoLoaderConfig),
       protoLoader.load(chainnotifierProtoPath, protoLoaderConfig),
-      protoLoader.load(loopClientProtoPath, protoLoaderConfig)
+      protoLoader.load(loopClientProtoPath, protoLoaderConfig),
+      protoLoader.load(invoicesProtoPath, protoLoaderConfig)
     ]);
     const { lnrpc } = grpc.loadPackageDefinition(lnrpcProto);
     const { routerrpc } = grpc.loadPackageDefinition(routerProto);
+    const { invoicesrpc } = grpc.loadPackageDefinition(invoicesProto);
     const { lnrpc: walletunlockerrpc } = grpc.loadPackageDefinition(walletUnlockerProto);
-    const {looprpc} =  grpc.loadPackageDefinition(looprpcProto);
-    const {chainrpc} =  grpc.loadPackageDefinition(chainnotifierProto);
+    const { looprpc } = grpc.loadPackageDefinition(looprpcProto);
+    const { chainrpc } = grpc.loadPackageDefinition(chainnotifierProto);
 
     /**
      * 
      * @param {string} CertFilePath 
      * @param {string|null} macaroonFilePath 
      */
-    const getCredentials = async (CertFilePath,macaroonFilePath) => {
+    const getCredentials = async (CertFilePath, macaroonFilePath) => {
       const tlsCert = await fs.readFile(CertFilePath);
       const sslCreds = grpc.credentials.createSsl(tlsCert);
 
@@ -119,8 +125,8 @@ module.exports = async ({
       const loopCertExists = loopEnabled && await fs.access(loopCertPath)
 
       if (certExists) {
-        const credentials = await getCredentials(lndCertPath,macaroonPath);
-        
+        const credentials = await getCredentials(lndCertPath, macaroonPath);
+
 
         // @ts-ignore
         const lightning = new lnrpc.Lightning(lndHost, credentials);
@@ -129,7 +135,9 @@ module.exports = async ({
         // @ts-ignore
         const router = new routerrpc.Router(lndHost, credentials);
         // @ts-ignore
-        let chainNotifier = new chainrpc.ChainNotifier(lndHost, credentials);
+        const chainNotifier = new chainrpc.ChainNotifier(lndHost, credentials);
+        // @ts-ignore
+        const invoices = new invoicesrpc.Invoices(lndHost, credentials);
 
         /**
          * @type {LightningServices}
@@ -138,11 +146,12 @@ module.exports = async ({
           lightning,
           walletUnlocker,
           router,
-          chainNotifier
+          chainNotifier,
+          invoices
         }
 
-        if(loopCertExists){
-          const loopCredentials = await getCredentials(loopCertPath,loopMacaroonPath)
+        if (loopCertExists) {
+          const loopCredentials = await getCredentials(loopCertPath, loopMacaroonPath)
           // @ts-ignore
           const swapClient = new looprpc.SwapClient(loopHost, loopCredentials);
           services.swapClient = swapClient

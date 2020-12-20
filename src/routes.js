@@ -35,7 +35,6 @@ const {
   sendPaymentV2Invoice,
   listPayments
 } = require('../utils/lightningServices/v2')
-const { startTipStatusJob } = require('../utils/lndJobs')
 const GunWriteRPC = require('../services/gunDB/rpc')
 const { handleBotMessage } = require('../services/chatBots')
 
@@ -691,7 +690,6 @@ module.exports = async (
         }
 
         onNewChannelBackup()
-        startTipStatusJob()
 
         res.json({
           authorization: token,

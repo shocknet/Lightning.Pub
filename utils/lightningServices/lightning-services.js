@@ -22,6 +22,7 @@ const lnrpc = require('../../services/lnd/lightning')
  * @prop {string} loopMacaroonPath
  * @prop {string} lndProto
  * @prop {string} routerProto
+ * @prop {string} invoicesProto
  * @prop {string} walletUnlockerProto
  * @prop {string} loopClientProto
  * @prop {string} chainnotifierProto
@@ -139,6 +140,7 @@ class LightningServices {
     const lnServices = await lnrpc({
       lnrpcProtoPath: this.defaults.lndProto,
       routerProtoPath: this.defaults.routerProto,
+      invoicesProtoPath: this.defaults.invoicesProto,
       walletUnlockerProtoPath: this.defaults.walletUnlockerProto,
       loopClientProtoPath: this.defaults.loopClientProto,
       chainnotifierProtoPath: this.defaults.chainnotifierProto,
@@ -158,12 +160,14 @@ class LightningServices {
       walletUnlocker,
       router,
       swapClient,
-      chainNotifier
+      chainNotifier,
+      invoices
     } = lnServices
     this.lightning = lightning
     this.walletUnlocker = walletUnlocker
     this.router = router
     this.chainNotifier = chainNotifier
+    this.invoices = invoices
     this.swapClient = swapClient ? swapClient : null
     this.lnServicesData = {
       lndProto: this.defaults.lndProto,
