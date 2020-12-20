@@ -17,7 +17,7 @@ const {
 } = require('../services/gunDB/Mediator')
 const { deepDecryptIfNeeded } = require('../services/gunDB/rpc')
 const GunEvents = require('../services/gunDB/contact-api/events')
-const ActiveChatBots = require('../services/chatBots')
+const { messagesManager } = require('../services/chatBots')
 /**
  * @typedef {import('../services/gunDB/Mediator').SimpleSocket} SimpleSocket
  * @typedef {import('../services/gunDB/contact-api/SimpleGUN').ValidDataValue} ValidDataValue
@@ -533,6 +533,14 @@ module.exports = (
       }
 
       /**
+       * @param {Common.Schema.Chat[]} allChats
+       */
+      const emitProcessedChats = allChats => {
+        socket.emit('$shock', allChats)
+      }
+      messagesManager.ConnectBots(emitProcessedChats)
+
+      /**
        * @param {Common.Schema.Chat[]} chats
        */
       const onChats = chats => {
@@ -558,8 +566,8 @@ module.exports = (
             return stripped
           }
         )
-
-        socket.emit('$shock', processed)
+        const allChats = messagesManager.joinGunChats(processed)
+        emitProcessedChats(allChats)
       }
 
       chatsUnsub = GunEvents.onChats(onChats)
@@ -708,50 +716,6 @@ module.exports = (
       socket.emit('$error', e.message)
     }
   })
-
-  //connect a socket with a chatbot
-
-  for (const botID in ActiveChatBots) {
-    if (ActiveChatBots.hasOwnProperty(botID)) {
-      const selectedBot = ActiveChatBots[botID];
-
-      io.of(botID).on('connect', async socket => {
-        try{
-          if (!isAuthenticated()) {
-            logger.info(
-              `not authenticated in gun for ${selectedBot.name} bot socket, will send NOT_AUTH`
-            )
-            socket.emit(Common.Constants.ErrorCode.NOT_AUTH)
-    
-            return
-          }
-          const { token } = socket.handshake.query
-          const isAuth = await isValidToken(token)
-
-          if (!isAuth) {
-            logger.warn(`invalid token for ${botID} bot socket`)
-            socket.emit(Common.Constants.ErrorCode.NOT_AUTH)
-            return
-          }
-
-          logger.info(`registering Connect timer for ${botID} bot`)
-
-          //every two seconds, try to connect the bot with the socket
-          //useful to automatically retry if some critical services are not ready
-          //Connect can be called multiple times after successful connection with no consequence
-          setInterval(()=>{
-            const connectErr = selectedBot.c
-          },2000) 
-
-          
-        } catch(err) {
-          logger.error(`Error inside ${botID} bot socket connect: ${err.message}`)
-          socket.emit('$error', err.message)
-        }
-      })
-      
-    }
-  }
 
   return io
 }

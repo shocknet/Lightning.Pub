@@ -1,6 +1,8 @@
 
 //
 
+const { loggers } = require("winston")
+
 /**
  * @typedef {object} Props
  * @prop {string} name
@@ -8,23 +10,34 @@
  * @prop {string?} version
  * @prop {string?} author
  * @prop {string?} authorPub 
+ * @prop {string?} avatar 
  */
 
   /**
    * @typedef {object} BotCommandParamDef
    * @prop {string} paramName
    * @prop {boolean} isNumber
-   */ 
-
-  /**
+   * 
    * @typedef {object} BotCommandDef
    * @prop {string} command
    * @prop {string} commandName
    * @prop {string} commandDescription
    * @prop {(BotCommandParamDef|null)} param
-   */
-
-  /**
+   * 
+   * @typedef {object} BotEventParamDef
+   * @prop {string} paramName
+   * @prop {boolean} isNumber
+   * 
+   * @typedef {object} BotEventDef
+   * @prop {string} event
+   * @prop {string} eventName
+   * @prop {string} eventDescription
+   * @prop {(BotEventParamDef|null)} param
+   * 
+   * @typedef {object} BotEvent
+   * @prop {string} event
+   * @prop {string|null} param
+   * 
    * @typedef {object} BotCommand
    * @prop {string} command
    * @prop {string|null} param
@@ -44,6 +57,7 @@ class ChatBotBase {
     this.version = props.version || '0.0.0'
     this.author = props.author || 'Shocknet'
     this.authorPub = props.authorPub || ''
+    this.avatar = props.avatar || null
   }
 
     /**
@@ -61,6 +75,7 @@ class ChatBotBase {
   get availableCommands(){
     return this._availableCommands
   }
+
   /**
    * 
    * @param {BotCommandDef[]} commands 
@@ -71,7 +86,27 @@ class ChatBotBase {
     });
   }
 
+  /**
+   * @type {Record<string,BotEventDef}
+   */
+  _availableEvents = {}
+
+  get availableEvents(){
+    return this._availableEvents
+  }
+
+  /**
+   * 
+   * @param {BotEventDef[]} events 
+   */
+  addEvents(events){
+    events.forEach(element => {
+      this._availableEvents[element.event] = element
+    });
+  }
+
   _connected = false
+
   _connecting = false
 
   get connected(){
@@ -83,62 +118,73 @@ class ChatBotBase {
   }
 
   /**
-   * @type {import('socket.io').Socket|null}
+   * @type {((id:string, text:string)=>void | null)}
    */
-  _socket = null
+  _sendMessageToManager = null
+
+  getWelcomeMessage(){
+    return `Hello! my name is ${this.name} I'm a bot!`
+  }
+  
+  /**
+   * 
+   * @typedef {object} ResponseAwait
+   * @prop {'confirm'|'param-num'|'param-str'|null} responseType
+   * @prop {string} responseMessageFooter
+   * @prop {()=>void | null} responseCallback
+   */
+
+  /**
+    * @type {ResponseAwait}
+    */
+  _awaitingResponse = {
+    responseType:null,
+    responseCallback:null,
+    responseMessageFooter:''
+  }
 
   /**
    * 
-   * @param {import('socket.io').Socket} socket 
+   * @param {(id:string, text:string)=>void} messageEmitter 
    */
-  Connect(socket){
+  async Connect(messageEmitter){
+    if(this._sendMessageToManager !== messageEmitter){
+      this._sendMessageToManager = messageEmitter
+    }
     //get ready make the connections that you need
     if(this._connected || this._connecting){
-      return {message:'attempted to conned while already connected or connecting'}
+      return
     }
     this._connecting = true
 
-    if(!socket.connected){
-      this._connecting  = false
-      return {message:'attempted to conned with a non connected socket'}
-    } 
-    // send socket event and wait for response
-    socket.on('userMessage', body => {
-      if(!body || !body.userMessage){
-        return
-      }
-      this.#parseMessage(body.userMessage)
-
-    })
-
-    socket.on('disconnect', () => {
-      //wait two seconds, if still disconnected, clear flag to allow reconnection
-      setTimeout(()=>{
-        if(!socket.connected){
-          this._connecting = false
-          this._connected = false
-        }
-      },2000)
-    })
-
-    this._socket = socket
+    
+    await this.onConnect()
     this._connected = true
   }
 
-  FireEvent(eventName){
+  FireEvent(event,param = null){
+    if(this._availableEvents[event]){
+      this.onEvent({
+        event,
+        param
+      })
+    }
+  }
 
+  /**
+   * 
+   * @param {BotEvent} event 
+   */
+  onEvent(event){ // eslint-disable-line class-methods-use-this
   }
   
-  ChatHistory(){
-    //get the chat history with user
-  }
 
   /**
    * 
    * @param {string} message 
    * @returns {(null|BotCommand|{message:string})}
    */
-  #parseMessage(message){
+  parseMessage(message){
     if(!message.startsWith('/')){
       return null
     }
@@ -168,16 +214,7 @@ class ChatBotBase {
 
   }
 
-  /**
-   * 
-   * @param {('user'|'bot')} from 
-   * @param {string} message 
-   */
-  #saveMessage(from,message){
-    //save the message to gun
-  }
-
-  onConnect(){
+  async onConnect(){ // eslint-disable-line class-methods-use-this
     //fire a 'ready' event
   }
 
@@ -186,22 +223,49 @@ class ChatBotBase {
    * @param {string} message 
    */
   onMessage(message){
+    if(this._awaitingResponse.responseType){
+      switch (this._awaitingResponse.responseType) {
+        case 'confirm':{
+            const lowerRes = message.toLowerCase()
+            const yes = lowerRes === 'yes' || lowerRes === 'y'
+            const no = lowerRes === 'no' || lowerRes === 'n'
+            if(yes || no){
+              this.handleAwaitedConfirm(yes)
+              return
+            }
+            break
+          }
+        case 'param-str':{
+          this.handleAwaitedParamSrt(message)
+          return
+        }
+        case 'param-num':{
+          if(isNaN(message)){
+            break
+          }
+          this.handleAwaitedParamNum(message)
+          return
+        }
+        default:
+          break;
+      }
+      this.SendMessage(`I didn't understand`)
+      return
+    }
     //this.#saveMessage('user',message)
-    const parsed = this.#parseMessage(message)
+    const parsed = this.parseMessage(message)
     if(parsed && parsed.message){//error
       //this.SendMessage(parsed.message)
       return 
     }
 
-    if(parsed && parsed.command){//error
-
+    if(parsed && parsed.command){
       if(parsed.command === '/help'){
-        const helpMessage = this.#handleHelp()
+        const helpMessage = this.handleHelp()
         this.SendMessage(helpMessage)
         return
       }
       this.onCommand(parsed)
-      return 
     }
   }
 
@@ -209,39 +273,106 @@ class ChatBotBase {
    * 
    * @param {BotCommand} command  
    */
-  onCommand(command){
+  onCommand(command){ // eslint-disable-line class-methods-use-this
     //new command from user
   }
 
   /**
    * @param {string} message 
+   * @param {{
+   *  noTimeout:boolean,
+   *  callback: (()=>void|null),
+   *  callbackType: 'confirm'|'param-num'|'param-str'|null,
+   *  responseMessageFooter: string,
+   * }} opts
    */
-  SendMessage(message){
-    if(!this._socket.connected){
+  SendMessage(message,opts = {}){
+    const {noTimeout = false, callback = null, callbackType = null,responseMessageFooter = ''} = opts
+    if(!this._sendMessageToManager){
       return
     }
-    this._socket.emit('botMessage',{botMessage:message})
+    if(this._awaitingResponse.responseType && callbackType){
+      return
+    }
+    if(callbackType){
+      this._awaitingResponse.responseType = callbackType
+      this._awaitingResponse.responseCallback = callback
+      this._awaitingResponse.responseMessageFooter = responseMessageFooter
+      if(this._awaitingResponse.responseType === 'confirm'){
+        this._awaitingResponse.responseMessageFooter = 'Please Confirm by responding (yes) or (y) or Cancel with (no) or (n)'
+      }
+    }
+    const finalMessage = `${message} \n ${this._awaitingResponse.responseMessageFooter}` 
+    if(noTimeout){
+      this._sendMessageToManager(this.id,finalMessage)
+    } else {
+      setTimeout(()=>this._sendMessageToManager(this.id,finalMessage),250) //timeout to prevent the response to be written before the request
+    }
   }
 
-  SendNotification(){
+  //SendNotification(){
     //send notification to user
-  }
-
+  //}
   /**
    * @returns {string}
    */
-  #handleHelp(){
-    let helpMessage = ''
+  handleHelp(){
+    let helpMessage = 'Available Commands: \n'
     for (const key in this._availableCommands) {
-      if (this._availableCommands.hasOwnProperty(key)) {
+      if (Object.hasOwnProperty.call(this._availableCommands, key)) {
         const element = this._availableCommands[key];
         helpMessage += element.command + " : " + element.commandName + " , " + element.commandDescription + "\n"
+      }
+    }
+    helpMessage += 'Available Events: \n'
+    for (const key in this._availableEvents) {
+      if (Object.hasOwnProperty.call(this._availableEvents, key)) {
+        const element = this._availableEvents[key];
+        helpMessage += element.event + " : " + element.eventName + " , " + element.eventDescription + "\n"
+        
       }
     }
     return helpMessage
   }
 
+  /**
+   * 
+   * @param {boolean} didConfirm 
+   */
+  handleAwaitedConfirm(didConfirm){
+    const {responseCallback:cb} = this._awaitingResponse
+    this._awaitingResponse.responseType = null
+    this._awaitingResponse.responseMessageFooter = ''
+    this._awaitingResponse.responseCallback = null
 
+    if(didConfirm){
+      cb()
+    }
+  }
+
+  /**
+   * 
+   * @param {string} param 
+   */
+  handleAwaitedParamSrt(param){
+    const {responseCallback:cb} = this._awaitingResponse
+    this._awaitingResponse.responseType = null
+    this._awaitingResponse.responseMessageFooter = ''
+    this._awaitingResponse.responseCallback = null
+    cb(param)
+  }
+
+  /**
+   * 
+   * @param {number} param 
+   */
+  handleAwaitedParamNum(param){
+    const {responseCallback:cb} = this._awaitingResponse
+    this._awaitingResponse.responseType = null
+    this._awaitingResponse.responseMessageFooter = ''
+    this._awaitingResponse.responseCallback = null
+    cb(param)
+  }
 }
 
 module.exports = ChatBotBase

@@ -67,7 +67,7 @@ class LightningServices {
       loopEnabled: program.loop || newDefaults.loopEnabled,
       loopHost: program.loopHost || newDefaults.loopHost,
       loopCertPath: program.loopCertPath || newDefaults.loopCertPath,
-      loopMacaroonPath: program.loopMacaroonPath || newDefaults.loopMacaroonPath,
+      loopMacaroonPath: program.loopMacaroonPath || newDefaults.loopMacaroonPath
     }
   }
 
@@ -80,8 +80,8 @@ class LightningServices {
       lightning: this.lightning,
       walletUnlocker: this.walletUnlocker,
       router: this.router,
-      chainNotifier:this.chainNotifier,
-      swapClient:this.swapClient
+      chainNotifier: this.chainNotifier,
+      swapClient: this.swapClient
     }
   }
 
@@ -126,14 +126,14 @@ class LightningServices {
   }
 
   init = async () => {
-    const { 
-      macaroonPath, 
-      lndHost, 
+    const {
+      macaroonPath,
+      lndHost,
       lndCertPath,
       loopEnabled,
       loopHost,
       loopCertPath,
-      loopMacaroonPath 
+      loopMacaroonPath
     } = this.config
     const macaroonExists = await FS.access(macaroonPath)
     const lnServices = await lnrpc({
@@ -153,7 +153,13 @@ class LightningServices {
     if (!lnServices) {
       throw new Error(`Could not init lnServices`)
     }
-    const { lightning, walletUnlocker, router, swapClient,chainNotifier } = lnServices
+    const {
+      lightning,
+      walletUnlocker,
+      router,
+      swapClient,
+      chainNotifier
+    } = lnServices
     this.lightning = lightning
     this.walletUnlocker = walletUnlocker
     this.router = router
