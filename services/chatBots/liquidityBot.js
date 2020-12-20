@@ -93,7 +93,7 @@ class LiquidityBot extends ChatBotBase {
   suggestedSwap = null
 
   onConnect(){
-    logger.log(`Bot: ${this.name}, ${this.id} connecting`)
+    logger.info(`Bot: ${this.name}, ${this.id} connecting`)
     //setTimeout(()=>this.SendMessage("Hello!"),200)
     this.addEvents([
       {
