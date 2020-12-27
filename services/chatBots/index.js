@@ -102,21 +102,21 @@ class MessagesManager {
    * @param {GunEvents.ProcessedChats} botsChats 
    */
   onChatsUpdate(botsChats){
-    if(!botsChats){
-      return
-    }
-
-    if(!this._checkedEmptyChats){
+    if (!this._checkedEmptyChats) {
       this._checkedEmptyChats = true
       for (const activeBotID in ActiveChatBots) {
         if (Object.hasOwnProperty.call(ActiveChatBots, activeBotID)) {
           const element = ActiveChatBots[activeBotID];
-          if(!botsChats[activeBotID]){
+          if (!botsChats || !botsChats[activeBotID]) {
             const welcomeMessage = element.getWelcomeMessage()
-            sendBotMessage(activeBotID,welcomeMessage)
+            sendBotMessage(activeBotID, welcomeMessage)
           }
         }
       }
+    }
+
+    if (!botsChats) {
+      return
     }
     /**
      * @type {Common.Schema.Chat[]}
