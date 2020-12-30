@@ -267,7 +267,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       getUser()
         .get('orders')
         .get(coordinate)
-        .set(orderData) // each item in the set is a tip
+        .set(orderData)
     }
 
     stream.on('data', invoiceSubCb)

@@ -1074,6 +1074,15 @@ const sendSpontaneousPayment = async (
       payment_request: orderResponse.response
     })
 
+    const coordinate = 'lnPub + invoiceIndex + payment hash(?)' //....
+    const orderData = {
+      someInfo: 'info '
+    }
+    getUser()
+      .get('orders')
+      .get(coordinate)
+      .set(orderData)
+
     return payment
   } catch (e) {
     logger.error('Error inside sendPayment()')
