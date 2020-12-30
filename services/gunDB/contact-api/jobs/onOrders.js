@@ -229,45 +229,58 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
 
     // invoices should be settled right away so we can rely on this single
     // subscription instead of life-long all invoices subscription
+    /**
+     * @type {string|null}
+     */
+    let maybePostId = null
     if (order.targetType === 'post') {
       const { postID } = order
+      maybePostId = postID || null
       if (!Common.isPopulatedString(postID)) {
         throw new TypeError(`postID not a a populated string`)
       }
-
-      const { r_hash } = invoice
-
-      // A post tip order lifecycle is short enough that we can do it like this.
-      const stream = LightningServices.invoices.subscribeSingleInvoice({
-        r_hash
-      })
-
-      /**
-       * @param {Common.Invoice} invoice
-       */
-      const onData = invoice => {
-        if (invoice.settled) {
-          getUser()
-            .get('postToTipCount')
-            .get(postID)
-            .set(null) // each item in the set is a tip
-
-          stream.off()
-        }
-      }
-
-      stream.on('data', onData)
-
-      stream.on('status', (/** @type {any} */ status) => {
-        logger.info(`Post tip, post: ${postID}, invoice status:`, status)
-      })
-      stream.on('end', () => {
-        logger.warn(`Post tip, post: ${postID}, invoice stream ended`)
-      })
-      stream.on('error', (/** @type {any} */ e) => {
-        logger.warn(`Post tip, post: ${postID}, error:`, e)
-      })
     }
+    const { r_hash } = invoice
+
+    // A post tip order lifecycle is short enough that we can do it like this.
+    const stream = LightningServices.invoices.subscribeSingleInvoice({
+      r_hash
+    })
+
+    /**
+     * @param {Common.Invoice} invoice
+     */
+    const invoiceSubCb = invoice => {
+      if (!invoice.settled) {
+        return
+      }
+      if (order.targetType === 'post' && typeof maybePostId === 'string') {
+        getUser()
+          .get('postToTipCount')
+          .get(maybePostId)
+          .set(null) // each item in the set is a tip
+      }
+      const coordinate = 'lnPub + invoiceIndex + payment hash(?)' //....
+      const orderData = {
+        someInfo: 'info '
+      }
+      getUser()
+        .get('orders')
+        .get(coordinate)
+        .set(orderData) // each item in the set is a tip
+    }
+
+    stream.on('data', invoiceSubCb)
+
+    stream.on('status', (/** @type {any} */ status) => {
+      logger.info(`${r_hash}, invoice status:`, status)
+    })
+    stream.on('end', () => {
+      logger.warn(`${r_hash}, invoice stream ended`)
+    })
+    stream.on('error', (/** @type {any} */ e) => {
+      logger.warn(`${r_hash}, error:`, e)
+    })
 
     logger.info(`[PERF] Added invoice to GunDB in ${invoicePutEndTime}ms`)
 
