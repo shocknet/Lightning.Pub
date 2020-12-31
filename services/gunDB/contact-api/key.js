@@ -62,3 +62,8 @@ exports.TOTAL_TIPS = 'totalTips'
 exports.PROFILE_BINARY = 'profileBinary'
 
 exports.POSTS_NEW = 'posts'
+
+// For Coordinates
+exports.COORDINATES = 'coordinates'
+
+exports.COORDINATE_INDEX = 'coordinateIndex'
