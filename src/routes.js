@@ -1880,7 +1880,8 @@ module.exports = async (
     const sendCoinsRequest = {
       addr: req.body.addr,
       amount: req.body.amount,
-      sat_per_byte: req.body.satPerByte
+      sat_per_byte: req.body.satPerByte,
+      send_all: req.body.send_all === true
     }
     logger.debug('SendCoins', sendCoinsRequest)
     lightning.sendCoins(sendCoinsRequest, async (err, response) => {
