@@ -11,8 +11,8 @@ const Key = require('../gunDB/contact-api/key')
  * @typedef {object} CoordinateOrder
  * @prop {string} fromLndPub
  * @prop {string} toLndPub
- * @prop {string} fromGunPub
- * @prop {string} toGunPub
+ * @prop {string=} fromGunPub can be optional, if the payment/invoice is not related to an order
+ * @prop {string=} toGunPub can be optional, if the payment/invoice is not related to an order
  * @prop {boolean} inbound
  * 
  * @prop {string=} ownerGunPub Reserved for buddy system:
@@ -55,10 +55,10 @@ const checkOrderInfo = (order = {}) => {
   if (typeof toLndPub !== 'string' || toLndPub === '') {
     return 'invalid or no "toLndPub" field provided to order coordinate'
   }
-  if (typeof fromGunPub !== 'string' || fromGunPub === '') {
+  if (fromGunPub && (typeof fromGunPub !== 'string' || fromGunPub === '')) {
     return 'invalid or no "fromGunPub" field provided to order coordinate'
   }
-  if (typeof toGunPub !== 'string' || toGunPub === '') {
+  if (toGunPub && (typeof toGunPub !== 'string' || toGunPub === '')) {
     return 'invalid or no "toGunPub" field provided to order coordinate'
   }
   if (typeof inbound !== 'boolean') {
