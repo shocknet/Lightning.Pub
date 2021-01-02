@@ -9,8 +9,8 @@ const Key = require('../gunDB/contact-api/key')
  * 
  * This represents a settled order only, unsettled orders have no coordinate
  * @typedef {object} CoordinateOrder
- * @prop {string} fromLndPub
- * @prop {string} toLndPub
+ * @prop {string=} fromLndPub can be unknown when inbound
+ * @prop {string} toLndPub always known
  * @prop {string=} fromGunPub can be optional, if the payment/invoice is not related to an order
  * @prop {string=} toGunPub can be optional, if the payment/invoice is not related to an order
  * @prop {boolean} inbound
@@ -26,6 +26,7 @@ const Key = require('../gunDB/contact-api/key')
  * @prop {OrderType} type
  * @prop {number} amount
  * @prop {string=} description
+ * @prop {string=} invoiceMemo
  * @prop {string=} metadata JSON encoded string to store extra data for special use cases
  * @prop {number=} timestamp timestamp will be added at processing time if empty
  * 
@@ -34,7 +35,7 @@ const Key = require('../gunDB/contact-api/key')
 /**
  * @param {CoordinateOrder} order 
  */
-const checkOrderInfo = (order = {}) => {
+const checkOrderInfo = order => {
   const {
     fromLndPub,
     toLndPub,
@@ -47,23 +48,25 @@ const checkOrderInfo = (order = {}) => {
     coordinateIndex,
     coordinateHash,
     metadata,
+    invoiceMemo
   } = order
 
-  if (typeof fromLndPub !== 'string' || fromLndPub === '') {
-    return 'invalid or no "fromLndPub" field provided to order coordinate'
+  if (fromLndPub && (typeof fromLndPub !== 'string' || fromLndPub === '')) {
+    return 'invalid "fromLndPub" field provided to order coordinate'
   }
   if (typeof toLndPub !== 'string' || toLndPub === '') {
     return 'invalid or no "toLndPub" field provided to order coordinate'
   }
   if (fromGunPub && (typeof fromGunPub !== 'string' || fromGunPub === '')) {
-    return 'invalid or no "fromGunPub" field provided to order coordinate'
+    return 'invalid "fromGunPub" field provided to order coordinate'
   }
   if (toGunPub && (typeof toGunPub !== 'string' || toGunPub === '')) {
-    return 'invalid or no "toGunPub" field provided to order coordinate'
+    return 'invalid "toGunPub" field provided to order coordinate'
   }
   if (typeof inbound !== 'boolean') {
     return 'invalid or no "inbound" field provided to order coordinate'
   }
+  //@ts-expect-error 
   if (typeof type !== 'string' || type === '') {
     return 'invalid or no "type" field provided to order coordinate'
   }
@@ -81,6 +84,9 @@ const checkOrderInfo = (order = {}) => {
   if (description && (typeof description !== 'string' || description === '')) {
     return 'invalid "description" field provided to order coordinate'
   }
+  if (invoiceMemo && (typeof invoiceMemo !== 'string' || invoiceMemo === '')) {
+    return 'invalid "invoiceMemo" field provided to order coordinate'
+  }
   if (metadata && (typeof metadata !== 'string' || metadata === '')) {
     return 'invalid "metadata" field provided to order coordinate'
   }
@@ -90,7 +96,7 @@ const checkOrderInfo = (order = {}) => {
 class SchemaManager {
   constructor({ memIndex = false }) {//config flag?
     this.memIndex = memIndex
-    this.orderCreateIndexCallbacks.push(this.dateIndexCreateCb) //create more Cbs and p
+    this.orderCreateIndexCallbacks.push(this.dateIndexCreateCb) //create more Cbs and put them here for more indexes callbacks
   }
 
   dateIndexName = 'dateIndex'
@@ -161,7 +167,7 @@ class SchemaManager {
               )
             )
           } else {
-            res()
+            res(null)
           }
         })
     })
@@ -179,7 +185,7 @@ class SchemaManager {
     if (this.memIndex) {
       //update date memIndex
     }
-    const date = new Date(orderInfo.timestamp)
+    const date = new Date(orderInfo.timestamp || 0)
     //use UTC for consistency?
     const year = date.getUTCFullYear().toString()
     const month = date.getUTCMonth().toString()
@@ -194,21 +200,23 @@ class SchemaManager {
 
   /**
    * if not provided, assume current month and year
-   * @param {number} year 
-   * @param {number} month 
+   * @param {number|null} year 
+   * @param {number|null} month 
    */
   async getMonthCoordinates(year = null, month = null) {
     const now = Date.now()
+    //@ts-expect-error
     const stringYear = year !== null ? year.toString() : now.getUTCFullYear().toString()
+    //@ts-expect-error
     const stringMonth = month !== null ? month.toString() : now.getUTCMonth().toString()
 
-    const data = await new Promise((res, rej) => {
+    const data = await new Promise(res => {
       getGunUser()
         .get(Key.COORDINATE_INDEX)
         .get(this.dateIndexName)
         .get(stringYear)
         .get(stringMonth)
-        .load()
+        .load(res)
     })
     const coordinatesArray = Object
       .values(data)
@@ -219,13 +227,15 @@ class SchemaManager {
 
   /**
    * if not provided, assume current month and year
-   * @param {number} year 
-   * @param {number} month 
+   * @param {number|null} year 
+   * @param {number|null} month 
    * @returns {Promise<CoordinateOrder[]>} from newer to older
    */
   async getMonthOrders(year = null, month = null) {
     const now = Date.now()
+    //@ts-expect-error
     const intYear = year !== null ? year : now.getUTCFullYear()
+    //@ts-expect-error
     const intMonth = month !== null ? month : now.getUTCMonth()
 
     let coordinates = null
@@ -234,11 +244,21 @@ class SchemaManager {
     } else {
       coordinates = await this.getMonthCoordinates(intYear, intMonth)
     }
-    const orders = await CommonUtils.asyncMap(coordinates, async coordinateSHA256 => {
+    /**
+     * @type {CoordinateOrder[]}
+     */
+    const orders = []
+    if (!coordinates) {
+      return orders
+    }
+    await CommonUtils.asyncForEach(coordinates, async coordinateSHA256 => {
       const encryptedOrderString = await getGunUser()
         .get(Key.COORDINATES)
         .get(coordinateSHA256)
         .then()
+      if (typeof encryptedOrderString !== 'string') {
+        return
+      }
       const mySecret = require('../gunDB/Mediator').getMySecret()
       const decryptedString = await SEA.decrypt(encryptedOrderString, mySecret)
 
@@ -246,10 +266,14 @@ class SchemaManager {
        * @type {CoordinateOrder}
        */
       const orderJSON = JSON.parse(decryptedString)
-      return orderJSON
+      orders.push(orderJSON)
     })
-
+    //@ts-expect-error
     const orderedOrders = orders.sort((a, b) => b.timestamp - a.timestamp)
     return orderedOrders
   }
 }
+
+const Manager = new SchemaManager()
+
+module.exports = Manager

@@ -12,8 +12,9 @@ const {
   Constants: { ErrorCode },
   Schema
 } = Common
-
+const SchemaManager = require('../../../schema')
 const LightningServices = require('../../../../utils/lightningServices')
+const LNDHealthManager = require('../../../../utils/lightningServices/errors')
 
 const Key = require('../key')
 const Utils = require('../utils')
@@ -248,7 +249,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
     })
 
     /**
-     * @param {Common.Invoice} invoice
+     * @param {Common.Invoice & {r_hash:Buffer}} invoice
      */
     const invoiceSubCb = invoice => {
       if (!invoice.settled) {
@@ -260,14 +261,22 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
           .get(maybePostId)
           .set(null) // each item in the set is a tip
       }
-      const coordinate = 'lnPub + invoiceIndex + payment hash(?)' //....
-      const orderData = {
-        someInfo: 'info '
+      const myLndPub = LNDHealthManager.lndPub
+      const myGunPub = getUser()._.sea.pub
+      if (!myLndPub) {
+        return //should never happen but just to be safe
       }
-      getUser()
-        .get('orders')
-        .get(coordinate)
-        .set(orderData)
+      SchemaManager.AddOrder({
+        amount: parseInt(invoice.amt_paid, 10),
+        coordinateHash: invoice.r_hash.toString('hex'),
+        coordinateIndex: parseInt(invoice.add_index, 10),
+        toLndPub: myLndPub,
+        inbound: true,
+        type: 'other', //TODO better this
+        fromGunPub: order.from,
+        toGunPub: myGunPub,
+        invoiceMemo: invoice.memo
+      })
     }
 
     stream.on('data', invoiceSubCb)
