@@ -1,4 +1,7 @@
+const Crypto = require('crypto')
+const { Utils: CommonUtils } = require('shock-common')
 const getGunUser = () => require('../gunDB/Mediator').getUser()
+const SEA = require('../gunDB/Mediator').mySEA
 const Key = require('../gunDB/contact-api/key')
 /**
  * @typedef {import('../gunDB/contact-api/SimpleGUN').ISEA} ISEA
@@ -105,15 +108,14 @@ class SchemaManager {
   //
 
   /**
-   * @type {((order : CoordinateOrder,coordinate : string)=>void)[]}
+   * @type {((order : CoordinateOrder,coordinateSHA256 : string)=>void)[]}
    */
   orderCreateIndexCallbacks = []
 
   /**
    * @param {CoordinateOrder} orderInfo
-   * @param {ISEA} SEA 
    */
-  async AddOrder(orderInfo, SEA) {
+  async AddOrder(orderInfo) {
 
     const checkErr = checkOrderInfo(orderInfo)
     if (checkErr) {
@@ -144,10 +146,13 @@ class SchemaManager {
     const encryptedOrderString = await SEA.encrypt(orderString, mySecret)
     const coordinatePub = filteredOrder.inbound ? filteredOrder.toLndPub : filteredOrder.fromLndPub
     const coordinate = `${coordinatePub}__${filteredOrder.coordinateIndex}__${filteredOrder.coordinateHash}`
+    const coordinateSHA256 = Crypto.createHash('SHA256')
+      .update(coordinate)
+      .digest('hex')
     await new Promise((res, rej) => {
       getGunUser()
         .get(Key.COORDINATES)
-        .get(coordinate)
+        .get(coordinateSHA256)
         .put(encryptedOrderString, ack => {
           if (ack.err && typeof ack.err !== 'number') {
             rej(
@@ -162,15 +167,18 @@ class SchemaManager {
     })
 
     //update all indexes with 
-    this.orderCreateIndexCallbacks.forEach(cb => cb(filteredOrder, coordinate))
+    this.orderCreateIndexCallbacks.forEach(cb => cb(filteredOrder, coordinateSHA256))
   }
 
   /**
    * 
    * @param {CoordinateOrder} orderInfo 
-   * @param {string} coordinate 
+   * @param {string} coordinateSHA256 
    */
-  dateIndexCreateCb(orderInfo, coordinate) {
+  dateIndexCreateCb(orderInfo, coordinateSHA256) {
+    if (this.memIndex) {
+      //update date memIndex
+    }
     const date = new Date(orderInfo.timestamp)
     //use UTC for consistency?
     const year = date.getUTCFullYear().toString()
@@ -181,6 +189,67 @@ class SchemaManager {
       .get(this.dateIndexName)
       .get(year)
       .get(month)
-      .set(coordinate)
+      .set(coordinateSHA256)
+  }
+
+  /**
+   * if not provided, assume current month and year
+   * @param {number} year 
+   * @param {number} month 
+   */
+  async getMonthCoordinates(year = null, month = null) {
+    const now = Date.now()
+    const stringYear = year !== null ? year.toString() : now.getUTCFullYear().toString()
+    const stringMonth = month !== null ? month.toString() : now.getUTCMonth().toString()
+
+    const data = await new Promise((res, rej) => {
+      getGunUser()
+        .get(Key.COORDINATE_INDEX)
+        .get(this.dateIndexName)
+        .get(stringYear)
+        .get(stringMonth)
+        .load()
+    })
+    const coordinatesArray = Object
+      .values(data)
+      .filter(coordinateSHA256 => typeof coordinateSHA256 === 'string')
+
+    return coordinatesArray
+  }
+
+  /**
+   * if not provided, assume current month and year
+   * @param {number} year 
+   * @param {number} month 
+   * @returns {Promise<CoordinateOrder[]>} from newer to older
+   */
+  async getMonthOrders(year = null, month = null) {
+    const now = Date.now()
+    const intYear = year !== null ? year : now.getUTCFullYear()
+    const intMonth = month !== null ? month : now.getUTCMonth()
+
+    let coordinates = null
+    if (this.memIndex) {
+      //get coordinates from this.memDateIndex
+    } else {
+      coordinates = await this.getMonthCoordinates(intYear, intMonth)
+    }
+    const orders = await CommonUtils.asyncMap(coordinates, async coordinateSHA256 => {
+      const encryptedOrderString = await getGunUser()
+        .get(Key.COORDINATES)
+        .get(coordinateSHA256)
+        .then()
+      const mySecret = require('../gunDB/Mediator').getMySecret()
+      const decryptedString = await SEA.decrypt(encryptedOrderString, mySecret)
+
+      /**
+       * @type {CoordinateOrder}
+       */
+      const orderJSON = JSON.parse(decryptedString)
+      return orderJSON
+    })
+
+    const orderedOrders = orders.sort((a, b) => b.timestamp - a.timestamp)
+    return orderedOrders
   }
 }
