@@ -5,15 +5,18 @@ const SEA = require('../gunDB/Mediator').mySEA
 const Key = require('../gunDB/contact-api/key')
 /**
  * @typedef {import('../gunDB/contact-api/SimpleGUN').ISEA} ISEA
- * @typedef { 'spontaneousPayment' | 'tip' | 'service' | 'product' | 'other' } OrderType
+ * @typedef { 'spontaneousPayment' | 'tip' | 'service' | 'product' | 'other'|'invoice'|'payment'|'chainTx' } OrderType
  * 
  * This represents a settled order only, unsettled orders have no coordinate
- * @typedef {object} CoordinateOrder
+ * @typedef {object} CoordinateOrder //everything is optional for different types
  * @prop {string=} fromLndPub can be unknown when inbound
- * @prop {string} toLndPub always known
+ * @prop {string=} toLndPub always known
  * @prop {string=} fromGunPub can be optional, if the payment/invoice is not related to an order
  * @prop {string=} toGunPub can be optional, if the payment/invoice is not related to an order
+ * @prop {string=} fromBtcPub
+ * @prop {string=} toBtcPub
  * @prop {boolean} inbound
+ * NOTE: type specific checks are not made before creating the order node, filters must be done before rendering or processing
  * 
  * @prop {string=} ownerGunPub Reserved for buddy system:
  * can be undefined, '', 'me', or node owner pub key to represent node owner, 
@@ -41,6 +44,8 @@ const checkOrderInfo = order => {
     toLndPub,
     fromGunPub,
     toGunPub,
+    fromBtcPub,
+    toBtcPub,
     inbound,
     type,
     amount,
@@ -54,7 +59,7 @@ const checkOrderInfo = order => {
   if (fromLndPub && (typeof fromLndPub !== 'string' || fromLndPub === '')) {
     return 'invalid "fromLndPub" field provided to order coordinate'
   }
-  if (typeof toLndPub !== 'string' || toLndPub === '') {
+  if (toLndPub && (typeof toLndPub !== 'string' || toLndPub === '')) {
     return 'invalid or no "toLndPub" field provided to order coordinate'
   }
   if (fromGunPub && (typeof fromGunPub !== 'string' || fromGunPub === '')) {
@@ -62,6 +67,12 @@ const checkOrderInfo = order => {
   }
   if (toGunPub && (typeof toGunPub !== 'string' || toGunPub === '')) {
     return 'invalid "toGunPub" field provided to order coordinate'
+  }
+  if (fromBtcPub && (typeof fromBtcPub !== 'string' || fromBtcPub === '')) {
+    return 'invalid "fromBtcPub" field provided to order coordinate'
+  }
+  if (toBtcPub && (typeof toBtcPub !== 'string' || toBtcPub === '')) {
+    return 'invalid "toBtcPub" field provided to order coordinate'
   }
   if (typeof inbound !== 'boolean') {
     return 'invalid or no "inbound" field provided to order coordinate'
