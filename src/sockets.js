@@ -17,6 +17,7 @@ const {
 } = require('../services/gunDB/Mediator')
 const { deepDecryptIfNeeded } = require('../services/gunDB/rpc')
 const GunEvents = require('../services/gunDB/contact-api/events')
+const SchemaManager = require('../services/schema')
 /**
  * @typedef {import('../services/gunDB/Mediator').SimpleSocket} SimpleSocket
  * @typedef {import('../services/gunDB/contact-api/SimpleGUN').ValidDataValue} ValidDataValue
@@ -198,7 +199,18 @@ module.exports = (
     logger.warn('Subscribing to transactions socket...' + subID)
     stream.on('data', data => {
       logger.info('[SOCKET] New transaction data:', data)
-      emitEncryptedEvent({ eventName: 'transaction:new', data, socket })
+
+      Promise.all(data.dest_addresses.map(SchemaManager.isTmpChainOrder)).then(
+        responses => {
+          const hasOrder = responses.some(res => res !== false)
+          if (hasOrder && data.num_confirmations > 0) {
+            //buddy needs to manage this
+          } else {
+            //business as usual
+            emitEncryptedEvent({ eventName: 'transaction:new', data, socket })
+          }
+        }
+      )
     })
     stream.on('end', () => {
       logger.info('New transactions stream ended, starting a new one...')

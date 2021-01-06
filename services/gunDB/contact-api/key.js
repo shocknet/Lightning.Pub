@@ -67,3 +67,5 @@ exports.POSTS_NEW = 'posts'
 exports.COORDINATES = 'coordinates'
 
 exports.COORDINATE_INDEX = 'coordinateIndex'
+
+exports.TMP_CHAIN_COORDINATE = 'tmpChainCoordinate'
