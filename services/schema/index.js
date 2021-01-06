@@ -283,6 +283,101 @@ class SchemaManager {
     const orderedOrders = orders.sort((a, b) => b.timestamp - a.timestamp)
     return orderedOrders
   }
+
+  /**
+   * 
+   * @param {string} address 
+   * @param {CoordinateOrder} orderInfo 
+   */
+  //eslint-disable-next-line class-methods-use-this
+  async AddTmpChainOrder(address, orderInfo) {
+    const checkErr = checkOrderInfo(orderInfo)
+    if (checkErr) {
+      throw new Error(checkErr)
+    }
+
+    /**
+     * @type {CoordinateOrder}
+     */
+    const filteredOrder = {
+      fromLndPub: orderInfo.fromLndPub,
+      toLndPub: orderInfo.toLndPub,
+      fromGunPub: orderInfo.fromGunPub,
+      toGunPub: orderInfo.toGunPub,
+      inbound: orderInfo.inbound,
+      ownerGunPub: orderInfo.ownerGunPub,
+      coordinateIndex: orderInfo.coordinateIndex,
+      coordinateHash: orderInfo.coordinateHash,
+      type: orderInfo.type,
+      amount: orderInfo.amount,
+      description: orderInfo.description,
+      metadata: orderInfo.metadata,
+
+      timestamp: orderInfo.timestamp || Date.now(),
+    }
+    const orderString = JSON.stringify(filteredOrder)
+    const mySecret = require('../gunDB/Mediator').getMySecret()
+    const encryptedOrderString = await SEA.encrypt(orderString, mySecret)
+
+    const addressSHA256 = Crypto.createHash('SHA256')
+      .update(address)
+      .digest('hex')
+
+    await new Promise((res, rej) => {
+      getGunUser()
+        .get(Key.TMP_CHAIN_COORDINATE)
+        .get(addressSHA256)
+        .put(encryptedOrderString, ack => {
+          if (ack.err && typeof ack.err !== 'number') {
+            rej(
+              new Error(
+                `Error saving tmp chain coordinate order to user-graph: ${ack}`
+              )
+            )
+          } else {
+            res(null)
+          }
+        })
+    })
+  }
+
+  /**
+   * 
+   * @param {string} address 
+   * @returns {Promise<boolean|CoordinateOrder>}
+   */
+  //eslint-disable-next-line class-methods-use-this
+  async isTmpChainOrder(address) {
+    if (typeof address !== 'string' || address === '') {
+      return false
+    }
+    const addressSHA256 = Crypto.createHash('SHA256')
+      .update(address)
+      .digest('hex')
+
+    const maybeData = await getGunUser()
+      .get(Key.TMP_CHAIN_COORDINATE)
+      .get(addressSHA256)
+      .then()
+
+    if (typeof maybeData !== 'string' || maybeData === '') {
+      return false
+    }
+    const mySecret = require('../gunDB/Mediator').getMySecret()
+    const decryptedString = await SEA.decrypt(maybeData, mySecret)
+    if (typeof decryptedString !== 'string' || decryptedString === '') {
+      return false
+    }
+
+    const tmpOrder = JSON.parse(decryptedString)
+    const checkErr = checkOrderInfo(tmpOrder)
+    if (checkErr) {
+      return false
+    }
+
+    return tmpOrder
+
+  }
 }
 
 const Manager = new SchemaManager()
