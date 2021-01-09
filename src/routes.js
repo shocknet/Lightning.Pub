@@ -30,11 +30,7 @@ const {
 const GunActions = require('../services/gunDB/contact-api/actions')
 const GunGetters = require('../services/gunDB/contact-api/getters')
 const GunKey = require('../services/gunDB/contact-api/key')
-const {
-  sendPaymentV2Keysend,
-  sendPaymentV2Invoice,
-  listPayments
-} = require('../utils/lightningServices/v2')
+const LV2 = require('../utils/lightningServices/v2')
 const GunWriteRPC = require('../services/gunDB/rpc')
 
 const DEFAULT_MAX_NUM_ROUTES_TO_QUERY = 10
@@ -1375,7 +1371,7 @@ module.exports = async (
     }
 
     return res.status(200).json(
-      await listPayments({
+      await LV2.listPayments({
         include_incomplete,
         index_offset,
         max_payments,
@@ -1662,7 +1658,7 @@ module.exports = async (
           })
         }
 
-        const payment = await sendPaymentV2Keysend({
+        const payment = await LV2.sendPaymentV2Keysend({
           amt,
           dest,
           feeLimit,
@@ -1675,7 +1671,7 @@ module.exports = async (
       }
       const { payreq } = req.body
 
-      const payment = await sendPaymentV2Invoice({
+      const payment = await LV2.sendPaymentV2Invoice({
         feeLimit,
         payment_request: payreq,
         amt: req.body.amt,
