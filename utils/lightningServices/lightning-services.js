@@ -74,6 +74,10 @@ class LightningServices {
     }
   }
 
+  getServices() {
+    return this.services
+  }
+
   get servicesData() {
     return this.lnServicesData
   }
