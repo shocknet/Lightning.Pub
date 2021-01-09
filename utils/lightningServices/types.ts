@@ -106,3 +106,28 @@ export interface SendPaymentInvoiceParams {
   payment_request: string
   timeoutSeconds?: number
 }
+
+type StreamListener = (data: any) => void
+
+/**
+ * Caution: Not all methods return an stream.
+ */
+interface LightningStream {
+  on(ev: 'data' | 'end' | 'error' | 'status', listener: StreamListener): void
+}
+
+type LightningCB = (err: Error, data: Record<string, any>) => void
+
+type LightningMethod = (
+  args: Record<string, any>,
+  cb?: LightningCB
+) => LightningStream
+
+/**
+ * Makes it easier for code calling services.
+ */
+export interface Services {
+  lightning: Record<string, LightningMethod>
+  walletUnlocker: Record<string, LightningMethod>
+  router: Record<string, LightningMethod>
+}

@@ -74,6 +74,9 @@ class LightningServices {
     }
   }
 
+  /**
+   * @returns {import('./types').Services}
+   */
   getServices() {
     return this.services
   }
