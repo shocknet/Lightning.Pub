@@ -402,9 +402,28 @@ const decodePayReq = payReq =>
     )
   })
 
+/**
+ * @param {0|1} type
+ * @returns {Promise<string>}
+ */
+const newAddress = (type = 0) => {
+  const { lightning } = lightningServices.getServices()
+
+  return Common.Utils.makePromise((res, rej) => {
+    lightning.newAddress({ type }, (err, response) => {
+      if (err) {
+        rej(new Error(err.message))
+      } else {
+        res(response.address)
+      }
+    })
+  })
+}
+
 module.exports = {
   sendPaymentV2Keysend,
   sendPaymentV2Invoice,
   listPayments,
-  decodePayReq
+  decodePayReq,
+  newAddress
 }

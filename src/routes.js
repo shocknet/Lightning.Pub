@@ -1090,25 +1090,16 @@ module.exports = async (
   })
 
   // newaddress
-  app.post('/api/lnd/newaddress', (req, res) => {
-    const { lightning } = LightningServices.services
-    lightning.newAddress({ type: req.body.type }, async (err, response) => {
-      if (err) {
-        logger.debug('NewAddress Error:', err)
-        const health = await checkHealth()
-        if (health.LNDStatus.success) {
-          res.status(400).json({
-            field: 'newAddress',
-            errorMessage: sanitizeLNDError(err.message)
-          })
-        } else {
-          res.status(500)
-          res.json({ errorMessage: 'LND is down' })
-        }
-      }
-      logger.debug('NewAddress:', response)
-      res.json(response)
-    })
+  app.post('/api/lnd/newaddress', async (req, res) => {
+    try {
+      return res.json({
+        address: await LV2.newAddress(req.body.type)
+      })
+    } catch (e) {
+      return res.status(500).json({
+        errorMessage: e.message
+      })
+    }
   })
 
   // connect peer to lnd node
