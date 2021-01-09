@@ -1946,22 +1946,19 @@ module.exports = async (
     )
   })
 
-  app.post('/api/lnd/listunspent', (req, res) => {
-    const { lightning } = LightningServices.services
-    const { minConfirmations = 3, maxConfirmations = 6 } = req.body
-    lightning.listUnspent(
-      {
-        min_confs: minConfirmations,
-        max_confs: maxConfirmations
-      },
-      (err, unspent) => {
-        if (err) {
-          return handleError(res, err)
-        }
-        logger.debug('ListUnspent:', unspent)
-        res.json(unspent)
-      }
-    )
+  app.post('/api/lnd/listunspent', async (req, res) => {
+    try {
+      return res.status(200).json({
+        utxos: await LV2.listUnspent(
+          req.body.minConfirmations,
+          req.body.maxConfirmations
+        )
+      })
+    } catch (e) {
+      return res.status(500).json({
+        errorMessage: e.message
+      })
+    }
   })
 
   app.get('/api/lnd/transactions', (req, res) => {
