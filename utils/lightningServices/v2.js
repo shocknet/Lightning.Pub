@@ -420,10 +420,39 @@ const newAddress = (type = 0) => {
   })
 }
 
+/**
+ * @typedef {import('./types').Utxo} Utxo
+ */
+
+/**
+ * @param {number} minConfs
+ * @param {number} maxConfs
+ * @returns {Promise<Utxo[]>}
+ */
+const listUnspent = (minConfs = 3, maxConfs = 6) =>
+  Common.makePromise((res, rej) => {
+    const { lightning } = lightningServices.getServices()
+
+    lightning.listUnspent(
+      {
+        min_confs: minConfs,
+        max_confs: maxConfs
+      },
+      (err, unspent) => {
+        if (err) {
+          rej(new Error(err.message))
+        } else {
+          res(unspent.utxos)
+        }
+      }
+    )
+  })
+
 module.exports = {
   sendPaymentV2Keysend,
   sendPaymentV2Invoice,
   listPayments,
   decodePayReq,
-  newAddress
+  newAddress,
+  listUnspent
 }
