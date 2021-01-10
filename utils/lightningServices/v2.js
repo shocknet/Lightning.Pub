@@ -490,6 +490,31 @@ const getChanInfo = chanID =>
     )
   })
 
+/**
+ * https://api.lightning.community/#listpeers
+ * @param {boolean=} latestError If true, only the last error that our peer sent
+ * us will be returned with the peer's information, rather than the full set of
+ * historic errors we have stored.
+ * @returns {Promise<Common.Peer[]>}
+ */
+const listPeers = latestError =>
+  Common.makePromise((res, rej) => {
+    const { lightning } = lightningServices.getServices()
+
+    lightning.listPeers(
+      {
+        latest_error: latestError
+      },
+      (err, resp) => {
+        if (err) {
+          rej(new Error(err.message))
+        } else {
+          res(resp.peers)
+        }
+      }
+    )
+  })
+
 module.exports = {
   sendPaymentV2Keysend,
   sendPaymentV2Invoice,
@@ -498,5 +523,6 @@ module.exports = {
   newAddress,
   listUnspent,
   listChannels,
-  getChanInfo
+  getChanInfo,
+  listPeers
 }

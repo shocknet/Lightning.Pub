@@ -1053,25 +1053,17 @@ module.exports = async (
   })
 
   // get lnd node active channels list
-  app.get('/api/lnd/listpeers', (req, res) => {
-    const { lightning } = LightningServices.services
-    lightning.listPeers({}, async (err, response) => {
-      if (err) {
-        logger.debug('ListPeers Error:', err)
-        const health = await checkHealth()
-        if (health.LNDStatus.success) {
-          res.status(400).json({
-            field: 'listPeers',
-            errorMessage: sanitizeLNDError(err.message)
-          })
-        } else {
-          res.status(500)
-          res.json({ errorMessage: 'LND is down' })
-        }
-      }
-      logger.debug('ListPeers:', response)
-      res.json(response)
-    })
+  app.get('/api/lnd/listpeers', async (req, res) => {
+    try {
+      return res.json({
+        peers: await LV2.listPeers(req.body.latestError)
+      })
+    } catch (e) {
+      console.log(e)
+      return res.status(500).json({
+        errorMessage: e.message
+      })
+    }
   })
 
   // newaddress
