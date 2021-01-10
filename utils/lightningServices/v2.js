@@ -465,6 +465,31 @@ const listChannels = req =>
     })
   })
 
+/**
+ * https://api.lightning.community/#getchaninfo
+ * @param {string} chanID
+ * @returns {Promise<Common.ChannelEdge>}
+ */
+const getChanInfo = chanID =>
+  Common.makePromise((res, rej) => {
+    const { lightning } = lightningServices.getServices()
+
+    lightning.getChanInfo(
+      {
+        chan_id: chanID
+      },
+      (err, resp) => {
+        if (err) {
+          rej(new Error(err.message))
+        } else {
+          // Needs cast because typescript refuses to assign Record<string, any>
+          // to an actual object :shrugs
+          res(/** @type {Common.ChannelEdge} */ (resp))
+        }
+      }
+    )
+  })
+
 module.exports = {
   sendPaymentV2Keysend,
   sendPaymentV2Invoice,
@@ -472,5 +497,6 @@ module.exports = {
   decodePayReq,
   newAddress,
   listUnspent,
-  listChannels
+  listChannels,
+  getChanInfo
 }
