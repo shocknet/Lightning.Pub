@@ -1144,25 +1144,17 @@ module.exports = async (
   })
 
   // get lnd node opened channels list
-  app.get('/api/lnd/listchannels', (req, res) => {
-    const { lightning } = LightningServices.services
-    lightning.listChannels({}, async (err, response) => {
-      if (err) {
-        logger.debug('ListChannels Error:', err)
-        const health = await checkHealth()
-        if (health.LNDStatus.success) {
-          res.status(400).json({
-            field: 'listChannels',
-            errorMessage: sanitizeLNDError(err.message)
-          })
-        } else {
-          res.status(500)
-          res.json({ errorMessage: 'LND is down' })
-        }
-      }
-      logger.debug('ListChannels:', response)
-      res.json(response)
-    })
+  app.get('/api/lnd/listchannels', async (_, res) => {
+    try {
+      return res.json({
+        channels: await LV2.listChannels()
+      })
+    } catch (e) {
+      console.log(e)
+      return res.status(500).json({
+        errorMessage: e.message
+      })
+    }
   })
 
   // get lnd node pending channels list
