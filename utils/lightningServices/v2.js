@@ -444,11 +444,33 @@ const listUnspent = (minConfs = 3, maxConfs = 6) =>
     )
   })
 
+/**
+ * @typedef {import('./types').ListChannelsReq} ListChannelsReq
+ */
+
+/**
+ * @param {ListChannelsReq} req
+ * @returns {Promise<Common.Channel[]>}
+ */
+const listChannels = req =>
+  Common.makePromise((res, rej) => {
+    const { lightning } = lightningServices.getServices()
+
+    lightning.listChannels(req, (err, resp) => {
+      if (err) {
+        rej(new Error(err.message))
+      } else {
+        res(resp.channels)
+      }
+    })
+  })
+
 module.exports = {
   sendPaymentV2Keysend,
   sendPaymentV2Invoice,
   listPayments,
   decodePayReq,
   newAddress,
-  listUnspent
+  listUnspent,
+  listChannels
 }

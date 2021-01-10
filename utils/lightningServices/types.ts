@@ -1,6 +1,7 @@
 /**
  * @format
  */
+import * as Common from 'shock-common'
 
 export interface PaymentV2 {
   payment_hash: string
@@ -130,4 +131,16 @@ export interface Services {
   lightning: Record<string, LightningMethod>
   walletUnlocker: Record<string, LightningMethod>
   router: Record<string, LightningMethod>
+}
+
+export interface ListChannelsReq {
+  active_only: boolean
+  inactive_only: boolean
+  public_only: boolean
+  private_only: boolean
+  /**
+   * Filters the response for channels with a target peer's pubkey. If peer is
+   * empty, all channels will be returned.
+   */
+  peer: Common.Bytes
 }
