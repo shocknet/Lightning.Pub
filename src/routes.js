@@ -1020,30 +1020,15 @@ module.exports = async (
     )
   })
   // get lnd chan info
-  app.post('/api/lnd/getchaninfo', (req, res) => {
-    const { lightning } = LightningServices.services
-
-    lightning.getChanInfo(
-      { chan_id: req.body.chan_id },
-      async (err, response) => {
-        if (err) {
-          logger.debug('GetChanInfo Error:', err)
-          const health = await checkHealth()
-          if (health.LNDStatus.success) {
-            res.status(400)
-            res.json({
-              field: 'getChanInfo',
-              errorMessage: sanitizeLNDError(err.message)
-            })
-          } else {
-            res.status(500)
-            res.json({ errorMessage: 'LND is down' })
-          }
-        }
-        logger.debug('GetChanInfo:', response)
-        res.json(response)
-      }
-    )
+  app.post('/api/lnd/getchaninfo', async (req, res) => {
+    try {
+      return res.json(await LV2.getChanInfo(req.body.chan_id))
+    } catch (e) {
+      console.log(e)
+      return res.status(500).json({
+        errorMessage: e.message
+      })
+    }
   })
 
   app.get('/api/lnd/getnetworkinfo', (req, res) => {
