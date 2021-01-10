@@ -421,13 +421,9 @@ const newAddress = (type = 0) => {
 }
 
 /**
- * @typedef {import('./types').Utxo} Utxo
- */
-
-/**
  * @param {number} minConfs
  * @param {number} maxConfs
- * @returns {Promise<Utxo[]>}
+ * @returns {Promise<Common.Utxo[]>}
  */
 const listUnspent = (minConfs = 3, maxConfs = 6) =>
   Common.makePromise((res, rej) => {

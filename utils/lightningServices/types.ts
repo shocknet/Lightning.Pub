@@ -131,35 +131,3 @@ export interface Services {
   walletUnlocker: Record<string, LightningMethod>
   router: Record<string, LightningMethod>
 }
-
-export interface Utxo {
-  /**
-   * The type of address.
-   */
-  address_type: unknown
-
-  /**
-   * The address.
-   */
-  address: string
-
-  /**
-   * The value of the unspent coin in satoshis.
-   */
-  amount_sat: number
-
-  /**
-   * The pkscript in hex.
-   */
-  pk_script: string
-
-  /**
-   * The outpoint in format txid:n.
-   */
-  outpoint: unknown
-
-  /**
-   * The number of confirmations for the Utxo.
-   */
-  confirmations: number
-}
