@@ -515,6 +515,28 @@ const listPeers = latestError =>
     )
   })
 
+/**
+ * @typedef {import('./types').PendingChannelsRes} PendingChannelsRes
+ */
+
+/**
+ * @returns {Promise<PendingChannelsRes>}
+ */
+const pendingChannels = () =>
+  Common.makePromise((res, rej) => {
+    const { lightning } = lightningServices.getServices()
+
+    lightning.pendingChannels({}, (err, resp) => {
+      if (err) {
+        rej(new Error(err.message))
+      } else {
+        // Needs cast because typescript refuses to assign Record<string, any>
+        // to an actual object :shrugs
+        res(/** @type {PendingChannelsRes} */ (resp))
+      }
+    })
+  })
+
 module.exports = {
   sendPaymentV2Keysend,
   sendPaymentV2Invoice,
@@ -524,5 +546,6 @@ module.exports = {
   listUnspent,
   listChannels,
   getChanInfo,
-  listPeers
+  listPeers,
+  pendingChannels
 }
