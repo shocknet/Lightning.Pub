@@ -144,3 +144,25 @@ export interface ListChannelsReq {
    */
   peer: Common.Bytes
 }
+
+/**
+ * https://api.lightning.community/#pendingchannels
+ */
+export interface PendingChannelsRes {
+  /**
+   * The balance in satoshis encumbered in pending channels.
+   */
+  total_limbo_balance: string
+  /**
+   * Channels pending opening.
+   */
+  pending_open_channels: Common.PendingOpenChannel[]
+  /**
+   * Channels pending force closing.
+   */
+  pending_force_closing_channels: Common.ForceClosedChannel[]
+  /**
+   * Channels waiting for closing tx to confirm.
+   */
+  waiting_close_channels: Common.WaitingCloseChannel[]
+}

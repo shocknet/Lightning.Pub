@@ -1134,26 +1134,15 @@ module.exports = async (
     }
   })
 
-  // get lnd node pending channels list
-  app.get('/api/lnd/pendingchannels', (req, res) => {
-    const { lightning } = LightningServices.services
-    lightning.pendingChannels({}, async (err, response) => {
-      if (err) {
-        logger.debug('PendingChannels Error:', err)
-        const health = await checkHealth()
-        if (health.LNDStatus.success) {
-          res.status(400).json({
-            field: 'pendingChannels',
-            errorMessage: sanitizeLNDError(err.message)
-          })
-        } else {
-          res.status(500)
-          res.json({ errorMessage: 'LND is down' })
-        }
-      }
-      logger.debug('PendingChannels:', response)
-      res.json(response)
-    })
+  app.get('/api/lnd/pendingchannels', async (req, res) => {
+    try {
+      return res.json(await LV2.pendingChannels())
+    } catch (e) {
+      console.log(e)
+      return res.status(500).json({
+        errorMessage: e.message
+      })
+    }
   })
 
   app.get('/api/lnd/unifiedTrx', (req, res) => {
