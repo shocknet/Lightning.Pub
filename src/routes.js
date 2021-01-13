@@ -1709,64 +1709,32 @@ module.exports = async (
   })
 
   // addinvoice
-  app.post('/api/lnd/addinvoice', (req, res) => {
-    const { lightning } = LightningServices.services
-    const invoiceRequest = { memo: req.body.memo, private: true }
-    if (req.body.value) {
-      invoiceRequest.value = req.body.value
-    }
-    if (req.body.expiry) {
-      invoiceRequest.expiry = req.body.expiry
-    }
-    lightning.addInvoice(invoiceRequest, async (err, newInvoice) => {
-      if (err) {
-        logger.debug('AddInvoice Error:', err)
-        const health = await checkHealth()
-        if (health.LNDStatus.success) {
-          res.status(400).json({
-            field: 'addInvoice',
-            errorMessage: sanitizeLNDError(err.message)
-          })
-        } else {
-          res.status(500)
-          res.json({ errorMessage: 'LND is down' })
+  app.post('/api/lnd/addinvoice', async (req, res) => {
+    const { expiry, value, memo } = req.body
+    const addInvoiceRes = await LV2.addInvoice(value, memo, true, expiry)
+
+    if (value) {
+      const channelsList = await LV2.listChannels({ active_only: true })
+      let remoteBalance = Big(0)
+      channelsList.forEach(element => {
+        const remB = Big(element.remote_balance)
+        if (remB.gt(remoteBalance)) {
+          remoteBalance = remB
         }
-        return err
-      }
-      logger.debug('AddInvoice:', newInvoice)
-      if (req.body.value) {
-        logger.debug('AddInvoice liquidity check:')
-        lightning.listChannels({ active_only: true }, async (err, response) => {
-          if (err) {
-            logger.debug('ListChannels Error:', err)
-            const health = await checkHealth()
-            if (health.LNDStatus.success) {
-              res.status(400).json({
-                field: 'listChannels',
-                errorMessage: sanitizeLNDError(err.message)
-              })
-            } else {
-              res.status(500)
-              res.json({ errorMessage: 'LND is down' })
-            }
-          }
-          logger.debug('ListChannels:', response)
-          const channelsList = response.channels
-          let remoteBalance = Big(0)
-          channelsList.forEach(element => {
-            const remB = Big(element.remote_balance)
-            if (remB.gt(remoteBalance)) {
-              remoteBalance = remB
-            }
-          })
-          newInvoice.liquidityCheck = remoteBalance > req.body.value
-          //newInvoice.remoteBalance = remoteBalance
-          res.json(newInvoice)
-        })
-      } else {
-        res.json(newInvoice)
-      }
-    })
+      })
+
+      addInvoiceRes.liquidityCheck = remoteBalance > value
+      //newInvoice.remoteBalance = remoteBalance
+    }
+
+    try {
+      return res.json(addInvoiceRes)
+    } catch (e) {
+      console.log(e)
+      return res.status(500).json({
+        errorMessage: e.message
+      })
+    }
   })
 
   // signmessage
