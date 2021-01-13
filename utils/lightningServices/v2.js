@@ -537,6 +537,40 @@ const pendingChannels = () =>
     })
   })
 
+/**
+ * @typedef {import('./types').AddInvoiceRes} AddInvoiceRes
+ */
+/**
+ * https://api.lightning.community/#addinvoice
+ * @param {number} value
+ * @param {string=} memo
+ * @param {boolean=} confidential Alias for `private`.
+ * @param {number=} expiry
+ * @returns {Promise<AddInvoiceRes>}
+ */
+const addInvoice = (value, memo = '', confidential = true, expiry = 180) =>
+  Common.makePromise((res, rej) => {
+    const { lightning } = lightningServices.getServices()
+
+    lightning.addInvoice(
+      {
+        value,
+        memo,
+        private: confidential,
+        expiry
+      },
+      (err, resp) => {
+        if (err) {
+          rej(new Error(err.message))
+        } else {
+          // Needs cast because typescript refuses to assign Record<string, any>
+          // to an actual object :shrugs
+          res(/** @type {AddInvoiceRes} */ (resp))
+        }
+      }
+    )
+  })
+
 module.exports = {
   sendPaymentV2Keysend,
   sendPaymentV2Invoice,
@@ -547,5 +581,6 @@ module.exports = {
   listChannels,
   getChanInfo,
   listPeers,
-  pendingChannels
+  pendingChannels,
+  addInvoice
 }
