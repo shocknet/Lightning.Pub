@@ -69,3 +69,5 @@ exports.COORDINATES = 'coordinates'
 exports.COORDINATE_INDEX = 'coordinateIndex'
 
 exports.TMP_CHAIN_COORDINATE = 'tmpChainCoordinate'
+
+exports.DATE_COORDINATE_INDEX = 'dateCoordinateIndex'

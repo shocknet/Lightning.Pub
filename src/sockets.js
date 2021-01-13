@@ -134,6 +134,17 @@ module.exports = (
     stream.on('data', data => {
       logger.info('[SOCKET] New invoice data:', data)
       emitEncryptedEvent({ eventName: 'invoice:new', data, socket })
+      if (!data.settled) {
+        return
+      }
+      SchemaManager.AddOrder({
+        type: 'invoice',
+        amount: parseInt(data.amt_paid_sat, 10),
+        coordinateHash: data.r_hash.toString('hex'),
+        coordinateIndex: parseInt(data.add_index, 10),
+        inbound: true,
+        toLndPub: data.payment_addr
+      })
     })
     stream.on('end', () => {
       logger.info('New invoice stream ended, starting a new one...')
