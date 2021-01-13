@@ -1872,7 +1872,7 @@ module.exports = async (
     )
   })
 
-  app.post('/api/lnd/listunspent', async (req, res) => {
+  const listunspent = async (req, res) => {
     try {
       return res.status(200).json({
         utxos: await LV2.listUnspent(
@@ -1885,7 +1885,12 @@ module.exports = async (
         errorMessage: e.message
       })
     }
-  })
+  }
+
+  app.get('/api/lnd/listunspent', listunspent)
+
+  // TODO: should be GET
+  app.post('/api/lnd/listunspent', listunspent)
 
   app.get('/api/lnd/transactions', (req, res) => {
     const { lightning } = LightningServices.services
