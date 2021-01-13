@@ -1,7 +1,6 @@
 const Crypto = require('crypto')
 const { Utils: CommonUtils } = require('shock-common')
 const getGunUser = () => require('../gunDB/Mediator').getUser()
-const SEA = require('../gunDB/Mediator').mySEA
 const Key = require('../gunDB/contact-api/key')
 /**
  * @typedef {import('../gunDB/contact-api/SimpleGUN').ISEA} ISEA
@@ -104,10 +103,57 @@ const checkOrderInfo = order => {
   return null
 }
 
+/**
+   * 
+   * @param {CoordinateOrder} orderInfo 
+   * @param {string} coordinateSHA256 
+   */
+const dateIndexCreateCb = (orderInfo, coordinateSHA256) => {
+  //if (this.memIndex) { need bind to use this here 
+  //update date memIndex
+  //}
+  const date = new Date(orderInfo.timestamp || 0)
+  //use UTC for consistency?
+  const year = date.getUTCFullYear().toString()
+  const month = date.getUTCMonth().toString()
+
+  getGunUser()
+    .get(Key.DATE_COORDINATE_INDEX)
+    .get(year)
+    .get(month)
+    .set(coordinateSHA256)
+}
+
+/**
+ * if not provided, assume current month and year
+ * @param {number|null} year 
+ * @param {number|null} month 
+ */
+const getMonthCoordinates = async (year = null, month = null) => {
+  const now = Date.now()
+  //@ts-expect-error
+  const stringYear = year !== null ? year.toString() : now.getUTCFullYear().toString()
+  //@ts-expect-error
+  const stringMonth = month !== null ? month.toString() : now.getUTCMonth().toString()
+
+  const data = await new Promise(res => {
+    getGunUser()
+      .get(Key.DATE_COORDINATE_INDEX)
+      .get(stringYear)
+      .get(stringMonth)
+      .load(res)
+  })
+  const coordinatesArray = Object
+    .values(data)
+    .filter(coordinateSHA256 => typeof coordinateSHA256 === 'string')
+
+  return coordinatesArray
+}
+
 class SchemaManager {
-  constructor({ memIndex = false }) {//config flag?
-    this.memIndex = memIndex
-    this.orderCreateIndexCallbacks.push(this.dateIndexCreateCb) //create more Cbs and put them here for more indexes callbacks
+  constructor(opts = { memIndex: false }) {//config flag?
+    this.memIndex = opts.memIndex
+    this.orderCreateIndexCallbacks.push(dateIndexCreateCb) //create more Cbs and put them here for more indexes callbacks
   }
 
   dateIndexName = 'dateIndex'
@@ -133,7 +179,6 @@ class SchemaManager {
    * @param {CoordinateOrder} orderInfo
    */
   async AddOrder(orderInfo) {
-
     const checkErr = checkOrderInfo(orderInfo)
     if (checkErr) {
       throw new Error(checkErr)
@@ -160,6 +205,7 @@ class SchemaManager {
     }
     const orderString = JSON.stringify(filteredOrder)
     const mySecret = require('../gunDB/Mediator').getMySecret()
+    const SEA = require('../gunDB/Mediator').mySEA
     const encryptedOrderString = await SEA.encrypt(orderString, mySecret)
     const coordinatePub = filteredOrder.inbound ? filteredOrder.toLndPub : filteredOrder.fromLndPub
     const coordinate = `${coordinatePub}__${filteredOrder.coordinateIndex}__${filteredOrder.coordinateHash}`
@@ -187,54 +233,7 @@ class SchemaManager {
     this.orderCreateIndexCallbacks.forEach(cb => cb(filteredOrder, coordinateSHA256))
   }
 
-  /**
-   * 
-   * @param {CoordinateOrder} orderInfo 
-   * @param {string} coordinateSHA256 
-   */
-  dateIndexCreateCb(orderInfo, coordinateSHA256) {
-    if (this.memIndex) {
-      //update date memIndex
-    }
-    const date = new Date(orderInfo.timestamp || 0)
-    //use UTC for consistency?
-    const year = date.getUTCFullYear().toString()
-    const month = date.getUTCMonth().toString()
 
-    getGunUser()
-      .get(Key.COORDINATE_INDEX)
-      .get(this.dateIndexName)
-      .get(year)
-      .get(month)
-      .set(coordinateSHA256)
-  }
-
-  /**
-   * if not provided, assume current month and year
-   * @param {number|null} year 
-   * @param {number|null} month 
-   */
-  async getMonthCoordinates(year = null, month = null) {
-    const now = Date.now()
-    //@ts-expect-error
-    const stringYear = year !== null ? year.toString() : now.getUTCFullYear().toString()
-    //@ts-expect-error
-    const stringMonth = month !== null ? month.toString() : now.getUTCMonth().toString()
-
-    const data = await new Promise(res => {
-      getGunUser()
-        .get(Key.COORDINATE_INDEX)
-        .get(this.dateIndexName)
-        .get(stringYear)
-        .get(stringMonth)
-        .load(res)
-    })
-    const coordinatesArray = Object
-      .values(data)
-      .filter(coordinateSHA256 => typeof coordinateSHA256 === 'string')
-
-    return coordinatesArray
-  }
 
   /**
    * if not provided, assume current month and year
@@ -243,17 +242,15 @@ class SchemaManager {
    * @returns {Promise<CoordinateOrder[]>} from newer to older
    */
   async getMonthOrders(year = null, month = null) {
-    const now = Date.now()
-    //@ts-expect-error
+    const now = new Date()
     const intYear = year !== null ? year : now.getUTCFullYear()
-    //@ts-expect-error
     const intMonth = month !== null ? month : now.getUTCMonth()
 
     let coordinates = null
     if (this.memIndex) {
       //get coordinates from this.memDateIndex
     } else {
-      coordinates = await this.getMonthCoordinates(intYear, intMonth)
+      coordinates = await getMonthCoordinates(intYear, intMonth)
     }
     /**
      * @type {CoordinateOrder[]}
@@ -271,6 +268,7 @@ class SchemaManager {
         return
       }
       const mySecret = require('../gunDB/Mediator').getMySecret()
+      const SEA = require('../gunDB/Mediator').mySEA
       const decryptedString = await SEA.decrypt(encryptedOrderString, mySecret)
 
       /**
@@ -317,6 +315,7 @@ class SchemaManager {
     }
     const orderString = JSON.stringify(filteredOrder)
     const mySecret = require('../gunDB/Mediator').getMySecret()
+    const SEA = require('../gunDB/Mediator').mySEA
     const encryptedOrderString = await SEA.encrypt(orderString, mySecret)
 
     const addressSHA256 = Crypto.createHash('SHA256')
@@ -364,6 +363,7 @@ class SchemaManager {
       return false
     }
     const mySecret = require('../gunDB/Mediator').getMySecret()
+    const SEA = require('../gunDB/Mediator').mySEA
     const decryptedString = await SEA.decrypt(maybeData, mySecret)
     if (typeof decryptedString !== 'string' || decryptedString === '') {
       return false
