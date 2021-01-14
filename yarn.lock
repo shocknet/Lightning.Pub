@@ -6255,10 +6255,10 @@ shellwords@^0.1.1:
   resolved "https://registry.yarnpkg.com/shellwords/-/shellwords-0.1.1.tgz#d6b9181c1a48d397324c84871efbcfc73fc0654b"
   integrity sha512-vFwSUfQvqybiICwZY5+DAWIPLKsWO31Q91JSKl3UYv+K5c2QRPzn0qzec6QPu1Qc9eHYItiP3NdJqNVqetYAww==
 
-shock-common@28.2.0:
-  version "28.2.0"
-  resolved "https://registry.yarnpkg.com/shock-common/-/shock-common-28.2.0.tgz#96af4b1e29ef49748624f0fa013d9d8cf8b101e3"
-  integrity sha512-ZyQEAIu05ZwZbEA50V56SP4eAUu4sLQEb7yvnUKkqSzMAhnecVc1KtUz9RRv+keUjVNhFj8A9z8GA4aweyLkTg==
+shock-common@29.0.0:
+  version "29.0.0"
+  resolved "https://registry.yarnpkg.com/shock-common/-/shock-common-29.0.0.tgz#13cb852267c055ddd0b29fc3ea776c6ee8b8674a"
+  integrity sha512-0x89AOVhLxmgdJLz6CJ+2zE2eNxogqiKqy7c63xAkIqR2w97IFotdEzvtKmPf7OD0IKvZmrYaIsXj5bAi7hYYg==
   dependencies:
     immer "^6.0.6"
     lodash "^4.17.19"
