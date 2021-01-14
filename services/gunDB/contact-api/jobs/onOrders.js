@@ -243,7 +243,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       })
 
       /**
-       * @param {Common.Invoice} invoice
+       * @param {Common.InvoiceWhenListed} invoice
        */
       const onData = invoice => {
         if (invoice.settled) {
