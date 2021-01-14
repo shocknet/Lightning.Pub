@@ -1,6 +1,7 @@
 /**
  * @format
  */
+import * as Common from 'shock-common'
 
 export interface PaymentV2 {
   payment_hash: string
@@ -105,4 +106,91 @@ export interface SendPaymentInvoiceParams {
   max_parts?: number
   payment_request: string
   timeoutSeconds?: number
+}
+
+type StreamListener = (data: any) => void
+
+/**
+ * Caution: Not all methods return an stream.
+ */
+interface LightningStream {
+  on(ev: 'data' | 'end' | 'error' | 'status', listener: StreamListener): void
+}
+
+type LightningCB = (err: Error, data: Record<string, any>) => void
+
+type LightningMethod = (
+  args: Record<string, any>,
+  cb?: LightningCB
+) => LightningStream
+
+/**
+ * Makes it easier for code calling services.
+ */
+export interface Services {
+  lightning: Record<string, LightningMethod>
+  walletUnlocker: Record<string, LightningMethod>
+  router: Record<string, LightningMethod>
+}
+
+export interface ListChannelsReq {
+  active_only: boolean
+  inactive_only: boolean
+  public_only: boolean
+  private_only: boolean
+  /**
+   * Filters the response for channels with a target peer's pubkey. If peer is
+   * empty, all channels will be returned.
+   */
+  peer: Common.Bytes
+}
+
+/**
+ * https://api.lightning.community/#pendingchannels
+ */
+export interface PendingChannelsRes {
+  /**
+   * The balance in satoshis encumbered in pending channels.
+   */
+  total_limbo_balance: string
+  /**
+   * Channels pending opening.
+   */
+  pending_open_channels: Common.PendingOpenChannel[]
+  /**
+   * Channels pending force closing.
+   */
+  pending_force_closing_channels: Common.ForceClosedChannel[]
+  /**
+   * Channels waiting for closing tx to confirm.
+   */
+  waiting_close_channels: Common.WaitingCloseChannel[]
+}
+
+/**
+ * https://github.com/lightningnetwork/lnd/blob/daf7c8a85420fc67fffa18fa5f7d08c2040946e4/lnrpc/rpc.proto#L2948
+ */
+export interface AddInvoiceRes {
+  /**
+   *
+   */
+  r_hash: Common.Bytes
+  /**
+   *  A bare-bones invoice for a payment within the Lightning Network. With the
+   *  details of the invoice, the sender has all the data necessary to send a
+   *  payment to the recipient.
+   */
+  payment_request: string
+  /**
+   *  The "add" index of this invoice. Each newly created invoice will increment
+   *  this index making it monotonically increasing. Callers to the
+   *  SubscribeInvoices call can use this to instantly get notified of all added
+   *  invoices with an add_index greater than this one.
+   */
+  add_index: string
+  /**
+   *  The payment address of the generated invoice. This value should be used in
+   *  all payments for this invoice as we require it for end to end security.
+   */
+  payment_addr: Common.Bytes
 }

@@ -402,9 +402,185 @@ const decodePayReq = payReq =>
     )
   })
 
+/**
+ * @param {0|1} type
+ * @returns {Promise<string>}
+ */
+const newAddress = (type = 0) => {
+  const { lightning } = lightningServices.getServices()
+
+  return Common.Utils.makePromise((res, rej) => {
+    lightning.newAddress({ type }, (err, response) => {
+      if (err) {
+        rej(new Error(err.message))
+      } else {
+        res(response.address)
+      }
+    })
+  })
+}
+
+/**
+ * @param {number} minConfs
+ * @param {number} maxConfs
+ * @returns {Promise<Common.Utxo[]>}
+ */
+const listUnspent = (minConfs = 3, maxConfs = 6) =>
+  Common.makePromise((res, rej) => {
+    const { lightning } = lightningServices.getServices()
+
+    lightning.listUnspent(
+      {
+        min_confs: minConfs,
+        max_confs: maxConfs
+      },
+      (err, unspent) => {
+        if (err) {
+          rej(new Error(err.message))
+        } else {
+          res(unspent.utxos)
+        }
+      }
+    )
+  })
+
+/**
+ * @typedef {import('./types').ListChannelsReq} ListChannelsReq
+ */
+
+/**
+ * @param {ListChannelsReq} req
+ * @returns {Promise<Common.Channel[]>}
+ */
+const listChannels = req =>
+  Common.makePromise((res, rej) => {
+    const { lightning } = lightningServices.getServices()
+
+    lightning.listChannels(req, (err, resp) => {
+      if (err) {
+        rej(new Error(err.message))
+      } else {
+        res(resp.channels)
+      }
+    })
+  })
+
+/**
+ * https://api.lightning.community/#getchaninfo
+ * @param {string} chanID
+ * @returns {Promise<Common.ChannelEdge>}
+ */
+const getChanInfo = chanID =>
+  Common.makePromise((res, rej) => {
+    const { lightning } = lightningServices.getServices()
+
+    lightning.getChanInfo(
+      {
+        chan_id: chanID
+      },
+      (err, resp) => {
+        if (err) {
+          rej(new Error(err.message))
+        } else {
+          // Needs cast because typescript refuses to assign Record<string, any>
+          // to an actual object :shrugs
+          res(/** @type {Common.ChannelEdge} */ (resp))
+        }
+      }
+    )
+  })
+
+/**
+ * https://api.lightning.community/#listpeers
+ * @param {boolean=} latestError If true, only the last error that our peer sent
+ * us will be returned with the peer's information, rather than the full set of
+ * historic errors we have stored.
+ * @returns {Promise<Common.Peer[]>}
+ */
+const listPeers = latestError =>
+  Common.makePromise((res, rej) => {
+    const { lightning } = lightningServices.getServices()
+
+    lightning.listPeers(
+      {
+        latest_error: latestError
+      },
+      (err, resp) => {
+        if (err) {
+          rej(new Error(err.message))
+        } else {
+          res(resp.peers)
+        }
+      }
+    )
+  })
+
+/**
+ * @typedef {import('./types').PendingChannelsRes} PendingChannelsRes
+ */
+
+/**
+ * @returns {Promise<PendingChannelsRes>}
+ */
+const pendingChannels = () =>
+  Common.makePromise((res, rej) => {
+    const { lightning } = lightningServices.getServices()
+
+    lightning.pendingChannels({}, (err, resp) => {
+      if (err) {
+        rej(new Error(err.message))
+      } else {
+        // Needs cast because typescript refuses to assign Record<string, any>
+        // to an actual object :shrugs
+        res(/** @type {PendingChannelsRes} */ (resp))
+      }
+    })
+  })
+
+/**
+ * @typedef {import('./types').AddInvoiceRes} AddInvoiceRes
+ */
+/**
+ * https://api.lightning.community/#addinvoice
+ * @param {number} value
+ * @param {string=} memo
+ * @param {boolean=} confidential Alias for `private`.
+ * @param {number=} expiry
+ * @returns {Promise<AddInvoiceRes>}
+ */
+const addInvoice = (value, memo = '', confidential = true, expiry = 180) =>
+  Common.makePromise((res, rej) => {
+    const { lightning } = lightningServices.getServices()
+
+    lightning.addInvoice(
+      {
+        value,
+        memo,
+        private: confidential,
+        expiry
+      },
+      (err, resp) => {
+        if (err) {
+          rej(new Error(err.message))
+        } else {
+          // Needs cast because typescript refuses to assign Record<string, any>
+          // to an actual object :shrugs
+          res(/** @type {AddInvoiceRes} */ (resp))
+        }
+      }
+    )
+  })
+
 module.exports = {
   sendPaymentV2Keysend,
   sendPaymentV2Invoice,
   listPayments,
-  decodePayReq
+  decodePayReq,
+  newAddress,
+  listUnspent,
+  listChannels,
+  getChanInfo,
+  listPeers,
+  pendingChannels,
+  addInvoice
 }
