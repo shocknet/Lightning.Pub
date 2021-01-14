@@ -47,7 +47,7 @@
     "promise": "^8.0.1",
     "ramda": "^0.27.1",
     "request": "^2.88.2",
-    "request-promise": "^4.2.2",
+    "request-promise": "^4.2.6",
     "response-time": "^2.3.2",
     "shelljs": "^0.8.2",
     "shock-common": "28.2.0",
