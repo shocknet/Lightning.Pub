@@ -18,7 +18,7 @@
   "dependencies": {
     "@grpc/grpc-js": "^1.2.2",
     "@grpc/proto-loader": "^0.5.5",
-    "axios": "^0.20.0",
+    "axios": "^0.21.1",
     "basic-auth": "^2.0.0",
     "big.js": "^5.2.2",
     "bitcore-lib": "^0.15.0",
