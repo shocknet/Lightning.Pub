@@ -1274,8 +1274,7 @@ const createPostNew = async (tags, title, content) => {
     status: 'publish',
     tags: tags.join('-'),
     title,
-    contentItems: {},
-    tipCounter: 0
+    contentItems: {}
   }
 
   content.forEach(c => {
