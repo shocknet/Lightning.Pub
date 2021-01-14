@@ -3132,10 +3132,10 @@ google-p12-pem@^3.0.3:
   dependencies:
     node-forge "^0.10.0"
 
-google-proto-files@^1.0.3:
-  version "1.1.0"
-  resolved "https://registry.yarnpkg.com/google-proto-files/-/google-proto-files-1.1.0.tgz#3d96148ddd07dd3facd016e5191966776c3f5897"
-  integrity sha512-qTDf5LYu112GFMrqBzMp1SDN3wvie42Qg2PugH9tWqnO0F1kRAX4BSAzFJbSpeHDI1tqr8ec7x7xQIGoiHHjEw==
+google-proto-files@^2.3.0:
+  version "2.3.0"
+  resolved "https://registry.yarnpkg.com/google-proto-files/-/google-proto-files-2.3.0.tgz#1873c24945ff6da7abfa72a55ad98d4a28c5fe18"
+  integrity sha512-A2UMuWes/9dgEWV8jr+KBM95LyyJQpHMlGbBV0wFIuJs1VRlgpPWR1m39fat1J2nKLYPyfhi42TTnEOnGWopWg==
   dependencies:
     protobufjs "^6.8.0"
     walkdir "^0.4.0"
