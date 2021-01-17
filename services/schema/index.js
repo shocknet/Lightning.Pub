@@ -1,5 +1,5 @@
 const Crypto = require('crypto')
-const { Utils: CommonUtils } = require('shock-common')
+const Common = require('shock-common')
 const getGunUser = () => require('../gunDB/Mediator').getUser()
 const Key = require('../gunDB/contact-api/key')
 /**
@@ -259,7 +259,7 @@ class SchemaManager {
     if (!coordinates) {
       return orders
     }
-    await CommonUtils.asyncForEach(coordinates, async coordinateSHA256 => {
+    await Common.Utils.asyncForEach(coordinates, async coordinateSHA256 => {
       const encryptedOrderString = await getGunUser()
         .get(Key.COORDINATES)
         .get(coordinateSHA256)
@@ -280,6 +280,52 @@ class SchemaManager {
     //@ts-expect-error
     const orderedOrders = orders.sort((a, b) => b.timestamp - a.timestamp)
     return orderedOrders
+  }
+
+  /**
+   * @typedef {Common.Schema.InvoiceWhenListed & {r_hash:Buffer,payment_addr:string}} Invoice
+   */
+  /**
+   * @type {Record<string,(invoice:Invoice) =>void>}
+   */
+  _listeningInvoices = {}
+
+  /**
+   * 
+   * @param {Buffer} r_hash 
+   * @param {(invoice:Invoice) =>void} done
+   */
+  addListenInvoice(r_hash, done) {
+    const hashString = r_hash.toString("hex")
+    this._listeningInvoices[hashString] = done
+  }
+
+  /**
+   * 
+   * @param {Common.Schema.InvoiceWhenListed & {r_hash:Buffer,payment_addr:string}} data 
+   */
+  invoiceStreamDataCb(data) {
+    if (!data.settled) {
+      //invoice not paid yet
+      return
+    }
+    const hashString = data.r_hash.toString('hex')
+    const amt = parseInt(data.amt_paid_sat, 10)
+    if (this._listeningInvoices[hashString]) {
+      const done = this._listeningInvoices[hashString]
+      delete this._listeningInvoices[hashString]
+      done(data)
+    } else {
+      this.AddOrder({
+        type: 'invoice',
+        coordinateHash: hashString,
+        coordinateIndex: parseInt(data.add_index, 10),
+        inbound: true,
+        amount: amt,
+        toLndPub: data.payment_addr,
+        invoiceMemo: data.memo
+      })
+    }
   }
 
   /**

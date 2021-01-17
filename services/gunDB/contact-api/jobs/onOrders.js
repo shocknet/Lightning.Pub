@@ -14,7 +14,6 @@ const {
 } = Common
 const SchemaManager = require('../../../schema')
 const LightningServices = require('../../../../utils/lightningServices')
-const LNDHealthManager = require('../../../../utils/lightningServices/errors')
 
 const Key = require('../key')
 const Utils = require('../utils')
@@ -105,7 +104,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       return
     }
 
-    const listenerStartTime = performance.now()
+    //const listenerStartTime = performance.now()
 
     ordersProcessed.add(orderID)
 
@@ -228,74 +227,113 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
 
     const invoicePutEndTime = performance.now() - invoicePutStartTime
 
-    // invoices should be settled right away so we can rely on this single
-    // subscription instead of life-long all invoices subscription
-    /**
-     * @type {string|null}
-     */
-    let maybePostId = null
-    if (order.targetType === 'post') {
-      const { postID } = order
-      maybePostId = postID || null
-      if (!Common.isPopulatedString(postID)) {
-        throw new TypeError(`postID not a a populated string`)
-      }
-    }
-    const { r_hash } = invoice
-
-    // A post tip order lifecycle is short enough that we can do it like this.
-    const stream = LightningServices.invoices.subscribeSingleInvoice({
-      r_hash
-    })
-
-    /**
-     * @param {Common.Invoice & {r_hash:Buffer}} invoice
-     */
-    const invoiceSubCb = invoice => {
-      if (!invoice.settled) {
-        return
-      }
-      if (order.targetType === 'post' && typeof maybePostId === 'string') {
-        getUser()
-          .get('postToTipCount')
-          .get(maybePostId)
-          .set(null) // each item in the set is a tip
-      }
-      const myLndPub = LNDHealthManager.lndPub
-      const myGunPub = getUser()._.sea.pub
-      if (!myLndPub) {
-        return //should never happen but just to be safe
-      }
-      SchemaManager.AddOrder({
-        amount: parseInt(invoice.amt_paid, 10),
-        coordinateHash: invoice.r_hash.toString('hex'),
-        coordinateIndex: parseInt(invoice.add_index, 10),
-        toLndPub: myLndPub,
-        inbound: true,
-        type: 'other', //TODO better this
-        fromGunPub: order.from,
-        toGunPub: myGunPub,
-        invoiceMemo: invoice.memo
-      })
-    }
-
-    stream.on('data', invoiceSubCb)
-
-    stream.on('status', (/** @type {any} */ status) => {
-      logger.info(`${r_hash}, invoice status:`, status)
-    })
-    stream.on('end', () => {
-      logger.warn(`${r_hash}, invoice stream ended`)
-    })
-    stream.on('error', (/** @type {any} */ e) => {
-      logger.warn(`${r_hash}, error:`, e)
-    })
-
     logger.info(`[PERF] Added invoice to GunDB in ${invoicePutEndTime}ms`)
 
-    const listenerEndTime = performance.now() - listenerStartTime
+    /**
+     *
+     * @type {Common.Schema.InvoiceWhenListed & {r_hash:Buffer,payment_addr:string}}
+     */
+    const paidInvoice = await new Promise(res => {
+      SchemaManager.addListenInvoice(invoice.r_hash, res)
+    })
+    const hashString = paidInvoice.r_hash.toString('hex')
+    const {
+      amt_paid_sat: amt,
+      add_index: addIndex,
+      payment_addr: paymentAddr
+    } = paidInvoice
+    /**@type {'spontaneousPayment' | 'tip' | 'service' | 'product' | 'other'}*/
+    //@ts-expect-error to fix
+    const orderType = order.targetType
+    //@ts-expect-error to fix
+    const { ackInfo } = order //a string representing what has been requested
+    switch (orderType) {
+      case 'tip': {
+        if (!Common.isPopulatedString(ackInfo)) {
+          throw new Error('ackInfo for postID not a populated string')
+        } else {
+          getUser()
+            .get('postToTipCount')
+            .get(ackInfo)
+            .set(null) // each item in the set is a tip
+        }
+        break
+      }
+      case 'spontaneousPayment': {
+        //no action required
+        break
+      }
+      case 'product': {
+        //assuming digital product that only requires to be unlocked
+        const ackData = { productFinalRef: '' } //find ref by decrypting it base on "ackInfo" provided information
+        const toSend = JSON.stringify(ackData)
+        const encrypted = await SEA.encrypt(toSend, secret)
+        const ordResponse = {
+          type: 'orderAck',
+          content: encrypted
+        }
+        await new Promise((res, rej) => {
+          getUser()
+            .get(Key.ORDER_TO_RESPONSE)
+            .get(orderID)
+            .put(ordResponse, ack => {
+              if (ack.err && typeof ack.err !== 'number') {
+                rej(
+                  new Error(
+                    `Error saving encrypted orderAck to order to response usergraph: ${ack}`
+                  )
+                )
+              } else {
+                res()
+              }
+            })
+        })
+        break
+      }
+      case 'service': {
+        const ackData = { serviceFinalRef: '' } //find ref by decrypting it base on "ackInfo" provided information
+        const toSend = JSON.stringify(ackData)
+        const encrypted = await SEA.encrypt(toSend, secret)
+        const serviceResponse = {
+          type: 'orderAck',
+          content: encrypted
+        }
+        await new Promise((res, rej) => {
+          getUser()
+            .get(Key.ORDER_TO_RESPONSE)
+            .get(orderID)
+            .put(serviceResponse, ack => {
+              if (ack.err && typeof ack.err !== 'number') {
+                rej(
+                  new Error(
+                    `Error saving encrypted orderAck to order to response usergraph: ${ack}`
+                  )
+                )
+              } else {
+                res()
+              }
+            })
+        })
+        break
+      }
+      case 'other': //not implemented yet but save them as a coordinate anyways
+        break
+      default:
+        return //exit because not implemented
+    }
+    const myGunPub = getUser()._.sea.pub
+    SchemaManager.AddOrder({
+      type: orderType,
+      coordinateHash: hashString,
+      coordinateIndex: parseInt(addIndex, 10),
+      inbound: true,
+      amount: parseInt(amt, 10),
 
-    logger.info(`[PERF] Invoice generation completed in ${listenerEndTime}ms`)
+      toLndPub: paymentAddr,
+      fromGunPub: order.from,
+      toGunPub: myGunPub,
+      invoiceMemo: memo
+    })
   } catch (err) {
     logger.error(
       `error inside onOrders, orderAddr: ${addr}, orderID: ${orderID}, order: ${JSON.stringify(
