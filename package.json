@@ -11,7 +11,8 @@
     "test:watch": "jest --no-cache --watch",
     "typecheck": "tsc",
     "lint": "eslint \"services/gunDB/**/*.js\"",
-    "format": "prettier --write \"./**/*.js\""
+    "format": "prettier --write \"./**/*.js\"",
+    "test:gun": "ts-node src/__gun__tests__/*.ts && rimraf -rf GUN-TEST-*"
   },
   "author": "",
   "license": "ISC",
