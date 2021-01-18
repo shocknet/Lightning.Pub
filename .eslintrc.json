@@ -88,7 +88,10 @@
     // I am now convinced TODO comments closer to the relevant code are better
     // than GH issues. Especially when it only concerns a single function /
     // routine.
-    "no-warning-comments": "off"
+    "no-warning-comments": "off",
+
+    // broken
+    "sort-imports": "off"
   },
   "parser": "babel-eslint",
   "env": {
