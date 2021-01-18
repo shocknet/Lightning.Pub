@@ -240,7 +240,18 @@ const decodePayReq = payReq =>
 /**
  * @returns {Promise<string>}
  */
-const myLNDPub = () => Promise.resolve('afjsjkhasdjkhajksd')
+const myLNDPub = () =>
+  Common.makePromise((res, rej) => {
+    const { lightning } = lightningServices.getServices()
+
+    lightning.getInfo({}, (err, data) => {
+      if (err) {
+        rej(new Error(err.message))
+      } else {
+        res(data.identity_pubkey)
+      }
+    })
+  })
 
 /**
  * aklssjdklasd
