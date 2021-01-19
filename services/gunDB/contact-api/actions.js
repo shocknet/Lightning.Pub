@@ -21,6 +21,8 @@ const {
 const Getters = require('./getters')
 const Key = require('./key')
 const Utils = require('./utils')
+const SchemaManager = require('../../schema')
+const LNDHealthMananger = require('../../../utils/lightningServices/errors')
 
 /**
  * @typedef {import('./SimpleGUN').GUNNode} GUNNode
@@ -923,7 +925,11 @@ const sendHRWithInitialMsg = async (
  * @prop {Common.Schema.OrderTargetType} type
  * @prop {string=} postID
  */
-
+/**
+ * @typedef {object} OrderRes
+ * @prop {PaymentV2} payment
+ * @prop {object=} orderAck
+ */
 /**
  * Returns the preimage corresponding to the payment.
  * @param {string} to
@@ -933,14 +939,14 @@ const sendHRWithInitialMsg = async (
  * @param {SpontPaymentOptions} opts
  * @throws {Error} If no response in less than 20 seconds from the recipient, or
  * lightning cannot find a route for the payment.
- * @returns {Promise<PaymentV2>} The payment's preimage.
+ * @returns {Promise<OrderRes>} The payment's preimage.
  */
 const sendSpontaneousPayment = async (
   to,
   amount,
   memo,
   feeLimit,
-  opts = { type: 'user' }
+  opts = { type: 'spontaneousPayment' }
 ) => {
   try {
     const SEA = require('../Mediator').mySEA
@@ -965,8 +971,8 @@ const sendSpontaneousPayment = async (
       targetType: opts.type
     }
 
-    if (opts.type === 'post') {
-      order.postID = opts.postID
+    if (opts.type === 'tip') {
+      order.ackInfo = opts.postID
     }
 
     logger.info(JSON.stringify(order))
@@ -1073,17 +1079,74 @@ const sendSpontaneousPayment = async (
       feeLimit,
       payment_request: orderResponse.response
     })
-
-    const coordinate = 'lnPub + invoiceIndex + payment hash(?)' //....
-    const orderData = {
-      someInfo: 'info '
+    const myLndPub = LNDHealthMananger.lndPub
+    if (opts.type !== 'contentReveal' && opts.type !== 'torrentSeed') {
+      SchemaManager.AddOrder({
+        type: opts.type,
+        amount: parseInt(payment.value_sat, 10),
+        coordinateHash: payment.payment_hash,
+        coordinateIndex: parseInt(payment.payment_index, 10),
+        fromLndPub: myLndPub || undefined,
+        inbound: false,
+        fromGunPub: getUser()._.sea.pub,
+        toGunPub: to,
+        invoiceMemo: memo
+      })
+      return { payment }
     }
-    getUser()
-      .get('orders')
-      .get(coordinate)
-      .set(orderData)
+    /** @type {import('shock-common').Schema.OrderResponse} */
+    const encryptedOrderAckRes = await Utils.tryAndWait(
+      gun =>
+        new Promise(res => {
+          gun
+            .user(to)
+            .get(Key.ORDER_TO_RESPONSE)
+            .get(orderID)
+            .on(orderResponse => {
+              if (Schema.isOrderResponse(orderResponse)) {
+                res(orderResponse)
+              }
+            })
+        }),
+      v => !Schema.isOrderResponse(v)
+    )
 
-    return payment
+    if (!Schema.isOrderResponse(encryptedOrderAckRes)) {
+      const e = TypeError(
+        `Expected OrderResponse got: ${typeof encryptedOrderAckRes}`
+      )
+      logger.error(e)
+      throw e
+    }
+
+    /** @type {import('shock-common').Schema.OrderResponse} */
+    const orderAck = {
+      response: await SEA.decrypt(encryptedOrderAckRes.response, ourSecret),
+      type: encryptedOrderAckRes.type
+    }
+
+    logger.info('decoded encryptedOrderAck: ' + JSON.stringify(orderAck))
+
+    if (orderAck.type === 'err') {
+      throw new Error(orderAck.response)
+    }
+
+    if (orderAck.type !== 'orderAck') {
+      throw new Error(`expected orderAck response, got: ${orderAck.type}`)
+    }
+    SchemaManager.AddOrder({
+      type: opts.type,
+      amount: parseInt(payment.value_sat, 10),
+      coordinateHash: payment.payment_hash,
+      coordinateIndex: parseInt(payment.payment_index, 10),
+      fromLndPub: myLndPub || undefined,
+      inbound: false,
+      fromGunPub: getUser()._.sea.pub,
+      toGunPub: to,
+      invoiceMemo: memo,
+      metadata: JSON.stringify(orderAck)
+    })
+    return { payment, orderAck }
   } catch (e) {
     logger.error('Error inside sendPayment()')
     logger.error(e)
@@ -1102,8 +1165,8 @@ const sendSpontaneousPayment = async (
  * @returns {Promise<string>} The payment's preimage.
  */
 const sendPayment = async (to, amount, memo, feeLimit) => {
-  const payment = await sendSpontaneousPayment(to, amount, memo, feeLimit)
-  return payment.payment_preimage
+  const res = await sendSpontaneousPayment(to, amount, memo, feeLimit)
+  return res.payment.payment_preimage
 }
 
 /**
@@ -1274,9 +1337,10 @@ const setLastSeenApp = () =>
  * @param {string[]} tags
  * @param {string} title
  * @param {Common.Schema.ContentItem[]} content
+ * @param {ISEA} SEA
  * @returns {Promise<[string, Common.Schema.RawPost]>}
  */
-const createPostNew = async (tags, title, content) => {
+const createPostNew = async (tags, title, content, SEA) => {
   /** @type {Common.Schema.RawPost} */
   const newPost = {
     date: Date.now(),
@@ -1285,11 +1349,19 @@ const createPostNew = async (tags, title, content) => {
     title,
     contentItems: {}
   }
-
-  content.forEach(c => {
+  const mySecret = require('../Mediator').getMySecret()
+  await Common.Utils.asyncForEach(content, async c => {
+    const cBis = c
+    if (
+      (cBis.type === 'image/embedded' || cBis.type === 'video/embedded') &&
+      cBis.isPrivate
+    ) {
+      const encryptedMagnet = await SEA.encrypt(cBis.magnetURI, mySecret)
+      cBis.magnetURI = encryptedMagnet
+    }
     // @ts-expect-error
     const uuid = Gun.text.random()
-    newPost.contentItems[uuid] = c
+    newPost.contentItems[uuid] = cBis
   })
 
   /** @type {string} */
@@ -1317,9 +1389,10 @@ const createPostNew = async (tags, title, content) => {
  * @param {string[]} tags
  * @param {string} title
  * @param {Common.Schema.ContentItem[]} content
+ * @param {ISEA} SEA
  * @returns {Promise<Common.Schema.Post>}
  */
-const createPost = async (tags, title, content) => {
+const createPost = async (tags, title, content, SEA) => {
   if (content.length === 0) {
     throw new Error(`A post must contain at least one paragraph/image/video`)
   }
@@ -1396,7 +1469,7 @@ const createPost = async (tags, title, content) => {
       )
   })
 
-  const [postID, newPost] = await createPostNew(tags, title, content)
+  const [postID, newPost] = await createPostNew(tags, title, content, SEA)
 
   await Common.makePromise((res, rej) => {
     require('../Mediator')

@@ -8,6 +8,9 @@ const isFinite = require('lodash/isFinite')
 const isNumber = require('lodash/isNumber')
 const isNaN = require('lodash/isNaN')
 const Common = require('shock-common')
+const crypto = require('crypto')
+// @ts-expect-error TODO fix this
+const fetch = require('node-fetch')
 const {
   Constants: { ErrorCode },
   Schema
@@ -242,30 +245,61 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       add_index: addIndex,
       payment_addr: paymentAddr
     } = paidInvoice
-    /**@type {'spontaneousPayment' | 'tip' | 'service' | 'product' | 'other'}*/
-    //@ts-expect-error to fix
     const orderType = order.targetType
-    //@ts-expect-error to fix
     const { ackInfo } = order //a string representing what has been requested
     switch (orderType) {
       case 'tip': {
-        if (!Common.isPopulatedString(ackInfo)) {
-          throw new Error('ackInfo for postID not a populated string')
-        } else {
-          getUser()
-            .get('postToTipCount')
-            .get(ackInfo)
-            .set(null) // each item in the set is a tip
+        const postID = ackInfo
+        if (!Common.isPopulatedString(postID)) {
+          break //create the coordinate, but stop because of the invalid id
         }
+        getUser()
+          .get('postToTipCount')
+          .get(postID)
+          .set(null) // each item in the set is a tip
         break
       }
       case 'spontaneousPayment': {
         //no action required
         break
       }
-      case 'product': {
+      case 'contentReveal': {
         //assuming digital product that only requires to be unlocked
-        const ackData = { productFinalRef: '' } //find ref by decrypting it base on "ackInfo" provided information
+        const postID = ackInfo
+        if (!Common.isPopulatedString(postID)) {
+          break //create the coordinate, but stop because of the invalid id
+        }
+        const selectedPost = await new Promise(res => {
+          getUser()
+            .get(Key.POSTS_NEW)
+            .get(postID)
+            .load(res)
+        })
+        if (!Common.Schema.isPost(selectedPost)) {
+          break //create the coordinate, but stop because of the invalid post
+        }
+        /**
+         * @type {Record<string,string>} <contentID,decryptedRef>
+         */
+        const contentsToSend = {}
+        const mySecret = require('../../Mediator').getMySecret()
+        await Common.Utils.asyncForEach(
+          Object.entries(selectedPost.contentItems),
+          async ([contentID, item]) => {
+            if (
+              item.type !== 'image/embedded' &&
+              item.type !== 'video/embedded'
+            ) {
+              return //only visual content can  be private
+            }
+            if (!item.isPrivate) {
+              return
+            }
+            const decrypted = await SEA.decrypt(item.magnetURI, mySecret)
+            contentsToSend[contentID] = decrypted
+          }
+        )
+        const ackData = { unlockedContents: contentsToSend }
         const toSend = JSON.stringify(ackData)
         const encrypted = await SEA.encrypt(toSend, secret)
         const ordResponse = {
@@ -290,8 +324,29 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
         })
         break
       }
-      case 'service': {
-        const ackData = { serviceFinalRef: '' } //find ref by decrypting it base on "ackInfo" provided information
+      case 'torrentSeed': {
+        const seedUrl = process.env.TORRENT_SEED_URL
+        const seedToken = process.env.TORRENT_SEED_TOKEN
+        if (!seedUrl || !seedToken) {
+          break //service not available
+        }
+        const token = crypto.randomBytes(32).toString('hex')
+        const reqData = {
+          seed_token: seedToken,
+          wallet_token: token
+        }
+        const res = await fetch(`${seedUrl}/api/enroll_token`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(reqData)
+        })
+        if (res.ok) {
+          break //request didnt work, save coordinate anyway
+        }
+
+        const ackData = { seedUrl, token }
         const toSend = JSON.stringify(ackData)
         const encrypted = await SEA.encrypt(toSend, secret)
         const serviceResponse = {
