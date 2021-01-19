@@ -298,13 +298,14 @@ module.exports = (
       const subID = Math.floor(Math.random() * 1000).toString()
       const isNotifications = isNotificationsSocket ? 'notifications' : ''
       logger.info('[LND] New LND Socket created:' + isNotifications + subID)
+      /* not used by wallet anymore
       const cancelInvoiceStream = onNewInvoice(socket, subID)
       const cancelTransactionStream = onNewTransaction(socket, subID)
       socket.on('disconnect', () => {
         logger.info('LND socket disconnected:' + isNotifications + subID)
         cancelInvoiceStream()
         cancelTransactionStream()
-      })
+      })*/
     }
   })
 

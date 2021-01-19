@@ -4966,7 +4966,7 @@ nice-try@^1.0.4:
   resolved "https://registry.yarnpkg.com/nice-try/-/nice-try-1.0.5.tgz#a3378a7696ce7d223e88fc9b764bd7ef1089e366"
   integrity sha512-1nh45deeb5olNY7eX82BkPO7SSxR5SSYJiPTrTdFUVYwAl8CKMA5N9PjTYkHiRjisVcxcQ1HXdLhx2qxxJzLNQ==
 
-node-fetch@^2.3.0:
+node-fetch@^2.3.0, node-fetch@^2.6.1:
   version "2.6.1"
   resolved "https://registry.yarnpkg.com/node-fetch/-/node-fetch-2.6.1.tgz#045bd323631f76ed2e2b55573394416b639a0052"
   integrity sha512-V4aYg89jEoVRxRb2fJdAg8FHvI7cEyYdVAh94HH0UIK8oJxUfkjlDQN9RbMx+bEjP7+ggMiFRprSti032Oipxw==
@@ -6255,10 +6255,10 @@ shellwords@^0.1.1:
   resolved "https://registry.yarnpkg.com/shellwords/-/shellwords-0.1.1.tgz#d6b9181c1a48d397324c84871efbcfc73fc0654b"
   integrity sha512-vFwSUfQvqybiICwZY5+DAWIPLKsWO31Q91JSKl3UYv+K5c2QRPzn0qzec6QPu1Qc9eHYItiP3NdJqNVqetYAww==
 
-shock-common@29.1.0:
-  version "29.1.0"
-  resolved "https://registry.yarnpkg.com/shock-common/-/shock-common-29.1.0.tgz#3b6d8613fb7c73b8b76c98293a14ec168a9dc888"
-  integrity sha512-O2tK+TShF3ioAdP4K33MB5QUDTmMqzz+pZe/HnSbi9q1DyX/zQ2Uluzol1NDE/6Z2SSnVFA7/2vJKGaCEdMKoQ==
+shock-common@31.1.0:
+  version "31.1.0"
+  resolved "https://registry.yarnpkg.com/shock-common/-/shock-common-31.1.0.tgz#9c8f25d0d405a9a9c52849c2d96452c5ddd17267"
+  integrity sha512-1490v3gTY5ZNEB/Lelfix+6bI4mfFE8hVrtN4ijz0aj/Cl1ZP5ATKdYO+hffReI+4yDaPSAAWd/HYk9b497Kxw==
   dependencies:
     immer "^6.0.6"
     lodash "^4.17.19"

@@ -571,6 +571,66 @@ const addInvoice = (value, memo = '', confidential = true, expiry = 180) =>
     )
   })
 
+/**
+ * @typedef {object} lndErr
+ * @prop {string} reason
+ * @prop {number} code
+ *
+ */
+/**
+ * @param {(invoice:Common.Schema.InvoiceWhenListed & {r_hash:Buffer,payment_addr:string}) => (boolean | undefined)} dataCb
+ * @param {(error:lndErr) => void} errorCb
+ */
+const subscribeInvoices = (dataCb, errorCb) => {
+  const { lightning } = lightningServices.getServices()
+  const stream = lightning.subscribeInvoices({})
+  stream.on('data', invoice => {
+    const cancelStream = dataCb(invoice)
+    if (cancelStream) {
+      //@ts-expect-error
+      stream.cancel()
+    }
+  })
+  stream.on('error', error => {
+    errorCb(error)
+    try {
+      //@ts-expect-error
+      stream.cancel()
+    } catch {
+      logger.info(
+        '[subscribeInvoices] tried to cancel an already canceled stream'
+      )
+    }
+  })
+}
+
+/**
+ * @param {(tx:Common.Schema.ChainTransaction) => (boolean | undefined)} dataCb
+ * @param {(error:lndErr) => void} errorCb
+ */
+const subscribeTransactions = (dataCb, errorCb) => {
+  const { lightning } = lightningServices.getServices()
+  const stream = lightning.subscribeTransactions({})
+  stream.on('data', transaction => {
+    const cancelStream = dataCb(transaction)
+    if (cancelStream) {
+      //@ts-expect-error
+      stream.cancel()
+    }
+  })
+  stream.on('error', error => {
+    errorCb(error)
+    try {
+      //@ts-expect-error
+      stream.cancel()
+    } catch {
+      logger.info(
+        '[subscribeTransactions] tried to cancel an already canceled stream'
+      )
+    }
+  })
+}
+
 module.exports = {
   sendPaymentV2Keysend,
   sendPaymentV2Invoice,
@@ -582,5 +642,7 @@ module.exports = {
   getChanInfo,
   listPeers,
   pendingChannels,
-  addInvoice
+  addInvoice,
+  subscribeInvoices,
+  subscribeTransactions
 }
