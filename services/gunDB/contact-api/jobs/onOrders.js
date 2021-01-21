@@ -2,6 +2,7 @@
  * @format
  */
 // @ts-check
+const Gun = require('gun')
 const { performance } = require('perf_hooks')
 const logger = require('winston')
 const isFinite = require('lodash/isFinite')
@@ -201,11 +202,15 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
     logger.info(
       `onOrders() -> Will now place the encrypted invoice in order to response usergraph: ${addr}`
     )
+    // @ts-expect-error
+    const ackNode = Gun.text.random()
 
     /** @type {import('shock-common').Schema.OrderResponse} */
     const orderResponse = {
       response: encInvoice,
-      type: 'invoice'
+      type: 'invoice',
+      //@ts-expect-error
+      ackNode
     }
 
     const invoicePutStartTime = performance.now()
@@ -231,164 +236,212 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
     const invoicePutEndTime = performance.now() - invoicePutStartTime
 
     logger.info(`[PERF] Added invoice to GunDB in ${invoicePutEndTime}ms`)
-
     /**
      *
-     * @type {Common.Schema.InvoiceWhenListed & {r_hash:Buffer,payment_addr:string}}
+     * @param {Common.Schema.InvoiceWhenListed & {r_hash:Buffer,payment_addr:string}} paidInvoice
      */
-    const paidInvoice = await new Promise(res => {
-      SchemaManager.addListenInvoice(invoice.r_hash, res)
-    })
-    const hashString = paidInvoice.r_hash.toString('hex')
-    const {
-      amt_paid_sat: amt,
-      add_index: addIndex,
-      payment_addr: paymentAddr
-    } = paidInvoice
-    const orderType = order.targetType
-    const { ackInfo } = order //a string representing what has been requested
-    switch (orderType) {
-      case 'tip': {
-        const postID = ackInfo
-        if (!Common.isPopulatedString(postID)) {
-          break //create the coordinate, but stop because of the invalid id
-        }
-        getUser()
-          .get('postToTipCount')
-          .get(postID)
-          .set(null) // each item in the set is a tip
-        break
-      }
-      case 'spontaneousPayment': {
-        //no action required
-        break
-      }
-      case 'contentReveal': {
-        //assuming digital product that only requires to be unlocked
-        const postID = ackInfo
-        if (!Common.isPopulatedString(postID)) {
-          break //create the coordinate, but stop because of the invalid id
-        }
-        const selectedPost = await new Promise(res => {
-          getUser()
-            .get(Key.POSTS_NEW)
-            .get(postID)
-            .load(res)
-        })
-        if (!Common.Schema.isPost(selectedPost)) {
-          break //create the coordinate, but stop because of the invalid post
-        }
-        /**
-         * @type {Record<string,string>} <contentID,decryptedRef>
-         */
-        const contentsToSend = {}
-        const mySecret = require('../../Mediator').getMySecret()
-        await Common.Utils.asyncForEach(
-          Object.entries(selectedPost.contentItems),
-          async ([contentID, item]) => {
-            if (
-              item.type !== 'image/embedded' &&
-              item.type !== 'video/embedded'
-            ) {
-              return //only visual content can  be private
-            }
-            if (!item.isPrivate) {
-              return
-            }
-            const decrypted = await SEA.decrypt(item.magnetURI, mySecret)
-            contentsToSend[contentID] = decrypted
+    const invoicePaidCb = async paidInvoice => {
+      console.log('INVOICE  PAID')
+      const hashString = paidInvoice.r_hash.toString('hex')
+      const {
+        amt_paid_sat: amt,
+        add_index: addIndex,
+        payment_addr: paymentAddr
+      } = paidInvoice
+      const orderType = order.targetType
+      const { ackInfo } = order //a string representing what has been requested
+      switch (orderType) {
+        case 'tip': {
+          const postID = ackInfo
+          if (!Common.isPopulatedString(postID)) {
+            break //create the coordinate, but stop because of the invalid id
           }
-        )
-        const ackData = { unlockedContents: contentsToSend }
-        const toSend = JSON.stringify(ackData)
-        const encrypted = await SEA.encrypt(toSend, secret)
-        const ordResponse = {
-          type: 'orderAck',
-          content: encrypted
-        }
-        await new Promise((res, rej) => {
           getUser()
-            .get(Key.ORDER_TO_RESPONSE)
-            .get(orderID)
-            .put(ordResponse, ack => {
-              if (ack.err && typeof ack.err !== 'number') {
-                rej(
-                  new Error(
-                    `Error saving encrypted orderAck to order to response usergraph: ${ack}`
-                  )
-                )
-              } else {
-                res()
+            .get('postToTipCount')
+            .get(postID)
+            .set(null) // each item in the set is a tip
+          break
+        }
+        case 'spontaneousPayment': {
+          //no action required
+          break
+        }
+        case 'contentReveal': {
+          console.log('cONTENT REVEAL')
+          //assuming digital product that only requires to be unlocked
+          const postID = ackInfo
+          console.log('ACK INFO')
+          console.log(ackInfo)
+          if (!Common.isPopulatedString(postID)) {
+            break //create the coordinate, but stop because of the invalid id
+          }
+          console.log('IS STRING')
+          const selectedPost = await new Promise(res => {
+            getUser()
+              .get(Key.POSTS_NEW)
+              .get(postID)
+              .load(res)
+          })
+          console.log('LOAD ok')
+          console.log(selectedPost)
+          if (
+            !selectedPost ||
+            !selectedPost.status ||
+            selectedPost.status !== 'publish'
+          ) {
+            break //create the coordinate, but stop because of the invalid post
+          }
+          console.log('IS POST')
+          /**
+           * @type {Record<string,string>} <contentID,decryptedRef>
+           */
+          const contentsToSend = {}
+          const mySecret = require('../../Mediator').getMySecret()
+          console.log('SECRET OK')
+          await Common.Utils.asyncForEach(
+            Object.entries(selectedPost.contentItems),
+            async ([contentID, item]) => {
+              if (
+                item.type !== 'image/embedded' &&
+                item.type !== 'video/embedded'
+              ) {
+                return //only visual content can  be private
               }
-            })
-        })
-        break
-      }
-      case 'torrentSeed': {
-        const seedUrl = process.env.TORRENT_SEED_URL
-        const seedToken = process.env.TORRENT_SEED_TOKEN
-        if (!seedUrl || !seedToken) {
-          break //service not available
-        }
-        const token = crypto.randomBytes(32).toString('hex')
-        const reqData = {
-          seed_token: seedToken,
-          wallet_token: token
-        }
-        const res = await fetch(`${seedUrl}/api/enroll_token`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(reqData)
-        })
-        if (res.ok) {
-          break //request didnt work, save coordinate anyway
-        }
+              if (!item.isPrivate) {
+                return
+              }
+              const decrypted = await SEA.decrypt(item.magnetURI, mySecret)
+              contentsToSend[contentID] = decrypted
+            }
+          )
+          const ackData = { unlockedContents: contentsToSend }
+          const toSend = JSON.stringify(ackData)
+          const encrypted = await SEA.encrypt(toSend, secret)
+          const ordResponse = {
+            type: 'orderAck',
+            response: encrypted
+          }
+          console.log('RES READY')
 
-        const ackData = { seedUrl, token }
-        const toSend = JSON.stringify(ackData)
-        const encrypted = await SEA.encrypt(toSend, secret)
-        const serviceResponse = {
-          type: 'orderAck',
-          content: encrypted
-        }
-        await new Promise((res, rej) => {
-          getUser()
-            .get(Key.ORDER_TO_RESPONSE)
-            .get(orderID)
-            .put(serviceResponse, ack => {
-              if (ack.err && typeof ack.err !== 'number') {
-                rej(
-                  new Error(
-                    `Error saving encrypted orderAck to order to response usergraph: ${ack}`
+          await new Promise((res, rej) => {
+            getUser()
+              .get(Key.ORDER_TO_RESPONSE)
+              .get(ackNode)
+              .put(ordResponse, ack => {
+                if (ack.err && typeof ack.err !== 'number') {
+                  rej(
+                    new Error(
+                      `Error saving encrypted orderAck to order to response usergraph: ${ack}`
+                    )
                   )
-                )
-              } else {
-                res()
-              }
-            })
-        })
-        break
+                } else {
+                  res()
+                }
+              })
+          })
+          console.log('RES SENT')
+          break
+        }
+        case 'torrentSeed': {
+          console.log('TORRENT')
+          const seedUrl = process.env.TORRENT_SEED_URL
+          const seedToken = process.env.TORRENT_SEED_TOKEN
+          if (!seedUrl || !seedToken) {
+            break //service not available
+          }
+          console.log('SEED URL OK')
+          const token = crypto.randomBytes(32).toString('hex')
+          const reqData = {
+            seed_token: seedToken,
+            wallet_token: token
+          }
+          console.log(seedUrl)
+          console.log(seedToken)
+          const res = await fetch(`${seedUrl}/api/enroll_token`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(reqData)
+          })
+          if (res.status !== 200) {
+            break //request didnt work, save coordinate anyway
+          }
+          console.log('RES SEED OK')
+          const ackData = { seedUrl, token }
+          const toSend = JSON.stringify(ackData)
+          const encrypted = await SEA.encrypt(toSend, secret)
+          const serviceResponse = {
+            type: 'orderAck',
+            response: encrypted
+          }
+          console.log('RES SEED SENT')
+          await new Promise((res, rej) => {
+            getUser()
+              .get(Key.ORDER_TO_RESPONSE)
+              .get(ackNode)
+              .put(serviceResponse, ack => {
+                if (ack.err && typeof ack.err !== 'number') {
+                  rej(
+                    new Error(
+                      `Error saving encrypted orderAck to order to response usergraph: ${ack}`
+                    )
+                  )
+                } else {
+                  res()
+                }
+              })
+          })
+          break
+        }
+        case 'other': //not implemented yet but save them as a coordinate anyways
+          break
+        default:
+          return //exit because not implemented
       }
-      case 'other': //not implemented yet but save them as a coordinate anyways
-        break
-      default:
-        return //exit because not implemented
+      const myGunPub = getUser()._.sea.pub
+      SchemaManager.AddOrder({
+        type: orderType,
+        coordinateHash: hashString,
+        coordinateIndex: parseInt(addIndex, 10),
+        inbound: true,
+        amount: parseInt(amt, 10),
+
+        toLndPub: paymentAddr,
+        fromGunPub: order.from,
+        toGunPub: myGunPub,
+        invoiceMemo: memo
+      })
     }
-    const myGunPub = getUser()._.sea.pub
-    SchemaManager.AddOrder({
-      type: orderType,
-      coordinateHash: hashString,
-      coordinateIndex: parseInt(addIndex, 10),
-      inbound: true,
-      amount: parseInt(amt, 10),
+    console.log('WAITING INVOICE TO BE PAID')
+    new Promise(res => SchemaManager.addListenInvoice(invoice.r_hash, res))
+      .then(invoicePaidCb)
+      .catch(err => {
+        logger.error(
+          `error inside onOrders, orderAddr: ${addr}, orderID: ${orderID}, order: ${JSON.stringify(
+            order
+          )}`
+        )
+        logger.error(err)
 
-      toLndPub: paymentAddr,
-      fromGunPub: order.from,
-      toGunPub: myGunPub,
-      invoiceMemo: memo
-    })
+        /** @type {import('shock-common').Schema.OrderResponse} */
+        const orderResponse = {
+          response: err.message,
+          type: 'err'
+        }
+
+        getUser()
+          .get(Key.ORDER_TO_RESPONSE)
+          .get(orderID)
+          // @ts-expect-error
+          .put(orderResponse, ack => {
+            if (ack.err && typeof ack.err !== 'number') {
+              logger.error(
+                `Error saving encrypted invoice to order to response usergraph: ${ack}`
+              )
+            }
+          })
+      })
   } catch (err) {
     logger.error(
       `error inside onOrders, orderAddr: ${addr}, orderID: ${orderID}, order: ${JSON.stringify(

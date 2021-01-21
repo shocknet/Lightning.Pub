@@ -1192,12 +1192,17 @@ module.exports = async (
 
   app.post('/api/lnd/unifiedTrx', async (req, res) => {
     try {
-      const { type, amt, to, memo, feeLimit, postID } = req.body
-
-      if (type !== 'spont' && type !== 'post') {
+      const { type, amt, to, memo, feeLimit, ackInfo } = req.body
+      if (
+        type !== 'spontaneousPayment' &&
+        type !== 'tip' &&
+        type !== 'torrentSeed' &&
+        type !== 'contentReveal' &&
+        type !== 'other'
+      ) {
         return res.status(415).json({
           field: 'type',
-          errorMessage: `Only 'spont' and 'post' payments supported via this endpoint for now.`
+          errorMessage: `Only 'spontaneousPayment'| 'tip' | 'torrentSeed' | 'contentReveal' | 'other' payments supported via this endpoint for now.`
         })
       }
 
@@ -1231,17 +1236,17 @@ module.exports = async (
         })
       }
 
-      if (type === 'post' && typeof postID !== 'string') {
+      if (type === 'tip' && typeof ackInfo !== 'string') {
         return res.status(400).json({
-          field: 'postID',
-          errorMessage: `Send postID`
+          field: 'ackInfo',
+          errorMessage: `Send ackInfo`
         })
       }
 
       return res.status(200).json(
         await GunActions.sendSpontaneousPayment(to, amt, memo, feeLimit, {
           type,
-          postID
+          ackInfo
         })
       )
     } catch (e) {
@@ -2164,10 +2169,12 @@ module.exports = async (
   app.post(`/api/gun/wall/`, async (req, res) => {
     try {
       const { tags, title, contentItems } = req.body
+      const SEA = require('../services/gunDB/Mediator').mySEA
       return res
         .status(200)
-        .json(await GunActions.createPostNew(tags, title, contentItems))
+        .json(await GunActions.createPostNew(tags, title, contentItems, SEA))
     } catch (e) {
+      console.log(e)
       return res.status(500).json({
         errorMessage:
           (typeof e === 'string' ? e : e.message) || 'Unknown error.'
