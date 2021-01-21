@@ -923,7 +923,7 @@ const sendHRWithInitialMsg = async (
 /**
  * @typedef {object} SpontPaymentOptions
  * @prop {Common.Schema.OrderTargetType} type
- * @prop {string=} postID
+ * @prop {string=} ackInfo
  */
 /**
  * @typedef {object} OrderRes
@@ -968,11 +968,8 @@ const sendSpontaneousPayment = async (
       from: getUser()._.sea.pub,
       memo: memo || 'no memo',
       timestamp: Date.now(),
-      targetType: opts.type
-    }
-
-    if (opts.type === 'tip') {
-      order.ackInfo = opts.postID
+      targetType: opts.type,
+      ackInfo: opts.ackInfo
     }
 
     logger.info(JSON.stringify(order))
@@ -1009,7 +1006,7 @@ const sendSpontaneousPayment = async (
               )
             )
           } else {
-            res(ord._.get)
+            setTimeout(() => res(ord._.get), 0)
           }
         })
     })
@@ -1020,7 +1017,8 @@ const sendSpontaneousPayment = async (
       )}`
       throw new Error(msg)
     }
-
+    console.log('ORDER ID')
+    console.log(orderID)
     /** @type {import('shock-common').Schema.OrderResponse} */
     const encryptedOrderRes = await Utils.tryAndWait(
       gun =>
@@ -1030,12 +1028,13 @@ const sendSpontaneousPayment = async (
             .get(Key.ORDER_TO_RESPONSE)
             .get(orderID)
             .on(orderResponse => {
+              console.log(orderResponse)
               if (Schema.isOrderResponse(orderResponse)) {
                 res(orderResponse)
               }
             })
         }),
-      v => !Schema.isOrderResponse(v)
+      v => Schema.isOrderResponse(v)
     )
 
     if (!Schema.isOrderResponse(encryptedOrderRes)) {
@@ -1046,10 +1045,12 @@ const sendSpontaneousPayment = async (
       throw e
     }
 
-    /** @type {import('shock-common').Schema.OrderResponse} */
+    /** @type {import('shock-common').Schema.OrderResponse &{ackNode:string}} */
     const orderResponse = {
       response: await SEA.decrypt(encryptedOrderRes.response, ourSecret),
-      type: encryptedOrderRes.type
+      type: encryptedOrderRes.type,
+      //@ts-expect-error
+      ackNode: encryptedOrderRes.ackNode
     }
 
     logger.info('decoded orderResponse: ' + JSON.stringify(orderResponse))
@@ -1080,7 +1081,10 @@ const sendSpontaneousPayment = async (
       payment_request: orderResponse.response
     })
     const myLndPub = LNDHealthMananger.lndPub
-    if (opts.type !== 'contentReveal' && opts.type !== 'torrentSeed') {
+    if (
+      (opts.type !== 'contentReveal' && opts.type !== 'torrentSeed') ||
+      !orderResponse.ackNode
+    ) {
       SchemaManager.AddOrder({
         type: opts.type,
         amount: parseInt(payment.value_sat, 10),
@@ -1094,6 +1098,8 @@ const sendSpontaneousPayment = async (
       })
       return { payment }
     }
+    console.log('ACK NODE')
+    console.log(orderResponse.ackNode)
     /** @type {import('shock-common').Schema.OrderResponse} */
     const encryptedOrderAckRes = await Utils.tryAndWait(
       gun =>
@@ -1101,8 +1107,11 @@ const sendSpontaneousPayment = async (
           gun
             .user(to)
             .get(Key.ORDER_TO_RESPONSE)
-            .get(orderID)
+            .get(orderResponse.ackNode)
             .on(orderResponse => {
+              console.log(orderResponse)
+              console.log(Schema.isOrderResponse(orderResponse))
+
               if (Schema.isOrderResponse(orderResponse)) {
                 res(orderResponse)
               }
@@ -1113,7 +1122,7 @@ const sendSpontaneousPayment = async (
 
     if (!Schema.isOrderResponse(encryptedOrderAckRes)) {
       const e = TypeError(
-        `Expected OrderResponse got: ${typeof encryptedOrderAckRes}`
+        `Expected encryptedOrderAckRes got: ${typeof encryptedOrderAckRes}`
       )
       logger.error(e)
       throw e
@@ -1148,6 +1157,7 @@ const sendSpontaneousPayment = async (
     })
     return { payment, orderAck }
   } catch (e) {
+    console.log(e)
     logger.error('Error inside sendPayment()')
     logger.error(e)
     throw e
