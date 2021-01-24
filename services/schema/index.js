@@ -106,52 +106,50 @@ const checkOrderInfo = order => {
   return null
 }
 
-/**
+/*
    * 
    * @param {CoordinateOrder} orderInfo 
    * @param {string} coordinateSHA256 
-   */
+   *//*
 const dateIndexCreateCb = (orderInfo, coordinateSHA256) => {
-  //if (this.memIndex) { need bind to use this here 
-  //update date memIndex
-  //}
-  const date = new Date(orderInfo.timestamp || 0)
-  //use UTC for consistency?
-  const year = date.getUTCFullYear().toString()
-  const month = date.getUTCMonth().toString()
+//if (this.memIndex) { need bind to use this here 
+//update date memIndex
+//}
+const date = new Date(orderInfo.timestamp || 0)
+//use UTC for consistency?
+const year = date.getUTCFullYear().toString()
+const month = date.getUTCMonth().toString()
 
-  getGunUser()
-    .get(Key.DATE_COORDINATE_INDEX)
-    .get(year)
-    .get(month)
-    .set(coordinateSHA256)
-}
+getGunUser()
+.get(Key.DATE_COORDINATE_INDEX)
+.get(year)
+.get(month)
+.set(coordinateSHA256)
+}*/
 
-/**
+/*
  * if not provided, assume current month and year
  * @param {number|null} year 
  * @param {number|null} month 
- */
+ *//*
 const getMonthCoordinates = async (year = null, month = null) => {
-  const now = Date.now()
-  //@ts-expect-error
-  const stringYear = year !== null ? year.toString() : now.getUTCFullYear().toString()
-  //@ts-expect-error
-  const stringMonth = month !== null ? month.toString() : now.getUTCMonth().toString()
+const now = Date.now()
+const stringYear = year !== null ? year.toString() : now.getUTCFullYear().toString()
+const stringMonth = month !== null ? month.toString() : now.getUTCMonth().toString()
 
-  const data = await new Promise(res => {
-    getGunUser()
-      .get(Key.DATE_COORDINATE_INDEX)
-      .get(stringYear)
-      .get(stringMonth)
-      .load(res)
-  })
-  const coordinatesArray = Object
-    .values(data)
-    .filter(coordinateSHA256 => typeof coordinateSHA256 === 'string')
+const data = await new Promise(res => {
+ getGunUser()
+   .get(Key.DATE_COORDINATE_INDEX)
+   .get(stringYear)
+   .get(stringMonth)
+   .load(res)
+})
+const coordinatesArray = Object
+ .values(data)
+ .filter(coordinateSHA256 => typeof coordinateSHA256 === 'string')
 
-  return coordinatesArray
-}
+return coordinatesArray
+}*/
 
 /**
  * 
@@ -320,25 +318,11 @@ const handleUnconfirmedTx = (tx, order) => {
 }
 
 class SchemaManager {
-  constructor(opts = { memIndex: false }) {//config flag?
-    this.memIndex = opts.memIndex
-    this.orderCreateIndexCallbacks.push(dateIndexCreateCb) //create more Cbs and put them here for more indexes callbacks
-  }
+  //constructor() {
+  //  this.orderCreateIndexCallbacks.push(dateIndexCreateCb) //create more Cbs and put them here for more indexes callbacks
+  //}
 
-  dateIndexName = 'dateIndex'
-
-  memIndex = false //save the index data in memory for faster access
-
-  // MEM INDEX, will be used only if memIndex === true
-  memDateIndex = {} //not implemented yet
-
-  memGunPubIndex = {} //not implemented yet
-
-  memLndPubIndex = {} //not implemented yet
-
-  memTypeIndex = {} //not implemented yet
-  //
-
+  //dateIndexName = 'dateIndex'
   /**
    * @type {((order : CoordinateOrder,coordinateSHA256 : string)=>void)[]}
    */
@@ -347,6 +331,7 @@ class SchemaManager {
   /**
    * @param {CoordinateOrder} orderInfo
    */
+  // eslint-disable-next-line class-methods-use-this
   async AddOrder(orderInfo) {
     const checkErr = checkOrderInfo(orderInfo)
     if (checkErr) {
@@ -369,7 +354,6 @@ class SchemaManager {
       amount: orderInfo.amount,
       description: orderInfo.description,
       metadata: orderInfo.metadata,
-
       timestamp: orderInfo.timestamp || Date.now(),
     }
     const orderString = JSON.stringify(filteredOrder)
@@ -400,57 +384,49 @@ class SchemaManager {
     })
 
     //update all indexes with 
-    this.orderCreateIndexCallbacks.forEach(cb => cb(filteredOrder, coordinateSHA256))
+    //this.orderCreateIndexCallbacks.forEach(cb => cb(filteredOrder, coordinateSHA256))
   }
 
 
 
-  /**
+  /*
    * if not provided, assume current month and year
    * @param {number|null} year 
    * @param {number|null} month 
    * @returns {Promise<CoordinateOrder[]>} from newer to older
-   */
-  async getMonthOrders(year = null, month = null) {
-    const now = new Date()
-    const intYear = year !== null ? year : now.getUTCFullYear()
-    const intMonth = month !== null ? month : now.getUTCMonth()
+   *//*
+async getMonthOrders(year = null, month = null) {
+const now = new Date()
+const intYear = year !== null ? year : now.getUTCFullYear()
+const intMonth = month !== null ? month : now.getUTCMonth()
 
-    let coordinates = null
-    if (this.memIndex) {
-      //get coordinates from this.memDateIndex
-    } else {
-      coordinates = await getMonthCoordinates(intYear, intMonth)
-    }
-    /**
-     * @type {CoordinateOrder[]}
-     */
-    const orders = []
-    if (!coordinates) {
-      return orders
-    }
-    await Common.Utils.asyncForEach(coordinates, async coordinateSHA256 => {
-      const encryptedOrderString = await getGunUser()
-        .get(Key.COORDINATES)
-        .get(coordinateSHA256)
-        .then()
-      if (typeof encryptedOrderString !== 'string') {
-        return
-      }
-      const mySecret = require('../gunDB/Mediator').getMySecret()
-      const SEA = require('../gunDB/Mediator').mySEA
-      const decryptedString = await SEA.decrypt(encryptedOrderString, mySecret)
-
-      /**
-       * @type {CoordinateOrder}
-       */
-      const orderJSON = JSON.parse(decryptedString)
-      orders.push(orderJSON)
-    })
-    //@ts-expect-error
-    const orderedOrders = orders.sort((a, b) => b.timestamp - a.timestamp)
-    return orderedOrders
+let coordinates = null
+if (this.memIndex) {
+  //get coordinates from this.memDateIndex
+} else {
+  coordinates = await getMonthCoordinates(intYear, intMonth)
+}
+const orders = []
+if (!coordinates) {
+  return orders
+}
+await Common.Utils.asyncForEach(coordinates, async coordinateSHA256 => {
+  const encryptedOrderString = await getGunUser()
+    .get(Key.COORDINATES)
+    .get(coordinateSHA256)
+    .then()
+  if (typeof encryptedOrderString !== 'string') {
+    return
   }
+  const mySecret = require('../gunDB/Mediator').getMySecret()
+  const SEA = require('../gunDB/Mediator').mySEA
+  const decryptedString = await SEA.decrypt(encryptedOrderString, mySecret)
+  const orderJSON = JSON.parse(decryptedString)
+  orders.push(orderJSON)
+})
+const orderedOrders = orders.sort((a, b) => b.timestamp - a.timestamp)
+return orderedOrders
+}*/
 
   /**
    * @typedef {Common.Schema.InvoiceWhenListed & {r_hash:Buffer,payment_addr:string}} Invoice
