@@ -242,6 +242,8 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
      */
     const invoicePaidCb = async paidInvoice => {
       console.log('INVOICE  PAID')
+      let breakError = null
+      let orderMetadata //eslint-disable-line init-declarations
       const hashString = paidInvoice.r_hash.toString('hex')
       const {
         amt_paid_sat: amt,
@@ -254,6 +256,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
         case 'tip': {
           const postID = ackInfo
           if (!Common.isPopulatedString(postID)) {
+            breakError = 'invalid ackInfo provided for postID'
             break //create the coordinate, but stop because of the invalid id
           }
           getUser()
@@ -273,6 +276,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
           console.log('ACK INFO')
           console.log(ackInfo)
           if (!Common.isPopulatedString(postID)) {
+            breakError = 'invalid ackInfo provided for postID'
             break //create the coordinate, but stop because of the invalid id
           }
           console.log('IS STRING')
@@ -289,6 +293,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
             !selectedPost.status ||
             selectedPost.status !== 'publish'
           ) {
+            breakError = 'ackInfo provided does not correspond to a valid post'
             break //create the coordinate, but stop because of the invalid post
           }
           console.log('IS POST')
@@ -298,6 +303,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
           const contentsToSend = {}
           const mySecret = require('../../Mediator').getMySecret()
           console.log('SECRET OK')
+          let privateFound = false
           await Common.Utils.asyncForEach(
             Object.entries(selectedPost.contentItems),
             async ([contentID, item]) => {
@@ -310,10 +316,16 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
               if (!item.isPrivate) {
                 return
               }
+              privateFound = true
               const decrypted = await SEA.decrypt(item.magnetURI, mySecret)
               contentsToSend[contentID] = decrypted
             }
           )
+          if (!privateFound) {
+            breakError =
+              'post provided from ackInfo does not contain private content'
+            break //no private content in this post
+          }
           const ackData = { unlockedContents: contentsToSend }
           const toSend = JSON.stringify(ackData)
           const encrypted = await SEA.encrypt(toSend, secret)
@@ -339,7 +351,8 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
                 }
               })
           })
-          console.log('RES SENT')
+          console.log('RES SENT CONTENT')
+          orderMetadata = JSON.stringify(ordResponse)
           break
         }
         case 'torrentSeed': {
@@ -347,6 +360,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
           const seedUrl = process.env.TORRENT_SEED_URL
           const seedToken = process.env.TORRENT_SEED_TOKEN
           if (!seedUrl || !seedToken) {
+            breakError = 'torrentSeed service not available'
             break //service not available
           }
           console.log('SEED URL OK')
@@ -365,6 +379,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
             body: JSON.stringify(reqData)
           })
           if (res.status !== 200) {
+            breakError = 'torrentSeed service currently not available'
             break //request didnt work, save coordinate anyway
           }
           console.log('RES SEED OK')
@@ -392,6 +407,8 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
                 }
               })
           })
+          console.log('RES SENT SEED')
+          orderMetadata = JSON.stringify(serviceResponse)
           break
         }
         case 'other': //not implemented yet but save them as a coordinate anyways
@@ -399,6 +416,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
         default:
           return //exit because not implemented
       }
+      const metadata = breakError ? JSON.stringify(breakError) : orderMetadata
       const myGunPub = getUser()._.sea.pub
       SchemaManager.AddOrder({
         type: orderType,
@@ -410,8 +428,13 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
         toLndPub: paymentAddr,
         fromGunPub: order.from,
         toGunPub: myGunPub,
-        invoiceMemo: memo
+        invoiceMemo: memo,
+
+        metadata
       })
+      if (breakError) {
+        throw new Error(breakError)
+      }
     }
     console.log('WAITING INVOICE TO BE PAID')
     new Promise(res => SchemaManager.addListenInvoice(invoice.r_hash, res))
