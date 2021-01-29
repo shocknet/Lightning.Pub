@@ -357,6 +357,11 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
         }
         case 'torrentSeed': {
           console.log('TORRENT')
+          const numberOfTokens = Number(ackInfo)
+          if (isNaN(numberOfTokens)) {
+            breakError = 'ackInfo provided is not a valid number'
+            break
+          }
           const seedUrl = process.env.TORRENT_SEED_URL
           const seedToken = process.env.TORRENT_SEED_TOKEN
           if (!seedUrl || !seedToken) {
@@ -364,26 +369,30 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
             break //service not available
           }
           console.log('SEED URL OK')
-          const token = crypto.randomBytes(32).toString('hex')
-          const reqData = {
-            seed_token: seedToken,
-            wallet_token: token
+          const tokens = Array(numberOfTokens)
+          for (let i = 0; i < numberOfTokens; i++) {
+            tokens[i] = crypto.randomBytes(32).toString('hex')
           }
-          console.log(seedUrl)
-          console.log(seedToken)
-          const res = await fetch(`${seedUrl}/api/enroll_token`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(reqData)
-          })
-          if (res.status !== 200) {
-            breakError = 'torrentSeed service currently not available'
-            break //request didnt work, save coordinate anyway
+          /**@param {string} token */
+          const enrollToken = async token => {
+            const reqData = {
+              seed_token: seedToken,
+              wallet_token: token
+            }
+            const res = await fetch(`${seedUrl}/api/enroll_token`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(reqData)
+            })
+            if (res.status !== 200) {
+              throw new Error('torrentSeed service currently not available')
+            }
           }
+          await Promise.all(tokens.map(enrollToken))
           console.log('RES SEED OK')
-          const ackData = { seedUrl, token }
+          const ackData = { seedUrl, tokens }
           const toSend = JSON.stringify(ackData)
           const encrypted = await SEA.encrypt(toSend, secret)
           const serviceResponse = {
