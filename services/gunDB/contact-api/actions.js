@@ -1112,15 +1112,18 @@ const sendSpontaneousPayment = async (
               console.log(orderResponse)
               console.log(Schema.isOrderResponse(orderResponse))
 
-              if (Schema.isOrderResponse(orderResponse)) {
+              //@ts-expect-error
+              if (orderResponse && orderResponse.type === 'orderAck') {
+                //@ts-expect-error
                 res(orderResponse)
               }
             })
         }),
-      v => !Schema.isOrderResponse(v)
+      //@ts-expect-error
+      v => !v || !v.type
     )
 
-    if (!Schema.isOrderResponse(encryptedOrderAckRes)) {
+    if (!encryptedOrderAckRes || !encryptedOrderAckRes.type) {
       const e = TypeError(
         `Expected encryptedOrderAckRes got: ${typeof encryptedOrderAckRes}`
       )
@@ -1361,17 +1364,17 @@ const createPostNew = async (tags, title, content, SEA) => {
   }
   const mySecret = require('../Mediator').getMySecret()
   await Common.Utils.asyncForEach(content, async c => {
-    const cBis = c
-    if (
-      (cBis.type === 'image/embedded' || cBis.type === 'video/embedded') &&
-      cBis.isPrivate
-    ) {
-      const encryptedMagnet = await SEA.encrypt(cBis.magnetURI, mySecret)
-      cBis.magnetURI = encryptedMagnet
-    }
     // @ts-expect-error
     const uuid = Gun.text.random()
-    newPost.contentItems[uuid] = cBis
+    if (
+      (c.type === 'image/embedded' || c.type === 'video/embedded') &&
+      c.isPrivate
+    ) {
+      const encryptedMagnet = await SEA.encrypt(c.magnetURI, mySecret)
+      newPost.contentItems[uuid] = { ...c, magnetURI: encryptedMagnet }
+    } else {
+      newPost.contentItems[uuid] = c
+    }
   })
 
   /** @type {string} */
