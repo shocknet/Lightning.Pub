@@ -210,9 +210,9 @@ const tryAndWait = async (promGen, shouldRetry = () => false) => {
  * @param {string} pub
  * @returns {Promise<string>}
  */
-const pubToEpub = pub => {
+const pubToEpub = async pub => {
   try {
-    return timeout10(
+    const epub = await timeout10(
       CommonUtils.makePromise(res => {
         require('../../Mediator/index')
           .getGun()
@@ -225,6 +225,8 @@ const pubToEpub = pub => {
           })
       })
     )
+
+    return epub
   } catch (err) {
     logger.error(err)
     throw new Error(`pubToEpub() -> ${err.message}`)
