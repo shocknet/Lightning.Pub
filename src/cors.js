@@ -1,8 +1,9 @@
 const setAccessControlHeaders = (req, res) => {
   res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "OPTIONS,POST,GET,PUT,DELETE")
   res.header(
     "Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization, public-key-for-decryption"
   );
 };
 
