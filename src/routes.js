@@ -1124,7 +1124,7 @@ module.exports = async (
   app.get('/api/lnd/listchannels', async (_, res) => {
     try {
       return res.json({
-        channels: await LV2.listChannels()
+        channels: await LV2.listChannels({ active_only: false })
       })
     } catch (e) {
       console.log(e)
