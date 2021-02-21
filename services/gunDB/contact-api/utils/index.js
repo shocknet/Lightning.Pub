@@ -212,29 +212,19 @@ const tryAndWait = async (promGen, shouldRetry = () => false) => {
  */
 const pubToEpub = async pub => {
   try {
-    const epub = await tryAndWait(async gun => {
-      const _epub = await CommonUtils.makePromise(res => {
-        gun
+    const epub = await timeout10(
+      CommonUtils.makePromise(res => {
+        require('../../Mediator/index')
+          .getGun()
           .user(pub)
           .get('epub')
-          .once(
-            data => {
+          .on(data => {
+            if (typeof data === 'string') {
               res(data)
-            },
-            {
-              wait: 1000
             }
-          )
+          })
       })
-
-      if (typeof _epub !== 'string') {
-        throw new TypeError(
-          `Expected gun.user(pub).get(epub) to be an string. Instead got: ${typeof _epub}`
-        )
-      }
-
-      return _epub
-    })
+    )
 
     return epub
   } catch (err) {
