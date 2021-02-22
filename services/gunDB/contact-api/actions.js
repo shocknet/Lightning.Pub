@@ -924,6 +924,7 @@ const sendHRWithInitialMsg = async (
  * @typedef {object} SpontPaymentOptions
  * @prop {Common.Schema.OrderTargetType} type
  * @prop {string=} postID
+ * @prop {string=} ackInfo
  */
 
 /**
