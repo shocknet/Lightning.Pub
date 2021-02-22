@@ -11,6 +11,7 @@ const {
   Constants: { ErrorCode },
   Schema
 } = Common
+const { assertNever } = require('assert-never')
 
 const LightningServices = require('../../../../utils/lightningServices')
 const {
@@ -222,12 +223,23 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
     const onData = invoice => {
       if (invoice.settled) {
         writeCoordinate(invoice.r_hash.toString(), coord)
+
         if (order.targetType === 'tip') {
           getUser()
             .get('postToTipCount')
             // CAST: Checked above.
             .get(/** @type {string} */ (order.ackInfo))
             .set(null) // each item in the set is a tip
+        } else if (order.targetType === 'contentReveal') {
+          // TODO
+        } else if (order.targetType === 'spontaneousPayment') {
+          // no action required
+        } else if (order.targetType === 'torrentSeed') {
+          // TODO
+        } else if (order.targetType === 'other') {
+          // TODO
+        } else {
+          assertNever(order.targetType)
         }
 
         stream.off()
