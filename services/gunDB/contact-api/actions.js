@@ -942,7 +942,7 @@ const sendSpontaneousPayment = async (
   amount,
   memo,
   feeLimit,
-  opts = { type: 'user' }
+  opts = { type: 'spontaneousPayment' }
 ) => {
   try {
     const SEA = require('../Mediator').mySEA
@@ -967,8 +967,8 @@ const sendSpontaneousPayment = async (
       targetType: opts.type
     }
 
-    if (opts.type === 'post') {
-      order.postID = opts.postID
+    if (opts.type === 'tip') {
+      order.ackInfo = opts.postID
     }
 
     logger.info(JSON.stringify(order))
@@ -1079,10 +1079,16 @@ const sendSpontaneousPayment = async (
     await writeCoordinate(payment.payment_hash, {
       id: payment.payment_hash,
       type: (() => {
-        if (opts.type === 'post') {
+        if (opts.type === 'tip') {
           return 'tip'
-        } else if (opts.type === 'user') {
+        } else if (opts.type === 'spontaneousPayment') {
           return 'spontaneousPayment'
+        } else if (opts.type === 'contentReveal') {
+          return 'other' // TODO
+        } else if (opts.type === 'other') {
+          return 'other' // TODO
+        } else if (opts.type === 'torrentSeed') {
+          return 'other' // TODO
         }
         // ensures we handle all possible types
         /** @type {never} */
