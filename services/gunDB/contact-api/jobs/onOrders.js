@@ -21,6 +21,7 @@ const {
 const { writeCoordinate } = require('../../../coordinates')
 const Key = require('../key')
 const Utils = require('../utils')
+const { gunUUID } = require('../../../../utils')
 
 const getUser = () => require('../../Mediator').getUser()
 
@@ -220,7 +221,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
     /**
      * @param {Common.InvoiceWhenListed} invoice
      */
-    const onData = invoice => {
+    const onData = async invoice => {
       if (invoice.settled) {
         writeCoordinate(invoice.r_hash.toString(), coord)
 
@@ -231,7 +232,92 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
             .get(/** @type {string} */ (order.ackInfo))
             .set(null) // each item in the set is a tip
         } else if (order.targetType === 'contentReveal') {
-          // TODO
+          // -----------------------------------------
+          logger.debug('Content Reveal')
+
+          //assuming digital product that only requires to be unlocked
+          const postID = order.ackInfo
+
+          if (!Common.isPopulatedString(postID)) {
+            logger.error(`Invalid post ID`)
+            logger.error(postID)
+            return
+          }
+
+          // TODO: do this reactively
+          const selectedPost = await new Promise(res => {
+            getUser()
+              .get(Key.POSTS_NEW)
+              .get(postID)
+              .load(res)
+          })
+
+          logger.debug(selectedPost)
+
+          if (Common.isPost(selectedPost)) {
+            logger.error('Post id provided does not correspond to a valid post')
+            return
+          }
+
+          /**
+           * @type {Record<string,string>} <contentID,decryptedRef>
+           */
+          const contentsToSend = {}
+          const mySecret = require('../../Mediator').getMySecret()
+          logger.debug('SECRET OK')
+          let privateFound = false
+          await Common.Utils.asyncForEach(
+            Object.entries(selectedPost.contentItems),
+            async ([contentID, item]) => {
+              if (
+                item.type !== 'image/embedded' &&
+                item.type !== 'video/embedded'
+              ) {
+                return //only visual content can  be private
+              }
+              if (!item.isPrivate) {
+                return
+              }
+              privateFound = true
+              const decrypted = await SEA.decrypt(item.magnetURI, mySecret)
+              contentsToSend[contentID] = decrypted
+            }
+          )
+          if (!privateFound) {
+            logger.error(`Post provided does not contain private content`)
+            return
+          }
+          const ackData = { unlockedContents: contentsToSend }
+          const toSend = JSON.stringify(ackData)
+          const encrypted = await SEA.encrypt(toSend, secret)
+          const ordResponse = {
+            type: 'orderAck',
+            response: encrypted
+          }
+          logger.debug('RES READY')
+
+          const uuid = gunUUID()
+          orderResponse.ackNode = uuid
+
+          await /** @type {Promise<void>} */ (new Promise((res, rej) => {
+            getUser()
+              .get(Key.ORDER_TO_RESPONSE)
+              .get(uuid)
+              .put(ordResponse, ack => {
+                if (ack.err && typeof ack.err !== 'number') {
+                  rej(
+                    new Error(
+                      `Error saving encrypted orderAck to order to response usergraph: ${ack}`
+                    )
+                  )
+                } else {
+                  res()
+                }
+              })
+          }))
+          logger.debug('RES SENT CONTENT')
+
+          // ----------------------------------------------------------------------------------
         } else if (order.targetType === 'spontaneousPayment') {
           // no action required
         } else if (order.targetType === 'torrentSeed') {
