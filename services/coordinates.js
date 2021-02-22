@@ -22,10 +22,6 @@ export const writeCoordinate = async (coordID, data) => {
   }
 
   try {
-    const gunNode = getUser()
-      .get(Key.COORDINATES)
-      .get(coordID)
-
     /**
      * Because there are optional properties, typescript can also allow them
      * to be specified but with a value of `undefined`. Filter out these.
@@ -38,18 +34,22 @@ export const writeCoordinate = async (coordID, data) => {
         return mySEA.encrypt(v, getMySecret())
       })
     )
-    gunNode.put(encData, ack => {
-      if (ack.err && typeof ack.err !== 'number') {
-        Logger.info(
-          `Error writting corrdinate, coordinate id: ${coordID}, data: ${JSON.stringify(
-            data,
-            null,
-            2
-          )}`
-        )
-        Logger.error(ack.err)
-      }
-    })
+
+    getUser()
+      .get(Key.COORDINATES)
+      .get(coordID)
+      .put(encData, ack => {
+        if (ack.err && typeof ack.err !== 'number') {
+          Logger.info(
+            `Error writting corrdinate, coordinate id: ${coordID}, data: ${JSON.stringify(
+              data,
+              null,
+              2
+            )}`
+          )
+          Logger.error(ack.err)
+        }
+      })
   } catch (e) {
     Logger.info(
       `Error writing coordinate, coordinate id: ${coordID}, data: ${JSON.stringify(
