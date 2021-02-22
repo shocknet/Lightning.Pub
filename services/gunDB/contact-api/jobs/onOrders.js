@@ -185,10 +185,10 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
 
     // invoices should be settled right away so we can rely on this single
     // subscription instead of life-long all invoices subscription
-    if (order.targetType === 'post') {
-      const { postID } = order
-      if (!Common.isPopulatedString(postID)) {
-        throw new TypeError(`postID not a a populated string`)
+    if (order.targetType === 'tip') {
+      const { ackInfo } = order
+      if (!Common.isPopulatedString(ackInfo)) {
+        throw new TypeError(`ackInfo(postID) not a a populated string`)
       }
     }
 
@@ -210,7 +210,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       toLndPub: await myLNDPub()
     }
 
-    if (order.targetType === 'post') {
+    if (order.targetType === 'tip') {
       coord.type = 'tip'
     } else {
       coord.type = 'spontaneousPayment'
@@ -221,11 +221,11 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
      */
     const onData = invoice => {
       if (invoice.settled) {
-        if (order.targetType === 'post') {
+        if (order.targetType === 'tip') {
           getUser()
             .get('postToTipCount')
             // CAST: Checked above.
-            .get(/** @type {string} */ (order.postID))
+            .get(/** @type {string} */ (order.ackInfo))
             .set(null) // each item in the set is a tip
         }
 
@@ -237,13 +237,13 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
     stream.on('data', onData)
 
     stream.on('status', (/** @type {any} */ status) => {
-      logger.info(`Post tip, post: ${order.postID}, invoice status:`, status)
+      logger.info(`Post tip, post: ${order.ackInfo}, invoice status:`, status)
     })
     stream.on('end', () => {
-      logger.warn(`Post tip, post: ${order.postID}, invoice stream ended`)
+      logger.warn(`Post tip, post: ${order.ackInfo}, invoice stream ended`)
     })
     stream.on('error', (/** @type {any} */ e) => {
-      logger.warn(`Post tip, post: ${order.postID}, error:`, e)
+      logger.warn(`Post tip, post: ${order.ackInfo}, error:`, e)
     })
   } catch (err) {
     logger.error(
