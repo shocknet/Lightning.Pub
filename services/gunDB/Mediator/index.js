@@ -314,7 +314,7 @@ const authenticate = async (alias, pass, __user) => {
       // clock skew
       await new Promise(res => setTimeout(res, 2000))
 
-      await new Promise((res, rej) => {
+      await /** @type {Promise<void>} */ (new Promise((res, rej) => {
         _user.get(Key.FOLLOWS).put(
           {
             unused: null
@@ -327,7 +327,7 @@ const authenticate = async (alias, pass, __user) => {
             }
           }
         )
-      })
+      }))
 
       return ack.sea.pub
     } else {
@@ -345,7 +345,7 @@ const authenticate = async (alias, pass, __user) => {
     // clock skew
     await new Promise(res => setTimeout(res, 2000))
 
-    await new Promise((res, rej) => {
+    await /** @type {Promise<void>} */ (new Promise((res, rej) => {
       _user.get(Key.FOLLOWS).put(
         {
           unused: null
@@ -358,7 +358,7 @@ const authenticate = async (alias, pass, __user) => {
           }
         }
       )
-    })
+    }))
 
     // move this to a subscription; implement off() ? todo
     API.Jobs.onAcceptedRequests(_user, mySEA)
@@ -404,7 +404,7 @@ const authenticate = async (alias, pass, __user) => {
 
     await new Promise(res => setTimeout(res, 5000))
 
-    await new Promise((res, rej) => {
+    await /** @type {Promise<void>} */ (new Promise((res, rej) => {
       _user.get(Key.FOLLOWS).put(
         {
           unused: null
@@ -417,7 +417,7 @@ const authenticate = async (alias, pass, __user) => {
           }
         }
       )
-    })
+    }))
 
     API.Jobs.onAcceptedRequests(_user, mySEA)
     API.Jobs.onOrders(_user, gun, mySEA)
