@@ -11,7 +11,8 @@ const { ErrorCode } = Constants
 
 const {
   sendPaymentV2Invoice,
-  decodePayReq
+  decodePayReq,
+  myLNDPub
 } = require('../../../utils/lightningServices/v2')
 
 /**
@@ -21,6 +22,7 @@ const {
 const Getters = require('./getters')
 const Key = require('./key')
 const Utils = require('./utils')
+const { writeCoordinate } = require('../../coordinates')
 
 /**
  * @typedef {import('./SimpleGUN').GUNNode} GUNNode
@@ -1072,6 +1074,26 @@ const sendSpontaneousPayment = async (
     const payment = await sendPaymentV2Invoice({
       feeLimit,
       payment_request: orderResponse.response
+    })
+
+    await writeCoordinate(payment.payment_hash, {
+      id: payment.payment_hash,
+      type: (() => {
+        if (opts.type === 'post') {
+          return 'tip'
+        } else if (opts.type === 'user') {
+          return 'spontaneousPayment'
+        }
+        // ensures we handle all possible types
+        /** @type {never} */
+        const assertNever = opts.type
+
+        return assertNever && opts.type // please TS
+      })(),
+      amount: Number(payment.value_sat),
+      inbound: false,
+      timestamp: Date.now(),
+      toLndPub: await myLNDPub()
     })
 
     return payment
