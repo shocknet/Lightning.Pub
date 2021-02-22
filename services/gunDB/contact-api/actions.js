@@ -1293,9 +1293,10 @@ const setLastSeenApp = () =>
  * @param {string[]} tags
  * @param {string} title
  * @param {Common.Schema.ContentItem[]} content
+ * @param {ISEA} SEA
  * @returns {Promise<[string, Common.Schema.RawPost]>}
  */
-const createPostNew = async (tags, title, content) => {
+const createPostNew = async (tags, title, content, SEA) => {
   /** @type {Common.Schema.RawPost} */
   const newPost = {
     date: Date.now(),
@@ -1309,6 +1310,23 @@ const createPostNew = async (tags, title, content) => {
     // @ts-expect-error
     const uuid = Gun.text.random()
     newPost.contentItems[uuid] = c
+  })
+
+  const mySecret = require('../Mediator').getMySecret()
+
+  await Common.Utils.asyncForEach(content, async c => {
+    // @ts-expect-error
+    const uuid = Gun.text.random()
+    newPost.contentItems[uuid] = c
+    if (
+      (c.type === 'image/embedded' || c.type === 'video/embedded') &&
+      c.isPrivate
+    ) {
+      const encryptedMagnet = await SEA.encrypt(c.magnetURI, mySecret)
+      newPost.contentItems[uuid] = { ...c, magnetURI: encryptedMagnet }
+    } else {
+      newPost.contentItems[uuid] = c
+    }
   })
 
   /** @type {string} */
@@ -1415,7 +1433,12 @@ const createPost = async (tags, title, content) => {
       )
   }))
 
-  const [postID, newPost] = await createPostNew(tags, title, content)
+  const [postID, newPost] = await createPostNew(
+    tags,
+    title,
+    content,
+    require('../Mediator').mySEA
+  )
 
   await Common.makePromise((res, rej) => {
     require('../Mediator')
