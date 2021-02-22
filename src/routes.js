@@ -1192,12 +1192,35 @@ module.exports = async (
 
   app.post('/api/lnd/unifiedTrx', async (req, res) => {
     try {
-      const { type, amt, to, memo, feeLimit, postID } = req.body
+      const { type, amt, to, memo, feeLimit, postID, ackInfo } = req.body
 
-      if (type !== 'spont' && type !== 'post') {
+      if (
+        type !== 'spont' &&
+        type !== 'post' &&
+        type !== 'spontaneousPayment' &&
+        type !== 'tip' &&
+        type !== 'torrentSeed' &&
+        type !== 'contentReveal' &&
+        type !== 'other'
+      ) {
         return res.status(415).json({
           field: 'type',
-          errorMessage: `Only 'spont' and 'post' payments supported via this endpoint for now.`
+          errorMessage: `Only 'spontaneousPayment'| 'tip' | 'torrentSeed' | 'contentReveal' | 'other' payments supported via this endpoint for now.`
+        })
+      }
+
+      const typesThatShouldContainAckInfo = [
+        'tip',
+        'torrentSeed',
+        'contentReveal'
+      ]
+
+      const shouldContainAckInfo = typesThatShouldContainAckInfo.includes(type)
+
+      if (shouldContainAckInfo && !Common.isPopulatedString(ackInfo)) {
+        return res.status(400).json({
+          field: 'ackInfo',
+          errorMessage: `Transactions of type ${typesThatShouldContainAckInfo} should contain an ackInfo field.`
         })
       }
 
@@ -1241,7 +1264,8 @@ module.exports = async (
       return res.status(200).json(
         await GunActions.sendSpontaneousPayment(to, amt, memo, feeLimit, {
           type,
-          postID
+          postID,
+          ackInfo
         })
       )
     } catch (e) {

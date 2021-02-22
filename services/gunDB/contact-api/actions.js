@@ -924,6 +924,7 @@ const sendHRWithInitialMsg = async (
  * @typedef {object} SpontPaymentOptions
  * @prop {Common.Schema.OrderTargetType} type
  * @prop {string=} postID
+ * @prop {string=} ackInfo
  */
 
 /**
@@ -1296,6 +1297,7 @@ const setLastSeenApp = () =>
  * @returns {Promise<[string, Common.Schema.RawPost]>}
  */
 const createPostNew = async (tags, title, content) => {
+  const SEA = require('../Mediator').mySEA
   /** @type {Common.Schema.RawPost} */
   const newPost = {
     date: Date.now(),
@@ -1309,6 +1311,23 @@ const createPostNew = async (tags, title, content) => {
     // @ts-expect-error
     const uuid = Gun.text.random()
     newPost.contentItems[uuid] = c
+  })
+
+  const mySecret = require('../Mediator').getMySecret()
+
+  await Common.Utils.asyncForEach(content, async c => {
+    // @ts-expect-error
+    const uuid = Gun.text.random()
+    newPost.contentItems[uuid] = c
+    if (
+      (c.type === 'image/embedded' || c.type === 'video/embedded') &&
+      c.isPrivate
+    ) {
+      const encryptedMagnet = await SEA.encrypt(c.magnetURI, mySecret)
+      newPost.contentItems[uuid] = { ...c, magnetURI: encryptedMagnet }
+    } else {
+      newPost.contentItems[uuid] = c
+    }
   })
 
   /** @type {string} */
