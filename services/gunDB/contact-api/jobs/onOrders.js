@@ -2,7 +2,6 @@
  * @format
  */
 // @ts-check
-const { performance } = require('perf_hooks')
 const logger = require('winston')
 const isFinite = require('lodash/isFinite')
 const isNumber = require('lodash/isNumber')
@@ -14,7 +13,11 @@ const {
 } = Common
 
 const LightningServices = require('../../../../utils/lightningServices')
-
+const {
+  addInvoice,
+  myLNDPub
+} = require('../../../../utils/lightningServices/v2')
+const { writeCoordinate } = require('../../../coordinates')
 const Key = require('../key')
 const Utils = require('../utils')
 
@@ -57,28 +60,6 @@ const ordersProcessed = new Set()
 let currentOrderAddr = ''
 
 /**
- * @param {InvoiceRequest} invoiceReq
- * @returns {Promise<InvoiceResponse>}
- */
-const _addInvoice = invoiceReq =>
-  new Promise((resolve, rej) => {
-    const {
-      services: { lightning }
-    } = LightningServices
-
-    lightning.addInvoice(invoiceReq, (
-      /** @type {any} */ error,
-      /** @type {InvoiceResponse} */ response
-    ) => {
-      if (error) {
-        rej(error)
-      } else {
-        resolve(response)
-      }
-    })
-  })
-
-/**
  * @param {string} addr
  * @param {ISEA} SEA
  * @returns {(order: ListenerData, orderID: string) => void}
@@ -104,8 +85,6 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       return
     }
 
-    const listenerStartTime = performance.now()
-
     ordersProcessed.add(orderID)
 
     logger.info(
@@ -113,8 +92,6 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
         order
       )} -- addr: ${addr}`
     )
-
-    const orderAnswerStartTime = performance.now()
 
     const alreadyAnswered = await getUser()
       .get(Key.ORDER_TO_RESPONSE)
@@ -126,12 +103,6 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       return
     }
 
-    const orderAnswerEndTime = performance.now() - orderAnswerStartTime
-
-    logger.info(`[PERF] Order Already Answered: ${orderAnswerEndTime}ms`)
-
-    const decryptStartTime = performance.now()
-
     const senderEpub = await Utils.pubToEpub(order.from)
     const secret = await SEA.secret(senderEpub, getUser()._.sea)
 
@@ -139,10 +110,6 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       SEA.decrypt(order.amount, secret),
       SEA.decrypt(order.memo, secret)
     ])
-
-    const decryptEndTime = performance.now() - decryptStartTime
-
-    logger.info(`[PERF] Decrypt invoice info: ${decryptEndTime}ms`)
 
     const amount = Number(decryptedAmount)
 
@@ -175,25 +142,18 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       `onOrders() -> Will now create an invoice : ${JSON.stringify(invoiceReq)}`
     )
 
-    const invoiceStartTime = performance.now()
-
-    const invoice = await _addInvoice(invoiceReq)
-
-    const invoiceEndTime = performance.now() - invoiceStartTime
-
-    logger.info(`[PERF] LND Invoice created in ${invoiceEndTime}ms`)
+    const invoice = await addInvoice(
+      invoiceReq.value,
+      invoiceReq.memo,
+      true,
+      invoiceReq.expiry
+    )
 
     logger.info(
       'onOrders() -> Successfully created the invoice, will now encrypt it'
     )
 
-    const invoiceEncryptStartTime = performance.now()
-
     const encInvoice = await SEA.encrypt(invoice.payment_request, secret)
-
-    const invoiceEncryptEndTime = performance.now() - invoiceEncryptStartTime
-
-    logger.info(`[PERF] Invoice encrypted in ${invoiceEncryptEndTime}ms`)
 
     logger.info(
       `onOrders() -> Will now place the encrypted invoice in order to response usergraph: ${addr}`
@@ -205,9 +165,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       type: 'invoice'
     }
 
-    const invoicePutStartTime = performance.now()
-
-    await new Promise((res, rej) => {
+    await /** @type {Promise<void>} */ (new Promise((res, rej) => {
       getUser()
         .get(Key.ORDER_TO_RESPONSE)
         .get(orderID)
@@ -223,9 +181,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
             res()
           }
         })
-    })
-
-    const invoicePutEndTime = performance.now() - invoicePutStartTime
+    }))
 
     // invoices should be settled right away so we can rely on this single
     // subscription instead of life-long all invoices subscription
@@ -234,46 +190,61 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       if (!Common.isPopulatedString(postID)) {
         throw new TypeError(`postID not a a populated string`)
       }
-
-      const { r_hash } = invoice
-
-      // A post tip order lifecycle is short enough that we can do it like this.
-      const stream = LightningServices.invoices.subscribeSingleInvoice({
-        r_hash
-      })
-
-      /**
-       * @param {Common.InvoiceWhenListed} invoice
-       */
-      const onData = invoice => {
-        if (invoice.settled) {
-          getUser()
-            .get('postToTipCount')
-            .get(postID)
-            .set(null) // each item in the set is a tip
-
-          stream.off()
-        }
-      }
-
-      stream.on('data', onData)
-
-      stream.on('status', (/** @type {any} */ status) => {
-        logger.info(`Post tip, post: ${postID}, invoice status:`, status)
-      })
-      stream.on('end', () => {
-        logger.warn(`Post tip, post: ${postID}, invoice stream ended`)
-      })
-      stream.on('error', (/** @type {any} */ e) => {
-        logger.warn(`Post tip, post: ${postID}, error:`, e)
-      })
     }
 
-    logger.info(`[PERF] Added invoice to GunDB in ${invoicePutEndTime}ms`)
+    // A post tip order lifecycle is short enough that we can do it like this.
+    const stream = LightningServices.invoices.subscribeSingleInvoice({
+      r_hash: invoice.r_hash
+    })
 
-    const listenerEndTime = performance.now() - listenerStartTime
+    /** @type {Common.Coordinate} */
+    const coord = {
+      amount,
+      id: invoice.r_hash.toString(),
+      inbound: true,
+      timestamp: Date.now(),
+      type: 'invoice',
+      invoiceMemo: memo,
+      fromGunPub: order.from,
+      toGunPub: getUser()._.sea.pub,
+      toLndPub: await myLNDPub()
+    }
 
-    logger.info(`[PERF] Invoice generation completed in ${listenerEndTime}ms`)
+    if (order.targetType === 'post') {
+      coord.type = 'tip'
+    } else {
+      coord.type = 'spontaneousPayment'
+    }
+
+    /**
+     * @param {Common.InvoiceWhenListed} invoice
+     */
+    const onData = invoice => {
+      if (invoice.settled) {
+        if (order.targetType === 'post') {
+          getUser()
+            .get('postToTipCount')
+            // CAST: Checked above.
+            .get(/** @type {string} */ (order.postID))
+            .set(null) // each item in the set is a tip
+        }
+
+        writeCoordinate(invoice.r_hash.toString(), coord)
+        stream.off()
+      }
+    }
+
+    stream.on('data', onData)
+
+    stream.on('status', (/** @type {any} */ status) => {
+      logger.info(`Post tip, post: ${order.postID}, invoice status:`, status)
+    })
+    stream.on('end', () => {
+      logger.warn(`Post tip, post: ${order.postID}, invoice stream ended`)
+    })
+    stream.on('error', (/** @type {any} */ e) => {
+      logger.warn(`Post tip, post: ${order.postID}, error:`, e)
+    })
   } catch (err) {
     logger.error(
       `error inside onOrders, orderAddr: ${addr}, orderID: ${orderID}, order: ${JSON.stringify(
