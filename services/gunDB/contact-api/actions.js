@@ -1294,10 +1294,10 @@ const setLastSeenApp = () =>
  * @param {string[]} tags
  * @param {string} title
  * @param {Common.Schema.ContentItem[]} content
- * @param {ISEA} SEA
  * @returns {Promise<[string, Common.Schema.RawPost]>}
  */
-const createPostNew = async (tags, title, content, SEA) => {
+const createPostNew = async (tags, title, content) => {
+  const SEA = require('../Mediator').mySEA
   /** @type {Common.Schema.RawPost} */
   const newPost = {
     date: Date.now(),
@@ -1434,12 +1434,7 @@ const createPost = async (tags, title, content) => {
       )
   }))
 
-  const [postID, newPost] = await createPostNew(
-    tags,
-    title,
-    content,
-    require('../Mediator').mySEA
-  )
+  const [postID, newPost] = await createPostNew(tags, title, content)
 
   await Common.makePromise((res, rej) => {
     require('../Mediator')
