@@ -221,6 +221,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
      */
     const onData = invoice => {
       if (invoice.settled) {
+        writeCoordinate(invoice.r_hash.toString(), coord)
         if (order.targetType === 'tip') {
           getUser()
             .get('postToTipCount')
@@ -229,7 +230,6 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
             .set(null) // each item in the set is a tip
         }
 
-        writeCoordinate(invoice.r_hash.toString(), coord)
         stream.off()
       }
     }
