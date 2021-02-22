@@ -19,6 +19,7 @@
   "dependencies": {
     "@grpc/grpc-js": "^1.2.2",
     "@grpc/proto-loader": "^0.5.5",
+    "assert-never": "^1.2.1",
     "axios": "^0.21.1",
     "basic-auth": "^2.0.0",
     "big.js": "^5.2.2",
