@@ -16,7 +16,7 @@ const { getUser, getMySecret, mySEA } = require('./gunDB/Mediator')
  * @param {Common.Coordinate} data
  * @returns {Promise<void>}
  */
-export const writeCoordinate = async (coordID, data) => {
+module.exports.writeCoordinate = async (coordID, data) => {
   if (coordID !== data.id) {
     throw new Error('CoordID must be equal to data.id')
   }
