@@ -239,10 +239,10 @@ const server = program => {
           logger.info('Creating new tunnel... ')
         }
         const tunnel = await localtunnel(tunnelOpts)
-        logger.info('Tunnel created! connect to: ' + tunnel.url + ':80')
+        logger.info('Tunnel created! connect to: ' + tunnel.url)
         const dataToQr = JSON.stringify({
           internalIP: tunnel.url,
-          walletPort: 80, //change to 443 for https
+          walletPort: 443,
           externalIP: tunnel.url
         })
         qrcode.generate(dataToQr, { small: true })
