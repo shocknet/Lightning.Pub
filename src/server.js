@@ -161,6 +161,10 @@ const server = program => {
 
   // eslint-disable-next-line consistent-return
   const startServer = async () => {
+    /**
+     * @type {localtunnel.Tunnel}
+     */
+    let tunnelRef = null
     try {
       LightningServices.setDefaults(program)
       if (!LightningServices.isInitialized()) {
@@ -239,6 +243,7 @@ const server = program => {
           logger.info('Creating new tunnel... ')
         }
         const tunnel = await localtunnel(tunnelOpts)
+        tunnelRef = tunnel
         logger.info('Tunnel created! connect to: ' + tunnel.url)
         const dataToQr = JSON.stringify({
           internalIP: tunnel.url,
@@ -362,6 +367,9 @@ const server = program => {
     } catch (err) {
       logger.error({ exception: err, message: err.message, code: err.code })
       logger.info('Restarting server in 30 seconds...')
+      if (tunnelRef) {
+        tunnelRef.close()
+      }
       await wait(30)
       startServer()
       return false
