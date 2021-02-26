@@ -120,8 +120,19 @@ export interface UserGUNNode extends GUNNode {
 }
 
 export interface ISEA {
-  encrypt(message: string, senderSecret: string): Promise<string>
+  encrypt(
+    message: string | number | boolean,
+    senderSecret: string
+  ): Promise<string>
   decrypt(encryptedMessage: string, recipientSecret: string): Promise<string>
+  decryptNumber(
+    encryptedMessage: string,
+    recipientSecret: string
+  ): Promise<number>
+  decryptBoolean(
+    encryptedMessage: string,
+    recipientSecret: string
+  ): Promise<boolean>
   secret(
     recipientOrSenderEpub: string,
     recipientOrSenderUserPair: UserPair
