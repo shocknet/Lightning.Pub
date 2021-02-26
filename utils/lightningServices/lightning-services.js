@@ -18,6 +18,7 @@ const lnrpc = require('../../services/lnd/lightning')
  * @prop {string} macaroonPath
  * @prop {string} lndProto
  * @prop {string} routerProto
+ * @prop {string} invoicesProto
  * @prop {string} walletUnlockerProto
  */
 
@@ -73,6 +74,13 @@ class LightningServices {
     }
   }
 
+  /**
+   * @returns {import('./types').Services}
+   */
+  getServices() {
+    return this.services
+  }
+
   get servicesData() {
     return this.lnServicesData
   }
@@ -119,6 +127,7 @@ class LightningServices {
     const lnServices = await lnrpc({
       lnrpcProtoPath: this.defaults.lndProto,
       routerProtoPath: this.defaults.routerProto,
+      invoicesProtoPath: this.defaults.invoicesProto,
       walletUnlockerProtoPath: this.defaults.walletUnlockerProto,
       lndHost,
       lndCertPath,
@@ -127,10 +136,11 @@ class LightningServices {
     if (!lnServices) {
       throw new Error(`Could not init lnServices`)
     }
-    const { lightning, walletUnlocker, router } = lnServices
+    const { lightning, walletUnlocker, router, invoices } = lnServices
     this.lightning = lightning
     this.walletUnlocker = walletUnlocker
     this.router = router
+    this.invoices = invoices
     this.lnServicesData = {
       lndProto: this.defaults.lndProto,
       lndHost,

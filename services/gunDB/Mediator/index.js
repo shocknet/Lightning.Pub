@@ -26,23 +26,13 @@ const SEAx = require('gun/sea')
 /** @type {import('../contact-api/SimpleGUN').ISEA} */
 const mySEA = {}
 
-const $$__SHOCKWALLET__MSG__ = '$$__SHOCKWALLET__MSG__'
+// Avoid this: https://github.com/amark/gun/issues/804 and any other issues
 const $$__SHOCKWALLET__ENCRYPTED__ = '$$_SHOCKWALLET__ENCRYPTED__'
+const $$__SHOCKWALLET__MSG__ = '$$__SHOCKWALLET__MSG__'
+const $$__SHOCKWALLET__NUMBER__ = '$$__SHOCKWALLET__NUMBER__'
+const $$__SHOCKWALLET__BOOLEAN__ = '$$__SHOCKWALLET__BOOLEAN__'
 
 mySEA.encrypt = (msg, secret) => {
-  if (typeof msg !== 'string') {
-    throw new TypeError(
-      'mySEA.encrypt() -> expected msg to be an string instead got: ' +
-        typeof msg
-    )
-  }
-
-  if (msg.length === 0) {
-    throw new TypeError(
-      'mySEA.encrypt() -> expected msg to be a populated string'
-    )
-  }
-
   if (typeof secret !== 'string') {
     throw new TypeError(
       `mySEA.encrypt() -> expected secret to be a an string, args: |msg| -- ${JSON.stringify(
@@ -57,15 +47,35 @@ mySEA.encrypt = (msg, secret) => {
     )
   }
 
-  // Avoid this: https://github.com/amark/gun/issues/804 and any other issues
-  const sanitizedMsg = $$__SHOCKWALLET__MSG__ + msg
+  let strToEncode = ''
 
-  return SEAx.encrypt(sanitizedMsg, secret).then(encMsg => {
+  if (typeof msg === 'string') {
+    if (msg.length === 0) {
+      throw new TypeError(
+        'mySEA.encrypt() -> expected msg to be a populated string'
+      )
+    }
+
+    strToEncode = $$__SHOCKWALLET__MSG__ + msg
+  } else if (typeof msg === 'boolean') {
+    strToEncode = $$__SHOCKWALLET__BOOLEAN__ + msg
+  } else if (typeof msg === 'number') {
+    strToEncode = $$__SHOCKWALLET__NUMBER__ + msg
+  } else {
+    throw new TypeError('mySea.encrypt() -> Not a valid msg type.')
+  }
+
+  return SEAx.encrypt(strToEncode, secret).then(encMsg => {
     return $$__SHOCKWALLET__ENCRYPTED__ + encMsg
   })
 }
 
-mySEA.decrypt = (encMsg, secret) => {
+/**
+ * @param {string} encMsg
+ * @param {string} secret
+ * @returns {Promise<any>}
+ */
+const decryptBase = (encMsg, secret) => {
   if (typeof encMsg !== 'string') {
     throw new TypeError(
       'mySEA.encrypt() -> expected encMsg to be an string instead got: ' +
@@ -104,8 +114,39 @@ mySEA.decrypt = (encMsg, secret) => {
       throw new TypeError('Could not decrypt')
     }
 
-    return decodedMsg.slice($$__SHOCKWALLET__MSG__.length)
+    if (decodedMsg.startsWith($$__SHOCKWALLET__MSG__)) {
+      return decodedMsg.slice($$__SHOCKWALLET__MSG__.length)
+    } else if (decodedMsg.startsWith($$__SHOCKWALLET__BOOLEAN__)) {
+      const dec = decodedMsg.slice($$__SHOCKWALLET__BOOLEAN__.length)
+      if (dec === 'true') {
+        return true
+      } else if (dec === 'false') {
+        return false
+      }
+      throw new Error('Could not decrypt boolean value.')
+    } else if (decodedMsg.startsWith($$__SHOCKWALLET__NUMBER__)) {
+      return Number(decodedMsg.slice($$__SHOCKWALLET__NUMBER__.length))
+    }
+
+    throw new TypeError(
+      `mySea.encrypt() -> Unexpected type of prefix found inside decrypted value, first 20 characters: ${decodedMsg.slice(
+        0,
+        20
+      )}`
+    )
   })
+}
+
+mySEA.decrypt = (encMsg, secret) => {
+  return decryptBase(encMsg, secret)
+}
+
+mySEA.decryptNumber = (encMsg, secret) => {
+  return decryptBase(encMsg, secret)
+}
+
+mySEA.decryptBoolean = (encMsg, secret) => {
+  return decryptBase(encMsg, secret)
 }
 
 mySEA.secret = async (recipientOrSenderEpub, recipientOrSenderSEA) => {
@@ -273,7 +314,7 @@ const authenticate = async (alias, pass, __user) => {
       // clock skew
       await new Promise(res => setTimeout(res, 2000))
 
-      await new Promise((res, rej) => {
+      await /** @type {Promise<void>} */ (new Promise((res, rej) => {
         _user.get(Key.FOLLOWS).put(
           {
             unused: null
@@ -286,7 +327,7 @@ const authenticate = async (alias, pass, __user) => {
             }
           }
         )
-      })
+      }))
 
       return ack.sea.pub
     } else {
@@ -304,7 +345,7 @@ const authenticate = async (alias, pass, __user) => {
     // clock skew
     await new Promise(res => setTimeout(res, 2000))
 
-    await new Promise((res, rej) => {
+    await /** @type {Promise<void>} */ (new Promise((res, rej) => {
       _user.get(Key.FOLLOWS).put(
         {
           unused: null
@@ -317,7 +358,7 @@ const authenticate = async (alias, pass, __user) => {
           }
         }
       )
-    })
+    }))
 
     // move this to a subscription; implement off() ? todo
     API.Jobs.onAcceptedRequests(_user, mySEA)
@@ -363,7 +404,7 @@ const authenticate = async (alias, pass, __user) => {
 
     await new Promise(res => setTimeout(res, 5000))
 
-    await new Promise((res, rej) => {
+    await /** @type {Promise<void>} */ (new Promise((res, rej) => {
       _user.get(Key.FOLLOWS).put(
         {
           unused: null
@@ -376,7 +417,7 @@ const authenticate = async (alias, pass, __user) => {
           }
         }
       )
-    })
+    }))
 
     API.Jobs.onAcceptedRequests(_user, mySEA)
     API.Jobs.onOrders(_user, gun, mySEA)

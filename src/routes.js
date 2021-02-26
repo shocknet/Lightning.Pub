@@ -30,12 +30,7 @@ const {
 const GunActions = require('../services/gunDB/contact-api/actions')
 const GunGetters = require('../services/gunDB/contact-api/getters')
 const GunKey = require('../services/gunDB/contact-api/key')
-const {
-  sendPaymentV2Keysend,
-  sendPaymentV2Invoice,
-  listPayments
-} = require('../utils/lightningServices/v2')
-const { startTipStatusJob } = require('../utils/lndJobs')
+const LV2 = require('../utils/lightningServices/v2')
 const GunWriteRPC = require('../services/gunDB/rpc')
 
 const DEFAULT_MAX_NUM_ROUTES_TO_QUERY = 10
@@ -690,7 +685,6 @@ module.exports = async (
         }
 
         onNewChannelBackup()
-        startTipStatusJob()
 
         res.json({
           authorization: token,
@@ -1026,30 +1020,15 @@ module.exports = async (
     )
   })
   // get lnd chan info
-  app.post('/api/lnd/getchaninfo', (req, res) => {
-    const { lightning } = LightningServices.services
-
-    lightning.getChanInfo(
-      { chan_id: req.body.chan_id },
-      async (err, response) => {
-        if (err) {
-          logger.debug('GetChanInfo Error:', err)
-          const health = await checkHealth()
-          if (health.LNDStatus.success) {
-            res.status(400)
-            res.json({
-              field: 'getChanInfo',
-              errorMessage: sanitizeLNDError(err.message)
-            })
-          } else {
-            res.status(500)
-            res.json({ errorMessage: 'LND is down' })
-          }
-        }
-        logger.debug('GetChanInfo:', response)
-        res.json(response)
-      }
-    )
+  app.post('/api/lnd/getchaninfo', async (req, res) => {
+    try {
+      return res.json(await LV2.getChanInfo(req.body.chan_id))
+    } catch (e) {
+      console.log(e)
+      return res.status(500).json({
+        errorMessage: e.message
+      })
+    }
   })
 
   app.get('/api/lnd/getnetworkinfo', (req, res) => {
@@ -1074,47 +1053,30 @@ module.exports = async (
   })
 
   // get lnd node active channels list
-  app.get('/api/lnd/listpeers', (req, res) => {
-    const { lightning } = LightningServices.services
-    lightning.listPeers({}, async (err, response) => {
-      if (err) {
-        logger.debug('ListPeers Error:', err)
-        const health = await checkHealth()
-        if (health.LNDStatus.success) {
-          res.status(400).json({
-            field: 'listPeers',
-            errorMessage: sanitizeLNDError(err.message)
-          })
-        } else {
-          res.status(500)
-          res.json({ errorMessage: 'LND is down' })
-        }
-      }
-      logger.debug('ListPeers:', response)
-      res.json(response)
-    })
+  app.get('/api/lnd/listpeers', async (req, res) => {
+    try {
+      return res.json({
+        peers: await LV2.listPeers(req.body.latestError)
+      })
+    } catch (e) {
+      console.log(e)
+      return res.status(500).json({
+        errorMessage: e.message
+      })
+    }
   })
 
   // newaddress
-  app.post('/api/lnd/newaddress', (req, res) => {
-    const { lightning } = LightningServices.services
-    lightning.newAddress({ type: req.body.type }, async (err, response) => {
-      if (err) {
-        logger.debug('NewAddress Error:', err)
-        const health = await checkHealth()
-        if (health.LNDStatus.success) {
-          res.status(400).json({
-            field: 'newAddress',
-            errorMessage: sanitizeLNDError(err.message)
-          })
-        } else {
-          res.status(500)
-          res.json({ errorMessage: 'LND is down' })
-        }
-      }
-      logger.debug('NewAddress:', response)
-      res.json(response)
-    })
+  app.post('/api/lnd/newaddress', async (req, res) => {
+    try {
+      return res.json({
+        address: await LV2.newAddress(req.body.type)
+      })
+    } catch (e) {
+      return res.status(500).json({
+        errorMessage: e.message
+      })
+    }
   })
 
   // connect peer to lnd node
@@ -1159,47 +1121,28 @@ module.exports = async (
   })
 
   // get lnd node opened channels list
-  app.get('/api/lnd/listchannels', (req, res) => {
-    const { lightning } = LightningServices.services
-    lightning.listChannels({}, async (err, response) => {
-      if (err) {
-        logger.debug('ListChannels Error:', err)
-        const health = await checkHealth()
-        if (health.LNDStatus.success) {
-          res.status(400).json({
-            field: 'listChannels',
-            errorMessage: sanitizeLNDError(err.message)
-          })
-        } else {
-          res.status(500)
-          res.json({ errorMessage: 'LND is down' })
-        }
-      }
-      logger.debug('ListChannels:', response)
-      res.json(response)
-    })
+  app.get('/api/lnd/listchannels', async (_, res) => {
+    try {
+      return res.json({
+        channels: await LV2.listChannels()
+      })
+    } catch (e) {
+      console.log(e)
+      return res.status(500).json({
+        errorMessage: e.message
+      })
+    }
   })
 
-  // get lnd node pending channels list
-  app.get('/api/lnd/pendingchannels', (req, res) => {
-    const { lightning } = LightningServices.services
-    lightning.pendingChannels({}, async (err, response) => {
-      if (err) {
-        logger.debug('PendingChannels Error:', err)
-        const health = await checkHealth()
-        if (health.LNDStatus.success) {
-          res.status(400).json({
-            field: 'pendingChannels',
-            errorMessage: sanitizeLNDError(err.message)
-          })
-        } else {
-          res.status(500)
-          res.json({ errorMessage: 'LND is down' })
-        }
-      }
-      logger.debug('PendingChannels:', response)
-      res.json(response)
-    })
+  app.get('/api/lnd/pendingchannels', async (req, res) => {
+    try {
+      return res.json(await LV2.pendingChannels())
+    } catch (e) {
+      console.log(e)
+      return res.status(500).json({
+        errorMessage: e.message
+      })
+    }
   })
 
   app.get('/api/lnd/unifiedTrx', (req, res) => {
@@ -1249,12 +1192,35 @@ module.exports = async (
 
   app.post('/api/lnd/unifiedTrx', async (req, res) => {
     try {
-      const { type, amt, to, memo, feeLimit, postID } = req.body
+      const { type, amt, to, memo, feeLimit, postID, ackInfo } = req.body
 
-      if (type !== 'spont' && type !== 'post') {
+      if (
+        type !== 'spont' &&
+        type !== 'post' &&
+        type !== 'spontaneousPayment' &&
+        type !== 'tip' &&
+        type !== 'torrentSeed' &&
+        type !== 'contentReveal' &&
+        type !== 'other'
+      ) {
         return res.status(415).json({
           field: 'type',
-          errorMessage: `Only 'spont' and 'post' payments supported via this endpoint for now.`
+          errorMessage: `Only 'spontaneousPayment'| 'tip' | 'torrentSeed' | 'contentReveal' | 'other' payments supported via this endpoint for now.`
+        })
+      }
+
+      const typesThatShouldContainAckInfo = [
+        'tip',
+        'torrentSeed',
+        'contentReveal'
+      ]
+
+      const shouldContainAckInfo = typesThatShouldContainAckInfo.includes(type)
+
+      if (shouldContainAckInfo && !Common.isPopulatedString(ackInfo)) {
+        return res.status(400).json({
+          field: 'ackInfo',
+          errorMessage: `Transactions of type ${typesThatShouldContainAckInfo} should contain an ackInfo field.`
         })
       }
 
@@ -1298,7 +1264,8 @@ module.exports = async (
       return res.status(200).json(
         await GunActions.sendSpontaneousPayment(to, amt, memo, feeLimit, {
           type,
-          postID
+          postID,
+          ackInfo
         })
       )
     } catch (e) {
@@ -1377,7 +1344,7 @@ module.exports = async (
     }
 
     return res.status(200).json(
-      await listPayments({
+      await LV2.listPayments({
         include_incomplete,
         index_offset,
         max_payments,
@@ -1664,7 +1631,7 @@ module.exports = async (
           })
         }
 
-        const payment = await sendPaymentV2Keysend({
+        const payment = await LV2.sendPaymentV2Keysend({
           amt,
           dest,
           feeLimit,
@@ -1677,7 +1644,7 @@ module.exports = async (
       }
       const { payreq } = req.body
 
-      const payment = await sendPaymentV2Invoice({
+      const payment = await LV2.sendPaymentV2Invoice({
         feeLimit,
         payment_request: payreq,
         amt: req.body.amt,
@@ -1766,64 +1733,32 @@ module.exports = async (
   })
 
   // addinvoice
-  app.post('/api/lnd/addinvoice', (req, res) => {
-    const { lightning } = LightningServices.services
-    const invoiceRequest = { memo: req.body.memo, private: true }
-    if (req.body.value) {
-      invoiceRequest.value = req.body.value
-    }
-    if (req.body.expiry) {
-      invoiceRequest.expiry = req.body.expiry
-    }
-    lightning.addInvoice(invoiceRequest, async (err, newInvoice) => {
-      if (err) {
-        logger.debug('AddInvoice Error:', err)
-        const health = await checkHealth()
-        if (health.LNDStatus.success) {
-          res.status(400).json({
-            field: 'addInvoice',
-            errorMessage: sanitizeLNDError(err.message)
-          })
-        } else {
-          res.status(500)
-          res.json({ errorMessage: 'LND is down' })
+  app.post('/api/lnd/addinvoice', async (req, res) => {
+    const { expiry, value, memo } = req.body
+    const addInvoiceRes = await LV2.addInvoice(value, memo, true, expiry)
+
+    if (value) {
+      const channelsList = await LV2.listChannels({ active_only: true })
+      let remoteBalance = Big(0)
+      channelsList.forEach(element => {
+        const remB = Big(element.remote_balance)
+        if (remB.gt(remoteBalance)) {
+          remoteBalance = remB
         }
-        return err
-      }
-      logger.debug('AddInvoice:', newInvoice)
-      if (req.body.value) {
-        logger.debug('AddInvoice liquidity check:')
-        lightning.listChannels({ active_only: true }, async (err, response) => {
-          if (err) {
-            logger.debug('ListChannels Error:', err)
-            const health = await checkHealth()
-            if (health.LNDStatus.success) {
-              res.status(400).json({
-                field: 'listChannels',
-                errorMessage: sanitizeLNDError(err.message)
-              })
-            } else {
-              res.status(500)
-              res.json({ errorMessage: 'LND is down' })
-            }
-          }
-          logger.debug('ListChannels:', response)
-          const channelsList = response.channels
-          let remoteBalance = Big(0)
-          channelsList.forEach(element => {
-            const remB = Big(element.remote_balance)
-            if (remB.gt(remoteBalance)) {
-              remoteBalance = remB
-            }
-          })
-          newInvoice.liquidityCheck = remoteBalance > req.body.value
-          //newInvoice.remoteBalance = remoteBalance
-          res.json(newInvoice)
-        })
-      } else {
-        res.json(newInvoice)
-      }
-    })
+      })
+
+      addInvoiceRes.liquidityCheck = remoteBalance > value
+      //newInvoice.remoteBalance = remoteBalance
+    }
+
+    try {
+      return res.json(addInvoiceRes)
+    } catch (e) {
+      console.log(e)
+      return res.status(500).json({
+        errorMessage: e.message
+      })
+    }
   })
 
   // signmessage
@@ -1882,7 +1817,8 @@ module.exports = async (
     const sendCoinsRequest = {
       addr: req.body.addr,
       amount: req.body.amount,
-      sat_per_byte: req.body.satPerByte
+      sat_per_byte: req.body.satPerByte,
+      send_all: req.body.send_all === true
     }
     logger.debug('SendCoins', sendCoinsRequest)
     lightning.sendCoins(sendCoinsRequest, async (err, response) => {
@@ -1960,23 +1896,25 @@ module.exports = async (
     )
   })
 
-  app.post('/api/lnd/listunspent', (req, res) => {
-    const { lightning } = LightningServices.services
-    const { minConfirmations = 3, maxConfirmations = 6 } = req.body
-    lightning.listUnspent(
-      {
-        min_confs: minConfirmations,
-        max_confs: maxConfirmations
-      },
-      (err, unspent) => {
-        if (err) {
-          return handleError(res, err)
-        }
-        logger.debug('ListUnspent:', unspent)
-        res.json(unspent)
-      }
-    )
-  })
+  const listunspent = async (req, res) => {
+    try {
+      return res.status(200).json({
+        utxos: await LV2.listUnspent(
+          req.body.minConfirmations,
+          req.body.maxConfirmations
+        )
+      })
+    } catch (e) {
+      return res.status(500).json({
+        errorMessage: e.message
+      })
+    }
+  }
+
+  app.get('/api/lnd/listunspent', listunspent)
+
+  // TODO: should be GET
+  app.post('/api/lnd/listunspent', listunspent)
 
   app.get('/api/lnd/transactions', (req, res) => {
     const { lightning } = LightningServices.services
