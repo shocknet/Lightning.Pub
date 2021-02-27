@@ -11,8 +11,7 @@ const { ErrorCode } = Constants
 
 const {
   sendPaymentV2Invoice,
-  decodePayReq,
-  myLNDPub
+  decodePayReq
 } = require('../../../utils/lightningServices/v2')
 
 /**
@@ -22,7 +21,8 @@ const {
 const Getters = require('./getters')
 const Key = require('./key')
 const Utils = require('./utils')
-const { writeCoordinate } = require('../../coordinates')
+const SchemaManager = require('../../schema')
+const LNDHealthMananger = require('../../../utils/lightningServices/errors')
 
 /**
  * @typedef {import('./SimpleGUN').GUNNode} GUNNode
@@ -260,7 +260,7 @@ const acceptRequest = async (
     newlyCreatedOutgoingFeedID,
     ourSecret
   )
-
+  //why await if you dont need the response?
   await /** @type {Promise<void>} */ (new Promise((res, rej) => {
     gun
       .get(Key.HANDSHAKE_NODES)
@@ -358,7 +358,7 @@ const generateHandshakeAddress = async () => {
       }
     })
   }))
-
+  //why await if you dont need the response?
   await /** @type {Promise<void>} */ (new Promise((res, rej) => {
     gun
       .get(Key.HANDSHAKE_NODES)
@@ -643,7 +643,7 @@ const sendHandshakeRequest = async (recipientPublicKey, gun, user, SEA) => {
     handshakeAddress: await SEA.encrypt(currentHandshakeAddress, mySecret),
     timestamp
   }
-
+  //why await if you dont need the response?
   await /** @type {Promise<void>} */ (new Promise((res, rej) => {
     //@ts-ignore
     user.get(Key.STORED_REQS).set(storedReq, ack => {
@@ -923,10 +923,13 @@ const sendHRWithInitialMsg = async (
 /**
  * @typedef {object} SpontPaymentOptions
  * @prop {Common.Schema.OrderTargetType} type
- * @prop {string=} postID
  * @prop {string=} ackInfo
  */
-
+/**
+ * @typedef {object} OrderRes
+ * @prop {PaymentV2} payment
+ * @prop {object=} orderAck
+ */
 /**
  * Returns the preimage corresponding to the payment.
  * @param {string} to
@@ -936,7 +939,7 @@ const sendHRWithInitialMsg = async (
  * @param {SpontPaymentOptions} opts
  * @throws {Error} If no response in less than 20 seconds from the recipient, or
  * lightning cannot find a route for the payment.
- * @returns {Promise<PaymentV2>} The payment's preimage.
+ * @returns {Promise<OrderRes>} The payment's preimage.
  */
 const sendSpontaneousPayment = async (
   to,
@@ -965,11 +968,8 @@ const sendSpontaneousPayment = async (
       from: getUser()._.sea.pub,
       memo: memo || 'no memo',
       timestamp: Date.now(),
-      targetType: opts.type
-    }
-
-    if (opts.type === 'tip') {
-      order.ackInfo = opts.postID
+      targetType: opts.type,
+      ackInfo: opts.ackInfo
     }
 
     logger.info(JSON.stringify(order))
@@ -1006,7 +1006,7 @@ const sendSpontaneousPayment = async (
               )
             )
           } else {
-            res(ord._.get)
+            setTimeout(() => res(ord._.get), 0)
           }
         })
     })
@@ -1017,7 +1017,8 @@ const sendSpontaneousPayment = async (
       )}`
       throw new Error(msg)
     }
-
+    console.log('ORDER ID')
+    console.log(orderID)
     /** @type {import('shock-common').Schema.OrderResponse} */
     const encryptedOrderRes = await Utils.tryAndWait(
       gun =>
@@ -1027,12 +1028,13 @@ const sendSpontaneousPayment = async (
             .get(Key.ORDER_TO_RESPONSE)
             .get(orderID)
             .on(orderResponse => {
+              console.log(orderResponse)
               if (Schema.isOrderResponse(orderResponse)) {
                 res(orderResponse)
               }
             })
         }),
-      v => !Schema.isOrderResponse(v)
+      v => Schema.isOrderResponse(v)
     )
 
     if (!Schema.isOrderResponse(encryptedOrderRes)) {
@@ -1043,10 +1045,12 @@ const sendSpontaneousPayment = async (
       throw e
     }
 
-    /** @type {import('shock-common').Schema.OrderResponse} */
+    /** @type {import('shock-common').Schema.OrderResponse &{ackNode:string}} */
     const orderResponse = {
       response: await SEA.decrypt(encryptedOrderRes.response, ourSecret),
-      type: encryptedOrderRes.type
+      type: encryptedOrderRes.type,
+      //@ts-expect-error
+      ackNode: encryptedOrderRes.ackNode
     }
 
     logger.info('decoded orderResponse: ' + JSON.stringify(orderResponse))
@@ -1076,35 +1080,87 @@ const sendSpontaneousPayment = async (
       feeLimit,
       payment_request: orderResponse.response
     })
+    const myLndPub = LNDHealthMananger.lndPub
+    if (
+      (opts.type !== 'contentReveal' && opts.type !== 'torrentSeed') ||
+      !orderResponse.ackNode
+    ) {
+      SchemaManager.AddOrder({
+        type: opts.type,
+        amount: parseInt(payment.value_sat, 10),
+        coordinateHash: payment.payment_hash,
+        coordinateIndex: parseInt(payment.payment_index, 10),
+        fromLndPub: myLndPub || undefined,
+        inbound: false,
+        fromGunPub: getUser()._.sea.pub,
+        toGunPub: to,
+        invoiceMemo: memo
+      })
+      return { payment }
+    }
+    console.log('ACK NODE')
+    console.log(orderResponse.ackNode)
+    /** @type {import('shock-common').Schema.OrderResponse} */
+    const encryptedOrderAckRes = await Utils.tryAndWait(
+      gun =>
+        new Promise(res => {
+          gun
+            .user(to)
+            .get(Key.ORDER_TO_RESPONSE)
+            .get(orderResponse.ackNode)
+            .on(orderResponse => {
+              console.log(orderResponse)
+              console.log(Schema.isOrderResponse(orderResponse))
 
-    await writeCoordinate(payment.payment_hash, {
-      id: payment.payment_hash,
-      type: (() => {
-        if (opts.type === 'tip') {
-          return 'tip'
-        } else if (opts.type === 'spontaneousPayment') {
-          return 'spontaneousPayment'
-        } else if (opts.type === 'contentReveal') {
-          return 'other' // TODO
-        } else if (opts.type === 'other') {
-          return 'other' // TODO
-        } else if (opts.type === 'torrentSeed') {
-          return 'other' // TODO
-        }
-        // ensures we handle all possible types
-        /** @type {never} */
-        const assertNever = opts.type
+              //@ts-expect-error
+              if (orderResponse && orderResponse.type === 'orderAck') {
+                //@ts-expect-error
+                res(orderResponse)
+              }
+            })
+        }),
+      //@ts-expect-error
+      v => !v || !v.type
+    )
 
-        return assertNever && opts.type // please TS
-      })(),
-      amount: Number(payment.value_sat),
+    if (!encryptedOrderAckRes || !encryptedOrderAckRes.type) {
+      const e = TypeError(
+        `Expected encryptedOrderAckRes got: ${typeof encryptedOrderAckRes}`
+      )
+      logger.error(e)
+      throw e
+    }
+
+    /** @type {import('shock-common').Schema.OrderResponse} */
+    const orderAck = {
+      response: await SEA.decrypt(encryptedOrderAckRes.response, ourSecret),
+      type: encryptedOrderAckRes.type
+    }
+
+    logger.info('decoded encryptedOrderAck: ' + JSON.stringify(orderAck))
+
+    if (orderAck.type === 'err') {
+      throw new Error(orderAck.response)
+    }
+
+    if (orderAck.type !== 'orderAck') {
+      throw new Error(`expected orderAck response, got: ${orderAck.type}`)
+    }
+    SchemaManager.AddOrder({
+      type: opts.type,
+      amount: parseInt(payment.value_sat, 10),
+      coordinateHash: payment.payment_hash,
+      coordinateIndex: parseInt(payment.payment_index, 10),
+      fromLndPub: myLndPub || undefined,
       inbound: false,
-      timestamp: Date.now(),
-      toLndPub: await myLNDPub()
+      fromGunPub: getUser()._.sea.pub,
+      toGunPub: to,
+      invoiceMemo: memo,
+      metadata: JSON.stringify(orderAck)
     })
-
-    return payment
+    return { payment, orderAck }
   } catch (e) {
+    console.log(e)
     logger.error('Error inside sendPayment()')
     logger.error(e)
     throw e
@@ -1122,8 +1178,8 @@ const sendSpontaneousPayment = async (
  * @returns {Promise<string>} The payment's preimage.
  */
 const sendPayment = async (to, amount, memo, feeLimit) => {
-  const payment = await sendSpontaneousPayment(to, amount, memo, feeLimit)
-  return payment.payment_preimage
+  const res = await sendSpontaneousPayment(to, amount, memo, feeLimit)
+  return res.payment.payment_preimage
 }
 
 /**
@@ -1306,12 +1362,6 @@ const createPostNew = async (tags, title, content) => {
     title,
     contentItems: {}
   }
-
-  content.forEach(c => {
-    // @ts-expect-error
-    const uuid = Gun.text.random()
-    newPost.contentItems[uuid] = c
-  })
 
   const mySecret = require('../Mediator').getMySecret()
 
@@ -1543,7 +1593,7 @@ const follow = async (publicKey, isPrivate) => {
     status: 'ok',
     user: publicKey
   }
-
+  //why await if you dont need the response?
   await /** @type {Promise<void>} */ (new Promise((res, rej) => {
     require('../Mediator')
       .getUser()

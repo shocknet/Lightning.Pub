@@ -1124,7 +1124,7 @@ module.exports = async (
   app.get('/api/lnd/listchannels', async (_, res) => {
     try {
       return res.json({
-        channels: await LV2.listChannels()
+        channels: await LV2.listChannels({ active_only: false })
       })
     } catch (e) {
       console.log(e)
@@ -1192,11 +1192,8 @@ module.exports = async (
 
   app.post('/api/lnd/unifiedTrx', async (req, res) => {
     try {
-      const { type, amt, to, memo, feeLimit, postID, ackInfo } = req.body
-
+      const { type, amt, to, memo, feeLimit, ackInfo } = req.body
       if (
-        type !== 'spont' &&
-        type !== 'post' &&
         type !== 'spontaneousPayment' &&
         type !== 'tip' &&
         type !== 'torrentSeed' &&
@@ -1206,21 +1203,6 @@ module.exports = async (
         return res.status(415).json({
           field: 'type',
           errorMessage: `Only 'spontaneousPayment'| 'tip' | 'torrentSeed' | 'contentReveal' | 'other' payments supported via this endpoint for now.`
-        })
-      }
-
-      const typesThatShouldContainAckInfo = [
-        'tip',
-        'torrentSeed',
-        'contentReveal'
-      ]
-
-      const shouldContainAckInfo = typesThatShouldContainAckInfo.includes(type)
-
-      if (shouldContainAckInfo && !Common.isPopulatedString(ackInfo)) {
-        return res.status(400).json({
-          field: 'ackInfo',
-          errorMessage: `Transactions of type ${typesThatShouldContainAckInfo} should contain an ackInfo field.`
         })
       }
 
@@ -1254,17 +1236,16 @@ module.exports = async (
         })
       }
 
-      if (type === 'post' && typeof postID !== 'string') {
+      if (type === 'tip' && typeof ackInfo !== 'string') {
         return res.status(400).json({
-          field: 'postID',
-          errorMessage: `Send postID`
+          field: 'ackInfo',
+          errorMessage: `Send ackInfo`
         })
       }
 
       return res.status(200).json(
         await GunActions.sendSpontaneousPayment(to, amt, memo, feeLimit, {
           type,
-          postID,
           ackInfo
         })
       )
@@ -2188,10 +2169,12 @@ module.exports = async (
   app.post(`/api/gun/wall/`, async (req, res) => {
     try {
       const { tags, title, contentItems } = req.body
+      const SEA = require('../services/gunDB/Mediator').mySEA
       return res
         .status(200)
-        .json(await GunActions.createPostNew(tags, title, contentItems))
+        .json(await GunActions.createPostNew(tags, title, contentItems, SEA))
     } catch (e) {
+      console.log(e)
       return res.status(500).json({
         errorMessage:
           (typeof e === 'string' ? e : e.message) || 'Unknown error.'
