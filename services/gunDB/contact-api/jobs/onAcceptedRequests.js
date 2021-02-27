@@ -92,7 +92,7 @@ const onAcceptedRequests = (user, SEA) => {
         const recipientEpub = await Utils.pubToEpub(recipientPub)
         const ourSecret = await SEA.secret(recipientEpub, user._.sea)
 
-        await new Promise((res, rej) => {
+        await /** @type {Promise<void>} */ (new Promise((res, rej) => {
           gun
             .get(Key.HANDSHAKE_NODES)
             .get(requestAddress)
@@ -151,7 +151,7 @@ const onAcceptedRequests = (user, SEA) => {
                 mySecret
               )
 
-              await new Promise((res, rej) => {
+              await /** @type {Promise<void>} */ (new Promise((res, rej) => {
                 user
                   .get(Key.USER_TO_INCOMING)
                   .get(recipientPub)
@@ -162,9 +162,9 @@ const onAcceptedRequests = (user, SEA) => {
                       res()
                     }
                   })
-              })
+              }))
 
-              await new Promise((res, rej) => {
+              await /** @type {Promise<void>} */ (new Promise((res, rej) => {
                 user
                   .get(Key.STORED_REQS)
                   .get(id)
@@ -175,12 +175,12 @@ const onAcceptedRequests = (user, SEA) => {
                       res()
                     }
                   })
-              })
+              }))
 
               // ensure this listeners gets called at least once
               res()
             })
-        })
+        }))
       } catch (err) {
         logger.warn(`Jobs.onAcceptedRequests() -> ${err.message}`)
         logger.error(err)

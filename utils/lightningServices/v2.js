@@ -6,6 +6,8 @@ const logger = require('winston')
 const Common = require('shock-common')
 const Ramda = require('ramda')
 
+const { writeCoordinate } = require('../../services/coordinates')
+
 const lightningServices = require('./lightning-services')
 /**
  * @typedef {import('./types').PaymentV2} PaymentV2
@@ -214,11 +216,49 @@ const isValidSendPaymentInvoiceParams = sendPaymentInvoiceParams => {
 }
 
 /**
+ * @param {string} payReq
+ * @returns {Promise<Common.Schema.InvoiceWhenDecoded>}
+ */
+const decodePayReq = payReq =>
+  Common.Utils.makePromise((res, rej) => {
+    lightningServices.lightning.decodePayReq(
+      { pay_req: payReq },
+      /**
+       * @param {{ message: any; }} err
+       * @param {any} paymentRequest
+       */
+      (err, paymentRequest) => {
+        if (err) {
+          rej(new Error(err.message))
+        } else {
+          res(paymentRequest)
+        }
+      }
+    )
+  })
+
+/**
+ * @returns {Promise<string>}
+ */
+const myLNDPub = () =>
+  Common.makePromise((res, rej) => {
+    const { lightning } = lightningServices.getServices()
+
+    lightning.getInfo({}, (err, data) => {
+      if (err) {
+        rej(new Error(err.message))
+      } else {
+        res(data.identity_pubkey)
+      }
+    })
+  })
+
+/**
  * aklssjdklasd
  * @param {SendPaymentV2Request} sendPaymentRequest
  * @returns {Promise<PaymentV2>}
  */
-const sendPaymentV2 = sendPaymentRequest => {
+const sendPaymentV2 = async sendPaymentRequest => {
   const {
     services: { router }
   } = lightningServices
@@ -229,7 +269,10 @@ const sendPaymentV2 = sendPaymentRequest => {
     )
   }
 
-  return new Promise((res, rej) => {
+  /**
+   * @type {import("./types").PaymentV2}
+   */
+  const paymentV2 = await Common.makePromise((res, rej) => {
     const stream = router.sendPaymentV2(sendPaymentRequest)
 
     stream.on(
@@ -268,6 +311,33 @@ const sendPaymentV2 = sendPaymentRequest => {
       }
     )
   })
+
+  /** @type {Common.Coordinate} */
+  const coord = {
+    amount: Number(paymentV2.value_sat),
+    id: paymentV2.payment_hash,
+    inbound: false,
+    timestamp: Date.now(),
+    toLndPub: await myLNDPub(),
+    fromLndPub: undefined,
+    invoiceMemo: undefined,
+    type: 'payment'
+  }
+
+  if (sendPaymentRequest.payment_request) {
+    const invoice = await decodePayReq(sendPaymentRequest.payment_request)
+
+    coord.invoiceMemo = invoice.description
+    coord.toLndPub = invoice.destination
+  }
+
+  if (sendPaymentRequest.dest) {
+    coord.toLndPub = sendPaymentRequest.dest.toString('base64')
+  }
+
+  await writeCoordinate(paymentV2.payment_hash, coord)
+
+  return paymentV2
 }
 
 /**
@@ -379,28 +449,6 @@ const listPayments = req => {
     )
   })
 }
-
-/**
- * @param {string} payReq
- * @returns {Promise<Common.Schema.InvoiceWhenDecoded>}
- */
-const decodePayReq = payReq =>
-  Common.Utils.makePromise((res, rej) => {
-    lightningServices.lightning.decodePayReq(
-      { pay_req: payReq },
-      /**
-       * @param {{ message: any; }} err
-       * @param {any} paymentRequest
-       */
-      (err, paymentRequest) => {
-        if (err) {
-          rej(new Error(err.message))
-        } else {
-          res(paymentRequest)
-        }
-      }
-    )
-  })
 
 /**
  * @param {0|1} type
