@@ -6,8 +6,6 @@ const logger = require('winston')
 const Common = require('shock-common')
 const Ramda = require('ramda')
 
-const { writeCoordinate } = require('../../services/coordinates')
-
 const lightningServices = require('./lightning-services')
 /**
  * @typedef {import('./types').PaymentV2} PaymentV2
@@ -238,27 +236,11 @@ const decodePayReq = payReq =>
   })
 
 /**
- * @returns {Promise<string>}
- */
-const myLNDPub = () =>
-  Common.makePromise((res, rej) => {
-    const { lightning } = lightningServices.getServices()
-
-    lightning.getInfo({}, (err, data) => {
-      if (err) {
-        rej(new Error(err.message))
-      } else {
-        res(data.identity_pubkey)
-      }
-    })
-  })
-
-/**
  * aklssjdklasd
  * @param {SendPaymentV2Request} sendPaymentRequest
  * @returns {Promise<PaymentV2>}
  */
-const sendPaymentV2 = async sendPaymentRequest => {
+const sendPaymentV2 = sendPaymentRequest => {
   const {
     services: { router }
   } = lightningServices
@@ -269,10 +251,7 @@ const sendPaymentV2 = async sendPaymentRequest => {
     )
   }
 
-  /**
-   * @type {import("./types").PaymentV2}
-   */
-  const paymentV2 = await Common.makePromise((res, rej) => {
+  return Common.makePromise((res, rej) => {
     const stream = router.sendPaymentV2(sendPaymentRequest)
 
     stream.on(
@@ -311,33 +290,6 @@ const sendPaymentV2 = async sendPaymentRequest => {
       }
     )
   })
-
-  /** @type {Common.Coordinate} */
-  const coord = {
-    amount: Number(paymentV2.value_sat),
-    id: paymentV2.payment_hash,
-    inbound: false,
-    timestamp: Date.now(),
-    toLndPub: await myLNDPub(),
-    fromLndPub: undefined,
-    invoiceMemo: undefined,
-    type: 'payment'
-  }
-
-  if (sendPaymentRequest.payment_request) {
-    const invoice = await decodePayReq(sendPaymentRequest.payment_request)
-
-    coord.invoiceMemo = invoice.description
-    coord.toLndPub = invoice.destination
-  }
-
-  if (sendPaymentRequest.dest) {
-    coord.toLndPub = sendPaymentRequest.dest.toString('base64')
-  }
-
-  await writeCoordinate(paymentV2.payment_hash, coord)
-
-  return paymentV2
 }
 
 /**
@@ -619,6 +571,66 @@ const addInvoice = (value, memo = '', confidential = true, expiry = 180) =>
     )
   })
 
+/**
+ * @typedef {object} lndErr
+ * @prop {string} reason
+ * @prop {number} code
+ *
+ */
+/**
+ * @param {(invoice:Common.Schema.InvoiceWhenListed & {r_hash:Buffer,payment_addr:string}) => (boolean | undefined)} dataCb
+ * @param {(error:lndErr) => void} errorCb
+ */
+const subscribeInvoices = (dataCb, errorCb) => {
+  const { lightning } = lightningServices.getServices()
+  const stream = lightning.subscribeInvoices({})
+  stream.on('data', invoice => {
+    const cancelStream = dataCb(invoice)
+    if (cancelStream) {
+      //@ts-expect-error
+      stream.cancel()
+    }
+  })
+  stream.on('error', error => {
+    errorCb(error)
+    try {
+      //@ts-expect-error
+      stream.cancel()
+    } catch {
+      logger.info(
+        '[subscribeInvoices] tried to cancel an already canceled stream'
+      )
+    }
+  })
+}
+
+/**
+ * @param {(tx:Common.Schema.ChainTransaction) => (boolean | undefined)} dataCb
+ * @param {(error:lndErr) => void} errorCb
+ */
+const subscribeTransactions = (dataCb, errorCb) => {
+  const { lightning } = lightningServices.getServices()
+  const stream = lightning.subscribeTransactions({})
+  stream.on('data', transaction => {
+    const cancelStream = dataCb(transaction)
+    if (cancelStream) {
+      //@ts-expect-error
+      stream.cancel()
+    }
+  })
+  stream.on('error', error => {
+    errorCb(error)
+    try {
+      //@ts-expect-error
+      stream.cancel()
+    } catch {
+      logger.info(
+        '[subscribeTransactions] tried to cancel an already canceled stream'
+      )
+    }
+  })
+}
+
 module.exports = {
   sendPaymentV2Keysend,
   sendPaymentV2Invoice,
@@ -631,5 +643,6 @@ module.exports = {
   listPeers,
   pendingChannels,
   addInvoice,
-  myLNDPub
+  subscribeInvoices,
+  subscribeTransactions
 }

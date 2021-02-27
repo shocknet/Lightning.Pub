@@ -63,4 +63,11 @@ exports.PROFILE_BINARY = 'profileBinary'
 
 exports.POSTS_NEW = 'posts'
 
+// For Coordinates
 exports.COORDINATES = 'coordinates'
+
+exports.COORDINATE_INDEX = 'coordinateIndex'
+
+exports.TMP_CHAIN_COORDINATE = 'tmpChainCoordinate'
+
+exports.DATE_COORDINATE_INDEX = 'dateCoordinateIndex'

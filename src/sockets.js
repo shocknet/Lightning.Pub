@@ -17,6 +17,7 @@ const {
 } = require('../services/gunDB/Mediator')
 const { deepDecryptIfNeeded } = require('../services/gunDB/rpc')
 const GunEvents = require('../services/gunDB/contact-api/events')
+const SchemaManager = require('../services/schema')
 /**
  * @typedef {import('../services/gunDB/Mediator').SimpleSocket} SimpleSocket
  * @typedef {import('../services/gunDB/contact-api/SimpleGUN').ValidDataValue} ValidDataValue
@@ -73,6 +74,17 @@ module.exports = (
     stream.on('data', data => {
       logger.info('[SOCKET] New invoice data:', data)
       emitEncryptedEvent({ eventName: 'invoice:new', data, socket })
+      if (!data.settled) {
+        return
+      }
+      SchemaManager.AddOrder({
+        type: 'invoice',
+        amount: parseInt(data.amt_paid_sat, 10),
+        coordinateHash: data.r_hash.toString('hex'),
+        coordinateIndex: parseInt(data.add_index, 10),
+        inbound: true,
+        toLndPub: data.payment_addr
+      })
     })
     stream.on('end', () => {
       logger.info('New invoice stream ended, starting a new one...')
@@ -138,7 +150,18 @@ module.exports = (
     logger.warn('Subscribing to transactions socket...' + subID)
     stream.on('data', data => {
       logger.info('[SOCKET] New transaction data:', data)
-      emitEncryptedEvent({ eventName: 'transaction:new', data, socket })
+
+      Promise.all(data.dest_addresses.map(SchemaManager.isTmpChainOrder)).then(
+        responses => {
+          const hasOrder = responses.some(res => res !== false)
+          if (hasOrder && data.num_confirmations > 0) {
+            //buddy needs to manage this
+          } else {
+            //business as usual
+            emitEncryptedEvent({ eventName: 'transaction:new', data, socket })
+          }
+        }
+      )
     })
     stream.on('end', () => {
       logger.info('New transactions stream ended, starting a new one...')
@@ -215,13 +238,14 @@ module.exports = (
       const subID = Math.floor(Math.random() * 1000).toString()
       const isNotifications = isNotificationsSocket ? 'notifications' : ''
       logger.info('[LND] New LND Socket created:' + isNotifications + subID)
+      /* not used by wallet anymore
       const cancelInvoiceStream = onNewInvoice(socket, subID)
       const cancelTransactionStream = onNewTransaction(socket, subID)
       socket.on('disconnect', () => {
         logger.info('LND socket disconnected:' + isNotifications + subID)
         cancelInvoiceStream()
         cancelTransactionStream()
-      })
+      })*/
     }
   })
 

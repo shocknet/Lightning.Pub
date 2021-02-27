@@ -21,16 +21,25 @@ class LNDErrorManager {
   _isCheckingHealth = false
 
   /**
+   * @type {string|null}
+   */
+  _lndPub = null
+
+  get lndPub() {
+    return this._lndPub
+  }
+
+  /**
    * @type {HealthListener[]}
    */
   _healthListeners = []
 
   //rejects if(err && err.code !== 12)  
-  getAvailableService(){
-    
+  getAvailableService() {
+
     //require('shock-common').Utils.makePromise((res, rej) => ...)
-    return new Promise((res,rej)=>{
-      if(!this._isCheckingHealth){
+    return new Promise((res, rej) => {
+      if (!this._isCheckingHealth) {
         this._isCheckingHealth = true
         this.getInfo()
       }
@@ -39,7 +48,7 @@ class LNDErrorManager {
        * @param {LNDError} err 
        * @param {object} response 
        */
-      const listener = (err,response)=>{
+      const listener = (err, response) => {
         if (err) {
           if (err.code === 12) {
             res({
@@ -58,7 +67,7 @@ class LNDErrorManager {
               walletStatus: 'unknown',
               success: false
             })
-          } else if(err.code === 4){
+          } else if (err.code === 4) {
             rej({
               service: 'unknown',
               message:
@@ -77,7 +86,7 @@ class LNDErrorManager {
             })
           }
         }
-  
+
         res({
           service: 'lightning',
           message: response,
@@ -85,7 +94,7 @@ class LNDErrorManager {
           walletStatus: 'unlocked',
           success: true
         })
-        
+
       }
       this._healthListeners.push(listener)
     })
@@ -93,28 +102,31 @@ class LNDErrorManager {
   }
 
   //private
-  getInfo(){
+  getInfo() {
     const { lightning } = LightningServices.services
     /**
      * 
      * @param {LNDError} err 
-     * @param {object} response 
+     * @param {{identity_pubkey:string}} response 
      */
     const callback = (err, response) => {
-      this._healthListeners.forEach(l =>{
-        l(err,response)
+      if (response && response.identity_pubkey) {
+        this._lndPub = response.identity_pubkey
+      }
+      this._healthListeners.forEach(l => {
+        l(err, response)
       })
       this._healthListeners.length = 0
       this._isCheckingHealth = false
     }
     const deadline = Date.now() + 10000
-    lightning.getInfo({},{deadline}, callback)
+    lightning.getInfo({}, { deadline }, callback)
   }
 
   /**
    * @param {LNDError} e 
    */
-  handleError(e){
+  handleError(e) {
     return this.sanitizeLNDError(e)
   }
 
@@ -122,13 +134,13 @@ class LNDErrorManager {
    * @param {LNDError} e 
    */
   // eslint-disable-next-line
-  sanitizeLNDError(e){
+  sanitizeLNDError(e) {
     let eMessage = ''
-    if(typeof e === 'string'){
+    if (typeof e === 'string') {
       eMessage = e
-    }else if(e.details){
+    } else if (e.details) {
       eMessage = e.details
-    } else if(e.message){
+    } else if (e.message) {
       eMessage = e.message
     }
     if (eMessage.toLowerCase().includes('unknown')) {
@@ -137,13 +149,13 @@ class LNDErrorManager {
         ? splittedMessage.slice(1).join('')
         : splittedMessage.join('')
     }
-    if(eMessage === ''){
+    if (eMessage === '') {
       return 'unknown LND error'
     }
     return eMessage
   }
 
-  
+
 }
 
 

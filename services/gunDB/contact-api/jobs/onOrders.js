@@ -7,20 +7,14 @@ const isFinite = require('lodash/isFinite')
 const isNumber = require('lodash/isNumber')
 const isNaN = require('lodash/isNaN')
 const Common = require('shock-common')
+const crypto = require('crypto')
+const fetch = require('node-fetch')
 const {
   Constants: { ErrorCode },
   Schema
 } = Common
-const { assertNever } = require('assert-never')
-const crypto = require('crypto')
-const fetch = require('node-fetch')
-
+const SchemaManager = require('../../../schema')
 const LightningServices = require('../../../../utils/lightningServices')
-const {
-  addInvoice,
-  myLNDPub
-} = require('../../../../utils/lightningServices/v2')
-const { writeCoordinate } = require('../../../coordinates')
 const Key = require('../key')
 const Utils = require('../utils')
 const { gunUUID } = require('../../../../utils')
@@ -64,6 +58,28 @@ const ordersProcessed = new Set()
 let currentOrderAddr = ''
 
 /**
+ * @param {InvoiceRequest} invoiceReq
+ * @returns {Promise<InvoiceResponse>}
+ */
+const _addInvoice = invoiceReq =>
+  new Promise((resolve, rej) => {
+    const {
+      services: { lightning }
+    } = LightningServices
+
+    lightning.addInvoice(invoiceReq, (
+      /** @type {any} */ error,
+      /** @type {InvoiceResponse} */ response
+    ) => {
+      if (error) {
+        rej(error)
+      } else {
+        resolve(response)
+      }
+    })
+  })
+
+/**
  * @param {string} addr
  * @param {ISEA} SEA
  * @returns {(order: ListenerData, orderID: string) => void}
@@ -88,6 +104,8 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       )
       return
     }
+
+    //const listenerStartTime = performance.now()
 
     ordersProcessed.add(orderID)
 
@@ -146,12 +164,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       `onOrders() -> Will now create an invoice : ${JSON.stringify(invoiceReq)}`
     )
 
-    const invoice = await addInvoice(
-      invoiceReq.value,
-      invoiceReq.memo,
-      true,
-      invoiceReq.expiry
-    )
+    const invoice = await _addInvoice(invoiceReq)
 
     logger.info(
       'onOrders() -> Successfully created the invoice, will now encrypt it'
@@ -162,11 +175,13 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
     logger.info(
       `onOrders() -> Will now place the encrypted invoice in order to response usergraph: ${addr}`
     )
+    const ackNode = gunUUID()
 
     /** @type {import('shock-common').Schema.OrderResponse} */
     const orderResponse = {
       response: encInvoice,
-      type: 'invoice'
+      type: 'invoice',
+      ackNode
     }
 
     await /** @type {Promise<void>} */ (new Promise((res, rej) => {
@@ -187,86 +202,74 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
         })
     }))
 
-    // invoices should be settled right away so we can rely on this single
-    // subscription instead of life-long all invoices subscription
-    if (order.targetType === 'tip') {
-      const { ackInfo } = order
-      if (!Common.isPopulatedString(ackInfo)) {
-        throw new TypeError(`ackInfo(postID) not a a populated string`)
-      }
-    }
-
-    // A post tip order lifecycle is short enough that we can do it like this.
-    const stream = LightningServices.invoices.subscribeSingleInvoice({
-      r_hash: invoice.r_hash
-    })
-
-    /** @type {Common.Coordinate} */
-    const coord = {
-      amount,
-      id: invoice.r_hash.toString(),
-      inbound: true,
-      timestamp: Date.now(),
-      type: 'invoice',
-      invoiceMemo: memo,
-      fromGunPub: order.from,
-      toGunPub: getUser()._.sea.pub,
-      toLndPub: await myLNDPub()
-    }
-
-    if (order.targetType === 'tip') {
-      coord.type = 'tip'
-    } else {
-      coord.type = 'spontaneousPayment'
-    }
-
+    //logger.info(`[PERF] Added invoice to GunDB in ${invoicePutEndTime}ms`)
     /**
-     * @param {Common.InvoiceWhenListed} invoice
+     *
+     * @param {Common.Schema.InvoiceWhenListed & {r_hash:Buffer,payment_addr:string}} paidInvoice
      */
-    const onData = async invoice => {
-      if (invoice.settled) {
-        writeCoordinate(invoice.r_hash.toString(), coord)
-
-        if (order.targetType === 'tip') {
+    const invoicePaidCb = async paidInvoice => {
+      console.log('INVOICE  PAID')
+      let breakError = null
+      let orderMetadata //eslint-disable-line init-declarations
+      const hashString = paidInvoice.r_hash.toString('hex')
+      const {
+        amt_paid_sat: amt,
+        add_index: addIndex,
+        payment_addr: paymentAddr
+      } = paidInvoice
+      const orderType = order.targetType
+      const { ackInfo } = order //a string representing what has been requested
+      switch (orderType) {
+        case 'tip': {
+          const postID = ackInfo
+          if (!Common.isPopulatedString(postID)) {
+            breakError = 'invalid ackInfo provided for postID'
+            break //create the coordinate, but stop because of the invalid id
+          }
           getUser()
             .get('postToTipCount')
-            // CAST: Checked above.
-            .get(/** @type {string} */ (order.ackInfo))
+            .get(postID)
             .set(null) // each item in the set is a tip
-        } else if (order.targetType === 'contentReveal') {
-          // -----------------------------------------
-          logger.debug('Content Reveal')
-
+          break
+        }
+        case 'spontaneousPayment': {
+          //no action required
+          break
+        }
+        case 'contentReveal': {
+          console.log('cONTENT REVEAL')
           //assuming digital product that only requires to be unlocked
-          const postID = order.ackInfo
-
+          const postID = ackInfo
+          console.log('ACK INFO')
+          console.log(ackInfo)
           if (!Common.isPopulatedString(postID)) {
-            logger.error(`Invalid post ID`)
-            logger.error(postID)
-            return
+            breakError = 'invalid ackInfo provided for postID'
+            break //create the coordinate, but stop because of the invalid id
           }
-
-          // TODO: do this reactively
+          console.log('IS STRING')
           const selectedPost = await new Promise(res => {
             getUser()
               .get(Key.POSTS_NEW)
               .get(postID)
               .load(res)
           })
-
-          logger.debug(selectedPost)
-
-          if (Common.isPost(selectedPost)) {
-            logger.error('Post id provided does not correspond to a valid post')
-            return
+          console.log('LOAD ok')
+          console.log(selectedPost)
+          if (
+            !selectedPost ||
+            !selectedPost.status ||
+            selectedPost.status !== 'publish'
+          ) {
+            breakError = 'ackInfo provided does not correspond to a valid post'
+            break //create the coordinate, but stop because of the invalid post
           }
-
+          console.log('IS POST')
           /**
            * @type {Record<string,string>} <contentID,decryptedRef>
            */
           const contentsToSend = {}
           const mySecret = require('../../Mediator').getMySecret()
-          logger.debug('SECRET OK')
+          console.log('SECRET OK')
           let privateFound = false
           await Common.Utils.asyncForEach(
             Object.entries(selectedPost.contentItems),
@@ -286,8 +289,9 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
             }
           )
           if (!privateFound) {
-            logger.error(`Post provided does not contain private content`)
-            return
+            breakError =
+              'post provided from ackInfo does not contain private content'
+            break //no private content in this post
           }
           const ackData = { unlockedContents: contentsToSend }
           const toSend = JSON.stringify(ackData)
@@ -296,15 +300,12 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
             type: 'orderAck',
             response: encrypted
           }
-          logger.debug('RES READY')
+          console.log('RES READY')
 
-          const uuid = gunUUID()
-          orderResponse.ackNode = uuid
-
-          await /** @type {Promise<void>} */ (new Promise((res, rej) => {
+          await new Promise((res, rej) => {
             getUser()
               .get(Key.ORDER_TO_RESPONSE)
-              .get(uuid)
+              .get(ackNode)
               .put(ordResponse, ack => {
                 if (ack.err && typeof ack.err !== 'number') {
                   rej(
@@ -313,29 +314,28 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
                     )
                   )
                 } else {
-                  res()
+                  res(null)
                 }
               })
-          }))
-          logger.debug('RES SENT CONTENT')
-
-          // ----------------------------------------------------------------------------------
-        } else if (order.targetType === 'spontaneousPayment') {
-          // no action required
-        } else if (order.targetType === 'torrentSeed') {
-          logger.debug('TORRENT')
-          const numberOfTokens = Number(order.ackInfo)
+          })
+          console.log('RES SENT CONTENT')
+          orderMetadata = JSON.stringify(ordResponse)
+          break
+        }
+        case 'torrentSeed': {
+          console.log('TORRENT')
+          const numberOfTokens = Number(ackInfo)
           if (isNaN(numberOfTokens)) {
-            logger.error('ackInfo provided is not a valid number')
-            return
+            breakError = 'ackInfo provided is not a valid number'
+            break
           }
           const seedUrl = process.env.TORRENT_SEED_URL
           const seedToken = process.env.TORRENT_SEED_TOKEN
           if (!seedUrl || !seedToken) {
-            logger.error('torrentSeed service not available')
-            return
+            breakError = 'torrentSeed service not available'
+            break //service not available
           }
-          logger.debug('SEED URL OK')
+          console.log('SEED URL OK')
           const tokens = Array(numberOfTokens)
           for (let i = 0; i < numberOfTokens; i++) {
             tokens[i] = crypto.randomBytes(32).toString('hex')
@@ -346,7 +346,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
               seed_token: seedToken,
               wallet_token: token
             }
-            // @ts-expect-error TODO
+            //@ts-expect-error
             const res = await fetch(`${seedUrl}/api/enroll_token`, {
               method: 'POST',
               headers: {
@@ -359,7 +359,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
             }
           }
           await Promise.all(tokens.map(enrollToken))
-          logger.debug('RES SEED OK')
+          console.log('RES SEED OK')
           const ackData = { seedUrl, tokens }
           const toSend = JSON.stringify(ackData)
           const encrypted = await SEA.encrypt(toSend, secret)
@@ -368,14 +368,10 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
             response: encrypted
           }
           console.log('RES SEED SENT')
-
-          const uuid = gunUUID()
-          orderResponse.ackNode = uuid
-
-          await /** @type {Promise<void>} */ (new Promise((res, rej) => {
+          await new Promise((res, rej) => {
             getUser()
               .get(Key.ORDER_TO_RESPONSE)
-              .get(uuid)
+              .get(ackNode)
               .put(serviceResponse, ack => {
                 if (ack.err && typeof ack.err !== 'number') {
                   rej(
@@ -384,32 +380,68 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
                     )
                   )
                 } else {
-                  res()
+                  res(null)
                 }
               })
-          }))
-          logger.debug('RES SENT SEED')
-        } else if (order.targetType === 'other') {
-          // TODO
-        } else {
-          assertNever(order.targetType)
+          })
+          console.log('RES SENT SEED')
+          orderMetadata = JSON.stringify(serviceResponse)
+          break
         }
+        case 'other': //not implemented yet but save them as a coordinate anyways
+          break
+        default:
+          return //exit because not implemented
+      }
+      const metadata = breakError ? JSON.stringify(breakError) : orderMetadata
+      const myGunPub = getUser()._.sea.pub
+      SchemaManager.AddOrder({
+        type: orderType,
+        coordinateHash: hashString,
+        coordinateIndex: parseInt(addIndex, 10),
+        inbound: true,
+        amount: parseInt(amt, 10),
 
-        stream.off()
+        toLndPub: paymentAddr,
+        fromGunPub: order.from,
+        toGunPub: myGunPub,
+        invoiceMemo: memo,
+
+        metadata
+      })
+      if (breakError) {
+        throw new Error(breakError)
       }
     }
+    console.log('WAITING INVOICE TO BE PAID')
+    new Promise(res => SchemaManager.addListenInvoice(invoice.r_hash, res))
+      .then(invoicePaidCb)
+      .catch(err => {
+        logger.error(
+          `error inside onOrders, orderAddr: ${addr}, orderID: ${orderID}, order: ${JSON.stringify(
+            order
+          )}`
+        )
+        logger.error(err)
 
-    stream.on('data', onData)
+        /** @type {import('shock-common').Schema.OrderResponse} */
+        const orderResponse = {
+          response: err.message,
+          type: 'err'
+        }
 
-    stream.on('status', (/** @type {any} */ status) => {
-      logger.info(`Post tip, post: ${order.ackInfo}, invoice status:`, status)
-    })
-    stream.on('end', () => {
-      logger.warn(`Post tip, post: ${order.ackInfo}, invoice stream ended`)
-    })
-    stream.on('error', (/** @type {any} */ e) => {
-      logger.warn(`Post tip, post: ${order.ackInfo}, error:`, e)
-    })
+        getUser()
+          .get(Key.ORDER_TO_RESPONSE)
+          .get(orderID)
+          // @ts-expect-error
+          .put(orderResponse, ack => {
+            if (ack.err && typeof ack.err !== 'number') {
+              logger.error(
+                `Error saving encrypted invoice to order to response usergraph: ${ack}`
+              )
+            }
+          })
+      })
   } catch (err) {
     logger.error(
       `error inside onOrders, orderAddr: ${addr}, orderID: ${orderID}, order: ${JSON.stringify(
