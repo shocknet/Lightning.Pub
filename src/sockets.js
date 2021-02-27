@@ -67,66 +67,6 @@ module.exports = (
     }
   }
 
-  const parseJSON = data => {
-    try {
-      if (typeof data === 'string') {
-        return JSON.parse(data)
-      }
-
-      return data
-    } catch (err) {
-      return data
-    }
-  }
-
-  const decryptEvent = ({ eventName, data, socket }) => {
-    try {
-      const deviceId = socket.handshake.query['x-shockwallet-device-id']
-      if (Encryption.isNonEncrypted(eventName)) {
-        return data
-      }
-
-      if (!data) {
-        return data
-      }
-
-      const parsedData = parseJSON(data)
-
-      if (!deviceId) {
-        throw {
-          field: 'deviceId',
-          message: 'Please specify a device ID'
-        }
-      }
-
-      if (!Encryption.isAuthorizedDevice({ deviceId })) {
-        throw {
-          field: 'deviceId',
-          message: 'Please exchange keys with the API before using the socket'
-        }
-      }
-
-      const decryptedKey = Encryption.decryptKey({
-        deviceId,
-        message: parsedData.encryptedKey
-      })
-      const decryptedMessage = Encryption.decryptMessage({
-        message: parsedData.encryptedData,
-        key: decryptedKey,
-        iv: parsedData.iv
-      })
-      const decryptedData = JSON.parse(decryptedMessage)
-      return decryptedData
-    } catch (err) {
-      logger.error(
-        `[SOCKET] An error has occurred while decrypting an event (${eventName}):`,
-        err
-      )
-
-      return socket.emit('encryption:error', err)
-    }
-  }
-
   const onNewInvoice = (socket, subID) => {
     const { lightning } = LightningServices.services
     logger.warn('Subscribing to invoices socket...' + subID)
@@ -701,7 +641,7 @@ module.exports = (
       }
 
       /**
-       * @param {Common.Schema.SimpleReceivedRequest[]} receivedReqs
+       * @param {ReadonlyArray<Common.SimpleReceivedRequest>} receivedReqs
        */
       const onReceivedReqs = receivedReqs => {
         const processed = receivedReqs.map(({ id, requestorPK, timestamp }) => {

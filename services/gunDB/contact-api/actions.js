@@ -11,7 +11,8 @@ const { ErrorCode } = Constants
 
 const {
   sendPaymentV2Invoice,
-  decodePayReq
+  decodePayReq,
+  myLNDPub
 } = require('../../../utils/lightningServices/v2')
 
 /**
@@ -100,7 +101,7 @@ const __createOutgoingFeed = async (withPublicKey, user, SEA) => {
       timestamp: Date.now()
     }
 
-    await new Promise((res, rej) => {
+    await /** @type {Promise<void>} */ (new Promise((res, rej) => {
       user
         .get(Key.OUTGOINGS)
         .get(newOutgoingFeedID)
@@ -113,14 +114,14 @@ const __createOutgoingFeed = async (withPublicKey, user, SEA) => {
             res()
           }
         })
-    })
+    }))
 
     const encryptedForMeNewOutgoingFeedID = await SEA.encrypt(
       newOutgoingFeedID,
       mySecret
     )
 
-    await new Promise((res, rej) => {
+    await /** @type {Promise<void>} */ (new Promise((res, rej) => {
       user
         .get(Key.RECIPIENT_TO_OUTGOING)
         .get(withPublicKey)
@@ -131,7 +132,7 @@ const __createOutgoingFeed = async (withPublicKey, user, SEA) => {
             res()
           }
         })
-    })
+    }))
 
     outgoingFeedID = newOutgoingFeedID
   }
@@ -237,7 +238,7 @@ const acceptRequest = async (
   const mySecret = require('../Mediator').getMySecret()
   const encryptedForMeIncomingID = await SEA.encrypt(incomingID, mySecret)
 
-  await new Promise((res, rej) => {
+  await /** @type {Promise<void>} */ (new Promise((res, rej) => {
     user
       .get(Key.USER_TO_INCOMING)
       .get(senderPublicKey)
@@ -248,7 +249,7 @@ const acceptRequest = async (
           res()
         }
       })
-  })
+  }))
 
   ////////////////////////////////////////////////////////////////////////////
   // NOTE: perform non-reversable actions before destructive actions
@@ -261,7 +262,7 @@ const acceptRequest = async (
     ourSecret
   )
 
-  await new Promise((res, rej) => {
+  await /** @type {Promise<void>} */ (new Promise((res, rej) => {
     gun
       .get(Key.HANDSHAKE_NODES)
       .get(handshakeAddress)
@@ -278,7 +279,7 @@ const acceptRequest = async (
           }
         }
       )
-  })
+  }))
 }
 
 /**
@@ -287,7 +288,7 @@ const acceptRequest = async (
  * @param {UserGUNNode} userNode
  */
 const authenticate = (user, pass, userNode) =>
-  new Promise((resolve, reject) => {
+  /** @type {Promise<void>} */ (new Promise((resolve, reject) => {
     if (typeof user !== 'string') {
       throw new TypeError('expected user to be of type string')
     }
@@ -317,7 +318,7 @@ const authenticate = (user, pass, userNode) =>
         resolve()
       }
     })
-  })
+  }))
 
 /**
  * @param {string} publicKey
@@ -349,7 +350,7 @@ const generateHandshakeAddress = async () => {
 
   const address = uuidv1()
 
-  await new Promise((res, rej) => {
+  await /** @type {Promise<void>} */ (new Promise((res, rej) => {
     user.get(Key.CURRENT_HANDSHAKE_ADDRESS).put(address, ack => {
       if (ack.err && typeof ack.err !== 'number') {
         rej(new Error(ack.err))
@@ -357,9 +358,9 @@ const generateHandshakeAddress = async () => {
         res()
       }
     })
-  })
+  }))
 
-  await new Promise((res, rej) => {
+  await /** @type {Promise<void>} */ (new Promise((res, rej) => {
     gun
       .get(Key.HANDSHAKE_NODES)
       .get(address)
@@ -370,7 +371,7 @@ const generateHandshakeAddress = async () => {
           res()
         }
       })
-  })
+  }))
 }
 
 /**
@@ -387,7 +388,7 @@ const cleanup = async pub => {
   const promises = []
 
   promises.push(
-    new Promise((res, rej) => {
+    /** @type {Promise<void>} */ (new Promise((res, rej) => {
       user
         .get(Key.USER_TO_INCOMING)
         .get(pub)
@@ -398,11 +399,11 @@ const cleanup = async pub => {
             res()
           }
         })
-    })
+    }))
   )
 
   promises.push(
-    new Promise((res, rej) => {
+    /** @type {Promise<void>} */ (new Promise((res, rej) => {
       user
         .get(Key.RECIPIENT_TO_OUTGOING)
         .get(pub)
@@ -413,11 +414,11 @@ const cleanup = async pub => {
             res()
           }
         })
-    })
+    }))
   )
 
   promises.push(
-    new Promise((res, rej) => {
+    /** @type {Promise<void>} */ (new Promise((res, rej) => {
       user
         .get(Key.USER_TO_LAST_REQUEST_SENT)
         .get(pub)
@@ -428,12 +429,12 @@ const cleanup = async pub => {
             res()
           }
         })
-    })
+    }))
   )
 
   if (outGoingID) {
     promises.push(
-      new Promise((res, rej) => {
+      /** @type {Promise<void>} */ (new Promise((res, rej) => {
         user
           .get(Key.OUTGOINGS)
           .get(outGoingID)
@@ -444,7 +445,7 @@ const cleanup = async pub => {
               res()
             }
           })
-      })
+      }))
     )
   }
 
@@ -618,7 +619,7 @@ const sendHandshakeRequest = async (recipientPublicKey, gun, user, SEA) => {
       })
   })
 
-  await new Promise((res, rej) => {
+  await /** @type {Promise<void>} */ (new Promise((res, rej) => {
     user
       .get(Key.USER_TO_LAST_REQUEST_SENT)
       .get(recipientPublicKey)
@@ -629,7 +630,7 @@ const sendHandshakeRequest = async (recipientPublicKey, gun, user, SEA) => {
           res()
         }
       })
-  })
+  }))
 
   // This needs to come before the write to sent requests. Because that write
   // triggers Jobs.onAcceptedRequests and it in turn reads from request-to-user
@@ -644,7 +645,7 @@ const sendHandshakeRequest = async (recipientPublicKey, gun, user, SEA) => {
     timestamp
   }
 
-  await new Promise((res, rej) => {
+  await /** @type {Promise<void>} */ (new Promise((res, rej) => {
     //@ts-ignore
     user.get(Key.STORED_REQS).set(storedReq, ack => {
       if (ack.err && typeof ack.err !== 'number') {
@@ -657,7 +658,7 @@ const sendHandshakeRequest = async (recipientPublicKey, gun, user, SEA) => {
         res()
       }
     })
-  })
+  }))
 }
 
 /**
@@ -1210,7 +1211,7 @@ const generateOrderAddress = user =>
  * @returns {Promise<void>}
  */
 const setBio = (bio, user) =>
-  new Promise((resolve, reject) => {
+  /** @type {Promise<void>} */ (new Promise((resolve, reject) => {
     if (!user.is) {
       throw new Error(ErrorCode.NOT_AUTH)
     }
@@ -1234,7 +1235,7 @@ const setBio = (bio, user) =>
         resolve()
       }
     })
-  }).then(
+  })).then(
     () =>
       new Promise((resolve, reject) => {
         user
@@ -1318,7 +1319,7 @@ const disconnect = async pub => {
  * @returns {Promise<void>}
  */
 const setLastSeenApp = () =>
-  new Promise((res, rej) => {
+  /** @type {Promise<void>} */ (new Promise((res, rej) => {
     require('../Mediator')
       .getUser()
       .get(Key.LAST_SEEN_APP)
@@ -1329,7 +1330,7 @@ const setLastSeenApp = () =>
           res()
         }
       })
-  }).then(
+  })).then(
     () =>
       new Promise((res, rej) => {
         require('../Mediator')
@@ -1350,10 +1351,10 @@ const setLastSeenApp = () =>
  * @param {string[]} tags
  * @param {string} title
  * @param {Common.Schema.ContentItem[]} content
- * @param {ISEA} SEA
  * @returns {Promise<[string, Common.Schema.RawPost]>}
  */
-const createPostNew = async (tags, title, content, SEA) => {
+const createPostNew = async (tags, title, content) => {
+  const SEA = require('../Mediator').mySEA
   /** @type {Common.Schema.RawPost} */
   const newPost = {
     date: Date.now(),
@@ -1362,10 +1363,13 @@ const createPostNew = async (tags, title, content, SEA) => {
     title,
     contentItems: {}
   }
+
   const mySecret = require('../Mediator').getMySecret()
+
   await Common.Utils.asyncForEach(content, async c => {
     // @ts-expect-error
     const uuid = Gun.text.random()
+    newPost.contentItems[uuid] = c
     if (
       (c.type === 'image/embedded' || c.type === 'video/embedded') &&
       c.isPrivate
@@ -1459,7 +1463,7 @@ const createPost = async (tags, title, content, SEA) => {
     pageIdx = Number(pageIdx + 1).toString()
   }
 
-  await new Promise((res, rej) => {
+  await /** @type {Promise<void>} */ (new Promise((res, rej) => {
     require('../Mediator')
       .getUser()
       .get(Key.WALL)
@@ -1480,7 +1484,7 @@ const createPost = async (tags, title, content, SEA) => {
           res()
         }
       )
-  })
+  }))
 
   const [postID, newPost] = await createPostNew(tags, title, content, SEA)
 
@@ -1506,7 +1510,7 @@ const createPost = async (tags, title, content, SEA) => {
   })
 
   if (shouldBeNewPage || numOfPages === 0) {
-    await new Promise(res => {
+    await /** @type {Promise<void>} */ (new Promise(res => {
       require('../Mediator')
         .getUser()
         .get(Key.WALL)
@@ -1518,7 +1522,7 @@ const createPost = async (tags, title, content, SEA) => {
 
           res()
         })
-    })
+    }))
   }
 
   const loadedPost = await new Promise(res => {
@@ -1561,7 +1565,7 @@ const createPost = async (tags, title, content, SEA) => {
  * @returns {Promise<void>}
  */
 const deletePost = async (postId, page) => {
-  await new Promise((res, rej) => {
+  await /** @type {Promise<void>} */ (new Promise((res, rej) => {
     require('../Mediator')
       .getUser()
       .get(Key.WALL)
@@ -1576,15 +1580,15 @@ const deletePost = async (postId, page) => {
           res()
         }
       })
-  })
+  }))
 }
 
 /**
  * @param {string} publicKey
  * @param {boolean} isPrivate Will overwrite previous private status.
- * @returns {Promise<string>}
+ * @returns {Promise<void>}
  */
-const follow = (publicKey, isPrivate) => {
+const follow = async (publicKey, isPrivate) => {
   /** @type {import('shock-common').Schema.Follow} */
   const newFollow = {
     private: isPrivate,
@@ -1592,7 +1596,7 @@ const follow = (publicKey, isPrivate) => {
     user: publicKey
   }
 
-  return new Promise((res, rej) => {
+  await /** @type {Promise<void>} */ (new Promise((res, rej) => {
     require('../Mediator')
       .getUser()
       .get(Key.FOLLOWS)
@@ -1605,7 +1609,7 @@ const follow = (publicKey, isPrivate) => {
           res()
         }
       })
-  })
+  }))
 }
 
 /**
@@ -1637,7 +1641,7 @@ const initWall = async () => {
   const promises = []
 
   promises.push(
-    new Promise((res, rej) => {
+    /** @type {Promise<void>} */ (new Promise((res, rej) => {
       user
         .get(Key.WALL)
         .get(Key.NUM_OF_PAGES)
@@ -1648,11 +1652,11 @@ const initWall = async () => {
             res()
           }
         })
-    })
+    }))
   )
 
   promises.push(
-    new Promise((res, rej) => {
+    /** @type {Promise<void>} */ (new Promise((res, rej) => {
       user
         .get(Key.WALL)
         .get(Key.PAGES)
@@ -1670,11 +1674,11 @@ const initWall = async () => {
             }
           }
         )
-    })
+    }))
   )
 
   promises.push(
-    new Promise((res, rej) => {
+    /** @type {Promise<void>} */ (new Promise((res, rej) => {
       user
         .get(Key.WALL)
         .get(Key.PAGES)
@@ -1687,7 +1691,7 @@ const initWall = async () => {
             res()
           }
         })
-    })
+    }))
   )
 
   await Promise.all(promises)
