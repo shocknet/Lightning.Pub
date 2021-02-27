@@ -2,15 +2,12 @@
  * @format
  */
 // @ts-check
-const Gun = require('gun')
-const { performance } = require('perf_hooks')
 const logger = require('winston')
 const isFinite = require('lodash/isFinite')
 const isNumber = require('lodash/isNumber')
 const isNaN = require('lodash/isNaN')
 const Common = require('shock-common')
 const crypto = require('crypto')
-// @ts-expect-error TODO fix this
 const fetch = require('node-fetch')
 const {
   Constants: { ErrorCode },
@@ -18,11 +15,6 @@ const {
 } = Common
 const SchemaManager = require('../../../schema')
 const LightningServices = require('../../../../utils/lightningServices')
-const {
-  addInvoice,
-  myLNDPub
-} = require('../../../../utils/lightningServices/v2')
-const { writeCoordinate } = require('../../../coordinates')
 const Key = require('../key')
 const Utils = require('../utils')
 const { gunUUID } = require('../../../../utils')
@@ -64,6 +56,28 @@ const ordersProcessed = new Set()
  */
 
 let currentOrderAddr = ''
+
+/**
+ * @param {InvoiceRequest} invoiceReq
+ * @returns {Promise<InvoiceResponse>}
+ */
+const _addInvoice = invoiceReq =>
+  new Promise((resolve, rej) => {
+    const {
+      services: { lightning }
+    } = LightningServices
+
+    lightning.addInvoice(invoiceReq, (
+      /** @type {any} */ error,
+      /** @type {InvoiceResponse} */ response
+    ) => {
+      if (error) {
+        rej(error)
+      } else {
+        resolve(response)
+      }
+    })
+  })
 
 /**
  * @param {string} addr
@@ -150,12 +164,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       `onOrders() -> Will now create an invoice : ${JSON.stringify(invoiceReq)}`
     )
 
-    const invoice = await addInvoice(
-      invoiceReq.value,
-      invoiceReq.memo,
-      true,
-      invoiceReq.expiry
-    )
+    const invoice = await _addInvoice(invoiceReq)
 
     logger.info(
       'onOrders() -> Successfully created the invoice, will now encrypt it'
@@ -166,14 +175,12 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
     logger.info(
       `onOrders() -> Will now place the encrypted invoice in order to response usergraph: ${addr}`
     )
-    // @ts-expect-error
-    const ackNode = Gun.text.random()
+    const ackNode = gunUUID()
 
     /** @type {import('shock-common').Schema.OrderResponse} */
     const orderResponse = {
       response: encInvoice,
       type: 'invoice',
-      //@ts-expect-error
       ackNode
     }
 
@@ -221,8 +228,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
           }
           getUser()
             .get('postToTipCount')
-            // CAST: Checked above.
-            .get(/** @type {string} */ (order.ackInfo))
+            .get(postID)
             .set(null) // each item in the set is a tip
           break
         }
@@ -308,7 +314,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
                     )
                   )
                 } else {
-                  res()
+                  res(null)
                 }
               })
           })
@@ -340,6 +346,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
               seed_token: seedToken,
               wallet_token: token
             }
+            //@ts-expect-error
             const res = await fetch(`${seedUrl}/api/enroll_token`, {
               method: 'POST',
               headers: {
@@ -373,7 +380,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
                     )
                   )
                 } else {
-                  res()
+                  res(null)
                 }
               })
           })

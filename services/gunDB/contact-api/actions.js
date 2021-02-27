@@ -11,8 +11,7 @@ const { ErrorCode } = Constants
 
 const {
   sendPaymentV2Invoice,
-  decodePayReq,
-  myLNDPub
+  decodePayReq
 } = require('../../../utils/lightningServices/v2')
 
 /**
@@ -261,7 +260,7 @@ const acceptRequest = async (
     newlyCreatedOutgoingFeedID,
     ourSecret
   )
-
+  //why await if you dont need the response?
   await /** @type {Promise<void>} */ (new Promise((res, rej) => {
     gun
       .get(Key.HANDSHAKE_NODES)
@@ -359,7 +358,7 @@ const generateHandshakeAddress = async () => {
       }
     })
   }))
-
+  //why await if you dont need the response?
   await /** @type {Promise<void>} */ (new Promise((res, rej) => {
     gun
       .get(Key.HANDSHAKE_NODES)
@@ -644,7 +643,7 @@ const sendHandshakeRequest = async (recipientPublicKey, gun, user, SEA) => {
     handshakeAddress: await SEA.encrypt(currentHandshakeAddress, mySecret),
     timestamp
   }
-
+  //why await if you dont need the response?
   await /** @type {Promise<void>} */ (new Promise((res, rej) => {
     //@ts-ignore
     user.get(Key.STORED_REQS).set(storedReq, ack => {
@@ -1406,10 +1405,9 @@ const createPostNew = async (tags, title, content) => {
  * @param {string[]} tags
  * @param {string} title
  * @param {Common.Schema.ContentItem[]} content
- * @param {ISEA} SEA
  * @returns {Promise<Common.Schema.Post>}
  */
-const createPost = async (tags, title, content, SEA) => {
+const createPost = async (tags, title, content) => {
   if (content.length === 0) {
     throw new Error(`A post must contain at least one paragraph/image/video`)
   }
@@ -1486,7 +1484,7 @@ const createPost = async (tags, title, content, SEA) => {
       )
   }))
 
-  const [postID, newPost] = await createPostNew(tags, title, content, SEA)
+  const [postID, newPost] = await createPostNew(tags, title, content)
 
   await Common.makePromise((res, rej) => {
     require('../Mediator')
@@ -1595,7 +1593,7 @@ const follow = async (publicKey, isPrivate) => {
     status: 'ok',
     user: publicKey
   }
-
+  //why await if you dont need the response?
   await /** @type {Promise<void>} */ (new Promise((res, rej) => {
     require('../Mediator')
       .getUser()
