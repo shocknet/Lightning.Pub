@@ -18,7 +18,7 @@ For easy setup on your Laptop/Desktop, [a wizard is available here.](https://git
 * Looks for local LND in its default path 
 * Default gun peer is `gun.shock.network`
 * Change defaults in `defaults.js`
-* Requires [Node.js](https://nodejs.org) 12
+* Requires [Node.js](https://nodejs.org) 14
 
 #### Steps:
 1) Run [LND](https://github.com/shocknet/lnd/releases) - *Example mainnet startup*:
