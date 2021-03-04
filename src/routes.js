@@ -2981,6 +2981,7 @@ module.exports = async (
 
         if (type === 'once') node.once(listener)
         if (type === 'load') node.load(listener)
+        if (type === 'open') node.open(listener)
       })
     })
   }
@@ -3042,28 +3043,23 @@ module.exports = async (
     })
   })
 
-  ap.get('/api/gun/otheruser/:publicKey/once/:path', async (req, res) => {
+  ap.get('/api/gun/otheruser/:publicKey/:type/:path', async (req, res) => {
+    const allowedTypes = ['once', 'load', 'open']
     const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
-    const { path, publicKey } = req.params
-    res.status(200).json({
-      data: await handleGunFetch({
-        path,
-        startFromUserGraph: false,
-        type: 'once',
-        publicKey,
-        publicKeyForDecryption
-      })
-    })
-  })
+    const { path, publicKey, type } = req.params
 
-  ap.get('/api/gun/otheruser/:publicKey/load/:path', async (req, res) => {
-    const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
-    const { path, publicKey } = req.params
+    if (!allowedTypes.includes(type)) {
+      res.status(400).json({
+        errorMessage: 'Invalid type specified'
+      })
+      return
+    }
+
     res.status(200).json({
       data: await handleGunFetch({
         path,
         startFromUserGraph: false,
-        type: 'load',
+        type,
         publicKey,
         publicKeyForDecryption
       })
