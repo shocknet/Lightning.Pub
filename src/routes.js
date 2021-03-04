@@ -2937,7 +2937,7 @@ module.exports = async (
 
   /**
    * @typedef {object} HandleGunFetchParams
-   * @prop {'once'|'load'} type
+   * @prop {'once'|'load'|'open'} type
    * @prop {boolean} startFromUserGraph
    * @prop {string} path
    * @prop {string=} publicKey
