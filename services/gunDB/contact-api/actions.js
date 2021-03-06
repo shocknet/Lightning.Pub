@@ -6,6 +6,8 @@ const logger = require('winston')
 const Common = require('shock-common')
 const { Constants, Schema } = Common
 const Gun = require('gun')
+const crypto = require('crypto')
+const fetch = require('node-fetch')
 
 const { ErrorCode } = Constants
 
@@ -927,7 +929,7 @@ const sendHRWithInitialMsg = async (
  */
 /**
  * @typedef {object} OrderRes
- * @prop {PaymentV2} payment
+ * @prop {PaymentV2|null} payment
  * @prop {object=} orderAck
  */
 /**
@@ -951,6 +953,54 @@ const sendSpontaneousPayment = async (
   try {
     const SEA = require('../Mediator').mySEA
     const getUser = () => require('../Mediator').getUser()
+    const myPub = getUser()._.sea.pub
+    if (
+      to === myPub &&
+      opts.type === 'torrentSeed' &&
+      opts.ackInfo &&
+      !isNaN(parseInt(opts.ackInfo, 10))
+    ) {
+      //user requested a seed to themselves
+      const numberOfTokens = Number(opts.ackInfo)
+      if (isNaN(numberOfTokens)) {
+        throw new Error('ackInfo provided is not a valid number')
+      }
+      const seedUrl = process.env.TORRENT_SEED_URL
+      const seedToken = process.env.TORRENT_SEED_TOKEN
+      if (!seedUrl || !seedToken) {
+        throw new Error('torrentSeed service not available')
+      }
+      console.log('SEED URL OK')
+      const tokens = Array(numberOfTokens)
+      for (let i = 0; i < numberOfTokens; i++) {
+        tokens[i] = crypto.randomBytes(32).toString('hex')
+      }
+      /**@param {string} token */
+      const enrollToken = async token => {
+        const reqData = {
+          seed_token: seedToken,
+          wallet_token: token
+        }
+        //@ts-expect-error
+        const res = await fetch(`${seedUrl}/api/enroll_token`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(reqData)
+        })
+        if (res.status !== 200) {
+          throw new Error('torrentSeed service currently not available')
+        }
+      }
+      await Promise.all(tokens.map(enrollToken))
+      console.log('RES SEED OK')
+      const ackData = JSON.stringify({ seedUrl, tokens })
+      return {
+        payment: null,
+        orderAck: { response: ackData, type: 'orderAck' }
+      }
+    }
     const recipientEpub = await Utils.pubToEpub(to)
     const ourSecret = await SEA.secret(recipientEpub, getUser()._.sea)
 
@@ -1179,6 +1229,9 @@ const sendSpontaneousPayment = async (
  */
 const sendPayment = async (to, amount, memo, feeLimit) => {
   const res = await sendSpontaneousPayment(to, amount, memo, feeLimit)
+  if (!res.payment) {
+    throw new Error('invalid payment params') //only if it's a torrentSeed request to self
+  }
   return res.payment.payment_preimage
 }
 
