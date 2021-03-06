@@ -90,7 +90,7 @@ async function deepEncryptIfNeeded(value) {
 
   let encryptedValue = ''
 
-  if (pk === u.is.pub) {
+  if (pk === u.is.pub || pk === 'me') {
     encryptedValue = await SEA.encrypt(actualValue, getMySecret())
   } else {
     const sec = await SEA.secret(await pubToEpub(pk), u._.sea)
