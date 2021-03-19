@@ -17,7 +17,7 @@ const SchemaManager = require('../../../schema')
 const LightningServices = require('../../../../utils/lightningServices')
 const Key = require('../key')
 const Utils = require('../utils')
-const { gunUUID } = require('../../../../utils')
+const Gun = require('gun')
 
 const getUser = () => require('../../Mediator').getUser()
 
@@ -175,7 +175,8 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
     logger.info(
       `onOrders() -> Will now place the encrypted invoice in order to response usergraph: ${addr}`
     )
-    const ackNode = gunUUID()
+    //@ts-expect-error
+    const ackNode = Gun.text.random()
 
     /** @type {import('shock-common').Schema.OrderResponse} */
     const orderResponse = {
@@ -423,6 +424,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
           )}`
         )
         logger.error(err)
+        console.log(err)
 
         /** @type {import('shock-common').Schema.OrderResponse} */
         const orderResponse = {
@@ -449,6 +451,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       )}`
     )
     logger.error(err)
+    console.log(err)
 
     /** @type {import('shock-common').Schema.OrderResponse} */
     const orderResponse = {
