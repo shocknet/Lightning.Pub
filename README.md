@@ -25,7 +25,7 @@ For easy setup on your Laptop/Desktop, [a wizard is available here.](https://git
 
 (Neutrino example requires builds with experimental flags, our binaries include them.)
 
- ```./lnd --bitcoin.active --bitcoin.mainnet --bitcoin.node=neutrino --neutrino.connect=neutrino.shock.network --routing.assumechanvalid --accept-keysend --allow-circular-route```
+ ```./lnd --bitcoin.active --bitcoin.mainnet --bitcoin.node=neutrino --neutrino.connect=neutrino.shock.network --routing.assumechanvalid --accept-keysend --allow-circular-route --feeurl https://nodes.lightning.computer/fees/v1/btc-fee-estimates.json```
 
 
 2) Download and Install API
