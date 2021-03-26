@@ -7,9 +7,13 @@
 
 <p></p>
 
-This is an alpha release of the Shockwallet backend service.<br>
+This is an alpha release of the Shockwallet backend service, providing a wrapper for [LND](https://github.com/shocknet/lnd/releases) and a daemon for a decentralized social graph over [GUN](https://gun.eco/).<br>
 
-For easy setup on your Laptop/Desktop, [a wizard is available here.](https://github.com/shocknet/wizard)
+Run this service on your Lightning node and connect with a mobile device or desktop browser.
+
+### Easy Installation
+
+For easy setup on your Laptop/Desktop, [a node wizard is available here.](https://github.com/shocknet/wizard)
 
 
 ### Manual Installation
@@ -25,7 +29,9 @@ For easy setup on your Laptop/Desktop, [a wizard is available here.](https://git
 
 (Neutrino example requires builds with experimental flags, our binaries include them.)
 
- ```./lnd --bitcoin.active --bitcoin.mainnet --bitcoin.node=neutrino --neutrino.connect=neutrino.shock.network --routing.assumechanvalid --accept-keysend --allow-circular-route --feeurl=https://nodes.lightning.computer/fees/v1/btc-fee-estimates.json```
+ ```
+ ./lnd --bitcoin.active --bitcoin.mainnet --bitcoin.node=neutrino --neutrino.connect=neutrino.shock.network --routing.assumechanvalid --accept-keysend --allow-circular-route --feeurl=https://nodes.lightning.computer/fees/v1/btc-fee-estimates.json
+ ```
 
 
 2) Download and Install API
@@ -38,6 +44,9 @@ yarn install
 
 3) Run with `yarn start`
 4) Connect with Shockwallet *(Provide your nodes IP manually or scan QR from ShockWizard)*
+
+*Optionally, add the `--tunnel` flag to create an ssh connection through a tunnel.rip webserver for zero-configuration networking. All communication between the api and wallet is end-to-end encrypted and your privacy is protected.*
+
 
 ### Docker for Raspberry Pi
 
