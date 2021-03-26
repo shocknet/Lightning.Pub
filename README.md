@@ -27,7 +27,7 @@ For easy setup on your Laptop/Desktop, [a node wizard is available here.](https:
 #### Steps:
 1) Run [LND](https://github.com/shocknet/lnd/releases) - *Example mainnet startup*:
 
-(Neutrino example requires builds with experimental flags, our binaries include them.)
+(Neutrino example requires builds with experimental flags, [our binaries](https://github.com/shocknet/lnd/releases) include them.)
 
  ```
  ./lnd --bitcoin.active --bitcoin.mainnet --bitcoin.node=neutrino --neutrino.connect=neutrino.shock.network --routing.assumechanvalid --accept-keysend --allow-circular-route --feeurl=https://nodes.lightning.computer/fees/v1/btc-fee-estimates.json
