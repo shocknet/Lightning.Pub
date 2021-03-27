@@ -462,7 +462,7 @@ const instantiateGun = () => {
   const _gun = /** @type {unknown} */ (new Gun({
     axe: false,
     multicast: false,
-    peers: Config.PEERS
+    peers: ['https://gun.shock.network:8765/gun']
   }))
 
   gun = /** @type {GUNNode} */ (_gun)
