@@ -634,12 +634,25 @@
   dependencies:
     "@types/node" "*"
 
+"@types/eccrypto@^1.1.2":
+  version "1.1.2"
+  resolved "https://registry.yarnpkg.com/@types/eccrypto/-/eccrypto-1.1.2.tgz#49c452e78c02f890036b8cbee7c18bd77aa16ce1"
+  integrity sha512-qmB/iGIoqDdCMHAcJiOKI4ZBI1Z3kBQGYQCkgNP/Z9ge5w/EVx5uxQYkGOFpllm6l2N/B3qXcn9vjqXGaV1vRQ==
+  dependencies:
+    "@types/expect" "^1.20.4"
+    "@types/node" "*"
+
 "@types/engine.io@*":
   version "3.1.4"
   resolved "https://registry.yarnpkg.com/@types/engine.io/-/engine.io-3.1.4.tgz#3d9472711d179daa7c95c051e50ad411e18a9bdc"
   integrity sha512-98rXVukLD6/ozrQ2O80NAlWDGA4INg+tqsEReWJldqyi2fulC9V7Use/n28SWgROXKm6003ycWV4gZHoF8GA6w==
   dependencies:
     "@types/node" "*"
+
+"@types/expect@^1.20.4":
+  version "1.20.4"
+  resolved "https://registry.yarnpkg.com/@types/expect/-/expect-1.20.4.tgz#8288e51737bf7e3ab5d7c77bfa695883745264e5"
+  integrity sha512-Q5Vn3yjTDyCMV50TB6VRIbQNxSE4OmZR86VSbGaNpfUolm0iePBB4KdEEHmxoY5sT2+2DIvXW0rvMDP2nHZ4Mg==
 
 "@types/express-serve-static-core@*":
   version "4.16.9"
@@ -729,6 +742,13 @@
   dependencies:
     "@types/node" "*"
     form-data "^3.0.0"
+
+"@types/node-persist@^3.1.1":
+  version "3.1.1"
+  resolved "https://registry.yarnpkg.com/@types/node-persist/-/node-persist-3.1.1.tgz#de444e87561e8ad022e1f31ad4fee377d9db1b13"
+  integrity sha512-4PRvgEWkKrWWCZR5Hp/aoAu13z3+e99d9KtbXEDbcJPe84yDoRz3d2IEhiVcSe8fJubYMpXJhyGOdqJ8yoGZsA==
+  dependencies:
+    "@types/node" "*"
 
 "@types/node@*":
   version "12.7.4"

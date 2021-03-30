@@ -1,4 +1,5 @@
 class FieldError extends Error {
+  /** @param {any} error */
   constructor(error) {
     super();
     this.message = error?.message ?? "An unknown error has occurred";
