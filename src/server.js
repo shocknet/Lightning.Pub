@@ -14,6 +14,7 @@ const server = program => {
   const Storage = require('node-persist')
   const Path = require('path')
   const { Logger: CommonLogger } = require('shock-common')
+  const ECC = require('../utils/ECC')
   const LightningServices = require('../utils/lightningServices')
   const Encryption = require('../utils/encryptionStore')
   const app = Express()
@@ -119,10 +120,16 @@ const server = program => {
    * @param {(() => void)} next
    */
   const modifyResponseBody = (req, res, next) => {
-    const deviceId = req.headers['x-shockwallet-device-id']
+    const legacyDeviceId = req.headers['x-shockwallet-device-id']
+    const deviceId = req.headers['encryption-device-id']
     const oldSend = res.send
 
-    if (!nonEncryptedRoutes.includes(req.path)) {
+    if (nonEncryptedRoutes.includes(req.path)) {
+      next()
+      return
+    }
+
+    if (legacyDeviceId) {
       res.send = (...args) => {
         if (args[0] && args[0].encryptedData && args[0].encryptionKey) {
           logger.warn('Response loop detected!')
@@ -137,11 +144,13 @@ const server = program => {
         }
 
         // arguments[0] (or `data`) contains the response body
-        const authorized = Encryption.isAuthorizedDevice({ deviceId })
+        const authorized = Encryption.isAuthorizedDevice({
+          deviceId: legacyDeviceId
+        })
         const encryptedMessage = authorized
           ? Encryption.encryptMessage({
               message: args[0] ? args[0] : {},
-              deviceId,
+              deviceId: legacyDeviceId,
               metadata: {
                 hash
               }
@@ -151,6 +160,38 @@ const server = program => {
         oldSend.apply(res, args)
       }
     }
+
+    if (deviceId) {
+      res.send = (...args) => {
+        if (args[0] && args[0].ciphertext && args[0].iv) {
+          logger.warn('Response loop detected!')
+          oldSend.apply(res, args)
+          return
+        }
+
+        const authorized = ECC.isAuthorizedDevice({
+          deviceId
+        })
+
+        // Using classic promises syntax to avoid
+        // modifying res.send's return type
+        if (authorized) {
+          ECC.encryptMessage({
+            deviceId,
+            message: args[0]
+          }).then(encryptedMessage => {
+            args[0] = JSON.stringify(encryptedMessage)
+            oldSend.apply(res, args)
+          })
+        }
+
+        if (!authorized) {
+          args[0] = JSON.stringify(args[0])
+          oldSend.apply(res, args)
+        }
+      }
+    }
+
     next()
   }
 
@@ -271,19 +312,27 @@ const server = program => {
         }
       }
 
-      const getSessionSecret = async () => {
-        const sessionSecret = await Storage.getItem('config/sessionSecret')
+      const storePersistentRandomField = async ({ fieldName, length = 16 }) => {
+        const randomField = await Storage.getItem(fieldName)
 
-        if (sessionSecret) {
-          return sessionSecret
+        if (randomField) {
+          return randomField
         }
 
-        const newSecret = await Encryption.generateRandomString()
-        await Storage.setItem('config/sessionSecret', newSecret)
-        return newSecret
+        const newValue = await Encryption.generateRandomString()
+        await Storage.setItem(fieldName, newValue)
+        return newValue
       }
 
-      const sessionSecret = await getSessionSecret()
+      const [sessionSecret] = await Promise.all([
+        storePersistentRandomField({
+          fieldName: 'config/sessionSecret'
+        }),
+        storePersistentRandomField({
+          fieldName: 'encryption/hostId',
+          length: 8
+        })
+      ])
 
       app.use(
         session({
