@@ -18,6 +18,7 @@ const {
 const { deepDecryptIfNeeded } = require('../services/gunDB/rpc')
 const GunEvents = require('../services/gunDB/contact-api/events')
 const SchemaManager = require('../services/schema')
+const { encryptedEmit, encryptedOn } = require('../utils/ECC/socket')
 /**
  * @typedef {import('../services/gunDB/Mediator').SimpleSocket} SimpleSocket
  * @typedef {import('../services/gunDB/contact-api/SimpleGUN').ValidDataValue} ValidDataValue
@@ -28,7 +29,7 @@ module.exports = (
   io
 ) => {
   // This should be used for encrypting and emitting your data
-  const emitEncryptedEvent = ({ eventName, data, socket }) => {
+  const encryptedEmitLegacy = ({ eventName, data, socket }) => {
     try {
       if (Encryption.isNonEncrypted(eventName)) {
         return socket.emit(eventName, data)
@@ -73,7 +74,7 @@ module.exports = (
     const stream = lightning.subscribeInvoices({})
     stream.on('data', data => {
       logger.info('[SOCKET] New invoice data:', data)
-      emitEncryptedEvent({ eventName: 'invoice:new', data, socket })
+      encryptedEmitLegacy({ eventName: 'invoice:new', data, socket })
       if (!data.settled) {
         return
       }
@@ -158,7 +159,7 @@ module.exports = (
             //buddy needs to manage this
           } else {
             //business as usual
-            emitEncryptedEvent({ eventName: 'transaction:new', data, socket })
+            encryptedEmitLegacy({ eventName: 'transaction:new', data, socket })
           }
         }
       )
@@ -258,6 +259,8 @@ module.exports = (
         return
       }
 
+      const emit = encryptedEmit(socket)
+
       const { $shock, publicKeyForDecryption } = socket.handshake.query
 
       const [root, path, method] = $shock.split('::')
@@ -293,9 +296,9 @@ module.exports = (
               publicKeyForDecryption
             )
 
-            socket.emit('$shock', decData, key)
+            emit('$shock', decData)
           } else {
-            socket.emit('$shock', data, key)
+            emit('$shock', data)
           }
         } catch (err) {
           logger.error(
@@ -335,6 +338,9 @@ module.exports = (
         return
       }
 
+      const on = encryptedOn(socket)
+      const emit = encryptedEmit(socket)
+
       const { services } = LightningServices
 
       const { service, method, args: unParsed } = socket.handshake.query
@@ -359,24 +365,24 @@ module.exports = (
           })
         })()
 
-        socket.emit('data', data)
+        emit('data', data)
       })
 
       call.on('status', status => {
-        socket.emit('status', status)
+        emit('status', status)
       })
 
       call.on('end', () => {
-        socket.emit('end')
+        emit('end')
       })
 
       call.on('error', err => {
         // 'error' is a reserved event name we can't use it
-        socket.emit('$error', err)
+        emit('$error', err)
       })
 
       // Possibly allow streaming writes such as sendPaymentV2
-      socket.on('write', args => {
+      on('write', args => {
         call.write(args)
       })
     } catch (err) {
@@ -467,12 +473,15 @@ module.exports = (
   let chatsUnsub = emptyUnsub
 
   io.of('chats').on('connect', async socket => {
+    const on = encryptedOn(socket)
+    const emit = encryptedEmit(socket)
+
     try {
       if (!isAuthenticated()) {
         logger.info(
           'not authenticated in gun for chats socket, will send NOT_AUTH'
         )
-        socket.emit(Common.Constants.ErrorCode.NOT_AUTH)
+        emit(Common.Constants.ErrorCode.NOT_AUTH)
 
         return
       }
@@ -483,7 +492,7 @@ module.exports = (
 
       if (!isAuth) {
         logger.warn('invalid token for chats socket')
-        socket.emit(Common.Constants.ErrorCode.NOT_AUTH)
+        emit(Common.Constants.ErrorCode.NOT_AUTH)
         return
       }
 
@@ -522,30 +531,33 @@ module.exports = (
           }
         )
 
-        socket.emit('$shock', processed)
+        emit('$shock', processed)
       }
 
       chatsUnsub = GunEvents.onChats(onChats)
 
-      socket.on('disconnect', () => {
+      on('disconnect', () => {
         chatsUnsub()
         chatsUnsub = emptyUnsub
       })
     } catch (e) {
       logger.error('Error inside chats socket connect: ' + e.message)
-      socket.emit('$error', e.message)
+      emit('$error', e.message)
     }
   })
 
   let sentReqsUnsub = emptyUnsub
 
   io.of('sentReqs').on('connect', async socket => {
+    const on = encryptedOn(socket)
+    const emit = encryptedEmit(socket)
+
     try {
       if (!isAuthenticated()) {
         logger.info(
           'not authenticated in gun for sentReqs socket, will send NOT_AUTH'
         )
-        socket.emit(Common.Constants.ErrorCode.NOT_AUTH)
+        emit(Common.Constants.ErrorCode.NOT_AUTH)
 
         return
       }
@@ -556,13 +568,13 @@ module.exports = (
 
       if (!isAuth) {
         logger.warn('invalid token for sentReqs socket')
-        socket.emit(Common.Constants.ErrorCode.NOT_AUTH)
+        emit(Common.Constants.ErrorCode.NOT_AUTH)
         return
       }
 
       if (sentReqsUnsub !== emptyUnsub) {
         logger.error(
-          'Tried to set sentReqs socket twice, this might be due to an app restart and the old socket not being recycled by socket.io in time, will disable the older subscription, which means the old socket wont work and data will be sent to this new socket instead'
+          'Tried to set sentReqs socket twice, this might be due to an app restart and the old socket not being recycled by io in time, will disable the older subscription, which means the old socket wont work and data will be sent to this new socket instead'
         )
         sentReqsUnsub()
         sentReqsUnsub = emptyUnsub
@@ -594,30 +606,32 @@ module.exports = (
             return stripped
           }
         )
-        socket.emit('$shock', processed)
+        emit('$shock', processed)
       }
 
       sentReqsUnsub = GunEvents.onSimplerSentRequests(onSentReqs)
 
-      socket.on('disconnect', () => {
+      on('disconnect', () => {
         sentReqsUnsub()
         sentReqsUnsub = emptyUnsub
       })
     } catch (e) {
       logger.error('Error inside sentReqs socket connect: ' + e.message)
-      socket.emit('$error', e.message)
+      emit('$error', e.message)
     }
   })
 
   let receivedReqsUnsub = emptyUnsub
 
   io.of('receivedReqs').on('connect', async socket => {
+    const on = encryptedOn(socket)
+    const emit = encryptedEmit(socket)
     try {
       if (!isAuthenticated()) {
         logger.info(
           'not authenticated in gun for receivedReqs socket, will send NOT_AUTH'
         )
-        socket.emit(Common.Constants.ErrorCode.NOT_AUTH)
+        emit(Common.Constants.ErrorCode.NOT_AUTH)
 
         return
       }
@@ -628,7 +642,7 @@ module.exports = (
 
       if (!isAuth) {
         logger.warn('invalid token for receivedReqs socket')
-        socket.emit(Common.Constants.ErrorCode.NOT_AUTH)
+        emit(Common.Constants.ErrorCode.NOT_AUTH)
         return
       }
 
@@ -657,18 +671,18 @@ module.exports = (
           return stripped
         })
 
-        socket.emit('$shock', processed)
+        emit('$shock', processed)
       }
 
       receivedReqsUnsub = GunEvents.onSimplerReceivedRequests(onReceivedReqs)
 
-      socket.on('disconnect', () => {
+      on('disconnect', () => {
         receivedReqsUnsub()
         receivedReqsUnsub = emptyUnsub
       })
     } catch (e) {
       logger.error('Error inside receivedReqs socket connect: ' + e.message)
-      socket.emit('$error', e.message)
+      emit('$error', e.message)
     }
   })
 
