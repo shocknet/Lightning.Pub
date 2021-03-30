@@ -1,12 +1,40 @@
 const { Buffer } = require("buffer");
 const FieldError = require("../fieldError")
 
+/**
+ * @typedef {object} EncryptedMessageBuffer
+ * @prop {Buffer} ciphertext
+ * @prop {Buffer} iv
+ * @prop {Buffer} mac
+ * @prop {Buffer} ephemPublicKey
+ */
+
+/**
+ * @typedef {object} EncryptedMessageResponse
+ * @prop {string} ciphertext
+ * @prop {string} iv
+ * @prop {string} mac
+ * @prop {string} ephemPublicKey
+ */
+
+/**
+ * @param {string} value
+ */
 const convertUTF8ToBuffer = (value) => Buffer.from(value, 'utf-8');
 
+/**
+ * @param {string} value
+ */
 const convertBase64ToBuffer = (value) => Buffer.from(value, 'base64');
 
+/**
+ * @param {Buffer} buffer
+ */
 const convertBufferToBase64 = (buffer) => buffer.toString("base64");
 
+/**
+ * @param {Buffer | string} key
+ */
 const processKey = (key) => {
     if (Buffer.isBuffer(key)) {
         return key;
@@ -15,11 +43,11 @@ const processKey = (key) => {
     return convertedKey;
 };
 
+/**
+ * @param {EncryptedMessageBuffer | EncryptedMessageResponse} encryptedMessage
+ * @returns {EncryptedMessageResponse}
+ */
 const convertToEncryptedMessageResponse = (encryptedMessage) => {
-    if (typeof encryptedMessage.ciphertext === "string") {
-        return encryptedMessage;
-    }
-  
     if (Buffer.isBuffer(encryptedMessage.ciphertext) &&
         Buffer.isBuffer(encryptedMessage.iv) &&
         Buffer.isBuffer(encryptedMessage.mac) &&
@@ -31,12 +59,22 @@ const convertToEncryptedMessageResponse = (encryptedMessage) => {
             ephemPublicKey: convertBufferToBase64(encryptedMessage.ephemPublicKey)
         };
     }
+
+    if (typeof encryptedMessage.ciphertext === "string") {
+        // @ts-ignore
+        return encryptedMessage;
+    }
+
     throw new FieldError({
         field: "encryptedMessage",
         message: "Unknown encrypted message format"
     });
 };
 
+/**
+ * @param {EncryptedMessageBuffer | EncryptedMessageResponse} encryptedMessage
+ * @returns {EncryptedMessageBuffer}
+ */
 const convertToEncryptedMessage = (encryptedMessage) => {
     if (encryptedMessage.ciphertext instanceof Buffer &&
         encryptedMessage.iv instanceof Buffer &&

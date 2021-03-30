@@ -336,6 +336,10 @@ module.exports = async (
         return res.status(401).json(error)
       }
 
+      if (req.method === 'GET') {
+        return next()
+      }
+
       if (!ECC.isEncryptedMessage(req.body)) {
         logger.warn('Message not encrypted!', req.body)
         return next()

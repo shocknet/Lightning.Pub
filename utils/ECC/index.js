@@ -14,6 +14,18 @@ const {
 const nodeKeyPairs = new Map()
 const devicePublicKeys = new Map()
 
+/**
+ * @typedef {object} EncryptedMessage
+ * @prop {string} ciphertext
+ * @prop {string} iv
+ * @prop {string} mac
+ * @prop {string} ephemPublicKey
+ */
+
+/**
+ * Checks if the message supplied is encrypted or not
+ * @param {EncryptedMessage} message
+ */
 const isEncryptedMessage = message =>
   message &&
   message.ciphertext &&
@@ -21,6 +33,11 @@ const isEncryptedMessage = message =>
   message.mac &&
   message.ephemPublicKey
 
+/**
+ * Generates a new encryption key pair that will be used
+ * when communicating with the deviceId specified
+ * @param {string} deviceId
+ */
 const generateKeyPair = deviceId => {
   const privateKey = ECCrypto.generatePrivate()
   const publicKey = ECCrypto.getPublic(privateKey)
@@ -40,8 +57,17 @@ const generateKeyPair = deviceId => {
   }
 }
 
+/**
+ * Checks if the specified device has a keypair generated
+ * @param {{ deviceId: string }} arg0
+ */
 const isAuthorizedDevice = ({ deviceId }) => devicePublicKeys.has(deviceId)
 
+/**
+ * Generates a new keypair for the deviceId specified and
+ * saves its publicKey locally
+ * @param {{ deviceId: string, publicKey: string }} arg0
+ */
 const authorizeDevice = async ({ deviceId, publicKey }) => {
   const hostId = await Storage.get('encryption/hostId')
   devicePublicKeys.set(deviceId, convertBase64ToBuffer(publicKey))
@@ -54,6 +80,12 @@ const authorizeDevice = async ({ deviceId, publicKey }) => {
   }
 }
 
+/**
+ * Encrypts the specified message using the specified deviceId's
+ * public key
+ * @param {{ deviceId: string, message: string }} arg0
+ * @returns {Promise<import('./crypto').EncryptedMessageResponse>}
+ */
 const encryptMessage = async ({ message = '', deviceId }) => {
   const publicKey = devicePublicKeys.get(deviceId)
 
@@ -80,6 +112,11 @@ const encryptMessage = async ({ message = '', deviceId }) => {
   return convertToEncryptedMessageResponse(encryptedMessageResponse)
 }
 
+/**
+ * Decrypts the specified message using the API keypair
+ * associated with the specified deviceId
+ * @param {{ encryptedMessage: EncryptedMessage, deviceId: string }} arg0
+ */
 const decryptMessage = async ({ encryptedMessage, deviceId }) => {
   try {
     const keyPair = nodeKeyPairs.get(deviceId)
@@ -92,7 +129,6 @@ const decryptMessage = async ({ encryptedMessage, deviceId }) => {
     }
 
     const processedPrivateKey = processKey(keyPair.privateKey)
-    const processedPublicKey = processKey(keyPair.publicKey)
     const decryptedMessage = await ECCrypto.decrypt(
       processedPrivateKey,
       convertToEncryptedMessage(encryptedMessage)

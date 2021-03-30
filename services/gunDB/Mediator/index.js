@@ -12,8 +12,8 @@ require('gun/lib/open')
 // @ts-ignore
 require('gun/lib/load')
 const debounce = require('lodash/debounce')
-
-const Encryption = require('../../../utils/encryptionStore')
+//@ts-ignore
+const { encryptedEmit, encryptedOn } = require('../../../utils/ECC/socket')
 const Key = require('../contact-api/key')
 
 /** @type {import('../contact-api/SimpleGUN').ISEA} */
@@ -237,18 +237,26 @@ const Config = require('../config')
  */
 
 /**
- * @typedef {object} EncryptedEmission
+ * @typedef {object} EncryptedEmissionLegacy
  * @prop {string} encryptedData
  * @prop {string} encryptedKey
  * @prop {string} iv
  */
 
+/**
+ * @typedef {object} EncryptedEmission
+ * @prop {string} ciphertext
+ * @prop {string} mac
+ * @prop {string} iv
+ * @prop {string} ephemPublicKey
+ */
+
 // TO DO: move to common repo
 /**
  * @typedef {object} SimpleSocket
- * @prop {(eventName: string, data?: Emission|EncryptedEmission) => void} emit
+ * @prop {(eventName: string, data?: Emission|EncryptedEmissionLegacy|EncryptedEmission) => void} emit
  * @prop {(eventName: string, handler: (data: any) => void) => void} on
- * @prop {{ query: { 'x-shockwallet-device-id': string }}} handshake
+ * @prop {{ query: { 'x-shockwallet-device-id': string, encryptionId: string }}} handshake
  */
 
 /* eslint-disable init-declarations */
@@ -566,84 +574,16 @@ class Mediator {
 
   /** @param {SimpleSocket} socket */
   encryptSocketInstance = socket => {
+    const emit = encryptedEmit(socket)
+    const on = encryptedOn(socket)
+
     return {
       /**
        * @type {SimpleSocket['on']}
        */
-      on: (eventName, cb) => {
-        const deviceId = socket.handshake.query['x-shockwallet-device-id']
-        socket.on(eventName, _data => {
-          try {
-            if (Encryption.isNonEncrypted(eventName)) {
-              return cb(_data)
-            }
-
-            if (!_data) {
-              return cb(_data)
-            }
-
-            let data = _data
-
-            if (!deviceId) {
-              const error = {
-                field: 'deviceId',
-                message: 'Please specify a device ID'
-              }
-              logger.error(JSON.stringify(error))
-              return false
-            }
-
-            if (!Encryption.isAuthorizedDevice({ deviceId })) {
-              const error = {
-                field: 'deviceId',
-                message: 'Please specify a device ID'
-              }
-              logger.error('Unknown Device', error)
-              return false
-            }
-            if (typeof data === 'string') {
-              data = JSON.parse(data)
-            }
-            const decryptedKey = Encryption.decryptKey({
-              deviceId,
-              message: data.encryptedKey
-            })
-            const decryptedMessage = Encryption.decryptMessage({
-              message: data.encryptedData,
-              key: decryptedKey,
-              iv: data.iv
-            })
-            const decryptedData = JSON.parse(decryptedMessage)
-            return cb(decryptedData)
-          } catch (err) {
-            logger.error(err)
-            return false
-          }
-        })
-      },
+      on,
       /** @type {SimpleSocket['emit']} */
-      emit: (eventName, data) => {
-        try {
-          if (Encryption.isNonEncrypted(eventName)) {
-            socket.emit(eventName, data)
-            return
-          }
-
-          const deviceId = socket.handshake.query['x-shockwallet-device-id']
-          const authorized = Encryption.isAuthorizedDevice({ deviceId })
-          const encryptedMessage = authorized
-            ? Encryption.encryptMessage({
-                message: data,
-                deviceId
-              })
-            : data
-
-          socket.emit(eventName, encryptedMessage)
-        } catch (err) {
-          logger.error(err.message)
-          logger.error(err)
-        }
-      }
+      emit
     }
   }
 
