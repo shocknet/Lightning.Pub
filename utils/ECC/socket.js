@@ -3,7 +3,7 @@
  */
 const Common = require('shock-common')
 const logger = require('winston')
-const { safeParseJSON } = require('../json')
+const { safeParseJSON } = require('../JSON')
 const ECC = require('./index')
 
 const nonEncryptedEvents = [
