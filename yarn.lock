@@ -183,9 +183,9 @@
     "@babel/helper-plugin-utils" "^7.0.0"
 
 "@babel/runtime@^7.6.3":
-  version "7.12.18"
-  resolved "https://registry.yarnpkg.com/@babel/runtime/-/runtime-7.12.18.tgz#af137bd7e7d9705a412b3caaf991fe6aaa97831b"
-  integrity sha512-BogPQ7ciE6SYAUPtlm9tWbgI9+2AgqSam6QivMgXgAT+fKbgppaj4ZX15MHeLC1PVF5sNk70huBu20XxWOs8Cg==
+  version "7.13.10"
+  resolved "https://registry.yarnpkg.com/@babel/runtime/-/runtime-7.13.10.tgz#47d42a57b6095f4468da440388fdbad8bebf0d7d"
+  integrity sha512-4QPkjJq6Ns3V/RgpEahRk+AGfL0eO6RHHtTWoNNr5mO49G6B5+X6d6THgWEAvTrznU5xYpbAlVKRYcsCgh/Akw==
   dependencies:
     regenerator-runtime "^0.13.4"
 
@@ -6409,10 +6409,10 @@ shellwords@^0.1.1:
   resolved "https://registry.yarnpkg.com/shellwords/-/shellwords-0.1.1.tgz#d6b9181c1a48d397324c84871efbcfc73fc0654b"
   integrity sha512-vFwSUfQvqybiICwZY5+DAWIPLKsWO31Q91JSKl3UYv+K5c2QRPzn0qzec6QPu1Qc9eHYItiP3NdJqNVqetYAww==
 
-shock-common@32.0.0:
-  version "32.0.0"
-  resolved "https://registry.yarnpkg.com/shock-common/-/shock-common-32.0.0.tgz#bb7f70d7a572783c46aeae7420179935eb5096d4"
-  integrity sha512-1GorUFRpkRGXdKT9PImwnj2orpoJaESU/iD+rvL8sqFMLKazkW9LfLAcRwEWCvytWdKFJ35UO2gN49N8dPiRmA==
+shock-common@^34.0.0:
+  version "34.0.0"
+  resolved "https://registry.yarnpkg.com/shock-common/-/shock-common-34.0.0.tgz#30ffbcb136af9bc04b936999a7eebee4e18c67f0"
+  integrity sha512-i+io2YBh/GLXBz4YURdxg0t//gm2H3dmpkdU8gnEVe7i/ZdabYGhyBgEnUOMy1ZTMunvv/20U8wan9W4VrOaVQ==
   dependencies:
     immer "^6.0.6"
     lodash "^4.17.19"
