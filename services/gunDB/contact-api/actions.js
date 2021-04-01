@@ -6,8 +6,6 @@ const logger = require('winston')
 const Common = require('shock-common')
 const { Constants, Schema } = Common
 const Gun = require('gun')
-const crypto = require('crypto')
-const fetch = require('node-fetch')
 
 const { ErrorCode } = Constants
 
@@ -25,6 +23,7 @@ const Key = require('./key')
 const Utils = require('./utils')
 const SchemaManager = require('../../schema')
 const LNDHealthMananger = require('../../../utils/lightningServices/errors')
+const { enrollContentTokens, selfContentToken } = require('../../seed')
 
 /**
  * @typedef {import('./SimpleGUN').GUNNode} GUNNode
@@ -961,39 +960,14 @@ const sendSpontaneousPayment = async (
       !isNaN(parseInt(opts.ackInfo, 10))
     ) {
       //user requested a seed to themselves
-      const numberOfTokens = Number(opts.ackInfo)
-      if (isNaN(numberOfTokens)) {
-        throw new Error('ackInfo provided is not a valid number')
-      }
-      const seedUrl = process.env.TORRENT_SEED_URL
-      const seedToken = process.env.TORRENT_SEED_TOKEN
-      if (!seedUrl || !seedToken) {
+      const numberOfTokens = Number(opts.ackInfo) || 1
+      const seedInfo = selfContentToken()
+      if (!seedInfo) {
         throw new Error('torrentSeed service not available')
       }
+      const { seedUrl } = seedInfo
       console.log('SEED URL OK')
-      const tokens = Array(numberOfTokens)
-      for (let i = 0; i < numberOfTokens; i++) {
-        tokens[i] = crypto.randomBytes(32).toString('hex')
-      }
-      /**@param {string} token */
-      const enrollToken = async token => {
-        const reqData = {
-          seed_token: seedToken,
-          wallet_token: token
-        }
-        //@ts-expect-error
-        const res = await fetch(`${seedUrl}/api/enroll_token`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(reqData)
-        })
-        if (res.status !== 200) {
-          throw new Error('torrentSeed service currently not available')
-        }
-      }
-      await Promise.all(tokens.map(enrollToken))
+      const tokens = await enrollContentTokens(numberOfTokens, seedInfo)
       console.log('RES SEED OK')
       const ackData = JSON.stringify({ seedUrl, tokens })
       return {
@@ -1132,7 +1106,11 @@ const sendSpontaneousPayment = async (
     })
     const myLndPub = LNDHealthMananger.lndPub
     if (
-      (opts.type !== 'contentReveal' && opts.type !== 'torrentSeed') ||
+      (opts.type !== 'contentReveal' &&
+        opts.type !== 'torrentSeed' &&
+        opts.type !== 'service' &&
+        opts.type !== 'streamSeed' &&
+        opts.type !== 'product') ||
       !orderResponse.ackNode
     ) {
       SchemaManager.AddOrder({
