@@ -7,8 +7,6 @@ const isFinite = require('lodash/isFinite')
 const isNumber = require('lodash/isNumber')
 const isNaN = require('lodash/isNaN')
 const Common = require('shock-common')
-const crypto = require('crypto')
-const fetch = require('node-fetch')
 const {
   Constants: { ErrorCode },
   Schema
@@ -18,6 +16,7 @@ const LightningServices = require('../../../../utils/lightningServices')
 const Key = require('../key')
 const Utils = require('../utils')
 const Gun = require('gun')
+const { selfContentToken, enrollContentTokens } = require('../../../seed')
 
 const getUser = () => require('../../Mediator').getUser()
 
@@ -152,6 +151,54 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
         `Amount was correctly decrypted, but got a non finite number, decryptedAmount: ${decryptedAmount}`
       )
     }
+    const mySecret = require('../../Mediator').getMySecret()
+    /**
+     * @type {string|null}
+     */
+    let serviceOrderType = null //if the order refers to a service, we take the info from the service before sending the invoice
+    /**
+     * @type {{ seedUrl: string, seedToken: string }|null}
+     */
+    let serviceOrderContentSeedInfo = null //in case the service is of type 'torrentSeed' or 'streamSeed' this is {seedUrl,seedToken}, can be omitted, in that case, it will be taken from env
+    if (order.targetType === 'service') {
+      console.log('General Service')
+      const { ackInfo: serviceID } = order
+      console.log('ACK INFO')
+      console.log(serviceID)
+      if (!Common.isPopulatedString(serviceID)) {
+        throw new TypeError(`no serviceID provided to orderAck`)
+      }
+      const selectedService = await new Promise(res => {
+        getUser()
+          .get(Key.OFFERED_SERVICES)
+          .get(serviceID)
+          .load(res)
+      })
+      console.log(selectedService)
+      if (!selectedService) {
+        throw new TypeError(`invalid serviceID provided to orderAck`)
+      }
+      const {
+        serviceType,
+        servicePrice,
+        serviceSeedUrl: encSeedUrl, //=
+        serviceSeedToken: encSeedToken //=
+      } = selectedService
+      if (Number(amount) !== Number(servicePrice)) {
+        throw new TypeError(
+          `service price mismatch ${amount} : ${servicePrice}`
+        )
+      }
+      if (serviceType === 'torrentSeed' || serviceType === 'streamSeed') {
+        if (encSeedUrl && encSeedToken) {
+          const seedUrl = await SEA.decrypt(encSeedUrl, mySecret)
+          const seedToken = await SEA.decrypt(encSeedToken, mySecret)
+          serviceOrderContentSeedInfo = { seedUrl, seedToken }
+        }
+      }
+
+      serviceOrderType = serviceType
+    }
 
     const invoiceReq = {
       expiry: 36000,
@@ -218,7 +265,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
         add_index: addIndex,
         payment_addr: paymentAddr
       } = paidInvoice
-      const orderType = order.targetType
+      const orderType = serviceOrderType || order.targetType
       const { ackInfo } = order //a string representing what has been requested
       switch (orderType) {
         case 'tip': {
@@ -269,7 +316,6 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
            * @type {Record<string,string>} <contentID,decryptedRef>
            */
           const contentsToSend = {}
-          const mySecret = require('../../Mediator').getMySecret()
           console.log('SECRET OK')
           let privateFound = false
           await Common.Utils.asyncForEach(
@@ -294,7 +340,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
               'post provided from ackInfo does not contain private content'
             break //no private content in this post
           }
-          const ackData = { unlockedContents: contentsToSend }
+          const ackData = { unlockedContents: contentsToSend, ackInfo }
           const toSend = JSON.stringify(ackData)
           const encrypted = await SEA.encrypt(toSend, secret)
           const ordResponse = {
@@ -325,43 +371,75 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
         }
         case 'torrentSeed': {
           console.log('TORRENT')
-          const numberOfTokens = Number(ackInfo)
-          if (isNaN(numberOfTokens)) {
-            breakError = 'ackInfo provided is not a valid number'
-            break
-          }
-          const seedUrl = process.env.TORRENT_SEED_URL
-          const seedToken = process.env.TORRENT_SEED_TOKEN
-          if (!seedUrl || !seedToken) {
+          const numberOfTokens = Number(ackInfo) || 1
+          const seedInfo = selfContentToken()
+          if (!seedInfo && !serviceOrderContentSeedInfo) {
             breakError = 'torrentSeed service not available'
             break //service not available
           }
-          console.log('SEED URL OK')
-          const tokens = Array(numberOfTokens)
-          for (let i = 0; i < numberOfTokens; i++) {
-            tokens[i] = crypto.randomBytes(32).toString('hex')
+          const seedInfoReady = serviceOrderContentSeedInfo || seedInfo
+          if (!seedInfoReady) {
+            breakError = 'torrentSeed service not available'
+            break //service not available
           }
-          /**@param {string} token */
-          const enrollToken = async token => {
-            const reqData = {
-              seed_token: seedToken,
-              wallet_token: token
-            }
-            //@ts-expect-error
-            const res = await fetch(`${seedUrl}/api/enroll_token`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify(reqData)
-            })
-            if (res.status !== 200) {
-              throw new Error('torrentSeed service currently not available')
-            }
-          }
-          await Promise.all(tokens.map(enrollToken))
+          const { seedUrl } = seedInfoReady
+          const tokens = await enrollContentTokens(
+            numberOfTokens,
+            seedInfoReady
+          )
           console.log('RES SEED OK')
-          const ackData = { seedUrl, tokens }
+          const ackData = { seedUrl, tokens, ackInfo }
+          const toSend = JSON.stringify(ackData)
+          const encrypted = await SEA.encrypt(toSend, secret)
+          const serviceResponse = {
+            type: 'orderAck',
+            response: encrypted
+          }
+          console.log('RES SEED SENT')
+          await new Promise((res, rej) => {
+            getUser()
+              .get(Key.ORDER_TO_RESPONSE)
+              .get(ackNode)
+              .put(serviceResponse, ack => {
+                if (ack.err && typeof ack.err !== 'number') {
+                  rej(
+                    new Error(
+                      `Error saving encrypted orderAck to order to response usergraph: ${ack}`
+                    )
+                  )
+                } else {
+                  res(null)
+                }
+              })
+          })
+          console.log('RES SENT SEED')
+          orderMetadata = JSON.stringify(serviceResponse)
+          break
+        }
+        case 'streamSeed': {
+          console.log('STREAM')
+          const numberOfTokens = 1
+          const seedInfo = selfContentToken() //TODO this must change for streams
+          if (!seedInfo && !serviceOrderContentSeedInfo) {
+            breakError = 'torrentSeed service not available'
+            break //service not available
+          }
+          const seedInfoReady = serviceOrderContentSeedInfo || seedInfo
+          if (!seedInfoReady) {
+            breakError = 'torrentSeed service not available'
+            break //service not available
+          }
+          const { seedUrl } = seedInfoReady
+          const tokens = await enrollContentTokens(
+            numberOfTokens,
+            seedInfoReady
+          )
+          console.log('RES SEED OK')
+          const ackData = {
+            seedUrl,
+            tokens,
+            ackInfo
+          }
           const toSend = JSON.stringify(ackData)
           const encrypted = await SEA.encrypt(toSend, secret)
           const serviceResponse = {
@@ -392,6 +470,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
         case 'other': //not implemented yet but save them as a coordinate anyways
           break
         default:
+          breakError = 'invalid service type provided'
           return //exit because not implemented
       }
       const metadata = breakError ? JSON.stringify(breakError) : orderMetadata

@@ -7,7 +7,7 @@ const Key = require('../gunDB/contact-api/key')
 const lndV2 = require('../../utils/lightningServices/v2')
 /**
  * @typedef {import('../gunDB/contact-api/SimpleGUN').ISEA} ISEA
- * @typedef { 'spontaneousPayment' | 'tip' | 'torrentSeed' | 'contentReveal' | 'other'|'invoice'|'payment'|'chainTx' } OrderType
+ * @typedef { 'spontaneousPayment' | 'tip' | 'torrentSeed' | 'contentReveal' | 'other'|'invoice'|'payment'|'chainTx' | 'streamSeed' |'service'|'product' } OrderType
  * 
  * This represents a settled order only, unsettled orders have no coordinate
  * @typedef {object} CoordinateOrder //everything is optional for different types
