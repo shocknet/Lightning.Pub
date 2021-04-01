@@ -20,6 +20,7 @@ const getListPage = require('../utils/paginate')
 const auth = require('../services/auth/auth')
 const FS = require('../utils/fs')
 const Encryption = require('../utils/encryptionStore')
+const ECC = require('../utils/ECC')
 const LightningServices = require('../utils/lightningServices')
 const lndErrorManager = require('../utils/lightningServices/errors')
 const GunDB = require('../services/gunDB/Mediator')
@@ -212,17 +213,19 @@ module.exports = async (
   })
 
   app.use((req, res, next) => {
-    const deviceId = req.headers['x-shockwallet-device-id']
+    const legacyDeviceId = req.headers['x-shockwallet-device-id']
+    const deviceId = req.headers['encryption-device-id']
     logger.debug('Decrypting route...')
     try {
       if (
         nonEncryptedRoutes.includes(req.path) ||
-        process.env.DISABLE_SHOCK_ENCRYPTION === 'true'
+        process.env.DISABLE_SHOCK_ENCRYPTION === 'true' ||
+        (deviceId && !legacyDeviceId)
       ) {
         return next()
       }
 
-      if (!deviceId) {
+      if (!legacyDeviceId) {
         const error = {
           field: 'deviceId',
           message: 'Please specify a device ID'
@@ -231,7 +234,7 @@ module.exports = async (
         return res.status(401).json(error)
       }
 
-      if (!Encryption.isAuthorizedDevice({ deviceId })) {
+      if (!Encryption.isAuthorizedDevice({ deviceId: legacyDeviceId })) {
         const error = {
           field: 'deviceId',
           message: 'Please specify a device ID'
@@ -263,7 +266,7 @@ module.exports = async (
         reqData = req.body.data || req.body.encryptedData
       }
       const decryptedKey = Encryption.decryptKey({
-        deviceId,
+        deviceId: legacyDeviceId,
         message: encryptedKey
       })
       if (reqData) {
@@ -286,6 +289,71 @@ module.exports = async (
       if (decryptedToken) {
         req.headers.authorization = decryptedToken
       }
+
+      return next()
+    } catch (err) {
+      logger.error(err)
+      return res.status(401).json(err)
+    }
+  })
+
+  app.use(async (req, res, next) => {
+    const legacyDeviceId = req.headers['x-shockwallet-device-id']
+    const deviceId = req.headers['encryption-device-id']
+    logger.info('Decrypting route...')
+    try {
+      if (
+        nonEncryptedRoutes.includes(req.path) ||
+        process.env.DISABLE_SHOCK_ENCRYPTION === 'true' ||
+        (legacyDeviceId && !deviceId)
+      ) {
+        logger.info(
+          'Unprotected route detected! ' +
+            req.path +
+            ' Legacy ID:' +
+            legacyDeviceId +
+            ' Device ID:' +
+            deviceId
+        )
+        return next()
+      }
+
+      if (!deviceId) {
+        const error = {
+          field: 'deviceId',
+          message: 'Please specify a device ID'
+        }
+        logger.error('Please specify a device ID')
+        return res.status(401).json(error)
+      }
+
+      if (!ECC.isAuthorizedDevice({ deviceId })) {
+        const error = {
+          field: 'deviceId',
+          message: 'Please specify a device ID'
+        }
+        logger.error('Unknown Device')
+        return res.status(401).json(error)
+      }
+
+      if (req.method === 'GET') {
+        return next()
+      }
+
+      if (!ECC.isEncryptedMessage(req.body)) {
+        logger.warn('Message not encrypted!', req.body)
+        return next()
+      }
+
+      logger.info('Decrypting ECC message...')
+
+      const decryptedMessage = await ECC.decryptMessage({
+        deviceId,
+        encryptedMessage: req.body
+      })
+
+      // eslint-disable-next-line
+      req.body = JSON.parse(decryptedMessage)
 
       return next()
     } catch (err) {
@@ -460,6 +528,43 @@ module.exports = async (
         publicKey
       })
       logger.info(authorizedDevice)
+      return res.json(authorizedDevice)
+    } catch (err) {
+      logger.error(err)
+      return res.status(401).json({
+        field: 'unknown',
+        message: err
+      })
+    }
+  })
+
+  app.post('/api/encryption/exchange', async (req, res) => {
+    try {
+      const { publicKey, deviceId } = req.body
+
+      if (!publicKey) {
+        return res.status(400).json({
+          field: 'publicKey',
+          message: 'Please provide a valid public key'
+        })
+      }
+
+      if (
+        !deviceId ||
+        !/^[0-9A-F]{8}-[0-9A-F]{4}-4[0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}$/iu.test(
+          deviceId
+        )
+      ) {
+        return res.status(400).json({
+          field: 'deviceId',
+          message: 'Please provide a valid device ID'
+        })
+      }
+
+      const authorizedDevice = await ECC.authorizeDevice({
+        deviceId,
+        publicKey
+      })
       return res.json(authorizedDevice)
     } catch (err) {
       logger.error(err)
