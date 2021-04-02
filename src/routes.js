@@ -1273,17 +1273,17 @@ module.exports = async (
 
             res.json({
               transactions: getListPage({
-                entries: transactions,
+                entries: transactions.reverse(),
                 itemsPerPage,
                 page
               }),
               payments: getListPage({
-                entries: payments,
+                entries: payments.reverse(),
                 itemsPerPage,
                 page
               }),
               invoices: {
-                content: invoices,
+                content: invoices.filter(invoice => invoice.settled),
                 page,
                 totalPages: Math.ceil(last_index_offset / itemsPerPage),
                 totalItems: last_index_offset
