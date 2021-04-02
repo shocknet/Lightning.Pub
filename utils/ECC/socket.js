@@ -19,6 +19,7 @@ const nonEncryptedEvents = [
  * @typedef {import('../../services/gunDB/Mediator').Emission} Emission
  * @typedef {import('../../services/gunDB/Mediator').EncryptedEmission} EncryptedEmission
  * @typedef {import('../../services/gunDB/Mediator').EncryptedEmissionLegacy} EncryptedEmissionLegacy
+ * @typedef {import('../../services/gunDB/contact-api/SimpleGUN').ValidDataValue} ValidDataValue
  */
 
 /**
@@ -28,7 +29,7 @@ const isNonEncrypted = eventName => nonEncryptedEvents.includes(eventName)
 
 /**
  * @param {SimpleSocket} socket
- * @returns {(eventName: string, args?: Emission | EncryptedEmission | EncryptedEmissionLegacy) => Promise<void>}
+ * @returns {(eventName: string, ...args: any[]) => Promise<void>}
  */
 const encryptedEmit = socket => async (eventName, ...args) => {
   try {
@@ -55,19 +56,21 @@ const encryptedEmit = socket => async (eventName, ...args) => {
     }
 
     const encryptedArgs = await Promise.all(
-      args.map(data => {
+      args.map(async data => {
         if (!data) {
           return data
         }
 
-        return ECC.encryptMessage({
+        const encryptedMessage = await ECC.encryptMessage({
           message: typeof data === 'object' ? JSON.stringify(data) : data,
           deviceId
         })
+
+        return encryptedMessage
       })
     )
 
-    console.log('Encrypted args:', encryptedArgs)
+    console.log('Encrypted args:', encryptedArgs, args)
 
     return socket.emit(eventName, ...encryptedArgs)
   } catch (err) {

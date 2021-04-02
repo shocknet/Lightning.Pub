@@ -83,10 +83,11 @@ const authorizeDevice = async ({ deviceId, publicKey }) => {
 /**
  * Encrypts the specified message using the specified deviceId's
  * public key
- * @param {{ deviceId: string, message: string }} arg0
+ * @param {{ deviceId: string, message: string | number | boolean }} arg0
  * @returns {Promise<import('./crypto').EncryptedMessageResponse>}
  */
 const encryptMessage = async ({ message = '', deviceId }) => {
+  const parsedMessage = message.toString()
   const publicKey = devicePublicKeys.get(deviceId)
 
   if (!publicKey) {
@@ -97,7 +98,7 @@ const encryptMessage = async ({ message = '', deviceId }) => {
   }
 
   const processedPublicKey = processKey(publicKey)
-  const messageBuffer = convertUTF8ToBuffer(message)
+  const messageBuffer = convertUTF8ToBuffer(parsedMessage)
   const encryptedMessage = await ECCrypto.encrypt(
     processedPublicKey,
     messageBuffer
