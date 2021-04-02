@@ -296,9 +296,9 @@ module.exports = (
               publicKeyForDecryption
             )
 
-            emit('$shock', decData)
+            emit('$shock', decData, key)
           } else {
-            emit('$shock', data)
+            emit('$shock', data, key)
           }
         } catch (err) {
           logger.error(

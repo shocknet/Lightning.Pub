@@ -226,6 +226,7 @@ const Config = require('../config')
 /**
  * @typedef {import('../contact-api/SimpleGUN').GUNNode} GUNNode
  * @typedef {import('../contact-api/SimpleGUN').UserGUNNode} UserGUNNode
+ * @typedef {import('../contact-api/SimpleGUN').ValidDataValue} ValidDataValue
  */
 
 // TO DO: move to common repo
@@ -254,7 +255,7 @@ const Config = require('../config')
 // TO DO: move to common repo
 /**
  * @typedef {object} SimpleSocket
- * @prop {(eventName: string, data?: Emission|EncryptedEmissionLegacy|EncryptedEmission) => void} emit
+ * @prop {(eventName: string, data?: Emission|EncryptedEmissionLegacy|EncryptedEmission|ValidDataValue) => void} emit
  * @prop {(eventName: string, handler: (data: any) => void) => void} on
  * @prop {{ query: { 'x-shockwallet-device-id': string, encryptionId: string }}} handshake
  */
