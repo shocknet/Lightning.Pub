@@ -5,7 +5,7 @@ const {version} = (JSON.parse(require('fs').readFileSync("./package.json", "utf-
 // parse command line parameters
 program
 	.version(version)
-	.option("-s, --serverport [port]", "web server http listening port (defaults to 8280)")
+	.option("-s, --serverport [port]", "web server http listening port (defaults to 9835)")
 	.option("-h, --serverhost [host]", "web server listening host (defaults to localhost)")
 	.option("-l, --lndhost [host:port]", "RPC lnd host (defaults to localhost:10009)")
 	.option("-u, --user [login]", "basic authentication login")
@@ -17,6 +17,7 @@ program
 	.option("-k, --le-email [email]", "lets encrypt required contact email")
 	.option("-c, --mainnet", "run server on mainnet mode")
 	.option("-t, --tunnel","create a localtunnel to listen behind a firewall")
+	.option('-r, --lndaddress', 'Lnd address, defaults to 127.0.0.1:9735')
 	.parse(process.argv);
 
 // load server

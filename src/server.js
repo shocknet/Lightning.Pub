@@ -391,13 +391,21 @@ const server = program => {
 
       const Sockets = require('./sockets')(io)
 
-      require('./routes')(app, defaults, Sockets, {
-        serverHost,
-        serverPort,
-        usetls: program.usetls,
-        CA,
-        CA_KEY
-      })
+      require('./routes')(
+        app,
+        {
+          ...defaults,
+          lndAddress: program.lndAddress
+        },
+        Sockets,
+        {
+          serverHost,
+          serverPort,
+          usetls: program.usetls,
+          CA,
+          CA_KEY
+        }
+      )
 
       // enable CORS headers
       app.use(require('./cors'))
