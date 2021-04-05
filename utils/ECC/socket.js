@@ -70,8 +70,6 @@ const encryptedEmit = socket => async (eventName, ...args) => {
       })
     )
 
-    console.log('Encrypted args:', encryptedArgs, args)
-
     return socket.emit(eventName, ...encryptedArgs)
   } catch (err) {
     logger.error(
