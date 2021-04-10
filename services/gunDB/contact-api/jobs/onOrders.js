@@ -18,6 +18,8 @@ const Utils = require('../utils')
 const Gun = require('gun')
 const { selfContentToken, enrollContentTokens } = require('../../../seed')
 
+const TipForwarder = require('../../../tipsCallback')
+
 const getUser = () => require('../../Mediator').getUser()
 
 /**
@@ -278,6 +280,13 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
             .get('postToTipCount')
             .get(postID)
             .set(null) // each item in the set is a tip
+
+          TipForwarder.notifySocketIfAny(
+            postID,
+            order.from,
+            'TIPPED YOU',
+            amt + ' sats'
+          )
           break
         }
         case 'spontaneousPayment': {
