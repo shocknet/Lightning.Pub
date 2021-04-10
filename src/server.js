@@ -14,6 +14,7 @@ const server = program => {
   const Storage = require('node-persist')
   const Path = require('path')
   const { Logger: CommonLogger } = require('shock-common')
+  const binaryParser = require('socket.io-msgpack-parser')
   const ECC = require('../utils/ECC')
   const LightningServices = require('../utils/lightningServices')
   const Encryption = require('../utils/encryptionStore')
@@ -387,7 +388,24 @@ const server = program => {
 
       const serverInstance = await createServer()
 
-      const io = require('socket.io')(serverInstance)
+      const io = require('socket.io')(serverInstance, {
+        parser: binaryParser,
+        transports: ['websocket', 'polling'],
+        cors: {
+          origin: '*',
+          methods: ['OPTIONS', 'POST', 'GET', 'PUT', 'DELETE'],
+          allowedHeaders: [
+            'Origin',
+            'X-Requested-With',
+            'Content-Type',
+            'Accept',
+            'Authorization',
+            'public-key-for-decryption',
+            'encryption-device-id'
+          ],
+          credentials: true
+        }
+      })
 
       const Sockets = require('./sockets')(io)
 
