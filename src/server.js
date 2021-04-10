@@ -392,8 +392,9 @@ const server = program => {
         parser: binaryParser,
         transports: ['websocket', 'polling'],
         cors: {
-          origin: '*',
-          methods: ['OPTIONS', 'POST', 'GET', 'PUT', 'DELETE'],
+          origin: (origin, callback) => {
+            callback(null, true)
+          },
           allowedHeaders: [
             'Origin',
             'X-Requested-With',
