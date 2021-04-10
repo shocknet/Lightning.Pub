@@ -1089,16 +1089,18 @@ const sendSpontaneousPayment = async (
 
     const { num_satoshis: decodedAmt } = await decodePayReq(encodedInvoice)
 
-    if (decodedAmt !== amount.toString()) {
+    if (decodedAmt.toString() !== amount.toString()) {
       throw new Error(
-        `Invoice amount mismatch got: ${decodedAmt} expected: ${amount.toString()}`
+        `Invoice amount mismatch got: ${decodedAmt.toString()} expected: ${amount.toString()}`
       )
     }
 
     // double check
-    if (Number(decodedAmt) !== amount) {
+    if (Number(decodedAmt) !== Number(amount)) {
       throw new Error(
-        `Invoice amount mismatch got:${decodedAmt} expected:${amount.toString()}`
+        `Invoice amount mismatch got:${Number(decodedAmt)} expected:${Number(
+          amount
+        )}`
       )
     }
 
