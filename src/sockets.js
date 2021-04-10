@@ -35,7 +35,7 @@ module.exports = (
         return socket.emit(eventName, data)
       }
 
-      const deviceId = socket.handshake.query['x-shockwallet-device-id']
+      const deviceId = socket.handshake.auth['x-shockwallet-device-id']
       const authorized = Encryption.isAuthorizedDevice({ deviceId })
 
       if (!deviceId) {
@@ -222,12 +222,12 @@ module.exports = (
     }
   }
 
-  io.of('default').on('connection', socket => {
+  io.on('connection', socket => {
     logger.info(`io.onconnection`)
     logger.info('socket.handshake', socket.handshake)
 
-    const isLNDSocket = !!socket.handshake.query.IS_LND_SOCKET
-    const isNotificationsSocket = !!socket.handshake.query
+    const isLNDSocket = !!socket.handshake.auth.IS_LND_SOCKET
+    const isNotificationsSocket = !!socket.handshake.auth
       .IS_NOTIFICATIONS_SOCKET
 
     if (!isLNDSocket) {
@@ -261,7 +261,7 @@ module.exports = (
 
       const emit = encryptedEmit(socket)
 
-      const { $shock, publicKeyForDecryption } = socket.handshake.query
+      const { $shock, publicKeyForDecryption } = socket.handshake.auth
 
       const [root, path, method] = $shock.split('::')
 
@@ -343,7 +343,7 @@ module.exports = (
 
       const { services } = LightningServices
 
-      const { service, method, args: unParsed } = socket.handshake.query
+      const { service, method, args: unParsed } = socket.handshake.auth
 
       const args = JSON.parse(unParsed)
 
@@ -431,7 +431,7 @@ module.exports = (
         }
 
         logger.info('now checking token')
-        const { token } = socket.handshake.query
+        const { token } = socket.handshake.auth
         const isAuth = await isValidToken(token)
 
         if (!isAuth) {
@@ -487,7 +487,7 @@ module.exports = (
       }
 
       logger.info('now checking token for chats socket')
-      const { token } = socket.handshake.query
+      const { token } = socket.handshake.auth
       const isAuth = await isValidToken(token)
 
       if (!isAuth) {
@@ -563,7 +563,7 @@ module.exports = (
       }
 
       logger.info('now checking token for sentReqs socket')
-      const { token } = socket.handshake.query
+      const { token } = socket.handshake.auth
       const isAuth = await isValidToken(token)
 
       if (!isAuth) {
@@ -637,7 +637,7 @@ module.exports = (
       }
 
       logger.info('now checking token for receivedReqs socket')
-      const { token } = socket.handshake.query
+      const { token } = socket.handshake.auth
       const isAuth = await isValidToken(token)
 
       if (!isAuth) {
