@@ -37,7 +37,7 @@ const encryptedEmit = socket => async (eventName, ...args) => {
       return socket.emit(eventName, ...args)
     }
 
-    const deviceId = socket.handshake.query.encryptionId
+    const deviceId = socket.handshake.auth.encryptionId
 
     if (!deviceId) {
       throw {
@@ -88,10 +88,11 @@ const encryptedEmit = socket => async (eventName, ...args) => {
 const encryptedOn = socket => (eventName, callback) => {
   try {
     if (isNonEncrypted(eventName)) {
-      return socket.on(eventName, callback)
+      socket.on(eventName, callback)
+      return
     }
 
-    const deviceId = socket.handshake.query.encryptionId
+    const deviceId = socket.handshake.auth.encryptionId
 
     if (!deviceId) {
       throw {
@@ -130,7 +131,7 @@ const encryptedOn = socket => (eventName, callback) => {
       err
     )
 
-    return socket.emit('encryption:error', err)
+    socket.emit('encryption:error', err)
   }
 }
 
