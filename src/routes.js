@@ -15,6 +15,7 @@ const isARealUsableNumber = require('lodash/isFinite')
 const Big = require('big.js')
 const size = require('lodash/size')
 const { range, flatten, evolve } = require('ramda')
+const path = require('path')
 
 const getListPage = require('../utils/paginate')
 const auth = require('../services/auth/auth')
@@ -3270,5 +3271,8 @@ module.exports = async (
           errorMessage: e.message
         })
     }
+  })
+  ap.get('/api/subscribeStream', (req, res) => {
+    res.sendFile(path.join(__dirname, '/index.html'))
   })
 }

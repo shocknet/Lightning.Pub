@@ -19,6 +19,7 @@ const { deepDecryptIfNeeded } = require('../services/gunDB/rpc')
 const GunEvents = require('../services/gunDB/contact-api/events')
 const SchemaManager = require('../services/schema')
 const { encryptedEmit, encryptedOn } = require('../utils/ECC/socket')
+const TipsForwarder = require('../services/tipsCallback')
 /**
  * @typedef {import('../services/gunDB/Mediator').SimpleSocket} SimpleSocket
  * @typedef {import('../services/gunDB/contact-api/SimpleGUN').ValidDataValue} ValidDataValue
@@ -684,6 +685,12 @@ module.exports = (
       logger.error('Error inside receivedReqs socket connect: ' + e.message)
       emit('$error', e.message)
     }
+  })
+  io.of('streams').on('connect', socket => {
+    console.log('a user connected')
+    socket.on('postID', postID => {
+      TipsForwarder.addSocket(postID, socket)
+    })
   })
 
   return io

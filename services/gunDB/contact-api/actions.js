@@ -1090,12 +1090,16 @@ const sendSpontaneousPayment = async (
     const { num_satoshis: decodedAmt } = await decodePayReq(encodedInvoice)
 
     if (decodedAmt !== amount.toString()) {
-      throw new Error('Invoice amount mismatch')
+      throw new Error(
+        `Invoice amount mismatch got: ${decodedAmt} expected: ${amount.toString()}`
+      )
     }
 
     // double check
     if (Number(decodedAmt) !== amount) {
-      throw new Error('Invoice amount mismatch')
+      throw new Error(
+        `Invoice amount mismatch got:${decodedAmt} expected:${amount.toString()}`
+      )
     }
 
     logger.info('Will now send payment through lightning')
