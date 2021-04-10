@@ -258,7 +258,7 @@ const Config = require('../config')
  * @typedef {object} SimpleSocket
  * @prop {(eventName: string, data?: Emission|EncryptedEmissionLegacy|EncryptedEmission|ValidDataValue) => void} emit
  * @prop {(eventName: string, handler: (data: any) => void) => void} on
- * @prop {{ query: { 'x-shockwallet-device-id': string, encryptionId: string }}} handshake
+ * @prop {{ auth: { [key: string]: any } }} handshake
  */
 
 /* eslint-disable init-declarations */
