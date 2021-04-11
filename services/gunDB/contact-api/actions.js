@@ -1115,7 +1115,6 @@ const sendSpontaneousPayment = async (
       (opts.type !== 'contentReveal' &&
         opts.type !== 'torrentSeed' &&
         opts.type !== 'service' &&
-        opts.type !== 'streamSeed' &&
         opts.type !== 'product') ||
       !orderResponse.ackNode
     ) {

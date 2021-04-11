@@ -161,7 +161,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
     /**
      * @type {{ seedUrl: string, seedToken: string }|null}
      */
-    let serviceOrderContentSeedInfo = null //in case the service is of type 'torrentSeed' or 'streamSeed' this is {seedUrl,seedToken}, can be omitted, in that case, it will be taken from env
+    let serviceOrderContentSeedInfo = null //in case the service is of type 'torrentSeed' this is {seedUrl,seedToken}, can be omitted, in that case, it will be taken from env
     if (order.targetType === 'service') {
       console.log('General Service')
       const { ackInfo: serviceID } = order
@@ -191,7 +191,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
           `service price mismatch ${amount} : ${servicePrice}`
         )
       }
-      if (serviceType === 'torrentSeed' || serviceType === 'streamSeed') {
+      if (serviceType === 'torrentSeed') {
         if (encSeedUrl && encSeedToken) {
           const seedUrl = await SEA.decrypt(encSeedUrl, mySecret)
           const seedToken = await SEA.decrypt(encSeedToken, mySecret)
@@ -398,57 +398,6 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
           )
           console.log('RES SEED OK')
           const ackData = { seedUrl, tokens, ackInfo }
-          const toSend = JSON.stringify(ackData)
-          const encrypted = await SEA.encrypt(toSend, secret)
-          const serviceResponse = {
-            type: 'orderAck',
-            response: encrypted
-          }
-          console.log('RES SEED SENT')
-          await new Promise((res, rej) => {
-            getUser()
-              .get(Key.ORDER_TO_RESPONSE)
-              .get(ackNode)
-              .put(serviceResponse, ack => {
-                if (ack.err && typeof ack.err !== 'number') {
-                  rej(
-                    new Error(
-                      `Error saving encrypted orderAck to order to response usergraph: ${ack}`
-                    )
-                  )
-                } else {
-                  res(null)
-                }
-              })
-          })
-          console.log('RES SENT SEED')
-          orderMetadata = JSON.stringify(serviceResponse)
-          break
-        }
-        case 'streamSeed': {
-          console.log('STREAM')
-          const numberOfTokens = 1
-          const seedInfo = selfContentToken() //TODO this must change for streams
-          if (!seedInfo && !serviceOrderContentSeedInfo) {
-            breakError = 'torrentSeed service not available'
-            break //service not available
-          }
-          const seedInfoReady = serviceOrderContentSeedInfo || seedInfo
-          if (!seedInfoReady) {
-            breakError = 'torrentSeed service not available'
-            break //service not available
-          }
-          const { seedUrl } = seedInfoReady
-          const tokens = await enrollContentTokens(
-            numberOfTokens,
-            seedInfoReady
-          )
-          console.log('RES SEED OK')
-          const ackData = {
-            seedUrl,
-            tokens,
-            ackInfo
-          }
           const toSend = JSON.stringify(ackData)
           const encrypted = await SEA.encrypt(toSend, secret)
           const serviceResponse = {

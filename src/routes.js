@@ -1303,7 +1303,6 @@ module.exports = async (
         type !== 'spontaneousPayment' &&
         type !== 'tip' &&
         type !== 'torrentSeed' &&
-        type !== 'streamSeed' &&
         type !== 'contentReveal' &&
         type !== 'service' &&
         type !== 'product' &&
@@ -1311,7 +1310,7 @@ module.exports = async (
       ) {
         return res.status(415).json({
           field: 'type',
-          errorMessage: `Only 'spontaneousPayment'| 'tip' | 'torrentSeed' | 'contentReveal' | 'service' | 'streamSeed' | 'product' |'other' payments supported via this endpoint for now.`
+          errorMessage: `Only 'spontaneousPayment'| 'tip' | 'torrentSeed' | 'contentReveal' | 'service' | 'product' |'other' payments supported via this endpoint for now.`
         })
       }
 
