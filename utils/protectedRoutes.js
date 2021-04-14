@@ -3,6 +3,7 @@ module.exports = {
     GET: {
       "/healthz": true,
       "/ping": true,
+      "/tunnel/status": true,
       // Errors out when viewing an API page from the browser
       "/favicon.ico": true,
       "/api/lnd/connect": true,
@@ -32,5 +33,5 @@ module.exports = {
     PUT: {},
     DELETE: {}
   },
-  nonEncryptedRoutes: ['/api/security/exchangeKeys', "/api/encryption/exchange", '/healthz', '/ping', '/api/lnd/wallet/status', '/api/gun/auth',"/api/subscribeStream"]
+  nonEncryptedRoutes: ['/api/security/exchangeKeys', "/api/encryption/exchange", '/healthz', '/ping', '/tunnel/status', '/api/lnd/wallet/status', '/api/gun/auth',"/api/subscribeStream"]
 }

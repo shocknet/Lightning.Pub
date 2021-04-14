@@ -482,6 +482,10 @@ module.exports = async (
     res.json(health)
   })
 
+  app.get('/tunnel/status', async (req, res) => {
+    res.json({ uri: await Storage.getItem('tunnel/url') })
+  })
+
   /**
    * kubernetes health check
    */
