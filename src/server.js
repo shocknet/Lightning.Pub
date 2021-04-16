@@ -6,7 +6,6 @@
  * Module dependencies.
  */
 const server = program => {
-  const localtunnel = require('localtunnel')
   const Http = require('http')
   const Express = require('express')
   const Crypto = require('crypto')
@@ -15,6 +14,9 @@ const server = program => {
   const Path = require('path')
   const { Logger: CommonLogger } = require('shock-common')
   const binaryParser = require('socket.io-msgpack-parser')
+  const { fork } = require('child_process')
+  const EventEmitter = require('events')
+
   const ECC = require('../utils/ECC')
   const LightningServices = require('../utils/lightningServices')
   const Encryption = require('../utils/encryptionStore')
@@ -54,6 +56,31 @@ const server = program => {
   require('../utils/server-utils')(module)
 
   logger.info('Mainnet Mode:', !!program.mainnet)
+  const tunnelTimeout = 5000
+  let latestAliveTunnel = 0
+  let tunnelHealthInterval = null
+  const tunnelHealthManager = new EventEmitter()
+  tunnelHealthManager.on('fork', ({ params, cb }) => {
+    if (latestAliveTunnel !== 0 && latestAliveTunnel < tunnelTimeout) {
+      return
+    }
+    clearInterval(tunnelHealthInterval)
+    tunnelHealthInterval = setInterval(() => {
+      if (Date.now() - latestAliveTunnel > tunnelTimeout) {
+        console.log('oh no! tunnel is dead, will restart it now')
+        tunnelHealthManager.emit('fork', { params, cb })
+      }
+    }, 2000)
+    const forked = fork('src/tunnel.js')
+    forked.on('message', msg => {
+      //console.log('Message from child', msg);
+      if (msg && msg.type === 'info') {
+        cb(msg.tunnel)
+      }
+      latestAliveTunnel = Date.now()
+    })
+    forked.send(params)
+  })
 
   if (process.env.DISABLE_SHOCK_ENCRYPTION === 'true') {
     logger.error('Encryption Mode: false')
@@ -203,10 +230,6 @@ const server = program => {
 
   // eslint-disable-next-line consistent-return
   const startServer = async () => {
-    /**
-     * @type {localtunnel.Tunnel}
-     */
-    let tunnelRef = null
     try {
       LightningServices.setDefaults(program)
       if (!LightningServices.isInitialized()) {
@@ -284,33 +307,36 @@ const server = program => {
         } else {
           logger.info('Creating new tunnel... ')
         }
-        const tunnel = await localtunnel(tunnelOpts)
-        tunnelRef = tunnel
-        logger.info('Tunnel created! connect to: ' + tunnel.url)
-        const dataToQr = JSON.stringify({
-          internalIP: tunnel.url,
-          walletPort: 443,
-          externalIP: tunnel.url
+        tunnelHealthManager.emit('fork', {
+          params: tunnelOpts,
+          cb: async tunnel => {
+            logger.info('Tunnel created! connect to: ' + tunnel.url)
+            const dataToQr = JSON.stringify({
+              internalIP: tunnel.url,
+              walletPort: 443,
+              externalIP: tunnel.url
+            })
+            qrcode.generate(dataToQr, { small: true })
+            if (!tunnelToken) {
+              await Promise.all([
+                Storage.setItem('tunnel/token', tunnel.token),
+                Storage.setItem('tunnel/subdomain', tunnel.clientId),
+                Storage.setItem('tunnel/url', tunnel.url)
+              ])
+            }
+            if (tunnelUrl && tunnel.url !== tunnelUrl) {
+              logger.error('New tunnel URL different from OLD tunnel url')
+              logger.error('OLD: ' + tunnelUrl + ':80')
+              logger.error('NEW: ' + tunnel.url + ':80')
+              logger.error('New pair required')
+              await Promise.all([
+                Storage.setItem('tunnel/token', tunnel.token),
+                Storage.setItem('tunnel/subdomain', tunnel.clientId),
+                Storage.setItem('tunnel/url', tunnel.url)
+              ])
+            }
+          }
         })
-        qrcode.generate(dataToQr, { small: true })
-        if (!tunnelToken) {
-          await Promise.all([
-            Storage.setItem('tunnel/token', tunnel.token),
-            Storage.setItem('tunnel/subdomain', tunnel.clientId),
-            Storage.setItem('tunnel/url', tunnel.url)
-          ])
-        }
-        if (tunnelUrl && tunnel.url !== tunnelUrl) {
-          logger.error('New tunnel URL different from OLD tunnel url')
-          logger.error('OLD: ' + tunnelUrl + ':80')
-          logger.error('NEW: ' + tunnel.url + ':80')
-          logger.error('New pair required')
-          await Promise.all([
-            Storage.setItem('tunnel/token', tunnel.token),
-            Storage.setItem('tunnel/subdomain', tunnel.clientId),
-            Storage.setItem('tunnel/url', tunnel.url)
-          ])
-        }
       }
 
       const storePersistentRandomField = async ({ fieldName, length = 16 }) => {
@@ -443,9 +469,6 @@ const server = program => {
     } catch (err) {
       logger.error({ exception: err, message: err.message, code: err.code })
       logger.info('Restarting server in 30 seconds...')
-      if (tunnelRef) {
-        tunnelRef.close()
-      }
       await wait(30)
       startServer()
       return false
