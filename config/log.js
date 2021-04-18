@@ -1,9 +1,20 @@
 // config/log.js
 
 const winston = require("winston");
+const util = require("util")
 require("winston-daily-rotate-file");
 
 const winstonAttached = new Map();
+
+const transform = (info) => {
+  const args = info[Symbol.for('splat')];
+  if (args) { 
+    return {...info, message: util.format(info.message, ...args)}; 
+  }
+  return info;
+}
+
+const logFormatter = () => ({ transform })
 
 /**
  * @param {string} logFileName
@@ -24,15 +35,18 @@ module.exports = (logFileName, logLevel) => {
     winston.add(new winston.transports.Console({
       format: winston.format.combine(
         winston.format.colorize(),
+        logFormatter(),
+        winston.format.prettyPrint(),
         winston.format.timestamp(),
+        winston.format.simple(),
         winston.format.align(),
         winston.format.printf((info) => {
           const {
-            timestamp, level, message, ...args
+            timestamp, level, message
           } = info;
 
           const ts = timestamp.slice(0, 19).replace('T', ' ');
-          return `${ts} [${level}]: ${message} ${Object.keys(args).length ? JSON.stringify(args, null, 2) : ''}`;
+          return `${ts} [${level}]: ${typeof message === "object" ? JSON.stringify(message, null, 2) : message}`;
         }),
       )
     }))
