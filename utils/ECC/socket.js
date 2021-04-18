@@ -20,6 +20,7 @@ const nonEncryptedEvents = [
  * @typedef {import('../../services/gunDB/Mediator').EncryptedEmission} EncryptedEmission
  * @typedef {import('../../services/gunDB/Mediator').EncryptedEmissionLegacy} EncryptedEmissionLegacy
  * @typedef {import('../../services/gunDB/contact-api/SimpleGUN').ValidDataValue} ValidDataValue
+ * @typedef {(data: any, callback: (error?: any, data?: any) => void) => void} SocketOnListener
  */
 
 /**
@@ -83,7 +84,7 @@ const encryptedEmit = socket => async (eventName, ...args) => {
 
 /**
  * @param {SimpleSocket} socket
- * @returns {(eventName: string, callback: (data: any) => void) => void}
+ * @returns {(eventName: string, callback: SocketOnListener) => void}
  */
 const encryptedOn = socket => (eventName, callback) => {
   try {
@@ -110,9 +111,9 @@ const encryptedOn = socket => (eventName, callback) => {
       }
     }
 
-    socket.on(eventName, async data => {
+    socket.on(eventName, async (data, response) => {
       if (isNonEncrypted(eventName)) {
-        callback(data)
+        callback(data, response)
         return
       }
 
@@ -122,7 +123,7 @@ const encryptedOn = socket => (eventName, callback) => {
           encryptedMessage: data
         })
 
-        callback(safeParseJSON(decryptedMessage))
+        callback(safeParseJSON(decryptedMessage), response)
       }
     })
   } catch (err) {
@@ -135,8 +136,60 @@ const encryptedOn = socket => (eventName, callback) => {
   }
 }
 
+/**
+ * @param {SimpleSocket} socket
+ * @param {(error?: any, data?: any) => void} callback
+ * @returns {(...args: any[]) => Promise<void>}
+ */
+const encryptedCallback = (socket, callback) => async (...args) => {
+  try {
+    const deviceId = socket.handshake.auth.encryptionId
+
+    if (!deviceId) {
+      throw {
+        field: 'deviceId',
+        message: 'Please specify a device ID'
+      }
+    }
+
+    const authorized = ECC.isAuthorizedDevice({ deviceId })
+
+    if (!authorized) {
+      throw {
+        field: 'deviceId',
+        message: 'Please exchange keys with the API before using the socket'
+      }
+    }
+
+    const encryptedArgs = await Promise.all(
+      args.map(async data => {
+        if (!data) {
+          return data
+        }
+
+        const encryptedMessage = await ECC.encryptMessage({
+          message: typeof data === 'object' ? JSON.stringify(data) : data,
+          deviceId
+        })
+
+        return encryptedMessage
+      })
+    )
+
+    return callback(...encryptedArgs)
+  } catch (err) {
+    logger.error(
+      `[SOCKET] An error has occurred while emitting an event response:`,
+      err
+    )
+
+    return socket.emit('encryption:error', err)
+  }
+}
+
 module.exports = {
   isNonEncrypted,
   encryptedOn,
-  encryptedEmit
+  encryptedEmit,
+  encryptedCallback
 }
