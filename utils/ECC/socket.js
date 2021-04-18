@@ -124,7 +124,10 @@ const encryptedOn = socket => (eventName, callback) => {
         })
 
         callback(safeParseJSON(decryptedMessage), response)
+        return
       }
+
+      callback(data, response)
     })
   } catch (err) {
     logger.error(
