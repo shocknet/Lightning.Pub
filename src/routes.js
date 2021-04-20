@@ -695,8 +695,8 @@ module.exports = async (
           let intervalID = null
 
           intervalID = setInterval(() => {
-            if (tries === 3) {
-              rej(new Error(`Wallet did not warm up in under 3 seconds.`))
+            if (tries === 7) {
+              rej(new Error(`Wallet did not warm up in under 7 seconds.`))
 
               clearInterval(intervalID)
               return
