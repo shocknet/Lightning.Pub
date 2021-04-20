@@ -291,7 +291,12 @@ const server = program => {
 
       await Storage.init({
         dir: storageDirectory
-      })
+      }) /*
+      if (false) {
+        await Storage.removeItem('tunnel/token')
+        await Storage.removeItem('tunnel/subdomain')
+        await Storage.removeItem('tunnel/url')
+      }*/
       if (program.tunnel) {
         // setup localtunnel ==========
         const [tunnelToken, tunnelSubdomain, tunnelUrl] = await Promise.all([
@@ -305,11 +310,18 @@ const server = program => {
           tunnelOpts.subdomain = tunnelSubdomain
           logger.info('Recreating tunnel... with subdomain: ' + tunnelSubdomain)
         } else {
-          logger.info('Creating new tunnel... ')
+          logger.info('Creating new tunnel...This will require a pair ')
         }
         tunnelHealthManager.emit('fork', {
           params: tunnelOpts,
           cb: async tunnel => {
+            if (tunnelSubdomain !== tunnel.clientId && !tunnel.token) {
+              logger.error(
+                'An error occurred while opening tunnel, will try again in 2 sec with a new one'
+              )
+
+              return
+            }
             logger.info('Tunnel created! connect to: ' + tunnel.url)
             const dataToQr = JSON.stringify({
               internalIP: tunnel.url,
@@ -317,18 +329,8 @@ const server = program => {
               externalIP: tunnel.url
             })
             qrcode.generate(dataToQr, { small: true })
-            if (!tunnelToken) {
-              await Promise.all([
-                Storage.setItem('tunnel/token', tunnel.token),
-                Storage.setItem('tunnel/subdomain', tunnel.clientId),
-                Storage.setItem('tunnel/url', tunnel.url)
-              ])
-            }
-            if (tunnelUrl && tunnel.url !== tunnelUrl) {
-              logger.error('New tunnel URL different from OLD tunnel url')
-              logger.error('OLD: ' + tunnelUrl + ':80')
-              logger.error('NEW: ' + tunnel.url + ':80')
-              logger.error('New pair required')
+            if (tunnel.token) {
+              console.log('writing to storage...')
               await Promise.all([
                 Storage.setItem('tunnel/token', tunnel.token),
                 Storage.setItem('tunnel/subdomain', tunnel.clientId),
