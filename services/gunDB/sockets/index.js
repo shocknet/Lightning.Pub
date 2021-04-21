@@ -18,14 +18,22 @@ const {
 const TipsForwarder = require('../../tipsCallback')
 const auth = require('../../auth/auth')
 
-const ALLOWED_GUN_METHODS = ['map', 'map.on', 'on', 'once', 'load', 'then']
+const ALLOWED_GUN_METHODS = [
+  'map',
+  'map.on',
+  'on',
+  'once',
+  'load',
+  'then',
+  'open'
+]
 
 /**
  * @typedef {import('../contact-api/SimpleGUN').ValidDataValue} ValidDataValue
  */
 
 /**
- * @typedef {(data: ValidDataValue, key: string, _msg: any, event: any) => (void | Promise<void>)} GunListener
+ * @typedef {(data: ValidDataValue, key?: string, _msg?: any, event?: any) => (void | Promise<void>)} GunListener
  * @typedef {{ reconnect: boolean, token: string }} SubscriptionOptions
  */
 
@@ -77,21 +85,34 @@ const getGunQuery = (node, path) => {
 }
 
 /**
- * Dynamically construct a GunDB query call
+ * Executes a GunDB query call using the specified method
  * @param {any} query
  * @param {string} method
+ * @param {GunListener} listener
  */
-const getGunListener = (query, method) => {
-  const methods = method.split('.')
-  const listener = methods.reduce((listener, method) => {
-    if (typeof listener === 'function') {
-      return listener[method]()
+const executeGunQuery = (query, method, listener) => {
+  if (!ALLOWED_GUN_METHODS.includes(method)) {
+    throw {
+      field: 'method',
+      message: `Invalid GunDB method specified (${method}). `
     }
+  }
 
-    return listener[method]()
-  }, query)
+  if (method === 'on') {
+    return query.on(listener)
+  }
 
-  return listener
+  if (method === 'open') {
+    return query.open(listener)
+  }
+
+  if (method === 'map.on') {
+    return query.map().on(listener)
+  }
+
+  if (method === 'map.once') {
+    return query.map().once(listener)
+  }
 }
 
 /**
@@ -113,18 +134,21 @@ const queryListenerCallback = ({
       deviceId,
       subscriptionId
     })
-    if (subscription && event && event.off) {
-      event.off()
+    if (subscription && !subscription.unsubscribe && event) {
+      Subscriptions.attachUnsubscribe({
+        deviceId,
+        subscriptionId,
+        unsubscribe: () => event.off()
+      })
     }
-    const eventName = `subscription:${subscriptionId}`
+    const eventName = `query:data`
     if (publicKeyForDecryption?.length > 15) {
       const decData = await deepDecryptIfNeeded(data, publicKeyForDecryption)
-
-      emit(eventName, decData, key)
+      emit(eventName, { subscriptionId, response: { data: decData, key } })
       return
     }
 
-    emit(eventName, data, key)
+    emit(eventName, { subscriptionId, response: { data, key } })
   } catch (err) {
     logger.error(`Error for gun rpc socket: ${err.message}`)
   }
@@ -138,8 +162,18 @@ const queryListenerCallback = ({
  * @param {import('socket.io').Socket} GunSocketOptions.socket
  * @returns {(options: SubscriptionOptions, response: (error?: any, data?: any) => void) => Promise<void>}
  */
-const wrap = ({ handler, subscriptionId, encryptionId, socket }) => {
-  return async ({ reconnect = false, token }, response) => {
+const wrap = ({ handler, subscriptionId, encryptionId, socket }) => async (
+  { reconnect, token },
+  response
+) => {
+  try {
+    logger.info('Subscribe function executing...')
+    if (!isAuthenticated()) {
+      logger.warn('GunDB is not yet authenticated')
+      socket.emit(Common.Constants.ErrorCode.NOT_AUTH)
+      return
+    }
+
     const callback = encryptedCallback(socket, response)
     const emit = encryptedEmit(socket)
     const subscription = Subscriptions.get({
@@ -148,15 +182,21 @@ const wrap = ({ handler, subscriptionId, encryptionId, socket }) => {
     })
 
     if (subscription && !reconnect) {
-      callback({
+      const error = {
         field: 'subscription',
         message:
           "You're already subscribed to this event, you can re-subscribe again by setting 'reconnect' to true "
-      })
+      }
+      logger.error('Duplicate subscription:', error)
+      callback(error)
       return
     }
 
-    if (reconnect) {
+    if (subscription && reconnect) {
+      if (subscription.unsubscribe) {
+        subscription.unsubscribe()
+      }
+
       Subscriptions.remove({
         deviceId: encryptionId,
         subscriptionId
@@ -187,53 +227,59 @@ const wrap = ({ handler, subscriptionId, encryptionId, socket }) => {
       message: 'Subscribed successfully!',
       success: true
     })
+  } catch (error) {
+    logger.error('Socket wrapper error:', error)
   }
 }
 
 /** @param {import('socket.io').Socket} socket */
 const startSocket = socket => {
   try {
-    if (!isAuthenticated()) {
-      socket.emit(Common.Constants.ErrorCode.NOT_AUTH)
-      return
-    }
-
     const emit = encryptedEmit(socket)
     const on = encryptedOn(socket)
     const { encryptionId } = socket.handshake.auth
 
     on('subscribe:query', ({ $shock, publicKey }, response) => {
-      const [root, path, method] = $shock.split('::')
-      const callback = encryptedCallback(socket, response)
-
-      if (!ALLOWED_GUN_METHODS.includes(method)) {
-        callback(`Invalid method for gun rpc call: ${method}, query: ${$shock}`)
-        return
-      }
-
       const subscriptionId = uuidv4()
-      const queryCallback = queryListenerCallback({
-        emit,
-        publicKeyForDecryption: publicKey,
-        subscriptionId,
-        deviceId: encryptionId
-      })
+      try {
+        if (!isAuthenticated()) {
+          socket.emit(Common.Constants.ErrorCode.NOT_AUTH)
+          return
+        }
 
-      const node = getNode(root)
-      const query = getGunQuery(node, path)
-      /** @type {(cb?: GunListener) => void} */
-      const listener = getGunListener(query, method)
+        const [root, path, method] = $shock.split('::')
+        const socketCallback = encryptedCallback(socket, response)
 
-      Subscriptions.add({
-        deviceId: encryptionId,
-        subscriptionId
-      })
+        if (!ALLOWED_GUN_METHODS.includes(method)) {
+          socketCallback(
+            `Invalid method for gun rpc call: ${method}, query: ${$shock}`
+          )
+          return
+        }
 
-      callback(null, {
-        subscriptionId
-      })
+        Subscriptions.add({
+          deviceId: encryptionId,
+          subscriptionId
+        })
 
-      listener(queryCallback)
+        const queryCallback = queryListenerCallback({
+          emit,
+          publicKeyForDecryption: publicKey,
+          subscriptionId,
+          deviceId: encryptionId
+        })
+
+        socketCallback(null, {
+          subscriptionId
+        })
+
+        const node = getNode(root)
+        const query = getGunQuery(node, path)
+
+        executeGunQuery(query, method, queryCallback)
+      } catch (error) {
+        emit(`query:error`, { subscriptionId, response: { data: error } })
+      }
     })
 
     const onChats = () => {
@@ -346,7 +392,7 @@ const startSocket = socket => {
       TipsForwarder.addSocket(postID, socket)
     })
 
-    on('unsubscribe', (subscriptionId, response) => {
+    on('unsubscribe', ({ subscriptionId }, response) => {
       const callback = encryptedCallback(socket, response)
       Subscriptions.remove({ deviceId: encryptionId, subscriptionId })
       callback(null, {
