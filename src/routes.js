@@ -3158,8 +3158,9 @@ module.exports = async (
   ap.get('/api/gun/otheruser/:publicKey/:type/:path', async (req, res) => {
     const allowedTypes = ['once', 'load', 'open']
     const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
-    const { path, publicKey, type } = req.params
-
+    const { path /*:rawPath*/, publicKey, type } = req.params
+    console.log(path)
+    // const path = decodeURI(rawPath)
     if (!publicKey || publicKey === 'undefined') {
       res.status(400).json({
         errorMessage: 'Invalid publicKey specified'
@@ -3173,16 +3174,23 @@ module.exports = async (
       })
       return
     }
-
-    res.status(200).json({
-      data: await handleGunFetch({
-        path,
-        startFromUserGraph: false,
-        type,
-        publicKey,
-        publicKeyForDecryption
+    try {
+      res.status(200).json({
+        data: await handleGunFetch({
+          path,
+          startFromUserGraph: false,
+          type,
+          publicKey,
+          publicKeyForDecryption
+        })
       })
-    })
+    } catch (err) {
+      res
+        .status(err.message === Common.Constants.ErrorCode.NOT_AUTH ? 401 : 500)
+        .json({
+          errorMessage: err.message
+        })
+    }
   })
 
   ap.post('/api/lnd/cb/:methodName', (req, res) => {
