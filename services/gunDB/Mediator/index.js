@@ -257,7 +257,7 @@ const Config = require('../config')
 /**
  * @typedef {object} SimpleSocket
  * @prop {(eventName: string, data?: Emission|EncryptedEmissionLegacy|EncryptedEmission|ValidDataValue) => void} emit
- * @prop {(eventName: string, handler: (data: any) => void) => void} on
+ * @prop {(eventName: string, handler: (data: any, callback: (err?: any, data?: any) => void) => void) => void} on
  * @prop {{ auth: { [key: string]: any } }} handshake
  */
 
