@@ -120,8 +120,9 @@ const tryAndWait = async (promGen, shouldRetry = () => false) => {
 
     if (shouldRetry(resolvedValue)) {
       logger.info(
-        'force retrying' +
+        'force retrying' /* +
           ` args: ${promGen.toString()} -- ${shouldRetry.toString()} \n resolvedValue: ${resolvedValue}, type: ${typeof resolvedValue}`
+      */
       )
     } else {
       return resolvedValue
@@ -135,8 +136,9 @@ const tryAndWait = async (promGen, shouldRetry = () => false) => {
   }
 
   logger.info(
-    `\n retrying \n` +
+    `\n retrying \n` /* +
       ` args: ${promGen.toString()} -- ${shouldRetry.toString()}`
+  */
   )
 
   await delay(200)
@@ -151,8 +153,9 @@ const tryAndWait = async (promGen, shouldRetry = () => false) => {
 
     if (shouldRetry(resolvedValue)) {
       logger.info(
-        'force retrying' +
+        'force retrying' /* +
           ` args: ${promGen.toString()} -- ${shouldRetry.toString()} \n resolvedValue: ${resolvedValue}, type: ${typeof resolvedValue}`
+      */
       )
     } else {
       return resolvedValue
@@ -165,8 +168,9 @@ const tryAndWait = async (promGen, shouldRetry = () => false) => {
   }
 
   logger.info(
-    `\n retrying \n` +
+    `\n retrying \n` /* +
       ` args: ${promGen.toString()} -- ${shouldRetry.toString()}`
+  */
   )
 
   await delay(3000)
@@ -181,8 +185,9 @@ const tryAndWait = async (promGen, shouldRetry = () => false) => {
 
     if (shouldRetry(resolvedValue)) {
       logger.info(
-        'force retrying' +
+        'force retrying' /* +
           ` args: ${promGen.toString()} -- ${shouldRetry.toString()} \n resolvedValue: ${resolvedValue}, type: ${typeof resolvedValue}`
+      */
       )
     } else {
       return resolvedValue
@@ -195,8 +200,9 @@ const tryAndWait = async (promGen, shouldRetry = () => false) => {
   }
 
   logger.info(
-    `\n NOT recreating a fresh gun but retrying one last time \n` +
+    `\n NOT recreating a fresh gun but retrying one last time \n` /* +
       ` args: ${promGen.toString()} -- ${shouldRetry.toString()}`
+  */
   )
 
   const { gun, user } = require('../../Mediator/index').freshGun()
