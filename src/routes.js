@@ -3160,6 +3160,13 @@ module.exports = async (
     const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
     const { path, publicKey, type } = req.params
 
+    if (!publicKey || publicKey === 'undefined') {
+      res.status(400).json({
+        errorMessage: 'Invalid publicKey specified'
+      })
+      return
+    }
+
     if (!allowedTypes.includes(type)) {
       res.status(400).json({
         errorMessage: 'Invalid type specified'
