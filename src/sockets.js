@@ -11,7 +11,6 @@ const auth = require('../services/auth/auth')
 const LightningServices = require('../utils/lightningServices')
 const { isAuthenticated } = require('../services/gunDB/Mediator')
 const initGunDBSocket = require('../services/gunDB/sockets')
-const GunEvents = require('../services/gunDB/contact-api/events')
 const { encryptedEmit, encryptedOn } = require('../utils/ECC/socket')
 const TipsForwarder = require('../services/tipsCallback')
 /**
@@ -23,7 +22,7 @@ module.exports = (
   /** @type {import('socket.io').Server} */
   io
 ) => {
-  io.on('connection', socket => {
+  io.on('connect', socket => {
     const isLNDSocket = !!socket.handshake.auth.IS_LND_SOCKET
     const isNotificationsSocket = !!socket.handshake.auth
       .IS_NOTIFICATIONS_SOCKET
@@ -105,6 +104,10 @@ module.exports = (
     }
   })
 
+  io.of('gun').on('connect', socket => {
+    initGunDBSocket(socket)
+  })
+
   /**
    * @param {string} token
    * @returns {Promise<boolean>}
@@ -129,7 +132,7 @@ module.exports = (
 
   /** @type {null|NodeJS.Timeout} */
   let pingIntervalID = null
-
+  // TODO: Unused?
   io.of('shockping').on(
     'connect',
     // TODO: make this sync
@@ -181,225 +184,6 @@ module.exports = (
     }
   )
 
-  // TODO: do this through rpc
-
-  const emptyUnsub = () => {}
-
-  let chatsUnsub = emptyUnsub
-
-  io.of('chats').on('connect', async socket => {
-    const on = encryptedOn(socket)
-    const emit = encryptedEmit(socket)
-
-    try {
-      if (!isAuthenticated()) {
-        logger.info(
-          'not authenticated in gun for chats socket, will send NOT_AUTH'
-        )
-        emit(Common.Constants.ErrorCode.NOT_AUTH)
-
-        return
-      }
-
-      logger.info('now checking token for chats socket')
-      const { token } = socket.handshake.auth
-      const isAuth = await isValidToken(token)
-
-      if (!isAuth) {
-        logger.warn('invalid token for chats socket')
-        emit(Common.Constants.ErrorCode.NOT_AUTH)
-        return
-      }
-
-      if (chatsUnsub !== emptyUnsub) {
-        logger.error(
-          'Tried to set chats socket twice, this might be due to an app restart and the old socket not being recycled by socket.io in time, will disable the older subscription, which means the old socket wont work and data will be sent to this new socket instead'
-        )
-        chatsUnsub()
-        chatsUnsub = emptyUnsub
-      }
-
-      /**
-       * @param {Common.Schema.Chat[]} chats
-       */
-      const onChats = chats => {
-        const processed = chats.map(
-          ({
-            didDisconnect,
-            id,
-            lastSeenApp,
-            messages,
-            recipientPublicKey
-          }) => {
-            /** @type {Common.Schema.Chat} */
-            const stripped = {
-              didDisconnect,
-              id,
-              lastSeenApp,
-              messages,
-              recipientAvatar: null,
-              recipientDisplayName: null,
-              recipientPublicKey
-            }
-
-            return stripped
-          }
-        )
-
-        emit('$shock', processed)
-      }
-
-      chatsUnsub = GunEvents.onChats(onChats)
-
-      on('disconnect', () => {
-        chatsUnsub()
-        chatsUnsub = emptyUnsub
-      })
-    } catch (e) {
-      logger.error('Error inside chats socket connect: ' + e.message)
-      emit('$error', e.message)
-    }
-  })
-
-  let sentReqsUnsub = emptyUnsub
-
-  io.of('sentReqs').on('connect', async socket => {
-    const on = encryptedOn(socket)
-    const emit = encryptedEmit(socket)
-
-    try {
-      if (!isAuthenticated()) {
-        logger.info(
-          'not authenticated in gun for sentReqs socket, will send NOT_AUTH'
-        )
-        emit(Common.Constants.ErrorCode.NOT_AUTH)
-
-        return
-      }
-
-      logger.info('now checking token for sentReqs socket')
-      const { token } = socket.handshake.auth
-      const isAuth = await isValidToken(token)
-
-      if (!isAuth) {
-        logger.warn('invalid token for sentReqs socket')
-        emit(Common.Constants.ErrorCode.NOT_AUTH)
-        return
-      }
-
-      if (sentReqsUnsub !== emptyUnsub) {
-        logger.error(
-          'Tried to set sentReqs socket twice, this might be due to an app restart and the old socket not being recycled by io in time, will disable the older subscription, which means the old socket wont work and data will be sent to this new socket instead'
-        )
-        sentReqsUnsub()
-        sentReqsUnsub = emptyUnsub
-      }
-
-      /**
-       * @param {Common.Schema.SimpleSentRequest[]} sentReqs
-       */
-      const onSentReqs = sentReqs => {
-        const processed = sentReqs.map(
-          ({
-            id,
-            recipientChangedRequestAddress,
-            recipientPublicKey,
-            timestamp
-          }) => {
-            /**
-             * @type {Common.Schema.SimpleSentRequest}
-             */
-            const stripped = {
-              id,
-              recipientAvatar: null,
-              recipientChangedRequestAddress,
-              recipientDisplayName: null,
-              recipientPublicKey,
-              timestamp
-            }
-
-            return stripped
-          }
-        )
-        emit('$shock', processed)
-      }
-
-      sentReqsUnsub = GunEvents.onSimplerSentRequests(onSentReqs)
-
-      on('disconnect', () => {
-        sentReqsUnsub()
-        sentReqsUnsub = emptyUnsub
-      })
-    } catch (e) {
-      logger.error('Error inside sentReqs socket connect: ' + e.message)
-      emit('$error', e.message)
-    }
-  })
-
-  let receivedReqsUnsub = emptyUnsub
-
-  io.of('receivedReqs').on('connect', async socket => {
-    const on = encryptedOn(socket)
-    const emit = encryptedEmit(socket)
-    try {
-      if (!isAuthenticated()) {
-        logger.info(
-          'not authenticated in gun for receivedReqs socket, will send NOT_AUTH'
-        )
-        emit(Common.Constants.ErrorCode.NOT_AUTH)
-
-        return
-      }
-
-      logger.info('now checking token for receivedReqs socket')
-      const { token } = socket.handshake.auth
-      const isAuth = await isValidToken(token)
-
-      if (!isAuth) {
-        logger.warn('invalid token for receivedReqs socket')
-        emit(Common.Constants.ErrorCode.NOT_AUTH)
-        return
-      }
-
-      if (receivedReqsUnsub !== emptyUnsub) {
-        logger.error(
-          'Tried to set receivedReqs socket twice, this might be due to an app restart and the old socket not being recycled by socket.io in time, will disable the older subscription, which means the old socket wont work and data will be sent to this new socket instead'
-        )
-        receivedReqsUnsub()
-        receivedReqsUnsub = emptyUnsub
-      }
-
-      /**
-       * @param {ReadonlyArray<Common.SimpleReceivedRequest>} receivedReqs
-       */
-      const onReceivedReqs = receivedReqs => {
-        const processed = receivedReqs.map(({ id, requestorPK, timestamp }) => {
-          /** @type {Common.Schema.SimpleReceivedRequest} */
-          const stripped = {
-            id,
-            requestorAvatar: null,
-            requestorDisplayName: null,
-            requestorPK,
-            timestamp
-          }
-
-          return stripped
-        })
-
-        emit('$shock', processed)
-      }
-
-      receivedReqsUnsub = GunEvents.onSimplerReceivedRequests(onReceivedReqs)
-
-      on('disconnect', () => {
-        receivedReqsUnsub()
-        receivedReqsUnsub = emptyUnsub
-      })
-    } catch (e) {
-      logger.error('Error inside receivedReqs socket connect: ' + e.message)
-      emit('$error', e.message)
-    }
-  })
   io.of('streams').on('connect', socket => {
     console.log('a user connected')
     socket.on('postID', postID => {
