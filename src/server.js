@@ -1,7 +1,10 @@
 /**
  * @prettier
  */
-
+process.on('uncaughtException', e => {
+  console.log('something bad happened!')
+  console.log(e)
+})
 /**
  * Module dependencies.
  */
