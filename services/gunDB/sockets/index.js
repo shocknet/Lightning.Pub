@@ -15,7 +15,6 @@ const {
   encryptedOn,
   encryptedCallback
 } = require('../../../utils/ECC/socket')
-const TipsForwarder = require('../../tipsCallback')
 const auth = require('../../auth/auth')
 
 const ALLOWED_GUN_METHODS = [
@@ -387,10 +386,6 @@ const startSocket = socket => {
         socket
       })
     )
-
-    on('streams:postID', postID => {
-      TipsForwarder.addSocket(postID, socket)
-    })
 
     on('unsubscribe', ({ subscriptionId }, response) => {
       const callback = encryptedCallback(socket, response)
