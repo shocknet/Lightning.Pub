@@ -3049,7 +3049,7 @@ module.exports = async (
 
   /**
    * @typedef {object} HandleGunFetchParams
-   * @prop {'once'|'load'|'open'} type
+   * @prop {'once'|'load'} type
    * @prop {boolean} startFromUserGraph
    * @prop {string} path
    * @prop {string=} publicKey
@@ -3093,7 +3093,6 @@ module.exports = async (
 
         if (type === 'once') node.once(listener)
         if (type === 'load') node.load(listener)
-        if (type === 'open') node.open(listener)
       })
     })
   }
