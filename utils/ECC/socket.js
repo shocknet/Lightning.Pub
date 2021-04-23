@@ -26,7 +26,9 @@ const nonEncryptedEvents = [
 /**
  * @param {string} eventName
  */
-const isNonEncrypted = eventName => nonEncryptedEvents.includes(eventName)
+const isNonEncrypted = eventName =>
+  nonEncryptedEvents.includes(eventName) ||
+  process.env.SHOCK_ENCRYPTION_ECC === 'false'
 
 /**
  * @param {SimpleSocket} socket
