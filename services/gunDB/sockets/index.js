@@ -120,15 +120,18 @@ const executeGunQuery = (query, method, listener) => {
  * @param {string} queryData.publicKeyForDecryption
  * @param {string} queryData.subscriptionId
  * @param {string} queryData.deviceId
+ * @param {string} queryData.query
  * @returns {GunListener}
  */
 const queryListenerCallback = ({
   emit,
   publicKeyForDecryption,
   subscriptionId,
-  deviceId
+  deviceId,
+  query
 }) => async (data, key, _msg, event) => {
   try {
+    logger.warn('got a reponse for ' + query)
     const subscription = Subscriptions.get({
       deviceId,
       subscriptionId
@@ -239,6 +242,7 @@ const startSocket = socket => {
     const { encryptionId } = socket.handshake.auth
 
     on('subscribe:query', ({ $shock, publicKey }, response) => {
+      logger.warn('just got a new query' + $shock)
       const subscriptionId = uuidv4()
       try {
         if (!isAuthenticated()) {
@@ -265,7 +269,8 @@ const startSocket = socket => {
           emit,
           publicKeyForDecryption: publicKey,
           subscriptionId,
-          deviceId: encryptionId
+          deviceId: encryptionId,
+          query: $shock
         })
 
         socketCallback(null, {
