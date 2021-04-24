@@ -85,7 +85,7 @@ const server = program => {
     forked.send(params)
   })
 
-  if (process.env.DISABLE_SHOCK_ENCRYPTION === 'true') {
+  if (process.env.SHOCK_ENCRYPTION_ECC === 'false') {
     logger.error('Encryption Mode: false')
   } else {
     logger.info('Encryption Mode: true')
@@ -155,7 +155,10 @@ const server = program => {
     const deviceId = req.headers['encryption-device-id']
     const oldSend = res.send
 
-    if (nonEncryptedRoutes.includes(req.path)) {
+    if (
+      nonEncryptedRoutes.includes(req.path) ||
+      process.env.SHOCK_ENCRYPTION_ECC === 'false'
+    ) {
       next()
       return
     }
@@ -206,7 +209,7 @@ const server = program => {
 
         // Using classic promises syntax to avoid
         // modifying res.send's return type
-        if (authorized) {
+        if (authorized && process.env.SHOCK_ENCRYPTION_ECC !== 'false') {
           ECC.encryptMessage({
             deviceId,
             message: args[0]
@@ -216,7 +219,7 @@ const server = program => {
           })
         }
 
-        if (!authorized) {
+        if (!authorized || process.env.SHOCK_ENCRYPTION_ECC === 'false') {
           args[0] = JSON.stringify(args[0])
           oldSend.apply(res, args)
         }
@@ -351,7 +354,7 @@ const server = program => {
           return randomField
         }
 
-        const newValue = await Encryption.generateRandomString()
+        const newValue = await Encryption.generateRandomString(length)
         await Storage.setItem(fieldName, newValue)
         return newValue
       }
@@ -462,7 +465,7 @@ const server = program => {
       // app.use(bodyParser.json({limit: '100000mb'}));
       app.use(bodyParser.json({ limit: '50mb' }))
       app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }))
-      if (process.env.DISABLE_SHOCK_ENCRYPTION !== 'true') {
+      if (process.env.SHOCK_ENCRYPTION_ECC !== 'false') {
         app.use(modifyResponseBody)
       }
 
