@@ -876,6 +876,55 @@ const setDisplayName = (displayName, user) =>
   })
 
 /**
+ * @param {string} encryptedSeedProvider
+ * @param {UserGUNNode} user
+ * @throws {TypeError} Rejects if displayName is not an string or an empty
+ * string.
+ * @returns {Promise<void>}
+ */
+const setDefaultSeedProvider = (encryptedSeedProvider, user) =>
+  new Promise((resolve, reject) => {
+    if (!user.is) {
+      throw new Error(ErrorCode.NOT_AUTH)
+    }
+
+    if (typeof encryptedSeedProvider !== 'string') {
+      throw new TypeError()
+    }
+    user.get('seedServiceProviderPubKey').put(encryptedSeedProvider, ack => {
+      if (ack.err && typeof ack.err !== 'number') {
+        reject(new Error(ack.err))
+      } else {
+        resolve()
+      }
+    })
+  })
+/**
+ * @param {string} encryptedSeedServiceData
+ * @param {UserGUNNode} user
+ * @throws {TypeError} Rejects if displayName is not an string or an empty
+ * string.
+ * @returns {Promise<void>}
+ */
+const setSeedServiceData = (encryptedSeedServiceData, user) =>
+  new Promise((resolve, reject) => {
+    if (!user.is) {
+      throw new Error(ErrorCode.NOT_AUTH)
+    }
+
+    if (typeof encryptedSeedServiceData !== 'string') {
+      throw new TypeError()
+    }
+    user.get('seedServiceSeedData').put(encryptedSeedServiceData, ack => {
+      if (ack.err && typeof ack.err !== 'number') {
+        reject(new Error(ack.err))
+      } else {
+        resolve()
+      }
+    })
+  })
+
+/**
  * @param {string} initialMsg
  * @param {string} recipientPublicKey
  * @param {GUNNode} gun
@@ -1757,5 +1806,7 @@ module.exports = {
   initWall,
   sendMessageNew,
   sendSpontaneousPayment,
-  createPostNew
+  createPostNew,
+  setDefaultSeedProvider,
+  setSeedServiceData
 }
