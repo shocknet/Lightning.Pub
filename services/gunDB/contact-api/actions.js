@@ -891,10 +891,6 @@ const setDefaultSeedProvider = (encryptedSeedProvider, user) =>
     if (typeof encryptedSeedProvider !== 'string') {
       throw new TypeError()
     }
-
-    if (encryptedSeedProvider.length === 0) {
-      throw new TypeError()
-    }
     user.get('seedServiceProviderPubKey').put(encryptedSeedProvider, ack => {
       if (ack.err && typeof ack.err !== 'number') {
         reject(new Error(ack.err))
@@ -917,10 +913,6 @@ const setSeedServiceData = (encryptedSeedServiceData, user) =>
     }
 
     if (typeof encryptedSeedServiceData !== 'string') {
-      throw new TypeError()
-    }
-
-    if (encryptedSeedServiceData.length === 0) {
       throw new TypeError()
     }
     user.get('seedServiceSeedData').put(encryptedSeedServiceData, ack => {
