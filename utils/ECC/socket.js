@@ -148,6 +148,10 @@ const encryptedOn = socket => (eventName, callback) => {
  */
 const encryptedCallback = (socket, callback) => async (...args) => {
   try {
+    if (process.env.SHOCK_ENCRYPTION_ECC === 'false') {
+      return callback(...args)
+    }
+
     const deviceId = socket.handshake.auth.encryptionId
 
     if (!deviceId) {
