@@ -468,8 +468,9 @@ const processChats = debounce(() => {
   const pubToAvatar = Streams.getPubToAvatar()
   const pubToDn = Streams.getPubToDn()
   const pubToLastSeenApp = Streams.getPubToLastSeenApp()
+  const currentOutgoings = getCurrentOutgoings()
   const existingOutgoings = /** @type {[string, Outgoing][]} */ (Object.entries(
-    getCurrentOutgoings()
+    currentOutgoings
   ).filter(([_, o]) => o !== null))
   const pubToFeed = Streams.getPubToFeed()
 
