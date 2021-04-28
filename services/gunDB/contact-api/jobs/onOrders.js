@@ -277,9 +277,10 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
             break //create the coordinate, but stop because of the invalid id
           }
           getUser()
-            .get('postToTipCount')
+            .get(Key.POSTS_NEW)
             .get(postID)
-            .set(null) // each item in the set is a tip
+            .get('tipsSet')
+            .set(amt) // each item in the set is a tip
 
           TipForwarder.notifySocketIfAny(
             postID,
