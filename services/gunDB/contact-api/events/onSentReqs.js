@@ -113,8 +113,6 @@ const onSentReqs = cb => {
     Streams.onStoredReqs(react)
     Streams.onLastSentReqIDs(react)
     Streams.onPubToFeed(react)
-    Streams.onAvatar(react)
-    Streams.onDisplayName(react)
 
     subbed = true
   }

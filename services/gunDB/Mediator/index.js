@@ -385,12 +385,8 @@ const authenticate = async (alias, pass, __user) => {
     API.Jobs.onOrders(_user, gun, mySEA)
     API.Jobs.lastSeenNode(_user)
 
-    API.Events.onAvatar(() => {}, user)()
-    API.Events.onBio(() => {}, user)
-    API.Events.onBlacklist(() => {}, user)
     API.Events.onChats(() => {})()
     API.Events.onCurrentHandshakeAddress(() => {}, user)()
-    API.Events.onDisplayName(() => {}, user)()
     API.Events.onOutgoing(() => {})()
     API.Events.onSeedBackup(() => {}, user, mySEA)
     API.Events.onSimplerReceivedRequests(() => {})()
@@ -443,12 +439,9 @@ const authenticate = async (alias, pass, __user) => {
     API.Jobs.onOrders(_user, gun, mySEA)
     API.Jobs.lastSeenNode(_user)
 
-    API.Events.onAvatar(() => {}, user)()
-    API.Events.onBio(() => {}, user)
-    API.Events.onBlacklist(() => {}, user)
     API.Events.onChats(() => {})()
     API.Events.onCurrentHandshakeAddress(() => {}, user)()
-    API.Events.onDisplayName(() => {}, user)()
+
     API.Events.onOutgoing(() => {})()
     API.Events.onSeedBackup(() => {}, user, mySEA)
     API.Events.onSimplerReceivedRequests(() => {})()
@@ -546,7 +539,6 @@ class Mediator {
     this.socket.on('disconnect', this.onDisconnect)
 
     this.socket.on(Action.ACCEPT_REQUEST, this.acceptRequest)
-    this.socket.on(Action.BLACKLIST, this.blacklist)
     this.socket.on(
       Action.GENERATE_NEW_HANDSHAKE_NODE,
       this.generateHandshakeNode
@@ -559,25 +551,20 @@ class Mediator {
       this.sendHRWithInitialMsg
     )
     this.socket.on(Action.SEND_MESSAGE, this.sendMessage)
-    this.socket.on(Action.SET_AVATAR, this.setAvatar)
-    this.socket.on(Action.SET_DISPLAY_NAME, this.setDisplayName)
+
     this.socket.on(Action.SEND_PAYMENT, this.sendPayment)
-    this.socket.on(Action.SET_BIO, this.setBio)
+
     this.socket.on(Action.DISCONNECT, this.disconnect)
 
-    this.socket.on(Event.ON_AVATAR, this.onAvatar)
-    this.socket.on(Event.ON_BLACKLIST, this.onBlacklist)
     this.socket.on(Event.ON_CHATS, this.onChats)
-    this.socket.on(Event.ON_DISPLAY_NAME, this.onDisplayName)
+
     this.socket.on(Event.ON_HANDSHAKE_ADDRESS, this.onHandshakeAddress)
     this.socket.on(Event.ON_RECEIVED_REQUESTS, this.onReceivedRequests)
     this.socket.on(Event.ON_SENT_REQUESTS, this.onSentRequests)
-    this.socket.on(Event.ON_BIO, this.onBio)
+
     this.socket.on(Event.ON_SEED_BACKUP, this.onSeedBackup)
 
     this.socket.on(Constants.Misc.IS_GUN_AUTH, this.isGunAuth)
-
-    this.socket.on(Action.SET_LAST_SEEN_APP, this.setLastSeenApp)
 
     Object.values(Action).forEach(actionConstant =>
       this.socket.on(actionConstant, this.setLastSeenApp)
@@ -658,32 +645,6 @@ class Mediator {
     } catch (err) {
       logger.info(err)
       this.socket.emit(Action.ACCEPT_REQUEST, {
-        ok: false,
-        msg: err.message,
-        origBody: body
-      })
-    }
-  }
-
-  /**
-   * @param {Readonly<{ publicKey: string , token: string }>} body
-   */
-  blacklist = async body => {
-    try {
-      const { publicKey, token } = body
-
-      await throwOnInvalidToken(token)
-
-      await API.Actions.blacklist(publicKey, user)
-
-      this.socket.emit(Action.BLACKLIST, {
-        ok: true,
-        msg: null,
-        origBody: body
-      })
-    } catch (err) {
-      logger.info(err)
-      this.socket.emit(Action.BLACKLIST, {
         ok: false,
         msg: err.message,
         origBody: body
@@ -919,123 +880,7 @@ class Mediator {
     }
   }
 
-  /**
-   * @param {Readonly<{ avatar: string|null , token: string }>} body
-   */
-  setAvatar = async body => {
-    try {
-      const { avatar, token } = body
-
-      await throwOnInvalidToken(token)
-
-      await API.Actions.setAvatar(avatar, user)
-
-      this.socket.emit(Action.SET_AVATAR, {
-        ok: true,
-        msg: null,
-        origBody: body
-      })
-    } catch (err) {
-      logger.info(err)
-      this.socket.emit(Action.SET_AVATAR, {
-        ok: false,
-        msg: err.message,
-        origBody: body
-      })
-    }
-  }
-
-  /**
-   * @param {Readonly<{ displayName: string , token: string }>} body
-   */
-  setDisplayName = async body => {
-    try {
-      const { displayName, token } = body
-
-      await throwOnInvalidToken(token)
-
-      await API.Actions.setDisplayName(displayName, user)
-
-      this.socket.emit(Action.SET_DISPLAY_NAME, {
-        ok: true,
-        msg: null,
-        origBody: body
-      })
-    } catch (err) {
-      logger.info(err)
-      this.socket.emit(Action.SET_DISPLAY_NAME, {
-        ok: false,
-        msg: err.message,
-        origBody: body
-      })
-    }
-  }
-
   //////////////////////////////////////////////////////////////////////////////
-
-  /**
-   * @param {Readonly<{ token: string }>} body
-   */
-  onAvatar = async body => {
-    try {
-      const { token } = body
-
-      await throwOnInvalidToken(token)
-
-      API.Events.onAvatar(avatar => {
-        if (Config.SHOW_LOG) {
-          logger.info('---avatar---')
-          logger.info(avatar || 'null')
-          logger.info('-----------------------')
-        }
-
-        this.socket.emit(Event.ON_AVATAR, {
-          msg: avatar,
-          ok: true,
-          origBody: body
-        })
-      }, user)
-    } catch (err) {
-      logger.info(err)
-      this.socket.emit(Event.ON_AVATAR, {
-        ok: false,
-        msg: err.message,
-        origBody: body
-      })
-    }
-  }
-
-  /**
-   * @param {Readonly<{ token: string }>} body
-   */
-  onBlacklist = async body => {
-    try {
-      const { token } = body
-
-      await throwOnInvalidToken(token)
-
-      API.Events.onBlacklist(blacklist => {
-        if (Config.SHOW_LOG) {
-          logger.info('---blacklist---')
-          logger.info(blacklist.join(','))
-          logger.info('-----------------------')
-        }
-
-        this.socket.emit(Event.ON_BLACKLIST, {
-          msg: blacklist,
-          ok: true,
-          origBody: body
-        })
-      }, user)
-    } catch (err) {
-      logger.info(err)
-      this.socket.emit(Event.ON_BLACKLIST, {
-        ok: false,
-        msg: err.message,
-        origBody: body
-      })
-    }
-  }
 
   /**
    * @param {Readonly<{ token: string }>} body
@@ -1064,38 +909,6 @@ class Mediator {
     } catch (err) {
       logger.info(err)
       this.socket.emit(Event.ON_CHATS, {
-        ok: false,
-        msg: err.message,
-        origBody: body
-      })
-    }
-  }
-
-  /**
-   * @param {Readonly<{ token: string }>} body
-   */
-  onDisplayName = async body => {
-    try {
-      const { token } = body
-
-      await throwOnInvalidToken(token)
-
-      API.Events.onDisplayName(displayName => {
-        if (Config.SHOW_LOG) {
-          logger.info('---displayName---')
-          logger.info(displayName || 'null or empty string')
-          logger.info('-----------------------')
-        }
-
-        this.socket.emit(Event.ON_DISPLAY_NAME, {
-          msg: displayName,
-          ok: true,
-          origBody: body
-        })
-      }, user)
-    } catch (err) {
-      logger.info(err)
-      this.socket.emit(Event.ON_DISPLAY_NAME, {
         ok: false,
         msg: err.message,
         origBody: body
@@ -1193,58 +1006,6 @@ class Mediator {
       this.socket.emit(Event.ON_SENT_REQUESTS, {
         msg: err.message,
         ok: false,
-        origBody: body
-      })
-    }
-  }
-
-  /**
-   * @param {Readonly<{ token: string }>} body
-   */
-  onBio = async body => {
-    try {
-      const { token } = body
-
-      await throwOnInvalidToken(token)
-
-      API.Events.onBio(bio => {
-        this.socket.emit(Event.ON_BIO, {
-          msg: bio,
-          ok: true,
-          origBody: body
-        })
-      }, user)
-    } catch (err) {
-      logger.info(err)
-      this.socket.emit(Event.ON_BIO, {
-        ok: false,
-        msg: err.message,
-        origBody: body
-      })
-    }
-  }
-
-  /**
-   * @param {Readonly<{ bio: string|null , token: string }>} body
-   */
-  setBio = async body => {
-    try {
-      const { bio, token } = body
-
-      await throwOnInvalidToken(token)
-
-      await API.Actions.setBio(bio, user)
-
-      this.socket.emit(Action.SET_BIO, {
-        ok: true,
-        msg: null,
-        origBody: body
-      })
-    } catch (err) {
-      logger.info(err)
-      this.socket.emit(Action.SET_BIO, {
-        ok: false,
-        msg: err.message,
         origBody: body
       })
     }
