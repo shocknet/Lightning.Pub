@@ -84,7 +84,7 @@ const listenerForAddr = addr => data => {
     }
   }
 
-  logger.info('data for address length: ' + size(addr))
+  logger.info('data for address length: ' + size(currAddressData))
 
   react()
 }
