@@ -36,7 +36,7 @@ const onAcceptedRequests = (user, SEA) => {
   user
     .get(Key.STORED_REQS)
     .map()
-    .once(async (storedReq, id) => {
+    .on(async (storedReq, id) => {
       logger.info(
         `------------------------------------\nPROCID:${procid} (used for debugging memory leaks in jobs)\n---------------------------------------`
       )
