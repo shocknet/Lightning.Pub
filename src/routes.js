@@ -16,6 +16,8 @@ const Big = require('big.js')
 const size = require('lodash/size')
 const { range, flatten, evolve } = require('ramda')
 const path = require('path')
+const fetch = require('node-fetch')
+const EventEmitter = require('events')
 
 const getListPage = require('../utils/paginate')
 const auth = require('../services/auth/auth')
@@ -34,6 +36,7 @@ const GunGetters = require('../services/gunDB/contact-api/getters')
 const GunKey = require('../services/gunDB/contact-api/key')
 const LV2 = require('../utils/lightningServices/v2')
 const GunWriteRPC = require('../services/gunDB/rpc')
+const Key = require('../services/gunDB/contact-api/key')
 
 const DEFAULT_MAX_NUM_ROUTES_TO_QUERY = 10
 const SESSION_ID = uuid()
@@ -51,6 +54,30 @@ module.exports = async (
     httpsAgent: new httpsAgent.Agent({
       ca: await FS.readFile(CA)
     })
+  })
+
+  const StreamLiveManager = new EventEmitter()
+  StreamLiveManager.on('followStream', data => {
+    const { postId, contentId, statusUrl } = data
+    const user = require('../services/gunDB/Mediator').getUser()
+    const interval = setInterval(async () => {
+      console.log('check!')
+      console.log(statusUrl)
+      const res = await fetch(statusUrl)
+      const j = await res.json()
+      console.log(j)
+      if (!j.isLive) {
+        return
+      }
+      user
+        .get(Key.POSTS_NEW)
+        .get(postId)
+        .get('contentItems')
+        .get(contentId)
+        .get('liveStatus')
+        .put('live')
+      clearInterval(interval)
+    }, 2000)
   })
 
   const sanitizeLNDError = (message = '') => {
@@ -2083,7 +2110,7 @@ module.exports = async (
   })
 
   const GunEvent = Common.Constants.Event
-  const Key = require('../services/gunDB/contact-api/key')
+
   app.get('/api/gun/lndchanbackups', async (req, res) => {
     try {
       const user = require('../services/gunDB/Mediator').getUser()
@@ -3289,7 +3316,23 @@ module.exports = async (
         })
     }
   })
+  //this is for OBS notifications, not wired with UI.
   ap.get('/api/subscribeStream', (req, res) => {
     res.sendFile(path.join(__dirname, '/index.html'))
+  })
+  //this is for wasLive/isLive status
+  ap.post('/api/listenStream', (req, res) => {
+    try {
+      StreamLiveManager.emit('followStream', req.body)
+      return res.status(200).json({
+        ok: true
+      })
+    } catch (e) {
+      console.log(e)
+      return res.status(500).json({
+        errorMessage:
+          (typeof e === 'string' ? e : e.message) || 'Unknown error.'
+      })
+    }
   })
 }
