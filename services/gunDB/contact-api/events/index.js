@@ -80,85 +80,6 @@ const __onUserToIncoming = (cb, user, SEA) => {
     })
 }
 
-/** @type {Set<(av: string|null) => void>} */
-const avatarListeners = new Set()
-
-/** @type {string|null} */
-let currentAvatar = null
-
-const getAvatar = () => currentAvatar
-
-/** @param {string|null} av */
-const setAvatar = av => {
-  currentAvatar = av
-  avatarListeners.forEach(l => l(currentAvatar))
-}
-
-let avatarSubbed = false
-
-/**
- * @param {(avatar: string|null) => void} cb
- * @param {UserGUNNode} user Pass only for testing purposes.
- * @throws {Error} If user hasn't been auth.
- * @returns {() => void}
- */
-const onAvatar = (cb, user) => {
-  if (!user.is) {
-    throw new Error(ErrorCode.NOT_AUTH)
-  }
-
-  avatarListeners.add(cb)
-
-  cb(currentAvatar)
-
-  if (!avatarSubbed) {
-    avatarSubbed = true
-    user
-      .get(Key.PROFILE_BINARY)
-      .get(Key.AVATAR)
-      .on(avatar => {
-        if (typeof avatar === 'string' || avatar === null) {
-          setAvatar(avatar)
-        }
-      })
-  }
-
-  return () => {
-    avatarListeners.delete(cb)
-  }
-}
-
-/**
- * @param {(blacklist: string[]) => void} cb
- * @param {UserGUNNode} user
- * @returns {void}
- */
-const onBlacklist = (cb, user) => {
-  /** @type {string[]} */
-  const blacklist = []
-
-  if (!user.is) {
-    throw new Error(ErrorCode.NOT_AUTH)
-  }
-
-  const callb = debounce(cb, DEBOUNCE_WAIT_TIME)
-
-  // Initial value if no items are in blacklist in gun
-  callb(blacklist)
-
-  user
-    .get(Key.BLACKLIST)
-    .map()
-    .on(publicKey => {
-      if (typeof publicKey === 'string' && publicKey.length > 0) {
-        blacklist.push(publicKey)
-        callb(blacklist)
-      } else {
-        logger.warn('Invalid public key received for blacklist')
-      }
-    })
-}
-
 /** @type {Set<(addr: string|null) => void>} */
 const addressListeners = new Set()
 
@@ -207,54 +128,6 @@ const onCurrentHandshakeAddress = (cb, user) => {
 
   return () => {
     addressListeners.delete(cb)
-  }
-}
-
-/** @type {Set<(dn: string|null) => void>} */
-const dnListeners = new Set()
-
-/** @type {string|null} */
-let currentDn = null
-
-const getDisplayName = () => currentDn
-
-/** @param {string|null} dn */
-const setDn = dn => {
-  currentDn = dn
-  dnListeners.forEach(l => l(currentDn))
-}
-
-let dnSubbed = false
-
-/**
- * @param {(displayName: string|null) => void} cb
- * @param {UserGUNNode} user Pass only for testing purposes.
- * @throws {Error} If user hasn't been auth.
- * @returns {() => void}
- */
-const onDisplayName = (cb, user) => {
-  if (!user.is) {
-    throw new Error(ErrorCode.NOT_AUTH)
-  }
-
-  cb(currentDn)
-
-  dnListeners.add(cb)
-
-  if (!dnSubbed) {
-    dnSubbed = true
-    user
-      .get(Key.PROFILE)
-      .get(Key.DISPLAY_NAME)
-      .on(displayName => {
-        if (typeof displayName === 'string' || displayName === null) {
-          setDn(displayName)
-        }
-      })
-  }
-
-  return () => {
-    dnListeners.delete(cb)
   }
 }
 
@@ -465,11 +338,9 @@ const notifyChatsListeners = () => {
 
 const processChats = debounce(() => {
   const Streams = require('../streams')
-  const pubToAvatar = Streams.getPubToAvatar()
-  const pubToDn = Streams.getPubToDn()
-  const pubToLastSeenApp = Streams.getPubToLastSeenApp()
+  const currentOutgoings = getCurrentOutgoings()
   const existingOutgoings = /** @type {[string, Outgoing][]} */ (Object.entries(
-    getCurrentOutgoings()
+    currentOutgoings
   ).filter(([_, o]) => o !== null))
   const pubToFeed = Streams.getPubToFeed()
 
@@ -477,19 +348,6 @@ const processChats = debounce(() => {
   const newChats = []
 
   for (const [outID, out] of existingOutgoings) {
-    if (typeof pubToAvatar[out.with] === 'undefined') {
-      // eslint-disable-next-line no-empty-function
-      Streams.onAvatar(() => {}, out.with)()
-    }
-    if (typeof pubToDn[out.with] === 'undefined') {
-      // eslint-disable-next-line no-empty-function
-      Streams.onDisplayName(() => {}, out.with)()
-    }
-    if (typeof pubToLastSeenApp[out.with] === 'undefined') {
-      // eslint-disable-next-line no-empty-function
-      Streams.onPubToLastSeenApp(() => {}, out.with)()
-    }
-
     /** @type {ChatMessage[]} */
     let msgs = Object.entries(out.messages)
       .map(([mid, m]) => ({
@@ -515,7 +373,7 @@ const processChats = debounce(() => {
       messages: msgs,
       recipientAvatar: null,
       recipientDisplayName: null,
-      lastSeenApp: pubToLastSeenApp[out.with] || null
+      lastSeenApp: null
     }
 
     newChats.push(chat)
@@ -547,10 +405,7 @@ const onChats = cb => {
   if (!onChatsSubbed) {
     const Streams = require('../streams')
     onOutgoing(processChats)
-    Streams.onAvatar(processChats)
-    Streams.onDisplayName(processChats)
     Streams.onPubToFeed(processChats)
-    Streams.onPubToLastSeenApp(processChats)
     onChatsSubbed = true
   }
 
@@ -559,32 +414,6 @@ const onChats = cb => {
       throw new Error('Tried to unsubscribe twice')
     }
   }
-}
-
-/** @type {string|null} */
-let currentBio = null
-
-/**
- * @param {(bio: string|null) => void} cb
- * @param {UserGUNNode} user Pass only for testing purposes.
- * @throws {Error} If user hasn't been auth.
- * @returns {void}outgoingsListeners.forEach()
- */
-const onBio = (cb, user) => {
-  if (!user.is) {
-    throw new Error(ErrorCode.NOT_AUTH)
-  }
-
-  const callb = debounce(cb, DEBOUNCE_WAIT_TIME)
-  // Initial value if avvatar is undefined in gun
-  callb(currentBio)
-
-  user.get(Key.BIO).on(bio => {
-    if (typeof bio === 'string' || bio === null) {
-      currentBio = bio
-      callb(bio)
-    }
-  })
 }
 
 /** @type {string|null} */
@@ -617,10 +446,7 @@ const onSeedBackup = (cb, user, SEA) => {
 
 module.exports = {
   __onUserToIncoming,
-  onAvatar,
-  onBlacklist,
   onCurrentHandshakeAddress,
-  onDisplayName,
   onIncomingMessages,
   onOutgoing,
   getCurrentOutgoings,
@@ -628,11 +454,8 @@ module.exports = {
   onSimplerSentRequests: require('./onSentReqs').onSentReqs,
   getCurrentSentReqs: require('./onSentReqs').getCurrentSentReqs,
   getCurrentReceivedReqs: require('./onReceivedReqs').getReceivedReqs,
-  onBio,
   onSeedBackup,
   onChats,
-  getAvatar,
-  getDisplayName,
   getHandshakeAddress,
   getChats
 }
