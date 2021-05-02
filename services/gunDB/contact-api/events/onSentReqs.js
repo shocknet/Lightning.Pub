@@ -51,10 +51,6 @@ const react = debounce(() => {
   // maps a pk to a feed, messages if subbed and pk is pubbing, null /
   // 'disconnected' otherwise
   const pubToFeed = Streams.getPubToFeed()
-  // pk to avatar
-  const pubToAvatar = Streams.getPubToAvatar()
-  // pk to display name
-  const pubToDN = Streams.getPubToDn()
 
   logger.info(`pubToLastSentREqID length: ${size(pubToLastSentReqID)}`)
 
@@ -79,18 +75,6 @@ const react = debounce(() => {
     if (typeof currAddress === 'undefined') {
       // eslint-disable-next-line no-empty-function
       Streams.onAddresses(() => {}, recipientPub)()
-    }
-    // no avatar for this pk? let's ask the corresponding stream to sub to
-    // gun.user(pk).get('avatar')
-    if (typeof pubToAvatar[recipientPub] === 'undefined') {
-      // eslint-disable-next-line no-empty-function
-      Streams.onAvatar(() => {}, recipientPub)()
-    }
-    // no display name for this pk? let's ask the corresponding stream to sub to
-    // gun.user(pk).get('displayName')
-    if (typeof pubToDN[recipientPub] === 'undefined') {
-      // eslint-disable-next-line no-empty-function
-      Streams.onDisplayName(() => {}, recipientPub)()
     }
 
     newReqs.push({
@@ -129,8 +113,6 @@ const onSentReqs = cb => {
     Streams.onStoredReqs(react)
     Streams.onLastSentReqIDs(react)
     Streams.onPubToFeed(react)
-    Streams.onAvatar(react)
-    Streams.onDisplayName(react)
 
     subbed = true
   }

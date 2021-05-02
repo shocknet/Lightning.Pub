@@ -44,21 +44,10 @@ const react = debounce(() => {
   const newReceivedReqsMap = {}
 
   const pubToFeed = Streams.getPubToFeed()
-  const pubToAvatar = Streams.getPubToAvatar()
-  const pubToDn = Streams.getPubToDn()
 
   for (const [id, req] of Object.entries(currAddressData)) {
     const inContact = Array.isArray(pubToFeed[req.from])
     const isDisconnected = pubToFeed[req.from] === 'disconnected'
-
-    if (typeof pubToAvatar[req.from] === 'undefined') {
-      // eslint-disable-next-line no-empty-function
-      Streams.onAvatar(() => {}, req.from)()
-    }
-    if (typeof pubToDn[req.from] === 'undefined') {
-      // eslint-disable-next-line no-empty-function
-      Streams.onDisplayName(() => {}, req.from)()
-    }
 
     if (!inContact && !isDisconnected) {
       newReceivedReqsMap[req.from] = {
@@ -95,7 +84,7 @@ const listenerForAddr = addr => data => {
     }
   }
 
-  logger.info('data for address length: ' + size(addr))
+  logger.info('data for address length: ' + size(currAddressData))
 
   react()
 }
@@ -133,8 +122,6 @@ const onReceivedReqs = cb => {
       }
     }, user)
 
-    Streams.onAvatar(react)
-    Streams.onDisplayName(react)
     Streams.onPubToFeed(react)
 
     subbed = true
