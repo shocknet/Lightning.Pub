@@ -303,49 +303,6 @@ const server = program => {
         await Storage.removeItem('tunnel/subdomain')
         await Storage.removeItem('tunnel/url')
       }*/
-      if (program.tunnel) {
-        // setup localtunnel ==========
-        const [tunnelToken, tunnelSubdomain, tunnelUrl] = await Promise.all([
-          Storage.getItem('tunnel/token'),
-          Storage.getItem('tunnel/subdomain'),
-          Storage.getItem('tunnel/url')
-        ])
-        const tunnelOpts = { port: serverPort, host: tunnelHost }
-        if (tunnelToken && tunnelSubdomain) {
-          tunnelOpts.tunnelToken = tunnelToken
-          tunnelOpts.subdomain = tunnelSubdomain
-          logger.info('Recreating tunnel... with subdomain: ' + tunnelSubdomain)
-        } else {
-          logger.info('Creating new tunnel...This will require a pair ')
-        }
-        tunnelHealthManager.emit('fork', {
-          params: tunnelOpts,
-          cb: async tunnel => {
-            if (tunnelSubdomain !== tunnel.clientId && !tunnel.token) {
-              logger.error(
-                'An error occurred while opening tunnel, will try again in 2 sec with a new one'
-              )
-
-              return
-            }
-            logger.info('Tunnel created! connect to: ' + tunnel.url)
-            const dataToQr = JSON.stringify({
-              internalIP: tunnel.url,
-              walletPort: 443,
-              externalIP: tunnel.url
-            })
-            qrcode.generate(dataToQr, { small: true })
-            if (tunnel.token) {
-              console.log('writing to storage...')
-              await Promise.all([
-                Storage.setItem('tunnel/token', tunnel.token),
-                Storage.setItem('tunnel/subdomain', tunnel.clientId),
-                Storage.setItem('tunnel/url', tunnel.url)
-              ])
-            }
-          }
-        })
-      }
 
       const storePersistentRandomField = async ({ fieldName, length = 16 }) => {
         const randomField = await Storage.getItem(fieldName)
@@ -470,6 +427,54 @@ const server = program => {
       }
 
       serverInstance.listen(serverPort, serverHost)
+
+      if (program.tunnel) {
+        // setup localtunnel ==========
+        const [tunnelToken, tunnelSubdomain, tunnelUrl] = await Promise.all([
+          Storage.getItem('tunnel/token'),
+          Storage.getItem('tunnel/subdomain'),
+          Storage.getItem('tunnel/url')
+        ])
+        const tunnelOpts = {
+          port: serverPort,
+          host: tunnelHost,
+          print_requests: true
+        }
+        if (tunnelToken && tunnelSubdomain) {
+          tunnelOpts.tunnelToken = tunnelToken
+          tunnelOpts.subdomain = tunnelSubdomain
+          logger.info('Recreating tunnel... with subdomain: ' + tunnelSubdomain)
+        } else {
+          logger.info('Creating new tunnel...This will require a pair ')
+        }
+        tunnelHealthManager.emit('fork', {
+          params: tunnelOpts,
+          cb: async tunnel => {
+            if (tunnelSubdomain !== tunnel.clientId && !tunnel.token) {
+              logger.error(
+                'An error occurred while opening tunnel, will try again in 2 sec with a new one'
+              )
+
+              return
+            }
+            logger.info('Tunnel created! connect to: ' + tunnel.url)
+            const dataToQr = JSON.stringify({
+              internalIP: tunnel.url,
+              walletPort: 443,
+              externalIP: tunnel.url
+            })
+            qrcode.generate(dataToQr, { small: true })
+            if (tunnel.token) {
+              console.log('writing to storage...')
+              await Promise.all([
+                Storage.setItem('tunnel/token', tunnel.token),
+                Storage.setItem('tunnel/subdomain', tunnel.clientId),
+                Storage.setItem('tunnel/url', tunnel.url)
+              ])
+            }
+          }
+        })
+      }
 
       logger.info('App listening on ' + serverHost + ' port ' + serverPort)
 
