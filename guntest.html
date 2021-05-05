@@ -7,7 +7,7 @@
   <title>Document</title>
 </head>
 <body>
-  
+
 </body>
 <script src="node_modules/gun/gun.js"></script>
 <script src="node_modules/gun/sea.js"></script>
@@ -34,6 +34,12 @@
 
   const UPPER = 100
 
+  clearSet = (node) => {
+    node.map().once((_, key) => {
+      node.get(key).put(null)
+    })
+  }
+
   put = async () => {
     const res = await fetch(`https://jsonplaceholder.typicode.com/posts`)
     /** @type {Array<any>} */
@@ -55,7 +61,7 @@
       })
     })
   }
-  
+
 </script>
 <style>
 
