@@ -46,7 +46,7 @@ module.exports = async (
   app,
   config,
   mySocketsEvents,
-  { serverPort, CA, CA_KEY, usetls }
+  { serverPort, CA, CA_KEY, useTLS }
 ) => {
   const { timeout5 } = require('../services/gunDB/contact-api/utils')
 
@@ -88,7 +88,7 @@ module.exports = async (
     try {
       logger.info('Getting API status...')
       const APIHealth = await Http.get(
-        `${usetls ? 'https' : 'http'}://localhost:${serverPort}/ping`
+        `${useTLS ? 'https' : 'http'}://localhost:${serverPort}/ping`
       )
       const APIStatus = {
         message: APIHealth.data,

@@ -411,7 +411,7 @@ const server = program => {
         {
           serverHost,
           serverPort,
-          usetls: program.usetls,
+          useTLS: program.useTLS,
           CA,
           CA_KEY
         }
