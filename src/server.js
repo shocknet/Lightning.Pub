@@ -359,8 +359,12 @@ const server = program => {
         try {
           if (LightningServices.servicesConfig.lndCertPath && program.useTLS) {
             const [key, cert] = await Promise.all([
-              FS.readFile(CA_KEY, 'utf8'),
-              FS.readFile(CA, 'utf8')
+              FS.readFile(CA_KEY, {
+                encoding: 'utf8'
+              }),
+              FS.readFile(CA, {
+                encoding: 'utf8'
+              })
             ])
             const httpsServer = Https.createServer({ key, cert }, app)
 
