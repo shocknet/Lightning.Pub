@@ -104,7 +104,7 @@ module.exports = async (
       logger.error(err)
       const APIStatus = {
         message: err.response?.data,
-        responseTime: err.response.headers['x-response-time'],
+        responseTime: err.response?.headers['x-response-time'],
         success: false
       }
       logger.warn('Failed to retrieve API status', APIStatus)
