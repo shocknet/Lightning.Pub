@@ -355,17 +355,12 @@ const server = program => {
         program.httpsCert || LightningServices.servicesConfig.lndCertPath
       const CA_KEY = program.httpsCertKey || CA.replace('cert', 'key')
 
-      const createServer = async () => {
+      const createServer = () => {
         try {
           if (LightningServices.servicesConfig.lndCertPath && program.useTLS) {
-            const [key, cert] = await Promise.all([
-              FS.readFile(CA_KEY, {
-                encoding: 'utf8'
-              }),
-              FS.readFile(CA, {
-                encoding: 'utf8'
-              })
-            ])
+            const key = FS.readFileSync(CA_KEY, 'utf-8')
+            const cert = FS.readFileSync(CA, 'utf-8')
+
             const httpsServer = Https.createServer({ key, cert }, app)
 
             return httpsServer
@@ -384,7 +379,7 @@ const server = program => {
         }
       }
 
-      const serverInstance = await createServer()
+      const serverInstance = createServer()
 
       const io = require('socket.io')(serverInstance, {
         parser: binaryParser,
