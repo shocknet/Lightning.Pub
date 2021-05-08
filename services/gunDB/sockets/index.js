@@ -238,6 +238,11 @@ const startSocket = socket => {
     const on = encryptedOn(socket)
     const { encryptionId } = socket.handshake.auth
 
+    if (!isAuthenticated()) {
+      logger.warn('GunDB is not yet authenticated')
+      socket.emit(Common.Constants.ErrorCode.NOT_AUTH)
+    }
+
     on('subscribe:query', ({ $shock, publicKey }, response) => {
       const subscriptionId = uuidv4()
       try {
