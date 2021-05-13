@@ -32,9 +32,9 @@
   const UPPER = 100
 
   clearSet = (node) => {
-    node.map().once((_, key) => {
-      node.get(key).put(null)
-    })
+    node.once((map) => {
+      Object.keys(map).forEach(key => node.get(key).put(null))
+    }, { wait: 1500 })
   }
 
   put = async () => {
