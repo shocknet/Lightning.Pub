@@ -47,7 +47,7 @@ module.exports = (mainnet = false) => {
     logfile: "shockapi.log",
     lndLogFile: parsePath(`${lndDirectory}/logs/bitcoin/${network}/lnd.log`),
     lndDirPath: lndDirectory,
-    peers: ['https://gun.shock.network','https://gun-eu.shock.network'],
+    peers: ['https://gun.shock.network/gun','https://gun-eu.shock.network/gun'],
     useTLS: false,
     tokenExpirationMS: 259200000,
     localtunnelHost:'https://tunnel.rip'
