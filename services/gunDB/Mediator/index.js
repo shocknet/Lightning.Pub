@@ -443,6 +443,7 @@ const authenticate = async (alias, pass, __user) => {
 
     return ack.sea.pub
   } else {
+    console.log(ack)
     logger.error(
       `Unknown error, wrong password? Ack looks like: ${JSON.stringify(ack)}`
     )
@@ -455,6 +456,7 @@ const logoff = () => {
 }
 
 const instantiateGun = () => {
+  const Config = require('../config')
   if (user) {
     user.leave()
   }
@@ -469,7 +471,7 @@ const instantiateGun = () => {
   const _gun = /** @type {unknown} */ (new Gun({
     axe: false,
     multicast: false,
-    peers: ['https://gun.shock.network:8765/gun']
+    peers: Config.PEERS
   }))
 
   gun = /** @type {GUNNode} */ (_gun)
