@@ -339,7 +339,7 @@ module.exports = async (
         return res.status(401).json(error)
       }
 
-      if (req.method === 'GET') {
+      if (req.method === 'GET' || req.method === 'DELETE') {
         return next()
       }
 
