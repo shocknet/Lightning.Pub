@@ -114,29 +114,33 @@ const encryptedOn = socket => (eventName, callback) => {
     }
 
     socket.on(eventName, async (data, response) => {
-      if (isNonEncrypted(eventName)) {
+      try {
+        if (isNonEncrypted(eventName)) {
+          callback(data, response)
+          return
+        }
+
+        if (data) {
+          const decryptedMessage = await ECC.decryptMessage({
+            deviceId,
+            encryptedMessage: data
+          })
+
+          callback(safeParseJSON(decryptedMessage), response)
+          return
+        }
+
         callback(data, response)
-        return
+      } catch (err) {
+        logger.error(
+          `[SOCKET] An error has occurred while decrypting an event (${eventName}):`,
+          err
+        )
+
+        socket.emit('encryption:error', err)
       }
-
-      if (data) {
-        const decryptedMessage = await ECC.decryptMessage({
-          deviceId,
-          encryptedMessage: data
-        })
-
-        callback(safeParseJSON(decryptedMessage), response)
-        return
-      }
-
-      callback(data, response)
     })
   } catch (err) {
-    logger.error(
-      `[SOCKET] An error has occurred while decrypting an event (${eventName}):`,
-      err
-    )
-
     socket.emit('encryption:error', err)
   }
 }
