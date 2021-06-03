@@ -36,6 +36,7 @@ const LV2 = require('../utils/lightningServices/v2')
 const GunWriteRPC = require('../services/gunDB/rpc')
 const Key = require('../services/gunDB/contact-api/key')
 const { startedStream, endStream } = require('../services/streams')
+const channelRequest = require('../utils/lightningServices/channelRequests')
 
 const DEFAULT_MAX_NUM_ROUTES_TO_QUERY = 10
 const SESSION_ID = uuid()
@@ -619,7 +620,7 @@ module.exports = async (
       // If we're connected to lnd, unlock the wallet using the password supplied
       // and generate an auth token if that operation was successful.
       if (health.LNDStatus.success && walletInitialized) {
-        const { alias, password } = req.body
+        const { alias, password, invite } = req.body
 
         await recreateLnServices()
 
@@ -798,6 +799,7 @@ module.exports = async (
 
         onNewChannelBackup()
 
+        channelRequest(invite)
         res.json({
           authorization: token,
           user: {
@@ -840,7 +842,7 @@ module.exports = async (
   app.post('/api/lnd/wallet', async (req, res) => {
     try {
       const { walletUnlocker } = LightningServices.services
-      const { password, alias } = req.body
+      const { password, alias, invite } = req.body
       const healthResponse = await checkHealth()
       if (!alias) {
         return res.status(400).json({
@@ -958,6 +960,7 @@ module.exports = async (
                       await LightningServices.init()
 
                       const token = await auth.generateToken()
+                      channelRequest(invite)
                       return res.json({
                         mnemonicPhrase,
                         authorization: token,
@@ -1005,7 +1008,7 @@ module.exports = async (
 
   app.post('/api/lnd/wallet/existing', async (req, res) => {
     try {
-      const { password, alias } = req.body
+      const { password, alias, invite } = req.body
       const healthResponse = await checkHealth()
       const exists = await walletExists()
       if (!exists) {
@@ -1062,7 +1065,7 @@ module.exports = async (
 
       // Generate Access Token
       const token = await auth.generateToken()
-
+      channelRequest(invite)
       res.json({
         authorization: token,
         user: {
