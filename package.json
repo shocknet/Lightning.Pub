@@ -89,6 +89,7 @@
     "lint-staged": "^10.2.2",
     "nodemon": "^2.0.7",
     "prettier": "^1.18.2",
+    "random-words": "^1.1.1",
     "rimraf": "^3.0.2",
     "ts-node": "^9.1.1",
     "ts-type": "^1.2.16",
