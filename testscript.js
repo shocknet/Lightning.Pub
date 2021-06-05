@@ -99,6 +99,12 @@ const cb = (data, key) => {
     if (typeof ack.err === 'string') {
       throw new Error(ack.err)
     } else if (typeof ack.pub === 'string' || typeof user._.sea === 'object') {
+      console.log(`\n`)
+      console.log(`public key:`)
+      console.log(`\n`)
+      console.log(ack.pub || user._.sea.pub)
+      console.log(`\n`)
+
       // clock skew
       await new Promise(res => setTimeout(res, 2000))
     } else {
