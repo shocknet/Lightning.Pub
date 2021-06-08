@@ -81,6 +81,7 @@ async function deepEncryptIfNeeded(value) {
   }
 
   const pk = /** @type {string|undefined} */ (value.$$__ENCRYPT__FOR)
+  const epub = /** @type {string|undefined} */ (value.$$__EPUB__FOR)
 
   if (!pk) {
     return Bluebird.props(mapValues(value, deepEncryptIfNeeded))
@@ -93,7 +94,15 @@ async function deepEncryptIfNeeded(value) {
   if (pk === u.is.pub || pk === 'me') {
     encryptedValue = await SEA.encrypt(actualValue, getMySecret())
   } else {
-    const sec = await SEA.secret(await pubToEpub(pk), u._.sea)
+    const sec = await SEA.secret(
+      await (() => {
+        if (epub) {
+          return epub
+        }
+        return pubToEpub(pk)
+      })(),
+      u._.sea
+    )
 
     encryptedValue = await SEA.encrypt(actualValue, sec)
   }
