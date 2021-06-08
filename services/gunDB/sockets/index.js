@@ -120,13 +120,15 @@ const executeGunQuery = (query, method, listener) => {
  * @param {string} queryData.publicKeyForDecryption
  * @param {string} queryData.subscriptionId
  * @param {string} queryData.deviceId
+ * @param {string=} queryData.epubForDecryption
  * @returns {GunListener}
  */
 const queryListenerCallback = ({
   emit,
   publicKeyForDecryption,
   subscriptionId,
-  deviceId
+  deviceId,
+  epubForDecryption
 }) => async (data, key, _msg, event) => {
   try {
     const subscription = Subscriptions.get({
@@ -142,7 +144,11 @@ const queryListenerCallback = ({
     }
     const eventName = `query:data`
     if (publicKeyForDecryption?.length > 15) {
-      const decData = await deepDecryptIfNeeded(data, publicKeyForDecryption)
+      const decData = await deepDecryptIfNeeded(
+        data,
+        publicKeyForDecryption,
+        epubForDecryption
+      )
       emit(eventName, { subscriptionId, response: { data: decData, key } })
       return
     }
@@ -243,7 +249,8 @@ const startSocket = socket => {
       socket.emit(Common.Constants.ErrorCode.NOT_AUTH)
     }
 
-    on('subscribe:query', ({ $shock, publicKey }, response) => {
+    on('subscribe:query', (query, response) => {
+      const { $shock, publicKey, epubForDecryption } = query
       const subscriptionId = uuidv4()
       try {
         if (!isAuthenticated()) {
@@ -270,7 +277,8 @@ const startSocket = socket => {
           emit,
           publicKeyForDecryption: publicKey,
           subscriptionId,
-          deviceId: encryptionId
+          deviceId: encryptionId,
+          epubForDecryption
         })
 
         socketCallback(null, {
