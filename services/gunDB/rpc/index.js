@@ -27,9 +27,10 @@ const PATH_SEPARATOR = '>'
 /**
  * @param {ValidDataValue} value
  * @param {string} publicKey
+ * @param {string=} epubForDecryption
  * @returns {Promise<ValidDataValue>}
  */
-const deepDecryptIfNeeded = async (value, publicKey) => {
+const deepDecryptIfNeeded = async (value, publicKey, epubForDecryption) => {
   if (Schema.isObj(value)) {
     return Bluebird.props(
       mapValues(value, o => deepDecryptIfNeeded(o, publicKey))
@@ -49,7 +50,15 @@ const deepDecryptIfNeeded = async (value, publicKey) => {
     if (user.is.pub === publicKey || 'me' === publicKey) {
       sec = getMySecret()
     } else {
-      sec = await SEA.secret(await pubToEpub(publicKey), user._.sea)
+      sec = await SEA.secret(
+        await (() => {
+          if (epubForDecryption) {
+            return epubForDecryption
+          }
+          return pubToEpub(publicKey)
+        })(),
+        user._.sea
+      )
     }
 
     const decrypted = SEA.decrypt(value, sec)
