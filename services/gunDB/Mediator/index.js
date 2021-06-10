@@ -335,7 +335,15 @@ const authenticate = async (alias, pass, __user) => {
           },
           ack => {
             if (ack.err && typeof ack.err !== 'number') {
-              rej(new Error(`Error initializing follows: ${ack.err}`))
+              rej(
+                new Error(
+                  `Error initializing follows: ${JSON.stringify(
+                    ack.err,
+                    null,
+                    4
+                  )}`
+                )
+              )
             } else {
               res()
             }
@@ -366,7 +374,15 @@ const authenticate = async (alias, pass, __user) => {
         },
         ack => {
           if (ack.err && typeof ack.err !== 'number') {
-            rej(new Error(`Error initializing follows: ${ack.err}`))
+            rej(
+              new Error(
+                `Error initializing follows: ${JSON.stringify(
+                  ack.err,
+                  null,
+                  4
+                )}`
+              )
+            )
           } else {
             res()
           }
@@ -417,7 +433,15 @@ const authenticate = async (alias, pass, __user) => {
         },
         ack => {
           if (ack.err && typeof ack.err !== 'number') {
-            rej(new Error(`Error initializing follows: ${ack.err}`))
+            rej(
+              new Error(
+                `Error initializing follows: ${JSON.stringify(
+                  ack.err,
+                  null,
+                  4
+                )}`
+              )
+            )
           } else {
             res()
           }
