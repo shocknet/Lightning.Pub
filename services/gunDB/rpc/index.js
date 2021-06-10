@@ -205,7 +205,13 @@ const put = async (rawPath, value) => {
     await makePromise((res, rej) => {
       node.put(/** @type {ValidDataValue} */ (theValue), ack => {
         if (ack.err && typeof ack.err !== 'number') {
-          rej(new Error(ack.err))
+          if (typeof ack.err === 'string') {
+            rej(new Error(ack.err))
+          } else {
+            console.log(`NON STANDARD GUN ERROR:`)
+            console.log(ack)
+            rej(new Error(JSON.stringify(ack.err, null, 4)))
+          }
         } else {
           res()
         }
