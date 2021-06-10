@@ -3247,13 +3247,19 @@ module.exports = async (
   ap.post('/api/gun/put', async (req, res) => {
     try {
       const { path, value } = req.body
+      logger.info({ path, value })
 
       await GunWriteRPC.put(path, value)
+
+      logger.info(`api gun put after async put`)
 
       res.status(200).json({
         ok: true
       })
     } catch (err) {
+      console.log(err)
+      logger.info(`Error inside /api/gun/put`)
+      logger.error(err)
       res
         .status(err.message === Common.Constants.ErrorCode.NOT_AUTH ? 401 : 500)
         .json({
