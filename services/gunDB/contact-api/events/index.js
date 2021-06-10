@@ -404,7 +404,7 @@ const onChats = cb => {
 
   if (!onChatsSubbed) {
     const Streams = require('../streams')
-    onOutgoing(processChats)
+    // onOutgoing(processChats)
     Streams.onPubToFeed(processChats)
     onChatsSubbed = true
   }
