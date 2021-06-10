@@ -395,7 +395,7 @@ const authenticate = async (alias, pass, __user) => {
     API.Jobs.lastSeenNode(_user)
 
     API.Events.onCurrentHandshakeAddress(() => {}, user)()
-    API.Events.onOutgoing(() => {})()
+    // API.Events.onOutgoing(() => {})()
     API.Events.onSeedBackup(() => {}, user, mySEA)
 
     return _user._.sea.pub
