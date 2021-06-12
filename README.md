@@ -45,7 +45,7 @@ yarn install
 3) Run with `yarn start`
 4) Connect with Shockwallet *(Provide your nodes IP manually or scan QR from ShockWizard)*
 
-*Optionally, add the `--tunnel` flag to create an ssh connection through a tunnel.rip webserver for zero-configuration networking. All communication between the api and wallet is end-to-end encrypted and your privacy is protected.*
+*Optionally, add the `-t` flag to route through a tunnel.rip webserver for zero-configuration networking. All communication between the api and wallet is end-to-end encrypted and your privacy is protected.*
 
 
 ### Docker for Raspberry Pi
