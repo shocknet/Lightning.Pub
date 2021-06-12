@@ -17,8 +17,6 @@ const server = program => {
   const Path = require('path')
   const { Logger: CommonLogger } = require('shock-common')
   const binaryParser = require('socket.io-msgpack-parser')
-  const { fork } = require('child_process')
-  const EventEmitter = require('events')
 
   const ECC = require('../utils/ECC')
   const LightningServices = require('../utils/lightningServices')
@@ -30,6 +28,7 @@ const server = program => {
   const session = require('express-session')
   const methodOverride = require('method-override')
   const qrcode = require('qrcode-terminal')
+  const relayClient = require('hybrid-relay-client/build')
   const {
     unprotectedRoutes,
     sensitiveRoutes,
@@ -59,31 +58,6 @@ const server = program => {
   require('../utils/server-utils')(module)
 
   logger.info('Mainnet Mode:', !!program.mainnet)
-  const tunnelTimeout = 5000
-  let latestAliveTunnel = 0
-  let tunnelHealthInterval = null
-  const tunnelHealthManager = new EventEmitter()
-  tunnelHealthManager.on('fork', ({ params, cb }) => {
-    if (latestAliveTunnel !== 0 && latestAliveTunnel < tunnelTimeout) {
-      return
-    }
-    clearInterval(tunnelHealthInterval)
-    tunnelHealthInterval = setInterval(() => {
-      if (Date.now() - latestAliveTunnel > tunnelTimeout) {
-        console.log('oh no! tunnel is dead, will restart it now')
-        tunnelHealthManager.emit('fork', { params, cb })
-      }
-    }, 2000)
-    const forked = fork('src/tunnel.js')
-    forked.on('message', msg => {
-      //console.log('Message from child', msg);
-      if (msg && msg.type === 'info') {
-        cb(msg.tunnel)
-      }
-      latestAliveTunnel = Date.now()
-    })
-    forked.send(params)
-  })
 
   if (process.env.SHOCK_ENCRYPTION_ECC === 'false') {
     logger.error('Encryption Mode: false')
@@ -426,58 +400,40 @@ const server = program => {
         app.use(modifyResponseBody)
       }
 
-      serverInstance.listen(serverPort, serverHost)
-
       if (program.tunnel) {
-        // setup localtunnel ==========
-        const [tunnelToken, tunnelSubdomain, tunnelUrl] = await Promise.all([
-          Storage.getItem('tunnel/token'),
-          Storage.getItem('tunnel/subdomain'),
-          Storage.getItem('tunnel/url')
+        const [relayToken, relayId, relayUrl] = await Promise.all([
+          Storage.getItem('relay/token'),
+          Storage.getItem('relay/id'),
+          Storage.getItem('relay/url')
         ])
-        const tunnelOpts = {
-          port: serverPort,
-          host: tunnelHost,
-          print_requests: true
+        const opts = {
+          relayId,
+          relayToken,
+          address: tunnelHost,
+          port: serverPort
         }
-        if (tunnelToken && tunnelSubdomain) {
-          tunnelOpts.tunnelToken = tunnelToken
-          tunnelOpts.subdomain = tunnelSubdomain
-          logger.info('Recreating tunnel... with subdomain: ' + tunnelSubdomain)
-        } else {
-          logger.info('Creating new tunnel...This will require a pair ')
-        }
-        tunnelHealthManager.emit('fork', {
-          params: tunnelOpts,
-          cb: async tunnel => {
-            if (tunnelSubdomain !== tunnel.clientId && !tunnel.token) {
-              logger.error(
-                'An error occurred while opening tunnel, will try again in 2 sec with a new one'
-              )
-
-              return
-            }
-            logger.info('Tunnel created! connect to: ' + tunnel.url)
+        console.log(opts)
+        relayClient.default(opts, async (connected, params) => {
+          if (connected) {
+            await Promise.all([
+              Storage.setItem('relay/token', params.relayToken),
+              Storage.setItem('relay/id', params.relayId),
+              Storage.setItem('relay/url', params.address)
+            ])
             const dataToQr = JSON.stringify({
-              internalIP: tunnel.url,
+              internalIP: `${params.relayId}@${params.address}`,
               walletPort: 443,
-              externalIP: tunnel.url
+              externalIP: `${params.relayId}@${params.address}`
             })
             qrcode.generate(dataToQr, { small: true })
-            if (tunnel.token) {
-              console.log('writing to storage...')
-              await Promise.all([
-                Storage.setItem('tunnel/token', tunnel.token),
-                Storage.setItem('tunnel/subdomain', tunnel.clientId),
-                Storage.setItem('tunnel/url', tunnel.url)
-              ])
-            }
+            console.log(`connect to ${params.relayId}@${params.address}`)
+          } else {
+            logger.error('!! Relay did not connect to server !!')
           }
         })
       }
-
+      serverInstance.listen(serverPort, serverHost)
       logger.info('App listening on ' + serverHost + ' port ' + serverPort)
-
       module.server = serverInstance
     } catch (err) {
       logger.error({ exception: err, message: err.message, code: err.code })
