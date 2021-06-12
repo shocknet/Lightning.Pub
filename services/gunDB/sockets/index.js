@@ -122,6 +122,8 @@ const executeGunQuery = (query, method, listener) => {
  * @param {string} queryData.subscriptionId
  * @param {string} queryData.deviceId
  * @param {string=} queryData.epubForDecryption
+ * @param {string=} queryData.epubField If the epub is included in the received
+ * data itself. Handshake requests for example, have an epub field.
  * @returns {GunListener}
  */
 const queryListenerCallback = ({
@@ -129,7 +131,8 @@ const queryListenerCallback = ({
   publicKeyForDecryption,
   subscriptionId,
   deviceId,
-  epubForDecryption
+  epubForDecryption,
+  epubField
 }) => async (data, key, _msg, event) => {
   try {
     const subscription = Subscriptions.get({
@@ -144,12 +147,37 @@ const queryListenerCallback = ({
       })
     }
     const eventName = `query:data`
-
-    if (publicKeyForDecryption?.length > 15) {
+    if (publicKeyForDecryption?.length > 15 || epubForDecryption || epubField) {
       const decData = await deepDecryptIfNeeded(
         data,
         publicKeyForDecryption,
-        epubForDecryption
+        (() => {
+          if (epubField) {
+            if (Common.isObj(data)) {
+              const epub = data[epubField]
+              if (Common.isPopulatedString(epub)) {
+                return epub
+              }
+
+              logger.error(
+                `Got epubField in a rifle query, but the resulting value obtained is not an string -> `,
+                {
+                  data,
+                  epub
+                }
+              )
+            } else {
+              logger.warn(
+                `Got epubField in a rifle query for a non-object data -> `,
+                {
+                  epubField,
+                  data
+                }
+              )
+            }
+          }
+          return epubForDecryption
+        })()
       )
       emit(eventName, { subscriptionId, response: { data: decData, key } })
       return
@@ -258,7 +286,7 @@ const startSocket = socket => {
     }
 
     on('subscribe:query', (query, response) => {
-      const { $shock, publicKey, epubForDecryption } = query
+      const { $shock, publicKey, epubForDecryption, epubField } = query
       const subscriptionId = uuidv4()
       try {
         if (!isAuthenticated()) {
@@ -286,7 +314,8 @@ const startSocket = socket => {
           publicKeyForDecryption: publicKey,
           subscriptionId,
           deviceId: encryptionId,
-          epubForDecryption
+          epubForDecryption,
+          epubField
         })
 
         socketCallback(null, {
