@@ -33,7 +33,9 @@ const PATH_SEPARATOR = '>'
 const deepDecryptIfNeeded = async (value, publicKey, epubForDecryption) => {
   if (Schema.isObj(value)) {
     return Bluebird.props(
-      mapValues(value, o => deepDecryptIfNeeded(o, publicKey))
+      mapValues(value, o =>
+        deepDecryptIfNeeded(o, publicKey, epubForDecryption)
+      )
     )
   }
 
