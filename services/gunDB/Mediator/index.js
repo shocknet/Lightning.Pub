@@ -394,8 +394,6 @@ const authenticate = async (alias, pass, __user) => {
     API.Jobs.onOrders(_user, gun, mySEA)
     API.Jobs.lastSeenNode(_user)
 
-    API.Events.onCurrentHandshakeAddress(() => {}, user)()
-    // API.Events.onOutgoing(() => {})()
     API.Events.onSeedBackup(() => {}, user, mySEA)
 
     return _user._.sea.pub
@@ -452,7 +450,6 @@ const authenticate = async (alias, pass, __user) => {
     API.Jobs.onOrders(_user, gun, mySEA)
     API.Jobs.lastSeenNode(_user)
 
-    API.Events.onCurrentHandshakeAddress(() => {}, user)()
     API.Events.onSeedBackup(() => {}, user, mySEA)
 
     return ack.sea.pub
