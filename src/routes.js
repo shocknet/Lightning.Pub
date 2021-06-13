@@ -3072,38 +3072,40 @@ module.exports = async (
     publicKey,
     publicKeyForDecryption,
     epubForDecryption
-  }) => {
-    const keys = path.split('>')
-    const { tryAndWait } = require('../services/gunDB/contact-api/utils')
-    return tryAndWait((gun, user) => {
+  }) =>
+    new Promise(res => {
+      const keys = path.split('>')
+
       // eslint-disable-next-line no-nested-ternary
       let node = startFromUserGraph
-        ? user
+        ? require('../services/gunDB/Mediator').getUser()
         : publicKey
-        ? gun.user(publicKey)
-        : gun
-      keys.forEach(key => (node = node.get(key)))
+        ? require('../services/gunDB/Mediator')
+            .getGun()
+            .user(publicKey)
+        : require('../services/gunDB/Mediator').getGun()
 
-      return new Promise(res => {
-        const listener = async data => {
-          if (publicKeyForDecryption) {
-            res(
-              await GunWriteRPC.deepDecryptIfNeeded(
-                data,
-                publicKeyForDecryption,
-                epubForDecryption
-              )
-            )
-          } else {
-            res(data)
-          }
-        }
-
-        if (type === 'once') node.once(listener)
-        if (type === 'load') node.load(listener)
+      keys.forEach(key => {
+        node = node.get(key)
       })
+
+      const listener = async data => {
+        if (publicKeyForDecryption || epubForDecryption) {
+          res(
+            await GunWriteRPC.deepDecryptIfNeeded(
+              data,
+              publicKeyForDecryption,
+              epubForDecryption
+            )
+          )
+        } else {
+          res(data)
+        }
+      }
+
+      if (type === 'once') node.on(listener)
+      if (type === 'load') node.open(listener)
     })
-  }
 
   /**
    * Used decryption of incoming data.
