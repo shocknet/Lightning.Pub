@@ -3,7 +3,7 @@ const fetch = require('node-fetch')
 const Storage = require('node-persist')
 const { listPeers, connectPeer,getInfo } = require('./v2')
 
-const handlerBaseUrl = "https://channels.shock.network"
+const handlerBaseUrl = "https://channels.shock.network:4444"
 
 /**
  * 
