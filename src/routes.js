@@ -486,7 +486,11 @@ module.exports = async (
   })
 
   app.get('/tunnel/status', async (req, res) => {
-    res.json({ uri: await Storage.getItem('tunnel/url') })
+    const [relayId, relayUrl] = await Promise.all([
+      Storage.getItem('relay/id'),
+      Storage.getItem('relay/url')
+    ])
+    res.json({ uri: `${relayId}@${relayUrl}` })
   })
 
   /**
