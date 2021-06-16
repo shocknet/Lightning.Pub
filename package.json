@@ -1,6 +1,6 @@
 {
   "name": "shockapi",
-  "version": "2021.6.15",
+  "version": "2021.6.16",
   "description": "",
   "main": "src/server.js",
   "scripts": {
