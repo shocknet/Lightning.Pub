@@ -41,7 +41,7 @@
     "graphviz": "0.0.8",
     "grpc": "1.24.4",
     "gun": "git://github.com/amark/gun#97aa976c97e6219a9f93095d32c220dcd371ca62",
-    "hybrid-relay-client": "git://github.com/shocknet/hybridRelayClient#fe1db735657e740ceb7915fedce612dea545ddf5",
+    "hybrid-relay-client": "git://github.com/shocknet/hybridRelayClient#b84b959f7ce70a07f9e4a313afedbca6453d17d1",
     "husky": "^4.2.5",
     "jsonfile": "^4.0.0",
     "jsonwebtoken": "^8.3.0",
