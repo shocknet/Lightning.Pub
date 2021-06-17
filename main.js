@@ -18,6 +18,7 @@ program
 	.option("-c, --mainnet", "run server on mainnet mode")
 	.option("-t, --tunnel","create a localtunnel to listen behind a firewall")
 	.option('-r, --lndaddress', 'Lnd address, defaults to 127.0.0.1:9735')
+	.option('-w, --deployment-type <deploymentType>', 'deployment type (wizard, non-wizard)')
 	.parse(process.argv);
 
 // load server

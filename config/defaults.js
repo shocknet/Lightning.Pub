@@ -50,6 +50,7 @@ module.exports = (mainnet = false) => {
     peers: ['https://gun.shock.network/gun','https://gun-eu.shock.network'],
     useTLS: false,
     tokenExpirationMS: 259200000,
-    localtunnelHost:'https://tunnel.rip'
+    localtunnelHost:'https://tunnel.rip',
+    deploymentType: 'non-wizard'
   }; 
 };

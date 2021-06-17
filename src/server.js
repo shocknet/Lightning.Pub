@@ -379,6 +379,7 @@ const server = program => {
         app,
         {
           ...defaults,
+          deploymentType: program.deploymentType || defaults.deploymentType,
           lndAddress: program.lndAddress
         },
         Sockets,
