@@ -218,7 +218,11 @@ const server = program => {
 
       await new Promise((resolve, reject) => {
         LightningServices.services.lightning.getInfo({}, (err, res) => {
-          if (err && err.code !== 12) {
+          if (
+            err &&
+            !err.details.includes('wallet not created') &&
+            !err.details.includes('wallet locked')
+          ) {
             reject(err)
           } else {
             resolve()

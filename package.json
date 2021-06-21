@@ -1,6 +1,6 @@
 {
   "name": "shockapi",
-  "version": "2021.6.15",
+  "version": "2021.6.21",
   "description": "",
   "main": "src/server.js",
   "scripts": {
@@ -57,7 +57,7 @@
     "request-promise": "^4.2.6",
     "response-time": "^2.3.2",
     "shelljs": "^0.8.2",
-    "shock-common": "^34.0.0",
+    "shock-common": "^37.0.0",
     "socket.io": "4.0.1",
     "socket.io-msgpack-parser": "^3.0.1",
     "text-encoding": "^0.7.0",
