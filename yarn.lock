@@ -3606,9 +3606,9 @@ husky@^4.2.5:
     slash "^3.0.0"
     which-pm-runs "^1.0.0"
 
-"hybrid-relay-client@git://github.com/shocknet/hybridRelayClient#b84b959f7ce70a07f9e4a313afedbca6453d17d1":
+"hybrid-relay-client@git://github.com/shocknet/hybridRelayClient#a99e57794cf7a62f0f5b6aef53a35d6b77d0a889":
   version "1.0.0"
-  resolved "git://github.com/shocknet/hybridRelayClient#b84b959f7ce70a07f9e4a313afedbca6453d17d1"
+  resolved "git://github.com/shocknet/hybridRelayClient#a99e57794cf7a62f0f5b6aef53a35d6b77d0a889"
   dependencies:
     node-fetch "^2.6.1"
     socket.io-client "^4.1.2"
