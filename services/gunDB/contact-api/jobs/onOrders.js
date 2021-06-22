@@ -255,7 +255,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
     //logger.info(`[PERF] Added invoice to GunDB in ${invoicePutEndTime}ms`)
     /**
      *
-     * @param {Common.Schema.InvoiceWhenListed & {r_hash:Buffer,payment_addr:string}} paidInvoice
+     * @param {Common.Schema.InvoiceWhenListed & {r_hash:Buffer,payment_addr:Buffer}} paidInvoice
      */
     const invoicePaidCb = async paidInvoice => {
       console.log('INVOICE  PAID')
@@ -265,8 +265,9 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       const {
         amt_paid_sat: amt,
         add_index: addIndex,
-        payment_addr: paymentAddr
+        payment_addr
       } = paidInvoice
+      const paymentAddr = payment_addr.toString('hex')
       const orderType = serviceOrderType || order.targetType
       const { ackInfo } = order //a string representing what has been requested
       switch (orderType) {
