@@ -288,6 +288,30 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
             'TIPPED YOU',
             amt + ' sats'
           )
+          const ackData = { tippedPost: postID }
+          const toSend = JSON.stringify(ackData)
+          const encrypted = await SEA.encrypt(toSend, secret)
+          const ordResponse = {
+            type: 'orderAck',
+            response: encrypted
+          }
+          await new Promise((res, rej) => {
+            getUser()
+              .get(Key.ORDER_TO_RESPONSE)
+              .get(ackNode)
+              .put(ordResponse, ack => {
+                if (ack.err && typeof ack.err !== 'number') {
+                  rej(
+                    new Error(
+                      `Error saving encrypted orderAck to order to response usergraph: ${ack}`
+                    )
+                  )
+                } else {
+                  res(null)
+                }
+              })
+          })
+          orderMetadata = JSON.stringify(ackData)
           break
         }
         case 'spontaneousPayment': {
@@ -376,7 +400,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
               })
           })
           console.log('RES SENT CONTENT')
-          orderMetadata = JSON.stringify(ordResponse)
+          orderMetadata = JSON.stringify(ackData)
           break
         }
         case 'torrentSeed': {
@@ -423,7 +447,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
               })
           })
           console.log('RES SENT SEED')
-          orderMetadata = JSON.stringify(serviceResponse)
+          orderMetadata = JSON.stringify(ackData)
           break
         }
         case 'other': //not implemented yet but save them as a coordinate anyways
