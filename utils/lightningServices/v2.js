@@ -578,7 +578,7 @@ const addInvoice = (value, memo = '', confidential = true, expiry = 180) =>
  *
  */
 /**
- * @param {(invoice:Common.Schema.InvoiceWhenListed & {r_hash:Buffer,payment_addr:string}) => (boolean | undefined)} dataCb
+ * @param {(invoice:Common.Schema.InvoiceWhenListed & {r_hash:Buffer,payment_addr:Buffer}) => (boolean | undefined)} dataCb
  * @param {(error:lndErr) => void} errorCb
  */
 const subscribeInvoices = (dataCb, errorCb) => {

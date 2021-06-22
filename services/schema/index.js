@@ -429,7 +429,7 @@ return orderedOrders
 }*/
 
   /**
-   * @typedef {Common.Schema.InvoiceWhenListed & {r_hash:Buffer,payment_addr:string}} Invoice
+   * @typedef {Common.Schema.InvoiceWhenListed & {r_hash:Buffer,payment_addr:Buffer}} Invoice
    */
   /**
    * @type {Record<string,(invoice:Invoice) =>void>}
@@ -448,7 +448,7 @@ return orderedOrders
 
   /**
    * 
-   * @param {Common.Schema.InvoiceWhenListed & {r_hash:Buffer,payment_addr:string}} data 
+   * @param {Common.Schema.InvoiceWhenListed & {r_hash:Buffer,payment_addr:Buffer}} data 
    */
   invoiceStreamDataCb(data) {
     if (!data.settled) {
@@ -468,7 +468,7 @@ return orderedOrders
         coordinateIndex: parseInt(data.add_index, 10),
         inbound: true,
         amount: amt,
-        toLndPub: data.payment_addr,
+        toLndPub: data.payment_addr.toString('hex'),
         invoiceMemo: data.memo
       })
     }
