@@ -419,18 +419,22 @@ const server = program => {
         console.log(opts)
         relayClient.default(opts, async (connected, params) => {
           if (connected) {
+            const noProtocolAddress = params.address.replace(
+              /^http(s)?:\/\//gi, // eslint-disable-line
+              ''
+            )
             await Promise.all([
               Storage.setItem('relay/token', params.relayToken),
               Storage.setItem('relay/id', params.relayId),
-              Storage.setItem('relay/url', params.address)
+              Storage.setItem('relay/url', noProtocolAddress)
             ])
             const dataToQr = JSON.stringify({
-              internalIP: `${params.relayId}@${params.address}`,
+              internalIP: `${params.relayId}@${noProtocolAddress}`,
               walletPort: 443,
-              externalIP: `${params.relayId}@${params.address}`
+              externalIP: `${params.relayId}@${noProtocolAddress}`
             })
             qrcode.generate(dataToQr, { small: true })
-            console.log(`connect to ${params.relayId}@${params.address}`)
+            console.log(`connect to ${params.relayId}@${noProtocolAddress}`)
           } else {
             logger.error('!! Relay did not connect to server !!')
           }
