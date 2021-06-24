@@ -420,7 +420,7 @@ const server = program => {
         relayClient.default(opts, async (connected, params) => {
           if (connected) {
             const noProtocolAddress = params.address.replace(
-              /^http(s)?:\/\//gi, // eslint-disable-line
+              /^http(?<secure>s)?:\/\//giu,
               ''
             )
             await Promise.all([
