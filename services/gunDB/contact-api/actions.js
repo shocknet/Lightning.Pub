@@ -1213,9 +1213,17 @@ const sendSpontaneousPayment = async (
       throw e
     }
 
+    const decryptedResponse = await SEA.decrypt(
+      encryptedOrderAckRes.response,
+      ourSecret
+    )
+    logger.info(`decryptedResponse: `, decryptedResponse)
+    const parsedResponse = JSON.parse(decryptedResponse)
+    logger.info(`parsedResponse: `, parsedResponse)
+
     /** @type {import('shock-common').Schema.OrderResponse} */
     const orderAck = {
-      response: await SEA.decrypt(encryptedOrderAckRes.response, ourSecret),
+      response: parsedResponse,
       type: encryptedOrderAckRes.type
     }
 
