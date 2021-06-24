@@ -110,5 +110,8 @@
     "hooks": {
       "pre-commit": "yarn lint && yarn typecheck && yarn lint-staged"
     }
+  },
+  "engines": {
+    "npm": "Use yarn!"
   }
 }
