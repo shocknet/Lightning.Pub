@@ -99,7 +99,7 @@ module.exports = async (
       return {
         LNDStatus,
         APIStatus,
-        deploymentType: process.env.DEPLOYMENT_TYPE || 'non-wizard'
+        deploymentType: process.env.DEPLOYMENT_TYPE || 'default'
       }
     } catch (err) {
       logger.error(err)
@@ -112,7 +112,7 @@ module.exports = async (
       return {
         LNDStatus,
         APIStatus,
-        deploymentType: process.env.DEPLOYMENT_TYPE || 'non-wizard'
+        deploymentType: process.env.DEPLOYMENT_TYPE || 'default'
       }
     }
   }
