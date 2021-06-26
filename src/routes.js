@@ -98,7 +98,8 @@ module.exports = async (
       logger.info('Received API status!', APIStatus)
       return {
         LNDStatus,
-        APIStatus
+        APIStatus,
+        deploymentType: process.env.DEPLOYMENT_TYPE || 'default'
       }
     } catch (err) {
       logger.error(err)
@@ -110,7 +111,8 @@ module.exports = async (
       logger.warn('Failed to retrieve API status', APIStatus)
       return {
         LNDStatus,
-        APIStatus
+        APIStatus,
+        deploymentType: process.env.DEPLOYMENT_TYPE || 'default'
       }
     }
   }
