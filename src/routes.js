@@ -3116,53 +3116,97 @@ module.exports = async (
   ap.get('/api/gun/once/:path', async (req, res) => {
     const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
     const { path } = req.params
-    res.status(200).json({
-      data: await handleGunFetch({
+    try {
+      const data = await handleGunFetch({
         path,
         startFromUserGraph: false,
         type: 'once',
         publicKeyForDecryption
       })
-    })
+      res.status(200).json({
+        data
+      })
+    } catch (err) {
+      logger.error('error in rpc once')
+      logger.error(err)
+      res
+        .status(err.message === Common.Constants.ErrorCode.NOT_AUTH ? 401 : 500)
+        .json({
+          errorMessage: err.message
+        })
+    }
   })
 
   ap.get('/api/gun/load/:path', async (req, res) => {
     const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
     const { path } = req.params
-    res.status(200).json({
-      data: await handleGunFetch({
+    try {
+      const data = await handleGunFetch({
         path,
         startFromUserGraph: false,
         type: 'load',
         publicKeyForDecryption
       })
-    })
+      res.status(200).json({
+        data
+      })
+    } catch (err) {
+      logger.error('error in rpc load')
+      logger.error(err)
+      res
+        .status(err.message === Common.Constants.ErrorCode.NOT_AUTH ? 401 : 500)
+        .json({
+          errorMessage: err.message
+        })
+    }
   })
 
   ap.get('/api/gun/user/once/:path', async (req, res) => {
     const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
     const { path } = req.params
-    res.status(200).json({
-      data: await handleGunFetch({
+    try {
+      const data = await handleGunFetch({
         path,
         startFromUserGraph: true,
         type: 'once',
         publicKeyForDecryption
       })
-    })
+      res.status(200).json({
+        data
+      })
+    } catch (err) {
+      logger.error('error in rpc once user')
+      logger.error(err)
+      res
+        .status(err.message === Common.Constants.ErrorCode.NOT_AUTH ? 401 : 500)
+        .json({
+          errorMessage: err.message
+        })
+    }
   })
 
   ap.get('/api/gun/user/load/:path', async (req, res) => {
     const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
     const { path } = req.params
-    res.status(200).json({
-      data: await handleGunFetch({
+    try {
+      const data = await handleGunFetch({
         path,
         startFromUserGraph: true,
         type: 'load',
         publicKeyForDecryption
       })
-    })
+      res.status(200).json({
+        data
+      })
+    } catch (err) {
+      logger.error('error in rpc load user')
+      logger.error(err)
+      res
+        .status(err.message === Common.Constants.ErrorCode.NOT_AUTH ? 401 : 500)
+        .json({
+          errorMessage: err.message
+        })
+    }
   })
 
   ap.get('/api/gun/otheruser/:publicKey/:type/:path', async (req, res) => {
