@@ -137,7 +137,14 @@ const decryptMessage = async ({ encryptedMessage, deviceId }) => {
     const parsedMessage = decryptedMessage.toString('utf8')
     return parsedMessage
   } catch (err) {
-    console.error(err)
+    if (err.message?.toLowerCase() === 'bad mac') {
+      console.error(
+        'Bad Mac!',
+        err,
+        convertToEncryptedMessage(encryptedMessage)
+      )
+    }
+
     throw err
   }
 }
