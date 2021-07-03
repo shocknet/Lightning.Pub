@@ -10,6 +10,7 @@ const { getGun, getUser, isAuthenticated } = require('../Mediator')
 const { deepDecryptIfNeeded } = require('../rpc')
 const Subscriptions = require('./subscriptions')
 const GunEvents = require('../contact-api/events')
+const GunActions = require('../../gunDB/contact-api/actions')
 const {
   encryptedEmit,
   encryptedOn,
@@ -241,6 +242,12 @@ const startSocket = socket => {
     if (!isAuthenticated()) {
       logger.warn('GunDB is not yet authenticated')
       socket.emit(Common.Constants.ErrorCode.NOT_AUTH)
+    }
+
+    if (isAuthenticated()) {
+      socket.onAny(() => {
+        GunActions.setLastSeenApp()
+      })
     }
 
     on('subscribe:query', ({ $shock, publicKey }, response) => {
