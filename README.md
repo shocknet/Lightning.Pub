@@ -15,7 +15,8 @@ Run this service on your Lightning node and connect with a mobile device or desk
 - [Easy Installation](#easy-installation)
 - [Manual Installation](#manual-installation)
 - [Docker Usage](#docker-usage)
-- [Docker for Raspberry Pi](#docker-for-raspberry-pi)
+- [Node Security](#node-security)
+<!--- - [Docker for Raspberry Pi](#docker-for-raspberry-pi) -->
 ---
 ### Easy Installation
 
@@ -65,11 +66,11 @@ Example of running an local instance:
 ```
 docker run shockwallet/api:latest -h 0.0.0.0 -c
 ```
-
+<!---
 ### Docker for Raspberry Pi
 
 * [Instructions](https://gist.github.com/boufni95/3f4e1f19cf9525c3b7741b7a29f122bc)
-
+-->
 
 ### Node Security 
 
