@@ -69,3 +69,19 @@ docker run shockwallet/api:latest -h 0.0.0.0 -c
 ### Docker for Raspberry Pi
 
 * [Instructions](https://gist.github.com/boufni95/3f4e1f19cf9525c3b7741b7a29f122bc)
+
+
+### Node Security 
+
+Shockwallet authenticates to the API with the keys of the `GUN` user. Where the API itself typically has full macaroon access to LND, we've implemented an extra security measure at user enrollment to whitelist these keys and prevent rogue authentication.
+
+If installing the ShockAPI onto a pre-existing LND node instance, the decryption passphrase must be proven at user enrollment. This requires LND to be in a locked state when creating the user, and the `GUN` password to be synchronized with the LND decryption phrase. 
+
+The API will verify the defined `GUN` password unlocks LND before completing enrollment, and can thus be used in the future to directly unlock LND from Shockwallet. This will restrict authentication to the API to only this `GUN` key, to change or add alternative user will require repeating this **"lock and enroll"** process.
+
+There are advanced or testing scenarios where you may wish to bypass this sync and whitelist mechanism, to do so pass the env `TRUSTED_KEYS=false`
+
+_New LND nodes will automatically use the `GUN` user password as their decryption phrase upon creation._
+
+
+
