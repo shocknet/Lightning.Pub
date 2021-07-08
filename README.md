@@ -11,6 +11,12 @@ This is an alpha release of the Shockwallet backend service, providing a wrapper
 
 Run this service on your Lightning node and connect with a mobile device or desktop browser.
 
+---
+- [Easy Installation](#easy-installation)
+- [Manual Installation](#manual-installation)
+- [Docker Usage](#docker-usage)
+- [Docker for Raspberry Pi](#docker-for-raspberry-pi)
+---
 ### Easy Installation
 
 For easy setup on your Laptop/Desktop, [a node wizard is available here.](https://github.com/shocknet/wizard)
@@ -47,6 +53,18 @@ yarn install
 
 *Optionally, add the `-t` flag to route through a tunnel.rip webserver for zero-configuration networking. All communication between the api and wallet is end-to-end encrypted and your privacy is protected.*
 
+### Docker Usage
+To run ShockAPI in a fully isolated environment you can use the Docker image
+provided on the Docker Hub and easily interact with API's CLI interface and flags.
+
+Example of listing available configuration flags:
+```
+docker run --rm shockwallet/api:latest --help
+```
+Example of running an local instance:
+```
+docker run shockwallet/api:latest -h 0.0.0.0 -c
+```
 
 ### Docker for Raspberry Pi
 
