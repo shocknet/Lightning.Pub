@@ -83,5 +83,5 @@ There are advanced or testing scenarios where you may wish to bypass this sync a
 
 _New LND nodes will automatically use the `GUN` user password as their decryption phrase upon creation._
 
-
+All communication between the wallet and API is end-to-end encryption regardless of whether or not SSL is used, though an SSL equipped reverse proxy is recommended for better usability with the wallet PWA. Running with `-t` enables the built-in SSL tunnel provider for ease of use and zero-configuratin networking.
 
