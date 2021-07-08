@@ -77,7 +77,7 @@ Shockwallet authenticates to the API with the keys of the `GUN` user. Where the 
 
 If installing the ShockAPI onto a pre-existing LND node instance, the decryption passphrase must be proven at user enrollment. This requires LND to be in a locked state when creating the user, and the `GUN` password to be synchronized with the LND decryption phrase. 
 
-The API will verify the defined `GUN` password unlocks LND before completing enrollment, and can thus be used in the future to directly unlock LND from Shockwallet. This will restrict authentication to the API to only this `GUN` key, to change or add alternative user will require repeating this **"lock and enroll"** process.
+The API will verify the defined `GUN` password unlocks LND before completing enrollment, and can thus be used in the future to directly unlock LND from Shockwallet. This will restrict authentication to only this `GUN` key. Changing or adding alternative users will require repeating this **"lock and enroll"** process.
 
 There are advanced or testing scenarios where you may wish to bypass this sync and whitelist mechanism, to do so pass the env `TRUSTED_KEYS=false`
 
