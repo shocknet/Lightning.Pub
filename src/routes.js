@@ -37,6 +37,7 @@ const GunWriteRPC = require('../services/gunDB/rpc')
 const Key = require('../services/gunDB/contact-api/key')
 const { startedStream, endStream } = require('../services/streams')
 const channelRequest = require('../utils/lightningServices/channelRequests')
+const TipsForwarder = require('../services/tipsCallback')
 
 const DEFAULT_MAX_NUM_ROUTES_TO_QUERY = 10
 const SESSION_ID = uuid()
@@ -2291,11 +2292,20 @@ module.exports = async (
 
   app.post(`/api/gun/wall/`, async (req, res) => {
     try {
-      const { tags, title, contentItems } = req.body
+      const { tags, title, contentItems, enableTipsOverlay } = req.body
       const SEA = require('../services/gunDB/Mediator').mySEA
-      return res
-        .status(200)
-        .json(await GunActions.createPostNew(tags, title, contentItems, SEA))
+      const postRes = await GunActions.createPostNew(
+        tags,
+        title,
+        contentItems,
+        SEA
+      )
+      if (enableTipsOverlay) {
+        const [postID] = postRes
+        const accessId = TipsForwarder.enablePostNotifications(postID)
+        return res.status(200).json([...postRes, accessId])
+      }
+      return res.status(200).json(postRes)
     } catch (e) {
       console.log(e)
       return res.status(500).json({
@@ -3347,6 +3357,18 @@ module.exports = async (
   //this is for OBS notifications, not wired with UI.
   ap.get('/api/subscribeStream', (req, res) => {
     res.sendFile(path.join(__dirname, '/index.html'))
+  })
+  ap.post('/api/enableNotificationsOverlay', (req, res) => {
+    const { postID } = req.body
+    if (!postID) {
+      return res.status(400).json({
+        errorMessage: 'no post id provided'
+      })
+    }
+    const accessId = TipsForwarder.enablePostNotifications(postID)
+    res.json({
+      accessId
+    })
   })
   //this is for wasLive/isLive status
   ap.post('/api/listenStream', (req, res) => {

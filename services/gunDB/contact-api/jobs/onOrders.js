@@ -286,7 +286,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
           TipForwarder.notifySocketIfAny(
             postID,
             order.from,
-            'TIPPED YOU',
+            paidInvoice.memo || 'TIPPED YOU',
             amt + ' sats'
           )
           const ackData = { tippedPost: postID }
