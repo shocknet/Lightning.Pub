@@ -51,8 +51,8 @@
 </head>
 <body>
     <div class="main">
-        <div class="content hide">
-            <p id="content-name">fdsigfudfsbigbfduigbdfb</p>
+        <div class="content">
+            <p id="content-name">some random name i dont know</p>
             <p id="content-message">JUST TIPPED YOU!</p>
             <p id="content-amount">100sats</p>
         </div>
@@ -61,9 +61,9 @@
     console.log(location.origin)
     const queryString = window.location.search;
     const urlParams = new URLSearchParams(queryString);
-    const postID = urlParams.get("postID")
+    const accessId = urlParams.get("accessId")
     var socket = io(`${location.origin}/streams`);
-    socket.emit("postID",postID)
+    socket.emit("accessId",accessId)
     let latestTimeout = null
     socket.on("update",(update)=>{
         const name = document.querySelector("#content-name")

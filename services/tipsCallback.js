@@ -1,8 +1,21 @@
 //@ts-nocheck TODO- fix types
+const { gunUUID } = require("../utils")
 class TipsCB {
     listeners = {}
 
-    addSocket(postID,socket){
+    postsEnabled = {}
+    
+    enablePostNotifications(postID){
+        const accessId = gunUUID()
+        this.postsEnabled[accessId] = postID
+        return accessId
+    }
+
+    addSocket(accessId,socket){
+        if(!this.postsEnabled[accessId]){
+            return "invalid access id"
+        }
+        const postID = this.postsEnabled[accessId]
         console.log("subbing new socket for post: "+postID)
         
         if(!this.listeners[postID]){
