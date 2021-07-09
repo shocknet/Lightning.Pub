@@ -10,7 +10,7 @@ const { asyncFilter } = require('./helpers')
  */
 const gunUUID = () => {
   // @ts-expect-error Not typed
-  const uuid = Gun.Text.random()
+  const uuid = Gun.text.random()
 
   return uuid
 }
