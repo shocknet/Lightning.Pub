@@ -48,22 +48,33 @@
         }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js" integrity="sha512-q/dWJ3kcmjBLU4Qc47E4A9kTB4m3wuTY7vkFJDTZKjTs8jhyGQnaUrxa0Ytd0ssMZhbNua9hE+E7Qv1j+DyZwA==" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/3.1.3/socket.io.msgpack.min.js" crossorigin="anonymous"></script>
 </head>
 <body>
     <div class="main">
-        <div class="content">
+        <div class="content hide">
             <p id="content-name">some random name i dont know</p>
             <p id="content-message">JUST TIPPED YOU!</p>
             <p id="content-amount">100sats</p>
         </div>
     </div>
     <script>
-    console.log(location.origin)
     const queryString = window.location.search;
     const urlParams = new URLSearchParams(queryString);
     const accessId = urlParams.get("accessId")
-    var socket = io(`${location.origin}/streams`);
-    socket.emit("accessId",accessId)
+    const relayId = urlParams.get("x-shock-hybrid-relay-id-x")
+    
+    const socketSetting = {
+        reconnection: true,
+        rejectUnauthorized: false,
+        withCredentials: true,
+        transports: ["websocket"]
+    }
+    var socket = io(`${location.origin}/streams`,socketSetting);
+    socket.emit('hybridRelayId',{id:relayId})
+    socket.on("connect", () => {
+        setTimeout(()=>{socket.emit("accessId",accessId)},500)
+    })
     let latestTimeout = null
     socket.on("update",(update)=>{
         const name = document.querySelector("#content-name")
