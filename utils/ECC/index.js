@@ -1,6 +1,7 @@
 /** @format */
 const ECCrypto = require('eccrypto')
 const Storage = require('node-persist')
+const logger = require('winston')
 const FieldError = require('../fieldError')
 const {
   convertBufferToBase64,
@@ -39,21 +40,35 @@ const isEncryptedMessage = message =>
  * @param {string} deviceId
  */
 const generateKeyPair = deviceId => {
-  const privateKey = ECCrypto.generatePrivate()
-  const publicKey = ECCrypto.getPublic(privateKey)
-  const privateKeyBase64 = convertBufferToBase64(privateKey)
-  const publicKeyBase64 = convertBufferToBase64(publicKey)
+  try {
+    const privateKey = ECCrypto.generatePrivate()
+    const publicKey = ECCrypto.getPublic(privateKey)
+    const privateKeyBase64 = convertBufferToBase64(privateKey)
+    const publicKeyBase64 = convertBufferToBase64(publicKey)
 
-  nodeKeyPairs.set(deviceId, {
-    privateKey,
-    publicKey
-  })
+    if (!Buffer.isBuffer(privateKey) || !Buffer.isBuffer(publicKey)) {
+      throw new Error('Invalid KeyPair Generated')
+    }
 
-  return {
-    privateKey,
-    publicKey,
-    privateKeyBase64,
-    publicKeyBase64
+    nodeKeyPairs.set(deviceId, {
+      privateKey,
+      publicKey
+    })
+
+    return {
+      privateKey,
+      publicKey,
+      privateKeyBase64,
+      publicKeyBase64
+    }
+  } catch (err) {
+    logger.error(
+      '[ENCRYPTION] An error has occurred while generating a new KeyPair',
+      err
+    )
+    logger.error('Device ID:', deviceId)
+
+    throw err
   }
 }
 
@@ -119,9 +134,8 @@ const encryptMessage = async ({ message = '', deviceId }) => {
  * @param {{ encryptedMessage: EncryptedMessage, deviceId: string }} arg0
  */
 const decryptMessage = async ({ encryptedMessage, deviceId }) => {
+  const keyPair = nodeKeyPairs.get(deviceId)
   try {
-    const keyPair = nodeKeyPairs.get(deviceId)
-
     if (!keyPair) {
       throw new FieldError({
         field: 'deviceId',
@@ -141,7 +155,8 @@ const decryptMessage = async ({ encryptedMessage, deviceId }) => {
       console.error(
         'Bad Mac!',
         err,
-        convertToEncryptedMessage(encryptedMessage)
+        convertToEncryptedMessage(encryptedMessage),
+        !!keyPair
       )
     }
 
