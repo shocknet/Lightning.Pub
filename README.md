@@ -57,14 +57,19 @@ yarn install
 To run ShockAPI in a fully isolated environment you can use the Docker image
 provided on the Docker Hub and easily interact with API's CLI interface and flags.
 
+#### Prerequisites
+To interact with ShockAPI's Docker image you need an instance of LND running and
+also if your configs, LND related files and certificates are located on a local file system you'll need to mount **Docker Volumes** pointed to them while starting the container.
+
 Example of listing available configuration flags:
 ```
 docker run --rm shockwallet/api:latest --help
 ```
-Example of running an local instance:
+Example of running an local instance with mounted volumes:
 ```
-docker run shockwallet/api:latest -h 0.0.0.0 -c
+docker run -v /home/$USER/.lnd:/root/.lnd --network host shockwallet/api:latest
 ```
+
 <!---
 ### Docker for Raspberry Pi
 
