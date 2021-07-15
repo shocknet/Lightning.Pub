@@ -806,7 +806,9 @@ module.exports = async (
 
         onNewChannelBackup()
 
-        channelRequest(invite)
+        setTimeout(() => {
+          channelRequest(invite)
+        }, 30 * 1000)
         res.json({
           authorization: token,
           user: {
@@ -967,7 +969,9 @@ module.exports = async (
                       await LightningServices.init()
 
                       const token = await auth.generateToken()
-                      channelRequest(invite)
+                      setTimeout(() => {
+                        channelRequest(invite)
+                      }, 30 * 1000)
                       return res.json({
                         mnemonicPhrase,
                         authorization: token,
@@ -1072,7 +1076,9 @@ module.exports = async (
 
       // Generate Access Token
       const token = await auth.generateToken()
-      channelRequest(invite)
+      setTimeout(() => {
+        channelRequest(invite)
+      }, 30 * 1000)
       res.json({
         authorization: token,
         user: {
