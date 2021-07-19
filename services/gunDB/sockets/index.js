@@ -9,11 +9,7 @@ const uuidv4 = require('uuid/v4')
 const { getGun, getUser, isAuthenticated } = require('../Mediator')
 const { deepDecryptIfNeeded } = require('../rpc')
 const Subscriptions = require('./subscriptions')
-<<<<<<< HEAD
-const GunEvents = require('../contact-api/events')
 const GunActions = require('../../gunDB/contact-api/actions')
-=======
->>>>>>> a8235aa... No hardcoded events in gun socket rpc
 const {
   encryptedEmit,
   encryptedOn,
