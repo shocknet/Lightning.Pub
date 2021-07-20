@@ -3096,6 +3096,7 @@ module.exports = async (
      * @prop {string} path
      * @prop {string=} publicKey
      * @prop {string=} publicKeyForDecryption
+     * @prop {string=} epubForDecryption
      */
     /**
      * @param {HandleGunFetchParams} args0
@@ -3106,7 +3107,8 @@ module.exports = async (
       startFromUserGraph,
       path,
       publicKey,
-      publicKeyForDecryption
+      publicKeyForDecryption,
+      epubForDecryption
     }) => {
       const keys = path.split('>')
       const { tryAndWait } = require('../services/gunDB/contact-api/utils')
@@ -3125,7 +3127,8 @@ module.exports = async (
               res(
                 await GunWriteRPC.deepDecryptIfNeeded(
                   data,
-                  publicKeyForDecryption
+                  publicKeyForDecryption,
+                  epubForDecryption
                 )
               )
             } else {
@@ -3143,118 +3146,79 @@ module.exports = async (
      * Used decryption of incoming data.
      */
     const PUBKEY_FOR_DECRYPT_HEADER = 'public-key-for-decryption'
+    /**
+     * Used decryption of incoming data.
+     */
+    const EPUB_FOR_DECRYPT_HEADER = 'epub-for-decryption'
 
     ap.get('/api/gun/once/:path', async (req, res) => {
       const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
+      const epubForDecryption = req.header(EPUB_FOR_DECRYPT_HEADER)
       const { path } = req.params
       logger.info(`gun ONCE: ${path}`)
-      try {
-        const data = await handleGunFetch({
+      res.status(200).json({
+        data: await handleGunFetch({
           path,
           startFromUserGraph: false,
           type: 'once',
-          publicKeyForDecryption
+          publicKeyForDecryption,
+          epubForDecryption
         })
-        res.status(200).json({
-          data
-        })
-      } catch (err) {
-        logger.error('error in rpc once')
-        logger.error(err)
-        res
-          .status(
-            err.message === Common.Constants.ErrorCode.NOT_AUTH ? 401 : 500
-          )
-          .json({
-            errorMessage: err.message
-          })
-      }
+      })
     })
 
     ap.get('/api/gun/load/:path', async (req, res) => {
       const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
+      const epubForDecryption = req.header(EPUB_FOR_DECRYPT_HEADER)
       const { path } = req.params
       logger.info(`gun LOAD: ${path}`)
-      try {
-        const data = await handleGunFetch({
+      res.status(200).json({
+        data: await handleGunFetch({
           path,
           startFromUserGraph: false,
           type: 'load',
-          publicKeyForDecryption
+          publicKeyForDecryption,
+          epubForDecryption
         })
-        res.status(200).json({
-          data
-        })
-      } catch (err) {
-        logger.error('error in rpc load')
-        logger.error(err)
-        res
-          .status(
-            err.message === Common.Constants.ErrorCode.NOT_AUTH ? 401 : 500
-          )
-          .json({
-            errorMessage: err.message
-          })
-      }
+      })
     })
 
     ap.get('/api/gun/user/once/:path', async (req, res) => {
       const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
+      const epubForDecryption = req.header(EPUB_FOR_DECRYPT_HEADER)
       const { path } = req.params
       logger.info(`gun otheruser ONCE: ${path}`)
-      try {
-        const data = await handleGunFetch({
+      res.status(200).json({
+        data: await handleGunFetch({
           path,
           startFromUserGraph: true,
           type: 'once',
-          publicKeyForDecryption
+          publicKeyForDecryption,
+          epubForDecryption
         })
-        res.status(200).json({
-          data
-        })
-      } catch (err) {
-        logger.error('error in rpc once user')
-        logger.error(err)
-        res
-          .status(
-            err.message === Common.Constants.ErrorCode.NOT_AUTH ? 401 : 500
-          )
-          .json({
-            errorMessage: err.message
-          })
-      }
+      })
     })
 
     ap.get('/api/gun/user/load/:path', async (req, res) => {
       const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
+      const epubForDecryption = req.header(EPUB_FOR_DECRYPT_HEADER)
       const { path } = req.params
       logger.info(`gun otheruser LOAD: ${path}`)
-      try {
-        const data = await handleGunFetch({
+      res.status(200).json({
+        data: await handleGunFetch({
           path,
           startFromUserGraph: true,
           type: 'load',
-          publicKeyForDecryption
+          publicKeyForDecryption,
+          epubForDecryption
         })
-        res.status(200).json({
-          data
-        })
-      } catch (err) {
-        logger.error('error in rpc load user')
-        logger.error(err)
-        res
-          .status(
-            err.message === Common.Constants.ErrorCode.NOT_AUTH ? 401 : 500
-          )
-          .json({
-            errorMessage: err.message
-          })
-      }
+      })
     })
 
     ap.get('/api/gun/otheruser/:publicKey/:type/:path', async (req, res) => {
       const allowedTypes = ['once', 'load', 'open']
       const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
+      const epubForDecryption = req.header(EPUB_FOR_DECRYPT_HEADER)
       const { path /*:rawPath*/, publicKey, type } = req.params
       logger.info(`gun otheruser ${type}: ${path}`)
       // const path = decodeURI(rawPath)
@@ -3278,7 +3242,8 @@ module.exports = async (
             startFromUserGraph: false,
             type,
             publicKey,
-            publicKeyForDecryption
+            publicKeyForDecryption,
+            epubForDecryption
           })
         })
       } catch (err) {

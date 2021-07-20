@@ -335,7 +335,15 @@ const authenticate = async (alias, pass, __user) => {
           },
           ack => {
             if (ack.err && typeof ack.err !== 'number') {
-              rej(new Error(`Error initializing follows: ${ack.err}`))
+              rej(
+                new Error(
+                  `Error initializing follows: ${JSON.stringify(
+                    ack.err,
+                    null,
+                    4
+                  )}`
+                )
+              )
             } else {
               res()
             }
@@ -366,7 +374,15 @@ const authenticate = async (alias, pass, __user) => {
         },
         ack => {
           if (ack.err && typeof ack.err !== 'number') {
-            rej(new Error(`Error initializing follows: ${ack.err}`))
+            rej(
+              new Error(
+                `Error initializing follows: ${JSON.stringify(
+                  ack.err,
+                  null,
+                  4
+                )}`
+              )
+            )
           } else {
             res()
           }
@@ -375,16 +391,10 @@ const authenticate = async (alias, pass, __user) => {
     }))
 
     // move this to a subscription; implement off() ? todo
-    API.Jobs.onAcceptedRequests(_user, mySEA)
     API.Jobs.onOrders(_user, gun, mySEA)
     API.Jobs.lastSeenNode(_user)
 
-    API.Events.onChats(() => {})()
-    API.Events.onCurrentHandshakeAddress(() => {}, user)()
-    API.Events.onOutgoing(() => {})()
     API.Events.onSeedBackup(() => {}, user, mySEA)
-    API.Events.onSimplerReceivedRequests(() => {})()
-    API.Events.onSimplerSentRequests(() => {})()
 
     return _user._.sea.pub
   }
@@ -421,7 +431,15 @@ const authenticate = async (alias, pass, __user) => {
         },
         ack => {
           if (ack.err && typeof ack.err !== 'number') {
-            rej(new Error(`Error initializing follows: ${ack.err}`))
+            rej(
+              new Error(
+                `Error initializing follows: ${JSON.stringify(
+                  ack.err,
+                  null,
+                  4
+                )}`
+              )
+            )
           } else {
             res()
           }
@@ -429,17 +447,10 @@ const authenticate = async (alias, pass, __user) => {
       )
     }))
 
-    API.Jobs.onAcceptedRequests(_user, mySEA)
     API.Jobs.onOrders(_user, gun, mySEA)
     API.Jobs.lastSeenNode(_user)
 
-    API.Events.onChats(() => {})()
-    API.Events.onCurrentHandshakeAddress(() => {}, user)()
-
-    API.Events.onOutgoing(() => {})()
     API.Events.onSeedBackup(() => {}, user, mySEA)
-    API.Events.onSimplerReceivedRequests(() => {})()
-    API.Events.onSimplerSentRequests(() => {})()
 
     return ack.sea.pub
   } else {

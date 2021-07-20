@@ -4,9 +4,5 @@
   "debug.node.autoAttach": "on",
   "editor.formatOnSave": true,
   "editor.defaultFormatter": "esbenp.prettier-vscode",
-  "cSpell.words": [
-    "Epub",
-    "ISEA",
-    "Reqs"
-  ]
+  "cSpell.words": ["Epub", "GUNRPC", "ISEA", "PUBKEY", "Reqs", "uuidv"]
 }

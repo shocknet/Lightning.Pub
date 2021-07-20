@@ -9,14 +9,12 @@ const uuidv4 = require('uuid/v4')
 const { getGun, getUser, isAuthenticated } = require('../Mediator')
 const { deepDecryptIfNeeded } = require('../rpc')
 const Subscriptions = require('./subscriptions')
-const GunEvents = require('../contact-api/events')
 const GunActions = require('../../gunDB/contact-api/actions')
 const {
   encryptedEmit,
   encryptedOn,
   encryptedCallback
 } = require('../../../utils/ECC/socket')
-const auth = require('../../auth/auth')
 
 const ALLOWED_GUN_METHODS = [
   'map',
@@ -36,28 +34,6 @@ const ALLOWED_GUN_METHODS = [
  * @typedef {(data: ValidDataValue, key?: string, _msg?: any, event?: any) => (void | Promise<void>)} GunListener
  * @typedef {{ reconnect: boolean, token: string }} SubscriptionOptions
  */
-
-/**
- * @param {string} token
- * @returns {Promise<boolean>}
- */
-const isValidToken = async token => {
-  const validation = await auth.validateToken(token)
-
-  if (typeof validation !== 'object') {
-    return false
-  }
-
-  if (validation === null) {
-    return false
-  }
-
-  if (typeof validation.valid !== 'boolean') {
-    return false
-  }
-
-  return validation.valid
-}
 
 /**
  * @param {string} root
@@ -121,13 +97,18 @@ const executeGunQuery = (query, method, listener) => {
  * @param {string} queryData.publicKeyForDecryption
  * @param {string} queryData.subscriptionId
  * @param {string} queryData.deviceId
+ * @param {string=} queryData.epubForDecryption
+ * @param {string=} queryData.epubField If the epub is included in the received
+ * data itself. Handshake requests for example, have an epub field.
  * @returns {GunListener}
  */
 const queryListenerCallback = ({
   emit,
   publicKeyForDecryption,
   subscriptionId,
-  deviceId
+  deviceId,
+  epubForDecryption,
+  epubField
 }) => async (data, key, _msg, event) => {
   try {
     const subscription = Subscriptions.get({
@@ -142,8 +123,38 @@ const queryListenerCallback = ({
       })
     }
     const eventName = `query:data`
-    if (publicKeyForDecryption) {
-      const decData = await deepDecryptIfNeeded(data, publicKeyForDecryption)
+    if (publicKeyForDecryption?.length > 15 || epubForDecryption || epubField) {
+      const decData = await deepDecryptIfNeeded(
+        data,
+        publicKeyForDecryption,
+        (() => {
+          if (epubField) {
+            if (Common.isObj(data)) {
+              const epub = data[epubField]
+              if (Common.isPopulatedString(epub)) {
+                return epub
+              }
+
+              logger.error(
+                `Got epubField in a rifle query, but the resulting value obtained is not an string -> `,
+                {
+                  data,
+                  epub
+                }
+              )
+            } else {
+              logger.warn(
+                `Got epubField in a rifle query for a non-object data -> `,
+                {
+                  epubField,
+                  data
+                }
+              )
+            }
+          }
+          return epubForDecryption
+        })()
+      )
       emit(eventName, { subscriptionId, response: { data: decData, key } })
       return
     }
@@ -151,84 +162,6 @@ const queryListenerCallback = ({
     emit(eventName, { subscriptionId, response: { data, key } })
   } catch (err) {
     logger.error(`Error for gun rpc socket: ${err.message}`)
-  }
-}
-
-/**
- * @param {Object} GunSocketOptions
- * @param {() => (import('./subscriptions').Unsubscribe | void)} GunSocketOptions.handler
- * @param {string} GunSocketOptions.subscriptionId
- * @param {string} GunSocketOptions.encryptionId
- * @param {import('socket.io').Socket} GunSocketOptions.socket
- * @returns {(options: SubscriptionOptions, response: (error?: any, data?: any) => void) => Promise<void>}
- */
-const wrap = ({ handler, subscriptionId, encryptionId, socket }) => async (
-  { reconnect, token },
-  response
-) => {
-  try {
-    logger.info('Subscribe function executing...')
-    if (!isAuthenticated()) {
-      logger.warn('GunDB is not yet authenticated')
-      socket.emit(Common.Constants.ErrorCode.NOT_AUTH)
-      return
-    }
-
-    const callback = encryptedCallback(socket, response)
-    const emit = encryptedEmit(socket)
-    const subscription = Subscriptions.get({
-      deviceId: encryptionId,
-      subscriptionId
-    })
-
-    if (subscription && !reconnect) {
-      const error = {
-        field: 'subscription',
-        message:
-          "You're already subscribed to this event, you can re-subscribe again by setting 'reconnect' to true "
-      }
-      logger.error('Duplicate subscription:', error)
-      callback(error)
-      return
-    }
-
-    if (subscription && reconnect) {
-      if (subscription.unsubscribe) {
-        subscription.unsubscribe()
-      }
-
-      Subscriptions.remove({
-        deviceId: encryptionId,
-        subscriptionId
-      })
-    }
-
-    if (!subscription || reconnect) {
-      const isAuth = await isValidToken(token)
-
-      if (!isAuth) {
-        logger.warn('invalid token specified')
-        emit(Common.Constants.ErrorCode.NOT_AUTH)
-        return
-      }
-
-      const unsubscribe = handler()
-
-      if (unsubscribe) {
-        Subscriptions.attachUnsubscribe({
-          deviceId: encryptionId,
-          subscriptionId,
-          unsubscribe
-        })
-      }
-    }
-
-    callback(null, {
-      message: 'Subscribed successfully!',
-      success: true
-    })
-  } catch (error) {
-    logger.error('Socket wrapper error:', error)
   }
 }
 
@@ -252,7 +185,8 @@ const startSocket = socket => {
       })
     }
 
-    on('subscribe:query', ({ $shock, publicKey }, response) => {
+    on('subscribe:query', (query, response) => {
+      const { $shock, publicKey, epubForDecryption, epubField } = query
       const subscriptionId = uuidv4()
       try {
         if (!isAuthenticated()) {
@@ -279,7 +213,9 @@ const startSocket = socket => {
           emit,
           publicKeyForDecryption: publicKey,
           subscriptionId,
-          deviceId: encryptionId
+          deviceId: encryptionId,
+          epubForDecryption,
+          epubField
         })
 
         socketCallback(null, {
@@ -294,112 +230,6 @@ const startSocket = socket => {
         emit(`query:error`, { subscriptionId, response: { data: error } })
       }
     })
-
-    const onChats = () => {
-      return GunEvents.onChats(chats => {
-        const processed = chats.map(
-          ({
-            didDisconnect,
-            id,
-            lastSeenApp,
-            messages,
-            recipientPublicKey
-          }) => {
-            /** @type {Common.Schema.Chat} */
-            const stripped = {
-              didDisconnect,
-              id,
-              lastSeenApp,
-              messages,
-              recipientAvatar: null,
-              recipientDisplayName: null,
-              recipientPublicKey
-            }
-
-            return stripped
-          }
-        )
-
-        emit('chats', processed)
-      })
-    }
-
-    on(
-      'subscribe:chats',
-      wrap({
-        handler: onChats,
-        encryptionId,
-        subscriptionId: 'chats',
-        socket
-      })
-    )
-
-    const onSentRequests = () => {
-      return GunEvents.onSimplerSentRequests(sentReqs => {
-        const processed = sentReqs.map(
-          ({
-            id,
-            recipientChangedRequestAddress,
-            recipientPublicKey,
-            timestamp
-          }) => {
-            /**
-             * @type {Common.Schema.SimpleSentRequest}
-             */
-            const stripped = {
-              id,
-              recipientAvatar: null,
-              recipientChangedRequestAddress,
-              recipientDisplayName: null,
-              recipientPublicKey,
-              timestamp
-            }
-
-            return stripped
-          }
-        )
-        emit('sentRequests', processed)
-      })
-    }
-
-    on(
-      'subscribe:sentRequests',
-      wrap({
-        handler: onSentRequests,
-        encryptionId,
-        subscriptionId: 'sentRequests',
-        socket
-      })
-    )
-
-    const onReceivedRequests = () => {
-      return GunEvents.onSimplerReceivedRequests(receivedReqs => {
-        const processed = receivedReqs.map(({ id, requestorPK, timestamp }) => {
-          /** @type {Common.Schema.SimpleReceivedRequest} */
-          const stripped = {
-            id,
-            requestorAvatar: null,
-            requestorDisplayName: null,
-            requestorPK,
-            timestamp
-          }
-
-          return stripped
-        })
-
-        emit('receivedRequests', processed)
-      })
-    }
-
-    on(
-      'subscribe:receivedRequests',
-      wrap({
-        handler: onReceivedRequests,
-        encryptionId,
-        subscriptionId: 'receivedRequests',
-        socket
-      })
-    )
 
     on('unsubscribe', ({ subscriptionId }, response) => {
       const callback = encryptedCallback(socket, response)
