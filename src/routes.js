@@ -74,11 +74,9 @@ module.exports = async (
     }
 
     const checkHealth = async () => {
-      logger.info('Getting service status...')
       let LNDStatus = {}
       try {
         const serviceStatus = await getAvailableService()
-        logger.info('Received status:', serviceStatus)
         LNDStatus = serviceStatus
       } catch (e) {
         LNDStatus = {
@@ -88,7 +86,6 @@ module.exports = async (
       }
 
       try {
-        logger.info('Getting API status...')
         const APIHealth = await Http.get(
           `${usetls ? 'https' : 'http'}://localhost:${serverPort}/ping`
         )
@@ -97,7 +94,6 @@ module.exports = async (
           responseTime: APIHealth.headers['x-response-time'],
           success: true
         }
-        logger.info('Received API status!', APIStatus)
         return {
           LNDStatus,
           APIStatus,
@@ -223,7 +219,6 @@ module.exports = async (
     app.use((req, res, next) => {
       const legacyDeviceId = req.headers['x-shockwallet-device-id']
       const deviceId = req.headers['encryption-device-id']
-      logger.debug('Decrypting route...')
       try {
         if (
           nonEncryptedRoutes.includes(req.path) ||
@@ -308,21 +303,12 @@ module.exports = async (
     app.use(async (req, res, next) => {
       const legacyDeviceId = req.headers['x-shockwallet-device-id']
       const deviceId = req.headers['encryption-device-id']
-      logger.info('Decrypting route...')
       try {
         if (
           nonEncryptedRoutes.includes(req.path) ||
           process.env.DISABLE_SHOCK_ENCRYPTION === 'true' ||
           (legacyDeviceId && !deviceId)
         ) {
-          logger.info(
-            'Unprotected route detected! ' +
-              req.path +
-              ' Legacy ID:' +
-              legacyDeviceId +
-              ' Device ID:' +
-              deviceId
-          )
           return next()
         }
 
@@ -371,7 +357,6 @@ module.exports = async (
     })
 
     app.use(async (req, res, next) => {
-      logger.info(`Route: ${req.path}`)
       if (unprotectedRoutes[req.method][req.path]) {
         next()
       } else {
@@ -502,7 +487,7 @@ module.exports = async (
      */
     app.get('/healthz', async (req, res) => {
       const health = await checkHealth()
-      logger.info('Healthz response:', health)
+      logger.info('Healthz response:', health.APIStatus.success)
       res.json(health)
     })
 
@@ -1112,7 +1097,6 @@ module.exports = async (
             res.json({ errorMessage: 'LND is down' })
           }
         }
-        logger.info('GetInfo:', response)
         if (!response.uris || response.uris.length === 0) {
           if (config.lndAddress) {
             response.uris = [response.identity_pubkey + '@' + config.lndAddress]
@@ -3171,6 +3155,7 @@ module.exports = async (
       const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
       const epubForDecryption = req.header(EPUB_FOR_DECRYPT_HEADER)
       const { path } = req.params
+      logger.info(`gun ONCE: ${path}`)
       res.status(200).json({
         data: await handleGunFetch({
           path,
@@ -3186,6 +3171,7 @@ module.exports = async (
       const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
       const epubForDecryption = req.header(EPUB_FOR_DECRYPT_HEADER)
       const { path } = req.params
+      logger.info(`gun LOAD: ${path}`)
       res.status(200).json({
         data: await handleGunFetch({
           path,
@@ -3201,6 +3187,7 @@ module.exports = async (
       const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
       const epubForDecryption = req.header(EPUB_FOR_DECRYPT_HEADER)
       const { path } = req.params
+      logger.info(`gun otheruser ONCE: ${path}`)
       res.status(200).json({
         data: await handleGunFetch({
           path,
@@ -3216,6 +3203,7 @@ module.exports = async (
       const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
       const epubForDecryption = req.header(EPUB_FOR_DECRYPT_HEADER)
       const { path } = req.params
+      logger.info(`gun otheruser LOAD: ${path}`)
       res.status(200).json({
         data: await handleGunFetch({
           path,
@@ -3232,7 +3220,7 @@ module.exports = async (
       const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
       const epubForDecryption = req.header(EPUB_FOR_DECRYPT_HEADER)
       const { path /*:rawPath*/, publicKey, type } = req.params
-      console.log(path)
+      logger.info(`gun otheruser ${type}: ${path}`)
       // const path = decodeURI(rawPath)
       if (!publicKey || publicKey === 'undefined') {
         res.status(400).json({
@@ -3273,6 +3261,7 @@ module.exports = async (
       try {
         const { lightning } = LightningServices.services
         const { methodName } = req.params
+        logger.info(`lnd RPC: ${methodName}`)
         const args = req.body
 
         lightning[methodName](args, (err, lres) => {
@@ -3302,7 +3291,7 @@ module.exports = async (
     ap.post('/api/gun/put', async (req, res) => {
       try {
         const { path, value } = req.body
-
+        logger.info(`gun PUT: ${path}`)
         await GunWriteRPC.put(path, value)
 
         res.status(200).json({
@@ -3322,7 +3311,7 @@ module.exports = async (
     ap.post('/api/gun/set', async (req, res) => {
       try {
         const { path, value } = req.body
-
+        logger.info(`gun PUT: ${path}`)
         const id = await GunWriteRPC.set(path, value)
 
         res.status(200).json({
