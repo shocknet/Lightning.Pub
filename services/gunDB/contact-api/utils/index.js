@@ -128,8 +128,7 @@ const tryAndWait = async (promGen, shouldRetry = () => false) => {
       return resolvedValue
     }
   } catch (e) {
-    logger.error(e)
-    logger.info(JSON.stringify(e))
+    console.log(e)
     if (e.message === Constants.ErrorCode.NOT_AUTH) {
       throw e
     }
