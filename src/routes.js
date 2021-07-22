@@ -6,7 +6,7 @@
 const Axios = require('axios')
 const Crypto = require('crypto')
 const Storage = require('node-persist')
-const logger = require('../../config/log')
+const logger = require('../config/log')
 const httpsAgent = require('https')
 const responseTime = require('response-time')
 const uuid = require('uuid/v4')
@@ -1137,7 +1137,7 @@ module.exports = async (
       try {
         return res.json(await LV2.getChanInfo(req.body.chan_id))
       } catch (e) {
-        console.log(e)
+        logger.error(e)
         return res.status(500).json({
           errorMessage: e.message
         })
@@ -1172,7 +1172,7 @@ module.exports = async (
           peers: await LV2.listPeers(req.body.latestError)
         })
       } catch (e) {
-        console.log(e)
+        logger.error(e)
         return res.status(500).json({
           errorMessage: e.message
         })
@@ -1240,7 +1240,7 @@ module.exports = async (
           channels: await LV2.listChannels({ active_only: false })
         })
       } catch (e) {
-        console.log(e)
+        logger.error(e)
         return res.status(500).json({
           errorMessage: e.message
         })
@@ -1251,7 +1251,7 @@ module.exports = async (
       try {
         return res.json(await LV2.pendingChannels())
       } catch (e) {
-        console.log(e)
+        logger.error(e)
         return res.status(500).json({
           errorMessage: e.message
         })
@@ -1863,7 +1863,7 @@ module.exports = async (
       try {
         return res.json(addInvoiceRes)
       } catch (e) {
-        console.log(e)
+        logger.error(e)
         return res.status(500).json({
           errorMessage: e.message
         })
@@ -2300,7 +2300,7 @@ module.exports = async (
         }
         return res.status(200).json(postRes)
       } catch (e) {
-        console.log(e)
+        logger.error(e)
         return res.status(500).json({
           errorMessage:
             (typeof e === 'string' ? e : e.message) || 'Unknown error.'
@@ -2725,16 +2725,16 @@ module.exports = async (
           : gun
         keys.forEach(key => (node = node.get(key)))
 
-        return new Promise(res => {
-          const listener = async data => {
+        return new Promise((res, rej) => {
+          const listener = data => {
             if (publicKeyForDecryption) {
-              res(
-                await GunWriteRPC.deepDecryptIfNeeded(
-                  data,
-                  publicKeyForDecryption,
-                  epubForDecryption
-                )
+              GunWriteRPC.deepDecryptIfNeeded(
+                data,
+                publicKeyForDecryption,
+                epubForDecryption
               )
+                .then(res)
+                .catch(rej)
             } else {
               res(data)
             }
@@ -2987,7 +2987,7 @@ module.exports = async (
           ok: true
         })
       } catch (e) {
-        console.log(e)
+        logger.error(e)
         return res.status(500).json({
           errorMessage:
             (typeof e === 'string' ? e : e.message) || 'Unknown error.'
@@ -3001,7 +3001,7 @@ module.exports = async (
           ok: true
         })
       } catch (e) {
-        console.log(e)
+        logger.error(e)
         return res.status(500).json({
           errorMessage:
             (typeof e === 'string' ? e : e.message) || 'Unknown error.'
