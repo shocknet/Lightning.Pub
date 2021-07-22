@@ -2,6 +2,7 @@
 const ECCrypto = require('eccrypto')
 const Storage = require('node-persist')
 const FieldError = require('../fieldError')
+const logger = require('../../config/log')
 const {
   convertBufferToBase64,
   processKey,
@@ -137,7 +138,7 @@ const decryptMessage = async ({ encryptedMessage, deviceId }) => {
     const parsedMessage = decryptedMessage.toString('utf8')
     return parsedMessage
   } catch (err) {
-    console.error(err)
+    logger.error(err)
     throw err
   }
 }
