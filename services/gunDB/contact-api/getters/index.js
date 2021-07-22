@@ -119,6 +119,5 @@ const getUserInfo = async publicKey => {
 
 module.exports.getMyUser = getMyUser
 module.exports.getUserInfo = getUserInfo
-module.exports.Follows = require('./follows')
 
 module.exports.getAnUser = User.getAnUser
