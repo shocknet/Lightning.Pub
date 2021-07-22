@@ -6,8 +6,6 @@ const Common = require('shock-common')
 const Key = require('../key')
 const Utils = require('../utils')
 
-const Wall = require('./wall')
-const Feed = require('./feed')
 const User = require('./user')
 const { size } = require('lodash')
 
@@ -28,22 +26,6 @@ exports.currentOrderAddress = async pub => {
   }
 
   return currAddr
-}
-
-/**
- * @param {string} pub
- * @returns {Promise<string|null>}
- */
-exports.userToIncomingID = async pub => {
-  const incomingID = await require('../../Mediator')
-    .getUser()
-    .get(Key.USER_TO_INCOMING)
-    .get(pub)
-    .then()
-
-  if (typeof incomingID === 'string') return incomingID
-
-  return null
 }
 
 /**
@@ -139,8 +121,4 @@ module.exports.getMyUser = getMyUser
 module.exports.getUserInfo = getUserInfo
 module.exports.Follows = require('./follows')
 
-module.exports.getWallPage = Wall.getWallPage
-module.exports.getWallTotalPages = Wall.getWallTotalPages
-
-module.exports.getFeedPage = Feed.getFeedPage
 module.exports.getAnUser = User.getAnUser

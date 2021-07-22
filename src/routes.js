@@ -2248,41 +2248,6 @@ module.exports = async (
       }
     })
 
-    app.get(`/api/gun/wall/:publicKey?`, async (req, res) => {
-      try {
-        const { page } = req.query
-        const { publicKey } = req.params
-
-        const pageNum = Number(page)
-
-        if (!isARealUsableNumber(pageNum)) {
-          return res.status(400).json({
-            field: 'page',
-            errorMessage: 'Not a number'
-          })
-        }
-
-        if (pageNum === 0) {
-          return res.status(400).json({
-            field: 'page',
-            errorMessage: 'Page must be a non-zero integer'
-          })
-        }
-
-        const totalPages = await GunGetters.getWallTotalPages(publicKey)
-        const fetchedPage = await GunGetters.getWallPage(pageNum, publicKey)
-
-        return res.status(200).json({
-          ...fetchedPage,
-          totalPages
-        })
-      } catch (err) {
-        return res.status(500).json({
-          errorMessage: err.message
-        })
-      }
-    })
-
     app.post(`/api/gun/wall/`, async (req, res) => {
       try {
         const { tags, title, contentItems, enableTipsOverlay } = req.body
@@ -2437,90 +2402,6 @@ module.exports = async (
     ap.get('/api/gun/follows/:publicKey', apiGunFollowsGet)
     ap.put(`/api/gun/follows/:publicKey`, apiGunFollowsPut)
     ap.delete(`/api/gun/follows/:publicKey`, apiGunFollowsDelete)
-
-    /**
-     * @type {RequestHandler<{}>}
-     */
-    const apiGunFeedGet = async (req, res) => {
-      try {
-        const MAX_PAGES_TO_FETCH_FOR_TRY_UNTIL = 4
-
-        const { page: pageStr } = req.query
-
-        /**
-         * Similar to a "before" query param in cursor based pagination. We call
-         * it "try" because it is likely that this item lies beyond
-         * MAX_PAGES_TO_FETCH_FOR_TRY_UNTIL in which case we gracefully just send
-         * 2 pages and 205 response.
-         */
-        // eslint-disable-next-line prefer-destructuring
-        const before = req.query.before
-
-        if (pageStr) {
-          const page = Number(pageStr)
-
-          if (!isARealUsableNumber(page)) {
-            return res.status(400).json({
-              field: 'page',
-              errorMessage: 'page must be a number'
-            })
-          }
-
-          if (page < 1) {
-            return res.status(400).json({
-              field: page,
-              errorMessage: 'page must be a positive number'
-            })
-          }
-
-          return res.status(200).json({
-            posts: await GunGetters.getFeedPage(page),
-            page
-          })
-        }
-
-        if (before) {
-          const pages = range(1, MAX_PAGES_TO_FETCH_FOR_TRY_UNTIL)
-          const promises = pages.map(p => GunGetters.getFeedPage(p))
-
-          let results = await Promise.all(promises)
-
-          const idxIfFound = results.findIndex(pp =>
-            pp.some(p => p.id === before)
-          )
-
-          if (idxIfFound > -1) {
-            results = results.slice(0, idxIfFound + 1)
-
-            const posts = flatten(results)
-
-            return res.status(200).json({
-              posts,
-              page: idxIfFound
-            })
-          }
-
-          // we couldn't find the posts leading up to the requested post
-          // (try_until) Let's just return the ones we found with together with a
-          // 205 code (client should refresh UI)
-
-          return res.status(205).json({
-            posts: results[0] || [],
-            page: 1
-          })
-        }
-
-        return res.status(400).json({
-          errorMessage: `Must provide at least a page or a try_until query param.`
-        })
-      } catch (err) {
-        return res.status(500).json({
-          errorMessage: err.message || 'Unknown error inside /api/gun/follows/'
-        })
-      }
-    }
-
-    ap.get(`/api/gun/feed`, apiGunFeedGet)
 
     /**
      * @type {RequestHandler<{}>}
