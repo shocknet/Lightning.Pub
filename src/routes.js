@@ -2725,16 +2725,16 @@ module.exports = async (
           : gun
         keys.forEach(key => (node = node.get(key)))
 
-        return new Promise(res => {
-          const listener = async data => {
+        return new Promise((res, rej) => {
+          const listener = data => {
             if (publicKeyForDecryption) {
-              res(
-                await GunWriteRPC.deepDecryptIfNeeded(
-                  data,
-                  publicKeyForDecryption,
-                  epubForDecryption
-                )
+              GunWriteRPC.deepDecryptIfNeeded(
+                data,
+                publicKeyForDecryption,
+                epubForDecryption
               )
+                .then(res)
+                .catch(rej)
             } else {
               res(data)
             }

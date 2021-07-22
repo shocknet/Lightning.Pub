@@ -101,7 +101,6 @@ const timeout2 = promise => {
  * @returns {Promise<T>}
  */
 const tryAndWait = async (promGen, shouldRetry = () => false) => {
-  /* eslint-disable no-empty */
   /* eslint-disable init-declarations */
 
   // If hang stop at 10, wait 3, retry, if hang stop at 5, reinstate, warm for
@@ -118,27 +117,14 @@ const tryAndWait = async (promGen, shouldRetry = () => false) => {
       )
     )
 
-    if (shouldRetry(resolvedValue)) {
-      logger.info(
-        'force retrying' /* +
-          ` args: ${promGen.toString()} -- ${shouldRetry.toString()} \n resolvedValue: ${resolvedValue}, type: ${typeof resolvedValue}`
-      */
-      )
-    } else {
+    if (!shouldRetry(resolvedValue)) {
       return resolvedValue
     }
   } catch (e) {
-    console.log(e)
-    if (e.message === Constants.ErrorCode.NOT_AUTH) {
+    if (e.message !== Constants.ErrorCode.TIMEOUT_ERR) {
       throw e
     }
   }
-
-  logger.info(
-    `\n retrying \n` /* +
-      ` args: ${promGen.toString()} -- ${shouldRetry.toString()}`
-  */
-  )
 
   await delay(200)
 
@@ -150,27 +136,14 @@ const tryAndWait = async (promGen, shouldRetry = () => false) => {
       )
     )
 
-    if (shouldRetry(resolvedValue)) {
-      logger.info(
-        'force retrying' /* +
-          ` args: ${promGen.toString()} -- ${shouldRetry.toString()} \n resolvedValue: ${resolvedValue}, type: ${typeof resolvedValue}`
-      */
-      )
-    } else {
+    if (!shouldRetry(resolvedValue)) {
       return resolvedValue
     }
   } catch (e) {
-    console.log(e)
-    if (e.message === Constants.ErrorCode.NOT_AUTH) {
+    if (e.message !== Constants.ErrorCode.TIMEOUT_ERR) {
       throw e
     }
   }
-
-  logger.info(
-    `\n retrying \n` /* +
-      ` args: ${promGen.toString()} -- ${shouldRetry.toString()}`
-  */
-  )
 
   await delay(3000)
 
@@ -182,32 +155,22 @@ const tryAndWait = async (promGen, shouldRetry = () => false) => {
       )
     )
 
-    if (shouldRetry(resolvedValue)) {
-      logger.info(
-        'force retrying' /* +
-          ` args: ${promGen.toString()} -- ${shouldRetry.toString()} \n resolvedValue: ${resolvedValue}, type: ${typeof resolvedValue}`
-      */
-      )
-    } else {
+    if (!shouldRetry(resolvedValue)) {
       return resolvedValue
     }
   } catch (e) {
-    console.log(e)
-    if (e.message === Constants.ErrorCode.NOT_AUTH) {
+    if (e.message !== Constants.ErrorCode.TIMEOUT_ERR) {
       throw e
     }
   }
 
-  logger.info(
-    `\n NOT recreating a fresh gun but retrying one last time \n` /* +
-      ` args: ${promGen.toString()} -- ${shouldRetry.toString()}`
-  */
+  return timeout10(
+    promGen(
+      require('../../Mediator/index').getGun(),
+      require('../../Mediator/index').getUser()
+    )
   )
 
-  const { gun, user } = require('../../Mediator/index').freshGun()
-
-  return timeout10(promGen(gun, user))
-  /* eslint-enable no-empty */
   /* eslint-enable init-declarations */
 }
 
