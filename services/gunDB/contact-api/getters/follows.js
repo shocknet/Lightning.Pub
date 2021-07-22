@@ -2,7 +2,7 @@
  * @format
  */
 const Common = require('shock-common')
-const Logger = require('winston')
+const Logger = require('../../../../config/log')
 const size = require('lodash/size')
 
 const Utils = require('../utils')

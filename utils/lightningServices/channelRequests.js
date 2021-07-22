@@ -1,4 +1,4 @@
-const logger = require('winston')
+const logger = require('../../config/log')
 const fetch = require('node-fetch')
 const Storage = require('node-persist')
 const { listPeers, connectPeer,getInfo } = require('./v2')
