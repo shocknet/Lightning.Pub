@@ -2293,27 +2293,6 @@ module.exports = async (
       }
     })
 
-    app.post(`/api/gun/userInfo`, async (req, res) => {
-      try {
-        const { pubs } = req.body
-        const reqs = pubs.map(
-          e =>
-            new Promise((res, rej) => {
-              GunGetters.getUserInfo(e)
-                .then(r => res(r))
-                .catch(e => rej(e))
-            })
-        )
-        const infos = await Promise.all(reqs)
-        return res.status(200).json({
-          pubInfos: infos
-        })
-      } catch (err) {
-        return res.status(500).json({
-          errorMessage: err.message
-        })
-      }
-    })
     /////////////////////////////////
     /**
      * @template P
