@@ -62,7 +62,7 @@ module.exports = async () => {
   } catch(e){
     logger.error("error sending invite to channels handler")
     console.log("DOING CHANNEL INVITE THING: :(")
-    console.error(e)
+    logger.error(e)
   }
 
 }
