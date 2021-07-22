@@ -2,7 +2,7 @@
  * @format
  */
 const Common = require('shock-common')
-const logger = require('winston')
+const logger = require('../../config/log')
 const { safeParseJSON } = require('../JSON')
 const ECC = require('./index')
 
