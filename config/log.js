@@ -1,58 +1,58 @@
-// config/log.js
+/** @prettier */
 
-const winston = require("winston");
-const util = require("util")
-require("winston-daily-rotate-file");
+const { createLogger, transports, format } = require('winston')
+const util = require('util')
+require('winston-daily-rotate-file')
 
-const winstonAttached = new Map();
-
-const transform = (info) => {
-  const args = info[Symbol.for('splat')];
-  if (args) { 
-    return {...info, message: util.format(info.message, ...args)}; 
+// @ts-ignore
+const transform = info => {
+  const args = info[Symbol.for('splat')]
+  if (args) {
+    return { ...info, message: util.format(info.message, ...args) }
   }
-  return info;
+  return info
 }
 
 const logFormatter = () => ({ transform })
 
-/**
- * @param {string} logFileName
- * @param {string} logLevel
- * @returns {import("winston").Logger}
- */
-module.exports = (logFileName, logLevel) => {
-  if (!winstonAttached.has(logFileName)) {
-    winston.add(new (winston.transports.DailyRotateFile)({
-      filename: logFileName,
-      datePattern: "yyyy-MM-DD",
+const formatter = format.combine(
+  format.colorize(),
+  format.errors({ stack: true }),
+  logFormatter(),
+  format.prettyPrint(),
+  format.timestamp(),
+  format.simple(),
+  format.align(),
+  format.printf(info => {
+    const { timestamp, level, message, stack, exception } = info
+
+    const ts = timestamp.slice(0, 19).replace('T', ' ')
+    const isObject = typeof message === 'object'
+    const formattedJson = isObject ? JSON.stringify(message, null, 2) : message
+    const formattedException = exception ? exception.stack : ''
+    const errorMessage = stack || formattedException
+    const formattedMessage = errorMessage ? errorMessage : formattedJson
+
+    return `${ts} [${level}]: ${formattedMessage}`
+  })
+)
+
+const Logger = createLogger({
+  format: formatter,
+  transports: [
+    new transports.DailyRotateFile({
+      filename: 'shockapi.log',
+      datePattern: 'yyyy-MM-DD',
       // https://github.com/winstonjs/winston-daily-rotate-file/issues/188
-      json: true,
+      json: false,
       maxSize: 1000000,
       maxFiles: 7,
-      level: logLevel
-    }))
-    winston.add(new winston.transports.Console({
-      format: winston.format.combine(
-        winston.format.colorize(),
-        logFormatter(),
-        winston.format.prettyPrint(),
-        winston.format.timestamp(),
-        winston.format.simple(),
-        winston.format.align(),
-        winston.format.printf((info) => {
-          const {
-            timestamp, level, message
-          } = info;
+      handleExceptions: true
+    }),
+    new transports.Console({
+      handleExceptions: true
+    })
+  ]
+})
 
-          const ts = timestamp.slice(0, 19).replace('T', ' ');
-          return `${ts} [${level}]: ${typeof message === "object" ? JSON.stringify(message, null, 2) : message}`;
-        }),
-      )
-    }))
-    winston.level = logLevel
-    winstonAttached.set(logFileName, winston)
-  }
-  
-  return winstonAttached.get(logFileName)
-}
+module.exports = Logger

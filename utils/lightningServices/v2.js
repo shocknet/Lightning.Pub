@@ -2,7 +2,7 @@
  * @format
  */
 const Crypto = require('crypto')
-const logger = require('winston')
+const logger = require('../../config/log')
 const Common = require('shock-common')
 const Ramda = require('ramda')
 

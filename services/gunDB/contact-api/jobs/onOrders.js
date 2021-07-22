@@ -2,7 +2,7 @@
  * @format
  */
 // @ts-check
-const logger = require('winston')
+const logger = require('../../../../config/log')
 const isFinite = require('lodash/isFinite')
 const isNumber = require('lodash/isNumber')
 const isNaN = require('lodash/isNaN')

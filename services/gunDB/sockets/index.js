@@ -2,7 +2,7 @@
  * @format
  */
 
-const logger = require('winston')
+const logger = require('../../../config/log')
 const Common = require('shock-common')
 const uuidv4 = require('uuid/v4')
 

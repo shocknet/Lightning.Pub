@@ -3,7 +3,7 @@
  */
 // @ts-check
 
-const logger = require('winston')
+const logger = require('../config/log')
 const Common = require('shock-common')
 const mapValues = require('lodash/mapValues')
 

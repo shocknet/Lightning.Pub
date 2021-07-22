@@ -47,10 +47,7 @@ const server = program => {
   const tunnelHost = process.env.LOCAL_TUNNEL_SERVER || defaults.localtunnelHost
 
   // setup winston logging ==========
-  const logger = require('../config/log')(
-    program.logfile || defaults.logfile,
-    program.loglevel || defaults.loglevel
-  )
+  const logger = require('../config/log')
 
   CommonLogger.setLogger(logger)
 

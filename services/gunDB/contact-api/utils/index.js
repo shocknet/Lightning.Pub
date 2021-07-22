@@ -2,7 +2,7 @@
  * @format
  */
 /* eslint-disable init-declarations */
-const logger = require('winston')
+const logger = require('../../../../config/log')
 const { Constants, Utils: CommonUtils } = require('shock-common')
 
 const Key = require('../key')

@@ -5,7 +5,7 @@ const Common = require('shock-common')
 const Gun = require('gun')
 // @ts-ignore
 require('gun/nts')
-const logger = require('winston')
+const logger = require('../../../config/log')
 // @ts-ignore
 Gun.log = () => {}
 // @ts-ignore

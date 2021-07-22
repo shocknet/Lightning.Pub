@@ -2,7 +2,7 @@
  * @format
  */
 const uuidv1 = require('uuid/v1')
-const logger = require('winston')
+const logger = require('../../../config/log')
 const Common = require('shock-common')
 const { Constants, Schema } = Common
 const Gun = require('gun')
