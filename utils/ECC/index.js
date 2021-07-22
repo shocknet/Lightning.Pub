@@ -1,8 +1,8 @@
 /** @format */
 const ECCrypto = require('eccrypto')
 const Storage = require('node-persist')
-const logger = require('winston')
 const FieldError = require('../fieldError')
+const logger = require('../../config/log')
 const {
   convertBufferToBase64,
   processKey,
@@ -152,14 +152,13 @@ const decryptMessage = async ({ encryptedMessage, deviceId }) => {
     return parsedMessage
   } catch (err) {
     if (err.message?.toLowerCase() === 'bad mac') {
-      console.error(
+      logger.error(
         'Bad Mac!',
         err,
         convertToEncryptedMessage(encryptedMessage),
         !!keyPair
       )
     }
-
     throw err
   }
 }
