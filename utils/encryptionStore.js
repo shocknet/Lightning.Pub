@@ -3,7 +3,7 @@
  */
 const Crypto = require('crypto')
 const { Buffer } = require('buffer')
-const logger = require('winston')
+const logger = require('../config/log')
 
 const APIKeyPair = new Map()
 const authorizedDevices = new Map()
