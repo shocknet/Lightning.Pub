@@ -1137,7 +1137,7 @@ module.exports = async (
       try {
         return res.json(await LV2.getChanInfo(req.body.chan_id))
       } catch (e) {
-        console.log(e)
+        logger.error(e)
         return res.status(500).json({
           errorMessage: e.message
         })
@@ -1172,7 +1172,7 @@ module.exports = async (
           peers: await LV2.listPeers(req.body.latestError)
         })
       } catch (e) {
-        console.log(e)
+        logger.error(e)
         return res.status(500).json({
           errorMessage: e.message
         })
@@ -1240,7 +1240,7 @@ module.exports = async (
           channels: await LV2.listChannels({ active_only: false })
         })
       } catch (e) {
-        console.log(e)
+        logger.error(e)
         return res.status(500).json({
           errorMessage: e.message
         })
@@ -1251,7 +1251,7 @@ module.exports = async (
       try {
         return res.json(await LV2.pendingChannels())
       } catch (e) {
-        console.log(e)
+        logger.error(e)
         return res.status(500).json({
           errorMessage: e.message
         })
@@ -1863,7 +1863,7 @@ module.exports = async (
       try {
         return res.json(addInvoiceRes)
       } catch (e) {
-        console.log(e)
+        logger.error(e)
         return res.status(500).json({
           errorMessage: e.message
         })
@@ -2300,7 +2300,7 @@ module.exports = async (
         }
         return res.status(200).json(postRes)
       } catch (e) {
-        console.log(e)
+        logger.error(e)
         return res.status(500).json({
           errorMessage:
             (typeof e === 'string' ? e : e.message) || 'Unknown error.'
@@ -2987,7 +2987,7 @@ module.exports = async (
           ok: true
         })
       } catch (e) {
-        console.log(e)
+        logger.error(e)
         return res.status(500).json({
           errorMessage:
             (typeof e === 'string' ? e : e.message) || 'Unknown error.'
@@ -3001,7 +3001,7 @@ module.exports = async (
           ok: true
         })
       } catch (e) {
-        console.log(e)
+        logger.error(e)
         return res.status(500).json({
           errorMessage:
             (typeof e === 'string' ? e : e.message) || 'Unknown error.'
