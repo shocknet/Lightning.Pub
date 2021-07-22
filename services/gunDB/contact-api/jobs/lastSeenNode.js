@@ -2,7 +2,7 @@
  * @format
  */
 
-const logger = require('winston')
+const logger = require('../../../../config/log')
 
 const {
   Constants: {

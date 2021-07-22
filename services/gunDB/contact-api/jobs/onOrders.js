@@ -2,7 +2,7 @@
  * @format
  */
 // @ts-check
-const logger = require('winston')
+const logger = require('../../../../config/log')
 const isFinite = require('lodash/isFinite')
 const isNumber = require('lodash/isNumber')
 const isNaN = require('lodash/isNaN')
@@ -110,19 +110,12 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
 
     ordersProcessed.add(orderID)
 
-    logger.info(
-      `onOrders() -> processing order: ${orderID} -- ${JSON.stringify(
-        order
-      )} -- addr: ${addr}`
-    )
-
     const alreadyAnswered = await getUser()
       .get(Key.ORDER_TO_RESPONSE)
       .get(orderID)
       .then()
 
     if (alreadyAnswered) {
-      logger.info('this order is already answered, quitting')
       return
     }
 
@@ -208,10 +201,6 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       value: amount,
       private: true
     }
-
-    logger.info(
-      `onOrders() -> Will now create an invoice : ${JSON.stringify(invoiceReq)}`
-    )
 
     const invoice = await _addInvoice(invoiceReq)
 

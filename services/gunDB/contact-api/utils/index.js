@@ -2,7 +2,7 @@
  * @format
  */
 /* eslint-disable init-declarations */
-const logger = require('winston')
+const logger = require('../../../../config/log')
 const { Constants, Utils: CommonUtils } = require('shock-common')
 
 const Key = require('../key')
@@ -128,8 +128,7 @@ const tryAndWait = async (promGen, shouldRetry = () => false) => {
       return resolvedValue
     }
   } catch (e) {
-    logger.error(e)
-    logger.info(JSON.stringify(e))
+    console.log(e)
     if (e.message === Constants.ErrorCode.NOT_AUTH) {
       throw e
     }
@@ -161,7 +160,7 @@ const tryAndWait = async (promGen, shouldRetry = () => false) => {
       return resolvedValue
     }
   } catch (e) {
-    logger.error(e)
+    console.log(e)
     if (e.message === Constants.ErrorCode.NOT_AUTH) {
       throw e
     }
@@ -193,7 +192,7 @@ const tryAndWait = async (promGen, shouldRetry = () => false) => {
       return resolvedValue
     }
   } catch (e) {
-    logger.error(e)
+    console.log(e)
     if (e.message === Constants.ErrorCode.NOT_AUTH) {
       throw e
     }
@@ -240,78 +239,6 @@ const pubToEpub = async pub => {
 }
 
 /**
- * Should only be called with a recipient pub that has already been contacted.
- * If returns null, a disconnect happened.
- * @param {string} recipientPub
- * @returns {Promise<string|null>}
- */
-const recipientPubToLastReqSentID = async recipientPub => {
-  const maybeLastReqSentID = await tryAndWait(
-    (_, user) => {
-      const userToLastReqSent = user.get(Key.USER_TO_LAST_REQUEST_SENT)
-      return userToLastReqSent.get(recipientPub).then()
-    },
-    // retry on undefined, in case it is a false negative
-    v => typeof v === 'undefined'
-  )
-
-  if (typeof maybeLastReqSentID !== 'string') {
-    return null
-  }
-
-  return maybeLastReqSentID
-}
-
-/**
- * @param {string} recipientPub
- * @returns {Promise<boolean>}
- */
-const successfulHandshakeAlreadyExists = async recipientPub => {
-  const maybeIncomingID = await tryAndWait((_, user) => {
-    const userToIncoming = user.get(Key.USER_TO_INCOMING)
-
-    return userToIncoming.get(recipientPub).then()
-  })
-
-  const maybeOutgoingID = await tryAndWait((_, user) => {
-    const recipientToOutgoing = user.get(Key.RECIPIENT_TO_OUTGOING)
-
-    return recipientToOutgoing.get(recipientPub).then()
-  })
-
-  return (
-    typeof maybeIncomingID === 'string' && typeof maybeOutgoingID === 'string'
-  )
-}
-
-/**
- * @param {string} recipientPub
- * @returns {Promise<string|null>}
- */
-const recipientToOutgoingID = async recipientPub => {
-  const maybeEncryptedOutgoingID = await tryAndWait(
-    (_, user) =>
-      user
-        .get(Key.RECIPIENT_TO_OUTGOING)
-        .get(recipientPub)
-        .then(),
-    // force retry in case undefined is a false negative
-    v => typeof v === 'undefined'
-  )
-
-  if (typeof maybeEncryptedOutgoingID === 'string') {
-    const outgoingID = await require('../../Mediator/index').mySEA.decrypt(
-      maybeEncryptedOutgoingID,
-      await mySecret()
-    )
-
-    return outgoingID || null
-  }
-
-  return null
-}
-
-/**
  * @param {import('../SimpleGUN').ListenerData} listenerData
  * @returns {listenerData is import('../SimpleGUN').ListenerObj}
  */
@@ -351,9 +278,6 @@ module.exports = {
   dataHasSoul,
   delay,
   pubToEpub,
-  recipientPubToLastReqSentID,
-  successfulHandshakeAlreadyExists,
-  recipientToOutgoingID,
   tryAndWait,
   mySecret,
   promisifyGunNode: require('./promisifygun'),
