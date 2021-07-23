@@ -2285,20 +2285,6 @@ module.exports = async (
     /**
      * @type {RequestHandler<{}>}
      */
-    const apiGunMeGet = async (_, res) => {
-      try {
-        return res.status(200).json(await GunGetters.getMyUser())
-      } catch (err) {
-        logger.error(err)
-        return res.status(500).json({
-          errorMessage: err.message
-        })
-      }
-    }
-
-    /**
-     * @type {RequestHandler<{}>}
-     */
     const apiGunMePut = async (req, res) => {
       /**
        * @typedef {Omit<Common.Schema.User, 'publicKey'>} UserWithoutPK
@@ -2349,7 +2335,6 @@ module.exports = async (
       }
     }
 
-    ap.get(`/api/gun/me`, apiGunMeGet)
     ap.put(`/api/gun/me`, apiGunMePut)
 
     ap.get(`/api/gun/auth`, (_, res) => {
