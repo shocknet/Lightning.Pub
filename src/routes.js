@@ -50,8 +50,6 @@ module.exports = async (
   { serverPort, CA, CA_KEY, usetls }
 ) => {
   try {
-    const { timeout5 } = require('../services/gunDB/contact-api/utils')
-
     const Http = Axios.create({
       httpsAgent: new httpsAgent.Agent({
         ca: await FS.readFile(CA)
@@ -2109,7 +2107,7 @@ module.exports = async (
 
         const SEA = require('../services/gunDB/Mediator').mySEA
         const mySecret = require('../services/gunDB/Mediator').getMySecret()
-        const encBackup = await timeout5(user.get(Key.CHANNELS_BACKUP).then())
+        const encBackup = await user.get(Key.CHANNELS_BACKUP).then()
         const backup = await SEA.decrypt(encBackup, mySecret)
         logger.info(backup)
         res.json({ data: backup })
