@@ -123,7 +123,7 @@ const queryListenerCallback = ({
       })
     }
     const eventName = `query:data`
-    if (publicKeyForDecryption?.length > 15 || epubForDecryption || epubField) {
+    if (publicKeyForDecryption?.length > 0 || epubForDecryption || epubField) {
       const decData = await deepDecryptIfNeeded(
         data,
         publicKeyForDecryption,
