@@ -164,7 +164,7 @@ const tryAndWait = async (promGen, shouldRetry = () => false) => {
     }
   }
 
-  return timeout10(
+  return timeout5(
     promGen(
       require('../../Mediator/index').getGun(),
       require('../../Mediator/index').getUser()
