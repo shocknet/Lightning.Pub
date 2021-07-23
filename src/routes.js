@@ -50,8 +50,6 @@ module.exports = async (
   { serverPort, CA, CA_KEY, usetls }
 ) => {
   try {
-    const { timeout5 } = require('../services/gunDB/contact-api/utils')
-
     const Http = Axios.create({
       httpsAgent: new httpsAgent.Agent({
         ca: await FS.readFile(CA)
@@ -2109,7 +2107,7 @@ module.exports = async (
 
         const SEA = require('../services/gunDB/Mediator').mySEA
         const mySecret = require('../services/gunDB/Mediator').getMySecret()
-        const encBackup = await timeout5(user.get(Key.CHANNELS_BACKUP).then())
+        const encBackup = await user.get(Key.CHANNELS_BACKUP).then()
         const backup = await SEA.decrypt(encBackup, mySecret)
         logger.info(backup)
         res.json({ data: backup })
@@ -2117,88 +2115,7 @@ module.exports = async (
         res.json({ ok: 'err' })
       }
     })
-    app.get('/api/gun/feedpoc', async (req, res) => {
-      try {
-        logger.warn('FEED POC')
-        const user = require('../services/gunDB/Mediator').getUser()
-        const feedObj = await timeout5(user.get('FEED_POC').then())
-        logger.warn(feedObj)
 
-        res.json({ data: feedObj })
-      } catch (err) {
-        //res.json({ok:"err"})
-      }
-    })
-
-    const Events = require('../services/gunDB/contact-api/events')
-
-    app.get(`/api/gun/${GunEvent.ON_DISPLAY_NAME}`, async (_, res) => {
-      try {
-        const user = require('../services/gunDB/Mediator').getUser()
-        const data = await timeout5(
-          user
-            .get(Key.PROFILE)
-            .get(Key.DISPLAY_NAME)
-            .then()
-        )
-        res.json({
-          data
-        })
-      } catch (err) {
-        logger.info('Error in Display Name poll:')
-        logger.error(err)
-        res
-          .status(
-            err.message === Common.Constants.ErrorCode.NOT_AUTH ? 401 : 500
-          )
-          .json({
-            errorMessage: typeof err === 'string' ? err : err.message
-          })
-      }
-    })
-
-    app.get(`/api/gun/${GunEvent.ON_HANDSHAKE_ADDRESS}`, async (_, res) => {
-      try {
-        const user = require('../services/gunDB/Mediator').getUser()
-        const data = await timeout5(
-          user.get(Key.CURRENT_HANDSHAKE_ADDRESS).then()
-        )
-        res.json({
-          data
-        })
-      } catch (err) {
-        logger.info('Error in Handshake Address poll:')
-        logger.error(err)
-        res
-          .status(
-            err.message === Common.Constants.ErrorCode.NOT_AUTH ? 401 : 500
-          )
-          .json({
-            errorMessage: typeof err === 'string' ? err : err.message
-          })
-      }
-    })
-
-    app.get(`/api/gun/${GunEvent.ON_BIO}`, async (_, res) => {
-      try {
-        const user = require('../services/gunDB/Mediator').getUser()
-        const data = await timeout5(user.get(Key.BIO).then())
-        logger.debug(data)
-        res.json({
-          data
-        })
-      } catch (err) {
-        logger.info('Error in BIO poll:')
-        logger.error(err)
-        res
-          .status(
-            err.message === Common.Constants.ErrorCode.NOT_AUTH ? 401 : 500
-          )
-          .json({
-            errorMessage: typeof err === 'string' ? err : err.message
-          })
-      }
-    })
     ////////////////////////////////////////////////////////////////////////////////
 
     app.post(`/api/gun/sendpayment`, async (req, res) => {
@@ -2242,41 +2159,6 @@ module.exports = async (
         res.json({ preimage, sessionUuid })
       } catch (err) {
         logger.info('spont pay err:', err)
-        return res.status(500).json({
-          errorMessage: err.message
-        })
-      }
-    })
-
-    app.get(`/api/gun/wall/:publicKey?`, async (req, res) => {
-      try {
-        const { page } = req.query
-        const { publicKey } = req.params
-
-        const pageNum = Number(page)
-
-        if (!isARealUsableNumber(pageNum)) {
-          return res.status(400).json({
-            field: 'page',
-            errorMessage: 'Not a number'
-          })
-        }
-
-        if (pageNum === 0) {
-          return res.status(400).json({
-            field: 'page',
-            errorMessage: 'Page must be a non-zero integer'
-          })
-        }
-
-        const totalPages = await GunGetters.getWallTotalPages(publicKey)
-        const fetchedPage = await GunGetters.getWallPage(pageNum, publicKey)
-
-        return res.status(200).json({
-          ...fetchedPage,
-          totalPages
-        })
-      } catch (err) {
         return res.status(500).json({
           errorMessage: err.message
         })
@@ -2328,27 +2210,6 @@ module.exports = async (
       }
     })
 
-    app.post(`/api/gun/userInfo`, async (req, res) => {
-      try {
-        const { pubs } = req.body
-        const reqs = pubs.map(
-          e =>
-            new Promise((res, rej) => {
-              GunGetters.getUserInfo(e)
-                .then(r => res(r))
-                .catch(e => rej(e))
-            })
-        )
-        const infos = await Promise.all(reqs)
-        return res.status(200).json({
-          pubInfos: infos
-        })
-      } catch (err) {
-        return res.status(500).json({
-          errorMessage: err.message
-        })
-      }
-    })
     /////////////////////////////////
     /**
      * @template P
@@ -2361,21 +2222,6 @@ module.exports = async (
      * @typedef {object} FollowsRouteParams
      * @prop {(string|undefined)=} publicKey
      */
-
-    /**
-     * @type {RequestHandler<FollowsRouteParams>}
-     */
-    const apiGunFollowsGet = async (_, res) => {
-      try {
-        const currFollows = await GunGetters.Follows.currentFollows()
-
-        return res.status(200).json(currFollows)
-      } catch (err) {
-        return res.status(500).json({
-          errorMessage: err.message || 'Unknown ERR at GET /api/follows'
-        })
-      }
-    }
 
     /**
      * @type {RequestHandler<FollowsRouteParams>}
@@ -2433,108 +2279,8 @@ module.exports = async (
         })
       }
     })
-    ap.get('/api/gun/follows/', apiGunFollowsGet)
-    ap.get('/api/gun/follows/:publicKey', apiGunFollowsGet)
     ap.put(`/api/gun/follows/:publicKey`, apiGunFollowsPut)
     ap.delete(`/api/gun/follows/:publicKey`, apiGunFollowsDelete)
-
-    /**
-     * @type {RequestHandler<{}>}
-     */
-    const apiGunFeedGet = async (req, res) => {
-      try {
-        const MAX_PAGES_TO_FETCH_FOR_TRY_UNTIL = 4
-
-        const { page: pageStr } = req.query
-
-        /**
-         * Similar to a "before" query param in cursor based pagination. We call
-         * it "try" because it is likely that this item lies beyond
-         * MAX_PAGES_TO_FETCH_FOR_TRY_UNTIL in which case we gracefully just send
-         * 2 pages and 205 response.
-         */
-        // eslint-disable-next-line prefer-destructuring
-        const before = req.query.before
-
-        if (pageStr) {
-          const page = Number(pageStr)
-
-          if (!isARealUsableNumber(page)) {
-            return res.status(400).json({
-              field: 'page',
-              errorMessage: 'page must be a number'
-            })
-          }
-
-          if (page < 1) {
-            return res.status(400).json({
-              field: page,
-              errorMessage: 'page must be a positive number'
-            })
-          }
-
-          return res.status(200).json({
-            posts: await GunGetters.getFeedPage(page),
-            page
-          })
-        }
-
-        if (before) {
-          const pages = range(1, MAX_PAGES_TO_FETCH_FOR_TRY_UNTIL)
-          const promises = pages.map(p => GunGetters.getFeedPage(p))
-
-          let results = await Promise.all(promises)
-
-          const idxIfFound = results.findIndex(pp =>
-            pp.some(p => p.id === before)
-          )
-
-          if (idxIfFound > -1) {
-            results = results.slice(0, idxIfFound + 1)
-
-            const posts = flatten(results)
-
-            return res.status(200).json({
-              posts,
-              page: idxIfFound
-            })
-          }
-
-          // we couldn't find the posts leading up to the requested post
-          // (try_until) Let's just return the ones we found with together with a
-          // 205 code (client should refresh UI)
-
-          return res.status(205).json({
-            posts: results[0] || [],
-            page: 1
-          })
-        }
-
-        return res.status(400).json({
-          errorMessage: `Must provide at least a page or a try_until query param.`
-        })
-      } catch (err) {
-        return res.status(500).json({
-          errorMessage: err.message || 'Unknown error inside /api/gun/follows/'
-        })
-      }
-    }
-
-    ap.get(`/api/gun/feed`, apiGunFeedGet)
-
-    /**
-     * @type {RequestHandler<{}>}
-     */
-    const apiGunMeGet = async (_, res) => {
-      try {
-        return res.status(200).json(await GunGetters.getMyUser())
-      } catch (err) {
-        logger.error(err)
-        return res.status(500).json({
-          errorMessage: err.message
-        })
-      }
-    }
 
     /**
      * @type {RequestHandler<{}>}
@@ -2589,101 +2335,7 @@ module.exports = async (
       }
     }
 
-    ap.get(`/api/gun/me`, apiGunMeGet)
     ap.put(`/api/gun/me`, apiGunMePut)
-
-    ap.get(`/api/gun/dev/currentHandshakeAddress`, async (_, res) => {
-      try {
-        const { tryAndWait } = require('../services/gunDB/contact-api/utils')
-
-        const data = await tryAndWait((_, u) =>
-          u.get(GunKey.CURRENT_HANDSHAKE_ADDRESS).then()
-        )
-
-        return res.status(200).json({
-          data
-        })
-      } catch (err) {
-        return res.status(500).json({
-          errorMessage: err.message
-        })
-      }
-    })
-
-    ap.get(
-      `/api/gun/dev/handshakeNodes/:handshakeAddress`,
-      async (req, res) => {
-        try {
-          const { tryAndWait } = require('../services/gunDB/contact-api/utils')
-
-          const data = await tryAndWait(
-            g =>
-              new Promise(res => {
-                g.get(GunKey.HANDSHAKE_NODES)
-                  .get(req.params.handshakeAddress)
-                  .load(data => {
-                    res(data)
-                  })
-              }),
-            v => {
-              if (typeof v !== 'object') {
-                return true
-              }
-
-              if (v === null) {
-                return true
-              }
-
-              // load sometimes returns an empty set on the first try
-              return size(v) === 0
-            }
-          )
-
-          return res.status(200).json({
-            data
-          })
-        } catch (err) {
-          return res.status(500).json({
-            errorMessage: err.message
-          })
-        }
-      }
-    )
-
-    ap.get(`/api/gun/dev/user/:publicKey`, async (req, res) => {
-      try {
-        const { tryAndWait } = require('../services/gunDB/contact-api/utils')
-
-        const data = await tryAndWait(
-          g =>
-            new Promise(res => {
-              g.user(req.params.publicKey).load(data => {
-                res(data)
-              })
-            }),
-          v => {
-            if (typeof v !== 'object') {
-              return true
-            }
-
-            if (v === null) {
-              return true
-            }
-
-            // load sometimes returns an empty set on the first try
-            return size(v) === 0
-          }
-        )
-
-        return res.status(200).json({
-          data
-        })
-      } catch (err) {
-        return res.status(500).json({
-          errorMessage: err.message
-        })
-      }
-    })
 
     ap.get(`/api/gun/auth`, (_, res) => {
       const { isAuthenticated } = require('../services/gunDB/Mediator')
