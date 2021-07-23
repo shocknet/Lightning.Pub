@@ -25,50 +25,54 @@ const delay = ms => new Promise(res => setTimeout(res, ms))
 const mySecret = () => Promise.resolve(require('../../Mediator').getMySecret())
 
 /**
- * @template T
- * @param {Promise<T>} promise
- * @returns {Promise<T>}
+ * Just a pointer.
  */
-const timeout5 = promise => {
+const TIMEOUT_PTR = {}
+
+/**
+ * @param {number} ms Milliseconds
+ * @returns {<T>(promise: Promise<T>) => Promise<T>}
+ */
+const timeout = ms => async promise => {
   /** @type {NodeJS.Timeout} */
   // @ts-ignore
   let timeoutID
-  return Promise.race([
+
+  const result = await Promise.race([
     promise.then(v => {
       clearTimeout(timeoutID)
       return v
     }),
 
-    new Promise((_, rej) => {
+    CommonUtils.makePromise(res => {
       timeoutID = setTimeout(() => {
-        rej(new Error(Constants.ErrorCode.TIMEOUT_ERR))
-      }, 5000)
+        clearTimeout(timeoutID)
+        res(TIMEOUT_PTR)
+      }, ms)
     })
   ])
+
+  if (result === TIMEOUT_PTR) {
+    throw new Error(Constants.TIMEOUT_ERR)
+  }
+
+  return result
 }
 
 /**
- * @template T
- * @param {Promise<T>} promise
- * @returns {Promise<T>}
+ * Time outs at 10 seconds.
  */
-const timeout2 = promise => {
-  /** @type {NodeJS.Timeout} */
-  // @ts-ignore
-  let timeoutID
-  return Promise.race([
-    promise.then(v => {
-      clearTimeout(timeoutID)
-      return v
-    }),
+const timeout10 = timeout(10)
 
-    new Promise((_, rej) => {
-      timeoutID = setTimeout(() => {
-        rej(new Error(Constants.ErrorCode.TIMEOUT_ERR))
-      }, 2000)
-    })
-  ])
-}
+/**
+ * Time outs at 5 seconds.
+ */
+const timeout5 = timeout(5)
+
+/**
+ * Time outs at 2 seconds.
+ */
+const timeout2 = timeout(2)
 
 /**
  * @template T
