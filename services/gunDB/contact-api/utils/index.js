@@ -196,6 +196,7 @@ const pubToEpub = async pub => {
 
     return epub
   } catch (err) {
+    logger.error(`Error inside pubToEpub:`)
     logger.error(err)
     throw new Error(`pubToEpub() -> ${err.message}`)
   }
