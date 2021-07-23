@@ -41,6 +41,17 @@ const isEncryptedMessage = message =>
  */
 const generateKeyPair = deviceId => {
   try {
+    const existingKey = nodeKeyPairs.get(deviceId)
+
+    if (existingKey) {
+      logger.warn('Device ID is already trusted')
+      return {
+        ...existingKey,
+        publicKeyBase64: convertBufferToBase64(existingKey.publicKey),
+        privateKeyBase64: convertBufferToBase64(existingKey.privateKey)
+      }
+    }
+
     const privateKey = ECCrypto.generatePrivate()
     const publicKey = ECCrypto.getPublic(privateKey)
     const privateKeyBase64 = convertBufferToBase64(privateKey)
@@ -149,8 +160,10 @@ const decryptMessage = async ({ encryptedMessage, deviceId }) => {
       convertToEncryptedMessage(encryptedMessage)
     )
     const parsedMessage = decryptedMessage.toString('utf8')
+
     return parsedMessage
   } catch (err) {
+    logger.error(err)
     if (err.message?.toLowerCase() === 'bad mac') {
       logger.error(
         'Bad Mac!',
