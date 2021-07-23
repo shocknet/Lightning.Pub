@@ -2459,7 +2459,7 @@ module.exports = async (
       const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
       const epubForDecryption = req.header(EPUB_FOR_DECRYPT_HEADER)
       const { path } = req.params
-      logger.info(`gun otheruser LOAD: ${path}`)
+      logger.info(`gun self user LOAD: ${path}`)
       res.status(200).json({
         data: await handleGunFetch({
           path,
