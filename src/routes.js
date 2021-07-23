@@ -2117,20 +2117,6 @@ module.exports = async (
         res.json({ ok: 'err' })
       }
     })
-    app.get('/api/gun/feedpoc', async (req, res) => {
-      try {
-        logger.warn('FEED POC')
-        const user = require('../services/gunDB/Mediator').getUser()
-        const feedObj = await timeout5(user.get('FEED_POC').then())
-        logger.warn(feedObj)
-
-        res.json({ data: feedObj })
-      } catch (err) {
-        //res.json({ok:"err"})
-      }
-    })
-
-    const Events = require('../services/gunDB/contact-api/events')
 
     app.get(`/api/gun/${GunEvent.ON_DISPLAY_NAME}`, async (_, res) => {
       try {
