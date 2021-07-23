@@ -25,73 +25,54 @@ const delay = ms => new Promise(res => setTimeout(res, ms))
 const mySecret = () => Promise.resolve(require('../../Mediator').getMySecret())
 
 /**
- * @template T
- * @param {Promise<T>} promise
- * @returns {Promise<T>}
+ * Just a pointer.
  */
-const timeout10 = promise => {
+const TIMEOUT_PTR = {}
+
+/**
+ * @param {number} ms Milliseconds
+ * @returns {<T>(promise: Promise<T>) => Promise<T>}
+ */
+const timeout = ms => async promise => {
   /** @type {NodeJS.Timeout} */
   // @ts-ignore
   let timeoutID
-  return Promise.race([
+
+  const result = await Promise.race([
     promise.then(v => {
       clearTimeout(timeoutID)
       return v
     }),
 
-    new Promise((_, rej) => {
+    CommonUtils.makePromise(res => {
       timeoutID = setTimeout(() => {
-        rej(new Error(Constants.ErrorCode.TIMEOUT_ERR))
-      }, 10000)
+        clearTimeout(timeoutID)
+        res(TIMEOUT_PTR)
+      }, ms)
     })
   ])
+
+  if (result === TIMEOUT_PTR) {
+    throw new Error(Constants.TIMEOUT_ERR)
+  }
+
+  return result
 }
 
 /**
- * @template T
- * @param {Promise<T>} promise
- * @returns {Promise<T>}
+ * Time outs at 10 seconds.
  */
-const timeout5 = promise => {
-  /** @type {NodeJS.Timeout} */
-  // @ts-ignore
-  let timeoutID
-  return Promise.race([
-    promise.then(v => {
-      clearTimeout(timeoutID)
-      return v
-    }),
-
-    new Promise((_, rej) => {
-      timeoutID = setTimeout(() => {
-        rej(new Error(Constants.ErrorCode.TIMEOUT_ERR))
-      }, 5000)
-    })
-  ])
-}
+const timeout10 = timeout(10)
 
 /**
- * @template T
- * @param {Promise<T>} promise
- * @returns {Promise<T>}
+ * Time outs at 5 seconds.
  */
-const timeout2 = promise => {
-  /** @type {NodeJS.Timeout} */
-  // @ts-ignore
-  let timeoutID
-  return Promise.race([
-    promise.then(v => {
-      clearTimeout(timeoutID)
-      return v
-    }),
+const timeout5 = timeout(5)
 
-    new Promise((_, rej) => {
-      timeoutID = setTimeout(() => {
-        rej(new Error(Constants.ErrorCode.TIMEOUT_ERR))
-      }, 2000)
-    })
-  ])
-}
+/**
+ * Time outs at 2 seconds.
+ */
+const timeout2 = timeout(2)
 
 /**
  * @template T
@@ -180,7 +161,9 @@ const tryAndWait = async (promGen, shouldRetry = () => false) => {
  */
 const pubToEpub = async pub => {
   try {
-    const epub = await timeout10(
+    const TIMEOUT_PTR = {}
+
+    const epubOrTimeout = await Promise.race([
       CommonUtils.makePromise(res => {
         require('../../Mediator/index')
           .getGun()
@@ -191,14 +174,23 @@ const pubToEpub = async pub => {
               res(data)
             }
           })
+      }),
+      CommonUtils.makePromise(res => {
+        setTimeout(() => {
+          res(TIMEOUT_PTR)
+        }, 10000)
       })
-    )
+    ])
 
-    return epub
+    if (epubOrTimeout === TIMEOUT_PTR) {
+      throw new Error(`Timeout inside pubToEpub()`)
+    }
+
+    return epubOrTimeout
   } catch (err) {
     logger.error(`Error inside pubToEpub:`)
     logger.error(err)
-    throw new Error(`pubToEpub() -> ${err.message}`)
+    throw err
   }
 }
 
