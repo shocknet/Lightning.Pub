@@ -29,29 +29,6 @@ const mySecret = () => Promise.resolve(require('../../Mediator').getMySecret())
  * @param {Promise<T>} promise
  * @returns {Promise<T>}
  */
-const timeout10 = promise => {
-  /** @type {NodeJS.Timeout} */
-  // @ts-ignore
-  let timeoutID
-  return Promise.race([
-    promise.then(v => {
-      clearTimeout(timeoutID)
-      return v
-    }),
-
-    new Promise((_, rej) => {
-      timeoutID = setTimeout(() => {
-        rej(new Error(Constants.ErrorCode.TIMEOUT_ERR))
-      }, 10000)
-    })
-  ])
-}
-
-/**
- * @template T
- * @param {Promise<T>} promise
- * @returns {Promise<T>}
- */
 const timeout5 = promise => {
   /** @type {NodeJS.Timeout} */
   // @ts-ignore
