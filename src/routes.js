@@ -2376,9 +2376,11 @@ module.exports = async (
           ? gun.user(publicKey)
           : gun
         keys.forEach(key => (node = node.get(key)))
-
+        console.log(`fetching: ${keys}`)
         return new Promise((res, rej) => {
           const listener = data => {
+            console.log(`got res for: ${keys}`)
+            console.log(data)
             if (publicKeyForDecryption) {
               GunWriteRPC.deepDecryptIfNeeded(
                 data,
