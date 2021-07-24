@@ -218,8 +218,7 @@ const setDefaultSeedProvider = (encryptedSeedProvider, user) =>
 /**
  * @param {string} encryptedSeedServiceData
  * @param {UserGUNNode} user
- * @throws {TypeError} Rejects if displayName is not an string or an empty
- * string.
+ * @throws {TypeError}
  * @returns {Promise<void>}
  */
 const setSeedServiceData = (encryptedSeedServiceData, user) =>
@@ -232,6 +231,29 @@ const setSeedServiceData = (encryptedSeedServiceData, user) =>
       throw new TypeError()
     }
     user.get('seedServiceSeedData').put(encryptedSeedServiceData, ack => {
+      if (ack.err && typeof ack.err !== 'number') {
+        reject(new Error(ack.err))
+      } else {
+        resolve()
+      }
+    })
+  })
+/**
+ * @param {string} encryptedCurrentStreamInfo
+ * @param {UserGUNNode} user
+ * @throws {TypeError}
+ * @returns {Promise<void>}
+ */
+const setCurrentStreamInfo = (encryptedCurrentStreamInfo, user) =>
+  new Promise((resolve, reject) => {
+    if (!user.is) {
+      throw new Error(ErrorCode.NOT_AUTH)
+    }
+
+    if (typeof encryptedCurrentStreamInfo !== 'string') {
+      throw new TypeError()
+    }
+    user.get('currentStreamInfo').put(encryptedCurrentStreamInfo, ack => {
       if (ack.err && typeof ack.err !== 'number') {
         reject(new Error(ack.err))
       } else {
@@ -909,5 +931,6 @@ module.exports = {
   sendSpontaneousPayment,
   createPostNew,
   setDefaultSeedProvider,
-  setSeedServiceData
+  setSeedServiceData,
+  setCurrentStreamInfo
 }
