@@ -613,6 +613,7 @@ const register = async (alias, pass) => {
     await API.Actions.setBio('A little bit about myself.', user)
     await API.Actions.setDefaultSeedProvider('', user)
     await API.Actions.setSeedServiceData('', user)
+    await API.Actions.setCurrentStreamInfo('', user)
     return pub
   })
 }
