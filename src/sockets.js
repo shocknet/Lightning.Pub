@@ -57,7 +57,16 @@ module.exports = (
 
       const { services } = LightningServices
 
-      const { service, method, args: unParsed } = socket.handshake.auth
+      const {
+        service,
+        method,
+        args: unParsed,
+        isInitial
+      } = socket.handshake.auth
+
+      if (isInitial) {
+        return
+      }
 
       const args = JSON.parse(unParsed)
 
@@ -100,6 +109,7 @@ module.exports = (
         call.write(args)
       })
     } catch (err) {
+      logger.error(err)
       logger.error('LNDRPC: ' + err.message)
     }
   })
