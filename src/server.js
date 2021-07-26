@@ -311,7 +311,7 @@ const server = program => {
         })
       )
       app.use(bodyParser.urlencoded({ extended: 'true' }))
-      app.use(bodyParser.json())
+      app.use(bodyParser.json({ limit: '500kb' }))
       app.use(bodyParser.json({ type: 'application/vnd.api+json' }))
       app.use(methodOverride())
       // WARNING
