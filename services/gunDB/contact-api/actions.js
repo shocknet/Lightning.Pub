@@ -207,13 +207,15 @@ const setDefaultSeedProvider = (encryptedSeedProvider, user) =>
     if (typeof encryptedSeedProvider !== 'string') {
       throw new TypeError()
     }
-    user.get('seedServiceProviderPubKey').put(encryptedSeedProvider, ack => {
-      if (ack.err && typeof ack.err !== 'number') {
-        reject(new Error(ack.err))
-      } else {
-        resolve()
-      }
-    })
+    user
+      .get('preferencesSeedServiceProvider')
+      .put(encryptedSeedProvider, ack => {
+        if (ack.err && typeof ack.err !== 'number') {
+          reject(new Error(ack.err))
+        } else {
+          resolve()
+        }
+      })
   })
 /**
  * @param {string} encryptedSeedServiceData
@@ -230,13 +232,15 @@ const setSeedServiceData = (encryptedSeedServiceData, user) =>
     if (typeof encryptedSeedServiceData !== 'string') {
       throw new TypeError()
     }
-    user.get('seedServiceSeedData').put(encryptedSeedServiceData, ack => {
-      if (ack.err && typeof ack.err !== 'number') {
-        reject(new Error(ack.err))
-      } else {
-        resolve()
-      }
-    })
+    user
+      .get('preferencesSeedServiceData')
+      .put(encryptedSeedServiceData, ack => {
+        if (ack.err && typeof ack.err !== 'number') {
+          reject(new Error(ack.err))
+        } else {
+          resolve()
+        }
+      })
   })
 /**
  * @param {string} encryptedCurrentStreamInfo
