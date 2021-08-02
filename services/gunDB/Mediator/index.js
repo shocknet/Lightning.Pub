@@ -543,31 +543,14 @@ const register = async (alias, pass) => {
   }
 
   if (theresPeers && atLeastOneIsConnected) {
-    // this import is done here to avoid circular dependency hell
-    const { timeout5 } = require('../contact-api/utils')
-
-    let userData = await timeout5(
-      new Promise(res => {
-        gun.get(`~@${alias}`).once(ud => res(ud))
-      })
-    )
-
-    if (userData) {
-      throw new Error(
-        'The given alias has been used before, use an unique alias instead.'
-      )
-    }
-
     await new Promise(res => setTimeout(res, 300))
 
-    userData = await timeout5(
-      new Promise(res => {
-        gun.get(`~@${alias}`).once(ud => res(ud), {
-          // https://github.com/amark/gun/pull/971#issue-438630761
-          wait: 1500
-        })
+    const userData = await new Promise(res => {
+      gun.get(`~@${alias}`).once(ud => res(ud), {
+        // https://github.com/amark/gun/pull/971#issue-438630761
+        wait: 1500
       })
-    )
+    })
 
     if (userData) {
       throw new Error(
