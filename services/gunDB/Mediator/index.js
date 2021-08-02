@@ -538,7 +538,7 @@ const register = async (alias, pass) => {
 
   if (theresPeers && !atLeastOneIsConnected) {
     throw new Error(
-      'No connected to any peers for checking of duplicate aliases'
+      'Not connected to any peers for checking of duplicate aliases'
     )
   }
 
@@ -554,7 +554,7 @@ const register = async (alias, pass) => {
 
     if (userData) {
       throw new Error(
-        'The given alias has been used before, use an unique alias instead. (Caught at 2nd try)'
+        'The given alias has been used before, use a unique alias instead. (Caught at 2nd try)'
       )
     }
   }
