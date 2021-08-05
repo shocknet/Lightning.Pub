@@ -2,12 +2,12 @@
 
 ![GitHub last commit](https://img.shields.io/github/last-commit/shocknet/api?style=flat-square)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com) 
-[![Chat](https://img.shields.io/badge/chat-on%20Telegram-blue?style=flat-square)](https://t.me/Shockwallet)
-[![Twitter Follow](https://img.shields.io/twitter/follow/ShockBTC?style=flat-square)](https://twitter.com/shockbtc)
+[![Chat](https://img.shields.io/badge/chat-on%20Telegram-blue?style=flat-square)](https://t.me/LightningPage)
+[![Twitter Follow](https://img.shields.io/twitter/follow/MyLightningPage?style=flat-square)](https://twitter.com/MyLightningPage)
 
 <p></p>
 
-This is an alpha release of the Shockwallet backend service, providing a wrapper for [LND](https://github.com/shocknet/lnd/releases) and a daemon for a decentralized social graph over [GUN](https://gun.eco/).<br>
+This is an alpha release of the Lightning.Page backend service, providing a wrapper for [LND](https://github.com/shocknet/lnd/releases) and a daemon for a decentralized social graph over [GUN](https://gun.eco/).<br>
 
 Run this service on your Lightning node and connect with a mobile device or desktop browser.
 
@@ -50,7 +50,7 @@ yarn install
 ```
 
 3) Run with `yarn start -t` *(`-t` is recommended but [not required](#node-security))*
-4) Connect with Shockwallet
+4) Connect with Lightning.Page
 
 
 ### Docker Usage
@@ -78,11 +78,11 @@ docker run -v /home/$USER/.lnd:/root/.lnd --network host shockwallet/api:latest
 
 ### Node Security 
 
-Shockwallet authenticates to the API with the keys of the `GUN` user. Where the API itself typically has full macaroon access to LND, we've implemented an extra security measure at user enrollment to whitelist these keys and prevent rogue authentication.
+Lightning.Page authenticates to the API with the keys of the `GUN` user. Where the API itself typically has full macaroon access to LND, we've implemented an extra security measure at user enrollment to whitelist these keys and prevent rogue authentication.
 
 If installing the ShockAPI onto a pre-existing LND node instance, the decryption passphrase must be proven at user enrollment. This requires LND to be in a locked state when creating the user, and the `GUN` password to be synchronized with the LND decryption phrase. 
 
-The API will verify the defined `GUN` password unlocks LND before completing enrollment, and can thus be used in the future to directly unlock LND from Shockwallet. This will restrict authentication to only this `GUN` key. Changing or adding alternative users will require repeating this **"lock and enroll"** process.
+The API will verify the defined `GUN` password unlocks LND before completing enrollment, and can thus be used in the future to directly unlock LND from Lightning.Page. This will restrict authentication to only this `GUN` key. Changing or adding alternative users will require repeating this **"lock and enroll"** process.
 
 There are advanced or testing scenarios where you may wish to bypass this sync and whitelist mechanism, to do so pass the env `TRUSTED_KEYS=false`
 
