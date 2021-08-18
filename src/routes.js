@@ -2410,108 +2410,145 @@ module.exports = async (
     const EPUB_FOR_DECRYPT_HEADER = 'epub-for-decryption'
 
     ap.get('/api/gun/once/:path', async (req, res) => {
-      const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
-      const epubForDecryption = req.header(EPUB_FOR_DECRYPT_HEADER)
-      const { path } = req.params
-      logger.info(`gun ONCE: ${path}`)
-      res.status(200).json({
-        data: await handleGunFetch({
+      try {
+        const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
+        const epubForDecryption = req.header(EPUB_FOR_DECRYPT_HEADER)
+        const { path } = req.params
+        logger.info(`gun ONCE: ${path}`)
+        const data = await handleGunFetch({
           path,
           startFromUserGraph: false,
           type: 'once',
           publicKeyForDecryption,
           epubForDecryption
         })
-      })
+        res.status(200).json({
+          data
+        })
+      } catch (e) {
+        logger.error(e)
+        res.status(500).json({
+          errorMessage: e.message
+        })
+      }
     })
 
     ap.get('/api/gun/load/:path', async (req, res) => {
-      const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
-      const epubForDecryption = req.header(EPUB_FOR_DECRYPT_HEADER)
-      const { path } = req.params
-      logger.info(`gun LOAD: ${path}`)
-      res.status(200).json({
-        data: await handleGunFetch({
+      try {
+        const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
+        const epubForDecryption = req.header(EPUB_FOR_DECRYPT_HEADER)
+        const { path } = req.params
+        logger.info(`gun LOAD: ${path}`)
+        const data = await handleGunFetch({
           path,
           startFromUserGraph: false,
           type: 'load',
           publicKeyForDecryption,
           epubForDecryption
         })
-      })
+        res.status(200).json({
+          data
+        })
+      } catch (e) {
+        logger.error(e)
+        res.status(500).json({
+          errorMessage: e.message
+        })
+      }
     })
 
     ap.get('/api/gun/user/once/:path', async (req, res) => {
-      const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
-      const epubForDecryption = req.header(EPUB_FOR_DECRYPT_HEADER)
-      const { path } = req.params
-      logger.info(`gun otheruser ONCE: ${path}`)
-      res.status(200).json({
-        data: await handleGunFetch({
-          path,
-          startFromUserGraph: true,
-          type: 'once',
-          publicKeyForDecryption,
-          epubForDecryption
-        })
-      })
-    })
-
-    ap.get('/api/gun/user/load/:path', async (req, res) => {
-      const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
-      const epubForDecryption = req.header(EPUB_FOR_DECRYPT_HEADER)
-      const { path } = req.params
-      logger.info(`gun self user LOAD: ${path}`)
-      res.status(200).json({
-        data: await handleGunFetch({
-          path,
-          startFromUserGraph: true,
-          type: 'load',
-          publicKeyForDecryption,
-          epubForDecryption
-        })
-      })
-    })
-
-    ap.get('/api/gun/otheruser/:publicKey/:type/:path', async (req, res) => {
-      const allowedTypes = ['once', 'load', 'open']
-      const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
-      const epubForDecryption = req.header(EPUB_FOR_DECRYPT_HEADER)
-      const { path /*:rawPath*/, publicKey, type } = req.params
-      logger.info(`gun otheruser ${type}: ${path}`)
-      // const path = decodeURI(rawPath)
-      if (!publicKey || publicKey === 'undefined') {
-        res.status(400).json({
-          errorMessage: 'Invalid publicKey specified'
-        })
-        return
-      }
-
-      if (!allowedTypes.includes(type)) {
-        res.status(400).json({
-          errorMessage: 'Invalid type specified'
-        })
-        return
-      }
       try {
+        const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
+        const epubForDecryption = req.header(EPUB_FOR_DECRYPT_HEADER)
+        const { path } = req.params
+        logger.info(`gun otheruser ONCE: ${path}`)
         res.status(200).json({
           data: await handleGunFetch({
             path,
-            startFromUserGraph: false,
-            type,
-            publicKey,
+            startFromUserGraph: true,
+            type: 'once',
             publicKeyForDecryption,
             epubForDecryption
           })
         })
-      } catch (err) {
-        res
-          .status(
-            err.message === Common.Constants.ErrorCode.NOT_AUTH ? 401 : 500
-          )
-          .json({
-            errorMessage: err.message
+      } catch (e) {
+        logger.error(e)
+        res.status(500).json({
+          errorMessage: e.message
+        })
+      }
+    })
+
+    ap.get('/api/gun/user/load/:path', async (req, res) => {
+      try {
+        const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
+        const epubForDecryption = req.header(EPUB_FOR_DECRYPT_HEADER)
+        const { path } = req.params
+        logger.info(`gun self user LOAD: ${path}`)
+        res.status(200).json({
+          data: await handleGunFetch({
+            path,
+            startFromUserGraph: true,
+            type: 'load',
+            publicKeyForDecryption,
+            epubForDecryption
           })
+        })
+      } catch (e) {
+        logger.error(e)
+        res.status(500).json({
+          errorMessage: e.message
+        })
+      }
+    })
+
+    ap.get('/api/gun/otheruser/:publicKey/:type/:path', async (req, res) => {
+      try {
+        const allowedTypes = ['once', 'load', 'open']
+        const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
+        const epubForDecryption = req.header(EPUB_FOR_DECRYPT_HEADER)
+        const { path /*:rawPath*/, publicKey, type } = req.params
+        logger.info(`gun otheruser ${type}: ${path}`)
+        // const path = decodeURI(rawPath)
+        if (!publicKey || publicKey === 'undefined') {
+          res.status(400).json({
+            errorMessage: 'Invalid publicKey specified'
+          })
+          return
+        }
+
+        if (!allowedTypes.includes(type)) {
+          res.status(400).json({
+            errorMessage: 'Invalid type specified'
+          })
+          return
+        }
+        try {
+          res.status(200).json({
+            data: await handleGunFetch({
+              path,
+              startFromUserGraph: false,
+              type,
+              publicKey,
+              publicKeyForDecryption,
+              epubForDecryption
+            })
+          })
+        } catch (err) {
+          res
+            .status(
+              err.message === Common.Constants.ErrorCode.NOT_AUTH ? 401 : 500
+            )
+            .json({
+              errorMessage: err.message
+            })
+        }
+      } catch (e) {
+        logger.error(e)
+        res.status(500).json({
+          errorMessage: e.message
+        })
       }
     })
 
@@ -2556,6 +2593,7 @@ module.exports = async (
           ok: true
         })
       } catch (err) {
+        logger.error(err)
         res
           .status(
             err.message === Common.Constants.ErrorCode.NOT_AUTH ? 401 : 500
@@ -2577,6 +2615,7 @@ module.exports = async (
           id
         })
       } catch (err) {
+        logger.error(err)
         res
           .status(
             err.message === Common.Constants.ErrorCode.NOT_AUTH ? 401 : 500
@@ -2610,6 +2649,7 @@ module.exports = async (
 
         res.status(200).json(results)
       } catch (e) {
+        logger.error(e)
         res
           .status(e.message === Common.Constants.ErrorCode.NOT_AUTH ? 401 : 500)
           .json({
@@ -2619,19 +2659,33 @@ module.exports = async (
     })
     //this is for OBS notifications, not wired with UI.
     ap.get('/api/subscribeStream', (req, res) => {
-      res.sendFile(path.join(__dirname, '/index.html'))
-    })
-    ap.post('/api/enableNotificationsOverlay', (req, res) => {
-      const { postID } = req.body
-      if (!postID) {
-        return res.status(400).json({
-          errorMessage: 'no post id provided'
+      try {
+        res.sendFile(path.join(__dirname, '/index.html'))
+      } catch (e) {
+        logger.error(e)
+        res.status(500).json({
+          errorMessage: e.message
         })
       }
-      const accessId = TipsForwarder.enablePostNotifications(postID)
-      res.json({
-        accessId
-      })
+    })
+    ap.post('/api/enableNotificationsOverlay', (req, res) => {
+      try {
+        const { postID } = req.body
+        if (!postID) {
+          return res.status(400).json({
+            errorMessage: 'no post id provided'
+          })
+        }
+        const accessId = TipsForwarder.enablePostNotifications(postID)
+        res.json({
+          accessId
+        })
+      } catch (e) {
+        logger.error(e)
+        res.status(500).json({
+          errorMessage: e.message
+        })
+      }
     })
     //this is for wasLive/isLive status
     ap.post('/api/listenStream', (req, res) => {
