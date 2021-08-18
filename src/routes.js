@@ -2463,14 +2463,15 @@ module.exports = async (
         const epubForDecryption = req.header(EPUB_FOR_DECRYPT_HEADER)
         const { path } = req.params
         logger.info(`gun otheruser ONCE: ${path}`)
+        const data = await handleGunFetch({
+          path,
+          startFromUserGraph: true,
+          type: 'once',
+          publicKeyForDecryption,
+          epubForDecryption
+        })
         res.status(200).json({
-          data: await handleGunFetch({
-            path,
-            startFromUserGraph: true,
-            type: 'once',
-            publicKeyForDecryption,
-            epubForDecryption
-          })
+          data
         })
       } catch (e) {
         logger.error(e)
@@ -2486,14 +2487,15 @@ module.exports = async (
         const epubForDecryption = req.header(EPUB_FOR_DECRYPT_HEADER)
         const { path } = req.params
         logger.info(`gun self user LOAD: ${path}`)
+        const data = await handleGunFetch({
+          path,
+          startFromUserGraph: true,
+          type: 'load',
+          publicKeyForDecryption,
+          epubForDecryption
+        })
         res.status(200).json({
-          data: await handleGunFetch({
-            path,
-            startFromUserGraph: true,
-            type: 'load',
-            publicKeyForDecryption,
-            epubForDecryption
-          })
+          data
         })
       } catch (e) {
         logger.error(e)
@@ -2524,16 +2526,17 @@ module.exports = async (
           })
           return
         }
+        const data = await handleGunFetch({
+          path,
+          startFromUserGraph: false,
+          type,
+          publicKey,
+          publicKeyForDecryption,
+          epubForDecryption
+        })
         try {
           res.status(200).json({
-            data: await handleGunFetch({
-              path,
-              startFromUserGraph: false,
-              type,
-              publicKey,
-              publicKeyForDecryption,
-              epubForDecryption
-            })
+            data
           })
         } catch (err) {
           res
