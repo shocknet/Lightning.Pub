@@ -21,9 +21,20 @@
 <script>
 
   gun = Gun({
-    peers: ['https://gun.shock.network/gun','https://gun-eu.shock.network/gun'],
+    peers: ['https://gun.shock.network/gun','https://gun-eu.shock.network/gun', 'http://danlugo92.tech:8765/gun', 'http://192.168.1.21:8765/gun'],
     axe: false
   })
+
+  setInterval(() => {
+    console.log(
+      JSON.stringify(
+        Object.keys(gun.back('opt').peers),
+        null,
+        2
+      )
+    )
+  },3000)
+
 
   user = gun.user()
 
