@@ -47,7 +47,7 @@ module.exports = async (
   app,
   config,
   mySocketsEvents,
-  { serverPort, CA, CA_KEY, usetls }
+  { serverPort, CA, CA_KEY, useTLS }
 ) => {
   try {
     const Http = Axios.create({
@@ -72,9 +72,11 @@ module.exports = async (
     }
 
     const checkHealth = async () => {
+      logger.info('Getting service status...')
       let LNDStatus = {}
       try {
         const serviceStatus = await getAvailableService()
+        logger.info('Received status:', serviceStatus)
         LNDStatus = serviceStatus
       } catch (e) {
         LNDStatus = {
@@ -84,14 +86,16 @@ module.exports = async (
       }
 
       try {
+        logger.info('Getting API status...')
         const APIHealth = await Http.get(
-          `${usetls ? 'https' : 'http'}://localhost:${serverPort}/ping`
+          `${useTLS ? 'https' : 'http'}://localhost:${serverPort}/ping`
         )
         const APIStatus = {
           message: APIHealth.data,
           responseTime: APIHealth.headers['x-response-time'],
           success: true
         }
+        logger.info('Received API status!', APIStatus)
         return {
           LNDStatus,
           APIStatus,
@@ -100,8 +104,8 @@ module.exports = async (
       } catch (err) {
         logger.error(err)
         const APIStatus = {
-          message: err.response.data,
-          responseTime: err.response.headers['x-response-time'],
+          message: err.response?.data,
+          responseTime: err.response?.headers['x-response-time'],
           success: false
         }
         logger.warn('Failed to retrieve API status', APIStatus)
@@ -217,6 +221,7 @@ module.exports = async (
     app.use((req, res, next) => {
       const legacyDeviceId = req.headers['x-shockwallet-device-id']
       const deviceId = req.headers['encryption-device-id']
+      logger.debug('Decrypting route...')
       try {
         if (
           nonEncryptedRoutes.includes(req.path) ||
@@ -301,12 +306,21 @@ module.exports = async (
     app.use(async (req, res, next) => {
       const legacyDeviceId = req.headers['x-shockwallet-device-id']
       const deviceId = req.headers['encryption-device-id']
+      logger.info('Decrypting route...')
       try {
         if (
           nonEncryptedRoutes.includes(req.path) ||
           process.env.DISABLE_SHOCK_ENCRYPTION === 'true' ||
           (legacyDeviceId && !deviceId)
         ) {
+          logger.info(
+            'Unprotected route detected! ' +
+              req.path +
+              ' Legacy ID:' +
+              legacyDeviceId +
+              ' Device ID:' +
+              deviceId
+          )
           return next()
         }
 
@@ -355,6 +369,7 @@ module.exports = async (
     })
 
     app.use(async (req, res, next) => {
+      logger.info(`Route: ${req.path}`)
       if (unprotectedRoutes[req.method][req.path]) {
         next()
       } else {
@@ -485,7 +500,7 @@ module.exports = async (
      */
     app.get('/healthz', async (req, res) => {
       const health = await checkHealth()
-      logger.info('Healthz response:', health.APIStatus.success)
+      logger.info('Healthz response:', health)
       res.json(health)
     })
 
@@ -1095,6 +1110,7 @@ module.exports = async (
             res.json({ errorMessage: 'LND is down' })
           }
         }
+        logger.info('GetInfo:', response)
         if (!response.uris || response.uris.length === 0) {
           if (config.lndAddress) {
             response.uris = [response.identity_pubkey + '@' + config.lndAddress]
