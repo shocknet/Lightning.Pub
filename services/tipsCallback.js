@@ -1,5 +1,6 @@
 //@ts-nocheck TODO- fix types
 const { gunUUID } = require("../utils")
+const logger = require('../config/log')
 class TipsCB {
     listeners = {}
 
@@ -16,7 +17,7 @@ class TipsCB {
             return "invalid access id"
         }
         const postID = this.postsEnabled[accessId]
-        console.log("subbing new socket for post: "+postID)
+        logger.info("subbing new socket for post: "+postID)
         
         if(!this.listeners[postID]){
             this.listeners[postID] = []
