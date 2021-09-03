@@ -156,10 +156,10 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
      */
     let serviceOrderContentSeedInfo = null //in case the service is of type 'torrentSeed' this is {seedUrl,seedToken}, can be omitted, in that case, it will be taken from env
     if (order.targetType === 'service') {
-      console.log('General Service')
+      logger.info('General Service')
       const { ackInfo: serviceID } = order
-      console.log('ACK INFO')
-      console.log(serviceID)
+      logger.info('ACK INFO')
+      logger.info(serviceID)
       if (!Common.isPopulatedString(serviceID)) {
         throw new TypeError(`no serviceID provided to orderAck`)
       }
@@ -169,7 +169,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
           .get(serviceID)
           .load(res)
       })
-      console.log(selectedService)
+      logger.info(selectedService)
       if (!selectedService) {
         throw new TypeError(`invalid serviceID provided to orderAck`)
       }
@@ -247,7 +247,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
      * @param {Common.Schema.InvoiceWhenListed & {r_hash:Buffer,payment_addr:Buffer}} paidInvoice
      */
     const invoicePaidCb = async paidInvoice => {
-      console.log('INVOICE  PAID')
+      logger.info('INVOICE  PAID')
       let breakError = null
       let orderMetadata //eslint-disable-line init-declarations
       const hashString = paidInvoice.r_hash.toString('hex')
@@ -309,24 +309,24 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
           break
         }
         case 'contentReveal': {
-          console.log('cONTENT REVEAL')
+          logger.info('cONTENT REVEAL')
           //assuming digital product that only requires to be unlocked
           const postID = ackInfo
-          console.log('ACK INFO')
-          console.log(ackInfo)
+          logger.info('ACK INFO')
+          logger.info(ackInfo)
           if (!Common.isPopulatedString(postID)) {
             breakError = 'invalid ackInfo provided for postID'
             break //create the coordinate, but stop because of the invalid id
           }
-          console.log('IS STRING')
+          logger.info('IS STRING')
           const selectedPost = await new Promise(res => {
             getUser()
               .get(Key.POSTS_NEW)
               .get(postID)
               .load(res)
           })
-          console.log('LOAD ok')
-          console.log(selectedPost)
+          logger.info('LOAD ok')
+          logger.info(selectedPost)
           if (
             !selectedPost ||
             !selectedPost.status ||
@@ -335,12 +335,12 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
             breakError = 'ackInfo provided does not correspond to a valid post'
             break //create the coordinate, but stop because of the invalid post
           }
-          console.log('IS POST')
+          logger.info('IS POST')
           /**
            * @type {Record<string,string>} <contentID,decryptedRef>
            */
           const contentsToSend = {}
-          console.log('SECRET OK')
+          logger.info('SECRET OK')
           let privateFound = false
           await Common.Utils.asyncForEach(
             Object.entries(selectedPost.contentItems),
@@ -371,7 +371,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
             type: 'orderAck',
             response: encrypted
           }
-          console.log('RES READY')
+          logger.info('RES READY')
 
           await new Promise((res, rej) => {
             getUser()
@@ -389,12 +389,12 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
                 }
               })
           })
-          console.log('RES SENT CONTENT')
+          logger.info('RES SENT CONTENT')
           orderMetadata = JSON.stringify(ackData)
           break
         }
         case 'torrentSeed': {
-          console.log('TORRENT')
+          logger.info('TORRENT')
           const numberOfTokens = Number(ackInfo) || 1
           const seedInfo = selfContentToken()
           if (!seedInfo && !serviceOrderContentSeedInfo) {
@@ -411,7 +411,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
             numberOfTokens,
             seedInfoReady
           )
-          console.log('RES SEED OK')
+          logger.info('RES SEED OK')
           const ackData = { seedUrl, tokens, ackInfo }
           const toSend = JSON.stringify(ackData)
           const encrypted = await SEA.encrypt(toSend, secret)
@@ -419,7 +419,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
             type: 'orderAck',
             response: encrypted
           }
-          console.log('RES SEED SENT')
+          logger.info('RES SEED SENT')
           await new Promise((res, rej) => {
             getUser()
               .get(Key.ORDER_TO_RESPONSE)
@@ -436,7 +436,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
                 }
               })
           })
-          console.log('RES SENT SEED')
+          logger.info('RES SENT SEED')
           orderMetadata = JSON.stringify(ackData)
           break
         }
@@ -466,7 +466,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
         throw new Error(breakError)
       }
     }
-    console.log('WAITING INVOICE TO BE PAID')
+    logger.info('WAITING INVOICE TO BE PAID')
     new Promise(res => SchemaManager.addListenInvoice(invoice.r_hash, res))
       .then(invoicePaidCb)
       .catch(err => {
@@ -476,7 +476,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
           )}`
         )
         logger.error(err)
-        console.log(err)
+        logger.info(err)
 
         /** @type {import('shock-common').Schema.OrderResponse} */
         const orderResponse = {
@@ -503,7 +503,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       )}`
     )
     logger.error(err)
-    console.log(err)
+    logger.info(err)
 
     /** @type {import('shock-common').Schema.OrderResponse} */
     const orderResponse = {

@@ -413,7 +413,7 @@ const server = program => {
           address: tunnelHost,
           port: serverPort
         }
-        console.log(opts)
+        logger.info(opts)
         relayClient.default(opts, async (connected, params) => {
           if (connected) {
             const noProtocolAddress = params.address.replace(
@@ -431,7 +431,7 @@ const server = program => {
               externalIP: `${params.relayId}@${noProtocolAddress}`
             })
             qrcode.generate(dataToQr, { small: true })
-            console.log(`connect to ${params.relayId}@${noProtocolAddress}`)
+            logger.info(`connect to ${params.relayId}@${noProtocolAddress}`)
           } else {
             logger.error('!! Relay did not connect to server !!')
           }
