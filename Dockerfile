@@ -3,7 +3,7 @@ FROM node:14-buster-slim
 EXPOSE 9835
 
 VOLUME [ "/home/shocknet/.lnd", "/data" ]
-RUN apt-get -y update && apt-get install -y apt-transport-https && apt-get install -y git
+RUN apt-get update && apt-get install -y apt-transport-https git
 RUN useradd -ms /bin/bash shocknet
 USER shocknet
 WORKDIR /home/shocknet/app
