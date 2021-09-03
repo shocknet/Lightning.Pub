@@ -180,7 +180,7 @@ const startSocket = socket => {
     if (isAuthenticated()) {
       socket.onAny(() => {
         GunActions.setLastSeenApp().catch(e =>
-          console.log('error setting last seen app', e)
+          logger.info('error setting last seen app', e)
         )
       })
     }

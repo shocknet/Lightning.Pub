@@ -311,9 +311,9 @@ const sendSpontaneousPayment = async (
         throw new Error('torrentSeed service not available')
       }
       const { seedUrl } = seedInfo
-      console.log('SEED URL OK')
+      logger.info('SEED URL OK')
       const tokens = await enrollContentTokens(numberOfTokens, seedInfo)
-      console.log('RES SEED OK')
+      logger.info('RES SEED OK')
       const ackData = JSON.stringify({ seedUrl, tokens })
       return {
         payment: null,
@@ -386,8 +386,8 @@ const sendSpontaneousPayment = async (
       )}`
       throw new Error(msg)
     }
-    console.log('ORDER ID')
-    console.log(orderID)
+    logger.info('ORDER ID')
+    logger.info(orderID)
     /** @type {import('shock-common').Schema.OrderResponse} */
     const encryptedOrderRes = await Utils.tryAndWait(
       gun =>
@@ -397,7 +397,7 @@ const sendSpontaneousPayment = async (
             .get(Key.ORDER_TO_RESPONSE)
             .get(orderID)
             .on(orderResponse => {
-              console.log(orderResponse)
+              logger.info(orderResponse)
               if (Schema.isOrderResponse(orderResponse)) {
                 res(orderResponse)
               }
@@ -476,8 +476,8 @@ const sendSpontaneousPayment = async (
       })
       return { payment }
     }
-    console.log('ACK NODE')
-    console.log(orderResponse.ackNode)
+    logger.info('ACK NODE')
+    logger.info(orderResponse.ackNode)
     /** @type {import('shock-common').Schema.OrderResponse} */
     const encryptedOrderAckRes = await Utils.tryAndWait(
       gun =>
@@ -487,8 +487,8 @@ const sendSpontaneousPayment = async (
             .get(Key.ORDER_TO_RESPONSE)
             .get(orderResponse.ackNode)
             .on(orderResponse => {
-              console.log(orderResponse)
-              console.log(Schema.isOrderResponse(orderResponse))
+              logger.info(orderResponse)
+              logger.info(Schema.isOrderResponse(orderResponse))
 
               //@ts-expect-error
               if (orderResponse && orderResponse.type === 'orderAck') {
@@ -546,7 +546,7 @@ const sendSpontaneousPayment = async (
     })
     return { payment, orderAck }
   } catch (e) {
-    console.log(e)
+    logger.info(e)
     logger.error('Error inside sendPayment()')
     logger.error(e)
     throw e
