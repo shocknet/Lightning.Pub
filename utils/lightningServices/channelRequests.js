@@ -6,13 +6,13 @@ const { listPeers, connectPeer,getInfo } = require('./v2')
 const handlerBaseUrl = "https://channels.shock.network:4444"
 
 module.exports = async () => {
-  console.log("DOING CHANNEL INVITE THING: START")
+  logger.info("DOING CHANNEL INVITE THING: START")
   /**
    * @type string | undefined
    */
   const invite = process.env.HOSTING_INVITE
   if(!invite) {
-    console.log("DOING CHANNEL INVITE THING: NVM NO INVITE")
+    logger.info("DOING CHANNEL INVITE THING: NVM NO INVITE")
     return
   }
   try {
@@ -21,7 +21,7 @@ module.exports = async () => {
      */
     const invites = await Storage.getItem('processedInvites') || []
     if(invites.includes(invite)){
-      console.log("DOING CHANNEL INVITE THING: INVITE PROCESSED ALREADY")
+      logger.info("DOING CHANNEL INVITE THING: INVITE PROCESSED ALREADY")
       return
     }
     const me = await getInfo()
@@ -29,7 +29,7 @@ module.exports = async () => {
     //@ts-expect-error
     const connectReq = await fetch(`${handlerBaseUrl}/connect`)
     if(connectReq.status !== 200 ){
-      console.log("DOING CHANNEL INVITE THING: CONNECT FAILED")
+      logger.info("DOING CHANNEL INVITE THING: CONNECT FAILED")
       return
     }
     const connJson = await connectReq.json()
@@ -53,15 +53,15 @@ module.exports = async () => {
       body:JSON.stringify(channelReq)
     })
     if(res.status !== 200 ){
-      console.log("DOING CHANNEL INVITE THING: FAILED ")
+      logger.info("DOING CHANNEL INVITE THING: FAILED ")
       return
     }
     invites.push(invite)
     await Storage.setItem('processedInvites',invites)
-    console.log("DOING CHANNEL INVITE THING: DONE!")
+    logger.info("DOING CHANNEL INVITE THING: DONE!")
   } catch(e){
     logger.error("error sending invite to channels handler")
-    console.log("DOING CHANNEL INVITE THING: :(")
+    logger.info("DOING CHANNEL INVITE THING: :(")
     logger.error(e)
   }
 

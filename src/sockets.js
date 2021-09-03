@@ -195,11 +195,11 @@ module.exports = (
   )
 
   io.of('streams').on('connect', socket => {
-    console.log('a user connected')
+    logger.info('a user connected')
     socket.on('accessId', accessId => {
       const err = TipsForwarder.addSocket(accessId, socket)
       if (err) {
-        console.log('err invalid socket for tips notifications ' + err)
+        logger.info('err invalid socket for tips notifications ' + err)
         socket.disconnect(true)
       }
     })

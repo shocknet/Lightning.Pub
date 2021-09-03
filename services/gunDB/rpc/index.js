@@ -16,6 +16,7 @@ const {
   getMySecret,
   $$__SHOCKWALLET__ENCRYPTED__
 } = require('../Mediator')
+const logger = require('../../../config/log')
 /**
  * @typedef {import('../contact-api/SimpleGUN').ValidDataValue} ValidDataValue
  * @typedef {import('./types').ValidRPCDataValue} ValidRPCDataValue
@@ -210,8 +211,8 @@ const put = async (rawPath, value) => {
           if (typeof ack.err === 'string') {
             rej(new Error(ack.err))
           } else {
-            console.log(`NON STANDARD GUN ERROR:`)
-            console.log(ack)
+            logger.info(`NON STANDARD GUN ERROR:`)
+            logger.info(ack)
             rej(new Error(JSON.stringify(ack.err, null, 4)))
           }
         } else {

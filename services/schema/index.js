@@ -371,7 +371,7 @@ class SchemaManager {
         .get(coordinateSHA256)
         .put(encryptedOrderString, ack => {
           if (ack.err && typeof ack.err !== 'number') {
-            console.log(ack)
+            logger.info(ack)
             rej(
               new Error(
                 `Error saving coordinate order to user-graph: ${ack}`
