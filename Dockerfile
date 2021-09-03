@@ -1,19 +1,20 @@
-FROM node:lts-alpine
+FROM node:14-buster-slim
 
 EXPOSE 9835
 
-VOLUME [ "/lnd", "/data" ]
+VOLUME [ "/home/shocknet/.lnd", "/data" ]
+RUN apt-get -y update
+RUN apt-get install -y git
+RUN useradd -ms /bin/bash shocknet
+USER shocknet
+WORKDIR /home/shocknet/app
 
-WORKDIR /usr/src/app
 
-RUN apk update && apk upgrade && \
-    apk add --no-cache bash git openssh
-
-ADD ./package.json /usr/src/app/package.json
-ADD ./yarn.lock /usr/src/app/yarn.lock
+ADD ./package.json /home/shocknet/app/package.json
+ADD ./yarn.lock /home/shocknet/app/yarn.lock
 
 RUN yarn
 
-ADD . /usr/src/app
+ADD . /home/shocknet/app
 
 ENTRYPOINT [ "node", "main.js" ]
