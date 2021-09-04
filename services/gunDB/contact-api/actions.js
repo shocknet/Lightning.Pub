@@ -391,8 +391,8 @@ const sendSpontaneousPayment = async (
     /** @type {import('shock-common').Schema.OrderResponse} */
     const encryptedOrderRes = await Common.makePromise((res, rej) => {
       setTimeout(() => {
-        rej(new Error('Timeout of 20s passed when awaiting order response.'))
-      }, 20000)
+        rej(new Error('Timeout of 30s passed when awaiting order response.'))
+      }, 30000)
 
       require('../Mediator')
         .getGun()
@@ -484,10 +484,10 @@ const sendSpontaneousPayment = async (
       setTimeout(() => {
         rej(
           new Error(
-            "Timeout of 20s exceeded when waiting for order response's ack."
+            "Timeout of 30s exceeded when waiting for order response's ack."
           )
         )
-      }, 20000)
+      }, 30000)
 
       require('../Mediator')
         .getGun()
