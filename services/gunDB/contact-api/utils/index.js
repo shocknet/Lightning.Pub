@@ -188,7 +188,9 @@ const pubToEpub = async pub => {
 
     return epubOrTimeout
   } catch (err) {
-    logger.error(`Error inside pubToEpub:`)
+    logger.error(
+      `Error inside pubToEpub for pub ${pub.slice(0, 8)}...${pub.slice(-8)}:`
+    )
     logger.error(err)
     throw err
   }
