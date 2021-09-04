@@ -389,22 +389,23 @@ const sendSpontaneousPayment = async (
     logger.info('ORDER ID')
     logger.info(orderID)
     /** @type {import('shock-common').Schema.OrderResponse} */
-    const encryptedOrderRes = await Utils.tryAndWait(
-      gun =>
-        new Promise(res => {
-          gun
-            .user(to)
-            .get(Key.ORDER_TO_RESPONSE)
-            .get(orderID)
-            .on(orderResponse => {
-              logger.info(orderResponse)
-              if (Schema.isOrderResponse(orderResponse)) {
-                res(orderResponse)
-              }
-            })
-        }),
-      v => Schema.isOrderResponse(v)
-    )
+    const encryptedOrderRes = await Common.makePromise((res, rej) => {
+      setTimeout(() => {
+        rej(new Error('Timeout of 30s passed when awaiting order response.'))
+      }, 30000)
+
+      require('../Mediator')
+        .getGun()
+        .user(to)
+        .get(Key.ORDER_TO_RESPONSE)
+        .get(orderID)
+        .on(orderResponse => {
+          logger.info(orderResponse)
+          if (Schema.isOrderResponse(orderResponse)) {
+            res(orderResponse)
+          }
+        })
+    })
 
     if (!Schema.isOrderResponse(encryptedOrderRes)) {
       const e = TypeError(
@@ -479,27 +480,31 @@ const sendSpontaneousPayment = async (
     logger.info('ACK NODE')
     logger.info(orderResponse.ackNode)
     /** @type {import('shock-common').Schema.OrderResponse} */
-    const encryptedOrderAckRes = await Utils.tryAndWait(
-      gun =>
-        new Promise(res => {
-          gun
-            .user(to)
-            .get(Key.ORDER_TO_RESPONSE)
-            .get(orderResponse.ackNode)
-            .on(orderResponse => {
-              logger.info(orderResponse)
-              logger.info(Schema.isOrderResponse(orderResponse))
+    const encryptedOrderAckRes = await Common.makePromise((res, rej) => {
+      setTimeout(() => {
+        rej(
+          new Error(
+            "Timeout of 30s exceeded when waiting for order response's ack."
+          )
+        )
+      }, 30000)
 
-              //@ts-expect-error
-              if (orderResponse && orderResponse.type === 'orderAck') {
-                //@ts-expect-error
-                res(orderResponse)
-              }
-            })
-        }),
-      //@ts-expect-error
-      v => !v || !v.type
-    )
+      require('../Mediator')
+        .getGun()
+        .user(to)
+        .get(Key.ORDER_TO_RESPONSE)
+        .get(orderResponse.ackNode)
+        .on(orderResponse => {
+          logger.info(orderResponse)
+          logger.info(Schema.isOrderResponse(orderResponse))
+
+          //@ts-expect-error
+          if (orderResponse && orderResponse.type === 'orderAck') {
+            //@ts-expect-error
+            res(orderResponse)
+          }
+        })
+    })
 
     if (!encryptedOrderAckRes || !encryptedOrderAckRes.type) {
       const e = TypeError(
