@@ -47,6 +47,10 @@ module.exports = (
      */
 
     try {
+      logger.info(
+        'Connect event for socket with handshake: ',
+        socket.handshake.auth
+      )
       if (!isAuthenticated()) {
         socket.emit(Common.Constants.ErrorCode.NOT_AUTH)
         return
