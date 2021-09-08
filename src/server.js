@@ -1,3 +1,5 @@
+const { generateRandomString } = require('../utils/encryptionStore')
+
 /**
  * @prettier
  */
@@ -436,6 +438,17 @@ const server = program => {
             logger.error('!! Relay did not connect to server !!')
           }
         })
+      }
+
+      if(process.env.ALLOW_UNLOCKED_LND === 'true'){
+        const codes = await Storage.valuesWithKeyMatch(/^UnlockedAccessSecrets\//u) 
+        if(codes.length === 0){
+          const code = generateRandomString(12)
+          await Storage.setItem(`UnlockedAccessSecrets/${code}`, false)
+          logger.info("the access code is:"+code)
+        } else if(codes.length === 1 || codes[0] === false){
+          logger.info("the access code is:"+codes[0])
+        }
       }
       serverInstance.listen(serverPort, serverHost)
       logger.info('App listening on ' + serverHost + ' port ' + serverPort)
