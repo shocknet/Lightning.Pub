@@ -3,6 +3,19 @@
  */
 /// <reference path="GunT.ts" />
 namespace Smith {
+  
+  export interface PendingPut {
+    cb: GunT.Callback
+    data: GunT.ValidDataValue
+    id: string
+  }
+
+  export interface SmithMsgAuth {
+    alias: string
+    pass: string
+    type: 'auth'
+  }
+
   export interface SmithMsgOn {
     path: string
     type: 'on'
@@ -16,27 +29,24 @@ namespace Smith {
 
   export interface SmithMsgPut {
     id: string
+    data: GunT.ValidDataValue
     path: string
     type: 'put'
-    value: any
   }
 
   export type SmithMsg = SmithMsgOn | SmithMsgOnce | SmithMsgPut | BatchSmithMsg
 
   export type BatchSmithMsg = SmithMsg[]
 
-  export interface GunMsgOn {
-    data: any
-    key: string
-    path: string
-    type: 'on'
+  export interface GunMsgAuth {
+    ack: GunT.AuthAck
+    type: 'auth'
   }
 
-  export interface GunMsgOnce {
+  export interface GunMsgOn {
     data: any
-    id: string
-    key: string
-    type: 'once'
+    path: string
+    type: 'on'
   }
 
   export interface GunMsgPut {
@@ -46,5 +56,5 @@ namespace Smith {
     type: 'put'
   }
 
-  export type GunMsg = GunMsgOn | GunMsgOnce | GunMsgPut
+  export type GunMsg = GunMsgAuth| GunMsgOn | GunMsgPut
 }
