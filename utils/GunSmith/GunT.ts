@@ -114,7 +114,7 @@ namespace GunT {
 
   export interface UserGUNNode extends GUNNode {
     _: UserSoul
-    auth(user: string, pass: string, cb: AuthCB): void
+    auth(alias: string, pass: string, cb: AuthCB): void
     is?: {
       alias: string
       pub: string
