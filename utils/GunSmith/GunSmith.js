@@ -47,15 +47,19 @@ const handleMsg = msg => {
     const idx = pendingPutsForPath.findIndex(pp => pp.id === id)
 
     if (pendingPut) {
+      pendingPutsForPath.splice(idx, 1)
       if (pendingPut.cb) {
         pendingPut.cb(ack)
       }
-      pendingPutsForPath.splice(idx, 1)
     } else {
       logger.error(
         `Could not find request for put message from gun subprocess. Data will be logged below.`
       )
-      logger.info({ msg, pendingPut })
+      console.log({
+        msg,
+        pendingPut: pendingPut || 'No pending put found',
+        allPendingPuts: pendingPuts
+      })
     }
   }
 }
@@ -66,9 +70,8 @@ let currentGun
 
 let lastAlias = ''
 let lastPass = ''
-/** @type {GunT.UserPair} */
-// eslint-disable-next-line init-declarations
-let lastPair
+/** @type {GunT.UserPair|null} */
+let lastPair = null
 /** @type {import('gun/types/options').IGunConstructorOptions} */
 let lastOpts = {}
 
@@ -79,6 +82,9 @@ let lastOpts = {}
  */
 const auth = (alias, pass) =>
   new Promise((res, rej) => {
+    lastAlias = ''
+    lastPass = ''
+    lastPair = null
     /** @type {Smith.SmithMsgAuth} */
     const msg = {
       alias,
@@ -200,8 +206,8 @@ function createReplica(path, afterMap = false) {
       }
       for (const l of listenersForThisRef) {
         // eslint-disable-next-line no-multi-assign
-        const listeners = (pathToListeners[path] =
-          pathToListeners[path] || new Set())
+        const listeners =
+          pathToListeners[path] || (pathToListeners[path] = new Set())
 
         listeners.delete(l)
       }
@@ -210,8 +216,8 @@ function createReplica(path, afterMap = false) {
       listenersForThisRef.push(cb)
 
       // eslint-disable-next-line no-multi-assign
-      const listeners = (pathToListeners[path] =
-        pathToListeners[path] || new Set())
+      const listeners =
+        pathToListeners[path] || (pathToListeners[path] = new Set())
 
       listeners.add(cb)
 
@@ -224,7 +230,7 @@ function createReplica(path, afterMap = false) {
 
       return this
     },
-    once(cb, opts = { wait: 200 }) {
+    once(cb, opts = { wait: 500 }) {
       const tmp = createReplica(path, afterMap)
       if (afterMap) {
         // TODO
@@ -240,6 +246,7 @@ function createReplica(path, afterMap = false) {
           if (cb) {
             cb(lastVal, path.split('>')[path.split('>').length - 1])
           }
+          tmp.off()
         }, opts.wait)
       }
       return this
@@ -251,16 +258,7 @@ function createReplica(path, afterMap = false) {
 
       /** @type {Smith.PendingPut} */
       const pendingPut = {
-        cb(ack) {
-          const idx = pendingPutsForPath.indexOf(this)
-          if (idx > -1) {
-            pendingPutsForPath.splice(idx, 1)
-          } else {
-            logger.warn(`???`)
-          }
-          // eslint-disable-next-line no-unused-expressions
-          cb && cb(ack)
-        },
+        cb: cb || (() => {}),
         data,
         id
       }
@@ -274,7 +272,6 @@ function createReplica(path, afterMap = false) {
         path,
         type: 'put'
       }
-
       currentGun.send(msg)
       return this
     },
@@ -355,6 +352,15 @@ function createUserReplica() {
         sea: lastPair
       }
     },
+    get is() {
+      if (lastAlias && lastPair) {
+        return {
+          alias: lastAlias,
+          pub: lastPair.pub
+        }
+      }
+      return undefined
+    },
     auth(alias, pass, cb) {
       auth(alias, pass)
         .then(pair => {
@@ -381,15 +387,9 @@ function createUserReplica() {
  * @param {import('gun/types/options').IGunConstructorOptions} opts
  */
 const Gun = opts => {
-  forge()
   lastOpts = opts
+  forge()
 
-  /** @type {Smith.SmithMsgInit} */
-  const msg = {
-    opts,
-    type: 'init'
-  }
-  currentGun.send(msg)
   // We should ideally wait for a response but we'd break the constructor's
   // signature
   return createReplica('$root')
