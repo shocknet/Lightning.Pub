@@ -23,6 +23,9 @@ const pathToListeners = {}
  */
 const pathToMapListeners = {}
 
+/** @type {Record<string, GunT.LoadListener>} */
+const idToLoadListener = {}
+
 /**
  * Path to pending puts. Oldest to newest
  * @type {Record<string, Smith.PendingPut[]?>}
@@ -33,6 +36,16 @@ const pendingPuts = {}
  * @param {Smith.GunMsg} msg
  */
 const handleMsg = msg => {
+  if (msg.type === 'load') {
+    const { data, id, key } = msg
+
+    const listener = idToLoadListener[id]
+
+    if (listener) {
+      listener(data, key)
+      delete idToLoadListener[id]
+    }
+  }
   if (msg.type === 'on') {
     const { data, path } = msg
 
@@ -189,7 +202,7 @@ const forge = () => {
  * @returns {GunT.GUNNode}
  */
 function createReplica(path, afterMap = false) {
-  /** @type {GunT.Listener[]} */
+  /** @type {(GunT.Listener|GunT.LoadListener)[]} */
   const listenersForThisRef = []
 
   return {
@@ -211,6 +224,28 @@ function createReplica(path, afterMap = false) {
       }
       return createReplica(path + '>' + key)
     },
+    load(cb) {
+      // Dumb implementation. We must move away from load() anyways.
+      if (afterMap) {
+        throw new Error('Cannot call load() after map() on a GunSmith node')
+      }
+      if (cb) {
+        listenersForThisRef.push(cb)
+
+        const id = uuid()
+
+        idToLoadListener[id] = cb
+
+        /** @type {Smith.SmithMsgLoad} */
+        const msg = {
+          id,
+          path,
+          type: 'load'
+        }
+        currentGun.send(msg)
+      }
+      return this
+    },
     map() {
       if (afterMap) {
         throw new Error('Cannot call map() after map() on a GunSmith node')
@@ -218,15 +253,19 @@ function createReplica(path, afterMap = false) {
       return createReplica(path, true)
     },
     off() {
-      if (afterMap) {
-        throw new Error('Cannot call off() after map() on a GunSmith node')
-      }
       for (const l of listenersForThisRef) {
         // eslint-disable-next-line no-multi-assign
         const listeners =
           pathToListeners[path] || (pathToListeners[path] = new Set())
 
+        // eslint-disable-next-line no-multi-assign
+        const mapListeners =
+          pathToMapListeners[path] || (pathToMapListeners[path] = new Set())
+
+        // @ts-expect-error
         listeners.delete(l)
+        // @ts-expect-error
+        mapListeners.delete(l)
       }
     },
     on(cb) {

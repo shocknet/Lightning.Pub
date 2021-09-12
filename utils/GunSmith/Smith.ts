@@ -25,6 +25,12 @@ namespace Smith {
     type: 'on'
   }
 
+  export interface SmithMsgLoad {
+    id: string
+    path: string
+    type: 'load'
+  }
+
   export interface SmithMsgMapOn {
     path: string
     type: 'map.on'
@@ -41,6 +47,7 @@ namespace Smith {
     | SmithMsgInit
     | SmithMsgAuth
     | SmithMsgOn
+    | SmithMsgLoad
     | SmithMsgMapOn
     | SmithMsgPut
     | BatchSmithMsg
@@ -65,6 +72,13 @@ namespace Smith {
     type: 'map.on'
   }
 
+  export interface GunMsgLoad {
+    id: string
+    data: GunT.LoadListenerData
+    key: string
+    type: 'load'
+  }
+
   export interface GunMsgPut {
     ack: GunT.Ack
     id: string
@@ -72,5 +86,10 @@ namespace Smith {
     type: 'put'
   }
 
-  export type GunMsg = GunMsgAuth | GunMsgOn | GunMsgMapOn | GunMsgPut
+  export type GunMsg =
+    | GunMsgAuth
+    | GunMsgOn
+    | GunMsgMapOn
+    | GunMsgLoad
+    | GunMsgPut
 }
