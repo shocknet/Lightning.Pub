@@ -351,12 +351,6 @@ function createReplica(path, afterMap = false) {
       }
       return this
     },
-    then() {
-      if (afterMap) {
-        throw new Error('Cannot call then() after map() on a GunSmith node')
-      }
-      return Promise.resolve(null)
-    },
     user(pub) {
       if (path !== '$root') {
         throw new ReferenceError(
