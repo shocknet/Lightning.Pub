@@ -2,6 +2,7 @@
  * @prettier
  */
 namespace GunT {
+
   export type Primitive = boolean | string | number
 
   export interface Data {
