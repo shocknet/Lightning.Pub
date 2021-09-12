@@ -400,6 +400,13 @@ function createReplica(path, afterMap = false) {
           )
         }
       }
+    },
+    then() {
+      return new Promise(res => {
+        this.once(data => {
+          res(data)
+        })
+      })
     }
   }
 }
