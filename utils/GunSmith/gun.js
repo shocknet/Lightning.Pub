@@ -23,9 +23,6 @@ let gun
 // eslint-disable-next-line init-declarations
 let user
 
-/** @type {Set<string>} */
-const pendingOnces = new Set()
-
 /**
  * @returns {Promise<void>}
  */
@@ -49,6 +46,7 @@ const handleMsg = msg => {
   }
   if (msg.type === 'init') {
     gun = /** @type {any} */ (new Gun(msg.opts))
+    user = gun.user()
   }
   if (msg.type === 'auth') {
     const { alias, pass } = msg

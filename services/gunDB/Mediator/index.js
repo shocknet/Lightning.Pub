@@ -2,12 +2,12 @@
  * @format
  */
 const Common = require('shock-common')
-const Gun = require('gun')
+const Gun = require('../../../utils/GunSmith')
 // @ts-ignore
 require('gun/nts')
 const logger = require('../../../config/log')
 // @ts-ignore
-Gun.log = () => {}
+// Gun.log = () => {}
 // @ts-ignore
 require('gun/lib/open')
 // @ts-ignore
