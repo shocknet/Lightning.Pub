@@ -2,7 +2,6 @@
  * @prettier
  */
 namespace GunT {
-
   export type Primitive = boolean | string | number
 
   export interface Data {
@@ -93,11 +92,7 @@ namespace GunT {
 
   export interface AuthAck {
     err: string | undefined
-    sea:
-      | {
-          pub: string
-        }
-      | undefined
+    sea: UserPair | undefined
   }
 
   export type AuthCB = (ack: AuthAck) => void
