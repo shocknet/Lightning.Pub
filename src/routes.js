@@ -2380,7 +2380,7 @@ module.exports = async (
         return new Promise((res, rej) => {
           const listener = data => {
             logger.info(`got res for: ${keys}`)
-            logger.info(data)
+            logger.info(data || 'falsey data (does not get logged)')
             if (publicKeyForDecryption) {
               GunWriteRPC.deepDecryptIfNeeded(
                 data,
