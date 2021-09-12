@@ -64,6 +64,8 @@ let currentGun = fork('./gun')
 
 let lastAlias = ''
 let lastPass = ''
+/** @type {import('gun/types/options').IGunConstructorOptions} */
+let lastOpts = {}
 
 /**
  * @param {string} alias
@@ -120,6 +122,13 @@ const forge = () => {
   const newGun = fork('./gun')
   currentGun = newGun
 
+  /** @type {Smith.SmithMsgInit} */
+  const initMsg = {
+    opts: lastOpts,
+    type: 'init'
+  }
+  currentGun.send(initMsg)
+
   currentGun.on('message', handleMsg)
 
   const lastGunListeners = Object.keys(pathToListeners).map(path => {
@@ -130,7 +139,6 @@ const forge = () => {
     }
     return msg
   })
-
   currentGun.send(lastGunListeners)
 
   autoAuth().then(() => {
@@ -151,9 +159,12 @@ function createReplica(path, afterMap = false) {
     _: {
       get: '',
       opt: {
+        // TODO
         peers: {}
       },
-      put: {}
+      put: {
+        // TODO
+      }
     },
     get(key) {
       if (afterMap) {
@@ -202,17 +213,18 @@ function createReplica(path, afterMap = false) {
     once(cb, opts = { wait: 200 }) {
       const tmp = createReplica(path, afterMap)
       if (afterMap) {
-        //
+        // TODO
       } else {
+        /** @type {GunT.ListenerData} */
         let lastVal = null
 
-        tmp.on((data, key) => {
+        tmp.on(data => {
           lastVal = data
         })
 
         setTimeout(() => {
           if (cb) {
-            cb(lastVal, path.split('>').lastItem)
+            cb(lastVal, path.split('>')[path.split('>').length - 1])
           }
         }, opts.wait)
       }
@@ -360,6 +372,8 @@ function createUserReplica() {
  * @param {import('gun/types/options').IGunConstructorOptions} opts
  */
 const Gun = opts => {
+  lastOpts = opts
+
   /** @type {Smith.SmithMsgInit} */
   const msg = {
     opts,
