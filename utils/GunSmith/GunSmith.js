@@ -18,6 +18,12 @@ const logger = require('../../config/log')
 const pathToListeners = {}
 
 /**
+ * Maps a path to `map().on()` listeners
+ * @type {Record<string, Set<GunT.Listener>|undefined>}
+ */
+const pathToMapListeners = {}
+
+/**
  * Path to pending puts. Oldest to newest
  * @type {Record<string, Smith.PendingPut[]?>}
  */
@@ -36,6 +42,17 @@ const handleMsg = msg => {
 
     for (const l of listeners) {
       l(data, path.split('>')[path.split('>').length - 1])
+    }
+  }
+  if (msg.type === 'map.on') {
+    const { data, key, path } = msg
+
+    // eslint-disable-next-line no-multi-assign
+    const listeners =
+      pathToMapListeners[path] || (pathToMapListeners[path] = new Set())
+
+    for (const l of listeners) {
+      l(data, key)
     }
   }
   if (msg.type === 'put') {
@@ -214,19 +231,33 @@ function createReplica(path, afterMap = false) {
     },
     on(cb) {
       listenersForThisRef.push(cb)
+      if (afterMap) {
+        // eslint-disable-next-line no-multi-assign
+        const listeners =
+          pathToMapListeners[path] || (pathToMapListeners[path] = new Set())
 
-      // eslint-disable-next-line no-multi-assign
-      const listeners =
-        pathToListeners[path] || (pathToListeners[path] = new Set())
+        listeners.add(cb)
 
-      listeners.add(cb)
+        /** @type {Smith.SmithMsgMapOn} */
+        const msg = {
+          path,
+          type: 'map.on'
+        }
+        currentGun.send(msg)
+      } else {
+        // eslint-disable-next-line no-multi-assign
+        const listeners =
+          pathToListeners[path] || (pathToListeners[path] = new Set())
 
-      /** @type {Smith.SmithMsgOn} */
-      const msg = {
-        path,
-        type: 'on'
+        listeners.add(cb)
+
+        /** @type {Smith.SmithMsgOn} */
+        const msg = {
+          path,
+          type: 'on'
+        }
+        currentGun.send(msg)
       }
-      currentGun.send(msg)
 
       return this
     },
