@@ -405,7 +405,7 @@ const instantiateGun = () => {
   // @ts-ignore
   gun = null
 
-  const _gun = /** @type {unknown} */ (new Gun({
+  const _gun = /** @type {unknown} */ (Gun({
     axe: false,
     multicast: false,
     peers: Config.PEERS
