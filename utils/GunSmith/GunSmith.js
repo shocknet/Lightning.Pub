@@ -301,24 +301,25 @@ function createReplica(path, afterMap = false) {
       return this
     },
     once(cb, opts = { wait: 500 }) {
+      // We could use this.on() but then we couldn't call .off()
       const tmp = createReplica(path, afterMap)
       if (afterMap) {
-        // TODO
-      } else {
-        /** @type {GunT.ListenerData} */
-        let lastVal = null
-
-        tmp.on(data => {
-          lastVal = data
-        })
-
-        setTimeout(() => {
-          if (cb) {
-            cb(lastVal, path.split('>')[path.split('>').length - 1])
-          }
-          tmp.off()
-        }, opts.wait)
+        throw new Error('Cannot call once() after map() on a GunSmith node')
       }
+      /** @type {GunT.ListenerData} */
+      let lastVal = null
+
+      tmp.on(data => {
+        lastVal = data
+      })
+
+      setTimeout(() => {
+        if (cb) {
+          cb(lastVal, path.split('>')[path.split('>').length - 1])
+        }
+        tmp.off()
+      }, opts.wait)
+
       return this
     },
     put(data, cb) {
