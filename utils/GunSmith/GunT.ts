@@ -32,6 +32,7 @@ namespace GunT {
   }
 
   export type Listener = (data: ListenerData, key: string) => void
+
   export type Callback = (ack: Ack) => void
 
   export interface Peer {
@@ -49,36 +50,24 @@ namespace GunT {
       peers: Record<string, Peer>
     }
   }
-
   export type OpenListenerData = Primitive | null | OpenListenerDataObj
+
   export type OpenListener = (data: OpenListenerData, key: string) => void
 
   export type LoadListenerData = OpenListenerData
+
   export type LoadListener = (data: LoadListenerData, key: string) => void
 
-  export interface GUNNodeBase {
+  export interface GUNNode {
     _: Soul
-
+    get(key: string): GUNNode
+    load(this: GUNNode, cb?: LoadListener): GUNNode
     map(): GUNNode
-
+    off(): void
     on(this: GUNNode, cb: Listener): void
     once(this: GUNNode, cb?: Listener, opts?: { wait: number }): GUNNode
-
-    // open(this: GUNNode, cb?: OpenListener): GUNNode
-    // load(this: GUNNode, cb?: OpenListener): GUNNode
-
-    // load(this: GUNNode, cb?: LoadListener): GUNNode
-
-    off(): void
     user(): UserGUNNode
     user(pub: string): GUNNode
-
-    then(): Promise<ListenerData>
-    then<T>(cb: (v: ListenerData) => T): Promise<ListenerData>
-  }
-
-  export interface GUNNode extends GUNNodeBase {
-    get(key: string): GUNNode
     put(data: ValidDataValue, cb?: Callback): GUNNode
     set(data: ValidDataValue, cb?: Callback): GUNNode
   }
@@ -117,34 +106,5 @@ namespace GunT {
     }
     create(user: string, pass: string, cb: CreateCB): void
     leave(): void
-  }
-
-  export interface ISEA {
-    encrypt(
-      message: string | number | boolean,
-      senderSecret: string
-    ): Promise<string>
-    decrypt(encryptedMessage: string, recipientSecret: string): Promise<string>
-    decryptNumber(
-      encryptedMessage: string,
-      recipientSecret: string
-    ): Promise<number>
-    decryptBoolean(
-      encryptedMessage: string,
-      recipientSecret: string
-    ): Promise<boolean>
-    secret(
-      recipientOrSenderEpub: string,
-      recipientOrSenderUserPair: UserPair
-    ): Promise<string>
-  }
-
-  export interface MySEA {
-    encrypt(message: string, senderSecret: string): Promise<string>
-    decrypt(encryptedMessage: string, recipientSecret: string): Promise<string>
-    secret(
-      recipientOrSenderEpub: string,
-      recipientOrSenderUserPair: UserPair
-    ): Promise<string>
   }
 }
