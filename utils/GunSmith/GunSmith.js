@@ -349,7 +349,17 @@ function createReplica(path, afterMap = false) {
       if (afterMap) {
         throw new Error('Cannot call set() after map() on a GunSmith node')
       }
-      return this
+      // @ts-expect-error
+      const uuid = Gun.text.random()
+      return this.put(
+        {
+          [uuid]: data
+        },
+        ack => {
+          // eslint-disable-next-line no-unused-expressions
+          cb && cb(ack)
+        }
+      )
     },
     user(pub) {
       if (path !== '$root') {
