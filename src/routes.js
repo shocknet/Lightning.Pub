@@ -611,7 +611,7 @@ module.exports = async (
         // If we're connected to lnd, unlock the wallet using the password supplied
         // and generate an auth token if that operation was successful.
         if (health.LNDStatus.success && walletInitialized) {
-          const { alias, password, invite } = req.body
+          const { alias, password, invite, accessSecret } = req.body
 
           await recreateLnServices()
 
@@ -647,8 +647,18 @@ module.exports = async (
           if (!walletUnlocked) {
             await unlockWallet(password)
           }
-
-          if (walletUnlocked && !authorization && !isKeyTrusted) {
+          let secretUsed = null
+          if (accessSecret) {
+            secretUsed = await Storage.get(
+              `UnlockedAccessSecrets/${accessSecret}`
+            )
+          }
+          if (
+            walletUnlocked &&
+            !authorization &&
+            !isKeyTrusted &&
+            (process.env.ALLOW_UNLOCKED_LND !== 'true' || secretUsed !== false)
+          ) {
             res.status(401).json({
               field: 'alias',
               errorMessage:
@@ -658,7 +668,11 @@ module.exports = async (
             return
           }
 
-          if (walletUnlocked && !isKeyTrusted) {
+          if (
+            walletUnlocked &&
+            !isKeyTrusted &&
+            (process.env.ALLOW_UNLOCKED_LND !== 'true' || secretUsed !== false)
+          ) {
             const validatedToken = await validateToken(
               authorization.replace('Bearer ', '')
             )
@@ -672,6 +686,10 @@ module.exports = async (
               })
               return
             }
+          }
+
+          if (secretUsed === false) {
+            await Storage.setItem(`UnlockedAccessSecrets/${accessSecret}`, true)
           }
 
           if (!isKeyTrusted) {
@@ -1003,7 +1021,7 @@ module.exports = async (
 
     app.post('/api/lnd/wallet/existing', async (req, res) => {
       try {
-        const { password, alias, invite } = req.body
+        const { password, alias, invite, accessSecret } = req.body
         const healthResponse = await checkHealth()
         const exists = await walletExists()
         if (!exists) {
@@ -1034,17 +1052,30 @@ module.exports = async (
               "Please specify a password that's longer than 8 characters"
           })
         }
-
-        if (healthResponse.LNDStatus.service !== 'walletUnlocker') {
+        let secretUsed = null
+        if (accessSecret) {
+          secretUsed = await Storage.get(
+            `UnlockedAccessSecrets/${accessSecret}`
+          )
+        }
+        if (
+          healthResponse.LNDStatus.service !== 'walletUnlocker' &&
+          (process.env.ALLOW_UNLOCKED_LND !== 'true' || secretUsed !== false)
+        ) {
           return res.status(400).json({
             field: 'wallet',
             errorMessage:
               'Wallet is already unlocked. Please restart your LND instance and try again.'
           })
         }
+        if (secretUsed === false) {
+          await Storage.setItem(`UnlockedAccessSecrets/${accessSecret}`, true)
+        }
 
         try {
-          await unlockWallet(password)
+          if (healthResponse.LNDStatus.service === 'walletUnlocker') {
+            await unlockWallet(password)
+          }
         } catch (err) {
           return res.status(401).json({
             field: 'wallet',
