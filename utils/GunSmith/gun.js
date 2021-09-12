@@ -11,6 +11,19 @@ require('gun/nts')
 // @ts-ignore
 Gun.log = () => {}
 
+/**
+ * @param {any} msg
+ */
+const sendMsg = msg => {
+  if (process.send) {
+    process.send(msg)
+  } else {
+    console.log(
+      'Fatal error: Could not send a message from inside the gun process.'
+    )
+  }
+}
+
 console.log('subprocess invoked')
 
 process.on('uncaughtException', e => {
@@ -58,6 +71,10 @@ const handleMsg = msg => {
   }
   if (msg.type === 'init') {
     gun = /** @type {any} */ (new Gun(msg.opts))
+    setInterval(() => {
+      // @ts-expect-error
+      console.log(Object.keys(gun.back('opt').peers))
+    }, 2000)
     user = gun.user()
   }
   if (msg.type === 'auth') {
@@ -71,8 +88,7 @@ const handleMsg = msg => {
         },
         type: 'auth'
       }
-      // @ts-expect-error
-      process.send(msg)
+      sendMsg(msg)
     })
   }
   if (msg.type === 'on') {
@@ -95,8 +111,7 @@ const handleMsg = msg => {
         path: msg.path,
         type: 'on'
       }
-      // @ts-expect-error
-      process.send(res)
+      sendMsg(res)
     })
   }
   if (msg.type === 'put') {
@@ -112,6 +127,17 @@ const handleMsg = msg => {
     for (const key of keys) {
       node = node.get(key)
     }
+
+    node.put(msg.data, ack => {
+      /** @type {Smith.GunMsgPut} */
+      const reply = {
+        ack,
+        id: msg.id,
+        path: msg.path,
+        type: 'put'
+      }
+      sendMsg(reply)
+    })
   }
 }
 
