@@ -11,6 +11,18 @@ require('gun/nts')
 // @ts-ignore
 Gun.log = () => {}
 
+console.log('subprocess invoked')
+
+process.on('uncaughtException', e => {
+  console.log('Uncaught exception inside Gun subprocess:')
+  console.log(e)
+})
+
+process.on('unhandledRejection', e => {
+  console.log('Unhandled rejection inside Gun subprocess:')
+  console.log(e)
+})
+
 /**
  * @type {GunT.GUNNode}
  */
@@ -27,7 +39,7 @@ let user
  * @returns {Promise<void>}
  */
 const waitForAuth = async () => {
-  if (user.is?.pub) {
+  if (user.is && user.is.pub) {
     return Promise.resolve()
   }
 
@@ -53,7 +65,10 @@ const handleMsg = msg => {
     user.auth(alias, pass, ack => {
       /** @type {Smith.GunMsgAuth} */
       const msg = {
-        ack,
+        ack: {
+          err: ack.err,
+          sea: ack.sea
+        },
         type: 'auth'
       }
       // @ts-expect-error

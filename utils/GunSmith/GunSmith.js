@@ -31,8 +31,8 @@ const handleMsg = msg => {
     const { data, path } = msg
 
     // eslint-disable-next-line no-multi-assign
-    const listeners = (pathToListeners[path] =
-      pathToListeners[path] || new Set())
+    const listeners =
+      pathToListeners[path] || (pathToListeners[path] = new Set())
 
     for (const l of listeners) {
       l(data, path.split('>')[path.split('>').length - 1])
@@ -60,17 +60,22 @@ const handleMsg = msg => {
   }
 }
 
-let currentGun = fork('./gun')
+/** @type {ReturnType<typeof fork>} */
+// eslint-disable-next-line init-declarations
+let currentGun
 
 let lastAlias = ''
 let lastPass = ''
+/** @type {GunT.UserPair} */
+// eslint-disable-next-line init-declarations
+let lastPair
 /** @type {import('gun/types/options').IGunConstructorOptions} */
 let lastOpts = {}
 
 /**
  * @param {string} alias
  * @param {string} pass
- * @returns {Promise<string>}
+ * @returns {Promise<GunT.UserPair>}
  */
 const auth = (alias, pass) =>
   new Promise((res, rej) => {
@@ -80,6 +85,7 @@ const auth = (alias, pass) =>
       pass,
       type: 'auth'
     }
+
     /** @param {Smith.GunMsg} msg */
     const _cb = msg => {
       if (msg.type === 'auth') {
@@ -92,7 +98,9 @@ const auth = (alias, pass) =>
         } else if (ack.sea) {
           lastAlias = alias
           lastPass = pass
-          res(ack.sea.pub)
+          lastPair = ack.sea
+          processPendingPutsFromLastGun(currentGun)
+          res(ack.sea)
         } else {
           rej(new Error('Auth: ack.sea undefined'))
         }
@@ -103,11 +111,12 @@ const auth = (alias, pass) =>
   })
 
 /**
- * @returns {Promise<string>}
+ * Returns null if there's no cached credentials.
+ * @returns {Promise<GunT.UserPair|null>}
  */
 const autoAuth = () => {
   if (!lastAlias || !lastPass) {
-    return Promise.resolve('')
+    return Promise.resolve(null)
   }
   return auth(lastAlias, lastPass)
 }
@@ -117,10 +126,17 @@ const processPendingPutsFromLastGun = async (forGun, pps = pendingPuts) => {
 }
 
 const forge = () => {
-  currentGun.off('message', handleMsg)
-  currentGun.kill()
-  const newGun = fork('./gun')
+  if (currentGun) {
+    currentGun.off('message', handleMsg)
+    currentGun.kill()
+  }
+  const newGun = fork('utils/GunSmith/gun.js')
   currentGun = newGun
+
+  // currentGun.on('', e => {
+  //   console.log('event from subp')
+  //   console.log(e)
+  // })
 
   /** @type {Smith.SmithMsgInit} */
   const initMsg = {
@@ -141,9 +157,7 @@ const forge = () => {
   })
   currentGun.send(lastGunListeners)
 
-  autoAuth().then(() => {
-    processPendingPutsFromLastGun(newGun)
-  })
+  autoAuth()
 }
 
 /**
@@ -334,24 +348,19 @@ function createUserReplica() {
   /** @type {GunT.UserGUNNode} */
   const completeReplica = {
     ...baseReplica,
-    _: {
-      ...baseReplica._,
-      // TODO
-      sea: {
-        epriv: '',
-        epub: '',
-        priv: '',
-        pub: ''
+    get _() {
+      return {
+        ...baseReplica._,
+        // TODO
+        sea: lastPair
       }
     },
     auth(alias, pass, cb) {
       auth(alias, pass)
-        .then(pub => {
+        .then(pair => {
           cb({
             err: undefined,
-            sea: {
-              pub
-            }
+            sea: pair
           })
         })
         .catch(e => {
@@ -372,6 +381,7 @@ function createUserReplica() {
  * @param {import('gun/types/options').IGunConstructorOptions} opts
  */
 const Gun = opts => {
+  forge()
   lastOpts = opts
 
   /** @type {Smith.SmithMsgInit} */
