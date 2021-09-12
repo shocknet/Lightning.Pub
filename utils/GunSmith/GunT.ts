@@ -70,6 +70,7 @@ namespace GunT {
     user(pub: string): GUNNode
     put(data: ValidDataValue, cb?: Callback): GUNNode
     set(data: ValidDataValue, cb?: Callback): GUNNode
+    then(): Promise<ListenerData>
   }
 
   export interface CreateAck {
