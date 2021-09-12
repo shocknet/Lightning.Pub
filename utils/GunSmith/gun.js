@@ -104,12 +104,36 @@ const handleMsg = msg => {
     for (const key of keys) {
       node = node.get(key)
     }
-    node.on((data, key) => {
+    node.on(data => {
       /** @type {Smith.GunMsgOn} */
       const res = {
         data,
         path: msg.path,
         type: 'on'
+      }
+      sendMsg(res)
+    })
+  }
+  if (msg.type === 'map.on') {
+    const [root, ...keys] = msg.path.split('>')
+
+    /** @type {GunT.GUNNode} */
+    let node =
+      {
+        $root: gun,
+        $user: user
+      }[root] || gun.user(root)
+
+    for (const key of keys) {
+      node = node.get(key)
+    }
+    node.map().on((data, key) => {
+      /** @type {Smith.GunMsgMapOn} */
+      const res = {
+        data,
+        key,
+        path: msg.path,
+        type: 'map.on'
       }
       sendMsg(res)
     })
