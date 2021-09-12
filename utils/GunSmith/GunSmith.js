@@ -9,8 +9,6 @@
 const uuid = require('uuid').v1
 const { fork } = require('child_process')
 
-const Config = require('./config')
-
 const logger = require('../../config/log')
 
 /**
@@ -88,30 +86,19 @@ const auth = (alias, pass) =>
         const { ack } = msg
 
         if (ack.err) {
-          rej(
-            new Error(
-              
-                ack.err
-            )
-          )
+          rej(new Error(ack.err))
         } else if (ack.sea) {
-          lastAlias = alias;
+          lastAlias = alias
           lastPass = pass
           res(ack.sea.pub)
         } else {
-          rej(
-            new Error(
-              'Auth: ack.sea undefined'
-            )
-          )
+          rej(new Error('Auth: ack.sea undefined'))
         }
       }
     }
     currentGun.on('message', _cb)
     currentGun.send(msg)
   })
-
-
 
 /**
  * @returns {Promise<string>}
@@ -346,19 +333,21 @@ function createUserReplica() {
       }
     },
     auth(alias, pass, cb) {
-      auth(alias, pass).then((pub) => {
-        cb({
-          err: undefined,
-          sea: {
-            pub,
-          }
+      auth(alias, pass)
+        .then(pub => {
+          cb({
+            err: undefined,
+            sea: {
+              pub
+            }
+          })
         })
-      }).catch(e => {
-        cb({
-          err: e.message,
-          sea: undefined
+        .catch(e => {
+          cb({
+            err: e.message,
+            sea: undefined
+          })
         })
-      })
     },
     create() {},
     leave() {}
@@ -366,3 +355,20 @@ function createUserReplica() {
 
   return completeReplica
 }
+
+/**
+ * @param {import('gun/types/options').IGunConstructorOptions} opts
+ */
+const Gun = opts => {
+  /** @type {Smith.SmithMsgInit} */
+  const msg = {
+    opts,
+    type: 'init'
+  }
+  currentGun.send(msg)
+  // We should ideally wait for a response but we'd break the constructor's
+  // signature
+  return createReplica('$root')
+}
+
+module.exports = Gun
