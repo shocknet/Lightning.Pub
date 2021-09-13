@@ -92,7 +92,6 @@ const handleMsg = msg => {
     })
   }
   if (msg.type === 'load') {
-    const { id, path } = msg
     const [root, ...keys] = msg.path.split('>')
 
     /** @type {GunT.GUNNode} */
@@ -109,7 +108,7 @@ const handleMsg = msg => {
       /** @type {Smith.GunMsgLoad} */
       const res = {
         data,
-        id,
+        id: msg.id,
         key,
         type: 'load'
       }
