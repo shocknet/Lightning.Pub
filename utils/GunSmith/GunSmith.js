@@ -38,7 +38,7 @@ const idToLoadListener = {}
 
 /**
  * Path to pending puts. Oldest to newest
- * @type {Record<string, Smith.PendingPut[]?>}
+ * @type {Record<string, Smith.PendingPut[]>}
  */
 const pendingPuts = {}
 
