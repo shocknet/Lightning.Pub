@@ -216,7 +216,10 @@ function createReplica(path, afterMap = false) {
 
   return {
     _: {
-      get: '',
+      get get() {
+        const keys = path.split('>')
+        return keys[keys.length - 1]
+      },
       opt: {
         // TODO
         peers: {}
