@@ -43,6 +43,13 @@ namespace Smith {
     type: 'put'
   }
 
+  export interface SmithMsgMultiPut {
+    ids: string[]
+    data: GunT.ValidDataValue
+    path: string
+    type: 'multiPut'
+  }
+
   export type SmithMsg =
     | SmithMsgInit
     | SmithMsgAuth
@@ -50,6 +57,7 @@ namespace Smith {
     | SmithMsgLoad
     | SmithMsgMapOn
     | SmithMsgPut
+    | SmithMsgMultiPut
     | BatchSmithMsg
 
   export type BatchSmithMsg = SmithMsg[]
@@ -86,10 +94,17 @@ namespace Smith {
     type: 'put'
   }
 
+  export interface GunMsgMultiPut {
+    ack: GunT.Ack
+    ids: string[]
+    type: 'multiPut'
+  }
+
   export type GunMsg =
     | GunMsgAuth
     | GunMsgOn
     | GunMsgMapOn
     | GunMsgLoad
     | GunMsgPut
+    | GunMsgMultiPut
 }
