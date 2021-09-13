@@ -25,9 +25,11 @@ const SchemaManager = require('../../schema')
 const LNDHealthMananger = require('../../../utils/lightningServices/errors')
 const { enrollContentTokens, selfContentToken } = require('../../seed')
 
+/// <reference path="../../../utils/GunSmith/GunT.ts" />
+
 /**
  * @typedef {import('./SimpleGUN').ISEA} ISEA
- * @typedef {import('./SimpleGUN').UserGUNNode} UserGUNNode
+ * @typedef {GunT.UserGUNNode} UserGUNNode
  */
 
 /**
