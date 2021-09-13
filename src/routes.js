@@ -2288,48 +2288,35 @@ module.exports = async (
       epubForDecryption
     }) => {
       const keys = path.split('>')
-      const { tryAndWait } = require('../services/gunDB/contact-api/utils')
-      return tryAndWait((gun, user) => {
-        // eslint-disable-next-line no-nested-ternary
-        let node = startFromUserGraph
-          ? user
-          : publicKey
-          ? gun.user(publicKey)
-          : gun
-        logger.info(`fetching: ${keys}`)
-        keys.forEach(key => (node = node.get(key)))
+      const { gun, user } = require('../services/gunDB/Mediator')
 
-        if (!publicKeyForDecryption || !epubForDecryption) {
-          logger.warn('[GUN] Missing public key for decryption!', {
-            publicKeyForDecryption,
-            epubForDecryption
-          })
+      // eslint-disable-next-line no-nested-ternary
+      let node = startFromUserGraph
+        ? user
+        : publicKey
+        ? gun.user(publicKey)
+        : gun
+      keys.forEach(key => (node = node.get(key)))
+      logger.info(`fetching: ${keys}`)
+      return new Promise((res, rej) => {
+        const listener = data => {
+          logger.info(`got res for: ${keys}`)
+          logger.info(data || 'falsey data (does not get logged)')
+          if (publicKeyForDecryption) {
+            GunWriteRPC.deepDecryptIfNeeded(
+              data,
+              publicKeyForDecryption,
+              epubForDecryption
+            )
+              .then(res)
+              .catch(rej)
+          } else {
+            res(data)
+          }
         }
 
-        return new Promise((res, rej) => {
-          try {
-            const listener = data => {
-              logger.info(`got res for: ${keys}`)
-              logger.info(data || 'falsey data (does not get logged)')
-              if (publicKeyForDecryption) {
-                GunWriteRPC.deepDecryptIfNeeded(
-                  data,
-                  publicKeyForDecryption,
-                  epubForDecryption
-                )
-                  .then(res)
-                  .catch(rej)
-              } else {
-                res(data)
-              }
-            }
-
-            if (type === 'once') node.once(listener)
-            if (type === 'load') node.load(listener)
-          } catch (err) {
-            logger.error('Gun Fetch Error:', err)
-          }
-        })
+        if (type === 'once') node.once(listener)
+        if (type === 'load') node.load(listener)
       })
     }
 
