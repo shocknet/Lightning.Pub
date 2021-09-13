@@ -179,7 +179,9 @@ const handleMsg = msg => {
     node.put(msg.data, ack => {
       /** @type {Smith.GunMsgPut} */
       const reply = {
-        ack,
+        ack: {
+          err: ack.err
+        },
         id: msg.id,
         path: msg.path,
         type: 'put'
