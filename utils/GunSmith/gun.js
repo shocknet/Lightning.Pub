@@ -5,8 +5,8 @@
 /// <reference path="Smith.ts" />
 /// <reference path="GunT.ts" />
 const Gun = require('gun')
-// @ts-ignore
 require('gun/nts')
+require('gun/lib/load')
 
 // @ts-ignore
 Gun.log = () => {}
@@ -89,6 +89,31 @@ const handleMsg = msg => {
         type: 'auth'
       }
       sendMsg(msg)
+    })
+  }
+  if (msg.type === 'load') {
+    const { id, path } = msg
+    const [root, ...keys] = msg.path.split('>')
+
+    /** @type {GunT.GUNNode} */
+    let node =
+      {
+        $root: gun,
+        $user: user
+      }[root] || gun.user(root)
+
+    for (const key of keys) {
+      node = node.get(key)
+    }
+    node.load((data, key) => {
+      /** @type {Smith.GunMsgLoad} */
+      const res = {
+        data,
+        id,
+        key,
+        type: 'load'
+      }
+      sendMsg(res)
     })
   }
   if (msg.type === 'on') {
