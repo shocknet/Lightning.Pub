@@ -2530,7 +2530,7 @@ module.exports = async (
     ap.post('/api/gun/set', async (req, res) => {
       try {
         const { path, value } = req.body
-        logger.info(`gun PUT: ${path}`)
+        logger.info(`gun SET: ${path}`)
         const id = await GunWriteRPC.set(path, value)
 
         res.status(200).json({
