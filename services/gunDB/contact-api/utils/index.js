@@ -6,11 +6,12 @@ const logger = require('../../../../config/log')
 const { Constants, Utils: CommonUtils } = require('shock-common')
 
 const Key = require('../key')
+/// <reference path="../../../../utils/GunSmith/GunT.ts" />
 
 /**
- * @typedef {import('../SimpleGUN').GUNNode} GUNNode
+ * @typedef {GunT.GUNNode} GUNNode
  * @typedef {import('../SimpleGUN').ISEA} ISEA
- * @typedef {import('../SimpleGUN').UserGUNNode} UserGUNNode
+ * @typedef {GunT.UserGUNNode} UserGUNNode
  */
 
 /**
