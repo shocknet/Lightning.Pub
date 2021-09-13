@@ -6,7 +6,7 @@
 // @ts-check
 /// <reference path="Smith.ts" />
 /// <reference path="GunT.ts" />
-const uuid = require('uuid').v1
+const uuid = require('uuid/v1')
 const { fork } = require('child_process')
 
 const logger = require('../../config/log')
