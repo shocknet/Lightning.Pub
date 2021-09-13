@@ -8,9 +8,12 @@
 /// <reference path="GunT.ts" />
 const RealGun = require('gun')
 const uuid = require('uuid/v1')
+const mapValues = require('lodash/mapValues')
 const { fork } = require('child_process')
 
 const logger = require('../../config/log')
+
+const { mergePuts } = require('./misc')
 
 const gunUUID = () => {
   const RG = /** @type {any} */ (RealGun)
@@ -103,6 +106,21 @@ const handleMsg = msg => {
       })
     }
   }
+  if (msg.type === 'multiPut') {
+    const { ack, ids, path } = msg
+
+    const pendingPutsForPath = pendingPuts[path] || (pendingPuts[path] = [])
+
+    const ackedPuts = pendingPutsForPath.filter(pp => ids.includes(pp.id))
+
+    pendingPuts[path] = pendingPuts[path].filter(pp => !ids.includes(pp.id))
+
+    ackedPuts.forEach(pp => {
+      if (pp.cb) {
+        pp.cb(ack)
+      }
+    })
+  }
 }
 
 /** @type {ReturnType<typeof fork>} */
@@ -168,7 +186,28 @@ const autoAuth = () => {
   return auth(lastAlias, lastPass)
 }
 
-const flushPendingPuts = () => {}
+const flushPendingPuts = () => {
+  const ids = mapValues(pendingPuts, pendingPutsForPath =>
+    pendingPutsForPath.map(pp => pp.id)
+  )
+  const writes = mapValues(pendingPuts, pendingPutsForPath =>
+    pendingPutsForPath.map(pp => pp.data)
+  )
+  const finalWrites = mapValues(writes, writesForPath =>
+    mergePuts(writesForPath)
+  )
+  const messages = Object.entries(ids).map(([path, ids]) => {
+    /** @type {Smith.SmithMsgMultiPut} */
+    const msg = {
+      data: finalWrites[path],
+      ids,
+      path,
+      type: 'multiPut'
+    }
+    return msg
+  })
+  currentGun.send(messages)
+}
 
 const forge = () => {
   if (currentGun) {
