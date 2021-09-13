@@ -431,7 +431,12 @@ function createUserReplica() {
       return {
         ...baseReplica._,
         // TODO
-        sea: lastPair
+        sea: lastPair || {
+          epriv: '',
+          epub: '',
+          priv: '',
+          pub: ''
+        }
       }
     },
     get is() {
