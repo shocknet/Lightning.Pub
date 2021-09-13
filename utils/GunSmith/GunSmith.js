@@ -136,7 +136,7 @@ const auth = (alias, pass) =>
           lastAlias = alias
           lastPass = pass
           lastPair = ack.sea
-          processPendingPutsFromLastGun(currentGun)
+          flushPendingPuts()
           res(ack.sea)
         } else {
           rej(new Error('Auth: ack.sea undefined'))
@@ -158,9 +158,7 @@ const autoAuth = () => {
   return auth(lastAlias, lastPass)
 }
 
-const processPendingPutsFromLastGun = async (forGun, pps = pendingPuts) => {
-  // TODO
-}
+const flushPendingPuts = () => {}
 
 const forge = () => {
   if (currentGun) {
