@@ -15,6 +15,7 @@ require('gun/lib/load')
 //@ts-ignore
 const { encryptedEmit, encryptedOn } = require('../../../utils/ECC/socket')
 const Key = require('../contact-api/key')
+const Config = require('../config')
 
 /** @type {import('../contact-api/SimpleGUN').ISEA} */
 // @ts-ignore
@@ -257,18 +258,15 @@ const API = require('../contact-api/index')
 
 /* eslint-disable init-declarations */
 
-/** @type {GUNNode} */
-// @ts-ignore
-let gun
+const gun = Gun({
+  axe: false,
+  multicast: false,
+  peers: Config.PEERS
+})
 
-/** @type {UserGUNNode} */
-let user
+const user = gun.user()
 
 /* eslint-enable init-declarations */
-
-/** @type {string|null} */
-let _currentAlias = null
-/** @type {string|null} */
 
 /** @type {string|null} */
 let mySec = null
@@ -299,10 +297,9 @@ const getUser = () => {
  * Returns a promise containing the public key of the newly created user.
  * @param {string} alias
  * @param {string} pass
- * @param {UserGUNNode=} __user
  * @returns {Promise<string>}
  */
-const authenticate = async (alias, pass, __user) => {
+const authenticate = async (alias, pass) => {
   if (!Common.isPopulatedString(alias)) {
     throw new TypeError(
       `Expected alias to be a populated string, instead got: ${alias}`
@@ -313,62 +310,32 @@ const authenticate = async (alias, pass, __user) => {
       `Expected pass to be a populated string, instead got: ${pass}`
     )
   }
-  const _user = __user || user
-  const isFreshGun = _user !== user
-  if (isFreshGun) {
-    const ack = await new Promise(res => {
-      _user.auth(alias, pass, _ack => {
-        res(_ack)
-      })
-    })
 
-    if (typeof ack.err === 'string') {
-      throw new Error(ack.err)
-    } else if (typeof ack.sea === 'object') {
-      // clock skew
-      await new Promise(res => setTimeout(res, 2000))
-
-      await /** @type {Promise<void>} */ (new Promise((res, rej) => {
-        _user.get(Key.FOLLOWS).put(
-          {
-            unused: null
-          },
-          ack => {
-            if (ack.err && typeof ack.err !== 'number') {
-              rej(
-                new Error(
-                  `Error initializing follows: ${JSON.stringify(
-                    ack.err,
-                    null,
-                    4
-                  )}`
-                )
-              )
-            } else {
-              res()
-            }
-          }
-        )
-      }))
-
-      return ack.sea.pub
-    } else {
-      throw new Error('Unknown error.')
-    }
+  if (isAuthenticating()) {
+    throw new Error(
+      'Cannot authenticate while another authentication attempt is going on'
+    )
   }
 
-  if (isAuthenticated()) {
-    if (alias !== _currentAlias) {
-      throw new Error(
-        `Tried to re-authenticate with an alias different to that of stored one, tried: ${alias} - stored: ${_currentAlias}, logoff first if need to change aliases.`
-      )
-    }
+  _isAuthenticating = true
 
+  const ack = await new Promise(res => {
+    user.auth(alias, pass, _ack => {
+      res(_ack)
+    })
+  })
+
+  _isAuthenticating = false
+
+  if (typeof ack.err === 'string') {
+    throw new Error(ack.err)
+  } else if (typeof ack.sea === 'object') {
+    mySec = await mySEA.secret(user._.sea.epub, user._.sea)
     // clock skew
     await new Promise(res => setTimeout(res, 2000))
 
     await /** @type {Promise<void>} */ (new Promise((res, rej) => {
-      _user.get(Key.FOLLOWS).put(
+      user.get(Key.FOLLOWS).put(
         {
           unused: null
         },
@@ -391,65 +358,8 @@ const authenticate = async (alias, pass, __user) => {
     }))
 
     // move this to a subscription; implement off() ? todo
-    API.Jobs.onOrders(_user, gun, mySEA)
-    API.Jobs.lastSeenNode(_user)
-
-    API.Events.onSeedBackup(() => {}, user, mySEA)
-
-    return _user._.sea.pub
-  }
-
-  if (isAuthenticating()) {
-    throw new Error(
-      'Cannot authenticate while another authentication attempt is going on'
-    )
-  }
-
-  _isAuthenticating = true
-
-  const ack = await new Promise(res => {
-    _user.auth(alias, pass, _ack => {
-      res(_ack)
-    })
-  })
-
-  _isAuthenticating = false
-
-  if (typeof ack.err === 'string') {
-    throw new Error(ack.err)
-  } else if (typeof ack.sea === 'object') {
-    mySec = await mySEA.secret(_user._.sea.epub, _user._.sea)
-
-    _currentAlias = alias
-
-    await new Promise(res => setTimeout(res, 5000))
-
-    await /** @type {Promise<void>} */ (new Promise((res, rej) => {
-      _user.get(Key.FOLLOWS).put(
-        {
-          unused: null
-        },
-        ack => {
-          if (ack.err && typeof ack.err !== 'number') {
-            rej(
-              new Error(
-                `Error initializing follows: ${JSON.stringify(
-                  ack.err,
-                  null,
-                  4
-                )}`
-              )
-            )
-          } else {
-            res()
-          }
-        }
-      )
-    }))
-
-    API.Jobs.onOrders(_user, gun, mySEA)
-    API.Jobs.lastSeenNode(_user)
-
+    API.Jobs.onOrders(user, gun, mySEA)
+    API.Jobs.lastSeenNode(user)
     API.Events.onSeedBackup(() => {}, user, mySEA)
 
     return ack.sea.pub
@@ -464,39 +374,6 @@ const authenticate = async (alias, pass, __user) => {
 
 const logoff = () => {
   user.leave()
-}
-
-const instantiateGun = () => {
-  const Config = require('../config')
-  if (user) {
-    user.leave()
-  }
-  // @ts-ignore
-  user = null
-  if (gun) {
-    gun.off()
-  }
-  // @ts-ignore
-  gun = null
-
-  const _gun = /** @type {unknown} */ (Gun({
-    axe: false,
-    multicast: false,
-    peers: Config.PEERS
-  }))
-
-  gun = /** @type {GUNNode} */ (_gun)
-
-  user = gun.user()
-}
-
-instantiateGun()
-
-const freshGun = () => {
-  return {
-    gun,
-    user
-  }
 }
 
 /**
@@ -586,7 +463,9 @@ const register = async (alias, pass) => {
   // restart instances so write to user graph work, there's an issue with gun
   // (at least on node) where after initial user creation, writes to user graph
   // don't work
-  instantiateGun()
+  // instantiateGun()
+
+  logoff()
 
   return authenticate(alias, pass).then(async pub => {
     await API.Actions.setDisplayName('anon' + pub.slice(0, 8), user)
@@ -607,11 +486,12 @@ module.exports = {
   isAuthenticated,
   isAuthenticating,
   isRegistering,
+  gun,
+  user,
   register,
   getGun,
   getUser,
   mySEA,
   getMySecret,
-  freshGun,
   $$__SHOCKWALLET__ENCRYPTED__
 }
