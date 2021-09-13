@@ -6,10 +6,20 @@
 // @ts-check
 /// <reference path="Smith.ts" />
 /// <reference path="GunT.ts" />
+const RealGun = require('gun')
 const uuid = require('uuid/v1')
 const { fork } = require('child_process')
 
 const logger = require('../../config/log')
+
+const gunUUID = () => {
+  const RG = /** @type {any} */ (RealGun)
+  if (typeof RG.text === 'object' && typeof RG.text.random === 'function') {
+    return RG.text.random()
+  }
+  // This probably won't happen
+  throw new ReferenceError()
+}
 
 /**
  * Maps a path to `on()` listeners
@@ -349,8 +359,8 @@ function createReplica(path, afterMap = false) {
       if (afterMap) {
         throw new Error('Cannot call set() after map() on a GunSmith node')
       }
-      // @ts-expect-error
-      const id = Gun.text.random()
+
+      const id = gunUUID()
       this.put(
         {
           [id]: data
