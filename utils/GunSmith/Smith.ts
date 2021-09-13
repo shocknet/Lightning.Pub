@@ -20,6 +20,16 @@ namespace Smith {
     type: 'auth'
   }
 
+  export interface SmithMsgCreate {
+    alias: string
+    pass: string
+    type: 'create'
+  }
+
+  export interface SmithMsgLeave {
+    type: 'leave'
+  }
+
   export interface SmithMsgOn {
     path: string
     type: 'on'
@@ -53,6 +63,8 @@ namespace Smith {
   export type SmithMsg =
     | SmithMsgInit
     | SmithMsgAuth
+    | SmithMsgCreate
+    | SmithMsgAuth
     | SmithMsgOn
     | SmithMsgLoad
     | SmithMsgMapOn
@@ -65,6 +77,12 @@ namespace Smith {
   export interface GunMsgAuth {
     ack: GunT.AuthAck
     type: 'auth'
+  }
+
+  export interface GunMsgCreate {
+    ack: GunT.CreateAck
+    pair: GunT.UserPair
+    type: 'create'
   }
 
   export interface GunMsgOn {
@@ -103,6 +121,7 @@ namespace Smith {
 
   export type GunMsg =
     | GunMsgAuth
+    | GunMsgCreate
     | GunMsgOn
     | GunMsgMapOn
     | GunMsgLoad

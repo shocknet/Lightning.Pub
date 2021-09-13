@@ -212,6 +212,7 @@ const flushPendingPuts = () => {
 const forge = () => {
   if (currentGun) {
     currentGun.off('message', handleMsg)
+    currentGun.disconnect()
     currentGun.kill()
   }
   const newGun = fork('utils/GunSmith/gun.js')
@@ -515,15 +516,63 @@ function createUserReplica() {
           })
         })
     },
-    create() {},
-    leave() {}
+    create(alias, pass, cb) {
+      lastAlias = ''
+      lastPass = ''
+      lastPair = null
+
+      /** @type {Smith.SmithMsgCreate} */
+      const msg = {
+        alias,
+        pass,
+        type: 'create'
+      }
+
+      /** @param {Smith.GunMsg} msg */
+      const _cb = msg => {
+        if (msg.type === 'create') {
+          currentGun.off('message', _cb)
+
+          const { ack } = msg
+
+          if (ack.err) {
+            cb(ack)
+          } else if (ack.pub) {
+            lastAlias = alias
+            lastPass = pass
+            lastPair = msg.pair
+            cb(ack)
+          } else {
+            throw (new Error('Auth: ack.pub undefined'))
+          }
+        }
+      }
+      currentGun.on('message', _cb)
+      currentGun.send(msg)
+    },
+    leave() {
+      lastAlias = ''
+      lastPass = ''
+      lastPair = null
+
+      /** @type {Smith.SmithMsgLeave} */
+      const msg = {
+        type: 'leave'
+      }
+      currentGun.send(msg)
+    }
   }
 
   return completeReplica
 }
 
 /**
+ * @typedef {GunT.GUNNode & { kill(): void }} RootNode
+ */
+
+/**
  * @param {import('gun/types/options').IGunConstructorOptions} opts
+ * @returns {RootNode}
  */
 const Gun = opts => {
   lastOpts = opts
@@ -531,7 +580,16 @@ const Gun = opts => {
 
   // We should ideally wait for a response but we'd break the constructor's
   // signature
-  return createReplica('$root')
+  return {
+    ...createReplica('$root'),
+    kill() {
+      if (currentGun) {
+        currentGun.off('message', handleMsg)
+        currentGun.disconnect()
+        currentGun.kill()
+      }
+    }
+  }
 }
 
 module.exports = Gun
