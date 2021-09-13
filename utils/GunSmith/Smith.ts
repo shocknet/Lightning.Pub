@@ -97,6 +97,7 @@ namespace Smith {
   export interface GunMsgMultiPut {
     ack: GunT.Ack
     ids: string[]
+    path: string
     type: 'multiPut'
   }
 

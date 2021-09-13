@@ -189,6 +189,31 @@ const handleMsg = msg => {
       sendMsg(reply)
     })
   }
+  if (msg.type === 'multiPut') {
+    const [root, ...keys] = msg.path.split('>')
+
+    /** @type {GunT.GUNNode} */
+    let node =
+      {
+        $root: gun,
+        $user: user
+      }[root] || gun.user(root)
+
+    for (const key of keys) {
+      node = node.get(key)
+    }
+    node.put(msg.data, ack => {
+      /** @type {Smith.GunMsgMultiPut} */
+      const reply = {
+        ack: {
+          err: ack.err
+        },
+        ids: msg.ids,
+        type: 'multiPut'
+      }
+      sendMsg(reply)
+    })
+  }
 }
 
 process.on('message', handleMsg)
