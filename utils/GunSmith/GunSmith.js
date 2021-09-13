@@ -78,6 +78,7 @@ const handleMsg = msg => {
 
     if (pendingPut) {
       pendingPutsForPath.splice(idx, 1)
+
       if (pendingPut.cb) {
         pendingPut.cb(ack)
       }
@@ -170,7 +171,7 @@ const forge = () => {
   currentGun = newGun
 
   // currentGun.on('', e => {
-  //   console.log('event from subp')
+  //   console.log('event from subprocess')
   //   console.log(e)
   // })
 
@@ -351,16 +352,17 @@ function createReplica(path, afterMap = false) {
         throw new Error('Cannot call set() after map() on a GunSmith node')
       }
       // @ts-expect-error
-      const uuid = Gun.text.random()
-      return this.put(
+      const id = Gun.text.random()
+      this.put(
         {
-          [uuid]: data
+          [id]: data
         },
         ack => {
           // eslint-disable-next-line no-unused-expressions
           cb && cb(ack)
         }
       )
+      return this.get(id)
     },
     user(pub) {
       if (path !== '$root') {
