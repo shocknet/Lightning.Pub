@@ -91,6 +91,21 @@ const handleMsg = msg => {
       sendMsg(msg)
     })
   }
+  if (msg.type === 'create') {
+    const { alias, pass } = msg
+    user.create(alias, pass, ack => {
+      /** @type {Smith.GunMsgCreate} */
+      const msg = {
+        ack: {
+          err: ack.err,
+          pub: ack.pub
+        },
+        pair: user._.sea,
+        type: 'create'
+      }
+      sendMsg(msg)
+    })
+  }
   if (msg.type === 'load') {
     const [root, ...keys] = msg.path.split('>')
 
@@ -209,6 +224,7 @@ const handleMsg = msg => {
           err: ack.err
         },
         ids: msg.ids,
+        path: msg.path,
         type: 'multiPut'
       }
       sendMsg(reply)
