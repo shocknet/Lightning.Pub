@@ -12,6 +12,8 @@ module.exports = {
       //
       "/api/gun/auth": true,
       "/api/subscribeStream":true,
+      "/":true,
+      "/api/accessInfo":true,
     },
     POST: {
       "/api/lnd/connect": true,
@@ -33,5 +35,5 @@ module.exports = {
     PUT: {},
     DELETE: {}
   },
-  nonEncryptedRoutes: ['/api/security/exchangeKeys', "/api/encryption/exchange", '/healthz', '/ping', '/tunnel/status', '/api/lnd/wallet/status', '/api/gun/auth',"/api/subscribeStream"]
+  nonEncryptedRoutes: ['/api/security/exchangeKeys', "/api/encryption/exchange", '/healthz', '/ping', '/tunnel/status', '/api/lnd/wallet/status', '/api/gun/auth',"/api/subscribeStream", "/", "/api/accessInfo"]
 }

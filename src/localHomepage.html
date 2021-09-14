@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <p id="errorContainer"></p>
+    <div>
+        <h3>Tunnel</h3>
+        <p id="tunnelState"></p>
+    </div>
+    <div>
+        <h3>Access Secret</h3>
+        <p id="accessSecretState"></p>
+    </div>
+    <script>
+        fetch(`${window.location.origin}/api/accessInfo`)
+        .then(res => res.json())
+        .then(j => {
+            console.log(j)
+            if(j.field){
+                document.querySelector('#errorContainer').innerHTML ='there was an error, unable to load access information, reason: '+ j.message
+                return
+            }
+            handleTunnelInfo(j)
+            handleAccessCode(j)
+
+        })
+        .catch(e => {
+            console.log(e.message)
+        })
+
+        const handleTunnelInfo = (res) => {
+            const tunnelState = document.querySelector("#tunnelState")
+            if(res.tunnelDisabled){
+                tunnelState.innerHTML = 'The tunnel service is disabled'
+                return
+            }
+            if(res.relayNotFound) {
+                tunnelState.innerHTML = 'The tunnel service seems broken'
+                return
+            }
+            tunnelState.innerHTML = `Tunnel URL: ${res.relayId}@${res.relayUrl}`
+        } 
+
+        const handleAccessCode = (res) => {
+            const accessSecretState = document.querySelector("#accessSecretState")
+            if(res.accessSecretDisabled){
+                accessSecretState.innerHTML = 'The access secret is disabled'
+                return
+            }
+            if(res.accessCodeNotFound){
+                accessSecretState.innerHTML = 'The access secret seems broken'
+                return
+            }
+            if(res.accessCodeUsed){
+                accessSecretState.innerHTML = 'The access secret was already used'
+                return
+            }
+            accessSecretState.innerHTML = `Access Secret: ${res.accessCode}`
+        } 
+    </script>
+</body>
+</html>

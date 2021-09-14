@@ -2694,7 +2694,7 @@ module.exports = async (
     //this is for OBS notifications, not wired with UI.
     ap.get('/api/subscribeStream', (req, res) => {
       try {
-        res.sendFile(path.join(__dirname, '/index.html'))
+        res.sendFile(path.join(__dirname, '/obsOverlay.html'))
       } catch (e) {
         logger.error(e)
         res.status(500).json({
@@ -2747,6 +2747,70 @@ module.exports = async (
         return res.status(500).json({
           errorMessage:
             (typeof e === 'string' ? e : e.message) || 'Unknown error.'
+        })
+      }
+    })
+
+    ap.get('/', (req, res) => {
+      try {
+        res.sendFile(path.join(__dirname, '/localHomepage.html'))
+      } catch (e) {
+        logger.error(e)
+        res.status(500).json({
+          errorMessage: e.message
+        })
+      }
+    })
+
+    ap.get('/api/accessInfo', async (req, res) => {
+      if (req.ip !== '127.0.0.1') {
+        res.json({
+          field: 'origin',
+          message: 'invalid origin, cant serve access info'
+        })
+        return
+      }
+      try {
+        const [relayId, relayUrl, accessSecret] = await Promise.all([
+          Storage.getItem('relay/id'),
+          Storage.getItem('relay/url'),
+          Storage.getItem('FirstAccessSecret')
+        ])
+        const response = {}
+        if (config.cliArgs.tunnel) {
+          if (!relayId || !relayUrl) {
+            response.relayNotFound = true
+          } else {
+            response.relayId = relayId
+            response.relayUrl = relayUrl
+          }
+        } else {
+          response.tunnelDisabled = true
+        }
+
+        if (process.env.ALLOW_UNLOCKED_LND !== 'true') {
+          response.accessSecretDisabled = true
+          return res.json(response)
+        }
+
+        if (!accessSecret) {
+          response.accessCodeNotFound = true
+          res.json(response)
+          return
+        }
+        const codeUsed = await Storage.getItem(
+          `UnlockedAccessSecrets/${accessSecret}`
+        )
+        if (codeUsed !== false) {
+          response.accessCodeUsed = true
+          return res.json(response)
+        }
+        response.accessCode = accessSecret
+        res.json(response)
+      } catch (e) {
+        logger.error(e)
+        res.status(500).json({
+          errorMessage: e.message
         })
       }
     })
