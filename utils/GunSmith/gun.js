@@ -71,9 +71,18 @@ const handleMsg = msg => {
   }
   if (msg.type === 'init') {
     gun = /** @type {any} */ (new Gun(msg.opts))
+
+    let lastPeers = ''
     setInterval(() => {
-      // @ts-expect-error
-      console.log(Object.keys(gun.back('opt').peers))
+      const newPeers = JSON.stringify(
+        Object.values(gun.back('opt').peers)
+          .filter(p => p.wire && p.wire.readyState)
+          .map(p => p.url)
+      )
+      if (newPeers !== lastPeers) {
+        console.log('Connected peers:', newPeers)
+        lastPeers = newPeers
+      }
     }, 2000)
     user = gun.user()
   }

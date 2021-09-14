@@ -60,6 +60,23 @@ namespace GunT {
 
   export interface GUNNode {
     _: Soul
+    /**
+     * Used only inside the subprocess.
+     */
+    back(
+      path: 'opt'
+    ): {
+      peers: Record<
+        string,
+        {
+          url: string
+          id: string
+          wire?: {
+            readyState: number
+          }
+        }
+      >
+    }
     get(key: string): GUNNode
     load(this: GUNNode, cb?: LoadListener): GUNNode
     map(): GUNNode
