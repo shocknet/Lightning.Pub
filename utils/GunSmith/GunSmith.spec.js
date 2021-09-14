@@ -337,6 +337,31 @@ describe('constructor', () => {
     expect(authAck.err).toBeUndefined()
     expect(authAck.sea.pub).toEqual(pub)
     expect(user.is?.pub).toEqual(pub)
+    user.leave()
+    done()
+  })
+
+  it('provides thenables for values', async done => {
+    expect.assertions(1);
+
+    const a = words()
+    const b = words()
+    const node = instance.get(a).get(b);
+    const value = words()
+
+    await new Promise((res, rej) => {
+      node.put(value, ack => {
+        if (ack.err) {
+          rej(new Error(ack.err))
+        } else {
+          // @ts-ignore
+          res()
+        }
+      })
+    })
+
+    const fetch = await instance.get(a).get(b).then();
+    expect(fetch).toEqual(value);
     done()
   })
 })
