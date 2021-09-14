@@ -6,6 +6,13 @@
 // @ts-check
 const Gun = require('./GunSmith')
 const words = require('random-words')
+const fs = require('fs')
+
+if (!fs.existsSync('./test-radata')) {
+  fs.mkdirSync('./test-radata')
+}
+
+
 
 /** @type {ReturnType<typeof Gun>} */
 // eslint-disable-next-line init-declarations
@@ -32,7 +39,7 @@ describe('constructor', () => {
     instance = Gun({
       axe: false,
       multicast: false,
-      file: Math.random().toString()
+      file: './test-radata/' + words({exactly: 2}).join('-'),
     })
   })
 
