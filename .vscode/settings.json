@@ -15,6 +15,7 @@
     "PUBKEY",
     "radata",
     "Reqs",
+    "thenables",
     "uuidv"
   ]
 }
