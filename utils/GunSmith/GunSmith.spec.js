@@ -133,12 +133,12 @@ describe('constructor', () => {
       b: 1,
     }
     const c = {...a,...b}
-    
+
     const node = instance.get('foo').get('bar')
 
     node.put(a)
     node.put(b)
-    
+
 
     node
       .once(data => {
@@ -194,7 +194,7 @@ describe('constructor', () => {
 
   it('maps over a primitive set', (done) => {
     expect.assertions(100)
-    
+
     const node = instance.get(words()).get(words())
 
     const items = words({ exactly: 50 })
@@ -202,7 +202,7 @@ describe('constructor', () => {
     const ids = items.map(i => node.set(i)._.get)
 
     let checked = 0
-    
+
     node.map().on((data, id) => {
       expect(items).toContain(data)
       expect(ids).toContain(id)
@@ -215,7 +215,7 @@ describe('constructor', () => {
 
   it('maps over an object set', (done) => {
     expect.assertions(100)
-    
+
     const node = instance.get(words()).get(words())
 
     const items = words({ exactly: 50 }).map(w => ({
@@ -225,7 +225,7 @@ describe('constructor', () => {
     const ids = items.map(i => node.set(i)._.get)
 
     let checked = 0
-    
+
     node.map().on((data, id) => {
       expect(items).toContainEqual(removeBuiltInGunProps(data))
       expect(ids).toContain(id)
@@ -318,7 +318,7 @@ describe('constructor', () => {
   })
 
   it('provides an user node with create(), auth() and leave()', async (done) => {
-    expect.assertions(3)
+    expect.assertions(6)
 
     const user = instance.user();
     const alias = words()
@@ -328,12 +328,15 @@ describe('constructor', () => {
     expect(ack.err).toBeUndefined()
 
     const {pub} = ack;
-    
+    expect(user.is?.pub).toEqual(pub)
+
     user.leave()
+    expect(user.is).toBeUndefined()
 
     const authAck = await new Promise(res => user.auth(alias, pass, ack => res(ack)))
     expect(authAck.err).toBeUndefined()
     expect(authAck.sea.pub).toEqual(pub)
+    expect(user.is?.pub).toEqual(pub)
     done()
   })
 })
