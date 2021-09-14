@@ -268,6 +268,9 @@ function createReplica(path, afterMap = false) {
         // TODO
       }
     },
+    back() {
+      throw new Error('Do not use back() on a GunSmith node.')
+    },
     get(key) {
       if (afterMap) {
         throw new Error(
