@@ -13,7 +13,7 @@ const { fork } = require('child_process')
 
 const logger = require('../../config/log')
 
-const { mergePuts } = require('./misc')
+const { mergePuts, isPopulated } = require('./misc')
 
 const gunUUID = () => {
   const RG = /** @type {any} */ (RealGun)
@@ -366,14 +366,29 @@ function createReplica(path, afterMap = false) {
         mapListeners.delete(l)
       }
     },
-    on(cb) {
+    on(cb, { mustBePopulated } = {}) {
       listenersForThisRef.push(cb)
+
+      let canaryPeep = false
+      const canary = () => {
+        canaryPeep = true
+      }
+      listenersForThisRef.push(canary)
+      const checkCanary = () =>
+        setTimeout(() => {
+          if (!canaryPeep && mustBePopulated) {
+            forge()
+            checkCanary()
+          }
+        }, 5000)
+
       if (afterMap) {
         // eslint-disable-next-line no-multi-assign
         const listeners =
           pathToMapListeners[path] || (pathToMapListeners[path] = new Set())
 
         listeners.add(cb)
+        listeners.add(canary)
 
         /** @type {Smith.SmithMsgMapOn} */
         const msg = {
@@ -387,6 +402,7 @@ function createReplica(path, afterMap = false) {
           pathToListeners[path] || (pathToListeners[path] = new Set())
 
         listeners.add(cb)
+        listeners.add(canary)
 
         /** @type {Smith.SmithMsgOn} */
         const msg = {
@@ -398,7 +414,8 @@ function createReplica(path, afterMap = false) {
 
       return this
     },
-    once(cb, opts = { wait: 500 }) {
+    once(cb, _opts) {
+      const opts = { ...{ mustBePopulated: false, wait: 500 }, ..._opts }
       // We could use this.on() but then we couldn't call .off()
       const tmp = createReplica(path, afterMap)
       if (afterMap) {
@@ -412,15 +429,21 @@ function createReplica(path, afterMap = false) {
       })
 
       setTimeout(() => {
-        if (cb) {
-          cb(lastVal, path.split('>')[path.split('>').length - 1])
-        }
         tmp.off()
+        if (cb) {
+          if (opts.mustBePopulated && !isPopulated(lastVal)) {
+            forge()
+            this.once(cb, { ...opts, wait: 5000, mustBePopulated: false })
+          } else {
+            cb(lastVal, path.split('>')[path.split('>').length - 1])
+          }
+        }
       }, opts.wait)
 
       return this
     },
     put(data, cb) {
+      logger.info('put()')
       const id = uuid()
 
       const pendingPutsForPath = pendingPuts[path] || (pendingPuts[path] = [])
@@ -502,11 +525,11 @@ function createReplica(path, afterMap = false) {
         }
       }
     },
-    then() {
+    then(opts) {
       return new Promise(res => {
         this.once(data => {
           res(data)
-        })
+        }, opts)
       })
     }
   }
