@@ -40,6 +40,39 @@ const mergePuts = values => {
   return finalResult
 }
 
+/**
+ * @param {any} data
+ * @returns {any}
+ */
+const removeBuiltInGunProps = data => {
+  if (typeof data === 'object' && data !== null) {
+    const o = { ...data }
+    delete o._
+    delete o['#']
+    return o
+  }
+
+  console.log(data)
+  throw new TypeError(
+    'Non object passed to removeBuiltInGunProps: ' + JSON.stringify(data)
+  )
+}
+
+/**
+ * @param {GunT.ListenerData} data
+ */
+const isPopulated = data => {
+  if (data === null || typeof data === 'undefined') {
+    return false
+  }
+  if (typeof data === 'object') {
+    return Object.keys(removeBuiltInGunProps(data)).length > 0
+  }
+  return true
+}
+
 module.exports = {
-  mergePuts
+  mergePuts,
+  removeBuiltInGunProps,
+  isPopulated
 }
