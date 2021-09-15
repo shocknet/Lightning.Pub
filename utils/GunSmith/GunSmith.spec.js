@@ -8,6 +8,8 @@ const Gun = require('./GunSmith')
 const words = require('random-words')
 const fs = require('fs')
 
+const { removeBuiltInGunProps } = require('./misc')
+
 if (!fs.existsSync('./test-radata')) {
   fs.mkdirSync('./test-radata')
 }
@@ -18,20 +20,7 @@ if (!fs.existsSync('./test-radata')) {
 // eslint-disable-next-line init-declarations
 let instance
 
-/**
- * @param {any} o
- * @returns {any}
- */
-const removeBuiltInGunProps = (o) => {
-  if (typeof o === 'object' && o !== null) {
-    delete o._
-    delete o['#']
-    return o
-  }
 
-  console.log(o)
-  throw new TypeError('Non object passed to removeBuiltInGunProps: ' + JSON.stringify(o))
-}
 
 describe('constructor', () => {
   // eslint-disable-next-line jest/no-hooks
