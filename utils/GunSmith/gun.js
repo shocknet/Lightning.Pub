@@ -8,8 +8,7 @@ const Gun = require('gun')
 require('gun/nts')
 require('gun/lib/load')
 
-// @ts-ignore
-Gun.log = () => {}
+const logger = require('../../config/log')
 
 /**
  * @param {any} msg
@@ -18,22 +17,22 @@ const sendMsg = msg => {
   if (process.send) {
     process.send(msg)
   } else {
-    console.log(
+    logger.error(
       'Fatal error: Could not send a message from inside the gun process.'
     )
   }
 }
 
-console.log('subprocess invoked')
+logger.info('subprocess invoked')
 
 process.on('uncaughtException', e => {
-  console.log('Uncaught exception inside Gun subprocess:')
-  console.log(e)
+  logger.error('Uncaught exception inside Gun subprocess:')
+  logger.error(e)
 })
 
 process.on('unhandledRejection', e => {
-  console.log('Unhandled rejection inside Gun subprocess:')
-  console.log(e)
+  logger.error('Unhandled rejection inside Gun subprocess:')
+  logger.error(e)
 })
 
 /**
@@ -64,7 +63,7 @@ const waitForAuth = async () => {
 /**
  * @param {Smith.SmithMsg} msg
  */
-const handleMsg = msg => {
+const handleMsg = async msg => {
   if (Array.isArray(msg)) {
     msg.forEach(handleMsg)
     return
@@ -72,18 +71,23 @@ const handleMsg = msg => {
   if (msg.type === 'init') {
     gun = /** @type {any} */ (new Gun(msg.opts))
 
-    let lastPeers = ''
+    let currentPeers = ''
     setInterval(() => {
       const newPeers = JSON.stringify(
         Object.values(gun.back('opt').peers)
           .filter(p => p.wire && p.wire.readyState)
           .map(p => p.url)
       )
-      if (newPeers !== lastPeers) {
-        console.log('Connected peers:', newPeers)
-        lastPeers = newPeers
+      if (newPeers !== currentPeers) {
+        logger.info('Connected peers:', newPeers)
+        currentPeers = newPeers
       }
     }, 2000)
+
+    setInterval(() => {
+      // Log regardless of change every 30 seconds
+      logger.info('Connected peers:', currentPeers)
+    }, 30000)
     user = gun.user()
   }
   if (msg.type === 'auth') {
