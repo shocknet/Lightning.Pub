@@ -19,6 +19,8 @@ jobs:
         repo: ['shocknet/Wizard']
     runs-on: ubuntu-latest
     steps:
+      - name: Test GunDB
+        run: yarn test:gun
       - name: Repository Dispatch
         uses: peter-evans/repository-dispatch@v1
         with:
