@@ -14,6 +14,7 @@ module.exports = {
       "/api/subscribeStream":true,
       "/":true,
       "/api/accessInfo":true,
+      "/qrCodeGenerator":true,
     },
     POST: {
       "/api/lnd/connect": true,
@@ -35,5 +36,5 @@ module.exports = {
     PUT: {},
     DELETE: {}
   },
-  nonEncryptedRoutes: ['/api/security/exchangeKeys', "/api/encryption/exchange", '/healthz', '/ping', '/tunnel/status', '/api/lnd/wallet/status', '/api/gun/auth',"/api/subscribeStream", "/", "/api/accessInfo"]
+  nonEncryptedRoutes: ['/api/security/exchangeKeys', "/api/encryption/exchange", '/healthz', '/ping', '/tunnel/status', '/api/lnd/wallet/status', '/api/gun/auth',"/api/subscribeStream", "/", "/api/accessInfo","/qrCodeGenerator"]
 }
