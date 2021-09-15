@@ -58,6 +58,14 @@ namespace GunT {
 
   export type LoadListener = (data: LoadListenerData, key: string) => void
 
+  export interface GunSmithFetchOpts {
+    /**
+     * GunSmith exclusive. If set to true, gun will be restarted to force
+     * replication of this data.
+     */
+    mustBePopulated?: boolean
+  }
+
   export interface GUNNode {
     _: Soul
     /**
@@ -81,13 +89,26 @@ namespace GunT {
     load(this: GUNNode, cb?: LoadListener): GUNNode
     map(): GUNNode
     off(): void
-    on(this: GUNNode, cb: Listener): void
-    once(this: GUNNode, cb?: Listener, opts?: { wait: number }): GUNNode
+    on(
+      this: GUNNode,
+      cb: Listener,
+      opts?: {
+        change?: boolean
+      } & GunSmithFetchOpts
+    ): void
+    once(
+      this: GUNNode,
+      cb?: Listener,
+      opts?: { wait?: number } & GunSmithFetchOpts
+    ): GUNNode
     user(): UserGUNNode
     user(pub: string): GUNNode
     put(data: ValidDataValue, cb?: Callback): GUNNode
     set(data: ValidDataValue, cb?: Callback): GUNNode
-    then(): Promise<ListenerData>
+    /**
+     * @param options Gunsmith only.
+     */
+    then(opts?: GunSmithFetchOpts): Promise<ListenerData>
   }
 
   export interface CreateAck {
