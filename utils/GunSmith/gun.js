@@ -10,6 +10,11 @@ require('gun/lib/load')
 
 const logger = require('../../config/log')
 
+// @ts-expect-error
+Gun.log = (...args) => {
+  logger.info('Gun log: ', ...args)
+}
+
 /**
  * @param {any} msg
  */
