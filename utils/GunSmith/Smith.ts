@@ -3,6 +3,35 @@
  */
 /// <reference path="GunT.ts" />
 namespace Smith {
+  export interface GunSmithNode {
+    /**
+     * @override
+     */
+    map(): GunSmithNode
+    /**
+     * @override
+     */
+    set(data: GunT.ValidDataValue, cb?: GunT.Callback): GunT.GUNNode
+    /**
+     * Gun will be restarted to force replication of data
+     * if needed.
+     * @param cb
+     */
+    specialOn(cb: GunT.Listener): void
+    /**
+     * Gun will be restarted to force replication of data
+     * if needed.
+     * @param cb
+     * @param _wait
+     */
+    specialOnce(cb: GunT.Listener, _wait?: number): GunSmithNode
+    /**
+     * Gun will be restarted to force replication of data
+     * if needed.
+     */
+    specialThen(): Promise<GunT.ListenerData>
+  }
+
   export interface PendingPut {
     cb: GunT.Callback
     data: GunT.ValidDataValue
