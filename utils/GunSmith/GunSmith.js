@@ -133,17 +133,24 @@ let lastPass = ''
 let lastPair = null
 /** @type {import('gun/types/options').IGunConstructorOptions} */
 let lastOpts = {}
+let isAuthing = false
 
 /**
  * @param {string} alias
  * @param {string} pass
  * @returns {Promise<GunT.UserPair>}
  */
-const auth = (alias, pass) =>
-  new Promise((res, rej) => {
+const auth = (alias, pass) => {
+  logger.info(`Authing with ${alias}`)
+  if (isAuthing) {
+    throw new Error(`Double auth?`)
+  }
+  isAuthing = true
+  return new Promise((res, rej) => {
     lastAlias = ''
     lastPass = ''
     lastPair = null
+    logger.info('Reset cached credentials in case auth fails')
     /** @type {Smith.SmithMsgAuth} */
     const msg = {
       alias,
@@ -154,7 +161,10 @@ const auth = (alias, pass) =>
     /** @param {Smith.GunMsg} msg */
     const _cb = msg => {
       if (msg.type === 'auth') {
+        logger.info('Received auth reply.', msg)
         currentGun.off('message', _cb)
+
+        isAuthing = false
 
         const { ack } = msg
 
@@ -164,6 +174,9 @@ const auth = (alias, pass) =>
           lastAlias = alias
           lastPass = pass
           lastPair = ack.sea
+          logger.info(
+            'Auth successful, credentials cached, will now flush pending puts.'
+          )
           flushPendingPuts()
           res(ack.sea)
         } else {
@@ -173,7 +186,9 @@ const auth = (alias, pass) =>
     }
     currentGun.on('message', _cb)
     currentGun.send(msg)
+    logger.info('Sent auth message.')
   })
+}
 
 /**
  * Returns null if there's no cached credentials.
@@ -181,8 +196,10 @@ const auth = (alias, pass) =>
  */
 const autoAuth = () => {
   if (!lastAlias || !lastPass) {
+    logger.info('No credentials cached, will not auto-auth')
     return Promise.resolve(null)
   }
+  logger.info('Credentials cached, will auth.')
   return auth(lastAlias, lastPass)
 }
 
@@ -207,21 +224,33 @@ const flushPendingPuts = () => {
     return msg
   })
   currentGun.send(messages)
+  logger.info(`Sent ${messages.length} pending puts.`)
 }
 
+let isReforging = false
+
 const forge = () => {
+  if (isReforging) {
+    throw new Error('Double forge?')
+  }
+  logger.info('Will reforge')
+  isReforging = true
   if (currentGun) {
     currentGun.off('message', handleMsg)
     currentGun.disconnect()
     currentGun.kill()
   }
+  logger.info('Killed current gun')
   const newGun = fork('utils/GunSmith/gun.js')
   currentGun = newGun
+  logger.info('Forged new gun')
 
   // currentGun.on('', e => {
   //   console.log('event from subprocess')
   //   console.log(e)
   // })
+
+  currentGun.on('message', handleMsg)
 
   /** @type {Smith.SmithMsgInit} */
   const initMsg = {
@@ -229,8 +258,7 @@ const forge = () => {
     type: 'init'
   }
   currentGun.send(initMsg)
-
-  currentGun.on('message', handleMsg)
+  logger.info('Sent init msg')
 
   const lastGunListeners = Object.keys(pathToListeners).map(path => {
     /** @type {Smith.SmithMsgOn} */
@@ -242,6 +270,21 @@ const forge = () => {
   })
   currentGun.send(lastGunListeners)
 
+  const lastGunMapListeners = Object.keys(pathToMapListeners).map(path => {
+    /** @type {Smith.SmithMsgMapOn} */
+    const msg = {
+      path,
+      type: 'map.on'
+    }
+    return msg
+  })
+  currentGun.send(lastGunMapListeners)
+
+  logger.info('Sent pending map.on listeners')
+
+  logger.info('Finished reforging, will now auto-auth')
+
+  isReforging = false
   autoAuth()
 }
 
@@ -398,7 +441,9 @@ function createReplica(path, afterMap = false) {
         path,
         type: 'put'
       }
-      currentGun.send(msg)
+      if (!isAuthing && !isReforging) {
+        currentGun.send(msg)
+      }
       return this
     },
     set(data, cb) {
@@ -570,7 +615,7 @@ function createUserReplica() {
 }
 
 /**
- * @typedef {GunT.GUNNode & { kill(): void }} RootNode
+ * @typedef {GunT.GUNNode & { reforge(): void }} RootNode
  */
 
 /**
@@ -585,12 +630,8 @@ const Gun = opts => {
   // signature
   return {
     ...createReplica('$root'),
-    kill() {
-      if (currentGun) {
-        currentGun.off('message', handleMsg)
-        currentGun.disconnect()
-        currentGun.kill()
-      }
+    reforge() {
+      forge()
     }
   }
 }

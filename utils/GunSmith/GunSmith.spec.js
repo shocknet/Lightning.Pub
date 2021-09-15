@@ -35,7 +35,7 @@ describe('constructor', () => {
   // eslint-disable-next-line jest/no-hooks
   afterAll(() => {
     if (instance) {
-      instance.kill()
+      instance.reforge()
     }
   })
 
