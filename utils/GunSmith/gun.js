@@ -191,6 +191,7 @@ const handleMsg = async msg => {
     })
   }
   if (msg.type === 'put') {
+    await waitForAuth()
     const [root, ...keys] = msg.path.split('>')
 
     /** @type {GunT.GUNNode} */
