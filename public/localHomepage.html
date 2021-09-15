@@ -5,6 +5,7 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
+    <script src="/qrCodeGenerator"></script>
 </head>
 <body>
     <p id="errorContainer"></p>
@@ -16,6 +17,7 @@
         <h3>Access Secret</h3>
         <p id="accessSecretState"></p>
     </div>
+    <div id="qrcode"></div>
     <script>
         fetch(`${window.location.origin}/api/accessInfo`)
         .then(res => res.json())
@@ -25,8 +27,13 @@
                 document.querySelector('#errorContainer').innerHTML ='there was an error, unable to load access information, reason: '+ j.message
                 return
             }
-            handleTunnelInfo(j)
-            handleAccessCode(j)
+
+            const tunnelUrl = handleTunnelInfo(j) 
+            const accessCode = handleAccessCode(j)
+
+            const baseUrl = tunnelUrl ? tunnelUrl : window.location.host
+            const finalUrl = accessCode ? `${accessCode}#${baseUrl}` : baseUrl
+            new QRCode(document.getElementById("qrcode"), finalUrl);
 
         })
         .catch(e => {
@@ -34,6 +41,8 @@
         })
 
         const handleTunnelInfo = (res) => {
+            
+
             const tunnelState = document.querySelector("#tunnelState")
             if(res.tunnelDisabled){
                 tunnelState.innerHTML = 'The tunnel service is disabled'
@@ -44,6 +53,7 @@
                 return
             }
             tunnelState.innerHTML = `Tunnel URL: ${res.relayId}@${res.relayUrl}`
+            return `${res.relayId}@${res.relayUrl}`
         } 
 
         const handleAccessCode = (res) => {
@@ -61,6 +71,7 @@
                 return
             }
             accessSecretState.innerHTML = `Access Secret: ${res.accessCode}`
+            return res.accessCode
         } 
     </script>
 </body>

@@ -2694,7 +2694,7 @@ module.exports = async (
     //this is for OBS notifications, not wired with UI.
     ap.get('/api/subscribeStream', (req, res) => {
       try {
-        res.sendFile(path.join(__dirname, '/obsOverlay.html'))
+        res.sendFile(path.join(__dirname, '../public/obsOverlay.html'))
       } catch (e) {
         logger.error(e)
         res.status(500).json({
@@ -2753,7 +2753,19 @@ module.exports = async (
 
     ap.get('/', (req, res) => {
       try {
-        res.sendFile(path.join(__dirname, '/localHomepage.html'))
+        res.sendFile(path.join(__dirname, '../public/localHomepage.html'))
+      } catch (e) {
+        logger.error(e)
+        res.status(500).json({
+          errorMessage: e.message
+        })
+      }
+    })
+
+    ap.get('/qrCodeGenerator', (req, res) => {
+      console.log('qrrerrr')
+      try {
+        res.sendFile(path.join(__dirname, '../public/qrcode.min.js'))
       } catch (e) {
         logger.error(e)
         res.status(500).json({
