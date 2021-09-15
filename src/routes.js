@@ -2268,13 +2268,12 @@ module.exports = async (
 
     /**
      * @typedef {object} HandleGunFetchParams
-     * @prop {'once'|'load'} type
+     * @prop {'once'|'load'|'specialOnce'} type
      * @prop {boolean} startFromUserGraph
      * @prop {string} path
      * @prop {string=} publicKey
      * @prop {string=} publicKeyForDecryption
      * @prop {string=} epubForDecryption
-     * @prop {boolean=} mustBePopulated
      */
     /**
      * @param {HandleGunFetchParams} args0
@@ -2286,8 +2285,7 @@ module.exports = async (
       path,
       publicKey,
       publicKeyForDecryption,
-      epubForDecryption,
-      mustBePopulated
+      epubForDecryption
     }) => {
       const keys = path.split('>')
       const { gun, user } = require('../services/gunDB/Mediator')
@@ -2317,8 +2315,9 @@ module.exports = async (
           }
         }
 
-        if (type === 'once') node.once(listener, { mustBePopulated })
+        if (type === 'once') node.once(listener)
         if (type === 'load') node.load(listener)
+        if (type === 'specialOnce') node.specialOnce(listener)
       })
     }
 
@@ -2342,8 +2341,31 @@ module.exports = async (
           startFromUserGraph: false,
           type: 'once',
           publicKeyForDecryption,
-          epubForDecryption,
-          mustBePopulated: !!req.header('must-be-populated')
+          epubForDecryption
+        })
+        res.status(200).json({
+          data
+        })
+      } catch (e) {
+        logger.error(e)
+        res.status(500).json({
+          errorMessage: e.message
+        })
+      }
+    })
+
+    ap.get('/api/gun/specialOnce/:path', async (req, res) => {
+      try {
+        const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
+        const epubForDecryption = req.header(EPUB_FOR_DECRYPT_HEADER)
+        const { path } = req.params
+        logger.info(`Gun special once: ${path}`)
+        const data = await handleGunFetch({
+          path,
+          startFromUserGraph: false,
+          type: 'specialOnce',
+          publicKeyForDecryption,
+          epubForDecryption
         })
         res.status(200).json({
           data
@@ -2391,8 +2413,31 @@ module.exports = async (
           startFromUserGraph: true,
           type: 'once',
           publicKeyForDecryption,
-          epubForDecryption,
-          mustBePopulated: !!req.header('must-be-populated')
+          epubForDecryption
+        })
+        res.status(200).json({
+          data
+        })
+      } catch (e) {
+        logger.error(e)
+        res.status(500).json({
+          errorMessage: e.message
+        })
+      }
+    })
+
+    ap.get('/api/gun/user/specialOnce/:path', async (req, res) => {
+      try {
+        const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
+        const epubForDecryption = req.header(EPUB_FOR_DECRYPT_HEADER)
+        const { path } = req.params
+        logger.info(`Gun user special once: ${path}`)
+        const data = await handleGunFetch({
+          path,
+          startFromUserGraph: true,
+          type: 'specialOnce',
+          publicKeyForDecryption,
+          epubForDecryption
         })
         res.status(200).json({
           data
@@ -2431,11 +2476,11 @@ module.exports = async (
 
     ap.get('/api/gun/otheruser/:publicKey/:type/:path', async (req, res) => {
       try {
-        const allowedTypes = ['once', 'load', 'open']
+        const allowedTypes = ['once', 'load', 'open', 'specialOnce']
         const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
         const epubForDecryption = req.header(EPUB_FOR_DECRYPT_HEADER)
         const { path /*:rawPath*/, publicKey, type } = req.params
-        logger.info(`gun otheruser ${type}: ${path}`)
+        logger.info(`Gun other user ${type}: ${path}`)
         // const path = decodeURI(rawPath)
         if (!publicKey || publicKey === 'undefined') {
           res.status(400).json({
