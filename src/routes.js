@@ -2384,6 +2384,7 @@ module.exports = async (
      * @prop {string=} publicKey
      * @prop {string=} publicKeyForDecryption
      * @prop {string=} epubForDecryption
+     * @prop {boolean=} mustBePopulated
      */
     /**
      * @param {HandleGunFetchParams} args0
@@ -2395,7 +2396,8 @@ module.exports = async (
       path,
       publicKey,
       publicKeyForDecryption,
-      epubForDecryption
+      epubForDecryption,
+      mustBePopulated
     }) => {
       const keys = path.split('>')
       const { gun, user } = require('../services/gunDB/Mediator')
@@ -2425,7 +2427,7 @@ module.exports = async (
           }
         }
 
-        if (type === 'once') node.once(listener)
+        if (type === 'once') node.once(listener, { mustBePopulated })
         if (type === 'load') node.load(listener)
       })
     }
@@ -2450,7 +2452,8 @@ module.exports = async (
           startFromUserGraph: false,
           type: 'once',
           publicKeyForDecryption,
-          epubForDecryption
+          epubForDecryption,
+          mustBePopulated: !!req.header('must-be-populated')
         })
         res.status(200).json({
           data
@@ -2498,7 +2501,8 @@ module.exports = async (
           startFromUserGraph: true,
           type: 'once',
           publicKeyForDecryption,
-          epubForDecryption
+          epubForDecryption,
+          mustBePopulated: !!req.header('must-be-populated')
         })
         res.status(200).json({
           data
