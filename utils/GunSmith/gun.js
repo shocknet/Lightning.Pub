@@ -65,10 +65,21 @@ const waitForAuth = async () => {
   return waitForAuth()
 }
 
+let dead = false
+
 /**
  * @param {Smith.SmithMsg} msg
  */
 const handleMsg = async msg => {
+  if (dead) {
+    logger.error('Dead sub-process received msg: ', msg)
+    return
+  }
+  // @ts-ignore
+  if (msg === 'bye') {
+    logger.info('KILLING')
+    dead = true
+  }
   if (Array.isArray(msg)) {
     msg.forEach(handleMsg)
     return
