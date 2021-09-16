@@ -94,6 +94,10 @@ const handleMsg = async msg => {
       logger.info('Connected peers:', currentPeers)
     }, 30000)
     user = gun.user()
+
+    sendMsg({
+      type: 'init'
+    })
   }
   if (msg.type === 'auth') {
     const { alias, pass } = msg
