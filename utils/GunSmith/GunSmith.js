@@ -428,7 +428,9 @@ function createReplica(path, afterMap = false) {
           path,
           type: 'map.on'
         }
-        currentGun.send(msg)
+        isReady().then(() => {
+          currentGun.send(msg)
+        })
       } else {
         // eslint-disable-next-line no-multi-assign
         const listeners =
@@ -441,7 +443,9 @@ function createReplica(path, afterMap = false) {
           path,
           type: 'on'
         }
-        currentGun.send(msg)
+        isReady().then(() => {
+          currentGun.send(msg)
+        })
       }
 
       return this
