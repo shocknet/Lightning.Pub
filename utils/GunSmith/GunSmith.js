@@ -544,9 +544,9 @@ function createReplica(path, afterMap = false) {
         cb(data, key)
       })
     },
-    specialOnce(cb, _wait = 500) {
+    specialOnce(cb, _wait = 1000) {
       this.once((data, key) => {
-        if (isPopulated(data) || _wait === 4500) {
+        if (isPopulated(data) || _wait > 100000) {
           cb(data, key)
         } else {
           forge()
