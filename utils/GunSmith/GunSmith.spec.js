@@ -18,7 +18,7 @@ if (!fs.existsSync('./test-radata')) {
 // eslint-disable-next-line init-declarations
 let instance
 
-describe('constructor', () => {
+describe('gun smith', () => {
   // eslint-disable-next-line jest/no-hooks
   beforeEach(() => {
     instance = Gun({
