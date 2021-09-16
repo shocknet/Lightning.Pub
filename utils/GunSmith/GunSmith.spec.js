@@ -1,9 +1,9 @@
-/* eslint-disable jest/prefer-strict-equal */
-/* eslint-disable jest/no-test-callback */
 /**
  * @format
  */
 // @ts-check
+/* eslint-disable jest/prefer-strict-equal */
+/* eslint-disable jest/no-test-callback */
 const Gun = require('./GunSmith')
 const words = require('random-words')
 const fs = require('fs')
@@ -14,13 +14,9 @@ if (!fs.existsSync('./test-radata')) {
   fs.mkdirSync('./test-radata')
 }
 
-
-
 /** @type {ReturnType<typeof Gun>} */
 // eslint-disable-next-line init-declarations
 let instance
-
-
 
 describe('constructor', () => {
   // eslint-disable-next-line jest/no-hooks
@@ -28,7 +24,7 @@ describe('constructor', () => {
     instance = Gun({
       axe: false,
       multicast: false,
-      file: './test-radata/' + words({exactly: 2}).join('-'),
+      file: './test-radata/' + words({ exactly: 2 }).join('-')
     })
   })
 
@@ -57,7 +53,7 @@ describe('constructor', () => {
       })
   })
 
-  it('puts a false and reads it with once()', (done) => {
+  it('puts a false and reads it with once()', done => {
     expect.hasAssertions()
     const a = words()
     const b = words()
@@ -75,7 +71,7 @@ describe('constructor', () => {
       })
   })
 
-  it('puts numbers and reads them with once()', (done) => {
+  it('puts numbers and reads them with once()', done => {
     expect.hasAssertions()
     const a = words()
     const b = words()
@@ -93,7 +89,7 @@ describe('constructor', () => {
       })
   })
 
-  it('puts strings and reads them with once()', (done) => {
+  it('puts strings and reads them with once()', done => {
     expect.hasAssertions()
     const a = words()
     const b = words()
@@ -113,31 +109,29 @@ describe('constructor', () => {
       })
   })
 
-  it('merges puts', (done) => {
+  it('merges puts', done => {
     expect.hasAssertions()
     const a = {
-      a: 1,
+      a: 1
     }
     const b = {
-      b: 1,
+      b: 1
     }
-    const c = {...a,...b}
+    const c = { ...a, ...b }
 
     const node = instance.get('foo').get('bar')
 
     node.put(a)
     node.put(b)
 
-
-    node
-      .once(data => {
-        if (typeof data !== 'object' || data === null) {
-          done(new Error('Data not an object'))
-          return;
-        }
-        expect(removeBuiltInGunProps(data)).toEqual(c)
-        done()
-      })
+    node.once(data => {
+      if (typeof data !== 'object' || data === null) {
+        done(new Error('Data not an object'))
+        return
+      }
+      expect(removeBuiltInGunProps(data)).toEqual(c)
+      done()
+    })
   })
 
   it('writes primitive items into sets', done => {
@@ -149,7 +143,7 @@ describe('constructor', () => {
     node.once(data => {
       if (typeof data !== 'object' || data === null) {
         done(new Error('Data not an object'))
-        return;
+        return
       }
 
       expect(removeBuiltInGunProps(data)).toEqual({
@@ -170,10 +164,10 @@ describe('constructor', () => {
 
     const item = node.set(obj)
 
-     node.get(item._.get).once(data => {
+    node.get(item._.get).once(data => {
       if (typeof data !== 'object' || data === null) {
         done(new Error('Data not an object'))
-        return;
+        return
       }
 
       expect(removeBuiltInGunProps(data)).toEqual(obj)
@@ -181,7 +175,7 @@ describe('constructor', () => {
     })
   })
 
-  it('maps over a primitive set', (done) => {
+  it('maps over a primitive set', done => {
     expect.assertions(100)
 
     const node = instance.get(words()).get(words())
@@ -202,13 +196,13 @@ describe('constructor', () => {
     })
   })
 
-  it('maps over an object set', (done) => {
+  it('maps over an object set', done => {
     expect.assertions(100)
 
     const node = instance.get(words()).get(words())
 
     const items = words({ exactly: 50 }).map(w => ({
-      word: w,
+      word: w
     }))
 
     const ids = items.map(i => node.set(i)._.get)
@@ -232,7 +226,7 @@ describe('constructor', () => {
 
     const fn = jest.fn()
 
-    node.on(fn);
+    node.on(fn)
 
     node.off()
 
@@ -273,13 +267,13 @@ describe('constructor', () => {
     expect.assertions(3)
 
     const a = {
-      one: 1,
+      one: 1
     }
     const b = 'two'
     const c = {
       three: 3
     }
-    const d = {...a,...c}
+    const d = { ...a, ...c }
 
     const node = instance.get(words()).get(words())
 
@@ -306,23 +300,25 @@ describe('constructor', () => {
     }, 800)
   })
 
-  it('provides an user node with create(), auth() and leave()', async (done) => {
+  it('provides an user node with create(), auth() and leave()', async done => {
     expect.assertions(6)
 
-    const user = instance.user();
+    const user = instance.user()
     const alias = words()
     const pass = words()
 
-    const ack = await new Promise(res => user.create(alias, pass, res));
+    const ack = await new Promise(res => user.create(alias, pass, res))
     expect(ack.err).toBeUndefined()
 
-    const {pub} = ack;
+    const { pub } = ack
     expect(user.is?.pub).toEqual(pub)
 
     user.leave()
     expect(user.is).toBeUndefined()
 
-    const authAck = await new Promise(res => user.auth(alias, pass, ack => res(ack)))
+    const authAck = await new Promise(res =>
+      user.auth(alias, pass, ack => res(ack))
+    )
     expect(authAck.err).toBeUndefined()
     expect(authAck.sea.pub).toEqual(pub)
     expect(user.is?.pub).toEqual(pub)
@@ -331,11 +327,11 @@ describe('constructor', () => {
   })
 
   it('provides thenables for values', async done => {
-    expect.assertions(1);
+    expect.assertions(1)
 
     const a = words()
     const b = words()
-    const node = instance.get(a).get(b);
+    const node = instance.get(a).get(b)
     const value = words()
 
     await new Promise((res, rej) => {
@@ -349,8 +345,11 @@ describe('constructor', () => {
       })
     })
 
-    const fetch = await instance.get(a).get(b).then();
-    expect(fetch).toEqual(value);
+    const fetch = await instance
+      .get(a)
+      .get(b)
+      .then()
+    expect(fetch).toEqual(value)
     done()
   })
 })
