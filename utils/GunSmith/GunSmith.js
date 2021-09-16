@@ -238,7 +238,10 @@ const isReady = () =>
     }
   })
 
+let procID = 0
+
 const forge = () => {
+  logger.info(`Forging Gun # ${++procID}`)
   if (isForging) {
     throw new Error('Double forge?')
   }
