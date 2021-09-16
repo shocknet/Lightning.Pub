@@ -28,8 +28,8 @@ jobs:
       - name: ⚙️ Install Dependencies
         run: yarn install
 
-      - name: 📝 Test GunDB
-        run: yarn test:gun
+      - name: 📝 Run Tests
+        run: yarn test
 
       - name: 📯 Repository Dispatch
         uses: peter-evans/repository-dispatch@v1
