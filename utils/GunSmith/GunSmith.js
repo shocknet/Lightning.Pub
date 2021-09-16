@@ -561,16 +561,19 @@ function createReplica(path, afterMap = false) {
       })
     },
     specialOnce(cb, _wait = 1000) {
-      this.once((data, key) => {
-        if (isPopulated(data) || _wait > 100000) {
-          cb(data, key)
-        } else {
-          forge()
-          isReady().then(() => {
-            this.specialOnce(cb, _wait * 3)
-          })
-        }
-      })
+      this.once(
+        (data, key) => {
+          if (isPopulated(data) || _wait > 100000) {
+            cb(data, key)
+          } else {
+            forge()
+            isReady().then(() => {
+              this.specialOnce(cb, _wait * 3)
+            })
+          }
+        },
+        { wait: _wait }
+      )
       return this
     },
     specialThen() {
