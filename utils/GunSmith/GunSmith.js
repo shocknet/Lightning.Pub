@@ -246,15 +246,17 @@ const forge = () => {
     throw new Error('Double forge?')
   }
 
+  /** Used only for logs. */
+  const isReforge = !!currentGun
+
+  logger.info(isReforge ? 'Will reforge' : 'Will forge')
+
   isForging = true
   if (currentGun) {
-    logger.info('Will reforge')
     currentGun.off('message', handleMsg)
     currentGun.disconnect()
     currentGun.kill()
-    logger.info('Killed current gun')
-  } else {
-    logger.info('Will forge')
+    logger.info('Destroyed current gun')
   }
   const newGun = fork('utils/GunSmith/gun.js')
   currentGun = newGun
@@ -283,7 +285,12 @@ const forge = () => {
     }
     return msg
   })
-  currentGun.send(lastGunListeners)
+
+  if (lastGunListeners.length) {
+    currentGun.send(lastGunListeners)
+
+    logger.info(`Sent ${lastGunListeners.length} pending on() listeners`)
+  }
 
   const lastGunMapListeners = Object.keys(pathToMapListeners).map(path => {
     /** @type {Smith.SmithMsgMapOn} */
@@ -293,15 +300,24 @@ const forge = () => {
     }
     return msg
   })
-  currentGun.send(lastGunMapListeners)
 
-  logger.info('Sent pending map.on listeners')
+  if (lastGunMapListeners.length) {
+    currentGun.send(lastGunMapListeners)
 
-  logger.info('Finished reforging, will now auto-auth')
+    logger.info(
+      `Sent ${lastGunMapListeners.length} pending map().on() listeners`
+    )
+  }
 
-  autoAuth().then(() => {
+  if (isReforge) {
+    logger.info('Finished reforging, will now auto-auth')
+    autoAuth().then(() => {
+      isForging = false
+    })
+  } else {
+    logger.info('Finished forging, will now auto-auth')
     isForging = false
-  })
+  }
 }
 
 /**
