@@ -473,7 +473,6 @@ function createReplica(path, afterMap = false) {
       return this
     },
     put(data, cb) {
-      logger.info('put()')
       const id = uuid()
 
       const pendingPutsForPath = pendingPuts[path] || (pendingPuts[path] = [])
@@ -495,6 +494,7 @@ function createReplica(path, afterMap = false) {
         type: 'put'
       }
       isReady().then(() => {
+        logger.info(`put() to ${path}`)
         currentGun.send(msg)
       })
       return this
