@@ -323,7 +323,7 @@ const forge = () => {
 /**
  * @param {string} path
  * @param {boolean=} afterMap
- * @returns {GunT.GUNNode & Smith.GunSmithNode}
+ * @returns {Smith.GunSmithNode}
  */
 function createReplica(path, afterMap = false) {
   /** @type {(GunT.Listener|GunT.LoadListener)[]} */
@@ -590,7 +590,7 @@ function createReplica(path, afterMap = false) {
 let userReplicaCalled = false
 
 /**
- * @returns {GunT.UserGUNNode & Smith.GunSmithNode}
+ * @returns {Smith.UserSmithNode}
  */
 function createUserReplica() {
   if (userReplicaCalled) {
@@ -600,7 +600,7 @@ function createUserReplica() {
 
   const baseReplica = createReplica('$user')
 
-  /** @type {GunT.UserGUNNode & Smith.GunSmithNode} */
+  /** @type {Smith.UserSmithNode} */
   const completeReplica = {
     ...baseReplica,
     get _() {
@@ -690,7 +690,7 @@ function createUserReplica() {
 }
 
 /**
- * @typedef {GunT.GUNNode & Smith.GunSmithNode & { reforge(): void }} RootNode
+ * @typedef {Smith.GunSmithNode & { reforge(): void }} RootNode
  */
 
 /**
