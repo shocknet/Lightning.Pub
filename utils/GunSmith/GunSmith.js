@@ -99,7 +99,7 @@ const handleMsg = msg => {
       logger.error(
         `Could not find request for put message from gun subprocess. Data will be logged below.`
       )
-      console.log({
+      logger.info({
         msg,
         pendingPut: pendingPut || 'No pending put found',
         allPendingPuts: pendingPuts
@@ -263,8 +263,8 @@ const forge = () => {
   logger.info('Forged new gun')
 
   // currentGun.on('', e => {
-  //   console.log('event from subprocess')
-  //   console.log(e)
+  //   logger.info('event from subprocess')
+  //   logger.info(e)
   // })
 
   currentGun.on('message', handleMsg)
