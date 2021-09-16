@@ -3,7 +3,11 @@
  */
 /// <reference path="GunT.ts" />
 namespace Smith {
-  export interface GunSmithNode {
+  export interface GunSmithNode extends GunT.GUNNode {
+    /**
+     * @override
+     */
+    get(key: string): GunSmithNode
     /**
      * @override
      */
@@ -11,7 +15,7 @@ namespace Smith {
     /**
      * @override
      */
-    set(data: GunT.ValidDataValue, cb?: GunT.Callback): GunT.GUNNode
+    set(data: GunT.ValidDataValue, cb?: GunT.Callback): GunSmithNode
     /**
      * Gun will be restarted to force replication of data
      * if needed.
@@ -31,6 +35,8 @@ namespace Smith {
      */
     specialThen(): Promise<GunT.ListenerData>
   }
+
+  export type UserSmithNode = GunSmithNode & GunT.UserGUNNode
 
   export interface PendingPut {
     cb: GunT.Callback
