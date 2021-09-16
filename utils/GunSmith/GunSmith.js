@@ -712,7 +712,7 @@ function createUserReplica() {
 }
 
 /**
- * @typedef {Smith.GunSmithNode & { reforge(): void }} RootNode
+ * @typedef {Smith.GunSmithNode & { kill(): void }} RootNode
  */
 
 /**
@@ -727,8 +727,10 @@ const Gun = opts => {
   // signature
   return {
     ...createReplica('$root'),
-    reforge() {
-      forge()
+    kill() {
+      currentGun.send('bye')
+      currentGun.disconnect()
+      currentGun.kill()
     }
   }
 }
