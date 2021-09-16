@@ -240,7 +240,7 @@ const isReady = () =>
 
 let procID = 0
 
-const forge = () => {
+const forge = async () => {
   logger.info(`Forging Gun # ${++procID}`)
   if (isForging) {
     throw new Error('Double forge?')
@@ -274,8 +274,18 @@ const forge = () => {
     opts: lastOpts,
     type: 'init'
   }
-  currentGun.send(initMsg)
-  logger.info('Sent init msg')
+  await new Promise(res => {
+    currentGun.on('message', msg => {
+      if (msg.type === 'init') {
+        // @ts-ignore
+        res()
+      }
+    })
+    currentGun.send(initMsg)
+    logger.info('Sent init msg')
+  })
+
+  logger.info('Received init reply')
 
   const lastGunListeners = Object.keys(pathToListeners).map(path => {
     /** @type {Smith.SmithMsgOn} */
@@ -309,17 +319,20 @@ const forge = () => {
     )
   }
 
-  if (isReforge) {
-    logger.info('Finished reforging, will now auto-auth')
-    autoAuth().then(() => {
-      isForging = false
-      flushPendingPuts()
-    })
-  } else {
-    logger.info('Finished forging, will now auto-auth')
-    isForging = false
-    flushPendingPuts()
-  }
+  logger.info(
+    isReforge
+      ? 'Finished reforging, will now auto-auth'
+      : 'Finished forging, will now auto-auth'
+  )
+
+  await autoAuth()
+
+  // Eslint disable: This should be caught by a if (isForging) {throw} at the
+  // beginning of this function
+
+  // eslint-disable-next-line require-atomic-updates
+  isForging = false
+  flushPendingPuts()
 }
 
 /**
