@@ -174,10 +174,7 @@ const auth = (alias, pass) => {
           lastAlias = alias
           lastPass = pass
           lastPair = ack.sea
-          logger.info(
-            'Auth successful, credentials cached, will now flush pending puts.'
-          )
-          flushPendingPuts()
+          logger.info('Auth successful, credentials cached.')
           res(ack.sea)
         } else {
           rej(new Error('Auth: ack.sea undefined'))
@@ -200,6 +197,9 @@ const autoAuth = async () => {
 }
 
 const flushPendingPuts = () => {
+  if (isAuthing || isForging) {
+    throw new Error('Tried to flush pending puts while authing or forging.')
+  }
   const ids = mapValues(pendingPuts, pendingPutsForPath =>
     pendingPutsForPath.map(pp => pp.id)
   )
@@ -313,10 +313,12 @@ const forge = () => {
     logger.info('Finished reforging, will now auto-auth')
     autoAuth().then(() => {
       isForging = false
+      flushPendingPuts()
     })
   } else {
     logger.info('Finished forging, will now auto-auth')
     isForging = false
+    flushPendingPuts()
   }
 }
 
