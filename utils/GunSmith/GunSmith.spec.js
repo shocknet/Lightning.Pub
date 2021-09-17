@@ -8,25 +8,54 @@ const Gun = require('./GunSmith')
 const words = require('random-words')
 const fs = require('fs')
 
+const logger = require('../../config/log')
+
 const { removeBuiltInGunProps } = require('./misc')
 
 if (!fs.existsSync('./test-radata')) {
   fs.mkdirSync('./test-radata')
 }
 
-const createInstance = () =>
-  Gun({
-    axe: false,
-    multicast: false,
-    file: './test-radata/' + words({ exactly: 2 }).join('-')
+// start with true, have first test doesn't check, else all other test start to
+// run right away
+let isBusy = true
+
+const instance = Gun({
+  axe: false,
+  multicast: false,
+  file: './test-radata/' + words({ exactly: 2 }).join('-')
+})
+
+const release = () => {
+  isBusy = false
+}
+
+/**
+ * @returns {Promise<void>}
+ */
+const whenReady = () =>
+  new Promise(res => {
+    setTimeout(() => {
+      if (isBusy) {
+        whenReady().then(res)
+      } else {
+        isBusy = true
+        res()
+      }
+    }, 1000)
   })
 
 describe('gun smith', () => {
-  it('puts a true and reads it with once()', done => {
-    expect.hasAssertions()
+  afterAll(() => {
+    Gun.kill()
+  })
+
+  it('puts a true and reads it with once()', async function(done) {
+    // await whenReady()
+    logger.info('puts a true and reads it with once()')
     const a = words()
     const b = words()
-    const instance = createInstance()
+
     instance
       .get(a)
       .get(b)
@@ -37,39 +66,53 @@ describe('gun smith', () => {
       .get(b)
       .once(
         val => {
-          expect(val).toStrictEqual(true)
-          instance.kill()
+          expect(val).toBe(true)
           done()
+          release()
         },
-        { wait: 5000 }
+        { wait: 1000 }
       )
   })
 
-  it('puts a false and reads it with once()', done => {
-    expect.hasAssertions()
+  it('puts a false and reads it with once()', async function(done) {
+    await whenReady()
+    logger.info('puts a false and reads it with once()')
     const a = words()
     const b = words()
-    const instance = createInstance()
-    instance
-      .get(a)
-      .get(b)
-      .put(false)
+
+    await new Promise((res, rej) => {
+      instance
+        .get(a)
+        .get(b)
+        .put(false, ack => {
+          if (ack.err) {
+            rej(new Error(ack.err))
+          } else {
+            // @ts-ignore
+            res()
+          }
+        })
+    })
 
     instance
       .get(a)
       .get(b)
-      .once(val => {
-        expect(val).toBe(false)
-        instance.kill()
-        done()
-      })
+      .once(
+        val => {
+          expect(val).toBe(false)
+          release()
+          done()
+        },
+        { wait: 1000 }
+      )
   })
 
-  it('puts numbers and reads them with once()', done => {
+  it('puts numbers and reads them with once()', async done => {
     expect.hasAssertions()
+    await whenReady()
     const a = words()
     const b = words()
-    const instance = createInstance()
+
     instance
       .get(a)
       .get(b)
@@ -80,17 +123,17 @@ describe('gun smith', () => {
       .get(b)
       .once(val => {
         expect(val).toBe(5)
-        instance.kill()
+        release()
         done()
       })
   })
 
-  it('puts strings and reads them with once()', done => {
+  it('puts strings and reads them with once()', async done => {
     expect.hasAssertions()
+    await whenReady()
     const a = words()
     const b = words()
     const sentence = words({ exactly: 50 }).join(' ')
-    const instance = createInstance()
 
     instance
       .get(a)
@@ -102,13 +145,14 @@ describe('gun smith', () => {
       .get(b)
       .once(val => {
         expect(val).toBe(sentence)
-        instance.kill()
+        release()
         done()
       })
   })
 
-  it('merges puts', done => {
+  it('merges puts', async done => {
     expect.hasAssertions()
+    await whenReady()
     const a = {
       a: 1
     }
@@ -116,7 +160,6 @@ describe('gun smith', () => {
       b: 1
     }
     const c = { ...a, ...b }
-    const instance = createInstance()
 
     const node = instance.get('foo').get('bar')
 
@@ -129,21 +172,21 @@ describe('gun smith', () => {
         return
       }
       expect(removeBuiltInGunProps(data)).toEqual(c)
-      instance.kill()
+      release()
       done()
     })
   })
 
-  it('writes primitive items into sets', done => {
+  it('writes primitive items into sets', async done => {
     expect.hasAssertions()
-    const instance = createInstance()
+    await whenReady()
     const node = instance.get(words()).get(words())
 
     const item = node.set('hello')
 
     node.once(data => {
       if (typeof data !== 'object' || data === null) {
-        instance.kill()
+        release()
         done(new Error('Data not an object'))
         return
       }
@@ -151,14 +194,14 @@ describe('gun smith', () => {
       expect(removeBuiltInGunProps(data)).toEqual({
         [item._.get]: 'hello'
       })
-      instance.kill()
+      release()
       done()
     })
   })
 
-  it('writes object items into sets', done => {
+  it('writes object items into sets', async done => {
     expect.hasAssertions()
-    const instance = createInstance()
+    await whenReady()
     const node = instance.get(words()).get(words())
 
     const obj = {
@@ -175,14 +218,14 @@ describe('gun smith', () => {
       }
 
       expect(removeBuiltInGunProps(data)).toEqual(obj)
-      instance.kill()
+      release()
       done()
     })
   })
 
-  it('maps over a primitive set', done => {
+  it('maps over a primitive set', async done => {
     expect.assertions(100)
-    const instance = createInstance()
+    await whenReady()
 
     const node = instance.get(words()).get(words())
 
@@ -197,16 +240,15 @@ describe('gun smith', () => {
       expect(ids).toContain(id)
       checked++
       if (checked === 50) {
-        instance.kill()
+        release()
         done()
       }
     })
   })
 
-  it('maps over an object set', done => {
+  it('maps over an object set', async done => {
     expect.assertions(100)
-    const instance = createInstance()
-
+    await whenReady()
     const node = instance.get(words()).get(words())
 
     const items = words({ exactly: 50 }).map(w => ({
@@ -222,16 +264,15 @@ describe('gun smith', () => {
       expect(ids).toContain(id)
       checked++
       if (checked === 50) {
-        instance.kill()
+        release()
         done()
       }
     })
   })
 
-  it('offs `on()`s', done => {
+  it('offs `on()`s', async done => {
     expect.assertions(1)
-    const instance = createInstance()
-
+    await whenReady()
     const node = instance.get(words()).get(words())
 
     const fn = jest.fn()
@@ -245,16 +286,15 @@ describe('gun smith', () => {
         done(new Error(ack.err))
       } else {
         expect(fn).not.toHaveBeenCalled()
-        instance.kill()
         done()
+        release()
       }
     })
   })
 
-  it('offs `map().on()`s', done => {
+  it('offs `map().on()`s', async done => {
     expect.assertions(1)
-    const instance = createInstance()
-
+    await whenReady()
     const node = instance.get(words()).get(words())
 
     const fn = jest.fn()
@@ -270,17 +310,17 @@ describe('gun smith', () => {
         done(new Error(ack.err))
       } else {
         expect(fn).not.toHaveBeenCalled()
-        instance.kill()
         done()
+        release()
       }
     })
   })
 
   // eslint-disable-next-line jest/no-commented-out-tests
-  // it('on()s and handles object>primitive>object transitions', done => {
+  // it('on()s and handles object>primitive>object transitions', async done => {
   //   expect.assertions(3)
-  //   const instance = createInstance()
-  //
+  //   await whenReady()
+
   //   const a = {
   //     one: 1
   //   }
@@ -311,7 +351,7 @@ describe('gun smith', () => {
 
   it('provides an user node with create(), auth() and leave()', async done => {
     expect.assertions(6)
-    const instance = createInstance()
+    await whenReady()
 
     const user = instance.user()
     const alias = words()
@@ -333,13 +373,13 @@ describe('gun smith', () => {
     expect(authAck.sea.pub).toEqual(pub)
     expect(user.is?.pub).toEqual(pub)
     user.leave()
-    instance.kill()
     done()
+    release()
   })
 
   it('provides thenables for values', async done => {
     expect.assertions(1)
-    const instance = createInstance()
+    await whenReady()
 
     const a = words()
     const b = words()
@@ -362,7 +402,7 @@ describe('gun smith', () => {
       .get(b)
       .then()
     expect(fetch).toEqual(value)
-    instance.kill()
     done()
+    release()
   })
 })
