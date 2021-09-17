@@ -612,6 +612,17 @@ function createReplica(path, afterMap = false) {
           }
         })
       })
+    },
+    pPut(data) {
+      return new Promise((res, rej) => {
+        this.put(data, ack => {
+          if (ack.err) {
+            rej(new Error(ack.err))
+          } else {
+            res()
+          }
+        })
+      })
     }
   }
 }
