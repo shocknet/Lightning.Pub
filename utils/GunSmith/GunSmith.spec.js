@@ -46,11 +46,13 @@ const whenReady = () =>
   })
 
 describe('gun smith', () => {
+  // eslint-disable-next-line jest/no-hooks
   afterAll(() => {
     Gun.kill()
   })
 
-  it('puts a true and reads it with once()', async function(done) {
+  it('puts a true and reads it with once()', done => {
+    expect.assertions(1)
     // await whenReady()
     logger.info('puts a true and reads it with once()')
     const a = words()
@@ -74,7 +76,8 @@ describe('gun smith', () => {
       )
   })
 
-  it('puts a false and reads it with once()', async function(done) {
+  it('puts a false and reads it with once()', async done => {
+    expect.assertions(1)
     await whenReady()
     logger.info('puts a false and reads it with once()')
     const a = words()
