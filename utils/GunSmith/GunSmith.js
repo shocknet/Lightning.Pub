@@ -99,7 +99,7 @@ const handleMsg = msg => {
       logger.error(
         `Could not find request for put message from gun subprocess. Data will be logged below.`
       )
-      logger.info({
+      console.log({
         msg,
         pendingPut: pendingPut || 'No pending put found',
         allPendingPuts: pendingPuts
@@ -240,7 +240,12 @@ const isReady = () =>
 
 let procID = 0
 
+let killed = false
+
 const forge = async () => {
+  if (killed) {
+    throw new Error('Tried to forge after killing GunSmith')
+  }
   logger.info(`Forging Gun # ${++procID}`)
   if (isForging) {
     throw new Error('Double forge?')
@@ -453,11 +458,12 @@ function createReplica(path, afterMap = false) {
       return this
     },
     once(cb, opts = { wait: 500 }) {
-      // We could use this.on() but then we couldn't call .off()
-      const tmp = createReplica(path, afterMap)
       if (afterMap) {
         throw new Error('Cannot call once() after map() on a GunSmith node')
       }
+      // We could use this.on() but then we couldn't call .off()
+      const tmp = createReplica(path, afterMap)
+
       /** @type {GunT.ListenerData} */
       let lastVal = null
 
@@ -714,27 +720,27 @@ function createUserReplica() {
 }
 
 /**
- * @typedef {Smith.GunSmithNode & { kill(): void }} RootNode
- */
-
-/**
  * @param {import('gun/types/options').IGunConstructorOptions} opts
- * @returns {RootNode}
+ * @returns {Smith.GunSmithNode}
  */
 const Gun = opts => {
   lastOpts = opts
   forge()
 
-  // We should ideally wait for a response but we'd break the constructor's
-  // signature
-  return {
-    ...createReplica('$root'),
-    kill() {
-      currentGun.send('bye')
-      currentGun.disconnect()
-      currentGun.kill()
-    }
-  }
+  return createReplica('$root')
 }
 
 module.exports = Gun
+
+module.exports.kill = () => {
+  if (currentGun) {
+    currentGun.send('bye')
+    currentGun.off('message', handleMsg)
+    currentGun.disconnect()
+    currentGun.kill()
+    // @ts-ignore
+    currentGun = null
+    killed = true
+    logger.info('Killed gunsmith.')
+  }
+}
