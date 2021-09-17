@@ -211,8 +211,11 @@ const handleMsg = async msg => {
     })
   }
   if (msg.type === 'put') {
-    await waitForAuth()
     const [root, ...keys] = msg.path.split('>')
+    if (root === '$user') {
+      await waitForAuth()
+      logger.info('waited for auth ok')
+    }
 
     /** @type {GunT.GUNNode} */
     let node =
