@@ -34,6 +34,11 @@ namespace Smith {
      * if needed.
      */
     specialThen(): Promise<GunT.ListenerData>
+    /**
+     * A promise version of put().
+     * @throws
+     */
+    pPut(data: GunT.ValidDataValue): Promise<void>
   }
 
   export type UserSmithNode = GunSmithNode & GunT.UserGUNNode
