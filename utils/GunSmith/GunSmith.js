@@ -502,7 +502,6 @@ function createReplica(path, afterMap = false) {
         type: 'put'
       }
       isReady().then(() => {
-        logger.info(`put() to ${path}`)
         currentGun.send(msg)
       })
       return this
