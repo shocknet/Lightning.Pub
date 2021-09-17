@@ -387,7 +387,9 @@ function createReplica(path, afterMap = false) {
           path,
           type: 'load'
         }
-        currentGun.send(msg)
+        isReady().then(() => {
+          currentGun.send(msg)
+        })
       }
       return this
     },
