@@ -426,4 +426,28 @@ describe('gun smith', () => {
     done()
     release()
   })
+
+  // eslint-disable-next-line jest/expect-expect
+  it('provides an special once() that restarts gun until a value is fetched', async done => {
+    expect.assertions(1)
+    await whenReady()
+    jest.setTimeout(100000)
+
+    const a = words()
+    const b = words()
+    const node = instance.get(a).get(b)
+    const value = words()
+
+    node.once(data => {
+      if (data === value) {
+        expect(data).toEqual(value)
+        jest.setTimeout(5000)
+        done()
+      }
+    })
+
+    setTimeout(() => {
+      node.put(value)
+    }, 9000)
+  })
 })
