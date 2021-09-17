@@ -14,7 +14,6 @@ require('gun/lib/open')
 require('gun/lib/load')
 //@ts-ignore
 const { encryptedEmit, encryptedOn } = require('../../../utils/ECC/socket')
-const Key = require('../contact-api/key')
 
 /** @type {import('../contact-api/SimpleGUN').ISEA} */
 // @ts-ignore
@@ -328,29 +327,6 @@ const authenticate = async (alias, pass, __user) => {
       // clock skew
       await new Promise(res => setTimeout(res, 2000))
 
-      await /** @type {Promise<void>} */ (new Promise((res, rej) => {
-        _user.get(Key.FOLLOWS).put(
-          {
-            unused: null
-          },
-          ack => {
-            if (ack.err && typeof ack.err !== 'number') {
-              rej(
-                new Error(
-                  `Error initializing follows: ${JSON.stringify(
-                    ack.err,
-                    null,
-                    4
-                  )}`
-                )
-              )
-            } else {
-              res()
-            }
-          }
-        )
-      }))
-
       return ack.sea.pub
     } else {
       throw new Error('Unknown error.')
@@ -366,29 +342,6 @@ const authenticate = async (alias, pass, __user) => {
 
     // clock skew
     await new Promise(res => setTimeout(res, 2000))
-
-    await /** @type {Promise<void>} */ (new Promise((res, rej) => {
-      _user.get(Key.FOLLOWS).put(
-        {
-          unused: null
-        },
-        ack => {
-          if (ack.err && typeof ack.err !== 'number') {
-            rej(
-              new Error(
-                `Error initializing follows: ${JSON.stringify(
-                  ack.err,
-                  null,
-                  4
-                )}`
-              )
-            )
-          } else {
-            res()
-          }
-        }
-      )
-    }))
 
     // move this to a subscription; implement off() ? todo
     API.Jobs.onOrders(_user, gun, mySEA)
@@ -423,29 +376,6 @@ const authenticate = async (alias, pass, __user) => {
     _currentAlias = alias
 
     await new Promise(res => setTimeout(res, 5000))
-
-    await /** @type {Promise<void>} */ (new Promise((res, rej) => {
-      _user.get(Key.FOLLOWS).put(
-        {
-          unused: null
-        },
-        ack => {
-          if (ack.err && typeof ack.err !== 'number') {
-            rej(
-              new Error(
-                `Error initializing follows: ${JSON.stringify(
-                  ack.err,
-                  null,
-                  4
-                )}`
-              )
-            )
-          } else {
-            res()
-          }
-        }
-      )
-    }))
 
     API.Jobs.onOrders(_user, gun, mySEA)
     API.Jobs.lastSeenNode(_user)
