@@ -408,4 +408,22 @@ describe('gun smith', () => {
     done()
     release()
   })
+
+  it('provides an special thenable put()', async done => {
+    expect.assertions(1)
+    await whenReady()
+
+    const a = words()
+    const b = words()
+    const node = instance.get(a).get(b)
+    const value = words()
+
+    await node.pPut(value)
+
+    const res = await node.then()
+
+    expect(res).toBe(value)
+    done()
+    release()
+  })
 })
