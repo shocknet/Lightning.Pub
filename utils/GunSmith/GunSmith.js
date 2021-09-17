@@ -233,7 +233,6 @@ const isReady = () =>
         isReady().then(res)
       }, 1000)
     } else {
-      logger.info('isReady')
       res()
     }
   })
