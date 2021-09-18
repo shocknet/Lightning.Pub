@@ -103,8 +103,8 @@ describe('gun smith', () => {
       .once(
         val => {
           expect(val).toBe(false)
-          release()
           done()
+          release()
         },
         { wait: 1000 }
       )
@@ -126,8 +126,8 @@ describe('gun smith', () => {
       .get(b)
       .once(val => {
         expect(val).toBe(5)
-        release()
         done()
+        release()
       })
   })
 
@@ -148,8 +148,8 @@ describe('gun smith', () => {
       .get(b)
       .once(val => {
         expect(val).toBe(sentence)
-        release()
         done()
+        release()
       })
   })
 
@@ -172,11 +172,12 @@ describe('gun smith', () => {
     node.once(data => {
       if (typeof data !== 'object' || data === null) {
         done(new Error('Data not an object'))
+        release()
         return
       }
       expect(removeBuiltInGunProps(data)).toEqual(c)
-      release()
       done()
+      release()
     })
   })
 
@@ -189,16 +190,16 @@ describe('gun smith', () => {
 
     node.once(data => {
       if (typeof data !== 'object' || data === null) {
-        release()
         done(new Error('Data not an object'))
+        release()
         return
       }
 
       expect(removeBuiltInGunProps(data)).toEqual({
         [item._.get]: 'hello'
       })
-      release()
       done()
+      release()
     })
   })
 
@@ -217,12 +218,13 @@ describe('gun smith', () => {
     node.get(item._.get).once(data => {
       if (typeof data !== 'object' || data === null) {
         done(new Error('Data not an object'))
+        release()
         return
       }
 
       expect(removeBuiltInGunProps(data)).toEqual(obj)
-      release()
       done()
+      release()
     })
   })
 
@@ -243,8 +245,8 @@ describe('gun smith', () => {
       expect(ids).toContain(id)
       checked++
       if (checked === 50) {
-        release()
         done()
+        release()
       }
     })
   })
@@ -267,8 +269,8 @@ describe('gun smith', () => {
       expect(ids).toContain(id)
       checked++
       if (checked === 50) {
-        release()
         done()
+        release()
       }
     })
   })
@@ -287,6 +289,7 @@ describe('gun smith', () => {
     node.put('return', ack => {
       if (ack.err) {
         done(new Error(ack.err))
+        release()
       } else {
         expect(fn).not.toHaveBeenCalled()
         done()
@@ -311,6 +314,7 @@ describe('gun smith', () => {
     node.set('return', ack => {
       if (ack.err) {
         done(new Error(ack.err))
+        release()
       } else {
         expect(fn).not.toHaveBeenCalled()
         done()
@@ -443,6 +447,7 @@ describe('gun smith', () => {
         expect(data).toEqual(value)
         jest.setTimeout(5000)
         done()
+        release()
       }
     })
 
