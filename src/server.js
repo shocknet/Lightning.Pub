@@ -382,7 +382,8 @@ const server = program => {
         app,
         {
           ...defaults,
-          lndAddress: program.lndAddress
+          lndAddress: program.lndAddress,
+          cliArgs: program
         },
         Sockets,
         {
@@ -439,15 +440,16 @@ const server = program => {
           }
         })
       }
-
       if(process.env.ALLOW_UNLOCKED_LND === 'true'){
         const codes = await Storage.valuesWithKeyMatch(/^UnlockedAccessSecrets\//u) 
         if(codes.length === 0){
-          const code = generateRandomString(12)
+          const code = await generateRandomString(12)
           await Storage.setItem(`UnlockedAccessSecrets/${code}`, false)
+          await Storage.setItem(`FirstAccessSecret`, code)
           logger.info("the access code is:"+code)
-        } else if(codes.length === 1 || codes[0] === false){
-          logger.info("the access code is:"+codes[0])
+        } else if(codes.length === 1 && codes[0] === false){
+          const firstCode = await Storage.getItem("FirstAccessSecret")
+          logger.info("the access code is:"+firstCode)
         }
       }
       serverInstance.listen(serverPort, serverHost)
