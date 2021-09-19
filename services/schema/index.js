@@ -201,7 +201,7 @@ const AddTmpChainOrder = async (address, orderInfo) => {
       .get(Key.TMP_CHAIN_COORDINATE)
       .get(addressSHA256)
       .put(encryptedOrderString, ack => {
-        if (ack.err && typeof ack.err !== 'number') {
+        if (ack.err && typeof ack.err !== 'number' && typeof ack.err !== 'object') {
           rej(
             new Error(
               `Error saving tmp chain coordinate order to user-graph: ${ack}`
@@ -268,7 +268,7 @@ const clearTmpChainOrder = async (address) => {
       .get(Key.TMP_CHAIN_COORDINATE)
       .get(addressSHA256)
       .put(null, ack => {
-        if (ack.err && typeof ack.err !== 'number') {
+        if (ack.err && typeof ack.err !== 'number' && typeof ack.err !== 'object') {
           rej(
             new Error(
               `Error nulling tmp chain coordinate order to user-graph: ${ack}`
@@ -370,7 +370,7 @@ class SchemaManager {
         .get(Key.COORDINATES)
         .get(coordinateSHA256)
         .put(encryptedOrderString, ack => {
-          if (ack.err && typeof ack.err !== 'number') {
+          if (ack.err && typeof ack.err !== 'number' && typeof ack.err !== 'object') {
             logger.info(ack)
             rej(
               new Error(
