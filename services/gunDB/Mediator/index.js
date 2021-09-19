@@ -518,17 +518,7 @@ const register = async (alias, pass) => {
   // don't work
   instantiateGun()
 
-  return authenticate(alias, pass).then(async pub => {
-    await API.Actions.setDisplayName('anon' + pub.slice(0, 8), user)
-    await API.Actions.generateHandshakeAddress()
-    await API.Actions.generateOrderAddress(user)
-    await API.Actions.initWall()
-    await API.Actions.setBio('A little bit about myself.', user)
-    await API.Actions.setDefaultSeedProvider('', user)
-    await API.Actions.setSeedServiceData('', user)
-    await API.Actions.setCurrentStreamInfo('', user)
-    return pub
-  })
+  return authenticate(alias, pass)
 }
 
 module.exports = {
