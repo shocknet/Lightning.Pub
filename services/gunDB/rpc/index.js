@@ -205,7 +205,11 @@ const put = async (rawPath, value) => {
   } /* is primitive */ else {
     await makePromise((res, rej) => {
       node.put(/** @type {ValidDataValue} */ (theValue), ack => {
-        if (ack.err && typeof ack.err !== 'number') {
+        if (
+          ack.err &&
+          typeof ack.err !== 'number' &&
+          typeof ack.err !== 'object'
+        ) {
           if (typeof ack.err === 'string') {
             rej(new Error(ack.err))
           } else {
@@ -290,7 +294,11 @@ async function set(rawPath, value) {
 
   const id = await makePromise((res, rej) => {
     const subNode = node.set(theValue, ack => {
-      if (ack.err && typeof ack.err !== 'number') {
+      if (
+        ack.err &&
+        typeof ack.err !== 'number' &&
+        typeof ack.err !== 'object'
+      ) {
         rej(new Error(ack.err))
       } else {
         res(subNode._.get)
