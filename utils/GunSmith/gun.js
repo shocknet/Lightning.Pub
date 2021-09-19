@@ -232,7 +232,7 @@ const handleMsg = async msg => {
       /** @type {Smith.GunMsgPut} */
       const reply = {
         ack: {
-          err: ack.err
+          err: typeof ack.err === 'string' ? ack.err : undefined
         },
         id: msg.id,
         path: msg.path,
