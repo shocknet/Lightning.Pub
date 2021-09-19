@@ -38,6 +38,7 @@ const Key = require('../services/gunDB/contact-api/key')
 const { startedStream, endStream } = require('../services/streams')
 const channelRequest = require('../utils/lightningServices/channelRequests')
 const TipsForwarder = require('../services/tipsCallback')
+const UserInitializer = require('../services/initializer')
 
 const DEFAULT_MAX_NUM_ROUTES_TO_QUERY = 10
 const SESSION_ID = uuid()
@@ -2824,6 +2825,22 @@ module.exports = async (
         res.status(500).json({
           errorMessage: e.message
         })
+      }
+    })
+
+    ap.post('/api/initUserInformation', async (req, res) => {
+      try {
+        const user = require('../services/gunDB/Mediator').getUser()
+        await UserInitializer.InitUserData(user)
+      } catch (err) {
+        logger.error(err)
+        res
+          .status(
+            err.message === Common.Constants.ErrorCode.NOT_AUTH ? 401 : 500
+          )
+          .json({
+            errorMessage: err.message
+          })
       }
     })
   } catch (err) {
