@@ -42,7 +42,11 @@ const lastSeenNode = user => {
     }
     gotLatestUserAck = false
     user.get(Key.LAST_SEEN_NODE).put(Date.now(), ack => {
-      if (ack.err && typeof ack.err !== 'number') {
+      if (
+        ack.err &&
+        typeof ack.err !== 'number' &&
+        typeof ack.err !== 'object'
+      ) {
         logger.error(`Error inside lastSeenNode user job: ${ack.err}`)
       }
       gotLatestUserAck = true
@@ -61,7 +65,11 @@ const lastSeenNode = user => {
       .get(Key.PROFILE)
       .get(Key.LAST_SEEN_NODE)
       .put(Date.now(), ack => {
-        if (ack.err && typeof ack.err !== 'number') {
+        if (
+          ack.err &&
+          typeof ack.err !== 'number' &&
+          typeof ack.err !== 'object'
+        ) {
           logger.error(`Error inside lastSeenNode profile job: ${ack.err}`)
         }
         gotLatestProfileAck = true
