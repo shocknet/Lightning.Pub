@@ -228,6 +228,30 @@ describe('gun smith', () => {
     })
   })
 
+  it('provides an special once() that restarts gun until a value is fetched', async done => {
+    expect.assertions(1)
+    jest.setTimeout(100000)
+    await whenReady()
+
+    const a = words()
+    const b = words()
+    const node = instance.get(a).get(b)
+    const value = words()
+
+    node.specialOnce(data => {
+      expect(data).toEqual(value)
+
+      done()
+      release()
+    })
+
+    setTimeout(() => {
+      node.put(value)
+    }, 30000)
+  })
+
+  // TODO: find out why this test fucks up the previous one if it runs before
+  // that one
   it('maps over a primitive set', async done => {
     expect.assertions(100)
     await whenReady()
@@ -429,27 +453,5 @@ describe('gun smith', () => {
     expect(res).toBe(value)
     done()
     release()
-  })
-
-  it('provides an special once() that restarts gun until a value is fetched', async done => {
-    expect.assertions(1)
-    jest.setTimeout(100000)
-    await whenReady()
-
-    const a = words()
-    const b = words()
-    const node = instance.get(a).get(b)
-    const value = words()
-
-    node.specialOnce(data => {
-      expect(data).toEqual(value)
-
-      done()
-      release()
-    })
-
-    setTimeout(() => {
-      node.put(value)
-    }, 30000)
   })
 })
