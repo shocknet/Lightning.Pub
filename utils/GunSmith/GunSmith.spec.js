@@ -7,6 +7,7 @@
 const Gun = require('./GunSmith')
 const words = require('random-words')
 const fs = require('fs')
+const debounce = require('lodash/debounce')
 
 const logger = require('../../config/log')
 
@@ -269,6 +270,33 @@ describe('gun smith', () => {
     expect(res).toBe(value)
     done()
     release()
+  })
+
+  it('provides an special on() that restarts gun when a value has not been obtained in a determinate amount of time', async done => {
+    // Kinda crappy test, this should be easier to test in real usage.
+    expect.assertions(1)
+    await whenReady()
+    jest.setTimeout(40000)
+
+    const initialProcCounter = instance._getProcCounter()
+
+    const node = instance.get(words()).get(words())
+
+    const secondValue = words()
+
+    node.specialOn(
+      debounce(data => {
+        if (data === secondValue) {
+          expect(instance._getProcCounter()).toEqual(initialProcCounter + 1)
+          done()
+          release()
+        }
+      })
+    )
+
+    setTimeout(() => {
+      node.put(secondValue)
+    }, 32000)
   })
 
   // TODO: find out why this test fucks up the previous one if it runs before
