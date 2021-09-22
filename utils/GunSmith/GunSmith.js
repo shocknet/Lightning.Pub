@@ -575,9 +575,10 @@ function createReplica(path, afterMap = false) {
         setTimeout(() => {
           if (!canaryPeep) {
             forge()
-            isReady().then(checkCanary)
+              .then(isReady)
+              .then(checkCanary)
           }
-        }, 5000)
+        }, 30000)
 
       checkCanary()
       return this.on((data, key) => {
