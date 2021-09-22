@@ -237,7 +237,7 @@ const isReady = () =>
     }
   })
 
-let procID = 0
+let procCounter = 0
 
 let killed = false
 
@@ -245,7 +245,7 @@ const forge = async () => {
   if (killed) {
     throw new Error('Tried to forge after killing GunSmith')
   }
-  logger.info(`Forging Gun # ${++procID}`)
+  logger.info(`Forging Gun # ${++procCounter}`)
   if (isForging) {
     throw new Error('Double forge?')
   }
@@ -623,6 +623,9 @@ function createReplica(path, afterMap = false) {
           }
         })
       })
+    },
+    _getProcCounter() {
+      return procCounter
     }
   }
 }
