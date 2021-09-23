@@ -241,102 +241,104 @@ let procCounter = 0
 
 let killed = false
 
-const forge = async () => {
-  if (killed) {
-    throw new Error('Tried to forge after killing GunSmith')
-  }
-  logger.info(`Forging Gun # ${++procCounter}`)
-  if (isForging) {
-    throw new Error('Double forge?')
-  }
+const forge = () => {
+  ;(async () => {
+    if (killed) {
+      throw new Error('Tried to forge after killing GunSmith')
+    }
+    logger.info(`Forging Gun # ${++procCounter}`)
+    if (isForging) {
+      throw new Error('Double forge?')
+    }
 
-  /** Used only for logs. */
-  const isReforge = !!currentGun
+    /** Used only for logs. */
+    const isReforge = !!currentGun
 
-  logger.info(isReforge ? 'Will reforge' : 'Will forge')
+    logger.info(isReforge ? 'Will reforge' : 'Will forge')
 
-  isForging = true
-  if (currentGun) {
-    currentGun.off('message', handleMsg)
-    currentGun.disconnect()
-    currentGun.kill()
-    logger.info('Destroyed current gun')
-  }
-  const newGun = fork('utils/GunSmith/gun.js')
-  currentGun = newGun
-  logger.info('Forged new gun')
+    isForging = true
+    if (currentGun) {
+      currentGun.off('message', handleMsg)
+      currentGun.disconnect()
+      currentGun.kill()
+      logger.info('Destroyed current gun')
+    }
+    const newGun = fork('utils/GunSmith/gun.js')
+    currentGun = newGun
+    logger.info('Forged new gun')
 
-  // currentGun.on('', e => {
-  //   logger.info('event from subprocess')
-  //   logger.info(e)
-  // })
+    // currentGun.on('', e => {
+    //   logger.info('event from subprocess')
+    //   logger.info(e)
+    // })
 
-  currentGun.on('message', handleMsg)
+    currentGun.on('message', handleMsg)
 
-  /** @type {Smith.SmithMsgInit} */
-  const initMsg = {
-    opts: lastOpts,
-    type: 'init'
-  }
-  await new Promise(res => {
-    currentGun.on('message', msg => {
-      if (msg.type === 'init') {
-        // @ts-ignore
-        res()
-      }
+    /** @type {Smith.SmithMsgInit} */
+    const initMsg = {
+      opts: lastOpts,
+      type: 'init'
+    }
+    await new Promise(res => {
+      currentGun.on('message', msg => {
+        if (msg.type === 'init') {
+          // @ts-ignore
+          res()
+        }
+      })
+      currentGun.send(initMsg)
+      logger.info('Sent init msg')
     })
-    currentGun.send(initMsg)
-    logger.info('Sent init msg')
-  })
 
-  logger.info('Received init reply')
+    logger.info('Received init reply')
 
-  const lastGunListeners = Object.keys(pathToListeners).map(path => {
-    /** @type {Smith.SmithMsgOn} */
-    const msg = {
-      path,
-      type: 'on'
+    const lastGunListeners = Object.keys(pathToListeners).map(path => {
+      /** @type {Smith.SmithMsgOn} */
+      const msg = {
+        path,
+        type: 'on'
+      }
+      return msg
+    })
+
+    if (lastGunListeners.length) {
+      currentGun.send(lastGunListeners)
+
+      logger.info(`Sent ${lastGunListeners.length} pending on() listeners`)
     }
-    return msg
-  })
 
-  if (lastGunListeners.length) {
-    currentGun.send(lastGunListeners)
+    const lastGunMapListeners = Object.keys(pathToMapListeners).map(path => {
+      /** @type {Smith.SmithMsgMapOn} */
+      const msg = {
+        path,
+        type: 'map.on'
+      }
+      return msg
+    })
 
-    logger.info(`Sent ${lastGunListeners.length} pending on() listeners`)
-  }
+    if (lastGunMapListeners.length) {
+      currentGun.send(lastGunMapListeners)
 
-  const lastGunMapListeners = Object.keys(pathToMapListeners).map(path => {
-    /** @type {Smith.SmithMsgMapOn} */
-    const msg = {
-      path,
-      type: 'map.on'
+      logger.info(
+        `Sent ${lastGunMapListeners.length} pending map().on() listeners`
+      )
     }
-    return msg
-  })
-
-  if (lastGunMapListeners.length) {
-    currentGun.send(lastGunMapListeners)
 
     logger.info(
-      `Sent ${lastGunMapListeners.length} pending map().on() listeners`
+      isReforge
+        ? 'Finished reforging, will now auto-auth'
+        : 'Finished forging, will now auto-auth'
     )
-  }
 
-  logger.info(
-    isReforge
-      ? 'Finished reforging, will now auto-auth'
-      : 'Finished forging, will now auto-auth'
-  )
+    await autoAuth()
 
-  await autoAuth()
+    // Eslint disable: This should be caught by a if (isForging) {throw} at the
+    // beginning of this function
 
-  // Eslint disable: This should be caught by a if (isForging) {throw} at the
-  // beginning of this function
-
-  // eslint-disable-next-line require-atomic-updates
-  isForging = false
-  flushPendingPuts()
+    // eslint-disable-next-line require-atomic-updates
+    isForging = false
+    flushPendingPuts()
+  })()
 }
 
 /**
@@ -575,8 +577,7 @@ function createReplica(path, afterMap = false) {
         setTimeout(() => {
           if (!canaryPeep) {
             forge()
-              .then(isReady)
-              .then(checkCanary)
+            isReady().then(checkCanary)
           }
         }, 30000)
 
