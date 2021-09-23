@@ -429,32 +429,34 @@ describe('gun smith', () => {
   //   }, 800)
   // })
 
-  it('provides an user node with create(), auth() and leave()', async done => {
-    expect.assertions(6)
-    await whenReady()
-
+  describe('authentication', () => {
     const user = instance.user()
     const alias = words()
     const pass = words()
 
-    const ack = await new Promise(res => user.create(alias, pass, res))
-    expect(ack.err).toBeUndefined()
+    it('provides an user node with create(), auth() and leave()', async done => {
+      expect.assertions(6)
+      await whenReady()
 
-    const { pub } = ack
-    expect(user.is?.pub).toEqual(pub)
+      const ack = await new Promise(res => user.create(alias, pass, res))
+      expect(ack.err).toBeUndefined()
 
-    user.leave()
-    expect(user.is).toBeUndefined()
+      const { pub } = ack
+      expect(user.is?.pub).toEqual(pub)
 
-    const authAck = await new Promise(res =>
-      user.auth(alias, pass, ack => res(ack))
-    )
-    expect(authAck.err).toBeUndefined()
-    expect(authAck.sea.pub).toEqual(pub)
-    expect(user.is?.pub).toEqual(pub)
-    user.leave()
-    done()
-    release()
+      user.leave()
+      expect(user.is).toBeUndefined()
+
+      const authAck = await new Promise(res =>
+        user.auth(alias, pass, ack => res(ack))
+      )
+      expect(authAck.err).toBeUndefined()
+      expect(authAck.sea.pub).toEqual(pub)
+      expect(user.is?.pub).toEqual(pub)
+      user.leave()
+      done()
+      release()
+    })
   })
 
   it('provides thenables for values', async done => {
