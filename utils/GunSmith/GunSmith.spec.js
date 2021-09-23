@@ -278,7 +278,7 @@ describe('gun smith', () => {
     await whenReady()
     jest.setTimeout(40000)
 
-    const initialProcCounter = instance._getProcCounter()
+    const initialProcCounter = Gun._getProcCounter()
 
     const node = instance.get(words()).get(words())
 
@@ -287,7 +287,7 @@ describe('gun smith', () => {
     node.specialOn(
       debounce(data => {
         if (data === secondValue) {
-          expect(instance._getProcCounter()).toEqual(initialProcCounter + 1)
+          expect(Gun._getProcCounter()).toEqual(initialProcCounter + 1)
           done()
           release()
         }

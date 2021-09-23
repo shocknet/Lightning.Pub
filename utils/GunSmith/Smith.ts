@@ -39,10 +39,6 @@ namespace Smith {
      * @throws
      */
     pPut(data: GunT.ValidDataValue): Promise<void>
-    /**
-     * @protected
-     */
-    _getProcCounter(): number
   }
 
   export type UserSmithNode = GunSmithNode & GunT.UserGUNNode
