@@ -147,10 +147,6 @@ const auth = (alias, pass) => {
   }
   isAuthing = true
   return new Promise((res, rej) => {
-    lastAlias = ''
-    lastPass = ''
-    lastPair = null
-    logger.info('Reset cached credentials in case auth fails')
     /** @type {Smith.SmithMsgAuth} */
     const msg = {
       alias,
@@ -169,6 +165,10 @@ const auth = (alias, pass) => {
         const { ack } = msg
 
         if (ack.err) {
+          lastAlias = ''
+          lastPass = ''
+          lastPair = null
+          logger.info('Auth unsuccessful, cached credentials cleared.')
           rej(new Error(ack.err))
         } else if (ack.sea) {
           lastAlias = alias
@@ -177,6 +177,10 @@ const auth = (alias, pass) => {
           logger.info('Auth successful, credentials cached.')
           res(ack.sea)
         } else {
+          lastAlias = ''
+          lastPass = ''
+          lastPair = null
+          logger.info('Auth unsuccessful, cached credentials cleared.')
           rej(new Error('Auth: ack.sea undefined'))
         }
       }
