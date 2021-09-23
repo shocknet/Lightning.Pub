@@ -628,9 +628,6 @@ function createReplica(path, afterMap = false) {
           }
         })
       })
-    },
-    _getProcCounter() {
-      return procCounter
     }
   }
 }
@@ -765,3 +762,6 @@ module.exports.kill = () => {
 
 module.exports._reforge = forge
 module.exports._isReady = isReady
+module.exports._getProcCounter = () => {
+  return procCounter
+}
