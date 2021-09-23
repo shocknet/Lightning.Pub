@@ -762,3 +762,6 @@ module.exports.kill = () => {
     logger.info('Killed gunsmith.')
   }
 }
+
+module.exports._reforge = forge
+module.exports._isReady = isReady
