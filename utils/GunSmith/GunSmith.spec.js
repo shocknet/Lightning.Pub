@@ -447,11 +447,12 @@ describe('gun smith', () => {
       user.leave()
       expect(user.is).toBeUndefined()
 
+      /** @type {GunT.AuthAck} */
       const authAck = await new Promise(res =>
         user.auth(alias, pass, ack => res(ack))
       )
       expect(authAck.err).toBeUndefined()
-      expect(authAck.sea.pub).toEqual(pub)
+      expect(authAck.sea?.pub).toEqual(pub)
       expect(user.is?.pub).toEqual(pub)
       user.leave()
       done()
