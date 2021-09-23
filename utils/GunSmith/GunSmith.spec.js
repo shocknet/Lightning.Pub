@@ -434,14 +434,18 @@ describe('gun smith', () => {
     const alias = words()
     const pass = words()
 
+    jest.setTimeout(20000)
+
     it('provides an user node with create(), auth() and leave()', async done => {
-      expect.assertions(6)
+      expect.assertions(7)
       await whenReady()
 
       const ack = await new Promise(res => user.create(alias, pass, res))
       expect(ack.err).toBeUndefined()
 
       const { pub } = ack
+      // eslint-disable-next-line jest/no-truthy-falsy
+      expect(pub).toBeTruthy()
       expect(user.is?.pub).toEqual(pub)
 
       user.leave()
@@ -454,6 +458,28 @@ describe('gun smith', () => {
       expect(authAck.err).toBeUndefined()
       expect(authAck.sea?.pub).toEqual(pub)
       expect(user.is?.pub).toEqual(pub)
+      user.leave()
+      done()
+      release()
+    })
+
+    it('reliably provides authentication information across re-forges', async done => {
+      expect.assertions(3)
+      await whenReady()
+
+      /** @type {GunT.AuthAck} */
+      const authAck = await new Promise(res =>
+        user.auth(alias, pass, ack => res(ack))
+      )
+      const pub = authAck.sea?.pub
+      // eslint-disable-next-line jest/no-truthy-falsy
+      expect(pub).toBeTruthy()
+
+      Gun._reforge()
+      expect(user.is?.pub).toEqual(pub)
+      await Gun._isReady()
+      expect(user.is?.pub).toEqual(pub)
+
       user.leave()
       done()
       release()
