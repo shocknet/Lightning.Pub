@@ -39,6 +39,11 @@ namespace Smith {
      * @throws
      */
     pPut(data: GunT.ValidDataValue): Promise<void>
+    /**
+     * A promise version of set().
+     * @throws
+     */
+    pSet(data: GunT.ValidDataValue): Promise<void>
   }
 
   export type UserSmithNode = GunSmithNode & GunT.UserGUNNode
