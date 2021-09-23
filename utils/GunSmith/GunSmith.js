@@ -628,6 +628,17 @@ function createReplica(path, afterMap = false) {
           }
         })
       })
+    },
+    pSet(data) {
+      return new Promise((res, rej) => {
+        this.set(data, ack => {
+          if (ack.err) {
+            rej(new Error(ack.err))
+          } else {
+            res()
+          }
+        })
+      })
     }
   }
 }

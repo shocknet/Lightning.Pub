@@ -8,6 +8,7 @@ const Gun = require('./GunSmith')
 const words = require('random-words')
 const fs = require('fs')
 const debounce = require('lodash/debounce')
+const expect = require('expect')
 
 const logger = require('../../config/log')
 
@@ -26,6 +27,10 @@ const instance = Gun({
   multicast: false,
   file: './test-radata/' + words({ exactly: 2 }).join('-')
 })
+
+const user = instance.user()
+const alias = words()
+const pass = words()
 
 const release = () => {
   isBusy = false
@@ -46,9 +51,14 @@ const whenReady = () =>
     }, 1000)
   })
 
+/**
+ * @param {number} ms
+ */
+const delay = ms => new Promise(res => setTimeout(res, ms))
+
 describe('gun smith', () => {
   // eslint-disable-next-line jest/no-hooks
-  afterAll(() => {
+  after(() => {
     Gun.kill()
   })
 
@@ -67,94 +77,85 @@ describe('gun smith', () => {
     instance
       .get(a)
       .get(b)
-      .once(
-        val => {
-          expect(val).toBe(true)
-          done()
-          release()
-        },
-        { wait: 1000 }
-      )
+      .once(val => {
+        expect(val).toBe(true)
+        done()
+        release()
+      })
   })
 
-  it('puts a false and reads it with once()', async done => {
+  it('puts a false and reads it with once()', done => {
     expect.assertions(1)
-    await whenReady()
-    logger.info('puts a false and reads it with once()')
     const a = words()
     const b = words()
 
-    await new Promise((res, rej) => {
+    whenReady().then(() => {
       instance
         .get(a)
         .get(b)
         .put(false, ack => {
           if (ack.err) {
-            rej(new Error(ack.err))
+            throw new Error(ack.err)
           } else {
-            // @ts-ignore
-            res()
+            instance
+              .get(a)
+              .get(b)
+              .once(val => {
+                expect(val).toBe(false)
+                done()
+                release()
+              })
           }
         })
     })
-
-    instance
-      .get(a)
-      .get(b)
-      .once(
-        val => {
-          expect(val).toBe(false)
-          done()
-          release()
-        },
-        { wait: 1000 }
-      )
   })
 
-  it('puts numbers and reads them with once()', async done => {
+  it('puts numbers and reads them with once()', done => {
     expect.hasAssertions()
-    await whenReady()
+
     const a = words()
     const b = words()
 
-    instance
-      .get(a)
-      .get(b)
-      .put(5)
+    whenReady().then(() => {
+      instance
+        .get(a)
+        .get(b)
+        .put(5)
 
-    instance
-      .get(a)
-      .get(b)
-      .once(val => {
-        expect(val).toBe(5)
-        done()
-        release()
-      })
+      instance
+        .get(a)
+        .get(b)
+        .once(val => {
+          expect(val).toBe(5)
+          done()
+          release()
+        })
+    })
   })
 
-  it('puts strings and reads them with once()', async done => {
+  it('puts strings and reads them with once()', done => {
     expect.hasAssertions()
-    await whenReady()
     const a = words()
     const b = words()
     const sentence = words({ exactly: 50 }).join(' ')
+    whenReady().then(() => {
+      instance
+        .get(a)
+        .get(b)
+        .put(sentence)
 
-    instance
-      .get(a)
-      .get(b)
-      .put(sentence)
-
-    instance
-      .get(a)
-      .get(b)
-      .once(val => {
-        expect(val).toBe(sentence)
-        done()
-        release()
-      })
+      instance
+        .get(a)
+        .get(b)
+        .once(val => {
+          expect(val).toBe(sentence)
+          done()
+          release()
+        })
+    })
   })
 
-  it('merges puts', async done => {
+  it('merges puts', async () => {
     expect.hasAssertions()
     await whenReady()
     const a = {
@@ -170,68 +171,174 @@ describe('gun smith', () => {
     node.put(a)
     node.put(b)
 
-    node.once(data => {
-      if (typeof data !== 'object' || data === null) {
-        done(new Error('Data not an object'))
-        release()
-        return
-      }
-      expect(removeBuiltInGunProps(data)).toEqual(c)
-      done()
-      release()
-    })
-  })
+    const data = await node.then()
 
-  it('writes primitive items into sets', async done => {
-    expect.hasAssertions()
-    await whenReady()
-    const node = instance.get(words()).get(words())
-
-    const item = node.set('hello')
-
-    node.once(data => {
-      if (typeof data !== 'object' || data === null) {
-        done(new Error('Data not an object'))
-        release()
-        return
-      }
-
-      expect(removeBuiltInGunProps(data)).toEqual({
-        [item._.get]: 'hello'
-      })
-      done()
-      release()
-    })
-  })
-
-  it('writes object items into sets', async done => {
-    expect.hasAssertions()
-    await whenReady()
-    const node = instance.get(words()).get(words())
-
-    const obj = {
-      a: 1,
-      b: 'hello'
+    if (typeof data !== 'object' || data === null) {
+      throw new Error('Data not an object')
     }
+    expect(removeBuiltInGunProps(data)).toEqual(c)
 
-    const item = node.set(obj)
+    release()
+  })
 
-    node.get(item._.get).once(data => {
-      if (typeof data !== 'object' || data === null) {
-        done(new Error('Data not an object'))
+  it('writes primitive items into sets and correctly assigns the id to ._.get', done => {
+    expect.hasAssertions()
+    whenReady().then(() => {
+      const node = instance.get(words()).get(words())
+      const item = node.set('hello')
+
+      node.once(data => {
+        expect(removeBuiltInGunProps(data)).toEqual({
+          [item._.get]: 'hello'
+        })
+        done()
         release()
-        return
-      }
-
-      expect(removeBuiltInGunProps(data)).toEqual(obj)
-      done()
-      release()
+      })
     })
   })
 
-  it('provides an special once() that restarts gun until a value is fetched', async done => {
+  // TODO: find out why this test fucks up the previous one if it runs before
+  // that one
+  it('maps over a primitive set', done => {
+    expect.assertions(100)
+    whenReady().then(() => {
+      const node = instance.get(words()).get(words())
+
+      const items = words({ exactly: 50 })
+
+      const ids = items.map(i => node.set(i)._.get)
+
+      let checked = 0
+
+      node.map().on((data, id) => {
+        expect(items).toContain(data)
+        expect(ids).toContain(id)
+        checked++
+        if (checked === 50) {
+          done()
+          release()
+        }
+      })
+    })
+  })
+
+  it('maps over an object set', done => {
+    expect.assertions(100)
+    whenReady().then(() => {
+      const node = instance.get(words()).get(words())
+
+      const items = words({ exactly: 50 }).map(w => ({
+        word: w
+      }))
+
+      const ids = items.map(i => node.set(i)._.get)
+
+      let checked = 0
+
+      node.map().on((data, id) => {
+        expect(items).toContainEqual(removeBuiltInGunProps(data))
+        expect(ids).toContain(id)
+        checked++
+        if (checked === 50) {
+          done()
+          release()
+        }
+      })
+    })
+  })
+
+  it('offs `on()`s', async () => {
     expect.assertions(1)
-    jest.setTimeout(100000)
+    await whenReady()
+    const node = instance.get(words()).get(words())
+
+    let called = false
+
+    node.on(() => {
+      called = true
+    })
+
+    node.off()
+
+    await node.pPut('return')
+    await delay(500)
+    expect(called).toBe(false)
+
+    release()
+  })
+
+  it('offs `map().on()`s', async () => {
+    expect.assertions(1)
+    await whenReady()
+    const node = instance.get(words()).get(words())
+
+    let called = false
+
+    const iterateeNode = node.map()
+
+    iterateeNode.on(() => {
+      called = true
+    })
+
+    iterateeNode.off()
+
+    await node.pSet('return')
+
+    await delay(500)
+
+    expect(called).toBe(false)
+  })
+
+  it('provides an user node with create(), auth() and leave()', async () => {
+    expect.assertions(7)
+    await whenReady()
+
+    const ack = await new Promise(res => user.create(alias, pass, res))
+    expect(ack.err).toBeUndefined()
+
+    const { pub } = ack
+    // eslint-disable-next-line jest/no-truthy-falsy
+    expect(pub).toBeTruthy()
+    expect(user.is?.pub).toEqual(pub)
+
+    user.leave()
+    expect(user.is).toBeUndefined()
+
+    /** @type {GunT.AuthAck} */
+    const authAck = await new Promise(res =>
+      user.auth(alias, pass, ack => res(ack))
+    )
+    expect(authAck.err).toBeUndefined()
+    expect(authAck.sea?.pub).toEqual(pub)
+    expect(user.is?.pub).toEqual(pub)
+    user.leave()
+
+    release()
+  })
+
+  it('reliably provides authentication information across re-forges', async () => {
+    expect.assertions(3)
+    await whenReady()
+
+    /** @type {GunT.AuthAck} */
+    const authAck = await new Promise(res =>
+      user.auth(alias, pass, ack => res(ack))
+    )
+    const pub = authAck.sea?.pub
+    // eslint-disable-next-line jest/no-truthy-falsy
+    expect(pub).toBeTruthy()
+
+    Gun._reforge()
+    expect(user.is?.pub).toEqual(pub)
+    await Gun._isReady()
+    expect(user.is?.pub).toEqual(pub)
+
+    user.leave()
+    release()
+  })
+
+  it('provides thenables for values', async () => {
+    expect.assertions(1)
     await whenReady()
 
     const a = words()
@@ -239,21 +346,88 @@ describe('gun smith', () => {
     const node = instance.get(a).get(b)
     const value = words()
 
-    node.specialOnce(data => {
-      expect(data).toEqual(value)
-
-      done()
-      release()
+    await new Promise((res, rej) => {
+      node.put(value, ack => {
+        if (ack.err) {
+          rej(new Error(ack.err))
+        } else {
+          // @ts-ignore
+          res()
+        }
+      })
     })
 
-    setTimeout(() => {
-      node.put(value)
-    }, 30000)
+    const fetch = await instance
+      .get(a)
+      .get(b)
+      .then()
+    expect(fetch).toEqual(value)
+
+    release()
   })
 
-  it('provides an special then() that restarts gun until a value is fetched', async done => {
+  it('provides an special thenable put()', async () => {
     expect.assertions(1)
-    jest.setTimeout(100000)
+    await whenReady()
+
+    const a = words()
+    const b = words()
+    const node = instance.get(a).get(b)
+    const value = words()
+
+    await node.pPut(value)
+
+    const res = await node.then()
+
+    expect(res).toBe(value)
+
+    release()
+  })
+
+  // long tests below
+
+  it('writes object items into sets and correctly populates item._.get with the newly created id', done => {
+    expect.hasAssertions()
+    whenReady().then(() => {
+      const node = instance.get(words()).get(words())
+
+      const obj = {
+        a: 1,
+        b: 'hello'
+      }
+
+      const item = node.set(obj)
+
+      node.get(item._.get).once(data => {
+        expect(removeBuiltInGunProps(data)).toEqual(obj)
+        done()
+        release()
+      })
+    })
+  })
+
+  it('provides an special once() that restarts gun until a value is fetched', done => {
+    expect.assertions(1)
+    whenReady().then(() => {
+      const a = words()
+      const b = words()
+      const node = instance.get(a).get(b)
+      const value = words()
+
+      node.specialOnce(data => {
+        expect(data).toEqual(value)
+        done()
+        release()
+      })
+
+      setTimeout(() => {
+        node.put(value)
+      }, 30000)
+    })
+  })
+
+  it('provides an special then() that restarts gun until a value is fetched', async () => {
+    expect.assertions(1)
     await whenReady()
 
     const a = words()
@@ -268,136 +442,38 @@ describe('gun smith', () => {
     const res = await node.specialThen()
 
     expect(res).toBe(value)
-    done()
+
     release()
   })
 
-  it('provides an special on() that restarts gun when a value has not been obtained in a determinate amount of time', async done => {
+  it('provides an special on() that restarts gun when a value has not been obtained in a determinate amount of time', done => {
     // Kinda crappy test, this should be easier to test in real usage.
     expect.assertions(1)
-    await whenReady()
-    jest.setTimeout(40000)
+    whenReady().then(() => {
+      const initialProcCounter = Gun._getProcCounter()
 
-    const initialProcCounter = Gun._getProcCounter()
+      const node = instance.get(words()).get(words())
 
-    const node = instance.get(words()).get(words())
+      const secondValue = words()
 
-    const secondValue = words()
+      node.specialOn(
+        debounce(data => {
+          if (data === secondValue) {
+            expect(Gun._getProcCounter()).toEqual(initialProcCounter + 1)
+            done()
+            release()
+          }
+        })
+      )
 
-    node.specialOn(
-      debounce(data => {
-        if (data === secondValue) {
-          expect(Gun._getProcCounter()).toEqual(initialProcCounter + 1)
-          done()
-          release()
-        }
-      })
-    )
-
-    setTimeout(() => {
-      node.put(secondValue)
-    }, 32000)
-  })
-
-  // TODO: find out why this test fucks up the previous one if it runs before
-  // that one
-  it('maps over a primitive set', async done => {
-    expect.assertions(100)
-    await whenReady()
-
-    const node = instance.get(words()).get(words())
-
-    const items = words({ exactly: 50 })
-
-    const ids = items.map(i => node.set(i)._.get)
-
-    let checked = 0
-
-    node.map().on((data, id) => {
-      expect(items).toContain(data)
-      expect(ids).toContain(id)
-      checked++
-      if (checked === 50) {
-        done()
-        release()
-      }
-    })
-  })
-
-  it('maps over an object set', async done => {
-    expect.assertions(100)
-    await whenReady()
-    const node = instance.get(words()).get(words())
-
-    const items = words({ exactly: 50 }).map(w => ({
-      word: w
-    }))
-
-    const ids = items.map(i => node.set(i)._.get)
-
-    let checked = 0
-
-    node.map().on((data, id) => {
-      expect(items).toContainEqual(removeBuiltInGunProps(data))
-      expect(ids).toContain(id)
-      checked++
-      if (checked === 50) {
-        done()
-        release()
-      }
-    })
-  })
-
-  it('offs `on()`s', async done => {
-    expect.assertions(1)
-    await whenReady()
-    const node = instance.get(words()).get(words())
-
-    const fn = jest.fn()
-
-    node.on(fn)
-
-    node.off()
-
-    node.put('return', ack => {
-      if (ack.err) {
-        done(new Error(ack.err))
-        release()
-      } else {
-        expect(fn).not.toHaveBeenCalled()
-        done()
-        release()
-      }
-    })
-  })
-
-  it('offs `map().on()`s', async done => {
-    expect.assertions(1)
-    await whenReady()
-    const node = instance.get(words()).get(words())
-
-    const fn = jest.fn()
-
-    const iterateeNode = node.map()
-
-    iterateeNode.on(fn)
-
-    iterateeNode.off()
-
-    node.set('return', ack => {
-      if (ack.err) {
-        done(new Error(ack.err))
-        release()
-      } else {
-        expect(fn).not.toHaveBeenCalled()
-        done()
-        release()
-      }
+      setTimeout(() => {
+        node.put(secondValue)
+      }, 32000)
     })
   })
 
   // eslint-disable-next-line jest/no-commented-out-tests
-  // it('on()s and handles object>primitive>object transitions', async done => {
+  // it('on()s and handles object>primitive>object transitions', async () => {
   //   expect.assertions(3)
   //   await whenReady()
 
@@ -428,108 +504,4 @@ describe('gun smith', () => {
   //     node.put(c)
   //   }, 800)
   // })
-
-  describe('authentication', () => {
-    const user = instance.user()
-    const alias = words()
-    const pass = words()
-
-    jest.setTimeout(20000)
-
-    it('provides an user node with create(), auth() and leave()', async done => {
-      expect.assertions(7)
-      await whenReady()
-
-      const ack = await new Promise(res => user.create(alias, pass, res))
-      expect(ack.err).toBeUndefined()
-
-      const { pub } = ack
-      // eslint-disable-next-line jest/no-truthy-falsy
-      expect(pub).toBeTruthy()
-      expect(user.is?.pub).toEqual(pub)
-
-      user.leave()
-      expect(user.is).toBeUndefined()
-
-      /** @type {GunT.AuthAck} */
-      const authAck = await new Promise(res =>
-        user.auth(alias, pass, ack => res(ack))
-      )
-      expect(authAck.err).toBeUndefined()
-      expect(authAck.sea?.pub).toEqual(pub)
-      expect(user.is?.pub).toEqual(pub)
-      user.leave()
-      done()
-      release()
-    })
-
-    it('reliably provides authentication information across re-forges', async done => {
-      expect.assertions(3)
-      await whenReady()
-
-      /** @type {GunT.AuthAck} */
-      const authAck = await new Promise(res =>
-        user.auth(alias, pass, ack => res(ack))
-      )
-      const pub = authAck.sea?.pub
-      // eslint-disable-next-line jest/no-truthy-falsy
-      expect(pub).toBeTruthy()
-
-      Gun._reforge()
-      expect(user.is?.pub).toEqual(pub)
-      await Gun._isReady()
-      expect(user.is?.pub).toEqual(pub)
-
-      user.leave()
-      done()
-      release()
-    })
-  })
-
-  it('provides thenables for values', async done => {
-    expect.assertions(1)
-    await whenReady()
-
-    const a = words()
-    const b = words()
-    const node = instance.get(a).get(b)
-    const value = words()
-
-    await new Promise((res, rej) => {
-      node.put(value, ack => {
-        if (ack.err) {
-          rej(new Error(ack.err))
-        } else {
-          // @ts-ignore
-          res()
-        }
-      })
-    })
-
-    const fetch = await instance
-      .get(a)
-      .get(b)
-      .then()
-    expect(fetch).toEqual(value)
-    done()
-    release()
-  })
-
-  it('provides an special thenable put()', async done => {
-    expect.assertions(1)
-    await whenReady()
-
-    const a = words()
-    const b = words()
-    const node = instance.get(a).get(b)
-    const value = words()
-
-    await node.pPut(value)
-
-    const res = await node.then()
-
-    expect(res).toBe(value)
-    done()
-    release()
-  })
 })
