@@ -60,7 +60,6 @@ describe('gun smith', () => {
   })
 
   it('puts a true and reads it with once()', done => {
-    expect.assertions(1)
     // await whenReady()
     logger.info('puts a true and reads it with once()')
     const a = words()
@@ -82,7 +81,6 @@ describe('gun smith', () => {
   })
 
   it('puts a false and reads it with once()', done => {
-    expect.assertions(1)
     const a = words()
     const b = words()
 
@@ -108,8 +106,6 @@ describe('gun smith', () => {
   })
 
   it('puts numbers and reads them with once()', done => {
-    expect.hasAssertions()
-
     const a = words()
     const b = words()
 
@@ -131,7 +127,6 @@ describe('gun smith', () => {
   })
 
   it('puts strings and reads them with once()', done => {
-    expect.hasAssertions()
     const a = words()
     const b = words()
     const sentence = words({ exactly: 50 }).join(' ')
@@ -153,7 +148,6 @@ describe('gun smith', () => {
   })
 
   it('merges puts', async () => {
-    expect.hasAssertions()
     await whenReady()
     const a = {
       a: 1
@@ -179,7 +173,6 @@ describe('gun smith', () => {
   })
 
   it('writes primitive items into sets and correctly assigns the id to ._.get', done => {
-    expect.hasAssertions()
     whenReady().then(() => {
       const node = instance.get(words()).get(words())
       const item = node.set('hello')
@@ -197,7 +190,6 @@ describe('gun smith', () => {
   // TODO: find out why this test fucks up the previous one if it runs before
   // that one
   it('maps over a primitive set', done => {
-    expect.assertions(100)
     whenReady().then(() => {
       const node = instance.get(words()).get(words())
 
@@ -220,7 +212,6 @@ describe('gun smith', () => {
   })
 
   it('maps over an object set', done => {
-    expect.assertions(100)
     whenReady().then(() => {
       const node = instance.get(words()).get(words())
 
@@ -245,7 +236,6 @@ describe('gun smith', () => {
   })
 
   it('offs `on()`s', async () => {
-    expect.assertions(1)
     await whenReady()
     const node = instance.get(words()).get(words())
 
@@ -265,7 +255,6 @@ describe('gun smith', () => {
   })
 
   it('offs `map().on()`s', async () => {
-    expect.assertions(1)
     await whenReady()
     const node = instance.get(words()).get(words())
 
@@ -289,7 +278,6 @@ describe('gun smith', () => {
   })
 
   it('provides an user node with create(), auth() and leave()', async () => {
-    expect.assertions(7)
     await whenReady()
 
     const ack = await new Promise(res => user.create(alias, pass, res))
@@ -315,7 +303,6 @@ describe('gun smith', () => {
   })
 
   it('reliably provides authentication information across re-forges', async () => {
-    expect.assertions(3)
     await whenReady()
 
     /** @type {GunT.AuthAck} */
@@ -335,7 +322,6 @@ describe('gun smith', () => {
   })
 
   it('provides thenables for values', async () => {
-    expect.assertions(1)
     await whenReady()
 
     const a = words()
@@ -364,7 +350,6 @@ describe('gun smith', () => {
   })
 
   it('provides an special thenable put()', async () => {
-    expect.assertions(1)
     await whenReady()
 
     const a = words()
@@ -382,7 +367,6 @@ describe('gun smith', () => {
   })
 
   it('on()s and handles object>primitive>object transitions', done => {
-    expect.assertions(3)
     whenReady().then(() => {
       const a = {
         one: 1
@@ -425,7 +409,6 @@ describe('gun smith', () => {
   // **************************************************************************
 
   it('writes object items into sets and correctly populates item._.get with the newly created id', done => {
-    expect.hasAssertions()
     whenReady().then(() => {
       const node = instance.get(words()).get(words())
 
@@ -445,7 +428,6 @@ describe('gun smith', () => {
   })
 
   it('provides an special once() that restarts gun until a value is fetched', done => {
-    expect.assertions(1)
     whenReady().then(() => {
       const a = words()
       const b = words()
@@ -465,7 +447,6 @@ describe('gun smith', () => {
   })
 
   it('provides an special then() that restarts gun until a value is fetched', async () => {
-    expect.assertions(1)
     await whenReady()
 
     const a = words()
@@ -486,7 +467,6 @@ describe('gun smith', () => {
 
   it('provides an special on() that restarts gun when a value has not been obtained in a determinate amount of time', done => {
     // Kinda crappy test, this should be easier to test in real usage.
-    expect.assertions(1)
     whenReady().then(() => {
       const initialProcCounter = Gun._getProcCounter()
 
