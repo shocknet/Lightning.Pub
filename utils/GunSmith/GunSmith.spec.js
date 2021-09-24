@@ -16,10 +16,6 @@ if (!fs.existsSync('./test-radata')) {
   fs.mkdirSync('./test-radata')
 }
 
-// start with true, have first test doesn't check, else all other test start to
-// run right away
-let isBusy = true
-
 const instance = Gun({
   axe: false,
   multicast: false,
@@ -29,25 +25,6 @@ const instance = Gun({
 const user = instance.user()
 const alias = words()
 const pass = words()
-
-const release = () => {
-  isBusy = false
-}
-
-/**
- * @returns {Promise<void>}
- */
-const whenReady = () =>
-  new Promise(res => {
-    setTimeout(() => {
-      if (isBusy) {
-        whenReady().then(res)
-      } else {
-        isBusy = true
-        res()
-      }
-    }, 1000)
-  })
 
 /**
  * @param {number} ms
@@ -60,7 +37,6 @@ describe('gun smith', () => {
   })
 
   it('puts a true and reads it with once()', done => {
-    // await whenReady()
     logger.info('puts a true and reads it with once()')
     const a = words()
     const b = words()
@@ -76,7 +52,6 @@ describe('gun smith', () => {
       .once(val => {
         expect(val).toBe(true)
         done()
-        release()
       })
   })
 
@@ -84,71 +59,61 @@ describe('gun smith', () => {
     const a = words()
     const b = words()
 
-    whenReady().then(() => {
-      instance
-        .get(a)
-        .get(b)
-        .put(false, ack => {
-          if (ack.err) {
-            throw new Error(ack.err)
-          } else {
-            instance
-              .get(a)
-              .get(b)
-              .once(val => {
-                expect(val).toBe(false)
-                done()
-                release()
-              })
-          }
-        })
-    })
+    instance
+      .get(a)
+      .get(b)
+      .put(false, ack => {
+        if (ack.err) {
+          throw new Error(ack.err)
+        } else {
+          instance
+            .get(a)
+            .get(b)
+            .once(val => {
+              expect(val).toBe(false)
+              done()
+            })
+        }
+      })
   })
 
   it('puts numbers and reads them with once()', done => {
     const a = words()
     const b = words()
 
-    whenReady().then(() => {
-      instance
-        .get(a)
-        .get(b)
-        .put(5)
+    instance
+      .get(a)
+      .get(b)
+      .put(5)
 
-      instance
-        .get(a)
-        .get(b)
-        .once(val => {
-          expect(val).toBe(5)
-          done()
-          release()
-        })
-    })
+    instance
+      .get(a)
+      .get(b)
+      .once(val => {
+        expect(val).toBe(5)
+        done()
+      })
   })
 
   it('puts strings and reads them with once()', done => {
     const a = words()
     const b = words()
     const sentence = words({ exactly: 50 }).join(' ')
-    whenReady().then(() => {
-      instance
-        .get(a)
-        .get(b)
-        .put(sentence)
+    instance
+      .get(a)
+      .get(b)
+      .put(sentence)
 
-      instance
-        .get(a)
-        .get(b)
-        .once(val => {
-          expect(val).toBe(sentence)
-          done()
-          release()
-        })
-    })
+    instance
+      .get(a)
+      .get(b)
+      .once(val => {
+        expect(val).toBe(sentence)
+        done()
+      })
   })
 
   it('merges puts', async () => {
-    await whenReady()
     const a = {
       a: 1
     }
@@ -168,75 +133,63 @@ describe('gun smith', () => {
       throw new Error('Data not an object')
     }
     expect(removeBuiltInGunProps(data)).toEqual(c)
-
-    release()
   })
 
   it('writes primitive items into sets and correctly assigns the id to ._.get', done => {
-    whenReady().then(() => {
-      const node = instance.get(words()).get(words())
-      const item = node.set('hello')
+    const node = instance.get(words()).get(words())
+    const item = node.set('hello')
 
-      node.once(data => {
-        expect(removeBuiltInGunProps(data)).toEqual({
-          [item._.get]: 'hello'
-        })
-        done()
-        release()
+    node.once(data => {
+      expect(removeBuiltInGunProps(data)).toEqual({
+        [item._.get]: 'hello'
       })
+      done()
     })
   })
 
   // TODO: find out why this test fucks up the previous one if it runs before
   // that one
   it('maps over a primitive set', done => {
-    whenReady().then(() => {
-      const node = instance.get(words()).get(words())
+    const node = instance.get(words()).get(words())
 
-      const items = words({ exactly: 50 })
+    const items = words({ exactly: 50 })
 
-      const ids = items.map(i => node.set(i)._.get)
+    const ids = items.map(i => node.set(i)._.get)
 
-      let checked = 0
+    let checked = 0
 
-      node.map().on((data, id) => {
-        expect(items).toContain(data)
-        expect(ids).toContain(id)
-        checked++
-        if (checked === 50) {
-          done()
-          release()
-        }
-      })
+    node.map().on((data, id) => {
+      expect(items).toContain(data)
+      expect(ids).toContain(id)
+      checked++
+      if (checked === 50) {
+        done()
+      }
     })
   })
 
   it('maps over an object set', done => {
-    whenReady().then(() => {
-      const node = instance.get(words()).get(words())
+    const node = instance.get(words()).get(words())
 
-      const items = words({ exactly: 50 }).map(w => ({
-        word: w
-      }))
+    const items = words({ exactly: 50 }).map(w => ({
+      word: w
+    }))
 
-      const ids = items.map(i => node.set(i)._.get)
+    const ids = items.map(i => node.set(i)._.get)
 
-      let checked = 0
+    let checked = 0
 
-      node.map().on((data, id) => {
-        expect(items).toContainEqual(removeBuiltInGunProps(data))
-        expect(ids).toContain(id)
-        checked++
-        if (checked === 50) {
-          done()
-          release()
-        }
-      })
+    node.map().on((data, id) => {
+      expect(items).toContainEqual(removeBuiltInGunProps(data))
+      expect(ids).toContain(id)
+      checked++
+      if (checked === 50) {
+        done()
+      }
     })
   })
 
   it('offs `on()`s', async () => {
-    await whenReady()
     const node = instance.get(words()).get(words())
 
     let called = false
@@ -250,12 +203,9 @@ describe('gun smith', () => {
     await node.pPut('return')
     await delay(500)
     expect(called).toBe(false)
-
-    release()
   })
 
   it('offs `map().on()`s', async () => {
-    await whenReady()
     const node = instance.get(words()).get(words())
 
     let called = false
@@ -273,13 +223,9 @@ describe('gun smith', () => {
     await delay(500)
 
     expect(called).toBe(false)
-
-    release()
   })
 
   it('provides an user node with create(), auth() and leave()', async () => {
-    await whenReady()
-
     const ack = await new Promise(res => user.create(alias, pass, res))
     expect(ack.err).toBeUndefined()
 
@@ -298,13 +244,9 @@ describe('gun smith', () => {
     expect(authAck.sea?.pub).toEqual(pub)
     expect(user.is?.pub).toEqual(pub)
     user.leave()
-
-    release()
   })
 
   it('reliably provides authentication information across re-forges', async () => {
-    await whenReady()
-
     /** @type {GunT.AuthAck} */
     const authAck = await new Promise(res =>
       user.auth(alias, pass, ack => res(ack))
@@ -318,12 +260,9 @@ describe('gun smith', () => {
     expect(user.is?.pub).toEqual(pub)
 
     user.leave()
-    release()
   })
 
   it('provides thenables for values', async () => {
-    await whenReady()
-
     const a = words()
     const b = words()
     const node = instance.get(a).get(b)
@@ -345,13 +284,9 @@ describe('gun smith', () => {
       .get(b)
       .then()
     expect(fetch).toEqual(value)
-
-    release()
   })
 
   it('provides an special thenable put()', async () => {
-    await whenReady()
-
     const a = words()
     const b = words()
     const node = instance.get(a).get(b)
@@ -362,46 +297,41 @@ describe('gun smith', () => {
     const res = await node.then()
 
     expect(res).toBe(value)
-
-    release()
   })
 
   it('on()s and handles object>primitive>object transitions', done => {
-    whenReady().then(() => {
-      const a = {
-        one: 1
+    const a = {
+      one: 1
+    }
+    const b = 'two'
+    const lastPut = {
+      three: 3
+    }
+    const c = { ...a, ...lastPut }
+
+    const node = instance.get(words()).get(words())
+
+    let checked = 0
+
+    node.on(data => {
+      checked++
+      if (checked === 1) {
+        expect(removeBuiltInGunProps(data)).toEqual(a)
+      } else if (checked === 2) {
+        expect(data).toEqual(b)
+      } else if (checked === 3) {
+        expect(removeBuiltInGunProps(data)).toEqual(c)
+        done()
       }
-      const b = 'two'
-      const lastPut = {
-        three: 3
-      }
-      const c = { ...a, ...lastPut }
-
-      const node = instance.get(words()).get(words())
-
-      let checked = 0
-
-      node.on(data => {
-        checked++
-        if (checked === 1) {
-          expect(removeBuiltInGunProps(data)).toEqual(a)
-        } else if (checked === 2) {
-          expect(data).toEqual(b)
-        } else if (checked === 3) {
-          expect(removeBuiltInGunProps(data)).toEqual(c)
-          done()
-          release()
-        }
-      })
-
-      node.put(a)
-      setTimeout(() => {
-        node.put(b)
-      }, 400)
-      setTimeout(() => {
-        node.put(c)
-      }, 800)
     })
+
+    node.put(a)
+    setTimeout(() => {
+      node.put(b)
+    }, 400)
+    setTimeout(() => {
+      node.put(c)
+    }, 800)
   })
 
   // **************************************************************************
@@ -409,46 +339,38 @@ describe('gun smith', () => {
   // **************************************************************************
 
   it('writes object items into sets and correctly populates item._.get with the newly created id', done => {
-    whenReady().then(() => {
-      const node = instance.get(words()).get(words())
+    const node = instance.get(words()).get(words())
 
-      const obj = {
-        a: 1,
-        b: 'hello'
-      }
+    const obj = {
+      a: 1,
+      b: 'hello'
+    }
 
-      const item = node.set(obj)
+    const item = node.set(obj)
 
-      node.get(item._.get).once(data => {
-        expect(removeBuiltInGunProps(data)).toEqual(obj)
-        done()
-        release()
-      })
+    node.get(item._.get).once(data => {
+      expect(removeBuiltInGunProps(data)).toEqual(obj)
+      done()
     })
   })
 
   it('provides an special once() that restarts gun until a value is fetched', done => {
-    whenReady().then(() => {
-      const a = words()
-      const b = words()
-      const node = instance.get(a).get(b)
-      const value = words()
+    const a = words()
+    const b = words()
+    const node = instance.get(a).get(b)
+    const value = words()
 
-      node.specialOnce(data => {
-        expect(data).toEqual(value)
-        done()
-        release()
-      })
-
-      setTimeout(() => {
-        node.put(value)
-      }, 30000)
+    node.specialOnce(data => {
+      expect(data).toEqual(value)
+      done()
     })
+
+    setTimeout(() => {
+      node.put(value)
+    }, 30000)
   })
 
   it('provides an special then() that restarts gun until a value is fetched', async () => {
-    await whenReady()
-
     const a = words()
     const b = words()
     const node = instance.get(a).get(b)
@@ -461,32 +383,27 @@ describe('gun smith', () => {
     const res = await node.specialThen()
 
     expect(res).toBe(value)
-
-    release()
   })
 
   it('provides an special on() that restarts gun when a value has not been obtained in a determinate amount of time', done => {
     // Kinda crappy test, this should be easier to test in real usage.
-    whenReady().then(() => {
-      const initialProcCounter = Gun._getProcCounter()
+    const initialProcCounter = Gun._getProcCounter()
 
-      const node = instance.get(words()).get(words())
+    const node = instance.get(words()).get(words())
 
-      const secondValue = words()
+    const secondValue = words()
 
-      node.specialOn(
-        debounce(data => {
-          if (data === secondValue) {
-            expect(Gun._getProcCounter()).toEqual(initialProcCounter + 1)
-            done()
-            release()
-          }
-        })
-      )
+    node.specialOn(
+      debounce(data => {
+        if (data === secondValue) {
+          expect(Gun._getProcCounter()).toEqual(initialProcCounter + 1)
+          done()
+        }
+      })
+    )
 
-      setTimeout(() => {
-        node.put(secondValue)
-      }, 32000)
-    })
+    setTimeout(() => {
+      node.put(secondValue)
+    }, 32000)
   })
 })
