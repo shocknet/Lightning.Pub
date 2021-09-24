@@ -15,10 +15,15 @@ Gun.log = (...args) => {
   logger.info('Gun log: ', ...args)
 }
 
+let dead = false
+
 /**
  * @param {any} msg
  */
 const sendMsg = msg => {
+  if (dead) {
+    return
+  }
   if (process.send) {
     process.send(msg)
   } else {
@@ -64,8 +69,6 @@ const waitForAuth = async () => {
 
   return waitForAuth()
 }
-
-let dead = false
 
 /**
  * @param {Smith.SmithMsg} msg
