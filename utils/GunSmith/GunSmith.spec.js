@@ -2,8 +2,6 @@
  * @format
  */
 // @ts-check
-/* eslint-disable jest/prefer-strict-equal */
-/* eslint-disable jest/no-test-callback */
 const Gun = require('./GunSmith')
 const words = require('random-words')
 const fs = require('fs')
@@ -57,7 +55,6 @@ const whenReady = () =>
 const delay = ms => new Promise(res => setTimeout(res, ms))
 
 describe('gun smith', () => {
-  // eslint-disable-next-line jest/no-hooks
   after(() => {
     Gun.kill()
   })
@@ -287,6 +284,8 @@ describe('gun smith', () => {
     await delay(500)
 
     expect(called).toBe(false)
+
+    release()
   })
 
   it('provides an user node with create(), auth() and leave()', async () => {
@@ -297,7 +296,6 @@ describe('gun smith', () => {
     expect(ack.err).toBeUndefined()
 
     const { pub } = ack
-    // eslint-disable-next-line jest/no-truthy-falsy
     expect(pub).toBeTruthy()
     expect(user.is?.pub).toEqual(pub)
 
@@ -325,7 +323,6 @@ describe('gun smith', () => {
       user.auth(alias, pass, ack => res(ack))
     )
     const pub = authAck.sea?.pub
-    // eslint-disable-next-line jest/no-truthy-falsy
     expect(pub).toBeTruthy()
 
     Gun._reforge()
@@ -384,7 +381,48 @@ describe('gun smith', () => {
     release()
   })
 
-  // long tests below
+  it('on()s and handles object>primitive>object transitions', done => {
+    expect.assertions(3)
+    whenReady().then(() => {
+      const a = {
+        one: 1
+      }
+      const b = 'two'
+      const lastPut = {
+        three: 3
+      }
+      const c = { ...a, ...lastPut }
+
+      const node = instance.get(words()).get(words())
+
+      let checked = 0
+
+      node.on(data => {
+        checked++
+        if (checked === 1) {
+          expect(removeBuiltInGunProps(data)).toEqual(a)
+        } else if (checked === 2) {
+          expect(data).toEqual(b)
+        } else if (checked === 3) {
+          expect(removeBuiltInGunProps(data)).toEqual(c)
+          done()
+          release()
+        }
+      })
+
+      node.put(a)
+      setTimeout(() => {
+        node.put(b)
+      }, 400)
+      setTimeout(() => {
+        node.put(c)
+      }, 800)
+    })
+  })
+
+  // **************************************************************************
+  // ** Long tests below
+  // **************************************************************************
 
   it('writes object items into sets and correctly populates item._.get with the newly created id', done => {
     expect.hasAssertions()
@@ -471,37 +509,4 @@ describe('gun smith', () => {
       }, 32000)
     })
   })
-
-  // eslint-disable-next-line jest/no-commented-out-tests
-  // it('on()s and handles object>primitive>object transitions', async () => {
-  //   expect.assertions(3)
-  //   await whenReady()
-
-  //   const a = {
-  //     one: 1
-  //   }
-  //   const b = 'two'
-  //   const c = {
-  //     three: 3
-  //   }
-  //   const d = { ...a, ...c }
-  //
-  //   const node = instance.get(words()).get(words())
-  //
-  //   let checked = 0
-  //
-  //   node.on(data => logger.info(data))
-  //
-  //   node.on(data => {
-  //     logger.info(data)
-  //   })
-  //
-  //   node.put(a)
-  //   setTimeout(() => {
-  //     node.put(b)
-  //   }, 400)
-  //   setTimeout(() => {
-  //     node.put(c)
-  //   }, 800)
-  // })
 })
