@@ -39,7 +39,7 @@
     "google-proto-files": "^1.0.3",
     "graphviz": "0.0.8",
     "grpc": "1.24.4",
-    "gun": "git://github.com/amark/gun#97aa976c97e6219a9f93095d32c220dcd371ca62",
+    "gun": "git://github.com/amark/gun#master",
     "husky": "^4.2.5",
     "hybrid-relay-client": "git://github.com/shocknet/hybridRelayClient#a99e57794cf7a62f0f5b6aef53a35d6b77d0a889",
     "jsonfile": "^4.0.0",
