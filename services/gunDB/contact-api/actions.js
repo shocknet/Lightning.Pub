@@ -818,8 +818,7 @@ const createPostNew = async (tags, title, content) => {
   const mySecret = require('../Mediator').getMySecret()
 
   await Common.Utils.asyncForEach(content, async c => {
-    // @ts-expect-error
-    const uuid = Gun.text.random()
+    const uuid = Utils.gunID()
     newPost.contentItems[uuid] = c
     if (
       (c.type === 'image/embedded' || c.type === 'video/embedded') &&
