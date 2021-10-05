@@ -85,6 +85,12 @@ const handleMsg = async msg => {
   if (msg.type === 'init') {
     gun = /** @type {any} */ (new Gun(msg.opts))
 
+    // Force gun to connect to peers
+    gun
+      .get('foo')
+      .get('baz')
+      .once()
+
     let currentPeers = ''
     setInterval(() => {
       const newPeers = JSON.stringify(
