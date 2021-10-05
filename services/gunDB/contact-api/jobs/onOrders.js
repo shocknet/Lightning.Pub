@@ -212,8 +212,8 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
     logger.info(
       `onOrders() -> Will now place the encrypted invoice in order to response usergraph: ${addr}`
     )
-    //@ts-expect-error
-    const ackNode = Gun.text.random()
+
+    const ackNode = Utils.gunID()
 
     /** @type {import('shock-common').Schema.OrderResponse} */
     const orderResponse = {

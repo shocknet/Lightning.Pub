@@ -6,7 +6,6 @@
 // @ts-check
 /// <reference path="Smith.ts" />
 /// <reference path="GunT.ts" />
-const RealGun = require('gun')
 const uuid = require('uuid/v1')
 const mapValues = require('lodash/mapValues')
 const { fork } = require('child_process')
@@ -16,12 +15,15 @@ const logger = require('../../config/log')
 const { mergePuts, isPopulated } = require('./misc')
 
 const gunUUID = () => {
-  const RG = /** @type {any} */ (RealGun)
-  if (typeof RG.text === 'object' && typeof RG.text.random === 'function') {
-    return RG.text.random()
+  // Copied from gun internals
+  let s = ''
+  let l = 24 // you are not going to make a 0 length random number, so no need to check type
+  const c = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXZabcdefghijklmnopqrstuvwxyz'
+  while (l > 0) {
+    s += c.charAt(Math.floor(Math.random() * c.length))
+    l--
   }
-  // This probably won't happen
-  throw new ReferenceError()
+  return s
 }
 
 /**
