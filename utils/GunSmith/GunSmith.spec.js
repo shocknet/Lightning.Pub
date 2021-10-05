@@ -23,8 +23,8 @@ const instance = Gun({
 })
 
 const user = instance.user()
-const alias = words()
-const pass = words()
+const alias = words({ exactly: 2 }).join('')
+const pass = words({ exactly: 2 }).join('')
 
 /**
  * @param {number} ms
