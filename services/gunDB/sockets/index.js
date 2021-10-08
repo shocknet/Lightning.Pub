@@ -15,7 +15,7 @@ const {
   encryptedOn,
   encryptedCallback
 } = require('../../../utils/ECC/socket')
-/// <reference path="../../../utils/GunSmith/GunT.ts" />
+/// <reference path="../../../utils/GunSmith/Smith.ts" />
 
 const ALLOWED_GUN_METHODS = [
   'map',
@@ -52,7 +52,7 @@ const getNode = root => {
 }
 
 /**
- * @param {GunT.GUNNode} node
+ * @param {Smith.GunSmithNode} node
  * @param {string} path
  */
 const getGunQuery = (node, path) => {
