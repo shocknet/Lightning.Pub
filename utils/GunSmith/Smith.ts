@@ -3,17 +3,61 @@
  */
 /// <reference path="GunT.ts" />
 namespace Smith {
-  export interface GunSmithNode extends GunT.GUNNode {
+  export interface GunSmithNode {
+    _: GunT.Soul
     /**
-     * @override
+     * Used only inside the subprocess.
+     */
+    back(
+      path: 'opt'
+    ): {
+      peers: Record<
+        string,
+        {
+          url: string
+          id: string
+          wire?: {
+            readyState: number
+          }
+        }
+      >
+    }
+    /**
+     *
      */
     get(key: string): GunSmithNode
     /**
-     * @override
+     *
      */
     map(): GunSmithNode
     /**
-     * @override
+     *
+     */
+    off(): void
+    /**
+     *
+     */
+    on(cb: GunT.Listener): void
+    /**
+     *
+     */
+    once(cb?: GunT.Listener, opts?: { wait?: number }): void
+    /**
+     * A promise version of put().
+     * @throws
+     */
+    pPut(data: GunT.ValidDataValue): Promise<void>
+    /**
+     * A promise version of set().
+     * @throws
+     */
+    pSet(data: GunT.ValidDataValue): Promise<void>
+    /**
+     *
+     */
+    put(data: GunT.ValidDataValue, cb?: GunT.Callback): void
+    /**
+     *
      */
     set(data: GunT.ValidDataValue, cb?: GunT.Callback): GunSmithNode
     /**
@@ -34,19 +78,21 @@ namespace Smith {
      * if needed.
      */
     specialThen(): Promise<GunT.ListenerData>
-    /**
-     * A promise version of put().
-     * @throws
-     */
-    pPut(data: GunT.ValidDataValue): Promise<void>
-    /**
-     * A promise version of set().
-     * @throws
-     */
-    pSet(data: GunT.ValidDataValue): Promise<void>
+    then(): Promise<GunT.ListenerData>
+    user(): UserSmithNode
+    user(pub: string): GunSmithNode
   }
 
-  export type UserSmithNode = GunSmithNode & GunT.UserGUNNode
+  export interface UserSmithNode extends GunSmithNode {
+    _: GunT.UserSoul
+    auth(alias: string, pass: string, cb: GunT.AuthCB): void
+    is?: {
+      alias: string
+      pub: string
+    }
+    create(user: string, pass: string, cb: GunT.CreateCB): void
+    leave(): void
+  }
 
   export interface PendingPut {
     cb: GunT.Callback
