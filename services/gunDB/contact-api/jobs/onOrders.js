@@ -17,7 +17,7 @@ const Key = require('../key')
 const Utils = require('../utils')
 const Gun = require('gun')
 const { selfContentToken, enrollContentTokens } = require('../../../seed')
-/// <reference path="../../../utils/GunSmith/GunT.ts" />
+/// <reference path="../../../utils/GunSmith/Smith.ts" />
 const TipForwarder = require('../../../tipsCallback')
 
 const getUser = () => require('../../Mediator').getUser()
@@ -28,10 +28,10 @@ const getUser = () => require('../../Mediator').getUser()
 const ordersProcessed = new Set()
 
 /**
- * @typedef {GunT.GUNNode} GUNNode
+ * @typedef {Smith.GunSmithNode} GUNNode
  * @typedef {GunT.ListenerData} ListenerData
  * @typedef {import('../SimpleGUN').ISEA} ISEA
- * @typedef {GunT.UserGUNNode} UserGUNNode
+ * @typedef {Smith.UserSmithNode} UserGUNNode
  */
 
 /**
