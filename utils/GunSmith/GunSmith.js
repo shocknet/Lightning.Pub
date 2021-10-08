@@ -381,30 +381,6 @@ function createReplica(path, afterMap = false) {
       }
       return createReplica(path + '>' + key)
     },
-    load(cb) {
-      // Dumb implementation. We must move away from load() anyways.
-      if (afterMap) {
-        throw new Error('Cannot call load() after map() on a GunSmith node')
-      }
-      if (cb) {
-        listenersForThisRef.push(cb)
-
-        const id = uuid()
-
-        idToLoadListener[id] = cb
-
-        /** @type {Smith.SmithMsgLoad} */
-        const msg = {
-          id,
-          path,
-          type: 'load'
-        }
-        isReady().then(() => {
-          currentGun.send(msg)
-        })
-      }
-      return this
-    },
     map() {
       if (afterMap) {
         throw new Error('Cannot call map() after map() on a GunSmith node')

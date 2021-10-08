@@ -162,22 +162,24 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       if (!Common.isPopulatedString(serviceID)) {
         throw new TypeError(`no serviceID provided to orderAck`)
       }
-      const selectedService = await new Promise(res => {
-        getUser()
-          .get(Key.OFFERED_SERVICES)
-          .get(serviceID)
-          .load(res)
-      })
+      const selectedService = await getUser()
+        .get(Key.OFFERED_SERVICES)
+        .get(serviceID)
+        .then()
+
       logger.info(selectedService)
-      if (!selectedService) {
-        throw new TypeError(`invalid serviceID provided to orderAck`)
+      if (!Common.isObj(selectedService)) {
+        throw new TypeError(
+          `invalid serviceID provided to orderAck or service is not an object`
+        )
       }
+
       const {
         serviceType,
         servicePrice,
         serviceSeedUrl: encSeedUrl, //=
         serviceSeedToken: encSeedToken //=
-      } = selectedService
+      } = /** @type {Record<string, any>} */ (selectedService)
       if (Number(amount) !== Number(servicePrice)) {
         throw new TypeError(
           `service price mismatch ${amount} : ${servicePrice}`
@@ -326,12 +328,16 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
             break //create the coordinate, but stop because of the invalid id
           }
           logger.info('IS STRING')
-          const selectedPost = await new Promise(res => {
-            getUser()
-              .get(Key.POSTS_NEW)
-              .get(postID)
-              .load(res)
-          })
+          const selectedPost = /** @type {Record<string, any>} */ (await getUser()
+            .get(Key.POSTS_NEW)
+            .get(postID)
+            .then())
+          const selectedPostContent = /** @type {Record<string, any>} */ (await getUser()
+            .get(Key.POSTS_NEW)
+            .get(postID)
+            .get(Key.CONTENT_ITEMS)
+            .then())
+
           logger.info('LOAD ok')
           logger.info(selectedPost)
           if (
@@ -350,7 +356,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
           logger.info('SECRET OK')
           let privateFound = false
           await Common.Utils.asyncForEach(
-            Object.entries(selectedPost.contentItems),
+            Object.entries(selectedPostContent),
             async ([contentID, item]) => {
               if (
                 item.type !== 'image/embedded' &&
