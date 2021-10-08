@@ -8,7 +8,7 @@ const {
 } = require('shock-common')
 
 const Key = require('../key')
-/// <reference path="../../../utils/GunSmith/GunT.ts" />
+/// <reference path="../../../utils/GunSmith/Smith.ts" />
 
 const DEBOUNCE_WAIT_TIME = 500
 
@@ -17,7 +17,7 @@ let currentSeedBackup = null
 
 /**
  * @param {(seedBackup: string|null) => void} cb
- * @param {GunT.UserGUNNode} user
+ * @param {Smith.UserSmithNode} user
  * @param {import('../SimpleGUN').ISEA} SEA
  * @throws {Error} If user hasn't been auth.
  * @returns {void}
