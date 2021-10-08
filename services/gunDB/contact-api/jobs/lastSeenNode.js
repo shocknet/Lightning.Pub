@@ -11,13 +11,13 @@ const {
   }
 } = require('shock-common')
 const Key = require('../key')
-/// <reference path="../../../utils/GunSmith/GunT.ts" />
+/// <reference path="../../../utils/GunSmith/Smith.ts" />
 
 /**
- * @typedef {GunT.GUNNode} GUNNode
+ * @typedef {Smith.GunSmithNode} GUNNode
  * @typedef {GunT.ListenerData} ListenerData
  * @typedef {import('../SimpleGUN').ISEA} ISEA
- * @typedef {GunT.UserGUNNode} UserGUNNode
+ * @typedef {Smith.UserSmithNode} UserGUNNode
  */
 
 /**
