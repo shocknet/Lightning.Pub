@@ -15,7 +15,6 @@ const SchemaManager = require('../../../schema')
 const LightningServices = require('../../../../utils/lightningServices')
 const Key = require('../key')
 const Utils = require('../utils')
-const Gun = require('gun')
 const { selfContentToken, enrollContentTokens } = require('../../../seed')
 /// <reference path="../../../utils/GunSmith/Smith.ts" />
 const TipForwarder = require('../../../tipsCallback')

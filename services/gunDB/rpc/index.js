@@ -6,7 +6,6 @@
 const { makePromise, Constants, Schema } = require('shock-common')
 const mapValues = require('lodash/mapValues')
 const Bluebird = require('bluebird')
-const Gun = require('gun')
 
 const { pubToEpub } = require('../contact-api/utils')
 const {
