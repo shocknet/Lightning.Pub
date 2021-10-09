@@ -47,7 +47,7 @@ module.exports = async (
   app,
   config,
   mySocketsEvents,
-  { serverPort, CA, CA_KEY, usetls }
+  { serverPort, CA, CA_KEY, useTLS }
 ) => {
   try {
     const Http = Axios.create({
@@ -85,7 +85,7 @@ module.exports = async (
 
       try {
         const APIHealth = await Http.get(
-          `${usetls ? 'https' : 'http'}://localhost:${serverPort}/ping`
+          `${useTLS ? 'https' : 'http'}://localhost:${serverPort}/ping`
         )
         const APIStatus = {
           message: APIHealth.data,
