@@ -296,13 +296,12 @@ const server = program => {
         res.status(500).send({ status: 500, errorMessage: 'internal error' })
       })
 
-      const CA =
-        program.httpsCert || LightningServices.servicesConfig.lndCertPath
-      const CA_KEY = program.httpsCertKey || CA.replace('cert', 'key')
+      const CA = program.httpsCert
+      const CA_KEY = program.httpsCertKey
 
       const createServer = () => {
         try {
-          if (LightningServices.servicesConfig.lndCertPath && program.useTLS) {
+          if (program.useTLS) {
             const key = FS.readFileSync(CA_KEY, 'utf-8')
             const cert = FS.readFileSync(CA, 'utf-8')
 
