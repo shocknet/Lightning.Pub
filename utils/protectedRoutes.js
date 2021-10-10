@@ -25,7 +25,16 @@ module.exports = {
       "/api/encryption/exchange": true
     },
     PUT: {},
-    DELETE: {}
+    DELETE: {},
+    // Preflight request (CORS)
+    get OPTIONS() {
+      return {
+        ...this.POST,
+        ...this.GET,
+        ...this.PUT,
+        ...this.DELETE
+      }
+    }
   },
   sensitiveRoutes: {
     GET: {},
