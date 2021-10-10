@@ -16,6 +16,7 @@ const Big = require('big.js')
 const size = require('lodash/size')
 const { range, flatten, evolve } = require('ramda')
 const path = require('path')
+const cors = require('cors')
 
 const getListPage = require('../utils/paginate')
 const auth = require('../services/auth/auth')
@@ -209,6 +210,8 @@ module.exports = async (
         return false
       }
     }
+
+    app.use(cors())
 
     app.use((req, res, next) => {
       res.setHeader('x-session-id', SESSION_ID)
