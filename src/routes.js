@@ -356,7 +356,21 @@ module.exports = async (
     })
 
     app.use(async (req, res, next) => {
-      if (unprotectedRoutes[req.method][req.path]) {
+      if (!req.method) {
+        logger.error(
+          'No req.method in unprotected routes middleware.',
+          'req.path:',
+          req.path
+        )
+        next()
+      } else if (!req.path) {
+        logger.error(
+          'No req.path in unprotected routes middleware.',
+          'req.method:',
+          req.method
+        )
+        next()
+      } else if (unprotectedRoutes[req.method][req.path]) {
         next()
       } else {
         try {
