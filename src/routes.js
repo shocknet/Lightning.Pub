@@ -211,7 +211,12 @@ module.exports = async (
       }
     }
 
-    app.use(cors())
+    app.use(
+      cors({
+        credentials: true,
+        origin: '*'
+      })
+    )
 
     app.use((req, res, next) => {
       res.setHeader('x-session-id', SESSION_ID)
