@@ -52,10 +52,14 @@ module.exports = async (
 ) => {
   try {
     const Http = Axios.create({
-      httpsAgent: new httpsAgent.Agent({
-        ca: await FS.readFile(CA),
-        key: await FS.readFile(CA_KEY)
-      })
+      httpsAgent: new httpsAgent.Agent(
+        CA && CA_KEY
+          ? {
+              ca: await FS.readFile(CA),
+              key: await FS.readFile(CA_KEY)
+            }
+          : {}
+      )
     })
 
     const sanitizeLNDError = (message = '') => {
