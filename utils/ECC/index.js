@@ -4,6 +4,7 @@ const Storage = require('node-persist')
 const FieldError = require('../fieldError')
 const logger = require('../../config/log')
 const {
+  generateRandomString,
   convertBufferToBase64,
   processKey,
   convertToEncryptedMessageResponse,
@@ -182,5 +183,6 @@ module.exports = {
   generateKeyPair,
   encryptMessage,
   decryptMessage,
-  authorizeDevice
+  authorizeDevice,
+  generateRandomString
 }

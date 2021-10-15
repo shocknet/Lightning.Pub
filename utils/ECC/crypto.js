@@ -1,4 +1,5 @@
 const { Buffer } = require("buffer");
+const Crypto = require("crypto");
 const FieldError = require("../fieldError")
 
 /**
@@ -16,6 +17,19 @@ const FieldError = require("../fieldError")
  * @prop {string} mac
  * @prop {string} ephemPublicKey
  */
+
+const generateRandomString = (length = 16) =>
+    new Promise((resolve, reject) => {
+      Crypto.randomBytes(length, (err, buffer) => {
+        if (err) {
+          reject(err)
+          return
+        }
+
+        const token = buffer.toString('hex')
+        resolve(token)
+      })
+    })
 
 /**
  * @param {string} value
@@ -101,10 +115,11 @@ const convertToEncryptedMessage = (encryptedMessage) => {
 };
 
 module.exports = {
+  generateRandomString,
   convertUTF8ToBuffer,
   convertBase64ToBuffer,
   convertBufferToBase64,
   convertToEncryptedMessage,
   convertToEncryptedMessageResponse,
-  processKey
+  processKey,
 }
