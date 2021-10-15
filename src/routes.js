@@ -218,8 +218,7 @@ module.exports = async (
       try {
         if (
           nonEncryptedRoutes.includes(req.path) ||
-          process.env.DISABLE_SHOCK_ENCRYPTION === 'true' ||
-          !deviceId
+          process.env.DISABLE_SHOCK_ENCRYPTION === 'true'
         ) {
           return next()
         }
