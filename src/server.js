@@ -1,5 +1,3 @@
-const { generateRandomString } = require('../utils/encryptionStore')
-
 /**
  * @prettier
  */
@@ -22,7 +20,6 @@ const server = program => {
 
   const ECC = require('../utils/ECC')
   const LightningServices = require('../utils/lightningServices')
-  const Encryption = require('../utils/encryptionStore')
   const app = Express()
 
   const compression = require('compression')
@@ -124,7 +121,6 @@ const server = program => {
    * @param {(() => void)} next
    */
   const modifyResponseBody = (req, res, next) => {
-    const legacyDeviceId = req.headers['x-shockwallet-device-id']
     const deviceId = req.headers['encryption-device-id']
     const oldSend = res.send
 
@@ -134,38 +130,6 @@ const server = program => {
     ) {
       next()
       return
-    }
-
-    if (legacyDeviceId) {
-      res.send = (...args) => {
-        if (args[0] && args[0].encryptedData && args[0].encryptionKey) {
-          logger.warn('Response loop detected!')
-          oldSend.apply(res, args)
-          return
-        }
-
-        const { cached, hash } = cacheCheck({ req, res, args, send: oldSend })
-
-        if (cached) {
-          return
-        }
-
-        // arguments[0] (or `data`) contains the response body
-        const authorized = Encryption.isAuthorizedDevice({
-          deviceId: legacyDeviceId
-        })
-        const encryptedMessage = authorized
-          ? Encryption.encryptMessage({
-              message: args[0] ? args[0] : {},
-              deviceId: legacyDeviceId,
-              metadata: {
-                hash
-              }
-            })
-          : args[0]
-        args[0] = JSON.stringify(encryptedMessage)
-        oldSend.apply(res, args)
-      }
     }
 
     if (deviceId) {
@@ -288,7 +252,7 @@ const server = program => {
           return randomField
         }
 
-        const newValue = await Encryption.generateRandomString(length)
+        const newValue = await ECC.generateRandomString(length)
         await Storage.setItem(fieldName, newValue)
         return newValue
       }
@@ -440,14 +404,16 @@ const server = program => {
         })
       }
 
-      if(process.env.ALLOW_UNLOCKED_LND === 'true'){
-        const codes = await Storage.valuesWithKeyMatch(/^UnlockedAccessSecrets\//u) 
-        if(codes.length === 0){
-          const code = generateRandomString(12)
+      if (process.env.ALLOW_UNLOCKED_LND === 'true') {
+        const codes = await Storage.valuesWithKeyMatch(
+          /^UnlockedAccessSecrets\//u
+        )
+        if (codes.length === 0) {
+          const code = ECC.generateRandomString(12)
           await Storage.setItem(`UnlockedAccessSecrets/${code}`, false)
-          logger.info("the access code is:"+code)
-        } else if(codes.length === 1 || codes[0] === false){
-          logger.info("the access code is:"+codes[0])
+          logger.info('the access code is:' + code)
+        } else if (codes.length === 1 || codes[0] === false) {
+          logger.info('the access code is:' + codes[0])
         }
       }
       serverInstance.listen(serverPort, serverHost)
