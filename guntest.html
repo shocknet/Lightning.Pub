@@ -25,6 +25,10 @@
     axe: false
   })
 
+  setInterval(() => {
+    console.log('peers', Object.keys(gun.back('opt').peers))
+  },5000)
+
   user = gun.user()
 
   node = gun.get('foo').get('bar')

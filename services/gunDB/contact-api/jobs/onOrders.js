@@ -229,7 +229,11 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
         .get(orderID)
         // @ts-expect-error
         .put(orderResponse, ack => {
-          if (ack.err && typeof ack.err !== 'number') {
+          if (
+            ack.err &&
+            typeof ack.err !== 'number' &&
+            typeof ack.err !== 'object'
+          ) {
             rej(
               new Error(
                 `Error saving encrypted invoice to order to response usergraph: ${ack}`
@@ -290,7 +294,11 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
               .get(Key.ORDER_TO_RESPONSE)
               .get(ackNode)
               .put(ordResponse, ack => {
-                if (ack.err && typeof ack.err !== 'number') {
+                if (
+                  ack.err &&
+                  typeof ack.err !== 'number' &&
+                  typeof ack.err !== 'object'
+                ) {
                   rej(
                     new Error(
                       `Error saving encrypted orderAck to order to response usergraph: ${ack}`
@@ -378,7 +386,11 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
               .get(Key.ORDER_TO_RESPONSE)
               .get(ackNode)
               .put(ordResponse, ack => {
-                if (ack.err && typeof ack.err !== 'number') {
+                if (
+                  ack.err &&
+                  typeof ack.err !== 'number' &&
+                  typeof ack.err !== 'object'
+                ) {
                   rej(
                     new Error(
                       `Error saving encrypted orderAck to order to response usergraph: ${ack}`
@@ -425,7 +437,11 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
               .get(Key.ORDER_TO_RESPONSE)
               .get(ackNode)
               .put(serviceResponse, ack => {
-                if (ack.err && typeof ack.err !== 'number') {
+                if (
+                  ack.err &&
+                  typeof ack.err !== 'number' &&
+                  typeof ack.err !== 'object'
+                ) {
                   rej(
                     new Error(
                       `Error saving encrypted orderAck to order to response usergraph: ${ack}`
@@ -489,7 +505,11 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
           .get(orderID)
           // @ts-expect-error
           .put(orderResponse, ack => {
-            if (ack.err && typeof ack.err !== 'number') {
+            if (
+              ack.err &&
+              typeof ack.err !== 'number' &&
+              typeof ack.err !== 'object'
+            ) {
               logger.error(
                 `Error saving encrypted invoice to order to response usergraph: ${ack}`
               )
@@ -516,7 +536,11 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       .get(orderID)
       // @ts-expect-error
       .put(orderResponse, ack => {
-        if (ack.err && typeof ack.err !== 'number') {
+        if (
+          ack.err &&
+          typeof ack.err !== 'number' &&
+          typeof ack.err !== 'object'
+        ) {
           logger.error(
             `Error saving encrypted invoice to order to response usergraph: ${ack}`
           )

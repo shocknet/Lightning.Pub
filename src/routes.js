@@ -37,6 +37,7 @@ const Key = require('../services/gunDB/contact-api/key')
 const { startedStream, endStream } = require('../services/streams')
 const channelRequest = require('../utils/lightningServices/channelRequests')
 const TipsForwarder = require('../services/tipsCallback')
+const UserInitializer = require('../services/initializer')
 
 const DEFAULT_MAX_NUM_ROUTES_TO_QUERY = 10
 const SESSION_ID = uuid()
@@ -268,7 +269,21 @@ module.exports = async (
     })
 
     app.use(async (req, res, next) => {
-      if (unprotectedRoutes[req.method][req.path]) {
+      if (!req.method) {
+        logger.error(
+          'No req.method in unprotected routes middleware.',
+          'req.path:',
+          req.path
+        )
+        next()
+      } else if (!req.path) {
+        logger.error(
+          'No req.path in unprotected routes middleware.',
+          'req.method:',
+          req.method
+        )
+        next()
+      } else if (unprotectedRoutes[req.method][req.path]) {
         next()
       } else {
         try {
@@ -2569,7 +2584,7 @@ module.exports = async (
     //this is for OBS notifications, not wired with UI.
     ap.get('/api/subscribeStream', (req, res) => {
       try {
-        res.sendFile(path.join(__dirname, '/index.html'))
+        res.sendFile(path.join(__dirname, '../public/obsOverlay.html'))
       } catch (e) {
         logger.error(e)
         res.status(500).json({
@@ -2623,6 +2638,98 @@ module.exports = async (
           errorMessage:
             (typeof e === 'string' ? e : e.message) || 'Unknown error.'
         })
+      }
+    })
+
+    ap.get('/', (req, res) => {
+      try {
+        res.sendFile(path.join(__dirname, '../public/localHomepage.html'))
+      } catch (e) {
+        logger.error(e)
+        res.status(500).json({
+          errorMessage: e.message
+        })
+      }
+    })
+
+    ap.get('/qrCodeGenerator', (req, res) => {
+      console.log('qrrerrr')
+      try {
+        res.sendFile(path.join(__dirname, '../public/qrcode.min.js'))
+      } catch (e) {
+        logger.error(e)
+        res.status(500).json({
+          errorMessage: e.message
+        })
+      }
+    })
+
+    ap.get('/api/accessInfo', async (req, res) => {
+      if (req.ip !== '127.0.0.1') {
+        res.json({
+          field: 'origin',
+          message: 'invalid origin, cant serve access info'
+        })
+        return
+      }
+      try {
+        const [relayId, relayUrl, accessSecret] = await Promise.all([
+          Storage.getItem('relay/id'),
+          Storage.getItem('relay/url'),
+          Storage.getItem('FirstAccessSecret')
+        ])
+        const response = {}
+        if (config.cliArgs.tunnel) {
+          if (!relayId || !relayUrl) {
+            response.relayNotFound = true
+          } else {
+            response.relayId = relayId
+            response.relayUrl = relayUrl
+          }
+        } else {
+          response.tunnelDisabled = true
+        }
+
+        if (process.env.ALLOW_UNLOCKED_LND !== 'true') {
+          response.accessSecretDisabled = true
+          return res.json(response)
+        }
+
+        if (!accessSecret) {
+          response.accessCodeNotFound = true
+          res.json(response)
+          return
+        }
+        const codeUsed = await Storage.getItem(
+          `UnlockedAccessSecrets/${accessSecret}`
+        )
+        if (codeUsed !== false) {
+          response.accessCodeUsed = true
+          return res.json(response)
+        }
+        response.accessCode = accessSecret
+        res.json(response)
+      } catch (e) {
+        logger.error(e)
+        res.status(500).json({
+          errorMessage: e.message
+        })
+      }
+    })
+
+    ap.post('/api/initUserInformation', async (req, res) => {
+      try {
+        const user = require('../services/gunDB/Mediator').getUser()
+        await UserInitializer.InitUserData(user)
+      } catch (err) {
+        logger.error(err)
+        res
+          .status(
+            err.message === Common.Constants.ErrorCode.NOT_AUTH ? 401 : 500
+          )
+          .json({
+            errorMessage: err.message
+          })
       }
     })
   } catch (err) {
