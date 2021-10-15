@@ -58,7 +58,11 @@ const authenticate = (user, pass, userNode) =>
     }
 
     userNode.auth(user, pass, ack => {
-      if (ack.err && typeof ack.err !== 'number') {
+      if (
+        ack.err &&
+        typeof ack.err !== 'number' &&
+        typeof ack.err !== 'object'
+      ) {
         reject(new Error(ack.err))
       } else if (!userNode.is) {
         reject(new Error('authentication failed'))
@@ -81,7 +85,11 @@ const blacklist = (publicKey, user) =>
     }
 
     user.get(Key.BLACKLIST).set(publicKey, ack => {
-      if (ack.err && typeof ack.err !== 'number') {
+      if (
+        ack.err &&
+        typeof ack.err !== 'number' &&
+        typeof ack.err !== 'object'
+      ) {
         reject(new Error(ack.err))
       } else {
         resolve()
@@ -100,7 +108,11 @@ const generateHandshakeAddress = async () => {
 
   await /** @type {Promise<void>} */ (new Promise((res, rej) => {
     user.get(Key.CURRENT_HANDSHAKE_ADDRESS).put(address, ack => {
-      if (ack.err && typeof ack.err !== 'number') {
+      if (
+        ack.err &&
+        typeof ack.err !== 'number' &&
+        typeof ack.err !== 'object'
+      ) {
         rej(new Error(ack.err))
       } else {
         res()
@@ -113,7 +125,11 @@ const generateHandshakeAddress = async () => {
       .get(Key.HANDSHAKE_NODES)
       .get(address)
       .put({ unused: 0 }, ack => {
-        if (ack.err && typeof ack.err !== 'number') {
+        if (
+          ack.err &&
+          typeof ack.err !== 'number' &&
+          typeof ack.err !== 'object'
+        ) {
           rej(new Error(ack.err))
         } else {
           res()
@@ -150,7 +166,11 @@ const setAvatar = (avatar, user) =>
       .get(Key.PROFILE_BINARY)
       .get(Key.AVATAR)
       .put(avatar, ack => {
-        if (ack.err && typeof ack.err !== 'number') {
+        if (
+          ack.err &&
+          typeof ack.err !== 'number' &&
+          typeof ack.err !== 'object'
+        ) {
           reject(new Error(ack.err))
         } else {
           resolve()
@@ -183,7 +203,11 @@ const setDisplayName = (displayName, user) =>
       .get(Key.PROFILE)
       .get(Key.DISPLAY_NAME)
       .put(displayName, ack => {
-        if (ack.err && typeof ack.err !== 'number') {
+        if (
+          ack.err &&
+          typeof ack.err !== 'number' &&
+          typeof ack.err !== 'object'
+        ) {
           reject(new Error(ack.err))
         } else {
           resolve()
@@ -210,7 +234,11 @@ const setDefaultSeedProvider = (encryptedSeedProvider, user) =>
     user
       .get('preferencesSeedServiceProvider')
       .put(encryptedSeedProvider, ack => {
-        if (ack.err && typeof ack.err !== 'number') {
+        if (
+          ack.err &&
+          typeof ack.err !== 'number' &&
+          typeof ack.err !== 'object'
+        ) {
           reject(new Error(ack.err))
         } else {
           resolve()
@@ -235,7 +263,11 @@ const setSeedServiceData = (encryptedSeedServiceData, user) =>
     user
       .get('preferencesSeedServiceData')
       .put(encryptedSeedServiceData, ack => {
-        if (ack.err && typeof ack.err !== 'number') {
+        if (
+          ack.err &&
+          typeof ack.err !== 'number' &&
+          typeof ack.err !== 'object'
+        ) {
           reject(new Error(ack.err))
         } else {
           resolve()
@@ -258,7 +290,11 @@ const setCurrentStreamInfo = (encryptedCurrentStreamInfo, user) =>
       throw new TypeError()
     }
     user.get('currentStreamInfo').put(encryptedCurrentStreamInfo, ack => {
-      if (ack.err && typeof ack.err !== 'number') {
+      if (
+        ack.err &&
+        typeof ack.err !== 'number' &&
+        typeof ack.err !== 'object'
+      ) {
         reject(new Error(ack.err))
       } else {
         resolve()
@@ -368,7 +404,11 @@ const sendSpontaneousPayment = async (
         .get(currOrderAddress)
         //@ts-ignore
         .set(order, ack => {
-          if (ack.err && typeof ack.err !== 'number') {
+          if (
+            ack.err &&
+            typeof ack.err !== 'number' &&
+            typeof ack.err !== 'object'
+          ) {
             rej(
               new Error(
                 `Error writing order to order node: ${currOrderAddress} for pub: ${to}: ${ack.err}`
@@ -589,7 +629,11 @@ const generateOrderAddress = user =>
     const address = uuidv1()
 
     user.get(Key.CURRENT_ORDER_ADDRESS).put(address, ack => {
-      if (ack.err && typeof ack.err !== 'number') {
+      if (
+        ack.err &&
+        typeof ack.err !== 'number' &&
+        typeof ack.err !== 'object'
+      ) {
         rej(new Error(ack.err))
       } else {
         res()
@@ -622,7 +666,11 @@ const setBio = (bio, user) =>
     }
 
     user.get(Key.BIO).put(bio, ack => {
-      if (ack.err && typeof ack.err !== 'number') {
+      if (
+        ack.err &&
+        typeof ack.err !== 'number' &&
+        typeof ack.err !== 'object'
+      ) {
         reject(new Error(ack.err))
       } else {
         resolve()
@@ -635,7 +683,11 @@ const setBio = (bio, user) =>
           .get(Key.PROFILE)
           .get(Key.BIO)
           .put(bio, ack => {
-            if (ack.err && typeof ack.err !== 'number') {
+            if (
+              ack.err &&
+              typeof ack.err !== 'number' &&
+              typeof ack.err !== 'object'
+            ) {
               reject(new Error(ack.err))
             } else {
               resolve()
@@ -664,7 +716,11 @@ const saveSeedBackup = async (mnemonicPhrase, user, SEA) => {
 
   return new Promise((res, rej) => {
     user.get(Key.SEED_BACKUP).put(encryptedSeed, ack => {
-      if (ack.err && typeof ack.err !== 'number') {
+      if (
+        ack.err &&
+        typeof ack.err !== 'number' &&
+        typeof ack.err !== 'object'
+      ) {
         rej(new Error(ack.err))
       } else {
         res()
@@ -687,7 +743,11 @@ const saveChannelsBackup = async (backups, user, SEA) => {
   const encryptBackups = await SEA.encrypt(backups, mySecret)
   return new Promise((res, rej) => {
     user.get(Key.CHANNELS_BACKUP).put(encryptBackups, ack => {
-      if (ack.err && typeof ack.err !== 'number') {
+      if (
+        ack.err &&
+        typeof ack.err !== 'number' &&
+        typeof ack.err !== 'object'
+      ) {
         rej(new Error(ack.err))
       } else {
         res()
@@ -705,7 +765,11 @@ const setLastSeenApp = () =>
       .getUser()
       .get(Key.LAST_SEEN_APP)
       .put(Date.now(), ack => {
-        if (ack.err && typeof ack.err !== 'number') {
+        if (
+          ack.err &&
+          typeof ack.err !== 'number' &&
+          typeof ack.err !== 'object'
+        ) {
           rej(new Error(ack.err))
         } else {
           res()
@@ -719,7 +783,11 @@ const setLastSeenApp = () =>
           .get(Key.PROFILE)
           .get(Key.LAST_SEEN_APP)
           .put(Date.now(), ack => {
-            if (ack.err && typeof ack.err !== 'number') {
+            if (
+              ack.err &&
+              typeof ack.err !== 'number' &&
+              typeof ack.err !== 'object'
+            ) {
               rej(new Error(ack.err))
             } else {
               res()
@@ -771,7 +839,11 @@ const createPostNew = async (tags, title, content) => {
         // @ts-expect-error
         newPost,
         ack => {
-          if (ack.err && typeof ack.err !== 'number') {
+          if (
+            ack.err &&
+            typeof ack.err !== 'number' &&
+            typeof ack.err !== 'object'
+          ) {
             rej(new Error(ack.err))
           } else {
             res(_n._.get)
@@ -798,7 +870,11 @@ const deletePost = async (postId, page) => {
       .get(Key.POSTS)
       .get(postId)
       .put(null, ack => {
-        if (ack.err && typeof ack.err !== 'number') {
+        if (
+          ack.err &&
+          typeof ack.err !== 'number' &&
+          typeof ack.err !== 'object'
+        ) {
           rej(new Error(ack.err))
         } else {
           res()
@@ -827,7 +903,11 @@ const follow = async (publicKey, isPrivate) => {
       .get(publicKey)
       // @ts-ignore
       .put(newFollow, ack => {
-        if (ack.err && typeof ack.err !== 'number') {
+        if (
+          ack.err &&
+          typeof ack.err !== 'number' &&
+          typeof ack.err !== 'object'
+        ) {
           rej(new Error(ack.err))
         } else {
           res()
@@ -847,7 +927,11 @@ const unfollow = publicKey =>
       .get(Key.FOLLOWS)
       .get(publicKey)
       .put(null, ack => {
-        if (ack.err && typeof ack.err !== 'number') {
+        if (
+          ack.err &&
+          typeof ack.err !== 'number' &&
+          typeof ack.err !== 'object'
+        ) {
           rej(new Error(ack.err))
         } else {
           res()
@@ -870,7 +954,11 @@ const initWall = async () => {
         .get(Key.WALL)
         .get(Key.NUM_OF_PAGES)
         .put(0, ack => {
-          if (ack.err && typeof ack.err !== 'number') {
+          if (
+            ack.err &&
+            typeof ack.err !== 'number' &&
+            typeof ack.err !== 'object'
+          ) {
             rej(new Error(ack.err))
           } else {
             res()
@@ -891,7 +979,11 @@ const initWall = async () => {
             unused: null
           },
           ack => {
-            if (ack.err && typeof ack.err !== 'number') {
+            if (
+              ack.err &&
+              typeof ack.err !== 'number' &&
+              typeof ack.err !== 'object'
+            ) {
               rej(new Error(ack.err))
             } else {
               res()
@@ -909,7 +1001,11 @@ const initWall = async () => {
         .get('0')
         .get(Key.COUNT)
         .put(0, ack => {
-          if (ack.err && typeof ack.err !== 'number') {
+          if (
+            ack.err &&
+            typeof ack.err !== 'number' &&
+            typeof ack.err !== 'object'
+          ) {
             rej(new Error(ack.err))
           } else {
             res()
