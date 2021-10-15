@@ -132,34 +132,32 @@ const server = program => {
       return
     }
 
-    if (deviceId) {
-      res.send = (...args) => {
-        if (args[0] && args[0].ciphertext && args[0].iv) {
-          logger.warn('Response loop detected!')
-          oldSend.apply(res, args)
-          return
-        }
+    res.send = (...args) => {
+      if (args[0] && args[0].ciphertext && args[0].iv) {
+        logger.warn('Response loop detected!')
+        oldSend.apply(res, args)
+        return
+      }
 
-        const authorized = ECC.isAuthorizedDevice({
-          deviceId
+      const authorized = ECC.isAuthorizedDevice({
+        deviceId
+      })
+
+      // Using classic promises syntax to avoid
+      // modifying res.send's return type
+      if (authorized && process.env.SHOCK_ENCRYPTION_ECC !== 'false') {
+        ECC.encryptMessage({
+          deviceId,
+          message: args[0]
+        }).then(encryptedMessage => {
+          args[0] = JSON.stringify(encryptedMessage)
+          oldSend.apply(res, args)
         })
+      }
 
-        // Using classic promises syntax to avoid
-        // modifying res.send's return type
-        if (authorized && process.env.SHOCK_ENCRYPTION_ECC !== 'false') {
-          ECC.encryptMessage({
-            deviceId,
-            message: args[0]
-          }).then(encryptedMessage => {
-            args[0] = JSON.stringify(encryptedMessage)
-            oldSend.apply(res, args)
-          })
-        }
-
-        if (!authorized || process.env.SHOCK_ENCRYPTION_ECC === 'false') {
-          args[0] = JSON.stringify(args[0])
-          oldSend.apply(res, args)
-        }
+      if (!authorized || process.env.SHOCK_ENCRYPTION_ECC === 'false') {
+        args[0] = JSON.stringify(args[0])
+        oldSend.apply(res, args)
       }
     }
 
