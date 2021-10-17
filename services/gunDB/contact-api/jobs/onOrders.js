@@ -100,9 +100,6 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
     }
 
     if (ordersProcessed.has(orderID)) {
-      logger.warn(
-        `skipping already processed order: ${orderID}, this means orders are being processed twice!`
-      )
       return
     }
 
