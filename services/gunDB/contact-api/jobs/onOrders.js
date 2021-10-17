@@ -520,7 +520,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
             }
           })
       })
-  } catch (err) {
+  } catch (/** @type {any} */ err) {
     logger.error(
       `error inside onOrders, orderAddr: ${addr}, orderID: ${orderID}, order: ${JSON.stringify(
         order
