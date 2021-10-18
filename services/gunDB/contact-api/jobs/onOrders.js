@@ -117,6 +117,8 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       .get(orderID)
       .then()
 
+    logger.info(orderID, 'alreadyAnswered', alreadyAnswered)
+
     if (alreadyAnswered) {
       return
     }
