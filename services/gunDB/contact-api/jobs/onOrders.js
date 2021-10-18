@@ -99,10 +99,9 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       return
     }
 
+    // Gun might callback several times for the same order, avoid dupe
+    // processing.
     if (ordersProcessed.has(orderID)) {
-      logger.warn(
-        `skipping already processed order: ${orderID}, this means orders are being processed twice!`
-      )
       return
     }
 
