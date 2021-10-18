@@ -99,6 +99,8 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       return
     }
 
+    // Gun might callback several times for the same order, avoid dupe
+    // processing.
     if (ordersProcessed.has(orderID)) {
       return
     }
