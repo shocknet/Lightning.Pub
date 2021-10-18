@@ -486,7 +486,7 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
         throw new Error(breakError)
       }
     }
-    logger.info('WAITING INVOICE TO BE PAID')
+    logger.info('Waiting for invoice to be paid for order ' + orderID)
     new Promise(res => SchemaManager.addListenInvoice(invoice.r_hash, res))
       .then(invoicePaidCb)
       .catch(err => {
