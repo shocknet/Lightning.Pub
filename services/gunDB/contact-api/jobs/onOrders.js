@@ -94,6 +94,11 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
       return
     }
 
+    // Was recycled
+    if (order === null) {
+      return
+    }
+
     if (!Schema.isOrder(order)) {
       logger.info(
         orderID,
@@ -112,16 +117,24 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
 
     ordersProcessed.add(orderID)
 
+    if (Date.now() - order.timestamp > 66000) {
+      logger.info('Not processing old order', orderID)
+      return
+    }
+
+    logger.info('processing order ', orderID)
+
     const alreadyAnswered = await getUser()
       .get(Key.ORDER_TO_RESPONSE)
       .get(orderID)
       .then()
 
-    logger.info(orderID, 'alreadyAnswered', !!alreadyAnswered)
-
     if (alreadyAnswered) {
+      logger.info(orderID, 'alreadyAnswered')
       return
     }
+
+    logger.info(orderID, ' was not answered, will now answer')
 
     const senderEpub = await Utils.pubToEpub(order.from)
     const secret = await SEA.secret(senderEpub, getUser()._.sea)
@@ -560,6 +573,14 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
           )
         }
       })
+  } finally {
+    // Recycle
+    require('../../Mediator')
+      .getGun()
+      .get('orderNodes')
+      .get(addr)
+      .get(orderID)
+      .put(null)
   }
 }
 
@@ -580,6 +601,11 @@ const onOrders = (user, gun, SEA) => {
     try {
       if (typeof addr !== 'string') {
         logger.error('Expected current order address to be an string')
+        return
+      }
+
+      if (currentOrderAddr === addr) {
+        // Already subscribed
         return
       }
 
