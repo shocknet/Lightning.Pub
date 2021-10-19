@@ -271,6 +271,14 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
      */
     const invoicePaidCb = async paidInvoice => {
       logger.info(orderID, 'INVOICE  PAID')
+      // Recycle
+      require('../../Mediator')
+        .getGun()
+        .get('orderNodes')
+        .get(addr)
+        .get(orderID)
+        .put(null)
+
       let breakError = null
       let orderMetadata //eslint-disable-line init-declarations
       const hashString = paidInvoice.r_hash.toString('hex')
@@ -573,14 +581,6 @@ const listenerForAddr = (addr, SEA) => async (order, orderID) => {
           )
         }
       })
-  } finally {
-    // Recycle
-    require('../../Mediator')
-      .getGun()
-      .get('orderNodes')
-      .get(addr)
-      .get(orderID)
-      .put(null)
   }
 }
 
