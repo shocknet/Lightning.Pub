@@ -27,32 +27,12 @@ const Key = require('../key')
  */
 const lastSeenNode = user => {
   if (!user.is) {
-    logger.warn('onOrders() -> tried to sub without authing')
+    logger.warn('lastSeenNode() -> tried to sub without authing')
     throw new Error(ErrorCode.NOT_AUTH)
   }
-  let gotLatestUserAck = true
+
   let gotLatestProfileAck = true
 
-  setInterval(() => {
-    if (!user.is) {
-      return
-    }
-    if (!gotLatestUserAck) {
-      logger.error(`lastSeenNode user job: didnt get latest ack`)
-      return
-    }
-    gotLatestUserAck = false
-    user.get(Key.LAST_SEEN_NODE).put(Date.now(), ack => {
-      if (
-        ack.err &&
-        typeof ack.err !== 'number' &&
-        typeof ack.err !== 'object'
-      ) {
-        logger.error(`Error inside lastSeenNode user job: ${ack.err}`)
-      }
-      gotLatestUserAck = true
-    })
-  }, LAST_SEEN_NODE_INTERVAL)
   setInterval(() => {
     if (!user.is) {
       return
