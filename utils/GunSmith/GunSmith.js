@@ -558,8 +558,10 @@ function createReplica(path, afterMap = false) {
       const checkCanary = () =>
         setTimeout(() => {
           if (!canaryPeep) {
-            forge()
-            isReady().then(checkCanary)
+            isReady()
+              .then(forge)
+              .then(isReady)
+              .then(checkCanary)
           }
         }, 30000)
 
@@ -575,10 +577,12 @@ function createReplica(path, afterMap = false) {
           if (isPopulated(data) || _wait > 100000) {
             cb(data, key)
           } else {
-            forge()
-            isReady().then(() => {
-              this.specialOnce(cb, _wait * 3)
-            })
+            isReady()
+              .then(forge)
+              .then(isReady)
+              .then(() => {
+                this.specialOnce(cb, _wait * 3)
+              })
           }
         },
         { wait: _wait }
