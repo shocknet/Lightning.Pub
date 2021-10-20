@@ -3,6 +3,7 @@
  */
 const uuidv1 = require('uuid/v1')
 const logger = require('../../../config/log')
+const throttle = require('lodash/throttle')
 const Common = require('shock-common')
 const { Constants, Schema } = Common
 
@@ -760,14 +761,14 @@ const saveChannelsBackup = async (backups, user, SEA) => {
 /**
  * @returns {Promise<void>}
  */
-const setLastSeenApp = () => {
+const setLastSeenApp = throttle(() => {
   const user = require('../Mediator').getUser()
 
   return user
     .get(Key.PROFILE)
     .get(Key.LAST_SEEN_APP)
     .pPut(Date.now())
-}
+}, 10000)
 
 /**
  * @param {string[]} tags
