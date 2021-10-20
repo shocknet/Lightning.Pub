@@ -162,32 +162,13 @@ const tryAndWait = async (promGen, shouldRetry = () => false) => {
  */
 const pubToEpub = async pub => {
   try {
-    const TIMEOUT_PTR = {}
+    const epub = await require('../../Mediator/index')
+      .getGun()
+      .user(pub)
+      .get('epub')
+      .specialThen()
 
-    const epubOrTimeout = await Promise.race([
-      CommonUtils.makePromise(res => {
-        require('../../Mediator/index')
-          .getGun()
-          .user(pub)
-          .get('epub')
-          .on(data => {
-            if (typeof data === 'string') {
-              res(data)
-            }
-          })
-      }),
-      CommonUtils.makePromise(res => {
-        setTimeout(() => {
-          res(TIMEOUT_PTR)
-        }, 10000)
-      })
-    ])
-
-    if (epubOrTimeout === TIMEOUT_PTR) {
-      throw new Error(`Timeout inside pubToEpub()`)
-    }
-
-    return epubOrTimeout
+    return /** @type {string} */ (epub)
   } catch (err) {
     logger.error(
       `Error inside pubToEpub for pub ${pub.slice(0, 8)}...${pub.slice(-8)}:`
