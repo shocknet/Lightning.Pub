@@ -6,6 +6,7 @@ const Gun = require('./GunSmith')
 const words = require('random-words')
 const fs = require('fs')
 const debounce = require('lodash/debounce')
+const once = require('lodash/once')
 const expect = require('expect')
 
 const logger = require('../../config/log')
@@ -34,6 +35,78 @@ const delay = ms => new Promise(res => setTimeout(res, ms))
 describe('gun smith', () => {
   after(() => {
     Gun.kill()
+  })
+
+  // **************************************************************************
+  // These tests are long but we run them first to detect if the re-forging
+  // logic is flawed and affecting functionality.
+  // **************************************************************************
+
+  it('writes object items into sets and correctly populates item._.get with the newly created id', done => {
+    const node = instance.get(words()).get(words())
+
+    const obj = {
+      a: 1,
+      b: 'hello'
+    }
+
+    const item = node.set(obj)
+
+    node.get(item._.get).once(data => {
+      expect(removeBuiltInGunProps(data)).toEqual(obj)
+      done()
+    })
+  })
+
+  it('provides an special once() that restarts gun until a value is fetched', done => {
+    const a = words()
+    const b = words()
+    const node = instance.get(a).get(b)
+    const value = words()
+
+    node.specialOnce(data => {
+      expect(data).toEqual(value)
+      done()
+    })
+
+    setTimeout(() => {
+      node.put(value)
+    }, 30000)
+  })
+
+  it('provides an special then() that restarts gun until a value is fetched', async () => {
+    const a = words()
+    const b = words()
+    const node = instance.get(a).get(b)
+    const value = words()
+
+    setTimeout(() => {
+      node.put(value)
+    }, 30000)
+
+    const res = await node.specialThen()
+
+    expect(res).toBe(value)
+  })
+
+  it('provides an special on() that restarts gun when a value has not been obtained in a determinate amount of time', done => {
+    const node = instance.get(words()).get(words())
+
+    const secondValue = words()
+
+    const onceDone = once(done)
+
+    node.specialOn(
+      debounce(data => {
+        if (data === secondValue) {
+          onceDone()
+        }
+      })
+    )
+
+    setTimeout(() => {
+      node.put(secondValue)
+    }, 32000)
   })
 
   it('puts a true and reads it with once()', done => {
@@ -313,97 +386,26 @@ describe('gun smith', () => {
 
     let checked = 0
 
-    node.on(data => {
-      checked++
-      if (checked === 1) {
-        expect(removeBuiltInGunProps(data)).toEqual(a)
-      } else if (checked === 2) {
-        expect(data).toEqual(b)
-      } else if (checked === 3) {
-        expect(removeBuiltInGunProps(data)).toEqual(c)
-        done()
-      }
-    })
-
-    node.put(a)
-    setTimeout(() => {
-      node.put(b)
-    }, 400)
-    setTimeout(() => {
-      node.put(c)
-    }, 800)
-  })
-
-  // **************************************************************************
-  // ** Long tests below
-  // **************************************************************************
-
-  it('writes object items into sets and correctly populates item._.get with the newly created id', done => {
-    const node = instance.get(words()).get(words())
-
-    const obj = {
-      a: 1,
-      b: 'hello'
-    }
-
-    const item = node.set(obj)
-
-    node.get(item._.get).once(data => {
-      expect(removeBuiltInGunProps(data)).toEqual(obj)
-      done()
-    })
-  })
-
-  it('provides an special once() that restarts gun until a value is fetched', done => {
-    const a = words()
-    const b = words()
-    const node = instance.get(a).get(b)
-    const value = words()
-
-    node.specialOnce(data => {
-      expect(data).toEqual(value)
-      done()
-    })
-
-    setTimeout(() => {
-      node.put(value)
-    }, 30000)
-  })
-
-  it('provides an special then() that restarts gun until a value is fetched', async () => {
-    const a = words()
-    const b = words()
-    const node = instance.get(a).get(b)
-    const value = words()
-
-    setTimeout(() => {
-      node.put(value)
-    }, 30000)
-
-    const res = await node.specialThen()
-
-    expect(res).toBe(value)
-  })
-
-  it('provides an special on() that restarts gun when a value has not been obtained in a determinate amount of time', done => {
-    // Kinda crappy test, this should be easier to test in real usage.
-    const initialProcCounter = Gun._getProcCounter()
-
-    const node = instance.get(words()).get(words())
-
-    const secondValue = words()
-
-    node.specialOn(
+    node.on(
       debounce(data => {
-        if (data === secondValue) {
-          expect(Gun._getProcCounter()).toEqual(initialProcCounter + 1)
+        checked++
+        if (checked === 1) {
+          expect(removeBuiltInGunProps(data)).toEqual(a)
+        } else if (checked === 2) {
+          expect(data).toEqual(b)
+        } else if (checked === 3) {
+          expect(removeBuiltInGunProps(data)).toEqual(c)
           done()
         }
       })
     )
 
+    node.put(a)
     setTimeout(() => {
-      node.put(secondValue)
-    }, 32000)
+      node.put(b)
+    }, 800)
+    setTimeout(() => {
+      node.put(c)
+    }, 1200)
   })
 })
