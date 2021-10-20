@@ -143,30 +143,6 @@ const handleMsg = async msg => {
       sendMsg(msg)
     })
   }
-  if (msg.type === 'load') {
-    const [root, ...keys] = msg.path.split('>')
-
-    /** @type {GunT.GUNNode} */
-    let node =
-      {
-        $root: gun,
-        $user: user
-      }[root] || gun.user(root)
-
-    for (const key of keys) {
-      node = node.get(key)
-    }
-    node.load((data, key) => {
-      /** @type {Smith.GunMsgLoad} */
-      const res = {
-        data,
-        id: msg.id,
-        key,
-        type: 'load'
-      }
-      sendMsg(res)
-    })
-  }
   if (msg.type === 'on') {
     const [root, ...keys] = msg.path.split('>')
 
