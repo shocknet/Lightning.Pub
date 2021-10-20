@@ -760,42 +760,14 @@ const saveChannelsBackup = async (backups, user, SEA) => {
 /**
  * @returns {Promise<void>}
  */
-const setLastSeenApp = () =>
-  /** @type {Promise<void>} */ (new Promise((res, rej) => {
-    require('../Mediator')
-      .getUser()
-      .get(Key.LAST_SEEN_APP)
-      .put(Date.now(), ack => {
-        if (
-          ack.err &&
-          typeof ack.err !== 'number' &&
-          typeof ack.err !== 'object'
-        ) {
-          rej(new Error(ack.err))
-        } else {
-          res()
-        }
-      })
-  })).then(
-    () =>
-      new Promise((res, rej) => {
-        require('../Mediator')
-          .getUser()
-          .get(Key.PROFILE)
-          .get(Key.LAST_SEEN_APP)
-          .put(Date.now(), ack => {
-            if (
-              ack.err &&
-              typeof ack.err !== 'number' &&
-              typeof ack.err !== 'object'
-            ) {
-              rej(new Error(ack.err))
-            } else {
-              res()
-            }
-          })
-      })
-  )
+const setLastSeenApp = () => {
+  const user = require('../Mediator').getUser()
+
+  return user
+    .get(Key.PROFILE)
+    .get(Key.LAST_SEEN_APP)
+    .pPut(Date.now())
+}
 
 /**
  * @param {string[]} tags
