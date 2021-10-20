@@ -41,13 +41,13 @@ process.on('unhandledRejection', e => {
 })
 
 /**
- * @type {GunT.GUNNode}
+ * @type {Smith.GunSmithNode}
  */
 // eslint-disable-next-line init-declarations
 let gun
 
 /**
- * @type {GunT.UserGUNNode}
+ * @type {Smith.UserSmithNode}
  */
 // eslint-disable-next-line init-declarations
 let user
@@ -170,7 +170,7 @@ const handleMsg = async msg => {
   if (msg.type === 'on') {
     const [root, ...keys] = msg.path.split('>')
 
-    /** @type {GunT.GUNNode} */
+    /** @type {Smith.GunSmithNode} */
     let node =
       {
         $root: gun,
@@ -193,7 +193,7 @@ const handleMsg = async msg => {
   if (msg.type === 'map.on') {
     const [root, ...keys] = msg.path.split('>')
 
-    /** @type {GunT.GUNNode} */
+    /** @type {Smith.GunSmithNode} */
     let node =
       {
         $root: gun,
@@ -220,7 +220,7 @@ const handleMsg = async msg => {
       await waitForAuth()
     }
 
-    /** @type {GunT.GUNNode} */
+    /** @type {Smith.GunSmithNode} */
     let node =
       {
         $root: gun,
@@ -247,7 +247,7 @@ const handleMsg = async msg => {
   if (msg.type === 'multiPut') {
     const [root, ...keys] = msg.path.split('>')
 
-    /** @type {GunT.GUNNode} */
+    /** @type {Smith.GunSmithNode} */
     let node =
       {
         $root: gun,
