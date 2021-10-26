@@ -8,6 +8,7 @@ const FieldError = require("../fieldError")
  * @prop {Buffer} iv
  * @prop {Buffer} mac
  * @prop {Buffer} ephemPublicKey
+ * @prop {any?} metadata
  */
 
 /**
@@ -16,6 +17,7 @@ const FieldError = require("../fieldError")
  * @prop {string} iv
  * @prop {string} mac
  * @prop {string} ephemPublicKey
+ * @prop {any?} metadata
  */
 
 const generateRandomString = (length = 16) =>
@@ -70,7 +72,8 @@ const convertToEncryptedMessageResponse = (encryptedMessage) => {
             ciphertext: convertBufferToBase64(encryptedMessage.ciphertext),
             iv: convertBufferToBase64(encryptedMessage.iv),
             mac: convertBufferToBase64(encryptedMessage.mac),
-            ephemPublicKey: convertBufferToBase64(encryptedMessage.ephemPublicKey)
+            ephemPublicKey: convertBufferToBase64(encryptedMessage.ephemPublicKey),
+            metadata: encryptedMessage.metadata
         };
     }
 
@@ -105,7 +108,8 @@ const convertToEncryptedMessage = (encryptedMessage) => {
             ciphertext: convertBase64ToBuffer(encryptedMessage.ciphertext),
             iv: convertBase64ToBuffer(encryptedMessage.iv),
             mac: convertBase64ToBuffer(encryptedMessage.mac),
-            ephemPublicKey: convertBase64ToBuffer(encryptedMessage.ephemPublicKey)
+            ephemPublicKey: convertBase64ToBuffer(encryptedMessage.ephemPublicKey),
+            metadata: encryptedMessage.metadata
         };
     }
     throw new FieldError({
