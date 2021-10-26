@@ -134,7 +134,11 @@ const encryptMessage = async ({ message = '', deviceId }) => {
     ciphertext: encryptedMessage.ciphertext,
     iv: encryptedMessage.iv,
     mac: encryptedMessage.mac,
-    ephemPublicKey: encryptedMessage.ephemPublicKey
+    ephemPublicKey: encryptedMessage.ephemPublicKey,
+    metadata: {
+      _deviceId: deviceId,
+      _publicKey: publicKey
+    }
   }
 
   return convertToEncryptedMessageResponse(encryptedMessageResponse)
@@ -143,7 +147,7 @@ const encryptMessage = async ({ message = '', deviceId }) => {
 /**
  * Decrypts the specified message using the API keypair
  * associated with the specified deviceId
- * @param {{ encryptedMessage: EncryptedMessage, deviceId: string }} arg0
+ * @param {{ encryptedMessage: import('./crypto').EncryptedMessageResponse, deviceId: string }} arg0
  */
 const decryptMessage = async ({ encryptedMessage, deviceId }) => {
   const keyPair = nodeKeyPairs.get(deviceId)
