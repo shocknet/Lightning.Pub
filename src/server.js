@@ -164,6 +164,16 @@ const server = program => {
       }
 
       if (!authorized || process.env.SHOCK_ENCRYPTION_ECC === 'false') {
+        if (!authorized) {
+          logger.warn(
+            `An unauthorized Device ID is contacting the API: ${deviceId}`
+          )
+          logger.warn(
+            `Authorized Device IDs: ${[...ECC.devicePublicKeys.keys()].join(
+              ', '
+            )}`
+          )
+        }
         args[0] = JSON.stringify(args[0])
         oldSend.apply(res, args)
       }
