@@ -13,8 +13,8 @@ const {
   convertBase64ToBuffer
 } = require('./crypto')
 
-export const nodeKeyPairs = new Map()
-export const devicePublicKeys = new Map()
+const nodeKeyPairs = new Map()
+const devicePublicKeys = new Map()
 
 /**
  * @typedef {object} EncryptedMessage
@@ -188,5 +188,7 @@ module.exports = {
   encryptMessage,
   decryptMessage,
   authorizeDevice,
-  generateRandomString
+  generateRandomString,
+  nodeKeyPairs,
+  devicePublicKeys
 }
