@@ -5,12 +5,18 @@
   "editor.formatOnSave": true,
   "editor.defaultFormatter": "esbenp.prettier-vscode",
   "cSpell.words": [
+    "acked",
+    "Authing",
+    "endregion",
+    "epriv",
     "Epub",
     "falsey",
     "GUNRPC",
     "ISEA",
     "PUBKEY",
+    "radata",
     "Reqs",
+    "thenables",
     "uuidv"
   ]
 }

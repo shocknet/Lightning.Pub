@@ -6,11 +6,12 @@ const logger = require('../../../../config/log')
 const { Constants, Utils: CommonUtils } = require('shock-common')
 
 const Key = require('../key')
+/// <reference path="../../../../utils/GunSmith/Smith.ts" />
 
 /**
- * @typedef {import('../SimpleGUN').GUNNode} GUNNode
+ * @typedef {Smith.GunSmithNode} GUNNode
  * @typedef {import('../SimpleGUN').ISEA} ISEA
- * @typedef {import('../SimpleGUN').UserGUNNode} UserGUNNode
+ * @typedef {Smith.UserSmithNode} UserGUNNode
  */
 
 /**
@@ -161,32 +162,13 @@ const tryAndWait = async (promGen, shouldRetry = () => false) => {
  */
 const pubToEpub = async pub => {
   try {
-    const TIMEOUT_PTR = {}
+    const epub = await require('../../Mediator/index')
+      .getGun()
+      .user(pub)
+      .get('epub')
+      .specialThen()
 
-    const epubOrTimeout = await Promise.race([
-      CommonUtils.makePromise(res => {
-        require('../../Mediator/index')
-          .getGun()
-          .user(pub)
-          .get('epub')
-          .on(data => {
-            if (typeof data === 'string') {
-              res(data)
-            }
-          })
-      }),
-      CommonUtils.makePromise(res => {
-        setTimeout(() => {
-          res(TIMEOUT_PTR)
-        }, 10000)
-      })
-    ])
-
-    if (epubOrTimeout === TIMEOUT_PTR) {
-      throw new Error(`Timeout inside pubToEpub()`)
-    }
-
-    return epubOrTimeout
+    return /** @type {string} */ (epub)
   } catch (err) {
     logger.error(
       `Error inside pubToEpub for pub ${pub.slice(0, 8)}...${pub.slice(-8)}:`
@@ -232,6 +214,21 @@ const isNodeOnline = async pub => {
   )
 }
 
+/**
+ * @returns {string}
+ */
+const gunID = () => {
+  // Copied from gun internals
+  let s = ''
+  let l = 24 // you are not going to make a 0 length random number, so no need to check type
+  const c = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXZabcdefghijklmnopqrstuvwxyz'
+  while (l > 0) {
+    s += c.charAt(Math.floor(Math.random() * c.length))
+    l--
+  }
+  return s
+}
+
 module.exports = {
   dataHasSoul,
   delay,
@@ -241,5 +238,6 @@ module.exports = {
   promisifyGunNode: require('./promisifygun'),
   timeout5,
   timeout2,
-  isNodeOnline
+  isNodeOnline,
+  gunID
 }

@@ -188,5 +188,7 @@ module.exports = {
   encryptMessage,
   decryptMessage,
   authorizeDevice,
-  generateRandomString
+  generateRandomString,
+  nodeKeyPairs,
+  devicePublicKeys
 }

@@ -6,7 +6,9 @@ services/auth/secrets.json
 # New logger date format
 *.log.*
 .directory
+.DS_Store
 
+test-radata/
 radata/
 radata-*.tmp
 *.cert
