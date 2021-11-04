@@ -506,7 +506,7 @@ module.exports = async (
           await recreateLnServices()
 
           if (GunDB.isAuthenticated()) {
-            GunDB.logoff()
+            GunDB.instantiateGun()
           }
 
           const publicKey = await GunDB.authenticate(alias, password)
@@ -2296,27 +2296,39 @@ module.exports = async (
           : publicKey
           ? gun.user(publicKey)
           : gun
-        keys.forEach(key => (node = node.get(key)))
         logger.info(`fetching: ${keys}`)
-        return new Promise((res, rej) => {
-          const listener = data => {
-            logger.info(`got res for: ${keys}`)
-            logger.info(data || 'falsey data (does not get logged)')
-            if (publicKeyForDecryption) {
-              GunWriteRPC.deepDecryptIfNeeded(
-                data,
-                publicKeyForDecryption,
-                epubForDecryption
-              )
-                .then(res)
-                .catch(rej)
-            } else {
-              res(data)
-            }
-          }
+        keys.forEach(key => (node = node.get(key)))
 
-          if (type === 'once') node.once(listener)
-          if (type === 'load') node.load(listener)
+        if (!publicKeyForDecryption || !epubForDecryption) {
+          logger.warn('[GUN] Missing public key for decryption!', {
+            publicKeyForDecryption,
+            epubForDecryption
+          })
+        }
+
+        return new Promise((res, rej) => {
+          try {
+            const listener = data => {
+              logger.info(`got res for: ${keys}`)
+              logger.info(data || 'falsey data (does not get logged)')
+              if (publicKeyForDecryption) {
+                GunWriteRPC.deepDecryptIfNeeded(
+                  data,
+                  publicKeyForDecryption,
+                  epubForDecryption
+                )
+                  .then(res)
+                  .catch(rej)
+              } else {
+                res(data)
+              }
+            }
+
+            if (type === 'once') node.once(listener)
+            if (type === 'load') node.load(listener)
+          } catch (err) {
+            logger.error('Gun Fetch Error:', err)
+          }
         })
       })
     }
