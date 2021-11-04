@@ -392,15 +392,11 @@ const authenticate = async (alias, pass, __user) => {
   }
 }
 
-const logoff = () => {
-  user.leave()
-}
-
 const instantiateGun = () => {
   const Config = require('../config')
-  if (user) {
-    user.leave()
-  }
+  // if (user) {
+  //   user.leave()
+  // }
   // @ts-ignore
   user = null
   if (gun) {
@@ -523,7 +519,7 @@ const register = async (alias, pass) => {
 
 module.exports = {
   authenticate,
-  logoff,
+  instantiateGun,
   isAuthenticated,
   isAuthenticating,
   isRegistering,
