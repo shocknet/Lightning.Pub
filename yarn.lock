@@ -2834,9 +2834,9 @@ gtoken@^5.0.4:
     jws "^4.0.0"
     mime "^2.2.0"
 
-"gun@git://github.com/amark/gun#master":
+gun@amark/gun#50af2d52ad6677fd5b95e5ed64fca7491c7877b5:
   version "0.2020.1235"
-  resolved "git://github.com/amark/gun#0b158667a70af575cd5978187bb5848d7ffc77bb"
+  resolved "https://codeload.github.com/amark/gun/tar.gz/50af2d52ad6677fd5b95e5ed64fca7491c7877b5"
   dependencies:
     ws "^7.2.1"
   optionalDependencies:
