@@ -6,7 +6,6 @@
 const { makePromise, Constants, Schema } = require('shock-common')
 const mapValues = require('lodash/mapValues')
 const Bluebird = require('bluebird')
-const Gun = require('gun')
 
 const { pubToEpub } = require('../contact-api/utils')
 const {
@@ -17,6 +16,7 @@ const {
   $$__SHOCKWALLET__ENCRYPTED__
 } = require('../Mediator')
 const logger = require('../../../config/log')
+const Utils = require('../contact-api/utils')
 /**
  * @typedef {import('../contact-api/SimpleGUN').ValidDataValue} ValidDataValue
  * @typedef {import('./types').ValidRPCDataValue} ValidRPCDataValue
@@ -266,8 +266,7 @@ async function set(rawPath, value) {
   if (Array.isArray(theValue)) {
     // we'll create a set of sets
 
-    // @ts-expect-error
-    const uuid = Gun.text.random()
+    const uuid = Utils.gunID()
 
     // here we are simulating the top-most set()
     const subPath = rawPath + PATH_SEPARATOR + uuid
@@ -278,8 +277,7 @@ async function set(rawPath, value) {
 
     return uuid
   } else if (Schema.isObj(theValue)) {
-    // @ts-expect-error
-    const uuid = Gun.text.random() // we'll handle UUID ourselves
+    const uuid = Utils.gunID() // we'll handle UUID ourselves
 
     // so we can use our own put()
 

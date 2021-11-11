@@ -3,9 +3,9 @@
  */
 const uuidv1 = require('uuid/v1')
 const logger = require('../../../config/log')
+const throttle = require('lodash/throttle')
 const Common = require('shock-common')
 const { Constants, Schema } = Common
-const Gun = require('gun')
 
 const { ErrorCode } = Constants
 
@@ -25,9 +25,11 @@ const SchemaManager = require('../../schema')
 const LNDHealthMananger = require('../../../utils/lightningServices/errors')
 const { enrollContentTokens, selfContentToken } = require('../../seed')
 
+/// <reference path="../../../utils/GunSmith/Smith.ts" />
+
 /**
  * @typedef {import('./SimpleGUN').ISEA} ISEA
- * @typedef {import('./SimpleGUN').UserGUNNode} UserGUNNode
+ * @typedef {Smith.UserSmithNode} UserGUNNode
  */
 
 /**
@@ -759,42 +761,14 @@ const saveChannelsBackup = async (backups, user, SEA) => {
 /**
  * @returns {Promise<void>}
  */
-const setLastSeenApp = () =>
-  /** @type {Promise<void>} */ (new Promise((res, rej) => {
-    require('../Mediator')
-      .getUser()
-      .get(Key.LAST_SEEN_APP)
-      .put(Date.now(), ack => {
-        if (
-          ack.err &&
-          typeof ack.err !== 'number' &&
-          typeof ack.err !== 'object'
-        ) {
-          rej(new Error(ack.err))
-        } else {
-          res()
-        }
-      })
-  })).then(
-    () =>
-      new Promise((res, rej) => {
-        require('../Mediator')
-          .getUser()
-          .get(Key.PROFILE)
-          .get(Key.LAST_SEEN_APP)
-          .put(Date.now(), ack => {
-            if (
-              ack.err &&
-              typeof ack.err !== 'number' &&
-              typeof ack.err !== 'object'
-            ) {
-              rej(new Error(ack.err))
-            } else {
-              res()
-            }
-          })
-      })
-  )
+const setLastSeenApp = throttle(() => {
+  const user = require('../Mediator').getUser()
+
+  return user
+    .get(Key.PROFILE)
+    .get(Key.LAST_SEEN_APP)
+    .pPut(Date.now())
+}, 10000)
 
 /**
  * @param {string[]} tags
@@ -816,8 +790,7 @@ const createPostNew = async (tags, title, content) => {
   const mySecret = require('../Mediator').getMySecret()
 
   await Common.Utils.asyncForEach(content, async c => {
-    // @ts-expect-error
-    const uuid = Gun.text.random()
+    const uuid = Utils.gunID()
     newPost.contentItems[uuid] = c
     if (
       (c.type === 'image/embedded' || c.type === 'video/embedded') &&

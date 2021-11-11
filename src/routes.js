@@ -16,6 +16,7 @@ const Big = require('big.js')
 const size = require('lodash/size')
 const { range, flatten, evolve } = require('ramda')
 const path = require('path')
+const cors = require('cors')
 
 const getListPage = require('../utils/paginate')
 const auth = require('../services/auth/auth')
@@ -47,13 +48,18 @@ module.exports = async (
   app,
   config,
   mySocketsEvents,
-  { serverPort, CA, CA_KEY, usetls }
+  { serverPort, CA, CA_KEY, useTLS }
 ) => {
   try {
     const Http = Axios.create({
-      httpsAgent: new httpsAgent.Agent({
-        ca: await FS.readFile(CA)
-      })
+      httpsAgent: new httpsAgent.Agent(
+        CA && CA_KEY
+          ? {
+              ca: await FS.readFile(CA),
+              key: await FS.readFile(CA_KEY)
+            }
+          : {}
+      )
     })
 
     const sanitizeLNDError = (message = '') => {
@@ -85,7 +91,7 @@ module.exports = async (
 
       try {
         const APIHealth = await Http.get(
-          `${usetls ? 'https' : 'http'}://localhost:${serverPort}/ping`
+          `${useTLS ? 'https' : 'http'}://localhost:${serverPort}/ping`
         )
         const APIStatus = {
           message: APIHealth.data,
@@ -100,8 +106,8 @@ module.exports = async (
       } catch (err) {
         logger.error(err)
         const APIStatus = {
-          message: err.response.data,
-          responseTime: err.response.headers['x-response-time'],
+          message: err?.response?.data,
+          responseTime: err?.response?.headers['x-response-time'],
           success: false
         }
         logger.warn('Failed to retrieve API status', APIStatus)
@@ -208,6 +214,13 @@ module.exports = async (
         return false
       }
     }
+
+    app.use(
+      cors({
+        credentials: true,
+        origin: '*'
+      })
+    )
 
     app.use((req, res, next) => {
       res.setHeader('x-session-id', SESSION_ID)
@@ -2268,7 +2281,7 @@ module.exports = async (
 
     /**
      * @typedef {object} HandleGunFetchParams
-     * @prop {'once'|'load'} type
+     * @prop {'once'|'load'|'specialOnce'} type
      * @prop {boolean} startFromUserGraph
      * @prop {string} path
      * @prop {string=} publicKey
@@ -2288,48 +2301,36 @@ module.exports = async (
       epubForDecryption
     }) => {
       const keys = path.split('>')
-      const { tryAndWait } = require('../services/gunDB/contact-api/utils')
-      return tryAndWait((gun, user) => {
-        // eslint-disable-next-line no-nested-ternary
-        let node = startFromUserGraph
-          ? user
-          : publicKey
-          ? gun.user(publicKey)
-          : gun
-        logger.info(`fetching: ${keys}`)
-        keys.forEach(key => (node = node.get(key)))
+      const { gun, user } = require('../services/gunDB/Mediator')
 
-        if (!publicKeyForDecryption || !epubForDecryption) {
-          logger.warn('[GUN] Missing public key for decryption!', {
-            publicKeyForDecryption,
-            epubForDecryption
-          })
+      // eslint-disable-next-line no-nested-ternary
+      let node = startFromUserGraph
+        ? user
+        : publicKey
+        ? gun.user(publicKey)
+        : gun
+      keys.forEach(key => (node = node.get(key)))
+      logger.info(`fetching: ${keys}`)
+      return new Promise((res, rej) => {
+        const listener = data => {
+          logger.info(`got res for: ${keys}`)
+          logger.info(data || 'falsey data (does not get logged)')
+          if (publicKeyForDecryption) {
+            GunWriteRPC.deepDecryptIfNeeded(
+              data,
+              publicKeyForDecryption,
+              epubForDecryption
+            )
+              .then(res)
+              .catch(rej)
+          } else {
+            res(data)
+          }
         }
 
-        return new Promise((res, rej) => {
-          try {
-            const listener = data => {
-              logger.info(`got res for: ${keys}`)
-              logger.info(data || 'falsey data (does not get logged)')
-              if (publicKeyForDecryption) {
-                GunWriteRPC.deepDecryptIfNeeded(
-                  data,
-                  publicKeyForDecryption,
-                  epubForDecryption
-                )
-                  .then(res)
-                  .catch(rej)
-              } else {
-                res(data)
-              }
-            }
-
-            if (type === 'once') node.once(listener)
-            if (type === 'load') node.load(listener)
-          } catch (err) {
-            logger.error('Gun Fetch Error:', err)
-          }
-        })
+        if (type === 'once') node.once(listener)
+        if (type === 'load') node.load(listener)
+        if (type === 'specialOnce') node.specialOnce(listener)
       })
     }
 
@@ -2352,6 +2353,30 @@ module.exports = async (
           path,
           startFromUserGraph: false,
           type: 'once',
+          publicKeyForDecryption,
+          epubForDecryption
+        })
+        res.status(200).json({
+          data
+        })
+      } catch (e) {
+        logger.error(e)
+        res.status(500).json({
+          errorMessage: e.message
+        })
+      }
+    })
+
+    ap.get('/api/gun/specialOnce/:path', async (req, res) => {
+      try {
+        const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
+        const epubForDecryption = req.header(EPUB_FOR_DECRYPT_HEADER)
+        const { path } = req.params
+        logger.info(`Gun special once: ${path}`)
+        const data = await handleGunFetch({
+          path,
+          startFromUserGraph: false,
+          type: 'specialOnce',
           publicKeyForDecryption,
           epubForDecryption
         })
@@ -2414,6 +2439,30 @@ module.exports = async (
       }
     })
 
+    ap.get('/api/gun/user/specialOnce/:path', async (req, res) => {
+      try {
+        const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
+        const epubForDecryption = req.header(EPUB_FOR_DECRYPT_HEADER)
+        const { path } = req.params
+        logger.info(`Gun user special once: ${path}`)
+        const data = await handleGunFetch({
+          path,
+          startFromUserGraph: true,
+          type: 'specialOnce',
+          publicKeyForDecryption,
+          epubForDecryption
+        })
+        res.status(200).json({
+          data
+        })
+      } catch (e) {
+        logger.error(e)
+        res.status(500).json({
+          errorMessage: e.message
+        })
+      }
+    })
+
     ap.get('/api/gun/user/load/:path', async (req, res) => {
       try {
         const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
@@ -2440,11 +2489,11 @@ module.exports = async (
 
     ap.get('/api/gun/otheruser/:publicKey/:type/:path', async (req, res) => {
       try {
-        const allowedTypes = ['once', 'load', 'open']
+        const allowedTypes = ['once', 'load', 'open', 'specialOnce']
         const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
         const epubForDecryption = req.header(EPUB_FOR_DECRYPT_HEADER)
         const { path /*:rawPath*/, publicKey, type } = req.params
-        logger.info(`gun otheruser ${type}: ${path}`)
+        logger.info(`Gun other user ${type}: ${path}`)
         // const path = decodeURI(rawPath)
         if (!publicKey || publicKey === 'undefined') {
           res.status(400).json({
@@ -2543,7 +2592,7 @@ module.exports = async (
     ap.post('/api/gun/set', async (req, res) => {
       try {
         const { path, value } = req.body
-        logger.info(`gun PUT: ${path}`)
+        logger.info(`gun SET: ${path}`)
         const id = await GunWriteRPC.set(path, value)
 
         res.status(200).json({
