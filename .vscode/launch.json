@@ -1,6 +1,13 @@
 {
   "configurations": [
     {
+      "name": "Attach",
+      "port": 9229,
+      "request": "attach",
+      "skipFiles": ["<node_internals>/**"],
+      "type": "pwa-node"
+    },
+    {
       "name": "Nodemon",
       "program": "${workspaceFolder}/main.js",
       "args": ["--", "-h", "0.0.0.0", "-c"],
@@ -34,17 +41,14 @@
         "--",
         "-h",
         "0.0.0.0",
+        "--trace-warnings",
+        "--max-old-space-size=4096",
         "-c",
-        "-s",
-        "9835",
-        "-l",
-        "127.0.0.1:10001",
-        "-r",
-        "localhost:9735",
-        "-m",
-        "/home/danlugo92/.polar/networks/1/volumes/lnd/alice/data/chain/bitcoin/regtest/admin.macaroon",
         "-d",
-        "/home/danlugo92/.polar/networks/1/volumes/lnd/alice/tls.cert"
+        "C:\\Users\\Predator\\AppData\\Local\\Lnd\\tls.cert",
+        "-m",
+        "C:\\Users\\Predator\\AppData\\Local\\Lnd\\data\\chain\\bitcoin\\mainnet\\admin.macaroon",
+        "--tunnel"
       ],
       "request": "launch",
       "skipFiles": ["<node_internals>/**"],
