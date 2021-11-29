@@ -260,7 +260,6 @@ const API = require('../contact-api/index')
 
 const gun = Gun({
   axe: false,
-  multicast: false,
   peers: Config.PEERS
 })
 
@@ -482,5 +481,6 @@ module.exports = {
   getUser,
   mySEA,
   getMySecret,
+  logoff,
   $$__SHOCKWALLET__ENCRYPTED__
 }

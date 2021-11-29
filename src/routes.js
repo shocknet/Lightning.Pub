@@ -519,7 +519,7 @@ module.exports = async (
           await recreateLnServices()
 
           if (GunDB.isAuthenticated()) {
-            GunDB.instantiateGun()
+            GunDB.logoff()
           }
 
           const publicKey = await GunDB.authenticate(alias, password)
