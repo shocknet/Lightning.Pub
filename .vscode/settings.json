@@ -16,10 +16,15 @@
     "falsey",
     "GUNRPC",
     "ISEA",
+    "LNDRPC",
+    "lndstreaming",
     "PUBKEY",
     "radata",
     "Reqs",
+    "shockping",
+    "SHOCKWALLET",
     "thenables",
+    "unsubscription",
     "uuidv"
   ]
 }
