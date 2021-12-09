@@ -178,7 +178,7 @@ mySEA.secret = async (recipientOrSenderEpub, recipientOrSenderSEA) => {
 
   if (recipientOrSenderSEA === null) {
     throw new TypeError(
-      'sea has to be nont null, args: ' +
+      'sea has to be non null, args: ' +
         `${JSON.stringify(recipientOrSenderEpub)} -- ${JSON.stringify(
           recipientOrSenderSEA
         )}`
@@ -187,7 +187,7 @@ mySEA.secret = async (recipientOrSenderEpub, recipientOrSenderSEA) => {
 
   if (recipientOrSenderEpub === recipientOrSenderSEA.pub) {
     throw new Error(
-      'Do not use pub for mysecret, args: ' +
+      'Do not use pub for mySecret, args: ' +
         `${JSON.stringify(recipientOrSenderEpub)} -- ${JSON.stringify(
           recipientOrSenderSEA
         )}`
@@ -287,7 +287,7 @@ const getGun = () => {
 
 const getUser = () => {
   if (!user.is) {
-    logger.warn('called getUser() without being authed')
+    logger.warn('called getUser() without being authenticated')
     throw new Error(Constants.ErrorCode.NOT_AUTH)
   }
   return user
