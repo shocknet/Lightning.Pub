@@ -3809,20 +3809,19 @@ __metadata:
   languageName: node
   linkType: hard
 
-"gun@Emad-salah/gun#2e4fea7518fa8866d258d5b8803b4cb4cc4f62ea":
+"gun@amark/gun#77162fcb68eb61f24d980fa3f3653598f56ee593":
   version: 0.2020.1235
-  resolution: "gun@https://github.com/Emad-salah/gun.git#commit=2e4fea7518fa8866d258d5b8803b4cb4cc4f62ea"
+  resolution: "gun@https://github.com/amark/gun.git#commit=77162fcb68eb61f24d980fa3f3653598f56ee593"
   dependencies:
     "@peculiar/webcrypto": ^1.1.1
     emailjs: ^2.2.0
     ws: ^7.2.1
-    yieldable-json: ^2.0.1
   dependenciesMeta:
     "@peculiar/webcrypto":
       optional: true
     emailjs:
       optional: true
-  checksum: 2e93ec925a5583e8912b3f51c35c989b781ce26c4a395b1a619222736b96139003389700c3c0e14be500f69878de98dfd6846865034442b3b6db6bac59d6c152
+  checksum: 0e4ecf1a5dcbeee2b33bab06be231ce44d78740209eb00dcd7cef7921ec797fc86a61b2e0a53729c947ee3f522f8e18ab419f32dd2441eb6a87044b30170b825
   languageName: node
   linkType: hard
 
@@ -6846,7 +6845,7 @@ pvutils@latest:
     express-session: ^1.17.1
     google-proto-files: ^1.0.3
     graphviz: 0.0.8
-    gun: "Emad-salah/gun#2e4fea7518fa8866d258d5b8803b4cb4cc4f62ea"
+    gun: "amark/gun#77162fcb68eb61f24d980fa3f3653598f56ee593"
     husky: ^4.2.5
     hybrid-relay-client: "git://github.com/shocknet/hybridRelayClient#a99e57794cf7a62f0f5b6aef53a35d6b77d0a889"
     jsonfile: ^4.0.0
@@ -8227,13 +8226,6 @@ pvutils@latest:
   version: 0.1.2
   resolution: "yeast@npm:0.1.2"
   checksum: 81a250b69f601fed541e9518eb2972e75631dd81231689503d7f288612d4eec793b29c208d6807fd6bfc4c2a43614d0c6db233739a4ae6223e244aaed6a885c0
-  languageName: node
-  linkType: hard
-
-"yieldable-json@npm:^2.0.1":
-  version: 2.0.1
-  resolution: "yieldable-json@npm:2.0.1"
-  checksum: 0ec7e0577cd85c973e79743a421a3ccd9e13dd7820c55f552d7cbea636ff73de1daf88a9084ab6aa32c7151730636dd95753db10495e51edd15f93d3909cab60
   languageName: node
   linkType: hard
 

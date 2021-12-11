@@ -39,7 +39,7 @@
     "express-session": "^1.17.1",
     "google-proto-files": "^1.0.3",
     "graphviz": "0.0.8",
-    "gun": "Emad-salah/gun#2e4fea7518fa8866d258d5b8803b4cb4cc4f62ea",
+    "gun": "amark/gun#77162fcb68eb61f24d980fa3f3653598f56ee593",
     "husky": "^4.2.5",
     "hybrid-relay-client": "git://github.com/shocknet/hybridRelayClient#a99e57794cf7a62f0f5b6aef53a35d6b77d0a889",
     "jsonfile": "^4.0.0",
