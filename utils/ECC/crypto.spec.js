@@ -4,7 +4,11 @@
 // @ts-check
 const expect = require('expect')
 
-const { generateRandomString } = require('./crypto')
+const {
+  generateRandomString,
+  convertBase64ToBuffer,
+  convertBufferToBase64
+} = require('./crypto')
 
 describe('generateRandomString()', () => {
   it('creates a random string of the specified length', async () => {
@@ -13,5 +17,17 @@ describe('generateRandomString()', () => {
     const result = await generateRandomString(len)
 
     expect(result.length).toEqual(len)
+  })
+})
+
+describe('Buffer <> String <> Buffer', () => {
+  it('preserves values', async () => {
+    const rnd = await generateRandomString(24)
+
+    const asBuffer = convertBase64ToBuffer(rnd)
+
+    const asStringAgain = convertBufferToBase64(asBuffer)
+
+    expect(asStringAgain).toEqual(rnd)
   })
 })
