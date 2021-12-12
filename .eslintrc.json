@@ -95,7 +95,10 @@
     "no-warning-comments": "off",
 
     // broken
-    "sort-imports": "off"
+    "sort-imports": "off",
+
+    // Would require to needlessly split code into too many files.
+    "mocha/max-top-level-suites": "off"
   },
   "parser": "babel-eslint",
   "env": {
