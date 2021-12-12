@@ -25,7 +25,8 @@ const FieldError = require('../fieldError')
 
 const generateRandomString = (length = 16) =>
   new Promise((resolve, reject) => {
-    Crypto.randomBytes(length, (err, buffer) => {
+    // Gotta halve because randomBytes returns a sequence twice the size
+    Crypto.randomBytes(length / 2, (err, buffer) => {
       if (err) {
         reject(err)
         return
