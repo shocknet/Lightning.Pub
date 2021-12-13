@@ -124,12 +124,14 @@ const authorizeDevice = async ({ deviceId, publicKey }) => {
  */
 const encryptMessage = async ({ message = '', deviceId }) => {
   const parsedMessage = message.toString()
+  // decryptMessage checks for known devices while this one checks for
+  // authorized ones instead, why?
   const publicKey = devicePublicKeys.get(deviceId)
 
   if (!publicKey) {
     throw new FieldError({
       field: 'deviceId',
-      message: 'Unauthorized Device ID detected'
+      message: 'encryptMessage() -> Unauthorized Device ID detected'
     })
   }
 
@@ -159,12 +161,14 @@ const encryptMessage = async ({ message = '', deviceId }) => {
  * @param {{ encryptedMessage: import('./crypto').EncryptedMessageResponse, deviceId: string }} arg0
  */
 const decryptMessage = async ({ encryptedMessage, deviceId }) => {
+  // encryptMessages checks for authorized devices while this one checks for
+  // known ones, why?
   const keyPair = nodeKeyPairs.get(deviceId)
   try {
     if (!keyPair) {
       throw new FieldError({
         field: 'deviceId',
-        message: 'Unauthorized Device ID detected'
+        message: 'decryptMessage() -> Unknown Device ID detected'
       })
     }
 
