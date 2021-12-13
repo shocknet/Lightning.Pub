@@ -36,9 +36,18 @@ const isEncryptedMessage = message =>
   message.ephemPublicKey
 
 /**
+ * @typedef {object} Pair
+ * @prop {Buffer} privateKey
+ * @prop {Buffer} publicKey
+ * @prop {string} privateKeyBase64
+ * @prop {string} publicKeyBase64
+ */
+
+/**
  * Generates a new encryption key pair that will be used
  * when communicating with the deviceId specified
  * @param {string} deviceId
+ * @returns {Pair}
  */
 const generateKeyPair = deviceId => {
   try {
