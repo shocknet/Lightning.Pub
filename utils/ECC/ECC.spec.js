@@ -74,7 +74,7 @@ describe('encryptMessage()/decryptMessage()', () => {
   })
   it('throws if provided with an unknown device id when decrypting', async () => {
     expect.hasAssertions()
-    const deviceId = 'jfio2fb3h803fakujhjkfasbfbsc018hfuIUFiufh9310u'
+    const deviceId = uuid()
 
     try {
       await decryptMessage({
