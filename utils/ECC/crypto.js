@@ -2,8 +2,13 @@
  * @format
  */
 const { Buffer } = require('buffer')
-const Crypto = require('crypto')
+const { fork } = require('child_process')
+
 const FieldError = require('../fieldError')
+
+const { invoke } = require('./subprocess')
+
+const cryptoSubprocess = fork('utils/ECC/subprocess')
 
 /**
  * @typedef {object} EncryptedMessageBuffer
@@ -23,19 +28,15 @@ const FieldError = require('../fieldError')
  * @prop {any?} metadata
  */
 
-const generateRandomString = (length = 16) =>
-  new Promise((resolve, reject) => {
-    // Gotta halve because randomBytes returns a sequence twice the size
-    Crypto.randomBytes(length / 2, (err, buffer) => {
-      if (err) {
-        reject(err)
-        return
-      }
+const generateRandomString = async (length = 16) => {
+  if (length % 2 !== 0 || length < 2) {
+    throw new Error('Random string length must be an even number.')
+  }
 
-      const token = buffer.toString('hex')
-      resolve(token)
-    })
-  })
+  const res = await invoke('generateRandomString', [length], cryptoSubprocess)
+
+  return res
+}
 
 /**
  * @param {string} value
