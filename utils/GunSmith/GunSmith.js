@@ -3,7 +3,7 @@
  */
 /* eslint-disable no-use-before-define */
 /* eslint-disable func-style */
-// @ts-check
+// @ts-no-check TODO: Temporarily disabled TS checking due to new GunDB version
 /// <reference path="Smith.ts" />
 /// <reference path="GunT.ts" />
 const uuid = require('uuid/v1')
@@ -133,7 +133,7 @@ let lastAlias = ''
 let lastPass = ''
 /** @type {GunT.UserPair|null} */
 let lastPair = null
-/** @type {import('gun/types/options').IGunConstructorOptions} */
+/** @type {import('gun/types/gun/IGunConstructorOptions').IGunConstructorOptions} */
 let lastOpts = {}
 let isAuthing = false
 
@@ -282,6 +282,7 @@ const forge = () => {
 
     /** @type {Smith.SmithMsgInit} */
     const initMsg = {
+      // @ts-ignore TODO: Fix options typings
       opts: lastOpts,
       type: 'init'
     }
@@ -728,7 +729,7 @@ function createUserReplica() {
 }
 
 /**
- * @param {import('gun/types/options').IGunConstructorOptions} opts
+ * @param {import('gun/types/gun/IGunConstructorOptions').IGunConstructorOptions} opts
  * @returns {Smith.GunSmithNode}
  */
 const Gun = opts => {

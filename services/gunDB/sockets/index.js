@@ -179,10 +179,12 @@ const startSocket = socket => {
     }
 
     if (isAuthenticated()) {
-      socket.onAny(() => {
-        GunActions.setLastSeenApp().catch(e =>
-          logger.info('error setting last seen app', e)
-        )
+      socket.onAny(async () => {
+        try {
+          await GunActions.setLastSeenApp()
+        } catch (err) {
+          logger.info('error setting last seen app', err)
+        }
       })
     }
 
