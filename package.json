@@ -7,6 +7,7 @@
     "start": "node main.js -h 0.0.0.0 -c",
     "dev": "node --trace-warnings --max-old-space-size=4096 main.js -h 0.0.0.0",
     "dev:watch": "nodemon main.js -- -h 0.0.0.0",
+    "dev:attach": "node --inspect --trace-warnings --max-old-space-size=4096 main.js -h 0.0.0.0",
     "test": "mocha ./utils -b -t 50000 --recursive",
     "typecheck": "tsc",
     "lint": "eslint \"services/gunDB/**/*.js\"",
@@ -38,8 +39,7 @@
     "express-session": "^1.17.1",
     "google-proto-files": "^1.0.3",
     "graphviz": "0.0.8",
-    "grpc": "1.24.4",
-    "gun": "amark/gun#50af2d52ad6677fd5b95e5ed64fca7491c7877b5",
+    "gun": "amark/gun#77162fcb68eb61f24d980fa3f3653598f56ee593",
     "husky": "^4.2.5",
     "hybrid-relay-client": "git://github.com/shocknet/hybridRelayClient#a99e57794cf7a62f0f5b6aef53a35d6b77d0a889",
     "jsonfile": "^4.0.0",
@@ -114,5 +114,6 @@
   },
   "engines": {
     "npm": "Use yarn!"
-  }
+  },
+  "packageManager": "yarn@3.1.1"
 }
