@@ -5,6 +5,7 @@
 const Path = require('path')
 const Storage = require('node-persist')
 const expect = require('expect')
+const words = require('random-words')
 
 const {
   authorizeDevice,
@@ -14,13 +15,15 @@ const {
   isAuthorizedDevice
 } = require('./ECC')
 
+const uuid = () => words({ exactly: 24 }).join('-')
+
 const storageDirectory = Path.resolve(__dirname, `./.test-storage`)
 
 console.log(`Storage directory: ${storageDirectory}`)
 
 describe('generateKeyPair()', () => {
   it('generates a keypair', () => {
-    const pair = generateKeyPair('jgjhfhjhjghjghjgkghfkhgfkh')
+    const pair = generateKeyPair(uuid())
 
     expect(pair.privateKey).toBeInstanceOf(Buffer)
     expect(typeof pair.privateKeyBase64 === 'string').toBeTruthy()
@@ -28,7 +31,7 @@ describe('generateKeyPair()', () => {
     expect(typeof pair.publicKeyBase64 === 'string').toBeTruthy()
   })
   it('returns the same pair for the same device', () => {
-    const id = 'fbuiio3089fhfunjancj,'
+    const id = uuid()
     const pair = generateKeyPair(id)
     const pairAgain = generateKeyPair(id)
 
@@ -42,7 +45,7 @@ describe('authorizeDevice()/isAuthorizedDevice()', () => {
     await Storage.init({
       dir: storageDirectory
     })
-    const deviceId = 'ajksjkihjgjhfkjasbdjkabsf'
+    const deviceId = uuid()
     const pair = generateKeyPair(deviceId)
     await authorizeDevice({ deviceId, publicKey: pair.publicKeyBase64 })
     expect(isAuthorizedDevice({ deviceId })).toBeTruthy()
@@ -57,11 +60,11 @@ describe('encryptMessage()/decryptMessage()', () => {
   )
   it('throws if provided with an unauthorized device id when encrypting', async () => {
     expect.hasAssertions()
-    const deviceId = 'jfio2fb3h803fabsc018hfuIUFiufh9310u'
+    const deviceId = uuid()
 
     try {
       await encryptMessage({
-        message: 'klashdkljaskldjkasjlkdjaslkjd',
+        message: uuid(),
         deviceId
       })
       throw new Error('encryptMessage() did not throw')
@@ -77,11 +80,11 @@ describe('encryptMessage()/decryptMessage()', () => {
       await decryptMessage({
         deviceId,
         encryptedMessage: {
-          ciphertext: 'kajjshfkjhaskjdh',
-          ephemPublicKey: 'akjshfjkashkjhasf',
-          iv: 'lkasjdklahsfkjhasf',
-          mac: 'alkshfkjashfkjasf',
-          metadata: 'aklshdkjasd'
+          ciphertext: uuid(),
+          ephemPublicKey: uuid(),
+          iv: uuid(),
+          mac: uuid(),
+          metadata: uuid()
         }
       })
       throw new Error('decryptMessage() did not throw')
@@ -91,7 +94,7 @@ describe('encryptMessage()/decryptMessage()', () => {
   })
   it('encrypts and decrypts messages when given a known device id', async () => {
     expect.hasAssertions()
-    const deviceId = 'jfio2fbnjkabscfjjpifpoijf018hfuIUFiufh9310u'
+    const deviceId = uuid()
 
     const pair = generateKeyPair(deviceId)
 
