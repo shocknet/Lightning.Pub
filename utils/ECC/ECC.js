@@ -47,9 +47,9 @@ const isEncryptedMessage = message =>
  * Generates a new encryption key pair that will be used
  * when communicating with the deviceId specified
  * @param {string} deviceId
- * @returns {Pair}
+ * @returns {Promise<Pair>}
  */
-const generateKeyPair = deviceId => {
+const generateKeyPair = async deviceId => {
   try {
     const existingKey = nodeKeyPairs.get(deviceId)
 
@@ -107,7 +107,7 @@ const isAuthorizedDevice = ({ deviceId }) => devicePublicKeys.has(deviceId)
 const authorizeDevice = async ({ deviceId, publicKey }) => {
   const hostId = await Storage.get('encryption/hostId')
   devicePublicKeys.set(deviceId, convertBase64ToBuffer(publicKey))
-  const keyPair = generateKeyPair(deviceId)
+  const keyPair = await generateKeyPair(deviceId)
 
   return {
     success: true,

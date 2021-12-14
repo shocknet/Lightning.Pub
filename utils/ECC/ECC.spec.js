@@ -22,18 +22,20 @@ const storageDirectory = Path.resolve(__dirname, `./.test-storage`)
 console.log(`Storage directory: ${storageDirectory}`)
 
 describe('generateKeyPair()', () => {
-  it('generates a keypair', () => {
-    const pair = generateKeyPair(uuid())
+  it('generates a keypair', async () => {
+    expect.hasAssertions()
+    const pair = await generateKeyPair(uuid())
 
     expect(pair.privateKey).toBeInstanceOf(Buffer)
     expect(typeof pair.privateKeyBase64 === 'string').toBeTruthy()
     expect(pair.publicKey).toBeInstanceOf(Buffer)
     expect(typeof pair.publicKeyBase64 === 'string').toBeTruthy()
   })
-  it('returns the same pair for the same device', () => {
+  it('returns the same pair for the same device', async () => {
+    expect.hasAssertions()
     const id = uuid()
-    const pair = generateKeyPair(id)
-    const pairAgain = generateKeyPair(id)
+    const pair = await generateKeyPair(id)
+    const pairAgain = await generateKeyPair(id)
 
     expect(pairAgain).toStrictEqual(pair)
   })
@@ -46,7 +48,7 @@ describe('authorizeDevice()/isAuthorizedDevice()', () => {
       dir: storageDirectory
     })
     const deviceId = uuid()
-    const pair = generateKeyPair(deviceId)
+    const pair = await generateKeyPair(deviceId)
     await authorizeDevice({ deviceId, publicKey: pair.publicKeyBase64 })
     expect(isAuthorizedDevice({ deviceId })).toBeTruthy()
   })
@@ -96,7 +98,7 @@ describe('encryptMessage()/decryptMessage()', () => {
     expect.hasAssertions()
     const deviceId = uuid()
 
-    const pair = generateKeyPair(deviceId)
+    const pair = await generateKeyPair(deviceId)
 
     await authorizeDevice({ deviceId, publicKey: pair.publicKeyBase64 })
 
