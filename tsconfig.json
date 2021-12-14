@@ -1,5 +1,6 @@
 {
   "include": ["./services/gunDB/**/*.*", "./utils/lightningServices/**/*.*"],
+  "exclude": ["./node_modules/**/*.*"],
   "compilerOptions": {
     /* Basic Options */
     // "incremental": true,                   /* Enable incremental compilation */
