@@ -54,7 +54,7 @@ const generateKeyPair = deviceId => {
     const existingKey = nodeKeyPairs.get(deviceId)
 
     if (existingKey) {
-      logger.warn('Device ID is already trusted')
+      logger.info('Device ID is already trusted')
       return {
         ...existingKey,
         publicKeyBase64: convertBufferToBase64(existingKey.publicKey),
