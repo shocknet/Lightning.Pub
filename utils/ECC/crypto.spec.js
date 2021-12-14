@@ -13,7 +13,8 @@ const {
 describe('generateRandomString()', () => {
   it('creates a random string of the specified length', async () => {
     expect.hasAssertions()
-    const len = Math.ceil(Math.random() * 100)
+    const base = Math.ceil(Math.random() * 100)
+    const len = base % 2 !== 0 ? base + 1 : base
     const result = await generateRandomString(len)
 
     expect(result.length).toEqual(len)
