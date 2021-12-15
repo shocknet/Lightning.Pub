@@ -1,5 +1,4 @@
 /** @format */
-const ECCrypto = require('eccrypto')
 const Storage = require('node-persist')
 const { fork } = require('child_process')
 
@@ -180,9 +179,10 @@ const decryptMessage = async ({ encryptedMessage, deviceId }) => {
     }
 
     const processedPrivateKey = processKey(keyPair.privateKey)
-    const decryptedMessage = await ECCrypto.decrypt(
-      processedPrivateKey,
-      convertToEncryptedMessage(encryptedMessage)
+    const decryptedMessage = await invoke(
+      'decrypt',
+      [processedPrivateKey, convertToEncryptedMessage(encryptedMessage)],
+      cryptoSubprocess
     )
     const parsedMessage = decryptedMessage.toString('utf8')
 
