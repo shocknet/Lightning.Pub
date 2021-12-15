@@ -1,6 +1,8 @@
 /** @format */
 const ECCrypto = require('eccrypto')
 const Storage = require('node-persist')
+const { fork } = require('child_process')
+
 const FieldError = require('../fieldError')
 const logger = require('../../config/log')
 const {
@@ -12,6 +14,9 @@ const {
   convertToEncryptedMessage,
   convertBase64ToBuffer
 } = require('./crypto')
+const { invoke } = require('./subprocess')
+
+const cryptoSubprocess = fork('utils/ECC/subprocess')
 
 const nodeKeyPairs = new Map()
 const devicePublicKeys = new Map()
@@ -62,8 +67,8 @@ const generateKeyPair = async deviceId => {
       }
     }
 
-    const privateKey = ECCrypto.generatePrivate()
-    const publicKey = ECCrypto.getPublic(privateKey)
+    const privateKey = await invoke('generatePrivate', [], cryptoSubprocess)
+    const publicKey = await invoke('getPublic', [privateKey], cryptoSubprocess)
     const privateKeyBase64 = convertBufferToBase64(privateKey)
     const publicKeyBase64 = convertBufferToBase64(publicKey)
 
