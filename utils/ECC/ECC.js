@@ -142,10 +142,12 @@ const encryptMessage = async ({ message = '', deviceId }) => {
 
   const processedPublicKey = processKey(publicKey)
   const messageBuffer = convertUTF8ToBuffer(parsedMessage)
-  const encryptedMessage = await ECCrypto.encrypt(
-    processedPublicKey,
-    messageBuffer
+  const encryptedMessage = await invoke(
+    'encrypt',
+    [processedPublicKey, messageBuffer],
+    cryptoSubprocess
   )
+
   const encryptedMessageResponse = {
     ciphertext: encryptedMessage.ciphertext,
     iv: encryptedMessage.iv,
