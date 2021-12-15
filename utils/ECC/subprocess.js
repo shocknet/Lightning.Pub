@@ -5,6 +5,7 @@ const Crypto = require('crypto')
 const ECCrypto = require('eccrypto')
 const uuid = require('uuid/v1')
 const { Buffer } = require('buffer')
+const mapValues = require('lodash/mapValues')
 
 const logger = require('../../config/log')
 
@@ -28,6 +29,20 @@ process.on('unhandledRejection', e => {
  */
 
 /**
+ * @param {any} obj
+ * @returns {any}
+ */
+const processBufferAfterSerialization = obj => {
+  if (typeof obj === 'object' && obj !== null) {
+    if (obj.type === 'Buffer') {
+      return Buffer.from(obj.data)
+    }
+    return mapValues(obj, processBufferAfterSerialization)
+  }
+  return obj
+}
+
+/**
  * @typedef {object} Msg
  * @prop {any[]} args
  * @prop {string} id
@@ -42,7 +57,8 @@ const handleMsg = async msg => {
     logger.error('Msg in crypto subprocess not an object')
   }
 
-  const { args, id, method } = msg
+  const { id, method } = msg
+  const args = msg.args.map(processBufferAfterSerialization)
 
   try {
     if (method === 'generateRandomString') {
@@ -113,7 +129,7 @@ const handleMsg = async msg => {
       // @ts-expect-error
       process.send({
         id,
-        payload: ECCrypto.encrypt(processedPublicKey, messageBuffer)
+        payload: await ECCrypto.encrypt(processedPublicKey, messageBuffer)
       })
     }
     if (method === 'decrypt') {
@@ -150,7 +166,7 @@ const invoke = (method, args, cryptoSubprocess) =>
         if (msg.err) {
           rej(new Error(msg.err))
         } else {
-          res(msg.payload)
+          res(processBufferAfterSerialization(msg.payload))
         }
       }
     }
