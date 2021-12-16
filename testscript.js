@@ -11,7 +11,9 @@
 const Gun = require('gun')
 const randomWords = require('random-words')
 
-/** @returns {string} */
+/**
+ * @returns {string}
+ **/
 const randomWord = () => {
   const word = randomWords()
   if (typeof word !== 'string') {
