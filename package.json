@@ -78,6 +78,7 @@
     "@types/node-fetch": "^2.5.8",
     "@types/node-persist": "^3.1.1",
     "@types/ramda": "types/npm-ramda#dist",
+    "@types/random-words": "^1.1.2",
     "@types/react": "16.x.x",
     "@types/uuid": "3.x.x",
     "babel-eslint": "^10.1.0",
@@ -96,7 +97,7 @@
     "rimraf": "^3.0.2",
     "ts-node": "^9.1.1",
     "ts-type": "^1.2.16",
-    "typescript": "^4.4.3"
+    "typescript": "^4.5.4"
   },
   "lint-staged": {
     "*.js": [
@@ -108,9 +109,7 @@
     ]
   },
   "husky": {
-    "hooks": {
-      "pre-commit": "yarn lint && yarn typecheck && yarn lint-staged"
-    }
+    "hooks": {}
   },
   "engines": {
     "npm": "Use yarn!"
