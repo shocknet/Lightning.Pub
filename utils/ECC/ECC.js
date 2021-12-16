@@ -1,6 +1,7 @@
 /** @format */
-const ECCrypto = require('eccrypto')
 const Storage = require('node-persist')
+const { fork } = require('child_process')
+
 const FieldError = require('../fieldError')
 const logger = require('../../config/log')
 const {
@@ -12,6 +13,9 @@ const {
   convertToEncryptedMessage,
   convertBase64ToBuffer
 } = require('./crypto')
+const { invoke } = require('./subprocess')
+
+const cryptoSubprocess = fork('utils/ECC/subprocess')
 
 const nodeKeyPairs = new Map()
 const devicePublicKeys = new Map()
@@ -47,9 +51,9 @@ const isEncryptedMessage = message =>
  * Generates a new encryption key pair that will be used
  * when communicating with the deviceId specified
  * @param {string} deviceId
- * @returns {Pair}
+ * @returns {Promise<Pair>}
  */
-const generateKeyPair = deviceId => {
+const generateKeyPair = async deviceId => {
   try {
     const existingKey = nodeKeyPairs.get(deviceId)
 
@@ -62,8 +66,8 @@ const generateKeyPair = deviceId => {
       }
     }
 
-    const privateKey = ECCrypto.generatePrivate()
-    const publicKey = ECCrypto.getPublic(privateKey)
+    const privateKey = await invoke('generatePrivate', [], cryptoSubprocess)
+    const publicKey = await invoke('getPublic', [privateKey], cryptoSubprocess)
     const privateKeyBase64 = convertBufferToBase64(privateKey)
     const publicKeyBase64 = convertBufferToBase64(publicKey)
 
@@ -107,7 +111,7 @@ const isAuthorizedDevice = ({ deviceId }) => devicePublicKeys.has(deviceId)
 const authorizeDevice = async ({ deviceId, publicKey }) => {
   const hostId = await Storage.get('encryption/hostId')
   devicePublicKeys.set(deviceId, convertBase64ToBuffer(publicKey))
-  const keyPair = generateKeyPair(deviceId)
+  const keyPair = await generateKeyPair(deviceId)
 
   return {
     success: true,
@@ -137,10 +141,12 @@ const encryptMessage = async ({ message = '', deviceId }) => {
 
   const processedPublicKey = processKey(publicKey)
   const messageBuffer = convertUTF8ToBuffer(parsedMessage)
-  const encryptedMessage = await ECCrypto.encrypt(
-    processedPublicKey,
-    messageBuffer
+  const encryptedMessage = await invoke(
+    'encrypt',
+    [processedPublicKey, messageBuffer],
+    cryptoSubprocess
   )
+
   const encryptedMessageResponse = {
     ciphertext: encryptedMessage.ciphertext,
     iv: encryptedMessage.iv,
@@ -173,9 +179,10 @@ const decryptMessage = async ({ encryptedMessage, deviceId }) => {
     }
 
     const processedPrivateKey = processKey(keyPair.privateKey)
-    const decryptedMessage = await ECCrypto.decrypt(
-      processedPrivateKey,
-      convertToEncryptedMessage(encryptedMessage)
+    const decryptedMessage = await invoke(
+      'decrypt',
+      [processedPrivateKey, convertToEncryptedMessage(encryptedMessage)],
+      cryptoSubprocess
     )
     const parsedMessage = decryptedMessage.toString('utf8')
 
@@ -203,5 +210,11 @@ module.exports = {
   authorizeDevice,
   generateRandomString,
   nodeKeyPairs,
-  devicePublicKeys
+  devicePublicKeys,
+  /**
+   * Used for tests.
+   */
+  killECCCryptoSubprocess() {
+    cryptoSubprocess.kill()
+  }
 }
