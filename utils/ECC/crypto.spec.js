@@ -7,7 +7,8 @@ const expect = require('expect')
 const {
   generateRandomString,
   convertBase64ToBuffer,
-  convertBufferToBase64
+  convertBufferToBase64,
+  killCryptoCryptoSubprocess
 } = require('./crypto')
 
 describe('crypto', () => {
@@ -33,4 +34,6 @@ describe('crypto', () => {
       expect(asStringAgain).toEqual(rnd)
     })
   })
+
+  after(killCryptoCryptoSubprocess)
 })

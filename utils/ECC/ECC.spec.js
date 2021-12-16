@@ -12,7 +12,8 @@ const {
   decryptMessage,
   encryptMessage,
   generateKeyPair,
-  isAuthorizedDevice
+  isAuthorizedDevice,
+  killECCCryptoSubprocess
 } = require('./ECC')
 
 const uuid = () => {
@@ -118,4 +119,6 @@ describe('ECC', () => {
       expect(decrypted).toEqual(message)
     })
   })
+
+  after(killECCCryptoSubprocess)
 })
