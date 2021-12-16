@@ -15,7 +15,10 @@ const {
   isAuthorizedDevice
 } = require('./ECC')
 
-const uuid = () => words({ exactly: 24 }).join('-')
+const uuid = () => {
+  const arr = /** @type {string[]} */ (words({ exactly: 24 }))
+  return arr.join('-')
+}
 
 const storageDirectory = Path.resolve(__dirname, `./.test-storage`)
 
