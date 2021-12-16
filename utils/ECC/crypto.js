@@ -136,5 +136,11 @@ module.exports = {
   convertBufferToBase64,
   convertToEncryptedMessage,
   convertToEncryptedMessageResponse,
-  processKey
+  processKey,
+  /**
+   * Used for tests.
+   */
+  killCryptoCryptoSubprocess() {
+    cryptoSubprocess.kill()
+  }
 }

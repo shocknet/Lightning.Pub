@@ -210,5 +210,11 @@ module.exports = {
   authorizeDevice,
   generateRandomString,
   nodeKeyPairs,
-  devicePublicKeys
+  devicePublicKeys,
+  /**
+   * Used for tests.
+   */
+  killECCCryptoSubprocess() {
+    cryptoSubprocess.kill()
+  }
 }
