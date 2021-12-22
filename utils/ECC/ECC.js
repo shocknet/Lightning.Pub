@@ -201,6 +201,17 @@ const decryptMessage = async ({ encryptedMessage, deviceId }) => {
   }
 }
 
+/**
+ * @returns {Promise<Buffer>}
+ */
+const generatePrivate = () => invoke('generatePrivate', [], cryptoSubprocess)
+
+/**
+ * @param {Buffer} priv
+ * @returns {Promise<Buffer>}
+ */
+const getPublic = priv => invoke('getPublic', [priv], cryptoSubprocess)
+
 module.exports = {
   isAuthorizedDevice,
   isEncryptedMessage,
@@ -211,6 +222,8 @@ module.exports = {
   generateRandomString,
   nodeKeyPairs,
   devicePublicKeys,
+  generatePrivate,
+  getPublic,
   /**
    * Used for tests.
    */
