@@ -13,7 +13,9 @@ const {
   encryptMessage,
   generateKeyPair,
   isAuthorizedDevice,
-  killECCCryptoSubprocess
+  killECCCryptoSubprocess,
+  generatePrivate,
+  getPublic
 } = require('./ECC')
 
 const uuid = () => {
@@ -117,6 +119,27 @@ describe('ECC', () => {
       })
 
       expect(decrypted).toEqual(message)
+    })
+  })
+
+  describe('generatePrivate()', () => {
+    it('generates a private key', async () => {
+      expect.hasAssertions()
+
+      const priv = await generatePrivate()
+
+      expect(priv).toBeInstanceOf(Buffer)
+    })
+  })
+
+  describe('getPublic()', () => {
+    it('derives a public key from a private key', async () => {
+      expect.hasAssertions()
+
+      const priv = await generatePrivate()
+      const pub = await getPublic(priv)
+
+      expect(pub).toBeInstanceOf(Buffer)
     })
   })
 
