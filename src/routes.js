@@ -602,7 +602,7 @@ module.exports = async (
       try {
         const health = await checkHealth()
         const walletInitialized = await walletExists()
-        const { alias, password, invite, accessSecret } = req.body
+        const { alias, password } = req.body
         const lndUp = health.LNDStatus.success
         const trustedKeysEnabled =
           process.env.TRUSTED_KEYS === 'true' || !process.env.TRUSTED_KEYS
@@ -648,17 +648,12 @@ module.exports = async (
         if (!walletUnlocked) {
           await unlockWallet(password)
         }
-        let secretUsed = null
-        if (accessSecret) {
-          secretUsed = await Storage.get(
-            `UnlockedAccessSecrets/${accessSecret}`
-          )
-        }
+
         if (
           walletUnlocked &&
           !authorization &&
           !isKeyTrusted &&
-          (!allowUnlockedLND || secretUsed !== false)
+          !allowUnlockedLND
         ) {
           res.status(401).json({
             field: 'alias',
@@ -669,11 +664,7 @@ module.exports = async (
           return
         }
 
-        if (
-          walletUnlocked &&
-          !isKeyTrusted &&
-          (!allowUnlockedLND || secretUsed !== false)
-        ) {
+        if (walletUnlocked && !isKeyTrusted && !allowUnlockedLND) {
           const validatedToken = await validateToken(
             authorization.replace('Bearer ', '')
           )
@@ -687,10 +678,6 @@ module.exports = async (
             })
             return
           }
-        }
-
-        if (secretUsed === false) {
-          await Storage.setItem(`UnlockedAccessSecrets/${accessSecret}`, true)
         }
 
         if (!isKeyTrusted) {
