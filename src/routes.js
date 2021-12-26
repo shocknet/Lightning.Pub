@@ -629,12 +629,7 @@ module.exports = async (
         const publicKey = await GunDB.authenticate(alias, password)
 
         if (!publicKey) {
-          res.status(401).json({
-            field: 'alias',
-            errorMessage: 'Invalid alias/password combination',
-            success: false
-          })
-          return false
+          throw new Error('Invalid alias/password combination')
         }
 
         const [isKeyTrusted = !trustedKeysEnabled] = (trustedKeys || []).filter(
@@ -655,13 +650,9 @@ module.exports = async (
           !isKeyTrusted &&
           !allowUnlockedLND
         ) {
-          res.status(401).json({
-            field: 'alias',
-            errorMessage:
-              'Invalid alias/password combination (Untrusted Device)',
-            success: false
-          })
-          return
+          throw new Error(
+            'Invalid alias/password combination (Untrusted Device)'
+          )
         }
 
         if (walletUnlocked && !isKeyTrusted && !allowUnlockedLND) {
@@ -670,13 +661,9 @@ module.exports = async (
           )
 
           if (!validatedToken) {
-            res.status(401).json({
-              field: 'alias',
-              errorMessage:
-                'Invalid alias/password combination (Untrusted Auth Token)',
-              success: false
-            })
-            return
+            throw new Error(
+              'Invalid alias/password combination (Untrusted Auth Token)'
+            )
           }
         }
 
