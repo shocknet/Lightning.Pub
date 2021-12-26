@@ -507,6 +507,27 @@ module.exports = async (
       }
     }
 
+    const saveChannelsBackup = async () => {
+      const { getUser } = require('../services/gunDB/Mediator')
+      const { lightning } = LightningServices.services
+      const SEA = require('../services/gunDB/Mediator').mySEA
+      await Common.Utils.makePromise((res, rej) => {
+        lightning.exportAllChannelBackups({}, (err, channelBackups) => {
+          if (err) {
+            return rej(new Error(err.details))
+          }
+
+          res(
+            GunActions.saveChannelsBackup(
+              JSON.stringify(channelBackups),
+              getUser(),
+              SEA
+            )
+          )
+        })
+      })
+    }
+
     app.post('/api/lnd/auth', async (req, res) => {
       try {
         const health = await checkHealth()
@@ -520,7 +541,7 @@ module.exports = async (
         const allowUnlockedLND = process.env.ALLOW_UNLOCKED_LND === 'true'
         const trustedKeys = await Storage.get('trustedPKs')
         const { lightning } = LightningServices.services
-        const { getUser } = require('../services/gunDB/Mediator')
+
         const SEA = require('../services/gunDB/Mediator').mySEA
 
         if (!lndUp) {
@@ -637,21 +658,7 @@ module.exports = async (
 
         //get the latest channel backups before subscribing
 
-        await Common.Utils.makePromise((res, rej) => {
-          lightning.exportAllChannelBackups({}, (err, channelBackups) => {
-            if (err) {
-              return rej(new Error(err.details))
-            }
-
-            res(
-              GunActions.saveChannelsBackup(
-                JSON.stringify(channelBackups),
-                getUser(),
-                SEA
-              )
-            )
-          })
-        })
+        saveChannelsBackup()
 
         // Send an event to update lightning's status
         mySocketsEvents.emit('updateLightning')
@@ -717,7 +724,7 @@ module.exports = async (
         onNewChannelBackup()
 
         setTimeout(() => {
-          channelRequest(invite)
+          channelRequest()
         }, 30 * 1000)
         res.json({
           authorization: token,
