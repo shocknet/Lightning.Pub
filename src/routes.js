@@ -511,236 +511,222 @@ module.exports = async (
       try {
         const health = await checkHealth()
         const walletInitialized = await walletExists()
-        // If we're connected to lnd, unlock the wallet using the password supplied
-        // and generate an auth token if that operation was successful.
-        if (health.LNDStatus.success && walletInitialized) {
-          const { alias, password, invite, accessSecret } = req.body
+        const { alias, password, invite, accessSecret } = req.body
+        const lndUp = health.LNDStatus.success
 
-          await recreateLnServices()
-
-          if (GunDB.isAuthenticated()) {
-            GunDB.logoff()
-          }
-
-          const publicKey = await GunDB.authenticate(alias, password)
-
-          if (!publicKey) {
-            res.status(401).json({
-              field: 'alias',
-              errorMessage: 'Invalid alias/password combination',
-              success: false
-            })
-            return false
-          }
-
-          const trustedKeysEnabled =
-            process.env.TRUSTED_KEYS === 'true' || !process.env.TRUSTED_KEYS
-          const trustedKeys = await Storage.get('trustedPKs')
-          // Falls back to true if trusted keys is disabled in .env
-          const [isKeyTrusted = !trustedKeysEnabled] = (
-            trustedKeys || []
-          ).filter(trustedKey => trustedKey === publicKey)
-          const walletUnlocked = health.LNDStatus.walletStatus === 'unlocked'
-          const { authorization = '' } = req.headers
-
-          if (!isKeyTrusted) {
-            logger.warn('Untrusted public key!')
-          }
-
-          if (!walletUnlocked) {
-            await unlockWallet(password)
-          }
-          let secretUsed = null
-          if (accessSecret) {
-            secretUsed = await Storage.get(
-              `UnlockedAccessSecrets/${accessSecret}`
-            )
-          }
-          if (
-            walletUnlocked &&
-            !authorization &&
-            !isKeyTrusted &&
-            (process.env.ALLOW_UNLOCKED_LND !== 'true' || secretUsed !== false)
-          ) {
-            res.status(401).json({
-              field: 'alias',
-              errorMessage:
-                'Invalid alias/password combination (Untrusted Device)',
-              success: false
-            })
-            return
-          }
-
-          if (
-            walletUnlocked &&
-            !isKeyTrusted &&
-            (process.env.ALLOW_UNLOCKED_LND !== 'true' || secretUsed !== false)
-          ) {
-            const validatedToken = await validateToken(
-              authorization.replace('Bearer ', '')
-            )
-
-            if (!validatedToken) {
-              res.status(401).json({
-                field: 'alias',
-                errorMessage:
-                  'Invalid alias/password combination (Untrusted Auth Token)',
-                success: false
-              })
-              return
-            }
-          }
-
-          if (secretUsed === false) {
-            await Storage.setItem(`UnlockedAccessSecrets/${accessSecret}`, true)
-          }
-
-          if (!isKeyTrusted) {
-            await Storage.set('trustedPKs', [...(trustedKeys || []), publicKey])
-          }
-
-          const { lightning } = LightningServices.services
-
-          // Generate auth token and send it as a JSON response
-          const token = await auth.generateToken()
-
-          // wait for wallet to warm up
-          await Common.Utils.makePromise((res, rej) => {
-            let tries = 0
-            let intervalID = null
-
-            intervalID = setInterval(() => {
-              if (tries === 7) {
-                rej(new Error(`Wallet did not warm up in under 7 seconds.`))
-
-                clearInterval(intervalID)
-                return
-              }
-
-              tries++
-
-              lightning.listInvoices({}, err => {
-                if (!err) {
-                  clearInterval(intervalID)
-                  res()
-                }
-              })
-            }, 1000)
-          })
-
-          //get the latest channel backups before subscribing
-          const user = require('../services/gunDB/Mediator').getUser()
-          const SEA = require('../services/gunDB/Mediator').mySEA
-
-          await Common.Utils.makePromise((res, rej) => {
-            lightning.exportAllChannelBackups({}, (err, channelBackups) => {
-              if (err) {
-                return rej(new Error(err.details))
-              }
-
-              res(
-                GunActions.saveChannelsBackup(
-                  JSON.stringify(channelBackups),
-                  user,
-                  SEA
-                )
-              )
-            })
-          })
-
-          // Send an event to update lightning's status
-          mySocketsEvents.emit('updateLightning')
-
-          //register to listen for channel backups
-          const onNewChannelBackup = () => {
-            logger.warn('Subscribing to channel backup ...')
-            const stream = lightning.SubscribeChannelBackups({})
-            stream.on('data', data => {
-              logger.info(' New channel backup data')
-              GunActions.saveChannelsBackup(JSON.stringify(data), user, SEA)
-            })
-            stream.on('end', () => {
-              logger.info('Channel backup stream ended, starting a new one...')
-              // Prevents call stack overflow exceptions
-              //process.nextTick(onNewChannelBackup)
-            })
-            stream.on('error', err => {
-              logger.error('Channel backup stream error:', err)
-            })
-            stream.on('status', status => {
-              logger.error('Channel backup stream status:', status)
-              switch (status.code) {
-                case 0: {
-                  logger.info('Channel backup stream ok')
-                  break
-                }
-                case 2: {
-                  //Happens to fire when the grpc client lose access to macaroon file
-                  logger.warn('Channel backup got UNKNOWN error status')
-                  break
-                }
-                case 12: {
-                  logger.warn(
-                    'Channel backup LND locked, new registration in 60 seconds'
-                  )
-                  process.nextTick(() =>
-                    setTimeout(() => onNewChannelBackup(), 60000)
-                  )
-                  break
-                }
-                case 13: {
-                  //https://grpc.github.io/grpc/core/md_doc_statuscodes.html
-                  logger.error('Channel backup INTERNAL LND error')
-                  break
-                }
-                case 14: {
-                  logger.error(
-                    'Channel backup LND disconnected, sockets reconnecting in 30 seconds...'
-                  )
-                  process.nextTick(() =>
-                    setTimeout(() => onNewChannelBackup(), 30000)
-                  )
-                  break
-                }
-                default: {
-                  logger.error('[event:transaction:new] UNKNOWN LND error')
-                }
-              }
-            })
-          }
-
-          onNewChannelBackup()
-
-          setTimeout(() => {
-            channelRequest(invite)
-          }, 30 * 1000)
-          res.json({
-            authorization: token,
-            user: {
-              alias,
-              publicKey
-            }
-          })
-
-          return true
+        if (!lndUp) {
+          throw new Error(health.LNDStatus.message)
         }
 
         if (!walletInitialized) {
-          res.status(500).json({
-            field: 'wallet',
-            errorMessage: 'Please create a wallet before authenticating',
+          throw new Error('Please create a wallet before authenticating')
+        }
+
+        await recreateLnServices()
+
+        if (GunDB.isAuthenticated()) {
+          GunDB.logoff()
+        }
+
+        const publicKey = await GunDB.authenticate(alias, password)
+
+        if (!publicKey) {
+          res.status(401).json({
+            field: 'alias',
+            errorMessage: 'Invalid alias/password combination',
             success: false
           })
           return false
         }
 
-        res.status(500)
-        res.json({
-          field: 'health',
-          errorMessage: sanitizeLNDError(health.LNDStatus.message),
-          success: false
+        const trustedKeysEnabled =
+          process.env.TRUSTED_KEYS === 'true' || !process.env.TRUSTED_KEYS
+        const trustedKeys = await Storage.get('trustedPKs')
+        // Falls back to true if trusted keys is disabled in .env
+        const [isKeyTrusted = !trustedKeysEnabled] = (trustedKeys || []).filter(
+          trustedKey => trustedKey === publicKey
+        )
+        const walletUnlocked = health.LNDStatus.walletStatus === 'unlocked'
+        const { authorization = '' } = req.headers
+
+        if (!isKeyTrusted) {
+          logger.warn('Untrusted public key!')
+        }
+
+        if (!walletUnlocked) {
+          await unlockWallet(password)
+        }
+        let secretUsed = null
+        if (accessSecret) {
+          secretUsed = await Storage.get(
+            `UnlockedAccessSecrets/${accessSecret}`
+          )
+        }
+        if (
+          walletUnlocked &&
+          !authorization &&
+          !isKeyTrusted &&
+          (process.env.ALLOW_UNLOCKED_LND !== 'true' || secretUsed !== false)
+        ) {
+          res.status(401).json({
+            field: 'alias',
+            errorMessage:
+              'Invalid alias/password combination (Untrusted Device)',
+            success: false
+          })
+          return
+        }
+
+        if (
+          walletUnlocked &&
+          !isKeyTrusted &&
+          (process.env.ALLOW_UNLOCKED_LND !== 'true' || secretUsed !== false)
+        ) {
+          const validatedToken = await validateToken(
+            authorization.replace('Bearer ', '')
+          )
+
+          if (!validatedToken) {
+            res.status(401).json({
+              field: 'alias',
+              errorMessage:
+                'Invalid alias/password combination (Untrusted Auth Token)',
+              success: false
+            })
+            return
+          }
+        }
+
+        if (secretUsed === false) {
+          await Storage.setItem(`UnlockedAccessSecrets/${accessSecret}`, true)
+        }
+
+        if (!isKeyTrusted) {
+          await Storage.set('trustedPKs', [...(trustedKeys || []), publicKey])
+        }
+
+        const { lightning } = LightningServices.services
+
+        // Generate auth token and send it as a JSON response
+        const token = await auth.generateToken()
+
+        // wait for wallet to warm up
+        await Common.Utils.makePromise((res, rej) => {
+          let tries = 0
+          let intervalID = null
+
+          intervalID = setInterval(() => {
+            if (tries === 7) {
+              rej(new Error(`Wallet did not warm up in under 7 seconds.`))
+
+              clearInterval(intervalID)
+              return
+            }
+
+            tries++
+
+            lightning.listInvoices({}, err => {
+              if (!err) {
+                clearInterval(intervalID)
+                res()
+              }
+            })
+          }, 1000)
         })
-        return false
+
+        //get the latest channel backups before subscribing
+        const user = require('../services/gunDB/Mediator').getUser()
+        const SEA = require('../services/gunDB/Mediator').mySEA
+
+        await Common.Utils.makePromise((res, rej) => {
+          lightning.exportAllChannelBackups({}, (err, channelBackups) => {
+            if (err) {
+              return rej(new Error(err.details))
+            }
+
+            res(
+              GunActions.saveChannelsBackup(
+                JSON.stringify(channelBackups),
+                user,
+                SEA
+              )
+            )
+          })
+        })
+
+        // Send an event to update lightning's status
+        mySocketsEvents.emit('updateLightning')
+
+        //register to listen for channel backups
+        const onNewChannelBackup = () => {
+          logger.warn('Subscribing to channel backup ...')
+          const stream = lightning.SubscribeChannelBackups({})
+          stream.on('data', data => {
+            logger.info(' New channel backup data')
+            GunActions.saveChannelsBackup(JSON.stringify(data), user, SEA)
+          })
+          stream.on('end', () => {
+            logger.info('Channel backup stream ended, starting a new one...')
+            // Prevents call stack overflow exceptions
+            //process.nextTick(onNewChannelBackup)
+          })
+          stream.on('error', err => {
+            logger.error('Channel backup stream error:', err)
+          })
+          stream.on('status', status => {
+            logger.error('Channel backup stream status:', status)
+            switch (status.code) {
+              case 0: {
+                logger.info('Channel backup stream ok')
+                break
+              }
+              case 2: {
+                //Happens to fire when the grpc client lose access to macaroon file
+                logger.warn('Channel backup got UNKNOWN error status')
+                break
+              }
+              case 12: {
+                logger.warn(
+                  'Channel backup LND locked, new registration in 60 seconds'
+                )
+                process.nextTick(() =>
+                  setTimeout(() => onNewChannelBackup(), 60000)
+                )
+                break
+              }
+              case 13: {
+                //https://grpc.github.io/grpc/core/md_doc_statuscodes.html
+                logger.error('Channel backup INTERNAL LND error')
+                break
+              }
+              case 14: {
+                logger.error(
+                  'Channel backup LND disconnected, sockets reconnecting in 30 seconds...'
+                )
+                process.nextTick(() =>
+                  setTimeout(() => onNewChannelBackup(), 30000)
+                )
+                break
+              }
+              default: {
+                logger.error('[event:transaction:new] UNKNOWN LND error')
+              }
+            }
+          })
+        }
+
+        onNewChannelBackup()
+
+        setTimeout(() => {
+          channelRequest(invite)
+        }, 30 * 1000)
+        res.json({
+          authorization: token,
+          user: {
+            alias,
+            publicKey
+          }
+        })
       } catch (err) {
         logger.error('Unlock Error:', err)
         res.status(400)
