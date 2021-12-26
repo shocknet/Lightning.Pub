@@ -513,6 +513,15 @@ module.exports = async (
         const walletInitialized = await walletExists()
         const { alias, password, invite, accessSecret } = req.body
         const lndUp = health.LNDStatus.success
+        const trustedKeysEnabled =
+          process.env.TRUSTED_KEYS === 'true' || !process.env.TRUSTED_KEYS
+        const walletUnlocked = health.LNDStatus.walletStatus === 'unlocked'
+        const { authorization = '' } = req.headers
+        const allowUnlockedLND = process.env.ALLOW_UNLOCKED_LND === 'true'
+        const trustedKeys = await Storage.get('trustedPKs')
+        const { lightning } = LightningServices.services
+        const { getUser } = require('../services/gunDB/Mediator')
+        const SEA = require('../services/gunDB/Mediator').mySEA
 
         if (!lndUp) {
           throw new Error(health.LNDStatus.message)
@@ -539,15 +548,9 @@ module.exports = async (
           return false
         }
 
-        const trustedKeysEnabled =
-          process.env.TRUSTED_KEYS === 'true' || !process.env.TRUSTED_KEYS
-        const trustedKeys = await Storage.get('trustedPKs')
-        // Falls back to true if trusted keys is disabled in .env
         const [isKeyTrusted = !trustedKeysEnabled] = (trustedKeys || []).filter(
           trustedKey => trustedKey === publicKey
         )
-        const walletUnlocked = health.LNDStatus.walletStatus === 'unlocked'
-        const { authorization = '' } = req.headers
 
         if (!isKeyTrusted) {
           logger.warn('Untrusted public key!')
@@ -566,7 +569,7 @@ module.exports = async (
           walletUnlocked &&
           !authorization &&
           !isKeyTrusted &&
-          (process.env.ALLOW_UNLOCKED_LND !== 'true' || secretUsed !== false)
+          (!allowUnlockedLND || secretUsed !== false)
         ) {
           res.status(401).json({
             field: 'alias',
@@ -580,7 +583,7 @@ module.exports = async (
         if (
           walletUnlocked &&
           !isKeyTrusted &&
-          (process.env.ALLOW_UNLOCKED_LND !== 'true' || secretUsed !== false)
+          (!allowUnlockedLND || secretUsed !== false)
         ) {
           const validatedToken = await validateToken(
             authorization.replace('Bearer ', '')
@@ -604,8 +607,6 @@ module.exports = async (
         if (!isKeyTrusted) {
           await Storage.set('trustedPKs', [...(trustedKeys || []), publicKey])
         }
-
-        const { lightning } = LightningServices.services
 
         // Generate auth token and send it as a JSON response
         const token = await auth.generateToken()
@@ -635,8 +636,6 @@ module.exports = async (
         })
 
         //get the latest channel backups before subscribing
-        const user = require('../services/gunDB/Mediator').getUser()
-        const SEA = require('../services/gunDB/Mediator').mySEA
 
         await Common.Utils.makePromise((res, rej) => {
           lightning.exportAllChannelBackups({}, (err, channelBackups) => {
@@ -647,7 +646,7 @@ module.exports = async (
             res(
               GunActions.saveChannelsBackup(
                 JSON.stringify(channelBackups),
-                user,
+                getUser(),
                 SEA
               )
             )
