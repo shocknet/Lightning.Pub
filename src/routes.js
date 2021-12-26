@@ -1,6 +1,7 @@
 /**
  * @prettier
  */
+// @ts-check
 'use strict'
 
 const Axios = require('axios')
@@ -507,6 +508,9 @@ module.exports = async (
       }
     }
 
+    /**
+     * Get the latest channel backups before subscribing.
+     */
     const saveChannelsBackup = async () => {
       const { getUser } = require('../services/gunDB/Mediator')
       const { lightning } = LightningServices.services
@@ -528,6 +532,72 @@ module.exports = async (
       })
     }
 
+    /**
+     * Register to listen for channel backups.
+     */
+    const onNewChannelBackup = () => {
+      const { getUser } = require('../services/gunDB/Mediator')
+      const { lightning } = LightningServices.services
+      const SEA = require('../services/gunDB/Mediator').mySEA
+
+      logger.warn('Subscribing to channel backup ...')
+
+      const stream = lightning.SubscribeChannelBackups({})
+
+      stream.on('data', data => {
+        logger.info(' New channel backup data')
+        GunActions.saveChannelsBackup(JSON.stringify(data), getUser(), SEA)
+      })
+      stream.on('end', () => {
+        logger.info('Channel backup stream ended, starting a new one...')
+        // Prevents call stack overflow exceptions
+        //process.nextTick(onNewChannelBackup)
+      })
+      stream.on('error', err => {
+        logger.error('Channel backup stream error:', err)
+      })
+      stream.on('status', status => {
+        logger.error('Channel backup stream status:', status)
+        switch (status.code) {
+          case 0: {
+            logger.info('Channel backup stream ok')
+            break
+          }
+          case 2: {
+            //Happens to fire when the grpc client lose access to macaroon file
+            logger.warn('Channel backup got UNKNOWN error status')
+            break
+          }
+          case 12: {
+            logger.warn(
+              'Channel backup LND locked, new registration in 60 seconds'
+            )
+            process.nextTick(() =>
+              setTimeout(() => onNewChannelBackup(), 60000)
+            )
+            break
+          }
+          case 13: {
+            //https://grpc.github.io/grpc/core/md_doc_statuscodes.html
+            logger.error('Channel backup INTERNAL LND error')
+            break
+          }
+          case 14: {
+            logger.error(
+              'Channel backup LND disconnected, sockets reconnecting in 30 seconds...'
+            )
+            process.nextTick(() =>
+              setTimeout(() => onNewChannelBackup(), 30000)
+            )
+            break
+          }
+          default: {
+            logger.error('[event:transaction:new] UNKNOWN LND error')
+          }
+        }
+      })
+    }
+
     app.post('/api/lnd/auth', async (req, res) => {
       try {
         const health = await checkHealth()
@@ -541,8 +611,6 @@ module.exports = async (
         const allowUnlockedLND = process.env.ALLOW_UNLOCKED_LND === 'true'
         const trustedKeys = await Storage.get('trustedPKs')
         const { lightning } = LightningServices.services
-
-        const SEA = require('../services/gunDB/Mediator').mySEA
 
         if (!lndUp) {
           throw new Error(health.LNDStatus.message)
@@ -656,76 +724,17 @@ module.exports = async (
           }, 1000)
         })
 
-        //get the latest channel backups before subscribing
-
         saveChannelsBackup()
 
         // Send an event to update lightning's status
         mySocketsEvents.emit('updateLightning')
-
-        //register to listen for channel backups
-        const onNewChannelBackup = () => {
-          logger.warn('Subscribing to channel backup ...')
-          const stream = lightning.SubscribeChannelBackups({})
-          stream.on('data', data => {
-            logger.info(' New channel backup data')
-            GunActions.saveChannelsBackup(JSON.stringify(data), user, SEA)
-          })
-          stream.on('end', () => {
-            logger.info('Channel backup stream ended, starting a new one...')
-            // Prevents call stack overflow exceptions
-            //process.nextTick(onNewChannelBackup)
-          })
-          stream.on('error', err => {
-            logger.error('Channel backup stream error:', err)
-          })
-          stream.on('status', status => {
-            logger.error('Channel backup stream status:', status)
-            switch (status.code) {
-              case 0: {
-                logger.info('Channel backup stream ok')
-                break
-              }
-              case 2: {
-                //Happens to fire when the grpc client lose access to macaroon file
-                logger.warn('Channel backup got UNKNOWN error status')
-                break
-              }
-              case 12: {
-                logger.warn(
-                  'Channel backup LND locked, new registration in 60 seconds'
-                )
-                process.nextTick(() =>
-                  setTimeout(() => onNewChannelBackup(), 60000)
-                )
-                break
-              }
-              case 13: {
-                //https://grpc.github.io/grpc/core/md_doc_statuscodes.html
-                logger.error('Channel backup INTERNAL LND error')
-                break
-              }
-              case 14: {
-                logger.error(
-                  'Channel backup LND disconnected, sockets reconnecting in 30 seconds...'
-                )
-                process.nextTick(() =>
-                  setTimeout(() => onNewChannelBackup(), 30000)
-                )
-                break
-              }
-              default: {
-                logger.error('[event:transaction:new] UNKNOWN LND error')
-              }
-            }
-          })
-        }
 
         onNewChannelBackup()
 
         setTimeout(() => {
           channelRequest()
         }, 30 * 1000)
+
         res.json({
           authorization: token,
           user: {
