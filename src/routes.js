@@ -604,12 +604,9 @@ module.exports = async (
         const walletInitialized = await walletExists()
         const { alias, password } = req.body
         const lndUp = health.LNDStatus.success
-        const trustedKeysEnabled =
-          process.env.TRUSTED_KEYS === 'true' || !process.env.TRUSTED_KEYS
         const walletUnlocked = health.LNDStatus.walletStatus === 'unlocked'
         const { authorization = '' } = req.headers
         const allowUnlockedLND = process.env.ALLOW_UNLOCKED_LND === 'true'
-        const trustedKeys = await Storage.get('trustedPKs')
         const { lightning } = LightningServices.services
 
         if (!lndUp) {
@@ -632,30 +629,17 @@ module.exports = async (
           throw new Error('Invalid alias/password combination')
         }
 
-        const [isKeyTrusted = !trustedKeysEnabled] = (trustedKeys || []).filter(
-          trustedKey => trustedKey === publicKey
-        )
-
-        if (!isKeyTrusted) {
-          logger.warn('Untrusted public key!')
-        }
-
         if (!walletUnlocked) {
           await unlockWallet(password)
         }
 
-        if (
-          walletUnlocked &&
-          !authorization &&
-          !isKeyTrusted &&
-          !allowUnlockedLND
-        ) {
+        if (walletUnlocked && !authorization && !allowUnlockedLND) {
           throw new Error(
             'Invalid alias/password combination (Untrusted Device)'
           )
         }
 
-        if (walletUnlocked && !isKeyTrusted && !allowUnlockedLND) {
+        if (walletUnlocked && !allowUnlockedLND) {
           const validatedToken = await validateToken(
             authorization.replace('Bearer ', '')
           )
@@ -665,10 +649,6 @@ module.exports = async (
               'Invalid alias/password combination (Untrusted Auth Token)'
             )
           }
-        }
-
-        if (!isKeyTrusted) {
-          await Storage.set('trustedPKs', [...(trustedKeys || []), publicKey])
         }
 
         // Generate auth token and send it as a JSON response
@@ -796,9 +776,6 @@ module.exports = async (
           GunDB.mySEA
         )
 
-        const trustedKeys = await Storage.get('trustedPKs')
-        await Storage.setItem('trustedPKs', [...(trustedKeys || []), publicKey])
-
         const [initWalletErr, initWalletResponse] = await new Promise(res => {
           walletUnlocker.initWallet(
             walletArgs,
@@ -873,7 +850,6 @@ module.exports = async (
 
     app.post('/api/lnd/wallet/existing', async (req, res) => {
       try {
-        const trustedKeys = await Storage.get('trustedPKs')
         const { password, alias } = req.body
         const healthResponse = await checkHealth()
         const exists = await walletExists()
@@ -922,8 +898,6 @@ module.exports = async (
 
         // Register user after verifying wallet password
         const publicKey = await GunDB.register(alias, password)
-
-        await Storage.setItem('trustedPKs', [...(trustedKeys || []), publicKey])
 
         // Generate Access Token
         const token = await auth.generateToken()
