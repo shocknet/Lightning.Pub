@@ -731,7 +731,7 @@ module.exports = async (
     app.post('/api/lnd/wallet', async (req, res) => {
       try {
         const { walletUnlocker } = LightningServices.services
-        const { password, alias, invite } = req.body
+        const { password, alias } = req.body
         const healthResponse = await checkHealth()
         if (!alias) {
           return res.status(400).json({
