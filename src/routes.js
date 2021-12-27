@@ -893,6 +893,7 @@ module.exports = async (
         const { password, alias, accessSecret } = req.body
         const healthResponse = await checkHealth()
         const exists = await walletExists()
+        const allowUnlockedLND = process.env.ALLOW_UNLOCKED_LND === 'true'
         if (!exists) {
           return res.status(500).json({
             field: 'wallet',
@@ -924,7 +925,7 @@ module.exports = async (
 
         if (
           healthResponse.LNDStatus.service !== 'walletUnlocker' &&
-          process.env.ALLOW_UNLOCKED_LND !== 'true'
+          !allowUnlockedLND
         ) {
           return res.status(400).json({
             field: 'wallet',
