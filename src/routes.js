@@ -899,7 +899,7 @@ module.exports = async (
 
     app.post('/api/lnd/wallet/existing', async (req, res) => {
       try {
-        const { password, alias, invite, accessSecret } = req.body
+        const { password, alias, accessSecret } = req.body
         const healthResponse = await checkHealth()
         const exists = await walletExists()
         if (!exists) {
@@ -970,7 +970,7 @@ module.exports = async (
         // Generate Access Token
         const token = await auth.generateToken()
         setTimeout(() => {
-          channelRequest(invite)
+          channelRequest()
         }, 30 * 1000)
         res.json({
           authorization: token,
