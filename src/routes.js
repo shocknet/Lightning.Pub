@@ -890,15 +890,15 @@ module.exports = async (
 
     app.post('/api/lnd/wallet/existing', async (req, res) => {
       try {
+        const trustedKeys = await Storage.get('trustedPKs')
         const { password, alias } = req.body
         const healthResponse = await checkHealth()
         const exists = await walletExists()
         const allowUnlockedLND = process.env.ALLOW_UNLOCKED_LND === 'true'
+        const isLocked = healthResponse.LNDStatus.service === 'walletUnlocker'
+
         if (!exists) {
-          return res.status(500).json({
-            field: 'wallet',
-            errorMessage: 'LND wallet does not exist, please create a new one'
-          })
+          throw new Error('LND wallet does not exist, please create a new one')
         }
 
         if (!alias) {
@@ -923,32 +923,23 @@ module.exports = async (
           })
         }
 
-        if (
-          healthResponse.LNDStatus.service !== 'walletUnlocker' &&
-          !allowUnlockedLND
-        ) {
-          return res.status(400).json({
-            field: 'wallet',
-            errorMessage:
-              'Wallet is already unlocked. Please restart your LND instance and try again.'
-          })
+        if (!isLocked && !allowUnlockedLND) {
+          throw new Error(
+            'Wallet is already unlocked. Please restart your LND instance and try again.'
+          )
         }
 
         try {
-          if (healthResponse.LNDStatus.service === 'walletUnlocker') {
+          if (isLocked) {
             await unlockWallet(password)
           }
-        } catch (err) {
-          return res.status(401).json({
-            field: 'wallet',
-            errorMessage: 'Invalid LND wallet password'
-          })
+        } catch (_) {
+          throw new Error('Invalid LND wallet password')
         }
 
         // Register user after verifying wallet password
         const publicKey = await GunDB.register(alias, password)
 
-        const trustedKeys = await Storage.get('trustedPKs')
         await Storage.setItem('trustedPKs', [...(trustedKeys || []), publicKey])
 
         // Generate Access Token
