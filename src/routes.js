@@ -762,132 +762,123 @@ module.exports = async (
           })
         }
 
-        walletUnlocker.genSeed({}, async (genSeedErr, genSeedResponse) => {
-          try {
-            if (genSeedErr) {
-              logger.debug('GenSeed Error:', genSeedErr)
+        const [genSeedErr, genSeedResponse] = await new Promise(res => {
+          walletUnlocker.genSeed({}, (_genSeedErr, _genSeedResponse) => {
+            res([_genSeedErr, _genSeedResponse])
+          })
+        })
 
-              const healthResponse = await checkHealth()
-              if (healthResponse.LNDStatus.success) {
-                const message = genSeedErr.details
-                return res.status(400).json({
-                  field: 'GenSeed',
-                  errorMessage: message,
-                  success: false
-                })
-              }
+        if (genSeedErr) {
+          logger.debug('GenSeed Error:', genSeedErr)
 
-              return res.status(500).json({
-                field: 'health',
-                errorMessage: 'LND is down',
-                success: false
-              })
-            }
-
-            logger.debug('GenSeed:', genSeedResponse)
-            const mnemonicPhrase = genSeedResponse.cipher_seed_mnemonic
-            const walletArgs = {
-              wallet_password: Buffer.from(password, 'utf8'),
-              cipher_seed_mnemonic: mnemonicPhrase
-            }
-
-            // Register user before creating wallet
-            const publicKey = await GunDB.register(alias, password)
-
-            await GunActions.saveSeedBackup(
-              mnemonicPhrase,
-              GunDB.getUser(),
-              GunDB.mySEA
-            )
-
-            const trustedKeys = await Storage.get('trustedPKs')
-            await Storage.setItem('trustedPKs', [
-              ...(trustedKeys || []),
-              publicKey
-            ])
-
-            walletUnlocker.initWallet(
-              walletArgs,
-              async (initWalletErr, initWalletResponse) => {
-                try {
-                  if (initWalletErr) {
-                    logger.error('initWallet Error:', initWalletErr.message)
-                    const healthResponse = await checkHealth()
-                    if (healthResponse.LNDStatus.success) {
-                      const errorMessage = initWalletErr.details
-
-                      return res.status(400).json({
-                        field: 'initWallet',
-                        errorMessage,
-                        success: false
-                      })
-                    }
-                    return res.status(500).json({
-                      field: 'health',
-                      errorMessage: 'LND is down',
-                      success: false
-                    })
-                  }
-                  logger.info('initWallet:', initWalletResponse)
-
-                  const waitUntilFileExists = seconds => {
-                    logger.info(
-                      `Waiting for admin.macaroon to be created. Seconds passed: ${seconds} Path: ${LightningServices.servicesConfig.macaroonPath}`
-                    )
-                    setTimeout(async () => {
-                      try {
-                        const macaroonExists = await FS.access(
-                          LightningServices.servicesConfig.macaroonPath
-                        )
-
-                        if (!macaroonExists) {
-                          return waitUntilFileExists(seconds + 1)
-                        }
-
-                        logger.info('admin.macaroon file created')
-
-                        await LightningServices.init()
-
-                        const token = await auth.generateToken()
-                        setTimeout(() => {
-                          channelRequest(invite)
-                        }, 30 * 1000)
-                        return res.json({
-                          mnemonicPhrase,
-                          authorization: token,
-                          user: {
-                            alias,
-                            publicKey
-                          }
-                        })
-                      } catch (err) {
-                        logger.error(err)
-                        res.status(400).json({
-                          field: 'unknown',
-                          errorMessage: sanitizeLNDError(err.message)
-                        })
-                      }
-                    }, 1000)
-                  }
-
-                  waitUntilFileExists(1)
-                } catch (err) {
-                  logger.error(err)
-                  return res.status(500).json({
-                    field: 'unknown',
-                    errorMessage: err
-                  })
-                }
-              }
-            )
-          } catch (err) {
-            logger.error(err)
-            return res.status(500).json({
-              field: 'unknown',
-              errorMessage: err.message || err
+          const healthResponse = await checkHealth()
+          if (healthResponse.LNDStatus.success) {
+            const message = genSeedErr.details
+            return res.status(400).json({
+              field: 'GenSeed',
+              errorMessage: message,
+              success: false
             })
           }
+
+          return res.status(500).json({
+            field: 'health',
+            errorMessage: 'LND is down',
+            success: false
+          })
+        }
+
+        logger.debug('GenSeed:', genSeedResponse)
+
+        const mnemonicPhrase = genSeedResponse.cipher_seed_mnemonic
+        const walletArgs = {
+          wallet_password: Buffer.from(password, 'utf8'),
+          cipher_seed_mnemonic: mnemonicPhrase
+        }
+
+        // Register user before creating wallet
+        const publicKey = await GunDB.register(alias, password)
+
+        await GunActions.saveSeedBackup(
+          mnemonicPhrase,
+          GunDB.getUser(),
+          GunDB.mySEA
+        )
+
+        const trustedKeys = await Storage.get('trustedPKs')
+        await Storage.setItem('trustedPKs', [...(trustedKeys || []), publicKey])
+
+        const [initWalletErr, initWalletResponse] = await new Promise(res => {
+          walletUnlocker.initWallet(
+            walletArgs,
+            (_initWalletErr, _initWalletResponse) => {
+              res([_initWalletErr, _initWalletResponse])
+            }
+          )
         })
+
+        if (initWalletErr) {
+          logger.error('initWallet Error:', initWalletErr.message)
+          const healthResponse = await checkHealth()
+          if (healthResponse.LNDStatus.success) {
+            const errorMessage = initWalletErr.details
+
+            return res.status(400).json({
+              field: 'initWallet',
+              errorMessage,
+              success: false
+            })
+          }
+          return res.status(500).json({
+            field: 'health',
+            errorMessage: 'LND is down',
+            success: false
+          })
+        }
+
+        logger.info('initWallet:', initWalletResponse)
+
+        const waitUntilFileExists = seconds => {
+          logger.info(
+            `Waiting for admin.macaroon to be created. Seconds passed: ${seconds} Path: ${LightningServices.servicesConfig.macaroonPath}`
+          )
+          setTimeout(async () => {
+            try {
+              const macaroonExists = await FS.access(
+                LightningServices.servicesConfig.macaroonPath
+              )
+
+              if (!macaroonExists) {
+                return waitUntilFileExists(seconds + 1)
+              }
+
+              logger.info('admin.macaroon file created')
+
+              await LightningServices.init()
+
+              const token = await auth.generateToken()
+              setTimeout(() => {
+                channelRequest()
+              }, 30 * 1000)
+              return res.json({
+                mnemonicPhrase,
+                authorization: token,
+                user: {
+                  alias,
+                  publicKey
+                }
+              })
+            } catch (err) {
+              logger.error(err)
+              res.status(400).json({
+                field: 'unknown',
+                errorMessage: sanitizeLNDError(err.message)
+              })
+            }
+          }, 1000)
+        }
+
+        waitUntilFileExists(1)
       } catch (err) {
         logger.error(err)
         return res.status(500).json({
