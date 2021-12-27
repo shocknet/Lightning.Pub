@@ -758,10 +758,7 @@ module.exports = async (
         }
 
         if (isUnlocked) {
-          return res.status(400).json({
-            field: 'wallet',
-            errorMessage: 'Wallet is already unlocked'
-          })
+          throw new Error('Wallet is already unlocked')
         }
 
         const [genSeedErr, genSeedResponse] = await new Promise(res => {
@@ -776,18 +773,10 @@ module.exports = async (
           const healthResponse = await checkHealth()
           if (healthResponse.LNDStatus.success) {
             const message = genSeedErr.details
-            return res.status(400).json({
-              field: 'GenSeed',
-              errorMessage: message,
-              success: false
-            })
+            throw new Error(message)
           }
 
-          return res.status(500).json({
-            field: 'health',
-            errorMessage: 'LND is down',
-            success: false
-          })
+          throw new Error('LND is down')
         }
 
         logger.debug('GenSeed:', genSeedResponse)
@@ -825,17 +814,9 @@ module.exports = async (
           if (healthResponse.LNDStatus.success) {
             const errorMessage = initWalletErr.details
 
-            return res.status(400).json({
-              field: 'initWallet',
-              errorMessage,
-              success: false
-            })
+            throw new Error(errorMessage)
           }
-          return res.status(500).json({
-            field: 'health',
-            errorMessage: 'LND is down',
-            success: false
-          })
+          throw new Error('LND is down')
         }
 
         logger.info('initWallet:', initWalletResponse)
@@ -872,7 +853,7 @@ module.exports = async (
               })
             } catch (err) {
               logger.error(err)
-              res.status(400).json({
+              res.status(500).json({
                 field: 'unknown',
                 errorMessage: sanitizeLNDError(err.message)
               })
