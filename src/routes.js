@@ -733,6 +733,8 @@ module.exports = async (
         const { walletUnlocker } = LightningServices.services
         const { password, alias } = req.body
         const healthResponse = await checkHealth()
+        const isUnlocked = healthResponse.LNDStatus.service !== 'walletUnlocker'
+
         if (!alias) {
           return res.status(400).json({
             field: 'alias',
@@ -755,7 +757,7 @@ module.exports = async (
           })
         }
 
-        if (healthResponse.LNDStatus.service !== 'walletUnlocker') {
+        if (isUnlocked) {
           return res.status(400).json({
             field: 'wallet',
             errorMessage: 'Wallet is already unlocked'
