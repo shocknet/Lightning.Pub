@@ -921,24 +921,16 @@ module.exports = async (
               "Please specify a password that's longer than 8 characters"
           })
         }
-        let secretUsed = null
-        if (accessSecret) {
-          secretUsed = await Storage.get(
-            `UnlockedAccessSecrets/${accessSecret}`
-          )
-        }
+
         if (
           healthResponse.LNDStatus.service !== 'walletUnlocker' &&
-          (process.env.ALLOW_UNLOCKED_LND !== 'true' || secretUsed !== false)
+          process.env.ALLOW_UNLOCKED_LND !== 'true'
         ) {
           return res.status(400).json({
             field: 'wallet',
             errorMessage:
               'Wallet is already unlocked. Please restart your LND instance and try again.'
           })
-        }
-        if (secretUsed === false) {
-          await Storage.setItem(`UnlockedAccessSecrets/${accessSecret}`, true)
         }
 
         try {
