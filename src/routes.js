@@ -890,7 +890,7 @@ module.exports = async (
 
     app.post('/api/lnd/wallet/existing', async (req, res) => {
       try {
-        const { password, alias, accessSecret } = req.body
+        const { password, alias } = req.body
         const healthResponse = await checkHealth()
         const exists = await walletExists()
         const allowUnlockedLND = process.env.ALLOW_UNLOCKED_LND === 'true'
