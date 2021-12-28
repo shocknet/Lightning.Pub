@@ -1971,15 +1971,7 @@ module.exports = async (
     ////////////////////////////////////////////////////////////////////////////////
 
     app.post(`/api/gun/sendpayment`, async (req, res) => {
-      const {
-        recipientPub,
-        amount,
-        memo,
-        maxParts,
-        timeoutSeconds,
-        feeLimit,
-        sessionUuid
-      } = req.body
+      const { recipientPub, amount, memo, feeLimit, sessionUuid } = req.body
       logger.info('handling spont pay')
       if (!feeLimit) {
         logger.error(
@@ -2004,9 +1996,7 @@ module.exports = async (
           recipientPub,
           amount,
           memo,
-          feeLimit,
-          maxParts,
-          timeoutSeconds
+          feeLimit
         )
         res.json({ preimage, sessionUuid })
       } catch (err) {
