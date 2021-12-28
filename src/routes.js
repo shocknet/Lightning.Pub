@@ -2369,6 +2369,9 @@ module.exports = async (
           })
           return
         }
+        if (type !== 'once' && type !== 'specialOnce') {
+          throw new TypeError('Invalid type.')
+        }
         const data = await handleGunFetch({
           path,
           startFromUserGraph: false,
