@@ -2091,11 +2091,11 @@ module.exports = async (
         await GunActions.follow(publicKey, false)
 
         // 201 would be extraneous here. Implement it inside app.put
-        return res.status(200).json({
+        res.status(200).json({
           ok: true
         })
       } catch (err) {
-        return res.status(500).json({
+        res.status(500).json({
           errorMessage: err.message || 'Unknown error inside /api/gun/follows/'
         })
       }
@@ -2113,11 +2113,11 @@ module.exports = async (
 
         await GunActions.unfollow(publicKey)
 
-        return res.status(200).json({
+        res.status(200).json({
           ok: true
         })
       } catch (err) {
-        return res.status(500).json({
+        res.status(500).json({
           errorMessage: err.message || 'Unknown error inside /api/gun/follows/'
         })
       }
@@ -2179,12 +2179,12 @@ module.exports = async (
           await GunActions.generateHandshakeAddress()
         }
 
-        return res.status(200).json({
+        res.status(200).json({
           ok: true
         })
       } catch (err) {
         logger.error(err)
-        return res.status(500).json({
+        res.status(500).json({
           errorMessage: err.message
         })
       }
