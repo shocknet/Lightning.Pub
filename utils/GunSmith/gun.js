@@ -6,7 +6,6 @@
 /// <reference path="GunT.ts" />
 const Gun = require('gun')
 require('gun/nts')
-require('gun/lib/load')
 
 const logger = require('../../config/log')
 

@@ -189,13 +189,6 @@ namespace Smith {
     type: 'map.on'
   }
 
-  export interface GunMsgLoad {
-    id: string
-    data: GunT.LoadListenerData
-    key: string
-    type: 'load'
-  }
-
   export interface GunMsgPut {
     ack: GunT.Ack
     id: string
@@ -215,7 +208,6 @@ namespace Smith {
     | GunMsgCreate
     | GunMsgOn
     | GunMsgMapOn
-    | GunMsgLoad
     | GunMsgPut
     | GunMsgMultiPut
 }

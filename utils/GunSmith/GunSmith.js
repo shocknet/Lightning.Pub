@@ -38,9 +38,6 @@ const pathToListeners = {}
  */
 const pathToMapListeners = {}
 
-/** @type {Record<string, GunT.LoadListener>} */
-const idToLoadListener = {}
-
 /**
  * Path to pending puts. Oldest to newest
  * @type {Record<string, Smith.PendingPut[]>}
@@ -51,16 +48,6 @@ const pendingPuts = {}
  * @param {Smith.GunMsg} msg
  */
 const handleMsg = msg => {
-  if (msg.type === 'load') {
-    const { data, id, key } = msg
-
-    const listener = idToLoadListener[id]
-
-    if (listener) {
-      listener(data, key)
-      delete idToLoadListener[id]
-    }
-  }
   if (msg.type === 'on') {
     const { data, path } = msg
 
@@ -354,7 +341,7 @@ const forge = () => {
  * @returns {Smith.GunSmithNode}
  */
 function createReplica(path, afterMap = false) {
-  /** @type {(GunT.Listener|GunT.LoadListener)[]} */
+  /** @type {(GunT.Listener)[]} */
   const listenersForThisRef = []
 
   return {

@@ -142,7 +142,7 @@ const data = await new Promise(res => {
    .get(Key.DATE_COORDINATE_INDEX)
    .get(stringYear)
    .get(stringMonth)
-   .load(res)
+   .once(res)
 })
 const coordinatesArray = Object
  .values(data)

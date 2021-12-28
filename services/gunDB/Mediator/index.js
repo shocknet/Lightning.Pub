@@ -10,8 +10,6 @@ const logger = require('../../../config/log')
 // Gun.log = () => {}
 // @ts-ignore
 require('gun/lib/open')
-// @ts-ignore
-require('gun/lib/load')
 //@ts-ignore
 const { encryptedEmit, encryptedOn } = require('../../../utils/ECC/socket')
 const Key = require('../contact-api/key')
