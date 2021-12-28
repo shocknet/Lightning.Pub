@@ -2061,6 +2061,9 @@ module.exports = async (
 
     /////////////////////////////////
     /**
+     * @typedef {import ('express').Application} Application
+     */
+    /**
      * @template P
      * @typedef {import('express-serve-static-core').RequestHandler<P>} RequestHandler
      */
