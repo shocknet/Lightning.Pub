@@ -2489,6 +2489,7 @@ module.exports = async (
          * @type {import('winston').QueryOptions}
          */
         const options = {
+          // @ts-expect-error TODO
           from: new Date() - 1 * 60 * 60 * 1000,
           until: new Date()
         }
