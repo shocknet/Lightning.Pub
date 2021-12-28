@@ -1685,22 +1685,30 @@ module.exports = async (
       const { expiry, value, memo } = req.body
       const addInvoiceRes = await LV2.addInvoice(value, memo, true, expiry)
 
+      // eslint-disable-next-line init-declarations
+      let liquidityCheck
+
       if (value) {
         const channelsList = await LV2.listChannels({ active_only: true })
+        // @ts-expect-error There's no @types/big.js@5.x.x
         let remoteBalance = Big(0)
         channelsList.forEach(element => {
+          // @ts-expect-error There's no @types/big.js@5.x.x
           const remB = Big(element.remote_balance)
           if (remB.gt(remoteBalance)) {
             remoteBalance = remB
           }
         })
 
-        addInvoiceRes.liquidityCheck = remoteBalance > value
+        liquidityCheck = remoteBalance > value
         //newInvoice.remoteBalance = remoteBalance
       }
 
       try {
-        return res.json(addInvoiceRes)
+        return res.json({
+          ...addInvoiceRes,
+          liquidityCheck
+        })
       } catch (e) {
         logger.error(e)
         return res.status(500).json({
