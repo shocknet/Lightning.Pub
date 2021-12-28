@@ -385,9 +385,8 @@ function createReplica(path, afterMap = false) {
         const mapListeners =
           pathToMapListeners[path] || (pathToMapListeners[path] = new Set())
 
-        // @ts-expect-error
         listeners.delete(l)
-        // @ts-expect-error
+
         mapListeners.delete(l)
       }
     },
