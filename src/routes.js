@@ -2024,8 +2024,7 @@ module.exports = async (
         const postRes = await GunActions.createPostNew(
           tags,
           title,
-          contentItems,
-          SEA
+          contentItems
         )
         if (enableTipsOverlay) {
           const [postID] = postRes
