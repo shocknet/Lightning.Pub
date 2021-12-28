@@ -22,7 +22,7 @@ const Getters = require('./getters')
 const Key = require('./key')
 const Utils = require('./utils')
 const SchemaManager = require('../../schema')
-const LNDHealthMananger = require('../../../utils/lightningServices/errors')
+const LNDHealthManager = require('../../../utils/lightningServices/errors')
 const { enrollContentTokens, selfContentToken } = require('../../seed')
 
 /// <reference path="../../../utils/GunSmith/Smith.ts" />
@@ -498,7 +498,7 @@ const sendSpontaneousPayment = async (
       feeLimit,
       payment_request: orderResponse.response
     })
-    const myLndPub = LNDHealthMananger.lndPub
+    const myLndPub = LNDHealthManager.lndPub
     if (
       (opts.type !== 'contentReveal' &&
         opts.type !== 'torrentSeed' &&
