@@ -2621,7 +2621,6 @@ module.exports = async (
     })
 
     ap.get('/qrCodeGenerator', (req, res) => {
-      console.log('qrrerrr')
       try {
         res.sendFile(path.join(__dirname, '../public/qrcode.min.js'))
       } catch (e) {
