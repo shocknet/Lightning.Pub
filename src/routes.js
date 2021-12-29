@@ -43,11 +43,21 @@ const SESSION_ID = uuid()
 
 // module.exports = (app) => {
 module.exports = async (
-  app,
+  _app,
   config,
   mySocketsEvents,
   { serverPort, CA, CA_KEY, useTLS }
 ) => {
+  /**
+   * @typedef {import ('express').Application} Application
+   */
+  /**
+   * @template P
+   * @typedef {import('express-serve-static-core').RequestHandler<P>} RequestHandler
+   */
+
+  const app = /** @type {Application} */ (_app)
+
   try {
     const Http = Axios.create({
       httpsAgent: new httpsAgent.Agent(
@@ -2052,16 +2062,6 @@ module.exports = async (
 
     /////////////////////////////////
     /**
-     * @typedef {import ('express').Application} Application
-     */
-    /**
-     * @template P
-     * @typedef {import('express-serve-static-core').RequestHandler<P>} RequestHandler
-     */
-
-    const ap = /** @type {Application} */ (app)
-
-    /**
      * @typedef {object} FollowsRouteParams
      * @prop {(string|undefined)=} publicKey
      */
@@ -2111,7 +2111,7 @@ module.exports = async (
       }
     }
 
-    ap.get('/api/gun/initwall', async (req, res) => {
+    app.get('/api/gun/initwall', async (req, res) => {
       try {
         await GunActions.initWall()
         res.json({ ok: true })
@@ -2122,8 +2122,8 @@ module.exports = async (
         })
       }
     })
-    ap.put(`/api/gun/follows/:publicKey`, apiGunFollowsPut)
-    ap.delete(`/api/gun/follows/:publicKey`, apiGunFollowsDelete)
+    app.put(`/api/gun/follows/:publicKey`, apiGunFollowsPut)
+    app.delete(`/api/gun/follows/:publicKey`, apiGunFollowsDelete)
 
     /**
      * @type {RequestHandler<{}>}
@@ -2178,9 +2178,9 @@ module.exports = async (
       }
     }
 
-    ap.put(`/api/gun/me`, apiGunMePut)
+    app.put(`/api/gun/me`, apiGunMePut)
 
-    ap.get(`/api/gun/auth`, (_, res) => {
+    app.get(`/api/gun/auth`, (_, res) => {
       const { isAuthenticated } = require('../services/gunDB/Mediator')
 
       return res.status(200).json({
@@ -2251,7 +2251,7 @@ module.exports = async (
      */
     const EPUB_FOR_DECRYPT_HEADER = 'epub-for-decryption'
 
-    ap.get('/api/gun/once/:path', async (req, res) => {
+    app.get('/api/gun/once/:path', async (req, res) => {
       try {
         const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
         const epubForDecryption = req.header(EPUB_FOR_DECRYPT_HEADER)
@@ -2275,7 +2275,7 @@ module.exports = async (
       }
     })
 
-    ap.get('/api/gun/specialOnce/:path', async (req, res) => {
+    app.get('/api/gun/specialOnce/:path', async (req, res) => {
       try {
         const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
         const epubForDecryption = req.header(EPUB_FOR_DECRYPT_HEADER)
@@ -2299,7 +2299,7 @@ module.exports = async (
       }
     })
 
-    ap.get('/api/gun/user/once/:path', async (req, res) => {
+    app.get('/api/gun/user/once/:path', async (req, res) => {
       try {
         const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
         const epubForDecryption = req.header(EPUB_FOR_DECRYPT_HEADER)
@@ -2323,7 +2323,7 @@ module.exports = async (
       }
     })
 
-    ap.get('/api/gun/user/specialOnce/:path', async (req, res) => {
+    app.get('/api/gun/user/specialOnce/:path', async (req, res) => {
       try {
         const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
         const epubForDecryption = req.header(EPUB_FOR_DECRYPT_HEADER)
@@ -2347,7 +2347,7 @@ module.exports = async (
       }
     })
 
-    ap.get('/api/gun/otheruser/:publicKey/:type/:path', async (req, res) => {
+    app.get('/api/gun/otheruser/:publicKey/:type/:path', async (req, res) => {
       try {
         const allowedTypes = ['once', 'open', 'specialOnce']
         const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
@@ -2400,7 +2400,7 @@ module.exports = async (
       }
     })
 
-    ap.post('/api/lnd/cb/:methodName', (req, res) => {
+    app.post('/api/lnd/cb/:methodName', (req, res) => {
       try {
         const { lightning } = LightningServices.services
         const { methodName } = req.params
@@ -2431,7 +2431,7 @@ module.exports = async (
       }
     })
 
-    ap.post('/api/gun/put', async (req, res) => {
+    app.post('/api/gun/put', async (req, res) => {
       try {
         const { path, value } = req.body
         logger.info(`gun PUT: ${path}`)
@@ -2452,7 +2452,7 @@ module.exports = async (
       }
     })
 
-    ap.post('/api/gun/set', async (req, res) => {
+    app.post('/api/gun/set', async (req, res) => {
       try {
         const { path, value } = req.body
         logger.info(`gun SET: ${path}`)
@@ -2474,7 +2474,7 @@ module.exports = async (
       }
     })
 
-    ap.get('/api/log', async (_, res) => {
+    app.get('/api/log', async (_, res) => {
       try {
         // https://github.com/winstonjs/winston#querying-logs
         /**
@@ -2507,7 +2507,7 @@ module.exports = async (
       }
     })
     //this is for OBS notifications, not wired with UI.
-    ap.get('/api/subscribeStream', (req, res) => {
+    app.get('/api/subscribeStream', (req, res) => {
       try {
         res.sendFile(path.join(__dirname, '../public/obsOverlay.html'))
       } catch (e) {
@@ -2517,7 +2517,7 @@ module.exports = async (
         })
       }
     })
-    ap.post('/api/enableNotificationsOverlay', (req, res) => {
+    app.post('/api/enableNotificationsOverlay', (req, res) => {
       try {
         const { postID } = req.body
         if (!postID) {
@@ -2537,7 +2537,7 @@ module.exports = async (
       }
     })
     //this is for wasLive/isLive status
-    ap.post('/api/listenStream', (req, res) => {
+    app.post('/api/listenStream', (req, res) => {
       try {
         startedStream(req.body)
         return res.status(200).json({
@@ -2551,7 +2551,7 @@ module.exports = async (
         })
       }
     })
-    ap.post('/api/stopStream', (req, res) => {
+    app.post('/api/stopStream', (req, res) => {
       try {
         endStream(req.body)
         return res.status(200).json({
@@ -2566,7 +2566,7 @@ module.exports = async (
       }
     })
 
-    ap.get('/', (req, res) => {
+    app.get('/', (req, res) => {
       try {
         res.sendFile(path.join(__dirname, '../public/localHomepage.html'))
       } catch (e) {
@@ -2577,7 +2577,7 @@ module.exports = async (
       }
     })
 
-    ap.get('/qrCodeGenerator', (req, res) => {
+    app.get('/qrCodeGenerator', (req, res) => {
       try {
         res.sendFile(path.join(__dirname, '../public/qrcode.min.js'))
       } catch (e) {
@@ -2588,7 +2588,7 @@ module.exports = async (
       }
     })
 
-    ap.get('/api/accessInfo', async (req, res) => {
+    app.get('/api/accessInfo', async (req, res) => {
       if (req.ip !== '127.0.0.1') {
         res.json({
           field: 'origin',
@@ -2641,7 +2641,7 @@ module.exports = async (
       }
     })
 
-    ap.post('/api/initUserInformation', async (req, res) => {
+    app.post('/api/initUserInformation', async (req, res) => {
       try {
         const user = require('../services/gunDB/Mediator').getUser()
         await UserInitializer.InitUserData(user)
