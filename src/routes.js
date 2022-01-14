@@ -1,3 +1,4 @@
+/* eslint-disable require-atomic-updates */
 /**
  * @prettier
  */
@@ -17,6 +18,7 @@ const size = require('lodash/size')
 const { range, flatten, evolve } = require('ramda')
 const path = require('path')
 const cors = require('cors')
+const ECCrypto = require('eccrypto')
 
 const getListPage = require('../utils/paginate')
 const auth = require('../services/auth/auth')
@@ -30,8 +32,6 @@ const {
   nonEncryptedRoutes
 } = require('../utils/protectedRoutes')
 const GunActions = require('../services/gunDB/contact-api/actions')
-const GunGetters = require('../services/gunDB/contact-api/getters')
-const GunKey = require('../services/gunDB/contact-api/key')
 const LV2 = require('../utils/lightningServices/v2')
 const GunWriteRPC = require('../services/gunDB/rpc')
 const Key = require('../services/gunDB/contact-api/key')
@@ -43,12 +43,14 @@ const UserInitializer = require('../services/initializer')
 const DEFAULT_MAX_NUM_ROUTES_TO_QUERY = 10
 const SESSION_ID = uuid()
 
+
+
 // module.exports = (app) => {
 module.exports = async (
   app,
   config,
   mySocketsEvents,
-  { serverPort, CA, CA_KEY, useTLS }
+  { serverPort, CA, CA_KEY, useTLS, runPrivateKey, runPublicKey,isTunnelled }
 ) => {
   try {
     const Http = Axios.create({
@@ -96,7 +98,8 @@ module.exports = async (
         const APIStatus = {
           message: APIHealth.data,
           responseTime: APIHealth.headers['x-response-time'],
-          success: true
+          success: true,
+          encryptionPublicKey: runPublicKey.toString('base64')
         }
         return {
           LNDStatus,
@@ -108,7 +111,8 @@ module.exports = async (
         const APIStatus = {
           message: err?.response?.data,
           responseTime: err?.response?.headers['x-response-time'],
-          success: false
+          success: false,
+          encryptionPublicKey: runPublicKey.toString('base64')
         }
         logger.warn('Failed to retrieve API status', APIStatus)
         return {
@@ -266,12 +270,13 @@ module.exports = async (
 
         logger.info('Decrypting ECC message...')
 
-        const decryptedMessage = await ECC.decryptMessage({
-          deviceId,
-          encryptedMessage: req.body
-        })
+        const asBuffers = await ECC.convertToEncryptedMessage(req.body)
 
-        // eslint-disable-next-line
+        const decryptedMessage = await ECCrypto.decrypt(
+          runPrivateKey,
+          asBuffers
+        )
+      
         req.body = JSON.parse(decryptedMessage)
 
         return next()
@@ -299,6 +304,7 @@ module.exports = async (
       } else if (unprotectedRoutes[req.method][req.path]) {
         next()
       } else {
+        console.log(req.method,req.path)
         try {
           const response = await auth.validateToken(
             req.headers.authorization.replace('Bearer ', '')
@@ -445,7 +451,7 @@ module.exports = async (
         const { publicKey, deviceId } = req.body
 
         if (!publicKey) {
-          return res.status(400).json({
+          return res.status(500).json({
             field: 'publicKey',
             message: 'Please provide a valid public key'
           })
@@ -457,7 +463,7 @@ module.exports = async (
             deviceId
           )
         ) {
-          return res.status(400).json({
+          return res.status(500).json({
             field: 'deviceId',
             message: 'Please provide a valid device ID'
           })
@@ -514,7 +520,8 @@ module.exports = async (
         // If we're connected to lnd, unlock the wallet using the password supplied
         // and generate an auth token if that operation was successful.
         if (health.LNDStatus.success && walletInitialized) {
-          const { alias, password, invite, accessSecret } = req.body
+          
+          const { alias, pass, invite, accessSecret } = req.body
 
           await recreateLnServices()
 
@@ -522,7 +529,7 @@ module.exports = async (
             GunDB.logoff()
           }
 
-          const publicKey = await GunDB.authenticate(alias, password)
+          const publicKey = await GunDB.authenticate(alias, pass)
 
           if (!publicKey) {
             res.status(401).json({
@@ -548,7 +555,7 @@ module.exports = async (
           }
 
           if (!walletUnlocked) {
-            await unlockWallet(password)
+            await unlockWallet(pass)
           }
           let secretUsed = null
           if (accessSecret) {
