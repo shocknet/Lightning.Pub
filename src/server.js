@@ -2,6 +2,20 @@
  * @prettier
  */
 // @ts-check
+
+const ECCrypto = require('eccrypto')
+
+const ECC = require('../utils/ECC')
+
+/**
+ * This API run's private key.
+ */
+const runPrivateKey = ECCrypto.generatePrivate()
+/**
+ * This API run's public key.
+ */
+const runPublicKey = ECCrypto.getPublic(runPrivateKey)
+
 process.on('uncaughtException', e => {
   console.log('something bad happened!')
   console.log(e)
@@ -21,7 +35,6 @@ const server = program => {
   const { Logger: CommonLogger } = require('shock-common')
   const binaryParser = require('socket.io-msgpack-parser')
 
-  const ECC = require('../utils/ECC')
   const LightningServices = require('../utils/lightningServices')
   const app = Express()
 
@@ -117,20 +130,19 @@ const server = program => {
         // TODO
       }
 
-      const authorized = ECC.isAuthorizedDevice({
-        deviceId
-      })
+      const authorized = ECC.devicePublicKeys.has(deviceId)
 
       // Using classic promises syntax to avoid
       // modifying res.send's return type
       if (authorized && process.env.SHOCK_ENCRYPTION_ECC !== 'false') {
-        ECC.encryptMessage({
-          deviceId,
-          message: args[0]
-        }).then(encryptedMessage => {
-          args[0] = JSON.stringify(encryptedMessage)
-          oldSend.apply(res, args)
-        })
+        const devicePub = Buffer.from(ECC.devicePublicKeys.get(deviceId))
+
+        ECCrypto.encrypt(devicePub, Buffer.from(args[0], 'utf-8')).then(
+          encryptedMessage => {
+            args[0] = JSON.stringify(encryptedMessage)
+            oldSend.apply(res, args)
+          }
+        )
       }
 
       if (!authorized || process.env.SHOCK_ENCRYPTION_ECC === 'false') {
@@ -337,7 +349,9 @@ const server = program => {
           serverPort,
           useTLS: program.useTLS,
           CA,
-          CA_KEY
+          CA_KEY,
+          runPrivateKey,
+          runPublicKey
         }
       )
 
