@@ -2021,12 +2021,10 @@ module.exports = async (
     app.post(`/api/gun/wall/`, async (req, res) => {
       try {
         const { tags, title, contentItems, enableTipsOverlay } = req.body
-        const SEA = require('../services/gunDB/Mediator').mySEA
         const postRes = await GunActions.createPostNew(
           tags,
           title,
-          contentItems,
-          SEA
+          contentItems
         )
         if (enableTipsOverlay) {
           const [postID] = postRes
