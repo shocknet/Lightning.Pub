@@ -1,6 +1,7 @@
 /**
  * @prettier
  */
+// @ts-check
 process.on('uncaughtException', e => {
   console.log('something bad happened!')
   console.log(e)
