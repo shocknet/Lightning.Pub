@@ -105,6 +105,7 @@ const server = program => {
       return
     }
 
+    // @ts-expect-error
     res.send = (...args) => {
       if (args[0] && args[0].ciphertext && args[0].iv) {
         logger.warn('Response loop detected!')
@@ -398,6 +399,7 @@ const server = program => {
       }
       serverInstance.listen(serverPort, serverHost)
       logger.info('App listening on ' + serverHost + ' port ' + serverPort)
+      // @ts-expect-error
       module.server = serverInstance
     } catch (err) {
       logger.error({ exception: err, message: err.message, code: err.code })
