@@ -22,7 +22,7 @@ const Getters = require('./getters')
 const Key = require('./key')
 const Utils = require('./utils')
 const SchemaManager = require('../../schema')
-const LNDHealthMananger = require('../../../utils/lightningServices/errors')
+const LNDHealthManager = require('../../../utils/lightningServices/errors')
 const { enrollContentTokens, selfContentToken } = require('../../seed')
 
 /// <reference path="../../../utils/GunSmith/Smith.ts" />
@@ -305,7 +305,7 @@ const setCurrentStreamInfo = (encryptedCurrentStreamInfo, user) =>
   })
 
 /**
- * @typedef {object} SpontPaymentOptions
+ * @typedef {object} SpontaneousPaymentOptions
  * @prop {Common.Schema.OrderTargetType} type
  * @prop {string=} ackInfo
  */
@@ -320,7 +320,7 @@ const setCurrentStreamInfo = (encryptedCurrentStreamInfo, user) =>
  * @param {number} amount
  * @param {string} memo
  * @param {number} feeLimit
- * @param {SpontPaymentOptions} opts
+ * @param {SpontaneousPaymentOptions} opts
  * @throws {Error} If no response in less than 20 seconds from the recipient, or
  * lightning cannot find a route for the payment.
  * @returns {Promise<OrderRes>} The payment's preimage.
@@ -498,7 +498,7 @@ const sendSpontaneousPayment = async (
       feeLimit,
       payment_request: orderResponse.response
     })
-    const myLndPub = LNDHealthMananger.lndPub
+    const myLndPub = LNDHealthManager.lndPub
     if (
       (opts.type !== 'contentReveal' &&
         opts.type !== 'torrentSeed' &&
