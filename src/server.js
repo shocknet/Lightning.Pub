@@ -160,7 +160,7 @@ const server = program => {
         await LightningServices.init()
       }
 
-      await new Promise((resolve, reject) => {
+      await /** @type {Promise<void>} */ (new Promise((resolve, reject) => {
         LightningServices.services.lightning.getInfo({}, (err, res) => {
           if (
             err &&
@@ -172,7 +172,7 @@ const server = program => {
             resolve()
           }
         })
-      })
+      }))
 
       app.use(compression())
 
