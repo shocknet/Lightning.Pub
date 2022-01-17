@@ -329,7 +329,6 @@ const server = program => {
         },
         Sockets,
         {
-          serverHost,
           serverPort,
           useTLS: program.useTLS,
           CA,
