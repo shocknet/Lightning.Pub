@@ -2112,7 +2112,7 @@ module.exports = async (
           throw new Error(`Missing publicKey route param.`)
         }
 
-        await GunActions.unfollow(req.params.publicKey)
+        await GunActions.unfollow(publicKey)
 
         return res.status(200).json({
           ok: true
