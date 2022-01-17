@@ -472,11 +472,11 @@ module.exports = async (
           })
         }
 
-        const authorizedDevice = await ECC.authorizeDevice({
+        await ECC.authorizeDevice({
           deviceId,
           publicKey
         })
-        return res.json(authorizedDevice)
+        res.sendStatus(200)
       } catch (err) {
         logger.error(err)
         return res.status(401).json({
