@@ -17,6 +17,7 @@ const Big = require('big.js').default
 const { evolve } = require('ramda')
 const path = require('path')
 const cors = require('cors')
+const ECCrypto = require('eccrypto')
 
 const getListPage = require('../utils/paginate')
 const auth = require('../services/auth/auth')
@@ -46,7 +47,7 @@ module.exports = async (
   _app,
   config,
   mySocketsEvents,
-  { serverPort, CA, CA_KEY, useTLS }
+  { serverPort, useTLS, CA, CA_KEY, runPrivateKey, runPublicKey }
 ) => {
   /**
    * @typedef {import('express').Application} Application
@@ -100,7 +101,8 @@ module.exports = async (
         const APIStatus = {
           message: APIHealth.data,
           responseTime: APIHealth.headers['x-response-time'],
-          success: true
+          success: true,
+          encryptionPublicKey: runPublicKey.toString('base64')
         }
         return {
           LNDStatus,
@@ -112,7 +114,8 @@ module.exports = async (
         const APIStatus = {
           message: err?.response?.data,
           responseTime: err?.response?.headers['x-response-time'],
-          success: false
+          success: false,
+          encryptionPublicKey: runPublicKey.toString('base64')
         }
         logger.warn('Failed to retrieve API status', APIStatus)
         return {
@@ -270,13 +273,15 @@ module.exports = async (
 
         logger.info('Decrypting ECC message...')
 
-        const decryptedMessage = await ECC.decryptMessage({
-          deviceId,
-          encryptedMessage: req.body
-        })
+        const asBuffers = await ECC.convertToEncryptedMessage(req.body)
+
+        const decryptedMessage = await ECCrypto.decrypt(
+          runPrivateKey,
+          asBuffers
+        )
 
         // eslint-disable-next-line
-        req.body = JSON.parse(decryptedMessage)
+        req.body = JSON.parse(decryptedMessage.toString('utf8'))
 
         return next()
       } catch (err) {
