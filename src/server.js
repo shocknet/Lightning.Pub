@@ -32,7 +32,6 @@ const server = program => {
   const qrcode = require('qrcode-terminal')
   const relayClient = require('hybrid-relay-client/build')
   const {
-    unprotectedRoutes,
     sensitiveRoutes,
     nonEncryptedRoutes
   } = require('../utils/protectedRoutes')
@@ -81,41 +80,6 @@ const server = program => {
     return Crypto.createHash('SHA256')
       .update(Buffer.from(stringifyData(data)))
       .digest('hex')
-  }
-
-  const cacheCheck = ({ req, res, args, send }) => {
-    if (
-      (process.env.SHOCK_CACHE === 'true' || !process.env.SHOCK_CACHE) &&
-      req.method === 'GET'
-    ) {
-      const dataHash = hashData(args[0]).slice(-8)
-      res.set('shock-cache-hash', dataHash)
-
-      logger.debug('shock-cache-hash:', req.headers['shock-cache-hash'])
-      logger.debug('Data Hash:', dataHash)
-      if (
-        !req.headers['shock-cache-hash'] &&
-        (process.env.CACHE_HEADERS_MANDATORY === 'true' ||
-          !process.env.CACHE_HEADERS_MANDATORY)
-      ) {
-        logger.warn(
-          "Request is missing 'shock-cache-hash' header, please make sure to include that in each GET request in order to benefit from reduced data usage"
-        )
-        return { cached: false, hash: dataHash }
-      }
-
-      if (req.headers['shock-cache-hash'] === dataHash) {
-        logger.debug('Same Hash Detected!')
-        args[0] = null
-        res.status(304)
-        send.apply(res, args)
-        return { cached: true, hash: dataHash }
-      }
-
-      return { cached: false, hash: dataHash }
-    }
-
-    return { cached: false, hash: null }
   }
 
   /**
@@ -209,8 +173,6 @@ const server = program => {
           }
         })
       })
-
-      const auth = require('../services/auth/auth')
 
       app.use(compression())
 
