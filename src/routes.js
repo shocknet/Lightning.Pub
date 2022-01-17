@@ -50,7 +50,7 @@ module.exports = async (
   app,
   config,
   mySocketsEvents,
-  { serverPort, CA, CA_KEY, useTLS, runPrivateKey, runPublicKey,isTunnelled }
+  { serverPort, CA, CA_KEY, useTLS, runPrivateKey, runPublicKey }
 ) => {
   try {
     const Http = Axios.create({
