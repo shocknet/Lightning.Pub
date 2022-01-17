@@ -241,7 +241,7 @@ module.exports = async (
           return next()
         }
 
-        if (!deviceId) {
+        if (typeof deviceId !== 'string' || !deviceId) {
           const error = {
             field: 'deviceId',
             message: 'Please specify a device ID'
