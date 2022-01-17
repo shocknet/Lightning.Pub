@@ -1969,23 +1969,23 @@ module.exports = async (
         feeLimit,
         sessionUuid
       } = req.body
-      logger.info('handling spont pay')
+      logger.info('handling spontaneous pay')
       if (!feeLimit) {
         logger.error(
-          'please provide a "feeLimit" to the send spont payment request'
+          'please provide a "feeLimit" to the send spontaneous payment request'
         )
         return res.status(500).json({
           errorMessage:
-            'please provide a "feeLimit" to the send spont payment request'
+            'please provide a "feeLimit" to the send spontaneous payment request'
         })
       }
       if (!recipientPub || !amount) {
         logger.info(
-          'please provide a "recipientPub" and "amount" to the send spont payment request'
+          'please provide a "recipientPub" and "amount" to the send spontaneous payment request'
         )
         return res.status(500).json({
           errorMessage:
-            'please provide a "recipientPub" and "amount" to the send spont payment request'
+            'please provide a "recipientPub" and "amount" to the send spontaneous payment request'
         })
       }
       try {
@@ -1999,7 +1999,7 @@ module.exports = async (
         )
         res.json({ preimage, sessionUuid })
       } catch (err) {
-        logger.info('spont pay err:', err)
+        logger.info('spontaneous pay err:', err)
         return res.status(500).json({
           errorMessage: err.message
         })
@@ -2621,7 +2621,7 @@ module.exports = async (
     })
 
     ap.get('/qrCodeGenerator', (req, res) => {
-      console.log('qrrerrr')
+      console.log('/qrCodeGenerator')
       try {
         res.sendFile(path.join(__dirname, '../public/qrcode.min.js'))
       } catch (e) {
