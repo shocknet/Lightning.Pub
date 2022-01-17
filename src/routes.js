@@ -1973,8 +1973,6 @@ module.exports = async (
       })
     })
 
-    const GunEvent = Common.Constants.Event
-
     app.get('/api/gun/lndchanbackups', async (req, res) => {
       try {
         const user = require('../services/gunDB/Mediator').getUser()
