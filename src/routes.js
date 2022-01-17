@@ -4,7 +4,7 @@
 // @ts-check
 'use strict'
 
-const Axios = require('axios')
+const Axios = require('axios').default
 const Crypto = require('crypto')
 const Storage = require('node-persist')
 const logger = require('../config/log')
