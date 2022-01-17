@@ -113,6 +113,10 @@ const server = program => {
         return
       }
 
+      if (typeof deviceId !== 'string' || !deviceId) {
+        // TODO
+      }
+
       const authorized = ECC.isAuthorizedDevice({
         deviceId
       })
