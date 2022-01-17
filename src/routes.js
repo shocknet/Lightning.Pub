@@ -2535,7 +2535,9 @@ module.exports = async (
          * @type {import('winston').QueryOptions}
          */
         const options = {
-          from: new Date() - 1 * 60 * 60 * 1000,
+          // @ts-expect-error Winston's typings don't account for supporting
+          // numbers here.
+          from: (new Date()).valueOf() - 1 * 60 * 60 * 1000,
           until: new Date()
         }
 
