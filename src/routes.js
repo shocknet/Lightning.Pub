@@ -2063,6 +2063,10 @@ module.exports = async (
      * @typedef {import('express-serve-static-core').RequestHandler<P>} RequestHandler
      */
 
+    /**
+     * @typedef {import('express').Application} Application
+     */
+
     const ap = /** @type {Application} */ (app)
 
     /**
