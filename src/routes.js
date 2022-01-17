@@ -48,6 +48,12 @@ module.exports = async (
   mySocketsEvents,
   { serverPort, CA, CA_KEY, useTLS }
 ) => {
+  /**
+   * @typedef {import('express').Application} Application
+   */
+
+  const ap = /** @type {Application} */ (app)
+
   try {
     const Http = Axios.create({
       httpsAgent: new httpsAgent.Agent(
@@ -2063,12 +2069,6 @@ module.exports = async (
      * @template P
      * @typedef {import('express-serve-static-core').RequestHandler<P>} RequestHandler
      */
-
-    /**
-     * @typedef {import('express').Application} Application
-     */
-
-    const ap = /** @type {Application} */ (app)
 
     /**
      * @typedef {object} FollowsRouteParams
