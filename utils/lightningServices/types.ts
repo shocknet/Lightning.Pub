@@ -193,4 +193,8 @@ export interface AddInvoiceRes {
    *  all payments for this invoice as we require it for end to end security.
    */
   payment_addr: Common.Bytes
+  /**
+   * Custom property, by us.
+   */
+  liquidityCheck?: boolean
 }
