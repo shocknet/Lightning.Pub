@@ -14,8 +14,7 @@ const uuid = require('uuid/v4')
 const Common = require('shock-common')
 const isARealUsableNumber = require('lodash/isFinite')
 const Big = require('big.js').default
-const size = require('lodash/size')
-const { range, flatten, evolve } = require('ramda')
+const { evolve } = require('ramda')
 const path = require('path')
 const cors = require('cors')
 
@@ -31,8 +30,6 @@ const {
   nonEncryptedRoutes
 } = require('../utils/protectedRoutes')
 const GunActions = require('../services/gunDB/contact-api/actions')
-const GunGetters = require('../services/gunDB/contact-api/getters')
-const GunKey = require('../services/gunDB/contact-api/key')
 const LV2 = require('../utils/lightningServices/v2')
 const GunWriteRPC = require('../services/gunDB/rpc')
 const Key = require('../services/gunDB/contact-api/key')
