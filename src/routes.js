@@ -2432,6 +2432,7 @@ module.exports = async (
         const data = await handleGunFetch({
           path,
           startFromUserGraph: false,
+          // @ts-expect-error Validated above
           type,
           publicKey,
           publicKeyForDecryption,
