@@ -1955,6 +1955,11 @@ module.exports = async (
         const SEA = require('../services/gunDB/Mediator').mySEA
         const mySecret = require('../services/gunDB/Mediator').getMySecret()
         const encBackup = await user.get(Key.CHANNELS_BACKUP).then()
+        if (typeof encBackup !== 'string') {
+          throw new TypeError(
+            'Encrypted backup fetched from gun not an string.'
+          )
+        }
         const backup = await SEA.decrypt(encBackup, mySecret)
         logger.info(backup)
         res.json({ data: backup })
