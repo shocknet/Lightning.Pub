@@ -305,7 +305,7 @@ module.exports = async (
       } else {
         try {
           const response = await auth.validateToken(
-            req.headers.authorization.replace('Bearer ', '')
+            (req.headers.authorization || '').replace('Bearer ', '')
           )
           if (response.valid) {
             next()
@@ -1103,6 +1103,12 @@ module.exports = async (
     app.get('/api/lnd/unifiedTrx', (req, res) => {
       const { lightning } = LightningServices.services
       const { itemsPerPage, page, reversed = true } = req.query
+      if (typeof itemsPerPage !== 'number') {
+        throw new TypeError('itemsPerPage not a number')
+      }
+      if (typeof page !== 'number') {
+        throw new TypeError('page not a number')
+      }
       const offset = (page - 1) * itemsPerPage
       lightning.listPayments({}, (err, { payments = [] } = {}) => {
         if (err) {
@@ -1217,8 +1223,15 @@ module.exports = async (
     app.get('/api/lnd/listpayments', (req, res) => {
       const { lightning } = LightningServices.services
       const { itemsPerPage, page, paginate = true } = req.query
+      if (typeof itemsPerPage !== 'number') {
+        throw new TypeError('itemsPerPage not a number')
+      }
+      if (typeof page !== 'number') {
+        throw new TypeError('page not a number')
+      }
       lightning.listPayments(
         {
+          // TODO
           include_incomplete: !!req.include_incomplete
         },
         (err, { payments = [] } = {}) => {
@@ -1250,7 +1263,8 @@ module.exports = async (
           max_payments: x => Number(x),
           reversed: x => x === 'true'
         },
-        req.query
+        // TODO Validate
+        /** @type {any} */ (req.query)
       ))
 
       if (typeof include_incomplete !== 'boolean') {
@@ -1295,6 +1309,12 @@ module.exports = async (
     app.get('/api/lnd/listinvoices', (req, res) => {
       const { lightning } = LightningServices.services
       const { page, itemsPerPage, reversed = true } = req.query
+      if (typeof itemsPerPage !== 'number') {
+        throw new TypeError('itemsPerPage not a number')
+      }
+      if (typeof page !== 'number') {
+        throw new TypeError('page not a number')
+      }
       const offset = (page - 1) * itemsPerPage
       // const limit = page * itemsPerPage;
       lightning.listInvoices(
@@ -1910,6 +1930,10 @@ module.exports = async (
     app.get('/api/lnd/closedchannels', (req, res) => {
       const { lightning } = LightningServices.services
       const { closeTypeFilters = [] } = req.query
+      if (!Array.isArray(closeTypeFilters)) {
+        throw new TypeError('closeTypeFilters not an Array')
+      }
+      // @ts-expect-error I dunno what's going on here, all arrays have reduce()
       const lndFilters = closeTypeFilters.reduce(
         (filters, filter) => ({ ...filters, [filter]: true }),
         {}
