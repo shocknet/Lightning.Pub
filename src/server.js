@@ -283,7 +283,7 @@ const server = program => {
             return httpsServer
           }
 
-          const httpServer = Http.Server(app)
+          const httpServer = new Http.Server(app)
           return httpServer
         } catch (err) {
           logger.error(err.message)
@@ -291,7 +291,7 @@ const server = program => {
             'An error has occurred while finding an LND cert to use to open an HTTPS server'
           )
           logger.warn('Falling back to opening an HTTP server...')
-          const httpServer = Http.Server(app)
+          const httpServer = new Http.Server(app)
           return httpServer
         }
       }
