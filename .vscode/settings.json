@@ -19,6 +19,7 @@
     "LNDRPC",
     "lndstreaming",
     "PUBKEY",
+    "qrcode",
     "radata",
     "Reqs",
     "shockping",
