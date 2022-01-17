@@ -1899,6 +1899,12 @@ module.exports = async (
     app.get('/api/lnd/transactions', (req, res) => {
       const { lightning } = LightningServices.services
       const { page, paginate = true, itemsPerPage } = req.query
+      if (typeof page !== 'number') {
+        throw new TypeError('page is not a number')
+      }
+      if (typeof itemsPerPage !== 'number') {
+        throw new TypeError('itemsPerPage is not a number')
+      }
       lightning.getTransactions({}, (err, { transactions = [] } = {}) => {
         if (err) {
           return handleError(res, err)
