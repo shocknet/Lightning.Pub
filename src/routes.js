@@ -2251,7 +2251,6 @@ module.exports = async (
         }
 
         if (type === 'once') node.once(listener)
-        if (type === 'load') node.load(listener)
         if (type === 'specialOnce') node.specialOnce(listener)
       })
     }
@@ -2411,7 +2410,7 @@ module.exports = async (
 
     ap.get('/api/gun/otheruser/:publicKey/:type/:path', async (req, res) => {
       try {
-        const allowedTypes = ['once', 'load', 'open', 'specialOnce']
+        const allowedTypes = ['once', 'open', 'specialOnce']
         const publicKeyForDecryption = req.header(PUBKEY_FOR_DECRYPT_HEADER)
         const epubForDecryption = req.header(EPUB_FOR_DECRYPT_HEADER)
         const { path /*:rawPath*/, publicKey, type } = req.params
