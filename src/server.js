@@ -49,6 +49,13 @@ const server = program => {
     nonEncryptedRoutes
   } = require('../utils/protectedRoutes')
 
+  /**
+   * An offline-only private key used for authenticating a client's key
+   * exchange. Neither the tunnel nor the WWW should see this private key, it
+   * should only be served through STDOUT (via QR or else).
+   */
+  const accessSecret = program.tunnel ? ECCrypto.generatePrivate() : null
+
   // load app default configuration data
   const defaults = require('../config/defaults')(program.mainnet)
   const rootFolder = program.rootPath || process.resourcesPath || __dirname
@@ -351,7 +358,8 @@ const server = program => {
           CA,
           CA_KEY,
           runPrivateKey,
-          runPublicKey
+          runPublicKey,
+          accessSecret
         }
       )
 
@@ -389,12 +397,12 @@ const server = program => {
               Storage.setItem('relay/url', noProtocolAddress)
             ])
             const dataToQr = JSON.stringify({
-              internalIP: `${params.relayId}@${noProtocolAddress}`,
-              walletPort: 443,
-              externalIP: `${params.relayId}@${noProtocolAddress}`
+              URI: `https://${params.relayId}@${noProtocolAddress}`,
+              // Null-check is just to please typescript
+              accessSecret: accessSecret && accessSecret.toString('base64')
             })
-            qrcode.generate(dataToQr, { small: true })
-            logger.info(`connect to ${params.relayId}@${noProtocolAddress}`)
+            qrcode.generate(dataToQr, { small: false })
+            logger.info(`connect to ${params.relayId}@${noProtocolAddress}:443`)
           } else {
             logger.error('!! Relay did not connect to server !!')
           }
