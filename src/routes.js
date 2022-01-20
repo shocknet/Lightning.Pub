@@ -47,7 +47,7 @@ module.exports = async (
   _app,
   config,
   mySocketsEvents,
-  { serverPort, useTLS, CA, CA_KEY, runPrivateKey, runPublicKey }
+  { serverPort, useTLS, CA, CA_KEY, runPrivateKey, runPublicKey, accessSecret }
 ) => {
   /**
    * @typedef {import('express').Application} Application
@@ -451,9 +451,14 @@ module.exports = async (
 
     app.post('/api/encryption/exchange', async (req, res) => {
       try {
-        const { publicKey, deviceId } = req.body
+        let { publicKey, deviceId } = req.body
 
-        if (!publicKey) {
+        if (Buffer.isBuffer(accessSecret)) {
+          publicKey = await ECCrypto.decrypt(accessSecret, publicKey)
+          deviceId = await ECCrypto.decrypt(accessSecret, deviceId)
+        }
+
+        if (typeof publicKey !== 'string' || !publicKey) {
           return res.status(400).json({
             field: 'publicKey',
             message: 'Please provide a valid public key'
