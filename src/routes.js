@@ -454,14 +454,25 @@ module.exports = async (
         let { publicKey, deviceId } = req.body
 
         if (Buffer.isBuffer(accessSecret)) {
-          publicKey = await ECCrypto.decrypt(accessSecret, publicKey)
-          deviceId = await ECCrypto.decrypt(accessSecret, deviceId)
+          logger.info('Will decrypt public key and device ID for key exchange.')
+
+          publicKey = await ECCrypto.decrypt(
+            accessSecret,
+            ECC.convertToEncryptedMessage(publicKey)
+          )
+          deviceId = await ECCrypto.decrypt(
+            accessSecret,
+            ECC.convertToEncryptedMessage(deviceId)
+          )
+
+          publicKey = publicKey.toString('utf8')
+          deviceId = deviceId.toString('utf8')
         }
 
         if (typeof publicKey !== 'string' || !publicKey) {
-          return res.status(400).json({
+          return res.status(500).json({
             field: 'publicKey',
-            message: 'Please provide a valid public key'
+            errorMessage: 'Please provide a valid public key'
           })
         }
 
@@ -471,9 +482,9 @@ module.exports = async (
             deviceId
           )
         ) {
-          return res.status(400).json({
+          return res.status(500).json({
             field: 'deviceId',
-            message: 'Please provide a valid device ID'
+            errorMessage: 'Please provide a valid device ID'
           })
         }
 
@@ -486,7 +497,8 @@ module.exports = async (
         logger.error(err)
         return res.status(401).json({
           field: 'unknown',
-          message: err
+          message: err,
+          errorMessage: err.message || err
         })
       }
     })
@@ -615,7 +627,7 @@ module.exports = async (
       try {
         const health = await checkHealth()
         const walletInitialized = await walletExists()
-        const { alias, password } = req.body
+        const { alias, pass } = req.body
         const lndUp = health.LNDStatus.success
         const walletUnlocked = health.LNDStatus.walletStatus === 'unlocked'
         const { authorization = '' } = req.headers
@@ -636,14 +648,14 @@ module.exports = async (
           GunDB.logoff()
         }
 
-        const publicKey = await GunDB.authenticate(alias, password)
+        const publicKey = await GunDB.authenticate(alias, pass)
 
         if (!publicKey) {
           throw new Error('Invalid alias/password combination')
         }
 
         if (!walletUnlocked) {
-          await unlockWallet(password)
+          await unlockWallet(pass)
         }
 
         if (walletUnlocked && !authorization && !allowUnlockedLND) {
