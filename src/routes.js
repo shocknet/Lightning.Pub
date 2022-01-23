@@ -78,15 +78,78 @@ module.exports = async (
       return message
     }
 
+    const unlockWallet = password =>
+      new Promise((resolve, reject) => {
+        try {
+          const args = {
+            wallet_password: Buffer.from(password, 'utf-8')
+          }
+          const { walletUnlocker } = LightningServices.services
+          walletUnlocker.unlockWallet(args, (unlockErr, unlockResponse) => {
+            if (unlockErr) {
+              reject(unlockErr)
+              return
+            }
+
+            resolve(unlockResponse)
+          })
+        } catch (err) {
+          if (err.message === 'unknown service lnrpc.WalletUnlocker') {
+            resolve({
+              field: 'walletUnlocker',
+              message: 'Wallet already unlocked'
+            })
+            return
+          }
+
+          logger.error('Unlock Error:', err)
+
+          reject({
+            field: 'wallet',
+            code: err.code,
+            message: sanitizeLNDError(err.message)
+          })
+        }
+      })
+
     const getAvailableService = () => {
       return lndErrorManager.getAvailableService()
+    }
+
+    // Hack to check whether or not a wallet exists
+    const walletExists = async () => {
+      try {
+        const availableService = await getAvailableService()
+        if (availableService.service === 'lightning') {
+          return true
+        }
+
+        if (availableService.service === 'walletUnlocker') {
+          const randomPassword = Crypto.randomBytes(4).toString('hex')
+          try {
+            await unlockWallet(randomPassword)
+            return true
+          } catch (err) {
+            if (err.message.indexOf('invalid passphrase') > -1) {
+              return true
+            }
+            return false
+          }
+        }
+      } catch (err) {
+        logger.error('LND error:', err)
+        return false
+      }
     }
 
     const checkHealth = async () => {
       let LNDStatus = {}
       try {
         const serviceStatus = await getAvailableService()
-        LNDStatus = serviceStatus
+        LNDStatus = {
+          ...serviceStatus,
+          walletExists: await walletExists()
+        }
       } catch (e) {
         LNDStatus = {
           message: e.message,
@@ -160,66 +223,6 @@ module.exports = async (
       }
 
       next()
-    }
-
-    const unlockWallet = password =>
-      new Promise((resolve, reject) => {
-        try {
-          const args = {
-            wallet_password: Buffer.from(password, 'utf-8')
-          }
-          const { walletUnlocker } = LightningServices.services
-          walletUnlocker.unlockWallet(args, (unlockErr, unlockResponse) => {
-            if (unlockErr) {
-              reject(unlockErr)
-              return
-            }
-
-            resolve(unlockResponse)
-          })
-        } catch (err) {
-          if (err.message === 'unknown service lnrpc.WalletUnlocker') {
-            resolve({
-              field: 'walletUnlocker',
-              message: 'Wallet already unlocked'
-            })
-            return
-          }
-
-          logger.error('Unlock Error:', err)
-
-          reject({
-            field: 'wallet',
-            code: err.code,
-            message: sanitizeLNDError(err.message)
-          })
-        }
-      })
-
-    // Hack to check whether or not a wallet exists
-    const walletExists = async () => {
-      try {
-        const availableService = await getAvailableService()
-        if (availableService.service === 'lightning') {
-          return true
-        }
-
-        if (availableService.service === 'walletUnlocker') {
-          const randomPassword = Crypto.randomBytes(4).toString('hex')
-          try {
-            await unlockWallet(randomPassword)
-            return true
-          } catch (err) {
-            if (err.message.indexOf('invalid passphrase') > -1) {
-              return true
-            }
-            return false
-          }
-        }
-      } catch (err) {
-        logger.error('LND error:', err)
-        return false
-      }
     }
 
     app.use(
