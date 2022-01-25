@@ -3,7 +3,7 @@
 ![GitHub last commit](https://img.shields.io/github/last-commit/shocknet/Lightning.Pub?style=flat-square)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com) 
 [![Chat](https://img.shields.io/badge/chat-on%20Telegram-blue?style=flat-square)](https://t.me/LightningPage)
-[![Twitter Follow](https://img.shields.io/twitter/follow/MyLightningPage?style=flat-square)](https://twitter.com/ShockBTC)
+[![Twitter Follow](https://img.shields.io/twitter/follow/Shocknet?style=flat-square)](https://twitter.com/ShockBTC)
 
 <p></p>
 
