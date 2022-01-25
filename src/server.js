@@ -1,6 +1,21 @@
 /**
  * @prettier
  */
+// @ts-check
+
+const ECCrypto = require('eccrypto')
+
+const ECC = require('../utils/ECC')
+
+/**
+ * This API run's private key.
+ */
+const runPrivateKey = ECCrypto.generatePrivate()
+/**
+ * This API run's public key.
+ */
+const runPublicKey = ECCrypto.getPublic(runPrivateKey)
+
 process.on('uncaughtException', e => {
   console.log('something bad happened!')
   console.log(e)
@@ -20,7 +35,6 @@ const server = program => {
   const { Logger: CommonLogger } = require('shock-common')
   const binaryParser = require('socket.io-msgpack-parser')
 
-  const ECC = require('../utils/ECC')
   const LightningServices = require('../utils/lightningServices')
   const app = Express()
 
@@ -31,10 +45,16 @@ const server = program => {
   const qrcode = require('qrcode-terminal')
   const relayClient = require('hybrid-relay-client/build')
   const {
-    unprotectedRoutes,
     sensitiveRoutes,
     nonEncryptedRoutes
   } = require('../utils/protectedRoutes')
+
+  /**
+   * An offline-only private key used for authenticating a client's key
+   * exchange. Neither the tunnel nor the WWW should see this private key, it
+   * should only be served through STDOUT (via QR or else).
+   */
+  const accessSecret = program.tunnel ? ECCrypto.generatePrivate() : null
 
   // load app default configuration data
   const defaults = require('../config/defaults')(program.mainnet)
@@ -82,41 +102,6 @@ const server = program => {
       .digest('hex')
   }
 
-  const cacheCheck = ({ req, res, args, send }) => {
-    if (
-      (process.env.SHOCK_CACHE === 'true' || !process.env.SHOCK_CACHE) &&
-      req.method === 'GET'
-    ) {
-      const dataHash = hashData(args[0]).slice(-8)
-      res.set('shock-cache-hash', dataHash)
-
-      logger.debug('shock-cache-hash:', req.headers['shock-cache-hash'])
-      logger.debug('Data Hash:', dataHash)
-      if (
-        !req.headers['shock-cache-hash'] &&
-        (process.env.CACHE_HEADERS_MANDATORY === 'true' ||
-          !process.env.CACHE_HEADERS_MANDATORY)
-      ) {
-        logger.warn(
-          "Request is missing 'shock-cache-hash' header, please make sure to include that in each GET request in order to benefit from reduced data usage"
-        )
-        return { cached: false, hash: dataHash }
-      }
-
-      if (req.headers['shock-cache-hash'] === dataHash) {
-        logger.debug('Same Hash Detected!')
-        args[0] = null
-        res.status(304)
-        send.apply(res, args)
-        return { cached: true, hash: dataHash }
-      }
-
-      return { cached: false, hash: dataHash }
-    }
-
-    return { cached: false, hash: null }
-  }
-
   /**
    * @param {Express.Request} req
    * @param {Express.Response} res
@@ -140,6 +125,7 @@ const server = program => {
       return
     }
 
+    // @ts-expect-error
     res.send = (...args) => {
       if (args[0] && args[0].ciphertext && args[0].iv) {
         logger.warn('Response loop detected!')
@@ -147,20 +133,23 @@ const server = program => {
         return
       }
 
-      const authorized = ECC.isAuthorizedDevice({
-        deviceId
-      })
+      if (typeof deviceId !== 'string' || !deviceId) {
+        // TODO
+      }
+
+      const authorized = ECC.devicePublicKeys.has(deviceId)
 
       // Using classic promises syntax to avoid
       // modifying res.send's return type
       if (authorized && process.env.SHOCK_ENCRYPTION_ECC !== 'false') {
-        ECC.encryptMessage({
-          deviceId,
-          message: args[0]
-        }).then(encryptedMessage => {
-          args[0] = JSON.stringify(encryptedMessage)
-          oldSend.apply(res, args)
-        })
+        const devicePub = Buffer.from(ECC.devicePublicKeys.get(deviceId))
+
+        ECCrypto.encrypt(devicePub, Buffer.from(args[0], 'utf-8')).then(
+          encryptedMessage => {
+            args[0] = JSON.stringify(encryptedMessage)
+            oldSend.apply(res, args)
+          }
+        )
       }
 
       if (!authorized || process.env.SHOCK_ENCRYPTION_ECC === 'false') {
@@ -195,7 +184,7 @@ const server = program => {
         await LightningServices.init()
       }
 
-      await new Promise((resolve, reject) => {
+      await /** @type {Promise<void>} */ (new Promise((resolve, reject) => {
         LightningServices.services.lightning.getInfo({}, (err, res) => {
           if (
             err &&
@@ -207,9 +196,7 @@ const server = program => {
             resolve()
           }
         })
-      })
-
-      const auth = require('../services/auth/auth')
+      }))
 
       app.use(compression())
 
@@ -320,7 +307,7 @@ const server = program => {
             return httpsServer
           }
 
-          const httpServer = Http.Server(app)
+          const httpServer = new Http.Server(app)
           return httpServer
         } catch (err) {
           logger.error(err.message)
@@ -328,7 +315,7 @@ const server = program => {
             'An error has occurred while finding an LND cert to use to open an HTTPS server'
           )
           logger.warn('Falling back to opening an HTTP server...')
-          const httpServer = Http.Server(app)
+          const httpServer = new Http.Server(app)
           return httpServer
         }
       }
@@ -366,11 +353,13 @@ const server = program => {
         },
         Sockets,
         {
-          serverHost,
           serverPort,
           useTLS: program.useTLS,
           CA,
-          CA_KEY
+          CA_KEY,
+          runPrivateKey,
+          runPublicKey,
+          accessSecret
         }
       )
 
@@ -408,12 +397,12 @@ const server = program => {
               Storage.setItem('relay/url', noProtocolAddress)
             ])
             const dataToQr = JSON.stringify({
-              internalIP: `${params.relayId}@${noProtocolAddress}`,
-              walletPort: 443,
-              externalIP: `${params.relayId}@${noProtocolAddress}`
+              URI: `https://${params.relayId}@${noProtocolAddress}`,
+              // Null-check is just to please typescript
+              accessSecret: accessSecret && accessSecret.toString('base64')
             })
-            qrcode.generate(dataToQr, { small: true })
-            logger.info(`connect to ${params.relayId}@${noProtocolAddress}`)
+            qrcode.generate(dataToQr, { small: false })
+            logger.info(`connect to ${params.relayId}@${noProtocolAddress}:443`)
           } else {
             logger.error('!! Relay did not connect to server !!')
           }
@@ -436,6 +425,7 @@ const server = program => {
       }
       serverInstance.listen(serverPort, serverHost)
       logger.info('App listening on ' + serverHost + ' port ' + serverPort)
+      // @ts-expect-error
       module.server = serverInstance
     } catch (err) {
       logger.error({ exception: err, message: err.message, code: err.code })

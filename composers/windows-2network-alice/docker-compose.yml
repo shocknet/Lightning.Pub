@@ -13,5 +13,4 @@ services:
       - 9835:9835
     volumes:
       - C:\Users\boufn\.polar\networks\2\volumes\lnd\alice:/root/.lnd
-    environment:
-      TRUSTED_KEYS: 'false'
+    
