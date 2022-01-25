@@ -29,7 +29,7 @@ For easy setup on your Laptop/Desktop, [a node wizard is available here.](https:
 * Looks for local LND in its default path 
 * Default gun peer is `gun.shock.network`
 * Change defaults in `defaults.js`
-* Requires [Node.js](https://nodejs.org) 14
+* Requires [Node.js](https://nodejs.org) 16
 
 #### Steps:
 1) Run [LND](https://github.com/shocknet/lnd/releases) - *Example mainnet startup*:
@@ -42,7 +42,7 @@ For easy setup on your Laptop/Desktop, [a node wizard is available here.](https:
 2) Download and Install API
 
 ```
-git clone https://github.com/shocknet/api
+git clone https://github.com/shocknet/Lightning.Pub
 cd api
 yarn install
 ```
