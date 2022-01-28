@@ -8,9 +8,8 @@ module.exports = {
       '/favicon.ico': true,
       '/api/lnd/connect': true,
       '/api/lnd/wallet/status': true,
-      '/api/lnd/auth': true,
       //
-      '/api/gun/auth': true,
+      '/api/gunw': true,
       '/api/subscribeStream': true,
       '/': true,
       '/api/accessInfo': true,
@@ -20,7 +19,7 @@ module.exports = {
       '/api/lnd/connect': true,
       '/api/lnd/wallet': true,
       '/api/lnd/wallet/existing': true,
-      '/api/lnd/auth': true,
+      '/api/lnd/unlock': true,
       '/api/security/exchangeKeys': true,
       '/api/encryption/exchange': true
     },
