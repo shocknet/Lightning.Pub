@@ -54,7 +54,8 @@ const server = program => {
    * exchange. Neither the tunnel nor the WWW should see this private key, it
    * should only be served through STDOUT (via QR or else).
    */
-  const accessSecret = program.tunnel ? ECCrypto.generatePrivate() : null
+  const accessSecret = ECCrypto.generatePrivate()
+  const accessSecretBase64 = accessSecret.toString('base64')
 
   // load app default configuration data
   const defaults = require('../config/defaults')(program.mainnet)
@@ -342,8 +343,6 @@ const server = program => {
         }
       })
 
-      const Sockets = require('./sockets')(io)
-
       require('./routes')(
         app,
         {
@@ -351,7 +350,6 @@ const server = program => {
           lndAddress: program.lndAddress,
           cliArgs: program
         },
-        Sockets,
         {
           serverPort,
           useTLS: program.useTLS,
@@ -399,30 +397,29 @@ const server = program => {
             const dataToQr = JSON.stringify({
               URI: `https://${params.relayId}@${noProtocolAddress}`,
               // Null-check is just to please typescript
-              accessSecret: accessSecret && accessSecret.toString('base64')
+              accessSecret: accessSecretBase64
             })
             qrcode.generate(dataToQr, { small: false })
             logger.info(`connect to ${params.relayId}@${noProtocolAddress}:443`)
+            console.log('\n')
+            console.log(`Here's your access secret:`)
+            console.log('\n')
+            console.log(accessSecretBase64)
+            console.log('\n')
+            console.log('\n')
           } else {
             logger.error('!! Relay did not connect to server !!')
           }
         })
+      } else {
+        console.log('\n')
+        console.log(`Here's your access secret:`)
+        console.log('\n')
+        console.log(accessSecretBase64)
+        console.log('\n')
+        console.log('\n')
       }
 
-      if (process.env.ALLOW_UNLOCKED_LND === 'true') {
-        const codes = await Storage.valuesWithKeyMatch(
-          /^UnlockedAccessSecrets\//u
-        )
-        if (codes.length === 0) {
-          const code = ECC.generateRandomString(12)
-          await Storage.setItem(`UnlockedAccessSecrets/${code}`, false)
-          await Storage.setItem(`FirstAccessSecret`, code)
-          logger.info('the access code is:' + code)
-        } else if (codes.length === 1 && codes[0] === false) {
-          const firstCode = await Storage.getItem('FirstAccessSecret')
-          logger.info('the access code is:' + firstCode)
-        }
-      }
       serverInstance.listen(serverPort, serverHost)
       logger.info('App listening on ' + serverHost + ' port ' + serverPort)
       // @ts-expect-error

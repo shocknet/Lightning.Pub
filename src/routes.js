@@ -46,7 +46,6 @@ const SESSION_ID = uuid()
 module.exports = async (
   _app,
   config,
-  mySocketsEvents,
   { serverPort, useTLS, CA, CA_KEY, runPrivateKey, runPublicKey, accessSecret }
 ) => {
   /**
@@ -456,21 +455,21 @@ module.exports = async (
       try {
         let { publicKey, deviceId } = req.body
 
-        if (Buffer.isBuffer(accessSecret)) {
-          logger.info('Will decrypt public key and device ID for key exchange.')
+        logger.info('Will decrypt public key and device ID for key exchange.')
 
-          publicKey = await ECCrypto.decrypt(
-            accessSecret,
-            ECC.convertToEncryptedMessage(publicKey)
-          )
-          deviceId = await ECCrypto.decrypt(
-            accessSecret,
-            ECC.convertToEncryptedMessage(deviceId)
-          )
+        console.log(req.body)
 
-          publicKey = publicKey.toString('utf8')
-          deviceId = deviceId.toString('utf8')
-        }
+        publicKey = await ECCrypto.decrypt(
+          accessSecret,
+          ECC.convertToEncryptedMessage(publicKey)
+        )
+        deviceId = await ECCrypto.decrypt(
+          accessSecret,
+          ECC.convertToEncryptedMessage(deviceId)
+        )
+
+        publicKey = publicKey.toString('utf8')
+        deviceId = deviceId.toString('utf8')
 
         if (typeof publicKey !== 'string' || !publicKey) {
           return res.status(500).json({
@@ -526,15 +525,6 @@ module.exports = async (
         })
       }
     })
-
-    const validateToken = async token => {
-      try {
-        const tokenValid = await auth.validateToken(token)
-        return tokenValid
-      } catch (err) {
-        return false
-      }
-    }
 
     /**
      * Get the latest channel backups before subscribing.
@@ -626,15 +616,13 @@ module.exports = async (
       })
     }
 
-    app.post('/api/lnd/auth', async (req, res) => {
+    app.post('/api/lnd/unlock', async (req, res) => {
       try {
         const health = await checkHealth()
         const walletInitialized = await walletExists()
-        const { alias, pass } = req.body
+        const { pass } = req.body
         const lndUp = health.LNDStatus.success
         const walletUnlocked = health.LNDStatus.walletStatus === 'unlocked'
-        const { authorization = '' } = req.headers
-        const allowUnlockedLND = process.env.ALLOW_UNLOCKED_LND === 'true'
         const { lightning } = LightningServices.services
 
         if (!lndUp) {
@@ -647,36 +635,8 @@ module.exports = async (
 
         await recreateLnServices()
 
-        if (GunDB.isAuthenticated()) {
-          GunDB.logoff()
-        }
-
-        const publicKey = await GunDB.authenticate(alias, pass)
-
-        if (!publicKey) {
-          throw new Error('Invalid alias/password combination')
-        }
-
         if (!walletUnlocked) {
           await unlockWallet(pass)
-        }
-
-        if (walletUnlocked && !authorization && !allowUnlockedLND) {
-          throw new Error(
-            'Invalid alias/password combination (Untrusted Device)'
-          )
-        }
-
-        if (walletUnlocked && !allowUnlockedLND) {
-          const validatedToken = await validateToken(
-            authorization.replace('Bearer ', '')
-          )
-
-          if (!validatedToken) {
-            throw new Error(
-              'Invalid alias/password combination (Untrusted Auth Token)'
-            )
-          }
         }
 
         // Generate auth token and send it as a JSON response
@@ -706,23 +666,14 @@ module.exports = async (
           }, 1000)
         })
 
-        saveChannelsBackup()
-
-        // Send an event to update lightning's status
-        mySocketsEvents.emit('updateLightning')
-
-        onNewChannelBackup()
-
-        setTimeout(() => {
-          channelRequest()
-        }, 30 * 1000)
+        // saveChannelsBackup()
+        // onNewChannelBackup()
+        // setTimeout(() => {
+        //   channelRequest()
+        // }, 30 * 1000)
 
         res.json({
-          authorization: token,
-          user: {
-            alias,
-            publicKey
-          }
+          authorization: token
         })
       } catch (err) {
         logger.error('Unlock Error:', err)
@@ -739,16 +690,10 @@ module.exports = async (
     app.post('/api/lnd/wallet', async (req, res) => {
       try {
         const { walletUnlocker } = LightningServices.services
-        const { password, alias } = req.body
+        const { password } = req.body
         const healthResponse = await checkHealth()
+        const walletInitialized = await walletExists()
         const isUnlocked = healthResponse.LNDStatus.service !== 'walletUnlocker'
-
-        if (!alias) {
-          return res.status(400).json({
-            field: 'alias',
-            errorMessage: 'Please specify an alias for your new wallet'
-          })
-        }
 
         if (!password) {
           return res.status(400).json({
@@ -765,8 +710,8 @@ module.exports = async (
           })
         }
 
-        if (isUnlocked) {
-          throw new Error('Wallet is already unlocked')
+        if (walletInitialized || isUnlocked) {
+          throw new Error('A wallet already exists')
         }
 
         const [genSeedErr, genSeedResponse] = await new Promise(res => {
@@ -794,15 +739,6 @@ module.exports = async (
           wallet_password: Buffer.from(password, 'utf8'),
           cipher_seed_mnemonic: mnemonicPhrase
         }
-
-        // Register user before creating wallet
-        const publicKey = await GunDB.register(alias, password)
-
-        await GunActions.saveSeedBackup(
-          mnemonicPhrase,
-          GunDB.getUser(),
-          GunDB.mySEA
-        )
 
         const [initWalletErr, initWalletResponse] = await new Promise(res => {
           walletUnlocker.initWallet(
@@ -850,11 +786,7 @@ module.exports = async (
               }, 30 * 1000)
               return res.json({
                 mnemonicPhrase,
-                authorization: token,
-                user: {
-                  alias,
-                  publicKey
-                }
+                authorization: token
               })
             } catch (err) {
               logger.error(err)
@@ -2707,42 +2639,7 @@ module.exports = async (
         return
       }
       try {
-        const [relayId, relayUrl, accessSecret] = await Promise.all([
-          Storage.getItem('relay/id'),
-          Storage.getItem('relay/url'),
-          Storage.getItem('FirstAccessSecret')
-        ])
-        const response = {}
-        if (config.cliArgs.tunnel) {
-          if (!relayId || !relayUrl) {
-            response.relayNotFound = true
-          } else {
-            response.relayId = relayId
-            response.relayUrl = relayUrl
-          }
-        } else {
-          response.tunnelDisabled = true
-        }
-
-        if (process.env.ALLOW_UNLOCKED_LND !== 'true') {
-          response.accessSecretDisabled = true
-          return res.json(response)
-        }
-
-        if (!accessSecret) {
-          response.accessCodeNotFound = true
-          res.json(response)
-          return
-        }
-        const codeUsed = await Storage.getItem(
-          `UnlockedAccessSecrets/${accessSecret}`
-        )
-        if (codeUsed !== false) {
-          response.accessCodeUsed = true
-          return res.json(response)
-        }
-        response.accessCode = accessSecret
-        res.json(response)
+        throw new Error('')
       } catch (e) {
         logger.error(e)
         res.status(500).json({
