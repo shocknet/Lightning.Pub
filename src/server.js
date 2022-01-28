@@ -409,20 +409,6 @@ const server = program => {
         })
       }
 
-      if (process.env.ALLOW_UNLOCKED_LND === 'true') {
-        const codes = await Storage.valuesWithKeyMatch(
-          /^UnlockedAccessSecrets\//u
-        )
-        if (codes.length === 0) {
-          const code = ECC.generateRandomString(12)
-          await Storage.setItem(`UnlockedAccessSecrets/${code}`, false)
-          await Storage.setItem(`FirstAccessSecret`, code)
-          logger.info('the access code is:' + code)
-        } else if (codes.length === 1 && codes[0] === false) {
-          const firstCode = await Storage.getItem('FirstAccessSecret')
-          logger.info('the access code is:' + firstCode)
-        }
-      }
       serverInstance.listen(serverPort, serverHost)
       logger.info('App listening on ' + serverHost + ' port ' + serverPort)
       // @ts-expect-error
