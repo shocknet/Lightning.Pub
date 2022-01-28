@@ -734,7 +734,7 @@ function createUserReplica() {
  */
 const Gun = opts => {
   lastOpts = opts
-  forge()
+  // forge()
 
   return createReplica('$root')
 }
