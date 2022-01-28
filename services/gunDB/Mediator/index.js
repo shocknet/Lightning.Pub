@@ -281,7 +281,7 @@ const isAuthenticating = () => _isAuthenticating
 const isRegistering = () => _isRegistering
 
 const getGun = () => {
-  return gun
+  throw new Error('NO GUNS')
 }
 
 const getUser = () => {
