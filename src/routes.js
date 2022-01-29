@@ -2630,7 +2630,7 @@ module.exports = async (
       }
     })
 
-    app.get('/api/accessInfo', async (req, res) => {
+    app.get('/api/accessInfo', (req, res) => {
       if (req.ip !== '127.0.0.1') {
         res.json({
           field: 'origin',
