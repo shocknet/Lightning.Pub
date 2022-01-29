@@ -280,6 +280,9 @@ const isAuthenticated = () => typeof user.is === 'object' && user.is !== null
 const isAuthenticating = () => _isAuthenticating
 const isRegistering = () => _isRegistering
 
+/**
+ * @returns {import('../contact-api/SimpleGUN').GUNNode}
+ */
 const getGun = () => {
   throw new Error('NO GUNS')
 }
