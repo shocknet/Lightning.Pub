@@ -306,8 +306,10 @@ const setCurrentStreamInfo = (encryptedCurrentStreamInfo, user) =>
 
 /**
  * @typedef {object} SpontaneousPaymentOptions
- * @prop {Common.Schema.OrderTargetType} type
+ * @prop {Common.Schema.OrderTargetType=} type
  * @prop {string=} ackInfo
+ * @prop {number=} maxParts
+ * @prop {number=} timeoutSeconds
  */
 /**
  * @typedef {object} OrderRes
@@ -330,7 +332,7 @@ const sendSpontaneousPayment = async (
   amount,
   memo,
   feeLimit,
-  opts = { type: 'spontaneousPayment' }
+  { ackInfo, maxParts, timeoutSeconds, type = 'spontaneousPayment' }
 ) => {
   try {
     const SEA = require('../Mediator').mySEA
@@ -338,12 +340,12 @@ const sendSpontaneousPayment = async (
     const myPub = getUser()._.sea.pub
     if (
       to === myPub &&
-      opts.type === 'torrentSeed' &&
-      opts.ackInfo &&
-      !isNaN(parseInt(opts.ackInfo, 10))
+      type === 'torrentSeed' &&
+      ackInfo &&
+      !isNaN(parseInt(ackInfo, 10))
     ) {
       //user requested a seed to themselves
-      const numberOfTokens = Number(opts.ackInfo) || 1
+      const numberOfTokens = Number(ackInfo) || 1
       const seedInfo = selfContentToken()
       if (!seedInfo) {
         throw new Error('torrentSeed service not available')
@@ -375,8 +377,8 @@ const sendSpontaneousPayment = async (
       from: getUser()._.sea.pub,
       memo: memo || 'no memo',
       timestamp: Date.now(),
-      targetType: opts.type,
-      ackInfo: opts.ackInfo
+      targetType: type,
+      ackInfo
     }
 
     logger.info(JSON.stringify(order))
@@ -496,18 +498,20 @@ const sendSpontaneousPayment = async (
 
     const payment = await sendPaymentV2Invoice({
       feeLimit,
-      payment_request: orderResponse.response
+      payment_request: orderResponse.response,
+      max_parts: maxParts,
+      timeoutSeconds
     })
     const myLndPub = LNDHealthManager.lndPub
     if (
-      (opts.type !== 'contentReveal' &&
-        opts.type !== 'torrentSeed' &&
-        opts.type !== 'service' &&
-        opts.type !== 'product') ||
+      (type !== 'contentReveal' &&
+        type !== 'torrentSeed' &&
+        type !== 'service' &&
+        type !== 'product') ||
       !orderResponse.ackNode
     ) {
       SchemaManager.AddOrder({
-        type: opts.type,
+        type,
         amount: parseInt(payment.value_sat, 10),
         coordinateHash: payment.payment_hash,
         coordinateIndex: parseInt(payment.payment_index, 10),
@@ -580,7 +584,7 @@ const sendSpontaneousPayment = async (
       throw new Error(`expected orderAck response, got: ${orderAck.type}`)
     }
     SchemaManager.AddOrder({
-      type: opts.type,
+      type,
       amount: parseInt(payment.value_sat, 10),
       coordinateHash: payment.payment_hash,
       coordinateIndex: parseInt(payment.payment_index, 10),
@@ -606,12 +610,24 @@ const sendSpontaneousPayment = async (
  * @param {number} amount
  * @param {string} memo
  * @param {number} feeLimit
+ * @param {number=} maxParts
+ * @param {number=} timeoutSeconds
  * @throws {Error} If no response in less than 20 seconds from the recipient, or
  * lightning cannot find a route for the payment.
  * @returns {Promise<string>} The payment's preimage.
  */
-const sendPayment = async (to, amount, memo, feeLimit) => {
-  const res = await sendSpontaneousPayment(to, amount, memo, feeLimit)
+const sendPayment = async (
+  to,
+  amount,
+  memo,
+  feeLimit,
+  maxParts,
+  timeoutSeconds
+) => {
+  const res = await sendSpontaneousPayment(to, amount, memo, feeLimit, {
+    maxParts,
+    timeoutSeconds
+  })
   if (!res.payment) {
     throw new Error('invalid payment params') //only if it's a torrentSeed request to self
   }
