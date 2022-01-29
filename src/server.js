@@ -323,7 +323,7 @@ const server = program => {
 
       const serverInstance = await createServer()
 
-      const io = require('socket.io')(serverInstance, {
+      require('socket.io')(serverInstance, {
         parser: binaryParser,
         transports: ['websocket', 'polling'],
         cors: {
