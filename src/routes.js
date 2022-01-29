@@ -1189,7 +1189,7 @@ module.exports = async (
       lightning.listPayments(
         {
           // TODO
-          include_incomplete: !!req.include_incomplete
+          include_incomplete: !!req.body.include_incomplete
         },
         (err, { payments = [] } = {}) => {
           if (err) {
