@@ -5050,12 +5050,12 @@ ts-node@^9.1.1:
     source-map-support "^0.5.17"
     yn "3.1.1"
 
-ts-type@^1.2.16:
-  version "1.2.40"
-  resolved "https://registry.yarnpkg.com/ts-type/-/ts-type-1.2.40.tgz#db3ceb95281567fe72591b9a904488e85c5b74fe"
-  integrity sha512-Ux5e7Frys5pX7w8gYchEd0KfhG1H5puXOQC8yOBgMJ1aEwDSypeHLwxIUpKjecni1IGwtLI3JrxCVZaQO9JKmw==
+ts-type@^2.1.5:
+  version "2.1.5"
+  resolved "https://registry.yarnpkg.com/ts-type/-/ts-type-2.1.5.tgz#f13f3f5b2739293000e19625aa78047455804fb8"
+  integrity sha512-u4Sso24ZJJpA8KE5QXLAH07KLf/xPXZR0cEraKafGAmW9mxfWLEE1efNdBYXJpyC4pAs2IlBBDeYC47x3aYPkg==
   dependencies:
-    tslib "^2.3.0"
+    tslib "^2.3.1"
     typedarray-dts "^1.0.0"
 
 tslib@^1.9.0:
