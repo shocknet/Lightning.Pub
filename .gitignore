@@ -1,25 +1,2 @@
 node_modules
-.storage
-services/auth/secrets.json
 .env
-*.log
-# New logger date format
-*.log.*
-.directory
-.DS_Store
-
-test-radata/
-radata/
-radata-*.tmp
-*.cert
-*.key
-
-*-audit.json
-# Yarn v2
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/sdks
-!.yarn/versions

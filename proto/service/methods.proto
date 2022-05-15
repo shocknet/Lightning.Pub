@@ -1,0 +1,80 @@
+syntax = "proto3";
+
+package methods;
+
+import "google/protobuf/descriptor.proto";
+import "structs.proto";
+
+option go_package = "github.com/shocknet/lightning.pub";
+option (file_options) = {
+    supported_http_methods:["post", "get"];
+    supported_auths:[
+        {
+            id: "no_auth"
+            name: "NoAuth"
+            context:[] 
+        },
+        {
+            id: "guest" 
+            name: "Guest", 
+            context:{
+                key:"token", 
+                value:"string"
+            }
+        },
+        {
+            id: "admin", 
+            name: "Admin", 
+            encrypted:true, 
+            context:{
+                key:"pub", 
+                value:"string"
+            }
+        }
+    ];
+};
+
+message MethodQueryOptions {
+    repeated string items = 1;
+}
+
+extend google.protobuf.MethodOptions {  // TODO: move this stuff to dep repo?
+    string auth_type = 50003;
+    string http_method = 50004;
+    string http_route = 50005;
+    MethodQueryOptions query = 50006;
+
+}
+
+message ProtoFileOptions {
+    message SupportedAuth {
+        string id = 1;
+        string name = 2;
+        bool encrypted = 3;
+        map<string,string> context = 4;
+    }
+    repeated SupportedAuth supported_auths = 1;
+    repeated string supported_http_methods = 2;
+}
+
+extend google.protobuf.FileOptions {
+    ProtoFileOptions file_options = 50004;
+}
+
+service LightningPub {
+    rpc Health(structs.Empty) returns (structs.Empty){
+        option (auth_type)  = "NoAuth";
+        option (http_method) = "get";
+        option (http_route) = "/health";
+    };
+    rpc EncryptionExchange(structs.EncryptionExchangeRequest) returns (structs.Empty){
+        option (auth_type)  = "NoAuth";
+        option (http_method) = "post";
+        option (http_route) = "/api/encryption/exchange";
+    };
+    rpc LndGetInfo(structs.Empty) returns (structs.LndGetInfoResponse){
+        option (auth_type)  = "NoAuth";
+        option (http_method) = "get";
+        option (http_route) = "/api/lnd/getinfo";
+    };
+}

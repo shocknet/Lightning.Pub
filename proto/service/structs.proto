@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package structs;
+
+option go_package = "github.com/shocknet/lightning.pub";
+
+message Empty {}
+
+
+message EncryptionExchangeRequest {
+    string public_key = 1;
+    string device_id = 2;
+}
+
+message LndGetInfoResponse {
+    string alias = 1;
+}
