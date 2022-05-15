@@ -1,0 +1,134 @@
+([]*main.Method) (len=3 cap=4) {
+ (*main.Method)(0xc00029e730)({
+  in: (main.MethodMessage) {
+   name: (string) (len=5) "Empty",
+   hasZeroFields: (bool) true
+  },
+  name: (string) (len=6) "Health",
+  out: (main.MethodMessage) {
+   name: (string) (len=5) "Empty",
+   hasZeroFields: (bool) true
+  },
+  opts: (*main.methodOptions)(0xc000039b60)({
+   authType: (*main.supportedAuth)(0xc0003a2b40)({
+    id: (string) (len=7) "no_auth",
+    name: (string) (len=6) "NoAuth",
+    encrypted: (bool) false,
+    context: (map[string]string) {
+    }
+   }),
+   method: (string) (len=3) "get",
+   route: (main.decodedRoute) {
+    route: (string) (len=7) "/health",
+    params: ([]string) <nil>
+   },
+   query: ([]string) <nil>
+  })
+ }),
+ (*main.Method)(0xc00029e780)({
+  in: (main.MethodMessage) {
+   name: (string) (len=25) "EncryptionExchangeRequest",
+   hasZeroFields: (bool) false
+  },
+  name: (string) (len=18) "EncryptionExchange",
+  out: (main.MethodMessage) {
+   name: (string) (len=5) "Empty",
+   hasZeroFields: (bool) true
+  },
+  opts: (*main.methodOptions)(0xc000039ce0)({
+   authType: (*main.supportedAuth)(0xc0003a2c00)({
+    id: (string) (len=7) "no_auth",
+    name: (string) (len=6) "NoAuth",
+    encrypted: (bool) false,
+    context: (map[string]string) {
+    }
+   }),
+   method: (string) (len=4) "post",
+   route: (main.decodedRoute) {
+    route: (string) (len=24) "/api/encryption/exchange",
+    params: ([]string) <nil>
+   },
+   query: ([]string) <nil>
+  })
+ }),
+ (*main.Method)(0xc00029e7d0)({
+  in: (main.MethodMessage) {
+   name: (string) (len=5) "Empty",
+   hasZeroFields: (bool) true
+  },
+  name: (string) (len=10) "LndGetInfo",
+  out: (main.MethodMessage) {
+   name: (string) (len=18) "LndGetInfoResponse",
+   hasZeroFields: (bool) false
+  },
+  opts: (*main.methodOptions)(0xc000039e60)({
+   authType: (*main.supportedAuth)(0xc0003a2cc0)({
+    id: (string) (len=7) "no_auth",
+    name: (string) (len=6) "NoAuth",
+    encrypted: (bool) false,
+    context: (map[string]string) {
+    }
+   }),
+   method: (string) (len=3) "get",
+   route: (main.decodedRoute) {
+    route: (string) (len=16) "/api/lnd/getinfo",
+    params: ([]string) <nil>
+   },
+   query: ([]string) <nil>
+  })
+ })
+}
+
+([]*main.Enum) <nil>
+
+(map[string]*main.Message) (len=3) {
+ (string) (len=25) "EncryptionExchangeRequest": (*main.Message)(0xc000238f40)({
+  fullName: (string) (len=25) "EncryptionExchangeRequest",
+  name: (string) (len=25) "EncryptionExchangeRequest",
+  fields: ([]*main.Field) (len=2 cap=2) {
+   (*main.Field)(0xc0003a2390)({
+    name: (string) (len=10) "public_key",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0003a23c0)({
+    name: (string) (len=9) "device_id",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=18) "LndGetInfoResponse": (*main.Message)(0xc000238f80)({
+  fullName: (string) (len=18) "LndGetInfoResponse",
+  name: (string) (len=18) "LndGetInfoResponse",
+  fields: ([]*main.Field) (len=1 cap=1) {
+   (*main.Field)(0xc0003a23f0)({
+    name: (string) (len=5) "alias",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=5) "Empty": (*main.Message)(0xc000238f00)({
+  fullName: (string) (len=5) "Empty",
+  name: (string) (len=5) "Empty",
+  fields: ([]*main.Field) <nil>
+ })
+}
+
+parsing file: structs 3
+parsing file: methods 2
+-> [{no_auth NoAuth false map[]} {guest Guest false map[token:string]} {admin Admin true map[pub:string]}] 
+
