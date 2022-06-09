@@ -2533,10 +2533,10 @@ globals@^9.18.0:
   resolved "https://registry.yarnpkg.com/globals/-/globals-9.18.0.tgz#aa3896b3e69b487f17e31ed2143d69a8e30c2d8a"
   integrity sha512-S0nG3CLEQiY/ILxqtztTWH/3iRRdyBLw6KMDxnKMchrtbj2OFmehVh0WUCfW3DUrIgx/qFrJPICrq4Z4sTR9UQ==
 
-google-proto-files@^1.0.3:
-  version "1.1.2"
-  resolved "https://registry.yarnpkg.com/google-proto-files/-/google-proto-files-1.1.2.tgz#d24c589aea5435db8d4cf3cefdbbf5542664d58a"
-  integrity sha512-j5z6RH5Ke50T0vAgSQsSvsIhJzgXp5Q3v1hWnqf+8TFFixpgjZFQMQhRheglYE23BTfxL3LL1UIXdx/obhixiQ==
+google-proto-files@^3.0.0:
+  version "3.0.0"
+  resolved "https://registry.yarnpkg.com/google-proto-files/-/google-proto-files-3.0.0.tgz#2a9ba19cb58e7ced05cd19144b2d804d5c6fe886"
+  integrity sha512-YN2mHdmxnrMrQbC5jXmXZda0aQ90as7uMsUIxoqL6tydwz+7GjoQ0OsZ8kJmDXxXMZRgY5PFjqIvWKjEYyNGjQ==
   dependencies:
     protobufjs "^6.8.0"
     walkdir "^0.4.0"
