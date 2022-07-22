@@ -2533,12 +2533,12 @@ globals@^9.18.0:
   resolved "https://registry.yarnpkg.com/globals/-/globals-9.18.0.tgz#aa3896b3e69b487f17e31ed2143d69a8e30c2d8a"
   integrity sha512-S0nG3CLEQiY/ILxqtztTWH/3iRRdyBLw6KMDxnKMchrtbj2OFmehVh0WUCfW3DUrIgx/qFrJPICrq4Z4sTR9UQ==
 
-google-proto-files@^1.0.3:
-  version "1.1.2"
-  resolved "https://registry.yarnpkg.com/google-proto-files/-/google-proto-files-1.1.2.tgz#d24c589aea5435db8d4cf3cefdbbf5542664d58a"
-  integrity sha512-j5z6RH5Ke50T0vAgSQsSvsIhJzgXp5Q3v1hWnqf+8TFFixpgjZFQMQhRheglYE23BTfxL3LL1UIXdx/obhixiQ==
+google-proto-files@^3.0.1:
+  version "3.0.1"
+  resolved "https://registry.yarnpkg.com/google-proto-files/-/google-proto-files-3.0.1.tgz#add0a1f9cc5c608a74d897b4d1061dfc999aa4df"
+  integrity sha512-YRDk4sihC20A2Rb9jpuSPV+Agfsr4TTNV50ISTBNiQZQHUxff7I4awg+dMIEfR8ZmYMqYC2nS++Z3HH42WUzwg==
   dependencies:
-    protobufjs "^6.8.0"
+    protobufjs "^7.0.0"
     walkdir "^0.4.0"
 
 got@^9.6.0:
@@ -3432,6 +3432,11 @@ long@^4.0.0:
   resolved "https://registry.yarnpkg.com/long/-/long-4.0.0.tgz#9a7b71cfb7d361a194ea555241c92f7468d5bf28"
   integrity sha512-XsP+KhQif4bjX1kbuSiySJFNAehNxgLb6hPRGJ9QsUr8ajHkuXGdrHmFUTUUXhDwVX2R5bY4JNZEwbUiMhV+MA==
 
+long@^5.0.0:
+  version "5.2.0"
+  resolved "https://registry.yarnpkg.com/long/-/long-5.2.0.tgz#2696dadf4b4da2ce3f6f6b89186085d94d52fd61"
+  integrity sha512-9RTUNjK60eJbx3uz+TEGF7fUr29ZDxR5QzXcyDpeSfeH28S9ycINflOgOlppit5U+4kNTe83KQnMEerw7GmE8w==
+
 loose-envify@^1.0.0:
   version "1.4.0"
   resolved "https://registry.yarnpkg.com/loose-envify/-/loose-envify-1.4.0.tgz#71ee51fa7be4caec1a63839f7e682d8132d30caf"
@@ -4070,7 +4075,7 @@ promise@^8.1.0:
   dependencies:
     asap "~2.0.6"
 
-protobufjs@^6.10.0, protobufjs@^6.8.0, protobufjs@^6.8.6:
+protobufjs@^6.10.0, protobufjs@^6.8.6:
   version "6.11.2"
   resolved "https://registry.yarnpkg.com/protobufjs/-/protobufjs-6.11.2.tgz#de39fabd4ed32beaa08e9bb1e30d08544c1edf8b"
   integrity sha512-4BQJoPooKJl2G9j3XftkIXjoC9C0Av2NOrWmbLWT1vH32GcSUHjM0Arra6UfTsVyfMAuFzaLucXn1sadxJydAw==
@@ -4088,6 +4093,25 @@ protobufjs@^6.10.0, protobufjs@^6.8.0, protobufjs@^6.8.6:
     "@types/long" "^4.0.1"
     "@types/node" ">=13.7.0"
     long "^4.0.0"
+
+protobufjs@^7.0.0:
+  version "7.0.0"
+  resolved "https://registry.yarnpkg.com/protobufjs/-/protobufjs-7.0.0.tgz#8c678e1351fd926178fce5a4213913e8d990974f"
+  integrity sha512-ffNIEm+quOcYtQvHdW406v1NQmZSuqVklxsXk076BtuFnlYZfigLU+JOMrTD8TUOyqHYbRI/fSVNvgd25YeN3w==
+  dependencies:
+    "@protobufjs/aspromise" "^1.1.2"
+    "@protobufjs/base64" "^1.1.2"
+    "@protobufjs/codegen" "^2.0.4"
+    "@protobufjs/eventemitter" "^1.1.0"
+    "@protobufjs/fetch" "^1.1.0"
+    "@protobufjs/float" "^1.0.2"
+    "@protobufjs/inquire" "^1.1.0"
+    "@protobufjs/path" "^1.1.2"
+    "@protobufjs/pool" "^1.1.0"
+    "@protobufjs/utf8" "^1.1.0"
+    "@types/long" "^4.0.1"
+    "@types/node" ">=13.7.0"
+    long "^5.0.0"
 
 proxy-addr@~2.0.5:
   version "2.0.7"
