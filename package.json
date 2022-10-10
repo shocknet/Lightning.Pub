@@ -96,7 +96,7 @@
     "random-words": "^1.1.1",
     "rimraf": "^3.0.2",
     "ts-node": "^9.1.1",
-    "ts-type": "^1.2.16",
+    "ts-type": "^3.0.1",
     "typescript": "^4.5.4"
   },
   "lint-staged": {
