@@ -288,7 +288,13 @@ const forge = () => {
     }
     await new Promise(res => {
       currentGun.on('message', msg => {
-        if (msg.type === 'init') {
+        if (typeof msg !== 'object') {
+          throw new Error(`msg.type !== object`)
+        }
+
+        const message = /** @type {{type: string}} */ (msg)
+
+        if (message.type === 'init') {
           // @ts-ignore
           res()
         }
