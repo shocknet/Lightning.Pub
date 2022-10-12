@@ -134,15 +134,15 @@ export interface Services {
 }
 
 export interface ListChannelsReq {
-  active_only: boolean
-  inactive_only: boolean
-  public_only: boolean
-  private_only: boolean
+  active_only?: boolean
+  inactive_only?: boolean
+  public_only?: boolean
+  private_only?: boolean
   /**
    * Filters the response for channels with a target peer's pubkey. If peer is
    * empty, all channels will be returned.
    */
-  peer: Common.Bytes
+  peer?: Common.Bytes
 }
 
 /**
@@ -193,4 +193,8 @@ export interface AddInvoiceRes {
    *  all payments for this invoice as we require it for end to end security.
    */
   payment_addr: Common.Bytes
+  /**
+   * Custom property, by us.
+   */
+  liquidityCheck?: boolean
 }

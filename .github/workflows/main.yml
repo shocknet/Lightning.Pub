@@ -19,9 +19,22 @@ jobs:
         repo: ['shocknet/Wizard']
     runs-on: ubuntu-latest
     steps:
-      - name: Repository Dispatch
+      - name: 🛎️ Checkout
+        uses: actions/checkout@v2.3.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.ref }}
+
+      - name: ⚙️ Install Dependencies
+        run: yarn install
+
+      - name: 📝 Run Tests
+        run: yarn test
+
+      - name: 📯 Repository Dispatch
         uses: peter-evans/repository-dispatch@v1
         with:
           token: ${{ secrets.REPO_ACCESS_TOKEN }}
           repository: ${{ matrix.repo }}
           event-type: api-update
+          client-payload: '{"ref": "${{ github.ref }}", "sha": "${{ github.sha }}"}'

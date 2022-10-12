@@ -1,9 +1,13 @@
 {
-  "extends": ["eslint:all", "prettier", "plugin:jest/all"],
-  "plugins": ["prettier", "jest", "babel"],
+  "extends": ["eslint:all", "prettier", "plugin:mocha/recommended"],
+  "plugins": ["prettier", "mocha", "babel"],
   "rules": {
     "prettier/prettier": "error",
     "strict": "off",
+
+    "mocha/no-mocha-arrows": "off",
+
+    "max-statements-per-line": "off",
 
     "no-empty-function": "off",
 

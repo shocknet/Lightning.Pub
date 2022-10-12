@@ -1,6 +1,7 @@
 /**
  * @format
  */
+const expect = require('expect')
 
 const { asyncFilter } = require('./helpers')
 
