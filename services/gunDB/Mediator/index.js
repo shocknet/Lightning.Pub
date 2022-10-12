@@ -33,6 +33,8 @@ const $$__SHOCKWALLET__MSG__ = '$$__SHOCKWALLET__MSG__'
 const $$__SHOCKWALLET__NUMBER__ = '$$__SHOCKWALLET__NUMBER__'
 const $$__SHOCKWALLET__BOOLEAN__ = '$$__SHOCKWALLET__BOOLEAN__'
 
+/// <reference path="../../../utils/GunSmith/Smith.ts" />
+
 mySEA.encrypt = (msg, secret) => {
   if (typeof secret !== 'string') {
     throw new TypeError(
@@ -280,6 +282,9 @@ const isAuthenticated = () => typeof user.is === 'object' && user.is !== null
 const isAuthenticating = () => _isAuthenticating
 const isRegistering = () => _isRegistering
 
+/**
+ * @returns {Smith.GunSmithNode}
+ */
 const getGun = () => {
   throw new Error('NO GUNS')
 }

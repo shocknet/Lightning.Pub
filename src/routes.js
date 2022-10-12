@@ -1189,7 +1189,7 @@ module.exports = async (
       lightning.listPayments(
         {
           // TODO
-          include_incomplete: !!req.include_incomplete
+          include_incomplete: !!req.body.include_incomplete
         },
         (err, { payments = [] } = {}) => {
           if (err) {
@@ -2630,7 +2630,7 @@ module.exports = async (
       }
     })
 
-    app.get('/api/accessInfo', async (req, res) => {
+    app.get('/api/accessInfo', (req, res) => {
       if (req.ip !== '127.0.0.1') {
         res.json({
           field: 'origin',
