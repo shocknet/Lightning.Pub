@@ -2,7 +2,7 @@
  * @format
  */
 
-const logger = require('winston')
+const logger = require('../../../../config/log')
 
 const {
   Constants: {
@@ -11,12 +11,13 @@ const {
   }
 } = require('shock-common')
 const Key = require('../key')
+/// <reference path="../../../utils/GunSmith/Smith.ts" />
 
 /**
- * @typedef {import('../SimpleGUN').GUNNode} GUNNode
- * @typedef {import('../SimpleGUN').ListenerData} ListenerData
+ * @typedef {Smith.GunSmithNode} GUNNode
+ * @typedef {GunT.ListenerData} ListenerData
  * @typedef {import('../SimpleGUN').ISEA} ISEA
- * @typedef {import('../SimpleGUN').UserGUNNode} UserGUNNode
+ * @typedef {Smith.UserSmithNode} UserGUNNode
  */
 
 /**
@@ -26,27 +27,34 @@ const Key = require('../key')
  */
 const lastSeenNode = user => {
   if (!user.is) {
-    logger.warn('onOrders() -> tried to sub without authing')
+    logger.warn('lastSeenNode() -> tried to sub without authing')
     throw new Error(ErrorCode.NOT_AUTH)
   }
 
-  setInterval(() => {
-    if (user.is) {
-      user.get(Key.LAST_SEEN_NODE).put(Date.now(), ack => {
-        if (ack.err && typeof ack.err !== 'number') {
-          logger.error(`Error inside lastSeenNode job: ${ack.err}`)
-        }
-      })
+  let gotLatestProfileAck = true
 
-      user
-        .get(Key.PROFILE)
-        .get(Key.LAST_SEEN_NODE)
-        .put(Date.now(), ack => {
-          if (ack.err && typeof ack.err !== 'number') {
-            logger.error(`Error inside lastSeenNode job: ${ack.err}`)
-          }
-        })
+  setInterval(() => {
+    if (!user.is) {
+      return
     }
+    if (!gotLatestProfileAck) {
+      logger.error(`lastSeenNode profile job: didnt get latest ack`)
+      return
+    }
+    gotLatestProfileAck = false
+    user
+      .get(Key.PROFILE)
+      .get(Key.LAST_SEEN_NODE)
+      .put(Date.now(), ack => {
+        if (
+          ack.err &&
+          typeof ack.err !== 'number' &&
+          typeof ack.err !== 'object'
+        ) {
+          logger.error(`Error inside lastSeenNode profile job: ${ack.err}`)
+        }
+        gotLatestProfileAck = true
+      })
   }, LAST_SEEN_NODE_INTERVAL)
 }
 
