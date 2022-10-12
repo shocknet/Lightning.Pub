@@ -2,7 +2,7 @@
  * @format
  */
 const Common = require('shock-common')
-const logger = require('winston')
+const logger = require('../../config/log')
 const { safeParseJSON } = require('../JSON')
 const ECC = require('./index')
 
@@ -26,7 +26,9 @@ const nonEncryptedEvents = [
 /**
  * @param {string} eventName
  */
-const isNonEncrypted = eventName => nonEncryptedEvents.includes(eventName)
+const isNonEncrypted = eventName =>
+  nonEncryptedEvents.includes(eventName) ||
+  process.env.SHOCK_ENCRYPTION_ECC === 'false'
 
 /**
  * @param {SimpleSocket} socket
@@ -112,29 +114,33 @@ const encryptedOn = socket => (eventName, callback) => {
     }
 
     socket.on(eventName, async (data, response) => {
-      if (isNonEncrypted(eventName)) {
+      try {
+        if (isNonEncrypted(eventName)) {
+          callback(data, response)
+          return
+        }
+
+        if (data) {
+          const decryptedMessage = await ECC.decryptMessage({
+            deviceId,
+            encryptedMessage: data
+          })
+
+          callback(safeParseJSON(decryptedMessage), response)
+          return
+        }
+
         callback(data, response)
-        return
+      } catch (err) {
+        logger.error(
+          `[SOCKET] An error has occurred while decrypting an event (${eventName}):`,
+          err
+        )
+
+        socket.emit('encryption:error', err)
       }
-
-      if (data) {
-        const decryptedMessage = await ECC.decryptMessage({
-          deviceId,
-          encryptedMessage: data
-        })
-
-        callback(safeParseJSON(decryptedMessage), response)
-        return
-      }
-
-      callback(data, response)
     })
   } catch (err) {
-    logger.error(
-      `[SOCKET] An error has occurred while decrypting an event (${eventName}):`,
-      err
-    )
-
     socket.emit('encryption:error', err)
   }
 }
@@ -146,6 +152,10 @@ const encryptedOn = socket => (eventName, callback) => {
  */
 const encryptedCallback = (socket, callback) => async (...args) => {
   try {
+    if (process.env.SHOCK_ENCRYPTION_ECC === 'false') {
+      return callback(...args)
+    }
+
     const deviceId = socket.handshake.auth.encryptionId
 
     if (!deviceId) {

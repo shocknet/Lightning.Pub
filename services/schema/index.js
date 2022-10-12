@@ -1,5 +1,5 @@
 const Crypto = require('crypto')
-const logger = require('winston')
+const logger = require('../../config/log')
 const Common = require('shock-common')
 const getGunUser = () => require('../gunDB/Mediator').getUser()
 const isAuthenticated = () => require('../gunDB/Mediator').isAuthenticated()
@@ -201,7 +201,7 @@ const AddTmpChainOrder = async (address, orderInfo) => {
       .get(Key.TMP_CHAIN_COORDINATE)
       .get(addressSHA256)
       .put(encryptedOrderString, ack => {
-        if (ack.err && typeof ack.err !== 'number') {
+        if (ack.err && typeof ack.err !== 'number' && typeof ack.err !== 'object') {
           rej(
             new Error(
               `Error saving tmp chain coordinate order to user-graph: ${ack}`
@@ -268,7 +268,7 @@ const clearTmpChainOrder = async (address) => {
       .get(Key.TMP_CHAIN_COORDINATE)
       .get(addressSHA256)
       .put(null, ack => {
-        if (ack.err && typeof ack.err !== 'number') {
+        if (ack.err && typeof ack.err !== 'number' && typeof ack.err !== 'object') {
           rej(
             new Error(
               `Error nulling tmp chain coordinate order to user-graph: ${ack}`
@@ -370,8 +370,8 @@ class SchemaManager {
         .get(Key.COORDINATES)
         .get(coordinateSHA256)
         .put(encryptedOrderString, ack => {
-          if (ack.err && typeof ack.err !== 'number') {
-            console.log(ack)
+          if (ack.err && typeof ack.err !== 'number' && typeof ack.err !== 'object') {
+            logger.info(ack)
             rej(
               new Error(
                 `Error saving coordinate order to user-graph: ${ack}`
@@ -429,7 +429,7 @@ return orderedOrders
 }*/
 
   /**
-   * @typedef {Common.Schema.InvoiceWhenListed & {r_hash:Buffer,payment_addr:string}} Invoice
+   * @typedef {Common.Schema.InvoiceWhenListed & {r_hash:Buffer,payment_addr:Buffer}} Invoice
    */
   /**
    * @type {Record<string,(invoice:Invoice) =>void>}
@@ -448,7 +448,7 @@ return orderedOrders
 
   /**
    * 
-   * @param {Common.Schema.InvoiceWhenListed & {r_hash:Buffer,payment_addr:string}} data 
+   * @param {Common.Schema.InvoiceWhenListed & {r_hash:Buffer,payment_addr:Buffer}} data 
    */
   invoiceStreamDataCb(data) {
     if (!data.settled) {
@@ -468,7 +468,7 @@ return orderedOrders
         coordinateIndex: parseInt(data.add_index, 10),
         inbound: true,
         amount: amt,
-        toLndPub: data.payment_addr,
+        toLndPub: data.payment_addr.toString('hex'),
         invoiceMemo: data.memo
       })
     }
