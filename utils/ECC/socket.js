@@ -2,7 +2,7 @@
  * @format
  */
 const Common = require('shock-common')
-const logger = require('winston')
+const logger = require('../../config/log')
 const { safeParseJSON } = require('../JSON')
 const ECC = require('./index')
 
@@ -20,12 +20,15 @@ const nonEncryptedEvents = [
  * @typedef {import('../../services/gunDB/Mediator').EncryptedEmission} EncryptedEmission
  * @typedef {import('../../services/gunDB/Mediator').EncryptedEmissionLegacy} EncryptedEmissionLegacy
  * @typedef {import('../../services/gunDB/contact-api/SimpleGUN').ValidDataValue} ValidDataValue
+ * @typedef {(data: any, callback: (error?: any, data?: any) => void) => void} SocketOnListener
  */
 
 /**
  * @param {string} eventName
  */
-const isNonEncrypted = eventName => nonEncryptedEvents.includes(eventName)
+const isNonEncrypted = eventName =>
+  nonEncryptedEvents.includes(eventName) ||
+  process.env.SHOCK_ENCRYPTION_ECC === 'false'
 
 /**
  * @param {SimpleSocket} socket
@@ -83,7 +86,7 @@ const encryptedEmit = socket => async (eventName, ...args) => {
 
 /**
  * @param {SimpleSocket} socket
- * @returns {(eventName: string, callback: (data: any) => void) => void}
+ * @returns {(eventName: string, callback: SocketOnListener) => void}
  */
 const encryptedOn = socket => (eventName, callback) => {
   try {
@@ -110,33 +113,96 @@ const encryptedOn = socket => (eventName, callback) => {
       }
     }
 
-    socket.on(eventName, async data => {
-      if (isNonEncrypted(eventName)) {
-        callback(data)
-        return
-      }
+    socket.on(eventName, async (data, response) => {
+      try {
+        if (isNonEncrypted(eventName)) {
+          callback(data, response)
+          return
+        }
 
-      if (data) {
-        const decryptedMessage = await ECC.decryptMessage({
-          deviceId,
-          encryptedMessage: data
-        })
+        if (data) {
+          const decryptedMessage = await ECC.decryptMessage({
+            deviceId,
+            encryptedMessage: data
+          })
 
-        callback(safeParseJSON(decryptedMessage))
+          callback(safeParseJSON(decryptedMessage), response)
+          return
+        }
+
+        callback(data, response)
+      } catch (err) {
+        logger.error(
+          `[SOCKET] An error has occurred while decrypting an event (${eventName}):`,
+          err
+        )
+
+        socket.emit('encryption:error', err)
       }
     })
   } catch (err) {
+    socket.emit('encryption:error', err)
+  }
+}
+
+/**
+ * @param {SimpleSocket} socket
+ * @param {(error?: any, data?: any) => void} callback
+ * @returns {(...args: any[]) => Promise<void>}
+ */
+const encryptedCallback = (socket, callback) => async (...args) => {
+  try {
+    if (process.env.SHOCK_ENCRYPTION_ECC === 'false') {
+      return callback(...args)
+    }
+
+    const deviceId = socket.handshake.auth.encryptionId
+
+    if (!deviceId) {
+      throw {
+        field: 'deviceId',
+        message: 'Please specify a device ID'
+      }
+    }
+
+    const authorized = ECC.isAuthorizedDevice({ deviceId })
+
+    if (!authorized) {
+      throw {
+        field: 'deviceId',
+        message: 'Please exchange keys with the API before using the socket'
+      }
+    }
+
+    const encryptedArgs = await Promise.all(
+      args.map(async data => {
+        if (!data) {
+          return data
+        }
+
+        const encryptedMessage = await ECC.encryptMessage({
+          message: typeof data === 'object' ? JSON.stringify(data) : data,
+          deviceId
+        })
+
+        return encryptedMessage
+      })
+    )
+
+    return callback(...encryptedArgs)
+  } catch (err) {
     logger.error(
-      `[SOCKET] An error has occurred while decrypting an event (${eventName}):`,
+      `[SOCKET] An error has occurred while emitting an event response:`,
       err
     )
 
-    socket.emit('encryption:error', err)
+    return socket.emit('encryption:error', err)
   }
 }
 
 module.exports = {
   isNonEncrypted,
   encryptedOn,
-  encryptedEmit
+  encryptedEmit,
+  encryptedCallback
 }
