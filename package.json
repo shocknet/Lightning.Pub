@@ -37,7 +37,7 @@
     "eccrypto": "^1.1.6",
     "express": "^4.14.1",
     "express-session": "^1.17.1",
-    "google-proto-files": "^2.4.0",
+    "google-proto-files": "^3.0.2",
     "graphviz": "0.0.8",
     "gun": "amark/gun#77162fcb68eb61f24d980fa3f3653598f56ee593",
     "husky": "^4.2.5",
