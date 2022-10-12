@@ -3,7 +3,7 @@
  */
 // @ts-check
 
-const logger = require('winston')
+const logger = require('../config/log')
 const Common = require('shock-common')
 const mapValues = require('lodash/mapValues')
 
@@ -47,6 +47,10 @@ module.exports = (
      */
 
     try {
+      logger.info(
+        'Connect event for socket with handshake: ',
+        socket.handshake.auth
+      )
       if (!isAuthenticated()) {
         socket.emit(Common.Constants.ErrorCode.NOT_AUTH)
         return
@@ -57,7 +61,16 @@ module.exports = (
 
       const { services } = LightningServices
 
-      const { service, method, args: unParsed } = socket.handshake.auth
+      const {
+        service,
+        method,
+        args: unParsed,
+        isInitial
+      } = socket.handshake.auth
+
+      if (isInitial) {
+        return
+      }
 
       const args = JSON.parse(unParsed)
 
@@ -100,6 +113,7 @@ module.exports = (
         call.write(args)
       })
     } catch (err) {
+      logger.error(err)
       logger.error('LNDRPC: ' + err.message)
     }
   })
@@ -185,11 +199,14 @@ module.exports = (
   )
 
   io.of('streams').on('connect', socket => {
-    console.log('a user connected')
-    socket.on('postID', postID => {
-      TipsForwarder.addSocket(postID, socket)
+    logger.info('a user connected')
+    socket.on('accessId', accessId => {
+      const err = TipsForwarder.addSocket(accessId, socket)
+      if (err) {
+        logger.info('err invalid socket for tips notifications ' + err)
+        socket.disconnect(true)
+      }
     })
   })
-
   return io
 }
