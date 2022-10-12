@@ -2,25 +2,29 @@
 
 ![GitHub last commit](https://img.shields.io/github/last-commit/shocknet/Lightning.Pub?style=flat-square)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com) 
-[![Chat](https://img.shields.io/badge/chat-on%20Telegram-blue?style=flat-square)](https://t.me/LightningPage)
+[![Chat](https://img.shields.io/badge/chat-on%20Telegram-blue?style=flat-square)](https://t.me/ShockBTC)
 [![Twitter Follow](https://img.shields.io/twitter/follow/ShockBTC?style=flat-square)](https://twitter.com/ShockBTC)
 
 <p></p>
 
-This is an alpha release of the Lightning.Page backend service, providing a wrapper for [LND](https://github.com/shocknet/lnd/releases) and more stuff to be announced later.<br>
+`Pub` enables your Lightning node with public Web API's, providing a framework for permissionless applications that depend on Lightning. 
+- As a wrapper for [`LND`](https://github.com/lightningnetwork/lnd/releases), `Pub` also offers node operators Enterprise-class management capabilities. 
+- An optional SSL proxy service is included for ease of use through zero-configuration networking.<br>
 
-Run this service on your Lightning node and connect with a mobile device or desktop browser.
+#### This repository is under rapid iteration and should only be used in development.
+
+
 
 ---
-- [Easy Installation](#easy-installation)
+<!-- - [Easy Installation](#easy-installation)-->
 - [Manual Installation](#manual-installation)
 - [Docker Usage](#docker-usage)
 - [Node Security](#node-security)
 <!--- - [Docker for Raspberry Pi](#docker-for-raspberry-pi) -->
 ---
-### Easy Installation
+<!--- - ### Easy Installation
 
-For easy setup on your Laptop/Desktop, [a node wizard is available here.](https://github.com/shocknet/wizard)
+For easy setup on your Laptop/Desktop, [a node wizard is available here.](https://github.com/shocknet/wizard)-->
 
 
 ### Manual Installation
@@ -31,14 +35,14 @@ For easy setup on your Laptop/Desktop, [a node wizard is available here.](https:
 * Requires [Node.js](https://nodejs.org) 16
 
 #### Steps:
-1) Run [LND](https://github.com/shocknet/lnd/releases) - *Example mainnet startup*:
+1) Run [LND](https://github.com/lightningnetwork/lnd/releases) - *Example mainnet startup*:
 
  ```
  ./lnd --bitcoin.active --bitcoin.mainnet --bitcoin.node=neutrino --neutrino.connect=neutrino.shock.network --routing.assumechanvalid --accept-keysend --allow-circular-route --feeurl=https://nodes.lightning.computer/fees/v1/btc-fee-estimates.json
  ```
 
 
-2) Download and Install API
+2) Download and Install Lightning.Pub
 
 ```
 git clone https://github.com/shocknet/Lightning.Pub
@@ -51,12 +55,12 @@ yarn install
 
 
 ### Docker Usage
-To run Lightning.Pub in a fully isolated environment you can use the Docker image
+To run `Pub` in a fully isolated environment you can use the Docker image
 provided on the Docker Hub and easily interact with API's CLI interface and flags.
 
 #### Prerequisites
-To interact with Lightning.Pub's Docker image you need an instance of LND running and
-also if your configs, LND related files and certificates are located on a local file system you'll need to mount **Docker Volumes** pointed to them while starting the container.
+To use `Pub` Docker images you will need an instance of LND running, and
+also if your LND related files are located in a container file system, you'll need to mount **Docker Volumes** pointed to them while starting the container.
 
 Example of listing available configuration flags:
 ```
@@ -69,9 +73,8 @@ docker run -v /home/$USER/.lnd:/root/.lnd --network host shockwallet/Lightning.P
 
 ### Node Security 
 
-Lightning.Pub uses E2E encryption bootstrapped with PAKE.
+`Pub` administration API's use E2E encryption bootstrapped with PAKE to prevent interception by the proxy. There are advanced or testing scenarios where you may wish to bypass this security, to do so pass the env `TRUSTED_KEYS=false`
 
-There are advanced or testing scenarios where you may wish to bypass this security, to do so pass the env `TRUSTED_KEYS=false`
+Communication between the administrator Dashboard and Lightning.Pub is otherwise encrypted, regardless of whether or not SSL is used, though an SSL equipped reverse proxy is recommended for better usability with web browsers. 
 
-Communication between the wallet and Lightning.Pub is encrypted regardless of whether or not SSL is used, though an SSL equipped reverse proxy is recommended for better usability with front-ends. Running with `-t` enables the built-in SSL tunnel provider for ease of use and zero-configuration networking.
-
+Running with `-t` enables the built-in SSL proxy provider for ease of use via zero-configuration networking.
