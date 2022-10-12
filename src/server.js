@@ -1,21 +1,41 @@
 /**
  * @prettier
  */
+// @ts-check
 
+const ECCrypto = require('eccrypto')
+
+const ECC = require('../utils/ECC')
+
+/**
+ * This API run's private key.
+ */
+const runPrivateKey = ECCrypto.generatePrivate()
+/**
+ * This API run's public key.
+ */
+const runPublicKey = ECCrypto.getPublic(runPrivateKey)
+
+process.on('uncaughtException', e => {
+  console.log('something bad happened!')
+  console.log(e)
+})
 /**
  * Module dependencies.
  */
 const server = program => {
-  const localtunnel = require('localtunnel')
   const Http = require('http')
+  const Https = require('https')
+  const FS = require('fs')
   const Express = require('express')
   const Crypto = require('crypto')
   const Dotenv = require('dotenv')
   const Storage = require('node-persist')
   const Path = require('path')
   const { Logger: CommonLogger } = require('shock-common')
+  const binaryParser = require('socket.io-msgpack-parser')
+
   const LightningServices = require('../utils/lightningServices')
-  const Encryption = require('../utils/encryptionStore')
   const app = Express()
 
   const compression = require('compression')
@@ -23,11 +43,19 @@ const server = program => {
   const session = require('express-session')
   const methodOverride = require('method-override')
   const qrcode = require('qrcode-terminal')
+  const relayClient = require('hybrid-relay-client/build')
   const {
-    unprotectedRoutes,
     sensitiveRoutes,
     nonEncryptedRoutes
   } = require('../utils/protectedRoutes')
+
+  /**
+   * An offline-only private key used for authenticating a client's key
+   * exchange. Neither the tunnel nor the WWW should see this private key, it
+   * should only be served through STDOUT (via QR or else).
+   */
+  const accessSecret = ECCrypto.generatePrivate()
+  const accessSecretBase64 = accessSecret.toString('base64')
 
   // load app default configuration data
   const defaults = require('../config/defaults')(program.mainnet)
@@ -41,10 +69,7 @@ const server = program => {
   const tunnelHost = process.env.LOCAL_TUNNEL_SERVER || defaults.localtunnelHost
 
   // setup winston logging ==========
-  const logger = require('../config/log')(
-    program.logfile || defaults.logfile,
-    program.loglevel || defaults.loglevel
-  )
+  const logger = require('../config/log')
 
   CommonLogger.setLogger(logger)
 
@@ -53,7 +78,7 @@ const server = program => {
 
   logger.info('Mainnet Mode:', !!program.mainnet)
 
-  if (process.env.DISABLE_SHOCK_ENCRYPTION === 'true') {
+  if (process.env.SHOCK_ENCRYPTION_ECC === 'false') {
     logger.error('Encryption Mode: false')
   } else {
     logger.info('Encryption Mode: true')
@@ -78,79 +103,72 @@ const server = program => {
       .digest('hex')
   }
 
-  const cacheCheck = ({ req, res, args, send }) => {
-    if (
-      (process.env.SHOCK_CACHE === 'true' || !process.env.SHOCK_CACHE) &&
-      req.method === 'GET'
-    ) {
-      const dataHash = hashData(args[0]).slice(-8)
-      res.set('shock-cache-hash', dataHash)
-
-      logger.debug('shock-cache-hash:', req.headers['shock-cache-hash'])
-      logger.debug('Data Hash:', dataHash)
-      if (
-        !req.headers['shock-cache-hash'] &&
-        (process.env.CACHE_HEADERS_MANDATORY === 'true' ||
-          !process.env.CACHE_HEADERS_MANDATORY)
-      ) {
-        logger.warn(
-          "Request is missing 'shock-cache-hash' header, please make sure to include that in each GET request in order to benefit from reduced data usage"
-        )
-        return { cached: false, hash: dataHash }
-      }
-
-      if (req.headers['shock-cache-hash'] === dataHash) {
-        logger.debug('Same Hash Detected!')
-        args[0] = null
-        res.status(304)
-        send.apply(res, args)
-        return { cached: true, hash: dataHash }
-      }
-
-      return { cached: false, hash: dataHash }
-    }
-
-    return { cached: false, hash: null }
-  }
-
   /**
    * @param {Express.Request} req
    * @param {Express.Response} res
    * @param {(() => void)} next
    */
   const modifyResponseBody = (req, res, next) => {
-    const deviceId = req.headers['x-shockwallet-device-id']
+    const deviceId = req.headers['encryption-device-id']
     const oldSend = res.send
 
-    if (!nonEncryptedRoutes.includes(req.path)) {
-      res.send = (...args) => {
-        if (args[0] && args[0].encryptedData && args[0].encryptionKey) {
-          logger.warn('Response loop detected!')
-          oldSend.apply(res, args)
-          return
+    console.log({
+      deviceId,
+      encryptionDisabled: process.env.SHOCK_ENCRYPTION_ECC === 'false',
+      unprotectedRoute: nonEncryptedRoutes.includes(req.path)
+    })
+
+    if (
+      nonEncryptedRoutes.includes(req.path) ||
+      process.env.SHOCK_ENCRYPTION_ECC === 'false'
+    ) {
+      next()
+      return
+    }
+
+    // @ts-expect-error
+    res.send = (...args) => {
+      if (args[0] && args[0].ciphertext && args[0].iv) {
+        logger.warn('Response loop detected!')
+        oldSend.apply(res, args)
+        return
+      }
+
+      if (typeof deviceId !== 'string' || !deviceId) {
+        // TODO
+      }
+
+      const authorized = ECC.devicePublicKeys.has(deviceId)
+
+      // Using classic promises syntax to avoid
+      // modifying res.send's return type
+      if (authorized && process.env.SHOCK_ENCRYPTION_ECC !== 'false') {
+        const devicePub = Buffer.from(ECC.devicePublicKeys.get(deviceId))
+
+        ECCrypto.encrypt(devicePub, Buffer.from(args[0], 'utf-8')).then(
+          encryptedMessage => {
+            args[0] = JSON.stringify(encryptedMessage)
+            oldSend.apply(res, args)
+          }
+        )
+      }
+
+      if (!authorized || process.env.SHOCK_ENCRYPTION_ECC === 'false') {
+        if (!authorized) {
+          logger.warn(
+            `An unauthorized Device ID is contacting the API: ${deviceId}`
+          )
+          logger.warn(
+            `Authorized Device IDs: ${[...ECC.devicePublicKeys.keys()].join(
+              ', '
+            )}`
+          )
         }
-
-        const { cached, hash } = cacheCheck({ req, res, args, send: oldSend })
-
-        if (cached) {
-          return
-        }
-
-        // arguments[0] (or `data`) contains the response body
-        const authorized = Encryption.isAuthorizedDevice({ deviceId })
-        const encryptedMessage = authorized
-          ? Encryption.encryptMessage({
-              message: args[0] ? args[0] : {},
-              deviceId,
-              metadata: {
-                hash
-              }
-            })
-          : args[0]
-        args[0] = JSON.stringify(encryptedMessage)
+        args[0] = JSON.stringify(args[0])
         oldSend.apply(res, args)
       }
     }
+
     next()
   }
 
@@ -161,27 +179,25 @@ const server = program => {
 
   // eslint-disable-next-line consistent-return
   const startServer = async () => {
-    /**
-     * @type {localtunnel.Tunnel}
-     */
-    let tunnelRef = null
     try {
       LightningServices.setDefaults(program)
       if (!LightningServices.isInitialized()) {
         await LightningServices.init()
       }
 
-      await new Promise((resolve, reject) => {
+      await /** @type {Promise<void>} */ (new Promise((resolve, reject) => {
         LightningServices.services.lightning.getInfo({}, (err, res) => {
-          if (err && err.code !== 12) {
+          if (
+            err &&
+            !err.details.includes('wallet not created') &&
+            !err.details.includes('wallet locked')
+          ) {
             reject(err)
           } else {
             resolve()
           }
         })
-      })
-
-      const auth = require('../services/auth/auth')
+      }))
 
       app.use(compression())
 
@@ -226,64 +242,34 @@ const server = program => {
 
       await Storage.init({
         dir: storageDirectory
-      })
-      if (program.tunnel) {
-        // setup localtunnel ==========
-        const [tunnelToken, tunnelSubdomain, tunnelUrl] = await Promise.all([
-          Storage.getItem('tunnel/token'),
-          Storage.getItem('tunnel/subdomain'),
-          Storage.getItem('tunnel/url')
-        ])
-        const tunnelOpts = { port: serverPort, host: tunnelHost }
-        if (tunnelToken && tunnelSubdomain) {
-          tunnelOpts.tunnelToken = tunnelToken
-          tunnelOpts.subdomain = tunnelSubdomain
-          logger.info('Recreating tunnel... with subdomain: ' + tunnelSubdomain)
-        } else {
-          logger.info('Creating new tunnel... ')
+      }) /*
+      if (false) {
+        await Storage.removeItem('tunnel/token')
+        await Storage.removeItem('tunnel/subdomain')
+        await Storage.removeItem('tunnel/url')
+      }*/
+
+      const storePersistentRandomField = async ({ fieldName, length = 16 }) => {
+        const randomField = await Storage.getItem(fieldName)
+
+        if (randomField) {
+          return randomField
         }
-        const tunnel = await localtunnel(tunnelOpts)
-        tunnelRef = tunnel
-        logger.info('Tunnel created! connect to: ' + tunnel.url)
-        const dataToQr = JSON.stringify({
-          internalIP: tunnel.url,
-          walletPort: 443,
-          externalIP: tunnel.url
+
+        const newValue = await ECC.generateRandomString(length)
+        await Storage.setItem(fieldName, newValue)
+        return newValue
+      }
+
+      const [sessionSecret] = await Promise.all([
+        storePersistentRandomField({
+          fieldName: 'config/sessionSecret'
+        }),
+        storePersistentRandomField({
+          fieldName: 'encryption/hostId',
+          length: 8
         })
-        qrcode.generate(dataToQr, { small: true })
-        if (!tunnelToken) {
-          await Promise.all([
-            Storage.setItem('tunnel/token', tunnel.token),
-            Storage.setItem('tunnel/subdomain', tunnel.clientId),
-            Storage.setItem('tunnel/url', tunnel.url)
-          ])
-        }
-        if (tunnelUrl && tunnel.url !== tunnelUrl) {
-          logger.error('New tunnel URL different from OLD tunnel url')
-          logger.error('OLD: ' + tunnelUrl + ':80')
-          logger.error('NEW: ' + tunnel.url + ':80')
-          logger.error('New pair required')
-          await Promise.all([
-            Storage.setItem('tunnel/token', tunnel.token),
-            Storage.setItem('tunnel/subdomain', tunnel.clientId),
-            Storage.setItem('tunnel/url', tunnel.url)
-          ])
-        }
-      }
-
-      const getSessionSecret = async () => {
-        const sessionSecret = await Storage.getItem('config/sessionSecret')
-
-        if (sessionSecret) {
-          return sessionSecret
-        }
-
-        const newSecret = await Encryption.generateRandomString()
-        await Storage.setItem('config/sessionSecret', newSecret)
-        return newSecret
-      }
-
-      const sessionSecret = await getSessionSecret()
+      ])
 
       app.use(
         session({
@@ -295,7 +281,7 @@ const server = program => {
         })
       )
       app.use(bodyParser.urlencoded({ extended: 'true' }))
-      app.use(bodyParser.json())
+      app.use(bodyParser.json({ limit: '500kb' }))
       app.use(bodyParser.json({ type: 'application/vnd.api+json' }))
       app.use(methodOverride())
       // WARNING
@@ -308,22 +294,21 @@ const server = program => {
         res.status(500).send({ status: 500, errorMessage: 'internal error' })
       })
 
-      const CA = LightningServices.servicesConfig.lndCertPath
-      const CA_KEY = CA.replace('cert', 'key')
+      const CA = program.httpsCert
+      const CA_KEY = program.httpsCertKey
 
       const createServer = () => {
         try {
-          // if (LightningServices.servicesConfig.lndCertPath && program.usetls) {
-          //   const [key, cert] = await Promise.all([
-          //     FS.readFile(CA_KEY),
-          //     FS.readFile(CA)
-          //   ])
-          //   const httpsServer = Https.createServer({ key, cert }, app)
+          if (program.useTLS) {
+            const key = FS.readFileSync(CA_KEY, 'utf-8')
+            const cert = FS.readFileSync(CA, 'utf-8')
 
-          //   return httpsServer
-          // }
+            const httpsServer = Https.createServer({ key, cert }, app)
 
-          const httpServer = Http.Server(app)
+            return httpsServer
+          }
+
+          const httpServer = new Http.Server(app)
           return httpServer
         } catch (err) {
           logger.error(err.message)
@@ -331,45 +316,117 @@ const server = program => {
             'An error has occurred while finding an LND cert to use to open an HTTPS server'
           )
           logger.warn('Falling back to opening an HTTP server...')
-          const httpServer = Http.Server(app)
+          const httpServer = new Http.Server(app)
           return httpServer
         }
       }
 
       const serverInstance = await createServer()
 
-      const io = require('socket.io')(serverInstance)
-
-      const Sockets = require('./sockets')(io)
-
-      require('./routes')(app, defaults, Sockets, {
-        serverHost,
-        serverPort,
-        usetls: program.usetls,
-        CA,
-        CA_KEY
+      const io = require('socket.io')(serverInstance, {
+        parser: binaryParser,
+        transports: ['websocket', 'polling'],
+        cors: {
+          origin: (origin, callback) => {
+            callback(null, true)
+          },
+          allowedHeaders: [
+            'Origin',
+            'X-Requested-With',
+            'Content-Type',
+            'Accept',
+            'Authorization',
+            'public-key-for-decryption',
+            'encryption-device-id'
+          ],
+          credentials: true
+        }
       })
+
+      require('./routes')(
+        app,
+        {
+          ...defaults,
+          lndAddress: program.lndAddress,
+          cliArgs: program
+        },
+        {
+          serverPort,
+          useTLS: program.useTLS,
+          CA,
+          CA_KEY,
+          runPrivateKey,
+          runPublicKey,
+          accessSecret
+        }
+      )
 
       // enable CORS headers
       app.use(require('./cors'))
       // app.use(bodyParser.json({limit: '100000mb'}));
       app.use(bodyParser.json({ limit: '50mb' }))
       app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }))
-      if (process.env.DISABLE_SHOCK_ENCRYPTION !== 'true') {
+      if (process.env.SHOCK_ENCRYPTION_ECC !== 'false') {
         app.use(modifyResponseBody)
       }
 
+      if (program.tunnel) {
+        const [relayToken, relayId, relayUrl] = await Promise.all([
+          Storage.getItem('relay/token'),
+          Storage.getItem('relay/id'),
+          Storage.getItem('relay/url')
+        ])
+        const opts = {
+          relayId,
+          relayToken,
+          address: tunnelHost,
+          port: serverPort
+        }
+        logger.info(opts)
+        relayClient.default(opts, async (connected, params) => {
+          if (connected) {
+            const noProtocolAddress = params.address.replace(
+              /^http(?<secure>s)?:\/\//giu,
+              ''
+            )
+            await Promise.all([
+              Storage.setItem('relay/token', params.relayToken),
+              Storage.setItem('relay/id', params.relayId),
+              Storage.setItem('relay/url', noProtocolAddress)
+            ])
+            const dataToQr = JSON.stringify({
+              URI: `https://${params.relayId}@${noProtocolAddress}`,
+              // Null-check is just to please typescript
+              accessSecret: accessSecretBase64
+            })
+            qrcode.generate(dataToQr, { small: false })
+            logger.info(`connect to ${params.relayId}@${noProtocolAddress}:443`)
+            console.log('\n')
+            console.log(`Here's your access secret:`)
+            console.log('\n')
+            console.log(accessSecretBase64)
+            console.log('\n')
+            console.log('\n')
+          } else {
+            logger.error('!! Relay did not connect to server !!')
+          }
+        })
+      } else {
+        console.log('\n')
+        console.log(`Here's your access secret:`)
+        console.log('\n')
+        console.log(accessSecretBase64)
+        console.log('\n')
+        console.log('\n')
+      }
+
       serverInstance.listen(serverPort, serverHost)
-
       logger.info('App listening on ' + serverHost + ' port ' + serverPort)
-
+      // @ts-expect-error
       module.server = serverInstance
     } catch (err) {
       logger.error({ exception: err, message: err.message, code: err.code })
       logger.info('Restarting server in 30 seconds...')
-      if (tunnelRef) {
-        tunnelRef.close()
-      }
       await wait(30)
       startServer()
       return false
