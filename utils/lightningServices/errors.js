@@ -50,7 +50,7 @@ class LNDErrorManager {
        */
       const listener = (err, response) => {
         if (err) {
-          if (err.code === 12) {
+          if (err.details.includes("wallet not created") || err.details.includes("wallet locked")) {
             res({
               service: 'walletUnlocker',
               message: 'Wallet locked',
