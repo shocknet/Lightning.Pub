@@ -2,12 +2,10 @@
  * @format
  */
 const uuidv1 = require('uuid/v1')
-const logger = require('winston')
+const logger = require('../../../config/log')
+const throttle = require('lodash/throttle')
 const Common = require('shock-common')
 const { Constants, Schema } = Common
-const Gun = require('gun')
-const crypto = require('crypto')
-const fetch = require('node-fetch')
 
 const { ErrorCode } = Constants
 
@@ -24,264 +22,15 @@ const Getters = require('./getters')
 const Key = require('./key')
 const Utils = require('./utils')
 const SchemaManager = require('../../schema')
-const LNDHealthMananger = require('../../../utils/lightningServices/errors')
+const LNDHealthManager = require('../../../utils/lightningServices/errors')
+const { enrollContentTokens, selfContentToken } = require('../../seed')
+
+/// <reference path="../../../utils/GunSmith/Smith.ts" />
 
 /**
- * @typedef {import('./SimpleGUN').GUNNode} GUNNode
  * @typedef {import('./SimpleGUN').ISEA} ISEA
- * @typedef {import('./SimpleGUN').UserGUNNode} UserGUNNode
- * @typedef {import('shock-common').Schema.HandshakeRequest} HandshakeRequest
- * @typedef {import('shock-common').Schema.StoredRequest} StoredReq
- * @typedef {import('shock-common').Schema.Message} Message
- * @typedef {import('shock-common').Schema.Outgoing} Outgoing
- * @typedef {import('shock-common').Schema.PartialOutgoing} PartialOutgoing
- * @typedef {import('shock-common').Schema.Order} Order
- * @typedef {import('./SimpleGUN').Ack} Ack
+ * @typedef {Smith.UserSmithNode} UserGUNNode
  */
-
-/**
- * Create a an outgoing feed. The feed will have an initial special acceptance
- * message. Returns a promise that resolves to the id of the newly-created
- * outgoing feed.
- *
- * If an outgoing feed is already created for the recipient, then returns the id
- * of that one.
- * @param {string} withPublicKey Public key of the intended recipient of the
- * outgoing feed that will be created.
- * @throws {Error} If the outgoing feed cannot be created or if the initial
- * message for it also cannot be created. These errors aren't coded as they are
- * not meant to be caught outside of this module.
- * @param {UserGUNNode} user
- * @param {ISEA} SEA
- * @returns {Promise<string>}
- */
-const __createOutgoingFeed = async (withPublicKey, user, SEA) => {
-  if (!user.is) {
-    throw new Error(ErrorCode.NOT_AUTH)
-  }
-
-  const mySecret = require('../Mediator').getMySecret()
-  const encryptedForMeRecipientPub = await SEA.encrypt(withPublicKey, mySecret)
-  const ourSecret = await SEA.secret(
-    await Utils.pubToEpub(withPublicKey),
-    user._.sea
-  )
-
-  const maybeOutgoingID = await Utils.recipientToOutgoingID(withPublicKey)
-
-  let outgoingFeedID = ''
-
-  // if there was no stored outgoing, create an outgoing feed
-  if (typeof maybeOutgoingID !== 'string') {
-    /** @type {PartialOutgoing} */
-    const newPartialOutgoingFeed = {
-      with: encryptedForMeRecipientPub
-    }
-
-    /** @type {string} */
-    const newOutgoingFeedID = await new Promise((res, rej) => {
-      const _outFeedNode = user
-        .get(Key.OUTGOINGS)
-        //@ts-ignore
-        .set(newPartialOutgoingFeed, ack => {
-          if (ack.err && typeof ack.err !== 'number') {
-            rej(new Error(ack.err))
-          } else {
-            res(_outFeedNode._.get)
-          }
-        })
-    })
-
-    if (typeof newOutgoingFeedID !== 'string') {
-      throw new TypeError('typeof newOutgoingFeedID !== "string"')
-    }
-
-    /** @type {Message} */
-    const initialMsg = {
-      body: await SEA.encrypt(Constants.Misc.INITIAL_MSG, ourSecret),
-      timestamp: Date.now()
-    }
-
-    await /** @type {Promise<void>} */ (new Promise((res, rej) => {
-      user
-        .get(Key.OUTGOINGS)
-        .get(newOutgoingFeedID)
-        .get(Key.MESSAGES)
-        //@ts-ignore
-        .set(initialMsg, ack => {
-          if (ack.err && typeof ack.err !== 'number') {
-            rej(new Error(ack.err))
-          } else {
-            res()
-          }
-        })
-    }))
-
-    const encryptedForMeNewOutgoingFeedID = await SEA.encrypt(
-      newOutgoingFeedID,
-      mySecret
-    )
-
-    await /** @type {Promise<void>} */ (new Promise((res, rej) => {
-      user
-        .get(Key.RECIPIENT_TO_OUTGOING)
-        .get(withPublicKey)
-        .put(encryptedForMeNewOutgoingFeedID, ack => {
-          if (ack.err && typeof ack.err !== 'number') {
-            rej(Error(ack.err))
-          } else {
-            res()
-          }
-        })
-    }))
-
-    outgoingFeedID = newOutgoingFeedID
-  }
-
-  // otherwise decrypt stored outgoing
-  else {
-    outgoingFeedID = maybeOutgoingID
-  }
-
-  if (typeof outgoingFeedID === 'undefined') {
-    throw new TypeError(
-      '__createOutgoingFeed() -> typeof outgoingFeedID === "undefined"'
-    )
-  }
-
-  if (typeof outgoingFeedID !== 'string') {
-    throw new TypeError(
-      '__createOutgoingFeed() -> expected outgoingFeedID to be an string'
-    )
-  }
-
-  if (outgoingFeedID.length === 0) {
-    throw new TypeError(
-      '__createOutgoingFeed() -> expected outgoingFeedID to be a populated string.'
-    )
-  }
-
-  return outgoingFeedID
-}
-
-/**
- * Given a request's ID, that should be found on the user's current handshake
- * node, accept the request by creating an outgoing feed intended for the
- * requestor, then encrypting and putting the id of this newly created outgoing
- * feed on the response prop of the request.
- * @param {string} requestID The id for the request to accept.
- * @param {GUNNode} gun
- * @param {UserGUNNode} user Pass only for testing purposes.
- * @param {ISEA} SEA
- * @param {typeof __createOutgoingFeed} outgoingFeedCreator Pass only
- * for testing. purposes.
- * @throws {Error} Throws if trying to accept an invalid request, or an error on
- * gun's part.
- * @returns {Promise<void>}
- */
-const acceptRequest = async (
-  requestID,
-  gun,
-  user,
-  SEA,
-  outgoingFeedCreator = __createOutgoingFeed
-) => {
-  if (!user.is) {
-    throw new Error(ErrorCode.NOT_AUTH)
-  }
-
-  const handshakeAddress = await Utils.tryAndWait(async (_, user) => {
-    const addr = await user.get(Key.CURRENT_HANDSHAKE_ADDRESS).then()
-
-    if (typeof addr !== 'string') {
-      throw new TypeError("typeof addr !== 'string'")
-    }
-
-    return addr
-  })
-
-  const {
-    response: encryptedForUsIncomingID,
-    from: senderPublicKey
-  } = await Utils.tryAndWait(async gun => {
-    const hr = await gun
-      .get(Key.HANDSHAKE_NODES)
-      .get(handshakeAddress)
-      .get(requestID)
-      .then()
-
-    if (!Schema.isHandshakeRequest(hr)) {
-      throw new Error(ErrorCode.TRIED_TO_ACCEPT_AN_INVALID_REQUEST)
-    }
-
-    return hr
-  })
-
-  /** @type {string} */
-  const requestorEpub = await Utils.pubToEpub(senderPublicKey)
-
-  const ourSecret = await SEA.secret(requestorEpub, user._.sea)
-  if (typeof ourSecret !== 'string') {
-    throw new TypeError("typeof ourSecret !== 'string'")
-  }
-
-  const incomingID = await SEA.decrypt(encryptedForUsIncomingID, ourSecret)
-  if (typeof incomingID !== 'string') {
-    throw new TypeError("typeof incomingID !== 'string'")
-  }
-
-  const newlyCreatedOutgoingFeedID = await outgoingFeedCreator(
-    senderPublicKey,
-    user,
-    SEA
-  )
-
-  const mySecret = require('../Mediator').getMySecret()
-  const encryptedForMeIncomingID = await SEA.encrypt(incomingID, mySecret)
-
-  await /** @type {Promise<void>} */ (new Promise((res, rej) => {
-    user
-      .get(Key.USER_TO_INCOMING)
-      .get(senderPublicKey)
-      .put(encryptedForMeIncomingID, ack => {
-        if (ack.err && typeof ack.err !== 'number') {
-          rej(new Error(ack.err))
-        } else {
-          res()
-        }
-      })
-  }))
-
-  ////////////////////////////////////////////////////////////////////////////
-  // NOTE: perform non-reversable actions before destructive actions
-  // In case any of the non-reversable actions reject.
-  // In this case, writing to the response is the non-revesarble op.
-  ////////////////////////////////////////////////////////////////////////////
-
-  const encryptedForUsOutgoingID = await SEA.encrypt(
-    newlyCreatedOutgoingFeedID,
-    ourSecret
-  )
-  //why await if you dont need the response?
-  await /** @type {Promise<void>} */ (new Promise((res, rej) => {
-    gun
-      .get(Key.HANDSHAKE_NODES)
-      .get(handshakeAddress)
-      .get(requestID)
-      .put(
-        {
-          response: encryptedForUsOutgoingID
-        },
-        ack => {
-          if (ack.err && typeof ack.err !== 'number') {
-            rej(new Error(ack.err))
-          } else {
-            res()
-          }
-        }
-      )
-  }))
-}
 
 /**
  * @param {string} user
@@ -311,7 +60,11 @@ const authenticate = (user, pass, userNode) =>
     }
 
     userNode.auth(user, pass, ack => {
-      if (ack.err && typeof ack.err !== 'number') {
+      if (
+        ack.err &&
+        typeof ack.err !== 'number' &&
+        typeof ack.err !== 'object'
+      ) {
         reject(new Error(ack.err))
       } else if (!userNode.is) {
         reject(new Error('authentication failed'))
@@ -334,7 +87,11 @@ const blacklist = (publicKey, user) =>
     }
 
     user.get(Key.BLACKLIST).set(publicKey, ack => {
-      if (ack.err && typeof ack.err !== 'number') {
+      if (
+        ack.err &&
+        typeof ack.err !== 'number' &&
+        typeof ack.err !== 'object'
+      ) {
         reject(new Error(ack.err))
       } else {
         resolve()
@@ -353,7 +110,11 @@ const generateHandshakeAddress = async () => {
 
   await /** @type {Promise<void>} */ (new Promise((res, rej) => {
     user.get(Key.CURRENT_HANDSHAKE_ADDRESS).put(address, ack => {
-      if (ack.err && typeof ack.err !== 'number') {
+      if (
+        ack.err &&
+        typeof ack.err !== 'number' &&
+        typeof ack.err !== 'object'
+      ) {
         rej(new Error(ack.err))
       } else {
         res()
@@ -366,445 +127,17 @@ const generateHandshakeAddress = async () => {
       .get(Key.HANDSHAKE_NODES)
       .get(address)
       .put({ unused: 0 }, ack => {
-        if (ack.err && typeof ack.err !== 'number') {
+        if (
+          ack.err &&
+          typeof ack.err !== 'number' &&
+          typeof ack.err !== 'object'
+        ) {
           rej(new Error(ack.err))
         } else {
           res()
         }
       })
   }))
-}
-
-/**
- *
- * @param {string} pub
- * @throws {Error}
- * @returns {Promise<void>}
- */
-const cleanup = async pub => {
-  const user = require('../Mediator').getUser()
-
-  const outGoingID = await Utils.recipientToOutgoingID(pub)
-
-  const promises = []
-
-  promises.push(
-    /** @type {Promise<void>} */ (new Promise((res, rej) => {
-      user
-        .get(Key.USER_TO_INCOMING)
-        .get(pub)
-        .put(null, ack => {
-          if (ack.err && typeof ack.err !== 'number') {
-            rej(new Error(ack.err))
-          } else {
-            res()
-          }
-        })
-    }))
-  )
-
-  promises.push(
-    /** @type {Promise<void>} */ (new Promise((res, rej) => {
-      user
-        .get(Key.RECIPIENT_TO_OUTGOING)
-        .get(pub)
-        .put(null, ack => {
-          if (ack.err && typeof ack.err !== 'number') {
-            rej(new Error(ack.err))
-          } else {
-            res()
-          }
-        })
-    }))
-  )
-
-  promises.push(
-    /** @type {Promise<void>} */ (new Promise((res, rej) => {
-      user
-        .get(Key.USER_TO_LAST_REQUEST_SENT)
-        .get(pub)
-        .put(null, ack => {
-          if (ack.err && typeof ack.err !== 'number') {
-            rej(new Error(ack.err))
-          } else {
-            res()
-          }
-        })
-    }))
-  )
-
-  if (outGoingID) {
-    promises.push(
-      /** @type {Promise<void>} */ (new Promise((res, rej) => {
-        user
-          .get(Key.OUTGOINGS)
-          .get(outGoingID)
-          .put(null, ack => {
-            if (ack.err && typeof ack.err !== 'number') {
-              rej(new Error(ack.err))
-            } else {
-              res()
-            }
-          })
-      }))
-    )
-  }
-
-  await Promise.all(promises)
-}
-
-/**
- * @param {string} recipientPublicKey
- * @param {GUNNode} gun
- * @param {UserGUNNode} user
- * @param {ISEA} SEA
- * @throws {Error|TypeError}
- * @returns {Promise<void>}
- */
-const sendHandshakeRequest = async (recipientPublicKey, gun, user, SEA) => {
-  if (!user.is) {
-    throw new Error(ErrorCode.NOT_AUTH)
-  }
-
-  await cleanup(recipientPublicKey)
-
-  if (typeof recipientPublicKey !== 'string') {
-    throw new TypeError(
-      `recipientPublicKey is not string, got: ${typeof recipientPublicKey}`
-    )
-  }
-
-  if (recipientPublicKey.length === 0) {
-    throw new TypeError('recipientPublicKey is an string of length 0')
-  }
-
-  if (recipientPublicKey === user.is.pub) {
-    throw new Error('Do not send a request to yourself')
-  }
-
-  logger.info('sendHR() -> before recipientEpub')
-
-  /** @type {string} */
-  const recipientEpub = await Utils.pubToEpub(recipientPublicKey)
-
-  logger.info('sendHR() -> before mySecret')
-
-  const mySecret = require('../Mediator').getMySecret()
-  logger.info('sendHR() -> before ourSecret')
-  const ourSecret = await SEA.secret(recipientEpub, user._.sea)
-
-  // check if successful handshake is present
-
-  logger.info('sendHR() -> before alreadyHandshaked')
-
-  /** @type {boolean} */
-  const alreadyHandshaked = await Utils.successfulHandshakeAlreadyExists(
-    recipientPublicKey
-  )
-
-  if (alreadyHandshaked) {
-    throw new Error(ErrorCode.ALREADY_HANDSHAKED)
-  }
-
-  logger.info('sendHR() -> before maybeLastRequestIDSentToUser')
-
-  // check that we have already sent a request to this user, on his current
-  // handshake node
-  const maybeLastRequestIDSentToUser = await Utils.tryAndWait((_, user) =>
-    user
-      .get(Key.USER_TO_LAST_REQUEST_SENT)
-      .get(recipientPublicKey)
-      .then()
-  )
-
-  logger.info('sendHR() -> before currentHandshakeAddress')
-
-  const currentHandshakeAddress = await Utils.tryAndWait(
-    gun =>
-      Common.Utils.makePromise(res => {
-        gun
-          .user(recipientPublicKey)
-          .get(Key.CURRENT_HANDSHAKE_ADDRESS)
-          .once(
-            data => {
-              res(data)
-            },
-            { wait: 1000 }
-          )
-      }),
-    data => typeof data !== 'string'
-  )
-
-  if (typeof currentHandshakeAddress !== 'string') {
-    throw new TypeError(
-      'expected current handshake address found on recipients user node to be an string'
-    )
-  }
-
-  if (typeof maybeLastRequestIDSentToUser === 'string') {
-    if (maybeLastRequestIDSentToUser.length < 5) {
-      throw new TypeError(
-        'sendHandshakeRequest() -> maybeLastRequestIDSentToUser.length < 5'
-      )
-    }
-
-    const lastRequestIDSentToUser = maybeLastRequestIDSentToUser
-
-    logger.info('sendHR() -> before alreadyContactedOnCurrHandshakeNode')
-
-    const hrInHandshakeNode = await Utils.tryAndWait(
-      gun =>
-        new Promise(res => {
-          gun
-            .get(Key.HANDSHAKE_NODES)
-            .get(currentHandshakeAddress)
-            .get(lastRequestIDSentToUser)
-            .once(data => {
-              res(data)
-            })
-        }),
-      // force retry on undefined in case the undefined was a false negative
-      v => typeof v === 'undefined'
-    )
-
-    const alreadyContactedOnCurrHandshakeNode =
-      typeof hrInHandshakeNode !== 'undefined'
-
-    if (alreadyContactedOnCurrHandshakeNode) {
-      throw new Error(ErrorCode.ALREADY_REQUESTED_HANDSHAKE)
-    }
-  }
-
-  logger.info('sendHR() -> before __createOutgoingFeed')
-
-  const outgoingFeedID = await __createOutgoingFeed(
-    recipientPublicKey,
-    user,
-    SEA
-  )
-
-  logger.info('sendHR() -> before encryptedForUsOutgoingFeedID')
-
-  const encryptedForUsOutgoingFeedID = await SEA.encrypt(
-    outgoingFeedID,
-    ourSecret
-  )
-
-  const timestamp = Date.now()
-
-  /** @type {HandshakeRequest} */
-  const handshakeRequestData = {
-    from: user.is.pub,
-    response: encryptedForUsOutgoingFeedID,
-    timestamp
-  }
-
-  const encryptedForMeRecipientPublicKey = await SEA.encrypt(
-    recipientPublicKey,
-    mySecret
-  )
-
-  logger.info('sendHR() -> before newHandshakeRequestID')
-  /** @type {string} */
-  const newHandshakeRequestID = await new Promise((res, rej) => {
-    const hr = gun
-      .get(Key.HANDSHAKE_NODES)
-      .get(currentHandshakeAddress)
-      //@ts-ignore
-      .set(handshakeRequestData, ack => {
-        if (ack.err && typeof ack.err !== 'number') {
-          rej(new Error(`Error trying to create request: ${ack.err}`))
-        } else {
-          res(hr._.get)
-        }
-      })
-  })
-
-  await /** @type {Promise<void>} */ (new Promise((res, rej) => {
-    user
-      .get(Key.USER_TO_LAST_REQUEST_SENT)
-      .get(recipientPublicKey)
-      .put(newHandshakeRequestID, ack => {
-        if (ack.err && typeof ack.err !== 'number') {
-          rej(new Error(ack.err))
-        } else {
-          res()
-        }
-      })
-  }))
-
-  // This needs to come before the write to sent requests. Because that write
-  // triggers Jobs.onAcceptedRequests and it in turn reads from request-to-user
-
-  /**
-   * @type {StoredReq}
-   */
-  const storedReq = {
-    sentReqID: await SEA.encrypt(newHandshakeRequestID, mySecret),
-    recipientPub: encryptedForMeRecipientPublicKey,
-    handshakeAddress: await SEA.encrypt(currentHandshakeAddress, mySecret),
-    timestamp
-  }
-  //why await if you dont need the response?
-  await /** @type {Promise<void>} */ (new Promise((res, rej) => {
-    //@ts-ignore
-    user.get(Key.STORED_REQS).set(storedReq, ack => {
-      if (ack.err && typeof ack.err !== 'number') {
-        rej(
-          new Error(
-            `Error saving newly created request to sent requests: ${ack.err}`
-          )
-        )
-      } else {
-        res()
-      }
-    })
-  }))
-}
-
-/**
- * Returns the message id.
- * @param {string} recipientPublicKey
- * @param {string} body
- * @param {UserGUNNode} user
- * @param {ISEA} SEA
- * @returns {Promise<import('shock-common').Schema.ChatMessage>} The message id.
- */
-const sendMessageNew = async (recipientPublicKey, body, user, SEA) => {
-  if (!user.is) {
-    throw new Error(ErrorCode.NOT_AUTH)
-  }
-
-  if (typeof recipientPublicKey !== 'string') {
-    throw new TypeError(
-      `expected recipientPublicKey to be an string, but instead got: ${typeof recipientPublicKey}`
-    )
-  }
-
-  if (recipientPublicKey.length === 0) {
-    throw new TypeError(
-      'expected recipientPublicKey to be an string of length greater than zero'
-    )
-  }
-
-  if (typeof body !== 'string') {
-    throw new TypeError(
-      `expected message to be an string, instead got: ${typeof body}`
-    )
-  }
-
-  if (body.length === 0) {
-    throw new TypeError(
-      'expected message to be an string of length greater than zero'
-    )
-  }
-
-  const outgoingID = await Utils.recipientToOutgoingID(recipientPublicKey)
-
-  if (outgoingID === null) {
-    throw new Error(
-      `Could not fetch an outgoing id for user: ${recipientPublicKey}`
-    )
-  }
-
-  const recipientEpub = await Utils.pubToEpub(recipientPublicKey)
-  const ourSecret = await SEA.secret(recipientEpub, user._.sea)
-  if (typeof ourSecret !== 'string') {
-    throw new TypeError("sendMessage() -> typeof ourSecret !== 'string'")
-  }
-  const encryptedBody = await SEA.encrypt(body, ourSecret)
-
-  const newMessage = {
-    body: encryptedBody,
-    timestamp: Date.now()
-  }
-
-  return new Promise((res, rej) => {
-    const msgNode = user
-      .get(Key.OUTGOINGS)
-      .get(outgoingID)
-      .get(Key.MESSAGES)
-      .set(newMessage, ack => {
-        if (ack.err && typeof ack.err !== 'number') {
-          rej(new Error(ack.err))
-        } else {
-          res({
-            body,
-            id: msgNode._.get,
-            outgoing: true,
-            timestamp: newMessage.timestamp
-          })
-        }
-      })
-  })
-}
-
-/**
- * Returns the message id.
- * @param {string} recipientPublicKey
- * @param {string} body
- * @param {UserGUNNode} user
- * @param {ISEA} SEA
- * @returns {Promise<string>} The message id.
- */
-const sendMessage = async (recipientPublicKey, body, user, SEA) =>
-  (await sendMessageNew(recipientPublicKey, body, user, SEA)).id
-
-/**
- * @param {string} recipientPub
- * @param {string} msgID
- * @param {UserGUNNode} user
- * @returns {Promise<void>}
- */
-const deleteMessage = async (recipientPub, msgID, user) => {
-  if (!user.is) {
-    throw new Error(ErrorCode.NOT_AUTH)
-  }
-
-  if (typeof recipientPub !== 'string') {
-    throw new TypeError(
-      `expected recipientPublicKey to be an string, but instead got: ${typeof recipientPub}`
-    )
-  }
-
-  if (recipientPub.length === 0) {
-    throw new TypeError(
-      'expected recipientPublicKey to be an string of length greater than zero'
-    )
-  }
-
-  if (typeof msgID !== 'string') {
-    throw new TypeError(
-      `expected msgID to be an string, instead got: ${typeof msgID}`
-    )
-  }
-
-  if (msgID.length === 0) {
-    throw new TypeError(
-      'expected msgID to be an string of length greater than zero'
-    )
-  }
-
-  const outgoingID = await Utils.recipientToOutgoingID(recipientPub)
-
-  if (outgoingID === null) {
-    throw new Error(`Could not fetch an outgoing id for user: ${recipientPub}`)
-  }
-
-  return new Promise((res, rej) => {
-    user
-      .get(Key.OUTGOINGS)
-      .get(outgoingID)
-      .get(Key.MESSAGES)
-      .get(msgID)
-      .put(null, ack => {
-        if (ack.err && typeof ack.err !== 'number') {
-          rej(new Error(ack.err))
-        } else {
-          res()
-        }
-      })
-  })
 }
 
 /**
@@ -835,7 +168,11 @@ const setAvatar = (avatar, user) =>
       .get(Key.PROFILE_BINARY)
       .get(Key.AVATAR)
       .put(avatar, ack => {
-        if (ack.err && typeof ack.err !== 'number') {
+        if (
+          ack.err &&
+          typeof ack.err !== 'number' &&
+          typeof ack.err !== 'object'
+        ) {
           reject(new Error(ack.err))
         } else {
           resolve()
@@ -868,7 +205,11 @@ const setDisplayName = (displayName, user) =>
       .get(Key.PROFILE)
       .get(Key.DISPLAY_NAME)
       .put(displayName, ack => {
-        if (ack.err && typeof ack.err !== 'number') {
+        if (
+          ack.err &&
+          typeof ack.err !== 'number' &&
+          typeof ack.err !== 'object'
+        ) {
           reject(new Error(ack.err))
         } else {
           resolve()
@@ -877,53 +218,94 @@ const setDisplayName = (displayName, user) =>
   })
 
 /**
- * @param {string} initialMsg
- * @param {string} recipientPublicKey
- * @param {GUNNode} gun
+ * @param {string} encryptedSeedProvider
  * @param {UserGUNNode} user
- * @param {ISEA} SEA
- * @throws {Error|TypeError}
+ * @throws {TypeError} Rejects if displayName is not an string or an empty
+ * string.
  * @returns {Promise<void>}
  */
-const sendHRWithInitialMsg = async (
-  initialMsg,
-  recipientPublicKey,
-  gun,
-  user,
-  SEA
-) => {
-  /** @type {boolean} */
-  const alreadyHandshaked = await Utils.tryAndWait(
-    (_, user) =>
-      new Promise((res, rej) => {
-        user
-          .get(Key.USER_TO_INCOMING)
-          .get(recipientPublicKey)
-          .once(inc => {
-            if (typeof inc !== 'string') {
-              res(false)
-            } else if (inc.length === 0) {
-              rej(
-                new Error(
-                  `sendHRWithInitialMsg()-> obtained encryptedIncomingId from user-to-incoming an string but of length 0`
-                )
-              )
-            } else {
-              res(true)
-            }
-          })
+const setDefaultSeedProvider = (encryptedSeedProvider, user) =>
+  new Promise((resolve, reject) => {
+    if (!user.is) {
+      throw new Error(ErrorCode.NOT_AUTH)
+    }
+
+    if (typeof encryptedSeedProvider !== 'string') {
+      throw new TypeError()
+    }
+    user
+      .get('preferencesSeedServiceProvider')
+      .put(encryptedSeedProvider, ack => {
+        if (
+          ack.err &&
+          typeof ack.err !== 'number' &&
+          typeof ack.err !== 'object'
+        ) {
+          reject(new Error(ack.err))
+        } else {
+          resolve()
+        }
       })
-  )
+  })
+/**
+ * @param {string} encryptedSeedServiceData
+ * @param {UserGUNNode} user
+ * @throws {TypeError}
+ * @returns {Promise<void>}
+ */
+const setSeedServiceData = (encryptedSeedServiceData, user) =>
+  new Promise((resolve, reject) => {
+    if (!user.is) {
+      throw new Error(ErrorCode.NOT_AUTH)
+    }
 
-  if (!alreadyHandshaked) {
-    await sendHandshakeRequest(recipientPublicKey, gun, user, SEA)
-  }
+    if (typeof encryptedSeedServiceData !== 'string') {
+      throw new TypeError()
+    }
+    user
+      .get('preferencesSeedServiceData')
+      .put(encryptedSeedServiceData, ack => {
+        if (
+          ack.err &&
+          typeof ack.err !== 'number' &&
+          typeof ack.err !== 'object'
+        ) {
+          reject(new Error(ack.err))
+        } else {
+          resolve()
+        }
+      })
+  })
+/**
+ * @param {string} encryptedCurrentStreamInfo
+ * @param {UserGUNNode} user
+ * @throws {TypeError}
+ * @returns {Promise<void>}
+ */
+const setCurrentStreamInfo = (encryptedCurrentStreamInfo, user) =>
+  new Promise((resolve, reject) => {
+    if (!user.is) {
+      throw new Error(ErrorCode.NOT_AUTH)
+    }
 
-  await sendMessage(recipientPublicKey, initialMsg, user, SEA)
-}
+    if (typeof encryptedCurrentStreamInfo !== 'string') {
+      throw new TypeError()
+    }
+    user.get('currentStreamInfo').put(encryptedCurrentStreamInfo, ack => {
+      if (
+        ack.err &&
+        typeof ack.err !== 'number' &&
+        typeof ack.err !== 'object'
+      ) {
+        reject(new Error(ack.err))
+      } else {
+        resolve()
+      }
+    })
+  })
 
 /**
- * @typedef {object} SpontPaymentOptions
+ * @typedef {object} SpontaneousPaymentOptions
  * @prop {Common.Schema.OrderTargetType} type
  * @prop {string=} ackInfo
  */
@@ -938,7 +320,7 @@ const sendHRWithInitialMsg = async (
  * @param {number} amount
  * @param {string} memo
  * @param {number} feeLimit
- * @param {SpontPaymentOptions} opts
+ * @param {SpontaneousPaymentOptions} opts
  * @throws {Error} If no response in less than 20 seconds from the recipient, or
  * lightning cannot find a route for the payment.
  * @returns {Promise<OrderRes>} The payment's preimage.
@@ -961,40 +343,15 @@ const sendSpontaneousPayment = async (
       !isNaN(parseInt(opts.ackInfo, 10))
     ) {
       //user requested a seed to themselves
-      const numberOfTokens = Number(opts.ackInfo)
-      if (isNaN(numberOfTokens)) {
-        throw new Error('ackInfo provided is not a valid number')
-      }
-      const seedUrl = process.env.TORRENT_SEED_URL
-      const seedToken = process.env.TORRENT_SEED_TOKEN
-      if (!seedUrl || !seedToken) {
+      const numberOfTokens = Number(opts.ackInfo) || 1
+      const seedInfo = selfContentToken()
+      if (!seedInfo) {
         throw new Error('torrentSeed service not available')
       }
-      console.log('SEED URL OK')
-      const tokens = Array(numberOfTokens)
-      for (let i = 0; i < numberOfTokens; i++) {
-        tokens[i] = crypto.randomBytes(32).toString('hex')
-      }
-      /**@param {string} token */
-      const enrollToken = async token => {
-        const reqData = {
-          seed_token: seedToken,
-          wallet_token: token
-        }
-        //@ts-expect-error
-        const res = await fetch(`${seedUrl}/api/enroll_token`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(reqData)
-        })
-        if (res.status !== 200) {
-          throw new Error('torrentSeed service currently not available')
-        }
-      }
-      await Promise.all(tokens.map(enrollToken))
-      console.log('RES SEED OK')
+      const { seedUrl } = seedInfo
+      logger.info('SEED URL OK')
+      const tokens = await enrollContentTokens(numberOfTokens, seedInfo)
+      logger.info('RES SEED OK')
       const ackData = JSON.stringify({ seedUrl, tokens })
       return {
         payment: null,
@@ -1012,7 +369,7 @@ const sendSpontaneousPayment = async (
 
     logger.info('sendPayment() -> will now create order:')
 
-    /** @type {Order} */
+    /** @type {import('shock-common').Schema.Order} */
     const order = {
       amount: amount.toString(),
       from: getUser()._.sea.pub,
@@ -1049,7 +406,11 @@ const sendSpontaneousPayment = async (
         .get(currOrderAddress)
         //@ts-ignore
         .set(order, ack => {
-          if (ack.err && typeof ack.err !== 'number') {
+          if (
+            ack.err &&
+            typeof ack.err !== 'number' &&
+            typeof ack.err !== 'object'
+          ) {
             rej(
               new Error(
                 `Error writing order to order node: ${currOrderAddress} for pub: ${to}: ${ack.err}`
@@ -1067,25 +428,26 @@ const sendSpontaneousPayment = async (
       )}`
       throw new Error(msg)
     }
-    console.log('ORDER ID')
-    console.log(orderID)
+    logger.info('ORDER ID')
+    logger.info(orderID)
     /** @type {import('shock-common').Schema.OrderResponse} */
-    const encryptedOrderRes = await Utils.tryAndWait(
-      gun =>
-        new Promise(res => {
-          gun
-            .user(to)
-            .get(Key.ORDER_TO_RESPONSE)
-            .get(orderID)
-            .on(orderResponse => {
-              console.log(orderResponse)
-              if (Schema.isOrderResponse(orderResponse)) {
-                res(orderResponse)
-              }
-            })
-        }),
-      v => Schema.isOrderResponse(v)
-    )
+    const encryptedOrderRes = await Common.makePromise((res, rej) => {
+      setTimeout(() => {
+        rej(new Error('Timeout of 30s passed when awaiting order response.'))
+      }, 30000)
+
+      require('../Mediator')
+        .getGun()
+        .user(to)
+        .get(Key.ORDER_TO_RESPONSE)
+        .get(orderID)
+        .on(orderResponse => {
+          logger.info(orderResponse)
+          if (Schema.isOrderResponse(orderResponse)) {
+            res(orderResponse)
+          }
+        })
+    })
 
     if (!Schema.isOrderResponse(encryptedOrderRes)) {
       const e = TypeError(
@@ -1115,13 +477,19 @@ const sendSpontaneousPayment = async (
 
     const { num_satoshis: decodedAmt } = await decodePayReq(encodedInvoice)
 
-    if (decodedAmt !== amount.toString()) {
-      throw new Error('Invoice amount mismatch')
+    if (decodedAmt.toString() !== amount.toString()) {
+      throw new Error(
+        `Invoice amount mismatch got: ${decodedAmt.toString()} expected: ${amount.toString()}`
+      )
     }
 
     // double check
-    if (Number(decodedAmt) !== amount) {
-      throw new Error('Invoice amount mismatch')
+    if (Number(decodedAmt) !== Number(amount)) {
+      throw new Error(
+        `Invoice amount mismatch got:${Number(decodedAmt)} expected:${Number(
+          amount
+        )}`
+      )
     }
 
     logger.info('Will now send payment through lightning')
@@ -1130,9 +498,12 @@ const sendSpontaneousPayment = async (
       feeLimit,
       payment_request: orderResponse.response
     })
-    const myLndPub = LNDHealthMananger.lndPub
+    const myLndPub = LNDHealthManager.lndPub
     if (
-      (opts.type !== 'contentReveal' && opts.type !== 'torrentSeed') ||
+      (opts.type !== 'contentReveal' &&
+        opts.type !== 'torrentSeed' &&
+        opts.type !== 'service' &&
+        opts.type !== 'product') ||
       !orderResponse.ackNode
     ) {
       SchemaManager.AddOrder({
@@ -1148,30 +519,34 @@ const sendSpontaneousPayment = async (
       })
       return { payment }
     }
-    console.log('ACK NODE')
-    console.log(orderResponse.ackNode)
+    logger.info('ACK NODE')
+    logger.info(orderResponse.ackNode)
     /** @type {import('shock-common').Schema.OrderResponse} */
-    const encryptedOrderAckRes = await Utils.tryAndWait(
-      gun =>
-        new Promise(res => {
-          gun
-            .user(to)
-            .get(Key.ORDER_TO_RESPONSE)
-            .get(orderResponse.ackNode)
-            .on(orderResponse => {
-              console.log(orderResponse)
-              console.log(Schema.isOrderResponse(orderResponse))
+    const encryptedOrderAckRes = await Common.makePromise((res, rej) => {
+      setTimeout(() => {
+        rej(
+          new Error(
+            "Timeout of 30s exceeded when waiting for order response's ack."
+          )
+        )
+      }, 30000)
 
-              //@ts-expect-error
-              if (orderResponse && orderResponse.type === 'orderAck') {
-                //@ts-expect-error
-                res(orderResponse)
-              }
-            })
-        }),
-      //@ts-expect-error
-      v => !v || !v.type
-    )
+      require('../Mediator')
+        .getGun()
+        .user(to)
+        .get(Key.ORDER_TO_RESPONSE)
+        .get(orderResponse.ackNode)
+        .on(orderResponse => {
+          logger.info(orderResponse)
+          logger.info(Schema.isOrderResponse(orderResponse))
+
+          //@ts-expect-error
+          if (orderResponse && orderResponse.type === 'orderAck') {
+            //@ts-expect-error
+            res(orderResponse)
+          }
+        })
+    })
 
     if (!encryptedOrderAckRes || !encryptedOrderAckRes.type) {
       const e = TypeError(
@@ -1181,9 +556,17 @@ const sendSpontaneousPayment = async (
       throw e
     }
 
+    const decryptedResponse = await SEA.decrypt(
+      encryptedOrderAckRes.response,
+      ourSecret
+    )
+    logger.info(`decryptedResponse: `, decryptedResponse)
+    const parsedResponse = JSON.parse(decryptedResponse)
+    logger.info(`parsedResponse: `, parsedResponse)
+
     /** @type {import('shock-common').Schema.OrderResponse} */
     const orderAck = {
-      response: await SEA.decrypt(encryptedOrderAckRes.response, ourSecret),
+      response: parsedResponse,
       type: encryptedOrderAckRes.type
     }
 
@@ -1210,7 +593,7 @@ const sendSpontaneousPayment = async (
     })
     return { payment, orderAck }
   } catch (e) {
-    console.log(e)
+    logger.info(e)
     logger.error('Error inside sendPayment()')
     logger.error(e)
     throw e
@@ -1248,7 +631,11 @@ const generateOrderAddress = user =>
     const address = uuidv1()
 
     user.get(Key.CURRENT_ORDER_ADDRESS).put(address, ack => {
-      if (ack.err && typeof ack.err !== 'number') {
+      if (
+        ack.err &&
+        typeof ack.err !== 'number' &&
+        typeof ack.err !== 'object'
+      ) {
         rej(new Error(ack.err))
       } else {
         res()
@@ -1281,7 +668,11 @@ const setBio = (bio, user) =>
     }
 
     user.get(Key.BIO).put(bio, ack => {
-      if (ack.err && typeof ack.err !== 'number') {
+      if (
+        ack.err &&
+        typeof ack.err !== 'number' &&
+        typeof ack.err !== 'object'
+      ) {
         reject(new Error(ack.err))
       } else {
         resolve()
@@ -1294,7 +685,11 @@ const setBio = (bio, user) =>
           .get(Key.PROFILE)
           .get(Key.BIO)
           .put(bio, ack => {
-            if (ack.err && typeof ack.err !== 'number') {
+            if (
+              ack.err &&
+              typeof ack.err !== 'number' &&
+              typeof ack.err !== 'object'
+            ) {
               reject(new Error(ack.err))
             } else {
               resolve()
@@ -1323,7 +718,11 @@ const saveSeedBackup = async (mnemonicPhrase, user, SEA) => {
 
   return new Promise((res, rej) => {
     user.get(Key.SEED_BACKUP).put(encryptedSeed, ack => {
-      if (ack.err && typeof ack.err !== 'number') {
+      if (
+        ack.err &&
+        typeof ack.err !== 'number' &&
+        typeof ack.err !== 'object'
+      ) {
         rej(new Error(ack.err))
       } else {
         res()
@@ -1346,7 +745,11 @@ const saveChannelsBackup = async (backups, user, SEA) => {
   const encryptBackups = await SEA.encrypt(backups, mySecret)
   return new Promise((res, rej) => {
     user.get(Key.CHANNELS_BACKUP).put(encryptBackups, ack => {
-      if (ack.err && typeof ack.err !== 'number') {
+      if (
+        ack.err &&
+        typeof ack.err !== 'number' &&
+        typeof ack.err !== 'object'
+      ) {
         rej(new Error(ack.err))
       } else {
         res()
@@ -1356,48 +759,16 @@ const saveChannelsBackup = async (backups, user, SEA) => {
 }
 
 /**
- * @param {string} pub
  * @returns {Promise<void>}
  */
-const disconnect = async pub => {
-  if (!(await Utils.successfulHandshakeAlreadyExists(pub))) {
-    throw new Error('No handshake exists for this pub')
-  }
+const setLastSeenApp = throttle(() => {
+  const user = require('../Mediator').getUser()
 
-  await Promise.all([cleanup(pub), generateHandshakeAddress()])
-}
-
-/**
- * @returns {Promise<void>}
- */
-const setLastSeenApp = () =>
-  /** @type {Promise<void>} */ (new Promise((res, rej) => {
-    require('../Mediator')
-      .getUser()
-      .get(Key.LAST_SEEN_APP)
-      .put(Date.now(), ack => {
-        if (ack.err && typeof ack.err !== 'number') {
-          rej(new Error(ack.err))
-        } else {
-          res()
-        }
-      })
-  })).then(
-    () =>
-      new Promise((res, rej) => {
-        require('../Mediator')
-          .getUser()
-          .get(Key.PROFILE)
-          .get(Key.LAST_SEEN_APP)
-          .put(Date.now(), ack => {
-            if (ack.err && typeof ack.err !== 'number') {
-              rej(new Error(ack.err))
-            } else {
-              res()
-            }
-          })
-      })
-  )
+  return user
+    .get(Key.PROFILE)
+    .get(Key.LAST_SEEN_APP)
+    .pPut(Date.now())
+}, 10000)
 
 /**
  * @param {string[]} tags
@@ -1419,8 +790,7 @@ const createPostNew = async (tags, title, content) => {
   const mySecret = require('../Mediator').getMySecret()
 
   await Common.Utils.asyncForEach(content, async c => {
-    // @ts-expect-error
-    const uuid = Gun.text.random()
+    const uuid = Utils.gunID()
     newPost.contentItems[uuid] = c
     if (
       (c.type === 'image/embedded' || c.type === 'video/embedded') &&
@@ -1442,7 +812,11 @@ const createPostNew = async (tags, title, content) => {
         // @ts-expect-error
         newPost,
         ack => {
-          if (ack.err && typeof ack.err !== 'number') {
+          if (
+            ack.err &&
+            typeof ack.err !== 'number' &&
+            typeof ack.err !== 'object'
+          ) {
             rej(new Error(ack.err))
           } else {
             res(_n._.get)
@@ -1452,162 +826,6 @@ const createPostNew = async (tags, title, content) => {
   })
 
   return [postID, newPost]
-}
-
-/**
- * @param {string[]} tags
- * @param {string} title
- * @param {Common.Schema.ContentItem[]} content
- * @returns {Promise<Common.Schema.Post>}
- */
-const createPost = async (tags, title, content) => {
-  if (content.length === 0) {
-    throw new Error(`A post must contain at least one paragraph/image/video`)
-  }
-
-  const numOfPages = await (async () => {
-    const maybeNumOfPages = await Utils.tryAndWait(
-      (_, user) =>
-        user
-          .get(Key.WALL)
-          .get(Key.NUM_OF_PAGES)
-          .then(),
-      v => typeof v !== 'number'
-    )
-
-    if (typeof maybeNumOfPages !== 'number') {
-      throw new TypeError(
-        `Could not fetch number of pages from wall, instead got: ${JSON.stringify(
-          maybeNumOfPages
-        )}`
-      )
-    }
-
-    return maybeNumOfPages
-  })()
-
-  let pageIdx = Math.max(0, numOfPages - 1).toString()
-
-  const count = await (async () => {
-    if (numOfPages === 0) {
-      return 0
-    }
-
-    const maybeCount = await Utils.tryAndWait(
-      (_, user) =>
-        user
-          .get(Key.WALL)
-          .get(Key.PAGES)
-          .get(pageIdx)
-          .get(Key.COUNT)
-          .then(),
-      v => typeof v !== 'number'
-    )
-
-    return typeof maybeCount === 'number' ? maybeCount : 0
-  })()
-
-  const shouldBeNewPage =
-    count >= Common.Constants.Misc.NUM_OF_POSTS_PER_WALL_PAGE
-
-  if (shouldBeNewPage) {
-    pageIdx = Number(pageIdx + 1).toString()
-  }
-
-  await /** @type {Promise<void>} */ (new Promise((res, rej) => {
-    require('../Mediator')
-      .getUser()
-      .get(Key.WALL)
-      .get(Key.PAGES)
-      .get(pageIdx)
-      .put(
-        {
-          [Key.COUNT]: shouldBeNewPage ? 1 : count + 1,
-          posts: {
-            unused: null
-          }
-        },
-        ack => {
-          if (ack.err && typeof ack.err !== 'number') {
-            rej(new Error(ack.err))
-          }
-
-          res()
-        }
-      )
-  }))
-
-  const [postID, newPost] = await createPostNew(tags, title, content)
-
-  await Common.makePromise((res, rej) => {
-    require('../Mediator')
-      .getUser()
-      .get(Key.WALL)
-      .get(Key.PAGES)
-      .get(pageIdx)
-      .get(Key.POSTS)
-      .get(postID)
-      .put(
-        // @ts-expect-error
-        newPost,
-        ack => {
-          if (ack.err && typeof ack.err !== 'number') {
-            rej(new Error(ack.err))
-          } else {
-            res()
-          }
-        }
-      )
-  })
-
-  if (shouldBeNewPage || numOfPages === 0) {
-    await /** @type {Promise<void>} */ (new Promise(res => {
-      require('../Mediator')
-        .getUser()
-        .get(Key.WALL)
-        .get(Key.NUM_OF_PAGES)
-        .put(numOfPages + 1, ack => {
-          if (ack.err && typeof ack.err !== 'number') {
-            throw new Error(ack.err)
-          }
-
-          res()
-        })
-    }))
-  }
-
-  const loadedPost = await new Promise(res => {
-    require('../Mediator')
-      .getUser()
-      .get(Key.WALL)
-      .get(Key.PAGES)
-      .get(pageIdx)
-      .get(Key.POSTS)
-      .get(postID)
-      .load(data => {
-        res(data)
-      })
-  })
-
-  /** @type {Common.Schema.User} */
-  const userForPost = await Getters.getMyUser()
-
-  /** @type {Common.Schema.Post} */
-  const completePost = {
-    ...loadedPost,
-    author: userForPost,
-    id: postID
-  }
-
-  if (!Common.Schema.isPost(completePost)) {
-    throw new Error(
-      `completePost not a Post inside Actions.createPost(): ${JSON.stringify(
-        completePost
-      )}`
-    )
-  }
-
-  return completePost
 }
 
 /**
@@ -1625,7 +843,11 @@ const deletePost = async (postId, page) => {
       .get(Key.POSTS)
       .get(postId)
       .put(null, ack => {
-        if (ack.err && typeof ack.err !== 'number') {
+        if (
+          ack.err &&
+          typeof ack.err !== 'number' &&
+          typeof ack.err !== 'object'
+        ) {
           rej(new Error(ack.err))
         } else {
           res()
@@ -1654,7 +876,11 @@ const follow = async (publicKey, isPrivate) => {
       .get(publicKey)
       // @ts-ignore
       .put(newFollow, ack => {
-        if (ack.err && typeof ack.err !== 'number') {
+        if (
+          ack.err &&
+          typeof ack.err !== 'number' &&
+          typeof ack.err !== 'object'
+        ) {
           rej(new Error(ack.err))
         } else {
           res()
@@ -1674,7 +900,11 @@ const unfollow = publicKey =>
       .get(Key.FOLLOWS)
       .get(publicKey)
       .put(null, ack => {
-        if (ack.err && typeof ack.err !== 'number') {
+        if (
+          ack.err &&
+          typeof ack.err !== 'number' &&
+          typeof ack.err !== 'object'
+        ) {
           rej(new Error(ack.err))
         } else {
           res()
@@ -1697,7 +927,11 @@ const initWall = async () => {
         .get(Key.WALL)
         .get(Key.NUM_OF_PAGES)
         .put(0, ack => {
-          if (ack.err && typeof ack.err !== 'number') {
+          if (
+            ack.err &&
+            typeof ack.err !== 'number' &&
+            typeof ack.err !== 'object'
+          ) {
             rej(new Error(ack.err))
           } else {
             res()
@@ -1718,7 +952,11 @@ const initWall = async () => {
             unused: null
           },
           ack => {
-            if (ack.err && typeof ack.err !== 'number') {
+            if (
+              ack.err &&
+              typeof ack.err !== 'number' &&
+              typeof ack.err !== 'object'
+            ) {
               rej(new Error(ack.err))
             } else {
               res()
@@ -1736,7 +974,11 @@ const initWall = async () => {
         .get('0')
         .get(Key.COUNT)
         .put(0, ack => {
-          if (ack.err && typeof ack.err !== 'number') {
+          if (
+            ack.err &&
+            typeof ack.err !== 'number' &&
+            typeof ack.err !== 'object'
+          ) {
             rej(new Error(ack.err))
           } else {
             res()
@@ -1749,15 +991,9 @@ const initWall = async () => {
 }
 
 module.exports = {
-  __createOutgoingFeed,
-  acceptRequest,
   authenticate,
   blacklist,
   generateHandshakeAddress,
-  sendHandshakeRequest,
-  deleteMessage,
-  sendMessage,
-  sendHRWithInitialMsg,
   setAvatar,
   setDisplayName,
   sendPayment,
@@ -1765,14 +1001,14 @@ module.exports = {
   setBio,
   saveSeedBackup,
   saveChannelsBackup,
-  disconnect,
   setLastSeenApp,
-  createPost,
   deletePost,
   follow,
   unfollow,
   initWall,
-  sendMessageNew,
   sendSpontaneousPayment,
-  createPostNew
+  createPostNew,
+  setDefaultSeedProvider,
+  setSeedServiceData,
+  setCurrentStreamInfo
 }

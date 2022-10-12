@@ -6,7 +6,7 @@ const jwt = require('jsonwebtoken')
 const uuidv1 = require('uuid/v1')
 const jsonfile = require('jsonfile')
 const path = require('path')
-const logger = require('winston')
+const logger = require('../../config/log')
 const Storage = require('node-persist')
 const FS = require('../../utils/fs')
 

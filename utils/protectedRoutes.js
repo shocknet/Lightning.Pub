@@ -1,34 +1,61 @@
 module.exports = {
   unprotectedRoutes: {
     GET: {
-      "/healthz": true,
-      "/ping": true,
+      '/healthz': true,
+      '/ping': true,
+      '/tunnel/status': true,
       // Errors out when viewing an API page from the browser
-      "/favicon.ico": true,
-      "/api/lnd/connect": true,
-      "/api/lnd/wallet/status": true,
-      "/api/lnd/auth": true,
+      '/favicon.ico': true,
+      '/api/lnd/connect': true,
+      '/api/lnd/wallet/status': true,
       //
-      "/api/gun/auth": true
+      '/api/gunw': true,
+      '/api/subscribeStream': true,
+      '/': true,
+      '/api/accessInfo': true,
+      '/qrCodeGenerator': true
     },
     POST: {
-      "/api/lnd/connect": true,
-      "/api/lnd/wallet": true,
-      "/api/lnd/wallet/existing": true,
-      "/api/lnd/auth": true,
-      "/api/security/exchangeKeys": true
+      '/api/lnd/connect': true,
+      '/api/lnd/wallet': true,
+      '/api/lnd/wallet/existing': true,
+      '/api/lnd/unlock': true,
+      '/api/security/exchangeKeys': true,
+      '/api/encryption/exchange': true
     },
     PUT: {},
-    DELETE: {}
+    DELETE: {},
+    // Preflight request (CORS)
+    get OPTIONS() {
+      return {
+        ...this.POST,
+        ...this.GET,
+        ...this.PUT,
+        ...this.DELETE
+      }
+    }
   },
   sensitiveRoutes: {
     GET: {},
     POST: {
-      "/api/lnd/connect": true,
-      "/api/lnd/wallet": true
+      '/api/lnd/connect': true,
+      '/api/lnd/wallet': true
     },
     PUT: {},
     DELETE: {}
   },
-  nonEncryptedRoutes: ['/api/security/exchangeKeys', '/healthz', '/ping', '/api/lnd/wallet/status', '/api/gun/auth']
+  nonEncryptedRoutes: [
+    '/api/security/exchangeKeys',
+    '/api/encryption/exchange',
+    '/healthz',
+    '/ping',
+    '/tunnel/status',
+    '/api/lnd/wallet/status',
+    '/api/gun/auth',
+    '/api/subscribeStream',
+    '/',
+    '/api/accessInfo',
+    '/qrCodeGenerator',
+    '/gun'
+  ]
 }
