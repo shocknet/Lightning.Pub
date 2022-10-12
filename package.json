@@ -79,7 +79,7 @@
     "@types/ramda": "types/npm-ramda#dist",
     "@types/random-words": "^1.1.2",
     "@types/react": "16.x.x",
-    "@types/uuid": "3.x.x",
+    "@types/uuid": "^8.3.0",
     "babel-eslint": "^10.1.0",
     "babel-plugin-transform-es2015-modules-commonjs": "^6.26.2",
     "eslint": "^8.25.0",
