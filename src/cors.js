@@ -3,7 +3,7 @@ const setAccessControlHeaders = (req, res) => {
   res.header("Access-Control-Allow-Methods", "OPTIONS,POST,GET,PUT,DELETE")
   res.header(
     "Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content-Type, Accept, Authorization, public-key-for-decryption, encryption-device-id"
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization, public-key-for-decryption, encryption-device-id, public-key-for-decryption,x-shock-hybrid-relay-id-x"
   );
 };
 
