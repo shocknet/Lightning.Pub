@@ -3,22 +3,16 @@
  */
 // @ts-check
 
-const logger = require('winston')
+const logger = require('../config/log')
 const Common = require('shock-common')
 const mapValues = require('lodash/mapValues')
 
 const auth = require('../services/auth/auth')
-const Encryption = require('../utils/encryptionStore')
 const LightningServices = require('../utils/lightningServices')
-const {
-  getGun,
-  getUser,
-  isAuthenticated
-} = require('../services/gunDB/Mediator')
-const { deepDecryptIfNeeded } = require('../services/gunDB/rpc')
-const GunEvents = require('../services/gunDB/contact-api/events')
-const SchemaManager = require('../services/schema')
+const { isAuthenticated } = require('../services/gunDB/Mediator')
+const initGunDBSocket = require('../services/gunDB/sockets')
 const { encryptedEmit, encryptedOn } = require('../utils/ECC/socket')
+const TipsForwarder = require('../services/tipsCallback')
 /**
  * @typedef {import('../services/gunDB/Mediator').SimpleSocket} SimpleSocket
  * @typedef {import('../services/gunDB/contact-api/SimpleGUN').ValidDataValue} ValidDataValue
@@ -28,204 +22,7 @@ module.exports = (
   /** @type {import('socket.io').Server} */
   io
 ) => {
-  // This should be used for encrypting and emitting your data
-  const encryptedEmitLegacy = ({ eventName, data, socket }) => {
-    try {
-      if (Encryption.isNonEncrypted(eventName)) {
-        return socket.emit(eventName, data)
-      }
-
-      const deviceId = socket.handshake.auth['x-shockwallet-device-id']
-      const authorized = Encryption.isAuthorizedDevice({ deviceId })
-
-      if (!deviceId) {
-        throw {
-          field: 'deviceId',
-          message: 'Please specify a device ID'
-        }
-      }
-
-      if (!authorized) {
-        throw {
-          field: 'deviceId',
-          message: 'Please exchange keys with the API before using the socket'
-        }
-      }
-
-      const encryptedMessage = Encryption.encryptMessage({
-        message: data,
-        deviceId
-      })
-
-      return socket.emit(eventName, encryptedMessage)
-    } catch (err) {
-      logger.error(
-        `[SOCKET] An error has occurred while encrypting an event (${eventName}):`,
-        err
-      )
-
-      return socket.emit('encryption:error', err)
-    }
-  }
-
-  const onNewInvoice = (socket, subID) => {
-    const { lightning } = LightningServices.services
-    logger.warn('Subscribing to invoices socket...' + subID)
-    const stream = lightning.subscribeInvoices({})
-    stream.on('data', data => {
-      logger.info('[SOCKET] New invoice data:', data)
-      encryptedEmitLegacy({ eventName: 'invoice:new', data, socket })
-      if (!data.settled) {
-        return
-      }
-      SchemaManager.AddOrder({
-        type: 'invoice',
-        amount: parseInt(data.amt_paid_sat, 10),
-        coordinateHash: data.r_hash.toString('hex'),
-        coordinateIndex: parseInt(data.add_index, 10),
-        inbound: true,
-        toLndPub: data.payment_addr
-      })
-    })
-    stream.on('end', () => {
-      logger.info('New invoice stream ended, starting a new one...')
-      // Prevents call stack overflow exceptions
-      //process.nextTick(() => onNewInvoice(socket))
-    })
-    stream.on('error', err => {
-      logger.error('New invoice stream error:' + subID, err)
-    })
-    stream.on('status', status => {
-      logger.warn('New invoice stream status:' + subID, status)
-      switch (status.code) {
-        case 0: {
-          logger.info('[event:invoice:new] stream ok')
-          break
-        }
-        case 1: {
-          logger.info(
-            '[event:invoice:new] stream canceled, probably socket disconnected'
-          )
-          break
-        }
-        case 2: {
-          logger.warn('[event:invoice:new] got UNKNOWN error status')
-          break
-        }
-        case 12: {
-          logger.warn(
-            '[event:invoice:new] LND locked, new registration in 60 seconds'
-          )
-          process.nextTick(() =>
-            setTimeout(() => onNewInvoice(socket, subID), 60000)
-          )
-          break
-        }
-        case 13: {
-          //https://grpc.github.io/grpc/core/md_doc_statuscodes.html
-          logger.error('[event:invoice:new] INTERNAL LND error')
-          break
-        }
-        case 14: {
-          logger.error(
-            '[event:invoice:new] LND disconnected, sockets reconnecting in 30 seconds...'
-          )
-          process.nextTick(() =>
-            setTimeout(() => onNewInvoice(socket, subID), 30000)
-          )
-          break
-        }
-        default: {
-          logger.error('[event:invoice:new] UNKNOWN LND error')
-        }
-      }
-    })
-    return () => {
-      stream.cancel()
-    }
-  }
-
-  const onNewTransaction = (socket, subID) => {
-    const { lightning } = LightningServices.services
-    const stream = lightning.subscribeTransactions({})
-    logger.warn('Subscribing to transactions socket...' + subID)
-    stream.on('data', data => {
-      logger.info('[SOCKET] New transaction data:', data)
-
-      Promise.all(data.dest_addresses.map(SchemaManager.isTmpChainOrder)).then(
-        responses => {
-          const hasOrder = responses.some(res => res !== false)
-          if (hasOrder && data.num_confirmations > 0) {
-            //buddy needs to manage this
-          } else {
-            //business as usual
-            encryptedEmitLegacy({ eventName: 'transaction:new', data, socket })
-          }
-        }
-      )
-    })
-    stream.on('end', () => {
-      logger.info('New transactions stream ended, starting a new one...')
-      //process.nextTick(() => onNewTransaction(socket))
-    })
-    stream.on('error', err => {
-      logger.error('New transactions stream error:' + subID, err)
-    })
-    stream.on('status', status => {
-      logger.info('New transactions stream status:' + subID, status)
-      switch (status.code) {
-        case 0: {
-          logger.info('[event:transaction:new] stream ok')
-          break
-        }
-        case 1: {
-          logger.info(
-            '[event:transaction:new] stream canceled, probably socket disconnected'
-          )
-          break
-        }
-        case 2: {
-          //Happens to fire when the grpc client lose access to macaroon file
-          logger.warn('[event:transaction:new] got UNKNOWN error status')
-          break
-        }
-        case 12: {
-          logger.warn(
-            '[event:transaction:new] LND locked, new registration in 60 seconds'
-          )
-          process.nextTick(() =>
-            setTimeout(() => onNewTransaction(socket, subID), 60000)
-          )
-          break
-        }
-        case 13: {
-          //https://grpc.github.io/grpc/core/md_doc_statuscodes.html
-          logger.error('[event:transaction:new] INTERNAL LND error')
-          break
-        }
-        case 14: {
-          logger.error(
-            '[event:transaction:new] LND disconnected, sockets reconnecting in 30 seconds...'
-          )
-          process.nextTick(() =>
-            setTimeout(() => onNewTransaction(socket, subID), 30000)
-          )
-          break
-        }
-        default: {
-          logger.error('[event:transaction:new] UNKNOWN LND error')
-        }
-      }
-    })
-    return () => {
-      stream.cancel()
-    }
-  }
-
-  io.on('connection', socket => {
-    logger.info(`io.onconnection`)
-    logger.info('socket.handshake', socket.handshake)
-
+  io.on('connect', socket => {
     const isLNDSocket = !!socket.handshake.auth.IS_LND_SOCKET
     const isNotificationsSocket = !!socket.handshake.auth
       .IS_NOTIFICATIONS_SOCKET
@@ -239,89 +36,6 @@ module.exports = (
       const subID = Math.floor(Math.random() * 1000).toString()
       const isNotifications = isNotificationsSocket ? 'notifications' : ''
       logger.info('[LND] New LND Socket created:' + isNotifications + subID)
-      /* not used by wallet anymore
-      const cancelInvoiceStream = onNewInvoice(socket, subID)
-      const cancelTransactionStream = onNewTransaction(socket, subID)
-      socket.on('disconnect', () => {
-        logger.info('LND socket disconnected:' + isNotifications + subID)
-        cancelInvoiceStream()
-        cancelTransactionStream()
-      })*/
-    }
-  })
-
-  io.of('gun').on('connect', socket => {
-    // TODO: off()
-
-    try {
-      if (!isAuthenticated()) {
-        socket.emit(Common.Constants.ErrorCode.NOT_AUTH)
-        return
-      }
-
-      const emit = encryptedEmit(socket)
-
-      const { $shock, publicKeyForDecryption } = socket.handshake.auth
-
-      const [root, path, method] = $shock.split('::')
-
-      // eslint-disable-next-line init-declarations
-      let node
-
-      if (root === '$gun') {
-        node = getGun()
-      } else if (root === '$user') {
-        node = getUser()
-      } else {
-        node = getGun().user(root)
-      }
-
-      for (const bit of path.split('>')) {
-        node = node.get(bit)
-      }
-
-      /**
-       * @param {ValidDataValue} data
-       * @param {string} key
-       */
-      const listener = async (data, key) => {
-        try {
-          if (
-            typeof publicKeyForDecryption === 'string' &&
-            publicKeyForDecryption !== 'undefined' &&
-            publicKeyForDecryption.length > 15
-          ) {
-            const decData = await deepDecryptIfNeeded(
-              data,
-              publicKeyForDecryption
-            )
-
-            emit('$shock', decData, key)
-          } else {
-            emit('$shock', data, key)
-          }
-        } catch (err) {
-          logger.error(
-            `Error for gun rpc socket, query ${$shock} -> ${err.message}`
-          )
-        }
-      }
-
-      if (method === 'on') {
-        node.on(listener)
-      } else if (method === 'open') {
-        node.open(listener)
-      } else if (method === 'map.on') {
-        node.map().on(listener)
-      } else if (method === 'map.once') {
-        node.map().once(listener)
-      } else {
-        throw new TypeError(
-          `Invalid method for gun rpc call : ${method}, query: ${$shock}`
-        )
-      }
-    } catch (err) {
-      logger.error('GUNRPC: ' + err.message)
     }
   })
 
@@ -333,6 +47,10 @@ module.exports = (
      */
 
     try {
+      logger.info(
+        'Connect event for socket with handshake: ',
+        socket.handshake.auth
+      )
       if (!isAuthenticated()) {
         socket.emit(Common.Constants.ErrorCode.NOT_AUTH)
         return
@@ -343,7 +61,16 @@ module.exports = (
 
       const { services } = LightningServices
 
-      const { service, method, args: unParsed } = socket.handshake.auth
+      const {
+        service,
+        method,
+        args: unParsed,
+        isInitial
+      } = socket.handshake.auth
+
+      if (isInitial) {
+        return
+      }
 
       const args = JSON.parse(unParsed)
 
@@ -386,8 +113,13 @@ module.exports = (
         call.write(args)
       })
     } catch (err) {
+      logger.error(err)
       logger.error('LNDRPC: ' + err.message)
     }
+  })
+
+  io.of('gun').on('connect', socket => {
+    initGunDBSocket(socket)
   })
 
   /**
@@ -414,7 +146,7 @@ module.exports = (
 
   /** @type {null|NodeJS.Timeout} */
   let pingIntervalID = null
-
+  // TODO: Unused?
   io.of('shockping').on(
     'connect',
     // TODO: make this sync
@@ -466,225 +198,15 @@ module.exports = (
     }
   )
 
-  // TODO: do this through rpc
-
-  const emptyUnsub = () => {}
-
-  let chatsUnsub = emptyUnsub
-
-  io.of('chats').on('connect', async socket => {
-    const on = encryptedOn(socket)
-    const emit = encryptedEmit(socket)
-
-    try {
-      if (!isAuthenticated()) {
-        logger.info(
-          'not authenticated in gun for chats socket, will send NOT_AUTH'
-        )
-        emit(Common.Constants.ErrorCode.NOT_AUTH)
-
-        return
+  io.of('streams').on('connect', socket => {
+    logger.info('a user connected')
+    socket.on('accessId', accessId => {
+      const err = TipsForwarder.addSocket(accessId, socket)
+      if (err) {
+        logger.info('err invalid socket for tips notifications ' + err)
+        socket.disconnect(true)
       }
-
-      logger.info('now checking token for chats socket')
-      const { token } = socket.handshake.auth
-      const isAuth = await isValidToken(token)
-
-      if (!isAuth) {
-        logger.warn('invalid token for chats socket')
-        emit(Common.Constants.ErrorCode.NOT_AUTH)
-        return
-      }
-
-      if (chatsUnsub !== emptyUnsub) {
-        logger.error(
-          'Tried to set chats socket twice, this might be due to an app restart and the old socket not being recycled by socket.io in time, will disable the older subscription, which means the old socket wont work and data will be sent to this new socket instead'
-        )
-        chatsUnsub()
-        chatsUnsub = emptyUnsub
-      }
-
-      /**
-       * @param {Common.Schema.Chat[]} chats
-       */
-      const onChats = chats => {
-        const processed = chats.map(
-          ({
-            didDisconnect,
-            id,
-            lastSeenApp,
-            messages,
-            recipientPublicKey
-          }) => {
-            /** @type {Common.Schema.Chat} */
-            const stripped = {
-              didDisconnect,
-              id,
-              lastSeenApp,
-              messages,
-              recipientAvatar: null,
-              recipientDisplayName: null,
-              recipientPublicKey
-            }
-
-            return stripped
-          }
-        )
-
-        emit('$shock', processed)
-      }
-
-      chatsUnsub = GunEvents.onChats(onChats)
-
-      on('disconnect', () => {
-        chatsUnsub()
-        chatsUnsub = emptyUnsub
-      })
-    } catch (e) {
-      logger.error('Error inside chats socket connect: ' + e.message)
-      emit('$error', e.message)
-    }
+    })
   })
-
-  let sentReqsUnsub = emptyUnsub
-
-  io.of('sentReqs').on('connect', async socket => {
-    const on = encryptedOn(socket)
-    const emit = encryptedEmit(socket)
-
-    try {
-      if (!isAuthenticated()) {
-        logger.info(
-          'not authenticated in gun for sentReqs socket, will send NOT_AUTH'
-        )
-        emit(Common.Constants.ErrorCode.NOT_AUTH)
-
-        return
-      }
-
-      logger.info('now checking token for sentReqs socket')
-      const { token } = socket.handshake.auth
-      const isAuth = await isValidToken(token)
-
-      if (!isAuth) {
-        logger.warn('invalid token for sentReqs socket')
-        emit(Common.Constants.ErrorCode.NOT_AUTH)
-        return
-      }
-
-      if (sentReqsUnsub !== emptyUnsub) {
-        logger.error(
-          'Tried to set sentReqs socket twice, this might be due to an app restart and the old socket not being recycled by io in time, will disable the older subscription, which means the old socket wont work and data will be sent to this new socket instead'
-        )
-        sentReqsUnsub()
-        sentReqsUnsub = emptyUnsub
-      }
-
-      /**
-       * @param {Common.Schema.SimpleSentRequest[]} sentReqs
-       */
-      const onSentReqs = sentReqs => {
-        const processed = sentReqs.map(
-          ({
-            id,
-            recipientChangedRequestAddress,
-            recipientPublicKey,
-            timestamp
-          }) => {
-            /**
-             * @type {Common.Schema.SimpleSentRequest}
-             */
-            const stripped = {
-              id,
-              recipientAvatar: null,
-              recipientChangedRequestAddress,
-              recipientDisplayName: null,
-              recipientPublicKey,
-              timestamp
-            }
-
-            return stripped
-          }
-        )
-        emit('$shock', processed)
-      }
-
-      sentReqsUnsub = GunEvents.onSimplerSentRequests(onSentReqs)
-
-      on('disconnect', () => {
-        sentReqsUnsub()
-        sentReqsUnsub = emptyUnsub
-      })
-    } catch (e) {
-      logger.error('Error inside sentReqs socket connect: ' + e.message)
-      emit('$error', e.message)
-    }
-  })
-
-  let receivedReqsUnsub = emptyUnsub
-
-  io.of('receivedReqs').on('connect', async socket => {
-    const on = encryptedOn(socket)
-    const emit = encryptedEmit(socket)
-    try {
-      if (!isAuthenticated()) {
-        logger.info(
-          'not authenticated in gun for receivedReqs socket, will send NOT_AUTH'
-        )
-        emit(Common.Constants.ErrorCode.NOT_AUTH)
-
-        return
-      }
-
-      logger.info('now checking token for receivedReqs socket')
-      const { token } = socket.handshake.auth
-      const isAuth = await isValidToken(token)
-
-      if (!isAuth) {
-        logger.warn('invalid token for receivedReqs socket')
-        emit(Common.Constants.ErrorCode.NOT_AUTH)
-        return
-      }
-
-      if (receivedReqsUnsub !== emptyUnsub) {
-        logger.error(
-          'Tried to set receivedReqs socket twice, this might be due to an app restart and the old socket not being recycled by socket.io in time, will disable the older subscription, which means the old socket wont work and data will be sent to this new socket instead'
-        )
-        receivedReqsUnsub()
-        receivedReqsUnsub = emptyUnsub
-      }
-
-      /**
-       * @param {ReadonlyArray<Common.SimpleReceivedRequest>} receivedReqs
-       */
-      const onReceivedReqs = receivedReqs => {
-        const processed = receivedReqs.map(({ id, requestorPK, timestamp }) => {
-          /** @type {Common.Schema.SimpleReceivedRequest} */
-          const stripped = {
-            id,
-            requestorAvatar: null,
-            requestorDisplayName: null,
-            requestorPK,
-            timestamp
-          }
-
-          return stripped
-        })
-
-        emit('$shock', processed)
-      }
-
-      receivedReqsUnsub = GunEvents.onSimplerReceivedRequests(onReceivedReqs)
-
-      on('disconnect', () => {
-        receivedReqsUnsub()
-        receivedReqsUnsub = emptyUnsub
-      })
-    } catch (e) {
-      logger.error('Error inside receivedReqs socket connect: ' + e.message)
-      emit('$error', e.message)
-    }
-  })
-
   return io
 }
