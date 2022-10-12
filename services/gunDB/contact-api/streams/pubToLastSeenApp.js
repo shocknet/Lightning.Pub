@@ -27,14 +27,15 @@ const on = (cb, pub) => {
   listeners.add(cb)
   cb(pubToLastSeenApp)
   if (pub && pubsWithListeners.add(pub)) {
-    pubToLastSeenApp[pub] = null;
+    pubToLastSeenApp[pub] = null
     notifyListeners()
     require('../../Mediator')
       .getGun()
       .user(pub)
       .get(Key.LAST_SEEN_APP)
       .on(timestamp => {
-        pubToLastSeenApp[pub] = typeof timestamp === 'number' ? timestamp : undefined
+        pubToLastSeenApp[pub] =
+          typeof timestamp === 'number' ? timestamp : undefined
         notifyListeners()
       })
   }
@@ -45,5 +46,5 @@ const on = (cb, pub) => {
 
 module.exports = {
   getPubToLastSeenApp,
-  on,
+  on
 }

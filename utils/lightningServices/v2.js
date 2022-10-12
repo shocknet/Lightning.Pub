@@ -2,7 +2,7 @@
  * @format
  */
 const Crypto = require('crypto')
-const logger = require('winston')
+const logger = require('../../config/log')
 const Common = require('shock-common')
 const Ramda = require('ramda')
 
@@ -578,7 +578,7 @@ const addInvoice = (value, memo = '', confidential = true, expiry = 180) =>
  *
  */
 /**
- * @param {(invoice:Common.Schema.InvoiceWhenListed & {r_hash:Buffer,payment_addr:string}) => (boolean | undefined)} dataCb
+ * @param {(invoice:Common.Schema.InvoiceWhenListed & {r_hash:Buffer,payment_addr:Buffer}) => (boolean | undefined)} dataCb
  * @param {(error:lndErr) => void} errorCb
  */
 const subscribeInvoices = (dataCb, errorCb) => {
@@ -631,6 +631,43 @@ const subscribeTransactions = (dataCb, errorCb) => {
   })
 }
 
+const getInfo = () =>
+  Common.makePromise((res, rej) => {
+    const { lightning } = lightningServices.getServices()
+
+    lightning.getInfo({}, (err, resp) => {
+      if (err) {
+        rej(new Error(err.message))
+      } else {
+        // Needs cast because typescript refuses to assign Record<string, any>
+        // to an actual object :shrugs
+        res(resp)
+      }
+    })
+  })
+/**
+ *
+ * @param {string} pubkey
+ * @param {string} host
+ * @returns
+ */
+const connectPeer = (pubkey, host) =>
+  Common.makePromise((res, rej) => {
+    const { lightning } = lightningServices.getServices()
+    const connectRequest = {
+      addr: { pubkey, host },
+      perm: true
+    }
+    lightning.connectPeer(connectRequest, (err, resp) => {
+      if (err) {
+        rej(new Error(err.message))
+      } else {
+        // Needs cast because typescript refuses to assign Record<string, any>
+        // to an actual object :shrugs
+        res(resp)
+      }
+    })
+  })
 module.exports = {
   sendPaymentV2Keysend,
   sendPaymentV2Invoice,
@@ -644,5 +681,7 @@ module.exports = {
   pendingChannels,
   addInvoice,
   subscribeInvoices,
-  subscribeTransactions
+  subscribeTransactions,
+  getInfo,
+  connectPeer
 }
