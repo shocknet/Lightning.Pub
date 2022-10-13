@@ -87,7 +87,7 @@
     "eslint-config-prettier": "^6.5.0",
     "eslint-plugin-babel": "^5.3.1",
     "eslint-plugin-jest": "^22.20.1",
-    "eslint-plugin-prettier": "^3.4.0",
+    "eslint-plugin-prettier": "^4.2.1",
     "jest": "^24.9.0",
     "lint-staged": "^10.5.4",
     "nodemon": "^2.0.7",
