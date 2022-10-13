@@ -9,7 +9,7 @@
 
 `Pub` enables your Lightning node with public Web API's, providing a framework for permissionless applications that depend on Lightning. 
 - As a wrapper for [`LND`](https://github.com/lightningnetwork/lnd/releases), `Pub` also offers node operators Enterprise-class management capabilities. 
-- An optional SSL proxy service is included for ease of use through zero-configuration networking.<br>
+- ~~An optional SSL proxy service is included for ease of use through zero-configuration networking.~~ Moving this to NOSTR relay<br>
 
 #### This repository is under rapid iteration and should only be used in development.
 
@@ -47,7 +47,7 @@ For easy setup on your Laptop/Desktop, [a node wizard is available here.](https:
 ```
 git clone https://github.com/shocknet/Lightning.Pub
 cd Lightning.Pub
-yarn install
+npm install
 ```
 
 3) Run with `yarn start -t` *(`-t` is recommended but [not required](#node-security))*
