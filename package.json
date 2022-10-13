@@ -11,7 +11,7 @@
     "test": "mocha ./utils -b -t 50000 --recursive",
     "typecheck": "tsc",
     "lint": "eslint \"services/gunDB/**/*.js\"",
-    "format": "prettier --write \"./**/*.js\"","
+    "format": "prettier --write \"./**/*.js\"",
   },
   "author": "",
   "license": "ISC",
