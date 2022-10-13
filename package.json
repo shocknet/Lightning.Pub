@@ -62,7 +62,7 @@
     "text-encoding": "^0.7.0",
     "tingodb": "^0.6.1",
     "uuid": "3.x.x",
-    "winston": "^3.3.3",
+    "winston": "^3.8.2",
     "winston-daily-rotate-file": "^4.5.0"
   },
   "devDependencies": {
