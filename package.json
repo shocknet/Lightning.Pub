@@ -63,7 +63,7 @@
     "tingodb": "^0.6.1",
     "uuid": "3.x.x",
     "winston": "^3.3.3",
-    "winston-daily-rotate-file": "^4.5.0"
+    "winston-daily-rotate-file": "^4.7.1"
   },
   "devDependencies": {
     "@babel/plugin-proposal-class-properties": "^7.12.1",
