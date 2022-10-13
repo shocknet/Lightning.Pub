@@ -32,11 +32,7 @@ const add = ({ deviceId, subscriptionId, unsubscribe, metadata }) => {
  * @param {string} subscription.subscriptionId
  * @param {Unsubscribe} subscription.unsubscribe
  */
-const attachUnsubscribe = ({
-  deviceId,
-  subscriptionId,
-  unsubscribe
-}) => {
+const attachUnsubscribe = ({ deviceId, subscriptionId, unsubscribe }) => {
   const deviceSubscriptions = userSubscriptions.get(deviceId)
 
   const subscriptions = deviceSubscriptions
@@ -68,7 +64,7 @@ const remove = ({ deviceId, subscriptionId }) => {
   const deviceSubscriptions = userSubscriptions.get(deviceId)
 
   const subscriptions = deviceSubscriptions ?? new Map()
-  const subscription = subscriptions.get(subscriptionId);
+  const subscription = subscriptions.get(subscriptionId)
 
   if (subscription?.unsubscribe) {
     subscription.unsubscribe()
@@ -84,7 +80,7 @@ const remove = ({ deviceId, subscriptionId }) => {
  * @param {string} subscription.deviceId
  */
 const removeDevice = ({ deviceId }) => {
-  const deviceSubscriptions = userSubscriptions.get(deviceId);
+  const deviceSubscriptions = userSubscriptions.get(deviceId)
 
   if (!deviceSubscriptions) {
     return
@@ -98,7 +94,7 @@ const removeDevice = ({ deviceId }) => {
     return subscription
   })
 
-  userSubscriptions.set(deviceId, new Map());
+  userSubscriptions.set(deviceId, new Map())
 }
 
 /**

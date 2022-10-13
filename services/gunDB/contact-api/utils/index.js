@@ -2,15 +2,16 @@
  * @format
  */
 /* eslint-disable init-declarations */
-const logger = require('winston')
+const logger = require('../../../../config/log')
 const { Constants, Utils: CommonUtils } = require('shock-common')
 
 const Key = require('../key')
+/// <reference path="../../../../utils/GunSmith/Smith.ts" />
 
 /**
- * @typedef {import('../SimpleGUN').GUNNode} GUNNode
+ * @typedef {Smith.GunSmithNode} GUNNode
  * @typedef {import('../SimpleGUN').ISEA} ISEA
- * @typedef {import('../SimpleGUN').UserGUNNode} UserGUNNode
+ * @typedef {Smith.UserSmithNode} UserGUNNode
  */
 
 /**
@@ -25,73 +26,54 @@ const delay = ms => new Promise(res => setTimeout(res, ms))
 const mySecret = () => Promise.resolve(require('../../Mediator').getMySecret())
 
 /**
- * @template T
- * @param {Promise<T>} promise
- * @returns {Promise<T>}
+ * Just a pointer.
  */
-const timeout10 = promise => {
+const TIMEOUT_PTR = {}
+
+/**
+ * @param {number} ms Milliseconds
+ * @returns {<T>(promise: Promise<T>) => Promise<T>}
+ */
+const timeout = ms => async promise => {
   /** @type {NodeJS.Timeout} */
   // @ts-ignore
   let timeoutID
-  return Promise.race([
+
+  const result = await Promise.race([
     promise.then(v => {
       clearTimeout(timeoutID)
       return v
     }),
 
-    new Promise((_, rej) => {
+    CommonUtils.makePromise(res => {
       timeoutID = setTimeout(() => {
-        rej(new Error(Constants.ErrorCode.TIMEOUT_ERR))
-      }, 10000)
+        clearTimeout(timeoutID)
+        res(TIMEOUT_PTR)
+      }, ms)
     })
   ])
+
+  if (result === TIMEOUT_PTR) {
+    throw new Error(Constants.TIMEOUT_ERR)
+  }
+
+  return result
 }
 
 /**
- * @template T
- * @param {Promise<T>} promise
- * @returns {Promise<T>}
+ * Time outs at 10 seconds.
  */
-const timeout5 = promise => {
-  /** @type {NodeJS.Timeout} */
-  // @ts-ignore
-  let timeoutID
-  return Promise.race([
-    promise.then(v => {
-      clearTimeout(timeoutID)
-      return v
-    }),
-
-    new Promise((_, rej) => {
-      timeoutID = setTimeout(() => {
-        rej(new Error(Constants.ErrorCode.TIMEOUT_ERR))
-      }, 5000)
-    })
-  ])
-}
+const timeout10 = timeout(10)
 
 /**
- * @template T
- * @param {Promise<T>} promise
- * @returns {Promise<T>}
+ * Time outs at 5 seconds.
  */
-const timeout2 = promise => {
-  /** @type {NodeJS.Timeout} */
-  // @ts-ignore
-  let timeoutID
-  return Promise.race([
-    promise.then(v => {
-      clearTimeout(timeoutID)
-      return v
-    }),
+const timeout5 = timeout(5)
 
-    new Promise((_, rej) => {
-      timeoutID = setTimeout(() => {
-        rej(new Error(Constants.ErrorCode.TIMEOUT_ERR))
-      }, 2000)
-    })
-  ])
-}
+/**
+ * Time outs at 2 seconds.
+ */
+const timeout2 = timeout(2)
 
 /**
  * @template T
@@ -101,7 +83,6 @@ const timeout2 = promise => {
  * @returns {Promise<T>}
  */
 const tryAndWait = async (promGen, shouldRetry = () => false) => {
-  /* eslint-disable no-empty */
   /* eslint-disable init-declarations */
 
   // If hang stop at 10, wait 3, retry, if hang stop at 5, reinstate, warm for
@@ -118,28 +99,14 @@ const tryAndWait = async (promGen, shouldRetry = () => false) => {
       )
     )
 
-    if (shouldRetry(resolvedValue)) {
-      logger.info(
-        'force retrying' /* +
-          ` args: ${promGen.toString()} -- ${shouldRetry.toString()} \n resolvedValue: ${resolvedValue}, type: ${typeof resolvedValue}`
-      */
-      )
-    } else {
+    if (!shouldRetry(resolvedValue)) {
       return resolvedValue
     }
   } catch (e) {
-    logger.error(e)
-    logger.info(JSON.stringify(e))
-    if (e.message === Constants.ErrorCode.NOT_AUTH) {
+    if (e.message !== Constants.ErrorCode.TIMEOUT_ERR) {
       throw e
     }
   }
-
-  logger.info(
-    `\n retrying \n` /* +
-      ` args: ${promGen.toString()} -- ${shouldRetry.toString()}`
-  */
-  )
 
   await delay(200)
 
@@ -151,27 +118,14 @@ const tryAndWait = async (promGen, shouldRetry = () => false) => {
       )
     )
 
-    if (shouldRetry(resolvedValue)) {
-      logger.info(
-        'force retrying' /* +
-          ` args: ${promGen.toString()} -- ${shouldRetry.toString()} \n resolvedValue: ${resolvedValue}, type: ${typeof resolvedValue}`
-      */
-      )
-    } else {
+    if (!shouldRetry(resolvedValue)) {
       return resolvedValue
     }
   } catch (e) {
-    logger.error(e)
-    if (e.message === Constants.ErrorCode.NOT_AUTH) {
+    if (e.message !== Constants.ErrorCode.TIMEOUT_ERR) {
       throw e
     }
   }
-
-  logger.info(
-    `\n retrying \n` /* +
-      ` args: ${promGen.toString()} -- ${shouldRetry.toString()}`
-  */
-  )
 
   await delay(3000)
 
@@ -183,32 +137,22 @@ const tryAndWait = async (promGen, shouldRetry = () => false) => {
       )
     )
 
-    if (shouldRetry(resolvedValue)) {
-      logger.info(
-        'force retrying' /* +
-          ` args: ${promGen.toString()} -- ${shouldRetry.toString()} \n resolvedValue: ${resolvedValue}, type: ${typeof resolvedValue}`
-      */
-      )
-    } else {
+    if (!shouldRetry(resolvedValue)) {
       return resolvedValue
     }
   } catch (e) {
-    logger.error(e)
-    if (e.message === Constants.ErrorCode.NOT_AUTH) {
+    if (e.message !== Constants.ErrorCode.TIMEOUT_ERR) {
       throw e
     }
   }
 
-  logger.info(
-    `\n NOT recreating a fresh gun but retrying one last time \n` /* +
-      ` args: ${promGen.toString()} -- ${shouldRetry.toString()}`
-  */
+  return timeout10(
+    promGen(
+      require('../../Mediator/index').getGun(),
+      require('../../Mediator/index').getUser()
+    )
   )
 
-  const { gun, user } = require('../../Mediator/index').freshGun()
-
-  return timeout10(promGen(gun, user))
-  /* eslint-enable no-empty */
   /* eslint-enable init-declarations */
 }
 
@@ -218,97 +162,20 @@ const tryAndWait = async (promGen, shouldRetry = () => false) => {
  */
 const pubToEpub = async pub => {
   try {
-    const epub = await timeout10(
-      CommonUtils.makePromise(res => {
-        require('../../Mediator/index')
-          .getGun()
-          .user(pub)
-          .get('epub')
-          .on(data => {
-            if (typeof data === 'string') {
-              res(data)
-            }
-          })
-      })
-    )
+    const epub = await require('../../Mediator/index')
+      .getGun()
+      .user(pub)
+      .get('epub')
+      .specialThen()
 
-    return epub
+    return /** @type {string} */ (epub)
   } catch (err) {
-    logger.error(err)
-    throw new Error(`pubToEpub() -> ${err.message}`)
-  }
-}
-
-/**
- * Should only be called with a recipient pub that has already been contacted.
- * If returns null, a disconnect happened.
- * @param {string} recipientPub
- * @returns {Promise<string|null>}
- */
-const recipientPubToLastReqSentID = async recipientPub => {
-  const maybeLastReqSentID = await tryAndWait(
-    (_, user) => {
-      const userToLastReqSent = user.get(Key.USER_TO_LAST_REQUEST_SENT)
-      return userToLastReqSent.get(recipientPub).then()
-    },
-    // retry on undefined, in case it is a false negative
-    v => typeof v === 'undefined'
-  )
-
-  if (typeof maybeLastReqSentID !== 'string') {
-    return null
-  }
-
-  return maybeLastReqSentID
-}
-
-/**
- * @param {string} recipientPub
- * @returns {Promise<boolean>}
- */
-const successfulHandshakeAlreadyExists = async recipientPub => {
-  const maybeIncomingID = await tryAndWait((_, user) => {
-    const userToIncoming = user.get(Key.USER_TO_INCOMING)
-
-    return userToIncoming.get(recipientPub).then()
-  })
-
-  const maybeOutgoingID = await tryAndWait((_, user) => {
-    const recipientToOutgoing = user.get(Key.RECIPIENT_TO_OUTGOING)
-
-    return recipientToOutgoing.get(recipientPub).then()
-  })
-
-  return (
-    typeof maybeIncomingID === 'string' && typeof maybeOutgoingID === 'string'
-  )
-}
-
-/**
- * @param {string} recipientPub
- * @returns {Promise<string|null>}
- */
-const recipientToOutgoingID = async recipientPub => {
-  const maybeEncryptedOutgoingID = await tryAndWait(
-    (_, user) =>
-      user
-        .get(Key.RECIPIENT_TO_OUTGOING)
-        .get(recipientPub)
-        .then(),
-    // force retry in case undefined is a false negative
-    v => typeof v === 'undefined'
-  )
-
-  if (typeof maybeEncryptedOutgoingID === 'string') {
-    const outgoingID = await require('../../Mediator/index').mySEA.decrypt(
-      maybeEncryptedOutgoingID,
-      await mySecret()
+    logger.error(
+      `Error inside pubToEpub for pub ${pub.slice(0, 8)}...${pub.slice(-8)}:`
     )
-
-    return outgoingID || null
+    logger.error(err)
+    throw err
   }
-
-  return null
 }
 
 /**
@@ -347,17 +214,30 @@ const isNodeOnline = async pub => {
   )
 }
 
+/**
+ * @returns {string}
+ */
+const gunID = () => {
+  // Copied from gun internals
+  let s = ''
+  let l = 24 // you are not going to make a 0 length random number, so no need to check type
+  const c = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXZabcdefghijklmnopqrstuvwxyz'
+  while (l > 0) {
+    s += c.charAt(Math.floor(Math.random() * c.length))
+    l--
+  }
+  return s
+}
+
 module.exports = {
   dataHasSoul,
   delay,
   pubToEpub,
-  recipientPubToLastReqSentID,
-  successfulHandshakeAlreadyExists,
-  recipientToOutgoingID,
   tryAndWait,
   mySecret,
   promisifyGunNode: require('./promisifygun'),
   timeout5,
   timeout2,
-  isNodeOnline
+  isNodeOnline,
+  gunID
 }
