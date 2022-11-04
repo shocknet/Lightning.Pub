@@ -10,15 +10,15 @@ option (file_options) = {
     supported_http_methods:["post", "get"];
     supported_auths:[
         {
-            id: "no_auth"
-            name: "NoAuth"
+            id: "guest"
+            name: "Guest"
             context:[] 
         },
         {
-            id: "guest" 
-            name: "Guest", 
+            id: "user" 
+            name: "User", 
             context:{
-                key:"token", 
+                key:"user_id", 
                 value:"string"
             }
         },
@@ -27,7 +27,7 @@ option (file_options) = {
             name: "Admin", 
             encrypted:true, 
             context:{
-                key:"pub", 
+                key:"admin_id", 
                 value:"string"
             }
         }
@@ -63,18 +63,60 @@ extend google.protobuf.FileOptions {
 
 service LightningPub {
     rpc Health(structs.Empty) returns (structs.Empty){
-        option (auth_type)  = "NoAuth";
+        option (auth_type)  = "Guest";
         option (http_method) = "get";
-        option (http_route) = "/health";
+        option (http_route) = "/api/health";
     };
     rpc EncryptionExchange(structs.EncryptionExchangeRequest) returns (structs.Empty){
-        option (auth_type)  = "NoAuth";
+        option (auth_type)  = "Guest";
         option (http_method) = "post";
         option (http_route) = "/api/encryption/exchange";
     };
-    rpc LndGetInfo(structs.Empty) returns (structs.LndGetInfoResponse){
-        option (auth_type)  = "NoAuth";
-        option (http_method) = "get";
+    rpc LndGetInfo(structs.LndGetInfoRequest) returns (structs.LndGetInfoResponse){
+        option (auth_type)  = "Admin";
+        option (http_method) = "post";
         option (http_route) = "/api/lnd/getinfo";
     };
+    
+    rpc AddUser(structs.AddUserRequest)returns (structs.AddUserResponse){
+        option (auth_type)  = "Guest";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/add";
+    }
+    rpc AuthUser(structs.AuthUserRequest)returns (structs.AuthUserResponse){
+        option (auth_type)  = "Guest";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/auth";
+    }
+    // USER 
+    rpc NewAddress(structs.Empty) returns (structs.NewAddressResponse) {
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/chain/new";
+    }
+    rpc PayAddress(structs.PayAddressRequest) returns (structs.PayAddressResponse){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/chain/pay";
+    }
+    rpc NewInvoice(structs.NewInvoiceRequest) returns (structs.NewInvoiceResponse){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/invoice/new";
+    }
+    rpc PayInvoice(structs.PayInvoiceRequest) returns (structs.PayInvoiceResponse){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/invoice/pay";
+    }
+    rpc OpenChannel(structs.OpenChannelRequest) returns (structs.OpenChannelResponse){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/open/channel";
+    }
+    rpc GetOpenChannelLNURL(structs.Empty) returns (structs.GetOpenChannelLNURLResponse){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/lnurl_channel";
+    }
 }
