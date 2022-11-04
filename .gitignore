@@ -6,3 +6,4 @@ tmp/
 temp/
 .env
 build/
+db.sqlite
