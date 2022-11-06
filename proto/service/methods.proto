@@ -1,0 +1,122 @@
+syntax = "proto3";
+
+package methods;
+
+import "google/protobuf/descriptor.proto";
+import "structs.proto";
+
+option go_package = "github.com/shocknet/lightning.pub";
+option (file_options) = {
+    supported_http_methods:["post", "get"];
+    supported_auths:[
+        {
+            id: "guest"
+            name: "Guest"
+            context:[] 
+        },
+        {
+            id: "user" 
+            name: "User", 
+            context:{
+                key:"user_id", 
+                value:"string"
+            }
+        },
+        {
+            id: "admin", 
+            name: "Admin", 
+            encrypted:true, 
+            context:{
+                key:"admin_id", 
+                value:"string"
+            }
+        }
+    ];
+};
+
+message MethodQueryOptions {
+    repeated string items = 1;
+}
+
+extend google.protobuf.MethodOptions {  // TODO: move this stuff to dep repo?
+    string auth_type = 50003;
+    string http_method = 50004;
+    string http_route = 50005;
+    MethodQueryOptions query = 50006;
+
+}
+
+message ProtoFileOptions {
+    message SupportedAuth {
+        string id = 1;
+        string name = 2;
+        bool encrypted = 3;
+        map<string,string> context = 4;
+    }
+    repeated SupportedAuth supported_auths = 1;
+    repeated string supported_http_methods = 2;
+}
+
+extend google.protobuf.FileOptions {
+    ProtoFileOptions file_options = 50004;
+}
+
+service LightningPub {
+    rpc Health(structs.Empty) returns (structs.Empty){
+        option (auth_type)  = "Guest";
+        option (http_method) = "get";
+        option (http_route) = "/api/health";
+    };
+    rpc EncryptionExchange(structs.EncryptionExchangeRequest) returns (structs.Empty){
+        option (auth_type)  = "Guest";
+        option (http_method) = "post";
+        option (http_route) = "/api/encryption/exchange";
+    };
+    rpc LndGetInfo(structs.LndGetInfoRequest) returns (structs.LndGetInfoResponse){
+        option (auth_type)  = "Admin";
+        option (http_method) = "post";
+        option (http_route) = "/api/lnd/getinfo";
+    };
+    
+    rpc AddUser(structs.AddUserRequest)returns (structs.AddUserResponse){
+        option (auth_type)  = "Guest";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/add";
+    }
+    rpc AuthUser(structs.AuthUserRequest)returns (structs.AuthUserResponse){
+        option (auth_type)  = "Guest";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/auth";
+    }
+    // USER 
+    rpc NewAddress(structs.NewAddressRequest) returns (structs.NewAddressResponse) {
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/chain/new";
+    }
+    rpc PayAddress(structs.PayAddressRequest) returns (structs.PayAddressResponse){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/chain/pay";
+    }
+    rpc NewInvoice(structs.NewInvoiceRequest) returns (structs.NewInvoiceResponse){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/invoice/new";
+    }
+    rpc PayInvoice(structs.PayInvoiceRequest) returns (structs.PayInvoiceResponse){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/invoice/pay";
+    }
+    rpc OpenChannel(structs.OpenChannelRequest) returns (structs.OpenChannelResponse){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/open/channel";
+    }
+    rpc GetOpenChannelLNURL(structs.Empty) returns (structs.GetOpenChannelLNURLResponse){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/lnurl_channel";
+    }
+}
