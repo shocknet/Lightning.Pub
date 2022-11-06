@@ -1,6 +1,0 @@
-{
-  "watch": ["src/", "services/", "utils/", "constants/", "config/"],
-  "ignore": ["node_modules/", ".git", "radata/", ".storage/", "*.log.*"],
-  "verbose": true,
-  "ext": "js"
-}

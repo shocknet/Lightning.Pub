@@ -1,0 +1,93 @@
+syntax = "proto3";
+
+package structs;
+
+option go_package = "github.com/shocknet/lightning.pub";
+
+message Empty {}
+
+
+message EncryptionExchangeRequest {
+    string public_key = 1;
+    string device_id = 2;
+}
+
+message LndGetInfoRequest {
+    int64 node_id = 1;
+}
+
+message LndGetInfoResponse {
+    string alias = 1;
+}
+enum AddressType {
+    WITNESS_PUBKEY_HASH = 0;
+    NESTED_PUBKEY_HASH = 1;
+    TAPROOT_PUBKEY = 2;
+}
+message NewAddressRequest {
+    AddressType address_type = 1;
+}
+message NewAddressResponse{
+    string address = 1;
+}
+message PayAddressRequest{
+    string address = 1;
+    int64 amout_sats = 2;
+}
+
+message PayAddressResponse{
+    string tx_id = 1;
+}
+
+message NewInvoiceRequest{
+    int64 amount_sats = 1;
+}
+
+message NewInvoiceResponse{
+    string invoice = 1;
+}
+
+message PayInvoiceRequest{
+    string invoice = 1;
+    int64 amount = 2;
+}
+
+message PayInvoiceResponse{
+    string preimage = 1;
+}
+
+message OpenChannelRequest{
+    string destination = 1;
+    int64 funding_amount = 2;
+    int64 push_amount = 3;
+    string close_address = 4;
+}
+
+message OpenChannelResponse{
+    string channel_id = 1;
+}
+
+message GetOpenChannelLNURLResponse{
+    string lnurl = 1;
+}
+
+message AddUserRequest{
+    string callback_url = 1;
+    string name = 2;
+    string secret = 3;
+}
+
+message AddUserResponse{
+    string user_id = 1;
+    string auth_token = 2;
+}
+
+message AuthUserRequest{
+    string name = 2;
+    string secret = 3;
+}
+
+message AuthUserResponse{
+    string user_id = 1;
+    string auth_token = 2;
+}
