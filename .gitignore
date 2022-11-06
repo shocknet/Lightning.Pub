@@ -7,3 +7,4 @@ temp/
 .env
 build/
 db.sqlite
+.key/

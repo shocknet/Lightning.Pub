@@ -71,7 +71,7 @@ export type ServerMethods = {
     LndGetInfo?: (ctx: LndGetInfo_Context, req: LndGetInfoRequest) => Promise<LndGetInfoResponse>
     AddUser?: (ctx: AddUser_Context, req: AddUserRequest) => Promise<AddUserResponse>
     AuthUser?: (ctx: AuthUser_Context, req: AuthUserRequest) => Promise<AuthUserResponse>
-    NewAddress?: (ctx: NewAddress_Context) => Promise<NewAddressResponse>
+    NewAddress?: (ctx: NewAddress_Context, req: NewAddressRequest) => Promise<NewAddressResponse>
     PayAddress?: (ctx: PayAddress_Context, req: PayAddressRequest) => Promise<PayAddressResponse>
     NewInvoice?: (ctx: NewInvoice_Context, req: NewInvoiceRequest) => Promise<NewInvoiceResponse>
     PayInvoice?: (ctx: PayInvoice_Context, req: PayInvoiceRequest) => Promise<PayInvoiceResponse>
@@ -79,30 +79,29 @@ export type ServerMethods = {
     GetOpenChannelLNURL?: (ctx: GetOpenChannelLNURL_Context) => Promise<GetOpenChannelLNURLResponse>
 }
 
+export enum AddressType {
+    WITNESS_PUBKEY_HASH = 'WITNESS_PUBKEY_HASH',
+    NESTED_PUBKEY_HASH = 'NESTED_PUBKEY_HASH',
+    TAPROOT_PUBKEY = 'TAPROOT_PUBKEY',
+}
+const enumCheckAddressType = (e?: AddressType): boolean => {
+    for (const v in AddressType) if (e === v) return true
+    return false
+}
 
 export type OptionsBaseMessage = {
     allOptionalsAreSet?: true
 }
 
-export type AuthUserResponse = {
-    user_id: string
-    auth_token: string
+export type Empty = {
 }
-export const AuthUserResponseOptionalFields: [] = []
-export type AuthUserResponseOptions = OptionsBaseMessage & {
+export const EmptyOptionalFields: [] = []
+export type EmptyOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
-    user_id_CustomCheck?: (v: string) => boolean
-    auth_token_CustomCheck?: (v: string) => boolean
 }
-export const AuthUserResponseValidate = (o?: AuthUserResponse, opts: AuthUserResponseOptions = {}, path: string = 'AuthUserResponse::root.'): Error | null => {
+export const EmptyValidate = (o?: Empty, opts: EmptyOptions = {}, path: string = 'Empty::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
     if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
-
-    if (typeof o.user_id !== 'string') return new Error(`${path}.user_id: is not a string`)
-    if (opts.user_id_CustomCheck && !opts.user_id_CustomCheck(o.user_id)) return new Error(`${path}.user_id: custom check failed`)
-
-    if (typeof o.auth_token !== 'string') return new Error(`${path}.auth_token: is not a string`)
-    if (opts.auth_token_CustomCheck && !opts.auth_token_CustomCheck(o.auth_token)) return new Error(`${path}.auth_token: custom check failed`)
 
     return null
 }
@@ -130,20 +129,53 @@ export const PayAddressRequestValidate = (o?: PayAddressRequest, opts: PayAddres
     return null
 }
 
-export type PayAddressResponse = {
-    tx_id: string
+export type NewInvoiceResponse = {
+    invoice: string
 }
-export const PayAddressResponseOptionalFields: [] = []
-export type PayAddressResponseOptions = OptionsBaseMessage & {
+export const NewInvoiceResponseOptionalFields: [] = []
+export type NewInvoiceResponseOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
-    tx_id_CustomCheck?: (v: string) => boolean
+    invoice_CustomCheck?: (v: string) => boolean
 }
-export const PayAddressResponseValidate = (o?: PayAddressResponse, opts: PayAddressResponseOptions = {}, path: string = 'PayAddressResponse::root.'): Error | null => {
+export const NewInvoiceResponseValidate = (o?: NewInvoiceResponse, opts: NewInvoiceResponseOptions = {}, path: string = 'NewInvoiceResponse::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
     if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
 
-    if (typeof o.tx_id !== 'string') return new Error(`${path}.tx_id: is not a string`)
-    if (opts.tx_id_CustomCheck && !opts.tx_id_CustomCheck(o.tx_id)) return new Error(`${path}.tx_id: custom check failed`)
+    if (typeof o.invoice !== 'string') return new Error(`${path}.invoice: is not a string`)
+    if (opts.invoice_CustomCheck && !opts.invoice_CustomCheck(o.invoice)) return new Error(`${path}.invoice: custom check failed`)
+
+    return null
+}
+
+export type OpenChannelRequest = {
+    destination: string
+    funding_amount: number
+    push_amount: number
+    close_address: string
+}
+export const OpenChannelRequestOptionalFields: [] = []
+export type OpenChannelRequestOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    destination_CustomCheck?: (v: string) => boolean
+    funding_amount_CustomCheck?: (v: number) => boolean
+    push_amount_CustomCheck?: (v: number) => boolean
+    close_address_CustomCheck?: (v: string) => boolean
+}
+export const OpenChannelRequestValidate = (o?: OpenChannelRequest, opts: OpenChannelRequestOptions = {}, path: string = 'OpenChannelRequest::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.destination !== 'string') return new Error(`${path}.destination: is not a string`)
+    if (opts.destination_CustomCheck && !opts.destination_CustomCheck(o.destination)) return new Error(`${path}.destination: custom check failed`)
+
+    if (typeof o.funding_amount !== 'number') return new Error(`${path}.funding_amount: is not a number`)
+    if (opts.funding_amount_CustomCheck && !opts.funding_amount_CustomCheck(o.funding_amount)) return new Error(`${path}.funding_amount: custom check failed`)
+
+    if (typeof o.push_amount !== 'number') return new Error(`${path}.push_amount: is not a number`)
+    if (opts.push_amount_CustomCheck && !opts.push_amount_CustomCheck(o.push_amount)) return new Error(`${path}.push_amount: custom check failed`)
+
+    if (typeof o.close_address !== 'string') return new Error(`${path}.close_address: is not a string`)
+    if (opts.close_address_CustomCheck && !opts.close_address_CustomCheck(o.close_address)) return new Error(`${path}.close_address: custom check failed`)
 
     return null
 }
@@ -166,92 +198,20 @@ export const OpenChannelResponseValidate = (o?: OpenChannelResponse, opts: OpenC
     return null
 }
 
-export type GetOpenChannelLNURLResponse = {
-    lnurl: string
+export type LndGetInfoRequest = {
+    node_id: number
 }
-export const GetOpenChannelLNURLResponseOptionalFields: [] = []
-export type GetOpenChannelLNURLResponseOptions = OptionsBaseMessage & {
+export const LndGetInfoRequestOptionalFields: [] = []
+export type LndGetInfoRequestOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
-    lnurl_CustomCheck?: (v: string) => boolean
+    node_id_CustomCheck?: (v: number) => boolean
 }
-export const GetOpenChannelLNURLResponseValidate = (o?: GetOpenChannelLNURLResponse, opts: GetOpenChannelLNURLResponseOptions = {}, path: string = 'GetOpenChannelLNURLResponse::root.'): Error | null => {
+export const LndGetInfoRequestValidate = (o?: LndGetInfoRequest, opts: LndGetInfoRequestOptions = {}, path: string = 'LndGetInfoRequest::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
     if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
 
-    if (typeof o.lnurl !== 'string') return new Error(`${path}.lnurl: is not a string`)
-    if (opts.lnurl_CustomCheck && !opts.lnurl_CustomCheck(o.lnurl)) return new Error(`${path}.lnurl: custom check failed`)
-
-    return null
-}
-
-export type AddUserResponse = {
-    user_id: string
-    auth_token: string
-}
-export const AddUserResponseOptionalFields: [] = []
-export type AddUserResponseOptions = OptionsBaseMessage & {
-    checkOptionalsAreSet?: []
-    user_id_CustomCheck?: (v: string) => boolean
-    auth_token_CustomCheck?: (v: string) => boolean
-}
-export const AddUserResponseValidate = (o?: AddUserResponse, opts: AddUserResponseOptions = {}, path: string = 'AddUserResponse::root.'): Error | null => {
-    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
-    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
-
-    if (typeof o.user_id !== 'string') return new Error(`${path}.user_id: is not a string`)
-    if (opts.user_id_CustomCheck && !opts.user_id_CustomCheck(o.user_id)) return new Error(`${path}.user_id: custom check failed`)
-
-    if (typeof o.auth_token !== 'string') return new Error(`${path}.auth_token: is not a string`)
-    if (opts.auth_token_CustomCheck && !opts.auth_token_CustomCheck(o.auth_token)) return new Error(`${path}.auth_token: custom check failed`)
-
-    return null
-}
-
-export type Empty = {
-}
-export const EmptyOptionalFields: [] = []
-export type EmptyOptions = OptionsBaseMessage & {
-    checkOptionalsAreSet?: []
-}
-export const EmptyValidate = (o?: Empty, opts: EmptyOptions = {}, path: string = 'Empty::root.'): Error | null => {
-    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
-    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
-
-    return null
-}
-
-export type PayInvoiceResponse = {
-    preimage: string
-}
-export const PayInvoiceResponseOptionalFields: [] = []
-export type PayInvoiceResponseOptions = OptionsBaseMessage & {
-    checkOptionalsAreSet?: []
-    preimage_CustomCheck?: (v: string) => boolean
-}
-export const PayInvoiceResponseValidate = (o?: PayInvoiceResponse, opts: PayInvoiceResponseOptions = {}, path: string = 'PayInvoiceResponse::root.'): Error | null => {
-    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
-    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
-
-    if (typeof o.preimage !== 'string') return new Error(`${path}.preimage: is not a string`)
-    if (opts.preimage_CustomCheck && !opts.preimage_CustomCheck(o.preimage)) return new Error(`${path}.preimage: custom check failed`)
-
-    return null
-}
-
-export type PayInvoiceRequest = {
-    invoce: string
-}
-export const PayInvoiceRequestOptionalFields: [] = []
-export type PayInvoiceRequestOptions = OptionsBaseMessage & {
-    checkOptionalsAreSet?: []
-    invoce_CustomCheck?: (v: string) => boolean
-}
-export const PayInvoiceRequestValidate = (o?: PayInvoiceRequest, opts: PayInvoiceRequestOptions = {}, path: string = 'PayInvoiceRequest::root.'): Error | null => {
-    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
-    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
-
-    if (typeof o.invoce !== 'string') return new Error(`${path}.invoce: is not a string`)
-    if (opts.invoce_CustomCheck && !opts.invoce_CustomCheck(o.invoce)) return new Error(`${path}.invoce: custom check failed`)
+    if (typeof o.node_id !== 'number') return new Error(`${path}.node_id: is not a number`)
+    if (opts.node_id_CustomCheck && !opts.node_id_CustomCheck(o.node_id)) return new Error(`${path}.node_id: custom check failed`)
 
     return null
 }
@@ -274,38 +234,20 @@ export const LndGetInfoResponseValidate = (o?: LndGetInfoResponse, opts: LndGetI
     return null
 }
 
-export type NewInvoiceResponse = {
-    invoice: string
+export type NewAddressRequest = {
+    address_type: AddressType
 }
-export const NewInvoiceResponseOptionalFields: [] = []
-export type NewInvoiceResponseOptions = OptionsBaseMessage & {
+export const NewAddressRequestOptionalFields: [] = []
+export type NewAddressRequestOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
-    invoice_CustomCheck?: (v: string) => boolean
+    address_type_CustomCheck?: (v: AddressType) => boolean
 }
-export const NewInvoiceResponseValidate = (o?: NewInvoiceResponse, opts: NewInvoiceResponseOptions = {}, path: string = 'NewInvoiceResponse::root.'): Error | null => {
+export const NewAddressRequestValidate = (o?: NewAddressRequest, opts: NewAddressRequestOptions = {}, path: string = 'NewAddressRequest::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
     if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
 
-    if (typeof o.invoice !== 'string') return new Error(`${path}.invoice: is not a string`)
-    if (opts.invoice_CustomCheck && !opts.invoice_CustomCheck(o.invoice)) return new Error(`${path}.invoice: custom check failed`)
-
-    return null
-}
-
-export type NewAddressResponse = {
-    address: string
-}
-export const NewAddressResponseOptionalFields: [] = []
-export type NewAddressResponseOptions = OptionsBaseMessage & {
-    checkOptionalsAreSet?: []
-    address_CustomCheck?: (v: string) => boolean
-}
-export const NewAddressResponseValidate = (o?: NewAddressResponse, opts: NewAddressResponseOptions = {}, path: string = 'NewAddressResponse::root.'): Error | null => {
-    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
-    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
-
-    if (typeof o.address !== 'string') return new Error(`${path}.address: is not a string`)
-    if (opts.address_CustomCheck && !opts.address_CustomCheck(o.address)) return new Error(`${path}.address: custom check failed`)
+    if (!enumCheckAddressType(o.address_type)) return new Error(`${path}.address_type: is not a valid AddressType`)
+    if (opts.address_type_CustomCheck && !opts.address_type_CustomCheck(o.address_type)) return new Error(`${path}.address_type: custom check failed`)
 
     return null
 }
@@ -328,30 +270,166 @@ export const NewInvoiceRequestValidate = (o?: NewInvoiceRequest, opts: NewInvoic
     return null
 }
 
-export type OpenChannelRequest = {
-    destination: string
-    channel_balance: number
-    push_amount: number
+export type PayInvoiceResponse = {
+    preimage: string
 }
-export const OpenChannelRequestOptionalFields: [] = []
-export type OpenChannelRequestOptions = OptionsBaseMessage & {
+export const PayInvoiceResponseOptionalFields: [] = []
+export type PayInvoiceResponseOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
-    destination_CustomCheck?: (v: string) => boolean
-    channel_balance_CustomCheck?: (v: number) => boolean
-    push_amount_CustomCheck?: (v: number) => boolean
+    preimage_CustomCheck?: (v: string) => boolean
 }
-export const OpenChannelRequestValidate = (o?: OpenChannelRequest, opts: OpenChannelRequestOptions = {}, path: string = 'OpenChannelRequest::root.'): Error | null => {
+export const PayInvoiceResponseValidate = (o?: PayInvoiceResponse, opts: PayInvoiceResponseOptions = {}, path: string = 'PayInvoiceResponse::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
     if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
 
-    if (typeof o.destination !== 'string') return new Error(`${path}.destination: is not a string`)
-    if (opts.destination_CustomCheck && !opts.destination_CustomCheck(o.destination)) return new Error(`${path}.destination: custom check failed`)
+    if (typeof o.preimage !== 'string') return new Error(`${path}.preimage: is not a string`)
+    if (opts.preimage_CustomCheck && !opts.preimage_CustomCheck(o.preimage)) return new Error(`${path}.preimage: custom check failed`)
 
-    if (typeof o.channel_balance !== 'number') return new Error(`${path}.channel_balance: is not a number`)
-    if (opts.channel_balance_CustomCheck && !opts.channel_balance_CustomCheck(o.channel_balance)) return new Error(`${path}.channel_balance: custom check failed`)
+    return null
+}
 
-    if (typeof o.push_amount !== 'number') return new Error(`${path}.push_amount: is not a number`)
-    if (opts.push_amount_CustomCheck && !opts.push_amount_CustomCheck(o.push_amount)) return new Error(`${path}.push_amount: custom check failed`)
+export type PayAddressResponse = {
+    tx_id: string
+}
+export const PayAddressResponseOptionalFields: [] = []
+export type PayAddressResponseOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    tx_id_CustomCheck?: (v: string) => boolean
+}
+export const PayAddressResponseValidate = (o?: PayAddressResponse, opts: PayAddressResponseOptions = {}, path: string = 'PayAddressResponse::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.tx_id !== 'string') return new Error(`${path}.tx_id: is not a string`)
+    if (opts.tx_id_CustomCheck && !opts.tx_id_CustomCheck(o.tx_id)) return new Error(`${path}.tx_id: custom check failed`)
+
+    return null
+}
+
+export type PayInvoiceRequest = {
+    invoice: string
+    amount: number
+}
+export const PayInvoiceRequestOptionalFields: [] = []
+export type PayInvoiceRequestOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    invoice_CustomCheck?: (v: string) => boolean
+    amount_CustomCheck?: (v: number) => boolean
+}
+export const PayInvoiceRequestValidate = (o?: PayInvoiceRequest, opts: PayInvoiceRequestOptions = {}, path: string = 'PayInvoiceRequest::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.invoice !== 'string') return new Error(`${path}.invoice: is not a string`)
+    if (opts.invoice_CustomCheck && !opts.invoice_CustomCheck(o.invoice)) return new Error(`${path}.invoice: custom check failed`)
+
+    if (typeof o.amount !== 'number') return new Error(`${path}.amount: is not a number`)
+    if (opts.amount_CustomCheck && !opts.amount_CustomCheck(o.amount)) return new Error(`${path}.amount: custom check failed`)
+
+    return null
+}
+
+export type AuthUserRequest = {
+    name: string
+    secret: string
+}
+export const AuthUserRequestOptionalFields: [] = []
+export type AuthUserRequestOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    name_CustomCheck?: (v: string) => boolean
+    secret_CustomCheck?: (v: string) => boolean
+}
+export const AuthUserRequestValidate = (o?: AuthUserRequest, opts: AuthUserRequestOptions = {}, path: string = 'AuthUserRequest::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.name !== 'string') return new Error(`${path}.name: is not a string`)
+    if (opts.name_CustomCheck && !opts.name_CustomCheck(o.name)) return new Error(`${path}.name: custom check failed`)
+
+    if (typeof o.secret !== 'string') return new Error(`${path}.secret: is not a string`)
+    if (opts.secret_CustomCheck && !opts.secret_CustomCheck(o.secret)) return new Error(`${path}.secret: custom check failed`)
+
+    return null
+}
+
+export type AuthUserResponse = {
+    user_id: string
+    auth_token: string
+}
+export const AuthUserResponseOptionalFields: [] = []
+export type AuthUserResponseOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    user_id_CustomCheck?: (v: string) => boolean
+    auth_token_CustomCheck?: (v: string) => boolean
+}
+export const AuthUserResponseValidate = (o?: AuthUserResponse, opts: AuthUserResponseOptions = {}, path: string = 'AuthUserResponse::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.user_id !== 'string') return new Error(`${path}.user_id: is not a string`)
+    if (opts.user_id_CustomCheck && !opts.user_id_CustomCheck(o.user_id)) return new Error(`${path}.user_id: custom check failed`)
+
+    if (typeof o.auth_token !== 'string') return new Error(`${path}.auth_token: is not a string`)
+    if (opts.auth_token_CustomCheck && !opts.auth_token_CustomCheck(o.auth_token)) return new Error(`${path}.auth_token: custom check failed`)
+
+    return null
+}
+
+export type EncryptionExchangeRequest = {
+    public_key: string
+    device_id: string
+}
+export const EncryptionExchangeRequestOptionalFields: [] = []
+export type EncryptionExchangeRequestOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    public_key_CustomCheck?: (v: string) => boolean
+    device_id_CustomCheck?: (v: string) => boolean
+}
+export const EncryptionExchangeRequestValidate = (o?: EncryptionExchangeRequest, opts: EncryptionExchangeRequestOptions = {}, path: string = 'EncryptionExchangeRequest::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.public_key !== 'string') return new Error(`${path}.public_key: is not a string`)
+    if (opts.public_key_CustomCheck && !opts.public_key_CustomCheck(o.public_key)) return new Error(`${path}.public_key: custom check failed`)
+
+    if (typeof o.device_id !== 'string') return new Error(`${path}.device_id: is not a string`)
+    if (opts.device_id_CustomCheck && !opts.device_id_CustomCheck(o.device_id)) return new Error(`${path}.device_id: custom check failed`)
+
+    return null
+}
+
+export type NewAddressResponse = {
+    address: string
+}
+export const NewAddressResponseOptionalFields: [] = []
+export type NewAddressResponseOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    address_CustomCheck?: (v: string) => boolean
+}
+export const NewAddressResponseValidate = (o?: NewAddressResponse, opts: NewAddressResponseOptions = {}, path: string = 'NewAddressResponse::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.address !== 'string') return new Error(`${path}.address: is not a string`)
+    if (opts.address_CustomCheck && !opts.address_CustomCheck(o.address)) return new Error(`${path}.address: custom check failed`)
+
+    return null
+}
+
+export type GetOpenChannelLNURLResponse = {
+    lnurl: string
+}
+export const GetOpenChannelLNURLResponseOptionalFields: [] = []
+export type GetOpenChannelLNURLResponseOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    lnurl_CustomCheck?: (v: string) => boolean
+}
+export const GetOpenChannelLNURLResponseValidate = (o?: GetOpenChannelLNURLResponse, opts: GetOpenChannelLNURLResponseOptions = {}, path: string = 'GetOpenChannelLNURLResponse::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.lnurl !== 'string') return new Error(`${path}.lnurl: is not a string`)
+    if (opts.lnurl_CustomCheck && !opts.lnurl_CustomCheck(o.lnurl)) return new Error(`${path}.lnurl: custom check failed`)
 
     return null
 }
@@ -384,66 +462,25 @@ export const AddUserRequestValidate = (o?: AddUserRequest, opts: AddUserRequestO
     return null
 }
 
-export type AuthUserRequest = {
-    name: string
-    secret: string
+export type AddUserResponse = {
+    user_id: string
+    auth_token: string
 }
-export const AuthUserRequestOptionalFields: [] = []
-export type AuthUserRequestOptions = OptionsBaseMessage & {
+export const AddUserResponseOptionalFields: [] = []
+export type AddUserResponseOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
-    name_CustomCheck?: (v: string) => boolean
-    secret_CustomCheck?: (v: string) => boolean
+    user_id_CustomCheck?: (v: string) => boolean
+    auth_token_CustomCheck?: (v: string) => boolean
 }
-export const AuthUserRequestValidate = (o?: AuthUserRequest, opts: AuthUserRequestOptions = {}, path: string = 'AuthUserRequest::root.'): Error | null => {
+export const AddUserResponseValidate = (o?: AddUserResponse, opts: AddUserResponseOptions = {}, path: string = 'AddUserResponse::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
     if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
 
-    if (typeof o.name !== 'string') return new Error(`${path}.name: is not a string`)
-    if (opts.name_CustomCheck && !opts.name_CustomCheck(o.name)) return new Error(`${path}.name: custom check failed`)
+    if (typeof o.user_id !== 'string') return new Error(`${path}.user_id: is not a string`)
+    if (opts.user_id_CustomCheck && !opts.user_id_CustomCheck(o.user_id)) return new Error(`${path}.user_id: custom check failed`)
 
-    if (typeof o.secret !== 'string') return new Error(`${path}.secret: is not a string`)
-    if (opts.secret_CustomCheck && !opts.secret_CustomCheck(o.secret)) return new Error(`${path}.secret: custom check failed`)
-
-    return null
-}
-
-export type EncryptionExchangeRequest = {
-    public_key: string
-    device_id: string
-}
-export const EncryptionExchangeRequestOptionalFields: [] = []
-export type EncryptionExchangeRequestOptions = OptionsBaseMessage & {
-    checkOptionalsAreSet?: []
-    public_key_CustomCheck?: (v: string) => boolean
-    device_id_CustomCheck?: (v: string) => boolean
-}
-export const EncryptionExchangeRequestValidate = (o?: EncryptionExchangeRequest, opts: EncryptionExchangeRequestOptions = {}, path: string = 'EncryptionExchangeRequest::root.'): Error | null => {
-    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
-    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
-
-    if (typeof o.public_key !== 'string') return new Error(`${path}.public_key: is not a string`)
-    if (opts.public_key_CustomCheck && !opts.public_key_CustomCheck(o.public_key)) return new Error(`${path}.public_key: custom check failed`)
-
-    if (typeof o.device_id !== 'string') return new Error(`${path}.device_id: is not a string`)
-    if (opts.device_id_CustomCheck && !opts.device_id_CustomCheck(o.device_id)) return new Error(`${path}.device_id: custom check failed`)
-
-    return null
-}
-
-export type LndGetInfoRequest = {
-    node_id: number
-}
-export const LndGetInfoRequestOptionalFields: [] = []
-export type LndGetInfoRequestOptions = OptionsBaseMessage & {
-    checkOptionalsAreSet?: []
-    node_id_CustomCheck?: (v: number) => boolean
-}
-export const LndGetInfoRequestValidate = (o?: LndGetInfoRequest, opts: LndGetInfoRequestOptions = {}, path: string = 'LndGetInfoRequest::root.'): Error | null => {
-    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
-    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
-
-    if (typeof o.node_id !== 'number') return new Error(`${path}.node_id: is not a number`)
-    if (opts.node_id_CustomCheck && !opts.node_id_CustomCheck(o.node_id)) return new Error(`${path}.node_id: custom check failed`)
+    if (typeof o.auth_token !== 'string') return new Error(`${path}.auth_token: is not a string`)
+    if (opts.auth_token_CustomCheck && !opts.auth_token_CustomCheck(o.auth_token)) return new Error(`${path}.auth_token: custom check failed`)
 
     return null
 }

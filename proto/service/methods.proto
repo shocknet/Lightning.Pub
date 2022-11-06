@@ -89,7 +89,7 @@ service LightningPub {
         option (http_route) = "/api/user/auth";
     }
     // USER 
-    rpc NewAddress(structs.Empty) returns (structs.NewAddressResponse) {
+    rpc NewAddress(structs.NewAddressRequest) returns (structs.NewAddressResponse) {
         option (auth_type)  = "User";
         option (http_method) = "post";
         option (http_route) = "/api/user/chain/new";

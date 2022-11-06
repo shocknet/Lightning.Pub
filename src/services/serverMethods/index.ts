@@ -11,8 +11,8 @@ export default (mainHandler: Main): Types.ServerMethods => {
         AddUser: async (ctx: Types.GuestContext, req: Types.AddUserRequest): Promise<Types.AddUserResponse> => {
             const err = Types.AddUserRequestValidate(req, {
                 callback_url_CustomCheck: url => url.startsWith("http://") || url.startsWith("https://"),
-                name_CustomCheck: name => req.name.length > 0,
-                secret_CustomCheck: secret => secret.length > 8
+                name_CustomCheck: name => name.length > 0,
+                secret_CustomCheck: secret => secret.length >= 8
             })
             if (err != null) throw new Error(err.message)
             return mainHandler.AddUser(req)
@@ -22,15 +22,15 @@ export default (mainHandler: Main): Types.ServerMethods => {
         },
         OpenChannel: async (ctx: Types.UserContext, req: Types.OpenChannelRequest): Promise<Types.OpenChannelResponse> => {
             const err = Types.OpenChannelRequestValidate(req, {
-                channel_balance_CustomCheck: balance => balance > 0,
+                funding_amount_CustomCheck: amt => amt > 0,
                 push_amount_CustomCheck: amt => amt > 0,
                 destination_CustomCheck: dest => dest !== ""
             })
             if (err != null) throw new Error(err.message)
-            return mainHandler.OpenChannel(req)
+            return mainHandler.OpenChannel(ctx.user_id, req)
         },
-        NewAddress: async (ctx: Types.UserContext): Promise<Types.NewAddressResponse> => {
-            throw new Error("unimplemented")
+        NewAddress: async (ctx: Types.UserContext, req: Types.NewAddressRequest): Promise<Types.NewAddressResponse> => {
+            return mainHandler.NewAddress(ctx.user_id, req)
         },
         PayAddress: async (ctx: Types.UserContext, req: Types.PayAddressRequest): Promise<Types.PayAddressResponse> => {
             throw new Error("unimplemented")
