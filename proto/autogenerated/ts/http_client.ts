@@ -74,11 +74,11 @@ export default (params: ClientParams) => ({
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
-    NewAddress: async (): Promise<ResultError | { status: 'OK', result: Types.NewAddressResponse }> => {
+    NewAddress: async (request: Types.NewAddressRequest): Promise<ResultError | { status: 'OK', result: Types.NewAddressResponse }> => {
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
         let finalRoute = '/api/user/chain/new'
-        const { data } = await axios.post(params.baseUrl + finalRoute, {}, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data.result

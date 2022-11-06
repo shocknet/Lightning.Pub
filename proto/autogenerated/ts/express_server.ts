@@ -99,9 +99,12 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
         try {
             if (!methods.NewAddress) throw new Error('method: NewAddress is not implemented')
             const authContext = await opts.UserAuthGuard(req.headers['authorization'])
+            const request = req.body
+            const error = Types.NewAddressRequestValidate(request)
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
             const query = req.query
             const params = req.params
-            const response = await methods.NewAddress({ ...authContext, ...query, ...params })
+            const response = await methods.NewAddress({ ...authContext, ...query, ...params }, request)
             res.json({status: 'OK', result: response})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })

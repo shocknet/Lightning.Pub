@@ -21,9 +21,9 @@ export class User {
     @Column()
     callbackUrl: string
 
-    @Column({ type: 'integer' })
+    @Column({ type: 'integer', default: 0 })
     balance_sats: number
 
-    @Column()
+    @Column({ default: false })
     locked: boolean
 }

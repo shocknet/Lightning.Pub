@@ -19,7 +19,14 @@ message LndGetInfoRequest {
 message LndGetInfoResponse {
     string alias = 1;
 }
-
+enum AddressType {
+    WITNESS_PUBKEY_HASH = 0;
+    NESTED_PUBKEY_HASH = 1;
+    TAPROOT_PUBKEY = 2;
+}
+message NewAddressRequest {
+    AddressType address_type = 1;
+}
 message NewAddressResponse{
     string address = 1;
 }
@@ -41,7 +48,8 @@ message NewInvoiceResponse{
 }
 
 message PayInvoiceRequest{
-    string invoce = 1;
+    string invoice = 1;
+    int64 amount = 2;
 }
 
 message PayInvoiceResponse{
@@ -50,8 +58,9 @@ message PayInvoiceResponse{
 
 message OpenChannelRequest{
     string destination = 1;
-    int64 channel_balance = 2;
+    int64 funding_amount = 2;
     int64 push_amount = 3;
+    string close_address = 4;
 }
 
 message OpenChannelResponse{
