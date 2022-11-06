@@ -1,4 +1,4 @@
-# Awesome Project Build with TypeORM
+# Lightning.Pub
 
 ![GitHub last commit](https://img.shields.io/github/last-commit/shocknet/Lightning.Pub?style=flat-square)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com) 
