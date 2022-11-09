@@ -11,6 +11,7 @@ export const OpenChannelReq = (destination: string, closeAddress: string, fundin
     minConfs: 0, // TBD
     baseFee: 0n, // TBD
     feeRate: 0n, // TBD
+    targetConf: 0,
     zeroConf: false,
     maxLocalCsv: 0,
     remoteCsvDelay: 0,
@@ -19,7 +20,6 @@ export const OpenChannelReq = (destination: string, closeAddress: string, fundin
     remoteChanReserveSat: 0n,
     remoteMaxHtlcs: 0,
     remoteMaxValueInFlightMsat: 0n,
-    targetConf: 0,
     useBaseFee: false,
     useFeeRate: false,
 

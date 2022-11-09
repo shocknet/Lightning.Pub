@@ -10,41 +10,23 @@ import { GetInfoResponse, AddressType, NewAddressResponse, AddInvoiceResponse, I
 import { OpenChannelReq } from './openChannelReq';
 import { AddInvoiceReq } from './addInvoiceReq';
 import { PayInvoiceReq } from './payInvoiceReq';
+import { SendCoinsReq } from './sendCoinsReq';
+import { EnvMustBeInteger, EnvMustBeNonEmptyString } from '../helpers/envParser';
 const DeadLineMetadata = (deadline = 10 * 1000) => ({ deadline: Date.now() + deadline })
 export type LndSettings = {
     lndAddr: string
     lndCertPath: string
     lndMacaroonPath: string
-    walletAccount: string
     feeRateLimit: number
     feeFixedLimit: number
 }
 export const LoadLndSettingsFromEnv = (test = false): LndSettings => {
-    const lndAddr = process.env.LND_ADDRESS;
-    const lndCertPath = process.env.LND_CERT_PATH;
-    const lndMacaroonPath = process.env.LND_MACAROON_PATH;
-    if (!lndAddr) throw new Error(`missing env for LND_ADDRESS`)
-    if (!lndCertPath) throw new Error(`missing env for LND_CERT_PATH`)
-    if (!lndMacaroonPath) throw new Error(`missing env for LND_MACAROON_PATH`)
-
-    if (!process.env.LIMIT_FEE_RATE_MILLISATS) {
-        throw new Error(`missing env for LIMIT_FEE_RATE_MILLISATS`)
-    }
-    if (isNaN(+process.env.LIMIT_FEE_RATE_MILLISATS) || !Number.isInteger(+process.env.LIMIT_FEE_RATE_MILLISATS)) {
-        throw new Error("LIMIT_FEE_RATE_MILLISATS must be an integer number");
-    }
-
-    if (!process.env.LIMIT_FEE_FIXED_SATS) {
-        throw new Error(`missing env for LIMIT_FEE_FIXED_SATS`)
-    }
-    if (isNaN(+process.env.LIMIT_FEE_FIXED_SATS) || !Number.isInteger(+process.env.LIMIT_FEE_FIXED_SATS)) {
-        throw new Error("LIMIT_FEE_FIXED_SATS must be an integer number");
-    }
-    const feeRateLimit = +process.env.LIMIT_FEE_RATE_MILLISATS / 1000
-    const feeFixedLimit = +process.env.LIMIT_FEE_FIXED_SATS
-
-    const walletAccount = process.env.LND_WALLET_ACCOUNT || ""
-    return { lndAddr, lndCertPath, lndMacaroonPath, walletAccount, feeRateLimit, feeFixedLimit }
+    const lndAddr = EnvMustBeNonEmptyString("LND_ADDRESS")
+    const lndCertPath = EnvMustBeNonEmptyString("LND_CERT_PATH")
+    const lndMacaroonPath = EnvMustBeNonEmptyString("LND_MACAROON_PATH")
+    const feeRateLimit = EnvMustBeInteger("LIMIT_FEE_RATE_MILLISATS") / 1000
+    const feeFixedLimit = EnvMustBeInteger("LIMIT_FEE_FIXED_SATS")
+    return { lndAddr, lndCertPath, lndMacaroonPath, feeRateLimit, feeFixedLimit }
 }
 type TxOutput = {
     hash: string
@@ -102,7 +84,7 @@ export default class {
     }
     SubscribeAddressPaid() {
         const stream = this.lightning.subscribeTransactions({
-            account: this.settings.walletAccount,
+            account: "",
             endHeight: 0,
             startHeight: this.latestKnownBlockHeigh,
         }, { abort: this.abortController.signal })
@@ -154,7 +136,7 @@ export default class {
             default:
                 throw new Error("unknown address type " + addressType)
         }
-        const res = await this.lightning.newAddress({ account: this.settings.walletAccount, type: lndAddressType }, DeadLineMetadata())
+        const res = await this.lightning.newAddress({ account: "", type: lndAddressType }, DeadLineMetadata())
         return res.response
     }
 
@@ -193,6 +175,22 @@ export default class {
         })
     }
 
+    async EstimateChainFees(address: string, amount: number, targetConf: number) {
+        const res = await this.lightning.estimateFee({
+            addrToAmount: { [address]: BigInt(amount) },
+            minConfs: 1,
+            spendUnconfirmed: false,
+            targetConf: targetConf
+        })
+        return res.response
+    }
+
+    async PayAddress(address: string, amount: number, satPerVByte: number, label = "") {
+        this.checkReady()
+        const res = await this.lightning.sendCoins(SendCoinsReq(address, amount, satPerVByte, label), DeadLineMetadata())
+        return res.response
+    }
+
 
     async OpenChannel(destination: string, closeAddress: string, fundingAmount: number, pushSats: number): Promise<string> {
         this.checkReady()
@@ -201,6 +199,7 @@ export default class {
         const stream = this.lightning.openChannel(req, { abort: abortController.signal })
         return new Promise((res, rej) => {
             stream.responses.onMessage(message => {
+
                 switch (message.update.oneofKind) {
                     case 'chanPending':
                         abortController.abort()

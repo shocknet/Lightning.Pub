@@ -1,16 +1,16 @@
 import { Entity, PrimaryGeneratedColumn, Column, Index, Check, ManyToOne } from "typeorm"
 import { User } from "./User"
-import { UserAddress } from "./UserAddress"
+import { UserReceivingAddress } from "./UserReceivingAddress"
 
 @Entity()
 @Index("address_transaction_unique", ["tx_hash", "output_index"], { unique: true })
-export class AddressTransaction {
+export class AddressReceivingTransaction {
 
     @PrimaryGeneratedColumn()
     serial_id: number
 
-    @ManyToOne(type => UserAddress)
-    user_address: UserAddress
+    @ManyToOne(type => UserReceivingAddress)
+    user_address: UserReceivingAddress
 
     @Column()
     tx_hash: string
@@ -20,4 +20,7 @@ export class AddressTransaction {
 
     @Column()
     amount: number
+
+    @Column()
+    service_fee: number
 }
