@@ -1,24 +1,24 @@
 import "reflect-metadata"
 import { DataSource } from "typeorm"
-import { AddressTransaction } from "./entity/AddressTransaction"
+import { AddressReceivingTransaction } from "./entity/AddressReceivingTransaction"
 import { User } from "./entity/User"
-import { UserAddress } from "./entity/UserAddress"
-import { UserInvoice } from "./entity/UserInvoice"
-import { UserPayment } from "./entity/UserPayment"
+import { UserReceivingAddress } from "./entity/UserReceivingAddress"
+import { UserReceivingInvoice } from "./entity/UserReceivingInvoice"
+import { UserInvoicePayment } from "./entity/UserInvoicePayment"
+import { EnvMustBeNonEmptyString } from "../helpers/envParser"
+import { UserTransactionPayment } from "./entity/UserTransactionPayment"
 export type DbSettings = {
     databaseFile: string
 }
 export const LoadDbSettingsFromEnv = (test = false): DbSettings => {
-    const databaseFile = process.env.DATABASE_FILE
-    if (!databaseFile) throw new Error(`missing env for DATABASE_FILE`)
-    return { databaseFile: test ? ":memory:" : databaseFile }
+    return { databaseFile: test ? ":memory:" : EnvMustBeNonEmptyString("DATABASE_FILE") }
 }
 export default async (settings: DbSettings) => {
     return new DataSource({
         type: "sqlite",
         database: settings.databaseFile,
         //logging: true,
-        entities: [User, UserInvoice, UserAddress, AddressTransaction, UserPayment],
+        entities: [User, UserReceivingInvoice, UserReceivingAddress, AddressReceivingTransaction, UserInvoicePayment, UserTransactionPayment],
         synchronize: true
     }).initialize()
 } 

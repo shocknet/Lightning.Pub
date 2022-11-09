@@ -1,7 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, Index, Check } from "typeorm"
 
 @Entity()
-@Check(`"balance_sats" >= 0`)
 export class User {
 
     @PrimaryGeneratedColumn()

@@ -33,7 +33,13 @@ export default (mainHandler: Main): Types.ServerMethods => {
             return mainHandler.NewAddress(ctx.user_id, req)
         },
         PayAddress: async (ctx: Types.UserContext, req: Types.PayAddressRequest): Promise<Types.PayAddressResponse> => {
-            throw new Error("unimplemented")
+            const err = Types.PayAddressRequestValidate(req, {
+                address_CustomCheck: addr => addr !== '',
+                amout_sats_CustomCheck: amt => amt > 0,
+                target_conf_CustomCheck: target => target > 0
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.PayAddress(ctx.user_id, req)
         },
         NewInvoice: async (ctx: Types.UserContext, req: Types.NewInvoiceRequest): Promise<Types.NewInvoiceResponse> => {
             throw new Error("unimplemented")
