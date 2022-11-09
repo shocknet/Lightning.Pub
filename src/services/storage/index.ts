@@ -2,10 +2,11 @@ import { DataSource, EntityManager } from "typeorm"
 import crypto from 'crypto';
 import NewDB, { DbSettings, LoadDbSettingsFromEnv } from "./db"
 import { User } from "./entity/User"
-import { UserAddress } from "./entity/UserAddress";
-import { UserInvoice } from "./entity/UserInvoice";
-import { AddressTransaction } from "./entity/AddressTransaction";
-import { UserPayment } from "./entity/UserPayment";
+import { UserReceivingAddress } from "./entity/UserReceivingAddress";
+import { UserReceivingInvoice } from "./entity/UserReceivingInvoice";
+import { AddressReceivingTransaction } from "./entity/AddressReceivingTransaction";
+import { UserInvoicePayment } from "./entity/UserInvoicePayment";
+import { UserTransactionPayment } from "./entity/UserTransactionPayment";
 export type StorageSettings = {
     dbSettings: DbSettings
 }
@@ -23,7 +24,7 @@ export default class {
         this.DB = await NewDB(this.settings.dbSettings)
     }
     StartTransaction(exec: (entityManager: EntityManager) => Promise<void>) {
-        this.DB.transaction(exec)
+        return this.DB.transaction(exec)
     }
     async AddUser(name: string, callbackUrl: string, secret: string, entityManager = this.DB): Promise<User> {
         const newUser = entityManager.getRepository(User).create({
@@ -49,72 +50,93 @@ export default class {
         return user
     }
 
-    async AddAddressTransaction(address: string, txHash: string, outputIndex: number, amount: number, entityManager = this.DB) {
-        const newAddressTransaction = entityManager.getRepository(AddressTransaction).create({
-            user_address: { address: address },
+    async AddAddressReceivingTransaction(address: UserReceivingAddress, txHash: string, outputIndex: number, amount: number, serviceFee: number, entityManager = this.DB) {
+        const newAddressTransaction = entityManager.getRepository(AddressReceivingTransaction).create({
+            user_address: address,
             tx_hash: txHash,
             output_index: outputIndex,
-            amount: amount
+            amount: amount,
+            service_fee: serviceFee
         })
-        return entityManager.getRepository(AddressTransaction).save(newAddressTransaction)
+        return entityManager.getRepository(AddressReceivingTransaction).save(newAddressTransaction)
     }
 
-    async AddUserAddress(userId: string, address: string, callbackUrl = "", entityManager = this.DB): Promise<UserAddress> {
-        const newUserAddress = entityManager.getRepository(UserAddress).create({
+    async AddUserAddress(userId: string, address: string, callbackUrl = "", entityManager = this.DB): Promise<UserReceivingAddress> {
+        const newUserAddress = entityManager.getRepository(UserReceivingAddress).create({
             address,
             callbackUrl,
-            user: { user_id: userId }
+            user: await this.GetUser(userId, entityManager)
         })
-        return entityManager.getRepository(UserAddress).save(newUserAddress)
+        return entityManager.getRepository(UserReceivingAddress).save(newUserAddress)
     }
 
-    async FlagInvoiceAsPaid(invoiceSerialId: number, amount: number, entityManager = this.DB) {
-        return entityManager.getRepository(UserInvoice).update(invoiceSerialId, { paid: true, settle_amount: amount })
+    async FlagInvoiceAsPaid(invoice: UserReceivingInvoice, amount: number, serviceFee: number, entityManager = this.DB) {
+        return entityManager.getRepository(UserReceivingInvoice).update(invoice.serial_id, { paid: true, settle_amount: amount, service_fee: serviceFee })
     }
 
-    async AddUserInvoice(userId: string, invoice: string, callbackUrl = "", entityManager = this.DB): Promise<UserInvoice> {
-        const newUserInvoice = entityManager.getRepository(UserInvoice).create({
+    async AddUserInvoice(userId: string, invoice: string, callbackUrl = "", entityManager = this.DB): Promise<UserReceivingInvoice> {
+        const newUserInvoice = entityManager.getRepository(UserReceivingInvoice).create({
             invoice: invoice,
             callbackUrl,
-            user: { user_id: userId }
+            user: await this.GetUser(userId, entityManager)
         })
-        return entityManager.getRepository(UserInvoice).save(newUserInvoice)
+        return entityManager.getRepository(UserReceivingInvoice).save(newUserInvoice)
     }
 
-    async GetAddressOwner(address: string, entityManager = this.DB): Promise<UserAddress | null> {
-        return entityManager.getRepository(UserAddress).findOne({
+    async GetAddressOwner(address: string, entityManager = this.DB): Promise<UserReceivingAddress | null> {
+        return entityManager.getRepository(UserReceivingAddress).findOne({
             where: {
                 address
             }
         })
     }
 
-    async GetInvoiceOwner(paymentRequest: string, entityManager = this.DB): Promise<UserInvoice | null> {
-        return entityManager.getRepository(UserInvoice).findOne({
+    async GetInvoiceOwner(paymentRequest: string, entityManager = this.DB): Promise<UserReceivingInvoice | null> {
+        return entityManager.getRepository(UserReceivingInvoice).findOne({
             where: {
                 invoice: paymentRequest
             }
         })
     }
 
-    async AddUserPayment(userId: string, invoice: string, amount: number, entityManager = this.DB): Promise<UserPayment> {
-        const newPayment = entityManager.getRepository(UserPayment).create({
-            user: { user_id: userId },
+    async AddUserInvoicePayment(userId: string, invoice: string, amount: number, routingFees: number, serviceFees: number, entityManager = this.DB): Promise<UserInvoicePayment> {
+        const newPayment = entityManager.getRepository(UserInvoicePayment).create({
+            user: await this.GetUser(userId),
             amount,
-            invoice
+            invoice,
+            routing_fees: routingFees,
+            service_fees: serviceFees
         })
-        return entityManager.getRepository(UserPayment).save(newPayment)
+        return entityManager.getRepository(UserInvoicePayment).save(newPayment)
     }
 
-    LockUser(userId: string, entityManager = this.DB) {
-        return entityManager.getRepository(User).update({
+    async AddUserTransactionPayment(userId: string, address: string, txHash: string, txOutput: number, amount: number, chainFees: number, serviceFees: number, entityManager = this.DB): Promise<UserTransactionPayment> {
+        const newTx = entityManager.getRepository(UserTransactionPayment).create({
+            user: await this.GetUser(userId),
+            address,
+            amount,
+            chain_fees: chainFees,
+            output_index: txOutput,
+            tx_hash: txHash,
+            service_fees: serviceFees
+        })
+        return entityManager.getRepository(UserTransactionPayment).save(newTx)
+    }
+    async LockUser(userId: string, entityManager = this.DB) {
+        const res = await entityManager.getRepository(User).update({
             user_id: userId
         }, { locked: true })
+        if (!res.affected) {
+            throw new Error("unaffected user lock for " + userId) // TODO: fix logs doxing
+        }
     }
-    UnlockUser(userId: string, entityManager = this.DB) {
-        return entityManager.getRepository(User).update({
+    async UnlockUser(userId: string, entityManager = this.DB) {
+        const res = await entityManager.getRepository(User).update({
             user_id: userId
         }, { locked: false })
+        if (!res.affected) {
+            throw new Error("unaffected user unlock for " + userId) // TODO: fix logs doxing
+        }
     }
     async IncrementUserBalance(userId: string, increment: number, entityManager = this.DB) {
         const res = await entityManager.getRepository(User).increment({

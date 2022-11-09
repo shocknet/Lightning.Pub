@@ -33,6 +33,7 @@ message NewAddressResponse{
 message PayAddressRequest{
     string address = 1;
     int64 amout_sats = 2;
+    int64 target_conf = 3;
 }
 
 message PayAddressResponse{
