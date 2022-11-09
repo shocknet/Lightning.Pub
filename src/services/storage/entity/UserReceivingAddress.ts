@@ -2,7 +2,7 @@ import { Entity, PrimaryGeneratedColumn, Column, Index, Check, ManyToOne } from 
 import { User } from "./User"
 
 @Entity()
-export class UserPayment {
+export class UserReceivingAddress {
 
     @PrimaryGeneratedColumn()
     serial_id: number
@@ -12,8 +12,8 @@ export class UserPayment {
 
     @Column()
     @Index({ unique: true })
-    invoice: string
+    address: string
 
     @Column()
-    amount: number
+    callbackUrl: string
 }

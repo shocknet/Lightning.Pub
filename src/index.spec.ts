@@ -21,13 +21,14 @@ export class ServerTestSuite {
         encryptCallback: async (b) => b,
         deviceId: "device0"
     })
-    mainHandler = new Main(LoadMainSettingsFromEnv()) // TODO - test env file
+    mainHandler = new Main(LoadMainSettingsFromEnv(true)) // TODO - test env file
     server = NewServer(GetServerMethods(this.mainHandler), { ...serverOptions(this.mainHandler), throwErrors: true })
 
 
     @BeforeAll()
     async startServer() {
         await this.mainHandler.storage.Connect()
+        await this.mainHandler.lnd.Warmup()
         this.server.Listen(testPort)
     }
     @AfterAll()
