@@ -2,12 +2,12 @@ import { SendCoinsRequest } from "../../../proto/lnd/lightning";
 
 export const SendCoinsReq = (address: string, amount: number, satPerVByte: number, label = ""): SendCoinsRequest => ({
     addr: address,
-    amount: BigInt(amount),
+    amount: amount,
     label: label,
-    satPerVbyte: BigInt(satPerVByte),
+    satPerVbyte: satPerVByte,
     targetConf: 0,
     minConfs: 1,
     sendAll: false,
     spendUnconfirmed: false,
-    satPerByte: 0n
+    satPerByte: 0
 })

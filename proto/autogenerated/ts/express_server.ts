@@ -2,7 +2,7 @@
 
 import express, { Response, json, urlencoded } from 'express'
 import cors from 'cors'
-import * as Types from './types'
+import * as Types from './types.js'
 export type Logger = { log: (v: any) => void, error: (v: any) => void }
 export type ServerOptions = {
     allowCors?: true
@@ -21,7 +21,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     const logger = opts.logger || { log: console.log, error: console.error }
     const app = express()
     if (opts.allowCors) {
-            app.use(cors())
+        app.use(cors())
     }
     app.use(json())
     app.use(urlencoded({ extended: true }))
@@ -33,7 +33,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const query = req.query
             const params = req.params
             await methods.Health({ ...authContext, ...query, ...params })
-            res.json({status: 'OK'})
+            res.json({ status: 'OK' })
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.EncryptionExchange) throw new Error('method: EncryptionExchange is not implemented')
@@ -47,7 +47,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const query = req.query
             const params = req.params
             await methods.EncryptionExchange({ ...authContext, ...query, ...params }, request)
-            res.json({status: 'OK'})
+            res.json({ status: 'OK' })
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.LndGetInfo) throw new Error('method: LndGetInfo is not implemented')
@@ -63,7 +63,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const query = req.query
             const params = req.params
             const response = await methods.LndGetInfo({ ...authContext, ...query, ...params }, request)
-            res.json({status: 'OK', result: await opts.encryptCallback(encryptionDeviceId, response)})
+            res.json({ status: 'OK', result: await opts.encryptCallback(encryptionDeviceId, response) })
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.AddUser) throw new Error('method: AddUser is not implemented')
@@ -77,7 +77,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const query = req.query
             const params = req.params
             const response = await methods.AddUser({ ...authContext, ...query, ...params }, request)
-            res.json({status: 'OK', result: response})
+            res.json({ status: 'OK', result: response })
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.AuthUser) throw new Error('method: AuthUser is not implemented')
@@ -91,7 +91,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const query = req.query
             const params = req.params
             const response = await methods.AuthUser({ ...authContext, ...query, ...params }, request)
-            res.json({status: 'OK', result: response})
+            res.json({ status: 'OK', result: response })
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.NewAddress) throw new Error('method: NewAddress is not implemented')
@@ -105,7 +105,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const query = req.query
             const params = req.params
             const response = await methods.NewAddress({ ...authContext, ...query, ...params }, request)
-            res.json({status: 'OK', result: response})
+            res.json({ status: 'OK', result: response })
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.PayAddress) throw new Error('method: PayAddress is not implemented')
@@ -119,7 +119,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const query = req.query
             const params = req.params
             const response = await methods.PayAddress({ ...authContext, ...query, ...params }, request)
-            res.json({status: 'OK', result: response})
+            res.json({ status: 'OK', result: response })
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.NewInvoice) throw new Error('method: NewInvoice is not implemented')
@@ -133,7 +133,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const query = req.query
             const params = req.params
             const response = await methods.NewInvoice({ ...authContext, ...query, ...params }, request)
-            res.json({status: 'OK', result: response})
+            res.json({ status: 'OK', result: response })
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.PayInvoice) throw new Error('method: PayInvoice is not implemented')
@@ -147,7 +147,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const query = req.query
             const params = req.params
             const response = await methods.PayInvoice({ ...authContext, ...query, ...params }, request)
-            res.json({status: 'OK', result: response})
+            res.json({ status: 'OK', result: response })
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.OpenChannel) throw new Error('method: OpenChannel is not implemented')
@@ -161,7 +161,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const query = req.query
             const params = req.params
             const response = await methods.OpenChannel({ ...authContext, ...query, ...params }, request)
-            res.json({status: 'OK', result: response})
+            res.json({ status: 'OK', result: response })
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.GetOpenChannelLNURL) throw new Error('method: GetOpenChannelLNURL is not implemented')
@@ -172,11 +172,11 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const query = req.query
             const params = req.params
             const response = await methods.GetOpenChannelLNURL({ ...authContext, ...query, ...params })
-            res.json({status: 'OK', result: response})
+            res.json({ status: 'OK', result: response })
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (opts.staticFiles) {
-            app.use(express.static(opts.staticFiles))
+        app.use(express.static(opts.staticFiles))
     }
     var server: { close: () => void } | undefined
     return {
