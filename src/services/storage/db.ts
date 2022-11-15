@@ -1,12 +1,12 @@
 import "reflect-metadata"
 import { DataSource } from "typeorm"
-import { AddressReceivingTransaction } from "./entity/AddressReceivingTransaction"
-import { User } from "./entity/User"
-import { UserReceivingAddress } from "./entity/UserReceivingAddress"
-import { UserReceivingInvoice } from "./entity/UserReceivingInvoice"
-import { UserInvoicePayment } from "./entity/UserInvoicePayment"
-import { EnvMustBeNonEmptyString } from "../helpers/envParser"
-import { UserTransactionPayment } from "./entity/UserTransactionPayment"
+import { AddressReceivingTransaction } from "./entity/AddressReceivingTransaction.js"
+import { User } from "./entity/User.js"
+import { UserReceivingAddress } from "./entity/UserReceivingAddress.js"
+import { UserReceivingInvoice } from "./entity/UserReceivingInvoice.js"
+import { UserInvoicePayment } from "./entity/UserInvoicePayment.js"
+import { EnvMustBeNonEmptyString } from "../helpers/envParser.js"
+import { UserTransactionPayment } from "./entity/UserTransactionPayment.js"
 export type DbSettings = {
     databaseFile: string
 }
