@@ -2,8 +2,8 @@ import { OpenChannelRequest } from "../../../proto/lnd/lightning";
 import { SendPaymentRequest } from "../../../proto/lnd/router";
 
 export const PayInvoiceReq = (invoice: string, amount: number, feeLimit: number): SendPaymentRequest => ({
-    amt: BigInt(amount),
-    feeLimitSat: BigInt(feeLimit),
+    amt: amount,
+    feeLimitSat: feeLimit,
     noInflightUpdates: true,
     paymentRequest: invoice,
     maxParts: 3,
@@ -11,15 +11,15 @@ export const PayInvoiceReq = (invoice: string, amount: number, feeLimit: number)
 
     allowSelfPayment: false,
     amp: false,
-    amtMsat: 0n,
+    amtMsat: 0,
     cltvLimit: 0,
     dest: Buffer.alloc(0),
     destCustomRecords: {},
     destFeatures: [],
-    feeLimitMsat: 0n,
+    feeLimitMsat: 0,
     finalCltvDelta: 0,
     lastHopPubkey: Buffer.alloc(0),
-    maxShardSizeMsat: 0n,
+    maxShardSizeMsat: 0,
     outgoingChanIds: [],
     paymentAddr: Buffer.alloc(0),
     paymentHash: Buffer.alloc(0),

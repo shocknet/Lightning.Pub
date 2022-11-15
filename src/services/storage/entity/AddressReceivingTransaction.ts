@@ -1,9 +1,9 @@
 import { Entity, PrimaryGeneratedColumn, Column, Index, Check, ManyToOne } from "typeorm"
-import { User } from "./User"
-import { UserReceivingAddress } from "./UserReceivingAddress"
+
+import { UserReceivingAddress } from "./UserReceivingAddress.js"
 
 @Entity()
-@Index("address_transaction_unique", ["tx_hash", "output_index"], { unique: true })
+@Index("address_receiving_transaction_unique", ["tx_hash", "output_index"], { unique: true })
 export class AddressReceivingTransaction {
 
     @PrimaryGeneratedColumn()

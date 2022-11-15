@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, Index, Check, ManyToOne } from "typeorm"
-import { User } from "./User"
+import { User } from "./User.js"
 
 @Entity()
 export class UserInvoicePayment {

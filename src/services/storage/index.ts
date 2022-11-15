@@ -1,12 +1,12 @@
 import { DataSource, EntityManager } from "typeorm"
 import crypto from 'crypto';
-import NewDB, { DbSettings, LoadDbSettingsFromEnv } from "./db"
-import { User } from "./entity/User"
-import { UserReceivingAddress } from "./entity/UserReceivingAddress";
-import { UserReceivingInvoice } from "./entity/UserReceivingInvoice";
-import { AddressReceivingTransaction } from "./entity/AddressReceivingTransaction";
-import { UserInvoicePayment } from "./entity/UserInvoicePayment";
-import { UserTransactionPayment } from "./entity/UserTransactionPayment";
+import NewDB, { DbSettings, LoadDbSettingsFromEnv } from "./db.js"
+import { User } from "./entity/User.js"
+import { UserReceivingAddress } from "./entity/UserReceivingAddress.js";
+import { UserReceivingInvoice } from "./entity/UserReceivingInvoice.js";
+import { AddressReceivingTransaction } from "./entity/AddressReceivingTransaction.js";
+import { UserInvoicePayment } from "./entity/UserInvoicePayment.js";
+import { UserTransactionPayment } from "./entity/UserTransactionPayment.js";
 export type StorageSettings = {
     dbSettings: DbSettings
 }
