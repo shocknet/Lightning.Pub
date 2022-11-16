@@ -7,6 +7,8 @@ import { UserReceivingInvoice } from "./entity/UserReceivingInvoice.js";
 import { AddressReceivingTransaction } from "./entity/AddressReceivingTransaction.js";
 import { UserInvoicePayment } from "./entity/UserInvoicePayment.js";
 import { UserTransactionPayment } from "./entity/UserTransactionPayment.js";
+import { UserNostrAuth } from "./entity/UserNostrAuth.js";
+import { UserBasicAuth } from "./entity/UserBasicAuth.js";
 export type StorageSettings = {
     dbSettings: DbSettings
 }
@@ -26,14 +28,24 @@ export default class {
     StartTransaction(exec: (entityManager: EntityManager) => Promise<void>) {
         return this.DB.transaction(exec)
     }
-    async AddUser(name: string, callbackUrl: string, secret: string, entityManager = this.DB): Promise<User> {
+    async AddUser(entityManager = this.DB): Promise<User> {
+
         const newUser = entityManager.getRepository(User).create({
-            user_id: crypto.randomBytes(32).toString('hex'),
-            name: name,
-            callbackUrl: callbackUrl,
-            secret_sha256: crypto.createHash('sha256').update(secret).digest('base64')
+            user_id: crypto.randomBytes(32).toString('hex')
         })
         return entityManager.getRepository(User).save(newUser)
+    }
+    async AddBasicUser(name: string, secret: string): Promise<UserBasicAuth> {
+        return this.DB.transaction(async tx => {
+            const user = await this.AddUser(tx)
+            const newUserAuth = tx.getRepository(UserBasicAuth).create({
+                user: user,
+                name: name,
+                secret_sha256: crypto.createHash('sha256').update(secret).digest('base64')
+            })
+            return tx.getRepository(UserBasicAuth).save(newUserAuth)
+        })
+
     }
     FindUser(userId: string, entityManager = this.DB) {
         return entityManager.getRepository(User).findOne({
@@ -48,6 +60,24 @@ export default class {
             throw new Error(`user ${userId} not found`) // TODO: fix logs doxing
         }
         return user
+    }
+
+    async FindNostrUser(nostrPub: string, entityManager = this.DB): Promise<UserNostrAuth | null> {
+        return entityManager.getRepository(UserNostrAuth).findOne({
+            where: { nostr_pub: nostrPub }
+        })
+
+    }
+    async AddNostrUser(nostrPub: string): Promise<UserNostrAuth> {
+        return this.DB.transaction(async tx => {
+            const user = await this.AddUser(tx)
+            const newAuth = tx.getRepository(UserNostrAuth).create({
+                user: user,
+                nostr_pub: nostrPub
+            })
+            return tx.getRepository(UserNostrAuth).save(newAuth)
+        })
+
     }
 
     async AddAddressReceivingTransaction(address: UserReceivingAddress, txHash: string, outputIndex: number, amount: number, serviceFee: number, entityManager = this.DB) {
@@ -154,4 +184,6 @@ export default class {
             throw new Error("unaffected balance decrement for " + userId) // TODO: fix logs doxing
         }
     }
+
+
 }
