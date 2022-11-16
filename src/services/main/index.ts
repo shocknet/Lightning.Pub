@@ -88,11 +88,11 @@ export default class {
         return (jwt.verify(token, this.settings.jwtSecret) as { userId: string }).userId
     }
 
-    async AddUser(req: Types.AddUserRequest): Promise<Types.AddUserResponse> {
-        const newUser = await this.storage.AddUser(req.name, req.callback_url, req.secret)
+    async AddBasicUser(req: Types.AddUserRequest): Promise<Types.AddUserResponse> {
+        const { user } = await this.storage.AddBasicUser(req.name, req.secret)
         return {
-            user_id: newUser.user_id,
-            auth_token: this.SignUserToken(newUser.user_id)
+            user_id: user.user_id,
+            auth_token: this.SignUserToken(user.user_id)
         }
     }
 
@@ -164,4 +164,6 @@ export default class {
     }
 
     async OpenChannel(userId: string, req: Types.OpenChannelRequest): Promise<Types.OpenChannelResponse> { throw new Error("WIP") }
+
+
 }

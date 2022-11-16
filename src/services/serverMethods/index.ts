@@ -15,7 +15,7 @@ export default (mainHandler: Main): Types.ServerMethods => {
                 secret_CustomCheck: secret => secret.length >= 8
             })
             if (err != null) throw new Error(err.message)
-            return mainHandler.AddUser(req)
+            return mainHandler.AddBasicUser(req)
         },
         AuthUser: async (ctx: Types.GuestContext, req: Types.AuthUserRequest): Promise<Types.AuthUserResponse> => {
             throw new Error("unimplemented")

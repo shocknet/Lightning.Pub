@@ -1,4 +1,4 @@
-import { relayPool, Subscription } from 'nostr-tools'
+import { relayPool, Subscription, Event } from 'nostr-tools'
 //@ts-ignore
 import { decrypt, encrypt } from 'nostr-tools/nip04.js'
 import { EnvMustBeNonEmptyString } from '../helpers/envParser.js';
@@ -18,13 +18,11 @@ export const LoadNosrtSettingsFromEnv = (test = false): NostrSettings => {
     }
 }
 export default class {
-    shouldHandleEvent: (eventId: string) => Promise<boolean>
     pool = relayPool()
     settings: NostrSettings
     sub: Subscription
-    constructor(settings: NostrSettings, shouldHandleCb: (eventId: string) => Promise<boolean>) {
+    constructor(settings: NostrSettings, eventCallback: (event: Event, getContent: () => string) => void) {
         this.settings = settings
-        this.shouldHandleEvent = shouldHandleCb
         this.pool.setPrivateKey(settings.privateKey)
         settings.relays.forEach(relay => {
             try {
@@ -36,13 +34,31 @@ export default class {
         this.sub = this.pool.sub({
             //@ts-ignore
             filter: {
+                since: Math.ceil(Date.now() / 1000),
                 kinds: [4],
                 '#p': [settings.publicKey],
-                authors: settings.allowedPubs,
             },
-            cb: async (event, relay) => {
-                console.log(decrypt(this.settings.privateKey, event.pubkey, event.content))
+            cb: async (e, relay) => {
+                if (e.kind !== 4 || !e.pubkey) {
+                    return
+                }
+                eventCallback(e, () => {
+                    return decrypt(this.settings.privateKey, e.pubkey, e.content)
+                })
             }
+        })
+    }
+
+    Send(nostrPub: string, message: string) {
+        this.pool.publish({
+            content: encrypt(this.settings.privateKey, nostrPub, message),
+            created_at: Math.floor(Date.now() / 1000),
+            kind: 4,
+            pubkey: this.settings.publicKey,
+            //@ts-ignore
+            tags: [['p', nostrPub]]
+        }, (status, url) => {
+            console.log(status, url) // TODO
         })
     }
 }
