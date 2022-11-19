@@ -8,12 +8,12 @@ message Empty {}
 
 
 message EncryptionExchangeRequest {
-    string public_key = 1;
-    string device_id = 2;
+    string publicKey = 1;
+    string deviceId = 2;
 }
 
 message LndGetInfoRequest {
-    int64 node_id = 1;
+    int64 nodeId = 1;
 }
 
 message LndGetInfoResponse {
@@ -25,23 +25,24 @@ enum AddressType {
     TAPROOT_PUBKEY = 2;
 }
 message NewAddressRequest {
-    AddressType address_type = 1;
+    AddressType addressType = 1;
 }
 message NewAddressResponse{
     string address = 1;
 }
 message PayAddressRequest{
     string address = 1;
-    int64 amout_sats = 2;
-    int64 target_conf = 3;
+    int64 amoutSats = 2;
+    int64 targetConf = 3;
 }
 
 message PayAddressResponse{
-    string tx_id = 1;
+    string txId = 1;
 }
 
 message NewInvoiceRequest{
-    int64 amount_sats = 1;
+    int64 amountSats = 1;
+    string memo = 2;
 }
 
 message NewInvoiceResponse{
@@ -59,28 +60,50 @@ message PayInvoiceResponse{
 
 message OpenChannelRequest{
     string destination = 1;
-    int64 funding_amount = 2;
-    int64 push_amount = 3;
-    string close_address = 4;
+    int64 fundingAmount = 2;
+    int64 pushAmount = 3;
+    string closeAddress = 4;
 }
 
 message OpenChannelResponse{
-    string channel_id = 1;
+    string channelId = 1;
 }
 
-message GetOpenChannelLNURLResponse{
+message LnurlLinkResponse{
     string lnurl = 1;
+    string k1 = 2;
 }
 
+message LnurlWithdrawInfoResponse {
+    string tag = 1;
+    string callback = 2;
+    string k1 = 3;
+    string defaultDescription = 4;
+    int64 minWithdrawable = 5; // millisatoshi - unsafe overflow possible, but very unlikely 
+    int64 maxWithdrawable = 6; // millisatoshi - unsafe overflow possible, but very unlikely 
+    string balanceCheck = 7;
+    string payLink = 8;
+}
+message LnurlPayInfoResponse {
+    string tag = 1;
+    string callback = 2;
+    int64 maxSendable = 3; // millisatoshi - unsafe overflow possible, but very unlikely 
+    int64 minSendable = 4; // millisatoshi - unsafe overflow possible, but very unlikely 
+    string metadata = 5;
+}
+message HandleLnurlPayResponse {
+    string pr = 1;
+    repeated Empty routes = 2;
+}
 message AddUserRequest{
-    string callback_url = 1;
+    string callbackUrl = 1;
     string name = 2;
     string secret = 3;
 }
 
 message AddUserResponse{
-    string user_id = 1;
-    string auth_token = 2;
+    string userId = 1;
+    string authToken = 2;
 }
 
 message AuthUserRequest{
@@ -89,6 +112,6 @@ message AuthUserRequest{
 }
 
 message AuthUserResponse{
-    string user_id = 1;
-    string auth_token = 2;
+    string userId = 1;
+    string authToken = 2;
 }
