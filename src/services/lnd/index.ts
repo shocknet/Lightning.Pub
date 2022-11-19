@@ -140,9 +140,9 @@ export default class {
         return res.response
     }
 
-    async NewInvoice(value: number): Promise<AddInvoiceResponse> {
+    async NewInvoice(value: number, memo: string): Promise<AddInvoiceResponse> {
         this.checkReady()
-        const res = await this.lightning.addInvoice(AddInvoiceReq(value), DeadLineMetadata())
+        const res = await this.lightning.addInvoice(AddInvoiceReq(value, memo), DeadLineMetadata())
         return res.response
     }
 
@@ -153,6 +153,10 @@ export default class {
 
     GetFeeLimitAmount(amount: number) {
         return Math.ceil(amount * this.settings.feeRateLimit + this.settings.feeFixedLimit);
+    }
+
+    GetMaxWithinLimit(amount: number) {
+        return Math.max(0, Math.floor(amount * (1 - this.settings.feeRateLimit) - this.settings.feeFixedLimit))
     }
 
     async PayInvoice(invoice: string, amount: number, feeLimit: number): Promise<Payment> {

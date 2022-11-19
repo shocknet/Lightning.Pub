@@ -9,6 +9,7 @@ import { EnvMustBeNonEmptyString } from "../helpers/envParser.js"
 import { UserTransactionPayment } from "./entity/UserTransactionPayment.js"
 import { UserNostrAuth } from "./entity/UserNostrAuth.js"
 import { UserBasicAuth } from "./entity/UserBasicAuth.js"
+import { UserEphemeralKey } from "./entity/UserEphemeralKey.js"
 export type DbSettings = {
     databaseFile: string
 }
@@ -20,7 +21,7 @@ export default async (settings: DbSettings) => {
         type: "sqlite",
         database: settings.databaseFile,
         //logging: true,
-        entities: [User, UserReceivingInvoice, UserReceivingAddress, AddressReceivingTransaction, UserInvoicePayment, UserTransactionPayment, UserNostrAuth, UserBasicAuth],
+        entities: [User, UserReceivingInvoice, UserReceivingAddress, AddressReceivingTransaction, UserInvoicePayment, UserTransactionPayment, UserNostrAuth, UserBasicAuth, UserEphemeralKey],
         synchronize: true
     }).initialize()
 } 

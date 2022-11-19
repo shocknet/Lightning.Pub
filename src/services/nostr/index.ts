@@ -1,15 +1,8 @@
-import { relayPool, Subscription, Event } from 'nostr-tools'
-//@ts-ignore
-import { decrypt, encrypt } from 'nostr-tools/nip04.js'
-import { EnvMustBeNonEmptyString } from '../helpers/envParser.js';
-
-export type NostrSettings = {
-    privateKey: string
-    publicKey: string
-    relays: string[]
-    allowedPubs: string[]
-}
-export const LoadNosrtSettingsFromEnv = (test = false): NostrSettings => {
+import { ChildProcess, fork } from 'child_process'
+import { EnvMustBeNonEmptyString } from "../helpers/envParser.js"
+import { NostrSettings, NostrEvent, ChildProcessRequest, ChildProcessResponse } from "./handler.js"
+type EventCallback = (event: NostrEvent) => void
+export const LoadNosrtSettingsFromEnv = (test = false) => {
     return {
         allowedPubs: EnvMustBeNonEmptyString("NOSTR_ALLOWED_PUBS").split(' '),
         privateKey: EnvMustBeNonEmptyString("NOSTR_PRIVATE_KEY"),
@@ -17,48 +10,34 @@ export const LoadNosrtSettingsFromEnv = (test = false): NostrSettings => {
         relays: EnvMustBeNonEmptyString("NOSTR_RELAYS").split(' ')
     }
 }
-export default class {
-    pool = relayPool()
+export default class NostrSubprocess {
     settings: NostrSettings
-    sub: Subscription
-    constructor(settings: NostrSettings, eventCallback: (event: Event, getContent: () => string) => void) {
-        this.settings = settings
-        this.pool.setPrivateKey(settings.privateKey)
-        settings.relays.forEach(relay => {
-            try {
-                this.pool.addRelay(relay, { read: true, write: true })
-            } catch (e) {
-                console.error("cannot add relay:", relay)
-            }
-        });
-        this.sub = this.pool.sub({
-            //@ts-ignore
-            filter: {
-                since: Math.ceil(Date.now() / 1000),
-                kinds: [4],
-                '#p': [settings.publicKey],
-            },
-            cb: async (e, relay) => {
-                if (e.kind !== 4 || !e.pubkey) {
-                    return
-                }
-                eventCallback(e, () => {
-                    return decrypt(this.settings.privateKey, e.pubkey, e.content)
-                })
+    childProcess: ChildProcess
+    constructor(settings: NostrSettings, eventCallback: EventCallback) {
+        this.childProcess = fork("./build/src/services/nostr/handler")
+        this.childProcess.on("error", console.error)
+        this.childProcess.on("message", (message: ChildProcessResponse) => {
+            switch (message.type) {
+                case 'ready':
+                    this.sendToChildProcess({ type: 'settings', settings: settings })
+                    break;
+                case 'event':
+                    eventCallback(message.event)
+                    break
+                default:
+                    console.error("unknown nostr event response", message)
+                    break;
             }
         })
     }
+    sendToChildProcess(message: ChildProcessRequest) {
+        this.childProcess.send(message)
+    }
 
-    Send(nostrPub: string, message: string) {
-        this.pool.publish({
-            content: encrypt(this.settings.privateKey, nostrPub, message),
-            created_at: Math.floor(Date.now() / 1000),
-            kind: 4,
-            pubkey: this.settings.publicKey,
-            //@ts-ignore
-            tags: [['p', nostrPub]]
-        }, (status, url) => {
-            console.log(status, url) // TODO
-        })
+    Send(pub: string, message: string) {
+        this.sendToChildProcess({ type: 'send', pub: pub, message: message })
+    }
+    Stop() {
+        this.childProcess.kill()
     }
 }

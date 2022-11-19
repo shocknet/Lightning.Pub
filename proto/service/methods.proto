@@ -114,9 +114,38 @@ service LightningPub {
         option (http_method) = "post";
         option (http_route) = "/api/user/open/channel";
     }
-    rpc GetOpenChannelLNURL(structs.Empty) returns (structs.GetOpenChannelLNURLResponse){
+    rpc GetLnurlWithdrawLink(structs.Empty) returns (structs.LnurlLinkResponse){
+        option (auth_type)  = "User";
+        option (http_method) = "get";
+        option (http_route) = "/api/user/lnurl_withdraw/link";
+    }
+    rpc GetLnurlWithdrawInfo(structs.Empty) returns (structs.LnurlWithdrawInfoResponse){
+        option (auth_type)  = "Guest";
+        option (http_method) = "get";
+        option (http_route) = "/api/guest/lnurl_withdraw/info";
+        option (query) = {items: ["k1"]};
+    }
+    rpc HandleLnurlWithdraw(structs.Empty) returns (structs.Empty){
+        option (auth_type)  = "Guest";
+        option (http_method) = "get";
+        option (http_route) = "/api/guest/lnurl_withdraw/handle";
+        option (query) = {items: ["k1", "pr"]};
+    }
+    rpc GetLnurlPayInfo(structs.Empty)returns (structs.LnurlPayInfoResponse) {
+        option (auth_type)  = "Guest";
+        option (http_method) = "get";
+        option (http_route) = "/api/guest/lnurl_pay/info";
+        option (query) = {items: ["k1"]};
+    }
+    rpc HandleLnurlPay(structs.Empty)returns (structs.HandleLnurlPayResponse) {
+        option (auth_type)  = "Guest";
+        option (http_method) = "get";
+        option (http_route) = "/api/guest/lnurl_pay/handle";
+        option (query) = {items: ["k1", "amount"]};
+    }
+    rpc GetLNURLChannelLink(structs.Empty) returns (structs.LnurlLinkResponse){
         option (auth_type)  = "User";
         option (http_method) = "post";
-        option (http_route) = "/api/user/lnurl_channel";
+        option (http_route) = "/api/user/lnurl_channel/url";
     }
 }

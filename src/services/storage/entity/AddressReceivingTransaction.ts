@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, Index, Check, ManyToOne } from "typeorm"
+import { Entity, PrimaryGeneratedColumn, Column, Index, Check, ManyToOne, JoinColumn } from "typeorm"
 
 import { UserReceivingAddress } from "./UserReceivingAddress.js"
 
@@ -9,7 +9,8 @@ export class AddressReceivingTransaction {
     @PrimaryGeneratedColumn()
     serial_id: number
 
-    @ManyToOne(type => UserReceivingAddress)
+    @ManyToOne(type => UserReceivingAddress, { eager: true })
+    @JoinColumn()
     user_address: UserReceivingAddress
 
     @Column()

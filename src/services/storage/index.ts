@@ -9,6 +9,7 @@ import { UserInvoicePayment } from "./entity/UserInvoicePayment.js";
 import { UserTransactionPayment } from "./entity/UserTransactionPayment.js";
 import { UserNostrAuth } from "./entity/UserNostrAuth.js";
 import { UserBasicAuth } from "./entity/UserBasicAuth.js";
+import { EphemeralKeyType, UserEphemeralKey } from "./entity/UserEphemeralKey.js";
 export type StorageSettings = {
     dbSettings: DbSettings
 }
@@ -185,5 +186,26 @@ export default class {
         }
     }
 
+    async AddUserEphemeralKey(userId: string, keyType: EphemeralKeyType, entityManager = this.DB): Promise<UserEphemeralKey> {
+        const newKey = entityManager.getRepository(UserEphemeralKey).create({
+            user: await this.GetUser(userId, entityManager),
+            key: crypto.randomBytes(31).toString('hex'),
+            type: keyType
+        })
+        return entityManager.getRepository(UserEphemeralKey).save(newKey)
+    }
 
+    async UseUserEphemeralKey(key: string, keyType: EphemeralKeyType, entityManager = this.DB): Promise<UserEphemeralKey> {
+        const found = await entityManager.getRepository(UserEphemeralKey).findOne({
+            where: {
+                key: key,
+                type: keyType
+            }
+        })
+        if (!found) {
+            throw new Error("the provided ephemeral key is invalid")
+        }
+        await entityManager.getRepository(UserEphemeralKey).delete(found.serial_id)
+        return found
+    }
 }
