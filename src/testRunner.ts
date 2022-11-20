@@ -7,6 +7,7 @@ type TestModule = {
     default: (describe: Describe) => Promise<void>
     teardown?: () => Promise<void>
 }
+let failures = 0
 const start = async () => {
 
     const files = await globby("**/*.spec.js")
@@ -14,6 +15,11 @@ const start = async () => {
         console.log(file)
         const module = await import(`./${file.slice("build/src/".length)}`) as TestModule
         await runTestFile(file, module)
+    }
+    if (failures) {
+        console.error(redConsole, "there have been", `${failures}`, "failures in all tests", resetConsole)
+    } else {
+        console.log(greenConsole, "there have been 0 failures in all tests", resetConsole)
     }
 
 }
@@ -46,6 +52,7 @@ const runTestFile = async (fileName: string, mod: TestModule) => {
 const getDescribe = (fileName: string): Describe => {
     return (message, failure) => {
         if (failure) {
+            failures++
             console.error(redConsole, fileName, ":", message, resetConsole)
         } else {
             console.log(greenConsole, fileName, ":", message, resetConsole)

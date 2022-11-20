@@ -7,7 +7,7 @@ export type Logger = { log: (v: any) => void, error: (v: any) => void }
 export type ServerOptions = {
     allowCors?: true
     staticFiles?: string
-    allowNotImplementedMethods?: number
+    allowNotImplementedMethods?: true
     logger?: Logger
     throwErrors?: true
     GuestAuthGuard: (authorizationHeader?: string) => Promise<Types.GuestContext>

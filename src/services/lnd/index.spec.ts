@@ -21,7 +21,7 @@ export default async (d: (message: string, failure?: boolean) => void) => {
     console.log(addr)
     d("new address ok")
 
-    const invoice = await lnd.NewInvoice(1000)
+    const invoice = await lnd.NewInvoice(1000, "")
     console.log(invoice)
     d("new invoice ok")
 

@@ -43,6 +43,7 @@ extend google.protobuf.MethodOptions {  // TODO: move this stuff to dep repo?
     string http_method = 50004;
     string http_route = 50005;
     MethodQueryOptions query = 50006;
+    bool nostr = 50007;
 
 }
 
@@ -93,31 +94,37 @@ service LightningPub {
         option (auth_type)  = "User";
         option (http_method) = "post";
         option (http_route) = "/api/user/chain/new";
+        option (nostr) = true;
     }
     rpc PayAddress(structs.PayAddressRequest) returns (structs.PayAddressResponse){
         option (auth_type)  = "User";
         option (http_method) = "post";
         option (http_route) = "/api/user/chain/pay";
+        option (nostr) = true;
     }
     rpc NewInvoice(structs.NewInvoiceRequest) returns (structs.NewInvoiceResponse){
         option (auth_type)  = "User";
         option (http_method) = "post";
         option (http_route) = "/api/user/invoice/new";
+        option (nostr) = true;
     }
     rpc PayInvoice(structs.PayInvoiceRequest) returns (structs.PayInvoiceResponse){
         option (auth_type)  = "User";
         option (http_method) = "post";
         option (http_route) = "/api/user/invoice/pay";
+        option (nostr) = true;
     }
     rpc OpenChannel(structs.OpenChannelRequest) returns (structs.OpenChannelResponse){
         option (auth_type)  = "User";
         option (http_method) = "post";
         option (http_route) = "/api/user/open/channel";
+        option (nostr) = true;
     }
     rpc GetLnurlWithdrawLink(structs.Empty) returns (structs.LnurlLinkResponse){
         option (auth_type)  = "User";
         option (http_method) = "get";
         option (http_route) = "/api/user/lnurl_withdraw/link";
+        option (nostr) = true;
     }
     rpc GetLnurlWithdrawInfo(structs.Empty) returns (structs.LnurlWithdrawInfoResponse){
         option (auth_type)  = "Guest";
@@ -147,5 +154,6 @@ service LightningPub {
         option (auth_type)  = "User";
         option (http_method) = "post";
         option (http_route) = "/api/user/lnurl_channel/url";
+        option (nostr) = true;
     }
 }
