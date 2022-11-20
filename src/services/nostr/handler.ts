@@ -46,6 +46,7 @@ process.on("message", (message: ChildProcessRequest) => {
             break
         case 'send':
             sendToNostr(message.pub, message.message)
+            break
         default:
             console.error("unknown nostr request", message)
             break

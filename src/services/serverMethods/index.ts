@@ -52,15 +52,30 @@ export default (mainHandler: Main): Types.ServerMethods => {
         },
         GetLnurlWithdrawInfo: async (ctx) => {
             if (!ctx.k1) {
-                throw new Error("invalid lnurl to get info")
+                throw new Error("invalid lnurl withdraw to get info")
             }
             return mainHandler.GetLnurlWithdrawInfo(ctx.k1)
         },
         HandleLnurlWithdraw: async (ctx) => {
             if (!ctx.k1 || !ctx.pr) {
-                throw new Error("invalid lnurl to handle")
+                throw new Error("invalid lnurl withdraw to handle")
             }
-            await mainHandler.HandleLnurlWithdraw(ctx.k1, ctx.pr)
+            return mainHandler.HandleLnurlWithdraw(ctx.k1, ctx.pr)
+        },
+        GetLnurlPayInfo: async (ctx) => {
+            if (!ctx.k1) {
+                throw new Error("invalid lnurl pay to get info")
+            }
+            return mainHandler.GetLnurlPayInfo(ctx.k1)
+        },
+        HandleLnurlPay: async (ctx) => {
+            if (!ctx.k1 || !ctx.amount) {
+                throw new Error("invalid lnurl pay to handle")
+            }
+            if (isNaN(+ctx.amount)) {
+                throw new Error("invalid amount in lnurl pay to handle")
+            }
+            return mainHandler.HandleLnurlPay(ctx.k1, +ctx.amount)
         },
         GetLNURLChannelLink: async (ctx) => {
             throw new Error("unimplemented")
