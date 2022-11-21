@@ -15,15 +15,15 @@ export class UserReceivingInvoice {
     @Index({ unique: true })
     invoice: string
 
-    @Column({ default: false })
-    paid: boolean
+    @Column({ default: 0 })
+    paid_at_unix: number
 
     @Column()
     callbackUrl: string
 
     @Column({ default: 0 })
-    settle_amount: number
+    paid_amount: number
 
-    @Column()
+    @Column({ default: 0 })
     service_fee: number
 }

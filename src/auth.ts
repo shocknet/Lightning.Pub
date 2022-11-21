@@ -7,6 +7,7 @@ const serverOptions = (mainHandler: Main): ServerOptions => {
         GuestAuthGuard: async (_) => ({}),
         encryptCallback: async (_, b) => b,
         decryptCallback: async (_, b) => b,
+        throwErrors: true
     }
 }
 export default serverOptions

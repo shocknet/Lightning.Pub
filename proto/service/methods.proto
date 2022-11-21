@@ -89,7 +89,19 @@ service LightningPub {
         option (http_method) = "post";
         option (http_route) = "/api/user/auth";
     }
-    // USER 
+    rpc GetUserInfo(structs.Empty)returns(structs.UserInfo){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/info";
+        option (nostr) = true;
+    }
+    // USER
+    rpc GetUserOperations(structs.GetUserOperationsRequest) returns (structs.GetUserOperationsResponse) {
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/operations";
+        option (nostr) = true;
+    } 
     rpc NewAddress(structs.NewAddressRequest) returns (structs.NewAddressResponse) {
         option (auth_type)  = "User";
         option (http_method) = "post";

@@ -20,8 +20,11 @@ export class AddressReceivingTransaction {
     output_index: number
 
     @Column()
-    amount: number
+    paid_amount: number
 
     @Column()
     service_fee: number
+
+    @Column()
+    paid_at_unix: number
 }

@@ -16,11 +16,14 @@ export class UserInvoicePayment {
     invoice: string
 
     @Column()
-    amount: number
+    paid_amount: number
 
     @Column()
     routing_fees: number
 
     @Column()
     service_fees: number
+
+    @Column()
+    paid_at_unix: number
 }

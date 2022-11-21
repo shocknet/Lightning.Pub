@@ -1,4 +1,4 @@
-import { DataSource, EntityManager } from "typeorm"
+import { DataSource, EntityManager, MoreThan, MoreThanOrEqual } from "typeorm"
 import crypto from 'crypto';
 import NewDB, { DbSettings, LoadDbSettingsFromEnv } from "./db.js"
 import { User } from "./entity/User.js"
@@ -86,10 +86,24 @@ export default class {
             user_address: address,
             tx_hash: txHash,
             output_index: outputIndex,
-            amount: amount,
-            service_fee: serviceFee
+            paid_amount: amount,
+            service_fee: serviceFee,
+            paid_at_unix: Math.floor(Date.now() / 1000)
         })
         return entityManager.getRepository(AddressReceivingTransaction).save(newAddressTransaction)
+    }
+
+    GetUserReceivingTransactions(userId: string, fromIndex: number, entityManager = this.DB): Promise<AddressReceivingTransaction[]> {
+        return entityManager.getRepository(AddressReceivingTransaction).find({
+            where: {
+                user_address: { user: { user_id: userId } },
+                serial_id: MoreThanOrEqual(fromIndex),
+                paid_at_unix: MoreThan(0),
+            },
+            order: {
+                paid_at_unix: 'DESC'
+            }
+        })
     }
 
     async AddUserAddress(userId: string, address: string, callbackUrl = "", entityManager = this.DB): Promise<UserReceivingAddress> {
@@ -102,7 +116,22 @@ export default class {
     }
 
     async FlagInvoiceAsPaid(invoice: UserReceivingInvoice, amount: number, serviceFee: number, entityManager = this.DB) {
-        return entityManager.getRepository(UserReceivingInvoice).update(invoice.serial_id, { paid: true, settle_amount: amount, service_fee: serviceFee })
+        return entityManager.getRepository(UserReceivingInvoice).update(invoice.serial_id, { paid_at_unix: Math.floor(Date.now() / 1000), paid_amount: amount, service_fee: serviceFee })
+    }
+
+    GetUserInvoicesFlaggedAsPaid(userId: string, fromIndex: number, entityManager = this.DB): Promise<UserReceivingInvoice[]> {
+        return entityManager.getRepository(UserReceivingInvoice).find({
+            where: {
+                user: {
+                    user_id: userId
+                },
+                serial_id: MoreThanOrEqual(fromIndex),
+                paid_at_unix: MoreThan(0),
+            },
+            order: {
+                paid_at_unix: 'DESC'
+            }
+        })
     }
 
     async AddUserInvoice(userId: string, invoice: string, callbackUrl = "", entityManager = this.DB): Promise<UserReceivingInvoice> {
@@ -133,25 +162,57 @@ export default class {
     async AddUserInvoicePayment(userId: string, invoice: string, amount: number, routingFees: number, serviceFees: number, entityManager = this.DB): Promise<UserInvoicePayment> {
         const newPayment = entityManager.getRepository(UserInvoicePayment).create({
             user: await this.GetUser(userId),
-            amount,
+            paid_amount: amount,
             invoice,
             routing_fees: routingFees,
-            service_fees: serviceFees
+            service_fees: serviceFees,
+            paid_at_unix: Math.floor(Date.now() / 1000)
         })
         return entityManager.getRepository(UserInvoicePayment).save(newPayment)
+    }
+
+    GetUserInvoicePayments(userId: string, fromIndex: number, entityManager = this.DB): Promise<UserInvoicePayment[]> {
+        return entityManager.getRepository(UserInvoicePayment).find({
+            where: {
+                user: {
+                    user_id: userId
+                },
+                serial_id: MoreThanOrEqual(fromIndex),
+                paid_at_unix: MoreThan(0),
+            },
+            order: {
+                paid_at_unix: 'DESC'
+            }
+        })
     }
 
     async AddUserTransactionPayment(userId: string, address: string, txHash: string, txOutput: number, amount: number, chainFees: number, serviceFees: number, entityManager = this.DB): Promise<UserTransactionPayment> {
         const newTx = entityManager.getRepository(UserTransactionPayment).create({
             user: await this.GetUser(userId),
             address,
-            amount,
+            paid_amount: amount,
             chain_fees: chainFees,
             output_index: txOutput,
             tx_hash: txHash,
-            service_fees: serviceFees
+            service_fees: serviceFees,
+            paid_at_unix: Math.floor(Date.now() / 1000)
         })
         return entityManager.getRepository(UserTransactionPayment).save(newTx)
+    }
+
+    GetUserTransactionPayments(userId: string, fromIndex: number, entityManager = this.DB): Promise<UserTransactionPayment[]> {
+        return entityManager.getRepository(UserTransactionPayment).find({
+            where: {
+                user: {
+                    user_id: userId
+                },
+                serial_id: MoreThanOrEqual(fromIndex),
+                paid_at_unix: MoreThan(0),
+            },
+            order: {
+                paid_at_unix: 'DESC'
+            }
+        })
     }
     async LockUser(userId: string, entityManager = this.DB) {
         const res = await entityManager.getRepository(User).update({
