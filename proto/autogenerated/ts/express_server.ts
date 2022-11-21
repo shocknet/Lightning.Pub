@@ -94,6 +94,31 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             res.json({status: 'OK', ...response})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
+    if (!opts.allowNotImplementedMethods && !methods.GetUserInfo) throw new Error('method: GetUserInfo is not implemented')
+    app.post('/api/user/info', async (req, res) => {
+        try {
+            if (!methods.GetUserInfo) throw new Error('method: GetUserInfo is not implemented')
+            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
+            const query = req.query
+            const params = req.params
+            const response = await methods.GetUserInfo({ ...authContext, ...query, ...params })
+            res.json({status: 'OK', ...response})
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.GetUserOperations) throw new Error('method: GetUserOperations is not implemented')
+    app.post('/api/user/operations', async (req, res) => {
+        try {
+            if (!methods.GetUserOperations) throw new Error('method: GetUserOperations is not implemented')
+            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
+            const request = req.body
+            const error = Types.GetUserOperationsRequestValidate(request)
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
+            const query = req.query
+            const params = req.params
+            const response = await methods.GetUserOperations({ ...authContext, ...query, ...params }, request)
+            res.json({status: 'OK', ...response})
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+    })
     if (!opts.allowNotImplementedMethods && !methods.NewAddress) throw new Error('method: NewAddress is not implemented')
     app.post('/api/user/chain/new', async (req, res) => {
         try {

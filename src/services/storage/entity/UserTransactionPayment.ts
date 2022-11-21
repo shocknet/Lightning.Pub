@@ -22,11 +22,14 @@ export class UserTransactionPayment {
     output_index: number
 
     @Column()
-    amount: number
+    paid_amount: number
 
     @Column()
     chain_fees: number
 
     @Column()
     service_fees: number
+
+    @Column()
+    paid_at_unix: number
 }

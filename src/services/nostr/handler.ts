@@ -119,7 +119,7 @@ export default class Handler {
             //@ts-ignore
             tags: [['p', nostrPub]]
         }, (status, url) => {
-            console.log(status, url) // TODO
+            console.log("sent message to", nostrPub) // TODO
         })
     }
 }

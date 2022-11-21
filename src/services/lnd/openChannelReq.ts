@@ -3,23 +3,23 @@ import { OpenChannelRequest } from "../../../proto/lnd/lightning";
 export const OpenChannelReq = (destination: string, closeAddress: string, fundingAmount: number, pushSats: number): OpenChannelRequest => ({
     nodePubkey: Buffer.from(destination, 'hex'),
     closeAddress: closeAddress,
-    localFundingAmount: fundingAmount,
-    pushSat: pushSats,
+    localFundingAmount: BigInt(fundingAmount),
+    pushSat: BigInt(pushSats),
 
-    satPerVbyte: 0, // TBD
+    satPerVbyte: 0n, // TBD
     private: false,
     minConfs: 0, // TBD
-    baseFee: 0, // TBD
-    feeRate: 0, // TBD
+    baseFee: 0n, // TBD
+    feeRate: 0n, // TBD
     targetConf: 0,
     zeroConf: false,
     maxLocalCsv: 0,
     remoteCsvDelay: 0,
     spendUnconfirmed: false,
-    minHtlcMsat: 0,
-    remoteChanReserveSat: 0,
+    minHtlcMsat: 0n,
+    remoteChanReserveSat: 0n,
     remoteMaxHtlcs: 0,
-    remoteMaxValueInFlightMsat: 0,
+    remoteMaxValueInFlightMsat: 0n,
     useBaseFee: false,
     useFeeRate: false,
 
@@ -27,7 +27,7 @@ export const OpenChannelReq = (destination: string, closeAddress: string, fundin
     commitmentType: 0,
     scidAlias: false,
     nodePubkeyString: "",
-    satPerByte: 0,
+    satPerByte: 0n,
 
     fundingShim: undefined
 })

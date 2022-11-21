@@ -9,7 +9,7 @@ export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSett
     const nostrTransport = NewNostrTransport(serverMethods, {
         NostrUserAuthGuard: async pub => {
             if (!pub || !nostrSettings.allowedPubs.includes(pub)) {
-                throw new Error("nostr pub invalid or not allowed")
+                throw new Error("nostr pub invalid or not allowed" + pub)
             }
             let nostrUser = await mainHandler.storage.FindNostrUser(pub)
             if (!nostrUser) { // TODO: add POW
@@ -19,6 +19,7 @@ export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSett
         }
     })
     const nostr = new Nostr(nostrSettings, event => {
+        console.log(event)
         let j: NostrRequest
         try {
             j = JSON.parse(event.content)

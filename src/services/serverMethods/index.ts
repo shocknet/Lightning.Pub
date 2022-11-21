@@ -20,6 +20,12 @@ export default (mainHandler: Main): Types.ServerMethods => {
         AuthUser: async (ctx, req) => {
             throw new Error("unimplemented")
         },
+        GetUserInfo: async (ctx) => {
+            return mainHandler.GetUserInfo(ctx.user_id)
+        },
+        GetUserOperations: async (ctx, req) => {
+            return mainHandler.GetUserOperations(ctx.user_id, req)
+        },
         OpenChannel: async (ctx, req) => {
             const err = Types.OpenChannelRequestValidate(req, {
                 fundingAmount_CustomCheck: amt => amt > 0,
@@ -42,10 +48,14 @@ export default (mainHandler: Main): Types.ServerMethods => {
             return mainHandler.PayAddress(ctx.user_id, req)
         },
         NewInvoice: async (ctx, req) => {
-            throw new Error("unimplemented")
+            return mainHandler.NewInvoice(ctx.user_id, req)
         },
         PayInvoice: async (ctx, req) => {
-            throw new Error("unimplemented")
+            const err = Types.PayInvoiceRequestValidate(req, {
+                invoice_CustomCheck: invoice => invoice !== ''
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.PayInvoice(ctx.user_id, req)
         },
         GetLnurlWithdrawLink: async (ctx) => {
             return mainHandler.GetLnurlChannelLink(ctx.user_id)

@@ -21,6 +21,29 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
     const logger = opts.logger || { log: console.log, error: console.error }
     return async (req: NostrRequest, res: NostrResponse) => {
         switch (req.rpcName) {
+            case 'GetUserInfo':
+                try {
+                    if (!methods.GetUserInfo) throw new Error('method: GetUserInfo is not implemented')
+                    const authContext = await opts.NostrUserAuthGuard(req.authIdentifier)
+                    const query = req.query
+                    const params = req.params
+                    const response = await methods.GetUserInfo({ ...authContext, ...query, ...params })
+                    res({status: 'OK', ...response})
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+                break
+            case 'GetUserOperations':
+                try {
+                    if (!methods.GetUserOperations) throw new Error('method: GetUserOperations is not implemented')
+                    const authContext = await opts.NostrUserAuthGuard(req.authIdentifier)
+                    const request = req.body
+                    const error = Types.GetUserOperationsRequestValidate(request)
+                    if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
+                    const query = req.query
+                    const params = req.params
+                    const response = await methods.GetUserOperations({ ...authContext, ...query, ...params }, request)
+                    res({status: 'OK', ...response})
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+                break
             case 'NewAddress':
                 try {
                     if (!methods.NewAddress) throw new Error('method: NewAddress is not implemented')
