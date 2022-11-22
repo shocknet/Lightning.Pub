@@ -161,6 +161,20 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             res.json({status: 'OK', ...response})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
+    if (!opts.allowNotImplementedMethods && !methods.DecodeInvoice) throw new Error('method: DecodeInvoice is not implemented')
+    app.post('/api/user/invoice/decode', async (req, res) => {
+        try {
+            if (!methods.DecodeInvoice) throw new Error('method: DecodeInvoice is not implemented')
+            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
+            const request = req.body
+            const error = Types.DecodeInvoiceRequestValidate(request)
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
+            const query = req.query
+            const params = req.params
+            const response = await methods.DecodeInvoice({ ...authContext, ...query, ...params }, request)
+            res.json({status: 'OK', ...response})
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+    })
     if (!opts.allowNotImplementedMethods && !methods.PayInvoice) throw new Error('method: PayInvoice is not implemented')
     app.post('/api/user/invoice/pay', async (req, res) => {
         try {
