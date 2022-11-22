@@ -50,6 +50,9 @@ export default (mainHandler: Main): Types.ServerMethods => {
         NewInvoice: async (ctx, req) => {
             return mainHandler.NewInvoice(ctx.user_id, req)
         },
+        DecodeInvoice: async (ctx, req) => {
+            return mainHandler.DecodeInvoice(req)
+        },
         PayInvoice: async (ctx, req) => {
             const err = Types.PayInvoiceRequestValidate(req, {
                 invoice_CustomCheck: invoice => invoice !== ''

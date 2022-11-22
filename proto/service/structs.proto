@@ -48,7 +48,12 @@ message NewInvoiceRequest{
 message NewInvoiceResponse{
     string invoice = 1;
 }
-
+message DecodeInvoiceRequest{
+    string invoice=1;
+}
+message DecodeInvoiceResponse{
+    int64 amount=1;
+}
 message PayInvoiceRequest{
     string invoice = 1;
     int64 amount = 2;

@@ -141,7 +141,12 @@ export default class {
         const maxWithinServiceFee = Math.max(0, Math.floor(balance * (1 - this.settings.outgoingInvoiceFee)))
         return this.lnd.GetMaxWithinLimit(maxWithinServiceFee)
     }
-
+    async DecodeInvoice(req: Types.DecodeInvoiceRequest): Promise<Types.DecodeInvoiceResponse> {
+        const decoded = await this.lnd.DecodeInvoice(req.invoice)
+        return {
+            amount: Number(decoded.numSatoshis)
+        }
+    }
     async PayInvoice(userId: string, req: Types.PayInvoiceRequest): Promise<Types.PayInvoiceResponse> {
         const decoded = await this.lnd.DecodeInvoice(req.invoice)
         if (decoded.numSatoshis !== 0n && req.amount !== 0) {

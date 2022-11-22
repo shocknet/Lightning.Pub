@@ -83,6 +83,19 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     res({status: 'OK', ...response})
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
                 break
+            case 'DecodeInvoice':
+                try {
+                    if (!methods.DecodeInvoice) throw new Error('method: DecodeInvoice is not implemented')
+                    const authContext = await opts.NostrUserAuthGuard(req.authIdentifier)
+                    const request = req.body
+                    const error = Types.DecodeInvoiceRequestValidate(request)
+                    if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
+                    const query = req.query
+                    const params = req.params
+                    const response = await methods.DecodeInvoice({ ...authContext, ...query, ...params }, request)
+                    res({status: 'OK', ...response})
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+                break
             case 'PayInvoice':
                 try {
                     if (!methods.PayInvoice) throw new Error('method: PayInvoice is not implemented')
