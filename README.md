@@ -8,30 +8,14 @@
 <p></p>
 
 `Pub` enables your Lightning node with public Web API's, providing a framework for permissionless applications that depend on Lightning. 
-- As a wrapper for [`LND`](https://github.com/lightningnetwork/lnd/releases), `Pub` also offers node operators Enterprise-class management capabilities. 
-- ~~An optional SSL proxy service is included for ease of use through zero-configuration networking.~~ Moving this to NOSTR relay<br>
+- Wrapper for [`LND`](https://github.com/lightningnetwork/lnd/releases) that can serve accounts over LNURL and NOSTR
 
 #### This repository is under rapid iteration and should only be used in development.
 
 
-
----
-<!-- - [Easy Installation](#easy-installation)-->
-- [Manual Installation](#manual-installation)
-- [Docker Usage](#docker-usage)
-- [Node Security](#node-security)
-<!--- - [Docker for Raspberry Pi](#docker-for-raspberry-pi) -->
----
-<!--- - ### Easy Installation
-
-For easy setup on your Laptop/Desktop, [a node wizard is available here.](https://github.com/shocknet/wizard)-->
-
-
 ### Manual Installation
 #### Notes:
-* The service defaults to port `9835` 
-* Looks for local LND in its default path 
-* Change defaults in `defaults.js`
+* The service defaults to port `8080` 
 * Requires [Node.js](https://nodejs.org) 16
 
 #### Steps:
@@ -50,31 +34,9 @@ cd Lightning.Pub
 npm install
 ```
 
-3) Run with `yarn start -t` *(`-t` is recommended but [not required](#node-security))*
-4) Connect with Dashboard
+3) `cp nvm.example .env`
+4) Add values to env file, you can generate a keypair with `node keygen.js` 
+5) `npm start`
+6) Connect with [wallet2](https://github.com/shocknet/wallet2) ... until this is further along you'll get the wallets pub from the console then update your env
 
 
-### Docker Usage
-To run `Pub` in a fully isolated environment you can use the Docker image
-provided on the Docker Hub and easily interact with API's CLI interface and flags.
-
-#### Prerequisites
-To use `Pub` Docker images you will need an instance of LND running, and
-also if your LND related files are located in a container file system, you'll need to mount **Docker Volumes** pointed to them while starting the container.
-
-Example of listing available configuration flags:
-```
-docker run --rm shockwallet/Lightning.Pub:latest --help
-```
-Example of running an local instance with mounted volumes:
-```
-docker run -v /home/$USER/.lnd:/root/.lnd --network host shockwallet/Lightning.Pub:latest
-```
-
-### Node Security 
-
-`Pub` administration API's use E2E encryption bootstrapped with PAKE to prevent interception by the proxy. There are advanced or testing scenarios where you may wish to bypass this security, to do so pass the env `TRUSTED_KEYS=false`
-
-Communication between the administrator Dashboard and Lightning.Pub is otherwise encrypted, regardless of whether or not SSL is used, though an SSL equipped reverse proxy is recommended for better usability with web browsers. 
-
-Running with `-t` enables the built-in SSL proxy provider for ease of use via zero-configuration networking.
