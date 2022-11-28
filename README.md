@@ -37,7 +37,7 @@ npm install
 ```
 
 3) `cp env.example .env`
-4) Add values to env file, you can generate a keypair with `node keygen.js` 
+4) Add values to env file, you can generate a keypair with `node genkey.js` 
 5) `npm start`
 6) Connect with [wallet2](https://github.com/shocknet/wallet2) ... until this is further along you'll get the wallets pub from the console then update your env
 
