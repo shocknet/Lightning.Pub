@@ -105,6 +105,31 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             res.json({status: 'OK', ...response})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
+    if (!opts.allowNotImplementedMethods && !methods.AddProduct) throw new Error('method: AddProduct is not implemented')
+    app.post('/api/user/product/add', async (req, res) => {
+        try {
+            if (!methods.AddProduct) throw new Error('method: AddProduct is not implemented')
+            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
+            const request = req.body
+            const error = Types.AddProductRequestValidate(request)
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
+            const query = req.query
+            const params = req.params
+            const response = await methods.AddProduct({ ...authContext, ...query, ...params }, request)
+            res.json({status: 'OK', ...response})
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.NewProductInvoice) throw new Error('method: NewProductInvoice is not implemented')
+    app.get('/api/user/product/get/invoice', async (req, res) => {
+        try {
+            if (!methods.NewProductInvoice) throw new Error('method: NewProductInvoice is not implemented')
+            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
+            const query = req.query
+            const params = req.params
+            const response = await methods.NewProductInvoice({ ...authContext, ...query, ...params })
+            res.json({status: 'OK', ...response})
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+    })
     if (!opts.allowNotImplementedMethods && !methods.GetUserOperations) throw new Error('method: GetUserOperations is not implemented')
     app.post('/api/user/operations', async (req, res) => {
         try {

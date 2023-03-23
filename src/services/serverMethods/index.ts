@@ -90,8 +90,17 @@ export default (mainHandler: Main): Types.ServerMethods => {
             }
             return mainHandler.HandleLnurlPay(ctx.k1, +ctx.amount)
         },
+        AddProduct: async (ctx, req) => {
+            return mainHandler.productManager.AddProduct(ctx.user_id, req)
+        },
+        NewProductInvoice: async (ctx) => {
+            if (!ctx.id) {
+                throw new Error("product id must be non empty")
+            }
+            return mainHandler.productManager.NewProductInvoice(ctx.id)
+        },
         GetLNURLChannelLink: async (ctx) => {
             throw new Error("unimplemented")
-        }
+        },
     }
 }
