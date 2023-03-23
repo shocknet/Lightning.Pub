@@ -1,4 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, Index, Check, ManyToOne, JoinColumn } from "typeorm"
+import { Product } from "./Product.js"
 import { User } from "./User.js"
 
 @Entity()
@@ -26,4 +27,7 @@ export class UserReceivingInvoice {
 
     @Column({ default: 0 })
     service_fee: number
+
+    @ManyToOne(type => Product, { eager: true })
+    product: Product | null
 }

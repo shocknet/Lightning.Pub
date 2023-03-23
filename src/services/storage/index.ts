@@ -10,6 +10,8 @@ import { UserTransactionPayment } from "./entity/UserTransactionPayment.js";
 import { UserNostrAuth } from "./entity/UserNostrAuth.js";
 import { UserBasicAuth } from "./entity/UserBasicAuth.js";
 import { EphemeralKeyType, UserEphemeralKey } from "./entity/UserEphemeralKey.js";
+import ProductStorage from './productStorage.js'
+import { Product } from "./entity/Product.js";
 export type StorageSettings = {
     dbSettings: DbSettings
 }
@@ -20,11 +22,13 @@ export const LoadStorageSettingsFromEnv = (test = false): StorageSettings => {
 export default class {
     DB: DataSource | EntityManager
     settings: StorageSettings
+    productStorage: ProductStorage
     constructor(settings: StorageSettings) {
         this.settings = settings
     }
     async Connect() {
         this.DB = await NewDB(this.settings.dbSettings)
+        this.productStorage = new ProductStorage(this.DB)
     }
     StartTransaction(exec: (entityManager: EntityManager) => Promise<void>) {
         return this.DB.transaction(exec)
@@ -134,11 +138,12 @@ export default class {
         })
     }
 
-    async AddUserInvoice(userId: string, invoice: string, callbackUrl = "", entityManager = this.DB): Promise<UserReceivingInvoice> {
+    async AddUserInvoice(user: User, invoice: string, product?: Product, callbackUrl = "", entityManager = this.DB): Promise<UserReceivingInvoice> {
         const newUserInvoice = entityManager.getRepository(UserReceivingInvoice).create({
             invoice: invoice,
             callbackUrl,
-            user: await this.GetUser(userId, entityManager)
+            user: user,
+            product: product
         })
         return entityManager.getRepository(UserReceivingInvoice).save(newUserInvoice)
     }
