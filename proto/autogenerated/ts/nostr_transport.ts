@@ -31,6 +31,29 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     res({status: 'OK', ...response})
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
                 break
+            case 'AddProduct':
+                try {
+                    if (!methods.AddProduct) throw new Error('method: AddProduct is not implemented')
+                    const authContext = await opts.NostrUserAuthGuard(req.authIdentifier)
+                    const request = req.body
+                    const error = Types.AddProductRequestValidate(request)
+                    if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
+                    const query = req.query
+                    const params = req.params
+                    const response = await methods.AddProduct({ ...authContext, ...query, ...params }, request)
+                    res({status: 'OK', ...response})
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+                break
+            case 'NewProductInvoice':
+                try {
+                    if (!methods.NewProductInvoice) throw new Error('method: NewProductInvoice is not implemented')
+                    const authContext = await opts.NostrUserAuthGuard(req.authIdentifier)
+                    const query = req.query
+                    const params = req.params
+                    const response = await methods.NewProductInvoice({ ...authContext, ...query, ...params })
+                    res({status: 'OK', ...response})
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+                break
             case 'GetUserOperations':
                 try {
                     if (!methods.GetUserOperations) throw new Error('method: GetUserOperations is not implemented')

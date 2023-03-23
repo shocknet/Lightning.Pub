@@ -18,6 +18,18 @@ The nostr server will send back a message response, and inside the body there wi
   - This methods has an __empty__ __request__ body
   - output: [UserInfo](#UserInfo)
 
+- AddProduct
+  - auth type: __User__
+  - input: [AddProductRequest](#AddProductRequest)
+  - output: [Product](#Product)
+
+- NewProductInvoice
+  - auth type: __User__
+  - the request url __query__ can take the following string items:
+    - id
+  - This methods has an __empty__ __request__ body
+  - output: [NewInvoiceResponse](#NewInvoiceResponse)
+
 - GetUserOperations
   - auth type: __User__
   - input: [GetUserOperationsRequest](#GetUserOperationsRequest)
@@ -126,6 +138,22 @@ The nostr server will send back a message response, and inside the body there wi
   - This methods has an __empty__ __request__ body
   - output: [UserInfo](#UserInfo)
 
+- AddProduct
+  - auth type: __User__
+  - http method: __post__
+  - http route: __/api/user/product/add__
+  - input: [AddProductRequest](#AddProductRequest)
+  - output: [Product](#Product)
+
+- NewProductInvoice
+  - auth type: __User__
+  - http method: __get__
+  - http route: __/api/user/product/get/invoice__
+  - the request url __query__ can take the following string items:
+    - id
+  - This methods has an __empty__ __request__ body
+  - output: [NewInvoiceResponse](#NewInvoiceResponse)
+
 - GetUserOperations
   - auth type: __User__
   - http method: __post__
@@ -232,15 +260,78 @@ The nostr server will send back a message response, and inside the body there wi
 ## Messages
 ### The content of requests and response from the methods
 
+### OpenChannelResponse
+  - __channelId__: _string_
+
+### UserInfo
+  - __userId__: _string_
+  - __balance__: _number_
+
+### GetUserOperationsRequest
+  - __latestIncomingInvoice__: _number_
+  - __latestOutgoingInvoice__: _number_
+  - __latestIncomingTx__: _number_
+  - __latestOutgoingTx__: _number_
+
+### AddProductRequest
+  - __name__: _string_
+  - __price_sats__: _number_
+
+### Product
+  - __id__: _string_
+  - __name__: _string_
+  - __price_sats__: _number_
+
+### EncryptionExchangeRequest
+  - __publicKey__: _string_
+  - __deviceId__: _string_
+
+### NewInvoiceRequest
+  - __amountSats__: _number_
+  - __memo__: _string_
+
+### PayInvoiceResponse
+  - __preimage__: _string_
+
+### HandleLnurlPayResponse
+  - __pr__: _string_
+  - __routes__: ARRAY of: _[Empty](#Empty)_
+
+### AuthUserRequest
+  - __name__: _string_
+  - __secret__: _string_
+
+### UserOperations
+  - __fromIndex__: _number_
+  - __toIndex__: _number_
+  - __operations__: ARRAY of: _[UserOperation](#UserOperation)_
+
+### PayAddressRequest
+  - __address__: _string_
+  - __amoutSats__: _number_
+  - __targetConf__: _number_
+
+### OpenChannelRequest
+  - __destination__: _string_
+  - __fundingAmount__: _number_
+  - __pushAmount__: _number_
+  - __closeAddress__: _string_
+
+### LnurlLinkResponse
+  - __lnurl__: _string_
+  - __k1__: _string_
+
 ### Empty
+
+### NewInvoiceResponse
+  - __invoice__: _string_
 
 ### DecodeInvoiceRequest
   - __invoice__: _string_
 
-### AddUserRequest
-  - __callbackUrl__: _string_
-  - __name__: _string_
-  - __secret__: _string_
+### AuthUserResponse
+  - __userId__: _string_
+  - __authToken__: _string_
 
 ### GetUserOperationsResponse
   - __latestOutgoingInvoiceOperations__: _[UserOperations](#UserOperations)_
@@ -248,8 +339,15 @@ The nostr server will send back a message response, and inside the body there wi
   - __latestOutgoingTxOperations__: _[UserOperations](#UserOperations)_
   - __latestIncomingTxOperations__: _[UserOperations](#UserOperations)_
 
-### PayAddressResponse
-  - __txId__: _string_
+### LndGetInfoRequest
+  - __nodeId__: _number_
+
+### LndGetInfoResponse
+  - __alias__: _string_
+
+### AddUserResponse
+  - __userId__: _string_
+  - __authToken__: _string_
 
 ### LnurlWithdrawInfoResponse
   - __tag__: _string_
@@ -261,21 +359,13 @@ The nostr server will send back a message response, and inside the body there wi
   - __balanceCheck__: _string_
   - __payLink__: _string_
 
-### UserInfo
-  - __userId__: _string_
-  - __balance__: _number_
+### GetProductBuyLinkResponse
+  - __link__: _string_
 
-### NewAddressResponse
-  - __address__: _string_
-
-### PayAddressRequest
-  - __address__: _string_
-  - __amoutSats__: _number_
-  - __targetConf__: _number_
-
-### HandleLnurlPayResponse
-  - __pr__: _string_
-  - __routes__: ARRAY of: _[Empty](#Empty)_
+### AddUserRequest
+  - __callbackUrl__: _string_
+  - __name__: _string_
+  - __secret__: _string_
 
 ### UserOperation
   - __paidAtUnix__: _number_
@@ -283,25 +373,21 @@ The nostr server will send back a message response, and inside the body there wi
   - __inbound__: _boolean_
   - __amount__: _number_
 
-### DecodeInvoiceResponse
-  - __amount__: _number_
-
-### AddUserResponse
-  - __userId__: _string_
-  - __authToken__: _string_
-
-### NewInvoiceResponse
-  - __invoice__: _string_
-
-### PayInvoiceResponse
-  - __preimage__: _string_
-
 ### NewAddressRequest
   - __addressType__: _[AddressType](#AddressType)_
 
-### LnurlLinkResponse
-  - __lnurl__: _string_
-  - __k1__: _string_
+### NewAddressResponse
+  - __address__: _string_
+
+### PayInvoiceRequest
+  - __invoice__: _string_
+  - __amount__: _number_
+
+### PayAddressResponse
+  - __txId__: _string_
+
+### DecodeInvoiceResponse
+  - __amount__: _number_
 
 ### LnurlPayInfoResponse
   - __tag__: _string_
@@ -309,52 +395,6 @@ The nostr server will send back a message response, and inside the body there wi
   - __maxSendable__: _number_
   - __minSendable__: _number_
   - __metadata__: _string_
-
-### GetUserOperationsRequest
-  - __latestIncomingInvoice__: _number_
-  - __latestOutgoingInvoice__: _number_
-  - __latestIncomingTx__: _number_
-  - __latestOutgoingTx__: _number_
-
-### AuthUserResponse
-  - __userId__: _string_
-  - __authToken__: _string_
-
-### EncryptionExchangeRequest
-  - __publicKey__: _string_
-  - __deviceId__: _string_
-
-### LndGetInfoRequest
-  - __nodeId__: _number_
-
-### LndGetInfoResponse
-  - __alias__: _string_
-
-### PayInvoiceRequest
-  - __invoice__: _string_
-  - __amount__: _number_
-
-### OpenChannelRequest
-  - __destination__: _string_
-  - __fundingAmount__: _number_
-  - __pushAmount__: _number_
-  - __closeAddress__: _string_
-
-### OpenChannelResponse
-  - __channelId__: _string_
-
-### AuthUserRequest
-  - __name__: _string_
-  - __secret__: _string_
-
-### UserOperations
-  - __fromIndex__: _number_
-  - __toIndex__: _number_
-  - __operations__: ARRAY of: _[UserOperation](#UserOperation)_
-
-### NewInvoiceRequest
-  - __amountSats__: _number_
-  - __memo__: _string_
 ## Enums
 ### The enumerators used in the messages
 
