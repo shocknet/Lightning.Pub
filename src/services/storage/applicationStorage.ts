@@ -62,7 +62,7 @@ export default class {
     async GetApplicationUser(appId: string, userIdentifier: string, entityManager = this.DB): Promise<ApplicationUser> {
         const found = await this.GetApplicationUserIfExists(appId, userIdentifier, entityManager)
         if (!found) {
-            throw new Error(`application user ${userIdentifier} not found`)
+            throw new Error(`application user not found`)
         }
 
         if (found.application.app_id !== appId) {
