@@ -14,6 +14,8 @@
 
 #### This repository is under rapid iteration and should only be used in development.
 
+See the NostrHack presentation: https://lightning.video/f0f64fa1fc3744fb6a3880e2bd8f6a254ceb3caee112d9708271f2d6a09a2f00
+
 
 ### Manual Installation
 #### Notes:
