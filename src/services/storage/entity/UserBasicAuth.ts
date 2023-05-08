@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, Index, Check, ManyToOne, JoinColumn } from "typeorm"
+import { Entity, PrimaryGeneratedColumn, Column, Index, JoinColumn, OneToOne, CreateDateColumn, UpdateDateColumn } from "typeorm"
 import { User } from "./User.js"
 
 @Entity()
@@ -7,7 +7,7 @@ export class UserBasicAuth {
     @PrimaryGeneratedColumn()
     serial_id: number
 
-    @ManyToOne(type => User, { eager: true })
+    @OneToOne(type => User, { eager: true })
     @JoinColumn()
     user: User
 
@@ -17,4 +17,10 @@ export class UserBasicAuth {
 
     @Column()
     secret_sha256: string
+
+    @CreateDateColumn()
+    created_at: Date
+
+    @UpdateDateColumn()
+    updated_at: Date
 }

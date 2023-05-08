@@ -8,6 +8,7 @@ export type ClientParams = {
     retrieveGuestAuth: () => Promise<string | null>
     retrieveUserAuth: () => Promise<string | null>
     retrieveAdminAuth: () => Promise<string | null>
+    retrieveAppAuth: () => Promise<string | null>
     encryptCallback: (plain: any) => Promise<any>
     decryptCallback: (encrypted: any) => Promise<any>
     deviceId: string
@@ -39,14 +40,120 @@ export default (params: ClientParams) => ({
     LndGetInfo: async (request: Types.LndGetInfoRequest): Promise<ResultError | ({ status: 'OK' }& Types.LndGetInfoResponse)> => {
         const auth = await params.retrieveAdminAuth()
         if (auth === null) throw new Error('retrieveAdminAuth() returned null')
-        let finalRoute = '/api/lnd/getinfo'
-        const { data } = await axios.post(params.baseUrl + finalRoute, await params.encryptCallback(request), { headers: { 'authorization': auth, 'x-e2ee-device-id-x': params.deviceId  } })
+        let finalRoute = '/api/admin/lnd/getinfo'
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
-            const result = await params.decryptCallback(data)
+            const result = data
             if(!params.checkResult) return { status: 'OK', ...result }
             const error = Types.LndGetInfoResponseValidate(result)
             if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
+    AddApp: async (request: Types.AddAppRequest): Promise<ResultError | ({ status: 'OK' }& Types.AddAppResponse)> => {
+        const auth = await params.retrieveAdminAuth()
+        if (auth === null) throw new Error('retrieveAdminAuth() returned null')
+        let finalRoute = '/api/admin/app/add'
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.AddAppResponseValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
+    AddAppUser: async (request: Types.AddAppUserRequest): Promise<ResultError | ({ status: 'OK' }& Types.AppUser)> => {
+        const auth = await params.retrieveAppAuth()
+        if (auth === null) throw new Error('retrieveAppAuth() returned null')
+        let finalRoute = '/api/app/user/add'
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.AppUserValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
+    AddAppInvoice: async (request: Types.AddAppInvoiceRequest): Promise<ResultError | ({ status: 'OK' }& Types.NewInvoiceResponse)> => {
+        const auth = await params.retrieveAppAuth()
+        if (auth === null) throw new Error('retrieveAppAuth() returned null')
+        let finalRoute = '/api/app/add/invoice'
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.NewInvoiceResponseValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
+    AddAppUserInvoice: async (request: Types.AddAppUserInvoiceRequest): Promise<ResultError | ({ status: 'OK' }& Types.NewInvoiceResponse)> => {
+        const auth = await params.retrieveAppAuth()
+        if (auth === null) throw new Error('retrieveAppAuth() returned null')
+        let finalRoute = '/api/app/user/add/invoice'
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.NewInvoiceResponseValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
+    GetAppUser: async (request: Types.GetAppUserRequest): Promise<ResultError | ({ status: 'OK' }& Types.AppUser)> => {
+        const auth = await params.retrieveAppAuth()
+        if (auth === null) throw new Error('retrieveAppAuth() returned null')
+        let finalRoute = '/api/app/user/get'
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.AppUserValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
+    PayAppUserInvoice: async (request: Types.PayAppUserInvoiceRequest): Promise<ResultError | ({ status: 'OK' }& Types.PayAppUserInvoiceResponse)> => {
+        const auth = await params.retrieveAppAuth()
+        if (auth === null) throw new Error('retrieveAppAuth() returned null')
+        let finalRoute = '/api/app/invoice/pay'
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.PayAppUserInvoiceResponseValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
+    SendAppUserToAppUserPayment: async (request: Types.SendAppUserToAppUserPaymentRequest): Promise<ResultError | ({ status: 'OK' })> => {
+        const auth = await params.retrieveAppAuth()
+        if (auth === null) throw new Error('retrieveAppAuth() returned null')
+        let finalRoute = '/api/app/user/internal/pay'
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            return data
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
+    SendAppUserToAppPayment: async (request: Types.SendAppUserToAppPaymentRequest): Promise<ResultError | ({ status: 'OK' })> => {
+        const auth = await params.retrieveAppAuth()
+        if (auth === null) throw new Error('retrieveAppAuth() returned null')
+        let finalRoute = '/api/app/internal/pay'
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            return data
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },

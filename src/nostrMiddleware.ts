@@ -11,9 +11,9 @@ export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSett
             if (!pub || !nostrSettings.allowedPubs.includes(pub)) {
                 throw new Error("nostr pub invalid or not allowed" + pub)
             }
-            let nostrUser = await mainHandler.storage.FindNostrUser(pub)
+            let nostrUser = await mainHandler.storage.userStorage.FindNostrUser(pub)
             if (!nostrUser) { // TODO: add POW
-                nostrUser = await mainHandler.storage.AddNostrUser(pub)
+                nostrUser = await mainHandler.storage.userStorage.AddNostrUser(pub)
             }
             return { user_id: nostrUser.user.user_id }
         }

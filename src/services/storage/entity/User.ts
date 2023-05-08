@@ -1,8 +1,7 @@
-import { Entity, PrimaryGeneratedColumn, Column, Index, Check } from "typeorm"
+import { Entity, PrimaryGeneratedColumn, Column, Index, Check, CreateDateColumn, UpdateDateColumn } from "typeorm"
 
 @Entity()
 export class User {
-
     @PrimaryGeneratedColumn()
     serial_id: number
 
@@ -15,4 +14,10 @@ export class User {
 
     @Column({ default: false })
     locked: boolean
+
+    @CreateDateColumn()
+    created_at: Date
+
+    @UpdateDateColumn()
+    updated_at: Date
 }
