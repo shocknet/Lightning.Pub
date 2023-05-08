@@ -8,10 +8,10 @@ export const ignore = true
 const settings = LoadNosrtSettingsFromEnv(true)
 
 const clientPrivateKey = generatePrivateKey()
-const clientPublicKey = getPublicKey(Buffer.from(clientPrivateKey, "hex"))
+const clientPublicKey = getPublicKey(clientPrivateKey)
 
 const serverPrivateKey = generatePrivateKey()
-const serverPublicKey = getPublicKey(Buffer.from(serverPrivateKey, "hex"))
+const serverPublicKey = getPublicKey(serverPrivateKey)
 let clientNostr: NostrHandler
 let serverNostr: NostrHandler
 

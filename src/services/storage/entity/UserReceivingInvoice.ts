@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, Index, Check, ManyToOne, JoinColumn } from "typeorm"
+import { Entity, PrimaryGeneratedColumn, Column, Index, Check, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn } from "typeorm"
 import { Product } from "./Product.js"
 import { User } from "./User.js"
 
@@ -16,10 +16,13 @@ export class UserReceivingInvoice {
     @Index({ unique: true })
     invoice: string
 
+    @Column()
+    expires_at_unix: number
+
     @Column({ default: 0 })
     paid_at_unix: number
 
-    @Column()
+    @Column({ default: "" })
     callbackUrl: string
 
     @Column({ default: 0 })
@@ -30,4 +33,13 @@ export class UserReceivingInvoice {
 
     @ManyToOne(type => Product, { eager: true })
     product: Product | null
+
+    @ManyToOne(type => User, { eager: true })
+    payer: User | null
+
+    @CreateDateColumn()
+    created_at: Date
+
+    @UpdateDateColumn()
+    updated_at: Date
 }

@@ -19,6 +19,69 @@ message LndGetInfoRequest {
 message LndGetInfoResponse {
     string alias = 1;
 }
+
+message AddAppRequest {
+    string name = 1;
+}
+
+message AddAppResponse {
+    string name = 1;
+    string id = 2;
+    string auth_token = 3;
+}
+
+message AddAppUserRequest {
+    string identifier = 1;
+    bool fail_if_exists = 2;
+    int64 balance = 3;
+}
+
+message AppUser {
+    string identifier = 1;
+    UserInfo info = 2;
+    int64 max_withdrawable = 3;
+}
+
+message AddAppInvoiceRequest {
+    string payer_identifier = 1;
+    string http_callback_url = 2;
+    NewInvoiceRequest invoice_req = 3;
+}
+
+message AddAppUserInvoiceRequest {
+    string receiver_identifier = 1;
+    string payer_identifier = 2;
+    string http_callback_url = 3;
+    NewInvoiceRequest invoice_req = 4;
+}
+
+message GetAppUserRequest {
+    string user_identifier = 1;
+}
+
+message PayAppUserInvoiceRequest {
+    string user_identifier = 1;
+    string invoice = 2;
+    int64 amount = 3;
+}
+
+message PayAppUserInvoiceResponse {
+    string preimage = 1;
+    int64 amount_paid = 2;
+}
+
+
+message SendAppUserToAppUserPaymentRequest {
+    string from_user_identifier = 1;
+    string to_user_identifier = 2;
+    int64 amount = 3;
+}
+
+message SendAppUserToAppPaymentRequest {
+    string from_user_identifier = 1;
+    int64 amount = 2;
+}
+
 enum AddressType {
     WITNESS_PUBKEY_HASH = 0;
     NESTED_PUBKEY_HASH = 1;
@@ -61,6 +124,7 @@ message PayInvoiceRequest{
 
 message PayInvoiceResponse{
     string preimage = 1;
+    int64 amount_paid = 2;
 }
 
 message OpenChannelRequest{
@@ -129,13 +193,18 @@ message GetUserOperationsRequest{
     int64 latestOutgoingInvoice = 2;
     int64 latestIncomingTx = 3;
     int64 latestOutgoingTx = 4;
+    int64 latestIncomingUserToUserPayment = 5;
+    int64 latestOutgoingUserToUserPayment = 6;
 }
 enum UserOperationType {
     INCOMING_TX =0;
     OUTGOING_TX =1;
     INCOMING_INVOICE =2;
     OUTGOING_INVOICE=3;
+    OUTGOING_USER_TO_USER=4;
+    INCOMING_USER_TO_USER=5;
 }
+
 message UserOperation{
     int64 paidAtUnix=1;
     UserOperationType type = 2; 
@@ -144,14 +213,16 @@ message UserOperation{
 }
 message UserOperations {
     int64 fromIndex=1;
-    int64    toIndex=2;
-    repeated UserOperation    operations=3;
+    int64 toIndex=2;
+    repeated UserOperation operations=3;
 }
 message GetUserOperationsResponse{
     UserOperations latestOutgoingInvoiceOperations=1; 
     UserOperations latestIncomingInvoiceOperations=2;
     UserOperations latestOutgoingTxOperations=3;
     UserOperations latestIncomingTxOperations=4;
+    UserOperations latestOutgoingUserToUserPayemnts=5;
+    UserOperations latestIncomingUserToUserPayemnts=6 ;
 }
 
 message AddProductRequest {

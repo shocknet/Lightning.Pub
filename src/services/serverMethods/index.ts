@@ -3,7 +3,7 @@ import Main from '../main/index.js'
 export default (mainHandler: Main): Types.ServerMethods => {
     return {
         EncryptionExchange: async (ctx, req) => { },
-        Health: async (ctx) => { },
+        Health: async (ctx) => { await mainHandler.lnd.Health() },
         LndGetInfo: async (ctx) => {
             const info = await mainHandler.lnd.GetInfo()
             return { alias: info.alias }
@@ -15,16 +15,16 @@ export default (mainHandler: Main): Types.ServerMethods => {
                 secret_CustomCheck: secret => secret.length >= 8
             })
             if (err != null) throw new Error(err.message)
-            return mainHandler.AddBasicUser(req)
+            return mainHandler.userManager.AddBasicUser(req)
         },
         AuthUser: async (ctx, req) => {
             throw new Error("unimplemented")
         },
         GetUserInfo: async (ctx) => {
-            return mainHandler.GetUserInfo(ctx.user_id)
+            return mainHandler.userManager.GetUserInfo(ctx.user_id)
         },
         GetUserOperations: async (ctx, req) => {
-            return mainHandler.GetUserOperations(ctx.user_id, req)
+            return mainHandler.paymentManager.GetUserOperations(ctx.user_id, req)
         },
         OpenChannel: async (ctx, req) => {
             const err = Types.OpenChannelRequestValidate(req, {
@@ -33,10 +33,10 @@ export default (mainHandler: Main): Types.ServerMethods => {
                 destination_CustomCheck: dest => dest !== ""
             })
             if (err != null) throw new Error(err.message)
-            return mainHandler.OpenChannel(ctx.user_id, req)
+            return mainHandler.paymentManager.OpenChannel(ctx.user_id, req)
         },
         NewAddress: async (ctx, req) => {
-            return mainHandler.NewAddress(ctx.user_id, req)
+            return mainHandler.paymentManager.NewAddress(ctx.user_id, req)
         },
         PayAddress: async (ctx, req) => {
             const err = Types.PayAddressRequestValidate(req, {
@@ -45,41 +45,41 @@ export default (mainHandler: Main): Types.ServerMethods => {
                 targetConf_CustomCheck: target => target > 0
             })
             if (err != null) throw new Error(err.message)
-            return mainHandler.PayAddress(ctx.user_id, req)
+            return mainHandler.paymentManager.PayAddress(ctx.user_id, req)
         },
         NewInvoice: async (ctx, req) => {
-            return mainHandler.NewInvoice(ctx.user_id, req)
+            return mainHandler.paymentManager.NewInvoice(ctx.user_id, req)
         },
         DecodeInvoice: async (ctx, req) => {
-            return mainHandler.DecodeInvoice(req)
+            return mainHandler.paymentManager.DecodeInvoice(req)
         },
         PayInvoice: async (ctx, req) => {
             const err = Types.PayInvoiceRequestValidate(req, {
                 invoice_CustomCheck: invoice => invoice !== ''
             })
             if (err != null) throw new Error(err.message)
-            return mainHandler.PayInvoice(ctx.user_id, req)
+            return mainHandler.paymentManager.PayInvoice(ctx.user_id, req)
         },
         GetLnurlWithdrawLink: async (ctx) => {
-            return mainHandler.GetLnurlChannelLink(ctx.user_id)
+            return mainHandler.paymentManager.GetLnurlChannelLink(ctx.user_id)
         },
         GetLnurlWithdrawInfo: async (ctx) => {
             if (!ctx.k1) {
                 throw new Error("invalid lnurl withdraw to get info")
             }
-            return mainHandler.GetLnurlWithdrawInfo(ctx.k1)
+            return mainHandler.paymentManager.GetLnurlWithdrawInfo(ctx.k1)
         },
         HandleLnurlWithdraw: async (ctx) => {
             if (!ctx.k1 || !ctx.pr) {
                 throw new Error("invalid lnurl withdraw to handle")
             }
-            return mainHandler.HandleLnurlWithdraw(ctx.k1, ctx.pr)
+            return mainHandler.paymentManager.HandleLnurlWithdraw(ctx.k1, ctx.pr)
         },
         GetLnurlPayInfo: async (ctx) => {
             if (!ctx.k1) {
                 throw new Error("invalid lnurl pay to get info")
             }
-            return mainHandler.GetLnurlPayInfo(ctx.k1)
+            return mainHandler.paymentManager.GetLnurlPayInfo(ctx.k1)
         },
         HandleLnurlPay: async (ctx) => {
             if (!ctx.k1 || !ctx.amount) {
@@ -88,7 +88,7 @@ export default (mainHandler: Main): Types.ServerMethods => {
             if (isNaN(+ctx.amount)) {
                 throw new Error("invalid amount in lnurl pay to handle")
             }
-            return mainHandler.HandleLnurlPay(ctx.k1, +ctx.amount)
+            return mainHandler.paymentManager.HandleLnurlPay(ctx.k1, +ctx.amount)
         },
         AddProduct: async (ctx, req) => {
             return mainHandler.productManager.AddProduct(ctx.user_id, req)
@@ -102,5 +102,66 @@ export default (mainHandler: Main): Types.ServerMethods => {
         GetLNURLChannelLink: async (ctx) => {
             throw new Error("unimplemented")
         },
+        AddApp: async (ctx, req) => {
+            const err = Types.AddAppRequestValidate(req, {
+                name_CustomCheck: name => name !== ''
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.applicationManager.AddApp(req)
+        },
+        AddAppUser: async (ctx, req) => {
+            const err = Types.AddAppUserRequestValidate(req, {
+                identifier_CustomCheck: id => id !== ''
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.applicationManager.AddAppUser(ctx.app_id, req)
+        },
+        AddAppInvoice: async (ctx, req) => {
+            const err = Types.AddAppInvoiceRequestValidate(req, {
+                payer_identifier_CustomCheck: id => id !== '',
+            })
+            if (err != null) throw new Error(err.message)
+            console.log(req)
+            return mainHandler.applicationManager.AddAppInvoice(ctx.app_id, req)
+        },
+        AddAppUserInvoice: async (ctx, req) => {
+            const err = Types.AddAppUserInvoiceRequestValidate(req, {
+                payer_identifier_CustomCheck: id => id !== '',
+                receiver_identifier_CustomCheck: id => id !== '',
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.applicationManager.AddAppUserInvoice(ctx.app_id, req)
+        },
+        GetAppUser: async (ctx, req) => {
+            const err = Types.GetAppUserRequestValidate(req, {
+                user_identifier_CustomCheck: id => id !== '',
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.applicationManager.GetAppUser(ctx.app_id, req)
+        },
+        PayAppUserInvoice: async (ctx, req) => {
+            const err = Types.PayAppUserInvoiceRequestValidate(req, {
+                user_identifier_CustomCheck: id => id !== '',
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.applicationManager.PayAppUserInvoice(ctx.app_id, req)
+        },
+        SendAppUserToAppUserPayment: async (ctx, req) => {
+            const err = Types.SendAppUserToAppUserPaymentRequestValidate(req, {
+                to_user_identifier_CustomCheck: id => id !== '',
+                from_user_identifier_CustomCheck: id => id !== '',
+                amount_CustomCheck: amount => amount > 0
+            })
+            if (err != null) throw new Error(err.message)
+            mainHandler.applicationManager.SendAppUserToAppUserPayment(ctx.app_id, req)
+        },
+        SendAppUserToAppPayment: async (ctx, req) => {
+            const err = Types.SendAppUserToAppPaymentRequestValidate(req, {
+                from_user_identifier_CustomCheck: id => id !== '',
+                amount_CustomCheck: amount => amount > 0
+            })
+            if (err != null) throw new Error(err.message)
+            mainHandler.applicationManager.SendAppUserToAppPayment(ctx.app_id, req)
+        }
     }
 }

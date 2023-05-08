@@ -80,6 +80,16 @@ export default class {
         const res = await this.lightning.getInfo({}, DeadLineMetadata())
         return res.response
     }
+
+    async Health() {
+        if (!this.ready) {
+            throw new Error("not ready")
+        }
+        const info = await this.GetInfo()
+        if (!info.syncedToChain || !info.syncedToGraph) {
+            throw new Error("not ready")
+        }
+    }
     checkReady() {
         if (!this.ready) throw new Error("lnd not ready, warmup required before usage")
     }
@@ -141,9 +151,9 @@ export default class {
         return res.response
     }
 
-    async NewInvoice(value: number, memo: string): Promise<AddInvoiceResponse> {
+    async NewInvoice(value: number, memo: string, expiry: number): Promise<AddInvoiceResponse> {
         this.checkReady()
-        const res = await this.lightning.addInvoice(AddInvoiceReq(value, memo), DeadLineMetadata())
+        const res = await this.lightning.addInvoice(AddInvoiceReq(value, memo, expiry), DeadLineMetadata())
         return res.response
     }
 

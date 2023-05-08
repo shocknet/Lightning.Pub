@@ -7,12 +7,13 @@ export type Logger = { log: (v: any) => void, error: (v: any) => void }
 export type ServerOptions = {
     allowCors?: true
     staticFiles?: string
-    allowNotImplementedMethods?: true
+    allowNotImplementedMethods?: number
     logger?: Logger
     throwErrors?: true
     GuestAuthGuard: (authorizationHeader?: string) => Promise<Types.GuestContext>
     UserAuthGuard: (authorizationHeader?: string) => Promise<Types.UserContext>
     AdminAuthGuard: (authorizationHeader?: string) => Promise<Types.AdminContext>
+    AppAuthGuard: (authorizationHeader?: string) => Promise<Types.AppContext>
     decryptCallback: (encryptionDeviceId: string, body: any) => Promise<any>
     encryptCallback: (encryptionDeviceId: string, plain: any) => Promise<any>
 }
@@ -51,19 +52,129 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.LndGetInfo) throw new Error('method: LndGetInfo is not implemented')
-    app.post('/api/lnd/getinfo', async (req, res) => {
+    app.post('/api/admin/lnd/getinfo', async (req, res) => {
         try {
             if (!methods.LndGetInfo) throw new Error('method: LndGetInfo is not implemented')
             const authContext = await opts.AdminAuthGuard(req.headers['authorization'])
-            const encryptionDeviceId = req.headers['x-e2ee-device-id-x']
-            if (typeof encryptionDeviceId !== 'string' || encryptionDeviceId === '') throw new Error('invalid encryption header provided')
-            const request = await opts.decryptCallback(encryptionDeviceId, req.body)
+            const request = req.body
             const error = Types.LndGetInfoRequestValidate(request)
             if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
             const query = req.query
             const params = req.params
             const response = await methods.LndGetInfo({ ...authContext, ...query, ...params }, request)
-            res.json({status: 'OK', ...await opts.encryptCallback(encryptionDeviceId, response)})
+            res.json({status: 'OK', ...response})
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.AddApp) throw new Error('method: AddApp is not implemented')
+    app.post('/api/admin/app/add', async (req, res) => {
+        try {
+            if (!methods.AddApp) throw new Error('method: AddApp is not implemented')
+            const authContext = await opts.AdminAuthGuard(req.headers['authorization'])
+            const request = req.body
+            const error = Types.AddAppRequestValidate(request)
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
+            const query = req.query
+            const params = req.params
+            const response = await methods.AddApp({ ...authContext, ...query, ...params }, request)
+            res.json({status: 'OK', ...response})
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.AddAppUser) throw new Error('method: AddAppUser is not implemented')
+    app.post('/api/app/user/add', async (req, res) => {
+        try {
+            if (!methods.AddAppUser) throw new Error('method: AddAppUser is not implemented')
+            const authContext = await opts.AppAuthGuard(req.headers['authorization'])
+            const request = req.body
+            const error = Types.AddAppUserRequestValidate(request)
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
+            const query = req.query
+            const params = req.params
+            const response = await methods.AddAppUser({ ...authContext, ...query, ...params }, request)
+            res.json({status: 'OK', ...response})
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.AddAppInvoice) throw new Error('method: AddAppInvoice is not implemented')
+    app.post('/api/app/add/invoice', async (req, res) => {
+        try {
+            if (!methods.AddAppInvoice) throw new Error('method: AddAppInvoice is not implemented')
+            const authContext = await opts.AppAuthGuard(req.headers['authorization'])
+            const request = req.body
+            const error = Types.AddAppInvoiceRequestValidate(request)
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
+            const query = req.query
+            const params = req.params
+            const response = await methods.AddAppInvoice({ ...authContext, ...query, ...params }, request)
+            res.json({status: 'OK', ...response})
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.AddAppUserInvoice) throw new Error('method: AddAppUserInvoice is not implemented')
+    app.post('/api/app/user/add/invoice', async (req, res) => {
+        try {
+            if (!methods.AddAppUserInvoice) throw new Error('method: AddAppUserInvoice is not implemented')
+            const authContext = await opts.AppAuthGuard(req.headers['authorization'])
+            const request = req.body
+            const error = Types.AddAppUserInvoiceRequestValidate(request)
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
+            const query = req.query
+            const params = req.params
+            const response = await methods.AddAppUserInvoice({ ...authContext, ...query, ...params }, request)
+            res.json({status: 'OK', ...response})
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.GetAppUser) throw new Error('method: GetAppUser is not implemented')
+    app.post('/api/app/user/get', async (req, res) => {
+        try {
+            if (!methods.GetAppUser) throw new Error('method: GetAppUser is not implemented')
+            const authContext = await opts.AppAuthGuard(req.headers['authorization'])
+            const request = req.body
+            const error = Types.GetAppUserRequestValidate(request)
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
+            const query = req.query
+            const params = req.params
+            const response = await methods.GetAppUser({ ...authContext, ...query, ...params }, request)
+            res.json({status: 'OK', ...response})
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.PayAppUserInvoice) throw new Error('method: PayAppUserInvoice is not implemented')
+    app.post('/api/app/invoice/pay', async (req, res) => {
+        try {
+            if (!methods.PayAppUserInvoice) throw new Error('method: PayAppUserInvoice is not implemented')
+            const authContext = await opts.AppAuthGuard(req.headers['authorization'])
+            const request = req.body
+            const error = Types.PayAppUserInvoiceRequestValidate(request)
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
+            const query = req.query
+            const params = req.params
+            const response = await methods.PayAppUserInvoice({ ...authContext, ...query, ...params }, request)
+            res.json({status: 'OK', ...response})
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.SendAppUserToAppUserPayment) throw new Error('method: SendAppUserToAppUserPayment is not implemented')
+    app.post('/api/app/user/internal/pay', async (req, res) => {
+        try {
+            if (!methods.SendAppUserToAppUserPayment) throw new Error('method: SendAppUserToAppUserPayment is not implemented')
+            const authContext = await opts.AppAuthGuard(req.headers['authorization'])
+            const request = req.body
+            const error = Types.SendAppUserToAppUserPaymentRequestValidate(request)
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
+            const query = req.query
+            const params = req.params
+            await methods.SendAppUserToAppUserPayment({ ...authContext, ...query, ...params }, request)
+            res.json({status: 'OK'})
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.SendAppUserToAppPayment) throw new Error('method: SendAppUserToAppPayment is not implemented')
+    app.post('/api/app/internal/pay', async (req, res) => {
+        try {
+            if (!methods.SendAppUserToAppPayment) throw new Error('method: SendAppUserToAppPayment is not implemented')
+            const authContext = await opts.AppAuthGuard(req.headers['authorization'])
+            const request = req.body
+            const error = Types.SendAppUserToAppPaymentRequestValidate(request)
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
+            const query = req.query
+            const params = req.params
+            await methods.SendAppUserToAppPayment({ ...authContext, ...query, ...params }, request)
+            res.json({status: 'OK'})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.AddUser) throw new Error('method: AddUser is not implemented')

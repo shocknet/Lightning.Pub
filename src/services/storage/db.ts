@@ -11,6 +11,9 @@ import { UserNostrAuth } from "./entity/UserNostrAuth.js"
 import { UserBasicAuth } from "./entity/UserBasicAuth.js"
 import { UserEphemeralKey } from "./entity/UserEphemeralKey.js"
 import { Product } from "./entity/Product.js"
+import { UserToUserPayment } from "./entity/UserToUserPayment.js"
+import { Application } from "./entity/Application.js"
+import { ApplicationUser } from "./entity/ApplicationUser.js"
 export type DbSettings = {
     databaseFile: string
 }
@@ -22,7 +25,7 @@ export default async (settings: DbSettings) => {
         type: "sqlite",
         database: settings.databaseFile,
         //logging: true,
-        entities: [User, UserReceivingInvoice, UserReceivingAddress, AddressReceivingTransaction, UserInvoicePayment, UserTransactionPayment, UserNostrAuth, UserBasicAuth, UserEphemeralKey, Product],
-        synchronize: true
+        entities: [User, UserReceivingInvoice, UserReceivingAddress, AddressReceivingTransaction, UserInvoicePayment, UserTransactionPayment, UserNostrAuth, UserBasicAuth, UserEphemeralKey, Product, UserToUserPayment, Application, ApplicationUser, UserToUserPayment],
+        synchronize: true,
     }).initialize()
-} 
+}

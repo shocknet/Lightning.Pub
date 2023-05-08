@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, Index, Check, ManyToOne, JoinColumn } from "typeorm"
+import { Entity, PrimaryGeneratedColumn, Column, Index, Check, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn } from "typeorm"
 
 import { UserReceivingAddress } from "./UserReceivingAddress.js"
 
@@ -27,4 +27,10 @@ export class AddressReceivingTransaction {
 
     @Column()
     paid_at_unix: number
+
+    @CreateDateColumn()
+    created_at: Date
+
+    @UpdateDateColumn()
+    updated_at: Date
 }

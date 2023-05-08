@@ -1,6 +1,6 @@
 import { OpenChannelRequest, Invoice } from "../../../proto/lnd/lightning";
 
-export const AddInvoiceReq = (value: number, memo = "", privateHints = false, expiry = 60 * 60): Invoice => ({
+export const AddInvoiceReq = (value: number, memo = "", expiry = 60 * 60, privateHints = false): Invoice => ({
     expiry: BigInt(expiry),
     memo: memo,
     private: privateHints,

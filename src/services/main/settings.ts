@@ -8,5 +8,7 @@ export type MainSettings = {
     outgoingTxFee: number
     incomingInvoiceFee: number
     outgoingInvoiceFee: number
+    userToUserFee: number
     serviceUrl: string
+
 }

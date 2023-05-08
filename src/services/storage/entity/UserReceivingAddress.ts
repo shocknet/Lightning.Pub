@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, Index, Check, ManyToOne, JoinColumn } from "typeorm"
+import { Entity, PrimaryGeneratedColumn, Column, Index, Check, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn } from "typeorm"
 import { User } from "./User.js"
 
 @Entity()
@@ -17,4 +17,10 @@ export class UserReceivingAddress {
 
     @Column()
     callbackUrl: string
+
+    @CreateDateColumn()
+    created_at: Date
+
+    @UpdateDateColumn()
+    updated_at: Date
 }
