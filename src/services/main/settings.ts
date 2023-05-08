@@ -10,5 +10,6 @@ export type MainSettings = {
     outgoingInvoiceFee: number
     userToUserFee: number
     serviceUrl: string
+    servicePort: number
 
 }
