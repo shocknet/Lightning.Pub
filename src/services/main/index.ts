@@ -18,7 +18,8 @@ export const LoadMainSettingsFromEnv = (test = false): MainSettings => {
         incomingInvoiceFee: EnvMustBeInteger("SERVICE_FEE_INCOMING_INVOICE_PERCENT") / 100,
         outgoingInvoiceFee: EnvMustBeInteger("SERVICE_FEE_OUTGOING_INVOICE_PERCENT") / 100,
         userToUserFee: EnvMustBeInteger("SERVICE_FEE_USER_TO_USER_PERCENT") / 100,
-        serviceUrl: EnvMustBeNonEmptyString("SERVICE_URL")
+        serviceUrl: EnvMustBeNonEmptyString("SERVICE_URL"),
+        servicePort: EnvMustBeInteger("PORT")
     }
 }
 
