@@ -100,4 +100,8 @@ export default class {
         const app = await this.storage.applicationStorage.GetApplication(appId)
         await this.paymentManager.SendUserToUserPayment(fromUser.user.user_id, app.owner.user_id, req.amount)
     }
+    async GetAppUserLNURLInfo(appId: string, req: Types.GetAppUserLNURLInfoRequest): Promise<Types.LnurlPayInfoResponse> {
+        const user = await this.storage.applicationStorage.GetApplicationUser(appId, req.user_identifier)
+        return this.paymentManager.GetLnurlPayInfoFromUser(user.user.user_id)
+    }
 }

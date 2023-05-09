@@ -87,6 +87,10 @@ message SendAppUserToAppPaymentRequest {
     int64 amount = 2;
 }
 
+message GetAppUserLNURLInfoRequest {
+    string user_identifier = 1;
+}
+
 enum AddressType {
     WITNESS_PUBKEY_HASH = 0;
     NESTED_PUBKEY_HASH = 1;

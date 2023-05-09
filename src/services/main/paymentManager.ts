@@ -161,7 +161,18 @@ export default class {
         })
     }
 
-    async GetLnurlPayInfo(payInfoK1: string): Promise<Types.LnurlPayInfoResponse> {
+    async GetLnurlPayInfoFromUser(userId: string): Promise<Types.LnurlPayInfoResponse> {
+        const payK1 = await this.storage.paymentStorage.AddUserEphemeralKey(userId, 'pay')
+        return {
+            tag: 'payRequest',
+            callback: `${this.settings.serviceUrl}/api/guest/lnurl_pay/handle?k1=${payK1.key}`,
+            maxSendable: 10000000,
+            minSendable: 0,
+            metadata: defaultLnurlPayMetadata
+        }
+    }
+
+    async GetLnurlPayInfoFromK1(payInfoK1: string): Promise<Types.LnurlPayInfoResponse> {
         const key = await this.storage.paymentStorage.UseUserEphemeralKey(payInfoK1, 'payInfo')
         const payK1 = await this.storage.paymentStorage.AddUserEphemeralKey(key.user.user_id, 'pay')
         return {
@@ -189,9 +200,7 @@ export default class {
         }
     }
 
-
     async OpenChannel(userId: string, req: Types.OpenChannelRequest): Promise<Types.OpenChannelResponse> { throw new Error("WIP") }
-
 
     mapOperations(operations: UserOperationInfo[], type: Types.UserOperationType, inbound: boolean): Types.UserOperations {
         if (operations.length === 0) {

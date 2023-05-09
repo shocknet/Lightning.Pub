@@ -168,6 +168,20 @@ export default (params: ClientParams) => ({
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
+    GetAppUserLNURLInfo: async (request: Types.GetAppUserLNURLInfoRequest): Promise<ResultError | ({ status: 'OK' }& Types.LnurlPayInfoResponse)> => {
+        const auth = await params.retrieveAppAuth()
+        if (auth === null) throw new Error('retrieveAppAuth() returned null')
+        let finalRoute = '/api/app/user/lnurl/pay/info'
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.LnurlPayInfoResponseValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
     AddUser: async (request: Types.AddUserRequest): Promise<ResultError | ({ status: 'OK' }& Types.AddUserResponse)> => {
         const auth = await params.retrieveGuestAuth()
         if (auth === null) throw new Error('retrieveGuestAuth() returned null')
