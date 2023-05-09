@@ -1,5 +1,5 @@
 import { StorageSettings } from '../storage/index.js'
-import { LndSettings } from '../lnd/index.js'
+import { LndSettings } from '../lnd/settings.js'
 export type MainSettings = {
     storageSettings: StorageSettings,
     lndSettings: LndSettings,

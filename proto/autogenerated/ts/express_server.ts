@@ -65,6 +65,20 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             res.json({status: 'OK', ...response})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
+    if (!opts.allowNotImplementedMethods && !methods.SetMockInvoiceAsPaid) throw new Error('method: SetMockInvoiceAsPaid is not implemented')
+    app.post('/api/admin/lnd/mock/invoice/paid', async (req, res) => {
+        try {
+            if (!methods.SetMockInvoiceAsPaid) throw new Error('method: SetMockInvoiceAsPaid is not implemented')
+            const authContext = await opts.AdminAuthGuard(req.headers['authorization'])
+            const request = req.body
+            const error = Types.SetMockInvoiceAsPaidRequestValidate(request)
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
+            const query = req.query
+            const params = req.params
+            await methods.SetMockInvoiceAsPaid({ ...authContext, ...query, ...params }, request)
+            res.json({status: 'OK'})
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+    })
     if (!opts.allowNotImplementedMethods && !methods.AddApp) throw new Error('method: AddApp is not implemented')
     app.post('/api/admin/app/add', async (req, res) => {
         try {

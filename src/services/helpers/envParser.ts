@@ -10,3 +10,8 @@ export const EnvMustBeInteger = (name: string): number => {
     }
     return +env
 }
+export const EnvCanBeBoolean = (name: string): boolean => {
+    const env = process.env[name]
+    if (!env) return false
+    return env.toLowerCase() === 'true'
+}
