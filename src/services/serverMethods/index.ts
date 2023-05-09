@@ -86,7 +86,7 @@ export default (mainHandler: Main): Types.ServerMethods => {
             if (!ctx.k1) {
                 throw new Error("invalid lnurl pay to get info")
             }
-            return mainHandler.paymentManager.GetLnurlPayInfo(ctx.k1)
+            return mainHandler.paymentManager.GetLnurlPayInfoFromK1(ctx.k1)
         },
         HandleLnurlPay: async (ctx) => {
             if (!ctx.k1 || !ctx.amount) {
@@ -169,6 +169,13 @@ export default (mainHandler: Main): Types.ServerMethods => {
             })
             if (err != null) throw new Error(err.message)
             await mainHandler.applicationManager.SendAppUserToAppPayment(ctx.app_id, req)
+        },
+        GetAppUserLNURLInfo: async (ctx, req) => {
+            const err = Types.GetAppUserLNURLInfoRequestValidate(req, {
+                user_identifier_CustomCheck: id => id !== ''
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.applicationManager.GetAppUserLNURLInfo(ctx.app_id, req)
         }
     }
 }

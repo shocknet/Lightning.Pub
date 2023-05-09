@@ -191,6 +191,20 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             res.json({status: 'OK'})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
+    if (!opts.allowNotImplementedMethods && !methods.GetAppUserLNURLInfo) throw new Error('method: GetAppUserLNURLInfo is not implemented')
+    app.post('/api/app/user/lnurl/pay/info', async (req, res) => {
+        try {
+            if (!methods.GetAppUserLNURLInfo) throw new Error('method: GetAppUserLNURLInfo is not implemented')
+            const authContext = await opts.AppAuthGuard(req.headers['authorization'])
+            const request = req.body
+            const error = Types.GetAppUserLNURLInfoRequestValidate(request)
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
+            const query = req.query
+            const params = req.params
+            const response = await methods.GetAppUserLNURLInfo({ ...authContext, ...query, ...params }, request)
+            res.json({status: 'OK', ...response})
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+    })
     if (!opts.allowNotImplementedMethods && !methods.AddUser) throw new Error('method: AddUser is not implemented')
     app.post('/api/user/add', async (req, res) => {
         try {
