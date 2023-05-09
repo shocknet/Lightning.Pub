@@ -8,6 +8,13 @@ export default (mainHandler: Main): Types.ServerMethods => {
             const info = await mainHandler.lnd.GetInfo()
             return { alias: info.alias }
         },
+        SetMockInvoiceAsPaid: async (ctx, req) => {
+            const err = Types.SetMockInvoiceAsPaidRequestValidate(req, {
+                invoice_CustomCheck: invoice => invoice !== '',
+            })
+            if (err != null) throw new Error(err.message)
+            await mainHandler.paymentManager.SetMockInvoiceAsPaid(req)
+        },
         AddUser: async (ctx, req) => {
             const err = Types.AddUserRequestValidate(req, {
                 callbackUrl_CustomCheck: url => url.startsWith("http://") || url.startsWith("https://"),
@@ -153,7 +160,7 @@ export default (mainHandler: Main): Types.ServerMethods => {
                 amount_CustomCheck: amount => amount > 0
             })
             if (err != null) throw new Error(err.message)
-            mainHandler.applicationManager.SendAppUserToAppUserPayment(ctx.app_id, req)
+            await mainHandler.applicationManager.SendAppUserToAppUserPayment(ctx.app_id, req)
         },
         SendAppUserToAppPayment: async (ctx, req) => {
             const err = Types.SendAppUserToAppPaymentRequestValidate(req, {
@@ -161,7 +168,7 @@ export default (mainHandler: Main): Types.ServerMethods => {
                 amount_CustomCheck: amount => amount > 0
             })
             if (err != null) throw new Error(err.message)
-            mainHandler.applicationManager.SendAppUserToAppPayment(ctx.app_id, req)
+            await mainHandler.applicationManager.SendAppUserToAppPayment(ctx.app_id, req)
         }
     }
 }

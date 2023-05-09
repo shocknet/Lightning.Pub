@@ -51,6 +51,17 @@ export default (params: ClientParams) => ({
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
+    SetMockInvoiceAsPaid: async (request: Types.SetMockInvoiceAsPaidRequest): Promise<ResultError | ({ status: 'OK' })> => {
+        const auth = await params.retrieveAdminAuth()
+        if (auth === null) throw new Error('retrieveAdminAuth() returned null')
+        let finalRoute = '/api/admin/lnd/mock/invoice/paid'
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            return data
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
     AddApp: async (request: Types.AddAppRequest): Promise<ResultError | ({ status: 'OK' }& Types.AddAppResponse)> => {
         const auth = await params.retrieveAdminAuth()
         if (auth === null) throw new Error('retrieveAdminAuth() returned null')

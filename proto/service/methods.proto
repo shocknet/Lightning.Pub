@@ -88,6 +88,12 @@ service LightningPub {
         option (http_route) = "/api/admin/lnd/getinfo";
     };
 
+    rpc SetMockInvoiceAsPaid(structs.SetMockInvoiceAsPaidRequest) returns (structs.Empty) {
+        option (auth_type)  = "Admin";
+        option (http_method) = "post";
+        option (http_route) = "/api/admin/lnd/mock/invoice/paid";
+    }
+
     // <App>
 
     rpc AddApp(structs.AddAppRequest) returns (structs.AddAppResponse) {
