@@ -73,11 +73,13 @@ export default class {
             const userInvoice = await this.storage.paymentStorage.GetInvoiceOwner(paymentRequest, tx)
             if (!userInvoice || userInvoice.paid_at_unix > 0) { return }
             const fee = this.paymentManager.getServiceFee(Types.UserOperationType.INCOMING_INVOICE, amount)
-            const maybeApp = await this.storage.applicationStorage.IsApplicationUser(userInvoice.user.user_id)
             try {
                 // This call will fail if the invoice is already registered
                 await this.storage.paymentStorage.FlagInvoiceAsPaid(userInvoice, amount, fee, tx)
                 await this.storage.userStorage.IncrementUserBalance(userInvoice.user.user_id, amount - fee, tx)
+                if (userInvoice.linkedApplication) {
+                    await this.storage.userStorage.IncrementUserBalance(userInvoice.linkedApplication.owner.user_id, fee, tx)
+                }
                 await this.triggerPaidCallback(userInvoice.callbackUrl)
             } catch {
                 //TODO

@@ -116,6 +116,9 @@ export default (mainHandler: Main): Types.ServerMethods => {
             if (err != null) throw new Error(err.message)
             return mainHandler.applicationManager.AddApp(req)
         },
+        GetApp: async (ctx) => {
+            return mainHandler.applicationManager.GetApp(ctx.app_id)
+        },
         AddAppUser: async (ctx, req) => {
             const err = Types.AddAppUserRequestValidate(req, {
                 identifier_CustomCheck: id => id !== ''
@@ -176,6 +179,16 @@ export default (mainHandler: Main): Types.ServerMethods => {
             })
             if (err != null) throw new Error(err.message)
             return mainHandler.applicationManager.GetAppUserLNURLInfo(ctx.app_id, req)
+        },
+        SetMockAppUserBalance: async (ctx, req) => {
+            const err = Types.SetMockAppUserBalanceRequestValidate(req, {
+                user_identifier_CustomCheck: id => id !== ''
+            })
+            if (err != null) throw new Error(err.message)
+            await mainHandler.applicationManager.SetMockAppUserBalance(ctx.app_id, req)
+        },
+        SetMockAppBalance: async (ctx, req) => {
+            await mainHandler.applicationManager.SetMockAppBalance(ctx.app_id, req)
         }
     }
 }
