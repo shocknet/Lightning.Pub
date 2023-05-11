@@ -10,7 +10,7 @@ interface UserOperationInfo {
     paid_amount: number
     paid_at_unix: number
 }
-const defaultLnurlPayMetadata = '[["text/plain", "lnurl pay to Lightning.pub"]]'
+const defaultLnurlPayMetadata = '[["text/plain", "lnurl pay to Lightning.pub disua dsafds f fsd js jsk jvs jkdsvsdfdskj fsdfsf kjsefgsgfk jsgfsefsfvk jsefesvfgsk jgvsgvsegvk jsesdvgk jsersbvsvgkj ssgvsegvjk esgvsegvsk jgsegvsgvse jk"]]'
 
 export default class {
 
