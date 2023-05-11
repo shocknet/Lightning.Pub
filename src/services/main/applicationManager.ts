@@ -131,6 +131,6 @@ export default class {
     }
     async GetAppUserLNURLInfo(appId: string, req: Types.GetAppUserLNURLInfoRequest): Promise<Types.LnurlPayInfoResponse> {
         const user = await this.storage.applicationStorage.GetApplicationUser(appId, req.user_identifier)
-        return this.paymentManager.GetLnurlPayInfoFromUser(user.user.user_id)
+        return this.paymentManager.GetLnurlPayInfoFromUser(user.user.user_id, req.base_url_override)
     }
 }
