@@ -164,7 +164,7 @@ export default class {
             callback: `${this.settings.serviceUrl}/api/guest/lnurl_withdraw/handle`,
             defaultDescription: "lnurl withdraw from lightning.pub",
             k1: callbackK1.key,
-            maxWithdrawable: maxWithdrawable,
+            maxWithdrawable: maxWithdrawable * 1000,
             minWithdrawable: 0,
             balanceCheck: this.balanceCheckUrl(newBalanceCheckK1.key),
             payLink: `${this.settings.serviceUrl}/api/guest/lnurl_pay/info?k1=${payInfoK1.key}`,
@@ -173,12 +173,12 @@ export default class {
 
     async HandleLnurlWithdraw(k1: string, invoice: string): Promise<void> {
         const key = await this.storage.paymentStorage.UseUserEphemeralKey(k1, 'withdraw')
-        this.PayInvoice(key.user.user_id, {
-            invoice: invoice,
-            amount: 0
-        }).catch(err => {
+        try {
+            await this.PayInvoice(key.user.user_id, { invoice: invoice, amount: 0s })
+        } catch (err: any) {
             console.error("error sending payment for lnurl withdraw to ", key.user.user_id, err)
-        })
+            throw new Error("failed to pay invoice")
+        }
     }
 
     async GetLnurlPayInfoFromUser(userId: string, baseUrl?: string): Promise<Types.LnurlPayInfoResponse> {
@@ -187,7 +187,7 @@ export default class {
         return {
             tag: 'payRequest',
             callback: `${url}?k1=${payK1.key}`,
-            maxSendable: 10000000,
+            maxSendable: 10000000000,
             minSendable: 0,
             metadata: defaultLnurlPayMetadata
         }
