@@ -94,6 +94,7 @@ message SendAppUserToAppPaymentRequest {
 
 message GetAppUserLNURLInfoRequest {
     string user_identifier = 1;
+    string base_url_override = 2;
 }
 
 message SetMockAppUserBalanceRequest {
