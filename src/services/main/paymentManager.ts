@@ -181,11 +181,12 @@ export default class {
         })
     }
 
-    async GetLnurlPayInfoFromUser(userId: string): Promise<Types.LnurlPayInfoResponse> {
+    async GetLnurlPayInfoFromUser(userId: string, baseUrl?: string): Promise<Types.LnurlPayInfoResponse> {
         const payK1 = await this.storage.paymentStorage.AddUserEphemeralKey(userId, 'pay')
+        const url = baseUrl ? baseUrl : `${this.settings.serviceUrl}/api/guest/lnurl_pay/handle`
         return {
             tag: 'payRequest',
-            callback: `${this.settings.serviceUrl}/api/guest/lnurl_pay/handle?k1=${payK1.key}`,
+            callback: `${url}?k1=${payK1.key}`,
             maxSendable: 10000000,
             minSendable: 0,
             metadata: defaultLnurlPayMetadata

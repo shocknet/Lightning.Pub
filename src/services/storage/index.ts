@@ -21,6 +21,7 @@ export type StorageSettings = {
 export const LoadStorageSettingsFromEnv = (test = false): StorageSettings => {
     return { dbSettings: LoadDbSettingsFromEnv(test) }
 }
+type TX = (entityManager: EntityManager) => Promise<void>
 
 export default class {
     DB: DataSource | EntityManager
@@ -30,6 +31,7 @@ export default class {
     userStorage: UserStorage
     paymentStorage: PaymentStorage
     pendingTx: boolean
+    transactionsQueue: { exec: TX, res: () => void, rej: (message: string) => void }[] = []
     constructor(settings: StorageSettings) {
         this.settings = settings
     }
@@ -40,7 +42,32 @@ export default class {
         this.applicationStorage = new ApplicationStorage(this.DB, this.userStorage)
         this.paymentStorage = new PaymentStorage(this.DB, this.userStorage)
     }
-    StartTransaction(exec: (entityManager: EntityManager) => Promise<void>) {
+
+    StartTransaction(exec: TX) {
+        if (!this.pendingTx) {
+            return this.doTransaction(exec)
+        }
+
+        return new Promise<void>((res, rej) => {
+            this.transactionsQueue.push({ exec, res, rej })
+        })
+    }
+
+    async ExecNextInQueue() {
+        this.pendingTx = false
+        const next = this.transactionsQueue.pop()
+        if (!next) {
+            return
+        }
+        try {
+            await this.doTransaction(next.exec)
+            next.res()
+        } catch (err: any) {
+            next.rej(err.message)
+        }
+    }
+
+    doTransaction(exec: TX) {
         if (this.pendingTx) {
             throw new Error("cannot start transaction")
         }
@@ -50,15 +77,12 @@ export default class {
             try {
                 await exec(tx)
                 console.log("tx done")
-                this.pendingTx = false
+                this.ExecNextInQueue()
             } catch (err) {
                 console.log("tx err")
-                this.pendingTx = false
+                this.ExecNextInQueue()
                 throw err
             }
-
-
         })
-
     }
 }
