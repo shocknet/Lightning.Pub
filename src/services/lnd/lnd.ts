@@ -1,4 +1,5 @@
 //const grpc = require('@grpc/grpc-js');
+import crypto from 'crypto'
 import { credentials, Metadata } from '@grpc/grpc-js'
 import { GrpcTransport } from "@protobuf-ts/grpc-transport";
 import fs from 'fs'
@@ -136,7 +137,10 @@ export default class {
 
     async NewInvoice(value: number, memo: string, expiry: number): Promise<Invoice> {
         this.checkReady()
-        const res = await this.lightning.addInvoice(AddInvoiceReq(value, memo, expiry), DeadLineMetadata())
+        const encoder = new TextEncoder()
+        const ecoded = encoder.encode(memo)
+        const hashed = crypto.createHash('sha256').update(ecoded).digest();
+        const res = await this.lightning.addInvoice(AddInvoiceReq(value, hashed, expiry), DeadLineMetadata())
         return { payRequest: res.response.paymentRequest }
     }
 
