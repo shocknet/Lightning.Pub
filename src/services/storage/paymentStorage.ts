@@ -12,7 +12,8 @@ import UserStorage from './userStorage.js';
 import { AddressReceivingTransaction } from './entity/AddressReceivingTransaction.js';
 import { UserInvoicePayment } from './entity/UserInvoicePayment.js';
 import { UserToUserPayment } from './entity/UserToUserPayment.js';
-export type InboundOptionals = { product?: Product, callbackUrl?: string, expiry: number, expectedPayer?: User }
+import { Application } from './entity/Application.js';
+export type InboundOptionals = { product?: Product, callbackUrl?: string, expiry: number, expectedPayer?: User, linkedApplication?: Application }
 export const defaultInvoiceExpiry = 60 * 60
 export default class {
     DB: DataSource | EntityManager
@@ -83,7 +84,8 @@ export default class {
             user: user,
             product: options.product,
             expires_at_unix: Math.floor(Date.now() / 1000) + options.expiry,
-            payer: options.expectedPayer
+            payer: options.expectedPayer,
+            linkedApplication: options.linkedApplication
         })
         return entityManager.getRepository(UserReceivingInvoice).save(newUserInvoice)
     }

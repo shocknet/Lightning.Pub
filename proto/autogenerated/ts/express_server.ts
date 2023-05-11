@@ -66,10 +66,10 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.SetMockInvoiceAsPaid) throw new Error('method: SetMockInvoiceAsPaid is not implemented')
-    app.post('/api/admin/lnd/mock/invoice/paid', async (req, res) => {
+    app.post('/api/lnd/mock/invoice/paid', async (req, res) => {
         try {
             if (!methods.SetMockInvoiceAsPaid) throw new Error('method: SetMockInvoiceAsPaid is not implemented')
-            const authContext = await opts.AdminAuthGuard(req.headers['authorization'])
+            const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
             const request = req.body
             const error = Types.SetMockInvoiceAsPaidRequestValidate(request)
             if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
@@ -90,6 +90,17 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const query = req.query
             const params = req.params
             const response = await methods.AddApp({ ...authContext, ...query, ...params }, request)
+            res.json({status: 'OK', ...response})
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.GetApp) throw new Error('method: GetApp is not implemented')
+    app.post('/api/app/get', async (req, res) => {
+        try {
+            if (!methods.GetApp) throw new Error('method: GetApp is not implemented')
+            const authContext = await opts.AppAuthGuard(req.headers['authorization'])
+            const query = req.query
+            const params = req.params
+            const response = await methods.GetApp({ ...authContext, ...query, ...params })
             res.json({status: 'OK', ...response})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
@@ -203,6 +214,34 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const params = req.params
             const response = await methods.GetAppUserLNURLInfo({ ...authContext, ...query, ...params }, request)
             res.json({status: 'OK', ...response})
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.SetMockAppUserBalance) throw new Error('method: SetMockAppUserBalance is not implemented')
+    app.post('/api/app/mock/user/blance/set', async (req, res) => {
+        try {
+            if (!methods.SetMockAppUserBalance) throw new Error('method: SetMockAppUserBalance is not implemented')
+            const authContext = await opts.AppAuthGuard(req.headers['authorization'])
+            const request = req.body
+            const error = Types.SetMockAppUserBalanceRequestValidate(request)
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
+            const query = req.query
+            const params = req.params
+            await methods.SetMockAppUserBalance({ ...authContext, ...query, ...params }, request)
+            res.json({status: 'OK'})
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.SetMockAppBalance) throw new Error('method: SetMockAppBalance is not implemented')
+    app.post('/api/app/mock/blance/set', async (req, res) => {
+        try {
+            if (!methods.SetMockAppBalance) throw new Error('method: SetMockAppBalance is not implemented')
+            const authContext = await opts.AppAuthGuard(req.headers['authorization'])
+            const request = req.body
+            const error = Types.SetMockAppBalanceRequestValidate(request)
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
+            const query = req.query
+            const params = req.params
+            await methods.SetMockAppBalance({ ...authContext, ...query, ...params }, request)
+            res.json({status: 'OK'})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.AddUser) throw new Error('method: AddUser is not implemented')

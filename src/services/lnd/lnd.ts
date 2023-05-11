@@ -157,7 +157,6 @@ export default class {
         this.checkReady()
         const abortController = new AbortController()
         const req = PayInvoiceReq(invoice, amount, feeLimit)
-        console.log(req)
         const stream = this.router.sendPaymentV2(req, { abort: abortController.signal })
         return new Promise((res, rej) => {
             stream.responses.onError(error => {

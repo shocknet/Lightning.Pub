@@ -75,6 +75,7 @@ export default class {
         }
     }
     async UnlockUser(userId: string, entityManager = this.DB) {
+        console.log("unlocking", userId)
         const res = await entityManager.getRepository(User).update({
             user_id: userId
         }, { locked: false })
@@ -101,5 +102,10 @@ export default class {
         if (!res.affected) {
             throw new Error("unaffected balance decrement for " + userId) // TODO: fix logs doxing
         }
+    }
+
+    async UpdateUser(userId: string, update: Partial<User>, entityManager = this.DB) {
+        const user = await this.GetUser(userId, entityManager)
+        await entityManager.getRepository(User).update(user.serial_id, update)
     }
 }

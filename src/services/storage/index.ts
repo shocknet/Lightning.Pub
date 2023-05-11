@@ -1,4 +1,4 @@
-import { DataSource, EntityManager, MoreThan, MoreThanOrEqual } from "typeorm"
+import { DataSource, EntityManager, MoreThan, MoreThanOrEqual, TransactionAlreadyStartedError } from "typeorm"
 import crypto from 'crypto';
 import NewDB, { DbSettings, LoadDbSettingsFromEnv } from "./db.js"
 import { User } from "./entity/User.js"
@@ -29,6 +29,7 @@ export default class {
     applicationStorage: ApplicationStorage
     userStorage: UserStorage
     paymentStorage: PaymentStorage
+    pendingTx: boolean
     constructor(settings: StorageSettings) {
         this.settings = settings
     }
@@ -40,6 +41,24 @@ export default class {
         this.paymentStorage = new PaymentStorage(this.DB, this.userStorage)
     }
     StartTransaction(exec: (entityManager: EntityManager) => Promise<void>) {
-        return this.DB.transaction(exec)
+        if (this.pendingTx) {
+            throw new Error("cannot start transaction")
+        }
+        this.pendingTx = true
+        console.log("starting tx")
+        return this.DB.transaction(async tx => {
+            try {
+                await exec(tx)
+                console.log("tx done")
+                this.pendingTx = false
+            } catch (err) {
+                console.log("tx err")
+                this.pendingTx = false
+                throw err
+            }
+
+
+        })
+
     }
 }

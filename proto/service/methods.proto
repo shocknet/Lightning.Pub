@@ -89,9 +89,9 @@ service LightningPub {
     };
 
     rpc SetMockInvoiceAsPaid(structs.SetMockInvoiceAsPaidRequest) returns (structs.Empty) {
-        option (auth_type)  = "Admin";
+        option (auth_type)  = "Guest";
         option (http_method) = "post";
-        option (http_route) = "/api/admin/lnd/mock/invoice/paid";
+        option (http_route) = "/api/lnd/mock/invoice/paid";
     }
 
     // <App>
@@ -101,6 +101,12 @@ service LightningPub {
         option (http_method) = "post";
         option (http_route) = "/api/admin/app/add";
     };
+
+    rpc GetApp(structs.Empty) returns (structs.Application)  {
+        option (auth_type)  = "App";
+        option (http_method) = "post";
+        option (http_route) = "/api/app/get";
+    }
     
     rpc AddAppUser(structs.AddAppUserRequest)returns (structs.AppUser) {
         option (auth_type)  = "App";
@@ -148,6 +154,16 @@ service LightningPub {
         option (auth_type)  = "App";
         option (http_method) = "post";
         option (http_route) = "/api/app/user/lnurl/pay/info";
+    }
+    rpc SetMockAppUserBalance(structs.SetMockAppUserBalanceRequest) returns (structs.Empty) {
+        option (auth_type)  = "App";
+        option (http_method) = "post";
+        option (http_route) = "/api/app/mock/user/blance/set";
+    }
+    rpc SetMockAppBalance(structs.SetMockAppBalanceRequest) returns (structs.Empty) {
+        option (auth_type)  = "App";
+        option (http_method) = "post";
+        option (http_route) = "/api/app/mock/blance/set";
     }
 
     // </App>

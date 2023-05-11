@@ -32,8 +32,10 @@ export interface LightningHandler {
 
 export default (settings: LndSettings, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb): LightningHandler => {
     if (settings.mockLnd) {
+        console.log("registering mock lnd handler")
         return new MockLnd(settings, addressPaidCb, invoicePaidCb)
     } else {
+        console.log("registering prod lnd handler")
         return new LND(settings, addressPaidCb, invoicePaidCb)
     }
 }

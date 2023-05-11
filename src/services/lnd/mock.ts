@@ -15,7 +15,7 @@ import { SendCoinsReq } from './sendCoinsReq.js';
 import { LndSettings, AddressPaidCb, InvoicePaidCb, NodeInfo, Invoice, DecodedInvoice, PaidInvoice } from './settings.js';
 
 export default class {
-    invoicesAwaiting: Record<string /* invoice */, { value: number, memo: string, expiryUnix: number }>
+    invoicesAwaiting: Record<string /* invoice */, { value: number, memo: string, expiryUnix: number }> = {}
     settings: LndSettings
     abortController = new AbortController()
     addressPaidCb: AddressPaidCb
@@ -49,12 +49,16 @@ export default class {
     }
 
     async NewInvoice(value: number, memo: string, expiry: number): Promise<Invoice> {
-        const mockInvoice = "lnbcrtmock" + crypto.randomBytes(32).toString('hex')
+        const mockInvoice = "lnbcrtmockin" + crypto.randomBytes(32).toString('hex')
         this.invoicesAwaiting[mockInvoice] = { value, memo, expiryUnix: expiry + Date.now() / 1000 }
         return { payRequest: mockInvoice }
     }
 
     async DecodeInvoice(paymentRequest: string): Promise<DecodedInvoice> {
+        if (paymentRequest.startsWith('lnbcrtmockout')) {
+            const amt = this.decodeOutboundInvoice(paymentRequest)
+            return { numSatoshis: amt }
+        }
         const i = this.invoicesAwaiting[paymentRequest]
         if (!i) {
             throw new Error("invoice not found")
@@ -70,15 +74,23 @@ export default class {
         return Math.max(0, Math.floor(amount * (1 - this.settings.feeRateLimit) - this.settings.feeFixedLimit))
     }
 
-    async PayInvoice(invoice: string, amount: number, feeLimit: number): Promise<PaidInvoice> {
-        if (!invoice.startsWith('lnbcrtmock')) {
+    decodeOutboundInvoice(invoice: string): number {
+        if (!invoice.startsWith('lnbcrtmockout')) {
             throw new Error("invalid mock invoice provided for payment")
         }
-        const amt = invoice.substring('lnbcrtmock'.length)
+        const amt = invoice.substring('lnbcrtmockout'.length).split("__")[0]
         if (isNaN(+amt)) {
             throw new Error("invalid mock invoice provided for payment")
         }
-        return { feeSat: 0, paymentPreimage: "all_good", valueSat: +amt || amount }
+        return +amt
+    }
+
+    async PayInvoice(invoice: string, amount: number, feeLimit: number): Promise<PaidInvoice> {
+        console.log('payng', invoice)
+        await new Promise(res => setTimeout(res, 200))
+        const amt = this.decodeOutboundInvoice(invoice)
+        console.log('paid', invoice)
+        return { feeSat: 1, paymentPreimage: "all_good", valueSat: amt || amount }
     }
 
     async EstimateChainFees(address: string, amount: number, targetConf: number): Promise<EstimateFeeResponse> {

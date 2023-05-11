@@ -15,13 +15,18 @@ export default class {
     }
 
     DecodeUserToken(token?: string): string {
-        if (!token) throw new Error("empty user token provided")
+        throw new Error("users methods temporarely disabled")
+        /*if (!token) throw new Error("empty user token provided")
         let t = token
         if (token.startsWith("Bearer ")) {
             t = token.substring("Bearer ".length)
         }
         if (!t) throw new Error("no user token provided")
-        return (jwt.verify(token, this.settings.jwtSecret) as { userId: string }).userId
+        const decoded = jwt.verify(token, this.settings.jwtSecret) as { userId?: string }
+        if (!decoded.userId) {
+            throw new Error("the provided token is not an app token")
+        }
+        return decoded.userId*/
     }
 
     async AddBasicUser(req: Types.AddUserRequest): Promise<Types.AddUserResponse> {

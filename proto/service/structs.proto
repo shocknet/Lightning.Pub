@@ -29,11 +29,16 @@ message AddAppRequest {
     string name = 1;
 }
 
-message AddAppResponse {
+message Application {
     string name = 1;
     string id = 2;
-    string auth_token = 3;
+    int64 balance = 3;
 }
+message AddAppResponse {
+    Application app = 1;
+    string auth_token = 2;
+}
+
 
 message AddAppUserRequest {
     string identifier = 1;
@@ -89,6 +94,15 @@ message SendAppUserToAppPaymentRequest {
 
 message GetAppUserLNURLInfoRequest {
     string user_identifier = 1;
+}
+
+message SetMockAppUserBalanceRequest {
+    string user_identifier = 1;
+    int64 amount = 2;
+}
+
+message SetMockAppBalanceRequest {
+    int64 amount = 1;
 }
 
 enum AddressType {

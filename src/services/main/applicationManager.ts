@@ -27,16 +27,42 @@ export default class {
             t = token.substring("Bearer ".length)
         }
         if (!t) throw new Error("no app token provided")
-        return (jwt.verify(token, this.settings.jwtSecret) as { appId: string }).appId
+        const decoded = jwt.verify(token, this.settings.jwtSecret) as { appId?: string }
+        if (!decoded.appId) {
+            throw new Error("the provided token is not an app token")
+        }
+        return decoded.appId
+    }
+
+    async SetMockAppUserBalance(appId: string, req: Types.SetMockAppUserBalanceRequest) {
+        const user = await this.storage.applicationStorage.GetOrCreateApplicationUser(appId, req.user_identifier, 0)
+        await this.paymentManager.SetMockUserBalance(user.user.user_id, req.amount)
+    }
+
+    async SetMockAppBalance(appId: string, req: Types.SetMockAppBalanceRequest) {
+        const app = await this.storage.applicationStorage.GetApplication(appId)
+        await this.paymentManager.SetMockUserBalance(app.owner.user_id, req.amount)
     }
 
 
     async AddApp(req: Types.AddAppRequest): Promise<Types.AddAppResponse> {
         const app = await this.storage.applicationStorage.AddApplication(req.name)
         return {
-            id: app.app_id,
-            name: app.name,
+            app: {
+                id: app.app_id,
+                name: app.name,
+                balance: 0
+            },
             auth_token: this.SignAppToken(app.app_id)
+        }
+    }
+
+    async GetApp(appId: string): Promise<Types.Application> {
+        const app = await this.storage.applicationStorage.GetApplication(appId)
+        return {
+            name: app.name,
+            id: app.app_id,
+            balance: app.owner.balance_sats
         }
     }
 
@@ -60,7 +86,7 @@ export default class {
     async AddAppInvoice(appId: string, req: Types.AddAppInvoiceRequest): Promise<Types.NewInvoiceResponse> {
         const app = await this.storage.applicationStorage.GetApplication(appId)
         const payer = await this.storage.applicationStorage.GetOrCreateApplicationUser(appId, req.payer_identifier, 0)
-        const opts: InboundOptionals = { callbackUrl: req.http_callback_url, expiry: defaultInvoiceExpiry, expectedPayer: payer.user }
+        const opts: InboundOptionals = { callbackUrl: req.http_callback_url, expiry: defaultInvoiceExpiry, expectedPayer: payer.user, linkedApplication: app }
         return this.paymentManager.NewInvoice(app.owner.user_id, req.invoice_req, opts)
     }
 
@@ -77,6 +103,7 @@ export default class {
     async GetAppUser(appId: string, req: Types.GetAppUserRequest): Promise<Types.AppUser> {
         const user = await this.storage.applicationStorage.GetApplicationUser(appId, req.user_identifier)
         const max = this.paymentManager.GetMaxPayableInvoice(user.user.balance_sats)
+        console.log(max, user.user.balance_sats)
         return {
             max_withdrawable: max, identifier: req.user_identifier, info: {
                 userId: user.user.user_id, balance: user.user.balance_sats
@@ -85,14 +112,16 @@ export default class {
     }
 
     async PayAppUserInvoice(appId: string, req: Types.PayAppUserInvoiceRequest): Promise<Types.PayAppUserInvoiceResponse> {
+        const app = await this.storage.applicationStorage.GetApplication(appId)
         const appUser = await this.storage.applicationStorage.GetApplicationUser(appId, req.user_identifier)
-        return this.paymentManager.PayInvoice(appUser.user.user_id, req)
+        return this.paymentManager.PayInvoice(appUser.user.user_id, req, app)
     }
 
     async SendAppUserToAppUserPayment(appId: string, req: Types.SendAppUserToAppUserPaymentRequest): Promise<void> {
         const fromUser = await this.storage.applicationStorage.GetApplicationUser(appId, req.from_user_identifier)
         const toUser = await this.storage.applicationStorage.GetApplicationUser(appId, req.to_user_identifier)
-        await this.paymentManager.SendUserToUserPayment(fromUser.user.user_id, toUser.user.user_id, req.amount)
+        const app = await this.storage.applicationStorage.GetApplication(appId)
+        await this.paymentManager.SendUserToUserPayment(fromUser.user.user_id, toUser.user.user_id, req.amount, app)
     }
 
     async SendAppUserToAppPayment(appId: string, req: Types.SendAppUserToAppPaymentRequest): Promise<void> {

@@ -66,7 +66,6 @@ export default class {
         }
 
         if (found.application.app_id !== appId) {
-            console.log(found, appId)
             throw new Error("requested user does not belong to requestor application")
         }
         return found
@@ -74,5 +73,9 @@ export default class {
 
     async IsApplicationUser(userId: string, entityManager = this.DB): Promise<ApplicationUser | null> {
         return await entityManager.getRepository(ApplicationUser).findOne({ where: { user: { user_id: userId } } })
+    }
+
+    async IsApplicationOwner(userId: string, entityManager = this.DB) {
+        return entityManager.getRepository(Application).findOne({ where: { owner: { user_id: userId } } })
     }
 }
