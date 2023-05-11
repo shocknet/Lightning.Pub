@@ -174,7 +174,7 @@ export default class {
     async HandleLnurlWithdraw(k1: string, invoice: string): Promise<void> {
         const key = await this.storage.paymentStorage.UseUserEphemeralKey(k1, 'withdraw')
         try {
-            await this.PayInvoice(key.user.user_id, { invoice: invoice, amount: 0s })
+            await this.PayInvoice(key.user.user_id, { invoice: invoice, amount: 0 })
         } catch (err: any) {
             console.error("error sending payment for lnurl withdraw to ", key.user.user_id, err)
             throw new Error("failed to pay invoice")
