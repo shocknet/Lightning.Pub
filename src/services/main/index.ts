@@ -14,11 +14,14 @@ export const LoadMainSettingsFromEnv = (test = false): MainSettings => {
         lndSettings: LoadLndSettingsFromEnv(test),
         storageSettings: LoadStorageSettingsFromEnv(test),
         jwtSecret: EnvMustBeNonEmptyString("JWT_SECRET"),
-        incomingTxFee: EnvMustBeInteger("SERVICE_FEE_INCOMING_TX_PERCENT") / 100,
-        outgoingTxFee: EnvMustBeInteger("SERVICE_FEE_OUTGOING_TX_PERCENT") / 100,
-        incomingInvoiceFee: EnvMustBeInteger("SERVICE_FEE_INCOMING_INVOICE_PERCENT") / 100,
-        outgoingInvoiceFee: EnvMustBeInteger("SERVICE_FEE_OUTGOING_INVOICE_PERCENT") / 100,
-        userToUserFee: EnvMustBeInteger("SERVICE_FEE_USER_TO_USER_PERCENT") / 100,
+        incomingTxFee: EnvMustBeInteger("INCOMING_CHAIN_FEE_ROOT_BPS") / 10000,
+        outgoingTxFee: EnvMustBeInteger("OUTGOING_CHAIN_FEE_ROOT_BPS") / 10000,
+        incomingAppInvoiceFee: EnvMustBeInteger("INCOMING_INVOICE_FEE_ROOT_BPS") / 10000,
+        outgoingAppInvoiceFee: EnvMustBeInteger("OUTGOING_INVOICE_FEE_ROOT_BPS") / 10000,
+        incomingAppUserInvoiceFee: EnvMustBeInteger("INCOMING_INVOICE_FEE_USER_BPS") / 10000,
+        outgoingAppUserInvoiceFee: EnvMustBeInteger("OUTGOING_INVOICE_FEE_USER_BPS") / 10000,
+        userToUserFee: EnvMustBeInteger("TX_FEE_INTERNAL_USER_BPS") / 10000,
+        appToUserFee: EnvMustBeInteger("TX_FEE_INTERNAL_ROOT_BPS") / 10000,
         serviceUrl: EnvMustBeNonEmptyString("SERVICE_URL"),
         servicePort: EnvMustBeInteger("PORT")
     }
@@ -57,7 +60,7 @@ export default class {
         this.storage.StartTransaction(async tx => {
             const userAddress = await this.storage.paymentStorage.GetAddressOwner(address, tx)
             if (!userAddress) { return }
-            const fee = this.paymentManager.getServiceFee(Types.UserOperationType.INCOMING_TX, amount)
+            const fee = this.paymentManager.getServiceFee(Types.UserOperationType.INCOMING_TX, amount, false)
             try {
                 // This call will fail if the transaction is already registered
                 const addedTx = await this.storage.paymentStorage.AddAddressReceivingTransaction(userAddress, txOutput.hash, txOutput.index, amount, fee, tx)
@@ -72,12 +75,21 @@ export default class {
         this.storage.StartTransaction(async tx => {
             const userInvoice = await this.storage.paymentStorage.GetInvoiceOwner(paymentRequest, tx)
             if (!userInvoice || userInvoice.paid_at_unix > 0) { return }
-            const fee = this.paymentManager.getServiceFee(Types.UserOperationType.INCOMING_INVOICE, amount)
+            if (!userInvoice.linkedApplication) {
+                console.error("an invoice was paid, that has no linked application")
+                return
+            }
+            const isAppUserPayment = userInvoice.user.user_id !== userInvoice.linkedApplication.owner.user_id
+            let fee = this.paymentManager.getServiceFee(Types.UserOperationType.INCOMING_INVOICE, amount, isAppUserPayment)
+            if (userInvoice.linkedApplication && userInvoice.linkedApplication.owner.user_id === userInvoice.user.user_id) {
+                fee = 0
+            }
             try {
                 // This call will fail if the invoice is already registered
                 await this.storage.paymentStorage.FlagInvoiceAsPaid(userInvoice, amount, fee, tx)
+
                 await this.storage.userStorage.IncrementUserBalance(userInvoice.user.user_id, amount - fee, tx)
-                if (userInvoice.linkedApplication) {
+                if (isAppUserPayment && fee > 0) {
                     await this.storage.userStorage.IncrementUserBalance(userInvoice.linkedApplication.owner.user_id, fee, tx)
                 }
                 await this.triggerPaidCallback(userInvoice.callbackUrl)

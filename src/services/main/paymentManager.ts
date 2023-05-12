@@ -22,18 +22,27 @@ export default class {
         this.settings = settings
         this.lnd = lnd
     }
-    getServiceFee(action: Types.UserOperationType, amount: number): number {
+    getServiceFee(action: Types.UserOperationType, amount: number, appUser: boolean): number {
         switch (action) {
             case Types.UserOperationType.INCOMING_TX:
                 return Math.ceil(this.settings.incomingTxFee * amount)
             case Types.UserOperationType.OUTGOING_TX:
                 return Math.ceil(this.settings.outgoingTxFee * amount)
             case Types.UserOperationType.INCOMING_INVOICE:
-                return Math.ceil(this.settings.incomingInvoiceFee * amount)
+                if (appUser) {
+                    return Math.ceil(this.settings.incomingAppUserInvoiceFee * amount)
+                }
+                return Math.ceil(this.settings.incomingAppInvoiceFee * amount)
             case Types.UserOperationType.OUTGOING_INVOICE:
-                return Math.ceil(this.settings.outgoingInvoiceFee * amount)
+                if (appUser) {
+                    return Math.ceil(this.settings.outgoingAppUserInvoiceFee * amount)
+                }
+                return Math.ceil(this.settings.outgoingAppInvoiceFee * amount)
             case Types.UserOperationType.OUTGOING_USER_TO_USER || Types.UserOperationType.INCOMING_USER_TO_USER:
-                return Math.ceil(this.settings.userToUserFee * amount)
+                if (appUser) {
+                    return Math.ceil(this.settings.userToUserFee * amount)
+                }
+                return Math.ceil(this.settings.appToUserFee * amount)
             default:
                 throw new Error("Unknown service action type")
         }
@@ -86,8 +95,13 @@ export default class {
         })
     }
 
-    GetMaxPayableInvoice(balance: number): number {
-        const maxWithinServiceFee = Math.max(0, Math.floor(balance * (1 - this.settings.outgoingInvoiceFee)))
+    GetMaxPayableInvoice(balance: number, appUser: boolean): number {
+        let maxWithinServiceFee = 0
+        if (appUser) {
+            maxWithinServiceFee = Math.max(0, Math.floor(balance * (1 - this.settings.outgoingAppUserInvoiceFee)))
+        } else {
+            maxWithinServiceFee = Math.max(0, Math.floor(balance * (1 - this.settings.outgoingAppInvoiceFee)))
+        }
         return this.lnd.GetMaxWithinLimit(maxWithinServiceFee)
     }
     async DecodeInvoice(req: Types.DecodeInvoiceRequest): Promise<Types.DecodeInvoiceResponse> {
@@ -105,17 +119,19 @@ export default class {
             throw new Error("invoice has no value, an amount must be provided in the request")
         }
         const payAmount = req.amount !== 0 ? req.amount : Number(decoded.numSatoshis)
-        const serviceFee = this.getServiceFee(Types.UserOperationType.OUTGOING_INVOICE, payAmount)
+        if (!linkedApplication) {
+            throw new Error("only application operations are supported") // TODO - make this check obsolete
+        }
+        const isAppUserPayment = userId !== linkedApplication.owner.user_id
+        const serviceFee = this.getServiceFee(Types.UserOperationType.OUTGOING_INVOICE, payAmount, isAppUserPayment)
         const totalAmountToDecrement = payAmount + serviceFee
 
         const routingFeeLimit = this.lnd.GetFeeLimitAmount(payAmount)
         await this.lockUserWithMinBalance(userId, totalAmountToDecrement + routingFeeLimit)
         const payment = await this.lnd.PayInvoice(req.invoice, req.amount, routingFeeLimit)
         await this.storage.userStorage.DecrementUserBalance(userId, totalAmountToDecrement + Number(payment.feeSat))
-        if (linkedApplication) {
+        if (isAppUserPayment && serviceFee > 0) {
             await this.storage.userStorage.IncrementUserBalance(linkedApplication.owner.user_id, serviceFee)
-        } else {
-            //const appOwner = await this.storage.applicationStorage.IsApplicationOwner(userId)
         }
         await this.storage.userStorage.UnlockUser(userId)
         await this.storage.paymentStorage.AddUserInvoicePayment(userId, req.invoice, payAmount, Number(payment.feeSat), serviceFee)
@@ -125,12 +141,18 @@ export default class {
         }
     }
 
-    async PayAddress(userId: string, req: Types.PayAddressRequest): Promise<Types.PayAddressResponse> {
+    async PayAddress(userId: string, req: Types.PayAddressRequest, linkedApplication?: Application): Promise<Types.PayAddressResponse> {
         const estimate = await this.lnd.EstimateChainFees(req.address, req.amoutSats, req.targetConf)
         const satPerVByte = Number(estimate.satPerVbyte)
         const chainFees = Number(estimate.feeSat)
         const total = req.amoutSats + chainFees
-        const serviceFee = this.getServiceFee(Types.UserOperationType.OUTGOING_INVOICE, req.amoutSats)
+        if (!linkedApplication) {
+            throw new Error("only application operations are supported") // TODO - make this check obsolete
+        }
+        if (userId !== linkedApplication.owner.user_id) {
+            throw new Error("chain operations only supported for applications")
+        }
+        const serviceFee = this.getServiceFee(Types.UserOperationType.OUTGOING_INVOICE, req.amoutSats, false)
         await this.lockUserWithMinBalance(userId, total + serviceFee)
         const payment = await this.lnd.PayAddress(req.address, req.amoutSats, satPerVByte)
         await this.storage.userStorage.DecrementUserBalance(userId, total + serviceFee)
@@ -154,7 +176,8 @@ export default class {
     }
 
     async GetLnurlWithdrawInfo(balanceCheckK1: string): Promise<Types.LnurlWithdrawInfoResponse> {
-        const key = await this.storage.paymentStorage.UseUserEphemeralKey(balanceCheckK1, 'balanceCheck')
+        throw new Error("LNURL withdraw currenlty not supported for non application users")
+        /*const key = await this.storage.paymentStorage.UseUserEphemeralKey(balanceCheckK1, 'balanceCheck')
         const maxWithdrawable = this.GetMaxPayableInvoice(key.user.balance_sats)
         const callbackK1 = await this.storage.paymentStorage.AddUserEphemeralKey(key.user.user_id, 'withdraw')
         const newBalanceCheckK1 = await this.storage.paymentStorage.AddUserEphemeralKey(key.user.user_id, 'balanceCheck')
@@ -165,10 +188,10 @@ export default class {
             defaultDescription: "lnurl withdraw from lightning.pub",
             k1: callbackK1.key,
             maxWithdrawable: maxWithdrawable * 1000,
-            minWithdrawable: 0,
+            minWithdrawable: 10000,
             balanceCheck: this.balanceCheckUrl(newBalanceCheckK1.key),
             payLink: `${this.settings.serviceUrl}/api/guest/lnurl_pay/info?k1=${payInfoK1.key}`,
-        }
+        }*/
     }
 
     async HandleLnurlWithdraw(k1: string, invoice: string): Promise<void> {
@@ -188,7 +211,7 @@ export default class {
             tag: 'payRequest',
             callback: `${url}?k1=${payK1.key}`,
             maxSendable: 10000000000,
-            minSendable: 0,
+            minSendable: 10000,
             metadata: defaultLnurlPayMetadata
         }
     }
@@ -200,7 +223,7 @@ export default class {
             tag: 'payRequest',
             callback: `${this.settings.serviceUrl}/api/guest/lnurl_pay/handle?k1=${payK1.key}`,
             maxSendable: 10000000,
-            minSendable: 0,
+            minSendable: 10000,
             metadata: defaultLnurlPayMetadata
         }
     }
@@ -263,18 +286,25 @@ export default class {
     }
 
     async SendUserToUserPayment(fromUserId: string, toUserId: string, amount: number, linkedApplication?: Application) {
+        if (!linkedApplication) {
+            throw new Error("only application operations are supported") // TODO - make this check obsolete
+        }
         await this.storage.StartTransaction(async tx => {
             const fromUser = await this.storage.userStorage.GetUser(fromUserId, tx)
             const toUser = await this.storage.userStorage.GetUser(toUserId, tx)
             if (fromUser.balance_sats < amount) {
                 throw new Error("not enough balance to send user to user payment")
             }
-            const fee = this.getServiceFee(Types.UserOperationType.OUTGOING_USER_TO_USER, amount)
+            if (!linkedApplication) {
+                throw new Error("only application operations are supported") // TODO - make this check obsolete
+            }
+            const isAppUserPayment = fromUser.user_id !== linkedApplication.owner.user_id
+            let fee = this.getServiceFee(Types.UserOperationType.OUTGOING_USER_TO_USER, amount, isAppUserPayment)
             const toIncrement = amount - fee
             await this.storage.userStorage.DecrementUserBalance(fromUser.user_id, amount, tx)
             await this.storage.userStorage.IncrementUserBalance(toUser.user_id, toIncrement, tx)
             await this.storage.paymentStorage.AddUserToUserPayment(fromUserId, toUserId, amount, fee)
-            if (linkedApplication) {
+            if (isAppUserPayment && fee > 0) {
                 await this.storage.userStorage.IncrementUserBalance(linkedApplication.owner.user_id, fee)
             }
         })

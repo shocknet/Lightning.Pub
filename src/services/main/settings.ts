@@ -6,9 +6,12 @@ export type MainSettings = {
     jwtSecret: string
     incomingTxFee: number
     outgoingTxFee: number
-    incomingInvoiceFee: number
-    outgoingInvoiceFee: number
+    incomingAppInvoiceFee: number
+    incomingAppUserInvoiceFee: number
+    outgoingAppInvoiceFee: number
+    outgoingAppUserInvoiceFee: number
     userToUserFee: number
+    appToUserFee: number
     serviceUrl: string
     servicePort: number
 
