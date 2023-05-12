@@ -128,12 +128,18 @@ export default class {
 
         const routingFeeLimit = this.lnd.GetFeeLimitAmount(payAmount)
         await this.lockUserWithMinBalance(userId, totalAmountToDecrement + routingFeeLimit)
-        const payment = await this.lnd.PayInvoice(req.invoice, req.amount, routingFeeLimit)
+        let payment
+        try {
+            payment = await this.lnd.PayInvoice(req.invoice, req.amount, routingFeeLimit)
+            await this.storage.userStorage.UnlockUser(userId)
+        } catch (err) {
+            await this.storage.userStorage.UnlockUser(userId)
+            throw err
+        }
         await this.storage.userStorage.DecrementUserBalance(userId, totalAmountToDecrement + Number(payment.feeSat))
         if (isAppUserPayment && serviceFee > 0) {
             await this.storage.userStorage.IncrementUserBalance(linkedApplication.owner.user_id, serviceFee)
         }
-        await this.storage.userStorage.UnlockUser(userId)
         await this.storage.paymentStorage.AddUserInvoicePayment(userId, req.invoice, payAmount, Number(payment.feeSat), serviceFee)
         return {
             preimage: payment.paymentPreimage,
@@ -154,9 +160,15 @@ export default class {
         }
         const serviceFee = this.getServiceFee(Types.UserOperationType.OUTGOING_INVOICE, req.amoutSats, false)
         await this.lockUserWithMinBalance(userId, total + serviceFee)
-        const payment = await this.lnd.PayAddress(req.address, req.amoutSats, satPerVByte)
+        let payment
+        try {
+            payment = await this.lnd.PayAddress(req.address, req.amoutSats, satPerVByte)
+            await this.storage.userStorage.UnlockUser(userId)
+        } catch (err) {
+            await this.storage.userStorage.UnlockUser(userId)
+            throw err
+        }
         await this.storage.userStorage.DecrementUserBalance(userId, total + serviceFee)
-        await this.storage.userStorage.UnlockUser(userId)
         await this.storage.paymentStorage.AddUserTransactionPayment(userId, req.address, payment.txid, 0, req.amoutSats, chainFees, serviceFee)
         return {
             txId: payment.txid

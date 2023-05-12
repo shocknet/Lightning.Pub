@@ -15,6 +15,15 @@ const start = async () => {
     const nostrSettings = LoadNosrtSettingsFromEnv()
     nostrMiddleware(serverMethods, mainHandler, nostrSettings)
     const Server = NewServer(serverMethods, serverOptions(mainHandler))
+    if (process.argv[2] === 'unlock') {
+        const u = process.argv[3]
+        if (u) {
+            console.log("unlocking user", u)
+            await mainHandler.storage.userStorage.UnlockUser(u)
+        } else {
+            console.log("no user id found to unlock")
+        }
+    }
     Server.Listen(mainSettings.servicePort)
 }
 start()
