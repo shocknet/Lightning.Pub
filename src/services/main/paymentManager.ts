@@ -234,10 +234,13 @@ export default class {
         if (!Number.isInteger(sats)) {
             throw new Error("millisats amount must be integer sats amount")
         }
+        if (!key.linkedApplication) {
+            throw new Error("cannot handle lnurl for non application user")
+        }
         const invoice = await this.NewInvoice(key.user.user_id, {
             amountSats: sats,
             memo: defaultLnurlPayMetadata
-        })
+        }, { expiry: defaultInvoiceExpiry, linkedApplication: key.linkedApplication })
         return {
             pr: invoice.invoice,
             routes: []
