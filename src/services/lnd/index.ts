@@ -8,8 +8,8 @@ export const LoadLndSettingsFromEnv = (test = false): LndSettings => {
     const lndAddr = EnvMustBeNonEmptyString("LND_ADDRESS")
     const lndCertPath = EnvMustBeNonEmptyString("LND_CERT_PATH")
     const lndMacaroonPath = EnvMustBeNonEmptyString("LND_MACAROON_PATH")
-    const feeRateLimit = EnvMustBeInteger("LIMIT_FEE_RATE_MILLISATS") / 1000
-    const feeFixedLimit = EnvMustBeInteger("LIMIT_FEE_FIXED_SATS")
+    const feeRateLimit = EnvMustBeInteger("OUTBOUND_MAX_FEE_BPS") / 10000
+    const feeFixedLimit = EnvMustBeInteger("OUTBOUND_MAX_FEE_EXTRA_SATS")
     const mockLnd = EnvCanBeBoolean("MOCK_LND")
     return { lndAddr, lndCertPath, lndMacaroonPath, feeRateLimit, feeFixedLimit, mockLnd }
 }
