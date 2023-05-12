@@ -163,11 +163,12 @@ export default class {
     }
 
 
-    async AddUserEphemeralKey(userId: string, keyType: EphemeralKeyType, entityManager = this.DB): Promise<UserEphemeralKey> {
+    async AddUserEphemeralKey(userId: string, keyType: EphemeralKeyType, linkedApplication?: Application, entityManager = this.DB): Promise<UserEphemeralKey> {
         const newKey = entityManager.getRepository(UserEphemeralKey).create({
             user: await this.userStorage.GetUser(userId, entityManager),
             key: crypto.randomBytes(31).toString('hex'),
-            type: keyType
+            type: keyType,
+            linkedApplication
         })
         return entityManager.getRepository(UserEphemeralKey).save(newKey)
     }

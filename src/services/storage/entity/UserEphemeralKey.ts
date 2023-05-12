@@ -1,5 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, Index, Check, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn } from "typeorm"
 import { User } from "./User.js"
+import { Application } from "./Application.js"
 export type EphemeralKeyType = 'balanceCheck' | 'payInfo' | 'pay' | 'withdraw'
 @Entity()
 export class UserEphemeralKey {
@@ -10,6 +11,10 @@ export class UserEphemeralKey {
     @ManyToOne(type => User, { eager: true })
     @JoinColumn()
     user: User
+
+    @ManyToOne(type => Application, { eager: true })
+    @JoinColumn()
+    linkedApplication: Application | null
 
     @Column()
     @Index({ unique: true })
