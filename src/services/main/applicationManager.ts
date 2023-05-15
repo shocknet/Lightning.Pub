@@ -120,7 +120,7 @@ export default class {
 
     async SendAppUserToAppUserPayment(appId: string, req: Types.SendAppUserToAppUserPaymentRequest): Promise<void> {
         const fromUser = await this.storage.applicationStorage.GetApplicationUser(appId, req.from_user_identifier)
-        const toUser = await this.storage.applicationStorage.GetApplicationUser(appId, req.to_user_identifier)
+        const toUser = await this.storage.applicationStorage.GetOrCreateApplicationUser(appId, req.to_user_identifier, 0)
         const app = await this.storage.applicationStorage.GetApplication(appId)
         await this.paymentManager.SendUserToUserPayment(fromUser.user.user_id, toUser.user.user_id, req.amount, app)
     }
