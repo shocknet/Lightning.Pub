@@ -110,11 +110,18 @@ export default (mainHandler: Main): Types.ServerMethods => {
             throw new Error("unimplemented")
         },
         AddApp: async (ctx, req) => {
-            const err = Types.AddAppRequestValidate(req, {
+            const err = Types.AuthAppRequestValidate(req, {
                 name_CustomCheck: name => name !== ''
             })
             if (err != null) throw new Error(err.message)
             return mainHandler.applicationManager.AddApp(req)
+        },
+        AuthApp: async (ctx, req) => {
+            const err = Types.AuthAppRequestValidate(req, {
+                name_CustomCheck: name => name !== ''
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.applicationManager.AuthApp(req)
         },
         GetApp: async (ctx) => {
             return mainHandler.applicationManager.GetApp(ctx.app_id)

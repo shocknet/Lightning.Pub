@@ -96,11 +96,17 @@ service LightningPub {
 
     // <App>
 
-    rpc AddApp(structs.AddAppRequest) returns (structs.AddAppResponse) {
+    rpc AddApp(structs.AuthAppRequest) returns (structs.AuthApp) {
         option (auth_type)  = "Admin";
         option (http_method) = "post";
         option (http_route) = "/api/admin/app/add";
     };
+
+    rpc AuthApp(structs.AuthAppRequest) returns (structs.AuthApp) {
+        option (auth_type)  = "Admin";
+        option (http_method) = "post";
+        option (http_route) = "/api/admin/app/auth";
+    }
 
     rpc GetApp(structs.Empty) returns (structs.Application)  {
         option (auth_type)  = "App";
