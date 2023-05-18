@@ -85,11 +85,25 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             if (!methods.AddApp) throw new Error('method: AddApp is not implemented')
             const authContext = await opts.AdminAuthGuard(req.headers['authorization'])
             const request = req.body
-            const error = Types.AddAppRequestValidate(request)
+            const error = Types.AuthAppRequestValidate(request)
             if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
             const query = req.query
             const params = req.params
             const response = await methods.AddApp({ ...authContext, ...query, ...params }, request)
+            res.json({status: 'OK', ...response})
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.AuthApp) throw new Error('method: AuthApp is not implemented')
+    app.post('/api/admin/app/auth', async (req, res) => {
+        try {
+            if (!methods.AuthApp) throw new Error('method: AuthApp is not implemented')
+            const authContext = await opts.AdminAuthGuard(req.headers['authorization'])
+            const request = req.body
+            const error = Types.AuthAppRequestValidate(request)
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
+            const query = req.query
+            const params = req.params
+            const response = await methods.AuthApp({ ...authContext, ...query, ...params }, request)
             res.json({status: 'OK', ...response})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })

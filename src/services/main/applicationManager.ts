@@ -45,13 +45,25 @@ export default class {
     }
 
 
-    async AddApp(req: Types.AddAppRequest): Promise<Types.AddAppResponse> {
+    async AddApp(req: Types.AuthAppRequest): Promise<Types.AuthApp> {
         const app = await this.storage.applicationStorage.AddApplication(req.name)
         return {
             app: {
                 id: app.app_id,
                 name: app.name,
-                balance: 0
+                balance: app.owner.balance_sats
+            },
+            auth_token: this.SignAppToken(app.app_id)
+        }
+    }
+
+    async AuthApp(req: Types.AuthAppRequest): Promise<Types.AuthApp> {
+        const app = await this.storage.applicationStorage.GetApplication(req.name)
+        return {
+            app: {
+                id: app.app_id,
+                name: app.name,
+                balance: app.owner.balance_sats
             },
             auth_token: this.SignAppToken(app.app_id)
         }
