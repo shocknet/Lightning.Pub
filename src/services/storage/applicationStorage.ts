@@ -22,6 +22,18 @@ export default class {
         return repo.save(newApplication)
     }
 
+    async GetApplicationByName(name: string, entityManager = this.DB) {
+        const found = await entityManager.getRepository(Application).findOne({
+            where: {
+                name
+            }
+        })
+        if (!found) {
+            throw new Error(`application ${name} not found`)
+        }
+        return found
+    }
+
     async GetApplication(appId: string, entityManager = this.DB): Promise<Application> {
         const found = await entityManager.getRepository(Application).findOne({
             where: {

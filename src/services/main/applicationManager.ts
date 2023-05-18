@@ -58,7 +58,7 @@ export default class {
     }
 
     async AuthApp(req: Types.AuthAppRequest): Promise<Types.AuthApp> {
-        const app = await this.storage.applicationStorage.GetApplication(req.name)
+        const app = await this.storage.applicationStorage.GetApplicationByName(req.name)
         return {
             app: {
                 id: app.app_id,
