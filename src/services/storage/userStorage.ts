@@ -3,6 +3,7 @@ import { DataSource, EntityManager } from "typeorm"
 import { User } from './entity/User.js';
 import { UserBasicAuth } from './entity/UserBasicAuth.js';
 import { UserNostrAuth } from './entity/UserNostrAuth.js';
+import { getLogger } from '../helpers/logger.js';
 export default class {
     DB: DataSource | EntityManager
     constructor(DB: DataSource | EntityManager) {
@@ -84,12 +85,14 @@ export default class {
         }
     }
     async IncrementUserBalance(userId: string, increment: number, entityManager = this.DB) {
+        const user = await this.GetUser(userId, entityManager)
         const res = await entityManager.getRepository(User).increment({
             user_id: userId,
         }, "balance_sats", increment)
         if (!res.affected) {
             throw new Error("unaffected balance increment for " + userId) // TODO: fix logs doxing
         }
+        getLogger({ userId: userId })("incremented balance from", user.balance_sats, "sats, by", increment, "sats")
     }
     async DecrementUserBalance(userId: string, decrement: number, entityManager = this.DB) {
         const user = await this.GetUser(userId, entityManager)
@@ -102,6 +105,7 @@ export default class {
         if (!res.affected) {
             throw new Error("unaffected balance decrement for " + userId) // TODO: fix logs doxing
         }
+        getLogger({ userId: userId })("decremented balance from", user.balance_sats, "sats, by", decrement, "sats")
     }
 
     async UpdateUser(userId: string, update: Partial<User>, entityManager = this.DB) {
