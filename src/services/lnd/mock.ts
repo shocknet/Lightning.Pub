@@ -13,6 +13,7 @@ import { AddInvoiceReq } from './addInvoiceReq.js';
 import { PayInvoiceReq } from './payInvoiceReq.js';
 import { SendCoinsReq } from './sendCoinsReq.js';
 import { LndSettings, AddressPaidCb, InvoicePaidCb, NodeInfo, Invoice, DecodedInvoice, PaidInvoice } from './settings.js';
+import { getLogger } from '../helpers/logger.js';
 
 export default class {
     invoicesAwaiting: Record<string /* invoice */, { value: number, memo: string, expiryUnix: number }> = {}
@@ -86,10 +87,11 @@ export default class {
     }
 
     async PayInvoice(invoice: string, amount: number, feeLimit: number): Promise<PaidInvoice> {
-        console.log('payng', invoice)
+        const log = getLogger({})
+        log('payng', invoice)
         await new Promise(res => setTimeout(res, 200))
         const amt = this.decodeOutboundInvoice(invoice)
-        console.log('paid', invoice)
+        log('paid', invoice)
         return { feeSat: 1, paymentPreimage: "all_good", valueSat: amt || amount }
     }
 

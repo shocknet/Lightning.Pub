@@ -5,6 +5,7 @@ import { MainSettings } from './settings.js'
 import { InboundOptionals, defaultInvoiceExpiry } from '../storage/paymentStorage.js'
 import { LightningHandler } from '../lnd/index.js'
 import { Application } from '../storage/entity/Application.js'
+import { getLogger } from '../helpers/logger.js'
 interface UserOperationInfo {
     serial_id: number
     paid_amount: number
@@ -59,7 +60,7 @@ export default class {
         if (!this.settings.lndSettings.mockLnd) {
             throw new Error("mock disabled, cannot set invoice as paid")
         }
-        console.log("setting mock balance...")
+        getLogger({})("setting mock balance...")
         await this.storage.userStorage.UpdateUser(userId, { balance_sats: balance })
     }
 
@@ -81,7 +82,6 @@ export default class {
     }
 
     async lockUserWithMinBalance(userId: string, minBalance: number) {
-        console.log("locking", userId)
         return this.storage.StartTransaction(async tx => {
             const user = await this.storage.userStorage.GetUser(userId, tx)
             if (user.locked) {
@@ -308,7 +308,6 @@ export default class {
             const fromUser = await this.storage.userStorage.GetUser(fromUserId, tx)
             const toUser = await this.storage.userStorage.GetUser(toUserId, tx)
             if (fromUser.balance_sats < amount) {
-                console.log({balance:fromUser.balance_sats, amount})
                 throw new Error("not enough balance to send user to user payment")
             }
             if (!linkedApplication) {

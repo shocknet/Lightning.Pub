@@ -8,3 +8,4 @@ temp/
 build/
 db.sqlite
 .key/
+logs

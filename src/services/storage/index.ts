@@ -69,17 +69,14 @@ export default class {
 
     doTransaction(exec: TX) {
         if (this.pendingTx) {
-            throw new Error("cannot start transaction")
+            throw new Error("cannot start DB transaction")
         }
         this.pendingTx = true
-        console.log("starting tx")
         return this.DB.transaction(async tx => {
             try {
                 await exec(tx)
-                console.log("tx done")
                 this.ExecNextInQueue()
             } catch (err) {
-                console.log("tx err")
                 this.ExecNextInQueue()
                 throw err
             }
