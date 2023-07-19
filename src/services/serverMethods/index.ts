@@ -138,7 +138,6 @@ export default (mainHandler: Main): Types.ServerMethods => {
                 payer_identifier_CustomCheck: id => id !== '',
             })
             if (err != null) throw new Error(err.message)
-            console.log(req)
             return mainHandler.applicationManager.AddAppInvoice(ctx.app_id, req)
         },
         AddAppUserInvoice: async (ctx, req) => {
