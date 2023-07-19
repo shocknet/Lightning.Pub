@@ -13,7 +13,7 @@ export default class {
         if (balance && process.env.ALLOW_BALANCE_MIGRATION !== 'true') {
             throw new Error("balance migration is not allowed")
         }
-        console.log("Adding user with balance", balance)
+        getLogger({})("Adding user with balance", balance)
         const newUser = entityManager.getRepository(User).create({
             user_id: crypto.randomBytes(32).toString('hex'),
             balance_sats: balance
@@ -76,7 +76,6 @@ export default class {
         }
     }
     async UnlockUser(userId: string, entityManager = this.DB) {
-        console.log("unlocking", userId)
         const res = await entityManager.getRepository(User).update({
             user_id: userId
         }, { locked: false })

@@ -4,6 +4,7 @@ import { EnvMustBeNonEmptyString, EnvMustBeInteger, EnvCanBeBoolean } from '../h
 import { AddressPaidCb, DecodedInvoice, Invoice, InvoicePaidCb, LndSettings, NodeInfo, PaidInvoice } from './settings.js'
 import LND from './lnd.js'
 import MockLnd from './mock.js'
+import { getLogger } from '../helpers/logger.js'
 export const LoadLndSettingsFromEnv = (test = false): LndSettings => {
     const lndAddr = EnvMustBeNonEmptyString("LND_ADDRESS")
     const lndCertPath = EnvMustBeNonEmptyString("LND_CERT_PATH")
@@ -32,10 +33,10 @@ export interface LightningHandler {
 
 export default (settings: LndSettings, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb): LightningHandler => {
     if (settings.mockLnd) {
-        console.log("registering mock lnd handler")
+        getLogger({})("registering mock lnd handler")
         return new MockLnd(settings, addressPaidCb, invoicePaidCb)
     } else {
-        console.log("registering prod lnd handler")
+        getLogger({})("registering prod lnd handler")
         return new LND(settings, addressPaidCb, invoicePaidCb)
     }
 }

@@ -9,6 +9,7 @@ import PaymentManager from './paymentManager.js'
 import { MainSettings } from './settings.js'
 import NewLightningHandler, { LoadLndSettingsFromEnv, LightningHandler } from "../lnd/index.js"
 import { AddressPaidCb, InvoicePaidCb } from "../lnd/settings.js"
+import { getLogger, PubLogger } from "../helpers/logger.js"
 export const LoadMainSettingsFromEnv = (test = false): MainSettings => {
     return {
         lndSettings: LoadLndSettingsFromEnv(test),
@@ -75,8 +76,9 @@ export default class {
         this.storage.StartTransaction(async tx => {
             const userInvoice = await this.storage.paymentStorage.GetInvoiceOwner(paymentRequest, tx)
             if (!userInvoice || userInvoice.paid_at_unix > 0) { return }
+            const log = getLogger({})
             if (!userInvoice.linkedApplication) {
-                console.error("an invoice was paid, that has no linked application")
+                log("ERROR", "an invoice was paid, that has no linked application")
                 return
             }
             const isAppUserPayment = userInvoice.user.user_id !== userInvoice.linkedApplication.owner.user_id
@@ -92,22 +94,23 @@ export default class {
                 if (isAppUserPayment && fee > 0) {
                     await this.storage.userStorage.IncrementUserBalance(userInvoice.linkedApplication.owner.user_id, fee, tx)
                 }
-                await this.triggerPaidCallback(userInvoice.callbackUrl)
-            } catch {
-                //TODO
+
+                await this.triggerPaidCallback(log, userInvoice.callbackUrl)
+                log("paid invoice processed successfully")
+            } catch (err: any) {
+                log("ERROR", "cannot process paid invoice", err.message || "")
             }
         })
     }
 
-    async triggerPaidCallback(url: string) {
-        console.log(url)
+    async triggerPaidCallback(log: PubLogger, url: string) {
         if (!url) {
             return
         }
         try {
             await fetch(url + "&ok=true")
         } catch (err: any) {
-            console.log("error sending cb", err)
+            log("error sending paid callback for invoice", err.message || "")
         }
     }
 }

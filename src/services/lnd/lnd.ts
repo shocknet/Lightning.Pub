@@ -15,7 +15,7 @@ import { SendCoinsReq } from './sendCoinsReq.js';
 import { LndSettings, AddressPaidCb, InvoicePaidCb, NodeInfo, Invoice, DecodedInvoice, PaidInvoice } from './settings.js';
 import { getLogger } from '../helpers/logger.js';
 const DeadLineMetadata = (deadline = 10 * 1000) => ({ deadline: Date.now() + deadline })
-
+const deadLndRetrySeconds = 5
 export default class {
     lightning: LightningClient
     invoices: InvoicesClient
@@ -51,8 +51,6 @@ export default class {
         this.lightning = new LightningClient(transport)
         this.invoices = new InvoicesClient(transport)
         this.router = new RouterClient(transport)
-        this.SubscribeAddressPaid()
-        this.SubscribeInvoicePaid()
     }
     SetMockInvoiceAsPaid(invoice: string, amount: number): Promise<void> {
         throw new Error("SetMockInvoiceAsPaid only available in mock mode")
@@ -60,7 +58,11 @@ export default class {
     Stop() {
         this.abortController.abort()
     }
-    async Warmup() { this.ready = true }
+    async Warmup() {
+        this.SubscribeAddressPaid()
+        this.SubscribeInvoicePaid()
+        this.ready = true
+    }
 
     async GetInfo(): Promise<NodeInfo> {
         const res = await this.lightning.getInfo({}, DeadLineMetadata())
@@ -73,12 +75,27 @@ export default class {
         }
         const info = await this.GetInfo()
         if (!info.syncedToChain || !info.syncedToGraph) {
-            throw new Error("not ready")
+            throw new Error("not synced")
         }
     }
-    checkReady(): void {
-        if (!this.ready) throw new Error("lnd not ready, warmup required before usage")
+
+    RestartStreams() {
+        if (!this.ready) {
+            return
+        }
+        this.log("LND is dead, will try to reconnect in", deadLndRetrySeconds, "seconds")
+        const interval = setInterval(async () => {
+            try {
+                await this.Health()
+                this.log("LND is back online")
+                clearInterval(interval)
+                this.Warmup()
+            } catch (err) {
+                this.log("LND still dead, will try again in", deadLndRetrySeconds, "seconds")
+            }
+        }, deadLndRetrySeconds * 1000)
     }
+
     SubscribeAddressPaid(): void {
         const stream = this.lightning.subscribeTransactions({
             account: "",
@@ -100,7 +117,10 @@ export default class {
             }
         })
         stream.responses.onError(error => {
-            this.log("Error with invoice stream")
+            this.log("Error with onchain tx stream")
+        })
+        stream.responses.onComplete(() => {
+            this.log("onchain tx stream closed")
         })
     }
 
@@ -119,9 +139,14 @@ export default class {
         stream.responses.onError(error => {
             this.log("Error with invoice stream")
         })
+        stream.responses.onComplete(() => {
+            this.log("invoice stream closed")
+            this.RestartStreams()
+        })
     }
+
     async NewAddress(addressType: Types.AddressType): Promise<NewAddressResponse> {
-        this.checkReady()
+        await this.Health()
         let lndAddressType: AddressType
         switch (addressType) {
             case Types.AddressType.NESTED_PUBKEY_HASH:
@@ -141,7 +166,7 @@ export default class {
     }
 
     async NewInvoice(value: number, memo: string, expiry: number): Promise<Invoice> {
-        this.checkReady()
+        await this.Health()
         const encoder = new TextEncoder()
         const ecoded = encoder.encode(memo)
         const hashed = crypto.createHash('sha256').update(ecoded).digest();
@@ -163,7 +188,7 @@ export default class {
     }
 
     async PayInvoice(invoice: string, amount: number, feeLimit: number): Promise<PaidInvoice> {
-        this.checkReady()
+        await this.Health()
         const abortController = new AbortController()
         const req = PayInvoiceReq(invoice, amount, feeLimit)
         const stream = this.router.sendPaymentV2(req, { abort: abortController.signal })
@@ -172,7 +197,6 @@ export default class {
                 rej(error)
             })
             stream.responses.onMessage(payment => {
-                console.log(payment)
                 switch (payment.status) {
                     case Payment_PaymentStatus.FAILED:
                         this.log("invoice payment failed", payment.failureReason)
@@ -187,7 +211,7 @@ export default class {
     }
 
     async EstimateChainFees(address: string, amount: number, targetConf: number): Promise<EstimateFeeResponse> {
-        this.checkReady()
+        await this.Health()
         const res = await this.lightning.estimateFee({
             addrToAmount: { [address]: BigInt(amount) },
             minConfs: 1,
@@ -198,7 +222,7 @@ export default class {
     }
 
     async PayAddress(address: string, amount: number, satPerVByte: number, label = ""): Promise<SendCoinsResponse> {
-        this.checkReady()
+        await this.Health()
         const res = await this.lightning.sendCoins(SendCoinsReq(address, amount, satPerVByte, label), DeadLineMetadata())
         this.log("sent chain TX for", amount, "sats")
         return res.response
@@ -206,7 +230,7 @@ export default class {
 
 
     async OpenChannel(destination: string, closeAddress: string, fundingAmount: number, pushSats: number): Promise<string> {
-        this.checkReady()
+        await this.Health()
         const abortController = new AbortController()
         const req = OpenChannelReq(destination, closeAddress, fundingAmount, pushSats)
         const stream = this.lightning.openChannel(req, { abort: abortController.signal })
