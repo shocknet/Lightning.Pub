@@ -308,6 +308,7 @@ export default class {
             const fromUser = await this.storage.userStorage.GetUser(fromUserId, tx)
             const toUser = await this.storage.userStorage.GetUser(toUserId, tx)
             if (fromUser.balance_sats < amount) {
+                console.log({balance:fromUser.balance_sats, amount})
                 throw new Error("not enough balance to send user to user payment")
             }
             if (!linkedApplication) {

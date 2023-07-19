@@ -13,6 +13,7 @@ import { AddInvoiceReq } from './addInvoiceReq.js';
 import { PayInvoiceReq } from './payInvoiceReq.js';
 import { SendCoinsReq } from './sendCoinsReq.js';
 import { LndSettings, AddressPaidCb, InvoicePaidCb, NodeInfo, Invoice, DecodedInvoice, PaidInvoice } from './settings.js';
+import { getLogger } from '../helpers/logger.js';
 const DeadLineMetadata = (deadline = 10 * 1000) => ({ deadline: Date.now() + deadline })
 
 export default class {
@@ -26,6 +27,7 @@ export default class {
     abortController = new AbortController()
     addressPaidCb: AddressPaidCb
     invoicePaidCb: InvoicePaidCb
+    log = getLogger({})
     constructor(settings: LndSettings, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb) {
         this.settings = settings
         this.addressPaidCb = addressPaidCb
@@ -84,19 +86,21 @@ export default class {
             startHeight: this.latestKnownBlockHeigh,
         }, { abort: this.abortController.signal })
         stream.responses.onMessage(tx => {
+
             if (tx.blockHeight > this.latestKnownBlockHeigh) {
                 this.latestKnownBlockHeigh = tx.blockHeight
             }
             if (tx.numConfirmations > 0) {
                 tx.outputDetails.forEach(output => {
                     if (output.isOurAddress) {
+                        this.log("received chan TX", Number(output.amount), "sats")
                         this.addressPaidCb({ hash: tx.txHash, index: Number(output.outputIndex) }, output.address, Number(output.amount))
                     }
                 })
             }
         })
         stream.responses.onError(error => {
-            // TODO...
+            this.log("Error with invoice stream")
         })
     }
 
@@ -107,12 +111,13 @@ export default class {
         }, { abort: this.abortController.signal })
         stream.responses.onMessage(invoice => {
             if (invoice.state === Invoice_InvoiceState.SETTLED) {
+                this.log("An invoice was paid for", Number(invoice.amtPaidSat), "sats")
                 this.latestKnownSettleIndex = Number(invoice.settleIndex)
                 this.invoicePaidCb(invoice.paymentRequest, Number(invoice.amtPaidSat))
             }
         })
         stream.responses.onError(error => {
-            // TODO...
+            this.log("Error with invoice stream")
         })
     }
     async NewAddress(addressType: Types.AddressType): Promise<NewAddressResponse> {
@@ -170,9 +175,11 @@ export default class {
                 console.log(payment)
                 switch (payment.status) {
                     case Payment_PaymentStatus.FAILED:
+                        this.log("invoice payment failed", payment.failureReason)
                         rej(PaymentFailureReason[payment.failureReason])
                         return
                     case Payment_PaymentStatus.SUCCEEDED:
+                        this.log("invoice payment succeded", Number(payment.valueSat))
                         res({ feeSat: Number(payment.feeSat), valueSat: Number(payment.valueSat), paymentPreimage: payment.paymentPreimage })
                 }
             })
@@ -193,6 +200,7 @@ export default class {
     async PayAddress(address: string, amount: number, satPerVByte: number, label = ""): Promise<SendCoinsResponse> {
         this.checkReady()
         const res = await this.lightning.sendCoins(SendCoinsReq(address, amount, satPerVByte, label), DeadLineMetadata())
+        this.log("sent chain TX for", amount, "sats")
         return res.response
     }
 
