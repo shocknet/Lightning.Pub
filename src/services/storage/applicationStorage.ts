@@ -46,38 +46,38 @@ export default class {
         return found
     }
 
-    async AddApplicationUser(appId: string, userIdentifier: string, balance: number) {
+    async AddApplicationUser(application: Application, userIdentifier: string, balance: number) {
         return this.DB.transaction(async tx => {
             const user = await this.userStorage.AddUser(balance, tx)
             const repo = tx.getRepository(ApplicationUser)
             const appUser = repo.create({
                 user: user,
-                application: await this.GetApplication(appId),
+                application,
                 identifier: userIdentifier,
             })
             return repo.save(appUser)
         })
     }
 
-    GetApplicationUserIfExists(appId: string, userIdentifier: string, entityManager = this.DB): Promise<ApplicationUser | null> {
-        return entityManager.getRepository(ApplicationUser).findOne({ where: { identifier: userIdentifier, application: { app_id: appId } } })
+    GetApplicationUserIfExists(application: Application, userIdentifier: string, entityManager = this.DB): Promise<ApplicationUser | null> {
+        return entityManager.getRepository(ApplicationUser).findOne({ where: { identifier: userIdentifier, application: application } })
     }
 
-    async GetOrCreateApplicationUser(appId: string, userIdentifier: string, balance: number, entityManager = this.DB): Promise<ApplicationUser> {
-        const found = await this.GetApplicationUserIfExists(appId, userIdentifier, entityManager)
-        if (found) {
-            return found
+    async GetOrCreateApplicationUser(application: Application, userIdentifier: string, balance: number, entityManager = this.DB): Promise<{ user: ApplicationUser, created: boolean }> {
+        const user = await this.GetApplicationUserIfExists(application, userIdentifier, entityManager)
+        if (user) {
+            return { user, created: false }
         }
-        return this.AddApplicationUser(appId, userIdentifier, balance)
+        return { user: await this.AddApplicationUser(application, userIdentifier, balance), created: true }
     }
 
-    async GetApplicationUser(appId: string, userIdentifier: string, entityManager = this.DB): Promise<ApplicationUser> {
-        const found = await this.GetApplicationUserIfExists(appId, userIdentifier, entityManager)
+    async GetApplicationUser(application: Application, userIdentifier: string, entityManager = this.DB): Promise<ApplicationUser> {
+        const found = await this.GetApplicationUserIfExists(application, userIdentifier, entityManager)
         if (!found) {
             throw new Error(`application user not found`)
         }
 
-        if (found.application.app_id !== appId) {
+        if (found.application.app_id !== application.app_id) {
             throw new Error("requested user does not belong to requestor application")
         }
         return found
