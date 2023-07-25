@@ -3,6 +3,7 @@ import { DataSource, EntityManager } from "typeorm"
 import { Application } from "./entity/Application.js"
 import UserStorage from './userStorage.js';
 import { ApplicationUser } from './entity/ApplicationUser.js';
+import { getLogger } from '../helpers/logger.js';
 export default class {
     DB: DataSource | EntityManager
     userStorage: UserStorage
@@ -59,8 +60,8 @@ export default class {
         })
     }
 
-    GetApplicationUserIfExists(application: Application, userIdentifier: string, entityManager = this.DB): Promise<ApplicationUser | null> {
-        return entityManager.getRepository(ApplicationUser).findOne({ where: { identifier: userIdentifier, application: application } })
+    async GetApplicationUserIfExists(application: Application, userIdentifier: string, entityManager = this.DB): Promise<ApplicationUser | null> {
+        return entityManager.getRepository(ApplicationUser).findOne({ where: { identifier: userIdentifier, application: { serial_id: application.serial_id } } })
     }
 
     async GetOrCreateApplicationUser(application: Application, userIdentifier: string, balance: number, entityManager = this.DB): Promise<{ user: ApplicationUser, created: boolean }> {
@@ -74,6 +75,7 @@ export default class {
     async GetApplicationUser(application: Application, userIdentifier: string, entityManager = this.DB): Promise<ApplicationUser> {
         const found = await this.GetApplicationUserIfExists(application, userIdentifier, entityManager)
         if (!found) {
+            getLogger({ appName: application.name })("user", userIdentifier, "not found", application.name)
             throw new Error(`application user not found`)
         }
 
