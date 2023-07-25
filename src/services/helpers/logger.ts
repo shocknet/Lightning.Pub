@@ -7,12 +7,19 @@ try {
 } catch { }
 const z = (n: number) => n < 10 ? `0${n}` : `${n}`
 const openWriter = (fileName: string): Writer => {
+
     const logStream = fs.createWriteStream(`logs/${fileName}`, { flags: 'a' });
     return (message) => {
         logStream.write(message + "\n")
     }
 }
 const rootWriter = openWriter("ROOT.log")
+if (!fs.existsSync("logs/apps")) {
+    fs.mkdirSync("logs/apps", { recursive: true });
+}
+if (!fs.existsSync("logs/users")) {
+    fs.mkdirSync("logs/users", { recursive: true });
+}
 export const getLogger = (params: LoggerParams): PubLogger => {
     const writers: Writer[] = []
     if (params.appName) {
@@ -27,7 +34,7 @@ export const getLogger = (params: LoggerParams): PubLogger => {
 
     return (...message) => {
         const now = new Date()
-        const timestamp = `${now.getFullYear()}-${z(now.getMonth())}-${z(now.getDate())} ${z(now.getHours())}:${z(now.getMinutes())}:${z(now.getSeconds())}`
+        const timestamp = `${now.getFullYear()}-${z(now.getMonth() + 1)}-${z(now.getDate())} ${z(now.getHours())}:${z(now.getMinutes())}:${z(now.getSeconds())}`
         const toLog = [timestamp]
         if (params.appName) {
             toLog.push(params.appName)
