@@ -152,6 +152,20 @@ export default class {
         getLogger({ appName: app.name })(toUser.identifier, "received internal payment by", fromUser.identifier, "of", req.amount, "sats")
     }
 
+    async SendAppUserToTwoAppUsersPayment(appId: string, req: Types.SendAppUserToTwoAppUsersPaymentRequest): Promise<void> {
+        const app = await this.storage.applicationStorage.GetApplication(appId);
+        const fromUser = await this.storage.applicationStorage.GetApplicationUser(app, req.from_user_identifier);
+        const { user: toFirstUser } = await this.storage.applicationStorage.GetOrCreateApplicationUser(app, req.to_user_identifier_1, 0);
+        const { user: toSecondUser } = await this.storage.applicationStorage.GetOrCreateApplicationUser(app, req.to_user_identifier_2, 0);
+        await this.paymentManager.SendUserToTwoUsersPayment(
+            fromUser.user.user_id,
+            toFirstUser.user.user_id,
+            toSecondUser.user.user_id,
+            req.amount, app
+        );
+        getLogger({ appName: app.name })(toFirstUser.identifier, "and",toSecondUser.identifier, "received internal payment by", fromUser.identifier, "of a total", req.amount, "sats");
+    }
+
     async SendAppUserToAppPayment(appId: string, req: Types.SendAppUserToAppPaymentRequest): Promise<void> {
         const app = await this.storage.applicationStorage.GetApplication(appId)
         const fromUser = await this.storage.applicationStorage.GetApplicationUser(app, req.from_user_identifier)

@@ -187,13 +187,14 @@ export default class {
         return found
     }
 
-    async AddUserToUserPayment(fromUserId: string, toUserId: string, amount: number, fee: number, entityManager = this.DB) {
+    async AddUserToUserPayment(fromUserId: string, toUserId: string, amount: number, fee: number, entityManager = this.DB, toSecondUserId?: string) {
         const newKey = entityManager.getRepository(UserToUserPayment).create({
             from_user: await this.userStorage.GetUser(fromUserId, entityManager),
             to_user: await this.userStorage.GetUser(toUserId, entityManager),
             paid_at_unix: Math.floor(Date.now() / 1000),
             paid_amount: amount,
-            service_fees: fee
+            service_fees: fee,
+            to_second_user: toSecondUserId ? await this.userStorage.GetUser(toSecondUserId, entityManager) : undefined
         })
         return entityManager.getRepository(UserToUserPayment).save(newKey)
     }

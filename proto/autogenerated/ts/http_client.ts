@@ -185,6 +185,17 @@ export default (params: ClientParams) => ({
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
+    SendAppUserToTwoAppUsersPayment: async (request: Types.SendAppUserToTwoAppUsersPaymentRequest): Promise<ResultError | ({ status: 'OK' })> => {
+        const auth = await params.retrieveAppAuth()
+        if (auth === null) throw new Error('retrieveAppAuth() returned null')
+        let finalRoute = '/api/app/multuser/internal/pay'
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            return data
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
     SendAppUserToAppPayment: async (request: Types.SendAppUserToAppPaymentRequest): Promise<ResultError | ({ status: 'OK' })> => {
         const auth = await params.retrieveAppAuth()
         if (auth === null) throw new Error('retrieveAppAuth() returned null')

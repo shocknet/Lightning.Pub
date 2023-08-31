@@ -15,6 +15,10 @@ export class UserToUserPayment {
     @JoinColumn()
     to_user: User
 
+    @ManyToOne(type => User, { eager: true })
+    @JoinColumn()
+    to_second_user?: User
+
     @Column()
     paid_amount: number
 

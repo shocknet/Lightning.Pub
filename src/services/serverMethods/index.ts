@@ -171,6 +171,16 @@ export default (mainHandler: Main): Types.ServerMethods => {
             if (err != null) throw new Error(err.message)
             await mainHandler.applicationManager.SendAppUserToAppUserPayment(ctx.app_id, req)
         },
+        SendAppUserToTwoAppUsersPayment: async (ctx, req) => {
+            const err = Types.SendAppUserToTwoAppUsersPaymentRequestValidate(req, {
+                to_user_identifier_1_CustomCheck: id => id !== '',
+                to_user_identifier_2_CustomCheck: id => id !== '',
+                from_user_identifier_CustomCheck: id => id !== '',
+                amount_CustomCheck: amount => amount > 0
+            })
+            if (err !== null) throw new Error(err.message)
+            await mainHandler.applicationManager.SendAppUserToTwoAppUsersPayment(ctx.app_id, req)
+        },
         SendAppUserToAppPayment: async (ctx, req) => {
             const err = Types.SendAppUserToAppPaymentRequestValidate(req, {
                 from_user_identifier_CustomCheck: id => id !== '',

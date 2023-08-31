@@ -87,6 +87,13 @@ message SendAppUserToAppUserPaymentRequest {
     int64 amount = 3;
 }
 
+message SendAppUserToTwoAppUsersPaymentRequest {
+    string from_user_identifier = 1;
+    string to_user_identifier_1 = 2;
+    string to_user_identifier_2 = 3;
+    int64 amount = 4;
+}
+
 message SendAppUserToAppPaymentRequest {
     string from_user_identifier = 1;
     int64 amount = 2;

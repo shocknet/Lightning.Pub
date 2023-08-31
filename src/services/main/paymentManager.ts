@@ -325,6 +325,34 @@ export default class {
         })
     }
 
+    async SendUserToTwoUsersPayment(fromUserId: string, toFirstUserId: string, toSecondUserId: string, amount: number, linkedApplication?: Application) {
+        if (!linkedApplication) {
+            throw new Error("only application operations are supported") // TODO - make this check obsolete
+        }
+        await this.storage.StartTransaction(async tx => {
+            const fromUser = await this.storage.userStorage.GetUser(fromUserId, tx);
+            const toFirstUser = await this.storage.userStorage.GetUser(toFirstUserId, tx);
+            const toSecondUser = await this.storage.userStorage.GetUser(toSecondUserId, tx);
+            if (fromUser.balance_sats < amount) {
+                throw new Error("not enough balance to send user to user payment")
+            }
+            const isAppUserPayment = fromUser.user_id !== linkedApplication.owner.user_id
+            let fee = this.getServiceFee(Types.UserOperationType.OUTGOING_USER_TO_USER, amount, isAppUserPayment)
+            const toIncrement = amount - fee;
+
+            // could be a float point number
+            const halfToIncrement = toIncrement / 2;
+            await this.storage.userStorage.DecrementUserBalance(fromUser.user_id, amount, tx)
+            await this.storage.userStorage.IncrementUserBalance(toFirstUser.user_id, halfToIncrement, tx)
+            await this.storage.userStorage.IncrementUserBalance(toSecondUser.user_id, halfToIncrement, tx)
+            await this.storage.paymentStorage.AddUserToUserPayment(fromUserId, toFirstUserId, amount, fee, tx, toSecondUserId)
+            if (isAppUserPayment && fee > 0) {
+                await this.storage.userStorage.IncrementUserBalance(linkedApplication.owner.user_id, fee, tx)
+            }
+
+        })
+    }
+
     encodeLnurl(base: string) {
         if (!base || typeof base !== 'string') {
             throw new Error("provided string for lnurl encode is not a string or is an empty string")
