@@ -1,8 +1,6 @@
 import crypto from 'crypto';
 import { DataSource, EntityManager, MoreThan, MoreThanOrEqual } from "typeorm"
 import { User } from './entity/User.js';
-import { UserBasicAuth } from './entity/UserBasicAuth.js';
-import { UserNostrAuth } from './entity/UserNostrAuth.js';
 import { UserTransactionPayment } from './entity/UserTransactionPayment.js';
 import { EphemeralKeyType, UserEphemeralKey } from './entity/UserEphemeralKey.js';
 import { UserReceivingInvoice } from './entity/UserReceivingInvoice.js';

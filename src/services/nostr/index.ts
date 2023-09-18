@@ -4,9 +4,6 @@ import { NostrSettings, NostrEvent, ChildProcessRequest, ChildProcessResponse } 
 type EventCallback = (event: NostrEvent) => void
 export const LoadNosrtSettingsFromEnv = (test = false) => {
     return {
-        allowedPubs: EnvMustBeNonEmptyString("NOSTR_ALLOWED_PUBS").split(' '),
-        privateKey: EnvMustBeNonEmptyString("NOSTR_PRIVATE_KEY"),
-        publicKey: EnvMustBeNonEmptyString("NOSTR_PUBLIC_KEY"),
         relays: EnvMustBeNonEmptyString("NOSTR_RELAYS").split(' ')
     }
 }
@@ -34,8 +31,8 @@ export default class NostrSubprocess {
         this.childProcess.send(message)
     }
 
-    Send(pub: string, message: string) {
-        this.sendToChildProcess({ type: 'send', pub: pub, message: message })
+    Send(appId: string, pub: string, message: string) {
+        this.sendToChildProcess({ type: 'send', pub, message, appId })
     }
     Stop() {
         this.childProcess.kill()

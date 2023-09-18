@@ -7,14 +7,10 @@ const handledRequests: string[] = [] // TODO: - big memory leak here, add TTL
 
 export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSettings: NostrSettings) => {
     const nostrTransport = NewNostrTransport(serverMethods, {
-        NostrUserAuthGuard: async pub => {
-            if (!pub || !nostrSettings.allowedPubs.includes(pub)) {
-                throw new Error("nostr pub invalid or not allowed" + pub)
-            }
-            let nostrUser = await mainHandler.storage.userStorage.FindNostrUser(pub)
-            if (!nostrUser) { // TODO: add POW
-                nostrUser = await mainHandler.storage.userStorage.AddNostrUser(pub)
-            }
+        NostrUserAuthGuard: async (appId, pub) => {
+            console.log({ appId })
+            const app = await mainHandler.storage.applicationStorage.GetApplication(appId || "")
+            let nostrUser = await mainHandler.storage.applicationStorage.GetOrCreateNostrAppUser(app, pub || "")
             return { user_id: nostrUser.user.user_id }
         }
     })
@@ -27,8 +23,8 @@ export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSett
             console.error("invalid json event received", event.content)
             return
         }
-        nostrTransport(j, res => {
-            nostr.Send(event.pub, JSON.stringify({ ...res, requestId: j.requestId }))
+        nostrTransport({ ...j, appId: event.appId }, res => {
+            nostr.Send(event.appId, event.pub, JSON.stringify({ ...res, requestId: j.requestId }))
         })
     })
     return { Stop: nostr.Stop }

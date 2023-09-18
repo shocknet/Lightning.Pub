@@ -15,8 +15,7 @@ export default class {
     }
 
     DecodeUserToken(token?: string): string {
-        throw new Error("users methods temporarely disabled")
-        /*if (!token) throw new Error("empty user token provided")
+        if (!token) throw new Error("empty user token provided")
         let t = token
         if (token.startsWith("Bearer ")) {
             t = token.substring("Bearer ".length)
@@ -26,7 +25,7 @@ export default class {
         if (!decoded.userId) {
             throw new Error("the provided token is not an app token")
         }
-        return decoded.userId*/
+        return decoded.userId
     }
 
     async AddBasicUser(req: Types.AddUserRequest): Promise<Types.AddUserResponse> {

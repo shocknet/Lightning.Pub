@@ -18,6 +18,15 @@ export class Application {
     @JoinColumn()
     owner: User
 
+    @Column({ default: false })
+    allow_user_creation: boolean
+
+    @Column({ nullable: true, unique: true })
+    nostr_private_key: string
+
+    @Column({ nullable: true, unique: true })
+    nostr_public_key: string
+
     @CreateDateColumn()
     created_at: Date
 

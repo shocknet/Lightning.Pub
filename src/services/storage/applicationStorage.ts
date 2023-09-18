@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { DataSource, EntityManager } from "typeorm"
+import { generatePrivateKey, getPublicKey } from 'nostr-tools';
 import { Application } from "./entity/Application.js"
 import UserStorage from './userStorage.js';
 import { ApplicationUser } from './entity/ApplicationUser.js';
@@ -12,13 +13,14 @@ export default class {
         this.userStorage = userStorage
     }
 
-    async AddApplication(name: string, entityManager = this.DB): Promise<Application> {
+    async AddApplication(name: string, allowUserCreation: boolean, entityManager = this.DB): Promise<Application> {
         const owner = await this.userStorage.AddUser(0, entityManager)
         const repo = entityManager.getRepository(Application)
         const newApplication = repo.create({
             app_id: crypto.randomBytes(32).toString('hex'),
             name,
-            owner
+            owner,
+            allow_user_creation: allowUserCreation
         })
         return repo.save(newApplication)
     }
@@ -35,7 +37,13 @@ export default class {
         return found
     }
 
+    async GetApplications(entityManager = this.DB): Promise<Application[]> {
+        return entityManager.getRepository(Application).find()
+    }
     async GetApplication(appId: string, entityManager = this.DB): Promise<Application> {
+        if (!appId) {
+            throw new Error("invalid app id provided")
+        }
         const found = await entityManager.getRepository(Application).findOne({
             where: {
                 app_id: appId
@@ -47,7 +55,18 @@ export default class {
         return found
     }
 
-    async AddApplicationUser(application: Application, userIdentifier: string, balance: number) {
+    async UpdateApplication(app: Application, update: Partial<Application>, entityManager = this.DB) {
+        await entityManager.getRepository(Application).update(app.serial_id, update)
+    }
+
+    async GenerateApplicationKeys(app: Application) {
+        const priv = generatePrivateKey()
+        const pub = getPublicKey(priv)
+        await this.UpdateApplication(app, { nostr_private_key: priv, nostr_public_key: pub })
+        return { privateKey: priv, publicKey: pub, appId: app.app_id, name: app.name }
+    }
+
+    async AddApplicationUser(application: Application, userIdentifier: string, balance: number, nostrPub?: string) {
         return this.DB.transaction(async tx => {
             const user = await this.userStorage.AddUser(balance, tx)
             const repo = tx.getRepository(ApplicationUser)
@@ -55,6 +74,7 @@ export default class {
                 user: user,
                 application,
                 identifier: userIdentifier,
+                nostr_public_key: nostrPub
             })
             return repo.save(appUser)
         })
@@ -62,6 +82,20 @@ export default class {
 
     async GetApplicationUserIfExists(application: Application, userIdentifier: string, entityManager = this.DB): Promise<ApplicationUser | null> {
         return entityManager.getRepository(ApplicationUser).findOne({ where: { identifier: userIdentifier, application: { serial_id: application.serial_id } } })
+    }
+
+    async GetOrCreateNostrAppUser(application: Application, nostrPub: string, entityManager = this.DB): Promise<ApplicationUser> {
+        if (!nostrPub) {
+            throw new Error("no nostrPub provided")
+        }
+        const user = await entityManager.getRepository(ApplicationUser).findOne({ where: { application: { serial_id: application.serial_id }, nostr_public_key: nostrPub } })
+        if (user) {
+            return user
+        }
+        if (!application.allow_user_creation) {
+            throw new Error("user creation by client is not allowed in this app")
+        }
+        return this.AddApplicationUser(application, crypto.randomBytes(32).toString('hex'), 0, nostrPub)
     }
 
     async GetOrCreateApplicationUser(application: Application, userIdentifier: string, balance: number, entityManager = this.DB): Promise<{ user: ApplicationUser, created: boolean }> {
