@@ -25,15 +25,23 @@ message LndGetInfoResponse {
     string alias = 1;
 }
 
+message AddAppRequest {
+    string name = 1;
+    bool allow_user_creation = 2;
+}
+
 message AuthAppRequest {
     string name = 1;
+    optional bool allow_user_creation = 2;
 }
 
 message Application {
     string name = 1;
     string id = 2;
     int64 balance = 3;
+    string npub = 4;
 }
+
 message AuthApp {
     Application app = 1;
     string auth_token = 2;
@@ -212,6 +220,7 @@ message UserInfo{
     string userId = 1;
     int64 balance = 2;
 }
+
 message GetUserOperationsRequest{
     int64 latestIncomingInvoice = 1;
     int64 latestOutgoingInvoice = 2;
@@ -229,7 +238,7 @@ enum UserOperationType {
     INCOMING_USER_TO_USER=5;
 }
 
-message UserOperation{
+message UserOperation {
     int64 paidAtUnix=1;
     UserOperationType type = 2; 
     bool inbound =3;

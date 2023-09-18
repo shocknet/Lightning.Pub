@@ -88,9 +88,12 @@ The nostr server will send back a message response, and inside the body there wi
     - __user_id__: _string_
 
 - __Admin__:
-  - this auth type is __encrypted__
   - expected context content
     - __admin_id__: _string_
+
+- __App__:
+  - expected context content
+    - __app_id__: _string_
 
 ## HTTP Methods
 ### These are the http methods the client implements to communicate with the API
@@ -111,11 +114,108 @@ The nostr server will send back a message response, and inside the body there wi
 
 - LndGetInfo
   - auth type: __Admin__
-  - this method is encrypted
   - http method: __post__
-  - http route: __/api/lnd/getinfo__
+  - http route: __/api/admin/lnd/getinfo__
   - input: [LndGetInfoRequest](#LndGetInfoRequest)
   - output: [LndGetInfoResponse](#LndGetInfoResponse)
+
+- SetMockInvoiceAsPaid
+  - auth type: __Guest__
+  - http method: __post__
+  - http route: __/api/lnd/mock/invoice/paid__
+  - input: [SetMockInvoiceAsPaidRequest](#SetMockInvoiceAsPaidRequest)
+  - This methods has an __empty__ __response__ body
+
+- AddApp
+  - auth type: __Admin__
+  - http method: __post__
+  - http route: __/api/admin/app/add__
+  - input: [AddAppRequest](#AddAppRequest)
+  - output: [AuthApp](#AuthApp)
+
+- AuthApp
+  - auth type: __Admin__
+  - http method: __post__
+  - http route: __/api/admin/app/auth__
+  - input: [AuthAppRequest](#AuthAppRequest)
+  - output: [AuthApp](#AuthApp)
+
+- GetApp
+  - auth type: __App__
+  - http method: __post__
+  - http route: __/api/app/get__
+  - This methods has an __empty__ __request__ body
+  - output: [Application](#Application)
+
+- AddAppUser
+  - auth type: __App__
+  - http method: __post__
+  - http route: __/api/app/user/add__
+  - input: [AddAppUserRequest](#AddAppUserRequest)
+  - output: [AppUser](#AppUser)
+
+- AddAppInvoice
+  - auth type: __App__
+  - http method: __post__
+  - http route: __/api/app/add/invoice__
+  - input: [AddAppInvoiceRequest](#AddAppInvoiceRequest)
+  - output: [NewInvoiceResponse](#NewInvoiceResponse)
+
+- AddAppUserInvoice
+  - auth type: __App__
+  - http method: __post__
+  - http route: __/api/app/user/add/invoice__
+  - input: [AddAppUserInvoiceRequest](#AddAppUserInvoiceRequest)
+  - output: [NewInvoiceResponse](#NewInvoiceResponse)
+
+- GetAppUser
+  - auth type: __App__
+  - http method: __post__
+  - http route: __/api/app/user/get__
+  - input: [GetAppUserRequest](#GetAppUserRequest)
+  - output: [AppUser](#AppUser)
+
+- PayAppUserInvoice
+  - auth type: __App__
+  - http method: __post__
+  - http route: __/api/app/invoice/pay__
+  - input: [PayAppUserInvoiceRequest](#PayAppUserInvoiceRequest)
+  - output: [PayAppUserInvoiceResponse](#PayAppUserInvoiceResponse)
+
+- SendAppUserToAppUserPayment
+  - auth type: __App__
+  - http method: __post__
+  - http route: __/api/app/user/internal/pay__
+  - input: [SendAppUserToAppUserPaymentRequest](#SendAppUserToAppUserPaymentRequest)
+  - This methods has an __empty__ __response__ body
+
+- SendAppUserToAppPayment
+  - auth type: __App__
+  - http method: __post__
+  - http route: __/api/app/internal/pay__
+  - input: [SendAppUserToAppPaymentRequest](#SendAppUserToAppPaymentRequest)
+  - This methods has an __empty__ __response__ body
+
+- GetAppUserLNURLInfo
+  - auth type: __App__
+  - http method: __post__
+  - http route: __/api/app/user/lnurl/pay/info__
+  - input: [GetAppUserLNURLInfoRequest](#GetAppUserLNURLInfoRequest)
+  - output: [LnurlPayInfoResponse](#LnurlPayInfoResponse)
+
+- SetMockAppUserBalance
+  - auth type: __App__
+  - http method: __post__
+  - http route: __/api/app/mock/user/blance/set__
+  - input: [SetMockAppUserBalanceRequest](#SetMockAppUserBalanceRequest)
+  - This methods has an __empty__ __response__ body
+
+- SetMockAppBalance
+  - auth type: __App__
+  - http method: __post__
+  - http route: __/api/app/mock/blance/set__
+  - input: [SetMockAppBalanceRequest](#SetMockAppBalanceRequest)
+  - This methods has an __empty__ __response__ body
 
 - AddUser
   - auth type: __Guest__
@@ -260,25 +360,71 @@ The nostr server will send back a message response, and inside the body there wi
 ## Messages
 ### The content of requests and response from the methods
 
-### OpenChannelResponse
-  - __channelId__: _string_
+### LnurlPayInfoResponse
+  - __tag__: _string_
+  - __callback__: _string_
+  - __maxSendable__: _number_
+  - __minSendable__: _number_
+  - __metadata__: _string_
 
-### UserInfo
-  - __userId__: _string_
-  - __balance__: _number_
+### AddUserRequest
+  - __callbackUrl__: _string_
+  - __name__: _string_
+  - __secret__: _string_
 
 ### GetUserOperationsRequest
   - __latestIncomingInvoice__: _number_
   - __latestOutgoingInvoice__: _number_
   - __latestIncomingTx__: _number_
   - __latestOutgoingTx__: _number_
+  - __latestIncomingUserToUserPayment__: _number_
+  - __latestOutgoingUserToUserPayment__: _number_
+
+### Empty
+
+### AddAppUserRequest
+  - __identifier__: _string_
+  - __fail_if_exists__: _boolean_
+  - __balance__: _number_
+
+### SetMockAppBalanceRequest
+  - __amount__: _number_
+
+### NewAddressRequest
+  - __addressType__: _[AddressType](#AddressType)_
+
+### NewInvoiceRequest
+  - __amountSats__: _number_
+  - __memo__: _string_
+
+### GetUserOperationsResponse
+  - __latestOutgoingInvoiceOperations__: _[UserOperations](#UserOperations)_
+  - __latestIncomingInvoiceOperations__: _[UserOperations](#UserOperations)_
+  - __latestOutgoingTxOperations__: _[UserOperations](#UserOperations)_
+  - __latestIncomingTxOperations__: _[UserOperations](#UserOperations)_
+  - __latestOutgoingUserToUserPayemnts__: _[UserOperations](#UserOperations)_
+  - __latestIncomingUserToUserPayemnts__: _[UserOperations](#UserOperations)_
+
+### Application
+  - __name__: _string_
+  - __id__: _string_
+  - __balance__: _number_
+  - __npub__: _string_
+
+### AddAppInvoiceRequest
+  - __payer_identifier__: _string_
+  - __http_callback_url__: _string_
+  - __invoice_req__: _[NewInvoiceRequest](#NewInvoiceRequest)_
+
+### GetAppUserLNURLInfoRequest
+  - __user_identifier__: _string_
+  - __base_url_override__: _string_
+
+### AuthUserResponse
+  - __userId__: _string_
+  - __authToken__: _string_
 
 ### AddProductRequest
-  - __name__: _string_
-  - __price_sats__: _number_
-
-### Product
-  - __id__: _string_
   - __name__: _string_
   - __price_sats__: _number_
 
@@ -286,30 +432,24 @@ The nostr server will send back a message response, and inside the body there wi
   - __publicKey__: _string_
   - __deviceId__: _string_
 
-### NewInvoiceRequest
-  - __amountSats__: _number_
-  - __memo__: _string_
+### AppUser
+  - __identifier__: _string_
+  - __info__: _[UserInfo](#UserInfo)_
+  - __max_withdrawable__: _number_
 
-### PayInvoiceResponse
-  - __preimage__: _string_
+### DecodeInvoiceResponse
+  - __amount__: _number_
 
-### HandleLnurlPayResponse
-  - __pr__: _string_
-  - __routes__: ARRAY of: _[Empty](#Empty)_
+### PayInvoiceRequest
+  - __invoice__: _string_
+  - __amount__: _number_
 
 ### AuthUserRequest
   - __name__: _string_
   - __secret__: _string_
 
-### UserOperations
-  - __fromIndex__: _number_
-  - __toIndex__: _number_
-  - __operations__: ARRAY of: _[UserOperation](#UserOperation)_
-
-### PayAddressRequest
-  - __address__: _string_
-  - __amoutSats__: _number_
-  - __targetConf__: _number_
+### PayAddressResponse
+  - __txId__: _string_
 
 ### OpenChannelRequest
   - __destination__: _string_
@@ -321,33 +461,56 @@ The nostr server will send back a message response, and inside the body there wi
   - __lnurl__: _string_
   - __k1__: _string_
 
-### Empty
-
-### NewInvoiceResponse
+### SetMockInvoiceAsPaidRequest
   - __invoice__: _string_
+  - __amount__: _number_
 
-### DecodeInvoiceRequest
+### AddAppUserInvoiceRequest
+  - __receiver_identifier__: _string_
+  - __payer_identifier__: _string_
+  - __http_callback_url__: _string_
+  - __invoice_req__: _[NewInvoiceRequest](#NewInvoiceRequest)_
+
+### PayAppUserInvoiceRequest
+  - __user_identifier__: _string_
   - __invoice__: _string_
+  - __amount__: _number_
 
-### AuthUserResponse
+### SendAppUserToAppPaymentRequest
+  - __from_user_identifier__: _string_
+  - __amount__: _number_
+
+### PayAddressRequest
+  - __address__: _string_
+  - __amoutSats__: _number_
+  - __targetConf__: _number_
+
+### UserOperation
+  - __paidAtUnix__: _number_
+  - __type__: _[UserOperationType](#UserOperationType)_
+  - __inbound__: _boolean_
+  - __amount__: _number_
+
+### UserInfo
   - __userId__: _string_
-  - __authToken__: _string_
+  - __balance__: _number_
 
-### GetUserOperationsResponse
-  - __latestOutgoingInvoiceOperations__: _[UserOperations](#UserOperations)_
-  - __latestIncomingInvoiceOperations__: _[UserOperations](#UserOperations)_
-  - __latestOutgoingTxOperations__: _[UserOperations](#UserOperations)_
-  - __latestIncomingTxOperations__: _[UserOperations](#UserOperations)_
+### Product
+  - __id__: _string_
+  - __name__: _string_
+  - __price_sats__: _number_
 
-### LndGetInfoRequest
-  - __nodeId__: _number_
+### SendAppUserToAppUserPaymentRequest
+  - __from_user_identifier__: _string_
+  - __to_user_identifier__: _string_
+  - __amount__: _number_
 
-### LndGetInfoResponse
-  - __alias__: _string_
+### SetMockAppUserBalanceRequest
+  - __user_identifier__: _string_
+  - __amount__: _number_
 
-### AddUserResponse
-  - __userId__: _string_
-  - __authToken__: _string_
+### NewAddressResponse
+  - __address__: _string_
 
 ### LnurlWithdrawInfoResponse
   - __tag__: _string_
@@ -359,42 +522,59 @@ The nostr server will send back a message response, and inside the body there wi
   - __balanceCheck__: _string_
   - __payLink__: _string_
 
+### HandleLnurlPayResponse
+  - __pr__: _string_
+  - __routes__: ARRAY of: _[Empty](#Empty)_
+
+### AddUserResponse
+  - __userId__: _string_
+  - __authToken__: _string_
+
+### UserOperations
+  - __fromIndex__: _number_
+  - __toIndex__: _number_
+  - __operations__: ARRAY of: _[UserOperation](#UserOperation)_
+
+### AuthAppRequest
+  - __name__: _string_
+  - __allow_user_creation__: _boolean_ *this field is optional
+
+### GetAppUserRequest
+  - __user_identifier__: _string_
+
+### NewInvoiceResponse
+  - __invoice__: _string_
+
+### DecodeInvoiceRequest
+  - __invoice__: _string_
+
+### OpenChannelResponse
+  - __channelId__: _string_
+
+### AddAppRequest
+  - __name__: _string_
+  - __allow_user_creation__: _boolean_
+
+### PayAppUserInvoiceResponse
+  - __preimage__: _string_
+  - __amount_paid__: _number_
+
+### PayInvoiceResponse
+  - __preimage__: _string_
+  - __amount_paid__: _number_
+
 ### GetProductBuyLinkResponse
   - __link__: _string_
 
-### AddUserRequest
-  - __callbackUrl__: _string_
-  - __name__: _string_
-  - __secret__: _string_
+### LndGetInfoRequest
+  - __nodeId__: _number_
 
-### UserOperation
-  - __paidAtUnix__: _number_
-  - __type__: _[UserOperationType](#UserOperationType)_
-  - __inbound__: _boolean_
-  - __amount__: _number_
+### LndGetInfoResponse
+  - __alias__: _string_
 
-### NewAddressRequest
-  - __addressType__: _[AddressType](#AddressType)_
-
-### NewAddressResponse
-  - __address__: _string_
-
-### PayInvoiceRequest
-  - __invoice__: _string_
-  - __amount__: _number_
-
-### PayAddressResponse
-  - __txId__: _string_
-
-### DecodeInvoiceResponse
-  - __amount__: _number_
-
-### LnurlPayInfoResponse
-  - __tag__: _string_
-  - __callback__: _string_
-  - __maxSendable__: _number_
-  - __minSendable__: _number_
-  - __metadata__: _string_
+### AuthApp
+  - __app__: _[Application](#Application)_
+  - __auth_token__: _string_
 ## Enums
 ### The enumerators used in the messages
 
@@ -408,3 +588,5 @@ The nostr server will send back a message response, and inside the body there wi
   - __OUTGOING_TX__
   - __INCOMING_INVOICE__
   - __OUTGOING_INVOICE__
+  - __OUTGOING_USER_TO_USER__
+  - __INCOMING_USER_TO_USER__

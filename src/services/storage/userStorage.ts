@@ -2,7 +2,6 @@ import crypto from 'crypto';
 import { DataSource, EntityManager } from "typeorm"
 import { User } from './entity/User.js';
 import { UserBasicAuth } from './entity/UserBasicAuth.js';
-import { UserNostrAuth } from './entity/UserNostrAuth.js';
 import { getLogger } from '../helpers/logger.js';
 export default class {
     DB: DataSource | EntityManager
@@ -20,7 +19,6 @@ export default class {
         })
         return entityManager.getRepository(User).save(newUser)
     }
-
 
     async AddBasicUser(name: string, secret: string): Promise<UserBasicAuth> {
         return this.DB.transaction(async tx => {
@@ -47,24 +45,6 @@ export default class {
             throw new Error(`user ${userId} not found`) // TODO: fix logs doxing
         }
         return user
-    }
-
-    async FindNostrUser(nostrPub: string, entityManager = this.DB): Promise<UserNostrAuth | null> {
-        return entityManager.getRepository(UserNostrAuth).findOne({
-            where: { nostr_pub: nostrPub }
-        })
-
-    }
-    async AddNostrUser(nostrPub: string): Promise<UserNostrAuth> {
-        return this.DB.transaction(async tx => {
-            const user = await this.AddUser(0, tx)
-            const newAuth = tx.getRepository(UserNostrAuth).create({
-                user: user,
-                nostr_pub: nostrPub
-            })
-            return tx.getRepository(UserNostrAuth).save(newAuth)
-        })
-
     }
 
     async LockUser(userId: string, entityManager = this.DB) {

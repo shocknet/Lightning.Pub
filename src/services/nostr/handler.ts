@@ -1,15 +1,17 @@
-import { SimplePool, Sub, Event, UnsignedEvent, nip04, getEventHash, signEvent } from 'nostr-tools'
+//import { SimplePool, Sub, Event, UnsignedEvent, getEventHash, signEvent } from 'nostr-tools'
+import { SimplePool, Sub, Event, UnsignedEvent, getEventHash, finishEvent, relayInit } from './tools/index.js'
+import { encryptData, decryptData, getSharedSecret, decodePayload, encodePayload } from './nip44.js'
 const handledEvents: string[] = [] // TODO: - big memory leak here, add TTL
+type AppInfo = { appId: string, publicKey: string, privateKey: string, name: string }
 export type NostrSettings = {
-    privateKey: string
-    publicKey: string
+    apps: AppInfo[]
     relays: string[]
-    allowedPubs: string[]
 }
 export type NostrEvent = {
     id: string
     pub: string
     content: string
+    appId: string
 }
 type SettingsRequest = {
     type: 'settings'
@@ -18,6 +20,7 @@ type SettingsRequest = {
 
 type SendRequest = {
     type: 'send'
+    appId: string
     pub: string
     message: string
 }
@@ -43,7 +46,7 @@ process.on("message", (message: ChildProcessRequest) => {
             initSubprocessHandler(message.settings)
             break
         case 'send':
-            sendToNostr(message.pub, message.message)
+            sendToNostr(message.appId, message.pub, message.message)
             break
         default:
             console.error("unknown nostr request", message)
@@ -62,30 +65,47 @@ const initSubprocessHandler = (settings: NostrSettings) => {
         })
     })
 }
-const sendToNostr = (pub: string, message: string) => {
+const sendToNostr = (appId: string, pub: string, message: string) => {
     if (!subProcessHandler) {
         console.error("nostr was not initialized")
         return
     }
-    subProcessHandler.Send(pub, message)
+    subProcessHandler.Send(appId, pub, message)
 }
 send({ type: 'ready' })
 
 export default class Handler {
     pool = new SimplePool()
     settings: NostrSettings
-    sub: Sub
+    subs: Sub[] = []
     constructor(settings: NostrSettings, eventCallback: (event: NostrEvent) => void) {
         this.settings = settings
         console.log(settings)
-        this.sub = this.pool.sub(settings.relays, [
+        this.settings.apps.forEach(app => {
+            this.SubForApp(app, eventCallback)
+        })
+    }
+
+    async SubForApp(appInfo: AppInfo, eventCallback: (event: NostrEvent) => void) {
+        const relay = relayInit(this.settings.relays[0])
+        relay.on('connect', () => {
+            console.log(`connected to ${relay.url}`)
+        })
+        relay.on('error', () => {
+            console.log(`failed to connect to ${relay.url}`)
+        })
+
+        await relay.connect()
+        console.log("relay connected")
+        const sub = relay.sub([
             {
                 since: Math.ceil(Date.now() / 1000),
                 kinds: [4],
-                '#p': [settings.publicKey],
+                '#p': [appInfo.publicKey],
             }
         ])
-        this.sub.on("event", async (e) => {
+        sub.on("event", async (e) => {
+            console.log({ nostrEvent: e })
             if (e.kind !== 4 || !e.pubkey) {
                 return
             }
@@ -96,22 +116,47 @@ export default class Handler {
                 return
             }
             handledEvents.push(eventId)
-            eventCallback({ id: eventId, content: await nip04.decrypt(this.settings.privateKey, e.pubkey, e.content), pub: e.pubkey })
+            const decoded = decodePayload(e.content)
+            const content = await decryptData(decoded, getSharedSecret(appInfo.privateKey, e.pubkey))
+            eventCallback({ id: eventId, content, pub: e.pubkey, appId: appInfo.appId })
+            //eventCallback({ id: eventId, content: await nip04.decrypt(appInfo.privateKey, e.pubkey, e.content), pub: e.pubkey, appId: appInfo.appId })
+        })
+        this.subs.push(sub)
+    }
+
+    async Send(appId: string, pubKey: string, message: string) {
+        const appInfo = this.GetAppKeys({ appId })
+        const decoded = await encryptData(message, getSharedSecret(appInfo.privateKey, pubKey))
+        const content = encodePayload(decoded)
+        const event: UnsignedEvent = {
+            content,
+            created_at: Math.floor(Date.now() / 1000),
+            kind: 4,
+            pubkey: appInfo.publicKey,
+            tags: [['p', pubKey]],
+        }
+        const signed = finishEvent(event, appInfo.privateKey)
+        this.pool.publish(this.settings.relays, signed).forEach(p => {
+            p.then(() => console.log("sent ok"))
+            p.catch(() => console.log("failed to send"))
         })
     }
 
-    async Send(nostrPub: string, message: string) {
-        const event: UnsignedEvent = {
-            content: await nip04.encrypt(this.settings.privateKey, nostrPub, message),
-            created_at: Math.floor(Date.now() / 1000),
-            kind: 4,
-            pubkey: this.settings.publicKey,
-            tags: [['p', nostrPub]],
+    GetAppKeys(appInfo: Partial<AppInfo>) {
+        let check: (info: AppInfo) => boolean
+        if (appInfo.appId) {
+            check = (info: AppInfo) => info.appId === appInfo.appId
+        } else if (appInfo.privateKey) {
+            check = (info: AppInfo) => info.privateKey === appInfo.privateKey
+        } else if (appInfo.publicKey) {
+            check = (info: AppInfo) => info.publicKey === appInfo.publicKey
+        } else {
+            throw new Error("app info is empty")
         }
-        const eventId = getEventHash(event)
-        const sign = signEvent(event, this.settings.privateKey)
-        const op = this.pool.publish(this.settings.relays,
-            { ...event, id: eventId, sig: sign })
-        op.on('failed', (reason: string) => { console.log('failed to send message cuz: ', reason) })
+        const found = this.settings.apps.find(check)
+        if (!found) {
+            throw new Error("unkown app")
+        }
+        return found
     }
 }

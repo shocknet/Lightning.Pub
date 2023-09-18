@@ -47,15 +47,16 @@ export default class {
     }
 
 
-    async AddApp(req: Types.AuthAppRequest): Promise<Types.AuthApp> {
-        const app = await this.storage.applicationStorage.AddApplication(req.name)
+    async AddApp(req: Types.AddAppRequest): Promise<Types.AuthApp> {
+        const app = await this.storage.applicationStorage.AddApplication(req.name, req.allow_user_creation)
         getLogger({ appName: app.name })("app created")
 
         return {
             app: {
                 id: app.app_id,
                 name: app.name,
-                balance: app.owner.balance_sats
+                balance: app.owner.balance_sats,
+                npub: app.nostr_public_key
             },
             auth_token: this.SignAppToken(app.app_id)
         }
@@ -63,11 +64,15 @@ export default class {
 
     async AuthApp(req: Types.AuthAppRequest): Promise<Types.AuthApp> {
         const app = await this.storage.applicationStorage.GetApplicationByName(req.name)
+        if (typeof req.allow_user_creation === 'boolean') {
+            await this.storage.applicationStorage.UpdateApplication(app, { allow_user_creation: req.allow_user_creation })
+        }
         return {
             app: {
                 id: app.app_id,
                 name: app.name,
-                balance: app.owner.balance_sats
+                balance: app.owner.balance_sats,
+                npub: app.nostr_public_key
             },
             auth_token: this.SignAppToken(app.app_id)
         }
@@ -78,7 +83,8 @@ export default class {
         return {
             name: app.name,
             id: app.app_id,
-            balance: app.owner.balance_sats
+            balance: app.owner.balance_sats,
+            npub: app.nostr_public_key
         }
     }
 
