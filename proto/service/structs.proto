@@ -128,7 +128,7 @@ message NewAddressResponse{
 message PayAddressRequest{
     string address = 1;
     int64 amoutSats = 2;
-    int64 targetConf = 3;
+    int64 satsPerVByte = 3;
 }
 
 message PayAddressResponse{
