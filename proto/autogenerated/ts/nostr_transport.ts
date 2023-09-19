@@ -15,7 +15,7 @@ export type NostrRequest = {
 export type NostrOptions = {
     logger?: Logger
     throwErrors?: true
-    NostrUserAuthGuard: (appId?: string, identifier?: string) => Promise<Types.UserContext>
+    NostrUserAuthGuard: (appId?:string, identifier?: string) => Promise<Types.UserContext>
 }
 const logErrorAndReturnResponse = (error: Error, response: string, res: NostrResponse, logger: Logger) => { logger.error(error.message || error); res({ status: 'ERROR', reason: response }) }
 export default (methods: Types.ServerMethods, opts: NostrOptions) => {
@@ -29,8 +29,8 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     const query = req.query
                     const params = req.params
                     const response = await methods.GetUserInfo({ ...authContext, ...query, ...params })
-                    res({ status: 'OK', ...response })
-                } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+                    res({status: 'OK', ...response})
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
                 break
             case 'AddProduct':
                 try {
@@ -42,8 +42,8 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     const query = req.query
                     const params = req.params
                     const response = await methods.AddProduct({ ...authContext, ...query, ...params }, request)
-                    res({ status: 'OK', ...response })
-                } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+                    res({status: 'OK', ...response})
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
                 break
             case 'NewProductInvoice':
                 try {
@@ -52,8 +52,8 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     const query = req.query
                     const params = req.params
                     const response = await methods.NewProductInvoice({ ...authContext, ...query, ...params })
-                    res({ status: 'OK', ...response })
-                } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+                    res({status: 'OK', ...response})
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
                 break
             case 'GetUserOperations':
                 try {
@@ -65,8 +65,8 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     const query = req.query
                     const params = req.params
                     const response = await methods.GetUserOperations({ ...authContext, ...query, ...params }, request)
-                    res({ status: 'OK', ...response })
-                } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+                    res({status: 'OK', ...response})
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
                 break
             case 'NewAddress':
                 try {
@@ -78,8 +78,8 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     const query = req.query
                     const params = req.params
                     const response = await methods.NewAddress({ ...authContext, ...query, ...params }, request)
-                    res({ status: 'OK', ...response })
-                } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+                    res({status: 'OK', ...response})
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
                 break
             case 'PayAddress':
                 try {
@@ -91,8 +91,8 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     const query = req.query
                     const params = req.params
                     const response = await methods.PayAddress({ ...authContext, ...query, ...params }, request)
-                    res({ status: 'OK', ...response })
-                } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+                    res({status: 'OK', ...response})
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
                 break
             case 'NewInvoice':
                 try {
@@ -104,8 +104,8 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     const query = req.query
                     const params = req.params
                     const response = await methods.NewInvoice({ ...authContext, ...query, ...params }, request)
-                    res({ status: 'OK', ...response })
-                } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+                    res({status: 'OK', ...response})
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
                 break
             case 'DecodeInvoice':
                 try {
@@ -117,8 +117,8 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     const query = req.query
                     const params = req.params
                     const response = await methods.DecodeInvoice({ ...authContext, ...query, ...params }, request)
-                    res({ status: 'OK', ...response })
-                } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+                    res({status: 'OK', ...response})
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
                 break
             case 'PayInvoice':
                 try {
@@ -130,8 +130,8 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     const query = req.query
                     const params = req.params
                     const response = await methods.PayInvoice({ ...authContext, ...query, ...params }, request)
-                    res({ status: 'OK', ...response })
-                } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+                    res({status: 'OK', ...response})
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
                 break
             case 'OpenChannel':
                 try {
@@ -143,8 +143,8 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     const query = req.query
                     const params = req.params
                     const response = await methods.OpenChannel({ ...authContext, ...query, ...params }, request)
-                    res({ status: 'OK', ...response })
-                } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+                    res({status: 'OK', ...response})
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
                 break
             case 'GetLnurlWithdrawLink':
                 try {
@@ -153,8 +153,8 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     const query = req.query
                     const params = req.params
                     const response = await methods.GetLnurlWithdrawLink({ ...authContext, ...query, ...params })
-                    res({ status: 'OK', ...response })
-                } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+                    res({status: 'OK', ...response})
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
                 break
             case 'GetLNURLChannelLink':
                 try {
@@ -163,10 +163,10 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     const query = req.query
                     const params = req.params
                     const response = await methods.GetLNURLChannelLink({ ...authContext, ...query, ...params })
-                    res({ status: 'OK', ...response })
-                } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+                    res({status: 'OK', ...response})
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
                 break
-            default: logger.error('unknown rpc call name from nostr event:' + req.rpcName)
+            default: logger.error('unknown rpc call name from nostr event:'+req.rpcName) 
         }
     }
 }

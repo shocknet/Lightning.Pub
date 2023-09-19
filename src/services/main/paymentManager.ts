@@ -148,9 +148,9 @@ export default class {
     }
 
     async PayAddress(userId: string, req: Types.PayAddressRequest, linkedApplication?: Application): Promise<Types.PayAddressResponse> {
-        const estimate = await this.lnd.EstimateChainFees(req.address, req.amoutSats, req.targetConf)
-        const satPerVByte = Number(estimate.satPerVbyte)
-        const chainFees = Number(estimate.feeSat)
+        const estimate = await this.lnd.EstimateChainFees(req.address, req.amoutSats, 1)
+        const vBytes = Math.ceil(Number(estimate.feeSat / estimate.satPerVbyte))
+        const chainFees = vBytes * req.satsPerVByte
         const total = req.amoutSats + chainFees
         if (!linkedApplication) {
             throw new Error("only application operations are supported") // TODO - make this check obsolete
@@ -162,7 +162,7 @@ export default class {
         await this.lockUserWithMinBalance(userId, total + serviceFee)
         let payment
         try {
-            payment = await this.lnd.PayAddress(req.address, req.amoutSats, satPerVByte)
+            payment = await this.lnd.PayAddress(req.address, req.amoutSats, req.satsPerVByte)
             await this.storage.userStorage.UnlockUser(userId)
         } catch (err) {
             await this.storage.userStorage.UnlockUser(userId)
