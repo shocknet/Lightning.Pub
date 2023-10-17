@@ -17,10 +17,16 @@ option (file_options) = {
         {
             id: "user" 
             name: "User", 
-            context:{
+            context:[{
                 key:"user_id", 
                 value:"string"
-            }
+            },{
+                key:"app_id", 
+                value:"string"
+            },{
+                key:"app_user_id", 
+                value:"string"
+            }]
         },
         {
             id: "admin", 

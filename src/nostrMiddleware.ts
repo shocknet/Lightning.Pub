@@ -11,7 +11,7 @@ export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSett
             console.log({ appId })
             const app = await mainHandler.storage.applicationStorage.GetApplication(appId || "")
             let nostrUser = await mainHandler.storage.applicationStorage.GetOrCreateNostrAppUser(app, pub || "")
-            return { user_id: nostrUser.user.user_id }
+            return { user_id: nostrUser.user.user_id, app_user_id: nostrUser.identifier, app_id: appId || "" }
         }
     })
     const nostr = new Nostr(nostrSettings, event => {
