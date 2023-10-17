@@ -55,7 +55,12 @@ export default (mainHandler: Main): Types.ServerMethods => {
             return mainHandler.paymentManager.PayAddress(ctx.user_id, req)
         },
         NewInvoice: async (ctx, req) => {
-            return mainHandler.paymentManager.NewInvoice(ctx.user_id, req)
+            return mainHandler.applicationManager.AddAppUserInvoice(ctx.app_id, {
+                http_callback_url: "",
+                invoice_req: req,
+                payer_identifier: ctx.app_user_id,
+                receiver_identifier: ctx.app_user_id
+            })
         },
         DecodeInvoice: async (ctx, req) => {
             return mainHandler.paymentManager.DecodeInvoice(req)
