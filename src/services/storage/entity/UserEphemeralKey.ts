@@ -1,7 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, Index, Check, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn } from "typeorm"
 import { User } from "./User.js"
 import { Application } from "./Application.js"
-export type EphemeralKeyType = 'balanceCheck' | 'payInfo' | 'pay' | 'withdraw'
+export type EphemeralKeyType = 'balanceCheck' | 'withdraw' | 'pay'
 @Entity()
 export class UserEphemeralKey {
 

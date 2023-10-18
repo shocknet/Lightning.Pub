@@ -77,30 +77,12 @@ extend google.protobuf.FileOptions {
 }
 
 service LightningPub {
-    rpc Health(structs.Empty) returns (structs.Empty){
-        option (auth_type)  = "Guest";
-        option (http_method) = "get";
-        option (http_route) = "/api/health";
-    };
-    rpc EncryptionExchange(structs.EncryptionExchangeRequest) returns (structs.Empty){
-        option (auth_type)  = "Guest";
-        option (http_method) = "post";
-        option (http_route) = "/api/encryption/exchange";
-    };
-
+    // <Admin>
     rpc LndGetInfo(structs.LndGetInfoRequest) returns (structs.LndGetInfoResponse){
         option (auth_type)  = "Admin";
         option (http_method) = "post";
         option (http_route) = "/api/admin/lnd/getinfo";
     };
-
-    rpc SetMockInvoiceAsPaid(structs.SetMockInvoiceAsPaidRequest) returns (structs.Empty) {
-        option (auth_type)  = "Guest";
-        option (http_method) = "post";
-        option (http_route) = "/api/lnd/mock/invoice/paid";
-    }
-
-    // <App>
 
     rpc AddApp(structs.AddAppRequest) returns (structs.AuthApp) {
         option (auth_type)  = "Admin";
@@ -113,7 +95,52 @@ service LightningPub {
         option (http_method) = "post";
         option (http_route) = "/api/admin/app/auth";
     }
+    // </Admin>
 
+    // <Guest>
+    rpc Health(structs.Empty) returns (structs.Empty){
+        option (auth_type)  = "Guest";
+        option (http_method) = "get";
+        option (http_route) = "/api/health";
+    };
+    rpc EncryptionExchange(structs.EncryptionExchangeRequest) returns (structs.Empty){
+        option (auth_type)  = "Guest";
+        option (http_method) = "post";
+        option (http_route) = "/api/encryption/exchange";
+    };
+
+    rpc SetMockInvoiceAsPaid(structs.SetMockInvoiceAsPaidRequest) returns (structs.Empty) {
+        option (auth_type)  = "Guest";
+        option (http_method) = "post";
+        option (http_route) = "/api/lnd/mock/invoice/paid";
+    }
+    rpc GetLnurlWithdrawInfo(structs.Empty) returns (structs.LnurlWithdrawInfoResponse){
+        option (auth_type)  = "Guest";
+        option (http_method) = "get";
+        option (http_route) = "/api/guest/lnurl_withdraw/info";
+        option (query) = {items: ["k1"]};
+    }
+    rpc HandleLnurlWithdraw(structs.Empty) returns (structs.Empty){
+        option (auth_type)  = "Guest";
+        option (http_method) = "get";
+        option (http_route) = "/api/guest/lnurl_withdraw/handle";
+        option (query) = {items: ["k1", "pr"]};
+    }
+    rpc GetLnurlPayInfo(structs.Empty)returns (structs.LnurlPayInfoResponse) {
+        option (auth_type)  = "Guest";
+        option (http_method) = "get";
+        option (http_route) = "/api/guest/lnurl_pay/info";
+        option (query) = {items: ["k1"]};
+    }
+    rpc HandleLnurlPay(structs.Empty)returns (structs.HandleLnurlPayResponse) {
+        option (auth_type)  = "Guest";
+        option (http_method) = "get";
+        option (http_route) = "/api/guest/lnurl_pay/handle";
+        option (query) = {items: ["k1", "amount"]};
+    }
+    //</Guest>
+
+    // <App>
     rpc GetApp(structs.Empty) returns (structs.Application)  {
         option (auth_type)  = "App";
         option (http_method) = "post";
@@ -177,32 +204,23 @@ service LightningPub {
         option (http_method) = "post";
         option (http_route) = "/api/app/mock/blance/set";
     }
-
     // </App>
-
-    rpc AddUser(structs.AddUserRequest)returns (structs.AddUserResponse){
-        option (auth_type)  = "Guest";
-        option (http_method) = "post";
-        option (http_route) = "/api/user/add";
-    }
-    rpc AuthUser(structs.AuthUserRequest)returns (structs.AuthUserResponse){
-        option (auth_type)  = "Guest";
-        option (http_method) = "post";
-        option (http_route) = "/api/user/auth";
-    }
-    // USER
+    
+    // <User>
     rpc GetUserInfo(structs.Empty)returns(structs.UserInfo){
         option (auth_type)  = "User";
         option (http_method) = "post";
         option (http_route) = "/api/user/info";
         option (nostr) = true;
     }
+
     rpc AddProduct(structs.AddProductRequest) returns (structs.Product){
         option (auth_type)  = "User";
         option (http_method) = "post";
         option (http_route) = "/api/user/product/add";
         option (nostr) = true;
     };
+
     rpc NewProductInvoice(structs.Empty) returns (structs.NewInvoiceResponse){
         option (auth_type)  = "User";
         option (http_method) = "get";
@@ -210,82 +228,75 @@ service LightningPub {
         option (query) = {items: ["id"]};
         option (nostr) = true;
     };
+
     rpc GetUserOperations(structs.GetUserOperationsRequest) returns (structs.GetUserOperationsResponse) {
         option (auth_type)  = "User";
         option (http_method) = "post";
         option (http_route) = "/api/user/operations";
         option (nostr) = true;
     } 
+
     rpc NewAddress(structs.NewAddressRequest) returns (structs.NewAddressResponse) {
         option (auth_type)  = "User";
         option (http_method) = "post";
         option (http_route) = "/api/user/chain/new";
         option (nostr) = true;
     }
+
     rpc PayAddress(structs.PayAddressRequest) returns (structs.PayAddressResponse){
         option (auth_type)  = "User";
         option (http_method) = "post";
         option (http_route) = "/api/user/chain/pay";
         option (nostr) = true;
     }
+
     rpc NewInvoice(structs.NewInvoiceRequest) returns (structs.NewInvoiceResponse){
         option (auth_type)  = "User";
         option (http_method) = "post";
         option (http_route) = "/api/user/invoice/new";
         option (nostr) = true;
     }
+
     rpc DecodeInvoice(structs.DecodeInvoiceRequest) returns (structs.DecodeInvoiceResponse){
         option (auth_type)  = "User";
         option (http_method) = "post";
         option (http_route) = "/api/user/invoice/decode";
         option (nostr) = true;
     }
+
     rpc PayInvoice(structs.PayInvoiceRequest) returns (structs.PayInvoiceResponse){
         option (auth_type)  = "User";
         option (http_method) = "post";
         option (http_route) = "/api/user/invoice/pay";
         option (nostr) = true;
     }
+
     rpc OpenChannel(structs.OpenChannelRequest) returns (structs.OpenChannelResponse){
         option (auth_type)  = "User";
         option (http_method) = "post";
         option (http_route) = "/api/user/open/channel";
         option (nostr) = true;
     }
+
     rpc GetLnurlWithdrawLink(structs.Empty) returns (structs.LnurlLinkResponse){
         option (auth_type)  = "User";
         option (http_method) = "get";
         option (http_route) = "/api/user/lnurl_withdraw/link";
         option (nostr) = true;
     }
-    rpc GetLnurlWithdrawInfo(structs.Empty) returns (structs.LnurlWithdrawInfoResponse){
-        option (auth_type)  = "Guest";
+    
+    rpc GetLnurlPayLink(structs.Empty) returns (structs.LnurlLinkResponse){
+        option (auth_type)  = "User";
         option (http_method) = "get";
-        option (http_route) = "/api/guest/lnurl_withdraw/info";
-        option (query) = {items: ["k1"]};
+        option (http_route) = "/api/user/lnurl_pay/link";
+        option (nostr) = true;
     }
-    rpc HandleLnurlWithdraw(structs.Empty) returns (structs.Empty){
-        option (auth_type)  = "Guest";
-        option (http_method) = "get";
-        option (http_route) = "/api/guest/lnurl_withdraw/handle";
-        option (query) = {items: ["k1", "pr"]};
-    }
-    rpc GetLnurlPayInfo(structs.Empty)returns (structs.LnurlPayInfoResponse) {
-        option (auth_type)  = "Guest";
-        option (http_method) = "get";
-        option (http_route) = "/api/guest/lnurl_pay/info";
-        option (query) = {items: ["k1"]};
-    }
-    rpc HandleLnurlPay(structs.Empty)returns (structs.HandleLnurlPayResponse) {
-        option (auth_type)  = "Guest";
-        option (http_method) = "get";
-        option (http_route) = "/api/guest/lnurl_pay/handle";
-        option (query) = {items: ["k1", "amount"]};
-    }
+
     rpc GetLNURLChannelLink(structs.Empty) returns (structs.LnurlLinkResponse){
         option (auth_type)  = "User";
         option (http_method) = "post";
         option (http_route) = "/api/user/lnurl_channel/url";
         option (nostr) = true;
     }
+    // </User>
 }

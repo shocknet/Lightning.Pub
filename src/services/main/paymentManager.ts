@@ -64,9 +64,10 @@ export default class {
         await this.storage.userStorage.UpdateUser(userId, { balance_sats: balance })
     }
 
-    async NewAddress(userId: string, req: Types.NewAddressRequest): Promise<Types.NewAddressResponse> {
+    async NewAddress(ctx: Types.UserContext, req: Types.NewAddressRequest): Promise<Types.NewAddressResponse> {
+        const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
         const res = await this.lnd.NewAddress(req.addressType)
-        const userAddress = await this.storage.paymentStorage.AddUserAddress(userId, res.address)
+        const userAddress = await this.storage.paymentStorage.AddUserAddress(ctx.user_id, res.address, { linkedApplication: app })
         return {
             address: userAddress.address
         }
@@ -147,17 +148,13 @@ export default class {
         }
     }
 
-    async PayAddress(userId: string, req: Types.PayAddressRequest, linkedApplication?: Application): Promise<Types.PayAddressResponse> {
+    async PayAddress(ctx: Types.UserContext, req: Types.PayAddressRequest): Promise<Types.PayAddressResponse> {
+        const userId = ctx.user_id
+        const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
         const estimate = await this.lnd.EstimateChainFees(req.address, req.amoutSats, 1)
         const vBytes = Math.ceil(Number(estimate.feeSat / estimate.satPerVbyte))
         const chainFees = vBytes * req.satsPerVByte
         const total = req.amoutSats + chainFees
-        if (!linkedApplication) {
-            throw new Error("only application operations are supported") // TODO - make this check obsolete
-        }
-        if (userId !== linkedApplication.owner.user_id) {
-            throw new Error("chain operations only supported for applications")
-        }
         const serviceFee = this.getServiceFee(Types.UserOperationType.OUTGOING_INVOICE, req.amoutSats, false)
         await this.lockUserWithMinBalance(userId, total + serviceFee)
         let payment
@@ -179,8 +176,9 @@ export default class {
         return `${this.settings.serviceUrl}/api/guest/lnurl_withdraw/info?k1=${k1}`
     }
 
-    async GetLnurlChannelLink(userId: string): Promise<Types.LnurlLinkResponse> {
-        const key = await this.storage.paymentStorage.AddUserEphemeralKey(userId, 'balanceCheck')
+    async GetLnurlWithdrawLink(ctx: Types.UserContext): Promise<Types.LnurlLinkResponse> {
+        const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
+        const key = await this.storage.paymentStorage.AddUserEphemeralKey(ctx.user_id, 'balanceCheck', app)
         return {
             lnurl: this.encodeLnurl(this.balanceCheckUrl(key.key)),
             k1: key.key
@@ -216,32 +214,44 @@ export default class {
         }
     }
 
-    async GetLnurlPayInfoFromUser(userId: string, linkedApplication?: Application, baseUrl?: string): Promise<Types.LnurlPayInfoResponse> {
+    lnurlPayUrl(k1: string): string {
+        return `${this.settings.serviceUrl}/api/guest/lnurl_pay/info?k1=${k1}`
+    }
+
+    async GetLnurlPayLink(ctx: Types.UserContext): Promise<Types.LnurlLinkResponse> {
+        const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
+        const key = await this.storage.paymentStorage.AddUserEphemeralKey(ctx.user_id, 'pay', app)
+        return {
+            lnurl: this.encodeLnurl(this.lnurlPayUrl(key.key)),
+            k1: key.key
+        }
+    }
+
+    async GetLnurlPayInfoFromUser(userId: string, linkedApplication: Application, baseUrl?: string): Promise<Types.LnurlPayInfoResponse> {
         const payK1 = await this.storage.paymentStorage.AddUserEphemeralKey(userId, 'pay', linkedApplication)
         const url = baseUrl ? baseUrl : `${this.settings.serviceUrl}/api/guest/lnurl_pay/handle`
         return {
             tag: 'payRequest',
             callback: `${url}?k1=${payK1.key}`,
-            maxSendable: 10000000000,
+            maxSendable: this.GetMaxPayableInvoice(payK1.user.balance_sats, true),
             minSendable: 10000,
             metadata: defaultLnurlPayMetadata
         }
     }
 
-    async GetLnurlPayInfoFromK1(payInfoK1: string): Promise<Types.LnurlPayInfoResponse> {
-        const key = await this.storage.paymentStorage.UseUserEphemeralKey(payInfoK1, 'payInfo')
-        const payK1 = await this.storage.paymentStorage.AddUserEphemeralKey(key.user.user_id, 'pay')
+    async GetLnurlPayInfo(payInfoK1: string): Promise<Types.LnurlPayInfoResponse> {
+        const key = await this.storage.paymentStorage.UseUserEphemeralKey(payInfoK1, 'pay', true)
         return {
             tag: 'payRequest',
-            callback: `${this.settings.serviceUrl}/api/guest/lnurl_pay/handle?k1=${payK1.key}`,
-            maxSendable: 10000000,
+            callback: `${this.settings.serviceUrl}/api/guest/lnurl_pay/handle?k1=${payInfoK1}`,
+            maxSendable: this.GetMaxPayableInvoice(key.user.balance_sats, true),
             minSendable: 10000,
             metadata: defaultLnurlPayMetadata
         }
     }
 
     async HandleLnurlPay(payK1: string, amountMillis: number): Promise<Types.HandleLnurlPayResponse> {
-        const key = await this.storage.paymentStorage.UseUserEphemeralKey(payK1, 'pay')
+        const key = await this.storage.paymentStorage.UseUserEphemeralKey(payK1, 'pay', true)
         const sats = amountMillis / 1000
         if (!Number.isInteger(sats)) {
             throw new Error("millisats amount must be integer sats amount")

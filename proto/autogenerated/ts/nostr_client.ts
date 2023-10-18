@@ -172,6 +172,20 @@ export default (params: NostrClientParams,  send: (to:string, message: NostrRequ
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
+    GetLnurlPayLink: async (): Promise<ResultError | ({ status: 'OK' }& Types.LnurlLinkResponse)> => {
+        const auth = await params.retrieveNostrUserAuth()
+        if (auth === null) throw new Error('retrieveNostrUserAuth() returned null')
+        const nostrRequest: NostrRequest = {}
+        const data = await send(params.pubDestination, {rpcName:'GetLnurlPayLink',authIdentifier:auth, ...nostrRequest }) 
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.LnurlLinkResponseValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
     GetLNURLChannelLink: async (): Promise<ResultError | ({ status: 'OK' }& Types.LnurlLinkResponse)> => {
         const auth = await params.retrieveNostrUserAuth()
         if (auth === null) throw new Error('retrieveNostrUserAuth() returned null')
