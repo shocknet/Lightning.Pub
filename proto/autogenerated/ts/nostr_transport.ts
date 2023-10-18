@@ -156,6 +156,16 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     res({status: 'OK', ...response})
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
                 break
+            case 'GetLnurlPayLink':
+                try {
+                    if (!methods.GetLnurlPayLink) throw new Error('method: GetLnurlPayLink is not implemented')
+                    const authContext = await opts.NostrUserAuthGuard(req.appId, req.authIdentifier)
+                    const query = req.query
+                    const params = req.params
+                    const response = await methods.GetLnurlPayLink({ ...authContext, ...query, ...params })
+                    res({status: 'OK', ...response})
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+                break
             case 'GetLNURLChannelLink':
                 try {
                     if (!methods.GetLNURLChannelLink) throw new Error('method: GetLNURLChannelLink is not implemented')

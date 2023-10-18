@@ -31,31 +31,6 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     app.use(urlencoded({ extended: true }))
     if (opts.logMethod) app.use((req, _, next) => { console.log(req.method, req.path);  if (opts.logBody) console.log(req.body); next() })
     const overrides = opts.overrides || {} as MethodsOverride
-    if (!opts.allowNotImplementedMethods && !methods.Health) throw new Error('method: Health is not implemented')
-    app.get('/api/health', async (req, res) => {
-        try {
-            if (!methods.Health) throw new Error('method: Health is not implemented')
-            const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
-            const query = req.query
-            const params = req.params
-            await methods.Health({ ...authContext, ...query, ...params })
-            if (overrides.Health_Override) await overrides.Health_Override(res); else res.json({status: 'OK'}) 
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
-    })
-    if (!opts.allowNotImplementedMethods && !methods.EncryptionExchange) throw new Error('method: EncryptionExchange is not implemented')
-    app.post('/api/encryption/exchange', async (req, res) => {
-        try {
-            if (!methods.EncryptionExchange) throw new Error('method: EncryptionExchange is not implemented')
-            const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
-            const request = req.body
-            const error = Types.EncryptionExchangeRequestValidate(request)
-            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
-            const query = req.query
-            const params = req.params
-            await methods.EncryptionExchange({ ...authContext, ...query, ...params }, request)
-            if (overrides.EncryptionExchange_Override) await overrides.EncryptionExchange_Override(res); else res.json({status: 'OK'}) 
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
-    })
     if (!opts.allowNotImplementedMethods && !methods.LndGetInfo) throw new Error('method: LndGetInfo is not implemented')
     app.post('/api/admin/lnd/getinfo', async (req, res) => {
         try {
@@ -68,20 +43,6 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const params = req.params
             const response = await methods.LndGetInfo({ ...authContext, ...query, ...params }, request)
             if (overrides.LndGetInfo_Override) await overrides.LndGetInfo_Override(res, response); else res.json({status: 'OK', ...response}) 
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
-    })
-    if (!opts.allowNotImplementedMethods && !methods.SetMockInvoiceAsPaid) throw new Error('method: SetMockInvoiceAsPaid is not implemented')
-    app.post('/api/lnd/mock/invoice/paid', async (req, res) => {
-        try {
-            if (!methods.SetMockInvoiceAsPaid) throw new Error('method: SetMockInvoiceAsPaid is not implemented')
-            const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
-            const request = req.body
-            const error = Types.SetMockInvoiceAsPaidRequestValidate(request)
-            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
-            const query = req.query
-            const params = req.params
-            await methods.SetMockInvoiceAsPaid({ ...authContext, ...query, ...params }, request)
-            if (overrides.SetMockInvoiceAsPaid_Override) await overrides.SetMockInvoiceAsPaid_Override(res); else res.json({status: 'OK'}) 
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.AddApp) throw new Error('method: AddApp is not implemented')
@@ -110,6 +71,89 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const params = req.params
             const response = await methods.AuthApp({ ...authContext, ...query, ...params }, request)
             if (overrides.AuthApp_Override) await overrides.AuthApp_Override(res, response); else res.json({status: 'OK', ...response}) 
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.Health) throw new Error('method: Health is not implemented')
+    app.get('/api/health', async (req, res) => {
+        try {
+            if (!methods.Health) throw new Error('method: Health is not implemented')
+            const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
+            const query = req.query
+            const params = req.params
+            await methods.Health({ ...authContext, ...query, ...params })
+            if (overrides.Health_Override) await overrides.Health_Override(res); else res.json({status: 'OK'}) 
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.EncryptionExchange) throw new Error('method: EncryptionExchange is not implemented')
+    app.post('/api/encryption/exchange', async (req, res) => {
+        try {
+            if (!methods.EncryptionExchange) throw new Error('method: EncryptionExchange is not implemented')
+            const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
+            const request = req.body
+            const error = Types.EncryptionExchangeRequestValidate(request)
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
+            const query = req.query
+            const params = req.params
+            await methods.EncryptionExchange({ ...authContext, ...query, ...params }, request)
+            if (overrides.EncryptionExchange_Override) await overrides.EncryptionExchange_Override(res); else res.json({status: 'OK'}) 
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.SetMockInvoiceAsPaid) throw new Error('method: SetMockInvoiceAsPaid is not implemented')
+    app.post('/api/lnd/mock/invoice/paid', async (req, res) => {
+        try {
+            if (!methods.SetMockInvoiceAsPaid) throw new Error('method: SetMockInvoiceAsPaid is not implemented')
+            const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
+            const request = req.body
+            const error = Types.SetMockInvoiceAsPaidRequestValidate(request)
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
+            const query = req.query
+            const params = req.params
+            await methods.SetMockInvoiceAsPaid({ ...authContext, ...query, ...params }, request)
+            if (overrides.SetMockInvoiceAsPaid_Override) await overrides.SetMockInvoiceAsPaid_Override(res); else res.json({status: 'OK'}) 
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.GetLnurlWithdrawInfo) throw new Error('method: GetLnurlWithdrawInfo is not implemented')
+    app.get('/api/guest/lnurl_withdraw/info', async (req, res) => {
+        try {
+            if (!methods.GetLnurlWithdrawInfo) throw new Error('method: GetLnurlWithdrawInfo is not implemented')
+            const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
+            const query = req.query
+            const params = req.params
+            const response = await methods.GetLnurlWithdrawInfo({ ...authContext, ...query, ...params })
+            if (overrides.GetLnurlWithdrawInfo_Override) await overrides.GetLnurlWithdrawInfo_Override(res, response); else res.json({status: 'OK', ...response}) 
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.HandleLnurlWithdraw) throw new Error('method: HandleLnurlWithdraw is not implemented')
+    app.get('/api/guest/lnurl_withdraw/handle', async (req, res) => {
+        try {
+            if (!methods.HandleLnurlWithdraw) throw new Error('method: HandleLnurlWithdraw is not implemented')
+            const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
+            const query = req.query
+            const params = req.params
+            await methods.HandleLnurlWithdraw({ ...authContext, ...query, ...params })
+            if (overrides.HandleLnurlWithdraw_Override) await overrides.HandleLnurlWithdraw_Override(res); else res.json({status: 'OK'}) 
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.GetLnurlPayInfo) throw new Error('method: GetLnurlPayInfo is not implemented')
+    app.get('/api/guest/lnurl_pay/info', async (req, res) => {
+        try {
+            if (!methods.GetLnurlPayInfo) throw new Error('method: GetLnurlPayInfo is not implemented')
+            const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
+            const query = req.query
+            const params = req.params
+            const response = await methods.GetLnurlPayInfo({ ...authContext, ...query, ...params })
+            if (overrides.GetLnurlPayInfo_Override) await overrides.GetLnurlPayInfo_Override(res, response); else res.json({status: 'OK', ...response}) 
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.HandleLnurlPay) throw new Error('method: HandleLnurlPay is not implemented')
+    app.get('/api/guest/lnurl_pay/handle', async (req, res) => {
+        try {
+            if (!methods.HandleLnurlPay) throw new Error('method: HandleLnurlPay is not implemented')
+            const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
+            const query = req.query
+            const params = req.params
+            const response = await methods.HandleLnurlPay({ ...authContext, ...query, ...params })
+            if (overrides.HandleLnurlPay_Override) await overrides.HandleLnurlPay_Override(res, response); else res.json({status: 'OK', ...response}) 
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.GetApp) throw new Error('method: GetApp is not implemented')
@@ -263,34 +307,6 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             if (overrides.SetMockAppBalance_Override) await overrides.SetMockAppBalance_Override(res); else res.json({status: 'OK'}) 
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
-    if (!opts.allowNotImplementedMethods && !methods.AddUser) throw new Error('method: AddUser is not implemented')
-    app.post('/api/user/add', async (req, res) => {
-        try {
-            if (!methods.AddUser) throw new Error('method: AddUser is not implemented')
-            const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
-            const request = req.body
-            const error = Types.AddUserRequestValidate(request)
-            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
-            const query = req.query
-            const params = req.params
-            const response = await methods.AddUser({ ...authContext, ...query, ...params }, request)
-            if (overrides.AddUser_Override) await overrides.AddUser_Override(res, response); else res.json({status: 'OK', ...response}) 
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
-    })
-    if (!opts.allowNotImplementedMethods && !methods.AuthUser) throw new Error('method: AuthUser is not implemented')
-    app.post('/api/user/auth', async (req, res) => {
-        try {
-            if (!methods.AuthUser) throw new Error('method: AuthUser is not implemented')
-            const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
-            const request = req.body
-            const error = Types.AuthUserRequestValidate(request)
-            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
-            const query = req.query
-            const params = req.params
-            const response = await methods.AuthUser({ ...authContext, ...query, ...params }, request)
-            if (overrides.AuthUser_Override) await overrides.AuthUser_Override(res, response); else res.json({status: 'OK', ...response}) 
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
-    })
     if (!opts.allowNotImplementedMethods && !methods.GetUserInfo) throw new Error('method: GetUserInfo is not implemented')
     app.post('/api/user/info', async (req, res) => {
         try {
@@ -436,48 +452,15 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             if (overrides.GetLnurlWithdrawLink_Override) await overrides.GetLnurlWithdrawLink_Override(res, response); else res.json({status: 'OK', ...response}) 
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
-    if (!opts.allowNotImplementedMethods && !methods.GetLnurlWithdrawInfo) throw new Error('method: GetLnurlWithdrawInfo is not implemented')
-    app.get('/api/guest/lnurl_withdraw/info', async (req, res) => {
+    if (!opts.allowNotImplementedMethods && !methods.GetLnurlPayLink) throw new Error('method: GetLnurlPayLink is not implemented')
+    app.get('/api/user/lnurl_pay/link', async (req, res) => {
         try {
-            if (!methods.GetLnurlWithdrawInfo) throw new Error('method: GetLnurlWithdrawInfo is not implemented')
-            const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
+            if (!methods.GetLnurlPayLink) throw new Error('method: GetLnurlPayLink is not implemented')
+            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
             const query = req.query
             const params = req.params
-            const response = await methods.GetLnurlWithdrawInfo({ ...authContext, ...query, ...params })
-            if (overrides.GetLnurlWithdrawInfo_Override) await overrides.GetLnurlWithdrawInfo_Override(res, response); else res.json({status: 'OK', ...response}) 
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
-    })
-    if (!opts.allowNotImplementedMethods && !methods.HandleLnurlWithdraw) throw new Error('method: HandleLnurlWithdraw is not implemented')
-    app.get('/api/guest/lnurl_withdraw/handle', async (req, res) => {
-        try {
-            if (!methods.HandleLnurlWithdraw) throw new Error('method: HandleLnurlWithdraw is not implemented')
-            const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
-            const query = req.query
-            const params = req.params
-            await methods.HandleLnurlWithdraw({ ...authContext, ...query, ...params })
-            if (overrides.HandleLnurlWithdraw_Override) await overrides.HandleLnurlWithdraw_Override(res); else res.json({status: 'OK'}) 
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
-    })
-    if (!opts.allowNotImplementedMethods && !methods.GetLnurlPayInfo) throw new Error('method: GetLnurlPayInfo is not implemented')
-    app.get('/api/guest/lnurl_pay/info', async (req, res) => {
-        try {
-            if (!methods.GetLnurlPayInfo) throw new Error('method: GetLnurlPayInfo is not implemented')
-            const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
-            const query = req.query
-            const params = req.params
-            const response = await methods.GetLnurlPayInfo({ ...authContext, ...query, ...params })
-            if (overrides.GetLnurlPayInfo_Override) await overrides.GetLnurlPayInfo_Override(res, response); else res.json({status: 'OK', ...response}) 
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
-    })
-    if (!opts.allowNotImplementedMethods && !methods.HandleLnurlPay) throw new Error('method: HandleLnurlPay is not implemented')
-    app.get('/api/guest/lnurl_pay/handle', async (req, res) => {
-        try {
-            if (!methods.HandleLnurlPay) throw new Error('method: HandleLnurlPay is not implemented')
-            const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
-            const query = req.query
-            const params = req.params
-            const response = await methods.HandleLnurlPay({ ...authContext, ...query, ...params })
-            if (overrides.HandleLnurlPay_Override) await overrides.HandleLnurlPay_Override(res, response); else res.json({status: 'OK', ...response}) 
+            const response = await methods.GetLnurlPayLink({ ...authContext, ...query, ...params })
+            if (overrides.GetLnurlPayLink_Override) await overrides.GetLnurlPayLink_Override(res, response); else res.json({status: 'OK', ...response}) 
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.GetLNURLChannelLink) throw new Error('method: GetLNURLChannelLink is not implemented')
@@ -502,12 +485,16 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     }
 }
 export type MethodsOverride = {
-    Health_Override?: (httpRes:Response) => Promise<void>
-    EncryptionExchange_Override?: (httpRes:Response) => Promise<void>
     LndGetInfo_Override?: (httpRes:Response, handlerRes:Types.LndGetInfoResponse) => Promise<void>
-    SetMockInvoiceAsPaid_Override?: (httpRes:Response) => Promise<void>
     AddApp_Override?: (httpRes:Response, handlerRes:Types.AuthApp) => Promise<void>
     AuthApp_Override?: (httpRes:Response, handlerRes:Types.AuthApp) => Promise<void>
+    Health_Override?: (httpRes:Response) => Promise<void>
+    EncryptionExchange_Override?: (httpRes:Response) => Promise<void>
+    SetMockInvoiceAsPaid_Override?: (httpRes:Response) => Promise<void>
+    GetLnurlWithdrawInfo_Override?: (httpRes:Response, handlerRes:Types.LnurlWithdrawInfoResponse) => Promise<void>
+    HandleLnurlWithdraw_Override?: (httpRes:Response) => Promise<void>
+    GetLnurlPayInfo_Override?: (httpRes:Response, handlerRes:Types.LnurlPayInfoResponse) => Promise<void>
+    HandleLnurlPay_Override?: (httpRes:Response, handlerRes:Types.HandleLnurlPayResponse) => Promise<void>
     GetApp_Override?: (httpRes:Response, handlerRes:Types.Application) => Promise<void>
     AddAppUser_Override?: (httpRes:Response, handlerRes:Types.AppUser) => Promise<void>
     AddAppInvoice_Override?: (httpRes:Response, handlerRes:Types.NewInvoiceResponse) => Promise<void>
@@ -519,8 +506,6 @@ export type MethodsOverride = {
     GetAppUserLNURLInfo_Override?: (httpRes:Response, handlerRes:Types.LnurlPayInfoResponse) => Promise<void>
     SetMockAppUserBalance_Override?: (httpRes:Response) => Promise<void>
     SetMockAppBalance_Override?: (httpRes:Response) => Promise<void>
-    AddUser_Override?: (httpRes:Response, handlerRes:Types.AddUserResponse) => Promise<void>
-    AuthUser_Override?: (httpRes:Response, handlerRes:Types.AuthUserResponse) => Promise<void>
     GetUserInfo_Override?: (httpRes:Response, handlerRes:Types.UserInfo) => Promise<void>
     AddProduct_Override?: (httpRes:Response, handlerRes:Types.Product) => Promise<void>
     NewProductInvoice_Override?: (httpRes:Response, handlerRes:Types.NewInvoiceResponse) => Promise<void>
@@ -532,9 +517,6 @@ export type MethodsOverride = {
     PayInvoice_Override?: (httpRes:Response, handlerRes:Types.PayInvoiceResponse) => Promise<void>
     OpenChannel_Override?: (httpRes:Response, handlerRes:Types.OpenChannelResponse) => Promise<void>
     GetLnurlWithdrawLink_Override?: (httpRes:Response, handlerRes:Types.LnurlLinkResponse) => Promise<void>
-    GetLnurlWithdrawInfo_Override?: (httpRes:Response, handlerRes:Types.LnurlWithdrawInfoResponse) => Promise<void>
-    HandleLnurlWithdraw_Override?: (httpRes:Response) => Promise<void>
-    GetLnurlPayInfo_Override?: (httpRes:Response, handlerRes:Types.LnurlPayInfoResponse) => Promise<void>
-    HandleLnurlPay_Override?: (httpRes:Response, handlerRes:Types.HandleLnurlPayResponse) => Promise<void>
+    GetLnurlPayLink_Override?: (httpRes:Response, handlerRes:Types.LnurlLinkResponse) => Promise<void>
     GetLNURLChannelLink_Override?: (httpRes:Response, handlerRes:Types.LnurlLinkResponse) => Promise<void>
 }

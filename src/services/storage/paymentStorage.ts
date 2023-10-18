@@ -47,10 +47,11 @@ export default class {
 
 
 
-    async AddUserAddress(userId: string, address: string, callbackUrl = "", entityManager = this.DB): Promise<UserReceivingAddress> {
+    async AddUserAddress(userId: string, address: string, opts: { callbackUrl?: string, linkedApplication?: Application } = {}, entityManager = this.DB): Promise<UserReceivingAddress> {
         const newUserAddress = entityManager.getRepository(UserReceivingAddress).create({
             address,
-            callbackUrl,
+            callbackUrl: opts.callbackUrl,
+            linkedApplication: opts.linkedApplication,
             user: await this.userStorage.GetUser(userId, entityManager)
         })
         return entityManager.getRepository(UserReceivingAddress).save(newUserAddress)
@@ -161,7 +162,11 @@ export default class {
     }
 
 
-    async AddUserEphemeralKey(userId: string, keyType: EphemeralKeyType, linkedApplication?: Application, entityManager = this.DB): Promise<UserEphemeralKey> {
+    async AddUserEphemeralKey(userId: string, keyType: EphemeralKeyType, linkedApplication: Application, entityManager = this.DB): Promise<UserEphemeralKey> {
+        const found = await entityManager.getRepository(UserEphemeralKey).findOne({ where: { type: keyType, user: { user_id: userId }, linkedApplication: { app_id: linkedApplication.app_id } } })
+        if (found) {
+            return found
+        }
         const newKey = entityManager.getRepository(UserEphemeralKey).create({
             user: await this.userStorage.GetUser(userId, entityManager),
             key: crypto.randomBytes(31).toString('hex'),
@@ -171,7 +176,7 @@ export default class {
         return entityManager.getRepository(UserEphemeralKey).save(newKey)
     }
 
-    async UseUserEphemeralKey(key: string, keyType: EphemeralKeyType, entityManager = this.DB): Promise<UserEphemeralKey> {
+    async UseUserEphemeralKey(key: string, keyType: EphemeralKeyType, persist = false, entityManager = this.DB): Promise<UserEphemeralKey> {
         const found = await entityManager.getRepository(UserEphemeralKey).findOne({
             where: {
                 key: key,
@@ -181,7 +186,9 @@ export default class {
         if (!found) {
             throw new Error("the provided ephemeral key is invalid")
         }
-        await entityManager.getRepository(UserEphemeralKey).delete(found.serial_id)
+        if (!persist) {
+            await entityManager.getRepository(UserEphemeralKey).delete(found.serial_id)
+        }
         return found
     }
 

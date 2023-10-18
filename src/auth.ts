@@ -8,7 +8,7 @@ const serverOptions = (mainHandler: Main): ServerOptions => {
         logger: { log, error: err => log("ERROR", err) },
         AdminAuthGuard: adminAuth,
         AppAuthGuard: async (authHeader) => { return { app_id: mainHandler.applicationManager.DecodeAppToken(stripBearer(authHeader)) } },
-        UserAuthGuard: async (authHeader) => { return { user_id: mainHandler.userManager.DecodeUserToken(stripBearer(authHeader)), app_id: "", app_user_id: "" } },
+        UserAuthGuard: async (authHeader) => { return mainHandler.appUserManager.DecodeUserToken(stripBearer(authHeader)) },
         GuestAuthGuard: async (_) => ({}),
         encryptCallback: async (_, b) => b,
         decryptCallback: async (_, b) => b,

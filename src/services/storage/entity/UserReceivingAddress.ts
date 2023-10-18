@@ -1,5 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, Index, Check, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn } from "typeorm"
 import { User } from "./User.js"
+import { Application } from "./Application.js"
 
 @Entity()
 export class UserReceivingAddress {
@@ -17,6 +18,9 @@ export class UserReceivingAddress {
 
     @Column()
     callbackUrl: string
+
+    @ManyToOne(type => Application, { eager: true })
+    linkedApplication: Application | null
 
     @CreateDateColumn()
     created_at: Date

@@ -196,26 +196,7 @@ message HandleLnurlPayResponse {
     string pr = 1;
     repeated Empty routes = 2;
 }
-message AddUserRequest{
-    string callbackUrl = 1;
-    string name = 2;
-    string secret = 3;
-}
 
-message AddUserResponse{
-    string userId = 1;
-    string authToken = 2;
-}
-
-message AuthUserRequest{
-    string name = 2;
-    string secret = 3;
-}
-
-message AuthUserResponse{
-    string userId = 1;
-    string authToken = 2;
-}
 message UserInfo{
     string userId = 1;
     int64 balance = 2;
