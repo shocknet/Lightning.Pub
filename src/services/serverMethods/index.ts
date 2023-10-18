@@ -15,7 +15,7 @@ export default (mainHandler: Main): Types.ServerMethods => {
             if (err != null) throw new Error(err.message)
             await mainHandler.paymentManager.SetMockInvoiceAsPaid(req)
         },
-        GetUserInfo: mainHandler.appUserManager.GetUserInfo,
+        GetUserInfo: (ctx) => mainHandler.appUserManager.GetUserInfo(ctx),
         GetUserOperations: async (ctx, req) => {
             return mainHandler.paymentManager.GetUserOperations(ctx.user_id, req)
         },
@@ -28,7 +28,7 @@ export default (mainHandler: Main): Types.ServerMethods => {
             if (err != null) throw new Error(err.message)
             return mainHandler.paymentManager.OpenChannel(ctx.user_id, req)
         },
-        NewAddress: mainHandler.paymentManager.NewAddress,
+        NewAddress: (ctx, req) => mainHandler.paymentManager.NewAddress(ctx, req),
         PayAddress: async (ctx, req) => {
             const err = Types.PayAddressRequestValidate(req, {
                 address_CustomCheck: addr => addr !== '',
@@ -38,7 +38,7 @@ export default (mainHandler: Main): Types.ServerMethods => {
             if (err != null) throw new Error(err.message)
             return mainHandler.paymentManager.PayAddress(ctx, req)
         },
-        NewInvoice: mainHandler.appUserManager.NewInvoice,
+        NewInvoice: (ctx, req) => mainHandler.appUserManager.NewInvoice(ctx, req),
         DecodeInvoice: async (ctx, req) => {
             return mainHandler.paymentManager.DecodeInvoice(req)
         },
@@ -49,7 +49,7 @@ export default (mainHandler: Main): Types.ServerMethods => {
             if (err != null) throw new Error(err.message)
             return mainHandler.appUserManager.PayInvoice(ctx, req)
         },
-        GetLnurlWithdrawLink: mainHandler.paymentManager.GetLnurlWithdrawLink,
+        GetLnurlWithdrawLink: (ctx) => mainHandler.paymentManager.GetLnurlWithdrawLink(ctx),
         GetLnurlWithdrawInfo: async (ctx) => {
             if (!ctx.k1) {
                 throw new Error("invalid lnurl withdraw to get info")
@@ -62,7 +62,7 @@ export default (mainHandler: Main): Types.ServerMethods => {
             }
             return mainHandler.paymentManager.HandleLnurlWithdraw(ctx.k1, ctx.pr)
         },
-        GetLnurlPayLink: mainHandler.paymentManager.GetLnurlPayLink,
+        GetLnurlPayLink: (ctx) => mainHandler.paymentManager.GetLnurlPayLink(ctx),
         GetLnurlPayInfo: async (ctx) => {
             if (!ctx.k1) {
                 throw new Error("invalid lnurl pay to get info")
