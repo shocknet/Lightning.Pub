@@ -10,6 +10,10 @@ interface UserOperationInfo {
     serial_id: number
     paid_amount: number
     paid_at_unix: number
+    invoice?: string
+    address?: string
+    from_user?: { user_id: string }
+    to_user?: { user_id: string }
 }
 const defaultLnurlPayMetadata = `[["text/plain", "lnurl pay to Lightning.pub"]]`
 
@@ -283,12 +287,25 @@ export default class {
         return {
             toIndex: operations[0].serial_id,
             fromIndex: operations[operations.length - 1].serial_id,
-            operations: operations.map((o: UserOperationInfo): Types.UserOperation => ({
-                inbound,
-                type,
-                amount: o.paid_amount,
-                paidAtUnix: o.paid_at_unix
-            }))
+            operations: operations.map((o: UserOperationInfo): Types.UserOperation => {
+                let identifier = ""
+                if (o.invoice) {
+                    identifier = o.invoice
+                } else if (o.address) {
+                    identifier = o.address
+                } else if (type === Types.UserOperationType.INCOMING_USER_TO_USER && o.from_user) {
+                    identifier = o.from_user.user_id
+                } else if (type === Types.UserOperationType.OUTGOING_INVOICE && o.to_user) {
+                    identifier = o.to_user.user_id
+                }
+                return {
+                    inbound,
+                    type,
+                    amount: o.paid_amount,
+                    paidAtUnix: o.paid_at_unix,
+                    identifier
+                }
+            })
         }
     }
 

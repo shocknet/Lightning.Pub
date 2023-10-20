@@ -224,6 +224,7 @@ message UserOperation {
     UserOperationType type = 2; 
     bool inbound =3;
     int64 amount = 4;
+    string identifier = 5;
 }
 message UserOperations {
     int64 fromIndex=1;
