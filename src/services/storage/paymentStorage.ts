@@ -50,7 +50,7 @@ export default class {
     async AddUserAddress(userId: string, address: string, opts: { callbackUrl?: string, linkedApplication?: Application } = {}, entityManager = this.DB): Promise<UserReceivingAddress> {
         const newUserAddress = entityManager.getRepository(UserReceivingAddress).create({
             address,
-            callbackUrl: opts.callbackUrl,
+            callbackUrl: opts.callbackUrl || "",
             linkedApplication: opts.linkedApplication,
             user: await this.userStorage.GetUser(userId, entityManager)
         })

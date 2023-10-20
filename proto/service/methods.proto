@@ -298,5 +298,11 @@ service LightningPub {
         option (http_route) = "/api/user/lnurl_channel/url";
         option (nostr) = true;
     }
+    rpc GetLiveUserOperations(structs.Empty) returns (stream structs.LiveUserOperation){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/operations/sub";
+        option (nostr) = true;
+    }
     // </User>
 }

@@ -176,6 +176,17 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     res({status: 'OK', ...response})
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
                 break
+            case 'GetLiveUserOperations':
+                try {
+                    if (!methods.GetLiveUserOperations) throw new Error('method: GetLiveUserOperations is not implemented')
+                    const authContext = await opts.NostrUserAuthGuard(req.appId, req.authIdentifier)
+                    const query = req.query
+                    const params = req.params
+                    methods.GetLiveUserOperations({ ...authContext, ...query, ...params }, (response, err) => {
+                    if (err) { logErrorAndReturnResponse(err, err.message, res, logger)} else { res({status: 'OK', ...response})}
+                    })
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+                break
             default: logger.error('unknown rpc call name from nostr event:'+req.rpcName) 
         }
     }
