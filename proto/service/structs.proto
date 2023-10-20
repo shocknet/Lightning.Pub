@@ -256,4 +256,5 @@ message GetProductBuyLinkResponse {
 
 message LiveUserOperation {
     string id = 1;
+    UserOperation operation  = 2;
 }
