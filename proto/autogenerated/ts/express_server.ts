@@ -519,4 +519,5 @@ export type MethodsOverride = {
     GetLnurlWithdrawLink_Override?: (httpRes:Response, handlerRes:Types.LnurlLinkResponse) => Promise<void>
     GetLnurlPayLink_Override?: (httpRes:Response, handlerRes:Types.LnurlLinkResponse) => Promise<void>
     GetLNURLChannelLink_Override?: (httpRes:Response, handlerRes:Types.LnurlLinkResponse) => Promise<void>
+    GetLiveUserOperations_Override?: (httpRes:Response, handlerRes:Types.LiveUserOperation) => Promise<void>
 }

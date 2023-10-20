@@ -253,3 +253,7 @@ message Product {
 message GetProductBuyLinkResponse {
     string link = 1;
 }
+
+message LiveUserOperation {
+    string id = 1;
+}

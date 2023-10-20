@@ -23,6 +23,7 @@ export default class {
         this.settings = settings
         this.lnd = lnd
     }
+
     getServiceFee(action: Types.UserOperationType, amount: number, appUser: boolean): number {
         switch (action) {
             case Types.UserOperationType.INCOMING_TX:
