@@ -235,10 +235,11 @@ export default class {
     async GetLnurlPayInfoFromUser(userId: string, linkedApplication: Application, baseUrl?: string): Promise<Types.LnurlPayInfoResponse> {
         const payK1 = await this.storage.paymentStorage.AddUserEphemeralKey(userId, 'pay', linkedApplication)
         const url = baseUrl ? baseUrl : `${this.settings.serviceUrl}/api/guest/lnurl_pay/handle`
+        const { remote } = await this.lnd.ChannelBalance()
         return {
             tag: 'payRequest',
             callback: `${url}?k1=${payK1.key}`,
-            maxSendable: this.GetMaxPayableInvoice(payK1.user.balance_sats, true) * 1000,
+            maxSendable: remote * 1000,
             minSendable: 10000,
             metadata: defaultLnurlPayMetadata
         }
@@ -246,10 +247,11 @@ export default class {
 
     async GetLnurlPayInfo(payInfoK1: string): Promise<Types.LnurlPayInfoResponse> {
         const key = await this.storage.paymentStorage.UseUserEphemeralKey(payInfoK1, 'pay', true)
+        const { remote } = await this.lnd.ChannelBalance()
         return {
             tag: 'payRequest',
             callback: `${this.settings.serviceUrl}/api/guest/lnurl_pay/handle?k1=${payInfoK1}`,
-            maxSendable: this.GetMaxPayableInvoice(key.user.balance_sats, true) * 1000,
+            maxSendable: remote * 1000,
             minSendable: 10000,
             metadata: defaultLnurlPayMetadata
         }
