@@ -1,6 +1,6 @@
 import { OpenChannelRequest } from "../../../proto/lnd/lightning";
 import { SendPaymentRequest } from "../../../proto/lnd/router";
-//@ts-ignore
+
 export const PayInvoiceReq = (invoice: string, amount: number, feeLimit: number): SendPaymentRequest => ({
     amt: BigInt(amount),
     feeLimitSat: BigInt(feeLimit),
@@ -25,4 +25,6 @@ export const PayInvoiceReq = (invoice: string, amount: number, feeLimit: number)
     paymentHash: Buffer.alloc(0),
     routeHints: [],
     timePref: 0,
+
+    outgoingChanId: '0'
 })
