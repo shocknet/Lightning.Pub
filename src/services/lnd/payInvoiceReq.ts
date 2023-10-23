@@ -26,5 +26,5 @@ export const PayInvoiceReq = (invoice: string, amount: number, feeLimit: number)
     routeHints: [],
     timePref: 0,
 
-    outgoingChanId: '0'
+    outgoingChanId: ''
 })
