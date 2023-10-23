@@ -69,7 +69,7 @@ export default class {
         return res.response
     }
 
-    async Health(): Promise<void> {
+    async Health(): Promise<NodeInfo> {
         if (!this.ready) {
             throw new Error("not ready")
         }
@@ -77,6 +77,7 @@ export default class {
         if (!info.syncedToChain || !info.syncedToGraph) {
             throw new Error("not synced")
         }
+        return info
     }
 
     RestartStreams() {
@@ -188,7 +189,8 @@ export default class {
     }
 
     async PayInvoice(invoice: string, amount: number, feeLimit: number): Promise<PaidInvoice> {
-        await this.Health()
+        const i = await this.Health()
+        console.log(i)
         const abortController = new AbortController()
         const req = PayInvoiceReq(invoice, amount, feeLimit)
         console.log("sending payment:", req)
