@@ -238,7 +238,7 @@ export default class {
         return {
             tag: 'payRequest',
             callback: `${url}?k1=${payK1.key}`,
-            maxSendable: this.GetMaxPayableInvoice(payK1.user.balance_sats, true),
+            maxSendable: this.GetMaxPayableInvoice(payK1.user.balance_sats, true) * 1000,
             minSendable: 10000,
             metadata: defaultLnurlPayMetadata
         }
@@ -249,7 +249,7 @@ export default class {
         return {
             tag: 'payRequest',
             callback: `${this.settings.serviceUrl}/api/guest/lnurl_pay/handle?k1=${payInfoK1}`,
-            maxSendable: this.GetMaxPayableInvoice(key.user.balance_sats, true),
+            maxSendable: this.GetMaxPayableInvoice(key.user.balance_sats, true) * 1000,
             minSendable: 10000,
             metadata: defaultLnurlPayMetadata
         }
