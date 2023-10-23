@@ -191,7 +191,7 @@ export default class {
         await this.Health()
         const abortController = new AbortController()
         const req = PayInvoiceReq(invoice, amount, feeLimit)
-        this.log("sending payment:", req)
+        this.log("sending payment:", JSON.stringify(req))
         const stream = this.router.sendPaymentV2(req, { abort: abortController.signal })
         return new Promise((res, rej) => {
             stream.responses.onError(error => {
