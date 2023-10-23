@@ -29,6 +29,7 @@ export interface LightningHandler {
     PayAddress(address: string, amount: number, satPerVByte: number, label?: string): Promise<SendCoinsResponse>
     OpenChannel(destination: string, closeAddress: string, fundingAmount: number, pushSats: number): Promise<string>
     SetMockInvoiceAsPaid(invoice: string, amount: number): Promise<void>
+    ChannelBalance(): Promise<{ local: number, remote: number }>
 }
 
 export default (settings: LndSettings, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb): LightningHandler => {

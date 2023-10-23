@@ -95,6 +95,10 @@ export default class {
         return { feeSat: 1, paymentPreimage: "all_good", valueSat: amt || amount }
     }
 
+    async ChannelBalance(): Promise<{ local: number, remote: number }> {
+        return { local: 100 * 1000 * 1000, remote: 100 * 1000 * 1000 }
+    }
+
     async EstimateChainFees(address: string, amount: number, targetConf: number): Promise<EstimateFeeResponse> {
         throw new Error("EstimateChainFees disabled in mock mode")
     }
