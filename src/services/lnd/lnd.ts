@@ -77,7 +77,6 @@ export default class {
         if (!info.syncedToChain || !info.syncedToGraph) {
             throw new Error("not synced")
         }
-        console.log(info)
     }
 
     RestartStreams() {
@@ -190,6 +189,7 @@ export default class {
 
     async PayInvoice(invoice: string, amount: number, feeLimit: number): Promise<PaidInvoice> {
         await this.Health()
+        console.log(await this.lightning.channelBalance({}))
         const abortController = new AbortController()
         const req = PayInvoiceReq(invoice, amount, feeLimit)
         console.log("sending payment:", req)
