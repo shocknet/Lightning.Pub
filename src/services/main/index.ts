@@ -128,13 +128,15 @@ export default class {
 
     async SubToPayment(ctx: Types.UserContext, cb: (res: Types.LiveUserOperation, err: Error | null) => void) {
         const sub = this.paymentSubs[ctx.user_id]
-        if (sub) {
-            return
-        }
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
         const log = getLogger({ appName: app.name, userId: ctx.user_id })
-        const appUser = await this.storage.applicationStorage.GetApplicationUser(app, ctx.app_user_id)
-
+        if (sub) {
+            log("user  already subbed to payment")
+            return
+        }
+        log("subbing  user to payment")
+        await this.storage.applicationStorage.GetApplicationUser(app, ctx.app_user_id)
+        cb({ id: "10000", operation: { amount: 69, identifier: "tha invoice", inbound: true, paidAtUnix: 10, type: Types.UserOperationType.INCOMING_INVOICE } }, null)
         this.paymentSubs[ctx.user_id] = (op) => {
             const rand = crypto.randomBytes(32).toString('hex')
             cb({ id: rand, operation: op }, null)
