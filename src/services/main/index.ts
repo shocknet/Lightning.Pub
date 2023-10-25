@@ -120,9 +120,12 @@ export default class {
 
     triggerSubs(userId: string, op: Types.UserOperation) {
         const sub = this.paymentSubs[userId]
+        const log = getLogger({ userId })
         if (!sub) {
+            log("no sub found for user")
             return
         }
+        log("notifyng user of payment")
         sub(op)
     }
 
