@@ -34,7 +34,8 @@ export default class {
         const user = await this.storage.userStorage.GetUser(ctx.user_id)
         return {
             userId: ctx.user_id,
-            balance: user.balance_sats
+            balance: user.balance_sats,
+            max_withdrawable: this.applicationManager.paymentManager.GetMaxPayableInvoice(user.balance_sats, true)
         }
     }
 
