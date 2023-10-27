@@ -101,7 +101,8 @@ export default class {
             identifier: u.identifier,
             info: {
                 userId: u.user.user_id,
-                balance: u.user.balance_sats
+                balance: u.user.balance_sats,
+                max_withdrawable: this.paymentManager.GetMaxPayableInvoice(u.user.balance_sats, true)
             },
             max_withdrawable: this.paymentManager.GetMaxPayableInvoice(u.user.balance_sats, true)
         }
@@ -134,7 +135,8 @@ export default class {
         const max = this.paymentManager.GetMaxPayableInvoice(user.user.balance_sats, true)
         return {
             max_withdrawable: max, identifier: req.user_identifier, info: {
-                userId: user.user.user_id, balance: user.user.balance_sats
+                userId: user.user.user_id, balance: user.user.balance_sats,
+                max_withdrawable: this.paymentManager.GetMaxPayableInvoice(user.user.balance_sats, true)
             }
         }
     }
