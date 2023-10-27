@@ -208,7 +208,7 @@ export default (params: NostrClientParams,  send: (to:string, message: NostrRequ
             if (data.status === 'ERROR' && typeof data.reason === 'string') return cb(data)
             if (data.status === 'OK') { 
                 const result = data
-                if(!params.checkResult) return { status: 'OK', ...result }
+                if(!params.checkResult) return cb({ status: 'OK', ...result })
                 const error = Types.LiveUserOperationValidate(result)
                 if (error === null) { return cb({ status: 'OK', ...result }) } else return cb({ status: 'ERROR', reason: error.message })
             }

@@ -133,15 +133,13 @@ export default class {
         const sub = this.paymentSubs[ctx.user_id]
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
         const log = getLogger({ appName: app.name, userId: ctx.user_id })
-        if (sub) {
-            log("user  already subbed to payment")
-            return
-        }
         log("subbing  user to payment")
         await this.storage.applicationStorage.GetApplicationUser(app, ctx.app_user_id)
-        cb({ id: "10000", operation: { amount: 69, identifier: "tha invoice", inbound: true, paidAtUnix: 10, type: Types.UserOperationType.INCOMING_INVOICE } }, null)
+        if (sub) {
+            log("overriding user payment  stream")
+        }
         this.paymentSubs[ctx.user_id] = (op) => {
-            const rand = crypto.randomBytes(32).toString('hex')
+            const rand = crypto.randomBytes(16).toString('hex')
             cb({ id: rand, operation: op }, null)
         }
     }
