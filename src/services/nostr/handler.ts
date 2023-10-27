@@ -105,7 +105,6 @@ export default class Handler {
             }
         ])
         sub.on("event", async (e) => {
-            console.log({ nostrEvent: e })
             if (e.kind !== 4 || !e.pubkey) {
                 return
             }

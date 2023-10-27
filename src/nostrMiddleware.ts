@@ -8,14 +8,12 @@ const handledRequests: string[] = [] // TODO: - big memory leak here, add TTL
 export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSettings: NostrSettings) => {
     const nostrTransport = NewNostrTransport(serverMethods, {
         NostrUserAuthGuard: async (appId, pub) => {
-            console.log({ appId })
             const app = await mainHandler.storage.applicationStorage.GetApplication(appId || "")
             let nostrUser = await mainHandler.storage.applicationStorage.GetOrCreateNostrAppUser(app, pub || "")
             return { user_id: nostrUser.user.user_id, app_user_id: nostrUser.identifier, app_id: appId || "" }
         }
     })
     const nostr = new Nostr(nostrSettings, event => {
-        console.log(event)
         let j: NostrRequest
         try {
             j = JSON.parse(event.content)
