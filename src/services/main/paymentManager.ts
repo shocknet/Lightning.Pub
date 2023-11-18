@@ -126,11 +126,6 @@ export default class {
         }
     }
 
-    async PayInvoiceInternal(app: Application, userId: string, invoice: UserReceivingInvoice, amount: number, action: Types.UserOperationType): Promise<Types.PayAddressResponse> {
-
-        this.invoicePaidCb(invoice.invoice, amount)
-        return { txId: "" }
-    }
     async PayInvoice(userId: string, req: Types.PayInvoiceRequest, linkedApplication: Application): Promise<Types.PayInvoiceResponse> {
         const decoded = await this.lnd.DecodeInvoice(req.invoice)
         if (decoded.numSatoshis !== 0 && req.amount !== 0) {
@@ -157,14 +152,17 @@ export default class {
                 throw err
             }
         } else {
+            if (internalInvoice.paid_at_unix > 0) {
+                throw new Error("this invoice was already paid")
+            }
             await this.storage.userStorage.DecrementUserBalance(userId, totalAmountToDecrement)
-            this.invoicePaidCb(req.invoice, payAmount)
+            this.invoicePaidCb(req.invoice, payAmount, true)
         }
         if (isAppUserPayment && serviceFee > 0) {
             await this.storage.userStorage.IncrementUserBalance(linkedApplication.owner.user_id, serviceFee)
         }
         const routingFees = payment ? payment.feeSat : 0
-        await this.storage.paymentStorage.AddUserInvoicePayment(userId, req.invoice, payAmount, routingFees, serviceFee)
+        await this.storage.paymentStorage.AddUserInvoicePayment(userId, req.invoice, payAmount, routingFees, serviceFee, !!internalInvoice)
         return {
             preimage: payment ? payment.paymentPreimage : "",
             amount_paid: payment ? Number(payment.valueSat) : payAmount
@@ -195,13 +193,13 @@ export default class {
             }
         } else {
             await this.storage.userStorage.DecrementUserBalance(userId, req.amoutSats + serviceFee)
-            this.addressPaidCb({ hash: crypto.randomBytes(32).toString("hex"), index: 0 }, req.address, req.amoutSats)
+            this.addressPaidCb({ hash: crypto.randomBytes(32).toString("hex"), index: 0 }, req.address, req.amoutSats, true)
         }
 
         if (isAppUserPayment && serviceFee > 0) {
             await this.storage.userStorage.IncrementUserBalance(linkedApplication.owner.user_id, serviceFee)
         }
-        await this.storage.paymentStorage.AddUserTransactionPayment(userId, req.address, txId, 0, req.amoutSats, chainFees, serviceFee)
+        await this.storage.paymentStorage.AddUserTransactionPayment(userId, req.address, txId, 0, req.amoutSats, chainFees, serviceFee, !!internalAddress)
         return {
             txId: txId
         }

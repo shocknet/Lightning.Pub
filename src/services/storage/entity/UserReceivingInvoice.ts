@@ -23,6 +23,12 @@ export class UserReceivingInvoice {
     @Column({ default: 0 })
     paid_at_unix: number
 
+    @Column()
+    internal: boolean
+
+    @Column()
+    paidByLnd: boolean
+
     @Column({ default: "" })
     callbackUrl: string
 

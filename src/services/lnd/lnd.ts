@@ -111,7 +111,7 @@ export default class {
                 tx.outputDetails.forEach(output => {
                     if (output.isOurAddress) {
                         this.log("received chan TX", Number(output.amount), "sats")
-                        this.addressPaidCb({ hash: tx.txHash, index: Number(output.outputIndex) }, output.address, Number(output.amount))
+                        this.addressPaidCb({ hash: tx.txHash, index: Number(output.outputIndex) }, output.address, Number(output.amount), false)
                     }
                 })
             }
@@ -133,7 +133,7 @@ export default class {
             if (invoice.state === Invoice_InvoiceState.SETTLED) {
                 this.log("An invoice was paid for", Number(invoice.amtPaidSat), "sats")
                 this.latestKnownSettleIndex = Number(invoice.settleIndex)
-                this.invoicePaidCb(invoice.paymentRequest, Number(invoice.amtPaidSat))
+                this.invoicePaidCb(invoice.paymentRequest, Number(invoice.amtPaidSat), false)
             }
         })
         stream.responses.onError(error => {
