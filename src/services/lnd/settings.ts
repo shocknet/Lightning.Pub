@@ -11,8 +11,8 @@ type TxOutput = {
     index: number
 }
 
-export type AddressPaidCb = (txOutput: TxOutput, address: string, amount: number) => void
-export type InvoicePaidCb = (paymentRequest: string, amount: number) => void
+export type AddressPaidCb = (txOutput: TxOutput, address: string, amount: number, internal: boolean) => void
+export type InvoicePaidCb = (paymentRequest: string, amount: number, internal: boolean) => void
 
 export type NodeInfo = {
     alias: string

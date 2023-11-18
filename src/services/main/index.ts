@@ -59,14 +59,23 @@ export default class {
         this.appUserManager = new AppUserManager(this.storage, this.settings, this.applicationManager)
     }
 
-    addressPaidCb: AddressPaidCb = (txOutput, address, amount) => {
+    addressPaidCb: AddressPaidCb = (txOutput, address, amount, internal) => {
         this.storage.StartTransaction(async tx => {
             const userAddress = await this.storage.paymentStorage.GetAddressOwner(address, tx)
             if (!userAddress) { return }
-            const fee = this.paymentManager.getServiceFee(Types.UserOperationType.INCOMING_TX, amount, false)
+            const log = getLogger({})
+            if (!userAddress.linkedApplication) {
+                log("ERROR", "an address was paid, that has no linked application")
+                return
+            }
+            const isAppUserPayment = userAddress.user.user_id !== userAddress.linkedApplication.owner.user_id
+            let fee = this.paymentManager.getServiceFee(Types.UserOperationType.INCOMING_TX, amount, isAppUserPayment)
+            if (userAddress.linkedApplication && userAddress.linkedApplication.owner.user_id === userAddress.user.user_id) {
+                fee = 0
+            }
             try {
                 // This call will fail if the transaction is already registered
-                const addedTx = await this.storage.paymentStorage.AddAddressReceivingTransaction(userAddress, txOutput.hash, txOutput.index, amount, fee, tx)
+                const addedTx = await this.storage.paymentStorage.AddAddressReceivingTransaction(userAddress, txOutput.hash, txOutput.index, amount, fee, internal, tx)
                 await this.storage.userStorage.IncrementUserBalance(userAddress.user.user_id, addedTx.paid_amount - fee, tx)
                 this.triggerSubs(userAddress.user.user_id, { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_TX, identifier: userAddress.address })
             } catch {
@@ -75,11 +84,13 @@ export default class {
         })
     }
 
-    invoicePaidCb: InvoicePaidCb = (paymentRequest, amount) => {
+    invoicePaidCb: InvoicePaidCb = (paymentRequest, amount, internal) => {
         this.storage.StartTransaction(async tx => {
-            const userInvoice = await this.storage.paymentStorage.GetInvoiceOwner(paymentRequest, tx)
-            if (!userInvoice || userInvoice.paid_at_unix > 0) { return }
             const log = getLogger({})
+            const userInvoice = await this.storage.paymentStorage.GetInvoiceOwner(paymentRequest, tx)
+            if (!userInvoice) { return }
+            if (userInvoice.paid_at_unix > 0 && internal) { log("cannot pay internally, invoice already paid"); return }
+            if (userInvoice.paid_at_unix > 0 && !internal && userInvoice.paidByLnd) { log("invoice already paid by lnd"); return }
             if (!userInvoice.linkedApplication) {
                 log("ERROR", "an invoice was paid, that has no linked application")
                 return
@@ -90,8 +101,7 @@ export default class {
                 fee = 0
             }
             try {
-                // This call will fail if the invoice is already registered
-                await this.storage.paymentStorage.FlagInvoiceAsPaid(userInvoice, amount, fee, tx)
+                await this.storage.paymentStorage.FlagInvoiceAsPaid(userInvoice, amount, fee, internal, tx)
 
                 await this.storage.userStorage.IncrementUserBalance(userInvoice.user.user_id, amount - fee, tx)
                 if (isAppUserPayment && fee > 0) {

@@ -28,6 +28,9 @@ export class AddressReceivingTransaction {
     @Column()
     paid_at_unix: number
 
+    @Column()
+    internal: boolean
+
     @CreateDateColumn()
     created_at: Date
 

@@ -20,14 +20,15 @@ export default class {
         this.DB = DB
         this.userStorage = userStorage
     }
-    async AddAddressReceivingTransaction(address: UserReceivingAddress, txHash: string, outputIndex: number, amount: number, serviceFee: number, entityManager = this.DB) {
+    async AddAddressReceivingTransaction(address: UserReceivingAddress, txHash: string, outputIndex: number, amount: number, serviceFee: number, internal: boolean, entityManager = this.DB) {
         const newAddressTransaction = entityManager.getRepository(AddressReceivingTransaction).create({
             user_address: address,
             tx_hash: txHash,
             output_index: outputIndex,
             paid_amount: amount,
             service_fee: serviceFee,
-            paid_at_unix: Math.floor(Date.now() / 1000)
+            paid_at_unix: Math.floor(Date.now() / 1000),
+            internal
         })
         return entityManager.getRepository(AddressReceivingTransaction).save(newAddressTransaction)
     }
@@ -57,8 +58,12 @@ export default class {
         return entityManager.getRepository(UserReceivingAddress).save(newUserAddress)
     }
 
-    async FlagInvoiceAsPaid(invoice: UserReceivingInvoice, amount: number, serviceFee: number, entityManager = this.DB) {
-        return entityManager.getRepository(UserReceivingInvoice).update(invoice.serial_id, { paid_at_unix: Math.floor(Date.now() / 1000), paid_amount: amount, service_fee: serviceFee })
+    async FlagInvoiceAsPaid(invoice: UserReceivingInvoice, amount: number, serviceFee: number, internal: boolean, entityManager = this.DB) {
+        const i: Partial<UserReceivingInvoice> = { paid_at_unix: Math.floor(Date.now() / 1000), paid_amount: amount, service_fee: serviceFee, internal }
+        if (!internal) {
+            i.paidByLnd = true
+        }
+        return entityManager.getRepository(UserReceivingInvoice).update(invoice.serial_id, i)
     }
 
     GetUserInvoicesFlaggedAsPaid(userId: string, fromIndex: number, entityManager = this.DB): Promise<UserReceivingInvoice[]> {
@@ -105,14 +110,15 @@ export default class {
         })
     }
 
-    async AddUserInvoicePayment(userId: string, invoice: string, amount: number, routingFees: number, serviceFees: number, entityManager = this.DB): Promise<UserInvoicePayment> {
+    async AddUserInvoicePayment(userId: string, invoice: string, amount: number, routingFees: number, serviceFees: number, internal: boolean, entityManager = this.DB): Promise<UserInvoicePayment> {
         const newPayment = entityManager.getRepository(UserInvoicePayment).create({
             user: await this.userStorage.GetUser(userId),
             paid_amount: amount,
             invoice,
             routing_fees: routingFees,
             service_fees: serviceFees,
-            paid_at_unix: Math.floor(Date.now() / 1000)
+            paid_at_unix: Math.floor(Date.now() / 1000),
+            internal
         })
         return entityManager.getRepository(UserInvoicePayment).save(newPayment)
     }
@@ -132,7 +138,7 @@ export default class {
         })
     }
 
-    async AddUserTransactionPayment(userId: string, address: string, txHash: string, txOutput: number, amount: number, chainFees: number, serviceFees: number, entityManager = this.DB): Promise<UserTransactionPayment> {
+    async AddUserTransactionPayment(userId: string, address: string, txHash: string, txOutput: number, amount: number, chainFees: number, serviceFees: number, internal: boolean, entityManager = this.DB): Promise<UserTransactionPayment> {
         const newTx = entityManager.getRepository(UserTransactionPayment).create({
             user: await this.userStorage.GetUser(userId),
             address,
@@ -141,7 +147,8 @@ export default class {
             output_index: txOutput,
             tx_hash: txHash,
             service_fees: serviceFees,
-            paid_at_unix: Math.floor(Date.now() / 1000)
+            paid_at_unix: Math.floor(Date.now() / 1000),
+            internal
         })
         return entityManager.getRepository(UserTransactionPayment).save(newTx)
     }
