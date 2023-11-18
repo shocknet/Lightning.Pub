@@ -53,7 +53,7 @@ export default class {
         this.storage = new Storage(settings.storageSettings)
         this.lnd = NewLightningHandler(settings.lndSettings, this.addressPaidCb, this.invoicePaidCb)
 
-        this.paymentManager = new PaymentManager(this.storage, this.lnd, this.settings)
+        this.paymentManager = new PaymentManager(this.storage, this.lnd, this.settings, this.addressPaidCb, this.invoicePaidCb)
         this.productManager = new ProductManager(this.storage, this.paymentManager, this.settings)
         this.applicationManager = new ApplicationManager(this.storage, this.settings, this.paymentManager)
         this.appUserManager = new AppUserManager(this.storage, this.settings, this.applicationManager)
