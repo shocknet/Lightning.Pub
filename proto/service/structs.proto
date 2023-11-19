@@ -133,7 +133,9 @@ message PayAddressRequest{
 
 message PayAddressResponse{
     string txId = 1;
-    string operation_id = ;
+    string operation_id = 2;
+    int64 service_fee = 3;
+    int64 network_fee = 4;
 }
 
 message NewInvoiceRequest{
@@ -159,6 +161,8 @@ message PayInvoiceResponse{
     string preimage = 1;
     int64 amount_paid = 2;
     string operation_id = 3;
+    int64 service_fee = 4;
+    int64 network_fee = 5;
 }
 
 message OpenChannelRequest{
@@ -229,6 +233,8 @@ message UserOperation {
     int64 amount = 4;
     string identifier = 5;
     string operationId = 6;
+    int64 service_fee = 7;
+    int64 network_fee = 8;
 }
 message UserOperations {
     int64 fromIndex=1;
