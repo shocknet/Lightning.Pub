@@ -221,7 +221,7 @@ export default (params: ClientParams) => ({
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
-    PayAppUserInvoice: async (request: Types.PayAppUserInvoiceRequest): Promise<ResultError | ({ status: 'OK' }& Types.PayAppUserInvoiceResponse)> => {
+    PayAppUserInvoice: async (request: Types.PayAppUserInvoiceRequest): Promise<ResultError | ({ status: 'OK' }& Types.PayInvoiceResponse)> => {
         const auth = await params.retrieveAppAuth()
         if (auth === null) throw new Error('retrieveAppAuth() returned null')
         let finalRoute = '/api/app/invoice/pay'
@@ -230,7 +230,7 @@ export default (params: ClientParams) => ({
         if (data.status === 'OK') { 
             const result = data
             if(!params.checkResult) return { status: 'OK', ...result }
-            const error = Types.PayAppUserInvoiceResponseValidate(result)
+            const error = Types.PayInvoiceResponseValidate(result)
             if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
         }
         return { status: 'ERROR', reason: 'invalid response' }
