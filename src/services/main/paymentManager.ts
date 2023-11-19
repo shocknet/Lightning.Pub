@@ -162,10 +162,11 @@ export default class {
             await this.storage.userStorage.IncrementUserBalance(linkedApplication.owner.user_id, serviceFee)
         }
         const routingFees = payment ? payment.feeSat : 0
-        await this.storage.paymentStorage.AddUserInvoicePayment(userId, req.invoice, payAmount, routingFees, serviceFee, !!internalInvoice)
+        const newPayment = await this.storage.paymentStorage.AddUserInvoicePayment(userId, req.invoice, payAmount, routingFees, serviceFee, !!internalInvoice)
         return {
             preimage: payment ? payment.paymentPreimage : "",
-            amount_paid: payment ? Number(payment.valueSat) : payAmount
+            amount_paid: payment ? Number(payment.valueSat) : payAmount,
+            operation_id: `${+Types.UserOperationType.OUTGOING_INVOICE}-${newPayment.serial_id}`
         }
     }
 
@@ -200,9 +201,10 @@ export default class {
         if (isAppUserPayment && serviceFee > 0) {
             await this.storage.userStorage.IncrementUserBalance(app.owner.user_id, serviceFee)
         }
-        await this.storage.paymentStorage.AddUserTransactionPayment(ctx.user_id, req.address, txId, 0, req.amoutSats, chainFees, serviceFee, !!internalAddress)
+        const newTx = await this.storage.paymentStorage.AddUserTransactionPayment(ctx.user_id, req.address, txId, 0, req.amoutSats, chainFees, serviceFee, !!internalAddress)
         return {
-            txId: txId
+            txId: txId,
+            operation_id: `${+Types.UserOperationType.OUTGOING_TX}-${newTx.serial_id}`
         }
     }
 
