@@ -170,9 +170,10 @@ export default class {
     }
 
 
-    async PayAddress(userId: string, req: Types.PayAddressRequest, linkedApplication: Application): Promise<Types.PayAddressResponse> {
+    async PayAddress(ctx: Types.UserContext, req: Types.PayAddressRequest): Promise<Types.PayAddressResponse> {
+        const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
         const serviceFee = this.getServiceFee(Types.UserOperationType.OUTGOING_TX, req.amoutSats, false)
-        const isAppUserPayment = userId !== linkedApplication.owner.user_id
+        const isAppUserPayment = ctx.user_id !== app.owner.user_id
         const internalAddress = await this.storage.paymentStorage.GetAddressOwner(req.address)
         let txId = ""
         let chainFees = 0
@@ -181,25 +182,25 @@ export default class {
             const vBytes = Math.ceil(Number(estimate.feeSat / estimate.satPerVbyte))
             chainFees = vBytes * req.satsPerVByte
             const total = req.amoutSats + chainFees
-            await this.lockUserWithMinBalance(userId, total + serviceFee)
+            await this.lockUserWithMinBalance(ctx.user_id, total + serviceFee)
             try {
                 const payment = await this.lnd.PayAddress(req.address, req.amoutSats, req.satsPerVByte)
                 txId = payment.txid
-                await this.storage.userStorage.DecrementUserBalance(userId, total + serviceFee)
-                await this.storage.userStorage.UnlockUser(userId)
+                await this.storage.userStorage.DecrementUserBalance(ctx.user_id, total + serviceFee)
+                await this.storage.userStorage.UnlockUser(ctx.user_id)
             } catch (err) {
-                await this.storage.userStorage.UnlockUser(userId)
+                await this.storage.userStorage.UnlockUser(ctx.user_id)
                 throw err
             }
         } else {
-            await this.storage.userStorage.DecrementUserBalance(userId, req.amoutSats + serviceFee)
+            await this.storage.userStorage.DecrementUserBalance(ctx.user_id, req.amoutSats + serviceFee)
             this.addressPaidCb({ hash: crypto.randomBytes(32).toString("hex"), index: 0 }, req.address, req.amoutSats, true)
         }
 
         if (isAppUserPayment && serviceFee > 0) {
-            await this.storage.userStorage.IncrementUserBalance(linkedApplication.owner.user_id, serviceFee)
+            await this.storage.userStorage.IncrementUserBalance(app.owner.user_id, serviceFee)
         }
-        await this.storage.paymentStorage.AddUserTransactionPayment(userId, req.address, txId, 0, req.amoutSats, chainFees, serviceFee, !!internalAddress)
+        await this.storage.paymentStorage.AddUserTransactionPayment(ctx.user_id, req.address, txId, 0, req.amoutSats, chainFees, serviceFee, !!internalAddress)
         return {
             txId: txId
         }
@@ -336,7 +337,8 @@ export default class {
                     type,
                     amount: o.paid_amount,
                     paidAtUnix: o.paid_at_unix,
-                    identifier
+                    identifier,
+                    operationId: `${+type}-${o.serial_id}`
                 }
             })
         }

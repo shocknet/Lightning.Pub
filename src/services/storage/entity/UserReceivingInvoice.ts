@@ -23,10 +23,10 @@ export class UserReceivingInvoice {
     @Column({ default: 0 })
     paid_at_unix: number
 
-    @Column()
+    @Column({ default: false })
     internal: boolean
 
-    @Column()
+    @Column({ default: false })
     paidByLnd: boolean
 
     @Column({ default: "" })

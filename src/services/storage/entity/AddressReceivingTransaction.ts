@@ -28,7 +28,7 @@ export class AddressReceivingTransaction {
     @Column()
     paid_at_unix: number
 
-    @Column()
+    @Column({ default: false })
     internal: boolean
 
     @CreateDateColumn()
