@@ -55,4 +55,11 @@ export default class {
             user_identifier: ctx.app_user_id
         })
     }
+    async PayAddress(ctx: Types.UserContext, req: Types.PayInvoiceRequest): Promise<Types.PayInvoiceResponse> {
+        return this.applicationManager.PayAppUserInvoice(ctx.app_id, {
+            amount: req.amount,
+            invoice: req.invoice,
+            user_identifier: ctx.app_user_id
+        })
+    }
 }

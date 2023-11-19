@@ -32,7 +32,7 @@ export default class {
         if (decoded.numSatoshis && amount) {
             throw new Error("non zero amount provided to pay invoice but invoice has value already")
         }
-        this.invoicePaidCb(invoice, decoded.numSatoshis || amount)
+        this.invoicePaidCb(invoice, decoded.numSatoshis || amount, false)
         delete this.invoicesAwaiting[invoice]
     }
 
