@@ -83,12 +83,6 @@ message PayAppUserInvoiceRequest {
     int64 amount = 3;
 }
 
-message PayAppUserInvoiceResponse {
-    string preimage = 1;
-    int64 amount_paid = 2;
-}
-
-
 message SendAppUserToAppUserPaymentRequest {
     string from_user_identifier = 1;
     string to_user_identifier = 2;

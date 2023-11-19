@@ -141,7 +141,7 @@ export default class {
         }
     }
 
-    async PayAppUserInvoice(appId: string, req: Types.PayAppUserInvoiceRequest): Promise<Types.PayAppUserInvoiceResponse> {
+    async PayAppUserInvoice(appId: string, req: Types.PayAppUserInvoiceRequest): Promise<Types.PayInvoiceResponse> {
         const app = await this.storage.applicationStorage.GetApplication(appId)
         const appUser = await this.storage.applicationStorage.GetApplicationUser(app, req.user_identifier)
         const paid = await this.paymentManager.PayInvoice(appUser.user.user_id, req, app)
