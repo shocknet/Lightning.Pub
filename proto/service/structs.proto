@@ -133,6 +133,7 @@ message PayAddressRequest{
 
 message PayAddressResponse{
     string txId = 1;
+    string operation_id = ;
 }
 
 message NewInvoiceRequest{
@@ -157,6 +158,7 @@ message PayInvoiceRequest{
 message PayInvoiceResponse{
     string preimage = 1;
     int64 amount_paid = 2;
+    string operation_id = 3;
 }
 
 message OpenChannelRequest{
