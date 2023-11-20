@@ -77,7 +77,7 @@ export default class {
                 // This call will fail if the transaction is already registered
                 const addedTx = await this.storage.paymentStorage.AddAddressReceivingTransaction(userAddress, txOutput.hash, txOutput.index, amount, fee, internal, tx)
                 await this.storage.userStorage.IncrementUserBalance(userAddress.user.user_id, addedTx.paid_amount - fee, tx)
-                const operationId = `${+Types.UserOperationType.INCOMING_TX}-${userAddress.serial_id}`
+                const operationId = `${Types.UserOperationType.INCOMING_TX}-${userAddress.serial_id}`
                 this.triggerSubs(userAddress.user.user_id, { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_TX, identifier: userAddress.address, operationId, network_fee: 0, service_fee: fee })
             } catch {
 
@@ -110,7 +110,7 @@ export default class {
                 }
 
                 await this.triggerPaidCallback(log, userInvoice.callbackUrl)
-                const operationId = `${+Types.UserOperationType.INCOMING_INVOICE}-${userInvoice.serial_id}`
+                const operationId = `${Types.UserOperationType.INCOMING_INVOICE}-${userInvoice.serial_id}`
                 this.triggerSubs(userInvoice.user.user_id, { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_INVOICE, identifier: userInvoice.invoice, operationId, network_fee: 0, service_fee: fee })
                 log("paid invoice processed successfully")
             } catch (err: any) {

@@ -170,7 +170,7 @@ export default class {
         return {
             preimage: payment ? payment.paymentPreimage : "",
             amount_paid: payment ? Number(payment.valueSat) : payAmount,
-            operation_id: `${+Types.UserOperationType.OUTGOING_INVOICE}-${newPayment.serial_id}`,
+            operation_id: `${Types.UserOperationType.OUTGOING_INVOICE}-${newPayment.serial_id}`,
             network_fee: routingFees,
             service_fee: serviceFee
         }
@@ -210,7 +210,7 @@ export default class {
         const newTx = await this.storage.paymentStorage.AddUserTransactionPayment(ctx.user_id, req.address, txId, 0, req.amoutSats, chainFees, serviceFee, !!internalAddress)
         return {
             txId: txId,
-            operation_id: `${+Types.UserOperationType.OUTGOING_TX}-${newTx.serial_id}`,
+            operation_id: `${Types.UserOperationType.OUTGOING_TX}-${newTx.serial_id}`,
             network_fee: chainFees,
             service_fee: serviceFee
         }
@@ -348,7 +348,7 @@ export default class {
                     amount: o.paid_amount,
                     paidAtUnix: o.paid_at_unix,
                     identifier,
-                    operationId: `${+type}-${o.serial_id}`,
+                    operationId: `${type}-${o.serial_id}`,
                     network_fee: o.chain_fees || o.routing_fees || 0,
                     service_fee: o.service_fee || o.service_fees || 0
                 }
