@@ -136,7 +136,7 @@ service LightningPub {
         option (auth_type)  = "Guest";
         option (http_method) = "get";
         option (http_route) = "/api/guest/lnurl_pay/handle";
-        option (query) = {items: ["k1", "amount"]};
+        option (query) = {items: ["k1", "amount", "nostr", "lnurl"]};
     }
     //</Guest>
 

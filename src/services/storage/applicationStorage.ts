@@ -119,8 +119,8 @@ export default class {
         return found
     }
 
-    async IsApplicationUser(userId: string, entityManager = this.DB): Promise<ApplicationUser | null> {
-        return await entityManager.getRepository(ApplicationUser).findOne({ where: { user: { user_id: userId } } })
+    async GetAppUserFromUser(application: Application, userId: string, entityManager = this.DB): Promise<ApplicationUser | null> {
+        return await entityManager.getRepository(ApplicationUser).findOne({ where: { user: { user_id: userId }, application: { app_id: application.app_id } } })
     }
 
     async IsApplicationOwner(userId: string, entityManager = this.DB) {

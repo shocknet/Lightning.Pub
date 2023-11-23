@@ -16,14 +16,15 @@ const start = async () => {
     const appsData = await mainHandler.storage.applicationStorage.GetApplications()
 
     const apps = await Promise.all(appsData.map(app => {
-        if (!app.nostr_private_key) { // TMP --
+        if (!app.nostr_private_key || !app.nostr_public_key) { // TMP --
             return mainHandler.storage.applicationStorage.GenerateApplicationKeys(app);
         } // --
         else {
             return { privateKey: app.nostr_private_key, publicKey: app.nostr_public_key, appId: app.app_id, name: app.name }
         }
     }))
-    nostrMiddleware(serverMethods, mainHandler, { ...nostrSettings, apps })
+    const { Send } = nostrMiddleware(serverMethods, mainHandler, { ...nostrSettings, apps })
+    mainHandler.attachNostrSend(Send)
     const Server = NewServer(serverMethods, serverOptions(mainHandler))
     if (process.argv[2] === 'unlock') {
         const u = process.argv[3]

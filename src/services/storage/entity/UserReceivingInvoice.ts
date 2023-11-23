@@ -2,7 +2,12 @@ import { Entity, PrimaryGeneratedColumn, Column, Index, Check, ManyToOne, JoinCo
 import { Product } from "./Product.js"
 import { User } from "./User.js"
 import { Application } from "./Application.js"
-
+export type ZapInfo = {
+    pub: string
+    eventId: string
+    relays: string[]
+    description: string
+}
 @Entity()
 export class UserReceivingInvoice {
 
@@ -46,6 +51,12 @@ export class UserReceivingInvoice {
 
     @ManyToOne(type => Application, { eager: true })
     linkedApplication: Application | null
+
+    @Column({
+        nullable: true,
+        type: 'simple-json'
+    })
+    zap_info?: ZapInfo
 
     @CreateDateColumn()
     created_at: Date

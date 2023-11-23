@@ -30,6 +30,7 @@ export default class {
         }
         return decoded
     }
+
     async GetUserInfo(ctx: Types.UserContext): Promise<Types.UserInfo> {
         const user = await this.storage.userStorage.GetUser(ctx.user_id)
         return {

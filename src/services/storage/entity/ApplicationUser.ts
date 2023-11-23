@@ -21,7 +21,7 @@ export class ApplicationUser {
     identifier: string
 
     @Column({ nullable: true, unique: true })
-    nostr_public_key: string
+    nostr_public_key?: string
 
     @CreateDateColumn()
     created_at: Date

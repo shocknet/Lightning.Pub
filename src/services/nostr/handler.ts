@@ -3,6 +3,9 @@ import { SimplePool, Sub, Event, UnsignedEvent, getEventHash, finishEvent, relay
 import { encryptData, decryptData, getSharedSecret, decodePayload, encodePayload } from './nip44.js'
 const handledEvents: string[] = [] // TODO: - big memory leak here, add TTL
 type AppInfo = { appId: string, publicKey: string, privateKey: string, name: string }
+export type SendData = { type: "content", content: string, pub: string } | { type: "event", event: UnsignedEvent }
+export type NostrSend = (appId: string, data: SendData, relays?: string[] | undefined) => void
+
 export type NostrSettings = {
     apps: AppInfo[]
     relays: string[]
@@ -21,8 +24,8 @@ type SettingsRequest = {
 type SendRequest = {
     type: 'send'
     appId: string
-    pub: string
-    message: string
+    data: SendData
+    relays?: string[]
 }
 type ReadyResponse = {
     type: 'ready'
@@ -46,7 +49,7 @@ process.on("message", (message: ChildProcessRequest) => {
             initSubprocessHandler(message.settings)
             break
         case 'send':
-            sendToNostr(message.appId, message.pub, message.message)
+            sendToNostr(message.appId, message.data, message.relays)
             break
         default:
             console.error("unknown nostr request", message)
@@ -65,12 +68,12 @@ const initSubprocessHandler = (settings: NostrSettings) => {
         })
     })
 }
-const sendToNostr = (appId: string, pub: string, message: string) => {
+const sendToNostr: NostrSend = (appId, data, relays) => {
     if (!subProcessHandler) {
         console.error("nostr was not initialized")
         return
     }
-    subProcessHandler.Send(appId, pub, message)
+    subProcessHandler.Send(appId, data, relays)
 }
 send({ type: 'ready' })
 
@@ -123,19 +126,25 @@ export default class Handler {
         this.subs.push(sub)
     }
 
-    async Send(appId: string, pubKey: string, message: string) {
+    async Send(appId: string, data: SendData, relays?: string[]) {
         const appInfo = this.GetAppKeys({ appId })
-        const decoded = await encryptData(message, getSharedSecret(appInfo.privateKey, pubKey))
-        const content = encodePayload(decoded)
-        const event: UnsignedEvent = {
-            content,
-            created_at: Math.floor(Date.now() / 1000),
-            kind: 4,
-            pubkey: appInfo.publicKey,
-            tags: [['p', pubKey]],
+        let toSign: UnsignedEvent
+        if (data.type === 'content') {
+            const decoded = await encryptData(data.content, getSharedSecret(appInfo.privateKey, data.pub))
+            const content = encodePayload(decoded)
+            toSign = {
+                content,
+                created_at: Math.floor(Date.now() / 1000),
+                kind: 4,
+                pubkey: appInfo.publicKey,
+                tags: [['p', data.pub]],
+            }
+        } else {
+            toSign = data.event
         }
-        const signed = finishEvent(event, appInfo.privateKey)
-        this.pool.publish(this.settings.relays, signed).forEach(p => {
+
+        const signed = finishEvent(toSign, appInfo.privateKey)
+        this.pool.publish(relays || this.settings.relays, signed).forEach(p => {
             p.then(() => console.log("sent ok"))
             p.catch(() => console.log("failed to send"))
         })

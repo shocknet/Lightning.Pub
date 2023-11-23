@@ -1,6 +1,6 @@
 import { ChildProcess, fork } from 'child_process'
 import { EnvMustBeNonEmptyString } from "../helpers/envParser.js"
-import { NostrSettings, NostrEvent, ChildProcessRequest, ChildProcessResponse } from "./handler.js"
+import { NostrSettings, NostrEvent, ChildProcessRequest, ChildProcessResponse, SendData } from "./handler.js"
 type EventCallback = (event: NostrEvent) => void
 export const LoadNosrtSettingsFromEnv = (test = false) => {
     return {
@@ -31,8 +31,8 @@ export default class NostrSubprocess {
         this.childProcess.send(message)
     }
 
-    Send(appId: string, pub: string, message: string) {
-        this.sendToChildProcess({ type: 'send', pub, message, appId })
+    Send(appId: string, data: SendData, relays?: string[]) {
+        this.sendToChildProcess({ type: 'send', data, appId, relays })
     }
     Stop() {
         this.childProcess.kill()
