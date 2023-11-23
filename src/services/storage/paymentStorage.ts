@@ -3,7 +3,7 @@ import { DataSource, EntityManager, MoreThan, MoreThanOrEqual } from "typeorm"
 import { User } from './entity/User.js';
 import { UserTransactionPayment } from './entity/UserTransactionPayment.js';
 import { EphemeralKeyType, UserEphemeralKey } from './entity/UserEphemeralKey.js';
-import { UserReceivingInvoice } from './entity/UserReceivingInvoice.js';
+import { UserReceivingInvoice, ZapInfo } from './entity/UserReceivingInvoice.js';
 import { UserReceivingAddress } from './entity/UserReceivingAddress.js';
 import { Product } from './entity/Product.js';
 import UserStorage from './userStorage.js';
@@ -11,7 +11,7 @@ import { AddressReceivingTransaction } from './entity/AddressReceivingTransactio
 import { UserInvoicePayment } from './entity/UserInvoicePayment.js';
 import { UserToUserPayment } from './entity/UserToUserPayment.js';
 import { Application } from './entity/Application.js';
-export type InboundOptionals = { product?: Product, callbackUrl?: string, expiry: number, expectedPayer?: User, linkedApplication?: Application }
+export type InboundOptionals = { product?: Product, callbackUrl?: string, expiry: number, expectedPayer?: User, linkedApplication?: Application, zapInfo?: ZapInfo }
 export const defaultInvoiceExpiry = 60 * 60
 export default class {
     DB: DataSource | EntityManager
@@ -89,7 +89,8 @@ export default class {
             product: options.product,
             expires_at_unix: Math.floor(Date.now() / 1000) + options.expiry,
             payer: options.expectedPayer,
-            linkedApplication: options.linkedApplication
+            linkedApplication: options.linkedApplication,
+            zap_info: options.zapInfo
         })
         return entityManager.getRepository(UserReceivingInvoice).save(newUserInvoice)
     }

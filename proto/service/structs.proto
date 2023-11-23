@@ -191,6 +191,8 @@ message LnurlPayInfoResponse {
     int64 maxSendable = 3; // millisatoshi - unsafe overflow possible, but very unlikely 
     int64 minSendable = 4; // millisatoshi - unsafe overflow possible, but very unlikely 
     string metadata = 5;
+    bool allowsNostr = 6;
+    string nostrPubkey = 7;
 }
 message HandleLnurlPayResponse {
     string pr = 1;
@@ -260,6 +262,5 @@ message GetProductBuyLinkResponse {
 }
 
 message LiveUserOperation {
-    string id = 1;
-    UserOperation operation  = 2;
+    UserOperation operation  = 1;
 }

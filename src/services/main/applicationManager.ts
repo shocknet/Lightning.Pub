@@ -53,7 +53,7 @@ export default class {
                 id: app.app_id,
                 name: app.name,
                 balance: app.owner.balance_sats,
-                npub: app.nostr_public_key
+                npub: app.nostr_public_key || ""
             },
             auth_token: this.SignAppToken(app.app_id)
         }
@@ -69,7 +69,7 @@ export default class {
                 id: app.app_id,
                 name: app.name,
                 balance: app.owner.balance_sats,
-                npub: app.nostr_public_key
+                npub: app.nostr_public_key || ""
             },
             auth_token: this.SignAppToken(app.app_id)
         }
@@ -81,7 +81,7 @@ export default class {
             name: app.name,
             id: app.app_id,
             balance: app.owner.balance_sats,
-            npub: app.nostr_public_key
+            npub: app.nostr_public_key || ""
         }
     }
 

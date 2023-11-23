@@ -22,10 +22,10 @@ export class Application {
     allow_user_creation: boolean
 
     @Column({ nullable: true, unique: true })
-    nostr_private_key: string
+    nostr_private_key?: string
 
     @Column({ nullable: true, unique: true })
-    nostr_public_key: string
+    nostr_public_key?: string
 
     @CreateDateColumn()
     created_at: Date

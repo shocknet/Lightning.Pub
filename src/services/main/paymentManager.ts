@@ -9,8 +9,9 @@ import { Application } from '../storage/entity/Application.js'
 import { getLogger } from '../helpers/logger.js'
 import { UserReceivingAddress } from '../storage/entity/UserReceivingAddress.js'
 import { AddressPaidCb, InvoicePaidCb, PaidInvoice } from '../lnd/settings.js'
-import { UserReceivingInvoice } from '../storage/entity/UserReceivingInvoice.js'
+import { UserReceivingInvoice, ZapInfo } from '../storage/entity/UserReceivingInvoice.js'
 import { SendCoinsResponse } from '../../../proto/lnd/lightning.js'
+import { Event, verifiedSymbol, verifySignature } from '../nostr/tools/event.js'
 interface UserOperationInfo {
     serial_id: number
     paid_amount: number
@@ -283,24 +284,83 @@ export default class {
             callback: `${url}?k1=${payK1.key}`,
             maxSendable: remote * 1000,
             minSendable: 10000,
-            metadata: defaultLnurlPayMetadata
+            metadata: defaultLnurlPayMetadata,
+            allowsNostr: !!linkedApplication.nostr_public_key,
+            nostrPubkey: linkedApplication.nostr_public_key || ""
         }
     }
 
     async GetLnurlPayInfo(payInfoK1: string): Promise<Types.LnurlPayInfoResponse> {
         const key = await this.storage.paymentStorage.UseUserEphemeralKey(payInfoK1, 'pay', true)
+        if (!key.linkedApplication) {
+            throw new Error("invalid lnurl request")
+        }
         const { remote } = await this.lnd.ChannelBalance()
         return {
             tag: 'payRequest',
             callback: `${this.settings.serviceUrl}/api/guest/lnurl_pay/handle?k1=${payInfoK1}`,
             maxSendable: remote * 1000,
             minSendable: 10000,
-            metadata: defaultLnurlPayMetadata
+            metadata: defaultLnurlPayMetadata,
+            allowsNostr: !!key.linkedApplication.nostr_public_key,
+            nostrPubkey: key.linkedApplication.nostr_public_key || ""
         }
     }
 
-    async HandleLnurlPay(payK1: string, amountMillis: number): Promise<Types.HandleLnurlPayResponse> {
-        const key = await this.storage.paymentStorage.UseUserEphemeralKey(payK1, 'pay', true)
+    parseTags(tag: string, tags: string[][], opts: { multiples?: boolean, required?: boolean } = {}): string[] {
+        const { multiples, required } = opts
+        const found = tags.filter(t => t && t.length >= 2 && t[0] === tag)
+        if (found.length === 0) {
+            if (required) {
+                throw new Error(`missing tag for "${tag}"`)
+            }
+            return []
+        }
+        if (found.length === 1) {
+            const elements = found[0]
+            elements.shift()
+            if (elements.length === 0) {
+                throw new Error(`invalid content for "${tag}" tag`)
+            }
+            if (!multiples && elements.length !== 1) {
+                throw new Error(`too many contents for "${tag}" tag`)
+
+            }
+            return elements
+        }
+        throw new Error(`too many entries for "${tag}" tag`)
+    }
+
+    validateZapEvent(event: string, amt: number): ZapInfo {
+        const nostrEvent = JSON.parse(event) as Event
+        delete nostrEvent[verifiedSymbol]
+        const verified = verifySignature(nostrEvent)
+        if (!verified) {
+            throw new Error("nostr event not valid")
+        }
+        const p = this.parseTags("p", nostrEvent.tags, { required: true })
+        const e = this.parseTags("e", nostrEvent.tags)
+        const relays = this.parseTags("relays", nostrEvent.tags, { required: true, multiples: true })
+        const amount = this.parseTags("amount", nostrEvent.tags)
+        if (+amount !== amt) {
+            throw new Error("amount mismatch")
+        }
+        return { pub: p[0], eventId: e.length > 0 ? e[0] : "", relays, description: event }
+    }
+
+    async HandleLnurlPay(ctx: Types.HandleLnurlPay_Context): Promise<Types.HandleLnurlPayResponse> {
+        if (!ctx.k1 || !ctx.amount) {
+            throw new Error("invalid lnurl pay to handle")
+        }
+        const amountMillis = +ctx.amount
+        if (isNaN(amountMillis)) {
+            throw new Error("invalid amount in lnurl pay to handle")
+        }
+        let zapInfo: ZapInfo | undefined
+        if (ctx.nostr) {
+            zapInfo = this.validateZapEvent(ctx.nostr, amountMillis)
+        }
+        const key = await this.storage.paymentStorage.UseUserEphemeralKey(ctx.k1, 'pay', true)
         const sats = amountMillis / 1000
         if (!Number.isInteger(sats)) {
             throw new Error("millisats amount must be integer sats amount")
@@ -310,8 +370,8 @@ export default class {
         }
         const invoice = await this.NewInvoice(key.user.user_id, {
             amountSats: sats,
-            memo: defaultLnurlPayMetadata
-        }, { expiry: defaultInvoiceExpiry, linkedApplication: key.linkedApplication })
+            memo: zapInfo ? zapInfo.description : defaultLnurlPayMetadata
+        }, { expiry: defaultInvoiceExpiry, linkedApplication: key.linkedApplication, zapInfo })
         return {
             pr: invoice.invoice,
             routes: []

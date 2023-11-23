@@ -11,6 +11,10 @@ import NewLightningHandler, { LoadLndSettingsFromEnv, LightningHandler } from ".
 import { AddressPaidCb, InvoicePaidCb } from "../lnd/settings.js"
 import { getLogger, PubLogger } from "../helpers/logger.js"
 import AppUserManager from "./appUserManager.js"
+import { Application } from '../storage/entity/Application.js'
+import { UserReceivingInvoice, ZapInfo } from '../storage/entity/UserReceivingInvoice.js'
+import { UnsignedEvent } from '../nostr/tools/event.js'
+import { NostrSend } from '../nostr/handler.js'
 export const LoadMainSettingsFromEnv = (test = false): MainSettings => {
     return {
         lndSettings: LoadLndSettingsFromEnv(test),
@@ -47,6 +51,7 @@ export default class {
     appUserManager: AppUserManager
     paymentManager: PaymentManager
     paymentSubs: Record<string, ((op: Types.UserOperation) => void) | null> = {}
+    nostrSend: NostrSend = () => { getLogger({})("nostr send not initialized yet") }
 
     constructor(settings: MainSettings) {
         this.settings = settings
@@ -57,6 +62,10 @@ export default class {
         this.productManager = new ProductManager(this.storage, this.paymentManager, this.settings)
         this.applicationManager = new ApplicationManager(this.storage, this.settings, this.paymentManager)
         this.appUserManager = new AppUserManager(this.storage, this.settings, this.applicationManager)
+    }
+
+    attachNostrSend(f: NostrSend) {
+        this.nostrSend = f
     }
 
     addressPaidCb: AddressPaidCb = (txOutput, address, amount, internal) => {
@@ -78,7 +87,7 @@ export default class {
                 const addedTx = await this.storage.paymentStorage.AddAddressReceivingTransaction(userAddress, txOutput.hash, txOutput.index, amount, fee, internal, tx)
                 await this.storage.userStorage.IncrementUserBalance(userAddress.user.user_id, addedTx.paid_amount - fee, tx)
                 const operationId = `${Types.UserOperationType.INCOMING_TX}-${userAddress.serial_id}`
-                this.triggerSubs(userAddress.user.user_id, { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_TX, identifier: userAddress.address, operationId, network_fee: 0, service_fee: fee })
+                this.sendOperationToNostr(userAddress.linkedApplication, userAddress.user.user_id, { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_TX, identifier: userAddress.address, operationId, network_fee: 0, service_fee: fee })
             } catch {
 
             }
@@ -111,7 +120,8 @@ export default class {
 
                 await this.triggerPaidCallback(log, userInvoice.callbackUrl)
                 const operationId = `${Types.UserOperationType.INCOMING_INVOICE}-${userInvoice.serial_id}`
-                this.triggerSubs(userInvoice.user.user_id, { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_INVOICE, identifier: userInvoice.invoice, operationId, network_fee: 0, service_fee: fee })
+                this.sendOperationToNostr(userInvoice.linkedApplication, userInvoice.user.user_id, { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_INVOICE, identifier: userInvoice.invoice, operationId, network_fee: 0, service_fee: fee })
+                this.createZapReceipt(userInvoice)
                 log("paid invoice processed successfully")
             } catch (err: any) {
                 log("ERROR", "cannot process paid invoice", err.message || "")
@@ -130,29 +140,32 @@ export default class {
         }
     }
 
-    triggerSubs(userId: string, op: Types.UserOperation) {
-        const sub = this.paymentSubs[userId]
-        const log = getLogger({ userId })
-        if (!sub) {
-            log("no sub found for user")
+    async sendOperationToNostr(app: Application, userId: string, op: Types.UserOperation) {
+        const user = await this.storage.applicationStorage.GetAppUserFromUser(app, userId)
+        if (!user || !user.nostr_public_key) {
+            getLogger({})("cannot notify user, not a nostr user")
             return
         }
-        log("notifyng user of payment")
-        sub(op)
+        const message: Types.LiveUserOperation & { requestId: string } = { operation: op, requestId: "GetLiveUserOperations" }
+        this.nostrSend(app.app_id, { type: 'content', content: JSON.stringify(message), pub: user.nostr_public_key })
     }
 
-    async SubToPayment(ctx: Types.UserContext, cb: (res: Types.LiveUserOperation, err: Error | null) => void) {
-        const sub = this.paymentSubs[ctx.user_id]
-        const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
-        const log = getLogger({ appName: app.name, userId: ctx.user_id })
-        log("subbing  user to payment")
-        await this.storage.applicationStorage.GetApplicationUser(app, ctx.app_user_id)
-        if (sub) {
-            log("overriding user payment  stream")
+    async createZapReceipt(invoice: UserReceivingInvoice) {
+        const zapInfo = invoice.zap_info
+        if (!zapInfo || !invoice.linkedApplication || !invoice.linkedApplication.nostr_public_key) {
+            return
         }
-        this.paymentSubs[ctx.user_id] = (op) => {
-            const rand = crypto.randomBytes(16).toString('hex')
-            cb({ id: rand, operation: op }, null)
+        const tags = [["p", zapInfo.pub], ["bolt11", invoice.invoice], ["description", zapInfo.description]]
+        if (zapInfo.eventId) {
+            tags.push(["e", zapInfo.eventId])
         }
+        const event: UnsignedEvent = {
+            content: "",
+            created_at: invoice.paid_at_unix,
+            kind: 9735,
+            pubkey: invoice.linkedApplication.nostr_public_key,
+            tags,
+        }
+        this.nostrSend(invoice.linkedApplication.app_id, { type: 'event', event })
     }
 }
