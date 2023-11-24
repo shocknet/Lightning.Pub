@@ -231,6 +231,7 @@ message UserOperation {
     string operationId = 6;
     int64 service_fee = 7;
     int64 network_fee = 8;
+    bool confirmed = 9;
 }
 message UserOperations {
     int64 fromIndex=1;

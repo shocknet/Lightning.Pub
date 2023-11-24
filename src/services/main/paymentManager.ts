@@ -12,6 +12,8 @@ import { AddressPaidCb, InvoicePaidCb, PaidInvoice } from '../lnd/settings.js'
 import { UserReceivingInvoice, ZapInfo } from '../storage/entity/UserReceivingInvoice.js'
 import { SendCoinsResponse } from '../../../proto/lnd/lightning.js'
 import { Event, verifiedSymbol, verifySignature } from '../nostr/tools/event.js'
+import { AddressReceivingTransaction } from '../storage/entity/AddressReceivingTransaction.js'
+import { UserTransactionPayment } from '../storage/entity/UserTransactionPayment.js'
 interface UserOperationInfo {
     serial_id: number
     paid_amount: number
@@ -25,8 +27,10 @@ interface UserOperationInfo {
     routing_fees?: number
     chain_fees?: number
 }
+type PendingTx = { type: 'incoming', tx: AddressReceivingTransaction } | { type: 'outgoing', tx: UserTransactionPayment }
 const defaultLnurlPayMetadata = `[["text/plain", "lnurl pay to Lightning.pub"]]`
-
+const confInOne = 1000 * 1000
+const confInTwo = 100 * 1000 * 1000
 export default class {
 
     storage: Storage
@@ -179,6 +183,7 @@ export default class {
 
 
     async PayAddress(ctx: Types.UserContext, req: Types.PayAddressRequest): Promise<Types.PayAddressResponse> {
+        const { blockHeight } = await this.lnd.GetInfo()
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
         const serviceFee = this.getServiceFee(Types.UserOperationType.OUTGOING_TX, req.amoutSats, false)
         const isAppUserPayment = ctx.user_id !== app.owner.user_id
@@ -208,7 +213,8 @@ export default class {
         if (isAppUserPayment && serviceFee > 0) {
             await this.storage.userStorage.IncrementUserBalance(app.owner.user_id, serviceFee)
         }
-        const newTx = await this.storage.paymentStorage.AddUserTransactionPayment(ctx.user_id, req.address, txId, 0, req.amoutSats, chainFees, serviceFee, !!internalAddress)
+
+        const newTx = await this.storage.paymentStorage.AddUserTransactionPayment(ctx.user_id, req.address, txId, 0, req.amoutSats, chainFees, serviceFee, !!internalAddress, blockHeight)
         return {
             txId: txId,
             operation_id: `${Types.UserOperationType.OUTGOING_TX}-${newTx.serial_id}`,
@@ -455,6 +461,31 @@ export default class {
             sentAmount = toIncrement
         })
         return sentAmount
+    }
+
+    async CheckPendingTransactions(height: number) {
+        const pending = await this.storage.paymentStorage.GetPendingTransactions()
+        let lowestHeight = height
+        const map: Record<string, PendingTx> = {}
+
+        const checkTx = (t: PendingTx) => {
+            if (t.tx.broadcast_height < lowestHeight) { lowestHeight = t.tx.broadcast_height }
+            map[t.tx.tx_hash] = t
+        }
+        pending.incoming.forEach(t => checkTx({ type: "incoming", tx: t }))
+        pending.outgoing.forEach(t => checkTx({ type: "outgoing", tx: t }))
+        const { transactions } = await this.lnd.GetTransactions(lowestHeight)
+        const resolved = await Promise.all(transactions.map(async tx => {
+            const { txHash, numConfirmations: confs, amount: amt } = tx
+            const t = map[txHash]
+            if (!t || confs === 0) {
+                return
+            }
+            if (confs > 2 || (amt <= confInTwo && confs > 1) || (amt <= confInOne && confs > 0)) {
+                return { ...t, confs }
+            }
+        }))
+        return resolved.filter(t => t !== undefined) as (PendingTx & { confs: number })[]
     }
 
     encodeLnurl(base: string) {

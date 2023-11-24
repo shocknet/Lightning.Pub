@@ -20,7 +20,7 @@ export default class {
         this.DB = DB
         this.userStorage = userStorage
     }
-    async AddAddressReceivingTransaction(address: UserReceivingAddress, txHash: string, outputIndex: number, amount: number, serviceFee: number, internal: boolean, entityManager = this.DB) {
+    async AddAddressReceivingTransaction(address: UserReceivingAddress, txHash: string, outputIndex: number, amount: number, serviceFee: number, internal: boolean, height: number, entityManager = this.DB) {
         const newAddressTransaction = entityManager.getRepository(AddressReceivingTransaction).create({
             user_address: address,
             tx_hash: txHash,
@@ -28,7 +28,9 @@ export default class {
             paid_amount: amount,
             service_fee: serviceFee,
             paid_at_unix: Math.floor(Date.now() / 1000),
-            internal
+            internal,
+            broadcast_height: height,
+            confs: internal ? 10 : 0
         })
         return entityManager.getRepository(AddressReceivingTransaction).save(newAddressTransaction)
     }
@@ -139,7 +141,7 @@ export default class {
         })
     }
 
-    async AddUserTransactionPayment(userId: string, address: string, txHash: string, txOutput: number, amount: number, chainFees: number, serviceFees: number, internal: boolean, entityManager = this.DB): Promise<UserTransactionPayment> {
+    async AddUserTransactionPayment(userId: string, address: string, txHash: string, txOutput: number, amount: number, chainFees: number, serviceFees: number, internal: boolean, height: number, entityManager = this.DB): Promise<UserTransactionPayment> {
         const newTx = entityManager.getRepository(UserTransactionPayment).create({
             user: await this.userStorage.GetUser(userId),
             address,
@@ -149,7 +151,9 @@ export default class {
             tx_hash: txHash,
             service_fees: serviceFees,
             paid_at_unix: Math.floor(Date.now() / 1000),
-            internal
+            internal,
+            broadcast_height: height,
+            confs: internal ? 10 : 0
         })
         return entityManager.getRepository(UserTransactionPayment).save(newTx)
     }
@@ -167,6 +171,19 @@ export default class {
                 paid_at_unix: 'DESC'
             }
         })
+    }
+
+    async GetPendingTransactions(entityManager = this.DB) {
+        const incoming = await entityManager.getRepository(AddressReceivingTransaction).find({ where: { confs: 0 } })
+        const outgoing = await entityManager.getRepository(UserTransactionPayment).find({ where: { confs: 0 } })
+        return { incoming, outgoing }
+    }
+
+    async UpdateAddressReceivingTransaction(serialId: number, update: Partial<AddressReceivingTransaction>, entityManager = this.DB) {
+        await entityManager.getRepository(AddressReceivingTransaction).update(serialId, update)
+    }
+    async UpdateUserTransactionPayment(serialId: number, update: Partial<UserTransactionPayment>, entityManager = this.DB) {
+        await entityManager.getRepository(UserTransactionPayment).update(serialId, update)
     }
 
 

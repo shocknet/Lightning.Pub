@@ -31,6 +31,12 @@ export class AddressReceivingTransaction {
     @Column({ default: false })
     internal: boolean
 
+    @Column({ default: 0 })
+    confs: number
+
+    @Column({ default: 0 })
+    broadcast_height: number
+
     @CreateDateColumn()
     created_at: Date
 
