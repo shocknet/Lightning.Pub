@@ -26,6 +26,7 @@ interface UserOperationInfo {
     service_fees?: number
     routing_fees?: number
     chain_fees?: number
+    confs?: number
 }
 type PendingTx = { type: 'incoming', tx: AddressReceivingTransaction } | { type: 'outgoing', tx: UserTransactionPayment }
 const defaultLnurlPayMetadata = `[["text/plain", "lnurl pay to Lightning.pub"]]`
@@ -416,7 +417,8 @@ export default class {
                     identifier,
                     operationId: `${type}-${o.serial_id}`,
                     network_fee: o.chain_fees || o.routing_fees || 0,
-                    service_fee: o.service_fee || o.service_fees || 0
+                    service_fee: o.service_fee || o.service_fees || 0,
+                    confirmed: typeof o.confs === 'number' ? o.confs > 0 : true
                 }
             })
         }

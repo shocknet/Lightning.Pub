@@ -74,16 +74,17 @@ export default class {
 
     NewBlockHandler = async (height: number) => {
         const confirmed = await this.paymentManager.CheckPendingTransactions(height)
-        await Promise.all(confirmed.map(async ({ confs, type, tx: t }) => {
-            const { serial_id } = t
-            if (type === 'outgoing') {
-                await this.storage.paymentStorage.UpdateUserTransactionPayment(serial_id, { confs })
+        await Promise.all(confirmed.map(async c => {
+
+            if (c.type === 'outgoing') {
+                await this.storage.paymentStorage.UpdateUserTransactionPayment(c.tx.serial_id, { confs: c.confs })
             } else {
-                await this.storage.paymentStorage.UpdateAddressReceivingTransaction(serial_id, { confs })
-                await this.storage.userStorage.IncrementUserBalance(t.user_address.user.user_id, t.paid_amount - t.service_fee)
-                const operationId = `${Types.UserOperationType.INCOMING_TX}-${t.user_address.serial_id}`
-                const op = { amount: t.paid_amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_TX, identifier: t.user_address.address, operationId, network_fee: 0, service_fee: t.service_fee, confirmed: true }
-                this.sendOperationToNostr(t.user_address.linkedApplication!, t.user_address.user.user_id, op)
+                const { user_address: userAddress, paid_amount: amount, service_fee: serviceFee, serial_id: serialId } = c.tx
+                await this.storage.paymentStorage.UpdateAddressReceivingTransaction(serialId, { confs: c.confs })
+                await this.storage.userStorage.IncrementUserBalance(userAddress.user.user_id, amount - serviceFee)
+                const operationId = `${Types.UserOperationType.INCOMING_TX}-${userAddress.serial_id}`
+                const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_TX, identifier: userAddress.address, operationId, network_fee: 0, service_fee: serviceFee, confirmed: true }
+                this.sendOperationToNostr(userAddress.linkedApplication!, userAddress.user.user_id, op)
             }
         }))
     }
