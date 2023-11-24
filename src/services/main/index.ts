@@ -8,7 +8,7 @@ import ApplicationManager from './applicationManager.js'
 import PaymentManager from './paymentManager.js'
 import { MainSettings } from './settings.js'
 import NewLightningHandler, { LoadLndSettingsFromEnv, LightningHandler } from "../lnd/index.js"
-import { AddressPaidCb, InvoicePaidCb } from "../lnd/settings.js"
+import { AddressPaidCb, InvoicePaidCb, NewBlockCb } from "../lnd/settings.js"
 import { getLogger, PubLogger } from "../helpers/logger.js"
 import AppUserManager from "./appUserManager.js"
 import { Application } from '../storage/entity/Application.js'
@@ -56,7 +56,7 @@ export default class {
     constructor(settings: MainSettings) {
         this.settings = settings
         this.storage = new Storage(settings.storageSettings)
-        this.lnd = NewLightningHandler(settings.lndSettings, this.addressPaidCb, this.invoicePaidCb)
+        this.lnd = NewLightningHandler(settings.lndSettings, this.addressPaidCb, this.invoicePaidCb, this.newBlockCb)
 
         this.paymentManager = new PaymentManager(this.storage, this.lnd, this.settings, this.addressPaidCb, this.invoicePaidCb)
         this.productManager = new ProductManager(this.storage, this.paymentManager, this.settings)
@@ -68,8 +68,29 @@ export default class {
         this.nostrSend = f
     }
 
+    newBlockCb: NewBlockCb = (height) => {
+        this.NewBlockHandler(height)
+    }
+
+    NewBlockHandler = async (height: number) => {
+        const confirmed = await this.paymentManager.CheckPendingTransactions(height)
+        await Promise.all(confirmed.map(async ({ confs, type, tx: t }) => {
+            const { serial_id } = t
+            if (type === 'outgoing') {
+                await this.storage.paymentStorage.UpdateUserTransactionPayment(serial_id, { confs })
+            } else {
+                await this.storage.paymentStorage.UpdateAddressReceivingTransaction(serial_id, { confs })
+                await this.storage.userStorage.IncrementUserBalance(t.user_address.user.user_id, t.paid_amount - t.service_fee)
+                const operationId = `${Types.UserOperationType.INCOMING_TX}-${t.user_address.serial_id}`
+                const op = { amount: t.paid_amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_TX, identifier: t.user_address.address, operationId, network_fee: 0, service_fee: t.service_fee, confirmed: true }
+                this.sendOperationToNostr(t.user_address.linkedApplication!, t.user_address.user.user_id, op)
+            }
+        }))
+    }
+
     addressPaidCb: AddressPaidCb = (txOutput, address, amount, internal) => {
         this.storage.StartTransaction(async tx => {
+            const { blockHeight } = await this.lnd.GetInfo()
             const userAddress = await this.storage.paymentStorage.GetAddressOwner(address, tx)
             if (!userAddress) { return }
             const log = getLogger({})
@@ -84,10 +105,11 @@ export default class {
             }
             try {
                 // This call will fail if the transaction is already registered
-                const addedTx = await this.storage.paymentStorage.AddAddressReceivingTransaction(userAddress, txOutput.hash, txOutput.index, amount, fee, internal, tx)
+                const addedTx = await this.storage.paymentStorage.AddAddressReceivingTransaction(userAddress, txOutput.hash, txOutput.index, amount, fee, internal, blockHeight, tx)
                 await this.storage.userStorage.IncrementUserBalance(userAddress.user.user_id, addedTx.paid_amount - fee, tx)
                 const operationId = `${Types.UserOperationType.INCOMING_TX}-${userAddress.serial_id}`
-                this.sendOperationToNostr(userAddress.linkedApplication, userAddress.user.user_id, { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_TX, identifier: userAddress.address, operationId, network_fee: 0, service_fee: fee })
+                const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_TX, identifier: userAddress.address, operationId, network_fee: 0, service_fee: fee, confirmed: internal }
+                this.sendOperationToNostr(userAddress.linkedApplication, userAddress.user.user_id, op)
             } catch {
 
             }
@@ -120,7 +142,8 @@ export default class {
 
                 await this.triggerPaidCallback(log, userInvoice.callbackUrl)
                 const operationId = `${Types.UserOperationType.INCOMING_INVOICE}-${userInvoice.serial_id}`
-                this.sendOperationToNostr(userInvoice.linkedApplication, userInvoice.user.user_id, { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_INVOICE, identifier: userInvoice.invoice, operationId, network_fee: 0, service_fee: fee })
+                const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_INVOICE, identifier: userInvoice.invoice, operationId, network_fee: 0, service_fee: fee, confirmed: true }
+                this.sendOperationToNostr(userInvoice.linkedApplication, userInvoice.user.user_id, op)
                 this.createZapReceipt(userInvoice)
                 log("paid invoice processed successfully")
             } catch (err: any) {

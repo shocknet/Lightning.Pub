@@ -13,11 +13,14 @@ type TxOutput = {
 
 export type AddressPaidCb = (txOutput: TxOutput, address: string, amount: number, internal: boolean) => void
 export type InvoicePaidCb = (paymentRequest: string, amount: number, internal: boolean) => void
+export type NewBlockCb = (height: number) => void
 
 export type NodeInfo = {
     alias: string
     syncedToChain: boolean
     syncedToGraph: boolean
+    blockHeight: number
+    blockHash: string
 }
 export type Invoice = {
     payRequest: string
