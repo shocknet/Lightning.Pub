@@ -22,14 +22,19 @@ The Permissionless WebApps that use these API's promote a more decentralized Lig
 ![Accounts](https://github.com/shocknet/Lightning.Pub/raw/master/accounting_layers.png) 
 
 #### Planned
-- [ ] Management [Dashboard](https://github.com/shocknet/Lightning.Pub/raw/master/pub_dash_concept.jpg)
+- [ ] Management Dashboard is being integrated into [ShockWallet](https://github.com/shocknet/wallet2) 
 - [ ] Channel Automation
 - [ ] Subscriptions / Notifications
 - [ ] Submarine Swaps
 - [ ] High-Availabilty
 
+Dashboard:
 
-#### See the NostrHack presentation: https://lightning.video/f0f64fa1fc3744fb6a3880e2bd8f6a254ceb3caee112d9708271f2d6a09a2f00
+<img src="https://shockwallet.b-cdn.net/pub_home_ss.png" alt="Pub Dashboard" width="240">
+
+#### ShockWallet and most of Lightning.Pub were developed as part of the [Bolt.Fun hackathon](https://bolt.fun/project/shocknet). If you would like to see continued development, please show your support there and help us win :)
+
+#### See the original NostrHack presentation: https://lightning.video/f0f64fa1fc3744fb6a3880e2bd8f6a254ceb3caee112d9708271f2d6a09a2f00
 
 
 > **WARNING:** This repository is under rapid iteration and security is not guaranteed. Use tagged releases for non-development.
