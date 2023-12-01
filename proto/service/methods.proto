@@ -304,5 +304,11 @@ service LightningPub {
         option (http_route) = "/api/user/operations/sub";
         option (nostr) = true;
     }
+    rpc GetMigrationUpdate(structs.Empty) returns (stream structs.MigrationUpdate){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/migrations/sub";
+        option (nostr) = true;
+    }
     // </User>
 }
