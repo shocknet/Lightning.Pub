@@ -138,6 +138,11 @@ service LightningPub {
         option (http_route) = "/api/guest/lnurl_pay/handle";
         option (query) = {items: ["k1", "amount", "nostr", "lnurl"]};
     }
+    rpc HandleLnurlAddress(structs.Empty)returns (structs.LnurlPayInfoResponse) {
+        option (auth_type)  = "Guest";
+        option (http_method) = "get";
+        option (http_route) = "/.well-known/lnurlp/:address_name";
+    }
     //</Guest>
 
     // <App>

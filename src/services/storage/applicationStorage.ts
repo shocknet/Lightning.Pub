@@ -88,7 +88,7 @@ export default class {
         if (!nostrPub) {
             throw new Error("no nostrPub provided")
         }
-        const user = await entityManager.getRepository(ApplicationUser).findOne({ where: { application: { serial_id: application.serial_id }, nostr_public_key: nostrPub } })
+        const user = await entityManager.getRepository(ApplicationUser).findOne({ where: { nostr_public_key: nostrPub } })
         if (user) {
             return user
         }
@@ -96,6 +96,10 @@ export default class {
             throw new Error("user creation by client is not allowed in this app")
         }
         return this.AddApplicationUser(application, crypto.randomBytes(32).toString('hex'), 0, nostrPub)
+    }
+
+    async FindNostrAppUser(nostrPub: string, entityManager = this.DB) {
+        return entityManager.getRepository(ApplicationUser).findOne({ where: { nostr_public_key: nostrPub } })
     }
 
     async GetOrCreateApplicationUser(application: Application, userIdentifier: string, balance: number, entityManager = this.DB): Promise<{ user: ApplicationUser, created: boolean }> {
