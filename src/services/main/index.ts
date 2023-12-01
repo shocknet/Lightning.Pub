@@ -147,7 +147,7 @@ export default class {
                 const operationId = `${Types.UserOperationType.INCOMING_INVOICE}-${userInvoice.serial_id}`
                 const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_INVOICE, identifier: userInvoice.invoice, operationId, network_fee: 0, service_fee: fee, confirmed: true }
                 this.sendOperationToNostr(userInvoice.linkedApplication, userInvoice.user.user_id, op)
-                this.createZapReceipt(userInvoice)
+                this.createZapReceipt(log, userInvoice)
                 log("paid invoice processed successfully")
             } catch (err: any) {
                 log("ERROR", "cannot process paid invoice", err.message || "")
@@ -176,7 +176,7 @@ export default class {
         this.nostrSend(app.app_id, { type: 'content', content: JSON.stringify(message), pub: user.nostr_public_key })
     }
 
-    async createZapReceipt(invoice: UserReceivingInvoice) {
+    async createZapReceipt(log: PubLogger, invoice: UserReceivingInvoice) {
         const zapInfo = invoice.zap_info
         if (!zapInfo || !invoice.linkedApplication || !invoice.linkedApplication.nostr_public_key) {
             return
@@ -192,6 +192,7 @@ export default class {
             pubkey: invoice.linkedApplication.nostr_public_key,
             tags,
         }
+        log({ unsigned: event })
         this.nostrSend(invoice.linkedApplication.app_id, { type: 'event', event })
     }
 }
