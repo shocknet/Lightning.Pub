@@ -179,6 +179,7 @@ export default class {
     async createZapReceipt(log: PubLogger, invoice: UserReceivingInvoice) {
         const zapInfo = invoice.zap_info
         if (!zapInfo || !invoice.linkedApplication || !invoice.linkedApplication.nostr_public_key) {
+            log("no zap info linked to payment")
             return
         }
         const tags = [["p", zapInfo.pub], ["bolt11", invoice.invoice], ["description", zapInfo.description]]

@@ -375,6 +375,13 @@ export default class {
         if (!key.linkedApplication) {
             throw new Error("cannot handle lnurl for non application user")
         }
+        let log = getLogger({ appName: key.linkedApplication.name })
+        if (zapInfo) {
+            log("this payment is a zap")
+        } else {
+            log("this payment is NOT a zap")
+
+        }
         const invoice = await this.NewInvoice(key.user.user_id, {
             amountSats: sats,
             memo: zapInfo ? zapInfo.description : defaultLnurlPayMetadata
