@@ -103,12 +103,12 @@ export default class Handler {
         const sub = relay.sub([
             {
                 since: Math.ceil(Date.now() / 1000),
-                kinds: [4],
+                kinds: [21000],
                 '#p': [appInfo.publicKey],
             }
         ])
         sub.on("event", async (e) => {
-            if (e.kind !== 4 || !e.pubkey) {
+            if (e.kind !== 21000 || !e.pubkey) {
                 return
             }
             //@ts-ignore
@@ -135,7 +135,7 @@ export default class Handler {
             toSign = {
                 content,
                 created_at: Math.floor(Date.now() / 1000),
-                kind: 4,
+                kind: 21000,
                 pubkey: appInfo.publicKey,
                 tags: [['p', data.pub]],
             }
