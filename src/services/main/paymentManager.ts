@@ -379,7 +379,7 @@ export default class {
         if (zapInfo) {
             log("this payment is a zap")
         } else {
-            log("this payment is NOT a zap")
+            log("this payment is NOT a zap", ctx)
 
         }
         const invoice = await this.NewInvoice(key.user.user_id, {
