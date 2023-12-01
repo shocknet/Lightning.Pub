@@ -173,6 +173,8 @@ export default (mainHandler: Main): Types.ServerMethods => {
             await mainHandler.applicationManager.SetMockAppBalance(ctx.app_id, req)
         },
         GetLiveUserOperations: async (ctx, cb) => {
+        },
+        GetMigrationUpdate: async (ctx, cb) => {
         }
     }
 }

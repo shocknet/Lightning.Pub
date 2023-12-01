@@ -215,4 +215,19 @@ export default (params: NostrClientParams,  send: (to:string, message: NostrRequ
             return cb({ status: 'ERROR', reason: 'invalid response' })
         })
     },
+    GetMigrationUpdate: async (cb: (res:ResultError | ({ status: 'OK' }& Types.MigrationUpdate)) => void): Promise<void> => {
+        const auth = await params.retrieveNostrUserAuth()
+        if (auth === null) throw new Error('retrieveNostrUserAuth() returned null')
+        const nostrRequest: NostrRequest = {}
+        subscribe(params.pubDestination, {rpcName:'GetMigrationUpdate',authIdentifier:auth, ...nostrRequest }, (data) => {
+            if (data.status === 'ERROR' && typeof data.reason === 'string') return cb(data)
+            if (data.status === 'OK') { 
+                const result = data
+                if(!params.checkResult) return cb({ status: 'OK', ...result })
+                const error = Types.MigrationUpdateValidate(result)
+                if (error === null) { return cb({ status: 'OK', ...result }) } else return cb({ status: 'ERROR', reason: error.message })
+            }
+            return cb({ status: 'ERROR', reason: 'invalid response' })
+        })
+    },
 })

@@ -94,11 +94,12 @@ export default class {
             const { blockHeight } = await this.lnd.GetInfo()
             const userAddress = await this.storage.paymentStorage.GetAddressOwner(address, tx)
             if (!userAddress) { return }
-            const log = getLogger({})
+            let log = getLogger({})
             if (!userAddress.linkedApplication) {
                 log("ERROR", "an address was paid, that has no linked application")
                 return
             }
+            log = getLogger({ appName: userAddress.linkedApplication.name })
             const isAppUserPayment = userAddress.user.user_id !== userAddress.linkedApplication.owner.user_id
             let fee = this.paymentManager.getServiceFee(Types.UserOperationType.INCOMING_TX, amount, isAppUserPayment)
             if (userAddress.linkedApplication && userAddress.linkedApplication.owner.user_id === userAddress.user.user_id) {
@@ -119,7 +120,7 @@ export default class {
 
     invoicePaidCb: InvoicePaidCb = (paymentRequest, amount, internal) => {
         this.storage.StartTransaction(async tx => {
-            const log = getLogger({})
+            let log = getLogger({})
             const userInvoice = await this.storage.paymentStorage.GetInvoiceOwner(paymentRequest, tx)
             if (!userInvoice) { return }
             if (userInvoice.paid_at_unix > 0 && internal) { log("cannot pay internally, invoice already paid"); return }
@@ -128,6 +129,7 @@ export default class {
                 log("ERROR", "an invoice was paid, that has no linked application")
                 return
             }
+            log = getLogger({ appName: userInvoice.linkedApplication.name })
             const isAppUserPayment = userInvoice.user.user_id !== userInvoice.linkedApplication.owner.user_id
             let fee = this.paymentManager.getServiceFee(Types.UserOperationType.INCOMING_INVOICE, amount, isAppUserPayment)
             if (userInvoice.linkedApplication && userInvoice.linkedApplication.owner.user_id === userInvoice.user.user_id) {
@@ -167,7 +169,7 @@ export default class {
     async sendOperationToNostr(app: Application, userId: string, op: Types.UserOperation) {
         const user = await this.storage.applicationStorage.GetAppUserFromUser(app, userId)
         if (!user || !user.nostr_public_key) {
-            getLogger({})("cannot notify user, not a nostr user")
+            getLogger({ appName: app.name })("cannot notify user, not a nostr user")
             return
         }
         const message: Types.LiveUserOperation & { requestId: string } = { operation: op, requestId: "GetLiveUserOperations" }

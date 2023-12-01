@@ -265,3 +265,15 @@ message GetProductBuyLinkResponse {
 message LiveUserOperation {
     UserOperation operation  = 1;
 }
+message MigrationUpdate {
+    optional ClosureMigration closure = 1;
+    optional RelaysMigration relays = 2;
+}
+
+message ClosureMigration {
+    int64 closes_at_unix = 1;
+}
+
+message RelaysMigration {
+    repeated string relays = 1;
+}
