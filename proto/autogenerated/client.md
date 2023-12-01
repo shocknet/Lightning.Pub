@@ -386,76 +386,33 @@ The nostr server will send back a message response, and inside the body there wi
 ## Messages
 ### The content of requests and response from the methods
 
-### Empty
-
-### AddAppRequest
-  - __name__: _string_
-  - __allow_user_creation__: _boolean_
-
-### GetAppUserLNURLInfoRequest
-  - __user_identifier__: _string_
-  - __base_url_override__: _string_
-
-### PayAddressRequest
-  - __address__: _string_
-  - __amoutSats__: _number_
-  - __satsPerVByte__: _number_
-
-### OpenChannelResponse
-  - __channelId__: _string_
-
-### MigrationUpdate
-  - __closure__: _[ClosureMigration](#ClosureMigration)_ *this field is optional
-  - __relays__: _[RelaysMigration](#RelaysMigration)_ *this field is optional
-
-### AuthApp
-  - __app__: _[Application](#Application)_
-  - __auth_token__: _string_
-
-### AddAppInvoiceRequest
-  - __payer_identifier__: _string_
-  - __http_callback_url__: _string_
-  - __invoice_req__: _[NewInvoiceRequest](#NewInvoiceRequest)_
-
-### AddAppUserInvoiceRequest
-  - __receiver_identifier__: _string_
-  - __payer_identifier__: _string_
-  - __http_callback_url__: _string_
-  - __invoice_req__: _[NewInvoiceRequest](#NewInvoiceRequest)_
-
-### PayAppUserInvoiceRequest
-  - __user_identifier__: _string_
-  - __invoice__: _string_
-  - __amount__: _number_
-
-### DecodeInvoiceRequest
-  - __invoice__: _string_
+### OpenChannelRequest
+  - __destination__: _string_
+  - __fundingAmount__: _number_
+  - __pushAmount__: _number_
+  - __closeAddress__: _string_
 
 ### HandleLnurlPayResponse
   - __pr__: _string_
   - __routes__: ARRAY of: _[Empty](#Empty)_
 
-### ClosureMigration
-  - __closes_at_unix__: _number_
+### GetUserOperationsResponse
+  - __latestOutgoingInvoiceOperations__: _[UserOperations](#UserOperations)_
+  - __latestIncomingInvoiceOperations__: _[UserOperations](#UserOperations)_
+  - __latestOutgoingTxOperations__: _[UserOperations](#UserOperations)_
+  - __latestIncomingTxOperations__: _[UserOperations](#UserOperations)_
+  - __latestOutgoingUserToUserPayemnts__: _[UserOperations](#UserOperations)_
+  - __latestIncomingUserToUserPayemnts__: _[UserOperations](#UserOperations)_
 
-### SendAppUserToAppUserPaymentRequest
-  - __from_user_identifier__: _string_
-  - __to_user_identifier__: _string_
-  - __amount__: _number_
-
-### SendAppUserToAppPaymentRequest
-  - __from_user_identifier__: _string_
-  - __amount__: _number_
-
-### SetMockAppBalanceRequest
-  - __amount__: _number_
+### AddProductRequest
+  - __name__: _string_
+  - __price_sats__: _number_
 
 ### NewAddressRequest
   - __addressType__: _[AddressType](#AddressType)_
 
-### NewInvoiceRequest
-  - __amountSats__: _number_
-  - __memo__: _string_
+### NewInvoiceResponse
+  - __invoice__: _string_
 
 ### DecodeInvoiceResponse
   - __amount__: _number_
@@ -467,6 +424,24 @@ The nostr server will send back a message response, and inside the body there wi
   - __service_fee__: _number_
   - __network_fee__: _number_
 
+### EncryptionExchangeRequest
+  - __publicKey__: _string_
+  - __deviceId__: _string_
+
+### AddAppRequest
+  - __name__: _string_
+  - __allow_user_creation__: _boolean_
+
+### AddAppUserRequest
+  - __identifier__: _string_
+  - __fail_if_exists__: _boolean_
+  - __balance__: _number_
+
+### UserInfo
+  - __userId__: _string_
+  - __balance__: _number_
+  - __max_withdrawable__: _number_
+
 ### GetUserOperationsRequest
   - __latestIncomingInvoice__: _number_
   - __latestOutgoingInvoice__: _number_
@@ -474,6 +449,46 @@ The nostr server will send back a message response, and inside the body there wi
   - __latestOutgoingTx__: _number_
   - __latestIncomingUserToUserPayment__: _number_
   - __latestOutgoingUserToUserPayment__: _number_
+
+### GetProductBuyLinkResponse
+  - __link__: _string_
+
+### LndGetInfoResponse
+  - __alias__: _string_
+
+### GetAppUserRequest
+  - __user_identifier__: _string_
+
+### NewInvoiceRequest
+  - __amountSats__: _number_
+  - __memo__: _string_
+
+### LnurlLinkResponse
+  - __lnurl__: _string_
+  - __k1__: _string_
+
+### SetMockInvoiceAsPaidRequest
+  - __invoice__: _string_
+  - __amount__: _number_
+
+### Application
+  - __name__: _string_
+  - __id__: _string_
+  - __balance__: _number_
+  - __npub__: _string_
+
+### PayInvoiceRequest
+  - __invoice__: _string_
+  - __amount__: _number_
+
+### RelaysMigration
+  - __relays__: ARRAY of: _string_
+
+### LndGetInfoRequest
+  - __nodeId__: _number_
+
+### NewAddressResponse
+  - __address__: _string_
 
 ### UserOperation
   - __paidAtUnix__: _number_
@@ -486,70 +501,28 @@ The nostr server will send back a message response, and inside the body there wi
   - __network_fee__: _number_
   - __confirmed__: _boolean_
 
-### GetUserOperationsResponse
-  - __latestOutgoingInvoiceOperations__: _[UserOperations](#UserOperations)_
-  - __latestIncomingInvoiceOperations__: _[UserOperations](#UserOperations)_
-  - __latestOutgoingTxOperations__: _[UserOperations](#UserOperations)_
-  - __latestIncomingTxOperations__: _[UserOperations](#UserOperations)_
-  - __latestOutgoingUserToUserPayemnts__: _[UserOperations](#UserOperations)_
-  - __latestIncomingUserToUserPayemnts__: _[UserOperations](#UserOperations)_
-
-### RelaysMigration
-  - __relays__: ARRAY of: _string_
-
-### EncryptionExchangeRequest
-  - __publicKey__: _string_
-  - __deviceId__: _string_
-
-### AuthAppRequest
-  - __name__: _string_
-  - __allow_user_creation__: _boolean_ *this field is optional
-
-### GetAppUserRequest
-  - __user_identifier__: _string_
-
-### PayInvoiceRequest
-  - __invoice__: _string_
-  - __amount__: _number_
-
-### LnurlLinkResponse
-  - __lnurl__: _string_
-  - __k1__: _string_
-
-### AddProductRequest
-  - __name__: _string_
-  - __price_sats__: _number_
-
-### LndGetInfoRequest
-  - __nodeId__: _number_
-
-### OpenChannelRequest
-  - __destination__: _string_
-  - __fundingAmount__: _number_
-  - __pushAmount__: _number_
-  - __closeAddress__: _string_
-
-### UserInfo
-  - __userId__: _string_
-  - __balance__: _number_
-  - __max_withdrawable__: _number_
+### LiveUserOperation
+  - __operation__: _[UserOperation](#UserOperation)_
 
 ### UserOperations
   - __fromIndex__: _number_
   - __toIndex__: _number_
   - __operations__: ARRAY of: _[UserOperation](#UserOperation)_
 
-### SetMockInvoiceAsPaidRequest
-  - __invoice__: _string_
+### MigrationUpdate
+  - __closure__: _[ClosureMigration](#ClosureMigration)_ *this field is optional
+  - __relays__: _[RelaysMigration](#RelaysMigration)_ *this field is optional
+
+### ClosureMigration
+  - __closes_at_unix__: _number_
+
+### AuthAppRequest
+  - __name__: _string_
+  - __allow_user_creation__: _boolean_ *this field is optional
+
+### SendAppUserToAppPaymentRequest
+  - __from_user_identifier__: _string_
   - __amount__: _number_
-
-### AppUser
-  - __identifier__: _string_
-  - __info__: _[UserInfo](#UserInfo)_
-  - __max_withdrawable__: _number_
-
-### NewAddressResponse
-  - __address__: _string_
 
 ### PayAddressResponse
   - __txId__: _string_
@@ -557,26 +530,17 @@ The nostr server will send back a message response, and inside the body there wi
   - __service_fee__: _number_
   - __network_fee__: _number_
 
-### NewInvoiceResponse
-  - __invoice__: _string_
+### OpenChannelResponse
+  - __channelId__: _string_
 
-### LnurlWithdrawInfoResponse
-  - __tag__: _string_
-  - __callback__: _string_
-  - __k1__: _string_
-  - __defaultDescription__: _string_
-  - __minWithdrawable__: _number_
-  - __maxWithdrawable__: _number_
-  - __balanceCheck__: _string_
-  - __payLink__: _string_
+### AddAppUserInvoiceRequest
+  - __receiver_identifier__: _string_
+  - __payer_identifier__: _string_
+  - __http_callback_url__: _string_
+  - __invoice_req__: _[NewInvoiceRequest](#NewInvoiceRequest)_
 
-### LndGetInfoResponse
-  - __alias__: _string_
-
-### AddAppUserRequest
-  - __identifier__: _string_
-  - __fail_if_exists__: _boolean_
-  - __balance__: _number_
+### SetMockAppBalanceRequest
+  - __amount__: _number_
 
 ### LnurlPayInfoResponse
   - __tag__: _string_
@@ -592,21 +556,57 @@ The nostr server will send back a message response, and inside the body there wi
   - __name__: _string_
   - __price_sats__: _number_
 
-### Application
-  - __name__: _string_
-  - __id__: _string_
-  - __balance__: _number_
-  - __npub__: _string_
+### PayAppUserInvoiceRequest
+  - __user_identifier__: _string_
+  - __invoice__: _string_
+  - __amount__: _number_
+
+### SendAppUserToAppUserPaymentRequest
+  - __from_user_identifier__: _string_
+  - __to_user_identifier__: _string_
+  - __amount__: _number_
+
+### GetAppUserLNURLInfoRequest
+  - __user_identifier__: _string_
+  - __base_url_override__: _string_
 
 ### SetMockAppUserBalanceRequest
   - __user_identifier__: _string_
   - __amount__: _number_
 
-### GetProductBuyLinkResponse
-  - __link__: _string_
+### Empty
 
-### LiveUserOperation
-  - __operation__: _[UserOperation](#UserOperation)_
+### AuthApp
+  - __app__: _[Application](#Application)_
+  - __auth_token__: _string_
+
+### AppUser
+  - __identifier__: _string_
+  - __info__: _[UserInfo](#UserInfo)_
+  - __max_withdrawable__: _number_
+
+### AddAppInvoiceRequest
+  - __payer_identifier__: _string_
+  - __http_callback_url__: _string_
+  - __invoice_req__: _[NewInvoiceRequest](#NewInvoiceRequest)_
+
+### PayAddressRequest
+  - __address__: _string_
+  - __amoutSats__: _number_
+  - __satsPerVByte__: _number_
+
+### DecodeInvoiceRequest
+  - __invoice__: _string_
+
+### LnurlWithdrawInfoResponse
+  - __tag__: _string_
+  - __callback__: _string_
+  - __k1__: _string_
+  - __defaultDescription__: _string_
+  - __minWithdrawable__: _number_
+  - __maxWithdrawable__: _number_
+  - __balanceCheck__: _string_
+  - __payLink__: _string_
 ## Enums
 ### The enumerators used in the messages
 
