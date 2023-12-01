@@ -392,6 +392,14 @@ export default class {
         }
     }
 
+    async HandleLnurlAddress(ctx: Types.HandleLnurlAddress_Context): Promise<Types.LnurlPayInfoResponse> {
+        const linkedUser = await this.storage.applicationStorage.FindNostrAppUser(ctx.address_name)
+        if (!linkedUser) {
+            throw new Error("this address is not linked to any user")
+        }
+        return this.GetLnurlPayInfoFromUser(linkedUser.user.user_id, linkedUser.application)
+    }
+
     async OpenChannel(userId: string, req: Types.OpenChannelRequest): Promise<Types.OpenChannelResponse> { throw new Error("WIP") }
 
     mapOperations(operations: UserOperationInfo[], type: Types.UserOperationType, inbound: boolean): Types.UserOperations {

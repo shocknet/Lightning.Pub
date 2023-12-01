@@ -73,6 +73,12 @@ export default (mainHandler: Main): Types.ServerMethods => {
         HandleLnurlPay: async (ctx) => {
             return mainHandler.paymentManager.HandleLnurlPay(ctx)
         },
+        HandleLnurlAddress: async (ctx) => {
+            if (!ctx.address_name) {
+                throw new Error("invalid address_name to lnurl address")
+            }
+            return mainHandler.paymentManager.HandleLnurlAddress(ctx)
+        },
         AddProduct: async (ctx, req) => {
             return mainHandler.productManager.AddProduct(ctx.user_id, req)
         },

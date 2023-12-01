@@ -156,6 +156,17 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             if (overrides.HandleLnurlPay_Override) await overrides.HandleLnurlPay_Override(res, response); else res.json({status: 'OK', ...response}) 
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
+    if (!opts.allowNotImplementedMethods && !methods.HandleLnurlAddress) throw new Error('method: HandleLnurlAddress is not implemented')
+    app.get('/.well-known/lnurlp/:address_name', async (req, res) => {
+        try {
+            if (!methods.HandleLnurlAddress) throw new Error('method: HandleLnurlAddress is not implemented')
+            const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
+            const query = req.query
+            const params = req.params
+            const response = await methods.HandleLnurlAddress({ ...authContext, ...query, ...params })
+            if (overrides.HandleLnurlAddress_Override) await overrides.HandleLnurlAddress_Override(res, response); else res.json({status: 'OK', ...response}) 
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+    })
     if (!opts.allowNotImplementedMethods && !methods.GetApp) throw new Error('method: GetApp is not implemented')
     app.post('/api/app/get', async (req, res) => {
         try {
@@ -495,6 +506,7 @@ export type MethodsOverride = {
     HandleLnurlWithdraw_Override?: (httpRes:Response) => Promise<void>
     GetLnurlPayInfo_Override?: (httpRes:Response, handlerRes:Types.LnurlPayInfoResponse) => Promise<void>
     HandleLnurlPay_Override?: (httpRes:Response, handlerRes:Types.HandleLnurlPayResponse) => Promise<void>
+    HandleLnurlAddress_Override?: (httpRes:Response, handlerRes:Types.LnurlPayInfoResponse) => Promise<void>
     GetApp_Override?: (httpRes:Response, handlerRes:Types.Application) => Promise<void>
     AddAppUser_Override?: (httpRes:Response, handlerRes:Types.AppUser) => Promise<void>
     AddAppInvoice_Override?: (httpRes:Response, handlerRes:Types.NewInvoiceResponse) => Promise<void>
