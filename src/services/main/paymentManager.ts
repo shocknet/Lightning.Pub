@@ -28,7 +28,7 @@ interface UserOperationInfo {
     chain_fees?: number
     confs?: number
 }
-type PendingTx = { type: 'incoming', tx: AddressReceivingTransaction } | { type: 'outgoing', tx: UserTransactionPayment }
+export type PendingTx = { type: 'incoming', tx: AddressReceivingTransaction } | { type: 'outgoing', tx: UserTransactionPayment }
 const defaultLnurlPayMetadata = `[["text/plain", "lnurl pay to Lightning.pub"]]`
 const confInOne = 1000 * 1000
 const confInTwo = 100 * 1000 * 1000
