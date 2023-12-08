@@ -106,7 +106,7 @@ export default class Handler {
             }
             const app = apps[e.pubkey]
             if (!app) {
-                log("unknown app key", e.pubkey)
+                log("unknown app key", e.tags)
                 return
             }
             const eventId = e.id
