@@ -84,46 +84,35 @@ export default class Handler {
     constructor(settings: NostrSettings, eventCallback: (event: NostrEvent) => void) {
         this.settings = settings
         console.log(settings)
+        const apps: Record<string, AppInfo> = {}
         this.settings.apps.forEach(app => {
-            this.SubForApp(app, eventCallback)
+            apps[app.publicKey] = app
         })
-    }
-
-    async SubForApp(appInfo: AppInfo, eventCallback: (event: NostrEvent) => void) {
-        const relay = relayInit(this.settings.relays[0])
-        relay.on('connect', () => {
-            console.log(`connected to ${relay.url}`)
-        })
-        relay.on('error', () => {
-            console.log(`failed to connect to ${relay.url}`)
-        })
-
-        await relay.connect()
-        console.log("relay connected")
-        const sub = relay.sub([
+        const sub = this.pool.sub(this.settings.relays, [
             {
                 since: Math.ceil(Date.now() / 1000),
                 kinds: [21000],
-                '#p': [appInfo.publicKey],
+                '#p': Object.keys(apps),
             }
         ])
-        sub.on("event", async (e) => {
+        sub.on('event', async (e) => {
             if (e.kind !== 21000 || !e.pubkey) {
                 return
             }
-            //@ts-ignore
-            const eventId = e.id as string
+            const app = apps[e.pubkey]
+            if (!app) {
+                return
+            }
+            const eventId = e.id
             if (handledEvents.includes(eventId)) {
                 console.log("event already handled")
                 return
             }
             handledEvents.push(eventId)
             const decoded = decodePayload(e.content)
-            const content = await decryptData(decoded, getSharedSecret(appInfo.privateKey, e.pubkey))
-            eventCallback({ id: eventId, content, pub: e.pubkey, appId: appInfo.appId })
-            //eventCallback({ id: eventId, content: await nip04.decrypt(appInfo.privateKey, e.pubkey, e.content), pub: e.pubkey, appId: appInfo.appId })
+            const content = await decryptData(decoded, getSharedSecret(app.privateKey, e.pubkey))
+            eventCallback({ id: eventId, content, pub: e.pubkey, appId: app.appId })
         })
-        this.subs.push(sub)
     }
 
     async Send(appId: string, data: SendData, relays?: string[]) {
