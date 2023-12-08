@@ -1,6 +1,7 @@
 //import { SimplePool, Sub, Event, UnsignedEvent, getEventHash, signEvent } from 'nostr-tools'
 import { SimplePool, Sub, Event, UnsignedEvent, getEventHash, finishEvent, relayInit } from './tools/index.js'
 import { encryptData, decryptData, getSharedSecret, decodePayload, encodePayload } from './nip44.js'
+import { getLogger } from '../helpers/logger.js'
 const handledEvents: string[] = [] // TODO: - big memory leak here, add TTL
 type AppInfo = { appId: string, publicKey: string, privateKey: string, name: string }
 export type SendData = { type: "content", content: string, pub: string } | { type: "event", event: UnsignedEvent }
@@ -82,6 +83,7 @@ export default class Handler {
     settings: NostrSettings
     subs: Sub[] = []
     constructor(settings: NostrSettings, eventCallback: (event: NostrEvent) => void) {
+        const log = getLogger({})
         this.settings = settings
         console.log(settings)
         const apps: Record<string, AppInfo> = {}
@@ -95,6 +97,9 @@ export default class Handler {
                 '#p': Object.keys(apps),
             }
         ])
+        sub.on('eose', () => {
+            log("up to date with nostr events")
+        })
         sub.on('event', async (e) => {
             if (e.kind !== 21000 || !e.pubkey) {
                 return
