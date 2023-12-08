@@ -101,12 +101,12 @@ export default class Handler {
             log("up to date with nostr events")
         })
         sub.on('event', async (e) => {
-            log(e)
             if (e.kind !== 21000 || !e.pubkey) {
                 return
             }
             const app = apps[e.pubkey]
             if (!app) {
+                log("unknown app key", e.pubkey)
                 return
             }
             const eventId = e.id
