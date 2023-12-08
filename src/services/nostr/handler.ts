@@ -101,6 +101,7 @@ export default class Handler {
             log("up to date with nostr events")
         })
         sub.on('event', async (e) => {
+            log(e)
             if (e.kind !== 21000 || !e.pubkey) {
                 return
             }
