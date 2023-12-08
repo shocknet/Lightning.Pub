@@ -104,9 +104,12 @@ export default class Handler {
             if (e.kind !== 21000 || !e.pubkey) {
                 return
             }
-            const app = apps[e.pubkey]
+            const pubTags = e.tags.find(tags => tags && tags.length > 1 && tags[0] === 'p')
+            if (!pubTags) {
+                return
+            }
+            const app = apps[pubTags[1]]
             if (!app) {
-                log("unknown app key", e.tags)
                 return
             }
             const eventId = e.id
