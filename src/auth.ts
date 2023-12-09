@@ -10,8 +10,6 @@ const serverOptions = (mainHandler: Main): ServerOptions => {
         AppAuthGuard: async (authHeader) => { return { app_id: mainHandler.applicationManager.DecodeAppToken(stripBearer(authHeader)) } },
         UserAuthGuard: async (authHeader) => { return mainHandler.appUserManager.DecodeUserToken(stripBearer(authHeader)) },
         GuestAuthGuard: async (_) => ({}),
-        encryptCallback: async (_, b) => b,
-        decryptCallback: async (_, b) => b,
         //throwErrors: true
     }
 }
