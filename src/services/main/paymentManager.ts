@@ -355,7 +355,7 @@ export default class {
         return { pub: p[0], eventId: e.length > 0 ? e[0] : "", relays, description: event }
     }
 
-    async HandleLnurlPay(ctx: Types.HandleLnurlPay_Context): Promise<Types.HandleLnurlPayResponse> {
+    async HandleLnurlPay(ctx: Types.HandleLnurlPay_Query): Promise<Types.HandleLnurlPayResponse> {
         if (!ctx.k1 || !ctx.amount) {
             throw new Error("invalid lnurl pay to handle")
         }
@@ -392,8 +392,8 @@ export default class {
         }
     }
 
-    async HandleLnurlAddress(ctx: Types.HandleLnurlAddress_Context): Promise<Types.LnurlPayInfoResponse> {
-        const linkedUser = await this.storage.applicationStorage.FindNostrAppUser(ctx.address_name)
+    async HandleLnurlAddress(addressName: string): Promise<Types.LnurlPayInfoResponse> {
+        const linkedUser = await this.storage.applicationStorage.FindNostrAppUser(addressName)
         if (!linkedUser) {
             throw new Error("this address is not linked to any user")
         }

@@ -10,15 +10,12 @@ export type ServerOptions = {
     allowNotImplementedMethods?: true
     logger?: Logger
     throwErrors?: true
-    overrides?: MethodsOverride
     logMethod?: true
     logBody?: true
     GuestAuthGuard: (authorizationHeader?: string) => Promise<Types.GuestContext>
     UserAuthGuard: (authorizationHeader?: string) => Promise<Types.UserContext>
     AdminAuthGuard: (authorizationHeader?: string) => Promise<Types.AdminContext>
     AppAuthGuard: (authorizationHeader?: string) => Promise<Types.AppContext>
-    decryptCallback: (encryptionDeviceId: string, body: any) => Promise<any>
-    encryptCallback: (encryptionDeviceId: string, plain: any) => Promise<any>
 }
 const logErrorAndReturnResponse = (error: Error, response: string, res: Response, logger: Logger) => { logger.error(error.message || error); res.json({ status: 'ERROR', reason: response }) }
 export default (methods: Types.ServerMethods, opts: ServerOptions) => {
@@ -30,7 +27,6 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     app.use(json())
     app.use(urlencoded({ extended: true }))
     if (opts.logMethod) app.use((req, _, next) => { console.log(req.method, req.path);  if (opts.logBody) console.log(req.body); next() })
-    const overrides = opts.overrides || {} as MethodsOverride
     if (!opts.allowNotImplementedMethods && !methods.LndGetInfo) throw new Error('method: LndGetInfo is not implemented')
     app.post('/api/admin/lnd/getinfo', async (req, res) => {
         try {
@@ -41,8 +37,8 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
             const query = req.query
             const params = req.params
-            const response = await methods.LndGetInfo({ ...authContext, ...query, ...params }, request)
-            if (overrides.LndGetInfo_Override) await overrides.LndGetInfo_Override(res, response); else res.json({status: 'OK', ...response}) 
+            const response =  await methods.LndGetInfo({rpcName:'LndGetInfo', ctx:authContext , req: request})
+            res.json({status: 'OK', ...response})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.AddApp) throw new Error('method: AddApp is not implemented')
@@ -55,8 +51,8 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
             const query = req.query
             const params = req.params
-            const response = await methods.AddApp({ ...authContext, ...query, ...params }, request)
-            if (overrides.AddApp_Override) await overrides.AddApp_Override(res, response); else res.json({status: 'OK', ...response}) 
+            const response =  await methods.AddApp({rpcName:'AddApp', ctx:authContext , req: request})
+            res.json({status: 'OK', ...response})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.AuthApp) throw new Error('method: AuthApp is not implemented')
@@ -69,8 +65,8 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
             const query = req.query
             const params = req.params
-            const response = await methods.AuthApp({ ...authContext, ...query, ...params }, request)
-            if (overrides.AuthApp_Override) await overrides.AuthApp_Override(res, response); else res.json({status: 'OK', ...response}) 
+            const response =  await methods.AuthApp({rpcName:'AuthApp', ctx:authContext , req: request})
+            res.json({status: 'OK', ...response})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.Health) throw new Error('method: Health is not implemented')
@@ -80,8 +76,8 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
             const query = req.query
             const params = req.params
-            await methods.Health({ ...authContext, ...query, ...params })
-            if (overrides.Health_Override) await overrides.Health_Override(res); else res.json({status: 'OK'}) 
+             await methods.Health({rpcName:'Health', ctx:authContext })
+            res.json({status: 'OK'})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.EncryptionExchange) throw new Error('method: EncryptionExchange is not implemented')
@@ -94,8 +90,8 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
             const query = req.query
             const params = req.params
-            await methods.EncryptionExchange({ ...authContext, ...query, ...params }, request)
-            if (overrides.EncryptionExchange_Override) await overrides.EncryptionExchange_Override(res); else res.json({status: 'OK'}) 
+             await methods.EncryptionExchange({rpcName:'EncryptionExchange', ctx:authContext , req: request})
+            res.json({status: 'OK'})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.SetMockInvoiceAsPaid) throw new Error('method: SetMockInvoiceAsPaid is not implemented')
@@ -108,8 +104,8 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
             const query = req.query
             const params = req.params
-            await methods.SetMockInvoiceAsPaid({ ...authContext, ...query, ...params }, request)
-            if (overrides.SetMockInvoiceAsPaid_Override) await overrides.SetMockInvoiceAsPaid_Override(res); else res.json({status: 'OK'}) 
+             await methods.SetMockInvoiceAsPaid({rpcName:'SetMockInvoiceAsPaid', ctx:authContext , req: request})
+            res.json({status: 'OK'})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.GetLnurlWithdrawInfo) throw new Error('method: GetLnurlWithdrawInfo is not implemented')
@@ -119,8 +115,8 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
             const query = req.query
             const params = req.params
-            const response = await methods.GetLnurlWithdrawInfo({ ...authContext, ...query, ...params })
-            if (overrides.GetLnurlWithdrawInfo_Override) await overrides.GetLnurlWithdrawInfo_Override(res, response); else res.json({status: 'OK', ...response}) 
+            const response =  await methods.GetLnurlWithdrawInfo({rpcName:'GetLnurlWithdrawInfo', ctx:authContext ,query: req.query})
+            res.json({status: 'OK', ...response})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.HandleLnurlWithdraw) throw new Error('method: HandleLnurlWithdraw is not implemented')
@@ -130,8 +126,8 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
             const query = req.query
             const params = req.params
-            await methods.HandleLnurlWithdraw({ ...authContext, ...query, ...params })
-            if (overrides.HandleLnurlWithdraw_Override) await overrides.HandleLnurlWithdraw_Override(res); else res.json({status: 'OK'}) 
+             await methods.HandleLnurlWithdraw({rpcName:'HandleLnurlWithdraw', ctx:authContext ,query: req.query})
+            res.json({status: 'OK'})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.GetLnurlPayInfo) throw new Error('method: GetLnurlPayInfo is not implemented')
@@ -141,8 +137,8 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
             const query = req.query
             const params = req.params
-            const response = await methods.GetLnurlPayInfo({ ...authContext, ...query, ...params })
-            if (overrides.GetLnurlPayInfo_Override) await overrides.GetLnurlPayInfo_Override(res, response); else res.json({status: 'OK', ...response}) 
+            const response =  await methods.GetLnurlPayInfo({rpcName:'GetLnurlPayInfo', ctx:authContext ,query: req.query})
+            res.json({status: 'OK', ...response})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.HandleLnurlPay) throw new Error('method: HandleLnurlPay is not implemented')
@@ -152,8 +148,8 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
             const query = req.query
             const params = req.params
-            const response = await methods.HandleLnurlPay({ ...authContext, ...query, ...params })
-            if (overrides.HandleLnurlPay_Override) await overrides.HandleLnurlPay_Override(res, response); else res.json({status: 'OK', ...response}) 
+            const response =  await methods.HandleLnurlPay({rpcName:'HandleLnurlPay', ctx:authContext ,query: req.query})
+            res.json({status: 'OK', ...response})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.HandleLnurlAddress) throw new Error('method: HandleLnurlAddress is not implemented')
@@ -163,8 +159,8 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
             const query = req.query
             const params = req.params
-            const response = await methods.HandleLnurlAddress({ ...authContext, ...query, ...params })
-            if (overrides.HandleLnurlAddress_Override) await overrides.HandleLnurlAddress_Override(res, response); else res.json({status: 'OK', ...response}) 
+            const response =  await methods.HandleLnurlAddress({rpcName:'HandleLnurlAddress', ctx:authContext ,params: req.params})
+            res.json({status: 'OK', ...response})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.GetApp) throw new Error('method: GetApp is not implemented')
@@ -174,8 +170,8 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const authContext = await opts.AppAuthGuard(req.headers['authorization'])
             const query = req.query
             const params = req.params
-            const response = await methods.GetApp({ ...authContext, ...query, ...params })
-            if (overrides.GetApp_Override) await overrides.GetApp_Override(res, response); else res.json({status: 'OK', ...response}) 
+            const response =  await methods.GetApp({rpcName:'GetApp', ctx:authContext })
+            res.json({status: 'OK', ...response})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.AddAppUser) throw new Error('method: AddAppUser is not implemented')
@@ -188,8 +184,8 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
             const query = req.query
             const params = req.params
-            const response = await methods.AddAppUser({ ...authContext, ...query, ...params }, request)
-            if (overrides.AddAppUser_Override) await overrides.AddAppUser_Override(res, response); else res.json({status: 'OK', ...response}) 
+            const response =  await methods.AddAppUser({rpcName:'AddAppUser', ctx:authContext , req: request})
+            res.json({status: 'OK', ...response})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.AddAppInvoice) throw new Error('method: AddAppInvoice is not implemented')
@@ -202,8 +198,8 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
             const query = req.query
             const params = req.params
-            const response = await methods.AddAppInvoice({ ...authContext, ...query, ...params }, request)
-            if (overrides.AddAppInvoice_Override) await overrides.AddAppInvoice_Override(res, response); else res.json({status: 'OK', ...response}) 
+            const response =  await methods.AddAppInvoice({rpcName:'AddAppInvoice', ctx:authContext , req: request})
+            res.json({status: 'OK', ...response})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.AddAppUserInvoice) throw new Error('method: AddAppUserInvoice is not implemented')
@@ -216,8 +212,8 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
             const query = req.query
             const params = req.params
-            const response = await methods.AddAppUserInvoice({ ...authContext, ...query, ...params }, request)
-            if (overrides.AddAppUserInvoice_Override) await overrides.AddAppUserInvoice_Override(res, response); else res.json({status: 'OK', ...response}) 
+            const response =  await methods.AddAppUserInvoice({rpcName:'AddAppUserInvoice', ctx:authContext , req: request})
+            res.json({status: 'OK', ...response})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.GetAppUser) throw new Error('method: GetAppUser is not implemented')
@@ -230,8 +226,8 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
             const query = req.query
             const params = req.params
-            const response = await methods.GetAppUser({ ...authContext, ...query, ...params }, request)
-            if (overrides.GetAppUser_Override) await overrides.GetAppUser_Override(res, response); else res.json({status: 'OK', ...response}) 
+            const response =  await methods.GetAppUser({rpcName:'GetAppUser', ctx:authContext , req: request})
+            res.json({status: 'OK', ...response})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.PayAppUserInvoice) throw new Error('method: PayAppUserInvoice is not implemented')
@@ -244,8 +240,8 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
             const query = req.query
             const params = req.params
-            const response = await methods.PayAppUserInvoice({ ...authContext, ...query, ...params }, request)
-            if (overrides.PayAppUserInvoice_Override) await overrides.PayAppUserInvoice_Override(res, response); else res.json({status: 'OK', ...response}) 
+            const response =  await methods.PayAppUserInvoice({rpcName:'PayAppUserInvoice', ctx:authContext , req: request})
+            res.json({status: 'OK', ...response})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.SendAppUserToAppUserPayment) throw new Error('method: SendAppUserToAppUserPayment is not implemented')
@@ -258,8 +254,8 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
             const query = req.query
             const params = req.params
-            await methods.SendAppUserToAppUserPayment({ ...authContext, ...query, ...params }, request)
-            if (overrides.SendAppUserToAppUserPayment_Override) await overrides.SendAppUserToAppUserPayment_Override(res); else res.json({status: 'OK'}) 
+             await methods.SendAppUserToAppUserPayment({rpcName:'SendAppUserToAppUserPayment', ctx:authContext , req: request})
+            res.json({status: 'OK'})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.SendAppUserToAppPayment) throw new Error('method: SendAppUserToAppPayment is not implemented')
@@ -272,8 +268,8 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
             const query = req.query
             const params = req.params
-            await methods.SendAppUserToAppPayment({ ...authContext, ...query, ...params }, request)
-            if (overrides.SendAppUserToAppPayment_Override) await overrides.SendAppUserToAppPayment_Override(res); else res.json({status: 'OK'}) 
+             await methods.SendAppUserToAppPayment({rpcName:'SendAppUserToAppPayment', ctx:authContext , req: request})
+            res.json({status: 'OK'})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.GetAppUserLNURLInfo) throw new Error('method: GetAppUserLNURLInfo is not implemented')
@@ -286,8 +282,8 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
             const query = req.query
             const params = req.params
-            const response = await methods.GetAppUserLNURLInfo({ ...authContext, ...query, ...params }, request)
-            if (overrides.GetAppUserLNURLInfo_Override) await overrides.GetAppUserLNURLInfo_Override(res, response); else res.json({status: 'OK', ...response}) 
+            const response =  await methods.GetAppUserLNURLInfo({rpcName:'GetAppUserLNURLInfo', ctx:authContext , req: request})
+            res.json({status: 'OK', ...response})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.SetMockAppUserBalance) throw new Error('method: SetMockAppUserBalance is not implemented')
@@ -300,8 +296,8 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
             const query = req.query
             const params = req.params
-            await methods.SetMockAppUserBalance({ ...authContext, ...query, ...params }, request)
-            if (overrides.SetMockAppUserBalance_Override) await overrides.SetMockAppUserBalance_Override(res); else res.json({status: 'OK'}) 
+             await methods.SetMockAppUserBalance({rpcName:'SetMockAppUserBalance', ctx:authContext , req: request})
+            res.json({status: 'OK'})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.SetMockAppBalance) throw new Error('method: SetMockAppBalance is not implemented')
@@ -314,8 +310,8 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
             const query = req.query
             const params = req.params
-            await methods.SetMockAppBalance({ ...authContext, ...query, ...params }, request)
-            if (overrides.SetMockAppBalance_Override) await overrides.SetMockAppBalance_Override(res); else res.json({status: 'OK'}) 
+             await methods.SetMockAppBalance({rpcName:'SetMockAppBalance', ctx:authContext , req: request})
+            res.json({status: 'OK'})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.GetUserInfo) throw new Error('method: GetUserInfo is not implemented')
@@ -325,8 +321,8 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const authContext = await opts.UserAuthGuard(req.headers['authorization'])
             const query = req.query
             const params = req.params
-            const response = await methods.GetUserInfo({ ...authContext, ...query, ...params })
-            if (overrides.GetUserInfo_Override) await overrides.GetUserInfo_Override(res, response); else res.json({status: 'OK', ...response}) 
+            const response =  await methods.GetUserInfo({rpcName:'GetUserInfo', ctx:authContext })
+            res.json({status: 'OK', ...response})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.AddProduct) throw new Error('method: AddProduct is not implemented')
@@ -339,8 +335,8 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
             const query = req.query
             const params = req.params
-            const response = await methods.AddProduct({ ...authContext, ...query, ...params }, request)
-            if (overrides.AddProduct_Override) await overrides.AddProduct_Override(res, response); else res.json({status: 'OK', ...response}) 
+            const response =  await methods.AddProduct({rpcName:'AddProduct', ctx:authContext , req: request})
+            res.json({status: 'OK', ...response})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.NewProductInvoice) throw new Error('method: NewProductInvoice is not implemented')
@@ -350,8 +346,8 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const authContext = await opts.UserAuthGuard(req.headers['authorization'])
             const query = req.query
             const params = req.params
-            const response = await methods.NewProductInvoice({ ...authContext, ...query, ...params })
-            if (overrides.NewProductInvoice_Override) await overrides.NewProductInvoice_Override(res, response); else res.json({status: 'OK', ...response}) 
+            const response =  await methods.NewProductInvoice({rpcName:'NewProductInvoice', ctx:authContext ,query: req.query})
+            res.json({status: 'OK', ...response})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.GetUserOperations) throw new Error('method: GetUserOperations is not implemented')
@@ -364,8 +360,8 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
             const query = req.query
             const params = req.params
-            const response = await methods.GetUserOperations({ ...authContext, ...query, ...params }, request)
-            if (overrides.GetUserOperations_Override) await overrides.GetUserOperations_Override(res, response); else res.json({status: 'OK', ...response}) 
+            const response =  await methods.GetUserOperations({rpcName:'GetUserOperations', ctx:authContext , req: request})
+            res.json({status: 'OK', ...response})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.NewAddress) throw new Error('method: NewAddress is not implemented')
@@ -378,8 +374,8 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
             const query = req.query
             const params = req.params
-            const response = await methods.NewAddress({ ...authContext, ...query, ...params }, request)
-            if (overrides.NewAddress_Override) await overrides.NewAddress_Override(res, response); else res.json({status: 'OK', ...response}) 
+            const response =  await methods.NewAddress({rpcName:'NewAddress', ctx:authContext , req: request})
+            res.json({status: 'OK', ...response})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.PayAddress) throw new Error('method: PayAddress is not implemented')
@@ -392,8 +388,8 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
             const query = req.query
             const params = req.params
-            const response = await methods.PayAddress({ ...authContext, ...query, ...params }, request)
-            if (overrides.PayAddress_Override) await overrides.PayAddress_Override(res, response); else res.json({status: 'OK', ...response}) 
+            const response =  await methods.PayAddress({rpcName:'PayAddress', ctx:authContext , req: request})
+            res.json({status: 'OK', ...response})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.NewInvoice) throw new Error('method: NewInvoice is not implemented')
@@ -406,8 +402,8 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
             const query = req.query
             const params = req.params
-            const response = await methods.NewInvoice({ ...authContext, ...query, ...params }, request)
-            if (overrides.NewInvoice_Override) await overrides.NewInvoice_Override(res, response); else res.json({status: 'OK', ...response}) 
+            const response =  await methods.NewInvoice({rpcName:'NewInvoice', ctx:authContext , req: request})
+            res.json({status: 'OK', ...response})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.DecodeInvoice) throw new Error('method: DecodeInvoice is not implemented')
@@ -420,8 +416,8 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
             const query = req.query
             const params = req.params
-            const response = await methods.DecodeInvoice({ ...authContext, ...query, ...params }, request)
-            if (overrides.DecodeInvoice_Override) await overrides.DecodeInvoice_Override(res, response); else res.json({status: 'OK', ...response}) 
+            const response =  await methods.DecodeInvoice({rpcName:'DecodeInvoice', ctx:authContext , req: request})
+            res.json({status: 'OK', ...response})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.PayInvoice) throw new Error('method: PayInvoice is not implemented')
@@ -434,8 +430,8 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
             const query = req.query
             const params = req.params
-            const response = await methods.PayInvoice({ ...authContext, ...query, ...params }, request)
-            if (overrides.PayInvoice_Override) await overrides.PayInvoice_Override(res, response); else res.json({status: 'OK', ...response}) 
+            const response =  await methods.PayInvoice({rpcName:'PayInvoice', ctx:authContext , req: request})
+            res.json({status: 'OK', ...response})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.OpenChannel) throw new Error('method: OpenChannel is not implemented')
@@ -448,8 +444,8 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger)
             const query = req.query
             const params = req.params
-            const response = await methods.OpenChannel({ ...authContext, ...query, ...params }, request)
-            if (overrides.OpenChannel_Override) await overrides.OpenChannel_Override(res, response); else res.json({status: 'OK', ...response}) 
+            const response =  await methods.OpenChannel({rpcName:'OpenChannel', ctx:authContext , req: request})
+            res.json({status: 'OK', ...response})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.GetLnurlWithdrawLink) throw new Error('method: GetLnurlWithdrawLink is not implemented')
@@ -459,8 +455,8 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const authContext = await opts.UserAuthGuard(req.headers['authorization'])
             const query = req.query
             const params = req.params
-            const response = await methods.GetLnurlWithdrawLink({ ...authContext, ...query, ...params })
-            if (overrides.GetLnurlWithdrawLink_Override) await overrides.GetLnurlWithdrawLink_Override(res, response); else res.json({status: 'OK', ...response}) 
+            const response =  await methods.GetLnurlWithdrawLink({rpcName:'GetLnurlWithdrawLink', ctx:authContext })
+            res.json({status: 'OK', ...response})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.GetLnurlPayLink) throw new Error('method: GetLnurlPayLink is not implemented')
@@ -470,8 +466,8 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const authContext = await opts.UserAuthGuard(req.headers['authorization'])
             const query = req.query
             const params = req.params
-            const response = await methods.GetLnurlPayLink({ ...authContext, ...query, ...params })
-            if (overrides.GetLnurlPayLink_Override) await overrides.GetLnurlPayLink_Override(res, response); else res.json({status: 'OK', ...response}) 
+            const response =  await methods.GetLnurlPayLink({rpcName:'GetLnurlPayLink', ctx:authContext })
+            res.json({status: 'OK', ...response})
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.GetLNURLChannelLink) throw new Error('method: GetLNURLChannelLink is not implemented')
@@ -481,8 +477,118 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const authContext = await opts.UserAuthGuard(req.headers['authorization'])
             const query = req.query
             const params = req.params
-            const response = await methods.GetLNURLChannelLink({ ...authContext, ...query, ...params })
-            if (overrides.GetLNURLChannelLink_Override) await overrides.GetLNURLChannelLink_Override(res, response); else res.json({status: 'OK', ...response}) 
+            const response =  await methods.GetLNURLChannelLink({rpcName:'GetLNURLChannelLink', ctx:authContext })
+            res.json({status: 'OK', ...response})
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
+    })
+    app.post('/api/user/batch', async (req, res) => {
+        try {
+            const requests = req.body.requests as Types.UserMethodInputs[]
+            if (!Array.isArray(requests))throw new Error('invalid body, is not an array')
+            if (requests.length > 10) throw new Error('too many requests in the batch')
+            const ctx = await opts.UserAuthGuard(req.headers['authorization'])
+            const responses = []
+            for (let i = 0; i < requests.length; i++) {
+                const operation = requests[i]
+                try {
+                    switch(operation.rpcName) {
+                        case 'GetUserInfo':
+                            if (!methods.GetUserInfo) {
+                                responses.push({ status: 'ERROR', reason: 'method not defined: GetUserInfo' })
+                            } else {
+                                const res = await methods.GetUserInfo({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                            }
+                            break
+                        case 'AddProduct':
+                            if (!methods.AddProduct) {
+                                responses.push({ status: 'ERROR', reason: 'method not defined: AddProduct' })
+                            } else {
+                                const res = await methods.AddProduct({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                            }
+                            break
+                        case 'NewProductInvoice':
+                            if (!methods.NewProductInvoice) {
+                                responses.push({ status: 'ERROR', reason: 'method not defined: NewProductInvoice' })
+                            } else {
+                                const res = await methods.NewProductInvoice({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                            }
+                            break
+                        case 'GetUserOperations':
+                            if (!methods.GetUserOperations) {
+                                responses.push({ status: 'ERROR', reason: 'method not defined: GetUserOperations' })
+                            } else {
+                                const res = await methods.GetUserOperations({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                            }
+                            break
+                        case 'NewAddress':
+                            if (!methods.NewAddress) {
+                                responses.push({ status: 'ERROR', reason: 'method not defined: NewAddress' })
+                            } else {
+                                const res = await methods.NewAddress({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                            }
+                            break
+                        case 'PayAddress':
+                            if (!methods.PayAddress) {
+                                responses.push({ status: 'ERROR', reason: 'method not defined: PayAddress' })
+                            } else {
+                                const res = await methods.PayAddress({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                            }
+                            break
+                        case 'NewInvoice':
+                            if (!methods.NewInvoice) {
+                                responses.push({ status: 'ERROR', reason: 'method not defined: NewInvoice' })
+                            } else {
+                                const res = await methods.NewInvoice({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                            }
+                            break
+                        case 'DecodeInvoice':
+                            if (!methods.DecodeInvoice) {
+                                responses.push({ status: 'ERROR', reason: 'method not defined: DecodeInvoice' })
+                            } else {
+                                const res = await methods.DecodeInvoice({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                            }
+                            break
+                        case 'PayInvoice':
+                            if (!methods.PayInvoice) {
+                                responses.push({ status: 'ERROR', reason: 'method not defined: PayInvoice' })
+                            } else {
+                                const res = await methods.PayInvoice({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                            }
+                            break
+                        case 'OpenChannel':
+                            if (!methods.OpenChannel) {
+                                responses.push({ status: 'ERROR', reason: 'method not defined: OpenChannel' })
+                            } else {
+                                const res = await methods.OpenChannel({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                            }
+                            break
+                        case 'GetLnurlWithdrawLink':
+                            if (!methods.GetLnurlWithdrawLink) {
+                                responses.push({ status: 'ERROR', reason: 'method not defined: GetLnurlWithdrawLink' })
+                            } else {
+                                const res = await methods.GetLnurlWithdrawLink({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                            }
+                            break
+                        case 'GetLnurlPayLink':
+                            if (!methods.GetLnurlPayLink) {
+                                responses.push({ status: 'ERROR', reason: 'method not defined: GetLnurlPayLink' })
+                            } else {
+                                const res = await methods.GetLnurlPayLink({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                            }
+                            break
+                        case 'GetLNURLChannelLink':
+                            if (!methods.GetLNURLChannelLink) {
+                                responses.push({ status: 'ERROR', reason: 'method not defined: GetLNURLChannelLink' })
+                            } else {
+                                const res = await methods.GetLNURLChannelLink({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                            }
+                            break
+                        default:
+                        throw new Error('unkown rpcName')
+                    }
+                } catch(ex) {const e = ex as any; logger.error(e.message || e); responses.push({ status: 'ERROR', reason: e.message || e })}
+            }
+            res.json({ status: 'OK', responses })
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger); if (opts.throwErrors) throw e }
     })
     if (opts.staticFiles) {
@@ -494,43 +600,4 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
         Close: () => { if (!server) { throw new Error('tried closing server before starting') } else server.close() },
         Listen: (port: number) => { server = app.listen(port, () => logger.log('Example app listening on port ' + port)) }
     }
-}
-export type MethodsOverride = {
-    LndGetInfo_Override?: (httpRes:Response, handlerRes:Types.LndGetInfoResponse) => Promise<void>
-    AddApp_Override?: (httpRes:Response, handlerRes:Types.AuthApp) => Promise<void>
-    AuthApp_Override?: (httpRes:Response, handlerRes:Types.AuthApp) => Promise<void>
-    Health_Override?: (httpRes:Response) => Promise<void>
-    EncryptionExchange_Override?: (httpRes:Response) => Promise<void>
-    SetMockInvoiceAsPaid_Override?: (httpRes:Response) => Promise<void>
-    GetLnurlWithdrawInfo_Override?: (httpRes:Response, handlerRes:Types.LnurlWithdrawInfoResponse) => Promise<void>
-    HandleLnurlWithdraw_Override?: (httpRes:Response) => Promise<void>
-    GetLnurlPayInfo_Override?: (httpRes:Response, handlerRes:Types.LnurlPayInfoResponse) => Promise<void>
-    HandleLnurlPay_Override?: (httpRes:Response, handlerRes:Types.HandleLnurlPayResponse) => Promise<void>
-    HandleLnurlAddress_Override?: (httpRes:Response, handlerRes:Types.LnurlPayInfoResponse) => Promise<void>
-    GetApp_Override?: (httpRes:Response, handlerRes:Types.Application) => Promise<void>
-    AddAppUser_Override?: (httpRes:Response, handlerRes:Types.AppUser) => Promise<void>
-    AddAppInvoice_Override?: (httpRes:Response, handlerRes:Types.NewInvoiceResponse) => Promise<void>
-    AddAppUserInvoice_Override?: (httpRes:Response, handlerRes:Types.NewInvoiceResponse) => Promise<void>
-    GetAppUser_Override?: (httpRes:Response, handlerRes:Types.AppUser) => Promise<void>
-    PayAppUserInvoice_Override?: (httpRes:Response, handlerRes:Types.PayInvoiceResponse) => Promise<void>
-    SendAppUserToAppUserPayment_Override?: (httpRes:Response) => Promise<void>
-    SendAppUserToAppPayment_Override?: (httpRes:Response) => Promise<void>
-    GetAppUserLNURLInfo_Override?: (httpRes:Response, handlerRes:Types.LnurlPayInfoResponse) => Promise<void>
-    SetMockAppUserBalance_Override?: (httpRes:Response) => Promise<void>
-    SetMockAppBalance_Override?: (httpRes:Response) => Promise<void>
-    GetUserInfo_Override?: (httpRes:Response, handlerRes:Types.UserInfo) => Promise<void>
-    AddProduct_Override?: (httpRes:Response, handlerRes:Types.Product) => Promise<void>
-    NewProductInvoice_Override?: (httpRes:Response, handlerRes:Types.NewInvoiceResponse) => Promise<void>
-    GetUserOperations_Override?: (httpRes:Response, handlerRes:Types.GetUserOperationsResponse) => Promise<void>
-    NewAddress_Override?: (httpRes:Response, handlerRes:Types.NewAddressResponse) => Promise<void>
-    PayAddress_Override?: (httpRes:Response, handlerRes:Types.PayAddressResponse) => Promise<void>
-    NewInvoice_Override?: (httpRes:Response, handlerRes:Types.NewInvoiceResponse) => Promise<void>
-    DecodeInvoice_Override?: (httpRes:Response, handlerRes:Types.DecodeInvoiceResponse) => Promise<void>
-    PayInvoice_Override?: (httpRes:Response, handlerRes:Types.PayInvoiceResponse) => Promise<void>
-    OpenChannel_Override?: (httpRes:Response, handlerRes:Types.OpenChannelResponse) => Promise<void>
-    GetLnurlWithdrawLink_Override?: (httpRes:Response, handlerRes:Types.LnurlLinkResponse) => Promise<void>
-    GetLnurlPayLink_Override?: (httpRes:Response, handlerRes:Types.LnurlLinkResponse) => Promise<void>
-    GetLNURLChannelLink_Override?: (httpRes:Response, handlerRes:Types.LnurlLinkResponse) => Promise<void>
-    GetLiveUserOperations_Override?: (httpRes:Response, handlerRes:Types.LiveUserOperation) => Promise<void>
-    GetMigrationUpdate_Override?: (httpRes:Response, handlerRes:Types.MigrationUpdate) => Promise<void>
 }
