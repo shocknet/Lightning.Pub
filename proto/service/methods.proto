@@ -58,6 +58,7 @@ extend google.protobuf.MethodOptions {  // TODO: move this stuff to dep repo?
     string http_route = 50005;
     MethodQueryOptions query = 50006;
     bool nostr = 50007;
+    bool batch = 50008;
 
 }
 
@@ -314,6 +315,13 @@ service LightningPub {
         option (http_method) = "post";
         option (http_route) = "/api/user/migrations/sub";
         option (nostr) = true;
+    }
+    rpc BatchUser(structs.Empty) returns (structs.Empty){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/batch";
+        option (nostr) = true;
+        option (batch) = true;
     }
     // </User>
 }
