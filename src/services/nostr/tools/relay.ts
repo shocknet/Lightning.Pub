@@ -88,12 +88,10 @@ export function relayInit(
             try {
                 ws = new WebSocket(url)
             } catch (err) {
-                console.log(err)
                 reject(err)
             }
 
             ws.onopen = () => {
-                console.log("Waas")
                 listeners.connect.forEach(cb => cb())
                 resolve()
             }
