@@ -105,7 +105,7 @@ export default class Handler {
             relay.close()
             this.Connect()
         })
-        const sub = s.sub([
+        const sub = relay.sub([
             {
                 since: Math.ceil(Date.now() / 1000),
                 kinds: [21000],
