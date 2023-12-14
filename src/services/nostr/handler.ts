@@ -96,7 +96,7 @@ export default class Handler {
 
     async Connect() {
         const log = getLogger({})
-        log("conneting to relay...")
+        log("conneting to relay...", this.settings.relays[0])
         const s = relayInit(this.settings.relays[0]) // TODO: create multiple conns for multiple relays
         await new Promise<void>(res => s.on('connect', () => { console.log("okk"); res() }))
         log("relay connected, subbing...")
