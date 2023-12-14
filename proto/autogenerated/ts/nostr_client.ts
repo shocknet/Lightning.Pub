@@ -230,7 +230,7 @@ export default (params: NostrClientParams,  send: (to:string, message: NostrRequ
             return cb({ status: 'ERROR', reason: 'invalid response' })
         })
     },
-    BatchUser: async (requests:Types.UserMethodInputs): Promise<ResultError | ({ status: 'OK', responses:Types.UserMethodOutputs })> => {
+    BatchUser: async (requests:Types.UserMethodInputs[]): Promise<ResultError | ({ status: 'OK', responses:(Types.UserMethodOutputs)[] })> => {
         const auth = await params.retrieveNostrUserAuth()
         if (auth === null) throw new Error('retrieveNostrUserAuth() returned null')
         const nostrRequest: NostrRequest = {body:{requests}}
