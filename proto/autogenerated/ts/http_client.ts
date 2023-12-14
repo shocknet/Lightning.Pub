@@ -494,7 +494,7 @@ export default (params: ClientParams) => ({
     },
     GetLiveUserOperations: async (cb: (v:ResultError | ({ status: 'OK' }& Types.LiveUserOperation)) => void): Promise<void> => { throw  new Error('http streams are not supported')},
     GetMigrationUpdate: async (cb: (v:ResultError | ({ status: 'OK' }& Types.MigrationUpdate)) => void): Promise<void> => { throw  new Error('http streams are not supported')},
-    BatchUser: async (requests:Types.UserMethodInputs): Promise<ResultError | ({ status: 'OK', responses:Types.UserMethodOutputs })> => {
+    BatchUser: async (requests:Types.UserMethodInputs[]): Promise<ResultError | ({ status: 'OK', responses:( Types.UserMethodOutputs)[] })> => {
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
         let finalRoute = '/api/user/batch'
