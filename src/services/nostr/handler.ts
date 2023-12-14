@@ -82,19 +82,33 @@ export default class Handler {
     pool = new SimplePool()
     settings: NostrSettings
     subs: Sub[] = []
+    apps: Record<string, AppInfo> = {}
+    eventCallback: (event: NostrEvent) => void
     constructor(settings: NostrSettings, eventCallback: (event: NostrEvent) => void) {
-        const log = getLogger({})
         this.settings = settings
         console.log(settings)
-        const apps: Record<string, AppInfo> = {}
+        this.eventCallback = eventCallback
         this.settings.apps.forEach(app => {
-            apps[app.publicKey] = app
+            this.apps[app.publicKey] = app
         })
-        const sub = this.pool.sub(this.settings.relays, [
+    }
+
+    async Connect() {
+        const log = getLogger({})
+        log("conneting to relay...")
+        const s = relayInit(this.settings.relays[0]) // TODO: create multiple conns for multiple relays
+        await new Promise<void>(res => s.on('connect', res))
+        log("relay connected, subbing...")
+        s.on('disconnect', () => {
+            log("relay disconnected, will try to reconnect")
+            s.close()
+            this.Connect()
+        })
+        const sub = s.sub([
             {
                 since: Math.ceil(Date.now() / 1000),
                 kinds: [21000],
-                '#p': Object.keys(apps),
+                '#p': Object.keys(this.apps),
             }
         ])
         sub.on('eose', () => {
@@ -108,7 +122,7 @@ export default class Handler {
             if (!pubTags) {
                 return
             }
-            const app = apps[pubTags[1]]
+            const app = this.apps[pubTags[1]]
             if (!app) {
                 return
             }
@@ -120,8 +134,10 @@ export default class Handler {
             handledEvents.push(eventId)
             const decoded = decodePayload(e.content)
             const content = await decryptData(decoded, getSharedSecret(app.privateKey, e.pubkey))
-            eventCallback({ id: eventId, content, pub: e.pubkey, appId: app.appId })
+            this.eventCallback({ id: eventId, content, pub: e.pubkey, appId: app.appId })
         })
+
+
     }
 
     async Send(appId: string, data: SendData, relays?: string[]) {
