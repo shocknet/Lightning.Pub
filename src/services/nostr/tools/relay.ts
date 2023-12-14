@@ -92,6 +92,7 @@ export function relayInit(
             }
 
             ws.onopen = () => {
+                console.log("Waas")
                 listeners.connect.forEach(cb => cb())
                 resolve()
             }

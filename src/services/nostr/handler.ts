@@ -97,14 +97,14 @@ export default class Handler {
     async Connect() {
         const log = getLogger({})
         log("conneting to relay...", this.settings.relays[0])
-        const s = relayInit(this.settings.relays[0]) // TODO: create multiple conns for multiple relays
-        s.on('connect', () => { console.log("connected") })
-        s.on('disconnect', () => {
+        const relay = relayInit(this.settings.relays[0]) // TODO: create multiple conns for multiple relays
+        relay.on('connect', () => { console.log("connected") })
+        relay.on('disconnect', () => {
             log("relay disconnected, will try to reconnect")
-            s.close()
+            relay.close()
             this.Connect()
         })
-        const sub = s.sub([
+        const sub = relay.sub([
             {
                 since: Math.ceil(Date.now() / 1000),
                 kinds: [21000],
