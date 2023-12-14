@@ -105,6 +105,7 @@ export default class Handler {
             setTimeout(() => {
                 this.Connect()
             }, 2000)
+            return
         }
         log("connected, subbing...")
         relay.on('disconnect', () => {
