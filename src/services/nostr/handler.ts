@@ -98,13 +98,14 @@ export default class Handler {
         const log = getLogger({})
         log("conneting to relay...", this.settings.relays[0])
         const relay = relayInit(this.settings.relays[0]) // TODO: create multiple conns for multiple relays
-        relay.on('connect', () => { console.log("connected") })
+        await relay.connect()
+        log("connected, subbing...")
         relay.on('disconnect', () => {
             log("relay disconnected, will try to reconnect")
             relay.close()
             this.Connect()
         })
-        const sub = relay.sub([
+        const sub = s.sub([
             {
                 since: Math.ceil(Date.now() / 1000),
                 kinds: [21000],
