@@ -91,6 +91,7 @@ export default class Handler {
         this.settings.apps.forEach(app => {
             this.apps[app.publicKey] = app
         })
+        this.Connect()
     }
 
     async Connect() {
