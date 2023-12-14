@@ -88,6 +88,7 @@ export function relayInit(
             try {
                 ws = new WebSocket(url)
             } catch (err) {
+                console.log(err)
                 reject(err)
             }
 
