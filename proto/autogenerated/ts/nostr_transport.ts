@@ -418,6 +418,7 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                             }
                         } catch(ex) {const e = ex as any; logger.error(e.message || e); callsMetrics.push({ ...opInfo, ...opStats, ...ctx, error: e.message }); responses.push({ status: 'ERROR', reason: e.message || e })}
                     }
+                    stats.handle = process.hrtime.bigint()
                     res({ status: 'OK', responses })
                     opts.metricsCallback([{ ...info, ...stats, ...ctx }, ...callsMetrics])
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
