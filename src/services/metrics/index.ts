@@ -12,7 +12,8 @@ export default class Handler {
             parsed_in_nano: Number(m.parse - m.start),
             auth_in_nano: Number(m.guard - m.parse),
             validate_in_nano: Number(m.validate - m.guard),
-            handle_in_nano: Number(m.handle - m.validate)
+            handle_in_nano: Number(m.handle - m.validate),
+            success: !m.error
         }))
         const len = this.metrics.push(...parsed)
         if (len > maxEvents) {
