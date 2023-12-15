@@ -15,6 +15,7 @@ import { Application } from '../storage/entity/Application.js'
 import { UserReceivingInvoice, ZapInfo } from '../storage/entity/UserReceivingInvoice.js'
 import { UnsignedEvent } from '../nostr/tools/event.js'
 import { NostrSend } from '../nostr/handler.js'
+import MetricsManager from '../metrics/index.js'
 export const LoadMainSettingsFromEnv = (test = false): MainSettings => {
     return {
         lndSettings: LoadLndSettingsFromEnv(test),
@@ -51,11 +52,13 @@ export default class {
     appUserManager: AppUserManager
     paymentManager: PaymentManager
     paymentSubs: Record<string, ((op: Types.UserOperation) => void) | null> = {}
+    metricsManager: MetricsManager
     nostrSend: NostrSend = () => { getLogger({})("nostr send not initialized yet") }
 
     constructor(settings: MainSettings) {
         this.settings = settings
         this.storage = new Storage(settings.storageSettings)
+        this.metricsManager = new MetricsManager()
         this.lnd = NewLightningHandler(settings.lndSettings, this.addressPaidCb, this.invoicePaidCb, this.newBlockCb)
 
         this.paymentManager = new PaymentManager(this.storage, this.lnd, this.settings, this.addressPaidCb, this.invoicePaidCb)
