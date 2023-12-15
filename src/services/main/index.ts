@@ -178,7 +178,7 @@ export default class {
             getLogger({ appName: app.name })("cannot notify user, not a nostr user")
             return
         }
-        const message: Types.LiveUserOperation & { requestId: string } = { operation: op, requestId: "GetLiveUserOperations" }
+        const message: Types.LiveUserOperation & { requestId: string, status: 'OK' } = { operation: op, requestId: "GetLiveUserOperations", status: 'OK' }
         this.nostrSend(app.app_id, { type: 'content', content: JSON.stringify(message), pub: user.nostr_public_key })
     }
 
