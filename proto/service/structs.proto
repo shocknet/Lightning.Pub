@@ -12,6 +12,22 @@ message EncryptionExchangeRequest {
     string deviceId = 2;
 }
 
+message UsageMetric {
+    string processed_at_nano = 1;
+    int64 parsed_in_nano = 2;
+    int64 auth_in_nano = 3;
+    int64 validate_in_nano = 4;
+    int64 handle_in_nano = 5;
+    string rpc_name = 6;
+    bool batch = 7;
+    bool nostr = 8;
+    int64 batch_size = 9;
+}
+
+message UsageMetrics {
+    repeated UsageMetric metrics = 1; 
+}
+
 message LndGetInfoRequest {
     int64 nodeId = 1;
 }
