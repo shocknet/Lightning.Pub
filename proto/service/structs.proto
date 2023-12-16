@@ -51,7 +51,6 @@ message AppMetrics {
     int64 total_huge_users = 10;
 
     int64 unpaid_invoices = 11;
-    int64 unpaid_addresses = 12;
 
     repeated UserOperation operations = 100;
 }

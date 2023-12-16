@@ -52,7 +52,6 @@ export default class Handler {
         let totalBigUsers = 0
         let totalHugeUsers = 0
         let unpaidInvoices = 0
-        let paidAddresses = 0
         const operations: Types.UserOperation[] = []
         receivingInvoices.forEach(i => {
             if (i.paid_at_unix > 0) {
@@ -63,16 +62,12 @@ export default class Handler {
             }
         })
         receivingTransactions.forEach(txs => {
-            if (txs.length > 0) {
-                paidAddresses++
-            } else {
-                txs.forEach(tx => {
-                    operations.push({ type: Types.UserOperationType.INCOMING_TX, amount: tx.paid_amount, inbound: true, paidAtUnix: tx.paid_at_unix, confirmed: tx.confs > 1, service_fee: tx.service_fee, network_fee: 0, identifier: "", operationId: "" })
-                    if (tx.confs > 1) {
-                        totalReceived += tx.paid_amount
-                    }
-                })
-            }
+            txs.forEach(tx => {
+                operations.push({ type: Types.UserOperationType.INCOMING_TX, amount: tx.paid_amount, inbound: true, paidAtUnix: tx.paid_at_unix, confirmed: tx.confs > 1, service_fee: tx.service_fee, network_fee: 0, identifier: "", operationId: "" })
+                if (tx.confs > 1) {
+                    totalReceived += tx.paid_amount
+                }
+            })
         })
         outgoingInvoices.forEach(i => {
             operations.push({ type: Types.UserOperationType.OUTGOING_INVOICE, amount: i.paid_amount, inbound: false, paidAtUnix: i.paid_at_unix, confirmed: true, service_fee: i.service_fees, network_fee: i.routing_fees, identifier: "", operationId: "" })
@@ -113,7 +108,6 @@ export default class Handler {
             total_huge_users: totalHugeUsers,
 
             unpaid_invoices: unpaidInvoices,
-            unpaid_addresses: receivingAddresses.length - paidAddresses,
 
             operations
         }
