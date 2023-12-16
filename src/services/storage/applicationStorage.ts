@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { DataSource, EntityManager } from "typeorm"
+import { Between, DataSource, EntityManager, FindOperator, IsNull, LessThanOrEqual, MoreThanOrEqual } from "typeorm"
 import { generatePrivateKey, getPublicKey } from 'nostr-tools';
 import { Application } from "./entity/Application.js"
 import UserStorage from './userStorage.js';
@@ -121,6 +121,19 @@ export default class {
             throw new Error("requested user does not belong to requestor application")
         }
         return found
+    }
+
+    async GetApplicationUsers(application: Application | null, { from, to }: { from?: number, to?: number }, entityManager = this.DB) {
+        const q = application ? { app_id: application.app_id } : IsNull()
+        let time: { created_at?: FindOperator<Date> } = {}
+        if (!!from && !!to) {
+            time.created_at = Between<Date>(new Date(from * 1000), new Date(to * 1000))
+        } else if (!!from) {
+            time.created_at = MoreThanOrEqual<Date>(new Date(from * 1000))
+        } else if (!!to) {
+            time.created_at = LessThanOrEqual<Date>(new Date(to * 1000))
+        }
+        return entityManager.getRepository(ApplicationUser).find({ where: { application: q, ...time } })
     }
 
     async GetAppUserFromUser(application: Application, userId: string, entityManager = this.DB): Promise<ApplicationUser | null> {
