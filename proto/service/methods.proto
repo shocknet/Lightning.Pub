@@ -97,10 +97,16 @@ service LightningPub {
         option (http_route) = "/api/admin/app/auth";
     }
 
-    rpc GetMetrics(structs.Empty) returns (structs.UsageMetrics) {
+    rpc GetUsageMetrics(structs.Empty) returns (structs.UsageMetrics) {
         option (auth_type)  = "Admin";
         option (http_method) = "post";
-        option (http_route) = "/api/admin/metrics";
+        option (http_route) = "/api/admin/metrics/usage";
+    }
+
+    rpc GetAppsMetrics(structs.AppsMetricsRequest) returns (structs.AppsMetrics) {
+        option (auth_type)  = "Admin";
+        option (http_method) = "post";
+        option (http_route) = "/api/admin/metrics/apps";
     }
     // </Admin>
 

@@ -90,11 +90,13 @@ export default class {
 
     async NewAddress(ctx: Types.UserContext, req: Types.NewAddressRequest): Promise<Types.NewAddressResponse> {
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
+        const existingAddress = await this.storage.paymentStorage.GetExistingUserAddress(ctx.user_id, app)
+        if (existingAddress) {
+            return { address: existingAddress.address }
+        }
         const res = await this.lnd.NewAddress(req.addressType)
         const userAddress = await this.storage.paymentStorage.AddUserAddress(ctx.user_id, res.address, { linkedApplication: app })
-        return {
-            address: userAddress.address
-        }
+        return { address: userAddress.address }
     }
 
     async NewInvoice(userId: string, req: Types.NewInvoiceRequest, options: InboundOptionals = { expiry: defaultInvoiceExpiry }): Promise<Types.NewInvoiceResponse> {
@@ -172,7 +174,7 @@ export default class {
             await this.storage.userStorage.IncrementUserBalance(linkedApplication.owner.user_id, serviceFee)
         }
         const routingFees = payment ? payment.feeSat : 0
-        const newPayment = await this.storage.paymentStorage.AddUserInvoicePayment(userId, req.invoice, payAmount, routingFees, serviceFee, !!internalInvoice)
+        const newPayment = await this.storage.paymentStorage.AddUserInvoicePayment(userId, req.invoice, payAmount, routingFees, serviceFee, !!internalInvoice, linkedApplication)
         return {
             preimage: payment ? payment.paymentPreimage : "",
             amount_paid: payment ? Number(payment.valueSat) : payAmount,
@@ -215,7 +217,7 @@ export default class {
             await this.storage.userStorage.IncrementUserBalance(app.owner.user_id, serviceFee)
         }
 
-        const newTx = await this.storage.paymentStorage.AddUserTransactionPayment(ctx.user_id, req.address, txId, 0, req.amoutSats, chainFees, serviceFee, !!internalAddress, blockHeight)
+        const newTx = await this.storage.paymentStorage.AddUserTransactionPayment(ctx.user_id, req.address, txId, 0, req.amoutSats, chainFees, serviceFee, !!internalAddress, blockHeight, app)
         return {
             txId: txId,
             operation_id: `${Types.UserOperationType.OUTGOING_TX}-${newTx.serial_id}`,
@@ -471,7 +473,7 @@ export default class {
             const toIncrement = amount - fee
             await this.storage.userStorage.DecrementUserBalance(fromUser.user_id, amount, tx)
             await this.storage.userStorage.IncrementUserBalance(toUser.user_id, toIncrement, tx)
-            await this.storage.paymentStorage.AddUserToUserPayment(fromUserId, toUserId, amount, fee)
+            await this.storage.paymentStorage.AddUserToUserPayment(fromUserId, toUserId, amount, fee, linkedApplication)
             if (isAppUserPayment && fee > 0) {
                 await this.storage.userStorage.IncrementUserBalance(linkedApplication.owner.user_id, fee)
             }

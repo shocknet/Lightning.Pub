@@ -1,5 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, Index, Check, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn } from "typeorm"
 import { User } from "./User.js"
+import { Application } from "./Application.js"
 
 @Entity()
 @Index("user_transaction_unique", ["tx_hash", "output_index"], { unique: true })
@@ -41,6 +42,9 @@ export class UserTransactionPayment {
 
     @Column({ default: 0 })
     broadcast_height: number
+
+    @ManyToOne(type => Application, { eager: true })
+    linkedApplication: Application | null
 
     @CreateDateColumn()
     created_at: Date

@@ -57,16 +57,30 @@ export default (params: ClientParams) => ({
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
-    GetMetrics: async (): Promise<ResultError | ({ status: 'OK' }& Types.UsageMetrics)> => {
+    GetUsageMetrics: async (): Promise<ResultError | ({ status: 'OK' }& Types.UsageMetrics)> => {
         const auth = await params.retrieveAdminAuth()
         if (auth === null) throw new Error('retrieveAdminAuth() returned null')
-        let finalRoute = '/api/admin/metrics'
+        let finalRoute = '/api/admin/metrics/usage'
         const { data } = await axios.post(params.baseUrl + finalRoute, {}, { headers: { 'authorization': auth } })
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
             if(!params.checkResult) return { status: 'OK', ...result }
             const error = Types.UsageMetricsValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
+    GetAppsMetrics: async (request: Types.AppsMetricsRequest): Promise<ResultError | ({ status: 'OK' }& Types.AppsMetrics)> => {
+        const auth = await params.retrieveAdminAuth()
+        if (auth === null) throw new Error('retrieveAdminAuth() returned null')
+        let finalRoute = '/api/admin/metrics/apps'
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.AppsMetricsValidate(result)
             if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
         }
         return { status: 'ERROR', reason: 'invalid response' }
