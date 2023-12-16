@@ -58,7 +58,7 @@ export default class {
     constructor(settings: MainSettings) {
         this.settings = settings
         this.storage = new Storage(settings.storageSettings)
-        this.metricsManager = new MetricsManager()
+        this.metricsManager = new MetricsManager(this.storage)
         this.lnd = NewLightningHandler(settings.lndSettings, this.addressPaidCb, this.invoicePaidCb, this.newBlockCb)
 
         this.paymentManager = new PaymentManager(this.storage, this.lnd, this.settings, this.addressPaidCb, this.invoicePaidCb)
