@@ -56,30 +56,30 @@ export default class Handler {
         receivingInvoices.forEach(i => {
             if (i.paid_at_unix > 0) {
                 totalReceived += i.paid_amount
-                operations.push({ type: Types.UserOperationType.INCOMING_INVOICE, amount: i.paid_amount, inbound: true, paidAtUnix: i.paid_at_unix, confirmed: true, service_fee: i.service_fee, network_fee: 0, identifier: "", operationId: "" })
+                if (req.include_operations) operations.push({ type: Types.UserOperationType.INCOMING_INVOICE, amount: i.paid_amount, inbound: true, paidAtUnix: i.paid_at_unix, confirmed: true, service_fee: i.service_fee, network_fee: 0, identifier: "", operationId: "" })
             } else {
                 unpaidInvoices++
             }
         })
         receivingTransactions.forEach(txs => {
             txs.forEach(tx => {
-                operations.push({ type: Types.UserOperationType.INCOMING_TX, amount: tx.paid_amount, inbound: true, paidAtUnix: tx.paid_at_unix, confirmed: tx.confs > 1, service_fee: tx.service_fee, network_fee: 0, identifier: "", operationId: "" })
+                if (req.include_operations) operations.push({ type: Types.UserOperationType.INCOMING_TX, amount: tx.paid_amount, inbound: true, paidAtUnix: tx.paid_at_unix, confirmed: tx.confs > 1, service_fee: tx.service_fee, network_fee: 0, identifier: "", operationId: "" })
                 if (tx.confs > 1) {
                     totalReceived += tx.paid_amount
                 }
             })
         })
         outgoingInvoices.forEach(i => {
-            operations.push({ type: Types.UserOperationType.OUTGOING_INVOICE, amount: i.paid_amount, inbound: false, paidAtUnix: i.paid_at_unix, confirmed: true, service_fee: i.service_fees, network_fee: i.routing_fees, identifier: "", operationId: "" })
+            if (req.include_operations) operations.push({ type: Types.UserOperationType.OUTGOING_INVOICE, amount: i.paid_amount, inbound: false, paidAtUnix: i.paid_at_unix, confirmed: true, service_fee: i.service_fees, network_fee: i.routing_fees, identifier: "", operationId: "" })
             totalSpent += i.paid_amount
         })
         outgoingTransactions.forEach(tx => {
-            operations.push({ type: Types.UserOperationType.OUTGOING_TX, amount: tx.paid_amount, inbound: false, paidAtUnix: tx.paid_at_unix, confirmed: tx.confs > 1, service_fee: tx.service_fees, network_fee: tx.chain_fees, identifier: "", operationId: "" })
+            if (req.include_operations) operations.push({ type: Types.UserOperationType.OUTGOING_TX, amount: tx.paid_amount, inbound: false, paidAtUnix: tx.paid_at_unix, confirmed: tx.confs > 1, service_fee: tx.service_fees, network_fee: tx.chain_fees, identifier: "", operationId: "" })
             totalSpent += tx.paid_amount
         })
 
         userToUser.forEach(op => {
-            operations.push({ type: Types.UserOperationType.INCOMING_USER_TO_USER, amount: op.paid_amount, inbound: true, paidAtUnix: op.paid_at_unix, confirmed: true, service_fee: op.service_fees, network_fee: 0, identifier: "", operationId: "" })
+            if (req.include_operations) operations.push({ type: Types.UserOperationType.INCOMING_USER_TO_USER, amount: op.paid_amount, inbound: true, paidAtUnix: op.paid_at_unix, confirmed: true, service_fee: op.service_fees, network_fee: 0, identifier: "", operationId: "" })
         })
 
         const users = await this.storage.applicationStorage.GetApplicationUsers(app, { from: req.from_unix, to: req.to_unix })
