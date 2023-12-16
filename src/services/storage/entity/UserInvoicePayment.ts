@@ -1,5 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, Index, Check, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn } from "typeorm"
 import { User } from "./User.js"
+import { Application } from "./Application.js"
 
 @Entity()
 export class UserInvoicePayment {
@@ -29,6 +30,9 @@ export class UserInvoicePayment {
 
     @Column({ default: false })
     internal: boolean
+
+    @ManyToOne(type => Application, { eager: true })
+    linkedApplication: Application | null
 
     @CreateDateColumn()
     created_at: Date

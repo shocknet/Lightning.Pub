@@ -22,12 +22,42 @@ message UsageMetric {
     bool batch = 7;
     bool nostr = 8;
     int64 batch_size = 9;
-    bool success = 10;
-    string app_id = 11;
 }
 
 message UsageMetrics {
     repeated UsageMetric metrics = 1; 
+}
+
+message AppsMetricsRequest {
+    optional int64 from_unix = 1;
+    optional int64 to_unix = 2;
+    optional int64 big_user_sats = 3;
+    optional int64 huge_user_sats = 4;
+    optional bool include_operations = 5;
+}
+
+message AppMetrics {
+    string app_name = 1;
+    string app_id = 2;
+    string app_npub = 3;
+    int64 app_balance = 4;
+
+    int64 total_received = 5;
+    int64 total_spent = 6;
+    int64 total_available = 7;
+
+    int64 total_users = 8;
+    int64 total_big_users = 9;
+    int64 total_huge_users = 10;
+
+    int64 unpaid_invoices = 11;
+    int64 unpaid_addresses = 12;
+
+    repeated UserOperation operations = 100;
+}
+
+message AppsMetrics {
+    repeated AppMetrics apps = 1;
 }
 
 message LndGetInfoRequest {

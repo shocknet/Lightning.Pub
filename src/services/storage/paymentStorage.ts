@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { DataSource, EntityManager, MoreThan, MoreThanOrEqual } from "typeorm"
+import { Between, DataSource, EntityManager, FindOperator, IsNull, LessThanOrEqual, MoreThan, MoreThanOrEqual } from "typeorm"
 import { User } from './entity/User.js';
 import { UserTransactionPayment } from './entity/UserTransactionPayment.js';
 import { EphemeralKeyType, UserEphemeralKey } from './entity/UserEphemeralKey.js';
@@ -48,7 +48,9 @@ export default class {
         })
     }
 
-
+    async GetExistingUserAddress(userId: string, linkedApplication: Application, entityManager = this.DB) {
+        return entityManager.getRepository(UserReceivingAddress).findOne({ where: { user: { user_id: userId }, linkedApplication: { app_id: linkedApplication.app_id } } })
+    }
 
     async AddUserAddress(userId: string, address: string, opts: { callbackUrl?: string, linkedApplication?: Application } = {}, entityManager = this.DB): Promise<UserReceivingAddress> {
         const newUserAddress = entityManager.getRepository(UserReceivingAddress).create({
@@ -113,7 +115,7 @@ export default class {
         })
     }
 
-    async AddUserInvoicePayment(userId: string, invoice: string, amount: number, routingFees: number, serviceFees: number, internal: boolean, entityManager = this.DB): Promise<UserInvoicePayment> {
+    async AddUserInvoicePayment(userId: string, invoice: string, amount: number, routingFees: number, serviceFees: number, internal: boolean, linkedApplication: Application, entityManager = this.DB): Promise<UserInvoicePayment> {
         const newPayment = entityManager.getRepository(UserInvoicePayment).create({
             user: await this.userStorage.GetUser(userId),
             paid_amount: amount,
@@ -121,7 +123,8 @@ export default class {
             routing_fees: routingFees,
             service_fees: serviceFees,
             paid_at_unix: Math.floor(Date.now() / 1000),
-            internal
+            internal,
+            linkedApplication
         })
         return entityManager.getRepository(UserInvoicePayment).save(newPayment)
     }
@@ -141,7 +144,7 @@ export default class {
         })
     }
 
-    async AddUserTransactionPayment(userId: string, address: string, txHash: string, txOutput: number, amount: number, chainFees: number, serviceFees: number, internal: boolean, height: number, entityManager = this.DB): Promise<UserTransactionPayment> {
+    async AddUserTransactionPayment(userId: string, address: string, txHash: string, txOutput: number, amount: number, chainFees: number, serviceFees: number, internal: boolean, height: number, linkedApplication: Application, entityManager = this.DB): Promise<UserTransactionPayment> {
         const newTx = entityManager.getRepository(UserTransactionPayment).create({
             user: await this.userStorage.GetUser(userId),
             address,
@@ -153,7 +156,8 @@ export default class {
             paid_at_unix: Math.floor(Date.now() / 1000),
             internal,
             broadcast_height: height,
-            confs: internal ? 10 : 0
+            confs: internal ? 10 : 0,
+            linkedApplication
         })
         return entityManager.getRepository(UserTransactionPayment).save(newTx)
     }
@@ -217,13 +221,14 @@ export default class {
         return found
     }
 
-    async AddUserToUserPayment(fromUserId: string, toUserId: string, amount: number, fee: number, entityManager = this.DB) {
+    async AddUserToUserPayment(fromUserId: string, toUserId: string, amount: number, fee: number, linkedApplication: Application, entityManager = this.DB) {
         const newKey = entityManager.getRepository(UserToUserPayment).create({
             from_user: await this.userStorage.GetUser(fromUserId, entityManager),
             to_user: await this.userStorage.GetUser(toUserId, entityManager),
             paid_at_unix: Math.floor(Date.now() / 1000),
             paid_amount: amount,
-            service_fees: fee
+            service_fees: fee,
+            linkedApplication
         })
         return entityManager.getRepository(UserToUserPayment).save(newKey)
     }
@@ -256,6 +261,32 @@ export default class {
                 paid_at_unix: 'DESC'
             }
         })
+    }
+
+    async GetAppOperations(application: Application | null, { from, to }: { from?: number, to?: number }, entityManager = this.DB) {
+        const q = application ? { app_id: application.app_id } : IsNull()
+        let time: { created_at?: FindOperator<Date> } = {}
+        if (!!from && !!to) {
+            time.created_at = Between<Date>(new Date(from * 1000), new Date(to * 1000))
+        } else if (!!from) {
+            time.created_at = MoreThanOrEqual<Date>(new Date(from * 1000))
+        } else if (!!to) {
+            time.created_at = LessThanOrEqual<Date>(new Date(to * 1000))
+        }
+
+        const [receivingInvoices, receivingAddresses, outgoingInvoices, outgoingTransactions, userToUser] = await Promise.all([
+            entityManager.getRepository(UserReceivingInvoice).find({ where: { linkedApplication: q, ...time } }),
+            entityManager.getRepository(UserReceivingAddress).find({ where: { linkedApplication: q, ...time } }),
+            entityManager.getRepository(UserInvoicePayment).find({ where: { linkedApplication: q, ...time } }),
+            entityManager.getRepository(UserTransactionPayment).find({ where: { linkedApplication: q, ...time } }),
+            entityManager.getRepository(UserToUserPayment).find({ where: { linkedApplication: q, ...time } })
+        ])
+        const receivingTransactions = await Promise.all(receivingAddresses.map(addr => entityManager.getRepository(AddressReceivingTransaction).find({ where: { user_address: { serial_id: addr.serial_id } } })))
+        return {
+            receivingInvoices, receivingAddresses, receivingTransactions,
+            outgoingInvoices, outgoingTransactions,
+            userToUser
+        }
     }
 
 }

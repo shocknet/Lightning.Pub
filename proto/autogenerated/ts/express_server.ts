@@ -98,20 +98,42 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
-    if (!opts.allowNotImplementedMethods && !methods.GetMetrics) throw new Error('method: GetMetrics is not implemented')
-    app.post('/api/admin/metrics', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'GetMetrics', batch: false, nostr: false, batchSize: 0}
+    if (!opts.allowNotImplementedMethods && !methods.GetUsageMetrics) throw new Error('method: GetUsageMetrics is not implemented')
+    app.post('/api/admin/metrics/usage', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'GetUsageMetrics', batch: false, nostr: false, batchSize: 0}
         const stats: Types.RequestStats = { start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
-            if (!methods.GetMetrics) throw new Error('method: GetMetrics is not implemented')
+            if (!methods.GetUsageMetrics) throw new Error('method: GetUsageMetrics is not implemented')
             const authContext = await opts.AdminAuthGuard(req.headers['authorization'])
             authCtx = authContext
             stats.guard = process.hrtime.bigint()
             stats.validate = stats.guard
             const query = req.query
             const params = req.params
-            const response =  await methods.GetMetrics({rpcName:'GetMetrics', ctx:authContext })
+            const response =  await methods.GetUsageMetrics({rpcName:'GetUsageMetrics', ctx:authContext })
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.GetAppsMetrics) throw new Error('method: GetAppsMetrics is not implemented')
+    app.post('/api/admin/metrics/apps', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'GetAppsMetrics', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.GetAppsMetrics) throw new Error('method: GetAppsMetrics is not implemented')
+            const authContext = await opts.AdminAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.AppsMetricsRequestValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+            const response =  await methods.GetAppsMetrics({rpcName:'GetAppsMetrics', ctx:authContext , req: request})
             stats.handle = process.hrtime.bigint()
             res.json({status: 'OK', ...response})
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
