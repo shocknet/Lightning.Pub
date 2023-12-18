@@ -507,6 +507,10 @@ export default class {
         return resolved.filter(t => t !== undefined) as (PendingTx & { confs: number })[]
     }
 
+    async GetLndBalance() {
+        return this.lnd.GetBalance()
+    }
+
     encodeLnurl(base: string) {
         if (!base || typeof base !== 'string') {
             throw new Error("provided string for lnurl encode is not a string or is an empty string")

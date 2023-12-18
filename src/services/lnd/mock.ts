@@ -12,7 +12,7 @@ import { OpenChannelReq } from './openChannelReq.js';
 import { AddInvoiceReq } from './addInvoiceReq.js';
 import { PayInvoiceReq } from './payInvoiceReq.js';
 import { SendCoinsReq } from './sendCoinsReq.js';
-import { LndSettings, AddressPaidCb, InvoicePaidCb, NodeInfo, Invoice, DecodedInvoice, PaidInvoice, NewBlockCb } from './settings.js';
+import { LndSettings, AddressPaidCb, InvoicePaidCb, NodeInfo, Invoice, DecodedInvoice, PaidInvoice, NewBlockCb, BalanceInfo } from './settings.js';
 import { getLogger } from '../helpers/logger.js';
 
 export default class {
@@ -114,6 +114,10 @@ export default class {
 
     async GetTransactions(startHeight: number): Promise<TransactionDetails> {
         throw new Error("GetTransactions disabled in mock mode")
+    }
+
+    GetBalance(): Promise<BalanceInfo> {
+        throw new Error("GetBalance disabled in mock mode")
     }
 }
 
