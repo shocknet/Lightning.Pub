@@ -4,6 +4,7 @@ import ProductStorage from './productStorage.js'
 import ApplicationStorage from './applicationStorage.js'
 import UserStorage from "./userStorage.js";
 import PaymentStorage from "./paymentStorage.js";
+import MetricsStorage from "./metricsStorage.js";
 export type StorageSettings = {
     dbSettings: DbSettings
 }
@@ -19,6 +20,7 @@ export default class {
     applicationStorage: ApplicationStorage
     userStorage: UserStorage
     paymentStorage: PaymentStorage
+    metricsStorage: MetricsStorage
     pendingTx: boolean
     transactionsQueue: { exec: TX, res: () => void, rej: (message: string) => void }[] = []
     constructor(settings: StorageSettings) {
@@ -30,6 +32,7 @@ export default class {
         this.productStorage = new ProductStorage(this.DB)
         this.applicationStorage = new ApplicationStorage(this.DB, this.userStorage)
         this.paymentStorage = new PaymentStorage(this.DB, this.userStorage)
+        this.metricsStorage = new MetricsStorage(this.DB)
     }
 
     StartTransaction(exec: TX) {

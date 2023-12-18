@@ -31,32 +31,79 @@ message UsageMetrics {
 message AppsMetricsRequest {
     optional int64 from_unix = 1;
     optional int64 to_unix = 2;
-    optional int64 big_user_sats = 3;
-    optional int64 huge_user_sats = 4;
-    optional bool include_operations = 5;
+    optional bool include_operations = 3;
+}
+
+message UsersInfo {
+    int64 total = 1;
+    int64 no_balance = 2;
+    int64 negative_balance = 3;
+    int64 always_been_inactive = 4;
+
+    int64 balance_avg = 5;
+    int64 balance_median = 6;
+
 }
 
 message AppMetrics {
-    string app_name = 1;
-    string app_id = 2;
-    string app_npub = 3;
-    int64 app_balance = 4;
+    Application app = 1;
+
+    UsersInfo users = 2;
 
     int64 total_received = 5;
     int64 total_spent = 6;
     int64 total_available = 7;
 
-    int64 total_users = 8;
-    int64 total_big_users = 9;
-    int64 total_huge_users = 10;
-
-    int64 unpaid_invoices = 11;
+    int64 unpaid_invoices = 10;
 
     repeated UserOperation operations = 100;
 }
 
 message AppsMetrics {
     repeated AppMetrics apps = 1;
+}
+
+message LndMetricsRequest {
+    optional int64 from_unix = 1;
+    optional int64 to_unix = 2;
+}
+
+message RoutingEvent {
+    int64 incoming_channel_id = 1;
+    int64 incoming_htlc_id=2;
+    int64 outgoing_channel_id = 3;
+    int64 outgoing_htlc_id =4;
+    int64 timestamp_ns = 5;
+    string event_type = 6;
+    int64 incoming_amt_msat = 7;
+    int64 outgoing_amt_msat = 8;
+    string failure_string = 9;
+    bool settled = 10;
+    bool offchain = 11;
+    bool forward_fail_event = 12;
+}
+message ChannelBalanceEvent {
+    int64 block_height = 1;
+    string channel_id = 2;
+    int64 local_balance_sats = 3;
+    int64 remote_balance_sats = 4;
+}
+
+message ChainBalanceEvent {
+    int64 block_height = 1;
+    int64 confirmed_balance = 2;
+    int64 unconfirmed_balance = 3;
+    int64 total_balance = 4;
+}
+
+message LndNodeMetrics {
+    repeated ChannelBalanceEvent channels_balance_events = 1;
+    repeated ChainBalanceEvent chain_balance_events = 2;
+    repeated RoutingEvent routing_events = 3;
+}
+
+message LndMetrics {
+    repeated LndNodeMetrics nodes = 1;
 }
 
 message LndGetInfoRequest {
