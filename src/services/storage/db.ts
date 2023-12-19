@@ -23,7 +23,7 @@ export default async (settings: DbSettings) => {
     return new DataSource({
         type: "sqlite",
         database: settings.databaseFile,
-        //logging: true,
+        logging: true,
         entities: [User, UserReceivingInvoice, UserReceivingAddress, AddressReceivingTransaction, UserInvoicePayment, UserTransactionPayment, UserBasicAuth, UserEphemeralKey, Product, UserToUserPayment, Application, ApplicationUser, UserToUserPayment],
         synchronize: true,
     }).initialize()
