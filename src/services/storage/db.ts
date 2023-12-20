@@ -13,6 +13,9 @@ import { Product } from "./entity/Product.js"
 import { UserToUserPayment } from "./entity/UserToUserPayment.js"
 import { Application } from "./entity/Application.js"
 import { ApplicationUser } from "./entity/ApplicationUser.js"
+import { RoutingEvent } from "./entity/RoutingEvent.js"
+import { BalanceEvent } from "./entity/BalanceEvent.js"
+import { ChannelBalanceEvent } from "./entity/ChannelsBalanceEvent.js"
 import { getLogger } from "../helpers/logger.js"
 export type DbSettings = {
     databaseFile: string
@@ -29,7 +32,8 @@ export default async (settings: DbSettings) => {
         type: "sqlite",
         database: settings.databaseFile,
         // logging: true,
-        entities: [User, UserReceivingInvoice, UserReceivingAddress, AddressReceivingTransaction, UserInvoicePayment, UserTransactionPayment, UserBasicAuth, UserEphemeralKey, Product, UserToUserPayment, Application, ApplicationUser, UserToUserPayment],
+        entities: [User, UserReceivingInvoice, UserReceivingAddress, AddressReceivingTransaction, UserInvoicePayment, UserTransactionPayment,
+            UserBasicAuth, UserEphemeralKey, Product, UserToUserPayment, Application, ApplicationUser, UserToUserPayment, RoutingEvent, BalanceEvent, ChannelBalanceEvent],
         // synchronize: true,
     }).initialize()
     const log = getLogger({})

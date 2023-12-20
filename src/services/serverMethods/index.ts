@@ -10,6 +10,9 @@ export default (mainHandler: Main): Types.ServerMethods => {
         GetAppsMetrics: async ({ ctx, req }) => {
             return mainHandler.metricsManager.GetAppsMetrics(req)
         },
+        GetLndMetrics: async ({ ctx, req }) => {
+            return mainHandler.metricsManager.GetLndMetrics(req)
+        },
         EncryptionExchange: async () => { },
         Health: async () => { await mainHandler.lnd.Health() },
         LndGetInfo: async ({ ctx }) => {

@@ -108,6 +108,12 @@ service LightningPub {
         option (http_method) = "post";
         option (http_route) = "/api/admin/metrics/apps";
     }
+
+    rpc GetLndMetrics(structs.LndMetricsRequest) returns (structs.LndMetrics) {
+        option (auth_type)  = "Admin";
+        option (http_method) = "post";
+        option (http_route) = "/api/admin/metrics/lnd";
+    }
     // </Admin>
 
     // <Guest>
