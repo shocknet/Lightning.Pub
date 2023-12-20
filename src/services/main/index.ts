@@ -55,9 +55,9 @@ export default class {
     metricsManager: MetricsManager
     nostrSend: NostrSend = () => { getLogger({})("nostr send not initialized yet") }
 
-    constructor(settings: MainSettings) {
+    constructor(settings: MainSettings, storage: Storage) {
         this.settings = settings
-        this.storage = new Storage(settings.storageSettings)
+        this.storage = storage
         this.metricsManager = new MetricsManager(this.storage)
         this.lnd = NewLightningHandler(settings.lndSettings, this.addressPaidCb, this.invoicePaidCb, this.newBlockCb, this.metricsManager.HtlcCb)
 
