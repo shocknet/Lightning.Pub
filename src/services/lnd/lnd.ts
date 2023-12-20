@@ -13,8 +13,9 @@ import { OpenChannelReq } from './openChannelReq.js';
 import { AddInvoiceReq } from './addInvoiceReq.js';
 import { PayInvoiceReq } from './payInvoiceReq.js';
 import { SendCoinsReq } from './sendCoinsReq.js';
-import { LndSettings, AddressPaidCb, InvoicePaidCb, NodeInfo, Invoice, DecodedInvoice, PaidInvoice, NewBlockCb } from './settings.js';
+import { LndSettings, AddressPaidCb, InvoicePaidCb, NodeInfo, Invoice, DecodedInvoice, PaidInvoice, NewBlockCb, HtlcCb, BalanceInfo } from './settings.js';
 import { getLogger } from '../helpers/logger.js';
+import { HtlcEvent_EventType } from '../../../proto/lnd/router.js';
 const DeadLineMetadata = (deadline = 10 * 1000) => ({ deadline: Date.now() + deadline })
 const deadLndRetrySeconds = 5
 export default class {
@@ -30,12 +31,14 @@ export default class {
     addressPaidCb: AddressPaidCb
     invoicePaidCb: InvoicePaidCb
     newBlockCb: NewBlockCb
+    htlcCb: HtlcCb
     log = getLogger({})
-    constructor(settings: LndSettings, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb, newBlockCb: NewBlockCb) {
+    constructor(settings: LndSettings, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb, newBlockCb: NewBlockCb, htlcCb: HtlcCb) {
         this.settings = settings
         this.addressPaidCb = addressPaidCb
         this.invoicePaidCb = invoicePaidCb
         this.newBlockCb = newBlockCb
+        this.htlcCb = htlcCb
         const { lndAddr, lndCertPath, lndMacaroonPath } = this.settings
         const lndCert = fs.readFileSync(lndCertPath);
         const macaroon = fs.readFileSync(lndMacaroonPath).toString('hex');
@@ -67,6 +70,7 @@ export default class {
         this.SubscribeAddressPaid()
         this.SubscribeInvoicePaid()
         this.SubscribeNewBlock()
+        this.SubscribeHtlcEvents()
         this.ready = true
     }
 
@@ -100,6 +104,19 @@ export default class {
                 this.log("LND still dead, will try again in", deadLndRetrySeconds, "seconds")
             }
         }, deadLndRetrySeconds * 1000)
+    }
+
+    async SubscribeHtlcEvents() {
+        const stream = this.router.subscribeHtlcEvents({}, { abort: this.abortController.signal })
+        stream.responses.onMessage(htlc => {
+            this.htlcCb(htlc)
+        })
+        stream.responses.onError(error => {
+            this.log("Error with subscribeHtlcEvents stream")
+        })
+        stream.responses.onComplete(() => {
+            this.log("subscribeHtlcEvents stream closed")
+        })
     }
 
     async SubscribeNewBlock() {
@@ -257,6 +274,20 @@ export default class {
         await this.Health()
         const res = await this.lightning.getTransactions({ startHeight, endHeight: 0, account: "" }, DeadLineMetadata())
         return res.response
+    }
+
+    async GetBalance(): Promise<BalanceInfo> {
+        const wRes = await this.lightning.walletBalance({}, DeadLineMetadata())
+        const { confirmedBalance, unconfirmedBalance, totalBalance } = wRes.response
+        const { response } = await this.lightning.listChannels({
+            activeOnly: false, inactiveOnly: false, privateOnly: false, publicOnly: false, peer: Buffer.alloc(0)
+        }, DeadLineMetadata())
+        const channelsBalance = response.channels.map(c => ({
+            channelId: c.chanId,
+            localBalanceSats: Number(c.localBalance),
+            remoteBalanceSats: Number(c.remoteBalance)
+        }))
+        return { confirmedBalance: Number(confirmedBalance), unconfirmedBalance: Number(unconfirmedBalance), totalBalance: Number(totalBalance), channelsBalance }
     }
 
 

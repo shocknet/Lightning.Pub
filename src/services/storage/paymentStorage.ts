@@ -289,4 +289,12 @@ export default class {
         }
     }
 
+    async UserHasOutgoingOperation(userId: string, entityManager = this.DB) {
+        const [i, tx, u2u] = await Promise.all([
+            entityManager.getRepository(UserInvoicePayment).findOne({ where: { user: { user_id: userId } } }),
+            entityManager.getRepository(UserTransactionPayment).findOne({ where: { user: { user_id: userId } } }),
+            entityManager.getRepository(UserToUserPayment).findOne({ where: { from_user: { user_id: userId } } }),
+        ])
+        return !!i || !!tx || !!u2u
+    }
 }

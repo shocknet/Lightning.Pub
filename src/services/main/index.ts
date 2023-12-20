@@ -59,7 +59,7 @@ export default class {
         this.settings = settings
         this.storage = new Storage(settings.storageSettings)
         this.metricsManager = new MetricsManager(this.storage)
-        this.lnd = NewLightningHandler(settings.lndSettings, this.addressPaidCb, this.invoicePaidCb, this.newBlockCb)
+        this.lnd = NewLightningHandler(settings.lndSettings, this.addressPaidCb, this.invoicePaidCb, this.newBlockCb, this.metricsManager.HtlcCb)
 
         this.paymentManager = new PaymentManager(this.storage, this.lnd, this.settings, this.addressPaidCb, this.invoicePaidCb)
         this.productManager = new ProductManager(this.storage, this.paymentManager, this.settings)
@@ -78,10 +78,13 @@ export default class {
     NewBlockHandler = async (height: number) => {
         let confirmed: (PendingTx & { confs: number; })[]
         let log = getLogger({})
+
         try {
+            const balanceEvents = await this.paymentManager.GetLndBalance()
+            await this.metricsManager.NewBlockCb(height, balanceEvents)
             confirmed = await this.paymentManager.CheckPendingTransactions(height)
         } catch (err: any) {
-            log("failed to check transactions after new block", err)
+            log("failed to check transactions after new block", err.message || err)
             return
         }
         await Promise.all(confirmed.map(async c => {
