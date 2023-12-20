@@ -13,18 +13,36 @@ import { Product } from "./entity/Product.js"
 import { UserToUserPayment } from "./entity/UserToUserPayment.js"
 import { Application } from "./entity/Application.js"
 import { ApplicationUser } from "./entity/ApplicationUser.js"
+import { getLogger } from "../helpers/logger.js"
 export type DbSettings = {
     databaseFile: string
+    migrate: boolean
 }
 export const LoadDbSettingsFromEnv = (test = false): DbSettings => {
-    return { databaseFile: test ? ":memory:" : EnvMustBeNonEmptyString("DATABASE_FILE") }
+    return {
+        databaseFile: test ? ":memory:" : EnvMustBeNonEmptyString("DATABASE_FILE"),
+        migrate: process.env.MIGRATE_DB === 'true' || false
+    }
 }
 export default async (settings: DbSettings) => {
-    return new DataSource({
+    const s = await new DataSource({
         type: "sqlite",
         database: settings.databaseFile,
-        logging: true,
+        // logging: true,
         entities: [User, UserReceivingInvoice, UserReceivingAddress, AddressReceivingTransaction, UserInvoicePayment, UserTransactionPayment, UserBasicAuth, UserEphemeralKey, Product, UserToUserPayment, Application, ApplicationUser, UserToUserPayment],
-        synchronize: true,
+        // synchronize: true,
     }).initialize()
+    const log = getLogger({})
+
+    const pendingMigrations = await s.showMigrations()
+    if (pendingMigrations) {
+        if (!settings.migrate) {
+            throw new Error("pending migrations found, run with: MIGRATE_DB=true")
+        } else {
+            log("migrations found, migrating...")
+            const migrations = await s.runMigrations()
+            log(migrations)
+        }
+    }
+    return s
 }
