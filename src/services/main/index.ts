@@ -59,7 +59,7 @@ export default class {
         this.settings = settings
         this.storage = storage
         this.metricsManager = new MetricsManager(this.storage)
-        this.lnd = NewLightningHandler(settings.lndSettings, this.addressPaidCb, this.invoicePaidCb, this.newBlockCb, this.metricsManager.HtlcCb)
+        this.lnd = NewLightningHandler(settings.lndSettings, this.addressPaidCb, this.invoicePaidCb, this.newBlockCb, e => this.metricsManager.HtlcCb)
 
         this.paymentManager = new PaymentManager(this.storage, this.lnd, this.settings, this.addressPaidCb, this.invoicePaidCb)
         this.productManager = new ProductManager(this.storage, this.paymentManager, this.settings)
