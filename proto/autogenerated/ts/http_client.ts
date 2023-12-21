@@ -8,6 +8,7 @@ export type ClientParams = {
     retrieveGuestAuth: () => Promise<string | null>
     retrieveUserAuth: () => Promise<string | null>
     retrieveAdminAuth: () => Promise<string | null>
+    retrieveMetricsAuth: () => Promise<string | null>
     retrieveAppAuth: () => Promise<string | null>
     encryptCallback: (plain: any) => Promise<any>
     decryptCallback: (encrypted: any) => Promise<any>
@@ -58,8 +59,8 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     GetUsageMetrics: async (): Promise<ResultError | ({ status: 'OK' }& Types.UsageMetrics)> => {
-        const auth = await params.retrieveAdminAuth()
-        if (auth === null) throw new Error('retrieveAdminAuth() returned null')
+        const auth = await params.retrieveMetricsAuth()
+        if (auth === null) throw new Error('retrieveMetricsAuth() returned null')
         let finalRoute = '/api/admin/metrics/usage'
         const { data } = await axios.post(params.baseUrl + finalRoute, {}, { headers: { 'authorization': auth } })
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
@@ -72,8 +73,8 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     GetAppsMetrics: async (request: Types.AppsMetricsRequest): Promise<ResultError | ({ status: 'OK' }& Types.AppsMetrics)> => {
-        const auth = await params.retrieveAdminAuth()
-        if (auth === null) throw new Error('retrieveAdminAuth() returned null')
+        const auth = await params.retrieveMetricsAuth()
+        if (auth === null) throw new Error('retrieveMetricsAuth() returned null')
         let finalRoute = '/api/admin/metrics/apps'
         const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
@@ -86,8 +87,8 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     GetLndMetrics: async (request: Types.LndMetricsRequest): Promise<ResultError | ({ status: 'OK' }& Types.LndMetrics)> => {
-        const auth = await params.retrieveAdminAuth()
-        if (auth === null) throw new Error('retrieveAdminAuth() returned null')
+        const auth = await params.retrieveMetricsAuth()
+        if (auth === null) throw new Error('retrieveMetricsAuth() returned null')
         let finalRoute = '/api/admin/metrics/lnd'
         const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
