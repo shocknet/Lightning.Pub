@@ -3,7 +3,7 @@ import { DbSettings } from '../db.js'
 import Storage, { StorageSettings } from '../index.js'
 import { Initial1703170309875 } from './1703170309875-initial.js'
 import { LndMetrics1703170330183 } from './1703170330183-lnd_metrics.js'
-const allMigrations = [Initial1703170309875, LndMetrics1703170330183]
+const allMigrations = [LndMetrics1703170330183]
 export const TypeOrmMigrationRunner = async (log: PubLogger, storageManager: Storage, settings: DbSettings, arg: string | undefined): Promise<boolean> => {
     if (arg === 'initial_migration') {
         await connectAndMigrate(log, storageManager, true, settings, [Initial1703170309875])
