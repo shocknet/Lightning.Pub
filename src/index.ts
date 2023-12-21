@@ -6,11 +6,18 @@ import Main, { LoadMainSettingsFromEnv } from './services/main/index.js'
 import Storage from './services/storage/index.js'
 import { LoadNosrtSettingsFromEnv } from './services/nostr/index.js'
 import nostrMiddleware from './nostrMiddleware.js'
+import { TypeOrmMigrationRunner } from './services/storage/migrations/runner.js';
+import { getLogger } from './services/helpers/logger.js';
 
 const start = async () => {
+    const log = getLogger({})
     const mainSettings = LoadMainSettingsFromEnv()
     const storageManager = new Storage(mainSettings.storageSettings)
-    await storageManager.Connect()
+    const manualMigration = await TypeOrmMigrationRunner(log, storageManager, mainSettings.storageSettings.dbSettings, process.argv[2])
+    if (manualMigration) {
+        log("migrations run sucessfully, exiting")
+        return
+    }
     const mainHandler = new Main(mainSettings, storageManager)
     await mainHandler.lnd.Warmup()
     const serverMethods = GetServerMethods(mainHandler)

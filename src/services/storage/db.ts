@@ -1,5 +1,5 @@
 import "reflect-metadata"
-import { DataSource } from "typeorm"
+import { DataSource, Migration } from "typeorm"
 import { AddressReceivingTransaction } from "./entity/AddressReceivingTransaction.js"
 import { User } from "./entity/User.js"
 import { UserReceivingAddress } from "./entity/UserReceivingAddress.js"
@@ -24,20 +24,16 @@ import { LndMetrics1703170330183 } from "./migrations/1703170330183-lnd_metrics.
 export type DbSettings = {
     databaseFile: string
     migrate: boolean
-    doInitialMigration: boolean
 }
 export const LoadDbSettingsFromEnv = (test = false): DbSettings => {
     return {
         databaseFile: test ? ":memory:" : EnvMustBeNonEmptyString("DATABASE_FILE"),
         migrate: process.env.MIGRATE_DB === 'true' || false,
-        doInitialMigration: process.env.DO_INITIAL_MIGRATION === 'true' || false
     }
 }
 
-export default async (settings: DbSettings) => {
-    const migrations = settings.doInitialMigration ? [Initial1703170309875] : []
-    migrations.push(LndMetrics1703170330183)
-    const s = await new DataSource({
+export default async (settings: DbSettings, migrations: Function[]): Promise<{ source: DataSource, executedMigrations: Migration[] }> => {
+    const source = await new DataSource({
         type: "sqlite",
         database: settings.databaseFile,
         // logging: true,
@@ -47,18 +43,11 @@ export default async (settings: DbSettings) => {
         migrations
     }).initialize()
     const log = getLogger({})
-
-    const pendingMigrations = await s.showMigrations()
+    const pendingMigrations = await source.showMigrations()
     if (pendingMigrations) {
-        if (!settings.migrate) {
-            throw new Error("pending migrations found, run with: MIGRATE_DB=true")
-        } else {
-            log("migrations found, migrating...")
-            const migrations = await s.runMigrations()
-            log(migrations)
-        }
+        log("migrations found, migrating...")
+        const executedMigrations = await source.runMigrations({ transaction: 'all' })
+        return { source, executedMigrations }
     }
-    await s.getRepository(RoutingEvent).find()
-    await s.getRepository(Application).find()
-    return s
+    return { source, executedMigrations: [] }
 }

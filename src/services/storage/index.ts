@@ -26,13 +26,15 @@ export default class {
     constructor(settings: StorageSettings) {
         this.settings = settings
     }
-    async Connect() {
-        this.DB = await NewDB(this.settings.dbSettings)
+    async Connect(migrations: Function[]) {
+        const { source, executedMigrations } = await NewDB(this.settings.dbSettings, migrations)
+        this.DB = source
         this.userStorage = new UserStorage(this.DB)
         this.productStorage = new ProductStorage(this.DB)
         this.applicationStorage = new ApplicationStorage(this.DB, this.userStorage)
         this.paymentStorage = new PaymentStorage(this.DB, this.userStorage)
         this.metricsStorage = new MetricsStorage(this.DB)
+        return executedMigrations
     }
 
     StartTransaction(exec: TX) {
