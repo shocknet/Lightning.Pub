@@ -27,13 +27,14 @@ export const LoadDbSettingsFromEnv = (test = false): DbSettings => {
         migrate: process.env.MIGRATE_DB === 'true' || false
     }
 }
+
 export default async (settings: DbSettings) => {
     const s = await new DataSource({
         type: "sqlite",
         database: settings.databaseFile,
         // logging: true,
         entities: [User, UserReceivingInvoice, UserReceivingAddress, AddressReceivingTransaction, UserInvoicePayment, UserTransactionPayment,
-            UserBasicAuth, UserEphemeralKey, Product, UserToUserPayment, Application, ApplicationUser, UserToUserPayment, RoutingEvent, BalanceEvent, ChannelBalanceEvent],
+            UserBasicAuth, UserEphemeralKey, Product, UserToUserPayment, Application, ApplicationUser, UserToUserPayment, /*RoutingEvent, BalanceEvent, ChannelBalanceEvent*/],
         synchronize: true,
     }).initialize()
     const log = getLogger({})
