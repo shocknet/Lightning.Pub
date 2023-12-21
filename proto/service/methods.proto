@@ -38,6 +38,15 @@ option (file_options) = {
             }
         },
         {
+            id: "metrics", 
+            name: "Metrics", 
+            //encrypted:true, 
+            context:{
+                key:"operator_id", 
+                value:"string"
+            }
+        },
+        {
             id:"app",
             name:"App",
             context:{
@@ -98,19 +107,19 @@ service LightningPub {
     }
 
     rpc GetUsageMetrics(structs.Empty) returns (structs.UsageMetrics) {
-        option (auth_type)  = "Admin";
+        option (auth_type)  = "Metrics";
         option (http_method) = "post";
         option (http_route) = "/api/admin/metrics/usage";
     }
 
     rpc GetAppsMetrics(structs.AppsMetricsRequest) returns (structs.AppsMetrics) {
-        option (auth_type)  = "Admin";
+        option (auth_type)  = "Metrics";
         option (http_method) = "post";
         option (http_route) = "/api/admin/metrics/apps";
     }
 
     rpc GetLndMetrics(structs.LndMetricsRequest) returns (structs.LndMetrics) {
-        option (auth_type)  = "Admin";
+        option (auth_type)  = "Metrics";
         option (http_method) = "post";
         option (http_route) = "/api/admin/metrics/lnd";
     }

@@ -16,6 +16,7 @@ export type ServerOptions = {
     GuestAuthGuard: (authorizationHeader?: string) => Promise<Types.GuestContext>
     UserAuthGuard: (authorizationHeader?: string) => Promise<Types.UserContext>
     AdminAuthGuard: (authorizationHeader?: string) => Promise<Types.AdminContext>
+    MetricsAuthGuard: (authorizationHeader?: string) => Promise<Types.MetricsContext>
     AppAuthGuard: (authorizationHeader?: string) => Promise<Types.AppContext>
 }
 declare module 'express-serve-static-core' { interface Request { startTime?: bigint, bodySize?: number } }
@@ -105,7 +106,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.GetUsageMetrics) throw new Error('method: GetUsageMetrics is not implemented')
-            const authContext = await opts.AdminAuthGuard(req.headers['authorization'])
+            const authContext = await opts.MetricsAuthGuard(req.headers['authorization'])
             authCtx = authContext
             stats.guard = process.hrtime.bigint()
             stats.validate = stats.guard
@@ -124,7 +125,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.GetAppsMetrics) throw new Error('method: GetAppsMetrics is not implemented')
-            const authContext = await opts.AdminAuthGuard(req.headers['authorization'])
+            const authContext = await opts.MetricsAuthGuard(req.headers['authorization'])
             authCtx = authContext
             stats.guard = process.hrtime.bigint()
             const request = req.body
@@ -146,7 +147,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.GetLndMetrics) throw new Error('method: GetLndMetrics is not implemented')
-            const authContext = await opts.AdminAuthGuard(req.headers['authorization'])
+            const authContext = await opts.MetricsAuthGuard(req.headers['authorization'])
             authCtx = authContext
             stats.guard = process.hrtime.bigint()
             const request = req.body
