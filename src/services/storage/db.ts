@@ -34,8 +34,8 @@ export default async (settings: DbSettings) => {
         database: settings.databaseFile,
         // logging: true,
         entities: [User, UserReceivingInvoice, UserReceivingAddress, AddressReceivingTransaction, UserInvoicePayment, UserTransactionPayment,
-            UserBasicAuth, UserEphemeralKey, Product, UserToUserPayment, Application, ApplicationUser, UserToUserPayment, /*RoutingEvent, BalanceEvent, ChannelBalanceEvent*/],
-        synchronize: true,
+            UserBasicAuth, UserEphemeralKey, Product, UserToUserPayment, Application, ApplicationUser, UserToUserPayment, RoutingEvent, BalanceEvent, ChannelBalanceEvent],
+        // synchronize: true,
     }).initialize()
     const log = getLogger({})
 
