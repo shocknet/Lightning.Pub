@@ -17,6 +17,7 @@ export type NostrEvent = {
     content: string
     appId: string
     startAtNano: string
+    startAtMs: number
 }
 type SettingsRequest = {
     type: 'settings'
@@ -142,10 +143,11 @@ export default class Handler {
                 return
             }
             handledEvents.push(eventId)
+            const startAtMs = Date.now()
             const startAtNano = process.hrtime.bigint().toString()
             const decoded = decodePayload(e.content)
             const content = await decryptData(decoded, getSharedSecret(app.privateKey, e.pubkey))
-            this.eventCallback({ id: eventId, content, pub: e.pubkey, appId: app.appId, startAtNano })
+            this.eventCallback({ id: eventId, content, pub: e.pubkey, appId: app.appId, startAtNano, startAtMs })
         })
     }
 

@@ -19,7 +19,7 @@ export type ServerOptions = {
     MetricsAuthGuard: (authorizationHeader?: string) => Promise<Types.MetricsContext>
     AppAuthGuard: (authorizationHeader?: string) => Promise<Types.AppContext>
 }
-declare module 'express-serve-static-core' { interface Request { startTime?: bigint, bodySize?: number } }
+declare module 'express-serve-static-core' { interface Request { startTime?: bigint, bodySize?: number, startTimeMs: number } }
 const logErrorAndReturnResponse = (error: Error, response: string, res: Response, logger: Logger, metric: Types.RequestMetric, metricsCallback: (metrics: Types.RequestMetric[]) => void) => { 
     logger.error(error.message || error); metricsCallback([{ ...metric, error: response }]); res.json({ status: 'ERROR', reason: response })
 }
@@ -29,14 +29,14 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     if (opts.allowCors) {
             app.use(cors())
     }
-    app.use((req, _, next) => { req.startTime = process.hrtime.bigint(); next() })
+    app.use((req, _, next) => { req.startTime = process.hrtime.bigint(); req.startTimeMs = Date.now(); next() })
     app.use(json())
     app.use(urlencoded({ extended: true }))
     if (opts.logMethod) app.use((req, _, next) => { console.log(req.method, req.path);  if (opts.logBody) console.log(req.body); next() })
     if (!opts.allowNotImplementedMethods && !methods.LndGetInfo) throw new Error('method: LndGetInfo is not implemented')
     app.post('/api/admin/lnd/getinfo', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'LndGetInfo', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.LndGetInfo) throw new Error('method: LndGetInfo is not implemented')
@@ -58,7 +58,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     if (!opts.allowNotImplementedMethods && !methods.AddApp) throw new Error('method: AddApp is not implemented')
     app.post('/api/admin/app/add', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'AddApp', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.AddApp) throw new Error('method: AddApp is not implemented')
@@ -80,7 +80,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     if (!opts.allowNotImplementedMethods && !methods.AuthApp) throw new Error('method: AuthApp is not implemented')
     app.post('/api/admin/app/auth', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'AuthApp', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.AuthApp) throw new Error('method: AuthApp is not implemented')
@@ -102,7 +102,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     if (!opts.allowNotImplementedMethods && !methods.GetUsageMetrics) throw new Error('method: GetUsageMetrics is not implemented')
     app.post('/api/admin/metrics/usage', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'GetUsageMetrics', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.GetUsageMetrics) throw new Error('method: GetUsageMetrics is not implemented')
@@ -121,7 +121,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     if (!opts.allowNotImplementedMethods && !methods.GetAppsMetrics) throw new Error('method: GetAppsMetrics is not implemented')
     app.post('/api/admin/metrics/apps', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'GetAppsMetrics', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.GetAppsMetrics) throw new Error('method: GetAppsMetrics is not implemented')
@@ -143,7 +143,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     if (!opts.allowNotImplementedMethods && !methods.GetLndMetrics) throw new Error('method: GetLndMetrics is not implemented')
     app.post('/api/admin/metrics/lnd', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'GetLndMetrics', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.GetLndMetrics) throw new Error('method: GetLndMetrics is not implemented')
@@ -165,7 +165,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     if (!opts.allowNotImplementedMethods && !methods.Health) throw new Error('method: Health is not implemented')
     app.get('/api/health', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'Health', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.Health) throw new Error('method: Health is not implemented')
@@ -184,7 +184,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     if (!opts.allowNotImplementedMethods && !methods.EncryptionExchange) throw new Error('method: EncryptionExchange is not implemented')
     app.post('/api/encryption/exchange', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'EncryptionExchange', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.EncryptionExchange) throw new Error('method: EncryptionExchange is not implemented')
@@ -206,7 +206,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     if (!opts.allowNotImplementedMethods && !methods.SetMockInvoiceAsPaid) throw new Error('method: SetMockInvoiceAsPaid is not implemented')
     app.post('/api/lnd/mock/invoice/paid', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'SetMockInvoiceAsPaid', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.SetMockInvoiceAsPaid) throw new Error('method: SetMockInvoiceAsPaid is not implemented')
@@ -228,7 +228,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     if (!opts.allowNotImplementedMethods && !methods.GetLnurlWithdrawInfo) throw new Error('method: GetLnurlWithdrawInfo is not implemented')
     app.get('/api/guest/lnurl_withdraw/info', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'GetLnurlWithdrawInfo', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.GetLnurlWithdrawInfo) throw new Error('method: GetLnurlWithdrawInfo is not implemented')
@@ -247,7 +247,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     if (!opts.allowNotImplementedMethods && !methods.HandleLnurlWithdraw) throw new Error('method: HandleLnurlWithdraw is not implemented')
     app.get('/api/guest/lnurl_withdraw/handle', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'HandleLnurlWithdraw', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.HandleLnurlWithdraw) throw new Error('method: HandleLnurlWithdraw is not implemented')
@@ -266,7 +266,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     if (!opts.allowNotImplementedMethods && !methods.GetLnurlPayInfo) throw new Error('method: GetLnurlPayInfo is not implemented')
     app.get('/api/guest/lnurl_pay/info', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'GetLnurlPayInfo', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.GetLnurlPayInfo) throw new Error('method: GetLnurlPayInfo is not implemented')
@@ -285,7 +285,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     if (!opts.allowNotImplementedMethods && !methods.HandleLnurlPay) throw new Error('method: HandleLnurlPay is not implemented')
     app.get('/api/guest/lnurl_pay/handle', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'HandleLnurlPay', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.HandleLnurlPay) throw new Error('method: HandleLnurlPay is not implemented')
@@ -304,7 +304,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     if (!opts.allowNotImplementedMethods && !methods.HandleLnurlAddress) throw new Error('method: HandleLnurlAddress is not implemented')
     app.get('/.well-known/lnurlp/:address_name', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'HandleLnurlAddress', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.HandleLnurlAddress) throw new Error('method: HandleLnurlAddress is not implemented')
@@ -323,7 +323,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     if (!opts.allowNotImplementedMethods && !methods.GetApp) throw new Error('method: GetApp is not implemented')
     app.post('/api/app/get', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'GetApp', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.GetApp) throw new Error('method: GetApp is not implemented')
@@ -342,7 +342,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     if (!opts.allowNotImplementedMethods && !methods.AddAppUser) throw new Error('method: AddAppUser is not implemented')
     app.post('/api/app/user/add', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'AddAppUser', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.AddAppUser) throw new Error('method: AddAppUser is not implemented')
@@ -364,7 +364,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     if (!opts.allowNotImplementedMethods && !methods.AddAppInvoice) throw new Error('method: AddAppInvoice is not implemented')
     app.post('/api/app/add/invoice', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'AddAppInvoice', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.AddAppInvoice) throw new Error('method: AddAppInvoice is not implemented')
@@ -386,7 +386,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     if (!opts.allowNotImplementedMethods && !methods.AddAppUserInvoice) throw new Error('method: AddAppUserInvoice is not implemented')
     app.post('/api/app/user/add/invoice', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'AddAppUserInvoice', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.AddAppUserInvoice) throw new Error('method: AddAppUserInvoice is not implemented')
@@ -408,7 +408,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     if (!opts.allowNotImplementedMethods && !methods.GetAppUser) throw new Error('method: GetAppUser is not implemented')
     app.post('/api/app/user/get', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'GetAppUser', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.GetAppUser) throw new Error('method: GetAppUser is not implemented')
@@ -430,7 +430,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     if (!opts.allowNotImplementedMethods && !methods.PayAppUserInvoice) throw new Error('method: PayAppUserInvoice is not implemented')
     app.post('/api/app/invoice/pay', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'PayAppUserInvoice', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.PayAppUserInvoice) throw new Error('method: PayAppUserInvoice is not implemented')
@@ -452,7 +452,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     if (!opts.allowNotImplementedMethods && !methods.SendAppUserToAppUserPayment) throw new Error('method: SendAppUserToAppUserPayment is not implemented')
     app.post('/api/app/user/internal/pay', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'SendAppUserToAppUserPayment', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.SendAppUserToAppUserPayment) throw new Error('method: SendAppUserToAppUserPayment is not implemented')
@@ -474,7 +474,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     if (!opts.allowNotImplementedMethods && !methods.SendAppUserToAppPayment) throw new Error('method: SendAppUserToAppPayment is not implemented')
     app.post('/api/app/internal/pay', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'SendAppUserToAppPayment', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.SendAppUserToAppPayment) throw new Error('method: SendAppUserToAppPayment is not implemented')
@@ -496,7 +496,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     if (!opts.allowNotImplementedMethods && !methods.GetAppUserLNURLInfo) throw new Error('method: GetAppUserLNURLInfo is not implemented')
     app.post('/api/app/user/lnurl/pay/info', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'GetAppUserLNURLInfo', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.GetAppUserLNURLInfo) throw new Error('method: GetAppUserLNURLInfo is not implemented')
@@ -518,7 +518,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     if (!opts.allowNotImplementedMethods && !methods.SetMockAppUserBalance) throw new Error('method: SetMockAppUserBalance is not implemented')
     app.post('/api/app/mock/user/blance/set', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'SetMockAppUserBalance', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.SetMockAppUserBalance) throw new Error('method: SetMockAppUserBalance is not implemented')
@@ -540,7 +540,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     if (!opts.allowNotImplementedMethods && !methods.SetMockAppBalance) throw new Error('method: SetMockAppBalance is not implemented')
     app.post('/api/app/mock/blance/set', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'SetMockAppBalance', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.SetMockAppBalance) throw new Error('method: SetMockAppBalance is not implemented')
@@ -562,7 +562,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     if (!opts.allowNotImplementedMethods && !methods.GetUserInfo) throw new Error('method: GetUserInfo is not implemented')
     app.post('/api/user/info', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'GetUserInfo', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.GetUserInfo) throw new Error('method: GetUserInfo is not implemented')
@@ -581,7 +581,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     if (!opts.allowNotImplementedMethods && !methods.AddProduct) throw new Error('method: AddProduct is not implemented')
     app.post('/api/user/product/add', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'AddProduct', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.AddProduct) throw new Error('method: AddProduct is not implemented')
@@ -603,7 +603,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     if (!opts.allowNotImplementedMethods && !methods.NewProductInvoice) throw new Error('method: NewProductInvoice is not implemented')
     app.get('/api/user/product/get/invoice', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'NewProductInvoice', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.NewProductInvoice) throw new Error('method: NewProductInvoice is not implemented')
@@ -622,7 +622,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     if (!opts.allowNotImplementedMethods && !methods.GetUserOperations) throw new Error('method: GetUserOperations is not implemented')
     app.post('/api/user/operations', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'GetUserOperations', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.GetUserOperations) throw new Error('method: GetUserOperations is not implemented')
@@ -644,7 +644,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     if (!opts.allowNotImplementedMethods && !methods.NewAddress) throw new Error('method: NewAddress is not implemented')
     app.post('/api/user/chain/new', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'NewAddress', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.NewAddress) throw new Error('method: NewAddress is not implemented')
@@ -666,7 +666,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     if (!opts.allowNotImplementedMethods && !methods.PayAddress) throw new Error('method: PayAddress is not implemented')
     app.post('/api/user/chain/pay', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'PayAddress', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.PayAddress) throw new Error('method: PayAddress is not implemented')
@@ -688,7 +688,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     if (!opts.allowNotImplementedMethods && !methods.NewInvoice) throw new Error('method: NewInvoice is not implemented')
     app.post('/api/user/invoice/new', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'NewInvoice', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.NewInvoice) throw new Error('method: NewInvoice is not implemented')
@@ -710,7 +710,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     if (!opts.allowNotImplementedMethods && !methods.DecodeInvoice) throw new Error('method: DecodeInvoice is not implemented')
     app.post('/api/user/invoice/decode', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'DecodeInvoice', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.DecodeInvoice) throw new Error('method: DecodeInvoice is not implemented')
@@ -732,7 +732,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     if (!opts.allowNotImplementedMethods && !methods.PayInvoice) throw new Error('method: PayInvoice is not implemented')
     app.post('/api/user/invoice/pay', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'PayInvoice', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.PayInvoice) throw new Error('method: PayInvoice is not implemented')
@@ -754,7 +754,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     if (!opts.allowNotImplementedMethods && !methods.OpenChannel) throw new Error('method: OpenChannel is not implemented')
     app.post('/api/user/open/channel', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'OpenChannel', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.OpenChannel) throw new Error('method: OpenChannel is not implemented')
@@ -776,7 +776,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     if (!opts.allowNotImplementedMethods && !methods.GetLnurlWithdrawLink) throw new Error('method: GetLnurlWithdrawLink is not implemented')
     app.get('/api/user/lnurl_withdraw/link', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'GetLnurlWithdrawLink', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.GetLnurlWithdrawLink) throw new Error('method: GetLnurlWithdrawLink is not implemented')
@@ -795,7 +795,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     if (!opts.allowNotImplementedMethods && !methods.GetLnurlPayLink) throw new Error('method: GetLnurlPayLink is not implemented')
     app.get('/api/user/lnurl_pay/link', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'GetLnurlPayLink', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.GetLnurlPayLink) throw new Error('method: GetLnurlPayLink is not implemented')
@@ -814,7 +814,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     if (!opts.allowNotImplementedMethods && !methods.GetLNURLChannelLink) throw new Error('method: GetLNURLChannelLink is not implemented')
     app.post('/api/user/lnurl_channel/url', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'GetLNURLChannelLink', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.GetLNURLChannelLink) throw new Error('method: GetLNURLChannelLink is not implemented')
@@ -832,7 +832,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     })
     app.post('/api/user/batch', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'BatchUser', batch: true, nostr: false, batchSize: 1 }
-        const stats: Types.RequestStats = { start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
             const requests = req.body.requests as Types.UserMethodInputs[]
@@ -848,7 +848,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             for (let i = 0; i < requests.length; i++) {
                 const operation = requests[i]
                 const opInfo: Types.RequestInfo = { rpcName: operation.rpcName, batch: true, nostr: false, batchSize: 0 }
-                const opStats: Types.RequestStats = { start:req.startTime || 0n, parse: stats.parse, guard: stats.guard, validate: 0n, handle: 0n }
+                const opStats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: stats.parse, guard: stats.guard, validate: 0n, handle: 0n }
                 try {
                     switch(operation.rpcName) {
                         case 'GetUserInfo':
