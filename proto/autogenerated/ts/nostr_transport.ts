@@ -23,10 +23,10 @@ const logErrorAndReturnResponse = (error: Error, response: string, res: NostrRes
 }
 export default (methods: Types.ServerMethods, opts: NostrOptions) => {
     const logger = opts.logger || { log: console.log, error: console.error }
-    return async (req: NostrRequest, res: NostrResponse, startString: string) => {
+    return async (req: NostrRequest, res: NostrResponse, startString: string, startMs: number) => {
         const startTime = BigInt(startString)
         const info: Types.RequestInfo = { rpcName: req.rpcName || 'unkown', batch: false, nostr: true, batchSize: 0 }
-        const stats: Types.RequestStats = { start: startTime, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        const stats: Types.RequestStats = { startMs, start: startTime, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         switch (req.rpcName) {
             case 'GetUserInfo':
@@ -264,7 +264,7 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     for (let i = 0; i < requests.length; i++) {
                         const operation = requests[i]
                         const opInfo: Types.RequestInfo = { rpcName: operation.rpcName, batch: true, nostr: true, batchSize: 0 }
-                        const opStats: Types.RequestStats = { start: startTime, parse: stats.parse, guard: stats.guard, validate: 0n, handle: 0n }
+                        const opStats: Types.RequestStats = { startMs, start: startTime, parse: stats.parse, guard: stats.guard, validate: 0n, handle: 0n }
                         try {
                             switch(operation.rpcName) {
                                 case 'GetUserInfo':

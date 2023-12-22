@@ -23,7 +23,7 @@ export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSett
         }
         nostrTransport({ ...j, appId: event.appId }, res => {
             nostr.Send(event.appId, { type: 'content', pub: event.pub, content: JSON.stringify({ ...res, requestId: j.requestId }) })
-        }, event.startAtNano)
+        }, event.startAtNano, event.startAtMs)
     })
     return { Stop: () => nostr.Stop, Send: (...args) => nostr.Send(...args) }
 }

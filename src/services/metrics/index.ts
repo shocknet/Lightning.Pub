@@ -60,7 +60,6 @@ export default class Handler {
     AddMetrics(newMetrics: (Types.RequestMetric & { app_id?: string })[]) {
         const parsed: Types.UsageMetric[] = newMetrics.map(m => ({
             rpc_name: m.rpcName,
-            processed_at_nano: m.start.toString(),
             batch: m.batch,
             nostr: m.nostr,
             batch_size: m.batchSize,
@@ -69,7 +68,8 @@ export default class Handler {
             validate_in_nano: Number(m.validate - m.guard),
             handle_in_nano: Number(m.handle - m.validate),
             success: !m.error,
-            app_id: m.app_id ? m.app_id : ""
+            app_id: m.app_id ? m.app_id : "",
+            processed_at_ms: m.startMs
         }))
         const len = this.metrics.push(...parsed)
         if (len > maxEvents) {
