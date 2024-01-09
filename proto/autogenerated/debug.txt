@@ -1,5 +1,5 @@
 ([]*main.Method) (len=41 cap=64) {
- (*main.Method)(0xc0000761e0)({
+ (*main.Method)(0xc0002f6730)({
   in: (main.MethodMessage) {
    name: (string) (len=17) "LndGetInfoRequest",
    hasZeroFields: (bool) false
@@ -9,8 +9,8 @@
    name: (string) (len=18) "LndGetInfoResponse",
    hasZeroFields: (bool) false
   },
-  opts: (*main.methodOptions)(0xc00006d380)({
-   authType: (*main.supportedAuth)(0xc000371e90)({
+  opts: (*main.methodOptions)(0xc000424180)({
+   authType: (*main.supportedAuth)(0xc00007ee70)({
     id: (string) (len=5) "admin",
     name: (string) (len=5) "Admin",
     context: (map[string]string) (len=1) {
@@ -28,7 +28,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc000076280)({
+ (*main.Method)(0xc0002f68c0)({
   in: (main.MethodMessage) {
    name: (string) (len=13) "AddAppRequest",
    hasZeroFields: (bool) false
@@ -38,8 +38,8 @@
    name: (string) (len=7) "AuthApp",
    hasZeroFields: (bool) false
   },
-  opts: (*main.methodOptions)(0xc00006d500)({
-   authType: (*main.supportedAuth)(0xc000371f20)({
+  opts: (*main.methodOptions)(0xc000424300)({
+   authType: (*main.supportedAuth)(0xc00007ef00)({
     id: (string) (len=5) "admin",
     name: (string) (len=5) "Admin",
     context: (map[string]string) (len=1) {
@@ -57,7 +57,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc000076320)({
+ (*main.Method)(0xc0002f6960)({
   in: (main.MethodMessage) {
    name: (string) (len=14) "AuthAppRequest",
    hasZeroFields: (bool) false
@@ -67,8 +67,8 @@
    name: (string) (len=7) "AuthApp",
    hasZeroFields: (bool) false
   },
-  opts: (*main.methodOptions)(0xc00006d680)({
-   authType: (*main.supportedAuth)(0xc000371fb0)({
+  opts: (*main.methodOptions)(0xc000424480)({
+   authType: (*main.supportedAuth)(0xc00007ef90)({
     id: (string) (len=5) "admin",
     name: (string) (len=5) "Admin",
     context: (map[string]string) (len=1) {
@@ -86,7 +86,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc0000763c0)({
+ (*main.Method)(0xc0002f6a00)({
   in: (main.MethodMessage) {
    name: (string) (len=5) "Empty",
    hasZeroFields: (bool) true
@@ -96,8 +96,8 @@
    name: (string) (len=12) "UsageMetrics",
    hasZeroFields: (bool) false
   },
-  opts: (*main.methodOptions)(0xc00006d800)({
-   authType: (*main.supportedAuth)(0xc00040a060)({
+  opts: (*main.methodOptions)(0xc000424600)({
+   authType: (*main.supportedAuth)(0xc00007f020)({
     id: (string) (len=7) "metrics",
     name: (string) (len=7) "Metrics",
     context: (map[string]string) (len=1) {
@@ -115,7 +115,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc000076460)({
+ (*main.Method)(0xc0002f6aa0)({
   in: (main.MethodMessage) {
    name: (string) (len=18) "AppsMetricsRequest",
    hasZeroFields: (bool) false
@@ -125,8 +125,8 @@
    name: (string) (len=11) "AppsMetrics",
    hasZeroFields: (bool) false
   },
-  opts: (*main.methodOptions)(0xc00006d980)({
-   authType: (*main.supportedAuth)(0xc00040a0f0)({
+  opts: (*main.methodOptions)(0xc000424780)({
+   authType: (*main.supportedAuth)(0xc00007f0b0)({
     id: (string) (len=7) "metrics",
     name: (string) (len=7) "Metrics",
     context: (map[string]string) (len=1) {
@@ -144,7 +144,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc000076500)({
+ (*main.Method)(0xc0002f6b40)({
   in: (main.MethodMessage) {
    name: (string) (len=17) "LndMetricsRequest",
    hasZeroFields: (bool) false
@@ -154,8 +154,8 @@
    name: (string) (len=10) "LndMetrics",
    hasZeroFields: (bool) false
   },
-  opts: (*main.methodOptions)(0xc00006db00)({
-   authType: (*main.supportedAuth)(0xc00040a180)({
+  opts: (*main.methodOptions)(0xc000424900)({
+   authType: (*main.supportedAuth)(0xc00007f140)({
     id: (string) (len=7) "metrics",
     name: (string) (len=7) "Metrics",
     context: (map[string]string) (len=1) {
@@ -173,7 +173,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc000076550)({
+ (*main.Method)(0xc0002f6b90)({
   in: (main.MethodMessage) {
    name: (string) (len=5) "Empty",
    hasZeroFields: (bool) true
@@ -183,8 +183,8 @@
    name: (string) (len=5) "Empty",
    hasZeroFields: (bool) true
   },
-  opts: (*main.methodOptions)(0xc00006dc80)({
-   authType: (*main.supportedAuth)(0xc00040a210)({
+  opts: (*main.methodOptions)(0xc000424a80)({
+   authType: (*main.supportedAuth)(0xc00007f1d0)({
     id: (string) (len=5) "guest",
     name: (string) (len=5) "Guest",
     context: (map[string]string) {
@@ -201,7 +201,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc0000765a0)({
+ (*main.Method)(0xc0002f6be0)({
   in: (main.MethodMessage) {
    name: (string) (len=25) "EncryptionExchangeRequest",
    hasZeroFields: (bool) false
@@ -211,8 +211,8 @@
    name: (string) (len=5) "Empty",
    hasZeroFields: (bool) true
   },
-  opts: (*main.methodOptions)(0xc00006de00)({
-   authType: (*main.supportedAuth)(0xc00040a2d0)({
+  opts: (*main.methodOptions)(0xc000424c00)({
+   authType: (*main.supportedAuth)(0xc00007f290)({
     id: (string) (len=5) "guest",
     name: (string) (len=5) "Guest",
     context: (map[string]string) {
@@ -229,7 +229,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc0000765f0)({
+ (*main.Method)(0xc0002f6c30)({
   in: (main.MethodMessage) {
    name: (string) (len=27) "SetMockInvoiceAsPaidRequest",
    hasZeroFields: (bool) false
@@ -239,8 +239,8 @@
    name: (string) (len=5) "Empty",
    hasZeroFields: (bool) true
   },
-  opts: (*main.methodOptions)(0xc00033b440)({
-   authType: (*main.supportedAuth)(0xc00040a360)({
+  opts: (*main.methodOptions)(0xc000424de0)({
+   authType: (*main.supportedAuth)(0xc00007f320)({
     id: (string) (len=5) "guest",
     name: (string) (len=5) "Guest",
     context: (map[string]string) {
@@ -257,7 +257,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc000076690)({
+ (*main.Method)(0xc0002f6cd0)({
   in: (main.MethodMessage) {
    name: (string) (len=5) "Empty",
    hasZeroFields: (bool) true
@@ -267,8 +267,8 @@
    name: (string) (len=25) "LnurlWithdrawInfoResponse",
    hasZeroFields: (bool) false
   },
-  opts: (*main.methodOptions)(0xc00033b7a0)({
-   authType: (*main.supportedAuth)(0xc00040a4b0)({
+  opts: (*main.methodOptions)(0xc000425140)({
+   authType: (*main.supportedAuth)(0xc00007f470)({
     id: (string) (len=5) "guest",
     name: (string) (len=5) "Guest",
     context: (map[string]string) {
@@ -287,7 +287,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc000076730)({
+ (*main.Method)(0xc0002f6d70)({
   in: (main.MethodMessage) {
    name: (string) (len=5) "Empty",
    hasZeroFields: (bool) true
@@ -297,8 +297,8 @@
    name: (string) (len=5) "Empty",
    hasZeroFields: (bool) true
   },
-  opts: (*main.methodOptions)(0xc00033bb00)({
-   authType: (*main.supportedAuth)(0xc00040a600)({
+  opts: (*main.methodOptions)(0xc0004254a0)({
+   authType: (*main.supportedAuth)(0xc00007f5c0)({
     id: (string) (len=5) "guest",
     name: (string) (len=5) "Guest",
     context: (map[string]string) {
@@ -318,7 +318,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc0000767d0)({
+ (*main.Method)(0xc0002f6e10)({
   in: (main.MethodMessage) {
    name: (string) (len=5) "Empty",
    hasZeroFields: (bool) true
@@ -328,8 +328,8 @@
    name: (string) (len=20) "LnurlPayInfoResponse",
    hasZeroFields: (bool) false
   },
-  opts: (*main.methodOptions)(0xc00033be60)({
-   authType: (*main.supportedAuth)(0xc00040a720)({
+  opts: (*main.methodOptions)(0xc000425800)({
+   authType: (*main.supportedAuth)(0xc00007f6e0)({
     id: (string) (len=5) "guest",
     name: (string) (len=5) "Guest",
     context: (map[string]string) {
@@ -348,7 +348,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc000076870)({
+ (*main.Method)(0xc0002f6eb0)({
   in: (main.MethodMessage) {
    name: (string) (len=5) "Empty",
    hasZeroFields: (bool) true
@@ -358,8 +358,8 @@
    name: (string) (len=22) "HandleLnurlPayResponse",
    hasZeroFields: (bool) false
   },
-  opts: (*main.methodOptions)(0xc00009c720)({
-   authType: (*main.supportedAuth)(0xc00040a870)({
+  opts: (*main.methodOptions)(0xc000425bc0)({
+   authType: (*main.supportedAuth)(0xc00007f830)({
     id: (string) (len=5) "guest",
     name: (string) (len=5) "Guest",
     context: (map[string]string) {
@@ -381,7 +381,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc0000768c0)({
+ (*main.Method)(0xc0002f6f00)({
   in: (main.MethodMessage) {
    name: (string) (len=5) "Empty",
    hasZeroFields: (bool) true
@@ -391,8 +391,8 @@
    name: (string) (len=20) "LnurlPayInfoResponse",
    hasZeroFields: (bool) false
   },
-  opts: (*main.methodOptions)(0xc00009c8a0)({
-   authType: (*main.supportedAuth)(0xc00040a900)({
+  opts: (*main.methodOptions)(0xc000425d40)({
+   authType: (*main.supportedAuth)(0xc00007f8c0)({
     id: (string) (len=5) "guest",
     name: (string) (len=5) "Guest",
     context: (map[string]string) {
@@ -411,7 +411,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc000076910)({
+ (*main.Method)(0xc0002f6f50)({
   in: (main.MethodMessage) {
    name: (string) (len=5) "Empty",
    hasZeroFields: (bool) true
@@ -421,8 +421,8 @@
    name: (string) (len=11) "Application",
    hasZeroFields: (bool) false
   },
-  opts: (*main.methodOptions)(0xc00009ca20)({
-   authType: (*main.supportedAuth)(0xc00040a990)({
+  opts: (*main.methodOptions)(0xc000425ec0)({
+   authType: (*main.supportedAuth)(0xc00007f950)({
     id: (string) (len=3) "app",
     name: (string) (len=3) "App",
     context: (map[string]string) (len=1) {
@@ -440,7 +440,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc0000769b0)({
+ (*main.Method)(0xc0002f6ff0)({
   in: (main.MethodMessage) {
    name: (string) (len=17) "AddAppUserRequest",
    hasZeroFields: (bool) false
@@ -450,8 +450,8 @@
    name: (string) (len=7) "AppUser",
    hasZeroFields: (bool) false
   },
-  opts: (*main.methodOptions)(0xc00009cba0)({
-   authType: (*main.supportedAuth)(0xc00040aa20)({
+  opts: (*main.methodOptions)(0xc00033f800)({
+   authType: (*main.supportedAuth)(0xc00007f9e0)({
     id: (string) (len=3) "app",
     name: (string) (len=3) "App",
     context: (map[string]string) (len=1) {
@@ -469,7 +469,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc000076a50)({
+ (*main.Method)(0xc0002f7090)({
   in: (main.MethodMessage) {
    name: (string) (len=20) "AddAppInvoiceRequest",
    hasZeroFields: (bool) false
@@ -479,8 +479,8 @@
    name: (string) (len=18) "NewInvoiceResponse",
    hasZeroFields: (bool) false
   },
-  opts: (*main.methodOptions)(0xc00009cd20)({
-   authType: (*main.supportedAuth)(0xc00040aab0)({
+  opts: (*main.methodOptions)(0xc00033f980)({
+   authType: (*main.supportedAuth)(0xc00007fa70)({
     id: (string) (len=3) "app",
     name: (string) (len=3) "App",
     context: (map[string]string) (len=1) {
@@ -498,7 +498,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc000076aa0)({
+ (*main.Method)(0xc0002f70e0)({
   in: (main.MethodMessage) {
    name: (string) (len=24) "AddAppUserInvoiceRequest",
    hasZeroFields: (bool) false
@@ -508,8 +508,8 @@
    name: (string) (len=18) "NewInvoiceResponse",
    hasZeroFields: (bool) false
   },
-  opts: (*main.methodOptions)(0xc00009cf60)({
-   authType: (*main.supportedAuth)(0xc00040ab40)({
+  opts: (*main.methodOptions)(0xc00033fb60)({
+   authType: (*main.supportedAuth)(0xc00007fb00)({
     id: (string) (len=3) "app",
     name: (string) (len=3) "App",
     context: (map[string]string) (len=1) {
@@ -527,7 +527,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc000076b40)({
+ (*main.Method)(0xc0002f7180)({
   in: (main.MethodMessage) {
    name: (string) (len=17) "GetAppUserRequest",
    hasZeroFields: (bool) false
@@ -537,8 +537,8 @@
    name: (string) (len=7) "AppUser",
    hasZeroFields: (bool) false
   },
-  opts: (*main.methodOptions)(0xc00009d140)({
-   authType: (*main.supportedAuth)(0xc00040abd0)({
+  opts: (*main.methodOptions)(0xc00033fce0)({
+   authType: (*main.supportedAuth)(0xc00007fb90)({
     id: (string) (len=3) "app",
     name: (string) (len=3) "App",
     context: (map[string]string) (len=1) {
@@ -556,7 +556,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc000076be0)({
+ (*main.Method)(0xc0002f7220)({
   in: (main.MethodMessage) {
    name: (string) (len=24) "PayAppUserInvoiceRequest",
    hasZeroFields: (bool) false
@@ -566,8 +566,8 @@
    name: (string) (len=18) "PayInvoiceResponse",
    hasZeroFields: (bool) false
   },
-  opts: (*main.methodOptions)(0xc00009d2c0)({
-   authType: (*main.supportedAuth)(0xc00040ac60)({
+  opts: (*main.methodOptions)(0xc00033fe60)({
+   authType: (*main.supportedAuth)(0xc00007fc20)({
     id: (string) (len=3) "app",
     name: (string) (len=3) "App",
     context: (map[string]string) (len=1) {
@@ -585,7 +585,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc000076c30)({
+ (*main.Method)(0xc0002f7270)({
   in: (main.MethodMessage) {
    name: (string) (len=34) "SendAppUserToAppUserPaymentRequest",
    hasZeroFields: (bool) false
@@ -595,8 +595,8 @@
    name: (string) (len=5) "Empty",
    hasZeroFields: (bool) true
   },
-  opts: (*main.methodOptions)(0xc000412000)({
-   authType: (*main.supportedAuth)(0xc00040acf0)({
+  opts: (*main.methodOptions)(0xc0004d4060)({
+   authType: (*main.supportedAuth)(0xc00007fcb0)({
     id: (string) (len=3) "app",
     name: (string) (len=3) "App",
     context: (map[string]string) (len=1) {
@@ -614,7 +614,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc000076cd0)({
+ (*main.Method)(0xc0002f7310)({
   in: (main.MethodMessage) {
    name: (string) (len=30) "SendAppUserToAppPaymentRequest",
    hasZeroFields: (bool) false
@@ -624,8 +624,8 @@
    name: (string) (len=5) "Empty",
    hasZeroFields: (bool) true
   },
-  opts: (*main.methodOptions)(0xc000412180)({
-   authType: (*main.supportedAuth)(0xc00040ad80)({
+  opts: (*main.methodOptions)(0xc0004d41e0)({
+   authType: (*main.supportedAuth)(0xc00007fd40)({
     id: (string) (len=3) "app",
     name: (string) (len=3) "App",
     context: (map[string]string) (len=1) {
@@ -643,7 +643,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc000076d20)({
+ (*main.Method)(0xc0002f7360)({
   in: (main.MethodMessage) {
    name: (string) (len=26) "GetAppUserLNURLInfoRequest",
    hasZeroFields: (bool) false
@@ -653,8 +653,8 @@
    name: (string) (len=20) "LnurlPayInfoResponse",
    hasZeroFields: (bool) false
   },
-  opts: (*main.methodOptions)(0xc000412300)({
-   authType: (*main.supportedAuth)(0xc00040ae10)({
+  opts: (*main.methodOptions)(0xc0004d4360)({
+   authType: (*main.supportedAuth)(0xc00007fdd0)({
     id: (string) (len=3) "app",
     name: (string) (len=3) "App",
     context: (map[string]string) (len=1) {
@@ -672,7 +672,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc000076d70)({
+ (*main.Method)(0xc0002f73b0)({
   in: (main.MethodMessage) {
    name: (string) (len=28) "SetMockAppUserBalanceRequest",
    hasZeroFields: (bool) false
@@ -682,8 +682,8 @@
    name: (string) (len=5) "Empty",
    hasZeroFields: (bool) true
   },
-  opts: (*main.methodOptions)(0xc000412480)({
-   authType: (*main.supportedAuth)(0xc00040aea0)({
+  opts: (*main.methodOptions)(0xc0004d44e0)({
+   authType: (*main.supportedAuth)(0xc00007fe60)({
     id: (string) (len=3) "app",
     name: (string) (len=3) "App",
     context: (map[string]string) (len=1) {
@@ -701,7 +701,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc000076dc0)({
+ (*main.Method)(0xc0002f7400)({
   in: (main.MethodMessage) {
    name: (string) (len=24) "SetMockAppBalanceRequest",
    hasZeroFields: (bool) false
@@ -711,8 +711,8 @@
    name: (string) (len=5) "Empty",
    hasZeroFields: (bool) true
   },
-  opts: (*main.methodOptions)(0xc000412660)({
-   authType: (*main.supportedAuth)(0xc00040af30)({
+  opts: (*main.methodOptions)(0xc0004d46c0)({
+   authType: (*main.supportedAuth)(0xc00007fef0)({
     id: (string) (len=3) "app",
     name: (string) (len=3) "App",
     context: (map[string]string) (len=1) {
@@ -730,7 +730,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc000076e10)({
+ (*main.Method)(0xc0002f7450)({
   in: (main.MethodMessage) {
    name: (string) (len=5) "Empty",
    hasZeroFields: (bool) true
@@ -740,14 +740,14 @@
    name: (string) (len=8) "UserInfo",
    hasZeroFields: (bool) false
   },
-  opts: (*main.methodOptions)(0xc000412840)({
-   authType: (*main.supportedAuth)(0xc00040aff0)({
+  opts: (*main.methodOptions)(0xc0004d48a0)({
+   authType: (*main.supportedAuth)(0xc00007ffb0)({
     id: (string) (len=4) "user",
     name: (string) (len=4) "User",
     context: (map[string]string) (len=3) {
+     (string) (len=6) "app_id": (string) (len=6) "string",
      (string) (len=11) "app_user_id": (string) (len=6) "string",
-     (string) (len=7) "user_id": (string) (len=6) "string",
-     (string) (len=6) "app_id": (string) (len=6) "string"
+     (string) (len=7) "user_id": (string) (len=6) "string"
     }
    }),
    method: (string) (len=4) "post",
@@ -761,7 +761,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc000076eb0)({
+ (*main.Method)(0xc0002f74f0)({
   in: (main.MethodMessage) {
    name: (string) (len=17) "AddProductRequest",
    hasZeroFields: (bool) false
@@ -771,8 +771,8 @@
    name: (string) (len=7) "Product",
    hasZeroFields: (bool) false
   },
-  opts: (*main.methodOptions)(0xc000412a20)({
-   authType: (*main.supportedAuth)(0xc00040b080)({
+  opts: (*main.methodOptions)(0xc0004d4a80)({
+   authType: (*main.supportedAuth)(0xc0004cb500)({
     id: (string) (len=4) "user",
     name: (string) (len=4) "User",
     context: (map[string]string) (len=3) {
@@ -792,7 +792,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc000076f00)({
+ (*main.Method)(0xc0002f7540)({
   in: (main.MethodMessage) {
    name: (string) (len=5) "Empty",
    hasZeroFields: (bool) true
@@ -802,14 +802,14 @@
    name: (string) (len=18) "NewInvoiceResponse",
    hasZeroFields: (bool) false
   },
-  opts: (*main.methodOptions)(0xc000412d20)({
-   authType: (*main.supportedAuth)(0xc00040b1a0)({
+  opts: (*main.methodOptions)(0xc0004d4f00)({
+   authType: (*main.supportedAuth)(0xc0004cb620)({
     id: (string) (len=4) "user",
     name: (string) (len=4) "User",
     context: (map[string]string) (len=3) {
+     (string) (len=6) "app_id": (string) (len=6) "string",
      (string) (len=11) "app_user_id": (string) (len=6) "string",
-     (string) (len=7) "user_id": (string) (len=6) "string",
-     (string) (len=6) "app_id": (string) (len=6) "string"
+     (string) (len=7) "user_id": (string) (len=6) "string"
     }
    }),
    method: (string) (len=3) "get",
@@ -825,7 +825,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc000076f50)({
+ (*main.Method)(0xc0002f7590)({
   in: (main.MethodMessage) {
    name: (string) (len=24) "GetUserOperationsRequest",
    hasZeroFields: (bool) false
@@ -835,8 +835,8 @@
    name: (string) (len=25) "GetUserOperationsResponse",
    hasZeroFields: (bool) false
   },
-  opts: (*main.methodOptions)(0xc000412f00)({
-   authType: (*main.supportedAuth)(0xc00040b230)({
+  opts: (*main.methodOptions)(0xc0004d50e0)({
+   authType: (*main.supportedAuth)(0xc0004cb6b0)({
     id: (string) (len=4) "user",
     name: (string) (len=4) "User",
     context: (map[string]string) (len=3) {
@@ -856,7 +856,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc000076ff0)({
+ (*main.Method)(0xc0002f7630)({
   in: (main.MethodMessage) {
    name: (string) (len=17) "NewAddressRequest",
    hasZeroFields: (bool) false
@@ -866,8 +866,8 @@
    name: (string) (len=18) "NewAddressResponse",
    hasZeroFields: (bool) false
   },
-  opts: (*main.methodOptions)(0xc0004130e0)({
-   authType: (*main.supportedAuth)(0xc00040b2c0)({
+  opts: (*main.methodOptions)(0xc0004d52c0)({
+   authType: (*main.supportedAuth)(0xc0004cb740)({
     id: (string) (len=4) "user",
     name: (string) (len=4) "User",
     context: (map[string]string) (len=3) {
@@ -887,7 +887,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc000077090)({
+ (*main.Method)(0xc0002f76d0)({
   in: (main.MethodMessage) {
    name: (string) (len=17) "PayAddressRequest",
    hasZeroFields: (bool) false
@@ -897,14 +897,14 @@
    name: (string) (len=18) "PayAddressResponse",
    hasZeroFields: (bool) false
   },
-  opts: (*main.methodOptions)(0xc0004132c0)({
-   authType: (*main.supportedAuth)(0xc00040b350)({
+  opts: (*main.methodOptions)(0xc0004d54a0)({
+   authType: (*main.supportedAuth)(0xc0004cb7d0)({
     id: (string) (len=4) "user",
     name: (string) (len=4) "User",
     context: (map[string]string) (len=3) {
-     (string) (len=6) "app_id": (string) (len=6) "string",
      (string) (len=11) "app_user_id": (string) (len=6) "string",
-     (string) (len=7) "user_id": (string) (len=6) "string"
+     (string) (len=7) "user_id": (string) (len=6) "string",
+     (string) (len=6) "app_id": (string) (len=6) "string"
     }
    }),
    method: (string) (len=4) "post",
@@ -918,7 +918,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc000077130)({
+ (*main.Method)(0xc0002f7770)({
   in: (main.MethodMessage) {
    name: (string) (len=17) "NewInvoiceRequest",
    hasZeroFields: (bool) false
@@ -928,8 +928,8 @@
    name: (string) (len=18) "NewInvoiceResponse",
    hasZeroFields: (bool) false
   },
-  opts: (*main.methodOptions)(0xc0004134a0)({
-   authType: (*main.supportedAuth)(0xc00040b3e0)({
+  opts: (*main.methodOptions)(0xc0004d5680)({
+   authType: (*main.supportedAuth)(0xc0004cb860)({
     id: (string) (len=4) "user",
     name: (string) (len=4) "User",
     context: (map[string]string) (len=3) {
@@ -949,7 +949,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc0000771d0)({
+ (*main.Method)(0xc0002f7810)({
   in: (main.MethodMessage) {
    name: (string) (len=20) "DecodeInvoiceRequest",
    hasZeroFields: (bool) false
@@ -959,8 +959,8 @@
    name: (string) (len=21) "DecodeInvoiceResponse",
    hasZeroFields: (bool) false
   },
-  opts: (*main.methodOptions)(0xc000413680)({
-   authType: (*main.supportedAuth)(0xc00040b470)({
+  opts: (*main.methodOptions)(0xc0004d5860)({
+   authType: (*main.supportedAuth)(0xc0004cb8f0)({
     id: (string) (len=4) "user",
     name: (string) (len=4) "User",
     context: (map[string]string) (len=3) {
@@ -980,7 +980,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc000077270)({
+ (*main.Method)(0xc0002f78b0)({
   in: (main.MethodMessage) {
    name: (string) (len=17) "PayInvoiceRequest",
    hasZeroFields: (bool) false
@@ -990,14 +990,14 @@
    name: (string) (len=18) "PayInvoiceResponse",
    hasZeroFields: (bool) false
   },
-  opts: (*main.methodOptions)(0xc000413860)({
-   authType: (*main.supportedAuth)(0xc00040b500)({
+  opts: (*main.methodOptions)(0xc0004d5a40)({
+   authType: (*main.supportedAuth)(0xc0004cb980)({
     id: (string) (len=4) "user",
     name: (string) (len=4) "User",
     context: (map[string]string) (len=3) {
+     (string) (len=11) "app_user_id": (string) (len=6) "string",
      (string) (len=7) "user_id": (string) (len=6) "string",
-     (string) (len=6) "app_id": (string) (len=6) "string",
-     (string) (len=11) "app_user_id": (string) (len=6) "string"
+     (string) (len=6) "app_id": (string) (len=6) "string"
     }
    }),
    method: (string) (len=4) "post",
@@ -1011,7 +1011,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc000077310)({
+ (*main.Method)(0xc0002f7950)({
   in: (main.MethodMessage) {
    name: (string) (len=18) "OpenChannelRequest",
    hasZeroFields: (bool) false
@@ -1021,8 +1021,8 @@
    name: (string) (len=19) "OpenChannelResponse",
    hasZeroFields: (bool) false
   },
-  opts: (*main.methodOptions)(0xc000413a40)({
-   authType: (*main.supportedAuth)(0xc00040b590)({
+  opts: (*main.methodOptions)(0xc0004d5c20)({
+   authType: (*main.supportedAuth)(0xc0004cba10)({
     id: (string) (len=4) "user",
     name: (string) (len=4) "User",
     context: (map[string]string) (len=3) {
@@ -1042,7 +1042,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc0000773b0)({
+ (*main.Method)(0xc0002f79f0)({
   in: (main.MethodMessage) {
    name: (string) (len=5) "Empty",
    hasZeroFields: (bool) true
@@ -1052,8 +1052,8 @@
    name: (string) (len=17) "LnurlLinkResponse",
    hasZeroFields: (bool) false
   },
-  opts: (*main.methodOptions)(0xc000413c20)({
-   authType: (*main.supportedAuth)(0xc00040b620)({
+  opts: (*main.methodOptions)(0xc0004d5e00)({
+   authType: (*main.supportedAuth)(0xc0004cbaa0)({
     id: (string) (len=4) "user",
     name: (string) (len=4) "User",
     context: (map[string]string) (len=3) {
@@ -1073,7 +1073,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc000077450)({
+ (*main.Method)(0xc0002f7a90)({
   in: (main.MethodMessage) {
    name: (string) (len=5) "Empty",
    hasZeroFields: (bool) true
@@ -1083,8 +1083,8 @@
    name: (string) (len=17) "LnurlLinkResponse",
    hasZeroFields: (bool) false
   },
-  opts: (*main.methodOptions)(0xc000413e00)({
-   authType: (*main.supportedAuth)(0xc00040b6b0)({
+  opts: (*main.methodOptions)(0xc0004d8000)({
+   authType: (*main.supportedAuth)(0xc0004cbb30)({
     id: (string) (len=4) "user",
     name: (string) (len=4) "User",
     context: (map[string]string) (len=3) {
@@ -1104,7 +1104,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc0000774f0)({
+ (*main.Method)(0xc0002f7b30)({
   in: (main.MethodMessage) {
    name: (string) (len=5) "Empty",
    hasZeroFields: (bool) true
@@ -1114,14 +1114,14 @@
    name: (string) (len=17) "LnurlLinkResponse",
    hasZeroFields: (bool) false
   },
-  opts: (*main.methodOptions)(0xc0004d0180)({
-   authType: (*main.supportedAuth)(0xc00040b740)({
+  opts: (*main.methodOptions)(0xc0004d81e0)({
+   authType: (*main.supportedAuth)(0xc0004cbbc0)({
     id: (string) (len=4) "user",
     name: (string) (len=4) "User",
     context: (map[string]string) (len=3) {
-     (string) (len=7) "user_id": (string) (len=6) "string",
      (string) (len=6) "app_id": (string) (len=6) "string",
-     (string) (len=11) "app_user_id": (string) (len=6) "string"
+     (string) (len=11) "app_user_id": (string) (len=6) "string",
+     (string) (len=7) "user_id": (string) (len=6) "string"
     }
    }),
    method: (string) (len=4) "post",
@@ -1135,7 +1135,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc000077590)({
+ (*main.Method)(0xc0002f7bd0)({
   in: (main.MethodMessage) {
    name: (string) (len=5) "Empty",
    hasZeroFields: (bool) true
@@ -1145,14 +1145,14 @@
    name: (string) (len=17) "LiveUserOperation",
    hasZeroFields: (bool) false
   },
-  opts: (*main.methodOptions)(0xc0004d0360)({
-   authType: (*main.supportedAuth)(0xc00040b7d0)({
+  opts: (*main.methodOptions)(0xc0004d83c0)({
+   authType: (*main.supportedAuth)(0xc0004cbc50)({
     id: (string) (len=4) "user",
     name: (string) (len=4) "User",
     context: (map[string]string) (len=3) {
+     (string) (len=7) "user_id": (string) (len=6) "string",
      (string) (len=6) "app_id": (string) (len=6) "string",
-     (string) (len=11) "app_user_id": (string) (len=6) "string",
-     (string) (len=7) "user_id": (string) (len=6) "string"
+     (string) (len=11) "app_user_id": (string) (len=6) "string"
     }
    }),
    method: (string) (len=4) "post",
@@ -1166,7 +1166,7 @@
   }),
   serverStream: (bool) true
  }),
- (*main.Method)(0xc000077630)({
+ (*main.Method)(0xc0002f7c70)({
   in: (main.MethodMessage) {
    name: (string) (len=5) "Empty",
    hasZeroFields: (bool) true
@@ -1176,8 +1176,8 @@
    name: (string) (len=15) "MigrationUpdate",
    hasZeroFields: (bool) false
   },
-  opts: (*main.methodOptions)(0xc0004d0540)({
-   authType: (*main.supportedAuth)(0xc00040b860)({
+  opts: (*main.methodOptions)(0xc0004d85a0)({
+   authType: (*main.supportedAuth)(0xc0004cbce0)({
     id: (string) (len=4) "user",
     name: (string) (len=4) "User",
     context: (map[string]string) (len=3) {
@@ -1197,7 +1197,7 @@
   }),
   serverStream: (bool) true
  }),
- (*main.Method)(0xc000077680)({
+ (*main.Method)(0xc0002f7cc0)({
   in: (main.MethodMessage) {
    name: (string) (len=5) "Empty",
    hasZeroFields: (bool) true
@@ -1207,8 +1207,8 @@
    name: (string) (len=5) "Empty",
    hasZeroFields: (bool) true
   },
-  opts: (*main.methodOptions)(0xc0004d0780)({
-   authType: (*main.supportedAuth)(0xc00040b920)({
+  opts: (*main.methodOptions)(0xc0004d87e0)({
+   authType: (*main.supportedAuth)(0xc0004cbda0)({
     id: (string) (len=4) "user",
     name: (string) (len=4) "User",
     context: (map[string]string) (len=3) {
@@ -1231,7 +1231,7 @@
 }
 
 ([]*main.Enum) (len=2 cap=2) {
- (*main.Enum)(0xc000371560)({
+ (*main.Enum)(0xc0004caf30)({
   name: (string) (len=11) "AddressType",
   values: ([]main.EnumValue) (len=3 cap=4) {
    (main.EnumValue) {
@@ -1248,7 +1248,7 @@
    }
   }
  }),
- (*main.Enum)(0xc0003715c0)({
+ (*main.Enum)(0xc0004caf90)({
   name: (string) (len=17) "UserOperationType",
   values: ([]main.EnumValue) (len=6 cap=8) {
    (main.EnumValue) {
@@ -1279,1637 +1279,12 @@
  })
 }
 
-(map[string]*main.Message) (len=60) {
- (string) (len=18) "LndGetInfoResponse": (*main.Message)(0xc000492e80)({
-  fullName: (string) (len=18) "LndGetInfoResponse",
-  name: (string) (len=18) "LndGetInfoResponse",
-  fields: ([]*main.Field) (len=1 cap=1) {
-   (*main.Field)(0xc0001fbe60)({
-    name: (string) (len=5) "alias",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=7) "AppUser": (*main.Message)(0xc000493000)({
-  fullName: (string) (len=7) "AppUser",
-  name: (string) (len=7) "AppUser",
-  fields: ([]*main.Field) (len=3 cap=4) {
-   (*main.Field)(0xc000370120)({
-    name: (string) (len=10) "identifier",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000370150)({
-    name: (string) (len=4) "info",
-    kind: (string) (len=8) "UserInfo",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) true,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000370180)({
-    name: (string) (len=16) "max_withdrawable",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=8) "UserInfo": (*main.Message)(0xc000493740)({
-  fullName: (string) (len=8) "UserInfo",
-  name: (string) (len=8) "UserInfo",
-  fields: ([]*main.Field) (len=3 cap=4) {
-   (*main.Field)(0xc000370e10)({
-    name: (string) (len=6) "userId",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000370e40)({
-    name: (string) (len=7) "balance",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000370e70)({
-    name: (string) (len=16) "max_withdrawable",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=19) "OpenChannelResponse": (*main.Message)(0xc000493580)({
-  fullName: (string) (len=19) "OpenChannelResponse",
-  name: (string) (len=19) "OpenChannelResponse",
-  fields: ([]*main.Field) (len=1 cap=1) {
-   (*main.Field)(0xc000370a50)({
-    name: (string) (len=9) "channelId",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=17) "AddProductRequest": (*main.Message)(0xc000493940)({
-  fullName: (string) (len=17) "AddProductRequest",
-  name: (string) (len=17) "AddProductRequest",
-  fields: ([]*main.Field) (len=2 cap=2) {
-   (*main.Field)(0xc000371320)({
-    name: (string) (len=4) "name",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000371350)({
-    name: (string) (len=10) "price_sats",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=18) "AppsMetricsRequest": (*main.Message)(0xc000492ac0)({
-  fullName: (string) (len=18) "AppsMetricsRequest",
-  name: (string) (len=18) "AppsMetricsRequest",
-  fields: ([]*main.Field) (len=3 cap=4) {
-   (*main.Field)(0xc0001fb5c0)({
-    name: (string) (len=9) "from_unix",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) true
-   }),
-   (*main.Field)(0xc0001fb5f0)({
-    name: (string) (len=7) "to_unix",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) true
-   }),
-   (*main.Field)(0xc0001fb620)({
-    name: (string) (len=18) "include_operations",
-    kind: (string) (len=4) "bool",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) true
-   })
-  }
- }),
- (string) (len=27) "SetMockInvoiceAsPaidRequest": (*main.Message)(0xc000492e40)({
-  fullName: (string) (len=27) "SetMockInvoiceAsPaidRequest",
-  name: (string) (len=27) "SetMockInvoiceAsPaidRequest",
-  fields: ([]*main.Field) (len=2 cap=2) {
-   (*main.Field)(0xc0001fbe00)({
-    name: (string) (len=7) "invoice",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0001fbe30)({
-    name: (string) (len=6) "amount",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=18) "NewInvoiceResponse": (*main.Message)(0xc0004933c0)({
-  fullName: (string) (len=18) "NewInvoiceResponse",
-  name: (string) (len=18) "NewInvoiceResponse",
-  fields: ([]*main.Field) (len=1 cap=1) {
-   (*main.Field)(0xc0003707b0)({
-    name: (string) (len=7) "invoice",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=17) "LiveUserOperation": (*main.Message)(0xc000493a00)({
-  fullName: (string) (len=17) "LiveUserOperation",
-  name: (string) (len=17) "LiveUserOperation",
-  fields: ([]*main.Field) (len=1 cap=1) {
-   (*main.Field)(0xc000371440)({
-    name: (string) (len=9) "operation",
-    kind: (string) (len=13) "UserOperation",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) true,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=16) "ClosureMigration": (*main.Message)(0xc000493a80)({
-  fullName: (string) (len=16) "ClosureMigration",
-  name: (string) (len=16) "ClosureMigration",
-  fields: ([]*main.Field) (len=1 cap=1) {
-   (*main.Field)(0xc0003714d0)({
-    name: (string) (len=14) "closes_at_unix",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=12) "UsageMetrics": (*main.Message)(0xc000492a80)({
-  fullName: (string) (len=12) "UsageMetrics",
-  name: (string) (len=12) "UsageMetrics",
-  fields: ([]*main.Field) (len=1 cap=1) {
-   (*main.Field)(0xc0001fb590)({
-    name: (string) (len=7) "metrics",
-    kind: (string) (len=11) "UsageMetric",
-    isMap: (bool) false,
-    isArray: (bool) true,
-    isEnum: (bool) false,
-    isMessage: (bool) true,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=17) "ChainBalanceEvent": (*main.Message)(0xc000492d40)({
-  fullName: (string) (len=17) "ChainBalanceEvent",
-  name: (string) (len=17) "ChainBalanceEvent",
-  fields: ([]*main.Field) (len=4 cap=4) {
-   (*main.Field)(0xc0001fbc50)({
-    name: (string) (len=12) "block_height",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0001fbc80)({
-    name: (string) (len=17) "confirmed_balance",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0001fbcb0)({
-    name: (string) (len=19) "unconfirmed_balance",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0001fbce0)({
-    name: (string) (len=13) "total_balance",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=17) "NewInvoiceRequest": (*main.Message)(0xc000493380)({
-  fullName: (string) (len=17) "NewInvoiceRequest",
-  name: (string) (len=17) "NewInvoiceRequest",
-  fields: ([]*main.Field) (len=2 cap=2) {
-   (*main.Field)(0xc000370750)({
-    name: (string) (len=10) "amountSats",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000370780)({
-    name: (string) (len=4) "memo",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=24) "PayAppUserInvoiceRequest": (*main.Message)(0xc000493100)({
-  fullName: (string) (len=24) "PayAppUserInvoiceRequest",
-  name: (string) (len=24) "PayAppUserInvoiceRequest",
-  fields: ([]*main.Field) (len=3 cap=4) {
-   (*main.Field)(0xc000370330)({
-    name: (string) (len=15) "user_identifier",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000370360)({
-    name: (string) (len=7) "invoice",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000370390)({
-    name: (string) (len=6) "amount",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=34) "SendAppUserToAppUserPaymentRequest": (*main.Message)(0xc000493140)({
-  fullName: (string) (len=34) "SendAppUserToAppUserPaymentRequest",
-  name: (string) (len=34) "SendAppUserToAppUserPaymentRequest",
-  fields: ([]*main.Field) (len=3 cap=4) {
-   (*main.Field)(0xc0003703c0)({
-    name: (string) (len=20) "from_user_identifier",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0003703f0)({
-    name: (string) (len=18) "to_user_identifier",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000370420)({
-    name: (string) (len=6) "amount",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=13) "AddAppRequest": (*main.Message)(0xc000492ec0)({
-  fullName: (string) (len=13) "AddAppRequest",
-  name: (string) (len=13) "AddAppRequest",
-  fields: ([]*main.Field) (len=2 cap=2) {
-   (*main.Field)(0xc0001fbe90)({
-    name: (string) (len=4) "name",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0001fbec0)({
-    name: (string) (len=19) "allow_user_creation",
-    kind: (string) (len=4) "bool",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=24) "AddAppUserInvoiceRequest": (*main.Message)(0xc000493080)({
-  fullName: (string) (len=24) "AddAppUserInvoiceRequest",
-  name: (string) (len=24) "AddAppUserInvoiceRequest",
-  fields: ([]*main.Field) (len=4 cap=4) {
-   (*main.Field)(0xc000370240)({
-    name: (string) (len=19) "receiver_identifier",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000370270)({
-    name: (string) (len=16) "payer_identifier",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0003702a0)({
-    name: (string) (len=17) "http_callback_url",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0003702d0)({
-    name: (string) (len=11) "invoice_req",
-    kind: (string) (len=17) "NewInvoiceRequest",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) true,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=17) "GetAppUserRequest": (*main.Message)(0xc0004930c0)({
-  fullName: (string) (len=17) "GetAppUserRequest",
-  name: (string) (len=17) "GetAppUserRequest",
-  fields: ([]*main.Field) (len=1 cap=1) {
-   (*main.Field)(0xc000370300)({
-    name: (string) (len=15) "user_identifier",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=11) "AppsMetrics": (*main.Message)(0xc000492c00)({
-  fullName: (string) (len=11) "AppsMetrics",
-  name: (string) (len=11) "AppsMetrics",
-  fields: ([]*main.Field) (len=1 cap=1) {
-   (*main.Field)(0xc0001fb8c0)({
-    name: (string) (len=4) "apps",
-    kind: (string) (len=10) "AppMetrics",
-    isMap: (bool) false,
-    isArray: (bool) true,
-    isEnum: (bool) false,
-    isMessage: (bool) true,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=22) "HandleLnurlPayResponse": (*main.Message)(0xc000493700)({
-  fullName: (string) (len=22) "HandleLnurlPayResponse",
-  name: (string) (len=22) "HandleLnurlPayResponse",
-  fields: ([]*main.Field) (len=2 cap=2) {
-   (*main.Field)(0xc000370db0)({
-    name: (string) (len=2) "pr",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000370de0)({
-    name: (string) (len=6) "routes",
-    kind: (string) (len=5) "Empty",
-    isMap: (bool) false,
-    isArray: (bool) true,
-    isEnum: (bool) false,
-    isMessage: (bool) true,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=24) "SetMockAppBalanceRequest": (*main.Message)(0xc000493240)({
-  fullName: (string) (len=24) "SetMockAppBalanceRequest",
-  name: (string) (len=24) "SetMockAppBalanceRequest",
-  fields: ([]*main.Field) (len=1 cap=1) {
-   (*main.Field)(0xc000370570)({
-    name: (string) (len=6) "amount",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=18) "PayInvoiceResponse": (*main.Message)(0xc000493500)({
-  fullName: (string) (len=18) "PayInvoiceResponse",
-  name: (string) (len=18) "PayInvoiceResponse",
-  fields: ([]*main.Field) (len=5 cap=8) {
-   (*main.Field)(0xc0003708a0)({
-    name: (string) (len=8) "preimage",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0003708d0)({
-    name: (string) (len=11) "amount_paid",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000370900)({
-    name: (string) (len=12) "operation_id",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000370930)({
-    name: (string) (len=11) "service_fee",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000370960)({
-    name: (string) (len=11) "network_fee",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=25) "LnurlWithdrawInfoResponse": (*main.Message)(0xc000493640)({
-  fullName: (string) (len=25) "LnurlWithdrawInfoResponse",
-  name: (string) (len=25) "LnurlWithdrawInfoResponse",
-  fields: ([]*main.Field) (len=8 cap=8) {
-   (*main.Field)(0xc000370ae0)({
-    name: (string) (len=3) "tag",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000370b10)({
-    name: (string) (len=8) "callback",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000370b40)({
-    name: (string) (len=2) "k1",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000370b70)({
-    name: (string) (len=18) "defaultDescription",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000370ba0)({
-    name: (string) (len=15) "minWithdrawable",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000370bd0)({
-    name: (string) (len=15) "maxWithdrawable",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000370c00)({
-    name: (string) (len=12) "balanceCheck",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000370c30)({
-    name: (string) (len=7) "payLink",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=17) "LndMetricsRequest": (*main.Message)(0xc000492c40)({
-  fullName: (string) (len=17) "LndMetricsRequest",
-  name: (string) (len=17) "LndMetricsRequest",
-  fields: ([]*main.Field) (len=2 cap=2) {
-   (*main.Field)(0xc0001fb8f0)({
-    name: (string) (len=9) "from_unix",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) true
-   }),
-   (*main.Field)(0xc0001fb920)({
-    name: (string) (len=7) "to_unix",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) true
-   })
-  }
- }),
- (string) (len=19) "ChannelBalanceEvent": (*main.Message)(0xc000492d00)({
-  fullName: (string) (len=19) "ChannelBalanceEvent",
-  name: (string) (len=19) "ChannelBalanceEvent",
-  fields: ([]*main.Field) (len=4 cap=4) {
-   (*main.Field)(0xc0001fbb90)({
-    name: (string) (len=12) "block_height",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0001fbbc0)({
-    name: (string) (len=10) "channel_id",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0001fbbf0)({
-    name: (string) (len=18) "local_balance_sats",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0001fbc20)({
-    name: (string) (len=19) "remote_balance_sats",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=7) "AuthApp": (*main.Message)(0xc000492f80)({
-  fullName: (string) (len=7) "AuthApp",
-  name: (string) (len=7) "AuthApp",
-  fields: ([]*main.Field) (len=2 cap=2) {
-   (*main.Field)(0xc000370030)({
-    name: (string) (len=3) "app",
-    kind: (string) (len=11) "Application",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) true,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000370060)({
-    name: (string) (len=10) "auth_token",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=28) "SetMockAppUserBalanceRequest": (*main.Message)(0xc000493200)({
-  fullName: (string) (len=28) "SetMockAppUserBalanceRequest",
-  name: (string) (len=28) "SetMockAppUserBalanceRequest",
-  fields: ([]*main.Field) (len=2 cap=2) {
-   (*main.Field)(0xc000370510)({
-    name: (string) (len=15) "user_identifier",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000370540)({
-    name: (string) (len=6) "amount",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=17) "PayAddressRequest": (*main.Message)(0xc000493300)({
-  fullName: (string) (len=17) "PayAddressRequest",
-  name: (string) (len=17) "PayAddressRequest",
-  fields: ([]*main.Field) (len=3 cap=4) {
-   (*main.Field)(0xc000370600)({
-    name: (string) (len=7) "address",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000370630)({
-    name: (string) (len=9) "amoutSats",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000370660)({
-    name: (string) (len=12) "satsPerVByte",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=18) "OpenChannelRequest": (*main.Message)(0xc000493540)({
-  fullName: (string) (len=18) "OpenChannelRequest",
-  name: (string) (len=18) "OpenChannelRequest",
-  fields: ([]*main.Field) (len=4 cap=4) {
-   (*main.Field)(0xc000370990)({
-    name: (string) (len=11) "destination",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0003709c0)({
-    name: (string) (len=13) "fundingAmount",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0003709f0)({
-    name: (string) (len=10) "pushAmount",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000370a20)({
-    name: (string) (len=12) "closeAddress",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=25) "GetProductBuyLinkResponse": (*main.Message)(0xc0004939c0)({
-  fullName: (string) (len=25) "GetProductBuyLinkResponse",
-  name: (string) (len=25) "GetProductBuyLinkResponse",
-  fields: ([]*main.Field) (len=1 cap=1) {
-   (*main.Field)(0xc000371410)({
-    name: (string) (len=4) "link",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=15) "RelaysMigration": (*main.Message)(0xc000493ac0)({
-  fullName: (string) (len=15) "RelaysMigration",
-  name: (string) (len=15) "RelaysMigration",
-  fields: ([]*main.Field) (len=1 cap=1) {
-   (*main.Field)(0xc000371500)({
-    name: (string) (len=6) "relays",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) true,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=5) "Empty": (*main.Message)(0xc000492980)({
-  fullName: (string) (len=5) "Empty",
-  name: (string) (len=5) "Empty",
-  fields: ([]*main.Field) <nil>
- }),
- (string) (len=17) "AddAppUserRequest": (*main.Message)(0xc000492fc0)({
-  fullName: (string) (len=17) "AddAppUserRequest",
-  name: (string) (len=17) "AddAppUserRequest",
-  fields: ([]*main.Field) (len=3 cap=4) {
-   (*main.Field)(0xc000370090)({
-    name: (string) (len=10) "identifier",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0003700c0)({
-    name: (string) (len=14) "fail_if_exists",
-    kind: (string) (len=4) "bool",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0003700f0)({
-    name: (string) (len=7) "balance",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=18) "PayAddressResponse": (*main.Message)(0xc000493340)({
-  fullName: (string) (len=18) "PayAddressResponse",
-  name: (string) (len=18) "PayAddressResponse",
-  fields: ([]*main.Field) (len=4 cap=4) {
-   (*main.Field)(0xc000370690)({
-    name: (string) (len=4) "txId",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0003706c0)({
-    name: (string) (len=12) "operation_id",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0003706f0)({
-    name: (string) (len=11) "service_fee",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000370720)({
-    name: (string) (len=11) "network_fee",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=17) "NewAddressRequest": (*main.Message)(0xc000493280)({
-  fullName: (string) (len=17) "NewAddressRequest",
-  name: (string) (len=17) "NewAddressRequest",
-  fields: ([]*main.Field) (len=1 cap=1) {
-   (*main.Field)(0xc0003705a0)({
-    name: (string) (len=11) "addressType",
-    kind: (string) (len=11) "AddressType",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) true,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=20) "DecodeInvoiceRequest": (*main.Message)(0xc000493400)({
-  fullName: (string) (len=20) "DecodeInvoiceRequest",
-  name: (string) (len=20) "DecodeInvoiceRequest",
-  fields: ([]*main.Field) (len=1 cap=1) {
-   (*main.Field)(0xc0003707e0)({
-    name: (string) (len=7) "invoice",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=17) "LnurlLinkResponse": (*main.Message)(0xc0004935c0)({
-  fullName: (string) (len=17) "LnurlLinkResponse",
-  name: (string) (len=17) "LnurlLinkResponse",
-  fields: ([]*main.Field) (len=2 cap=2) {
-   (*main.Field)(0xc000370a80)({
-    name: (string) (len=5) "lnurl",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000370ab0)({
-    name: (string) (len=2) "k1",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=15) "MigrationUpdate": (*main.Message)(0xc000493a40)({
-  fullName: (string) (len=15) "MigrationUpdate",
-  name: (string) (len=15) "MigrationUpdate",
-  fields: ([]*main.Field) (len=2 cap=2) {
-   (*main.Field)(0xc000371470)({
-    name: (string) (len=7) "closure",
-    kind: (string) (len=16) "ClosureMigration",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) true,
-    isOptional: (bool) true
-   }),
-   (*main.Field)(0xc0003714a0)({
-    name: (string) (len=6) "relays",
-    kind: (string) (len=15) "RelaysMigration",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) true,
-    isOptional: (bool) true
-   })
-  }
- }),
- (string) (len=14) "LndNodeMetrics": (*main.Message)(0xc000492d80)({
-  fullName: (string) (len=14) "LndNodeMetrics",
-  name: (string) (len=14) "LndNodeMetrics",
-  fields: ([]*main.Field) (len=3 cap=4) {
-   (*main.Field)(0xc0001fbd10)({
-    name: (string) (len=23) "channels_balance_events",
-    kind: (string) (len=19) "ChannelBalanceEvent",
-    isMap: (bool) false,
-    isArray: (bool) true,
-    isEnum: (bool) false,
-    isMessage: (bool) true,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0001fbd40)({
-    name: (string) (len=20) "chain_balance_events",
-    kind: (string) (len=17) "ChainBalanceEvent",
-    isMap: (bool) false,
-    isArray: (bool) true,
-    isEnum: (bool) false,
-    isMessage: (bool) true,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0001fbd70)({
-    name: (string) (len=14) "routing_events",
-    kind: (string) (len=12) "RoutingEvent",
-    isMap: (bool) false,
-    isArray: (bool) true,
-    isEnum: (bool) false,
-    isMessage: (bool) true,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=14) "AuthAppRequest": (*main.Message)(0xc000492f00)({
-  fullName: (string) (len=14) "AuthAppRequest",
-  name: (string) (len=14) "AuthAppRequest",
-  fields: ([]*main.Field) (len=2 cap=2) {
-   (*main.Field)(0xc0001fbef0)({
-    name: (string) (len=4) "name",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0001fbf20)({
-    name: (string) (len=19) "allow_user_creation",
-    kind: (string) (len=4) "bool",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) true
-   })
-  }
- }),
- (string) (len=11) "Application": (*main.Message)(0xc000492f40)({
-  fullName: (string) (len=11) "Application",
-  name: (string) (len=11) "Application",
-  fields: ([]*main.Field) (len=4 cap=4) {
-   (*main.Field)(0xc0001fbf50)({
-    name: (string) (len=4) "name",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0001fbf80)({
-    name: (string) (len=2) "id",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0001fbfb0)({
-    name: (string) (len=7) "balance",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000370000)({
-    name: (string) (len=4) "npub",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=11) "UsageMetric": (*main.Message)(0xc000492a40)({
-  fullName: (string) (len=11) "UsageMetric",
-  name: (string) (len=11) "UsageMetric",
-  fields: ([]*main.Field) (len=9 cap=16) {
-   (*main.Field)(0xc0001fb3e0)({
-    name: (string) (len=15) "processed_at_ms",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0001fb410)({
-    name: (string) (len=14) "parsed_in_nano",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0001fb440)({
-    name: (string) (len=12) "auth_in_nano",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0001fb470)({
-    name: (string) (len=16) "validate_in_nano",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0001fb4a0)({
-    name: (string) (len=14) "handle_in_nano",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0001fb4d0)({
-    name: (string) (len=8) "rpc_name",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0001fb500)({
-    name: (string) (len=5) "batch",
-    kind: (string) (len=4) "bool",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0001fb530)({
-    name: (string) (len=5) "nostr",
-    kind: (string) (len=4) "bool",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0001fb560)({
-    name: (string) (len=10) "batch_size",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=10) "AppMetrics": (*main.Message)(0xc000492bc0)({
-  fullName: (string) (len=10) "AppMetrics",
-  name: (string) (len=10) "AppMetrics",
-  fields: ([]*main.Field) (len=7 cap=8) {
-   (*main.Field)(0xc0001fb770)({
-    name: (string) (len=3) "app",
-    kind: (string) (len=11) "Application",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) true,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0001fb7a0)({
-    name: (string) (len=5) "users",
-    kind: (string) (len=9) "UsersInfo",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) true,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0001fb7d0)({
-    name: (string) (len=14) "total_received",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0001fb800)({
-    name: (string) (len=11) "total_spent",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0001fb830)({
-    name: (string) (len=15) "total_available",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0001fb860)({
-    name: (string) (len=15) "unpaid_invoices",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0001fb890)({
-    name: (string) (len=10) "operations",
-    kind: (string) (len=13) "UserOperation",
-    isMap: (bool) false,
-    isArray: (bool) true,
-    isEnum: (bool) false,
-    isMessage: (bool) true,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=14) "UserOperations": (*main.Message)(0xc000493880)({
-  fullName: (string) (len=14) "UserOperations",
-  name: (string) (len=14) "UserOperations",
-  fields: ([]*main.Field) (len=3 cap=4) {
-   (*main.Field)(0xc000371170)({
-    name: (string) (len=9) "fromIndex",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0003711a0)({
-    name: (string) (len=7) "toIndex",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0003711d0)({
-    name: (string) (len=10) "operations",
-    kind: (string) (len=13) "UserOperation",
-    isMap: (bool) false,
-    isArray: (bool) true,
-    isEnum: (bool) false,
-    isMessage: (bool) true,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=25) "GetUserOperationsResponse": (*main.Message)(0xc000493900)({
-  fullName: (string) (len=25) "GetUserOperationsResponse",
-  name: (string) (len=25) "GetUserOperationsResponse",
-  fields: ([]*main.Field) (len=6 cap=8) {
-   (*main.Field)(0xc000371200)({
-    name: (string) (len=31) "latestOutgoingInvoiceOperations",
-    kind: (string) (len=14) "UserOperations",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) true,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000371230)({
-    name: (string) (len=31) "latestIncomingInvoiceOperations",
-    kind: (string) (len=14) "UserOperations",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) true,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000371260)({
-    name: (string) (len=26) "latestOutgoingTxOperations",
-    kind: (string) (len=14) "UserOperations",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) true,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000371290)({
-    name: (string) (len=26) "latestIncomingTxOperations",
-    kind: (string) (len=14) "UserOperations",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) true,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0003712c0)({
-    name: (string) (len=32) "latestOutgoingUserToUserPayemnts",
-    kind: (string) (len=14) "UserOperations",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) true,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0003712f0)({
-    name: (string) (len=32) "latestIncomingUserToUserPayemnts",
-    kind: (string) (len=14) "UserOperations",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) true,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=10) "LndMetrics": (*main.Message)(0xc000492dc0)({
-  fullName: (string) (len=10) "LndMetrics",
-  name: (string) (len=10) "LndMetrics",
-  fields: ([]*main.Field) (len=1 cap=1) {
-   (*main.Field)(0xc0001fbda0)({
-    name: (string) (len=5) "nodes",
-    kind: (string) (len=14) "LndNodeMetrics",
-    isMap: (bool) false,
-    isArray: (bool) true,
-    isEnum: (bool) false,
-    isMessage: (bool) true,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=26) "GetAppUserLNURLInfoRequest": (*main.Message)(0xc0004931c0)({
-  fullName: (string) (len=26) "GetAppUserLNURLInfoRequest",
-  name: (string) (len=26) "GetAppUserLNURLInfoRequest",
-  fields: ([]*main.Field) (len=2 cap=2) {
-   (*main.Field)(0xc0003704b0)({
-    name: (string) (len=15) "user_identifier",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0003704e0)({
-    name: (string) (len=17) "base_url_override",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=17) "PayInvoiceRequest": (*main.Message)(0xc000493480)({
-  fullName: (string) (len=17) "PayInvoiceRequest",
-  name: (string) (len=17) "PayInvoiceRequest",
-  fields: ([]*main.Field) (len=2 cap=2) {
-   (*main.Field)(0xc000370840)({
-    name: (string) (len=7) "invoice",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000370870)({
-    name: (string) (len=6) "amount",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=13) "UserOperation": (*main.Message)(0xc000493840)({
-  fullName: (string) (len=13) "UserOperation",
-  name: (string) (len=13) "UserOperation",
-  fields: ([]*main.Field) (len=9 cap=16) {
-   (*main.Field)(0xc000370fc0)({
-    name: (string) (len=10) "paidAtUnix",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000370ff0)({
-    name: (string) (len=4) "type",
-    kind: (string) (len=17) "UserOperationType",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) true,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000371020)({
-    name: (string) (len=7) "inbound",
-    kind: (string) (len=4) "bool",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000371050)({
-    name: (string) (len=6) "amount",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000371080)({
-    name: (string) (len=10) "identifier",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0003710b0)({
-    name: (string) (len=11) "operationId",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0003710e0)({
-    name: (string) (len=11) "service_fee",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000371110)({
-    name: (string) (len=11) "network_fee",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000371140)({
-    name: (string) (len=9) "confirmed",
-    kind: (string) (len=4) "bool",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=25) "EncryptionExchangeRequest": (*main.Message)(0xc0004929c0)({
-  fullName: (string) (len=25) "EncryptionExchangeRequest",
-  name: (string) (len=25) "EncryptionExchangeRequest",
-  fields: ([]*main.Field) (len=2 cap=2) {
-   (*main.Field)(0xc0001fb380)({
-    name: (string) (len=9) "publicKey",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0001fb3b0)({
-    name: (string) (len=8) "deviceId",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=20) "AddAppInvoiceRequest": (*main.Message)(0xc000493040)({
-  fullName: (string) (len=20) "AddAppInvoiceRequest",
-  name: (string) (len=20) "AddAppInvoiceRequest",
-  fields: ([]*main.Field) (len=3 cap=4) {
-   (*main.Field)(0xc0003701b0)({
-    name: (string) (len=16) "payer_identifier",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0003701e0)({
-    name: (string) (len=17) "http_callback_url",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000370210)({
-    name: (string) (len=11) "invoice_req",
-    kind: (string) (len=17) "NewInvoiceRequest",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) true,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=24) "GetUserOperationsRequest": (*main.Message)(0xc0004937c0)({
-  fullName: (string) (len=24) "GetUserOperationsRequest",
-  name: (string) (len=24) "GetUserOperationsRequest",
-  fields: ([]*main.Field) (len=6 cap=8) {
-   (*main.Field)(0xc000370ea0)({
-    name: (string) (len=21) "latestIncomingInvoice",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000370ed0)({
-    name: (string) (len=21) "latestOutgoingInvoice",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000370f00)({
-    name: (string) (len=16) "latestIncomingTx",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000370f30)({
-    name: (string) (len=16) "latestOutgoingTx",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000370f60)({
-    name: (string) (len=31) "latestIncomingUserToUserPayment",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc000370f90)({
-    name: (string) (len=31) "latestOutgoingUserToUserPayment",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=9) "UsersInfo": (*main.Message)(0xc000492b40)({
+(map[string]*main.Message) (len=62) {
+ (string) (len=9) "UsersInfo": (*main.Message)(0xc00033cd40)({
   fullName: (string) (len=9) "UsersInfo",
   name: (string) (len=9) "UsersInfo",
   fields: ([]*main.Field) (len=6 cap=8) {
-   (*main.Field)(0xc0001fb650)({
+   (*main.Field)(0xc000218d50)({
     name: (string) (len=5) "total",
     kind: (string) (len=5) "int64",
     isMap: (bool) false,
@@ -2918,7 +1293,7 @@
     isMessage: (bool) false,
     isOptional: (bool) false
    }),
-   (*main.Field)(0xc0001fb680)({
+   (*main.Field)(0xc000218d80)({
     name: (string) (len=10) "no_balance",
     kind: (string) (len=5) "int64",
     isMap: (bool) false,
@@ -2927,7 +1302,7 @@
     isMessage: (bool) false,
     isOptional: (bool) false
    }),
-   (*main.Field)(0xc0001fb6b0)({
+   (*main.Field)(0xc000218db0)({
     name: (string) (len=16) "negative_balance",
     kind: (string) (len=5) "int64",
     isMap: (bool) false,
@@ -2936,7 +1311,7 @@
     isMessage: (bool) false,
     isOptional: (bool) false
    }),
-   (*main.Field)(0xc0001fb6e0)({
+   (*main.Field)(0xc000218de0)({
     name: (string) (len=20) "always_been_inactive",
     kind: (string) (len=5) "int64",
     isMap: (bool) false,
@@ -2945,7 +1320,7 @@
     isMessage: (bool) false,
     isOptional: (bool) false
    }),
-   (*main.Field)(0xc0001fb710)({
+   (*main.Field)(0xc000218e10)({
     name: (string) (len=11) "balance_avg",
     kind: (string) (len=5) "int64",
     isMap: (bool) false,
@@ -2954,7 +1329,7 @@
     isMessage: (bool) false,
     isOptional: (bool) false
    }),
-   (*main.Field)(0xc0001fb740)({
+   (*main.Field)(0xc000218e40)({
     name: (string) (len=14) "balance_median",
     kind: (string) (len=5) "int64",
     isMap: (bool) false,
@@ -2965,11 +1340,533 @@
    })
   }
  }),
- (string) (len=30) "SendAppUserToAppPaymentRequest": (*main.Message)(0xc000493180)({
+ (string) (len=11) "OpenChannel": (*main.Message)(0xc00033cfc0)({
+  fullName: (string) (len=11) "OpenChannel",
+  name: (string) (len=11) "OpenChannel",
+  fields: ([]*main.Field) (len=6 cap=8) {
+   (*main.Field)(0xc000219410)({
+    name: (string) (len=10) "channel_id",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000219440)({
+    name: (string) (len=8) "capacity",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000219470)({
+    name: (string) (len=6) "active",
+    kind: (string) (len=4) "bool",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0002194a0)({
+    name: (string) (len=8) "lifetime",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0002194d0)({
+    name: (string) (len=13) "local_balance",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000219500)({
+    name: (string) (len=14) "remote_balance",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=7) "AppUser": (*main.Message)(0xc00033d300)({
+  fullName: (string) (len=7) "AppUser",
+  name: (string) (len=7) "AppUser",
+  fields: ([]*main.Field) (len=3 cap=4) {
+   (*main.Field)(0xc000219ad0)({
+    name: (string) (len=10) "identifier",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000219b00)({
+    name: (string) (len=4) "info",
+    kind: (string) (len=8) "UserInfo",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) true,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000219b30)({
+    name: (string) (len=16) "max_withdrawable",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=26) "GetAppUserLNURLInfoRequest": (*main.Message)(0xc00033d4c0)({
+  fullName: (string) (len=26) "GetAppUserLNURLInfoRequest",
+  name: (string) (len=26) "GetAppUserLNURLInfoRequest",
+  fields: ([]*main.Field) (len=2 cap=2) {
+   (*main.Field)(0xc000219e60)({
+    name: (string) (len=15) "user_identifier",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000219e90)({
+    name: (string) (len=17) "base_url_override",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=24) "PayAppUserInvoiceRequest": (*main.Message)(0xc00033d400)({
+  fullName: (string) (len=24) "PayAppUserInvoiceRequest",
+  name: (string) (len=24) "PayAppUserInvoiceRequest",
+  fields: ([]*main.Field) (len=3 cap=4) {
+   (*main.Field)(0xc000219ce0)({
+    name: (string) (len=15) "user_identifier",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000219d10)({
+    name: (string) (len=7) "invoice",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000219d40)({
+    name: (string) (len=6) "amount",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=8) "UserInfo": (*main.Message)(0xc00033da40)({
+  fullName: (string) (len=8) "UserInfo",
+  name: (string) (len=8) "UserInfo",
+  fields: ([]*main.Field) (len=3 cap=4) {
+   (*main.Field)(0xc0004ca7e0)({
+    name: (string) (len=6) "userId",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004ca810)({
+    name: (string) (len=7) "balance",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004ca840)({
+    name: (string) (len=16) "max_withdrawable",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=15) "MigrationUpdate": (*main.Message)(0xc00033dd40)({
+  fullName: (string) (len=15) "MigrationUpdate",
+  name: (string) (len=15) "MigrationUpdate",
+  fields: ([]*main.Field) (len=2 cap=2) {
+   (*main.Field)(0xc0004cae40)({
+    name: (string) (len=7) "closure",
+    kind: (string) (len=16) "ClosureMigration",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) true,
+    isOptional: (bool) true
+   }),
+   (*main.Field)(0xc0004cae70)({
+    name: (string) (len=6) "relays",
+    kind: (string) (len=15) "RelaysMigration",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) true,
+    isOptional: (bool) true
+   })
+  }
+ }),
+ (string) (len=25) "EncryptionExchangeRequest": (*main.Message)(0xc00033cbc0)({
+  fullName: (string) (len=25) "EncryptionExchangeRequest",
+  name: (string) (len=25) "EncryptionExchangeRequest",
+  fields: ([]*main.Field) (len=2 cap=2) {
+   (*main.Field)(0xc000218a80)({
+    name: (string) (len=9) "publicKey",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000218ab0)({
+    name: (string) (len=8) "deviceId",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=10) "AppMetrics": (*main.Message)(0xc00033cdc0)({
+  fullName: (string) (len=10) "AppMetrics",
+  name: (string) (len=10) "AppMetrics",
+  fields: ([]*main.Field) (len=7 cap=8) {
+   (*main.Field)(0xc000218e70)({
+    name: (string) (len=3) "app",
+    kind: (string) (len=11) "Application",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) true,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000218ea0)({
+    name: (string) (len=5) "users",
+    kind: (string) (len=9) "UsersInfo",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) true,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000218ed0)({
+    name: (string) (len=14) "total_received",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000218f00)({
+    name: (string) (len=11) "total_spent",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000218f30)({
+    name: (string) (len=15) "total_available",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000218f60)({
+    name: (string) (len=15) "unpaid_invoices",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000218f90)({
+    name: (string) (len=10) "operations",
+    kind: (string) (len=13) "UserOperation",
+    isMap: (bool) false,
+    isArray: (bool) true,
+    isEnum: (bool) false,
+    isMessage: (bool) true,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=21) "DecodeInvoiceResponse": (*main.Message)(0xc00033d740)({
+  fullName: (string) (len=21) "DecodeInvoiceResponse",
+  name: (string) (len=21) "DecodeInvoiceResponse",
+  fields: ([]*main.Field) (len=1 cap=1) {
+   (*main.Field)(0xc0004ca1e0)({
+    name: (string) (len=6) "amount",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=24) "GetUserOperationsRequest": (*main.Message)(0xc00033dac0)({
+  fullName: (string) (len=24) "GetUserOperationsRequest",
+  name: (string) (len=24) "GetUserOperationsRequest",
+  fields: ([]*main.Field) (len=6 cap=8) {
+   (*main.Field)(0xc0004ca870)({
+    name: (string) (len=21) "latestIncomingInvoice",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004ca8a0)({
+    name: (string) (len=21) "latestOutgoingInvoice",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004ca8d0)({
+    name: (string) (len=16) "latestIncomingTx",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004ca900)({
+    name: (string) (len=16) "latestOutgoingTx",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004ca930)({
+    name: (string) (len=31) "latestIncomingUserToUserPayment",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004ca960)({
+    name: (string) (len=31) "latestOutgoingUserToUserPayment",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=18) "LndGetInfoResponse": (*main.Message)(0xc00033d180)({
+  fullName: (string) (len=18) "LndGetInfoResponse",
+  name: (string) (len=18) "LndGetInfoResponse",
+  fields: ([]*main.Field) (len=1 cap=1) {
+   (*main.Field)(0xc000219830)({
+    name: (string) (len=5) "alias",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=17) "AddAppUserRequest": (*main.Message)(0xc00033d2c0)({
+  fullName: (string) (len=17) "AddAppUserRequest",
+  name: (string) (len=17) "AddAppUserRequest",
+  fields: ([]*main.Field) (len=3 cap=4) {
+   (*main.Field)(0xc000219a40)({
+    name: (string) (len=10) "identifier",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000219a70)({
+    name: (string) (len=14) "fail_if_exists",
+    kind: (string) (len=4) "bool",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000219aa0)({
+    name: (string) (len=7) "balance",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=17) "PayAddressRequest": (*main.Message)(0xc00033d600)({
+  fullName: (string) (len=17) "PayAddressRequest",
+  name: (string) (len=17) "PayAddressRequest",
+  fields: ([]*main.Field) (len=3 cap=4) {
+   (*main.Field)(0xc000219fb0)({
+    name: (string) (len=7) "address",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004ca000)({
+    name: (string) (len=9) "amoutSats",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004ca030)({
+    name: (string) (len=12) "satsPerVByte",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=17) "NewInvoiceRequest": (*main.Message)(0xc00033d680)({
+  fullName: (string) (len=17) "NewInvoiceRequest",
+  name: (string) (len=17) "NewInvoiceRequest",
+  fields: ([]*main.Field) (len=2 cap=2) {
+   (*main.Field)(0xc0004ca120)({
+    name: (string) (len=10) "amountSats",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004ca150)({
+    name: (string) (len=4) "memo",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=19) "ChannelBalanceEvent": (*main.Message)(0xc00033cf00)({
+  fullName: (string) (len=19) "ChannelBalanceEvent",
+  name: (string) (len=19) "ChannelBalanceEvent",
+  fields: ([]*main.Field) (len=4 cap=4) {
+   (*main.Field)(0xc000219290)({
+    name: (string) (len=12) "block_height",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0002192c0)({
+    name: (string) (len=10) "channel_id",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0002192f0)({
+    name: (string) (len=18) "local_balance_sats",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000219320)({
+    name: (string) (len=19) "remote_balance_sats",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=30) "SendAppUserToAppPaymentRequest": (*main.Message)(0xc00033d480)({
   fullName: (string) (len=30) "SendAppUserToAppPaymentRequest",
   name: (string) (len=30) "SendAppUserToAppPaymentRequest",
   fields: ([]*main.Field) (len=2 cap=2) {
-   (*main.Field)(0xc000370450)({
+   (*main.Field)(0xc000219e00)({
     name: (string) (len=20) "from_user_identifier",
     kind: (string) (len=6) "string",
     isMap: (bool) false,
@@ -2978,7 +1875,7 @@
     isMessage: (bool) false,
     isOptional: (bool) false
    }),
-   (*main.Field)(0xc000370480)({
+   (*main.Field)(0xc000219e30)({
     name: (string) (len=6) "amount",
     kind: (string) (len=5) "int64",
     isMap: (bool) false,
@@ -2989,12 +1886,264 @@
    })
   }
  }),
- (string) (len=21) "DecodeInvoiceResponse": (*main.Message)(0xc000493440)({
-  fullName: (string) (len=21) "DecodeInvoiceResponse",
-  name: (string) (len=21) "DecodeInvoiceResponse",
+ (string) (len=17) "NewAddressRequest": (*main.Message)(0xc00033d580)({
+  fullName: (string) (len=17) "NewAddressRequest",
+  name: (string) (len=17) "NewAddressRequest",
   fields: ([]*main.Field) (len=1 cap=1) {
-   (*main.Field)(0xc000370810)({
-    name: (string) (len=6) "amount",
+   (*main.Field)(0xc000219f50)({
+    name: (string) (len=11) "addressType",
+    kind: (string) (len=11) "AddressType",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) true,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=19) "OpenChannelResponse": (*main.Message)(0xc00033d880)({
+  fullName: (string) (len=19) "OpenChannelResponse",
+  name: (string) (len=19) "OpenChannelResponse",
+  fields: ([]*main.Field) (len=1 cap=1) {
+   (*main.Field)(0xc0004ca420)({
+    name: (string) (len=9) "channelId",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=14) "UserOperations": (*main.Message)(0xc00033db80)({
+  fullName: (string) (len=14) "UserOperations",
+  name: (string) (len=14) "UserOperations",
+  fields: ([]*main.Field) (len=3 cap=4) {
+   (*main.Field)(0xc0004cab40)({
+    name: (string) (len=9) "fromIndex",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004cab70)({
+    name: (string) (len=7) "toIndex",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004caba0)({
+    name: (string) (len=10) "operations",
+    kind: (string) (len=13) "UserOperation",
+    isMap: (bool) false,
+    isArray: (bool) true,
+    isEnum: (bool) false,
+    isMessage: (bool) true,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=11) "AppsMetrics": (*main.Message)(0xc00033ce00)({
+  fullName: (string) (len=11) "AppsMetrics",
+  name: (string) (len=11) "AppsMetrics",
+  fields: ([]*main.Field) (len=1 cap=1) {
+   (*main.Field)(0xc000218fc0)({
+    name: (string) (len=4) "apps",
+    kind: (string) (len=10) "AppMetrics",
+    isMap: (bool) false,
+    isArray: (bool) true,
+    isEnum: (bool) false,
+    isMessage: (bool) true,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=17) "LndMetricsRequest": (*main.Message)(0xc00033ce40)({
+  fullName: (string) (len=17) "LndMetricsRequest",
+  name: (string) (len=17) "LndMetricsRequest",
+  fields: ([]*main.Field) (len=2 cap=2) {
+   (*main.Field)(0xc000218ff0)({
+    name: (string) (len=9) "from_unix",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) true
+   }),
+   (*main.Field)(0xc000219020)({
+    name: (string) (len=7) "to_unix",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) true
+   })
+  }
+ }),
+ (string) (len=14) "AuthAppRequest": (*main.Message)(0xc00033d200)({
+  fullName: (string) (len=14) "AuthAppRequest",
+  name: (string) (len=14) "AuthAppRequest",
+  fields: ([]*main.Field) (len=2 cap=2) {
+   (*main.Field)(0xc0002198c0)({
+    name: (string) (len=4) "name",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0002198f0)({
+    name: (string) (len=19) "allow_user_creation",
+    kind: (string) (len=4) "bool",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) true
+   })
+  }
+ }),
+ (string) (len=12) "UsageMetrics": (*main.Message)(0xc00033cc80)({
+  fullName: (string) (len=12) "UsageMetrics",
+  name: (string) (len=12) "UsageMetrics",
+  fields: ([]*main.Field) (len=1 cap=1) {
+   (*main.Field)(0xc000218c90)({
+    name: (string) (len=7) "metrics",
+    kind: (string) (len=11) "UsageMetric",
+    isMap: (bool) false,
+    isArray: (bool) true,
+    isEnum: (bool) false,
+    isMessage: (bool) true,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=17) "GetAppUserRequest": (*main.Message)(0xc00033d3c0)({
+  fullName: (string) (len=17) "GetAppUserRequest",
+  name: (string) (len=17) "GetAppUserRequest",
+  fields: ([]*main.Field) (len=1 cap=1) {
+   (*main.Field)(0xc000219cb0)({
+    name: (string) (len=15) "user_identifier",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=25) "GetUserOperationsResponse": (*main.Message)(0xc00033dc00)({
+  fullName: (string) (len=25) "GetUserOperationsResponse",
+  name: (string) (len=25) "GetUserOperationsResponse",
+  fields: ([]*main.Field) (len=6 cap=8) {
+   (*main.Field)(0xc0004cabd0)({
+    name: (string) (len=31) "latestOutgoingInvoiceOperations",
+    kind: (string) (len=14) "UserOperations",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) true,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004cac00)({
+    name: (string) (len=31) "latestIncomingInvoiceOperations",
+    kind: (string) (len=14) "UserOperations",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) true,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004cac30)({
+    name: (string) (len=26) "latestOutgoingTxOperations",
+    kind: (string) (len=14) "UserOperations",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) true,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004cac60)({
+    name: (string) (len=26) "latestIncomingTxOperations",
+    kind: (string) (len=14) "UserOperations",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) true,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004cac90)({
+    name: (string) (len=32) "latestOutgoingUserToUserPayemnts",
+    kind: (string) (len=14) "UserOperations",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) true,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004cacc0)({
+    name: (string) (len=32) "latestIncomingUserToUserPayemnts",
+    kind: (string) (len=14) "UserOperations",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) true,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=18) "PayInvoiceResponse": (*main.Message)(0xc00033d800)({
+  fullName: (string) (len=18) "PayInvoiceResponse",
+  name: (string) (len=18) "PayInvoiceResponse",
+  fields: ([]*main.Field) (len=5 cap=8) {
+   (*main.Field)(0xc0004ca270)({
+    name: (string) (len=8) "preimage",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004ca2a0)({
+    name: (string) (len=11) "amount_paid",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004ca2d0)({
+    name: (string) (len=12) "operation_id",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004ca300)({
+    name: (string) (len=11) "service_fee",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004ca330)({
+    name: (string) (len=11) "network_fee",
     kind: (string) (len=5) "int64",
     isMap: (bool) false,
     isArray: (bool) false,
@@ -3004,57 +2153,12 @@
    })
   }
  }),
- (string) (len=12) "RoutingEvent": (*main.Message)(0xc000492cc0)({
-  fullName: (string) (len=12) "RoutingEvent",
-  name: (string) (len=12) "RoutingEvent",
-  fields: ([]*main.Field) (len=12 cap=16) {
-   (*main.Field)(0xc0001fb950)({
-    name: (string) (len=19) "incoming_channel_id",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0001fb980)({
-    name: (string) (len=16) "incoming_htlc_id",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0001fb9b0)({
-    name: (string) (len=19) "outgoing_channel_id",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0001fb9e0)({
-    name: (string) (len=16) "outgoing_htlc_id",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0001fba10)({
-    name: (string) (len=12) "timestamp_ns",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0001fba40)({
-    name: (string) (len=10) "event_type",
+ (string) (len=17) "LnurlLinkResponse": (*main.Message)(0xc00033d8c0)({
+  fullName: (string) (len=17) "LnurlLinkResponse",
+  name: (string) (len=17) "LnurlLinkResponse",
+  fields: ([]*main.Field) (len=2 cap=2) {
+   (*main.Field)(0xc0004ca450)({
+    name: (string) (len=5) "lnurl",
     kind: (string) (len=6) "string",
     isMap: (bool) false,
     isArray: (bool) false,
@@ -3062,54 +2166,9 @@
     isMessage: (bool) false,
     isOptional: (bool) false
    }),
-   (*main.Field)(0xc0001fba70)({
-    name: (string) (len=17) "incoming_amt_msat",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0001fbaa0)({
-    name: (string) (len=17) "outgoing_amt_msat",
-    kind: (string) (len=5) "int64",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0001fbad0)({
-    name: (string) (len=14) "failure_string",
+   (*main.Field)(0xc0004ca480)({
+    name: (string) (len=2) "k1",
     kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0001fbb00)({
-    name: (string) (len=7) "settled",
-    kind: (string) (len=4) "bool",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0001fbb30)({
-    name: (string) (len=8) "offchain",
-    kind: (string) (len=4) "bool",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0001fbb60)({
-    name: (string) (len=18) "forward_fail_event",
-    kind: (string) (len=4) "bool",
     isMap: (bool) false,
     isArray: (bool) false,
     isEnum: (bool) false,
@@ -3118,11 +2177,74 @@
    })
   }
  }),
- (string) (len=17) "LndGetInfoRequest": (*main.Message)(0xc000492e00)({
+ (string) (len=25) "GetProductBuyLinkResponse": (*main.Message)(0xc00033dcc0)({
+  fullName: (string) (len=25) "GetProductBuyLinkResponse",
+  name: (string) (len=25) "GetProductBuyLinkResponse",
+  fields: ([]*main.Field) (len=1 cap=1) {
+   (*main.Field)(0xc0004cade0)({
+    name: (string) (len=4) "link",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=16) "ClosureMigration": (*main.Message)(0xc00033dd80)({
+  fullName: (string) (len=16) "ClosureMigration",
+  name: (string) (len=16) "ClosureMigration",
+  fields: ([]*main.Field) (len=1 cap=1) {
+   (*main.Field)(0xc0004caea0)({
+    name: (string) (len=14) "closes_at_unix",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=13) "ClosedChannel": (*main.Message)(0xc00033d000)({
+  fullName: (string) (len=13) "ClosedChannel",
+  name: (string) (len=13) "ClosedChannel",
+  fields: ([]*main.Field) (len=3 cap=4) {
+   (*main.Field)(0xc000219530)({
+    name: (string) (len=10) "channel_id",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000219560)({
+    name: (string) (len=8) "capacity",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000219590)({
+    name: (string) (len=13) "closed_height",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=17) "LndGetInfoRequest": (*main.Message)(0xc00033d100)({
   fullName: (string) (len=17) "LndGetInfoRequest",
   name: (string) (len=17) "LndGetInfoRequest",
   fields: ([]*main.Field) (len=1 cap=1) {
-   (*main.Field)(0xc0001fbdd0)({
+   (*main.Field)(0xc0002197a0)({
     name: (string) (len=6) "nodeId",
     kind: (string) (len=5) "int64",
     isMap: (bool) false,
@@ -3133,11 +2255,280 @@
    })
   }
  }),
- (string) (len=18) "NewAddressResponse": (*main.Message)(0xc0004932c0)({
+ (string) (len=11) "Application": (*main.Message)(0xc00033d240)({
+  fullName: (string) (len=11) "Application",
+  name: (string) (len=11) "Application",
+  fields: ([]*main.Field) (len=4 cap=4) {
+   (*main.Field)(0xc000219920)({
+    name: (string) (len=4) "name",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000219950)({
+    name: (string) (len=2) "id",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000219980)({
+    name: (string) (len=7) "balance",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0002199b0)({
+    name: (string) (len=4) "npub",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=24) "AddAppUserInvoiceRequest": (*main.Message)(0xc00033d380)({
+  fullName: (string) (len=24) "AddAppUserInvoiceRequest",
+  name: (string) (len=24) "AddAppUserInvoiceRequest",
+  fields: ([]*main.Field) (len=4 cap=4) {
+   (*main.Field)(0xc000219bf0)({
+    name: (string) (len=19) "receiver_identifier",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000219c20)({
+    name: (string) (len=16) "payer_identifier",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000219c50)({
+    name: (string) (len=17) "http_callback_url",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000219c80)({
+    name: (string) (len=11) "invoice_req",
+    kind: (string) (len=17) "NewInvoiceRequest",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) true,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=17) "PayInvoiceRequest": (*main.Message)(0xc00033d780)({
+  fullName: (string) (len=17) "PayInvoiceRequest",
+  name: (string) (len=17) "PayInvoiceRequest",
+  fields: ([]*main.Field) (len=2 cap=2) {
+   (*main.Field)(0xc0004ca210)({
+    name: (string) (len=7) "invoice",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004ca240)({
+    name: (string) (len=6) "amount",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=18) "OpenChannelRequest": (*main.Message)(0xc00033d840)({
+  fullName: (string) (len=18) "OpenChannelRequest",
+  name: (string) (len=18) "OpenChannelRequest",
+  fields: ([]*main.Field) (len=4 cap=4) {
+   (*main.Field)(0xc0004ca360)({
+    name: (string) (len=11) "destination",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004ca390)({
+    name: (string) (len=13) "fundingAmount",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004ca3c0)({
+    name: (string) (len=10) "pushAmount",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004ca3f0)({
+    name: (string) (len=12) "closeAddress",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=22) "HandleLnurlPayResponse": (*main.Message)(0xc00033da00)({
+  fullName: (string) (len=22) "HandleLnurlPayResponse",
+  name: (string) (len=22) "HandleLnurlPayResponse",
+  fields: ([]*main.Field) (len=2 cap=2) {
+   (*main.Field)(0xc0004ca780)({
+    name: (string) (len=2) "pr",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004ca7b0)({
+    name: (string) (len=6) "routes",
+    kind: (string) (len=5) "Empty",
+    isMap: (bool) false,
+    isArray: (bool) true,
+    isEnum: (bool) false,
+    isMessage: (bool) true,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=28) "SetMockAppUserBalanceRequest": (*main.Message)(0xc00033d500)({
+  fullName: (string) (len=28) "SetMockAppUserBalanceRequest",
+  name: (string) (len=28) "SetMockAppUserBalanceRequest",
+  fields: ([]*main.Field) (len=2 cap=2) {
+   (*main.Field)(0xc000219ec0)({
+    name: (string) (len=15) "user_identifier",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000219ef0)({
+    name: (string) (len=6) "amount",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=5) "Empty": (*main.Message)(0xc00033cb80)({
+  fullName: (string) (len=5) "Empty",
+  name: (string) (len=5) "Empty",
+  fields: ([]*main.Field) <nil>
+ }),
+ (string) (len=17) "ChainBalanceEvent": (*main.Message)(0xc00033cf40)({
+  fullName: (string) (len=17) "ChainBalanceEvent",
+  name: (string) (len=17) "ChainBalanceEvent",
+  fields: ([]*main.Field) (len=4 cap=4) {
+   (*main.Field)(0xc000219350)({
+    name: (string) (len=12) "block_height",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000219380)({
+    name: (string) (len=17) "confirmed_balance",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0002193b0)({
+    name: (string) (len=19) "unconfirmed_balance",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0002193e0)({
+    name: (string) (len=13) "total_balance",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=27) "SetMockInvoiceAsPaidRequest": (*main.Message)(0xc00033d140)({
+  fullName: (string) (len=27) "SetMockInvoiceAsPaidRequest",
+  name: (string) (len=27) "SetMockInvoiceAsPaidRequest",
+  fields: ([]*main.Field) (len=2 cap=2) {
+   (*main.Field)(0xc0002197d0)({
+    name: (string) (len=7) "invoice",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000219800)({
+    name: (string) (len=6) "amount",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=18) "NewAddressResponse": (*main.Message)(0xc00033d5c0)({
   fullName: (string) (len=18) "NewAddressResponse",
   name: (string) (len=18) "NewAddressResponse",
   fields: ([]*main.Field) (len=1 cap=1) {
-   (*main.Field)(0xc0003705d0)({
+   (*main.Field)(0xc000219f80)({
     name: (string) (len=7) "address",
     kind: (string) (len=6) "string",
     isMap: (bool) false,
@@ -3148,11 +2539,302 @@
    })
   }
  }),
- (string) (len=20) "LnurlPayInfoResponse": (*main.Message)(0xc0004936c0)({
-  fullName: (string) (len=20) "LnurlPayInfoResponse",
-  name: (string) (len=20) "LnurlPayInfoResponse",
-  fields: ([]*main.Field) (len=7 cap=8) {
-   (*main.Field)(0xc000370c60)({
+ (string) (len=18) "PayAddressResponse": (*main.Message)(0xc00033d640)({
+  fullName: (string) (len=18) "PayAddressResponse",
+  name: (string) (len=18) "PayAddressResponse",
+  fields: ([]*main.Field) (len=4 cap=4) {
+   (*main.Field)(0xc0004ca060)({
+    name: (string) (len=4) "txId",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004ca090)({
+    name: (string) (len=12) "operation_id",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004ca0c0)({
+    name: (string) (len=11) "service_fee",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004ca0f0)({
+    name: (string) (len=11) "network_fee",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=20) "DecodeInvoiceRequest": (*main.Message)(0xc00033d700)({
+  fullName: (string) (len=20) "DecodeInvoiceRequest",
+  name: (string) (len=20) "DecodeInvoiceRequest",
+  fields: ([]*main.Field) (len=1 cap=1) {
+   (*main.Field)(0xc0004ca1b0)({
+    name: (string) (len=7) "invoice",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=12) "RoutingEvent": (*main.Message)(0xc00033cec0)({
+  fullName: (string) (len=12) "RoutingEvent",
+  name: (string) (len=12) "RoutingEvent",
+  fields: ([]*main.Field) (len=12 cap=16) {
+   (*main.Field)(0xc000219050)({
+    name: (string) (len=19) "incoming_channel_id",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000219080)({
+    name: (string) (len=16) "incoming_htlc_id",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0002190b0)({
+    name: (string) (len=19) "outgoing_channel_id",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0002190e0)({
+    name: (string) (len=16) "outgoing_htlc_id",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000219110)({
+    name: (string) (len=12) "timestamp_ns",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000219140)({
+    name: (string) (len=10) "event_type",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000219170)({
+    name: (string) (len=17) "incoming_amt_msat",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0002191a0)({
+    name: (string) (len=17) "outgoing_amt_msat",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0002191d0)({
+    name: (string) (len=14) "failure_string",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000219200)({
+    name: (string) (len=7) "settled",
+    kind: (string) (len=4) "bool",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000219230)({
+    name: (string) (len=8) "offchain",
+    kind: (string) (len=4) "bool",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000219260)({
+    name: (string) (len=18) "forward_fail_event",
+    kind: (string) (len=4) "bool",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=14) "LndNodeMetrics": (*main.Message)(0xc00033d080)({
+  fullName: (string) (len=14) "LndNodeMetrics",
+  name: (string) (len=14) "LndNodeMetrics",
+  fields: ([]*main.Field) (len=9 cap=16) {
+   (*main.Field)(0xc0002195c0)({
+    name: (string) (len=23) "channels_balance_events",
+    kind: (string) (len=19) "ChannelBalanceEvent",
+    isMap: (bool) false,
+    isArray: (bool) true,
+    isEnum: (bool) false,
+    isMessage: (bool) true,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0002195f0)({
+    name: (string) (len=20) "chain_balance_events",
+    kind: (string) (len=17) "ChainBalanceEvent",
+    isMap: (bool) false,
+    isArray: (bool) true,
+    isEnum: (bool) false,
+    isMessage: (bool) true,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000219620)({
+    name: (string) (len=14) "routing_events",
+    kind: (string) (len=12) "RoutingEvent",
+    isMap: (bool) false,
+    isArray: (bool) true,
+    isEnum: (bool) false,
+    isMessage: (bool) true,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000219650)({
+    name: (string) (len=16) "offline_channels",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000219680)({
+    name: (string) (len=15) "online_channels",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0002196b0)({
+    name: (string) (len=16) "pending_channels",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0002196e0)({
+    name: (string) (len=16) "closing_channels",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000219710)({
+    name: (string) (len=13) "open_channels",
+    kind: (string) (len=11) "OpenChannel",
+    isMap: (bool) false,
+    isArray: (bool) true,
+    isEnum: (bool) false,
+    isMessage: (bool) true,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000219740)({
+    name: (string) (len=15) "closed_channels",
+    kind: (string) (len=13) "ClosedChannel",
+    isMap: (bool) false,
+    isArray: (bool) true,
+    isEnum: (bool) false,
+    isMessage: (bool) true,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=34) "SendAppUserToAppUserPaymentRequest": (*main.Message)(0xc00033d440)({
+  fullName: (string) (len=34) "SendAppUserToAppUserPaymentRequest",
+  name: (string) (len=34) "SendAppUserToAppUserPaymentRequest",
+  fields: ([]*main.Field) (len=3 cap=4) {
+   (*main.Field)(0xc000219d70)({
+    name: (string) (len=20) "from_user_identifier",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000219da0)({
+    name: (string) (len=18) "to_user_identifier",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000219dd0)({
+    name: (string) (len=6) "amount",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=25) "LnurlWithdrawInfoResponse": (*main.Message)(0xc00033d940)({
+  fullName: (string) (len=25) "LnurlWithdrawInfoResponse",
+  name: (string) (len=25) "LnurlWithdrawInfoResponse",
+  fields: ([]*main.Field) (len=8 cap=8) {
+   (*main.Field)(0xc0004ca4b0)({
     name: (string) (len=3) "tag",
     kind: (string) (len=6) "string",
     isMap: (bool) false,
@@ -3161,7 +2843,7 @@
     isMessage: (bool) false,
     isOptional: (bool) false
    }),
-   (*main.Field)(0xc000370c90)({
+   (*main.Field)(0xc0004ca4e0)({
     name: (string) (len=8) "callback",
     kind: (string) (len=6) "string",
     isMap: (bool) false,
@@ -3170,7 +2852,370 @@
     isMessage: (bool) false,
     isOptional: (bool) false
    }),
-   (*main.Field)(0xc000370cc0)({
+   (*main.Field)(0xc0004ca510)({
+    name: (string) (len=2) "k1",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004ca540)({
+    name: (string) (len=18) "defaultDescription",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004ca570)({
+    name: (string) (len=15) "minWithdrawable",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004ca5a0)({
+    name: (string) (len=15) "maxWithdrawable",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004ca5d0)({
+    name: (string) (len=12) "balanceCheck",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004ca600)({
+    name: (string) (len=7) "payLink",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=17) "AddProductRequest": (*main.Message)(0xc00033dc40)({
+  fullName: (string) (len=17) "AddProductRequest",
+  name: (string) (len=17) "AddProductRequest",
+  fields: ([]*main.Field) (len=2 cap=2) {
+   (*main.Field)(0xc0004cacf0)({
+    name: (string) (len=4) "name",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004cad20)({
+    name: (string) (len=10) "price_sats",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=18) "NewInvoiceResponse": (*main.Message)(0xc00033d6c0)({
+  fullName: (string) (len=18) "NewInvoiceResponse",
+  name: (string) (len=18) "NewInvoiceResponse",
+  fields: ([]*main.Field) (len=1 cap=1) {
+   (*main.Field)(0xc0004ca180)({
+    name: (string) (len=7) "invoice",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=10) "LndMetrics": (*main.Message)(0xc00033d0c0)({
+  fullName: (string) (len=10) "LndMetrics",
+  name: (string) (len=10) "LndMetrics",
+  fields: ([]*main.Field) (len=1 cap=1) {
+   (*main.Field)(0xc000219770)({
+    name: (string) (len=5) "nodes",
+    kind: (string) (len=14) "LndNodeMetrics",
+    isMap: (bool) false,
+    isArray: (bool) true,
+    isEnum: (bool) false,
+    isMessage: (bool) true,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=7) "AuthApp": (*main.Message)(0xc00033d280)({
+  fullName: (string) (len=7) "AuthApp",
+  name: (string) (len=7) "AuthApp",
+  fields: ([]*main.Field) (len=2 cap=2) {
+   (*main.Field)(0xc0002199e0)({
+    name: (string) (len=3) "app",
+    kind: (string) (len=11) "Application",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) true,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000219a10)({
+    name: (string) (len=10) "auth_token",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=20) "AddAppInvoiceRequest": (*main.Message)(0xc00033d340)({
+  fullName: (string) (len=20) "AddAppInvoiceRequest",
+  name: (string) (len=20) "AddAppInvoiceRequest",
+  fields: ([]*main.Field) (len=3 cap=4) {
+   (*main.Field)(0xc000219b60)({
+    name: (string) (len=16) "payer_identifier",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000219b90)({
+    name: (string) (len=17) "http_callback_url",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000219bc0)({
+    name: (string) (len=11) "invoice_req",
+    kind: (string) (len=17) "NewInvoiceRequest",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) true,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=11) "UsageMetric": (*main.Message)(0xc00033cc40)({
+  fullName: (string) (len=11) "UsageMetric",
+  name: (string) (len=11) "UsageMetric",
+  fields: ([]*main.Field) (len=9 cap=16) {
+   (*main.Field)(0xc000218ae0)({
+    name: (string) (len=15) "processed_at_ms",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000218b10)({
+    name: (string) (len=14) "parsed_in_nano",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000218b40)({
+    name: (string) (len=12) "auth_in_nano",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000218b70)({
+    name: (string) (len=16) "validate_in_nano",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000218ba0)({
+    name: (string) (len=14) "handle_in_nano",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000218bd0)({
+    name: (string) (len=8) "rpc_name",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000218c00)({
+    name: (string) (len=5) "batch",
+    kind: (string) (len=4) "bool",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000218c30)({
+    name: (string) (len=5) "nostr",
+    kind: (string) (len=4) "bool",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000218c60)({
+    name: (string) (len=10) "batch_size",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=15) "RelaysMigration": (*main.Message)(0xc00033ddc0)({
+  fullName: (string) (len=15) "RelaysMigration",
+  name: (string) (len=15) "RelaysMigration",
+  fields: ([]*main.Field) (len=1 cap=1) {
+   (*main.Field)(0xc0004caed0)({
+    name: (string) (len=6) "relays",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) true,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=18) "AppsMetricsRequest": (*main.Message)(0xc00033ccc0)({
+  fullName: (string) (len=18) "AppsMetricsRequest",
+  name: (string) (len=18) "AppsMetricsRequest",
+  fields: ([]*main.Field) (len=3 cap=4) {
+   (*main.Field)(0xc000218cc0)({
+    name: (string) (len=9) "from_unix",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) true
+   }),
+   (*main.Field)(0xc000218cf0)({
+    name: (string) (len=7) "to_unix",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) true
+   }),
+   (*main.Field)(0xc000218d20)({
+    name: (string) (len=18) "include_operations",
+    kind: (string) (len=4) "bool",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) true
+   })
+  }
+ }),
+ (string) (len=13) "AddAppRequest": (*main.Message)(0xc00033d1c0)({
+  fullName: (string) (len=13) "AddAppRequest",
+  name: (string) (len=13) "AddAppRequest",
+  fields: ([]*main.Field) (len=2 cap=2) {
+   (*main.Field)(0xc000219860)({
+    name: (string) (len=4) "name",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc000219890)({
+    name: (string) (len=19) "allow_user_creation",
+    kind: (string) (len=4) "bool",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=24) "SetMockAppBalanceRequest": (*main.Message)(0xc00033d540)({
+  fullName: (string) (len=24) "SetMockAppBalanceRequest",
+  name: (string) (len=24) "SetMockAppBalanceRequest",
+  fields: ([]*main.Field) (len=1 cap=1) {
+   (*main.Field)(0xc000219f20)({
+    name: (string) (len=6) "amount",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=20) "LnurlPayInfoResponse": (*main.Message)(0xc00033d9c0)({
+  fullName: (string) (len=20) "LnurlPayInfoResponse",
+  name: (string) (len=20) "LnurlPayInfoResponse",
+  fields: ([]*main.Field) (len=7 cap=8) {
+   (*main.Field)(0xc0004ca630)({
+    name: (string) (len=3) "tag",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004ca660)({
+    name: (string) (len=8) "callback",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004ca690)({
     name: (string) (len=11) "maxSendable",
     kind: (string) (len=5) "int64",
     isMap: (bool) false,
@@ -3179,7 +3224,7 @@
     isMessage: (bool) false,
     isOptional: (bool) false
    }),
-   (*main.Field)(0xc000370cf0)({
+   (*main.Field)(0xc0004ca6c0)({
     name: (string) (len=11) "minSendable",
     kind: (string) (len=5) "int64",
     isMap: (bool) false,
@@ -3188,7 +3233,7 @@
     isMessage: (bool) false,
     isOptional: (bool) false
    }),
-   (*main.Field)(0xc000370d20)({
+   (*main.Field)(0xc0004ca6f0)({
     name: (string) (len=8) "metadata",
     kind: (string) (len=6) "string",
     isMap: (bool) false,
@@ -3197,7 +3242,7 @@
     isMessage: (bool) false,
     isOptional: (bool) false
    }),
-   (*main.Field)(0xc000370d50)({
+   (*main.Field)(0xc0004ca720)({
     name: (string) (len=11) "allowsNostr",
     kind: (string) (len=4) "bool",
     isMap: (bool) false,
@@ -3206,7 +3251,7 @@
     isMessage: (bool) false,
     isOptional: (bool) false
    }),
-   (*main.Field)(0xc000370d80)({
+   (*main.Field)(0xc0004ca750)({
     name: (string) (len=11) "nostrPubkey",
     kind: (string) (len=6) "string",
     isMap: (bool) false,
@@ -3217,11 +3262,98 @@
    })
   }
  }),
- (string) (len=7) "Product": (*main.Message)(0xc000493980)({
+ (string) (len=13) "UserOperation": (*main.Message)(0xc00033db40)({
+  fullName: (string) (len=13) "UserOperation",
+  name: (string) (len=13) "UserOperation",
+  fields: ([]*main.Field) (len=9 cap=16) {
+   (*main.Field)(0xc0004ca990)({
+    name: (string) (len=10) "paidAtUnix",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004ca9c0)({
+    name: (string) (len=4) "type",
+    kind: (string) (len=17) "UserOperationType",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) true,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004ca9f0)({
+    name: (string) (len=7) "inbound",
+    kind: (string) (len=4) "bool",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004caa20)({
+    name: (string) (len=6) "amount",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004caa50)({
+    name: (string) (len=10) "identifier",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004caa80)({
+    name: (string) (len=11) "operationId",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004caab0)({
+    name: (string) (len=11) "service_fee",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004caae0)({
+    name: (string) (len=11) "network_fee",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0004cab10)({
+    name: (string) (len=9) "confirmed",
+    kind: (string) (len=4) "bool",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=7) "Product": (*main.Message)(0xc00033dc80)({
   fullName: (string) (len=7) "Product",
   name: (string) (len=7) "Product",
   fields: ([]*main.Field) (len=3 cap=4) {
-   (*main.Field)(0xc000371380)({
+   (*main.Field)(0xc0004cad50)({
     name: (string) (len=2) "id",
     kind: (string) (len=6) "string",
     isMap: (bool) false,
@@ -3230,7 +3362,7 @@
     isMessage: (bool) false,
     isOptional: (bool) false
    }),
-   (*main.Field)(0xc0003713b0)({
+   (*main.Field)(0xc0004cad80)({
     name: (string) (len=4) "name",
     kind: (string) (len=6) "string",
     isMap: (bool) false,
@@ -3239,7 +3371,7 @@
     isMessage: (bool) false,
     isOptional: (bool) false
    }),
-   (*main.Field)(0xc0003713e0)({
+   (*main.Field)(0xc0004cadb0)({
     name: (string) (len=10) "price_sats",
     kind: (string) (len=5) "int64",
     isMap: (bool) false,
@@ -3249,10 +3381,25 @@
     isOptional: (bool) false
    })
   }
+ }),
+ (string) (len=17) "LiveUserOperation": (*main.Message)(0xc00033dd00)({
+  fullName: (string) (len=17) "LiveUserOperation",
+  name: (string) (len=17) "LiveUserOperation",
+  fields: ([]*main.Field) (len=1 cap=1) {
+   (*main.Field)(0xc0004cae10)({
+    name: (string) (len=9) "operation",
+    kind: (string) (len=13) "UserOperation",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) true,
+    isOptional: (bool) false
+   })
+  }
  })
 }
 
-parsing file: structs 60
+parsing file: structs 62
 parsing file: methods 2
 -> [{guest Guest map[]} {user User map[app_id:string app_user_id:string user_id:string]} {admin Admin map[admin_id:string]} {metrics Metrics map[operator_id:string]} {app App map[app_id:string]}] 
 

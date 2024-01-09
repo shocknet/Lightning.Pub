@@ -8,7 +8,7 @@ import { LightningClient } from '../../../proto/lnd/lightning.client.js'
 import { InvoicesClient } from '../../../proto/lnd/invoices.client.js'
 import { RouterClient } from '../../../proto/lnd/router.client.js'
 import { ChainNotifierClient } from '../../../proto/lnd/chainnotifier.client.js'
-import { GetInfoResponse, AddressType, NewAddressResponse, AddInvoiceResponse, Invoice_InvoiceState, PayReq, Payment_PaymentStatus, Payment, PaymentFailureReason, SendCoinsResponse, EstimateFeeResponse, ChannelBalanceResponse, TransactionDetails } from '../../../proto/lnd/lightning.js'
+import { GetInfoResponse, AddressType, NewAddressResponse, AddInvoiceResponse, Invoice_InvoiceState, PayReq, Payment_PaymentStatus, Payment, PaymentFailureReason, SendCoinsResponse, EstimateFeeResponse, ChannelBalanceResponse, TransactionDetails, ListChannelsResponse, ClosedChannelsResponse, PendingChannelsResponse } from '../../../proto/lnd/lightning.js'
 import { OpenChannelReq } from './openChannelReq.js';
 import { AddInvoiceReq } from './addInvoiceReq.js';
 import { PayInvoiceReq } from './payInvoiceReq.js';
@@ -76,6 +76,27 @@ export default class {
 
     async GetInfo(): Promise<NodeInfo> {
         const res = await this.lightning.getInfo({}, DeadLineMetadata())
+        return res.response
+    }
+    async ListPendingChannels(): Promise<PendingChannelsResponse> {
+        const res = await this.lightning.pendingChannels({}, DeadLineMetadata())
+        return res.response
+    }
+    async ListChannels(): Promise<ListChannelsResponse> {
+        const res = await this.lightning.listChannels({
+            activeOnly: false, inactiveOnly: false, privateOnly: false, publicOnly: false, peer: Buffer.alloc(0)
+        }, DeadLineMetadata())
+        return res.response
+    }
+    async ListClosedChannels(): Promise<ClosedChannelsResponse> {
+        const res = await this.lightning.closedChannels({
+            abandoned: true,
+            breach: true,
+            cooperative: true,
+            fundingCanceled: true,
+            localForce: true,
+            remoteForce: true
+        }, DeadLineMetadata())
         return res.response
     }
 
