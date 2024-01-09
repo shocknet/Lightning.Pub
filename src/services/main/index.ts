@@ -8,7 +8,7 @@ import ApplicationManager from './applicationManager.js'
 import PaymentManager, { PendingTx } from './paymentManager.js'
 import { MainSettings } from './settings.js'
 import NewLightningHandler, { LoadLndSettingsFromEnv, LightningHandler } from "../lnd/index.js"
-import { AddressPaidCb, InvoicePaidCb, NewBlockCb } from "../lnd/settings.js"
+import { AddressPaidCb, HtlcCb, InvoicePaidCb, NewBlockCb } from "../lnd/settings.js"
 import { getLogger, PubLogger } from "../helpers/logger.js"
 import AppUserManager from "./appUserManager.js"
 import { Application } from '../storage/entity/Application.js'
@@ -58,8 +58,8 @@ export default class {
     constructor(settings: MainSettings, storage: Storage) {
         this.settings = settings
         this.storage = storage
-        this.metricsManager = new MetricsManager(this.storage)
-        this.lnd = NewLightningHandler(settings.lndSettings, this.addressPaidCb, this.invoicePaidCb, this.newBlockCb, e => this.metricsManager.HtlcCb)
+        this.lnd = NewLightningHandler(settings.lndSettings, this.addressPaidCb, this.invoicePaidCb, this.newBlockCb, this.htlcCb)
+        this.metricsManager = new MetricsManager(this.storage, this.lnd)
 
         this.paymentManager = new PaymentManager(this.storage, this.lnd, this.settings, this.addressPaidCb, this.invoicePaidCb)
         this.productManager = new ProductManager(this.storage, this.paymentManager, this.settings)
@@ -69,6 +69,10 @@ export default class {
 
     attachNostrSend(f: NostrSend) {
         this.nostrSend = f
+    }
+
+    htlcCb: HtlcCb = (e) => {
+        this.metricsManager.HtlcCb(e)
     }
 
     newBlockCb: NewBlockCb = (height) => {
