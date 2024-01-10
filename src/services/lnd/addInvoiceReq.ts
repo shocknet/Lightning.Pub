@@ -1,14 +1,14 @@
 import { OpenChannelRequest, Invoice } from "../../../proto/lnd/lightning";
 
-export const AddInvoiceReq = (value: number, descriptionHash = Buffer.alloc(0), expiry = 60 * 60, privateHints = false): Invoice => ({
+export const AddInvoiceReq = (value: number, expiry = 60 * 60, privateHints = false, memo?: string): Invoice => ({
     expiry: BigInt(expiry),
-    memo: "",
+    memo: memo || "",
     private: privateHints,
     value: BigInt(value),
 
     fallbackAddr: "",
     cltvExpiry: 0n,
-    descriptionHash,
+    descriptionHash: Buffer.alloc(0),
     features: {},
     isAmp: false,
     rPreimage: Buffer.alloc(0),

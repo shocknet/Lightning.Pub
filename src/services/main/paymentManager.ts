@@ -27,6 +27,11 @@ interface UserOperationInfo {
     routing_fees?: number
     chain_fees?: number
     confs?: number
+    tx_hash?: string;
+    user_address?: {
+        address: string
+    };
+    internal?: boolean;
 }
 export type PendingTx = { type: 'incoming', tx: AddressReceivingTransaction } | { type: 'outgoing', tx: UserTransactionPayment }
 const defaultLnurlPayMetadata = `[["text/plain", "lnurl pay to Lightning.pub"]]`
@@ -416,11 +421,13 @@ export default class {
             toIndex: operations[0].serial_id,
             fromIndex: operations[operations.length - 1].serial_id,
             operations: operations.map((o: UserOperationInfo): Types.UserOperation => {
-                let identifier = ""
+                let identifier = "";
                 if (o.invoice) {
                     identifier = o.invoice
                 } else if (o.address) {
-                    identifier = o.address
+                    identifier = o.address;
+                } else if(o.user_address) {
+                    identifier = o.user_address.address;
                 } else if (type === Types.UserOperationType.INCOMING_USER_TO_USER && o.from_user) {
                     identifier = o.from_user.user_id
                 } else if (type === Types.UserOperationType.OUTGOING_INVOICE && o.to_user) {
@@ -435,7 +442,9 @@ export default class {
                     operationId: `${type}-${o.serial_id}`,
                     network_fee: o.chain_fees || o.routing_fees || 0,
                     service_fee: o.service_fee || o.service_fees || 0,
-                    confirmed: typeof o.confs === 'number' ? o.confs > 0 : true
+                    confirmed: typeof o.confs === 'number' ? o.confs > 0 : true,
+                    tx_hash: o.tx_hash || "",
+                    internal: !!o.internal
                 }
             })
         }
