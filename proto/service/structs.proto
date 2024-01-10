@@ -326,6 +326,8 @@ message UserOperation {
     int64 service_fee = 7;
     int64 network_fee = 8;
     bool confirmed = 9;
+    string tx_hash = 10;
+    bool internal = 11;
 }
 message UserOperations {
     int64 fromIndex=1;
