@@ -559,6 +559,25 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
+    if (!opts.allowNotImplementedMethods && !methods.UserHealth) throw new Error('method: UserHealth is not implemented')
+    app.post('/api/user/health', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'UserHealth', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.UserHealth) throw new Error('method: UserHealth is not implemented')
+            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            stats.validate = stats.guard
+            const query = req.query
+            const params = req.params
+             await methods.UserHealth({rpcName:'UserHealth', ctx:authContext })
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK'})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
     if (!opts.allowNotImplementedMethods && !methods.GetUserInfo) throw new Error('method: GetUserInfo is not implemented')
     app.post('/api/user/info', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'GetUserInfo', batch: false, nostr: false, batchSize: 0}
@@ -851,6 +870,16 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
                 const opStats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: stats.parse, guard: stats.guard, validate: 0n, handle: 0n }
                 try {
                     switch(operation.rpcName) {
+                        case 'UserHealth':
+                            if (!methods.UserHealth) {
+                                throw new Error('method UserHealth not found' )
+                            } else {
+                                opStats.validate = opStats.guard
+                                await methods.UserHealth({...operation, ctx}); responses.push({ status: 'OK' })
+                                opStats.handle = process.hrtime.bigint()
+                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
+                            }
+                            break
                         case 'GetUserInfo':
                             if (!methods.GetUserInfo) {
                                 throw new Error('method GetUserInfo not found' )
