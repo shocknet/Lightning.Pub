@@ -1,0 +1,120 @@
+([]*main.Method) (len=2 cap=2) {
+ (*main.Method)(0xc00028c910)({
+  in: (main.MethodMessage) {
+   name: (string) (len=20) "PubNewMappingRequest",
+   hasZeroFields: (bool) false
+  },
+  name: (string) (len=13) "PubNewmapping",
+  out: (main.MethodMessage) {
+   name: (string) (len=5) "Empty",
+   hasZeroFields: (bool) true
+  },
+  opts: (*main.methodOptions)(0xc00007db00)({
+   authType: (*main.supportedAuth)(0xc00037a7e0)({
+    id: (string) (len=3) "pub",
+    name: (string) (len=3) "Pub",
+    context: (map[string]string) (len=1) {
+     (string) (len=10) "pub_secret": (string) (len=6) "string"
+    }
+   }),
+   method: (string) (len=4) "post",
+   route: (main.decodedRoute) {
+    route: (string) (len=20) "/api/pub/new/mapping",
+    params: ([]string) <nil>
+   },
+   query: ([]string) <nil>,
+   nostr: (bool) false,
+   batch: (bool) false
+  }),
+  serverStream: (bool) false
+ }),
+ (*main.Method)(0xc00028c9b0)({
+  in: (main.MethodMessage) {
+   name: (string) (len=26) "WalletGetVanityNameRequest",
+   hasZeroFields: (bool) false
+  },
+  name: (string) (len=19) "WalletGetVanityName",
+  out: (main.MethodMessage) {
+   name: (string) (len=27) "WalletGetVanityNameResponse",
+   hasZeroFields: (bool) false
+  },
+  opts: (*main.methodOptions)(0xc00007dc80)({
+   authType: (*main.supportedAuth)(0xc00037a870)({
+    id: (string) (len=6) "wallet",
+    name: (string) (len=6) "Wallet",
+    context: (map[string]string) (len=1) {
+     (string) (len=12) "wallet_token": (string) (len=6) "string"
+    }
+   }),
+   method: (string) (len=4) "post",
+   route: (main.decodedRoute) {
+    route: (string) (len=20) "/api/pub/get/mapping",
+    params: ([]string) <nil>
+   },
+   query: ([]string) <nil>,
+   nostr: (bool) false,
+   batch: (bool) false
+  }),
+  serverStream: (bool) false
+ })
+}
+
+([]*main.Enum) <nil>
+
+(map[string]*main.Message) (len=4) {
+ (string) (len=5) "Empty": (*main.Message)(0xc000218f40)({
+  fullName: (string) (len=5) "Empty",
+  name: (string) (len=5) "Empty",
+  fields: ([]*main.Field) <nil>
+ }),
+ (string) (len=20) "PubNewMappingRequest": (*main.Message)(0xc000218f80)({
+  fullName: (string) (len=20) "PubNewMappingRequest",
+  name: (string) (len=20) "PubNewMappingRequest",
+  fields: ([]*main.Field) (len=1 cap=1) {
+   (*main.Field)(0xc00037a0f0)({
+    name: (string) (len=7) "user_id",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=26) "WalletGetVanityNameRequest": (*main.Message)(0xc000218fc0)({
+  fullName: (string) (len=26) "WalletGetVanityNameRequest",
+  name: (string) (len=26) "WalletGetVanityNameRequest",
+  fields: ([]*main.Field) (len=1 cap=1) {
+   (*main.Field)(0xc00037a120)({
+    name: (string) (len=7) "user_id",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=27) "WalletGetVanityNameResponse": (*main.Message)(0xc000219000)({
+  fullName: (string) (len=27) "WalletGetVanityNameResponse",
+  name: (string) (len=27) "WalletGetVanityNameResponse",
+  fields: ([]*main.Field) (len=1 cap=1) {
+   (*main.Field)(0xc00037a150)({
+    name: (string) (len=11) "vanity_name",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ })
+}
+
+parsing file: structs 4
+parsing file: methods 2
+-> [{guest Guest map[]} {wallet Wallet map[wallet_token:string]} {pub Pub map[pub_secret:string]}] 
+
