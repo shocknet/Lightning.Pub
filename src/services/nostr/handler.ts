@@ -169,10 +169,21 @@ export default class Handler {
         }
 
         const signed = finishEvent(toSign, appInfo.privateKey)
-        this.pool.publish(relays || this.settings.relays, signed).forEach(p => {
-            p.then(() => console.log("sent ok"))
-            p.catch(() => console.log("failed to send"))
-        })
+        let sent = false
+        const log = getLogger({ appName: appInfo.name })
+        await Promise.all(this.pool.publish(relays || this.settings.relays, signed).map(async p => {
+            try {
+                await p
+                sent = true
+            } catch (e: any) {
+                log(e)
+            }
+        }))
+        if (!sent) {
+            log("failed to send event")
+        } else {
+            log("event sent ok")
+        }
     }
 
     GetAppKeys(appInfo: Partial<AppInfo>) {
