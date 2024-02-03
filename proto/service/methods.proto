@@ -240,6 +240,12 @@ service LightningPub {
     // </App>
     
     // <User>
+    rpc UserHealth(structs.Empty)returns(structs.Empty){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/health";
+        option (nostr) = true;
+    }
     rpc GetUserInfo(structs.Empty)returns(structs.UserInfo){
         option (auth_type)  = "User";
         option (http_method) = "post";

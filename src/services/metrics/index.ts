@@ -6,12 +6,15 @@ import { RoutingEvent } from '../storage/entity/RoutingEvent.js'
 import { BalanceInfo } from '../lnd/settings.js'
 import { BalanceEvent } from '../storage/entity/BalanceEvent.js'
 import { ChannelBalanceEvent } from '../storage/entity/ChannelsBalanceEvent.js'
+import { LightningHandler } from '../lnd/index.js'
 const maxEvents = 100_000
 export default class Handler {
     storage: Storage
+    lnd: LightningHandler
     metrics: Types.UsageMetric[] = []
-    constructor(storage: Storage) {
+    constructor(storage: Storage, lnd: LightningHandler) {
         this.storage = storage
+        this.lnd = lnd
     }
 
     async HtlcCb(htlc: HtlcEvent) {
@@ -181,7 +184,33 @@ export default class Handler {
         }
     }
 
+    async GetChannelsInfo() {
+        const { channels } = await this.lnd.ListChannels()
+        let totalActive = 0
+        let totalInactive = 0
+        channels.forEach(c => {
+            if (c.active) {
+                totalActive++
+            } else {
+                totalInactive++
+            }
+        })
+        return {
+            totalActive, totalInactive, openChannels: channels
+        }
+    }
+    async GetPendingChannelsInfo() {
+        const { pendingForceClosingChannels, pendingOpenChannels } = await this.lnd.ListPendingChannels()
+        return { totalPendingClose: pendingForceClosingChannels.length, totalPendingOpen: pendingOpenChannels.length }
+
+    }
+
+
     async GetLndMetrics(req: Types.LndMetricsRequest): Promise<Types.LndMetrics> {
+        const { openChannels, totalActive, totalInactive } = await this.GetChannelsInfo()
+        const { totalPendingOpen, totalPendingClose } = await this.GetPendingChannelsInfo()
+        const { channels: closedChannels } = await this.lnd.ListClosedChannels()
+
         const routingEvents = await this.storage.metricsStorage.GetRoutingEvents({ from: req.from_unix, to: req.to_unix })
         const { channelsBalanceEvents, chainBalanceEvents } = await this.storage.metricsStorage.GetBalanceEvents({ from: req.from_unix, to: req.to_unix })
         return {
@@ -211,10 +240,15 @@ export default class Handler {
                     outgoing_htlc_id: e.outgoing_htlc_id,
                     settled: e.settled || false,
                     timestamp_ns: e.timestamp_ns
+                })),
+                closing_channels: totalPendingClose,
+                pending_channels: totalPendingOpen,
+                offline_channels: totalInactive,
+                online_channels: totalActive,
+                closed_channels: closedChannels.map(c => ({ capacity: Number(c.capacity), channel_id: c.chanId, closed_height: c.closeHeight })),
+                open_channels: openChannels.map(c => ({ active: c.active, capacity: Number(c.capacity), channel_id: c.chanId, lifetime: Number(c.lifetime), local_balance: Number(c.localBalance), remote_balance: Number(c.remoteBalance) }))
+            }],
 
-
-                }))
-            }]
         }
     }
 }
