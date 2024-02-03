@@ -96,14 +96,35 @@ message ChainBalanceEvent {
     int64 total_balance = 4;
 }
 
+message OpenChannel {
+    string channel_id = 1;
+    int64 capacity = 2;
+    bool active = 3;
+    int64 lifetime =4 ;
+    int64 local_balance=5;
+    int64 remote_balance = 6;
+}
+message ClosedChannel {
+    string channel_id = 1;
+    int64 capacity = 2;
+    int64 closed_height =4;
+}
+
 message LndNodeMetrics {
     repeated ChannelBalanceEvent channels_balance_events = 1;
     repeated ChainBalanceEvent chain_balance_events = 2;
     repeated RoutingEvent routing_events = 3;
+    int64 offline_channels = 4;
+    int64 online_channels = 5;
+    int64 pending_channels = 6;
+    int64 closing_channels = 7;
+    repeated OpenChannel open_channels = 8;
+    repeated ClosedChannel closed_channels = 9;
 }
 
 message LndMetrics {
     repeated LndNodeMetrics nodes = 1;
+
 }
 
 message LndGetInfoRequest {
@@ -297,6 +318,7 @@ message UserInfo{
     string userId = 1;
     int64 balance = 2;
     int64 max_withdrawable = 3;
+    string user_identifier = 4;
 }
 
 message GetUserOperationsRequest{
