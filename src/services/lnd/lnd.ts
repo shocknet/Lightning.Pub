@@ -225,10 +225,7 @@ export default class {
 
     async NewInvoice(value: number, memo: string, expiry: number): Promise<Invoice> {
         await this.Health()
-        const encoder = new TextEncoder()
-        const ecoded = encoder.encode(memo)
-        const hashed = crypto.createHash('sha256').update(ecoded).digest();
-        const res = await this.lightning.addInvoice(AddInvoiceReq(value, hashed, expiry), DeadLineMetadata())
+        const res = await this.lightning.addInvoice(AddInvoiceReq(value, expiry, false, memo), DeadLineMetadata())
         return { payRequest: res.response.paymentRequest }
     }
 
