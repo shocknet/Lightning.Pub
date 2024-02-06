@@ -35,7 +35,7 @@ export default class {
         return entityManager.getRepository(AddressReceivingTransaction).save(newAddressTransaction)
     }
 
-    GetUserReceivingTransactions(userId: string, fromIndex: number, entityManager = this.DB): Promise<AddressReceivingTransaction[]> {
+    GetUserReceivingTransactions(userId: string, fromIndex: number, take = 50, entityManager = this.DB): Promise<AddressReceivingTransaction[]> {
         return entityManager.getRepository(AddressReceivingTransaction).find({
             where: {
                 user_address: { user: { user_id: userId } },
@@ -44,7 +44,8 @@ export default class {
             },
             order: {
                 paid_at_unix: 'DESC'
-            }
+            },
+            take
         })
     }
 
@@ -70,7 +71,7 @@ export default class {
         return entityManager.getRepository(UserReceivingInvoice).update(invoice.serial_id, i)
     }
 
-    GetUserInvoicesFlaggedAsPaid(userId: string, fromIndex: number, entityManager = this.DB): Promise<UserReceivingInvoice[]> {
+    GetUserInvoicesFlaggedAsPaid(userId: string, fromIndex: number, take = 50, entityManager = this.DB): Promise<UserReceivingInvoice[]> {
         return entityManager.getRepository(UserReceivingInvoice).find({
             where: {
                 user: {
@@ -81,7 +82,8 @@ export default class {
             },
             order: {
                 paid_at_unix: 'DESC'
-            }
+            },
+            take
         })
     }
 
@@ -129,7 +131,7 @@ export default class {
         return entityManager.getRepository(UserInvoicePayment).save(newPayment)
     }
 
-    GetUserInvoicePayments(userId: string, fromIndex: number, entityManager = this.DB): Promise<UserInvoicePayment[]> {
+    GetUserInvoicePayments(userId: string, fromIndex: number, take = 50, entityManager = this.DB): Promise<UserInvoicePayment[]> {
         return entityManager.getRepository(UserInvoicePayment).find({
             where: {
                 user: {
@@ -140,7 +142,8 @@ export default class {
             },
             order: {
                 paid_at_unix: 'DESC'
-            }
+            },
+            take
         })
     }
 
@@ -162,7 +165,7 @@ export default class {
         return entityManager.getRepository(UserTransactionPayment).save(newTx)
     }
 
-    GetUserTransactionPayments(userId: string, fromIndex: number, entityManager = this.DB): Promise<UserTransactionPayment[]> {
+    GetUserTransactionPayments(userId: string, fromIndex: number, take = 50, entityManager = this.DB): Promise<UserTransactionPayment[]> {
         return entityManager.getRepository(UserTransactionPayment).find({
             where: {
                 user: {
@@ -173,7 +176,8 @@ export default class {
             },
             order: {
                 paid_at_unix: 'DESC'
-            }
+            },
+            take
         })
     }
 
@@ -233,7 +237,7 @@ export default class {
         return entityManager.getRepository(UserToUserPayment).save(newKey)
     }
 
-    GetUserToUserReceivedPayments(userId: string, fromIndex: number, entityManager = this.DB) {
+    GetUserToUserReceivedPayments(userId: string, fromIndex: number, take = 50, entityManager = this.DB) {
         return entityManager.getRepository(UserToUserPayment).find({
             where: {
                 to_user: {
@@ -244,11 +248,12 @@ export default class {
             },
             order: {
                 paid_at_unix: 'DESC'
-            }
+            },
+            take
         })
     }
 
-    GetUserToUserSentPayments(userId: string, fromIndex: number, entityManager = this.DB) {
+    GetUserToUserSentPayments(userId: string, fromIndex: number, take = 50, entityManager = this.DB) {
         return entityManager.getRepository(UserToUserPayment).find({
             where: {
                 from_user: {
@@ -259,7 +264,8 @@ export default class {
             },
             order: {
                 paid_at_unix: 'DESC'
-            }
+            },
+            take
         })
     }
 
