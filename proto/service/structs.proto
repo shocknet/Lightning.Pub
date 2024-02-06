@@ -328,6 +328,7 @@ message GetUserOperationsRequest{
     int64 latestOutgoingTx = 4;
     int64 latestIncomingUserToUserPayment = 5;
     int64 latestOutgoingUserToUserPayment = 6;
+    int64 max_size = 7;
 }
 enum UserOperationType {
     INCOMING_TX =0;
@@ -362,7 +363,7 @@ message GetUserOperationsResponse{
     UserOperations latestOutgoingTxOperations=3;
     UserOperations latestIncomingTxOperations=4;
     UserOperations latestOutgoingUserToUserPayemnts=5;
-    UserOperations latestIncomingUserToUserPayemnts=6 ;
+    UserOperations latestIncomingUserToUserPayemnts=6;
 }
 
 message AddProductRequest {
