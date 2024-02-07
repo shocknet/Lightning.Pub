@@ -23,7 +23,12 @@ const start = async () => {
     const serverMethods = GetServerMethods(mainHandler)
     const nostrSettings = LoadNosrtSettingsFromEnv()
     const appsData = await mainHandler.storage.applicationStorage.GetApplications()
-
+    const existingWalletApp = await appsData.find(app => app.name === 'wallet' || app.name === 'wallet-test')
+    if (!existingWalletApp) {
+        log("no default wallet app found, creating one...")
+        const newWalletApp = await mainHandler.storage.applicationStorage.AddApplication('wallet', true)
+        appsData.push(newWalletApp)
+    }
     const apps = await Promise.all(appsData.map(app => {
         if (!app.nostr_private_key || !app.nostr_public_key) { // TMP --
             return mainHandler.storage.applicationStorage.GenerateApplicationKeys(app);
