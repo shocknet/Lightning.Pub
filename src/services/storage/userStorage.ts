@@ -3,21 +3,24 @@ import { DataSource, EntityManager } from "typeorm"
 import { User } from './entity/User.js';
 import { UserBasicAuth } from './entity/UserBasicAuth.js';
 import { getLogger } from '../helpers/logger.js';
+import TransactionsQueue from "./transactionsQueue.js";
 export default class {
     DB: DataSource | EntityManager
-    constructor(DB: DataSource | EntityManager) {
+    txQueue: TransactionsQueue
+    constructor(DB: DataSource | EntityManager, txQueue: TransactionsQueue) {
         this.DB = DB
+        this.txQueue = txQueue
     }
-    async AddUser(balance: number, entityManager = this.DB): Promise<User> {
+    async AddUser(balance: number, dbTx: DataSource | EntityManager): Promise<User> {
         if (balance && process.env.ALLOW_BALANCE_MIGRATION !== 'true') {
             throw new Error("balance migration is not allowed")
         }
         getLogger({})("Adding user with balance", balance)
-        const newUser = entityManager.getRepository(User).create({
+        const newUser = dbTx.getRepository(User).create({
             user_id: crypto.randomBytes(32).toString('hex'),
             balance_sats: balance
         })
-        return entityManager.getRepository(User).save(newUser)
+        return dbTx.getRepository(User).save(newUser)
     }
 
     async AddBasicUser(name: string, secret: string): Promise<UserBasicAuth> {
