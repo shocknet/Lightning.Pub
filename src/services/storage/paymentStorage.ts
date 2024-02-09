@@ -11,17 +11,20 @@ import { AddressReceivingTransaction } from './entity/AddressReceivingTransactio
 import { UserInvoicePayment } from './entity/UserInvoicePayment.js';
 import { UserToUserPayment } from './entity/UserToUserPayment.js';
 import { Application } from './entity/Application.js';
+import TransactionsQueue, { TX } from "./transactionsQueue.js";
 export type InboundOptionals = { product?: Product, callbackUrl?: string, expiry: number, expectedPayer?: User, linkedApplication?: Application, zapInfo?: ZapInfo }
 export const defaultInvoiceExpiry = 60 * 60
 export default class {
     DB: DataSource | EntityManager
     userStorage: UserStorage
-    constructor(DB: DataSource | EntityManager, userStorage: UserStorage) {
+    txQueue: TransactionsQueue
+    constructor(DB: DataSource | EntityManager, userStorage: UserStorage, txQueue: TransactionsQueue) {
         this.DB = DB
         this.userStorage = userStorage
+        this.txQueue = txQueue
     }
-    async AddAddressReceivingTransaction(address: UserReceivingAddress, txHash: string, outputIndex: number, amount: number, serviceFee: number, internal: boolean, height: number, entityManager = this.DB) {
-        const newAddressTransaction = entityManager.getRepository(AddressReceivingTransaction).create({
+    async AddAddressReceivingTransaction(address: UserReceivingAddress, txHash: string, outputIndex: number, amount: number, serviceFee: number, internal: boolean, height: number, dbTx: EntityManager | DataSource) {
+        const newAddressTransaction = dbTx.getRepository(AddressReceivingTransaction).create({
             user_address: address,
             tx_hash: txHash,
             output_index: outputIndex,
@@ -32,7 +35,7 @@ export default class {
             broadcast_height: height,
             confs: internal ? 10 : 0
         })
-        return entityManager.getRepository(AddressReceivingTransaction).save(newAddressTransaction)
+        return dbTx.getRepository(AddressReceivingTransaction).save(newAddressTransaction)
     }
 
     GetUserReceivingTransactions(userId: string, fromIndex: number, take = 50, entityManager = this.DB): Promise<AddressReceivingTransaction[]> {
@@ -53,14 +56,14 @@ export default class {
         return entityManager.getRepository(UserReceivingAddress).findOne({ where: { user: { user_id: userId }, linkedApplication: { app_id: linkedApplication.app_id } } })
     }
 
-    async AddUserAddress(userId: string, address: string, opts: { callbackUrl?: string, linkedApplication?: Application } = {}, entityManager = this.DB): Promise<UserReceivingAddress> {
-        const newUserAddress = entityManager.getRepository(UserReceivingAddress).create({
+    async AddUserAddress(userId: string, address: string, opts: { callbackUrl?: string, linkedApplication?: Application } = {}): Promise<UserReceivingAddress> {
+        const newUserAddress = this.DB.getRepository(UserReceivingAddress).create({
             address,
             callbackUrl: opts.callbackUrl || "",
             linkedApplication: opts.linkedApplication,
-            user: await this.userStorage.GetUser(userId, entityManager)
+            user: await this.userStorage.GetUser(userId)
         })
-        return entityManager.getRepository(UserReceivingAddress).save(newUserAddress)
+        return this.txQueue.PushToQueue<UserReceivingAddress>({ exec: async db => db.getRepository(UserReceivingAddress).save(newUserAddress), dbTx: false })
     }
 
     async FlagInvoiceAsPaid(invoice: UserReceivingInvoice, amount: number, serviceFee: number, internal: boolean, entityManager = this.DB) {
@@ -87,8 +90,8 @@ export default class {
         })
     }
 
-    async AddUserInvoice(user: User, invoice: string, options: InboundOptionals = { expiry: defaultInvoiceExpiry }, entityManager = this.DB): Promise<UserReceivingInvoice> {
-        const newUserInvoice = entityManager.getRepository(UserReceivingInvoice).create({
+    async AddUserInvoice(user: User, invoice: string, options: InboundOptionals = { expiry: defaultInvoiceExpiry }): Promise<UserReceivingInvoice> {
+        const newUserInvoice = this.DB.getRepository(UserReceivingInvoice).create({
             invoice: invoice,
             callbackUrl: options.callbackUrl,
             user: user,
@@ -98,7 +101,7 @@ export default class {
             linkedApplication: options.linkedApplication,
             zap_info: options.zapInfo
         })
-        return entityManager.getRepository(UserReceivingInvoice).save(newUserInvoice)
+        return this.txQueue.PushToQueue<UserReceivingInvoice>({ exec: async db => db.getRepository(UserReceivingInvoice).save(newUserInvoice), dbTx: false })
     }
 
     async GetAddressOwner(address: string, entityManager = this.DB): Promise<UserReceivingAddress | null> {
@@ -117,8 +120,8 @@ export default class {
         })
     }
 
-    async AddUserInvoicePayment(userId: string, invoice: string, amount: number, routingFees: number, serviceFees: number, internal: boolean, linkedApplication: Application, entityManager = this.DB): Promise<UserInvoicePayment> {
-        const newPayment = entityManager.getRepository(UserInvoicePayment).create({
+    async AddUserInvoicePayment(userId: string, invoice: string, amount: number, routingFees: number, serviceFees: number, internal: boolean, linkedApplication: Application): Promise<UserInvoicePayment> {
+        const newPayment = this.DB.getRepository(UserInvoicePayment).create({
             user: await this.userStorage.GetUser(userId),
             paid_amount: amount,
             invoice,
@@ -128,7 +131,7 @@ export default class {
             internal,
             linkedApplication
         })
-        return entityManager.getRepository(UserInvoicePayment).save(newPayment)
+        return this.txQueue.PushToQueue<UserInvoicePayment>({ exec: async db => db.getRepository(UserInvoicePayment).save(newPayment), dbTx: false })
     }
 
     GetUserInvoicePayments(userId: string, fromIndex: number, take = 50, entityManager = this.DB): Promise<UserInvoicePayment[]> {
@@ -147,8 +150,8 @@ export default class {
         })
     }
 
-    async AddUserTransactionPayment(userId: string, address: string, txHash: string, txOutput: number, amount: number, chainFees: number, serviceFees: number, internal: boolean, height: number, linkedApplication: Application, entityManager = this.DB): Promise<UserTransactionPayment> {
-        const newTx = entityManager.getRepository(UserTransactionPayment).create({
+    async AddUserTransactionPayment(userId: string, address: string, txHash: string, txOutput: number, amount: number, chainFees: number, serviceFees: number, internal: boolean, height: number, linkedApplication: Application): Promise<UserTransactionPayment> {
+        const newTx = this.DB.getRepository(UserTransactionPayment).create({
             user: await this.userStorage.GetUser(userId),
             address,
             paid_amount: amount,
@@ -162,7 +165,7 @@ export default class {
             confs: internal ? 10 : 0,
             linkedApplication
         })
-        return entityManager.getRepository(UserTransactionPayment).save(newTx)
+        return this.txQueue.PushToQueue<UserTransactionPayment>({ exec: async db => db.getRepository(UserTransactionPayment).save(newTx), dbTx: false })
     }
 
     GetUserTransactionPayments(userId: string, fromIndex: number, take = 50, entityManager = this.DB): Promise<UserTransactionPayment[]> {
@@ -195,18 +198,18 @@ export default class {
     }
 
 
-    async AddUserEphemeralKey(userId: string, keyType: EphemeralKeyType, linkedApplication: Application, entityManager = this.DB): Promise<UserEphemeralKey> {
-        const found = await entityManager.getRepository(UserEphemeralKey).findOne({ where: { type: keyType, user: { user_id: userId }, linkedApplication: { app_id: linkedApplication.app_id } } })
+    async AddUserEphemeralKey(userId: string, keyType: EphemeralKeyType, linkedApplication: Application): Promise<UserEphemeralKey> {
+        const found = await this.DB.getRepository(UserEphemeralKey).findOne({ where: { type: keyType, user: { user_id: userId }, linkedApplication: { app_id: linkedApplication.app_id } } })
         if (found) {
             return found
         }
-        const newKey = entityManager.getRepository(UserEphemeralKey).create({
-            user: await this.userStorage.GetUser(userId, entityManager),
+        const newKey = this.DB.getRepository(UserEphemeralKey).create({
+            user: await this.userStorage.GetUser(userId),
             key: crypto.randomBytes(31).toString('hex'),
             type: keyType,
             linkedApplication
         })
-        return entityManager.getRepository(UserEphemeralKey).save(newKey)
+        return this.txQueue.PushToQueue<UserEphemeralKey>({ exec: async db => db.getRepository(UserEphemeralKey).save(newKey), dbTx: false })
     }
 
     async UseUserEphemeralKey(key: string, keyType: EphemeralKeyType, persist = false, entityManager = this.DB): Promise<UserEphemeralKey> {
@@ -225,16 +228,16 @@ export default class {
         return found
     }
 
-    async AddUserToUserPayment(fromUserId: string, toUserId: string, amount: number, fee: number, linkedApplication: Application, entityManager = this.DB) {
-        const newKey = entityManager.getRepository(UserToUserPayment).create({
-            from_user: await this.userStorage.GetUser(fromUserId, entityManager),
-            to_user: await this.userStorage.GetUser(toUserId, entityManager),
+    async AddUserToUserPayment(fromUserId: string, toUserId: string, amount: number, fee: number, linkedApplication: Application) {
+        const newKey = this.DB.getRepository(UserToUserPayment).create({
+            from_user: await this.userStorage.GetUser(fromUserId),
+            to_user: await this.userStorage.GetUser(toUserId),
             paid_at_unix: Math.floor(Date.now() / 1000),
             paid_amount: amount,
             service_fees: fee,
             linkedApplication
         })
-        return entityManager.getRepository(UserToUserPayment).save(newKey)
+        return this.txQueue.PushToQueue<UserToUserPayment>({ exec: async db => db.getRepository(UserToUserPayment).save(newKey), dbTx: false })
     }
 
     GetUserToUserReceivedPayments(userId: string, fromIndex: number, take = 50, entityManager = this.DB) {

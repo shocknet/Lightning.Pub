@@ -2,10 +2,13 @@ import { Between, DataSource, EntityManager, FindOperator, LessThanOrEqual, More
 import { RoutingEvent } from "./entity/RoutingEvent.js"
 import { BalanceEvent } from "./entity/BalanceEvent.js"
 import { ChannelBalanceEvent } from "./entity/ChannelsBalanceEvent.js"
+import TransactionsQueue, { TX } from "./transactionsQueue.js";
 export default class {
     DB: DataSource | EntityManager
-    constructor(DB: DataSource | EntityManager) {
+    txQueue: TransactionsQueue
+    constructor(DB: DataSource | EntityManager, txQueue: TransactionsQueue) {
         this.DB = DB
+        this.txQueue = txQueue
     }
     async SaveRoutingEvent(event: Partial<RoutingEvent>, entityManager = this.DB) {
         const entry = entityManager.getRepository(RoutingEvent).create(event)

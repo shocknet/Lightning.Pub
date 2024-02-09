@@ -5,24 +5,29 @@ import { Application } from "./entity/Application.js"
 import UserStorage from './userStorage.js';
 import { ApplicationUser } from './entity/ApplicationUser.js';
 import { getLogger } from '../helpers/logger.js';
+import TransactionsQueue, { TX } from "./transactionsQueue.js";
 export default class {
     DB: DataSource | EntityManager
     userStorage: UserStorage
-    constructor(DB: DataSource | EntityManager, userStorage: UserStorage) {
+    txQueue: TransactionsQueue
+    constructor(DB: DataSource | EntityManager, userStorage: UserStorage, txQueue: TransactionsQueue) {
         this.DB = DB
         this.userStorage = userStorage
+        this.txQueue = txQueue
     }
 
-    async AddApplication(name: string, allowUserCreation: boolean, entityManager = this.DB): Promise<Application> {
-        const owner = await this.userStorage.AddUser(0, entityManager)
-        const repo = entityManager.getRepository(Application)
-        const newApplication = repo.create({
-            app_id: crypto.randomBytes(32).toString('hex'),
-            name,
-            owner,
-            allow_user_creation: allowUserCreation
+    async AddApplication(name: string, allowUserCreation: boolean): Promise<Application> {
+        return this.DB.transaction(async tx => {
+            const owner = await this.userStorage.AddUser(0, tx)
+            const repo = this.DB.getRepository(Application)
+            const newApplication = repo.create({
+                app_id: crypto.randomBytes(32).toString('hex'),
+                name,
+                owner,
+                allow_user_creation: allowUserCreation
+            })
+            return tx.getRepository(Application).save(newApplication)
         })
-        return repo.save(newApplication)
     }
 
     async GetApplicationByName(name: string, entityManager = this.DB) {
