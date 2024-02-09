@@ -10,16 +10,17 @@ export default class {
         this.DB = DB
         this.txQueue = txQueue
     }
-    async SaveRoutingEvent(event: Partial<RoutingEvent>, entityManager = this.DB) {
-        const entry = entityManager.getRepository(RoutingEvent).create(event)
-        return entityManager.getRepository(RoutingEvent).save(entry)
+    async SaveRoutingEvent(event: Partial<RoutingEvent>) {
+        const entry = this.DB.getRepository(RoutingEvent).create(event)
+        return this.txQueue.PushToQueue<RoutingEvent>({ exec: async db => db.getRepository(RoutingEvent).save(entry), dbTx: false })
     }
 
-    async SaveBalanceEvents(balanceEvent: Partial<BalanceEvent>, channelBalanceEvents: Partial<ChannelBalanceEvent>[], entityManager = this.DB) {
-        const blanceEventEntry = entityManager.getRepository(BalanceEvent).create(balanceEvent)
-        const balanceEntry = await entityManager.getRepository(BalanceEvent).save(blanceEventEntry)
-        const channelsEntry = entityManager.getRepository(ChannelBalanceEvent).create(channelBalanceEvents.map(e => ({ ...e, balance_event: balanceEntry })))
-        const channelsEntries = await entityManager.getRepository(ChannelBalanceEvent).save(channelsEntry)
+    async SaveBalanceEvents(balanceEvent: Partial<BalanceEvent>, channelBalanceEvents: Partial<ChannelBalanceEvent>[]) {
+        const blanceEventEntry = this.DB.getRepository(BalanceEvent).create(balanceEvent)
+        const balanceEntry = await this.txQueue.PushToQueue<BalanceEvent>({ exec: async db => db.getRepository(BalanceEvent).save(blanceEventEntry), dbTx: false })
+
+        const channelsEntry = this.DB.getRepository(ChannelBalanceEvent).create(channelBalanceEvents.map(e => ({ ...e, balance_event: balanceEntry })))
+        const channelsEntries = await this.txQueue.PushToQueue<ChannelBalanceEvent[]>({ exec: async db => db.getRepository(ChannelBalanceEvent).save(channelsEntry), dbTx: false })
         return { balanceEntry, channelsEntries }
     }
 
