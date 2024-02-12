@@ -30,7 +30,8 @@ export const LoadMainSettingsFromEnv = (test = false): MainSettings => {
         userToUserFee: EnvMustBeInteger("TX_FEE_INTERNAL_USER_BPS") / 10000,
         appToUserFee: EnvMustBeInteger("TX_FEE_INTERNAL_ROOT_BPS") / 10000,
         serviceUrl: EnvMustBeNonEmptyString("SERVICE_URL"),
-        servicePort: EnvMustBeInteger("PORT")
+        servicePort: EnvMustBeInteger("PORT"),
+        recordPerformance: process.env.RECORD_PERFORMANCE === 'true' || false
     }
 }
 
