@@ -2,6 +2,7 @@
 import { SimplePool, Sub, Event, UnsignedEvent, getEventHash, finishEvent, relayInit } from './tools/index.js'
 import { encryptData, decryptData, getSharedSecret, decodePayload, encodePayload } from './nip44.js'
 import { getLogger } from '../helpers/logger.js'
+import { encodeNprofile } from '../../custom-nip19.js'
 const handledEvents: string[] = [] // TODO: - big memory leak here, add TTL
 type AppInfo = { appId: string, publicKey: string, privateKey: string, name: string }
 export type SendData = { type: "content", content: string, pub: string } | { type: "event", event: UnsignedEvent }
@@ -88,7 +89,18 @@ export default class Handler {
     eventCallback: (event: NostrEvent) => void
     constructor(settings: NostrSettings, eventCallback: (event: NostrEvent) => void) {
         this.settings = settings
-        console.log(settings)
+        console.log(
+            {
+                ...settings,
+                apps: settings.apps.map(app => {
+                    const { privateKey, ...rest } = app;
+                    return {
+                        ...rest,
+                        nprofile: encodeNprofile({ pubkey: rest.publicKey, relays: settings.relays })
+                    }
+                })
+            }
+        )
         this.eventCallback = eventCallback
         this.settings.apps.forEach(app => {
             this.apps[app.publicKey] = app

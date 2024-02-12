@@ -3,12 +3,20 @@ import { RoutingEvent } from "./entity/RoutingEvent.js"
 import { BalanceEvent } from "./entity/BalanceEvent.js"
 import { ChannelBalanceEvent } from "./entity/ChannelsBalanceEvent.js"
 import TransactionsQueue, { TX } from "./transactionsQueue.js";
+import { StorageSettings } from "./index.js";
+import { newMetricsDb } from "./db.js";
 export default class {
     DB: DataSource | EntityManager
+    settings: StorageSettings
     txQueue: TransactionsQueue
-    constructor(DB: DataSource | EntityManager, txQueue: TransactionsQueue) {
-        this.DB = DB
-        this.txQueue = txQueue
+    constructor(settings: StorageSettings) {
+        this.settings = settings;
+    }
+    async Connect(metricsMigrations: Function[]) {
+        const { source, executedMigrations } = await newMetricsDb(this.settings.dbSettings, metricsMigrations)
+        this.DB = source;
+        this.txQueue = new TransactionsQueue(this.DB)
+        return executedMigrations;
     }
     async SaveRoutingEvent(event: Partial<RoutingEvent>) {
         const entry = this.DB.getRepository(RoutingEvent).create(event)
