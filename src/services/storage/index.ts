@@ -25,7 +25,7 @@ export default class {
     constructor(settings: StorageSettings) {
         this.settings = settings
     }
-    async Connect(migrations: Function[]) {
+    async Connect(migrations: Function[], metricsMigrations: Function []) {
         const { source, executedMigrations } = await NewDB(this.settings.dbSettings, migrations)
         this.DB = source
         this.txQueue = new TransactionsQueue(this.DB)
@@ -33,8 +33,9 @@ export default class {
         this.productStorage = new ProductStorage(this.DB, this.txQueue)
         this.applicationStorage = new ApplicationStorage(this.DB, this.userStorage, this.txQueue)
         this.paymentStorage = new PaymentStorage(this.DB, this.userStorage, this.txQueue)
-        this.metricsStorage = new MetricsStorage(this.DB, this.txQueue)
-        return executedMigrations
+        this.metricsStorage = new MetricsStorage(this.settings)
+        const executedMetricsMigrations = await this.metricsStorage.Connect(metricsMigrations)
+        return { executedMigrations, executedMetricsMigrations };
     }
 
     StartTransaction(exec: TX<void>) {

@@ -11,7 +11,7 @@ export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSett
             let nostrUser = await mainHandler.storage.applicationStorage.GetOrCreateNostrAppUser(app, pub || "")
             return { user_id: nostrUser.user.user_id, app_user_id: nostrUser.identifier, app_id: appId || "" }
         },
-        metricsCallback: metrics => mainHandler.metricsManager.AddMetrics(metrics)
+        metricsCallback: metrics => mainHandler.settings.recordPerformance ?  mainHandler.metricsManager.AddMetrics(metrics) : null
     })
     const nostr = new Nostr(nostrSettings, event => {
         let j: NostrRequest

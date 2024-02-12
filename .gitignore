@@ -7,5 +7,6 @@ temp/
 .env
 build/
 db.sqlite
+metrics.sqlite
 .key/
 logs
