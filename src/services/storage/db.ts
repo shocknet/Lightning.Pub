@@ -24,12 +24,32 @@ import { LndMetrics1703170330183 } from "./migrations/1703170330183-lnd_metrics.
 export type DbSettings = {
     databaseFile: string
     migrate: boolean
+    metricsDatabaseFile: string
 }
 export const LoadDbSettingsFromEnv = (test = false): DbSettings => {
     return {
         databaseFile: test ? ":memory:" : EnvMustBeNonEmptyString("DATABASE_FILE"),
         migrate: process.env.MIGRATE_DB === 'true' || false,
+        metricsDatabaseFile: test ? ":memory" : EnvMustBeNonEmptyString("METRICS_DATABASE_FILE")
     }
+}
+
+export const newMetricsDb = async (settings: DbSettings, metricsMigrations: Function[]): Promise<{ source: DataSource, executedMigrations: Migration[] }> => {
+    const source = await new DataSource({
+        type: "sqlite",
+        database: settings.metricsDatabaseFile,
+        entities: [ RoutingEvent, BalanceEvent, ChannelBalanceEvent],
+        migrations: metricsMigrations
+    }).initialize();
+    const log = getLogger({});
+    const pendingMigrations = await source.showMigrations()
+    if (pendingMigrations) {
+        log("Migrations found, migrating...")
+        const executedMigrations = await source.runMigrations({ transaction: 'all' })
+        return { source, executedMigrations }
+    }
+    return { source, executedMigrations: [] }
+
 }
 
 export default async (settings: DbSettings, migrations: Function[]): Promise<{ source: DataSource, executedMigrations: Migration[] }> => {
@@ -38,7 +58,7 @@ export default async (settings: DbSettings, migrations: Function[]): Promise<{ s
         database: settings.databaseFile,
         // logging: true,
         entities: [User, UserReceivingInvoice, UserReceivingAddress, AddressReceivingTransaction, UserInvoicePayment, UserTransactionPayment,
-            UserBasicAuth, UserEphemeralKey, Product, UserToUserPayment, Application, ApplicationUser, UserToUserPayment, RoutingEvent, BalanceEvent, ChannelBalanceEvent],
+            UserBasicAuth, UserEphemeralKey, Product, UserToUserPayment, Application, ApplicationUser, UserToUserPayment],
         //synchronize: true,
         migrations
     }).initialize()
