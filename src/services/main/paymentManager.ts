@@ -281,10 +281,13 @@ export default class {
     }
 
     async GetLnurlPayLink(ctx: Types.UserContext): Promise<Types.LnurlLinkResponse> {
+        getLogger({})("getting lnurl pay link")
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
         const key = await this.storage.paymentStorage.AddUserEphemeralKey(ctx.user_id, 'pay', app)
+        const lnurl = this.encodeLnurl(this.lnurlPayUrl(key.key))
+        getLogger({})("got lnurl pay link: ", lnurl)
         return {
-            lnurl: this.encodeLnurl(this.lnurlPayUrl(key.key)),
+            lnurl,
             k1: key.key
         }
     }
