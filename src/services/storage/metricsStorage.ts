@@ -15,7 +15,7 @@ export default class {
     async Connect(metricsMigrations: Function[]) {
         const { source, executedMigrations } = await newMetricsDb(this.settings.dbSettings, metricsMigrations)
         this.DB = source;
-        this.txQueue = new TransactionsQueue(this.DB)
+        this.txQueue = new TransactionsQueue("metrics", this.DB)
         return executedMigrations;
     }
     async SaveRoutingEvent(event: Partial<RoutingEvent>) {
