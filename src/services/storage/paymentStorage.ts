@@ -228,8 +228,8 @@ export default class {
         return found
     }
 
-    async AddUserToUserPayment(fromUserId: string, toUserId: string, amount: number, fee: number, linkedApplication: Application) {
-        const newKey = this.DB.getRepository(UserToUserPayment).create({
+    async AddUserToUserPayment(fromUserId: string, toUserId: string, amount: number, fee: number, linkedApplication: Application, dbTx: DataSource | EntityManager) {
+        const newKey = dbTx.getRepository(UserToUserPayment).create({
             from_user: await this.userStorage.GetUser(fromUserId),
             to_user: await this.userStorage.GetUser(toUserId),
             paid_at_unix: Math.floor(Date.now() / 1000),
@@ -237,7 +237,7 @@ export default class {
             service_fees: fee,
             linkedApplication
         })
-        return this.txQueue.PushToQueue<UserToUserPayment>({ exec: async db => db.getRepository(UserToUserPayment).save(newKey), dbTx: false })
+        return dbTx.getRepository(UserToUserPayment).save(newKey)
     }
 
     GetUserToUserReceivedPayments(userId: string, fromIndex: number, take = 50, entityManager = this.DB) {
