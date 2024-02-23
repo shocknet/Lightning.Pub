@@ -120,11 +120,13 @@ export default class {
 
     async AddAppUserInvoice(appId: string, req: Types.AddAppUserInvoiceRequest): Promise<Types.NewInvoiceResponse> {
         const app = await this.storage.applicationStorage.GetApplication(appId)
+        const log = getLogger({ appName: app.name })
         const receiver = await this.storage.applicationStorage.GetApplicationUser(app, req.receiver_identifier)
         const { user: payer } = await this.storage.applicationStorage.GetOrCreateApplicationUser(app, req.payer_identifier, 0)
         const opts: InboundOptionals = { callbackUrl: req.http_callback_url, expiry: defaultInvoiceExpiry, expectedPayer: payer.user, linkedApplication: app }
+        log("generating invoice...")
         const appUserInvoice = await this.paymentManager.NewInvoice(receiver.user.user_id, req.invoice_req, opts)
-        getLogger({ appName: app.name })(receiver.identifier, "invoice created to be paid by", payer.identifier)
+        log(receiver.identifier, "invoice created to be paid by", payer.identifier)
         return {
             invoice: appUserInvoice.invoice
         }
