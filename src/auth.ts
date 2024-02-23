@@ -12,7 +12,9 @@ const serverOptions = (mainHandler: Main): ServerOptions => {
         UserAuthGuard: async (authHeader) => { return mainHandler.appUserManager.DecodeUserToken(stripBearer(authHeader)) },
         GuestAuthGuard: async (_) => ({}),
         metricsCallback: metrics => mainHandler.settings.recordPerformance ? mainHandler.metricsManager.AddMetrics(metrics) : null,
-        allowCors: true
+        allowCors: true,
+        logMethod: true,
+        logBody: true
         //throwErrors: true
     }
 }
