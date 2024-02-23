@@ -272,6 +272,26 @@ export default class {
         })
     }
 
+    async GetTotalFeesPaidInApp(app: Application | null, entityManager = this.DB) {
+        if (!app) {
+            return 0
+        }
+        const entries = await Promise.all([
+            entityManager.getRepository(UserReceivingInvoice).sum("service_fee", { linkedApplication: { app_id: app.app_id } }),
+            entityManager.getRepository(AddressReceivingTransaction).sum("service_fee", { user_address: { linkedApplication: { app_id: app.app_id } } }),
+            entityManager.getRepository(UserInvoicePayment).sum("service_fees", { linkedApplication: { app_id: app.app_id } }),
+            entityManager.getRepository(UserTransactionPayment).sum("service_fees", { linkedApplication: { app_id: app.app_id } }),
+            entityManager.getRepository(UserToUserPayment).sum("service_fees", { linkedApplication: { app_id: app.app_id } })
+        ])
+        let total = 0
+        entries.forEach(e => {
+            if (e) {
+                total += e
+            }
+        })
+        return total
+    }
+
     async GetAppOperations(application: Application | null, { from, to }: { from?: number, to?: number }, entityManager = this.DB) {
         const q = application ? { app_id: application.app_id } : IsNull()
         let time: { created_at?: FindOperator<Date> } = {}
@@ -290,7 +310,7 @@ export default class {
             entityManager.getRepository(UserTransactionPayment).find({ where: { linkedApplication: q, ...time } }),
             entityManager.getRepository(UserToUserPayment).find({ where: { linkedApplication: q, ...time } })
         ])
-        const receivingTransactions = await Promise.all(receivingAddresses.map(addr => entityManager.getRepository(AddressReceivingTransaction).find({ where: { user_address: { serial_id: addr.serial_id } } })))
+        const receivingTransactions = await Promise.all(receivingAddresses.map(addr => entityManager.getRepository(AddressReceivingTransaction).find({ where: { user_address: { serial_id: addr.serial_id }, ...time } })))
         return {
             receivingInvoices, receivingAddresses, receivingTransactions,
             outgoingInvoices, outgoingTransactions,
