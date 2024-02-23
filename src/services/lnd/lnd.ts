@@ -224,8 +224,11 @@ export default class {
     }
 
     async NewInvoice(value: number, memo: string, expiry: number): Promise<Invoice> {
+        getLogger({})("adding invoice...")
         await this.Health()
+        getLogger({})("lnd healthy")
         const res = await this.lightning.addInvoice(AddInvoiceReq(value, expiry, false, memo), DeadLineMetadata())
+        getLogger({})("got the invoice")
         return { payRequest: res.response.paymentRequest }
     }
 
