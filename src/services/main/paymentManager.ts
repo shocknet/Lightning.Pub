@@ -485,9 +485,9 @@ export default class {
             const toIncrement = amount - fee
             await this.storage.userStorage.DecrementUserBalance(fromUser.user_id, amount, tx)
             await this.storage.userStorage.IncrementUserBalance(toUser.user_id, toIncrement, tx)
-            await this.storage.paymentStorage.AddUserToUserPayment(fromUserId, toUserId, amount, fee, linkedApplication)
+            await this.storage.paymentStorage.AddUserToUserPayment(fromUserId, toUserId, amount, fee, linkedApplication, tx)
             if (isAppUserPayment && fee > 0) {
-                await this.storage.userStorage.IncrementUserBalance(linkedApplication.owner.user_id, fee)
+                await this.storage.userStorage.IncrementUserBalance(linkedApplication.owner.user_id, fee, tx)
             }
             sentAmount = toIncrement
         })
