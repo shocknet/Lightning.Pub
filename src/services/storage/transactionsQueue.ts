@@ -1,5 +1,5 @@
 import { DataSource, EntityManager, EntityTarget } from "typeorm"
-import { getLogger } from "../helpers/logger.js"
+import { PubLogger, getLogger } from "../helpers/logger.js"
 
 export type TX<T> = (entityManager: EntityManager | DataSource) => Promise<T>
 export type TxOperation<T> = {
@@ -11,9 +11,10 @@ export default class {
     DB: DataSource | EntityManager
     pendingTx: boolean
     transactionsQueue: { op: TxOperation<any>, res: (v: any) => void, rej: (message: string) => void }[] = []
-    log = getLogger({})
-    constructor(DB: DataSource | EntityManager) {
+    log: PubLogger
+    constructor(name: string, DB: DataSource | EntityManager) {
         this.DB = DB
+        this.log = getLogger({ appName: name })
     }
 
     PushToQueue<T>(op: TxOperation<T>) {
