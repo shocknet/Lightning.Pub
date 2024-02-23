@@ -1,5 +1,5 @@
 import { DataSource, EntityManager, EntityTarget } from "typeorm"
-import { getLogger } from "../helpers/logger"
+import { getLogger } from "../helpers/logger.js"
 
 export type TX<T> = (entityManager: EntityManager | DataSource) => Promise<T>
 export type TxOperation<T> = {
