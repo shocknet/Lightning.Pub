@@ -50,11 +50,13 @@ message AppMetrics {
 
     UsersInfo users = 2;
 
-    int64 total_received = 5;
-    int64 total_spent = 6;
-    int64 total_available = 7;
+    int64 received = 5;
+    int64 spent = 6;
+    int64 available = 7;
+    int64 fees = 8;
+    int64 invoices = 9;
 
-    int64 unpaid_invoices = 10;
+    int64 total_fees = 10;
 
     repeated UserOperation operations = 100;
 }
