@@ -7,42 +7,21 @@ import { BalanceInfo } from '../lnd/settings.js'
 import { BalanceEvent } from '../storage/entity/BalanceEvent.js'
 import { ChannelBalanceEvent } from '../storage/entity/ChannelsBalanceEvent.js'
 import { LightningHandler } from '../lnd/index.js'
+import HtlcTracker from './htlcTracker.js'
 const maxEvents = 100_000
 export default class Handler {
     storage: Storage
     lnd: LightningHandler
+    htlcTracker: HtlcTracker
     metrics: Types.UsageMetric[] = []
     constructor(storage: Storage, lnd: LightningHandler) {
         this.storage = storage
         this.lnd = lnd
+        this.htlcTracker = new HtlcTracker(this.storage)
     }
 
     async HtlcCb(htlc: HtlcEvent) {
-        const routingEvent: Partial<RoutingEvent> = {}
-        routingEvent.event_type = HtlcEvent_EventType[htlc.eventType]
-        routingEvent.incoming_channel_id = Number(htlc.incomingChannelId)
-        routingEvent.incoming_htlc_id = Number(htlc.incomingHtlcId)
-        routingEvent.outgoing_channel_id = Number(htlc.outgoingChannelId)
-        routingEvent.outgoing_htlc_id = Number(htlc.outgoingHtlcId)
-        routingEvent.timestamp_ns = Number(htlc.timestampNs)
-        if (htlc.event.oneofKind === 'finalHtlcEvent') {
-            routingEvent.offchain = htlc.event.finalHtlcEvent.offchain
-            routingEvent.settled = htlc.event.finalHtlcEvent.settled
-        } else if (htlc.event.oneofKind === 'forwardEvent') {
-            const { info } = htlc.event.forwardEvent
-            routingEvent.incoming_amt_msat = info ? Number(info.incomingAmtMsat) : undefined
-            routingEvent.outgoing_amt_msat = info ? Number(info.outgoingAmtMsat) : undefined
-        } else if (htlc.event.oneofKind === 'settleEvent') {
-        } else if (htlc.event.oneofKind === 'subscribedEvent') {
-        } else if (htlc.event.oneofKind === 'forwardFailEvent') {
-            routingEvent.forward_fail_event = true
-        } else if (htlc.event.oneofKind === 'linkFailEvent') {
-            routingEvent.failure_string = htlc.event.linkFailEvent.failureString
-            const { info } = htlc.event.linkFailEvent
-            routingEvent.incoming_amt_msat = info ? Number(info.incomingAmtMsat) : undefined
-            routingEvent.outgoing_amt_msat = info ? Number(info.outgoingAmtMsat) : undefined
-        }
-        await this.storage.metricsStorage.SaveRoutingEvent(routingEvent)
+        await this.htlcTracker.onHtlcEvent(htlc)
     }
 
     async NewBlockCb(height: number, balanceInfo: BalanceInfo) {

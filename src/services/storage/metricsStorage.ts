@@ -5,6 +5,7 @@ import { ChannelBalanceEvent } from "./entity/ChannelsBalanceEvent.js"
 import TransactionsQueue, { TX } from "./transactionsQueue.js";
 import { StorageSettings } from "./index.js";
 import { newMetricsDb } from "./db.js";
+import { HtlcFailures } from "./entity/HtlcFailures.js";
 export default class {
     DB: DataSource | EntityManager
     settings: StorageSettings
@@ -60,4 +61,36 @@ export default class {
         ])
         return { chainBalanceEvents, channelsBalanceEvents }
     }
+
+    updateHtlcErrors = async (key: string, update: (d: TMPHtlcFailureData) => TMPHtlcFailureData, entityManager = this.DB) => {
+        const existing = await entityManager.getRepository(HtlcFailures).findOne({ where: { key } })
+        if (existing) {
+            const data = update(existing.value as TMPHtlcFailureData)
+            await entityManager.getRepository(HtlcFailures).update({ key }, { value: data })
+            return
+        }
+        const data = update(newTMPHtlcFailureData())
+        await entityManager.getRepository(HtlcFailures).save({ key, value: data })
+
+    }
+}
+const newTMPHtlcFailureData = () => {
+    return {
+        send_failures: 0,
+        receive_failures: 0,
+        forward_failures: 0,
+        forward_failures_amt: 0,
+        failed_sources: {},
+        failed_destinations: {},
+        errors: {}
+    }
+}
+type TMPHtlcFailureData = { // TODO: move to a file with versions and stuff
+    send_failures: number
+    receive_failures: number
+    forward_failures: number
+    forward_failures_amt: number
+    failed_sources: Record<number, number>
+    failed_destinations: Record<number, number>
+    errors: Record<string, number>
 }
