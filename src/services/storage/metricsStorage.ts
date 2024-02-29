@@ -70,7 +70,7 @@ export default class {
             return
         }
         const data = update(newTMPHtlcFailureData())
-        await entityManager.getRepository(HtlcFailures).save({ key, value: data })
+        await this.txQueue.PushToQueue<HtlcFailures>({ exec: async db => db.getRepository(HtlcFailures).save({ key, value: data }), dbTx: false })
 
     }
 }
