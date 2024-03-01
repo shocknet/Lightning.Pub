@@ -42,6 +42,7 @@ export default class {
     async ListClosedChannels(): Promise<ClosedChannelsResponse> { throw new Error("ListClosedChannels disabled in mock mode") }
     async ListChannels(): Promise<ListChannelsResponse> { throw new Error("ListChannels disabled in mock mode") }
     async ListPendingChannels(): Promise<PendingChannelsResponse> { throw new Error("ListPendingChannels disabled in mock mode") }
+    async GetForwardingHistory(indexOffset: number): Promise<{ fee: number, chanIdIn: string, chanIdOut: string, timestampNs: number, offset: number }[]> { throw new Error("GetForwardingHistory disabled in mock mode") }
 
     async GetInfo(): Promise<NodeInfo> {
         return { alias: "mock", syncedToChain: true, syncedToGraph: true, blockHeight: 1, blockHash: "" }
