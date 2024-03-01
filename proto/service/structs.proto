@@ -122,6 +122,7 @@ message ChannelRouting {
     int64 missed_forward_fee_as_output = 7;
     int64 forward_fee_as_input = 8;
     int64 forward_fee_as_output = 9;
+    int64 events_number = 10;
 }
 
 message LndNodeMetrics {
