@@ -13,12 +13,10 @@ import { Product } from "./entity/Product.js"
 import { UserToUserPayment } from "./entity/UserToUserPayment.js"
 import { Application } from "./entity/Application.js"
 import { ApplicationUser } from "./entity/ApplicationUser.js"
-import { RoutingEvent } from "./entity/RoutingEvent.js"
 import { BalanceEvent } from "./entity/BalanceEvent.js"
 import { ChannelBalanceEvent } from "./entity/ChannelsBalanceEvent.js"
 import { getLogger } from "../helpers/logger.js"
-import { Initial1703170309875 } from "./migrations/1703170309875-initial.js"
-import { LndMetrics1703170330183 } from "./migrations/1703170330183-lnd_metrics.js"
+import { ChannelRouting } from "./entity/ChannelRouting.js"
 
 
 export type DbSettings = {
@@ -38,7 +36,7 @@ export const newMetricsDb = async (settings: DbSettings, metricsMigrations: Func
     const source = await new DataSource({
         type: "sqlite",
         database: settings.metricsDatabaseFile,
-        entities: [ RoutingEvent, BalanceEvent, ChannelBalanceEvent],
+        entities: [BalanceEvent, ChannelBalanceEvent, ChannelRouting],
         migrations: metricsMigrations
     }).initialize();
     const log = getLogger({});

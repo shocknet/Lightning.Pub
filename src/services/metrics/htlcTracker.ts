@@ -32,12 +32,12 @@ export default class HtlcTracker {
             case 'forwardEvent':
                 return this.handleForward(htlcEvent.forwardEvent, info)
             case 'forwardFailEvent':
-                return this.handleFailure({ ...info, failureReason: 'forwardFailEvent' })
+                return this.handleFailure(info)
             case 'linkFailEvent':
-                return this.handleFailure({ ...info, failureReason: htlcEvent.linkFailEvent.failureString || 'linkFailEvent' })
+                return this.handleFailure(info)
             case 'finalHtlcEvent':
                 if (!htlcEvent.finalHtlcEvent.settled) {
-                    return this.handleFailure({ ...info, failureReason: 'finalHtlcEvent' })
+                    return this.handleFailure(info)
                 } else {
                     return this.handleSuccess(info)
                 }
@@ -64,29 +64,29 @@ export default class HtlcTracker {
         }
     }
 
-    handleFailure = ({ eventType, outgoingHtlcId, incomingHtlcId, incomingChannelId, outgoingChannelId, failureReason }: EventInfo & { failureReason: string }) => {
+    handleFailure = ({ eventType, outgoingHtlcId, incomingHtlcId, incomingChannelId, outgoingChannelId }: EventInfo) => {
         if (eventType === HtlcEvent_EventType.SEND && this.deleteMapEntry(outgoingHtlcId, this.pendingSendHtlcs) !== null) {
-            return this.incrementSendFailures(outgoingChannelId, failureReason)
+            return this.incrementSendFailures(outgoingChannelId)
         }
         if (eventType === HtlcEvent_EventType.RECEIVE && this.deleteMapEntry(incomingHtlcId, this.pendingReceiveHtlcs) !== null) {
-            return this.incrementReceiveFailures(incomingChannelId, failureReason)
+            return this.incrementReceiveFailures(incomingChannelId)
         }
         if (eventType === HtlcEvent_EventType.FORWARD) {
             const amt = this.deleteMapEntry(outgoingHtlcId, this.pendingForwardHtlcs)
             if (amt !== null) {
-                return this.incrementForwardFailures(incomingChannelId, outgoingChannelId, amt, failureReason)
+                return this.incrementForwardFailures(incomingChannelId, outgoingChannelId, amt)
             }
         }
         if (eventType === HtlcEvent_EventType.UNKNOWN) {
             const fwdAmt = this.deleteMapEntry(outgoingHtlcId, this.pendingForwardHtlcs)
             if (fwdAmt !== null) {
-                return this.incrementForwardFailures(incomingChannelId, outgoingChannelId, fwdAmt, failureReason)
+                return this.incrementForwardFailures(incomingChannelId, outgoingChannelId, fwdAmt)
             }
             if (this.deleteMapEntry(outgoingHtlcId, this.pendingSendHtlcs) !== null) {
-                return this.incrementSendFailures(outgoingChannelId, failureReason)
+                return this.incrementSendFailures(outgoingChannelId)
             }
             if (this.deleteMapEntry(incomingHtlcId, this.pendingReceiveHtlcs) !== null) {
-                return this.incrementReceiveFailures(incomingChannelId, failureReason)
+                return this.incrementReceiveFailures(incomingChannelId)
             }
         }
         this.log("unknown htlc event type for failure event")
@@ -117,37 +117,15 @@ export default class HtlcTracker {
         return v || null
     }
 
-    incrementSendFailures = async (outgoingChannelId: number, reason: string) => {
-        await this.storage.metricsStorage.updateHtlcErrors(getToday(), d => {
-            d.send_failures++
-            d.failed_destinations[outgoingChannelId] = (d.failed_destinations[outgoingChannelId] || 0) + 1
-            d.errors[reason] = (d.errors[reason] || 0) + 1
-            return d
-        })
+    incrementSendFailures = async (outgoingChannelId: number) => {
+        await this.storage.metricsStorage.IncrementChannelRouting(outgoingChannelId.toString(), { send_errors: 1 })
     }
-    incrementReceiveFailures = async (incomingChannelId: number, reason: string) => {
-        await this.storage.metricsStorage.updateHtlcErrors(getToday(), d => {
-            d.receive_failures++
-            d.failed_sources[incomingChannelId] = (d.failed_sources[incomingChannelId] || 0) + 1
-            d.errors[reason] = (d.errors[reason] || 0) + 1
-            return d
-        })
+    incrementReceiveFailures = async (incomingChannelId: number) => {
+        await this.storage.metricsStorage.IncrementChannelRouting(incomingChannelId.toString(), { receive_errors: 1 })
     }
-    incrementForwardFailures = async (incomingChannelId: number, outgoingChannelId: number, amt: number, reason: string) => {
-        await this.storage.metricsStorage.updateHtlcErrors(getToday(), d => {
-            d.forward_failures++
-            d.forward_failures_amt += amt
-            d.failed_sources[incomingChannelId] = (d.failed_sources[incomingChannelId] || 0) + 1
-            d.failed_destinations[outgoingChannelId] = (d.failed_destinations[outgoingChannelId] || 0) + 1
-            d.errors[reason] = (d.errors[reason] || 0) + 1
-            return d
-        })
+    incrementForwardFailures = async (incomingChannelId: number, outgoingChannelId: number, amt: number) => {
+        await this.storage.metricsStorage.IncrementChannelRouting(incomingChannelId.toString(), { forward_errors_as_input: 1, missed_forward_fee_as_input: amt })
+        await this.storage.metricsStorage.IncrementChannelRouting(outgoingChannelId.toString(), { forward_errors_as_output: 1, missed_forward_fee_as_output: amt })
     }
 }
 
-const getToday = () => {
-    const now = new Date()
-    return `${now.getFullYear()}-${z(now.getMonth() + 1)}-${z(now.getDate())}`
-
-}
-const z = (n: number) => n < 10 ? `0${n}` : `${n}`

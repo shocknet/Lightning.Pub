@@ -3,8 +3,8 @@ import { DbSettings } from '../db.js'
 import Storage, { StorageSettings } from '../index.js'
 import { Initial1703170309875 } from './1703170309875-initial.js'
 import { LndMetrics1703170330183 } from './1703170330183-lnd_metrics.js'
-import { HtlcErrors1709149327598 } from './1709149327598-htlc_errors.js'
-const allMigrations = [LndMetrics1703170330183, HtlcErrors1709149327598]
+import { ChannelRouting1709316653538 } from './1709316653538-channel_routing.js'
+const allMigrations = [LndMetrics1703170330183, ChannelRouting1709316653538]
 export const TypeOrmMigrationRunner = async (log: PubLogger, storageManager: Storage, settings: DbSettings, arg: string | undefined): Promise<boolean> => {
     if (arg === 'initial_migration') {
         await connectAndMigrate(log, storageManager, true, settings, [Initial1703170309875], [])
@@ -12,8 +12,8 @@ export const TypeOrmMigrationRunner = async (log: PubLogger, storageManager: Sto
     } else if (arg === 'lnd_metrics_migration') {
         await connectAndMigrate(log, storageManager, true, settings, [], [LndMetrics1703170330183])
         return true
-    } else if (arg === 'htlc_errors_migration') {
-        await connectAndMigrate(log, storageManager, true, settings, [], [HtlcErrors1709149327598])
+    } else if (arg === 'channel_routing_migration') {
+        await connectAndMigrate(log, storageManager, true, settings, [], [ChannelRouting1709316653538])
         return true
     } else if (arg === 'all_migrations') {
         await connectAndMigrate(log, storageManager, true, settings, [], allMigrations)
@@ -40,7 +40,7 @@ const connectAndMigrate = async (log: PubLogger, storageManager: Storage, manual
         log("-------------------")
 
     } if (metricsMigrations.length > 0) {
-        log(executedMetricsMigrations.length, "of", migrations.length, "metrics migrations were executed correctly")
+        log(executedMetricsMigrations.length, "of", metricsMigrations.length, "metrics migrations were executed correctly")
         log(executedMetricsMigrations)
     }
 
