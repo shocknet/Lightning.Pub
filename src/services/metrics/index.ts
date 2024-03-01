@@ -219,6 +219,7 @@ export default class Handler {
                     missed_forward_fee_as_output: 0,
                     forward_fee_as_input: 0,
                     forward_fee_as_output: 0,
+                    events_number: 0
                 }
             }
             routingMap[r.channel_id].send_errors += r.send_errors
@@ -229,6 +230,7 @@ export default class Handler {
             routingMap[r.channel_id].missed_forward_fee_as_output += r.missed_forward_fee_as_output
             routingMap[r.channel_id].forward_fee_as_input += r.forward_fee_as_input
             routingMap[r.channel_id].forward_fee_as_output += r.forward_fee_as_output
+            routingMap[r.channel_id].events_number++
         })
         const { channelsBalanceEvents, chainBalanceEvents } = await this.storage.metricsStorage.GetBalanceEvents({ from: req.from_unix, to: req.to_unix })
         return {
