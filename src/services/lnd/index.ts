@@ -35,6 +35,7 @@ export interface LightningHandler {
     ListClosedChannels(): Promise<ClosedChannelsResponse>
     ListChannels(): Promise<ListChannelsResponse>
     ListPendingChannels(): Promise<PendingChannelsResponse>
+    GetForwardingHistory(indexOffset: number): Promise<{ fee: number, chanIdIn: string, chanIdOut: string, timestampNs: number, offset: number }[]>
 }
 
 export default (settings: LndSettings, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb, newBlockCb: NewBlockCb, htlcCb: HtlcCb): LightningHandler => {
