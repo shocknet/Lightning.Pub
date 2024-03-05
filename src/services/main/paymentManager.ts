@@ -215,7 +215,8 @@ export default class {
             }
         } else {
             await this.storage.userStorage.DecrementUserBalance(ctx.user_id, req.amoutSats + serviceFee)
-            this.addressPaidCb({ hash: crypto.randomBytes(32).toString("hex"), index: 0 }, req.address, req.amoutSats, true)
+            txId = crypto.randomBytes(32).toString("hex")
+            this.addressPaidCb({ hash: txId, index: 0 }, req.address, req.amoutSats, true)
         }
 
         if (isAppUserPayment && serviceFee > 0) {
