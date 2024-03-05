@@ -5,6 +5,7 @@ export type TX<T> = (entityManager: EntityManager | DataSource) => Promise<T>
 export type TxOperation<T> = {
     exec: TX<T>
     dbTx: boolean
+    description?: string
 }
 
 export default class {
@@ -19,10 +20,9 @@ export default class {
 
     PushToQueue<T>(op: TxOperation<T>) {
         if (!this.pendingTx) {
-            this.log("executing item immediately")
             return this.execQueueItem(op)
         }
-        this.log("holding item in queue")
+        this.log("queue not empty, possibly stuck")
         return new Promise<T>((res, rej) => {
             this.transactionsQueue.push({ op, res, rej })
         })
@@ -32,16 +32,14 @@ export default class {
         this.pendingTx = false
         const next = this.transactionsQueue.pop()
         if (!next) {
-            this.log("no more items in queue")
+            this.log("queue is clear")
             return
         }
         try {
-            this.log("executing next item in queue")
             const res = await this.execQueueItem(next.op)
-            this.log("resolving next item in queue")
+            if (next.op.description) this.log("done", next.op.description)
             next.res(res)
         } catch (err: any) {
-            this.log("rejecting next item in queue")
             next.rej(err.message)
         }
     }
@@ -52,21 +50,17 @@ export default class {
         }
         this.pendingTx = true
         if (op.dbTx) {
-            this.log("executing item transaction")
             return this.doTransaction(op.exec)
         }
-        this.log("executing item operation")
         return this.doOperation(op.exec)
     }
 
     async doOperation<T>(exec: TX<T>) {
         try {
             const res = await exec(this.DB)
-            this.log("executing item operation done")
             this.execNextInQueue()
             return res
         } catch (err) {
-            this.log("executing item operation failed")
             this.execNextInQueue()
             throw err
         }
@@ -77,11 +71,9 @@ export default class {
         return this.DB.transaction(async tx => {
             try {
                 const res = await exec(tx)
-                this.log("executing item transaction done")
                 this.execNextInQueue()
                 return res
             } catch (err) {
-                this.log("executing item transaction failed")
                 this.execNextInQueue()
                 throw err
             }
