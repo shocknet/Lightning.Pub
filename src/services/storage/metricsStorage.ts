@@ -72,10 +72,10 @@ export default class {
             await repo.increment({ day_unix: dayUnix, channel_id: channelId }, "receive_errors", event.receive_errors)
         }
         if (event.forward_errors_as_input) {
-            await repo.increment({ day_unix: dayUnix, channel_id: channelId }, "forwar_errors_as_input", event.forward_errors_as_input)
+            await repo.increment({ day_unix: dayUnix, channel_id: channelId }, "forward_errors_as_input", event.forward_errors_as_input)
         }
         if (event.forward_errors_as_output) {
-            await repo.increment({ day_unix: dayUnix, channel_id: channelId }, "forwar_errors_as_output", event.forward_errors_as_output)
+            await repo.increment({ day_unix: dayUnix, channel_id: channelId }, "forward_errors_as_output", event.forward_errors_as_output)
         }
         if (event.missed_forward_fee_as_input) {
             await repo.increment({ day_unix: dayUnix, channel_id: channelId }, "missed_forward_fee_as_input", event.missed_forward_fee_as_input)
