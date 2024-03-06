@@ -69,3 +69,16 @@ export default async (settings: DbSettings, migrations: Function[]): Promise<{ s
     }
     return { source, executedMigrations: [] }
 }
+
+export const runFakeMigration = async (databaseFile: string, migrations: Function[]) => {
+    const source = await new DataSource({
+        type: "sqlite",
+        database: databaseFile,
+        // logging: true,
+        entities: [User, UserReceivingInvoice, UserReceivingAddress, AddressReceivingTransaction, UserInvoicePayment, UserTransactionPayment,
+            UserBasicAuth, UserEphemeralKey, Product, UserToUserPayment, Application, ApplicationUser, UserToUserPayment],
+        //synchronize: true,
+        migrations
+    }).initialize()
+    return source.runMigrations({ fake: true })
+}
