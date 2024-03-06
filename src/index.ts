@@ -18,6 +18,10 @@ const start = async () => {
         log("migrations run sucessfully, exiting")
         return
     }
+    if (process.argv[2] === 'updateUserBalance') {
+        await storageManager.userStorage.UpdateUser(process.argv[3], { balance_sats: +process.argv[4] })
+        log("user balance updated correctly")
+    }
     const mainHandler = new Main(mainSettings, storageManager)
     await mainHandler.lnd.Warmup()
     const serverMethods = GetServerMethods(mainHandler)
