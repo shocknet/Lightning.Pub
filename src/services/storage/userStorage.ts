@@ -74,7 +74,7 @@ export default class {
         if (!res.affected) {
             throw new Error("unaffected balance increment for " + userId) // TODO: fix logs doxing
         }
-        getLogger({ userId: userId })("incremented balance from", user.balance_sats, "sats, by", increment, "sats")
+        getLogger({ userId: userId, appName: "balanceUpdates" })("incremented balance from", user.balance_sats, "sats, by", increment, "sats")
     }
     async DecrementUserBalance(userId: string, decrement: number, entityManager = this.DB) {
         const user = await this.GetUser(userId, entityManager)
@@ -87,7 +87,7 @@ export default class {
         if (!res.affected) {
             throw new Error("unaffected balance decrement for " + userId) // TODO: fix logs doxing
         }
-        getLogger({ userId: userId })("decremented balance from", user.balance_sats, "sats, by", decrement, "sats")
+        getLogger({ userId: userId, appName: "balanceUpdates" })("decremented balance from", user.balance_sats, "sats, by", decrement, "sats")
     }
 
     async UpdateUser(userId: string, update: Partial<User>, entityManager = this.DB) {
