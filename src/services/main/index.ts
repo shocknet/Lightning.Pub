@@ -87,7 +87,7 @@ export default class {
         try {
             const balanceEvents = await this.paymentManager.GetLndBalance()
             await this.metricsManager.NewBlockCb(height, balanceEvents)
-            confirmed = await this.paymentManager.CheckPendingTransactions(height)
+            confirmed = await this.paymentManager.CheckNewlyConfirmedTxs(height)
         } catch (err: any) {
             log("failed to check transactions after new block", err.message || err)
             return
@@ -96,12 +96,18 @@ export default class {
             if (c.type === 'outgoing') {
                 await this.storage.paymentStorage.UpdateUserTransactionPayment(c.tx.serial_id, { confs: c.confs })
             } else {
-                const { user_address: userAddress, paid_amount: amount, service_fee: serviceFee, serial_id: serialId } = c.tx
-                await this.storage.paymentStorage.UpdateAddressReceivingTransaction(serialId, { confs: c.confs })
-                await this.storage.userStorage.IncrementUserBalance(userAddress.user.user_id, amount - serviceFee)
-                const operationId = `${Types.UserOperationType.INCOMING_TX}-${userAddress.serial_id}`
-                const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_TX, identifier: userAddress.address, operationId, network_fee: 0, service_fee: serviceFee, confirmed: true, tx_hash: c.tx.tx_hash, internal: c.tx.internal }
-                this.sendOperationToNostr(userAddress.linkedApplication!, userAddress.user.user_id, op)
+                this.storage.StartTransaction(async tx => {
+                    const { user_address: userAddress, paid_amount: amount, service_fee: serviceFee, serial_id: serialId } = c.tx
+                    const updateResult = await this.storage.paymentStorage.UpdateAddressReceivingTransaction(serialId, { confs: c.confs }, tx)
+                    if (!updateResult.affected) {
+                        throw new Error("unable to flag chain transaction as paid")
+                    }
+                    await this.storage.userStorage.IncrementUserBalance(userAddress.user.user_id, amount - serviceFee, tx)
+                    const operationId = `${Types.UserOperationType.INCOMING_TX}-${userAddress.serial_id}`
+                    const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_TX, identifier: userAddress.address, operationId, network_fee: 0, service_fee: serviceFee, confirmed: true, tx_hash: c.tx.tx_hash, internal: c.tx.internal }
+                    this.sendOperationToNostr(userAddress.linkedApplication!, userAddress.user.user_id, op)
+                })
+
             }
         }))
     }
@@ -125,7 +131,9 @@ export default class {
             try {
                 // This call will fail if the transaction is already registered
                 const addedTx = await this.storage.paymentStorage.AddAddressReceivingTransaction(userAddress, txOutput.hash, txOutput.index, amount, fee, internal, blockHeight, tx)
-                await this.storage.userStorage.IncrementUserBalance(userAddress.user.user_id, addedTx.paid_amount - fee, tx)
+                if (internal) {
+                    await this.storage.userStorage.IncrementUserBalance(userAddress.user.user_id, addedTx.paid_amount - fee, tx)
+                }
                 const operationId = `${Types.UserOperationType.INCOMING_TX}-${addedTx.serial_id}`
                 const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_TX, identifier: userAddress.address, operationId, network_fee: 0, service_fee: fee, confirmed: internal, tx_hash: txOutput.hash, internal: false }
                 this.sendOperationToNostr(userAddress.linkedApplication, userAddress.user.user_id, op)

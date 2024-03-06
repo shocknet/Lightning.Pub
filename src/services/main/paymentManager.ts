@@ -495,7 +495,7 @@ export default class {
         return sentAmount
     }
 
-    async CheckPendingTransactions(height: number) {
+    async CheckNewlyConfirmedTxs(height: number) {
         const pending = await this.storage.paymentStorage.GetPendingTransactions()
         let lowestHeight = height
         const map: Record<string, PendingTx> = {}
@@ -507,7 +507,7 @@ export default class {
         pending.incoming.forEach(t => checkTx({ type: "incoming", tx: t }))
         pending.outgoing.forEach(t => checkTx({ type: "outgoing", tx: t }))
         const { transactions } = await this.lnd.GetTransactions(lowestHeight)
-        const resolved = await Promise.all(transactions.map(async tx => {
+        const newlyConfirmedTxs = transactions.map(tx => {
             const { txHash, numConfirmations: confs, amount: amt } = tx
             const t = map[txHash]
             if (!t || confs === 0) {
@@ -516,8 +516,8 @@ export default class {
             if (confs > 2 || (amt <= confInTwo && confs > 1) || (amt <= confInOne && confs > 0)) {
                 return { ...t, confs }
             }
-        }))
-        return resolved.filter(t => t !== undefined) as (PendingTx & { confs: number })[]
+        })
+        return newlyConfirmedTxs.filter(t => t !== undefined) as (PendingTx & { confs: number })[]
     }
 
     async GetLndBalance() {
