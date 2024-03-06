@@ -161,11 +161,10 @@ export default class {
             startHeight: this.latestKnownBlockHeigh,
         }, { abort: this.abortController.signal })
         stream.responses.onMessage(tx => {
-
             if (tx.blockHeight > this.latestKnownBlockHeigh) {
                 this.latestKnownBlockHeigh = tx.blockHeight
             }
-            if (tx.numConfirmations > 0) {
+            if (tx.numConfirmations === 0) { // only process pending transactions, confirmed transaction are processed by the newBlock CB
                 tx.outputDetails.forEach(output => {
                     if (output.isOurAddress) {
                         this.log("received chan TX", Number(output.amount), "sats")
