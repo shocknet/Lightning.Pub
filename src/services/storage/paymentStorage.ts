@@ -191,7 +191,7 @@ export default class {
     }
 
     async UpdateAddressReceivingTransaction(serialId: number, update: Partial<AddressReceivingTransaction>, entityManager = this.DB) {
-        await entityManager.getRepository(AddressReceivingTransaction).update(serialId, update)
+        return entityManager.getRepository(AddressReceivingTransaction).update(serialId, update)
     }
     async UpdateUserTransactionPayment(serialId: number, update: Partial<UserTransactionPayment>, entityManager = this.DB) {
         await entityManager.getRepository(UserTransactionPayment).update(serialId, update)
