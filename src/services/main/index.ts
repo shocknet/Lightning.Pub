@@ -126,7 +126,7 @@ export default class {
                 // This call will fail if the transaction is already registered
                 const addedTx = await this.storage.paymentStorage.AddAddressReceivingTransaction(userAddress, txOutput.hash, txOutput.index, amount, fee, internal, blockHeight, tx)
                 await this.storage.userStorage.IncrementUserBalance(userAddress.user.user_id, addedTx.paid_amount - fee, tx)
-                const operationId = `${Types.UserOperationType.INCOMING_TX}-${userAddress.serial_id}`
+                const operationId = `${Types.UserOperationType.INCOMING_TX}-${addedTx.serial_id}`
                 const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_TX, identifier: userAddress.address, operationId, network_fee: 0, service_fee: fee, confirmed: internal, tx_hash: txOutput.hash, internal: false }
                 this.sendOperationToNostr(userAddress.linkedApplication, userAddress.user.user_id, op)
             } catch {
