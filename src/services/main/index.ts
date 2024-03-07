@@ -103,7 +103,7 @@ export default class {
                         throw new Error("unable to flag chain transaction as paid")
                     }
                     await this.storage.userStorage.IncrementUserBalance(userAddress.user.user_id, amount - serviceFee, tx)
-                    const operationId = `${Types.UserOperationType.INCOMING_TX}-${userAddress.serial_id}`
+                    const operationId = `${Types.UserOperationType.INCOMING_TX}-${serialId}`
                     const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_TX, identifier: userAddress.address, operationId, network_fee: 0, service_fee: serviceFee, confirmed: true, tx_hash: c.tx.tx_hash, internal: c.tx.internal }
                     this.sendOperationToNostr(userAddress.linkedApplication!, userAddress.user.user_id, op)
                 })
