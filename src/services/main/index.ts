@@ -179,10 +179,7 @@ export default class {
                 fee = 0
             }
             try {
-                const flaggingRes = await this.storage.paymentStorage.FlagInvoiceAsPaid(userInvoice, amount, fee, internal, tx)
-                if (flaggingRes.affected) {
-                    throw new Error("no invoice affected by flag as paid")
-                }
+                await this.storage.paymentStorage.FlagInvoiceAsPaid(userInvoice, amount, fee, internal, tx)
                 await this.storage.userStorage.IncrementUserBalance(userInvoice.user.user_id, amount - fee, userInvoice.invoice, tx)
                 if (fee > 0) {
                     await this.storage.userStorage.IncrementUserBalance(userInvoice.linkedApplication.owner.user_id, fee, 'fees', tx)
