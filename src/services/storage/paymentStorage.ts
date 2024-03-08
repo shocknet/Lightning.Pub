@@ -11,7 +11,8 @@ import { AddressReceivingTransaction } from './entity/AddressReceivingTransactio
 import { UserInvoicePayment } from './entity/UserInvoicePayment.js';
 import { UserToUserPayment } from './entity/UserToUserPayment.js';
 import { Application } from './entity/Application.js';
-import TransactionsQueue, { TX } from "./transactionsQueue.js";
+import TransactionsQueue from "./transactionsQueue.js";
+import { LoggedEvent } from './eventsLog.js';
 export type InboundOptionals = { product?: Product, callbackUrl?: string, expiry: number, expectedPayer?: User, linkedApplication?: Application, zapInfo?: ZapInfo }
 export const defaultInvoiceExpiry = 60 * 60
 export default class {
@@ -23,6 +24,7 @@ export default class {
         this.userStorage = userStorage
         this.txQueue = txQueue
     }
+
     async AddAddressReceivingTransaction(address: UserReceivingAddress, txHash: string, outputIndex: number, amount: number, serviceFee: number, internal: boolean, height: number, dbTx: EntityManager | DataSource) {
         const newAddressTransaction = dbTx.getRepository(AddressReceivingTransaction).create({
             user_address: address,
@@ -56,22 +58,22 @@ export default class {
         return entityManager.getRepository(UserReceivingAddress).findOne({ where: { user: { user_id: userId }, linkedApplication: { app_id: linkedApplication.app_id } } })
     }
 
-    async AddUserAddress(userId: string, address: string, opts: { callbackUrl?: string, linkedApplication?: Application } = {}): Promise<UserReceivingAddress> {
+    async AddUserAddress(user: User, address: string, opts: { callbackUrl?: string, linkedApplication?: Application } = {}): Promise<UserReceivingAddress> {
         const newUserAddress = this.DB.getRepository(UserReceivingAddress).create({
             address,
             callbackUrl: opts.callbackUrl || "",
             linkedApplication: opts.linkedApplication,
-            user: await this.userStorage.GetUser(userId)
+            user
         })
-        return this.txQueue.PushToQueue<UserReceivingAddress>({ exec: async db => db.getRepository(UserReceivingAddress).save(newUserAddress), dbTx: false, description: `add address for ${userId} linked to ${opts.linkedApplication?.app_id}: ${address} ` })
+        return this.txQueue.PushToQueue<UserReceivingAddress>({ exec: async db => db.getRepository(UserReceivingAddress).save(newUserAddress), dbTx: false, description: `add address for ${user.user_id} linked to ${opts.linkedApplication?.app_id}: ${address} ` })
     }
 
-    async FlagInvoiceAsPaid(invoice: UserReceivingInvoice, amount: number, serviceFee: number, internal: boolean, entityManager = this.DB) {
+    async FlagInvoiceAsPaid(invoice: UserReceivingInvoice, amount: number, serviceFee: number, internal: boolean, dbTx: EntityManager | DataSource) {
         const i: Partial<UserReceivingInvoice> = { paid_at_unix: Math.floor(Date.now() / 1000), paid_amount: amount, service_fee: serviceFee, internal }
         if (!internal) {
             i.paidByLnd = true
         }
-        return entityManager.getRepository(UserReceivingInvoice).update(invoice.serial_id, i)
+        return dbTx.getRepository(UserReceivingInvoice).update(invoice.serial_id, i)
     }
 
     GetUserInvoicesFlaggedAsPaid(userId: string, fromIndex: number, take = 50, entityManager = this.DB): Promise<UserReceivingInvoice[]> {
@@ -325,5 +327,30 @@ export default class {
             entityManager.getRepository(UserToUserPayment).findOne({ where: { from_user: { user_id: userId } } }),
         ])
         return !!i || !!tx || !!u2u
+    }
+
+    async VerifyDbEvent(e: LoggedEvent) {
+        switch (e.type) {
+            case "new_invoice":
+                return this.DB.getRepository(UserReceivingInvoice).findOneOrFail({ where: { invoice: e.data, user: { user_id: e.userId } } })
+            case 'new_address':
+                return this.DB.getRepository(UserReceivingAddress).findOneOrFail({ where: { address: e.data, user: { user_id: e.userId } } })
+            case 'invoice_paid':
+                return this.DB.getRepository(UserReceivingInvoice).findOneOrFail({ where: { invoice: e.data, user: { user_id: e.userId }, paid_at_unix: MoreThan(0) } })
+            case 'invoice_payment':
+                return this.DB.getRepository(UserInvoicePayment).findOneOrFail({ where: { invoice: e.data, user: { user_id: e.userId } } })
+            case 'address_paid':
+                const [receivingAddress, receivedHash] = e.data.split(":")
+                return this.DB.getRepository(AddressReceivingTransaction).findOneOrFail({ where: { user_address: { address: receivingAddress }, tx_hash: receivedHash, confs: MoreThan(0) } })
+            case 'address_payment':
+                const [sentAddress, sentHash] = e.data.split(":")
+                return this.DB.getRepository(UserTransactionPayment).findOneOrFail({ where: { address: sentAddress, tx_hash: sentHash, user: { user_id: e.userId } } })
+            case 'u2u_receiver':
+                return this.DB.getRepository(UserToUserPayment).findOneOrFail({ where: { from_user: { user_id: e.data }, to_user: { user_id: e.userId } } })
+            case 'u2u_sender':
+                return this.DB.getRepository(UserToUserPayment).findOneOrFail({ where: { to_user: { user_id: e.data }, from_user: { user_id: e.userId } } })
+            default:
+                break;
+        }
     }
 }
