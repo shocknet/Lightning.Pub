@@ -15,5 +15,6 @@ export type MainSettings = {
     serviceUrl: string
     servicePort: number
     recordPerformance: boolean
+    skipSanityCheck: boolean
 
 }

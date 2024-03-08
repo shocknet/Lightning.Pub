@@ -4,12 +4,15 @@ import { User } from './entity/User.js';
 import { UserBasicAuth } from './entity/UserBasicAuth.js';
 import { getLogger } from '../helpers/logger.js';
 import TransactionsQueue from "./transactionsQueue.js";
+import EventsLogManager from './eventsLog.js';
 export default class {
     DB: DataSource | EntityManager
     txQueue: TransactionsQueue
-    constructor(DB: DataSource | EntityManager, txQueue: TransactionsQueue) {
+    eventsLog: EventsLogManager
+    constructor(DB: DataSource | EntityManager, txQueue: TransactionsQueue, eventsLog: EventsLogManager) {
         this.DB = DB
         this.txQueue = txQueue
+        this.eventsLog = eventsLog
     }
     async AddUser(balance: number, dbTx: DataSource | EntityManager): Promise<User> {
         if (balance && process.env.ALLOW_BALANCE_MIGRATION !== 'true') {
@@ -66,7 +69,7 @@ export default class {
             throw new Error("unaffected user unlock for " + userId) // TODO: fix logs doxing
         }
     }
-    async IncrementUserBalance(userId: string, increment: number, entityManager = this.DB) {
+    async IncrementUserBalance(userId: string, increment: number, reason: string, entityManager = this.DB) {
         const user = await this.GetUser(userId, entityManager)
         const res = await entityManager.getRepository(User).increment({
             user_id: userId,
@@ -75,8 +78,9 @@ export default class {
             throw new Error("unaffected balance increment for " + userId) // TODO: fix logs doxing
         }
         getLogger({ userId: userId, appName: "balanceUpdates" })("incremented balance from", user.balance_sats, "sats, by", increment, "sats")
+        this.eventsLog.LogEvent({ type: 'balance_increment', userId, appId: "", appUserId: "", balance: user.balance_sats, data: reason, amount: increment })
     }
-    async DecrementUserBalance(userId: string, decrement: number, entityManager = this.DB) {
+    async DecrementUserBalance(userId: string, decrement: number, reason: string, entityManager = this.DB) {
         const user = await this.GetUser(userId, entityManager)
         if (!user || user.balance_sats < decrement) {
             throw new Error("not enough balance to decrement")
@@ -88,6 +92,7 @@ export default class {
             throw new Error("unaffected balance decrement for " + userId) // TODO: fix logs doxing
         }
         getLogger({ userId: userId, appName: "balanceUpdates" })("decremented balance from", user.balance_sats, "sats, by", decrement, "sats")
+        this.eventsLog.LogEvent({ type: 'balance_decrement', userId, appId: "", appUserId: "", balance: user.balance_sats, data: reason, amount: decrement })
     }
 
     async UpdateUser(userId: string, update: Partial<User>, entityManager = this.DB) {

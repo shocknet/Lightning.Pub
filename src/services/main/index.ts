@@ -16,6 +16,7 @@ import { UserReceivingInvoice, ZapInfo } from '../storage/entity/UserReceivingIn
 import { UnsignedEvent } from '../nostr/tools/event.js'
 import { NostrSend } from '../nostr/handler.js'
 import MetricsManager from '../metrics/index.js'
+import EventsLogManager from '../storage/eventsLog.js'
 export const LoadMainSettingsFromEnv = (test = false): MainSettings => {
     return {
         lndSettings: LoadLndSettingsFromEnv(test),
@@ -31,7 +32,8 @@ export const LoadMainSettingsFromEnv = (test = false): MainSettings => {
         appToUserFee: EnvMustBeInteger("TX_FEE_INTERNAL_ROOT_BPS") / 10000,
         serviceUrl: EnvMustBeNonEmptyString("SERVICE_URL"),
         servicePort: EnvMustBeInteger("PORT"),
-        recordPerformance: process.env.RECORD_PERFORMANCE === 'true' || false
+        recordPerformance: process.env.RECORD_PERFORMANCE === 'true' || false,
+        skipSanityCheck: process.env.SKIP_SANITY_CHECK === 'true' || false
     }
 }
 
@@ -59,6 +61,7 @@ export default class {
     constructor(settings: MainSettings, storage: Storage) {
         this.settings = settings
         this.storage = storage
+
         this.lnd = NewLightningHandler(settings.lndSettings, this.addressPaidCb, this.invoicePaidCb, this.newBlockCb, this.htlcCb)
         this.metricsManager = new MetricsManager(this.storage, this.lnd)
 
@@ -66,6 +69,7 @@ export default class {
         this.productManager = new ProductManager(this.storage, this.paymentManager, this.settings)
         this.applicationManager = new ApplicationManager(this.storage, this.settings, this.paymentManager)
         this.appUserManager = new AppUserManager(this.storage, this.settings, this.applicationManager)
+
     }
 
     attachNostrSend(f: NostrSend) {
@@ -97,13 +101,22 @@ export default class {
                 await this.storage.paymentStorage.UpdateUserTransactionPayment(c.tx.serial_id, { confs: c.confs })
             } else {
                 this.storage.StartTransaction(async tx => {
-                    const { user_address: userAddress, paid_amount: amount, service_fee: serviceFee, serial_id: serialId } = c.tx
+                    const { user_address: userAddress, paid_amount: amount, service_fee: serviceFee, serial_id: serialId, tx_hash } = c.tx
+                    if (!userAddress.linkedApplication) {
+                        log("ERROR", "an address was paid, that has no linked application")
+                        return
+                    }
                     const updateResult = await this.storage.paymentStorage.UpdateAddressReceivingTransaction(serialId, { confs: c.confs }, tx)
                     if (!updateResult.affected) {
                         throw new Error("unable to flag chain transaction as paid")
                     }
-                    await this.storage.userStorage.IncrementUserBalance(userAddress.user.user_id, amount - serviceFee, tx)
-                    const operationId = `${Types.UserOperationType.INCOMING_TX}-${userAddress.serial_id}`
+                    await this.storage.userStorage.IncrementUserBalance(userAddress.user.user_id, amount - serviceFee, userAddress.address, tx)
+                    if (serviceFee > 0) {
+                        await this.storage.userStorage.IncrementUserBalance(userAddress.linkedApplication.owner.user_id, serviceFee, 'fees', tx)
+                    }
+                    const addressData = `${userAddress.address}:${tx_hash}`
+                    this.storage.eventsLog.LogEvent({ type: 'address_paid', userId: userAddress.user.user_id, appId: userAddress.linkedApplication.app_id, appUserId: "", balance: userAddress.user.balance_sats, data: addressData, amount })
+                    const operationId = `${Types.UserOperationType.INCOMING_TX}-${serialId}`
                     const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_TX, identifier: userAddress.address, operationId, network_fee: 0, service_fee: serviceFee, confirmed: true, tx_hash: c.tx.tx_hash, internal: c.tx.internal }
                     this.sendOperationToNostr(userAddress.linkedApplication!, userAddress.user.user_id, op)
                 })
@@ -132,7 +145,12 @@ export default class {
                 // This call will fail if the transaction is already registered
                 const addedTx = await this.storage.paymentStorage.AddAddressReceivingTransaction(userAddress, txOutput.hash, txOutput.index, amount, fee, internal, blockHeight, tx)
                 if (internal) {
-                    await this.storage.userStorage.IncrementUserBalance(userAddress.user.user_id, addedTx.paid_amount - fee, tx)
+                    await this.storage.userStorage.IncrementUserBalance(userAddress.user.user_id, addedTx.paid_amount - fee, userAddress.address, tx)
+                    if (fee > 0) {
+                        await this.storage.userStorage.IncrementUserBalance(userAddress.linkedApplication.owner.user_id, fee, 'fees', tx)
+                    }
+                    const addressData = `${address}:${txOutput.hash}`
+                    this.storage.eventsLog.LogEvent({ type: 'address_paid', userId: userAddress.user.user_id, appId: userAddress.linkedApplication.app_id, appUserId: "", balance: userAddress.user.balance_sats, data: addressData, amount })
                 }
                 const operationId = `${Types.UserOperationType.INCOMING_TX}-${addedTx.serial_id}`
                 const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_TX, identifier: userAddress.address, operationId, network_fee: 0, service_fee: fee, confirmed: internal, tx_hash: txOutput.hash, internal: false }
@@ -161,13 +179,15 @@ export default class {
                 fee = 0
             }
             try {
-                await this.storage.paymentStorage.FlagInvoiceAsPaid(userInvoice, amount, fee, internal, tx)
-
-                await this.storage.userStorage.IncrementUserBalance(userInvoice.user.user_id, amount - fee, tx)
-                if (isAppUserPayment && fee > 0) {
-                    await this.storage.userStorage.IncrementUserBalance(userInvoice.linkedApplication.owner.user_id, fee, tx)
+                const flaggingRes = await this.storage.paymentStorage.FlagInvoiceAsPaid(userInvoice, amount, fee, internal, tx)
+                if (flaggingRes.affected) {
+                    throw new Error("no invoice affected by flag as paid")
                 }
-
+                await this.storage.userStorage.IncrementUserBalance(userInvoice.user.user_id, amount - fee, userInvoice.invoice, tx)
+                if (fee > 0) {
+                    await this.storage.userStorage.IncrementUserBalance(userInvoice.linkedApplication.owner.user_id, fee, 'fees', tx)
+                }
+                this.storage.eventsLog.LogEvent({ type: 'invoice_paid', userId: userInvoice.user.user_id, appId: userInvoice.linkedApplication.app_id, appUserId: "", balance: userInvoice.user.balance_sats, data: paymentRequest, amount })
                 await this.triggerPaidCallback(log, userInvoice.callbackUrl)
                 const operationId = `${Types.UserOperationType.INCOMING_INVOICE}-${userInvoice.serial_id}`
                 const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_INVOICE, identifier: userInvoice.invoice, operationId, network_fee: 0, service_fee: fee, confirmed: true, tx_hash: "", internal }
