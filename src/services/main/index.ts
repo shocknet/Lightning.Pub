@@ -33,7 +33,7 @@ export const LoadMainSettingsFromEnv = (test = false): MainSettings => {
         serviceUrl: EnvMustBeNonEmptyString("SERVICE_URL"),
         servicePort: EnvMustBeInteger("PORT"),
         recordPerformance: process.env.RECORD_PERFORMANCE === 'true' || false,
-        skipSanityCheck: process.env.SKIP_SANITY_CHECK === 'true' || false
+        skipSanityCheck: process.env.SKIP_SANITY_CHECK === 'true' || false,
     }
 }
 
