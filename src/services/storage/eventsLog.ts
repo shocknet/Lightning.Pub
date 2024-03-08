@@ -1,6 +1,6 @@
 import fs from 'fs'
 import { parse, stringify } from 'csv'
-import { getLogger } from '../helpers/logger'
+import { getLogger } from '../helpers/logger.js'
 const eventLogPath = "logs/eventLog.csv"
 type LoggedEventType = 'new_invoice' | 'new_address' | 'address_paid' | 'invoice_paid' | 'invoice_payment' | 'address_payment' | 'u2u_receiver' | 'u2u_sender' | 'balance_increment' | 'balance_decrement'
 export type LoggedEvent = {
