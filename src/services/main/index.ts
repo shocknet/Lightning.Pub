@@ -16,7 +16,7 @@ import { UserReceivingInvoice, ZapInfo } from '../storage/entity/UserReceivingIn
 import { UnsignedEvent } from '../nostr/tools/event.js'
 import { NostrSend } from '../nostr/handler.js'
 import MetricsManager from '../metrics/index.js'
-import EventsLogManager from '../storage/eventsLog.js'
+import EventsLogManager, { LoggedEvent } from '../storage/eventsLog.js'
 export const LoadMainSettingsFromEnv = (test = false): MainSettings => {
     return {
         lndSettings: LoadLndSettingsFromEnv(test),
@@ -238,4 +238,71 @@ export default class {
         log({ unsigned: event })
         this.nostrSend(invoice.linkedApplication.app_id, { type: 'event', event })
     }
+
+    async VerifyEventsLog() {
+        const events = await this.storage.eventsLog.GetAllLogs()
+        const invoices = await this.lnd.GetAllPaidInvoices(300)
+        const payments = await this.lnd.GetAllPayments(300)
+        const verifyWithLnd = (type: "balance_decrement" | "balance_increment", invoice: string) => {
+            if (type === 'balance_decrement') {
+                const entry = payments.payments.find(p => p.paymentRequest === invoice)
+                if (!entry) {
+                    throw new Error("payment not found in lnd " + invoice)
+                }
+                return Number(entry.valueSat)
+            }
+            const entry = invoices.invoices.find(i => i.paymentRequest === invoice)
+            if (!entry) {
+                throw new Error("invoice not found in lnd " + invoice)
+            }
+            return Number(entry.amtPaidSat)
+        }
+
+        const users: Record<string, { ts: number, updatedBalance: number }> = {}
+        for (let i = 0; i < events.length; i++) {
+            const e = events[i]
+            if (e.type === 'balance_decrement' || e.type === 'balance_increment') {
+                users[e.userId] = this.checkUserEntry(e, users[e.userId])
+                if (LN_INVOICE_REGEX.test(e.data)) {
+                    const invoiceEntry = await this.storage.paymentStorage.GetInvoiceOwner(e.data)
+                    if (!invoiceEntry) {
+                        throw new Error("invoice entry not found for " + e.data)
+                    }
+                    if (invoiceEntry.paid_at_unix === 0) {
+                        throw new Error("invoice was never paid " + e.data)
+                    }
+                    if (!invoiceEntry.internal) {
+                        const amt = verifyWithLnd(e.type, e.data)
+                        if (amt !== e.amount) {
+                            throw new Error(`invalid amounts got: ${amt} expected: ${e.amount}`)
+                        }
+                    }
+                }
+            } else {
+                await this.storage.paymentStorage.VerifyDbEvent(e)
+            }
+        }
+        await Promise.all(Object.entries(users).map(async ([userId, u]) => {
+            const user = await this.storage.userStorage.GetUser(userId)
+            if (user.balance_sats !== u.updatedBalance) {
+                throw new Error("sanity check on balance failed, expected: " + u.updatedBalance + " found: " + user.balance_sats)
+            }
+        }))
+    }
+
+    checkUserEntry(e: LoggedEvent, u: { ts: number, updatedBalance: number } | undefined) {
+        const newEntry = { ts: e.timestampMs, updatedBalance: e.balance + e.amount * (e.type === 'balance_decrement' ? -1 : 1) }
+        if (!u) {
+            return newEntry
+        }
+        if (e.timestampMs < u.ts) {
+            throw new Error("entry out of order " + e.timestampMs + " " + u.ts)
+        }
+        if (e.balance !== u.updatedBalance) {
+            throw new Error("inconsistent balance update got: " + e.balance + " expected " + u.updatedBalance)
+        }
+        return newEntry
+    }
 }
+
+const LN_INVOICE_REGEX = /^(lightning:)?(lnbc|lntb)[0-9a-zA-Z]+$/;
