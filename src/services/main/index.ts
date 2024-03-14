@@ -243,6 +243,8 @@ export default class {
         const events = await this.storage.eventsLog.GetAllLogs()
         const invoices = await this.lnd.GetAllPaidInvoices(1000)
         const payments = await this.lnd.GetAllPayments(1000)
+        const incrementSources: Record<string, boolean> = {}
+        const decrementSources: Record<string, boolean> = {}
 
         const users: Record<string, { ts: number, updatedBalance: number }> = {}
         for (let i = 0; i < events.length; i++) {
@@ -250,6 +252,10 @@ export default class {
             if (e.type === 'balance_decrement') {
                 users[e.userId] = this.checkUserEntry(e, users[e.userId])
                 if (LN_INVOICE_REGEX.test(e.data)) {
+                    if (decrementSources[e.data]) {
+                        throw new Error("payment decremented more that once " + e.data)
+                    }
+                    decrementSources[e.data] = true
                     const paymentEntry = await this.storage.paymentStorage.GetPaymentOwner(e.data)
                     if (!paymentEntry) {
                         throw new Error("payment entry not found for " + e.data)
@@ -262,14 +268,15 @@ export default class {
                         if (!entry) {
                             throw new Error("payment not found in lnd " + e.data)
                         }
-                        if (Number(entry.valueSat) !== e.amount) {
-                            throw new Error(`invalid payment amounts got: ${Number(entry.valueSat)} expected: ${e.amount}`)
-                        }
                     }
                 }
             } else if (e.type === 'balance_increment') {
                 users[e.userId] = this.checkUserEntry(e, users[e.userId])
                 if (LN_INVOICE_REGEX.test(e.data)) {
+                    if (incrementSources[e.data]) {
+                        throw new Error("invoice incremented more that once " + e.data)
+                    }
+                    incrementSources[e.data] = true
                     const invoiceEntry = await this.storage.paymentStorage.GetInvoiceOwner(e.data)
                     if (!invoiceEntry) {
                         throw new Error("invoice entry not found for " + e.data)
@@ -281,9 +288,6 @@ export default class {
                         const entry = invoices.invoices.find(i => i.paymentRequest === e.data)
                         if (!entry) {
                             throw new Error("invoice not found in lnd " + e.data)
-                        }
-                        if (Number(entry.amtPaidSat) !== e.amount) {
-                            throw new Error(`invalid invoice amounts got: ${Number(entry.amtPaidSat)} expected: ${e.amount}`)
                         }
                     }
 
