@@ -233,7 +233,7 @@ export default class {
 
     async DecodeInvoice(paymentRequest: string): Promise<DecodedInvoice> {
         const res = await this.lightning.decodePayReq({ payReq: paymentRequest }, DeadLineMetadata())
-        return { numSatoshis: Number(res.response.numSatoshis) }
+        return { numSatoshis: Number(res.response.numSatoshis), paymentHash: res.response.paymentHash }
     }
 
     GetFeeLimitAmount(amount: number): number {
@@ -313,6 +313,15 @@ export default class {
     async GetForwardingHistory(indexOffset: number): Promise<{ fee: number, chanIdIn: string, chanIdOut: string, timestampNs: number, offset: number }[]> {
         const { response } = await this.lightning.forwardingHistory({ indexOffset, numMaxEvents: 0, startTime: 0n, endTime: 0n, peerAliasLookup: false }, DeadLineMetadata())
         return response.forwardingEvents.map(e => ({ fee: Number(e.fee), chanIdIn: e.chanIdIn, chanIdOut: e.chanIdOut, timestampNs: Number(e.timestampNs), offset: response.lastOffsetIndex }))
+    }
+
+    async GetAllPaidInvoices(max: number) {
+        const res = await this.lightning.listInvoices({ indexOffset: 0n, numMaxInvoices: BigInt(max), pendingOnly: false, reversed: true }, DeadLineMetadata())
+        return res.response
+    }
+    async GetAllPayments(max: number) {
+        const res = await this.lightning.listPayments({ countTotalPayments: false, includeIncomplete: false, indexOffset: 0n, maxPayments: BigInt(max), reversed: true })
+        return res.response
     }
 
     async OpenChannel(destination: string, closeAddress: string, fundingAmount: number, pushSats: number): Promise<string> {

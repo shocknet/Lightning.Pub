@@ -22,11 +22,12 @@ const start = async () => {
         await storageManager.userStorage.UpdateUser(process.argv[3], { balance_sats: +process.argv[4] })
         log("user balance updated correctly")
     }
-    if (!mainSettings.skipSanityCheck) {
-        await storageManager.VerifyEventsLog()
-    }
+
     const mainHandler = new Main(mainSettings, storageManager)
     await mainHandler.lnd.Warmup()
+    if (!mainSettings.skipSanityCheck) {
+        await mainHandler.VerifyEventsLog()
+    }
     const serverMethods = GetServerMethods(mainHandler)
     const nostrSettings = LoadNosrtSettingsFromEnv()
     const appsData = await mainHandler.storage.applicationStorage.GetApplications()
