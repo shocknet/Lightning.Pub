@@ -241,22 +241,8 @@ export default class {
 
     async VerifyEventsLog() {
         const events = await this.storage.eventsLog.GetAllLogs()
-        const invoices = await this.lnd.GetAllPaidInvoices(300)
-        const payments = await this.lnd.GetAllPayments(300)
-        const verifyWithLnd = (type: "balance_decrement" | "balance_increment", invoice: string) => {
-            if (type === 'balance_decrement') {
-                const entry = payments.payments.find(p => p.paymentRequest === invoice)
-                if (!entry) {
-                    throw new Error("payment not found in lnd " + invoice)
-                }
-                return Number(entry.valueSat)
-            }
-            const entry = invoices.invoices.find(i => i.paymentRequest === invoice)
-            if (!entry) {
-                throw new Error("invoice not found in lnd " + invoice)
-            }
-            return Number(entry.amtPaidSat)
-        }
+        const invoices = await this.lnd.GetAllPaidInvoices(1000)
+        const payments = await this.lnd.GetAllPayments(1000)
 
         const users: Record<string, { ts: number, updatedBalance: number }> = {}
         for (let i = 0; i < events.length; i++) {
@@ -264,19 +250,21 @@ export default class {
             if (e.type === 'balance_decrement') {
                 users[e.userId] = this.checkUserEntry(e, users[e.userId])
                 if (LN_INVOICE_REGEX.test(e.data)) {
-                    const invoiceEntry = await this.storage.paymentStorage.GetPaymentOwner(e.data)
-                    if (!invoiceEntry) {
-                        throw new Error("invoice entry not found for " + e.data)
+                    const paymentEntry = await this.storage.paymentStorage.GetPaymentOwner(e.data)
+                    if (!paymentEntry) {
+                        throw new Error("payment entry not found for " + e.data)
                     }
-                    if (invoiceEntry.paid_at_unix === 0) {
-                        throw new Error("invoice was never paid " + e.data)
+                    if (paymentEntry.paid_at_unix === 0) {
+                        throw new Error("payment was never paid " + e.data)
                     }
-                    const entry = payments.payments.find(i => i.paymentRequest === e.data)
-                    if (!entry) {
-                        throw new Error("invoice not found in lnd " + e.data)
-                    }
-                    if (Number(entry.valueSat) !== e.amount) {
-                        throw new Error(`invalid amounts got: ${Number(entry.valueSat)} expected: ${e.amount}`)
+                    if (!paymentEntry.internal) {
+                        const entry = payments.payments.find(i => i.paymentRequest === e.data)
+                        if (!entry) {
+                            throw new Error("payment not found in lnd " + e.data)
+                        }
+                        if (Number(entry.valueSat) !== e.amount) {
+                            throw new Error(`invalid payment amounts got: ${Number(entry.valueSat)} expected: ${e.amount}`)
+                        }
                     }
                 }
             } else if (e.type === 'balance_increment') {
@@ -289,13 +277,16 @@ export default class {
                     if (invoiceEntry.paid_at_unix === 0) {
                         throw new Error("invoice was never paid " + e.data)
                     }
-                    const entry = invoices.invoices.find(i => i.paymentRequest === e.data)
-                    if (!entry) {
-                        throw new Error("invoice not found in lnd " + e.data)
+                    if (!invoiceEntry.internal) {
+                        const entry = invoices.invoices.find(i => i.paymentRequest === e.data)
+                        if (!entry) {
+                            throw new Error("invoice not found in lnd " + e.data)
+                        }
+                        if (Number(entry.amtPaidSat) !== e.amount) {
+                            throw new Error(`invalid invoice amounts got: ${Number(entry.amtPaidSat)} expected: ${e.amount}`)
+                        }
                     }
-                    if (Number(entry.amtPaidSat) !== e.amount) {
-                        throw new Error(`invalid amounts got: ${Number(entry.amtPaidSat)} expected: ${e.amount}`)
-                    }
+
                 }
             } else {
                 await this.storage.paymentStorage.VerifyDbEvent(e)
