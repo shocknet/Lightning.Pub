@@ -261,7 +261,25 @@ export default class {
         const users: Record<string, { ts: number, updatedBalance: number }> = {}
         for (let i = 0; i < events.length; i++) {
             const e = events[i]
-            if (e.type === 'balance_decrement' || e.type === 'balance_increment') {
+            if (e.type === 'balance_decrement') {
+                users[e.userId] = this.checkUserEntry(e, users[e.userId])
+                if (LN_INVOICE_REGEX.test(e.data)) {
+                    const invoiceEntry = await this.storage.paymentStorage.GetPaymentOwner(e.data)
+                    if (!invoiceEntry) {
+                        throw new Error("invoice entry not found for " + e.data)
+                    }
+                    if (invoiceEntry.paid_at_unix === 0) {
+                        throw new Error("invoice was never paid " + e.data)
+                    }
+                    const entry = payments.payments.find(i => i.paymentRequest === e.data)
+                    if (!entry) {
+                        throw new Error("invoice not found in lnd " + e.data)
+                    }
+                    if (Number(entry.valueSat) !== e.amount) {
+                        throw new Error(`invalid amounts got: ${Number(entry.valueSat)} expected: ${e.amount}`)
+                    }
+                }
+            } else if (e.type === 'balance_increment') {
                 users[e.userId] = this.checkUserEntry(e, users[e.userId])
                 if (LN_INVOICE_REGEX.test(e.data)) {
                     const invoiceEntry = await this.storage.paymentStorage.GetInvoiceOwner(e.data)
@@ -271,11 +289,12 @@ export default class {
                     if (invoiceEntry.paid_at_unix === 0) {
                         throw new Error("invoice was never paid " + e.data)
                     }
-                    if (!invoiceEntry.internal) {
-                        const amt = verifyWithLnd(e.type, e.data)
-                        if (amt !== e.amount) {
-                            throw new Error(`invalid amounts got: ${amt} expected: ${e.amount}`)
-                        }
+                    const entry = invoices.invoices.find(i => i.paymentRequest === e.data)
+                    if (!entry) {
+                        throw new Error("invoice not found in lnd " + e.data)
+                    }
+                    if (Number(entry.amtPaidSat) !== e.amount) {
+                        throw new Error(`invalid amounts got: ${Number(entry.amtPaidSat)} expected: ${e.amount}`)
                     }
                 }
             } else {
