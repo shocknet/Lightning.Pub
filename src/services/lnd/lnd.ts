@@ -32,7 +32,7 @@ export default class {
     invoicePaidCb: InvoicePaidCb
     newBlockCb: NewBlockCb
     htlcCb: HtlcCb
-    log = getLogger({})
+    log = getLogger({ appName: 'lndManager' })
     constructor(settings: LndSettings, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb, newBlockCb: NewBlockCb, htlcCb: HtlcCb) {
         this.settings = settings
         this.addressPaidCb = addressPaidCb
@@ -251,11 +251,13 @@ export default class {
     }
     async PayInvoice(invoice: string, amount: number, feeLimit: number): Promise<PaidInvoice> {
         await this.Health()
+        this.log("paying invoice", invoice, "for", amount, "sats")
         const abortController = new AbortController()
         const req = PayInvoiceReq(invoice, amount, feeLimit)
         const stream = this.router.sendPaymentV2(req, { abort: abortController.signal })
         return new Promise((res, rej) => {
             stream.responses.onError(error => {
+                this.log("invoice payment failed", error)
                 rej(error)
             })
             stream.responses.onMessage(payment => {
@@ -285,8 +287,9 @@ export default class {
 
     async PayAddress(address: string, amount: number, satPerVByte: number, label = ""): Promise<SendCoinsResponse> {
         await this.Health()
+        this.log("sending chain TX for", amount, "sats", "to", address)
         const res = await this.lightning.sendCoins(SendCoinsReq(address, amount, satPerVByte, label), DeadLineMetadata())
-        this.log("sent chain TX for", amount, "sats")
+        this.log("sent chain TX for", amount, "sats", "to", address)
         return res.response
     }
 
