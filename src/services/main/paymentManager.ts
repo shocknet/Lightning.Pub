@@ -149,6 +149,9 @@ export default class {
         const internalInvoice = await this.storage.paymentStorage.GetInvoiceOwner(req.invoice)
         let payment: PaidInvoice | null = null
         if (!internalInvoice) {
+            if (this.settings.disableExternalPayments) {
+                throw new Error("something went wrong sending payment, please try again later")
+            }
             this.log("paying external invoice", req.invoice)
             const routingFeeLimit = this.lnd.GetFeeLimitAmount(payAmount)
             await this.storage.userStorage.DecrementUserBalance(userId, totalAmountToDecrement + routingFeeLimit, req.invoice)
