@@ -44,6 +44,7 @@ export default class {
     lnd: LightningHandler
     addressPaidCb: AddressPaidCb
     invoicePaidCb: InvoicePaidCb
+    log = getLogger({ appName: "PaymentManager" })
     constructor(storage: Storage, lnd: LightningHandler, settings: MainSettings, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb) {
         this.storage = storage
         this.settings = settings
@@ -117,20 +118,6 @@ export default class {
         }
     }
 
-    async lockUserWithMinBalance(userId: string, minBalance: number) {
-        return this.storage.StartTransaction(async tx => {
-            const user = await this.storage.userStorage.GetUser(userId, tx)
-            if (user.locked) {
-                throw new Error("user is already withdrawing")
-            }
-            if (user.balance_sats < minBalance) {
-                throw new Error("insufficient balance")
-            }
-            // this call will fail if the user is already locked
-            await this.storage.userStorage.LockUser(userId, tx)
-        })
-    }
-
     GetMaxPayableInvoice(balance: number, appUser: boolean): number {
         let maxWithinServiceFee = 0
         if (appUser) {
@@ -162,17 +149,20 @@ export default class {
         const internalInvoice = await this.storage.paymentStorage.GetInvoiceOwner(req.invoice)
         let payment: PaidInvoice | null = null
         if (!internalInvoice) {
+            this.log("paying external invoice", req.invoice)
             const routingFeeLimit = this.lnd.GetFeeLimitAmount(payAmount)
-            await this.lockUserWithMinBalance(userId, totalAmountToDecrement + routingFeeLimit)
+            await this.storage.userStorage.DecrementUserBalance(userId, totalAmountToDecrement + routingFeeLimit, req.invoice)
             try {
                 payment = await this.lnd.PayInvoice(req.invoice, req.amount, routingFeeLimit)
-                await this.storage.userStorage.DecrementUserBalance(userId, totalAmountToDecrement + payment.feeSat, req.invoice)
-                await this.storage.userStorage.UnlockUser(userId)
+                if (routingFeeLimit - payment.feeSat > 0) {
+                    await this.storage.userStorage.IncrementUserBalance(userId, routingFeeLimit - payment.feeSat, "routing_fee_refund")
+                }
             } catch (err) {
-                await this.storage.userStorage.UnlockUser(userId)
+                await this.storage.userStorage.IncrementUserBalance(userId, totalAmountToDecrement + routingFeeLimit, "payment_refund")
                 throw err
             }
         } else {
+            this.log("paying internal invoice", req.invoice)
             if (internalInvoice.paid_at_unix > 0) {
                 throw new Error("this invoice was already paid")
             }
@@ -197,6 +187,7 @@ export default class {
 
 
     async PayAddress(ctx: Types.UserContext, req: Types.PayAddressRequest): Promise<Types.PayAddressResponse> {
+        throw new Error("address payment currently disabled, use Lightning instead")
         const { blockHeight } = await this.lnd.GetInfo()
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
         const serviceFee = this.getServiceFee(Types.UserOperationType.OUTGOING_TX, req.amoutSats, false)
@@ -205,21 +196,21 @@ export default class {
         let txId = ""
         let chainFees = 0
         if (!internalAddress) {
+            this.log("paying external address")
             const estimate = await this.lnd.EstimateChainFees(req.address, req.amoutSats, 1)
             const vBytes = Math.ceil(Number(estimate.feeSat / estimate.satPerVbyte))
             chainFees = vBytes * req.satsPerVByte
             const total = req.amoutSats + chainFees
-            await this.lockUserWithMinBalance(ctx.user_id, total + serviceFee)
+            this.storage.userStorage.DecrementUserBalance(ctx.user_id, total + serviceFee, req.address)
             try {
                 const payment = await this.lnd.PayAddress(req.address, req.amoutSats, req.satsPerVByte)
                 txId = payment.txid
-                await this.storage.userStorage.DecrementUserBalance(ctx.user_id, total + serviceFee, req.address)
-                await this.storage.userStorage.UnlockUser(ctx.user_id)
             } catch (err) {
-                await this.storage.userStorage.UnlockUser(ctx.user_id)
+                await this.storage.userStorage.IncrementUserBalance(ctx.user_id, total + serviceFee, req.address)
                 throw err
             }
         } else {
+            this.log("paying internal address")
             await this.storage.userStorage.DecrementUserBalance(ctx.user_id, req.amoutSats + serviceFee, req.address)
             txId = crypto.randomBytes(32).toString("hex")
             this.addressPaidCb({ hash: txId, index: 0 }, req.address, req.amoutSats, true)
