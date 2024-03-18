@@ -32,7 +32,7 @@ export default class {
     invoicePaidCb: InvoicePaidCb
     newBlockCb: NewBlockCb
     htlcCb: HtlcCb
-    log = getLogger({})
+    log = getLogger({ appName: 'lndManager' })
     constructor(settings: LndSettings, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb, newBlockCb: NewBlockCb, htlcCb: HtlcCb) {
         this.settings = settings
         this.addressPaidCb = addressPaidCb
@@ -167,7 +167,7 @@ export default class {
             if (tx.numConfirmations === 0) { // only process pending transactions, confirmed transaction are processed by the newBlock CB
                 tx.outputDetails.forEach(output => {
                     if (output.isOurAddress) {
-                        this.log("received chan TX", Number(output.amount), "sats")
+                        this.log("received chan TX", Number(output.amount), "sats", "for", output.address)
                         this.addressPaidCb({ hash: tx.txHash, index: Number(output.outputIndex) }, output.address, Number(output.amount), false)
                     }
                 })
@@ -203,6 +203,7 @@ export default class {
     }
 
     async NewAddress(addressType: Types.AddressType): Promise<NewAddressResponse> {
+        this.log("generating new address")
         await this.Health()
         let lndAddressType: AddressType
         switch (addressType) {
@@ -219,15 +220,15 @@ export default class {
                 throw new Error("unknown address type " + addressType)
         }
         const res = await this.lightning.newAddress({ account: "", type: lndAddressType }, DeadLineMetadata())
+        this.log("new address", res.response.address)
         return res.response
     }
 
     async NewInvoice(value: number, memo: string, expiry: number): Promise<Invoice> {
-        getLogger({})("adding invoice...")
+        this.log("generating new invoice for", value, "sats")
         await this.Health()
-        getLogger({})("lnd healthy")
         const res = await this.lightning.addInvoice(AddInvoiceReq(value, expiry, false, memo), DeadLineMetadata())
-        getLogger({})("got the invoice")
+        this.log("new invoice", res.response.paymentRequest)
         return { payRequest: res.response.paymentRequest }
     }
 
@@ -251,11 +252,13 @@ export default class {
     }
     async PayInvoice(invoice: string, amount: number, feeLimit: number): Promise<PaidInvoice> {
         await this.Health()
+        this.log("paying invoice", invoice, "for", amount, "sats")
         const abortController = new AbortController()
         const req = PayInvoiceReq(invoice, amount, feeLimit)
         const stream = this.router.sendPaymentV2(req, { abort: abortController.signal })
         return new Promise((res, rej) => {
             stream.responses.onError(error => {
+                this.log("invoice payment failed", error)
                 rej(error)
             })
             stream.responses.onMessage(payment => {
@@ -285,8 +288,9 @@ export default class {
 
     async PayAddress(address: string, amount: number, satPerVByte: number, label = ""): Promise<SendCoinsResponse> {
         await this.Health()
+        this.log("sending chain TX for", amount, "sats", "to", address)
         const res = await this.lightning.sendCoins(SendCoinsReq(address, amount, satPerVByte, label), DeadLineMetadata())
-        this.log("sent chain TX for", amount, "sats")
+        this.log("sent chain TX for", amount, "sats", "to", address)
         return res.response
     }
 

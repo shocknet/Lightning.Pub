@@ -75,6 +75,7 @@ export default class {
             user_id: userId,
         }, "balance_sats", increment)
         if (!res.affected) {
+            getLogger({ userId: userId, appName: "balanceUpdates" })("user unaffected by increment")
             throw new Error("unaffected balance increment for " + userId) // TODO: fix logs doxing
         }
         getLogger({ userId: userId, appName: "balanceUpdates" })("incremented balance from", user.balance_sats, "sats, by", increment, "sats")
@@ -83,12 +84,14 @@ export default class {
     async DecrementUserBalance(userId: string, decrement: number, reason: string, entityManager = this.DB) {
         const user = await this.GetUser(userId, entityManager)
         if (!user || user.balance_sats < decrement) {
+            getLogger({ userId: userId, appName: "balanceUpdates" })("user to decrement not found")
             throw new Error("not enough balance to decrement")
         }
         const res = await entityManager.getRepository(User).decrement({
             user_id: userId,
         }, "balance_sats", decrement)
         if (!res.affected) {
+            getLogger({ userId: userId, appName: "balanceUpdates" })("user unaffected by decrement")
             throw new Error("unaffected balance decrement for " + userId) // TODO: fix logs doxing
         }
         getLogger({ userId: userId, appName: "balanceUpdates" })("decremented balance from", user.balance_sats, "sats, by", decrement, "sats")

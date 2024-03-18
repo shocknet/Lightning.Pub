@@ -16,5 +16,6 @@ export type MainSettings = {
     servicePort: number
     recordPerformance: boolean
     skipSanityCheck: boolean
+    disableExternalPayments: boolean
 
 }

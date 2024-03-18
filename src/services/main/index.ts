@@ -34,6 +34,7 @@ export const LoadMainSettingsFromEnv = (test = false): MainSettings => {
         servicePort: EnvMustBeInteger("PORT"),
         recordPerformance: process.env.RECORD_PERFORMANCE === 'true' || false,
         skipSanityCheck: process.env.SKIP_SANITY_CHECK === 'true' || false,
+        disableExternalPayments: process.env.DISABLE_EXTERNAL_PAYMENTS === 'true' || false
     }
 }
 
