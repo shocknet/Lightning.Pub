@@ -135,7 +135,7 @@ export default class {
     }
 
     async PayInvoice(userId: string, req: Types.PayInvoiceRequest, linkedApplication: Application): Promise<Types.PayInvoiceResponse> {
-        this.log("paying invoice", req.invoice)
+        this.log("paying invoice", req.invoice, "for user", userId, "with amount", req.amount)
         const decoded = await this.lnd.DecodeInvoice(req.invoice)
         if (decoded.numSatoshis !== 0 && req.amount !== 0) {
             throw new Error("invoice has value, do not provide amount the the request")
