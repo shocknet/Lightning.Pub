@@ -89,7 +89,7 @@ export default class HtlcTracker {
                 return this.incrementReceiveFailures(incomingChannelId)
             }
         }
-        this.log("unknown htlc event type for failure event")
+        this.log("unknown htlc event type for failure event", eventType)
     }
 
     handleSuccess = ({ eventType, outgoingHtlcId, incomingHtlcId }: EventInfo) => {
@@ -104,7 +104,7 @@ export default class HtlcTracker {
             if (this.deleteMapEntry(incomingHtlcId, this.pendingReceiveHtlcs) !== null) return
             if (this.deleteMapEntry(outgoingHtlcId, this.pendingForwardHtlcs) !== null) return
         } else {
-            this.log("unknown htlc event type for success event")
+            this.log("unknown htlc event type for success event", eventType)
         }
     }
 
