@@ -1,8 +1,10 @@
 import { StorageSettings } from '../storage/index.js'
 import { LndSettings } from '../lnd/settings.js'
+import { WatchdogSettings } from '../lnd/watchdog.js'
 export type MainSettings = {
     storageSettings: StorageSettings,
     lndSettings: LndSettings,
+    watchDogSettings: WatchdogSettings,
     jwtSecret: string
     incomingTxFee: number
     outgoingTxFee: number
