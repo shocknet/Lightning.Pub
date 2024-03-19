@@ -17,8 +17,10 @@ import { UnsignedEvent } from '../nostr/tools/event.js'
 import { NostrSend } from '../nostr/handler.js'
 import MetricsManager from '../metrics/index.js'
 import EventsLogManager, { LoggedEvent } from '../storage/eventsLog.js'
+import { LoadWatchdogSettingsFromEnv } from '../lnd/watchdog.js'
 export const LoadMainSettingsFromEnv = (test = false): MainSettings => {
     return {
+        watchDogSettings: LoadWatchdogSettingsFromEnv(test),
         lndSettings: LoadLndSettingsFromEnv(test),
         storageSettings: LoadStorageSettingsFromEnv(test),
         jwtSecret: EnvMustBeNonEmptyString("JWT_SECRET"),

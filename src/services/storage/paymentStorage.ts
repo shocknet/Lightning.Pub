@@ -360,4 +360,8 @@ export default class {
                 break;
         }
     }
+
+    async GetTotalUsersBalance(entityManager = this.DB) {
+        return entityManager.getRepository(User).sum("balance_sats")
+    }
 }
