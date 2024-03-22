@@ -26,7 +26,8 @@ const start = async () => {
     const mainHandler = new Main(mainSettings, storageManager)
     await mainHandler.lnd.Warmup()
     if (!mainSettings.skipSanityCheck) {
-        await mainHandler.VerifyEventsLog()
+        const totalUsersBalance = await mainHandler.VerifyEventsLog()
+        await mainHandler.paymentManager.watchDog.SeedLndBalance(totalUsersBalance)
     }
     const serverMethods = GetServerMethods(mainHandler)
     const nostrSettings = LoadNosrtSettingsFromEnv()
