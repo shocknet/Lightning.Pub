@@ -19,6 +19,13 @@ export default (mainHandler: Main): Types.ServerMethods => {
             const info = await mainHandler.lnd.GetInfo()
             return { alias: info.alias }
         },
+        BanUser: async ({ ctx, req }) => {
+            const err = Types.BanUserRequestValidate(req, {
+                user_id_CustomCheck: id => id !== ''
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.appUserManager.BanUser(req.user_id)
+        },
         SetMockInvoiceAsPaid: async ({ ctx, req }) => {
             const err = Types.SetMockInvoiceAsPaidRequestValidate(req, {
                 invoice_CustomCheck: invoice => invoice !== '',

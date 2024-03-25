@@ -14,6 +14,7 @@ export default class {
         this.txQueue = txQueue
         this.eventsLog = eventsLog
     }
+
     async AddUser(balance: number, dbTx: DataSource | EntityManager): Promise<User> {
         if (balance && process.env.ALLOW_BALANCE_MIGRATION !== 'true') {
             throw new Error("balance migration is not allowed")
@@ -53,21 +54,27 @@ export default class {
         return user
     }
 
-    async LockUser(userId: string, entityManager = this.DB) {
-        const res = await entityManager.getRepository(User).update({
-            user_id: userId
-        }, { locked: true })
-        if (!res.affected) {
-            throw new Error("unaffected user lock for " + userId) // TODO: fix logs doxing
-        }
-    }
-    async UnlockUser(userId: string, entityManager = this.DB) {
+    async UnbanUser(userId: string, entityManager = this.DB) {
         const res = await entityManager.getRepository(User).update({
             user_id: userId
         }, { locked: false })
         if (!res.affected) {
             throw new Error("unaffected user unlock for " + userId) // TODO: fix logs doxing
         }
+    }
+
+    async BanUser(userId: string, entityManager = this.DB) {
+        const user = await this.GetUser(userId, entityManager)
+        const res = await entityManager.getRepository(User).update({
+            user_id: userId
+        }, { balance_sats: 0, locked: true })
+        if (!res.affected) {
+            throw new Error("unaffected ban user for " + userId) // TODO: fix logs doxing
+        }
+        if (user.balance_sats > 0) {
+            this.eventsLog.LogEvent({ type: 'balance_decrement', userId, appId: "", appUserId: "", balance: user.balance_sats, data: 'ban', amount: user.balance_sats })
+        }
+        return user
     }
     async IncrementUserBalance(userId: string, increment: number, reason: string, entityManager = this.DB) {
         const user = await this.GetUser(userId, entityManager)
