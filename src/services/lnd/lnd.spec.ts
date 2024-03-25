@@ -5,7 +5,7 @@ import NewLightningHandler, { LightningHandler, LoadLndSettingsFromEnv } from '.
 let lnd: LightningHandler
 export const ignore = true
 export const setup = async () => {
-    lnd = NewLightningHandler(LoadLndSettingsFromEnv(true), console.log, console.log, console.log, console.log)
+    lnd = NewLightningHandler(LoadLndSettingsFromEnv(), console.log, console.log, console.log, console.log)
     await lnd.Warmup()
 }
 export const teardown = () => {

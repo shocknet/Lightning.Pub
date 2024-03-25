@@ -24,11 +24,11 @@ export type DbSettings = {
     migrate: boolean
     metricsDatabaseFile: string
 }
-export const LoadDbSettingsFromEnv = (test = false): DbSettings => {
+export const LoadDbSettingsFromEnv = (): DbSettings => {
     return {
-        databaseFile: test ? ":memory:" : EnvMustBeNonEmptyString("DATABASE_FILE"),
+        databaseFile: EnvMustBeNonEmptyString("DATABASE_FILE"),
         migrate: process.env.MIGRATE_DB === 'true' || false,
-        metricsDatabaseFile: test ? ":memory" : EnvMustBeNonEmptyString("METRICS_DATABASE_FILE")
+        metricsDatabaseFile: EnvMustBeNonEmptyString("METRICS_DATABASE_FILE")
     }
 }
 
