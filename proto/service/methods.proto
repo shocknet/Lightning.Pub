@@ -106,6 +106,12 @@ service LightningPub {
         option (http_route) = "/api/admin/app/auth";
     }
 
+    rpc BanUser(structs.BanUserRequest) returns (structs.BanUserResponse) {
+        option (auth_type)  = "Admin";
+        option (http_method) = "post";
+        option (http_route) = "/api/admin/user/ban";
+    }
+
     rpc GetUsageMetrics(structs.Empty) returns (structs.UsageMetrics) {
         option (auth_type)  = "Metrics";
         option (http_method) = "post";
@@ -123,6 +129,8 @@ service LightningPub {
         option (http_method) = "post";
         option (http_route) = "/api/admin/metrics/lnd";
     }
+
+
     // </Admin>
 
     // <Guest>

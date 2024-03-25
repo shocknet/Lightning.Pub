@@ -10,7 +10,7 @@ export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSett
     const nostrTransport = NewNostrTransport(serverMethods, {
         NostrUserAuthGuard: async (appId, pub) => {
             const app = await mainHandler.storage.applicationStorage.GetApplication(appId || "")
-            let nostrUser = await mainHandler.storage.applicationStorage.GetOrCreateNostrAppUser(app, pub || "")
+            const nostrUser = await mainHandler.storage.applicationStorage.GetOrCreateNostrAppUser(app, pub || "")
             return { user_id: nostrUser.user.user_id, app_user_id: nostrUser.identifier, app_id: appId || "" }
         },
         metricsCallback: metrics => mainHandler.settings.recordPerformance ? mainHandler.metricsManager.AddMetrics(metrics) : null,
