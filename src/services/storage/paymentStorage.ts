@@ -121,6 +121,13 @@ export default class {
             }
         })
     }
+    async GetPaymentOwner(paymentRequest: string, entityManager = this.DB): Promise<UserInvoicePayment | null> {
+        return entityManager.getRepository(UserInvoicePayment).findOne({
+            where: {
+                invoice: paymentRequest
+            }
+        })
+    }
 
     async AddUserInvoicePayment(userId: string, invoice: string, amount: number, routingFees: number, serviceFees: number, internal: boolean, linkedApplication: Application): Promise<UserInvoicePayment> {
         const newPayment = this.DB.getRepository(UserInvoicePayment).create({

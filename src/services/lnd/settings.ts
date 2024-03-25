@@ -40,6 +40,7 @@ export type Invoice = {
 }
 export type DecodedInvoice = {
     numSatoshis: number
+    paymentHash: string
 }
 export type PaidInvoice = {
     feeSat: number
