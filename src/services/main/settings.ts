@@ -18,8 +18,8 @@ export type MainSettings = {
     servicePort: number
     recordPerformance: boolean
     skipSanityCheck: boolean
+    disableExternalPayments: boolean
 }
-
 export const LoadMainSettingsFromEnv = (): MainSettings => {
     return {
         lndSettings: LoadLndSettingsFromEnv(),
@@ -37,6 +37,7 @@ export const LoadMainSettingsFromEnv = (): MainSettings => {
         servicePort: EnvMustBeInteger("PORT"),
         recordPerformance: process.env.RECORD_PERFORMANCE === 'true' || false,
         skipSanityCheck: process.env.SKIP_SANITY_CHECK === 'true' || false,
+        disableExternalPayments: process.env.DISABLE_EXTERNAL_PAYMENTS === 'true' || false
     }
 }
 
