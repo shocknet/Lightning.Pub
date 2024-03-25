@@ -5,7 +5,7 @@ import { AddressPaidCb, BalanceInfo, DecodedInvoice, HtlcCb, Invoice, InvoicePai
 import LND from './lnd.js'
 import MockLnd from './mock.js'
 import { getLogger } from '../helpers/logger.js'
-export const LoadLndSettingsFromEnv = (test = false): LndSettings => {
+export const LoadLndSettingsFromEnv = (): LndSettings => {
     const lndAddr = EnvMustBeNonEmptyString("LND_ADDRESS")
     const lndCertPath = EnvMustBeNonEmptyString("LND_CERT_PATH")
     const lndMacaroonPath = EnvMustBeNonEmptyString("LND_MACAROON_PATH")
