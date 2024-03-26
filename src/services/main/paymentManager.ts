@@ -14,6 +14,7 @@ import { SendCoinsResponse } from '../../../proto/lnd/lightning.js'
 import { Event, verifiedSymbol, verifySignature } from '../nostr/tools/event.js'
 import { AddressReceivingTransaction } from '../storage/entity/AddressReceivingTransaction.js'
 import { UserTransactionPayment } from '../storage/entity/UserTransactionPayment.js'
+import { Watchdog } from '../lnd/watchdog.js'
 interface UserOperationInfo {
     serial_id: number
     paid_amount: number
@@ -45,10 +46,12 @@ export default class {
     addressPaidCb: AddressPaidCb
     invoicePaidCb: InvoicePaidCb
     log = getLogger({ appName: "PaymentManager" })
+    watchDog: Watchdog
     constructor(storage: Storage, lnd: LightningHandler, settings: MainSettings, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb) {
         this.storage = storage
         this.settings = settings
         this.lnd = lnd
+        this.watchDog = new Watchdog(settings.watchDogSettings, lnd)
         this.addressPaidCb = addressPaidCb
         this.invoicePaidCb = invoicePaidCb
     }
@@ -140,8 +143,14 @@ export default class {
         }
     }
 
+    async WatchdogCheck() {
+        const total = await this.storage.paymentStorage.GetTotalUsersBalance()
+        await this.watchDog.PaymentRequested(total || 0)
+    }
+
     async PayInvoice(userId: string, req: Types.PayInvoiceRequest, linkedApplication: Application): Promise<Types.PayInvoiceResponse> {
         this.log("paying invoice", req.invoice, "for user", userId, "with amount", req.amount)
+        await this.WatchdogCheck()
         const maybeBanned = await this.storage.userStorage.GetUser(userId)
         if (maybeBanned.locked) {
             throw new Error("user is banned, cannot send payment")
@@ -202,6 +211,7 @@ export default class {
 
     async PayAddress(ctx: Types.UserContext, req: Types.PayAddressRequest): Promise<Types.PayAddressResponse> {
         throw new Error("address payment currently disabled, use Lightning instead")
+        await this.WatchdogCheck()
         this.log("paying address", req.address, "for user", ctx.user_id, "with amount", req.amoutSats)
         const maybeBanned = await this.storage.userStorage.GetUser(ctx.user_id)
         if (maybeBanned.locked) {
