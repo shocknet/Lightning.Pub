@@ -283,9 +283,6 @@ export default class {
                 throw new Error("sanity check on balance failed, expected: " + u.updatedBalance + " found: " + user.balance_sats)
             }
         }))
-
-        const total = await this.storage.paymentStorage.GetTotalUsersBalance()
-        return total || 0
     }
 
     checkUserEntry(e: LoggedEvent, u: { ts: number, updatedBalance: number } | undefined) {
