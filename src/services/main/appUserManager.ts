@@ -31,9 +31,23 @@ export default class {
         return decoded
     }
 
+    async BanUser(userId: string): Promise<Types.BanUserResponse> {
+        const banned = await this.storage.userStorage.BanUser(userId)
+        const appUsers = await this.storage.applicationStorage.GetAllAppUsersFromUser(userId)
+        return {
+            balance_sats: banned.balance_sats,
+            banned_app_users: appUsers.map(appUser => ({
+                app_id: appUser.application.app_id,
+                app_name: appUser.application.name,
+                user_identifier: appUser.identifier,
+                nostr_pub: appUser.nostr_public_key || ""
+            }))
+        }
+    }
+
     async GetUserInfo(ctx: Types.UserContext): Promise<Types.UserInfo> {
         const user = await this.storage.userStorage.GetUser(ctx.user_id)
-        const app = await this.storage.applicationStorage.GetApplication(ctx.app_id);
+        const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
         const appUser = await this.storage.applicationStorage.GetAppUserFromUser(app, user.user_id)
         if (!appUser) {
             throw new Error(`app user ${ctx.user_id} not found`) // TODO: fix logs doxing
