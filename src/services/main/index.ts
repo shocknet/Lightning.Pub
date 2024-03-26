@@ -79,6 +79,10 @@ export default class {
         await Promise.all(confirmed.map(async c => {
             if (c.type === 'outgoing') {
                 await this.storage.paymentStorage.UpdateUserTransactionPayment(c.tx.serial_id, { confs: c.confs })
+                const { linkedApplication, user, address, paid_amount: amount, service_fees: serviceFee, serial_id: serialId, chain_fees } = c.tx;
+                const operationId = `${Types.UserOperationType.OUTGOING_TX}-${serialId}`
+                const op = { amount, paidAtUnix: Date.now() / 1000, inbound: false, type: Types.UserOperationType.OUTGOING_TX, identifier: address, operationId, network_fee: chain_fees, service_fee: serviceFee, confirmed: true, tx_hash: c.tx.tx_hash, internal: c.tx.internal }
+                this.sendOperationToNostr(linkedApplication!, user.user_id, op)
             } else {
                 this.storage.StartTransaction(async tx => {
                     const { user_address: userAddress, paid_amount: amount, service_fee: serviceFee, serial_id: serialId, tx_hash } = c.tx
