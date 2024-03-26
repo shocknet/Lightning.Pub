@@ -18,7 +18,8 @@ export const initMainHandler = async (log: PubLogger, mainSettings: MainSettings
     const mainHandler = new Main(mainSettings, storageManager)
     await mainHandler.lnd.Warmup()
     if (!mainSettings.skipSanityCheck) {
-        await mainHandler.VerifyEventsLog()
+        const totalUsersBalance = await mainHandler.VerifyEventsLog()
+        await mainHandler.paymentManager.watchDog.SeedLndBalance(totalUsersBalance)
     }
     const appsData = await mainHandler.storage.applicationStorage.GetApplications()
     const existingWalletApp = await appsData.find(app => app.name === 'wallet' || app.name === 'wallet-test')
