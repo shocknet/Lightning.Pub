@@ -15,6 +15,7 @@ export class Watchdog {
     lnd: LightningHandler;
     settings: WatchdogSettings;
     log = getLogger({ appName: "watchdog" })
+    enabled = false
     constructor(settings: WatchdogSettings, lnd: LightningHandler) {
         this.lnd = lnd;
         this.settings = settings;
@@ -23,6 +24,7 @@ export class Watchdog {
     SeedLndBalance = async (totalUsersBalance: number) => {
         this.initialLndBalance = await this.getTotalLndBalance()
         this.initialUsersBalance = totalUsersBalance
+        this.enabled = true
     }
 
     getTotalLndBalance = async () => {
@@ -77,6 +79,10 @@ export class Watchdog {
 
     PaymentRequested = async (totalUsersBalance: number) => {
         this.log("Payment requested, checking balance")
+        if (!this.enabled) {
+            this.log("WARNING! Watchdog not enabled, skipping balance check")
+            return
+        }
         const totalLndBalance = await this.getTotalLndBalance()
         const deltaLnd = totalLndBalance - this.initialLndBalance
         const deltaUsers = totalUsersBalance - this.initialUsersBalance
