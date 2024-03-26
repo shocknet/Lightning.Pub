@@ -33,6 +33,7 @@ export default class {
     newBlockCb: NewBlockCb
     htlcCb: HtlcCb
     log = getLogger({ appName: 'lndManager' })
+    outgoingOpsLocked = false
     constructor(settings: LndSettings, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb, newBlockCb: NewBlockCb, htlcCb: HtlcCb) {
         this.settings = settings
         this.addressPaidCb = addressPaidCb
@@ -60,6 +61,14 @@ export default class {
         this.router = new RouterClient(transport)
         this.chainNotifier = new ChainNotifierClient(transport)
     }
+
+    LockOutgoingOperations(): void {
+        this.outgoingOpsLocked = true
+    }
+    UnlockOutgoingOperations(): void {
+        this.outgoingOpsLocked = false
+    }
+
     SetMockInvoiceAsPaid(invoice: string, amount: number): Promise<void> {
         throw new Error("SetMockInvoiceAsPaid only available in mock mode")
     }
@@ -251,6 +260,10 @@ export default class {
         return { local: r.localBalance ? Number(r.localBalance.sat) : 0, remote: r.remoteBalance ? Number(r.remoteBalance.sat) : 0 }
     }
     async PayInvoice(invoice: string, amount: number, feeLimit: number): Promise<PaidInvoice> {
+        if (this.outgoingOpsLocked) {
+            this.log("outgoing ops locked, rejecting payment request")
+            throw new Error("lnd node is currently out of sync")
+        }
         await this.Health()
         this.log("paying invoice", invoice, "for", amount, "sats")
         const abortController = new AbortController()
@@ -287,6 +300,10 @@ export default class {
     }
 
     async PayAddress(address: string, amount: number, satPerVByte: number, label = ""): Promise<SendCoinsResponse> {
+        if (this.outgoingOpsLocked) {
+            this.log("outgoing ops locked, rejecting payment request")
+            throw new Error("lnd node is currently out of sync")
+        }
         await this.Health()
         this.log("sending chain TX for", amount, "sats", "to", address)
         const res = await this.lightning.sendCoins(SendCoinsReq(address, amount, satPerVByte, label), DeadLineMetadata())
