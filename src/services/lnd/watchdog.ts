@@ -2,13 +2,11 @@ import { EnvMustBeInteger } from "../helpers/envParser.js";
 import { getLogger } from "../helpers/logger.js";
 import { LightningHandler } from "./index.js";
 export type WatchdogSettings = {
-    maxDiffBps: number
     maxDiffSats: number
     maxUpdateDiffSats: number
 }
 export const LoadWatchdogSettingsFromEnv = (test = false): WatchdogSettings => {
     return {
-        maxDiffBps: EnvMustBeInteger("WATCHDOG_MAX_DIFF_BPS"),
         maxDiffSats: EnvMustBeInteger("WATCHDOG_MAX_DIFF_SATS"),
         maxUpdateDiffSats: EnvMustBeInteger("WATCHDOG_MAX_UPDATE_DIFF_SATS")
     }
