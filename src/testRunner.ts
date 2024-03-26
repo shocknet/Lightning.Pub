@@ -24,7 +24,6 @@ const start = async () => {
 
 }
 
-
 const runTestFile = async (fileName: string, mod: TestModule) => {
     const d = getDescribe(fileName)
     if (mod.ignore) {

@@ -100,6 +100,9 @@ export default class {
     async NewAddress(ctx: Types.UserContext, req: Types.NewAddressRequest): Promise<Types.NewAddressResponse> {
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
         const user = await this.storage.userStorage.GetUser(ctx.user_id)
+        if (user.locked) {
+            throw new Error("user is banned, cannot generate address")
+        }
         const existingAddress = await this.storage.paymentStorage.GetExistingUserAddress(ctx.user_id, app)
         if (existingAddress) {
             return { address: existingAddress.address }
@@ -112,6 +115,9 @@ export default class {
 
     async NewInvoice(userId: string, req: Types.NewInvoiceRequest, options: InboundOptionals = { expiry: defaultInvoiceExpiry }): Promise<Types.NewInvoiceResponse> {
         const user = await this.storage.userStorage.GetUser(userId)
+        if (user.locked) {
+            throw new Error("user is banned, cannot generate invoice")
+        }
         const res = await this.lnd.NewInvoice(req.amountSats, req.memo, options.expiry)
         const userInvoice = await this.storage.paymentStorage.AddUserInvoice(user, res.payRequest, options)
         const appId = options.linkedApplication ? options.linkedApplication.app_id : ""
@@ -145,6 +151,10 @@ export default class {
     async PayInvoice(userId: string, req: Types.PayInvoiceRequest, linkedApplication: Application): Promise<Types.PayInvoiceResponse> {
         this.log("paying invoice", req.invoice, "for user", userId, "with amount", req.amount)
         await this.WatchdogCheck()
+        const maybeBanned = await this.storage.userStorage.GetUser(userId)
+        if (maybeBanned.locked) {
+            throw new Error("user is banned, cannot send payment")
+        }
         const decoded = await this.lnd.DecodeInvoice(req.invoice)
         if (decoded.numSatoshis !== 0 && req.amount !== 0) {
             throw new Error("invoice has value, do not provide amount the the request")
@@ -202,6 +212,11 @@ export default class {
     async PayAddress(ctx: Types.UserContext, req: Types.PayAddressRequest): Promise<Types.PayAddressResponse> {
         throw new Error("address payment currently disabled, use Lightning instead")
         await this.WatchdogCheck()
+        this.log("paying address", req.address, "for user", ctx.user_id, "with amount", req.amoutSats)
+        const maybeBanned = await this.storage.userStorage.GetUser(ctx.user_id)
+        if (maybeBanned.locked) {
+            throw new Error("user is banned, cannot send chain tx")
+        }
         const { blockHeight } = await this.lnd.GetInfo()
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
         const serviceFee = this.getServiceFee(Types.UserOperationType.OUTGOING_TX, req.amoutSats, false)
@@ -469,6 +484,10 @@ export default class {
     }
 
     async GetUserOperations(userId: string, req: Types.GetUserOperationsRequest): Promise<Types.GetUserOperationsResponse> {
+        const user = await this.storage.userStorage.GetUser(userId)
+        if (user.locked) {
+            throw new Error("user is banned, cannot retrieve operations")
+        }
         const [outgoingInvoices, outgoingTransactions, incomingInvoices, incomingTransactions, incomingUserToUser, outgoingUserToUser] = await Promise.all([
             this.storage.paymentStorage.GetUserInvoicePayments(userId, req.latestOutgoingInvoice, req.max_size),
             this.storage.paymentStorage.GetUserTransactionPayments(userId, req.latestOutgoingTx, req.max_size),
@@ -492,6 +511,9 @@ export default class {
         await this.storage.StartTransaction(async tx => {
             const fromUser = await this.storage.userStorage.GetUser(fromUserId, tx)
             const toUser = await this.storage.userStorage.GetUser(toUserId, tx)
+            if (fromUser.locked || toUser.locked) {
+                throw new Error("one of the users is banned, cannot send payment")
+            }
             if (fromUser.balance_sats < amount) {
                 throw new Error("not enough balance to send payment")
             }

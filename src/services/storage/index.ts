@@ -10,8 +10,8 @@ import EventsLogManager from "./eventsLog.js";
 export type StorageSettings = {
     dbSettings: DbSettings
 }
-export const LoadStorageSettingsFromEnv = (test = false): StorageSettings => {
-    return { dbSettings: LoadDbSettingsFromEnv(test) }
+export const LoadStorageSettingsFromEnv = (): StorageSettings => {
+    return { dbSettings: LoadDbSettingsFromEnv() }
 }
 export default class {
     DB: DataSource | EntityManager
