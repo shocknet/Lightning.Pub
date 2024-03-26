@@ -10,6 +10,17 @@ export const EnvMustBeInteger = (name: string): number => {
     }
     return +env
 }
+export const EnvCanBeInteger = (name: string, defaultValue = 0): number => {
+    const env = process.env[name]
+    if (!env) {
+        return defaultValue
+    }
+    const envNum = +env
+    if (isNaN(envNum) || !Number.isInteger(envNum)) {
+        throw new Error(`${name} ENV must be an integer number or nothing`);
+    }
+    return envNum
+}
 export const EnvCanBeBoolean = (name: string): boolean => {
     const env = process.env[name]
     if (!env) return false
