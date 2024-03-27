@@ -2,6 +2,7 @@ import { PubLogger, getLogger } from "../helpers/logger.js"
 import Storage from "../storage/index.js"
 import { TypeOrmMigrationRunner } from "../storage/migrations/runner.js"
 import Main from "./index.js"
+import SanityChecker from "./sanityChecker.js"
 import { MainSettings } from "./settings.js"
 export type AppData = {
     privateKey: string;
@@ -18,10 +19,10 @@ export const initMainHandler = async (log: PubLogger, mainSettings: MainSettings
     const mainHandler = new Main(mainSettings, storageManager)
     await mainHandler.lnd.Warmup()
     if (!mainSettings.skipSanityCheck) {
-        await mainHandler.VerifyEventsLog()
+        const sanityChecker = new SanityChecker(storageManager, mainHandler.lnd)
+        await sanityChecker.VerifyEventsLog()
     }
-    const totalUsersBalance = await mainHandler.storage.paymentStorage.GetTotalUsersBalance()
-    await mainHandler.paymentManager.watchDog.SeedLndBalance(totalUsersBalance || 0)
+    await mainHandler.paymentManager.watchDog.Start()
     const appsData = await mainHandler.storage.applicationStorage.GetApplications()
     const existingWalletApp = await appsData.find(app => app.name === 'wallet' || app.name === 'wallet-test')
     if (!existingWalletApp) {

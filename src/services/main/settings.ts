@@ -1,6 +1,6 @@
 import { LoadStorageSettingsFromEnv, StorageSettings } from '../storage/index.js'
 import { LndSettings } from '../lnd/settings.js'
-import { LoadWatchdogSettingsFromEnv, WatchdogSettings } from '../lnd/watchdog.js'
+import { LoadWatchdogSettingsFromEnv, WatchdogSettings } from './watchdog.js'
 import { LoadLndSettingsFromEnv } from '../lnd/index.js'
 import { EnvMustBeInteger, EnvMustBeNonEmptyString } from '../helpers/envParser.js'
 export type MainSettings = {
