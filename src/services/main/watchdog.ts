@@ -1,6 +1,7 @@
 import { EnvCanBeInteger } from "../helpers/envParser.js";
 import { getLogger } from "../helpers/logger.js";
-import { LightningHandler } from "./index.js";
+import { LightningHandler } from "../lnd/index.js";
+import Storage from '../storage/index.js'
 export type WatchdogSettings = {
     maxDiffSats: number
 }
@@ -14,17 +15,28 @@ export class Watchdog {
     initialUsersBalance: number;
     lnd: LightningHandler;
     settings: WatchdogSettings;
+    storage: Storage;
+    latestCheckStart = 0
     log = getLogger({ appName: "watchdog" })
     enabled = false
-    constructor(settings: WatchdogSettings, lnd: LightningHandler) {
+    constructor(settings: WatchdogSettings, lnd: LightningHandler, storage: Storage) {
         this.lnd = lnd;
         this.settings = settings;
+        this.storage = storage;
     }
 
-    SeedLndBalance = async (totalUsersBalance: number) => {
+    Start = async () => {
+        const totalUsersBalance = await this.storage.paymentStorage.GetTotalUsersBalance()
         this.initialLndBalance = await this.getTotalLndBalance()
         this.initialUsersBalance = totalUsersBalance
         this.enabled = true
+
+        setInterval(() => {
+            if (this.latestCheckStart + (1000 * 60) < Date.now()) {
+                this.log("No balance check was made in the last minute, checking now")
+                this.PaymentRequested()
+            }
+        }, 1000 * 60)
     }
 
     getTotalLndBalance = async () => {
@@ -77,12 +89,14 @@ export class Watchdog {
         return false
     }
 
-    PaymentRequested = async (totalUsersBalance: number) => {
+    PaymentRequested = async () => {
         this.log("Payment requested, checking balance")
         if (!this.enabled) {
             this.log("WARNING! Watchdog not enabled, skipping balance check")
             return
         }
+        this.latestCheckStart = Date.now()
+        const totalUsersBalance = await this.storage.paymentStorage.GetTotalUsersBalance()
         const totalLndBalance = await this.getTotalLndBalance()
         const deltaLnd = totalLndBalance - this.initialLndBalance
         const deltaUsers = totalUsersBalance - this.initialUsersBalance
