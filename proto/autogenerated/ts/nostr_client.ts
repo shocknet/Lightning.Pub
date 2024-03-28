@@ -9,6 +9,18 @@ export type NostrClientParams = {
     checkResult?: true
 }
 export default (params: NostrClientParams,  send: (to:string, message: NostrRequest) => Promise<any>, subscribe: (to:string, message: NostrRequest, cb:(res:any)=> void) => void) => ({
+    LinkNPubThroughToken: async (request: Types.LinkNPubThroughTokenRequest): Promise<ResultError | ({ status: 'OK' })> => {
+        const auth = await params.retrieveNostrUserAuth()
+        if (auth === null) throw new Error('retrieveNostrUserAuth() returned null')
+        const nostrRequest: NostrRequest = {}
+        nostrRequest.body = request
+        const data = await send(params.pubDestination, {rpcName:'LinkNPubThroughToken',authIdentifier:auth, ...nostrRequest }) 
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            return data
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
     UserHealth: async (): Promise<ResultError | ({ status: 'OK' })> => {
         const auth = await params.retrieveNostrUserAuth()
         if (auth === null) throw new Error('retrieveNostrUserAuth() returned null')

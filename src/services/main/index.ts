@@ -15,6 +15,7 @@ import { UserReceivingInvoice } from '../storage/entity/UserReceivingInvoice.js'
 import { UnsignedEvent } from '../nostr/tools/event.js'
 import { NostrSend } from '../nostr/handler.js'
 import MetricsManager from '../metrics/index.js'
+import { LoggedEvent } from '../storage/eventsLog.js'
 
 type UserOperationsSub = {
     id: string
