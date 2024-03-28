@@ -42,7 +42,7 @@
     "csv": "^6.3.8",
     "dotenv": "^16.0.0",
     "eccrypto": "^1.1.6",
-    "express": "^4.18.1",
+    "express": "^4.19.2",
     "globby": "^13.1.2",
     "grpc-tools": "^1.11.2",
     "jsonwebtoken": "^9.0.0",
