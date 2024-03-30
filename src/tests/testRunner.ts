@@ -1,11 +1,10 @@
 import { globby } from 'globby'
-type Describe = (message: string, failure?: boolean) => void
+import { Describe, SetupTest, teardown, TestBase } from './testBase.js'
+
 
 type TestModule = {
     ignore?: boolean
-    setup?: () => Promise<void>
-    default: (describe: Describe) => Promise<void>
-    teardown?: () => Promise<void>
+    default: (T: TestBase) => Promise<void>
 }
 let failures = 0
 const start = async () => {
@@ -13,7 +12,7 @@ const start = async () => {
     const files = await globby("**/*.spec.js")
     for (const file of files) {
         console.log(file)
-        const module = await import(`./${file.slice("build/src/".length)}`) as TestModule
+        const module = await import(`./${file.slice("build/src/tests/".length)}`) as TestModule
         await runTestFile(file, module)
     }
     if (failures) {
@@ -30,21 +29,15 @@ const runTestFile = async (fileName: string, mod: TestModule) => {
         d("-----ignoring file-----")
         return
     }
+    const T = await SetupTest(d)
     try {
-        if (mod.setup) {
-            d("setup started")
-            await mod.setup()
-        }
-        d("tests starting")
-        await mod.default(d)
-        d("tests finished")
-        if (mod.teardown) {
-            await mod.teardown()
-            d("teardown finished")
-        }
+        d("test starting")
+        await mod.default(T)
+        d("test finished")
+        await teardown(T)
     } catch (e: any) {
-        d("FAILURE", true)
         d(e, true)
+        await teardown(T)
     }
 }
 
@@ -52,7 +45,7 @@ const getDescribe = (fileName: string): Describe => {
     return (message, failure) => {
         if (failure) {
             failures++
-            console.error(redConsole, fileName, ":", message, resetConsole)
+            console.error(redConsole, fileName, ": FAILURE ", message, resetConsole)
         } else {
             console.log(greenConsole, fileName, ":", message, resetConsole)
         }

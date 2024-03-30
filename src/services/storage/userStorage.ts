@@ -76,9 +76,21 @@ export default class {
         }
         return user
     }
-    async IncrementUserBalance(userId: string, increment: number, reason: string, entityManager = this.DB) {
-        const user = await this.GetUser(userId, entityManager)
-        const res = await entityManager.getRepository(User).increment({
+    async IncrementUserBalance(userId: string, increment: number, reason: string, entityManager?: DataSource | EntityManager) {
+        if (entityManager) {
+            return this.IncrementUserBalanceInTx(userId, increment, reason, entityManager)
+        }
+        await this.txQueue.PushToQueue({
+            dbTx: true,
+            description: `incrementing user ${userId} balance by ${increment}`,
+            exec: async tx => {
+                await this.IncrementUserBalanceInTx(userId, increment, reason, tx)
+            }
+        })
+    }
+    async IncrementUserBalanceInTx(userId: string, increment: number, reason: string, dbTx: DataSource | EntityManager) {
+        const user = await this.GetUser(userId, dbTx)
+        const res = await dbTx.getRepository(User).increment({
             user_id: userId,
         }, "balance_sats", increment)
         if (!res.affected) {
@@ -88,13 +100,26 @@ export default class {
         getLogger({ userId: userId, appName: "balanceUpdates" })("incremented balance from", user.balance_sats, "sats, by", increment, "sats")
         this.eventsLog.LogEvent({ type: 'balance_increment', userId, appId: "", appUserId: "", balance: user.balance_sats, data: reason, amount: increment })
     }
-    async DecrementUserBalance(userId: string, decrement: number, reason: string, entityManager = this.DB) {
-        const user = await this.GetUser(userId, entityManager)
+    async DecrementUserBalance(userId: string, decrement: number, reason: string, entityManager?: DataSource | EntityManager) {
+        if (entityManager) {
+            return this.DecrementUserBalanceInTx(userId, decrement, reason, entityManager)
+        }
+        await this.txQueue.PushToQueue({
+            dbTx: true,
+            description: `decrementing user ${userId} balance by ${decrement}`,
+            exec: async tx => {
+                await this.DecrementUserBalanceInTx(userId, decrement, reason, tx)
+            }
+        })
+    }
+
+    async DecrementUserBalanceInTx(userId: string, decrement: number, reason: string, dbTx: DataSource | EntityManager) {
+        const user = await this.GetUser(userId, dbTx)
         if (!user || user.balance_sats < decrement) {
-            getLogger({ userId: userId, appName: "balanceUpdates" })("user to decrement not found")
+            getLogger({ userId: userId, appName: "balanceUpdates" })("not enough balance to decrement")
             throw new Error("not enough balance to decrement")
         }
-        const res = await entityManager.getRepository(User).decrement({
+        const res = await dbTx.getRepository(User).decrement({
             user_id: userId,
         }, "balance_sats", decrement)
         if (!res.affected) {
