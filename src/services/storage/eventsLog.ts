@@ -1,7 +1,7 @@
 import fs from 'fs'
 import { parse, stringify } from 'csv'
 import { getLogger } from '../helpers/logger.js'
-const eventLogPath = "logs/eventLog.csv"
+//const eventLogPath = "logs/eventLogV2.csv"
 type LoggedEventType = 'new_invoice' | 'new_address' | 'address_paid' | 'invoice_paid' | 'invoice_payment' | 'address_payment' | 'u2u_receiver' | 'u2u_sender' | 'balance_increment' | 'balance_decrement'
 export type LoggedEvent = {
     timestampMs: number
@@ -22,9 +22,11 @@ type TimeEntry = {
 const columns = ["timestampMs", "userId", "appUserId", "appId", "balance", "type", "data", "amount"]
 type StringerWrite = (chunk: any, cb: (error: Error | null | undefined) => void) => boolean
 export default class EventsLogManager {
+    eventLogPath: string
     log = getLogger({ appName: "EventsLogManager" })
     stringerWrite: StringerWrite
-    constructor() {
+    constructor(eventLogPath: string) {
+        this.eventLogPath = eventLogPath
         const exists = fs.existsSync(eventLogPath)
         if (!exists) {
             const stringer = stringify({ header: true, columns })
@@ -51,7 +53,7 @@ export default class EventsLogManager {
     }
 
     Read = async (path?: string): Promise<LoggedEvent[]> => {
-        const filePath = path ? path : eventLogPath
+        const filePath = path ? path : this.eventLogPath
         const exists = fs.existsSync(filePath)
         if (!exists) {
             return []
