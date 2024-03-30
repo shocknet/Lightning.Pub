@@ -77,6 +77,9 @@ export class Watchdog {
                         this.log("Difference is too big for an update, locking outgoing operations")
                         return true
                     }
+                } else if (deltaLnd === deltaUsers) {
+                    this.log("LND and users balance went both DOWN consistently")
+                    return false
                 } else {
                     this.log("LND balance decreased less than users balance with a difference of", result.absoluteDiff, "sats, could be caused by data loss, or liquidity injection")
                     return false
@@ -89,6 +92,9 @@ export class Watchdog {
                         this.log("Difference is too big for an update, locking outgoing operations")
                         return true
                     }
+                } else if (deltaLnd === deltaUsers) {
+                    this.log("LND and users balance went both UP consistently")
+                    return false
                 } else {
                     this.log("LND balance increased more than users balance with a difference of", result.absoluteDiff, "sats, could be caused by data loss, or liquidity injection")
                     return false
