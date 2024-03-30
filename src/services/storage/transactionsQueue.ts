@@ -20,6 +20,7 @@ export default class {
 
     PushToQueue<T>(op: TxOperation<T>) {
         if (!this.pendingTx) {
+            this.log("queue empty, starting transaction", this.transactionsQueue.length)
             return this.execQueueItem(op)
         }
         this.log("queue not empty, possibly stuck")
@@ -29,6 +30,7 @@ export default class {
     }
 
     async execNextInQueue() {
+        this.log("executing next in queue")
         this.pendingTx = false
         const next = this.transactionsQueue.pop()
         if (!next) {
@@ -49,6 +51,7 @@ export default class {
             throw new Error("cannot start DB transaction")
         }
         this.pendingTx = true
+        this.log("starting", op.dbTx ? "db transaction" : "operation", op.description || "")
         if (op.dbTx) {
             return this.doTransaction(op.exec)
         }
@@ -67,16 +70,17 @@ export default class {
     }
 
 
-    doTransaction<T>(exec: TX<T>) {
-        return this.DB.transaction(async tx => {
-            try {
-                const res = await exec(tx)
-                this.execNextInQueue()
-                return res
-            } catch (err) {
-                this.execNextInQueue()
-                throw err
-            }
-        })
+    async doTransaction<T>(exec: TX<T>) {
+        try {
+            const res = await this.DB.transaction(async tx => {
+                return exec(tx)
+            })
+            this.execNextInQueue()
+            return res
+        } catch (err: any) {
+            this.execNextInQueue()
+            this.log("transaction failed", err.message)
+            throw err
+        }
     }
 }

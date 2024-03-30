@@ -40,16 +40,22 @@ export const LoadMainSettingsFromEnv = (): MainSettings => {
         servicePort: EnvMustBeInteger("PORT"),
         recordPerformance: process.env.RECORD_PERFORMANCE === 'true' || false,
         skipSanityCheck: process.env.SKIP_SANITY_CHECK === 'true' || false,
-        disableExternalPayments: process.env.DISABLE_EXTERNAL_PAYMENTS === 'true' || false,
-
+        disableExternalPayments: process.env.DISABLE_EXTERNAL_PAYMENTS === 'true' || false
     }
 }
 
 export const LoadTestSettingsFromEnv = (): MainSettings => {
+    const eventLogPath = `logs/eventLogV2Test${Date.now()}.csv`
     const settings = LoadMainSettingsFromEnv()
     return {
         ...settings,
-        storageSettings: { dbSettings: { ...settings.storageSettings.dbSettings, databaseFile: ":memory:", metricsDatabaseFile: ":memory:" } },
+        storageSettings: { dbSettings: { ...settings.storageSettings.dbSettings, databaseFile: ":memory:", metricsDatabaseFile: ":memory:" }, eventLogPath },
+        lndSettings: {
+            ...settings.lndSettings,
+            otherLndAddr: EnvMustBeNonEmptyString("LND_OTHER_ADDR"),
+            otherLndCertPath: EnvMustBeNonEmptyString("LND_OTHER_CERT_PATH"),
+            otherLndMacaroonPath: EnvMustBeNonEmptyString("LND_OTHER_MACAROON_PATH")
+        },
         skipSanityCheck: true
     }
 }

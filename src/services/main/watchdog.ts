@@ -11,6 +11,7 @@ export const LoadWatchdogSettingsFromEnv = (test = false): WatchdogSettings => {
     }
 }
 export class Watchdog {
+
     initialLndBalance: number;
     initialUsersBalance: number;
     lnd: LightningHandler;
@@ -19,10 +20,17 @@ export class Watchdog {
     latestCheckStart = 0
     log = getLogger({ appName: "watchdog" })
     enabled = false
+    interval: NodeJS.Timer;
     constructor(settings: WatchdogSettings, lnd: LightningHandler, storage: Storage) {
         this.lnd = lnd;
         this.settings = settings;
         this.storage = storage;
+    }
+
+    Stop() {
+        if (this.interval) {
+            clearInterval(this.interval)
+        }
     }
 
     Start = async () => {
@@ -31,7 +39,7 @@ export class Watchdog {
         this.initialUsersBalance = totalUsersBalance
         this.enabled = true
 
-        setInterval(() => {
+        this.interval = setInterval(() => {
             if (this.latestCheckStart + (1000 * 60) < Date.now()) {
                 this.log("No balance check was made in the last minute, checking now")
                 this.PaymentRequested()
