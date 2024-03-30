@@ -61,7 +61,7 @@ export default (params: ClientParams) => ({
     GetUsageMetrics: async (): Promise<ResultError | ({ status: 'OK' }& Types.UsageMetrics)> => {
         const auth = await params.retrieveMetricsAuth()
         if (auth === null) throw new Error('retrieveMetricsAuth() returned null')
-        let finalRoute = '/api/admin/metrics/usage'
+        let finalRoute = '/api/reports/usage'
         const { data } = await axios.post(params.baseUrl + finalRoute, {}, { headers: { 'authorization': auth } })
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
@@ -75,7 +75,7 @@ export default (params: ClientParams) => ({
     GetAppsMetrics: async (request: Types.AppsMetricsRequest): Promise<ResultError | ({ status: 'OK' }& Types.AppsMetrics)> => {
         const auth = await params.retrieveMetricsAuth()
         if (auth === null) throw new Error('retrieveMetricsAuth() returned null')
-        let finalRoute = '/api/admin/metrics/apps'
+        let finalRoute = '/api/reports/apps'
         const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
@@ -89,7 +89,7 @@ export default (params: ClientParams) => ({
     GetLndMetrics: async (request: Types.LndMetricsRequest): Promise<ResultError | ({ status: 'OK' }& Types.LndMetrics)> => {
         const auth = await params.retrieveMetricsAuth()
         if (auth === null) throw new Error('retrieveMetricsAuth() returned null')
-        let finalRoute = '/api/admin/metrics/lnd'
+        let finalRoute = '/api/reports/lnd'
         const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
