@@ -131,6 +131,12 @@ export default class {
     async GetAllPayments(max: number): Promise<ListPaymentsResponse> {
         throw new Error("not implemented")
     }
+    LockOutgoingOperations() {
+        throw new Error("not implemented")
+    }
+    UnlockOutgoingOperations() {
+        throw new Error("not implemented")
+    }
 }
 
 

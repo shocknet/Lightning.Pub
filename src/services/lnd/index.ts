@@ -38,6 +38,8 @@ export interface LightningHandler {
     GetForwardingHistory(indexOffset: number): Promise<{ fee: number, chanIdIn: string, chanIdOut: string, timestampNs: number, offset: number }[]>
     GetAllPaidInvoices(max: number): Promise<ListInvoiceResponse>
     GetAllPayments(max: number): Promise<ListPaymentsResponse>
+    LockOutgoingOperations(): void
+    UnlockOutgoingOperations(): void
 }
 
 export default (settings: LndSettings, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb, newBlockCb: NewBlockCb, htlcCb: HtlcCb): LightningHandler => {
