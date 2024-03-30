@@ -1,10 +1,12 @@
 import { LoadStorageSettingsFromEnv, StorageSettings } from '../storage/index.js'
 import { LndSettings } from '../lnd/settings.js'
+import { LoadWatchdogSettingsFromEnv, WatchdogSettings } from '../lnd/watchdog.js'
 import { LoadLndSettingsFromEnv } from '../lnd/index.js'
 import { EnvMustBeInteger, EnvMustBeNonEmptyString } from '../helpers/envParser.js'
 export type MainSettings = {
     storageSettings: StorageSettings,
     lndSettings: LndSettings,
+    watchDogSettings: WatchdogSettings,
     jwtSecret: string
     incomingTxFee: number
     outgoingTxFee: number
@@ -22,6 +24,7 @@ export type MainSettings = {
 }
 export const LoadMainSettingsFromEnv = (): MainSettings => {
     return {
+        watchDogSettings: LoadWatchdogSettingsFromEnv(),
         lndSettings: LoadLndSettingsFromEnv(),
         storageSettings: LoadStorageSettingsFromEnv(),
         jwtSecret: EnvMustBeNonEmptyString("JWT_SECRET"),
@@ -37,7 +40,8 @@ export const LoadMainSettingsFromEnv = (): MainSettings => {
         servicePort: EnvMustBeInteger("PORT"),
         recordPerformance: process.env.RECORD_PERFORMANCE === 'true' || false,
         skipSanityCheck: process.env.SKIP_SANITY_CHECK === 'true' || false,
-        disableExternalPayments: process.env.DISABLE_EXTERNAL_PAYMENTS === 'true' || false
+        disableExternalPayments: process.env.DISABLE_EXTERNAL_PAYMENTS === 'true' || false,
+
     }
 }
 

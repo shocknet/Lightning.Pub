@@ -79,6 +79,10 @@ export default class {
         await Promise.all(confirmed.map(async c => {
             if (c.type === 'outgoing') {
                 await this.storage.paymentStorage.UpdateUserTransactionPayment(c.tx.serial_id, { confs: c.confs })
+                const { linkedApplication, user, address, paid_amount: amount, service_fees: serviceFee, serial_id: serialId, chain_fees } = c.tx;
+                const operationId = `${Types.UserOperationType.OUTGOING_TX}-${serialId}`
+                const op = { amount, paidAtUnix: Date.now() / 1000, inbound: false, type: Types.UserOperationType.OUTGOING_TX, identifier: address, operationId, network_fee: chain_fees, service_fee: serviceFee, confirmed: true, tx_hash: c.tx.tx_hash, internal: c.tx.internal }
+                this.sendOperationToNostr(linkedApplication!, user.user_id, op)
             } else {
                 this.storage.StartTransaction(async tx => {
                     const { user_address: userAddress, paid_amount: amount, service_fee: serviceFee, serial_id: serialId, tx_hash } = c.tx
@@ -90,12 +94,12 @@ export default class {
                     if (!updateResult.affected) {
                         throw new Error("unable to flag chain transaction as paid")
                     }
-                    await this.storage.userStorage.IncrementUserBalance(userAddress.user.user_id, amount - serviceFee, userAddress.address, tx)
+                    const addressData = `${userAddress.address}:${tx_hash}`
+                    this.storage.eventsLog.LogEvent({ type: 'address_paid', userId: userAddress.user.user_id, appId: userAddress.linkedApplication.app_id, appUserId: "", balance: userAddress.user.balance_sats, data: addressData, amount })
+                    await this.storage.userStorage.IncrementUserBalance(userAddress.user.user_id, amount - serviceFee, addressData, tx)
                     if (serviceFee > 0) {
                         await this.storage.userStorage.IncrementUserBalance(userAddress.linkedApplication.owner.user_id, serviceFee, 'fees', tx)
                     }
-                    const addressData = `${userAddress.address}:${tx_hash}`
-                    this.storage.eventsLog.LogEvent({ type: 'address_paid', userId: userAddress.user.user_id, appId: userAddress.linkedApplication.app_id, appUserId: "", balance: userAddress.user.balance_sats, data: addressData, amount })
                     const operationId = `${Types.UserOperationType.INCOMING_TX}-${serialId}`
                     const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_TX, identifier: userAddress.address, operationId, network_fee: 0, service_fee: serviceFee, confirmed: true, tx_hash: c.tx.tx_hash, internal: c.tx.internal }
                     this.sendOperationToNostr(userAddress.linkedApplication!, userAddress.user.user_id, op)
@@ -125,12 +129,13 @@ export default class {
                 // This call will fail if the transaction is already registered
                 const addedTx = await this.storage.paymentStorage.AddAddressReceivingTransaction(userAddress, txOutput.hash, txOutput.index, amount, fee, internal, blockHeight, tx)
                 if (internal) {
-                    await this.storage.userStorage.IncrementUserBalance(userAddress.user.user_id, addedTx.paid_amount - fee, userAddress.address, tx)
+                    const addressData = `${address}:${txOutput.hash}`
+                    this.storage.eventsLog.LogEvent({ type: 'address_paid', userId: userAddress.user.user_id, appId: userAddress.linkedApplication.app_id, appUserId: "", balance: userAddress.user.balance_sats, data: addressData, amount })
+                    await this.storage.userStorage.IncrementUserBalance(userAddress.user.user_id, addedTx.paid_amount - fee, addressData, tx)
                     if (fee > 0) {
                         await this.storage.userStorage.IncrementUserBalance(userAddress.linkedApplication.owner.user_id, fee, 'fees', tx)
                     }
-                    const addressData = `${address}:${txOutput.hash}`
-                    this.storage.eventsLog.LogEvent({ type: 'address_paid', userId: userAddress.user.user_id, appId: userAddress.linkedApplication.app_id, appUserId: "", balance: userAddress.user.balance_sats, data: addressData, amount })
+
                 }
                 const operationId = `${Types.UserOperationType.INCOMING_TX}-${addedTx.serial_id}`
                 const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_TX, identifier: userAddress.address, operationId, network_fee: 0, service_fee: fee, confirmed: internal, tx_hash: txOutput.hash, internal: false }
@@ -160,11 +165,11 @@ export default class {
             }
             try {
                 await this.storage.paymentStorage.FlagInvoiceAsPaid(userInvoice, amount, fee, internal, tx)
+                this.storage.eventsLog.LogEvent({ type: 'invoice_paid', userId: userInvoice.user.user_id, appId: userInvoice.linkedApplication.app_id, appUserId: "", balance: userInvoice.user.balance_sats, data: paymentRequest, amount })
                 await this.storage.userStorage.IncrementUserBalance(userInvoice.user.user_id, amount - fee, userInvoice.invoice, tx)
                 if (fee > 0) {
                     await this.storage.userStorage.IncrementUserBalance(userInvoice.linkedApplication.owner.user_id, fee, 'fees', tx)
                 }
-                this.storage.eventsLog.LogEvent({ type: 'invoice_paid', userId: userInvoice.user.user_id, appId: userInvoice.linkedApplication.app_id, appUserId: "", balance: userInvoice.user.balance_sats, data: paymentRequest, amount })
                 await this.triggerPaidCallback(log, userInvoice.callbackUrl)
                 const operationId = `${Types.UserOperationType.INCOMING_INVOICE}-${userInvoice.serial_id}`
                 const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_INVOICE, identifier: userInvoice.invoice, operationId, network_fee: 0, service_fee: fee, confirmed: true, tx_hash: "", internal }

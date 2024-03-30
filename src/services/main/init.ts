@@ -15,11 +15,13 @@ export const initMainHandler = async (log: PubLogger, mainSettings: MainSettings
     if (manualMigration) {
         return
     }
-    if (!mainSettings.skipSanityCheck) {
-        await storageManager.VerifyEventsLog()
-    }
     const mainHandler = new Main(mainSettings, storageManager)
     await mainHandler.lnd.Warmup()
+    if (!mainSettings.skipSanityCheck) {
+        await mainHandler.VerifyEventsLog()
+    }
+    const totalUsersBalance = await mainHandler.storage.paymentStorage.GetTotalUsersBalance()
+    await mainHandler.paymentManager.watchDog.SeedLndBalance(totalUsersBalance || 0)
     const appsData = await mainHandler.storage.applicationStorage.GetApplications()
     const existingWalletApp = await appsData.find(app => app.name === 'wallet' || app.name === 'wallet-test')
     if (!existingWalletApp) {
@@ -49,7 +51,7 @@ const processArgs = async (mainHandler: Main) => {
             getLogger({ userId: process.argv[3] })(`user balance updated correctly`)
             return false
         case 'unlock':
-            await mainHandler.storage.userStorage.UnlockUser(process.argv[3])
+            await mainHandler.storage.userStorage.UnbanUser(process.argv[3])
             getLogger({ userId: process.argv[3] })(`user unlocked`)
             return false
         default:
