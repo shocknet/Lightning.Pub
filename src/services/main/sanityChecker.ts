@@ -8,6 +8,7 @@ type UniqueDecrementReasons = 'ban'
 type UniqueIncrementReasons = 'fees' | 'routing_fee_refund' | 'payment_refund'
 type CommonReasons = 'invoice' | 'address' | 'u2u'
 type Reason = UniqueDecrementReasons | UniqueIncrementReasons | CommonReasons
+const incrementTwiceAllowed = ['fees', 'ban']
 export default class SanityChecker {
     storage: Storage
     lnd: LightningHandler
@@ -17,7 +18,7 @@ export default class SanityChecker {
     payments: Payment[] = []
     incrementSources: Record<string, boolean> = {}
     decrementSources: Record<string, boolean> = {}
-    decrementEvents: Record<string, { userId: string, refund: number, falure: boolean }> = {}
+    decrementEvents: Record<string, { userId: string, refund: number, failure: boolean }> = {}
     users: Record<string, { ts: number, updatedBalance: number }> = {}
     constructor(storage: Storage, lnd: LightningHandler) {
         this.storage = storage
@@ -54,7 +55,7 @@ export default class SanityChecker {
         if (this.decrementSources[e.data]) {
             throw new Error("entry decremented more that once " + e.data)
         }
-        this.decrementSources[e.data] = true
+        this.decrementSources[e.data] = !incrementTwiceAllowed.includes(e.data)
         this.users[e.userId] = this.checkUserEntry(e, this.users[e.userId])
         const parsed = this.parseDataField(e.data)
         switch (parsed.type) {
@@ -99,10 +100,10 @@ export default class SanityChecker {
             throw new Error("payment never settled for invoice " + invoice) // TODO: check if this is correct
         }
         if (entry.paid_at_unix === -1) {
-            const refund = amt - (entry.paid_amount + entry.routing_fees + entry.service_fees)
-            this.decrementEvents[invoice] = { userId, refund, falure: true }
+            this.decrementEvents[invoice] = { userId, refund: amt, failure: true }
         } else {
-            this.decrementEvents[invoice] = { userId, refund: amt, falure: false }
+            const refund = amt - (entry.paid_amount + entry.routing_fees + entry.service_fees)
+            this.decrementEvents[invoice] = { userId, refund, failure: false }
         }
         if (!entry.internal) {
             const lndEntry = this.payments.find(i => i.paymentRequest === invoice)
@@ -132,7 +133,7 @@ export default class SanityChecker {
         if (this.incrementSources[e.data]) {
             throw new Error("entry incremented more that once " + e.data)
         }
-        this.incrementSources[e.data] = true
+        this.incrementSources[e.data] = !incrementTwiceAllowed.includes(e.data)
         this.users[e.userId] = this.checkUserEntry(e, this.users[e.userId])
         const parsed = this.parseDataField(e.data)
         switch (parsed.type) {
@@ -196,10 +197,11 @@ export default class SanityChecker {
         if (entry.userId !== userId) {
             throw new Error("user id mismatch for routing fee refund " + invoice)
         }
-        if (entry.falure) {
+        if (entry.failure) {
             throw new Error("payment failled, should not refund routing fees " + invoice)
         }
         if (entry.refund !== amt) {
+            console.log(entry.refund, amt)
             throw new Error("refund amount mismatch for routing fee refund " + invoice)
         }
     }
@@ -212,7 +214,7 @@ export default class SanityChecker {
         if (entry.userId !== userId) {
             throw new Error("user id mismatch for payment refund " + invoice)
         }
-        if (!entry.falure) {
+        if (!entry.failure) {
             throw new Error("payment did not fail, should not refund payment " + invoice)
         }
         if (entry.refund !== amt) {
@@ -249,7 +251,9 @@ export default class SanityChecker {
 
     checkUserEntry(e: LoggedEvent, u: { ts: number, updatedBalance: number } | undefined) {
         const newEntry = { ts: e.timestampMs, updatedBalance: e.balance + e.amount * (e.type === 'balance_decrement' ? -1 : 1) }
+        console.log(e)
         if (!u) {
+            console.log(e.userId, "balance starts at", e.balance, "sats and moves by", e.amount * (e.type === 'balance_decrement' ? -1 : 1), "sats, resulting in", newEntry.updatedBalance, "sats")
             return newEntry
         }
         if (e.timestampMs < u.ts) {
@@ -258,6 +262,7 @@ export default class SanityChecker {
         if (e.balance !== u.updatedBalance) {
             throw new Error("inconsistent balance update got: " + e.balance + " expected " + u.updatedBalance)
         }
+        console.log(e.userId, "balance updates from", e.balance, "sats and moves by", e.amount * (e.type === 'balance_decrement' ? -1 : 1), "sats, resulting in", newEntry.updatedBalance, "sats")
         return newEntry
     }
 }

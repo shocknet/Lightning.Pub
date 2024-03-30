@@ -159,7 +159,6 @@ export default class {
         const payAmount = req.amount !== 0 ? req.amount : Number(decoded.numSatoshis)
         const isAppUserPayment = userId !== linkedApplication.owner.user_id
         const serviceFee = this.getServiceFee(Types.UserOperationType.OUTGOING_INVOICE, payAmount, isAppUserPayment)
-        const totalAmountToDecrement = payAmount + serviceFee
         const internalInvoice = await this.storage.paymentStorage.GetInvoiceOwner(req.invoice)
         let paymentInfo = { preimage: "", amtPaid: 0, networkFee: 0, serialId: 0 }
         if (internalInvoice) {
@@ -190,10 +189,13 @@ export default class {
         this.log("paying external invoice", invoice)
         const routingFeeLimit = this.lnd.GetFeeLimitAmount(payAmount)
         await this.storage.userStorage.DecrementUserBalance(userId, totalAmountToDecrement + routingFeeLimit, invoice)
+        console.log("decremented")
         const pendingPayment = await this.storage.paymentStorage.AddPendingExternalPayment(userId, invoice, payAmount, linkedApplication)
         try {
             const payment = await this.lnd.PayInvoice(invoice, amountForLnd, routingFeeLimit)
+
             if (routingFeeLimit - payment.feeSat > 0) {
+                this.log("refund routing fee", routingFeeLimit, payment.feeSat, "sats")
                 await this.storage.userStorage.IncrementUserBalance(userId, routingFeeLimit - payment.feeSat, "routing_fee_refund:" + invoice)
             }
             await this.storage.paymentStorage.UpdateExternalPayment(pendingPayment.serial_id, payment.feeSat, serviceFee, true)

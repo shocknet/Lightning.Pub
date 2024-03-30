@@ -7,6 +7,10 @@ export type LndSettings = {
     feeRateLimit: number
     feeFixedLimit: number
     mockLnd: boolean
+
+    otherLndAddr: string
+    otherLndCertPath: string
+    otherLndMacaroonPath: string
 }
 type TxOutput = {
     hash: string
