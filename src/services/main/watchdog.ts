@@ -49,6 +49,7 @@ export class Watchdog {
 
     getTotalLndBalance = async () => {
         const { confirmedBalance, channelsBalance } = await this.lnd.GetBalance()
+        this.log(confirmedBalance, "sats in chain wallet")
         let total = confirmedBalance
         channelsBalance.forEach(c => {
             let outgoingSats = 0
@@ -58,6 +59,7 @@ export class Watchdog {
                 }
             })
             total += Number(c.localBalanceSats) - outgoingSats
+            this.log(c.localBalanceSats, "sats in channel", c.channelId, "with", outgoingSats, "sats in pending outgoing htlcs")
         })
         return total
     }
