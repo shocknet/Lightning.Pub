@@ -24,6 +24,7 @@ export type BalanceInfo = {
         channelId: string;
         localBalanceSats: number;
         remoteBalanceSats: number;
+        htlcs: { incoming: boolean, amount: number }[]
     }[];
 }
 

@@ -48,8 +48,18 @@ export class Watchdog {
     }
 
     getTotalLndBalance = async () => {
-        const { channelsBalance, confirmedBalance } = await this.lnd.GetBalance()
-        return confirmedBalance + channelsBalance.reduce((acc, { localBalanceSats }) => acc + localBalanceSats, 0)
+        const { confirmedBalance, channelsBalance } = await this.lnd.GetBalance()
+        let total = confirmedBalance
+        channelsBalance.forEach(c => {
+            let outgoingSats = 0
+            c.htlcs.forEach(htlc => {
+                if (!htlc.incoming) {
+                    outgoingSats += Number(htlc.amount)
+                }
+            })
+            total += Number(c.localBalanceSats) - outgoingSats
+        })
+        return total
     }
 
     checkBalanceUpdate = (deltaLnd: number, deltaUsers: number) => {
