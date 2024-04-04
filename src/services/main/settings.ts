@@ -1,5 +1,5 @@
 import { LoadStorageSettingsFromEnv, StorageSettings } from '../storage/index.js'
-import { LndSettings } from '../lnd/settings.js'
+import { LndSettings, NodeSettings } from '../lnd/settings.js'
 import { LoadWatchdogSettingsFromEnv, WatchdogSettings } from './watchdog.js'
 import { LoadLndSettingsFromEnv } from '../lnd/index.js'
 import { EnvMustBeInteger, EnvMustBeNonEmptyString } from '../helpers/envParser.js'
@@ -44,7 +44,7 @@ export const LoadMainSettingsFromEnv = (): MainSettings => {
     }
 }
 
-export const LoadTestSettingsFromEnv = (): MainSettings => {
+export const LoadTestSettingsFromEnv = (): MainSettings & { lndSettings: { otherNode: NodeSettings, thirdNode: NodeSettings } } => {
     const eventLogPath = `logs/eventLogV2Test${Date.now()}.csv`
     const settings = LoadMainSettingsFromEnv()
     return {
@@ -52,9 +52,16 @@ export const LoadTestSettingsFromEnv = (): MainSettings => {
         storageSettings: { dbSettings: { ...settings.storageSettings.dbSettings, databaseFile: ":memory:", metricsDatabaseFile: ":memory:" }, eventLogPath },
         lndSettings: {
             ...settings.lndSettings,
-            otherLndAddr: EnvMustBeNonEmptyString("LND_OTHER_ADDR"),
-            otherLndCertPath: EnvMustBeNonEmptyString("LND_OTHER_CERT_PATH"),
-            otherLndMacaroonPath: EnvMustBeNonEmptyString("LND_OTHER_MACAROON_PATH")
+            otherNode: {
+                lndAddr: EnvMustBeNonEmptyString("LND_OTHER_ADDR"),
+                lndCertPath: EnvMustBeNonEmptyString("LND_OTHER_CERT_PATH"),
+                lndMacaroonPath: EnvMustBeNonEmptyString("LND_OTHER_MACAROON_PATH")
+            },
+            thirdNode: {
+                lndAddr: EnvMustBeNonEmptyString("LND_THIRD_ADDR"),
+                lndCertPath: EnvMustBeNonEmptyString("LND_THIRD_CERT_PATH"),
+                lndMacaroonPath: EnvMustBeNonEmptyString("LND_THIRD_MACAROON_PATH")
+            }
         },
         skipSanityCheck: true
     }
