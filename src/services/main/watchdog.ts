@@ -1,6 +1,7 @@
 import { EnvCanBeInteger } from "../helpers/envParser.js";
 import { getLogger } from "../helpers/logger.js";
 import { LightningHandler } from "../lnd/index.js";
+import { ChannelBalance } from "../lnd/settings.js";
 import Storage from '../storage/index.js'
 export type WatchdogSettings = {
     maxDiffSats: number
@@ -48,20 +49,13 @@ export class Watchdog {
     }
 
     getTotalLndBalance = async () => {
+        const localLog = getLogger({ appName: "debugLndBalance" })
         const { confirmedBalance, channelsBalance } = await this.lnd.GetBalance()
         this.log(confirmedBalance, "sats in chain wallet")
-        let total = confirmedBalance
-        channelsBalance.forEach(c => {
-            let outgoingSats = 0
-            c.htlcs.forEach(htlc => {
-                if (!htlc.incoming) {
-                    outgoingSats += Number(htlc.amount)
-                }
-            })
-            total += Number(c.localBalanceSats) - outgoingSats
-            this.log(c.localBalanceSats, "sats in channel", c.channelId, "with", outgoingSats, "sats in pending outgoing htlcs")
-        })
-        return total
+        localLog(channelsBalance)
+        return channelsBalance.reduce((acc, c) => {
+            return acc + c.localBalanceSats + c.htlcs.reduce((acc2, htlc) => acc2 + (htlc.incoming ? htlc.amount : -htlc.amount), 0)
+        }, 0)
     }
 
     checkBalanceUpdate = (deltaLnd: number, deltaUsers: number) => {
