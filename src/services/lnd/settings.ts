@@ -16,16 +16,17 @@ type TxOutput = {
     hash: string
     index: number
 }
+export type ChannelBalance = {
+    channelId: string;
+    localBalanceSats: number;
+    remoteBalanceSats: number;
+    htlcs: { incoming: boolean, amount: number }[]
+}
 export type BalanceInfo = {
     confirmedBalance: number;
     unconfirmedBalance: number;
     totalBalance: number;
-    channelsBalance: {
-        channelId: string;
-        localBalanceSats: number;
-        remoteBalanceSats: number;
-        htlcs: { incoming: boolean, amount: number }[]
-    }[];
+    channelsBalance: ChannelBalance[];
 }
 
 export type AddressPaidCb = (txOutput: TxOutput, address: string, amount: number, internal: boolean) => void
