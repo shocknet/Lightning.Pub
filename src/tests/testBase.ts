@@ -27,6 +27,7 @@ export type TestBase = {
     user2: TestUserData
     externalAccessToMainLnd: LND
     externalAccessToOtherLnd: LND
+    externalAccessToThirdLnd: LND
     d: Describe
 }
 
@@ -45,16 +46,21 @@ export const SetupTest = async (d: Describe): Promise<TestBase> => {
 
 
     const externalAccessToMainLnd = new LND(settings.lndSettings, console.log, console.log, () => { }, () => { })
-    const otherLndSetting = { ...settings.lndSettings, lndCertPath: settings.lndSettings.otherLndCertPath, lndMacaroonPath: settings.lndSettings.otherLndMacaroonPath, lndAddr: settings.lndSettings.otherLndAddr }
-    const externalAccessToOtherLnd = new LND(otherLndSetting, console.log, console.log, () => { }, () => { })
     await externalAccessToMainLnd.Warmup()
+
+    const otherLndSetting = { ...settings.lndSettings, mainNode: settings.lndSettings.otherNode }
+    const externalAccessToOtherLnd = new LND(otherLndSetting, console.log, console.log, () => { }, () => { })
     await externalAccessToOtherLnd.Warmup()
+
+    const thirdLndSetting = { ...settings.lndSettings, mainNode: settings.lndSettings.thirdNode }
+    const externalAccessToThirdLnd = new LND(thirdLndSetting, console.log, console.log, () => { }, () => { })
+    await externalAccessToThirdLnd.Warmup()
 
 
     return {
         expect, main, app,
         user1, user2,
-        externalAccessToMainLnd, externalAccessToOtherLnd,
+        externalAccessToMainLnd, externalAccessToOtherLnd, externalAccessToThirdLnd,
         d
     }
 }
@@ -64,6 +70,7 @@ export const teardown = async (T: TestBase) => {
     T.main.lnd.Stop()
     T.externalAccessToMainLnd.Stop()
     T.externalAccessToOtherLnd.Stop()
+    T.externalAccessToThirdLnd.Stop()
     console.log("teardown")
 }
 

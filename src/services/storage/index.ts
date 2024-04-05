@@ -41,7 +41,7 @@ export default class {
         return { executedMigrations, executedMetricsMigrations };
     }
 
-    StartTransaction(exec: TX<void>, description?: string) {
+    StartTransaction<T>(exec: TX<T>, description?: string) {
         return this.txQueue.PushToQueue({ exec, dbTx: true, description })
     }
 }

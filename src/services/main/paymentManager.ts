@@ -189,7 +189,6 @@ export default class {
         this.log("paying external invoice", invoice)
         const routingFeeLimit = this.lnd.GetFeeLimitAmount(payAmount)
         await this.storage.userStorage.DecrementUserBalance(userId, totalAmountToDecrement + routingFeeLimit, invoice)
-        console.log("decremented")
         const pendingPayment = await this.storage.paymentStorage.AddPendingExternalPayment(userId, invoice, payAmount, linkedApplication)
         try {
             const payment = await this.lnd.PayInvoice(invoice, amountForLnd, routingFeeLimit)
@@ -523,9 +522,8 @@ export default class {
         }
     }
 
-    async SendUserToUserPayment(fromUserId: string, toUserId: string, amount: number, linkedApplication: Application): Promise<number> {
-        let sentAmount = 0
-        await this.storage.StartTransaction(async tx => {
+    async SendUserToUserPayment(fromUserId: string, toUserId: string, amount: number, linkedApplication: Application): Promise<{ amount: number, fees: number }> {
+        const payment = await this.storage.StartTransaction(async tx => {
             const fromUser = await this.storage.userStorage.GetUser(fromUserId, tx)
             const toUser = await this.storage.userStorage.GetUser(toUserId, tx)
             if (fromUser.locked || toUser.locked) {
@@ -536,21 +534,21 @@ export default class {
             }
             const isAppUserPayment = fromUser.user_id !== linkedApplication.owner.user_id
             let fee = this.getServiceFee(Types.UserOperationType.OUTGOING_USER_TO_USER, amount, isAppUserPayment)
-            const toIncrement = amount - fee
-            const paymentEntry = await this.storage.paymentStorage.CreateUserToUserPayment(fromUserId, toUserId, amount, fee, linkedApplication, tx)
-            await this.storage.userStorage.DecrementUserBalance(fromUser.user_id, amount, `${toUserId}:${paymentEntry.serial_id}`, tx)
-            await this.storage.userStorage.IncrementUserBalance(toUser.user_id, toIncrement, `${fromUserId}:${paymentEntry.serial_id}`, tx)
-            await this.storage.paymentStorage.SaveUserToUserPayment(paymentEntry, tx)
+            const toDecrement = amount + fee
+            const paymentEntry = await this.storage.paymentStorage.AddPendingUserToUserPayment(fromUserId, toUserId, amount, fee, linkedApplication, tx)
+            await this.storage.userStorage.DecrementUserBalance(fromUser.user_id, toDecrement, `${toUserId}:${paymentEntry.serial_id}`, tx)
+            await this.storage.userStorage.IncrementUserBalance(toUser.user_id, amount, `${fromUserId}:${paymentEntry.serial_id}`, tx)
+            await this.storage.paymentStorage.SetPendingUserToUserPaymentAsPaid(paymentEntry.serial_id, tx)
             if (isAppUserPayment && fee > 0) {
                 await this.storage.userStorage.IncrementUserBalance(linkedApplication.owner.user_id, fee, 'fees', tx)
             }
-            sentAmount = toIncrement
+            return paymentEntry
         })
         const fromUser = await this.storage.userStorage.GetUser(fromUserId)
         const toUser = await this.storage.userStorage.GetUser(toUserId)
-        this.storage.eventsLog.LogEvent({ type: 'u2u_sender', userId: fromUserId, appId: linkedApplication.app_id, appUserId: "", balance: fromUser.balance_sats, data: toUserId, amount: amount })
+        this.storage.eventsLog.LogEvent({ type: 'u2u_sender', userId: fromUserId, appId: linkedApplication.app_id, appUserId: "", balance: fromUser.balance_sats, data: toUserId, amount: payment.paid_amount + payment.service_fees })
         this.storage.eventsLog.LogEvent({ type: 'u2u_receiver', userId: toUserId, appId: linkedApplication.app_id, appUserId: "", balance: toUser.balance_sats, data: fromUserId, amount: amount })
-        return sentAmount
+        return { amount: payment.paid_amount, fees: payment.service_fees }
     }
 
     async CheckNewlyConfirmedTxs(height: number) {

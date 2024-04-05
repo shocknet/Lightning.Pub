@@ -1,16 +1,17 @@
 import { HtlcEvent } from "../../../proto/lnd/router"
-
-export type LndSettings = {
+export type NodeSettings = {
     lndAddr: string
     lndCertPath: string
     lndMacaroonPath: string
+}
+export type LndSettings = {
+    mainNode: NodeSettings
     feeRateLimit: number
     feeFixedLimit: number
     mockLnd: boolean
 
-    otherLndAddr: string
-    otherLndCertPath: string
-    otherLndMacaroonPath: string
+    otherNode?: NodeSettings
+    thirdNode?: NodeSettings
 }
 type TxOutput = {
     hash: string

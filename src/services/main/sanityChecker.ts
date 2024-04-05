@@ -2,6 +2,7 @@ import Storage from '../storage/index.js'
 import { LightningHandler } from "../lnd/index.js"
 import { LoggedEvent } from '../storage/eventsLog.js'
 import { Invoice, Payment } from '../../../proto/lnd/lightning';
+import { getLogger } from '../helpers/logger.js';
 const LN_INVOICE_REGEX = /^(lightning:)?(lnbc|lntb)[0-9a-zA-Z]+$/;
 const BITCOIN_ADDRESS_REGEX = /^(bitcoin:)?([13][a-km-zA-HJ-NP-Z1-9]{25,34}|bc1[a-zA-HJ-NP-Z0-9]{39,59})$/;
 type UniqueDecrementReasons = 'ban'
@@ -19,6 +20,7 @@ export default class SanityChecker {
     incrementSources: Record<string, boolean> = {}
     decrementSources: Record<string, boolean> = {}
     decrementEvents: Record<string, { userId: string, refund: number, failure: boolean }> = {}
+    log = getLogger({ appName: "SanityChecker" })
     users: Record<string, { ts: number, updatedBalance: number }> = {}
     constructor(storage: Storage, lnd: LightningHandler) {
         this.storage = storage
@@ -201,7 +203,6 @@ export default class SanityChecker {
             throw new Error("payment failled, should not refund routing fees " + invoice)
         }
         if (entry.refund !== amt) {
-            console.log(entry.refund, amt)
             throw new Error("refund amount mismatch for routing fee refund " + invoice)
         }
     }
@@ -251,9 +252,8 @@ export default class SanityChecker {
 
     checkUserEntry(e: LoggedEvent, u: { ts: number, updatedBalance: number } | undefined) {
         const newEntry = { ts: e.timestampMs, updatedBalance: e.balance + e.amount * (e.type === 'balance_decrement' ? -1 : 1) }
-        console.log(e)
         if (!u) {
-            console.log(e.userId, "balance starts at", e.balance, "sats and moves by", e.amount * (e.type === 'balance_decrement' ? -1 : 1), "sats, resulting in", newEntry.updatedBalance, "sats")
+            this.log(e.userId, "balance starts at", e.balance, "sats and moves by", e.amount * (e.type === 'balance_decrement' ? -1 : 1), "sats, resulting in", newEntry.updatedBalance, "sats")
             return newEntry
         }
         if (e.timestampMs < u.ts) {
@@ -262,7 +262,7 @@ export default class SanityChecker {
         if (e.balance !== u.updatedBalance) {
             throw new Error("inconsistent balance update got: " + e.balance + " expected " + u.updatedBalance)
         }
-        console.log(e.userId, "balance updates from", e.balance, "sats and moves by", e.amount * (e.type === 'balance_decrement' ? -1 : 1), "sats, resulting in", newEntry.updatedBalance, "sats")
+        this.log(e.userId, "balance updates from", e.balance, "sats and moves by", e.amount * (e.type === 'balance_decrement' ? -1 : 1), "sats, resulting in", newEntry.updatedBalance, "sats")
         return newEntry
     }
 }
