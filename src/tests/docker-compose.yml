@@ -109,8 +109,7 @@ services:
   lpub:
     image: lpub
     build:
-      dockerfile: src/tests/Dockerfile
-      context: .
+      context: ./src/tests
     depends_on:
       - backend1
       - alice
