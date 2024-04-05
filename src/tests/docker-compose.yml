@@ -1,5 +1,4 @@
 version: '3.3'
-name: polar-network-2
 services:
   backend1:
     environment:
