@@ -194,8 +194,6 @@ export default class Handler {
         }))
         if (!sent) {
             log("failed to send event")
-        } else {
-            log("event sent ok")
         }
     }
 
