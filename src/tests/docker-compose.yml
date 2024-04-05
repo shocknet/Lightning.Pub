@@ -108,6 +108,7 @@ services:
       - '9738:9735'
   lpub:
     build:
+      context: lpub
       dockerfile: src/tests/Dockerfile
     depends_on:
       - backend1
