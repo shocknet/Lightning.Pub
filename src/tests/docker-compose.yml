@@ -107,10 +107,10 @@ services:
       - '10004:10009'
       - '9738:9735'
   lpub:
+    image: lpub
     build:
-      context: lpub
-      image: lpub
       dockerfile: src/tests/Dockerfile
+      context: .
     depends_on:
       - backend1
       - alice
