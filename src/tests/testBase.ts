@@ -70,6 +70,7 @@ export const teardown = async (T: TestBase) => {
     T.main.lnd.Stop()
     T.externalAccessToMainLnd.Stop()
     T.externalAccessToOtherLnd.Stop()
+    T.externalAccessToThirdLnd.Stop()
     console.log("teardown")
 }
 

@@ -56,13 +56,13 @@ process.on("message", (message: ChildProcessRequest) => {
             sendToNostr(message.appId, message.data, message.relays)
             break
         default:
-            console.error("unknown nostr request", message)
+            getLogger({ appName: "nostrMiddleware" })("ERROR", "unknown nostr request", message)
             break
     }
 })
 const initSubprocessHandler = (settings: NostrSettings) => {
     if (subProcessHandler) {
-        console.error("nostr settings ignored since handler already exists")
+        getLogger({ appName: "nostrMiddleware" })("ERROR", "nostr settings ignored since handler already exists")
         return
     }
     subProcessHandler = new Handler(settings, event => {
@@ -74,7 +74,7 @@ const initSubprocessHandler = (settings: NostrSettings) => {
 }
 const sendToNostr: NostrSend = (appId, data, relays) => {
     if (!subProcessHandler) {
-        console.error("nostr was not initialized")
+        getLogger({ appName: "nostrMiddleware" })("ERROR", "nostr was not initialized")
         return
     }
     subProcessHandler.Send(appId, data, relays)
@@ -87,9 +87,10 @@ export default class Handler {
     subs: Sub[] = []
     apps: Record<string, AppInfo> = {}
     eventCallback: (event: NostrEvent) => void
+    log = getLogger({ appName: "nostrMiddleware" })
     constructor(settings: NostrSettings, eventCallback: (event: NostrEvent) => void) {
         this.settings = settings
-        console.log(
+        this.log(
             {
                 ...settings,
                 apps: settings.apps.map(app => {
@@ -151,7 +152,7 @@ export default class Handler {
             }
             const eventId = e.id
             if (handledEvents.includes(eventId)) {
-                console.log("event already handled")
+                this.log("event already handled")
                 return
             }
             handledEvents.push(eventId)

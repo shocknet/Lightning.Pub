@@ -283,18 +283,19 @@ export default class {
         return found
     }
 
-    async CreateUserToUserPayment(fromUserId: string, toUserId: string, amount: number, fee: number, linkedApplication: Application, dbTx: DataSource | EntityManager) {
-        return dbTx.getRepository(UserToUserPayment).create({
+    async AddPendingUserToUserPayment(fromUserId: string, toUserId: string, amount: number, fee: number, linkedApplication: Application, dbTx: DataSource | EntityManager) {
+        const entry = dbTx.getRepository(UserToUserPayment).create({
             from_user: await this.userStorage.GetUser(fromUserId, dbTx),
             to_user: await this.userStorage.GetUser(toUserId, dbTx),
-            paid_at_unix: Math.floor(Date.now() / 1000),
+            paid_at_unix: 0,
             paid_amount: amount,
             service_fees: fee,
             linkedApplication
         })
+        return dbTx.getRepository(UserToUserPayment).save(entry)
     }
-    async SaveUserToUserPayment(payment: UserToUserPayment, dbTx: DataSource | EntityManager) {
-        return dbTx.getRepository(UserToUserPayment).save(payment)
+    async SetPendingUserToUserPaymentAsPaid(serialId: number, dbTx: DataSource | EntityManager) {
+        dbTx.getRepository(UserToUserPayment).update(serialId, { paid_at_unix: Math.floor(Date.now() / 1000) })
     }
 
     GetUserToUserReceivedPayments(userId: string, fromIndex: number, take = 50, entityManager = this.DB) {
