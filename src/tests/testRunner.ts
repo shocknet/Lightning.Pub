@@ -4,16 +4,37 @@ import { Describe, SetupTest, teardown, TestBase } from './testBase.js'
 
 type TestModule = {
     ignore?: boolean
+    dev?: boolean
     default: (T: TestBase) => Promise<void>
 }
 let failures = 0
 const start = async () => {
 
     const files = await globby("**/*.spec.js")
+    const modules: { file: string, module: TestModule }[] = []
+    let devModule = -1
     for (const file of files) {
-        console.log(file)
         const module = await import(`./${file.slice("build/src/tests/".length)}`) as TestModule
-        await runTestFile(file, module)
+        modules.push({ module, file })
+        if (module.dev) {
+            console.log("dev module found", file)
+            if (devModule !== -1) {
+                console.error(redConsole, "there are multiple dev modules", resetConsole)
+                return
+            }
+            devModule = modules.length - 1
+        }
+    }
+    if (devModule !== -1) {
+        console.log("running dev module")
+        await runTestFile(modules[devModule].file, modules[devModule].module)
+        return
+    }
+    else {
+        console.log("running all tests")
+        for (const { file, module } of modules) {
+            await runTestFile(file, module)
+        }
     }
     if (failures) {
         console.error(redConsole, "there have been", `${failures}`, "failures in all tests", resetConsole)
@@ -24,10 +45,14 @@ const start = async () => {
 }
 
 const runTestFile = async (fileName: string, mod: TestModule) => {
+    console.log(fileName)
     const d = getDescribe(fileName)
     if (mod.ignore) {
-        d("-----ignoring file-----")
+        d("-----ignoring this file-----")
         return
+    }
+    if (mod.dev) {
+        d("-----running only this file-----")
     }
     const T = await SetupTest(d)
     try {
@@ -38,6 +63,9 @@ const runTestFile = async (fileName: string, mod: TestModule) => {
     } catch (e: any) {
         d(e, true)
         await teardown(T)
+    }
+    if (mod.dev) {
+        d("dev mod is not allowed to in CI, failing for precaution", true)
     }
 }
 

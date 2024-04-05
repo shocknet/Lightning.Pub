@@ -44,7 +44,7 @@ export const getLogger = (params: LoggerParams): PubLogger => {
         if (params.userId) {
             toLog.push(params.userId)
         }
-        const parsed = message.map(m => typeof m === 'object' ? JSON.stringify(m) : m)
+        const parsed = message.map(m => typeof m === 'object' ? JSON.stringify(m, (_, v) => typeof v === 'bigint' ? v.toString() : v) : m)
         const final = `${toLog.join(" ")} >> ${parsed.join(" ")}`
         console.log(final)
         writers.forEach(w => w(final))

@@ -40,7 +40,7 @@ export default class {
         this.invoicePaidCb = invoicePaidCb
         this.newBlockCb = newBlockCb
         this.htlcCb = htlcCb
-        const { lndAddr, lndCertPath, lndMacaroonPath } = this.settings
+        const { lndAddr, lndCertPath, lndMacaroonPath } = this.settings.mainNode
         const lndCert = fs.readFileSync(lndCertPath);
         const macaroon = fs.readFileSync(lndMacaroonPath).toString('hex');
         const sslCreds = credentials.createSsl(lndCert);
