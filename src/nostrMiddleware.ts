@@ -14,7 +14,7 @@ export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSett
             return { user_id: nostrUser.user.user_id, app_user_id: nostrUser.identifier, app_id: appId || "" }
         },
         metricsCallback: metrics => mainHandler.settings.recordPerformance ? mainHandler.metricsManager.AddMetrics(metrics) : null,
-        logger: { log, error: err => log("ERROR", err) }
+        logger: { log: console.log, error: err => log("ERROR", err) }
     })
     const nostr = new Nostr(nostrSettings, event => {
         let j: NostrRequest
