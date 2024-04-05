@@ -6,4 +6,4 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Build the stack
-        run: docker-compose -f /tests/docker-compose.yml up -d
+        run: docker-compose --project-directory ./ -f /tests/docker-compose.yml up -d
