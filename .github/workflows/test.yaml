@@ -5,5 +5,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - name: Build the image
+        run: docker build -t my-image ./src/tests
+    steps:
       - name: Build the stack
         run: docker-compose --project-directory ./ -f src/tests/docker-compose.yml up -d
