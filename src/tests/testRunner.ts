@@ -17,6 +17,7 @@ const start = async () => {
         const module = await import(`./${file.slice("build/src/tests/".length)}`) as TestModule
         modules.push({ module, file })
         if (module.dev) {
+            console.log("dev module found", file)
             if (devModule !== -1) {
                 console.error(redConsole, "there are multiple dev modules", resetConsole)
                 return
@@ -62,6 +63,9 @@ const runTestFile = async (fileName: string, mod: TestModule) => {
     } catch (e: any) {
         d(e, true)
         await teardown(T)
+    }
+    if (mod.dev) {
+        d("dev mod is not allowed to in CI, failing for precaution", true)
     }
 }
 
