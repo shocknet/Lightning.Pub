@@ -106,3 +106,8 @@ services:
       #      - '8084:8080'
       - '10004:10009'
       - '9738:9735'
+  web:
+    build: ./src/tests/DockerFile
+
+#      ports:
+#        - "8000:5000"
