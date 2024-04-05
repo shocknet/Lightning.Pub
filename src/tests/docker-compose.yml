@@ -106,8 +106,17 @@ services:
       #      - '8084:8080'
       - '10004:10009'
       - '9738:9735'
-  web:
-    build: .
+  lpub:
+    build:
+      context: lpub
+      image: lpub
+      dockerfile: src/tests/Dockerfile
+    depends_on:
+      - backend1
+      - alice
+      - bob
+      - carol
+      - dave
 
 #      ports:
 #        - "8000:5000"
