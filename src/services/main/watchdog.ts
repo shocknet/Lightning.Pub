@@ -53,9 +53,19 @@ export class Watchdog {
         const { confirmedBalance, channelsBalance } = await this.lnd.GetBalance()
         this.log(confirmedBalance, "sats in chain wallet")
         localLog(channelsBalance)
-        return channelsBalance.reduce((acc, c) => {
-            return acc + c.localBalanceSats + c.htlcs.reduce((acc2, htlc) => acc2 + (htlc.incoming ? htlc.amount : -htlc.amount), 0)
-        }, 0)
+        let totalBalance = confirmedBalance
+        channelsBalance.forEach(c => {
+            let totalBalanceInHtlcs = 0
+            c.htlcs.forEach(htlc => {
+                if (htlc.incoming) {
+                    totalBalanceInHtlcs += htlc.amount
+                } else {
+                    totalBalanceInHtlcs -= htlc.amount
+                }
+            })
+            totalBalance += c.localBalanceSats + totalBalanceInHtlcs
+        })
+        return totalBalance
     }
 
     checkBalanceUpdate = (deltaLnd: number, deltaUsers: number) => {
@@ -126,6 +136,7 @@ export class Watchdog {
             this.lnd.LockOutgoingOperations()
             return
         }
+        this.lnd.UnlockOutgoingOperations()
     }
 
     checkDeltas = (deltaLnd: number, deltaUsers: number): DeltaCheckResult => {
