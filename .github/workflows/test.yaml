@@ -12,7 +12,7 @@ jobs:
       - name: List files
         run: ls -la
       - name: Copy lnd files
-        run: docker cp polar-n2-alice:/home/lnd/.lnd/tls.cert .alice-tls.cert
+        run: docker cp polar-n2-alice:/home/lnd/.lnd/tls.cert alice-tls.cert
       - name: check copied file
-        run : ls -la
+        run : cat alice-tls.cert
         
