@@ -29,6 +29,22 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
         const stats: Types.RequestStats = { startMs, start: startTime, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         switch (req.rpcName) {
+            case 'LinkNPubThroughToken':
+                try {
+                    if (!methods.LinkNPubThroughToken) throw new Error('method: LinkNPubThroughToken is not implemented')
+                    const authContext = await opts.NostrUserAuthGuard(req.appId, req.authIdentifier)
+                    stats.guard = process.hrtime.bigint()
+                    authCtx = authContext
+                    const request = req.body
+                    const error = Types.LinkNPubThroughTokenRequestValidate(request)
+                    stats.validate = process.hrtime.bigint()
+                    if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
+                    await methods.LinkNPubThroughToken({rpcName:'LinkNPubThroughToken', ctx:authContext , req: request})
+                    stats.handle = process.hrtime.bigint()
+                    res({status: 'OK'})
+                    opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+                break
             case 'UserHealth':
                 try {
                     if (!methods.UserHealth) throw new Error('method: UserHealth is not implemented')
@@ -280,6 +296,18 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                         const opStats: Types.RequestStats = { startMs, start: startTime, parse: stats.parse, guard: stats.guard, validate: 0n, handle: 0n }
                         try {
                             switch(operation.rpcName) {
+                                case 'LinkNPubThroughToken':
+                                    if (!methods.LinkNPubThroughToken) {
+                                        throw new Error('method not defined: LinkNPubThroughToken')
+                                    } else {
+                                        const error = Types.LinkNPubThroughTokenRequestValidate(operation.req)
+                                        opStats.validate = process.hrtime.bigint()
+                                        if (error !== null) throw error
+                                        await methods.LinkNPubThroughToken({...operation, ctx}); responses.push({ status: 'OK' })
+                                        opStats.handle = process.hrtime.bigint()
+                                        callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
+                                    }
+                                    break
                                 case 'UserHealth':
                                     if (!methods.UserHealth) {
                                         throw new Error('method not defined: UserHealth')

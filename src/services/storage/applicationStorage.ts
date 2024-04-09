@@ -6,6 +6,7 @@ import UserStorage from './userStorage.js';
 import { ApplicationUser } from './entity/ApplicationUser.js';
 import { getLogger } from '../helpers/logger.js';
 import TransactionsQueue, { TX } from "./transactionsQueue.js";
+import { User } from './entity/User.js';
 export default class {
     DB: DataSource | EntityManager
     userStorage: UserStorage
@@ -151,5 +152,18 @@ export default class {
 
     async IsApplicationOwner(userId: string, entityManager = this.DB) {
         return entityManager.getRepository(Application).findOne({ where: { owner: { user_id: userId } } })
+    }
+
+
+    async AddNPubToApplicationUser(serialId: number, nPub: string, entityManager = this.DB) {
+        return entityManager.getRepository(ApplicationUser).update(serialId, { nostr_public_key: nPub })
+    
+    }
+
+
+    async RemoveApplicationUserAndBaseUser(appUser: ApplicationUser, entityManager = this.DB) {
+        const baseUser = appUser.user;
+        await entityManager.getRepository(ApplicationUser).remove(appUser);
+        await entityManager.getRepository(User).remove(baseUser);
     }
 }
