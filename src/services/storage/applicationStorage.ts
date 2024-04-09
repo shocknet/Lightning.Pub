@@ -86,6 +86,17 @@ export default class {
         })
     }
 
+    async WrapAppUserAroundUser(application: Application, userId: string, userIdentifier: string, nostrPub: string, entityManager = this.DB) {
+        const user = await this.userStorage.GetUser(userId, entityManager)
+        const appUser = entityManager.getRepository(ApplicationUser).create({
+            user: user,
+            application,
+            identifier: userIdentifier,
+            nostr_public_key: nostrPub
+        })
+        return entityManager.getRepository(ApplicationUser).save(appUser)
+    }
+
     async GetApplicationUserIfExists(application: Application, userIdentifier: string, entityManager = this.DB): Promise<ApplicationUser | null> {
         return entityManager.getRepository(ApplicationUser).findOne({ where: { identifier: userIdentifier, application: { serial_id: application.serial_id } } })
     }
@@ -153,13 +164,6 @@ export default class {
     async IsApplicationOwner(userId: string, entityManager = this.DB) {
         return entityManager.getRepository(Application).findOne({ where: { owner: { user_id: userId } } })
     }
-
-
-    async AddNPubToApplicationUser(serialId: number, nPub: string, entityManager = this.DB) {
-        return entityManager.getRepository(ApplicationUser).update(serialId, { nostr_public_key: nPub })
-    
-    }
-
 
     async RemoveApplicationUserAndBaseUser(appUser: ApplicationUser, entityManager = this.DB) {
         const baseUser = appUser.user;

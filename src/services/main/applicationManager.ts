@@ -11,7 +11,7 @@ import crypto from 'crypto'
 const TOKEN_EXPIRY_TIME = 2 * 60 * 1000 // 2 minutes, in milliseconds
 
 type NsecLinkingData = {
-    serialId: number,
+    userId: string,
     expiry: number
 }
 export default class {
@@ -29,7 +29,7 @@ export default class {
                 if (data.expiry <= now) {
                     const copy = { ...data }
                     if (this.nPubLinkingTokens.delete(token)) {
-                        console.log("Expired an npub linking token for user serial id: ", copy.serialId)
+                        console.log("Expired an npub linking token for user serial id: ", copy.userId)
                     }
                 }
             }
@@ -193,40 +193,46 @@ export default class {
         return this.paymentManager.GetLnurlPayInfoFromUser(user.user.user_id, app, req.base_url_override)
     }
     async RequestNPubLinkingToken(appId: string, req: Types.RequestNPubLinkingTokenRequest): Promise<Types.RequestNPubLinkingTokenResponse> {
-        const app = await this.storage.applicationStorage.GetApplication(appId);
-        const user = await this.storage.applicationStorage.GetApplicationUser(app, req.user_identifier);
-        if (Array.from(this.nPubLinkingTokens.values()).find(t => t.serialId === user.serial_id)) {
+        const requesterApplication = await this.storage.applicationStorage.GetApplication(appId);
+        const requesterAppUser = await this.storage.applicationStorage.GetApplicationUser(requesterApplication, req.user_identifier);
+        if (Array.from(this.nPubLinkingTokens.values()).find(t => t.userId === requesterAppUser.user.user_id)) {
             throw new Error("App user already waiting on linking");
         }
-        if (user.nostr_public_key) {
+        if (requesterAppUser.nostr_public_key) {
             throw new Error("User already has an npub");
         }
         const token = crypto.randomBytes(32).toString("hex");
-        this.nPubLinkingTokens.set(token, { serialId: user.serial_id, expiry: Date.now() + TOKEN_EXPIRY_TIME })
+        this.nPubLinkingTokens.set(token, { userId: requesterAppUser.user.user_id, expiry: Date.now() + TOKEN_EXPIRY_TIME })
         return { token };
     }
 
-
-
     async LinkNpubThroughToken(ctx: Types.UserContext, req: Types.LinkNPubThroughTokenRequest): Promise<void> {
         const { app_id: appId, app_user_id: appUserId } = ctx
-        const app = await this.storage.applicationStorage.GetApplication(appId)
-        const appUser = await this.storage.applicationStorage.GetApplicationUser(app, appUserId)
+        const receiverApp = await this.storage.applicationStorage.GetApplication(appId)
+        const receiverUser = await this.storage.applicationStorage.GetApplicationUser(receiverApp, appUserId)
+        const { nostr_public_key: receiverNpub } = receiverUser
+        if (!receiverNpub) {
+            throw new Error("Call can only be made with the nostr transport, or by a user who has a nostr key already")
+        }
+        const entry = this.nPubLinkingTokens.get(req.token)
+        if (!entry || entry.expiry < Date.now()) {
+            throw new Error("Token invalid or expired")
+        }
+        const { userId } = entry
+        const existingAppUser = await this.storage.applicationStorage.GetAppUserFromUser(receiverApp, userId)
+        if (existingAppUser) {
+            throw new Error("User already has an npub for this user")
+        }
+
         this.storage.txQueue.PushToQueue({
             dbTx: true,
             exec: async tx => {
-                await this.storage.applicationStorage.RemoveApplicationUserAndBaseUser(appUser, tx);
-                const entry = this.nPubLinkingTokens.get(req.token)
-                if (entry && entry.expiry > Date.now()) {
-                    const copy = { ...entry }
-                    const deleted = this.nPubLinkingTokens.delete(req.token)
-                    if (deleted) {
-                        await this.storage.applicationStorage.AddNPubToApplicationUser(copy.serialId, req.nostr_pub, tx)
-                    } else {
-                        throw new Error("An uknown error occured")
-                    }
+                await this.storage.applicationStorage.RemoveApplicationUserAndBaseUser(receiverUser, tx);
+                const deleted = this.nPubLinkingTokens.delete(req.token)
+                if (deleted) {
+                    await this.storage.applicationStorage.WrapAppUserAroundUser(receiverApp, userId, receiverUser.identifier, receiverNpub, tx)
                 } else {
-                    throw new Error("Token invalid or expired")
+                    throw new Error("An uknown error occured")
                 }
             }
         })
