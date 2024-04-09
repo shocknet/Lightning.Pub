@@ -198,9 +198,6 @@ export default class {
         if (Array.from(this.nPubLinkingTokens.values()).find(t => t.userId === requesterAppUser.user.user_id)) {
             throw new Error("App user already waiting on linking");
         }
-        if (requesterAppUser.nostr_public_key) {
-            throw new Error("User already has an npub");
-        }
         const token = crypto.randomBytes(32).toString("hex");
         this.nPubLinkingTokens.set(token, { userId: requesterAppUser.user.user_id, expiry: Date.now() + TOKEN_EXPIRY_TIME })
         return { token };
