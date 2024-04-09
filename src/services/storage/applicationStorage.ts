@@ -96,6 +96,9 @@ export default class {
         }
         const user = await entityManager.getRepository(ApplicationUser).findOne({ where: { nostr_public_key: nostrPub } })
         if (user) {
+            if (user.application.app_id !== application.app_id) {
+                throw new Error("tried to access a user of application:" + user.application.app_id + "from application:" + application.app_id)
+            }
             return user
         }
         if (!application.allow_user_creation) {
@@ -157,7 +160,7 @@ export default class {
 
     async AddNPubToApplicationUser(serialId: number, nPub: string, entityManager = this.DB) {
         return entityManager.getRepository(ApplicationUser).update(serialId, { nostr_public_key: nPub })
-    
+
     }
 
 
