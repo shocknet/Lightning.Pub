@@ -115,19 +115,19 @@ service LightningPub {
     rpc GetUsageMetrics(structs.Empty) returns (structs.UsageMetrics) {
         option (auth_type)  = "Metrics";
         option (http_method) = "post";
-        option (http_route) = "/api/admin/metrics/usage";
+        option (http_route) = "/api/reports/usage";
     }
 
     rpc GetAppsMetrics(structs.AppsMetricsRequest) returns (structs.AppsMetrics) {
         option (auth_type)  = "Metrics";
         option (http_method) = "post";
-        option (http_route) = "/api/admin/metrics/apps";
+        option (http_route) = "/api/reports/apps";
     }
 
     rpc GetLndMetrics(structs.LndMetricsRequest) returns (structs.LndMetrics) {
         option (auth_type)  = "Metrics";
         option (http_method) = "post";
-        option (http_route) = "/api/admin/metrics/lnd";
+        option (http_route) = "/api/reports/lnd";
     }
 
 
@@ -178,6 +178,13 @@ service LightningPub {
         option (auth_type)  = "Guest";
         option (http_method) = "get";
         option (http_route) = "/.well-known/lnurlp/:address_name";
+    }
+
+    rpc LinkNPubThroughToken(structs.LinkNPubThroughTokenRequest) returns (structs.Empty) {
+        option (auth_type) = "User";
+        option(http_method) = "post";
+        option (http_route) = "/api/guest/npub/link";
+        option (nostr) = true;
     }
     //</Guest>
 
@@ -244,6 +251,11 @@ service LightningPub {
         option (auth_type)  = "App";
         option (http_method) = "post";
         option (http_route) = "/api/app/mock/blance/set";
+    }
+    rpc RequestNPubLinkingToken(structs.RequestNPubLinkingTokenRequest) returns (structs.RequestNPubLinkingTokenResponse) {
+        option (auth_type) = "App";
+        option(http_method) = "post";
+        option (http_route) = "/api/app/user/npub/token";
     }
     // </App>
     

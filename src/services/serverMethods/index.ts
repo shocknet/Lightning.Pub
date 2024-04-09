@@ -199,6 +199,25 @@ export default (mainHandler: Main): Types.ServerMethods => {
         GetLiveUserOperations: async ({ ctx, cb }) => {
         },
         GetMigrationUpdate: async ({ ctx, cb }) => {
+        },
+        RequestNPubLinkingToken: async ({ ctx, req }) => {
+            const err = Types.RequestNPubLinkingTokenRequestValidate(req, {
+                user_identifier_CustomCheck: userIdentifier => userIdentifier !== '',
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.applicationManager.RequestNsecLinkingToken(ctx.app_id, req)
+        },
+        LinkNPubThroughToken: async ({ ctx, req }) => {
+            const err = Types.LinkNPubThroughTokenRequestValidate(req, {
+                nostr_pub_CustomCheck: nostrPub => nostrPub !== '',
+                token_CustomCheck: token => token !== ''
+            })
+            if (err != null) throw new Error(err.message)
+
+
+
+            return mainHandler.applicationManager.LinkNpubThroughToken(ctx.app_id, ctx.app_user_id, req)
+
         }
     }
 }

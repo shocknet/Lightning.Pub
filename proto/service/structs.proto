@@ -426,3 +426,20 @@ message ClosureMigration {
 message RelaysMigration {
     repeated string relays = 1;
 }
+
+
+message RequestNPubLinkingTokenRequest {
+    string user_identifier = 1;
+}
+
+message RequestNPubLinkingTokenResponse {
+    string token = 1;
+}
+
+
+
+message LinkNPubThroughTokenRequest {
+    string token = 1;
+    string nostr_pub = 2;
+}
+
