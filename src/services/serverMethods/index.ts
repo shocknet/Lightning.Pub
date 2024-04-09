@@ -205,7 +205,7 @@ export default (mainHandler: Main): Types.ServerMethods => {
                 user_identifier_CustomCheck: userIdentifier => userIdentifier !== '',
             })
             if (err != null) throw new Error(err.message)
-            return mainHandler.applicationManager.RequestNsecLinkingToken(ctx.app_id, req)
+            return mainHandler.applicationManager.RequestNPubLinkingToken(ctx.app_id, req)
         },
         LinkNPubThroughToken: async ({ ctx, req }) => {
             const err = Types.LinkNPubThroughTokenRequestValidate(req, {
@@ -213,11 +213,7 @@ export default (mainHandler: Main): Types.ServerMethods => {
                 token_CustomCheck: token => token !== ''
             })
             if (err != null) throw new Error(err.message)
-
-
-
-            return mainHandler.applicationManager.LinkNpubThroughToken(ctx.app_id, ctx.app_user_id, req)
-
+            return mainHandler.applicationManager.LinkNpubThroughToken(ctx, req)
         }
     }
 }
