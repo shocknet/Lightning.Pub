@@ -3,6 +3,7 @@ import { SimplePool, Sub, Event, UnsignedEvent, getEventHash, finishEvent, relay
 import { encryptData, decryptData, getSharedSecret, decodePayload, encodePayload } from './nip44.js'
 import { getLogger } from '../helpers/logger.js'
 import { encodeNprofile } from '../../custom-nip19.js'
+const handledEvents: string[] = [] // TODO: - big memory leak here, add TTL
 type AppInfo = { appId: string, publicKey: string, privateKey: string, name: string }
 export type SendData = { type: "content", content: string, pub: string } | { type: "event", event: UnsignedEvent }
 export type NostrSend = (appId: string, data: SendData, relays?: string[] | undefined) => void
@@ -40,20 +41,6 @@ type EventResponse = {
 
 export type ChildProcessRequest = SettingsRequest | SendRequest
 export type ChildProcessResponse = ReadyResponse | EventResponse
-
-const EVENT_TTL_MS = 5 * 60 * 1000; // 5 minutes
-const CLEANUP_INTERVAL_SECONDS = 60
-const handledEvents: { eventId: string, addedAtUnix: number }[] = []
-const removeExpiredEvents = () => {
-    const now = Date.now();
-    for (let i = handledEvents.length - 1; i >= 0; i--) {
-        if (now - handledEvents[i].addedAtUnix > EVENT_TTL_MS) {
-            handledEvents.splice(i, 1);
-        }
-    }
-}
-setInterval(removeExpiredEvents, CLEANUP_INTERVAL_SECONDS * 1000);
-
 const send = (message: ChildProcessResponse) => {
     if (process.send) {
         process.send(message)
@@ -163,11 +150,11 @@ export default class Handler {
                 return
             }
             const eventId = e.id
-            if (handledEvents.find(e => e.eventId === eventId)) {
+            if (handledEvents.includes(eventId)) {
                 console.log("event already handled")
                 return
             }
-            handledEvents.push({eventId, addedAtUnix: Date.now()});
+            handledEvents.push(eventId)
             const startAtMs = Date.now()
             const startAtNano = process.hrtime.bigint().toString()
             const decoded = decodePayload(e.content)
