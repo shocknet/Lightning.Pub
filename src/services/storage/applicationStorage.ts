@@ -94,8 +94,11 @@ export default class {
         if (!nostrPub) {
             throw new Error("no nostrPub provided")
         }
-        const user = await entityManager.getRepository(ApplicationUser).findOne({ where: { nostr_public_key: nostrPub, application: { app_id: application.app_id } } })
+        const user = await entityManager.getRepository(ApplicationUser).findOne({ where: { nostr_public_key: nostrPub } })
         if (user) {
+            if (user.application.app_id !== application.app_id) {
+                throw new Error("tried to access a user of application:" + user.application.app_id + "from application:" + application.app_id)
+            }
             return user
         }
         if (!application.allow_user_creation) {
