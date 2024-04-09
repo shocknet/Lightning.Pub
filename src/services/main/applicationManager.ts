@@ -192,7 +192,7 @@ export default class {
         const user = await this.storage.applicationStorage.GetApplicationUser(app, req.user_identifier)
         return this.paymentManager.GetLnurlPayInfoFromUser(user.user.user_id, app, req.base_url_override)
     }
-    async RequestNsecLinkingToken(appId: string, req: Types.RequestNPubLinkingTokenRequest): Promise<Types.RequestNPubLinkingTokenResponse> {
+    async RequestNPubLinkingToken(appId: string, req: Types.RequestNPubLinkingTokenRequest): Promise<Types.RequestNPubLinkingTokenResponse> {
         const app = await this.storage.applicationStorage.GetApplication(appId);
         const user = await this.storage.applicationStorage.GetApplicationUser(app, req.user_identifier);
         if (Array.from(this.nPubLinkingTokens.values()).find(t => t.serialId === user.serial_id)) {
@@ -208,32 +208,27 @@ export default class {
 
 
 
-    async LinkNpubThroughToken(appId: string, appUserId: string, req: Types.LinkNPubThroughTokenRequest): Promise<void> {
+    async LinkNpubThroughToken(ctx: Types.UserContext, req: Types.LinkNPubThroughTokenRequest): Promise<void> {
+        const { app_id: appId, app_user_id: appUserId } = ctx
         const app = await this.storage.applicationStorage.GetApplication(appId)
         const appUser = await this.storage.applicationStorage.GetApplicationUser(app, appUserId)
-
-				/* 
-					needs to be a db tx, otherwise gets foreign constraint error when deleting baseUser after
-					applicationUser, and unique constatin when giving targetted applicationUser the npub 
-				*/
-				this.storage.DB.transaction(async tx => {
-					await this.storage.applicationStorage.RemoveApplicationUserAndBaseUser(appUser, tx);
-
-					const entry = this.nPubLinkingTokens.get(req.token)
-					if (entry && entry.expiry > Date.now()) {
-							const copy = { ...entry }
-							const deleted = this.nPubLinkingTokens.delete(req.token)
-							if (deleted) {
-									await this.storage.applicationStorage.AddNPubToApplicationUser(copy.serialId, req.nostr_pub, tx)
-							} else {
-									throw new Error("An uknown error occured")
-							}
-					} else {
-							throw new Error("Token invalid or expired")
-					}
-				})
-
+        this.storage.txQueue.PushToQueue({
+            dbTx: true,
+            exec: async tx => {
+                await this.storage.applicationStorage.RemoveApplicationUserAndBaseUser(appUser, tx);
+                const entry = this.nPubLinkingTokens.get(req.token)
+                if (entry && entry.expiry > Date.now()) {
+                    const copy = { ...entry }
+                    const deleted = this.nPubLinkingTokens.delete(req.token)
+                    if (deleted) {
+                        await this.storage.applicationStorage.AddNPubToApplicationUser(copy.serialId, req.nostr_pub, tx)
+                    } else {
+                        throw new Error("An uknown error occured")
+                    }
+                } else {
+                    throw new Error("Token invalid or expired")
+                }
+            }
+        })
     }
-
-
 }
