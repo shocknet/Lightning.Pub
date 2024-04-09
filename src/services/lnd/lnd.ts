@@ -40,7 +40,7 @@ export default class {
         this.invoicePaidCb = invoicePaidCb
         this.newBlockCb = newBlockCb
         this.htlcCb = htlcCb
-        const { lndAddr, lndCertPath, lndMacaroonPath } = this.settings
+        const { lndAddr, lndCertPath, lndMacaroonPath } = this.settings.mainNode
         const lndCert = fs.readFileSync(lndCertPath);
         const macaroon = fs.readFileSync(lndMacaroonPath).toString('hex');
         const sslCreds = credentials.createSsl(lndCert);
@@ -326,7 +326,8 @@ export default class {
         const channelsBalance = response.channels.map(c => ({
             channelId: c.chanId,
             localBalanceSats: Number(c.localBalance),
-            remoteBalanceSats: Number(c.remoteBalance)
+            remoteBalanceSats: Number(c.remoteBalance),
+            htlcs: c.pendingHtlcs.map(htlc => ({ incoming: htlc.incoming, amount: Number(htlc.amount) }))
         }))
         return { confirmedBalance: Number(confirmedBalance), unconfirmedBalance: Number(unconfirmedBalance), totalBalance: Number(totalBalance), channelsBalance }
     }

@@ -1,6 +1,6 @@
 import { LoadStorageSettingsFromEnv, StorageSettings } from '../storage/index.js'
-import { LndSettings } from '../lnd/settings.js'
-import { LoadWatchdogSettingsFromEnv, WatchdogSettings } from '../lnd/watchdog.js'
+import { LndSettings, NodeSettings } from '../lnd/settings.js'
+import { LoadWatchdogSettingsFromEnv, WatchdogSettings } from './watchdog.js'
 import { LoadLndSettingsFromEnv } from '../lnd/index.js'
 import { EnvMustBeInteger, EnvMustBeNonEmptyString } from '../helpers/envParser.js'
 export type MainSettings = {
@@ -40,16 +40,29 @@ export const LoadMainSettingsFromEnv = (): MainSettings => {
         servicePort: EnvMustBeInteger("PORT"),
         recordPerformance: process.env.RECORD_PERFORMANCE === 'true' || false,
         skipSanityCheck: process.env.SKIP_SANITY_CHECK === 'true' || false,
-        disableExternalPayments: process.env.DISABLE_EXTERNAL_PAYMENTS === 'true' || false,
-
+        disableExternalPayments: process.env.DISABLE_EXTERNAL_PAYMENTS === 'true' || false
     }
 }
 
-export const LoadTestSettingsFromEnv = (): MainSettings => {
+export const LoadTestSettingsFromEnv = (): MainSettings & { lndSettings: { otherNode: NodeSettings, thirdNode: NodeSettings } } => {
+    const eventLogPath = `logs/eventLogV2Test${Date.now()}.csv`
     const settings = LoadMainSettingsFromEnv()
     return {
         ...settings,
-        storageSettings: { dbSettings: { ...settings.storageSettings.dbSettings, databaseFile: ":memory:", metricsDatabaseFile: ":memory:" } },
+        storageSettings: { dbSettings: { ...settings.storageSettings.dbSettings, databaseFile: ":memory:", metricsDatabaseFile: ":memory:" }, eventLogPath },
+        lndSettings: {
+            ...settings.lndSettings,
+            otherNode: {
+                lndAddr: EnvMustBeNonEmptyString("LND_OTHER_ADDR"),
+                lndCertPath: EnvMustBeNonEmptyString("LND_OTHER_CERT_PATH"),
+                lndMacaroonPath: EnvMustBeNonEmptyString("LND_OTHER_MACAROON_PATH")
+            },
+            thirdNode: {
+                lndAddr: EnvMustBeNonEmptyString("LND_THIRD_ADDR"),
+                lndCertPath: EnvMustBeNonEmptyString("LND_THIRD_CERT_PATH"),
+                lndMacaroonPath: EnvMustBeNonEmptyString("LND_THIRD_MACAROON_PATH")
+            }
+        },
         skipSanityCheck: true
     }
 }

@@ -14,7 +14,7 @@ export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSett
             return { user_id: nostrUser.user.user_id, app_user_id: nostrUser.identifier, app_id: appId || "" }
         },
         metricsCallback: metrics => mainHandler.settings.recordPerformance ? mainHandler.metricsManager.AddMetrics(metrics) : null,
-        logger: { log, error: err => log("ERROR", err) }
+        logger: { log: console.log, error: err => log("ERROR", err) }
     })
     const nostr = new Nostr(nostrSettings, event => {
         let j: NostrRequest
@@ -31,45 +31,3 @@ export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSett
     })
     return { Stop: () => nostr.Stop, Send: (...args) => nostr.Send(...args) }
 }
-
-/*
-export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSettings: NostrSettings): Nostr => {
-    // TODO: - move to codegen
-    const nostr = new Nostr(nostrSettings,
-        async (event) => {
-            if (!nostrSettings.allowedPubs.includes(event.pub)) {
-                console.log("nostr pub not allowed")
-                return
-            }
-            let nostrUser = await mainHandler.storage.FindNostrUser(event.pub)
-            if (!nostrUser) {
-                nostrUser = await mainHandler.storage.AddNostrUser(event.pub)
-            }
-            let j: EventRequest
-            try {
-                j = JSON.parse(event.content)
-            } catch {
-                console.error("invalid json event received", event.content)
-                return
-            }
-            if (handledRequests.includes(j.requestId)) {
-                console.log("request already handled")
-                return
-            }
-            handledRequests.push(j.requestId)
-            switch (j.method) {
-                case '/api/user/chain/new':
-                    const error = Types.NewAddressRequestValidate(j.body)
-                    if (error !== null) {
-                        console.error("invalid request from", event.pub, j)// TODO: dont dox
-                        return // TODO: respond 
-                    }
-                    if (!serverMethods.NewAddress) {
-                        throw new Error("unimplemented NewInvoice")
-                    }
-                    const res = await serverMethods.NewAddress({ user_id: nostrUser.user.user_id }, j.body)
-                    nostr.Send(event.pub, JSON.stringify({ ...res, requestId: j.requestId }))
-            }
-        })
-    return nostr
-}*/

@@ -1,6 +1,8 @@
 import { EnvCanBeInteger } from "../helpers/envParser.js";
 import { getLogger } from "../helpers/logger.js";
-import { LightningHandler } from "./index.js";
+import { LightningHandler } from "../lnd/index.js";
+import { ChannelBalance } from "../lnd/settings.js";
+import Storage from '../storage/index.js'
 export type WatchdogSettings = {
     maxDiffSats: number
 }
@@ -10,26 +12,60 @@ export const LoadWatchdogSettingsFromEnv = (test = false): WatchdogSettings => {
     }
 }
 export class Watchdog {
+
     initialLndBalance: number;
     initialUsersBalance: number;
     lnd: LightningHandler;
     settings: WatchdogSettings;
+    storage: Storage;
+    latestCheckStart = 0
     log = getLogger({ appName: "watchdog" })
     enabled = false
-    constructor(settings: WatchdogSettings, lnd: LightningHandler) {
+    interval: NodeJS.Timer;
+    constructor(settings: WatchdogSettings, lnd: LightningHandler, storage: Storage) {
         this.lnd = lnd;
         this.settings = settings;
+        this.storage = storage;
     }
 
-    SeedLndBalance = async (totalUsersBalance: number) => {
+    Stop() {
+        if (this.interval) {
+            clearInterval(this.interval)
+        }
+    }
+
+    Start = async () => {
+        const totalUsersBalance = await this.storage.paymentStorage.GetTotalUsersBalance()
         this.initialLndBalance = await this.getTotalLndBalance()
         this.initialUsersBalance = totalUsersBalance
         this.enabled = true
+
+        this.interval = setInterval(() => {
+            if (this.latestCheckStart + (1000 * 60) < Date.now()) {
+                this.log("No balance check was made in the last minute, checking now")
+                this.PaymentRequested()
+            }
+        }, 1000 * 60)
     }
 
     getTotalLndBalance = async () => {
-        const { channelsBalance, confirmedBalance } = await this.lnd.GetBalance()
-        return confirmedBalance + channelsBalance.reduce((acc, { localBalanceSats }) => acc + localBalanceSats, 0)
+        const localLog = getLogger({ appName: "debugLndBalance" })
+        const { confirmedBalance, channelsBalance } = await this.lnd.GetBalance()
+        this.log(confirmedBalance, "sats in chain wallet")
+        localLog(channelsBalance)
+        let totalBalance = confirmedBalance
+        channelsBalance.forEach(c => {
+            let totalBalanceInHtlcs = 0
+            c.htlcs.forEach(htlc => {
+                if (htlc.incoming) {
+                    totalBalanceInHtlcs += htlc.amount
+                } else {
+                    totalBalanceInHtlcs -= htlc.amount
+                }
+            })
+            totalBalance += c.localBalanceSats + totalBalanceInHtlcs
+        })
+        return totalBalance
     }
 
     checkBalanceUpdate = (deltaLnd: number, deltaUsers: number) => {
@@ -57,6 +93,9 @@ export class Watchdog {
                         this.log("Difference is too big for an update, locking outgoing operations")
                         return true
                     }
+                } else if (deltaLnd === deltaUsers) {
+                    this.log("LND and users balance went both DOWN consistently")
+                    return false
                 } else {
                     this.log("LND balance decreased less than users balance with a difference of", result.absoluteDiff, "sats, could be caused by data loss, or liquidity injection")
                     return false
@@ -69,6 +108,9 @@ export class Watchdog {
                         this.log("Difference is too big for an update, locking outgoing operations")
                         return true
                     }
+                } else if (deltaLnd === deltaUsers) {
+                    this.log("LND and users balance went both UP consistently")
+                    return false
                 } else {
                     this.log("LND balance increased more than users balance with a difference of", result.absoluteDiff, "sats, could be caused by data loss, or liquidity injection")
                     return false
@@ -77,12 +119,14 @@ export class Watchdog {
         return false
     }
 
-    PaymentRequested = async (totalUsersBalance: number) => {
+    PaymentRequested = async () => {
         this.log("Payment requested, checking balance")
         if (!this.enabled) {
             this.log("WARNING! Watchdog not enabled, skipping balance check")
             return
         }
+        this.latestCheckStart = Date.now()
+        const totalUsersBalance = await this.storage.paymentStorage.GetTotalUsersBalance()
         const totalLndBalance = await this.getTotalLndBalance()
         const deltaLnd = totalLndBalance - this.initialLndBalance
         const deltaUsers = totalUsersBalance - this.initialUsersBalance
@@ -92,6 +136,7 @@ export class Watchdog {
             this.lnd.LockOutgoingOperations()
             return
         }
+        this.lnd.UnlockOutgoingOperations()
     }
 
     checkDeltas = (deltaLnd: number, deltaUsers: number): DeltaCheckResult => {

@@ -114,6 +114,23 @@ export default class {
         })
     }
 
+    async GetAddressReceivingTransactionOwner(address: string, txHash: string, entityManager = this.DB): Promise<AddressReceivingTransaction | null> {
+        return entityManager.getRepository(AddressReceivingTransaction).findOne({
+            where: {
+                user_address: { address },
+                tx_hash: txHash
+            }
+        })
+    }
+    async GetUserTransactionPaymentOwner(address: string, txHash: string, entityManager = this.DB): Promise<UserTransactionPayment | null> {
+        return entityManager.getRepository(UserTransactionPayment).findOne({
+            where: {
+                address,
+                tx_hash: txHash
+            }
+        })
+    }
+
     async GetInvoiceOwner(paymentRequest: string, entityManager = this.DB): Promise<UserReceivingInvoice | null> {
         return entityManager.getRepository(UserReceivingInvoice).findOne({
             where: {
@@ -128,19 +145,48 @@ export default class {
             }
         })
     }
+    async GetUser2UserPayment(serialId: number, entityManager = this.DB): Promise<UserToUserPayment | null> {
+        return entityManager.getRepository(UserToUserPayment).findOne({
+            where: {
+                serial_id: serialId
+            }
+        })
+    }
 
-    async AddUserInvoicePayment(userId: string, invoice: string, amount: number, routingFees: number, serviceFees: number, internal: boolean, linkedApplication: Application): Promise<UserInvoicePayment> {
+    async AddPendingExternalPayment(userId: string, invoice: string, amount: number, linkedApplication: Application): Promise<UserInvoicePayment> {
         const newPayment = this.DB.getRepository(UserInvoicePayment).create({
             user: await this.userStorage.GetUser(userId),
             paid_amount: amount,
             invoice,
-            routing_fees: routingFees,
-            service_fees: serviceFees,
-            paid_at_unix: Math.floor(Date.now() / 1000),
-            internal,
+            routing_fees: 0,
+            service_fees: 0,
+            paid_at_unix: 0,
+            internal: false,
             linkedApplication
         })
-        return this.txQueue.PushToQueue<UserInvoicePayment>({ exec: async db => db.getRepository(UserInvoicePayment).save(newPayment), dbTx: false, description: `add invoice payment for ${userId} linked to ${linkedApplication.app_id}: ${invoice}, amt: ${amount} ` })
+        return this.txQueue.PushToQueue<UserInvoicePayment>({ exec: async db => db.getRepository(UserInvoicePayment).save(newPayment), dbTx: false, description: `add pending invoice payment for ${userId} linked to ${linkedApplication.app_id}: ${invoice}, amt: ${amount} ` })
+    }
+
+    async UpdateExternalPayment(invoicePaymentSerialId: number, routingFees: number, serviceFees: number, success: boolean) {
+        return this.DB.getRepository(UserInvoicePayment).update(invoicePaymentSerialId, {
+            routing_fees: routingFees,
+            service_fees: serviceFees,
+            paid_at_unix: success ? Math.floor(Date.now() / 1000) : -1
+        })
+    }
+
+    async AddInternalPayment(userId: string, invoice: string, amount: number, serviceFees: number, linkedApplication: Application): Promise<UserInvoicePayment> {
+        const newPayment = this.DB.getRepository(UserInvoicePayment).create({
+            user: await this.userStorage.GetUser(userId),
+            paid_amount: amount,
+            invoice,
+            routing_fees: 0,
+            service_fees: serviceFees,
+            paid_at_unix: Math.floor(Date.now() / 1000),
+            internal: true,
+            linkedApplication
+        })
+        return this.txQueue.PushToQueue<UserInvoicePayment>({ exec: async db => db.getRepository(UserInvoicePayment).save(newPayment), dbTx: false, description: `add internal invoice payment for ${userId} linked to ${linkedApplication.app_id}: ${invoice}, amt: ${amount} ` })
     }
 
     GetUserInvoicePayments(userId: string, fromIndex: number, take = 50, entityManager = this.DB): Promise<UserInvoicePayment[]> {
@@ -237,16 +283,19 @@ export default class {
         return found
     }
 
-    async AddUserToUserPayment(fromUserId: string, toUserId: string, amount: number, fee: number, linkedApplication: Application, dbTx: DataSource | EntityManager) {
-        const newKey = dbTx.getRepository(UserToUserPayment).create({
-            from_user: await this.userStorage.GetUser(fromUserId),
-            to_user: await this.userStorage.GetUser(toUserId),
-            paid_at_unix: Math.floor(Date.now() / 1000),
+    async AddPendingUserToUserPayment(fromUserId: string, toUserId: string, amount: number, fee: number, linkedApplication: Application, dbTx: DataSource | EntityManager) {
+        const entry = dbTx.getRepository(UserToUserPayment).create({
+            from_user: await this.userStorage.GetUser(fromUserId, dbTx),
+            to_user: await this.userStorage.GetUser(toUserId, dbTx),
+            paid_at_unix: 0,
             paid_amount: amount,
             service_fees: fee,
             linkedApplication
         })
-        return dbTx.getRepository(UserToUserPayment).save(newKey)
+        return dbTx.getRepository(UserToUserPayment).save(entry)
+    }
+    async SetPendingUserToUserPaymentAsPaid(serialId: number, dbTx: DataSource | EntityManager) {
+        dbTx.getRepository(UserToUserPayment).update(serialId, { paid_at_unix: Math.floor(Date.now() / 1000) })
     }
 
     GetUserToUserReceivedPayments(userId: string, fromIndex: number, take = 50, entityManager = this.DB) {
@@ -362,6 +411,7 @@ export default class {
     }
 
     async GetTotalUsersBalance(entityManager = this.DB) {
-        return entityManager.getRepository(User).sum("balance_sats")
+        const total = await entityManager.getRepository(User).sum("balance_sats")
+        return total || 0
     }
 }

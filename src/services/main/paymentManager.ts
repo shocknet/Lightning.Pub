@@ -14,7 +14,7 @@ import { SendCoinsResponse } from '../../../proto/lnd/lightning.js'
 import { Event, verifiedSymbol, verifySignature } from '../nostr/tools/event.js'
 import { AddressReceivingTransaction } from '../storage/entity/AddressReceivingTransaction.js'
 import { UserTransactionPayment } from '../storage/entity/UserTransactionPayment.js'
-import { Watchdog } from '../lnd/watchdog.js'
+import { Watchdog } from './watchdog.js'
 interface UserOperationInfo {
     serial_id: number
     paid_amount: number
@@ -39,7 +39,6 @@ const defaultLnurlPayMetadata = `[["text/plain", "lnurl pay to Lightning.pub"]]`
 const confInOne = 1000 * 1000
 const confInTwo = 100 * 1000 * 1000
 export default class {
-
     storage: Storage
     settings: MainSettings
     lnd: LightningHandler
@@ -51,7 +50,7 @@ export default class {
         this.storage = storage
         this.settings = settings
         this.lnd = lnd
-        this.watchDog = new Watchdog(settings.watchDogSettings, lnd)
+        this.watchDog = new Watchdog(settings.watchDogSettings, lnd, storage)
         this.addressPaidCb = addressPaidCb
         this.invoicePaidCb = invoicePaidCb
     }
@@ -143,14 +142,9 @@ export default class {
         }
     }
 
-    async WatchdogCheck() {
-        const total = await this.storage.paymentStorage.GetTotalUsersBalance()
-        await this.watchDog.PaymentRequested(total || 0)
-    }
-
     async PayInvoice(userId: string, req: Types.PayInvoiceRequest, linkedApplication: Application): Promise<Types.PayInvoiceResponse> {
         this.log("paying invoice", req.invoice, "for user", userId, "with amount", req.amount)
-        await this.WatchdogCheck()
+        await this.watchDog.PaymentRequested()
         const maybeBanned = await this.storage.userStorage.GetUser(userId)
         if (maybeBanned.locked) {
             throw new Error("user is banned, cannot send payment")
@@ -165,53 +159,72 @@ export default class {
         const payAmount = req.amount !== 0 ? req.amount : Number(decoded.numSatoshis)
         const isAppUserPayment = userId !== linkedApplication.owner.user_id
         const serviceFee = this.getServiceFee(Types.UserOperationType.OUTGOING_INVOICE, payAmount, isAppUserPayment)
-        const totalAmountToDecrement = payAmount + serviceFee
         const internalInvoice = await this.storage.paymentStorage.GetInvoiceOwner(req.invoice)
-        let payment: PaidInvoice | null = null
-        if (!internalInvoice) {
-            if (this.settings.disableExternalPayments) {
-                throw new Error("something went wrong sending payment, please try again later")
-            }
-            this.log("paying external invoice", req.invoice)
-            const routingFeeLimit = this.lnd.GetFeeLimitAmount(payAmount)
-            await this.storage.userStorage.DecrementUserBalance(userId, totalAmountToDecrement + routingFeeLimit, req.invoice)
-            try {
-                payment = await this.lnd.PayInvoice(req.invoice, req.amount, routingFeeLimit)
-                if (routingFeeLimit - payment.feeSat > 0) {
-                    await this.storage.userStorage.IncrementUserBalance(userId, routingFeeLimit - payment.feeSat, "routing_fee_refund")
-                }
-            } catch (err) {
-                await this.storage.userStorage.IncrementUserBalance(userId, totalAmountToDecrement + routingFeeLimit, "payment_refund")
-                throw err
-            }
+        let paymentInfo = { preimage: "", amtPaid: 0, networkFee: 0, serialId: 0 }
+        if (internalInvoice) {
+            paymentInfo = await this.PayInternalInvoice(userId, internalInvoice, { payAmount, serviceFee }, linkedApplication)
         } else {
-            this.log("paying internal invoice", req.invoice)
-            if (internalInvoice.paid_at_unix > 0) {
-                throw new Error("this invoice was already paid")
-            }
-            await this.storage.userStorage.DecrementUserBalance(userId, totalAmountToDecrement, req.invoice)
-            this.invoicePaidCb(req.invoice, payAmount, true)
+            paymentInfo = await this.PayExternalInvoice(userId, req.invoice, { payAmount, serviceFee, amountForLnd: req.amount }, linkedApplication)
         }
         if (isAppUserPayment && serviceFee > 0) {
             await this.storage.userStorage.IncrementUserBalance(linkedApplication.owner.user_id, serviceFee, "fees")
         }
-        const routingFees = payment ? payment.feeSat : 0
-        const newPayment = await this.storage.paymentStorage.AddUserInvoicePayment(userId, req.invoice, payAmount, routingFees, serviceFee, !!internalInvoice, linkedApplication)
         const user = await this.storage.userStorage.GetUser(userId)
         this.storage.eventsLog.LogEvent({ type: 'invoice_payment', userId, appId: linkedApplication.app_id, appUserId: "", balance: user.balance_sats, data: req.invoice, amount: payAmount })
         return {
-            preimage: payment ? payment.paymentPreimage : "",
-            amount_paid: payment ? Number(payment.valueSat) : payAmount,
-            operation_id: `${Types.UserOperationType.OUTGOING_INVOICE}-${newPayment.serial_id}`,
-            network_fee: routingFees,
+            preimage: paymentInfo.preimage,
+            amount_paid: paymentInfo.amtPaid,
+            operation_id: `${Types.UserOperationType.OUTGOING_INVOICE}-${paymentInfo.serialId}`,
+            network_fee: paymentInfo.networkFee,
             service_fee: serviceFee
         }
+    }
+
+    async PayExternalInvoice(userId: string, invoice: string, amounts: { payAmount: number, serviceFee: number, amountForLnd: number }, linkedApplication: Application) {
+        if (this.settings.disableExternalPayments) {
+            throw new Error("something went wrong sending payment, please try again later")
+        }
+        const { amountForLnd, payAmount, serviceFee } = amounts
+        const totalAmountToDecrement = payAmount + serviceFee
+        this.log("paying external invoice", invoice)
+        const routingFeeLimit = this.lnd.GetFeeLimitAmount(payAmount)
+        await this.storage.userStorage.DecrementUserBalance(userId, totalAmountToDecrement + routingFeeLimit, invoice)
+        const pendingPayment = await this.storage.paymentStorage.AddPendingExternalPayment(userId, invoice, payAmount, linkedApplication)
+        try {
+            const payment = await this.lnd.PayInvoice(invoice, amountForLnd, routingFeeLimit)
+
+            if (routingFeeLimit - payment.feeSat > 0) {
+                this.log("refund routing fee", routingFeeLimit, payment.feeSat, "sats")
+                await this.storage.userStorage.IncrementUserBalance(userId, routingFeeLimit - payment.feeSat, "routing_fee_refund:" + invoice)
+            }
+            await this.storage.paymentStorage.UpdateExternalPayment(pendingPayment.serial_id, payment.feeSat, serviceFee, true)
+
+            return { preimage: payment.paymentPreimage, amtPaid: payment.valueSat, networkFee: payment.feeSat, serialId: pendingPayment.serial_id }
+
+        } catch (err) {
+            await this.storage.userStorage.IncrementUserBalance(userId, totalAmountToDecrement + routingFeeLimit, "payment_refund:" + invoice)
+            await this.storage.paymentStorage.UpdateExternalPayment(pendingPayment.serial_id, 0, 0, false)
+            throw err
+        }
+    }
+
+    async PayInternalInvoice(userId: string, internalInvoice: UserReceivingInvoice, amounts: { payAmount: number, serviceFee: number }, linkedApplication: Application) {
+        this.log("paying internal invoice", internalInvoice.invoice)
+        if (internalInvoice.paid_at_unix > 0) {
+            throw new Error("this invoice was already paid")
+        }
+        const { payAmount, serviceFee } = amounts
+        const totalAmountToDecrement = payAmount + serviceFee
+        await this.storage.userStorage.DecrementUserBalance(userId, totalAmountToDecrement, internalInvoice.invoice)
+        this.invoicePaidCb(internalInvoice.invoice, payAmount, true)
+        const newPayment = await this.storage.paymentStorage.AddInternalPayment(userId, internalInvoice.invoice, payAmount, serviceFee, linkedApplication)
+        return { preimage: "", amtPaid: payAmount, networkFee: 0, serialId: newPayment.serial_id }
     }
 
 
     async PayAddress(ctx: Types.UserContext, req: Types.PayAddressRequest): Promise<Types.PayAddressResponse> {
         throw new Error("address payment currently disabled, use Lightning instead")
-        await this.WatchdogCheck()
+        await this.watchDog.PaymentRequested()
         this.log("paying address", req.address, "for user", ctx.user_id, "with amount", req.amoutSats)
         const maybeBanned = await this.storage.userStorage.GetUser(ctx.user_id)
         if (maybeBanned.locked) {
@@ -230,18 +243,21 @@ export default class {
             const vBytes = Math.ceil(Number(estimate.feeSat / estimate.satPerVbyte))
             chainFees = vBytes * req.satsPerVByte
             const total = req.amoutSats + chainFees
+            // WARNING, before re-enabling this, make sure to add the tx_hash to the DecrementUserBalance "reason"!!
             this.storage.userStorage.DecrementUserBalance(ctx.user_id, total + serviceFee, req.address)
             try {
                 const payment = await this.lnd.PayAddress(req.address, req.amoutSats, req.satsPerVByte)
                 txId = payment.txid
             } catch (err) {
+                // WARNING, before re-enabling this, make sure to add the tx_hash to the IncrementUserBalance "reason"!!
                 await this.storage.userStorage.IncrementUserBalance(ctx.user_id, total + serviceFee, req.address)
                 throw err
             }
         } else {
             this.log("paying internal address")
-            await this.storage.userStorage.DecrementUserBalance(ctx.user_id, req.amoutSats + serviceFee, req.address)
             txId = crypto.randomBytes(32).toString("hex")
+            const addressData = `${req.address}:${txId}`
+            await this.storage.userStorage.DecrementUserBalance(ctx.user_id, req.amoutSats + serviceFee, addressData)
             this.addressPaidCb({ hash: txId, index: 0 }, req.address, req.amoutSats, true)
         }
 
@@ -506,9 +522,8 @@ export default class {
         }
     }
 
-    async SendUserToUserPayment(fromUserId: string, toUserId: string, amount: number, linkedApplication: Application): Promise<number> {
-        let sentAmount = 0
-        await this.storage.StartTransaction(async tx => {
+    async SendUserToUserPayment(fromUserId: string, toUserId: string, amount: number, linkedApplication: Application): Promise<{ amount: number, fees: number }> {
+        const payment = await this.storage.StartTransaction(async tx => {
             const fromUser = await this.storage.userStorage.GetUser(fromUserId, tx)
             const toUser = await this.storage.userStorage.GetUser(toUserId, tx)
             if (fromUser.locked || toUser.locked) {
@@ -519,20 +534,21 @@ export default class {
             }
             const isAppUserPayment = fromUser.user_id !== linkedApplication.owner.user_id
             let fee = this.getServiceFee(Types.UserOperationType.OUTGOING_USER_TO_USER, amount, isAppUserPayment)
-            const toIncrement = amount - fee
-            await this.storage.userStorage.DecrementUserBalance(fromUser.user_id, amount, toUserId, tx)
-            await this.storage.userStorage.IncrementUserBalance(toUser.user_id, toIncrement, fromUserId, tx)
-            await this.storage.paymentStorage.AddUserToUserPayment(fromUserId, toUserId, amount, fee, linkedApplication, tx)
+            const toDecrement = amount + fee
+            const paymentEntry = await this.storage.paymentStorage.AddPendingUserToUserPayment(fromUserId, toUserId, amount, fee, linkedApplication, tx)
+            await this.storage.userStorage.DecrementUserBalance(fromUser.user_id, toDecrement, `${toUserId}:${paymentEntry.serial_id}`, tx)
+            await this.storage.userStorage.IncrementUserBalance(toUser.user_id, amount, `${fromUserId}:${paymentEntry.serial_id}`, tx)
+            await this.storage.paymentStorage.SetPendingUserToUserPaymentAsPaid(paymentEntry.serial_id, tx)
             if (isAppUserPayment && fee > 0) {
                 await this.storage.userStorage.IncrementUserBalance(linkedApplication.owner.user_id, fee, 'fees', tx)
             }
-            sentAmount = toIncrement
+            return paymentEntry
         })
         const fromUser = await this.storage.userStorage.GetUser(fromUserId)
         const toUser = await this.storage.userStorage.GetUser(toUserId)
-        this.storage.eventsLog.LogEvent({ type: 'u2u_sender', userId: fromUserId, appId: linkedApplication.app_id, appUserId: "", balance: fromUser.balance_sats, data: toUserId, amount: amount })
+        this.storage.eventsLog.LogEvent({ type: 'u2u_sender', userId: fromUserId, appId: linkedApplication.app_id, appUserId: "", balance: fromUser.balance_sats, data: toUserId, amount: payment.paid_amount + payment.service_fees })
         this.storage.eventsLog.LogEvent({ type: 'u2u_receiver', userId: toUserId, appId: linkedApplication.app_id, appUserId: "", balance: toUser.balance_sats, data: fromUserId, amount: amount })
-        return sentAmount
+        return { amount: payment.paid_amount, fees: payment.service_fees }
     }
 
     async CheckNewlyConfirmedTxs(height: number) {

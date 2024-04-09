@@ -33,7 +33,7 @@ export default (mainHandler: Main): Types.ServerMethods => {
             if (err != null) throw new Error(err.message)
             await mainHandler.paymentManager.SetMockInvoiceAsPaid(req)
         },
-        UserHealth: async () => { getLogger({})("got health request") },
+        UserHealth: async () => { },
         GetUserInfo: ({ ctx }) => mainHandler.appUserManager.GetUserInfo(ctx),
         GetUserOperations: async ({ ctx, req }) => {
             return mainHandler.paymentManager.GetUserOperations(ctx.user_id, req)

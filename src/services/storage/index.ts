@@ -9,9 +9,10 @@ import TransactionsQueue, { TX } from "./transactionsQueue.js";
 import EventsLogManager from "./eventsLog.js";
 export type StorageSettings = {
     dbSettings: DbSettings
+    eventLogPath: string
 }
 export const LoadStorageSettingsFromEnv = (): StorageSettings => {
-    return { dbSettings: LoadDbSettingsFromEnv() }
+    return { dbSettings: LoadDbSettingsFromEnv(), eventLogPath: "logs/eventLogV2.csv" }
 }
 export default class {
     DB: DataSource | EntityManager
@@ -25,7 +26,7 @@ export default class {
     eventsLog: EventsLogManager
     constructor(settings: StorageSettings) {
         this.settings = settings
-        this.eventsLog = new EventsLogManager()
+        this.eventsLog = new EventsLogManager(settings.eventLogPath)
     }
     async Connect(migrations: Function[], metricsMigrations: Function[]) {
         const { source, executedMigrations } = await NewDB(this.settings.dbSettings, migrations)
@@ -40,7 +41,7 @@ export default class {
         return { executedMigrations, executedMetricsMigrations };
     }
 
-    StartTransaction(exec: TX<void>, description?: string) {
+    StartTransaction<T>(exec: TX<T>, description?: string) {
         return this.txQueue.PushToQueue({ exec, dbTx: true, description })
     }
 }

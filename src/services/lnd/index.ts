@@ -12,7 +12,7 @@ export const LoadLndSettingsFromEnv = (): LndSettings => {
     const feeRateLimit = EnvMustBeInteger("OUTBOUND_MAX_FEE_BPS") / 10000
     const feeFixedLimit = EnvMustBeInteger("OUTBOUND_MAX_FEE_EXTRA_SATS")
     const mockLnd = EnvCanBeBoolean("MOCK_LND")
-    return { lndAddr, lndCertPath, lndMacaroonPath, feeRateLimit, feeFixedLimit, mockLnd }
+    return { mainNode: { lndAddr, lndCertPath, lndMacaroonPath }, feeRateLimit, feeFixedLimit, mockLnd }
 }
 export interface LightningHandler {
     Stop(): void
