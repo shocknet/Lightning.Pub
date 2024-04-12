@@ -212,7 +212,7 @@ export default class {
         const { app_id: appId, app_user_id: appUserId } = ctx
         const app = await this.storage.applicationStorage.GetApplication(appId)
         const appUser = await this.storage.applicationStorage.GetApplicationUser(app, appUserId)
-        this.storage.txQueue.PushToQueue({
+        await this.storage.txQueue.PushToQueue({
             dbTx: true,
             exec: async tx => {
                 await this.storage.applicationStorage.RemoveApplicationUserAndBaseUser(appUser, tx);
