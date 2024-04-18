@@ -18,6 +18,7 @@ export default class HtlcTracker {
     }
     log = getLogger({ appName: 'htlcTracker' })
     onHtlcEvent = async (htlc: HtlcEvent) => {
+        getLogger({ appName: 'debugHtlcs' })(htlc)
         const htlcEvent = htlc.event
         if (htlcEvent.oneofKind === 'subscribedEvent') {
             this.log("htlc subscribed")
