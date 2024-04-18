@@ -60,7 +60,7 @@ export class Watchdog {
                 if (htlc.incoming) {
                     totalBalanceInHtlcs += htlc.amount
                 } else {
-                    totalBalanceInHtlcs -= htlc.amount
+                    //totalBalanceInHtlcs -= htlc.amount
                 }
             })
             totalBalance += c.localBalanceSats + totalBalanceInHtlcs
