@@ -10,8 +10,8 @@ services:
     hostname: backend1
     command: >-
       bitcoind -server=1 -regtest=1 -rpcauth=polaruser:5e5e98c21f5c814568f8b55d83b23c1c$$066b03f92df30b11de8e4b1b1cd5b1b4281aa25205bd57df9be82caf97a05526 -debug=1 -zmqpubrawblock=tcp://0.0.0.0:28334 -zmqpubrawtx=tcp://0.0.0.0:28335 -zmqpubhashblock=tcp://0.0.0.0:28336 -txindex=1 -dnsseed=0 -upnp=0 -rpcbind=0.0.0.0 -rpcallowip=0.0.0.0/0 -rpcport=18443 -rest -listen=1 -listenonion=0 -fallbackfee=0.0002 -blockfilterindex=1 -peerblockfilters=1
-    volumes:
-      - ./volumes/bitcoind/backend1:/home/bitcoin/.bitcoin
+    #    volumes:
+    #      - ./volumes/bitcoind/backend1:/home/bitcoin/.bitcoin
     expose:
       - '18443'
       - '18444'
@@ -33,8 +33,8 @@ services:
     command: >-
       lnd --noseedbackup --trickledelay=5000 --alias=alice --externalip=alice --tlsextradomain=alice --tlsextradomain=polar-n2-alice --tlsextradomain=host.docker.internal --listen=0.0.0.0:9735 --rpclisten=0.0.0.0:10009 --restlisten=0.0.0.0:8080 --bitcoin.active --bitcoin.regtest --bitcoin.node=bitcoind --bitcoind.rpchost=polar-n2-backend1 --bitcoind.rpcuser=polaruser --bitcoind.rpcpass=polarpass --bitcoind.zmqpubrawblock=tcp://polar-n2-backend1:28334 --bitcoind.zmqpubrawtx=tcp://polar-n2-backend1:28335
     restart: always
-    volumes:
-      - ./volumes/lnd/alice:/home/lnd/.lnd
+    #    volumes:
+    #      - ./volumes/lnd/alice:/home/lnd/.lnd
     expose:
       - '8080'
       - '10009'
@@ -54,8 +54,8 @@ services:
     command: >-
       lnd --noseedbackup --trickledelay=5000 --alias=bob --externalip=bob --tlsextradomain=bob --tlsextradomain=polar-n2-bob --tlsextradomain=host.docker.internal --listen=0.0.0.0:9735 --rpclisten=0.0.0.0:10009 --restlisten=0.0.0.0:8080 --bitcoin.active --bitcoin.regtest --bitcoin.node=bitcoind --bitcoind.rpchost=polar-n2-backend1 --bitcoind.rpcuser=polaruser --bitcoind.rpcpass=polarpass --bitcoind.zmqpubrawblock=tcp://polar-n2-backend1:28334 --bitcoind.zmqpubrawtx=tcp://polar-n2-backend1:28335
     restart: always
-    volumes:
-      - ./volumes/lnd/bob:/home/lnd/.lnd
+    #    volumes:
+    #      - ./volumes/lnd/bob:/home/lnd/.lnd
     expose:
       - '8080'
       - '10009'
@@ -75,8 +75,8 @@ services:
     command: >-
       lnd --noseedbackup --trickledelay=5000 --alias=carol --externalip=carol --tlsextradomain=carol --tlsextradomain=polar-n2-carol --tlsextradomain=host.docker.internal --listen=0.0.0.0:9735 --rpclisten=0.0.0.0:10009 --restlisten=0.0.0.0:8080 --bitcoin.active --bitcoin.regtest --bitcoin.node=bitcoind --bitcoind.rpchost=polar-n2-backend1 --bitcoind.rpcuser=polaruser --bitcoind.rpcpass=polarpass --bitcoind.zmqpubrawblock=tcp://polar-n2-backend1:28334 --bitcoind.zmqpubrawtx=tcp://polar-n2-backend1:28335
     restart: always
-    volumes:
-      - ./volumes/lnd/carol:/home/lnd/.lnd
+    #    volumes:
+    #      - ./volumes/lnd/carol:/home/lnd/.lnd
     expose:
       - '8080'
       - '10009'
@@ -96,8 +96,8 @@ services:
     command: >-
       lnd --noseedbackup --trickledelay=5000 --alias=dave --externalip=dave --tlsextradomain=dave --tlsextradomain=polar-n2-dave --tlsextradomain=host.docker.internal --listen=0.0.0.0:9735 --rpclisten=0.0.0.0:10009 --restlisten=0.0.0.0:8080 --bitcoin.active --bitcoin.regtest --bitcoin.node=bitcoind --bitcoind.rpchost=polar-n2-backend1 --bitcoind.rpcuser=polaruser --bitcoind.rpcpass=polarpass --bitcoind.zmqpubrawblock=tcp://polar-n2-backend1:28334 --bitcoind.zmqpubrawtx=tcp://polar-n2-backend1:28335
     restart: always
-    volumes:
-      - ./volumes/lnd/dave:/home/lnd/.lnd
+    #    volumes:
+    #      - ./volumes/lnd/dave:/home/lnd/.lnd
     expose:
       - '8080'
       - '10009'
