@@ -1,0 +1,16 @@
+{
+    "name": "Lightning Pub",
+    "version": "1.0.0",
+    "description": "packaging lightning.pub on Umbrel",
+    "dockerCompose": {
+        "version": "3.7",
+        "services": {
+            "web": {
+                "image": "patchdemon115inc/lightning.pub:1.0.0",
+                "restart": "on-failure",
+                "ports": ["3000:3000"],
+                "volumes": ["${ }:/data"]
+            }
+        }
+    }
+}
