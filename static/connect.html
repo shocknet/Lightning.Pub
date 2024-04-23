@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title></title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Montserrat">
+    <link rel="stylesheet" href="styles.css">
+    <!-- HTML Meta Tags -->
+    <title>Lightning.Pub</title>
+    <meta name="description" content="Lightning for Everyone">
+</head>
+<body>
+    <header>
+        <img src="pub_logo.png" width="38px" height="auto" alt="Lightning Pub logo">
+        <img src="LightningPub.png" height="33px" alt="Lightning Pub logo">
+    </header>
+
+    <main>
+        <section class="setup-header">
+            <h2>Connect</h2>
+            <a href=""><p>To access the dashboard, use <span class="linked">ShockWallet</span> and tap the logo 3 times.</p></a>
+            <a href=""><p>Scan the QR with <span class="linked">ShockWallet</span> to insert the connection details.</p></a>
+        </section>
+        
+        <div class="line"></div>
+
+        <section class="setup-content">
+            <div id="qrcode"></div>
+            <p class="text-gray">strfry.shock.network <br>npub123abcdefghhhhhhhhhhhhhhh</p><br>
+            <p class="text-gray">Note: Code contains a one-time pairing secret.</p>
+        </section>
+
+        <div class="line"></div>
+
+        <section class="setup-footer">
+            <p class="marked">Need Help?</p><br>
+        </section>
+    </main>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
+
+    <script src="script.js"></script>
+</body>
+</html>
