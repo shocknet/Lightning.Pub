@@ -327,7 +327,7 @@ export default class {
             channelId: c.chanId,
             localBalanceSats: Number(c.localBalance),
             remoteBalanceSats: Number(c.remoteBalance),
-            htlcs: c.pendingHtlcs.map(htlc => ({ incoming: htlc.incoming, amount: Number(htlc.amount) }))
+            htlcs: c.pendingHtlcs.map(htlc => ({ incoming: htlc.incoming, amount: Number(htlc.amount), index: Number(htlc.htlcIndex), fwIndex: Number(htlc.forwardingHtlcIndex) }))
         }))
         return { confirmedBalance: Number(confirmedBalance), unconfirmedBalance: Number(unconfirmedBalance), totalBalance: Number(totalBalance), channelsBalance }
     }

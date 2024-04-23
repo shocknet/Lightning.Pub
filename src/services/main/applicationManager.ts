@@ -6,14 +6,34 @@ import PaymentManager from './paymentManager.js'
 import { InboundOptionals, defaultInvoiceExpiry } from '../storage/paymentStorage.js'
 import { ApplicationUser } from '../storage/entity/ApplicationUser.js'
 import { getLogger } from '../helpers/logger.js'
+import crypto from 'crypto'
+
+const TOKEN_EXPIRY_TIME = 2 * 60 * 1000 // 2 minutes, in milliseconds
+
+type NsecLinkingData = {
+    serialId: number,
+    expiry: number
+}
 export default class {
     storage: Storage
     settings: MainSettings
     paymentManager: PaymentManager
+    nPubLinkingTokens = new Map<string, NsecLinkingData>();
     constructor(storage: Storage, settings: MainSettings, paymentManager: PaymentManager) {
         this.storage = storage
         this.settings = settings
         this.paymentManager = paymentManager
+        setInterval(() => {
+            const now = Date.now();
+            for (let [token, data] of this.nPubLinkingTokens) {
+                if (data.expiry <= now) {
+                    const copy = { ...data }
+                    if (this.nPubLinkingTokens.delete(token)) {
+                        console.log("Expired an npub linking token for user serial id: ", copy.serialId)
+                    }
+                }
+            }
+        }, 60 * 1000); // 1 minute
     }
     SignAppToken(appId: string): string {
         return jwt.sign({ appId }, this.settings.jwtSecret);
@@ -171,5 +191,44 @@ export default class {
         const app = await this.storage.applicationStorage.GetApplication(appId)
         const user = await this.storage.applicationStorage.GetApplicationUser(app, req.user_identifier)
         return this.paymentManager.GetLnurlPayInfoFromUser(user.user.user_id, app, req.base_url_override)
+    }
+    async RequestNPubLinkingToken(appId: string, req: Types.RequestNPubLinkingTokenRequest): Promise<Types.RequestNPubLinkingTokenResponse> {
+        const app = await this.storage.applicationStorage.GetApplication(appId);
+        const user = await this.storage.applicationStorage.GetApplicationUser(app, req.user_identifier);
+        if (Array.from(this.nPubLinkingTokens.values()).find(t => t.serialId === user.serial_id)) {
+            throw new Error("App user already waiting on linking");
+        }
+        if (user.nostr_public_key) {
+            throw new Error("User already has an npub");
+        }
+        const token = crypto.randomBytes(32).toString("hex");
+        this.nPubLinkingTokens.set(token, { serialId: user.serial_id, expiry: Date.now() + TOKEN_EXPIRY_TIME })
+        return { token };
+    }
+
+
+
+    async LinkNpubThroughToken(ctx: Types.UserContext, req: Types.LinkNPubThroughTokenRequest): Promise<void> {
+        const { app_id: appId, app_user_id: appUserId } = ctx
+        const app = await this.storage.applicationStorage.GetApplication(appId)
+        const appUser = await this.storage.applicationStorage.GetApplicationUser(app, appUserId)
+        await this.storage.txQueue.PushToQueue({
+            dbTx: true,
+            exec: async tx => {
+                await this.storage.applicationStorage.RemoveApplicationUserAndBaseUser(appUser, tx);
+                const entry = this.nPubLinkingTokens.get(req.token)
+                if (entry && entry.expiry > Date.now()) {
+                    const copy = { ...entry }
+                    const deleted = this.nPubLinkingTokens.delete(req.token)
+                    if (deleted) {
+                        await this.storage.applicationStorage.AddNPubToApplicationUser(copy.serialId, req.nostr_pub, tx)
+                    } else {
+                        throw new Error("An uknown error occured")
+                    }
+                } else {
+                    throw new Error("Token invalid or expired")
+                }
+            }
+        })
     }
 }
