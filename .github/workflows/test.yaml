@@ -29,6 +29,8 @@ jobs:
         run: docker cp polar-n2-dave:/home/lnd/.lnd/data/chain/bitcoin/regtest/admin.macaroon dave-admin.macaroon
       - name: copy env file
         run: cp src/tests/.env.test .env
+      - name: List files
+        run: ls -la
       - name: Install dependencies
         run: npm install
       - name: Run tests
