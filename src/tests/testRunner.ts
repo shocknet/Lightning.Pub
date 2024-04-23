@@ -8,6 +8,16 @@ type TestModule = {
     default: (T: TestBase) => Promise<void>
 }
 let failures = 0
+const getDescribe = (fileName: string): Describe => {
+    return (message, failure) => {
+        if (failure) {
+            failures++
+            console.error(redConsole, fileName, ": FAILURE ", message, resetConsole)
+        } else {
+            console.log(greenConsole, fileName, ":", message, resetConsole)
+        }
+    }
+}
 const start = async () => {
 
     const files = await globby("**/*.spec.js")
@@ -19,8 +29,7 @@ const start = async () => {
         if (module.dev) {
             console.log("dev module found", file)
             if (devModule !== -1) {
-                console.error(redConsole, "there are multiple dev modules", resetConsole)
-                return
+                throw new Error("there are multiple dev modules")
             }
             devModule = modules.length - 1
         }
@@ -28,16 +37,15 @@ const start = async () => {
     if (devModule !== -1) {
         console.log("running dev module")
         await runTestFile(modules[devModule].file, modules[devModule].module)
-        return
-    }
-    else {
+    } else {
         console.log("running all tests")
         for (const { file, module } of modules) {
             await runTestFile(file, module)
         }
     }
+    console.log(failures)
     if (failures) {
-        console.error(redConsole, "there have been", `${failures}`, "failures in all tests", resetConsole)
+        throw new Error("there have been " + failures + " failures in all tests")
     } else {
         console.log(greenConsole, "there have been 0 failures in all tests", resetConsole)
     }
@@ -69,16 +77,7 @@ const runTestFile = async (fileName: string, mod: TestModule) => {
     }
 }
 
-const getDescribe = (fileName: string): Describe => {
-    return (message, failure) => {
-        if (failure) {
-            failures++
-            console.error(redConsole, fileName, ": FAILURE ", message, resetConsole)
-        } else {
-            console.log(greenConsole, fileName, ":", message, resetConsole)
-        }
-    }
-}
+
 const greenConsole = "\x1b[32m"
 const redConsole = "\x1b[31m"
 const resetConsole = "\x1b[0m"
