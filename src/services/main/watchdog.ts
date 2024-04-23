@@ -36,7 +36,7 @@ export class Watchdog {
 
     Start = async () => {
         const totalUsersBalance = await this.storage.paymentStorage.GetTotalUsersBalance()
-        this.initialLndBalance = await this.getTotalLndBalance()
+        this.initialLndBalance = await this.getTotalLndBalance(totalUsersBalance)
         this.initialUsersBalance = totalUsersBalance
         this.enabled = true
 
@@ -48,14 +48,24 @@ export class Watchdog {
         }, 1000 * 60)
     }
 
-    getTotalLndBalance = async () => {
-        const localLog = getLogger({ appName: "debugLndBalance" })
+    getTotalLndBalance = async (usersTotal: number) => {
+        const localLog = getLogger({ appName: "debugLndBalancev2" })
         const { confirmedBalance, channelsBalance } = await this.lnd.GetBalance()
         this.log(confirmedBalance, "sats in chain wallet")
-        localLog(channelsBalance)
-        return channelsBalance.reduce((acc, c) => {
-            return acc + c.localBalanceSats + c.htlcs.reduce((acc2, htlc) => acc2 + (htlc.incoming ? htlc.amount : -htlc.amount), 0)
-        }, 0)
+        localLog({ c: channelsBalance, u: usersTotal })
+        let totalBalance = confirmedBalance
+        channelsBalance.forEach(c => {
+            let totalBalanceInHtlcs = 0
+            c.htlcs.forEach(htlc => {
+                if (htlc.incoming) {
+                    totalBalanceInHtlcs += htlc.amount
+                } else {
+                    //totalBalanceInHtlcs -= htlc.amount
+                }
+            })
+            totalBalance += c.localBalanceSats + totalBalanceInHtlcs
+        })
+        return totalBalance
     }
 
     checkBalanceUpdate = (deltaLnd: number, deltaUsers: number) => {
@@ -117,7 +127,7 @@ export class Watchdog {
         }
         this.latestCheckStart = Date.now()
         const totalUsersBalance = await this.storage.paymentStorage.GetTotalUsersBalance()
-        const totalLndBalance = await this.getTotalLndBalance()
+        const totalLndBalance = await this.getTotalLndBalance(totalUsersBalance)
         const deltaLnd = totalLndBalance - this.initialLndBalance
         const deltaUsers = totalUsersBalance - this.initialUsersBalance
         const deny = this.checkBalanceUpdate(deltaLnd, deltaUsers)
@@ -126,6 +136,7 @@ export class Watchdog {
             this.lnd.LockOutgoingOperations()
             return
         }
+        this.lnd.UnlockOutgoingOperations()
     }
 
     checkDeltas = (deltaLnd: number, deltaUsers: number): DeltaCheckResult => {

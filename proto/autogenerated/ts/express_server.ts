@@ -122,7 +122,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.GetUsageMetrics) throw new Error('method: GetUsageMetrics is not implemented')
-    app.post('/api/admin/metrics/usage', async (req, res) => {
+    app.post('/api/reports/usage', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'GetUsageMetrics', batch: false, nostr: false, batchSize: 0}
         const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
@@ -141,7 +141,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.GetAppsMetrics) throw new Error('method: GetAppsMetrics is not implemented')
-    app.post('/api/admin/metrics/apps', async (req, res) => {
+    app.post('/api/reports/apps', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'GetAppsMetrics', batch: false, nostr: false, batchSize: 0}
         const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
@@ -163,7 +163,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.GetLndMetrics) throw new Error('method: GetLndMetrics is not implemented')
-    app.post('/api/admin/metrics/lnd', async (req, res) => {
+    app.post('/api/reports/lnd', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'GetLndMetrics', batch: false, nostr: false, batchSize: 0}
         const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
@@ -339,6 +339,28 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const response =  await methods.HandleLnurlAddress({rpcName:'HandleLnurlAddress', ctx:authContext ,params: req.params})
             stats.handle = process.hrtime.bigint()
             res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.LinkNPubThroughToken) throw new Error('method: LinkNPubThroughToken is not implemented')
+    app.post('/api/guest/npub/link', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'LinkNPubThroughToken', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.LinkNPubThroughToken) throw new Error('method: LinkNPubThroughToken is not implemented')
+            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.LinkNPubThroughTokenRequestValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+             await methods.LinkNPubThroughToken({rpcName:'LinkNPubThroughToken', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK'})
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
@@ -578,6 +600,28 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
              await methods.SetMockAppBalance({rpcName:'SetMockAppBalance', ctx:authContext , req: request})
             stats.handle = process.hrtime.bigint()
             res.json({status: 'OK'})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.RequestNPubLinkingToken) throw new Error('method: RequestNPubLinkingToken is not implemented')
+    app.post('/api/app/user/npub/token', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'RequestNPubLinkingToken', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.RequestNPubLinkingToken) throw new Error('method: RequestNPubLinkingToken is not implemented')
+            const authContext = await opts.AppAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.RequestNPubLinkingTokenRequestValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+            const response =  await methods.RequestNPubLinkingToken({rpcName:'RequestNPubLinkingToken', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
@@ -892,6 +936,18 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
                 const opStats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: stats.parse, guard: stats.guard, validate: 0n, handle: 0n }
                 try {
                     switch(operation.rpcName) {
+                        case 'LinkNPubThroughToken':
+                            if (!methods.LinkNPubThroughToken) {
+                                throw new Error('method LinkNPubThroughToken not found' )
+                            } else {
+                                const error = Types.LinkNPubThroughTokenRequestValidate(operation.req)
+                                opStats.validate = process.hrtime.bigint()
+                                if (error !== null) throw error
+                                await methods.LinkNPubThroughToken({...operation, ctx}); responses.push({ status: 'OK' })
+                                opStats.handle = process.hrtime.bigint()
+                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
+                            }
+                            break
                         case 'UserHealth':
                             if (!methods.UserHealth) {
                                 throw new Error('method UserHealth not found' )
