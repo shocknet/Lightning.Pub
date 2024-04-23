@@ -20,7 +20,7 @@ jobs:
       - name: Copy dave cert file
         run: docker cp polar-n2-dave:/home/lnd/.lnd/tls.cert dave-tls.cert
       - name: Copy alice macaroon file
-        run: docker cp polar-n2-dave:/home/lnd/.lnd/data/chain/bitcoin/regtest/admin.macaroon alice-admin.macaroon
+        run: docker cp polar-n2-alice:/home/lnd/.lnd/data/chain/bitcoin/regtest/admin.macaroon alice-admin.macaroon
       - name: Copy bob macaroon file
         run: docker cp polar-n2-bob:/home/lnd/.lnd/data/chain/bitcoin/regtest/admin.macaroon bob-admin.macaroon
       - name: Copy carol macaroon file
