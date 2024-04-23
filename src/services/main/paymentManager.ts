@@ -39,6 +39,7 @@ const defaultLnurlPayMetadata = `[["text/plain", "lnurl pay to Lightning.pub"]]`
 const confInOne = 1000 * 1000
 const confInTwo = 100 * 1000 * 1000
 export default class {
+
     storage: Storage
     settings: MainSettings
     lnd: LightningHandler
@@ -53,6 +54,9 @@ export default class {
         this.watchDog = new Watchdog(settings.watchDogSettings, lnd, storage)
         this.addressPaidCb = addressPaidCb
         this.invoicePaidCb = invoicePaidCb
+    }
+    Stop() {
+        this.watchDog.Stop()
     }
 
     getServiceFee(action: Types.UserOperationType, amount: number, appUser: boolean): number {

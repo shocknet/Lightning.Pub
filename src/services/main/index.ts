@@ -50,6 +50,11 @@ export default class {
         this.appUserManager = new AppUserManager(this.storage, this.settings, this.applicationManager)
 
     }
+    Stop() {
+        this.lnd.Stop()
+        this.applicationManager.Stop()
+        this.paymentManager.Stop()
+    }
 
     attachNostrSend(f: NostrSend) {
         this.nostrSend = f
