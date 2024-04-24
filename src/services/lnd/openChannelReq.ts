@@ -13,7 +13,7 @@ export const OpenChannelReq = (destination: string, closeAddress: string, fundin
     feeRate: 1n, // TBD
     targetConf: 0,
     zeroConf: false,
-    maxLocalCsv: 0,
+    maxLocalCsv: 1,
     remoteCsvDelay: 144,
     spendUnconfirmed: false,
     minHtlcMsat: 1n,
