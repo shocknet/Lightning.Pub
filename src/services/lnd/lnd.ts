@@ -211,9 +211,11 @@ export default class {
         })
     }
 
-    async NewAddress(addressType: Types.AddressType): Promise<NewAddressResponse> {
+    async NewAddress(addressType: Types.AddressType, skipHealthCheck = false): Promise<NewAddressResponse> {
         this.log("generating new address")
-        await this.Health()
+        if (!skipHealthCheck) {
+            await this.Health()
+        }
         let lndAddressType: AddressType
         switch (addressType) {
             case Types.AddressType.NESTED_PUBKEY_HASH:
@@ -356,7 +358,6 @@ export default class {
     }
 
     async OpenChannel(destination: string, closeAddress: string, fundingAmount: number, pushSats: number) {
-        await this.Health()
         const abortController = new AbortController()
         const req = OpenChannelReq(destination, closeAddress, fundingAmount, pushSats)
         const stream = this.lightning.openChannel(req, { abort: abortController.signal })
