@@ -1,3 +1,4 @@
+// @ts-ignore
 import BitcoinCore from 'bitcoin-core';
 import { LoadTestSettingsFromEnv, TestSettings } from "../services/main/settings.js"
 import LND from '../services/lnd/lnd.js'
