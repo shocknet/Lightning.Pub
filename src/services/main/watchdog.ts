@@ -48,8 +48,11 @@ export class Watchdog {
         }, 1000 * 60)
     }
 
+
+
     getTotalLndBalance = async (usersTotal: number) => {
         const localLog = getLogger({ appName: "debugLndBalancev2" })
+        getLogger({ appName: "debugChannelBalanceRpc" })(await this.lnd.GetChannelBalance())
         const { confirmedBalance, channelsBalance } = await this.lnd.GetBalance()
         this.log(confirmedBalance, "sats in chain wallet")
         localLog({ c: channelsBalance, u: usersTotal })
