@@ -33,8 +33,8 @@ export const setupNetwork = async () => {
 }
 
 const sendBalancingPayment = async (instances: LndInstances) => {
-    const invoice = await instances.dave.NewInvoice(5_000_000, "balancing_payment", 3600)
-    const payment = await instances.carol.PayInvoice(invoice.payRequest, 0, 5_000_000)
+    const invoice = await instances.dave.NewInvoice(50_000, "balancing_payment", 3600)
+    const payment = await instances.carol.PayInvoice(invoice.payRequest, 0, 50_000)
     console.log({ payment })
 }
 
