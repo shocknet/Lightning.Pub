@@ -346,27 +346,25 @@ export default class {
         return res.response
     }
 
-    async OpenChannel(destination: string, closeAddress: string, fundingAmount: number, pushSats: number): Promise<string> {
+    async ConnectPeer(pubkey: string, host: string) {
+        const res = await this.lightning.connectPeer({
+            addr: { pubkey, host },
+            perm: true,
+            timeout: 0n
+        }, DeadLineMetadata())
+        return res.response
+    }
+
+    async OpenChannel(destination: string, closeAddress: string, fundingAmount: number, pushSats: number) {
         await this.Health()
         const abortController = new AbortController()
         const req = OpenChannelReq(destination, closeAddress, fundingAmount, pushSats)
         const stream = this.lightning.openChannel(req, { abort: abortController.signal })
-        return new Promise((res, rej) => {
-            stream.responses.onMessage(message => {
-
-                switch (message.update.oneofKind) {
-                    case 'chanPending':
-                        abortController.abort()
-                        res(Buffer.from(message.pendingChanId).toString('base64'))
-                        break
-                    default:
-                        abortController.abort()
-                        rej("unexpected state response: " + message.update.oneofKind)
-                }
-            })
-            stream.responses.onError(error => {
-                rej(error)
-            })
+        stream.responses.onMessage(message => {
+            console.log("message", message)
+        })
+        stream.responses.onError(error => {
+            console.log("error", error)
         })
     }
 }

@@ -27,7 +27,7 @@ export interface LightningHandler {
     PayInvoice(invoice: string, amount: number, feeLimit: number): Promise<PaidInvoice>
     EstimateChainFees(address: string, amount: number, targetConf: number): Promise<EstimateFeeResponse>
     PayAddress(address: string, amount: number, satPerVByte: number, label?: string): Promise<SendCoinsResponse>
-    OpenChannel(destination: string, closeAddress: string, fundingAmount: number, pushSats: number): Promise<string>
+    //OpenChannel(destination: string, closeAddress: string, fundingAmount: number, pushSats: number): Promise<string>
     SetMockInvoiceAsPaid(invoice: string, amount: number): Promise<void>
     ChannelBalance(): Promise<{ local: number, remote: number }>
     GetTransactions(startHeight: number): Promise<TransactionDetails>
