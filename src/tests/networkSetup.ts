@@ -23,6 +23,7 @@ export const setupNetwork = async () => {
     const addresses = await getAddresses(instances)
     await sendCoinsToAddresses(core, addresses)
     console.log("done sending coins, opening channels")
+    await new Promise((resolve) => setTimeout(resolve, 500))
     console.log(await getAllInfo(instances))
     console.log(await getAllBalances(instances))
     await openChannels(instances, connectInfo, addresses)
