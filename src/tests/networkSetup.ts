@@ -41,8 +41,7 @@ const initBitcoinCore = async (settings: TestSettings) => {
     console.log({ wallet })
     const addr = await core.getNewAddress()
     console.log({ addr })
-    const gen = await core.generateToAddress(100, addr)
-    console.log({ gen })
+    await core.generateToAddress(101, addr)
     const info = await core.getWalletInfo();
     console.log({ info })
 }
