@@ -9,7 +9,16 @@ export const setupNetwork = async () => {
     const core = new Core(settings)
     await core.Init()
     const { alice, bob, carol, dave } = await initLndInstances(settings)
-    /*const aliceAddr = await alice.NewAddress(AddressType.WITNESS_PUBKEY_HASH, true)
+
+    const aliceInfo = await alice.GetInfo()
+    const [alicePub, aliceHost] = aliceInfo.uris[0].split('@')
+    await carol.ConnectPeer(alicePub, aliceHost)
+    await dave.ConnectPeer(alicePub, aliceHost)
+    const carolInfo = await carol.GetInfo()
+    const [carolPub, carolHost] = carolInfo.uris[0].split('@')
+    await bob.ConnectPeer(carolPub, carolHost)
+    console.log("done connecting peer, sending coins")
+    const aliceAddr = await alice.NewAddress(AddressType.WITNESS_PUBKEY_HASH, true)
     const bobAddr = await bob.NewAddress(AddressType.WITNESS_PUBKEY_HASH)
     const carolAddr = await carol.NewAddress(AddressType.WITNESS_PUBKEY_HASH)
     const daveAddr = await dave.NewAddress(AddressType.WITNESS_PUBKEY_HASH)
@@ -17,15 +26,7 @@ export const setupNetwork = async () => {
     await core.SendToAddress(bobAddr.address, 10)
     await core.SendToAddress(carolAddr.address, 10)
     await core.SendToAddress(daveAddr.address, 10)
-    await core.Mine(6)*/
-    const alicePub = await alice.GetInfo()
-    const [pubkey, host] = alicePub.uris[0].split('@')
-    await carol.ConnectPeer(pubkey, host)
-    console.log(await alice.GetInfo())
-    console.log(await carol.GetInfo())
-    console.log(await alice.GetInfo())
-    const aliceAddr = await alice.NewAddress(AddressType.WITNESS_PUBKEY_HASH, true)
-    console.log({ aliceAddr })
+    await core.Mine(6)
 }
 
 const initLndInstances = async (settings: TestSettings) => {
