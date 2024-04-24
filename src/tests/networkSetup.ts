@@ -20,8 +20,9 @@ export const setupNetwork = async () => {
     await core.Mine(6)*/
     const alicePub = await alice.GetInfo()
     const [pubkey, host] = alicePub.uris[0].split('@')
-    await alice.ConnectPeer(pubkey, host)
+    await carol.ConnectPeer(pubkey, host)
     console.log(await alice.GetInfo())
+    console.log(await carol.GetInfo())
     const aliceAddr = await alice.NewAddress(AddressType.WITNESS_PUBKEY_HASH, true)
     console.log({ aliceAddr })
 }
