@@ -52,7 +52,7 @@ const openChannel = async (instance: LND, to: string, closeAddr: string) => {
         try {
             await instance.OpenChannel(to, closeAddr, 10_000_000, 0)
             console.log("success opening channel")
-            break
+            return
         } catch (e) {
             await new Promise((resolve) => setTimeout(resolve, 1000))
             console.log("error opening channel", e)
