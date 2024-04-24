@@ -1,4 +1,4 @@
-import { CommitmentType, OpenChannelRequest } from "../../../proto/lnd/lightning";
+import { CommitmentType, OpenChannelRequest } from "../../../proto/lnd/lightning.js";
 
 export const OpenChannelReq = (destination: string, closeAddress: string, fundingAmount: number, pushSats: number): OpenChannelRequest => ({
     nodePubkey: Buffer.from(destination, 'hex'),
