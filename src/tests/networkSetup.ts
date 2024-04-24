@@ -23,6 +23,7 @@ export const setupNetwork = async () => {
     await carol.ConnectPeer(pubkey, host)
     console.log(await alice.GetInfo())
     console.log(await carol.GetInfo())
+    console.log(await alice.GetInfo())
     const aliceAddr = await alice.NewAddress(AddressType.WITNESS_PUBKEY_HASH, true)
     console.log({ aliceAddr })
 }
