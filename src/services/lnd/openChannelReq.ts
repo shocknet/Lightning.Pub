@@ -9,8 +9,8 @@ export const OpenChannelReq = (destination: string, closeAddress: string, fundin
     satPerVbyte: 0n, // TBD
     private: false,
     minConfs: 0, // TBD
-    baseFee: 0n, // TBD
-    feeRate: 0n, // TBD
+    baseFee: 1n, // TBD
+    feeRate: 1n, // TBD
     targetConf: 0,
     zeroConf: false,
     maxLocalCsv: 0,
