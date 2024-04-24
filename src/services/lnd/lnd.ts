@@ -84,7 +84,7 @@ export default class {
         return new Promise<void>((res, rej) => {
             const interval = setInterval(async () => {
                 try {
-                    await this.Health()
+                    await this.GetInfo()
                     clearInterval(interval)
                     this.ready = true
                     res()
