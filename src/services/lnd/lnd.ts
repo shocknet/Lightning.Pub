@@ -80,7 +80,22 @@ export default class {
         this.SubscribeInvoicePaid()
         this.SubscribeNewBlock()
         this.SubscribeHtlcEvents()
-        this.ready = true
+        const now = Date.now()
+        return new Promise<void>((res, rej) => {
+            const interval = setInterval(async () => {
+                try {
+                    await this.Health()
+                    clearInterval(interval)
+                    this.ready = true
+                    res()
+                } catch (err) {
+                    this.log("LND is not ready yet, will try again in 1 second")
+                    if (Date.now() - now > 1000 * 60) {
+                        rej(new Error("LND not ready after 1 minute"))
+                    }
+                }
+            }, 1000)
+        })
     }
 
     async GetInfo(): Promise<NodeInfo> {
