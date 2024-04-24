@@ -34,17 +34,31 @@ export const setupNetwork = async () => {
 }
 
 const sendBalancingPayment = async (instances: LndInstances) => {
-    const invoice = await instances.dave.NewInvoice(20_000_000, "balancing_payment", 3600)
-    const payment = await instances.bob.PayInvoice(invoice.payRequest, 0, 500_000)
+    const invoice = await instances.dave.NewInvoice(5_000_000, "balancing_payment", 3600)
+    const payment = await instances.bob.PayInvoice(invoice.payRequest, 0, 100_000)
     console.log({ payment })
 }
 
 const openChannels = async (core: BitcoinCoreWrapper, instances: LndInstances, info: InstancesInfo, addresses: Addresses) => {
-    await instances.bob.OpenChannel(info.carol.pubkey, addresses.bob, 50_000_000, 0)
-    await instances.carol.OpenChannel(info.alice.pubkey, addresses.carol, 50_000_000, 0)
-    await instances.alice.OpenChannel(info.dave.pubkey, addresses.alice, 50_000_000, 0)
-    await slowMine(core, 10)
+    await openChannel(instances.bob, info.carol.pubkey, addresses.bob)
+    await openChannel(instances.carol, info.alice.pubkey, addresses.carol)
+    await openChannel(instances.alice, info.dave.pubkey, addresses.alice)
+    await slowMine(core, 6)
 
+}
+
+const openChannel = async (instance: LND, to: string, closeAddr: string) => {
+    for (let i = 0; i < 10; i++) {
+        try {
+            await instance.OpenChannel(to, closeAddr, 10_000_000, 0)
+            console.log("success opening channel")
+            break
+        } catch (e) {
+            await new Promise((resolve) => setTimeout(resolve, 1000))
+            console.log("error opening channel", e)
+        }
+    }
+    throw new Error("could not open channel after 10 tries")
 }
 
 const sendCoinsToAddresses = async (core: BitcoinCoreWrapper, addresses: Addresses) => {
@@ -52,7 +66,7 @@ const sendCoinsToAddresses = async (core: BitcoinCoreWrapper, addresses: Address
     await core.SendToAddress(addresses.bob, 10)
     await core.SendToAddress(addresses.carol, 10)
     await core.SendToAddress(addresses.dave, 10)
-    await slowMine(core, 10)
+    await core.Mine(6)
 }
 
 const slowMine = async (core: BitcoinCoreWrapper, blocks: number) => {
