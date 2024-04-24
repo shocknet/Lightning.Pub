@@ -9,7 +9,7 @@ export const setupNetwork = async () => {
     const core = new Core(settings)
     await core.Init()
     const { alice, bob, carol, dave } = await initLndInstances(settings)
-    /*const aliceAddr = await alice.NewAddress(AddressType.WITNESS_PUBKEY_HASH)
+    /*const aliceAddr = await alice.NewAddress(AddressType.WITNESS_PUBKEY_HASH, true)
     const bobAddr = await bob.NewAddress(AddressType.WITNESS_PUBKEY_HASH)
     const carolAddr = await carol.NewAddress(AddressType.WITNESS_PUBKEY_HASH)
     const daveAddr = await dave.NewAddress(AddressType.WITNESS_PUBKEY_HASH)
@@ -19,7 +19,11 @@ export const setupNetwork = async () => {
     await core.SendToAddress(daveAddr.address, 10)
     await core.Mine(6)*/
     const alicePub = await alice.GetInfo()
-    console.log({ alicePub })
+    const [pubkey, host] = alicePub.uris[0].split('@')
+    await alice.ConnectPeer(pubkey, host)
+    console.log(await alice.GetInfo())
+    const aliceAddr = await alice.NewAddress(AddressType.WITNESS_PUBKEY_HASH, true)
+    console.log({ aliceAddr })
 }
 
 const initLndInstances = async (settings: TestSettings) => {
