@@ -23,6 +23,8 @@ export const setupNetwork = async () => {
     const addresses = await getAddresses(instances)
     await sendCoinsToAddresses(core, addresses)
     console.log("done sending coins, opening channels")
+    console.log(await getAllInfo(instances))
+    console.log(await getAllBalances(instances))
     await openChannels(instances, connectInfo, addresses)
     await core.Mine(6)
     console.log("done opening channels, sending balancing payment")
@@ -65,6 +67,15 @@ const getAllInfo = async (instances: LndInstances) => {
     const carolInfo = await instances.carol.GetInfo()
     const daveInfo = await instances.dave.GetInfo()
     return { aliceInfo, bobInfo, carolInfo, daveInfo }
+
+}
+
+const getAllBalances = async (instances: LndInstances) => {
+    const aliceBal = await instances.alice.GetBalance()
+    const bobBal = await instances.bob.GetBalance()
+    const carolBal = await instances.carol.GetBalance()
+    const daveBal = await instances.dave.GetBalance()
+    return { aliceBal, bobBal, carolBal, daveBal }
 
 }
 
