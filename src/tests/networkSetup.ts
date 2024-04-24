@@ -23,11 +23,10 @@ export const setupNetwork = async () => {
     const addresses = await getAddresses(instances)
     await sendCoinsToAddresses(core, addresses)
     console.log("done sending coins, opening channels")
-    console.log(await getAllInfo(instances))
-    console.log(await getAllBalances(instances))
-    await openChannels(core, instances, connectInfo, addresses)
 
+    await openChannels(core, instances, connectInfo, addresses)
     console.log("done opening channels, sending balancing payment")
+    console.log(await getAllBalances(instances))
     await sendBalancingPayment(instances)
     stopAllInstances(instances)
     console.log("network setup complete, starting tests")
