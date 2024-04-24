@@ -34,15 +34,15 @@ export const setupNetwork = async () => {
 }
 
 const sendBalancingPayment = async (instances: LndInstances) => {
-    const invoice = await instances.dave.NewInvoice(2_000_000, "balancing payment", 3600)
-    const payment = await instances.bob.PayInvoice(invoice.payRequest, 0, 50_000)
+    const invoice = await instances.dave.NewInvoice(20_000_000, "balancing_payment", 3600)
+    const payment = await instances.bob.PayInvoice(invoice.payRequest, 0, 500_000)
     console.log({ payment })
 }
 
 const openChannels = async (core: BitcoinCoreWrapper, instances: LndInstances, info: InstancesInfo, addresses: Addresses) => {
-    await instances.bob.OpenChannel(info.carol.pubkey, addresses.bob, 5_000_000, 0)
-    await instances.carol.OpenChannel(info.alice.pubkey, addresses.carol, 5_000_000, 0)
-    await instances.alice.OpenChannel(info.dave.pubkey, addresses.alice, 5_000_000, 0)
+    await instances.bob.OpenChannel(info.carol.pubkey, addresses.bob, 50_000_000, 0)
+    await instances.carol.OpenChannel(info.alice.pubkey, addresses.carol, 50_000_000, 0)
+    await instances.alice.OpenChannel(info.dave.pubkey, addresses.alice, 50_000_000, 0)
     await slowMine(core, 10)
 
 }
@@ -52,7 +52,7 @@ const sendCoinsToAddresses = async (core: BitcoinCoreWrapper, addresses: Address
     await core.SendToAddress(addresses.bob, 10)
     await core.SendToAddress(addresses.carol, 10)
     await core.SendToAddress(addresses.dave, 10)
-    await slowMine(core, 6)
+    await slowMine(core, 10)
 }
 
 const slowMine = async (core: BitcoinCoreWrapper, blocks: number) => {
