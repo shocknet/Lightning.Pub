@@ -35,7 +35,8 @@ export const setupNetwork = async () => {
 
 const sendBalancingPayment = async (instances: LndInstances) => {
     const invoice = await instances.dave.NewInvoice(2_000_000, "balancing payment", 3600)
-    await instances.bob.PayInvoice(invoice.payRequest, 0, 50_000)
+    const payment = await instances.bob.PayInvoice(invoice.payRequest, 0, 50_000)
+    console.log({ payment })
 }
 
 const openChannels = async (core: BitcoinCoreWrapper, instances: LndInstances, info: InstancesInfo, addresses: Addresses) => {
