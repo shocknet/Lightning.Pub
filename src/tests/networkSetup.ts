@@ -39,6 +39,7 @@ const openChannels = async (instances: LndInstances, info: InstancesInfo, addres
     await instances.bob.OpenChannel(info.carol.pubkey, addresses.bob, 5_000_000, 0)
     await instances.carol.OpenChannel(info.alice.pubkey, addresses.carol, 5_000_000, 0)
     await instances.alice.OpenChannel(info.dave.pubkey, addresses.alice, 5_000_000, 0)
+    await core.Mine(6)
 }
 
 const sendCoinsToAddresses = async (core: BitcoinCoreWrapper, addresses: Addresses) => {
