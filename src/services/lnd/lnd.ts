@@ -226,11 +226,9 @@ export default class {
         })
     }
 
-    async NewAddress(addressType: Types.AddressType, skipHealthCheck = false): Promise<NewAddressResponse> {
+    async NewAddress(addressType: Types.AddressType): Promise<NewAddressResponse> {
         this.log("generating new address")
-        if (!skipHealthCheck) {
-            await this.Health()
-        }
+        await this.Health()
         let lndAddressType: AddressType
         switch (addressType) {
             case Types.AddressType.NESTED_PUBKEY_HASH:
@@ -363,9 +361,9 @@ export default class {
         return res.response
     }
 
-    async ConnectPeer(pubkey: string, host: string) {
+    async ConnectPeer(addr: { pubkey: string, host: string }) {
         const res = await this.lightning.connectPeer({
-            addr: { pubkey, host },
+            addr,
             perm: true,
             timeout: 0n
         }, DeadLineMetadata())
