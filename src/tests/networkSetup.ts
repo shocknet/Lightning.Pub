@@ -9,7 +9,7 @@ export const setupNetwork = async () => {
     const core = new Core(settings)
     await core.Init()
     const { alice, bob, carol, dave } = await initLndInstances(settings)
-    const aliceAddr = await alice.NewAddress(AddressType.WITNESS_PUBKEY_HASH)
+    /*const aliceAddr = await alice.NewAddress(AddressType.WITNESS_PUBKEY_HASH)
     const bobAddr = await bob.NewAddress(AddressType.WITNESS_PUBKEY_HASH)
     const carolAddr = await carol.NewAddress(AddressType.WITNESS_PUBKEY_HASH)
     const daveAddr = await dave.NewAddress(AddressType.WITNESS_PUBKEY_HASH)
@@ -17,7 +17,7 @@ export const setupNetwork = async () => {
     await core.SendToAddress(bobAddr.address, 10)
     await core.SendToAddress(carolAddr.address, 10)
     await core.SendToAddress(daveAddr.address, 10)
-    await core.Mine(6)
+    await core.Mine(6)*/
     const alicePub = await alice.GetInfo()
     console.log({ alicePub })
 }
