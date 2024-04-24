@@ -20,7 +20,7 @@ const getDescribe = (fileName: string): Describe => {
 }
 const start = async () => {
 
-    const files = await globby("**/*.spec.js")
+    const files = await globby(["**/*.spec.js", "!**/node_modules/**"])
     const modules: { file: string, module: TestModule }[] = []
     let devModule = -1
     for (const file of files) {
