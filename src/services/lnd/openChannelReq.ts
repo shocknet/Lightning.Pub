@@ -14,7 +14,7 @@ export const OpenChannelReq = (destination: string, closeAddress: string, fundin
     targetConf: 0,
     zeroConf: false,
     maxLocalCsv: 144,
-    remoteCsvDelay: 144,
+    remoteCsvDelay: 0,
     spendUnconfirmed: false,
     minHtlcMsat: 1n,
     remoteChanReserveSat: 10000n,
