@@ -23,13 +23,11 @@ export const setupNetwork = async () => {
     const addresses = await getAddresses(instances)
     await sendCoinsToAddresses(core, addresses)
     console.log("done sending coins, opening channels")
-    await new Promise((resolve) => setTimeout(resolve, 3000))
     console.log(await getAllInfo(instances))
     console.log(await getAllBalances(instances))
-    await openChannels(instances, connectInfo, addresses)
-    await core.Mine(6)
+    await openChannels(core, instances, connectInfo, addresses)
+
     console.log("done opening channels, sending balancing payment")
-    await new Promise((resolve) => setTimeout(resolve, 2000))
     await sendBalancingPayment(instances)
     stopAllInstances(instances)
     console.log("network setup complete, starting tests")
@@ -40,10 +38,11 @@ const sendBalancingPayment = async (instances: LndInstances) => {
     await instances.bob.PayInvoice(invoice.payRequest, 0, 1000)
 }
 
-const openChannels = async (instances: LndInstances, info: InstancesInfo, addresses: Addresses) => {
+const openChannels = async (core: BitcoinCoreWrapper, instances: LndInstances, info: InstancesInfo, addresses: Addresses) => {
     await instances.bob.OpenChannel(info.carol.pubkey, addresses.bob, 5_000_000, 0)
     await instances.carol.OpenChannel(info.alice.pubkey, addresses.carol, 5_000_000, 0)
     await instances.alice.OpenChannel(info.dave.pubkey, addresses.alice, 5_000_000, 0)
+    await slowMine(core, 6)
 
 }
 
@@ -52,7 +51,14 @@ const sendCoinsToAddresses = async (core: BitcoinCoreWrapper, addresses: Address
     await core.SendToAddress(addresses.bob, 10)
     await core.SendToAddress(addresses.carol, 10)
     await core.SendToAddress(addresses.dave, 10)
-    await core.Mine(6)
+    await slowMine(core, 6)
+}
+
+const slowMine = async (core: BitcoinCoreWrapper, blocks: number) => {
+    for (let i = 0; i < blocks; i++) {
+        await core.Mine(1)
+        await new Promise((resolve) => setTimeout(resolve, 500))
+    }
 }
 
 const getAddresses = async (instances: LndInstances): Promise<Addresses> => {
