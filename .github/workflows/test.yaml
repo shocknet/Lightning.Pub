@@ -7,10 +7,6 @@ jobs:
       - uses: actions/checkout@v2
       - name: Build the stack
         run: docker-compose --project-directory ./ -f src/tests/docker-compose.yml up -d
-      - name: Get dir tests
-        run: pwd
-      - name: List files
-        run: ls -la
       - name: Copy alice cert file
         run: docker cp polar-n2-alice:/home/lnd/.lnd/tls.cert alice-tls.cert
       - name: Copy bob cert file
