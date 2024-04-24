@@ -379,12 +379,8 @@ export default class {
                 console.log("message", message)
                 switch (message.update.oneofKind) {
                     case 'chanPending':
-                        abortController.abort()
                         res(Buffer.from(message.pendingChanId).toString('base64'))
                         break
-                    default:
-                        abortController.abort()
-                        rej("unexpected state response: " + message.update.oneofKind)
                 }
             })
             stream.responses.onError(error => {
