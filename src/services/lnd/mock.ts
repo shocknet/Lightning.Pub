@@ -45,7 +45,7 @@ export default class {
     async GetForwardingHistory(indexOffset: number): Promise<{ fee: number, chanIdIn: string, chanIdOut: string, timestampNs: number, offset: number }[]> { throw new Error("GetForwardingHistory disabled in mock mode") }
 
     async GetInfo(): Promise<NodeInfo> {
-        return { alias: "mock", syncedToChain: true, syncedToGraph: true, blockHeight: 1, blockHash: "" }
+        return { alias: "mock", syncedToChain: true, syncedToGraph: true, blockHeight: 1, blockHash: "", identityPubkey: "mock", uris: [] }
     }
 
     async Health(): Promise<void> { }
