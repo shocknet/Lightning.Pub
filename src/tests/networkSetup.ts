@@ -8,7 +8,7 @@ export const setupNetwork = async () => {
     await core.InitAddress()
     await core.Mine(1)
     const lnd = new LND(settings.lndSettings, () => { }, () => { }, () => { }, () => { })
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 30; i++) {
         try {
             const info = await lnd.GetInfo()
             if (!info.syncedToChain) {
@@ -19,6 +19,9 @@ export const setupNetwork = async () => {
             }
             return
         } catch (e) {
+            if (i % 5 === 0) {
+                await core.Mine(1)
+            }
             console.log("waiting for lnd to be ready")
             await new Promise(resolve => setTimeout(resolve, 1000))
         }
