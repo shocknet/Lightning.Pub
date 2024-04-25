@@ -2,7 +2,6 @@ import { LoadTestSettingsFromEnv } from "../services/main/settings.js"
 import { BitcoinCoreWrapper } from "./bitcoinCore.js"
 import LND from '../services/lnd/lnd.js'
 export const setupNetwork = async () => {
-
     const settings = LoadTestSettingsFromEnv()
     const core = new BitcoinCoreWrapper(settings)
     await core.InitAddress()
