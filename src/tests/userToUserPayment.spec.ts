@@ -1,7 +1,7 @@
 import { defaultInvoiceExpiry } from '../services/storage/paymentStorage.js'
 import { Describe, expect, expectThrowsAsync, runSanityCheck, safelySetUserBalance, SetupTest, TestBase } from './testBase.js'
 export const ignore = false
-export const dev = true
+export const dev = false
 export default async (T: TestBase) => {
     await safelySetUserBalance(T, T.user1, 2000)
     await testSuccessfulU2UPayment(T)
