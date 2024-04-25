@@ -333,6 +333,16 @@ export default class {
         return res.response
     }
 
+    async GetChannelBalance() {
+        const res = await this.lightning.channelBalance({}, DeadLineMetadata())
+        return res.response
+    }
+
+    async GetWalletBalance() {
+        const res = await this.lightning.walletBalance({}, DeadLineMetadata())
+        return res.response
+    }
+
     async GetBalance(): Promise<BalanceInfo> {
         const wRes = await this.lightning.walletBalance({}, DeadLineMetadata())
         const { confirmedBalance, unconfirmedBalance, totalBalance } = wRes.response
