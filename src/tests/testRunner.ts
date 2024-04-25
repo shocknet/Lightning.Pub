@@ -19,6 +19,7 @@ const getDescribe = (fileName: string): Describe => {
         }
     }
 }
+
 const start = async () => {
     await setupNetwork()
     const files = await globby(["**/*.spec.js", "!**/node_modules/**"])
