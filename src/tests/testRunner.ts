@@ -1,7 +1,6 @@
 import { globby } from 'globby'
-import { LoadTestSettingsFromEnv } from '../services/main/settings.js'
-import { BitcoinCoreWrapper } from './bitcoinCore.js'
 import { setupNetwork } from './networkSetup.js'
+import { prepareNetwork } from './prepareNetwork.js'
 import { Describe, SetupTest, teardown, TestBase } from './testBase.js'
 
 
@@ -25,10 +24,7 @@ const start = async () => {
     if (process.argv[2] === 'setup_network') {
         await setupNetwork()
     } else {
-        const core = new BitcoinCoreWrapper(LoadTestSettingsFromEnv())
-        await core.InitAddress()
-        await core.Mine(1)
-        await new Promise((resolve) => setTimeout(resolve, 1000))
+        await prepareNetwork()
     }
     const files = await globby(["**/*.spec.js", "!**/node_modules/**"])
     const modules: { file: string, module: TestModule }[] = []
