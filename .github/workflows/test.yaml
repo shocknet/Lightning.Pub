@@ -6,7 +6,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: unzip the file
-        run: unzip ./tests/regtestNetwork.zip
+        run: unzip src/tests/regtestNetwork.zip
       - name: list files
         run: ls -la
       - name: Build the stack
