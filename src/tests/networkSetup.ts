@@ -19,10 +19,7 @@ export const setupNetwork = async () => {
             }
             return
         } catch (e) {
-            if (i % 5 === 0) {
-                await core.Mine(1)
-            }
-            console.log("waiting for lnd to be ready")
+            console.log("waiting for lnd to be ready", e)
             await new Promise(resolve => setTimeout(resolve, 1000))
         }
     }
