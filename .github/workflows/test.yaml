@@ -52,4 +52,4 @@ jobs:
       - name: Install dependencies
         run: npm install
       - name: Run tests
-        run: npm test setup_network
+        run: npm test
