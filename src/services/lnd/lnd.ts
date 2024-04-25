@@ -371,6 +371,11 @@ export default class {
         return res.response
     }
 
+    async ListPeers() {
+        const res = await this.lightning.listPeers({ latestError: true }, DeadLineMetadata())
+        return res.response
+    }
+
     async OpenChannel(destination: string, closeAddress: string, fundingAmount: number, pushSats: number) {
         const abortController = new AbortController()
         const req = OpenChannelReq(destination, closeAddress, fundingAmount, pushSats)
