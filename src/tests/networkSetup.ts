@@ -20,11 +20,22 @@ export const setupNetwork = async () => {
     await tryUntil<void>(async i => {
         const info = await alice.GetInfo()
         if (!info.syncedToChain) {
-            throw new Error("not synced to chain")
+            throw new Error("alice not synced to chain")
         }
         if (!info.syncedToGraph) {
             //await lnd.ConnectPeer({})
-            throw new Error("not synced to graph")
+            throw new Error("alice not synced to graph")
+        }
+    }, 15, 2000)
+
+    await tryUntil<void>(async i => {
+        const info = await bob.GetInfo()
+        if (!info.syncedToChain) {
+            throw new Error("bob not synced to chain")
+        }
+        if (!info.syncedToGraph) {
+            //await lnd.ConnectPeer({})
+            throw new Error("bob not synced to graph")
         }
     }, 15, 2000)
 }
