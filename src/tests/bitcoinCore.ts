@@ -15,11 +15,13 @@ export class BitcoinCoreWrapper {
             timeout: 5 * 60 * 1000,
         })
     }
-
+    InitAddress = async () => {
+        this.addr = await this.core.getNewAddress()
+    }
     Init = async () => {
         const wallet = await this.core.createWallet('');
         console.log({ wallet })
-        this.addr = await this.core.getNewAddress()
+        await this.InitAddress()
         console.log({ addr: this.addr })
         await this.Mine(101)
         const info = await this.core.getWalletInfo();
