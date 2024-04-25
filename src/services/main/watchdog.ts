@@ -51,24 +51,12 @@ export class Watchdog {
 
 
     getTotalLndBalance = async (usersTotal: number) => {
-        const localLog = getLogger({ appName: "debugLndBalancev2" })
-        getLogger({ appName: "debugChannelBalanceRpc" })(await this.lnd.GetChannelBalance())
-        const { confirmedBalance, channelsBalance } = await this.lnd.GetBalance()
-        this.log(confirmedBalance, "sats in chain wallet")
-        localLog({ c: channelsBalance, u: usersTotal })
-        let totalBalance = confirmedBalance
-        channelsBalance.forEach(c => {
-            let totalBalanceInHtlcs = 0
-            c.htlcs.forEach(htlc => {
-                if (htlc.incoming) {
-                    totalBalanceInHtlcs += htlc.amount
-                } else {
-                    //totalBalanceInHtlcs -= htlc.amount
-                }
-            })
-            totalBalance += c.localBalanceSats + totalBalanceInHtlcs
-        })
-        return totalBalance
+        const walletBalance = await this.lnd.GetWalletBalance()
+        this.log(Number(walletBalance.confirmedBalance), "sats in chain wallet")
+        const channelsBalance = await this.lnd.GetChannelBalance()
+        getLogger({ appName: "debugLndBalancev3" })({ w: walletBalance, c: channelsBalance, u: usersTotal })
+        const localChannelsBalance = Number(channelsBalance.localBalance?.sat || 0)
+        return Number(walletBalance.confirmedBalance) + localChannelsBalance
     }
 
     checkBalanceUpdate = (deltaLnd: number, deltaUsers: number) => {
