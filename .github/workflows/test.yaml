@@ -5,6 +5,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - name: unzip the file
+        uses: unzip tests/regtestNetwork.zip
+      - name: list files
+        run: ls -la
       - name: Build the stack
         run: docker-compose --project-directory ./ -f src/tests/docker-compose.yml up -d
       - name: Copy alice cert file
