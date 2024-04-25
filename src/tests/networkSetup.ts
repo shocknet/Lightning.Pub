@@ -4,9 +4,9 @@ import LND from '../services/lnd/lnd.js'
 export const setupNetwork = async () => {
 
     const settings = LoadTestSettingsFromEnv()
-    const core = new BitcoinCoreWrapper(settings)
-    await core.InitAddress()
-    await core.Mine(1)
+    //const core = new BitcoinCoreWrapper(settings)
+    //await core.InitAddress()
+    //await core.Mine(1)
     const lnd = new LND(settings.lndSettings, () => { }, () => { }, () => { }, () => { })
     for (let i = 0; i < 30; i++) {
         try {
@@ -15,6 +15,7 @@ export const setupNetwork = async () => {
                 throw new Error("not synced to chain")
             }
             if (!info.syncedToGraph) {
+                await lnd.ConnectPeer({})
                 throw new Error("not synced to graph")
             }
             return
