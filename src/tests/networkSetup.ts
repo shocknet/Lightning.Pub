@@ -26,5 +26,5 @@ export const setupNetwork = async () => {
             await new Promise(resolve => setTimeout(resolve, 1000))
         }
     }
-    throw new Error("lnd is not ready after 10 seconds")
+    throw new Error("lnd is not ready after 30 seconds")
 }
