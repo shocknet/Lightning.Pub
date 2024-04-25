@@ -1,6 +1,5 @@
 import { globby } from 'globby'
 import { setupNetwork } from './networkSetup.js'
-import { prepareNetwork } from './prepareNetwork.js'
 import { Describe, SetupTest, teardown, TestBase } from './testBase.js'
 
 
@@ -21,11 +20,7 @@ const getDescribe = (fileName: string): Describe => {
     }
 }
 const start = async () => {
-    if (process.argv[2] === 'setup_network') {
-        await setupNetwork()
-    } else {
-        await prepareNetwork()
-    }
+    await setupNetwork()
     const files = await globby(["**/*.spec.js", "!**/node_modules/**"])
     const modules: { file: string, module: TestModule }[] = []
     let devModule = -1
