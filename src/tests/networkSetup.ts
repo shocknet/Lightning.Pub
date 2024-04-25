@@ -15,12 +15,13 @@ export const setupNetwork = async () => {
                 throw new Error("not synced to chain")
             }
             if (!info.syncedToGraph) {
-                await lnd.ConnectPeer({})
+                //await lnd.ConnectPeer({})
                 throw new Error("not synced to graph")
             }
             return
         } catch (e) {
             console.log("waiting for lnd to be ready", e)
+            console.log(await lnd.ListPeers())
             await new Promise(resolve => setTimeout(resolve, 1000))
         }
     }
