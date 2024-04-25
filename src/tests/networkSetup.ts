@@ -10,10 +10,18 @@ export const setupNetwork = async () => {
     const alice = new LND(settings.lndSettings, () => { }, () => { }, () => { }, () => { })
     const bob = new LND({ ...settings.lndSettings, mainNode: settings.lndSettings.otherNode }, () => { }, () => { }, () => { }, () => { })
     await tryUntil<void>(async i => {
+        const peers = await alice.ListPeers()
+        if (peers.peers.length > 0) {
+            return
+        }
         await alice.ConnectPeer({ pubkey: '0232842d81b2423df97aa8a264f8c0811610a736af65afe2e145279f285625c1e4', host: "carol:9735" })
         await alice.ConnectPeer({ pubkey: '027c50fde118af534ff27e59da722422d2f3e06505c31e94c1b40c112c48a83b1c', host: "dave:9735" })
     }, 15, 2000)
     await tryUntil<void>(async i => {
+        const peers = await bob.ListPeers()
+        if (peers.peers.length > 0) {
+            return
+        }
         await bob.ConnectPeer({ pubkey: '0232842d81b2423df97aa8a264f8c0811610a736af65afe2e145279f285625c1e4', host: "carol:9735" })
     }, 15, 2000)
 
