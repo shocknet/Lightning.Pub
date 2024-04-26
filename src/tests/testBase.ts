@@ -9,7 +9,6 @@ import chaiString from 'chai-string'
 import { defaultInvoiceExpiry } from '../services/storage/paymentStorage.js'
 import SanityChecker from '../services/main/sanityChecker.js'
 import LND from '../services/lnd/lnd.js'
-import { LightningHandler } from '../services/lnd/index.js'
 chai.use(chaiString)
 export const expect = chai.expect
 export type Describe = (message: string, failure?: boolean) => void
