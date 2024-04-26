@@ -5,15 +5,15 @@ import { HtlcEvent, HtlcEvent_EventType } from '../../../proto/lnd/router.js'
 import { BalanceInfo } from '../lnd/settings.js'
 import { BalanceEvent } from '../storage/entity/BalanceEvent.js'
 import { ChannelBalanceEvent } from '../storage/entity/ChannelsBalanceEvent.js'
-import { LightningHandler } from '../lnd/index.js'
+import LND from '../lnd/lnd.js'
 import HtlcTracker from './htlcTracker.js'
 const maxEvents = 100_000
 export default class Handler {
     storage: Storage
-    lnd: LightningHandler
+    lnd: LND
     htlcTracker: HtlcTracker
     metrics: Types.UsageMetric[] = []
-    constructor(storage: Storage, lnd: LightningHandler) {
+    constructor(storage: Storage, lnd: LND) {
         this.storage = storage
         this.lnd = lnd
         this.htlcTracker = new HtlcTracker(this.storage)
