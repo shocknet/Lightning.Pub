@@ -80,7 +80,22 @@ export default class {
         this.SubscribeInvoicePaid()
         this.SubscribeNewBlock()
         this.SubscribeHtlcEvents()
-        this.ready = true
+        const now = Date.now()
+        return new Promise<void>((res, rej) => {
+            const interval = setInterval(async () => {
+                try {
+                    await this.GetInfo()
+                    clearInterval(interval)
+                    this.ready = true
+                    res()
+                } catch (err) {
+                    this.log("LND is not ready yet, will try again in 1 second")
+                    if (Date.now() - now > 1000 * 60) {
+                        rej(new Error("LND not ready after 1 minute"))
+                    }
+                }
+            }, 1000)
+        })
     }
 
     async GetInfo(): Promise<NodeInfo> {
@@ -277,6 +292,7 @@ export default class {
             stream.responses.onMessage(payment => {
                 switch (payment.status) {
                     case Payment_PaymentStatus.FAILED:
+                        console.log(payment)
                         this.log("invoice payment failed", payment.failureReason)
                         rej(PaymentFailureReason[payment.failureReason])
                         return
@@ -356,29 +372,37 @@ export default class {
         return res.response
     }
 
-    async OpenChannel(destination: string, closeAddress: string, fundingAmount: number, pushSats: number): Promise<string> {
-        await this.Health()
+    async ConnectPeer(addr: { pubkey: string, host: string }) {
+        const res = await this.lightning.connectPeer({
+            addr,
+            perm: true,
+            timeout: 0n
+        }, DeadLineMetadata())
+        return res.response
+    }
+
+    async ListPeers() {
+        const res = await this.lightning.listPeers({ latestError: true }, DeadLineMetadata())
+        return res.response
+    }
+
+    async OpenChannel(destination: string, closeAddress: string, fundingAmount: number, pushSats: number) {
         const abortController = new AbortController()
         const req = OpenChannelReq(destination, closeAddress, fundingAmount, pushSats)
         const stream = this.lightning.openChannel(req, { abort: abortController.signal })
         return new Promise((res, rej) => {
             stream.responses.onMessage(message => {
-
+                console.log("message", message)
                 switch (message.update.oneofKind) {
                     case 'chanPending':
-                        abortController.abort()
                         res(Buffer.from(message.pendingChanId).toString('base64'))
                         break
-                    default:
-                        abortController.abort()
-                        rej("unexpected state response: " + message.update.oneofKind)
                 }
             })
             stream.responses.onError(error => {
+                console.log("error", error)
                 rej(error)
             })
         })
     }
 }
-
-
