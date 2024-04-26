@@ -66,8 +66,7 @@ export const SetupTest = async (d: Describe): Promise<TestBase> => {
 }
 
 export const teardown = async (T: TestBase) => {
-    T.main.paymentManager.watchDog.Stop()
-    T.main.lnd.Stop()
+    T.main.Stop()
     T.externalAccessToMainLnd.Stop()
     T.externalAccessToOtherLnd.Stop()
     T.externalAccessToThirdLnd.Stop()
