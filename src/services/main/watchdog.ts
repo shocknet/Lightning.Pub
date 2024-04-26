@@ -1,6 +1,6 @@
 import { EnvCanBeInteger } from "../helpers/envParser.js";
 import { getLogger } from "../helpers/logger.js";
-import { LightningHandler } from "../lnd/index.js";
+import LND from "../lnd/lnd.js";
 import { ChannelBalance } from "../lnd/settings.js";
 import Storage from '../storage/index.js'
 export type WatchdogSettings = {
@@ -15,14 +15,14 @@ export class Watchdog {
 
     initialLndBalance: number;
     initialUsersBalance: number;
-    lnd: LightningHandler;
+    lnd: LND;
     settings: WatchdogSettings;
     storage: Storage;
     latestCheckStart = 0
     log = getLogger({ appName: "watchdog" })
     enabled = false
     interval: NodeJS.Timer;
-    constructor(settings: WatchdogSettings, lnd: LightningHandler, storage: Storage) {
+    constructor(settings: WatchdogSettings, lnd: LND, storage: Storage) {
         this.lnd = lnd;
         this.settings = settings;
         this.storage = storage;
