@@ -56,7 +56,8 @@ export class Watchdog {
         const channelsBalance = await this.lnd.GetChannelBalance()
         getLogger({ appName: "debugLndBalancev3" })({ w: walletBalance, c: channelsBalance, u: usersTotal })
         const localChannelsBalance = Number(channelsBalance.localBalance?.sat || 0)
-        return Number(walletBalance.confirmedBalance) + localChannelsBalance
+        const unsettledLocalBalance = Number(channelsBalance.unsettledLocalBalance?.sat || 0)
+        return Number(walletBalance.confirmedBalance) + localChannelsBalance + unsettledLocalBalance
     }
 
     checkBalanceUpdate = (deltaLnd: number, deltaUsers: number) => {
