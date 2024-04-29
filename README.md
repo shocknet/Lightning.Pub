@@ -12,7 +12,7 @@
 
 It may come as a surprise that the biggest hurdle to more Uncle Jim's nodes hasn't been with Bitcoin/Lightning node management itself, that's easily automated as illustrated by bad patterns like mobile nodes.
 
-It's the legacy baggage of traditional web infrastructure, things like IP4, reverse proxies, DNS, Firewalls and SSL certificates, all which require a personal configuration that is a hurdle for most. The slow and unreliable nature Tor as proven to be a dead-end. Bolt12 is a re-implementation of Tor that destined for the same fate.
+It's the legacy baggage of traditional web infrastructure, things like IP4, reverse proxies, DNS, Firewalls and SSL certificates, all which require a personal configuration that is a hurdle for most. The slow and unreliable nature Tor as proven to be a dead-end. Bolt12 is a re-implementation of Tor that is destined for the same fate.
 
 Pub solves these network challenges with a Full and Nostr-native RPC. Being Nostr-native eliminates the complexity of legacy server configuration by using completely commoditized and trustless Nostr relays. Additionally, some optional services are integrated for backward compatibility with LNURL and Lightning Address.
 
