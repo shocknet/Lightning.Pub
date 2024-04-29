@@ -8,15 +8,15 @@
 
 ### Don't just run a Lightning Node, run a Lightning Pub.
 
-"Pub" is a `nostr` native account system, the goal of the project is to make running Lightning infrastructure for your friends/family/customers easier than previously thought possible.
+"Pub" is a [Nostr](https://nostr.info/)-native account system, the goal of which is to make running Lightning infrastructure for your friends/family/customers easier than previously thought possible.
 
-It may come as a surprise that the biggest hurdle to more Uncle Jim's nodes hasn't been with Bitcoin/Lightning node management itself, that's easily automated as illustrated by bad patterns, like mobile nodes and unreliable Tor connections.
+It may come as a surprise that the biggest hurdle to more Uncle Jim's nodes hasn't been with Bitcoin/Lightning node management itself, that's easily automated as illustrated by bad patterns like mobile nodes.
 
-It's the legacy baggage of traditional web infrastructure, things like IP4, reverse proxies, DNS, Firewalls and SSL certificates, all which require a personal configuration that is a hurdle for most.
+It's the legacy baggage of traditional web infrastructure, things like IP4, reverse proxies, DNS, Firewalls and SSL certificates, all which require a personal configuration that is a hurdle for most. The slow and unreliable nature Tor as proven to be a dead-end. Bolt12 is a re-implementation of Tor that destined for the same fate.
 
-Pub solves these challenges with a [Nostr](https://nostr.info/)-native RPC. Being Nostr-native eliminates the complexity of legacy server configuration using completely commoditized and trustless Nostr relays. Additionally, some optional services are integrated for backward compatibility with LNURL and Lightning Address.
+Pub solves these network challenges with a Full and Nostr-native RPC. Being Nostr-native eliminates the complexity of legacy server configuration by using completely commoditized and trustless Nostr relays. Additionally, some optional services are integrated for backward compatibility with LNURL and Lightning Address.
 
-By solving the networking and programability hurdles, Pub enables node-runners and Uncle Jim's to bring their personal network into Bitcoin's permissionless circular economy. All while keeping the Lightning Network decentralized, and custodial scaling free of fiat rails, large banks, and other forms of high-time preference shitcoinery.
+By solving the networking and programability hurdles, Pub's provides a 3rd Lightning Layer that enables node-runners and Uncle Jim's to more easily bring their personal network into Bitcoin's permissionless economy. Pub does so while keeping the Lightning Network decentralized, and custodial scaling free of fiat rails, large banks, and other forms of high-time preference shitcoinery.
 
 #### Features:
 
@@ -28,9 +28,9 @@ By solving the networking and programability hurdles, Pub enables node-runners a
 ![Accounts](https://github.com/shocknet/Lightning.Pub/raw/master/accounting_layers.png) 
 
 #### Planned
-- [ ] Management Dashboard is being integrated into [ShockWallet](https://github.com/shocknet/wallet2) 
+- [ ] Management Dashboard is actively being integrated into [ShockWallet](https://github.com/shocknet/wallet2)
 - [ ] Nostr native "offers"
-- [ ] Channel Automation
+- [ ] Automated Channel Management
 - [ ] Bootstrap Peering (Passive "LSP")
 - [ ] Subscriptions / Notifications
 - [ ] Submarine Swaps
@@ -53,7 +53,7 @@ Coming Soon
 
 Coming Soon
 
-## Manual Installation
+## Manual CLI Installation
 
 #### Notes:
 * Use of a reverse proxy is only required if you wish to serve LNURLs
@@ -64,7 +64,7 @@ Coming Soon
 1) Run [LND](https://github.com/lightningnetwork/lnd/releases) - *Example mainnet startup*:
 
  ```
- ./lnd --bitcoin.active --bitcoin.mainnet --bitcoin.node=neutrino --neutrino.connect=neutrino.shock.network --accept-keysend --allow-circular-route --feeurl=https://nodes.lightning.computer/fees/v1/btc-fee-estimates.json
+ ./lnd --bitcoin.active --bitcoin.mainnet --bitcoin.node=neutrino --neutrino.addpeer=neutrino.shock.network --feeurl=https://nodes.lightning.computer/fees/v1/btc-fee-estimates.json
  ```
 
 
@@ -81,7 +81,7 @@ cd Lightning.Pub && npm i
 
 5) `npm start`
 
-A default "wallet" pool will be automatically created, if you wish to create something other:
+A default "wallet" application pool will be automatically created, if you wish to create other app pools:
 
 ```
 curl -XPOST -H 'Authorization: Bearer defined_in_constants.ts' -H "Content-type: application/json" -d '{"name":"ExampleApplicationPoolName"}' 'http://localhost:8080/api/admin/app/add'
