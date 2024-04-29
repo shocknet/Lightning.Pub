@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  lightning-pub:
+    image: lightning-pub
+    volumes:
+      - ./data:/app/data  # Mount a volume to persist db.sqlite
+    environment:
+      # Provide actual LND container name or network details for LND_ADDRESS
+      LND_ADDRESS: lnd:10009
+    depends_on:
+      - lnd
+
+  lnd:
+    # ... configuration for the LND container
