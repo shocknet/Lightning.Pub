@@ -10,9 +10,9 @@
 
 "Pub" is a [Nostr](https://nostr.info)-native account system designed to make running Lightning infrastructure for your friends/family/customers easier than previously thought possible.
 
-It may come as a surprise that the biggest hurdle to more Uncle Jim's nodes hasn't been with Bitcoin/Lightning node management itself, that's easily automated as illustrated by bad patterns like mobile nodes.
+It may come as a surprise that the biggest hurdle to more Uncle Jim nodes hasn't been with Bitcoin/Lightning node management itself, since even in bad patterns like mobile nodes, that is easily automated.
 
-It's the legacy baggage of traditional web infrastructure, things like IP4, reverse proxies, DNS, Firewalls and SSL certificates, all of which require a personal configuration that is a hurdle for most. The slow and unreliable nature of things like Tor have proven to be a dead-end. Bolt12 as a re-implementation of Tor is destined for the same fate.
+It's the legacy baggage of traditional web infrastructure, things like IP4, reverse proxies, DNS, Firewalls and SSL certificates, all of which require a personal configuration that is a hurdle for most. The slow and unreliable nature of things like Tor have proven to be dead-ends, and Bolt12 being a re-implementation of Tor is destined for the same fate.
 
 Pub solves these network challenges with a Full RPC that is Nostr-native. Being Nostr-native eliminates the complexity of legacy server configuration by using completely commoditized and trustless Nostr relays. Additionally, some optional services are integrated for backward compatibility with LNURL and Lightning Address.
 
@@ -30,9 +30,9 @@ By solving the networking and programability hurdles, Pub's provide a 3rd Lightn
 #### Planned
 - [ ] Management Dashboard is actively being integrated into [ShockWallet](https://github.com/shocknet/wallet2)
 - [ ] Nostr native "offers"
-- [ ] Automated Channel Management
+- [ ] Automated Channels
 - [ ] Bootstrap Peering (Passive "LSP")
-- [ ] Subscriptions / Notifications
+- [ ] Event Notifications
 - [ ] Submarine Swaps
 - [ ] High-Availabilty / Clustering
 
@@ -40,7 +40,8 @@ Dashboard Wireframe:
 
 <img src="https://shockwallet.b-cdn.net/pub_home_ss.png" alt="Pub Dashboard" width="240">
 
-#### ShockWallet and Lightning.Pub are free software. If you would like to see continued development, please show your [support](https://github.com/sponsors/shocknet) :)
+> [!IMPORTANT]  
+> ShockWallet and Lightning.Pub are free software. If you would like to see continued development, please show your [**support**](https://github.com/sponsors/shocknet) 😊
 
 > [!WARNING]  
 > While this software has been used in a high-profile production environment for over a year, it should still be considered bleeding edge. Special care has been taken to mitigate the risk of drainage attacks, which is a common risk to all Lightning API's. An integrated Watchdog service will terminate spends if it detects a discrepency between LND and the database, for this reason **IT IS NOT RECOMMENDED TO USE PUB ALONGSIDE OTHER ACCOUNT SYSTEMS**. While we give the utmost care and attention to security, **the internet is an adversarial environment and SECURITY/RELIABILITY ARE NOT GUARANTEED- USE AT YOUR OWN RISK**.
@@ -73,20 +74,23 @@ Coming Soon
 
 2) Download and Install Lightning.Pub
 
-```
-git clone https://github.com/shocknet/Lightning.Pub
-cd Lightning.Pub && npm i
-```
 
-3) Configure values to env file as desired `cp env.example .env && nano .env`
+    * `git clone https://github.com/shocknet/Lightning.Pub`
 
-4) `npm start`
+    * `cd Lightning.Pub && npm i`
+
+
+3) Configure values to env file as desired
+   * `cp env.example .env && nano .env`
+
+5) `npm start`
 
 - A default "wallet" application pool will be automatically created, if you wish to create other app pools:
   
-    `curl -XPOST -H 'Authorization: Bearer defined_in_ADMIN_TOKEN_env' -H "Content-type: application/json" -d '{"name":"ExampleApplicationPoolName"}' 'http://localhost:8080/api/admin/app/add'`
+    * `curl -XPOST -H 'Authorization: Bearer defined_in_ADMIN_TOKEN_env' -H "Content-type: application/json" -d '{"name":"ExampleApplicationPoolName"}' 'http://localhost:8080/api/admin/app/add'`
 
 5) Connect with [wallet2](https://github.com/shocknet/wallet2) using the wallet nprofile that gets logged at startup.
-> Note that connecting with wallet will create an account on the node, it will not show or have access to the full LND balance
+> [!NOTE]  
+> Connecting with wallet will create an account on the node, it will not show or have access to the full LND balance
 
 
