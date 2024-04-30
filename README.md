@@ -42,8 +42,8 @@ Dashboard Wireframe:
 
 #### ShockWallet and Lightning.Pub are free software. If you would like to see continued development, please show your [support](https://github.com/sponsors/shocknet) :)
 
-
-> **WARNING:** While this software has been used in a high-profile production environment for over a year, it should still be considered bleeding edge. Special care has been taken to mitigate the risk of drainage attacks, which is a common risk to all Lightning API's. An integrated Watchdog service will terminate spends if it detects a discrepency between LND and the database, for this reason IT IS NOT RECOMMENDED TO USE PUB ALONGSIDE OTHER ACCOUNT SYSTEMS. While we give the utmost care and attention to security, the internet is an adversarial environment and SECURITY/RELIABILITY ARE NOT GUARANTEED- USE AT YOUR OWN RISK.
+> [!WARNING]  
+> While this software has been used in a high-profile production environment for over a year, it should still be considered bleeding edge. Special care has been taken to mitigate the risk of drainage attacks, which is a common risk to all Lightning API's. An integrated Watchdog service will terminate spends if it detects a discrepency between LND and the database, for this reason **IT IS NOT RECOMMENDED TO USE PUB ALONGSIDE OTHER ACCOUNT SYSTEMS**. While we give the utmost care and attention to security, **the internet is an adversarial environment and SECURITY/RELIABILITY ARE NOT GUARANTEED- USE AT YOUR OWN RISK**.
 
 ## Umbrel Installation
 
@@ -59,7 +59,7 @@ Coming Soon
 * Use of a reverse proxy is only required if you wish to serve LNURLs
 * The service defaults to port `8080`
 * Requires [Node.js](https://nodejs.org) >=18.x
-* Commands for your specific OS may differe slightly, Ubuntu/Debian used for example
+* Commands for your specific OS may differ slightly, Ubuntu/Debian used for example
 
 #### Steps:
 1) Run [LND](https://github.com/lightningnetwork/lnd/releases) if you aren't already
@@ -80,13 +80,13 @@ cd Lightning.Pub && npm i
 
 3) Configure values to env file as desired `cp env.example .env && nano .env`
 
-5) `npm start`
+4) `npm start`
 
 - A default "wallet" application pool will be automatically created, if you wish to create other app pools:
   
     `curl -XPOST -H 'Authorization: Bearer defined_in_ADMIN_TOKEN_env' -H "Content-type: application/json" -d '{"name":"ExampleApplicationPoolName"}' 'http://localhost:8080/api/admin/app/add'`
 
-6) Connect with [wallet2](https://github.com/shocknet/wallet2) using the wallet nprofile that gets logged at startup.
+5) Connect with [wallet2](https://github.com/shocknet/wallet2) using the wallet nprofile that gets logged at startup.
 > Note that connecting with wallet will create an account on the node, it will not show or have access to the full LND balance
 
 
