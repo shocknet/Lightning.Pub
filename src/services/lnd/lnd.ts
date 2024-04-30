@@ -8,7 +8,7 @@ import { LightningClient } from '../../../proto/lnd/lightning.client.js'
 import { InvoicesClient } from '../../../proto/lnd/invoices.client.js'
 import { RouterClient } from '../../../proto/lnd/router.client.js'
 import { ChainNotifierClient } from '../../../proto/lnd/chainnotifier.client.js'
-import { GetInfoResponse, AddressType, NewAddressResponse, AddInvoiceResponse, Invoice_InvoiceState, PayReq, Payment_PaymentStatus, Payment, PaymentFailureReason, SendCoinsResponse, EstimateFeeResponse, ChannelBalanceResponse, TransactionDetails, ListChannelsResponse, ClosedChannelsResponse, PendingChannelsResponse } from '../../../proto/lnd/lightning.js'
+import { GetInfoResponse, AddressType, NewAddressResponse, AddInvoiceResponse, Invoice_InvoiceState, PayReq, Payment_PaymentStatus, Payment, PaymentFailureReason, SendCoinsResponse, EstimateFeeResponse, ChannelBalanceResponse, TransactionDetails, ListChannelsResponse, ClosedChannelsResponse, PendingChannelsResponse, ForwardingHistoryResponse } from '../../../proto/lnd/lightning.js'
 import { OpenChannelReq } from './openChannelReq.js';
 import { AddInvoiceReq } from './addInvoiceReq.js';
 import { PayInvoiceReq } from './payInvoiceReq.js';
@@ -358,9 +358,9 @@ export default class {
         return { confirmedBalance: Number(confirmedBalance), unconfirmedBalance: Number(unconfirmedBalance), totalBalance: Number(totalBalance), channelsBalance }
     }
 
-    async GetForwardingHistory(indexOffset: number): Promise<{ fee: number, chanIdIn: string, chanIdOut: string, timestampNs: number, offset: number }[]> {
-        const { response } = await this.lightning.forwardingHistory({ indexOffset, numMaxEvents: 0, startTime: 0n, endTime: 0n, peerAliasLookup: false }, DeadLineMetadata())
-        return response.forwardingEvents.map(e => ({ fee: Number(e.fee), chanIdIn: e.chanIdIn, chanIdOut: e.chanIdOut, timestampNs: Number(e.timestampNs), offset: response.lastOffsetIndex }))
+    async GetForwardingHistory(indexOffset: number, startTime = 0): Promise<ForwardingHistoryResponse> {
+        const { response } = await this.lightning.forwardingHistory({ indexOffset, numMaxEvents: 0, startTime: BigInt(startTime), endTime: 0n, peerAliasLookup: false }, DeadLineMetadata())
+        return response
     }
 
     async GetAllPaidInvoices(max: number) {

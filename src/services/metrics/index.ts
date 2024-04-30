@@ -40,7 +40,8 @@ export default class Handler {
 
     async FetchLatestForwardingEvents() {
         const latestIndex = await this.storage.metricsStorage.GetLatestForwardingIndexOffset()
-        const forwards = await this.lnd.GetForwardingHistory(latestIndex)
+        const res = await this.lnd.GetForwardingHistory(latestIndex)
+        const forwards = res.forwardingEvents.map(e => ({ fee: Number(e.fee), chanIdIn: e.chanIdIn, chanIdOut: e.chanIdOut, timestampNs: e.timestampNs.toString(), offset: res.lastOffsetIndex }))
         await Promise.all(forwards.map(async f => {
             await this.storage.metricsStorage.IncrementChannelRouting(f.chanIdIn, { forward_fee_as_input: f.fee, latest_index_offset: f.offset })
             await this.storage.metricsStorage.IncrementChannelRouting(f.chanIdOut, { forward_fee_as_output: f.fee, latest_index_offset: f.offset })

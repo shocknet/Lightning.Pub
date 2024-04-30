@@ -1,4 +1,5 @@
 import { EnvCanBeInteger } from "../helpers/envParser.js";
+import FunctionQueue from "../helpers/functionQueue.js";
 import { getLogger } from "../helpers/logger.js";
 import LND from "../lnd/lnd.js";
 import { ChannelBalance } from "../lnd/settings.js";
@@ -12,20 +13,24 @@ export const LoadWatchdogSettingsFromEnv = (test = false): WatchdogSettings => {
     }
 }
 export class Watchdog {
-
+    queue: FunctionQueue<void>
     initialLndBalance: number;
     initialUsersBalance: number;
+    startedAtUnix: number;
+    latestIndexOffset: number;
+    accumulatedHtlcFees: number;
     lnd: LND;
     settings: WatchdogSettings;
     storage: Storage;
     latestCheckStart = 0
     log = getLogger({ appName: "watchdog" })
-    enabled = false
+    ready = false
     interval: NodeJS.Timer;
     constructor(settings: WatchdogSettings, lnd: LND, storage: Storage) {
         this.lnd = lnd;
         this.settings = settings;
         this.storage = storage;
+        this.queue = new FunctionQueue("watchdog::queue", () => this.StartCheck())
     }
 
     Stop() {
@@ -35,10 +40,13 @@ export class Watchdog {
     }
 
     Start = async () => {
+        this.startedAtUnix = Math.floor(Date.now() / 1000)
         const totalUsersBalance = await this.storage.paymentStorage.GetTotalUsersBalance()
         this.initialLndBalance = await this.getTotalLndBalance(totalUsersBalance)
         this.initialUsersBalance = totalUsersBalance
-        this.enabled = true
+        const fwEvents = await this.lnd.GetForwardingHistory(0, this.startedAtUnix)
+        this.latestIndexOffset = fwEvents.lastOffsetIndex
+        this.accumulatedHtlcFees = 0
 
         this.interval = setInterval(() => {
             if (this.latestCheckStart + (1000 * 60) < Date.now()) {
@@ -46,6 +54,17 @@ export class Watchdog {
                 this.PaymentRequested()
             }
         }, 1000 * 60)
+
+        this.ready = true
+    }
+
+    updateAccumulatedHtlcFees = async () => {
+        const fwEvents = await this.lnd.GetForwardingHistory(this.latestIndexOffset, this.startedAtUnix)
+        this.latestIndexOffset = fwEvents.lastOffsetIndex
+        fwEvents.forwardingEvents.forEach((event) => {
+            this.accumulatedHtlcFees += Number(event.fee)
+        })
+
     }
 
 
@@ -54,10 +73,11 @@ export class Watchdog {
         const walletBalance = await this.lnd.GetWalletBalance()
         this.log(Number(walletBalance.confirmedBalance), "sats in chain wallet")
         const channelsBalance = await this.lnd.GetChannelBalance()
-        getLogger({ appName: "debugLndBalancev3" })({ w: walletBalance, c: channelsBalance, u: usersTotal })
+        getLogger({ appName: "debugLndBalancev3" })({ w: walletBalance, c: channelsBalance, u: usersTotal, f: this.accumulatedHtlcFees })
+
         const localChannelsBalance = Number(channelsBalance.localBalance?.sat || 0)
         const unsettledLocalBalance = Number(channelsBalance.unsettledLocalBalance?.sat || 0)
-        return Number(walletBalance.confirmedBalance) + localChannelsBalance + unsettledLocalBalance
+        return Number(walletBalance.confirmedBalance) + localChannelsBalance + unsettledLocalBalance + this.accumulatedHtlcFees
     }
 
     checkBalanceUpdate = (deltaLnd: number, deltaUsers: number) => {
@@ -111,13 +131,9 @@ export class Watchdog {
         return false
     }
 
-    PaymentRequested = async () => {
-        this.log("Payment requested, checking balance")
-        if (!this.enabled) {
-            this.log("WARNING! Watchdog not enabled, skipping balance check")
-            return
-        }
+    StartCheck = async () => {
         this.latestCheckStart = Date.now()
+        await this.updateAccumulatedHtlcFees()
         const totalUsersBalance = await this.storage.paymentStorage.GetTotalUsersBalance()
         const totalLndBalance = await this.getTotalLndBalance(totalUsersBalance)
         const deltaLnd = totalLndBalance - this.initialLndBalance
@@ -129,6 +145,16 @@ export class Watchdog {
             return
         }
         this.lnd.UnlockOutgoingOperations()
+    }
+
+    PaymentRequested = async () => {
+        this.log("Payment requested, checking balance")
+        if (!this.ready) {
+            throw new Error("Watchdog not ready")
+        }
+        return new Promise<void>((res, rej) => {
+            this.queue.Run({ res, rej })
+        })
     }
 
     checkDeltas = (deltaLnd: number, deltaUsers: number): DeltaCheckResult => {
