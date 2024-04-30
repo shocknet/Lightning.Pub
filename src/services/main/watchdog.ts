@@ -77,7 +77,7 @@ export class Watchdog {
 
         const localChannelsBalance = Number(channelsBalance.localBalance?.sat || 0)
         const unsettledLocalBalance = Number(channelsBalance.unsettledLocalBalance?.sat || 0)
-        return Number(walletBalance.confirmedBalance) + localChannelsBalance + unsettledLocalBalance + this.accumulatedHtlcFees
+        return Number(walletBalance.confirmedBalance) + localChannelsBalance + unsettledLocalBalance
     }
 
     checkBalanceUpdate = (deltaLnd: number, deltaUsers: number) => {
@@ -136,7 +136,7 @@ export class Watchdog {
         await this.updateAccumulatedHtlcFees()
         const totalUsersBalance = await this.storage.paymentStorage.GetTotalUsersBalance()
         const totalLndBalance = await this.getTotalLndBalance(totalUsersBalance)
-        const deltaLnd = totalLndBalance - this.initialLndBalance
+        const deltaLnd = totalLndBalance - (this.initialLndBalance + this.accumulatedHtlcFees)
         const deltaUsers = totalUsersBalance - this.initialUsersBalance
         const deny = this.checkBalanceUpdate(deltaLnd, deltaUsers)
         if (deny) {
