@@ -8,11 +8,15 @@
 
 ### Don't just run a Lightning Node, run a Lightning Pub.
 
-"Pub" is a `nostr` native account system that makes connecting your node to apps and websites super easy. 
+"Pub" is a [Nostr](https://nostr.info)-native account system designed to make running Lightning infrastructure for your friends/family/customers easier than previously thought possible.
 
-Using Nostr relays as transport for encrypted RPCs, Pub eliminates the complexity of WebServer and SSL configurations.
+It may come as a surprise that the biggest hurdle to more Uncle Jim nodes hasn't been with Bitcoin/Lightning node management itself, since even in bad patterns like mobile nodes, that is easily automated.
 
-By solving the networking and programability hurdles, Pub enables node-runners and Uncle Jim's to bring their Friends, Family and Customers into Bitcoin's permissionless circular economy. All while keeping the Lightning Network decentralized, and custodial scaling free of fiat shitcoin rails and large banks. 
+It's the legacy baggage of traditional web infrastructure, things like IP4, reverse proxies, DNS, Firewalls and SSL certificates, all of which require a personal configuration that is a hurdle for most. The slow and unreliable nature of things like Tor have proven to be dead-ends, and Bolt12 being a re-implementation of Tor is destined for the same fate.
+
+Pub solves these network challenges with a Full RPC that is Nostr-native. Being Nostr-native eliminates the complexity of legacy server configuration by using completely commoditized and trustless Nostr relays. Additionally, some optional services are integrated for backward compatibility with LNURL and Lightning Address.
+
+By solving the networking and programability hurdles, Pub's provide a 3rd Lightning Layer that enables node-runners and Uncle Jims to more easily bring their personal network into Bitcoin's permissionless economy. In doing so, Pub can keep the Lightning Network decentralized, with custodial scaling free of fiat rails, large banks, and other forms of high-time-preference shitcoinery.
 
 #### Features:
 
@@ -24,59 +28,69 @@ By solving the networking and programability hurdles, Pub enables node-runners a
 ![Accounts](https://github.com/shocknet/Lightning.Pub/raw/master/accounting_layers.png) 
 
 #### Planned
-- [ ] Management Dashboard is being integrated into [ShockWallet](https://github.com/shocknet/wallet2) 
+- [ ] Management Dashboard is actively being integrated into [ShockWallet](https://github.com/shocknet/wallet2)
 - [ ] Nostr native "offers"
-- [ ] Channel Automation
-- [ ] Bootstarp Peering (Passive "LSP")
-- [ ] Subscriptions / Notifications
+- [ ] Automated Channels
+- [ ] Bootstrap Peering (Passive "LSP")
+- [ ] Event Notifications
 - [ ] Submarine Swaps
 - [ ] High-Availabilty / Clustering
 
-Dashboard:
+Dashboard Wireframe:
 
 <img src="https://shockwallet.b-cdn.net/pub_home_ss.png" alt="Pub Dashboard" width="240">
 
-#### ShockWallet and Lightning.Pub are free software. If you would like to see continued development, please show your [support](https://github.com/sponsors/shocknet) :)
+> [!IMPORTANT]  
+> ShockWallet and Lightning.Pub are free software. If you would like to see continued development, please show your [**support**](https://github.com/sponsors/shocknet) 😊
 
+> [!WARNING]  
+> While this software has been used in a high-profile production environment for over a year, it should still be considered bleeding edge. Special care has been taken to mitigate the risk of drainage attacks, which is a common risk to all Lightning API's. An integrated Watchdog service will terminate spends if it detects a discrepency between LND and the database, for this reason **IT IS NOT RECOMMENDED TO USE PUB ALONGSIDE OTHER ACCOUNT SYSTEMS**. While we give the utmost care and attention to security, **the internet is an adversarial environment and SECURITY/RELIABILITY ARE NOT GUARANTEED- USE AT YOUR OWN RISK**.
 
-> **WARNING:** While this software has been used in production for many months, it is still bleeding edge and security or reliabilty is not guaranteed.
+## Umbrel Installation
 
-## Manual Installation
+Coming Soon
+
+## Desktop Installation
+
+Coming Soon
+
+## Manual CLI Installation
 
 #### Notes:
-* The service defaults to port `8080` 
 * Use of a reverse proxy is only required if you wish to serve LNURLs
+* The service defaults to port `8080`
 * Requires [Node.js](https://nodejs.org) >=18.x
+* Commands for your specific OS may differ slightly, Ubuntu/Debian used for example
 
 #### Steps:
-1) Run [LND](https://github.com/lightningnetwork/lnd/releases) - *Example mainnet startup*:
+1) Run [LND](https://github.com/lightningnetwork/lnd/releases) if you aren't already
+
+*Example mainnet startup*:
 
  ```
- ./lnd --bitcoin.active --bitcoin.mainnet --bitcoin.node=neutrino --neutrino.connect=neutrino.shock.network --routing.assumechanvalid --accept-keysend --allow-circular-route --feeurl=https://nodes.lightning.computer/fees/v1/btc-fee-estimates.json
+ ./lnd --bitcoin.active --bitcoin.mainnet --bitcoin.node=neutrino --neutrino.addpeer=neutrino.shock.network --feeurl=https://nodes.lightning.computer/fees/v1/btc-fee-estimates.json
  ```
 
 
 2) Download and Install Lightning.Pub
 
-```
-git clone https://github.com/shocknet/Lightning.Pub
-cd Lightning.Pub && npm i
-```
 
-3) `cp env.example .env`
+    * `git clone https://github.com/shocknet/Lightning.Pub`
 
-4) Add values to env file 
+    * `cd Lightning.Pub && npm i`
+
+
+3) Configure values to env file as desired
+   * `cp env.example .env && nano .env`
 
 5) `npm start`
 
-6) Create an Application Pool 
+- A default "wallet" application pool will be automatically created, if you wish to create other app pools:
+  
+    * `curl -XPOST -H 'Authorization: Bearer defined_in_ADMIN_TOKEN_env' -H "Content-type: application/json" -d '{"name":"ExampleApplicationPoolName"}' 'http://localhost:8080/api/admin/app/add'`
 
-A default "wallet" pool will be automatically created and keys generated automatically, if you wish to create something other:
-
-```
-curl -XPOST -H 'Authorization: Bearer defined_in_constants.ts' -H "Content-type: application/json" -d '{"name":"ExampleApplicationPoolName"}' 'http://localhost:8080/api/admin/app/add'
-```
-
-7) Connect with [wallet2](https://github.com/shocknet/wallet2) using the npub response in step 6 or the the wallet application nprofile logged at startup.
+5) Connect with [wallet2](https://github.com/shocknet/wallet2) using the wallet nprofile that gets logged at startup.
+> [!NOTE]  
+> Connecting with wallet will create an account on the node, it will not show or have access to the full LND balance
 
 

@@ -5,7 +5,7 @@ import ProductManager from './productManager.js'
 import ApplicationManager from './applicationManager.js'
 import PaymentManager, { PendingTx } from './paymentManager.js'
 import { MainSettings } from './settings.js'
-import NewLightningHandler, { LightningHandler } from "../lnd/index.js"
+import LND from "../lnd/lnd.js"
 import { AddressPaidCb, HtlcCb, InvoicePaidCb, NewBlockCb } from "../lnd/settings.js"
 import { getLogger, PubLogger } from "../helpers/logger.js"
 import AppUserManager from "./appUserManager.js"
@@ -26,7 +26,7 @@ type UserOperationsSub = {
 
 export default class {
     storage: Storage
-    lnd: LightningHandler
+    lnd: LND
     settings: MainSettings
     userOperationsSub: UserOperationsSub | null = null
     productManager: ProductManager
@@ -41,7 +41,7 @@ export default class {
         this.settings = settings
         this.storage = storage
 
-        this.lnd = NewLightningHandler(settings.lndSettings, this.addressPaidCb, this.invoicePaidCb, this.newBlockCb, this.htlcCb)
+        this.lnd = new LND(settings.lndSettings, this.addressPaidCb, this.invoicePaidCb, this.newBlockCb, this.htlcCb)
         this.metricsManager = new MetricsManager(this.storage, this.lnd)
 
         this.paymentManager = new PaymentManager(this.storage, this.lnd, this.settings, this.addressPaidCb, this.invoicePaidCb)
@@ -49,6 +49,11 @@ export default class {
         this.applicationManager = new ApplicationManager(this.storage, this.settings, this.paymentManager)
         this.appUserManager = new AppUserManager(this.storage, this.settings, this.applicationManager)
 
+    }
+    Stop() {
+        this.lnd.Stop()
+        this.applicationManager.Stop()
+        this.paymentManager.Stop()
     }
 
     attachNostrSend(f: NostrSend) {

@@ -19,11 +19,12 @@ export default class {
     settings: MainSettings
     paymentManager: PaymentManager
     nPubLinkingTokens = new Map<string, NsecLinkingData>();
+    linkingTokenInterval: NodeJS.Timeout
     constructor(storage: Storage, settings: MainSettings, paymentManager: PaymentManager) {
         this.storage = storage
         this.settings = settings
         this.paymentManager = paymentManager
-        setInterval(() => {
+        this.linkingTokenInterval = setInterval(() => {
             const now = Date.now();
             for (let [token, data] of this.nPubLinkingTokens) {
                 if (data.expiry <= now) {
@@ -34,6 +35,9 @@ export default class {
                 }
             }
         }, 60 * 1000); // 1 minute
+    }
+    Stop() {
+        clearInterval(this.linkingTokenInterval)
     }
     SignAppToken(appId: string): string {
         return jwt.sign({ appId }, this.settings.jwtSecret);

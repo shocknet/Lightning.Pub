@@ -1,0 +1,55 @@
+name: Docker Compose Actions Workflow
+on: push
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: unzip the file
+        run: unzip src/tests/regtestNetwork.zip
+      - name: list files
+        run: ls -la
+      - name: Build the stack
+        run: docker-compose --project-directory ./ -f src/tests/docker-compose.yml up -d
+      - name: Copy alice cert file
+        run: docker cp polar-n2-alice:/home/lnd/.lnd/tls.cert alice-tls.cert
+      - name: Copy bob cert file
+        run: docker cp polar-n2-bob:/home/lnd/.lnd/tls.cert bob-tls.cert
+      - name: Copy carol cert file
+        run: docker cp polar-n2-carol:/home/lnd/.lnd/tls.cert carol-tls.cert
+      - name: Copy dave cert file
+        run: docker cp polar-n2-dave:/home/lnd/.lnd/tls.cert dave-tls.cert
+      - name: Copy alice macaroon file
+        run: docker cp polar-n2-alice:/home/lnd/.lnd/data/chain/bitcoin/regtest/admin.macaroon alice-admin.macaroon
+      - name: Copy bob macaroon file
+        run: docker cp polar-n2-bob:/home/lnd/.lnd/data/chain/bitcoin/regtest/admin.macaroon bob-admin.macaroon
+      - name: Copy carol macaroon file
+        run: docker cp polar-n2-carol:/home/lnd/.lnd/data/chain/bitcoin/regtest/admin.macaroon carol-admin.macaroon
+      - name: Copy dave macaroon file
+        run: docker cp polar-n2-dave:/home/lnd/.lnd/data/chain/bitcoin/regtest/admin.macaroon dave-admin.macaroon
+      - name: copy env file
+        run: cp src/tests/.env.test .env
+      - name: List files
+        run: ls -la
+      - name: Cache node modules
+        id: cache-npm
+        uses: actions/cache@v3
+        env:
+          cache-name: cache-node-modules
+        with:
+          # npm cache files are stored in `~/.npm` on Linux/macOS
+          path: ~/.npm
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
+
+      - if: ${{ steps.cache-npm.outputs.cache-hit != 'true' }}
+        name: List the state of node modules
+        continue-on-error: true
+        run: npm list
+      - name: Install dependencies
+        run: npm install
+      - name: Run tests
+        run: npm test

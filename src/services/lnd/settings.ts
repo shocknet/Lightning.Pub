@@ -41,6 +41,8 @@ export type NodeInfo = {
     syncedToGraph: boolean
     blockHeight: number
     blockHash: string
+    identityPubkey: string
+    uris: string[]
 }
 export type Invoice = {
     payRequest: string
