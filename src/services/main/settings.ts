@@ -22,6 +22,12 @@ export type MainSettings = {
     skipSanityCheck: boolean
     disableExternalPayments: boolean
 }
+export type BitcoinCoreSettings = {
+    port: number
+    user: string
+    pass: string
+}
+export type TestSettings = MainSettings & { lndSettings: { otherNode: NodeSettings, thirdNode: NodeSettings, fourthNode: NodeSettings }, bitcoinCoreSettings: BitcoinCoreSettings }
 export const LoadMainSettingsFromEnv = (): MainSettings => {
     return {
         watchDogSettings: LoadWatchdogSettingsFromEnv(),
@@ -36,7 +42,7 @@ export const LoadMainSettingsFromEnv = (): MainSettings => {
         outgoingAppUserInvoiceFee: EnvMustBeInteger("OUTGOING_INVOICE_FEE_USER_BPS") / 10000,
         userToUserFee: EnvMustBeInteger("TX_FEE_INTERNAL_USER_BPS") / 10000,
         appToUserFee: EnvMustBeInteger("TX_FEE_INTERNAL_ROOT_BPS") / 10000,
-        serviceUrl: EnvMustBeNonEmptyString("SERVICE_URL"),
+        serviceUrl: process.env.SERVICE_URL || `http://localhost:${EnvMustBeInteger("PORT")}`,
         servicePort: EnvMustBeInteger("PORT"),
         recordPerformance: process.env.RECORD_PERFORMANCE === 'true' || false,
         skipSanityCheck: process.env.SKIP_SANITY_CHECK === 'true' || false,
@@ -44,7 +50,7 @@ export const LoadMainSettingsFromEnv = (): MainSettings => {
     }
 }
 
-export const LoadTestSettingsFromEnv = (): MainSettings & { lndSettings: { otherNode: NodeSettings, thirdNode: NodeSettings } } => {
+export const LoadTestSettingsFromEnv = (): TestSettings => {
     const eventLogPath = `logs/eventLogV2Test${Date.now()}.csv`
     const settings = LoadMainSettingsFromEnv()
     return {
@@ -61,8 +67,18 @@ export const LoadTestSettingsFromEnv = (): MainSettings & { lndSettings: { other
                 lndAddr: EnvMustBeNonEmptyString("LND_THIRD_ADDR"),
                 lndCertPath: EnvMustBeNonEmptyString("LND_THIRD_CERT_PATH"),
                 lndMacaroonPath: EnvMustBeNonEmptyString("LND_THIRD_MACAROON_PATH")
+            },
+            fourthNode: {
+                lndAddr: EnvMustBeNonEmptyString("LND_FOURTH_ADDR"),
+                lndCertPath: EnvMustBeNonEmptyString("LND_FOURTH_CERT_PATH"),
+                lndMacaroonPath: EnvMustBeNonEmptyString("LND_FOURTH_MACAROON_PATH")
             }
         },
-        skipSanityCheck: true
+        skipSanityCheck: true,
+        bitcoinCoreSettings: {
+            port: EnvMustBeInteger("BITCOIN_CORE_PORT"),
+            user: EnvMustBeNonEmptyString("BITCOIN_CORE_USER"),
+            pass: EnvMustBeNonEmptyString("BITCOIN_CORE_PASS")
+        }
     }
 }

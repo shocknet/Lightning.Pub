@@ -1,5 +1,5 @@
 import Storage from '../storage/index.js'
-import { LightningHandler } from "../lnd/index.js"
+import LND from "../lnd/lnd.js"
 import { LoggedEvent } from '../storage/eventsLog.js'
 import { Invoice, Payment } from '../../../proto/lnd/lightning';
 import { getLogger } from '../helpers/logger.js';
@@ -12,7 +12,7 @@ type Reason = UniqueDecrementReasons | UniqueIncrementReasons | CommonReasons
 const incrementTwiceAllowed = ['fees', 'ban']
 export default class SanityChecker {
     storage: Storage
-    lnd: LightningHandler
+    lnd: LND
 
     events: LoggedEvent[] = []
     invoices: Invoice[] = []
@@ -22,7 +22,7 @@ export default class SanityChecker {
     decrementEvents: Record<string, { userId: string, refund: number, failure: boolean }> = {}
     log = getLogger({ appName: "SanityChecker" })
     users: Record<string, { ts: number, updatedBalance: number }> = {}
-    constructor(storage: Storage, lnd: LightningHandler) {
+    constructor(storage: Storage, lnd: LND) {
         this.storage = storage
         this.lnd = lnd
     }
