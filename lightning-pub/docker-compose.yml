@@ -1,0 +1,22 @@
+version: "3.7"
+services:
+  app_proxy:
+    environment:
+      APP_HOST: lightning-pub_server_1
+      APP_PORT: 8090
+      
+  server:
+    image: bixie/lightning-pub:latest@sha256:9eac671645d31d1caa4c99b354d174b49d0c258486503994515aee35f481f847
+    volumes:
+      - "${APP_DATA_DIR}/data:/data"
+      - "${APP_LIGHTNING_NODE_DATA_DIR}:/lnd:ro"
+    environment:
+      LN_BACKEND_TYPE: "LND"
+      LND_ADDRESS: $APP_LIGHTNING_NODE_IP:$APP_LIGHTNING_NODE_GRPC_PORT
+      LND_CERT_PATH: "/lnd/tls.cert"
+      LND_MACAROON_PATH: "/lnd/data/chain/bitcoin/${APP_BITCOIN_NETWORK}/admin.macaroon"
+      DATABASE_FILE: "/data/db.sqlite"
+      METRICS_DATABASE_FILE: "/data/metrics.sqlite"
+      PORT: 8090
+    restart: on-failure
+    stop_grace_period: 1m
