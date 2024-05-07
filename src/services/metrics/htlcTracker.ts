@@ -16,9 +16,9 @@ export default class HtlcTracker {
     constructor(storage: Storage) {
         this.storage = storage
     }
-    log = getLogger({ appName: 'htlcTracker' })
+    log = getLogger({ component: 'htlcTracker' })
     onHtlcEvent = async (htlc: HtlcEvent) => {
-        getLogger({ appName: 'debugHtlcs' })(htlc)
+        getLogger({ component: 'debugHtlcs' })(htlc)
         const htlcEvent = htlc.event
         if (htlcEvent.oneofKind === 'subscribedEvent') {
             this.log("htlc subscribed")

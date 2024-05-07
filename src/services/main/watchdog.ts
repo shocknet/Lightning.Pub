@@ -23,14 +23,14 @@ export class Watchdog {
     settings: WatchdogSettings;
     storage: Storage;
     latestCheckStart = 0
-    log = getLogger({ appName: "watchdog" })
+    log = getLogger({ component: "watchdog" })
     ready = false
     interval: NodeJS.Timer;
     constructor(settings: WatchdogSettings, lnd: LND, storage: Storage) {
         this.lnd = lnd;
         this.settings = settings;
         this.storage = storage;
-        this.queue = new FunctionQueue("watchdog::queue", () => this.StartCheck())
+        this.queue = new FunctionQueue("watchdog_queue", () => this.StartCheck())
     }
 
     Stop() {
@@ -73,7 +73,7 @@ export class Watchdog {
         const walletBalance = await this.lnd.GetWalletBalance()
         this.log(Number(walletBalance.confirmedBalance), "sats in chain wallet")
         const channelsBalance = await this.lnd.GetChannelBalance()
-        getLogger({ appName: "debugLndBalancev3" })({ w: walletBalance, c: channelsBalance, u: usersTotal, f: this.accumulatedHtlcFees })
+        getLogger({ component: "debugLndBalancev3" })({ w: walletBalance, c: channelsBalance, u: usersTotal, f: this.accumulatedHtlcFees })
 
         const localChannelsBalance = Number(channelsBalance.localBalance?.sat || 0)
         const unsettledLocalBalance = Number(channelsBalance.unsettledLocalBalance?.sat || 0)
