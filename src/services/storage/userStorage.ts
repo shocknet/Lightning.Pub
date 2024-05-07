@@ -94,10 +94,10 @@ export default class {
             user_id: userId,
         }, "balance_sats", increment)
         if (!res.affected) {
-            getLogger({ userId: userId, appName: "balanceUpdates" })("user unaffected by increment")
+            getLogger({ userId: userId, component: "balanceUpdates" })("user unaffected by increment")
             throw new Error("unaffected balance increment for " + userId) // TODO: fix logs doxing
         }
-        getLogger({ userId: userId, appName: "balanceUpdates" })("incremented balance from", user.balance_sats, "sats, by", increment, "sats")
+        getLogger({ userId: userId, component: "balanceUpdates" })("incremented balance from", user.balance_sats, "sats, by", increment, "sats")
         this.eventsLog.LogEvent({ type: 'balance_increment', userId, appId: "", appUserId: "", balance: user.balance_sats, data: reason, amount: increment })
     }
     async DecrementUserBalance(userId: string, decrement: number, reason: string, entityManager?: DataSource | EntityManager) {
@@ -116,17 +116,17 @@ export default class {
     async DecrementUserBalanceInTx(userId: string, decrement: number, reason: string, dbTx: DataSource | EntityManager) {
         const user = await this.GetUser(userId, dbTx)
         if (!user || user.balance_sats < decrement) {
-            getLogger({ userId: userId, appName: "balanceUpdates" })("not enough balance to decrement")
+            getLogger({ userId: userId, component: "balanceUpdates" })("not enough balance to decrement")
             throw new Error("not enough balance to decrement")
         }
         const res = await dbTx.getRepository(User).decrement({
             user_id: userId,
         }, "balance_sats", decrement)
         if (!res.affected) {
-            getLogger({ userId: userId, appName: "balanceUpdates" })("user unaffected by decrement")
+            getLogger({ userId: userId, component: "balanceUpdates" })("user unaffected by decrement")
             throw new Error("unaffected balance decrement for " + userId) // TODO: fix logs doxing
         }
-        getLogger({ userId: userId, appName: "balanceUpdates" })("decremented balance from", user.balance_sats, "sats, by", decrement, "sats")
+        getLogger({ userId: userId, component: "balanceUpdates" })("decremented balance from", user.balance_sats, "sats, by", decrement, "sats")
         this.eventsLog.LogEvent({ type: 'balance_decrement', userId, appId: "", appUserId: "", balance: user.balance_sats, data: reason, amount: decrement })
     }
 

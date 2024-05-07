@@ -1,7 +1,7 @@
 //import { SimplePool, Sub, Event, UnsignedEvent, getEventHash, signEvent } from 'nostr-tools'
 import { SimplePool, Sub, Event, UnsignedEvent, getEventHash, finishEvent, relayInit } from './tools/index.js'
 import { encryptData, decryptData, getSharedSecret, decodePayload, encodePayload } from './nip44.js'
-import { getLogger } from '../helpers/logger.js'
+import { ERROR, getLogger } from '../helpers/logger.js'
 import { encodeNprofile } from '../../custom-nip19.js'
 const handledEvents: string[] = [] // TODO: - big memory leak here, add TTL
 type AppInfo = { appId: string, publicKey: string, privateKey: string, name: string }
@@ -56,13 +56,13 @@ process.on("message", (message: ChildProcessRequest) => {
             sendToNostr(message.appId, message.data, message.relays)
             break
         default:
-            getLogger({ appName: "nostrMiddleware" })("ERROR", "unknown nostr request", message)
+            getLogger({ component: "nostrMiddleware" })(ERROR, "unknown nostr request", message)
             break
     }
 })
 const initSubprocessHandler = (settings: NostrSettings) => {
     if (subProcessHandler) {
-        getLogger({ appName: "nostrMiddleware" })("ERROR", "nostr settings ignored since handler already exists")
+        getLogger({ component: "nostrMiddleware" })(ERROR, "nostr settings ignored since handler already exists")
         return
     }
     subProcessHandler = new Handler(settings, event => {
@@ -74,7 +74,7 @@ const initSubprocessHandler = (settings: NostrSettings) => {
 }
 const sendToNostr: NostrSend = (appId, data, relays) => {
     if (!subProcessHandler) {
-        getLogger({ appName: "nostrMiddleware" })("ERROR", "nostr was not initialized")
+        getLogger({ component: "nostrMiddleware" })(ERROR, "nostr was not initialized")
         return
     }
     subProcessHandler.Send(appId, data, relays)
@@ -87,7 +87,7 @@ export default class Handler {
     subs: Sub[] = []
     apps: Record<string, AppInfo> = {}
     eventCallback: (event: NostrEvent) => void
-    log = getLogger({ appName: "nostrMiddleware" })
+    log = getLogger({ component: "nostrMiddleware" })
     constructor(settings: NostrSettings, eventCallback: (event: NostrEvent) => void) {
         this.settings = settings
         this.log(
