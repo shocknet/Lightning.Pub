@@ -9,6 +9,7 @@ import chaiString from 'chai-string'
 import { defaultInvoiceExpiry } from '../services/storage/paymentStorage.js'
 import SanityChecker from '../services/main/sanityChecker.js'
 import LND from '../services/lnd/lnd.js'
+import { resetDisabledLoggers } from '../services/helpers/logger.js'
 chai.use(chaiString)
 export const expect = chai.expect
 export type Describe = (message: string, failure?: boolean) => void
@@ -69,6 +70,7 @@ export const teardown = async (T: TestBase) => {
     T.externalAccessToMainLnd.Stop()
     T.externalAccessToOtherLnd.Stop()
     T.externalAccessToThirdLnd.Stop()
+    resetDisabledLoggers()
     console.log("teardown")
 }
 
