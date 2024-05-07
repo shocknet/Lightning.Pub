@@ -45,7 +45,7 @@ export default class {
     lnd: LND
     addressPaidCb: AddressPaidCb
     invoicePaidCb: InvoicePaidCb
-    log = getLogger({ appName: "PaymentManager" })
+    log = getLogger({ component: "PaymentManager" })
     watchDog: Watchdog
     constructor(storage: Storage, lnd: LND, settings: MainSettings, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb) {
         this.storage = storage
