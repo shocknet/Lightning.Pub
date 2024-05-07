@@ -285,7 +285,21 @@ export default class {
         return `${this.settings.serviceUrl}/api/guest/lnurl_withdraw/info?k1=${k1}`
     }
 
+    isDefaultServiceUrl(): boolean {
+        if (
+            this.settings.serviceUrl.includes("localhost")
+            ||
+            this.settings.serviceUrl.includes("127.0.0.1")
+        ) {
+            return true
+        }
+        return false;
+    }
+
     async GetLnurlWithdrawLink(ctx: Types.UserContext): Promise<Types.LnurlLinkResponse> {
+        if(this.isDefaultServiceUrl()) {
+            throw new Error("Lnurl not enabled. Make sure to set SERVICE_URL env variable")
+        }
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
         const key = await this.storage.paymentStorage.AddUserEphemeralKey(ctx.user_id, 'balanceCheck', app)
         return {
@@ -331,6 +345,9 @@ export default class {
     }
 
     async GetLnurlPayLink(ctx: Types.UserContext): Promise<Types.LnurlLinkResponse> {
+        if(this.isDefaultServiceUrl()) {
+            throw new Error("Lnurl not enabled. Make sure to set SERVICE_URL env variable")
+        }
         getLogger({})("getting lnurl pay link")
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
         const key = await this.storage.paymentStorage.AddUserEphemeralKey(ctx.user_id, 'pay', app)
@@ -343,6 +360,9 @@ export default class {
     }
 
     async GetLnurlPayInfoFromUser(userId: string, linkedApplication: Application, baseUrl?: string): Promise<Types.LnurlPayInfoResponse> {
+        if(this.isDefaultServiceUrl()) {
+            throw new Error("Lnurl not enabled. Make sure to set SERVICE_URL env variable")
+        }
         const payK1 = await this.storage.paymentStorage.AddUserEphemeralKey(userId, 'pay', linkedApplication)
         const url = baseUrl ? baseUrl : `${this.settings.serviceUrl}/api/guest/lnurl_pay/handle`
         const { remote } = await this.lnd.ChannelBalance()
@@ -358,6 +378,9 @@ export default class {
     }
 
     async GetLnurlPayInfo(payInfoK1: string): Promise<Types.LnurlPayInfoResponse> {
+        if(this.isDefaultServiceUrl()) {
+            throw new Error("Lnurl not enabled. Make sure to set SERVICE_URL env variable")
+        }
         const key = await this.storage.paymentStorage.UseUserEphemeralKey(payInfoK1, 'pay', true)
         if (!key.linkedApplication) {
             throw new Error("invalid lnurl request")
