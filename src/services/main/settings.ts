@@ -42,7 +42,7 @@ export const LoadMainSettingsFromEnv = (): MainSettings => {
         outgoingAppUserInvoiceFee: EnvMustBeInteger("OUTGOING_INVOICE_FEE_USER_BPS") / 10000,
         userToUserFee: EnvMustBeInteger("TX_FEE_INTERNAL_USER_BPS") / 10000,
         appToUserFee: EnvMustBeInteger("TX_FEE_INTERNAL_ROOT_BPS") / 10000,
-        serviceUrl: EnvMustBeNonEmptyString("SERVICE_URL"),
+        serviceUrl: process.env.SERVICE_URL || `http://localhost:${EnvMustBeInteger("PORT")}`,
         servicePort: EnvMustBeInteger("PORT"),
         recordPerformance: process.env.RECORD_PERFORMANCE === 'true' || false,
         skipSanityCheck: process.env.SKIP_SANITY_CHECK === 'true' || false,
