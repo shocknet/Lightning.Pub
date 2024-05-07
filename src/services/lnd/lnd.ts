@@ -32,7 +32,7 @@ export default class {
     invoicePaidCb: InvoicePaidCb
     newBlockCb: NewBlockCb
     htlcCb: HtlcCb
-    log = getLogger({ appName: 'lndManager' })
+    log = getLogger({ component: 'lndManager' })
     outgoingOpsLocked = false
     constructor(settings: LndSettings, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb, newBlockCb: NewBlockCb, htlcCb: HtlcCb) {
         this.settings = settings
