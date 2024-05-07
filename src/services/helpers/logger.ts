@@ -78,6 +78,12 @@ export const getLogger = (params: LoggerParams): PubLogger => {
             }
             toLog.push(params.appName)
         }
+        if (params.component) {
+            if (disabledComponents.includes(params.component)) {
+                return
+            }
+            toLog.push(params.component)
+        }
         if (params.userId) {
             toLog.push(params.userId)
         }
@@ -87,7 +93,13 @@ export const getLogger = (params: LoggerParams): PubLogger => {
         writers.forEach(w => w(final))
     }
 }
-const disabledApps: string[] = []
-export const disableLoggers = (appNamesToDisable: string[]) => {
+let disabledApps: string[] = []
+let disabledComponents: string[] = []
+export const resetDisabledLoggers = () => {
+    disabledApps = []
+    disabledComponents = []
+}
+export const disableLoggers = (appNamesToDisable: string[], componentsToDisable: string[]) => {
     disabledApps.push(...appNamesToDisable)
+    disabledComponents.push(...componentsToDisable)
 }
