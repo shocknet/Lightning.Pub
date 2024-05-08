@@ -71,7 +71,7 @@ Coming Soon
 
 #### Notes:
 * Use of a reverse proxy is only required if you wish to serve LNURLs
-* The service defaults to port `8080`
+* The service defaults to port `1776`
 * Requires [Node.js](https://nodejs.org) >=18.x
 * Commands for your specific OS may differ slightly, Ubuntu/Debian used for example
 
