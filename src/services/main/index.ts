@@ -23,7 +23,7 @@ type UserOperationsSub = {
     newIncomingTx: (operation: Types.UserOperation) => void
     newOutgoingTx: (operation: Types.UserOperation) => void
 }
-
+const appTag = "Lightning.Pub"
 export default class {
     storage: Storage
     lnd: LND
@@ -36,7 +36,6 @@ export default class {
     paymentSubs: Record<string, ((op: Types.UserOperation) => void) | null> = {}
     metricsManager: MetricsManager
     nostrSend: NostrSend = () => { getLogger({})("nostr send not initialized yet") }
-
     constructor(settings: MainSettings, storage: Storage) {
         this.settings = settings
         this.storage = storage
@@ -54,6 +53,12 @@ export default class {
         this.lnd.Stop()
         this.applicationManager.Stop()
         this.paymentManager.Stop()
+    }
+
+    StartBeacons() {
+        this.applicationManager.StartAppsServiceBeacon(app => {
+            this.UpdateBeacon(app, { type: 'service', name: app.name })
+        })
     }
 
     attachNostrSend(f: NostrSend) {
@@ -204,6 +209,22 @@ export default class {
         }
         const message: Types.LiveUserOperation & { requestId: string, status: 'OK' } = { operation: op, requestId: "GetLiveUserOperations", status: 'OK' }
         this.nostrSend(app.app_id, { type: 'content', content: JSON.stringify(message), pub: user.nostr_public_key })
+    }
+
+    async UpdateBeacon(app: Application, content: { type: 'service', name: string }) {
+        if (!app.nostr_public_key) {
+            getLogger({ appName: app.name })("cannot update beacon, public key not set")
+            return
+        }
+        const tags = [["d", appTag]]
+        const event: UnsignedEvent = {
+            content: JSON.stringify(content),
+            created_at: Math.floor(Date.now() / 1000),
+            kind: 30078,
+            pubkey: app.nostr_public_key,
+            tags,
+        }
+        this.nostrSend(app.app_id, { type: 'event', event })
     }
 
     async createZapReceipt(log: PubLogger, invoice: UserReceivingInvoice) {
