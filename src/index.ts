@@ -21,6 +21,7 @@ const start = async () => {
     const nostrSettings = LoadNosrtSettingsFromEnv()
     const { Send } = nostrMiddleware(serverMethods, mainHandler, { ...nostrSettings, apps })
     mainHandler.attachNostrSend(Send)
+    mainHandler.StartBeacons()
     const Server = NewServer(serverMethods, serverOptions(mainHandler))
     Server.Listen(mainSettings.servicePort)
 }

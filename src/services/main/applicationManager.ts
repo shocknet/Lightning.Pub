@@ -5,8 +5,9 @@ import { MainSettings } from './settings.js'
 import PaymentManager from './paymentManager.js'
 import { InboundOptionals, defaultInvoiceExpiry } from '../storage/paymentStorage.js'
 import { ApplicationUser } from '../storage/entity/ApplicationUser.js'
-import { getLogger } from '../helpers/logger.js'
+import { PubLogger, getLogger } from '../helpers/logger.js'
 import crypto from 'crypto'
+import { Application } from '../storage/entity/Application.js'
 
 const TOKEN_EXPIRY_TIME = 2 * 60 * 1000 // 2 minutes, in milliseconds
 
@@ -19,11 +20,18 @@ export default class {
     settings: MainSettings
     paymentManager: PaymentManager
     nPubLinkingTokens = new Map<string, NsecLinkingData>();
-    linkingTokenInterval: NodeJS.Timeout
+    linkingTokenInterval: NodeJS.Timeout | null = null
+    serviceBeaconInterval: NodeJS.Timeout | null = null
+    log: PubLogger
     constructor(storage: Storage, settings: MainSettings, paymentManager: PaymentManager) {
+        this.log = getLogger({ component: "ApplicationManager" })
         this.storage = storage
         this.settings = settings
         this.paymentManager = paymentManager
+        this.StartLinkingTokenInterval()
+    }
+
+    StartLinkingTokenInterval() {
         this.linkingTokenInterval = setInterval(() => {
             const now = Date.now();
             for (let [token, data] of this.nPubLinkingTokens) {
@@ -36,8 +44,27 @@ export default class {
             }
         }, 60 * 1000); // 1 minute
     }
+
+    async StartAppsServiceBeacon(publishBeacon: (app: Application) => void) {
+        this.serviceBeaconInterval = setInterval(async () => {
+            try {
+                const apps = await this.storage.applicationStorage.GetApplications()
+                apps.forEach(app => {
+                    publishBeacon(app)
+                })
+            } catch (e) {
+                this.log("error in beacon", (e as any).message)
+            }
+        }, 60 * 1000)
+    }
+
     Stop() {
-        clearInterval(this.linkingTokenInterval)
+        if (this.linkingTokenInterval) {
+            clearInterval(this.linkingTokenInterval)
+        }
+        if (this.serviceBeaconInterval) {
+            clearInterval(this.serviceBeaconInterval)
+        }
     }
     SignAppToken(appId: string): string {
         return jwt.sign({ appId }, this.settings.jwtSecret);
