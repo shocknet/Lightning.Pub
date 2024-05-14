@@ -298,7 +298,7 @@ export default class {
                         return
                     case Payment_PaymentStatus.SUCCEEDED:
                         this.log("invoice payment succeded", Number(payment.valueSat))
-                        res({ feeSat: Number(payment.feeSat), valueSat: Number(payment.valueSat), paymentPreimage: payment.paymentPreimage })
+                        res({ feeSat: Math.round(Number(payment.feeMsat) / 1000), valueSat: Number(payment.valueSat), paymentPreimage: payment.paymentPreimage })
                 }
             })
         })
