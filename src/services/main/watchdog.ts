@@ -74,10 +74,9 @@ export class Watchdog {
         this.log(Number(walletBalance.confirmedBalance), "sats in chain wallet")
         const channelsBalance = await this.lnd.GetChannelBalance()
         getLogger({ component: "debugLndBalancev3" })({ w: walletBalance, c: channelsBalance, u: usersTotal, f: this.accumulatedHtlcFees })
-
-        const localChannelsBalance = Number(channelsBalance.localBalance?.sat || 0)
-        const unsettledLocalBalance = Number(channelsBalance.unsettledLocalBalance?.sat || 0)
-        return Number(walletBalance.confirmedBalance) + localChannelsBalance + unsettledLocalBalance
+        const totalLightningBalanceMsats = (channelsBalance.localBalance?.msat || 0n) + (channelsBalance.unsettledLocalBalance?.msat || 0n)
+        const totalLightningBalance = Math.ceil(Number(totalLightningBalanceMsats) / 1000)
+        return Number(walletBalance.confirmedBalance) + totalLightningBalance
     }
 
     checkBalanceUpdate = (deltaLnd: number, deltaUsers: number) => {
