@@ -6,7 +6,7 @@ services:
       APP_PORT: 1776
       
   server:
-    image:
+    image: ghcr.io/shocknet/lightning.pub:umbrel-works
     volumes:
       - "${APP_DATA_DIR}/data:/data"
       - "${APP_LIGHTNING_NODE_DATA_DIR}:/lnd:ro"
