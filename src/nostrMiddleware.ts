@@ -25,6 +25,10 @@ export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSett
             log(ERROR, "invalid json event received", event.content)
             return
         }
+        if (j.authIdentifier !== event.pub) {
+            log(ERROR, "authIdentifier does not match", j.authIdentifier || "--", event.pub)
+            return
+        }
         nostrTransport({ ...j, appId: event.appId }, res => {
             nostr.Send(event.appId, { type: 'content', pub: event.pub, content: JSON.stringify({ ...res, requestId: j.requestId }) })
         }, event.startAtNano, event.startAtMs)
