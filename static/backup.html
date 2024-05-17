@@ -10,6 +10,7 @@
       href="https://fonts.googleapis.com/css?family=Montserrat"
     />
     <link rel="stylesheet" href="css/styles.css" />
+    <link rel="stylesheet" href="css/backup.css" />
     <!-- HTML Meta Tags -->
     <title>Lightning.Pub</title>
     <meta name="description" content="Lightning for Everyone" />
@@ -31,30 +32,54 @@
         <button class="icon-button back-button" onclick="history.back()">
           <img src="img/back.svg" alt="" />
         </button>
-        <h2>Connect</h2>
+        <h2>Backup</h2>
         <p class="header-title">
-          Who's the Nostr user that owns this node, can recover the backups, and
-          connect to manage it?
+          It looks like this is a
+          <span style="font-weight: bold">new</span> node, it's important
+          establish backups.
         </p>
       </section>
 
       <div class="line"></div>
 
       <section class="setup-content">
-        <div id="qrcode"></div>
-        <p class="text-gray">
-          strfry.shock.network <br />npub123abcdefghhhhhhhhhhhhhhh
-        </p>
-        <br />
-        <p class="text-gray">Note: Code contains a one-time pairing secret.</p>
+        <div class="description-box">
+          <div class="description">
+            In addition to your seed phrase, you'll need a channel backup to
+          </div>
+          <div class="description">
+            recover funds should your node experience a hardware failure.
+          </div>
+          <br />
+          <div class="description">
+            It's important always to have the latest version of this backup,
+          </div>
+          <div class="description">
+            fortunately they're small enough to be cached on the Nostr relay.
+          </div>
+        </div>
+        <div class="warning-text">
+          If you did not choose the developers relay, be sure your relay has
+          adequate storage policies to hold NIP78 events.
+        </div>
+        <div class="checkbox-container">
+          <div class="checkbox" style="margin-top: 12px">
+            <input type="checkbox" id="backup" />
+            <div class="checkbox-shape"></div>
+            <label for="backup">
+              Encrypted Backup to Nostr Relay
+            </label>
+          </div>
+        </div>
+        <button
+          class="push-button hidden-button"
+          onclick="location.href='seed.html'"
+          style="margin-top: 92px;"
+          id="next-button"
+        >
+          Next
+        </button>
       </section>
-
-      <button
-        class="push-button"
-        style="margin-top: 32px"
-      >
-        Next
-      </button>
     </main>
 
     <footer>
@@ -70,8 +95,6 @@
       <p class="marked">Need Help?</p>
     </footer>
 
-    <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
-
-    <script src="js/script.js"></script>
+    <script src="js/backup.js"></script>
   </body>
 </html>
