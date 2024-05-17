@@ -10,9 +10,11 @@
       href="https://fonts.googleapis.com/css?family=Montserrat"
     />
     <link rel="stylesheet" href="css/styles.css" />
+    <link rel="stylesheet" href="css/liquidity.css" />
     <!-- HTML Meta Tags -->
     <title>Lightning.Pub</title>
     <meta name="description" content="Lightning for Everyone" />
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
   </head>
   <body>
     <header>
@@ -27,46 +29,45 @@
 
     <main>
       <section class="setup-header">
-        <h2>Setup</h2>
+        <button class="icon-button back-button" onclick="history.back()">
+          <img src="img/back.svg" alt="" />
+        </button>
+        <h2>Liquidity</h2>
         <p class="header-title">
-          Let's confirm some things before we start this Pub
+          How do you want to manage Lightning connectivity?
         </p>
       </section>
 
       <div class="line"></div>
 
       <section class="setup-content">
-        <div class="input-group">
-          <span>give this node a name that wallet users will see:</span>
-          <input
-            type="text"
-            placeholder="Nodey McNodeFace"
-            value=""
-            style="width: 100%"
-          />
-        </div>
-
-        <div class="input-group" style="margin-top: 38px">
-          <span>If you want to use a specific Nostr relay, enter it now:</span>
-          <input
-            type="text"
-            placeholder="wss://relay.lightning.pub"
-            style="width: 100%"
-          />
-        </div>
-
-        <div class="checkbox" style="margin-top: 12px">
-          <input type="checkbox" id="customCheckbox" />
+        <div class="checkbox" style="margin-top: 60px">
+          <input type="checkbox" id="automate" />
           <div class="checkbox-shape"></div>
-          <label for="customCheckbox">
-            Use the default managed relay service and auto-pay 1000 sats
-            permonth to support developers
+          <label for="automate">
+            Use Boostrap Service to Automate
+            <div class="question-box">
+              <button class="icon-button" id="show-question">
+                <img src="img/question.svg" />
+              </button>
+              <div class="question-content" id="question-content">
+                Bootstrapping uses a trusted peer until channel management
+                events cost less than 1% to execute
+                <button class="icon-button close-button" id="close-question">
+                  <img src="img/close.svg" alt="" />
+                </button>
+              </div>
+            </div>
           </label>
         </div>
-
+        <div class="checkbox" style="margin-top: 60px">
+          <input type="checkbox" id="manual" />
+          <div class="checkbox-shape"></div>
+          <label for="manual">Manage my channels manually</label>
+        </div>
         <button
           class="push-button"
-          onclick="location.href='liquidity.html'"
+          onclick="location.href='backup.html'"
           style="margin-top: 92px"
         >
           Next
@@ -86,5 +87,7 @@
       <div class="line"></div>
       <p class="marked">Need Help?</p>
     </footer>
+
+    <script src="js/liquidity.js"></script>
   </body>
 </html>
