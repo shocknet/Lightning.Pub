@@ -46,7 +46,9 @@ jobs:
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v1
         with:
-          artifact-digest: ${{ steps.build-and-push.outputs.digest }}
-          artifact-type: 'container-image'
-          artifact-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          materials: '[{"uri":"git+https://github.com/${{ github.repository }}","digest":{"sha1":"${{ github.sha }}"},"mediaType":"application/vnd.github.v3+json"}]'
+          subject-path: ${{ github.workspace }}
+          subject-digest: ${{ steps.build-and-push.outputs.digest }}
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          push-to-registry: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
