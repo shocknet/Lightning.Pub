@@ -10,13 +10,17 @@
 
 "Pub" is a [Nostr](https://nostr.info)-native account system designed to make running Lightning infrastructure for your friends/family/customers easier than previously thought possible.
 
-It may come as a surprise that the biggest hurdle to more Uncle Jim nodes hasn't been with Bitcoin/Lightning node management itself, since even in bad patterns like mobile nodes, that is easily automated.
+It may come as a surprise that the biggest hurdle to more Uncle Jim nodes hasn't been with Bitcoin/Lightning node management itself, as we've seen liquidity easily automated even in unreliable environments like mobile nodes.
 
-It's the legacy baggage of traditional web infrastructure, things like IP4, reverse proxies, DNS, Firewalls and SSL certificates, all of which require a personal configuration that is a hurdle for most. The slow and unreliable nature of things like Tor have proven to be dead-ends, and Bolt12 being a re-implementation of Tor is destined for the same fate.
+It's the legacy baggage of traditional Client-Server web infrastructure, things like IP4, Reverse Proxies, DNS, Firewalls and SSL certificates, all of which require a personal configuration that is a hurdle for most. 
 
-Pub solves these network challenges with a Full RPC that is Nostr-native. Being Nostr-native eliminates the complexity of legacy server configuration by using completely commoditized and trustless Nostr relays. Additionally, some optional services are integrated for backward compatibility with LNURL and Lightning Address.
+Tor as a workaround has proven too slow and unreliable, and a dead-end for clearnet-web usecases. Bxlt12, being a re-implementation of Tor, appears destined for the same fate.
 
-By solving the networking and programability hurdles, Pub's provide a 3rd Lightning Layer that enables node-runners and Uncle Jims to more easily bring their personal network into Bitcoin's permissionless economy. In doing so, Pub can keep the Lightning Network decentralized, with custodial scaling free of fiat rails, large banks, and other forms of high-time-preference shitcoinery.
+Pub solves these challenges with a P2P-like design that is also web-friendly, by implementing a full RPC that is Nostr-native. Being Nostr-native eliminates the complexity of configuring your node like a server by using commodity Nostr relays. These relays, unlike LNURL proxies, are trustless by nature of Nostr's own encryption spec (NIP44). 
+
+Additionally, support for optional services are integrated into Pub for operators seeking backward compatibility with legacy LNURLs and Lightning Addresses.
+
+By solving the networking and programability hurdles, Pub provides Lightning with a 3rd Layer that enables node-runners and Uncle Jims to more easily bring their personal network into Bitcoin's permissionless economy. In doing so, Pub runners can keep the Lightning Network decentralized, with custodial scaling that is free of fiat rails, large banks, and other forms of high-time-preference shitcoinery.
 
 #### Features:
 
@@ -27,21 +31,30 @@ By solving the networking and programability hurdles, Pub's provide a 3rd Lightn
     
 ![Accounts](https://github.com/shocknet/Lightning.Pub/raw/master/accounting_layers.png) 
 
+- Connecting via ShockWallet is as easy as pasting an nprofile
+- Or use a link to share your nprofile with friends and family
+
+    <img src="https://cdn.shockwallet.app/add_src_sm.png" height="20%" alt="Connect Wallet"> <img src="https://cdn.shockwallet.app/src_invite_sm.png" height="20%" alt="Invite Guests">
+
+
 #### Planned
-- [ ] Management Dashboard is actively being integrated into [ShockWallet](https://github.com/shocknet/wallet2)
-- [ ] Nostr native "offers"
+- [ ] A management dashboard is actively being integrated into [ShockWallet](https://github.com/shocknet/wallet2)
+- [ ] Nostr native "offers" (successor to LNURL-Pay, Lightning Address, Bxlt12)
 - [ ] Automated Channels
 - [ ] Bootstrap Peering (Passive "LSP")
 - [ ] Event Notifications
-- [ ] Submarine Swaps
+- [ ] Swap integration
 - [ ] High-Availabilty / Clustering
 
 Dashboard Wireframe:
 
-<img src="https://shockwallet.b-cdn.net/pub_home_ss.png" alt="Pub Dashboard" width="240">
+ <img src="https://shockwallet.b-cdn.net/pub_home_ss.png" alt="Pub Dashboard" width="240">
 
 > [!IMPORTANT]  
-> ShockWallet and Lightning.Pub are free software. If you would like to see continued development, please show your [**support**](https://github.com/sponsors/shocknet) 😊
+> ShockWallet and Lightning.Pub are free software. If you would like to see continued development, please show your [**support**](https://github.com/sponsors/shocknet) 😊<br>
+
+<img src="https://www.gnu.org/graphics/agplv3-with-text-162x68.png" alt="License">
+<br>
 
 > [!WARNING]  
 > While this software has been used in a high-profile production environment for over a year, it should still be considered bleeding edge. Special care has been taken to mitigate the risk of drainage attacks, which is a common risk to all Lightning API's. An integrated Watchdog service will terminate spends if it detects a discrepency between LND and the database, for this reason **IT IS NOT RECOMMENDED TO USE PUB ALONGSIDE OTHER ACCOUNT SYSTEMS**. While we give the utmost care and attention to security, **the internet is an adversarial environment and SECURITY/RELIABILITY ARE NOT GUARANTEED- USE AT YOUR OWN RISK**.
@@ -58,7 +71,7 @@ Coming Soon
 
 #### Notes:
 * Use of a reverse proxy is only required if you wish to serve LNURLs
-* The service defaults to port `8080`
+* The service defaults to port `1776`
 * Requires [Node.js](https://nodejs.org) >=18.x
 * Commands for your specific OS may differ slightly, Ubuntu/Debian used for example
 

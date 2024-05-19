@@ -26,9 +26,9 @@ export type DbSettings = {
 }
 export const LoadDbSettingsFromEnv = (): DbSettings => {
     return {
-        databaseFile: EnvMustBeNonEmptyString("DATABASE_FILE"),
+        databaseFile: process.env.DATABASE_FILE || "db.sqlite",
         migrate: process.env.MIGRATE_DB === 'true' || false,
-        metricsDatabaseFile: EnvMustBeNonEmptyString("METRICS_DATABASE_FILE")
+        metricsDatabaseFile: process.env.METRICS_DATABASE_FILE || "metrics.sqlite"
     }
 }
 

@@ -7,7 +7,7 @@ export default class FunctionQueue<T> {
     running: boolean = false
     f: () => Promise<T>
     constructor(name: string, f: () => Promise<T>) {
-        this.log = getLogger({ appName: name })
+        this.log = getLogger({ component: name })
         this.f = f
     }
 

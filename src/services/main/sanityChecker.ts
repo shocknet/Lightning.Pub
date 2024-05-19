@@ -20,7 +20,7 @@ export default class SanityChecker {
     incrementSources: Record<string, boolean> = {}
     decrementSources: Record<string, boolean> = {}
     decrementEvents: Record<string, { userId: string, refund: number, failure: boolean }> = {}
-    log = getLogger({ appName: "SanityChecker" })
+    log = getLogger({ component: "SanityChecker" })
     users: Record<string, { ts: number, updatedBalance: number }> = {}
     constructor(storage: Storage, lnd: LND) {
         this.storage = storage
