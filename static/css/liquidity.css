@@ -1,0 +1,27 @@
+.question-box {
+  display: inline-block;
+  position: relative;
+  top: -8px;
+  left: -4px;
+}
+
+.question-box .question-content {
+  display: none;
+  position: absolute;
+  min-width: 280px;
+  background-color: var(--background-color);
+  color: #a3a3a3;
+  padding: 12px;
+  border: 2px solid #c423e0;
+  border-radius: 4px;
+  font-size: 14px;
+  transform: translate(-50%, -50%);
+  padding-top: 28px;
+  z-index: 200;
+}
+
+.question-content .close-button {
+  position: absolute;
+  top: 4px;
+  right: 0;
+}

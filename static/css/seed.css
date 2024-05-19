@@ -1,0 +1,35 @@
+.seed-box-container {
+  display: grid;
+  grid-template-columns: auto auto auto auto auto auto;
+  justify-content: center;
+  row-gap: 4px;
+  column-gap: 12px;
+}
+
+@media (max-width: 680px) {
+  .seed-box-container {
+    grid-template-columns: auto auto auto auto;
+  }
+}
+
+.blur-filter {
+  filter: blur(5px);
+}
+
+.seed-box {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.reveal-button {
+  font-size: 14px;
+  color: #c434e0;
+  font-style: italic;
+  text-decoration: none solid rgb(196, 52, 224);
+  text-align: center;
+  text-shadow: 0px 0px 2px rgba(0, 0, 0, 1);
+  background-color: transparent;
+  border: none;
+  margin-top: 16px;
+}
