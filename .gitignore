@@ -10,3 +10,4 @@ db.sqlite
 metrics.sqlite
 .key/
 logs
+.jwt_secret

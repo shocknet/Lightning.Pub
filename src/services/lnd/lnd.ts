@@ -32,7 +32,7 @@ export default class {
     invoicePaidCb: InvoicePaidCb
     newBlockCb: NewBlockCb
     htlcCb: HtlcCb
-    log = getLogger({ appName: 'lndManager' })
+    log = getLogger({ component: 'lndManager' })
     outgoingOpsLocked = false
     constructor(settings: LndSettings, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb, newBlockCb: NewBlockCb, htlcCb: HtlcCb) {
         this.settings = settings
@@ -298,7 +298,7 @@ export default class {
                         return
                     case Payment_PaymentStatus.SUCCEEDED:
                         this.log("invoice payment succeded", Number(payment.valueSat))
-                        res({ feeSat: Number(payment.feeSat), valueSat: Number(payment.valueSat), paymentPreimage: payment.paymentPreimage })
+                        res({ feeSat: Math.ceil(Number(payment.feeMsat) / 1000), valueSat: Number(payment.valueSat), paymentPreimage: payment.paymentPreimage })
                 }
             })
         })

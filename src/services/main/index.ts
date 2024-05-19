@@ -7,7 +7,7 @@ import PaymentManager, { PendingTx } from './paymentManager.js'
 import { MainSettings } from './settings.js'
 import LND from "../lnd/lnd.js"
 import { AddressPaidCb, HtlcCb, InvoicePaidCb, NewBlockCb } from "../lnd/settings.js"
-import { getLogger, PubLogger } from "../helpers/logger.js"
+import { ERROR, getLogger, PubLogger } from "../helpers/logger.js"
 import AppUserManager from "./appUserManager.js"
 import { Application } from '../storage/entity/Application.js'
 import { UserReceivingInvoice } from '../storage/entity/UserReceivingInvoice.js'
@@ -23,7 +23,7 @@ type UserOperationsSub = {
     newIncomingTx: (operation: Types.UserOperation) => void
     newOutgoingTx: (operation: Types.UserOperation) => void
 }
-
+const appTag = "Lightning.Pub"
 export default class {
     storage: Storage
     lnd: LND
@@ -36,7 +36,6 @@ export default class {
     paymentSubs: Record<string, ((op: Types.UserOperation) => void) | null> = {}
     metricsManager: MetricsManager
     nostrSend: NostrSend = () => { getLogger({})("nostr send not initialized yet") }
-
     constructor(settings: MainSettings, storage: Storage) {
         this.settings = settings
         this.storage = storage
@@ -54,6 +53,12 @@ export default class {
         this.lnd.Stop()
         this.applicationManager.Stop()
         this.paymentManager.Stop()
+    }
+
+    StartBeacons() {
+        this.applicationManager.StartAppsServiceBeacon(app => {
+            this.UpdateBeacon(app, { type: 'service', name: app.name })
+        })
     }
 
     attachNostrSend(f: NostrSend) {
@@ -77,7 +82,7 @@ export default class {
             await this.metricsManager.NewBlockCb(height, balanceEvents)
             confirmed = await this.paymentManager.CheckNewlyConfirmedTxs(height)
         } catch (err: any) {
-            log("failed to check transactions after new block", err.message || err)
+            log(ERROR, "failed to check transactions after new block", err.message || err)
             return
         }
         await Promise.all(confirmed.map(async c => {
@@ -91,7 +96,7 @@ export default class {
                 this.storage.StartTransaction(async tx => {
                     const { user_address: userAddress, paid_amount: amount, service_fee: serviceFee, serial_id: serialId, tx_hash } = c.tx
                     if (!userAddress.linkedApplication) {
-                        log("ERROR", "an address was paid, that has no linked application")
+                        log(ERROR, "an address was paid, that has no linked application")
                         return
                     }
                     const updateResult = await this.storage.paymentStorage.UpdateAddressReceivingTransaction(serialId, { confs: c.confs }, tx)
@@ -108,7 +113,6 @@ export default class {
                     const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_TX, identifier: userAddress.address, operationId, network_fee: 0, service_fee: serviceFee, confirmed: true, tx_hash: c.tx.tx_hash, internal: c.tx.internal }
                     this.sendOperationToNostr(userAddress.linkedApplication!, userAddress.user.user_id, op)
                 })
-
             }
         }))
     }
@@ -120,7 +124,7 @@ export default class {
             if (!userAddress) { return }
             let log = getLogger({})
             if (!userAddress.linkedApplication) {
-                log("ERROR", "an address was paid, that has no linked application")
+                log(ERROR, "an address was paid, that has no linked application")
                 return
             }
             log = getLogger({ appName: userAddress.linkedApplication.name })
@@ -145,7 +149,7 @@ export default class {
                 const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_TX, identifier: userAddress.address, operationId, network_fee: 0, service_fee: fee, confirmed: internal, tx_hash: txOutput.hash, internal: false }
                 this.sendOperationToNostr(userAddress.linkedApplication, userAddress.user.user_id, op)
             } catch {
-
+                log(ERROR, "cannot process address paid transaction, already registered")
             }
         })
     }
@@ -158,7 +162,7 @@ export default class {
             if (userInvoice.paid_at_unix > 0 && internal) { log("cannot pay internally, invoice already paid"); return }
             if (userInvoice.paid_at_unix > 0 && !internal && userInvoice.paidByLnd) { log("invoice already paid by lnd"); return }
             if (!userInvoice.linkedApplication) {
-                log("ERROR", "an invoice was paid, that has no linked application")
+                log(ERROR, "an invoice was paid, that has no linked application")
                 return
             }
             log = getLogger({ appName: userInvoice.linkedApplication.name })
@@ -181,7 +185,7 @@ export default class {
                 this.createZapReceipt(log, userInvoice)
                 log("paid invoice processed successfully")
             } catch (err: any) {
-                log("ERROR", "cannot process paid invoice", err.message || "")
+                log(ERROR, "cannot process paid invoice", err.message || "")
             }
         })
     }
@@ -193,7 +197,7 @@ export default class {
         try {
             await fetch(url + "&ok=true")
         } catch (err: any) {
-            log("error sending paid callback for invoice", err.message || "")
+            log(ERROR, "error sending paid callback for invoice", err.message || "")
         }
     }
 
@@ -207,10 +211,26 @@ export default class {
         this.nostrSend(app.app_id, { type: 'content', content: JSON.stringify(message), pub: user.nostr_public_key })
     }
 
+    async UpdateBeacon(app: Application, content: { type: 'service', name: string }) {
+        if (!app.nostr_public_key) {
+            getLogger({ appName: app.name })("cannot update beacon, public key not set")
+            return
+        }
+        const tags = [["d", appTag]]
+        const event: UnsignedEvent = {
+            content: JSON.stringify(content),
+            created_at: Math.floor(Date.now() / 1000),
+            kind: 30078,
+            pubkey: app.nostr_public_key,
+            tags,
+        }
+        this.nostrSend(app.app_id, { type: 'event', event })
+    }
+
     async createZapReceipt(log: PubLogger, invoice: UserReceivingInvoice) {
         const zapInfo = invoice.zap_info
         if (!zapInfo || !invoice.linkedApplication || !invoice.linkedApplication.nostr_public_key) {
-            log("no zap info linked to payment")
+            log(ERROR, "no zap info linked to payment")
             return
         }
         const tags = [["p", zapInfo.pub], ["bolt11", invoice.invoice], ["description", zapInfo.description]]
