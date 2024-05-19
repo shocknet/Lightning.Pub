@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title></title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css?family=Montserrat"
+    />
+    <link rel="stylesheet" href="css/styles.css" />
+    <!-- HTML Meta Tags -->
+    <title>Lightning.Pub</title>
+    <meta name="description" content="Lightning for Everyone" />
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  </head>
+  <body>
+    <header>
+      <img
+        src="img/pub_logo.png"
+        width="38px"
+        height="auto"
+        alt="Lightning Pub logo"
+      />
+      <img src="img/LightningPub.png" height="33px" alt="Lightning Pub logo" />
+    </header>
+
+    <main>
+      <section class="setup-header">
+        <button class="icon-button back-button" onclick="history.back()">
+          <img src="img/back.svg" alt="" />
+        </button>
+        <h2>Connect</h2>
+        <p class="header-title">
+          Who's the Nostr user that owns this node, can recover the backups, and
+          connect to manage it?
+        </p>
+      </section>
+
+      <div class="line"></div>
+
+      <section class="setup-content">
+        <div id="qrcode"></div>
+        <p class="text-gray">
+          strfry.shock.network <br />npub123abcdefghhhhhhhhhhhhhhh
+        </p>
+        <br />
+        <p class="text-gray">Note: Code contains a one-time pairing secret.</p>
+      </section>
+
+      <button
+        class="push-button"
+        style="margin-top: 32px"
+      >
+        Next
+      </button>
+    </main>
+
+    <footer>
+      <div class="footer-text">
+        <div>By proceeding you acknowledge that this is</div>
+        <div>bleeding-edge software, and agree to the providers</div>
+        <div>
+          <span style="color: #c434e0">terms</span> regarding any services
+          herein.
+        </div>
+      </div>
+      <div class="line"></div>
+      <p class="marked">Need Help?</p>
+    </footer>
+
+    <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
+
+    <script src="js/script.js"></script>
+  </body>
+</html>
