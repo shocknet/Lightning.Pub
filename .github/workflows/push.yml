@@ -34,23 +34,8 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
      
-      - name: Build Docker image
-        uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
-        with:
-          context: .
-          push: false
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-
-      - name: Attest build provenance
-        uses: actions/attest-build-provenance@v1
-        with:
-          artifact-digest: ${{ steps.push.outputs.digest }}
-          artifact-type: 'container-image'
-          artifact-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          materials: '[{"uri":"git+https://github.com/${{ github.repository }}","digest":{"sha1":"${{ github.sha }}"},"mediaType":"application/vnd.github.v3+json"}]'
-
-      - name: Push Docker image
+      - name: Build and push Docker image
+        id: build-and-push
         uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
         with:
           context: .
@@ -58,3 +43,10 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v1
+        with:
+          artifact-digest: ${{ steps.build-and-push.outputs.digest }}
+          artifact-type: 'container-image'
+          artifact-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          materials: '[{"uri":"git+https://github.com/${{ github.repository }}","digest":{"sha1":"${{ github.sha }}"},"mediaType":"application/vnd.github.v3+json"}]'
