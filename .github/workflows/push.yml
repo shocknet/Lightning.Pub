@@ -1,9 +1,8 @@
-
 name: Create and publish a Docker image
 
 on:
-  push:
-    branches: ['umbrel-works']
+  release:
+    types: [created]
 
 env:
   REGISTRY: ghcr.io
@@ -43,5 +42,3 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-    
-      
