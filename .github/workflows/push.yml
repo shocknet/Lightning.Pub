@@ -53,6 +53,6 @@ jobs:
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v1
         with:
-         subject-digest: ${{ steps.capture-digest.outputs.digest }}
+         subject-digest: sha256:${{ steps.capture-digest.outputs.digest }}
          subject-name: ghcr.io/${{ github.repository_owner }}/lightning-pub:latest
          github-token: ${{ secrets.GITHUB_TOKEN }}
