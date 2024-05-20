@@ -48,8 +48,7 @@ jobs:
         id: capture-digest
         run: |
           DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/${{ github.repository_owner }}/lightning-pub:latest | cut -d'@' -f2)
-          echo "DIGEST=sha256:${DIGEST}" >> $GITHUB_ENV
-          echo "::set-output name=digest::sha256:${DIGEST}"
+          echo "::set-output name=digest::${DIGEST}"
 
       - name: Debug Print Digest
         run: echo "Digest is ${{ steps.capture-digest.outputs.digest }}"
@@ -57,6 +56,6 @@ jobs:
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v1
         with:
-          subject-digest: ${{ steps.capture-digest.outputs.digest }}
+          subject-digest: sha256:${{ steps.capture-digest.outputs.digest }}
           subject-name: ghcr.io/${{ github.repository_owner }}/lightning-pub:latest
           github-token: ${{ secrets.GITHUB_TOKEN }}
