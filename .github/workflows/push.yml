@@ -44,8 +44,14 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
+      - name: Capture image digest
+        id: capture-digest
+        run: |
+          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/${{ github.repository_owner }}/${{ github.repository }}:latest)
+          echo "::set-output name=digest::$DIGEST"
+  
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v1
         with:
-          subject-path: ${{ github.workspace }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+         subject-digest: ${{ steps.capture-digest.outputs.digest }}
+         github-token: ${{ secrets.GITHUB_TOKEN }}
