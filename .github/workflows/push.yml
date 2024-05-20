@@ -1,8 +1,8 @@
 name: Create and publish a Docker image
 
 on:
-  release:
-    types: [created, released, prereleased]
+  push:
+    branches: ['umbrel-works']
 
 env:
   REGISTRY: ghcr.io
