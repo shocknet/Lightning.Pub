@@ -49,13 +49,10 @@ jobs:
         run: |
           DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/${{ github.repository_owner }}/lightning-pub:latest | cut -d'@' -f2)
           echo "Raw Digest is $DIGEST"
-          echo "::set-output name=digest::$DIGEST"
+          echo "::set-output name=digest::${DIGEST}"
 
       - name: Debug Print Digest
         run: echo "Digest is ${{ steps.capture-digest.outputs.digest }}"
-
-      - name: Debug Print Formatted Digest
-        run: echo "Formatted Digest is sha256:${{ steps.capture-digest.outputs.digest }}"
 
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v1
