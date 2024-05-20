@@ -27,13 +27,13 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      
+
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v4
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-     
+
       - name: Build and push Docker image
         id: build-and-push
         uses: docker/build-push-action@v4
@@ -49,7 +49,7 @@ jobs:
         run: |
           DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/${{ github.repository_owner }}/lightning-pub:latest | cut -d'@' -f2)
           echo "Raw Digest is $DIGEST"
-          echo "::set-output name=digest::${DIGEST}"
+          echo "::set-output name=digest::$DIGEST"
 
       - name: Debug Print Digest
         run: echo "Digest is ${{ steps.capture-digest.outputs.digest }}"
@@ -57,6 +57,6 @@ jobs:
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v1
         with:
-          subject-digest: sha256:${{ steps.capture-digest.outputs.digest }}
+          subject-digest: ${{ steps.capture-digest.outputs.digest }}
           subject-name: ghcr.io/${{ github.repository_owner }}/lightning-pub:latest
           github-token: ${{ secrets.GITHUB_TOKEN }}
