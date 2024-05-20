@@ -41,13 +41,13 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: ghcr.io/${{ github.repository_owner }}/lightning-pub:latest  # Update the image tag
           labels: ${{ steps.meta.outputs.labels }}
 
       - name: Capture image digest
         id: capture-digest
         run: |
-          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/${{ github.repository_owner }}/${{ github.repository }}:latest)
+          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/${{ github.repository_owner }}/lightning-pub:latest)
           echo "::set-output name=digest::$DIGEST"
   
       - name: Attest build provenance
