@@ -1,8 +1,9 @@
 name: Create and publish a Docker image
 
 on:
-  push:
-    branches: ['umbrel-works']
+  release:
+    types: [created, published, prereleased]
+  workflow_dispatch: # This allows manual triggering of the workflow
 
 env:
   REGISTRY: ghcr.io
