@@ -47,8 +47,8 @@ jobs:
       - name: Capture image digest
         id: capture-digest
         run: |
-          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/${{ github.repository_owner }}/lightning-pub:latest)
-          echo "::set-output name=digest::$DIGEST"
+          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/${{ github.repository_owner }}/lightning-pub:latest | cut -d'@' -f2)
+          echo "::set-output name=digest::sha256:${DIGEST}"
   
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v1
