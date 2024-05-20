@@ -48,7 +48,6 @@ jobs:
         uses: actions/attest-build-provenance@v1
         with:
           subject-path: ${{ github.workspace }}
-          subject-digest: ${{ steps.build-and-push.outputs.digest }}
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           push-to-registry: true
           github-token: ${{ secrets.GITHUB_TOKEN }}
