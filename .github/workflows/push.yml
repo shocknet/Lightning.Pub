@@ -44,3 +44,11 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: ${{ github.workspace }}/Dockerfile  # Adjusted to point directly to Dockerfile
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          push-to-registry: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
