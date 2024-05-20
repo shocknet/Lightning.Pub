@@ -47,8 +47,5 @@ jobs:
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v1
         with:
-          subject-path: ${{ github.workspace }}/Dockerfile  # Adjusted to point directly to Dockerfile
-          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          push-to-registry: true
+          subject-path: ${{ github.workspace }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-
