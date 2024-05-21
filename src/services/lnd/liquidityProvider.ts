@@ -12,6 +12,7 @@ export class LiquidityProvider {
     client: ReturnType<typeof newNostrClient>
     clientCbs: Record<string, nostrCallback<any>> = {}
     clientId: string = ""
+    myPub: string = ""
     log = getLogger({ component: 'liquidityProvider' })
     nostrSend: NostrSend | null = null
     ready = false
@@ -22,37 +23,48 @@ export class LiquidityProvider {
         if (!pubDestination) {
             this.log("No pub provider to liquidity provider, will not be initialized")
         }
+        this.pubDestination = pubDestination
         this.client = newNostrClient({
-            pubDestination: pubDestination,
-            retrieveNostrUserAuth: async () => "",
+            pubDestination: this.pubDestination,
+            retrieveNostrUserAuth: async () => this.myPub,
         }, this.clientSend, this.clientSub)
 
         const interval = setInterval(() => {
             if (this.ready) {
-                this.log("ready")
                 clearInterval(interval)
-                this.client.GetUserInfo().then(res => {
-                    if (res.status === 'ERROR') {
-                        this.log("error getting user info", res)
-                        return
-                    }
-                    this.log("got user info", res)
-                })
+                this.CheckUSerState()
             }
         }, 1000)
     }
 
-    setClientId = (clientId: string) => {
-        this.clientId = clientId
-        if (this.nostrSend && this.pubDestination !== "") {
-            this.ready = true
+    CheckUSerState = async () => {
+        await new Promise(res => setTimeout(res, 2000))
+        this.log("ready")
+        const res = await this.client.GetUserInfo()
+        if (res.status === 'ERROR') {
+            this.log("error getting user info", res)
+            return
         }
+        this.log("got user info", res)
     }
+
+    setNostrInfo = ({ clientId, myPub }: { myPub: string, clientId: string }) => {
+        this.clientId = clientId
+        this.myPub = myPub
+        this.setSetIfReady()
+    }
+
+
 
     attachNostrSend(f: NostrSend) {
         this.nostrSend = f
-        if (this.clientId !== "" && this.pubDestination !== "") {
+        this.setSetIfReady()
+    }
+
+    setSetIfReady = () => {
+        if (this.nostrSend && !!this.pubDestination && !!this.clientId && !!this.myPub) {
             this.ready = true
+            this.log("ready to send to ", this.pubDestination)
         }
     }
 

@@ -1,14 +1,15 @@
 import { LoadTestSettingsFromEnv } from "../services/main/settings.js"
 import { BitcoinCoreWrapper } from "./bitcoinCore.js"
 import LND from '../services/lnd/lnd.js'
+import { LiquidityProvider } from "../services/lnd/liquidityProvider.js"
 
 export const setupNetwork = async () => {
     const settings = LoadTestSettingsFromEnv()
     const core = new BitcoinCoreWrapper(settings)
     await core.InitAddress()
     await core.Mine(1)
-    const alice = new LND(settings.lndSettings, () => { }, () => { }, () => { }, () => { })
-    const bob = new LND({ ...settings.lndSettings, mainNode: settings.lndSettings.otherNode }, () => { }, () => { }, () => { }, () => { })
+    const alice = new LND(settings.lndSettings, new LiquidityProvider(""), () => { }, () => { }, () => { }, () => { })
+    const bob = new LND({ ...settings.lndSettings, mainNode: settings.lndSettings.otherNode }, new LiquidityProvider(""), () => { }, () => { }, () => { }, () => { })
     await tryUntil<void>(async i => {
         const peers = await alice.ListPeers()
         if (peers.peers.length > 0) {
