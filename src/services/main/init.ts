@@ -1,4 +1,5 @@
 import { PubLogger, getLogger } from "../helpers/logger.js"
+import { LiquidityProvider } from "../lnd/liquidityProvider.js"
 import Storage from "../storage/index.js"
 import { TypeOrmMigrationRunner } from "../storage/migrations/runner.js"
 import Main from "./index.js"
@@ -16,7 +17,8 @@ export const initMainHandler = async (log: PubLogger, mainSettings: MainSettings
     if (manualMigration) {
         return
     }
-    const mainHandler = new Main(mainSettings, storageManager)
+    const liquidityProvider = new LiquidityProvider(mainSettings.lndSettings.liquidityProviderPub)
+    const mainHandler = new Main(mainSettings, storageManager, liquidityProvider)
     await mainHandler.lnd.Warmup()
     if (!mainSettings.skipSanityCheck) {
         const sanityChecker = new SanityChecker(storageManager, mainHandler.lnd)
@@ -38,11 +40,21 @@ export const initMainHandler = async (log: PubLogger, mainSettings: MainSettings
             return { privateKey: app.nostr_private_key, publicKey: app.nostr_public_key, appId: app.app_id, name: app.name }
         }
     }))
+    const liquidityProviderApp = apps.find(app => app.name === 'wallet' || app.name === 'wallet-test')
+    if (!liquidityProviderApp) {
+        throw new Error("wallet app not initialized correctly")
+    }
+    const liquidityProviderInfo = {
+        privateKey: liquidityProviderApp.privateKey,
+        publicKey: liquidityProviderApp.publicKey,
+        name: "liquidity_provider", clientId: `client_${liquidityProviderApp.appId}`
+    }
+    liquidityProvider.setClientId(liquidityProviderInfo.clientId)
     const stop = await processArgs(mainHandler)
     if (stop) {
         return
     }
-    return { mainHandler, apps }
+    return { mainHandler, apps, liquidityProviderInfo }
 }
 
 const processArgs = async (mainHandler: Main) => {

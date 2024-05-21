@@ -15,6 +15,7 @@ import { UnsignedEvent } from '../nostr/tools/event.js'
 import { NostrSend } from '../nostr/handler.js'
 import MetricsManager from '../metrics/index.js'
 import { LoggedEvent } from '../storage/eventsLog.js'
+import { LiquidityProvider } from "../lnd/liquidityProvider.js"
 
 type UserOperationsSub = {
     id: string
@@ -35,12 +36,14 @@ export default class {
     paymentManager: PaymentManager
     paymentSubs: Record<string, ((op: Types.UserOperation) => void) | null> = {}
     metricsManager: MetricsManager
+    liquidProvider: LiquidityProvider
     nostrSend: NostrSend = () => { getLogger({})("nostr send not initialized yet") }
-    constructor(settings: MainSettings, storage: Storage) {
+    constructor(settings: MainSettings, storage: Storage, liquidProvider: LiquidityProvider) {
         this.settings = settings
         this.storage = storage
+        this.liquidProvider = liquidProvider
 
-        this.lnd = new LND(settings.lndSettings, this.addressPaidCb, this.invoicePaidCb, this.newBlockCb, this.htlcCb)
+        this.lnd = new LND(settings.lndSettings, this.liquidProvider, this.addressPaidCb, this.invoicePaidCb, this.newBlockCb, this.htlcCb)
         this.metricsManager = new MetricsManager(this.storage, this.lnd)
 
         this.paymentManager = new PaymentManager(this.storage, this.lnd, this.settings, this.addressPaidCb, this.invoicePaidCb)
@@ -63,6 +66,7 @@ export default class {
 
     attachNostrSend(f: NostrSend) {
         this.nostrSend = f
+        this.liquidProvider.attachNostrSend(f)
     }
 
     htlcCb: HtlcCb = (e) => {
@@ -208,7 +212,7 @@ export default class {
             return
         }
         const message: Types.LiveUserOperation & { requestId: string, status: 'OK' } = { operation: op, requestId: "GetLiveUserOperations", status: 'OK' }
-        this.nostrSend(app.app_id, { type: 'content', content: JSON.stringify(message), pub: user.nostr_public_key })
+        this.nostrSend({ type: 'app', appId: app.app_id }, { type: 'content', content: JSON.stringify(message), pub: user.nostr_public_key })
     }
 
     async UpdateBeacon(app: Application, content: { type: 'service', name: string }) {
@@ -224,7 +228,7 @@ export default class {
             pubkey: app.nostr_public_key,
             tags,
         }
-        this.nostrSend(app.app_id, { type: 'event', event })
+        this.nostrSend({ type: 'app', appId: app.app_id }, { type: 'event', event })
     }
 
     async createZapReceipt(log: PubLogger, invoice: UserReceivingInvoice) {
@@ -245,6 +249,6 @@ export default class {
             tags,
         }
         log({ unsigned: event })
-        this.nostrSend(invoice.linkedApplication.app_id, { type: 'event', event })
+        this.nostrSend({ type: 'app', appId: invoice.linkedApplication.app_id }, { type: 'event', event })
     }
 }
