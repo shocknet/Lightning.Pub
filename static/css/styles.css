@@ -143,7 +143,7 @@ a {
 
 /* Display a checkmark when the checkbox is checked */
 .checkbox input[type="checkbox"]:checked + .checkbox-shape::before {
-  content: "✔";
+  content: "✓";
   color: #a012c7;
   font-size: 20px;
   text-align: center;
