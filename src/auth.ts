@@ -8,6 +8,7 @@ const serverOptions = (mainHandler: Main): ServerOptions => {
     const log = getLogger({})
     return {
         logger: { log, error: err => log(ERROR, err) },
+        staticFiles: path.resolve('static'),
         AdminAuthGuard: adminAuth,
         MetricsAuthGuard: metricsAuth,
         AppAuthGuard: async (authHeader) => { return { app_id: mainHandler.applicationManager.DecodeAppToken(stripBearer(authHeader)) } },
