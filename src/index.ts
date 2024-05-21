@@ -16,10 +16,13 @@ const start = async () => {
         log("manual process ended")
         return
     }
-    const { apps, mainHandler } = keepOn
+    const { apps, mainHandler, liquidityProviderInfo } = keepOn
     const serverMethods = GetServerMethods(mainHandler)
     const nostrSettings = LoadNosrtSettingsFromEnv()
-    const { Send } = nostrMiddleware(serverMethods, mainHandler, { ...nostrSettings, apps })
+    const { Send } = nostrMiddleware(serverMethods, mainHandler,
+        { ...nostrSettings, apps, clients: [liquidityProviderInfo] },
+        (e, p) => mainHandler.liquidProvider.onEvent(e, p)
+    )
     mainHandler.attachNostrSend(Send)
     mainHandler.StartBeacons()
     const Server = NewServer(serverMethods, serverOptions(mainHandler))

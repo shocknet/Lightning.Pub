@@ -16,6 +16,7 @@ import { SendCoinsReq } from './sendCoinsReq.js';
 import { LndSettings, AddressPaidCb, InvoicePaidCb, NodeInfo, Invoice, DecodedInvoice, PaidInvoice, NewBlockCb, HtlcCb, BalanceInfo } from './settings.js';
 import { getLogger } from '../helpers/logger.js';
 import { HtlcEvent_EventType } from '../../../proto/lnd/router.js';
+import { LiquidityProvider } from './liquidityProvider.js';
 const DeadLineMetadata = (deadline = 10 * 1000) => ({ deadline: Date.now() + deadline })
 const deadLndRetrySeconds = 5
 export default class {
@@ -34,7 +35,9 @@ export default class {
     htlcCb: HtlcCb
     log = getLogger({ component: 'lndManager' })
     outgoingOpsLocked = false
-    constructor(settings: LndSettings, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb, newBlockCb: NewBlockCb, htlcCb: HtlcCb) {
+    liquidProvider: LiquidityProvider
+    useLiquidityProvider = false
+    constructor(settings: LndSettings, liquidProvider: LiquidityProvider, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb, newBlockCb: NewBlockCb, htlcCb: HtlcCb) {
         this.settings = settings
         this.addressPaidCb = addressPaidCb
         this.invoicePaidCb = invoicePaidCb
@@ -60,6 +63,8 @@ export default class {
         this.invoices = new InvoicesClient(transport)
         this.router = new RouterClient(transport)
         this.chainNotifier = new ChainNotifierClient(transport)
+        this.liquidProvider = liquidProvider
+        this.useLiquidityProvider = !!settings.liquidityProviderPub
     }
 
     LockOutgoingOperations(): void {
