@@ -49,7 +49,7 @@ export const initMainHandler = async (log: PubLogger, mainSettings: MainSettings
         publicKey: liquidityProviderApp.publicKey,
         name: "liquidity_provider", clientId: `client_${liquidityProviderApp.appId}`
     }
-    liquidityProvider.setClientId(liquidityProviderInfo.clientId)
+    liquidityProvider.setNostrInfo({ clientId: liquidityProviderInfo.clientId, myPub: liquidityProviderInfo.publicKey })
     const stop = await processArgs(mainHandler)
     if (stop) {
         return
