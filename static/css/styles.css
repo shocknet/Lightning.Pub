@@ -27,7 +27,7 @@ header {
 }
 
 main {
-  max-width: 500px;
+  max-width: 600px;
   width: 100%;
   margin-inline: auto;
 }
@@ -182,6 +182,13 @@ a {
 
 .setup-header > h2 {
   margin-block-start: 20px;
+  padding: 0 20px;
+}
+
+@media (max-width: 768px) {
+  .setup-header > h2 {
+    font-size: 24px;
+  } 
 }
 
 .setup-header .header-title {
