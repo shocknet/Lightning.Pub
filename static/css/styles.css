@@ -182,7 +182,7 @@ a {
 
 .setup-header > h2 {
   margin-block-start: 20px;
-  padding: 0 20px;
+  padding: 0 24px;
 }
 
 @media (max-width: 768px) {
