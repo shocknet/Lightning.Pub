@@ -12,9 +12,10 @@ export default async (T: TestBase) => {
     disableLoggers([], ["EventsLogManager", "watchdog", "htlcTracker", "debugHtlcs", "debugLndBalancev3", "metrics", "mainForTest", "main"])
     await safelySetUserBalance(T, T.user1, 2000)
     T.d("starting liquidityProvider tests...")
-    const { bootstrapped, bootstrappedUser } = await initBootstrappedInstance(T)
+    const { bootstrapped, bootstrappedUser, stop } = await initBootstrappedInstance(T)
     await testInboundPaymentFromProvider(T, bootstrapped, bootstrappedUser)
     await testOutboundPaymentFromProvider(T, bootstrapped, bootstrappedUser)
+    stop()
     await runSanityCheck(T)
 }
 

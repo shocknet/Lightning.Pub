@@ -47,6 +47,9 @@ export const setupNetwork = async () => {
             throw new Error("bob not synced to graph")
         }
     }, 15, 2000)
+
+    alice.Stop()
+    bob.Stop()
 }
 
 const tryUntil = async <T>(fn: (attempt: number) => Promise<T>, maxTries: number, interval: number) => {
