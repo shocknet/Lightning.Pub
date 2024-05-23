@@ -54,7 +54,7 @@ export const initMainHandler = async (log: PubLogger, mainSettings: MainSettings
     if (stop) {
         return
     }
-    return { mainHandler, apps, liquidityProviderInfo }
+    return { mainHandler, apps, liquidityProviderInfo, liquidityProviderApp }
 }
 
 const processArgs = async (mainHandler: Main) => {
