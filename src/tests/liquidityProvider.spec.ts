@@ -1,31 +1,53 @@
-import { initMainHandler } from '../services/main/init.js'
-import { LoadTestSettingsFromEnv } from '../services/main/settings.js'
-import { defaultInvoiceExpiry } from '../services/storage/paymentStorage.js'
-import { runSanityCheck, safelySetUserBalance, TestBase } from './testBase.js'
+import { disableLoggers } from '../services/helpers/logger.js'
+import { runSanityCheck, safelySetUserBalance, TestBase, TestUserData } from './testBase.js'
+import { initBootstrappedInstance } from './setupBootstrapped.js'
+import Main from '../services/main/index.js'
+import { AppData } from '../services/main/init.js'
 export const ignore = false
-export const dev = true
+export const dev = false
 
 
 
 export default async (T: TestBase) => {
+    disableLoggers([], ["EventsLogManager", "watchdog", "htlcTracker", "debugHtlcs", "debugLndBalancev3", "metrics", "mainForTest", "main"])
     await safelySetUserBalance(T, T.user1, 2000)
-    const bootstrapped = await initBootstrappedInstance(T)
-    bootstrapped.appUserManager.NewInvoice({ app_id: T.user1.appId, user_id: T.user1.userId, app_user_id: T.user1.appUserIdentifier }, { amountSats: 2000, memo: "liquidityTest" })
+    T.d("starting liquidityProvider tests...")
+    const { bootstrapped, bootstrappedUser } = await initBootstrappedInstance(T)
+    await testInboundPaymentFromProvider(T, bootstrapped, bootstrappedUser)
+    await testOutboundPaymentFromProvider(T, bootstrapped, bootstrappedUser)
     await runSanityCheck(T)
 }
 
-const initBootstrappedInstance = async (T: TestBase) => {
-    const settings = LoadTestSettingsFromEnv()
-    settings.lndSettings.useOnlyLiquidityProvider = true
-    const initialized = await initMainHandler(console.log, settings)
-    if (!initialized) {
-        throw new Error("failed to initialize bootstrapped main handler")
-    }
-    const { mainHandler: bootstrapped, liquidityProviderInfo } = initialized
+const testInboundPaymentFromProvider = async (T: TestBase, bootstrapped: Main, bUser: TestUserData) => {
+    T.d("starting testInboundPaymentFromProvider")
+    const invoiceRes = await bootstrapped.appUserManager.NewInvoice({ app_id: bUser.appId, user_id: bUser.userId, app_user_id: bUser.appUserIdentifier }, { amountSats: 2000, memo: "liquidityTest" })
 
-    bootstrapped.liquidProvider.attachNostrSend((identifier, data, r) => {
-        console.log(identifier, data)
-    })
-    bootstrapped.liquidProvider.setNostrInfo({ clientId: liquidityProviderInfo.clientId, myPub: liquidityProviderInfo.publicKey })
-    return bootstrapped
+    await T.externalAccessToOtherLnd.PayInvoice(invoiceRes.invoice, 0, 100)
+    const userBalance = await bootstrapped.appUserManager.GetUserInfo({ app_id: bUser.appId, user_id: bUser.userId, app_user_id: bUser.appUserIdentifier })
+    T.expect(userBalance.balance).to.equal(2000)
+
+    const providerBalance = await bootstrapped.liquidProvider.CheckUserState()
+    if (!providerBalance) {
+        throw new Error("provider balance not found")
+    }
+    T.expect(providerBalance.balance).to.equal(2000)
+    T.d("testInboundPaymentFromProvider done")
+}
+
+const testOutboundPaymentFromProvider = async (T: TestBase, bootstrapped: Main, bootstrappedUser: TestUserData) => {
+    T.d("starting testOutboundPaymentFromProvider")
+
+    const invoice = await T.externalAccessToOtherLnd.NewInvoice(1000, "", 60 * 60)
+    const ctx = { app_id: bootstrappedUser.appId, user_id: bootstrappedUser.userId, app_user_id: bootstrappedUser.appUserIdentifier }
+    const res = await bootstrapped.appUserManager.PayInvoice(ctx, { invoice: invoice.payRequest, amount: 0 })
+
+    const userBalance = await bootstrapped.appUserManager.GetUserInfo(ctx)
+    T.expect(userBalance.balance).to.equal(986) // 2000 - (1000 + 6(x2) + 2)
+
+    const providerBalance = await bootstrapped.liquidProvider.CheckUserState()
+    if (!providerBalance) {
+        throw new Error("provider balance not found")
+    }
+    T.expect(providerBalance.balance).to.equal(992) // 2000 - (1000 + 6 +2)
+    T.d("testOutboundPaymentFromProvider done")
 }

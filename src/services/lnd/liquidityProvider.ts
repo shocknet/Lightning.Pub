@@ -21,6 +21,7 @@ export class LiquidityProvider {
     pubDestination: string
     latestMaxWithdrawable: number | null = null
     invoicePaidCb: InvoicePaidCb
+    connecting = false
     // make the sub process accept client
     constructor(pubDestination: string, invoicePaidCb: InvoicePaidCb) {
         if (!pubDestination) {
@@ -44,11 +45,13 @@ export class LiquidityProvider {
     Connect = async () => {
         await new Promise(res => setTimeout(res, 2000))
         this.log("ready")
-        this.CheckUSerState()
+        await this.CheckUserState()
         if (this.latestMaxWithdrawable === null) {
             return
         }
+        this.log("subbing to user operations")
         this.client.GetLiveUserOperations(res => {
+            console.log("got user operation", res)
             if (res.status === 'ERROR') {
                 this.log("error getting user operations", res.reason)
                 return
@@ -61,7 +64,7 @@ export class LiquidityProvider {
         })
     }
 
-    CheckUSerState = async () => {
+    CheckUserState = async () => {
         const res = await this.client.GetUserInfo()
         if (res.status === 'ERROR') {
             this.log("error getting user info", res)
@@ -69,6 +72,7 @@ export class LiquidityProvider {
         }
         this.latestMaxWithdrawable = res.max_withdrawable
         this.log("latest provider balance:", res.max_withdrawable)
+        return res
     }
 
     CanProviderHandle = (req: LiquidityRequest) => {
@@ -88,7 +92,7 @@ export class LiquidityProvider {
             throw new Error(res.reason)
         }
         this.log("new invoice", res.invoice)
-        this.CheckUSerState()
+        this.CheckUserState()
         return res.invoice
     }
 
@@ -99,7 +103,7 @@ export class LiquidityProvider {
             throw new Error(res.reason)
         }
         this.log("paid invoice", res)
-        this.CheckUSerState()
+        this.CheckUserState()
         return res
     }
 
@@ -123,18 +127,17 @@ export class LiquidityProvider {
         }
     }
 
-
-
     onEvent = async (res: { requestId: string }, fromPub: string) => {
         if (fromPub !== this.pubDestination) {
+            this.log("got event from invalid pub", fromPub, this.pubDestination)
             return false
         }
         if (this.clientCbs[res.requestId]) {
             const cb = this.clientCbs[res.requestId]
             cb.f(res)
             if (cb.type === 'single') {
-                const deleteOk = (delete this.clientCbs[res.requestId])
-                console.log(this.getSingleSubs(), "single subs left", deleteOk)
+                delete this.clientCbs[res.requestId]
+                this.log(this.getSingleSubs(), "single subs left")
             }
             return true
         }
@@ -160,7 +163,7 @@ export class LiquidityProvider {
 
         //this.nostrSend(this.relays, to, JSON.stringify(message), this.settings)
 
-        console.log("subbing  to single send", reqId, message.rpcName)
+        this.log("subbing  to single send", reqId, message.rpcName || 'no rpc name')
         return new Promise(res => {
             this.clientCbs[reqId] = {
                 startedAtMillis: Date.now(),
@@ -187,7 +190,7 @@ export class LiquidityProvider {
                 type: 'stream',
                 f: (response: any) => { cb(response) },
             }
-            console.log("sub for", reqId, "was already registered, overriding")
+            this.log("sub for", reqId, "was already registered, overriding")
             return
         }
         this.nostrSend({ type: 'client', clientId: this.clientId }, {
@@ -195,7 +198,7 @@ export class LiquidityProvider {
             pub: to,
             content: JSON.stringify(message)
         })
-        console.log("subbing  to stream", reqId)
+        this.log("subbing  to stream", reqId)
         this.clientCbs[reqId] = {
             startedAtMillis: Date.now(),
             type: 'stream',

@@ -230,7 +230,7 @@ export default class {
         }, { abort: this.abortController.signal })
         stream.responses.onMessage(invoice => {
             if (invoice.state === Invoice_InvoiceState.SETTLED) {
-                this.log("An invoice was paid for", Number(invoice.amtPaidSat), "sats")
+                this.log("An invoice was paid for", Number(invoice.amtPaidSat), "sats", invoice.paymentRequest)
                 this.latestKnownSettleIndex = Number(invoice.settleIndex)
                 this.invoicePaidCb(invoice.paymentRequest, Number(invoice.amtPaidSat), false)
             }

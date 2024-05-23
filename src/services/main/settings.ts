@@ -75,14 +75,15 @@ export const LoadTestSettingsFromEnv = (): TestSettings => {
                 lndAddr: EnvMustBeNonEmptyString("LND_FOURTH_ADDR"),
                 lndCertPath: EnvMustBeNonEmptyString("LND_FOURTH_CERT_PATH"),
                 lndMacaroonPath: EnvMustBeNonEmptyString("LND_FOURTH_MACAROON_PATH")
-            }
+            },
+            liquidityProviderPub: ""
         },
         skipSanityCheck: true,
         bitcoinCoreSettings: {
             port: EnvMustBeInteger("BITCOIN_CORE_PORT"),
             user: EnvMustBeNonEmptyString("BITCOIN_CORE_USER"),
             pass: EnvMustBeNonEmptyString("BITCOIN_CORE_PASS")
-        }
+        },
     }
 }
 
