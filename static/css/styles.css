@@ -9,12 +9,13 @@
 }
 
 body {
-  margin-block-start: 15px;
   font-family: Montserrat;
   background-color: var(--background-color);
   color: var(--color);
   text-align: center;
-  overflow: scroll;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  margin: 0;
 }
 
 header {
@@ -24,12 +25,22 @@ header {
   flex-direction: row;
   align-items: center;
   gap: 1rem;
+  height: 4rem;
+  padding: 0.5rem 1rem;
 }
 
 main {
   max-width: 600px;
+  min-height: calc(100vh - 15rem);
   width: 100%;
   margin-inline: auto;
+  padding: 1rem;
+}
+
+@media (min-width: 640px) {
+  main {
+    min-height: auto;
+  }
 }
 
 * {
@@ -188,7 +199,7 @@ a {
 @media (max-width: 768px) {
   .setup-header > h2 {
     font-size: 24px;
-  } 
+  }
 }
 
 .setup-header .header-title {
@@ -231,7 +242,9 @@ footer {
   max-width: 500px;
   width: 100%;
   margin-inline: auto;
-  margin-top: 18px;
+  padding-top: 18px;
+  padding-left: 1rem;
+  padding-right: 1rem;
 }
 
 footer .footer-text {
