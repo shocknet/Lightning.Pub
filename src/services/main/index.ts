@@ -38,11 +38,10 @@ export default class {
     metricsManager: MetricsManager
     liquidProvider: LiquidityProvider
     nostrSend: NostrSend = () => { getLogger({})("nostr send not initialized yet") }
-    constructor(settings: MainSettings, storage: Storage, liquidProvider: LiquidityProvider) {
+    constructor(settings: MainSettings, storage: Storage) {
         this.settings = settings
         this.storage = storage
-        this.liquidProvider = liquidProvider
-
+        this.liquidProvider = new LiquidityProvider(settings.lndSettings.liquidityProviderPub, this.invoicePaidCb)
         this.lnd = new LND(settings.lndSettings, this.liquidProvider, this.addressPaidCb, this.invoicePaidCb, this.newBlockCb, this.htlcCb)
         this.metricsManager = new MetricsManager(this.storage, this.lnd)
 

@@ -5,7 +5,9 @@ import { decodeNprofile } from '../../custom-nip19.js'
 import { getLogger } from '../helpers/logger.js'
 import { NostrEvent, NostrSend } from '../nostr/handler.js'
 import { relayInit } from '../nostr/tools/relay.js'
+import { InvoicePaidCb } from './settings.js'
 
+export type LiquidityRequest = { action: 'spend' | 'receive', amount: number }
 
 export type nostrCallback<T> = { startedAtMillis: number, type: 'single' | 'stream', f: (res: T) => void }
 export class LiquidityProvider {
@@ -17,13 +19,15 @@ export class LiquidityProvider {
     nostrSend: NostrSend | null = null
     ready = false
     pubDestination: string
-
+    latestMaxWithdrawable: number | null = null
+    invoicePaidCb: InvoicePaidCb
     // make the sub process accept client
-    constructor(pubDestination: string) {
+    constructor(pubDestination: string, invoicePaidCb: InvoicePaidCb) {
         if (!pubDestination) {
             this.log("No pub provider to liquidity provider, will not be initialized")
         }
         this.pubDestination = pubDestination
+        this.invoicePaidCb = invoicePaidCb
         this.client = newNostrClient({
             pubDestination: this.pubDestination,
             retrieveNostrUserAuth: async () => this.myPub,
@@ -32,20 +36,71 @@ export class LiquidityProvider {
         const interval = setInterval(() => {
             if (this.ready) {
                 clearInterval(interval)
-                this.CheckUSerState()
+                this.Connect()
             }
         }, 1000)
     }
 
-    CheckUSerState = async () => {
+    Connect = async () => {
         await new Promise(res => setTimeout(res, 2000))
         this.log("ready")
+        this.CheckUSerState()
+        if (this.latestMaxWithdrawable === null) {
+            return
+        }
+        this.client.GetLiveUserOperations(res => {
+            if (res.status === 'ERROR') {
+                this.log("error getting user operations", res.reason)
+                return
+            }
+            this.log("got user operation", res.operation)
+            if (res.operation.type === Types.UserOperationType.INCOMING_INVOICE) {
+                this.log("invoice was paid", res.operation.identifier)
+                this.invoicePaidCb(res.operation.identifier, res.operation.amount, false)
+            }
+        })
+    }
+
+    CheckUSerState = async () => {
         const res = await this.client.GetUserInfo()
         if (res.status === 'ERROR') {
             this.log("error getting user info", res)
             return
         }
-        this.log("got user info", res)
+        this.latestMaxWithdrawable = res.max_withdrawable
+        this.log("latest provider balance:", res.max_withdrawable)
+    }
+
+    CanProviderHandle = (req: LiquidityRequest) => {
+        if (this.latestMaxWithdrawable === null) {
+            return false
+        }
+        if (req.action === 'spend') {
+            return this.latestMaxWithdrawable > req.amount
+        }
+        return true
+    }
+
+    AddInvoice = async (amount: number, memo: string) => {
+        const res = await this.client.NewInvoice({ amountSats: amount, memo })
+        if (res.status === 'ERROR') {
+            this.log("error creating invoice", res.reason)
+            throw new Error(res.reason)
+        }
+        this.log("new invoice", res.invoice)
+        this.CheckUSerState()
+        return res.invoice
+    }
+
+    PayInvoice = async (invoice: string) => {
+        const res = await this.client.PayInvoice({ invoice, amount: 0 })
+        if (res.status === 'ERROR') {
+            this.log("error paying invoice", res.reason)
+            throw new Error(res.reason)
+        }
+        this.log("paid invoice", res)
+        this.CheckUSerState()
+        return res
     }
 
     setNostrInfo = ({ clientId, myPub }: { myPub: string, clientId: string }) => {
@@ -68,9 +123,7 @@ export class LiquidityProvider {
         }
     }
 
-    IsReady = () => {
-        return this.ready
-    }
+
 
     onEvent = async (res: { requestId: string }, fromPub: string) => {
         if (fromPub !== this.pubDestination) {

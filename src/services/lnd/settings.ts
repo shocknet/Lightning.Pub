@@ -10,6 +10,7 @@ export type LndSettings = {
     feeFixedLimit: number
     mockLnd: boolean
     liquidityProviderPub: string
+    useOnlyLiquidityProvider: boolean
 
     otherNode?: NodeSettings
     thirdNode?: NodeSettings

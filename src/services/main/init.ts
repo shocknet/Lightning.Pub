@@ -17,8 +17,8 @@ export const initMainHandler = async (log: PubLogger, mainSettings: MainSettings
     if (manualMigration) {
         return
     }
-    const liquidityProvider = new LiquidityProvider(mainSettings.lndSettings.liquidityProviderPub)
-    const mainHandler = new Main(mainSettings, storageManager, liquidityProvider)
+
+    const mainHandler = new Main(mainSettings, storageManager)
     await mainHandler.lnd.Warmup()
     if (!mainSettings.skipSanityCheck) {
         const sanityChecker = new SanityChecker(storageManager, mainHandler.lnd)
@@ -49,7 +49,7 @@ export const initMainHandler = async (log: PubLogger, mainSettings: MainSettings
         publicKey: liquidityProviderApp.publicKey,
         name: "liquidity_provider", clientId: `client_${liquidityProviderApp.appId}`
     }
-    liquidityProvider.setNostrInfo({ clientId: liquidityProviderInfo.clientId, myPub: liquidityProviderInfo.publicKey })
+    mainHandler.liquidProvider.setNostrInfo({ clientId: liquidityProviderInfo.clientId, myPub: liquidityProviderInfo.publicKey })
     const stop = await processArgs(mainHandler)
     if (stop) {
         return
