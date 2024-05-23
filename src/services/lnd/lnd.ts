@@ -77,6 +77,7 @@ export default class {
     }
     Stop() {
         this.abortController.abort()
+        this.liquidProvider.Stop()
     }
 
     async ShouldUseLiquidityProvider(req: LiquidityRequest): Promise<boolean> {

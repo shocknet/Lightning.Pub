@@ -22,6 +22,7 @@ export class LiquidityProvider {
     latestMaxWithdrawable: number | null = null
     invoicePaidCb: InvoicePaidCb
     connecting = false
+    readyInterval: NodeJS.Timeout
     // make the sub process accept client
     constructor(pubDestination: string, invoicePaidCb: InvoicePaidCb) {
         if (!pubDestination) {
@@ -34,12 +35,16 @@ export class LiquidityProvider {
             retrieveNostrUserAuth: async () => this.myPub,
         }, this.clientSend, this.clientSub)
 
-        const interval = setInterval(() => {
+        this.readyInterval = setInterval(() => {
             if (this.ready) {
-                clearInterval(interval)
+                clearInterval(this.readyInterval)
                 this.Connect()
             }
         }, 1000)
+    }
+
+    Stop = () => {
+        clearInterval(this.readyInterval)
     }
 
     Connect = async () => {
