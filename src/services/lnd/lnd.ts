@@ -16,6 +16,7 @@ import { SendCoinsReq } from './sendCoinsReq.js';
 import { LndSettings, AddressPaidCb, InvoicePaidCb, NodeInfo, Invoice, DecodedInvoice, PaidInvoice, NewBlockCb, HtlcCb, BalanceInfo } from './settings.js';
 import { getLogger } from '../helpers/logger.js';
 import { HtlcEvent_EventType } from '../../../proto/lnd/router.js';
+import { LiquidityProvider, LiquidityRequest } from './liquidityProvider.js';
 const DeadLineMetadata = (deadline = 10 * 1000) => ({ deadline: Date.now() + deadline })
 const deadLndRetrySeconds = 5
 export default class {
@@ -34,7 +35,8 @@ export default class {
     htlcCb: HtlcCb
     log = getLogger({ component: 'lndManager' })
     outgoingOpsLocked = false
-    constructor(settings: LndSettings, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb, newBlockCb: NewBlockCb, htlcCb: HtlcCb) {
+    liquidProvider: LiquidityProvider
+    constructor(settings: LndSettings, liquidProvider: LiquidityProvider, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb, newBlockCb: NewBlockCb, htlcCb: HtlcCb) {
         this.settings = settings
         this.addressPaidCb = addressPaidCb
         this.invoicePaidCb = invoicePaidCb
@@ -60,6 +62,7 @@ export default class {
         this.invoices = new InvoicesClient(transport)
         this.router = new RouterClient(transport)
         this.chainNotifier = new ChainNotifierClient(transport)
+        this.liquidProvider = liquidProvider
     }
 
     LockOutgoingOperations(): void {
@@ -74,6 +77,22 @@ export default class {
     }
     Stop() {
         this.abortController.abort()
+        this.liquidProvider.Stop()
+    }
+
+    async ShouldUseLiquidityProvider(req: LiquidityRequest): Promise<boolean> {
+        if (this.settings.useOnlyLiquidityProvider) {
+            return true
+        }
+        if (!this.liquidProvider.CanProviderHandle(req)) {
+            return false
+        }
+        const channels = await this.ListChannels()
+        if (channels.channels.length === 0) {
+            this.log("no channels, will use liquidity provider")
+            return true
+        }
+        return false
     }
     async Warmup() {
         this.SubscribeAddressPaid()
@@ -212,7 +231,7 @@ export default class {
         }, { abort: this.abortController.signal })
         stream.responses.onMessage(invoice => {
             if (invoice.state === Invoice_InvoiceState.SETTLED) {
-                this.log("An invoice was paid for", Number(invoice.amtPaidSat), "sats")
+                this.log("An invoice was paid for", Number(invoice.amtPaidSat), "sats", invoice.paymentRequest)
                 this.latestKnownSettleIndex = Number(invoice.settleIndex)
                 this.invoicePaidCb(invoice.paymentRequest, Number(invoice.amtPaidSat), false)
             }
@@ -251,6 +270,11 @@ export default class {
     async NewInvoice(value: number, memo: string, expiry: number): Promise<Invoice> {
         this.log("generating new invoice for", value, "sats")
         await this.Health()
+        const shouldUseLiquidityProvider = await this.ShouldUseLiquidityProvider({ action: 'receive', amount: value })
+        if (shouldUseLiquidityProvider) {
+            const invoice = await this.liquidProvider.AddInvoice(value, memo)
+            return { payRequest: invoice }
+        }
         const res = await this.lightning.addInvoice(AddInvoiceReq(value, expiry, false, memo), DeadLineMetadata())
         this.log("new invoice", res.response.paymentRequest)
         return { payRequest: res.response.paymentRequest }
@@ -281,6 +305,11 @@ export default class {
         }
         await this.Health()
         this.log("paying invoice", invoice, "for", amount, "sats")
+        const shouldUseLiquidityProvider = await this.ShouldUseLiquidityProvider({ action: 'spend', amount })
+        if (shouldUseLiquidityProvider) {
+            const res = await this.liquidProvider.PayInvoice(invoice)
+            return { feeSat: res.network_fee + res.service_fee, valueSat: res.amount_paid, paymentPreimage: res.preimage }
+        }
         const abortController = new AbortController()
         const req = PayInvoiceReq(invoice, amount, feeLimit)
         const stream = this.router.sendPaymentV2(req, { abort: abortController.signal })
