@@ -253,6 +253,21 @@ export default (params: NostrClientParams,  send: (to:string, message: NostrRequ
             return cb({ status: 'ERROR', reason: 'invalid response' })
         })
     },
+    GetHttpCreds: async (cb: (res:ResultError | ({ status: 'OK' }& Types.HttpCreds)) => void): Promise<void> => {
+        const auth = await params.retrieveNostrUserAuth()
+        if (auth === null) throw new Error('retrieveNostrUserAuth() returned null')
+        const nostrRequest: NostrRequest = {}
+        subscribe(params.pubDestination, {rpcName:'GetHttpCreds',authIdentifier:auth, ...nostrRequest }, (data) => {
+            if (data.status === 'ERROR' && typeof data.reason === 'string') return cb(data)
+            if (data.status === 'OK') { 
+                const result = data
+                if(!params.checkResult) return cb({ status: 'OK', ...result })
+                const error = Types.HttpCredsValidate(result)
+                if (error === null) { return cb({ status: 'OK', ...result }) } else return cb({ status: 'ERROR', reason: error.message })
+            }
+            return cb({ status: 'ERROR', reason: 'invalid response' })
+        })
+    },
     BatchUser: async (requests:Types.UserMethodInputs[]): Promise<ResultError | ({ status: 'OK', responses:(Types.UserMethodOutputs)[] })> => {
         const auth = await params.retrieveNostrUserAuth()
         if (auth === null) throw new Error('retrieveNostrUserAuth() returned null')

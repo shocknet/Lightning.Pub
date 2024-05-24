@@ -67,6 +67,10 @@ Coming Soon
 
 Coming Soon
 
+## Docker
+
+`docker pull ghcr.io/shocknet/lightning-pub:latest`
+
 ## Manual CLI Installation
 
 #### Notes:

@@ -443,3 +443,7 @@ message LinkNPubThroughTokenRequest {
     string nostr_pub = 2;
 }
 
+message HttpCreds {
+    string url = 1;
+    string token = 2;
+}
