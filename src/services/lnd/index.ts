@@ -17,5 +17,6 @@ export const LoadLndSettingsFromEnv = (): LndSettings => {
     const feeRateLimit = EnvCanBeInteger("OUTBOUND_MAX_FEE_BPS", 60) / 10000
     const feeFixedLimit = EnvCanBeInteger("OUTBOUND_MAX_FEE_EXTRA_SATS", 100)
     const mockLnd = EnvCanBeBoolean("MOCK_LND")
-    return { mainNode: { lndAddr, lndCertPath, lndMacaroonPath }, feeRateLimit, feeFixedLimit, mockLnd }
+    const liquidityProviderPub = process.env.LIQUIDITY_PROVIDER_PUB || ""
+    return { mainNode: { lndAddr, lndCertPath, lndMacaroonPath }, feeRateLimit, feeFixedLimit, mockLnd, liquidityProviderPub, useOnlyLiquidityProvider: false }
 }
