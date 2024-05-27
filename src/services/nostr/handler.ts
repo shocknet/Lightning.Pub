@@ -1,16 +1,19 @@
 //import { SimplePool, Sub, Event, UnsignedEvent, getEventHash, signEvent } from 'nostr-tools'
 import { SimplePool, Sub, Event, UnsignedEvent, getEventHash, finishEvent, relayInit } from './tools/index.js'
 import { encryptData, decryptData, getSharedSecret, decodePayload, encodePayload } from './nip44.js'
-import { getLogger } from '../helpers/logger.js'
+import { ERROR, getLogger } from '../helpers/logger.js'
 import { encodeNprofile } from '../../custom-nip19.js'
 const handledEvents: string[] = [] // TODO: - big memory leak here, add TTL
 type AppInfo = { appId: string, publicKey: string, privateKey: string, name: string }
+type ClientInfo = { clientId: string, publicKey: string, privateKey: string, name: string }
 export type SendData = { type: "content", content: string, pub: string } | { type: "event", event: UnsignedEvent }
-export type NostrSend = (appId: string, data: SendData, relays?: string[] | undefined) => void
+export type SendInitiator = { type: 'app', appId: string } | { type: 'client', clientId: string }
+export type NostrSend = (initiator: SendInitiator, data: SendData, relays?: string[] | undefined) => void
 
 export type NostrSettings = {
     apps: AppInfo[]
     relays: string[]
+    clients: ClientInfo[]
 }
 export type NostrEvent = {
     id: string
@@ -20,6 +23,7 @@ export type NostrEvent = {
     startAtNano: string
     startAtMs: number
 }
+
 type SettingsRequest = {
     type: 'settings'
     settings: NostrSettings
@@ -27,7 +31,7 @@ type SettingsRequest = {
 
 type SendRequest = {
     type: 'send'
-    appId: string
+    initiator: SendInitiator
     data: SendData
     relays?: string[]
 }
@@ -53,16 +57,16 @@ process.on("message", (message: ChildProcessRequest) => {
             initSubprocessHandler(message.settings)
             break
         case 'send':
-            sendToNostr(message.appId, message.data, message.relays)
+            sendToNostr(message.initiator, message.data, message.relays)
             break
         default:
-            getLogger({ appName: "nostrMiddleware" })("ERROR", "unknown nostr request", message)
+            getLogger({ component: "nostrMiddleware" })(ERROR, "unknown nostr request", message)
             break
     }
 })
 const initSubprocessHandler = (settings: NostrSettings) => {
     if (subProcessHandler) {
-        getLogger({ appName: "nostrMiddleware" })("ERROR", "nostr settings ignored since handler already exists")
+        getLogger({ component: "nostrMiddleware" })(ERROR, "nostr settings ignored since handler already exists")
         return
     }
     subProcessHandler = new Handler(settings, event => {
@@ -72,12 +76,12 @@ const initSubprocessHandler = (settings: NostrSettings) => {
         })
     })
 }
-const sendToNostr: NostrSend = (appId, data, relays) => {
+const sendToNostr: NostrSend = (initiator, data, relays) => {
     if (!subProcessHandler) {
-        getLogger({ appName: "nostrMiddleware" })("ERROR", "nostr was not initialized")
+        getLogger({ component: "nostrMiddleware" })(ERROR, "nostr was not initialized")
         return
     }
-    subProcessHandler.Send(appId, data, relays)
+    subProcessHandler.Send(initiator, data, relays)
 }
 send({ type: 'ready' })
 
@@ -87,7 +91,7 @@ export default class Handler {
     subs: Sub[] = []
     apps: Record<string, AppInfo> = {}
     eventCallback: (event: NostrEvent) => void
-    log = getLogger({ appName: "nostrMiddleware" })
+    log = getLogger({ component: "nostrMiddleware" })
     constructor(settings: NostrSettings, eventCallback: (event: NostrEvent) => void) {
         this.settings = settings
         this.log(
@@ -147,43 +151,47 @@ export default class Handler {
                 return
             }
             const app = this.apps[pubTags[1]]
-            if (!app) {
+            if (app) {
+                await this.processEvent(e, app)
                 return
             }
-            const eventId = e.id
-            if (handledEvents.includes(eventId)) {
-                this.log("event already handled")
-                return
-            }
-            handledEvents.push(eventId)
-            const startAtMs = Date.now()
-            const startAtNano = process.hrtime.bigint().toString()
-            const decoded = decodePayload(e.content)
-            const content = await decryptData(decoded, getSharedSecret(app.privateKey, e.pubkey))
-            this.eventCallback({ id: eventId, content, pub: e.pubkey, appId: app.appId, startAtNano, startAtMs })
         })
     }
 
-    async Send(appId: string, data: SendData, relays?: string[]) {
-        const appInfo = this.GetAppKeys({ appId })
+    async processEvent(e: Event<21000>, app: AppInfo) {
+        const eventId = e.id
+        if (handledEvents.includes(eventId)) {
+            this.log("event already handled")
+            return
+        }
+        handledEvents.push(eventId)
+        const startAtMs = Date.now()
+        const startAtNano = process.hrtime.bigint().toString()
+        const decoded = decodePayload(e.content)
+        const content = await decryptData(decoded, getSharedSecret(app.privateKey, e.pubkey))
+        this.eventCallback({ id: eventId, content, pub: e.pubkey, appId: app.appId, startAtNano, startAtMs })
+    }
+
+    async Send(initiator: SendInitiator, data: SendData, relays?: string[]) {
+        const keys = this.GetSendKeys(initiator)
         let toSign: UnsignedEvent
         if (data.type === 'content') {
-            const decoded = await encryptData(data.content, getSharedSecret(appInfo.privateKey, data.pub))
+            const decoded = await encryptData(data.content, getSharedSecret(keys.privateKey, data.pub))
             const content = encodePayload(decoded)
             toSign = {
                 content,
                 created_at: Math.floor(Date.now() / 1000),
                 kind: 21000,
-                pubkey: appInfo.publicKey,
+                pubkey: keys.publicKey,
                 tags: [['p', data.pub]],
             }
         } else {
             toSign = data.event
         }
 
-        const signed = finishEvent(toSign, appInfo.privateKey)
+        const signed = finishEvent(toSign, keys.privateKey)
         let sent = false
-        const log = getLogger({ appName: appInfo.name })
+        const log = getLogger({ appName: keys.name })
         await Promise.all(this.pool.publish(relays || this.settings.relays, signed).map(async p => {
             try {
                 await p
@@ -197,21 +205,22 @@ export default class Handler {
         }
     }
 
-    GetAppKeys(appInfo: Partial<AppInfo>) {
-        let check: (info: AppInfo) => boolean
-        if (appInfo.appId) {
-            check = (info: AppInfo) => info.appId === appInfo.appId
-        } else if (appInfo.privateKey) {
-            check = (info: AppInfo) => info.privateKey === appInfo.privateKey
-        } else if (appInfo.publicKey) {
-            check = (info: AppInfo) => info.publicKey === appInfo.publicKey
-        } else {
-            throw new Error("app info is empty")
+    GetSendKeys(initiator: SendInitiator) {
+        if (initiator.type === 'app') {
+            const { appId } = initiator
+            const found = this.settings.apps.find((info: AppInfo) => info.appId === appId)
+            if (!found) {
+                throw new Error("unkown app")
+            }
+            return found
+        } else if (initiator.type === 'client') {
+            const { clientId } = initiator
+            const found = this.settings.clients.find((info: ClientInfo) => info.clientId === clientId)
+            if (!found) {
+                throw new Error("unkown client")
+            }
+            return found
         }
-        const found = this.settings.apps.find(check)
-        if (!found) {
-            throw new Error("unkown app")
-        }
-        return found
+        throw new Error("unkown initiator type")
     }
 }

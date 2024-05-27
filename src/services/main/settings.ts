@@ -2,7 +2,10 @@ import { LoadStorageSettingsFromEnv, StorageSettings } from '../storage/index.js
 import { LndSettings, NodeSettings } from '../lnd/settings.js'
 import { LoadWatchdogSettingsFromEnv, WatchdogSettings } from './watchdog.js'
 import { LoadLndSettingsFromEnv } from '../lnd/index.js'
-import { EnvMustBeInteger, EnvMustBeNonEmptyString } from '../helpers/envParser.js'
+import { EnvCanBeInteger, EnvMustBeInteger, EnvMustBeNonEmptyString } from '../helpers/envParser.js'
+import { getLogger } from '../helpers/logger.js'
+import fs from 'fs'
+import crypto from 'crypto';
 export type MainSettings = {
     storageSettings: StorageSettings,
     lndSettings: LndSettings,
@@ -33,20 +36,20 @@ export const LoadMainSettingsFromEnv = (): MainSettings => {
         watchDogSettings: LoadWatchdogSettingsFromEnv(),
         lndSettings: LoadLndSettingsFromEnv(),
         storageSettings: LoadStorageSettingsFromEnv(),
-        jwtSecret: EnvMustBeNonEmptyString("JWT_SECRET"),
-        incomingTxFee: EnvMustBeInteger("INCOMING_CHAIN_FEE_ROOT_BPS") / 10000,
-        outgoingTxFee: EnvMustBeInteger("OUTGOING_CHAIN_FEE_ROOT_BPS") / 10000,
-        incomingAppInvoiceFee: EnvMustBeInteger("INCOMING_INVOICE_FEE_ROOT_BPS") / 10000,
-        outgoingAppInvoiceFee: EnvMustBeInteger("OUTGOING_INVOICE_FEE_ROOT_BPS") / 10000,
-        incomingAppUserInvoiceFee: EnvMustBeInteger("INCOMING_INVOICE_FEE_USER_BPS") / 10000,
-        outgoingAppUserInvoiceFee: EnvMustBeInteger("OUTGOING_INVOICE_FEE_USER_BPS") / 10000,
-        userToUserFee: EnvMustBeInteger("TX_FEE_INTERNAL_USER_BPS") / 10000,
-        appToUserFee: EnvMustBeInteger("TX_FEE_INTERNAL_ROOT_BPS") / 10000,
-        serviceUrl: process.env.SERVICE_URL || `http://localhost:${EnvMustBeInteger("PORT")}`,
-        servicePort: EnvMustBeInteger("PORT"),
+        jwtSecret: loadJwtSecret(),
+        incomingTxFee: EnvCanBeInteger("INCOMING_CHAIN_FEE_ROOT_BPS", 0) / 10000,
+        outgoingTxFee: EnvCanBeInteger("OUTGOING_CHAIN_FEE_ROOT_BPS", 60) / 10000,
+        incomingAppInvoiceFee: EnvCanBeInteger("INCOMING_INVOICE_FEE_ROOT_BPS", 0) / 10000,
+        outgoingAppInvoiceFee: EnvCanBeInteger("OUTGOING_INVOICE_FEE_ROOT_BPS", 60) / 10000,
+        incomingAppUserInvoiceFee: EnvCanBeInteger("INCOMING_INVOICE_FEE_USER_BPS", 0) / 10000,
+        outgoingAppUserInvoiceFee: EnvCanBeInteger("OUTGOING_INVOICE_FEE_USER_BPS", 0) / 10000,
+        userToUserFee: EnvCanBeInteger("TX_FEE_INTERNAL_USER_BPS", 0) / 10000,
+        appToUserFee: EnvCanBeInteger("TX_FEE_INTERNAL_ROOT_BPS", 0) / 10000,
+        serviceUrl: process.env.SERVICE_URL || `http://localhost:${EnvCanBeInteger("PORT", 1776)}`,
+        servicePort: EnvCanBeInteger("PORT", 1776),
         recordPerformance: process.env.RECORD_PERFORMANCE === 'true' || false,
         skipSanityCheck: process.env.SKIP_SANITY_CHECK === 'true' || false,
-        disableExternalPayments: process.env.DISABLE_EXTERNAL_PAYMENTS === 'true' || false
+        disableExternalPayments: process.env.DISABLE_EXTERNAL_PAYMENTS === 'true' || false,
     }
 }
 
@@ -72,13 +75,32 @@ export const LoadTestSettingsFromEnv = (): TestSettings => {
                 lndAddr: EnvMustBeNonEmptyString("LND_FOURTH_ADDR"),
                 lndCertPath: EnvMustBeNonEmptyString("LND_FOURTH_CERT_PATH"),
                 lndMacaroonPath: EnvMustBeNonEmptyString("LND_FOURTH_MACAROON_PATH")
-            }
+            },
+            liquidityProviderPub: ""
         },
         skipSanityCheck: true,
         bitcoinCoreSettings: {
             port: EnvMustBeInteger("BITCOIN_CORE_PORT"),
             user: EnvMustBeNonEmptyString("BITCOIN_CORE_USER"),
             pass: EnvMustBeNonEmptyString("BITCOIN_CORE_PASS")
-        }
+        },
+    }
+}
+
+export const loadJwtSecret = (): string => {
+    const secret = process.env["JWT_SECRET"]
+    const log = getLogger({})
+    if (secret) {
+        return secret
+    }
+    log("JWT_SECRET not set in env, checking .jwt_secret file")
+    try {
+        const fileContent = fs.readFileSync(".jwt_secret", "utf-8")
+        return fileContent.trim()
+    } catch (e) {
+        log(".jwt_secret file not found, generating random secret")
+        const secret = crypto.randomBytes(32).toString('hex')
+        fs.writeFileSync(".jwt_secret", secret)
+        return secret
     }
 }

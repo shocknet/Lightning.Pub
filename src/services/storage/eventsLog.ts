@@ -23,7 +23,7 @@ const columns = ["timestampMs", "userId", "appUserId", "appId", "balance", "type
 type StringerWrite = (chunk: any, cb: (error: Error | null | undefined) => void) => boolean
 export default class EventsLogManager {
     eventLogPath: string
-    log = getLogger({ appName: "EventsLogManager" })
+    log = getLogger({ component: "EventsLogManager" })
     stringerWrite: StringerWrite
     constructor(eventLogPath: string) {
         this.eventLogPath = eventLogPath

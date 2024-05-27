@@ -15,6 +15,7 @@ import { Event, verifiedSymbol, verifySignature } from '../nostr/tools/event.js'
 import { AddressReceivingTransaction } from '../storage/entity/AddressReceivingTransaction.js'
 import { UserTransactionPayment } from '../storage/entity/UserTransactionPayment.js'
 import { Watchdog } from './watchdog.js'
+import { LiquidityProvider } from '../lnd/liquidityProvider.js'
 interface UserOperationInfo {
     serial_id: number
     paid_amount: number
@@ -39,13 +40,12 @@ const defaultLnurlPayMetadata = `[["text/plain", "lnurl pay to Lightning.pub"]]`
 const confInOne = 1000 * 1000
 const confInTwo = 100 * 1000 * 1000
 export default class {
-
     storage: Storage
     settings: MainSettings
     lnd: LND
     addressPaidCb: AddressPaidCb
     invoicePaidCb: InvoicePaidCb
-    log = getLogger({ appName: "PaymentManager" })
+    log = getLogger({ component: "PaymentManager" })
     watchDog: Watchdog
     constructor(storage: Storage, lnd: LND, settings: MainSettings, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb) {
         this.storage = storage
@@ -297,7 +297,7 @@ export default class {
     }
 
     async GetLnurlWithdrawLink(ctx: Types.UserContext): Promise<Types.LnurlLinkResponse> {
-        if(this.isDefaultServiceUrl()) {
+        if (this.isDefaultServiceUrl()) {
             throw new Error("Lnurl not enabled. Make sure to set SERVICE_URL env variable")
         }
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
@@ -345,7 +345,7 @@ export default class {
     }
 
     async GetLnurlPayLink(ctx: Types.UserContext): Promise<Types.LnurlLinkResponse> {
-        if(this.isDefaultServiceUrl()) {
+        if (this.isDefaultServiceUrl()) {
             throw new Error("Lnurl not enabled. Make sure to set SERVICE_URL env variable")
         }
         getLogger({})("getting lnurl pay link")
@@ -360,7 +360,7 @@ export default class {
     }
 
     async GetLnurlPayInfoFromUser(userId: string, linkedApplication: Application, baseUrl?: string): Promise<Types.LnurlPayInfoResponse> {
-        if(this.isDefaultServiceUrl()) {
+        if (this.isDefaultServiceUrl()) {
             throw new Error("Lnurl not enabled. Make sure to set SERVICE_URL env variable")
         }
         const payK1 = await this.storage.paymentStorage.AddUserEphemeralKey(userId, 'pay', linkedApplication)
@@ -378,7 +378,7 @@ export default class {
     }
 
     async GetLnurlPayInfo(payInfoK1: string): Promise<Types.LnurlPayInfoResponse> {
-        if(this.isDefaultServiceUrl()) {
+        if (this.isDefaultServiceUrl()) {
             throw new Error("Lnurl not enabled. Make sure to set SERVICE_URL env variable")
         }
         const key = await this.storage.paymentStorage.UseUserEphemeralKey(payInfoK1, 'pay', true)
