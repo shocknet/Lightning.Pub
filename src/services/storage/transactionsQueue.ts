@@ -15,7 +15,7 @@ export default class {
     log: PubLogger
     constructor(name: string, DB: DataSource | EntityManager) {
         this.DB = DB
-        this.log = getLogger({ appName: name })
+        this.log = getLogger({ component: name })
     }
 
     PushToQueue<T>(op: TxOperation<T>) {

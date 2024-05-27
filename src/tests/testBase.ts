@@ -9,6 +9,8 @@ import chaiString from 'chai-string'
 import { defaultInvoiceExpiry } from '../services/storage/paymentStorage.js'
 import SanityChecker from '../services/main/sanityChecker.js'
 import LND from '../services/lnd/lnd.js'
+import { getLogger, resetDisabledLoggers } from '../services/helpers/logger.js'
+import { LiquidityProvider } from '../services/lnd/liquidityProvider.js'
 chai.use(chaiString)
 export const expect = chai.expect
 export type Describe = (message: string, failure?: boolean) => void
@@ -32,7 +34,7 @@ export type TestBase = {
 
 export const SetupTest = async (d: Describe): Promise<TestBase> => {
     const settings = LoadTestSettingsFromEnv()
-    const initialized = await initMainHandler(console.log, settings)
+    const initialized = await initMainHandler(getLogger({ component: "mainForTest" }), settings)
     if (!initialized) {
         throw new Error("failed to initialize main handler")
     }
@@ -44,15 +46,15 @@ export const SetupTest = async (d: Describe): Promise<TestBase> => {
     const user2 = { userId: u2.info.userId, appUserIdentifier: u2.identifier, appId: app.appId }
 
 
-    const externalAccessToMainLnd = new LND(settings.lndSettings, console.log, console.log, () => { }, () => { })
+    const externalAccessToMainLnd = new LND(settings.lndSettings, new LiquidityProvider("", () => { }), console.log, console.log, () => { }, () => { })
     await externalAccessToMainLnd.Warmup()
 
     const otherLndSetting = { ...settings.lndSettings, mainNode: settings.lndSettings.otherNode }
-    const externalAccessToOtherLnd = new LND(otherLndSetting, console.log, console.log, () => { }, () => { })
+    const externalAccessToOtherLnd = new LND(otherLndSetting, new LiquidityProvider("", () => { }), console.log, console.log, () => { }, () => { })
     await externalAccessToOtherLnd.Warmup()
 
     const thirdLndSetting = { ...settings.lndSettings, mainNode: settings.lndSettings.thirdNode }
-    const externalAccessToThirdLnd = new LND(thirdLndSetting, console.log, console.log, () => { }, () => { })
+    const externalAccessToThirdLnd = new LND(thirdLndSetting, new LiquidityProvider("", () => { }), console.log, console.log, () => { }, () => { })
     await externalAccessToThirdLnd.Warmup()
 
 
@@ -69,6 +71,7 @@ export const teardown = async (T: TestBase) => {
     T.externalAccessToMainLnd.Stop()
     T.externalAccessToOtherLnd.Stop()
     T.externalAccessToThirdLnd.Stop()
+    resetDisabledLoggers()
     console.log("teardown")
 }
 

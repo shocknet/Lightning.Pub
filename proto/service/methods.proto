@@ -369,6 +369,12 @@ service LightningPub {
         option (http_route) = "/api/user/migrations/sub";
         option (nostr) = true;
     }
+    rpc GetHttpCreds(structs.Empty) returns (stream structs.HttpCreds){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/http_creds";
+        option (nostr) = true;
+    }
     rpc BatchUser(structs.Empty) returns (structs.Empty){
         option (auth_type)  = "User";
         option (http_method) = "post";

@@ -4,7 +4,7 @@ import { Describe, expect, expectThrowsAsync, runSanityCheck, safelySetUserBalan
 export const ignore = false
 
 export default async (T: TestBase) => {
-    disableLoggers(["EventsLogManager", "htlcTracker", "watchdog"])
+    disableLoggers([], ["EventsLogManager", "htlcTracker", "watchdog"])
     await safelySetUserBalance(T, T.user1, 2000)
     await testSpamExternalPayment(T)
     await runSanityCheck(T)

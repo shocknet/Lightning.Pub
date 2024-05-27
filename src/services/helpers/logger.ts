@@ -1,37 +1,74 @@
 import fs from 'fs'
-type LoggerParams = { appName?: string, userId?: string }
-export type PubLogger = (...message: (string | number | object)[]) => void
+export const DEBUG = Symbol("DEBUG")
+export const ERROR = Symbol("ERROR")
+export const WARN = Symbol("WARN")
+type LoggerParams = { appName?: string, userId?: string, component?: string }
+export type PubLogger = (...message: (string | number | object | symbol)[]) => void
 type Writer = (message: string) => void
+const logsDir = process.env.LOGS_DIR || "logs"
+const logLevel = process.env.LOG_LEVEL || "DEBUG"
 try {
-    fs.mkdirSync("logs")
+    fs.mkdirSync(logsDir)
 } catch { }
+if (logLevel !== "DEBUG" && logLevel !== "WARN" && logLevel !== "ERROR") {
+    throw new Error("Invalid log level " + logLevel + " must be one of (DEBUG, WARN, ERROR)")
+}
 const z = (n: number) => n < 10 ? `0${n}` : `${n}`
 const openWriter = (fileName: string): Writer => {
-    const logStream = fs.createWriteStream(`logs/${fileName}`, { flags: 'a' });
+    const now = new Date()
+    const date = `${now.getFullYear()}-${z(now.getMonth() + 1)}-${z(now.getDate())}`
+    const logStream = fs.createWriteStream(`${logsDir}/${fileName}_${date}.log`, { flags: 'a' });
     return (message) => {
         logStream.write(message + "\n")
     }
 }
 const rootWriter = openWriter("ROOT.log")
-if (!fs.existsSync("logs/apps")) {
-    fs.mkdirSync("logs/apps", { recursive: true });
+if (!fs.existsSync(`${logsDir}/apps`)) {
+    fs.mkdirSync(`${logsDir}/apps`, { recursive: true });
 }
-if (!fs.existsSync("logs/users")) {
-    fs.mkdirSync("logs/users", { recursive: true });
+if (!fs.existsSync(`${logsDir}/users`)) {
+    fs.mkdirSync(`${logsDir}/users`, { recursive: true });
+}
+if (!fs.existsSync(`${logsDir}/components`)) {
+    fs.mkdirSync(`${logsDir}/components`, { recursive: true });
 }
 export const getLogger = (params: LoggerParams): PubLogger => {
     const writers: Writer[] = []
     if (params.appName) {
-        writers.push(openWriter(`apps/${params.appName}.log`))
+        writers.push(openWriter(`apps/${params.appName}`))
     }
     if (params.userId) {
-        writers.push(openWriter(`users/${params.userId}.log`))
+        writers.push(openWriter(`users/${params.userId}`))
+    }
+    if (params.component) {
+        writers.push(openWriter(`components/${params.component}`))
     }
     if (writers.length === 0) {
         writers.push(rootWriter)
     }
 
     return (...message) => {
+        switch (message[0]) {
+            case DEBUG:
+                if (logLevel !== "DEBUG") {
+                    return
+                }
+                message[0] = "DEBUG"
+                break;
+            case WARN:
+                if (logLevel === "ERROR") {
+                    return
+                }
+                message[0] = "WARN"
+                break;
+            case ERROR:
+                message[0] = "ERROR"
+                break;
+            default:
+                if (logLevel !== "DEBUG") {
+                    return
+                }
+        }
         const now = new Date()
         const timestamp = `${now.getFullYear()}-${z(now.getMonth() + 1)}-${z(now.getDate())} ${z(now.getHours())}:${z(now.getMinutes())}:${z(now.getSeconds())}`
         const toLog = [timestamp]
@@ -40,6 +77,12 @@ export const getLogger = (params: LoggerParams): PubLogger => {
                 return
             }
             toLog.push(params.appName)
+        }
+        if (params.component) {
+            if (disabledComponents.includes(params.component)) {
+                return
+            }
+            toLog.push(params.component)
         }
         if (params.userId) {
             toLog.push(params.userId)
@@ -50,7 +93,13 @@ export const getLogger = (params: LoggerParams): PubLogger => {
         writers.forEach(w => w(final))
     }
 }
-const disabledApps: string[] = []
-export const disableLoggers = (appNamesToDisable: string[]) => {
+let disabledApps: string[] = []
+let disabledComponents: string[] = []
+export const resetDisabledLoggers = () => {
+    disabledApps = []
+    disabledComponents = []
+}
+export const disableLoggers = (appNamesToDisable: string[], componentsToDisable: string[]) => {
     disabledApps.push(...appNamesToDisable)
+    disabledComponents.push(...componentsToDisable)
 }

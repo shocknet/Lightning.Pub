@@ -1,12 +1,19 @@
 import { ChildProcess, fork } from 'child_process'
 import { EnvMustBeNonEmptyString } from "../helpers/envParser.js"
-import { NostrSettings, NostrEvent, ChildProcessRequest, ChildProcessResponse, SendData } from "./handler.js"
+import { NostrSettings, NostrEvent, ChildProcessRequest, ChildProcessResponse, SendData, SendInitiator } from "./handler.js"
 type EventCallback = (event: NostrEvent) => void
+
+const getEnvOrDefault = (name: string, defaultValue: string): string => {
+    return process.env[name] || defaultValue;
+}
+
 export const LoadNosrtSettingsFromEnv = (test = false) => {
+    const relaysEnv = getEnvOrDefault("NOSTR_RELAYS", "wss://strfry.shock.network");
     return {
-        relays: EnvMustBeNonEmptyString("NOSTR_RELAYS").split(' ')
+        relays: relaysEnv.split(' ')
     }
 }
+
 export default class NostrSubprocess {
     settings: NostrSettings
     childProcess: ChildProcess
@@ -31,8 +38,8 @@ export default class NostrSubprocess {
         this.childProcess.send(message)
     }
 
-    Send(appId: string, data: SendData, relays?: string[]) {
-        this.sendToChildProcess({ type: 'send', data, appId, relays })
+    Send(initiator: SendInitiator, data: SendData, relays?: string[]) {
+        this.sendToChildProcess({ type: 'send', data, initiator, relays })
     }
     Stop() {
         this.childProcess.kill()
