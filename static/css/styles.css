@@ -191,14 +191,14 @@ a {
 
 .setup-header > .back-button {
   position: absolute;
-  top: 0;
+  top: 2px;
   left: 0;
   padding: 0;
 }
 
 @media (min-width: 640px) {
   .setup-header > .back-button {
-    top: 5px;
+    top: 10px;
     left: -20px;
   }
 }
@@ -218,6 +218,7 @@ a {
   font-size: 16px;
   text-align: center;
   text-shadow: 0px 0px 2px rgba(0, 0, 0, 1);
+  opacity: 0.8;
 }
 
 #qrcode {
