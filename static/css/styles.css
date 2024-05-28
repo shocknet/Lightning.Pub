@@ -41,6 +41,12 @@ main {
   zoom: 1.3;
 }
 
+@media (max-height: 740px) {
+  main {
+    zoom: unset;
+  }
+}
+
 * {
   box-sizing: border-box;
 }
@@ -188,6 +194,13 @@ a {
   top: 0;
   left: 0;
   padding: 0;
+}
+
+@media (min-width: 640px) {
+  .setup-header > .back-button {
+    top: 5px;
+    left: -20px;
+  }
 }
 
 .setup-header > h2 {
