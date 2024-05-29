@@ -5,7 +5,7 @@
   left: -4px;
 }
 
-.question-box .question-content {
+.automate .question-content {
   display: none;
   position: absolute;
   min-width: 280px;
@@ -18,10 +18,25 @@
   transform: translate(-50%, -50%);
   padding-top: 28px;
   z-index: 200;
+  left: 65%;
 }
 
 .question-content .close-button {
   position: absolute;
   top: 4px;
   right: 0;
+}
+.question-content .question-more {
+  position: absolute;
+  bottom: 4px;
+  right: 6px;
+  text-decoration: underline;
+}
+.automate {
+  position: relative;
+}
+@media screen and (max-width: 450px) {
+  .automate > .question-content {
+    left: 50%;
+  }
 }
