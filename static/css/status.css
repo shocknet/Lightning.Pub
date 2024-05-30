@@ -1,0 +1,37 @@
+.status-element{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 100px;
+    margin-top: 10px;
+    font-size: 15px;
+}
+.green-dot {
+    font-size: 15px;
+    color: #32a852;
+}
+.yellow-dot {
+    font-size: 15px;
+    color: #ccc731;
+}
+.editabl-content {
+    font-size: 12px; 
+    display: flex; 
+    justify-content: end; 
+    align-items: center;
+    color: #999999;
+}
+.invite-link {
+    margin-top:5px; 
+    font-size:12px; 
+    color:#c434e0; 
+    text-decoration: underline;
+}
+@media screen and (max-width: 450px) {
+    .status-element  {
+      gap: 0px;
+    }
+    main {
+        zoom: 1.1;
+    }
+}

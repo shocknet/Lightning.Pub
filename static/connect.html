@@ -10,6 +10,7 @@
       href="https://fonts.googleapis.com/css?family=Montserrat"
     />
     <link rel="stylesheet" href="css/styles.css" />
+    <link rel="stylesheet" href="css/connect.css" />
     <!-- HTML Meta Tags -->
     <title>Lightning.Pub</title>
     <meta name="description" content="Lightning for Everyone" />
@@ -33,28 +34,29 @@
         </button>
         <h2>Connect</h2>
         <p class="header-title">
-          Who's the Nostr user that owns this node, can recover the backups, and
-          connect to manage it?
+          You can now manage your node remotely
         </p>
       </section>
 
       <div class="line"></div>
 
       <section class="setup-content">
-        <div id="qrcode"></div>
-        <p class="text-gray">
-          strfry.shock.network <br />npub123abcdefghhhhhhhhhhhhhhh
-        </p>
-        <br />
-        <p class="text-gray">Note: Code contains a one-time pairing secret.</p>
+        <div>For dashboard access, use <a href="https://preview.uxpin.com/ae6e6372ab26cd13438d486d4d1ac9d184ec8e82#/pages/164889267" style="color: #2aabe9;" target="_blank">ShockWallet</a> and tap the logo 3 times.</div>
+        <div style="font-size: 13px; margin-top: 5px;">Scan the QR or Copy-Paste the string to establish the connection.</div>
+        <div style="display: flex; justify-content: center;">
+          <div class="qrcode-box" id="codebox">
+            <div style="font-size: 11px;">
+              <div style="text-align: center; color: #a3a3a3;">Code contains a one-time pairing secret</div>
+              <div style="text-align: center; color: #c434e0;" id="click-text">Click to reveal</div>
+            </div>
+            <div id="qrcode"></div>
+            <div style="color: #a3a3a3; font-size: 11px;">
+              <div>npub123abcdefghhhhhhhhhhhhhhh</div>
+              <div>relay.lightning.pub</div>
+            </div>
+          </div>
+        </div>
       </section>
-
-      <button
-        class="push-button"
-        style="margin-top: 32px"
-      >
-        Next
-      </button>
     </main>
 
     <footer>
@@ -73,5 +75,6 @@
     <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
 
     <script src="js/script.js"></script>
+    <script src="js/connect.js"></script>
   </body>
 </html>
