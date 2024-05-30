@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title></title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css?family=Montserrat"
+    />
+    <link rel="stylesheet" href="css/styles.css" />
+    <link rel="stylesheet" href="css/status.css" />
+    <!-- HTML Meta Tags -->
+    <title>Lightning.Pub</title>
+    <meta name="description" content="Lightning for Everyone" />
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  </head>
+  <body>
+    <header>
+      <img
+        src="img/pub_logo.png"
+        width="38px"
+        height="auto"
+        alt="Lightning Pub logo"
+      />
+      <img src="img/LightningPub.png" height="33px" alt="Lightning Pub logo" />
+    </header>
+
+    <main>
+      <section class="setup-header">
+        <h2>Node Status</h2>
+        <p class="header-title"></p>
+      </section>
+
+      <div class="line" style="width: 100%;"></div>
+
+      <section class="node-status">
+        <div>
+            <div class="status-element" style="margin-top: 15px;">
+                <div>Public Node Name:</div>
+                <div class="fc-grey editabl-content">
+                    Nodey McNodeFace 
+                    <div class="question-box">
+                        <button class="icon-button" id="show-question">
+                          <img src="img/pencil.svg" />
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="status-element" style="margin-top: 15px;">
+                <div>Nostr Relay:</div>
+                <div class="fc-grey editabl-content">
+                    wss://relay.lightning.pub 
+                    <div class="question-box">
+                        <button class="icon-button" id="show-question">
+                          <img src="img/pencil.svg" />
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="status-element" style="margin-top: 15px;">
+                <div>Administrator:</div>
+                <div>
+                    npub12334556677889990
+                </div>
+            </div>
+        </div>
+        <div style="display: flex; justify-content: end;">
+            <div class="marked" style="text-decoration: underline; margin-top: 5px;">Reset</div>
+        </div>
+        <div style="margin-top: 40px;">
+            <div class="status-element">
+                <div>Relay Status:</div>
+                <div>
+                    <span class="green-dot">&#9679;</span> Connected
+                </div>
+            </div>
+            <div class="status-element">
+                <div>Lightning Status:</div>
+                <div>
+                    <span class="yellow-dot">&#9679;</span> Syncing
+                </div>
+            </div>
+            <div class="status-element">
+                <div>Watchdog Status:</div>
+                <div>
+                    <span class="green-dot">&#9679;</span> No Alarms
+                </div>
+            </div>
+        </div>
+        <div style="margin-top: 20px;">
+            <div style="font-size: 13px; text-align: left;">Guest Invitation Link:</div>
+            <div class="invite-link">
+                https://my.shockwallet.app/invite/nprofile12345678899988
+            </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="footer-text" style="width: 80%">
+      <div class="line"></div>
+      <p class="marked">Need Help?</p>
+    </footer>
+
+    <script src="js/seed.js"></script>
+  </body>
+</html>

@@ -223,10 +223,9 @@ a {
 
 #qrcode {
   display: flex;
-  margin: auto;
   justify-content: center;
-  margin-block-start: 40px;
-  margin-block-end: 15px;
+  margin: 5px;
+  filter: blur(5px);
 }
 
 .input-group {
