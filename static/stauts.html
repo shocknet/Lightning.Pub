@@ -42,7 +42,7 @@
                 <div class="fc-grey editabl-content">
                     Nodey McNodeFace 
                     <div class="question-box">
-                        <button class="icon-button" id="show-question">
+                        <button class="icon-button" id="show-nodey">
                           <img src="img/pencil.svg" />
                         </button>
                     </div>
@@ -53,7 +53,7 @@
                 <div class="fc-grey editabl-content">
                     wss://relay.lightning.pub 
                     <div class="question-box">
-                        <button class="icon-button" id="show-question">
+                        <button class="icon-button" id="show-nostr">
                           <img src="img/pencil.svg" />
                         </button>
                     </div>
@@ -66,8 +66,26 @@
                 </div>
             </div>
         </div>
-        <div style="display: flex; justify-content: end;">
-            <div class="marked" style="text-decoration: underline; margin-top: 5px;">Reset</div>
+        <div style="display: flex; justify-content: end;padding-right: 12px;">
+            <div class="marked" id="show-reset" style="text-decoration: underline; margin-top: 5px;position: relative;">Reset 
+              <div class="watchdog-status">
+                <button class="icon-button" id="show-question">
+                  <img src="img/question.svg" />
+                </button>
+              </div>
+            </div>
+        </div>
+        <div id="reset-box">
+          <div style="width: 100%;height: 100%;position: relative;">
+            <button class="icon-button close-button" id="close-reset-box">
+              <img src="img/close.svg" alt="">
+            </button>
+            <div class="reset-box-content" id="reset-content">
+            </div>
+            <div class="continue-button-container">
+              <div class="continue-button" onclick="location.href='connect.html'">Continue</div>
+            </div>
+          </div>
         </div>
         <div style="margin-top: 40px;">
             <div class="status-element">
@@ -83,7 +101,14 @@
                 </div>
             </div>
             <div class="status-element">
-                <div>Watchdog Status:</div>
+                <div style="position: relative;">
+                  Watchdog Status: 
+                  <div class="watchdog-status">
+                    <button class="icon-button" id="show-question">
+                      <img src="img/question.svg" />
+                    </button>
+                  </div>  
+                </div>
                 <div>
                     <span class="green-dot">&#9679;</span> No Alarms
                 </div>
@@ -91,8 +116,8 @@
         </div>
         <div style="margin-top: 20px;">
             <div style="font-size: 13px; text-align: left;">Guest Invitation Link:</div>
-            <div class="invite-link">
-                https://my.shockwallet.app/invite/nprofile12345678899988
+            <a href="https://my.shockwallet.app/invite/nprofile12345678899988" target="_blank" style="font-size: 11px;" class="invite-link">
+              https://my.shockwallet.app/invite/nprofile12345678899988
             </div>
         </div>
       </section>
@@ -104,6 +129,6 @@
       <p class="marked">Need Help?</p>
     </footer>
 
-    <script src="js/seed.js"></script>
+    <script src="js/status.js"></script>
   </body>
 </html>
