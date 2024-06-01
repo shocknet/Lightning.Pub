@@ -53,7 +53,7 @@
 
 #reset-box {
     width: 296px;
-    height: 122px;
+    height: auto;
     border: 1px solid #c434e0;
     border-radius: 5px;
     position: absolute;
@@ -83,8 +83,7 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    position: absolute;
-    bottom: 10px;
+    margin-bottom: 5px;
 }
 
 .continue-button {

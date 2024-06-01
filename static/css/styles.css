@@ -274,3 +274,12 @@ footer .footer-text {
 .hidden-button {
   visibility: hidden;
 }
+.need-help{
+  transition-duration: 0.3s;
+  text-decoration-color: #c434e0;
+
+}
+.need-help:hover{
+  text-decoration: underline;
+  text-decoration-color: #c434e0;
+}
