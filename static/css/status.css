@@ -17,12 +17,19 @@
     color: #ccc731;
 }
 
-.editabl-content {
+.editable-content {
     font-size: 12px;
     display: flex;
     justify-content: end;
     align-items: center;
     color: #999999;
+    max-width: 50%;
+}
+
+.editable-content>input {
+    border: none;
+    box-shadow: none;
+    text-align: right;
 }
 
 .invite-link {
