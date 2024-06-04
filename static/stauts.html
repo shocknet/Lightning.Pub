@@ -40,23 +40,37 @@
             <div class="status-element" style="margin-top: 15px;">
               <div style="text-align: left;">Public Node Name:</div>
               <div class="fc-grey editable-content">
-                  <input type="text" value="" placeholder="Nodey McNodeFace" />
-                  <div class="question-box">
-                      <button class="icon-button" id="show-nodey">
-                        <img src="img/pencil.svg" style="cursor: pointer;" />
-                      </button>
+                <div class="show-nodey" style="display: flex; flex-direction: column; display: none;">
+                  <input type="text" value="" name="show-nodey" placeholder="Nodey McNodeFace" />
+                  <div style="display: flex;justify-content: end;">
+                    <button class="small-btn" id="cancel-show-nodey">Cancel</button>
+                    <button class="small-btn" id="save-show-nodey">Save</button>
                   </div>
+                </div>
+                <div id="show-nodey-text">Nodey McNodeFace</div>
+                <div class="question-box">
+                    <button class="icon-button" id="show-nodey">
+                      <img src="img/pencil.svg" style="cursor: pointer;" />
+                    </button>
+                </div>
               </div>
             </div>
             <div class="status-element" style="margin-top: 15px;">
               <div style="text-align: left;">Nostr Relay:</div>
               <div class="fc-grey editable-content">
-                  <input type="text" placeholder="wss://relay.lightning.pub" value="" />
-                  <div class="question-box">
-                      <button class="icon-button" id="show-nostr">
-                        <img src="img/pencil.svg" style="cursor: pointer;" />
-                      </button>
+                <div class="show-nostr" style="display: flex; flex-direction: column; display: none;">
+                  <input type="text" value="" name="show-nostr" placeholder="wss://relay.lightning.pub" />
+                  <div style="display: flex;justify-content: end;">
+                    <button class="small-btn" id="cancel-show-nostr">Cancel</button>
+                    <button class="small-btn" id="save-show-nostr">Save</button>
                   </div>
+                </div>
+                <div id="show-nostr-text">wss://relay.lightning.pub</div>
+                <div class="question-box">
+                    <button class="icon-button" id="show-nostr">
+                      <img src="img/pencil.svg" style="cursor: pointer;" />
+                    </button>
+                </div>
               </div>
             </div>
             <div class="status-element" style="margin-top: 15px;">
@@ -83,7 +97,7 @@
             <div class="reset-box-content" id="reset-content">
             </div>
             <div class="continue-button-container">
-              <div class="continue-button" onclick="location.href='connect.html'">Continue</div>
+              <div class="continue-button" id="">Continue</div>
             </div>
           </div>
         </div>
