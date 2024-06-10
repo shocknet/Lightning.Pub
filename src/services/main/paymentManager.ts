@@ -164,6 +164,13 @@ export default class {
         const isAppUserPayment = userId !== linkedApplication.owner.user_id
         const serviceFee = this.getServiceFee(Types.UserOperationType.OUTGOING_INVOICE, payAmount, isAppUserPayment)
         const internalInvoice = await this.storage.paymentStorage.GetInvoiceOwner(req.invoice)
+        if (internalInvoice && internalInvoice.paid_at_unix > 0) {
+            throw new Error("this invoice was already paid")
+        }
+        const invoiceAlreadyPaid = await this.storage.paymentStorage.GetPaymentOwner(req.invoice)
+        if (invoiceAlreadyPaid && invoiceAlreadyPaid.paid_at_unix > 0) {
+            throw new Error("this invoice was already paid")
+        }
         let paymentInfo = { preimage: "", amtPaid: 0, networkFee: 0, serialId: 0 }
         if (internalInvoice) {
             paymentInfo = await this.PayInternalInvoice(userId, internalInvoice, { payAmount, serviceFee }, linkedApplication)
