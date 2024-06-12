@@ -1,4 +1,5 @@
 import { EnvMustBeNonEmptyString, EnvMustBeInteger, EnvCanBeBoolean, EnvCanBeInteger } from '../helpers/envParser.js'
+import { LoadLiquiditySettingsFromEnv } from './liquidityManager.js'
 import { LndSettings } from './settings.js'
 export const LoadLndSettingsFromEnv = (): LndSettings => {
     const lndAddr = process.env.LND_ADDRESS || "127.0.0.1:10009"
@@ -7,6 +8,6 @@ export const LoadLndSettingsFromEnv = (): LndSettings => {
     const feeRateLimit = EnvCanBeInteger("OUTBOUND_MAX_FEE_BPS", 60) / 10000
     const feeFixedLimit = EnvCanBeInteger("OUTBOUND_MAX_FEE_EXTRA_SATS", 100)
     const mockLnd = EnvCanBeBoolean("MOCK_LND")
-    const liquidityProviderPub = process.env.LIQUIDITY_PROVIDER_PUB || ""
-    return { mainNode: { lndAddr, lndCertPath, lndMacaroonPath }, feeRateLimit, feeFixedLimit, mockLnd, liquidityProviderPub, useOnlyLiquidityProvider: false }
+    const liquiditySettings = LoadLiquiditySettingsFromEnv()
+    return { mainNode: { lndAddr, lndCertPath, lndMacaroonPath }, feeRateLimit, feeFixedLimit, mockLnd, liquiditySettings }
 }

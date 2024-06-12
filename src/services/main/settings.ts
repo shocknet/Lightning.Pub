@@ -76,7 +76,10 @@ export const LoadTestSettingsFromEnv = (): TestSettings => {
                 lndCertPath: EnvMustBeNonEmptyString("LND_FOURTH_CERT_PATH"),
                 lndMacaroonPath: EnvMustBeNonEmptyString("LND_FOURTH_MACAROON_PATH")
             },
-            liquidityProviderPub: ""
+            liquiditySettings: {
+                ...settings.lndSettings.liquiditySettings,
+                liquidityProviderPub: "",
+            }
         },
         skipSanityCheck: true,
         bitcoinCoreSettings: {
