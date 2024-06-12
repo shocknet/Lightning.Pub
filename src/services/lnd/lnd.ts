@@ -81,7 +81,7 @@ export default class {
     }
 
     async ShouldUseLiquidityProvider(req: LiquidityRequest): Promise<boolean> {
-        if (this.settings.useOnlyLiquidityProvider) {
+        if (this.settings.liquiditySettings.useOnlyLiquidityProvider) {
             return true
         }
         if (!this.liquidProvider.CanProviderHandle(req)) {
