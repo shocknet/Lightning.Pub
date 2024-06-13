@@ -7,6 +7,8 @@ import { EnvCanBeInteger } from "../helpers/envParser.js"
 export type LSPSettings = {
     olympusServiceUrl: string
     voltageServiceUrl: string
+    flashsatsServiceUrl: string
+    flashsatsNodeUri: string
     channelThreshold: number
     maxRelativeFee: number
 }
@@ -14,12 +16,13 @@ export type LSPSettings = {
 export const LoadLSPSettingsFromEnv = (): LSPSettings => {
     const olympusServiceUrl = process.env.OLYMPUS_LSP_URL || ""
     const voltageServiceUrl = process.env.VOLTAGE_LSP_URL || ""
+    const flashsatsServiceUrl = process.env.FLASHSATS_LSP_URL || ""
+    const flashsatsNodeUri = process.env.FLASHSATS_LSP_NODE_URI || ""
     const channelThreshold = EnvCanBeInteger("LSP_CHANNEL_THRESHOLD")
     const maxRelativeFee = EnvCanBeInteger("LSP_MAX_FEE_BPS") / 10000
-    return { olympusServiceUrl, voltageServiceUrl, channelThreshold, maxRelativeFee }
+    return { olympusServiceUrl, voltageServiceUrl, channelThreshold, maxRelativeFee, flashsatsServiceUrl, flashsatsNodeUri }
 
 }
-
 type OlympusOrder = {
     "lsp_balance_sat": string,
     "client_balance_sat": string,
@@ -29,6 +32,16 @@ type OlympusOrder = {
     "refund_onchain_address": string,
     "announce_channel": boolean,
     "public_key": string
+
+}
+type FlashsatsOrder = {
+    "node_connection_info": string,
+    "lsp_balance_sat": number,
+    "client_balance_sat": number,
+    "confirms_within_blocks": number,
+    "channel_expiry_blocks": number,
+    "announce_channel": boolean,
+    "token": string
 }
 
 class LSP {
@@ -75,6 +88,82 @@ class LSP {
     }
 }
 
+export class FlashsatsLSP extends LSP {
+    constructor(settings: LSPSettings, lnd: LND, liquidityProvider: LiquidityProvider) {
+        super("FlashsatsLSP", settings, lnd, liquidityProvider)
+    }
+
+    openChannelIfReady = async (): Promise<boolean> => {
+        const shouldOpen = await this.shouldOpenChannel()
+        if (!shouldOpen.shouldOpen) {
+            return false
+        }
+        if (!this.settings.flashsatsServiceUrl) {
+            this.log("no flashsats service url provided")
+            return false
+        }
+        const serviceInfo = await this.getInfo()
+        if (+serviceInfo.options.min_initial_client_balance_sat > shouldOpen.maxSpendable) {
+            this.log("user balance too low for service minimum")
+            return false
+        }
+        const lndInfo = await this.lnd.GetInfo()
+        const myUri = lndInfo.uris.length > 0 ? lndInfo.uris[0] : ""
+        if (!myUri) {
+            this.log("no uri found for this node,uri is required to use flashsats")
+            return false
+        }
+        const lspBalance = (this.settings.channelThreshold * 2).toString()
+        const chanExpiryBlocks = serviceInfo.options.max_channel_expiry_blocks
+        const order = await this.createOrder({ nodeUri: myUri, lspBalance, clientBalance: "0", chanExpiryBlocks })
+        if (order.payment.state !== 'EXPECT_PAYMENT') {
+            this.log("order not in expect payment state")
+            return false
+        }
+        const decoded = await this.lnd.DecodeInvoice(order.payment.bolt11_invoice)
+        if (decoded.numSatoshis !== +order.payment.order_total_sat) {
+            this.log("invoice amount does not match order total")
+            return false
+        }
+        if (decoded.numSatoshis > shouldOpen.maxSpendable) {
+            this.log("invoice amount exceeds user balance")
+            return false
+        }
+        const relativeFee = +order.payment.fee_total_sat / this.settings.channelThreshold
+        if (relativeFee > this.settings.maxRelativeFee) {
+            this.log("invoice fee exceeds max fee percent")
+            return false
+        }
+        await this.liquidityProvider.PayInvoice(order.payment.bolt11_invoice)
+        this.log("paid invoice to open channel")
+        return true
+
+    }
+    getInfo = async () => {
+        const res = await fetch(`${this.settings.flashsatsServiceUrl}/info`)
+        const json = await res.json() as { options: { min_initial_client_balance_sat: string, max_channel_expiry_blocks: number } }
+        return json
+    }
+    createOrder = async (orderInfo: { nodeUri: string, lspBalance: string, clientBalance: string, chanExpiryBlocks: number }) => {
+        const req: FlashsatsOrder = {
+            node_connection_info: orderInfo.nodeUri,
+            announce_channel: true,
+            channel_expiry_blocks: orderInfo.chanExpiryBlocks,
+            client_balance_sat: +orderInfo.clientBalance,
+            lsp_balance_sat: +orderInfo.lspBalance,
+            confirms_within_blocks: 6,
+            token: "flashsats"
+        }
+        const res = await fetch(`${this.settings.flashsatsServiceUrl}/channel`, {
+            method: "POST",
+            body: JSON.stringify(req),
+            headers: { "Content-Type": "application/json" }
+        })
+        const json = await res.json() as { order_id: string, payment: { state: 'EXPECT_PAYMENT', bolt11_invoice: string, fee_total_sat: string, order_total_sat: string } }
+        return json
+    }
+}
+
 export class OlympusLSP extends LSP {
     constructor(settings: LSPSettings, lnd: LND, liquidityProvider: LiquidityProvider) {
         super("OlympusLSP", settings, lnd, liquidityProvider)
@@ -91,7 +180,7 @@ export class OlympusLSP extends LSP {
             return false
         }
         const serviceInfo = await this.getInfo()
-        if (+serviceInfo.options.min_initial_lsp_balance_sat > shouldOpen.maxSpendable) {
+        if (+serviceInfo.options.min_initial_client_balance_sat > shouldOpen.maxSpendable) {
             this.log("user balance too low for service minimum")
             return false
         }
@@ -101,7 +190,8 @@ export class OlympusLSP extends LSP {
         const myPub = lndInfo.identityPubkey
         const refundAddr = await this.lnd.NewAddress(AddressType.WITNESS_PUBKEY_HASH)
         const lspBalance = (this.settings.channelThreshold * 2).toString()
-        const order = await this.createOrder({ pubKey: myPub, refundAddr: refundAddr.address, lspBalance, clientBalance: "0" })
+        const chanExpiryBlocks = serviceInfo.options.max_channel_expiry_blocks
+        const order = await this.createOrder({ pubKey: myPub, refundAddr: refundAddr.address, lspBalance, clientBalance: "0", chanExpiryBlocks })
         if (order.payment.state !== 'EXPECT_PAYMENT') {
             this.log("order not in expect payment state")
             return false
@@ -127,18 +217,18 @@ export class OlympusLSP extends LSP {
 
     getInfo = async () => {
         const res = await fetch(`${this.settings.olympusServiceUrl}/getinfo`)
-        const json = await res.json() as { options: { min_initial_lsp_balance_sat: string }, uris: string[] }
+        const json = await res.json() as { options: { min_initial_client_balance_sat: string, max_channel_expiry_blocks: number }, uris: string[] }
         return json
     }
 
-    createOrder = async (orderInfo: { pubKey: string, refundAddr: string, lspBalance: string, clientBalance: string }) => {
+    createOrder = async (orderInfo: { pubKey: string, refundAddr: string, lspBalance: string, clientBalance: string, chanExpiryBlocks: number }) => {
         const req: OlympusOrder = {
             public_key: orderInfo.pubKey,
             announce_channel: true,
             refund_onchain_address: orderInfo.refundAddr,
             lsp_balance_sat: orderInfo.lspBalance,
             client_balance_sat: orderInfo.clientBalance,
-            channel_expiry_blocks: 144,
+            channel_expiry_blocks: orderInfo.chanExpiryBlocks,
             funding_confirms_within_blocks: 6,
             required_channel_confirmations: 0
         }

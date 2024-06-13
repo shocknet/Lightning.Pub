@@ -1,7 +1,7 @@
 import { getLogger } from "../helpers/logger.js"
 import { LiquidityProvider } from "./liquidityProvider.js"
 import LND from "./lnd.js"
-import { LoadLSPSettingsFromEnv, LSPSettings, OlympusLSP, VoltageLSP } from "./lsp.js"
+import { FlashsatsLSP, LoadLSPSettingsFromEnv, LSPSettings, OlympusLSP, VoltageLSP } from "./lsp.js"
 export type LiquiditySettings = {
     lspSettings: LSPSettings
     liquidityProviderPub: string
@@ -18,6 +18,7 @@ export class LiquidityManager {
     lnd: LND
     olympusLSP: OlympusLSP
     voltageLSP: VoltageLSP
+    flashsatsLSP: FlashsatsLSP
     log = getLogger({ component: "liquidityManager" })
     channelRequested = false
     constructor(settings: LiquiditySettings, liquidityProvider: LiquidityProvider, lnd: LND) {
@@ -26,6 +27,7 @@ export class LiquidityManager {
         this.lnd = lnd
         this.olympusLSP = new OlympusLSP(settings.lspSettings, lnd, liquidityProvider)
         this.voltageLSP = new VoltageLSP(settings.lspSettings, lnd, liquidityProvider)
+        this.flashsatsLSP = new FlashsatsLSP(settings.lspSettings, lnd, liquidityProvider)
     }
     beforeInvoiceCreation = async () => { }
     afterInInvoicePaid = async () => {
@@ -41,6 +43,13 @@ export class LiquidityManager {
         const voltageOk = await this.voltageLSP.openChannelIfReady()
         if (voltageOk) {
             this.log("requested channel from voltage")
+            this.channelRequested = true
+            return
+        }
+
+        const flashsatsOk = await this.flashsatsLSP.openChannelIfReady()
+        if (flashsatsOk) {
+            this.log("requested channel from flashsats")
             this.channelRequested = true
             return
         }
