@@ -25,6 +25,7 @@ const testInboundPaymentFromProvider = async (T: TestBase, bootstrapped: Main, b
 
     await T.externalAccessToOtherLnd.PayInvoice(invoiceRes.invoice, 0, 100)
     const userBalance = await bootstrapped.appUserManager.GetUserInfo({ app_id: bUser.appId, user_id: bUser.userId, app_user_id: bUser.appUserIdentifier })
+    await new Promise((resolve) => setTimeout(resolve, 200))
     T.expect(userBalance.balance).to.equal(2000)
     T.d("user balance is 2000")
     const providerBalance = await bootstrapped.liquidProvider.CheckUserState()
