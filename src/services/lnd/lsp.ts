@@ -42,6 +42,13 @@ type FlashsatsOrder = {
     "token": string
 }
 
+type OrderResponse = {
+    orderId: string
+    invoice: string
+    totalSats: number
+    fees: number
+}
+
 class LSP {
     settings: LSPSettings
     liquidityProvider: LiquidityProvider
@@ -71,7 +78,7 @@ class LSP {
         }
         const userState = await this.liquidityProvider.CheckUserState()
         if (!userState || userState.max_withdrawable < this.settings.channelThreshold) {
-            this.log("user balance too low to trigger channel request")
+            this.log("balance of", userState?.max_withdrawable || 0, "is lower than channel threshold of", this.settings.channelThreshold)
             return { shouldOpen: false }
         }
         return { shouldOpen: true, maxSpendable: userState.max_withdrawable }
@@ -91,50 +98,50 @@ export class FlashsatsLSP extends LSP {
         super("FlashsatsLSP", settings, lnd, liquidityProvider)
     }
 
-    openChannelIfReady = async (): Promise<boolean> => {
+    openChannelIfReady = async (): Promise<OrderResponse | null> => {
         const shouldOpen = await this.shouldOpenChannel()
         if (!shouldOpen.shouldOpen) {
-            return false
+            return null
         }
         if (!this.settings.flashsatsServiceUrl) {
             this.log("no flashsats service url provided")
-            return false
+            return null
         }
         const serviceInfo = await this.getInfo()
         if (+serviceInfo.options.min_initial_client_balance_sat > shouldOpen.maxSpendable) {
-            this.log("user balance too low for service minimum")
-            return false
+            this.log("balance of", shouldOpen.maxSpendable, "is lower than service minimum of", serviceInfo.options.min_initial_client_balance_sat)
+            return null
         }
         const lndInfo = await this.lnd.GetInfo()
         const myUri = lndInfo.uris.length > 0 ? lndInfo.uris[0] : ""
         if (!myUri) {
             this.log("no uri found for this node,uri is required to use flashsats")
-            return false
+            return null
         }
         const lspBalance = (this.settings.channelThreshold * 2).toString()
         const chanExpiryBlocks = serviceInfo.options.max_channel_expiry_blocks
         const order = await this.createOrder({ nodeUri: myUri, lspBalance, clientBalance: "0", chanExpiryBlocks })
         if (order.payment.state !== 'EXPECT_PAYMENT') {
             this.log("order not in expect payment state")
-            return false
+            return null
         }
         const decoded = await this.lnd.DecodeInvoice(order.payment.bolt11_invoice)
         if (decoded.numSatoshis !== +order.payment.order_total_sat) {
-            this.log("invoice amount does not match order total")
-            return false
+            this.log("invoice of amount", decoded.numSatoshis, "does not match order total of", order.payment.order_total_sat)
+            return null
         }
         if (decoded.numSatoshis > shouldOpen.maxSpendable) {
-            this.log("invoice amount exceeds user balance")
-            return false
+            this.log("invoice of amount", decoded.numSatoshis, "exceeds user balance of", shouldOpen.maxSpendable)
+            return null
         }
         const relativeFee = +order.payment.fee_total_sat / this.settings.channelThreshold
         if (relativeFee > this.settings.maxRelativeFee) {
-            this.log("invoice fee exceeds max fee percent")
-            return false
+            this.log("invoice relative fee of", relativeFee, "exceeds max relative fee of", this.settings.maxRelativeFee)
+            return null
         }
-        await this.liquidityProvider.PayInvoice(order.payment.bolt11_invoice)
-        this.log("paid invoice to open channel")
-        return true
+        const res = await this.liquidityProvider.PayInvoice(order.payment.bolt11_invoice)
+        this.log("paid", res.amount_paid, "to open channel")
+        return { orderId: order.order_id, invoice: order.payment.bolt11_invoice, totalSats: +order.payment.order_total_sat, fees: +order.payment.fee_total_sat }
 
     }
     getInfo = async () => {
@@ -167,20 +174,19 @@ export class OlympusLSP extends LSP {
         super("OlympusLSP", settings, lnd, liquidityProvider)
     }
 
-    openChannelIfReady = async (): Promise<boolean> => {
-        this.log("checking if channel should be opened")
+    openChannelIfReady = async (): Promise<OrderResponse | null> => {
         const shouldOpen = await this.shouldOpenChannel()
         if (!shouldOpen.shouldOpen) {
-            return false
+            return null
         }
         if (!this.settings.olympusServiceUrl) {
             this.log("no olympus service url provided")
-            return false
+            return null
         }
         const serviceInfo = await this.getInfo()
         if (+serviceInfo.options.min_initial_client_balance_sat > shouldOpen.maxSpendable) {
-            this.log("user balance too low for service minimum")
-            return false
+            this.log("balance of", shouldOpen.maxSpendable, "is lower than service minimum of", serviceInfo.options.min_initial_client_balance_sat)
+            return null
         }
         const [servicePub, host] = serviceInfo.uris[0].split('@')
         await this.addPeer(servicePub, host)
@@ -192,25 +198,25 @@ export class OlympusLSP extends LSP {
         const order = await this.createOrder({ pubKey: myPub, refundAddr: refundAddr.address, lspBalance, clientBalance: "0", chanExpiryBlocks })
         if (order.payment.state !== 'EXPECT_PAYMENT') {
             this.log("order not in expect payment state")
-            return false
+            return null
         }
         const decoded = await this.lnd.DecodeInvoice(order.payment.bolt11_invoice)
         if (decoded.numSatoshis !== +order.payment.order_total_sat) {
-            this.log("invoice amount does not match order total")
-            return false
+            this.log("invoice of amount", decoded.numSatoshis, "does not match order total of", order.payment.order_total_sat)
+            return null
         }
         if (decoded.numSatoshis > shouldOpen.maxSpendable) {
-            this.log("invoice amount exceeds user balance")
-            return false
+            this.log("invoice of amount", decoded.numSatoshis, "exceeds user balance of", shouldOpen.maxSpendable)
+            return null
         }
         const relativeFee = +order.payment.fee_total_sat / this.settings.channelThreshold
         if (relativeFee > this.settings.maxRelativeFee) {
-            this.log("invoice fee exceeds max fee percent")
-            return false
+            this.log("invoice relative fee of", relativeFee, "exceeds max relative fee of", this.settings.maxRelativeFee)
+            return null
         }
-        await this.liquidityProvider.PayInvoice(order.payment.bolt11_invoice)
-        this.log("paid invoice to open channel")
-        return true
+        const res = await this.liquidityProvider.PayInvoice(order.payment.bolt11_invoice)
+        this.log("paid", res.amount_paid, "to open channel")
+        return { orderId: order.order_id, invoice: order.payment.bolt11_invoice, totalSats: +order.payment.order_total_sat, fees: +order.payment.fee_total_sat }
     }
 
     getInfo = async () => {
@@ -267,15 +273,15 @@ export class VoltageLSP extends LSP {
         return json
     }
 
-    openChannelIfReady = async (): Promise<boolean> => {
+    openChannelIfReady = async (): Promise<OrderResponse | null> => {
         const shouldOpen = await this.shouldOpenChannel()
         if (!shouldOpen.shouldOpen) {
-            return false
+            return null
         }
 
         if (!this.settings.voltageServiceUrl) {
             this.log("no voltage service url provided")
-            return false
+            return null
         }
 
         const lndInfo = await this.lnd.GetInfo()
@@ -286,15 +292,15 @@ export class VoltageLSP extends LSP {
         const relativeFee = feeSats / this.settings.channelThreshold
 
         if (relativeFee > this.settings.maxRelativeFee) {
-            this.log("fee percent exceeds max fee percent")
-            return false
+            this.log("relative fee of", relativeFee, "exceeds max relative fee of", this.settings.maxRelativeFee)
+            return null
         }
 
         const info = await this.getInfo()
         const ipv4 = info.connection_methods.find(c => c.type === 'ipv4')
         if (!ipv4) {
             this.log("no ipv4 address found")
-            return false
+            return null
         }
         await this.addPeer(info.pubkey, `${ipv4.address}:${ipv4.port}`)
 
@@ -302,13 +308,13 @@ export class VoltageLSP extends LSP {
         const res = await this.proposal(invoice.payRequest, fee.id)
         const decoded = await this.lnd.DecodeInvoice(res.jit_bolt11)
         if (decoded.numSatoshis !== this.settings.channelThreshold + feeSats) {
-            this.log("invoice amount does not math requested amount")
-            return false
+            this.log("invoice of amount", decoded.numSatoshis, "does not match expected amount of", this.settings.channelThreshold + feeSats)
+            return null
         }
 
-        await this.liquidityProvider.PayInvoice(res.jit_bolt11)
-        this.log("paid invoice to open channel")
-        return true
+        const invoiceRes = await this.liquidityProvider.PayInvoice(res.jit_bolt11)
+        this.log("paid", invoiceRes.amount_paid, "to open channel")
+        return { orderId: fee.id, invoice: res.jit_bolt11, totalSats: decoded.numSatoshis, fees: feeSats }
     }
 
     proposal = async (bolt11: string, feeId: string) => {
