@@ -1,5 +1,4 @@
 import { HtlcEvent } from "../../../proto/lnd/router"
-import { LiquiditySettings } from "./liquidityManager"
 export type NodeSettings = {
     lndAddr: string
     lndCertPath: string
@@ -13,8 +12,6 @@ export type LndSettings = {
 
     otherNode?: NodeSettings
     thirdNode?: NodeSettings
-
-    liquiditySettings: LiquiditySettings
 }
 type TxOutput = {
     hash: string

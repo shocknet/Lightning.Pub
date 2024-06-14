@@ -7,12 +7,14 @@ import PaymentStorage from "./paymentStorage.js";
 import MetricsStorage from "./metricsStorage.js";
 import TransactionsQueue, { TX } from "./transactionsQueue.js";
 import EventsLogManager from "./eventsLog.js";
+import { LiquidityStorage } from "./liquidityStorage.js";
 export type StorageSettings = {
     dbSettings: DbSettings
     eventLogPath: string
+    dataDir: string
 }
 export const LoadStorageSettingsFromEnv = (): StorageSettings => {
-    return { dbSettings: LoadDbSettingsFromEnv(), eventLogPath: "logs/eventLogV2.csv" }
+    return { dbSettings: LoadDbSettingsFromEnv(), eventLogPath: "logs/eventLogV2.csv", dataDir: process.env.DATA_DIR || "" }
 }
 export default class {
     DB: DataSource | EntityManager
@@ -23,6 +25,7 @@ export default class {
     userStorage: UserStorage
     paymentStorage: PaymentStorage
     metricsStorage: MetricsStorage
+    liquidityStorage: LiquidityStorage
     eventsLog: EventsLogManager
     constructor(settings: StorageSettings) {
         this.settings = settings
@@ -37,6 +40,7 @@ export default class {
         this.applicationStorage = new ApplicationStorage(this.DB, this.userStorage, this.txQueue)
         this.paymentStorage = new PaymentStorage(this.DB, this.userStorage, this.txQueue)
         this.metricsStorage = new MetricsStorage(this.settings)
+        this.liquidityStorage = new LiquidityStorage(this.DB, this.txQueue)
         const executedMetricsMigrations = await this.metricsStorage.Connect(metricsMigrations)
         return { executedMigrations, executedMetricsMigrations };
     }

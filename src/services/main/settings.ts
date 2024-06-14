@@ -6,10 +6,12 @@ import { EnvCanBeInteger, EnvMustBeInteger, EnvMustBeNonEmptyString } from '../h
 import { getLogger } from '../helpers/logger.js'
 import fs from 'fs'
 import crypto from 'crypto';
+import { LiquiditySettings, LoadLiquiditySettingsFromEnv } from './liquidityManager.js'
 export type MainSettings = {
     storageSettings: StorageSettings,
     lndSettings: LndSettings,
     watchDogSettings: WatchdogSettings,
+    liquiditySettings: LiquiditySettings,
     jwtSecret: string
     incomingTxFee: number
     outgoingTxFee: number
@@ -32,11 +34,13 @@ export type BitcoinCoreSettings = {
 }
 export type TestSettings = MainSettings & { lndSettings: { otherNode: NodeSettings, thirdNode: NodeSettings, fourthNode: NodeSettings }, bitcoinCoreSettings: BitcoinCoreSettings }
 export const LoadMainSettingsFromEnv = (): MainSettings => {
+    const storageSettings = LoadStorageSettingsFromEnv()
     return {
         watchDogSettings: LoadWatchdogSettingsFromEnv(),
         lndSettings: LoadLndSettingsFromEnv(),
-        storageSettings: LoadStorageSettingsFromEnv(),
-        jwtSecret: loadJwtSecret(),
+        storageSettings: storageSettings,
+        liquiditySettings: LoadLiquiditySettingsFromEnv(),
+        jwtSecret: loadJwtSecret(storageSettings.dataDir),
         incomingTxFee: EnvCanBeInteger("INCOMING_CHAIN_FEE_ROOT_BPS", 0) / 10000,
         outgoingTxFee: EnvCanBeInteger("OUTGOING_CHAIN_FEE_ROOT_BPS", 60) / 10000,
         incomingAppInvoiceFee: EnvCanBeInteger("INCOMING_INVOICE_FEE_ROOT_BPS", 0) / 10000,
@@ -58,7 +62,7 @@ export const LoadTestSettingsFromEnv = (): TestSettings => {
     const settings = LoadMainSettingsFromEnv()
     return {
         ...settings,
-        storageSettings: { dbSettings: { ...settings.storageSettings.dbSettings, databaseFile: ":memory:", metricsDatabaseFile: ":memory:" }, eventLogPath },
+        storageSettings: { dbSettings: { ...settings.storageSettings.dbSettings, databaseFile: ":memory:", metricsDatabaseFile: ":memory:" }, eventLogPath, dataDir: "data" },
         lndSettings: {
             ...settings.lndSettings,
             otherNode: {
@@ -76,10 +80,10 @@ export const LoadTestSettingsFromEnv = (): TestSettings => {
                 lndCertPath: EnvMustBeNonEmptyString("LND_FOURTH_CERT_PATH"),
                 lndMacaroonPath: EnvMustBeNonEmptyString("LND_FOURTH_MACAROON_PATH")
             },
-            liquiditySettings: {
-                ...settings.lndSettings.liquiditySettings,
-                liquidityProviderPub: "",
-            }
+        },
+        liquiditySettings: {
+            ...settings.liquiditySettings,
+            liquidityProviderPub: "",
         },
         skipSanityCheck: true,
         bitcoinCoreSettings: {
@@ -90,20 +94,21 @@ export const LoadTestSettingsFromEnv = (): TestSettings => {
     }
 }
 
-export const loadJwtSecret = (): string => {
+export const loadJwtSecret = (dataDir: string): string => {
     const secret = process.env["JWT_SECRET"]
     const log = getLogger({})
     if (secret) {
         return secret
     }
     log("JWT_SECRET not set in env, checking .jwt_secret file")
+    const secretPath = dataDir !== "" ? `${dataDir}/.jwt_secret` : ".jwt_secret"
     try {
-        const fileContent = fs.readFileSync(".jwt_secret", "utf-8")
+        const fileContent = fs.readFileSync(secretPath, "utf-8")
         return fileContent.trim()
     } catch (e) {
         log(".jwt_secret file not found, generating random secret")
         const secret = crypto.randomBytes(32).toString('hex')
-        fs.writeFileSync(".jwt_secret", secret)
+        fs.writeFileSync(secretPath, secret)
         return secret
     }
 }

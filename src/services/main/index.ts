@@ -16,7 +16,7 @@ import { NostrSend } from '../nostr/handler.js'
 import MetricsManager from '../metrics/index.js'
 import { LoggedEvent } from '../storage/eventsLog.js'
 import { LiquidityProvider } from "../lnd/liquidityProvider.js"
-import { LiquidityManager } from "../lnd/liquidityManager.js"
+import { LiquidityManager } from "./liquidityManager.js"
 
 type UserOperationsSub = {
     id: string
@@ -43,9 +43,10 @@ export default class {
     constructor(settings: MainSettings, storage: Storage) {
         this.settings = settings
         this.storage = storage
-        this.liquidProvider = new LiquidityProvider(settings.lndSettings.liquiditySettings.liquidityProviderPub, this.invoicePaidCb)
-        this.lnd = new LND(settings.lndSettings, this.liquidProvider, this.addressPaidCb, this.invoicePaidCb, this.newBlockCb, this.htlcCb)
-        this.liquidityManager = new LiquidityManager(this.settings.lndSettings.liquiditySettings, this.liquidProvider, this.lnd)
+        this.liquidProvider = new LiquidityProvider(settings.liquiditySettings.liquidityProviderPub, this.invoicePaidCb)
+        const provider = { liquidProvider: this.liquidProvider, useOnly: settings.liquiditySettings.useOnlyLiquidityProvider }
+        this.lnd = new LND(settings.lndSettings, provider, this.addressPaidCb, this.invoicePaidCb, this.newBlockCb, this.htlcCb)
+        this.liquidityManager = new LiquidityManager(this.settings.liquiditySettings, this.liquidProvider, this.lnd)
         this.metricsManager = new MetricsManager(this.storage, this.lnd)
 
         this.paymentManager = new PaymentManager(this.storage, this.lnd, this.settings, this.addressPaidCb, this.invoicePaidCb)

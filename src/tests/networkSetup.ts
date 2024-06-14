@@ -8,8 +8,8 @@ export const setupNetwork = async () => {
     const core = new BitcoinCoreWrapper(settings)
     await core.InitAddress()
     await core.Mine(1)
-    const alice = new LND(settings.lndSettings, new LiquidityProvider("", () => { }), () => { }, () => { }, () => { }, () => { })
-    const bob = new LND({ ...settings.lndSettings, mainNode: settings.lndSettings.otherNode }, new LiquidityProvider("", () => { }), () => { }, () => { }, () => { }, () => { })
+    const alice = new LND(settings.lndSettings, { liquidProvider: new LiquidityProvider("", () => { }) }, () => { }, () => { }, () => { }, () => { })
+    const bob = new LND({ ...settings.lndSettings, mainNode: settings.lndSettings.otherNode }, { liquidProvider: new LiquidityProvider("", () => { }) }, () => { }, () => { }, () => { }, () => { })
     await tryUntil<void>(async i => {
         const peers = await alice.ListPeers()
         if (peers.peers.length > 0) {
