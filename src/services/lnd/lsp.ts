@@ -8,19 +8,17 @@ export type LSPSettings = {
     olympusServiceUrl: string
     voltageServiceUrl: string
     flashsatsServiceUrl: string
-    flashsatsNodeUri: string
     channelThreshold: number
     maxRelativeFee: number
 }
 
 export const LoadLSPSettingsFromEnv = (): LSPSettings => {
-    const olympusServiceUrl = process.env.OLYMPUS_LSP_URL || ""
-    const voltageServiceUrl = process.env.VOLTAGE_LSP_URL || ""
-    const flashsatsServiceUrl = process.env.FLASHSATS_LSP_URL || ""
-    const flashsatsNodeUri = process.env.FLASHSATS_LSP_NODE_URI || ""
-    const channelThreshold = EnvCanBeInteger("LSP_CHANNEL_THRESHOLD")
-    const maxRelativeFee = EnvCanBeInteger("LSP_MAX_FEE_BPS") / 10000
-    return { olympusServiceUrl, voltageServiceUrl, channelThreshold, maxRelativeFee, flashsatsServiceUrl, flashsatsNodeUri }
+    const olympusServiceUrl = process.env.OLYMPUS_LSP_URL || "https://lsps1.lnolymp.us/api/v1"
+    const voltageServiceUrl = process.env.VOLTAGE_LSP_URL || "https://lsp.voltageapi.com/api/v1"
+    const flashsatsServiceUrl = process.env.FLASHSATS_LSP_URL || "https://lsp.flashsats.xyz/lsp/channel"
+    const channelThreshold = EnvCanBeInteger("LSP_CHANNEL_THRESHOLD", 1000000)
+    const maxRelativeFee = EnvCanBeInteger("LSP_MAX_FEE_BPS", 100) / 10000
+    return { olympusServiceUrl, voltageServiceUrl, channelThreshold, maxRelativeFee, flashsatsServiceUrl }
 
 }
 type OlympusOrder = {
