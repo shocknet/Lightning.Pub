@@ -23,8 +23,9 @@ export class LiquidityManager {
     flashsatsLSP: FlashsatsLSP
     log = getLogger({ component: "liquidityManager" })
     channelRequested = false
-    constructor(settings: LiquiditySettings, liquidityProvider: LiquidityProvider, lnd: LND) {
+    constructor(settings: LiquiditySettings, storage: Storage, liquidityProvider: LiquidityProvider, lnd: LND) {
         this.settings = settings
+        this.storage = storage
         this.liquidityProvider = liquidityProvider
         this.lnd = lnd
         this.olympusLSP = new OlympusLSP(settings.lspSettings, lnd, liquidityProvider)
