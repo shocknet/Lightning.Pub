@@ -1,4 +1,4 @@
-import { DataSource, EntityManager } from "typeorm"
+import { DataSource, EntityManager, MoreThan } from "typeorm"
 import { LspOrder } from "./entity/LspOrder.js";
 import TransactionsQueue, { TX } from "./transactionsQueue.js";
 export class LiquidityStorage {
@@ -10,7 +10,7 @@ export class LiquidityStorage {
     }
 
     GetLatestLspOrder() {
-        return this.DB.getRepository(LspOrder).findOne({ order: { serial_id: "DESC" } })
+        return this.DB.getRepository(LspOrder).findOne({ where: { serial_id: MoreThan(0) }, order: { serial_id: "DESC" } })
     }
 
     SaveLspOrder(order: Partial<LspOrder>) {
