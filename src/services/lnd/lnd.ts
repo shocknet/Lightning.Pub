@@ -36,7 +36,8 @@ export default class {
     log = getLogger({ component: 'lndManager' })
     outgoingOpsLocked = false
     liquidProvider: LiquidityProvider
-    constructor(settings: LndSettings, liquidProvider: LiquidityProvider, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb, newBlockCb: NewBlockCb, htlcCb: HtlcCb) {
+    useOnlyLiquidityProvider = false
+    constructor(settings: LndSettings, provider: { liquidProvider: LiquidityProvider, useOnly?: boolean }, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb, newBlockCb: NewBlockCb, htlcCb: HtlcCb) {
         this.settings = settings
         this.addressPaidCb = addressPaidCb
         this.invoicePaidCb = invoicePaidCb
@@ -62,7 +63,8 @@ export default class {
         this.invoices = new InvoicesClient(transport)
         this.router = new RouterClient(transport)
         this.chainNotifier = new ChainNotifierClient(transport)
-        this.liquidProvider = liquidProvider
+        this.liquidProvider = provider.liquidProvider
+        this.useOnlyLiquidityProvider = !!provider.useOnly
     }
 
     LockOutgoingOperations(): void {
@@ -81,7 +83,7 @@ export default class {
     }
 
     async ShouldUseLiquidityProvider(req: LiquidityRequest): Promise<boolean> {
-        if (this.settings.useOnlyLiquidityProvider) {
+        if (this.useOnlyLiquidityProvider) {
             return true
         }
         if (!this.liquidProvider.CanProviderHandle(req)) {

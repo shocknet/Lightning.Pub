@@ -16,6 +16,7 @@ import { NostrSend } from '../nostr/handler.js'
 import MetricsManager from '../metrics/index.js'
 import { LoggedEvent } from '../storage/eventsLog.js'
 import { LiquidityProvider } from "../lnd/liquidityProvider.js"
+import { LiquidityManager } from "./liquidityManager.js"
 
 type UserOperationsSub = {
     id: string
@@ -37,20 +38,23 @@ export default class {
     paymentSubs: Record<string, ((op: Types.UserOperation) => void) | null> = {}
     metricsManager: MetricsManager
     liquidProvider: LiquidityProvider
+    liquidityManager: LiquidityManager
     nostrSend: NostrSend = () => { getLogger({})("nostr send not initialized yet") }
     constructor(settings: MainSettings, storage: Storage) {
         this.settings = settings
         this.storage = storage
-        this.liquidProvider = new LiquidityProvider(settings.lndSettings.liquidityProviderPub, this.invoicePaidCb)
-        this.lnd = new LND(settings.lndSettings, this.liquidProvider, this.addressPaidCb, this.invoicePaidCb, this.newBlockCb, this.htlcCb)
+        this.liquidProvider = new LiquidityProvider(settings.liquiditySettings.liquidityProviderPub, this.invoicePaidCb)
+        const provider = { liquidProvider: this.liquidProvider, useOnly: settings.liquiditySettings.useOnlyLiquidityProvider }
+        this.lnd = new LND(settings.lndSettings, provider, this.addressPaidCb, this.invoicePaidCb, this.newBlockCb, this.htlcCb)
+        this.liquidityManager = new LiquidityManager(this.settings.liquiditySettings, this.storage, this.liquidProvider, this.lnd)
         this.metricsManager = new MetricsManager(this.storage, this.lnd)
 
         this.paymentManager = new PaymentManager(this.storage, this.lnd, this.settings, this.addressPaidCb, this.invoicePaidCb)
         this.productManager = new ProductManager(this.storage, this.paymentManager, this.settings)
         this.applicationManager = new ApplicationManager(this.storage, this.settings, this.paymentManager)
         this.appUserManager = new AppUserManager(this.storage, this.settings, this.applicationManager)
-
     }
+
     Stop() {
         this.lnd.Stop()
         this.applicationManager.Stop()
@@ -187,6 +191,7 @@ export default class {
                 this.sendOperationToNostr(userInvoice.linkedApplication, userInvoice.user.user_id, op)
                 this.createZapReceipt(log, userInvoice)
                 log("paid invoice processed successfully")
+                this.liquidityManager.afterInInvoicePaid()
             } catch (err: any) {
                 log(ERROR, "cannot process paid invoice", err.message || "")
             }
