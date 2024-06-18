@@ -220,7 +220,7 @@ export class OlympusLSP extends LSP {
     }
 
     getInfo = async () => {
-        const res = await fetch(`${this.settings.olympusServiceUrl}/getinfo`)
+        const res = await fetch(`${this.settings.olympusServiceUrl}/get_info`)
         const json = await res.json() as { options: { min_initial_client_balance_sat: string, max_channel_expiry_blocks: number }, uris: string[] }
         return json
     }
