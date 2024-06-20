@@ -88,6 +88,7 @@ export default class {
             const balanceEvents = await this.paymentManager.GetLndBalance()
             await this.metricsManager.NewBlockCb(height, balanceEvents)
             confirmed = await this.paymentManager.CheckNewlyConfirmedTxs(height)
+            this.liquidityManager.onNewBlock()
         } catch (err: any) {
             log(ERROR, "failed to check transactions after new block", err.message || err)
             return

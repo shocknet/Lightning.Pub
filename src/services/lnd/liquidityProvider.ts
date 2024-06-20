@@ -102,7 +102,7 @@ export class LiquidityProvider {
         }
         this.latestMaxWithdrawable = res.max_withdrawable
         this.latestBalance = res.balance
-        this.log("latest provider balance:", res.max_withdrawable)
+        this.log("latest provider balance:", res.balance, "latest max withdrawable:", res.max_withdrawable)
         return res
     }
 

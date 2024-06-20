@@ -269,7 +269,9 @@ export class VoltageLSP extends LSP {
             body: JSON.stringify({ amount_msat: amtMsat, pubkey }),
             headers: { "Content-Type": "application/json" }
         })
-        const json = await res.json() as { fee_amount_msat: number, id: string }
+        const resText = await res.text()
+        this.log("fee response", resText)
+        const json = JSON.parse(resText) as { fee_amount_msat: number, id: string }
         return json
     }
 

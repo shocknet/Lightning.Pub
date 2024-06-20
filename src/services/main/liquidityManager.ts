@@ -24,6 +24,7 @@ export class LiquidityManager {
     flashsatsLSP: FlashsatsLSP
     log = getLogger({ component: "liquidityManager" })
     channelRequested = false
+    channelRequesting = false
     constructor(settings: LiquiditySettings, storage: Storage, liquidityProvider: LiquidityProvider, lnd: LND) {
         this.settings = settings
         this.storage = storage
@@ -58,14 +59,16 @@ export class LiquidityManager {
         if (existingOrder) {
             return
         }
-        if (this.channelRequested) {
+        if (this.channelRequested || this.channelRequesting) {
             return
         }
+        this.channelRequesting = true
         this.log("checking if channel should be requested")
         const olympusOk = await this.olympusLSP.openChannelIfReady()
         if (olympusOk) {
             this.log("requested channel from olympus")
             this.channelRequested = true
+            this.channelRequesting = false
             await this.storage.liquidityStorage.SaveLspOrder({ service_name: 'olympus', invoice: olympusOk.invoice, total_paid: olympusOk.totalSats, order_id: olympusOk.orderId, fees: olympusOk.fees })
             return
         }
@@ -73,6 +76,7 @@ export class LiquidityManager {
         if (voltageOk) {
             this.log("requested channel from voltage")
             this.channelRequested = true
+            this.channelRequesting = false
             await this.storage.liquidityStorage.SaveLspOrder({ service_name: 'voltage', invoice: voltageOk.invoice, total_paid: voltageOk.totalSats, order_id: voltageOk.orderId, fees: voltageOk.fees })
             return
         }
@@ -81,9 +85,11 @@ export class LiquidityManager {
         if (flashsatsOk) {
             this.log("requested channel from flashsats")
             this.channelRequested = true
+            this.channelRequesting = false
             await this.storage.liquidityStorage.SaveLspOrder({ service_name: 'flashsats', invoice: flashsatsOk.invoice, total_paid: flashsatsOk.totalSats, order_id: flashsatsOk.orderId, fees: flashsatsOk.fees })
             return
         }
+        this.channelRequesting = false
         this.log("no channel requested")
     }
 
