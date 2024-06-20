@@ -263,7 +263,7 @@ export class VoltageLSP extends LSP {
         return json
     }
 
-    getFees = async (amtMsat: string, pubkey: string) => {
+    getFees = async (amtMsat: number, pubkey: string) => {
         const res = await fetch(`${this.settings.voltageServiceUrl}/fee`, {
             method: "POST",
             body: JSON.stringify({ amount_msat: amtMsat, pubkey }),
@@ -288,7 +288,7 @@ export class VoltageLSP extends LSP {
 
         const lndInfo = await this.lnd.GetInfo()
         const myPub = lndInfo.identityPubkey
-        const amtMsats = this.settings.channelThreshold.toString() + "000"
+        const amtMsats = this.settings.channelThreshold * 1000
         const fee = await this.getFees(amtMsats, myPub)
         const feeSats = fee.fee_amount_msat / 1000
         const relativeFee = feeSats / this.settings.channelThreshold
