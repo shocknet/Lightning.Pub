@@ -1,6 +1,7 @@
 import { EnvCanBeInteger } from "../helpers/envParser.js";
 import FunctionQueue from "../helpers/functionQueue.js";
 import { getLogger } from "../helpers/logger.js";
+import { LiquidityProvider } from "../lnd/liquidityProvider.js";
 import LND from "../lnd/lnd.js";
 import { ChannelBalance } from "../lnd/settings.js";
 import Storage from '../storage/index.js'
@@ -20,6 +21,7 @@ export class Watchdog {
     latestIndexOffset: number;
     accumulatedHtlcFees: number;
     lnd: LND;
+    liquidProvider: LiquidityProvider;
     settings: WatchdogSettings;
     storage: Storage;
     latestCheckStart = 0
@@ -30,6 +32,7 @@ export class Watchdog {
         this.lnd = lnd;
         this.settings = settings;
         this.storage = storage;
+        this.liquidProvider = lnd.liquidProvider
         this.queue = new FunctionQueue("watchdog_queue", () => this.StartCheck())
     }
 
@@ -76,7 +79,8 @@ export class Watchdog {
         getLogger({ component: "debugLndBalancev3" })({ w: walletBalance, c: channelsBalance, u: usersTotal, f: this.accumulatedHtlcFees })
         const totalLightningBalanceMsats = (channelsBalance.localBalance?.msat || 0n) + (channelsBalance.unsettledLocalBalance?.msat || 0n)
         const totalLightningBalance = Math.ceil(Number(totalLightningBalanceMsats) / 1000)
-        return Number(walletBalance.confirmedBalance) + totalLightningBalance
+        const providerBalance = this.liquidProvider.GetLatestMaxWithdrawable()
+        return Number(walletBalance.confirmedBalance) + totalLightningBalance + providerBalance
     }
 
     checkBalanceUpdate = (deltaLnd: number, deltaUsers: number) => {
