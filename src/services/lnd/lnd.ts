@@ -269,11 +269,11 @@ export default class {
         return res.response
     }
 
-    async NewInvoice(value: number, memo: string, expiry: number): Promise<Invoice> {
+    async NewInvoice(value: number, memo: string, expiry: number, useProvider = false): Promise<Invoice> {
         this.log("generating new invoice for", value, "sats")
         await this.Health()
         const shouldUseLiquidityProvider = await this.ShouldUseLiquidityProvider({ action: 'receive', amount: value })
-        if (shouldUseLiquidityProvider) {
+        if (shouldUseLiquidityProvider || useProvider) {
             const invoice = await this.liquidProvider.AddInvoice(value, memo)
             return { payRequest: invoice }
         }
@@ -300,7 +300,7 @@ export default class {
         const r = res.response
         return { local: r.localBalance ? Number(r.localBalance.sat) : 0, remote: r.remoteBalance ? Number(r.remoteBalance.sat) : 0 }
     }
-    async PayInvoice(invoice: string, amount: number, feeLimit: number): Promise<PaidInvoice> {
+    async PayInvoice(invoice: string, amount: number, feeLimit: number, useProvider = false): Promise<PaidInvoice> {
         if (this.outgoingOpsLocked) {
             this.log("outgoing ops locked, rejecting payment request")
             throw new Error("lnd node is currently out of sync")
@@ -308,7 +308,7 @@ export default class {
         await this.Health()
         this.log("paying invoice", invoice, "for", amount, "sats")
         const shouldUseLiquidityProvider = await this.ShouldUseLiquidityProvider({ action: 'spend', amount })
-        if (shouldUseLiquidityProvider) {
+        if (shouldUseLiquidityProvider || useProvider) {
             const res = await this.liquidProvider.PayInvoice(invoice)
             return { feeSat: res.network_fee + res.service_fee, valueSat: res.amount_paid, paymentPreimage: res.preimage }
         }
