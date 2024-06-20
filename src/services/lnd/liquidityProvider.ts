@@ -20,6 +20,7 @@ export class LiquidityProvider {
     ready = false
     pubDestination: string
     latestMaxWithdrawable: number | null = null
+    latestBalance: number | null = null
     invoicePaidCb: InvoicePaidCb
     connecting = false
     readyInterval: NodeJS.Timeout
@@ -69,8 +70,18 @@ export class LiquidityProvider {
         })
     }
 
-    GetLatestMaxWithdrawable = () => {
+    GetLatestMaxWithdrawable = async (fetch = false) => {
+        if (fetch || this.latestMaxWithdrawable === null) {
+            await this.CheckUserState()
+        }
         return this.latestMaxWithdrawable || 0
+    }
+
+    GetLatestBalance = async (fetch = false) => {
+        if (fetch || this.latestBalance === null) {
+            await this.CheckUserState()
+        }
+        return this.latestBalance || 0
     }
 
     CheckUserState = async () => {
@@ -80,6 +91,7 @@ export class LiquidityProvider {
             return
         }
         this.latestMaxWithdrawable = res.max_withdrawable
+        this.latestBalance = res.balance
         this.log("latest provider balance:", res.max_withdrawable)
         return res
     }

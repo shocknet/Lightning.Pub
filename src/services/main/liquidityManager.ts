@@ -88,7 +88,7 @@ export class LiquidityManager {
     }
 
     beforeOutInvoicePayment = async (amount: number): Promise<'lnd' | 'provider'> => {
-        const balance = await this.liquidityProvider.GetLatestMaxWithdrawable()
+        const balance = await this.liquidityProvider.GetLatestMaxWithdrawable(true)
         if (balance > amount) {
             this.log("provider has enough balance for payment")
             return 'provider'

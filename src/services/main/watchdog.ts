@@ -79,7 +79,7 @@ export class Watchdog {
         getLogger({ component: "debugLndBalancev3" })({ w: walletBalance, c: channelsBalance, u: usersTotal, f: this.accumulatedHtlcFees })
         const totalLightningBalanceMsats = (channelsBalance.localBalance?.msat || 0n) + (channelsBalance.unsettledLocalBalance?.msat || 0n)
         const totalLightningBalance = Math.ceil(Number(totalLightningBalanceMsats) / 1000)
-        const providerBalance = this.liquidProvider.GetLatestMaxWithdrawable()
+        const providerBalance = await this.liquidProvider.GetLatestBalance()
         return Number(walletBalance.confirmedBalance) + totalLightningBalance + providerBalance
     }
 
