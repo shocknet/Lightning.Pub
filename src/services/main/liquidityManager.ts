@@ -3,6 +3,7 @@ import { LiquidityProvider } from "../lnd/liquidityProvider.js"
 import LND from "../lnd/lnd.js"
 import { FlashsatsLSP, LoadLSPSettingsFromEnv, LSPSettings, OlympusLSP, VoltageLSP } from "../lnd/lsp.js"
 import Storage from '../storage/index.js'
+import { defaultInvoiceExpiry } from "../storage/paymentStorage.js"
 export type LiquiditySettings = {
     lspSettings: LSPSettings
     liquidityProviderPub: string
@@ -32,7 +33,26 @@ export class LiquidityManager {
         this.voltageLSP = new VoltageLSP(settings.lspSettings, lnd, liquidityProvider)
         this.flashsatsLSP = new FlashsatsLSP(settings.lspSettings, lnd, liquidityProvider)
     }
-    beforeInvoiceCreation = async () => { }
+    onNewBlock = async () => {
+        const balance = await this.liquidityProvider.GetLatestMaxWithdrawable()
+        const { remote } = await this.lnd.ChannelBalance()
+        if (remote > balance) {
+            this.log("draining provider balance to channel")
+            const invoice = await this.lnd.NewInvoice(balance, "liqudity provider drain", defaultInvoiceExpiry)
+            const res = await this.liquidityProvider.PayInvoice(invoice.payRequest)
+            this.log("drained provider balance to channel", res.amount_paid)
+        }
+    }
+
+    beforeInvoiceCreation = async (amount: number): Promise<'lnd' | 'provider'> => {
+        const { remote } = await this.lnd.ChannelBalance()
+        if (remote > amount) {
+            this.log("channel has enough balance for invoice")
+            return 'lnd'
+        }
+        this.log("channel does not have enough balance for invoice,suggesting provider")
+        return 'provider'
+    }
     afterInInvoicePaid = async () => {
         const existingOrder = await this.storage.liquidityStorage.GetLatestLspOrder()
         if (existingOrder) {
@@ -67,6 +87,14 @@ export class LiquidityManager {
         this.log("no channel requested")
     }
 
-    beforeOutInvoicePayment = async () => { }
+    beforeOutInvoicePayment = async (amount: number): Promise<'lnd' | 'provider'> => {
+        const balance = await this.liquidityProvider.GetLatestMaxWithdrawable()
+        if (balance > amount) {
+            this.log("provider has enough balance for payment")
+            return 'provider'
+        }
+        this.log("provider does not have enough balance for payment, suggesting lnd")
+        return 'lnd'
+    }
     afterOutInvoicePaid = async () => { }
 }

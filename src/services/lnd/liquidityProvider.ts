@@ -69,6 +69,10 @@ export class LiquidityProvider {
         })
     }
 
+    GetLatestMaxWithdrawable = () => {
+        return this.latestMaxWithdrawable || 0
+    }
+
     CheckUserState = async () => {
         const res = await this.client.GetUserInfo()
         if (res.status === 'ERROR') {
