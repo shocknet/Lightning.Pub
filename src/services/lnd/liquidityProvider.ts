@@ -28,7 +28,9 @@ export class LiquidityProvider {
     constructor(pubDestination: string, invoicePaidCb: InvoicePaidCb) {
         if (!pubDestination) {
             this.log("No pub provider to liquidity provider, will not be initialized")
+            return
         }
+        this.log("connecting to liquidity provider", pubDestination)
         this.pubDestination = pubDestination
         this.invoicePaidCb = invoicePaidCb
         this.client = newNostrClient({
@@ -71,14 +73,22 @@ export class LiquidityProvider {
     }
 
     GetLatestMaxWithdrawable = async (fetch = false) => {
-        if (fetch || this.latestMaxWithdrawable === null) {
+        if (this.latestMaxWithdrawable === null) {
+            this.log("liquidity provider is not ready yet")
+            return 0
+        }
+        if (fetch) {
             await this.CheckUserState()
         }
         return this.latestMaxWithdrawable || 0
     }
 
     GetLatestBalance = async (fetch = false) => {
-        if (fetch || this.latestBalance === null) {
+        if (this.latestMaxWithdrawable === null) {
+            this.log("liquidity provider is not ready yet")
+            return 0
+        }
+        if (fetch) {
             await this.CheckUserState()
         }
         return this.latestBalance || 0
