@@ -144,6 +144,22 @@ export class LiquidityProvider {
         return res
     }
 
+    GetOperations = async () => {
+        if (this.latestMaxWithdrawable === null) {
+            throw new Error("liquidity provider is not ready yet")
+        }
+        const res = await this.client.GetUserOperations({
+            latestIncomingInvoice: 0, latestOutgoingInvoice: 0,
+            latestIncomingTx: 0, latestOutgoingTx: 0, latestIncomingUserToUserPayment: 0,
+            latestOutgoingUserToUserPayment: 0, max_size: 200
+        })
+        if (res.status === 'ERROR') {
+            this.log("error getting operations", res.reason)
+            throw new Error(res.reason)
+        }
+        return res
+    }
+
     setNostrInfo = ({ clientId, myPub }: { myPub: string, clientId: string }) => {
         this.clientId = clientId
         this.myPub = myPub
