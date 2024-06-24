@@ -47,7 +47,11 @@ export type ChildProcessRequest = SettingsRequest | SendRequest
 export type ChildProcessResponse = ReadyResponse | EventResponse
 const send = (message: ChildProcessResponse) => {
     if (process.send) {
-        process.send(message)
+        process.send(message, undefined, undefined, err => {
+            if (err) {
+                getLogger({ component: "nostrMiddleware" })(ERROR, "failed to send message to parent process", err)
+            }
+        })
     }
 }
 let subProcessHandler: Handler | undefined
