@@ -117,6 +117,9 @@ export class LiquidityProvider {
     }
 
     AddInvoice = async (amount: number, memo: string) => {
+        if (this.latestMaxWithdrawable === null) {
+            throw new Error("liquidity provider is not ready yet")
+        }
         const res = await this.client.NewInvoice({ amountSats: amount, memo })
         if (res.status === 'ERROR') {
             this.log("error creating invoice", res.reason)
@@ -128,6 +131,9 @@ export class LiquidityProvider {
     }
 
     PayInvoice = async (invoice: string) => {
+        if (this.latestMaxWithdrawable === null) {
+            throw new Error("liquidity provider is not ready yet")
+        }
         const res = await this.client.PayInvoice({ invoice, amount: 0 })
         if (res.status === 'ERROR') {
             this.log("error paying invoice", res.reason)
