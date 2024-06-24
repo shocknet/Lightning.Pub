@@ -37,7 +37,7 @@ export class LiquidityManager {
     onNewBlock = async () => {
         const balance = await this.liquidityProvider.GetLatestMaxWithdrawable()
         const { remote } = await this.lnd.ChannelBalance()
-        if (remote > balance) {
+        if (remote > balance && balance > 0) {
             this.log("draining provider balance to channel")
             const invoice = await this.lnd.NewInvoice(balance, "liqudity provider drain", defaultInvoiceExpiry)
             const res = await this.liquidityProvider.PayInvoice(invoice.payRequest)
