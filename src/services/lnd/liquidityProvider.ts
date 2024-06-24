@@ -47,16 +47,16 @@ export class LiquidityProvider {
         }, 1000)
     }
 
-    AwaitProviderReady = async (res: (usable: boolean) => void) => {
+    AwaitProviderReady = async (): Promise<boolean> => {
         if (!this.pubDestination) {
-            res(false)
-            return
+            return false
         }
         if (this.latestMaxWithdrawable !== null) {
-            res(true)
-            return
+            return true
         }
-        this.queue.push({ res })
+        return new Promise<boolean>(res => {
+            this.queue.push({ res })
+        })
     }
 
     Stop = () => {

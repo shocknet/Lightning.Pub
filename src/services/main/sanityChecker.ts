@@ -236,9 +236,15 @@ export default class SanityChecker {
         this.events = await this.storage.eventsLog.GetAllLogs()
         this.invoices = (await this.lnd.GetAllPaidInvoices(1000)).invoices
         this.payments = (await this.lnd.GetAllPayments(1000)).payments
-        const ops = await this.lnd.liquidProvider.GetOperations()
-        this.providerInvoices = ops.latestIncomingInvoiceOperations.operations
-        this.providerPayments = ops.latestOutgoingInvoiceOperations.operations
+        const providerUsable = await this.lnd.liquidProvider.AwaitProviderReady()
+        if (providerUsable) {
+            const ops = await this.lnd.liquidProvider.GetOperations()
+            this.providerInvoices = ops.latestIncomingInvoiceOperations.operations
+            this.providerPayments = ops.latestOutgoingInvoiceOperations.operations
+        } else {
+            this.log("provider not usable, skipping provider checks")
+        }
+
         this.incrementSources = {}
         this.decrementSources = {}
         this.users = {}
