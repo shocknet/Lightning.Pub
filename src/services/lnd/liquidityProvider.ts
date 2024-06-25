@@ -31,7 +31,7 @@ export class LiquidityProvider {
             this.log("No pub provider to liquidity provider, will not be initialized")
             return
         }
-        this.log("connecting to liquidity provider", pubDestination)
+        this.log("connecting to liquidity provider:", pubDestination)
         this.pubDestination = pubDestination
         this.invoicePaidCb = invoicePaidCb
         this.client = newNostrClient({
