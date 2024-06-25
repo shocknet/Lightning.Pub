@@ -175,6 +175,7 @@ export class LiquidityProvider {
     }
 
     setNostrInfo = ({ clientId, myPub }: { myPub: string, clientId: string }) => {
+        this.log("setting nostr info")
         this.clientId = clientId
         this.myPub = myPub
         this.setSetIfReady()
@@ -183,6 +184,7 @@ export class LiquidityProvider {
 
 
     attachNostrSend(f: NostrSend) {
+        this.log("attaching nostrSend action")
         this.nostrSend = f
         this.setSetIfReady()
     }
