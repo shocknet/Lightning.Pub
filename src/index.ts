@@ -19,10 +19,12 @@ const start = async () => {
     const { apps, mainHandler, liquidityProviderInfo } = keepOn
     const serverMethods = GetServerMethods(mainHandler)
     const nostrSettings = LoadNosrtSettingsFromEnv()
+    log("initializing nostr middleware")
     const { Send } = nostrMiddleware(serverMethods, mainHandler,
         { ...nostrSettings, apps, clients: [liquidityProviderInfo] },
         (e, p) => mainHandler.liquidProvider.onEvent(e, p)
     )
+    log("starting server")
     mainHandler.attachNostrSend(Send)
     mainHandler.StartBeacons()
     const Server = NewServer(serverMethods, serverOptions(mainHandler))
