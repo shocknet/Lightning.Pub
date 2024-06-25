@@ -184,8 +184,8 @@ export class OlympusLSP extends LSP {
             return null
         }
         const serviceInfo = await this.getInfo()
-        if (+serviceInfo.options.min_initial_client_balance_sat > shouldOpen.maxSpendable) {
-            this.log("balance of", shouldOpen.maxSpendable, "is lower than service minimum of", serviceInfo.options.min_initial_client_balance_sat)
+        if (+serviceInfo.min_initial_client_balance_sat > shouldOpen.maxSpendable) {
+            this.log("balance of", shouldOpen.maxSpendable, "is lower than service minimum of", serviceInfo.min_initial_client_balance_sat)
             return null
         }
         const [servicePub, host] = serviceInfo.uris[0].split('@')
@@ -194,34 +194,34 @@ export class OlympusLSP extends LSP {
         const myPub = lndInfo.identityPubkey
         const refundAddr = await this.lnd.NewAddress(AddressType.WITNESS_PUBKEY_HASH)
         const lspBalance = (this.settings.channelThreshold * 2).toString()
-        const chanExpiryBlocks = serviceInfo.options.max_channel_expiry_blocks
+        const chanExpiryBlocks = serviceInfo.max_channel_expiry_blocks
         const order = await this.createOrder({ pubKey: myPub, refundAddr: refundAddr.address, lspBalance, clientBalance: "0", chanExpiryBlocks })
-        if (order.payment.state !== 'EXPECT_PAYMENT') {
+        if (order.payment.bolt11.state !== 'EXPECT_PAYMENT') {
             this.log("order not in expect payment state")
             return null
         }
-        const decoded = await this.lnd.DecodeInvoice(order.payment.bolt11_invoice)
-        if (decoded.numSatoshis !== +order.payment.order_total_sat) {
-            this.log("invoice of amount", decoded.numSatoshis, "does not match order total of", order.payment.order_total_sat)
+        const decoded = await this.lnd.DecodeInvoice(order.payment.bolt11.invoice)
+        if (decoded.numSatoshis !== +order.payment.bolt11.order_total_sat) {
+            this.log("invoice of amount", decoded.numSatoshis, "does not match order total of", order.payment.bolt11.order_total_sat)
             return null
         }
         if (decoded.numSatoshis > shouldOpen.maxSpendable) {
             this.log("invoice of amount", decoded.numSatoshis, "exceeds user balance of", shouldOpen.maxSpendable)
             return null
         }
-        const relativeFee = +order.payment.fee_total_sat / this.settings.channelThreshold
+        const relativeFee = +order.payment.bolt11.fee_total_sat / this.settings.channelThreshold
         if (relativeFee > this.settings.maxRelativeFee) {
             this.log("invoice relative fee of", relativeFee, "exceeds max relative fee of", this.settings.maxRelativeFee)
             return null
         }
-        const res = await this.liquidityProvider.PayInvoice(order.payment.bolt11_invoice)
+        const res = await this.liquidityProvider.PayInvoice(order.payment.bolt11.invoice)
         this.log("paid", res.amount_paid, "to open channel")
-        return { orderId: order.order_id, invoice: order.payment.bolt11_invoice, totalSats: +order.payment.order_total_sat, fees: +order.payment.fee_total_sat }
+        return { orderId: order.order_id, invoice: order.payment.bolt11.invoice, totalSats: +order.payment.bolt11.order_total_sat, fees: +order.payment.bolt11.fee_total_sat }
     }
 
     getInfo = async () => {
         const res = await fetch(`${this.settings.olympusServiceUrl}/get_info`)
-        const json = await res.json() as { options: { min_initial_client_balance_sat: string, max_channel_expiry_blocks: number }, uris: string[] }
+        const json = await res.json() as { min_initial_client_balance_sat: string, max_channel_expiry_blocks: number, uris: string[] }
         return json
     }
 
@@ -241,7 +241,7 @@ export class OlympusLSP extends LSP {
             body: JSON.stringify(req),
             headers: { "Content-Type": "application/json" }
         })
-        const json = await res.json() as { order_id: string, payment: { state: 'EXPECT_PAYMENT', bolt11_invoice: string, fee_total_sat: string, order_total_sat: string } }
+        const json = await res.json() as { order_id: string, payment: { bolt11: { state: 'EXPECT_PAYMENT', invoice: string, fee_total_sat: string, order_total_sat: string } } }
         return json
     }
 
