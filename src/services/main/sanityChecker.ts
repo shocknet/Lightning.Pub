@@ -18,8 +18,6 @@ export default class SanityChecker {
     events: LoggedEvent[] = []
     invoices: Invoice[] = []
     payments: Payment[] = []
-    providerInvoices: Types.UserOperation[] = []
-    providerPayments: Types.UserOperation[] = []
     incrementSources: Record<string, boolean> = {}
     decrementSources: Record<string, boolean> = {}
     decrementEvents: Record<string, { userId: string, refund: number, failure: boolean }> = {}
@@ -110,13 +108,10 @@ export default class SanityChecker {
             const refund = amt - (entry.paid_amount + entry.routing_fees + entry.service_fees)
             this.decrementEvents[invoice] = { userId, refund, failure: false }
         }
-        if (!entry.internal) {
+        if (!entry.internal && !entry.liquidityProvider) {
             const lndEntry = this.payments.find(i => i.paymentRequest === invoice)
             if (!lndEntry) {
-                const providerEntry = this.providerPayments.find(i => i.identifier === invoice)
-                if (!providerEntry) {
-                    throw new Error("payment not found in lnd for invoice " + invoice)
-                }
+                throw new Error("payment not found in lnd for invoice " + invoice)
             }
         }
     }
@@ -189,13 +184,10 @@ export default class SanityChecker {
         if (entry.paid_at_unix <= 0) {
             throw new Error("invoice not paid for invoice " + invoice)
         }
-        if (!entry.internal) {
+        if (!entry.internal && !entry.liquidityProvider) {
             const entry = this.invoices.find(i => i.paymentRequest === invoice)
             if (!entry) {
-                const providerEntry = this.providerInvoices.find(i => i.identifier === invoice)
-                if (!providerEntry) {
-                    throw new Error("invoice not found in lnd " + invoice)
-                }
+                throw new Error("invoice not found in lnd " + invoice)
             }
         }
     }
@@ -236,14 +228,6 @@ export default class SanityChecker {
         this.events = await this.storage.eventsLog.GetAllLogs()
         this.invoices = (await this.lnd.GetAllPaidInvoices(1000)).invoices
         this.payments = (await this.lnd.GetAllPayments(1000)).payments
-        const providerUsable = await this.lnd.liquidProvider.AwaitProviderReady()
-        if (providerUsable) {
-            const ops = await this.lnd.liquidProvider.GetOperations()
-            this.providerInvoices = ops.latestIncomingInvoiceOperations.operations
-            this.providerPayments = ops.latestOutgoingInvoiceOperations.operations
-        } else {
-            this.log("provider not usable, skipping provider checks")
-        }
 
         this.incrementSources = {}
         this.decrementSources = {}

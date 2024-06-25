@@ -126,7 +126,7 @@ export default class {
         }
         const use = await this.liquidityManager.beforeInvoiceCreation(req.amountSats)
         const res = await this.lnd.NewInvoice(req.amountSats, req.memo, options.expiry, use === 'provider')
-        const userInvoice = await this.storage.paymentStorage.AddUserInvoice(user, res.payRequest, options)
+        const userInvoice = await this.storage.paymentStorage.AddUserInvoice(user, res.payRequest, options, res.providerDst)
         const appId = options.linkedApplication ? options.linkedApplication.app_id : ""
         this.storage.eventsLog.LogEvent({ type: 'new_invoice', userId: user.user_id, appUserId: "", appId, balance: user.balance_sats, data: userInvoice.invoice, amount: req.amountSats })
         return {
@@ -213,7 +213,7 @@ export default class {
                 this.log("refund routing fee", routingFeeLimit, payment.feeSat, "sats")
                 await this.storage.userStorage.IncrementUserBalance(userId, routingFeeLimit - payment.feeSat, "routing_fee_refund:" + invoice)
             }
-            await this.storage.paymentStorage.UpdateExternalPayment(pendingPayment.serial_id, payment.feeSat, serviceFee, true)
+            await this.storage.paymentStorage.UpdateExternalPayment(pendingPayment.serial_id, payment.feeSat, serviceFee, true, payment.providerDst)
 
             return { preimage: payment.paymentPreimage, amtPaid: payment.valueSat, networkFee: payment.feeSat, serialId: pendingPayment.serial_id }
 

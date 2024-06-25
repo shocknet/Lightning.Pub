@@ -11,6 +11,7 @@ export type LiquidityRequest = { action: 'spend' | 'receive', amount: number }
 
 export type nostrCallback<T> = { startedAtMillis: number, type: 'single' | 'stream', f: (res: T) => void }
 export class LiquidityProvider {
+
     client: ReturnType<typeof newNostrClient>
     clientCbs: Record<string, nostrCallback<any>> = {}
     clientId: string = ""
@@ -45,6 +46,10 @@ export class LiquidityProvider {
                 this.Connect()
             }
         }, 1000)
+    }
+
+    GetProviderDestination() {
+        return this.pubDestination
     }
 
     AwaitProviderReady = async (): Promise<boolean> => {
