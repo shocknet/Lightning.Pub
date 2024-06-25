@@ -308,6 +308,7 @@ export class VoltageLSP extends LSP {
 
         const invoice = await this.lnd.NewInvoice(this.settings.channelThreshold, "open channel", 60 * 60)
         const res = await this.proposal(invoice.payRequest, fee.id)
+        this.log("proposal res", res)
         const decoded = await this.lnd.DecodeInvoice(res.jit_bolt11)
         if (decoded.numSatoshis !== this.settings.channelThreshold + feeSats) {
             this.log("invoice of amount", decoded.numSatoshis, "does not match expected amount of", this.settings.channelThreshold + feeSats)
