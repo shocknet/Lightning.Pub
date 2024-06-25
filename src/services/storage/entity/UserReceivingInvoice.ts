@@ -58,6 +58,11 @@ export class UserReceivingInvoice {
     })
     zap_info?: ZapInfo
 
+    @Column({
+        nullable: true,
+    })
+    liquidityProvider?: string
+
     @CreateDateColumn()
     created_at: Date
 

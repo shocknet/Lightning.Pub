@@ -92,7 +92,7 @@ export default class {
         })
     }
 
-    async AddUserInvoice(user: User, invoice: string, options: InboundOptionals = { expiry: defaultInvoiceExpiry }): Promise<UserReceivingInvoice> {
+    async AddUserInvoice(user: User, invoice: string, options: InboundOptionals = { expiry: defaultInvoiceExpiry }, providerDestination?: string): Promise<UserReceivingInvoice> {
         const newUserInvoice = this.DB.getRepository(UserReceivingInvoice).create({
             invoice: invoice,
             callbackUrl: options.callbackUrl,
@@ -101,7 +101,8 @@ export default class {
             expires_at_unix: Math.floor(Date.now() / 1000) + options.expiry,
             payer: options.expectedPayer,
             linkedApplication: options.linkedApplication,
-            zap_info: options.zapInfo
+            zap_info: options.zapInfo,
+            liquidityProvider: providerDestination
         })
         return this.txQueue.PushToQueue<UserReceivingInvoice>({ exec: async db => db.getRepository(UserReceivingInvoice).save(newUserInvoice), dbTx: false, description: `add invoice for ${user.user_id} linked to ${options.linkedApplication?.app_id}: ${invoice} ` })
     }
@@ -167,11 +168,12 @@ export default class {
         return this.txQueue.PushToQueue<UserInvoicePayment>({ exec: async db => db.getRepository(UserInvoicePayment).save(newPayment), dbTx: false, description: `add pending invoice payment for ${userId} linked to ${linkedApplication.app_id}: ${invoice}, amt: ${amount} ` })
     }
 
-    async UpdateExternalPayment(invoicePaymentSerialId: number, routingFees: number, serviceFees: number, success: boolean) {
+    async UpdateExternalPayment(invoicePaymentSerialId: number, routingFees: number, serviceFees: number, success: boolean, providerDestination?: string) {
         return this.DB.getRepository(UserInvoicePayment).update(invoicePaymentSerialId, {
             routing_fees: routingFees,
             service_fees: serviceFees,
-            paid_at_unix: success ? Math.floor(Date.now() / 1000) : -1
+            paid_at_unix: success ? Math.floor(Date.now() / 1000) : -1,
+            liquidityProvider: providerDestination
         })
     }
 

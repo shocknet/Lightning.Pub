@@ -275,7 +275,8 @@ export default class {
         const shouldUseLiquidityProvider = await this.ShouldUseLiquidityProvider({ action: 'receive', amount: value })
         if (shouldUseLiquidityProvider || useProvider) {
             const invoice = await this.liquidProvider.AddInvoice(value, memo)
-            return { payRequest: invoice }
+            const providerDst = this.liquidProvider.GetProviderDestination()
+            return { payRequest: invoice, providerDst }
         }
         const res = await this.lightning.addInvoice(AddInvoiceReq(value, expiry, false, memo), DeadLineMetadata())
         this.log("new invoice", res.response.paymentRequest)
@@ -310,7 +311,8 @@ export default class {
         const shouldUseLiquidityProvider = await this.ShouldUseLiquidityProvider({ action: 'spend', amount })
         if (shouldUseLiquidityProvider || useProvider) {
             const res = await this.liquidProvider.PayInvoice(invoice)
-            return { feeSat: res.network_fee + res.service_fee, valueSat: res.amount_paid, paymentPreimage: res.preimage }
+            const providerDst = this.liquidProvider.GetProviderDestination()
+            return { feeSat: res.network_fee + res.service_fee, valueSat: res.amount_paid, paymentPreimage: res.preimage, providerDst }
         }
         const abortController = new AbortController()
         const req = PayInvoiceReq(invoice, amount, feeLimit)
