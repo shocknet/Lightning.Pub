@@ -48,7 +48,7 @@ export class Watchdog {
                 setTimeout(() => {
                     this.log("Provider did not become ready in time, starting without it")
                     res('failed')
-                }, 5000)
+                }, 60 * 1000)
             })
         ])
 
@@ -59,6 +59,7 @@ export class Watchdog {
         await this.StartWatching(providerBalance)
     }
     StartWatching = async (providerBalance: number) => {
+        this.log("Starting watchdog")
         this.startedAtUnix = Math.floor(Date.now() / 1000)
         const totalUsersBalance = await this.storage.paymentStorage.GetTotalUsersBalance()
         this.initialLndBalance = await this.getTotalLndBalance(totalUsersBalance, providerBalance)
