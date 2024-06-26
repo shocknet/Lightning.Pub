@@ -48,7 +48,7 @@ export class Watchdog {
                 setTimeout(() => {
                     this.log("Provider did not become ready in time, starting without it")
                     res('failed')
-                }, 60 * 1000)
+                }, 30 * 1000)
             })
         ])
 
@@ -56,7 +56,13 @@ export class Watchdog {
         if (result === 'ready') {
             providerBalance = await this.liquidProvider.GetLatestBalance()
         }
-        await this.StartWatching(providerBalance)
+        try {
+            await this.StartWatching(providerBalance)
+        } catch (err: any) {
+            this.log("Failed to start watchdog", err.message || err)
+            throw err
+        }
+
     }
     StartWatching = async (providerBalance: number) => {
         this.log("Starting watchdog")
