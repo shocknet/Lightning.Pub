@@ -36,8 +36,7 @@ export default class {
     log = getLogger({ component: 'lndManager' })
     outgoingOpsLocked = false
     liquidProvider: LiquidityProvider
-    useOnlyLiquidityProvider = false
-    constructor(settings: LndSettings, provider: { liquidProvider: LiquidityProvider, useOnly?: boolean }, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb, newBlockCb: NewBlockCb, htlcCb: HtlcCb) {
+    constructor(settings: LndSettings, liquidProvider: LiquidityProvider, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb, newBlockCb: NewBlockCb, htlcCb: HtlcCb) {
         this.settings = settings
         this.addressPaidCb = addressPaidCb
         this.invoicePaidCb = invoicePaidCb
@@ -63,8 +62,7 @@ export default class {
         this.invoices = new InvoicesClient(transport)
         this.router = new RouterClient(transport)
         this.chainNotifier = new ChainNotifierClient(transport)
-        this.liquidProvider = provider.liquidProvider
-        this.useOnlyLiquidityProvider = !!provider.useOnly
+        this.liquidProvider = liquidProvider
     }
 
     LockOutgoingOperations(): void {
@@ -82,20 +80,6 @@ export default class {
         this.liquidProvider.Stop()
     }
 
-    async ShouldUseLiquidityProvider(req: LiquidityRequest): Promise<boolean> {
-        if (this.useOnlyLiquidityProvider) {
-            return true
-        }
-        if (!this.liquidProvider.CanProviderHandle(req)) {
-            return false
-        }
-        const channels = await this.ListChannels()
-        if (channels.channels.length === 0) {
-            this.log("no channels, will use liquidity provider")
-            return true
-        }
-        return false
-    }
     async Warmup() {
         this.SubscribeAddressPaid()
         this.SubscribeInvoicePaid()
@@ -272,8 +256,7 @@ export default class {
     async NewInvoice(value: number, memo: string, expiry: number, useProvider = false): Promise<Invoice> {
         this.log("generating new invoice for", value, "sats")
         await this.Health()
-        const shouldUseLiquidityProvider = await this.ShouldUseLiquidityProvider({ action: 'receive', amount: value })
-        if (shouldUseLiquidityProvider || useProvider) {
+        if (useProvider) {
             const invoice = await this.liquidProvider.AddInvoice(value, memo)
             const providerDst = this.liquidProvider.GetProviderDestination()
             return { payRequest: invoice, providerDst }
@@ -308,8 +291,7 @@ export default class {
         }
         await this.Health()
         this.log("paying invoice", invoice, "for", amount, "sats")
-        const shouldUseLiquidityProvider = await this.ShouldUseLiquidityProvider({ action: 'spend', amount })
-        if (shouldUseLiquidityProvider || useProvider) {
+        if (useProvider) {
             const res = await this.liquidProvider.PayInvoice(invoice)
             const providerDst = this.liquidProvider.GetProviderDestination()
             return { feeSat: res.network_fee + res.service_fee, valueSat: res.amount_paid, paymentPreimage: res.preimage, providerDst }
