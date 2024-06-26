@@ -25,6 +25,7 @@ export class LiquidityManager {
     log = getLogger({ component: "liquidityManager" })
     channelRequested = false
     channelRequesting = false
+    feesPaid = 0
     constructor(settings: LiquiditySettings, storage: Storage, liquidityProvider: LiquidityProvider, lnd: LND) {
         this.settings = settings
         this.storage = storage
@@ -34,6 +35,11 @@ export class LiquidityManager {
         this.voltageLSP = new VoltageLSP(settings.lspSettings, lnd, liquidityProvider)
         this.flashsatsLSP = new FlashsatsLSP(settings.lspSettings, lnd, liquidityProvider)
     }
+
+    GetPaidFees = () => {
+        return this.feesPaid
+    }
+
     onNewBlock = async () => {
         const balance = await this.liquidityProvider.GetLatestMaxWithdrawable()
         const { remote } = await this.lnd.ChannelBalance()
@@ -41,7 +47,9 @@ export class LiquidityManager {
             this.log("draining provider balance to channel")
             const invoice = await this.lnd.NewInvoice(balance, "liqudity provider drain", defaultInvoiceExpiry)
             const res = await this.liquidityProvider.PayInvoice(invoice.payRequest)
-            this.log("drained provider balance to channel", res.amount_paid)
+            const fees = res.network_fee + res.service_fee
+            this.log("drained provider balance to channel", res.amount_paid, "fees paid:", fees)
+            this.feesPaid += fees
         }
     }
 
@@ -78,6 +86,7 @@ export class LiquidityManager {
             this.log("requested channel from olympus")
             this.channelRequested = true
             this.channelRequesting = false
+            this.feesPaid += olympusOk.fees
             await this.storage.liquidityStorage.SaveLspOrder({ service_name: 'olympus', invoice: olympusOk.invoice, total_paid: olympusOk.totalSats, order_id: olympusOk.orderId, fees: olympusOk.fees })
             return
         }
@@ -86,6 +95,7 @@ export class LiquidityManager {
             this.log("requested channel from voltage")
             this.channelRequested = true
             this.channelRequesting = false
+            this.feesPaid += voltageOk.fees
             await this.storage.liquidityStorage.SaveLspOrder({ service_name: 'voltage', invoice: voltageOk.invoice, total_paid: voltageOk.totalSats, order_id: voltageOk.orderId, fees: voltageOk.fees })
             return
         }
@@ -95,6 +105,7 @@ export class LiquidityManager {
             this.log("requested channel from flashsats")
             this.channelRequested = true
             this.channelRequesting = false
+            this.feesPaid += flashsatsOk.fees
             await this.storage.liquidityStorage.SaveLspOrder({ service_name: 'flashsats', invoice: flashsatsOk.invoice, total_paid: flashsatsOk.totalSats, order_id: flashsatsOk.orderId, fees: flashsatsOk.fees })
             return
         }

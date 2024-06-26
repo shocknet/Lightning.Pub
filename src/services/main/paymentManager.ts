@@ -53,8 +53,8 @@ export default class {
         this.storage = storage
         this.settings = settings
         this.lnd = lnd
-        this.watchDog = new Watchdog(settings.watchDogSettings, lnd, storage)
         this.liquidityManager = liquidityManager
+        this.watchDog = new Watchdog(settings.watchDogSettings, this.liquidityManager, lnd, storage)
         this.addressPaidCb = addressPaidCb
         this.invoicePaidCb = invoicePaidCb
     }
