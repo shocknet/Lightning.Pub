@@ -87,7 +87,7 @@ export default class {
             const balanceEvents = await this.paymentManager.GetLndBalance()
             await this.metricsManager.NewBlockCb(height, balanceEvents)
             confirmed = await this.paymentManager.CheckNewlyConfirmedTxs(height)
-            this.liquidityManager.onNewBlock()
+            await this.liquidityManager.onNewBlock()
         } catch (err: any) {
             log(ERROR, "failed to check transactions after new block", err.message || err)
             return
@@ -191,7 +191,7 @@ export default class {
                 this.sendOperationToNostr(userInvoice.linkedApplication, userInvoice.user.user_id, op)
                 this.createZapReceipt(log, userInvoice)
                 log("paid invoice processed successfully")
-                this.liquidityManager.afterInInvoicePaid()
+                await this.liquidityManager.afterInInvoicePaid()
             } catch (err: any) {
                 log(ERROR, "cannot process paid invoice", err.message || "")
             }
