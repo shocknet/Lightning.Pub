@@ -24,7 +24,7 @@ export class LiquidityProvider {
     invoicePaidCb: InvoicePaidCb
     connecting = false
     readyInterval: NodeJS.Timeout
-    queue: ((usable: boolean) => void)[] = []
+    queue: ((state: 'ready') => void)[] = []
     // make the sub process accept client
     constructor(pubDestination: string, invoicePaidCb: InvoicePaidCb) {
         if (!pubDestination) {
@@ -51,14 +51,14 @@ export class LiquidityProvider {
         return this.pubDestination
     }
 
-    AwaitProviderReady = async (): Promise<boolean> => {
+    AwaitProviderReady = async (): Promise<'inactive' | 'ready'> => {
         if (!this.pubDestination) {
-            return false
+            return 'inactive'
         }
         if (this.latestMaxWithdrawable !== null) {
-            return true
+            return 'ready'
         }
-        return new Promise<boolean>(res => {
+        return new Promise<'ready'>(res => {
             this.queue.push(res)
         })
     }
@@ -74,7 +74,7 @@ export class LiquidityProvider {
         if (this.latestMaxWithdrawable === null) {
             return
         }
-        this.queue.forEach(q => q(true))
+        this.queue.forEach(q => q('ready'))
         this.log("subbing to user operations")
         this.client.GetLiveUserOperations(res => {
             console.log("got user operation", res)
