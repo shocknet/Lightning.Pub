@@ -261,7 +261,7 @@ export default class {
             const providerDst = this.liquidProvider.GetProviderDestination()
             return { payRequest: invoice, providerDst }
         }
-        const res = await this.lightning.addInvoice(AddInvoiceReq(value, expiry, false, memo), DeadLineMetadata())
+        const res = await this.lightning.addInvoice(AddInvoiceReq(value, expiry, true, memo), DeadLineMetadata())
         this.log("new invoice", res.response.paymentRequest)
         return { payRequest: res.response.paymentRequest }
     }
