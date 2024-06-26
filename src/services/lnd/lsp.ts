@@ -140,8 +140,9 @@ export class FlashsatsLSP extends LSP {
             return null
         }
         const res = await this.liquidityProvider.PayInvoice(order.payment.bolt11_invoice)
-        this.log("paid", res.amount_paid, "to open channel")
-        return { orderId: order.order_id, invoice: order.payment.bolt11_invoice, totalSats: +order.payment.order_total_sat, fees: +order.payment.fee_total_sat }
+        const fees = +order.payment.fee_total_sat + res.network_fee + res.service_fee
+        this.log("paid", res.amount_paid, "to open channel, and a fee of", fees)
+        return { orderId: order.order_id, invoice: order.payment.bolt11_invoice, totalSats: +order.payment.order_total_sat, fees }
 
     }
     getInfo = async () => {
@@ -215,8 +216,9 @@ export class OlympusLSP extends LSP {
             return null
         }
         const res = await this.liquidityProvider.PayInvoice(order.payment.bolt11.invoice)
-        this.log("paid", res.amount_paid, "to open channel")
-        return { orderId: order.order_id, invoice: order.payment.bolt11.invoice, totalSats: +order.payment.bolt11.order_total_sat, fees: +order.payment.bolt11.fee_total_sat }
+        const fees = +order.payment.bolt11.fee_total_sat + res.network_fee + res.service_fee
+        this.log("paid", res.amount_paid, "to open channel, and a fee of", fees)
+        return { orderId: order.order_id, invoice: order.payment.bolt11.invoice, totalSats: +order.payment.bolt11.order_total_sat, fees }
     }
 
     getInfo = async () => {
@@ -307,17 +309,18 @@ export class VoltageLSP extends LSP {
         await this.addPeer(info.pubkey, `${ipv4.address}:${ipv4.port}`)
 
         const invoice = await this.lnd.NewInvoice(this.settings.channelThreshold, "open channel", 60 * 60)
-        const res = await this.proposal(invoice.payRequest, fee.id)
-        this.log("proposal res", res, fee.id)
-        const decoded = await this.lnd.DecodeInvoice(res.jit_bolt11)
+        const proposalRes = await this.proposal(invoice.payRequest, fee.id)
+        this.log("proposal res", proposalRes, fee.id)
+        const decoded = await this.lnd.DecodeInvoice(proposalRes.jit_bolt11)
         if (decoded.numSatoshis !== this.settings.channelThreshold + feeSats) {
             this.log("invoice of amount", decoded.numSatoshis, "does not match expected amount of", this.settings.channelThreshold + feeSats)
             return null
         }
 
-        const invoiceRes = await this.liquidityProvider.PayInvoice(res.jit_bolt11)
-        this.log("paid", invoiceRes.amount_paid, "to open channel")
-        return { orderId: fee.id, invoice: res.jit_bolt11, totalSats: decoded.numSatoshis, fees: feeSats }
+        const res = await this.liquidityProvider.PayInvoice(proposalRes.jit_bolt11)
+        const fees = feeSats + res.network_fee + res.service_fee
+        this.log("paid", res.amount_paid, "to open channel, and a fee of", fees)
+        return { orderId: fee.id, invoice: proposalRes.jit_bolt11, totalSats: decoded.numSatoshis, fees }
     }
 
     proposal = async (bolt11: string, feeId: string) => {
