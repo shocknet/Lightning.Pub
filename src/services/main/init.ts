@@ -24,7 +24,7 @@ export const initMainHandler = async (log: PubLogger, mainSettings: MainSettings
         const sanityChecker = new SanityChecker(storageManager, mainHandler.lnd)
         await sanityChecker.VerifyEventsLog()
     }
-    await mainHandler.paymentManager.watchDog.Start()
+    mainHandler.paymentManager.watchDog.Start()
     const appsData = await mainHandler.storage.applicationStorage.GetApplications()
     const existingWalletApp = await appsData.find(app => app.name === 'wallet' || app.name === 'wallet-test')
     if (!existingWalletApp) {
