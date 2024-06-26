@@ -46,11 +46,20 @@ export class LiquidityManager {
     }
 
     beforeInvoiceCreation = async (amount: number): Promise<'lnd' | 'provider'> => {
+        if (this.settings.useOnlyLiquidityProvider) {
+            return 'provider'
+        }
+
         const { remote } = await this.lnd.ChannelBalance()
         if (remote > amount) {
             this.log("channel has enough balance for invoice")
             return 'lnd'
         }
+        const providerCanHandle = this.liquidityProvider.CanProviderHandle({ action: 'receive', amount })
+        if (!providerCanHandle) {
+            return 'lnd'
+        }
+
         this.log("channel does not have enough balance for invoice,suggesting provider")
         return 'provider'
     }
@@ -94,6 +103,10 @@ export class LiquidityManager {
     }
 
     beforeOutInvoicePayment = async (amount: number): Promise<'lnd' | 'provider'> => {
+        if (this.settings.useOnlyLiquidityProvider) {
+            return 'provider'
+        }
+
         const balance = await this.liquidityProvider.GetLatestMaxWithdrawable(true)
         if (balance > amount) {
             this.log("provider has enough balance for payment")

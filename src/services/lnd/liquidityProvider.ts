@@ -6,7 +6,6 @@ import { getLogger } from '../helpers/logger.js'
 import { NostrEvent, NostrSend } from '../nostr/handler.js'
 import { relayInit } from '../nostr/tools/relay.js'
 import { InvoicePaidCb } from './settings.js'
-
 export type LiquidityRequest = { action: 'spend' | 'receive', amount: number }
 
 export type nostrCallback<T> = { startedAtMillis: number, type: 'single' | 'stream', f: (res: T) => void }
