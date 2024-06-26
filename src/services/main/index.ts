@@ -44,8 +44,7 @@ export default class {
         this.settings = settings
         this.storage = storage
         this.liquidProvider = new LiquidityProvider(settings.liquiditySettings.liquidityProviderPub, this.invoicePaidCb)
-        const provider = { liquidProvider: this.liquidProvider, useOnly: settings.liquiditySettings.useOnlyLiquidityProvider }
-        this.lnd = new LND(settings.lndSettings, provider, this.addressPaidCb, this.invoicePaidCb, this.newBlockCb, this.htlcCb)
+        this.lnd = new LND(settings.lndSettings, this.liquidProvider, this.addressPaidCb, this.invoicePaidCb, this.newBlockCb, this.htlcCb)
         this.liquidityManager = new LiquidityManager(this.settings.liquiditySettings, this.storage, this.liquidProvider, this.lnd)
         this.metricsManager = new MetricsManager(this.storage, this.lnd)
 
