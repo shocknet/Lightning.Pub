@@ -48,7 +48,7 @@ export class Watchdog {
                 setTimeout(() => {
                     this.log("Provider did not become ready in time, starting without it")
                     res('failed')
-                }, 30 * 1000)
+                }, 3 * 60 * 1000)
             })
         ])
 
