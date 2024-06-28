@@ -72,6 +72,13 @@ export class LiquidityManager {
         return 'provider'
     }
     afterInInvoicePaid = async () => {
+        try {
+            await this.orderChannelIfNeeded()
+        } catch (e: any) {
+            this.log("error ordering channel", e)
+        }
+    }
+    orderChannelIfNeeded = async () => {
         const existingOrder = await this.storage.liquidityStorage.GetLatestLspOrder()
         if (existingOrder) {
             return
