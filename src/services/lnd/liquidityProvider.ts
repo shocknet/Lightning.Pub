@@ -91,6 +91,9 @@ export class LiquidityProvider {
     }
 
     GetLatestMaxWithdrawable = async (fetch = false) => {
+        if (!this.pubDestination) {
+            return 0
+        }
         if (this.latestMaxWithdrawable === null) {
             this.log("liquidity provider is not ready yet")
             return 0
@@ -102,6 +105,9 @@ export class LiquidityProvider {
     }
 
     GetLatestBalance = async (fetch = false) => {
+        if (!this.pubDestination) {
+            return 0
+        }
         if (this.latestMaxWithdrawable === null) {
             this.log("liquidity provider is not ready yet")
             return 0

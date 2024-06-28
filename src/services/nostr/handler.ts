@@ -99,18 +99,10 @@ export default class Handler {
     log = getLogger({ component: "nostrMiddleware" })
     constructor(settings: NostrSettings, eventCallback: (event: NostrEvent) => void) {
         this.settings = settings
-        this.log(
-            {
-                ...settings,
-                apps: settings.apps.map(app => {
-                    const { privateKey, ...rest } = app;
-                    return {
-                        ...rest,
-                        nprofile: encodeNprofile({ pubkey: rest.publicKey, relays: settings.relays })
-                    }
-                })
-            }
-        )
+        this.log("connecting to relays:", settings.relays)
+        this.settings.apps.forEach(app => {
+            this.log("appId:", app.appId, "pubkey:", app.publicKey, "nprofile:", encodeNprofile({ pubkey: app.publicKey, relays: settings.relays }))
+        })
         this.eventCallback = eventCallback
         this.settings.apps.forEach(app => {
             this.apps[app.publicKey] = app

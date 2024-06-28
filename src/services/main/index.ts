@@ -191,7 +191,7 @@ export default class {
                 this.sendOperationToNostr(userInvoice.linkedApplication, userInvoice.user.user_id, op)
                 this.createZapReceipt(log, userInvoice)
                 log("paid invoice processed successfully")
-                await this.liquidityManager.afterInInvoicePaid()
+                this.liquidityManager.afterInInvoicePaid()
             } catch (err: any) {
                 log(ERROR, "cannot process paid invoice", err.message || "")
             }

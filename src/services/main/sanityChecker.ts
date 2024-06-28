@@ -104,10 +104,10 @@ export default class SanityChecker {
         }
         if (entry.paid_at_unix === -1) {
             this.decrementEvents[invoice] = { userId, refund: amt, failure: true }
-        } else {
-            const refund = amt - (entry.paid_amount + entry.routing_fees + entry.service_fees)
-            this.decrementEvents[invoice] = { userId, refund, failure: false }
+            return
         }
+        const refund = amt - (entry.paid_amount + entry.routing_fees + entry.service_fees)
+        this.decrementEvents[invoice] = { userId, refund, failure: false }
         if (!entry.internal && !entry.liquidityProvider) {
             const lndEntry = this.payments.find(i => i.paymentRequest === invoice)
             if (!lndEntry) {
