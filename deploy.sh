@@ -112,11 +112,11 @@ EOF
 # Function to install Node.js using nvm
 install_nodejs() {
   echo -n "Installing Node.js... "
-  REQUIRED_VERSION="18.0.0"
+  MINIMUM_VERSION="18.0.0"
   if ! command -v nvm &> /dev/null; then
     echo "nvm not found, installing..."
     NVM_VERSION=$(wget -qO- https://api.github.com/repos/nvm-sh/nvm/releases/latest | grep -oP '"tag_name": "\K(.*)(?=")')
-    wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/${NVM_VERSION}/install.sh | bash
+    wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/${NVM_VERSION}/install.sh | bash > /dev/null 2>&1
     export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
   fi
@@ -125,9 +125,9 @@ install_nodejs() {
   export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
   [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
-  nvm install $REQUIRED_VERSION
-  nvm use $REQUIRED_VERSION
-  nvm alias default $REQUIRED_VERSION
+  nvm install $MINIMUM_VERSION > /dev/null 2>&1
+  nvm use $MINIMUM_VERSION > /dev/null 2>&1
+  nvm alias default $MINIMUM_VERSION > /dev/null 2>&1
 
   NODE_VERSION=$(node -v | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+')
   if [ -z "$NODE_VERSION" ]; then
@@ -135,25 +135,28 @@ install_nodejs() {
     exit 1
   fi
 
-  CURRENT_VERSION=$(printf '%s\n' "$REQUIRED_VERSION" "$NODE_VERSION" | sort -V | tail -n1)
+  CURRENT_VERSION=$(printf '%s\n' "$MINIMUM_VERSION" "$NODE_VERSION" | sort -V | tail -n1)
   if [ "$CURRENT_VERSION" != "$NODE_VERSION" ]; then
-    echo "NodeJS version is less than required, aborting"
-    exit 1
+    echo "NodeJS version is less than required, installing LTS version..."
+    nvm install --lts > /dev/null 2>&1
+    nvm use --lts > /dev/null 2>&1
+    nvm alias default lts/* > /dev/null 2>&1
   fi
-  echo "Node.js installation completed."
+
+  echo -e "\e[38;5;208mNode.js installation completed.\e[0m"
 }
 
 # Download and extract Lightning.Pub
 install_lightning_pub() {
   echo -n "Installing Lightning.Pub... "
   REPO_URL="https://github.com/shocknet/Lightning.Pub/tarball/master"
-  wget $REPO_URL -O lightning_pub.tar.gz
+  wget $REPO_URL -O lightning_pub.tar.gz > /dev/null 2>&1
   if [ $? -ne 0 ]; then
     echo "Failed to download Lightning.Pub tarball. Please check the URL or your internet connection."
     exit 1
   fi
   mkdir -p lightning_pub_temp
-  tar -xvzf lightning_pub.tar.gz -C lightning_pub_temp --strip-components=1 > /dev/null
+  tar -xvzf lightning_pub.tar.gz -C lightning_pub_temp --strip-components=1 > /dev/null 2>&1
   if [ $? -ne 0 ]; then
     echo "Failed to extract Lightning.Pub tarball."
     exit 1
@@ -164,10 +167,10 @@ install_lightning_pub() {
   if ! command -v rsync &> /dev/null; then
     echo "rsync not found, installing..."
     if [ -x "$(command -v apt-get)" ]; then
-      sudo apt-get update
-      sudo apt-get install -y rsync
+      sudo apt-get update > /dev/null 2>&1
+      sudo apt-get install -y rsync > /dev/null 2>&1
     elif [ -x "$(command -v yum)" ]; then
-      sudo yum install -y rsync
+      sudo yum install -y rsync > /dev/null 2>&1
     else
       echo "Package manager not found. Please install rsync manually."
       exit 1
@@ -175,7 +178,7 @@ install_lightning_pub() {
   fi
 
   # Merge if upgrade
-  rsync -av --exclude='*.sqlite' --exclude='.env' --exclude='logs' --exclude='node_modules' lightning_pub_temp/ lightning_pub/ > /dev/null
+  rsync -av --exclude='*.sqlite' --exclude='.env' --exclude='logs' --exclude='node_modules' lightning_pub_temp/ lightning_pub/ > /dev/null 2>&1
 
   if [ $? -ne 0 ]; then
     echo "Failed to merge Lightning.Pub files."
@@ -199,13 +202,13 @@ install_lightning_pub() {
   done
 
   if wait $PID; then
-    echo " done."
+    echo -e "\e[38;5;208m done.\e[0m"
   else
     echo " failed. Check npm_install.log for details."
     exit 1
   fi
 
-  echo "Lightning.Pub installation completed."
+  echo -e "\e[38;5;208mLightning.Pub installation completed.\e[0m"
 }
 
 # Ceate start script
@@ -254,7 +257,7 @@ EOF"
 
       sudo bash -c "cat > /etc/systemd/system/lightning_pub.service <<EOF
 [Unit]
-Description=Lightning Pub Service
+Description=Lightning.Pub Service
 After=network.target
 
 [Service]
@@ -271,22 +274,23 @@ EOF"
       sudo systemctl enable lnd
       sudo systemctl enable lightning_pub
 
+      echo -n "Starting services"
       sudo systemctl start lnd
       if systemctl is-active --quiet lnd; then
-        echo "LND started successfully using systemd."
+        echo -e "\e[38;5;208mLND started successfully using systemd.\e[0m"
       else
         echo "Failed to start LND using systemd."
         exit 1
       fi
 
-      # Give LND a few seconds to start before starting Lightning Pub
+      echo "Giving LND a few seconds to start before starting Lightning.Pub..."
       sleep 10
 
       sudo systemctl start lightning_pub
       if systemctl is-active --quiet lightning_pub; then
-        echo "Lightning Pub started successfully using systemd."
+        echo -e "\e[38;5;208mLightning.Pub started successfully using systemd.\e[0m"
       else
-        echo "Failed to start Lightning Pub using systemd."
+        echo "Failed to start Lightning.Pub using systemd."
         exit 1
       fi
     else
@@ -294,10 +298,10 @@ EOF"
       echo "systemctl not available. Created start.sh. Please use this script to start the services manually."
     fi
   elif [[ "$OS" == "Mac" ]]; then
-    echo "macOS detected. Please configure launchd manually to start LND and Lightning Pub at startup."
+    echo "macOS detected. Please configure launchd manually to start LND and Lightning.Pub at startup."
     create_start_script
   elif [[ "$OS" == "Cygwin" || "$OS" == "MinGw" ]]; then
-    echo "Windows detected. Please configure your startup scripts manually to start LND and Lightning Pub at startup."
+    echo "Windows detected. Please configure your startup scripts manually to start LND and Lightning.Pub at startup."
     create_start_script
   else
     echo "Unsupported OS detected. Please configure your startup scripts manually."
