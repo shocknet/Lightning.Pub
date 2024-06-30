@@ -16,6 +16,7 @@ import { AddressReceivingTransaction } from '../storage/entity/AddressReceivingT
 import { UserTransactionPayment } from '../storage/entity/UserTransactionPayment.js'
 import { Watchdog } from './watchdog.js'
 import { LiquidityProvider } from '../lnd/liquidityProvider.js'
+import { LiquidityManager } from './liquidityManager.js'
 interface UserOperationInfo {
     serial_id: number
     paid_amount: number
@@ -47,11 +48,13 @@ export default class {
     invoicePaidCb: InvoicePaidCb
     log = getLogger({ component: "PaymentManager" })
     watchDog: Watchdog
-    constructor(storage: Storage, lnd: LND, settings: MainSettings, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb) {
+    liquidityManager: LiquidityManager
+    constructor(storage: Storage, lnd: LND, settings: MainSettings, liquidityManager: LiquidityManager, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb) {
         this.storage = storage
         this.settings = settings
         this.lnd = lnd
         this.watchDog = new Watchdog(settings.watchDogSettings, lnd, storage)
+        this.liquidityManager = liquidityManager
         this.addressPaidCb = addressPaidCb
         this.invoicePaidCb = invoicePaidCb
     }
@@ -121,7 +124,8 @@ export default class {
         if (user.locked) {
             throw new Error("user is banned, cannot generate invoice")
         }
-        const res = await this.lnd.NewInvoice(req.amountSats, req.memo, options.expiry)
+        const use = await this.liquidityManager.beforeInvoiceCreation(req.amountSats)
+        const res = await this.lnd.NewInvoice(req.amountSats, req.memo, options.expiry, use === 'provider')
         const userInvoice = await this.storage.paymentStorage.AddUserInvoice(user, res.payRequest, options)
         const appId = options.linkedApplication ? options.linkedApplication.app_id : ""
         this.storage.eventsLog.LogEvent({ type: 'new_invoice', userId: user.user_id, appUserId: "", appId, balance: user.balance_sats, data: userInvoice.invoice, amount: req.amountSats })
@@ -164,6 +168,13 @@ export default class {
         const isAppUserPayment = userId !== linkedApplication.owner.user_id
         const serviceFee = this.getServiceFee(Types.UserOperationType.OUTGOING_INVOICE, payAmount, isAppUserPayment)
         const internalInvoice = await this.storage.paymentStorage.GetInvoiceOwner(req.invoice)
+        if (internalInvoice && internalInvoice.paid_at_unix > 0) {
+            throw new Error("this invoice was already paid")
+        }
+        const invoiceAlreadyPaid = await this.storage.paymentStorage.GetPaymentOwner(req.invoice)
+        if (invoiceAlreadyPaid && invoiceAlreadyPaid.paid_at_unix > 0) {
+            throw new Error("this invoice was already paid")
+        }
         let paymentInfo = { preimage: "", amtPaid: 0, networkFee: 0, serialId: 0 }
         if (internalInvoice) {
             paymentInfo = await this.PayInternalInvoice(userId, internalInvoice, { payAmount, serviceFee }, linkedApplication)
@@ -194,8 +205,9 @@ export default class {
         const routingFeeLimit = this.lnd.GetFeeLimitAmount(payAmount)
         await this.storage.userStorage.DecrementUserBalance(userId, totalAmountToDecrement + routingFeeLimit, invoice)
         const pendingPayment = await this.storage.paymentStorage.AddPendingExternalPayment(userId, invoice, payAmount, linkedApplication)
+        const use = await this.liquidityManager.beforeOutInvoicePayment(payAmount)
         try {
-            const payment = await this.lnd.PayInvoice(invoice, amountForLnd, routingFeeLimit)
+            const payment = await this.lnd.PayInvoice(invoice, amountForLnd, routingFeeLimit, use === 'provider')
 
             if (routingFeeLimit - payment.feeSat > 0) {
                 this.log("refund routing fee", routingFeeLimit, payment.feeSat, "sats")
