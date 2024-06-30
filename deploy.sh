@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# Define theme colors
+PRIMARY_COLOR="\e[38;5;208m"  # #f59322
+SECONDARY_COLOR="\e[38;5;165m"  # #c740c7
+RESET_COLOR="\e[0m"
+
 # Detect OS and architecture
 detect_os_arch() {
   OS="$(uname -s)"
@@ -28,60 +33,59 @@ detect_os_arch() {
 
 # Install LND
 install_lnd() {
-  echo -n "Installing LND... "
+  echo -e "${PRIMARY_COLOR}Installing LND...${RESET_COLOR}"
   LND_VERSION=$(wget -qO- https://api.github.com/repos/lightningnetwork/lnd/releases/latest | grep 'tag_name' | cut -d\" -f4)
   LND_URL="https://github.com/lightningnetwork/lnd/releases/download/${LND_VERSION}/lnd-${OS}-${ARCH}-${LND_VERSION}.tar.gz"
 
   # Check if LND is already installed
   if [ -d ~/lnd ]; then
-    echo "LND is already installed. Checking for updates..."
     CURRENT_VERSION=$(~/lnd/lnd --version | grep -oP 'version \K[^\s]+')
-    if [ "$CURRENT_VERSION" == "$LND_VERSION" ]; then
-      echo "LND is already up-to-date (version $CURRENT_VERSION)."
+    if [ "$CURRENT_VERSION" == "${LND_VERSION#v}" ]; then
+      echo -e "${SECONDARY_COLOR}LND is already up-to-date (version $CURRENT_VERSION).${RESET_COLOR}"
       return
     else
       if [ "$SKIP_PROMPT" != true ]; then
         read -p "LND version $CURRENT_VERSION is installed. Do you want to upgrade to version $LND_VERSION? (y/N): " response
         case "$response" in
           [yY][eE][sS]|[yY]) 
-            echo "Upgrading LND from version $CURRENT_VERSION to $LND_VERSION..."
+            echo -e "${PRIMARY_COLOR}Upgrading LND from version $CURRENT_VERSION to $LND_VERSION...${RESET_COLOR}"
             ;;
           *)
-            echo "Upgrade cancelled."
+            echo -e "${SECONDARY_COLOR}Upgrade cancelled.${RESET_COLOR}"
             return
             ;;
         esac
       else
-        echo "Upgrading LND from version $CURRENT_VERSION to $LND_VERSION..."
+        echo -e "${PRIMARY_COLOR}Upgrading LND from version $CURRENT_VERSION to $LND_VERSION...${RESET_COLOR}"
       fi
     fi
   else
-    echo "LND is not installed. Proceeding with installation..."
+    echo -e "${PRIMARY_COLOR}LND is not installed. Proceeding with installation...${RESET_COLOR}"
   fi
 
   wget $LND_URL -O lnd.tar.gz
   if [ $? -ne 0 ]; then
-    echo "Failed to download LND binary. Please check the URL or your internet connection."
+    echo -e "${SECONDARY_COLOR}Failed to download LND binary. Please check the URL or your internet connection.${RESET_COLOR}"
     exit 1
   fi
 
   # Check if LND is already running and stop it if necessary
   if [ "$SYSTEMCTL_AVAILABLE" = true ]; then
     if systemctl is-active --quiet lnd; then
-      echo "LND is currently running. Stopping LND service..."
+      echo -e "${PRIMARY_COLOR}LND is currently running. Stopping LND service...${RESET_COLOR}"
       sudo systemctl stop lnd
       if [ $? -ne 0 ]; then
-        echo "Failed to stop LND service. Please stop it manually and try again."
+        echo -e "${SECONDARY_COLOR}Failed to stop LND service. Please stop it manually and try again.${RESET_COLOR}"
         exit 1
       fi
     fi
   else
-    echo "systemctl not found. Please stop LND manually if it is running."
+    echo -e "${SECONDARY_COLOR}systemctl not found. Please stop LND manually if it is running.${RESET_COLOR}"
   fi
 
   tar -xvzf lnd.tar.gz > /dev/null
   if [ $? -ne 0 ]; then
-    echo "Failed to extract LND binary."
+    echo -e "${SECONDARY_COLOR}Failed to extract LND binary.${RESET_COLOR}"
     exit 1
   fi
   rm lnd.tar.gz
@@ -92,7 +96,7 @@ install_lnd() {
 
   # Check if lnd.conf already exists and avoid overwriting it
   if [ -f ~/.lnd/lnd.conf ]; then
-    echo "lnd.conf already exists. Skipping creation of new lnd.conf file."
+    echo -e "${SECONDARY_COLOR}lnd.conf already exists. Skipping creation of new lnd.conf file.${RESET_COLOR}"
   else
     cat <<EOF > ~/.lnd/lnd.conf
 bitcoin.mainnet=true
@@ -100,27 +104,28 @@ bitcoin.node=neutrino
 neutrino.addpeer=neutrino.shock.network
 feeurl=https://nodes.lightning.computer/fees/v1/btc-fee-estimates.json
 EOF
-    echo "Created new lnd.conf file."
+    echo -e "${PRIMARY_COLOR}Created new lnd.conf file.${RESET_COLOR}"
   fi
 
-  echo "LND installation and configuration completed."
+  echo -e "${PRIMARY_COLOR}LND installation and configuration completed.${RESET_COLOR}"
 }
 
 # Function to install Node.js using nvm
 install_nodejs() {
-  echo -n "Installing Node.js... "
+  echo -e "${PRIMARY_COLOR}Checking for Node.js...${RESET_COLOR}"
   MINIMUM_VERSION="18.0.0"
+  
+  # Load nvm if it exists
+  export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
+  [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
   if ! command -v nvm &> /dev/null; then
-    echo "nvm not found, installing..."
+    echo -e "${SECONDARY_COLOR}nvm not found, installing...${RESET_COLOR}"
     NVM_VERSION=$(wget -qO- https://api.github.com/repos/nvm-sh/nvm/releases/latest | grep -oP '"tag_name": "\K(.*)(?=")')
     wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/${NVM_VERSION}/install.sh | bash > /dev/null 2>&1
     export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
   fi
-
-  # Load nvm
-  export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
-  [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
   nvm install $MINIMUM_VERSION > /dev/null 2>&1
   nvm use $MINIMUM_VERSION > /dev/null 2>&1
@@ -128,48 +133,48 @@ install_nodejs() {
 
   NODE_VERSION=$(node -v | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+')
   if [ -z "$NODE_VERSION" ]; then
-    echo "Failed to install Node.js. Please check the installation process."
+    echo -e "${SECONDARY_COLOR}Failed to install Node.js. Please check the installation process.${RESET_COLOR}"
     exit 1
   fi
 
   CURRENT_VERSION=$(printf '%s\n' "$MINIMUM_VERSION" "$NODE_VERSION" | sort -V | tail -n1)
   if [ "$CURRENT_VERSION" != "$NODE_VERSION" ]; then
-    echo "NodeJS version is less than required, installing LTS version..."
+    echo -e "${SECONDARY_COLOR}NodeJS version is less than required, installing LTS version...${RESET_COLOR}"
     nvm install --lts > /dev/null 2>&1
     nvm use --lts > /dev/null 2>&1
     nvm alias default lts/* > /dev/null 2>&1
   fi
 
-  echo -e "\e[38;5;208mNode.js installation completed.\e[0m"
+  echo -e "${PRIMARY_COLOR}Node.js installation completed.${RESET_COLOR}"
 }
 
 # Download and extract Lightning.Pub
 install_lightning_pub() {
-  echo -n "Installing Lightning.Pub... "
+  echo -e "${PRIMARY_COLOR}Installing Lightning.Pub...${RESET_COLOR}"
   REPO_URL="https://github.com/shocknet/Lightning.Pub/tarball/master"
   wget $REPO_URL -O lightning_pub.tar.gz > /dev/null 2>&1
   if [ $? -ne 0 ]; then
-    echo "Failed to download Lightning.Pub tarball. Please check the URL or your internet connection."
+    echo -e "${SECONDARY_COLOR}Failed to download Lightning.Pub tarball. Please check the URL or your internet connection.${RESET_COLOR}"
     exit 1
   fi
   mkdir -p lightning_pub_temp
   tar -xvzf lightning_pub.tar.gz -C lightning_pub_temp --strip-components=1 > /dev/null 2>&1
   if [ $? -ne 0 ]; then
-    echo "Failed to extract Lightning.Pub tarball."
+    echo -e "${SECONDARY_COLOR}Failed to extract Lightning.Pub tarball.${RESET_COLOR}"
     exit 1
   fi
   rm lightning_pub.tar.gz
 
   # Check if rsync is installed, install if not
   if ! command -v rsync &> /dev/null; then
-    echo "rsync not found, installing..."
+    echo -e "${SECONDARY_COLOR}rsync not found, installing...${RESET_COLOR}"
     if [ -x "$(command -v apt-get)" ]; then
       sudo apt-get update > /dev/null 2>&1
       sudo apt-get install -y rsync > /dev/null 2>&1
     elif [ -x "$(command -v yum)" ]; then
       sudo yum install -y rsync > /dev/null 2>&1
     else
-      echo "Package manager not found. Please install rsync manually."
+      echo -e "${SECONDARY_COLOR}Package manager not found. Please install rsync manually.${RESET_COLOR}"
       exit 1
     fi
   fi
@@ -178,7 +183,7 @@ install_lightning_pub() {
   rsync -av --exclude='*.sqlite' --exclude='.env' --exclude='logs' --exclude='node_modules' lightning_pub_temp/ lightning_pub/ > /dev/null 2>&1
 
   if [ $? -ne 0 ]; then
-    echo "Failed to merge Lightning.Pub files."
+    echo -e "${SECONDARY_COLOR}Failed to merge Lightning.Pub files.${RESET_COLOR}"
     exit 1
   fi
   rm -rf lightning_pub_temp
@@ -190,22 +195,22 @@ install_lightning_pub() {
   cd lightning_pub
 
   # Show a progress indicator while npm install is running
-  echo -n "Installing npm dependencies... "
+  echo -e "${PRIMARY_COLOR}Installing npm dependencies...${RESET_COLOR}"
   npm install > npm_install.log 2>&1 &
   PID=$!
   while kill -0 $PID 2> /dev/null; do
-    echo -n "."
+    echo -e "${SECONDARY_COLOR}.${RESET_COLOR}"
     sleep 1
   done
 
   if wait $PID; then
-    echo -e "\e[38;5;208m done.\e[0m"
+    echo -e "${PRIMARY_COLOR} done.${RESET_COLOR}"
   else
-    echo " failed. Check npm_install.log for details."
+    echo -e "${SECONDARY_COLOR} failed. Check npm_install.log for details.${RESET_COLOR}"
     exit 1
   fi
 
-  echo -e "\e[38;5;208mLightning.Pub installation completed.\e[0m"
+  echo -e "${PRIMARY_COLOR}Lightning.Pub installation completed.${RESET_COLOR}"
 }
 
 # Ceate start script
@@ -221,16 +226,16 @@ wait \$LND_PID
 wait \$NODE_PID
 EOF
   chmod +x start.sh
-  echo "systemctl not available. Created start.sh. Please use this script to start the services manually."
+  echo -e "${SECONDARY_COLOR}systemctl not available. Created start.sh. Please use this script to start the services manually.${RESET_COLOR}"
 }
 
 display_starting_animation() {
-  echo -n "Starting services"
+  echo -e "${PRIMARY_COLOR}Starting services${RESET_COLOR}"
   for i in {1..3}; do
     sleep 1
-    echo -n "."
+    echo -e "${SECONDARY_COLOR}.${RESET_COLOR}"
   done
-  echo
+  echo -e "${RESET_COLOR}"
 }
 
 # Start services
@@ -272,37 +277,37 @@ EOF"
       sudo systemctl enable lnd
       sudo systemctl enable lightning_pub
 
-      echo -n "Starting services"
+      echo -e "${PRIMARY_COLOR}Starting services${RESET_COLOR}"
       sudo systemctl start lnd
       if systemctl is-active --quiet lnd; then
-        echo -e "\e[38;5;208mLND started successfully using systemd.\e[0m"
+        echo -e "${PRIMARY_COLOR}LND started successfully using systemd.${RESET_COLOR}"
       else
-        echo "Failed to start LND using systemd."
+        echo -e "${SECONDARY_COLOR}Failed to start LND using systemd.${RESET_COLOR}"
         exit 1
       fi
 
-      echo "Giving LND a few seconds to start before starting Lightning.Pub..."
+      echo -e "${PRIMARY_COLOR}Giving LND a few seconds to start before starting Lightning.Pub...${RESET_COLOR}"
       sleep 10
 
       sudo systemctl start lightning_pub
       if systemctl is-active --quiet lightning_pub; then
-        echo -e "\e[38;5;208mLightning.Pub started successfully using systemd.\e[0m"
+        echo -e "${PRIMARY_COLOR}Lightning.Pub started successfully using systemd.${RESET_COLOR}"
       else
-        echo "Failed to start Lightning.Pub using systemd."
+        echo -e "${SECONDARY_COLOR}Failed to start Lightning.Pub using systemd.${RESET_COLOR}"
         exit 1
       fi
     else
       create_start_script
-      echo "systemctl not available. Created start.sh. Please use this script to start the services manually."
+      echo -e "${SECONDARY_COLOR}systemctl not available. Created start.sh. Please use this script to start the services manually.${RESET_COLOR}"
     fi
   elif [[ "$OS" == "Mac" ]]; then
-    echo "macOS detected. Please configure launchd manually to start LND and Lightning.Pub at startup."
+    echo -e "${SECONDARY_COLOR}macOS detected. Please configure launchd manually to start LND and Lightning.Pub at startup.${RESET_COLOR}"
     create_start_script
   elif [[ "$OS" == "Cygwin" || "$OS" == "MinGw" ]]; then
-    echo "Windows detected. Please configure your startup scripts manually to start LND and Lightning.Pub at startup."
+    echo -e "${SECONDARY_COLOR}Windows detected. Please configure your startup scripts manually to start LND and Lightning.Pub at startup.${RESET_COLOR}"
     create_start_script
   else
-    echo "Unsupported OS detected. Please configure your startup scripts manually."
+    echo -e "${SECONDARY_COLOR}Unsupported OS detected. Please configure your startup scripts manually.${RESET_COLOR}"
     create_start_script
   fi
 
@@ -323,7 +328,7 @@ detect_os_arch
 
 # Ensure the script is run with sufficient privileges
 if [ "$EUID" -ne 0 ]; then
-  echo "Please run as root or use sudo."
+  echo -e "${SECONDARY_COLOR}Please run as root or use sudo.${RESET_COLOR}"
   exit 1
 fi
 
