@@ -215,11 +215,27 @@ display_starting_animation() {
 
 # Start services
 start_services() {
-  ~/lnd/lnd &
+  ~/lnd/lnd > /dev/null 2>&1 &
   LND_PID=$!
-  sleep 10
-  npm start &
+  sleep 5
+  if ps -p $LND_PID > /dev/null; then
+    echo "LND started successfully with PID $LND_PID."
+  else
+    echo "Failed to start LND."
+    exit 1
+  fi
+
+  # Start npm in the background
+  cd ~/lightning_pub
+  npm start > /dev/null 2>&1 &
   NODE_PID=$!
+  sleep 5
+  if ps -p $NODE_PID > /dev/null; then
+    echo "Lightning Pub started successfully with PID $NODE_PID."
+  else
+    echo "Failed to start Lightning Pub."
+    exit 1
+  fi
 
   if [[ "$OS" == "Linux" ]]; then
     if [ "$SYSTEMCTL_AVAILABLE" = true ]; then
