@@ -99,9 +99,6 @@ bitcoin.mainnet=true
 bitcoin.node=neutrino
 neutrino.addpeer=neutrino.shock.network
 feeurl=https://nodes.lightning.computer/fees/v1/btc-fee-estimates.json
-noseedbackup=true
-wallet-unlock-password-file=~/lnpass
-wallet-unlock-allow-create=true
 EOF
     echo "Created new lnd.conf file."
   fi
@@ -238,6 +235,7 @@ display_starting_animation() {
 
 # Start services
 start_services() {
+  display_starting_animation
   USER_HOME=$(eval echo ~$(whoami))
   if [[ "$OS" == "Linux" ]]; then
     if [ "$SYSTEMCTL_AVAILABLE" = true ]; then
@@ -308,7 +306,6 @@ EOF"
     create_start_script
   fi
 
-  display_starting_animation
 }
 
 # Upgrade flag
