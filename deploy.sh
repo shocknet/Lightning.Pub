@@ -108,7 +108,7 @@ EOF
   echo "LND installation and configuration completed."
 }
 
-# Function to install Node.js using nvm
+# Install Node.js using nvm
 install_nodejs() {
   REQUIRED_VERSION="18.0.0"
   if ! command -v nvm &> /dev/null; then
@@ -178,6 +178,11 @@ install_lightning_pub() {
     exit 1
   fi
   rm -rf lightning_pub_temp
+
+  # Load nvm and npm
+  export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
+  [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
   cd lightning_pub
   npm install
   if [ $? -ne 0 ]; then
@@ -186,7 +191,7 @@ install_lightning_pub() {
   fi
 }
 
-# Function to create start script
+# Ceate start script
 create_start_script() {
   cat <<EOF > start.sh
 #!/bin/bash
@@ -202,7 +207,6 @@ EOF
   echo "systemctl not available. Created start.sh. Please use this script to start the services manually."
 }
 
-# Function to display animated "starting..." log
 display_starting_animation() {
   echo -n "Starting services"
   for i in {1..3}; do
@@ -212,7 +216,7 @@ display_starting_animation() {
   echo
 }
 
-# Function to start services
+# Start services
 start_services() {
   ~/lnd/lnd &
   LND_PID=$!
@@ -221,7 +225,7 @@ start_services() {
   NODE_PID=$!
 
   if [[ "$OS" == "Linux" ]]; then
-    if [ -x "$(command -v systemctl)" ]; then
+    if [ "$SYSTEMCTL_AVAILABLE" = true ]; then
       sudo bash -c "cat > /etc/systemd/system/lnd.service <<EOF
 [Unit]
 Description=LND Service
@@ -242,7 +246,6 @@ Description=Lightning Pub Service
 After=network.target
 
 [Service]
-# Potential issue: Ensure the correct path to npm is used
 ExecStart=$(which npm) start
 WorkingDirectory=/home/$(whoami)/lightning_pub
 User=$(whoami)
@@ -272,11 +275,11 @@ EOF"
   display_starting_animation
 }
 
-# Main script execution
+# Upgrade flag
 SKIP_PROMPT=false
 for arg in "$@"; do
   case $arg in
-    --upgrade)
+    --yes)
     SKIP_PROMPT=true
     shift
     ;;
@@ -285,7 +288,7 @@ done
 
 detect_os_arch
 
-# Potential issue: Ensure the script is run with sufficient privileges
+# Ensure the script is run with sufficient privileges
 if [ "$EUID" -ne 0 ]; then
   echo "Please run as root or use sudo."
   exit 1
