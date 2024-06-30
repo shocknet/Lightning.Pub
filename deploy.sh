@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Function to detect OS and architecture
+# Detect OS and architecture
 detect_os_arch() {
   OS="$(uname -s)"
   ARCH="$(uname -m)"
@@ -17,17 +17,67 @@ detect_os_arch() {
     arm64)      ARCH=arm64;;
     *)          ARCH="UNKNOWN"
   esac
+
+  # Check if systemctl is available
+  if command -v systemctl &> /dev/null; then
+    SYSTEMCTL_AVAILABLE=true
+  else
+    SYSTEMCTL_AVAILABLE=false
+  fi
 }
 
-# Function to install LND
+# Install LND
 install_lnd() {
   LND_VERSION=$(wget -qO- https://api.github.com/repos/lightningnetwork/lnd/releases/latest | grep 'tag_name' | cut -d\" -f4)
   LND_URL="https://github.com/lightningnetwork/lnd/releases/download/${LND_VERSION}/lnd-${OS}-${ARCH}-${LND_VERSION}.tar.gz"
+
+  # Check if LND is already installed
+  if [ -d ~/lnd ]; then
+    echo "LND is already installed. Checking for updates..."
+    CURRENT_VERSION=$(~/lnd/lnd --version | grep -oP 'version \K[^\s]+')
+    if [ "$CURRENT_VERSION" == "$LND_VERSION" ]; then
+      echo "LND is already up-to-date (version $CURRENT_VERSION)."
+      return
+    else
+      if [ "$SKIP_PROMPT" != true ]; then
+        read -p "LND version $CURRENT_VERSION is installed. Do you want to upgrade to version $LND_VERSION? (y/N): " response
+        case "$response" in
+          [yY][eE][sS]|[yY]) 
+            echo "Upgrading LND from version $CURRENT_VERSION to $LND_VERSION..."
+            ;;
+          *)
+            echo "Upgrade cancelled."
+            return
+            ;;
+        esac
+      else
+        echo "Upgrading LND from version $CURRENT_VERSION to $LND_VERSION..."
+      fi
+    fi
+  else
+    echo "LND is not installed. Proceeding with installation..."
+  fi
+
   wget $LND_URL -O lnd.tar.gz
   if [ $? -ne 0 ]; then
     echo "Failed to download LND binary. Please check the URL or your internet connection."
     exit 1
   fi
+
+  # Check if LND is already running and stop it if necessary
+  if [ "$SYSTEMCTL_AVAILABLE" = true ]; then
+    if systemctl is-active --quiet lnd; then
+      echo "LND is currently running. Stopping LND service..."
+      sudo systemctl stop lnd
+      if [ $? -ne 0 ]; then
+        echo "Failed to stop LND service. Please stop it manually and try again."
+        exit 1
+      fi
+    fi
+  else
+    echo "systemctl not found. Please stop LND manually if it is running."
+  fi
+
   tar -xvzf lnd.tar.gz
   if [ $? -ne 0 ]; then
     echo "Failed to extract LND binary."
@@ -36,9 +86,14 @@ install_lnd() {
   rm lnd.tar.gz
   mv lnd-* lnd
 
-  # Create .lnd directory and lnd.conf file
+  # Create .lnd directory if it doesn't exist
   mkdir -p ~/.lnd
-  cat <<EOF > ~/.lnd/lnd.conf
+
+  # Check if lnd.conf already exists and avoid overwriting it
+  if [ -f ~/.lnd/lnd.conf ]; then
+    echo "lnd.conf already exists. Skipping creation of new lnd.conf file."
+  else
+    cat <<EOF > ~/.lnd/lnd.conf
 bitcoin.mainnet=true
 bitcoin.node=neutrino
 neutrino.addpeer=neutrino.shock.network
@@ -47,6 +102,10 @@ noseedbackup=true
 wallet-unlock-password-file=~/lnpass
 wallet-unlock-allow-create=true
 EOF
+    echo "Created basic lnd.conf file."
+  fi
+
+  echo "LND installation and configuration completed."
 }
 
 # Function to install Node.js using nvm
@@ -81,7 +140,7 @@ install_nodejs() {
   fi
 }
 
-# Function to download and extract Lightning.Pub tarball
+# Download and extract Lightning.Pub
 install_lightning_pub() {
   REPO_URL="https://github.com/shocknet/Lightning.Pub/tarball/master"
   wget $REPO_URL -O lightning_pub.tar.gz
@@ -89,13 +148,36 @@ install_lightning_pub() {
     echo "Failed to download Lightning.Pub tarball. Please check the URL or your internet connection."
     exit 1
   fi
-  mkdir lightning_pub
-  tar -xvzf lightning_pub.tar.gz -C lightning_pub --strip-components=1
+  mkdir -p lightning_pub_temp
+  tar -xvzf lightning_pub.tar.gz -C lightning_pub_temp --strip-components=1
   if [ $? -ne 0 ]; then
     echo "Failed to extract Lightning.Pub tarball."
     exit 1
   fi
   rm lightning_pub.tar.gz
+
+  # Check if rsync is installed, install if not
+  if ! command -v rsync &> /dev/null; then
+    echo "rsync not found, installing..."
+    if [ -x "$(command -v apt-get)" ]; then
+      sudo apt-get update
+      sudo apt-get install -y rsync
+    elif [ -x "$(command -v yum)" ]; then
+      sudo yum install -y rsync
+    else
+      echo "Package manager not found. Please install rsync manually."
+      exit 1
+    fi
+  fi
+
+  # Merge if upgrade
+  rsync -av --exclude='*.sqlite' --exclude='.env' --exclude='logs' --exclude='node_modules' lightning_pub_temp/ lightning_pub/
+
+  if [ $? -ne 0 ]; then
+    echo "Failed to merge Lightning.Pub files."
+    exit 1
+  fi
+  rm -rf lightning_pub_temp
   cd lightning_pub
   npm install
   if [ $? -ne 0 ]; then
@@ -191,6 +273,16 @@ EOF"
 }
 
 # Main script execution
+SKIP_PROMPT=false
+for arg in "$@"; do
+  case $arg in
+    --upgrade)
+    SKIP_PROMPT=true
+    shift
+    ;;
+  esac
+done
+
 detect_os_arch
 
 # Potential issue: Ensure the script is run with sufficient privileges
