@@ -28,6 +28,7 @@ detect_os_arch() {
 
 # Install LND
 install_lnd() {
+  echo -n "Installing LND... "
   LND_VERSION=$(wget -qO- https://api.github.com/repos/lightningnetwork/lnd/releases/latest | grep 'tag_name' | cut -d\" -f4)
   LND_URL="https://github.com/lightningnetwork/lnd/releases/download/${LND_VERSION}/lnd-${OS}-${ARCH}-${LND_VERSION}.tar.gz"
 
@@ -78,7 +79,7 @@ install_lnd() {
     echo "systemctl not found. Please stop LND manually if it is running."
   fi
 
-  tar -xvzf lnd.tar.gz
+  tar -xvzf lnd.tar.gz > /dev/null
   if [ $? -ne 0 ]; then
     echo "Failed to extract LND binary."
     exit 1
@@ -107,6 +108,7 @@ EOF
 
 # Install Node.js using nvm
 install_nodejs() {
+  echo -n "Installing Node.js... "
   REQUIRED_VERSION="18.0.0"
   if ! command -v nvm &> /dev/null; then
     echo "nvm not found, installing..."
@@ -135,10 +137,12 @@ install_nodejs() {
     echo "NodeJS version is less than required, aborting"
     exit 1
   fi
+  echo "Node.js installation completed."
 }
 
 # Download and extract Lightning.Pub
 install_lightning_pub() {
+  echo -n "Installing Lightning.Pub... "
   REPO_URL="https://github.com/shocknet/Lightning.Pub/tarball/master"
   wget $REPO_URL -O lightning_pub.tar.gz
   if [ $? -ne 0 ]; then
@@ -146,7 +150,7 @@ install_lightning_pub() {
     exit 1
   fi
   mkdir -p lightning_pub_temp
-  tar -xvzf lightning_pub.tar.gz -C lightning_pub_temp --strip-components=1
+  tar -xvzf lightning_pub.tar.gz -C lightning_pub_temp --strip-components=1 > /dev/null
   if [ $? -ne 0 ]; then
     echo "Failed to extract Lightning.Pub tarball."
     exit 1
@@ -168,8 +172,7 @@ install_lightning_pub() {
   fi
 
   # Merge if upgrade
-  rsync -av --exclude='*.sqlite' --exclude='.env' --exclude='logs' --exclude='node_modules' lightning_pub_temp/ lightning_pub/
-
+  rsync -av --exclude='*.sqlite' --exclude='.env' --exclude='logs' --exclude='node_modules' lightning_pub_temp/ lightning_pub/ > /dev/null
   if [ $? -ne 0 ]; then
     echo "Failed to merge Lightning.Pub files."
     exit 1
@@ -181,11 +184,12 @@ install_lightning_pub() {
   [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
   cd lightning_pub
-  npm install
+  npm install > /dev/null
   if [ $? -ne 0 ]; then
     echo "Failed to install npm dependencies."
     exit 1
   fi
+  echo "Lightning.Pub installation completed."
 }
 
 # Ceate start script
@@ -215,28 +219,6 @@ display_starting_animation() {
 
 # Start services
 start_services() {
-  ~/lnd/lnd > /dev/null 2>&1 &
-  LND_PID=$!
-  sleep 5
-  if ps -p $LND_PID > /dev/null; then
-    echo "LND started successfully with PID $LND_PID."
-  else
-    echo "Failed to start LND."
-    exit 1
-  fi
-
-  # Start npm in the background
-  cd ~/lightning_pub
-  npm start > /dev/null 2>&1 &
-  NODE_PID=$!
-  sleep 5
-  if ps -p $NODE_PID > /dev/null; then
-    echo "Lightning Pub started successfully with PID $NODE_PID."
-  else
-    echo "Failed to start Lightning Pub."
-    exit 1
-  fi
-
   if [[ "$OS" == "Linux" ]]; then
     if [ "$SYSTEMCTL_AVAILABLE" = true ]; then
       sudo bash -c "cat > /etc/systemd/system/lnd.service <<EOF
@@ -271,8 +253,28 @@ EOF"
       sudo systemctl daemon-reload
       sudo systemctl enable lnd
       sudo systemctl enable lightning_pub
+
+      sudo systemctl start lnd
+      if systemctl is-active --quiet lnd; then
+        echo "LND started successfully using systemd."
+      else
+        echo "Failed to start LND using systemd."
+        exit 1
+      fi
+
+      # Give LND a few seconds to start before starting Lightning Pub
+      sleep 10
+
+      sudo systemctl start lightning_pub
+      if systemctl is-active --quiet lightning_pub; then
+        echo "Lightning Pub started successfully using systemd."
+      else
+        echo "Failed to start Lightning Pub using systemd."
+        exit 1
+      fi
     else
       create_start_script
+      echo "systemctl not available. Created start.sh. Please use this script to start the services manually."
     fi
   elif [[ "$OS" == "Mac" ]]; then
     echo "macOS detected. Please configure launchd manually to start LND and Lightning Pub at startup."
