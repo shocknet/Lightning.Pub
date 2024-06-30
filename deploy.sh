@@ -258,7 +258,7 @@ Description=Lightning Pub Service
 After=network.target
 
 [Service]
-ExecStart=$(which npm) start
+ExecStart=/bin/bash -c 'source ${USER_HOME}/.nvm/nvm.sh && npm start'
 WorkingDirectory=${USER_HOME}/lightning_pub
 User=$(whoami)
 Restart=always
