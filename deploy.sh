@@ -99,14 +99,17 @@ bitcoin.mainnet=true
 bitcoin.node=neutrino
 neutrino.addpeer=neutrino.shock.network
 feeurl=https://nodes.lightning.computer/fees/v1/btc-fee-estimates.json
+noseedbackup=true
+wallet-unlock-password-file=~/lnpass
+wallet-unlock-allow-create=true
 EOF
-    echo "Created basic lnd.conf file."
+    echo "Created new lnd.conf file."
   fi
 
   echo "LND installation and configuration completed."
 }
 
-# Install Node.js using nvm
+# Function to install Node.js using nvm
 install_nodejs() {
   echo -n "Installing Node.js... "
   REQUIRED_VERSION="18.0.0"
@@ -173,6 +176,7 @@ install_lightning_pub() {
 
   # Merge if upgrade
   rsync -av --exclude='*.sqlite' --exclude='.env' --exclude='logs' --exclude='node_modules' lightning_pub_temp/ lightning_pub/ > /dev/null
+
   if [ $? -ne 0 ]; then
     echo "Failed to merge Lightning.Pub files."
     exit 1
@@ -184,11 +188,23 @@ install_lightning_pub() {
   [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
   cd lightning_pub
-  npm install > /dev/null
-  if [ $? -ne 0 ]; then
-    echo "Failed to install npm dependencies."
+
+  # Show a progress indicator while npm install is running
+  echo -n "Installing npm dependencies... "
+  npm install > npm_install.log 2>&1 &
+  PID=$!
+  while kill -0 $PID 2> /dev/null; do
+    echo -n "."
+    sleep 1
+  done
+
+  if wait $PID; then
+    echo " done."
+  else
+    echo " failed. Check npm_install.log for details."
     exit 1
   fi
+
   echo "Lightning.Pub installation completed."
 }
 
@@ -219,6 +235,7 @@ display_starting_animation() {
 
 # Start services
 start_services() {
+  USER_HOME=$(eval echo ~$(whoami))
   if [[ "$OS" == "Linux" ]]; then
     if [ "$SYSTEMCTL_AVAILABLE" = true ]; then
       sudo bash -c "cat > /etc/systemd/system/lnd.service <<EOF
@@ -227,7 +244,7 @@ Description=LND Service
 After=network.target
 
 [Service]
-ExecStart=/home/$(whoami)/lnd/lnd
+ExecStart=${USER_HOME}/lnd/lnd
 User=$(whoami)
 Restart=always
 
@@ -242,7 +259,7 @@ After=network.target
 
 [Service]
 ExecStart=$(which npm) start
-WorkingDirectory=/home/$(whoami)/lightning_pub
+WorkingDirectory=${USER_HOME}/lightning_pub
 User=$(whoami)
 Restart=always
 
