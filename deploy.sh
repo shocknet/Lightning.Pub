@@ -98,9 +98,6 @@ bitcoin.mainnet=true
 bitcoin.node=neutrino
 neutrino.addpeer=neutrino.shock.network
 feeurl=https://nodes.lightning.computer/fees/v1/btc-fee-estimates.json
-noseedbackup=true
-wallet-unlock-password-file=~/lnpass
-wallet-unlock-allow-create=true
 EOF
     echo "Created basic lnd.conf file."
   fi
