@@ -20,6 +20,7 @@ export class LiquidityProvider {
     ready = false
     pubDestination: string
     latestMaxWithdrawable: number | null = null
+    latestBalance: number | null = null
     invoicePaidCb: InvoicePaidCb
     connecting = false
     readyInterval: NodeJS.Timeout
@@ -27,7 +28,9 @@ export class LiquidityProvider {
     constructor(pubDestination: string, invoicePaidCb: InvoicePaidCb) {
         if (!pubDestination) {
             this.log("No pub provider to liquidity provider, will not be initialized")
+            return
         }
+        this.log("connecting to liquidity provider", pubDestination)
         this.pubDestination = pubDestination
         this.invoicePaidCb = invoicePaidCb
         this.client = newNostrClient({
@@ -69,6 +72,28 @@ export class LiquidityProvider {
         })
     }
 
+    GetLatestMaxWithdrawable = async (fetch = false) => {
+        if (this.latestMaxWithdrawable === null) {
+            this.log("liquidity provider is not ready yet")
+            return 0
+        }
+        if (fetch) {
+            await this.CheckUserState()
+        }
+        return this.latestMaxWithdrawable || 0
+    }
+
+    GetLatestBalance = async (fetch = false) => {
+        if (this.latestMaxWithdrawable === null) {
+            this.log("liquidity provider is not ready yet")
+            return 0
+        }
+        if (fetch) {
+            await this.CheckUserState()
+        }
+        return this.latestBalance || 0
+    }
+
     CheckUserState = async () => {
         const res = await this.client.GetUserInfo()
         if (res.status === 'ERROR') {
@@ -76,7 +101,8 @@ export class LiquidityProvider {
             return
         }
         this.latestMaxWithdrawable = res.max_withdrawable
-        this.log("latest provider balance:", res.max_withdrawable)
+        this.latestBalance = res.balance
+        this.log("latest provider balance:", res.balance, "latest max withdrawable:", res.max_withdrawable)
         return res
     }
 

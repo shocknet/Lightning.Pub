@@ -17,6 +17,7 @@ import { BalanceEvent } from "./entity/BalanceEvent.js"
 import { ChannelBalanceEvent } from "./entity/ChannelsBalanceEvent.js"
 import { getLogger } from "../helpers/logger.js"
 import { ChannelRouting } from "./entity/ChannelRouting.js"
+import { LspOrder } from "./entity/LspOrder.js"
 
 
 export type DbSettings = {
@@ -56,7 +57,7 @@ export default async (settings: DbSettings, migrations: Function[]): Promise<{ s
         database: settings.databaseFile,
         // logging: true,
         entities: [User, UserReceivingInvoice, UserReceivingAddress, AddressReceivingTransaction, UserInvoicePayment, UserTransactionPayment,
-            UserBasicAuth, UserEphemeralKey, Product, UserToUserPayment, Application, ApplicationUser, UserToUserPayment],
+            UserBasicAuth, UserEphemeralKey, Product, UserToUserPayment, Application, ApplicationUser, UserToUserPayment, LspOrder],
         //synchronize: true,
         migrations
     }).initialize()
