@@ -1,19 +1,95 @@
 #!/bin/bash
+set -e
 
-# Define theme colors
 PRIMARY_COLOR="\e[38;5;208m"  # #f59322
 SECONDARY_COLOR="\e[38;5;165m"  # #c740c7
 RESET_COLOR="\e[0m"
 
-# Log file
 LOG_FILE="/var/log/deploy.log"
 
-# Log function
+touch $LOG_FILE
+chmod 644 $LOG_FILE
+
 log() {
-  echo -e "$1" | tee $LOG_FILE
+  local message="$(date '+%Y-%m-%d %H:%M:%S') $1"
+  if [ -t 1 ]; then
+    echo -e "$message"
+  fi
+  echo -e "$(echo $message | sed 's/\\e\[[0-9;]*m//g')" >> $LOG_FILE
 }
 
-# Detect OS and architecture
+if [ "$EUID" -ne 0 ]; then
+  log "${PRIMARY_COLOR}Please run as root or use sudo.${RESET_COLOR}"
+  exit 1
+fi
+
+check_homebrew() {
+  if ! command -v brew &> /dev/null; then
+    log "${PRIMARY_COLOR}Homebrew not found. Installing Homebrew...${RESET_COLOR}"
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  fi
+}
+
+install_rsync_mac() {
+  check_homebrew
+  log "${PRIMARY_COLOR}Installing${RESET_COLOR} rsync using Homebrew..."
+  brew install rsync
+}
+
+create_launchd_plist() {
+  create_plist() {
+    local plist_path=$1
+    local label=$2
+    local program_args=$3
+    local working_dir=$4
+
+    if [ -f "$plist_path" ]; then
+      log "${PRIMARY_COLOR}${label} already exists. Skipping creation.${RESET_COLOR}"
+    else
+      cat <<EOF > "$plist_path"
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>${label}</string>
+  <key>ProgramArguments</key>
+  <array>
+    ${program_args}
+  </array>
+  <key>WorkingDirectory</key>
+  <string>${working_dir}</string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+</dict>
+</plist>
+EOF
+    fi
+  }
+
+  create_plist "~/Library/LaunchAgents/com.lnd.plist" "com.lnd" "<string>${HOME}/lnd/lnd</string>" ""
+  create_plist "~/Library/LaunchAgents/com.lightning_pub.plist" "com.lightning_pub" "<string>/bin/bash</string><string>-c</string><string>source ${HOME}/.nvm/nvm.sh && npm start</string>" "${HOME}/lightning_pub"
+
+  log "${PRIMARY_COLOR}Created launchd plists. Please load them using launchctl.${RESET_COLOR}"
+}
+
+start_services_mac() {
+  create_launchd_plist
+  launchctl load ~/Library/LaunchAgents/com.lnd.plist
+  launchctl load ~/Library/LaunchAgents/com.lightning_pub.plist
+  log "${SECONDARY_COLOR}LND${RESET_COLOR} and ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} services started using launchd."
+}
+
+handle_macos() {
+  check_homebrew
+  install_rsync_mac
+  install_nodejs
+  install_lightning_pub
+  start_services_mac
+}
+
 detect_os_arch() {
   OS="$(uname -s)"
   ARCH="$(uname -m)"
@@ -26,20 +102,17 @@ detect_os_arch() {
   esac
   case "$ARCH" in
     x86_64)     ARCH=amd64;;
-    armv7l)     ARCH=armv7;;
     arm64)      ARCH=arm64;;
     *)          ARCH="UNKNOWN"
   esac
 
-  # Check if systemctl is available
-  if command -v systemctl &> /dev/null; then
+  if [ "$OS" = "Linux" ] && command -v systemctl &> /dev/null; then
     SYSTEMCTL_AVAILABLE=true
   else
     SYSTEMCTL_AVAILABLE=false
   fi
 }
 
-# Install LND
 install_lnd() {
   LND_VERSION=$(wget -qO- https://api.github.com/repos/lightningnetwork/lnd/releases/latest | grep 'tag_name' | cut -d\" -f4)
   LND_URL="https://github.com/lightningnetwork/lnd/releases/download/${LND_VERSION}/lnd-${OS}-${ARCH}-${LND_VERSION}.tar.gz"
@@ -58,7 +131,7 @@ install_lnd() {
             log "${PRIMARY_COLOR}Upgrading${RESET_COLOR} ${SECONDARY_COLOR}LND${RESET_COLOR} from version $CURRENT_VERSION to $LND_VERSION..."
             ;;
           *)
-            log "Upgrade cancelled."
+            log "$(date '+%Y-%m-%d %H:%M:%S') Upgrade cancelled."
             return
             ;;
         esac
@@ -72,30 +145,18 @@ install_lnd() {
 
   # Start the download
   wget -q $LND_URL -O lnd.tar.gz
-  if [ $? -ne 0 ]; then
-    log "${PRIMARY_COLOR}Failed to download ${SECONDARY_COLOR}LND${RESET_COLOR} binary. Please check the URL or your internet connection.${RESET_COLOR}"
-    exit 1
-  fi
 
-  # Check if LND is already running and stop it if necessary
-  if [ "$SYSTEMCTL_AVAILABLE" = true ]; then
+  # Check if LND is already running and stop it if necessary (Linux)
+  if [ "$OS" = "Linux" ] && [ "$SYSTEMCTL_AVAILABLE" = true ]; then
     if systemctl is-active --quiet lnd; then
       log "${PRIMARY_COLOR}Stopping${RESET_COLOR} ${SECONDARY_COLOR}LND${RESET_COLOR} service..."
       sudo systemctl stop lnd
-      if [ $? -ne 0 ]; then
-        log "${PRIMARY_COLOR}Failed to stop ${SECONDARY_COLOR}LND${RESET_COLOR} service. Please stop it manually and try again.${RESET_COLOR}"
-        exit 1
-      fi
     fi
   else
     log "${PRIMARY_COLOR}systemctl not found. Please stop ${SECONDARY_COLOR}LND${RESET_COLOR} manually if it is running.${RESET_COLOR}"
   fi
 
   tar -xzf lnd.tar.gz -C ~/ > /dev/null
-  if [ $? -ne 0 ]; then
-    log "${PRIMARY_COLOR}Failed to extract ${SECONDARY_COLOR}LND${RESET_COLOR} binary.${RESET_COLOR}"
-    exit 1
-  fi
   rm lnd.tar.gz
   mv lnd-* lnd
 
@@ -117,17 +178,16 @@ EOF
   log "${SECONDARY_COLOR}LND${RESET_COLOR} installation and configuration completed."
 }
 
-# Function to install Node.js using nvm
+# Use nvm to install nodejs
 install_nodejs() {
   log "${PRIMARY_COLOR}Checking${RESET_COLOR} for Node.js..."
   MINIMUM_VERSION="18.0.0"
   
-  # Load nvm if it exists
+  # Load nvm if it already exists
   export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
   [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
   if ! command -v nvm &> /dev/null; then
-    log "${PRIMARY_COLOR}nvm not found, installing...${RESET_COLOR}"
     NVM_VERSION=$(wget -qO- https://api.github.com/repos/nvm-sh/nvm/releases/latest | grep -oP '"tag_name": "\K(.*)(?=")')
     wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/${NVM_VERSION}/install.sh | bash > /dev/null 2>&1
     export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
@@ -137,49 +197,42 @@ install_nodejs() {
   if command -v node &> /dev/null; then
     NODE_VERSION=$(node -v | sed 's/v//')
     if [ "$(printf '%s\n' "$MINIMUM_VERSION" "$NODE_VERSION" | sort -V | head -n1)" = "$MINIMUM_VERSION" ]; then
-      log "${SECONDARY_COLOR}Node.js${RESET_COLOR} is already installed and meets the minimum version requirement."
+      log "Node.js is already installed and meets the minimum version requirement."
       return
     else
-      log "${PRIMARY_COLOR}Updating${RESET_COLOR} Node.js to the latest version..."
+      log "${PRIMARY_COLOR}Updating${RESET_COLOR} Node.js to the LTS version..."
     fi
   else
-    log "${PRIMARY_COLOR}Node.js is not installed. Installing the latest version...${RESET_COLOR}"
+    log "Node.js is not installed. ${PRIMARY_COLOR}Installing the LTS version...${RESET_COLOR}"
   fi
 
-  nvm install node
-  if [ $? -ne 0 ]; then
-    log "${PRIMARY_COLOR}Failed to install Node.js. Please check the nvm installation.${RESET_COLOR}"
-    exit 1
-  fi
+  nvm install --lts
 
-  log "${SECONDARY_COLOR}Node.js${RESET_COLOR} installation completed."
+  log "Node.js LTS installation completed."
 }
 
-# Download and extract Lightning.Pub
 install_lightning_pub() {
   log "${PRIMARY_COLOR}Installing${RESET_COLOR} ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR}..."
   REPO_URL="https://github.com/shocknet/Lightning.Pub/tarball/master"
   wget $REPO_URL -O lightning_pub.tar.gz > /dev/null 2>&1
-  if [ $? -ne 0 ]; then
-    log "${PRIMARY_COLOR}Failed to download ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} tarball. Please check the URL or your internet connection.${RESET_COLOR}"
-    exit 1
-  fi
   mkdir -p lightning_pub_temp
   tar -xvzf lightning_pub.tar.gz -C lightning_pub_temp --strip-components=1 > /dev/null 2>&1
-  if [ $? -ne 0 ]; then
-    log "${PRIMARY_COLOR}Failed to extract ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} tarball.${RESET_COLOR}"
-    exit 1
-  fi
   rm lightning_pub.tar.gz
 
-  # Check if rsync is installed, install if not
   if ! command -v rsync &> /dev/null; then
     log "${PRIMARY_COLOR}rsync not found, installing...${RESET_COLOR}"
-    if [ -x "$(command -v apt-get)" ]; then
-      sudo apt-get update > /dev/null 2>&1
-      sudo apt-get install -y rsync > /dev/null 2>&1
-    elif [ -x "$(command -v yum)" ]; then
-      sudo yum install -y rsync > /dev/null 2>&1
+    if [ "$OS" = "Mac" ]; then
+      brew install rsync
+    elif [ "$OS" = "Linux" ]; then
+      if [ -x "$(command -v apt-get)" ]; then
+        sudo apt-get update > /dev/null 2>&1
+        sudo apt-get install -y rsync > /dev/null 2>&1
+      elif [ -x "$(command -v yum)" ]; then
+        sudo yum install -y rsync > /dev/null 2>&1
+      else
+        log "${PRIMARY_COLOR}Package manager not found. Please install rsync manually.${RESET_COLOR}"
+        exit 1
+      fi
     else
       log "${PRIMARY_COLOR}Package manager not found. Please install rsync manually.${RESET_COLOR}"
       exit 1
@@ -188,11 +241,6 @@ install_lightning_pub() {
 
   # Merge if upgrade
   rsync -av --exclude='*.sqlite' --exclude='.env' --exclude='logs' --exclude='node_modules' lightning_pub_temp/ lightning_pub/ > /dev/null 2>&1
-
-  if [ $? -ne 0 ]; then
-    log "${PRIMARY_COLOR}Failed${RESET_COLOR} to merge ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} files.${RESET_COLOR}"
-    exit 1
-  fi
   rm -rf lightning_pub_temp
 
   # Load nvm and npm
@@ -201,21 +249,15 @@ install_lightning_pub() {
 
   cd lightning_pub
 
-  # Show a progress indicator while npm install is running
   log "${PRIMARY_COLOR}Installing${RESET_COLOR} npm dependencies..."
   
   npm install > npm_install.log 2>&1 &
   npm_pid=$!
   wait $npm_pid
-  if [ $? -ne 0 ]; then
-    log "${PRIMARY_COLOR} failed. Check npm_install.log for details.${RESET_COLOR}"
-    exit 1
-  fi
 
   log "${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} installation completed."
 }
 
-# Ceate start script
 create_start_script() {
   cat <<EOF > start.sh
 #!/bin/bash
@@ -228,13 +270,12 @@ wait \$LND_PID
 wait \$NODE_PID
 EOF
   chmod +x start.sh
-  echo -e "systemctl not available. Created start.sh. Please use this script to start the services manually."
+  log "systemctl not available. Created start.sh. Please use this script to start the services manually."
 }
 
-# Start services
 start_services() {
   USER_HOME=$(eval echo ~$(whoami))
-  if [[ "$OS" == "Linux" ]]; then
+  if [ "$OS" = "Linux" ]; then
     if [ "$SYSTEMCTL_AVAILABLE" = true ]; then
       sudo bash -c "cat > /etc/systemd/system/lnd.service <<EOF
 [Unit]
@@ -269,42 +310,42 @@ EOF"
       sudo systemctl enable lnd
       sudo systemctl enable lightning_pub
 
-      echo -ne "${PRIMARY_COLOR}Starting${RESET_COLOR} ${SECONDARY_COLOR}LND${RESET_COLOR} service..."
+      log "${PRIMARY_COLOR}Starting${RESET_COLOR} ${SECONDARY_COLOR}LND${RESET_COLOR} service..."
       sudo systemctl start lnd &
       lnd_pid=$!
       wait $lnd_pid
       if systemctl is-active --quiet lnd; then
-        echo -e "\n${SECONDARY_COLOR}LND${RESET_COLOR} started successfully using systemd."
+        log "${SECONDARY_COLOR}LND${RESET_COLOR} started successfully using systemd."
       else
-        echo -e "Failed to start ${SECONDARY_COLOR}LND${RESET_COLOR} using systemd."
+        log "Failed to start ${SECONDARY_COLOR}LND${RESET_COLOR} using systemd."
         exit 1
       fi
 
-      echo -e "Giving ${SECONDARY_COLOR}LND${RESET_COLOR} a few seconds to start before starting ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR}..."
+      log "Giving ${SECONDARY_COLOR}LND${RESET_COLOR} a few seconds to start before starting ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR}..."
       sleep 10
 
-      echo -ne "${PRIMARY_COLOR}Starting${RESET_COLOR} ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} service..."
+      log "${PRIMARY_COLOR}Starting${RESET_COLOR} ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} service..."
       sudo systemctl start lightning_pub &
       lightning_pub_pid=$!
       wait $lightning_pub_pid
       if systemctl is-active --quiet lightning_pub; then
-        echo -e "\n${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} started successfully using systemd."
+        log "${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} started successfully using systemd."
       else
-        echo -e "Failed to start ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} using systemd."
+        log "Failed to start ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} using systemd."
         exit 1
       fi
     else
       create_start_script
-      echo -e "systemctl not available. Created start.sh. Please use this script to start the services manually."
+      log "systemctl not available. Created start.sh. Please use this script to start the services manually."
     fi
-  elif [[ "$OS" == "Mac" ]]; then
-    echo -e "macOS detected. Please configure launchd manually to start ${SECONDARY_COLOR}LND${RESET_COLOR} and ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} at startup."
+  elif [ "$OS" = "Mac" ]; then
+    log "macOS detected. Please configure launchd manually to start ${SECONDARY_COLOR}LND${RESET_COLOR} and ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} at startup."
     create_start_script
-  elif [[ "$OS" == "Cygwin" || "$OS" == "MinGw" ]]; then
-    echo -e "Windows detected. Please configure your startup scripts manually to start ${SECONDARY_COLOR}LND${RESET_COLOR} and ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} at startup."
+  elif [ "$OS" = "Cygwin" ] || [ "$OS" = "MinGw" ]; then
+    log "Windows detected. Please configure your startup scripts manually to start ${SECONDARY_COLOR}LND${RESET_COLOR} and ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} at startup."
     create_start_script
   else
-    echo -e "Unsupported OS detected. Please configure your startup scripts manually."
+    log "Unsupported OS detected. Please configure your startup scripts manually."
     create_start_script
   fi
 }
@@ -322,13 +363,11 @@ done
 
 detect_os_arch
 
-# Ensure the script is run with sufficient privileges
-if [ "$EUID" -ne 0 ]; then
-  echo -e "${PRIMARY_COLOR}Please run as root or use sudo.${RESET_COLOR}"
-  exit 1
+if [ "$OS" = "Mac" ]; then
+  handle_macos
+else
+  install_lnd
+  install_nodejs
+  install_lightning_pub
+  start_services
 fi
-
-install_lnd
-install_nodejs
-install_lightning_pub
-start_services
