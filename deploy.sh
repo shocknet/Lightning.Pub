@@ -68,17 +68,20 @@ create_launchd_plist() {
 EOF
     fi
   }
+  USER_HOME=$(eval echo ~$(whoami))
+  NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${USER_HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
+  LAUNCH_AGENTS_DIR="${USER_HOME}/Library/LaunchAgents"
 
-  create_plist "~/Library/LaunchAgents/local.lnd.plist" "local.lnd" "<string>${HOME}/lnd/lnd</string>" ""
-  create_plist "~/Library/LaunchAgents/local.lightning_pub.plist" "local.lightning_pub" "<string>/bin/bash</string><string>-c</string><string>source ${HOME}/.nvm/nvm.sh && npm start</string>" "${HOME}/lightning_pub"
+  create_plist "${LAUNCH_AGENTS_DIR}/local.lnd.plist" "local.lnd" "<string>${USER_HOME}/lnd/lnd</string>" ""
+  create_plist "${LAUNCH_AGENTS_DIR}/local.lightning_pub.plist" "local.lightning_pub" "<string>/bin/bash</string><string>-c</string><string>source ${NVM_DIR}/nvm.sh && npm start</string>" "${USER_HOME}/lightning_pub"
 
   log "${PRIMARY_COLOR}Created launchd plists. Please load them using launchctl.${RESET_COLOR}"
 }
 
 start_services_mac() {
   create_launchd_plist
-  launchctl load ~/Library/LaunchAgents/local.lnd.plist
-  launchctl load ~/Library/LaunchAgents/local.lightning_pub.plist
+  launchctl load "${LAUNCH_AGENTS_DIR}/local.lnd.plist"
+  launchctl load "${LAUNCH_AGENTS_DIR}/local.lightning_pub.plist"
   log "${SECONDARY_COLOR}LND${RESET_COLOR} and ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} services started using launchd."
 }
 
@@ -118,8 +121,8 @@ install_lnd() {
   LND_URL="https://github.com/lightningnetwork/lnd/releases/download/${LND_VERSION}/lnd-${OS}-${ARCH}-${LND_VERSION}.tar.gz"
 
   # Check if LND is already installed
-  if [ -d ~/lnd ]; then
-    CURRENT_VERSION=$(~/lnd/lnd --version | grep -oP 'version \K[^\s]+')
+  if [ -d "$HOME/lnd" ]; then
+    CURRENT_VERSION=$("$HOME/lnd/lnd" --version | grep -oP 'version \K[^\s]+')
     if [ "$CURRENT_VERSION" == "${LND_VERSION#v}" ]; then
       log "${SECONDARY_COLOR}LND${RESET_COLOR} is already up-to-date (version $CURRENT_VERSION)."
       return
@@ -184,14 +187,14 @@ install_nodejs() {
   MINIMUM_VERSION="18.0.0"
   
   # Load nvm if it already exists
-  export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
-  [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+  export NVM_DIR="${NVM_DIR}"
+  [ -s "${NVM_DIR}/nvm.sh" ] && \. "${NVM_DIR}/nvm.sh"
 
   if ! command -v nvm &> /dev/null; then
     NVM_VERSION=$(wget -qO- https://api.github.com/repos/nvm-sh/nvm/releases/latest | grep -oP '"tag_name": "\K(.*)(?=")')
     wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/${NVM_VERSION}/install.sh | bash > /dev/null 2>&1
-    export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
-    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+    export NVM_DIR="${NVM_DIR}"
+    [ -s "${NVM_DIR}/nvm.sh" ] && \. "${NVM_DIR}/nvm.sh"
   fi
 
   if command -v node &> /dev/null; then
@@ -244,8 +247,8 @@ install_lightning_pub() {
   rm -rf lightning_pub_temp
 
   # Load nvm and npm
-  export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
-  [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+  export NVM_DIR="${NVM_DIR}"
+  [ -s "${NVM_DIR}/nvm.sh" ] && \. "${NVM_DIR}/nvm.sh"
 
   cd lightning_pub
 
@@ -261,7 +264,7 @@ install_lightning_pub() {
 create_start_script() {
   cat <<EOF > start.sh
 #!/bin/bash
-~/lnd/lnd &
+${USER_HOME}/lnd/lnd &
 LND_PID=\$!
 sleep 10
 npm start &
@@ -297,7 +300,7 @@ Description=Lightning.Pub Service
 After=network.target
 
 [Service]
-ExecStart=/bin/bash -c 'source ${USER_HOME}/.nvm/nvm.sh && npm start'
+ExecStart=/bin/bash -c 'source ${NVM_DIR}/nvm.sh && npm start'
 WorkingDirectory=${USER_HOME}/lightning_pub
 User=$(whoami)
 Restart=always
