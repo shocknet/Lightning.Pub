@@ -69,16 +69,16 @@ EOF
     fi
   }
 
-  create_plist "~/Library/LaunchAgents/com.lnd.plist" "com.lnd" "<string>${HOME}/lnd/lnd</string>" ""
-  create_plist "~/Library/LaunchAgents/com.lightning_pub.plist" "com.lightning_pub" "<string>/bin/bash</string><string>-c</string><string>source ${HOME}/.nvm/nvm.sh && npm start</string>" "${HOME}/lightning_pub"
+  create_plist "~/Library/LaunchAgents/local.lnd.plist" "local.lnd" "<string>${HOME}/lnd/lnd</string>" ""
+  create_plist "~/Library/LaunchAgents/local.lightning_pub.plist" "local.lightning_pub" "<string>/bin/bash</string><string>-c</string><string>source ${HOME}/.nvm/nvm.sh && npm start</string>" "${HOME}/lightning_pub"
 
   log "${PRIMARY_COLOR}Created launchd plists. Please load them using launchctl.${RESET_COLOR}"
 }
 
 start_services_mac() {
   create_launchd_plist
-  launchctl load ~/Library/LaunchAgents/com.lnd.plist
-  launchctl load ~/Library/LaunchAgents/com.lightning_pub.plist
+  launchctl load ~/Library/LaunchAgents/local.lnd.plist
+  launchctl load ~/Library/LaunchAgents/local.lightning_pub.plist
   log "${SECONDARY_COLOR}LND${RESET_COLOR} and ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} services started using launchd."
 }
 
