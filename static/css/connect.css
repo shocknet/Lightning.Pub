@@ -1,0 +1,49 @@
+.qrcode-box::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 15px;
+    border: 1px solid transparent;
+    background: linear-gradient(60deg, #ff7700 0%, #c740c7 100% ) border-box;
+    mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: destination-out;
+    mask-composite: exclude;
+}
+.qrcode-box {
+    display: block;
+    position: relative;
+    width: 253px;
+    height: 241px;
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    margin-top: 10px;
+    padding: 10px;
+    transition: background-color 0.5s;
+    border-radius: 15px;
+}
+.qrcode-box:hover {
+    background-color: #80808062;
+    transition: background-color 0.3s;
+}
+
+.qrcode-box-clicked::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 15px;
+    border: 1px solid transparent;
+    background: linear-gradient(60deg, #ff7700 0%, #c740c7 100% ) border-box;
+    mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: destination-out;
+    mask-composite: exclude;
+}
+.qrcode-box-clicked {
+    display: block;
+    position: relative;
+    width: 253px;
+    height: 241px;
+    margin-top: 10px;
+    padding: 10px;
+    transition: background-color 0.5s;
+    border-radius: 15px;
+}

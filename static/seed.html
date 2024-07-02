@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title></title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css?family=Montserrat"
+    />
+    <link rel="stylesheet" href="css/styles.css" />
+    <link rel="stylesheet" href="css/seed.css" />
+    <!-- HTML Meta Tags -->
+    <title>Lightning.Pub</title>
+    <meta name="description" content="Lightning for Everyone" />
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  </head>
+  <body>
+    <header>
+      <img
+        src="img/pub_logo.png"
+        width="38px"
+        height="auto"
+        alt="Lightning Pub logo"
+      />
+      <img src="img/LightningPub.png" height="33px" alt="Lightning Pub logo" />
+    </header>
+
+    <main>
+      <section class="setup-header">
+        <button class="icon-button back-button" onclick="history.back()">
+          <img src="img/back.svg" alt="" />
+        </button>
+        <h2>Seed Phrase</h2>
+        <p class="header-title">
+          Store your seed phrase somewhere safe, you will need it if something ever goes wrong with your node hard drive.
+        </p>
+      </section>
+
+      <div class="line"></div>
+
+      <section class="setup-content">
+        <div class="seed-box-container blur-filter" id="seed-box-container">
+          <div class="seed-box">
+            <span>1</span>
+            <span>albert</span>
+          </div>
+          <div class="seed-box">
+            <span>1</span>
+            <span>albert</span>
+          </div>
+          <div class="seed-box">
+            <span>1</span>
+            <span>albert</span>
+          </div>
+          <div class="seed-box">
+            <span>1</span>
+            <span>albert</span>
+          </div>
+          <div class="seed-box">
+            <span>1</span>
+            <span>albert</span>
+          </div>
+          <div class="seed-box">
+            <span>1</span>
+            <span>albert</span>
+          </div>
+          <div class="seed-box">
+            <span>1</span>
+            <span>albert</span>
+          </div>
+          <div class="seed-box">
+            <span>1</span>
+            <span>albert</span>
+          </div>
+          <div class="seed-box">
+            <span>1</span>
+            <span>albert</span>
+          </div>
+          <div class="seed-box">
+            <span>1</span>
+            <span>albert</span>
+          </div>
+          <div class="seed-box">
+            <span>1</span>
+            <span>albert</span>
+          </div>
+          <div class="seed-box">
+            <span>1</span>
+            <span>albert</span>
+          </div>
+          <div class="seed-box">
+            <span>1</span>
+            <span>albert</span>
+          </div>
+          <div class="seed-box">
+            <span>1</span>
+            <span>albert</span>
+          </div>
+          <div class="seed-box">
+            <span>1</span>
+            <span>albert</span>
+          </div>
+          <div class="seed-box">
+            <span>1</span>
+            <span>albert</span>
+          </div>
+          <div class="seed-box">
+            <span>1</span>
+            <span>albert</span>
+          </div>
+          <div class="seed-box">
+            <span>1</span>
+            <span>albert</span>
+          </div>
+          <div class="seed-box">
+            <span>1</span>
+            <span>albert</span>
+          </div>
+          <div class="seed-box">
+            <span>1</span>
+            <span>albert</span>
+          </div>
+          <div class="seed-box">
+            <span>1</span>
+            <span>albert</span>
+          </div>
+          <div class="seed-box">
+            <span>1</span>
+            <span>albert</span>
+          </div>
+          <div class="seed-box">
+            <span>1</span>
+            <span>albert</span>
+          </div>
+          <div class="seed-box">
+            <span>1</span>
+            <span>albert</span>
+          </div>
+        </div>
+
+        <button class="reveal-button" id="reveal-button">Click To Reveal</button>
+
+        <div class="checkbox-container">
+          <div class="checkbox" style="margin-top: 12px">
+            <input type="checkbox" id="copied" />
+            <div class="checkbox-shape"></div>
+            <label for="copied">
+              I have copied this somewhere safe
+            </label>
+          </div>
+        </div>
+        <button
+          id="next-button"
+          class="push-button hidden-button"
+          onclick="location.href='connect.html'"
+          style="margin-top: 60px"
+        >
+          Next
+        </button>
+      </section>
+    </main>
+
+    <footer>
+      <div class="footer-text">
+        <div>By proceeding you acknowledge that this is</div>
+        <div>bleeding-edge software, and agree to the providers</div>
+        <div>
+          <span style="color: #c434e0">terms</span> regarding any services
+          herein.
+        </div>
+      </div>
+      <div class="line"></div>
+      <a href="https://docs.shock.network" class="marked need-help">Need Help?</a>
+    </footer>
+
+    <script src="js/seed.js"></script>
+  </body>
+</html>
