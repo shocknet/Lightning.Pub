@@ -25,6 +25,7 @@ export class LiquidityManager {
     log = getLogger({ component: "liquidityManager" })
     channelRequested = false
     channelRequesting = false
+    feesPaid = 0
     constructor(settings: LiquiditySettings, storage: Storage, liquidityProvider: LiquidityProvider, lnd: LND) {
         this.settings = settings
         this.storage = storage
@@ -34,29 +35,83 @@ export class LiquidityManager {
         this.voltageLSP = new VoltageLSP(settings.lspSettings, lnd, liquidityProvider)
         this.flashsatsLSP = new FlashsatsLSP(settings.lspSettings, lnd, liquidityProvider)
     }
+
+    GetPaidFees = () => {
+        return this.feesPaid
+    }
+
     onNewBlock = async () => {
         const balance = await this.liquidityProvider.GetLatestMaxWithdrawable()
         const { remote } = await this.lnd.ChannelBalance()
-        if (remote > balance) {
+        if (remote > balance && balance > 0) {
             this.log("draining provider balance to channel")
             const invoice = await this.lnd.NewInvoice(balance, "liqudity provider drain", defaultInvoiceExpiry)
             const res = await this.liquidityProvider.PayInvoice(invoice.payRequest)
-            this.log("drained provider balance to channel", res.amount_paid)
+            const fees = res.network_fee + res.service_fee
+            this.log("drained provider balance to channel", res.amount_paid, "fees paid:", fees)
+            this.feesPaid += fees
         }
     }
 
     beforeInvoiceCreation = async (amount: number): Promise<'lnd' | 'provider'> => {
+        if (this.settings.useOnlyLiquidityProvider) {
+            return 'provider'
+        }
+
         const { remote } = await this.lnd.ChannelBalance()
         if (remote > amount) {
             this.log("channel has enough balance for invoice")
             return 'lnd'
         }
+        const providerCanHandle = this.liquidityProvider.CanProviderHandle({ action: 'receive', amount })
+        if (!providerCanHandle) {
+            return 'lnd'
+        }
+
         this.log("channel does not have enough balance for invoice,suggesting provider")
         return 'provider'
     }
+
     afterInInvoicePaid = async () => {
+        try {
+            await this.orderChannelIfNeeded()
+        } catch (e: any) {
+            this.log("error ordering channel", e)
+        }
+    }
+
+    shouldOpenChannel = async (): Promise<{ shouldOpen: false } | { shouldOpen: true, maxSpendable: number }> => {
+        const threshold = this.settings.lspSettings.channelThreshold
+        if (threshold === 0) {
+            this.log("channel threshold is 0")
+            return { shouldOpen: false }
+        }
+        const { remote } = await this.lnd.ChannelBalance()
+        if (remote > threshold) {
+            this.log("remote channel balance is already more than threshold")
+            return { shouldOpen: false }
+        }
+        const pendingChannels = await this.lnd.ListPendingChannels()
+        if (pendingChannels.pendingOpenChannels.length > 0) {
+            this.log("pending open channels detected, liquidiity might be on the way")
+            return { shouldOpen: false }
+        }
+        const userState = await this.liquidityProvider.CheckUserState()
+        if (!userState || userState.max_withdrawable < threshold) {
+            this.log("balance of", userState?.max_withdrawable || 0, "is lower than channel threshold of", threshold)
+            return { shouldOpen: false }
+        }
+        return { shouldOpen: true, maxSpendable: userState.max_withdrawable }
+    }
+
+    orderChannelIfNeeded = async () => {
         const existingOrder = await this.storage.liquidityStorage.GetLatestLspOrder()
-        if (existingOrder) {
+        if (existingOrder && existingOrder.created_at > new Date(Date.now() - 20 * 60 * 1000)) {
+            this.log("most recent lsp order is less than 20 minutes old")
+            return
+        }
+        const shouldOpen = await this.shouldOpenChannel()
+        if (!shouldOpen.shouldOpen) {
             return
         }
         if (this.channelRequested || this.channelRequesting) {
@@ -64,28 +119,31 @@ export class LiquidityManager {
         }
         this.channelRequesting = true
         this.log("checking if channel should be requested")
-        const olympusOk = await this.olympusLSP.openChannelIfReady()
+        const olympusOk = await this.olympusLSP.requestChannel(shouldOpen.maxSpendable)
         if (olympusOk) {
             this.log("requested channel from olympus")
             this.channelRequested = true
             this.channelRequesting = false
+            this.feesPaid += olympusOk.fees
             await this.storage.liquidityStorage.SaveLspOrder({ service_name: 'olympus', invoice: olympusOk.invoice, total_paid: olympusOk.totalSats, order_id: olympusOk.orderId, fees: olympusOk.fees })
             return
         }
-        const voltageOk = await this.voltageLSP.openChannelIfReady()
+        const voltageOk = await this.voltageLSP.requestChannel(shouldOpen.maxSpendable)
         if (voltageOk) {
             this.log("requested channel from voltage")
             this.channelRequested = true
             this.channelRequesting = false
+            this.feesPaid += voltageOk.fees
             await this.storage.liquidityStorage.SaveLspOrder({ service_name: 'voltage', invoice: voltageOk.invoice, total_paid: voltageOk.totalSats, order_id: voltageOk.orderId, fees: voltageOk.fees })
             return
         }
 
-        const flashsatsOk = await this.flashsatsLSP.openChannelIfReady()
+        const flashsatsOk = await this.flashsatsLSP.requestChannel(shouldOpen.maxSpendable)
         if (flashsatsOk) {
             this.log("requested channel from flashsats")
             this.channelRequested = true
             this.channelRequesting = false
+            this.feesPaid += flashsatsOk.fees
             await this.storage.liquidityStorage.SaveLspOrder({ service_name: 'flashsats', invoice: flashsatsOk.invoice, total_paid: flashsatsOk.totalSats, order_id: flashsatsOk.orderId, fees: flashsatsOk.fees })
             return
         }
@@ -94,6 +152,10 @@ export class LiquidityManager {
     }
 
     beforeOutInvoicePayment = async (amount: number): Promise<'lnd' | 'provider'> => {
+        if (this.settings.useOnlyLiquidityProvider) {
+            return 'provider'
+        }
+
         const balance = await this.liquidityProvider.GetLatestMaxWithdrawable(true)
         if (balance > amount) {
             this.log("provider has enough balance for payment")

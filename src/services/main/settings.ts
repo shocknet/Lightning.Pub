@@ -58,7 +58,7 @@ export const LoadMainSettingsFromEnv = (): MainSettings => {
 }
 
 export const LoadTestSettingsFromEnv = (): TestSettings => {
-    const eventLogPath = `logs/eventLogV2Test${Date.now()}.csv`
+    const eventLogPath = `logs/eventLogV3Test${Date.now()}.csv`
     const settings = LoadMainSettingsFromEnv()
     return {
         ...settings,

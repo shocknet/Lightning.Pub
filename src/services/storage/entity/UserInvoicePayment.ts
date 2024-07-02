@@ -34,6 +34,11 @@ export class UserInvoicePayment {
     @ManyToOne(type => Application, { eager: true })
     linkedApplication: Application | null
 
+    @Column({
+        nullable: true,
+    })
+    liquidityProvider?: string
+
     @CreateDateColumn()
     created_at: Date
 

@@ -14,7 +14,7 @@ export type StorageSettings = {
     dataDir: string
 }
 export const LoadStorageSettingsFromEnv = (): StorageSettings => {
-    return { dbSettings: LoadDbSettingsFromEnv(), eventLogPath: "logs/eventLogV2.csv", dataDir: process.env.DATA_DIR || "" }
+    return { dbSettings: LoadDbSettingsFromEnv(), eventLogPath: "logs/eventLogV3.csv", dataDir: process.env.DATA_DIR || "" }
 }
 export default class {
     DB: DataSource | EntityManager

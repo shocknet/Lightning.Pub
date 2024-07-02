@@ -103,3 +103,12 @@ export const disableLoggers = (appNamesToDisable: string[], componentsToDisable:
     disabledApps.push(...appNamesToDisable)
     disabledComponents.push(...componentsToDisable)
 }
+const disableFromEnv = () => {
+    const disabledApps = process.env.HIDE_LOGS
+    if (disabledApps) {
+        const loggers = disabledApps.split(" ")
+        resetDisabledLoggers()
+        disableLoggers(loggers, loggers)
+    }
+}
+disableFromEnv()

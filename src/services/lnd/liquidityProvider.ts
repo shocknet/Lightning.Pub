@@ -6,11 +6,11 @@ import { getLogger } from '../helpers/logger.js'
 import { NostrEvent, NostrSend } from '../nostr/handler.js'
 import { relayInit } from '../nostr/tools/relay.js'
 import { InvoicePaidCb } from './settings.js'
-
 export type LiquidityRequest = { action: 'spend' | 'receive', amount: number }
 
 export type nostrCallback<T> = { startedAtMillis: number, type: 'single' | 'stream', f: (res: T) => void }
 export class LiquidityProvider {
+
     client: ReturnType<typeof newNostrClient>
     clientCbs: Record<string, nostrCallback<any>> = {}
     clientId: string = ""
@@ -24,13 +24,14 @@ export class LiquidityProvider {
     invoicePaidCb: InvoicePaidCb
     connecting = false
     readyInterval: NodeJS.Timeout
+    queue: ((state: 'ready') => void)[] = []
     // make the sub process accept client
     constructor(pubDestination: string, invoicePaidCb: InvoicePaidCb) {
         if (!pubDestination) {
             this.log("No pub provider to liquidity provider, will not be initialized")
             return
         }
-        this.log("connecting to liquidity provider", pubDestination)
+        this.log("connecting to liquidity provider:", pubDestination)
         this.pubDestination = pubDestination
         this.invoicePaidCb = invoicePaidCb
         this.client = newNostrClient({
@@ -46,6 +47,22 @@ export class LiquidityProvider {
         }, 1000)
     }
 
+    GetProviderDestination() {
+        return this.pubDestination
+    }
+
+    AwaitProviderReady = async (): Promise<'inactive' | 'ready'> => {
+        if (!this.pubDestination) {
+            return 'inactive'
+        }
+        if (this.latestMaxWithdrawable !== null) {
+            return 'ready'
+        }
+        return new Promise<'ready'>(res => {
+            this.queue.push(res)
+        })
+    }
+
     Stop = () => {
         clearInterval(this.readyInterval)
     }
@@ -57,6 +74,7 @@ export class LiquidityProvider {
         if (this.latestMaxWithdrawable === null) {
             return
         }
+        this.queue.forEach(q => q('ready'))
         this.log("subbing to user operations")
         this.client.GetLiveUserOperations(res => {
             console.log("got user operation", res)
@@ -73,6 +91,9 @@ export class LiquidityProvider {
     }
 
     GetLatestMaxWithdrawable = async (fetch = false) => {
+        if (!this.pubDestination) {
+            return 0
+        }
         if (this.latestMaxWithdrawable === null) {
             this.log("liquidity provider is not ready yet")
             return 0
@@ -84,6 +105,9 @@ export class LiquidityProvider {
     }
 
     GetLatestBalance = async (fetch = false) => {
+        if (!this.pubDestination) {
+            return 0
+        }
         if (this.latestMaxWithdrawable === null) {
             this.log("liquidity provider is not ready yet")
             return 0
@@ -117,6 +141,9 @@ export class LiquidityProvider {
     }
 
     AddInvoice = async (amount: number, memo: string) => {
+        if (this.latestMaxWithdrawable === null) {
+            throw new Error("liquidity provider is not ready yet")
+        }
         const res = await this.client.NewInvoice({ amountSats: amount, memo })
         if (res.status === 'ERROR') {
             this.log("error creating invoice", res.reason)
@@ -128,6 +155,9 @@ export class LiquidityProvider {
     }
 
     PayInvoice = async (invoice: string) => {
+        if (this.latestMaxWithdrawable === null) {
+            throw new Error("liquidity provider is not ready yet")
+        }
         const res = await this.client.PayInvoice({ invoice, amount: 0 })
         if (res.status === 'ERROR') {
             this.log("error paying invoice", res.reason)
@@ -138,7 +168,24 @@ export class LiquidityProvider {
         return res
     }
 
+    GetOperations = async () => {
+        if (this.latestMaxWithdrawable === null) {
+            throw new Error("liquidity provider is not ready yet")
+        }
+        const res = await this.client.GetUserOperations({
+            latestIncomingInvoice: 0, latestOutgoingInvoice: 0,
+            latestIncomingTx: 0, latestOutgoingTx: 0, latestIncomingUserToUserPayment: 0,
+            latestOutgoingUserToUserPayment: 0, max_size: 200
+        })
+        if (res.status === 'ERROR') {
+            this.log("error getting operations", res.reason)
+            throw new Error(res.reason)
+        }
+        return res
+    }
+
     setNostrInfo = ({ clientId, myPub }: { myPub: string, clientId: string }) => {
+        this.log("setting nostr info")
         this.clientId = clientId
         this.myPub = myPub
         this.setSetIfReady()
@@ -147,6 +194,7 @@ export class LiquidityProvider {
 
 
     attachNostrSend(f: NostrSend) {
+        this.log("attaching nostrSend action")
         this.nostrSend = f
         this.setSetIfReady()
     }

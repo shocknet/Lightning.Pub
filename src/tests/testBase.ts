@@ -46,15 +46,15 @@ export const SetupTest = async (d: Describe): Promise<TestBase> => {
     const user2 = { userId: u2.info.userId, appUserIdentifier: u2.identifier, appId: app.appId }
 
 
-    const externalAccessToMainLnd = new LND(settings.lndSettings, { liquidProvider: new LiquidityProvider("", () => { }) }, console.log, console.log, () => { }, () => { })
+    const externalAccessToMainLnd = new LND(settings.lndSettings, new LiquidityProvider("", () => { }), console.log, console.log, () => { }, () => { })
     await externalAccessToMainLnd.Warmup()
 
     const otherLndSetting = { ...settings.lndSettings, mainNode: settings.lndSettings.otherNode }
-    const externalAccessToOtherLnd = new LND(otherLndSetting, { liquidProvider: new LiquidityProvider("", () => { }) }, console.log, console.log, () => { }, () => { })
+    const externalAccessToOtherLnd = new LND(otherLndSetting, new LiquidityProvider("", () => { }), console.log, console.log, () => { }, () => { })
     await externalAccessToOtherLnd.Warmup()
 
     const thirdLndSetting = { ...settings.lndSettings, mainNode: settings.lndSettings.thirdNode }
-    const externalAccessToThirdLnd = new LND(thirdLndSetting, { liquidProvider: new LiquidityProvider("", () => { }) }, console.log, console.log, () => { }, () => { })
+    const externalAccessToThirdLnd = new LND(thirdLndSetting, new LiquidityProvider("", () => { }), console.log, console.log, () => { }, () => { })
     await externalAccessToThirdLnd.Warmup()
 
 

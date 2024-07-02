@@ -5,6 +5,7 @@ import { LiquidityProvider } from "../lnd/liquidityProvider.js";
 import LND from "../lnd/lnd.js";
 import { ChannelBalance } from "../lnd/settings.js";
 import Storage from '../storage/index.js'
+import { LiquidityManager } from "./liquidityManager.js";
 export type WatchdogSettings = {
     maxDiffSats: number
 }
@@ -22,17 +23,19 @@ export class Watchdog {
     accumulatedHtlcFees: number;
     lnd: LND;
     liquidProvider: LiquidityProvider;
+    liquidityManager: LiquidityManager;
     settings: WatchdogSettings;
     storage: Storage;
     latestCheckStart = 0
     log = getLogger({ component: "watchdog" })
     ready = false
     interval: NodeJS.Timer;
-    constructor(settings: WatchdogSettings, lnd: LND, storage: Storage) {
+    constructor(settings: WatchdogSettings, liquidityManager: LiquidityManager, lnd: LND, storage: Storage) {
         this.lnd = lnd;
         this.settings = settings;
         this.storage = storage;
         this.liquidProvider = lnd.liquidProvider
+        this.liquidityManager = liquidityManager
         this.queue = new FunctionQueue("watchdog_queue", () => this.StartCheck())
     }
 
@@ -41,11 +44,34 @@ export class Watchdog {
             clearInterval(this.interval)
         }
     }
-
     Start = async () => {
+        const result = await Promise.race([
+            this.liquidProvider.AwaitProviderReady(),
+            new Promise<'failed'>((res, rej) => {
+                setTimeout(() => {
+                    this.log("Provider did not become ready in time, starting without it")
+                    res('failed')
+                }, 3 * 60 * 1000)
+            })
+        ])
+
+        let providerBalance = 0
+        if (result === 'ready') {
+            providerBalance = await this.liquidProvider.GetLatestBalance()
+        }
+        try {
+            await this.StartWatching(providerBalance)
+        } catch (err: any) {
+            this.log("Failed to start watchdog", err.message || err)
+            throw err
+        }
+
+    }
+    StartWatching = async (providerBalance: number) => {
+        this.log("Starting watchdog")
         this.startedAtUnix = Math.floor(Date.now() / 1000)
         const totalUsersBalance = await this.storage.paymentStorage.GetTotalUsersBalance()
-        this.initialLndBalance = await this.getTotalLndBalance(totalUsersBalance)
+        this.initialLndBalance = await this.getTotalLndBalance(totalUsersBalance, providerBalance)
         this.initialUsersBalance = totalUsersBalance
         const fwEvents = await this.lnd.GetForwardingHistory(0, this.startedAtUnix)
         this.latestIndexOffset = fwEvents.lastOffsetIndex
@@ -72,15 +98,15 @@ export class Watchdog {
 
 
 
-    getTotalLndBalance = async (usersTotal: number) => {
+    getTotalLndBalance = async (usersTotal: number, providerBalance: number) => {
         const walletBalance = await this.lnd.GetWalletBalance()
         this.log(Number(walletBalance.confirmedBalance), "sats in chain wallet")
         const channelsBalance = await this.lnd.GetChannelBalance()
-        getLogger({ component: "debugLndBalancev3" })({ w: walletBalance, c: channelsBalance, u: usersTotal, f: this.accumulatedHtlcFees })
+        // getLogger({ component: "debugLndBalancev3" })({ w: walletBalance, c: channelsBalance, u: usersTotal, f: this.accumulatedHtlcFees })
         const totalLightningBalanceMsats = (channelsBalance.localBalance?.msat || 0n) + (channelsBalance.unsettledLocalBalance?.msat || 0n)
         const totalLightningBalance = Math.ceil(Number(totalLightningBalanceMsats) / 1000)
-        const providerBalance = await this.liquidProvider.GetLatestBalance()
-        return Number(walletBalance.confirmedBalance) + totalLightningBalance + providerBalance
+        const feesPaidForLiquidity = this.liquidityManager.GetPaidFees()
+        return Number(walletBalance.confirmedBalance) + totalLightningBalance + providerBalance + feesPaidForLiquidity
     }
 
     checkBalanceUpdate = (deltaLnd: number, deltaUsers: number) => {
@@ -138,7 +164,8 @@ export class Watchdog {
         this.latestCheckStart = Date.now()
         await this.updateAccumulatedHtlcFees()
         const totalUsersBalance = await this.storage.paymentStorage.GetTotalUsersBalance()
-        const totalLndBalance = await this.getTotalLndBalance(totalUsersBalance)
+        const providerBalance = await this.liquidProvider.GetLatestBalance()
+        const totalLndBalance = await this.getTotalLndBalance(totalUsersBalance, providerBalance)
         const deltaLnd = totalLndBalance - (this.initialLndBalance + this.accumulatedHtlcFees)
         const deltaUsers = totalUsersBalance - this.initialUsersBalance
         const deny = this.checkBalanceUpdate(deltaLnd, deltaUsers)

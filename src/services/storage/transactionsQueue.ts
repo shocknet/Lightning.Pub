@@ -20,21 +20,17 @@ export default class {
 
     PushToQueue<T>(op: TxOperation<T>) {
         if (!this.pendingTx) {
-            this.log("queue empty, starting transaction", this.transactionsQueue.length)
             return this.execQueueItem(op)
         }
-        this.log("queue not empty, possibly stuck")
         return new Promise<T>((res, rej) => {
             this.transactionsQueue.push({ op, res, rej })
         })
     }
 
     async execNextInQueue() {
-        this.log("executing next in queue")
         this.pendingTx = false
         const next = this.transactionsQueue.pop()
         if (!next) {
-            this.log("queue is clear")
             return
         }
         try {
@@ -51,7 +47,6 @@ export default class {
             throw new Error("cannot start DB transaction")
         }
         this.pendingTx = true
-        this.log("starting", op.dbTx ? "db transaction" : "operation", op.description || "")
         if (op.dbTx) {
             return this.doTransaction(op.exec)
         }

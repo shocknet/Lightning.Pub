@@ -36,8 +36,7 @@ export default class {
     log = getLogger({ component: 'lndManager' })
     outgoingOpsLocked = false
     liquidProvider: LiquidityProvider
-    useOnlyLiquidityProvider = false
-    constructor(settings: LndSettings, provider: { liquidProvider: LiquidityProvider, useOnly?: boolean }, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb, newBlockCb: NewBlockCb, htlcCb: HtlcCb) {
+    constructor(settings: LndSettings, liquidProvider: LiquidityProvider, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb, newBlockCb: NewBlockCb, htlcCb: HtlcCb) {
         this.settings = settings
         this.addressPaidCb = addressPaidCb
         this.invoicePaidCb = invoicePaidCb
@@ -63,8 +62,7 @@ export default class {
         this.invoices = new InvoicesClient(transport)
         this.router = new RouterClient(transport)
         this.chainNotifier = new ChainNotifierClient(transport)
-        this.liquidProvider = provider.liquidProvider
-        this.useOnlyLiquidityProvider = !!provider.useOnly
+        this.liquidProvider = liquidProvider
     }
 
     LockOutgoingOperations(): void {
@@ -82,20 +80,6 @@ export default class {
         this.liquidProvider.Stop()
     }
 
-    async ShouldUseLiquidityProvider(req: LiquidityRequest): Promise<boolean> {
-        if (this.useOnlyLiquidityProvider) {
-            return true
-        }
-        if (!this.liquidProvider.CanProviderHandle(req)) {
-            return false
-        }
-        const channels = await this.ListChannels()
-        if (channels.channels.length === 0) {
-            this.log("no channels, will use liquidity provider")
-            return true
-        }
-        return false
-    }
     async Warmup() {
         this.SubscribeAddressPaid()
         this.SubscribeInvoicePaid()
@@ -272,12 +256,12 @@ export default class {
     async NewInvoice(value: number, memo: string, expiry: number, useProvider = false): Promise<Invoice> {
         this.log("generating new invoice for", value, "sats")
         await this.Health()
-        const shouldUseLiquidityProvider = await this.ShouldUseLiquidityProvider({ action: 'receive', amount: value })
-        if (shouldUseLiquidityProvider || useProvider) {
+        if (useProvider) {
             const invoice = await this.liquidProvider.AddInvoice(value, memo)
-            return { payRequest: invoice }
+            const providerDst = this.liquidProvider.GetProviderDestination()
+            return { payRequest: invoice, providerDst }
         }
-        const res = await this.lightning.addInvoice(AddInvoiceReq(value, expiry, false, memo), DeadLineMetadata())
+        const res = await this.lightning.addInvoice(AddInvoiceReq(value, expiry, true, memo), DeadLineMetadata())
         this.log("new invoice", res.response.paymentRequest)
         return { payRequest: res.response.paymentRequest }
     }
@@ -306,11 +290,11 @@ export default class {
             throw new Error("lnd node is currently out of sync")
         }
         await this.Health()
-        this.log("paying invoice", invoice, "for", amount, "sats")
-        const shouldUseLiquidityProvider = await this.ShouldUseLiquidityProvider({ action: 'spend', amount })
-        if (shouldUseLiquidityProvider || useProvider) {
+        this.log("paying invoice", invoice, "for", amount, "sats with", useProvider ? 'provider' : 'lnd')
+        if (useProvider) {
             const res = await this.liquidProvider.PayInvoice(invoice)
-            return { feeSat: res.network_fee + res.service_fee, valueSat: res.amount_paid, paymentPreimage: res.preimage }
+            const providerDst = this.liquidProvider.GetProviderDestination()
+            return { feeSat: res.network_fee + res.service_fee, valueSat: res.amount_paid, paymentPreimage: res.preimage, providerDst }
         }
         const abortController = new AbortController()
         const req = PayInvoiceReq(invoice, amount, feeLimit)
@@ -330,6 +314,9 @@ export default class {
                     case Payment_PaymentStatus.SUCCEEDED:
                         this.log("invoice payment succeded", Number(payment.valueSat))
                         res({ feeSat: Math.ceil(Number(payment.feeMsat) / 1000), valueSat: Number(payment.valueSat), paymentPreimage: payment.paymentPreimage })
+                        return
+                    default:
+                        this.log("inflight payment update index", Number(payment.paymentIndex), Payment_PaymentStatus[payment.status])
                 }
             })
         })
