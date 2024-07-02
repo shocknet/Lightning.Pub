@@ -290,7 +290,7 @@ export default class {
             throw new Error("lnd node is currently out of sync")
         }
         await this.Health()
-        this.log("paying invoice", invoice, "for", amount, "sats")
+        this.log("paying invoice", invoice, "for", amount, "sats with", useProvider ? 'provider' : 'lnd')
         if (useProvider) {
             const res = await this.liquidProvider.PayInvoice(invoice)
             const providerDst = this.liquidProvider.GetProviderDestination()
@@ -314,6 +314,9 @@ export default class {
                     case Payment_PaymentStatus.SUCCEEDED:
                         this.log("invoice payment succeded", Number(payment.valueSat))
                         res({ feeSat: Math.ceil(Number(payment.feeMsat) / 1000), valueSat: Number(payment.valueSat), paymentPreimage: payment.paymentPreimage })
+                        return
+                    default:
+                        this.log("inflight payment update index", Number(payment.paymentIndex), Payment_PaymentStatus[payment.status])
                 }
             })
         })

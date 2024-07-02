@@ -71,6 +71,7 @@ export class LiquidityManager {
         this.log("channel does not have enough balance for invoice,suggesting provider")
         return 'provider'
     }
+
     afterInInvoicePaid = async () => {
         try {
             await this.orderChannelIfNeeded()
@@ -78,9 +79,39 @@ export class LiquidityManager {
             this.log("error ordering channel", e)
         }
     }
+
+    shouldOpenChannel = async (): Promise<{ shouldOpen: false } | { shouldOpen: true, maxSpendable: number }> => {
+        const threshold = this.settings.lspSettings.channelThreshold
+        if (threshold === 0) {
+            this.log("channel threshold is 0")
+            return { shouldOpen: false }
+        }
+        const { remote } = await this.lnd.ChannelBalance()
+        if (remote > threshold) {
+            this.log("remote channel balance is already more than threshold")
+            return { shouldOpen: false }
+        }
+        const pendingChannels = await this.lnd.ListPendingChannels()
+        if (pendingChannels.pendingOpenChannels.length > 0) {
+            this.log("pending open channels detected, liquidiity might be on the way")
+            return { shouldOpen: false }
+        }
+        const userState = await this.liquidityProvider.CheckUserState()
+        if (!userState || userState.max_withdrawable < threshold) {
+            this.log("balance of", userState?.max_withdrawable || 0, "is lower than channel threshold of", threshold)
+            return { shouldOpen: false }
+        }
+        return { shouldOpen: true, maxSpendable: userState.max_withdrawable }
+    }
+
     orderChannelIfNeeded = async () => {
         const existingOrder = await this.storage.liquidityStorage.GetLatestLspOrder()
-        if (existingOrder) {
+        if (existingOrder && existingOrder.created_at > new Date(Date.now() - 20 * 60 * 1000)) {
+            this.log("most recent lsp order is less than 20 minutes old")
+            return
+        }
+        const shouldOpen = await this.shouldOpenChannel()
+        if (!shouldOpen.shouldOpen) {
             return
         }
         if (this.channelRequested || this.channelRequesting) {
@@ -88,7 +119,7 @@ export class LiquidityManager {
         }
         this.channelRequesting = true
         this.log("checking if channel should be requested")
-        const olympusOk = await this.olympusLSP.openChannelIfReady()
+        const olympusOk = await this.olympusLSP.requestChannel(shouldOpen.maxSpendable)
         if (olympusOk) {
             this.log("requested channel from olympus")
             this.channelRequested = true
@@ -97,7 +128,7 @@ export class LiquidityManager {
             await this.storage.liquidityStorage.SaveLspOrder({ service_name: 'olympus', invoice: olympusOk.invoice, total_paid: olympusOk.totalSats, order_id: olympusOk.orderId, fees: olympusOk.fees })
             return
         }
-        const voltageOk = await this.voltageLSP.openChannelIfReady()
+        const voltageOk = await this.voltageLSP.requestChannel(shouldOpen.maxSpendable)
         if (voltageOk) {
             this.log("requested channel from voltage")
             this.channelRequested = true
@@ -107,7 +138,7 @@ export class LiquidityManager {
             return
         }
 
-        const flashsatsOk = await this.flashsatsLSP.openChannelIfReady()
+        const flashsatsOk = await this.flashsatsLSP.requestChannel(shouldOpen.maxSpendable)
         if (flashsatsOk) {
             this.log("requested channel from flashsats")
             this.channelRequested = true
