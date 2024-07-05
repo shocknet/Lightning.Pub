@@ -2,7 +2,7 @@
 
 install_lightning_pub() {
   log "${PRIMARY_COLOR}Installing${RESET_COLOR} ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR}..."
-  REPO_URL="https://github.com/shocknet/Lightning.Pub/tarball/master"
+  REPO_URL="https://github.com/shocknet/Lightning.Pub/tarball/fix/bootstrap"
   wget $REPO_URL -O lightning_pub.tar.gz > /dev/null 2>&1 || {
     log "${PRIMARY_COLOR}Failed to download Lightning.Pub.${RESET_COLOR}"
     exit 1
