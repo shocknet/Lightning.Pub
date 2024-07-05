@@ -2,7 +2,6 @@
 set -e
 
 BASE_URL="https://raw.githubusercontent.com/shocknet/Lightning.Pub/fix/bootstrap/scripts/"
-
 modules=(
   "utils"
   "check_homebrew"
@@ -13,6 +12,7 @@ modules=(
   "install_nodejs"
   "install_lightning_pub"
   "start_services"
+  "extract_nprofile"  # Add extract_nprofile to the modules array
 )
 
 for module in "${modules[@]}"; do
@@ -40,4 +40,5 @@ else
   install_nodejs
   install_lightning_pub
   start_services
+  get_log_info
 fi
