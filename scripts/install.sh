@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-BASE_URL="https://raw.githubusercontent.com/shocknet/Lightning.Pub/master/scripts"
+BASE_URL="https://raw.githubusercontent.com/shocknet/Lightning.Pub/fix/bootstrap/scripts/"
 
 modules=(
   "utils"
