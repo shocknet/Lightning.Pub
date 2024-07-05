@@ -3,8 +3,10 @@
 install_lnd() {
   if [ "$EUID" -eq 0 ]; then
     USER_HOME=$(getent passwd ${SUDO_USER} | cut -d: -f6)
+    USER_NAME=$SUDO_USER
   else
     USER_HOME=$HOME
+    USER_NAME=$(whoami)
   fi
 
   # Improved version extraction logic
@@ -38,7 +40,7 @@ install_lnd() {
   log "${PRIMARY_COLOR}Downloading${RESET_COLOR} ${SECONDARY_COLOR}LND${RESET_COLOR}..."
 
   # Start the download
-  wget -q $LND_URL -O lnd.tar.gz || {
+  sudo -u $USER_NAME wget -q $LND_URL -O $USER_HOME/lnd.tar.gz || {
     log "${PRIMARY_COLOR}Failed to download LND.${RESET_COLOR}"
     exit 1
   }
@@ -53,26 +55,26 @@ install_lnd() {
     log "${PRIMARY_COLOR}systemctl not found. Please stop ${SECONDARY_COLOR}LND${RESET_COLOR} manually if it is running.${RESET_COLOR}"
   fi
 
-  tar -xzf lnd.tar.gz -C $USER_HOME > /dev/null || {
+  sudo -u $USER_NAME tar -xzf $USER_HOME/lnd.tar.gz -C $USER_HOME > /dev/null || {
     log "${PRIMARY_COLOR}Failed to extract LND.${RESET_COLOR}"
     exit 1
   }
-  rm lnd.tar.gz
-  mv $USER_HOME/lnd-* $USER_HOME/lnd
+  rm $USER_HOME/lnd.tar.gz
+  sudo -u $USER_NAME mv $USER_HOME/lnd-* $USER_HOME/lnd
 
   # Create .lnd directory if it doesn't exist
-  mkdir -p $USER_HOME/.lnd
+  sudo -u $USER_NAME mkdir -p $USER_HOME/.lnd
 
   # Check if lnd.conf already exists and avoid overwriting it
   if [ -f $USER_HOME/.lnd/lnd.conf ]; then
     log "${PRIMARY_COLOR}lnd.conf already exists. Skipping creation of new lnd.conf file.${RESET_COLOR}"
   else
-    cat <<EOF > $USER_HOME/.lnd/lnd.conf
+    sudo -u $USER_NAME bash -c "cat <<EOF > $USER_HOME/.lnd/lnd.conf
 bitcoin.mainnet=true
 bitcoin.node=neutrino
 neutrino.addpeer=neutrino.shock.network
 feeurl=https://nodes.lightning.computer/fees/v1/btc-fee-estimates.json
-EOF
+EOF"
   fi
 
   log "${SECONDARY_COLOR}LND${RESET_COLOR} installation and configuration completed."
