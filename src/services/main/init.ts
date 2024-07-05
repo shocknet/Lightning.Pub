@@ -1,5 +1,6 @@
 import { PubLogger, getLogger } from "../helpers/logger.js"
 import { LiquidityProvider } from "../lnd/liquidityProvider.js"
+import { Unlocker } from "./unlocker.js"
 import Storage from "../storage/index.js"
 import { TypeOrmMigrationRunner } from "../storage/migrations/runner.js"
 import Main from "./index.js"
@@ -17,6 +18,8 @@ export const initMainHandler = async (log: PubLogger, mainSettings: MainSettings
     if (manualMigration) {
         return
     }
+    const unlocker = new Unlocker(mainSettings, storageManager)
+    await unlocker.Unlock()
 
     const mainHandler = new Main(mainSettings, storageManager)
     await mainHandler.lnd.Warmup()
