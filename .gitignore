@@ -11,3 +11,5 @@ metrics.sqlite
 .key/
 logs
 .jwt_secret
+data/
+.wallet_secret
