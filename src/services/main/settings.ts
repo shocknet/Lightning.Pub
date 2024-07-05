@@ -13,6 +13,7 @@ export type MainSettings = {
     watchDogSettings: WatchdogSettings,
     liquiditySettings: LiquiditySettings,
     jwtSecret: string
+    walletSecretPath: string
     incomingTxFee: number
     outgoingTxFee: number
     incomingAppInvoiceFee: number
@@ -27,11 +28,13 @@ export type MainSettings = {
     skipSanityCheck: boolean
     disableExternalPayments: boolean
 }
+
 export type BitcoinCoreSettings = {
     port: number
     user: string
     pass: string
 }
+
 export type TestSettings = MainSettings & { lndSettings: { otherNode: NodeSettings, thirdNode: NodeSettings, fourthNode: NodeSettings }, bitcoinCoreSettings: BitcoinCoreSettings }
 export const LoadMainSettingsFromEnv = (): MainSettings => {
     const storageSettings = LoadStorageSettingsFromEnv()
@@ -41,6 +44,7 @@ export const LoadMainSettingsFromEnv = (): MainSettings => {
         storageSettings: storageSettings,
         liquiditySettings: LoadLiquiditySettingsFromEnv(),
         jwtSecret: loadJwtSecret(storageSettings.dataDir),
+        walletSecretPath: process.env.WALLET_SECRET_PATH || getDataPath(storageSettings.dataDir, ".wallet_secret"),
         incomingTxFee: EnvCanBeInteger("INCOMING_CHAIN_FEE_ROOT_BPS", 0) / 10000,
         outgoingTxFee: EnvCanBeInteger("OUTGOING_CHAIN_FEE_ROOT_BPS", 60) / 10000,
         incomingAppInvoiceFee: EnvCanBeInteger("INCOMING_INVOICE_FEE_ROOT_BPS", 0) / 10000,
@@ -101,7 +105,7 @@ export const loadJwtSecret = (dataDir: string): string => {
         return secret
     }
     log("JWT_SECRET not set in env, checking .jwt_secret file")
-    const secretPath = dataDir !== "" ? `${dataDir}/.jwt_secret` : ".jwt_secret"
+    const secretPath = getDataPath(dataDir, ".jwt_secret")
     try {
         const fileContent = fs.readFileSync(secretPath, "utf-8")
         return fileContent.trim()
@@ -111,4 +115,8 @@ export const loadJwtSecret = (dataDir: string): string => {
         fs.writeFileSync(secretPath, secret)
         return secret
     }
+}
+
+export const getDataPath = (dataDir: string, dataPath: string) => {
+    return dataDir !== "" ? `${dataDir}/${dataPath}` : dataPath
 }

@@ -6,7 +6,8 @@ import { LndMetrics1703170330183 } from './1703170330183-lnd_metrics.js'
 import { ChannelRouting1709316653538 } from './1709316653538-channel_routing.js'
 import { LspOrder1718387847693 } from './1718387847693-lsp_order.js'
 import { LiquidityProvider1719335699480 } from './1719335699480-liquidity_provider.js'
-const allMigrations = [Initial1703170309875, LspOrder1718387847693, LiquidityProvider1719335699480]
+import { LndNodeInfo1720187506189 } from './1720187506189-lnd_node_info.js'
+const allMigrations = [Initial1703170309875, LspOrder1718387847693, LiquidityProvider1719335699480, LndNodeInfo1720187506189]
 const allMetricsMigrations = [LndMetrics1703170330183, ChannelRouting1709316653538]
 export const TypeOrmMigrationRunner = async (log: PubLogger, storageManager: Storage, settings: DbSettings, arg: string | undefined): Promise<boolean> => {
     if (arg === 'fake_initial_migration') {

@@ -9,7 +9,6 @@ import { EnvMustBeNonEmptyString } from "../helpers/envParser.js"
 import { UserTransactionPayment } from "./entity/UserTransactionPayment.js"
 import { UserBasicAuth } from "./entity/UserBasicAuth.js"
 import { UserEphemeralKey } from "./entity/UserEphemeralKey.js"
-import { Product } from "./entity/Product.js"
 import { UserToUserPayment } from "./entity/UserToUserPayment.js"
 import { Application } from "./entity/Application.js"
 import { ApplicationUser } from "./entity/ApplicationUser.js"
@@ -18,6 +17,8 @@ import { ChannelBalanceEvent } from "./entity/ChannelsBalanceEvent.js"
 import { getLogger } from "../helpers/logger.js"
 import { ChannelRouting } from "./entity/ChannelRouting.js"
 import { LspOrder } from "./entity/LspOrder.js"
+import { Product } from "./entity/Product.js"
+import { LndNodeInfo } from "./entity/LndNodeInfo.js"
 
 
 export type DbSettings = {
@@ -57,7 +58,7 @@ export default async (settings: DbSettings, migrations: Function[]): Promise<{ s
         database: settings.databaseFile,
         // logging: true,
         entities: [User, UserReceivingInvoice, UserReceivingAddress, AddressReceivingTransaction, UserInvoicePayment, UserTransactionPayment,
-            UserBasicAuth, UserEphemeralKey, Product, UserToUserPayment, Application, ApplicationUser, UserToUserPayment, LspOrder],
+            UserBasicAuth, UserEphemeralKey, Product, UserToUserPayment, Application, ApplicationUser, UserToUserPayment, LspOrder, LndNodeInfo],
         //synchronize: true,
         migrations
     }).initialize()
