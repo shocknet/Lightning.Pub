@@ -1,18 +1,28 @@
 #!/bin/bash
 
 install_lightning_pub() {
+  if [ "$EUID" -eq 0 ]; then
+    USER_HOME=$(getent passwd ${SUDO_USER} | cut -d: -f6)
+    USER_NAME=$SUDO_USER
+  else
+    USER_HOME=$HOME
+    USER_NAME=$(whoami)
+  fi
+
   log "${PRIMARY_COLOR}Installing${RESET_COLOR} ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR}..."
   REPO_URL="https://github.com/shocknet/Lightning.Pub/tarball/fix/bootstrap"
-  wget $REPO_URL -O lightning_pub.tar.gz > /dev/null 2>&1 || {
+  
+  sudo -u $USER_NAME wget $REPO_URL -O $USER_HOME/lightning_pub.tar.gz > /dev/null 2>&1 || {
     log "${PRIMARY_COLOR}Failed to download Lightning.Pub.${RESET_COLOR}"
     exit 1
   }
-  mkdir -p lightning_pub_temp
-  tar -xvzf lightning_pub.tar.gz -C lightning_pub_temp --strip-components=1 > /dev/null 2>&1 || {
+  
+  sudo -u $USER_NAME mkdir -p $USER_HOME/lightning_pub_temp
+  sudo -u $USER_NAME tar -xvzf $USER_HOME/lightning_pub.tar.gz -C $USER_HOME/lightning_pub_temp --strip-components=1 > /dev/null 2>&1 || {
     log "${PRIMARY_COLOR}Failed to extract Lightning.Pub.${RESET_COLOR}"
     exit 1
   }
-  rm lightning_pub.tar.gz
+  rm $USER_HOME/lightning_pub.tar.gz
 
   if ! command -v rsync &> /dev/null; then
     log "${PRIMARY_COLOR}rsync not found, installing...${RESET_COLOR}"
