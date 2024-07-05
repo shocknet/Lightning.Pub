@@ -3,8 +3,10 @@
 start_services() {
   if [ "$EUID" -eq 0 ]; then
     USER_HOME=$(getent passwd ${SUDO_USER} | cut -d: -f6)
+    USER_NAME=$SUDO_USER
   else
     USER_HOME=$HOME
+    USER_NAME=$(whoami)
   fi
 
   if [ "$OS" = "Linux" ]; then
@@ -16,7 +18,7 @@ After=network.target
 
 [Service]
 ExecStart=${USER_HOME}/lnd/lnd
-User=$(whoami)
+User=${USER_NAME}
 Restart=always
 
 [Install]
@@ -31,7 +33,7 @@ After=network.target
 [Service]
 ExecStart=/bin/bash -c 'source ${NVM_DIR}/nvm.sh && npm start'
 WorkingDirectory=${USER_HOME}/lightning_pub
-User=$(whoami)
+User=${USER_NAME}
 Restart=always
 
 [Install]
