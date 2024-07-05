@@ -55,12 +55,9 @@ export class Unlocker {
             throw new Error("failed to get lnd info for reason: " + info.failure)
         }
         this.log("wallet is locked, unlocking...")
-        const secret = this.GetWalletSecret(false)
-        if (!secret) {
-            throw new Error("wallet secret not found to unlock wallet")
-        }
         const unlocker = this.GetUnlockerClient(lndCert)
-        await unlocker.unlockWallet({ walletPassword: Buffer.from(secret, 'hex'), recoveryWindow: 0, statelessInit: false, channelBackups: undefined }, DeadLineMetadata())
+        const walletPassword = this.GetWalletPassword()
+        await unlocker.unlockWallet({ walletPassword, recoveryWindow: 0, statelessInit: false, channelBackups: undefined }, DeadLineMetadata())
         const infoAfter = await this.GetLndInfo(ln)
         if (!infoAfter.ok) {
             throw new Error("failed to init lnd wallet " + infoAfter.failure)
@@ -80,8 +77,9 @@ export class Unlocker {
         console.log(seedRes.response.cipherSeedMnemonic)
         console.log(seedRes.response.encipheredSeed)
         this.log("seed created, encrypting and saving...")
-        const { encryptedData, secret } = this.EncryptWalletSeed(seedRes.response.cipherSeedMnemonic)
-        const req = InitWalletReq(secret, seedRes.response.cipherSeedMnemonic)
+        const { encryptedData } = this.EncryptWalletSeed(seedRes.response.cipherSeedMnemonic)
+        const walletPw = this.GetWalletPassword()
+        const req = InitWalletReq(walletPw, seedRes.response.cipherSeedMnemonic)
         const initRes = await unlocker.initWallet(req, DeadLineMetadata(60 * 1000))
         const adminMacaroon = Buffer.from(initRes.response.adminMacaroon).toString('hex')
         const ln = this.GetLightningClient(lndCert, adminMacaroon)
@@ -115,7 +113,7 @@ export class Unlocker {
     }
 
     EncryptWalletSeed = (seed: string[]) => {
-        return this.encrypt(seed.join('+'))
+        return this.encrypt(seed.join('+'), true)
     }
 
     DecryptWalletSeed = (data: { iv: string, encrypted: string }) => {
@@ -129,8 +127,11 @@ export class Unlocker {
         return Buffer.from(this.decrypt(data), 'hex')
     }
 
-    encrypt = (text: string) => {
-        const sec = this.GetWalletSecret(true)
+    encrypt = (text: string, must = false) => {
+        const sec = this.GetWalletSecret(must)
+        if (!sec) {
+            throw new Error("wallet secret not found to encrypt")
+        }
         const secret = Buffer.from(sec, 'hex')
         const iv = crypto.randomBytes(16)
         const cipher = crypto.createCipheriv('aes-256-cbc', secret, iv)
@@ -138,13 +139,13 @@ export class Unlocker {
         const cyData = cipher.update(rawData)
         const encrypted = Buffer.concat([cyData, cipher.final()])
         const encryptedData = { iv: iv.toString('hex'), encrypted: encrypted.toString('hex') }
-        return { encryptedData, secret }
+        return { encryptedData }
     }
 
     decrypt = (data: { iv: string, encrypted: string }) => {
         const sec = this.GetWalletSecret(false)
         if (!sec) {
-            throw new Error("wallet secret not found to decrypt seed")
+            throw new Error("wallet secret not found to decrypt")
         }
         const secret = Buffer.from(sec, 'hex')
         const iv = Buffer.from(data.iv, 'hex')
@@ -164,20 +165,43 @@ export class Unlocker {
             this.log("the wallet secret file was not found")
         }
         if (secret === "" && create) {
+            this.log("creating wallet secret file")
             secret = crypto.randomBytes(32).toString('hex')
             fs.writeFileSync(path, secret)
         }
         return secret
     }
 
+    GetWalletPassword = () => {
+        const path = this.settings.walletPasswordPath
+        let password = Buffer.alloc(0)
+        try {
+            password = fs.readFileSync(path)
+        } catch {
+        }
+        if (password.length === 0) {
+            this.log("no wallet password configured, using wallet secret")
+            const secret = this.GetWalletSecret(false)
+            if (secret === "") {
+                throw new Error("no usable password found")
+            }
+            password = Buffer.from(secret, 'hex')
+        }
+        return password
+    }
+
     subscribeToBackups = async (ln: LightningClient, pub: string) => {
         this.log("subscribing to channel backups for: ", pub)
         const stream = ln.subscribeChannelBackups({}, { abort: this.abortController.signal })
-        stream.responses.onMessage((msg) => {
+        stream.responses.onMessage(async (msg) => {
             if (msg.multiChanBackup) {
                 this.log("received backup, saving")
-                const { encryptedData } = this.EncryptBackup(Buffer.from(msg.multiChanBackup.multiChanBackup))
-                this.storage.liquidityStorage.SaveNodeBackup(pub, JSON.stringify(encryptedData))
+                try {
+                    const { encryptedData } = this.EncryptBackup(Buffer.from(msg.multiChanBackup.multiChanBackup))
+                    await this.storage.liquidityStorage.SaveNodeBackup(pub, JSON.stringify(encryptedData))
+                } catch (err: any) {
+                    this.log("failed to save backup", err.message)
+                }
             }
         })
     }
