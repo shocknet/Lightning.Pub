@@ -1,7 +1,12 @@
 #!/bin/bash
 
 start_services() {
-  USER_HOME=$(eval echo ~$(whoami))
+  if [ "$EUID" -eq 0 ]; then
+    USER_HOME=$(getent passwd ${SUDO_USER} | cut -d: -f6)
+  else
+    USER_HOME=$HOME
+  fi
+
   if [ "$OS" = "Linux" ]; then
     if [ "$SYSTEMCTL_AVAILABLE" = true ]; then
       sudo bash -c "cat > /etc/systemd/system/lnd.service <<EOF
