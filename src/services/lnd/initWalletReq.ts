@@ -1,9 +1,9 @@
 import { InitWalletRequest } from "../../../proto/lnd/walletunlocker";
 
 
-export const InitWalletReq = (secret: Buffer, cipherSeedMnemonic: string[]): InitWalletRequest => ({
+export const InitWalletReq = (walletPw: Buffer, cipherSeedMnemonic: string[]): InitWalletRequest => ({
     aezeedPassphrase: Buffer.alloc(0),
-    walletPassword: secret,
+    walletPassword: walletPw,
     cipherSeedMnemonic,
     extendedMasterKey: "",
     extendedMasterKeyBirthdayTimestamp: 0n,

@@ -13,6 +13,7 @@ export type MainSettings = {
     watchDogSettings: WatchdogSettings,
     liquiditySettings: LiquiditySettings,
     jwtSecret: string
+    walletPasswordPath: string
     walletSecretPath: string
     incomingTxFee: number
     outgoingTxFee: number
@@ -45,6 +46,7 @@ export const LoadMainSettingsFromEnv = (): MainSettings => {
         liquiditySettings: LoadLiquiditySettingsFromEnv(),
         jwtSecret: loadJwtSecret(storageSettings.dataDir),
         walletSecretPath: process.env.WALLET_SECRET_PATH || getDataPath(storageSettings.dataDir, ".wallet_secret"),
+        walletPasswordPath: process.env.WALLET_PASSWORD_PATH || getDataPath(storageSettings.dataDir, ".wallet_password"),
         incomingTxFee: EnvCanBeInteger("INCOMING_CHAIN_FEE_ROOT_BPS", 0) / 10000,
         outgoingTxFee: EnvCanBeInteger("OUTGOING_CHAIN_FEE_ROOT_BPS", 60) / 10000,
         incomingAppInvoiceFee: EnvCanBeInteger("INCOMING_INVOICE_FEE_ROOT_BPS", 0) / 10000,
