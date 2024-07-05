@@ -13,3 +13,4 @@ logs
 .jwt_secret
 data/
 .wallet_secret
+.wallet_password
