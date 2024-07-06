@@ -17,6 +17,7 @@ get_log_info() {
     ls -1t ${LOG_DIR}/components/nostrMiddleware_*.log 2>/dev/null | head -n 1
   }
 
+  # Echo "Waiting for build..." every 10 seconds until the unlocker log is available, with a 3-minute timeout
   TIMEOUT=180
   while [ ! -f ${LOG_DIR}/components/unlocker_*.log ] && [ $TIMEOUT -gt 0 ]; do
     echo "Waiting for build..."
@@ -28,8 +29,12 @@ get_log_info() {
     exit 1
   fi
 
+  # Wait for wallet status messages with a 45s timeout
   TIMEOUT=45
-  while ! grep -q -e "unlocker >> macaroon not found, creating wallet..." -e "unlocker >> the wallet is already unlocked" -e "unlocker >> wallet is locked, unlocking" <(tail -n 0 -F ${LOG_DIR}/components/unlocker_*.log) && [ $TIMEOUT -gt 0 ]; do
+  while [ $TIMEOUT -gt 0 ]; do
+    if grep -q -e "unlocker >> macaroon not found, creating wallet..." -e "unlocker >> the wallet is already unlocked" -e "unlocker >> wallet is locked, unlocking" ${LOG_DIR}/components/unlocker_*.log; then
+      break
+    fi
     sleep 1
     TIMEOUT=$((TIMEOUT - 1))
   done
@@ -38,17 +43,20 @@ get_log_info() {
     exit 1
   fi
 
-  if grep -q "unlocker >> macaroon not found, creating wallet..." <(tail -n 0 -F ${LOG_DIR}/components/unlocker_*.log); then
+  if grep -q "unlocker >> macaroon not found, creating wallet..." ${LOG_DIR}/components/unlocker_*.log; then
     echo "Creating wallet..."
-  elif grep -q "unlocker >> wallet is locked, unlocking" <(tail -n 0 -F ${LOG_DIR}/components/unlocker_*.log); then
+  elif grep -q "unlocker >> wallet is locked, unlocking" ${LOG_DIR}/components/unlocker_*.log; then
     echo "Unlocking wallet..."
   else
     echo "Wallet is already unlocked."
   fi
 
+  echo "Proceeding to nprofile attempts..."
+
   while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
     LATEST_LOG=$(find_latest_log)
     if [ -n "$LATEST_LOG" ]; then
+      echo "Found latest log: $LATEST_LOG"
       break
     fi
     echo "Awaiting nostr information..."
