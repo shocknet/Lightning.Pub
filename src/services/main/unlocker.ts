@@ -93,8 +93,8 @@ export class Unlocker {
             await new Promise(res => setTimeout(res, 5000));
         }
 
-        if (!info.ok) {
-            throw new Error("failed to init lnd wallet " + info.failure)
+        if (!info || !info.ok) {
+            throw new Error("failed to init lnd wallet " + (info ? info.failure : "unknown error"))
         }
         await this.storage.liquidityStorage.SaveNodeSeed(info.pub, JSON.stringify(encryptedData))
         this.log("created wallet with pub:", info.pub)
