@@ -17,6 +17,35 @@ get_log_info() {
     ls -1t ${LOG_DIR}/components/nostrMiddleware_*.log 2>/dev/null | head -n 1
   }
 
+  TIMEOUT=30
+  while ! grep -q "rimraf build" <(tail -n 0 -F ${LOG_DIR}/components/nostrMiddleware_*.log) && [ $TIMEOUT -gt 0 ]; do
+    sleep 1
+    TIMEOUT=$((TIMEOUT - 1))
+  done
+  if [ $TIMEOUT -le 0 ]; then
+    echo "Timeout waiting for 'rimraf build' message."
+    exit 1
+  fi
+  echo "Running build..."
+
+  TIMEOUT=45
+  while ! grep -q -e "unlocker >> macaroon not found, creating wallet..." -e "unlocker >> the wallet is already unlocked" -e "unlocker >> wallet is locked, unlocking" <(tail -n 0 -F ${LOG_DIR}/components/nostrMiddleware_*.log) && [ $TIMEOUT -gt 0 ]; do
+    sleep 1
+    TIMEOUT=$((TIMEOUT - 1))
+  done
+  if [ $TIMEOUT -le 0 ]; then
+    echo "Timeout waiting for wallet status message."
+    exit 1
+  fi
+
+  if grep -q "unlocker >> macaroon not found, creating wallet..." <(tail -n 0 -F ${LOG_DIR}/components/nostrMiddleware_*.log); then
+    echo "Creating wallet..."
+  elif grep -q "unlocker >> wallet is locked, unlocking" <(tail -n 0 -F ${LOG_DIR}/components/nostrMiddleware_*.log); then
+    echo "Unlocking wallet..."
+  else
+    echo "Wallet is already unlocked."
+  fi
+
   while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
     LATEST_LOG=$(find_latest_log)
     if [ -n "$LATEST_LOG" ]; then
