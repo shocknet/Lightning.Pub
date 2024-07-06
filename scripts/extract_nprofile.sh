@@ -42,5 +42,3 @@ get_log_info() {
   # Print the extracted key
   echo "Paste this string into ShockWallet to connect to the node: $nprofile_key"
 }
-
-get_log_info
