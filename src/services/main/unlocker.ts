@@ -81,9 +81,18 @@ export class Unlocker {
         const initRes = await unlocker.initWallet(req, DeadLineMetadata(60 * 1000))
         const adminMacaroon = Buffer.from(initRes.response.adminMacaroon).toString('hex')
         const ln = this.GetLightningClient(lndCert, adminMacaroon)
-        const info = await this.GetLndInfo(ln)
-        if (!info.ok) {
-            throw new Error("failed to init lnd wallet " + info.failure)
+
+        // Retry mechanism to ensure LND is ready
+        let info;
+        for (let i = 0; i < 10; i++) {
+            info = await this.GetLndInfo(ln);
+            if (info.ok) break;
+            this.log("LND not ready, retrying in 5 seconds...");
+            await new Promise(res => setTimeout(res, 5000));
+        }
+
+        if (!info || !info.ok) {
+            throw new Error("failed to init lnd wallet " + (info ? info.failure : "unknown error"))
         }
         await this.storage.liquidityStorage.SaveNodeSeed(info.pub, JSON.stringify(encryptedData))
         this.log("created wallet with pub:", info.pub)
