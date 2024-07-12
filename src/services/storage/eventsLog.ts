@@ -42,7 +42,7 @@ export default class EventsLogManager {
 
 
     LogEvent = (e: Omit<LoggedEvent, 'timestampMs'>) => {
-        this.log(e.type, "->", e.userId, "->", e.appId, "->", e.appUserId, "->", e.balance, "->", e.data, "->", e.amount)
+        //this.log(e.type, "->", e.userId, "->", e.appId, "->", e.appUserId, "->", e.balance, "->", e.data, "->", e.amount)
         this.write([Date.now(), e.userId, e.appUserId, e.appId, e.balance, e.type, e.data, e.amount])
     }
 

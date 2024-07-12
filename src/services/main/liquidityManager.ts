@@ -1,9 +1,11 @@
 import { getLogger } from "../helpers/logger.js"
-import { LiquidityProvider } from "../lnd/liquidityProvider.js"
+import { Utils } from "../helpers/utilsWrapper.js"
+import { LiquidityProvider } from "./liquidityProvider.js"
 import LND from "../lnd/lnd.js"
 import { FlashsatsLSP, LoadLSPSettingsFromEnv, LSPSettings, OlympusLSP, VoltageLSP } from "../lnd/lsp.js"
 import Storage from '../storage/index.js'
 import { defaultInvoiceExpiry } from "../storage/paymentStorage.js"
+import { RugPullTracker } from "./rugPullTracker.js"
 export type LiquiditySettings = {
     lspSettings: LSPSettings
     liquidityProviderPub: string
@@ -18,6 +20,7 @@ export class LiquidityManager {
     settings: LiquiditySettings
     storage: Storage
     liquidityProvider: LiquidityProvider
+    rugPullTracker: RugPullTracker
     lnd: LND
     olympusLSP: OlympusLSP
     voltageLSP: VoltageLSP
@@ -26,31 +29,28 @@ export class LiquidityManager {
     channelRequested = false
     channelRequesting = false
     feesPaid = 0
-    constructor(settings: LiquiditySettings, storage: Storage, liquidityProvider: LiquidityProvider, lnd: LND) {
+    utils: Utils
+    latestDrain: ({ success: true, amt: number } | { success: false, amt: number, attempt: number, at: Date }) = { success: true, amt: 0 }
+    drainsSkipped = 0
+    constructor(settings: LiquiditySettings, storage: Storage, utils: Utils, liquidityProvider: LiquidityProvider, lnd: LND, rugPullTracker: RugPullTracker) {
         this.settings = settings
         this.storage = storage
         this.liquidityProvider = liquidityProvider
         this.lnd = lnd
+        this.rugPullTracker = rugPullTracker
+        this.utils = utils
         this.olympusLSP = new OlympusLSP(settings.lspSettings, lnd, liquidityProvider)
         this.voltageLSP = new VoltageLSP(settings.lspSettings, lnd, liquidityProvider)
         this.flashsatsLSP = new FlashsatsLSP(settings.lspSettings, lnd, liquidityProvider)
     }
 
     GetPaidFees = () => {
+        this.utils.stateBundler.AddBalancePoint('feesPaidForLiquidity', this.feesPaid)
         return this.feesPaid
     }
 
     onNewBlock = async () => {
-        const balance = await this.liquidityProvider.GetLatestMaxWithdrawable()
-        const { remote } = await this.lnd.ChannelBalance()
-        if (remote > balance && balance > 0) {
-            this.log("draining provider balance to channel")
-            const invoice = await this.lnd.NewInvoice(balance, "liqudity provider drain", defaultInvoiceExpiry)
-            const res = await this.liquidityProvider.PayInvoice(invoice.payRequest)
-            const fees = res.network_fee + res.service_fee
-            this.log("drained provider balance to channel", res.amount_paid, "fees paid:", fees)
-            this.feesPaid += fees
-        }
+        await this.shouldDrainProvider()
     }
 
     beforeInvoiceCreation = async (amount: number): Promise<'lnd' | 'provider'> => {
@@ -58,17 +58,18 @@ export class LiquidityManager {
             return 'provider'
         }
 
+        if (this.rugPullTracker.HasProviderRugPulled()) {
+            return 'lnd'
+        }
+
         const { remote } = await this.lnd.ChannelBalance()
         if (remote > amount) {
-            this.log("channel has enough balance for invoice")
             return 'lnd'
         }
         const providerCanHandle = this.liquidityProvider.CanProviderHandle({ action: 'receive', amount })
         if (!providerCanHandle) {
             return 'lnd'
         }
-
-        this.log("channel does not have enough balance for invoice,suggesting provider")
         return 'provider'
     }
 
@@ -79,6 +80,75 @@ export class LiquidityManager {
             this.log("error ordering channel", e)
         }
     }
+
+    beforeOutInvoicePayment = async (amount: number): Promise<'lnd' | 'provider'> => {
+        if (this.settings.useOnlyLiquidityProvider) {
+            return 'provider'
+        }
+        const canHandle = await this.liquidityProvider.CanProviderHandle({ action: 'spend', amount })
+        if (canHandle) {
+            return 'provider'
+        }
+        return 'lnd'
+    }
+    afterOutInvoicePaid = async () => { }
+
+    shouldDrainProvider = async () => {
+        const maxW = await this.liquidityProvider.GetLatestMaxWithdrawable()
+        const { remote } = await this.lnd.ChannelBalance()
+        const drainable = Math.min(maxW, remote)
+        if (drainable < 500) {
+            return
+        }
+        if (this.latestDrain.success) {
+            if (this.latestDrain.amt === 0) {
+                await this.drainProvider(drainable)
+            } else {
+                await this.drainProvider(Math.min(drainable, this.latestDrain.amt * 2))
+            }
+        } else if (this.latestDrain.attempt * 10 < this.drainsSkipped) {
+            const drain = Math.min(drainable, Math.ceil(this.latestDrain.amt / 2))
+            this.drainsSkipped = 0
+            if (drain < 500) {
+                this.log("drain attempt went below 500 sats, will start again")
+                this.updateLatestDrain(true, 0)
+            } else {
+                await this.drainProvider(drain)
+            }
+        } else {
+            this.drainsSkipped += 1
+        }
+    }
+
+    drainProvider = async (amt: number) => {
+        try {
+            const invoice = await this.lnd.NewInvoice(amt, "liqudity provider drain", defaultInvoiceExpiry, { from: 'system', useProvider: false })
+            const res = await this.liquidityProvider.PayInvoice(invoice.payRequest, amt, 'system')
+            const fees = res.network_fee + res.service_fee
+            this.feesPaid += fees
+            this.updateLatestDrain(true, amt)
+        } catch (err: any) {
+            this.log("error draining provider balance", err.message || err)
+            this.updateLatestDrain(false, amt)
+        }
+    }
+
+    updateLatestDrain = (success: boolean, amt: number) => {
+        if (this.latestDrain.success) {
+            if (success) {
+                this.latestDrain = { success: true, amt }
+            } else {
+                this.latestDrain = { success: false, amt, attempt: 1, at: new Date() }
+            }
+        } else {
+            if (success) {
+                this.latestDrain = { success: true, amt }
+            } else {
+                this.latestDrain = { success: false, amt, attempt: this.latestDrain.attempt + 1, at: new Date() }
+            }
+        }
+    }
+
 
     shouldOpenChannel = async (): Promise<{ shouldOpen: false } | { shouldOpen: true, maxSpendable: number }> => {
         const threshold = this.settings.lspSettings.channelThreshold
@@ -96,12 +166,12 @@ export class LiquidityManager {
             this.log("pending open channels detected, liquidiity might be on the way")
             return { shouldOpen: false }
         }
-        const userState = await this.liquidityProvider.CheckUserState()
-        if (!userState || userState.max_withdrawable < threshold) {
-            this.log("balance of", userState?.max_withdrawable || 0, "is lower than channel threshold of", threshold)
+        const maxW = await this.liquidityProvider.GetLatestMaxWithdrawable()
+        if (maxW < threshold) {
+            this.log("max withdrawable of", maxW, "is lower than channel threshold of", threshold)
             return { shouldOpen: false }
         }
-        return { shouldOpen: true, maxSpendable: userState.max_withdrawable }
+        return { shouldOpen: true, maxSpendable: maxW }
     }
 
     orderChannelIfNeeded = async () => {
@@ -150,19 +220,4 @@ export class LiquidityManager {
         this.channelRequesting = false
         this.log("no channel requested")
     }
-
-    beforeOutInvoicePayment = async (amount: number): Promise<'lnd' | 'provider'> => {
-        if (this.settings.useOnlyLiquidityProvider) {
-            return 'provider'
-        }
-
-        const balance = await this.liquidityProvider.GetLatestMaxWithdrawable(true)
-        if (balance > amount) {
-            this.log("provider has enough balance for payment")
-            return 'provider'
-        }
-        this.log("provider does not have enough balance for payment, suggesting lnd")
-        return 'lnd'
-    }
-    afterOutInvoicePaid = async () => { }
 }

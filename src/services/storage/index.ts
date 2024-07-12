@@ -8,6 +8,7 @@ import MetricsStorage from "./metricsStorage.js";
 import TransactionsQueue, { TX } from "./transactionsQueue.js";
 import EventsLogManager from "./eventsLog.js";
 import { LiquidityStorage } from "./liquidityStorage.js";
+import { StateBundler } from "./stateBundler.js";
 export type StorageSettings = {
     dbSettings: DbSettings
     eventLogPath: string
@@ -27,6 +28,7 @@ export default class {
     metricsStorage: MetricsStorage
     liquidityStorage: LiquidityStorage
     eventsLog: EventsLogManager
+    stateBundler: StateBundler
     constructor(settings: StorageSettings) {
         this.settings = settings
         this.eventsLog = new EventsLogManager(settings.eventLogPath)

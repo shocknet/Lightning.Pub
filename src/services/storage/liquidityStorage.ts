@@ -2,6 +2,7 @@ import { DataSource, EntityManager, MoreThan } from "typeorm"
 import { LspOrder } from "./entity/LspOrder.js";
 import TransactionsQueue, { TX } from "./transactionsQueue.js";
 import { LndNodeInfo } from "./entity/LndNodeInfo.js";
+import { TrackedProvider } from "./entity/TrackedProvider.js";
 export class LiquidityStorage {
     DB: DataSource | EntityManager
     txQueue: TransactionsQueue
@@ -36,5 +37,19 @@ export class LiquidityStorage {
         }
         const entry = this.DB.getRepository(LndNodeInfo).create({ pubkey, backup })
         await this.txQueue.PushToQueue<LndNodeInfo>({ exec: async db => db.getRepository(LndNodeInfo).save(entry), dbTx: false })
+    }
+
+    async GetTrackedProvider(providerType: 'lnd' | 'lnPub', pub: string) {
+        return this.DB.getRepository(TrackedProvider).findOne({ where: { provider_pubkey: pub, provider_type: providerType } })
+    }
+    async CreateTrackedProvider(providerType: 'lnd' | 'lnPub', pub: string, latestBalance = 0) {
+        const entry = this.DB.getRepository(TrackedProvider).create({ provider_pubkey: pub, provider_type: providerType, latest_balance: latestBalance })
+        return this.txQueue.PushToQueue<TrackedProvider>({ exec: async db => db.getRepository(TrackedProvider).save(entry), dbTx: false })
+    }
+    async UpdateTrackedProviderBalance(providerType: 'lnd' | 'lnPub', pub: string, latestBalance: number) {
+        return this.DB.getRepository(TrackedProvider).update({ provider_pubkey: pub, provider_type: providerType }, { latest_balance: latestBalance })
+    }
+    async UpdateTrackedProviderDisruption(providerType: 'lnd' | 'lnPub', pub: string, latestDisruptionAtUnix: number) {
+        return this.DB.getRepository(TrackedProvider).update({ provider_pubkey: pub, provider_type: providerType }, { latest_distruption_at_unix: latestDisruptionAtUnix })
     }
 }

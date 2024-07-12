@@ -8,6 +8,7 @@ export type LndSettings = {
     mainNode: NodeSettings
     feeRateLimit: number
     feeFixedLimit: number
+    feeRateBps: number
     mockLnd: boolean
 
     otherNode?: NodeSettings
@@ -30,8 +31,8 @@ export type BalanceInfo = {
     channelsBalance: ChannelBalance[];
 }
 
-export type AddressPaidCb = (txOutput: TxOutput, address: string, amount: number, internal: boolean) => void
-export type InvoicePaidCb = (paymentRequest: string, amount: number, internal: boolean) => void
+export type AddressPaidCb = (txOutput: TxOutput, address: string, amount: number, used: 'lnd' | 'provider' | 'internal') => Promise<void>
+export type InvoicePaidCb = (paymentRequest: string, amount: number, used: 'lnd' | 'provider' | 'internal') => Promise<void>
 export type NewBlockCb = (height: number) => void
 export type HtlcCb = (event: HtlcEvent) => void
 

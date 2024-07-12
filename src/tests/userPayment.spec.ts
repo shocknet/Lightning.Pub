@@ -12,7 +12,7 @@ export default async (T: TestBase) => {
 
 const testSuccessfulUserPaymentToExternalNode = async (T: TestBase) => {
     T.d("starting testSuccessfulUserPaymentToExternalNode")
-    const invoice = await T.externalAccessToOtherLnd.NewInvoice(500, "test", defaultInvoiceExpiry)
+    const invoice = await T.externalAccessToOtherLnd.NewInvoice(500, "test", defaultInvoiceExpiry, { from: 'system', useProvider: false })
     const payment = await T.main.appUserManager.PayInvoice({ app_id: T.user1.appId, user_id: T.user1.userId, app_user_id: T.user1.appUserIdentifier }, { invoice: invoice.payRequest, amount: 0 })
     T.d("paid 500 sats invoice from user1 to external node")
 }

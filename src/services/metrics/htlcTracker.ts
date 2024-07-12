@@ -18,10 +18,9 @@ export default class HtlcTracker {
     }
     log = getLogger({ component: 'htlcTracker' })
     onHtlcEvent = async (htlc: HtlcEvent) => {
-        getLogger({ component: 'debugHtlcs' })(htlc)
+        //getLogger({ component: 'debugHtlcs' })(htlc)
         const htlcEvent = htlc.event
         if (htlcEvent.oneofKind === 'subscribedEvent') {
-            this.log("htlc subscribed")
             return
         }
         const outgoingHtlcId = Number(htlc.outgoingHtlcId)
@@ -45,12 +44,11 @@ export default class HtlcTracker {
             case 'settleEvent':
                 return this.handleSuccess(info)
             default:
-                this.log("unknown htlc event type")
+            //this.log("unknown htlc event type")
         }
     }
 
     handleForward = (fwe: ForwardEvent, { eventType, outgoingHtlcId, incomingHtlcId }: EventInfo) => {
-        this.log("new forward event, currently tracked htlcs: (s,r,f)", this.pendingSendHtlcs.size, this.pendingReceiveHtlcs.size, this.pendingForwardHtlcs.size)
         const { info } = fwe
         const incomingAmtMsat = info ? Number(info.incomingAmtMsat) : 0
         const outgoingAmtMsat = info ? Number(info.outgoingAmtMsat) : 0
@@ -60,8 +58,6 @@ export default class HtlcTracker {
             this.pendingReceiveHtlcs.set(incomingHtlcId, incomingAmtMsat - outgoingAmtMsat)
         } else if (eventType === HtlcEvent_EventType.FORWARD) {
             this.pendingForwardHtlcs.set(outgoingHtlcId, outgoingAmtMsat - incomingAmtMsat)
-        } else {
-            this.log("unknown htlc event type for forward event")
         }
     }
 
@@ -90,7 +86,6 @@ export default class HtlcTracker {
                 return this.incrementReceiveFailures(incomingChannelId)
             }
         }
-        this.log("unknown htlc event type for failure event", eventType)
     }
 
     handleSuccess = ({ eventType, outgoingHtlcId, incomingHtlcId }: EventInfo) => {
@@ -104,8 +99,6 @@ export default class HtlcTracker {
             if (this.deleteMapEntry(outgoingHtlcId, this.pendingSendHtlcs) !== null) return
             if (this.deleteMapEntry(incomingHtlcId, this.pendingReceiveHtlcs) !== null) return
             if (this.deleteMapEntry(outgoingHtlcId, this.pendingForwardHtlcs) !== null) return
-        } else {
-            this.log("unknown htlc event type for success event", eventType)
         }
     }
 

@@ -21,6 +21,7 @@ export type MainSettings = {
     incomingAppUserInvoiceFee: number
     outgoingAppInvoiceFee: number
     outgoingAppUserInvoiceFee: number
+    outgoingAppUserInvoiceFeeBps: number
     userToUserFee: number
     appToUserFee: number
     serviceUrl: string
@@ -39,6 +40,7 @@ export type BitcoinCoreSettings = {
 export type TestSettings = MainSettings & { lndSettings: { otherNode: NodeSettings, thirdNode: NodeSettings, fourthNode: NodeSettings }, bitcoinCoreSettings: BitcoinCoreSettings }
 export const LoadMainSettingsFromEnv = (): MainSettings => {
     const storageSettings = LoadStorageSettingsFromEnv()
+    const outgoingAppUserInvoiceFeeBps = EnvCanBeInteger("OUTGOING_INVOICE_FEE_USER_BPS", 0)
     return {
         watchDogSettings: LoadWatchdogSettingsFromEnv(),
         lndSettings: LoadLndSettingsFromEnv(),
@@ -52,7 +54,8 @@ export const LoadMainSettingsFromEnv = (): MainSettings => {
         incomingAppInvoiceFee: EnvCanBeInteger("INCOMING_INVOICE_FEE_ROOT_BPS", 0) / 10000,
         outgoingAppInvoiceFee: EnvCanBeInteger("OUTGOING_INVOICE_FEE_ROOT_BPS", 60) / 10000,
         incomingAppUserInvoiceFee: EnvCanBeInteger("INCOMING_INVOICE_FEE_USER_BPS", 0) / 10000,
-        outgoingAppUserInvoiceFee: EnvCanBeInteger("OUTGOING_INVOICE_FEE_USER_BPS", 0) / 10000,
+        outgoingAppUserInvoiceFeeBps,
+        outgoingAppUserInvoiceFee: outgoingAppUserInvoiceFeeBps / 10000,
         userToUserFee: EnvCanBeInteger("TX_FEE_INTERNAL_USER_BPS", 0) / 10000,
         appToUserFee: EnvCanBeInteger("TX_FEE_INTERNAL_ROOT_BPS", 0) / 10000,
         serviceUrl: process.env.SERVICE_URL || `http://localhost:${EnvCanBeInteger("PORT", 1776)}`,
