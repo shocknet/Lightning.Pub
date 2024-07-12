@@ -22,7 +22,7 @@ const start = async () => {
     log("initializing nostr middleware")
     const { Send } = nostrMiddleware(serverMethods, mainHandler,
         { ...nostrSettings, apps, clients: [liquidityProviderInfo] },
-        (e, p) => mainHandler.liquidProvider.onEvent(e, p)
+        (e, p) => mainHandler.liquidityProvider.onEvent(e, p)
     )
     log("starting server")
     mainHandler.attachNostrSend(Send)

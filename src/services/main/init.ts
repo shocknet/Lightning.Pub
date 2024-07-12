@@ -1,11 +1,12 @@
 import { PubLogger, getLogger } from "../helpers/logger.js"
-import { LiquidityProvider } from "../lnd/liquidityProvider.js"
+import { LiquidityProvider } from "./liquidityProvider.js"
 import { Unlocker } from "./unlocker.js"
 import Storage from "../storage/index.js"
 import { TypeOrmMigrationRunner } from "../storage/migrations/runner.js"
 import Main from "./index.js"
 import SanityChecker from "./sanityChecker.js"
 import { MainSettings } from "./settings.js"
+import { Utils } from "../helpers/utilsWrapper.js"
 export type AppData = {
     privateKey: string;
     publicKey: string;
@@ -13,6 +14,7 @@ export type AppData = {
     name: string;
 }
 export const initMainHandler = async (log: PubLogger, mainSettings: MainSettings) => {
+    const utils = new Utils(mainSettings)
     const storageManager = new Storage(mainSettings.storageSettings)
     const manualMigration = await TypeOrmMigrationRunner(log, storageManager, mainSettings.storageSettings.dbSettings, process.argv[2])
     if (manualMigration) {
@@ -21,7 +23,7 @@ export const initMainHandler = async (log: PubLogger, mainSettings: MainSettings
     const unlocker = new Unlocker(mainSettings, storageManager)
     await unlocker.Unlock()
 
-    const mainHandler = new Main(mainSettings, storageManager)
+    const mainHandler = new Main(mainSettings, storageManager, utils)
     await mainHandler.lnd.Warmup()
     if (!mainSettings.skipSanityCheck) {
         const sanityChecker = new SanityChecker(storageManager, mainHandler.lnd)
@@ -51,7 +53,7 @@ export const initMainHandler = async (log: PubLogger, mainSettings: MainSettings
         publicKey: liquidityProviderApp.publicKey,
         name: "liquidity_provider", clientId: `client_${liquidityProviderApp.appId}`
     }
-    mainHandler.liquidProvider.setNostrInfo({ clientId: liquidityProviderInfo.clientId, myPub: liquidityProviderInfo.publicKey })
+    mainHandler.liquidityProvider.setNostrInfo({ clientId: liquidityProviderInfo.clientId, myPub: liquidityProviderInfo.publicKey })
     const stop = await processArgs(mainHandler)
     if (stop) {
         return

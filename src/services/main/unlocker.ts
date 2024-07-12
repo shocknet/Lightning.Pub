@@ -60,7 +60,7 @@ export class Unlocker {
         await unlocker.unlockWallet({ walletPassword, recoveryWindow: 0, statelessInit: false, channelBackups: undefined }, DeadLineMetadata())
         const infoAfter = await this.GetLndInfo(ln)
         if (!infoAfter.ok) {
-            throw new Error("failed to init lnd wallet " + infoAfter.failure)
+            throw new Error("failed to unlock lnd wallet " + infoAfter.failure)
         }
         this.log("unlocked wallet with pub:", infoAfter.pub)
         return { ln, pub: infoAfter.pub }
@@ -74,8 +74,6 @@ export class Unlocker {
             aezeedPassphrase: Buffer.alloc(0),
             seedEntropy: entropy
         }, DeadLineMetadata())
-        console.log(seedRes.response.cipherSeedMnemonic)
-        console.log(seedRes.response.encipheredSeed)
         this.log("seed created, encrypting and saving...")
         const { encryptedData } = this.EncryptWalletSeed(seedRes.response.cipherSeedMnemonic)
         const walletPw = this.GetWalletPassword()

@@ -56,7 +56,10 @@ export default class {
             userId: ctx.user_id,
             balance: user.balance_sats,
             max_withdrawable: this.applicationManager.paymentManager.GetMaxPayableInvoice(user.balance_sats, true),
-            user_identifier: appUser.identifier
+            user_identifier: appUser.identifier,
+            network_max_fee_bps: this.settings.lndSettings.feeRateBps,
+            network_max_fee_fixed: this.settings.lndSettings.feeFixedLimit,
+            service_fee_bps: this.settings.outgoingAppUserInvoiceFeeBps
         }
     }
 
