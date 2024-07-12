@@ -26,14 +26,20 @@ fi
 check_homebrew() {
   if ! command -v brew &> /dev/null; then
     log "${PRIMARY_COLOR}Homebrew not found. Installing Homebrew...${RESET_COLOR}"
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || {
+      log "${PRIMARY_COLOR}Failed to install Homebrew.${RESET_COLOR}"
+      exit 1
+    }
   fi
 }
 
 install_rsync_mac() {
   check_homebrew
   log "${PRIMARY_COLOR}Installing${RESET_COLOR} rsync using Homebrew..."
-  brew install rsync
+  brew install rsync || {
+    log "${PRIMARY_COLOR}Failed to install rsync.${RESET_COLOR}"
+    exit 1
+  }
 }
 
 create_launchd_plist() {
@@ -90,6 +96,7 @@ handle_macos() {
   install_rsync_mac
   install_nodejs
   install_lightning_pub
+  create_launchd_plist  # Ensure this function is called
   start_services_mac
 }
 
@@ -147,7 +154,10 @@ install_lnd() {
   log "${PRIMARY_COLOR}Downloading${RESET_COLOR} ${SECONDARY_COLOR}LND${RESET_COLOR}..."
 
   # Start the download
-  wget -q $LND_URL -O lnd.tar.gz
+  wget -q $LND_URL -O lnd.tar.gz || {
+    log "${PRIMARY_COLOR}Failed to download LND.${RESET_COLOR}"
+    exit 1
+  }
 
   # Check if LND is already running and stop it if necessary (Linux)
   if [ "$OS" = "Linux" ] && [ "$SYSTEMCTL_AVAILABLE" = true ]; then
@@ -159,7 +169,10 @@ install_lnd() {
     log "${PRIMARY_COLOR}systemctl not found. Please stop ${SECONDARY_COLOR}LND${RESET_COLOR} manually if it is running.${RESET_COLOR}"
   fi
 
-  tar -xzf lnd.tar.gz -C ~/ > /dev/null
+  tar -xzf lnd.tar.gz -C ~/ > /dev/null || {
+    log "${PRIMARY_COLOR}Failed to extract LND.${RESET_COLOR}"
+    exit 1
+  }
   rm lnd.tar.gz
   mv lnd-* lnd
 
@@ -209,7 +222,10 @@ install_nodejs() {
     log "Node.js is not installed. ${PRIMARY_COLOR}Installing the LTS version...${RESET_COLOR}"
   fi
 
-  nvm install --lts
+  nvm install --lts || {
+    log "${PRIMARY_COLOR}Failed to install Node.js.${RESET_COLOR}"
+    exit 1
+  }
 
   log "Node.js LTS installation completed."
 }
@@ -217,9 +233,15 @@ install_nodejs() {
 install_lightning_pub() {
   log "${PRIMARY_COLOR}Installing${RESET_COLOR} ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR}..."
   REPO_URL="https://github.com/shocknet/Lightning.Pub/tarball/master"
-  wget $REPO_URL -O lightning_pub.tar.gz > /dev/null 2>&1
+  wget $REPO_URL -O lightning_pub.tar.gz > /dev/null 2>&1 || {
+    log "${PRIMARY_COLOR}Failed to download Lightning.Pub.${RESET_COLOR}"
+    exit 1
+  }
   mkdir -p lightning_pub_temp
-  tar -xvzf lightning_pub.tar.gz -C lightning_pub_temp --strip-components=1 > /dev/null 2>&1
+  tar -xvzf lightning_pub.tar.gz -C lightning_pub_temp --strip-components=1 > /dev/null 2>&1 || {
+    log "${PRIMARY_COLOR}Failed to extract Lightning.Pub.${RESET_COLOR}"
+    exit 1
+  }
   rm lightning_pub.tar.gz
 
   if ! command -v rsync &> /dev/null; then
@@ -254,9 +276,10 @@ install_lightning_pub() {
 
   log "${PRIMARY_COLOR}Installing${RESET_COLOR} npm dependencies..."
   
-  npm install > npm_install.log 2>&1 &
-  npm_pid=$!
-  wait $npm_pid
+  npm install > npm_install.log 2>&1 || {
+    log "${PRIMARY_COLOR}Failed to install npm dependencies.${RESET_COLOR}"
+    exit 1
+  }
 
   log "${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} installation completed."
 }

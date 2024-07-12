@@ -4,16 +4,19 @@ import os from 'os'
 import path from 'path'
 
 const resolveHome = (filepath: string) => {
-  if (filepath[0] === '~') {
-    return path.join(os.homedir(), filepath.slice(1))
+  let homeDir;
+  if (process.env.SUDO_USER) {
+    homeDir = path.join('/home', process.env.SUDO_USER);
+  } else {
+    homeDir = os.homedir();
   }
-  return filepath
+  return path.join(homeDir, filepath);
 }
 
 export const LoadLndSettingsFromEnv = (): LndSettings => {
   const lndAddr = process.env.LND_ADDRESS || "127.0.0.1:10009"
-  const lndCertPath = process.env.LND_CERT_PATH || resolveHome("~/.lnd/tls.cert")
-  const lndMacaroonPath = process.env.LND_MACAROON_PATH || resolveHome("~/.lnd/data/chain/bitcoin/mainnet/admin.macaroon")
+  const lndCertPath = process.env.LND_CERT_PATH || resolveHome("/.lnd/tls.cert")
+  const lndMacaroonPath = process.env.LND_MACAROON_PATH || resolveHome("/.lnd/data/chain/bitcoin/mainnet/admin.macaroon")
   const feeRateBps = EnvCanBeInteger("OUTBOUND_MAX_FEE_BPS", 60)
   const feeRateLimit = feeRateBps / 10000
   const feeFixedLimit = EnvCanBeInteger("OUTBOUND_MAX_FEE_EXTRA_SATS", 100)
