@@ -72,11 +72,11 @@ export class StateBundler {
         const { used, from, timeDiscount } = settings
         const meta = settings.meta || []
         const key = [actionName, from, used, ...meta].join('_')
-        this.increment(key, v)
         if (timeDiscount) {
             this.totalSatsForDiscount += v
         }
-        this.smallLogEvent(actionName, from)
+        this.increment(key, v)
+        //this.smallLogEvent(actionName, from)
     }
 
     AddTxPointFailed = (actionName: TransactionStatePointType, v: number, settings: TxPointSettings) => {
