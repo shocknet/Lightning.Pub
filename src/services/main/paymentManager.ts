@@ -18,6 +18,7 @@ import { Watchdog } from './watchdog.js'
 import { LiquidityProvider } from './liquidityProvider.js'
 import { LiquidityManager } from './liquidityManager.js'
 import { Utils } from '../helpers/utilsWrapper.js'
+import { UserInvoicePayment } from '../storage/entity/UserInvoicePayment.js'
 interface UserOperationInfo {
     serial_id: number
     paid_amount: number
@@ -202,13 +203,23 @@ export default class {
         if (this.settings.disableExternalPayments) {
             throw new Error("something went wrong sending payment, please try again later")
         }
+        const existingPendingPayment = await this.storage.paymentStorage.GetPaymentOwner(invoice)
+        if (existingPendingPayment) {
+            if (existingPendingPayment.paid_at_unix > 0) {
+                throw new Error("this invoice was already paid")
+            } else if (existingPendingPayment.paid_at_unix < 0) {
+                throw new Error("this invoice was already paid and failed, try another invoice")
+            }
+            throw new Error("payment already in progress")
+        }
         const { amountForLnd, payAmount, serviceFee } = amounts
         const totalAmountToDecrement = payAmount + serviceFee
         const routingFeeLimit = this.lnd.GetFeeLimitAmount(payAmount)
         await this.storage.userStorage.DecrementUserBalance(userId, totalAmountToDecrement + routingFeeLimit, invoice)
-        const pendingPayment = await this.storage.paymentStorage.AddPendingExternalPayment(userId, invoice, payAmount, linkedApplication)
-        const use = await this.liquidityManager.beforeOutInvoicePayment(payAmount)
+        let pendingPayment: UserInvoicePayment | null = null
         try {
+            pendingPayment = await this.storage.paymentStorage.AddPendingExternalPayment(userId, invoice, payAmount, linkedApplication)
+            const use = await this.liquidityManager.beforeOutInvoicePayment(payAmount)
             const payment = await this.lnd.PayInvoice(invoice, amountForLnd, routingFeeLimit, payAmount, { useProvider: use === 'provider', from: 'user' })
             if (routingFeeLimit - payment.feeSat > 0) {
                 this.log("refund routing fee", routingFeeLimit, payment.feeSat, "sats")
@@ -220,7 +231,9 @@ export default class {
 
         } catch (err) {
             await this.storage.userStorage.IncrementUserBalance(userId, totalAmountToDecrement + routingFeeLimit, "payment_refund:" + invoice)
-            await this.storage.paymentStorage.UpdateExternalPayment(pendingPayment.serial_id, 0, 0, false)
+            if (pendingPayment) {
+                await this.storage.paymentStorage.UpdateExternalPayment(pendingPayment.serial_id, 0, 0, false)
+            }
             throw err
         }
     }
