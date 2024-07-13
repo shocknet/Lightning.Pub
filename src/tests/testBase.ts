@@ -47,15 +47,15 @@ export const SetupTest = async (d: Describe): Promise<TestBase> => {
     const user2 = { userId: u2.info.userId, appUserIdentifier: u2.identifier, appId: app.appId }
 
     const extermnalUtils = new Utils(settings)
-    const externalAccessToMainLnd = new LND(settings.lndSettings, new LiquidityProvider("", extermnalUtils, async () => { }), extermnalUtils, async () => { }, async () => { }, () => { }, () => { })
+    const externalAccessToMainLnd = new LND(settings.lndSettings, new LiquidityProvider("", extermnalUtils, async () => { }, () => { }), extermnalUtils, async () => { }, async () => { }, () => { }, () => { })
     await externalAccessToMainLnd.Warmup()
 
     const otherLndSetting = { ...settings.lndSettings, mainNode: settings.lndSettings.otherNode }
-    const externalAccessToOtherLnd = new LND(otherLndSetting, new LiquidityProvider("", extermnalUtils, async () => { }), extermnalUtils, async () => { }, async () => { }, () => { }, () => { })
+    const externalAccessToOtherLnd = new LND(otherLndSetting, new LiquidityProvider("", extermnalUtils, async () => { }, () => { }), extermnalUtils, async () => { }, async () => { }, () => { }, () => { })
     await externalAccessToOtherLnd.Warmup()
 
     const thirdLndSetting = { ...settings.lndSettings, mainNode: settings.lndSettings.thirdNode }
-    const externalAccessToThirdLnd = new LND(thirdLndSetting, new LiquidityProvider("", extermnalUtils, async () => { }), extermnalUtils, async () => { }, async () => { }, () => { }, () => { })
+    const externalAccessToThirdLnd = new LND(thirdLndSetting, new LiquidityProvider("", extermnalUtils, async () => { }, () => { }), extermnalUtils, async () => { }, async () => { }, () => { }, () => { })
     await externalAccessToThirdLnd.Warmup()
 
 

@@ -10,8 +10,8 @@ export const setupNetwork = async () => {
     await core.InitAddress()
     await core.Mine(1)
     const setupUtils = new Utils(settings)
-    const alice = new LND(settings.lndSettings, new LiquidityProvider("", setupUtils, async () => { }), setupUtils, async () => { }, async () => { }, () => { }, () => { })
-    const bob = new LND({ ...settings.lndSettings, mainNode: settings.lndSettings.otherNode }, new LiquidityProvider("", setupUtils, async () => { }), setupUtils, async () => { }, async () => { }, () => { }, () => { })
+    const alice = new LND(settings.lndSettings, new LiquidityProvider("", setupUtils, async () => { }, () => { }), setupUtils, async () => { }, async () => { }, () => { }, () => { })
+    const bob = new LND({ ...settings.lndSettings, mainNode: settings.lndSettings.otherNode }, new LiquidityProvider("", setupUtils, async () => { }, () => { }), setupUtils, async () => { }, async () => { }, () => { }, () => { })
     await tryUntil<void>(async i => {
         const peers = await alice.ListPeers()
         if (peers.peers.length > 0) {

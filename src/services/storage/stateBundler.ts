@@ -1,7 +1,7 @@
 import { getLogger } from "../helpers/logger.js"
 
 const transactionStatePointTypes = ['addedInvoice', 'invoiceWasPaid', 'paidAnInvoice', 'addedAddress', 'addressWasPaid', 'paidAnAddress', 'user2user'] as const
-const balanceStatePointTypes = ['providerBalance', 'providerMaxWithdrawable', 'walletBalance', 'channelBalance', 'usersBalance', 'feesPaidForLiquidity', 'totalLndBalance', 'accumulatedHtlcFees', 'deltaUsers', 'deltaLnd'] as const
+const balanceStatePointTypes = ['providerBalance', 'providerMaxWithdrawable', 'walletBalance', 'channelBalance', 'usersBalance', 'feesPaidForLiquidity', 'totalLndBalance', 'accumulatedHtlcFees', 'deltaUsers', 'deltaExternal'] as const
 const maxStatePointTypes = ['maxProviderRespTime'] as const
 export type TransactionStatePointType = typeof transactionStatePointTypes[number]
 export type BalanceStatePointType = typeof balanceStatePointTypes[number]

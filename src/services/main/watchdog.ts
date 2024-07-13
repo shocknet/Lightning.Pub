@@ -100,7 +100,7 @@ export class Watchdog {
     }
 
     checkBalanceUpdate = async (deltaLnd: number, deltaUsers: number) => {
-        this.utils.stateBundler.AddBalancePoint('deltaLnd', deltaLnd)
+        this.utils.stateBundler.AddBalancePoint('deltaExternal', deltaLnd)
         this.utils.stateBundler.AddBalancePoint('deltaUsers', deltaUsers)
 
         const result = this.checkDeltas(deltaLnd, deltaUsers)

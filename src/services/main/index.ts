@@ -48,7 +48,8 @@ export default class {
         this.settings = settings
         this.storage = storage
         this.utils = utils
-        this.liquidityProvider = new LiquidityProvider(settings.liquiditySettings.liquidityProviderPub, this.utils, this.invoicePaidCb)
+        const updateProviderBalance = (b: number) => this.storage.liquidityStorage.UpdateTrackedProviderBalance('lnPub', settings.liquiditySettings.liquidityProviderPub, b)
+        this.liquidityProvider = new LiquidityProvider(settings.liquiditySettings.liquidityProviderPub, this.utils, this.invoicePaidCb, updateProviderBalance)
         this.rugPullTracker = new RugPullTracker(this.storage, this.liquidityProvider)
         this.lnd = new LND(settings.lndSettings, this.liquidityProvider, this.utils, this.addressPaidCb, this.invoicePaidCb, this.newBlockCb, this.htlcCb)
         this.liquidityManager = new LiquidityManager(this.settings.liquiditySettings, this.storage, this.utils, this.liquidityProvider, this.lnd, this.rugPullTracker)
@@ -226,7 +227,7 @@ export default class {
             getLogger({ appName: app.name })("cannot notify user, not a nostr user")
             return
         }
-        const message: Types.LiveUserOperation & { requestId: string, status: 'OK' } = { operation: op, requestId: "GetLiveUserOperations", status: 'OK' }
+        const message: Types.LiveUserOperation & { requestId: string, status: 'OK' } = { operation: op, latest_balance: user.user.balance_sats, requestId: "GetLiveUserOperations", status: 'OK' }
         this.nostrSend({ type: 'app', appId: app.app_id }, { type: 'content', content: JSON.stringify(message), pub: user.nostr_public_key })
     }
 
