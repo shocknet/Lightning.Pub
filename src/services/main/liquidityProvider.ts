@@ -28,9 +28,9 @@ export class LiquidityProvider {
     queue: ((state: 'ready') => void)[] = []
     utils: Utils
     pendingPayments: Record<string, number> = {}
-    updateProviderBalance: (balance: number) => void
+    updateProviderBalance: (balance: number) => Promise<void>
     // make the sub process accept client
-    constructor(pubDestination: string, utils: Utils, invoicePaidCb: InvoicePaidCb, updateProviderBalance: (balance: number) => void) {
+    constructor(pubDestination: string, utils: Utils, invoicePaidCb: InvoicePaidCb, updateProviderBalance: (balance: number) => Promise<void>) {
         this.utils = utils
         if (!pubDestination) {
             this.log("No pub provider to liquidity provider, will not be initialized")
@@ -192,8 +192,8 @@ export class LiquidityProvider {
                 this.log("error paying invoice", res.reason)
                 throw new Error(res.reason)
             }
-            delete this.pendingPayments[invoice]
-            this.updateProviderBalance(userInfo.balance)
+
+            this.updateProviderBalance(userInfo.balance).then(() => { delete this.pendingPayments[invoice] })
             this.utils.stateBundler.AddTxPoint('paidAnInvoice', decodedAmount, { used: 'provider', from, timeDiscount: true })
             return res
         } catch (err) {

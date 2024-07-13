@@ -43,7 +43,7 @@ export class RugPullTracker {
     }
 
     checkForDisruption = async (pubDst: string, trackedBalance: number, providerTracker: TrackedProvider) => {
-        const diff = trackedBalance - providerTracker.latest_balance
+        const diff = providerTracker.latest_balance - trackedBalance
         if (diff < 0) {
             this.rugPulled = true
             if (providerTracker.latest_distruption_at_unix === 0) {
