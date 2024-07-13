@@ -153,22 +153,18 @@ export class LiquidityManager {
     shouldOpenChannel = async (): Promise<{ shouldOpen: false } | { shouldOpen: true, maxSpendable: number }> => {
         const threshold = this.settings.lspSettings.channelThreshold
         if (threshold === 0) {
-            this.log("channel threshold is 0")
             return { shouldOpen: false }
         }
         const { remote } = await this.lnd.ChannelBalance()
         if (remote > threshold) {
-            this.log("remote channel balance is already more than threshold")
             return { shouldOpen: false }
         }
         const pendingChannels = await this.lnd.ListPendingChannels()
         if (pendingChannels.pendingOpenChannels.length > 0) {
-            this.log("pending open channels detected, liquidiity might be on the way")
             return { shouldOpen: false }
         }
         const maxW = await this.liquidityProvider.GetLatestMaxWithdrawable()
         if (maxW < threshold) {
-            this.log("max withdrawable of", maxW, "is lower than channel threshold of", threshold)
             return { shouldOpen: false }
         }
         return { shouldOpen: true, maxSpendable: maxW }
@@ -188,7 +184,7 @@ export class LiquidityManager {
             return
         }
         this.channelRequesting = true
-        this.log("checking if channel should be requested")
+        this.log("requesting channel from lsp")
         const olympusOk = await this.olympusLSP.requestChannel(shouldOpen.maxSpendable)
         if (olympusOk) {
             this.log("requested channel from olympus")
