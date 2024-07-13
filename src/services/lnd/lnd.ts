@@ -322,7 +322,6 @@ export default class {
                 stream.responses.onMessage(payment => {
                     switch (payment.status) {
                         case Payment_PaymentStatus.FAILED:
-                            console.log(payment)
                             this.log("invoice payment failed", payment.failureReason)
                             rej(PaymentFailureReason[payment.failureReason])
                             return
