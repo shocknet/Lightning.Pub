@@ -30,7 +30,7 @@ export class LiquidityProvider {
     pendingPayments: Record<string, number> = {}
     updateProviderBalance: (balance: number) => Promise<void>
     // make the sub process accept client
-    constructor(pubDestination: string, utils: Utils, invoicePaidCb: InvoicePaidCb, updateProviderBalance: (balance: number) => Promise<void>) {
+    constructor(pubDestination: string, utils: Utils, invoicePaidCb: InvoicePaidCb, updateProviderBalance: (balance: number) => Promise<any>) {
         this.utils = utils
         if (!pubDestination) {
             this.log("No pub provider to liquidity provider, will not be initialized")
