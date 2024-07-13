@@ -29,6 +29,7 @@ export class RugPullTracker {
         if (ready) {
             const balance = await this.liquidProvider.GetLatestBalance()
             const pendingBalance = await this.liquidProvider.GetPendingBalance()
+            this.log({ pendingBalance })
             const trackedBalance = balance + pendingBalance
             if (!providerTracker) {
                 this.log("starting to track provider", this.liquidProvider.GetProviderDestination())
