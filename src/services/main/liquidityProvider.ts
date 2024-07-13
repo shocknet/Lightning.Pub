@@ -88,7 +88,6 @@ export class LiquidityProvider {
         this.queue.forEach(q => q('ready'))
         this.log("subbing to user operations")
         this.client.GetLiveUserOperations(res => {
-            console.log("got user operation", res)
             if (res.status === 'ERROR') {
                 this.log("error getting user operations", res.reason)
                 return
