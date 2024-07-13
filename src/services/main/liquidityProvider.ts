@@ -84,7 +84,6 @@ export class LiquidityProvider {
         if (res.status === 'ERROR') {
             return
         }
-        this.incrementProviderBalance(res.balance)
         this.ready = true
         this.queue.forEach(q => q('ready'))
         this.log("subbing to user operations")
