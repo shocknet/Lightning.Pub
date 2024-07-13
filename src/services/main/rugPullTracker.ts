@@ -34,33 +34,13 @@ export class RugPullTracker {
             await this.storage.liquidityStorage.CreateTrackedProvider('lnPub', pubDst, trackedBalance)
             return { balance: trackedBalance }
         }
-        if (providerTracker.latest_balance !== trackedBalance) {
-            return this.handleBalanceMismatch(pubDst, trackedBalance, providerTracker)
-        }
-        this.rugPulled = false
-        return { balance: trackedBalance }
+        return this.updateDisruption(pubDst, trackedBalance, providerTracker)
     }
 
-    handleBalanceMismatch = async (pubDst: string, trackedBalance: number, providerTracker: TrackedProvider) => {
+    updateDisruption = async (pubDst: string, trackedBalance: number, providerTracker: TrackedProvider) => {
         const diff = trackedBalance - providerTracker.latest_balance
         if (diff < 0) {
-            getLogger({ component: 'rugPull' })(pubDst, "provider balance changed from", providerTracker.latest_balance, "to", trackedBalance, "losing", diff)
             this.rugPulled = true
-            if (providerTracker.latest_distruption_at_unix === 0) {
-                await this.storage.liquidityStorage.UpdateTrackedProviderDisruption('lnPub', pubDst, Math.floor(Date.now() / 1000))
-            }
-        } else {
-            getLogger({ component: 'rugPush' })(pubDst, "provider balance changed from", providerTracker.latest_balance, "to", trackedBalance, "gaining", diff)
-            this.rugPulled = false
-            if (providerTracker.latest_distruption_at_unix !== 0) {
-                await this.storage.liquidityStorage.UpdateTrackedProviderDisruption('lnPub', pubDst, 0)
-            }
-        }
-        return { balance: trackedBalance, prevBalance: providerTracker.latest_balance }
-    }
-
-    updateDisruption = async (pubDst: string, trackedBalance: number, providerTracker: TrackedProvider, diff: number) => {
-        if (diff < 0) {
             if (providerTracker.latest_distruption_at_unix === 0) {
                 await this.storage.liquidityStorage.UpdateTrackedProviderDisruption('lnPub', pubDst, Math.floor(Date.now() / 1000))
                 getLogger({ component: 'rugPull' })("detected rugpull from: ", pubDst, "provider balance changed from", providerTracker.latest_balance, "to", trackedBalance, "losing", diff)
@@ -68,6 +48,7 @@ export class RugPullTracker {
                 getLogger({ component: 'rugPull' })("ongoing rugpull from: ", pubDst, "provider balance changed from", providerTracker.latest_balance, "to", trackedBalance, "losing", diff)
             }
         } else {
+            this.rugPulled = true
             if (providerTracker.latest_distruption_at_unix !== 0) {
                 await this.storage.liquidityStorage.UpdateTrackedProviderDisruption('lnPub', pubDst, 0)
                 getLogger({ component: 'rugPull' })("rugpull from: ", pubDst, "cleared after: ", (Date.now() / 1000) - providerTracker.latest_distruption_at_unix, "seconds")
@@ -76,5 +57,6 @@ export class RugPullTracker {
                 this.log("detected excees from: ", pubDst, "provider balance changed from", providerTracker.latest_balance, "to", trackedBalance, "gaining", diff)
             }
         }
+        return { balance: trackedBalance, prevBalance: providerTracker.latest_balance }
     }
 }
