@@ -71,7 +71,7 @@ export class StateBundler {
     AddTxPoint = (actionName: TransactionStatePointType, v: number, settings: TxPointSettings) => {
         const { used, from, timeDiscount } = settings
         const meta = settings.meta || []
-        const key = `${actionName}_${from}_${used}_${meta.join('_')}`
+        const key = [actionName, from, used, ...meta].join('_')
         this.increment(key, v)
         if (timeDiscount) {
             this.totalSatsForDiscount += v
@@ -82,17 +82,17 @@ export class StateBundler {
     AddTxPointFailed = (actionName: TransactionStatePointType, v: number, settings: TxPointSettings) => {
         const { used, from } = settings
         const meta = settings.meta || []
-        const key = `${actionName}_${from}_${used}_${meta.join('_')}_failed`
+        const key = [actionName, from, used, ...meta, 'failed'].join('_')
         this.increment(key, v)
     }
 
     AddBalancePoint = (actionName: BalanceStatePointType, v: number, meta = []) => {
-        const key = `${actionName}_${meta.join('_')}`
+        const key = [actionName, ...meta].join('_')
         this.set(key, v)
     }
 
     AddMaxPoint = (actionName: MaxStatePointType, v: number, meta = []) => {
-        const key = `${actionName}_${meta.join('_')}`
+        const key = [actionName, ...meta].join('_')
         this.max(key, v)
     }
 
