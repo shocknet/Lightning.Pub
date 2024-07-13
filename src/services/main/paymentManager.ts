@@ -195,7 +195,6 @@ export default class {
             operation_id: `${Types.UserOperationType.OUTGOING_INVOICE}-${paymentInfo.serialId}`,
             network_fee: paymentInfo.networkFee,
             service_fee: serviceFee,
-            latest_balance: user.balance_sats
         }
     }
 

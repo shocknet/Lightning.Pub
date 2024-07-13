@@ -302,7 +302,6 @@ message PayInvoiceResponse{
     string operation_id = 3;
     int64 service_fee = 4;
     int64 network_fee = 5;
-    int64 latest_balance = 6;
 }
 
 message OpenChannelRequest{
@@ -417,7 +416,6 @@ message GetProductBuyLinkResponse {
 
 message LiveUserOperation {
     UserOperation operation  = 1;
-    int64 latest_balance = 2;
 }
 message MigrationUpdate {
     optional ClosureMigration closure = 1;
