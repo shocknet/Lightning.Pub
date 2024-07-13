@@ -74,7 +74,7 @@ export class Watchdog {
         this.accumulatedHtlcFees = 0
 
         this.interval = setInterval(() => {
-            if (this.latestCheckStart + (1000 * 60) < Date.now()) {
+            if (this.latestCheckStart + (1000 * 58) < Date.now()) {
                 this.PaymentRequested()
             }
         }, 1000 * 60)
@@ -160,7 +160,7 @@ export class Watchdog {
         } else {
             if (tracker.latest_distruption_at_unix !== 0) {
                 await this.storage.liquidityStorage.UpdateTrackedProviderDisruption('lnd', this.lndPubKey, 0)
-                getLogger({ component: 'bark' })("loss cleared after: ", (Date.now() / 1000) - tracker.latest_distruption_at_unix, "seconds")
+                getLogger({ component: 'bark' })("loss cleared after: ", Math.floor(Date.now() / 1000) - tracker.latest_distruption_at_unix, "seconds")
             } else if (absoluteDiff > 0) {
                 this.log("lnd balance increased more than users balance by", absoluteDiff)
             }

@@ -28,9 +28,9 @@ export class LiquidityProvider {
     queue: ((state: 'ready') => void)[] = []
     utils: Utils
     pendingPayments: Record<string, number> = {}
-    updateProviderBalance: (balance: number) => Promise<void>
+    incrementProviderBalance: (balance: number) => Promise<void>
     // make the sub process accept client
-    constructor(pubDestination: string, utils: Utils, invoicePaidCb: InvoicePaidCb, updateProviderBalance: (balance: number) => Promise<any>) {
+    constructor(pubDestination: string, utils: Utils, invoicePaidCb: InvoicePaidCb, incrementProviderBalance: (balance: number) => Promise<any>) {
         this.utils = utils
         if (!pubDestination) {
             this.log("No pub provider to liquidity provider, will not be initialized")
@@ -39,7 +39,7 @@ export class LiquidityProvider {
         this.log("connecting to liquidity provider:", pubDestination)
         this.pubDestination = pubDestination
         this.invoicePaidCb = invoicePaidCb
-        this.updateProviderBalance = updateProviderBalance
+        this.incrementProviderBalance = incrementProviderBalance
         this.client = newNostrClient({
             pubDestination: this.pubDestination,
             retrieveNostrUserAuth: async () => this.myPub,
@@ -84,6 +84,7 @@ export class LiquidityProvider {
         if (res.status === 'ERROR') {
             return
         }
+        this.incrementProviderBalance(res.balance)
         this.ready = true
         this.queue.forEach(q => q('ready'))
         this.log("subbing to user operations")
@@ -94,7 +95,7 @@ export class LiquidityProvider {
             }
             //this.log("got user operation", res.operation)
             if (res.operation.type === Types.UserOperationType.INCOMING_INVOICE) {
-                this.updateProviderBalance(res.latest_balance)
+                this.incrementProviderBalance(res.operation.amount)
                 this.invoicePaidCb(res.operation.identifier, res.operation.amount, 'provider')
             }
         })
@@ -192,8 +193,8 @@ export class LiquidityProvider {
                 this.log("error paying invoice", res.reason)
                 throw new Error(res.reason)
             }
-
-            this.updateProviderBalance(userInfo.balance).then(() => { delete this.pendingPayments[invoice] })
+            const totalPaid = res.amount_paid + res.network_fee + res.service_fee
+            this.incrementProviderBalance(-totalPaid).then(() => { delete this.pendingPayments[invoice] })
             this.utils.stateBundler.AddTxPoint('paidAnInvoice', decodedAmount, { used: 'provider', from, timeDiscount: true })
             return res
         } catch (err) {

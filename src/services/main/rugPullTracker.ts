@@ -57,7 +57,7 @@ export class RugPullTracker {
             this.rugPulled = false
             if (providerTracker.latest_distruption_at_unix !== 0) {
                 await this.storage.liquidityStorage.UpdateTrackedProviderDisruption('lnPub', pubDst, 0)
-                getLogger({ component: 'rugPull' })("rugpull from: ", pubDst, "cleared after: ", (Date.now() / 1000) - providerTracker.latest_distruption_at_unix, "seconds")
+                getLogger({ component: 'rugPull' })("rugpull from: ", pubDst, "cleared after: ", Math.floor(Date.now() / 1000) - providerTracker.latest_distruption_at_unix, "seconds")
             }
             if (diff > 0) {
                 this.log("detected excees from: ", pubDst, "provider balance changed from", providerTracker.latest_balance, "to", trackedBalance, "gaining", diff)
