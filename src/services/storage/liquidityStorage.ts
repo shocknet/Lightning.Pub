@@ -47,6 +47,7 @@ export class LiquidityStorage {
         return this.txQueue.PushToQueue<TrackedProvider>({ exec: async db => db.getRepository(TrackedProvider).save(entry), dbTx: false })
     }
     async UpdateTrackedProviderBalance(providerType: 'lnd' | 'lnPub', pub: string, latestBalance: number) {
+        console.log("updating tracked balance:", latestBalance)
         return this.DB.getRepository(TrackedProvider).update({ provider_pubkey: pub, provider_type: providerType }, { latest_balance: latestBalance })
     }
     async UpdateTrackedProviderDisruption(providerType: 'lnd' | 'lnPub', pub: string, latestDisruptionAtUnix: number) {
