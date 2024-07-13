@@ -28,8 +28,9 @@ export class LiquidityProvider {
     queue: ((state: 'ready') => void)[] = []
     utils: Utils
     pendingPayments: Record<string, number> = {}
+    updateProviderBalance: (balance: number) => void
     // make the sub process accept client
-    constructor(pubDestination: string, utils: Utils, invoicePaidCb: InvoicePaidCb) {
+    constructor(pubDestination: string, utils: Utils, invoicePaidCb: InvoicePaidCb, updateProviderBalance: (balance: number) => void) {
         this.utils = utils
         if (!pubDestination) {
             this.log("No pub provider to liquidity provider, will not be initialized")
@@ -38,6 +39,7 @@ export class LiquidityProvider {
         this.log("connecting to liquidity provider:", pubDestination)
         this.pubDestination = pubDestination
         this.invoicePaidCb = invoicePaidCb
+        this.updateProviderBalance = updateProviderBalance
         this.client = newNostrClient({
             pubDestination: this.pubDestination,
             retrieveNostrUserAuth: async () => this.myPub,
@@ -93,6 +95,7 @@ export class LiquidityProvider {
             }
             //this.log("got user operation", res.operation)
             if (res.operation.type === Types.UserOperationType.INCOMING_INVOICE) {
+                this.updateProviderBalance(res.latest_balance)
                 this.invoicePaidCb(res.operation.identifier, res.operation.amount, 'provider')
             }
         })
@@ -191,6 +194,7 @@ export class LiquidityProvider {
                 throw new Error(res.reason)
             }
             delete this.pendingPayments[invoice]
+            this.updateProviderBalance(userInfo.balance)
             this.utils.stateBundler.AddTxPoint('paidAnInvoice', decodedAmount, { used: 'provider', from, timeDiscount: true })
             return res
         } catch (err) {

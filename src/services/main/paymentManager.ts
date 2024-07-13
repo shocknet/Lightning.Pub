@@ -193,7 +193,8 @@ export default class {
             amount_paid: paymentInfo.amtPaid,
             operation_id: `${Types.UserOperationType.OUTGOING_INVOICE}-${paymentInfo.serialId}`,
             network_fee: paymentInfo.networkFee,
-            service_fee: serviceFee
+            service_fee: serviceFee,
+            latest_balance: user.balance_sats
         }
     }
 
