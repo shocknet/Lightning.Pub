@@ -98,5 +98,3 @@ EOF
   chmod +x start.sh
   log "systemctl not available. Created start.sh. Please use this script to start the services manually."
 }
-
-start_services
