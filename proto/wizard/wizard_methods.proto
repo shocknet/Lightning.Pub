@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package wizard_methods;
+
+import "google/protobuf/descriptor.proto";
+import "wizard_structs.proto";
+
+option go_package = "github.com/shocknet/lightning.pub";
+option (file_options) = {
+    supported_http_methods:["post", "get"];
+    supported_auths:{
+        id: "guest"
+        name: "Guest"
+        context:[] 
+    };
+};
+
+message MethodQueryOptions {
+    repeated string items = 1;
+}
+
+extend google.protobuf.MethodOptions {  // TODO: move this stuff to dep repo?
+    string auth_type = 50003;
+    string http_method = 50004;
+    string http_route = 50005;
+    MethodQueryOptions query = 50006;
+    bool nostr = 50007;
+    bool batch = 50008;
+
+}
+
+message ProtoFileOptions {
+    message SupportedAuth {
+        string id = 1;
+        string name = 2;
+        bool encrypted = 3;
+        map<string,string> context = 4;
+    }
+    repeated SupportedAuth supported_auths = 1;
+    repeated string supported_http_methods = 2;
+}
+
+extend google.protobuf.FileOptions {
+    ProtoFileOptions file_options = 50004;
+}
+
+service Wizard {
+    // <Guest>
+    rpc WizardState(wizard_structs.Empty) returns (wizard_structs.StateResponse){
+        option (auth_type)  = "Guest";
+        option (http_method) = "get";
+        option (http_route) = "/wizard/state";
+    };
+    rpc WizardConfig(wizard_structs.ConfigRequest) returns (wizard_structs.ConfigResponse){
+        option (auth_type)  = "Guest";
+        option (http_method) = "post";
+        option (http_route) = "/wizard/config";
+    };
+    rpc WizardConfirm(wizard_structs.ConfirmRequest) returns (wizard_structs.ConfirmResponse){
+        option (auth_type)  = "Guest";
+        option (http_method) = "post";
+        option (http_route) = "/wizard/confirm";
+    };
+    // </Guest>
+}

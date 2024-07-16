@@ -9,10 +9,13 @@ import { InitWalletReq } from '../lnd/initWalletReq.js';
 import Storage from '../storage/index.js'
 import { LightningClient } from '../../../proto/lnd/lightning.client.js';
 const DeadLineMetadata = (deadline = 10 * 1000) => ({ deadline: Date.now() + deadline })
+type EncryptedData = { iv: string, encrypted: string }
+type Seed = { plaintextSeed: string[], encryptedSeed: EncryptedData }
 export class Unlocker {
     settings: MainSettings
     storage: Storage
     abortController = new AbortController()
+    pendingSeed: Record<string, EncryptedData> = {}
     log = getLogger({ component: "unlocker" })
     constructor(settings: MainSettings, storage: Storage) {
         this.settings = settings
@@ -23,7 +26,7 @@ export class Unlocker {
         this.abortController.abort()
     }
 
-    Unlock = async () => {
+    getCreds = () => {
         const macroonPath = this.settings.lndSettings.mainNode.lndMacaroonPath
         const certPath = this.settings.lndSettings.mainNode.lndCertPath
         let macaroon = ""
@@ -40,6 +43,48 @@ export class Unlocker {
                 throw err
             }
         }
+        return { lndCert, macaroon }
+    }
+
+    IsInitialized = async () => {
+        const { macaroon } = await this.getCreds()
+        return macaroon !== ''
+    }
+
+    InitInteractive = async (): Promise<{ alreadyInitizialized: true } | { alreadyInitizialized: false, seed: string[], confirmationId: string }> => {
+        const { lndCert, macaroon } = await this.getCreds()
+        if (macaroon !== '') {
+            const { ln, pub } = await this.UnlockFlow(lndCert, macaroon)
+            this.subscribeToBackups(ln, pub)
+            return { alreadyInitizialized: true }
+        }
+        const unlocker = this.GetUnlockerClient(lndCert)
+        const seed = await this.genSeed(unlocker)
+        const confirmationId = crypto.randomBytes(32).toString('hex')
+        this.pendingSeed[confirmationId] = seed.encryptedSeed
+        return { alreadyInitizialized: false, seed: seed.plaintextSeed, confirmationId }
+    }
+
+    ConfirmInitInteractive = async (confirmationId: string) => {
+        const { lndCert, macaroon } = await this.getCreds()
+        if (macaroon !== '') {
+            const { ln, pub } = await this.UnlockFlow(lndCert, macaroon)
+            this.subscribeToBackups(ln, pub)
+            return { alreadyInitizialized: true }
+        }
+        const seed = this.pendingSeed[confirmationId]
+        if (!seed) {
+            throw new Error("seed not found")
+        }
+        delete this.pendingSeed[confirmationId]
+        const plaintextSeed = this.DecryptWalletSeed(seed)
+        const unlocker = this.GetUnlockerClient(lndCert)
+        const { ln, pub } = await this.initWallet(lndCert, unlocker, { plaintextSeed, encryptedSeed: seed })
+        this.subscribeToBackups(ln, pub)
+    }
+
+    Unlock = async () => {
+        const { lndCert, macaroon } = await this.getCreds()
         const { ln, pub } = macaroon === "" ? await this.InitFlow(lndCert) : await this.UnlockFlow(lndCert, macaroon)
         this.subscribeToBackups(ln, pub)
     }
@@ -69,15 +114,24 @@ export class Unlocker {
     InitFlow = async (lndCert: Buffer) => {
         this.log("macaroon not found, creating wallet...")
         const unlocker = this.GetUnlockerClient(lndCert)
+        const { plaintextSeed, encryptedSeed } = await this.genSeed(unlocker)
+        return this.initWallet(lndCert, unlocker, { plaintextSeed, encryptedSeed })
+    }
+
+    genSeed = async (unlocker: WalletUnlockerClient): Promise<Seed> => {
         const entropy = crypto.randomBytes(16)
         const seedRes = await unlocker.genSeed({
             aezeedPassphrase: Buffer.alloc(0),
             seedEntropy: entropy
         }, DeadLineMetadata())
-        this.log("seed created, encrypting and saving...")
+        this.log("seed created")
         const { encryptedData } = this.EncryptWalletSeed(seedRes.response.cipherSeedMnemonic)
+        return { plaintextSeed: seedRes.response.cipherSeedMnemonic, encryptedSeed: encryptedData }
+    }
+
+    initWallet = async (lndCert: Buffer, unlocker: WalletUnlockerClient, seed: Seed) => {
         const walletPw = this.GetWalletPassword()
-        const req = InitWalletReq(walletPw, seedRes.response.cipherSeedMnemonic)
+        const req = InitWalletReq(walletPw, seed.plaintextSeed)
         const initRes = await unlocker.initWallet(req, DeadLineMetadata(60 * 1000))
         const adminMacaroon = Buffer.from(initRes.response.adminMacaroon).toString('hex')
         const ln = this.GetLightningClient(lndCert, adminMacaroon)
@@ -94,10 +148,12 @@ export class Unlocker {
         if (!info || !info.ok) {
             throw new Error("failed to init lnd wallet " + (info ? info.failure : "unknown error"))
         }
-        await this.storage.liquidityStorage.SaveNodeSeed(info.pub, JSON.stringify(encryptedData))
+        await this.storage.liquidityStorage.SaveNodeSeed(info.pub, JSON.stringify(seed.encryptedSeed))
         this.log("created wallet with pub:", info.pub)
         return { ln, pub: info.pub }
     }
+
+
 
     GetLndInfo = async (ln: LightningClient): Promise<{ ok: false, failure: 'locked' | 'unknown' } | { ok: true, pub: string }> => {
         while (true) {

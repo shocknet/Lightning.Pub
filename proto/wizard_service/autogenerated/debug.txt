@@ -1,0 +1,221 @@
+([]*main.Method) (len=3 cap=4) {
+ (*main.Method)(0xc0002221e0)({
+  in: (main.MethodMessage) {
+   name: (string) (len=5) "Empty",
+   hasZeroFields: (bool) true
+  },
+  name: (string) (len=11) "WizardState",
+  out: (main.MethodMessage) {
+   name: (string) (len=13) "StateResponse",
+   hasZeroFields: (bool) false
+  },
+  opts: (*main.methodOptions)(0xc00009e6c0)({
+   authType: (*main.supportedAuth)(0xc0003bd290)({
+    id: (string) (len=5) "guest",
+    name: (string) (len=5) "Guest",
+    context: (map[string]string) {
+    }
+   }),
+   method: (string) (len=3) "get",
+   route: (main.decodedRoute) {
+    route: (string) (len=13) "/wizard/state",
+    params: ([]string) <nil>
+   },
+   query: ([]string) <nil>,
+   nostr: (bool) false,
+   batch: (bool) false
+  }),
+  serverStream: (bool) false
+ }),
+ (*main.Method)(0xc000222230)({
+  in: (main.MethodMessage) {
+   name: (string) (len=13) "ConfigRequest",
+   hasZeroFields: (bool) false
+  },
+  name: (string) (len=12) "WizardConfig",
+  out: (main.MethodMessage) {
+   name: (string) (len=14) "ConfigResponse",
+   hasZeroFields: (bool) false
+  },
+  opts: (*main.methodOptions)(0xc00009e840)({
+   authType: (*main.supportedAuth)(0xc0003bd350)({
+    id: (string) (len=5) "guest",
+    name: (string) (len=5) "Guest",
+    context: (map[string]string) {
+    }
+   }),
+   method: (string) (len=4) "post",
+   route: (main.decodedRoute) {
+    route: (string) (len=14) "/wizard/config",
+    params: ([]string) <nil>
+   },
+   query: ([]string) <nil>,
+   nostr: (bool) false,
+   batch: (bool) false
+  }),
+  serverStream: (bool) false
+ }),
+ (*main.Method)(0xc0002225a0)({
+  in: (main.MethodMessage) {
+   name: (string) (len=14) "ConfirmRequest",
+   hasZeroFields: (bool) false
+  },
+  name: (string) (len=13) "WizardConfirm",
+  out: (main.MethodMessage) {
+   name: (string) (len=15) "ConfirmResponse",
+   hasZeroFields: (bool) false
+  },
+  opts: (*main.methodOptions)(0xc00009e9c0)({
+   authType: (*main.supportedAuth)(0xc0003bd410)({
+    id: (string) (len=5) "guest",
+    name: (string) (len=5) "Guest",
+    context: (map[string]string) {
+    }
+   }),
+   method: (string) (len=4) "post",
+   route: (main.decodedRoute) {
+    route: (string) (len=15) "/wizard/confirm",
+    params: ([]string) <nil>
+   },
+   query: ([]string) <nil>,
+   nostr: (bool) false,
+   batch: (bool) false
+  }),
+  serverStream: (bool) false
+ })
+}
+
+([]*main.Enum) <nil>
+
+(map[string]*main.Message) (len=6) {
+ (string) (len=13) "StateResponse": (*main.Message)(0xc0003ee1c0)({
+  fullName: (string) (len=13) "StateResponse",
+  name: (string) (len=13) "StateResponse",
+  fields: ([]*main.Field) (len=1 cap=1) {
+   (*main.Field)(0xc0003bccc0)({
+    name: (string) (len=19) "already_initialized",
+    kind: (string) (len=4) "bool",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=13) "ConfigRequest": (*main.Message)(0xc0003ee200)({
+  fullName: (string) (len=13) "ConfigRequest",
+  name: (string) (len=13) "ConfigRequest",
+  fields: ([]*main.Field) (len=4 cap=4) {
+   (*main.Field)(0xc0003bccf0)({
+    name: (string) (len=11) "source_name",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0003bcd20)({
+    name: (string) (len=9) "relay_url",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0003bcd50)({
+    name: (string) (len=18) "automate_liquidity",
+    kind: (string) (len=4) "bool",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0003bcd80)({
+    name: (string) (len=21) "push_backups_to_nostr",
+    kind: (string) (len=4) "bool",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=14) "ConfigResponse": (*main.Message)(0xc0003ee240)({
+  fullName: (string) (len=14) "ConfigResponse",
+  name: (string) (len=14) "ConfigResponse",
+  fields: ([]*main.Field) (len=3 cap=4) {
+   (*main.Field)(0xc0003bcdb0)({
+    name: (string) (len=19) "already_initialized",
+    kind: (string) (len=4) "bool",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0003bcde0)({
+    name: (string) (len=4) "seed",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) true,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   }),
+   (*main.Field)(0xc0003bce10)({
+    name: (string) (len=15) "confirmation_id",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=14) "ConfirmRequest": (*main.Message)(0xc0003ee280)({
+  fullName: (string) (len=14) "ConfirmRequest",
+  name: (string) (len=14) "ConfirmRequest",
+  fields: ([]*main.Field) (len=1 cap=1) {
+   (*main.Field)(0xc0003bce40)({
+    name: (string) (len=15) "confirmation_id",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=15) "ConfirmResponse": (*main.Message)(0xc0003ee2c0)({
+  fullName: (string) (len=15) "ConfirmResponse",
+  name: (string) (len=15) "ConfirmResponse",
+  fields: ([]*main.Field) (len=1 cap=1) {
+   (*main.Field)(0xc0003bce70)({
+    name: (string) (len=9) "admin_key",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false
+   })
+  }
+ }),
+ (string) (len=5) "Empty": (*main.Message)(0xc0003ee080)({
+  fullName: (string) (len=5) "Empty",
+  name: (string) (len=5) "Empty",
+  fields: ([]*main.Field) <nil>
+ })
+}
+
+parsing file: wizard_structs 6
+parsing file: wizard_methods 2
+-> [{guest Guest map[]}] 
+

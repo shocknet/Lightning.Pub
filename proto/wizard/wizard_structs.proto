@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package wizard_structs;
+
+option go_package = "github.com/shocknet/lightning.pub";
+
+message Empty {}
+
+message StateResponse {
+    bool already_initialized = 1;
+}
+message ConfigRequest {
+    string source_name = 1;
+    string relay_url = 2;
+    bool automate_liquidity = 3;
+    bool push_backups_to_nostr = 4;
+}
+
+
+message ConfigResponse {
+    bool already_initialized = 1;
+    repeated string seed = 2;
+    string confirmation_id = 3;
+}
+
+message ConfirmRequest {
+    string confirmation_id = 1;
+}
+
+message ConfirmResponse {
+    string admin_key = 1;
+}

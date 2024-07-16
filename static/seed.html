@@ -1,180 +1,128 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="UTF-8" />
-    <title></title>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css?family=Montserrat"
-    />
-    <link rel="stylesheet" href="css/styles.css" />
-    <link rel="stylesheet" href="css/seed.css" />
-    <!-- HTML Meta Tags -->
-    <title>Lightning.Pub</title>
-    <meta name="description" content="Lightning for Everyone" />
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-  </head>
-  <body>
-    <header>
-      <img
-        src="img/pub_logo.png"
-        width="38px"
-        height="auto"
-        alt="Lightning Pub logo"
-      />
-      <img src="img/LightningPub.png" height="33px" alt="Lightning Pub logo" />
-    </header>
 
-    <main>
-      <section class="setup-header">
-        <button class="icon-button back-button" onclick="history.back()">
-          <img src="img/back.svg" alt="" />
-        </button>
-        <h2>Seed Phrase</h2>
-        <p class="header-title">
-          Store your seed phrase somewhere safe, you will need it if something ever goes wrong with your node hard drive.
-        </p>
-      </section>
+<head>
+  <meta charset="UTF-8" />
+  <title></title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Montserrat" />
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/seed.css" />
+  <!-- HTML Meta Tags -->
+  <title>Lightning.Pub</title>
+  <meta name="description" content="Lightning for Everyone" />
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+</head>
 
-      <div class="line"></div>
+<body>
+  <header>
+    <img src="img/pub_logo.png" width="38px" height="auto" alt="Lightning Pub logo" />
+    <img src="img/LightningPub.png" height="33px" alt="Lightning Pub logo" />
+  </header>
 
-      <section class="setup-content">
-        <div class="seed-box-container blur-filter" id="seed-box-container">
-          <div class="seed-box">
-            <span>1</span>
-            <span>albert</span>
-          </div>
-          <div class="seed-box">
-            <span>1</span>
-            <span>albert</span>
-          </div>
-          <div class="seed-box">
-            <span>1</span>
-            <span>albert</span>
-          </div>
-          <div class="seed-box">
-            <span>1</span>
-            <span>albert</span>
-          </div>
-          <div class="seed-box">
-            <span>1</span>
-            <span>albert</span>
-          </div>
-          <div class="seed-box">
-            <span>1</span>
-            <span>albert</span>
-          </div>
-          <div class="seed-box">
-            <span>1</span>
-            <span>albert</span>
-          </div>
-          <div class="seed-box">
-            <span>1</span>
-            <span>albert</span>
-          </div>
-          <div class="seed-box">
-            <span>1</span>
-            <span>albert</span>
-          </div>
-          <div class="seed-box">
-            <span>1</span>
-            <span>albert</span>
-          </div>
-          <div class="seed-box">
-            <span>1</span>
-            <span>albert</span>
-          </div>
-          <div class="seed-box">
-            <span>1</span>
-            <span>albert</span>
-          </div>
-          <div class="seed-box">
-            <span>1</span>
-            <span>albert</span>
-          </div>
-          <div class="seed-box">
-            <span>1</span>
-            <span>albert</span>
-          </div>
-          <div class="seed-box">
-            <span>1</span>
-            <span>albert</span>
-          </div>
-          <div class="seed-box">
-            <span>1</span>
-            <span>albert</span>
-          </div>
-          <div class="seed-box">
-            <span>1</span>
-            <span>albert</span>
-          </div>
-          <div class="seed-box">
-            <span>1</span>
-            <span>albert</span>
-          </div>
-          <div class="seed-box">
-            <span>1</span>
-            <span>albert</span>
-          </div>
-          <div class="seed-box">
-            <span>1</span>
-            <span>albert</span>
-          </div>
-          <div class="seed-box">
-            <span>1</span>
-            <span>albert</span>
-          </div>
-          <div class="seed-box">
-            <span>1</span>
-            <span>albert</span>
-          </div>
-          <div class="seed-box">
-            <span>1</span>
-            <span>albert</span>
-          </div>
-          <div class="seed-box">
-            <span>1</span>
-            <span>albert</span>
-          </div>
-        </div>
+  <main>
+    <section class="setup-header">
+      <button class="icon-button back-button" onclick="history.back()">
+        <img src="img/back.svg" alt="" />
+      </button>
+      <h2>Seed Phrase</h2>
+      <p class="header-title">
+        Store your seed phrase somewhere safe, you will need it if something ever goes wrong with your node hard drive.
+      </p>
+    </section>
 
-        <button class="reveal-button" id="reveal-button">Click To Reveal</button>
+    <div class="line"></div>
 
-        <div class="checkbox-container">
-          <div class="checkbox" style="margin-top: 12px">
-            <input type="checkbox" id="copied" />
-            <div class="checkbox-shape"></div>
-            <label for="copied">
-              I have copied this somewhere safe
-            </label>
-          </div>
-        </div>
-        <button
-          id="next-button"
-          class="push-button hidden-button"
-          onclick="location.href='connect.html'"
-          style="margin-top: 60px"
-        >
-          Next
-        </button>
-      </section>
-    </main>
+    <section class="setup-content">
+      <div class="seed-box-container blur-filter" id="seed-box-container">
+      </div>
 
-    <footer>
-      <div class="footer-text">
-        <div>By proceeding you acknowledge that this is</div>
-        <div>bleeding-edge software, and agree to the providers</div>
-        <div>
-          <span style="color: #c434e0">terms</span> regarding any services
-          herein.
+      <button class="reveal-button" id="reveal-button">Click To Reveal</button>
+
+      <div class="checkbox-container">
+        <div class="checkbox" style="margin-top: 12px">
+          <input type="checkbox" id="copied" />
+          <div class="checkbox-shape"></div>
+          <label for="copied">
+            I have copied this somewhere safe
+          </label>
         </div>
       </div>
-      <div class="line"></div>
-      <a href="https://docs.shock.network" class="marked need-help">Need Help?</a>
-    </footer>
+      <button id="next-button" class="push-button hidden-button" style="margin-top: 60px">
+        Next
+      </button>
+    </section>
+  </main>
 
-    <script src="js/seed.js"></script>
-  </body>
+  <footer>
+    <div class="footer-text">
+      <div>By proceeding you acknowledge that this is</div>
+      <div>bleeding-edge software, and agree to the providers</div>
+      <div>
+        <span style="color: #c434e0">terms</span> regarding any services
+        herein.
+      </div>
+    </div>
+    <div class="line"></div>
+    <a href="https://docs.shock.network" class="marked need-help">Need Help?</a>
+  </footer>
+
+  <script src="js/seed.js"></script>
+  <script>
+    let latestConfirmationId = ""
+    document.getElementById("next-button").onclick = (e) => {
+      if (!latestConfirmationId) {
+        return
+      }
+      fetch("/wizard/confirm", {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          confirmation_id: latestConfirmationId,
+        })
+      }).then((res) => {
+        if (res.status === 200) {
+          location.href = 'connect.html'
+        }
+      })
+    }
+    fetch("/wizard/config", {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        source_name: localStorage.getItem("wizard/nodeName"),
+        relay_url: localStorage.getItem("wizard/relayUrl"),
+        automate_liquidity: localStorage.getItem("wizard/liquidity") === 'automate',
+        push_backups_to_nostr: localStorage.getItem("wizard/backup") === 'backup',
+      })
+    }).then((res) => {
+      if (res.status === 200) {
+        res.json().then((data) => {
+          if (data.already_initialized) {
+            location.href = 'status.html'
+            return
+          }
+          const seedContainer = document.getElementById("seed-box-container")
+          latestConfirmationId = data.confirmation_id
+          console.log(latestConfirmationId)
+          data.seed.forEach((word, index) => {
+            const seedBox = document.createElement('div')
+            seedBox.classList.add('seed-box')
+            seedBox.innerHTML = `
+              <span>${index + 1}</span>
+              <span>${word}</span>
+            `
+            seedContainer.appendChild(seedBox)
+          })
+        })
+      }
+    })
+  </script>
+</body>
+
 </html>
