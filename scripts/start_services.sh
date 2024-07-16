@@ -41,8 +41,8 @@ WantedBy=multi-user.target
 EOF"
 
       sudo systemctl daemon-reload
-      sudo systemctl enable lnd
-      sudo systemctl enable lightning_pub
+      sudo systemctl enable lnd >/dev/null 2>&1
+      sudo systemctl enable lightning_pub >/dev/null 2>&1
 
       log "${PRIMARY_COLOR}Starting${RESET_COLOR} ${SECONDARY_COLOR}LND${RESET_COLOR} service..."
       sudo systemctl start lnd &
