@@ -79,11 +79,11 @@ export class LiquidityProvider {
 
     Connect = async () => {
         await new Promise(res => setTimeout(res, 2000))
-        this.log("ready")
         const res = await this.GetUserState()
-        if (res.status === 'ERROR') {
+        if (res.status === 'ERROR' && res.reason !== 'timeout') {
             return
         }
+        this.log("provider ready with balance:", res.status === 'OK' ? res.balance : 0)
         this.ready = true
         this.queue.forEach(q => q('ready'))
         this.log("subbing to user operations")
@@ -101,9 +101,9 @@ export class LiquidityProvider {
     }
 
     GetUserState = async () => {
-        const res = await this.client.GetUserInfo()
+        const res = await Promise.race([this.client.GetUserInfo(), new Promise<Types.ResultError>(res => setTimeout(() => res({ status: 'ERROR', reason: 'timeout' }), 10 * 1000))])
         if (res.status === 'ERROR') {
-            this.log("error getting user info", res)
+            this.log("error getting user info", res.reason)
             return res
         }
         this.utils.stateBundler.AddBalancePoint('providerBalance', res.balance)
