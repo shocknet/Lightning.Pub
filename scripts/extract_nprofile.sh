@@ -24,7 +24,7 @@ get_log_info() {
     TIMEOUT=$((TIMEOUT - 10))
   done
   if [ $TIMEOUT -le 0 ]; then
-    log "Timeout waiting for unlocker log file."
+    log "Timeout waiting for unlocker log file, make sure the system has adequate resources."
     exit 1
   fi
 
@@ -41,23 +41,24 @@ get_log_info() {
     exit 1
   fi
 
-  if grep -q "unlocker >> macaroon not found, creating wallet..." ${LOG_DIR}/components/unlocker_*.log; then
+  latest_unlocker_log=$(ls -1t ${LOG_DIR}/components/unlocker_*.log 2>/dev/null | head -n 1)
+
+  latest_entry=$(grep -E "unlocker >> macaroon not found, creating wallet|unlocker >> wallet is locked, unlocking|unlocker >> the wallet is already unlocked" "$latest_unlocker_log" | tail -n 1)
+
+  if echo "$latest_entry" | grep -q "unlocker >> macaroon not found, creating wallet"; then
     log "Creating wallet..."
-  elif grep -q "unlocker >> wallet is locked, unlocking" ${LOG_DIR}/components/unlocker_*.log; then
+  elif echo "$latest_entry" | grep -q "unlocker >> wallet is locked, unlocking"; then
     log "Unlocking wallet..."
   else
     log "Wallet is already unlocked."
   fi
 
-  log "Proceeding to nprofile attempts..."
-
   while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
     LATEST_LOG=$(find_latest_log)
     if [ -n "$LATEST_LOG" ]; then
-      log "Found latest log: $LATEST_LOG"
       break
     fi
-    log "Awaiting nostr information..."
+    log "Awaiting connection details..."
     sleep 4
     ATTEMPT=$((ATTEMPT + 1))
   done
@@ -67,12 +68,13 @@ get_log_info() {
     exit 1
   fi
 
-  nprofile_key=$(grep -oP 'nprofile: \K\w+' "$LATEST_LOG")
+  LATEST_LOG=$(find_latest_log)
+  latest_nprofile_key=$(grep -oP 'nprofile: \K\w+' "$LATEST_LOG" | tail -n 1)
 
-  if [ -z "$nprofile_key" ]; then
-    log "No nprofile key found in the log."
+  if [ -z "$latest_nprofile_key" ]; then
+    log "There was a problem fetching the connection details."
     exit 1
   fi
 
-  log "Paste this string into ShockWallet to connect to the node: $nprofile_key"
+  log "Paste this string into ShockWallet to connect to the node: $latest_nprofile_key"
 }
