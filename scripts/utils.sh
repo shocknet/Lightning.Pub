@@ -1,9 +1,9 @@
 #!/bin/bash
 
-PRIMARY_COLOR="\e[38;5;208m"  # #f59322
-SECONDARY_COLOR="\e[38;5;165m"  # #c740c7
+PRIMARY_COLOR="\e[38;5;208m"
+SECONDARY_COLOR="\e[38;5;165m"
 RESET_COLOR="\e[0m"
-LOG_FILE="/var/log/deploy.log"
+LOG_FILE="/var/log/pubdeploy.log"
 
 touch $LOG_FILE
 chmod 644 $LOG_FILE

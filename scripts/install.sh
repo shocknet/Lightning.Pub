@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-BASE_URL="https://raw.githubusercontent.com/shocknet/Lightning.Pub/fix/bootstrap/scripts/"
+BASE_URL="https://bolt12.info/deploy/"
 modules=(
   "utils"
   "check_homebrew"
@@ -12,7 +12,7 @@ modules=(
   "install_nodejs"
   "install_lightning_pub"
   "start_services"
-  "extract_nprofile"  # Add extract_nprofile to the modules array
+  "extract_nprofile"
 )
 
 for module in "${modules[@]}"; do
