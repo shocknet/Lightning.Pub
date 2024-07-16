@@ -29,6 +29,9 @@ export type MainSettings = {
     recordPerformance: boolean
     skipSanityCheck: boolean
     disableExternalPayments: boolean
+    wizard: boolean
+    defaultAppName: string
+    pushBackupsToNostr: boolean
 }
 
 export type BitcoinCoreSettings = {
@@ -63,6 +66,9 @@ export const LoadMainSettingsFromEnv = (): MainSettings => {
         recordPerformance: process.env.RECORD_PERFORMANCE === 'true' || false,
         skipSanityCheck: process.env.SKIP_SANITY_CHECK === 'true' || false,
         disableExternalPayments: process.env.DISABLE_EXTERNAL_PAYMENTS === 'true' || false,
+        wizard: process.env.WIZARD === 'true' || false,
+        defaultAppName: process.env.DEFAULT_APP_NAME || "wallet",
+        pushBackupsToNostr: process.env.PUSH_BACKUPS_TO_NOSTR === 'true' || false
     }
 }
 
