@@ -96,9 +96,10 @@
     fetch("/wizard/state").then((res) => {
       if (res.status === 200) {
         res.json().then((data) => {
-          if (data.already_initialized) {
+          if (data.admin_linked) {
             location.href = 'status.html'
-            console.log("already init")
+          } else if (data.config_sent) {
+            location.href = 'connect.html'
           } else {
             console.log("ready to initialize")
           }

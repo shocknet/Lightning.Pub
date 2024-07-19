@@ -26,30 +26,41 @@ export default (params: ClientParams) => ({
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
-    WizardConfig: async (request: Types.ConfigRequest): Promise<ResultError | ({ status: 'OK' }& Types.ConfigResponse)> => {
+    WizardConfig: async (request: Types.ConfigRequest): Promise<ResultError | ({ status: 'OK' })> => {
         const auth = await params.retrieveGuestAuth()
         if (auth === null) throw new Error('retrieveGuestAuth() returned null')
         let finalRoute = '/wizard/config'
         const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
-            const result = data
-            if(!params.checkResult) return { status: 'OK', ...result }
-            const error = Types.ConfigResponseValidate(result)
-            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+            return data
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
-    WizardConfirm: async (request: Types.ConfirmRequest): Promise<ResultError | ({ status: 'OK' }& Types.ConfirmResponse)> => {
+    GetAdminConnectInfo: async (): Promise<ResultError | ({ status: 'OK' }& Types.AdminConnectInfoResponse)> => {
         const auth = await params.retrieveGuestAuth()
         if (auth === null) throw new Error('retrieveGuestAuth() returned null')
-        let finalRoute = '/wizard/confirm'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        let finalRoute = '/wizard/admin_connect_info'
+        const { data } = await axios.get(params.baseUrl + finalRoute, { headers: { 'authorization': auth } })
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
             if(!params.checkResult) return { status: 'OK', ...result }
-            const error = Types.ConfirmResponseValidate(result)
+            const error = Types.AdminConnectInfoResponseValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
+    GetServiceState: async (): Promise<ResultError | ({ status: 'OK' }& Types.ServiceStateResponse)> => {
+        const auth = await params.retrieveGuestAuth()
+        if (auth === null) throw new Error('retrieveGuestAuth() returned null')
+        let finalRoute = '/wizard/service_state'
+        const { data } = await axios.get(params.baseUrl + finalRoute, { headers: { 'authorization': auth } })
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.ServiceStateResponseValidate(result)
             if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
         }
         return { status: 'ERROR', reason: 'invalid response' }

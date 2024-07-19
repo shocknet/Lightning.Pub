@@ -7,6 +7,7 @@ import { getLogger } from '../helpers/logger.js'
 import fs from 'fs'
 import crypto from 'crypto';
 import { LiquiditySettings, LoadLiquiditySettingsFromEnv } from './liquidityManager.js'
+
 export type MainSettings = {
     storageSettings: StorageSettings,
     lndSettings: LndSettings,
@@ -44,6 +45,7 @@ export type TestSettings = MainSettings & { lndSettings: { otherNode: NodeSettin
 export const LoadMainSettingsFromEnv = (): MainSettings => {
     const storageSettings = LoadStorageSettingsFromEnv()
     const outgoingAppUserInvoiceFeeBps = EnvCanBeInteger("OUTGOING_INVOICE_FEE_USER_BPS", 0)
+
     return {
         watchDogSettings: LoadWatchdogSettingsFromEnv(),
         lndSettings: LoadLndSettingsFromEnv(),
