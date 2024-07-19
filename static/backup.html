@@ -93,6 +93,31 @@
 
   <script src="js/backup.js"></script>
   <script>
+    const sendConfig = async () => {
+      const req = {
+        source_name: localStorage.getItem("wizard/nodeName"),
+        relay_url: localStorage.getItem("wizard/relayUrl"),
+        automate_liquidity: localStorage.getItem("wizard/liquidity") === 'automate',
+        push_backups_to_nostr: localStorage.getItem("wizard/backup") === 'backup',
+      }
+      const res = await fetch("/wizard/config", {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(req)
+      })
+      if (res.status !== 200) {
+        document.getElementById('errorText').innerText = "failed to start service"
+        return
+      }
+      const j = await res.json()
+      if (j.status !== 'OK') {
+        document.getElementById('errorText').innerText = "failed to start service" + j.reason
+        return
+      }
+      location.href = 'connect.html'
+    }
     document.getElementById("next-button").onclick = (e) => {
       const backup = document.getElementById('backup').checked
       const manual = document.getElementById('manual-backup').checked
@@ -109,7 +134,7 @@
       } else {
         localStorage.setItem('wizard/backup', 'manual')
       }
-      location.href = 'seed.html'
+      sendConfig()
     }
   </script>
 </body>

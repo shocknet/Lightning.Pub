@@ -69,60 +69,6 @@
   </footer>
 
   <script src="js/seed.js"></script>
-  <script>
-    let latestConfirmationId = ""
-    document.getElementById("next-button").onclick = (e) => {
-      if (!latestConfirmationId) {
-        return
-      }
-      fetch("/wizard/confirm", {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          confirmation_id: latestConfirmationId,
-        })
-      }).then((res) => {
-        if (res.status === 200) {
-          location.href = 'connect.html'
-        }
-      })
-    }
-    fetch("/wizard/config", {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        source_name: localStorage.getItem("wizard/nodeName"),
-        relay_url: localStorage.getItem("wizard/relayUrl"),
-        automate_liquidity: localStorage.getItem("wizard/liquidity") === 'automate',
-        push_backups_to_nostr: localStorage.getItem("wizard/backup") === 'backup',
-      })
-    }).then((res) => {
-      if (res.status === 200) {
-        res.json().then((data) => {
-          if (data.already_initialized) {
-            location.href = 'status.html'
-            return
-          }
-          const seedContainer = document.getElementById("seed-box-container")
-          latestConfirmationId = data.confirmation_id
-          console.log(latestConfirmationId)
-          data.seed.forEach((word, index) => {
-            const seedBox = document.createElement('div')
-            seedBox.classList.add('seed-box')
-            seedBox.innerHTML = `
-              <span>${index + 1}</span>
-              <span>${word}</span>
-            `
-            seedContainer.appendChild(seedBox)
-          })
-        })
-      }
-    })
-  </script>
 </body>
 
 </html>

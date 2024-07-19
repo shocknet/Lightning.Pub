@@ -450,3 +450,7 @@ message HttpCreds {
     string url = 1;
     string token = 2;
 }
+
+message EnrollAdminTokenRequest {
+    string admin_token = 1;
+}

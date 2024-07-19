@@ -1,5 +1,5 @@
-([]*main.Method) (len=3 cap=4) {
- (*main.Method)(0xc0002221e0)({
+([]*main.Method) (len=4 cap=4) {
+ (*main.Method)(0xc00022a280)({
   in: (main.MethodMessage) {
    name: (string) (len=5) "Empty",
    hasZeroFields: (bool) true
@@ -9,8 +9,8 @@
    name: (string) (len=13) "StateResponse",
    hasZeroFields: (bool) false
   },
-  opts: (*main.methodOptions)(0xc00009e6c0)({
-   authType: (*main.supportedAuth)(0xc0003bd290)({
+  opts: (*main.methodOptions)(0xc00009a9c0)({
+   authType: (*main.supportedAuth)(0xc0003c9aa0)({
     id: (string) (len=5) "guest",
     name: (string) (len=5) "Guest",
     context: (map[string]string) {
@@ -27,18 +27,18 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc000222230)({
+ (*main.Method)(0xc00022a2d0)({
   in: (main.MethodMessage) {
    name: (string) (len=13) "ConfigRequest",
    hasZeroFields: (bool) false
   },
   name: (string) (len=12) "WizardConfig",
   out: (main.MethodMessage) {
-   name: (string) (len=14) "ConfigResponse",
-   hasZeroFields: (bool) false
+   name: (string) (len=5) "Empty",
+   hasZeroFields: (bool) true
   },
-  opts: (*main.methodOptions)(0xc00009e840)({
-   authType: (*main.supportedAuth)(0xc0003bd350)({
+  opts: (*main.methodOptions)(0xc00009ab40)({
+   authType: (*main.supportedAuth)(0xc0003c9b60)({
     id: (string) (len=5) "guest",
     name: (string) (len=5) "Guest",
     context: (map[string]string) {
@@ -55,26 +55,54 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc0002225a0)({
+ (*main.Method)(0xc00022a640)({
   in: (main.MethodMessage) {
-   name: (string) (len=14) "ConfirmRequest",
-   hasZeroFields: (bool) false
+   name: (string) (len=5) "Empty",
+   hasZeroFields: (bool) true
   },
-  name: (string) (len=13) "WizardConfirm",
+  name: (string) (len=19) "GetAdminConnectInfo",
   out: (main.MethodMessage) {
-   name: (string) (len=15) "ConfirmResponse",
+   name: (string) (len=24) "AdminConnectInfoResponse",
    hasZeroFields: (bool) false
   },
-  opts: (*main.methodOptions)(0xc00009e9c0)({
-   authType: (*main.supportedAuth)(0xc0003bd410)({
+  opts: (*main.methodOptions)(0xc00009acc0)({
+   authType: (*main.supportedAuth)(0xc0003c9c20)({
     id: (string) (len=5) "guest",
     name: (string) (len=5) "Guest",
     context: (map[string]string) {
     }
    }),
-   method: (string) (len=4) "post",
+   method: (string) (len=3) "get",
    route: (main.decodedRoute) {
-    route: (string) (len=15) "/wizard/confirm",
+    route: (string) (len=26) "/wizard/admin_connect_info",
+    params: ([]string) <nil>
+   },
+   query: ([]string) <nil>,
+   nostr: (bool) false,
+   batch: (bool) false
+  }),
+  serverStream: (bool) false
+ }),
+ (*main.Method)(0xc00022a690)({
+  in: (main.MethodMessage) {
+   name: (string) (len=5) "Empty",
+   hasZeroFields: (bool) true
+  },
+  name: (string) (len=15) "GetServiceState",
+  out: (main.MethodMessage) {
+   name: (string) (len=20) "ServiceStateResponse",
+   hasZeroFields: (bool) false
+  },
+  opts: (*main.methodOptions)(0xc00009ae40)({
+   authType: (*main.supportedAuth)(0xc0003c9ce0)({
+    id: (string) (len=5) "guest",
+    name: (string) (len=5) "Guest",
+    context: (map[string]string) {
+    }
+   }),
+   method: (string) (len=3) "get",
+   route: (main.decodedRoute) {
+    route: (string) (len=21) "/wizard/service_state",
     params: ([]string) <nil>
    },
    query: ([]string) <nil>,
@@ -85,137 +113,247 @@
  })
 }
 
-([]*main.Enum) <nil>
+([]*main.Enum) (len=1 cap=1) {
+ (*main.Enum)(0xc0003c9680)({
+  name: (string) (len=8) "LndState",
+  values: ([]main.EnumValue) (len=3 cap=4) {
+   (main.EnumValue) {
+    number: (int64) 0,
+    name: (string) (len=7) "OFFLINE"
+   },
+   (main.EnumValue) {
+    number: (int64) 1,
+    name: (string) (len=7) "SYNCING"
+   },
+   (main.EnumValue) {
+    number: (int64) 2,
+    name: (string) (len=6) "ONLINE"
+   }
+  }
+ })
+}
 
-(map[string]*main.Message) (len=6) {
- (string) (len=13) "StateResponse": (*main.Message)(0xc0003ee1c0)({
+(map[string]*main.Message) (len=5) {
+ (string) (len=5) "Empty": (*main.Message)(0xc0003c94a0)({
+  fullName: (string) (len=5) "Empty",
+  name: (string) (len=5) "Empty",
+  fields: (map[string]*main.Field) {
+  }
+ }),
+ (string) (len=13) "StateResponse": (*main.Message)(0xc0003c9500)({
   fullName: (string) (len=13) "StateResponse",
   name: (string) (len=13) "StateResponse",
-  fields: ([]*main.Field) (len=1 cap=1) {
-   (*main.Field)(0xc0003bccc0)({
-    name: (string) (len=19) "already_initialized",
+  fields: (map[string]*main.Field) (len=2) {
+   (string) (len=11) "config_sent": (*main.Field)(0xc0003ee440)({
+    name: (string) (len=11) "config_sent",
     kind: (string) (len=4) "bool",
     isMap: (bool) false,
     isArray: (bool) false,
     isEnum: (bool) false,
     isMessage: (bool) false,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=13) "ConfigRequest": (*main.Message)(0xc0003ee200)({
-  fullName: (string) (len=13) "ConfigRequest",
-  name: (string) (len=13) "ConfigRequest",
-  fields: ([]*main.Field) (len=4 cap=4) {
-   (*main.Field)(0xc0003bccf0)({
-    name: (string) (len=11) "source_name",
-    kind: (string) (len=6) "string",
+    isOptional: (bool) false,
+    oneOfName: (string) ""
+   }),
+   (string) (len=12) "admin_linked": (*main.Field)(0xc0003ee480)({
+    name: (string) (len=12) "admin_linked",
+    kind: (string) (len=4) "bool",
     isMap: (bool) false,
     isArray: (bool) false,
     isEnum: (bool) false,
     isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0003bcd20)({
+    isOptional: (bool) false,
+    oneOfName: (string) ""
+   })
+  }
+ }),
+ (string) (len=13) "ConfigRequest": (*main.Message)(0xc0003c9560)({
+  fullName: (string) (len=13) "ConfigRequest",
+  name: (string) (len=13) "ConfigRequest",
+  fields: (map[string]*main.Field) (len=4) {
+   (string) (len=9) "relay_url": (*main.Field)(0xc0003ee500)({
     name: (string) (len=9) "relay_url",
     kind: (string) (len=6) "string",
     isMap: (bool) false,
     isArray: (bool) false,
     isEnum: (bool) false,
     isMessage: (bool) false,
-    isOptional: (bool) false
+    isOptional: (bool) false,
+    oneOfName: (string) ""
    }),
-   (*main.Field)(0xc0003bcd50)({
+   (string) (len=18) "automate_liquidity": (*main.Field)(0xc0003ee540)({
     name: (string) (len=18) "automate_liquidity",
     kind: (string) (len=4) "bool",
     isMap: (bool) false,
     isArray: (bool) false,
     isEnum: (bool) false,
     isMessage: (bool) false,
-    isOptional: (bool) false
+    isOptional: (bool) false,
+    oneOfName: (string) ""
    }),
-   (*main.Field)(0xc0003bcd80)({
+   (string) (len=21) "push_backups_to_nostr": (*main.Field)(0xc0003ee580)({
     name: (string) (len=21) "push_backups_to_nostr",
     kind: (string) (len=4) "bool",
     isMap: (bool) false,
     isArray: (bool) false,
     isEnum: (bool) false,
     isMessage: (bool) false,
-    isOptional: (bool) false
+    isOptional: (bool) false,
+    oneOfName: (string) ""
+   }),
+   (string) (len=11) "source_name": (*main.Field)(0xc0003ee4c0)({
+    name: (string) (len=11) "source_name",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false,
+    oneOfName: (string) ""
    })
   }
  }),
- (string) (len=14) "ConfigResponse": (*main.Message)(0xc0003ee240)({
-  fullName: (string) (len=14) "ConfigResponse",
-  name: (string) (len=14) "ConfigResponse",
-  fields: ([]*main.Field) (len=3 cap=4) {
-   (*main.Field)(0xc0003bcdb0)({
-    name: (string) (len=19) "already_initialized",
+ (string) (len=24) "AdminConnectInfoResponse": (*main.Message)(0xc0003c95c0)({
+  fullName: (string) (len=24) "AdminConnectInfoResponse",
+  name: (string) (len=24) "AdminConnectInfoResponse",
+  fields: (map[string]*main.Field) (len=2) {
+   (string) (len=8) "nprofile": (*main.Field)(0xc0003ee5c0)({
+    name: (string) (len=8) "nprofile",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false,
+    oneOfName: (string) ""
+   }),
+   (string) (len=37) "AdminConnectInfoResponse_connect_info": (*main.Field)(0xc0003eea80)({
+    name: (string) (len=12) "connect_info",
+    kind: (string) (len=37) "AdminConnectInfoResponse_connect_info",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false,
+    oneOfName: (string) (len=12) "connect_info"
+   })
+  }
+ }),
+ (string) (len=20) "ServiceStateResponse": (*main.Message)(0xc0003c9620)({
+  fullName: (string) (len=20) "ServiceStateResponse",
+  name: (string) (len=20) "ServiceStateResponse",
+  fields: (map[string]*main.Field) (len=8) {
+   (string) (len=10) "admin_npub": (*main.Field)(0xc0003ee700)({
+    name: (string) (len=10) "admin_npub",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false,
+    oneOfName: (string) ""
+   }),
+   (string) (len=15) "relay_connected": (*main.Field)(0xc0003ee740)({
+    name: (string) (len=15) "relay_connected",
     kind: (string) (len=4) "bool",
     isMap: (bool) false,
     isArray: (bool) false,
     isEnum: (bool) false,
     isMessage: (bool) false,
-    isOptional: (bool) false
+    isOptional: (bool) false,
+    oneOfName: (string) ""
    }),
-   (*main.Field)(0xc0003bcde0)({
-    name: (string) (len=4) "seed",
+   (string) (len=9) "lnd_state": (*main.Field)(0xc0003ee780)({
+    name: (string) (len=9) "lnd_state",
+    kind: (string) (len=8) "LndState",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) true,
+    isMessage: (bool) false,
+    isOptional: (bool) false,
+    oneOfName: (string) ""
+   }),
+   (string) (len=11) "watchdog_ok": (*main.Field)(0xc0003ee7c0)({
+    name: (string) (len=11) "watchdog_ok",
+    kind: (string) (len=4) "bool",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false,
+    oneOfName: (string) ""
+   }),
+   (string) (len=8) "http_url": (*main.Field)(0xc0003ee800)({
+    name: (string) (len=8) "http_url",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false,
+    oneOfName: (string) ""
+   }),
+   (string) (len=8) "nprofile": (*main.Field)(0xc0003ee840)({
+    name: (string) (len=8) "nprofile",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false,
+    oneOfName: (string) ""
+   }),
+   (string) (len=13) "provider_name": (*main.Field)(0xc0003ee680)({
+    name: (string) (len=13) "provider_name",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false,
+    oneOfName: (string) ""
+   }),
+   (string) (len=6) "relays": (*main.Field)(0xc0003ee6c0)({
+    name: (string) (len=6) "relays",
     kind: (string) (len=6) "string",
     isMap: (bool) false,
     isArray: (bool) true,
     isEnum: (bool) false,
     isMessage: (bool) false,
-    isOptional: (bool) false
-   }),
-   (*main.Field)(0xc0003bce10)({
-    name: (string) (len=15) "confirmation_id",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
+    isOptional: (bool) false,
+    oneOfName: (string) ""
    })
   }
- }),
- (string) (len=14) "ConfirmRequest": (*main.Message)(0xc0003ee280)({
-  fullName: (string) (len=14) "ConfirmRequest",
-  name: (string) (len=14) "ConfirmRequest",
-  fields: ([]*main.Field) (len=1 cap=1) {
-   (*main.Field)(0xc0003bce40)({
-    name: (string) (len=15) "confirmation_id",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=15) "ConfirmResponse": (*main.Message)(0xc0003ee2c0)({
-  fullName: (string) (len=15) "ConfirmResponse",
-  name: (string) (len=15) "ConfirmResponse",
-  fields: ([]*main.Field) (len=1 cap=1) {
-   (*main.Field)(0xc0003bce70)({
-    name: (string) (len=9) "admin_key",
-    kind: (string) (len=6) "string",
-    isMap: (bool) false,
-    isArray: (bool) false,
-    isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false
-   })
-  }
- }),
- (string) (len=5) "Empty": (*main.Message)(0xc0003ee080)({
-  fullName: (string) (len=5) "Empty",
-  name: (string) (len=5) "Empty",
-  fields: ([]*main.Field) <nil>
  })
 }
 
-parsing file: wizard_structs 6
+(map[string][]*main.Field) (len=1) {
+ (string) (len=37) "AdminConnectInfoResponse_connect_info": ([]*main.Field) (len=2 cap=2) {
+  (*main.Field)(0xc0003ee600)({
+   name: (string) (len=11) "admin_token",
+   kind: (string) (len=6) "string",
+   isMap: (bool) false,
+   isArray: (bool) false,
+   isEnum: (bool) false,
+   isMessage: (bool) false,
+   isOptional: (bool) false,
+   oneOfName: (string) (len=12) "connect_info"
+  }),
+  (*main.Field)(0xc0003ee640)({
+   name: (string) (len=13) "enrolled_npub",
+   kind: (string) (len=6) "string",
+   isMap: (bool) false,
+   isArray: (bool) false,
+   isEnum: (bool) false,
+   isMessage: (bool) false,
+   isOptional: (bool) false,
+   oneOfName: (string) (len=12) "connect_info"
+  })
+ }
+}
+
+parsing file: wizard_structs 5
 parsing file: wizard_methods 2
 -> [{guest Guest map[]}] 
+
+([]interface {}) <nil>
 

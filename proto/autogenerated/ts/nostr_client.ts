@@ -5,16 +5,134 @@ export type ResultError = { status: 'ERROR', reason: string }
 
 export type NostrClientParams = {
     pubDestination: string
+    retrieveNostrAdminAuth: () => Promise<string | null>
+    retrieveNostrMetricsAuth: () => Promise<string | null>
     retrieveNostrUserAuth: () => Promise<string | null>
     checkResult?: true
 }
 export default (params: NostrClientParams,  send: (to:string, message: NostrRequest) => Promise<any>, subscribe: (to:string, message: NostrRequest, cb:(res:any)=> void) => void) => ({
+    LndGetInfo: async (request: Types.LndGetInfoRequest): Promise<ResultError | ({ status: 'OK' }& Types.LndGetInfoResponse)> => {
+        const auth = await params.retrieveNostrAdminAuth()
+        if (auth === null) throw new Error('retrieveNostrAdminAuth() returned null')
+        const nostrRequest: NostrRequest = {}
+        nostrRequest.body = request
+        const data = await send(params.pubDestination, {rpcName:'LndGetInfo',authIdentifier:auth, ...nostrRequest }) 
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.LndGetInfoResponseValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
+    AddApp: async (request: Types.AddAppRequest): Promise<ResultError | ({ status: 'OK' }& Types.AuthApp)> => {
+        const auth = await params.retrieveNostrAdminAuth()
+        if (auth === null) throw new Error('retrieveNostrAdminAuth() returned null')
+        const nostrRequest: NostrRequest = {}
+        nostrRequest.body = request
+        const data = await send(params.pubDestination, {rpcName:'AddApp',authIdentifier:auth, ...nostrRequest }) 
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.AuthAppValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
+    AuthApp: async (request: Types.AuthAppRequest): Promise<ResultError | ({ status: 'OK' }& Types.AuthApp)> => {
+        const auth = await params.retrieveNostrAdminAuth()
+        if (auth === null) throw new Error('retrieveNostrAdminAuth() returned null')
+        const nostrRequest: NostrRequest = {}
+        nostrRequest.body = request
+        const data = await send(params.pubDestination, {rpcName:'AuthApp',authIdentifier:auth, ...nostrRequest }) 
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.AuthAppValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
+    BanUser: async (request: Types.BanUserRequest): Promise<ResultError | ({ status: 'OK' }& Types.BanUserResponse)> => {
+        const auth = await params.retrieveNostrAdminAuth()
+        if (auth === null) throw new Error('retrieveNostrAdminAuth() returned null')
+        const nostrRequest: NostrRequest = {}
+        nostrRequest.body = request
+        const data = await send(params.pubDestination, {rpcName:'BanUser',authIdentifier:auth, ...nostrRequest }) 
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.BanUserResponseValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
+    GetUsageMetrics: async (): Promise<ResultError | ({ status: 'OK' }& Types.UsageMetrics)> => {
+        const auth = await params.retrieveNostrMetricsAuth()
+        if (auth === null) throw new Error('retrieveNostrMetricsAuth() returned null')
+        const nostrRequest: NostrRequest = {}
+        const data = await send(params.pubDestination, {rpcName:'GetUsageMetrics',authIdentifier:auth, ...nostrRequest }) 
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.UsageMetricsValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
+    GetAppsMetrics: async (request: Types.AppsMetricsRequest): Promise<ResultError | ({ status: 'OK' }& Types.AppsMetrics)> => {
+        const auth = await params.retrieveNostrMetricsAuth()
+        if (auth === null) throw new Error('retrieveNostrMetricsAuth() returned null')
+        const nostrRequest: NostrRequest = {}
+        nostrRequest.body = request
+        const data = await send(params.pubDestination, {rpcName:'GetAppsMetrics',authIdentifier:auth, ...nostrRequest }) 
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.AppsMetricsValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
+    GetLndMetrics: async (request: Types.LndMetricsRequest): Promise<ResultError | ({ status: 'OK' }& Types.LndMetrics)> => {
+        const auth = await params.retrieveNostrMetricsAuth()
+        if (auth === null) throw new Error('retrieveNostrMetricsAuth() returned null')
+        const nostrRequest: NostrRequest = {}
+        nostrRequest.body = request
+        const data = await send(params.pubDestination, {rpcName:'GetLndMetrics',authIdentifier:auth, ...nostrRequest }) 
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.LndMetricsValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
     LinkNPubThroughToken: async (request: Types.LinkNPubThroughTokenRequest): Promise<ResultError | ({ status: 'OK' })> => {
         const auth = await params.retrieveNostrUserAuth()
         if (auth === null) throw new Error('retrieveNostrUserAuth() returned null')
         const nostrRequest: NostrRequest = {}
         nostrRequest.body = request
         const data = await send(params.pubDestination, {rpcName:'LinkNPubThroughToken',authIdentifier:auth, ...nostrRequest }) 
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            return data
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
+    EnrollAdminToken: async (request: Types.EnrollAdminTokenRequest): Promise<ResultError | ({ status: 'OK' })> => {
+        const auth = await params.retrieveNostrUserAuth()
+        if (auth === null) throw new Error('retrieveNostrUserAuth() returned null')
+        const nostrRequest: NostrRequest = {}
+        nostrRequest.body = request
+        const data = await send(params.pubDestination, {rpcName:'EnrollAdminToken',authIdentifier:auth, ...nostrRequest }) 
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             return data

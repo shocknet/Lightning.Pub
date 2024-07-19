@@ -8,6 +8,8 @@ import SanityChecker from "./sanityChecker.js"
 import { LoadMainSettingsFromEnv, MainSettings } from "./settings.js"
 import { Utils } from "../helpers/utilsWrapper.js"
 import { Wizard } from "../wizard/index.js"
+import { AdminManager } from "./adminManager.js"
+import { encodeNprofile } from "../../custom-nip19.js"
 export type AppData = {
     privateKey: string;
     publicKey: string;
@@ -21,19 +23,20 @@ export const initMainHandler = async (log: PubLogger, mainSettings: MainSettings
     if (manualMigration) {
         return
     }
+    const unlocker = new Unlocker(mainSettings, storageManager)
+    await unlocker.Unlock()
+    const adminManager = new AdminManager(mainSettings, storageManager)
     let reloadedSettings = mainSettings
+    let wizard: Wizard | null = null
     if (mainSettings.wizard) {
-        const wizard = new Wizard(mainSettings, storageManager)
-        const reload = await wizard.WaitUntilConfigured()
+        wizard = new Wizard(mainSettings, storageManager, adminManager)
+        const reload = await wizard.Configure()
         if (reload) {
             reloadedSettings = LoadMainSettingsFromEnv()
         }
-    } else {
-        const unlocker = new Unlocker(mainSettings, storageManager)
-        await unlocker.Unlock()
     }
 
-    const mainHandler = new Main(reloadedSettings, storageManager, utils)
+    const mainHandler = new Main(reloadedSettings, storageManager, adminManager, utils)
     await mainHandler.lnd.Warmup()
     if (!reloadedSettings.skipSanityCheck) {
         const sanityChecker = new SanityChecker(storageManager, mainHandler.lnd)
@@ -70,7 +73,7 @@ export const initMainHandler = async (log: PubLogger, mainSettings: MainSettings
         return
     }
     mainHandler.paymentManager.watchDog.Start()
-    return { mainHandler, apps, liquidityProviderInfo, liquidityProviderApp }
+    return { mainHandler, apps, liquidityProviderInfo, liquidityProviderApp, wizard }
 }
 
 const processArgs = async (mainHandler: Main) => {

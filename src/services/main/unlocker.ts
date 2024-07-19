@@ -15,7 +15,7 @@ export class Unlocker {
     settings: MainSettings
     storage: Storage
     abortController = new AbortController()
-    pendingSeed: Record<string, EncryptedData> = {}
+    subbedToBackups = false
     log = getLogger({ component: "unlocker" })
     constructor(settings: MainSettings, storage: Storage) {
         this.settings = settings
@@ -46,55 +46,29 @@ export class Unlocker {
         return { lndCert, macaroon }
     }
 
-    IsInitialized = async () => {
-        const { macaroon } = await this.getCreds()
+    IsInitialized = () => {
+        const { macaroon } = this.getCreds()
         return macaroon !== ''
     }
 
-    InitInteractive = async (): Promise<{ alreadyInitizialized: true } | { alreadyInitizialized: false, seed: string[], confirmationId: string }> => {
-        const { lndCert, macaroon } = await this.getCreds()
-        if (macaroon !== '') {
-            const { ln, pub } = await this.UnlockFlow(lndCert, macaroon)
+    Unlock = async (): Promise<'created' | 'unlocked' | 'noaction'> => {
+        const { lndCert, macaroon } = this.getCreds()
+        if (macaroon === "") {
+            const { ln, pub } = await this.InitFlow(lndCert)
             this.subscribeToBackups(ln, pub)
-            return { alreadyInitizialized: true }
+            return 'created'
         }
-        const unlocker = this.GetUnlockerClient(lndCert)
-        const seed = await this.genSeed(unlocker)
-        const confirmationId = crypto.randomBytes(32).toString('hex')
-        this.pendingSeed[confirmationId] = seed.encryptedSeed
-        return { alreadyInitizialized: false, seed: seed.plaintextSeed, confirmationId }
-    }
-
-    ConfirmInitInteractive = async (confirmationId: string) => {
-        const { lndCert, macaroon } = await this.getCreds()
-        if (macaroon !== '') {
-            const { ln, pub } = await this.UnlockFlow(lndCert, macaroon)
-            this.subscribeToBackups(ln, pub)
-            return { alreadyInitizialized: true }
-        }
-        const seed = this.pendingSeed[confirmationId]
-        if (!seed) {
-            throw new Error("seed not found")
-        }
-        delete this.pendingSeed[confirmationId]
-        const plaintextSeed = this.DecryptWalletSeed(seed)
-        const unlocker = this.GetUnlockerClient(lndCert)
-        const { ln, pub } = await this.initWallet(lndCert, unlocker, { plaintextSeed, encryptedSeed: seed })
+        const { ln, pub, action } = await this.UnlockFlow(lndCert, macaroon)
         this.subscribeToBackups(ln, pub)
+        return action
     }
 
-    Unlock = async () => {
-        const { lndCert, macaroon } = await this.getCreds()
-        const { ln, pub } = macaroon === "" ? await this.InitFlow(lndCert) : await this.UnlockFlow(lndCert, macaroon)
-        this.subscribeToBackups(ln, pub)
-    }
-
-    UnlockFlow = async (lndCert: Buffer, macaroon: string) => {
+    UnlockFlow = async (lndCert: Buffer, macaroon: string): Promise<{ ln: LightningClient, pub: string, action: 'unlocked' | 'noaction' }> => {
         const ln = this.GetLightningClient(lndCert, macaroon)
         const info = await this.GetLndInfo(ln)
         if (info.ok) {
             this.log("the wallet is already unlocked with pub:", info.pub)
-            return { ln, pub: info.pub }
+            return { ln, pub: info.pub, action: 'noaction' }
         }
         if (info.failure !== 'locked') {
             throw new Error("failed to get lnd info for reason: " + info.failure)
@@ -108,7 +82,7 @@ export class Unlocker {
             throw new Error("failed to unlock lnd wallet " + infoAfter.failure)
         }
         this.log("unlocked wallet with pub:", infoAfter.pub)
-        return { ln, pub: infoAfter.pub }
+        return { ln, pub: infoAfter.pub, action: 'unlocked' }
     }
 
     InitFlow = async (lndCert: Buffer) => {
@@ -254,6 +228,10 @@ export class Unlocker {
     }
 
     subscribeToBackups = async (ln: LightningClient, pub: string) => {
+        if (this.subbedToBackups) {
+            return
+        }
+        this.subbedToBackups = true
         this.log("subscribing to channel backups for: ", pub)
         const stream = ln.subscribeChannelBackups({}, { abort: this.abortController.signal })
         stream.responses.onMessage(async (msg) => {

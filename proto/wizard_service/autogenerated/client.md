@@ -36,27 +36,30 @@ The nostr server will send back a message response, and inside the body there wi
   - http method: __post__
   - http route: __/wizard/config__
   - input: [ConfigRequest](#ConfigRequest)
-  - output: [ConfigResponse](#ConfigResponse)
+  - This methods has an __empty__ __response__ body
 
-- WizardConfirm
+- GetAdminConnectInfo
   - auth type: __Guest__
-  - http method: __post__
-  - http route: __/wizard/confirm__
-  - input: [ConfirmRequest](#ConfirmRequest)
-  - output: [ConfirmResponse](#ConfirmResponse)
+  - http method: __get__
+  - http route: __/wizard/admin_connect_info__
+  - This methods has an __empty__ __request__ body
+  - output: [AdminConnectInfoResponse](#AdminConnectInfoResponse)
+
+- GetServiceState
+  - auth type: __Guest__
+  - http method: __get__
+  - http route: __/wizard/service_state__
+  - This methods has an __empty__ __request__ body
+  - output: [ServiceStateResponse](#ServiceStateResponse)
 
 # INPUTS AND OUTPUTS
 
 ## Messages
 ### The content of requests and response from the methods
 
-### ConfirmResponse
-  - __admin_key__: _string_
-
-### Empty
-
 ### StateResponse
-  - __already_initialized__: _boolean_
+  - __config_sent__: _boolean_
+  - __admin_linked__: _boolean_
 
 ### ConfigRequest
   - __source_name__: _string_
@@ -64,12 +67,25 @@ The nostr server will send back a message response, and inside the body there wi
   - __automate_liquidity__: _boolean_
   - __push_backups_to_nostr__: _boolean_
 
-### ConfigResponse
-  - __already_initialized__: _boolean_
-  - __seed__: ARRAY of: _string_
-  - __confirmation_id__: _string_
+### AdminConnectInfoResponse
+  - __nprofile__: _string_
+  - __connect_info__: _AdminConnectInfoResponse_connect_info_
 
-### ConfirmRequest
-  - __confirmation_id__: _string_
+### ServiceStateResponse
+  - __http_url__: _string_
+  - __nprofile__: _string_
+  - __provider_name__: _string_
+  - __relays__: ARRAY of: _string_
+  - __admin_npub__: _string_
+  - __relay_connected__: _boolean_
+  - __lnd_state__: _[LndState](#LndState)_
+  - __watchdog_ok__: _boolean_
+
+### Empty
 ## Enums
 ### The enumerators used in the messages
+
+### LndState
+  - __OFFLINE__
+  - __SYNCING__
+  - __ONLINE__

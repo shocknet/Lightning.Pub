@@ -16,6 +16,8 @@ export type NostrOptions = {
     logger?: Logger
     throwErrors?: true
     metricsCallback: (metrics: Types.RequestMetric[]) => void
+    NostrAdminAuthGuard: (appId?:string, identifier?: string) => Promise<Types.AdminContext>
+    NostrMetricsAuthGuard: (appId?:string, identifier?: string) => Promise<Types.MetricsContext>
     NostrUserAuthGuard: (appId?:string, identifier?: string) => Promise<Types.UserContext>
 }
 const logErrorAndReturnResponse = (error: Error, response: string, res: NostrResponse, logger: Logger, metric: Types.RequestMetric, metricsCallback: (metrics: Types.RequestMetric[]) => void) => { 
@@ -29,6 +31,115 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
         const stats: Types.RequestStats = { startMs, start: startTime, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         switch (req.rpcName) {
+            case 'LndGetInfo':
+                try {
+                    if (!methods.LndGetInfo) throw new Error('method: LndGetInfo is not implemented')
+                    const authContext = await opts.NostrAdminAuthGuard(req.appId, req.authIdentifier)
+                    stats.guard = process.hrtime.bigint()
+                    authCtx = authContext
+                    const request = req.body
+                    const error = Types.LndGetInfoRequestValidate(request)
+                    stats.validate = process.hrtime.bigint()
+                    if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
+                    const response = await methods.LndGetInfo({rpcName:'LndGetInfo', ctx:authContext , req: request})
+                    stats.handle = process.hrtime.bigint()
+                    res({status: 'OK', ...response})
+                    opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+                break
+            case 'AddApp':
+                try {
+                    if (!methods.AddApp) throw new Error('method: AddApp is not implemented')
+                    const authContext = await opts.NostrAdminAuthGuard(req.appId, req.authIdentifier)
+                    stats.guard = process.hrtime.bigint()
+                    authCtx = authContext
+                    const request = req.body
+                    const error = Types.AddAppRequestValidate(request)
+                    stats.validate = process.hrtime.bigint()
+                    if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
+                    const response = await methods.AddApp({rpcName:'AddApp', ctx:authContext , req: request})
+                    stats.handle = process.hrtime.bigint()
+                    res({status: 'OK', ...response})
+                    opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+                break
+            case 'AuthApp':
+                try {
+                    if (!methods.AuthApp) throw new Error('method: AuthApp is not implemented')
+                    const authContext = await opts.NostrAdminAuthGuard(req.appId, req.authIdentifier)
+                    stats.guard = process.hrtime.bigint()
+                    authCtx = authContext
+                    const request = req.body
+                    const error = Types.AuthAppRequestValidate(request)
+                    stats.validate = process.hrtime.bigint()
+                    if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
+                    const response = await methods.AuthApp({rpcName:'AuthApp', ctx:authContext , req: request})
+                    stats.handle = process.hrtime.bigint()
+                    res({status: 'OK', ...response})
+                    opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+                break
+            case 'BanUser':
+                try {
+                    if (!methods.BanUser) throw new Error('method: BanUser is not implemented')
+                    const authContext = await opts.NostrAdminAuthGuard(req.appId, req.authIdentifier)
+                    stats.guard = process.hrtime.bigint()
+                    authCtx = authContext
+                    const request = req.body
+                    const error = Types.BanUserRequestValidate(request)
+                    stats.validate = process.hrtime.bigint()
+                    if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
+                    const response = await methods.BanUser({rpcName:'BanUser', ctx:authContext , req: request})
+                    stats.handle = process.hrtime.bigint()
+                    res({status: 'OK', ...response})
+                    opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+                break
+            case 'GetUsageMetrics':
+                try {
+                    if (!methods.GetUsageMetrics) throw new Error('method: GetUsageMetrics is not implemented')
+                    const authContext = await opts.NostrMetricsAuthGuard(req.appId, req.authIdentifier)
+                    stats.guard = process.hrtime.bigint()
+                    authCtx = authContext
+                    stats.validate = stats.guard
+                    const response = await methods.GetUsageMetrics({rpcName:'GetUsageMetrics', ctx:authContext })
+                    stats.handle = process.hrtime.bigint()
+                    res({status: 'OK', ...response})
+                    opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+                break
+            case 'GetAppsMetrics':
+                try {
+                    if (!methods.GetAppsMetrics) throw new Error('method: GetAppsMetrics is not implemented')
+                    const authContext = await opts.NostrMetricsAuthGuard(req.appId, req.authIdentifier)
+                    stats.guard = process.hrtime.bigint()
+                    authCtx = authContext
+                    const request = req.body
+                    const error = Types.AppsMetricsRequestValidate(request)
+                    stats.validate = process.hrtime.bigint()
+                    if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
+                    const response = await methods.GetAppsMetrics({rpcName:'GetAppsMetrics', ctx:authContext , req: request})
+                    stats.handle = process.hrtime.bigint()
+                    res({status: 'OK', ...response})
+                    opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+                break
+            case 'GetLndMetrics':
+                try {
+                    if (!methods.GetLndMetrics) throw new Error('method: GetLndMetrics is not implemented')
+                    const authContext = await opts.NostrMetricsAuthGuard(req.appId, req.authIdentifier)
+                    stats.guard = process.hrtime.bigint()
+                    authCtx = authContext
+                    const request = req.body
+                    const error = Types.LndMetricsRequestValidate(request)
+                    stats.validate = process.hrtime.bigint()
+                    if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
+                    const response = await methods.GetLndMetrics({rpcName:'GetLndMetrics', ctx:authContext , req: request})
+                    stats.handle = process.hrtime.bigint()
+                    res({status: 'OK', ...response})
+                    opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+                break
             case 'LinkNPubThroughToken':
                 try {
                     if (!methods.LinkNPubThroughToken) throw new Error('method: LinkNPubThroughToken is not implemented')
@@ -40,6 +151,22 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     stats.validate = process.hrtime.bigint()
                     if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
                     await methods.LinkNPubThroughToken({rpcName:'LinkNPubThroughToken', ctx:authContext , req: request})
+                    stats.handle = process.hrtime.bigint()
+                    res({status: 'OK'})
+                    opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+                break
+            case 'EnrollAdminToken':
+                try {
+                    if (!methods.EnrollAdminToken) throw new Error('method: EnrollAdminToken is not implemented')
+                    const authContext = await opts.NostrUserAuthGuard(req.appId, req.authIdentifier)
+                    stats.guard = process.hrtime.bigint()
+                    authCtx = authContext
+                    const request = req.body
+                    const error = Types.EnrollAdminTokenRequestValidate(request)
+                    stats.validate = process.hrtime.bigint()
+                    if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
+                    await methods.EnrollAdminToken({rpcName:'EnrollAdminToken', ctx:authContext , req: request})
                     stats.handle = process.hrtime.bigint()
                     res({status: 'OK'})
                     opts.metricsCallback([{ ...info, ...stats, ...authContext }])
@@ -317,6 +444,18 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                                         opStats.validate = process.hrtime.bigint()
                                         if (error !== null) throw error
                                         await methods.LinkNPubThroughToken({...operation, ctx}); responses.push({ status: 'OK' })
+                                        opStats.handle = process.hrtime.bigint()
+                                        callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
+                                    }
+                                    break
+                                case 'EnrollAdminToken':
+                                    if (!methods.EnrollAdminToken) {
+                                        throw new Error('method not defined: EnrollAdminToken')
+                                    } else {
+                                        const error = Types.EnrollAdminTokenRequestValidate(operation.req)
+                                        opStats.validate = process.hrtime.bigint()
+                                        if (error !== null) throw error
+                                        await methods.EnrollAdminToken({...operation, ctx}); responses.push({ status: 'OK' })
                                         opStats.handle = process.hrtime.bigint()
                                         callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
                                     }

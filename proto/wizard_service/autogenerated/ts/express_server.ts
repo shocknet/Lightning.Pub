@@ -64,29 +64,45 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
             const query = req.query
             const params = req.params
-            const response =  await methods.WizardConfig({rpcName:'WizardConfig', ctx:authContext , req: request})
+             await methods.WizardConfig({rpcName:'WizardConfig', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK'})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.GetAdminConnectInfo) throw new Error('method: GetAdminConnectInfo is not implemented')
+    app.get('/wizard/admin_connect_info', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'GetAdminConnectInfo', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.GetAdminConnectInfo) throw new Error('method: GetAdminConnectInfo is not implemented')
+            const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            stats.validate = stats.guard
+            const query = req.query
+            const params = req.params
+            const response =  await methods.GetAdminConnectInfo({rpcName:'GetAdminConnectInfo', ctx:authContext })
             stats.handle = process.hrtime.bigint()
             res.json({status: 'OK', ...response})
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
-    if (!opts.allowNotImplementedMethods && !methods.WizardConfirm) throw new Error('method: WizardConfirm is not implemented')
-    app.post('/wizard/confirm', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'WizardConfirm', batch: false, nostr: false, batchSize: 0}
+    if (!opts.allowNotImplementedMethods && !methods.GetServiceState) throw new Error('method: GetServiceState is not implemented')
+    app.get('/wizard/service_state', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'GetServiceState', batch: false, nostr: false, batchSize: 0}
         const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
-            if (!methods.WizardConfirm) throw new Error('method: WizardConfirm is not implemented')
+            if (!methods.GetServiceState) throw new Error('method: GetServiceState is not implemented')
             const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
             authCtx = authContext
             stats.guard = process.hrtime.bigint()
-            const request = req.body
-            const error = Types.ConfirmRequestValidate(request)
-            stats.validate = process.hrtime.bigint()
-            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            stats.validate = stats.guard
             const query = req.query
             const params = req.params
-            const response =  await methods.WizardConfirm({rpcName:'WizardConfirm', ctx:authContext , req: request})
+            const response =  await methods.GetServiceState({rpcName:'GetServiceState', ctx:authContext })
             stats.handle = process.hrtime.bigint()
             res.json({status: 'OK', ...response})
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
@@ -99,6 +115,6 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     var server: { close: () => void } | undefined
     return {
         Close: () => { if (!server) { throw new Error('tried closing server before starting') } else server.close() },
-        Listen: (port: number) => { server = app.listen(port, () => logger.log('Example app listening on port ' + port)) }
+        Listen: (port: number) => { server = app.listen(port, () => logger.log('Wizard listening on port ' + port)) }
     }
 }

@@ -1,80 +1,116 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="UTF-8" />
-    <title></title>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css?family=Montserrat"
-    />
-    <link rel="stylesheet" href="css/styles.css" />
-    <link rel="stylesheet" href="css/connect.css" />
-    <!-- HTML Meta Tags -->
-    <title>Lightning.Pub</title>
-    <meta name="description" content="Lightning for Everyone" />
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-  </head>
-  <body>
-    <header>
-      <img
-        src="img/pub_logo.png"
-        width="38px"
-        height="auto"
-        alt="Lightning Pub logo"
-      />
-      <img src="img/LightningPub.png" height="33px" alt="Lightning Pub logo" />
-    </header>
 
-    <main>
-      <section class="setup-header">
-        <button class="icon-button back-button" onclick="history.back()">
-          <img src="img/back.svg" alt="" />
-        </button>
-        <h2>Connect</h2>
-        <p class="header-title">
-          You can now manage your node remotely
-        </p>
-      </section>
+<head>
+  <meta charset="UTF-8" />
+  <title></title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Montserrat" />
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/connect.css" />
+  <!-- HTML Meta Tags -->
+  <title>Lightning.Pub</title>
+  <meta name="description" content="Lightning for Everyone" />
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+</head>
 
-      <div class="line"></div>
+<body>
+  <header>
+    <img src="img/pub_logo.png" width="38px" height="auto" alt="Lightning Pub logo" />
+    <img src="img/LightningPub.png" height="33px" alt="Lightning Pub logo" />
+  </header>
 
-      <section class="setup-content">
-        <div>For dashboard access, use <a href="https://preview.uxpin.com/ae6e6372ab26cd13438d486d4d1ac9d184ec8e82#/pages/164889267" style="color: #2aabe9;" target="_blank">ShockWallet</a> and tap the logo 3 times.</div>
-        <div style="font-size: 13px; margin-top: 5px;">Scan the QR or Copy-Paste the string to establish the connection.</div>
-        <div style="display: flex; justify-content: center;">
-          <div class="qrcode-box" id="codebox">
-            <div style="font-size: 11px;">
-              <div style="text-align: center; color: #a3a3a3;">Code contains a one-time pairing secret</div>
-              <div style="text-align: center; color: #c434e0;" id="click-text">Click to reveal</div>
-            </div>
-            <div id="qrcode"></div>
-            <div style="color: #a3a3a3; font-size: 11px;">
-              <div>npub123abcdefghhhhhhhhhhhhhhh</div>
-              <div>relay.lightning.pub</div>
-            </div>
+  <main>
+    <section class="setup-header">
+      <button class="icon-button back-button" onclick="history.back()">
+        <img src="img/back.svg" alt="" />
+      </button>
+      <h2>Connect</h2>
+      <p class="header-title">
+        You can now manage your node remotely
+      </p>
+    </section>
+
+    <div class="line"></div>
+
+    <section class="setup-content">
+      <div>For dashboard access, use <a
+          href="https://preview.uxpin.com/ae6e6372ab26cd13438d486d4d1ac9d184ec8e82#/pages/164889267"
+          style="color: #2aabe9;" target="_blank">ShockWallet</a> and tap the logo 3 times.</div>
+      <div style="font-size: 13px; margin-top: 5px;">Scan the QR or Copy-Paste the string to establish the connection.
+      </div>
+      <div style="display: flex; justify-content: center;">
+        <div class="qrcode-box" id="codebox">
+          <div style="font-size: 11px;">
+            <div style="text-align: center; color: #a3a3a3;">Code contains a one-time pairing secret</div>
+            <div style="text-align: center; color: #c434e0;" id="click-text">Click to reveal</div>
+          </div>
+          <div id="qrcode"></div>
+          <div style="color: #a3a3a3; font-size: 11px;">
+            <div id="connectString"></div>
           </div>
         </div>
-      </section>
-    </main>
-
-    <footer>
-      <div class="footer-text">
-        <div>By proceeding you acknowledge that this is</div>
-        <div>bleeding-edge software, and agree to the providers</div>
-        <div>
-          <span style="color: #c434e0">terms</span> regarding any services
-          herein.
-        </div>
       </div>
-      <div class="line"></div>
-      <a href="https://docs.shock.network" class="marked need-help">Need Help?</a>
-    </footer>
+    </section>
+  </main>
+  <p class="errorText" style="color:red"></p>
+  <footer>
+    <div class="footer-text">
+      <div>By proceeding you acknowledge that this is</div>
+      <div>bleeding-edge software, and agree to the providers</div>
+      <div>
+        <span style="color: #c434e0">terms</span> regarding any services
+        herein.
+      </div>
+    </div>
+    <div class="line"></div>
+    <a href="https://docs.shock.network" class="marked need-help">Need Help?</a>
+  </footer>
 
-    <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
+  <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
 
-    <script src="js/script.js"></script>
-    <script src="js/connect.js"></script>
-  </body>
+  <script src="js/connect.js"></script>
+  <script>
+    const fetchInfo = async () => {
+      console.log("fewtching...")
+      const res = await fetch("/wizard/admin_connect_info")
+      console.log(res)
+      if (res.status !== 200) {
+        document.getElementById('errorText').innerText = "failed to get connection info"
+        return
+      }
+      const j = await res.json()
+      console.log(j)
+      if (j.status !== 'OK') {
+        document.getElementById('errorText').innerText = "failed to get connection info" + j.reason
+        return
+      }
+      if (j.connect_info.enrolled_npub) {
+        location.href = 'status.html'
+      } else {
+        const connectString = j.nprofile + ":" + j.connect_info.admin_token
+        console.log({ connectString })
+        const qrElement = document.getElementById("qrcode")
+        qrElement.onclick = () => {
+          document.navigator.clipboard.writeText(connectString)
+        }
+        const qrcode = new QRCode(qrElement, {
+          text: connectString,
+          colorDark: "#000000",
+          colorLight: "#ffffff",
+          width: 157,
+          height: 157,
+          // correctLevel : QRCode.CorrectLevel.H
+        });
+        document.getElementById('connectString').innerHTML = connectString
+      }
+    }
+    try {
+
+      fetchInfo()
+    } catch (e) { console.log({ e }) }
+  </script>
+</body>
+
 </html>

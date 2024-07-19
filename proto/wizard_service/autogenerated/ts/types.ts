@@ -6,95 +6,41 @@ export type RequestStats = { startMs:number, start:bigint, parse: bigint, guard:
 export type RequestMetric = AuthContext & RequestInfo & RequestStats & { error?: string }
 export type GuestContext = {
 }
-export type GuestMethodInputs = WizardState_Input | WizardConfig_Input | WizardConfirm_Input
-export type GuestMethodOutputs = WizardState_Output | WizardConfig_Output | WizardConfirm_Output
+export type GuestMethodInputs = WizardState_Input | WizardConfig_Input | GetAdminConnectInfo_Input | GetServiceState_Input
+export type GuestMethodOutputs = WizardState_Output | WizardConfig_Output | GetAdminConnectInfo_Output | GetServiceState_Output
 export type AuthContext = GuestContext
 
 export type WizardState_Input = {rpcName:'WizardState'}
 export type WizardState_Output = ResultError | ({ status: 'OK' } & StateResponse)
 
 export type WizardConfig_Input = {rpcName:'WizardConfig', req: ConfigRequest}
-export type WizardConfig_Output = ResultError | ({ status: 'OK' } & ConfigResponse)
+export type WizardConfig_Output = ResultError | { status: 'OK' }
 
-export type WizardConfirm_Input = {rpcName:'WizardConfirm', req: ConfirmRequest}
-export type WizardConfirm_Output = ResultError | ({ status: 'OK' } & ConfirmResponse)
+export type GetAdminConnectInfo_Input = {rpcName:'GetAdminConnectInfo'}
+export type GetAdminConnectInfo_Output = ResultError | ({ status: 'OK' } & AdminConnectInfoResponse)
+
+export type GetServiceState_Input = {rpcName:'GetServiceState'}
+export type GetServiceState_Output = ResultError | ({ status: 'OK' } & ServiceStateResponse)
 
 export type ServerMethods = {
     WizardState?: (req: WizardState_Input & {ctx: GuestContext }) => Promise<StateResponse>
-    WizardConfig?: (req: WizardConfig_Input & {ctx: GuestContext }) => Promise<ConfigResponse>
-    WizardConfirm?: (req: WizardConfirm_Input & {ctx: GuestContext }) => Promise<ConfirmResponse>
+    WizardConfig?: (req: WizardConfig_Input & {ctx: GuestContext }) => Promise<void>
+    GetAdminConnectInfo?: (req: GetAdminConnectInfo_Input & {ctx: GuestContext }) => Promise<AdminConnectInfoResponse>
+    GetServiceState?: (req: GetServiceState_Input & {ctx: GuestContext }) => Promise<ServiceStateResponse>
 }
 
+export enum LndState {
+    OFFLINE = 'OFFLINE',
+    SYNCING = 'SYNCING',
+    ONLINE = 'ONLINE',
+}
+export const enumCheckLndState = (e?: LndState): boolean => {
+    for (const v in LndState) if (e === v) return true
+    return false
+}
 
 export type OptionsBaseMessage = {
     allOptionalsAreSet?: true
-}
-
-export type ConfigResponse = {
-    already_initialized: boolean
-    seed: string[]
-    confirmation_id: string
-}
-export const ConfigResponseOptionalFields: [] = []
-export type ConfigResponseOptions = OptionsBaseMessage & {
-    checkOptionalsAreSet?: []
-    already_initialized_CustomCheck?: (v: boolean) => boolean
-    seed_CustomCheck?: (v: string[]) => boolean
-    confirmation_id_CustomCheck?: (v: string) => boolean
-}
-export const ConfigResponseValidate = (o?: ConfigResponse, opts: ConfigResponseOptions = {}, path: string = 'ConfigResponse::root.'): Error | null => {
-    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
-    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
-
-    if (typeof o.already_initialized !== 'boolean') return new Error(`${path}.already_initialized: is not a boolean`)
-    if (opts.already_initialized_CustomCheck && !opts.already_initialized_CustomCheck(o.already_initialized)) return new Error(`${path}.already_initialized: custom check failed`)
-
-    if (!Array.isArray(o.seed)) return new Error(`${path}.seed: is not an array`)
-    for (let index = 0; index < o.seed.length; index++) {
-        if (typeof o.seed[index] !== 'string') return new Error(`${path}.seed[${index}]: is not a string`)
-    }
-    if (opts.seed_CustomCheck && !opts.seed_CustomCheck(o.seed)) return new Error(`${path}.seed: custom check failed`)
-
-    if (typeof o.confirmation_id !== 'string') return new Error(`${path}.confirmation_id: is not a string`)
-    if (opts.confirmation_id_CustomCheck && !opts.confirmation_id_CustomCheck(o.confirmation_id)) return new Error(`${path}.confirmation_id: custom check failed`)
-
-    return null
-}
-
-export type ConfirmRequest = {
-    confirmation_id: string
-}
-export const ConfirmRequestOptionalFields: [] = []
-export type ConfirmRequestOptions = OptionsBaseMessage & {
-    checkOptionalsAreSet?: []
-    confirmation_id_CustomCheck?: (v: string) => boolean
-}
-export const ConfirmRequestValidate = (o?: ConfirmRequest, opts: ConfirmRequestOptions = {}, path: string = 'ConfirmRequest::root.'): Error | null => {
-    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
-    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
-
-    if (typeof o.confirmation_id !== 'string') return new Error(`${path}.confirmation_id: is not a string`)
-    if (opts.confirmation_id_CustomCheck && !opts.confirmation_id_CustomCheck(o.confirmation_id)) return new Error(`${path}.confirmation_id: custom check failed`)
-
-    return null
-}
-
-export type ConfirmResponse = {
-    admin_key: string
-}
-export const ConfirmResponseOptionalFields: [] = []
-export type ConfirmResponseOptions = OptionsBaseMessage & {
-    checkOptionalsAreSet?: []
-    admin_key_CustomCheck?: (v: string) => boolean
-}
-export const ConfirmResponseValidate = (o?: ConfirmResponse, opts: ConfirmResponseOptions = {}, path: string = 'ConfirmResponse::root.'): Error | null => {
-    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
-    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
-
-    if (typeof o.admin_key !== 'string') return new Error(`${path}.admin_key: is not a string`)
-    if (opts.admin_key_CustomCheck && !opts.admin_key_CustomCheck(o.admin_key)) return new Error(`${path}.admin_key: custom check failed`)
-
-    return null
 }
 
 export type Empty = {
@@ -111,19 +57,24 @@ export const EmptyValidate = (o?: Empty, opts: EmptyOptions = {}, path: string =
 }
 
 export type StateResponse = {
-    already_initialized: boolean
+    config_sent: boolean
+    admin_linked: boolean
 }
 export const StateResponseOptionalFields: [] = []
 export type StateResponseOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
-    already_initialized_CustomCheck?: (v: boolean) => boolean
+    config_sent_CustomCheck?: (v: boolean) => boolean
+    admin_linked_CustomCheck?: (v: boolean) => boolean
 }
 export const StateResponseValidate = (o?: StateResponse, opts: StateResponseOptions = {}, path: string = 'StateResponse::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
     if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
 
-    if (typeof o.already_initialized !== 'boolean') return new Error(`${path}.already_initialized: is not a boolean`)
-    if (opts.already_initialized_CustomCheck && !opts.already_initialized_CustomCheck(o.already_initialized)) return new Error(`${path}.already_initialized: custom check failed`)
+    if (typeof o.config_sent !== 'boolean') return new Error(`${path}.config_sent: is not a boolean`)
+    if (opts.config_sent_CustomCheck && !opts.config_sent_CustomCheck(o.config_sent)) return new Error(`${path}.config_sent: custom check failed`)
+
+    if (typeof o.admin_linked !== 'boolean') return new Error(`${path}.admin_linked: is not a boolean`)
+    if (opts.admin_linked_CustomCheck && !opts.admin_linked_CustomCheck(o.admin_linked)) return new Error(`${path}.admin_linked: custom check failed`)
 
     return null
 }
@@ -137,10 +88,10 @@ export type ConfigRequest = {
 export const ConfigRequestOptionalFields: [] = []
 export type ConfigRequestOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
+    push_backups_to_nostr_CustomCheck?: (v: boolean) => boolean
     source_name_CustomCheck?: (v: string) => boolean
     relay_url_CustomCheck?: (v: string) => boolean
     automate_liquidity_CustomCheck?: (v: boolean) => boolean
-    push_backups_to_nostr_CustomCheck?: (v: boolean) => boolean
 }
 export const ConfigRequestValidate = (o?: ConfigRequest, opts: ConfigRequestOptions = {}, path: string = 'ConfigRequest::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
@@ -161,3 +112,103 @@ export const ConfigRequestValidate = (o?: ConfigRequest, opts: ConfigRequestOpti
     return null
 }
 
+export type AdminConnectInfoResponse = {
+    nprofile: string
+    connect_info: AdminConnectInfoResponse_connect_info
+}
+export const AdminConnectInfoResponseOptionalFields: [] = []
+export type AdminConnectInfoResponseOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    nprofile_CustomCheck?: (v: string) => boolean
+    connect_info_CustomCheck?: (v: AdminConnectInfoResponse_connect_info) => boolean
+}
+export const AdminConnectInfoResponseValidate = (o?: AdminConnectInfoResponse, opts: AdminConnectInfoResponseOptions = {}, path: string = 'AdminConnectInfoResponse::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.nprofile !== 'string') return new Error(`${path}.nprofile: is not a string`)
+    if (opts.nprofile_CustomCheck && !opts.nprofile_CustomCheck(o.nprofile)) return new Error(`${path}.nprofile: custom check failed`)
+
+    const connect_infoErr = AdminConnectInfoResponse_connect_infoValidate(o.connect_info,{}, `${path}.connect_info`)
+    if (connect_infoErr !== null) return connect_infoErr
+    
+
+    return null
+}
+
+export type ServiceStateResponse = {
+    http_url: string
+    nprofile: string
+    provider_name: string
+    relays: string[]
+    admin_npub: string
+    relay_connected: boolean
+    lnd_state: LndState
+    watchdog_ok: boolean
+}
+export const ServiceStateResponseOptionalFields: [] = []
+export type ServiceStateResponseOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    http_url_CustomCheck?: (v: string) => boolean
+    nprofile_CustomCheck?: (v: string) => boolean
+    provider_name_CustomCheck?: (v: string) => boolean
+    relays_CustomCheck?: (v: string[]) => boolean
+    admin_npub_CustomCheck?: (v: string) => boolean
+    relay_connected_CustomCheck?: (v: boolean) => boolean
+    lnd_state_CustomCheck?: (v: LndState) => boolean
+    watchdog_ok_CustomCheck?: (v: boolean) => boolean
+}
+export const ServiceStateResponseValidate = (o?: ServiceStateResponse, opts: ServiceStateResponseOptions = {}, path: string = 'ServiceStateResponse::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (!Array.isArray(o.relays)) return new Error(`${path}.relays: is not an array`)
+    for (let index = 0; index < o.relays.length; index++) {
+        if (typeof o.relays[index] !== 'string') return new Error(`${path}.relays[${index}]: is not a string`)
+    }
+    if (opts.relays_CustomCheck && !opts.relays_CustomCheck(o.relays)) return new Error(`${path}.relays: custom check failed`)
+
+    if (typeof o.admin_npub !== 'string') return new Error(`${path}.admin_npub: is not a string`)
+    if (opts.admin_npub_CustomCheck && !opts.admin_npub_CustomCheck(o.admin_npub)) return new Error(`${path}.admin_npub: custom check failed`)
+
+    if (typeof o.relay_connected !== 'boolean') return new Error(`${path}.relay_connected: is not a boolean`)
+    if (opts.relay_connected_CustomCheck && !opts.relay_connected_CustomCheck(o.relay_connected)) return new Error(`${path}.relay_connected: custom check failed`)
+
+    if (!enumCheckLndState(o.lnd_state)) return new Error(`${path}.lnd_state: is not a valid LndState`)
+    if (opts.lnd_state_CustomCheck && !opts.lnd_state_CustomCheck(o.lnd_state)) return new Error(`${path}.lnd_state: custom check failed`)
+
+    if (typeof o.watchdog_ok !== 'boolean') return new Error(`${path}.watchdog_ok: is not a boolean`)
+    if (opts.watchdog_ok_CustomCheck && !opts.watchdog_ok_CustomCheck(o.watchdog_ok)) return new Error(`${path}.watchdog_ok: custom check failed`)
+
+    if (typeof o.http_url !== 'string') return new Error(`${path}.http_url: is not a string`)
+    if (opts.http_url_CustomCheck && !opts.http_url_CustomCheck(o.http_url)) return new Error(`${path}.http_url: custom check failed`)
+
+    if (typeof o.nprofile !== 'string') return new Error(`${path}.nprofile: is not a string`)
+    if (opts.nprofile_CustomCheck && !opts.nprofile_CustomCheck(o.nprofile)) return new Error(`${path}.nprofile: custom check failed`)
+
+    if (typeof o.provider_name !== 'string') return new Error(`${path}.provider_name: is not a string`)
+    if (opts.provider_name_CustomCheck && !opts.provider_name_CustomCheck(o.provider_name)) return new Error(`${path}.provider_name: custom check failed`)
+
+    return null
+}
+
+export enum AdminConnectInfoResponse_connect_info_type {
+    ADMIN_TOKEN = 'admin_token',
+    ENROLLED_NPUB = 'enrolled_npub',
+}
+export type AdminConnectInfoResponse_connect_info = 
+    {type:AdminConnectInfoResponse_connect_info_type.ADMIN_TOKEN, admin_token:string}|
+    {type:AdminConnectInfoResponse_connect_info_type.ENROLLED_NPUB, enrolled_npub:string}
+
+export const AdminConnectInfoResponse_connect_infoValidate = (o?: AdminConnectInfoResponse_connect_info, opts = {}, path: string = 'AdminConnectInfoResponse_connect_info::root.'): Error | null => {
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+    switch (o.type) {
+        case 'admin_token':
+        if (typeof o.admin_token !== 'string') return new Error(`${path}.admin_token: is not a string`)
+        break
+        case 'enrolled_npub':
+        if (typeof o.enrolled_npub !== 'string') return new Error(`${path}.enrolled_npub: is not a string`)
+        break
+    }
+    return new Error(path + ': unknown type'+ o.type)
+}

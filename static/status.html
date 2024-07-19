@@ -30,6 +30,7 @@
     <div class="line" style="width: 100%;"></div>
 
     <section class="node-status">
+      <p id="errorText" style="color:red"></p>
       <div>
         <div class="status-element" style="margin-top: 15px;">
           <div style="text-align: left;">Public Node Name:</div>
@@ -69,8 +70,8 @@
         </div>
         <div class="status-element" style="margin-top: 15px;">
           <div>Administrator:</div>
-          <div>
-            npub12334556677889990
+          <div id="adminNpub" style="line-break: anywhere;">
+            Loading...
           </div>
         </div>
       </div>
@@ -99,14 +100,14 @@
       <div style="margin-top: 40px;">
         <div class="status-element">
           <div>Relay Status:</div>
-          <div>
-            <span class="green-dot">&#9679;</span> Connected
+          <div id="relayStatus">
+            <span class="yellow-dot">&#9679;</span> Loading...
           </div>
         </div>
         <div class="status-element">
           <div>Lightning Status:</div>
-          <div>
-            <span class="yellow-dot">&#9679;</span> Syncing
+          <div id="lndStatus">
+            <span class="yellow-dot">&#9679;</span> Loading...
           </div>
         </div>
         <div class="status-element">
@@ -118,15 +119,15 @@
               </button>
             </div>
           </div>
-          <div>
-            <span class="green-dot">&#9679;</span> No Alarms
+          <div id="watchdog-status">
+            <span class="green-dot">&#9679;</span> Loading...
           </div>
         </div>
       </div>
       <div style="margin-top: 20px;">
         <div style="font-size: 13px; text-align: left;">Guest Invitation Link:</div>
-        <a href="https://my.shockwallet.app/invite/nprofile12345678899988" target="_blank" style="font-size: 11px;"
-          class="invite-link">
+        <a href="https://my.shockwallet.app/invite/nprofile12345678899988" target="_blank"
+          style="font-size: 11px;line-break: anywhere;" id="inviteLinkHttp" class="invite-link">
           https://my.shockwallet.app/invite/nprofile12345678899988
       </div>
       </div>
@@ -140,6 +141,34 @@
   </footer>
 
   <script src="js/status.js"></script>
+  <script>
+    const fetchInfo = async () => {
+      console.log("fewtching...")
+      const res = await fetch("/wizard/service_state")
+      console.log(res)
+      if (res.status !== 200) {
+        document.getElementById('errorText').innerText = "failed to get state info"
+        return
+      }
+      const j = await res.json()
+      console.log(j)
+      if (j.status !== 'OK') {
+        document.getElementById('errorText').innerText = "failed to get state info" + j.reason
+        return
+      }
+      document.getElementById("show-nodey-text").innerHTML = j.provider_name
+      document.getElementById("show-nostr-text").innerHTML = j.relays[0]
+      document.getElementById("adminNpub").innerText = j.admin_npub
+      document.getElementById("relayStatus").innerHTML = `<span class="${j.relay_connected ? 'green-dot' : 'red-dot'}">&#9679;</span> ${j.relay_connected ? 'Connected' : 'Disconnected'}`
+      document.getElementById("lndStatus").innerHTML = `<span class="${j.lnd_state === 'ONLINE' ? 'green-dot' : 'red-dot'}">&#9679;</span> ${j.lnd_state}`
+      document.getElementById("watchdog-status").innerHTML = `<span class="${j.watchdog_ok ? 'green-dot' : 'red-dot'}">&#9679;</span> ${j.watchdog_ok ? 'No Alerts' : 'ALERT!!'}`
+      document.getElementById("inviteLinkHttp").href = `https://my.shockwallet.app/invite/${j.nprofile}`
+      document.getElementById("inviteLinkHttp").innerHTML = `https://my.shockwallet.app/invite/${j.nprofile}`
+    }
+    try {
+      fetchInfo()
+    } catch (e) { console.log({ e }) }
+  </script>
 </body>
 
 </html>
