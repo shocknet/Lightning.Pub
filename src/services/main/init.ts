@@ -73,7 +73,7 @@ export const initMainHandler = async (log: PubLogger, mainSettings: MainSettings
         return
     }
     mainHandler.paymentManager.watchDog.Start()
-    return { mainHandler, apps, liquidityProviderInfo, liquidityProviderApp, wizard }
+    return { mainHandler, apps, liquidityProviderInfo, liquidityProviderApp, wizard, adminManager }
 }
 
 const processArgs = async (mainHandler: Main) => {

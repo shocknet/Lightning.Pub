@@ -12,6 +12,7 @@ import LND from '../services/lnd/lnd.js'
 import { getLogger, resetDisabledLoggers } from '../services/helpers/logger.js'
 import { LiquidityProvider } from '../services/main/liquidityProvider.js'
 import { Utils } from '../services/helpers/utilsWrapper.js'
+import { AdminManager } from '../services/main/adminManager.js'
 chai.use(chaiString)
 export const expect = chai.expect
 export type Describe = (message: string, failure?: boolean) => void
@@ -30,6 +31,7 @@ export type TestBase = {
     externalAccessToMainLnd: LND
     externalAccessToOtherLnd: LND
     externalAccessToThirdLnd: LND
+    adminManager: AdminManager
     d: Describe
 }
 
@@ -63,7 +65,8 @@ export const SetupTest = async (d: Describe): Promise<TestBase> => {
         expect, main, app,
         user1, user2,
         externalAccessToMainLnd, externalAccessToOtherLnd, externalAccessToThirdLnd,
-        d
+        d,
+        adminManager: initialized.adminManager
     }
 }
 
@@ -72,6 +75,7 @@ export const teardown = async (T: TestBase) => {
     T.externalAccessToMainLnd.Stop()
     T.externalAccessToOtherLnd.Stop()
     T.externalAccessToThirdLnd.Stop()
+    T.adminManager.Stop()
     resetDisabledLoggers()
     console.log("teardown")
 }
