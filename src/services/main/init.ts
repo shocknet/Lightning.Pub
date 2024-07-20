@@ -5,8 +5,11 @@ import Storage from "../storage/index.js"
 import { TypeOrmMigrationRunner } from "../storage/migrations/runner.js"
 import Main from "./index.js"
 import SanityChecker from "./sanityChecker.js"
-import { MainSettings } from "./settings.js"
+import { LoadMainSettingsFromEnv, MainSettings } from "./settings.js"
 import { Utils } from "../helpers/utilsWrapper.js"
+import { Wizard } from "../wizard/index.js"
+import { AdminManager } from "./adminManager.js"
+import { encodeNprofile } from "../../custom-nip19.js"
 export type AppData = {
     privateKey: string;
     publicKey: string;
@@ -22,18 +25,29 @@ export const initMainHandler = async (log: PubLogger, mainSettings: MainSettings
     }
     const unlocker = new Unlocker(mainSettings, storageManager)
     await unlocker.Unlock()
+    const adminManager = new AdminManager(mainSettings, storageManager)
+    let reloadedSettings = mainSettings
+    let wizard: Wizard | null = null
+    if (mainSettings.wizard) {
+        wizard = new Wizard(mainSettings, storageManager, adminManager)
+        const reload = await wizard.Configure()
+        if (reload) {
+            reloadedSettings = LoadMainSettingsFromEnv()
+        }
+    }
 
-    const mainHandler = new Main(mainSettings, storageManager, utils)
+    const mainHandler = new Main(reloadedSettings, storageManager, adminManager, utils)
     await mainHandler.lnd.Warmup()
-    if (!mainSettings.skipSanityCheck) {
+    if (!reloadedSettings.skipSanityCheck) {
         const sanityChecker = new SanityChecker(storageManager, mainHandler.lnd)
         await sanityChecker.VerifyEventsLog()
     }
     const appsData = await mainHandler.storage.applicationStorage.GetApplications()
-    const existingWalletApp = await appsData.find(app => app.name === 'wallet' || app.name === 'wallet-test')
+    const defaultNames = ['wallet', 'wallet-test', reloadedSettings.defaultAppName]
+    const existingWalletApp = await appsData.find(app => defaultNames.includes(app.name))
     if (!existingWalletApp) {
         log("no default wallet app found, creating one...")
-        const newWalletApp = await mainHandler.storage.applicationStorage.AddApplication('wallet', true)
+        const newWalletApp = await mainHandler.storage.applicationStorage.AddApplication(reloadedSettings.defaultAppName, true)
         appsData.push(newWalletApp)
     }
     const apps: AppData[] = await Promise.all(appsData.map(app => {
@@ -44,7 +58,7 @@ export const initMainHandler = async (log: PubLogger, mainSettings: MainSettings
             return { privateKey: app.nostr_private_key, publicKey: app.nostr_public_key, appId: app.app_id, name: app.name }
         }
     }))
-    const liquidityProviderApp = apps.find(app => app.name === 'wallet' || app.name === 'wallet-test')
+    const liquidityProviderApp = apps.find(app => defaultNames.includes(app.name))
     if (!liquidityProviderApp) {
         throw new Error("wallet app not initialized correctly")
     }
@@ -59,7 +73,7 @@ export const initMainHandler = async (log: PubLogger, mainSettings: MainSettings
         return
     }
     mainHandler.paymentManager.watchDog.Start()
-    return { mainHandler, apps, liquidityProviderInfo, liquidityProviderApp }
+    return { mainHandler, apps, liquidityProviderInfo, liquidityProviderApp, wizard, adminManager }
 }
 
 const processArgs = async (mainHandler: Main) => {

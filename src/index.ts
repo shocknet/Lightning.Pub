@@ -7,6 +7,7 @@ import nostrMiddleware from './nostrMiddleware.js'
 import { getLogger } from './services/helpers/logger.js';
 import { initMainHandler } from './services/main/init.js';
 import { LoadMainSettingsFromEnv } from './services/main/settings.js';
+import { encodeNprofile } from './custom-nip19.js';
 
 const start = async () => {
     const log = getLogger({})
@@ -16,7 +17,7 @@ const start = async () => {
         log("manual process ended")
         return
     }
-    const { apps, mainHandler, liquidityProviderInfo } = keepOn
+    const { apps, mainHandler, liquidityProviderInfo, wizard } = keepOn
     const serverMethods = GetServerMethods(mainHandler)
     const nostrSettings = LoadNosrtSettingsFromEnv()
     log("initializing nostr middleware")
@@ -27,6 +28,9 @@ const start = async () => {
     log("starting server")
     mainHandler.attachNostrSend(Send)
     mainHandler.StartBeacons()
+    if (wizard) {
+        wizard.AddConnectInfo(encodeNprofile({ pubkey: liquidityProviderInfo.publicKey, relays: nostrSettings.relays }), nostrSettings.relays)
+    }
     const Server = NewServer(serverMethods, serverOptions(mainHandler))
     Server.Listen(mainSettings.servicePort)
 }

@@ -194,6 +194,7 @@ export default class Handler {
                 await p
                 sent = true
             } catch (e: any) {
+                console.log(e)
                 log(e)
             }
         }))

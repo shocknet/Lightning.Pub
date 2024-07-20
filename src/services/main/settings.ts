@@ -7,6 +7,7 @@ import { getLogger } from '../helpers/logger.js'
 import fs from 'fs'
 import crypto from 'crypto';
 import { LiquiditySettings, LoadLiquiditySettingsFromEnv } from './liquidityManager.js'
+
 export type MainSettings = {
     storageSettings: StorageSettings,
     lndSettings: LndSettings,
@@ -29,6 +30,9 @@ export type MainSettings = {
     recordPerformance: boolean
     skipSanityCheck: boolean
     disableExternalPayments: boolean
+    wizard: boolean
+    defaultAppName: string
+    pushBackupsToNostr: boolean
 }
 
 export type BitcoinCoreSettings = {
@@ -41,6 +45,7 @@ export type TestSettings = MainSettings & { lndSettings: { otherNode: NodeSettin
 export const LoadMainSettingsFromEnv = (): MainSettings => {
     const storageSettings = LoadStorageSettingsFromEnv()
     const outgoingAppUserInvoiceFeeBps = EnvCanBeInteger("OUTGOING_INVOICE_FEE_USER_BPS", 0)
+
     return {
         watchDogSettings: LoadWatchdogSettingsFromEnv(),
         lndSettings: LoadLndSettingsFromEnv(),
@@ -63,6 +68,9 @@ export const LoadMainSettingsFromEnv = (): MainSettings => {
         recordPerformance: process.env.RECORD_PERFORMANCE === 'true' || false,
         skipSanityCheck: process.env.SKIP_SANITY_CHECK === 'true' || false,
         disableExternalPayments: process.env.DISABLE_EXTERNAL_PAYMENTS === 'true' || false,
+        wizard: process.env.WIZARD === 'true' || false,
+        defaultAppName: process.env.DEFAULT_APP_NAME || "wallet",
+        pushBackupsToNostr: process.env.PUSH_BACKUPS_TO_NOSTR === 'true' || false
     }
 }
 

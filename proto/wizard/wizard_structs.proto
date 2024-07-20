@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package wizard_structs;
+
+option go_package = "github.com/shocknet/lightning.pub";
+
+message Empty {}
+
+message StateResponse {
+    bool config_sent = 1;
+    bool admin_linked = 2;
+}
+message ConfigRequest {
+    string source_name = 1;
+    string relay_url = 2;
+    bool automate_liquidity = 3;
+    bool push_backups_to_nostr = 4;
+}
+message AdminConnectInfoResponse {
+    string nprofile = 1;
+    oneof connect_info {
+        string admin_token = 2;
+        string enrolled_npub = 3;
+    }
+}
+enum LndState {
+    OFFLINE = 0;
+    SYNCING = 1;
+    ONLINE = 2;
+}
+message ServiceStateResponse {
+    string provider_name = 1;
+    repeated string relays = 2;
+    string admin_npub = 3;
+    bool relay_connected = 4;
+    LndState lnd_state = 5;
+    bool watchdog_ok = 6;
+    string http_url = 7;
+    string nprofile = 8;
+}
