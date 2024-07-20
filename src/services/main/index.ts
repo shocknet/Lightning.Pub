@@ -15,8 +15,11 @@ import { UnsignedEvent } from '../nostr/tools/event.js'
 import { NostrSend } from '../nostr/handler.js'
 import MetricsManager from '../metrics/index.js'
 import { LoggedEvent } from '../storage/eventsLog.js'
-import { LiquidityProvider } from "../lnd/liquidityProvider.js"
+import { LiquidityProvider } from "./liquidityProvider.js"
 import { LiquidityManager } from "./liquidityManager.js"
+import { Utils } from "../helpers/utilsWrapper.js"
+import { RugPullTracker } from "./rugPullTracker.js"
+import { AdminManager } from "./adminManager.js"
 
 type UserOperationsSub = {
     id: string
@@ -31,25 +34,31 @@ export default class {
     lnd: LND
     settings: MainSettings
     userOperationsSub: UserOperationsSub | null = null
+    adminManager: AdminManager
     productManager: ProductManager
     applicationManager: ApplicationManager
     appUserManager: AppUserManager
     paymentManager: PaymentManager
     paymentSubs: Record<string, ((op: Types.UserOperation) => void) | null> = {}
     metricsManager: MetricsManager
-    liquidProvider: LiquidityProvider
     liquidityManager: LiquidityManager
+    liquidityProvider: LiquidityProvider
+    utils: Utils
+    rugPullTracker: RugPullTracker
     nostrSend: NostrSend = () => { getLogger({})("nostr send not initialized yet") }
-    constructor(settings: MainSettings, storage: Storage) {
+    constructor(settings: MainSettings, storage: Storage, adminManager: AdminManager, utils: Utils) {
         this.settings = settings
         this.storage = storage
-        this.liquidProvider = new LiquidityProvider(settings.liquiditySettings.liquidityProviderPub, this.invoicePaidCb)
-        const provider = { liquidProvider: this.liquidProvider, useOnly: settings.liquiditySettings.useOnlyLiquidityProvider }
-        this.lnd = new LND(settings.lndSettings, provider, this.addressPaidCb, this.invoicePaidCb, this.newBlockCb, this.htlcCb)
-        this.liquidityManager = new LiquidityManager(this.settings.liquiditySettings, this.storage, this.liquidProvider, this.lnd)
+        this.utils = utils
+        this.adminManager = adminManager
+        const updateProviderBalance = (b: number) => this.storage.liquidityStorage.IncrementTrackedProviderBalance('lnPub', settings.liquiditySettings.liquidityProviderPub, b)
+        this.liquidityProvider = new LiquidityProvider(settings.liquiditySettings.liquidityProviderPub, this.utils, this.invoicePaidCb, updateProviderBalance)
+        this.rugPullTracker = new RugPullTracker(this.storage, this.liquidityProvider)
+        this.lnd = new LND(settings.lndSettings, this.liquidityProvider, this.utils, this.addressPaidCb, this.invoicePaidCb, this.newBlockCb, this.htlcCb)
+        this.liquidityManager = new LiquidityManager(this.settings.liquiditySettings, this.storage, this.utils, this.liquidityProvider, this.lnd, this.rugPullTracker)
         this.metricsManager = new MetricsManager(this.storage, this.lnd)
 
-        this.paymentManager = new PaymentManager(this.storage, this.lnd, this.settings, this.liquidityManager, this.addressPaidCb, this.invoicePaidCb)
+        this.paymentManager = new PaymentManager(this.storage, this.lnd, this.settings, this.liquidityManager, this.utils, this.addressPaidCb, this.invoicePaidCb)
         this.productManager = new ProductManager(this.storage, this.paymentManager, this.settings)
         this.applicationManager = new ApplicationManager(this.storage, this.settings, this.paymentManager)
         this.appUserManager = new AppUserManager(this.storage, this.settings, this.applicationManager)
@@ -69,7 +78,7 @@ export default class {
 
     attachNostrSend(f: NostrSend) {
         this.nostrSend = f
-        this.liquidProvider.attachNostrSend(f)
+        this.liquidityProvider.attachNostrSend(f)
     }
 
     htlcCb: HtlcCb = (e) => {
@@ -88,7 +97,7 @@ export default class {
             const balanceEvents = await this.paymentManager.GetLndBalance()
             await this.metricsManager.NewBlockCb(height, balanceEvents)
             confirmed = await this.paymentManager.CheckNewlyConfirmedTxs(height)
-            this.liquidityManager.onNewBlock()
+            await this.liquidityManager.onNewBlock()
         } catch (err: any) {
             log(ERROR, "failed to check transactions after new block", err.message || err)
             return
@@ -125,11 +134,12 @@ export default class {
         }))
     }
 
-    addressPaidCb: AddressPaidCb = (txOutput, address, amount, internal) => {
-        this.storage.StartTransaction(async tx => {
+    addressPaidCb: AddressPaidCb = (txOutput, address, amount, used) => {
+        return this.storage.StartTransaction(async tx => {
             const { blockHeight } = await this.lnd.GetInfo()
             const userAddress = await this.storage.paymentStorage.GetAddressOwner(address, tx)
             if (!userAddress) { return }
+            const internal = used === 'internal'
             let log = getLogger({})
             if (!userAddress.linkedApplication) {
                 log(ERROR, "an address was paid, that has no linked application")
@@ -156,17 +166,20 @@ export default class {
                 const operationId = `${Types.UserOperationType.INCOMING_TX}-${addedTx.serial_id}`
                 const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_TX, identifier: userAddress.address, operationId, network_fee: 0, service_fee: fee, confirmed: internal, tx_hash: txOutput.hash, internal: false }
                 this.sendOperationToNostr(userAddress.linkedApplication, userAddress.user.user_id, op)
-            } catch {
+                this.utils.stateBundler.AddTxPoint('addressWasPaid', amount, { used, from: 'system', timeDiscount: true })
+            } catch (err: any) {
+                this.utils.stateBundler.AddTxPointFailed('addressWasPaid', amount, { used, from: 'system' })
                 log(ERROR, "cannot process address paid transaction, already registered")
             }
         })
     }
 
-    invoicePaidCb: InvoicePaidCb = (paymentRequest, amount, internal) => {
-        this.storage.StartTransaction(async tx => {
+    invoicePaidCb: InvoicePaidCb = (paymentRequest, amount, used) => {
+        return this.storage.StartTransaction(async tx => {
             let log = getLogger({})
             const userInvoice = await this.storage.paymentStorage.GetInvoiceOwner(paymentRequest, tx)
             if (!userInvoice) { return }
+            const internal = used === 'internal'
             if (userInvoice.paid_at_unix > 0 && internal) { log("cannot pay internally, invoice already paid"); return }
             if (userInvoice.paid_at_unix > 0 && !internal && userInvoice.paidByLnd) { log("invoice already paid by lnd"); return }
             if (!userInvoice.linkedApplication) {
@@ -191,9 +204,10 @@ export default class {
                 const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_INVOICE, identifier: userInvoice.invoice, operationId, network_fee: 0, service_fee: fee, confirmed: true, tx_hash: "", internal }
                 this.sendOperationToNostr(userInvoice.linkedApplication, userInvoice.user.user_id, op)
                 this.createZapReceipt(log, userInvoice)
-                log("paid invoice processed successfully")
                 this.liquidityManager.afterInInvoicePaid()
+                this.utils.stateBundler.AddTxPoint('invoiceWasPaid', amount, { used, from: 'system', timeDiscount: true })
             } catch (err: any) {
+                this.utils.stateBundler.AddTxPointFailed('invoiceWasPaid', amount, { used, from: 'system' })
                 log(ERROR, "cannot process paid invoice", err.message || "")
             }
         })
@@ -239,7 +253,6 @@ export default class {
     async createZapReceipt(log: PubLogger, invoice: UserReceivingInvoice) {
         const zapInfo = invoice.zap_info
         if (!zapInfo || !invoice.linkedApplication || !invoice.linkedApplication.nostr_public_key) {
-            log(ERROR, "no zap info linked to payment")
             return
         }
         const tags = [["p", zapInfo.pub], ["bolt11", invoice.invoice], ["description", zapInfo.description]]

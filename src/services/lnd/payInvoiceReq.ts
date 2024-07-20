@@ -4,7 +4,7 @@ import { SendPaymentRequest } from "../../../proto/lnd/router";
 export const PayInvoiceReq = (invoice: string, amount: number, feeLimit: number): SendPaymentRequest => ({
     amt: BigInt(amount),
     feeLimitSat: BigInt(feeLimit),
-    noInflightUpdates: true,
+    noInflightUpdates: false,
     paymentRequest: invoice,
     maxParts: 3,
     timeoutSeconds: 50,
@@ -25,6 +25,5 @@ export const PayInvoiceReq = (invoice: string, amount: number, feeLimit: number)
     paymentHash: Buffer.alloc(0),
     routeHints: [],
     timePref: 0,
-
     outgoingChanId: '0'
 })

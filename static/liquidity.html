@@ -1,93 +1,108 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="UTF-8" />
-    <title></title>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css?family=Montserrat"
-    />
-    <link rel="stylesheet" href="css/styles.css" />
-    <link rel="stylesheet" href="css/liquidity.css" />
-    <!-- HTML Meta Tags -->
-    <title>Lightning.Pub</title>
-    <meta name="description" content="Lightning for Everyone" />
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-  </head>
-  <body>
-    <header>
-      <img
-        src="img/pub_logo.png"
-        width="38px"
-        height="auto"
-        alt="Lightning Pub logo"
-      />
-      <img src="img/LightningPub.png" height="33px" alt="Lightning Pub logo" />
-    </header>
 
-    <main>
-      <section class="setup-header">
-        <button class="icon-button back-button" onclick="history.back()">
-          <img src="img/back.svg" alt="" />
-        </button>
-        <h2>Manage Node Liquidity</h2>
-        <p class="header-title">
-          How do you want to manage Lightning channels?
-        </p>
-      </section>
+<head>
+  <meta charset="UTF-8" />
+  <title></title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Montserrat" />
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/liquidity.css" />
+  <!-- HTML Meta Tags -->
+  <title>Lightning.Pub</title>
+  <meta name="description" content="Lightning for Everyone" />
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+</head>
 
-      <div class="line"></div>
+<body>
+  <header>
+    <img src="img/pub_logo.png" width="38px" height="auto" alt="Lightning Pub logo" />
+    <img src="img/LightningPub.png" height="33px" alt="Lightning Pub logo" />
+  </header>
 
-      <section class="setup-content">
-        <div class="checkbox" style="margin-top: 60px">
-          <input type="checkbox" id="automate" data-group="service" />
-          <div class="checkbox-shape"></div>
-          <label for="automate" class="automate">
-            Use Automation Service
-            <div class="question-box">
-              <button class="icon-button" id="show-question">
-                <img src="img/question.svg" />
-              </button>
-            </div>
-            <div class="question-content" id="question-content">
-              Automation helps reduce the fees you pay by trusting peers temporarily until your node balance is sufficient to open a balanced Lightning channel.
-              <button class="icon-button close-button" id="close-question">
-                <img src="img/close.svg" alt="" />
-              </button>
-              <a href="https://docs.shock.network/" target="_blank" class="marked question-more">Learn More</a>
-            </div>
-          </label>
-        </div>
-        <div class="checkbox" style="margin-top: 30px">
-          <input type="checkbox" id="manual" data-group="service" />
-          <div class="checkbox-shape"></div>
-          <label for="manual">Manage my channels manually</label>
-        </div>
-        <button
-          class="push-button"
-          onclick="location.href='backup.html'"
-          style="margin-top: 60px"
-        >
-          Next
-        </button>
-      </section>
-    </main>
+  <main>
+    <section class="setup-header">
+      <button class="icon-button back-button" onclick="history.back()">
+        <img src="img/back.svg" alt="" />
+      </button>
+      <h2>Manage Node Liquidity</h2>
+      <p class="header-title">
+        How do you want to manage Lightning channels?
+      </p>
+    </section>
 
-    <footer>
-      <div class="footer-text">
-        <div>By proceeding you acknowledge that this is</div>
-        <div>bleeding-edge software, and agree to the providers</div>
-        <div>
-          <span style="color: #c434e0">terms</span> regarding any services
-          herein.
-        </div>
+    <div class="line"></div>
+
+    <section class="setup-content">
+      <div class="checkbox" style="margin-top: 60px">
+        <input type="checkbox" id="automate" data-group="service" />
+        <div class="checkbox-shape"></div>
+        <label for="automate" class="automate">
+          Use Automation Service
+          <div class="question-box">
+            <button class="icon-button" id="show-question">
+              <img src="img/question.svg" />
+            </button>
+          </div>
+          <div class="question-content" id="question-content">
+            Automation helps reduce the fees you pay by trusting peers temporarily until your node balance is sufficient
+            to open a balanced Lightning channel.
+            <button class="icon-button close-button" id="close-question">
+              <img src="img/close.svg" alt="" />
+            </button>
+            <a href="https://docs.shock.network/" target="_blank" class="marked question-more">Learn More</a>
+          </div>
+        </label>
       </div>
-      <div class="line"></div>
-      <a href="https://docs.shock.network" class="marked need-help">Need Help?</a>
-    </footer>
+      <div class="checkbox" style="margin-top: 30px">
+        <input type="checkbox" id="manual" data-group="service" />
+        <div class="checkbox-shape"></div>
+        <label for="manual">Manage my channels manually</label>
+      </div>
+      <div>
+        <p id="errorText" style="color:red"></p>
+      </div>
+      <button class="push-button" style="margin-top: 60px" id="backupBtn">
+        Next
+      </button>
+    </section>
+  </main>
 
-    <script src="js/liquidity.js"></script>
-  </body>
+  <footer>
+    <div class="footer-text">
+      <div>By proceeding you acknowledge that this is</div>
+      <div>bleeding-edge software, and agree to the providers</div>
+      <div>
+        <span style="color: #c434e0">terms</span> regarding any services
+        herein.
+      </div>
+    </div>
+    <div class="line"></div>
+    <a href="https://docs.shock.network" class="marked need-help">Need Help?</a>
+  </footer>
+  <script src="js/liquidity.js"></script>
+  <script>
+    document.getElementById("backupBtn").onclick = (e) => {
+      const automate = document.getElementById('automate').checked
+      const manual = document.getElementById('manual').checked
+      if (!automate && !manual) {
+        document.getElementById('errorText').innerText = 'Please select an option'
+        return
+      }
+      if (automate && manual) {
+        document.getElementById('errorText').innerText = 'Please select only one option'
+        return
+      }
+      if (automate) {
+        localStorage.setItem('wizard/liquidity', 'automate')
+      } else {
+        localStorage.setItem('wizard/liquidity', 'manual')
+      }
+      location.href = 'backup.html'
+    }
+
+  </script>
+</body>
+
 </html>

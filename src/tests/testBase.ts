@@ -10,7 +10,9 @@ import { defaultInvoiceExpiry } from '../services/storage/paymentStorage.js'
 import SanityChecker from '../services/main/sanityChecker.js'
 import LND from '../services/lnd/lnd.js'
 import { getLogger, resetDisabledLoggers } from '../services/helpers/logger.js'
-import { LiquidityProvider } from '../services/lnd/liquidityProvider.js'
+import { LiquidityProvider } from '../services/main/liquidityProvider.js'
+import { Utils } from '../services/helpers/utilsWrapper.js'
+import { AdminManager } from '../services/main/adminManager.js'
 chai.use(chaiString)
 export const expect = chai.expect
 export type Describe = (message: string, failure?: boolean) => void
@@ -29,6 +31,7 @@ export type TestBase = {
     externalAccessToMainLnd: LND
     externalAccessToOtherLnd: LND
     externalAccessToThirdLnd: LND
+    adminManager: AdminManager
     d: Describe
 }
 
@@ -45,16 +48,16 @@ export const SetupTest = async (d: Describe): Promise<TestBase> => {
     const user1 = { userId: u1.info.userId, appUserIdentifier: u1.identifier, appId: app.appId }
     const user2 = { userId: u2.info.userId, appUserIdentifier: u2.identifier, appId: app.appId }
 
-
-    const externalAccessToMainLnd = new LND(settings.lndSettings, { liquidProvider: new LiquidityProvider("", () => { }) }, console.log, console.log, () => { }, () => { })
+    const extermnalUtils = new Utils(settings)
+    const externalAccessToMainLnd = new LND(settings.lndSettings, new LiquidityProvider("", extermnalUtils, async () => { }, async () => { }), extermnalUtils, async () => { }, async () => { }, () => { }, () => { })
     await externalAccessToMainLnd.Warmup()
 
     const otherLndSetting = { ...settings.lndSettings, mainNode: settings.lndSettings.otherNode }
-    const externalAccessToOtherLnd = new LND(otherLndSetting, { liquidProvider: new LiquidityProvider("", () => { }) }, console.log, console.log, () => { }, () => { })
+    const externalAccessToOtherLnd = new LND(otherLndSetting, new LiquidityProvider("", extermnalUtils, async () => { }, async () => { }), extermnalUtils, async () => { }, async () => { }, () => { }, () => { })
     await externalAccessToOtherLnd.Warmup()
 
     const thirdLndSetting = { ...settings.lndSettings, mainNode: settings.lndSettings.thirdNode }
-    const externalAccessToThirdLnd = new LND(thirdLndSetting, { liquidProvider: new LiquidityProvider("", () => { }) }, console.log, console.log, () => { }, () => { })
+    const externalAccessToThirdLnd = new LND(thirdLndSetting, new LiquidityProvider("", extermnalUtils, async () => { }, async () => { }), extermnalUtils, async () => { }, async () => { }, () => { }, () => { })
     await externalAccessToThirdLnd.Warmup()
 
 
@@ -62,7 +65,8 @@ export const SetupTest = async (d: Describe): Promise<TestBase> => {
         expect, main, app,
         user1, user2,
         externalAccessToMainLnd, externalAccessToOtherLnd, externalAccessToThirdLnd,
-        d
+        d,
+        adminManager: initialized.adminManager
     }
 }
 
@@ -71,6 +75,7 @@ export const teardown = async (T: TestBase) => {
     T.externalAccessToMainLnd.Stop()
     T.externalAccessToOtherLnd.Stop()
     T.externalAccessToThirdLnd.Stop()
+    T.adminManager.Stop()
     resetDisabledLoggers()
     console.log("teardown")
 }
@@ -78,7 +83,7 @@ export const teardown = async (T: TestBase) => {
 export const safelySetUserBalance = async (T: TestBase, user: TestUserData, amount: number) => {
     const app = await T.main.storage.applicationStorage.GetApplication(user.appId)
     const invoice = await T.main.paymentManager.NewInvoice(user.userId, { amountSats: amount, memo: "test" }, { linkedApplication: app, expiry: defaultInvoiceExpiry })
-    await T.externalAccessToOtherLnd.PayInvoice(invoice.invoice, 0, 100)
+    await T.externalAccessToOtherLnd.PayInvoice(invoice.invoice, 0, 100, amount, { from: 'system', useProvider: false })
     const u = await T.main.storage.userStorage.GetUser(user.userId)
     expect(u.balance_sats).to.be.equal(amount)
     T.d(`user ${user.appUserIdentifier} balance is now ${amount}`)

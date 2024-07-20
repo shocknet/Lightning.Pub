@@ -92,42 +92,49 @@ service LightningPub {
         option (auth_type)  = "Admin";
         option (http_method) = "post";
         option (http_route) = "/api/admin/lnd/getinfo";
+        option (nostr) = true;
     };
 
     rpc AddApp(structs.AddAppRequest) returns (structs.AuthApp) {
         option (auth_type)  = "Admin";
         option (http_method) = "post";
         option (http_route) = "/api/admin/app/add";
+        option (nostr) = true;
     };
 
     rpc AuthApp(structs.AuthAppRequest) returns (structs.AuthApp) {
         option (auth_type)  = "Admin";
         option (http_method) = "post";
         option (http_route) = "/api/admin/app/auth";
+        option (nostr) = true;
     }
 
     rpc BanUser(structs.BanUserRequest) returns (structs.BanUserResponse) {
         option (auth_type)  = "Admin";
         option (http_method) = "post";
         option (http_route) = "/api/admin/user/ban";
+        option (nostr) = true;
     }
 
     rpc GetUsageMetrics(structs.Empty) returns (structs.UsageMetrics) {
         option (auth_type)  = "Metrics";
         option (http_method) = "post";
         option (http_route) = "/api/reports/usage";
+        option (nostr) = true;
     }
 
     rpc GetAppsMetrics(structs.AppsMetricsRequest) returns (structs.AppsMetrics) {
         option (auth_type)  = "Metrics";
         option (http_method) = "post";
         option (http_route) = "/api/reports/apps";
+        option (nostr) = true;
     }
 
     rpc GetLndMetrics(structs.LndMetricsRequest) returns (structs.LndMetrics) {
         option (auth_type)  = "Metrics";
         option (http_method) = "post";
         option (http_route) = "/api/reports/lnd";
+        option (nostr) = true;
     }
 
 
@@ -182,8 +189,14 @@ service LightningPub {
 
     rpc LinkNPubThroughToken(structs.LinkNPubThroughTokenRequest) returns (structs.Empty) {
         option (auth_type) = "User";
-        option(http_method) = "post";
+        option (http_method) = "post";
         option (http_route) = "/api/guest/npub/link";
+        option (nostr) = true;
+    }
+    rpc EnrollAdminToken(structs.EnrollAdminTokenRequest) returns (structs.Empty) {
+        option (auth_type) = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/guest/npub/enroll/admin";
         option (nostr) = true;
     }
     //</Guest>

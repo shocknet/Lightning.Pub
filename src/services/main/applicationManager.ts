@@ -154,7 +154,11 @@ export default class {
                 userId: u.user.user_id,
                 balance: u.user.balance_sats,
                 max_withdrawable: this.paymentManager.GetMaxPayableInvoice(u.user.balance_sats, true),
-                user_identifier: u.identifier
+                user_identifier: u.identifier,
+                network_max_fee_bps: this.settings.lndSettings.feeRateBps,
+                network_max_fee_fixed: this.settings.lndSettings.feeFixedLimit,
+                service_fee_bps: this.settings.outgoingAppUserInvoiceFeeBps
+
             },
             max_withdrawable: this.paymentManager.GetMaxPayableInvoice(u.user.balance_sats, true)
         }
@@ -175,9 +179,7 @@ export default class {
         const receiver = await this.storage.applicationStorage.GetApplicationUser(app, req.receiver_identifier)
         const { user: payer } = await this.storage.applicationStorage.GetOrCreateApplicationUser(app, req.payer_identifier, 0)
         const opts: InboundOptionals = { callbackUrl: req.http_callback_url, expiry: defaultInvoiceExpiry, expectedPayer: payer.user, linkedApplication: app }
-        log("generating invoice...")
         const appUserInvoice = await this.paymentManager.NewInvoice(receiver.user.user_id, req.invoice_req, opts)
-        log(receiver.identifier, "invoice created to be paid by", payer.identifier)
         return {
             invoice: appUserInvoice.invoice
         }
@@ -191,7 +193,10 @@ export default class {
             max_withdrawable: max, identifier: req.user_identifier, info: {
                 userId: user.user.user_id, balance: user.user.balance_sats,
                 max_withdrawable: this.paymentManager.GetMaxPayableInvoice(user.user.balance_sats, true),
-                user_identifier: user.identifier
+                user_identifier: user.identifier,
+                network_max_fee_bps: this.settings.lndSettings.feeRateBps,
+                network_max_fee_fixed: this.settings.lndSettings.feeFixedLimit,
+                service_fee_bps: this.settings.outgoingAppUserInvoiceFeeBps
             }
         }
     }

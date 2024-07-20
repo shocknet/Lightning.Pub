@@ -1,7 +1,7 @@
 import fs from 'fs'
 import { parse, stringify } from 'csv'
 import { getLogger } from '../helpers/logger.js'
-//const eventLogPath = "logs/eventLogV2.csv"
+//const eventLogPath = "logs/eventLogV3.csv"
 type LoggedEventType = 'new_invoice' | 'new_address' | 'address_paid' | 'invoice_paid' | 'invoice_payment' | 'address_payment' | 'u2u_receiver' | 'u2u_sender' | 'balance_increment' | 'balance_decrement'
 export type LoggedEvent = {
     timestampMs: number
@@ -42,7 +42,7 @@ export default class EventsLogManager {
 
 
     LogEvent = (e: Omit<LoggedEvent, 'timestampMs'>) => {
-        this.log(e.type, "->", e.userId, "->", e.appId, "->", e.appUserId, "->", e.balance, "->", e.data, "->", e.amount)
+        //this.log(e.type, "->", e.userId, "->", e.appId, "->", e.appUserId, "->", e.balance, "->", e.data, "->", e.amount)
         this.write([Date.now(), e.userId, e.appUserId, e.appId, e.balance, e.type, e.data, e.amount])
     }
 
