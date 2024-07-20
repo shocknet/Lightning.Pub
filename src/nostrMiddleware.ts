@@ -13,6 +13,20 @@ export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSett
             const nostrUser = await mainHandler.storage.applicationStorage.GetOrCreateNostrAppUser(app, pub || "")
             return { user_id: nostrUser.user.user_id, app_user_id: nostrUser.identifier, app_id: appId || "" }
         },
+        NostrAdminAuthGuard: async (appId, pub) => {
+            const adminNpub = mainHandler.adminManager.GetAdminNpub()
+            if (!adminNpub) { throw new Error("admin access not configured") }
+            if (pub !== adminNpub) { throw new Error("admin access denied") }
+            log("admin access from", pub)
+            return { admin_id: pub }
+        },
+        NostrMetricsAuthGuard: async (appId, pub) => {
+            const adminNpub = mainHandler.adminManager.GetAdminNpub()
+            if (!adminNpub) { throw new Error("admin access not configured") }
+            if (pub !== adminNpub) { throw new Error("admin access denied") }
+            log("operator access from", pub)
+            return { operator_id: pub }
+        },
         metricsCallback: metrics => mainHandler.settings.recordPerformance ? mainHandler.metricsManager.AddMetrics(metrics) : null,
         logger: { log: console.log, error: err => log(ERROR, err) }
     })
@@ -20,7 +34,7 @@ export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSett
         let j: NostrRequest
         try {
             j = JSON.parse(event.content)
-            log("nostr event", j.rpcName || 'no rpc name')
+            //log("nostr event", j.rpcName || 'no rpc name') 
         } catch {
             log(ERROR, "invalid json event received", event.content)
             return

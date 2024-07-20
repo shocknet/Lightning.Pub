@@ -16,9 +16,12 @@ import { SendCoinsReq } from './sendCoinsReq.js';
 import { LndSettings, AddressPaidCb, InvoicePaidCb, NodeInfo, Invoice, DecodedInvoice, PaidInvoice, NewBlockCb, HtlcCb, BalanceInfo } from './settings.js';
 import { getLogger } from '../helpers/logger.js';
 import { HtlcEvent_EventType } from '../../../proto/lnd/router.js';
-import { LiquidityProvider, LiquidityRequest } from './liquidityProvider.js';
+import { LiquidityProvider, LiquidityRequest } from '../main/liquidityProvider.js';
+import { Utils } from '../helpers/utilsWrapper.js';
+import { TxPointSettings } from '../storage/stateBundler.js';
 const DeadLineMetadata = (deadline = 10 * 1000) => ({ deadline: Date.now() + deadline })
 const deadLndRetrySeconds = 5
+type TxActionOptions = { useProvider: boolean, from: 'user' | 'system' }
 export default class {
     lightning: LightningClient
     invoices: InvoicesClient
@@ -36,9 +39,10 @@ export default class {
     log = getLogger({ component: 'lndManager' })
     outgoingOpsLocked = false
     liquidProvider: LiquidityProvider
-    useOnlyLiquidityProvider = false
-    constructor(settings: LndSettings, provider: { liquidProvider: LiquidityProvider, useOnly?: boolean }, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb, newBlockCb: NewBlockCb, htlcCb: HtlcCb) {
+    utils: Utils
+    constructor(settings: LndSettings, liquidProvider: LiquidityProvider, utils: Utils, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb, newBlockCb: NewBlockCb, htlcCb: HtlcCb) {
         this.settings = settings
+        this.utils = utils
         this.addressPaidCb = addressPaidCb
         this.invoicePaidCb = invoicePaidCb
         this.newBlockCb = newBlockCb
@@ -63,8 +67,7 @@ export default class {
         this.invoices = new InvoicesClient(transport)
         this.router = new RouterClient(transport)
         this.chainNotifier = new ChainNotifierClient(transport)
-        this.liquidProvider = provider.liquidProvider
-        this.useOnlyLiquidityProvider = !!provider.useOnly
+        this.liquidProvider = liquidProvider
     }
 
     LockOutgoingOperations(): void {
@@ -82,20 +85,6 @@ export default class {
         this.liquidProvider.Stop()
     }
 
-    async ShouldUseLiquidityProvider(req: LiquidityRequest): Promise<boolean> {
-        if (this.useOnlyLiquidityProvider) {
-            return true
-        }
-        if (!this.liquidProvider.CanProviderHandle(req)) {
-            return false
-        }
-        const channels = await this.ListChannels()
-        if (channels.channels.length === 0) {
-            this.log("no channels, will use liquidity provider")
-            return true
-        }
-        return false
-    }
     async Warmup() {
         this.SubscribeAddressPaid()
         this.SubscribeInvoicePaid()
@@ -212,8 +201,7 @@ export default class {
             if (tx.numConfirmations === 0) { // only process pending transactions, confirmed transaction are processed by the newBlock CB
                 tx.outputDetails.forEach(output => {
                     if (output.isOurAddress) {
-                        this.log("received chan TX", Number(output.amount), "sats", "for", output.address)
-                        this.addressPaidCb({ hash: tx.txHash, index: Number(output.outputIndex) }, output.address, Number(output.amount), false)
+                        this.addressPaidCb({ hash: tx.txHash, index: Number(output.outputIndex) }, output.address, Number(output.amount), 'lnd')
                     }
                 })
             }
@@ -233,9 +221,8 @@ export default class {
         }, { abort: this.abortController.signal })
         stream.responses.onMessage(invoice => {
             if (invoice.state === Invoice_InvoiceState.SETTLED) {
-                this.log("An invoice was paid for", Number(invoice.amtPaidSat), "sats", invoice.paymentRequest)
                 this.latestKnownSettleIndex = Number(invoice.settleIndex)
-                this.invoicePaidCb(invoice.paymentRequest, Number(invoice.amtPaidSat), false)
+                this.invoicePaidCb(invoice.paymentRequest, Number(invoice.amtPaidSat), 'lnd')
             }
         })
         stream.responses.onError(error => {
@@ -247,8 +234,8 @@ export default class {
         })
     }
 
-    async NewAddress(addressType: Types.AddressType): Promise<NewAddressResponse> {
-        this.log("generating new address")
+    async NewAddress(addressType: Types.AddressType, { useProvider, from }: TxActionOptions): Promise<NewAddressResponse> {
+
         await this.Health()
         let lndAddressType: AddressType
         switch (addressType) {
@@ -264,22 +251,34 @@ export default class {
             default:
                 throw new Error("unknown address type " + addressType)
         }
-        const res = await this.lightning.newAddress({ account: "", type: lndAddressType }, DeadLineMetadata())
-        this.log("new address", res.response.address)
-        return res.response
+        if (useProvider) {
+            throw new Error("provider payments not support chain payments yet")
+        }
+        try {
+            const res = await this.lightning.newAddress({ account: "", type: lndAddressType }, DeadLineMetadata())
+            this.utils.stateBundler.AddTxPoint('addedAddress', 1, { from, used: 'lnd' })
+            return res.response
+        } catch (err) {
+            this.utils.stateBundler.AddTxPointFailed('addedAddress', 1, { from, used: 'lnd' })
+            throw err
+        }
     }
 
-    async NewInvoice(value: number, memo: string, expiry: number, useProvider = false): Promise<Invoice> {
-        this.log("generating new invoice for", value, "sats")
+    async NewInvoice(value: number, memo: string, expiry: number, { useProvider, from }: TxActionOptions): Promise<Invoice> {
         await this.Health()
-        const shouldUseLiquidityProvider = await this.ShouldUseLiquidityProvider({ action: 'receive', amount: value })
-        if (shouldUseLiquidityProvider || useProvider) {
-            const invoice = await this.liquidProvider.AddInvoice(value, memo)
-            return { payRequest: invoice }
+        if (useProvider) {
+            const invoice = await this.liquidProvider.AddInvoice(value, memo, from)
+            const providerDst = this.liquidProvider.GetProviderDestination()
+            return { payRequest: invoice, providerDst }
         }
-        const res = await this.lightning.addInvoice(AddInvoiceReq(value, expiry, false, memo), DeadLineMetadata())
-        this.log("new invoice", res.response.paymentRequest)
-        return { payRequest: res.response.paymentRequest }
+        try {
+            const res = await this.lightning.addInvoice(AddInvoiceReq(value, expiry, true, memo), DeadLineMetadata())
+            this.utils.stateBundler.AddTxPoint('addedInvoice', value, { from, used: 'lnd' })
+            return { payRequest: res.response.paymentRequest }
+        } catch (err) {
+            this.utils.stateBundler.AddTxPointFailed('addedInvoice', value, { from, used: 'lnd' })
+            throw err
+        }
     }
 
     async DecodeInvoice(paymentRequest: string): Promise<DecodedInvoice> {
@@ -300,39 +299,44 @@ export default class {
         const r = res.response
         return { local: r.localBalance ? Number(r.localBalance.sat) : 0, remote: r.remoteBalance ? Number(r.remoteBalance.sat) : 0 }
     }
-    async PayInvoice(invoice: string, amount: number, feeLimit: number, useProvider = false): Promise<PaidInvoice> {
+    async PayInvoice(invoice: string, amount: number, feeLimit: number, decodedAmount: number, { useProvider, from }: TxActionOptions): Promise<PaidInvoice> {
         if (this.outgoingOpsLocked) {
             this.log("outgoing ops locked, rejecting payment request")
             throw new Error("lnd node is currently out of sync")
         }
         await this.Health()
-        this.log("paying invoice", invoice, "for", amount, "sats")
-        const shouldUseLiquidityProvider = await this.ShouldUseLiquidityProvider({ action: 'spend', amount })
-        if (shouldUseLiquidityProvider || useProvider) {
-            const res = await this.liquidProvider.PayInvoice(invoice)
-            return { feeSat: res.network_fee + res.service_fee, valueSat: res.amount_paid, paymentPreimage: res.preimage }
+        if (useProvider) {
+            const res = await this.liquidProvider.PayInvoice(invoice, decodedAmount, from)
+            const providerDst = this.liquidProvider.GetProviderDestination()
+            return { feeSat: res.network_fee + res.service_fee, valueSat: res.amount_paid, paymentPreimage: res.preimage, providerDst }
         }
-        const abortController = new AbortController()
-        const req = PayInvoiceReq(invoice, amount, feeLimit)
-        const stream = this.router.sendPaymentV2(req, { abort: abortController.signal })
-        return new Promise((res, rej) => {
-            stream.responses.onError(error => {
-                this.log("invoice payment failed", error)
-                rej(error)
+        try {
+            const abortController = new AbortController()
+            const req = PayInvoiceReq(invoice, amount, feeLimit)
+            const stream = this.router.sendPaymentV2(req, { abort: abortController.signal })
+            return new Promise((res, rej) => {
+                stream.responses.onError(error => {
+                    this.log("invoice payment failed", error)
+                    rej(error)
+                })
+                stream.responses.onMessage(payment => {
+                    switch (payment.status) {
+                        case Payment_PaymentStatus.FAILED:
+                            this.log("invoice payment failed", payment.failureReason)
+                            rej(PaymentFailureReason[payment.failureReason])
+                            return
+                        case Payment_PaymentStatus.SUCCEEDED:
+                            this.utils.stateBundler.AddTxPoint('paidAnInvoice', Number(payment.valueSat), { from, used: 'lnd', timeDiscount: true })
+                            res({ feeSat: Math.ceil(Number(payment.feeMsat) / 1000), valueSat: Number(payment.valueSat), paymentPreimage: payment.paymentPreimage })
+                            return
+                    }
+                })
             })
-            stream.responses.onMessage(payment => {
-                switch (payment.status) {
-                    case Payment_PaymentStatus.FAILED:
-                        console.log(payment)
-                        this.log("invoice payment failed", payment.failureReason)
-                        rej(PaymentFailureReason[payment.failureReason])
-                        return
-                    case Payment_PaymentStatus.SUCCEEDED:
-                        this.log("invoice payment succeded", Number(payment.valueSat))
-                        res({ feeSat: Math.ceil(Number(payment.feeMsat) / 1000), valueSat: Number(payment.valueSat), paymentPreimage: payment.paymentPreimage })
-                }
-            })
-        })
+        } catch (err) {
+            this.utils.stateBundler.AddTxPointFailed('paidAnInvoice', decodedAmount, { from, used: 'lnd' })
+            throw err
+        }
+
     }
 
     async EstimateChainFees(address: string, amount: number, targetConf: number): Promise<EstimateFeeResponse> {
@@ -346,16 +350,23 @@ export default class {
         return res.response
     }
 
-    async PayAddress(address: string, amount: number, satPerVByte: number, label = ""): Promise<SendCoinsResponse> {
+    async PayAddress(address: string, amount: number, satPerVByte: number, label = "", { useProvider, from }: TxActionOptions): Promise<SendCoinsResponse> {
         if (this.outgoingOpsLocked) {
             this.log("outgoing ops locked, rejecting payment request")
             throw new Error("lnd node is currently out of sync")
         }
-        await this.Health()
-        this.log("sending chain TX for", amount, "sats", "to", address)
-        const res = await this.lightning.sendCoins(SendCoinsReq(address, amount, satPerVByte, label), DeadLineMetadata())
-        this.log("sent chain TX for", amount, "sats", "to", address)
-        return res.response
+        if (useProvider) {
+            throw new Error("provider payments not support chain payments yet")
+        }
+        try {
+            await this.Health()
+            const res = await this.lightning.sendCoins(SendCoinsReq(address, amount, satPerVByte, label), DeadLineMetadata())
+            this.utils.stateBundler.AddTxPoint('paidAnAddress', amount, { from, used: 'lnd', timeDiscount: true })
+            return res.response
+        } catch (err) {
+            this.utils.stateBundler.AddTxPointFailed('paidAnAddress', amount, { from, used: 'lnd' })
+            throw err
+        }
     }
 
     async GetTransactions(startHeight: number): Promise<TransactionDetails> {
@@ -374,7 +385,20 @@ export default class {
         return res.response
     }
 
-    async GetBalance(): Promise<BalanceInfo> {
+    async GetTotalBalace() {
+        const walletBalance = await this.GetWalletBalance()
+        const confirmedWalletBalance = Number(walletBalance.confirmedBalance)
+        this.utils.stateBundler.AddBalancePoint('walletBalance', confirmedWalletBalance)
+        const channelsBalance = await this.GetChannelBalance()
+        const totalLightningBalanceMsats = (channelsBalance.localBalance?.msat || 0n) + (channelsBalance.unsettledLocalBalance?.msat || 0n)
+        const totalLightningBalance = Math.ceil(Number(totalLightningBalanceMsats) / 1000)
+        this.utils.stateBundler.AddBalancePoint('channelBalance', totalLightningBalance)
+        const totalLndBalance = confirmedWalletBalance + totalLightningBalance
+        this.utils.stateBundler.AddBalancePoint('totalLndBalance', totalLndBalance)
+        return totalLndBalance
+    }
+
+    async GetBalance(): Promise<BalanceInfo> { // TODO: remove this
         const wRes = await this.lightning.walletBalance({}, DeadLineMetadata())
         const { confirmedBalance, unconfirmedBalance, totalBalance } = wRes.response
         const { response } = await this.lightning.listChannels({

@@ -13,7 +13,7 @@ export default async (T: TestBase) => {
 const testSuccessfulExternalPayment = async (T: TestBase) => {
     T.d("starting testSuccessfulExternalPayment")
     const application = await T.main.storage.applicationStorage.GetApplication(T.app.appId)
-    const invoice = await T.externalAccessToOtherLnd.NewInvoice(500, "test", defaultInvoiceExpiry)
+    const invoice = await T.externalAccessToOtherLnd.NewInvoice(500, "test", defaultInvoiceExpiry, { from: 'system', useProvider: false })
     expect(invoice.payRequest).to.startWith("lnbcrt5u")
     T.d("generated 500 sats invoice for external node")
 
@@ -32,7 +32,7 @@ const testSuccessfulExternalPayment = async (T: TestBase) => {
 const testFailedExternalPayment = async (T: TestBase) => {
     T.d("starting testFailedExternalPayment")
     const application = await T.main.storage.applicationStorage.GetApplication(T.app.appId)
-    const invoice = await T.externalAccessToOtherLnd.NewInvoice(1500, "test", defaultInvoiceExpiry)
+    const invoice = await T.externalAccessToOtherLnd.NewInvoice(1500, "test", defaultInvoiceExpiry, { from: 'system', useProvider: false })
     expect(invoice.payRequest).to.startWith("lnbcrt15u")
     T.d("generated 1500 sats invoice for external node")
 

@@ -24,9 +24,9 @@ export const initBootstrappedInstance = async (T: TestBase) => {
         }
         const j = JSON.parse(data.content) as { requestId: string }
         console.log("sending new operation to provider")
-        bootstrapped.liquidProvider.onEvent(j, T.app.publicKey)
+        bootstrapped.liquidityProvider.onEvent(j, T.app.publicKey)
     })
-    bootstrapped.liquidProvider.attachNostrSend(async (_, data, r) => {
+    bootstrapped.liquidityProvider.attachNostrSend(async (_, data, r) => {
         const res = await handleSend(T, data)
         if (data.type === 'event') {
             throw new Error("unsupported event type")
@@ -34,12 +34,13 @@ export const initBootstrappedInstance = async (T: TestBase) => {
         if (!res) {
             return
         }
-        bootstrapped.liquidProvider.onEvent(res, data.pub)
+        bootstrapped.liquidityProvider.onEvent(res, data.pub)
     })
-    bootstrapped.liquidProvider.setNostrInfo({ clientId: liquidityProviderInfo.clientId, myPub: liquidityProviderInfo.publicKey })
+    bootstrapped.liquidityProvider.setNostrInfo({ clientId: liquidityProviderInfo.clientId, myPub: liquidityProviderInfo.publicKey })
     await new Promise<void>(res => {
-        const interval = setInterval(() => {
-            if (bootstrapped.liquidProvider.CanProviderHandle({ action: 'receive', amount: 2000 })) {
+        const interval = setInterval(async () => {
+            const canHandle = await bootstrapped.liquidityProvider.CanProviderHandle({ action: 'receive', amount: 2000 })
+            if (canHandle) {
                 clearInterval(interval)
                 res()
             } else {

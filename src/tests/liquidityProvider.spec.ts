@@ -23,16 +23,13 @@ const testInboundPaymentFromProvider = async (T: TestBase, bootstrapped: Main, b
     T.d("starting testInboundPaymentFromProvider")
     const invoiceRes = await bootstrapped.appUserManager.NewInvoice({ app_id: bUser.appId, user_id: bUser.userId, app_user_id: bUser.appUserIdentifier }, { amountSats: 2000, memo: "liquidityTest" })
 
-    await T.externalAccessToOtherLnd.PayInvoice(invoiceRes.invoice, 0, 100)
+    await T.externalAccessToOtherLnd.PayInvoice(invoiceRes.invoice, 0, 100, 2000, { from: 'system', useProvider: false })
     await new Promise((resolve) => setTimeout(resolve, 200))
     const userBalance = await bootstrapped.appUserManager.GetUserInfo({ app_id: bUser.appId, user_id: bUser.userId, app_user_id: bUser.appUserIdentifier })
     T.expect(userBalance.balance).to.equal(2000)
     T.d("user balance is 2000")
-    const providerBalance = await bootstrapped.liquidProvider.CheckUserState()
-    if (!providerBalance) {
-        throw new Error("provider balance not found")
-    }
-    T.expect(providerBalance.balance).to.equal(2000)
+    const providerBalance = await bootstrapped.liquidityProvider.GetLatestBalance()
+    T.expect(providerBalance).to.equal(2000)
     T.d("provider balance is 2000")
     T.d("testInboundPaymentFromProvider done")
 }
@@ -40,17 +37,14 @@ const testInboundPaymentFromProvider = async (T: TestBase, bootstrapped: Main, b
 const testOutboundPaymentFromProvider = async (T: TestBase, bootstrapped: Main, bootstrappedUser: TestUserData) => {
     T.d("starting testOutboundPaymentFromProvider")
 
-    const invoice = await T.externalAccessToOtherLnd.NewInvoice(1000, "", 60 * 60)
+    const invoice = await T.externalAccessToOtherLnd.NewInvoice(1000, "", 60 * 60, { from: 'system', useProvider: false })
     const ctx = { app_id: bootstrappedUser.appId, user_id: bootstrappedUser.userId, app_user_id: bootstrappedUser.appUserIdentifier }
     const res = await bootstrapped.appUserManager.PayInvoice(ctx, { invoice: invoice.payRequest, amount: 0 })
 
     const userBalance = await bootstrapped.appUserManager.GetUserInfo(ctx)
     T.expect(userBalance.balance).to.equal(986) // 2000 - (1000 + 6(x2) + 2)
 
-    const providerBalance = await bootstrapped.liquidProvider.CheckUserState()
-    if (!providerBalance) {
-        throw new Error("provider balance not found")
-    }
-    T.expect(providerBalance.balance).to.equal(992) // 2000 - (1000 + 6 +2)
+    const providerBalance = await bootstrapped.liquidityProvider.GetLatestBalance()
+    T.expect(providerBalance).to.equal(992) // 2000 - (1000 + 6 +2)
     T.d("testOutboundPaymentFromProvider done")
 }

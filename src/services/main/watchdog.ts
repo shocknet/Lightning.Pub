@@ -1,10 +1,13 @@
 import { EnvCanBeInteger } from "../helpers/envParser.js";
 import FunctionQueue from "../helpers/functionQueue.js";
 import { getLogger } from "../helpers/logger.js";
-import { LiquidityProvider } from "../lnd/liquidityProvider.js";
+import { Utils } from "../helpers/utilsWrapper.js";
+import { LiquidityProvider } from "./liquidityProvider.js";
 import LND from "../lnd/lnd.js";
 import { ChannelBalance } from "../lnd/settings.js";
 import Storage from '../storage/index.js'
+import { LiquidityManager } from "./liquidityManager.js";
+import { RugPullTracker } from "./rugPullTracker.js";
 export type WatchdogSettings = {
     maxDiffSats: number
 }
@@ -22,17 +25,24 @@ export class Watchdog {
     accumulatedHtlcFees: number;
     lnd: LND;
     liquidProvider: LiquidityProvider;
+    liquidityManager: LiquidityManager;
     settings: WatchdogSettings;
     storage: Storage;
+    rugPullTracker: RugPullTracker
+    utils: Utils
     latestCheckStart = 0
     log = getLogger({ component: "watchdog" })
     ready = false
     interval: NodeJS.Timer;
-    constructor(settings: WatchdogSettings, lnd: LND, storage: Storage) {
+    lndPubKey: string;
+    constructor(settings: WatchdogSettings, liquidityManager: LiquidityManager, lnd: LND, storage: Storage, utils: Utils, rugPullTracker: RugPullTracker) {
         this.lnd = lnd;
         this.settings = settings;
         this.storage = storage;
         this.liquidProvider = lnd.liquidProvider
+        this.liquidityManager = liquidityManager
+        this.utils = utils
+        this.rugPullTracker = rugPullTracker
         this.queue = new FunctionQueue("watchdog_queue", () => this.StartCheck())
     }
 
@@ -41,19 +51,30 @@ export class Watchdog {
             clearInterval(this.interval)
         }
     }
-
     Start = async () => {
+        try {
+            await this.StartWatching()
+        } catch (err: any) {
+            this.log("Failed to start watchdog", err.message || err)
+            throw err
+        }
+    }
+    StartWatching = async () => {
+        this.log("Starting watchdog")
         this.startedAtUnix = Math.floor(Date.now() / 1000)
+        const info = await this.lnd.GetInfo()
+        this.lndPubKey = info.identityPubkey
+        await this.getTracker()
         const totalUsersBalance = await this.storage.paymentStorage.GetTotalUsersBalance()
-        this.initialLndBalance = await this.getTotalLndBalance(totalUsersBalance)
+        this.utils.stateBundler.AddBalancePoint('usersBalance', totalUsersBalance)
+        this.initialLndBalance = await this.getAggregatedExternalBalance()
         this.initialUsersBalance = totalUsersBalance
         const fwEvents = await this.lnd.GetForwardingHistory(0, this.startedAtUnix)
         this.latestIndexOffset = fwEvents.lastOffsetIndex
         this.accumulatedHtlcFees = 0
 
         this.interval = setInterval(() => {
-            if (this.latestCheckStart + (1000 * 60) < Date.now()) {
-                this.log("No balance check was made in the last minute, checking now")
+            if (this.latestCheckStart + (1000 * 58) < Date.now()) {
                 this.PaymentRequested()
             }
         }, 1000 * 60)
@@ -70,49 +91,42 @@ export class Watchdog {
 
     }
 
-
-
-    getTotalLndBalance = async (usersTotal: number) => {
-        const walletBalance = await this.lnd.GetWalletBalance()
-        this.log(Number(walletBalance.confirmedBalance), "sats in chain wallet")
-        const channelsBalance = await this.lnd.GetChannelBalance()
-        getLogger({ component: "debugLndBalancev3" })({ w: walletBalance, c: channelsBalance, u: usersTotal, f: this.accumulatedHtlcFees })
-        const totalLightningBalanceMsats = (channelsBalance.localBalance?.msat || 0n) + (channelsBalance.unsettledLocalBalance?.msat || 0n)
-        const totalLightningBalance = Math.ceil(Number(totalLightningBalanceMsats) / 1000)
-        const providerBalance = await this.liquidProvider.GetLatestBalance()
-        return Number(walletBalance.confirmedBalance) + totalLightningBalance + providerBalance
+    getAggregatedExternalBalance = async () => {
+        const totalLndBalance = await this.lnd.GetTotalBalace()
+        const feesPaidForLiquidity = this.liquidityManager.GetPaidFees()
+        const pb = await this.rugPullTracker.CheckProviderBalance()
+        const providerBalance = pb.prevBalance || pb.balance
+        return totalLndBalance + providerBalance + feesPaidForLiquidity
     }
 
-    checkBalanceUpdate = (deltaLnd: number, deltaUsers: number) => {
-        this.log("LND balance update:", deltaLnd, "sats since app startup")
-        this.log("Users balance update:", deltaUsers, "sats since app startup")
+    checkBalanceUpdate = async (deltaLnd: number, deltaUsers: number) => {
+        this.utils.stateBundler.AddBalancePoint('deltaExternal', deltaLnd)
+        this.utils.stateBundler.AddBalancePoint('deltaUsers', deltaUsers)
 
         const result = this.checkDeltas(deltaLnd, deltaUsers)
         switch (result.type) {
             case 'mismatch':
                 if (deltaLnd < 0) {
-                    this.log("WARNING! LND balance decreased while users balance increased creating a difference of", result.absoluteDiff, "sats")
                     if (result.absoluteDiff > this.settings.maxDiffSats) {
-                        this.log("Difference is too big for an update, locking outgoing operations")
+                        await this.updateDisruption(true, result.absoluteDiff)
                         return true
                     }
                 } else {
-                    this.log("LND balance increased while users balance decreased creating a difference of", result.absoluteDiff, "sats, could be caused by data loss, or liquidity injection")
+                    this.updateDisruption(false, result.absoluteDiff)
                     return false
                 }
                 break
             case 'negative':
                 if (Math.abs(deltaLnd) > Math.abs(deltaUsers)) {
-                    this.log("WARNING! LND balance decreased more than users balance with a difference of", result.absoluteDiff, "sats")
                     if (result.absoluteDiff > this.settings.maxDiffSats) {
-                        this.log("Difference is too big for an update, locking outgoing operations")
+                        await this.updateDisruption(true, result.absoluteDiff)
                         return true
                     }
                 } else if (deltaLnd === deltaUsers) {
-                    this.log("LND and users balance went both DOWN consistently")
+                    await this.updateDisruption(false, 0)
                     return false
                 } else {
-                    this.log("LND balance decreased less than users balance with a difference of", result.absoluteDiff, "sats, could be caused by data loss, or liquidity injection")
+                    await this.updateDisruption(false, result.absoluteDiff)
                     return false
                 }
                 break
@@ -120,28 +134,49 @@ export class Watchdog {
                 if (deltaLnd < deltaUsers) {
                     this.log("WARNING! LND balance increased less than users balance with a difference of", result.absoluteDiff, "sats")
                     if (result.absoluteDiff > this.settings.maxDiffSats) {
-                        this.log("Difference is too big for an update, locking outgoing operations")
+                        await this.updateDisruption(true, result.absoluteDiff)
                         return true
                     }
                 } else if (deltaLnd === deltaUsers) {
-                    this.log("LND and users balance went both UP consistently")
+                    await this.updateDisruption(false, 0)
                     return false
                 } else {
-                    this.log("LND balance increased more than users balance with a difference of", result.absoluteDiff, "sats, could be caused by data loss, or liquidity injection")
+                    await this.updateDisruption(false, result.absoluteDiff)
                     return false
                 }
         }
         return false
     }
 
+    updateDisruption = async (isDisrupted: boolean, absoluteDiff: number) => {
+        const tracker = await this.getTracker()
+        if (isDisrupted) {
+            if (tracker.latest_distruption_at_unix === 0) {
+                await this.storage.liquidityStorage.UpdateTrackedProviderDisruption('lnd', this.lndPubKey, Math.floor(Date.now() / 1000))
+                getLogger({ component: 'bark' })("detected lnd loss of", absoluteDiff, "sats,", absoluteDiff - this.settings.maxDiffSats, "above the max allowed")
+            } else {
+                getLogger({ component: 'bark' })("ongoing lnd loss of", absoluteDiff, "sats,", absoluteDiff - this.settings.maxDiffSats, "above the max allowed")
+            }
+        } else {
+            if (tracker.latest_distruption_at_unix !== 0) {
+                await this.storage.liquidityStorage.UpdateTrackedProviderDisruption('lnd', this.lndPubKey, 0)
+                getLogger({ component: 'bark' })("loss cleared after: ", Math.floor(Date.now() / 1000) - tracker.latest_distruption_at_unix, "seconds")
+            } else if (absoluteDiff > 0) {
+                this.log("lnd balance increased more than users balance by", absoluteDiff)
+            }
+        }
+    }
+
     StartCheck = async () => {
         this.latestCheckStart = Date.now()
         await this.updateAccumulatedHtlcFees()
         const totalUsersBalance = await this.storage.paymentStorage.GetTotalUsersBalance()
-        const totalLndBalance = await this.getTotalLndBalance(totalUsersBalance)
+        this.utils.stateBundler.AddBalancePoint('usersBalance', totalUsersBalance)
+        const totalLndBalance = await this.getAggregatedExternalBalance()
+        this.utils.stateBundler.AddBalancePoint('accumulatedHtlcFees', this.accumulatedHtlcFees)
         const deltaLnd = totalLndBalance - (this.initialLndBalance + this.accumulatedHtlcFees)
         const deltaUsers = totalUsersBalance - this.initialUsersBalance
-        const deny = this.checkBalanceUpdate(deltaLnd, deltaUsers)
+        const deny = await this.checkBalanceUpdate(deltaLnd, deltaUsers)
         if (deny) {
             this.log("Balance mismatch detected in absolute update, locking outgoing operations")
             this.lnd.LockOutgoingOperations()
@@ -151,7 +186,6 @@ export class Watchdog {
     }
 
     PaymentRequested = async () => {
-        this.log("Payment requested, checking balance")
         if (!this.ready) {
             throw new Error("Watchdog not ready")
         }
@@ -178,6 +212,14 @@ export class Watchdog {
                 return { type: 'positive', absoluteDiff: diff, relativeDiff: diff / Math.max(deltaLnd, deltaUsers) }
             }
         }
+    }
+
+    getTracker = async () => {
+        const tracker = await this.storage.liquidityStorage.GetTrackedProvider('lnd', this.lndPubKey)
+        if (!tracker) {
+            return this.storage.liquidityStorage.CreateTrackedProvider('lnd', this.lndPubKey, 0)
+        }
+        return tracker
     }
 }
 type DeltaCheckResult = { type: 'negative' | 'positive', absoluteDiff: number, relativeDiff: number } | { type: 'mismatch', absoluteDiff: number }

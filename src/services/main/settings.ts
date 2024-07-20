@@ -7,18 +7,22 @@ import { getLogger } from '../helpers/logger.js'
 import fs from 'fs'
 import crypto from 'crypto';
 import { LiquiditySettings, LoadLiquiditySettingsFromEnv } from './liquidityManager.js'
+
 export type MainSettings = {
     storageSettings: StorageSettings,
     lndSettings: LndSettings,
     watchDogSettings: WatchdogSettings,
     liquiditySettings: LiquiditySettings,
     jwtSecret: string
+    walletPasswordPath: string
+    walletSecretPath: string
     incomingTxFee: number
     outgoingTxFee: number
     incomingAppInvoiceFee: number
     incomingAppUserInvoiceFee: number
     outgoingAppInvoiceFee: number
     outgoingAppUserInvoiceFee: number
+    outgoingAppUserInvoiceFeeBps: number
     userToUserFee: number
     appToUserFee: number
     serviceUrl: string
@@ -26,27 +30,37 @@ export type MainSettings = {
     recordPerformance: boolean
     skipSanityCheck: boolean
     disableExternalPayments: boolean
+    wizard: boolean
+    defaultAppName: string
+    pushBackupsToNostr: boolean
 }
+
 export type BitcoinCoreSettings = {
     port: number
     user: string
     pass: string
 }
+
 export type TestSettings = MainSettings & { lndSettings: { otherNode: NodeSettings, thirdNode: NodeSettings, fourthNode: NodeSettings }, bitcoinCoreSettings: BitcoinCoreSettings }
 export const LoadMainSettingsFromEnv = (): MainSettings => {
     const storageSettings = LoadStorageSettingsFromEnv()
+    const outgoingAppUserInvoiceFeeBps = EnvCanBeInteger("OUTGOING_INVOICE_FEE_USER_BPS", 0)
+
     return {
         watchDogSettings: LoadWatchdogSettingsFromEnv(),
         lndSettings: LoadLndSettingsFromEnv(),
         storageSettings: storageSettings,
         liquiditySettings: LoadLiquiditySettingsFromEnv(),
         jwtSecret: loadJwtSecret(storageSettings.dataDir),
+        walletSecretPath: process.env.WALLET_SECRET_PATH || getDataPath(storageSettings.dataDir, ".wallet_secret"),
+        walletPasswordPath: process.env.WALLET_PASSWORD_PATH || getDataPath(storageSettings.dataDir, ".wallet_password"),
         incomingTxFee: EnvCanBeInteger("INCOMING_CHAIN_FEE_ROOT_BPS", 0) / 10000,
         outgoingTxFee: EnvCanBeInteger("OUTGOING_CHAIN_FEE_ROOT_BPS", 60) / 10000,
         incomingAppInvoiceFee: EnvCanBeInteger("INCOMING_INVOICE_FEE_ROOT_BPS", 0) / 10000,
         outgoingAppInvoiceFee: EnvCanBeInteger("OUTGOING_INVOICE_FEE_ROOT_BPS", 60) / 10000,
         incomingAppUserInvoiceFee: EnvCanBeInteger("INCOMING_INVOICE_FEE_USER_BPS", 0) / 10000,
-        outgoingAppUserInvoiceFee: EnvCanBeInteger("OUTGOING_INVOICE_FEE_USER_BPS", 0) / 10000,
+        outgoingAppUserInvoiceFeeBps,
+        outgoingAppUserInvoiceFee: outgoingAppUserInvoiceFeeBps / 10000,
         userToUserFee: EnvCanBeInteger("TX_FEE_INTERNAL_USER_BPS", 0) / 10000,
         appToUserFee: EnvCanBeInteger("TX_FEE_INTERNAL_ROOT_BPS", 0) / 10000,
         serviceUrl: process.env.SERVICE_URL || `http://localhost:${EnvCanBeInteger("PORT", 1776)}`,
@@ -54,11 +68,14 @@ export const LoadMainSettingsFromEnv = (): MainSettings => {
         recordPerformance: process.env.RECORD_PERFORMANCE === 'true' || false,
         skipSanityCheck: process.env.SKIP_SANITY_CHECK === 'true' || false,
         disableExternalPayments: process.env.DISABLE_EXTERNAL_PAYMENTS === 'true' || false,
+        wizard: process.env.WIZARD === 'true' || false,
+        defaultAppName: process.env.DEFAULT_APP_NAME || "wallet",
+        pushBackupsToNostr: process.env.PUSH_BACKUPS_TO_NOSTR === 'true' || false
     }
 }
 
 export const LoadTestSettingsFromEnv = (): TestSettings => {
-    const eventLogPath = `logs/eventLogV2Test${Date.now()}.csv`
+    const eventLogPath = `logs/eventLogV3Test${Date.now()}.csv`
     const settings = LoadMainSettingsFromEnv()
     return {
         ...settings,
@@ -101,7 +118,7 @@ export const loadJwtSecret = (dataDir: string): string => {
         return secret
     }
     log("JWT_SECRET not set in env, checking .jwt_secret file")
-    const secretPath = dataDir !== "" ? `${dataDir}/.jwt_secret` : ".jwt_secret"
+    const secretPath = getDataPath(dataDir, ".jwt_secret")
     try {
         const fileContent = fs.readFileSync(secretPath, "utf-8")
         return fileContent.trim()
@@ -111,4 +128,8 @@ export const loadJwtSecret = (dataDir: string): string => {
         fs.writeFileSync(secretPath, secret)
         return secret
     }
+}
+
+export const getDataPath = (dataDir: string, dataPath: string) => {
+    return dataDir !== "" ? `${dataDir}/${dataPath}` : dataPath
 }

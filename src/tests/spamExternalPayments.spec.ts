@@ -14,7 +14,7 @@ export default async (T: TestBase) => {
 const testSpamExternalPayment = async (T: TestBase) => {
     T.d("starting testSpamExternalPayment")
     const application = await T.main.storage.applicationStorage.GetApplication(T.app.appId)
-    const invoices = await Promise.all(new Array(10).fill(0).map(() => T.externalAccessToOtherLnd.NewInvoice(500, "test", defaultInvoiceExpiry)))
+    const invoices = await Promise.all(new Array(10).fill(0).map(() => T.externalAccessToOtherLnd.NewInvoice(500, "test", defaultInvoiceExpiry, { from: 'system', useProvider: false })))
     T.d("generated 10 500 sats invoices for external node")
     const res = await Promise.all(invoices.map(async (invoice, i) => {
         try {
