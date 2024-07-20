@@ -214,6 +214,13 @@ export default (mainHandler: Main): Types.ServerMethods => {
             })
             if (err != null) throw new Error(err.message)
             return mainHandler.applicationManager.LinkNpubThroughToken(ctx, req)
-        }
+        },
+        EnrollAdminToken: async ({ ctx, req }) => {
+            const err = Types.EnrollAdminTokenRequestValidate(req, {
+                admin_token_CustomCheck: token => token !== ''
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.adminManager.PromoteUserToAdmin(ctx.app_id, ctx.app_user_id, req.admin_token)
+        },
     }
 }

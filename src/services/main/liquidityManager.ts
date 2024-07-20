@@ -50,7 +50,11 @@ export class LiquidityManager {
     }
 
     onNewBlock = async () => {
-        await this.shouldDrainProvider()
+        try {
+            await this.shouldDrainProvider()
+        } catch (err: any) {
+            this.log("error in onNewBlock", err.message || err)
+        }
     }
 
     beforeInvoiceCreation = async (amount: number): Promise<'lnd' | 'provider'> => {

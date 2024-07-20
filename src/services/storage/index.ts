@@ -1,4 +1,5 @@
 import { DataSource, EntityManager } from "typeorm"
+import fs from 'fs'
 import NewDB, { DbSettings, LoadDbSettingsFromEnv } from "./db.js"
 import ProductStorage from './productStorage.js'
 import ApplicationStorage from './applicationStorage.js'
@@ -43,6 +44,7 @@ export default class {
         this.paymentStorage = new PaymentStorage(this.DB, this.userStorage, this.txQueue)
         this.metricsStorage = new MetricsStorage(this.settings)
         this.liquidityStorage = new LiquidityStorage(this.DB, this.txQueue)
+        try { if (this.settings.dataDir) fs.mkdirSync(this.settings.dataDir) } catch (e) { }
         const executedMetricsMigrations = await this.metricsStorage.Connect(metricsMigrations)
         return { executedMigrations, executedMetricsMigrations };
     }

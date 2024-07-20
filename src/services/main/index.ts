@@ -19,6 +19,7 @@ import { LiquidityProvider } from "./liquidityProvider.js"
 import { LiquidityManager } from "./liquidityManager.js"
 import { Utils } from "../helpers/utilsWrapper.js"
 import { RugPullTracker } from "./rugPullTracker.js"
+import { AdminManager } from "./adminManager.js"
 
 type UserOperationsSub = {
     id: string
@@ -33,21 +34,23 @@ export default class {
     lnd: LND
     settings: MainSettings
     userOperationsSub: UserOperationsSub | null = null
+    adminManager: AdminManager
     productManager: ProductManager
     applicationManager: ApplicationManager
     appUserManager: AppUserManager
     paymentManager: PaymentManager
     paymentSubs: Record<string, ((op: Types.UserOperation) => void) | null> = {}
     metricsManager: MetricsManager
-    liquidityProvider: LiquidityProvider
     liquidityManager: LiquidityManager
+    liquidityProvider: LiquidityProvider
     utils: Utils
     rugPullTracker: RugPullTracker
     nostrSend: NostrSend = () => { getLogger({})("nostr send not initialized yet") }
-    constructor(settings: MainSettings, storage: Storage, utils: Utils) {
+    constructor(settings: MainSettings, storage: Storage, adminManager: AdminManager, utils: Utils) {
         this.settings = settings
         this.storage = storage
         this.utils = utils
+        this.adminManager = adminManager
         const updateProviderBalance = (b: number) => this.storage.liquidityStorage.IncrementTrackedProviderBalance('lnPub', settings.liquiditySettings.liquidityProviderPub, b)
         this.liquidityProvider = new LiquidityProvider(settings.liquiditySettings.liquidityProviderPub, this.utils, this.invoicePaidCb, updateProviderBalance)
         this.rugPullTracker = new RugPullTracker(this.storage, this.liquidityProvider)
