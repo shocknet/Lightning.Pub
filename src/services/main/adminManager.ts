@@ -19,7 +19,7 @@ export class AdminManager {
         this.dataDir = mainSettings.storageSettings.dataDir
         this.adminNpubPath = getDataPath(this.dataDir, 'admin.npub')
         this.adminEnrollTokenPath = getDataPath(this.dataDir, '.admin_enroll')
-        this.adminEnrollTokenPath = getDataPath(this.dataDir, '.admin_connect')
+        this.adminConnectPath = getDataPath(this.dataDir, '.admin_connect')
         this.appNprofilePath = getDataPath(this.dataDir, 'app.nprofile')
         this.start()
     }
