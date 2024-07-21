@@ -1,7 +1,7 @@
 {
-  "name": "lightning.pub",
+  "name": "lnpub",
   "version": "1.0.0",
-  "description": "",
+  "description": "A Nostr based account system and management platform for nodes on Bitcoin's Lightning Network",
   "main": "index.js",
   "scripts": {
     "clean": "rimraf build",
@@ -19,7 +19,7 @@
   },
   "author": "",
   "type": "module",
-  "license": "ISC",
+  "license": "Affero GPLv3",
   "bugs": {
     "url": "https://github.com/shocknet/Lightning.Pub/issues"
   },

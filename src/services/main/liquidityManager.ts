@@ -13,7 +13,7 @@ export type LiquiditySettings = {
 }
 export const LoadLiquiditySettingsFromEnv = (): LiquiditySettings => {
     const lspSettings = LoadLSPSettingsFromEnv()
-    const liquidityProviderPub = process.env.LIQUIDITY_PROVIDER_PUB || ""
+    const liquidityProviderPub = process.env.LIQUIDITY_PROVIDER_PUB === "null" ? "" : (process.env.LIQUIDITY_PROVIDER_PUB || "76ed45f00cea7bac59d8d0b7d204848f5319d7b96c140ffb6fcbaaab0a13d44e")
     return { lspSettings, liquidityProviderPub, useOnlyLiquidityProvider: false }
 }
 export class LiquidityManager {
