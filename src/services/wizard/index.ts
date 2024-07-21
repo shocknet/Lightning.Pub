@@ -156,7 +156,7 @@ export class Wizard {
         if (automateLiquidityIndex === -1) {
             toMerge.push(`LIQUIDITY_PROVIDER_PUB=${pendingConfig.automateLiquidity ? defaultProviderPub : ""}`)
         } else {
-            envFileContent[automateLiquidityIndex] = `LIQUIDITY_PROVIDER_PUB=`
+            envFileContent[automateLiquidityIndex] = `LIQUIDITY_PROVIDER_PUB=null`
         }
 
         const pushBackupsToNostrIndex = envFileContent.findIndex(line => line.startsWith('PUSH_BACKUPS_TO_NOSTR'))
