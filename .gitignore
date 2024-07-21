@@ -16,3 +16,4 @@ data/
 .wallet_password
 .admin_enroll
 admin.npub
+app.nprofile
