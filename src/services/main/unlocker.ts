@@ -240,8 +240,9 @@ export class Unlocker {
                 try {
                     const { encryptedData } = this.EncryptBackup(Buffer.from(msg.multiChanBackup.multiChanBackup))
                     await this.storage.liquidityStorage.SaveNodeBackup(pub, JSON.stringify(encryptedData))
+                    this.log("new channel backup saved correctly")
                 } catch (err: any) {
-                    this.log("failed to save backup", err.message)
+                    this.log("new channel backup was not saved")
                 }
             }
         })
