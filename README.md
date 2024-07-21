@@ -81,6 +81,33 @@ Coming Soon
 
 `docker pull ghcr.io/shocknet/lightning-pub:latest`
 
+### Running the Docker Container
+
+To run the Docker container with persistent storage and port mapping, use the following command:
+
+```sh
+docker run -d \
+  --name lightning-pub \
+  --network host \
+  -p 1776:1776 \
+  -p 1777:1777 \
+  -v /path/to/local/data:/app/data \
+  ghcr.io/shocknet/lightning-pub:latest
+```
+
+- `--network host`: Allows the container to use the host's network stack, enabling access to local services.
+- `-p 1776:1776`: Maps the container's port 1776 to the host's port 1776.
+- `-p 1777:1777`: Maps the container's port 1777 to the host's port 1777 (optional for management).
+- `-v /path/to/local/data:/app/data`: Mounts a local directory to the container for persistent storage.
+
+### Accessing the Service
+
+Once the container is running, you can access the main service at `http://localhost:1776` and the optional management interface at `http://localhost:1777`.
+
+### Connecting to External Services
+
+Ensure that the container has access to necessary external services (e.g., LND node) by configuring the network settings appropriately. If using `--network host`, the container can access local services directly using `localhost` or `127.0.0.1`.
+
 ## Manual CLI Installation
 
 #### Notes:
@@ -119,5 +146,4 @@ Coming Soon
 5) Connect with [wallet2](https://github.com/shocknet/wallet2) using the wallet nprofile that gets logged at startup.
 > [!NOTE]  
 > Connecting with wallet will create an account on the node, it will not show or have access to the full LND balance
-
 
