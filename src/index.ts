@@ -17,7 +17,7 @@ const start = async () => {
         log("manual process ended")
         return
     }
-    const { apps, mainHandler, liquidityProviderInfo, wizard } = keepOn
+    const { apps, mainHandler, liquidityProviderInfo, wizard, adminManager } = keepOn
     const serverMethods = GetServerMethods(mainHandler)
     const nostrSettings = LoadNosrtSettingsFromEnv()
     log("initializing nostr middleware")
@@ -28,9 +28,11 @@ const start = async () => {
     log("starting server")
     mainHandler.attachNostrSend(Send)
     mainHandler.StartBeacons()
+    const appNprofile = encodeNprofile({ pubkey: liquidityProviderInfo.publicKey, relays: nostrSettings.relays })
     if (wizard) {
-        wizard.AddConnectInfo(encodeNprofile({ pubkey: liquidityProviderInfo.publicKey, relays: nostrSettings.relays }), nostrSettings.relays)
+        wizard.AddConnectInfo(appNprofile, nostrSettings.relays)
     }
+    adminManager.setAppNprofile(appNprofile)
     const Server = NewServer(serverMethods, serverOptions(mainHandler))
     Server.Listen(mainSettings.servicePort)
 }
