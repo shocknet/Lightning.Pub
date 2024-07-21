@@ -89,15 +89,19 @@ export class LiquidityProvider {
         this.ready = true
         this.queue.forEach(q => q('ready'))
         this.log("subbing to user operations")
-        this.client.GetLiveUserOperations(res => {
+        this.client.GetLiveUserOperations(async res => {
             if (res.status === 'ERROR') {
                 this.log("error getting user operations", res.reason)
                 return
             }
             //this.log("got user operation", res.operation)
             if (res.operation.type === Types.UserOperationType.INCOMING_INVOICE) {
-                this.incrementProviderBalance(res.operation.amount)
-                this.invoicePaidCb(res.operation.identifier, res.operation.amount, 'provider')
+                try {
+                    await this.invoicePaidCb(res.operation.identifier, res.operation.amount, 'provider')
+                    this.incrementProviderBalance(res.operation.amount)
+                } catch (err: any) {
+                    this.log("error processing incoming invoice", err.message)
+                }
             }
         })
     }
@@ -105,7 +109,9 @@ export class LiquidityProvider {
     GetUserState = async () => {
         const res = await Promise.race([this.client.GetUserInfo(), new Promise<Types.ResultError>(res => setTimeout(() => res({ status: 'ERROR', reason: 'timeout' }), 10 * 1000))])
         if (res.status === 'ERROR') {
-            this.log("error getting user info", res.reason)
+            if (res.reason !== 'timeout') {
+                this.log("error getting user info", res.reason)
+            }
             return res
         }
         this.utils.stateBundler.AddBalancePoint('providerBalance', res.balance)

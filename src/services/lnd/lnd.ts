@@ -236,7 +236,6 @@ export default class {
 
     async NewAddress(addressType: Types.AddressType, { useProvider, from }: TxActionOptions): Promise<NewAddressResponse> {
 
-        await this.Health()
         let lndAddressType: AddressType
         switch (addressType) {
             case Types.AddressType.NESTED_PUBKEY_HASH:
@@ -254,6 +253,7 @@ export default class {
         if (useProvider) {
             throw new Error("provider payments not support chain payments yet")
         }
+        await this.Health()
         try {
             const res = await this.lightning.newAddress({ account: "", type: lndAddressType }, DeadLineMetadata())
             this.utils.stateBundler.AddTxPoint('addedAddress', 1, { from, used: 'lnd' })
@@ -265,12 +265,12 @@ export default class {
     }
 
     async NewInvoice(value: number, memo: string, expiry: number, { useProvider, from }: TxActionOptions): Promise<Invoice> {
-        await this.Health()
         if (useProvider) {
             const invoice = await this.liquidProvider.AddInvoice(value, memo, from)
             const providerDst = this.liquidProvider.GetProviderDestination()
             return { payRequest: invoice, providerDst }
         }
+        await this.Health()
         try {
             const res = await this.lightning.addInvoice(AddInvoiceReq(value, expiry, true, memo), DeadLineMetadata())
             this.utils.stateBundler.AddTxPoint('addedInvoice', value, { from, used: 'lnd' })
@@ -304,12 +304,12 @@ export default class {
             this.log("outgoing ops locked, rejecting payment request")
             throw new Error("lnd node is currently out of sync")
         }
-        await this.Health()
         if (useProvider) {
             const res = await this.liquidProvider.PayInvoice(invoice, decodedAmount, from)
             const providerDst = this.liquidProvider.GetProviderDestination()
             return { feeSat: res.network_fee + res.service_fee, valueSat: res.amount_paid, paymentPreimage: res.preimage, providerDst }
         }
+        await this.Health()
         try {
             const abortController = new AbortController()
             const req = PayInvoiceReq(invoice, amount, feeLimit)
@@ -320,6 +320,7 @@ export default class {
                     rej(error)
                 })
                 stream.responses.onMessage(payment => {
+                    console.log("payment", payment)
                     switch (payment.status) {
                         case Payment_PaymentStatus.FAILED:
                             this.log("invoice payment failed", payment.failureReason)
@@ -358,8 +359,8 @@ export default class {
         if (useProvider) {
             throw new Error("provider payments not support chain payments yet")
         }
+        await this.Health()
         try {
-            await this.Health()
             const res = await this.lightning.sendCoins(SendCoinsReq(address, amount, satPerVByte, label), DeadLineMetadata())
             this.utils.stateBundler.AddTxPoint('paidAnAddress', amount, { from, used: 'lnd', timeDiscount: true })
             return res.response
@@ -370,7 +371,6 @@ export default class {
     }
 
     async GetTransactions(startHeight: number): Promise<TransactionDetails> {
-        await this.Health()
         const res = await this.lightning.getTransactions({ startHeight, endHeight: 0, account: "" }, DeadLineMetadata())
         return res.response
     }
