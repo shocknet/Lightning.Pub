@@ -10,13 +10,28 @@ export class AdminManager {
     dataDir: string
     adminNpubPath: string
     adminEnrollTokenPath: string
+    adminConnectPath: string
+    appNprofilePath: string
     interval: NodeJS.Timer
+    appNprofile: string
     constructor(mainSettings: MainSettings, storage: Storage) {
         this.storage = storage
         this.dataDir = mainSettings.storageSettings.dataDir
         this.adminNpubPath = getDataPath(this.dataDir, 'admin.npub')
         this.adminEnrollTokenPath = getDataPath(this.dataDir, '.admin_enroll')
+        this.adminEnrollTokenPath = getDataPath(this.dataDir, '.admin_connect')
+        this.appNprofilePath = getDataPath(this.dataDir, 'app.nprofile')
         this.start()
+    }
+
+    setAppNprofile = (nprofile: string) => {
+        this.appNprofile = nprofile
+        const enrollToken = this.ReadAdminEnrollToken()
+        fs.writeFileSync(this.appNprofilePath, this.appNprofile)
+        if (enrollToken) {
+            const connectString = `${this.appNprofile}:${enrollToken}`
+            fs.writeFileSync(this.adminConnectPath, connectString)
+        }
     }
     Stop = () => {
         clearInterval(this.interval)
@@ -25,6 +40,8 @@ export class AdminManager {
     GenerateAdminEnrollToken = async () => {
         const token = crypto.randomBytes(32).toString('hex')
         fs.writeFileSync(this.adminEnrollTokenPath, token)
+        const connectString = `${this.appNprofile}:${token}`
+        fs.writeFileSync(this.adminConnectPath, connectString)
         return token
     }
 
@@ -92,6 +109,7 @@ export class AdminManager {
         }
         fs.writeFileSync(this.adminNpubPath, npub)
         fs.unlinkSync(this.adminEnrollTokenPath)
+        fs.unlinkSync(this.adminConnectPath)
         this.adminNpub = npub
     }
 }

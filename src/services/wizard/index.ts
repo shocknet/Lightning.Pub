@@ -98,6 +98,7 @@ export class Wizard {
 
     AddConnectInfo = (nprofile: string, relays: string[]) => {
         this.nprofile = nprofile
+        this.relays = relays
         this.awaitingNprofile.forEach(q => q.res(nprofile))
         this.awaitingNprofile = []
     }
