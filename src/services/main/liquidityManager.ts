@@ -70,7 +70,7 @@ export class LiquidityManager {
         if (remote > amount) {
             return 'lnd'
         }
-        const providerCanHandle = this.liquidityProvider.CanProviderHandle({ action: 'receive', amount })
+        const providerCanHandle = await this.liquidityProvider.CanProviderHandle({ action: 'receive', amount })
         if (!providerCanHandle) {
             return 'lnd'
         }
