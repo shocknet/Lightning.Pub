@@ -76,12 +76,14 @@
         </div>
       </div>
       <div style="display: flex; justify-content: end;padding-right: 12px;">
-        <div class="marked" id="show-reset" style="text-decoration: underline; margin-top: 5px;position: relative;">
+        <div class="marked" id="show-reset" style="text-decoration: underline; margin-top: 5px;position: relative; display: none;">
           Reset
           <div class="watchdog-status">
-            <button class="icon-button" id="show-question">
-              <img src="img/question.svg" />
-            </button>
+            <a href="https://docs.shock.network/pub/watchdog" target="_blank">
+              <button class="icon-button" id="show-question">
+                <img src="img/question.svg" />
+              </button>
+            </a>
           </div>
         </div>
       </div>
@@ -114,9 +116,11 @@
           <div style="position: relative;">
             Watchdog Status:
             <div class="watchdog-status">
-              <button class="icon-button" id="show-question">
-                <img src="img/question.svg" />
-              </button>
+              <a href="https://docs.shock.network/pub/watchdog" target="_blank">
+                <button class="icon-button" id="show-question">
+                  <img src="img/question.svg" />
+                </button>
+              </a>
             </div>
           </div>
           <div id="watchdog-status">
@@ -165,6 +169,7 @@
       document.getElementById("inviteLinkHttp").href = `https://my.shockwallet.app/#/source?addSource=${j.nprofile}`
       document.getElementById("inviteLinkHttp").innerHTML = `https://my.shockwallet.app/#/source?addSource=${j.nprofile}`
       document.querySelector('input[name="show-nodey"]').placeholder = j.provider_name;
+      document.title = j.provider_name;
     }
     try {
       fetchInfo()
