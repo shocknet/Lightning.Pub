@@ -139,3 +139,9 @@
     border-radius: 2rem;
     border: 1px solid transparent;
 }
+
+#adminNpub {
+    font-size: 8px; /* Adjust font size to fit on one line */
+    text-align: left; /* Left align the text */
+    line-break: anywhere; /* Ensure long text breaks appropriately */
+}
