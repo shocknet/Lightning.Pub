@@ -8,7 +8,7 @@ const getEnvOrDefault = (name: string, defaultValue: string): string => {
 }
 
 export const LoadNosrtSettingsFromEnv = (test = false) => {
-    const relaysEnv = getEnvOrDefault("NOSTR_RELAYS", "wss://strfry.shock.network");
+    const relaysEnv = getEnvOrDefault("NOSTR_RELAYS", "wss://relay.lightning.pub");
     return {
         relays: relaysEnv.split(' ')
     }
