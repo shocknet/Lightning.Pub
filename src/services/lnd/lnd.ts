@@ -270,7 +270,6 @@ export default class {
             const providerDst = this.liquidProvider.GetProviderDestination()
             return { payRequest: invoice, providerDst }
         }
-        await this.Health()
         try {
             const res = await this.lightning.addInvoice(AddInvoiceReq(value, expiry, true, memo), DeadLineMetadata())
             this.utils.stateBundler.AddTxPoint('addedInvoice', value, { from, used: 'lnd' })
