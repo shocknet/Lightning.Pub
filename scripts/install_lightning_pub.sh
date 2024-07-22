@@ -10,7 +10,7 @@ install_lightning_pub() {
   fi
 
   log "${PRIMARY_COLOR}Installing${RESET_COLOR} ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR}..."
-  REPO_URL="https://github.com/shocknet/Lightning.Pub/tarball/fix/bootstrap"
+  REPO_URL="https://github.com/shocknet/Lightning.Pub/tarball/master"
   
   sudo -u $USER_NAME wget $REPO_URL -O $USER_HOME/lightning_pub.tar.gz > /dev/null 2>&1 || {
     log "${PRIMARY_COLOR}Failed to download Lightning.Pub.${RESET_COLOR}"
@@ -45,7 +45,7 @@ install_lightning_pub() {
   fi
 
   # Merge if upgrade
-  rsync -av --exclude='*.sqlite' --exclude='.env' --exclude='logs' --exclude='node_modules' lightning_pub_temp/ lightning_pub/ > /dev/null 2>&1
+  rsync -av --exclude='*.sqlite' --exclude='.env' --exclude='logs' --exclude='node_modules' --exclude='.jwt_secret' --exclude='admin.npub' --exclude='app.nprofile' --exclude='.admin_connect' --exclude='.admin_enroll' lightning_pub_temp/ lightning_pub/ > /dev/null 2>&1
   rm -rf lightning_pub_temp
 
   # Load nvm and npm
