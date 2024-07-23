@@ -5,10 +5,10 @@ export type ResultError = { status: 'ERROR', reason: string }
 
 export type NostrClientParams = {
     pubDestination: string
-    retrieveNostrGuestWithPubAuth: () => Promise<string | null>
     retrieveNostrAdminAuth: () => Promise<string | null>
     retrieveNostrMetricsAuth: () => Promise<string | null>
     retrieveNostrUserAuth: () => Promise<string | null>
+    retrieveNostrGuestWithPubAuth: () => Promise<string | null>
     checkResult?: true
 }
 export default (params: NostrClientParams,  send: (to:string, message: NostrRequest) => Promise<any>, subscribe: (to:string, message: NostrRequest, cb:(res:any)=> void) => void) => ({
@@ -170,7 +170,7 @@ export default (params: NostrClientParams,  send: (to:string, message: NostrRequ
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
-    UseInviteLink: async (request: Types.UseInviteLinkRequest): Promise<ResultError | ({ status: 'OK' }& Types.UseInviteLinkResponse)> => {
+    UseInviteLink: async (request: Types.UseInviteLinkRequest): Promise<ResultError | ({ status: 'OK' })> => {
         const auth = await params.retrieveNostrGuestWithPubAuth()
         if (auth === null) throw new Error('retrieveNostrGuestWithPubAuth() returned null')
         const nostrRequest: NostrRequest = {}
@@ -178,10 +178,7 @@ export default (params: NostrClientParams,  send: (to:string, message: NostrRequ
         const data = await send(params.pubDestination, {rpcName:'UseInviteLink',authIdentifier:auth, ...nostrRequest }) 
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
-            const result = data
-            if(!params.checkResult) return { status: 'OK', ...result }
-            const error = Types.UseInviteLinkResponseValidate(result)
-            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+            return data
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },

@@ -173,16 +173,19 @@ export default class {
 
 
     async AddInviteToken(app: Application, sats?: number) {
-        return this.DB.transaction(async tx => {
-            const inviteRepo = tx.getRepository(InviteToken);
-            const newInviteToken = inviteRepo.create({
-                inviteToken: crypto.randomBytes(32).toString('hex'),
-                used: false,
-                sats: sats,
-                application: app
-            });
-
-            return inviteRepo.save(newInviteToken)
+        return this.txQueue.PushToQueue({
+            dbTx: true,
+            exec:async tx => {
+                const inviteRepo = tx.getRepository(InviteToken);
+                const newInviteToken = inviteRepo.create({
+                    inviteToken: crypto.randomBytes(32).toString('hex'),
+                    used: false,
+                    sats: sats,
+                    application: app
+                });
+    
+                return inviteRepo.save(newInviteToken)
+            }
         })
     }
 
@@ -192,8 +195,7 @@ export default class {
 
 
     async SetInviteTokenAsUsed(inviteToken: InviteToken) {
-        return this.DB.transaction(async tx => {
-            return tx.getRepository(InviteToken).update(inviteToken, { used: true });
-        })
+        return this.DB.getRepository(InviteToken).update(inviteToken, { used: true });
+
     }
 }

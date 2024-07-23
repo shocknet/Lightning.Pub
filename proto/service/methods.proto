@@ -232,7 +232,7 @@ service LightningPub {
         option (nostr) = true;
     }
 
-    rpc UseInviteLink(structs.UseInviteLinkRequest) returns (structs.UseInviteLinkResponse) {
+    rpc UseInviteLink(structs.UseInviteLinkRequest) returns (structs.Empty) {
         option (auth_type) = "GuestWithPub";
         option (http_method) = "post";
         option (http_route) = "/api/guest/invite";
