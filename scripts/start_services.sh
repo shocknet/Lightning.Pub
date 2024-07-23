@@ -1,7 +1,7 @@
 #!/bin/bash
 
 start_services() {
-  LND_UPGRADE=$1
+  LND_STATUS=$1
   PUB_UPGRADE=$2
 
   if [ "$EUID" -eq 0 ]; then
@@ -47,55 +47,45 @@ EOF"
       sudo systemctl enable lnd >/dev/null 2>&1
       sudo systemctl enable lightning_pub >/dev/null 2>&1
 
-      if [ "$LND_UPGRADE" = "1" ]; then
-        log "${PRIMARY_COLOR}Restarting${RESET_COLOR} ${SECONDARY_COLOR}LND${RESET_COLOR} service..."
-        sudo systemctl restart lnd &
-        lnd_pid=$!
-        wait $lnd_pid
-        if systemctl is-active --quiet lnd; then
-          log "LND restarted successfully using systemd."
+      # Always attempt to start or restart LND
+      if systemctl is-active --quiet lnd; then
+        if [ "$LND_STATUS" = "1" ]; then
+          log "${PRIMARY_COLOR}Restarting${RESET_COLOR} ${SECONDARY_COLOR}LND${RESET_COLOR} service..."
+          sudo systemctl restart lnd
         else
-          log "Failed to restart ${SECONDARY_COLOR}LND${RESET_COLOR} using systemd."
-          exit 1
+          log "${SECONDARY_COLOR}LND${RESET_COLOR} service is already running."
         fi
       else
         log "${PRIMARY_COLOR}Starting${RESET_COLOR} ${SECONDARY_COLOR}LND${RESET_COLOR} service..."
-        sudo systemctl start lnd &
-        lnd_pid=$!
-        wait $lnd_pid
-        if systemctl is-active --quiet lnd; then
-          log "LND started successfully using systemd."
-        else
-          log "Failed to start ${SECONDARY_COLOR}LND${RESET_COLOR} using systemd."
-          exit 1
-        fi
+        sudo systemctl start lnd
+      fi
+
+      # Check LND status after attempting to start/restart
+      if ! systemctl is-active --quiet lnd; then
+        log "Failed to start or restart ${SECONDARY_COLOR}LND${RESET_COLOR}. Please check the logs."
+        exit 1
       fi
 
       log "Giving ${SECONDARY_COLOR}LND${RESET_COLOR} a few seconds to start before starting ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR}..."
       sleep 10
 
-      if [ "$PUB_UPGRADE" = "100" ]; then
-        log "${PRIMARY_COLOR}Restarting${RESET_COLOR} ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} service..."
-        sudo systemctl restart lightning_pub &
-        lightning_pub_pid=$!
-        wait $lightning_pub_pid
-        if systemctl is-active --quiet lightning_pub; then
-          log "Lightning.Pub restarted successfully using systemd."
+      # Always attempt to start or restart Lightning.Pub
+      if systemctl is-active --quiet lightning_pub; then
+        if [ "$PUB_UPGRADE" = "100" ]; then
+          log "${PRIMARY_COLOR}Restarting${RESET_COLOR} ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} service..."
+          sudo systemctl restart lightning_pub
         else
-          log "Failed to restart ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} using systemd."
-          exit 1
+          log "${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} service is already running."
         fi
       else
         log "${PRIMARY_COLOR}Starting${RESET_COLOR} ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} service..."
-        sudo systemctl start lightning_pub &
-        lightning_pub_pid=$!
-        wait $lightning_pub_pid
-        if systemctl is-active --quiet lightning_pub; then
-          log "Lightning.Pub started successfully using systemd."
-        else
-          log "Failed to start ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} using systemd."
-          exit 1
-        fi
+        sudo systemctl start lightning_pub
+      fi
+
+      # Check Lightning.Pub status after attempting to start/restart
+      if ! systemctl is-active --quiet lightning_pub; then
+        log "Failed to start or restart ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR}. Please check the logs."
+        exit 1
       fi
 
     else

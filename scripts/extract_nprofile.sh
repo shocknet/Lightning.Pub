@@ -36,7 +36,7 @@ get_log_info() {
   while [ $(($(date +%s) - START_TIME)) -lt $MAX_WAIT_TIME ]; do
     current_lines=$(wc -l < "$latest_unlocker_log")
     if [ $current_lines -gt $initial_lines ]; then
-      latest_entry=$(tail -n $((current_lines - initial_lines)) "$latest_unlocker_log" | grep "unlocker >>" | tail -n 1)
+      latest_entry=$(tail -n $((current_lines - initial_lines)) "$latest_unlocker_log" | grep -E "unlocker >> (the wallet is already unlocked|created wallet with pub|unlocked wallet with pub)" | tail -n 1)
       if [ -n "$latest_entry" ]; then
         break
       fi
@@ -49,7 +49,17 @@ get_log_info() {
     exit 1
   fi
 
-  log "Wallet status: $(echo "$latest_entry" | cut -d' ' -f4-)"
+  if [[ "$latest_entry" == *"the wallet is already unlocked"* ]]; then
+    log "Wallet status: The wallet is already unlocked"
+  elif [[ "$latest_entry" == *"created wallet with pub"* ]]; then
+    log "Wallet status: A new wallet has been created"
+  elif [[ "$latest_entry" == *"unlocking"* ]]; then
+    log "Wallet status: The wallet is in the process of unlocking"
+  elif [[ "$latest_entry" == *"unlocked wallet with pub"* ]]; then
+    log "Wallet status: The wallet has been successfully unlocked"
+  else
+    log "Wallet status: Unknown (unexpected status message)"
+  fi
 
   log "Retrieving connection information..."
 
