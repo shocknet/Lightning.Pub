@@ -49,8 +49,10 @@ get_log_info() {
     log "Creating wallet..."
   elif echo "$latest_entry" | grep -q "unlocker >> wallet is locked, unlocking"; then
     log "Unlocking wallet..."
-  else
+  elif echo "$latest_entry" | grep -q "unlocker >> the wallet is already unlocked"; then
     log "Wallet is already unlocked."
+  else
+    log "Unknown wallet status."
   fi
 
   while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
@@ -76,5 +78,5 @@ get_log_info() {
     exit 1
   fi
 
-  log "Paste this string into ShockWallet to connect to the node: $latest_nprofile_key"
+  log "Paste this admin string into ShockWallet to manage the node: $latest_nprofile_key"
 }
