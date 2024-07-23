@@ -467,9 +467,6 @@ message UseInviteLinkRequest {
     string invite_token = 1;
 }
 
-message UseInviteLinkResponse {
-    string nostr_secret = 1;
-}
 
 message GetInviteTokenStateRequest {
     string invite_token = 1;

@@ -447,9 +447,9 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
             const query = req.query
             const params = req.params
-            const response =  await methods.UseInviteLink({rpcName:'UseInviteLink', ctx:authContext , req: request})
+             await methods.UseInviteLink({rpcName:'UseInviteLink', ctx:authContext , req: request})
             stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK', ...response})
+            res.json({status: 'OK'})
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })

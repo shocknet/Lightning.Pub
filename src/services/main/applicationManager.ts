@@ -8,7 +8,6 @@ import { ApplicationUser } from '../storage/entity/ApplicationUser.js'
 import { PubLogger, getLogger } from '../helpers/logger.js'
 import crypto from 'crypto'
 import { Application } from '../storage/entity/Application.js'
-import { generatePrivateKey, getPublicKey } from '../nostr/tools/keys.js'
 
 const TOKEN_EXPIRY_TIME = 2 * 60 * 1000 // 2 minutes, in milliseconds
 
@@ -260,18 +259,14 @@ export default class {
         }
     }
 
-    async UseInviteLink(ctx: Types.GuestWithPubContext, req: Types.UseInviteLinkRequest): Promise<Types.UseInviteLinkResponse> {
+    async UseInviteLink(ctx: Types.GuestWithPubContext, req: Types.UseInviteLinkRequest): Promise<void> {
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id);
         const inviteToken = await this.storage.applicationStorage.FindInviteToken(req.invite_token);
         if (!inviteToken || inviteToken.used || inviteToken.application.app_id !== ctx.app_id) {
             throw new Error("Invite token not found");
         }
-        const nostrPriv = generatePrivateKey();
-        const nostrPub = getPublicKey(nostrPriv);
-        const appUser = await this.storage.applicationStorage.AddApplicationUser(app, crypto.randomBytes(32).toString('hex'), 0, nostrPub)
+        await this.storage.applicationStorage.AddApplicationUser(app, crypto.randomBytes(32).toString('hex'), 0, ctx.pub)
         await this.storage.applicationStorage.SetInviteTokenAsUsed(inviteToken);
-        return {
-            nostr_secret: nostrPriv
-        }
+
     }
 }

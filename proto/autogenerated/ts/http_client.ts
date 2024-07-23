@@ -274,17 +274,14 @@ export default (params: ClientParams) => ({
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
-    UseInviteLink: async (request: Types.UseInviteLinkRequest): Promise<ResultError | ({ status: 'OK' }& Types.UseInviteLinkResponse)> => {
+    UseInviteLink: async (request: Types.UseInviteLinkRequest): Promise<ResultError | ({ status: 'OK' })> => {
         const auth = await params.retrieveGuestWithPubAuth()
         if (auth === null) throw new Error('retrieveGuestWithPubAuth() returned null')
         let finalRoute = '/api/guest/invite'
         const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
-            const result = data
-            if(!params.checkResult) return { status: 'OK', ...result }
-            const error = Types.UseInviteLinkResponseValidate(result)
-            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+            return data
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },

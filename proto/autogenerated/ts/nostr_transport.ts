@@ -215,9 +215,9 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     const error = Types.UseInviteLinkRequestValidate(request)
                     stats.validate = process.hrtime.bigint()
                     if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
-                    const response = await methods.UseInviteLink({rpcName:'UseInviteLink', ctx:authContext , req: request})
+                    await methods.UseInviteLink({rpcName:'UseInviteLink', ctx:authContext , req: request})
                     stats.handle = process.hrtime.bigint()
-                    res({status: 'OK', ...response})
+                    res({status: 'OK'})
                     opts.metricsCallback([{ ...info, ...stats, ...authContext }])
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
