@@ -14,18 +14,20 @@ import { UserTransactionPayment } from "./build/src/services/storage/entity/User
 import { LspOrder } from "./build/src/services/storage/entity/LspOrder.js"
 import { LndNodeInfo } from "./build/src/services/storage/entity/LndNodeInfo.js"
 import { TrackedProvider } from "./build/src/services/storage/entity/TrackedProvider.js"
+import { InviteToken } from "./build/src/services/storage/entity/InviteToken.js"
 
 import { Initial1703170309875 } from './build/src/services/storage/migrations/1703170309875-initial.js'
 import { LspOrder1718387847693 } from './build/src/services/storage/migrations/1718387847693-lsp_order.js'
 import { LndNodeInfo1720187506189 } from './build/src/services/storage/migrations/1720187506189-lnd_node_info.js'
 import { LiquidityProvider1719335699480 } from './build/src/services/storage/migrations/1719335699480-liquidity_provider.js'
+import { CreateInviteTokenTable1721751414878 } from './build/src/services/storage/migrations/1721751414878-create_invite_token_table.js'
 export default new DataSource({
     type: "sqlite",
     database: "db.sqlite",
     // logging: true,
-    migrations: [Initial1703170309875, LspOrder1718387847693, LiquidityProvider1719335699480, LndNodeInfo1720187506189],
+    migrations: [Initial1703170309875, LspOrder1718387847693, LiquidityProvider1719335699480, LndNodeInfo1720187506189, CreateInviteTokenTable1721751414878],
     entities: [User, UserReceivingInvoice, UserReceivingAddress, AddressReceivingTransaction, UserInvoicePayment, UserTransactionPayment,
-        UserBasicAuth, UserEphemeralKey, Product, UserToUserPayment, Application, ApplicationUser, UserToUserPayment, LspOrder, LndNodeInfo, TrackedProvider],
+        UserBasicAuth, UserEphemeralKey, Product, UserToUserPayment, Application, ApplicationUser, UserToUserPayment, LspOrder, LndNodeInfo, TrackedProvider, InviteToken],
     // synchronize: true,
 })
 //npx typeorm migration:generate ./src/services/storage/migrations/lnd_node_info -d ./datasource.js

@@ -167,8 +167,8 @@
       document.getElementById("relayStatus").innerHTML = `<span class="${j.relay_connected ? 'green-dot' : 'red-dot'}">&#9679;</span> ${j.relay_connected ? 'Connected' : 'Disconnected'}`
       document.getElementById("lndStatus").innerHTML = `<span class="${j.lnd_state === 'ONLINE' ? 'green-dot' : 'red-dot'}">&#9679;</span> ${j.lnd_state}`
       document.getElementById("watchdog-status").innerHTML = `<span class="${j.watchdog_ok ? 'green-dot' : 'red-dot'}">&#9679;</span> ${j.watchdog_ok ? 'No Alerts' : 'ALERT!!'}`
-      document.getElementById("inviteLinkHttp").href = `https://my.shockwallet.app/#/source?addSource=${j.nprofile}`
-      document.getElementById("inviteLinkHttp").innerHTML = `https://my.shockwallet.app/#/source?addSource=${j.nprofile}`
+      document.getElementById("inviteLinkHttp").href = `https://my.shockwallet.app/#/sources?addSource=${j.nprofile}`
+      document.getElementById("inviteLinkHttp").innerHTML = `https://my.shockwallet.app/#/sources?addSource=${j.nprofile}`
       document.querySelector('input[name="show-nodey"]').placeholder = j.provider_name;
       document.title = j.provider_name;
     }

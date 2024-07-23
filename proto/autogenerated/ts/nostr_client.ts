@@ -5,6 +5,7 @@ export type ResultError = { status: 'ERROR', reason: string }
 
 export type NostrClientParams = {
     pubDestination: string
+    retrieveNostrGuestWithPubAuth: () => Promise<string | null>
     retrieveNostrAdminAuth: () => Promise<string | null>
     retrieveNostrMetricsAuth: () => Promise<string | null>
     retrieveNostrUserAuth: () => Promise<string | null>
@@ -115,15 +116,33 @@ export default (params: NostrClientParams,  send: (to:string, message: NostrRequ
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
-    LinkNPubThroughToken: async (request: Types.LinkNPubThroughTokenRequest): Promise<ResultError | ({ status: 'OK' })> => {
-        const auth = await params.retrieveNostrUserAuth()
-        if (auth === null) throw new Error('retrieveNostrUserAuth() returned null')
+    CreateOneTimeInviteLink: async (request: Types.CreateOneTimeInviteLinkRequest): Promise<ResultError | ({ status: 'OK' }& Types.CreateOneTimeInviteLinkResponse)> => {
+        const auth = await params.retrieveNostrAdminAuth()
+        if (auth === null) throw new Error('retrieveNostrAdminAuth() returned null')
         const nostrRequest: NostrRequest = {}
         nostrRequest.body = request
-        const data = await send(params.pubDestination, {rpcName:'LinkNPubThroughToken',authIdentifier:auth, ...nostrRequest }) 
+        const data = await send(params.pubDestination, {rpcName:'CreateOneTimeInviteLink',authIdentifier:auth, ...nostrRequest }) 
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
-            return data
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.CreateOneTimeInviteLinkResponseValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
+    GetInviteLinkState: async (request: Types.GetInviteTokenStateRequest): Promise<ResultError | ({ status: 'OK' }& Types.GetInviteTokenStateResponse)> => {
+        const auth = await params.retrieveNostrAdminAuth()
+        if (auth === null) throw new Error('retrieveNostrAdminAuth() returned null')
+        const nostrRequest: NostrRequest = {}
+        nostrRequest.body = request
+        const data = await send(params.pubDestination, {rpcName:'GetInviteLinkState',authIdentifier:auth, ...nostrRequest }) 
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.GetInviteTokenStateResponseValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
@@ -136,6 +155,33 @@ export default (params: NostrClientParams,  send: (to:string, message: NostrRequ
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             return data
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
+    LinkNPubThroughToken: async (request: Types.LinkNPubThroughTokenRequest): Promise<ResultError | ({ status: 'OK' })> => {
+        const auth = await params.retrieveNostrGuestWithPubAuth()
+        if (auth === null) throw new Error('retrieveNostrGuestWithPubAuth() returned null')
+        const nostrRequest: NostrRequest = {}
+        nostrRequest.body = request
+        const data = await send(params.pubDestination, {rpcName:'LinkNPubThroughToken',authIdentifier:auth, ...nostrRequest }) 
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            return data
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
+    UseInviteLink: async (request: Types.UseInviteLinkRequest): Promise<ResultError | ({ status: 'OK' }& Types.UseInviteLinkResponse)> => {
+        const auth = await params.retrieveNostrGuestWithPubAuth()
+        if (auth === null) throw new Error('retrieveNostrGuestWithPubAuth() returned null')
+        const nostrRequest: NostrRequest = {}
+        nostrRequest.body = request
+        const data = await send(params.pubDestination, {rpcName:'UseInviteLink',authIdentifier:auth, ...nostrRequest }) 
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.UseInviteLinkResponseValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },

@@ -28,7 +28,13 @@ export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSett
             return { operator_id: pub }
         },
         metricsCallback: metrics => mainHandler.settings.recordPerformance ? mainHandler.metricsManager.AddMetrics(metrics) : null,
-        logger: { log: console.log, error: err => log(ERROR, err) }
+        NostrGuestWithPubAuthGuard: async (appId, pub) => {
+            if (!pub || !appId) {
+                throw new Error("Unknown error occured")
+            }
+            return { pub, app_id: appId }
+        },
+        logger: { log: console.log, error: err => log(ERROR, err) },
     })
     const nostr = new Nostr(nostrSettings, event => {
         let j: NostrRequest
