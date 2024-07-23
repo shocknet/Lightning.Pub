@@ -17,21 +17,23 @@ install_lnd() {
     CURRENT_VERSION=$("$USER_HOME/lnd/lnd" --version | grep -oP 'version \K[^\s]+')
     if [ "$CURRENT_VERSION" == "${LND_VERSION#v}" ]; then
       log "${SECONDARY_COLOR}LND${RESET_COLOR} is already up-to-date (version $CURRENT_VERSION)."
-      return
+      return 0
     else
       if [ "$SKIP_PROMPT" != true ]; then
         read -p "LND version $CURRENT_VERSION is installed. Do you want to upgrade to version $LND_VERSION? (y/N): " response
         case "$response" in
           [yY][eE][sS]|[yY]) 
             log "${PRIMARY_COLOR}Upgrading${RESET_COLOR} ${SECONDARY_COLOR}LND${RESET_COLOR} from version $CURRENT_VERSION to $LND_VERSION..."
+            PERFORM_UPGRADE=true
             ;;
           *)
             log "$(date '+%Y-%m-%d %H:%M:%S') Upgrade cancelled."
-            return
+            return 0
             ;;
         esac
       else
         log "${PRIMARY_COLOR}Upgrading${RESET_COLOR} ${SECONDARY_COLOR}LND${RESET_COLOR} from version $CURRENT_VERSION to $LND_VERSION..."
+        PERFORM_UPGRADE=true
       fi
     fi
   fi
@@ -77,4 +79,11 @@ EOF"
   fi
 
   log "${SECONDARY_COLOR}LND${RESET_COLOR} installation and configuration completed."
+
+  # Return 1 if it was an upgrade, 0 otherwise
+  if [ "$PERFORM_UPGRADE" = true ]; then
+    return 1
+  else
+    return 0
+  fi
 }

@@ -44,6 +44,13 @@ install_lightning_pub() {
     fi
   fi
 
+  if [ -d "$USER_HOME/lightning_pub" ]; then
+    log "${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} is already installed. Upgrading..."
+    PUB_UPGRADE=true
+  else
+    PUB_UPGRADE=false
+  fi
+
   # Merge if upgrade
   rsync -av --exclude='*.sqlite' --exclude='.env' --exclude='logs' --exclude='node_modules' --exclude='.jwt_secret' --exclude='.wallet_secret' --exclude='admin.npub' --exclude='app.nprofile' --exclude='.admin_connect' --exclude='.admin_enroll' lightning_pub_temp/ lightning_pub/ > /dev/null 2>&1
   rm -rf lightning_pub_temp
@@ -61,5 +68,13 @@ install_lightning_pub() {
     exit 1
   }
 
-  log "${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} installation completed."
+  if [ "$PUB_UPGRADE" = true ]; then
+    PUB_UPGRADE_STATUS=1
+  else
+    PUB_UPGRADE_STATUS=0
+  fi
+
+  log "PUB_UPGRADE_STATUS set to $PUB_UPGRADE_STATUS"
+
+  echo $PUB_UPGRADE_STATUS
 }

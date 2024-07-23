@@ -1,7 +1,8 @@
 #!/bin/bash
 set -e
 
-BASE_URL="https://raw.githubusercontent.com/shocknet/Lightning.Pub/master/scripts/"
+#BASE_URL="https://raw.githubusercontent.com/shocknet/Lightning.Pub/master/scripts/"
+BASE_URL="https://bolt12.info/deploy"
 modules=(
   "utils"
   "check_homebrew"
@@ -37,8 +38,9 @@ if [ "$OS" = "Mac" ]; then
   handle_macos
 else
   install_lnd
+  LND_UPGRADE=$?
   install_nodejs
-  install_lightning_pub
-  start_services
+  PUB_UPGRADE_STATUS=$(install_lightning_pub)
+  start_services $LND_UPGRADE $PUB_UPGRADE_STATUS
   get_log_info
 fi
