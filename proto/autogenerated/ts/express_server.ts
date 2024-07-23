@@ -18,6 +18,7 @@ export type ServerOptions = {
     AdminAuthGuard: (authorizationHeader?: string) => Promise<Types.AdminContext>
     MetricsAuthGuard: (authorizationHeader?: string) => Promise<Types.MetricsContext>
     AppAuthGuard: (authorizationHeader?: string) => Promise<Types.AppContext>
+    GuestWithPubAuthGuard: (authorizationHeader?: string) => Promise<Types.GuestWithPubContext>
 }
 declare module 'express-serve-static-core' { interface Request { startTime?: bigint, bodySize?: number, startTimeMs: number } }
 const logErrorAndReturnResponse = (error: Error, response: string, res: Response, logger: Logger, metric: Types.RequestMetric, metricsCallback: (metrics: Types.RequestMetric[]) => void) => { 
@@ -184,6 +185,50 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
+    if (!opts.allowNotImplementedMethods && !methods.CreateOneTimeInviteLink) throw new Error('method: CreateOneTimeInviteLink is not implemented')
+    app.post('/api/admin/app/invite/create', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'CreateOneTimeInviteLink', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.CreateOneTimeInviteLink) throw new Error('method: CreateOneTimeInviteLink is not implemented')
+            const authContext = await opts.AdminAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.CreateOneTimeInviteLinkRequestValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+            const response =  await methods.CreateOneTimeInviteLink({rpcName:'CreateOneTimeInviteLink', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.GetInviteLinkState) throw new Error('method: GetInviteLinkState is not implemented')
+    app.post('/api/admin/app/invite/get', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'GetInviteLinkState', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.GetInviteLinkState) throw new Error('method: GetInviteLinkState is not implemented')
+            const authContext = await opts.AdminAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.GetInviteTokenStateRequestValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+            const response =  await methods.GetInviteLinkState({rpcName:'GetInviteLinkState', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
     if (!opts.allowNotImplementedMethods && !methods.Health) throw new Error('method: Health is not implemented')
     app.get('/api/health', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'Health', batch: false, nostr: false, batchSize: 0}
@@ -342,28 +387,6 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
-    if (!opts.allowNotImplementedMethods && !methods.LinkNPubThroughToken) throw new Error('method: LinkNPubThroughToken is not implemented')
-    app.post('/api/guest/npub/link', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'LinkNPubThroughToken', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
-        let authCtx: Types.AuthContext = {}
-        try {
-            if (!methods.LinkNPubThroughToken) throw new Error('method: LinkNPubThroughToken is not implemented')
-            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
-            authCtx = authContext
-            stats.guard = process.hrtime.bigint()
-            const request = req.body
-            const error = Types.LinkNPubThroughTokenRequestValidate(request)
-            stats.validate = process.hrtime.bigint()
-            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
-            const query = req.query
-            const params = req.params
-             await methods.LinkNPubThroughToken({rpcName:'LinkNPubThroughToken', ctx:authContext , req: request})
-            stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK'})
-            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
-    })
     if (!opts.allowNotImplementedMethods && !methods.EnrollAdminToken) throw new Error('method: EnrollAdminToken is not implemented')
     app.post('/api/guest/npub/enroll/admin', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'EnrollAdminToken', batch: false, nostr: false, batchSize: 0}
@@ -381,6 +404,50 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const query = req.query
             const params = req.params
              await methods.EnrollAdminToken({rpcName:'EnrollAdminToken', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK'})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.LinkNPubThroughToken) throw new Error('method: LinkNPubThroughToken is not implemented')
+    app.post('/api/guest/npub/link', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'LinkNPubThroughToken', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.LinkNPubThroughToken) throw new Error('method: LinkNPubThroughToken is not implemented')
+            const authContext = await opts.GuestWithPubAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.LinkNPubThroughTokenRequestValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+             await methods.LinkNPubThroughToken({rpcName:'LinkNPubThroughToken', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK'})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.UseInviteLink) throw new Error('method: UseInviteLink is not implemented')
+    app.post('/api/guest/invite', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'UseInviteLink', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.UseInviteLink) throw new Error('method: UseInviteLink is not implemented')
+            const authContext = await opts.GuestWithPubAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.UseInviteLinkRequestValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+             await methods.UseInviteLink({rpcName:'UseInviteLink', ctx:authContext , req: request})
             stats.handle = process.hrtime.bigint()
             res.json({status: 'OK'})
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
@@ -958,18 +1025,6 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
                 const opStats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: stats.parse, guard: stats.guard, validate: 0n, handle: 0n }
                 try {
                     switch(operation.rpcName) {
-                        case 'LinkNPubThroughToken':
-                            if (!methods.LinkNPubThroughToken) {
-                                throw new Error('method LinkNPubThroughToken not found' )
-                            } else {
-                                const error = Types.LinkNPubThroughTokenRequestValidate(operation.req)
-                                opStats.validate = process.hrtime.bigint()
-                                if (error !== null) throw error
-                                await methods.LinkNPubThroughToken({...operation, ctx}); responses.push({ status: 'OK' })
-                                opStats.handle = process.hrtime.bigint()
-                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
-                            }
-                            break
                         case 'EnrollAdminToken':
                             if (!methods.EnrollAdminToken) {
                                 throw new Error('method EnrollAdminToken not found' )

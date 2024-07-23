@@ -222,5 +222,27 @@ export default (mainHandler: Main): Types.ServerMethods => {
             if (err != null) throw new Error(err.message)
             return mainHandler.adminManager.PromoteUserToAdmin(ctx.app_id, ctx.app_user_id, req.admin_token)
         },
+        CreateOneTimeInviteLink: async ({ ctx, req }) => {
+            const err = Types.CreateOneTimeInviteLinkRequestValidate(req, {
+                sats_CustomCheck: sats => sats === undefined || typeof sats === "number"
+            })
+            if (err != null) throw new Error(err.message)
+                return mainHandler.adminManager.CreateInviteLink(ctx.admin_id, req.sats)
+        },
+        UseInviteLink: async ({ ctx, req }) => {
+            const err = Types.UseInviteLinkRequestValidate(req, {
+                invite_token_CustomCheck: token => token !== ''
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.applicationManager.UseInviteLink(ctx, req);
+        },
+        GetInviteLinkState: async ({ ctx, req }) => {
+            const err = Types.GetInviteTokenStateRequestValidate(req, {
+                invite_token_CustomCheck: token => token !== ''
+            })
+            if (err != null) throw new Error(err.message)
+                return mainHandler.adminManager.GetInviteTokenState(ctx, req);
+        }
+        
     }
 }
