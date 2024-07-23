@@ -10,6 +10,7 @@ get_log_info() {
   fi
 
   LOG_DIR="$USER_HOME/lightning_pub/logs"
+  DATA_DIR="$USER_HOME/lightning_pub/"
   START_TIME=$(date +%s)
   MAX_WAIT_TIME=120  # Maximum wait time in seconds
   WAIT_INTERVAL=5    # Time to wait between checks in seconds
@@ -42,24 +43,36 @@ get_log_info() {
 
   log "Wallet status: $(echo "$latest_entry" | cut -d' ' -f4-)"
 
-  # Find nprofile key
-  MAX_ATTEMPTS=4
-  ATTEMPT=0
+  log "Retrieving connection information..."
 
-  while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
-    LATEST_LOG=$(ls -1t ${LOG_DIR}/components/nostrMiddleware_*.log 2>/dev/null | head -n 1)
-    if [ -n "$LATEST_LOG" ]; then
-      latest_nprofile_key=$(grep -oP 'nprofile: \K\w+' "$LATEST_LOG" | tail -n 1)
-      [ -n "$latest_nprofile_key" ] && break
+  # Wait for either .admin_connect or app.nprofile to appear
+  START_TIME=$(date +%s)
+  while [ $(($(date +%s) - START_TIME)) -lt $MAX_WAIT_TIME ]; do
+    if [ -f "$DATA_DIR/.admin_connect" ]; then
+      admin_connect=$(cat "$DATA_DIR/.admin_connect")
+      # Check if the admin_connect string is complete (contains both nprofile and secret)
+      if [[ $admin_connect == nprofile* ]] && [[ $admin_connect == *:* ]]; then
+        log "An admin has not yet been enrolled."
+        log "Paste this string into ShockWallet to administer the node:"
+        log "${SECONDARY_COLOR}$admin_connect${RESET_COLOR}"
+        break
+      else
+        log "Waiting for complete admin connect information..."
+      fi
+    elif [ -f "$DATA_DIR/app.nprofile" ]; then
+      app_nprofile=$(cat "$DATA_DIR/app.nprofile")
+      log "Node is already set up. Use this nprofile to invite guestusers:"
+      log "${SECONDARY_COLOR}$app_nprofile${RESET_COLOR}"
+      break
     fi
-    sleep 4
-    ATTEMPT=$((ATTEMPT + 1))
+    sleep $WAIT_INTERVAL
   done
 
-  if [ -z "$latest_nprofile_key" ]; then
-    log "Error: Failed to find nprofile key. Please check the service status."
+  if [ ! -f "$DATA_DIR/.admin_connect" ] && [ ! -f "$DATA_DIR/app.nprofile" ]; then
+    log "Error: Neither .admin_connect nor app.nprofile file found after waiting. Please check the service status."
+    exit 1
+  elif [ -f "$DATA_DIR/.admin_connect" ] && ! [[ $(cat "$DATA_DIR/.admin_connect") == nprofile1* ]] && ! [[ $(cat "$DATA_DIR/.admin_connect") == *:* ]]; then
+    log "Error: Admin connect information is incomplete. Please check the service status."
     exit 1
   fi
-
-  log "Paste this string into ShockWallet to connect to the node: $latest_nprofile_key"
 }
