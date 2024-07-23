@@ -47,7 +47,7 @@ EOF"
       sudo systemctl enable lnd >/dev/null 2>&1
       sudo systemctl enable lightning_pub >/dev/null 2>&1
 
-      if [ "$LND_UPGRADE" = true ]; then
+      if [ "$LND_UPGRADE" = "1" ]; then
         log "${PRIMARY_COLOR}Restarting${RESET_COLOR} ${SECONDARY_COLOR}LND${RESET_COLOR} service..."
         sudo systemctl restart lnd &
         lnd_pid=$!
@@ -74,7 +74,7 @@ EOF"
       log "Giving ${SECONDARY_COLOR}LND${RESET_COLOR} a few seconds to start before starting ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR}..."
       sleep 10
 
-      if [ "$PUB_UPGRADE" = "1" ]; then
+      if [ "$PUB_UPGRADE" = "100" ]; then
         log "${PRIMARY_COLOR}Restarting${RESET_COLOR} ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} service..."
         sudo systemctl restart lightning_pub &
         lightning_pub_pid=$!
