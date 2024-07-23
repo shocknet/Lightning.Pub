@@ -44,6 +44,18 @@ get_log_info() {
   latest_unlocker_log=$(ls -1t ${LOG_DIR}/components/unlocker_*.log 2>/dev/null | head -n 1)
 
   latest_entry=$(tac "$latest_unlocker_log" | grep -m 1 -E "unlocker >> macaroon not found, creating wallet|unlocker >> wallet is locked, unlocking|unlocker >> the wallet is already unlocked")
+  latest_entry_time=$(echo "$latest_entry" | grep -oP '^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}')
+
+  if [ -z "$latest_entry_time" ]; then
+    log "Unknown wallet status."
+    exit 1
+  fi
+
+  current_time=$(date +"%Y-%m-%d %H:%M:%S")
+  if [[ "$latest_entry_time" > "$current_time" ]]; then
+    log "Log entry is from the future, ignoring."
+    exit 1
+  fi
 
   if echo "$latest_entry" | grep -q "unlocker >> macaroon not found, creating wallet"; then
     log "Creating wallet..."
