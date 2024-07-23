@@ -1,7 +1,6 @@
 #!/bin/bash
 set -e
 
-# Function to log errors
 log_error() {
     log "ERROR: $1"
     log "Exiting with status $2"
@@ -33,8 +32,22 @@ detect_os_arch
 if [ "$OS" = "Mac" ]; then
   handle_macos
 else
-  install_lnd || log_error "LND installation failed" $?
-  lnd_upgrade_status=$?
+  lnd_output=$(install_lnd)
+  install_result=$?
+
+  if [ $install_result -ne 0 ]; then
+    log_error "LND installation failed" $install_result
+  fi
+
+  # Extract the LND status from the output
+  lnd_status=$(echo "$lnd_output" | grep "LND_STATUS:" | cut -d':' -f2)
+
+  case $lnd_status in
+    0) log "LND fresh installation completed successfully." ;;
+    1) log "LND upgrade completed successfully." ;;
+    2) log "LND is already up-to-date. No action needed." ;;
+    *) log "WARNING: Unexpected status from install_lnd: $lnd_status" ;;
+  esac
 
   install_nodejs || log_error "NodeJS installation failed" $?
 
@@ -57,7 +70,8 @@ else
     log "Full output: $pub_output"
   fi
 
-  start_services $lnd_upgrade_status $pub_upgrade_status
+  log "Starting services..."
+  start_services $lnd_status $pub_upgrade_status
   get_log_info
 
   log "Installation process completed successfully"
