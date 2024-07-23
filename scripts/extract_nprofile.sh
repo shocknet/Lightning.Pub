@@ -43,7 +43,7 @@ get_log_info() {
 
   latest_unlocker_log=$(ls -1t ${LOG_DIR}/components/unlocker_*.log 2>/dev/null | head -n 1)
 
-  latest_entry=$(grep -E "unlocker >> macaroon not found, creating wallet|unlocker >> wallet is locked, unlocking|unlocker >> the wallet is already unlocked" "$latest_unlocker_log" | tail -n 1)
+  latest_entry=$(tac "$latest_unlocker_log" | grep -m 1 -E "unlocker >> macaroon not found, creating wallet|unlocker >> wallet is locked, unlocking|unlocker >> the wallet is already unlocked")
 
   if echo "$latest_entry" | grep -q "unlocker >> macaroon not found, creating wallet"; then
     log "Creating wallet..."

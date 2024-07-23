@@ -12,8 +12,6 @@ start_services() {
     USER_NAME=$(whoami)
   fi
 
-  log "USER_HOME: $USER_HOME, USER_NAME: $USER_NAME"
-
   if [ "$OS" = "Linux" ]; then
     if [ "$SYSTEMCTL_AVAILABLE" = true ]; then
       sudo bash -c "cat > /etc/systemd/system/lnd.service <<EOF
