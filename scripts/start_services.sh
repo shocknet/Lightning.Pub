@@ -4,8 +4,6 @@ start_services() {
   LND_UPGRADE=$1
   PUB_UPGRADE=$2
 
-  log "Entered start_services with LND_UPGRADE=$LND_UPGRADE and PUB_UPGRADE=$PUB_UPGRADE"
-
   if [ "$EUID" -eq 0 ]; then
     USER_HOME=$(getent passwd ${SUDO_USER} | cut -d: -f6)
     USER_NAME=$SUDO_USER
