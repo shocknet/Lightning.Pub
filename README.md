@@ -72,7 +72,7 @@ Paste one-line and have a Pub node in under 2 minutes. It uses neutrino so you c
 
 This method installs all dependencies and creates systemd entries. It has been tested only in Ubuntu/Debian x64 environments, but is general enough that it should work on any linux system with systemd. 
 
-Mac support is rough'd in, but completely untested. Help wanted. Please report any issues.
+Mac support is rough'd in, but completely untested. Help wanted.
 
 To start, run the following command:
 
