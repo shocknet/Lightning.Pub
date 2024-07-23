@@ -454,3 +454,27 @@ message HttpCreds {
 message EnrollAdminTokenRequest {
     string admin_token = 1;
 }
+
+message CreateOneTimeInviteLinkRequest {
+    optional int64 sats = 1;
+}
+
+message CreateOneTimeInviteLinkResponse {
+    string invitation_link = 1;
+}
+
+message UseInviteLinkRequest {
+    string invite_token = 1;
+}
+
+message UseInviteLinkResponse {
+    string nostr_secret = 1;
+}
+
+message GetInviteTokenStateRequest {
+    string invite_token = 1;
+}
+
+message GetInviteTokenStateResponse {
+    bool used = 1;
+}

@@ -53,6 +53,20 @@ option (file_options) = {
                 key:"app_id",
                 value: "string"
             }
+        },
+        {
+            id: "guestPub",
+            name: "GuestWithPub",
+            context:[
+                {
+                    key: "pub",
+                    value:"string"
+                },
+                {
+                    key: "app_id",
+                    value: "string"
+                }
+            ]
         }
     ];
 };
@@ -137,6 +151,20 @@ service LightningPub {
         option (nostr) = true;
     }
 
+    rpc CreateOneTimeInviteLink(structs.CreateOneTimeInviteLinkRequest) returns (structs.CreateOneTimeInviteLinkResponse) {
+        option (auth_type) = "Admin";
+        option (http_method) = "post";
+        option (http_route) = "/api/admin/app/invite/create";
+        option (nostr) = true;
+    }
+
+    rpc GetInviteLinkState(structs.GetInviteTokenStateRequest) returns (structs.GetInviteTokenStateResponse) {
+        option (auth_type) = "Admin";
+        option (http_method) = "post";
+        option (http_route) = "/api/admin/app/invite/get";
+        option (nostr) = true;
+    }
+
 
     // </Admin>
 
@@ -187,12 +215,6 @@ service LightningPub {
         option (http_route) = "/.well-known/lnurlp/:address_name";
     }
 
-    rpc LinkNPubThroughToken(structs.LinkNPubThroughTokenRequest) returns (structs.Empty) {
-        option (auth_type) = "User";
-        option (http_method) = "post";
-        option (http_route) = "/api/guest/npub/link";
-        option (nostr) = true;
-    }
     rpc EnrollAdminToken(structs.EnrollAdminTokenRequest) returns (structs.Empty) {
         option (auth_type) = "User";
         option (http_method) = "post";
@@ -200,6 +222,23 @@ service LightningPub {
         option (nostr) = true;
     }
     //</Guest>
+
+
+    //<GuestWithPub>
+    rpc LinkNPubThroughToken(structs.LinkNPubThroughTokenRequest) returns (structs.Empty) {
+        option (auth_type) = "GuestWithPub";
+        option (http_method) = "post";
+        option (http_route) = "/api/guest/npub/link";
+        option (nostr) = true;
+    }
+
+    rpc UseInviteLink(structs.UseInviteLinkRequest) returns (structs.UseInviteLinkResponse) {
+        option (auth_type) = "GuestWithPub";
+        option (http_method) = "post";
+        option (http_route) = "/api/guest/invite";
+        option (nostr) = true;
+    }
+    //<GuestWithPub>
 
     // <App>
     rpc GetApp(structs.Empty) returns (structs.Application)  {

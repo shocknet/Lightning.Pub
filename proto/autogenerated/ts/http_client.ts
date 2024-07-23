@@ -10,6 +10,7 @@ export type ClientParams = {
     retrieveAdminAuth: () => Promise<string | null>
     retrieveMetricsAuth: () => Promise<string | null>
     retrieveAppAuth: () => Promise<string | null>
+    retrieveGuestWithPubAuth: () => Promise<string | null>
     encryptCallback: (plain: any) => Promise<any>
     decryptCallback: (encrypted: any) => Promise<any>
     deviceId: string
@@ -110,6 +111,34 @@ export default (params: ClientParams) => ({
             const result = data
             if(!params.checkResult) return { status: 'OK', ...result }
             const error = Types.LndMetricsValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
+    CreateOneTimeInviteLink: async (request: Types.CreateOneTimeInviteLinkRequest): Promise<ResultError | ({ status: 'OK' }& Types.CreateOneTimeInviteLinkResponse)> => {
+        const auth = await params.retrieveAdminAuth()
+        if (auth === null) throw new Error('retrieveAdminAuth() returned null')
+        let finalRoute = '/api/admin/app/invite/create'
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.CreateOneTimeInviteLinkResponseValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
+    GetInviteLinkState: async (request: Types.GetInviteTokenStateRequest): Promise<ResultError | ({ status: 'OK' }& Types.GetInviteTokenStateResponse)> => {
+        const auth = await params.retrieveAdminAuth()
+        if (auth === null) throw new Error('retrieveAdminAuth() returned null')
+        let finalRoute = '/api/admin/app/invite/get'
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.GetInviteTokenStateResponseValidate(result)
             if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
         }
         return { status: 'ERROR', reason: 'invalid response' }
@@ -223,17 +252,6 @@ export default (params: ClientParams) => ({
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
-    LinkNPubThroughToken: async (request: Types.LinkNPubThroughTokenRequest): Promise<ResultError | ({ status: 'OK' })> => {
-        const auth = await params.retrieveUserAuth()
-        if (auth === null) throw new Error('retrieveUserAuth() returned null')
-        let finalRoute = '/api/guest/npub/link'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
-        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
-        if (data.status === 'OK') { 
-            return data
-        }
-        return { status: 'ERROR', reason: 'invalid response' }
-    },
     EnrollAdminToken: async (request: Types.EnrollAdminTokenRequest): Promise<ResultError | ({ status: 'OK' })> => {
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
@@ -242,6 +260,31 @@ export default (params: ClientParams) => ({
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             return data
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
+    LinkNPubThroughToken: async (request: Types.LinkNPubThroughTokenRequest): Promise<ResultError | ({ status: 'OK' })> => {
+        const auth = await params.retrieveGuestWithPubAuth()
+        if (auth === null) throw new Error('retrieveGuestWithPubAuth() returned null')
+        let finalRoute = '/api/guest/npub/link'
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            return data
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
+    UseInviteLink: async (request: Types.UseInviteLinkRequest): Promise<ResultError | ({ status: 'OK' }& Types.UseInviteLinkResponse)> => {
+        const auth = await params.retrieveGuestWithPubAuth()
+        if (auth === null) throw new Error('retrieveGuestWithPubAuth() returned null')
+        let finalRoute = '/api/guest/invite'
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.UseInviteLinkResponseValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
