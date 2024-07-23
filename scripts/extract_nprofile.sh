@@ -17,78 +17,46 @@ get_log_info() {
     ls -1t ${LOG_DIR}/components/nostrMiddleware_*.log 2>/dev/null | head -n 1
   }
 
-  TIMEOUT=180
-  while [ ! -f ${LOG_DIR}/components/unlocker_*.log ] && [ $TIMEOUT -gt 0 ]; do
-    log "Waiting for build..."
-    sleep 10
-    TIMEOUT=$((TIMEOUT - 10))
-  done
-  if [ $TIMEOUT -le 0 ]; then
-    log "Timeout waiting for unlocker log file, make sure the system has adequate resources."
-    exit 1
-  fi
-
-  TIMEOUT=45
-  while [ $TIMEOUT -gt 0 ]; do
-    if grep -q -e "unlocker >> macaroon not found, creating wallet..." -e "unlocker >> the wallet is already unlocked" -e "unlocker >> wallet is locked, unlocking" ${LOG_DIR}/components/unlocker_*.log; then
-      break
-    fi
-    sleep 1
-    TIMEOUT=$((TIMEOUT - 1))
-  done
-  if [ $TIMEOUT -le 0 ]; then
-    log "Timeout waiting for wallet status message."
-    exit 1
-  fi
+  START_TIME=$(date +%s)
 
   latest_unlocker_log=$(ls -1t ${LOG_DIR}/components/unlocker_*.log 2>/dev/null | head -n 1)
 
-  latest_entry=$(tac "$latest_unlocker_log" | grep -m 1 -E "unlocker >> macaroon not found, creating wallet|unlocker >> wallet is locked, unlocking|unlocker >> the wallet is already unlocked")
-  latest_entry_time=$(echo "$latest_entry" | grep -oP '^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}')
 
-  if [ -z "$latest_entry_time" ]; then
-    log "Unknown wallet status."
-    exit 1
-  fi
+  while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+    latest_entry=$(grep -E "unlocker >> macaroon not found, creating wallet|unlocker >> wallet is locked, unlocking|unlocker >> the wallet is already unlocked" "$latest_unlocker_log" | tail -n 1)
+    
+    if [ -n "$latest_entry" ]; then
+      entry_time=$(date -d "$(echo "$latest_entry" | cut -d' ' -f1-2)" +%s)
+      if [ "$entry_time" -ge "$START_TIME" ]; then
+        log "Wallet status: $(echo "$latest_entry" | cut -d' ' -f4-)"
+        break
+      fi
+    fi
 
-  current_time=$(date +"%Y-%m-%d %H:%M:%S")
-  if [[ "$latest_entry_time" > "$current_time" ]]; then
-    log "Log entry is from the future, ignoring."
-    exit 1
-  fi
+    log "Awaiting latest unlocker status..."
+    sleep 4
+    ATTEMPT=$((ATTEMPT + 1))
+  done
 
-  if echo "$latest_entry" | grep -q "unlocker >> macaroon not found, creating wallet"; then
-    log "Creating wallet..."
-  elif echo "$latest_entry" | grep -q "unlocker >> wallet is locked, unlocking"; then
-    log "Unlocking wallet..."
-  elif echo "$latest_entry" | grep -q "unlocker >> the wallet is already unlocked"; then
-    log "Wallet is already unlocked."
-  else
-    log "Unknown wallet status."
-  fi
+  ATTEMPT=0
 
   while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
     LATEST_LOG=$(find_latest_log)
     if [ -n "$LATEST_LOG" ]; then
-      break
+      latest_nprofile_key=$(grep -oP 'nprofile: \K\w+' "$LATEST_LOG" | tail -n 1)
+      if [ -n "$latest_nprofile_key" ]; then
+        break
+      fi
     fi
     log "Awaiting connection details..."
     sleep 4
     ATTEMPT=$((ATTEMPT + 1))
   done
 
-  if [ -z "$LATEST_LOG" ]; then
+  if [ -z "$latest_nprofile_key" ]; then
     log "Failed to find the log file, check service status"
     exit 1
   fi
 
-  LATEST_LOG=$(find_latest_log)
-  latest_nprofile_key=$(grep -oP 'nprofile: \K\w+' "$LATEST_LOG" | tail -n 1)
-
-  if [ -z "$latest_nprofile_key" ]; then
-    log "There was a problem fetching the connection details."
-    exit 1
-  fi
-
-  log "Paste this admin string into ShockWallet to manage the node: $latest_nprofile_key"
+  log "Paste this string into ShockWallet to connect to the node: $latest_nprofile_key"
 }
