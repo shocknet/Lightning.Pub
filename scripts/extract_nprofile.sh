@@ -29,10 +29,18 @@ get_log_info() {
     exit 1
   fi
 
-  # Wait for wallet status in log file
+  # Get the initial line count
+  initial_lines=$(wc -l < "$latest_unlocker_log")
+
+  # Wait for new wallet status in log file
   while [ $(($(date +%s) - START_TIME)) -lt $MAX_WAIT_TIME ]; do
-    latest_entry=$(grep -E "unlocker >> (macaroon not found, creating wallet|wallet is locked, unlocking|the wallet is already unlocked|created wallet with pub)" "$latest_unlocker_log" | tail -n 1)
-    [ -n "$latest_entry" ] && break
+    current_lines=$(wc -l < "$latest_unlocker_log")
+    if [ $current_lines -gt $initial_lines ]; then
+      latest_entry=$(tail -n $((current_lines - initial_lines)) "$latest_unlocker_log" | grep "unlocker >>" | tail -n 1)
+      if [ -n "$latest_entry" ]; then
+        break
+      fi
+    fi
     sleep $WAIT_INTERVAL
   done
 

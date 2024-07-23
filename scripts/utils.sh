@@ -10,9 +10,7 @@ chmod 644 $LOG_FILE
 
 log() {
   local message="$(date '+%Y-%m-%d %H:%M:%S') $1"
-  if [ -t 1 ]; then
-    echo -e "$message"
-  fi
+  echo -e "$message"
   echo -e "$(echo $message | sed 's/\\e\[[0-9;]*m//g')" >> $LOG_FILE
 }
 
