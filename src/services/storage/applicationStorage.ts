@@ -174,7 +174,7 @@ export default class {
 
     async AddInviteToken(app: Application, sats?: number) {
         return this.txQueue.PushToQueue({
-            dbTx: true,
+            dbTx: false,
             exec:async tx => {
                 const inviteRepo = tx.getRepository(InviteToken);
                 const newInviteToken = inviteRepo.create({
