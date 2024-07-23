@@ -98,13 +98,6 @@ EOF"
         fi
       fi
 
-      log "Checking status of ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} service..."
-      if sudo systemctl is-active lightning_pub >/dev/null 2>&1; then
-        log "Lightning.Pub is started"
-      else
-        log "Lightning.Pub is not started"
-      fi
-
     else
       create_start_script
       log "systemctl not available. Created start.sh. Please use this script to start the services manually."
