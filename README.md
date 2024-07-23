@@ -68,15 +68,27 @@ Dashboard Wireframe:
 
 ### One-Line Deployment
 
-Experimental-ish, this installs all dependencies and creates systemd entries. It has been tested in Ubuntu/Debian x64 environments, but is general enough that it should work on most systems. Mac support is there also, but untested. Please report any issues.
+Paste one-line and have a Pub node in under 2 minutes. It uses neutrino so you can run it on a $5 VPS or old laptop.
 
-Run the following command:
+This method installs all dependencies and creates systemd entries. It has been tested only in Ubuntu/Debian x64 environments, but is general enough that it should work on any linux system with systemd. 
+
+Mac support is rough'd in, but completely untested. Help wanted. Please report any issues.
+
+To start, run the following command:
 
 ```ssh
 sudo wget -qO- https://deploy.lightning.pub | sudo bash
 ```
 
-> Note: Automatic updates are not implemented, but running the script a second time in the future will gracefully upgrade the existing installation.
+It should look like this in a minute or so
+
+![One-Line Deployment](https://raw.githubusercontent.com/shocknet/Lightning.Pub/master/one-liner.png)
+
+Please report any issues to the [issue tracker](https://github.com/shocknet/Lightning.Pub/issues).
+
+#### Automatic updates
+
+These are controversial to push by default and we're leaning against it. You can however add the line to cron to run it periodically and it will handle updating.
 
 ### Docker Installation
 
