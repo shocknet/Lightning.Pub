@@ -7,6 +7,7 @@ import { ApplicationUser } from './entity/ApplicationUser.js';
 import { getLogger } from '../helpers/logger.js';
 import TransactionsQueue, { TX } from "./transactionsQueue.js";
 import { User } from './entity/User.js';
+import { InviteToken } from './entity/InviteToken.js';
 export default class {
     DB: DataSource | EntityManager
     userStorage: UserStorage
@@ -168,5 +169,33 @@ export default class {
         const baseUser = appUser.user;
         await entityManager.getRepository(ApplicationUser).remove(appUser);
         await entityManager.getRepository(User).remove(baseUser);
+    }
+
+
+    async AddInviteToken(app: Application, sats?: number) {
+        return this.txQueue.PushToQueue({
+            dbTx: false,
+            exec:async tx => {
+                const inviteRepo = tx.getRepository(InviteToken);
+                const newInviteToken = inviteRepo.create({
+                    inviteToken: crypto.randomBytes(32).toString('hex'),
+                    used: false,
+                    sats: sats,
+                    application: app
+                });
+    
+                return inviteRepo.save(newInviteToken)
+            }
+        })
+    }
+
+    async FindInviteToken(token: string) {
+        return this.DB.getRepository(InviteToken).findOne({ where: { inviteToken: token } })
+    }
+
+
+    async SetInviteTokenAsUsed(inviteToken: InviteToken) {
+        return this.DB.getRepository(InviteToken).update(inviteToken, { used: true });
+
     }
 }
