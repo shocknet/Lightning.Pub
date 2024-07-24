@@ -165,9 +165,9 @@ The nostr server will send back a message response, and inside the body there wi
 
 - __User__:
   - expected context content
-    - __app_user_id__: _string_
     - __user_id__: _string_
     - __app_id__: _string_
+    - __app_user_id__: _string_
 
 - __Admin__:
   - expected context content
@@ -541,60 +541,34 @@ The nostr server will send back a message response, and inside the body there wi
 ## Messages
 ### The content of requests and response from the methods
 
-### BanUserRequest
-  - __user_id__: _string_
+### AppsMetricsRequest
+  - __from_unix__: _number_ *this field is optional
+  - __to_unix__: _number_ *this field is optional
+  - __include_operations__: _boolean_ *this field is optional
 
-### NewInvoiceResponse
-  - __invoice__: _string_
-
-### GetUserOperationsRequest
-  - __latestOutgoingTx__: _number_
-  - __latestIncomingUserToUserPayment__: _number_
-  - __latestOutgoingUserToUserPayment__: _number_
-  - __max_size__: _number_
-  - __latestIncomingInvoice__: _number_
-  - __latestOutgoingInvoice__: _number_
-  - __latestIncomingTx__: _number_
-
-### LndNodeMetrics
-  - __offline_channels__: _number_
-  - __channel_routing__: ARRAY of: _[ChannelRouting](#ChannelRouting)_
-  - __channels_balance_events__: ARRAY of: _[ChannelBalanceEvent](#ChannelBalanceEvent)_
-  - __online_channels__: _number_
-  - __pending_channels__: _number_
-  - __closing_channels__: _number_
-  - __open_channels__: ARRAY of: _[OpenChannel](#OpenChannel)_
-  - __closed_channels__: ARRAY of: _[ClosedChannel](#ClosedChannel)_
-  - __chain_balance_events__: ARRAY of: _[ChainBalanceEvent](#ChainBalanceEvent)_
-
-### NewAddressResponse
-  - __address__: _string_
-
-### RequestNPubLinkingTokenRequest
+### PayAppUserInvoiceRequest
   - __user_identifier__: _string_
+  - __invoice__: _string_
+  - __amount__: _number_
 
-### AppMetrics
-  - __operations__: ARRAY of: _[UserOperation](#UserOperation)_
-  - __users__: _[UsersInfo](#UsersInfo)_
-  - __spent__: _number_
-  - __available__: _number_
-  - __invoices__: _number_
+### HttpCreds
+  - __token__: _string_
+  - __url__: _string_
+
+### UsageMetric
+  - __parsed_in_nano__: _number_
+  - __auth_in_nano__: _number_
+  - __batch__: _boolean_
+  - __nostr__: _boolean_
+  - __batch_size__: _number_
+  - __processed_at_ms__: _number_
+  - __validate_in_nano__: _number_
+  - __handle_in_nano__: _number_
+  - __rpc_name__: _string_
+
+### AuthApp
   - __app__: _[Application](#Application)_
-  - __received__: _number_
-  - __fees__: _number_
-  - __total_fees__: _number_
-
-### ChannelRouting
-  - __missed_forward_fee_as_output__: _number_
-  - __forward_fee_as_input__: _number_
-  - __send_errors__: _number_
-  - __forward_errors_as_input__: _number_
-  - __forward_errors_as_output__: _number_
-  - __missed_forward_fee_as_input__: _number_
-  - __forward_fee_as_output__: _number_
-  - __events_number__: _number_
-  - __channel_id__: _string_
-  - __receive_errors__: _number_
+  - __auth_token__: _string_
 
 ### OpenChannelRequest
   - __destination__: _string_
@@ -602,19 +576,49 @@ The nostr server will send back a message response, and inside the body there wi
   - __pushAmount__: _number_
   - __closeAddress__: _string_
 
-### UserInfo
-  - __userId__: _string_
-  - __balance__: _number_
-  - __max_withdrawable__: _number_
-  - __user_identifier__: _string_
-  - __service_fee_bps__: _number_
-  - __network_max_fee_bps__: _number_
-  - __network_max_fee_fixed__: _number_
+### ClosureMigration
+  - __closes_at_unix__: _number_
+
+### ChannelRouting
+  - __channel_id__: _string_
+  - __forward_fee_as_output__: _number_
+  - __events_number__: _number_
+  - __missed_forward_fee_as_output__: _number_
+  - __forward_fee_as_input__: _number_
+  - __send_errors__: _number_
+  - __receive_errors__: _number_
+  - __forward_errors_as_input__: _number_
+  - __forward_errors_as_output__: _number_
+  - __missed_forward_fee_as_input__: _number_
+
+### LndNodeMetrics
+  - __offline_channels__: _number_
+  - __pending_channels__: _number_
+  - __closing_channels__: _number_
+  - __channel_routing__: ARRAY of: _[ChannelRouting](#ChannelRouting)_
+  - __channels_balance_events__: ARRAY of: _[ChannelBalanceEvent](#ChannelBalanceEvent)_
+  - __chain_balance_events__: ARRAY of: _[ChainBalanceEvent](#ChainBalanceEvent)_
+  - __online_channels__: _number_
+  - __open_channels__: ARRAY of: _[OpenChannel](#OpenChannel)_
+  - __closed_channels__: ARRAY of: _[ClosedChannel](#ClosedChannel)_
+
+### LndGetInfoResponse
+  - __alias__: _string_
 
 ### Product
   - __id__: _string_
   - __name__: _string_
   - __price_sats__: _number_
+
+### RequestNPubLinkingTokenRequest
+  - __user_identifier__: _string_
+
+### BanUserResponse
+  - __balance_sats__: _number_
+  - __banned_app_users__: ARRAY of: _[BannedAppUser](#BannedAppUser)_
+
+### GetPaymentStateRequest
+  - __invoice__: _string_
 
 ### LnurlWithdrawInfoResponse
   - __defaultDescription__: _string_
@@ -626,25 +630,32 @@ The nostr server will send back a message response, and inside the body there wi
   - __callback__: _string_
   - __k1__: _string_
 
-### UserOperation
-  - __service_fee__: _number_
-  - __confirmed__: _boolean_
-  - __internal__: _boolean_
+### ChainBalanceEvent
+  - __block_height__: _number_
+  - __confirmed_balance__: _number_
+  - __unconfirmed_balance__: _number_
+  - __total_balance__: _number_
+
+### LndGetInfoRequest
+  - __nodeId__: _number_
+
+### SetMockInvoiceAsPaidRequest
+  - __invoice__: _string_
   - __amount__: _number_
-  - __type__: _[UserOperationType](#UserOperationType)_
-  - __inbound__: _boolean_
-  - __identifier__: _string_
-  - __operationId__: _string_
-  - __network_fee__: _number_
-  - __tx_hash__: _string_
-  - __paidAtUnix__: _number_
 
-### RelaysMigration
-  - __relays__: ARRAY of: _string_
+### BannedAppUser
+  - __nostr_pub__: _string_
+  - __app_name__: _string_
+  - __app_id__: _string_
+  - __user_identifier__: _string_
 
-### LndMetricsRequest
-  - __from_unix__: _number_ *this field is optional
-  - __to_unix__: _number_ *this field is optional
+### GetUserOperationsResponse
+  - __latestIncomingTxOperations__: _[UserOperations](#UserOperations)_
+  - __latestOutgoingUserToUserPayemnts__: _[UserOperations](#UserOperations)_
+  - __latestIncomingUserToUserPayemnts__: _[UserOperations](#UserOperations)_
+  - __latestOutgoingInvoiceOperations__: _[UserOperations](#UserOperations)_
+  - __latestIncomingInvoiceOperations__: _[UserOperations](#UserOperations)_
+  - __latestOutgoingTxOperations__: _[UserOperations](#UserOperations)_
 
 ### OpenChannel
   - __remote_balance__: _number_
@@ -654,157 +665,174 @@ The nostr server will send back a message response, and inside the body there wi
   - __lifetime__: _number_
   - __local_balance__: _number_
 
-### LndMetrics
-  - __nodes__: ARRAY of: _[LndNodeMetrics](#LndNodeMetrics)_
-
-### SetMockAppUserBalanceRequest
-  - __user_identifier__: _string_
-  - __amount__: _number_
-
-### LnurlLinkResponse
-  - __lnurl__: _string_
-  - __k1__: _string_
-
-### AppsMetrics
-  - __apps__: ARRAY of: _[AppMetrics](#AppMetrics)_
-
-### GetPaymentStateRequest
-  - __invoice__: _string_
-
-### AddProductRequest
-  - __name__: _string_
-  - __price_sats__: _number_
-
-### RequestNPubLinkingTokenResponse
-  - __token__: _string_
-
-### ChannelBalanceEvent
-  - __block_height__: _number_
-  - __channel_id__: _string_
-  - __local_balance_sats__: _number_
-  - __remote_balance_sats__: _number_
-
-### AuthAppRequest
-  - __allow_user_creation__: _boolean_ *this field is optional
-  - __name__: _string_
-
-### Application
-  - __name__: _string_
-  - __id__: _string_
-  - __balance__: _number_
-  - __npub__: _string_
-
-### AddAppUserInvoiceRequest
-  - __invoice_req__: _[NewInvoiceRequest](#NewInvoiceRequest)_
-  - __receiver_identifier__: _string_
-  - __payer_identifier__: _string_
-  - __http_callback_url__: _string_
-
-### GetProductBuyLinkResponse
-  - __link__: _string_
-
-### GetAppUserLNURLInfoRequest
-  - __user_identifier__: _string_
-  - __base_url_override__: _string_
-
-### NewInvoiceRequest
-  - __amountSats__: _number_
-  - __memo__: _string_
-
-### PayInvoiceRequest
-  - __invoice__: _string_
-  - __amount__: _number_
-
-### GetUserOperationsResponse
-  - __latestOutgoingInvoiceOperations__: _[UserOperations](#UserOperations)_
-  - __latestIncomingInvoiceOperations__: _[UserOperations](#UserOperations)_
-  - __latestOutgoingTxOperations__: _[UserOperations](#UserOperations)_
-  - __latestIncomingTxOperations__: _[UserOperations](#UserOperations)_
-  - __latestOutgoingUserToUserPayemnts__: _[UserOperations](#UserOperations)_
-  - __latestIncomingUserToUserPayemnts__: _[UserOperations](#UserOperations)_
-
-### UsageMetrics
-  - __metrics__: ARRAY of: _[UsageMetric](#UsageMetric)_
-
-### BanUserResponse
-  - __balance_sats__: _number_
-  - __banned_app_users__: ARRAY of: _[BannedAppUser](#BannedAppUser)_
-
-### OpenChannelResponse
-  - __channelId__: _string_
-
-### UserOperations
-  - __toIndex__: _number_
-  - __operations__: ARRAY of: _[UserOperation](#UserOperation)_
-  - __fromIndex__: _number_
-
-### LiveUserOperation
-  - __operation__: _[UserOperation](#UserOperation)_
-
-### EncryptionExchangeRequest
-  - __publicKey__: _string_
-  - __deviceId__: _string_
-
-### ChainBalanceEvent
-  - __block_height__: _number_
-  - __confirmed_balance__: _number_
-  - __unconfirmed_balance__: _number_
-  - __total_balance__: _number_
-
-### AppUser
-  - __max_withdrawable__: _number_
-  - __identifier__: _string_
-  - __info__: _[UserInfo](#UserInfo)_
-
-### DecodeInvoiceResponse
-  - __amount__: _number_
-
-### PaymentState
-  - __paid_at_unix__: _boolean_
-  - __amount__: _number_
-  - __service_fee__: _number_
-  - __network_fee__: _number_
-
-### AuthApp
-  - __app__: _[Application](#Application)_
-  - __auth_token__: _string_
-
-### PayAddressResponse
-  - __txId__: _string_
-  - __operation_id__: _string_
-  - __service_fee__: _number_
-  - __network_fee__: _number_
-
-### LnurlPayInfoResponse
-  - __maxSendable__: _number_
-  - __minSendable__: _number_
-  - __metadata__: _string_
-  - __allowsNostr__: _boolean_
-  - __nostrPubkey__: _string_
-  - __tag__: _string_
-  - __callback__: _string_
-
-### EnrollAdminTokenRequest
-  - __admin_token__: _string_
-
-### AppsMetricsRequest
-  - __from_unix__: _number_ *this field is optional
-  - __to_unix__: _number_ *this field is optional
-  - __include_operations__: _boolean_ *this field is optional
-
-### AddAppRequest
-  - __allow_user_creation__: _boolean_
-  - __name__: _string_
+### BanUserRequest
+  - __user_id__: _string_
 
 ### SendAppUserToAppUserPaymentRequest
   - __from_user_identifier__: _string_
   - __to_user_identifier__: _string_
   - __amount__: _number_
 
-### PayAppUserInvoiceRequest
-  - __user_identifier__: _string_
-  - __invoice__: _string_
+### NewAddressRequest
+  - __addressType__: _[AddressType](#AddressType)_
+
+### PayAddressRequest
+  - __amoutSats__: _number_
+  - __satsPerVByte__: _number_
+  - __address__: _string_
+
+### AppMetrics
+  - __app__: _[Application](#Application)_
+  - __received__: _number_
+  - __available__: _number_
+  - __invoices__: _number_
+  - __total_fees__: _number_
+  - __operations__: ARRAY of: _[UserOperation](#UserOperation)_
+  - __users__: _[UsersInfo](#UsersInfo)_
+  - __spent__: _number_
+  - __fees__: _number_
+
+### PayInvoiceRequest
   - __amount__: _number_
+  - __invoice__: _string_
+
+### OpenChannelResponse
+  - __channelId__: _string_
+
+### UserOperations
+  - __fromIndex__: _number_
+  - __toIndex__: _number_
+  - __operations__: ARRAY of: _[UserOperation](#UserOperation)_
+
+### UsageMetrics
+  - __metrics__: ARRAY of: _[UsageMetric](#UsageMetric)_
+
+### AddAppInvoiceRequest
+  - __payer_identifier__: _string_
+  - __http_callback_url__: _string_
+  - __invoice_req__: _[NewInvoiceRequest](#NewInvoiceRequest)_
+
+### GetAppUserLNURLInfoRequest
+  - __user_identifier__: _string_
+  - __base_url_override__: _string_
+
+### SetMockAppUserBalanceRequest
+  - __amount__: _number_
+  - __user_identifier__: _string_
+
+### AddProductRequest
+  - __name__: _string_
+  - __price_sats__: _number_
+
+### EnrollAdminTokenRequest
+  - __admin_token__: _string_
+
+### ChannelBalanceEvent
+  - __local_balance_sats__: _number_
+  - __remote_balance_sats__: _number_
+  - __block_height__: _number_
+  - __channel_id__: _string_
+
+### AddAppUserRequest
+  - __fail_if_exists__: _boolean_
+  - __balance__: _number_
+  - __identifier__: _string_
+
+### AddAppUserInvoiceRequest
+  - __receiver_identifier__: _string_
+  - __payer_identifier__: _string_
+  - __http_callback_url__: _string_
+  - __invoice_req__: _[NewInvoiceRequest](#NewInvoiceRequest)_
+
+### UserOperation
+  - __identifier__: _string_
+  - __operationId__: _string_
+  - __tx_hash__: _string_
+  - __paidAtUnix__: _number_
+  - __type__: _[UserOperationType](#UserOperationType)_
+  - __inbound__: _boolean_
+  - __confirmed__: _boolean_
+  - __internal__: _boolean_
+  - __amount__: _number_
+  - __service_fee__: _number_
+  - __network_fee__: _number_
+
+### LinkNPubThroughTokenRequest
+  - __token__: _string_
+  - __nostr_pub__: _string_
+
+### ClosedChannel
+  - __closed_height__: _number_
+  - __channel_id__: _string_
+  - __capacity__: _number_
+
+### LnurlLinkResponse
+  - __k1__: _string_
+  - __lnurl__: _string_
+
+### LnurlPayInfoResponse
+  - __minSendable__: _number_
+  - __metadata__: _string_
+  - __allowsNostr__: _boolean_
+  - __nostrPubkey__: _string_
+  - __tag__: _string_
+  - __callback__: _string_
+  - __maxSendable__: _number_
+
+### NewInvoiceRequest
+  - __amountSats__: _number_
+  - __memo__: _string_
+
+### GetProductBuyLinkResponse
+  - __link__: _string_
+
+### LndMetrics
+  - __nodes__: ARRAY of: _[LndNodeMetrics](#LndNodeMetrics)_
+
+### Application
+  - __id__: _string_
+  - __balance__: _number_
+  - __npub__: _string_
+  - __name__: _string_
+
+### SetMockAppBalanceRequest
+  - __amount__: _number_
+
+### DecodeInvoiceRequest
+  - __invoice__: _string_
+
+### DecodeInvoiceResponse
+  - __amount__: _number_
+
+### UserInfo
+  - __userId__: _string_
+  - __balance__: _number_
+  - __max_withdrawable__: _number_
+  - __user_identifier__: _string_
+  - __service_fee_bps__: _number_
+  - __network_max_fee_bps__: _number_
+  - __network_max_fee_fixed__: _number_
+
+### LiveUserOperation
+  - __operation__: _[UserOperation](#UserOperation)_
+
+### MigrationUpdate
+  - __closure__: _[ClosureMigration](#ClosureMigration)_ *this field is optional
+  - __relays__: _[RelaysMigration](#RelaysMigration)_ *this field is optional
+
+### EncryptionExchangeRequest
+  - __publicKey__: _string_
+  - __deviceId__: _string_
+
+### SendAppUserToAppPaymentRequest
+  - __amount__: _number_
+  - __from_user_identifier__: _string_
+
+### NewAddressResponse
+  - __address__: _string_
+
+### NewInvoiceResponse
+  - __invoice__: _string_
 
 ### PayInvoiceResponse
   - __operation_id__: _string_
@@ -813,79 +841,20 @@ The nostr server will send back a message response, and inside the body there wi
   - __preimage__: _string_
   - __amount_paid__: _number_
 
-### HandleLnurlPayResponse
-  - __pr__: _string_
-  - __routes__: ARRAY of: _[Empty](#Empty)_
-
-### DecodeInvoiceRequest
-  - __invoice__: _string_
-
-### LinkNPubThroughTokenRequest
-  - __token__: _string_
-  - __nostr_pub__: _string_
-
-### HttpCreds
-  - __token__: _string_
-  - __url__: _string_
-
-### Empty
-
-### UsageMetric
-  - __rpc_name__: _string_
-  - __batch_size__: _number_
-  - __parsed_in_nano__: _number_
-  - __auth_in_nano__: _number_
-  - __handle_in_nano__: _number_
-  - __nostr__: _boolean_
-  - __processed_at_ms__: _number_
-  - __validate_in_nano__: _number_
-  - __batch__: _boolean_
-
-### LndGetInfoResponse
-  - __alias__: _string_
-
-### BannedAppUser
-  - __app_name__: _string_
-  - __app_id__: _string_
-  - __user_identifier__: _string_
-  - __nostr_pub__: _string_
-
-### SendAppUserToAppPaymentRequest
-  - __from_user_identifier__: _string_
+### PaymentState
+  - __network_fee__: _number_
+  - __paid_at_unix__: _number_
   - __amount__: _number_
+  - __service_fee__: _number_
 
-### SetMockAppBalanceRequest
-  - __amount__: _number_
-
-### NewAddressRequest
-  - __addressType__: _[AddressType](#AddressType)_
-
-### MigrationUpdate
-  - __closure__: _[ClosureMigration](#ClosureMigration)_ *this field is optional
-  - __relays__: _[RelaysMigration](#RelaysMigration)_ *this field is optional
-
-### ClosedChannel
-  - __closed_height__: _number_
-  - __channel_id__: _string_
-  - __capacity__: _number_
-
-### LndGetInfoRequest
-  - __nodeId__: _number_
-
-### SetMockInvoiceAsPaidRequest
-  - __invoice__: _string_
-  - __amount__: _number_
-
-### AddAppInvoiceRequest
-  - __http_callback_url__: _string_
-  - __invoice_req__: _[NewInvoiceRequest](#NewInvoiceRequest)_
-  - __payer_identifier__: _string_
-
-### GetAppUserRequest
-  - __user_identifier__: _string_
-
-### ClosureMigration
-  - __closes_at_unix__: _number_
+### GetUserOperationsRequest
+  - __latestOutgoingInvoice__: _number_
+  - __latestIncomingTx__: _number_
+  - __latestOutgoingTx__: _number_
+  - __latestIncomingUserToUserPayment__: _number_
+  - __latestOutgoingUserToUserPayment__: _number_
+  - __max_size__: _number_
+  - __latestIncomingInvoice__: _number_
 
 ### UsersInfo
   - __total__: _number_
@@ -896,28 +865,59 @@ The nostr server will send back a message response, and inside the body there wi
   - __balance_median__: _number_
 
 ### RoutingEvent
+  - __event_type__: _string_
   - __incoming_amt_msat__: _number_
   - __outgoing_amt_msat__: _number_
   - __failure_string__: _string_
-  - __settled__: _boolean_
   - __offchain__: _boolean_
-  - __outgoing_channel_id__: _number_
+  - __forward_fail_event__: _boolean_
   - __outgoing_htlc_id__: _number_
   - __timestamp_ns__: _number_
-  - __event_type__: _string_
-  - __forward_fail_event__: _boolean_
+  - __outgoing_channel_id__: _number_
+  - __settled__: _boolean_
   - __incoming_channel_id__: _number_
   - __incoming_htlc_id__: _number_
 
-### AddAppUserRequest
-  - __fail_if_exists__: _boolean_
-  - __balance__: _number_
+### Empty
+
+### LndMetricsRequest
+  - __from_unix__: _number_ *this field is optional
+  - __to_unix__: _number_ *this field is optional
+
+### AppUser
+  - __info__: _[UserInfo](#UserInfo)_
+  - __max_withdrawable__: _number_
   - __identifier__: _string_
 
-### PayAddressRequest
-  - __address__: _string_
-  - __amoutSats__: _number_
-  - __satsPerVByte__: _number_
+### HandleLnurlPayResponse
+  - __pr__: _string_
+  - __routes__: ARRAY of: _[Empty](#Empty)_
+
+### RelaysMigration
+  - __relays__: ARRAY of: _string_
+
+### RequestNPubLinkingTokenResponse
+  - __token__: _string_
+
+### AppsMetrics
+  - __apps__: ARRAY of: _[AppMetrics](#AppMetrics)_
+
+### AddAppRequest
+  - __name__: _string_
+  - __allow_user_creation__: _boolean_
+
+### AuthAppRequest
+  - __name__: _string_
+  - __allow_user_creation__: _boolean_ *this field is optional
+
+### GetAppUserRequest
+  - __user_identifier__: _string_
+
+### PayAddressResponse
+  - __txId__: _string_
+  - __operation_id__: _string_
+  - __service_fee__: _number_
+  - __network_fee__: _number_
 ## Enums
 ### The enumerators used in the messages
 
