@@ -211,6 +211,18 @@ export class LiquidityProvider {
         }
     }
 
+    GetPaymentState = async (invoice: string) => {
+        if (!this.ready) {
+            throw new Error("liquidity provider is not ready yet")
+        }
+        const res = await this.client.GetPaymentState({ invoice })
+        if (res.status === 'ERROR') {
+            this.log("error getting payment state", res.reason)
+            throw new Error(res.reason)
+        }
+        return res
+    }
+
     GetOperations = async () => {
         if (!this.ready) {
             throw new Error("liquidity provider is not ready yet")

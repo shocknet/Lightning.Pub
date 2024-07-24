@@ -75,6 +75,7 @@ export default class {
                 return
             } else if (p.liquidityProvider) {
                 log("found pending liquidity provider payment", p.serial_id)
+                await this.checkPendingProviderPayment(log, p)
                 return
             } else {
                 log("found pending external payment", p.serial_id)
@@ -83,8 +84,42 @@ export default class {
         }
     }
 
-    checkPendingProviderPayment = async (log: PubLogger, p: UserInvoicePayment, providerPub: string) => {
-        this.lnd.liquidProvider.AddInvoice
+    checkPendingProviderPayment = async (log: PubLogger, p: UserInvoicePayment) => {
+        const state = await this.lnd.liquidProvider.GetPaymentState(p.invoice)
+        if (state.paid_at_unix < 0) {
+            const fullAmount = p.paid_amount + p.service_fees + p.routing_fees
+            log("found a failed provider payment, refunding", fullAmount, "sats to user", p.user.user_id)
+            await this.storage.txQueue.PushToQueue({
+                dbTx: true, description: "refund failed provider payment", exec: async tx => {
+                    await this.storage.userStorage.IncrementUserBalance(p.user.user_id, fullAmount, "payment_refund:" + p.invoice, tx)
+                    await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, 0, 0, false)
+                }
+            })
+            return
+        } else if (state.paid_at_unix > 0) {
+            log("provider payment succeeded", p.serial_id, "updating payment info")
+            const routingFeeLimit = p.routing_fees
+            const serviceFee = p.service_fees
+            const actualFee = state.network_fee + state.service_fee
+            await this.storage.txQueue.PushToQueue({
+                dbTx: true, description: "pending provider payment success after restart", exec: async tx => {
+                    if (routingFeeLimit - actualFee > 0) {
+                        this.log("refund pending provider payment routing fee", routingFeeLimit, actualFee, "sats")
+                        await this.storage.userStorage.IncrementUserBalance(p.user.user_id, routingFeeLimit - actualFee, "routing_fee_refund:" + p.invoice)
+                    }
+                    await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, actualFee, p.service_fees, true)
+                }
+            })
+            if (p.linkedApplication && p.user.user_id !== p.linkedApplication.owner.user_id && serviceFee > 0) {
+                await this.storage.userStorage.IncrementUserBalance(p.linkedApplication.owner.user_id, serviceFee, "fees")
+            }
+            const user = await this.storage.userStorage.GetUser(p.user.user_id)
+            this.storage.eventsLog.LogEvent({ type: 'invoice_payment', userId: p.user.user_id, appId: p.linkedApplication?.app_id || "", appUserId: "", balance: user.balance_sats, data: p.invoice, amount: p.paid_amount })
+            return
+        }
+        log("provider payment still pending", p.serial_id, "no action will be performed")
+
+
     }
 
     checkPendingLndPayment = async (log: PubLogger, p: UserInvoicePayment) => {
@@ -102,7 +137,7 @@ export default class {
         const paymentRes = await this.lnd.GetPayment(p.paymentIndex)
         const payment = paymentRes.payments[0]
         if (!payment || Number(payment.paymentIndex) !== p.paymentIndex) {
-            log("payment not found for pending payment", p.serial_id, "with index", p.paymentIndex)
+            log("lnd payment not found for pending payment", p.serial_id, "with index", p.paymentIndex)
             return
         }
 
@@ -639,6 +674,23 @@ export default class {
                     internal: !!o.internal
                 }
             })
+        }
+    }
+
+    async GetPaymentState(userId: string, req: Types.GetPaymentStateRequest): Promise<Types.PaymentState> {
+        const user = await this.storage.userStorage.GetUser(userId)
+        if (user.locked) {
+            throw new Error("user is banned, cannot retrieve payment state")
+        }
+        const invoice = await this.storage.paymentStorage.GetPaymentOwner(req.invoice)
+        if (!invoice || invoice.user.user_id !== userId) {
+            throw new Error("invoice not found")
+        }
+        return {
+            paid_at_unix: invoice.paid_at_unix,
+            amount: invoice.paid_amount,
+            network_fee: invoice.routing_fees,
+            service_fee: invoice.service_fees,
         }
     }
 
