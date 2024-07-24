@@ -304,6 +304,17 @@ message PayInvoiceResponse{
     int64 network_fee = 5;
 }
 
+message GetPaymentStateRequest{
+    string invoice = 1;
+    int64 amount = 2;
+    int64 service_fee = 3;
+    int64 network_fee = 4;
+}
+
+message PaymentState{
+    bool paid_at_unix = 1;
+}
+
 message OpenChannelRequest{
     string destination = 1;
     int64 fundingAmount = 2;

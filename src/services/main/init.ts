@@ -72,6 +72,7 @@ export const initMainHandler = async (log: PubLogger, mainSettings: MainSettings
     if (stop) {
         return
     }
+    mainHandler.paymentManager.checkPendingPayments()
     mainHandler.paymentManager.watchDog.Start()
     return { mainHandler, apps, liquidityProviderInfo, liquidityProviderApp, wizard, adminManager }
 }

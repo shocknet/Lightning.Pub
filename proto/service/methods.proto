@@ -343,6 +343,13 @@ service LightningPub {
         option (nostr) = true;
     }
 
+    rpc GetPaymentState(structs.GetPaymentStateRequest) returns (structs.PaymentState){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/payment/state";
+        option (nostr) = true;
+    }
+
     rpc OpenChannel(structs.OpenChannelRequest) returns (structs.OpenChannelResponse){
         option (auth_type)  = "User";
         option (http_method) = "post";

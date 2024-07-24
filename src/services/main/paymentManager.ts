@@ -6,11 +6,11 @@ import { MainSettings } from './settings.js'
 import { InboundOptionals, defaultInvoiceExpiry } from '../storage/paymentStorage.js'
 import LND from '../lnd/lnd.js'
 import { Application } from '../storage/entity/Application.js'
-import { getLogger } from '../helpers/logger.js'
+import { getLogger, PubLogger } from '../helpers/logger.js'
 import { UserReceivingAddress } from '../storage/entity/UserReceivingAddress.js'
 import { AddressPaidCb, InvoicePaidCb, PaidInvoice } from '../lnd/settings.js'
 import { UserReceivingInvoice, ZapInfo } from '../storage/entity/UserReceivingInvoice.js'
-import { SendCoinsResponse } from '../../../proto/lnd/lightning.js'
+import { Payment_PaymentStatus, SendCoinsResponse } from '../../../proto/lnd/lightning.js'
 import { Event, verifiedSymbol, verifySignature } from '../nostr/tools/event.js'
 import { AddressReceivingTransaction } from '../storage/entity/AddressReceivingTransaction.js'
 import { UserTransactionPayment } from '../storage/entity/UserTransactionPayment.js'
@@ -64,6 +64,87 @@ export default class {
     }
     Stop() {
         this.watchDog.Stop()
+    }
+
+    checkPendingPayments = async () => {
+        const log = getLogger({ component: 'pendingPaymentsOnStart' })
+        const pendingPayments = await this.storage.paymentStorage.GetPendingPayments()
+        for (const p of pendingPayments) {
+            if (p.internal) {
+                log("found pending internal payment", p.serial_id)
+                return
+            } else if (p.liquidityProvider) {
+                log("found pending liquidity provider payment", p.serial_id)
+                return
+            } else {
+                log("found pending external payment", p.serial_id)
+                await this.checkPendingLndPayment(log, p)
+            }
+        }
+    }
+
+    checkPendingProviderPayment = async (log: PubLogger, p: UserInvoicePayment, providerPub: string) => {
+        this.lnd.liquidProvider.AddInvoice
+    }
+
+    checkPendingLndPayment = async (log: PubLogger, p: UserInvoicePayment) => {
+        if (p.paymentIndex === 0) {
+            const fullAmount = p.paid_amount + p.service_fees + p.routing_fees
+            log("found a pending payment with no payment index, refunding", fullAmount, "sats to user", p.user.user_id)
+            await this.storage.txQueue.PushToQueue({
+                dbTx: true, description: "refund failed pending payment", exec: async tx => {
+                    await this.storage.userStorage.IncrementUserBalance(p.user.user_id, fullAmount, "payment_refund:" + p.invoice, tx)
+                    await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, 0, 0, false)
+                }
+            })
+            return
+        }
+        const paymentRes = await this.lnd.GetPayment(p.paymentIndex)
+        const payment = paymentRes.payments[0]
+        if (!payment || Number(payment.paymentIndex) !== p.paymentIndex) {
+            log("payment not found for pending payment", p.serial_id, "with index", p.paymentIndex)
+            return
+        }
+
+        switch (payment.status) {
+            case Payment_PaymentStatus.UNKNOWN:
+                log("pending payment in unknown state", p.serial_id, "no action will be performed")
+                return
+            case Payment_PaymentStatus.IN_FLIGHT:
+                log("pending payment in flight", p.serial_id, "no action will be performed")
+                return
+            case Payment_PaymentStatus.SUCCEEDED:
+                log("pending payment succeeded", p.serial_id, "updating payment info")
+                const routingFeeLimit = p.routing_fees
+                const serviceFee = p.service_fees
+                const actualFee = Number(payment.feeSat)
+                await this.storage.txQueue.PushToQueue({
+                    dbTx: true, description: "pending payment success after restart", exec: async tx => {
+                        if (routingFeeLimit - actualFee > 0) {
+                            this.log("refund pending payment routing fee", routingFeeLimit, actualFee, "sats")
+                            await this.storage.userStorage.IncrementUserBalance(p.user.user_id, routingFeeLimit - actualFee, "routing_fee_refund:" + p.invoice)
+                        }
+                        await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, actualFee, p.service_fees, true)
+                    }
+                })
+                if (p.linkedApplication && p.user.user_id !== p.linkedApplication.owner.user_id && serviceFee > 0) {
+                    await this.storage.userStorage.IncrementUserBalance(p.linkedApplication.owner.user_id, serviceFee, "fees")
+                }
+                const user = await this.storage.userStorage.GetUser(p.user.user_id)
+                this.storage.eventsLog.LogEvent({ type: 'invoice_payment', userId: p.user.user_id, appId: p.linkedApplication?.app_id || "", appUserId: "", balance: user.balance_sats, data: p.invoice, amount: p.paid_amount })
+                return
+            case Payment_PaymentStatus.FAILED:
+                const fullAmount = p.paid_amount + p.service_fees + p.routing_fees
+                log("found a failed pending payment, refunding", fullAmount, "sats to user", p.user.user_id)
+                await this.storage.txQueue.PushToQueue({
+                    dbTx: true, description: "refund failed pending payment", exec: async tx => {
+                        await this.storage.userStorage.IncrementUserBalance(p.user.user_id, fullAmount, "payment_refund:" + p.invoice, tx)
+                        await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, 0, 0, false)
+                    }
+                })
+            default:
+                break;
+        }
     }
 
     getServiceFee(action: Types.UserOperationType, amount: number, appUser: boolean): number {
@@ -214,25 +295,29 @@ export default class {
         const { amountForLnd, payAmount, serviceFee } = amounts
         const totalAmountToDecrement = payAmount + serviceFee
         const routingFeeLimit = this.lnd.GetFeeLimitAmount(payAmount)
-        await this.storage.userStorage.DecrementUserBalance(userId, totalAmountToDecrement + routingFeeLimit, invoice)
-        let pendingPayment: UserInvoicePayment | null = null
+        const use = await this.liquidityManager.beforeOutInvoicePayment(payAmount)
+        const provider = use === 'provider' ? this.lnd.liquidProvider.GetProviderDestination() : undefined
+        const pendingPayment = await this.storage.txQueue.PushToQueue({
+            dbTx: true, description: "payment started", exec: async tx => {
+                await this.storage.userStorage.DecrementUserBalance(userId, totalAmountToDecrement + routingFeeLimit, invoice, tx)
+                return await this.storage.paymentStorage.AddPendingExternalPayment(userId, invoice, { payAmount, serviceFee, networkFee: routingFeeLimit }, linkedApplication, provider)
+            }
+        })
         try {
-            pendingPayment = await this.storage.paymentStorage.AddPendingExternalPayment(userId, invoice, payAmount, linkedApplication)
-            const use = await this.liquidityManager.beforeOutInvoicePayment(payAmount)
-            const payment = await this.lnd.PayInvoice(invoice, amountForLnd, routingFeeLimit, payAmount, { useProvider: use === 'provider', from: 'user' })
+            const payment = await this.lnd.PayInvoice(invoice, amountForLnd, routingFeeLimit, payAmount, { useProvider: use === 'provider', from: 'user' }, index => {
+                this.storage.paymentStorage.SetExternalPaymentIndex(pendingPayment.serial_id, index)
+            })
             if (routingFeeLimit - payment.feeSat > 0) {
                 this.log("refund routing fee", routingFeeLimit, payment.feeSat, "sats")
                 await this.storage.userStorage.IncrementUserBalance(userId, routingFeeLimit - payment.feeSat, "routing_fee_refund:" + invoice)
             }
-            await this.storage.paymentStorage.UpdateExternalPayment(pendingPayment.serial_id, payment.feeSat, serviceFee, true, payment.providerDst)
 
+            await this.storage.paymentStorage.UpdateExternalPayment(pendingPayment.serial_id, payment.feeSat, serviceFee, true, payment.providerDst)
             return { preimage: payment.paymentPreimage, amtPaid: payment.valueSat, networkFee: payment.feeSat, serialId: pendingPayment.serial_id }
 
         } catch (err) {
             await this.storage.userStorage.IncrementUserBalance(userId, totalAmountToDecrement + routingFeeLimit, "payment_refund:" + invoice)
-            if (pendingPayment) {
-                await this.storage.paymentStorage.UpdateExternalPayment(pendingPayment.serial_id, 0, 0, false)
-            }
+            await this.storage.paymentStorage.UpdateExternalPayment(pendingPayment.serial_id, 0, 0, false)
             throw err
         }
     }
