@@ -48,14 +48,29 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [LndMetricsRequest](#LndMetricsRequest)
   - output: [LndMetrics](#LndMetrics)
 
-- LinkNPubThroughToken
-  - auth type: __User__
-  - input: [LinkNPubThroughTokenRequest](#LinkNPubThroughTokenRequest)
-  - This methods has an __empty__ __response__ body
+- CreateOneTimeInviteLink
+  - auth type: __Admin__
+  - input: [CreateOneTimeInviteLinkRequest](#CreateOneTimeInviteLinkRequest)
+  - output: [CreateOneTimeInviteLinkResponse](#CreateOneTimeInviteLinkResponse)
+
+- GetInviteLinkState
+  - auth type: __Admin__
+  - input: [GetInviteTokenStateRequest](#GetInviteTokenStateRequest)
+  - output: [GetInviteTokenStateResponse](#GetInviteTokenStateResponse)
 
 - EnrollAdminToken
   - auth type: __User__
   - input: [EnrollAdminTokenRequest](#EnrollAdminTokenRequest)
+  - This methods has an __empty__ __response__ body
+
+- LinkNPubThroughToken
+  - auth type: __GuestWithPub__
+  - input: [LinkNPubThroughTokenRequest](#LinkNPubThroughTokenRequest)
+  - This methods has an __empty__ __response__ body
+
+- UseInviteLink
+  - auth type: __GuestWithPub__
+  - input: [UseInviteLinkRequest](#UseInviteLinkRequest)
   - This methods has an __empty__ __response__ body
 
 - UserHealth
@@ -181,6 +196,11 @@ The nostr server will send back a message response, and inside the body there wi
   - expected context content
     - __app_id__: _string_
 
+- __GuestWithPub__:
+  - expected context content
+    - __pub__: _string_
+    - __app_id__: _string_
+
 ## HTTP Methods
 ### These are the http methods the client implements to communicate with the API
 
@@ -232,6 +252,20 @@ The nostr server will send back a message response, and inside the body there wi
   - http route: __/api/reports/lnd__
   - input: [LndMetricsRequest](#LndMetricsRequest)
   - output: [LndMetrics](#LndMetrics)
+
+- CreateOneTimeInviteLink
+  - auth type: __Admin__
+  - http method: __post__
+  - http route: __/api/admin/app/invite/create__
+  - input: [CreateOneTimeInviteLinkRequest](#CreateOneTimeInviteLinkRequest)
+  - output: [CreateOneTimeInviteLinkResponse](#CreateOneTimeInviteLinkResponse)
+
+- GetInviteLinkState
+  - auth type: __Admin__
+  - http method: __post__
+  - http route: __/api/admin/app/invite/get__
+  - input: [GetInviteTokenStateRequest](#GetInviteTokenStateRequest)
+  - output: [GetInviteTokenStateResponse](#GetInviteTokenStateResponse)
 
 - Health
   - auth type: __Guest__
@@ -303,18 +337,25 @@ The nostr server will send back a message response, and inside the body there wi
   - This methods has an __empty__ __request__ body
   - output: [LnurlPayInfoResponse](#LnurlPayInfoResponse)
 
-- LinkNPubThroughToken
-  - auth type: __User__
-  - http method: __post__
-  - http route: __/api/guest/npub/link__
-  - input: [LinkNPubThroughTokenRequest](#LinkNPubThroughTokenRequest)
-  - This methods has an __empty__ __response__ body
-
 - EnrollAdminToken
   - auth type: __User__
   - http method: __post__
   - http route: __/api/guest/npub/enroll/admin__
   - input: [EnrollAdminTokenRequest](#EnrollAdminTokenRequest)
+  - This methods has an __empty__ __response__ body
+
+- LinkNPubThroughToken
+  - auth type: __GuestWithPub__
+  - http method: __post__
+  - http route: __/api/guest/npub/link__
+  - input: [LinkNPubThroughTokenRequest](#LinkNPubThroughTokenRequest)
+  - This methods has an __empty__ __response__ body
+
+- UseInviteLink
+  - auth type: __GuestWithPub__
+  - http method: __post__
+  - http route: __/api/guest/invite__
+  - input: [UseInviteLinkRequest](#UseInviteLinkRequest)
   - This methods has an __empty__ __response__ body
 
 - GetApp
@@ -699,10 +740,8 @@ The nostr server will send back a message response, and inside the body there wi
 ### OpenChannelResponse
   - __channelId__: _string_
 
-### UserOperations
-  - __fromIndex__: _number_
-  - __toIndex__: _number_
-  - __operations__: ARRAY of: _[UserOperation](#UserOperation)_
+### LndGetInfoResponse
+  - __alias__: _string_
 
 ### UsageMetrics
   - __metrics__: ARRAY of: _[UsageMetric](#UsageMetric)_
@@ -766,9 +805,9 @@ The nostr server will send back a message response, and inside the body there wi
   - __channel_id__: _string_
   - __capacity__: _number_
 
-### LnurlLinkResponse
-  - __k1__: _string_
-  - __lnurl__: _string_
+### SetMockInvoiceAsPaidRequest
+  - __invoice__: _string_
+  - __amount__: _number_
 
 ### LnurlPayInfoResponse
   - __minSendable__: _number_
@@ -783,8 +822,38 @@ The nostr server will send back a message response, and inside the body there wi
   - __amountSats__: _number_
   - __memo__: _string_
 
-### GetProductBuyLinkResponse
-  - __link__: _string_
+### OpenChannelRequest
+  - __pushAmount__: _number_
+  - __closeAddress__: _string_
+  - __destination__: _string_
+  - __fundingAmount__: _number_
+
+### Product
+  - __price_sats__: _number_
+  - __id__: _string_
+  - __name__: _string_
+
+### MigrationUpdate
+  - __closure__: _[ClosureMigration](#ClosureMigration)_ *this field is optional
+  - __relays__: _[RelaysMigration](#RelaysMigration)_ *this field is optional
+
+### EncryptionExchangeRequest
+  - __publicKey__: _string_
+  - __deviceId__: _string_
+
+### UsageMetric
+  - __processed_at_ms__: _number_
+  - __handle_in_nano__: _number_
+  - __rpc_name__: _string_
+  - __batch__: _boolean_
+  - __parsed_in_nano__: _number_
+  - __auth_in_nano__: _number_
+  - __validate_in_nano__: _number_
+  - __nostr__: _boolean_
+  - __batch_size__: _number_
+
+### UsageMetrics
+  - __metrics__: ARRAY of: _[UsageMetric](#UsageMetric)_
 
 ### LndMetrics
   - __nodes__: ARRAY of: _[LndNodeMetrics](#LndNodeMetrics)_

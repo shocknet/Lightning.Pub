@@ -45,6 +45,7 @@ export class LiquidityProvider {
             retrieveNostrUserAuth: async () => this.myPub,
             retrieveNostrAdminAuth: async () => this.myPub,
             retrieveNostrMetricsAuth: async () => this.myPub,
+            retrieveNostrGuestWithPubAuth: async () => this.myPub
         }, this.clientSend, this.clientSub)
 
         this.configuredInterval = setInterval(() => {
