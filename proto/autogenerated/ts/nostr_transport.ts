@@ -16,10 +16,10 @@ export type NostrOptions = {
     logger?: Logger
     throwErrors?: true
     metricsCallback: (metrics: Types.RequestMetric[]) => void
+    NostrGuestWithPubAuthGuard: (appId?:string, identifier?: string) => Promise<Types.GuestWithPubContext>
     NostrAdminAuthGuard: (appId?:string, identifier?: string) => Promise<Types.AdminContext>
     NostrMetricsAuthGuard: (appId?:string, identifier?: string) => Promise<Types.MetricsContext>
     NostrUserAuthGuard: (appId?:string, identifier?: string) => Promise<Types.UserContext>
-    NostrGuestWithPubAuthGuard: (appId?:string, identifier?: string) => Promise<Types.GuestWithPubContext>
 }
 const logErrorAndReturnResponse = (error: Error, response: string, res: NostrResponse, logger: Logger, metric: Types.RequestMetric, metricsCallback: (metrics: Types.RequestMetric[]) => void) => { 
     logger.error(error.message || error); metricsCallback([{ ...metric, error: response }]); res({ status: 'ERROR', reason: response })
