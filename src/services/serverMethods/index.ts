@@ -38,6 +38,13 @@ export default (mainHandler: Main): Types.ServerMethods => {
         GetUserOperations: async ({ ctx, req }) => {
             return mainHandler.paymentManager.GetUserOperations(ctx.user_id, req)
         },
+        GetPaymentState: async ({ ctx, req }) => {
+            const err = Types.GetPaymentStateRequestValidate(req, {
+                invoice_CustomCheck: invoice => invoice !== ""
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.paymentManager.GetPaymentState(ctx.user_id, req)
+        },
         OpenChannel: async ({ ctx, req }) => {
             const err = Types.OpenChannelRequestValidate(req, {
                 fundingAmount_CustomCheck: amt => amt > 0,
