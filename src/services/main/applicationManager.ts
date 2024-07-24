@@ -244,27 +244,29 @@ export default class {
 
 
 
-    async LinkNpubThroughToken(ctx: Types.UserContext, req: Types.LinkNPubThroughTokenRequest): Promise<void> {
-        const { app_id: appId, app_user_id: appUserId } = ctx
-        const app = await this.storage.applicationStorage.GetApplication(appId)
-        const appUser = await this.storage.applicationStorage.GetApplicationUser(app, appUserId)
-        await this.storage.txQueue.PushToQueue({
-            dbTx: true,
-            exec: async tx => {
-                await this.storage.applicationStorage.RemoveApplicationUserAndBaseUser(appUser, tx);
-                const entry = this.nPubLinkingTokens.get(req.token)
-                if (entry && entry.expiry > Date.now()) {
-                    const copy = { ...entry }
-                    const deleted = this.nPubLinkingTokens.delete(req.token)
-                    if (deleted) {
-                        await this.storage.applicationStorage.AddNPubToApplicationUser(copy.serialId, req.nostr_pub, tx)
-                    } else {
-                        throw new Error("An uknown error occured")
-                    }
-                } else {
-                    throw new Error("Token invalid or expired")
-                }
+    async LinkNpubThroughToken(ctx: Types.GuestWithPubContext, req: Types.LinkNPubThroughTokenRequest): Promise<void> {
+        const entry = this.nPubLinkingTokens.get(req.token)
+        if (entry && entry.expiry > Date.now()) {
+            const copy = { ...entry }
+            const deleted = this.nPubLinkingTokens.delete(req.token)
+            if (deleted) {
+                await this.storage.applicationStorage.AddNPubToApplicationUser(copy.serialId, req.nostr_pub)
+            } else {
+                throw new Error("An uknown error occured")
             }
-        })
+        } else {
+            throw new Error("Token invalid or expired")
+        }
+    }
+
+    async UseInviteLink(ctx: Types.GuestWithPubContext, req: Types.UseInviteLinkRequest): Promise<void> {
+        const app = await this.storage.applicationStorage.GetApplication(ctx.app_id);
+        const inviteToken = await this.storage.applicationStorage.FindInviteToken(req.invite_token);
+        if (!inviteToken || inviteToken.used || inviteToken.application.app_id !== ctx.app_id) {
+            throw new Error("Invite token not found");
+        }
+        await this.storage.applicationStorage.AddApplicationUser(app, crypto.randomBytes(32).toString('hex'), 0, ctx.pub)
+        await this.storage.applicationStorage.SetInviteTokenAsUsed(inviteToken);
+
     }
 }
