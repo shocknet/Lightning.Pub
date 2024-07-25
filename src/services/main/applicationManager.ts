@@ -250,7 +250,7 @@ export default class {
             const copy = { ...entry }
             const deleted = this.nPubLinkingTokens.delete(req.token)
             if (deleted) {
-                await this.storage.applicationStorage.AddNPubToApplicationUser(copy.serialId, req.nostr_pub)
+                await this.storage.applicationStorage.AddNPubToApplicationUser(copy.serialId, ctx.pub)
             } else {
                 throw new Error("An uknown error occured")
             }
