@@ -441,6 +441,20 @@ export default (params: ClientParams) => ({
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
+    ResetNPubLinkingToken: async (request: Types.RequestNPubLinkingTokenRequest): Promise<ResultError | ({ status: 'OK' }& Types.RequestNPubLinkingTokenResponse)> => {
+        const auth = await params.retrieveAppAuth()
+        if (auth === null) throw new Error('retrieveAppAuth() returned null')
+        let finalRoute = '/api/app/user/npub/token/reset'
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.RequestNPubLinkingTokenResponseValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
     UserHealth: async (): Promise<ResultError | ({ status: 'OK' })> => {
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
