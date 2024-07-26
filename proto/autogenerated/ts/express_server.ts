@@ -714,6 +714,28 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
+    if (!opts.allowNotImplementedMethods && !methods.ResetNPubLinkingToken) throw new Error('method: ResetNPubLinkingToken is not implemented')
+    app.post('/api/app/user/npub/token/reset', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'ResetNPubLinkingToken', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.ResetNPubLinkingToken) throw new Error('method: ResetNPubLinkingToken is not implemented')
+            const authContext = await opts.AppAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.RequestNPubLinkingTokenRequestValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+            const response =  await methods.ResetNPubLinkingToken({rpcName:'ResetNPubLinkingToken', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
     if (!opts.allowNotImplementedMethods && !methods.UserHealth) throw new Error('method: UserHealth is not implemented')
     app.post('/api/user/health', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'UserHealth', batch: false, nostr: false, batchSize: 0}

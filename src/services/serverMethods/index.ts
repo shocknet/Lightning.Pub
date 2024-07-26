@@ -205,11 +205,17 @@ export default (mainHandler: Main): Types.ServerMethods => {
                 user_identifier_CustomCheck: userIdentifier => userIdentifier !== '',
             })
             if (err != null) throw new Error(err.message)
-            return mainHandler.applicationManager.RequestNPubLinkingToken(ctx.app_id, req)
+            return mainHandler.applicationManager.RequestNPubLinkingToken(ctx.app_id, req, false)
+        },
+        ResetNPubLinkingToken: async ({ ctx, req }) => {
+            const err = Types.RequestNPubLinkingTokenRequestValidate(req, {
+                user_identifier_CustomCheck: userIdentifier => userIdentifier !== '',
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.applicationManager.RequestNPubLinkingToken(ctx.app_id, req, true)
         },
         LinkNPubThroughToken: async ({ ctx, req }) => {
             const err = Types.LinkNPubThroughTokenRequestValidate(req, {
-                nostr_pub_CustomCheck: nostrPub => nostrPub !== '',
                 token_CustomCheck: token => token !== ''
             })
             if (err != null) throw new Error(err.message)
@@ -227,7 +233,7 @@ export default (mainHandler: Main): Types.ServerMethods => {
                 sats_CustomCheck: sats => sats === undefined || typeof sats === "number"
             })
             if (err != null) throw new Error(err.message)
-                return mainHandler.adminManager.CreateInviteLink(ctx.admin_id, req.sats)
+            return mainHandler.adminManager.CreateInviteLink(ctx.admin_id, req.sats)
         },
         UseInviteLink: async ({ ctx, req }) => {
             const err = Types.UseInviteLinkRequestValidate(req, {
@@ -241,8 +247,8 @@ export default (mainHandler: Main): Types.ServerMethods => {
                 invite_token_CustomCheck: token => token !== ''
             })
             if (err != null) throw new Error(err.message)
-                return mainHandler.adminManager.GetInviteTokenState(ctx, req);
+            return mainHandler.adminManager.GetInviteTokenState(ctx, req);
         }
-        
+
     }
 }
