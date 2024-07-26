@@ -30,7 +30,6 @@ export class RugPullTracker {
             const balance = await this.liquidProvider.GetLatestBalance()
             const pendingBalance = await this.liquidProvider.GetPendingBalance()
             const trackedBalance = balance + pendingBalance
-            this.log({ pendingBalance, balance, trackedBalance })
             if (!providerTracker) {
                 this.log("starting to track provider", this.liquidProvider.GetProviderDestination())
                 await this.storage.liquidityStorage.CreateTrackedProvider('lnPub', pubDst, trackedBalance)
@@ -44,7 +43,6 @@ export class RugPullTracker {
 
     checkForDisruption = async (pubDst: string, trackedBalance: number, providerTracker: TrackedProvider) => {
         const diff = trackedBalance - providerTracker.latest_balance
-        this.log({ latestBalance: providerTracker.latest_balance, diff })
         if (diff < 0) {
             this.rugPulled = true
             if (providerTracker.latest_distruption_at_unix === 0) {
