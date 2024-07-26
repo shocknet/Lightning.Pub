@@ -228,21 +228,19 @@ export default class {
         const user = await this.storage.applicationStorage.GetApplicationUser(app, req.user_identifier)
         return this.paymentManager.GetLnurlPayInfoFromUser(user.user.user_id, app, req.base_url_override)
     }
-    async RequestNPubLinkingToken(appId: string, req: Types.RequestNPubLinkingTokenRequest): Promise<Types.RequestNPubLinkingTokenResponse> {
+    async RequestNPubLinkingToken(appId: string, req: Types.RequestNPubLinkingTokenRequest, reset: boolean): Promise<Types.RequestNPubLinkingTokenResponse> {
         const app = await this.storage.applicationStorage.GetApplication(appId);
         const user = await this.storage.applicationStorage.GetApplicationUser(app, req.user_identifier);
         if (Array.from(this.nPubLinkingTokens.values()).find(t => t.serialId === user.serial_id)) {
             throw new Error("App user already waiting on linking");
         }
-        if (user.nostr_public_key) {
+        if (user.nostr_public_key && !reset) {
             throw new Error("User already has an npub");
         }
         const token = crypto.randomBytes(32).toString("hex");
         this.nPubLinkingTokens.set(token, { serialId: user.serial_id, expiry: Date.now() + TOKEN_EXPIRY_TIME })
         return { token };
     }
-
-
 
     async LinkNpubThroughToken(ctx: Types.GuestWithPubContext, req: Types.LinkNPubThroughTokenRequest): Promise<void> {
         const entry = this.nPubLinkingTokens.get(req.token)

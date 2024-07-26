@@ -175,7 +175,7 @@ export default class {
     async AddInviteToken(app: Application, sats?: number) {
         return this.txQueue.PushToQueue({
             dbTx: false,
-            exec:async tx => {
+            exec: async tx => {
                 const inviteRepo = tx.getRepository(InviteToken);
                 const newInviteToken = inviteRepo.create({
                     inviteToken: crypto.randomBytes(32).toString('hex'),
@@ -183,7 +183,7 @@ export default class {
                     sats: sats,
                     application: app
                 });
-    
+
                 return inviteRepo.save(newInviteToken)
             }
         })
