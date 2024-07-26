@@ -5,10 +5,10 @@ export type ResultError = { status: 'ERROR', reason: string }
 
 export type NostrClientParams = {
     pubDestination: string
+    retrieveNostrGuestWithPubAuth: () => Promise<string | null>
     retrieveNostrAdminAuth: () => Promise<string | null>
     retrieveNostrMetricsAuth: () => Promise<string | null>
     retrieveNostrUserAuth: () => Promise<string | null>
-    retrieveNostrGuestWithPubAuth: () => Promise<string | null>
     checkResult?: true
 }
 export default (params: NostrClientParams,  send: (to:string, message: NostrRequest) => Promise<any>, subscribe: (to:string, message: NostrRequest, cb:(res:any)=> void) => void) => ({
