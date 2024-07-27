@@ -394,7 +394,8 @@ export default class {
         this.utils.stateBundler.AddBalancePoint('channelBalance', totalLightningBalance)
         const totalLndBalance = confirmedWalletBalance + totalLightningBalance
         this.utils.stateBundler.AddBalancePoint('totalLndBalance', totalLndBalance)
-        return totalLndBalance
+        const othersFromLnd = { wc: Number(walletBalance.confirmedBalance), wu: Number(walletBalance.unconfirmedBalance), cl: Number(channelsBalance.localBalance?.msat), cul: Number(channelsBalance.unsettledLocalBalance?.msat), cr: Number(channelsBalance.remoteBalance?.msat), cur: Number(channelsBalance.unsettledRemoteBalance?.msat) }
+        return { totalLndBalance, othersFromLnd }
     }
 
     async GetBalance(): Promise<BalanceInfo> { // TODO: remove this
