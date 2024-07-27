@@ -67,13 +67,14 @@ export class Watchdog {
         await this.getTracker()
         const totalUsersBalance = await this.storage.paymentStorage.GetTotalUsersBalance()
         this.utils.stateBundler.AddBalancePoint('usersBalance', totalUsersBalance)
-        const { totalExternal } = await this.getAggregatedExternalBalance()
+        const { totalExternal, otherExternal } = await this.getAggregatedExternalBalance()
         this.initialLndBalance = totalExternal
         this.initialUsersBalance = totalUsersBalance
         const fwEvents = await this.lnd.GetForwardingHistory(0, this.startedAtUnix)
         this.latestIndexOffset = fwEvents.lastOffsetIndex
         this.accumulatedHtlcFees = 0
-
+        const other = { ilnd: this.initialLndBalance, hf: this.accumulatedHtlcFees, iu: this.initialUsersBalance, tu: totalUsersBalance, oext: otherExternal }
+        getLogger({ component: 'watchdog_debug2' })(JSON.stringify({ deltaLnd: 0, deltaUsers: 0, totalExternal, other }))
         this.interval = setInterval(() => {
             if (this.latestCheckStart + (1000 * 58) < Date.now()) {
                 this.PaymentRequested()
@@ -93,11 +94,12 @@ export class Watchdog {
     }
 
     getAggregatedExternalBalance = async () => {
-        const totalLndBalance = await this.lnd.GetTotalBalace()
+        const { totalLndBalance, othersFromLnd } = await this.lnd.GetTotalBalace()
         const feesPaidForLiquidity = this.liquidityManager.GetPaidFees()
         const pb = await this.rugPullTracker.CheckProviderBalance()
         const providerBalance = pb.prevBalance || pb.balance
-        return { totalExternal: totalLndBalance + providerBalance + feesPaidForLiquidity, feesPaidForLiquidity, providerBalance, totalLndBalance }
+        const otherExternal = { pb: providerBalance, f: feesPaidForLiquidity, lnd: totalLndBalance, olnd: othersFromLnd }
+        return { totalExternal: totalLndBalance + providerBalance + feesPaidForLiquidity, otherExternal }
     }
 
     checkBalanceUpdate = async (deltaLnd: number, deltaUsers: number) => {
@@ -173,11 +175,12 @@ export class Watchdog {
         await this.updateAccumulatedHtlcFees()
         const totalUsersBalance = await this.storage.paymentStorage.GetTotalUsersBalance()
         this.utils.stateBundler.AddBalancePoint('usersBalance', totalUsersBalance)
-        const { totalExternal, feesPaidForLiquidity, providerBalance, totalLndBalance } = await this.getAggregatedExternalBalance()
+        const { totalExternal, otherExternal } = await this.getAggregatedExternalBalance()
         this.utils.stateBundler.AddBalancePoint('accumulatedHtlcFees', this.accumulatedHtlcFees)
         const deltaLnd = totalExternal - (this.initialLndBalance + this.accumulatedHtlcFees)
         const deltaUsers = totalUsersBalance - this.initialUsersBalance
-        getLogger({ component: 'watchdog_debug' })(JSON.stringify({ deltaLnd, deltaUsers, totalExternal, initialLndBalance: this.initialLndBalance, accumulatedHtlcFees: this.accumulatedHtlcFees, initialUsersBalance: this.initialUsersBalance, totalUsersBalance, feesPaidForLiquidity, providerBalance, totalLndBalance }))
+        const other = { ilnd: this.initialLndBalance, hf: this.accumulatedHtlcFees, iu: this.initialUsersBalance, tu: totalUsersBalance, oext: otherExternal }
+        getLogger({ component: 'watchdog_debug2' })(JSON.stringify({ deltaLnd, deltaUsers, totalExternal, other }))
         const deny = await this.checkBalanceUpdate(deltaLnd, deltaUsers)
         if (deny) {
             this.log("Balance mismatch detected in absolute update, locking outgoing operations")
