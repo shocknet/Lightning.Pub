@@ -298,7 +298,7 @@ export default class {
         const r = res.response
         return { local: r.localBalance ? Number(r.localBalance.sat) : 0, remote: r.remoteBalance ? Number(r.remoteBalance.sat) : 0 }
     }
-    async PayInvoice(invoice: string, amount: number, feeLimit: number, decodedAmount: number, { useProvider, from }: TxActionOptions): Promise<PaidInvoice> {
+    async PayInvoice(invoice: string, amount: number, feeLimit: number, decodedAmount: number, { useProvider, from }: TxActionOptions, paymentIndexCb?: (index: number) => void): Promise<PaidInvoice> {
         if (this.outgoingOpsLocked) {
             this.log("outgoing ops locked, rejecting payment request")
             throw new Error("lnd node is currently out of sync")
@@ -318,8 +318,13 @@ export default class {
                     this.log("invoice payment failed", error)
                     rej(error)
                 })
+                let indexSent = false
                 stream.responses.onMessage(payment => {
-                    console.log("payment", payment)
+                    const indexNum = Number(payment.paymentIndex)
+                    if (!indexSent && indexNum > 0) {
+                        indexSent = true
+                        paymentIndexCb?.(Number(payment.paymentIndex))
+                    }
                     switch (payment.status) {
                         case Payment_PaymentStatus.FAILED:
                             this.log("invoice payment failed", payment.failureReason)
@@ -425,6 +430,25 @@ export default class {
     async GetAllPayments(max: number) {
         const res = await this.lightning.listPayments({ countTotalPayments: false, includeIncomplete: false, indexOffset: 0n, maxPayments: BigInt(max), reversed: true })
         return res.response
+    }
+
+    async GetPayment(paymentIndex: number) {
+        const indexOffset = BigInt(paymentIndex - 1)
+        const res = await this.lightning.listPayments({
+            countTotalPayments: false, includeIncomplete: true, indexOffset, maxPayments: 1n, reversed: false
+        }, DeadLineMetadata())
+        return res.response
+    }
+
+    async GetLatestPaymentIndex(from = 0) {
+        let indexOffset = BigInt(from)
+        while (true) {
+            const res = await this.lightning.listPayments({ countTotalPayments: false, includeIncomplete: false, indexOffset, maxPayments: 0n, reversed: false }, DeadLineMetadata())
+            if (res.response.payments.length === 0) {
+                return Number(indexOffset)
+            }
+            indexOffset = res.response.lastIndexOffset
+        }
     }
 
     async ConnectPeer(addr: { pubkey: string, host: string }) {

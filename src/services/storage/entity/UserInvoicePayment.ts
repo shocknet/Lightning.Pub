@@ -39,6 +39,11 @@ export class UserInvoicePayment {
     })
     liquidityProvider?: string
 
+    @Column({
+        default: 0,
+    })
+    paymentIndex: number
+
     @CreateDateColumn()
     created_at: Date
 
