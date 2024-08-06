@@ -9,7 +9,8 @@ import { LiquidityProvider1719335699480 } from './1719335699480-liquidity_provid
 import { LndNodeInfo1720187506189 } from './1720187506189-lnd_node_info.js'
 import { TrackedProvider1720814323679 } from './1720814323679-tracked_provider.js'
 import { CreateInviteTokenTable1721751414878 } from "./1721751414878-create_invite_token_table.js"
-const allMigrations = [Initial1703170309875, LspOrder1718387847693, LiquidityProvider1719335699480, LndNodeInfo1720187506189, TrackedProvider1720814323679, CreateInviteTokenTable1721751414878]
+import { PaymentIndex1721760297610 } from './1721760297610-payment_index.js'
+const allMigrations = [Initial1703170309875, LspOrder1718387847693, LiquidityProvider1719335699480, LndNodeInfo1720187506189, TrackedProvider1720814323679, CreateInviteTokenTable1721751414878, PaymentIndex1721760297610]
 const allMetricsMigrations = [LndMetrics1703170330183, ChannelRouting1709316653538]
 export const TypeOrmMigrationRunner = async (log: PubLogger, storageManager: Storage, settings: DbSettings, arg: string | undefined): Promise<boolean> => {
     if (arg === 'fake_initial_migration') {
