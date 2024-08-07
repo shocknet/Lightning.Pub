@@ -23,14 +23,17 @@ modules=(
 )
 
 for module in "${modules[@]}"; do
-  wget -q "${BASE_URL}/${module}.sh" -O "/tmp/${module}.sh"
-  source "/tmp/${module}.sh"
+  wget -q "${BASE_URL}/${module}.sh" -O "/tmp/${module}.sh" || log_error "Failed to download ${module}.sh" 1
+  source "/tmp/${module}.sh" || log_error "Failed to source ${module}.sh" 1
 done
 
 detect_os_arch
+log "Detected OS: $OS"
+log "Detected ARCH: $ARCH"
 
 if [ "$OS" = "Mac" ]; then
-  handle_macos
+  log "Handling macOS specific setup"
+  handle_macos || log_error "macOS setup failed" 1
 else
   lnd_output=$(install_lnd)
   install_result=$?
@@ -71,8 +74,8 @@ else
   fi
 
   log "Starting services..."
-  start_services $lnd_status $pub_upgrade_status
-  get_log_info
+  start_services $lnd_status $pub_upgrade_status || log_error "Failed to start services" 1
+  get_log_info || log_error "Failed to get log info" 1
 
   log "Installation process completed successfully"
 fi
