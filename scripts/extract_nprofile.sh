@@ -29,18 +29,19 @@ get_log_info() {
     exit 1
   fi
 
-  # Get the initial line count
-  initial_lines=$(wc -l < "$latest_unlocker_log")
+  # Get the initial file size instead of line count
+  initial_size=$(stat -c %s "$latest_unlocker_log")
 
   # Wait for new wallet status in log file
   while [ $(($(date +%s) - START_TIME)) -lt $MAX_WAIT_TIME ]; do
-    current_lines=$(wc -l < "$latest_unlocker_log")
-    if [ $current_lines -gt $initial_lines ]; then
-      latest_entry=$(tail -n $((current_lines - initial_lines)) "$latest_unlocker_log" | grep -E "unlocker >> (the wallet is already unlocked|created wallet with pub|unlocked wallet with pub)" | tail -n 1)
+    current_size=$(stat -c %s "$latest_unlocker_log")
+    if [ $current_size -gt $initial_size ]; then
+      latest_entry=$(tail -c +$((initial_size + 1)) "$latest_unlocker_log" | grep -E "unlocker >> (the wallet is already unlocked|created wallet with pub|unlocked wallet with pub)" | tail -n 1)
       if [ -n "$latest_entry" ]; then
         break
       fi
     fi
+    initial_size=$current_size
     sleep $WAIT_INTERVAL
   done
 
@@ -79,7 +80,7 @@ get_log_info() {
       fi
     elif [ -f "$DATA_DIR/app.nprofile" ]; then
       app_nprofile=$(cat "$DATA_DIR/app.nprofile")
-      log "Node is already set up. Use this nprofile to invite guestusers:"
+      log "Node is already set up. Use this nprofile to invite guest users:"
       log "${SECONDARY_COLOR}$app_nprofile${RESET_COLOR}"
       break
     fi
