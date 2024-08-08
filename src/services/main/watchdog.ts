@@ -75,7 +75,7 @@ export class Watchdog {
         this.latestHtlcIndexOffset = fwEvents.lastOffsetIndex
         this.accumulatedHtlcFees = 0
         const paymentFound = await this.storage.paymentStorage.GetMaxPaymentIndex()
-        const knownMaxIndex = paymentFound.length > 0 ? paymentFound[0].paymentIndex : 0
+        const knownMaxIndex = paymentFound.length > 0 ? Math.max(paymentFound[0].paymentIndex,0) : 0
         this.latestPaymentIndexOffset = await this.lnd.GetLatestPaymentIndex(knownMaxIndex)
         const other = { ilnd: this.initialLndBalance, hf: this.accumulatedHtlcFees, iu: this.initialUsersBalance, tu: totalUsersBalance, oext: otherExternal }
         getLogger({ component: 'watchdog_debug2' })(JSON.stringify({ deltaLnd: 0, deltaUsers: 0, totalExternal, latestIndex: this.latestPaymentIndexOffset, other }))
