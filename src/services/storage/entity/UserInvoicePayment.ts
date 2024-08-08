@@ -40,7 +40,7 @@ export class UserInvoicePayment {
     liquidityProvider?: string
 
     @Column({
-        default: 0,
+        default: -1,
     })
     paymentIndex: number
 

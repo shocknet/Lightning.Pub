@@ -123,17 +123,19 @@ export default class {
     }
 
     checkPendingLndPayment = async (log: PubLogger, p: UserInvoicePayment) => {
-        if (p.paymentIndex === 0) {
-            const fullAmount = p.paid_amount + p.service_fees + p.routing_fees
-            log("found a pending payment with no payment index, refunding", fullAmount, "sats to user", p.user.user_id)
-            await this.storage.txQueue.PushToQueue({
-                dbTx: true, description: "refund failed pending payment", exec: async tx => {
-                    await this.storage.userStorage.IncrementUserBalance(p.user.user_id, fullAmount, "payment_refund:" + p.invoice, tx)
-                    await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, 0, 0, false)
-                }
-            })
+        if (p.paymentIndex === 0 || p.paymentIndex === -1) {
+            log("found a pending payment with no payment index, skipping", p.serial_id)
+            //const fullAmount = p.paid_amount + p.service_fees + p.routing_fees
+            //log("found a pending payment with no payment index, refunding", fullAmount, "sats to user", p.user.user_id)
+            //await this.storage.txQueue.PushToQueue({
+            //    dbTx: true, description: "refund failed pending payment", exec: async tx => {
+            //        await this.storage.userStorage.IncrementUserBalance(p.user.user_id, fullAmount, "payment_refund:" + p.invoice, tx)
+            //        await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, 0, 0, false)
+            //    }
+            //})
             return
         }
+        console.log({p})
         const paymentRes = await this.lnd.GetPayment(p.paymentIndex)
         const payment = paymentRes.payments[0]
         if (!payment || Number(payment.paymentIndex) !== p.paymentIndex) {

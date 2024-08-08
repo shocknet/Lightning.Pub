@@ -433,6 +433,9 @@ export default class {
     }
 
     async GetPayment(paymentIndex: number) {
+        if (paymentIndex === 0) {
+            throw new Error("payment index starts from 1")
+        }
         const indexOffset = BigInt(paymentIndex - 1)
         const res = await this.lightning.listPayments({
             countTotalPayments: false, includeIncomplete: true, indexOffset, maxPayments: 1n, reversed: false
