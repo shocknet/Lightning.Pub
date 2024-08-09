@@ -154,9 +154,9 @@ export default class {
         })
     }
 
-    async AddPendingExternalPayment(userId: string, invoice: string, amounts: { payAmount: number, serviceFee: number, networkFee: number }, linkedApplication: Application, liquidityProvider: string | undefined): Promise<UserInvoicePayment> {
-        const newPayment = this.DB.getRepository(UserInvoicePayment).create({
-            user: await this.userStorage.GetUser(userId),
+    async AddPendingExternalPayment(userId: string, invoice: string, amounts: { payAmount: number, serviceFee: number, networkFee: number }, linkedApplication: Application, liquidityProvider: string | undefined,dbTx:DataSource|EntityManager): Promise<UserInvoicePayment> {
+        const newPayment = dbTx.getRepository(UserInvoicePayment).create({
+            user: await this.userStorage.GetUser(userId,dbTx),
             paid_amount: amounts.payAmount,
             invoice,
             routing_fees: amounts.networkFee,
@@ -166,7 +166,7 @@ export default class {
             linkedApplication,
             liquidityProvider
         })
-        return this.txQueue.PushToQueue<UserInvoicePayment>({ exec: async db => db.getRepository(UserInvoicePayment).save(newPayment), dbTx: false, description: `add pending invoice payment for ${userId} linked to ${linkedApplication.app_id}: ${invoice}, amt: ${amounts.payAmount} ` })
+        return dbTx.getRepository(UserInvoicePayment).save(newPayment)
     }
 
     async GetMaxPaymentIndex(entityManager = this.DB) {
