@@ -53,6 +53,7 @@ export default class {
         this.storage = storage
         this.utils = utils
         this.adminManager = adminManager
+        this.unlocker = unlocker
         const updateProviderBalance = (b: number) => this.storage.liquidityStorage.IncrementTrackedProviderBalance('lnPub', settings.liquiditySettings.liquidityProviderPub, b)
         this.liquidityProvider = new LiquidityProvider(settings.liquiditySettings.liquidityProviderPub, this.utils, this.invoicePaidCb, updateProviderBalance)
         this.rugPullTracker = new RugPullTracker(this.storage, this.liquidityProvider)
