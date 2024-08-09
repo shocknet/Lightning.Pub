@@ -256,7 +256,6 @@ export default class Handler {
                 open_channels: openChannels.map(c => ({ active: c.active, capacity: Number(c.capacity), channel_id: c.chanId, lifetime: Number(c.lifetime), local_balance: Number(c.localBalance), remote_balance: Number(c.remoteBalance) })),
                 channel_routing: Object.values(routingMap)
             }],
-
         }
     }
 }
