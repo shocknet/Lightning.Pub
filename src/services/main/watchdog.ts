@@ -21,8 +21,9 @@ export class Watchdog {
     initialLndBalance: number;
     initialUsersBalance: number;
     startedAtUnix: number;
-    latestIndexOffset: number;
+    latestHtlcIndexOffset: number;
     accumulatedHtlcFees: number;
+    latestPaymentIndexOffset: number;
     lnd: LND;
     liquidProvider: LiquidityProvider;
     liquidityManager: LiquidityManager;
@@ -71,10 +72,13 @@ export class Watchdog {
         this.initialLndBalance = totalExternal
         this.initialUsersBalance = totalUsersBalance
         const fwEvents = await this.lnd.GetForwardingHistory(0, this.startedAtUnix)
-        this.latestIndexOffset = fwEvents.lastOffsetIndex
+        this.latestHtlcIndexOffset = fwEvents.lastOffsetIndex
         this.accumulatedHtlcFees = 0
+        const paymentFound = await this.storage.paymentStorage.GetMaxPaymentIndex()
+        const knownMaxIndex = paymentFound.length > 0 ? Math.max(paymentFound[0].paymentIndex,0) : 0
+        this.latestPaymentIndexOffset = await this.lnd.GetLatestPaymentIndex(knownMaxIndex)
         const other = { ilnd: this.initialLndBalance, hf: this.accumulatedHtlcFees, iu: this.initialUsersBalance, tu: totalUsersBalance, oext: otherExternal }
-        getLogger({ component: 'watchdog_debug2' })(JSON.stringify({ deltaLnd: 0, deltaUsers: 0, totalExternal, other }))
+        getLogger({ component: 'watchdog_debug2' })(JSON.stringify({ deltaLnd: 0, deltaUsers: 0, totalExternal, latestIndex: this.latestPaymentIndexOffset, other }))
         this.interval = setInterval(() => {
             if (this.latestCheckStart + (1000 * 58) < Date.now()) {
                 this.PaymentRequested()
@@ -85,8 +89,8 @@ export class Watchdog {
     }
 
     updateAccumulatedHtlcFees = async () => {
-        const fwEvents = await this.lnd.GetForwardingHistory(this.latestIndexOffset, this.startedAtUnix)
-        this.latestIndexOffset = fwEvents.lastOffsetIndex
+        const fwEvents = await this.lnd.GetForwardingHistory(this.latestHtlcIndexOffset, this.startedAtUnix)
+        this.latestHtlcIndexOffset = fwEvents.lastOffsetIndex
         fwEvents.forwardingEvents.forEach((event) => {
             this.accumulatedHtlcFees += Number(event.fee)
         })
@@ -115,6 +119,7 @@ export class Watchdog {
                         return true
                     }
                 } else {
+                    this.log("WARNING! LND balance increased more than users balance with a difference of", result.absoluteDiff, "sats")
                     this.updateDisruption(false, result.absoluteDiff)
                     return false
                 }
@@ -129,6 +134,7 @@ export class Watchdog {
                     await this.updateDisruption(false, 0)
                     return false
                 } else {
+                    this.log("WARNING! LND balance decreased less than users balance with a difference of", result.absoluteDiff, "sats")
                     await this.updateDisruption(false, result.absoluteDiff)
                     return false
                 }
@@ -179,13 +185,21 @@ export class Watchdog {
         this.utils.stateBundler.AddBalancePoint('accumulatedHtlcFees', this.accumulatedHtlcFees)
         const deltaLnd = totalExternal - (this.initialLndBalance + this.accumulatedHtlcFees)
         const deltaUsers = totalUsersBalance - this.initialUsersBalance
-        const other = { ilnd: this.initialLndBalance, hf: this.accumulatedHtlcFees, iu: this.initialUsersBalance, tu: totalUsersBalance, oext: otherExternal }
+        const paymentFound = await this.storage.paymentStorage.GetMaxPaymentIndex()
+        const maxFromDb = paymentFound.length > 0 ? paymentFound[0].paymentIndex : 0
+        const knownMaxIndex = Math.max(maxFromDb, this.latestPaymentIndexOffset)
+        const newLatest = await this.lnd.GetLatestPaymentIndex(knownMaxIndex)
+        const historyMismatch = newLatest > knownMaxIndex
+        const other = { ilnd: this.initialLndBalance, hf: this.accumulatedHtlcFees, iu: this.initialUsersBalance, tu: totalUsersBalance, km: knownMaxIndex, nl: newLatest, oext: otherExternal }
         getLogger({ component: 'watchdog_debug2' })(JSON.stringify({ deltaLnd, deltaUsers, totalExternal, other }))
         const deny = await this.checkBalanceUpdate(deltaLnd, deltaUsers)
-        if (deny) {
-            this.log("Balance mismatch detected in absolute update, locking outgoing operations")
+        if (historyMismatch) {
+            this.log("History mismatch detected in absolute update, locking outgoing operations")
             this.lnd.LockOutgoingOperations()
             return
+        }
+        if (deny) {
+            this.log("Balance mismatch detected in absolute update, but history is ok")
         }
         this.lnd.UnlockOutgoingOperations()
     }
