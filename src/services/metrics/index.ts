@@ -176,7 +176,7 @@ export default class Handler {
             total_fees: totalFees,
             invoices: receivingInvoices.length,
 
-            operations
+            operations:[]
         }
     }
 
@@ -236,18 +236,18 @@ export default class Handler {
         const { channelsBalanceEvents, chainBalanceEvents } = await this.storage.metricsStorage.GetBalanceEvents({ from: req.from_unix, to: req.to_unix })
         return {
             nodes: [{
-                chain_balance_events: chainBalanceEvents.map(e => ({
+                chain_balance_events: []/*chainBalanceEvents.map(e => ({
                     block_height: e.block_height,
                     confirmed_balance: e.confirmed_chain_balance,
                     unconfirmed_balance: e.unconfirmed_chain_balance,
                     total_balance: e.total_chain_balance
-                })),
-                channels_balance_events: channelsBalanceEvents.map(e => ({
+                }))*/,
+                channels_balance_events: []/*channelsBalanceEvents.map(e => ({
                     block_height: e.balance_event.block_height,
                     channel_id: e.channel_id,
                     local_balance_sats: e.local_balance_sats,
                     remote_balance_sats: e.remote_balance_sats
-                })),
+                }))*/,
                 closing_channels: totalPendingClose,
                 pending_channels: totalPendingOpen,
                 offline_channels: totalInactive,
