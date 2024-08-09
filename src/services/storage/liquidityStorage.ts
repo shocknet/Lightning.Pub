@@ -1,4 +1,4 @@
-import { DataSource, EntityManager, MoreThan } from "typeorm"
+import { DataSource, EntityManager, IsNull, MoreThan, Not } from "typeorm"
 import { LspOrder } from "./entity/LspOrder.js";
 import TransactionsQueue, { TX } from "./transactionsQueue.js";
 import { LndNodeInfo } from "./entity/LndNodeInfo.js";
@@ -18,6 +18,10 @@ export class LiquidityStorage {
     SaveLspOrder(order: Partial<LspOrder>) {
         const entry = this.DB.getRepository(LspOrder).create(order)
         return this.txQueue.PushToQueue<LspOrder>({ exec: async db => db.getRepository(LspOrder).save(entry), dbTx: false })
+    }
+
+    async GetNoodeSeed(pubkey: string) {
+        return this.DB.getRepository(LndNodeInfo).findOne({ where: { pubkey, seed:Not(IsNull()) } })
     }
 
     async SaveNodeSeed(pubkey: string, seed: string) {

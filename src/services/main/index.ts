@@ -20,6 +20,7 @@ import { LiquidityManager } from "./liquidityManager.js"
 import { Utils } from "../helpers/utilsWrapper.js"
 import { RugPullTracker } from "./rugPullTracker.js"
 import { AdminManager } from "./adminManager.js"
+import { Unlocker } from "./unlocker.js"
 
 type UserOperationsSub = {
     id: string
@@ -45,8 +46,9 @@ export default class {
     liquidityProvider: LiquidityProvider
     utils: Utils
     rugPullTracker: RugPullTracker
+    unlocker:Unlocker
     nostrSend: NostrSend = () => { getLogger({})("nostr send not initialized yet") }
-    constructor(settings: MainSettings, storage: Storage, adminManager: AdminManager, utils: Utils) {
+    constructor(settings: MainSettings, storage: Storage, adminManager: AdminManager, utils: Utils,unlocker:Unlocker) {
         this.settings = settings
         this.storage = storage
         this.utils = utils

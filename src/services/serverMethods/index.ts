@@ -26,6 +26,9 @@ export default (mainHandler: Main): Types.ServerMethods => {
             if (err != null) throw new Error(err.message)
             return mainHandler.appUserManager.BanUser(req.user_id)
         },
+        GetSeed: async ({ ctx }) => {
+            return mainHandler.unlocker.GetSeed()
+        },
         SetMockInvoiceAsPaid: async ({ ctx, req }) => {
             const err = Types.SetMockInvoiceAsPaidRequestValidate(req, {
                 invoice_CustomCheck: invoice => invoice !== '',
