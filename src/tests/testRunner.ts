@@ -1,4 +1,4 @@
-import whyIsNodeRunning from 'why-is-node-running'
+//import whyIsNodeRunning from 'why-is-node-running'
 import { globby } from 'globby'
 import { setupNetwork } from './networkSetup.js'
 import { Describe, SetupTest, teardown, TestBase } from './testBase.js'
@@ -49,11 +49,10 @@ const start = async () => {
         throw new Error("there have been " + failures + " failures in all tests")
     } else {
         console.log(greenConsole, "there have been 0 failures in all tests", resetConsole)
+        process.exit(0)
     }
 
-    setInterval(() => {
-        whyIsNodeRunning()
-    }, 1000);
+
 }
 
 const runTestFile = async (fileName: string, mod: TestModule) => {
