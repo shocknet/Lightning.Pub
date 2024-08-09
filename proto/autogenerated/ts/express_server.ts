@@ -947,6 +947,28 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
+    if (!opts.allowNotImplementedMethods && !methods.GetPaymentState) throw new Error('method: GetPaymentState is not implemented')
+    app.post('/api/user/payment/state', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'GetPaymentState', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.GetPaymentState) throw new Error('method: GetPaymentState is not implemented')
+            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.GetPaymentStateRequestValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+            const response =  await methods.GetPaymentState({rpcName:'GetPaymentState', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
     if (!opts.allowNotImplementedMethods && !methods.OpenChannel) throw new Error('method: OpenChannel is not implemented')
     app.post('/api/user/open/channel', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'OpenChannel', batch: false, nostr: false, batchSize: 0}
@@ -1169,6 +1191,18 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
                                 opStats.validate = process.hrtime.bigint()
                                 if (error !== null) throw error
                                 const res = await methods.PayInvoice({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                                opStats.handle = process.hrtime.bigint()
+                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
+                            }
+                            break
+                        case 'GetPaymentState':
+                            if (!methods.GetPaymentState) {
+                                throw new Error('method GetPaymentState not found' )
+                            } else {
+                                const error = Types.GetPaymentStateRequestValidate(operation.req)
+                                opStats.validate = process.hrtime.bigint()
+                                if (error !== null) throw error
+                                const res = await methods.GetPaymentState({...operation, ctx}); responses.push({ status: 'OK', ...res  })
                                 opStats.handle = process.hrtime.bigint()
                                 callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
                             }

@@ -22,6 +22,7 @@ export default class {
         if (!this.pendingTx) {
             return this.execQueueItem(op)
         }
+        this.log("pushing to queue", this.transactionsQueue.length)
         return new Promise<T>((res, rej) => {
             this.transactionsQueue.push({ op, res, rej })
         })

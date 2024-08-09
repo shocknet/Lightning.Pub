@@ -154,20 +154,28 @@ export default class {
         })
     }
 
-    async AddPendingExternalPayment(userId: string, invoice: string, amount: number, linkedApplication: Application): Promise<UserInvoicePayment> {
-        const newPayment = this.DB.getRepository(UserInvoicePayment).create({
-            user: await this.userStorage.GetUser(userId),
-            paid_amount: amount,
+    async AddPendingExternalPayment(userId: string, invoice: string, amounts: { payAmount: number, serviceFee: number, networkFee: number }, linkedApplication: Application, liquidityProvider: string | undefined,dbTx:DataSource|EntityManager): Promise<UserInvoicePayment> {
+        const newPayment = dbTx.getRepository(UserInvoicePayment).create({
+            user: await this.userStorage.GetUser(userId,dbTx),
+            paid_amount: amounts.payAmount,
             invoice,
-            routing_fees: 0,
-            service_fees: 0,
+            routing_fees: amounts.networkFee,
+            service_fees: amounts.serviceFee,
             paid_at_unix: 0,
             internal: false,
-            linkedApplication
+            linkedApplication,
+            liquidityProvider
         })
-        return this.txQueue.PushToQueue<UserInvoicePayment>({ exec: async db => db.getRepository(UserInvoicePayment).save(newPayment), dbTx: false, description: `add pending invoice payment for ${userId} linked to ${linkedApplication.app_id}: ${invoice}, amt: ${amount} ` })
+        return dbTx.getRepository(UserInvoicePayment).save(newPayment)
     }
 
+    async GetMaxPaymentIndex(entityManager = this.DB) {
+        return entityManager.getRepository(UserInvoicePayment).find({ order: { paymentIndex: 'DESC' }, take: 1 })
+    }
+
+    async SetExternalPaymentIndex(invoicePaymentSerialId: number, index: number, entityManager = this.DB) {
+        return entityManager.getRepository(UserInvoicePayment).update(invoicePaymentSerialId, { paymentIndex: index })
+    }
     async UpdateExternalPayment(invoicePaymentSerialId: number, routingFees: number, serviceFees: number, success: boolean, providerDestination?: string) {
         return this.DB.getRepository(UserInvoicePayment).update(invoicePaymentSerialId, {
             routing_fees: routingFees,
@@ -415,5 +423,9 @@ export default class {
     async GetTotalUsersBalance(entityManager = this.DB) {
         const total = await entityManager.getRepository(User).sum("balance_sats")
         return total || 0
+    }
+
+    async GetPendingPayments(entityManager = this.DB) {
+        return entityManager.getRepository(UserInvoicePayment).find({ where: { paid_at_unix: 0 } })
     }
 }
