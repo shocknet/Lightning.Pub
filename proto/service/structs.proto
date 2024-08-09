@@ -6,6 +6,9 @@ option go_package = "github.com/shocknet/lightning.pub";
 
 message Empty {}
 
+message LndSeed {
+    repeated string seed = 1;
+}
 
 message EncryptionExchangeRequest {
     string publicKey = 1;

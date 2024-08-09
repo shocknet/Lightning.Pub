@@ -130,6 +130,13 @@ service LightningPub {
         option (nostr) = true;
     }
 
+    rpc GetSeed(structs.Empty) returns (structs.LndSeed) {
+        option (auth_type)  = "Admin";
+        option (http_method) = "get";
+        option (http_route) = "/api/admin/seed";
+        option (nostr) = true;
+    }
+
     rpc GetUsageMetrics(structs.Empty) returns (structs.UsageMetrics) {
         option (auth_type)  = "Metrics";
         option (http_method) = "post";
