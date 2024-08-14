@@ -23,7 +23,7 @@ export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSett
         NostrMetricsAuthGuard: async (appId, pub) => {
             const adminNpub = mainHandler.adminManager.GetAdminNpub()
             if (!adminNpub) { throw new Error("admin access not configured") }
-            if (pub !== adminNpub) { throw new Error("admin access denied") }
+            if (pub !== adminNpub) { throw new Error("Metrics unavailable") }
             log("operator access from", pub)
             return { operator_id: pub }
         },
