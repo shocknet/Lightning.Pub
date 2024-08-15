@@ -26,7 +26,8 @@ detect_os_arch() {
   esac
   case "$ARCH" in
     x86_64)     ARCH=amd64;;
-    arm64)      ARCH=arm64;;
+    arm64|aarch64|armv8*) ARCH=arm64;;
+    armv7*)     ARCH=armv7;;
     *)          ARCH="UNKNOWN"
   esac
 
