@@ -46,7 +46,6 @@ if [ "$OS" = "Mac" ]; then
   log "Handling macOS specific setup"
   handle_macos || log_error "macOS setup failed" 1
 else
-  log "Starting LND installation..."
   lnd_output=$(install_lnd)
   install_result=$?
 
@@ -63,26 +62,9 @@ else
     *) log "WARNING: Unexpected status from install_lnd: $lnd_status" ;;
   esac
 
-  log "Starting Node.js installation..."
-  install_nodejs
-  nodejs_result=$?
-  log "Node.js installation completed with status: $nodejs_result"
-  if [ $nodejs_result -ne 0 ]; then
-    log_error "NodeJS installation failed" $nodejs_result
-  fi
+ install_nodejs || log_error "Failed to install Node.js" 1
 
- install_lightning_pub
-
-  pub_upgrade_status=$(echo "$pub_output" | grep "UPGRADE_STATUS:" | cut -d':' -f2)
-
-  if [ "$pub_upgrade_status" = "100" ]; then
-    log "Lightning.Pub upgrade completed successfully."
-  elif [ "$pub_upgrade_status" = "0" ]; then
-    log "Lightning.Pub fresh installation completed successfully."
-  else
-    log "WARNING: Unexpected return status from install_lightning_pub: $pub_upgrade_status"
-    log "Full output: $pub_output"
-  fi
+ install_lightning_pub || log_error "Failed to install Lightning.Pub" 1
 
   log "Starting services..."
   start_services $lnd_status $pub_upgrade_status || log_error "Failed to start services" 1
