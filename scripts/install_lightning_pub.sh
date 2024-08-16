@@ -1,7 +1,6 @@
 #!/bin/bash
 
 install_lightning_pub() {
-
   local upgrade_status=0
 
   if [ "$EUID" -eq 0 ]; then
@@ -36,7 +35,7 @@ install_lightning_pub() {
   fi
 
   log "${PRIMARY_COLOR}Installing${RESET_COLOR} ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR}..."
-  REPO_URL="https://github.com/shocknet/Lightning.Pub/tarball/master"
+  REPO_URL="https://github.com/shocknet/Lightning.Pub/tarball/fix-arm"
   
   sudo -u $USER_NAME wget -q $REPO_URL -O $USER_HOME/lightning_pub.tar.gz > /dev/null 2>&1 || {
     log "${PRIMARY_COLOR}Failed to download Lightning.Pub.${RESET_COLOR}"
@@ -80,16 +79,6 @@ install_lightning_pub() {
   if [ $npm_exit_code -ne 0 ]; then
     log "${PRIMARY_COLOR}Failed to install npm dependencies. Error details:${RESET_COLOR}"
     tail -n 20 npm_install.log | while IFS= read -r line; do
-      log "  $line"
-    done
-    log "${PRIMARY_COLOR}Full log available in $USER_HOME/lightning_pub/npm_install.log${RESET_COLOR}"
-    return 1
-  fi
-
-  if [ ! -d "node_modules" ] || [ -z "$(ls -A node_modules)" ]; then
-    log "${PRIMARY_COLOR}npm install completed, but node_modules is empty or missing. Installation may have failed.${RESET_COLOR}"
-    log "Checking npm_install.log for errors:"
-    grep -i "error" npm_install.log | tail -n 10 | while IFS= read -r line; do
       log "  $line"
     done
     log "${PRIMARY_COLOR}Full log available in $USER_HOME/lightning_pub/npm_install.log${RESET_COLOR}"
