@@ -1,7 +1,13 @@
 #!/bin/bash
 
 install_lightning_pub() {
+  local REPO_URL="$1"
   local upgrade_status=0
+
+  if [ -z "$REPO_URL" ]; then
+    log "REPO_URL missing"
+    return 1
+  fi
 
   if [ "$EUID" -eq 0 ]; then
     USER_HOME=$(getent passwd ${SUDO_USER} | cut -d: -f6)
@@ -12,7 +18,6 @@ install_lightning_pub() {
   fi
 
   log "${PRIMARY_COLOR}Installing${RESET_COLOR} ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR}..."
-  REPO_URL="https://github.com/shocknet/Lightning.Pub/tarball/master"
   
   sudo -u $USER_NAME wget -q $REPO_URL -O $USER_HOME/lightning_pub.tar.gz > /dev/null 2>&1 || {
     log "${PRIMARY_COLOR}Failed to download Lightning.Pub.${RESET_COLOR}"
@@ -54,18 +59,13 @@ install_lightning_pub() {
   npm_exit_code=$?
 
   if [ $npm_exit_code -ne 0 ]; then
-    log "${PRIMARY_COLOR}Failed to install npm dependencies. Check npm_install.log for details.${RESET_COLOR}"
+    log "${PRIMARY_COLOR}Failed to install npm dependencies. Error details:${RESET_COLOR}"
+    tail -n 20 npm_install.log | while IFS= read -r line; do
+      log "  $line"
+    done
+    log "${PRIMARY_COLOR}Full log available in $USER_HOME/lightning_pub/npm_install.log${RESET_COLOR}"
     return 1
   fi
-
-  if [ ! -d "node_modules" ] || [ -z "$(ls -A node_modules)" ]; then
-    log "${PRIMARY_COLOR}npm install completed, but node_modules is empty or missing. Installation may have failed.${RESET_COLOR}"
-    return 1
-  fi
-
-  log "npm dependencies installed successfully."
   
-  # Echo a specific string followed by the upgrade status
-  echo "UPGRADE_STATUS:$upgrade_status"
-  return 0  # Always return 0 to indicate success
+  return 0 
 }

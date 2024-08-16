@@ -28,7 +28,7 @@ install_nodejs() {
     NODE_VERSION=$(node -v | sed 's/v//')
     if [ "$(printf '%s\n' "$MINIMUM_VERSION" "$NODE_VERSION" | sort -V | head -n1)" = "$MINIMUM_VERSION" ]; then
       log "Node.js is already installed and meets the minimum version requirement."
-      return
+      return 0
     else
       log "${PRIMARY_COLOR}Updating${RESET_COLOR} Node.js to the LTS version..."
     fi
@@ -36,10 +36,11 @@ install_nodejs() {
     log "Node.js is not installed. ${PRIMARY_COLOR}Installing the LTS version...${RESET_COLOR}"
   fi
 
-  sudo -u $USER_NAME bash -c "source ${NVM_DIR}/nvm.sh && nvm install --lts" || {
+  if ! sudo -u $USER_NAME bash -c "source ${NVM_DIR}/nvm.sh && nvm install --lts"; then
     log "${PRIMARY_COLOR}Failed to install Node.js.${RESET_COLOR}"
-    exit 1
-  }
+    return 1
+  fi
 
   log "Node.js LTS installation completed."
+  return 0
 }
