@@ -3,16 +3,6 @@
 PRIMARY_COLOR="\e[38;5;208m"
 SECONDARY_COLOR="\e[38;5;165m"
 RESET_COLOR="\e[0m"
-LOG_FILE="/var/log/pubdeploy.log"
-
-touch $LOG_FILE
-chmod 644 $LOG_FILE
-
-log() {
-  local message="$(date '+%Y-%m-%d %H:%M:%S') $1"
-  echo -e "$message"
-  echo -e "$(echo $message | sed 's/\\e\[[0-9;]*m//g')" >> $LOG_FILE
-}
 
 detect_os_arch() {
   OS="$(uname -s)"
