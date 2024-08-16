@@ -46,7 +46,7 @@ get_log_info() {
   done
 
   if [ -z "$latest_entry" ]; then
-    log "Error: Failed to retrieve wallet status. Please check the service logs."
+    log "Can't retrieve wallet status, check the service logs."
     exit 1
   fi
 
@@ -88,10 +88,10 @@ get_log_info() {
   done
 
   if [ ! -f "$DATA_DIR/.admin_connect" ] && [ ! -f "$DATA_DIR/app.nprofile" ]; then
-    log "Error: Neither .admin_connect nor app.nprofile file found after waiting. Please check the service status."
+    log "Neither .admin_connect nor app.nprofile file found after waiting. Please check the service status."
     exit 1
   elif [ -f "$DATA_DIR/.admin_connect" ] && ! [[ $(cat "$DATA_DIR/.admin_connect") == nprofile1* ]] && ! [[ $(cat "$DATA_DIR/.admin_connect") == *:* ]]; then
-    log "Error: Admin connect information is incomplete. Please check the service status."
+    log "Admin connect information is incomplete. Please check the service status."
     exit 1
   fi
 }
