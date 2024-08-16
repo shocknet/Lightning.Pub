@@ -4,7 +4,6 @@ PRIMARY_COLOR="\e[38;5;208m"
 SECONDARY_COLOR="\e[38;5;165m"
 RESET_COLOR="\e[0m"
 
-
 detect_os_arch() {
   OS="$(uname -s)"
   ARCH="$(uname -m)"
