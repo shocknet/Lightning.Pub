@@ -13,6 +13,8 @@ log() {
 }
 
 SCRIPT_VERSION="0.1.0"
+REPO_URL="https://github.com/shocknet/Lightning.Pub/tarball/master"
+BASE_URL="https://raw.githubusercontent.com/shocknet/Lightning.Pub/master/scripts/"
 
 cleanup() {
     echo "Cleaning up temporary files..."
@@ -27,7 +29,6 @@ log_error() {
     exit $2
 }
 
-BASE_URL="https://raw.githubusercontent.com/shocknet/Lightning.Pub/master/scripts/"
 
 modules=(
   "utils"
@@ -75,7 +76,7 @@ else
 
  install_nodejs || log_error "Failed to install Node.js" 1
 
- install_lightning_pub || log_error "Failed to install Lightning.Pub" 1
+ install_lightning_pub "$REPO_URL" || log_error "Failed to install Lightning.Pub" 1
 
   log "Starting services..."
   start_services $lnd_status $pub_upgrade_status || log_error "Failed to start services" 1
