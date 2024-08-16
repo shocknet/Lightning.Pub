@@ -27,7 +27,7 @@ log_error() {
     exit $2
 }
 
-BASE_URL="https://raw.githubusercontent.com/shocknet/Lightning.Pub/fix-arm/scripts/"
+BASE_URL="https://raw.githubusercontent.com/shocknet/Lightning.Pub/master/scripts/"
 
 modules=(
   "utils"

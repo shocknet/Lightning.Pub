@@ -11,31 +11,31 @@ install_lightning_pub() {
     USER_NAME=$(whoami)
   fi
 
-  log "Checking for build essentials..."
-  if [ "$OS" = "Linux" ]; then
-    if command -v gcc &> /dev/null && command -v make &> /dev/null; then
-      log "Build essentials already installed."
-    else
-      log "Installing build essentials..."
-      if command -v apt-get &> /dev/null; then
-        log "Using apt-get to install build-essential"
-        sudo apt-get update > /dev/null 2>&1
-        sudo apt-get install -y build-essential > /dev/null 2>&1
-      elif command -v yum &> /dev/null; then
-        log "Using yum to install Development Tools"
-        sudo yum groupinstall -y "Development Tools" > /dev/null 2>&1
-      else
-        log "Unable to install build essentials. Neither apt-get nor yum found."
-        return 1
-      fi
-      log "Build essentials installation attempt completed."
-    fi
-  else
-    log "Not on Linux, skipping build essentials check."
-  fi
+#  log "Checking for build essentials..."
+#  if [ "$OS" = "Linux" ]; then
+#    if command -v gcc &> /dev/null && command -v make &> /dev/null; then
+#      log "Build essentials already installed."
+#    else
+#      log "Installing build essentials..."
+#      if command -v apt-get &> /dev/null; then
+#        log "Using apt-get to install build-essential"
+#        sudo apt-get update > /dev/null 2>&1
+#      sudo apt-get install -y build-essential > /dev/null 2>&1
+#      elif command -v yum &> /dev/null; then
+#        log "Using yum to install Development Tools"
+#        sudo yum groupinstall -y "Development Tools" > /dev/null 2>&1
+#      else
+#        log "Unable to install build essentials. Neither apt-get nor yum found."
+#        return 1
+#      fi
+#      log "Build essentials installation attempt completed."
+#    fi
+#  else
+#    log "Not on Linux, skipping build essentials check."
+#  fi
 
   log "${PRIMARY_COLOR}Installing${RESET_COLOR} ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR}..."
-  REPO_URL="https://github.com/shocknet/Lightning.Pub/tarball/fix-arm"
+  REPO_URL="https://github.com/shocknet/Lightning.Pub/tarball/master"
   
   sudo -u $USER_NAME wget -q $REPO_URL -O $USER_HOME/lightning_pub.tar.gz > /dev/null 2>&1 || {
     log "${PRIMARY_COLOR}Failed to download Lightning.Pub.${RESET_COLOR}"
