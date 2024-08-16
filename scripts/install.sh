@@ -1,6 +1,17 @@
 #!/bin/bash
 set -e
 
+LOG_FILE="/var/log/pubdeploy.log"
+
+touch $LOG_FILE
+chmod 644 $LOG_FILE
+
+log() {
+  local message="$(date '+%Y-%m-%d %H:%M:%S') $1"
+  echo -e "$message"
+  echo -e "$(echo $message | sed 's/\\e\[[0-9;]*m//g')" >> $LOG_FILE
+}
+
 SCRIPT_VERSION="0.1.0"
 
 cleanup() {
@@ -31,7 +42,7 @@ modules=(
   "extract_nprofile"
 )
 
-echo "Script version $SCRIPT_VERSION"
+log "Script version $SCRIPT_VERSION"
 
 for module in "${modules[@]}"; do
   wget -q "${BASE_URL}/${module}.sh" -O "/tmp/${module}.sh" || log_error "Failed to download ${module}.sh" 1

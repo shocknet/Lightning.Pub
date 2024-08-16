@@ -84,8 +84,6 @@ install_lightning_pub() {
     log "${PRIMARY_COLOR}Full log available in $USER_HOME/lightning_pub/npm_install.log${RESET_COLOR}"
     return 1
   fi
-
-  log "npm dependencies installed successfully."
   
   return 0 
 }
