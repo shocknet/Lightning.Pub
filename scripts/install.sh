@@ -1,13 +1,22 @@
 #!/bin/bash
 set -e
 
+SCRIPT_VERSION="0.1.0"
+
+cleanup() {
+    echo "Cleaning up temporary files..."
+    rm -f /tmp/*.sh
+}
+
+trap cleanup EXIT
+
 log_error() {
     log "ERROR: $1"
     log "Exiting with status $2"
     exit $2
 }
 
-BASE_URL="https://raw.githubusercontent.com/shocknet/Lightning.Pub/master/scripts/"
+BASE_URL="https://raw.githubusercontent.com/shocknet/Lightning.Pub/fix-arm/scripts/"
 
 modules=(
   "utils"
@@ -22,6 +31,8 @@ modules=(
   "extract_nprofile"
 )
 
+echo "Script version $SCRIPT_VERSION"
+
 for module in "${modules[@]}"; do
   wget -q "${BASE_URL}/${module}.sh" -O "/tmp/${module}.sh" || log_error "Failed to download ${module}.sh" 1
   source "/tmp/${module}.sh" || log_error "Failed to source ${module}.sh" 1
@@ -35,6 +46,7 @@ if [ "$OS" = "Mac" ]; then
   log "Handling macOS specific setup"
   handle_macos || log_error "macOS setup failed" 1
 else
+  log "Starting LND installation..."
   lnd_output=$(install_lnd)
   install_result=$?
 
@@ -42,7 +54,6 @@ else
     log_error "LND installation failed" $install_result
   fi
 
-  # Extract the LND status from the output
   lnd_status=$(echo "$lnd_output" | grep "LND_STATUS:" | cut -d':' -f2)
 
   case $lnd_status in
@@ -52,16 +63,16 @@ else
     *) log "WARNING: Unexpected status from install_lnd: $lnd_status" ;;
   esac
 
-  install_nodejs || log_error "NodeJS installation failed" $?
-
-  pub_output=$(install_lightning_pub)
-  install_result=$?
-
-  if [ $install_result -ne 0 ]; then
-    log_error "Lightning.Pub installation failed" $install_result
+  log "Starting Node.js installation..."
+  install_nodejs
+  nodejs_result=$?
+  log "Node.js installation completed with status: $nodejs_result"
+  if [ $nodejs_result -ne 0 ]; then
+    log_error "NodeJS installation failed" $nodejs_result
   fi
 
-  # Extract the upgrade status from the output
+ install_lightning_pub
+
   pub_upgrade_status=$(echo "$pub_output" | grep "UPGRADE_STATUS:" | cut -d':' -f2)
 
   if [ "$pub_upgrade_status" = "100" ]; then

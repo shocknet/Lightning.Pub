@@ -1,6 +1,7 @@
 #!/bin/bash
 
 install_lightning_pub() {
+
   local upgrade_status=0
 
   if [ "$EUID" -eq 0 ]; then
@@ -9,6 +10,29 @@ install_lightning_pub() {
   else
     USER_HOME=$HOME
     USER_NAME=$(whoami)
+  fi
+
+  log "Checking for build essentials..."
+  if [ "$OS" = "Linux" ]; then
+    if command -v gcc &> /dev/null && command -v make &> /dev/null; then
+      log "Build essentials already installed."
+    else
+      log "Installing build essentials..."
+      if command -v apt-get &> /dev/null; then
+        log "Using apt-get to install build-essential"
+        sudo apt-get update > /dev/null 2>&1
+        sudo apt-get install -y build-essential > /dev/null 2>&1
+      elif command -v yum &> /dev/null; then
+        log "Using yum to install Development Tools"
+        sudo yum groupinstall -y "Development Tools" > /dev/null 2>&1
+      else
+        log "Unable to install build essentials. Neither apt-get nor yum found."
+        return 1
+      fi
+      log "Build essentials installation attempt completed."
+    fi
+  else
+    log "Not on Linux, skipping build essentials check."
   fi
 
   log "${PRIMARY_COLOR}Installing${RESET_COLOR} ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR}..."
@@ -50,22 +74,29 @@ install_lightning_pub() {
 
   log "${PRIMARY_COLOR}Installing${RESET_COLOR} npm dependencies..."
   
-  npm install > npm_install.log 2>&1
+  npm install > npm_install.log
   npm_exit_code=$?
 
   if [ $npm_exit_code -ne 0 ]; then
-    log "${PRIMARY_COLOR}Failed to install npm dependencies. Check npm_install.log for details.${RESET_COLOR}"
+    log "${PRIMARY_COLOR}Failed to install npm dependencies. Error details:${RESET_COLOR}"
+    tail -n 20 npm_install.log | while IFS= read -r line; do
+      log "  $line"
+    done
+    log "${PRIMARY_COLOR}Full log available in $USER_HOME/lightning_pub/npm_install.log${RESET_COLOR}"
     return 1
   fi
 
   if [ ! -d "node_modules" ] || [ -z "$(ls -A node_modules)" ]; then
     log "${PRIMARY_COLOR}npm install completed, but node_modules is empty or missing. Installation may have failed.${RESET_COLOR}"
+    log "Checking npm_install.log for errors:"
+    grep -i "error" npm_install.log | tail -n 10 | while IFS= read -r line; do
+      log "  $line"
+    done
+    log "${PRIMARY_COLOR}Full log available in $USER_HOME/lightning_pub/npm_install.log${RESET_COLOR}"
     return 1
   fi
 
   log "npm dependencies installed successfully."
   
-  # Echo a specific string followed by the upgrade status
-  echo "UPGRADE_STATUS:$upgrade_status"
-  return 0  # Always return 0 to indicate success
+  return 0 
 }
