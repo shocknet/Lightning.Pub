@@ -1,7 +1,13 @@
 #!/bin/bash
 
 install_lightning_pub() {
+  local REPO_URL="$1"
   local upgrade_status=0
+
+  if [ -z "$REPO_URL" ]; then
+    log "REPO_URL missing"
+    return 1
+  fi
 
   if [ "$EUID" -eq 0 ]; then
     USER_HOME=$(getent passwd ${SUDO_USER} | cut -d: -f6)
@@ -35,7 +41,6 @@ install_lightning_pub() {
 #  fi
 
   log "${PRIMARY_COLOR}Installing${RESET_COLOR} ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR}..."
-  REPO_URL="https://github.com/shocknet/Lightning.Pub/tarball/master"
   
   sudo -u $USER_NAME wget -q $REPO_URL -O $USER_HOME/lightning_pub.tar.gz > /dev/null 2>&1 || {
     log "${PRIMARY_COLOR}Failed to download Lightning.Pub.${RESET_COLOR}"
