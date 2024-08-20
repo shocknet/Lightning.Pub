@@ -75,7 +75,7 @@ export class Watchdog {
         this.latestHtlcIndexOffset = fwEvents.lastOffsetIndex
         this.accumulatedHtlcFees = 0
         const paymentFound = await this.storage.paymentStorage.GetMaxPaymentIndex()
-        const knownMaxIndex = paymentFound.length > 0 ? Math.max(paymentFound[0].paymentIndex,0) : 0
+        const knownMaxIndex = paymentFound.length > 0 ? Math.max(paymentFound[0].paymentIndex, 0) : 0
         this.latestPaymentIndexOffset = await this.lnd.GetLatestPaymentIndex(knownMaxIndex)
         const other = { ilnd: this.initialLndBalance, hf: this.accumulatedHtlcFees, iu: this.initialUsersBalance, tu: totalUsersBalance, oext: otherExternal }
         getLogger({ component: 'watchdog_debug2' })(JSON.stringify({ deltaLnd: 0, deltaUsers: 0, totalExternal, latestIndex: this.latestPaymentIndexOffset, other }))
@@ -162,14 +162,14 @@ export class Watchdog {
         if (isDisrupted) {
             if (tracker.latest_distruption_at_unix === 0) {
                 await this.storage.liquidityStorage.UpdateTrackedProviderDisruption('lnd', this.lndPubKey, Math.floor(Date.now() / 1000))
-                getLogger({ component: 'bark' })("detected lnd loss of", absoluteDiff, "sats,", absoluteDiff - this.settings.maxDiffSats, "above the max allowed")
+                this.log("detected lnd loss of", absoluteDiff, "sats,", absoluteDiff - this.settings.maxDiffSats, "above the max allowed")
             } else {
-                getLogger({ component: 'bark' })("ongoing lnd loss of", absoluteDiff, "sats,", absoluteDiff - this.settings.maxDiffSats, "above the max allowed")
+                this.log("ongoing lnd loss of", absoluteDiff, "sats,", absoluteDiff - this.settings.maxDiffSats, "above the max allowed")
             }
         } else {
             if (tracker.latest_distruption_at_unix !== 0) {
                 await this.storage.liquidityStorage.UpdateTrackedProviderDisruption('lnd', this.lndPubKey, 0)
-                getLogger({ component: 'bark' })("loss cleared after: ", Math.floor(Date.now() / 1000) - tracker.latest_distruption_at_unix, "seconds")
+                this.log("loss cleared after: ", Math.floor(Date.now() / 1000) - tracker.latest_distruption_at_unix, "seconds")
             } else if (absoluteDiff > 0) {
                 this.log("lnd balance increased more than users balance by", absoluteDiff)
             }
@@ -194,7 +194,7 @@ export class Watchdog {
         getLogger({ component: 'watchdog_debug2' })(JSON.stringify({ deltaLnd, deltaUsers, totalExternal, other }))
         const deny = await this.checkBalanceUpdate(deltaLnd, deltaUsers)
         if (historyMismatch) {
-            this.log("History mismatch detected in absolute update, locking outgoing operations")
+            getLogger({ component: 'bark' })("History mismatch detected in absolute update, locking outgoing operations")
             this.lnd.LockOutgoingOperations()
             return
         }
