@@ -18,7 +18,7 @@ export default class HtlcTracker {
     }
     log = getLogger({ component: 'htlcTracker' })
     onHtlcEvent = async (htlc: HtlcEvent) => {
-        //getLogger({ component: 'debugHtlcs' })(htlc)
+        /* //getLogger({ component: 'debugHtlcs' })(htlc)
         const htlcEvent = htlc.event
         if (htlcEvent.oneofKind === 'subscribedEvent') {
             return
@@ -45,81 +45,81 @@ export default class HtlcTracker {
                 return this.handleSuccess(info)
             default:
             //this.log("unknown htlc event type")
-        }
+        } */
     }
 
-    handleForward = (fwe: ForwardEvent, { eventType, outgoingHtlcId, incomingHtlcId }: EventInfo) => {
-        const { info } = fwe
-        const incomingAmtMsat = info ? Number(info.incomingAmtMsat) : 0
-        const outgoingAmtMsat = info ? Number(info.outgoingAmtMsat) : 0
-        if (eventType === HtlcEvent_EventType.SEND) {
-            this.pendingSendHtlcs.set(outgoingHtlcId, outgoingAmtMsat - incomingAmtMsat)
-        } else if (eventType === HtlcEvent_EventType.RECEIVE) {
-            this.pendingReceiveHtlcs.set(incomingHtlcId, incomingAmtMsat - outgoingAmtMsat)
-        } else if (eventType === HtlcEvent_EventType.FORWARD) {
-            this.pendingForwardHtlcs.set(outgoingHtlcId, outgoingAmtMsat - incomingAmtMsat)
-        }
-    }
+    /*     handleForward = (fwe: ForwardEvent, { eventType, outgoingHtlcId, incomingHtlcId }: EventInfo) => {
+            const { info } = fwe
+            const incomingAmtMsat = info ? Number(info.incomingAmtMsat) : 0
+            const outgoingAmtMsat = info ? Number(info.outgoingAmtMsat) : 0
+            if (eventType === HtlcEvent_EventType.SEND) {
+                this.pendingSendHtlcs.set(outgoingHtlcId, outgoingAmtMsat - incomingAmtMsat)
+            } else if (eventType === HtlcEvent_EventType.RECEIVE) {
+                this.pendingReceiveHtlcs.set(incomingHtlcId, incomingAmtMsat - outgoingAmtMsat)
+            } else if (eventType === HtlcEvent_EventType.FORWARD) {
+                this.pendingForwardHtlcs.set(outgoingHtlcId, outgoingAmtMsat - incomingAmtMsat)
+            }
+        } */
 
-    handleFailure = ({ eventType, outgoingHtlcId, incomingHtlcId, incomingChannelId, outgoingChannelId }: EventInfo) => {
-        if (eventType === HtlcEvent_EventType.SEND && this.deleteMapEntry(outgoingHtlcId, this.pendingSendHtlcs) !== null) {
-            return this.incrementSendFailures(outgoingChannelId)
-        }
-        if (eventType === HtlcEvent_EventType.RECEIVE && this.deleteMapEntry(incomingHtlcId, this.pendingReceiveHtlcs) !== null) {
-            return this.incrementReceiveFailures(incomingChannelId)
-        }
-        if (eventType === HtlcEvent_EventType.FORWARD) {
-            const amt = this.deleteMapEntry(outgoingHtlcId, this.pendingForwardHtlcs)
-            if (amt !== null) {
-                return this.incrementForwardFailures(incomingChannelId, outgoingChannelId, amt)
-            }
-        }
-        if (eventType === HtlcEvent_EventType.UNKNOWN) {
-            const fwdAmt = this.deleteMapEntry(outgoingHtlcId, this.pendingForwardHtlcs)
-            if (fwdAmt !== null) {
-                return this.incrementForwardFailures(incomingChannelId, outgoingChannelId, fwdAmt)
-            }
-            if (this.deleteMapEntry(outgoingHtlcId, this.pendingSendHtlcs) !== null) {
+    /*     handleFailure = ({ eventType, outgoingHtlcId, incomingHtlcId, incomingChannelId, outgoingChannelId }: EventInfo) => {
+            if (eventType === HtlcEvent_EventType.SEND && this.deleteMapEntry(outgoingHtlcId, this.pendingSendHtlcs) !== null) {
                 return this.incrementSendFailures(outgoingChannelId)
             }
-            if (this.deleteMapEntry(incomingHtlcId, this.pendingReceiveHtlcs) !== null) {
+            if (eventType === HtlcEvent_EventType.RECEIVE && this.deleteMapEntry(incomingHtlcId, this.pendingReceiveHtlcs) !== null) {
                 return this.incrementReceiveFailures(incomingChannelId)
             }
-        }
-    }
+            if (eventType === HtlcEvent_EventType.FORWARD) {
+                const amt = this.deleteMapEntry(outgoingHtlcId, this.pendingForwardHtlcs)
+                if (amt !== null) {
+                    return this.incrementForwardFailures(incomingChannelId, outgoingChannelId, amt)
+                }
+            }
+            if (eventType === HtlcEvent_EventType.UNKNOWN) {
+                const fwdAmt = this.deleteMapEntry(outgoingHtlcId, this.pendingForwardHtlcs)
+                if (fwdAmt !== null) {
+                    return this.incrementForwardFailures(incomingChannelId, outgoingChannelId, fwdAmt)
+                }
+                if (this.deleteMapEntry(outgoingHtlcId, this.pendingSendHtlcs) !== null) {
+                    return this.incrementSendFailures(outgoingChannelId)
+                }
+                if (this.deleteMapEntry(incomingHtlcId, this.pendingReceiveHtlcs) !== null) {
+                    return this.incrementReceiveFailures(incomingChannelId)
+                }
+            }
+        } */
 
-    handleSuccess = ({ eventType, outgoingHtlcId, incomingHtlcId }: EventInfo) => {
-        if (eventType === HtlcEvent_EventType.SEND) {
-            this.deleteMapEntry(outgoingHtlcId, this.pendingSendHtlcs)
-        } else if (eventType === HtlcEvent_EventType.RECEIVE) {
-            this.deleteMapEntry(incomingHtlcId, this.pendingReceiveHtlcs)
-        } else if (eventType === HtlcEvent_EventType.FORWARD) {
-            this.deleteMapEntry(outgoingHtlcId, this.pendingForwardHtlcs)
-        } else if (eventType === HtlcEvent_EventType.UNKNOWN) {
-            if (this.deleteMapEntry(outgoingHtlcId, this.pendingSendHtlcs) !== null) return
-            if (this.deleteMapEntry(incomingHtlcId, this.pendingReceiveHtlcs) !== null) return
-            if (this.deleteMapEntry(outgoingHtlcId, this.pendingForwardHtlcs) !== null) return
-        }
-    }
+    /*     handleSuccess = ({ eventType, outgoingHtlcId, incomingHtlcId }: EventInfo) => {
+            if (eventType === HtlcEvent_EventType.SEND) {
+                this.deleteMapEntry(outgoingHtlcId, this.pendingSendHtlcs)
+            } else if (eventType === HtlcEvent_EventType.RECEIVE) {
+                this.deleteMapEntry(incomingHtlcId, this.pendingReceiveHtlcs)
+            } else if (eventType === HtlcEvent_EventType.FORWARD) {
+                this.deleteMapEntry(outgoingHtlcId, this.pendingForwardHtlcs)
+            } else if (eventType === HtlcEvent_EventType.UNKNOWN) {
+                if (this.deleteMapEntry(outgoingHtlcId, this.pendingSendHtlcs) !== null) return
+                if (this.deleteMapEntry(incomingHtlcId, this.pendingReceiveHtlcs) !== null) return
+                if (this.deleteMapEntry(outgoingHtlcId, this.pendingForwardHtlcs) !== null) return
+            }
+        } */
+    /* 
+        deleteMapEntry = (key: number, map: Map<number, number>) => {
+            if (!map.has(key)) {
+                return null
+            }
+            const v = map.get(key)
+            map.delete(key)
+            return v || null
+        } */
 
-    deleteMapEntry = (key: number, map: Map<number, number>) => {
-        if (!map.has(key)) {
-            return null
+    /*     incrementSendFailures = async (outgoingChannelId: number) => {
+            await this.storage.metricsStorage.IncrementChannelRouting(outgoingChannelId.toString(), { send_errors: 1 })
         }
-        const v = map.get(key)
-        map.delete(key)
-        return v || null
-    }
-
-    incrementSendFailures = async (outgoingChannelId: number) => {
-        await this.storage.metricsStorage.IncrementChannelRouting(outgoingChannelId.toString(), { send_errors: 1 })
-    }
-    incrementReceiveFailures = async (incomingChannelId: number) => {
-        await this.storage.metricsStorage.IncrementChannelRouting(incomingChannelId.toString(), { receive_errors: 1 })
-    }
-    incrementForwardFailures = async (incomingChannelId: number, outgoingChannelId: number, amt: number) => {
-        await this.storage.metricsStorage.IncrementChannelRouting(incomingChannelId.toString(), { forward_errors_as_input: 1, missed_forward_fee_as_input: amt })
-        await this.storage.metricsStorage.IncrementChannelRouting(outgoingChannelId.toString(), { forward_errors_as_output: 1, missed_forward_fee_as_output: amt })
-    }
+        incrementReceiveFailures = async (incomingChannelId: number) => {
+            await this.storage.metricsStorage.IncrementChannelRouting(incomingChannelId.toString(), { receive_errors: 1 })
+        }
+        incrementForwardFailures = async (incomingChannelId: number, outgoingChannelId: number, amt: number) => {
+            await this.storage.metricsStorage.IncrementChannelRouting(incomingChannelId.toString(), { forward_errors_as_input: 1, missed_forward_fee_as_input: amt })
+            await this.storage.metricsStorage.IncrementChannelRouting(outgoingChannelId.toString(), { forward_errors_as_output: 1, missed_forward_fee_as_output: amt })
+        } */
 }
 
