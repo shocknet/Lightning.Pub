@@ -36,6 +36,7 @@ export default class Handler {
             remote_balance_sats: c.remoteBalanceSats,
         }))
         await this.storage.metricsStorage.SaveBalanceEvents(balanceEvent, channelsEvents)
+        await this.FetchLatestForwardingEvents()
     }
 
     async FetchLatestForwardingEvents() {
@@ -43,8 +44,8 @@ export default class Handler {
         const res = await this.lnd.GetForwardingHistory(latestIndex)
         const forwards = res.forwardingEvents.map(e => ({ fee: Number(e.fee), chanIdIn: e.chanIdIn, chanIdOut: e.chanIdOut, timestampNs: e.timestampNs.toString(), offset: res.lastOffsetIndex }))
         await Promise.all(forwards.map(async f => {
-            await this.storage.metricsStorage.IncrementChannelRouting(f.chanIdIn, { forward_fee_as_input: f.fee, latest_index_offset: f.offset })
-            await this.storage.metricsStorage.IncrementChannelRouting(f.chanIdOut, { forward_fee_as_output: f.fee, latest_index_offset: f.offset })
+            await this.storage.metricsStorage.IncrementChannelRouting(f.chanIdIn, { forward_fee_as_input: f.fee, latest_index_offset: f.offset, events_as_input: 1 })
+            await this.storage.metricsStorage.IncrementChannelRouting(f.chanIdOut, { forward_fee_as_output: f.fee, latest_index_offset: f.offset, events_as_output: 1 })
         }))
     }
 
@@ -176,7 +177,7 @@ export default class Handler {
             total_fees: totalFees,
             invoices: receivingInvoices.length,
 
-            operations:[]
+            operations: []
         }
     }
 
@@ -207,54 +208,60 @@ export default class Handler {
         const { totalPendingOpen, totalPendingClose } = await this.GetPendingChannelsInfo()
         const { channels: closedChannels } = await this.lnd.ListClosedChannels()
         const rawRouting = await this.storage.metricsStorage.GetChannelRouting({ from: req.from_unix, to: req.to_unix })
-        const routingMap: Record<string, Types.ChannelRouting> = {}
+        let totalEvents = 0
+        let totalFees = 0
         rawRouting.forEach(r => {
-            if (!routingMap[r.channel_id]) {
-                routingMap[r.channel_id] = {
-                    channel_id: r.channel_id,
-                    send_errors: 0,
-                    receive_errors: 0,
-                    forward_errors_as_input: 0,
-                    forward_errors_as_output: 0,
-                    missed_forward_fee_as_input: 0,
-                    missed_forward_fee_as_output: 0,
-                    forward_fee_as_input: 0,
-                    forward_fee_as_output: 0,
-                    events_number: 0
-                }
-            }
-            routingMap[r.channel_id].send_errors += r.send_errors
-            routingMap[r.channel_id].receive_errors += r.receive_errors
-            routingMap[r.channel_id].forward_errors_as_input += r.forward_errors_as_input
-            routingMap[r.channel_id].forward_errors_as_output += r.forward_errors_as_output
-            routingMap[r.channel_id].missed_forward_fee_as_input += r.missed_forward_fee_as_input
-            routingMap[r.channel_id].missed_forward_fee_as_output += r.missed_forward_fee_as_output
-            routingMap[r.channel_id].forward_fee_as_input += r.forward_fee_as_input
-            routingMap[r.channel_id].forward_fee_as_output += r.forward_fee_as_output
-            routingMap[r.channel_id].events_number++
+            totalEvents += r.events_as_input
+            totalFees += r.forward_fee_as_input
         })
         const { channelsBalanceEvents, chainBalanceEvents } = await this.storage.metricsStorage.GetBalanceEvents({ from: req.from_unix, to: req.to_unix })
+        const chainBalance: Types.GraphPoint[] = []
+        chainBalanceEvents.forEach(e => {
+            if (chainBalance.length === 0) {
+                chainBalance.push({ x: e.block_height, y: e.total_chain_balance })
+                return
+            }
+            const last = chainBalance[chainBalance.length - 1]
+            if (last.y !== e.total_chain_balance) {
+                chainBalance.push({ x: e.block_height, y: e.total_chain_balance })
+            }
+        })
+        const chansPerBlock = new Map()
+        channelsBalanceEvents.forEach(e => {
+            const height = e.balance_event.block_height
+            const local = e.local_balance_sats
+            const v = chansPerBlock.get(height)
+            if (!v) {
+                chansPerBlock.set(height, local)
+                return
+            }
+            chansPerBlock.set(height, local + v)
+        })
+
+        const chansBalance: Types.GraphPoint[] = []
+        chansPerBlock.forEach((v, k) => {
+            if (chansBalance.length === 0) {
+                chansBalance.push({ x: k, y: v })
+                return
+            }
+            const last = chansBalance[chansBalance.length - 1]
+            if (last.y !== v) {
+                chansBalance.push({ x: k, y: v })
+            }
+        })
+
         return {
             nodes: [{
-                chain_balance_events: []/*chainBalanceEvents.map(e => ({
-                    block_height: e.block_height,
-                    confirmed_balance: e.confirmed_chain_balance,
-                    unconfirmed_balance: e.unconfirmed_chain_balance,
-                    total_balance: e.total_chain_balance
-                }))*/,
-                channels_balance_events: []/*channelsBalanceEvents.map(e => ({
-                    block_height: e.balance_event.block_height,
-                    channel_id: e.channel_id,
-                    local_balance_sats: e.local_balance_sats,
-                    remote_balance_sats: e.remote_balance_sats
-                }))*/,
+                chain_balance: chainBalance,
+                channel_balance: chansBalance,
                 closing_channels: totalPendingClose,
                 pending_channels: totalPendingOpen,
                 offline_channels: totalInactive,
                 online_channels: totalActive,
                 closed_channels: closedChannels.map(c => ({ capacity: Number(c.capacity), channel_id: c.chanId, closed_height: c.closeHeight })),
                 open_channels: openChannels.map(c => ({ active: c.active, capacity: Number(c.capacity), channel_id: c.chanId, lifetime: Number(c.lifetime), local_balance: Number(c.localBalance), remote_balance: Number(c.remoteBalance) })),
-                channel_routing: Object.values(routingMap)
+                forwarding_events: totalEvents,
+                forwarding_fees: totalFees
             }],
         }
     }
