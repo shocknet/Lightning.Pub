@@ -2,7 +2,7 @@ import { getLogger } from "../helpers/logger.js"
 import { Utils } from "../helpers/utilsWrapper.js"
 import { LiquidityProvider } from "./liquidityProvider.js"
 import LND from "../lnd/lnd.js"
-import { FlashsatsLSP, LoadLSPSettingsFromEnv, LSPSettings, OlympusLSP, VoltageLSP } from "../lnd/lsp.js"
+import { FlashsatsLSP, LoadLSPSettingsFromEnv, LSPSettings, OlympusLSP, /* VoltageLSP */ } from "../lnd/lsp.js"
 import Storage from '../storage/index.js'
 import { defaultInvoiceExpiry } from "../storage/paymentStorage.js"
 import { RugPullTracker } from "./rugPullTracker.js"
@@ -23,7 +23,7 @@ export class LiquidityManager {
     rugPullTracker: RugPullTracker
     lnd: LND
     olympusLSP: OlympusLSP
-    voltageLSP: VoltageLSP
+    /* voltageLSP: VoltageLSP */
     flashsatsLSP: FlashsatsLSP
     log = getLogger({ component: "liquidityManager" })
     channelRequested = false
@@ -40,7 +40,7 @@ export class LiquidityManager {
         this.rugPullTracker = rugPullTracker
         this.utils = utils
         this.olympusLSP = new OlympusLSP(settings.lspSettings, lnd, liquidityProvider)
-        this.voltageLSP = new VoltageLSP(settings.lspSettings, lnd, liquidityProvider)
+        /* this.voltageLSP = new VoltageLSP(settings.lspSettings, lnd, liquidityProvider) */
         this.flashsatsLSP = new FlashsatsLSP(settings.lspSettings, lnd, liquidityProvider)
     }
 
@@ -198,7 +198,7 @@ export class LiquidityManager {
             await this.storage.liquidityStorage.SaveLspOrder({ service_name: 'olympus', invoice: olympusOk.invoice, total_paid: olympusOk.totalSats, order_id: olympusOk.orderId, fees: olympusOk.fees })
             return
         }
-        const voltageOk = await this.voltageLSP.requestChannel(shouldOpen.maxSpendable)
+        /* const voltageOk = await this.voltageLSP.requestChannel(shouldOpen.maxSpendable)
         if (voltageOk) {
             this.log("requested channel from voltage")
             this.channelRequested = true
@@ -206,7 +206,7 @@ export class LiquidityManager {
             this.feesPaid += voltageOk.fees
             await this.storage.liquidityStorage.SaveLspOrder({ service_name: 'voltage', invoice: voltageOk.invoice, total_paid: voltageOk.totalSats, order_id: voltageOk.orderId, fees: voltageOk.fees })
             return
-        }
+        } */
 
         const flashsatsOk = await this.flashsatsLSP.requestChannel(shouldOpen.maxSpendable)
         if (flashsatsOk) {
