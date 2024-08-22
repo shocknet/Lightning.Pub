@@ -225,6 +225,7 @@ export class OlympusLSP extends LSP {
     }
 }
 
+/*
 export class VoltageLSP extends LSP {
     constructor(settings: LSPSettings, lnd: LND, liquidityProvider: LiquidityProvider) {
         super("VoltageLSP", settings, lnd, liquidityProvider)
@@ -303,3 +304,4 @@ export class VoltageLSP extends LSP {
         return json
     }
 }
+    */
