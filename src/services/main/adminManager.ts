@@ -143,7 +143,7 @@ export class AdminManager {
     }
 
     ListChannels = async (): Promise<Types.LndChannels> => {
-        const channels = await this.lnd.ListChannels()
+        const channels = await this.lnd.ListChannels(true)
         return {
             open_channels: channels.channels.map(c => ({
                 active: c.active,
