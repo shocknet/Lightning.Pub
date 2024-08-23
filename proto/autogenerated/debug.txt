@@ -28,7 +28,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc000274a50)({
+ (*main.Method)(0xc0002e4a50)({
   in: (main.MethodMessage) {
    name: (string) (len=13) "AddAppRequest",
    hasZeroFields: (bool) false
@@ -57,7 +57,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc000274af0)({
+ (*main.Method)(0xc0002e4af0)({
   in: (main.MethodMessage) {
    name: (string) (len=14) "AuthAppRequest",
    hasZeroFields: (bool) false
@@ -86,7 +86,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc000274b90)({
+ (*main.Method)(0xc0002e4b90)({
   in: (main.MethodMessage) {
    name: (string) (len=14) "BanUserRequest",
    hasZeroFields: (bool) false
@@ -115,7 +115,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc000274be0)({
+ (*main.Method)(0xc0002e4be0)({
   in: (main.MethodMessage) {
    name: (string) (len=5) "Empty",
    hasZeroFields: (bool) true
@@ -144,7 +144,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc000274c30)({
+ (*main.Method)(0xc0002e4c30)({
   in: (main.MethodMessage) {
    name: (string) (len=5) "Empty",
    hasZeroFields: (bool) true
@@ -571,9 +571,9 @@
     id: (string) (len=4) "user",
     name: (string) (len=4) "User",
     context: (map[string]string) (len=3) {
-     (string) (len=7) "user_id": (string) (len=6) "string",
      (string) (len=6) "app_id": (string) (len=6) "string",
-     (string) (len=11) "app_user_id": (string) (len=6) "string"
+     (string) (len=11) "app_user_id": (string) (len=6) "string",
+     (string) (len=7) "user_id": (string) (len=6) "string"
     }
    }),
    method: (string) (len=4) "post",
@@ -602,8 +602,8 @@
     id: (string) (len=8) "guestPub",
     name: (string) (len=12) "GuestWithPub",
     context: (map[string]string) (len=2) {
-     (string) (len=6) "app_id": (string) (len=6) "string",
-     (string) (len=3) "pub": (string) (len=6) "string"
+     (string) (len=3) "pub": (string) (len=6) "string",
+     (string) (len=6) "app_id": (string) (len=6) "string"
     }
    }),
    method: (string) (len=4) "post",
@@ -1382,9 +1382,9 @@
     id: (string) (len=4) "user",
     name: (string) (len=4) "User",
     context: (map[string]string) (len=3) {
+     (string) (len=11) "app_user_id": (string) (len=6) "string",
      (string) (len=7) "user_id": (string) (len=6) "string",
-     (string) (len=6) "app_id": (string) (len=6) "string",
-     (string) (len=11) "app_user_id": (string) (len=6) "string"
+     (string) (len=6) "app_id": (string) (len=6) "string"
     }
    }),
    method: (string) (len=4) "post",
@@ -2063,9 +2063,9 @@
     name: (string) (len=7) "invoice",
     kind: (string) (len=6) "string",
     isMap: (bool) false,
-    isArray: (bool) false,
+    isArray: (bool) true,
     isEnum: (bool) false,
-    isMessage: (bool) false,
+    isMessage: (bool) true,
     isOptional: (bool) false,
     oneOfName: (string) ""
    })
@@ -2137,7 +2137,7 @@
     isMap: (bool) false,
     isArray: (bool) false,
     isEnum: (bool) false,
-    isMessage: (bool) false,
+    isMessage: (bool) true,
     isOptional: (bool) false,
     oneOfName: (string) ""
    }),
@@ -2155,9 +2155,9 @@
     name: (string) (len=15) "minWithdrawable",
     kind: (string) (len=5) "int64",
     isMap: (bool) false,
-    isArray: (bool) false,
+    isArray: (bool) true,
     isEnum: (bool) false,
-    isMessage: (bool) false,
+    isMessage: (bool) true,
     isOptional: (bool) false,
     oneOfName: (string) ""
    }),
@@ -2261,8 +2261,8 @@
     isMap: (bool) false,
     isArray: (bool) false,
     isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false,
+    isMessage: (bool) true,
+    isOptional: (bool) true,
     oneOfName: (string) ""
    }),
    (string) (len=3) "url": (*main.Field)(0xc0000b0cc0)({
@@ -2271,8 +2271,8 @@
     isMap: (bool) false,
     isArray: (bool) false,
     isEnum: (bool) false,
-    isMessage: (bool) false,
-    isOptional: (bool) false,
+    isMessage: (bool) true,
+    isOptional: (bool) true,
     oneOfName: (string) ""
    })
   }
@@ -2455,9 +2455,9 @@
     name: (string) (len=5) "nodes",
     kind: (string) (len=14) "LndNodeMetrics",
     isMap: (bool) false,
-    isArray: (bool) true,
+    isArray: (bool) false,
     isEnum: (bool) false,
-    isMessage: (bool) true,
+    isMessage: (bool) false,
     isOptional: (bool) false,
     oneOfName: (string) ""
    })
@@ -2626,6 +2626,16 @@
     isMessage: (bool) true,
     isOptional: (bool) false,
     oneOfName: (string) ""
+   }),
+   (string) (len=10) "price_sats": (*main.Field)(0xc0001b8bc0)({
+    name: (string) (len=10) "price_sats",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false,
+    oneOfName: (string) ""
    })
   }
  }),
@@ -2660,7 +2670,7 @@
     isArray: (bool) false,
     isEnum: (bool) false,
     isMessage: (bool) false,
-    isOptional: (bool) false,
+    isOptional: (bool) true,
     oneOfName: (string) ""
    }),
    (string) (len=8) "max_size": (*main.Field)(0xc000315cc0)({
@@ -2670,7 +2680,7 @@
     isArray: (bool) false,
     isEnum: (bool) false,
     isMessage: (bool) false,
-    isOptional: (bool) false,
+    isOptional: (bool) true,
     oneOfName: (string) ""
    }),
    (string) (len=21) "latestIncomingInvoice": (*main.Field)(0xc000315b40)({
@@ -2700,7 +2710,7 @@
     isArray: (bool) false,
     isEnum: (bool) false,
     isMessage: (bool) false,
-    isOptional: (bool) false,
+    isOptional: (bool) true,
     oneOfName: (string) ""
    })
   }
@@ -2971,9 +2981,9 @@
     name: (string) (len=12) "operation_id",
     kind: (string) (len=6) "string",
     isMap: (bool) false,
-    isArray: (bool) false,
+    isArray: (bool) true,
     isEnum: (bool) false,
-    isMessage: (bool) false,
+    isMessage: (bool) true,
     isOptional: (bool) false,
     oneOfName: (string) ""
    }),
@@ -3185,7 +3195,7 @@
     name: (string) (len=4) "info",
     kind: (string) (len=8) "UserInfo",
     isMap: (bool) false,
-    isArray: (bool) false,
+    isArray: (bool) true,
     isEnum: (bool) false,
     isMessage: (bool) true,
     isOptional: (bool) false,
@@ -3471,7 +3481,7 @@
     name: (string) (len=10) "operations",
     kind: (string) (len=13) "UserOperation",
     isMap: (bool) false,
-    isArray: (bool) true,
+    isArray: (bool) false,
     isEnum: (bool) false,
     isMessage: (bool) true,
     isOptional: (bool) false,
@@ -3560,7 +3570,7 @@
     isArray: (bool) false,
     isEnum: (bool) false,
     isMessage: (bool) false,
-    isOptional: (bool) false,
+    isOptional: (bool) true,
     oneOfName: (string) ""
    }),
    (string) (len=19) "outgoing_channel_id": (*main.Field)(0xc00048b200)({
@@ -3885,7 +3895,23 @@
     isMap: (bool) false,
     isArray: (bool) false,
     isEnum: (bool) false,
-    isMessage: (bool) true,
+    isMessage: (bool) false,
+    isOptional: (bool) false,
+    oneOfName: (string) ""
+   })
+  }
+ }),
+ (string) (len=30) "SendAppUserToAppPaymentRequest": (*main.Message)(0xc000563530)({
+  fullName: (string) (len=30) "SendAppUserToAppPaymentRequest",
+  name: (string) (len=30) "SendAppUserToAppPaymentRequest",
+  fields: (map[string]*main.Field) (len=2) {
+   (string) (len=20) "from_user_identifier": (*main.Field)(0xc000120b80)({
+    name: (string) (len=20) "from_user_identifier",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
     isOptional: (bool) false,
     oneOfName: (string) ""
    }),
@@ -3895,7 +3921,7 @@
     isMap: (bool) false,
     isArray: (bool) false,
     isEnum: (bool) false,
-    isMessage: (bool) true,
+    isMessage: (bool) false,
     isOptional: (bool) false,
     oneOfName: (string) ""
    }),
@@ -4067,7 +4093,7 @@
     name: (string) (len=16) "pending_channels",
     kind: (string) (len=5) "int64",
     isMap: (bool) false,
-    isArray: (bool) false,
+    isArray: (bool) true,
     isEnum: (bool) false,
     isMessage: (bool) false,
     isOptional: (bool) false,
@@ -4189,9 +4215,9 @@
     name: (string) (len=4) "name",
     kind: (string) (len=6) "string",
     isMap: (bool) false,
-    isArray: (bool) false,
+    isArray: (bool) true,
     isEnum: (bool) false,
-    isMessage: (bool) false,
+    isMessage: (bool) true,
     isOptional: (bool) false,
     oneOfName: (string) ""
    })
@@ -4208,7 +4234,7 @@
     isArray: (bool) false,
     isEnum: (bool) false,
     isMessage: (bool) false,
-    isOptional: (bool) false,
+    isOptional: (bool) true,
     oneOfName: (string) ""
    }),
    (string) (len=16) "payer_identifier": (*main.Field)(0xc0003148c0)({
@@ -4253,7 +4279,7 @@
     isMap: (bool) false,
     isArray: (bool) false,
     isEnum: (bool) false,
-    isMessage: (bool) false,
+    isMessage: (bool) true,
     isOptional: (bool) false,
     oneOfName: (string) ""
    })
@@ -4453,9 +4479,9 @@
     name: (string) (len=9) "confirmed",
     kind: (string) (len=4) "bool",
     isMap: (bool) false,
-    isArray: (bool) false,
+    isArray: (bool) true,
     isEnum: (bool) false,
-    isMessage: (bool) false,
+    isMessage: (bool) true,
     isOptional: (bool) false,
     oneOfName: (string) ""
    }),
@@ -4535,6 +4561,60 @@
     isOptional: (bool) false,
     oneOfName: (string) ""
    })
+  }
+ }),
+ (string) (len=31) "CreateOneTimeInviteLinkResponse": (*main.Message)(0xc0001c6450)({
+  fullName: (string) (len=31) "CreateOneTimeInviteLinkResponse",
+  name: (string) (len=31) "CreateOneTimeInviteLinkResponse",
+  fields: (map[string]*main.Field) (len=1) {
+   (string) (len=15) "invitation_link": (*main.Field)(0xc0001b8f40)({
+    name: (string) (len=15) "invitation_link",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false,
+    oneOfName: (string) ""
+   })
+  }
+ }),
+ (string) (len=26) "GetInviteTokenStateRequest": (*main.Message)(0xc0001c6510)({
+  fullName: (string) (len=26) "GetInviteTokenStateRequest",
+  name: (string) (len=26) "GetInviteTokenStateRequest",
+  fields: (map[string]*main.Field) (len=1) {
+   (string) (len=12) "invite_token": (*main.Field)(0xc0001b8fc0)({
+    name: (string) (len=12) "invite_token",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false,
+    oneOfName: (string) ""
+   })
+  }
+ }),
+ (string) (len=27) "GetInviteTokenStateResponse": (*main.Message)(0xc0001c6570)({
+  fullName: (string) (len=27) "GetInviteTokenStateResponse",
+  name: (string) (len=27) "GetInviteTokenStateResponse",
+  fields: (map[string]*main.Field) (len=1) {
+   (string) (len=4) "used": (*main.Field)(0xc0001b9000)({
+    name: (string) (len=4) "used",
+    kind: (string) (len=4) "bool",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false,
+    oneOfName: (string) ""
+   })
+  }
+ }),
+ (string) (len=5) "Empty": (*main.Message)(0xc0005628d0)({
+  fullName: (string) (len=5) "Empty",
+  name: (string) (len=5) "Empty",
+  fields: (map[string]*main.Field) {
   }
  })
 }

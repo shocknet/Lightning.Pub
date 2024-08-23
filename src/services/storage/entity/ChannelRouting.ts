@@ -36,6 +36,12 @@ export class ChannelRouting {
     forward_fee_as_output: number
 
     @Column({ default: 0 })
+    events_as_output: number
+
+    @Column({ default: 0 })
+    events_as_input: number
+
+    @Column({ default: 0 })
     latest_index_offset: number
 
     @CreateDateColumn()

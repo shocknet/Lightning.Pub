@@ -87,19 +87,6 @@ message RoutingEvent {
     bool offchain = 11;
     bool forward_fail_event = 12;
 }
-message ChannelBalanceEvent {
-    int64 block_height = 1;
-    string channel_id = 2;
-    int64 local_balance_sats = 3;
-    int64 remote_balance_sats = 4;
-}
-
-message ChainBalanceEvent {
-    int64 block_height = 1;
-    int64 confirmed_balance = 2;
-    int64 unconfirmed_balance = 3;
-    int64 total_balance = 4;
-}
 
 message OpenChannel {
     string channel_id = 1;
@@ -116,29 +103,22 @@ message ClosedChannel {
     int64 closed_height =4;
 }
 
-message ChannelRouting {
-    string channel_id = 1;
-    int64 send_errors = 2;
-    int64 receive_errors = 3;
-    int64 forward_errors_as_input = 4;
-    int64 forward_errors_as_output = 5;
-    int64 missed_forward_fee_as_input = 6;
-    int64 missed_forward_fee_as_output = 7;
-    int64 forward_fee_as_input = 8;
-    int64 forward_fee_as_output = 9;
-    int64 events_number = 10;
+message GraphPoint {
+    int64 x = 1;
+    int64 y = 2;
 }
 
 message LndNodeMetrics {
-    repeated ChannelBalanceEvent channels_balance_events = 1;
-    repeated ChainBalanceEvent chain_balance_events = 2;
+    repeated GraphPoint chain_balance = 1;
+    repeated GraphPoint channel_balance = 2;
     int64 offline_channels = 4;
     int64 online_channels = 5;
     int64 pending_channels = 6;
     int64 closing_channels = 7;
     repeated OpenChannel open_channels = 8;
     repeated ClosedChannel closed_channels = 9;
-    repeated ChannelRouting channel_routing = 10;
+    int64 forwarding_events = 11;
+    int64 forwarding_fees = 12;
 }
 
 message LndMetrics {
