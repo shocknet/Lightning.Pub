@@ -1,4 +1,4 @@
-import { CoinSelectionStrategy, SendCoinsRequest } from "../../../proto/lnd/lightning";
+import { CoinSelectionStrategy, SendCoinsRequest } from "../../../proto/lnd/lightning.js";
 
 export const SendCoinsReq = (address: string, amount: number, satPerVByte: number, label = ""): SendCoinsRequest => ({
     addr: address,
