@@ -13,9 +13,9 @@ import { reflectionMergePartial } from "@protobuf-ts/runtime";
 import { MESSAGE_TYPE } from "@protobuf-ts/runtime";
 import { MessageType } from "@protobuf-ts/runtime";
 /**
- * @generated from protobuf message lnrpc.LookupHtlcRequest
+ * @generated from protobuf message lnrpc.LookupHtlcResolutionRequest
  */
-export interface LookupHtlcRequest {
+export interface LookupHtlcResolutionRequest {
     /**
      * @generated from protobuf field: uint64 chan_id = 1;
      */
@@ -26,14 +26,18 @@ export interface LookupHtlcRequest {
     htlcIndex: bigint;
 }
 /**
- * @generated from protobuf message lnrpc.LookupHtlcResponse
+ * @generated from protobuf message lnrpc.LookupHtlcResolutionResponse
  */
-export interface LookupHtlcResponse {
+export interface LookupHtlcResolutionResponse {
     /**
+     * Settled is true is the htlc was settled. If false, the htlc was failed.
+     *
      * @generated from protobuf field: bool settled = 1;
      */
     settled: boolean;
     /**
+     * Offchain indicates whether the htlc was resolved off-chain or on-chain.
+     *
      * @generated from protobuf field: bool offchain = 2;
      */
     offchain: boolean;
@@ -78,6 +82,9 @@ export interface SendCustomMessageRequest {
     peer: Uint8Array;
     /**
      * Message type. This value needs to be in the custom range (>= 32768).
+     * To send a type < custom range, lnd needs to be compiled with the `dev`
+     * build tag, and the message type to override should be specified in lnd's
+     * experimental protocol configuration.
      *
      * @generated from protobuf field: uint32 type = 2;
      */
@@ -477,7 +484,8 @@ export interface SendRequest {
     destFeatures: FeatureBit[];
     /**
      *
-     * The payment address of the generated invoice.
+     * The payment address of the generated invoice.  This is also called
+     * payment secret in specifications (e.g. BOLT 11).
      *
      * @generated from protobuf field: bytes payment_addr = 16;
      */
@@ -864,6 +872,12 @@ export interface EstimateFeeRequest {
      * @generated from protobuf field: bool spend_unconfirmed = 4;
      */
     spendUnconfirmed: boolean;
+    /**
+     * The strategy to use for selecting coins during fees estimation.
+     *
+     * @generated from protobuf field: lnrpc.CoinSelectionStrategy coin_selection_strategy = 5;
+     */
+    coinSelectionStrategy: CoinSelectionStrategy;
 }
 /**
  * @generated from protobuf message lnrpc.EstimateFeeResponse
@@ -944,6 +958,12 @@ export interface SendManyRequest {
      * @generated from protobuf field: bool spend_unconfirmed = 8;
      */
     spendUnconfirmed: boolean;
+    /**
+     * The strategy to use for selecting coins during sending many requests.
+     *
+     * @generated from protobuf field: lnrpc.CoinSelectionStrategy coin_selection_strategy = 9;
+     */
+    coinSelectionStrategy: CoinSelectionStrategy;
 }
 /**
  * @generated from protobuf message lnrpc.SendManyResponse
@@ -997,9 +1017,8 @@ export interface SendCoinsRequest {
     satPerByte: bigint;
     /**
      *
-     * If set, then the amount field will be ignored, and lnd will attempt to
-     * send all the coins under control of the internal wallet to the specified
-     * address.
+     * If set, the amount field should be unset. It indicates lnd will send all
+     * wallet coins or all selected coins to the specified address.
      *
      * @generated from protobuf field: bool send_all = 6;
      */
@@ -1023,6 +1042,18 @@ export interface SendCoinsRequest {
      * @generated from protobuf field: bool spend_unconfirmed = 9;
      */
     spendUnconfirmed: boolean;
+    /**
+     * The strategy to use for selecting coins.
+     *
+     * @generated from protobuf field: lnrpc.CoinSelectionStrategy coin_selection_strategy = 10;
+     */
+    coinSelectionStrategy: CoinSelectionStrategy;
+    /**
+     * A list of selected outpoints as inputs for the transaction.
+     *
+     * @generated from protobuf field: repeated lnrpc.OutPoint outpoints = 11;
+     */
+    outpoints: OutPoint[];
 }
 /**
  * @generated from protobuf message lnrpc.SendCoinsResponse
@@ -1559,6 +1590,27 @@ export interface Channel {
      * @generated from protobuf field: uint64 zero_conf_confirmed_scid = 33;
      */
     zeroConfConfirmedScid: bigint;
+    /**
+     * The configured alias name of our peer.
+     *
+     * @generated from protobuf field: string peer_alias = 34;
+     */
+    peerAlias: string;
+    /**
+     * This is the peer SCID alias.
+     *
+     * @generated from protobuf field: uint64 peer_scid_alias = 35 [jstype = JS_STRING];
+     */
+    peerScidAlias: string;
+    /**
+     *
+     * An optional note-to-self to go along with the channel containing some
+     * useful information. This is only ever stored locally and in no way impacts
+     * the channel's operation.
+     *
+     * @generated from protobuf field: string memo = 36;
+     */
+    memo: string;
 }
 /**
  * @generated from protobuf message lnrpc.ListChannelsRequest
@@ -1588,6 +1640,14 @@ export interface ListChannelsRequest {
      * @generated from protobuf field: bytes peer = 5;
      */
     peer: Uint8Array;
+    /**
+     * Informs the server if the peer alias lookup per channel should be
+     * enabled. It is turned off by default in order to avoid degradation of
+     * performance for existing clients.
+     *
+     * @generated from protobuf field: bool peer_alias_lookup = 6;
+     */
+    peerAliasLookup: boolean;
 }
 /**
  * @generated from protobuf message lnrpc.ListChannelsResponse
@@ -2153,7 +2213,10 @@ export interface GetInfoResponse {
      */
     testnet: boolean;
     /**
-     * A list of active chains the node is connected to
+     *
+     * A list of active chains the node is connected to. This will only
+     * ever contain a single entry since LND will only ever have a single
+     * chain backend during its lifetime.
      *
      * @generated from protobuf field: repeated lnrpc.Chain chains = 16;
      */
@@ -2181,6 +2244,32 @@ export interface GetInfoResponse {
      * @generated from protobuf field: bool require_htlc_interceptor = 21;
      */
     requireHtlcInterceptor: boolean;
+    /**
+     * Indicates whether final htlc resolutions are stored on disk.
+     *
+     * @generated from protobuf field: bool store_final_htlc_resolutions = 22;
+     */
+    storeFinalHtlcResolutions: boolean;
+}
+/**
+ * @generated from protobuf message lnrpc.GetDebugInfoRequest
+ */
+export interface GetDebugInfoRequest {
+}
+/**
+ * @generated from protobuf message lnrpc.GetDebugInfoResponse
+ */
+export interface GetDebugInfoResponse {
+    /**
+     * @generated from protobuf field: map<string, string> config = 1;
+     */
+    config: {
+        [key: string]: string;
+    };
+    /**
+     * @generated from protobuf field: repeated string log = 2;
+     */
+    log: string[];
 }
 /**
  * @generated from protobuf message lnrpc.GetRecoveryInfoRequest
@@ -2215,9 +2304,11 @@ export interface GetRecoveryInfoResponse {
  */
 export interface Chain {
     /**
-     * The blockchain the node is on (eg bitcoin, litecoin)
+     * Deprecated. The chain is now always assumed to be bitcoin.
+     * The blockchain the node is on (must be bitcoin)
      *
-     * @generated from protobuf field: string chain = 1;
+     * @deprecated
+     * @generated from protobuf field: string chain = 1 [deprecated = true];
      */
     chain: string;
     /**
@@ -2327,6 +2418,14 @@ export interface CloseChannelRequest {
      * @generated from protobuf field: uint64 max_fee_per_vbyte = 7;
      */
     maxFeePerVbyte: bigint;
+    /**
+     * If true, then the rpc call will not block while it awaits a closing txid.
+     * Consequently this RPC call will not return a closing txid if this value
+     * is set.
+     *
+     * @generated from protobuf field: bool no_wait = 8;
+     */
+    noWait: boolean;
 }
 /**
  * @generated from protobuf message lnrpc.CloseStatusUpdate
@@ -2348,6 +2447,12 @@ export interface CloseStatusUpdate {
          */
         chanClose: ChannelCloseUpdate;
     } | {
+        oneofKind: "closeInstant";
+        /**
+         * @generated from protobuf field: lnrpc.InstantUpdate close_instant = 4;
+         */
+        closeInstant: InstantUpdate;
+    } | {
         oneofKind: undefined;
     };
 }
@@ -2363,6 +2468,11 @@ export interface PendingUpdate {
      * @generated from protobuf field: uint32 output_index = 2;
      */
     outputIndex: number;
+}
+/**
+ * @generated from protobuf message lnrpc.InstantUpdate
+ */
+export interface InstantUpdate {
 }
 /**
  * @generated from protobuf message lnrpc.ReadyForPsbtFunding
@@ -2439,6 +2549,12 @@ export interface BatchOpenChannelRequest {
      * @generated from protobuf field: string label = 6;
      */
     label: string;
+    /**
+     * The strategy to use for selecting coins during batch opening channels.
+     *
+     * @generated from protobuf field: lnrpc.CoinSelectionStrategy coin_selection_strategy = 7;
+     */
+    coinSelectionStrategy: CoinSelectionStrategy;
 }
 /**
  * @generated from protobuf message lnrpc.BatchOpenChannel
@@ -2516,6 +2632,98 @@ export interface BatchOpenChannel {
      * @generated from protobuf field: lnrpc.CommitmentType commitment_type = 9;
      */
     commitmentType: CommitmentType;
+    /**
+     *
+     * The maximum amount of coins in millisatoshi that can be pending within
+     * the channel. It only applies to the remote party.
+     *
+     * @generated from protobuf field: uint64 remote_max_value_in_flight_msat = 10;
+     */
+    remoteMaxValueInFlightMsat: bigint;
+    /**
+     *
+     * The maximum number of concurrent HTLCs we will allow the remote party to add
+     * to the commitment transaction.
+     *
+     * @generated from protobuf field: uint32 remote_max_htlcs = 11;
+     */
+    remoteMaxHtlcs: number;
+    /**
+     *
+     * Max local csv is the maximum csv delay we will allow for our own commitment
+     * transaction.
+     *
+     * @generated from protobuf field: uint32 max_local_csv = 12;
+     */
+    maxLocalCsv: number;
+    /**
+     *
+     * If this is true, then a zero-conf channel open will be attempted.
+     *
+     * @generated from protobuf field: bool zero_conf = 13;
+     */
+    zeroConf: boolean;
+    /**
+     *
+     * If this is true, then an option-scid-alias channel-type open will be
+     * attempted.
+     *
+     * @generated from protobuf field: bool scid_alias = 14;
+     */
+    scidAlias: boolean;
+    /**
+     *
+     * The base fee charged regardless of the number of milli-satoshis sent.
+     *
+     * @generated from protobuf field: uint64 base_fee = 15;
+     */
+    baseFee: bigint;
+    /**
+     *
+     * The fee rate in ppm (parts per million) that will be charged in
+     * proportion of the value of each forwarded HTLC.
+     *
+     * @generated from protobuf field: uint64 fee_rate = 16;
+     */
+    feeRate: bigint;
+    /**
+     *
+     * If use_base_fee is true the open channel announcement will update the
+     * channel base fee with the value specified in base_fee. In the case of
+     * a base_fee of 0 use_base_fee is needed downstream to distinguish whether
+     * to use the default base fee value specified in the config or 0.
+     *
+     * @generated from protobuf field: bool use_base_fee = 17;
+     */
+    useBaseFee: boolean;
+    /**
+     *
+     * If use_fee_rate is true the open channel announcement will update the
+     * channel fee rate with the value specified in fee_rate. In the case of
+     * a fee_rate of 0 use_fee_rate is needed downstream to distinguish whether
+     * to use the default fee rate value specified in the config or 0.
+     *
+     * @generated from protobuf field: bool use_fee_rate = 18;
+     */
+    useFeeRate: boolean;
+    /**
+     *
+     * The number of satoshis we require the remote peer to reserve. This value,
+     * if specified, must be above the dust limit and below 20% of the channel
+     * capacity.
+     *
+     * @generated from protobuf field: uint64 remote_chan_reserve_sat = 19;
+     */
+    remoteChanReserveSat: bigint;
+    /**
+     *
+     * An optional note-to-self to go along with the channel containing some
+     * useful information. This is only ever stored locally and in no way impacts
+     * the channel's operation.
+     *
+     * @generated from protobuf field: string memo = 20;
+     */
+    memo: string;
 }
 /**
  * @generated from protobuf message lnrpc.BatchOpenChannelResponse
@@ -2734,6 +2942,31 @@ export interface OpenChannelRequest {
      * @generated from protobuf field: uint64 remote_chan_reserve_sat = 25;
      */
     remoteChanReserveSat: bigint;
+    /**
+     *
+     * If set, then lnd will attempt to commit all the coins under control of the
+     * internal wallet to open the channel, and the LocalFundingAmount field must
+     * be zero and is ignored.
+     *
+     * @generated from protobuf field: bool fund_max = 26;
+     */
+    fundMax: boolean;
+    /**
+     *
+     * An optional note-to-self to go along with the channel containing some
+     * useful information. This is only ever stored locally and in no way impacts
+     * the channel's operation.
+     *
+     * @generated from protobuf field: string memo = 27;
+     */
+    memo: string;
+    /**
+     *
+     * A list of selected outpoints that are allocated for channel funding.
+     *
+     * @generated from protobuf field: repeated lnrpc.OutPoint outpoints = 28;
+     */
+    outpoints: OutPoint[];
 }
 /**
  * @generated from protobuf message lnrpc.OpenStatusUpdate
@@ -2871,6 +3104,13 @@ export interface ChanPointShim {
      * @generated from protobuf field: uint32 thaw_height = 6;
      */
     thawHeight: number;
+    /**
+     *
+     * Indicates that the funding output is using a MuSig2 multi-sig output.
+     *
+     * @generated from protobuf field: bool musig2 = 7;
+     */
+    musig2: boolean;
 }
 /**
  * @generated from protobuf message lnrpc.PsbtShim
@@ -3119,6 +3359,13 @@ export interface PendingHTLC {
  * @generated from protobuf message lnrpc.PendingChannelsRequest
  */
 export interface PendingChannelsRequest {
+    /**
+     * Indicates whether to include the raw transaction hex for
+     * waiting_close_channels.
+     *
+     * @generated from protobuf field: bool include_raw_tx = 1;
+     */
+    includeRawTx: boolean;
 }
 /**
  * @generated from protobuf message lnrpc.PendingChannelsResponse
@@ -3228,6 +3475,15 @@ export interface PendingChannelsResponse_PendingChannel {
      * @generated from protobuf field: bool private = 12;
      */
     private: boolean;
+    /**
+     *
+     * An optional note-to-self to go along with the channel containing some
+     * useful information. This is only ever stored locally and in no way
+     * impacts the channel's operation.
+     *
+     * @generated from protobuf field: string memo = 13;
+     */
+    memo: string;
 }
 /**
  * @generated from protobuf message lnrpc.PendingChannelsResponse.PendingOpenChannel
@@ -3265,6 +3521,20 @@ export interface PendingChannelsResponse_PendingOpenChannel {
      * @generated from protobuf field: int64 fee_per_kw = 6;
      */
     feePerKw: bigint;
+    /**
+     * The number of blocks until the funding transaction is considered
+     * expired. If this value gets close to zero, there is a risk that the
+     * channel funding will be canceled by the channel responder. The
+     * channel should be fee bumped using CPFP (see walletrpc.BumpFee) to
+     * ensure that the channel confirms in time. Otherwise a force-close
+     * will be necessary if the channel confirms after the funding
+     * transaction expires. A negative value means the channel responder has
+     * very likely canceled the funding and the channel will never become
+     * fully operational.
+     *
+     * @generated from protobuf field: int32 funding_expiry_blocks = 3;
+     */
+    fundingExpiryBlocks: number;
 }
 /**
  * @generated from protobuf message lnrpc.PendingChannelsResponse.WaitingCloseChannel
@@ -3296,6 +3566,13 @@ export interface PendingChannelsResponse_WaitingCloseChannel {
      * @generated from protobuf field: string closing_txid = 4;
      */
     closingTxid: string;
+    /**
+     * The raw hex encoded bytes of the closing transaction. Included if
+     * include_raw_tx in the request is true.
+     *
+     * @generated from protobuf field: string closing_tx_hex = 5;
+     */
+    closingTxHex: string;
 }
 /**
  * @generated from protobuf message lnrpc.PendingChannelsResponse.Commitments
@@ -3547,6 +3824,21 @@ export interface WalletAccountBalance {
  * @generated from protobuf message lnrpc.WalletBalanceRequest
  */
 export interface WalletBalanceRequest {
+    /**
+     * The wallet account the balance is shown for.
+     * If this is not specified, the balance of the "default" account is shown.
+     *
+     * @generated from protobuf field: string account = 1;
+     */
+    account: string;
+    /**
+     * The minimum number of confirmations each one of your outputs used for the
+     * funding transaction must satisfy. If this is not specified, the default
+     * value of 1 is used.
+     *
+     * @generated from protobuf field: int32 min_confs = 2;
+     */
+    minConfs: number;
 }
 /**
  * @generated from protobuf message lnrpc.WalletBalanceResponse
@@ -3705,6 +3997,9 @@ export interface QueryRoutesRequest {
      * padding of a few blocks needs to be added manually or otherwise failures may
      * happen when a block comes in while the payment is in flight.
      *
+     * Note: must not be set if making a payment to a blinded path (delta is
+     * set by the aggregate parameters provided by blinded_payment_paths)
+     *
      * @generated from protobuf field: int32 final_cltv_delta = 4;
      */
     finalCltvDelta: number;
@@ -3805,11 +4100,22 @@ export interface QueryRoutesRequest {
     routeHints: RouteHint[];
     /**
      *
+     * An optional blinded path(s) to reach the destination. Note that the
+     * introduction node must be provided as the first hop in the route.
+     *
+     * @generated from protobuf field: repeated lnrpc.BlindedPaymentPath blinded_payment_paths = 19;
+     */
+    blindedPaymentPaths: BlindedPaymentPath[];
+    /**
+     *
      * Features assumed to be supported by the final node. All transitive feature
      * dependencies must also be set properly. For a given feature bit pair, either
      * optional or remote may be set, but not both. If this field is nil or empty,
      * the router will try to load destination features from the graph as a
      * fallback.
+     *
+     * Note: must not be set if making a payment to a blinded route (features
+     * are provided in blinded_payment_paths).
      *
      * @generated from protobuf field: repeated lnrpc.FeatureBit dest_features = 17;
      */
@@ -3983,6 +4289,38 @@ export interface Hop {
      * @generated from protobuf field: bytes metadata = 13;
      */
     metadata: Uint8Array;
+    /**
+     *
+     * Blinding point is an optional blinding point included for introduction
+     * nodes in blinded paths. This field is mandatory for hops that represents
+     * the introduction point in a blinded path.
+     *
+     * @generated from protobuf field: bytes blinding_point = 14;
+     */
+    blindingPoint: Uint8Array;
+    /**
+     *
+     * Encrypted data is a receiver-produced blob of data that provides hops
+     * in a blinded route with forwarding data. As this data is encrypted by
+     * the recipient, we will not be able to parse it - it is essentially an
+     * arbitrary blob of data from our node's perspective. This field is
+     * mandatory for all hops in a blinded path, including the introduction
+     * node.
+     *
+     * @generated from protobuf field: bytes encrypted_data = 15;
+     */
+    encryptedData: Uint8Array;
+    /**
+     *
+     * The total amount that is sent to the recipient (possibly across multiple
+     * HTLCs), as specified by the sender when making a payment to a blinded path.
+     * This value is only set in the final hop payload of a blinded payment. This
+     * value is analogous to the MPPRecord that is used for regular (non-blinded)
+     * MPP payments.
+     *
+     * @generated from protobuf field: uint64 total_amt_msat = 16;
+     */
+    totalAmtMsat: bigint;
 }
 /**
  * @generated from protobuf message lnrpc.MPPRecord
@@ -3993,7 +4331,8 @@ export interface MPPRecord {
      * A unique, random identifier used to authenticate the sender as the intended
      * payer of a multi-path payment. The payment_addr must be the same for all
      * subpayments, and match the payment_addr provided in the receiver's invoice.
-     * The same payment_addr must be used on all subpayments.
+     * The same payment_addr must be used on all subpayments. This is also called
+     * payment secret in specifications (e.g. BOLT 11).
      *
      * @generated from protobuf field: bytes payment_addr = 11;
      */
@@ -4239,6 +4578,14 @@ export interface RoutingPolicy {
     customRecords: {
         [key: string]: Uint8Array;
     };
+    /**
+     * @generated from protobuf field: int32 inbound_fee_base_msat = 9;
+     */
+    inboundFeeBaseMsat: number;
+    /**
+     * @generated from protobuf field: int32 inbound_fee_rate_milli_msat = 10;
+     */
+    inboundFeeRateMilliMsat: number;
 }
 /**
  *
@@ -4390,6 +4737,13 @@ export interface ChanInfoRequest {
      * @generated from protobuf field: uint64 chan_id = 1 [jstype = JS_STRING];
      */
     chanId: string;
+    /**
+     * The channel point of the channel in format funding_txid:output_index. If
+     * chan_id is specified, this field is ignored.
+     *
+     * @generated from protobuf field: string chan_point = 2;
+     */
+    chanPoint: string;
 }
 /**
  * @generated from protobuf message lnrpc.NetworkInfoRequest
@@ -4646,6 +5000,104 @@ export interface RouteHint {
     hopHints: HopHint[];
 }
 /**
+ * @generated from protobuf message lnrpc.BlindedPaymentPath
+ */
+export interface BlindedPaymentPath {
+    /**
+     * The blinded path to send the payment to.
+     *
+     * @generated from protobuf field: lnrpc.BlindedPath blinded_path = 1;
+     */
+    blindedPath?: BlindedPath;
+    /**
+     * The base fee for the blinded path provided, expressed in msat.
+     *
+     * @generated from protobuf field: uint64 base_fee_msat = 2;
+     */
+    baseFeeMsat: bigint;
+    /**
+     *
+     * The proportional fee for the blinded path provided, expressed in parts
+     * per million.
+     *
+     * @generated from protobuf field: uint32 proportional_fee_rate = 3;
+     */
+    proportionalFeeRate: number;
+    /**
+     *
+     * The total CLTV delta for the blinded path provided, including the
+     * final CLTV delta for the receiving node.
+     *
+     * @generated from protobuf field: uint32 total_cltv_delta = 4;
+     */
+    totalCltvDelta: number;
+    /**
+     *
+     * The minimum hltc size that may be sent over the blinded path, expressed
+     * in msat.
+     *
+     * @generated from protobuf field: uint64 htlc_min_msat = 5;
+     */
+    htlcMinMsat: bigint;
+    /**
+     *
+     * The maximum htlc size that may be sent over the blinded path, expressed
+     * in msat.
+     *
+     * @generated from protobuf field: uint64 htlc_max_msat = 6;
+     */
+    htlcMaxMsat: bigint;
+    /**
+     * The feature bits for the route.
+     *
+     * @generated from protobuf field: repeated lnrpc.FeatureBit features = 7;
+     */
+    features: FeatureBit[];
+}
+/**
+ * @generated from protobuf message lnrpc.BlindedPath
+ */
+export interface BlindedPath {
+    /**
+     * The unblinded pubkey of the introduction node for the route.
+     *
+     * @generated from protobuf field: bytes introduction_node = 1;
+     */
+    introductionNode: Uint8Array;
+    /**
+     * The ephemeral pubkey used by nodes in the blinded route.
+     *
+     * @generated from protobuf field: bytes blinding_point = 2;
+     */
+    blindingPoint: Uint8Array;
+    /**
+     *
+     * A set of blinded node keys and data blobs for the blinded portion of the
+     * route. Note that the first hop is expected to be the introduction node,
+     * so the route is always expected to have at least one hop.
+     *
+     * @generated from protobuf field: repeated lnrpc.BlindedHop blinded_hops = 3;
+     */
+    blindedHops: BlindedHop[];
+}
+/**
+ * @generated from protobuf message lnrpc.BlindedHop
+ */
+export interface BlindedHop {
+    /**
+     * The blinded public key of the node.
+     *
+     * @generated from protobuf field: bytes blinded_node = 1;
+     */
+    blindedNode: Uint8Array;
+    /**
+     * An encrypted blob of data provided to the blinded node.
+     *
+     * @generated from protobuf field: bytes encrypted_data = 2;
+     */
+    encryptedData: Uint8Array;
+}
+/**
  * @generated from protobuf message lnrpc.AMPInvoiceState
  */
 export interface AMPInvoiceState {
@@ -4726,7 +5178,7 @@ export interface Invoice {
     valueMsat: bigint;
     /**
      *
-     * Whether this invoice has been fulfilled
+     * Whether this invoice has been fulfilled.
      *
      * The field is deprecated. Use the state field instead (compare to SETTLED).
      *
@@ -4737,6 +5189,7 @@ export interface Invoice {
     /**
      *
      * When this invoice was created.
+     * Measured in seconds since the unix epoch.
      * Note: Output only, don't specify for creating an invoice.
      *
      * @generated from protobuf field: int64 creation_date = 7;
@@ -4745,6 +5198,7 @@ export interface Invoice {
     /**
      *
      * When this invoice was settled.
+     * Measured in seconds since the unix epoch.
      * Note: Output only, don't specify for creating an invoice.
      *
      * @generated from protobuf field: int64 settle_date = 8;
@@ -4771,7 +5225,7 @@ export interface Invoice {
      */
     descriptionHash: Uint8Array;
     /**
-     * Payment request expiry time in seconds. Default is 3600 (1 hour).
+     * Payment request expiry time in seconds. Default is 86400 (24 hours).
      *
      * @generated from protobuf field: int64 expiry = 11;
      */
@@ -4798,6 +5252,8 @@ export interface Invoice {
     routeHints: RouteHint[];
     /**
      * Whether this invoice should include routing hints for private channels.
+     * Note: When enabled, if value and value_msat are zero, a large number of
+     * hints with these channels can be included, which might not be desirable.
      *
      * @generated from protobuf field: bool private = 15;
      */
@@ -4834,11 +5290,11 @@ export interface Invoice {
     /**
      *
      * The amount that was accepted for this invoice, in satoshis. This will ONLY
-     * be set if this invoice has been settled. We provide this field as if the
-     * invoice was created with a zero value, then we need to record what amount
-     * was ultimately accepted. Additionally, it's possible that the sender paid
-     * MORE that was specified in the original invoice. So we'll record that here
-     * as well.
+     * be set if this invoice has been settled or accepted. We provide this field
+     * as if the invoice was created with a zero value, then we need to record what
+     * amount was ultimately accepted. Additionally, it's possible that the sender
+     * paid MORE that was specified in the original invoice. So we'll record that
+     * here as well.
      * Note: Output only, don't specify for creating an invoice.
      *
      * @generated from protobuf field: int64 amt_paid_sat = 19;
@@ -4847,11 +5303,11 @@ export interface Invoice {
     /**
      *
      * The amount that was accepted for this invoice, in millisatoshis. This will
-     * ONLY be set if this invoice has been settled. We provide this field as if
-     * the invoice was created with a zero value, then we need to record what
-     * amount was ultimately accepted. Additionally, it's possible that the sender
-     * paid MORE that was specified in the original invoice. So we'll record that
-     * here as well.
+     * ONLY be set if this invoice has been settled or accepted. We provide this
+     * field as if the invoice was created with a zero value, then we need to
+     * record what amount was ultimately accepted. Additionally, it's possible that
+     * the sender paid MORE that was specified in the original invoice. So we'll
+     * record that here as well.
      * Note: Output only, don't specify for creating an invoice.
      *
      * @generated from protobuf field: int64 amt_paid_msat = 20;
@@ -4894,9 +5350,10 @@ export interface Invoice {
     isKeysend: boolean;
     /**
      *
-     * The payment address of this invoice. This value will be used in MPP
-     * payments, and also for newer invoices that always require the MPP payload
-     * for added end-to-end security.
+     * The payment address of this invoice. This is also called payment secret in
+     * specifications (e.g. BOLT 11). This value will be used in MPP payments, and
+     * also for newer invoices that always require the MPP payload for added
+     * end-to-end security.
      * Note: Output only, don't specify for creating an invoice.
      *
      * @generated from protobuf field: bytes payment_addr = 26;
@@ -4924,6 +5381,23 @@ export interface Invoice {
     ampInvoiceState: {
         [key: string]: AMPInvoiceState;
     };
+    /**
+     *
+     * Signals that the invoice should include blinded paths to hide the true
+     * identity of the recipient.
+     *
+     * @generated from protobuf field: bool is_blinded = 29;
+     */
+    isBlinded: boolean;
+    /**
+     *
+     * Config values to use when creating blinded paths for this invoice. These
+     * can be used to override the defaults config values provided in by the
+     * global config. This field is only used if is_blinded is true.
+     *
+     * @generated from protobuf field: lnrpc.BlindedPathConfig blinded_path_config = 30;
+     */
+    blindedPathConfig?: BlindedPathConfig;
 }
 /**
  * @generated from protobuf enum lnrpc.Invoice.InvoiceState
@@ -4945,6 +5419,46 @@ export enum Invoice_InvoiceState {
      * @generated from protobuf enum value: ACCEPTED = 3;
      */
     ACCEPTED = 3
+}
+/**
+ * @generated from protobuf message lnrpc.BlindedPathConfig
+ */
+export interface BlindedPathConfig {
+    /**
+     *
+     * The minimum number of real hops to include in a blinded path. This doesn't
+     * include our node, so if the minimum is 1, then the path will contain at
+     * minimum our node along with an introduction node hop. If it is zero then
+     * the shortest path will use our node as an introduction node.
+     *
+     * @generated from protobuf field: optional uint32 min_num_real_hops = 1;
+     */
+    minNumRealHops?: number;
+    /**
+     *
+     * The number of hops to include in a blinded path. This doesn't include our
+     * node, so if it is 1, then the path will contain our node along with an
+     * introduction node or dummy node hop. If paths shorter than NumHops is
+     * found, then they will be padded using dummy hops.
+     *
+     * @generated from protobuf field: optional uint32 num_hops = 2;
+     */
+    numHops?: number;
+    /**
+     *
+     * The maximum number of blinded paths to select and add to an invoice.
+     *
+     * @generated from protobuf field: optional uint32 max_num_paths = 3;
+     */
+    maxNumPaths?: number;
+    /**
+     *
+     * A list of node IDs of nodes that should not be used in any of our generated
+     * blinded paths.
+     *
+     * @generated from protobuf field: repeated bytes node_omission_list = 4;
+     */
+    nodeOmissionList: Uint8Array[];
 }
 /**
  * Details of an HTLC that paid to an invoice
@@ -5091,9 +5605,9 @@ export interface AddInvoiceResponse {
     addIndex: bigint;
     /**
      *
-     * The payment address of the generated invoice. This value should be used
-     * in all payments for this invoice as we require it for end to end
-     * security.
+     * The payment address of the generated invoice. This is also called
+     * payment secret in specifications (e.g. BOLT 11). This value should be used
+     * in all payments for this invoice as we require it for end to end security.
      *
      * @generated from protobuf field: bytes payment_addr = 17;
      */
@@ -5157,6 +5671,20 @@ export interface ListInvoiceRequest {
      * @generated from protobuf field: bool reversed = 6;
      */
     reversed: boolean;
+    /**
+     * If set, returns all invoices with a creation date greater than or equal
+     * to it. Measured in seconds since the unix epoch.
+     *
+     * @generated from protobuf field: uint64 creation_date_start = 7;
+     */
+    creationDateStart: bigint;
+    /**
+     * If set, returns all invoices with a creation date less than or equal to
+     * it. Measured in seconds since the unix epoch.
+     *
+     * @generated from protobuf field: uint64 creation_date_end = 8;
+     */
+    creationDateEnd: bigint;
 }
 /**
  * @generated from protobuf message lnrpc.ListInvoiceResponse
@@ -5316,21 +5844,36 @@ export interface Payment {
  */
 export enum Payment_PaymentStatus {
     /**
-     * @generated from protobuf enum value: UNKNOWN = 0;
+     * Deprecated. This status will never be returned.
+     *
+     * @deprecated
+     * @generated from protobuf enum value: UNKNOWN = 0 [deprecated = true];
      */
     UNKNOWN = 0,
     /**
+     * Payment has inflight HTLCs.
+     *
      * @generated from protobuf enum value: IN_FLIGHT = 1;
      */
     IN_FLIGHT = 1,
     /**
+     * Payment is settled.
+     *
      * @generated from protobuf enum value: SUCCEEDED = 2;
      */
     SUCCEEDED = 2,
     /**
+     * Payment is failed.
+     *
      * @generated from protobuf enum value: FAILED = 3;
      */
-    FAILED = 3
+    FAILED = 3,
+    /**
+     * Payment is created and has not attempted any HTLCs.
+     *
+     * @generated from protobuf enum value: INITIATED = 4;
+     */
+    INITIATED = 4
 }
 /**
  * @generated from protobuf message lnrpc.HTLCAttempt
@@ -5448,6 +5991,20 @@ export interface ListPaymentsRequest {
      * @generated from protobuf field: bool count_total_payments = 5;
      */
     countTotalPayments: boolean;
+    /**
+     * If set, returns all payments with a creation date greater than or equal
+     * to it. Measured in seconds since the unix epoch.
+     *
+     * @generated from protobuf field: uint64 creation_date_start = 6;
+     */
+    creationDateStart: bigint;
+    /**
+     * If set, returns all payments with a creation date less than or equal to
+     * it. Measured in seconds since the unix epoch.
+     *
+     * @generated from protobuf field: uint64 creation_date_end = 7;
+     */
+    creationDateEnd: bigint;
 }
 /**
  * @generated from protobuf message lnrpc.ListPaymentsResponse
@@ -5521,6 +6078,13 @@ export interface DeleteAllPaymentsRequest {
      * @generated from protobuf field: bool failed_htlcs_only = 2;
      */
     failedHtlcsOnly: boolean;
+    /**
+     * Delete all payments. NOTE: Using this option requires careful
+     * consideration as it is a destructive operation.
+     *
+     * @generated from protobuf field: bool all_payments = 3;
+     */
+    allPayments: boolean;
 }
 /**
  * @generated from protobuf message lnrpc.DeletePaymentResponse
@@ -5650,6 +6214,10 @@ export interface PayReq {
     features: {
         [key: number]: Feature;
     };
+    /**
+     * @generated from protobuf field: repeated lnrpc.BlindedPaymentPath blinded_paths = 14;
+     */
+    blindedPaths: BlindedPaymentPath[];
 }
 /**
  * @generated from protobuf message lnrpc.Feature
@@ -5709,6 +6277,19 @@ export interface ChannelFeeReport {
      * @generated from protobuf field: double fee_rate = 4;
      */
     feeRate: number;
+    /**
+     * The base fee charged regardless of the number of milli-satoshis sent.
+     *
+     * @generated from protobuf field: int32 inbound_base_fee_msat = 6;
+     */
+    inboundBaseFeeMsat: number;
+    /**
+     * The amount charged per milli-satoshis transferred expressed in
+     * millionths of a satoshi.
+     *
+     * @generated from protobuf field: int32 inbound_fee_per_mil = 7;
+     */
+    inboundFeePerMil: number;
 }
 /**
  * @generated from protobuf message lnrpc.FeeReportResponse
@@ -5742,6 +6323,25 @@ export interface FeeReportResponse {
      * @generated from protobuf field: uint64 month_fee_sum = 4;
      */
     monthFeeSum: bigint;
+}
+/**
+ * @generated from protobuf message lnrpc.InboundFee
+ */
+export interface InboundFee {
+    /**
+     * The inbound base fee charged regardless of the number of milli-satoshis
+     * received in the channel. By default, only negative values are accepted.
+     *
+     * @generated from protobuf field: int32 base_fee_msat = 1;
+     */
+    baseFeeMsat: number;
+    /**
+     * The effective inbound fee rate in micro-satoshis (parts per million).
+     * By default, only negative values are accepted.
+     *
+     * @generated from protobuf field: int32 fee_rate_ppm = 2;
+     */
+    feeRatePpm: number;
 }
 /**
  * @generated from protobuf message lnrpc.PolicyUpdateRequest
@@ -5814,6 +6414,13 @@ export interface PolicyUpdateRequest {
      * @generated from protobuf field: bool min_htlc_msat_specified = 8;
      */
     minHtlcMsatSpecified: boolean;
+    /**
+     * Optional inbound fee. If unset, the previously set value will be
+     * retained [EXPERIMENTAL].
+     *
+     * @generated from protobuf field: lnrpc.InboundFee inbound_fee = 10;
+     */
+    inboundFee?: InboundFee;
 }
 /**
  * @generated from protobuf message lnrpc.FailedUpdate
@@ -6420,6 +7027,10 @@ export enum Failure_FailureCode {
      */
     INVALID_ONION_PAYLOAD = 24,
     /**
+     * @generated from protobuf enum value: INVALID_ONION_BLINDING = 25;
+     */
+    INVALID_ONION_BLINDING = 25,
+    /**
      *
      * An internal error occurred.
      *
@@ -6937,6 +7548,30 @@ export enum OutputScriptType {
     SCRIPT_TYPE_WITNESS_V1_TAPROOT = 9
 }
 /**
+ * @generated from protobuf enum lnrpc.CoinSelectionStrategy
+ */
+export enum CoinSelectionStrategy {
+    /**
+     * Use the coin selection strategy defined in the global configuration
+     * (lnd.conf).
+     *
+     * @generated from protobuf enum value: STRATEGY_USE_GLOBAL_CONFIG = 0;
+     */
+    STRATEGY_USE_GLOBAL_CONFIG = 0,
+    /**
+     * Select the largest available coins first during coin selection.
+     *
+     * @generated from protobuf enum value: STRATEGY_LARGEST = 1;
+     */
+    STRATEGY_LARGEST = 1,
+    /**
+     * Randomly select the available coins during coin selection.
+     *
+     * @generated from protobuf enum value: STRATEGY_RANDOM = 2;
+     */
+    STRATEGY_RANDOM = 2
+}
+/**
  *
  * `AddressType` has to be one of:
  *
@@ -7020,7 +7655,13 @@ export enum CommitmentType {
      *
      * @generated from protobuf enum value: SCRIPT_ENFORCED_LEASE = 4;
      */
-    SCRIPT_ENFORCED_LEASE = 4
+    SCRIPT_ENFORCED_LEASE = 4,
+    /**
+     * TODO(roasbeef): need script enforce mirror type for the above as well?
+     *
+     * @generated from protobuf enum value: SIMPLE_TAPROOT = 5;
+     */
+    SIMPLE_TAPROOT = 5
 }
 /**
  * @generated from protobuf enum lnrpc.Initiator
@@ -7207,7 +7848,14 @@ export enum PaymentFailureReason {
      *
      * @generated from protobuf enum value: FAILURE_REASON_INSUFFICIENT_BALANCE = 5;
      */
-    FAILURE_REASON_INSUFFICIENT_BALANCE = 5
+    FAILURE_REASON_INSUFFICIENT_BALANCE = 5,
+    /**
+     *
+     * The payment was canceled.
+     *
+     * @generated from protobuf enum value: FAILURE_REASON_CANCELED = 6;
+     */
+    FAILURE_REASON_CANCELED = 6
 }
 /**
  * @generated from protobuf enum lnrpc.FeatureBit
@@ -7306,6 +7954,14 @@ export enum FeatureBit {
      */
     ANCHORS_ZERO_FEE_HTLC_OPT = 23,
     /**
+     * @generated from protobuf enum value: ROUTE_BLINDING_REQUIRED = 24;
+     */
+    ROUTE_BLINDING_REQUIRED = 24,
+    /**
+     * @generated from protobuf enum value: ROUTE_BLINDING_OPTIONAL = 25;
+     */
+    ROUTE_BLINDING_OPTIONAL = 25,
+    /**
      * @generated from protobuf enum value: AMP_REQ = 30;
      */
     AMP_REQ = 30,
@@ -7340,21 +7996,21 @@ export enum UpdateFailure {
     INVALID_PARAMETER = 4
 }
 // @generated message type with reflection information, may provide speed optimized methods
-class LookupHtlcRequest$Type extends MessageType<LookupHtlcRequest> {
+class LookupHtlcResolutionRequest$Type extends MessageType<LookupHtlcResolutionRequest> {
     constructor() {
-        super("lnrpc.LookupHtlcRequest", [
+        super("lnrpc.LookupHtlcResolutionRequest", [
             { no: 1, name: "chan_id", kind: "scalar", T: 4 /*ScalarType.UINT64*/, L: 0 /*LongType.BIGINT*/ },
             { no: 2, name: "htlc_index", kind: "scalar", T: 4 /*ScalarType.UINT64*/, L: 0 /*LongType.BIGINT*/ }
         ]);
     }
-    create(value?: PartialMessage<LookupHtlcRequest>): LookupHtlcRequest {
+    create(value?: PartialMessage<LookupHtlcResolutionRequest>): LookupHtlcResolutionRequest {
         const message = { chanId: 0n, htlcIndex: 0n };
         globalThis.Object.defineProperty(message, MESSAGE_TYPE, { enumerable: false, value: this });
         if (value !== undefined)
-            reflectionMergePartial<LookupHtlcRequest>(this, message, value);
+            reflectionMergePartial<LookupHtlcResolutionRequest>(this, message, value);
         return message;
     }
-    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: LookupHtlcRequest): LookupHtlcRequest {
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: LookupHtlcResolutionRequest): LookupHtlcResolutionRequest {
         let message = target ?? this.create(), end = reader.pos + length;
         while (reader.pos < end) {
             let [fieldNo, wireType] = reader.tag();
@@ -7376,7 +8032,7 @@ class LookupHtlcRequest$Type extends MessageType<LookupHtlcRequest> {
         }
         return message;
     }
-    internalBinaryWrite(message: LookupHtlcRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+    internalBinaryWrite(message: LookupHtlcResolutionRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
         /* uint64 chan_id = 1; */
         if (message.chanId !== 0n)
             writer.tag(1, WireType.Varint).uint64(message.chanId);
@@ -7390,25 +8046,25 @@ class LookupHtlcRequest$Type extends MessageType<LookupHtlcRequest> {
     }
 }
 /**
- * @generated MessageType for protobuf message lnrpc.LookupHtlcRequest
+ * @generated MessageType for protobuf message lnrpc.LookupHtlcResolutionRequest
  */
-export const LookupHtlcRequest = new LookupHtlcRequest$Type();
+export const LookupHtlcResolutionRequest = new LookupHtlcResolutionRequest$Type();
 // @generated message type with reflection information, may provide speed optimized methods
-class LookupHtlcResponse$Type extends MessageType<LookupHtlcResponse> {
+class LookupHtlcResolutionResponse$Type extends MessageType<LookupHtlcResolutionResponse> {
     constructor() {
-        super("lnrpc.LookupHtlcResponse", [
+        super("lnrpc.LookupHtlcResolutionResponse", [
             { no: 1, name: "settled", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
             { no: 2, name: "offchain", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
         ]);
     }
-    create(value?: PartialMessage<LookupHtlcResponse>): LookupHtlcResponse {
+    create(value?: PartialMessage<LookupHtlcResolutionResponse>): LookupHtlcResolutionResponse {
         const message = { settled: false, offchain: false };
         globalThis.Object.defineProperty(message, MESSAGE_TYPE, { enumerable: false, value: this });
         if (value !== undefined)
-            reflectionMergePartial<LookupHtlcResponse>(this, message, value);
+            reflectionMergePartial<LookupHtlcResolutionResponse>(this, message, value);
         return message;
     }
-    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: LookupHtlcResponse): LookupHtlcResponse {
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: LookupHtlcResolutionResponse): LookupHtlcResolutionResponse {
         let message = target ?? this.create(), end = reader.pos + length;
         while (reader.pos < end) {
             let [fieldNo, wireType] = reader.tag();
@@ -7430,7 +8086,7 @@ class LookupHtlcResponse$Type extends MessageType<LookupHtlcResponse> {
         }
         return message;
     }
-    internalBinaryWrite(message: LookupHtlcResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+    internalBinaryWrite(message: LookupHtlcResolutionResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
         /* bool settled = 1; */
         if (message.settled !== false)
             writer.tag(1, WireType.Varint).bool(message.settled);
@@ -7444,9 +8100,9 @@ class LookupHtlcResponse$Type extends MessageType<LookupHtlcResponse> {
     }
 }
 /**
- * @generated MessageType for protobuf message lnrpc.LookupHtlcResponse
+ * @generated MessageType for protobuf message lnrpc.LookupHtlcResolutionResponse
  */
-export const LookupHtlcResponse = new LookupHtlcResponse$Type();
+export const LookupHtlcResolutionResponse = new LookupHtlcResolutionResponse$Type();
 // @generated message type with reflection information, may provide speed optimized methods
 class SubscribeCustomMessagesRequest$Type extends MessageType<SubscribeCustomMessagesRequest> {
     constructor() {
@@ -8904,11 +9560,12 @@ class EstimateFeeRequest$Type extends MessageType<EstimateFeeRequest> {
             { no: 1, name: "AddrToAmount", kind: "map", jsonName: "AddrToAmount", K: 9 /*ScalarType.STRING*/, V: { kind: "scalar", T: 3 /*ScalarType.INT64*/, L: 0 /*LongType.BIGINT*/ } },
             { no: 2, name: "target_conf", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
             { no: 3, name: "min_confs", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
-            { no: 4, name: "spend_unconfirmed", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
+            { no: 4, name: "spend_unconfirmed", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 5, name: "coin_selection_strategy", kind: "enum", T: () => ["lnrpc.CoinSelectionStrategy", CoinSelectionStrategy] }
         ]);
     }
     create(value?: PartialMessage<EstimateFeeRequest>): EstimateFeeRequest {
-        const message = { addrToAmount: {}, targetConf: 0, minConfs: 0, spendUnconfirmed: false };
+        const message = { addrToAmount: {}, targetConf: 0, minConfs: 0, spendUnconfirmed: false, coinSelectionStrategy: 0 };
         globalThis.Object.defineProperty(message, MESSAGE_TYPE, { enumerable: false, value: this });
         if (value !== undefined)
             reflectionMergePartial<EstimateFeeRequest>(this, message, value);
@@ -8930,6 +9587,9 @@ class EstimateFeeRequest$Type extends MessageType<EstimateFeeRequest> {
                     break;
                 case /* bool spend_unconfirmed */ 4:
                     message.spendUnconfirmed = reader.bool();
+                    break;
+                case /* lnrpc.CoinSelectionStrategy coin_selection_strategy */ 5:
+                    message.coinSelectionStrategy = reader.int32();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -8971,6 +9631,9 @@ class EstimateFeeRequest$Type extends MessageType<EstimateFeeRequest> {
         /* bool spend_unconfirmed = 4; */
         if (message.spendUnconfirmed !== false)
             writer.tag(4, WireType.Varint).bool(message.spendUnconfirmed);
+        /* lnrpc.CoinSelectionStrategy coin_selection_strategy = 5; */
+        if (message.coinSelectionStrategy !== 0)
+            writer.tag(5, WireType.Varint).int32(message.coinSelectionStrategy);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -9052,11 +9715,12 @@ class SendManyRequest$Type extends MessageType<SendManyRequest> {
             { no: 5, name: "sat_per_byte", kind: "scalar", T: 3 /*ScalarType.INT64*/, L: 0 /*LongType.BIGINT*/ },
             { no: 6, name: "label", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
             { no: 7, name: "min_confs", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
-            { no: 8, name: "spend_unconfirmed", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
+            { no: 8, name: "spend_unconfirmed", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 9, name: "coin_selection_strategy", kind: "enum", T: () => ["lnrpc.CoinSelectionStrategy", CoinSelectionStrategy] }
         ]);
     }
     create(value?: PartialMessage<SendManyRequest>): SendManyRequest {
-        const message = { addrToAmount: {}, targetConf: 0, satPerVbyte: 0n, satPerByte: 0n, label: "", minConfs: 0, spendUnconfirmed: false };
+        const message = { addrToAmount: {}, targetConf: 0, satPerVbyte: 0n, satPerByte: 0n, label: "", minConfs: 0, spendUnconfirmed: false, coinSelectionStrategy: 0 };
         globalThis.Object.defineProperty(message, MESSAGE_TYPE, { enumerable: false, value: this });
         if (value !== undefined)
             reflectionMergePartial<SendManyRequest>(this, message, value);
@@ -9087,6 +9751,9 @@ class SendManyRequest$Type extends MessageType<SendManyRequest> {
                     break;
                 case /* bool spend_unconfirmed */ 8:
                     message.spendUnconfirmed = reader.bool();
+                    break;
+                case /* lnrpc.CoinSelectionStrategy coin_selection_strategy */ 9:
+                    message.coinSelectionStrategy = reader.int32();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -9137,6 +9804,9 @@ class SendManyRequest$Type extends MessageType<SendManyRequest> {
         /* bool spend_unconfirmed = 8; */
         if (message.spendUnconfirmed !== false)
             writer.tag(8, WireType.Varint).bool(message.spendUnconfirmed);
+        /* lnrpc.CoinSelectionStrategy coin_selection_strategy = 9; */
+        if (message.coinSelectionStrategy !== 0)
+            writer.tag(9, WireType.Varint).int32(message.coinSelectionStrategy);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -9206,11 +9876,13 @@ class SendCoinsRequest$Type extends MessageType<SendCoinsRequest> {
             { no: 6, name: "send_all", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
             { no: 7, name: "label", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
             { no: 8, name: "min_confs", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
-            { no: 9, name: "spend_unconfirmed", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
+            { no: 9, name: "spend_unconfirmed", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 10, name: "coin_selection_strategy", kind: "enum", T: () => ["lnrpc.CoinSelectionStrategy", CoinSelectionStrategy] },
+            { no: 11, name: "outpoints", kind: "message", repeat: 1 /*RepeatType.PACKED*/, T: () => OutPoint }
         ]);
     }
     create(value?: PartialMessage<SendCoinsRequest>): SendCoinsRequest {
-        const message = { addr: "", amount: 0n, targetConf: 0, satPerVbyte: 0n, satPerByte: 0n, sendAll: false, label: "", minConfs: 0, spendUnconfirmed: false };
+        const message = { addr: "", amount: 0n, targetConf: 0, satPerVbyte: 0n, satPerByte: 0n, sendAll: false, label: "", minConfs: 0, spendUnconfirmed: false, coinSelectionStrategy: 0, outpoints: [] };
         globalThis.Object.defineProperty(message, MESSAGE_TYPE, { enumerable: false, value: this });
         if (value !== undefined)
             reflectionMergePartial<SendCoinsRequest>(this, message, value);
@@ -9247,6 +9919,12 @@ class SendCoinsRequest$Type extends MessageType<SendCoinsRequest> {
                     break;
                 case /* bool spend_unconfirmed */ 9:
                     message.spendUnconfirmed = reader.bool();
+                    break;
+                case /* lnrpc.CoinSelectionStrategy coin_selection_strategy */ 10:
+                    message.coinSelectionStrategy = reader.int32();
+                    break;
+                case /* repeated lnrpc.OutPoint outpoints */ 11:
+                    message.outpoints.push(OutPoint.internalBinaryRead(reader, reader.uint32(), options));
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -9287,6 +9965,12 @@ class SendCoinsRequest$Type extends MessageType<SendCoinsRequest> {
         /* bool spend_unconfirmed = 9; */
         if (message.spendUnconfirmed !== false)
             writer.tag(9, WireType.Varint).bool(message.spendUnconfirmed);
+        /* lnrpc.CoinSelectionStrategy coin_selection_strategy = 10; */
+        if (message.coinSelectionStrategy !== 0)
+            writer.tag(10, WireType.Varint).int32(message.coinSelectionStrategy);
+        /* repeated lnrpc.OutPoint outpoints = 11; */
+        for (let i = 0; i < message.outpoints.length; i++)
+            OutPoint.internalBinaryWrite(message.outpoints[i], writer.tag(11, WireType.LengthDelimited).fork(), options).join();
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -10129,11 +10813,14 @@ class Channel$Type extends MessageType<Channel> {
             { no: 30, name: "remote_constraints", kind: "message", T: () => ChannelConstraints },
             { no: 31, name: "alias_scids", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 4 /*ScalarType.UINT64*/, L: 0 /*LongType.BIGINT*/ },
             { no: 32, name: "zero_conf", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
-            { no: 33, name: "zero_conf_confirmed_scid", kind: "scalar", T: 4 /*ScalarType.UINT64*/, L: 0 /*LongType.BIGINT*/ }
+            { no: 33, name: "zero_conf_confirmed_scid", kind: "scalar", T: 4 /*ScalarType.UINT64*/, L: 0 /*LongType.BIGINT*/ },
+            { no: 34, name: "peer_alias", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 35, name: "peer_scid_alias", kind: "scalar", T: 4 /*ScalarType.UINT64*/ },
+            { no: 36, name: "memo", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
         ]);
     }
     create(value?: PartialMessage<Channel>): Channel {
-        const message = { active: false, remotePubkey: "", channelPoint: "", chanId: "0", capacity: 0n, localBalance: 0n, remoteBalance: 0n, commitFee: 0n, commitWeight: 0n, feePerKw: 0n, unsettledBalance: 0n, totalSatoshisSent: 0n, totalSatoshisReceived: 0n, numUpdates: 0n, pendingHtlcs: [], csvDelay: 0, private: false, initiator: false, chanStatusFlags: "", localChanReserveSat: 0n, remoteChanReserveSat: 0n, staticRemoteKey: false, commitmentType: 0, lifetime: 0n, uptime: 0n, closeAddress: "", pushAmountSat: 0n, thawHeight: 0, aliasScids: [], zeroConf: false, zeroConfConfirmedScid: 0n };
+        const message = { active: false, remotePubkey: "", channelPoint: "", chanId: "0", capacity: 0n, localBalance: 0n, remoteBalance: 0n, commitFee: 0n, commitWeight: 0n, feePerKw: 0n, unsettledBalance: 0n, totalSatoshisSent: 0n, totalSatoshisReceived: 0n, numUpdates: 0n, pendingHtlcs: [], csvDelay: 0, private: false, initiator: false, chanStatusFlags: "", localChanReserveSat: 0n, remoteChanReserveSat: 0n, staticRemoteKey: false, commitmentType: 0, lifetime: 0n, uptime: 0n, closeAddress: "", pushAmountSat: 0n, thawHeight: 0, aliasScids: [], zeroConf: false, zeroConfConfirmedScid: 0n, peerAlias: "", peerScidAlias: "0", memo: "" };
         globalThis.Object.defineProperty(message, MESSAGE_TYPE, { enumerable: false, value: this });
         if (value !== undefined)
             reflectionMergePartial<Channel>(this, message, value);
@@ -10246,6 +10933,15 @@ class Channel$Type extends MessageType<Channel> {
                     break;
                 case /* uint64 zero_conf_confirmed_scid */ 33:
                     message.zeroConfConfirmedScid = reader.uint64().toBigInt();
+                    break;
+                case /* string peer_alias */ 34:
+                    message.peerAlias = reader.string();
+                    break;
+                case /* uint64 peer_scid_alias = 35 [jstype = JS_STRING];*/ 35:
+                    message.peerScidAlias = reader.uint64().toString();
+                    break;
+                case /* string memo */ 36:
+                    message.memo = reader.string();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -10362,6 +11058,15 @@ class Channel$Type extends MessageType<Channel> {
         /* uint64 zero_conf_confirmed_scid = 33; */
         if (message.zeroConfConfirmedScid !== 0n)
             writer.tag(33, WireType.Varint).uint64(message.zeroConfConfirmedScid);
+        /* string peer_alias = 34; */
+        if (message.peerAlias !== "")
+            writer.tag(34, WireType.LengthDelimited).string(message.peerAlias);
+        /* uint64 peer_scid_alias = 35 [jstype = JS_STRING]; */
+        if (message.peerScidAlias !== "0")
+            writer.tag(35, WireType.Varint).uint64(message.peerScidAlias);
+        /* string memo = 36; */
+        if (message.memo !== "")
+            writer.tag(36, WireType.LengthDelimited).string(message.memo);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -10380,11 +11085,12 @@ class ListChannelsRequest$Type extends MessageType<ListChannelsRequest> {
             { no: 2, name: "inactive_only", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
             { no: 3, name: "public_only", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
             { no: 4, name: "private_only", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
-            { no: 5, name: "peer", kind: "scalar", T: 12 /*ScalarType.BYTES*/ }
+            { no: 5, name: "peer", kind: "scalar", T: 12 /*ScalarType.BYTES*/ },
+            { no: 6, name: "peer_alias_lookup", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
         ]);
     }
     create(value?: PartialMessage<ListChannelsRequest>): ListChannelsRequest {
-        const message = { activeOnly: false, inactiveOnly: false, publicOnly: false, privateOnly: false, peer: new Uint8Array(0) };
+        const message = { activeOnly: false, inactiveOnly: false, publicOnly: false, privateOnly: false, peer: new Uint8Array(0), peerAliasLookup: false };
         globalThis.Object.defineProperty(message, MESSAGE_TYPE, { enumerable: false, value: this });
         if (value !== undefined)
             reflectionMergePartial<ListChannelsRequest>(this, message, value);
@@ -10409,6 +11115,9 @@ class ListChannelsRequest$Type extends MessageType<ListChannelsRequest> {
                     break;
                 case /* bytes peer */ 5:
                     message.peer = reader.bytes();
+                    break;
+                case /* bool peer_alias_lookup */ 6:
+                    message.peerAliasLookup = reader.bool();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -10437,6 +11146,9 @@ class ListChannelsRequest$Type extends MessageType<ListChannelsRequest> {
         /* bytes peer = 5; */
         if (message.peer.length)
             writer.tag(5, WireType.LengthDelimited).bytes(message.peer);
+        /* bool peer_alias_lookup = 6; */
+        if (message.peerAliasLookup !== false)
+            writer.tag(6, WireType.Varint).bool(message.peerAliasLookup);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -11420,11 +12132,12 @@ class GetInfoResponse$Type extends MessageType<GetInfoResponse> {
             { no: 16, name: "chains", kind: "message", repeat: 1 /*RepeatType.PACKED*/, T: () => Chain },
             { no: 12, name: "uris", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 9 /*ScalarType.STRING*/ },
             { no: 19, name: "features", kind: "map", K: 13 /*ScalarType.UINT32*/, V: { kind: "message", T: () => Feature } },
-            { no: 21, name: "require_htlc_interceptor", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
+            { no: 21, name: "require_htlc_interceptor", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 22, name: "store_final_htlc_resolutions", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
         ]);
     }
     create(value?: PartialMessage<GetInfoResponse>): GetInfoResponse {
-        const message = { version: "", commitHash: "", identityPubkey: "", alias: "", color: "", numPendingChannels: 0, numActiveChannels: 0, numInactiveChannels: 0, numPeers: 0, blockHeight: 0, blockHash: "", bestHeaderTimestamp: 0n, syncedToChain: false, syncedToGraph: false, testnet: false, chains: [], uris: [], features: {}, requireHtlcInterceptor: false };
+        const message = { version: "", commitHash: "", identityPubkey: "", alias: "", color: "", numPendingChannels: 0, numActiveChannels: 0, numInactiveChannels: 0, numPeers: 0, blockHeight: 0, blockHash: "", bestHeaderTimestamp: 0n, syncedToChain: false, syncedToGraph: false, testnet: false, chains: [], uris: [], features: {}, requireHtlcInterceptor: false, storeFinalHtlcResolutions: false };
         globalThis.Object.defineProperty(message, MESSAGE_TYPE, { enumerable: false, value: this });
         if (value !== undefined)
             reflectionMergePartial<GetInfoResponse>(this, message, value);
@@ -11491,6 +12204,9 @@ class GetInfoResponse$Type extends MessageType<GetInfoResponse> {
                     break;
                 case /* bool require_htlc_interceptor */ 21:
                     message.requireHtlcInterceptor = reader.bool();
+                    break;
+                case /* bool store_final_htlc_resolutions */ 22:
+                    message.storeFinalHtlcResolutions = reader.bool();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -11581,6 +12297,9 @@ class GetInfoResponse$Type extends MessageType<GetInfoResponse> {
         /* bool require_htlc_interceptor = 21; */
         if (message.requireHtlcInterceptor !== false)
             writer.tag(21, WireType.Varint).bool(message.requireHtlcInterceptor);
+        /* bool store_final_htlc_resolutions = 22; */
+        if (message.storeFinalHtlcResolutions !== false)
+            writer.tag(22, WireType.Varint).bool(message.storeFinalHtlcResolutions);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -11591,6 +12310,102 @@ class GetInfoResponse$Type extends MessageType<GetInfoResponse> {
  * @generated MessageType for protobuf message lnrpc.GetInfoResponse
  */
 export const GetInfoResponse = new GetInfoResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class GetDebugInfoRequest$Type extends MessageType<GetDebugInfoRequest> {
+    constructor() {
+        super("lnrpc.GetDebugInfoRequest", []);
+    }
+    create(value?: PartialMessage<GetDebugInfoRequest>): GetDebugInfoRequest {
+        const message = {};
+        globalThis.Object.defineProperty(message, MESSAGE_TYPE, { enumerable: false, value: this });
+        if (value !== undefined)
+            reflectionMergePartial<GetDebugInfoRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GetDebugInfoRequest): GetDebugInfoRequest {
+        return target ?? this.create();
+    }
+    internalBinaryWrite(message: GetDebugInfoRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message lnrpc.GetDebugInfoRequest
+ */
+export const GetDebugInfoRequest = new GetDebugInfoRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class GetDebugInfoResponse$Type extends MessageType<GetDebugInfoResponse> {
+    constructor() {
+        super("lnrpc.GetDebugInfoResponse", [
+            { no: 1, name: "config", kind: "map", K: 9 /*ScalarType.STRING*/, V: { kind: "scalar", T: 9 /*ScalarType.STRING*/ } },
+            { no: 2, name: "log", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<GetDebugInfoResponse>): GetDebugInfoResponse {
+        const message = { config: {}, log: [] };
+        globalThis.Object.defineProperty(message, MESSAGE_TYPE, { enumerable: false, value: this });
+        if (value !== undefined)
+            reflectionMergePartial<GetDebugInfoResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: GetDebugInfoResponse): GetDebugInfoResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* map<string, string> config */ 1:
+                    this.binaryReadMap1(message.config, reader, options);
+                    break;
+                case /* repeated string log */ 2:
+                    message.log.push(reader.string());
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    private binaryReadMap1(map: GetDebugInfoResponse["config"], reader: IBinaryReader, options: BinaryReadOptions): void {
+        let len = reader.uint32(), end = reader.pos + len, key: keyof GetDebugInfoResponse["config"] | undefined, val: GetDebugInfoResponse["config"][any] | undefined;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case 1:
+                    key = reader.string();
+                    break;
+                case 2:
+                    val = reader.string();
+                    break;
+                default: throw new globalThis.Error("unknown map entry field for field lnrpc.GetDebugInfoResponse.config");
+            }
+        }
+        map[key ?? ""] = val ?? "";
+    }
+    internalBinaryWrite(message: GetDebugInfoResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* map<string, string> config = 1; */
+        for (let k of Object.keys(message.config))
+            writer.tag(1, WireType.LengthDelimited).fork().tag(1, WireType.LengthDelimited).string(k).tag(2, WireType.LengthDelimited).string(message.config[k]).join();
+        /* repeated string log = 2; */
+        for (let i = 0; i < message.log.length; i++)
+            writer.tag(2, WireType.LengthDelimited).string(message.log[i]);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message lnrpc.GetDebugInfoResponse
+ */
+export const GetDebugInfoResponse = new GetDebugInfoResponse$Type();
 // @generated message type with reflection information, may provide speed optimized methods
 class GetRecoveryInfoRequest$Type extends MessageType<GetRecoveryInfoRequest> {
     constructor() {
@@ -11698,7 +12513,7 @@ class Chain$Type extends MessageType<Chain> {
         while (reader.pos < end) {
             let [fieldNo, wireType] = reader.tag();
             switch (fieldNo) {
-                case /* string chain */ 1:
+                case /* string chain = 1 [deprecated = true];*/ 1:
                     message.chain = reader.string();
                     break;
                 case /* string network */ 2:
@@ -11716,7 +12531,7 @@ class Chain$Type extends MessageType<Chain> {
         return message;
     }
     internalBinaryWrite(message: Chain, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
-        /* string chain = 1; */
+        /* string chain = 1 [deprecated = true]; */
         if (message.chain !== "")
             writer.tag(1, WireType.LengthDelimited).string(message.chain);
         /* string network = 2; */
@@ -11904,11 +12719,12 @@ class CloseChannelRequest$Type extends MessageType<CloseChannelRequest> {
             { no: 4, name: "sat_per_byte", kind: "scalar", T: 3 /*ScalarType.INT64*/, L: 0 /*LongType.BIGINT*/ },
             { no: 5, name: "delivery_address", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
             { no: 6, name: "sat_per_vbyte", kind: "scalar", T: 4 /*ScalarType.UINT64*/, L: 0 /*LongType.BIGINT*/ },
-            { no: 7, name: "max_fee_per_vbyte", kind: "scalar", T: 4 /*ScalarType.UINT64*/, L: 0 /*LongType.BIGINT*/ }
+            { no: 7, name: "max_fee_per_vbyte", kind: "scalar", T: 4 /*ScalarType.UINT64*/, L: 0 /*LongType.BIGINT*/ },
+            { no: 8, name: "no_wait", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
         ]);
     }
     create(value?: PartialMessage<CloseChannelRequest>): CloseChannelRequest {
-        const message = { force: false, targetConf: 0, satPerByte: 0n, deliveryAddress: "", satPerVbyte: 0n, maxFeePerVbyte: 0n };
+        const message = { force: false, targetConf: 0, satPerByte: 0n, deliveryAddress: "", satPerVbyte: 0n, maxFeePerVbyte: 0n, noWait: false };
         globalThis.Object.defineProperty(message, MESSAGE_TYPE, { enumerable: false, value: this });
         if (value !== undefined)
             reflectionMergePartial<CloseChannelRequest>(this, message, value);
@@ -11939,6 +12755,9 @@ class CloseChannelRequest$Type extends MessageType<CloseChannelRequest> {
                     break;
                 case /* uint64 max_fee_per_vbyte */ 7:
                     message.maxFeePerVbyte = reader.uint64().toBigInt();
+                    break;
+                case /* bool no_wait */ 8:
+                    message.noWait = reader.bool();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -11973,6 +12792,9 @@ class CloseChannelRequest$Type extends MessageType<CloseChannelRequest> {
         /* uint64 max_fee_per_vbyte = 7; */
         if (message.maxFeePerVbyte !== 0n)
             writer.tag(7, WireType.Varint).uint64(message.maxFeePerVbyte);
+        /* bool no_wait = 8; */
+        if (message.noWait !== false)
+            writer.tag(8, WireType.Varint).bool(message.noWait);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -11988,7 +12810,8 @@ class CloseStatusUpdate$Type extends MessageType<CloseStatusUpdate> {
     constructor() {
         super("lnrpc.CloseStatusUpdate", [
             { no: 1, name: "close_pending", kind: "message", oneof: "update", T: () => PendingUpdate },
-            { no: 3, name: "chan_close", kind: "message", oneof: "update", T: () => ChannelCloseUpdate }
+            { no: 3, name: "chan_close", kind: "message", oneof: "update", T: () => ChannelCloseUpdate },
+            { no: 4, name: "close_instant", kind: "message", oneof: "update", T: () => InstantUpdate }
         ]);
     }
     create(value?: PartialMessage<CloseStatusUpdate>): CloseStatusUpdate {
@@ -12015,6 +12838,12 @@ class CloseStatusUpdate$Type extends MessageType<CloseStatusUpdate> {
                         chanClose: ChannelCloseUpdate.internalBinaryRead(reader, reader.uint32(), options, (message.update as any).chanClose)
                     };
                     break;
+                case /* lnrpc.InstantUpdate close_instant */ 4:
+                    message.update = {
+                        oneofKind: "closeInstant",
+                        closeInstant: InstantUpdate.internalBinaryRead(reader, reader.uint32(), options, (message.update as any).closeInstant)
+                    };
+                    break;
                 default:
                     let u = options.readUnknownField;
                     if (u === "throw")
@@ -12033,6 +12862,9 @@ class CloseStatusUpdate$Type extends MessageType<CloseStatusUpdate> {
         /* lnrpc.ChannelCloseUpdate chan_close = 3; */
         if (message.update.oneofKind === "chanClose")
             ChannelCloseUpdate.internalBinaryWrite(message.update.chanClose, writer.tag(3, WireType.LengthDelimited).fork(), options).join();
+        /* lnrpc.InstantUpdate close_instant = 4; */
+        if (message.update.oneofKind === "closeInstant")
+            InstantUpdate.internalBinaryWrite(message.update.closeInstant, writer.tag(4, WireType.LengthDelimited).fork(), options).join();
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -12097,6 +12929,32 @@ class PendingUpdate$Type extends MessageType<PendingUpdate> {
  * @generated MessageType for protobuf message lnrpc.PendingUpdate
  */
 export const PendingUpdate = new PendingUpdate$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class InstantUpdate$Type extends MessageType<InstantUpdate> {
+    constructor() {
+        super("lnrpc.InstantUpdate", []);
+    }
+    create(value?: PartialMessage<InstantUpdate>): InstantUpdate {
+        const message = {};
+        globalThis.Object.defineProperty(message, MESSAGE_TYPE, { enumerable: false, value: this });
+        if (value !== undefined)
+            reflectionMergePartial<InstantUpdate>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: InstantUpdate): InstantUpdate {
+        return target ?? this.create();
+    }
+    internalBinaryWrite(message: InstantUpdate, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message lnrpc.InstantUpdate
+ */
+export const InstantUpdate = new InstantUpdate$Type();
 // @generated message type with reflection information, may provide speed optimized methods
 class ReadyForPsbtFunding$Type extends MessageType<ReadyForPsbtFunding> {
     constructor() {
@@ -12167,11 +13025,12 @@ class BatchOpenChannelRequest$Type extends MessageType<BatchOpenChannelRequest> 
             { no: 3, name: "sat_per_vbyte", kind: "scalar", T: 3 /*ScalarType.INT64*/, L: 0 /*LongType.BIGINT*/ },
             { no: 4, name: "min_confs", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
             { no: 5, name: "spend_unconfirmed", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
-            { no: 6, name: "label", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+            { no: 6, name: "label", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 7, name: "coin_selection_strategy", kind: "enum", T: () => ["lnrpc.CoinSelectionStrategy", CoinSelectionStrategy] }
         ]);
     }
     create(value?: PartialMessage<BatchOpenChannelRequest>): BatchOpenChannelRequest {
-        const message = { channels: [], targetConf: 0, satPerVbyte: 0n, minConfs: 0, spendUnconfirmed: false, label: "" };
+        const message = { channels: [], targetConf: 0, satPerVbyte: 0n, minConfs: 0, spendUnconfirmed: false, label: "", coinSelectionStrategy: 0 };
         globalThis.Object.defineProperty(message, MESSAGE_TYPE, { enumerable: false, value: this });
         if (value !== undefined)
             reflectionMergePartial<BatchOpenChannelRequest>(this, message, value);
@@ -12199,6 +13058,9 @@ class BatchOpenChannelRequest$Type extends MessageType<BatchOpenChannelRequest> 
                     break;
                 case /* string label */ 6:
                     message.label = reader.string();
+                    break;
+                case /* lnrpc.CoinSelectionStrategy coin_selection_strategy */ 7:
+                    message.coinSelectionStrategy = reader.int32();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -12230,6 +13092,9 @@ class BatchOpenChannelRequest$Type extends MessageType<BatchOpenChannelRequest> 
         /* string label = 6; */
         if (message.label !== "")
             writer.tag(6, WireType.LengthDelimited).string(message.label);
+        /* lnrpc.CoinSelectionStrategy coin_selection_strategy = 7; */
+        if (message.coinSelectionStrategy !== 0)
+            writer.tag(7, WireType.Varint).int32(message.coinSelectionStrategy);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -12252,11 +13117,22 @@ class BatchOpenChannel$Type extends MessageType<BatchOpenChannel> {
             { no: 6, name: "remote_csv_delay", kind: "scalar", T: 13 /*ScalarType.UINT32*/ },
             { no: 7, name: "close_address", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
             { no: 8, name: "pending_chan_id", kind: "scalar", T: 12 /*ScalarType.BYTES*/ },
-            { no: 9, name: "commitment_type", kind: "enum", T: () => ["lnrpc.CommitmentType", CommitmentType] }
+            { no: 9, name: "commitment_type", kind: "enum", T: () => ["lnrpc.CommitmentType", CommitmentType] },
+            { no: 10, name: "remote_max_value_in_flight_msat", kind: "scalar", T: 4 /*ScalarType.UINT64*/, L: 0 /*LongType.BIGINT*/ },
+            { no: 11, name: "remote_max_htlcs", kind: "scalar", T: 13 /*ScalarType.UINT32*/ },
+            { no: 12, name: "max_local_csv", kind: "scalar", T: 13 /*ScalarType.UINT32*/ },
+            { no: 13, name: "zero_conf", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 14, name: "scid_alias", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 15, name: "base_fee", kind: "scalar", T: 4 /*ScalarType.UINT64*/, L: 0 /*LongType.BIGINT*/ },
+            { no: 16, name: "fee_rate", kind: "scalar", T: 4 /*ScalarType.UINT64*/, L: 0 /*LongType.BIGINT*/ },
+            { no: 17, name: "use_base_fee", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 18, name: "use_fee_rate", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 19, name: "remote_chan_reserve_sat", kind: "scalar", T: 4 /*ScalarType.UINT64*/, L: 0 /*LongType.BIGINT*/ },
+            { no: 20, name: "memo", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
         ]);
     }
     create(value?: PartialMessage<BatchOpenChannel>): BatchOpenChannel {
-        const message = { nodePubkey: new Uint8Array(0), localFundingAmount: 0n, pushSat: 0n, private: false, minHtlcMsat: 0n, remoteCsvDelay: 0, closeAddress: "", pendingChanId: new Uint8Array(0), commitmentType: 0 };
+        const message = { nodePubkey: new Uint8Array(0), localFundingAmount: 0n, pushSat: 0n, private: false, minHtlcMsat: 0n, remoteCsvDelay: 0, closeAddress: "", pendingChanId: new Uint8Array(0), commitmentType: 0, remoteMaxValueInFlightMsat: 0n, remoteMaxHtlcs: 0, maxLocalCsv: 0, zeroConf: false, scidAlias: false, baseFee: 0n, feeRate: 0n, useBaseFee: false, useFeeRate: false, remoteChanReserveSat: 0n, memo: "" };
         globalThis.Object.defineProperty(message, MESSAGE_TYPE, { enumerable: false, value: this });
         if (value !== undefined)
             reflectionMergePartial<BatchOpenChannel>(this, message, value);
@@ -12293,6 +13169,39 @@ class BatchOpenChannel$Type extends MessageType<BatchOpenChannel> {
                     break;
                 case /* lnrpc.CommitmentType commitment_type */ 9:
                     message.commitmentType = reader.int32();
+                    break;
+                case /* uint64 remote_max_value_in_flight_msat */ 10:
+                    message.remoteMaxValueInFlightMsat = reader.uint64().toBigInt();
+                    break;
+                case /* uint32 remote_max_htlcs */ 11:
+                    message.remoteMaxHtlcs = reader.uint32();
+                    break;
+                case /* uint32 max_local_csv */ 12:
+                    message.maxLocalCsv = reader.uint32();
+                    break;
+                case /* bool zero_conf */ 13:
+                    message.zeroConf = reader.bool();
+                    break;
+                case /* bool scid_alias */ 14:
+                    message.scidAlias = reader.bool();
+                    break;
+                case /* uint64 base_fee */ 15:
+                    message.baseFee = reader.uint64().toBigInt();
+                    break;
+                case /* uint64 fee_rate */ 16:
+                    message.feeRate = reader.uint64().toBigInt();
+                    break;
+                case /* bool use_base_fee */ 17:
+                    message.useBaseFee = reader.bool();
+                    break;
+                case /* bool use_fee_rate */ 18:
+                    message.useFeeRate = reader.bool();
+                    break;
+                case /* uint64 remote_chan_reserve_sat */ 19:
+                    message.remoteChanReserveSat = reader.uint64().toBigInt();
+                    break;
+                case /* string memo */ 20:
+                    message.memo = reader.string();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -12333,6 +13242,39 @@ class BatchOpenChannel$Type extends MessageType<BatchOpenChannel> {
         /* lnrpc.CommitmentType commitment_type = 9; */
         if (message.commitmentType !== 0)
             writer.tag(9, WireType.Varint).int32(message.commitmentType);
+        /* uint64 remote_max_value_in_flight_msat = 10; */
+        if (message.remoteMaxValueInFlightMsat !== 0n)
+            writer.tag(10, WireType.Varint).uint64(message.remoteMaxValueInFlightMsat);
+        /* uint32 remote_max_htlcs = 11; */
+        if (message.remoteMaxHtlcs !== 0)
+            writer.tag(11, WireType.Varint).uint32(message.remoteMaxHtlcs);
+        /* uint32 max_local_csv = 12; */
+        if (message.maxLocalCsv !== 0)
+            writer.tag(12, WireType.Varint).uint32(message.maxLocalCsv);
+        /* bool zero_conf = 13; */
+        if (message.zeroConf !== false)
+            writer.tag(13, WireType.Varint).bool(message.zeroConf);
+        /* bool scid_alias = 14; */
+        if (message.scidAlias !== false)
+            writer.tag(14, WireType.Varint).bool(message.scidAlias);
+        /* uint64 base_fee = 15; */
+        if (message.baseFee !== 0n)
+            writer.tag(15, WireType.Varint).uint64(message.baseFee);
+        /* uint64 fee_rate = 16; */
+        if (message.feeRate !== 0n)
+            writer.tag(16, WireType.Varint).uint64(message.feeRate);
+        /* bool use_base_fee = 17; */
+        if (message.useBaseFee !== false)
+            writer.tag(17, WireType.Varint).bool(message.useBaseFee);
+        /* bool use_fee_rate = 18; */
+        if (message.useFeeRate !== false)
+            writer.tag(18, WireType.Varint).bool(message.useFeeRate);
+        /* uint64 remote_chan_reserve_sat = 19; */
+        if (message.remoteChanReserveSat !== 0n)
+            writer.tag(19, WireType.Varint).uint64(message.remoteChanReserveSat);
+        /* string memo = 20; */
+        if (message.memo !== "")
+            writer.tag(20, WireType.LengthDelimited).string(message.memo);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -12418,11 +13360,14 @@ class OpenChannelRequest$Type extends MessageType<OpenChannelRequest> {
             { no: 22, name: "fee_rate", kind: "scalar", T: 4 /*ScalarType.UINT64*/, L: 0 /*LongType.BIGINT*/ },
             { no: 23, name: "use_base_fee", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
             { no: 24, name: "use_fee_rate", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
-            { no: 25, name: "remote_chan_reserve_sat", kind: "scalar", T: 4 /*ScalarType.UINT64*/, L: 0 /*LongType.BIGINT*/ }
+            { no: 25, name: "remote_chan_reserve_sat", kind: "scalar", T: 4 /*ScalarType.UINT64*/, L: 0 /*LongType.BIGINT*/ },
+            { no: 26, name: "fund_max", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 27, name: "memo", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 28, name: "outpoints", kind: "message", repeat: 1 /*RepeatType.PACKED*/, T: () => OutPoint }
         ]);
     }
     create(value?: PartialMessage<OpenChannelRequest>): OpenChannelRequest {
-        const message = { satPerVbyte: 0n, nodePubkey: new Uint8Array(0), nodePubkeyString: "", localFundingAmount: 0n, pushSat: 0n, targetConf: 0, satPerByte: 0n, private: false, minHtlcMsat: 0n, remoteCsvDelay: 0, minConfs: 0, spendUnconfirmed: false, closeAddress: "", remoteMaxValueInFlightMsat: 0n, remoteMaxHtlcs: 0, maxLocalCsv: 0, commitmentType: 0, zeroConf: false, scidAlias: false, baseFee: 0n, feeRate: 0n, useBaseFee: false, useFeeRate: false, remoteChanReserveSat: 0n };
+        const message = { satPerVbyte: 0n, nodePubkey: new Uint8Array(0), nodePubkeyString: "", localFundingAmount: 0n, pushSat: 0n, targetConf: 0, satPerByte: 0n, private: false, minHtlcMsat: 0n, remoteCsvDelay: 0, minConfs: 0, spendUnconfirmed: false, closeAddress: "", remoteMaxValueInFlightMsat: 0n, remoteMaxHtlcs: 0, maxLocalCsv: 0, commitmentType: 0, zeroConf: false, scidAlias: false, baseFee: 0n, feeRate: 0n, useBaseFee: false, useFeeRate: false, remoteChanReserveSat: 0n, fundMax: false, memo: "", outpoints: [] };
         globalThis.Object.defineProperty(message, MESSAGE_TYPE, { enumerable: false, value: this });
         if (value !== undefined)
             reflectionMergePartial<OpenChannelRequest>(this, message, value);
@@ -12507,6 +13452,15 @@ class OpenChannelRequest$Type extends MessageType<OpenChannelRequest> {
                     break;
                 case /* uint64 remote_chan_reserve_sat */ 25:
                     message.remoteChanReserveSat = reader.uint64().toBigInt();
+                    break;
+                case /* bool fund_max */ 26:
+                    message.fundMax = reader.bool();
+                    break;
+                case /* string memo */ 27:
+                    message.memo = reader.string();
+                    break;
+                case /* repeated lnrpc.OutPoint outpoints */ 28:
+                    message.outpoints.push(OutPoint.internalBinaryRead(reader, reader.uint32(), options));
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -12595,6 +13549,15 @@ class OpenChannelRequest$Type extends MessageType<OpenChannelRequest> {
         /* uint64 remote_chan_reserve_sat = 25; */
         if (message.remoteChanReserveSat !== 0n)
             writer.tag(25, WireType.Varint).uint64(message.remoteChanReserveSat);
+        /* bool fund_max = 26; */
+        if (message.fundMax !== false)
+            writer.tag(26, WireType.Varint).bool(message.fundMax);
+        /* string memo = 27; */
+        if (message.memo !== "")
+            writer.tag(27, WireType.LengthDelimited).string(message.memo);
+        /* repeated lnrpc.OutPoint outpoints = 28; */
+        for (let i = 0; i < message.outpoints.length; i++)
+            OutPoint.internalBinaryWrite(message.outpoints[i], writer.tag(28, WireType.LengthDelimited).fork(), options).join();
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -12799,11 +13762,12 @@ class ChanPointShim$Type extends MessageType<ChanPointShim> {
             { no: 3, name: "local_key", kind: "message", T: () => KeyDescriptor },
             { no: 4, name: "remote_key", kind: "scalar", T: 12 /*ScalarType.BYTES*/ },
             { no: 5, name: "pending_chan_id", kind: "scalar", T: 12 /*ScalarType.BYTES*/ },
-            { no: 6, name: "thaw_height", kind: "scalar", T: 13 /*ScalarType.UINT32*/ }
+            { no: 6, name: "thaw_height", kind: "scalar", T: 13 /*ScalarType.UINT32*/ },
+            { no: 7, name: "musig2", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
         ]);
     }
     create(value?: PartialMessage<ChanPointShim>): ChanPointShim {
-        const message = { amt: 0n, remoteKey: new Uint8Array(0), pendingChanId: new Uint8Array(0), thawHeight: 0 };
+        const message = { amt: 0n, remoteKey: new Uint8Array(0), pendingChanId: new Uint8Array(0), thawHeight: 0, musig2: false };
         globalThis.Object.defineProperty(message, MESSAGE_TYPE, { enumerable: false, value: this });
         if (value !== undefined)
             reflectionMergePartial<ChanPointShim>(this, message, value);
@@ -12831,6 +13795,9 @@ class ChanPointShim$Type extends MessageType<ChanPointShim> {
                     break;
                 case /* uint32 thaw_height */ 6:
                     message.thawHeight = reader.uint32();
+                    break;
+                case /* bool musig2 */ 7:
+                    message.musig2 = reader.bool();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -12862,6 +13829,9 @@ class ChanPointShim$Type extends MessageType<ChanPointShim> {
         /* uint32 thaw_height = 6; */
         if (message.thawHeight !== 0)
             writer.tag(6, WireType.Varint).uint32(message.thawHeight);
+        /* bool musig2 = 7; */
+        if (message.musig2 !== false)
+            writer.tag(7, WireType.Varint).bool(message.musig2);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -13353,19 +14323,40 @@ export const PendingHTLC = new PendingHTLC$Type();
 // @generated message type with reflection information, may provide speed optimized methods
 class PendingChannelsRequest$Type extends MessageType<PendingChannelsRequest> {
     constructor() {
-        super("lnrpc.PendingChannelsRequest", []);
+        super("lnrpc.PendingChannelsRequest", [
+            { no: 1, name: "include_raw_tx", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
+        ]);
     }
     create(value?: PartialMessage<PendingChannelsRequest>): PendingChannelsRequest {
-        const message = {};
+        const message = { includeRawTx: false };
         globalThis.Object.defineProperty(message, MESSAGE_TYPE, { enumerable: false, value: this });
         if (value !== undefined)
             reflectionMergePartial<PendingChannelsRequest>(this, message, value);
         return message;
     }
     internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: PendingChannelsRequest): PendingChannelsRequest {
-        return target ?? this.create();
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* bool include_raw_tx */ 1:
+                    message.includeRawTx = reader.bool();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
     }
     internalBinaryWrite(message: PendingChannelsRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* bool include_raw_tx = 1; */
+        if (message.includeRawTx !== false)
+            writer.tag(1, WireType.Varint).bool(message.includeRawTx);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -13466,11 +14457,12 @@ class PendingChannelsResponse_PendingChannel$Type extends MessageType<PendingCha
             { no: 9, name: "commitment_type", kind: "enum", T: () => ["lnrpc.CommitmentType", CommitmentType] },
             { no: 10, name: "num_forwarding_packages", kind: "scalar", T: 3 /*ScalarType.INT64*/, L: 0 /*LongType.BIGINT*/ },
             { no: 11, name: "chan_status_flags", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
-            { no: 12, name: "private", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
+            { no: 12, name: "private", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 13, name: "memo", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
         ]);
     }
     create(value?: PartialMessage<PendingChannelsResponse_PendingChannel>): PendingChannelsResponse_PendingChannel {
-        const message = { remoteNodePub: "", channelPoint: "", capacity: 0n, localBalance: 0n, remoteBalance: 0n, localChanReserveSat: 0n, remoteChanReserveSat: 0n, initiator: 0, commitmentType: 0, numForwardingPackages: 0n, chanStatusFlags: "", private: false };
+        const message = { remoteNodePub: "", channelPoint: "", capacity: 0n, localBalance: 0n, remoteBalance: 0n, localChanReserveSat: 0n, remoteChanReserveSat: 0n, initiator: 0, commitmentType: 0, numForwardingPackages: 0n, chanStatusFlags: "", private: false, memo: "" };
         globalThis.Object.defineProperty(message, MESSAGE_TYPE, { enumerable: false, value: this });
         if (value !== undefined)
             reflectionMergePartial<PendingChannelsResponse_PendingChannel>(this, message, value);
@@ -13516,6 +14508,9 @@ class PendingChannelsResponse_PendingChannel$Type extends MessageType<PendingCha
                     break;
                 case /* bool private */ 12:
                     message.private = reader.bool();
+                    break;
+                case /* string memo */ 13:
+                    message.memo = reader.string();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -13565,6 +14560,9 @@ class PendingChannelsResponse_PendingChannel$Type extends MessageType<PendingCha
         /* bool private = 12; */
         if (message.private !== false)
             writer.tag(12, WireType.Varint).bool(message.private);
+        /* string memo = 13; */
+        if (message.memo !== "")
+            writer.tag(13, WireType.LengthDelimited).string(message.memo);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -13582,11 +14580,12 @@ class PendingChannelsResponse_PendingOpenChannel$Type extends MessageType<Pendin
             { no: 1, name: "channel", kind: "message", T: () => PendingChannelsResponse_PendingChannel },
             { no: 4, name: "commit_fee", kind: "scalar", T: 3 /*ScalarType.INT64*/, L: 0 /*LongType.BIGINT*/ },
             { no: 5, name: "commit_weight", kind: "scalar", T: 3 /*ScalarType.INT64*/, L: 0 /*LongType.BIGINT*/ },
-            { no: 6, name: "fee_per_kw", kind: "scalar", T: 3 /*ScalarType.INT64*/, L: 0 /*LongType.BIGINT*/ }
+            { no: 6, name: "fee_per_kw", kind: "scalar", T: 3 /*ScalarType.INT64*/, L: 0 /*LongType.BIGINT*/ },
+            { no: 3, name: "funding_expiry_blocks", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
         ]);
     }
     create(value?: PartialMessage<PendingChannelsResponse_PendingOpenChannel>): PendingChannelsResponse_PendingOpenChannel {
-        const message = { commitFee: 0n, commitWeight: 0n, feePerKw: 0n };
+        const message = { commitFee: 0n, commitWeight: 0n, feePerKw: 0n, fundingExpiryBlocks: 0 };
         globalThis.Object.defineProperty(message, MESSAGE_TYPE, { enumerable: false, value: this });
         if (value !== undefined)
             reflectionMergePartial<PendingChannelsResponse_PendingOpenChannel>(this, message, value);
@@ -13608,6 +14607,9 @@ class PendingChannelsResponse_PendingOpenChannel$Type extends MessageType<Pendin
                     break;
                 case /* int64 fee_per_kw */ 6:
                     message.feePerKw = reader.int64().toBigInt();
+                    break;
+                case /* int32 funding_expiry_blocks */ 3:
+                    message.fundingExpiryBlocks = reader.int32();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -13633,6 +14635,9 @@ class PendingChannelsResponse_PendingOpenChannel$Type extends MessageType<Pendin
         /* int64 fee_per_kw = 6; */
         if (message.feePerKw !== 0n)
             writer.tag(6, WireType.Varint).int64(message.feePerKw);
+        /* int32 funding_expiry_blocks = 3; */
+        if (message.fundingExpiryBlocks !== 0)
+            writer.tag(3, WireType.Varint).int32(message.fundingExpiryBlocks);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -13650,11 +14655,12 @@ class PendingChannelsResponse_WaitingCloseChannel$Type extends MessageType<Pendi
             { no: 1, name: "channel", kind: "message", T: () => PendingChannelsResponse_PendingChannel },
             { no: 2, name: "limbo_balance", kind: "scalar", T: 3 /*ScalarType.INT64*/, L: 0 /*LongType.BIGINT*/ },
             { no: 3, name: "commitments", kind: "message", T: () => PendingChannelsResponse_Commitments },
-            { no: 4, name: "closing_txid", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+            { no: 4, name: "closing_txid", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 5, name: "closing_tx_hex", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
         ]);
     }
     create(value?: PartialMessage<PendingChannelsResponse_WaitingCloseChannel>): PendingChannelsResponse_WaitingCloseChannel {
-        const message = { limboBalance: 0n, closingTxid: "" };
+        const message = { limboBalance: 0n, closingTxid: "", closingTxHex: "" };
         globalThis.Object.defineProperty(message, MESSAGE_TYPE, { enumerable: false, value: this });
         if (value !== undefined)
             reflectionMergePartial<PendingChannelsResponse_WaitingCloseChannel>(this, message, value);
@@ -13676,6 +14682,9 @@ class PendingChannelsResponse_WaitingCloseChannel$Type extends MessageType<Pendi
                     break;
                 case /* string closing_txid */ 4:
                     message.closingTxid = reader.string();
+                    break;
+                case /* string closing_tx_hex */ 5:
+                    message.closingTxHex = reader.string();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -13701,6 +14710,9 @@ class PendingChannelsResponse_WaitingCloseChannel$Type extends MessageType<Pendi
         /* string closing_txid = 4; */
         if (message.closingTxid !== "")
             writer.tag(4, WireType.LengthDelimited).string(message.closingTxid);
+        /* string closing_tx_hex = 5; */
+        if (message.closingTxHex !== "")
+            writer.tag(5, WireType.LengthDelimited).string(message.closingTxHex);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -14133,19 +15145,47 @@ export const WalletAccountBalance = new WalletAccountBalance$Type();
 // @generated message type with reflection information, may provide speed optimized methods
 class WalletBalanceRequest$Type extends MessageType<WalletBalanceRequest> {
     constructor() {
-        super("lnrpc.WalletBalanceRequest", []);
+        super("lnrpc.WalletBalanceRequest", [
+            { no: 1, name: "account", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 2, name: "min_confs", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+        ]);
     }
     create(value?: PartialMessage<WalletBalanceRequest>): WalletBalanceRequest {
-        const message = {};
+        const message = { account: "", minConfs: 0 };
         globalThis.Object.defineProperty(message, MESSAGE_TYPE, { enumerable: false, value: this });
         if (value !== undefined)
             reflectionMergePartial<WalletBalanceRequest>(this, message, value);
         return message;
     }
     internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: WalletBalanceRequest): WalletBalanceRequest {
-        return target ?? this.create();
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string account */ 1:
+                    message.account = reader.string();
+                    break;
+                case /* int32 min_confs */ 2:
+                    message.minConfs = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
     }
     internalBinaryWrite(message: WalletBalanceRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string account = 1; */
+        if (message.account !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.account);
+        /* int32 min_confs = 2; */
+        if (message.minConfs !== 0)
+            writer.tag(2, WireType.Varint).int32(message.minConfs);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -14453,12 +15493,13 @@ class QueryRoutesRequest$Type extends MessageType<QueryRoutesRequest> {
             { no: 14, name: "outgoing_chan_id", kind: "scalar", T: 4 /*ScalarType.UINT64*/ },
             { no: 15, name: "last_hop_pubkey", kind: "scalar", T: 12 /*ScalarType.BYTES*/ },
             { no: 16, name: "route_hints", kind: "message", repeat: 1 /*RepeatType.PACKED*/, T: () => RouteHint },
+            { no: 19, name: "blinded_payment_paths", kind: "message", repeat: 1 /*RepeatType.PACKED*/, T: () => BlindedPaymentPath },
             { no: 17, name: "dest_features", kind: "enum", repeat: 1 /*RepeatType.PACKED*/, T: () => ["lnrpc.FeatureBit", FeatureBit] },
             { no: 18, name: "time_pref", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ }
         ]);
     }
     create(value?: PartialMessage<QueryRoutesRequest>): QueryRoutesRequest {
-        const message = { pubKey: "", amt: 0n, amtMsat: 0n, finalCltvDelta: 0, ignoredNodes: [], ignoredEdges: [], sourcePubKey: "", useMissionControl: false, ignoredPairs: [], cltvLimit: 0, destCustomRecords: {}, outgoingChanId: "0", lastHopPubkey: new Uint8Array(0), routeHints: [], destFeatures: [], timePref: 0 };
+        const message = { pubKey: "", amt: 0n, amtMsat: 0n, finalCltvDelta: 0, ignoredNodes: [], ignoredEdges: [], sourcePubKey: "", useMissionControl: false, ignoredPairs: [], cltvLimit: 0, destCustomRecords: {}, outgoingChanId: "0", lastHopPubkey: new Uint8Array(0), routeHints: [], blindedPaymentPaths: [], destFeatures: [], timePref: 0 };
         globalThis.Object.defineProperty(message, MESSAGE_TYPE, { enumerable: false, value: this });
         if (value !== undefined)
             reflectionMergePartial<QueryRoutesRequest>(this, message, value);
@@ -14513,6 +15554,9 @@ class QueryRoutesRequest$Type extends MessageType<QueryRoutesRequest> {
                     break;
                 case /* repeated lnrpc.RouteHint route_hints */ 16:
                     message.routeHints.push(RouteHint.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                case /* repeated lnrpc.BlindedPaymentPath blinded_payment_paths */ 19:
+                    message.blindedPaymentPaths.push(BlindedPaymentPath.internalBinaryRead(reader, reader.uint32(), options));
                     break;
                 case /* repeated lnrpc.FeatureBit dest_features */ 17:
                     if (wireType === WireType.LengthDelimited)
@@ -14597,6 +15641,9 @@ class QueryRoutesRequest$Type extends MessageType<QueryRoutesRequest> {
         /* repeated lnrpc.RouteHint route_hints = 16; */
         for (let i = 0; i < message.routeHints.length; i++)
             RouteHint.internalBinaryWrite(message.routeHints[i], writer.tag(16, WireType.LengthDelimited).fork(), options).join();
+        /* repeated lnrpc.BlindedPaymentPath blinded_payment_paths = 19; */
+        for (let i = 0; i < message.blindedPaymentPaths.length; i++)
+            BlindedPaymentPath.internalBinaryWrite(message.blindedPaymentPaths[i], writer.tag(19, WireType.LengthDelimited).fork(), options).join();
         /* repeated lnrpc.FeatureBit dest_features = 17; */
         if (message.destFeatures.length) {
             writer.tag(17, WireType.LengthDelimited).fork();
@@ -14795,11 +15842,14 @@ class Hop$Type extends MessageType<Hop> {
             { no: 10, name: "mpp_record", kind: "message", T: () => MPPRecord },
             { no: 12, name: "amp_record", kind: "message", T: () => AMPRecord },
             { no: 11, name: "custom_records", kind: "map", K: 4 /*ScalarType.UINT64*/, V: { kind: "scalar", T: 12 /*ScalarType.BYTES*/ } },
-            { no: 13, name: "metadata", kind: "scalar", T: 12 /*ScalarType.BYTES*/ }
+            { no: 13, name: "metadata", kind: "scalar", T: 12 /*ScalarType.BYTES*/ },
+            { no: 14, name: "blinding_point", kind: "scalar", T: 12 /*ScalarType.BYTES*/ },
+            { no: 15, name: "encrypted_data", kind: "scalar", T: 12 /*ScalarType.BYTES*/ },
+            { no: 16, name: "total_amt_msat", kind: "scalar", T: 4 /*ScalarType.UINT64*/, L: 0 /*LongType.BIGINT*/ }
         ]);
     }
     create(value?: PartialMessage<Hop>): Hop {
-        const message = { chanId: "0", chanCapacity: 0n, amtToForward: 0n, fee: 0n, expiry: 0, amtToForwardMsat: 0n, feeMsat: 0n, pubKey: "", tlvPayload: false, customRecords: {}, metadata: new Uint8Array(0) };
+        const message = { chanId: "0", chanCapacity: 0n, amtToForward: 0n, fee: 0n, expiry: 0, amtToForwardMsat: 0n, feeMsat: 0n, pubKey: "", tlvPayload: false, customRecords: {}, metadata: new Uint8Array(0), blindingPoint: new Uint8Array(0), encryptedData: new Uint8Array(0), totalAmtMsat: 0n };
         globalThis.Object.defineProperty(message, MESSAGE_TYPE, { enumerable: false, value: this });
         if (value !== undefined)
             reflectionMergePartial<Hop>(this, message, value);
@@ -14848,6 +15898,15 @@ class Hop$Type extends MessageType<Hop> {
                     break;
                 case /* bytes metadata */ 13:
                     message.metadata = reader.bytes();
+                    break;
+                case /* bytes blinding_point */ 14:
+                    message.blindingPoint = reader.bytes();
+                    break;
+                case /* bytes encrypted_data */ 15:
+                    message.encryptedData = reader.bytes();
+                    break;
+                case /* uint64 total_amt_msat */ 16:
+                    message.totalAmtMsat = reader.uint64().toBigInt();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -14916,6 +15975,15 @@ class Hop$Type extends MessageType<Hop> {
         /* bytes metadata = 13; */
         if (message.metadata.length)
             writer.tag(13, WireType.LengthDelimited).bytes(message.metadata);
+        /* bytes blinding_point = 14; */
+        if (message.blindingPoint.length)
+            writer.tag(14, WireType.LengthDelimited).bytes(message.blindingPoint);
+        /* bytes encrypted_data = 15; */
+        if (message.encryptedData.length)
+            writer.tag(15, WireType.LengthDelimited).bytes(message.encryptedData);
+        /* uint64 total_amt_msat = 16; */
+        if (message.totalAmtMsat !== 0n)
+            writer.tag(16, WireType.Varint).uint64(message.totalAmtMsat);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -15435,11 +16503,13 @@ class RoutingPolicy$Type extends MessageType<RoutingPolicy> {
             { no: 5, name: "disabled", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
             { no: 6, name: "max_htlc_msat", kind: "scalar", T: 4 /*ScalarType.UINT64*/, L: 0 /*LongType.BIGINT*/ },
             { no: 7, name: "last_update", kind: "scalar", T: 13 /*ScalarType.UINT32*/ },
-            { no: 8, name: "custom_records", kind: "map", K: 4 /*ScalarType.UINT64*/, V: { kind: "scalar", T: 12 /*ScalarType.BYTES*/ } }
+            { no: 8, name: "custom_records", kind: "map", K: 4 /*ScalarType.UINT64*/, V: { kind: "scalar", T: 12 /*ScalarType.BYTES*/ } },
+            { no: 9, name: "inbound_fee_base_msat", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 10, name: "inbound_fee_rate_milli_msat", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
         ]);
     }
     create(value?: PartialMessage<RoutingPolicy>): RoutingPolicy {
-        const message = { timeLockDelta: 0, minHtlc: 0n, feeBaseMsat: 0n, feeRateMilliMsat: 0n, disabled: false, maxHtlcMsat: 0n, lastUpdate: 0, customRecords: {} };
+        const message = { timeLockDelta: 0, minHtlc: 0n, feeBaseMsat: 0n, feeRateMilliMsat: 0n, disabled: false, maxHtlcMsat: 0n, lastUpdate: 0, customRecords: {}, inboundFeeBaseMsat: 0, inboundFeeRateMilliMsat: 0 };
         globalThis.Object.defineProperty(message, MESSAGE_TYPE, { enumerable: false, value: this });
         if (value !== undefined)
             reflectionMergePartial<RoutingPolicy>(this, message, value);
@@ -15473,6 +16543,12 @@ class RoutingPolicy$Type extends MessageType<RoutingPolicy> {
                     break;
                 case /* map<uint64, bytes> custom_records */ 8:
                     this.binaryReadMap8(message.customRecords, reader, options);
+                    break;
+                case /* int32 inbound_fee_base_msat */ 9:
+                    message.inboundFeeBaseMsat = reader.int32();
+                    break;
+                case /* int32 inbound_fee_rate_milli_msat */ 10:
+                    message.inboundFeeRateMilliMsat = reader.int32();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -15526,6 +16602,12 @@ class RoutingPolicy$Type extends MessageType<RoutingPolicy> {
         /* map<uint64, bytes> custom_records = 8; */
         for (let k of Object.keys(message.customRecords))
             writer.tag(8, WireType.LengthDelimited).fork().tag(1, WireType.Varint).uint64(k).tag(2, WireType.LengthDelimited).bytes(message.customRecords[k]).join();
+        /* int32 inbound_fee_base_msat = 9; */
+        if (message.inboundFeeBaseMsat !== 0)
+            writer.tag(9, WireType.Varint).int32(message.inboundFeeBaseMsat);
+        /* int32 inbound_fee_rate_milli_msat = 10; */
+        if (message.inboundFeeRateMilliMsat !== 0)
+            writer.tag(10, WireType.Varint).int32(message.inboundFeeRateMilliMsat);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -15936,11 +17018,12 @@ export const FloatMetric = new FloatMetric$Type();
 class ChanInfoRequest$Type extends MessageType<ChanInfoRequest> {
     constructor() {
         super("lnrpc.ChanInfoRequest", [
-            { no: 1, name: "chan_id", kind: "scalar", T: 4 /*ScalarType.UINT64*/ }
+            { no: 1, name: "chan_id", kind: "scalar", T: 4 /*ScalarType.UINT64*/ },
+            { no: 2, name: "chan_point", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
         ]);
     }
     create(value?: PartialMessage<ChanInfoRequest>): ChanInfoRequest {
-        const message = { chanId: "0" };
+        const message = { chanId: "0", chanPoint: "" };
         globalThis.Object.defineProperty(message, MESSAGE_TYPE, { enumerable: false, value: this });
         if (value !== undefined)
             reflectionMergePartial<ChanInfoRequest>(this, message, value);
@@ -15953,6 +17036,9 @@ class ChanInfoRequest$Type extends MessageType<ChanInfoRequest> {
             switch (fieldNo) {
                 case /* uint64 chan_id = 1 [jstype = JS_STRING];*/ 1:
                     message.chanId = reader.uint64().toString();
+                    break;
+                case /* string chan_point */ 2:
+                    message.chanPoint = reader.string();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -15969,6 +17055,9 @@ class ChanInfoRequest$Type extends MessageType<ChanInfoRequest> {
         /* uint64 chan_id = 1 [jstype = JS_STRING]; */
         if (message.chanId !== "0")
             writer.tag(1, WireType.Varint).uint64(message.chanId);
+        /* string chan_point = 2; */
+        if (message.chanPoint !== "")
+            writer.tag(2, WireType.LengthDelimited).string(message.chanPoint);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -16690,6 +17779,218 @@ class RouteHint$Type extends MessageType<RouteHint> {
  */
 export const RouteHint = new RouteHint$Type();
 // @generated message type with reflection information, may provide speed optimized methods
+class BlindedPaymentPath$Type extends MessageType<BlindedPaymentPath> {
+    constructor() {
+        super("lnrpc.BlindedPaymentPath", [
+            { no: 1, name: "blinded_path", kind: "message", T: () => BlindedPath },
+            { no: 2, name: "base_fee_msat", kind: "scalar", T: 4 /*ScalarType.UINT64*/, L: 0 /*LongType.BIGINT*/ },
+            { no: 3, name: "proportional_fee_rate", kind: "scalar", T: 13 /*ScalarType.UINT32*/ },
+            { no: 4, name: "total_cltv_delta", kind: "scalar", T: 13 /*ScalarType.UINT32*/ },
+            { no: 5, name: "htlc_min_msat", kind: "scalar", T: 4 /*ScalarType.UINT64*/, L: 0 /*LongType.BIGINT*/ },
+            { no: 6, name: "htlc_max_msat", kind: "scalar", T: 4 /*ScalarType.UINT64*/, L: 0 /*LongType.BIGINT*/ },
+            { no: 7, name: "features", kind: "enum", repeat: 1 /*RepeatType.PACKED*/, T: () => ["lnrpc.FeatureBit", FeatureBit] }
+        ]);
+    }
+    create(value?: PartialMessage<BlindedPaymentPath>): BlindedPaymentPath {
+        const message = { baseFeeMsat: 0n, proportionalFeeRate: 0, totalCltvDelta: 0, htlcMinMsat: 0n, htlcMaxMsat: 0n, features: [] };
+        globalThis.Object.defineProperty(message, MESSAGE_TYPE, { enumerable: false, value: this });
+        if (value !== undefined)
+            reflectionMergePartial<BlindedPaymentPath>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: BlindedPaymentPath): BlindedPaymentPath {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* lnrpc.BlindedPath blinded_path */ 1:
+                    message.blindedPath = BlindedPath.internalBinaryRead(reader, reader.uint32(), options, message.blindedPath);
+                    break;
+                case /* uint64 base_fee_msat */ 2:
+                    message.baseFeeMsat = reader.uint64().toBigInt();
+                    break;
+                case /* uint32 proportional_fee_rate */ 3:
+                    message.proportionalFeeRate = reader.uint32();
+                    break;
+                case /* uint32 total_cltv_delta */ 4:
+                    message.totalCltvDelta = reader.uint32();
+                    break;
+                case /* uint64 htlc_min_msat */ 5:
+                    message.htlcMinMsat = reader.uint64().toBigInt();
+                    break;
+                case /* uint64 htlc_max_msat */ 6:
+                    message.htlcMaxMsat = reader.uint64().toBigInt();
+                    break;
+                case /* repeated lnrpc.FeatureBit features */ 7:
+                    if (wireType === WireType.LengthDelimited)
+                        for (let e = reader.int32() + reader.pos; reader.pos < e;)
+                            message.features.push(reader.int32());
+                    else
+                        message.features.push(reader.int32());
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: BlindedPaymentPath, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* lnrpc.BlindedPath blinded_path = 1; */
+        if (message.blindedPath)
+            BlindedPath.internalBinaryWrite(message.blindedPath, writer.tag(1, WireType.LengthDelimited).fork(), options).join();
+        /* uint64 base_fee_msat = 2; */
+        if (message.baseFeeMsat !== 0n)
+            writer.tag(2, WireType.Varint).uint64(message.baseFeeMsat);
+        /* uint32 proportional_fee_rate = 3; */
+        if (message.proportionalFeeRate !== 0)
+            writer.tag(3, WireType.Varint).uint32(message.proportionalFeeRate);
+        /* uint32 total_cltv_delta = 4; */
+        if (message.totalCltvDelta !== 0)
+            writer.tag(4, WireType.Varint).uint32(message.totalCltvDelta);
+        /* uint64 htlc_min_msat = 5; */
+        if (message.htlcMinMsat !== 0n)
+            writer.tag(5, WireType.Varint).uint64(message.htlcMinMsat);
+        /* uint64 htlc_max_msat = 6; */
+        if (message.htlcMaxMsat !== 0n)
+            writer.tag(6, WireType.Varint).uint64(message.htlcMaxMsat);
+        /* repeated lnrpc.FeatureBit features = 7; */
+        if (message.features.length) {
+            writer.tag(7, WireType.LengthDelimited).fork();
+            for (let i = 0; i < message.features.length; i++)
+                writer.int32(message.features[i]);
+            writer.join();
+        }
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message lnrpc.BlindedPaymentPath
+ */
+export const BlindedPaymentPath = new BlindedPaymentPath$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class BlindedPath$Type extends MessageType<BlindedPath> {
+    constructor() {
+        super("lnrpc.BlindedPath", [
+            { no: 1, name: "introduction_node", kind: "scalar", T: 12 /*ScalarType.BYTES*/ },
+            { no: 2, name: "blinding_point", kind: "scalar", T: 12 /*ScalarType.BYTES*/ },
+            { no: 3, name: "blinded_hops", kind: "message", repeat: 1 /*RepeatType.PACKED*/, T: () => BlindedHop }
+        ]);
+    }
+    create(value?: PartialMessage<BlindedPath>): BlindedPath {
+        const message = { introductionNode: new Uint8Array(0), blindingPoint: new Uint8Array(0), blindedHops: [] };
+        globalThis.Object.defineProperty(message, MESSAGE_TYPE, { enumerable: false, value: this });
+        if (value !== undefined)
+            reflectionMergePartial<BlindedPath>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: BlindedPath): BlindedPath {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* bytes introduction_node */ 1:
+                    message.introductionNode = reader.bytes();
+                    break;
+                case /* bytes blinding_point */ 2:
+                    message.blindingPoint = reader.bytes();
+                    break;
+                case /* repeated lnrpc.BlindedHop blinded_hops */ 3:
+                    message.blindedHops.push(BlindedHop.internalBinaryRead(reader, reader.uint32(), options));
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: BlindedPath, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* bytes introduction_node = 1; */
+        if (message.introductionNode.length)
+            writer.tag(1, WireType.LengthDelimited).bytes(message.introductionNode);
+        /* bytes blinding_point = 2; */
+        if (message.blindingPoint.length)
+            writer.tag(2, WireType.LengthDelimited).bytes(message.blindingPoint);
+        /* repeated lnrpc.BlindedHop blinded_hops = 3; */
+        for (let i = 0; i < message.blindedHops.length; i++)
+            BlindedHop.internalBinaryWrite(message.blindedHops[i], writer.tag(3, WireType.LengthDelimited).fork(), options).join();
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message lnrpc.BlindedPath
+ */
+export const BlindedPath = new BlindedPath$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class BlindedHop$Type extends MessageType<BlindedHop> {
+    constructor() {
+        super("lnrpc.BlindedHop", [
+            { no: 1, name: "blinded_node", kind: "scalar", T: 12 /*ScalarType.BYTES*/ },
+            { no: 2, name: "encrypted_data", kind: "scalar", T: 12 /*ScalarType.BYTES*/ }
+        ]);
+    }
+    create(value?: PartialMessage<BlindedHop>): BlindedHop {
+        const message = { blindedNode: new Uint8Array(0), encryptedData: new Uint8Array(0) };
+        globalThis.Object.defineProperty(message, MESSAGE_TYPE, { enumerable: false, value: this });
+        if (value !== undefined)
+            reflectionMergePartial<BlindedHop>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: BlindedHop): BlindedHop {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* bytes blinded_node */ 1:
+                    message.blindedNode = reader.bytes();
+                    break;
+                case /* bytes encrypted_data */ 2:
+                    message.encryptedData = reader.bytes();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: BlindedHop, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* bytes blinded_node = 1; */
+        if (message.blindedNode.length)
+            writer.tag(1, WireType.LengthDelimited).bytes(message.blindedNode);
+        /* bytes encrypted_data = 2; */
+        if (message.encryptedData.length)
+            writer.tag(2, WireType.LengthDelimited).bytes(message.encryptedData);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message lnrpc.BlindedHop
+ */
+export const BlindedHop = new BlindedHop$Type();
+// @generated message type with reflection information, may provide speed optimized methods
 class AMPInvoiceState$Type extends MessageType<AMPInvoiceState> {
     constructor() {
         super("lnrpc.AMPInvoiceState", [
@@ -16787,11 +18088,13 @@ class Invoice$Type extends MessageType<Invoice> {
             { no: 25, name: "is_keysend", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
             { no: 26, name: "payment_addr", kind: "scalar", T: 12 /*ScalarType.BYTES*/ },
             { no: 27, name: "is_amp", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
-            { no: 28, name: "amp_invoice_state", kind: "map", K: 9 /*ScalarType.STRING*/, V: { kind: "message", T: () => AMPInvoiceState } }
+            { no: 28, name: "amp_invoice_state", kind: "map", K: 9 /*ScalarType.STRING*/, V: { kind: "message", T: () => AMPInvoiceState } },
+            { no: 29, name: "is_blinded", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 30, name: "blinded_path_config", kind: "message", T: () => BlindedPathConfig }
         ]);
     }
     create(value?: PartialMessage<Invoice>): Invoice {
-        const message = { memo: "", rPreimage: new Uint8Array(0), rHash: new Uint8Array(0), value: 0n, valueMsat: 0n, settled: false, creationDate: 0n, settleDate: 0n, paymentRequest: "", descriptionHash: new Uint8Array(0), expiry: 0n, fallbackAddr: "", cltvExpiry: 0n, routeHints: [], private: false, addIndex: 0n, settleIndex: 0n, amtPaid: 0n, amtPaidSat: 0n, amtPaidMsat: 0n, state: 0, htlcs: [], features: {}, isKeysend: false, paymentAddr: new Uint8Array(0), isAmp: false, ampInvoiceState: {} };
+        const message = { memo: "", rPreimage: new Uint8Array(0), rHash: new Uint8Array(0), value: 0n, valueMsat: 0n, settled: false, creationDate: 0n, settleDate: 0n, paymentRequest: "", descriptionHash: new Uint8Array(0), expiry: 0n, fallbackAddr: "", cltvExpiry: 0n, routeHints: [], private: false, addIndex: 0n, settleIndex: 0n, amtPaid: 0n, amtPaidSat: 0n, amtPaidMsat: 0n, state: 0, htlcs: [], features: {}, isKeysend: false, paymentAddr: new Uint8Array(0), isAmp: false, ampInvoiceState: {}, isBlinded: false };
         globalThis.Object.defineProperty(message, MESSAGE_TYPE, { enumerable: false, value: this });
         if (value !== undefined)
             reflectionMergePartial<Invoice>(this, message, value);
@@ -16882,6 +18185,12 @@ class Invoice$Type extends MessageType<Invoice> {
                     break;
                 case /* map<string, lnrpc.AMPInvoiceState> amp_invoice_state */ 28:
                     this.binaryReadMap28(message.ampInvoiceState, reader, options);
+                    break;
+                case /* bool is_blinded */ 29:
+                    message.isBlinded = reader.bool();
+                    break;
+                case /* lnrpc.BlindedPathConfig blinded_path_config */ 30:
+                    message.blindedPathConfig = BlindedPathConfig.internalBinaryRead(reader, reader.uint32(), options, message.blindedPathConfig);
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -17016,6 +18325,12 @@ class Invoice$Type extends MessageType<Invoice> {
             AMPInvoiceState.internalBinaryWrite(message.ampInvoiceState[k], writer, options);
             writer.join().join();
         }
+        /* bool is_blinded = 29; */
+        if (message.isBlinded !== false)
+            writer.tag(29, WireType.Varint).bool(message.isBlinded);
+        /* lnrpc.BlindedPathConfig blinded_path_config = 30; */
+        if (message.blindedPathConfig)
+            BlindedPathConfig.internalBinaryWrite(message.blindedPathConfig, writer.tag(30, WireType.LengthDelimited).fork(), options).join();
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -17026,6 +18341,74 @@ class Invoice$Type extends MessageType<Invoice> {
  * @generated MessageType for protobuf message lnrpc.Invoice
  */
 export const Invoice = new Invoice$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class BlindedPathConfig$Type extends MessageType<BlindedPathConfig> {
+    constructor() {
+        super("lnrpc.BlindedPathConfig", [
+            { no: 1, name: "min_num_real_hops", kind: "scalar", opt: true, T: 13 /*ScalarType.UINT32*/ },
+            { no: 2, name: "num_hops", kind: "scalar", opt: true, T: 13 /*ScalarType.UINT32*/ },
+            { no: 3, name: "max_num_paths", kind: "scalar", opt: true, T: 13 /*ScalarType.UINT32*/ },
+            { no: 4, name: "node_omission_list", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 12 /*ScalarType.BYTES*/ }
+        ]);
+    }
+    create(value?: PartialMessage<BlindedPathConfig>): BlindedPathConfig {
+        const message = { nodeOmissionList: [] };
+        globalThis.Object.defineProperty(message, MESSAGE_TYPE, { enumerable: false, value: this });
+        if (value !== undefined)
+            reflectionMergePartial<BlindedPathConfig>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: BlindedPathConfig): BlindedPathConfig {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* optional uint32 min_num_real_hops */ 1:
+                    message.minNumRealHops = reader.uint32();
+                    break;
+                case /* optional uint32 num_hops */ 2:
+                    message.numHops = reader.uint32();
+                    break;
+                case /* optional uint32 max_num_paths */ 3:
+                    message.maxNumPaths = reader.uint32();
+                    break;
+                case /* repeated bytes node_omission_list */ 4:
+                    message.nodeOmissionList.push(reader.bytes());
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: BlindedPathConfig, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* optional uint32 min_num_real_hops = 1; */
+        if (message.minNumRealHops !== undefined)
+            writer.tag(1, WireType.Varint).uint32(message.minNumRealHops);
+        /* optional uint32 num_hops = 2; */
+        if (message.numHops !== undefined)
+            writer.tag(2, WireType.Varint).uint32(message.numHops);
+        /* optional uint32 max_num_paths = 3; */
+        if (message.maxNumPaths !== undefined)
+            writer.tag(3, WireType.Varint).uint32(message.maxNumPaths);
+        /* repeated bytes node_omission_list = 4; */
+        for (let i = 0; i < message.nodeOmissionList.length; i++)
+            writer.tag(4, WireType.LengthDelimited).bytes(message.nodeOmissionList[i]);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message lnrpc.BlindedPathConfig
+ */
+export const BlindedPathConfig = new BlindedPathConfig$Type();
 // @generated message type with reflection information, may provide speed optimized methods
 class InvoiceHTLC$Type extends MessageType<InvoiceHTLC> {
     constructor() {
@@ -17363,11 +18746,13 @@ class ListInvoiceRequest$Type extends MessageType<ListInvoiceRequest> {
             { no: 1, name: "pending_only", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
             { no: 4, name: "index_offset", kind: "scalar", T: 4 /*ScalarType.UINT64*/, L: 0 /*LongType.BIGINT*/ },
             { no: 5, name: "num_max_invoices", kind: "scalar", T: 4 /*ScalarType.UINT64*/, L: 0 /*LongType.BIGINT*/ },
-            { no: 6, name: "reversed", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
+            { no: 6, name: "reversed", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 7, name: "creation_date_start", kind: "scalar", T: 4 /*ScalarType.UINT64*/, L: 0 /*LongType.BIGINT*/ },
+            { no: 8, name: "creation_date_end", kind: "scalar", T: 4 /*ScalarType.UINT64*/, L: 0 /*LongType.BIGINT*/ }
         ]);
     }
     create(value?: PartialMessage<ListInvoiceRequest>): ListInvoiceRequest {
-        const message = { pendingOnly: false, indexOffset: 0n, numMaxInvoices: 0n, reversed: false };
+        const message = { pendingOnly: false, indexOffset: 0n, numMaxInvoices: 0n, reversed: false, creationDateStart: 0n, creationDateEnd: 0n };
         globalThis.Object.defineProperty(message, MESSAGE_TYPE, { enumerable: false, value: this });
         if (value !== undefined)
             reflectionMergePartial<ListInvoiceRequest>(this, message, value);
@@ -17389,6 +18774,12 @@ class ListInvoiceRequest$Type extends MessageType<ListInvoiceRequest> {
                     break;
                 case /* bool reversed */ 6:
                     message.reversed = reader.bool();
+                    break;
+                case /* uint64 creation_date_start */ 7:
+                    message.creationDateStart = reader.uint64().toBigInt();
+                    break;
+                case /* uint64 creation_date_end */ 8:
+                    message.creationDateEnd = reader.uint64().toBigInt();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -17414,6 +18805,12 @@ class ListInvoiceRequest$Type extends MessageType<ListInvoiceRequest> {
         /* bool reversed = 6; */
         if (message.reversed !== false)
             writer.tag(6, WireType.Varint).bool(message.reversed);
+        /* uint64 creation_date_start = 7; */
+        if (message.creationDateStart !== 0n)
+            writer.tag(7, WireType.Varint).uint64(message.creationDateStart);
+        /* uint64 creation_date_end = 8; */
+        if (message.creationDateEnd !== 0n)
+            writer.tag(8, WireType.Varint).uint64(message.creationDateEnd);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -17781,11 +19178,13 @@ class ListPaymentsRequest$Type extends MessageType<ListPaymentsRequest> {
             { no: 2, name: "index_offset", kind: "scalar", T: 4 /*ScalarType.UINT64*/, L: 0 /*LongType.BIGINT*/ },
             { no: 3, name: "max_payments", kind: "scalar", T: 4 /*ScalarType.UINT64*/, L: 0 /*LongType.BIGINT*/ },
             { no: 4, name: "reversed", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
-            { no: 5, name: "count_total_payments", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
+            { no: 5, name: "count_total_payments", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 6, name: "creation_date_start", kind: "scalar", T: 4 /*ScalarType.UINT64*/, L: 0 /*LongType.BIGINT*/ },
+            { no: 7, name: "creation_date_end", kind: "scalar", T: 4 /*ScalarType.UINT64*/, L: 0 /*LongType.BIGINT*/ }
         ]);
     }
     create(value?: PartialMessage<ListPaymentsRequest>): ListPaymentsRequest {
-        const message = { includeIncomplete: false, indexOffset: 0n, maxPayments: 0n, reversed: false, countTotalPayments: false };
+        const message = { includeIncomplete: false, indexOffset: 0n, maxPayments: 0n, reversed: false, countTotalPayments: false, creationDateStart: 0n, creationDateEnd: 0n };
         globalThis.Object.defineProperty(message, MESSAGE_TYPE, { enumerable: false, value: this });
         if (value !== undefined)
             reflectionMergePartial<ListPaymentsRequest>(this, message, value);
@@ -17810,6 +19209,12 @@ class ListPaymentsRequest$Type extends MessageType<ListPaymentsRequest> {
                     break;
                 case /* bool count_total_payments */ 5:
                     message.countTotalPayments = reader.bool();
+                    break;
+                case /* uint64 creation_date_start */ 6:
+                    message.creationDateStart = reader.uint64().toBigInt();
+                    break;
+                case /* uint64 creation_date_end */ 7:
+                    message.creationDateEnd = reader.uint64().toBigInt();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -17838,6 +19243,12 @@ class ListPaymentsRequest$Type extends MessageType<ListPaymentsRequest> {
         /* bool count_total_payments = 5; */
         if (message.countTotalPayments !== false)
             writer.tag(5, WireType.Varint).bool(message.countTotalPayments);
+        /* uint64 creation_date_start = 6; */
+        if (message.creationDateStart !== 0n)
+            writer.tag(6, WireType.Varint).uint64(message.creationDateStart);
+        /* uint64 creation_date_end = 7; */
+        if (message.creationDateEnd !== 0n)
+            writer.tag(7, WireType.Varint).uint64(message.creationDateEnd);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -17975,11 +19386,12 @@ class DeleteAllPaymentsRequest$Type extends MessageType<DeleteAllPaymentsRequest
     constructor() {
         super("lnrpc.DeleteAllPaymentsRequest", [
             { no: 1, name: "failed_payments_only", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
-            { no: 2, name: "failed_htlcs_only", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
+            { no: 2, name: "failed_htlcs_only", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 3, name: "all_payments", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
         ]);
     }
     create(value?: PartialMessage<DeleteAllPaymentsRequest>): DeleteAllPaymentsRequest {
-        const message = { failedPaymentsOnly: false, failedHtlcsOnly: false };
+        const message = { failedPaymentsOnly: false, failedHtlcsOnly: false, allPayments: false };
         globalThis.Object.defineProperty(message, MESSAGE_TYPE, { enumerable: false, value: this });
         if (value !== undefined)
             reflectionMergePartial<DeleteAllPaymentsRequest>(this, message, value);
@@ -17995,6 +19407,9 @@ class DeleteAllPaymentsRequest$Type extends MessageType<DeleteAllPaymentsRequest
                     break;
                 case /* bool failed_htlcs_only */ 2:
                     message.failedHtlcsOnly = reader.bool();
+                    break;
+                case /* bool all_payments */ 3:
+                    message.allPayments = reader.bool();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -18014,6 +19429,9 @@ class DeleteAllPaymentsRequest$Type extends MessageType<DeleteAllPaymentsRequest
         /* bool failed_htlcs_only = 2; */
         if (message.failedHtlcsOnly !== false)
             writer.tag(2, WireType.Varint).bool(message.failedHtlcsOnly);
+        /* bool all_payments = 3; */
+        if (message.allPayments !== false)
+            writer.tag(3, WireType.Varint).bool(message.allPayments);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -18327,11 +19745,12 @@ class PayReq$Type extends MessageType<PayReq> {
             { no: 10, name: "route_hints", kind: "message", repeat: 1 /*RepeatType.PACKED*/, T: () => RouteHint },
             { no: 11, name: "payment_addr", kind: "scalar", T: 12 /*ScalarType.BYTES*/ },
             { no: 12, name: "num_msat", kind: "scalar", T: 3 /*ScalarType.INT64*/, L: 0 /*LongType.BIGINT*/ },
-            { no: 13, name: "features", kind: "map", K: 13 /*ScalarType.UINT32*/, V: { kind: "message", T: () => Feature } }
+            { no: 13, name: "features", kind: "map", K: 13 /*ScalarType.UINT32*/, V: { kind: "message", T: () => Feature } },
+            { no: 14, name: "blinded_paths", kind: "message", repeat: 1 /*RepeatType.PACKED*/, T: () => BlindedPaymentPath }
         ]);
     }
     create(value?: PartialMessage<PayReq>): PayReq {
-        const message = { destination: "", paymentHash: "", numSatoshis: 0n, timestamp: 0n, expiry: 0n, description: "", descriptionHash: "", fallbackAddr: "", cltvExpiry: 0n, routeHints: [], paymentAddr: new Uint8Array(0), numMsat: 0n, features: {} };
+        const message = { destination: "", paymentHash: "", numSatoshis: 0n, timestamp: 0n, expiry: 0n, description: "", descriptionHash: "", fallbackAddr: "", cltvExpiry: 0n, routeHints: [], paymentAddr: new Uint8Array(0), numMsat: 0n, features: {}, blindedPaths: [] };
         globalThis.Object.defineProperty(message, MESSAGE_TYPE, { enumerable: false, value: this });
         if (value !== undefined)
             reflectionMergePartial<PayReq>(this, message, value);
@@ -18380,6 +19799,9 @@ class PayReq$Type extends MessageType<PayReq> {
                     break;
                 case /* map<uint32, lnrpc.Feature> features */ 13:
                     this.binaryReadMap13(message.features, reader, options);
+                    break;
+                case /* repeated lnrpc.BlindedPaymentPath blinded_paths */ 14:
+                    message.blindedPaths.push(BlindedPaymentPath.internalBinaryRead(reader, reader.uint32(), options));
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -18452,6 +19874,9 @@ class PayReq$Type extends MessageType<PayReq> {
             Feature.internalBinaryWrite(message.features[k as any], writer, options);
             writer.join().join();
         }
+        /* repeated lnrpc.BlindedPaymentPath blinded_paths = 14; */
+        for (let i = 0; i < message.blindedPaths.length; i++)
+            BlindedPaymentPath.internalBinaryWrite(message.blindedPaths[i], writer.tag(14, WireType.LengthDelimited).fork(), options).join();
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -18557,11 +19982,13 @@ class ChannelFeeReport$Type extends MessageType<ChannelFeeReport> {
             { no: 1, name: "channel_point", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
             { no: 2, name: "base_fee_msat", kind: "scalar", T: 3 /*ScalarType.INT64*/, L: 0 /*LongType.BIGINT*/ },
             { no: 3, name: "fee_per_mil", kind: "scalar", T: 3 /*ScalarType.INT64*/, L: 0 /*LongType.BIGINT*/ },
-            { no: 4, name: "fee_rate", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ }
+            { no: 4, name: "fee_rate", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 6, name: "inbound_base_fee_msat", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 7, name: "inbound_fee_per_mil", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
         ]);
     }
     create(value?: PartialMessage<ChannelFeeReport>): ChannelFeeReport {
-        const message = { chanId: "0", channelPoint: "", baseFeeMsat: 0n, feePerMil: 0n, feeRate: 0 };
+        const message = { chanId: "0", channelPoint: "", baseFeeMsat: 0n, feePerMil: 0n, feeRate: 0, inboundBaseFeeMsat: 0, inboundFeePerMil: 0 };
         globalThis.Object.defineProperty(message, MESSAGE_TYPE, { enumerable: false, value: this });
         if (value !== undefined)
             reflectionMergePartial<ChannelFeeReport>(this, message, value);
@@ -18586,6 +20013,12 @@ class ChannelFeeReport$Type extends MessageType<ChannelFeeReport> {
                     break;
                 case /* double fee_rate */ 4:
                     message.feeRate = reader.double();
+                    break;
+                case /* int32 inbound_base_fee_msat */ 6:
+                    message.inboundBaseFeeMsat = reader.int32();
+                    break;
+                case /* int32 inbound_fee_per_mil */ 7:
+                    message.inboundFeePerMil = reader.int32();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -18614,6 +20047,12 @@ class ChannelFeeReport$Type extends MessageType<ChannelFeeReport> {
         /* double fee_rate = 4; */
         if (message.feeRate !== 0)
             writer.tag(4, WireType.Bit64).double(message.feeRate);
+        /* int32 inbound_base_fee_msat = 6; */
+        if (message.inboundBaseFeeMsat !== 0)
+            writer.tag(6, WireType.Varint).int32(message.inboundBaseFeeMsat);
+        /* int32 inbound_fee_per_mil = 7; */
+        if (message.inboundFeePerMil !== 0)
+            writer.tag(7, WireType.Varint).int32(message.inboundFeePerMil);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -18693,6 +20132,60 @@ class FeeReportResponse$Type extends MessageType<FeeReportResponse> {
  */
 export const FeeReportResponse = new FeeReportResponse$Type();
 // @generated message type with reflection information, may provide speed optimized methods
+class InboundFee$Type extends MessageType<InboundFee> {
+    constructor() {
+        super("lnrpc.InboundFee", [
+            { no: 1, name: "base_fee_msat", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 2, name: "fee_rate_ppm", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+        ]);
+    }
+    create(value?: PartialMessage<InboundFee>): InboundFee {
+        const message = { baseFeeMsat: 0, feeRatePpm: 0 };
+        globalThis.Object.defineProperty(message, MESSAGE_TYPE, { enumerable: false, value: this });
+        if (value !== undefined)
+            reflectionMergePartial<InboundFee>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: InboundFee): InboundFee {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* int32 base_fee_msat */ 1:
+                    message.baseFeeMsat = reader.int32();
+                    break;
+                case /* int32 fee_rate_ppm */ 2:
+                    message.feeRatePpm = reader.int32();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: InboundFee, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* int32 base_fee_msat = 1; */
+        if (message.baseFeeMsat !== 0)
+            writer.tag(1, WireType.Varint).int32(message.baseFeeMsat);
+        /* int32 fee_rate_ppm = 2; */
+        if (message.feeRatePpm !== 0)
+            writer.tag(2, WireType.Varint).int32(message.feeRatePpm);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message lnrpc.InboundFee
+ */
+export const InboundFee = new InboundFee$Type();
+// @generated message type with reflection information, may provide speed optimized methods
 class PolicyUpdateRequest$Type extends MessageType<PolicyUpdateRequest> {
     constructor() {
         super("lnrpc.PolicyUpdateRequest", [
@@ -18704,7 +20197,8 @@ class PolicyUpdateRequest$Type extends MessageType<PolicyUpdateRequest> {
             { no: 5, name: "time_lock_delta", kind: "scalar", T: 13 /*ScalarType.UINT32*/ },
             { no: 6, name: "max_htlc_msat", kind: "scalar", T: 4 /*ScalarType.UINT64*/, L: 0 /*LongType.BIGINT*/ },
             { no: 7, name: "min_htlc_msat", kind: "scalar", T: 4 /*ScalarType.UINT64*/, L: 0 /*LongType.BIGINT*/ },
-            { no: 8, name: "min_htlc_msat_specified", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
+            { no: 8, name: "min_htlc_msat_specified", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 10, name: "inbound_fee", kind: "message", T: () => InboundFee }
         ]);
     }
     create(value?: PartialMessage<PolicyUpdateRequest>): PolicyUpdateRequest {
@@ -18752,6 +20246,9 @@ class PolicyUpdateRequest$Type extends MessageType<PolicyUpdateRequest> {
                 case /* bool min_htlc_msat_specified */ 8:
                     message.minHtlcMsatSpecified = reader.bool();
                     break;
+                case /* lnrpc.InboundFee inbound_fee */ 10:
+                    message.inboundFee = InboundFee.internalBinaryRead(reader, reader.uint32(), options, message.inboundFee);
+                    break;
                 default:
                     let u = options.readUnknownField;
                     if (u === "throw")
@@ -18791,6 +20288,9 @@ class PolicyUpdateRequest$Type extends MessageType<PolicyUpdateRequest> {
         /* bool min_htlc_msat_specified = 8; */
         if (message.minHtlcMsatSpecified !== false)
             writer.tag(8, WireType.Varint).bool(message.minHtlcMsatSpecified);
+        /* lnrpc.InboundFee inbound_fee = 10; */
+        if (message.inboundFee)
+            InboundFee.internalBinaryWrite(message.inboundFee, writer.tag(10, WireType.LengthDelimited).fork(), options).join();
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -20941,6 +22441,7 @@ export const Lightning = new ServiceType("lnrpc.Lightning", [
     { name: "ListPeers", options: {}, I: ListPeersRequest, O: ListPeersResponse },
     { name: "SubscribePeerEvents", serverStreaming: true, options: {}, I: PeerEventSubscription, O: PeerEvent },
     { name: "GetInfo", options: {}, I: GetInfoRequest, O: GetInfoResponse },
+    { name: "GetDebugInfo", options: {}, I: GetDebugInfoRequest, O: GetDebugInfoResponse },
     { name: "GetRecoveryInfo", options: {}, I: GetRecoveryInfoRequest, O: GetRecoveryInfoResponse },
     { name: "PendingChannels", options: {}, I: PendingChannelsRequest, O: PendingChannelsResponse },
     { name: "ListChannels", options: {}, I: ListChannelsRequest, O: ListChannelsResponse },
@@ -20991,5 +22492,5 @@ export const Lightning = new ServiceType("lnrpc.Lightning", [
     { name: "SendCustomMessage", options: {}, I: SendCustomMessageRequest, O: SendCustomMessageResponse },
     { name: "SubscribeCustomMessages", serverStreaming: true, options: {}, I: SubscribeCustomMessagesRequest, O: CustomMessage },
     { name: "ListAliases", options: {}, I: ListAliasesRequest, O: ListAliasesResponse },
-    { name: "LookupHtlc", options: {}, I: LookupHtlcRequest, O: LookupHtlcResponse }
+    { name: "LookupHtlcResolution", options: {}, I: LookupHtlcResolutionRequest, O: LookupHtlcResolutionResponse }
 ]);

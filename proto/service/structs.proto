@@ -108,6 +108,7 @@ message OpenChannel {
     int64 lifetime =4 ;
     int64 local_balance=5;
     int64 remote_balance = 6;
+    string label = 7;
 }
 message ClosedChannel {
     string channel_id = 1;
@@ -143,6 +144,10 @@ message LndNodeMetrics {
 message LndMetrics {
     repeated LndNodeMetrics nodes = 1;
 
+}
+
+message LndChannels {
+    repeated OpenChannel open_channels = 1;
 }
 
 message LndGetInfoRequest {
