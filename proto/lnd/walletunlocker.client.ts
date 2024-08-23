@@ -3,16 +3,16 @@
 // tslint:disable
 import type { RpcTransport } from "@protobuf-ts/runtime-rpc";
 import type { ServiceInfo } from "@protobuf-ts/runtime-rpc";
-import { WalletUnlocker } from "./walletunlocker";
-import type { ChangePasswordResponse } from "./walletunlocker";
-import type { ChangePasswordRequest } from "./walletunlocker";
-import type { UnlockWalletResponse } from "./walletunlocker";
-import type { UnlockWalletRequest } from "./walletunlocker";
-import type { InitWalletResponse } from "./walletunlocker";
-import type { InitWalletRequest } from "./walletunlocker";
+import { WalletUnlocker } from "./walletunlocker.js";
+import type { ChangePasswordResponse } from "./walletunlocker.js";
+import type { ChangePasswordRequest } from "./walletunlocker.js";
+import type { UnlockWalletResponse } from "./walletunlocker.js";
+import type { UnlockWalletRequest } from "./walletunlocker.js";
+import type { InitWalletResponse } from "./walletunlocker.js";
+import type { InitWalletRequest } from "./walletunlocker.js";
 import { stackIntercept } from "@protobuf-ts/runtime-rpc";
-import type { GenSeedResponse } from "./walletunlocker";
-import type { GenSeedRequest } from "./walletunlocker";
+import type { GenSeedResponse } from "./walletunlocker.js";
+import type { GenSeedRequest } from "./walletunlocker.js";
 import type { UnaryCall } from "@protobuf-ts/runtime-rpc";
 import type { RpcOptions } from "@protobuf-ts/runtime-rpc";
 // 
