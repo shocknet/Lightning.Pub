@@ -208,8 +208,8 @@ The nostr server will send back a message response, and inside the body there wi
 
 - __GuestWithPub__:
   - expected context content
-    - __app_id__: _string_
     - __pub__: _string_
+    - __app_id__: _string_
 
 ## HTTP Methods
 ### These are the http methods the client implements to communicate with the API
@@ -763,10 +763,11 @@ The nostr server will send back a message response, and inside the body there wi
   - __user_identifier__: _string_
   - __nostr_pub__: _string_
 
-### Product
+### Application
   - __id__: _string_
+  - __balance__: _number_
+  - __npub__: _string_
   - __name__: _string_
-  - __price_sats__: _number_
 
 ### GetInviteTokenStateResponse
   - __used__: _boolean_
