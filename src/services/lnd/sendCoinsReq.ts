@@ -1,4 +1,4 @@
-import { SendCoinsRequest } from "../../../proto/lnd/lightning";
+import { CoinSelectionStrategy, SendCoinsRequest } from "../../../proto/lnd/lightning";
 
 export const SendCoinsReq = (address: string, amount: number, satPerVByte: number, label = ""): SendCoinsRequest => ({
     addr: address,
@@ -9,5 +9,7 @@ export const SendCoinsReq = (address: string, amount: number, satPerVByte: numbe
     minConfs: 1,
     sendAll: false,
     spendUnconfirmed: false,
-    satPerByte: BigInt(0)
+    satPerByte: BigInt(0),
+    coinSelectionStrategy: CoinSelectionStrategy.STRATEGY_LARGEST,
+    outpoints: [],
 })
