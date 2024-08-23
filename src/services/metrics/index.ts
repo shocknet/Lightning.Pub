@@ -259,7 +259,7 @@ export default class Handler {
                 offline_channels: totalInactive,
                 online_channels: totalActive,
                 closed_channels: closedChannels.map(c => ({ capacity: Number(c.capacity), channel_id: c.chanId, closed_height: c.closeHeight })),
-                open_channels: openChannels.map(c => ({ active: c.active, capacity: Number(c.capacity), channel_id: c.chanId, lifetime: Number(c.lifetime), local_balance: Number(c.localBalance), remote_balance: Number(c.remoteBalance) })),
+                open_channels: openChannels.map(c => ({ active: c.active, capacity: Number(c.capacity), channel_id: c.chanId, lifetime: Number(c.lifetime), local_balance: Number(c.localBalance), remote_balance: Number(c.remoteBalance), label: c.peerAlias })),
                 forwarding_events: totalEvents,
                 forwarding_fees: totalFees
             }],
