@@ -111,6 +111,7 @@ message GraphPoint {
 message LndNodeMetrics {
     repeated GraphPoint chain_balance = 1;
     repeated GraphPoint channel_balance = 2;
+    repeated GraphPoint external_balance = 3;
     int64 offline_channels = 4;
     int64 online_channels = 5;
     int64 pending_channels = 6;

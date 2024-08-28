@@ -32,11 +32,10 @@ export default class {
     async GetBalanceEvents({ from, to }: { from?: number, to?: number }, entityManager = this.DB) {
         const q = getTimeQuery({ from, to })
 
-        const [chainBalanceEvents, channelsBalanceEvents] = await Promise.all([
+        const [chainBalanceEvents] = await Promise.all([
             entityManager.getRepository(BalanceEvent).find(q),
-            entityManager.getRepository(ChannelBalanceEvent).find(q),
         ])
-        return { chainBalanceEvents, channelsBalanceEvents }
+        return { chainBalanceEvents }
     }
 
     async initChannelRoutingEvent(dayUnix: number, channelId: string) {

@@ -17,6 +17,12 @@ export class BalanceEvent {
     @Column()
     total_chain_balance: number
 
+    @Column({ default: 0 })
+    channels_balance: number
+
+    @Column({ default: 0 })
+    external_balance: number
+
     @CreateDateColumn()
     created_at: Date
 

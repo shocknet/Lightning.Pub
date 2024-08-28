@@ -24,11 +24,23 @@ export default class Handler {
     }
 
     async NewBlockCb(height: number, balanceInfo: BalanceInfo) {
+        const providers = await this.storage.liquidityStorage.GetTrackedProviders()
+        let lndTotal = 0
+        let providerTotal = 0
+        providers.forEach(p => {
+            if (p.provider_type === 'lnd') {
+                lndTotal += p.latest_balance
+            } else {
+                providerTotal += p.latest_balance
+            }
+        })
         const balanceEvent: Partial<BalanceEvent> = {
             block_height: height,
             confirmed_chain_balance: balanceInfo.confirmedBalance,
             unconfirmed_chain_balance: balanceInfo.unconfirmedBalance,
             total_chain_balance: balanceInfo.totalBalance,
+            channels_balance: lndTotal,
+            external_balance: providerTotal
         }
         const channelsEvents: Partial<ChannelBalanceEvent>[] = balanceInfo.channelsBalance.map(c => ({
             channel_id: c.channelId,
@@ -214,39 +226,21 @@ export default class Handler {
             totalEvents += r.events_as_input
             totalFees += r.forward_fee_as_input
         })
-        const { channelsBalanceEvents, chainBalanceEvents } = await this.storage.metricsStorage.GetBalanceEvents({ from: req.from_unix, to: req.to_unix })
+        const { chainBalanceEvents } = await this.storage.metricsStorage.GetBalanceEvents({ from: req.from_unix, to: req.to_unix })
         const chainBalance: Types.GraphPoint[] = []
-        chainBalanceEvents.forEach(e => {
-            if (chainBalance.length === 0) {
-                chainBalance.push({ x: e.block_height, y: e.total_chain_balance })
-                return
-            }
-            const last = chainBalance[chainBalance.length - 1]
-            if (last.y !== e.total_chain_balance) {
-                chainBalance.push({ x: e.block_height, y: e.total_chain_balance })
-            }
-        })
-        const chansPerBlock = new Map()
-        channelsBalanceEvents.forEach(e => {
-            const height = e.balance_event.block_height
-            const local = e.local_balance_sats
-            const v = chansPerBlock.get(height)
-            if (!v) {
-                chansPerBlock.set(height, local)
-                return
-            }
-            chansPerBlock.set(height, local + v)
-        })
-
         const chansBalance: Types.GraphPoint[] = []
-        chansPerBlock.forEach((v, k) => {
-            if (chansBalance.length === 0) {
-                chansBalance.push({ x: k, y: v })
-                return
+        const externalBalance: Types.GraphPoint[] = []
+        chainBalanceEvents.forEach(e => {
+            if (chainBalance.length === 0 || chainBalance[chainBalance.length - 1].y !== e.total_chain_balance) {
+                chainBalance.push({ x: e.block_height, y: e.total_chain_balance })
             }
-            const last = chansBalance[chansBalance.length - 1]
-            if (last.y !== v) {
-                chansBalance.push({ x: k, y: v })
+
+            if (chansBalance.length === 0 || chansBalance[chansBalance.length - 1].y !== e.channels_balance) {
+                chansBalance.push({ x: e.block_height, y: e.channels_balance })
+            }
+
+            if (externalBalance.length === 0 || externalBalance[externalBalance.length - 1].y !== e.external_balance) {
+                externalBalance.push({ x: e.block_height, y: e.external_balance })
             }
         })
 
@@ -254,6 +248,7 @@ export default class Handler {
             nodes: [{
                 chain_balance: chainBalance,
                 channel_balance: chansBalance,
+                external_balance: externalBalance,
                 closing_channels: totalPendingClose,
                 pending_channels: totalPendingOpen,
                 offline_channels: totalInactive,
