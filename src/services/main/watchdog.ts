@@ -109,33 +109,33 @@ export class Watchdog {
     checkBalanceUpdate = async (deltaLnd: number, deltaUsers: number) => {
         this.utils.stateBundler.AddBalancePoint('deltaExternal', deltaLnd)
         this.utils.stateBundler.AddBalancePoint('deltaUsers', deltaUsers)
-
+        const lndWithDeltaUsers = this.initialLndBalance + deltaUsers
         const result = this.checkDeltas(deltaLnd, deltaUsers)
         switch (result.type) {
             case 'mismatch':
                 if (deltaLnd < 0) {
                     if (result.absoluteDiff > this.settings.maxDiffSats) {
-                        await this.updateDisruption(true, result.absoluteDiff)
+                        await this.updateDisruption(true, result.absoluteDiff, lndWithDeltaUsers)
                         return true
                     }
                 } else {
                     this.log("WARNING! LND balance increased more than users balance with a difference of", result.absoluteDiff, "sats")
-                    this.updateDisruption(false, result.absoluteDiff)
+                    this.updateDisruption(false, result.absoluteDiff, lndWithDeltaUsers)
                     return false
                 }
                 break
             case 'negative':
                 if (Math.abs(deltaLnd) > Math.abs(deltaUsers)) {
                     if (result.absoluteDiff > this.settings.maxDiffSats) {
-                        await this.updateDisruption(true, result.absoluteDiff)
+                        await this.updateDisruption(true, result.absoluteDiff, lndWithDeltaUsers)
                         return true
                     }
                 } else if (deltaLnd === deltaUsers) {
-                    await this.updateDisruption(false, 0)
+                    await this.updateDisruption(false, 0, lndWithDeltaUsers)
                     return false
                 } else {
                     this.log("WARNING! LND balance decreased less than users balance with a difference of", result.absoluteDiff, "sats")
-                    await this.updateDisruption(false, result.absoluteDiff)
+                    await this.updateDisruption(false, result.absoluteDiff, lndWithDeltaUsers)
                     return false
                 }
                 break
@@ -143,22 +143,23 @@ export class Watchdog {
                 if (deltaLnd < deltaUsers) {
                     this.log("WARNING! LND balance increased less than users balance with a difference of", result.absoluteDiff, "sats")
                     if (result.absoluteDiff > this.settings.maxDiffSats) {
-                        await this.updateDisruption(true, result.absoluteDiff)
+                        await this.updateDisruption(true, result.absoluteDiff, lndWithDeltaUsers)
                         return true
                     }
                 } else if (deltaLnd === deltaUsers) {
-                    await this.updateDisruption(false, 0)
+                    await this.updateDisruption(false, 0, lndWithDeltaUsers)
                     return false
                 } else {
-                    await this.updateDisruption(false, result.absoluteDiff)
+                    await this.updateDisruption(false, result.absoluteDiff, lndWithDeltaUsers)
                     return false
                 }
         }
         return false
     }
 
-    updateDisruption = async (isDisrupted: boolean, absoluteDiff: number) => {
+    updateDisruption = async (isDisrupted: boolean, absoluteDiff: number, lndWithDeltaUsers: number) => {
         const tracker = await this.getTracker()
+        this.storage.liquidityStorage.UpdateTrackedProviderBalance('lnd', this.lndPubKey, lndWithDeltaUsers)
         if (isDisrupted) {
             if (tracker.latest_distruption_at_unix === 0) {
                 await this.storage.liquidityStorage.UpdateTrackedProviderDisruption('lnd', this.lndPubKey, Math.floor(Date.now() / 1000))
