@@ -21,11 +21,12 @@ import { LspOrder1718387847693 } from './build/src/services/storage/migrations/1
 import { LndNodeInfo1720187506189 } from './build/src/services/storage/migrations/1720187506189-lnd_node_info.js'
 import { LiquidityProvider1719335699480 } from './build/src/services/storage/migrations/1719335699480-liquidity_provider.js'
 import { CreateInviteTokenTable1721751414878 } from './build/src/services/storage/migrations/1721751414878-create_invite_token_table.js'
+import { PaymentIndex1721760297610 } from './build/src/services/storage/migrations/1721760297610-payment_index.js'
 export default new DataSource({
     type: "sqlite",
     database: "db.sqlite",
     // logging: true,
-    migrations: [Initial1703170309875, LspOrder1718387847693, LiquidityProvider1719335699480, LndNodeInfo1720187506189, CreateInviteTokenTable1721751414878],
+    migrations: [Initial1703170309875, LspOrder1718387847693, LiquidityProvider1719335699480, LndNodeInfo1720187506189, CreateInviteTokenTable1721751414878, PaymentIndex1721760297610],
     entities: [User, UserReceivingInvoice, UserReceivingAddress, AddressReceivingTransaction, UserInvoicePayment, UserTransactionPayment,
         UserBasicAuth, UserEphemeralKey, Product, UserToUserPayment, Application, ApplicationUser, UserToUserPayment, LspOrder, LndNodeInfo, TrackedProvider, InviteToken],
     // synchronize: true,

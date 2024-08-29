@@ -16,10 +16,10 @@ export type NostrOptions = {
     logger?: Logger
     throwErrors?: true
     metricsCallback: (metrics: Types.RequestMetric[]) => void
-    NostrAdminAuthGuard: (appId?:string, identifier?: string) => Promise<Types.AdminContext>
     NostrMetricsAuthGuard: (appId?:string, identifier?: string) => Promise<Types.MetricsContext>
     NostrUserAuthGuard: (appId?:string, identifier?: string) => Promise<Types.UserContext>
     NostrGuestWithPubAuthGuard: (appId?:string, identifier?: string) => Promise<Types.GuestWithPubContext>
+    NostrAdminAuthGuard: (appId?:string, identifier?: string) => Promise<Types.AdminContext>
 }
 const logErrorAndReturnResponse = (error: Error, response: string, res: NostrResponse, logger: Logger, metric: Types.RequestMetric, metricsCallback: (metrics: Types.RequestMetric[]) => void) => { 
     logger.error(error.message || error); metricsCallback([{ ...metric, error: response }]); res({ status: 'ERROR', reason: response })
@@ -104,6 +104,19 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     authCtx = authContext
                     stats.validate = stats.guard
                     const response = await methods.GetSeed({rpcName:'GetSeed', ctx:authContext })
+                    stats.handle = process.hrtime.bigint()
+                    res({status: 'OK', ...response})
+                    opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+                break
+            case 'ListChannels':
+                try {
+                    if (!methods.ListChannels) throw new Error('method: ListChannels is not implemented')
+                    const authContext = await opts.NostrAdminAuthGuard(req.appId, req.authIdentifier)
+                    stats.guard = process.hrtime.bigint()
+                    authCtx = authContext
+                    stats.validate = stats.guard
+                    const response = await methods.ListChannels({rpcName:'ListChannels', ctx:authContext })
                     stats.handle = process.hrtime.bigint()
                     res({status: 'OK', ...response})
                     opts.metricsCallback([{ ...info, ...stats, ...authContext }])

@@ -28,6 +28,8 @@ export const OpenChannelReq = (destination: string, closeAddress: string, fundin
     scidAlias: false,
     nodePubkeyString: "",
     satPerByte: 0n,
-
+    fundMax: false,
+    memo: "",
+    outpoints: [],
     fundingShim: undefined
 })

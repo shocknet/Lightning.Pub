@@ -36,7 +36,8 @@ export const initMainHandler = async (log: PubLogger, mainSettings: MainSettings
         }
     }
 
-    const mainHandler = new Main(reloadedSettings, storageManager, adminManager, utils,unlocker)
+    const mainHandler = new Main(reloadedSettings, storageManager, adminManager, utils, unlocker)
+    adminManager.setLND(mainHandler.lnd)
     await mainHandler.lnd.Warmup()
     if (!reloadedSettings.skipSanityCheck) {
         const sanityChecker = new SanityChecker(storageManager, mainHandler.lnd)
