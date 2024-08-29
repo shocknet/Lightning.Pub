@@ -28,7 +28,7 @@ export const AddInvoiceReq = (value: number, expiry = 60 * 60, privateHints = fa
     settleDate: 0n,
     settleIndex: 0n,
     state: 0,
-
+    isBlinded: false,
     amtPaid: 0n,
     settled: false,
 })

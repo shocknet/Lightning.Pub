@@ -1,4 +1,4 @@
-import { Between, DataSource, EntityManager, FindOperator, LessThanOrEqual, MoreThanOrEqual } from "typeorm"
+import { Between, DataSource, EntityManager, FindManyOptions, FindOperator, LessThanOrEqual, MoreThanOrEqual } from "typeorm"
 import { BalanceEvent } from "./entity/BalanceEvent.js"
 import { ChannelBalanceEvent } from "./entity/ChannelsBalanceEvent.js"
 import TransactionsQueue, { TX } from "./transactionsQueue.js";
@@ -32,11 +32,10 @@ export default class {
     async GetBalanceEvents({ from, to }: { from?: number, to?: number }, entityManager = this.DB) {
         const q = getTimeQuery({ from, to })
 
-        const [chainBalanceEvents, channelsBalanceEvents] = await Promise.all([
+        const [chainBalanceEvents] = await Promise.all([
             entityManager.getRepository(BalanceEvent).find(q),
-            entityManager.getRepository(ChannelBalanceEvent).find(q),
         ])
-        return { chainBalanceEvents, channelsBalanceEvents }
+        return { chainBalanceEvents }
     }
 
     async initChannelRoutingEvent(dayUnix: number, channelId: string) {
@@ -89,21 +88,25 @@ export default class {
         if (event.forward_fee_as_output) {
             await repo.increment({ day_unix: dayUnix, channel_id: channelId }, "forward_fee_as_output", event.forward_fee_as_output)
         }
+        if (event.events_as_input) {
+            await repo.increment({ day_unix: dayUnix, channel_id: channelId }, "events_as_input", event.events_as_input)
+        }
+        if (event.events_as_output) {
+            await repo.increment({ day_unix: dayUnix, channel_id: channelId }, "events_as_output", event.events_as_output)
+        }
         if (event.latest_index_offset) {
             await repo.update(existing.serial_id, { latest_index_offset: event.latest_index_offset })
         }
     }
-
-
 }
 
-const getTimeQuery = ({ from, to }: { from?: number, to?: number }) => {
+const getTimeQuery = ({ from, to }: { from?: number, to?: number }): FindManyOptions<{ created_at: Date }> => {
     if (!!from && !!to) {
-        return { where: { created_at: Between<Date>(new Date(from * 1000), new Date(to * 1000)) } }
+        return { where: { created_at: Between<Date>(new Date(from * 1000), new Date(to * 1000)) }, order: { created_at: 'ASC' } }
     } else if (!!from) {
-        return { where: { created_at: MoreThanOrEqual<Date>(new Date(from * 1000)) } }
+        return { where: { created_at: MoreThanOrEqual<Date>(new Date(from * 1000)) }, order: { created_at: 'ASC' } }
     } else if (!!to) {
-        return { where: { created_at: LessThanOrEqual<Date>(new Date(to * 1000)) } }
+        return { where: { created_at: LessThanOrEqual<Date>(new Date(to * 1000)) }, order: { created_at: 'ASC' } }
     }
     return {}
 }

@@ -21,7 +21,7 @@ export class LiquidityStorage {
     }
 
     async GetNoodeSeed(pubkey: string) {
-        return this.DB.getRepository(LndNodeInfo).findOne({ where: { pubkey, seed:Not(IsNull()) } })
+        return this.DB.getRepository(LndNodeInfo).findOne({ where: { pubkey, seed: Not(IsNull()) } })
     }
 
     async SaveNodeSeed(pubkey: string, seed: string) {
@@ -41,6 +41,10 @@ export class LiquidityStorage {
         }
         const entry = this.DB.getRepository(LndNodeInfo).create({ pubkey, backup })
         await this.txQueue.PushToQueue<LndNodeInfo>({ exec: async db => db.getRepository(LndNodeInfo).save(entry), dbTx: false })
+    }
+
+    async GetTrackedProviders() {
+        return this.DB.getRepository(TrackedProvider).find()
     }
 
     async GetTrackedProvider(providerType: 'lnd' | 'lnPub', pub: string) {

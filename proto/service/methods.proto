@@ -137,6 +137,13 @@ service LightningPub {
         option (nostr) = true;
     }
 
+    rpc ListChannels(structs.Empty) returns (structs.LndChannels) {
+        option (auth_type)  = "Admin";
+        option (http_method) = "get";
+        option (http_route) = "/api/admin/channels";
+        option (nostr) = true;
+    }
+
     rpc GetUsageMetrics(structs.Empty) returns (structs.UsageMetrics) {
         option (auth_type)  = "Metrics";
         option (http_method) = "post";

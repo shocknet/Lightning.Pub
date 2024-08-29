@@ -5,10 +5,10 @@ export type ResultError = { status: 'ERROR', reason: string }
 
 export type NostrClientParams = {
     pubDestination: string
+    retrieveNostrAdminAuth: () => Promise<string | null>
     retrieveNostrMetricsAuth: () => Promise<string | null>
     retrieveNostrUserAuth: () => Promise<string | null>
     retrieveNostrGuestWithPubAuth: () => Promise<string | null>
-    retrieveNostrAdminAuth: () => Promise<string | null>
     checkResult?: true
 }
 export default (params: NostrClientParams,  send: (to:string, message: NostrRequest) => Promise<any>, subscribe: (to:string, message: NostrRequest, cb:(res:any)=> void) => void) => ({
@@ -82,6 +82,20 @@ export default (params: NostrClientParams,  send: (to:string, message: NostrRequ
             const result = data
             if(!params.checkResult) return { status: 'OK', ...result }
             const error = Types.LndSeedValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
+    ListChannels: async (): Promise<ResultError | ({ status: 'OK' }& Types.LndChannels)> => {
+        const auth = await params.retrieveNostrAdminAuth()
+        if (auth === null) throw new Error('retrieveNostrAdminAuth() returned null')
+        const nostrRequest: NostrRequest = {}
+        const data = await send(params.pubDestination, {rpcName:'ListChannels',authIdentifier:auth, ...nostrRequest }) 
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.LndChannelsValidate(result)
             if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
         }
         return { status: 'ERROR', reason: 'invalid response' }

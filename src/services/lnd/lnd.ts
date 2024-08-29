@@ -8,7 +8,7 @@ import { LightningClient } from '../../../proto/lnd/lightning.client.js'
 import { InvoicesClient } from '../../../proto/lnd/invoices.client.js'
 import { RouterClient } from '../../../proto/lnd/router.client.js'
 import { ChainNotifierClient } from '../../../proto/lnd/chainnotifier.client.js'
-import { GetInfoResponse, AddressType, NewAddressResponse, AddInvoiceResponse, Invoice_InvoiceState, PayReq, Payment_PaymentStatus, Payment, PaymentFailureReason, SendCoinsResponse, EstimateFeeResponse, ChannelBalanceResponse, TransactionDetails, ListChannelsResponse, ClosedChannelsResponse, PendingChannelsResponse, ForwardingHistoryResponse } from '../../../proto/lnd/lightning.js'
+import { GetInfoResponse, AddressType, NewAddressResponse, AddInvoiceResponse, Invoice_InvoiceState, PayReq, Payment_PaymentStatus, Payment, PaymentFailureReason, SendCoinsResponse, EstimateFeeResponse, ChannelBalanceResponse, TransactionDetails, ListChannelsResponse, ClosedChannelsResponse, PendingChannelsResponse, ForwardingHistoryResponse, CoinSelectionStrategy } from '../../../proto/lnd/lightning.js'
 import { OpenChannelReq } from './openChannelReq.js';
 import { AddInvoiceReq } from './addInvoiceReq.js';
 import { PayInvoiceReq } from './payInvoiceReq.js';
@@ -113,12 +113,12 @@ export default class {
         return res.response
     }
     async ListPendingChannels(): Promise<PendingChannelsResponse> {
-        const res = await this.lightning.pendingChannels({}, DeadLineMetadata())
+        const res = await this.lightning.pendingChannels({ includeRawTx: false }, DeadLineMetadata())
         return res.response
     }
-    async ListChannels(): Promise<ListChannelsResponse> {
+    async ListChannels(peerLookup = false): Promise<ListChannelsResponse> {
         const res = await this.lightning.listChannels({
-            activeOnly: false, inactiveOnly: false, privateOnly: false, publicOnly: false, peer: Buffer.alloc(0)
+            activeOnly: false, inactiveOnly: false, privateOnly: false, publicOnly: false, peer: Buffer.alloc(0), peerAliasLookup: peerLookup
         }, DeadLineMetadata())
         return res.response
     }
@@ -350,7 +350,8 @@ export default class {
             addrToAmount: { [address]: BigInt(amount) },
             minConfs: 1,
             spendUnconfirmed: false,
-            targetConf: targetConf
+            targetConf: targetConf,
+            coinSelectionStrategy: CoinSelectionStrategy.STRATEGY_LARGEST
         })
         return res.response
     }
@@ -385,7 +386,7 @@ export default class {
     }
 
     async GetWalletBalance() {
-        const res = await this.lightning.walletBalance({}, DeadLineMetadata())
+        const res = await this.lightning.walletBalance({ account: "", minConfs: 1 }, DeadLineMetadata())
         return res.response
     }
 
@@ -404,10 +405,10 @@ export default class {
     }
 
     async GetBalance(): Promise<BalanceInfo> { // TODO: remove this
-        const wRes = await this.lightning.walletBalance({}, DeadLineMetadata())
+        const wRes = await this.lightning.walletBalance({ account: "", minConfs: 1 }, DeadLineMetadata())
         const { confirmedBalance, unconfirmedBalance, totalBalance } = wRes.response
         const { response } = await this.lightning.listChannels({
-            activeOnly: false, inactiveOnly: false, privateOnly: false, publicOnly: false, peer: Buffer.alloc(0)
+            activeOnly: false, inactiveOnly: false, privateOnly: false, publicOnly: false, peer: Buffer.alloc(0), peerAliasLookup: false
         }, DeadLineMetadata())
         const channelsBalance = response.channels.map(c => ({
             channelId: c.chanId,
@@ -424,11 +425,11 @@ export default class {
     }
 
     async GetAllPaidInvoices(max: number) {
-        const res = await this.lightning.listInvoices({ indexOffset: 0n, numMaxInvoices: BigInt(max), pendingOnly: false, reversed: true }, DeadLineMetadata())
+        const res = await this.lightning.listInvoices({ indexOffset: 0n, numMaxInvoices: BigInt(max), pendingOnly: false, reversed: true, creationDateEnd: 0n, creationDateStart: 0n }, DeadLineMetadata())
         return res.response
     }
     async GetAllPayments(max: number) {
-        const res = await this.lightning.listPayments({ countTotalPayments: false, includeIncomplete: false, indexOffset: 0n, maxPayments: BigInt(max), reversed: true })
+        const res = await this.lightning.listPayments({ countTotalPayments: false, includeIncomplete: false, indexOffset: 0n, maxPayments: BigInt(max), reversed: true, creationDateEnd: 0n, creationDateStart: 0n })
         return res.response
     }
 
@@ -438,7 +439,7 @@ export default class {
         }
         const indexOffset = BigInt(paymentIndex - 1)
         const res = await this.lightning.listPayments({
-            countTotalPayments: false, includeIncomplete: true, indexOffset, maxPayments: 1n, reversed: false
+            countTotalPayments: false, includeIncomplete: true, indexOffset, maxPayments: 1n, reversed: false, creationDateEnd: 0n, creationDateStart: 0n
         }, DeadLineMetadata())
         return res.response
     }
@@ -446,7 +447,7 @@ export default class {
     async GetLatestPaymentIndex(from = 0) {
         let indexOffset = BigInt(from)
         while (true) {
-            const res = await this.lightning.listPayments({ countTotalPayments: false, includeIncomplete: false, indexOffset, maxPayments: 0n, reversed: false }, DeadLineMetadata())
+            const res = await this.lightning.listPayments({ countTotalPayments: false, includeIncomplete: false, indexOffset, maxPayments: 0n, reversed: false, creationDateEnd: 0n, creationDateStart: 0n }, DeadLineMetadata())
             if (res.response.payments.length === 0) {
                 return Number(indexOffset)
             }
