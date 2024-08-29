@@ -44,7 +44,7 @@ export class LiquidityStorage {
     }
 
     async GetTrackedProviders() {
-        return this.DB.getRepository(TrackedProvider).find()
+        return this.DB.getRepository(TrackedProvider).find({})
     }
 
     async GetTrackedProvider(providerType: 'lnd' | 'lnPub', pub: string) {
