@@ -53,9 +53,9 @@ export default class {
     }
 
     async GetLatestForwardingIndexOffset() {
-        const latestIndex = await this.DB.getRepository(ChannelRouting).findOne({ order: { latest_index_offset: "DESC" } })
-        if (latestIndex) {
-            return latestIndex.latest_index_offset
+        const latestIndex = await this.DB.getRepository(ChannelRouting).find({ order: { latest_index_offset: "DESC" }, take: 1 })
+        if (latestIndex.length > 0) {
+            return latestIndex[0].latest_index_offset
         }
         return 0
     }
