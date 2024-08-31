@@ -510,6 +510,7 @@ export type AppUser = {
     identifier: string
     info: UserInfo
     max_withdrawable: number
+    noffer: string
 }
 export const AppUserOptionalFields: [] = []
 export type AppUserOptions = OptionsBaseMessage & {
@@ -517,6 +518,7 @@ export type AppUserOptions = OptionsBaseMessage & {
     identifier_CustomCheck?: (v: string) => boolean
     info_Options?: UserInfoOptions
     max_withdrawable_CustomCheck?: (v: number) => boolean
+    noffer_CustomCheck?: (v: string) => boolean
 }
 export const AppUserValidate = (o?: AppUser, opts: AppUserOptions = {}, path: string = 'AppUser::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
@@ -531,6 +533,9 @@ export const AppUserValidate = (o?: AppUser, opts: AppUserOptions = {}, path: st
 
     if (typeof o.max_withdrawable !== 'number') return new Error(`${path}.max_withdrawable: is not a number`)
     if (opts.max_withdrawable_CustomCheck && !opts.max_withdrawable_CustomCheck(o.max_withdrawable)) return new Error(`${path}.max_withdrawable: custom check failed`)
+
+    if (typeof o.noffer !== 'string') return new Error(`${path}.noffer: is not a string`)
+    if (opts.noffer_CustomCheck && !opts.noffer_CustomCheck(o.noffer)) return new Error(`${path}.noffer: custom check failed`)
 
     return null
 }
@@ -1977,6 +1982,7 @@ export const PaymentStateValidate = (o?: PaymentState, opts: PaymentStateOptions
 export type Product = {
     id: string
     name: string
+    noffer: string
     price_sats: number
 }
 export const ProductOptionalFields: [] = []
@@ -1984,6 +1990,7 @@ export type ProductOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
     id_CustomCheck?: (v: string) => boolean
     name_CustomCheck?: (v: string) => boolean
+    noffer_CustomCheck?: (v: string) => boolean
     price_sats_CustomCheck?: (v: number) => boolean
 }
 export const ProductValidate = (o?: Product, opts: ProductOptions = {}, path: string = 'Product::root.'): Error | null => {
@@ -1995,6 +2002,9 @@ export const ProductValidate = (o?: Product, opts: ProductOptions = {}, path: st
 
     if (typeof o.name !== 'string') return new Error(`${path}.name: is not a string`)
     if (opts.name_CustomCheck && !opts.name_CustomCheck(o.name)) return new Error(`${path}.name: custom check failed`)
+
+    if (typeof o.noffer !== 'string') return new Error(`${path}.noffer: is not a string`)
+    if (opts.noffer_CustomCheck && !opts.noffer_CustomCheck(o.noffer)) return new Error(`${path}.noffer: custom check failed`)
 
     if (typeof o.price_sats !== 'number') return new Error(`${path}.price_sats: is not a number`)
     if (opts.price_sats_CustomCheck && !opts.price_sats_CustomCheck(o.price_sats)) return new Error(`${path}.price_sats: custom check failed`)

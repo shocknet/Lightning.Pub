@@ -192,6 +192,7 @@ message AppUser {
     string identifier = 1;
     UserInfo info = 2;
     int64 max_withdrawable = 3;
+    string noffer = 4;
 }
 
 message AddAppInvoiceRequest {
@@ -409,6 +410,7 @@ message Product {
     string id = 1;
     string name = 2;
     int64 price_sats = 3;
+    string noffer = 4;
 }
 
 message GetProductBuyLinkResponse {

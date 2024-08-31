@@ -17,7 +17,7 @@ const start = async () => {
         log("manual process ended")
         return
     }
-    
+
     const { apps, mainHandler, liquidityProviderInfo, wizard, adminManager } = keepOn
     const serverMethods = GetServerMethods(mainHandler)
     const nostrSettings = LoadNosrtSettingsFromEnv()

@@ -6,7 +6,7 @@ import { encodeNprofile } from '../../custom-nip19.js'
 const handledEvents: string[] = [] // TODO: - big memory leak here, add TTL
 type AppInfo = { appId: string, publicKey: string, privateKey: string, name: string }
 type ClientInfo = { clientId: string, publicKey: string, privateKey: string, name: string }
-export type SendData = { type: "content", content: string, pub: string } | { type: "event", event: UnsignedEvent }
+export type SendData = { type: "content", content: string, pub: string } | { type: "event", event: UnsignedEvent, encrypt?: { toPub: string } }
 export type SendInitiator = { type: 'app', appId: string } | { type: 'client', clientId: string }
 export type NostrSend = (initiator: SendInitiator, data: SendData, relays?: string[] | undefined) => void
 
@@ -22,6 +22,7 @@ export type NostrEvent = {
     appId: string
     startAtNano: string
     startAtMs: number
+    kind: number
 }
 
 type SettingsRequest = {
@@ -89,7 +90,7 @@ const sendToNostr: NostrSend = (initiator, data, relays) => {
     subProcessHandler.Send(initiator, data, relays)
 }
 send({ type: 'ready' })
-
+const supportedKinds = [21000, 21001]
 export default class Handler {
     pool = new SimplePool()
     settings: NostrSettings
@@ -132,7 +133,7 @@ export default class Handler {
         const sub = relay.sub([
             {
                 since: Math.ceil(Date.now() / 1000),
-                kinds: [21000],
+                kinds: supportedKinds,
                 '#p': Object.keys(this.apps),
             }
         ])
@@ -140,7 +141,7 @@ export default class Handler {
             log("up to date with nostr events")
         })
         sub.on('event', async (e) => {
-            if (e.kind !== 21000 || !e.pubkey) {
+            if (!supportedKinds.includes(e.kind) || !e.pubkey) {
                 return
             }
             const pubTags = e.tags.find(tags => tags && tags.length > 1 && tags[0] === 'p')
@@ -155,7 +156,7 @@ export default class Handler {
         })
     }
 
-    async processEvent(e: Event<21000>, app: AppInfo) {
+    async processEvent(e: Event, app: AppInfo) {
         const eventId = e.id
         if (handledEvents.includes(eventId)) {
             this.log("event already handled")
@@ -166,7 +167,7 @@ export default class Handler {
         const startAtNano = process.hrtime.bigint().toString()
         const decoded = decodePayload(e.content)
         const content = await decryptData(decoded, getSharedSecret(app.privateKey, e.pubkey))
-        this.eventCallback({ id: eventId, content, pub: e.pubkey, appId: app.appId, startAtNano, startAtMs })
+        this.eventCallback({ id: eventId, content, pub: e.pubkey, appId: app.appId, startAtNano, startAtMs, kind: e.kind })
     }
 
     async Send(initiator: SendInitiator, data: SendData, relays?: string[]) {
@@ -184,6 +185,10 @@ export default class Handler {
             }
         } else {
             toSign = data.event
+            if (data.encrypt) {
+                const content = await encryptData(data.event.content, getSharedSecret(keys.privateKey, data.encrypt.toPub))
+                toSign.content = encodePayload(content)
+            }
         }
 
         const signed = finishEvent(toSign, keys.privateKey)
