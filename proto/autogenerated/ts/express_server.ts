@@ -13,12 +13,12 @@ export type ServerOptions = {
     logMethod?: true
     logBody?: true
     metricsCallback: (metrics: Types.RequestMetric[]) => void
-    GuestAuthGuard: (authorizationHeader?: string) => Promise<Types.GuestContext>
-    UserAuthGuard: (authorizationHeader?: string) => Promise<Types.UserContext>
     AdminAuthGuard: (authorizationHeader?: string) => Promise<Types.AdminContext>
-    MetricsAuthGuard: (authorizationHeader?: string) => Promise<Types.MetricsContext>
     AppAuthGuard: (authorizationHeader?: string) => Promise<Types.AppContext>
+    GuestAuthGuard: (authorizationHeader?: string) => Promise<Types.GuestContext>
     GuestWithPubAuthGuard: (authorizationHeader?: string) => Promise<Types.GuestWithPubContext>
+    MetricsAuthGuard: (authorizationHeader?: string) => Promise<Types.MetricsContext>
+    UserAuthGuard: (authorizationHeader?: string) => Promise<Types.UserContext>
 }
 declare module 'express-serve-static-core' { interface Request { startTime?: bigint, bodySize?: number, startTimeMs: number } }
 const logErrorAndReturnResponse = (error: Error, response: string, res: Response, logger: Logger, metric: Types.RequestMetric, metricsCallback: (metrics: Types.RequestMetric[]) => void) => { 
@@ -34,28 +34,6 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     app.use(json())
     app.use(urlencoded({ extended: true }))
     if (opts.logMethod) app.use((req, _, next) => { console.log(req.method, req.path);  if (opts.logBody) console.log(req.body); next() })
-    if (!opts.allowNotImplementedMethods && !methods.LndGetInfo) throw new Error('method: LndGetInfo is not implemented')
-    app.post('/api/admin/lnd/getinfo', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'LndGetInfo', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
-        let authCtx: Types.AuthContext = {}
-        try {
-            if (!methods.LndGetInfo) throw new Error('method: LndGetInfo is not implemented')
-            const authContext = await opts.AdminAuthGuard(req.headers['authorization'])
-            authCtx = authContext
-            stats.guard = process.hrtime.bigint()
-            const request = req.body
-            const error = Types.LndGetInfoRequestValidate(request)
-            stats.validate = process.hrtime.bigint()
-            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
-            const query = req.query
-            const params = req.params
-            const response =  await methods.LndGetInfo({rpcName:'LndGetInfo', ctx:authContext , req: request})
-            stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK', ...response})
-            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
-    })
     if (!opts.allowNotImplementedMethods && !methods.AddApp) throw new Error('method: AddApp is not implemented')
     app.post('/api/admin/app/add', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'AddApp', batch: false, nostr: false, batchSize: 0}
@@ -73,6 +51,94 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const query = req.query
             const params = req.params
             const response =  await methods.AddApp({rpcName:'AddApp', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.AddAppInvoice) throw new Error('method: AddAppInvoice is not implemented')
+    app.post('/api/app/add/invoice', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'AddAppInvoice', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.AddAppInvoice) throw new Error('method: AddAppInvoice is not implemented')
+            const authContext = await opts.AppAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.AddAppInvoiceRequestValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+            const response =  await methods.AddAppInvoice({rpcName:'AddAppInvoice', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.AddAppUser) throw new Error('method: AddAppUser is not implemented')
+    app.post('/api/app/user/add', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'AddAppUser', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.AddAppUser) throw new Error('method: AddAppUser is not implemented')
+            const authContext = await opts.AppAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.AddAppUserRequestValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+            const response =  await methods.AddAppUser({rpcName:'AddAppUser', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.AddAppUserInvoice) throw new Error('method: AddAppUserInvoice is not implemented')
+    app.post('/api/app/user/add/invoice', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'AddAppUserInvoice', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.AddAppUserInvoice) throw new Error('method: AddAppUserInvoice is not implemented')
+            const authContext = await opts.AppAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.AddAppUserInvoiceRequestValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+            const response =  await methods.AddAppUserInvoice({rpcName:'AddAppUserInvoice', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.AddProduct) throw new Error('method: AddProduct is not implemented')
+    app.post('/api/user/product/add', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'AddProduct', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.AddProduct) throw new Error('method: AddProduct is not implemented')
+            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.AddProductRequestValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+            const response =  await methods.AddProduct({rpcName:'AddProduct', ctx:authContext , req: request})
             stats.handle = process.hrtime.bigint()
             res.json({status: 'OK', ...response})
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
@@ -122,105 +188,215 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
-    if (!opts.allowNotImplementedMethods && !methods.GetSeed) throw new Error('method: GetSeed is not implemented')
-    app.get('/api/admin/seed', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'GetSeed', batch: false, nostr: false, batchSize: 0}
+    app.post('/api/user/batch', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'BatchUser', batch: true, nostr: false, batchSize: 1 }
         const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
-            if (!methods.GetSeed) throw new Error('method: GetSeed is not implemented')
-            const authContext = await opts.AdminAuthGuard(req.headers['authorization'])
-            authCtx = authContext
+            const requests = req.body.requests as Types.UserMethodInputs[]
+            if (!Array.isArray(requests))throw new Error('invalid body, is not an array')
+            info.batchSize = requests.length
+            if (requests.length > 10) throw new Error('too many requests in the batch')
+            const ctx = await opts.UserAuthGuard(req.headers['authorization'])
             stats.guard = process.hrtime.bigint()
             stats.validate = stats.guard
-            const query = req.query
-            const params = req.params
-            const response =  await methods.GetSeed({rpcName:'GetSeed', ctx:authContext })
+            authCtx = ctx
+            const responses = []
+            const callsMetrics: Types.RequestMetric[] = []
+            for (let i = 0; i < requests.length; i++) {
+                const operation = requests[i]
+                const opInfo: Types.RequestInfo = { rpcName: operation.rpcName, batch: true, nostr: false, batchSize: 0 }
+                const opStats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: stats.parse, guard: stats.guard, validate: 0n, handle: 0n }
+                try {
+                    switch(operation.rpcName) {
+                        case 'AddProduct':
+                            if (!methods.AddProduct) {
+                                throw new Error('method AddProduct not found' )
+                            } else {
+                                const error = Types.AddProductRequestValidate(operation.req)
+                                opStats.validate = process.hrtime.bigint()
+                                if (error !== null) throw error
+                                const res = await methods.AddProduct({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                                opStats.handle = process.hrtime.bigint()
+                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
+                            }
+                            break
+                        case 'DecodeInvoice':
+                            if (!methods.DecodeInvoice) {
+                                throw new Error('method DecodeInvoice not found' )
+                            } else {
+                                const error = Types.DecodeInvoiceRequestValidate(operation.req)
+                                opStats.validate = process.hrtime.bigint()
+                                if (error !== null) throw error
+                                const res = await methods.DecodeInvoice({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                                opStats.handle = process.hrtime.bigint()
+                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
+                            }
+                            break
+                        case 'EnrollAdminToken':
+                            if (!methods.EnrollAdminToken) {
+                                throw new Error('method EnrollAdminToken not found' )
+                            } else {
+                                const error = Types.EnrollAdminTokenRequestValidate(operation.req)
+                                opStats.validate = process.hrtime.bigint()
+                                if (error !== null) throw error
+                                await methods.EnrollAdminToken({...operation, ctx}); responses.push({ status: 'OK' })
+                                opStats.handle = process.hrtime.bigint()
+                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
+                            }
+                            break
+                        case 'GetLNURLChannelLink':
+                            if (!methods.GetLNURLChannelLink) {
+                                throw new Error('method GetLNURLChannelLink not found' )
+                            } else {
+                                opStats.validate = opStats.guard
+                                const res = await methods.GetLNURLChannelLink({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                                opStats.handle = process.hrtime.bigint()
+                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
+                            }
+                            break
+                        case 'GetLnurlPayLink':
+                            if (!methods.GetLnurlPayLink) {
+                                throw new Error('method GetLnurlPayLink not found' )
+                            } else {
+                                opStats.validate = opStats.guard
+                                const res = await methods.GetLnurlPayLink({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                                opStats.handle = process.hrtime.bigint()
+                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
+                            }
+                            break
+                        case 'GetLnurlWithdrawLink':
+                            if (!methods.GetLnurlWithdrawLink) {
+                                throw new Error('method GetLnurlWithdrawLink not found' )
+                            } else {
+                                opStats.validate = opStats.guard
+                                const res = await methods.GetLnurlWithdrawLink({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                                opStats.handle = process.hrtime.bigint()
+                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
+                            }
+                            break
+                        case 'GetPaymentState':
+                            if (!methods.GetPaymentState) {
+                                throw new Error('method GetPaymentState not found' )
+                            } else {
+                                const error = Types.GetPaymentStateRequestValidate(operation.req)
+                                opStats.validate = process.hrtime.bigint()
+                                if (error !== null) throw error
+                                const res = await methods.GetPaymentState({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                                opStats.handle = process.hrtime.bigint()
+                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
+                            }
+                            break
+                        case 'GetUserInfo':
+                            if (!methods.GetUserInfo) {
+                                throw new Error('method GetUserInfo not found' )
+                            } else {
+                                opStats.validate = opStats.guard
+                                const res = await methods.GetUserInfo({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                                opStats.handle = process.hrtime.bigint()
+                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
+                            }
+                            break
+                        case 'GetUserOperations':
+                            if (!methods.GetUserOperations) {
+                                throw new Error('method GetUserOperations not found' )
+                            } else {
+                                const error = Types.GetUserOperationsRequestValidate(operation.req)
+                                opStats.validate = process.hrtime.bigint()
+                                if (error !== null) throw error
+                                const res = await methods.GetUserOperations({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                                opStats.handle = process.hrtime.bigint()
+                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
+                            }
+                            break
+                        case 'NewAddress':
+                            if (!methods.NewAddress) {
+                                throw new Error('method NewAddress not found' )
+                            } else {
+                                const error = Types.NewAddressRequestValidate(operation.req)
+                                opStats.validate = process.hrtime.bigint()
+                                if (error !== null) throw error
+                                const res = await methods.NewAddress({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                                opStats.handle = process.hrtime.bigint()
+                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
+                            }
+                            break
+                        case 'NewInvoice':
+                            if (!methods.NewInvoice) {
+                                throw new Error('method NewInvoice not found' )
+                            } else {
+                                const error = Types.NewInvoiceRequestValidate(operation.req)
+                                opStats.validate = process.hrtime.bigint()
+                                if (error !== null) throw error
+                                const res = await methods.NewInvoice({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                                opStats.handle = process.hrtime.bigint()
+                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
+                            }
+                            break
+                        case 'NewProductInvoice':
+                            if (!methods.NewProductInvoice) {
+                                throw new Error('method NewProductInvoice not found' )
+                            } else {
+                                opStats.validate = opStats.guard
+                                const res = await methods.NewProductInvoice({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                                opStats.handle = process.hrtime.bigint()
+                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
+                            }
+                            break
+                        case 'OpenChannel':
+                            if (!methods.OpenChannel) {
+                                throw new Error('method OpenChannel not found' )
+                            } else {
+                                const error = Types.OpenChannelRequestValidate(operation.req)
+                                opStats.validate = process.hrtime.bigint()
+                                if (error !== null) throw error
+                                const res = await methods.OpenChannel({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                                opStats.handle = process.hrtime.bigint()
+                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
+                            }
+                            break
+                        case 'PayAddress':
+                            if (!methods.PayAddress) {
+                                throw new Error('method PayAddress not found' )
+                            } else {
+                                const error = Types.PayAddressRequestValidate(operation.req)
+                                opStats.validate = process.hrtime.bigint()
+                                if (error !== null) throw error
+                                const res = await methods.PayAddress({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                                opStats.handle = process.hrtime.bigint()
+                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
+                            }
+                            break
+                        case 'PayInvoice':
+                            if (!methods.PayInvoice) {
+                                throw new Error('method PayInvoice not found' )
+                            } else {
+                                const error = Types.PayInvoiceRequestValidate(operation.req)
+                                opStats.validate = process.hrtime.bigint()
+                                if (error !== null) throw error
+                                const res = await methods.PayInvoice({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                                opStats.handle = process.hrtime.bigint()
+                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
+                            }
+                            break
+                        case 'UserHealth':
+                            if (!methods.UserHealth) {
+                                throw new Error('method UserHealth not found' )
+                            } else {
+                                opStats.validate = opStats.guard
+                                await methods.UserHealth({...operation, ctx}); responses.push({ status: 'OK' })
+                                opStats.handle = process.hrtime.bigint()
+                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
+                            }
+                            break
+                        default:
+                        throw new Error('unkown rpcName')
+                    }
+                } catch(ex) {const e = ex as any; logger.error(e.message || e); callsMetrics.push({ ...opInfo, ...opStats, ...ctx, error: e.message }); responses.push({ status: 'ERROR', reason: e.message || e })}
+            }
             stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK', ...response})
-            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
-    })
-    if (!opts.allowNotImplementedMethods && !methods.ListChannels) throw new Error('method: ListChannels is not implemented')
-    app.get('/api/admin/channels', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'ListChannels', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
-        let authCtx: Types.AuthContext = {}
-        try {
-            if (!methods.ListChannels) throw new Error('method: ListChannels is not implemented')
-            const authContext = await opts.AdminAuthGuard(req.headers['authorization'])
-            authCtx = authContext
-            stats.guard = process.hrtime.bigint()
-            stats.validate = stats.guard
-            const query = req.query
-            const params = req.params
-            const response =  await methods.ListChannels({rpcName:'ListChannels', ctx:authContext })
-            stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK', ...response})
-            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
-    })
-    if (!opts.allowNotImplementedMethods && !methods.GetUsageMetrics) throw new Error('method: GetUsageMetrics is not implemented')
-    app.post('/api/reports/usage', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'GetUsageMetrics', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
-        let authCtx: Types.AuthContext = {}
-        try {
-            if (!methods.GetUsageMetrics) throw new Error('method: GetUsageMetrics is not implemented')
-            const authContext = await opts.MetricsAuthGuard(req.headers['authorization'])
-            authCtx = authContext
-            stats.guard = process.hrtime.bigint()
-            stats.validate = stats.guard
-            const query = req.query
-            const params = req.params
-            const response =  await methods.GetUsageMetrics({rpcName:'GetUsageMetrics', ctx:authContext })
-            stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK', ...response})
-            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
-    })
-    if (!opts.allowNotImplementedMethods && !methods.GetAppsMetrics) throw new Error('method: GetAppsMetrics is not implemented')
-    app.post('/api/reports/apps', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'GetAppsMetrics', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
-        let authCtx: Types.AuthContext = {}
-        try {
-            if (!methods.GetAppsMetrics) throw new Error('method: GetAppsMetrics is not implemented')
-            const authContext = await opts.MetricsAuthGuard(req.headers['authorization'])
-            authCtx = authContext
-            stats.guard = process.hrtime.bigint()
-            const request = req.body
-            const error = Types.AppsMetricsRequestValidate(request)
-            stats.validate = process.hrtime.bigint()
-            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
-            const query = req.query
-            const params = req.params
-            const response =  await methods.GetAppsMetrics({rpcName:'GetAppsMetrics', ctx:authContext , req: request})
-            stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK', ...response})
-            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
-    })
-    if (!opts.allowNotImplementedMethods && !methods.GetLndMetrics) throw new Error('method: GetLndMetrics is not implemented')
-    app.post('/api/reports/lnd', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'GetLndMetrics', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
-        let authCtx: Types.AuthContext = {}
-        try {
-            if (!methods.GetLndMetrics) throw new Error('method: GetLndMetrics is not implemented')
-            const authContext = await opts.MetricsAuthGuard(req.headers['authorization'])
-            authCtx = authContext
-            stats.guard = process.hrtime.bigint()
-            const request = req.body
-            const error = Types.LndMetricsRequestValidate(request)
-            stats.validate = process.hrtime.bigint()
-            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
-            const query = req.query
-            const params = req.params
-            const response =  await methods.GetLndMetrics({rpcName:'GetLndMetrics', ctx:authContext , req: request})
-            stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK', ...response})
-            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+            res.json({ status: 'OK', responses })
+            opts.metricsCallback([{ ...info, ...stats, ...ctx }, ...callsMetrics])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.CreateOneTimeInviteLink) throw new Error('method: CreateOneTimeInviteLink is not implemented')
@@ -245,44 +421,25 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
-    if (!opts.allowNotImplementedMethods && !methods.GetInviteLinkState) throw new Error('method: GetInviteLinkState is not implemented')
-    app.post('/api/admin/app/invite/get', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'GetInviteLinkState', batch: false, nostr: false, batchSize: 0}
+    if (!opts.allowNotImplementedMethods && !methods.DecodeInvoice) throw new Error('method: DecodeInvoice is not implemented')
+    app.post('/api/user/invoice/decode', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'DecodeInvoice', batch: false, nostr: false, batchSize: 0}
         const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
-            if (!methods.GetInviteLinkState) throw new Error('method: GetInviteLinkState is not implemented')
-            const authContext = await opts.AdminAuthGuard(req.headers['authorization'])
+            if (!methods.DecodeInvoice) throw new Error('method: DecodeInvoice is not implemented')
+            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
             authCtx = authContext
             stats.guard = process.hrtime.bigint()
             const request = req.body
-            const error = Types.GetInviteTokenStateRequestValidate(request)
+            const error = Types.DecodeInvoiceRequestValidate(request)
             stats.validate = process.hrtime.bigint()
             if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
             const query = req.query
             const params = req.params
-            const response =  await methods.GetInviteLinkState({rpcName:'GetInviteLinkState', ctx:authContext , req: request})
+            const response =  await methods.DecodeInvoice({rpcName:'DecodeInvoice', ctx:authContext , req: request})
             stats.handle = process.hrtime.bigint()
             res.json({status: 'OK', ...response})
-            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
-    })
-    if (!opts.allowNotImplementedMethods && !methods.Health) throw new Error('method: Health is not implemented')
-    app.get('/api/health', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'Health', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
-        let authCtx: Types.AuthContext = {}
-        try {
-            if (!methods.Health) throw new Error('method: Health is not implemented')
-            const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
-            authCtx = authContext
-            stats.guard = process.hrtime.bigint()
-            stats.validate = stats.guard
-            const query = req.query
-            const params = req.params
-             await methods.Health({rpcName:'Health', ctx:authContext })
-            stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK'})
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
@@ -308,123 +465,6 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
-    if (!opts.allowNotImplementedMethods && !methods.SetMockInvoiceAsPaid) throw new Error('method: SetMockInvoiceAsPaid is not implemented')
-    app.post('/api/lnd/mock/invoice/paid', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'SetMockInvoiceAsPaid', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
-        let authCtx: Types.AuthContext = {}
-        try {
-            if (!methods.SetMockInvoiceAsPaid) throw new Error('method: SetMockInvoiceAsPaid is not implemented')
-            const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
-            authCtx = authContext
-            stats.guard = process.hrtime.bigint()
-            const request = req.body
-            const error = Types.SetMockInvoiceAsPaidRequestValidate(request)
-            stats.validate = process.hrtime.bigint()
-            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
-            const query = req.query
-            const params = req.params
-             await methods.SetMockInvoiceAsPaid({rpcName:'SetMockInvoiceAsPaid', ctx:authContext , req: request})
-            stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK'})
-            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
-    })
-    if (!opts.allowNotImplementedMethods && !methods.GetLnurlWithdrawInfo) throw new Error('method: GetLnurlWithdrawInfo is not implemented')
-    app.get('/api/guest/lnurl_withdraw/info', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'GetLnurlWithdrawInfo', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
-        let authCtx: Types.AuthContext = {}
-        try {
-            if (!methods.GetLnurlWithdrawInfo) throw new Error('method: GetLnurlWithdrawInfo is not implemented')
-            const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
-            authCtx = authContext
-            stats.guard = process.hrtime.bigint()
-            stats.validate = stats.guard
-            const query = req.query
-            const params = req.params
-            const response =  await methods.GetLnurlWithdrawInfo({rpcName:'GetLnurlWithdrawInfo', ctx:authContext ,query: req.query})
-            stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK', ...response})
-            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
-    })
-    if (!opts.allowNotImplementedMethods && !methods.HandleLnurlWithdraw) throw new Error('method: HandleLnurlWithdraw is not implemented')
-    app.get('/api/guest/lnurl_withdraw/handle', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'HandleLnurlWithdraw', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
-        let authCtx: Types.AuthContext = {}
-        try {
-            if (!methods.HandleLnurlWithdraw) throw new Error('method: HandleLnurlWithdraw is not implemented')
-            const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
-            authCtx = authContext
-            stats.guard = process.hrtime.bigint()
-            stats.validate = stats.guard
-            const query = req.query
-            const params = req.params
-             await methods.HandleLnurlWithdraw({rpcName:'HandleLnurlWithdraw', ctx:authContext ,query: req.query})
-            stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK'})
-            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
-    })
-    if (!opts.allowNotImplementedMethods && !methods.GetLnurlPayInfo) throw new Error('method: GetLnurlPayInfo is not implemented')
-    app.get('/api/guest/lnurl_pay/info', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'GetLnurlPayInfo', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
-        let authCtx: Types.AuthContext = {}
-        try {
-            if (!methods.GetLnurlPayInfo) throw new Error('method: GetLnurlPayInfo is not implemented')
-            const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
-            authCtx = authContext
-            stats.guard = process.hrtime.bigint()
-            stats.validate = stats.guard
-            const query = req.query
-            const params = req.params
-            const response =  await methods.GetLnurlPayInfo({rpcName:'GetLnurlPayInfo', ctx:authContext ,query: req.query})
-            stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK', ...response})
-            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
-    })
-    if (!opts.allowNotImplementedMethods && !methods.HandleLnurlPay) throw new Error('method: HandleLnurlPay is not implemented')
-    app.get('/api/guest/lnurl_pay/handle', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'HandleLnurlPay', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
-        let authCtx: Types.AuthContext = {}
-        try {
-            if (!methods.HandleLnurlPay) throw new Error('method: HandleLnurlPay is not implemented')
-            const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
-            authCtx = authContext
-            stats.guard = process.hrtime.bigint()
-            stats.validate = stats.guard
-            const query = req.query
-            const params = req.params
-            const response =  await methods.HandleLnurlPay({rpcName:'HandleLnurlPay', ctx:authContext ,query: req.query})
-            stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK', ...response})
-            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
-    })
-    if (!opts.allowNotImplementedMethods && !methods.HandleLnurlAddress) throw new Error('method: HandleLnurlAddress is not implemented')
-    app.get('/.well-known/lnurlp/:address_name', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'HandleLnurlAddress', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
-        let authCtx: Types.AuthContext = {}
-        try {
-            if (!methods.HandleLnurlAddress) throw new Error('method: HandleLnurlAddress is not implemented')
-            const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
-            authCtx = authContext
-            stats.guard = process.hrtime.bigint()
-            stats.validate = stats.guard
-            const query = req.query
-            const params = req.params
-            const response =  await methods.HandleLnurlAddress({rpcName:'HandleLnurlAddress', ctx:authContext ,params: req.params})
-            stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK', ...response})
-            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
-    })
     if (!opts.allowNotImplementedMethods && !methods.EnrollAdminToken) throw new Error('method: EnrollAdminToken is not implemented')
     app.post('/api/guest/npub/enroll/admin', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'EnrollAdminToken', batch: false, nostr: false, batchSize: 0}
@@ -447,50 +487,6 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
-    if (!opts.allowNotImplementedMethods && !methods.LinkNPubThroughToken) throw new Error('method: LinkNPubThroughToken is not implemented')
-    app.post('/api/guest/npub/link', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'LinkNPubThroughToken', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
-        let authCtx: Types.AuthContext = {}
-        try {
-            if (!methods.LinkNPubThroughToken) throw new Error('method: LinkNPubThroughToken is not implemented')
-            const authContext = await opts.GuestWithPubAuthGuard(req.headers['authorization'])
-            authCtx = authContext
-            stats.guard = process.hrtime.bigint()
-            const request = req.body
-            const error = Types.LinkNPubThroughTokenRequestValidate(request)
-            stats.validate = process.hrtime.bigint()
-            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
-            const query = req.query
-            const params = req.params
-             await methods.LinkNPubThroughToken({rpcName:'LinkNPubThroughToken', ctx:authContext , req: request})
-            stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK'})
-            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
-    })
-    if (!opts.allowNotImplementedMethods && !methods.UseInviteLink) throw new Error('method: UseInviteLink is not implemented')
-    app.post('/api/guest/invite', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'UseInviteLink', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
-        let authCtx: Types.AuthContext = {}
-        try {
-            if (!methods.UseInviteLink) throw new Error('method: UseInviteLink is not implemented')
-            const authContext = await opts.GuestWithPubAuthGuard(req.headers['authorization'])
-            authCtx = authContext
-            stats.guard = process.hrtime.bigint()
-            const request = req.body
-            const error = Types.UseInviteLinkRequestValidate(request)
-            stats.validate = process.hrtime.bigint()
-            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
-            const query = req.query
-            const params = req.params
-             await methods.UseInviteLink({rpcName:'UseInviteLink', ctx:authContext , req: request})
-            stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK'})
-            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
-    })
     if (!opts.allowNotImplementedMethods && !methods.GetApp) throw new Error('method: GetApp is not implemented')
     app.post('/api/app/get', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'GetApp', batch: false, nostr: false, batchSize: 0}
@@ -505,72 +501,6 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const query = req.query
             const params = req.params
             const response =  await methods.GetApp({rpcName:'GetApp', ctx:authContext })
-            stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK', ...response})
-            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
-    })
-    if (!opts.allowNotImplementedMethods && !methods.AddAppUser) throw new Error('method: AddAppUser is not implemented')
-    app.post('/api/app/user/add', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'AddAppUser', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
-        let authCtx: Types.AuthContext = {}
-        try {
-            if (!methods.AddAppUser) throw new Error('method: AddAppUser is not implemented')
-            const authContext = await opts.AppAuthGuard(req.headers['authorization'])
-            authCtx = authContext
-            stats.guard = process.hrtime.bigint()
-            const request = req.body
-            const error = Types.AddAppUserRequestValidate(request)
-            stats.validate = process.hrtime.bigint()
-            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
-            const query = req.query
-            const params = req.params
-            const response =  await methods.AddAppUser({rpcName:'AddAppUser', ctx:authContext , req: request})
-            stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK', ...response})
-            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
-    })
-    if (!opts.allowNotImplementedMethods && !methods.AddAppInvoice) throw new Error('method: AddAppInvoice is not implemented')
-    app.post('/api/app/add/invoice', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'AddAppInvoice', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
-        let authCtx: Types.AuthContext = {}
-        try {
-            if (!methods.AddAppInvoice) throw new Error('method: AddAppInvoice is not implemented')
-            const authContext = await opts.AppAuthGuard(req.headers['authorization'])
-            authCtx = authContext
-            stats.guard = process.hrtime.bigint()
-            const request = req.body
-            const error = Types.AddAppInvoiceRequestValidate(request)
-            stats.validate = process.hrtime.bigint()
-            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
-            const query = req.query
-            const params = req.params
-            const response =  await methods.AddAppInvoice({rpcName:'AddAppInvoice', ctx:authContext , req: request})
-            stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK', ...response})
-            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
-    })
-    if (!opts.allowNotImplementedMethods && !methods.AddAppUserInvoice) throw new Error('method: AddAppUserInvoice is not implemented')
-    app.post('/api/app/user/add/invoice', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'AddAppUserInvoice', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
-        let authCtx: Types.AuthContext = {}
-        try {
-            if (!methods.AddAppUserInvoice) throw new Error('method: AddAppUserInvoice is not implemented')
-            const authContext = await opts.AppAuthGuard(req.headers['authorization'])
-            authCtx = authContext
-            stats.guard = process.hrtime.bigint()
-            const request = req.body
-            const error = Types.AddAppUserInvoiceRequestValidate(request)
-            stats.validate = process.hrtime.bigint()
-            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
-            const query = req.query
-            const params = req.params
-            const response =  await methods.AddAppUserInvoice({rpcName:'AddAppUserInvoice', ctx:authContext , req: request})
             stats.handle = process.hrtime.bigint()
             res.json({status: 'OK', ...response})
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
@@ -598,72 +528,6 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
-    if (!opts.allowNotImplementedMethods && !methods.PayAppUserInvoice) throw new Error('method: PayAppUserInvoice is not implemented')
-    app.post('/api/app/invoice/pay', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'PayAppUserInvoice', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
-        let authCtx: Types.AuthContext = {}
-        try {
-            if (!methods.PayAppUserInvoice) throw new Error('method: PayAppUserInvoice is not implemented')
-            const authContext = await opts.AppAuthGuard(req.headers['authorization'])
-            authCtx = authContext
-            stats.guard = process.hrtime.bigint()
-            const request = req.body
-            const error = Types.PayAppUserInvoiceRequestValidate(request)
-            stats.validate = process.hrtime.bigint()
-            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
-            const query = req.query
-            const params = req.params
-            const response =  await methods.PayAppUserInvoice({rpcName:'PayAppUserInvoice', ctx:authContext , req: request})
-            stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK', ...response})
-            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
-    })
-    if (!opts.allowNotImplementedMethods && !methods.SendAppUserToAppUserPayment) throw new Error('method: SendAppUserToAppUserPayment is not implemented')
-    app.post('/api/app/user/internal/pay', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'SendAppUserToAppUserPayment', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
-        let authCtx: Types.AuthContext = {}
-        try {
-            if (!methods.SendAppUserToAppUserPayment) throw new Error('method: SendAppUserToAppUserPayment is not implemented')
-            const authContext = await opts.AppAuthGuard(req.headers['authorization'])
-            authCtx = authContext
-            stats.guard = process.hrtime.bigint()
-            const request = req.body
-            const error = Types.SendAppUserToAppUserPaymentRequestValidate(request)
-            stats.validate = process.hrtime.bigint()
-            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
-            const query = req.query
-            const params = req.params
-             await methods.SendAppUserToAppUserPayment({rpcName:'SendAppUserToAppUserPayment', ctx:authContext , req: request})
-            stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK'})
-            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
-    })
-    if (!opts.allowNotImplementedMethods && !methods.SendAppUserToAppPayment) throw new Error('method: SendAppUserToAppPayment is not implemented')
-    app.post('/api/app/internal/pay', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'SendAppUserToAppPayment', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
-        let authCtx: Types.AuthContext = {}
-        try {
-            if (!methods.SendAppUserToAppPayment) throw new Error('method: SendAppUserToAppPayment is not implemented')
-            const authContext = await opts.AppAuthGuard(req.headers['authorization'])
-            authCtx = authContext
-            stats.guard = process.hrtime.bigint()
-            const request = req.body
-            const error = Types.SendAppUserToAppPaymentRequestValidate(request)
-            stats.validate = process.hrtime.bigint()
-            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
-            const query = req.query
-            const params = req.params
-             await methods.SendAppUserToAppPayment({rpcName:'SendAppUserToAppPayment', ctx:authContext , req: request})
-            stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK'})
-            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
-    })
     if (!opts.allowNotImplementedMethods && !methods.GetAppUserLNURLInfo) throw new Error('method: GetAppUserLNURLInfo is not implemented')
     app.post('/api/app/user/lnurl/pay/info', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'GetAppUserLNURLInfo', batch: false, nostr: false, batchSize: 0}
@@ -686,47 +550,555 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
-    if (!opts.allowNotImplementedMethods && !methods.SetMockAppUserBalance) throw new Error('method: SetMockAppUserBalance is not implemented')
-    app.post('/api/app/mock/user/blance/set', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'SetMockAppUserBalance', batch: false, nostr: false, batchSize: 0}
+    if (!opts.allowNotImplementedMethods && !methods.GetAppsMetrics) throw new Error('method: GetAppsMetrics is not implemented')
+    app.post('/api/reports/apps', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'GetAppsMetrics', batch: false, nostr: false, batchSize: 0}
         const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
-            if (!methods.SetMockAppUserBalance) throw new Error('method: SetMockAppUserBalance is not implemented')
-            const authContext = await opts.AppAuthGuard(req.headers['authorization'])
+            if (!methods.GetAppsMetrics) throw new Error('method: GetAppsMetrics is not implemented')
+            const authContext = await opts.MetricsAuthGuard(req.headers['authorization'])
             authCtx = authContext
             stats.guard = process.hrtime.bigint()
             const request = req.body
-            const error = Types.SetMockAppUserBalanceRequestValidate(request)
+            const error = Types.AppsMetricsRequestValidate(request)
             stats.validate = process.hrtime.bigint()
             if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
             const query = req.query
             const params = req.params
-             await methods.SetMockAppUserBalance({rpcName:'SetMockAppUserBalance', ctx:authContext , req: request})
+            const response =  await methods.GetAppsMetrics({rpcName:'GetAppsMetrics', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.GetInviteLinkState) throw new Error('method: GetInviteLinkState is not implemented')
+    app.post('/api/admin/app/invite/get', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'GetInviteLinkState', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.GetInviteLinkState) throw new Error('method: GetInviteLinkState is not implemented')
+            const authContext = await opts.AdminAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.GetInviteTokenStateRequestValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+            const response =  await methods.GetInviteLinkState({rpcName:'GetInviteLinkState', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.GetLNURLChannelLink) throw new Error('method: GetLNURLChannelLink is not implemented')
+    app.post('/api/user/lnurl_channel/url', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'GetLNURLChannelLink', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.GetLNURLChannelLink) throw new Error('method: GetLNURLChannelLink is not implemented')
+            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            stats.validate = stats.guard
+            const query = req.query
+            const params = req.params
+            const response =  await methods.GetLNURLChannelLink({rpcName:'GetLNURLChannelLink', ctx:authContext })
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.GetLndMetrics) throw new Error('method: GetLndMetrics is not implemented')
+    app.post('/api/reports/lnd', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'GetLndMetrics', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.GetLndMetrics) throw new Error('method: GetLndMetrics is not implemented')
+            const authContext = await opts.MetricsAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.LndMetricsRequestValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+            const response =  await methods.GetLndMetrics({rpcName:'GetLndMetrics', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.GetLnurlPayInfo) throw new Error('method: GetLnurlPayInfo is not implemented')
+    app.get('/api/guest/lnurl_pay/info', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'GetLnurlPayInfo', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.GetLnurlPayInfo) throw new Error('method: GetLnurlPayInfo is not implemented')
+            const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            stats.validate = stats.guard
+            const query = req.query
+            const params = req.params
+            const response =  await methods.GetLnurlPayInfo({rpcName:'GetLnurlPayInfo', ctx:authContext ,query: req.query})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.GetLnurlPayLink) throw new Error('method: GetLnurlPayLink is not implemented')
+    app.get('/api/user/lnurl_pay/link', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'GetLnurlPayLink', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.GetLnurlPayLink) throw new Error('method: GetLnurlPayLink is not implemented')
+            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            stats.validate = stats.guard
+            const query = req.query
+            const params = req.params
+            const response =  await methods.GetLnurlPayLink({rpcName:'GetLnurlPayLink', ctx:authContext })
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.GetLnurlWithdrawInfo) throw new Error('method: GetLnurlWithdrawInfo is not implemented')
+    app.get('/api/guest/lnurl_withdraw/info', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'GetLnurlWithdrawInfo', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.GetLnurlWithdrawInfo) throw new Error('method: GetLnurlWithdrawInfo is not implemented')
+            const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            stats.validate = stats.guard
+            const query = req.query
+            const params = req.params
+            const response =  await methods.GetLnurlWithdrawInfo({rpcName:'GetLnurlWithdrawInfo', ctx:authContext ,query: req.query})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.GetLnurlWithdrawLink) throw new Error('method: GetLnurlWithdrawLink is not implemented')
+    app.get('/api/user/lnurl_withdraw/link', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'GetLnurlWithdrawLink', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.GetLnurlWithdrawLink) throw new Error('method: GetLnurlWithdrawLink is not implemented')
+            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            stats.validate = stats.guard
+            const query = req.query
+            const params = req.params
+            const response =  await methods.GetLnurlWithdrawLink({rpcName:'GetLnurlWithdrawLink', ctx:authContext })
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.GetPaymentState) throw new Error('method: GetPaymentState is not implemented')
+    app.post('/api/user/payment/state', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'GetPaymentState', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.GetPaymentState) throw new Error('method: GetPaymentState is not implemented')
+            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.GetPaymentStateRequestValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+            const response =  await methods.GetPaymentState({rpcName:'GetPaymentState', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.GetSeed) throw new Error('method: GetSeed is not implemented')
+    app.get('/api/admin/seed', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'GetSeed', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.GetSeed) throw new Error('method: GetSeed is not implemented')
+            const authContext = await opts.AdminAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            stats.validate = stats.guard
+            const query = req.query
+            const params = req.params
+            const response =  await methods.GetSeed({rpcName:'GetSeed', ctx:authContext })
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.GetUsageMetrics) throw new Error('method: GetUsageMetrics is not implemented')
+    app.post('/api/reports/usage', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'GetUsageMetrics', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.GetUsageMetrics) throw new Error('method: GetUsageMetrics is not implemented')
+            const authContext = await opts.MetricsAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            stats.validate = stats.guard
+            const query = req.query
+            const params = req.params
+            const response =  await methods.GetUsageMetrics({rpcName:'GetUsageMetrics', ctx:authContext })
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.GetUserInfo) throw new Error('method: GetUserInfo is not implemented')
+    app.post('/api/user/info', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'GetUserInfo', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.GetUserInfo) throw new Error('method: GetUserInfo is not implemented')
+            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            stats.validate = stats.guard
+            const query = req.query
+            const params = req.params
+            const response =  await methods.GetUserInfo({rpcName:'GetUserInfo', ctx:authContext })
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.GetUserOperations) throw new Error('method: GetUserOperations is not implemented')
+    app.post('/api/user/operations', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'GetUserOperations', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.GetUserOperations) throw new Error('method: GetUserOperations is not implemented')
+            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.GetUserOperationsRequestValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+            const response =  await methods.GetUserOperations({rpcName:'GetUserOperations', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.HandleLnurlAddress) throw new Error('method: HandleLnurlAddress is not implemented')
+    app.get('/.well-known/lnurlp/:address_name', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'HandleLnurlAddress', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.HandleLnurlAddress) throw new Error('method: HandleLnurlAddress is not implemented')
+            const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            stats.validate = stats.guard
+            const query = req.query
+            const params = req.params
+            const response =  await methods.HandleLnurlAddress({rpcName:'HandleLnurlAddress', ctx:authContext ,params: req.params})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.HandleLnurlPay) throw new Error('method: HandleLnurlPay is not implemented')
+    app.get('/api/guest/lnurl_pay/handle', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'HandleLnurlPay', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.HandleLnurlPay) throw new Error('method: HandleLnurlPay is not implemented')
+            const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            stats.validate = stats.guard
+            const query = req.query
+            const params = req.params
+            const response =  await methods.HandleLnurlPay({rpcName:'HandleLnurlPay', ctx:authContext ,query: req.query})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.HandleLnurlWithdraw) throw new Error('method: HandleLnurlWithdraw is not implemented')
+    app.get('/api/guest/lnurl_withdraw/handle', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'HandleLnurlWithdraw', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.HandleLnurlWithdraw) throw new Error('method: HandleLnurlWithdraw is not implemented')
+            const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            stats.validate = stats.guard
+            const query = req.query
+            const params = req.params
+             await methods.HandleLnurlWithdraw({rpcName:'HandleLnurlWithdraw', ctx:authContext ,query: req.query})
             stats.handle = process.hrtime.bigint()
             res.json({status: 'OK'})
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
-    if (!opts.allowNotImplementedMethods && !methods.SetMockAppBalance) throw new Error('method: SetMockAppBalance is not implemented')
-    app.post('/api/app/mock/blance/set', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'SetMockAppBalance', batch: false, nostr: false, batchSize: 0}
+    if (!opts.allowNotImplementedMethods && !methods.Health) throw new Error('method: Health is not implemented')
+    app.get('/api/health', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'Health', batch: false, nostr: false, batchSize: 0}
         const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
-            if (!methods.SetMockAppBalance) throw new Error('method: SetMockAppBalance is not implemented')
-            const authContext = await opts.AppAuthGuard(req.headers['authorization'])
+            if (!methods.Health) throw new Error('method: Health is not implemented')
+            const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            stats.validate = stats.guard
+            const query = req.query
+            const params = req.params
+             await methods.Health({rpcName:'Health', ctx:authContext })
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK'})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.LinkNPubThroughToken) throw new Error('method: LinkNPubThroughToken is not implemented')
+    app.post('/api/guest/npub/link', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'LinkNPubThroughToken', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.LinkNPubThroughToken) throw new Error('method: LinkNPubThroughToken is not implemented')
+            const authContext = await opts.GuestWithPubAuthGuard(req.headers['authorization'])
             authCtx = authContext
             stats.guard = process.hrtime.bigint()
             const request = req.body
-            const error = Types.SetMockAppBalanceRequestValidate(request)
+            const error = Types.LinkNPubThroughTokenRequestValidate(request)
             stats.validate = process.hrtime.bigint()
             if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
             const query = req.query
             const params = req.params
-             await methods.SetMockAppBalance({rpcName:'SetMockAppBalance', ctx:authContext , req: request})
+             await methods.LinkNPubThroughToken({rpcName:'LinkNPubThroughToken', ctx:authContext , req: request})
             stats.handle = process.hrtime.bigint()
             res.json({status: 'OK'})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.ListChannels) throw new Error('method: ListChannels is not implemented')
+    app.get('/api/admin/channels', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'ListChannels', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.ListChannels) throw new Error('method: ListChannels is not implemented')
+            const authContext = await opts.AdminAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            stats.validate = stats.guard
+            const query = req.query
+            const params = req.params
+            const response =  await methods.ListChannels({rpcName:'ListChannels', ctx:authContext })
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.LndGetInfo) throw new Error('method: LndGetInfo is not implemented')
+    app.post('/api/admin/lnd/getinfo', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'LndGetInfo', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.LndGetInfo) throw new Error('method: LndGetInfo is not implemented')
+            const authContext = await opts.AdminAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.LndGetInfoRequestValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+            const response =  await methods.LndGetInfo({rpcName:'LndGetInfo', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.NewAddress) throw new Error('method: NewAddress is not implemented')
+    app.post('/api/user/chain/new', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'NewAddress', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.NewAddress) throw new Error('method: NewAddress is not implemented')
+            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.NewAddressRequestValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+            const response =  await methods.NewAddress({rpcName:'NewAddress', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.NewInvoice) throw new Error('method: NewInvoice is not implemented')
+    app.post('/api/user/invoice/new', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'NewInvoice', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.NewInvoice) throw new Error('method: NewInvoice is not implemented')
+            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.NewInvoiceRequestValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+            const response =  await methods.NewInvoice({rpcName:'NewInvoice', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.NewProductInvoice) throw new Error('method: NewProductInvoice is not implemented')
+    app.get('/api/user/product/get/invoice', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'NewProductInvoice', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.NewProductInvoice) throw new Error('method: NewProductInvoice is not implemented')
+            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            stats.validate = stats.guard
+            const query = req.query
+            const params = req.params
+            const response =  await methods.NewProductInvoice({rpcName:'NewProductInvoice', ctx:authContext ,query: req.query})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.OpenChannel) throw new Error('method: OpenChannel is not implemented')
+    app.post('/api/user/open/channel', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'OpenChannel', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.OpenChannel) throw new Error('method: OpenChannel is not implemented')
+            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.OpenChannelRequestValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+            const response =  await methods.OpenChannel({rpcName:'OpenChannel', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.PayAddress) throw new Error('method: PayAddress is not implemented')
+    app.post('/api/user/chain/pay', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'PayAddress', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.PayAddress) throw new Error('method: PayAddress is not implemented')
+            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.PayAddressRequestValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+            const response =  await methods.PayAddress({rpcName:'PayAddress', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.PayAppUserInvoice) throw new Error('method: PayAppUserInvoice is not implemented')
+    app.post('/api/app/invoice/pay', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'PayAppUserInvoice', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.PayAppUserInvoice) throw new Error('method: PayAppUserInvoice is not implemented')
+            const authContext = await opts.AppAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.PayAppUserInvoiceRequestValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+            const response =  await methods.PayAppUserInvoice({rpcName:'PayAppUserInvoice', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.PayInvoice) throw new Error('method: PayInvoice is not implemented')
+    app.post('/api/user/invoice/pay', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'PayInvoice', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.PayInvoice) throw new Error('method: PayInvoice is not implemented')
+            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.PayInvoiceRequestValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+            const response =  await methods.PayInvoice({rpcName:'PayInvoice', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
@@ -774,6 +1146,138 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
+    if (!opts.allowNotImplementedMethods && !methods.SendAppUserToAppPayment) throw new Error('method: SendAppUserToAppPayment is not implemented')
+    app.post('/api/app/internal/pay', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'SendAppUserToAppPayment', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.SendAppUserToAppPayment) throw new Error('method: SendAppUserToAppPayment is not implemented')
+            const authContext = await opts.AppAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.SendAppUserToAppPaymentRequestValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+             await methods.SendAppUserToAppPayment({rpcName:'SendAppUserToAppPayment', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK'})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.SendAppUserToAppUserPayment) throw new Error('method: SendAppUserToAppUserPayment is not implemented')
+    app.post('/api/app/user/internal/pay', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'SendAppUserToAppUserPayment', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.SendAppUserToAppUserPayment) throw new Error('method: SendAppUserToAppUserPayment is not implemented')
+            const authContext = await opts.AppAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.SendAppUserToAppUserPaymentRequestValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+             await methods.SendAppUserToAppUserPayment({rpcName:'SendAppUserToAppUserPayment', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK'})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.SetMockAppBalance) throw new Error('method: SetMockAppBalance is not implemented')
+    app.post('/api/app/mock/blance/set', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'SetMockAppBalance', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.SetMockAppBalance) throw new Error('method: SetMockAppBalance is not implemented')
+            const authContext = await opts.AppAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.SetMockAppBalanceRequestValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+             await methods.SetMockAppBalance({rpcName:'SetMockAppBalance', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK'})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.SetMockAppUserBalance) throw new Error('method: SetMockAppUserBalance is not implemented')
+    app.post('/api/app/mock/user/blance/set', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'SetMockAppUserBalance', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.SetMockAppUserBalance) throw new Error('method: SetMockAppUserBalance is not implemented')
+            const authContext = await opts.AppAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.SetMockAppUserBalanceRequestValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+             await methods.SetMockAppUserBalance({rpcName:'SetMockAppUserBalance', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK'})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.SetMockInvoiceAsPaid) throw new Error('method: SetMockInvoiceAsPaid is not implemented')
+    app.post('/api/lnd/mock/invoice/paid', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'SetMockInvoiceAsPaid', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.SetMockInvoiceAsPaid) throw new Error('method: SetMockInvoiceAsPaid is not implemented')
+            const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.SetMockInvoiceAsPaidRequestValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+             await methods.SetMockInvoiceAsPaid({rpcName:'SetMockInvoiceAsPaid', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK'})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.UseInviteLink) throw new Error('method: UseInviteLink is not implemented')
+    app.post('/api/guest/invite', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'UseInviteLink', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.UseInviteLink) throw new Error('method: UseInviteLink is not implemented')
+            const authContext = await opts.GuestWithPubAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.UseInviteLinkRequestValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+             await methods.UseInviteLink({rpcName:'UseInviteLink', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK'})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
     if (!opts.allowNotImplementedMethods && !methods.UserHealth) throw new Error('method: UserHealth is not implemented')
     app.post('/api/user/health', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'UserHealth', batch: false, nostr: false, batchSize: 0}
@@ -791,510 +1295,6 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             stats.handle = process.hrtime.bigint()
             res.json({status: 'OK'})
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
-    })
-    if (!opts.allowNotImplementedMethods && !methods.GetUserInfo) throw new Error('method: GetUserInfo is not implemented')
-    app.post('/api/user/info', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'GetUserInfo', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
-        let authCtx: Types.AuthContext = {}
-        try {
-            if (!methods.GetUserInfo) throw new Error('method: GetUserInfo is not implemented')
-            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
-            authCtx = authContext
-            stats.guard = process.hrtime.bigint()
-            stats.validate = stats.guard
-            const query = req.query
-            const params = req.params
-            const response =  await methods.GetUserInfo({rpcName:'GetUserInfo', ctx:authContext })
-            stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK', ...response})
-            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
-    })
-    if (!opts.allowNotImplementedMethods && !methods.AddProduct) throw new Error('method: AddProduct is not implemented')
-    app.post('/api/user/product/add', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'AddProduct', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
-        let authCtx: Types.AuthContext = {}
-        try {
-            if (!methods.AddProduct) throw new Error('method: AddProduct is not implemented')
-            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
-            authCtx = authContext
-            stats.guard = process.hrtime.bigint()
-            const request = req.body
-            const error = Types.AddProductRequestValidate(request)
-            stats.validate = process.hrtime.bigint()
-            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
-            const query = req.query
-            const params = req.params
-            const response =  await methods.AddProduct({rpcName:'AddProduct', ctx:authContext , req: request})
-            stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK', ...response})
-            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
-    })
-    if (!opts.allowNotImplementedMethods && !methods.NewProductInvoice) throw new Error('method: NewProductInvoice is not implemented')
-    app.get('/api/user/product/get/invoice', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'NewProductInvoice', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
-        let authCtx: Types.AuthContext = {}
-        try {
-            if (!methods.NewProductInvoice) throw new Error('method: NewProductInvoice is not implemented')
-            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
-            authCtx = authContext
-            stats.guard = process.hrtime.bigint()
-            stats.validate = stats.guard
-            const query = req.query
-            const params = req.params
-            const response =  await methods.NewProductInvoice({rpcName:'NewProductInvoice', ctx:authContext ,query: req.query})
-            stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK', ...response})
-            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
-    })
-    if (!opts.allowNotImplementedMethods && !methods.GetUserOperations) throw new Error('method: GetUserOperations is not implemented')
-    app.post('/api/user/operations', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'GetUserOperations', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
-        let authCtx: Types.AuthContext = {}
-        try {
-            if (!methods.GetUserOperations) throw new Error('method: GetUserOperations is not implemented')
-            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
-            authCtx = authContext
-            stats.guard = process.hrtime.bigint()
-            const request = req.body
-            const error = Types.GetUserOperationsRequestValidate(request)
-            stats.validate = process.hrtime.bigint()
-            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
-            const query = req.query
-            const params = req.params
-            const response =  await methods.GetUserOperations({rpcName:'GetUserOperations', ctx:authContext , req: request})
-            stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK', ...response})
-            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
-    })
-    if (!opts.allowNotImplementedMethods && !methods.NewAddress) throw new Error('method: NewAddress is not implemented')
-    app.post('/api/user/chain/new', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'NewAddress', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
-        let authCtx: Types.AuthContext = {}
-        try {
-            if (!methods.NewAddress) throw new Error('method: NewAddress is not implemented')
-            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
-            authCtx = authContext
-            stats.guard = process.hrtime.bigint()
-            const request = req.body
-            const error = Types.NewAddressRequestValidate(request)
-            stats.validate = process.hrtime.bigint()
-            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
-            const query = req.query
-            const params = req.params
-            const response =  await methods.NewAddress({rpcName:'NewAddress', ctx:authContext , req: request})
-            stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK', ...response})
-            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
-    })
-    if (!opts.allowNotImplementedMethods && !methods.PayAddress) throw new Error('method: PayAddress is not implemented')
-    app.post('/api/user/chain/pay', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'PayAddress', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
-        let authCtx: Types.AuthContext = {}
-        try {
-            if (!methods.PayAddress) throw new Error('method: PayAddress is not implemented')
-            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
-            authCtx = authContext
-            stats.guard = process.hrtime.bigint()
-            const request = req.body
-            const error = Types.PayAddressRequestValidate(request)
-            stats.validate = process.hrtime.bigint()
-            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
-            const query = req.query
-            const params = req.params
-            const response =  await methods.PayAddress({rpcName:'PayAddress', ctx:authContext , req: request})
-            stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK', ...response})
-            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
-    })
-    if (!opts.allowNotImplementedMethods && !methods.NewInvoice) throw new Error('method: NewInvoice is not implemented')
-    app.post('/api/user/invoice/new', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'NewInvoice', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
-        let authCtx: Types.AuthContext = {}
-        try {
-            if (!methods.NewInvoice) throw new Error('method: NewInvoice is not implemented')
-            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
-            authCtx = authContext
-            stats.guard = process.hrtime.bigint()
-            const request = req.body
-            const error = Types.NewInvoiceRequestValidate(request)
-            stats.validate = process.hrtime.bigint()
-            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
-            const query = req.query
-            const params = req.params
-            const response =  await methods.NewInvoice({rpcName:'NewInvoice', ctx:authContext , req: request})
-            stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK', ...response})
-            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
-    })
-    if (!opts.allowNotImplementedMethods && !methods.DecodeInvoice) throw new Error('method: DecodeInvoice is not implemented')
-    app.post('/api/user/invoice/decode', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'DecodeInvoice', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
-        let authCtx: Types.AuthContext = {}
-        try {
-            if (!methods.DecodeInvoice) throw new Error('method: DecodeInvoice is not implemented')
-            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
-            authCtx = authContext
-            stats.guard = process.hrtime.bigint()
-            const request = req.body
-            const error = Types.DecodeInvoiceRequestValidate(request)
-            stats.validate = process.hrtime.bigint()
-            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
-            const query = req.query
-            const params = req.params
-            const response =  await methods.DecodeInvoice({rpcName:'DecodeInvoice', ctx:authContext , req: request})
-            stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK', ...response})
-            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
-    })
-    if (!opts.allowNotImplementedMethods && !methods.PayInvoice) throw new Error('method: PayInvoice is not implemented')
-    app.post('/api/user/invoice/pay', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'PayInvoice', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
-        let authCtx: Types.AuthContext = {}
-        try {
-            if (!methods.PayInvoice) throw new Error('method: PayInvoice is not implemented')
-            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
-            authCtx = authContext
-            stats.guard = process.hrtime.bigint()
-            const request = req.body
-            const error = Types.PayInvoiceRequestValidate(request)
-            stats.validate = process.hrtime.bigint()
-            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
-            const query = req.query
-            const params = req.params
-            const response =  await methods.PayInvoice({rpcName:'PayInvoice', ctx:authContext , req: request})
-            stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK', ...response})
-            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
-    })
-    if (!opts.allowNotImplementedMethods && !methods.GetPaymentState) throw new Error('method: GetPaymentState is not implemented')
-    app.post('/api/user/payment/state', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'GetPaymentState', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
-        let authCtx: Types.AuthContext = {}
-        try {
-            if (!methods.GetPaymentState) throw new Error('method: GetPaymentState is not implemented')
-            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
-            authCtx = authContext
-            stats.guard = process.hrtime.bigint()
-            const request = req.body
-            const error = Types.GetPaymentStateRequestValidate(request)
-            stats.validate = process.hrtime.bigint()
-            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
-            const query = req.query
-            const params = req.params
-            const response =  await methods.GetPaymentState({rpcName:'GetPaymentState', ctx:authContext , req: request})
-            stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK', ...response})
-            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
-    })
-    if (!opts.allowNotImplementedMethods && !methods.OpenChannel) throw new Error('method: OpenChannel is not implemented')
-    app.post('/api/user/open/channel', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'OpenChannel', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
-        let authCtx: Types.AuthContext = {}
-        try {
-            if (!methods.OpenChannel) throw new Error('method: OpenChannel is not implemented')
-            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
-            authCtx = authContext
-            stats.guard = process.hrtime.bigint()
-            const request = req.body
-            const error = Types.OpenChannelRequestValidate(request)
-            stats.validate = process.hrtime.bigint()
-            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
-            const query = req.query
-            const params = req.params
-            const response =  await methods.OpenChannel({rpcName:'OpenChannel', ctx:authContext , req: request})
-            stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK', ...response})
-            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
-    })
-    if (!opts.allowNotImplementedMethods && !methods.GetLnurlWithdrawLink) throw new Error('method: GetLnurlWithdrawLink is not implemented')
-    app.get('/api/user/lnurl_withdraw/link', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'GetLnurlWithdrawLink', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
-        let authCtx: Types.AuthContext = {}
-        try {
-            if (!methods.GetLnurlWithdrawLink) throw new Error('method: GetLnurlWithdrawLink is not implemented')
-            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
-            authCtx = authContext
-            stats.guard = process.hrtime.bigint()
-            stats.validate = stats.guard
-            const query = req.query
-            const params = req.params
-            const response =  await methods.GetLnurlWithdrawLink({rpcName:'GetLnurlWithdrawLink', ctx:authContext })
-            stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK', ...response})
-            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
-    })
-    if (!opts.allowNotImplementedMethods && !methods.GetLnurlPayLink) throw new Error('method: GetLnurlPayLink is not implemented')
-    app.get('/api/user/lnurl_pay/link', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'GetLnurlPayLink', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
-        let authCtx: Types.AuthContext = {}
-        try {
-            if (!methods.GetLnurlPayLink) throw new Error('method: GetLnurlPayLink is not implemented')
-            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
-            authCtx = authContext
-            stats.guard = process.hrtime.bigint()
-            stats.validate = stats.guard
-            const query = req.query
-            const params = req.params
-            const response =  await methods.GetLnurlPayLink({rpcName:'GetLnurlPayLink', ctx:authContext })
-            stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK', ...response})
-            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
-    })
-    if (!opts.allowNotImplementedMethods && !methods.GetLNURLChannelLink) throw new Error('method: GetLNURLChannelLink is not implemented')
-    app.post('/api/user/lnurl_channel/url', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'GetLNURLChannelLink', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
-        let authCtx: Types.AuthContext = {}
-        try {
-            if (!methods.GetLNURLChannelLink) throw new Error('method: GetLNURLChannelLink is not implemented')
-            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
-            authCtx = authContext
-            stats.guard = process.hrtime.bigint()
-            stats.validate = stats.guard
-            const query = req.query
-            const params = req.params
-            const response =  await methods.GetLNURLChannelLink({rpcName:'GetLNURLChannelLink', ctx:authContext })
-            stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK', ...response})
-            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
-    })
-    app.post('/api/user/batch', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'BatchUser', batch: true, nostr: false, batchSize: 1 }
-        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
-        let authCtx: Types.AuthContext = {}
-        try {
-            const requests = req.body.requests as Types.UserMethodInputs[]
-            if (!Array.isArray(requests))throw new Error('invalid body, is not an array')
-            info.batchSize = requests.length
-            if (requests.length > 10) throw new Error('too many requests in the batch')
-            const ctx = await opts.UserAuthGuard(req.headers['authorization'])
-            stats.guard = process.hrtime.bigint()
-            stats.validate = stats.guard
-            authCtx = ctx
-            const responses = []
-            const callsMetrics: Types.RequestMetric[] = []
-            for (let i = 0; i < requests.length; i++) {
-                const operation = requests[i]
-                const opInfo: Types.RequestInfo = { rpcName: operation.rpcName, batch: true, nostr: false, batchSize: 0 }
-                const opStats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: stats.parse, guard: stats.guard, validate: 0n, handle: 0n }
-                try {
-                    switch(operation.rpcName) {
-                        case 'EnrollAdminToken':
-                            if (!methods.EnrollAdminToken) {
-                                throw new Error('method EnrollAdminToken not found' )
-                            } else {
-                                const error = Types.EnrollAdminTokenRequestValidate(operation.req)
-                                opStats.validate = process.hrtime.bigint()
-                                if (error !== null) throw error
-                                await methods.EnrollAdminToken({...operation, ctx}); responses.push({ status: 'OK' })
-                                opStats.handle = process.hrtime.bigint()
-                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
-                            }
-                            break
-                        case 'UserHealth':
-                            if (!methods.UserHealth) {
-                                throw new Error('method UserHealth not found' )
-                            } else {
-                                opStats.validate = opStats.guard
-                                await methods.UserHealth({...operation, ctx}); responses.push({ status: 'OK' })
-                                opStats.handle = process.hrtime.bigint()
-                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
-                            }
-                            break
-                        case 'GetUserInfo':
-                            if (!methods.GetUserInfo) {
-                                throw new Error('method GetUserInfo not found' )
-                            } else {
-                                opStats.validate = opStats.guard
-                                const res = await methods.GetUserInfo({...operation, ctx}); responses.push({ status: 'OK', ...res  })
-                                opStats.handle = process.hrtime.bigint()
-                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
-                            }
-                            break
-                        case 'AddProduct':
-                            if (!methods.AddProduct) {
-                                throw new Error('method AddProduct not found' )
-                            } else {
-                                const error = Types.AddProductRequestValidate(operation.req)
-                                opStats.validate = process.hrtime.bigint()
-                                if (error !== null) throw error
-                                const res = await methods.AddProduct({...operation, ctx}); responses.push({ status: 'OK', ...res  })
-                                opStats.handle = process.hrtime.bigint()
-                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
-                            }
-                            break
-                        case 'NewProductInvoice':
-                            if (!methods.NewProductInvoice) {
-                                throw new Error('method NewProductInvoice not found' )
-                            } else {
-                                opStats.validate = opStats.guard
-                                const res = await methods.NewProductInvoice({...operation, ctx}); responses.push({ status: 'OK', ...res  })
-                                opStats.handle = process.hrtime.bigint()
-                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
-                            }
-                            break
-                        case 'GetUserOperations':
-                            if (!methods.GetUserOperations) {
-                                throw new Error('method GetUserOperations not found' )
-                            } else {
-                                const error = Types.GetUserOperationsRequestValidate(operation.req)
-                                opStats.validate = process.hrtime.bigint()
-                                if (error !== null) throw error
-                                const res = await methods.GetUserOperations({...operation, ctx}); responses.push({ status: 'OK', ...res  })
-                                opStats.handle = process.hrtime.bigint()
-                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
-                            }
-                            break
-                        case 'NewAddress':
-                            if (!methods.NewAddress) {
-                                throw new Error('method NewAddress not found' )
-                            } else {
-                                const error = Types.NewAddressRequestValidate(operation.req)
-                                opStats.validate = process.hrtime.bigint()
-                                if (error !== null) throw error
-                                const res = await methods.NewAddress({...operation, ctx}); responses.push({ status: 'OK', ...res  })
-                                opStats.handle = process.hrtime.bigint()
-                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
-                            }
-                            break
-                        case 'PayAddress':
-                            if (!methods.PayAddress) {
-                                throw new Error('method PayAddress not found' )
-                            } else {
-                                const error = Types.PayAddressRequestValidate(operation.req)
-                                opStats.validate = process.hrtime.bigint()
-                                if (error !== null) throw error
-                                const res = await methods.PayAddress({...operation, ctx}); responses.push({ status: 'OK', ...res  })
-                                opStats.handle = process.hrtime.bigint()
-                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
-                            }
-                            break
-                        case 'NewInvoice':
-                            if (!methods.NewInvoice) {
-                                throw new Error('method NewInvoice not found' )
-                            } else {
-                                const error = Types.NewInvoiceRequestValidate(operation.req)
-                                opStats.validate = process.hrtime.bigint()
-                                if (error !== null) throw error
-                                const res = await methods.NewInvoice({...operation, ctx}); responses.push({ status: 'OK', ...res  })
-                                opStats.handle = process.hrtime.bigint()
-                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
-                            }
-                            break
-                        case 'DecodeInvoice':
-                            if (!methods.DecodeInvoice) {
-                                throw new Error('method DecodeInvoice not found' )
-                            } else {
-                                const error = Types.DecodeInvoiceRequestValidate(operation.req)
-                                opStats.validate = process.hrtime.bigint()
-                                if (error !== null) throw error
-                                const res = await methods.DecodeInvoice({...operation, ctx}); responses.push({ status: 'OK', ...res  })
-                                opStats.handle = process.hrtime.bigint()
-                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
-                            }
-                            break
-                        case 'PayInvoice':
-                            if (!methods.PayInvoice) {
-                                throw new Error('method PayInvoice not found' )
-                            } else {
-                                const error = Types.PayInvoiceRequestValidate(operation.req)
-                                opStats.validate = process.hrtime.bigint()
-                                if (error !== null) throw error
-                                const res = await methods.PayInvoice({...operation, ctx}); responses.push({ status: 'OK', ...res  })
-                                opStats.handle = process.hrtime.bigint()
-                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
-                            }
-                            break
-                        case 'GetPaymentState':
-                            if (!methods.GetPaymentState) {
-                                throw new Error('method GetPaymentState not found' )
-                            } else {
-                                const error = Types.GetPaymentStateRequestValidate(operation.req)
-                                opStats.validate = process.hrtime.bigint()
-                                if (error !== null) throw error
-                                const res = await methods.GetPaymentState({...operation, ctx}); responses.push({ status: 'OK', ...res  })
-                                opStats.handle = process.hrtime.bigint()
-                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
-                            }
-                            break
-                        case 'OpenChannel':
-                            if (!methods.OpenChannel) {
-                                throw new Error('method OpenChannel not found' )
-                            } else {
-                                const error = Types.OpenChannelRequestValidate(operation.req)
-                                opStats.validate = process.hrtime.bigint()
-                                if (error !== null) throw error
-                                const res = await methods.OpenChannel({...operation, ctx}); responses.push({ status: 'OK', ...res  })
-                                opStats.handle = process.hrtime.bigint()
-                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
-                            }
-                            break
-                        case 'GetLnurlWithdrawLink':
-                            if (!methods.GetLnurlWithdrawLink) {
-                                throw new Error('method GetLnurlWithdrawLink not found' )
-                            } else {
-                                opStats.validate = opStats.guard
-                                const res = await methods.GetLnurlWithdrawLink({...operation, ctx}); responses.push({ status: 'OK', ...res  })
-                                opStats.handle = process.hrtime.bigint()
-                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
-                            }
-                            break
-                        case 'GetLnurlPayLink':
-                            if (!methods.GetLnurlPayLink) {
-                                throw new Error('method GetLnurlPayLink not found' )
-                            } else {
-                                opStats.validate = opStats.guard
-                                const res = await methods.GetLnurlPayLink({...operation, ctx}); responses.push({ status: 'OK', ...res  })
-                                opStats.handle = process.hrtime.bigint()
-                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
-                            }
-                            break
-                        case 'GetLNURLChannelLink':
-                            if (!methods.GetLNURLChannelLink) {
-                                throw new Error('method GetLNURLChannelLink not found' )
-                            } else {
-                                opStats.validate = opStats.guard
-                                const res = await methods.GetLNURLChannelLink({...operation, ctx}); responses.push({ status: 'OK', ...res  })
-                                opStats.handle = process.hrtime.bigint()
-                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
-                            }
-                            break
-                        default:
-                        throw new Error('unkown rpcName')
-                    }
-                } catch(ex) {const e = ex as any; logger.error(e.message || e); callsMetrics.push({ ...opInfo, ...opStats, ...ctx, error: e.message }); responses.push({ status: 'ERROR', reason: e.message || e })}
-            }
-            stats.handle = process.hrtime.bigint()
-            res.json({ status: 'OK', responses })
-            opts.metricsCallback([{ ...info, ...stats, ...ctx }, ...callsMetrics])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
     if (opts.staticFiles) {

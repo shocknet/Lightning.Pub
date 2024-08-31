@@ -13,15 +13,15 @@ The nostr server will send back a message response, and inside the body there wi
 ## NOSTR Methods
 ### These are the nostr methods the client implements to communicate with the API via nostr
 
-- LndGetInfo
-  - auth type: __Admin__
-  - input: [LndGetInfoRequest](#LndGetInfoRequest)
-  - output: [LndGetInfoResponse](#LndGetInfoResponse)
-
 - AddApp
   - auth type: __Admin__
   - input: [AddAppRequest](#AddAppRequest)
   - output: [AuthApp](#AuthApp)
+
+- AddProduct
+  - auth type: __User__
+  - input: [AddProductRequest](#AddProductRequest)
+  - output: [Product](#Product)
 
 - AuthApp
   - auth type: __Admin__
@@ -33,127 +33,40 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [BanUserRequest](#BanUserRequest)
   - output: [BanUserResponse](#BanUserResponse)
 
-- GetSeed
-  - auth type: __Admin__
+- BatchUser
+  - auth type: __User__
   - This methods has an __empty__ __request__ body
-  - output: [LndSeed](#LndSeed)
-
-- ListChannels
-  - auth type: __Admin__
-  - This methods has an __empty__ __request__ body
-  - output: [LndChannels](#LndChannels)
-
-- GetUsageMetrics
-  - auth type: __Metrics__
-  - This methods has an __empty__ __request__ body
-  - output: [UsageMetrics](#UsageMetrics)
-
-- GetAppsMetrics
-  - auth type: __Metrics__
-  - input: [AppsMetricsRequest](#AppsMetricsRequest)
-  - output: [AppsMetrics](#AppsMetrics)
-
-- GetLndMetrics
-  - auth type: __Metrics__
-  - input: [LndMetricsRequest](#LndMetricsRequest)
-  - output: [LndMetrics](#LndMetrics)
+  - This methods has an __empty__ __response__ body
 
 - CreateOneTimeInviteLink
   - auth type: __Admin__
   - input: [CreateOneTimeInviteLinkRequest](#CreateOneTimeInviteLinkRequest)
   - output: [CreateOneTimeInviteLinkResponse](#CreateOneTimeInviteLinkResponse)
 
-- GetInviteLinkState
-  - auth type: __Admin__
-  - input: [GetInviteTokenStateRequest](#GetInviteTokenStateRequest)
-  - output: [GetInviteTokenStateResponse](#GetInviteTokenStateResponse)
+- DecodeInvoice
+  - auth type: __User__
+  - input: [DecodeInvoiceRequest](#DecodeInvoiceRequest)
+  - output: [DecodeInvoiceResponse](#DecodeInvoiceResponse)
 
 - EnrollAdminToken
   - auth type: __User__
   - input: [EnrollAdminTokenRequest](#EnrollAdminTokenRequest)
   - This methods has an __empty__ __response__ body
 
-- LinkNPubThroughToken
-  - auth type: __GuestWithPub__
-  - input: [LinkNPubThroughTokenRequest](#LinkNPubThroughTokenRequest)
-  - This methods has an __empty__ __response__ body
+- GetAppsMetrics
+  - auth type: __Metrics__
+  - input: [AppsMetricsRequest](#AppsMetricsRequest)
+  - output: [AppsMetrics](#AppsMetrics)
 
-- UseInviteLink
-  - auth type: __GuestWithPub__
-  - input: [UseInviteLinkRequest](#UseInviteLinkRequest)
-  - This methods has an __empty__ __response__ body
-
-- UserHealth
+- GetHttpCreds
   - auth type: __User__
   - This methods has an __empty__ __request__ body
-  - This methods has an __empty__ __response__ body
+  - output: [HttpCreds](#HttpCreds)
 
-- GetUserInfo
-  - auth type: __User__
-  - This methods has an __empty__ __request__ body
-  - output: [UserInfo](#UserInfo)
-
-- AddProduct
-  - auth type: __User__
-  - input: [AddProductRequest](#AddProductRequest)
-  - output: [Product](#Product)
-
-- NewProductInvoice
-  - auth type: __User__
-  - the request url __query__ can take the following string items:
-    - id
-  - This methods has an __empty__ __request__ body
-  - output: [NewInvoiceResponse](#NewInvoiceResponse)
-
-- GetUserOperations
-  - auth type: __User__
-  - input: [GetUserOperationsRequest](#GetUserOperationsRequest)
-  - output: [GetUserOperationsResponse](#GetUserOperationsResponse)
-
-- NewAddress
-  - auth type: __User__
-  - input: [NewAddressRequest](#NewAddressRequest)
-  - output: [NewAddressResponse](#NewAddressResponse)
-
-- PayAddress
-  - auth type: __User__
-  - input: [PayAddressRequest](#PayAddressRequest)
-  - output: [PayAddressResponse](#PayAddressResponse)
-
-- NewInvoice
-  - auth type: __User__
-  - input: [NewInvoiceRequest](#NewInvoiceRequest)
-  - output: [NewInvoiceResponse](#NewInvoiceResponse)
-
-- DecodeInvoice
-  - auth type: __User__
-  - input: [DecodeInvoiceRequest](#DecodeInvoiceRequest)
-  - output: [DecodeInvoiceResponse](#DecodeInvoiceResponse)
-
-- PayInvoice
-  - auth type: __User__
-  - input: [PayInvoiceRequest](#PayInvoiceRequest)
-  - output: [PayInvoiceResponse](#PayInvoiceResponse)
-
-- GetPaymentState
-  - auth type: __User__
-  - input: [GetPaymentStateRequest](#GetPaymentStateRequest)
-  - output: [PaymentState](#PaymentState)
-
-- OpenChannel
-  - auth type: __User__
-  - input: [OpenChannelRequest](#OpenChannelRequest)
-  - output: [OpenChannelResponse](#OpenChannelResponse)
-
-- GetLnurlWithdrawLink
-  - auth type: __User__
-  - This methods has an __empty__ __request__ body
-  - output: [LnurlLinkResponse](#LnurlLinkResponse)
-
-- GetLnurlPayLink
-  - auth type: __User__
-  - This methods has an __empty__ __request__ body
-  - output: [LnurlLinkResponse](#LnurlLinkResponse)
+- GetInviteLinkState
+  - auth type: __Admin__
+  - input: [GetInviteTokenStateRequest](#GetInviteTokenStateRequest)
+  - output: [GetInviteTokenStateResponse](#GetInviteTokenStateResponse)
 
 - GetLNURLChannelLink
   - auth type: __User__
@@ -165,17 +78,104 @@ The nostr server will send back a message response, and inside the body there wi
   - This methods has an __empty__ __request__ body
   - output: [LiveUserOperation](#LiveUserOperation)
 
+- GetLndMetrics
+  - auth type: __Metrics__
+  - input: [LndMetricsRequest](#LndMetricsRequest)
+  - output: [LndMetrics](#LndMetrics)
+
+- GetLnurlPayLink
+  - auth type: __User__
+  - This methods has an __empty__ __request__ body
+  - output: [LnurlLinkResponse](#LnurlLinkResponse)
+
+- GetLnurlWithdrawLink
+  - auth type: __User__
+  - This methods has an __empty__ __request__ body
+  - output: [LnurlLinkResponse](#LnurlLinkResponse)
+
 - GetMigrationUpdate
   - auth type: __User__
   - This methods has an __empty__ __request__ body
   - output: [MigrationUpdate](#MigrationUpdate)
 
-- GetHttpCreds
+- GetPaymentState
+  - auth type: __User__
+  - input: [GetPaymentStateRequest](#GetPaymentStateRequest)
+  - output: [PaymentState](#PaymentState)
+
+- GetSeed
+  - auth type: __Admin__
+  - This methods has an __empty__ __request__ body
+  - output: [LndSeed](#LndSeed)
+
+- GetUsageMetrics
+  - auth type: __Metrics__
+  - This methods has an __empty__ __request__ body
+  - output: [UsageMetrics](#UsageMetrics)
+
+- GetUserInfo
   - auth type: __User__
   - This methods has an __empty__ __request__ body
-  - output: [HttpCreds](#HttpCreds)
+  - output: [UserInfo](#UserInfo)
 
-- BatchUser
+- GetUserOperations
+  - auth type: __User__
+  - input: [GetUserOperationsRequest](#GetUserOperationsRequest)
+  - output: [GetUserOperationsResponse](#GetUserOperationsResponse)
+
+- LinkNPubThroughToken
+  - auth type: __GuestWithPub__
+  - input: [LinkNPubThroughTokenRequest](#LinkNPubThroughTokenRequest)
+  - This methods has an __empty__ __response__ body
+
+- ListChannels
+  - auth type: __Admin__
+  - This methods has an __empty__ __request__ body
+  - output: [LndChannels](#LndChannels)
+
+- LndGetInfo
+  - auth type: __Admin__
+  - input: [LndGetInfoRequest](#LndGetInfoRequest)
+  - output: [LndGetInfoResponse](#LndGetInfoResponse)
+
+- NewAddress
+  - auth type: __User__
+  - input: [NewAddressRequest](#NewAddressRequest)
+  - output: [NewAddressResponse](#NewAddressResponse)
+
+- NewInvoice
+  - auth type: __User__
+  - input: [NewInvoiceRequest](#NewInvoiceRequest)
+  - output: [NewInvoiceResponse](#NewInvoiceResponse)
+
+- NewProductInvoice
+  - auth type: __User__
+  - the request url __query__ can take the following string items:
+    - id
+  - This methods has an __empty__ __request__ body
+  - output: [NewInvoiceResponse](#NewInvoiceResponse)
+
+- OpenChannel
+  - auth type: __User__
+  - input: [OpenChannelRequest](#OpenChannelRequest)
+  - output: [OpenChannelResponse](#OpenChannelResponse)
+
+- PayAddress
+  - auth type: __User__
+  - input: [PayAddressRequest](#PayAddressRequest)
+  - output: [PayAddressResponse](#PayAddressResponse)
+
+- PayInvoice
+  - auth type: __User__
+  - input: [PayInvoiceRequest](#PayInvoiceRequest)
+  - output: [PayInvoiceResponse](#PayInvoiceResponse)
+
+- UseInviteLink
+  - auth type: __GuestWithPub__
+  - input: [UseInviteLinkRequest](#UseInviteLinkRequest)
+  - This methods has an __empty__ __response__ body
+
+- UserHealth
   - auth type: __User__
   - This methods has an __empty__ __request__ body
   - This methods has an __empty__ __response__ body
@@ -185,41 +185,34 @@ The nostr server will send back a message response, and inside the body there wi
 ## Supported HTTP Auths
 ### These are the supported http auth types, to give different type of access to the API users
 
-- __Guest__:
-  - expected context content
-
-- __User__:
-  - expected context content
-    - __user_id__: _string_
-    - __app_id__: _string_
-    - __app_user_id__: _string_
-
 - __Admin__:
   - expected context content
     - __admin_id__: _string_
 
-- __Metrics__:
-  - expected context content
-    - __operator_id__: _string_
-
 - __App__:
   - expected context content
     - __app_id__: _string_
+
+- __Guest__:
+  - expected context content
 
 - __GuestWithPub__:
   - expected context content
     - __app_id__: _string_
     - __pub__: _string_
 
+- __Metrics__:
+  - expected context content
+    - __operator_id__: _string_
+
+- __User__:
+  - expected context content
+    - __app_id__: _string_
+    - __app_user_id__: _string_
+    - __user_id__: _string_
+
 ## HTTP Methods
 ### These are the http methods the client implements to communicate with the API
-
-- LndGetInfo
-  - auth type: __Admin__
-  - http method: __post__
-  - http route: __/api/admin/lnd/getinfo__
-  - input: [LndGetInfoRequest](#LndGetInfoRequest)
-  - output: [LndGetInfoResponse](#LndGetInfoResponse)
 
 - AddApp
   - auth type: __Admin__
@@ -227,6 +220,34 @@ The nostr server will send back a message response, and inside the body there wi
   - http route: __/api/admin/app/add__
   - input: [AddAppRequest](#AddAppRequest)
   - output: [AuthApp](#AuthApp)
+
+- AddAppInvoice
+  - auth type: __App__
+  - http method: __post__
+  - http route: __/api/app/add/invoice__
+  - input: [AddAppInvoiceRequest](#AddAppInvoiceRequest)
+  - output: [NewInvoiceResponse](#NewInvoiceResponse)
+
+- AddAppUser
+  - auth type: __App__
+  - http method: __post__
+  - http route: __/api/app/user/add__
+  - input: [AddAppUserRequest](#AddAppUserRequest)
+  - output: [AppUser](#AppUser)
+
+- AddAppUserInvoice
+  - auth type: __App__
+  - http method: __post__
+  - http route: __/api/app/user/add/invoice__
+  - input: [AddAppUserInvoiceRequest](#AddAppUserInvoiceRequest)
+  - output: [NewInvoiceResponse](#NewInvoiceResponse)
+
+- AddProduct
+  - auth type: __User__
+  - http method: __post__
+  - http route: __/api/user/product/add__
+  - input: [AddProductRequest](#AddProductRequest)
+  - output: [Product](#Product)
 
 - AuthApp
   - auth type: __Admin__
@@ -242,40 +263,12 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [BanUserRequest](#BanUserRequest)
   - output: [BanUserResponse](#BanUserResponse)
 
-- GetSeed
-  - auth type: __Admin__
-  - http method: __get__
-  - http route: __/api/admin/seed__
-  - This methods has an __empty__ __request__ body
-  - output: [LndSeed](#LndSeed)
-
-- ListChannels
-  - auth type: __Admin__
-  - http method: __get__
-  - http route: __/api/admin/channels__
-  - This methods has an __empty__ __request__ body
-  - output: [LndChannels](#LndChannels)
-
-- GetUsageMetrics
-  - auth type: __Metrics__
+- BatchUser
+  - auth type: __User__
   - http method: __post__
-  - http route: __/api/reports/usage__
+  - http route: __/api/user/batch__
   - This methods has an __empty__ __request__ body
-  - output: [UsageMetrics](#UsageMetrics)
-
-- GetAppsMetrics
-  - auth type: __Metrics__
-  - http method: __post__
-  - http route: __/api/reports/apps__
-  - input: [AppsMetricsRequest](#AppsMetricsRequest)
-  - output: [AppsMetrics](#AppsMetrics)
-
-- GetLndMetrics
-  - auth type: __Metrics__
-  - http method: __post__
-  - http route: __/api/reports/lnd__
-  - input: [LndMetricsRequest](#LndMetricsRequest)
-  - output: [LndMetrics](#LndMetrics)
+  - This methods has an __empty__ __response__ body
 
 - CreateOneTimeInviteLink
   - auth type: __Admin__
@@ -284,19 +277,12 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [CreateOneTimeInviteLinkRequest](#CreateOneTimeInviteLinkRequest)
   - output: [CreateOneTimeInviteLinkResponse](#CreateOneTimeInviteLinkResponse)
 
-- GetInviteLinkState
-  - auth type: __Admin__
+- DecodeInvoice
+  - auth type: __User__
   - http method: __post__
-  - http route: __/api/admin/app/invite/get__
-  - input: [GetInviteTokenStateRequest](#GetInviteTokenStateRequest)
-  - output: [GetInviteTokenStateResponse](#GetInviteTokenStateResponse)
-
-- Health
-  - auth type: __Guest__
-  - http method: __get__
-  - http route: __/api/health__
-  - This methods has an __empty__ __request__ body
-  - This methods has an __empty__ __response__ body
+  - http route: __/api/user/invoice/decode__
+  - input: [DecodeInvoiceRequest](#DecodeInvoiceRequest)
+  - output: [DecodeInvoiceResponse](#DecodeInvoiceResponse)
 
 - EncryptionExchange
   - auth type: __Guest__
@@ -305,81 +291,11 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [EncryptionExchangeRequest](#EncryptionExchangeRequest)
   - This methods has an __empty__ __response__ body
 
-- SetMockInvoiceAsPaid
-  - auth type: __Guest__
-  - http method: __post__
-  - http route: __/api/lnd/mock/invoice/paid__
-  - input: [SetMockInvoiceAsPaidRequest](#SetMockInvoiceAsPaidRequest)
-  - This methods has an __empty__ __response__ body
-
-- GetLnurlWithdrawInfo
-  - auth type: __Guest__
-  - http method: __get__
-  - http route: __/api/guest/lnurl_withdraw/info__
-  - the request url __query__ can take the following string items:
-    - k1
-  - This methods has an __empty__ __request__ body
-  - output: [LnurlWithdrawInfoResponse](#LnurlWithdrawInfoResponse)
-
-- HandleLnurlWithdraw
-  - auth type: __Guest__
-  - http method: __get__
-  - http route: __/api/guest/lnurl_withdraw/handle__
-  - the request url __query__ can take the following string items:
-    - k1
-    - pr
-  - This methods has an __empty__ __request__ body
-  - This methods has an __empty__ __response__ body
-
-- GetLnurlPayInfo
-  - auth type: __Guest__
-  - http method: __get__
-  - http route: __/api/guest/lnurl_pay/info__
-  - the request url __query__ can take the following string items:
-    - k1
-  - This methods has an __empty__ __request__ body
-  - output: [LnurlPayInfoResponse](#LnurlPayInfoResponse)
-
-- HandleLnurlPay
-  - auth type: __Guest__
-  - http method: __get__
-  - http route: __/api/guest/lnurl_pay/handle__
-  - the request url __query__ can take the following string items:
-    - k1
-    - amount
-    - nostr
-    - lnurl
-  - This methods has an __empty__ __request__ body
-  - output: [HandleLnurlPayResponse](#HandleLnurlPayResponse)
-
-- HandleLnurlAddress
-  - auth type: __Guest__
-  - http method: __get__
-  - http route: __/.well-known/lnurlp/:address_name__
-  - the request url __params__ are the following string items:
-    - address_name
-  - This methods has an __empty__ __request__ body
-  - output: [LnurlPayInfoResponse](#LnurlPayInfoResponse)
-
 - EnrollAdminToken
   - auth type: __User__
   - http method: __post__
   - http route: __/api/guest/npub/enroll/admin__
   - input: [EnrollAdminTokenRequest](#EnrollAdminTokenRequest)
-  - This methods has an __empty__ __response__ body
-
-- LinkNPubThroughToken
-  - auth type: __GuestWithPub__
-  - http method: __post__
-  - http route: __/api/guest/npub/link__
-  - input: [LinkNPubThroughTokenRequest](#LinkNPubThroughTokenRequest)
-  - This methods has an __empty__ __response__ body
-
-- UseInviteLink
-  - auth type: __GuestWithPub__
-  - http method: __post__
-  - http route: __/api/guest/invite__
-  - input: [UseInviteLinkRequest](#UseInviteLinkRequest)
   - This methods has an __empty__ __response__ body
 
 - GetApp
@@ -389,54 +305,12 @@ The nostr server will send back a message response, and inside the body there wi
   - This methods has an __empty__ __request__ body
   - output: [Application](#Application)
 
-- AddAppUser
-  - auth type: __App__
-  - http method: __post__
-  - http route: __/api/app/user/add__
-  - input: [AddAppUserRequest](#AddAppUserRequest)
-  - output: [AppUser](#AppUser)
-
-- AddAppInvoice
-  - auth type: __App__
-  - http method: __post__
-  - http route: __/api/app/add/invoice__
-  - input: [AddAppInvoiceRequest](#AddAppInvoiceRequest)
-  - output: [NewInvoiceResponse](#NewInvoiceResponse)
-
-- AddAppUserInvoice
-  - auth type: __App__
-  - http method: __post__
-  - http route: __/api/app/user/add/invoice__
-  - input: [AddAppUserInvoiceRequest](#AddAppUserInvoiceRequest)
-  - output: [NewInvoiceResponse](#NewInvoiceResponse)
-
 - GetAppUser
   - auth type: __App__
   - http method: __post__
   - http route: __/api/app/user/get__
   - input: [GetAppUserRequest](#GetAppUserRequest)
   - output: [AppUser](#AppUser)
-
-- PayAppUserInvoice
-  - auth type: __App__
-  - http method: __post__
-  - http route: __/api/app/invoice/pay__
-  - input: [PayAppUserInvoiceRequest](#PayAppUserInvoiceRequest)
-  - output: [PayInvoiceResponse](#PayInvoiceResponse)
-
-- SendAppUserToAppUserPayment
-  - auth type: __App__
-  - http method: __post__
-  - http route: __/api/app/user/internal/pay__
-  - input: [SendAppUserToAppUserPaymentRequest](#SendAppUserToAppUserPaymentRequest)
-  - This methods has an __empty__ __response__ body
-
-- SendAppUserToAppPayment
-  - auth type: __App__
-  - http method: __post__
-  - http route: __/api/app/internal/pay__
-  - input: [SendAppUserToAppPaymentRequest](#SendAppUserToAppPaymentRequest)
-  - This methods has an __empty__ __response__ body
 
 - GetAppUserLNURLInfo
   - auth type: __App__
@@ -445,133 +319,26 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [GetAppUserLNURLInfoRequest](#GetAppUserLNURLInfoRequest)
   - output: [LnurlPayInfoResponse](#LnurlPayInfoResponse)
 
-- SetMockAppUserBalance
-  - auth type: __App__
+- GetAppsMetrics
+  - auth type: __Metrics__
   - http method: __post__
-  - http route: __/api/app/mock/user/blance/set__
-  - input: [SetMockAppUserBalanceRequest](#SetMockAppUserBalanceRequest)
-  - This methods has an __empty__ __response__ body
+  - http route: __/api/reports/apps__
+  - input: [AppsMetricsRequest](#AppsMetricsRequest)
+  - output: [AppsMetrics](#AppsMetrics)
 
-- SetMockAppBalance
-  - auth type: __App__
-  - http method: __post__
-  - http route: __/api/app/mock/blance/set__
-  - input: [SetMockAppBalanceRequest](#SetMockAppBalanceRequest)
-  - This methods has an __empty__ __response__ body
-
-- RequestNPubLinkingToken
-  - auth type: __App__
-  - http method: __post__
-  - http route: __/api/app/user/npub/token__
-  - input: [RequestNPubLinkingTokenRequest](#RequestNPubLinkingTokenRequest)
-  - output: [RequestNPubLinkingTokenResponse](#RequestNPubLinkingTokenResponse)
-
-- ResetNPubLinkingToken
-  - auth type: __App__
-  - http method: __post__
-  - http route: __/api/app/user/npub/token/reset__
-  - input: [RequestNPubLinkingTokenRequest](#RequestNPubLinkingTokenRequest)
-  - output: [RequestNPubLinkingTokenResponse](#RequestNPubLinkingTokenResponse)
-
-- UserHealth
+- GetHttpCreds
   - auth type: __User__
   - http method: __post__
-  - http route: __/api/user/health__
+  - http route: __/api/user/http_creds__
   - This methods has an __empty__ __request__ body
-  - This methods has an __empty__ __response__ body
+  - output: [HttpCreds](#HttpCreds)
 
-- GetUserInfo
-  - auth type: __User__
+- GetInviteLinkState
+  - auth type: __Admin__
   - http method: __post__
-  - http route: __/api/user/info__
-  - This methods has an __empty__ __request__ body
-  - output: [UserInfo](#UserInfo)
-
-- AddProduct
-  - auth type: __User__
-  - http method: __post__
-  - http route: __/api/user/product/add__
-  - input: [AddProductRequest](#AddProductRequest)
-  - output: [Product](#Product)
-
-- NewProductInvoice
-  - auth type: __User__
-  - http method: __get__
-  - http route: __/api/user/product/get/invoice__
-  - the request url __query__ can take the following string items:
-    - id
-  - This methods has an __empty__ __request__ body
-  - output: [NewInvoiceResponse](#NewInvoiceResponse)
-
-- GetUserOperations
-  - auth type: __User__
-  - http method: __post__
-  - http route: __/api/user/operations__
-  - input: [GetUserOperationsRequest](#GetUserOperationsRequest)
-  - output: [GetUserOperationsResponse](#GetUserOperationsResponse)
-
-- NewAddress
-  - auth type: __User__
-  - http method: __post__
-  - http route: __/api/user/chain/new__
-  - input: [NewAddressRequest](#NewAddressRequest)
-  - output: [NewAddressResponse](#NewAddressResponse)
-
-- PayAddress
-  - auth type: __User__
-  - http method: __post__
-  - http route: __/api/user/chain/pay__
-  - input: [PayAddressRequest](#PayAddressRequest)
-  - output: [PayAddressResponse](#PayAddressResponse)
-
-- NewInvoice
-  - auth type: __User__
-  - http method: __post__
-  - http route: __/api/user/invoice/new__
-  - input: [NewInvoiceRequest](#NewInvoiceRequest)
-  - output: [NewInvoiceResponse](#NewInvoiceResponse)
-
-- DecodeInvoice
-  - auth type: __User__
-  - http method: __post__
-  - http route: __/api/user/invoice/decode__
-  - input: [DecodeInvoiceRequest](#DecodeInvoiceRequest)
-  - output: [DecodeInvoiceResponse](#DecodeInvoiceResponse)
-
-- PayInvoice
-  - auth type: __User__
-  - http method: __post__
-  - http route: __/api/user/invoice/pay__
-  - input: [PayInvoiceRequest](#PayInvoiceRequest)
-  - output: [PayInvoiceResponse](#PayInvoiceResponse)
-
-- GetPaymentState
-  - auth type: __User__
-  - http method: __post__
-  - http route: __/api/user/payment/state__
-  - input: [GetPaymentStateRequest](#GetPaymentStateRequest)
-  - output: [PaymentState](#PaymentState)
-
-- OpenChannel
-  - auth type: __User__
-  - http method: __post__
-  - http route: __/api/user/open/channel__
-  - input: [OpenChannelRequest](#OpenChannelRequest)
-  - output: [OpenChannelResponse](#OpenChannelResponse)
-
-- GetLnurlWithdrawLink
-  - auth type: __User__
-  - http method: __get__
-  - http route: __/api/user/lnurl_withdraw/link__
-  - This methods has an __empty__ __request__ body
-  - output: [LnurlLinkResponse](#LnurlLinkResponse)
-
-- GetLnurlPayLink
-  - auth type: __User__
-  - http method: __get__
-  - http route: __/api/user/lnurl_pay/link__
-  - This methods has an __empty__ __request__ body
-  - output: [LnurlLinkResponse](#LnurlLinkResponse)
+  - http route: __/api/admin/app/invite/get__
+  - input: [GetInviteTokenStateRequest](#GetInviteTokenStateRequest)
+  - output: [GetInviteTokenStateResponse](#GetInviteTokenStateResponse)
 
 - GetLNURLChannelLink
   - auth type: __User__
@@ -587,6 +354,45 @@ The nostr server will send back a message response, and inside the body there wi
   - This methods has an __empty__ __request__ body
   - output: [LiveUserOperation](#LiveUserOperation)
 
+- GetLndMetrics
+  - auth type: __Metrics__
+  - http method: __post__
+  - http route: __/api/reports/lnd__
+  - input: [LndMetricsRequest](#LndMetricsRequest)
+  - output: [LndMetrics](#LndMetrics)
+
+- GetLnurlPayInfo
+  - auth type: __Guest__
+  - http method: __get__
+  - http route: __/api/guest/lnurl_pay/info__
+  - the request url __query__ can take the following string items:
+    - k1
+  - This methods has an __empty__ __request__ body
+  - output: [LnurlPayInfoResponse](#LnurlPayInfoResponse)
+
+- GetLnurlPayLink
+  - auth type: __User__
+  - http method: __get__
+  - http route: __/api/user/lnurl_pay/link__
+  - This methods has an __empty__ __request__ body
+  - output: [LnurlLinkResponse](#LnurlLinkResponse)
+
+- GetLnurlWithdrawInfo
+  - auth type: __Guest__
+  - http method: __get__
+  - http route: __/api/guest/lnurl_withdraw/info__
+  - the request url __query__ can take the following string items:
+    - k1
+  - This methods has an __empty__ __request__ body
+  - output: [LnurlWithdrawInfoResponse](#LnurlWithdrawInfoResponse)
+
+- GetLnurlWithdrawLink
+  - auth type: __User__
+  - http method: __get__
+  - http route: __/api/user/lnurl_withdraw/link__
+  - This methods has an __empty__ __request__ body
+  - output: [LnurlLinkResponse](#LnurlLinkResponse)
+
 - GetMigrationUpdate
   - auth type: __User__
   - http method: __post__
@@ -594,17 +400,211 @@ The nostr server will send back a message response, and inside the body there wi
   - This methods has an __empty__ __request__ body
   - output: [MigrationUpdate](#MigrationUpdate)
 
-- GetHttpCreds
+- GetPaymentState
   - auth type: __User__
   - http method: __post__
-  - http route: __/api/user/http_creds__
-  - This methods has an __empty__ __request__ body
-  - output: [HttpCreds](#HttpCreds)
+  - http route: __/api/user/payment/state__
+  - input: [GetPaymentStateRequest](#GetPaymentStateRequest)
+  - output: [PaymentState](#PaymentState)
 
-- BatchUser
+- GetSeed
+  - auth type: __Admin__
+  - http method: __get__
+  - http route: __/api/admin/seed__
+  - This methods has an __empty__ __request__ body
+  - output: [LndSeed](#LndSeed)
+
+- GetUsageMetrics
+  - auth type: __Metrics__
+  - http method: __post__
+  - http route: __/api/reports/usage__
+  - This methods has an __empty__ __request__ body
+  - output: [UsageMetrics](#UsageMetrics)
+
+- GetUserInfo
   - auth type: __User__
   - http method: __post__
-  - http route: __/api/user/batch__
+  - http route: __/api/user/info__
+  - This methods has an __empty__ __request__ body
+  - output: [UserInfo](#UserInfo)
+
+- GetUserOperations
+  - auth type: __User__
+  - http method: __post__
+  - http route: __/api/user/operations__
+  - input: [GetUserOperationsRequest](#GetUserOperationsRequest)
+  - output: [GetUserOperationsResponse](#GetUserOperationsResponse)
+
+- HandleLnurlAddress
+  - auth type: __Guest__
+  - http method: __get__
+  - http route: __/.well-known/lnurlp/:address_name__
+  - the request url __params__ are the following string items:
+    - address_name
+  - This methods has an __empty__ __request__ body
+  - output: [LnurlPayInfoResponse](#LnurlPayInfoResponse)
+
+- HandleLnurlPay
+  - auth type: __Guest__
+  - http method: __get__
+  - http route: __/api/guest/lnurl_pay/handle__
+  - the request url __query__ can take the following string items:
+    - amount
+    - k1
+    - lnurl
+    - nostr
+  - This methods has an __empty__ __request__ body
+  - output: [HandleLnurlPayResponse](#HandleLnurlPayResponse)
+
+- HandleLnurlWithdraw
+  - auth type: __Guest__
+  - http method: __get__
+  - http route: __/api/guest/lnurl_withdraw/handle__
+  - the request url __query__ can take the following string items:
+    - k1
+    - pr
+  - This methods has an __empty__ __request__ body
+  - This methods has an __empty__ __response__ body
+
+- Health
+  - auth type: __Guest__
+  - http method: __get__
+  - http route: __/api/health__
+  - This methods has an __empty__ __request__ body
+  - This methods has an __empty__ __response__ body
+
+- LinkNPubThroughToken
+  - auth type: __GuestWithPub__
+  - http method: __post__
+  - http route: __/api/guest/npub/link__
+  - input: [LinkNPubThroughTokenRequest](#LinkNPubThroughTokenRequest)
+  - This methods has an __empty__ __response__ body
+
+- ListChannels
+  - auth type: __Admin__
+  - http method: __get__
+  - http route: __/api/admin/channels__
+  - This methods has an __empty__ __request__ body
+  - output: [LndChannels](#LndChannels)
+
+- LndGetInfo
+  - auth type: __Admin__
+  - http method: __post__
+  - http route: __/api/admin/lnd/getinfo__
+  - input: [LndGetInfoRequest](#LndGetInfoRequest)
+  - output: [LndGetInfoResponse](#LndGetInfoResponse)
+
+- NewAddress
+  - auth type: __User__
+  - http method: __post__
+  - http route: __/api/user/chain/new__
+  - input: [NewAddressRequest](#NewAddressRequest)
+  - output: [NewAddressResponse](#NewAddressResponse)
+
+- NewInvoice
+  - auth type: __User__
+  - http method: __post__
+  - http route: __/api/user/invoice/new__
+  - input: [NewInvoiceRequest](#NewInvoiceRequest)
+  - output: [NewInvoiceResponse](#NewInvoiceResponse)
+
+- NewProductInvoice
+  - auth type: __User__
+  - http method: __get__
+  - http route: __/api/user/product/get/invoice__
+  - the request url __query__ can take the following string items:
+    - id
+  - This methods has an __empty__ __request__ body
+  - output: [NewInvoiceResponse](#NewInvoiceResponse)
+
+- OpenChannel
+  - auth type: __User__
+  - http method: __post__
+  - http route: __/api/user/open/channel__
+  - input: [OpenChannelRequest](#OpenChannelRequest)
+  - output: [OpenChannelResponse](#OpenChannelResponse)
+
+- PayAddress
+  - auth type: __User__
+  - http method: __post__
+  - http route: __/api/user/chain/pay__
+  - input: [PayAddressRequest](#PayAddressRequest)
+  - output: [PayAddressResponse](#PayAddressResponse)
+
+- PayAppUserInvoice
+  - auth type: __App__
+  - http method: __post__
+  - http route: __/api/app/invoice/pay__
+  - input: [PayAppUserInvoiceRequest](#PayAppUserInvoiceRequest)
+  - output: [PayInvoiceResponse](#PayInvoiceResponse)
+
+- PayInvoice
+  - auth type: __User__
+  - http method: __post__
+  - http route: __/api/user/invoice/pay__
+  - input: [PayInvoiceRequest](#PayInvoiceRequest)
+  - output: [PayInvoiceResponse](#PayInvoiceResponse)
+
+- RequestNPubLinkingToken
+  - auth type: __App__
+  - http method: __post__
+  - http route: __/api/app/user/npub/token__
+  - input: [RequestNPubLinkingTokenRequest](#RequestNPubLinkingTokenRequest)
+  - output: [RequestNPubLinkingTokenResponse](#RequestNPubLinkingTokenResponse)
+
+- ResetNPubLinkingToken
+  - auth type: __App__
+  - http method: __post__
+  - http route: __/api/app/user/npub/token/reset__
+  - input: [RequestNPubLinkingTokenRequest](#RequestNPubLinkingTokenRequest)
+  - output: [RequestNPubLinkingTokenResponse](#RequestNPubLinkingTokenResponse)
+
+- SendAppUserToAppPayment
+  - auth type: __App__
+  - http method: __post__
+  - http route: __/api/app/internal/pay__
+  - input: [SendAppUserToAppPaymentRequest](#SendAppUserToAppPaymentRequest)
+  - This methods has an __empty__ __response__ body
+
+- SendAppUserToAppUserPayment
+  - auth type: __App__
+  - http method: __post__
+  - http route: __/api/app/user/internal/pay__
+  - input: [SendAppUserToAppUserPaymentRequest](#SendAppUserToAppUserPaymentRequest)
+  - This methods has an __empty__ __response__ body
+
+- SetMockAppBalance
+  - auth type: __App__
+  - http method: __post__
+  - http route: __/api/app/mock/blance/set__
+  - input: [SetMockAppBalanceRequest](#SetMockAppBalanceRequest)
+  - This methods has an __empty__ __response__ body
+
+- SetMockAppUserBalance
+  - auth type: __App__
+  - http method: __post__
+  - http route: __/api/app/mock/user/blance/set__
+  - input: [SetMockAppUserBalanceRequest](#SetMockAppUserBalanceRequest)
+  - This methods has an __empty__ __response__ body
+
+- SetMockInvoiceAsPaid
+  - auth type: __Guest__
+  - http method: __post__
+  - http route: __/api/lnd/mock/invoice/paid__
+  - input: [SetMockInvoiceAsPaidRequest](#SetMockInvoiceAsPaidRequest)
+  - This methods has an __empty__ __response__ body
+
+- UseInviteLink
+  - auth type: __GuestWithPub__
+  - http method: __post__
+  - http route: __/api/guest/invite__
+  - input: [UseInviteLinkRequest](#UseInviteLinkRequest)
+  - This methods has an __empty__ __response__ body
+
+- UserHealth
+  - auth type: __User__
+  - http method: __post__
+  - http route: __/api/user/health__
   - This methods has an __empty__ __request__ body
   - This methods has an __empty__ __response__ body
 
@@ -613,398 +613,398 @@ The nostr server will send back a message response, and inside the body there wi
 ## Messages
 ### The content of requests and response from the methods
 
-### GetUserOperationsResponse
-  - __latestIncomingUserToUserPayemnts__: _[UserOperations](#UserOperations)_
-  - __latestOutgoingInvoiceOperations__: _[UserOperations](#UserOperations)_
-  - __latestIncomingInvoiceOperations__: _[UserOperations](#UserOperations)_
-  - __latestOutgoingTxOperations__: _[UserOperations](#UserOperations)_
-  - __latestIncomingTxOperations__: _[UserOperations](#UserOperations)_
-  - __latestOutgoingUserToUserPayemnts__: _[UserOperations](#UserOperations)_
-
-### AuthAppRequest
-  - __name__: _string_
-  - __allow_user_creation__: _boolean_ *this field is optional
-
-### GetAppUserLNURLInfoRequest
-  - __user_identifier__: _string_
-  - __base_url_override__: _string_
-
-### AddAppUserInvoiceRequest
-  - __receiver_identifier__: _string_
-  - __payer_identifier__: _string_
+### AddAppInvoiceRequest
   - __http_callback_url__: _string_
   - __invoice_req__: _[NewInvoiceRequest](#NewInvoiceRequest)_
+  - __payer_identifier__: _string_
 
-### NewAddressResponse
-  - __address__: _string_
+### AddAppRequest
+  - __allow_user_creation__: _boolean_
+  - __name__: _string_
 
-### Product
-  - __id__: _string_
+### AddAppUserInvoiceRequest
+  - __http_callback_url__: _string_
+  - __invoice_req__: _[NewInvoiceRequest](#NewInvoiceRequest)_
+  - __payer_identifier__: _string_
+  - __receiver_identifier__: _string_
+
+### AddAppUserRequest
+  - __balance__: _number_
+  - __fail_if_exists__: _boolean_
+  - __identifier__: _string_
+
+### AddProductRequest
   - __name__: _string_
   - __price_sats__: _number_
 
-### CreateOneTimeInviteLinkResponse
-  - __invitation_link__: _string_
-
-### AppsMetricsRequest
-  - __include_operations__: _boolean_ *this field is optional
-  - __from_unix__: _number_ *this field is optional
-  - __to_unix__: _number_ *this field is optional
-
-### LndGetInfoRequest
-  - __nodeId__: _number_
-
-### SetMockAppBalanceRequest
-  - __amount__: _number_
-
-### LnurlLinkResponse
-  - __lnurl__: _string_
-  - __k1__: _string_
-
-### LnurlWithdrawInfoResponse
-  - __tag__: _string_
-  - __callback__: _string_
-  - __k1__: _string_
-  - __defaultDescription__: _string_
-  - __minWithdrawable__: _number_
-  - __maxWithdrawable__: _number_
-  - __balanceCheck__: _string_
-  - __payLink__: _string_
-
-### AddAppUserRequest
-  - __identifier__: _string_
-  - __fail_if_exists__: _boolean_
-  - __balance__: _number_
-
-### AddAppInvoiceRequest
-  - __payer_identifier__: _string_
-  - __http_callback_url__: _string_
-  - __invoice_req__: _[NewInvoiceRequest](#NewInvoiceRequest)_
-
-### AddAppRequest
-  - __name__: _string_
-  - __allow_user_creation__: _boolean_
-
-### PayAddressResponse
-  - __service_fee__: _number_
-  - __network_fee__: _number_
-  - __txId__: _string_
-  - __operation_id__: _string_
-
-### RequestNPubLinkingTokenResponse
-  - __token__: _string_
-
-### UsageMetric
-  - __parsed_in_nano__: _number_
-  - __rpc_name__: _string_
-  - __batch_size__: _number_
-  - __processed_at_ms__: _number_
-  - __auth_in_nano__: _number_
-  - __validate_in_nano__: _number_
-  - __handle_in_nano__: _number_
-  - __batch__: _boolean_
-  - __nostr__: _boolean_
-
-### SetMockInvoiceAsPaidRequest
-  - __invoice__: _string_
-  - __amount__: _number_
-
-### LndGetInfoResponse
-  - __alias__: _string_
-
-### HttpCreds
-  - __url__: _string_
-  - __token__: _string_
-
-### OpenChannel
-  - __capacity__: _number_
-  - __active__: _boolean_
-  - __lifetime__: _number_
-  - __local_balance__: _number_
-  - __remote_balance__: _number_
-  - __label__: _string_
-  - __channel_id__: _string_
-
-### LndNodeMetrics
-  - __pending_channels__: _number_
-  - __closing_channels__: _number_
-  - __forwarding_events__: _number_
-  - __forwarding_fees__: _number_
-  - __chain_balance__: ARRAY of: _[GraphPoint](#GraphPoint)_
-  - __channel_balance__: ARRAY of: _[GraphPoint](#GraphPoint)_
-  - __external_balance__: ARRAY of: _[GraphPoint](#GraphPoint)_
-  - __offline_channels__: _number_
-  - __online_channels__: _number_
-  - __open_channels__: ARRAY of: _[OpenChannel](#OpenChannel)_
-  - __closed_channels__: ARRAY of: _[ClosedChannel](#ClosedChannel)_
-
-### OpenChannelResponse
-  - __channelId__: _string_
-
-### LinkNPubThroughTokenRequest
-  - __token__: _string_
-
-### LndMetricsRequest
-  - __from_unix__: _number_ *this field is optional
-  - __to_unix__: _number_ *this field is optional
-
-### DecodeInvoiceResponse
-  - __amount__: _number_
-
-### BanUserRequest
-  - __user_id__: _string_
+### AppMetrics
+  - __app__: _[Application](#Application)_
+  - __available__: _number_
+  - __fees__: _number_
+  - __invoices__: _number_
+  - __operations__: ARRAY of: _[UserOperation](#UserOperation)_
+  - __received__: _number_
+  - __spent__: _number_
+  - __total_fees__: _number_
+  - __users__: _[UsersInfo](#UsersInfo)_
 
 ### AppUser
   - __identifier__: _string_
   - __info__: _[UserInfo](#UserInfo)_
   - __max_withdrawable__: _number_
 
-### NewInvoiceRequest
-  - __amountSats__: _number_
-  - __memo__: _string_
+### Application
+  - __balance__: _number_
+  - __id__: _string_
+  - __name__: _string_
+  - __npub__: _string_
+
+### AppsMetrics
+  - __apps__: ARRAY of: _[AppMetrics](#AppMetrics)_
+
+### AppsMetricsRequest
+  - __from_unix__: _number_ *this field is optional
+  - __include_operations__: _boolean_ *this field is optional
+  - __to_unix__: _number_ *this field is optional
+
+### AuthApp
+  - __app__: _[Application](#Application)_
+  - __auth_token__: _string_
+
+### AuthAppRequest
+  - __allow_user_creation__: _boolean_ *this field is optional
+  - __name__: _string_
+
+### BanUserRequest
+  - __user_id__: _string_
+
+### BanUserResponse
+  - __balance_sats__: _number_
+  - __banned_app_users__: ARRAY of: _[BannedAppUser](#BannedAppUser)_
+
+### BannedAppUser
+  - __app_id__: _string_
+  - __app_name__: _string_
+  - __nostr_pub__: _string_
+  - __user_identifier__: _string_
+
+### ClosedChannel
+  - __capacity__: _number_
+  - __channel_id__: _string_
+  - __closed_height__: _number_
+
+### ClosureMigration
+  - __closes_at_unix__: _number_
+
+### CreateOneTimeInviteLinkRequest
+  - __sats__: _number_ *this field is optional
+
+### CreateOneTimeInviteLinkResponse
+  - __invitation_link__: _string_
 
 ### DecodeInvoiceRequest
   - __invoice__: _string_
 
-### UsersInfo
-  - __total__: _number_
-  - __no_balance__: _number_
-  - __negative_balance__: _number_
-  - __always_been_inactive__: _number_
-  - __balance_avg__: _number_
-  - __balance_median__: _number_
+### DecodeInvoiceResponse
+  - __amount__: _number_
+
+### Empty
+
+### EncryptionExchangeRequest
+  - __deviceId__: _string_
+  - __publicKey__: _string_
+
+### EnrollAdminTokenRequest
+  - __admin_token__: _string_
+
+### GetAppUserLNURLInfoRequest
+  - __base_url_override__: _string_
+  - __user_identifier__: _string_
+
+### GetAppUserRequest
+  - __user_identifier__: _string_
+
+### GetInviteTokenStateRequest
+  - __invite_token__: _string_
+
+### GetInviteTokenStateResponse
+  - __used__: _boolean_
+
+### GetPaymentStateRequest
+  - __invoice__: _string_
+
+### GetProductBuyLinkResponse
+  - __link__: _string_
+
+### GetUserOperationsRequest
+  - __latestIncomingInvoice__: _number_
+  - __latestIncomingTx__: _number_
+  - __latestIncomingUserToUserPayment__: _number_
+  - __latestOutgoingInvoice__: _number_
+  - __latestOutgoingTx__: _number_
+  - __latestOutgoingUserToUserPayment__: _number_
+  - __max_size__: _number_
+
+### GetUserOperationsResponse
+  - __latestIncomingInvoiceOperations__: _[UserOperations](#UserOperations)_
+  - __latestIncomingTxOperations__: _[UserOperations](#UserOperations)_
+  - __latestIncomingUserToUserPayemnts__: _[UserOperations](#UserOperations)_
+  - __latestOutgoingInvoiceOperations__: _[UserOperations](#UserOperations)_
+  - __latestOutgoingTxOperations__: _[UserOperations](#UserOperations)_
+  - __latestOutgoingUserToUserPayemnts__: _[UserOperations](#UserOperations)_
+
+### GraphPoint
+  - __x__: _number_
+  - __y__: _number_
+
+### HandleLnurlPayResponse
+  - __pr__: _string_
+  - __routes__: ARRAY of: _[Empty](#Empty)_
+
+### HttpCreds
+  - __token__: _string_
+  - __url__: _string_
+
+### LinkNPubThroughTokenRequest
+  - __token__: _string_
+
+### LiveUserOperation
+  - __operation__: _[UserOperation](#UserOperation)_
+
+### LndChannels
+  - __open_channels__: ARRAY of: _[OpenChannel](#OpenChannel)_
+
+### LndGetInfoRequest
+  - __nodeId__: _number_
+
+### LndGetInfoResponse
+  - __alias__: _string_
 
 ### LndMetrics
   - __nodes__: ARRAY of: _[LndNodeMetrics](#LndNodeMetrics)_
+
+### LndMetricsRequest
+  - __from_unix__: _number_ *this field is optional
+  - __to_unix__: _number_ *this field is optional
+
+### LndNodeMetrics
+  - __chain_balance__: ARRAY of: _[GraphPoint](#GraphPoint)_
+  - __channel_balance__: ARRAY of: _[GraphPoint](#GraphPoint)_
+  - __closed_channels__: ARRAY of: _[ClosedChannel](#ClosedChannel)_
+  - __closing_channels__: _number_
+  - __external_balance__: ARRAY of: _[GraphPoint](#GraphPoint)_
+  - __forwarding_events__: _number_
+  - __forwarding_fees__: _number_
+  - __offline_channels__: _number_
+  - __online_channels__: _number_
+  - __open_channels__: ARRAY of: _[OpenChannel](#OpenChannel)_
+  - __pending_channels__: _number_
+
+### LndSeed
+  - __seed__: ARRAY of: _string_
+
+### LnurlLinkResponse
+  - __k1__: _string_
+  - __lnurl__: _string_
+
+### LnurlPayInfoResponse
+  - __allowsNostr__: _boolean_
+  - __callback__: _string_
+  - __maxSendable__: _number_
+  - __metadata__: _string_
+  - __minSendable__: _number_
+  - __nostrPubkey__: _string_
+  - __tag__: _string_
+
+### LnurlWithdrawInfoResponse
+  - __balanceCheck__: _string_
+  - __callback__: _string_
+  - __defaultDescription__: _string_
+  - __k1__: _string_
+  - __maxWithdrawable__: _number_
+  - __minWithdrawable__: _number_
+  - __payLink__: _string_
+  - __tag__: _string_
+
+### MigrationUpdate
+  - __closure__: _[ClosureMigration](#ClosureMigration)_ *this field is optional
+  - __relays__: _[RelaysMigration](#RelaysMigration)_ *this field is optional
+
+### NewAddressRequest
+  - __addressType__: _[AddressType](#AddressType)_
+
+### NewAddressResponse
+  - __address__: _string_
+
+### NewInvoiceRequest
+  - __amountSats__: _number_
+  - __memo__: _string_
+
+### NewInvoiceResponse
+  - __invoice__: _string_
+
+### OpenChannel
+  - __active__: _boolean_
+  - __capacity__: _number_
+  - __channel_id__: _string_
+  - __label__: _string_
+  - __lifetime__: _number_
+  - __local_balance__: _number_
+  - __remote_balance__: _number_
+
+### OpenChannelRequest
+  - __closeAddress__: _string_
+  - __destination__: _string_
+  - __fundingAmount__: _number_
+  - __pushAmount__: _number_
+
+### OpenChannelResponse
+  - __channelId__: _string_
 
 ### PayAddressRequest
   - __address__: _string_
   - __amoutSats__: _number_
   - __satsPerVByte__: _number_
 
-### PaymentState
-  - __paid_at_unix__: _number_
-  - __amount__: _number_
-  - __service_fee__: _number_
+### PayAddressResponse
   - __network_fee__: _number_
-
-### UserOperations
-  - __fromIndex__: _number_
-  - __toIndex__: _number_
-  - __operations__: ARRAY of: _[UserOperation](#UserOperation)_
-
-### UsageMetrics
-  - __metrics__: ARRAY of: _[UsageMetric](#UsageMetric)_
-
-### LndChannels
-  - __open_channels__: ARRAY of: _[OpenChannel](#OpenChannel)_
-
-### RequestNPubLinkingTokenRequest
-  - __user_identifier__: _string_
-
-### SendAppUserToAppUserPaymentRequest
-  - __from_user_identifier__: _string_
-  - __to_user_identifier__: _string_
-  - __amount__: _number_
-
-### GetUserOperationsRequest
-  - __latestIncomingTx__: _number_
-  - __latestOutgoingTx__: _number_
-  - __latestIncomingUserToUserPayment__: _number_
-  - __latestOutgoingUserToUserPayment__: _number_
-  - __max_size__: _number_
-  - __latestIncomingInvoice__: _number_
-  - __latestOutgoingInvoice__: _number_
-
-### GraphPoint
-  - __x__: _number_
-  - __y__: _number_
-
-### GetAppUserRequest
-  - __user_identifier__: _string_
-
-### OpenChannelRequest
-  - __pushAmount__: _number_
-  - __closeAddress__: _string_
-  - __destination__: _string_
-  - __fundingAmount__: _number_
-
-### EnrollAdminTokenRequest
-  - __admin_token__: _string_
-
-### LndSeed
-  - __seed__: ARRAY of: _string_
-
-### RoutingEvent
-  - __outgoing_amt_msat__: _number_
-  - __settled__: _boolean_
-  - __forward_fail_event__: _boolean_
-  - __incoming_htlc_id__: _number_
-  - __outgoing_htlc_id__: _number_
-  - __event_type__: _string_
-  - __incoming_amt_msat__: _number_
-  - __offchain__: _boolean_
-  - __incoming_channel_id__: _number_
-  - __outgoing_channel_id__: _number_
-  - __timestamp_ns__: _number_
-  - __failure_string__: _string_
-
-### HandleLnurlPayResponse
-  - __routes__: ARRAY of: _[Empty](#Empty)_
-  - __pr__: _string_
-
-### GetProductBuyLinkResponse
-  - __link__: _string_
-
-### GetInviteTokenStateResponse
-  - __used__: _boolean_
+  - __operation_id__: _string_
+  - __service_fee__: _number_
+  - __txId__: _string_
 
 ### PayAppUserInvoiceRequest
   - __amount__: _number_
-  - __user_identifier__: _string_
   - __invoice__: _string_
+  - __user_identifier__: _string_
 
 ### PayInvoiceRequest
   - __amount__: _number_
   - __invoice__: _string_
 
-### LnurlPayInfoResponse
-  - __maxSendable__: _number_
-  - __minSendable__: _number_
-  - __metadata__: _string_
-  - __allowsNostr__: _boolean_
-  - __nostrPubkey__: _string_
-  - __tag__: _string_
-  - __callback__: _string_
-
-### UserOperation
-  - __confirmed__: _boolean_
-  - __internal__: _boolean_
-  - __paidAtUnix__: _number_
-  - __inbound__: _boolean_
-  - __operationId__: _string_
-  - __service_fee__: _number_
+### PayInvoiceResponse
+  - __amount_paid__: _number_
   - __network_fee__: _number_
-  - __type__: _[UserOperationType](#UserOperationType)_
-  - __amount__: _number_
-  - __identifier__: _string_
-  - __tx_hash__: _string_
+  - __operation_id__: _string_
+  - __preimage__: _string_
+  - __service_fee__: _number_
 
-### LiveUserOperation
-  - __operation__: _[UserOperation](#UserOperation)_
+### PaymentState
+  - __amount__: _number_
+  - __network_fee__: _number_
+  - __paid_at_unix__: _number_
+  - __service_fee__: _number_
+
+### Product
+  - __id__: _string_
+  - __name__: _string_
+  - __price_sats__: _number_
 
 ### RelaysMigration
   - __relays__: ARRAY of: _string_
 
-### GetInviteTokenStateRequest
-  - __invite_token__: _string_
-
-### AppsMetrics
-  - __apps__: ARRAY of: _[AppMetrics](#AppMetrics)_
-
-### BannedAppUser
-  - __app_name__: _string_
-  - __app_id__: _string_
+### RequestNPubLinkingTokenRequest
   - __user_identifier__: _string_
-  - __nostr_pub__: _string_
 
-### NewAddressRequest
-  - __addressType__: _[AddressType](#AddressType)_
+### RequestNPubLinkingTokenResponse
+  - __token__: _string_
 
-### CreateOneTimeInviteLinkRequest
-  - __sats__: _number_ *this field is optional
+### RoutingEvent
+  - __event_type__: _string_
+  - __failure_string__: _string_
+  - __forward_fail_event__: _boolean_
+  - __incoming_amt_msat__: _number_
+  - __incoming_channel_id__: _number_
+  - __incoming_htlc_id__: _number_
+  - __offchain__: _boolean_
+  - __outgoing_amt_msat__: _number_
+  - __outgoing_channel_id__: _number_
+  - __outgoing_htlc_id__: _number_
+  - __settled__: _boolean_
+  - __timestamp_ns__: _number_
+
+### SendAppUserToAppPaymentRequest
+  - __amount__: _number_
+  - __from_user_identifier__: _string_
+
+### SendAppUserToAppUserPaymentRequest
+  - __amount__: _number_
+  - __from_user_identifier__: _string_
+  - __to_user_identifier__: _string_
+
+### SetMockAppBalanceRequest
+  - __amount__: _number_
+
+### SetMockAppUserBalanceRequest
+  - __amount__: _number_
+  - __user_identifier__: _string_
+
+### SetMockInvoiceAsPaidRequest
+  - __amount__: _number_
+  - __invoice__: _string_
+
+### UsageMetric
+  - __auth_in_nano__: _number_
+  - __batch__: _boolean_
+  - __batch_size__: _number_
+  - __handle_in_nano__: _number_
+  - __nostr__: _boolean_
+  - __parsed_in_nano__: _number_
+  - __processed_at_ms__: _number_
+  - __rpc_name__: _string_
+  - __validate_in_nano__: _number_
+
+### UsageMetrics
+  - __metrics__: ARRAY of: _[UsageMetric](#UsageMetric)_
 
 ### UseInviteLinkRequest
   - __invite_token__: _string_
 
-### Application
-  - __name__: _string_
-  - __id__: _string_
-  - __balance__: _number_
-  - __npub__: _string_
-
-### SetMockAppUserBalanceRequest
-  - __user_identifier__: _string_
-  - __amount__: _number_
-
-### NewInvoiceResponse
-  - __invoice__: _string_
-
-### PayInvoiceResponse
-  - __operation_id__: _string_
-  - __service_fee__: _number_
-  - __network_fee__: _number_
-  - __preimage__: _string_
-  - __amount_paid__: _number_
-
-### GetPaymentStateRequest
-  - __invoice__: _string_
-
-### AppMetrics
-  - __app__: _[Application](#Application)_
-  - __users__: _[UsersInfo](#UsersInfo)_
-  - __invoices__: _number_
-  - __fees__: _number_
-  - __total_fees__: _number_
-  - __operations__: ARRAY of: _[UserOperation](#UserOperation)_
-  - __received__: _number_
-  - __spent__: _number_
-  - __available__: _number_
-
-### AuthApp
-  - __app__: _[Application](#Application)_
-  - __auth_token__: _string_
-
-### AddProductRequest
-  - __name__: _string_
-  - __price_sats__: _number_
-
-### ClosureMigration
-  - __closes_at_unix__: _number_
-
-### SendAppUserToAppPaymentRequest
-  - __from_user_identifier__: _string_
-  - __amount__: _number_
-
 ### UserInfo
   - __balance__: _number_
   - __max_withdrawable__: _number_
-  - __user_identifier__: _string_
-  - __service_fee_bps__: _number_
   - __network_max_fee_bps__: _number_
   - __network_max_fee_fixed__: _number_
+  - __service_fee_bps__: _number_
   - __userId__: _string_
+  - __user_identifier__: _string_
 
-### ClosedChannel
-  - __channel_id__: _string_
-  - __capacity__: _number_
-  - __closed_height__: _number_
+### UserOperation
+  - __amount__: _number_
+  - __confirmed__: _boolean_
+  - __identifier__: _string_
+  - __inbound__: _boolean_
+  - __internal__: _boolean_
+  - __network_fee__: _number_
+  - __operationId__: _string_
+  - __paidAtUnix__: _number_
+  - __service_fee__: _number_
+  - __tx_hash__: _string_
+  - __type__: _[UserOperationType](#UserOperationType)_
 
-### BanUserResponse
-  - __balance_sats__: _number_
-  - __banned_app_users__: ARRAY of: _[BannedAppUser](#BannedAppUser)_
+### UserOperations
+  - __fromIndex__: _number_
+  - __operations__: ARRAY of: _[UserOperation](#UserOperation)_
+  - __toIndex__: _number_
 
-### MigrationUpdate
-  - __closure__: _[ClosureMigration](#ClosureMigration)_ *this field is optional
-  - __relays__: _[RelaysMigration](#RelaysMigration)_ *this field is optional
-
-### Empty
-
-### EncryptionExchangeRequest
-  - __publicKey__: _string_
-  - __deviceId__: _string_
+### UsersInfo
+  - __always_been_inactive__: _number_
+  - __balance_avg__: _number_
+  - __balance_median__: _number_
+  - __negative_balance__: _number_
+  - __no_balance__: _number_
+  - __total__: _number_
 ## Enums
 ### The enumerators used in the messages
 
 ### AddressType
-  - __WITNESS_PUBKEY_HASH__
   - __NESTED_PUBKEY_HASH__
   - __TAPROOT_PUBKEY__
+  - __WITNESS_PUBKEY_HASH__
 
 ### UserOperationType
-  - __INCOMING_TX__
-  - __OUTGOING_TX__
   - __INCOMING_INVOICE__
-  - __OUTGOING_INVOICE__
-  - __OUTGOING_USER_TO_USER__
+  - __INCOMING_TX__
   - __INCOMING_USER_TO_USER__
+  - __OUTGOING_INVOICE__
+  - __OUTGOING_TX__
+  - __OUTGOING_USER_TO_USER__
