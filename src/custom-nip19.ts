@@ -70,10 +70,10 @@ export const encodeNoffer = (offer: OfferPointer): string => {
   const data = encodeTLV({
     0: [hexToBytes(offer.pubkey)],
     1: (relays).map(url => utf8Encoder.encode(url)),
-    2: [hexToBytes(offer.offer)]
+    2: [utf8Encoder.encode(offer.offer)]
   });
   const words = bech32.toWords(data)
-  return bech32.encode("nprofile", words, 5000);
+  return bech32.encode("noffer", words, 5000);
 }
 
 const parseTLV = (data: Uint8Array): TLV => {
