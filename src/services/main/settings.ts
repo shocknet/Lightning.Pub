@@ -72,7 +72,7 @@ export const LoadMainSettingsFromEnv = (): MainSettings => {
         wizard: process.env.WIZARD === 'true' || false,
         defaultAppName: process.env.DEFAULT_APP_NAME || "wallet",
         pushBackupsToNostr: process.env.PUSH_BACKUPS_TO_NOSTR === 'true' || false,
-        lnurlMetaText: process.env.LNURL_META_TEXT || "lnurl pay to Lightning.pub"
+        lnurlMetaText: process.env.LNURL_META_TEXT || "LNURL via Lightning.pub"
     }
 }
 
