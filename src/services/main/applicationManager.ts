@@ -226,7 +226,7 @@ export default class {
     async GetAppUserLNURLInfo(appId: string, req: Types.GetAppUserLNURLInfoRequest): Promise<Types.LnurlPayInfoResponse> {
         const app = await this.storage.applicationStorage.GetApplication(appId)
         const user = await this.storage.applicationStorage.GetApplicationUser(app, req.user_identifier)
-        return this.paymentManager.GetLnurlPayInfoFromUser(user.user.user_id, app, req.base_url_override)
+        return this.paymentManager.GetLnurlPayInfoFromUser(user.user.user_id, app, { baseUrl: req.base_url_override })
     }
     async RequestNPubLinkingToken(appId: string, req: Types.RequestNPubLinkingTokenRequest, reset: boolean): Promise<Types.RequestNPubLinkingTokenResponse> {
         const app = await this.storage.applicationStorage.GetApplication(appId);

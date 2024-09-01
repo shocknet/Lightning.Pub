@@ -33,6 +33,7 @@ export type MainSettings = {
     wizard: boolean
     defaultAppName: string
     pushBackupsToNostr: boolean
+    lnurlMetaText: string
 }
 
 export type BitcoinCoreSettings = {
@@ -70,7 +71,8 @@ export const LoadMainSettingsFromEnv = (): MainSettings => {
         disableExternalPayments: process.env.DISABLE_EXTERNAL_PAYMENTS === 'true' || false,
         wizard: process.env.WIZARD === 'true' || false,
         defaultAppName: process.env.DEFAULT_APP_NAME || "wallet",
-        pushBackupsToNostr: process.env.PUSH_BACKUPS_TO_NOSTR === 'true' || false
+        pushBackupsToNostr: process.env.PUSH_BACKUPS_TO_NOSTR === 'true' || false,
+        lnurlMetaText: process.env.LNURL_META_TEXT || "LNURL via Lightning.pub"
     }
 }
 
