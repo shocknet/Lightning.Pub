@@ -40,6 +40,7 @@ interface UserOperationInfo {
 }
 export type PendingTx = { type: 'incoming', tx: AddressReceivingTransaction } | { type: 'outgoing', tx: UserTransactionPayment }
 const defaultLnurlPayMetadata = `[["text/plain", "lnurl pay to Lightning.pub"]]`
+const defaultLnAddressMetadata = (id: string) => `[["text/plain", "lnurl pay to Lightning.pub"],["text/identifier", "${id}"]]`
 const confInOne = 1000 * 1000
 const confInTwo = 100 * 1000 * 1000
 export default class {
@@ -135,7 +136,7 @@ export default class {
             //})
             return
         }
-        console.log({p})
+        console.log({ p })
         const paymentRes = await this.lnd.GetPayment(p.paymentIndex)
         const payment = paymentRes.payments[0]
         if (!payment || Number(payment.paymentIndex) !== p.paymentIndex) {
@@ -337,7 +338,7 @@ export default class {
         const pendingPayment = await this.storage.txQueue.PushToQueue({
             dbTx: true, description: "payment started", exec: async tx => {
                 await this.storage.userStorage.DecrementUserBalance(userId, totalAmountToDecrement + routingFeeLimit, invoice, tx)
-                return await this.storage.paymentStorage.AddPendingExternalPayment(userId, invoice, { payAmount, serviceFee, networkFee: routingFeeLimit }, linkedApplication, provider,tx)
+                return await this.storage.paymentStorage.AddPendingExternalPayment(userId, invoice, { payAmount, serviceFee, networkFee: routingFeeLimit }, linkedApplication, provider, tx)
             }
         })
         this.log("ready to pay")
@@ -513,10 +514,11 @@ export default class {
         }
     }
 
-    async GetLnurlPayInfoFromUser(userId: string, linkedApplication: Application, baseUrl?: string): Promise<Types.LnurlPayInfoResponse> {
+    async GetLnurlPayInfoFromUser(userId: string, linkedApplication: Application, opts: { baseUrl?: string, metadata?: string } = {}): Promise<Types.LnurlPayInfoResponse> {
         if (this.isDefaultServiceUrl()) {
             throw new Error("Lnurl not enabled. Make sure to set SERVICE_URL env variable")
         }
+        const { baseUrl, metadata } = opts
         const payK1 = await this.storage.paymentStorage.AddUserEphemeralKey(userId, 'pay', linkedApplication)
         const url = baseUrl ? baseUrl : `${this.settings.serviceUrl}/api/guest/lnurl_pay/handle`
         const { remote } = await this.lnd.ChannelBalance()
@@ -525,7 +527,7 @@ export default class {
             callback: `${url}?k1=${payK1.key}`,
             maxSendable: remote * 1000,
             minSendable: 10000,
-            metadata: defaultLnurlPayMetadata,
+            metadata: metadata ? metadata : defaultLnurlPayMetadata,
             allowsNostr: !!linkedApplication.nostr_public_key,
             nostrPubkey: linkedApplication.nostr_public_key || ""
         }
@@ -634,7 +636,7 @@ export default class {
         if (!linkedUser) {
             throw new Error("this address is not linked to any user")
         }
-        return this.GetLnurlPayInfoFromUser(linkedUser.user.user_id, linkedUser.application)
+        return this.GetLnurlPayInfoFromUser(linkedUser.user.user_id, linkedUser.application, { metadata: defaultLnAddressMetadata(addressName) })
     }
 
     async OpenChannel(userId: string, req: Types.OpenChannelRequest): Promise<Types.OpenChannelResponse> { throw new Error("WIP") }
