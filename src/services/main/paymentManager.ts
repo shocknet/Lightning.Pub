@@ -39,8 +39,8 @@ interface UserOperationInfo {
     internal?: boolean;
 }
 export type PendingTx = { type: 'incoming', tx: AddressReceivingTransaction } | { type: 'outgoing', tx: UserTransactionPayment }
-const defaultLnurlPayMetadata = `[["text/plain", "lnurl pay to Lightning.pub"]]`
-const defaultLnAddressMetadata = (id: string) => `[["text/plain", "lnurl pay to Lightning.pub"],["text/identifier", "${id}"]]`
+const defaultLnurlPayMetadata = (text: string) => `[["text/plain", "${text}"]]`
+const defaultLnAddressMetadata = (text: string, id: string) => `[["text/plain", "${text}"],["text/identifier", "${id}"]]`
 const confInOne = 1000 * 1000
 const confInTwo = 100 * 1000 * 1000
 export default class {
@@ -527,7 +527,7 @@ export default class {
             callback: `${url}?k1=${payK1.key}`,
             maxSendable: remote * 1000,
             minSendable: 10000,
-            metadata: metadata ? metadata : defaultLnurlPayMetadata,
+            metadata: metadata ? metadata : defaultLnurlPayMetadata(this.settings.lnurlMetaText),
             allowsNostr: !!linkedApplication.nostr_public_key,
             nostrPubkey: linkedApplication.nostr_public_key || ""
         }
@@ -547,7 +547,7 @@ export default class {
             callback: `${this.settings.serviceUrl}/api/guest/lnurl_pay/handle?k1=${payInfoK1}`,
             maxSendable: remote * 1000,
             minSendable: 10000,
-            metadata: defaultLnurlPayMetadata,
+            metadata: defaultLnurlPayMetadata(this.settings.lnurlMetaText),
             allowsNostr: !!key.linkedApplication.nostr_public_key,
             nostrPubkey: key.linkedApplication.nostr_public_key || ""
         }
@@ -623,7 +623,7 @@ export default class {
         }
         const invoice = await this.NewInvoice(key.user.user_id, {
             amountSats: sats,
-            memo: zapInfo ? zapInfo.description : defaultLnurlPayMetadata
+            memo: zapInfo ? zapInfo.description : defaultLnurlPayMetadata(this.settings.lnurlMetaText)
         }, { expiry: defaultInvoiceExpiry, linkedApplication: key.linkedApplication, zapInfo })
         return {
             pr: invoice.invoice,
@@ -636,7 +636,7 @@ export default class {
         if (!linkedUser) {
             throw new Error("this address is not linked to any user")
         }
-        return this.GetLnurlPayInfoFromUser(linkedUser.user.user_id, linkedUser.application, { metadata: defaultLnAddressMetadata(addressName) })
+        return this.GetLnurlPayInfoFromUser(linkedUser.user.user_id, linkedUser.application, { metadata: defaultLnAddressMetadata(this.settings.lnurlMetaText, addressName) })
     }
 
     async OpenChannel(userId: string, req: Types.OpenChannelRequest): Promise<Types.OpenChannelResponse> { throw new Error("WIP") }
