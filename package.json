@@ -30,7 +30,7 @@
     "@protobuf-ts/plugin": "^2.5.0",
     "@protobuf-ts/runtime": "^2.5.0",
     "@stablelib/xchacha20": "^1.0.1",
-    "@types/express": "^4.17.13",
+    "@types/express": "^4.17.21",
     "@types/node": "^17.0.31",
     "@types/secp256k1": "^4.0.3",
     "axios": "^0.28.0",
