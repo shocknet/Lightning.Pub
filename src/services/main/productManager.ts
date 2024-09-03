@@ -26,7 +26,7 @@ export default class {
             id: newProduct.product_id,
             name: newProduct.name,
             price_sats: newProduct.price_sats,
-            noffer: encodeNoffer({ pubkey: user.user_id, offer: offer })
+            noffer: encodeNoffer({ pubkey: user.user_id, offer: offer, priceType: 'fixed', price: newProduct.price_sats })
         }
     }
 

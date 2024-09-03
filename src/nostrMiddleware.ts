@@ -7,7 +7,7 @@ import { ERROR, getLogger } from "./services/helpers/logger.js";
 import { UnsignedEvent } from "./services/nostr/tools/event.js";
 import { defaultInvoiceExpiry } from "./services/storage/paymentStorage.js";
 import { Application } from "./services/storage/entity/Application.js";
-
+type NofferData = { offer: string, amount?: number }
 export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSettings: NostrSettings, onClientEvent: (e: { requestId: string }, fromPub: string) => void): { Stop: () => void, Send: NostrSend } => {
     const log = getLogger({})
     const nostrTransport = NewNostrTransport(serverMethods, {
@@ -49,9 +49,8 @@ export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSett
             return
         }
         if (event.kind === 21001) {
-            const offerReq = j as { offer: string }
-            handleNofferEvent(mainHandler, offerReq, event)
-                .then(e => nostr.Send({ type: 'app', appId: event.appId }, { type: 'event', event: e, encrypt: { toPub: event.pub } }))
+            const offerReq = j as NofferData
+            mainHandler.handleNip69Noffer(offerReq, event)
             return
         }
         if (!j.rpcName) {
@@ -69,40 +68,4 @@ export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSett
     return { Stop: () => nostr.Stop, Send: (...args) => nostr.Send(...args) }
 }
 
-// TODO: move this to paymentManager
-const handleNofferEvent = async (mainHandler: Main, offerReq: { offer: string }, event: NostrEvent): Promise<UnsignedEvent> => {
-    const app = await mainHandler.storage.applicationStorage.GetApplication(event.appId)
-    try {
-        const offer = offerReq.offer
-        let invoice: string
-        const split = offer.split(':')
-        if (split.length === 1) {
-            const user = await mainHandler.storage.applicationStorage.GetApplicationUser(app, split[0])
-            //TODO: add prop def for amount
-            const userInvoice = await mainHandler.paymentManager.NewInvoice(user.user.user_id, { amountSats: 1000, memo: "free offer" }, { expiry: defaultInvoiceExpiry, linkedApplication: app })
-            invoice = userInvoice.invoice
-        } else if (split[0] === 'p') {
-            const product = await mainHandler.productManager.NewProductInvoice(split[1])
-            invoice = product.invoice
-        } else {
-            return newNofferResponse(JSON.stringify({ code: 1, message: 'Invalid Offer' }), app, event)
-        }
-        return newNofferResponse(JSON.stringify({ bolt11: invoice }), app, event)
-    } catch (e: any) {
-        getLogger({ component: "noffer" })(ERROR, e.message || e)
-        return newNofferResponse(JSON.stringify({ code: 1, message: 'Invalid Offer' }), app, event)
-    }
-}
 
-const newNofferResponse = (content: string, app: Application, event: NostrEvent): UnsignedEvent => {
-    return {
-        content,
-        created_at: Math.floor(Date.now() / 1000),
-        kind: 21001,
-        pubkey: app.nostr_public_key!,
-        tags: [
-            ['p', event.pub],
-            ['e', event.id],
-        ],
-    }
-}

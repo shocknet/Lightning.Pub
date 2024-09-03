@@ -12,7 +12,7 @@ import AppUserManager from "./appUserManager.js"
 import { Application } from '../storage/entity/Application.js'
 import { UserReceivingInvoice } from '../storage/entity/UserReceivingInvoice.js'
 import { UnsignedEvent } from '../nostr/tools/event.js'
-import { NostrSend } from '../nostr/handler.js'
+import { NostrEvent, NostrSend } from '../nostr/handler.js'
 import MetricsManager from '../metrics/index.js'
 import { LoggedEvent } from '../storage/eventsLog.js'
 import { LiquidityProvider } from "./liquidityProvider.js"
@@ -21,6 +21,7 @@ import { Utils } from "../helpers/utilsWrapper.js"
 import { RugPullTracker } from "./rugPullTracker.js"
 import { AdminManager } from "./adminManager.js"
 import { Unlocker } from "./unlocker.js"
+import { defaultInvoiceExpiry } from "../storage/paymentStorage.js"
 
 type UserOperationsSub = {
     id: string
@@ -30,6 +31,7 @@ type UserOperationsSub = {
     newOutgoingTx: (operation: Types.UserOperation) => void
 }
 const appTag = "Lightning.Pub"
+
 export default class {
     storage: Storage
     lnd: LND
@@ -46,9 +48,9 @@ export default class {
     liquidityProvider: LiquidityProvider
     utils: Utils
     rugPullTracker: RugPullTracker
-    unlocker:Unlocker
+    unlocker: Unlocker
     nostrSend: NostrSend = () => { getLogger({})("nostr send not initialized yet") }
-    constructor(settings: MainSettings, storage: Storage, adminManager: AdminManager, utils: Utils,unlocker:Unlocker) {
+    constructor(settings: MainSettings, storage: Storage, adminManager: AdminManager, utils: Utils, unlocker: Unlocker) {
         this.settings = settings
         this.storage = storage
         this.utils = utils
@@ -271,5 +273,68 @@ export default class {
         }
         log({ unsigned: event })
         this.nostrSend({ type: 'app', appId: invoice.linkedApplication.app_id }, { type: 'event', event })
+    }
+
+    async getNofferInvoice(offerReq: { offer: string, amount?: number }, appId: string): Promise<{ success: true, invoice: string } | { success: false, code: number }> {
+        try {
+            const { remote } = await this.lnd.ChannelBalance()
+            const { offer, amount } = offerReq
+            const split = offer.split(':')
+            if (split.length === 1) {
+                if (!amount || isNaN(amount) || amount < 10 || amount > remote) {
+                    return { success: false, code: 5 }
+                }
+                const res = await this.applicationManager.AddAppUserInvoice(appId, {
+                    http_callback_url: "", payer_identifier: split[0], receiver_identifier: split[0],
+                    invoice_req: { amountSats: amount, memo: "free offer" }
+                })
+                return { success: true, invoice: res.invoice }
+            } else if (split[0] === 'p') {
+                const product = await this.productManager.NewProductInvoice(split[1])
+                return { success: true, invoice: product.invoice }
+            } else {
+                return { success: false, code: 1 }
+            }
+        } catch (e: any) {
+            getLogger({ component: "noffer" })(ERROR, e.message || e)
+            return { success: false, code: 1 }
+        }
+    }
+
+    async handleNip69Noffer(offerReq: { offer: string }, event: NostrEvent) {
+        const offerInvoice = await this.getNofferInvoice(offerReq, event.appId)
+        if (!offerInvoice.success) {
+            const code = offerInvoice.code
+            const e = newNofferResponse(JSON.stringify({ code, message: codeToMessage(code) }), event)
+            this.nostrSend({ type: 'app', appId: event.appId }, { type: 'event', event: e, encrypt: { toPub: event.pub } })
+            return
+        }
+        const e = newNofferResponse(JSON.stringify({ bolt11: offerInvoice.invoice }), event)
+        this.nostrSend({ type: 'app', appId: event.appId }, { type: 'event', event: e, encrypt: { toPub: event.pub } })
+        return
+    }
+}
+
+const codeToMessage = (code: number) => {
+    switch (code) {
+        case 1: return 'Invalid Offer'
+        case 2: return 'Temporary Failure'
+        case 3: return 'Expired Offer'
+        case 4: return 'Unsupported Feature'
+        case 5: return 'Invalid Amount'
+        default: throw new Error("unknown error code" + code)
+    }
+}
+
+const newNofferResponse = (content: string, event: NostrEvent): UnsignedEvent => {
+    return {
+        content,
+        created_at: Math.floor(Date.now() / 1000),
+        kind: 21001,
+        pubkey: "",
+        tags: [
+            ['p', event.pub],
+            ['e', event.id],
+        ],
     }
 }

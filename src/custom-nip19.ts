@@ -22,8 +22,14 @@ export type OfferPointer = {
   pubkey: string,
   relays?: string[],
   offer: string
+  priceType: 'fixed' | 'spontaneous' | 'variable',
+  price?: number
 }
-
+enum PriceType {
+  fixed = 0,
+  variable = 1,
+  spontaneous = 2,
+}
 
 
 type TLV = { [t: number]: Uint8Array[] }
@@ -67,11 +73,17 @@ export const encodeNoffer = (offer: OfferPointer): string => {
     const settings = LoadNosrtSettingsFromEnv()
     relays = settings.relays
   }
-  const data = encodeTLV({
+  const typeAsNum = Number(PriceType[offer.priceType])
+  const o: TLV = {
     0: [hexToBytes(offer.pubkey)],
     1: (relays).map(url => utf8Encoder.encode(url)),
-    2: [utf8Encoder.encode(offer.offer)]
-  });
+    2: [utf8Encoder.encode(offer.offer)],
+    3: [new Uint8Array([typeAsNum])],
+  }
+  if (offer.price) {
+    o[4] = [new Uint8Array(new BigUint64Array([BigInt(offer.price)]).buffer)]
+  }
+  const data = encodeTLV(o);
   const words = bech32.toWords(data)
   return bech32.encode("noffer", words, 5000);
 }
@@ -89,6 +101,24 @@ const parseTLV = (data: Uint8Array): TLV => {
     result[t].push(v)
   }
   return result
+}
+
+export const decodeNoffer = (noffer: string): OfferPointer => {
+  const { prefix, words } = bech32.decode(noffer, 5000)
+  if (prefix !== "noffer") {
+    throw new Error("Expected nprofile prefix");
+  }
+  const data = new Uint8Array(bech32.fromWords(words))
+
+  const tlv = parseTLV(data);
+  if (!tlv[0]?.[0]) throw new Error('missing TLV 0 for noffer')
+  if (tlv[0][0].length !== 32) throw new Error('TLV 0 should be 32 bytes')
+
+  return {
+    pubkey: bytesToHex(tlv[0][0]),
+    relays: tlv[1] ? tlv[1].map(d => utf8Decoder.decode(d)) : [],
+    bridge: tlv[2] ? tlv[2].map(d => utf8Decoder.decode(d)) : []
+  }
 }
 
 export const decodeNprofile = (nprofile: string): CustomProfilePointer => {

@@ -189,6 +189,9 @@ export default class Handler {
                 const content = await encryptData(data.event.content, getSharedSecret(keys.privateKey, data.encrypt.toPub))
                 toSign.content = encodePayload(content)
             }
+            if (!toSign.pubkey) {
+                toSign.pubkey = keys.publicKey
+            }
         }
 
         const signed = finishEvent(toSign, keys.privateKey)

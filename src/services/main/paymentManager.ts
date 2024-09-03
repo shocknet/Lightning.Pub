@@ -135,7 +135,7 @@ export default class {
             //})
             return
         }
-        console.log({p})
+        console.log({ p })
         const paymentRes = await this.lnd.GetPayment(p.paymentIndex)
         const payment = paymentRes.payments[0]
         if (!payment || Number(payment.paymentIndex) !== p.paymentIndex) {
@@ -337,7 +337,7 @@ export default class {
         const pendingPayment = await this.storage.txQueue.PushToQueue({
             dbTx: true, description: "payment started", exec: async tx => {
                 await this.storage.userStorage.DecrementUserBalance(userId, totalAmountToDecrement + routingFeeLimit, invoice, tx)
-                return await this.storage.paymentStorage.AddPendingExternalPayment(userId, invoice, { payAmount, serviceFee, networkFee: routingFeeLimit }, linkedApplication, provider,tx)
+                return await this.storage.paymentStorage.AddPendingExternalPayment(userId, invoice, { payAmount, serviceFee, networkFee: routingFeeLimit }, linkedApplication, provider, tx)
             }
         })
         this.log("ready to pay")
