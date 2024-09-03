@@ -68,19 +68,19 @@ const (
 )
 
 type AddAppInvoiceRequest struct {
-	Http_callback_url string            `json:"http_callback_url"`
-	Invoice_req       NewInvoiceRequest `json:"invoice_req"`
-	Payer_identifier  string            `json:"payer_identifier"`
+	Http_callback_url string             `json:"http_callback_url"`
+	Invoice_req       *NewInvoiceRequest `json:"invoice_req"`
+	Payer_identifier  string             `json:"payer_identifier"`
 }
 type AddAppRequest struct {
 	Allow_user_creation bool   `json:"allow_user_creation"`
 	Name                string `json:"name"`
 }
 type AddAppUserInvoiceRequest struct {
-	Http_callback_url   string            `json:"http_callback_url"`
-	Invoice_req         NewInvoiceRequest `json:"invoice_req"`
-	Payer_identifier    string            `json:"payer_identifier"`
-	Receiver_identifier string            `json:"receiver_identifier"`
+	Http_callback_url   string             `json:"http_callback_url"`
+	Invoice_req         *NewInvoiceRequest `json:"invoice_req"`
+	Payer_identifier    string             `json:"payer_identifier"`
+	Receiver_identifier string             `json:"receiver_identifier"`
 }
 type AddAppUserRequest struct {
 	Balance        int64  `json:"balance"`
@@ -92,7 +92,7 @@ type AddProductRequest struct {
 	Price_sats int64  `json:"price_sats"`
 }
 type AppMetrics struct {
-	App        Application     `json:"app"`
+	App        *Application    `json:"app"`
 	Available  int64           `json:"available"`
 	Fees       int64           `json:"fees"`
 	Invoices   int64           `json:"invoices"`
@@ -100,12 +100,12 @@ type AppMetrics struct {
 	Received   int64           `json:"received"`
 	Spent      int64           `json:"spent"`
 	Total_fees int64           `json:"total_fees"`
-	Users      UsersInfo       `json:"users"`
+	Users      *UsersInfo      `json:"users"`
 }
 type AppUser struct {
-	Identifier       string   `json:"identifier"`
-	Info             UserInfo `json:"info"`
-	Max_withdrawable int64    `json:"max_withdrawable"`
+	Identifier       string    `json:"identifier"`
+	Info             *UserInfo `json:"info"`
+	Max_withdrawable int64     `json:"max_withdrawable"`
 }
 type Application struct {
 	Balance int64  `json:"balance"`
@@ -122,8 +122,8 @@ type AppsMetricsRequest struct {
 	To_unix            int64 `json:"to_unix"`
 }
 type AuthApp struct {
-	App        Application `json:"app"`
-	Auth_token string      `json:"auth_token"`
+	App        *Application `json:"app"`
+	Auth_token string       `json:"auth_token"`
 }
 type AuthAppRequest struct {
 	Allow_user_creation bool   `json:"allow_user_creation"`
@@ -200,12 +200,12 @@ type GetUserOperationsRequest struct {
 	Max_size                        int64 `json:"max_size"`
 }
 type GetUserOperationsResponse struct {
-	Latestincominginvoiceoperations  UserOperations `json:"latestIncomingInvoiceOperations"`
-	Latestincomingtxoperations       UserOperations `json:"latestIncomingTxOperations"`
-	Latestincomingusertouserpayemnts UserOperations `json:"latestIncomingUserToUserPayemnts"`
-	Latestoutgoinginvoiceoperations  UserOperations `json:"latestOutgoingInvoiceOperations"`
-	Latestoutgoingtxoperations       UserOperations `json:"latestOutgoingTxOperations"`
-	Latestoutgoingusertouserpayemnts UserOperations `json:"latestOutgoingUserToUserPayemnts"`
+	Latestincominginvoiceoperations  *UserOperations `json:"latestIncomingInvoiceOperations"`
+	Latestincomingtxoperations       *UserOperations `json:"latestIncomingTxOperations"`
+	Latestincomingusertouserpayemnts *UserOperations `json:"latestIncomingUserToUserPayemnts"`
+	Latestoutgoinginvoiceoperations  *UserOperations `json:"latestOutgoingInvoiceOperations"`
+	Latestoutgoingtxoperations       *UserOperations `json:"latestOutgoingTxOperations"`
+	Latestoutgoingusertouserpayemnts *UserOperations `json:"latestOutgoingUserToUserPayemnts"`
 }
 type GraphPoint struct {
 	X int64 `json:"x"`
@@ -223,7 +223,7 @@ type LinkNPubThroughTokenRequest struct {
 	Token string `json:"token"`
 }
 type LiveUserOperation struct {
-	Operation UserOperation `json:"operation"`
+	Operation *UserOperation `json:"operation"`
 }
 type LndChannels struct {
 	Open_channels []OpenChannel `json:"open_channels"`
@@ -281,8 +281,8 @@ type LnurlWithdrawInfoResponse struct {
 	Tag                string `json:"tag"`
 }
 type MigrationUpdate struct {
-	Closure ClosureMigration `json:"closure"`
-	Relays  RelaysMigration  `json:"relays"`
+	Closure *ClosureMigration `json:"closure"`
+	Relays  *RelaysMigration  `json:"relays"`
 }
 type NewAddressRequest struct {
 	Addresstype AddressType `json:"addressType"`
