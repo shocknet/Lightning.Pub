@@ -652,7 +652,6 @@ The nostr server will send back a message response, and inside the body there wi
   - __identifier__: _string_
   - __info__: _[UserInfo](#UserInfo)_
   - __max_withdrawable__: _number_
-  - __noffer__: _string_
 
 ### Application
   - __balance__: _number_
@@ -966,6 +965,7 @@ The nostr server will send back a message response, and inside the body there wi
   - __max_withdrawable__: _number_
   - __network_max_fee_bps__: _number_
   - __network_max_fee_fixed__: _number_
+  - __noffer__: _string_
   - __service_fee_bps__: _number_
   - __userId__: _string_
   - __user_identifier__: _string_

@@ -510,7 +510,6 @@ export type AppUser = {
     identifier: string
     info: UserInfo
     max_withdrawable: number
-    noffer: string
 }
 export const AppUserOptionalFields: [] = []
 export type AppUserOptions = OptionsBaseMessage & {
@@ -518,7 +517,6 @@ export type AppUserOptions = OptionsBaseMessage & {
     identifier_CustomCheck?: (v: string) => boolean
     info_Options?: UserInfoOptions
     max_withdrawable_CustomCheck?: (v: number) => boolean
-    noffer_CustomCheck?: (v: string) => boolean
 }
 export const AppUserValidate = (o?: AppUser, opts: AppUserOptions = {}, path: string = 'AppUser::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
@@ -533,9 +531,6 @@ export const AppUserValidate = (o?: AppUser, opts: AppUserOptions = {}, path: st
 
     if (typeof o.max_withdrawable !== 'number') return new Error(`${path}.max_withdrawable: is not a number`)
     if (opts.max_withdrawable_CustomCheck && !opts.max_withdrawable_CustomCheck(o.max_withdrawable)) return new Error(`${path}.max_withdrawable: custom check failed`)
-
-    if (typeof o.noffer !== 'string') return new Error(`${path}.noffer: is not a string`)
-    if (opts.noffer_CustomCheck && !opts.noffer_CustomCheck(o.noffer)) return new Error(`${path}.noffer: custom check failed`)
 
     return null
 }
@@ -2361,6 +2356,7 @@ export type UserInfo = {
     max_withdrawable: number
     network_max_fee_bps: number
     network_max_fee_fixed: number
+    noffer: string
     service_fee_bps: number
     userId: string
     user_identifier: string
@@ -2372,6 +2368,7 @@ export type UserInfoOptions = OptionsBaseMessage & {
     max_withdrawable_CustomCheck?: (v: number) => boolean
     network_max_fee_bps_CustomCheck?: (v: number) => boolean
     network_max_fee_fixed_CustomCheck?: (v: number) => boolean
+    noffer_CustomCheck?: (v: string) => boolean
     service_fee_bps_CustomCheck?: (v: number) => boolean
     userId_CustomCheck?: (v: string) => boolean
     user_identifier_CustomCheck?: (v: string) => boolean
@@ -2391,6 +2388,9 @@ export const UserInfoValidate = (o?: UserInfo, opts: UserInfoOptions = {}, path:
 
     if (typeof o.network_max_fee_fixed !== 'number') return new Error(`${path}.network_max_fee_fixed: is not a number`)
     if (opts.network_max_fee_fixed_CustomCheck && !opts.network_max_fee_fixed_CustomCheck(o.network_max_fee_fixed)) return new Error(`${path}.network_max_fee_fixed: custom check failed`)
+
+    if (typeof o.noffer !== 'string') return new Error(`${path}.noffer: is not a string`)
+    if (opts.noffer_CustomCheck && !opts.noffer_CustomCheck(o.noffer)) return new Error(`${path}.noffer: custom check failed`)
 
     if (typeof o.service_fee_bps !== 'number') return new Error(`${path}.service_fee_bps: is not a number`)
     if (opts.service_fee_bps_CustomCheck && !opts.service_fee_bps_CustomCheck(o.service_fee_bps)) return new Error(`${path}.service_fee_bps: custom check failed`)

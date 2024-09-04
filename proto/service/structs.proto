@@ -192,7 +192,6 @@ message AppUser {
     string identifier = 1;
     UserInfo info = 2;
     int64 max_withdrawable = 3;
-    string noffer = 4;
 }
 
 message AddAppInvoiceRequest {
@@ -354,6 +353,7 @@ message UserInfo{
     int64 service_fee_bps = 5;
     int64 network_max_fee_bps = 6;
     int64 network_max_fee_fixed = 7;
+    string noffer = 8;
 }
 
 message GetUserOperationsRequest{
