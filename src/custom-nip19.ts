@@ -25,7 +25,7 @@ export type OfferPointer = {
   priceType: PriceType,
   price?: number
 }
-enum PriceType {
+export enum PriceType {
   fixed = 0,
   variable = 1,
   spontaneous = 2,
