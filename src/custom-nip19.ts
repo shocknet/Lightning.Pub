@@ -20,9 +20,9 @@ export type CustomProfilePointer = {
 
 export type OfferPointer = {
   pubkey: string,
-  relays?: string[],
+  relay: string,
   offer: string
-  priceType: 'fixed' | 'spontaneous' | 'variable',
+  priceType: PriceType,
   price?: number
 }
 enum PriceType {
@@ -68,17 +68,16 @@ export const encodeNprofile = (profile: CustomProfilePointer): string => {
 }
 
 export const encodeNoffer = (offer: OfferPointer): string => {
-  let relays = offer.relays
-  if (!relays) {
+  let relay = offer.relay
+  if (!relay) {
     const settings = LoadNosrtSettingsFromEnv()
-    relays = settings.relays
+    relay = settings.relays[0]
   }
-  const typeAsNum = Number(PriceType[offer.priceType])
   const o: TLV = {
     0: [hexToBytes(offer.pubkey)],
-    1: (relays).map(url => utf8Encoder.encode(url)),
+    1: [utf8Encoder.encode(relay)],
     2: [utf8Encoder.encode(offer.offer)],
-    3: [new Uint8Array([typeAsNum])],
+    3: [new Uint8Array([Number(offer.priceType)])],
   }
   if (offer.price) {
     o[4] = [new Uint8Array(new BigUint64Array([BigInt(offer.price)]).buffer)]
@@ -113,11 +112,15 @@ export const decodeNoffer = (noffer: string): OfferPointer => {
   const tlv = parseTLV(data);
   if (!tlv[0]?.[0]) throw new Error('missing TLV 0 for noffer')
   if (tlv[0][0].length !== 32) throw new Error('TLV 0 should be 32 bytes')
-
+  if (!tlv[1]?.[0]) throw new Error('missing TLV 1 for noffer')
+  if (!tlv[2]?.[0]) throw new Error('missing TLV 2 for noffer')
+  if (!tlv[3]?.[0]) throw new Error('missing TLV 3 for noffer')
   return {
     pubkey: bytesToHex(tlv[0][0]),
-    relays: tlv[1] ? tlv[1].map(d => utf8Decoder.decode(d)) : [],
-    bridge: tlv[2] ? tlv[2].map(d => utf8Decoder.decode(d)) : []
+    relay: utf8Decoder.decode(tlv[1][0]),
+    offer: utf8Decoder.decode(tlv[2][0]),
+    priceType: tlv[3][0][0],
+    price: tlv[4] ? Number(new BigUint64Array(tlv[4][0])[0]) : undefined
   }
 }
 

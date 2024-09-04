@@ -31,7 +31,7 @@ type UserOperationsSub = {
     newOutgoingTx: (operation: Types.UserOperation) => void
 }
 const appTag = "Lightning.Pub"
-
+export type NofferData = { offer: string, amount?: number }
 export default class {
     storage: Storage
     lnd: LND
@@ -275,14 +275,14 @@ export default class {
         this.nostrSend({ type: 'app', appId: invoice.linkedApplication.app_id }, { type: 'event', event })
     }
 
-    async getNofferInvoice(offerReq: { offer: string, amount?: number }, appId: string): Promise<{ success: true, invoice: string } | { success: false, code: number }> {
+    async getNofferInvoice(offerReq: NofferData, appId: string): Promise<{ success: true, invoice: string } | { success: false, code: number, max: number }> {
         try {
             const { remote } = await this.lnd.ChannelBalance()
             const { offer, amount } = offerReq
             const split = offer.split(':')
             if (split.length === 1) {
                 if (!amount || isNaN(amount) || amount < 10 || amount > remote) {
-                    return { success: false, code: 5 }
+                    return { success: false, code: 5, max: remote }
                 }
                 const res = await this.applicationManager.AddAppUserInvoice(appId, {
                     http_callback_url: "", payer_identifier: split[0], receiver_identifier: split[0],
@@ -293,19 +293,19 @@ export default class {
                 const product = await this.productManager.NewProductInvoice(split[1])
                 return { success: true, invoice: product.invoice }
             } else {
-                return { success: false, code: 1 }
+                return { success: false, code: 1, max: remote }
             }
         } catch (e: any) {
             getLogger({ component: "noffer" })(ERROR, e.message || e)
-            return { success: false, code: 1 }
+            return { success: false, code: 1, max: 0 }
         }
     }
 
-    async handleNip69Noffer(offerReq: { offer: string }, event: NostrEvent) {
+    async handleNip69Noffer(offerReq: NofferData, event: NostrEvent) {
         const offerInvoice = await this.getNofferInvoice(offerReq, event.appId)
         if (!offerInvoice.success) {
             const code = offerInvoice.code
-            const e = newNofferResponse(JSON.stringify({ code, message: codeToMessage(code) }), event)
+            const e = newNofferResponse(JSON.stringify({ code, error: codeToMessage(code), range: { min: 10, max: offerInvoice.max } }), event)
             this.nostrSend({ type: 'app', appId: event.appId }, { type: 'event', event: e, encrypt: { toPub: event.pub } })
             return
         }
