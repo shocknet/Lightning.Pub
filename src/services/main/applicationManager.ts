@@ -8,6 +8,7 @@ import { ApplicationUser } from '../storage/entity/ApplicationUser.js'
 import { PubLogger, getLogger } from '../helpers/logger.js'
 import crypto from 'crypto'
 import { Application } from '../storage/entity/Application.js'
+import { encodeNoffer, PriceType } from '../../custom-nip19.js'
 
 const TOKEN_EXPIRY_TIME = 2 * 60 * 1000 // 2 minutes, in milliseconds
 
@@ -157,7 +158,8 @@ export default class {
                 user_identifier: u.identifier,
                 network_max_fee_bps: this.settings.lndSettings.feeRateBps,
                 network_max_fee_fixed: this.settings.lndSettings.feeFixedLimit,
-                service_fee_bps: this.settings.outgoingAppUserInvoiceFeeBps
+                service_fee_bps: this.settings.outgoingAppUserInvoiceFeeBps,
+                noffer: encodeNoffer({ pubkey: app.nostr_public_key!, offer: u.identifier, priceType: PriceType.spontaneous, relay: "" })
 
             },
             max_withdrawable: this.paymentManager.GetMaxPayableInvoice(u.user.balance_sats, true)
@@ -196,8 +198,9 @@ export default class {
                 user_identifier: user.identifier,
                 network_max_fee_bps: this.settings.lndSettings.feeRateBps,
                 network_max_fee_fixed: this.settings.lndSettings.feeFixedLimit,
-                service_fee_bps: this.settings.outgoingAppUserInvoiceFeeBps
-            }
+                service_fee_bps: this.settings.outgoingAppUserInvoiceFeeBps,
+                noffer: encodeNoffer({ pubkey: app.nostr_public_key!, offer: user.identifier, priceType: PriceType.spontaneous, relay: "" })
+            },
         }
     }
 

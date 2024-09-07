@@ -897,6 +897,7 @@ The nostr server will send back a message response, and inside the body there wi
 ### Product
   - __id__: _string_
   - __name__: _string_
+  - __noffer__: _string_
   - __price_sats__: _number_
 
 ### RelaysMigration
@@ -964,6 +965,7 @@ The nostr server will send back a message response, and inside the body there wi
   - __max_withdrawable__: _number_
   - __network_max_fee_bps__: _number_
   - __network_max_fee_fixed__: _number_
+  - __noffer__: _string_
   - __service_fee_bps__: _number_
   - __userId__: _string_
   - __user_identifier__: _string_

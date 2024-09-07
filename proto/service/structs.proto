@@ -353,6 +353,7 @@ message UserInfo{
     int64 service_fee_bps = 5;
     int64 network_max_fee_bps = 6;
     int64 network_max_fee_fixed = 7;
+    string noffer = 8;
 }
 
 message GetUserOperationsRequest{
@@ -409,6 +410,7 @@ message Product {
     string id = 1;
     string name = 2;
     int64 price_sats = 3;
+    string noffer = 4;
 }
 
 message GetProductBuyLinkResponse {
