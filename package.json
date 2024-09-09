@@ -25,7 +25,7 @@
   },
   "homepage": "https://github.com/shocknet/Lightning.Pub#readme",
   "dependencies": {
-    "@grpc/grpc-js": "^1.8.22",
+    "@grpc/grpc-js": "^1.11.2",
     "@protobuf-ts/grpc-transport": "^2.9.4",
     "@protobuf-ts/plugin": "^2.5.0",
     "@protobuf-ts/runtime": "^2.5.0",
