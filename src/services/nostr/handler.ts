@@ -166,7 +166,15 @@ export default class Handler {
         const startAtMs = Date.now()
         const startAtNano = process.hrtime.bigint().toString()
         const decoded = decodePayload(e.content)
-        const content = await decryptData(decoded, getSharedSecret(app.privateKey, e.pubkey))
+        let content = ""
+        try {
+
+            content = await decryptData(decoded, getSharedSecret(app.privateKey, e.pubkey))
+        } catch (e: any) {
+            this.log(ERROR, "failed to decrypt event", e.message)
+            return
+
+        }
         this.eventCallback({ id: eventId, content, pub: e.pubkey, appId: app.appId, startAtNano, startAtMs, kind: e.kind })
     }
 
