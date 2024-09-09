@@ -1,6 +1,6 @@
 //import { SimplePool, Sub, Event, UnsignedEvent, getEventHash, signEvent } from 'nostr-tools'
 import { SimplePool, Sub, Event, UnsignedEvent, getEventHash, finishEvent, relayInit } from './tools/index.js'
-import { encryptData, decryptData, getSharedSecret, decodePayload, encodePayload } from './nip44.js'
+import { encryptData, decryptData, getSharedSecret, decodePayload, encodePayload, EncryptedData } from './nip44.js'
 import { ERROR, getLogger } from '../helpers/logger.js'
 import { encodeNprofile } from '../../custom-nip19.js'
 const handledEvents: string[] = [] // TODO: - big memory leak here, add TTL
@@ -182,7 +182,13 @@ export default class Handler {
         const keys = this.GetSendKeys(initiator)
         let toSign: UnsignedEvent
         if (data.type === 'content') {
-            const decoded = await encryptData(data.content, getSharedSecret(keys.privateKey, data.pub))
+            let decoded: EncryptedData
+            try {
+                decoded = await encryptData(data.content, getSharedSecret(keys.privateKey, data.pub))
+            } catch (e: any) {
+                this.log(ERROR, "failed to encrypt content", e.message)
+                return
+            }
             const content = encodePayload(decoded)
             toSign = {
                 content,
@@ -194,8 +200,13 @@ export default class Handler {
         } else {
             toSign = data.event
             if (data.encrypt) {
-                const content = await encryptData(data.event.content, getSharedSecret(keys.privateKey, data.encrypt.toPub))
-                toSign.content = encodePayload(content)
+                try {
+                    const content = await encryptData(data.event.content, getSharedSecret(keys.privateKey, data.encrypt.toPub))
+                    toSign.content = encodePayload(content)
+                } catch (e: any) {
+                    this.log(ERROR, "failed to encrypt content", e.message)
+                    return
+                }
             }
             if (!toSign.pubkey) {
                 toSign.pubkey = keys.publicKey

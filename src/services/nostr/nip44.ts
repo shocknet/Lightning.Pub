@@ -3,7 +3,7 @@ import { randomBytes } from "@noble/hashes/utils";
 import { streamXOR as xchacha20 } from "@stablelib/xchacha20";
 import { secp256k1 } from "@noble/curves/secp256k1";
 import { sha256 } from "@noble/hashes/sha256";
-type EncryptedData = {
+export type EncryptedData = {
     ciphertext: Uint8Array;
     nonce: Uint8Array;
 }
