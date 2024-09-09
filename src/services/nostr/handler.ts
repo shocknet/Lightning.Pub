@@ -165,13 +165,12 @@ export default class Handler {
         handledEvents.push(eventId)
         const startAtMs = Date.now()
         const startAtNano = process.hrtime.bigint().toString()
-        const decoded = decodePayload(e.content)
         let content = ""
         try {
-
+            const decoded = decodePayload(e.content)
             content = await decryptData(decoded, getSharedSecret(app.privateKey, e.pubkey))
         } catch (e: any) {
-            this.log(ERROR, "failed to decrypt event", e.message)
+            this.log(ERROR, "failed to decrypt event", e.message, e.content)
             return
 
         }
@@ -182,14 +181,14 @@ export default class Handler {
         const keys = this.GetSendKeys(initiator)
         let toSign: UnsignedEvent
         if (data.type === 'content') {
-            let decoded: EncryptedData
+            let content: string
             try {
-                decoded = await encryptData(data.content, getSharedSecret(keys.privateKey, data.pub))
+                const decoded = await encryptData(data.content, getSharedSecret(keys.privateKey, data.pub))
+                content = encodePayload(decoded)
             } catch (e: any) {
-                this.log(ERROR, "failed to encrypt content", e.message)
+                this.log(ERROR, "failed to encrypt content", e.message, data.content)
                 return
             }
-            const content = encodePayload(decoded)
             toSign = {
                 content,
                 created_at: Math.floor(Date.now() / 1000),
