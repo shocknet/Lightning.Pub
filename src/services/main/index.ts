@@ -286,7 +286,7 @@ export default class {
                 }
                 const res = await this.applicationManager.AddAppUserInvoice(appId, {
                     http_callback_url: "", payer_identifier: split[0], receiver_identifier: split[0],
-                    invoice_req: { amountSats: amount, memo: "free offer" }
+                    invoice_req: { amountSats: amount, memo: "Default NIP-69 Offer" }
                 })
                 return { success: true, invoice: res.invoice }
             } else if (split[0] === 'p') {
