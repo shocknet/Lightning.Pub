@@ -53,8 +53,8 @@ By solving the networking and programability hurdles, Pub provides Lightning wit
 
 ## Planned Features
 
-- [ ] A management dashboard is actively being integrated into [ShockWallet](https://github.com/shocknet/wallet2)
-- [ ] Nostr native "offers" (successor to LNURL-Pay, Lightning Address, Bxlt12)
+- [x] A management dashboard is actively being integrated into [ShockWallet](https://github.com/shocknet/wallet2)
+- [x] NIP-69 Nostr native "offers" 
 - [ ] P2P "LSP" coordination for channel batching over Nostr
 - [ ] Event Notifications
 - [ ] Swap integration
