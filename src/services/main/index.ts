@@ -22,6 +22,9 @@ import { RugPullTracker } from "./rugPullTracker.js"
 import { AdminManager } from "./adminManager.js"
 import { Unlocker } from "./unlocker.js"
 import { defaultInvoiceExpiry } from "../storage/paymentStorage.js"
+import { DebitPointer } from "../../custom-nip19.js"
+import { DebitKeyType } from "../storage/entity/DebitAccess.js"
+import { DebitManager, NdebitData } from "./debitManager.js"
 
 type UserOperationsSub = {
     id: string
@@ -32,6 +35,7 @@ type UserOperationsSub = {
 }
 const appTag = "Lightning.Pub"
 export type NofferData = { offer: string, amount?: number }
+
 export default class {
     storage: Storage
     lnd: LND
@@ -46,6 +50,7 @@ export default class {
     metricsManager: MetricsManager
     liquidityManager: LiquidityManager
     liquidityProvider: LiquidityProvider
+    debitManager: DebitManager
     utils: Utils
     rugPullTracker: RugPullTracker
     unlocker: Unlocker
@@ -67,6 +72,7 @@ export default class {
         this.productManager = new ProductManager(this.storage, this.paymentManager, this.settings)
         this.applicationManager = new ApplicationManager(this.storage, this.settings, this.paymentManager)
         this.appUserManager = new AppUserManager(this.storage, this.settings, this.applicationManager)
+        this.debitManager = new DebitManager(this.storage)
     }
 
     Stop() {
@@ -313,6 +319,24 @@ export default class {
         this.nostrSend({ type: 'app', appId: event.appId }, { type: 'event', event: e, encrypt: { toPub: event.pub } })
         return
     }
+
+    handleNip68Debit = async (pointerdata: NdebitData, event: NostrEvent) => {
+        const res = await this.debitManager.payNdebitInvoice(event.appId, event.pub, pointerdata)
+        if (!res.ok) {
+            const e = newNdebitResponse(JSON.stringify(res.debitRes), event)
+            this.nostrSend({ type: 'app', appId: event.appId }, { type: 'event', event: e, encrypt: { toPub: event.pub } })
+            return
+        }
+        const { op, appUserId, debitRes } = res
+        const message: Types.LiveUserOperation & { requestId: string, status: 'OK' } = { operation: op, requestId: "GetLiveUserOperations", status: 'OK' }
+        const app = await this.storage.applicationStorage.GetApplication(event.appId)
+        const appUser = await this.storage.applicationStorage.GetApplicationUser(app, appUserId)
+        if (appUser.nostr_public_key) {
+            this.nostrSend({ type: 'app', appId: event.appId }, { type: 'content', content: JSON.stringify(message), pub: appUser.nostr_public_key })
+        }
+        const e = newNdebitResponse(JSON.stringify(debitRes), event)
+        this.nostrSend({ type: 'app', appId: event.appId }, { type: 'event', event: e, encrypt: { toPub: event.pub } })
+    }
 }
 
 const codeToMessage = (code: number) => {
@@ -331,6 +355,19 @@ const newNofferResponse = (content: string, event: NostrEvent): UnsignedEvent =>
         content,
         created_at: Math.floor(Date.now() / 1000),
         kind: 21001,
+        pubkey: "",
+        tags: [
+            ['p', event.pub],
+            ['e', event.id],
+        ],
+    }
+}
+
+const newNdebitResponse = (content: string, event: NostrEvent): UnsignedEvent => {
+    return {
+        content,
+        created_at: Math.floor(Date.now() / 1000),
+        kind: 21002,
         pubkey: "",
         tags: [
             ['p', event.pub],

@@ -30,7 +30,11 @@ export enum PriceType {
   variable = 1,
   spontaneous = 2,
 }
-
+export type DebitPointer = {
+  pubkey: string,
+  relay: string,
+  pointerId?: string,
+}
 
 type TLV = { [t: number]: Uint8Array[] }
 
@@ -86,6 +90,23 @@ export const encodeNoffer = (offer: OfferPointer): string => {
   const words = bech32.toWords(data)
   return bech32.encode("noffer", words, 5000);
 }
+export const encodeNdebit = (debit: DebitPointer): string => {
+  let relay = debit.relay
+  if (!relay) {
+    const settings = LoadNosrtSettingsFromEnv()
+    relay = settings.relays[0]
+  }
+  const o: TLV = {
+    0: [hexToBytes(debit.pubkey)],
+    1: [utf8Encoder.encode(relay)],
+  }
+  if (debit.pointerId) {
+    o[2] = [utf8Encoder.encode(debit.pointerId)]
+  }
+  const data = encodeTLV(o);
+  const words = bech32.toWords(data)
+  return bech32.encode("ndebit", words, 5000);
+}
 
 const parseTLV = (data: Uint8Array): TLV => {
   const result: TLV = {}
@@ -121,6 +142,23 @@ export const decodeNoffer = (noffer: string): OfferPointer => {
     offer: utf8Decoder.decode(tlv[2][0]),
     priceType: tlv[3][0][0],
     price: tlv[4] ? Number(new BigUint64Array(tlv[4][0])[0]) : undefined
+  }
+}
+export const decodeNdebit = (noffer: string): DebitPointer => {
+  const { prefix, words } = bech32.decode(noffer, 5000)
+  if (prefix !== "ndebit") {
+    throw new Error("Expected nprofile prefix");
+  }
+  const data = new Uint8Array(bech32.fromWords(words))
+
+  const tlv = parseTLV(data);
+  if (!tlv[0]?.[0]) throw new Error('missing TLV 0 for noffer')
+  if (tlv[0][0].length !== 32) throw new Error('TLV 0 should be 32 bytes')
+  if (!tlv[1]?.[0]) throw new Error('missing TLV 1 for noffer')
+  return {
+    pubkey: bytesToHex(tlv[0][0]),
+    relay: utf8Decoder.decode(tlv[1][0]),
+    pointerId: tlv[2] ? utf8Decoder.decode(tlv[2][0]) : undefined
   }
 }
 
