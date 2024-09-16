@@ -477,3 +477,28 @@ message GetInviteTokenStateRequest {
 message GetInviteTokenStateResponse {
     bool used = 1;
 }
+
+
+
+message DebitAuthorization {
+    optional string authorize_npub =1;
+}
+
+enum AuthorizedDebitType {
+    NPUB = 0;
+    KEY = 1;
+}
+
+message AuthorizedDebit {
+    string debit_id = 1;
+    AuthorizedDebitType debit_type = 2;
+    string key = 3;
+}
+
+message AuthorizedDebits {
+    repeated AuthorizedDebit debits = 1;
+}
+
+message RemoveAuthorizedDebitRequest {
+    string debit_id = 1;
+}

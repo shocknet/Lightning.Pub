@@ -21,6 +21,7 @@ import { Product } from "./entity/Product.js"
 import { LndNodeInfo } from "./entity/LndNodeInfo.js"
 import { TrackedProvider } from "./entity/TrackedProvider.js"
 import { InviteToken } from "./entity/InviteToken.js"
+import { DebitAccess } from "./entity/DebitAccess.js"
 
 
 export type DbSettings = {
@@ -61,7 +62,7 @@ export default async (settings: DbSettings, migrations: Function[]): Promise<{ s
         // logging: true,
         entities: [User, UserReceivingInvoice, UserReceivingAddress, AddressReceivingTransaction, UserInvoicePayment, UserTransactionPayment,
             UserBasicAuth, UserEphemeralKey, Product, UserToUserPayment, Application, ApplicationUser, UserToUserPayment, LspOrder, LndNodeInfo, TrackedProvider,
-            InviteToken
+            InviteToken, DebitAccess
         ],
         //synchronize: true,
         migrations

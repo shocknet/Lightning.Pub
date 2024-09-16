@@ -28,6 +28,11 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [AuthAppRequest](#AuthAppRequest)
   - output: [AuthApp](#AuthApp)
 
+- AuthorizeDebit
+  - auth type: __User__
+  - input: [DebitAuthorization](#DebitAuthorization)
+  - output: [AuthorizedDebit](#AuthorizedDebit)
+
 - BanUser
   - auth type: __Admin__
   - input: [BanUserRequest](#BanUserRequest)
@@ -57,6 +62,11 @@ The nostr server will send back a message response, and inside the body there wi
   - auth type: __Metrics__
   - input: [AppsMetricsRequest](#AppsMetricsRequest)
   - output: [AppsMetrics](#AppsMetrics)
+
+- GetAuthorizedDebits
+  - auth type: __User__
+  - This methods has an __empty__ __request__ body
+  - output: [AuthorizedDebits](#AuthorizedDebits)
 
 - GetHttpCreds
   - auth type: __User__
@@ -170,6 +180,11 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [PayInvoiceRequest](#PayInvoiceRequest)
   - output: [PayInvoiceResponse](#PayInvoiceResponse)
 
+- RemoveAuthorizedDebit
+  - auth type: __User__
+  - input: [RemoveAuthorizedDebitRequest](#RemoveAuthorizedDebitRequest)
+  - This methods has an __empty__ __response__ body
+
 - UseInviteLink
   - auth type: __GuestWithPub__
   - input: [UseInviteLinkRequest](#UseInviteLinkRequest)
@@ -256,6 +271,13 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [AuthAppRequest](#AuthAppRequest)
   - output: [AuthApp](#AuthApp)
 
+- AuthorizeDebit
+  - auth type: __User__
+  - http method: __post__
+  - http route: __/api/user/debit/authorize__
+  - input: [DebitAuthorization](#DebitAuthorization)
+  - output: [AuthorizedDebit](#AuthorizedDebit)
+
 - BanUser
   - auth type: __Admin__
   - http method: __post__
@@ -325,6 +347,13 @@ The nostr server will send back a message response, and inside the body there wi
   - http route: __/api/reports/apps__
   - input: [AppsMetricsRequest](#AppsMetricsRequest)
   - output: [AppsMetrics](#AppsMetrics)
+
+- GetAuthorizedDebits
+  - auth type: __User__
+  - http method: __get__
+  - http route: __/api/user/debit/get__
+  - This methods has an __empty__ __request__ body
+  - output: [AuthorizedDebits](#AuthorizedDebits)
 
 - GetHttpCreds
   - auth type: __User__
@@ -545,6 +574,13 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [PayInvoiceRequest](#PayInvoiceRequest)
   - output: [PayInvoiceResponse](#PayInvoiceResponse)
 
+- RemoveAuthorizedDebit
+  - auth type: __User__
+  - http method: __post__
+  - http route: __/api/user/debit/remove__
+  - input: [RemoveAuthorizedDebitRequest](#RemoveAuthorizedDebitRequest)
+  - This methods has an __empty__ __response__ body
+
 - RequestNPubLinkingToken
   - auth type: __App__
   - http method: __post__
@@ -675,6 +711,14 @@ The nostr server will send back a message response, and inside the body there wi
   - __allow_user_creation__: _boolean_ *this field is optional
   - __name__: _string_
 
+### AuthorizedDebit
+  - __debit_id__: _string_
+  - __debit_type__: _[AuthorizedDebitType](#AuthorizedDebitType)_
+  - __key__: _string_
+
+### AuthorizedDebits
+  - __debits__: ARRAY of: _[AuthorizedDebit](#AuthorizedDebit)_
+
 ### BanUserRequest
   - __user_id__: _string_
 
@@ -701,6 +745,9 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### CreateOneTimeInviteLinkResponse
   - __invitation_link__: _string_
+
+### DebitAuthorization
+  - __authorize_npub__: _string_ *this field is optional
 
 ### DecodeInvoiceRequest
   - __invoice__: _string_
@@ -903,6 +950,9 @@ The nostr server will send back a message response, and inside the body there wi
 ### RelaysMigration
   - __relays__: ARRAY of: _string_
 
+### RemoveAuthorizedDebitRequest
+  - __debit_id__: _string_
+
 ### RequestNPubLinkingTokenRequest
   - __user_identifier__: _string_
 
@@ -1002,6 +1052,10 @@ The nostr server will send back a message response, and inside the body there wi
   - __NESTED_PUBKEY_HASH__
   - __TAPROOT_PUBKEY__
   - __WITNESS_PUBKEY_HASH__
+
+### AuthorizedDebitType
+  - __KEY__
+  - __NPUB__
 
 ### UserOperationType
   - __INCOMING_INVOICE__

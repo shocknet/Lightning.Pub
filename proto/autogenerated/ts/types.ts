@@ -34,8 +34,8 @@ export type UserContext = {
     app_user_id: string
     user_id: string
 }
-export type UserMethodInputs = AddProduct_Input | DecodeInvoice_Input | EnrollAdminToken_Input | GetLNURLChannelLink_Input | GetLnurlPayLink_Input | GetLnurlWithdrawLink_Input | GetPaymentState_Input | GetUserInfo_Input | GetUserOperations_Input | NewAddress_Input | NewInvoice_Input | NewProductInvoice_Input | OpenChannel_Input | PayAddress_Input | PayInvoice_Input | UserHealth_Input
-export type UserMethodOutputs = AddProduct_Output | DecodeInvoice_Output | EnrollAdminToken_Output | GetLNURLChannelLink_Output | GetLnurlPayLink_Output | GetLnurlWithdrawLink_Output | GetPaymentState_Output | GetUserInfo_Output | GetUserOperations_Output | NewAddress_Output | NewInvoice_Output | NewProductInvoice_Output | OpenChannel_Output | PayAddress_Output | PayInvoice_Output | UserHealth_Output
+export type UserMethodInputs = AddProduct_Input | AuthorizeDebit_Input | DecodeInvoice_Input | EnrollAdminToken_Input | GetAuthorizedDebits_Input | GetLNURLChannelLink_Input | GetLnurlPayLink_Input | GetLnurlWithdrawLink_Input | GetPaymentState_Input | GetUserInfo_Input | GetUserOperations_Input | NewAddress_Input | NewInvoice_Input | NewProductInvoice_Input | OpenChannel_Input | PayAddress_Input | PayInvoice_Input | RemoveAuthorizedDebit_Input | UserHealth_Input
+export type UserMethodOutputs = AddProduct_Output | AuthorizeDebit_Output | DecodeInvoice_Output | EnrollAdminToken_Output | GetAuthorizedDebits_Output | GetLNURLChannelLink_Output | GetLnurlPayLink_Output | GetLnurlWithdrawLink_Output | GetPaymentState_Output | GetUserInfo_Output | GetUserOperations_Output | NewAddress_Output | NewInvoice_Output | NewProductInvoice_Output | OpenChannel_Output | PayAddress_Output | PayInvoice_Output | RemoveAuthorizedDebit_Output | UserHealth_Output
 export type AuthContext = AdminContext | AppContext | GuestContext | GuestWithPubContext | MetricsContext | UserContext
 
 export type AddApp_Input = {rpcName:'AddApp', req: AddAppRequest}
@@ -55,6 +55,9 @@ export type AddProduct_Output = ResultError | ({ status: 'OK' } & Product)
 
 export type AuthApp_Input = {rpcName:'AuthApp', req: AuthAppRequest}
 export type AuthApp_Output = ResultError | ({ status: 'OK' } & AuthApp)
+
+export type AuthorizeDebit_Input = {rpcName:'AuthorizeDebit', req: DebitAuthorization}
+export type AuthorizeDebit_Output = ResultError | ({ status: 'OK' } & AuthorizedDebit)
 
 export type BanUser_Input = {rpcName:'BanUser', req: BanUserRequest}
 export type BanUser_Output = ResultError | ({ status: 'OK' } & BanUserResponse)
@@ -85,6 +88,9 @@ export type GetAppUserLNURLInfo_Output = ResultError | ({ status: 'OK' } & Lnurl
 
 export type GetAppsMetrics_Input = {rpcName:'GetAppsMetrics', req: AppsMetricsRequest}
 export type GetAppsMetrics_Output = ResultError | ({ status: 'OK' } & AppsMetrics)
+
+export type GetAuthorizedDebits_Input = {rpcName:'GetAuthorizedDebits'}
+export type GetAuthorizedDebits_Output = ResultError | ({ status: 'OK' } & AuthorizedDebits)
 
 export type GetHttpCreds_Input = {rpcName:'GetHttpCreds',  cb:(res: HttpCreds, err:Error|null)=> void}
 export type GetHttpCreds_Output = ResultError | { status: 'OK' }
@@ -195,6 +201,9 @@ export type PayAppUserInvoice_Output = ResultError | ({ status: 'OK' } & PayInvo
 export type PayInvoice_Input = {rpcName:'PayInvoice', req: PayInvoiceRequest}
 export type PayInvoice_Output = ResultError | ({ status: 'OK' } & PayInvoiceResponse)
 
+export type RemoveAuthorizedDebit_Input = {rpcName:'RemoveAuthorizedDebit', req: RemoveAuthorizedDebitRequest}
+export type RemoveAuthorizedDebit_Output = ResultError | { status: 'OK' }
+
 export type RequestNPubLinkingToken_Input = {rpcName:'RequestNPubLinkingToken', req: RequestNPubLinkingTokenRequest}
 export type RequestNPubLinkingToken_Output = ResultError | ({ status: 'OK' } & RequestNPubLinkingTokenResponse)
 
@@ -229,6 +238,7 @@ export type ServerMethods = {
     AddAppUserInvoice?: (req: AddAppUserInvoice_Input & {ctx: AppContext }) => Promise<NewInvoiceResponse>
     AddProduct?: (req: AddProduct_Input & {ctx: UserContext }) => Promise<Product>
     AuthApp?: (req: AuthApp_Input & {ctx: AdminContext }) => Promise<AuthApp>
+    AuthorizeDebit?: (req: AuthorizeDebit_Input & {ctx: UserContext }) => Promise<AuthorizedDebit>
     BanUser?: (req: BanUser_Input & {ctx: AdminContext }) => Promise<BanUserResponse>
     CreateOneTimeInviteLink?: (req: CreateOneTimeInviteLink_Input & {ctx: AdminContext }) => Promise<CreateOneTimeInviteLinkResponse>
     DecodeInvoice?: (req: DecodeInvoice_Input & {ctx: UserContext }) => Promise<DecodeInvoiceResponse>
@@ -238,6 +248,7 @@ export type ServerMethods = {
     GetAppUser?: (req: GetAppUser_Input & {ctx: AppContext }) => Promise<AppUser>
     GetAppUserLNURLInfo?: (req: GetAppUserLNURLInfo_Input & {ctx: AppContext }) => Promise<LnurlPayInfoResponse>
     GetAppsMetrics?: (req: GetAppsMetrics_Input & {ctx: MetricsContext }) => Promise<AppsMetrics>
+    GetAuthorizedDebits?: (req: GetAuthorizedDebits_Input & {ctx: UserContext }) => Promise<AuthorizedDebits>
     GetHttpCreds?: (req: GetHttpCreds_Input & {ctx: UserContext }) => Promise<void>
     GetInviteLinkState?: (req: GetInviteLinkState_Input & {ctx: AdminContext }) => Promise<GetInviteTokenStateResponse>
     GetLNURLChannelLink?: (req: GetLNURLChannelLink_Input & {ctx: UserContext }) => Promise<LnurlLinkResponse>
@@ -267,6 +278,7 @@ export type ServerMethods = {
     PayAddress?: (req: PayAddress_Input & {ctx: UserContext }) => Promise<PayAddressResponse>
     PayAppUserInvoice?: (req: PayAppUserInvoice_Input & {ctx: AppContext }) => Promise<PayInvoiceResponse>
     PayInvoice?: (req: PayInvoice_Input & {ctx: UserContext }) => Promise<PayInvoiceResponse>
+    RemoveAuthorizedDebit?: (req: RemoveAuthorizedDebit_Input & {ctx: UserContext }) => Promise<void>
     RequestNPubLinkingToken?: (req: RequestNPubLinkingToken_Input & {ctx: AppContext }) => Promise<RequestNPubLinkingTokenResponse>
     ResetNPubLinkingToken?: (req: ResetNPubLinkingToken_Input & {ctx: AppContext }) => Promise<RequestNPubLinkingTokenResponse>
     SendAppUserToAppPayment?: (req: SendAppUserToAppPayment_Input & {ctx: AppContext }) => Promise<void>
@@ -285,6 +297,14 @@ export enum AddressType {
 }
 export const enumCheckAddressType = (e?: AddressType): boolean => {
     for (const v in AddressType) if (e === v) return true
+    return false
+}
+export enum AuthorizedDebitType {
+    KEY = 'KEY',
+    NPUB = 'NPUB',
+}
+export const enumCheckAuthorizedDebitType = (e?: AuthorizedDebitType): boolean => {
+    for (const v in AuthorizedDebitType) if (e === v) return true
     return false
 }
 export enum UserOperationType {
@@ -668,6 +688,57 @@ export const AuthAppRequestValidate = (o?: AuthAppRequest, opts: AuthAppRequestO
     return null
 }
 
+export type AuthorizedDebit = {
+    debit_id: string
+    debit_type: AuthorizedDebitType
+    key: string
+}
+export const AuthorizedDebitOptionalFields: [] = []
+export type AuthorizedDebitOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    debit_id_CustomCheck?: (v: string) => boolean
+    debit_type_CustomCheck?: (v: AuthorizedDebitType) => boolean
+    key_CustomCheck?: (v: string) => boolean
+}
+export const AuthorizedDebitValidate = (o?: AuthorizedDebit, opts: AuthorizedDebitOptions = {}, path: string = 'AuthorizedDebit::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.debit_id !== 'string') return new Error(`${path}.debit_id: is not a string`)
+    if (opts.debit_id_CustomCheck && !opts.debit_id_CustomCheck(o.debit_id)) return new Error(`${path}.debit_id: custom check failed`)
+
+    if (!enumCheckAuthorizedDebitType(o.debit_type)) return new Error(`${path}.debit_type: is not a valid AuthorizedDebitType`)
+    if (opts.debit_type_CustomCheck && !opts.debit_type_CustomCheck(o.debit_type)) return new Error(`${path}.debit_type: custom check failed`)
+
+    if (typeof o.key !== 'string') return new Error(`${path}.key: is not a string`)
+    if (opts.key_CustomCheck && !opts.key_CustomCheck(o.key)) return new Error(`${path}.key: custom check failed`)
+
+    return null
+}
+
+export type AuthorizedDebits = {
+    debits: AuthorizedDebit[]
+}
+export const AuthorizedDebitsOptionalFields: [] = []
+export type AuthorizedDebitsOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    debits_ItemOptions?: AuthorizedDebitOptions
+    debits_CustomCheck?: (v: AuthorizedDebit[]) => boolean
+}
+export const AuthorizedDebitsValidate = (o?: AuthorizedDebits, opts: AuthorizedDebitsOptions = {}, path: string = 'AuthorizedDebits::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (!Array.isArray(o.debits)) return new Error(`${path}.debits: is not an array`)
+    for (let index = 0; index < o.debits.length; index++) {
+        const debitsErr = AuthorizedDebitValidate(o.debits[index], opts.debits_ItemOptions, `${path}.debits[${index}]`)
+        if (debitsErr !== null) return debitsErr
+    }
+    if (opts.debits_CustomCheck && !opts.debits_CustomCheck(o.debits)) return new Error(`${path}.debits: custom check failed`)
+
+    return null
+}
+
 export type BanUserRequest = {
     user_id: string
 }
@@ -826,6 +897,25 @@ export const CreateOneTimeInviteLinkResponseValidate = (o?: CreateOneTimeInviteL
 
     if (typeof o.invitation_link !== 'string') return new Error(`${path}.invitation_link: is not a string`)
     if (opts.invitation_link_CustomCheck && !opts.invitation_link_CustomCheck(o.invitation_link)) return new Error(`${path}.invitation_link: custom check failed`)
+
+    return null
+}
+
+export type DebitAuthorization = {
+    authorize_npub?: string
+}
+export type DebitAuthorizationOptionalField = 'authorize_npub'
+export const DebitAuthorizationOptionalFields: DebitAuthorizationOptionalField[] = ['authorize_npub']
+export type DebitAuthorizationOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: DebitAuthorizationOptionalField[]
+    authorize_npub_CustomCheck?: (v?: string) => boolean
+}
+export const DebitAuthorizationValidate = (o?: DebitAuthorization, opts: DebitAuthorizationOptions = {}, path: string = 'DebitAuthorization::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if ((o.authorize_npub || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('authorize_npub')) && typeof o.authorize_npub !== 'string') return new Error(`${path}.authorize_npub: is not a string`)
+    if (opts.authorize_npub_CustomCheck && !opts.authorize_npub_CustomCheck(o.authorize_npub)) return new Error(`${path}.authorize_npub: custom check failed`)
 
     return null
 }
@@ -2024,6 +2114,24 @@ export const RelaysMigrationValidate = (o?: RelaysMigration, opts: RelaysMigrati
         if (typeof o.relays[index] !== 'string') return new Error(`${path}.relays[${index}]: is not a string`)
     }
     if (opts.relays_CustomCheck && !opts.relays_CustomCheck(o.relays)) return new Error(`${path}.relays: custom check failed`)
+
+    return null
+}
+
+export type RemoveAuthorizedDebitRequest = {
+    debit_id: string
+}
+export const RemoveAuthorizedDebitRequestOptionalFields: [] = []
+export type RemoveAuthorizedDebitRequestOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    debit_id_CustomCheck?: (v: string) => boolean
+}
+export const RemoveAuthorizedDebitRequestValidate = (o?: RemoveAuthorizedDebitRequest, opts: RemoveAuthorizedDebitRequestOptions = {}, path: string = 'RemoveAuthorizedDebitRequest::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.debit_id !== 'string') return new Error(`${path}.debit_id: is not a string`)
+    if (opts.debit_id_CustomCheck && !opts.debit_id_CustomCheck(o.debit_id)) return new Error(`${path}.debit_id: custom check failed`)
 
     return null
 }

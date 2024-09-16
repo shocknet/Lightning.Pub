@@ -7,6 +7,7 @@ import { ERROR, getLogger } from "./services/helpers/logger.js";
 import { UnsignedEvent } from "./services/nostr/tools/event.js";
 import { defaultInvoiceExpiry } from "./services/storage/paymentStorage.js";
 import { Application } from "./services/storage/entity/Application.js";
+import { NdebitData } from "./services/main/debitManager.js";
 
 export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSettings: NostrSettings, onClientEvent: (e: { requestId: string }, fromPub: string) => void): { Stop: () => void, Send: NostrSend } => {
     const log = getLogger({})
@@ -51,6 +52,10 @@ export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSett
         if (event.kind === 21001) {
             const offerReq = j as NofferData
             mainHandler.handleNip69Noffer(offerReq, event)
+            return
+        } else if (event.kind === 21002) {
+            const debitReq = j as NdebitData
+            mainHandler.handleNip68Debit(debitReq, event)
             return
         }
         if (!j.rpcName) {

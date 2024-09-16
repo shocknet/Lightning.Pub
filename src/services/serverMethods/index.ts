@@ -261,7 +261,20 @@ export default (mainHandler: Main): Types.ServerMethods => {
             })
             if (err != null) throw new Error(err.message)
             return mainHandler.adminManager.GetInviteTokenState(ctx, req);
-        }
+        },
+        AuthorizeDebit: async ({ ctx, req }) => {
+            return mainHandler.debitManager.AuthorizeDebit(ctx, req)
+        },
+        GetAuthorizedDebits: async ({ ctx }) => {
+            return mainHandler.debitManager.GetAuthorizedDebits(ctx)
+        },
+        RemoveAuthorizedDebit: async ({ ctx, req }) => {
+            const err = Types.RemoveAuthorizedDebitRequestValidate(req, {
+                debit_id_CustomCheck: id => id !== '',
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.debitManager.RemoveAuthorizedDebit(ctx, req)
+        },
 
     }
 }

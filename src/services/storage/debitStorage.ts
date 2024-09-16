@@ -20,11 +20,19 @@ export default class {
         return this.txQueue.PushToQueue<DebitAccess>({ exec: async db => db.getRepository(DebitAccess).save(entry), dbTx: false })
     }
 
+    async GetAllUserDebitAccess(appUserId: string) {
+        return this.DB.getRepository(DebitAccess).find({ where: { app_user_id: appUserId } })
+    }
+
     async GetDebitAccess(appUserId: string, key: string, keyType: DebitKeyType) {
         return this.DB.getRepository(DebitAccess).findOne({ where: { app_user_id: appUserId, key, key_type: keyType } })
     }
 
     async IncrementDebitAccess(appUserId: string, key: string, keyType: DebitKeyType, amount: number) {
         return this.DB.getRepository(DebitAccess).increment({ app_user_id: appUserId, key, key_type: keyType }, 'total_debits', amount)
+    }
+
+    async RemoveDebitAccess(appUserId: string, serialId: number) {
+        return this.DB.getRepository(DebitAccess).delete({ app_user_id: appUserId, serial_id: serialId })
     }
 }

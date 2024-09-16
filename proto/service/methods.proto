@@ -430,9 +430,27 @@ service LightningPub {
     }
 
     rpc GetLNURLChannelLink(structs.Empty) returns (structs.LnurlLinkResponse){
-        option (auth_type)  = "User";
+        option (auth_type)  = "User"; 
         option (http_method) = "post";
         option (http_route) = "/api/user/lnurl_channel/url";
+        option (nostr) = true;
+    }
+    rpc GetAuthorizedDebits(structs.Empty) returns (structs.AuthorizedDebits){
+        option (auth_type)  = "User";
+        option (http_method) = "get";
+        option (http_route) = "/api/user/debit/get";
+        option (nostr) = true;
+    }
+    rpc RemoveAuthorizedDebit(structs.RemoveAuthorizedDebitRequest) returns (structs.Empty){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/debit/remove";
+        option (nostr) = true;
+    }
+    rpc AuthorizeDebit(structs.DebitAuthorization) returns (structs.AuthorizedDebit){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/debit/authorize";
         option (nostr) = true;
     }
     rpc GetLiveUserOperations(structs.Empty) returns (stream structs.LiveUserOperation){

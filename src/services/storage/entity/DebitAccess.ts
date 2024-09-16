@@ -1,7 +1,4 @@
 import { Entity, PrimaryGeneratedColumn, Column, Index, Check, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn } from "typeorm"
-import { User } from "./User.js"
-import { Application } from "./Application.js"
-import { ApplicationUser } from "./ApplicationUser.js"
 export type DebitKeyType = 'simpleId' | 'pubKey'
 @Entity()
 @Index("unique_debit_access", ["app_user_id", "key", "key_type"], { unique: true })
