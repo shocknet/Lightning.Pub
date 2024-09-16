@@ -48,7 +48,7 @@
     "grpc-tools": "^1.12.4",
     "jsonwebtoken": "^9.0.2",
     "lodash": "^4.17.21",
-    "nostr-tools": "^1.9.0",
+    "nostr-tools": "^2.7.2",
     "pg": "^8.4.0",
     "reflect-metadata": "^0.2.2",
     "rimraf": "^3.0.2",
