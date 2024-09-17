@@ -2353,6 +2353,7 @@ export const UseInviteLinkRequestValidate = (o?: UseInviteLinkRequest, opts: Use
 
 export type UserInfo = {
     balance: number
+    bridge_url: string
     max_withdrawable: number
     network_max_fee_bps: number
     network_max_fee_fixed: number
@@ -2365,6 +2366,7 @@ export const UserInfoOptionalFields: [] = []
 export type UserInfoOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
     balance_CustomCheck?: (v: number) => boolean
+    bridge_url_CustomCheck?: (v: string) => boolean
     max_withdrawable_CustomCheck?: (v: number) => boolean
     network_max_fee_bps_CustomCheck?: (v: number) => boolean
     network_max_fee_fixed_CustomCheck?: (v: number) => boolean
@@ -2379,6 +2381,9 @@ export const UserInfoValidate = (o?: UserInfo, opts: UserInfoOptions = {}, path:
 
     if (typeof o.balance !== 'number') return new Error(`${path}.balance: is not a number`)
     if (opts.balance_CustomCheck && !opts.balance_CustomCheck(o.balance)) return new Error(`${path}.balance: custom check failed`)
+
+    if (typeof o.bridge_url !== 'string') return new Error(`${path}.bridge_url: is not a string`)
+    if (opts.bridge_url_CustomCheck && !opts.bridge_url_CustomCheck(o.bridge_url)) return new Error(`${path}.bridge_url: custom check failed`)
 
     if (typeof o.max_withdrawable !== 'number') return new Error(`${path}.max_withdrawable: is not a number`)
     if (opts.max_withdrawable_CustomCheck && !opts.max_withdrawable_CustomCheck(o.max_withdrawable)) return new Error(`${path}.max_withdrawable: custom check failed`)

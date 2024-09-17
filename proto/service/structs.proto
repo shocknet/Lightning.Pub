@@ -354,6 +354,7 @@ message UserInfo{
     int64 network_max_fee_bps = 6;
     int64 network_max_fee_fixed = 7;
     string noffer = 8;
+    string bridge_url = 9;
 }
 
 message GetUserOperationsRequest{
