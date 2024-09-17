@@ -61,7 +61,8 @@ export default class {
             network_max_fee_bps: this.settings.lndSettings.feeRateBps,
             network_max_fee_fixed: this.settings.lndSettings.feeFixedLimit,
             service_fee_bps: this.settings.outgoingAppUserInvoiceFeeBps,
-            noffer: encodeNoffer({ pubkey: app.nostr_public_key!, offer: appUser.identifier, priceType: PriceType.spontaneous, relay: "" })
+            noffer: encodeNoffer({ pubkey: app.nostr_public_key!, offer: appUser.identifier, priceType: PriceType.spontaneous, relay: "" }),
+            bridge_url: this.settings.bridgeUrl
         }
     }
 

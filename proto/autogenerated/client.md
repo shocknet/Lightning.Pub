@@ -962,6 +962,7 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### UserInfo
   - __balance__: _number_
+  - __bridge_url__: _string_
   - __max_withdrawable__: _number_
   - __network_max_fee_bps__: _number_
   - __network_max_fee_fixed__: _number_
