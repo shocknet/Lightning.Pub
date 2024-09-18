@@ -2575,6 +2575,7 @@ export const UseInviteLinkRequestValidate = (o?: UseInviteLinkRequest, opts: Use
 export type UserInfo = {
     balance: number
     max_withdrawable: number
+    ndebit: string
     network_max_fee_bps: number
     network_max_fee_fixed: number
     noffer: string
@@ -2587,6 +2588,7 @@ export type UserInfoOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
     balance_CustomCheck?: (v: number) => boolean
     max_withdrawable_CustomCheck?: (v: number) => boolean
+    ndebit_CustomCheck?: (v: string) => boolean
     network_max_fee_bps_CustomCheck?: (v: number) => boolean
     network_max_fee_fixed_CustomCheck?: (v: number) => boolean
     noffer_CustomCheck?: (v: string) => boolean
@@ -2603,6 +2605,9 @@ export const UserInfoValidate = (o?: UserInfo, opts: UserInfoOptions = {}, path:
 
     if (typeof o.max_withdrawable !== 'number') return new Error(`${path}.max_withdrawable: is not a number`)
     if (opts.max_withdrawable_CustomCheck && !opts.max_withdrawable_CustomCheck(o.max_withdrawable)) return new Error(`${path}.max_withdrawable: custom check failed`)
+
+    if (typeof o.ndebit !== 'string') return new Error(`${path}.ndebit: is not a string`)
+    if (opts.ndebit_CustomCheck && !opts.ndebit_CustomCheck(o.ndebit)) return new Error(`${path}.ndebit: custom check failed`)
 
     if (typeof o.network_max_fee_bps !== 'number') return new Error(`${path}.network_max_fee_bps: is not a number`)
     if (opts.network_max_fee_bps_CustomCheck && !opts.network_max_fee_bps_CustomCheck(o.network_max_fee_bps)) return new Error(`${path}.network_max_fee_bps: custom check failed`)
