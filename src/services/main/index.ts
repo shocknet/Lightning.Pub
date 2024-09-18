@@ -320,7 +320,9 @@ export default class {
     }
 
     handleNip68Debit = async (pointerdata: NdebitData, event: NostrEvent) => {
+        console.log({ pointerdata, event })
         const res = await this.debitManager.payNdebitInvoice(event.appId, event.pub, pointerdata)
+        console.log({ debitRes: res })
         if (res.status === 'fail' || res.status === 'authOk') {
             const e = newNdebitResponse(JSON.stringify(res.debitRes), event)
             this.nostrSend({ type: 'app', appId: event.appId }, { type: 'event', event: e, encrypt: { toPub: event.pub } })
