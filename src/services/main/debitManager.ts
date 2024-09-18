@@ -42,8 +42,10 @@ export class DebitManager {
     storage: Storage
     lnd: LND
     logger = getLogger({ component: 'DebitManager' })
-    constructor(storage: Storage) {
+    constructor(storage: Storage, lnd: LND, applicationManager: ApplicationManager) {
         this.storage = storage
+        this.lnd = lnd
+        this.applicationManager = applicationManager
     }
 
     AuthorizeDebit = async (ctx: Types.UserContext, req: Types.DebitAuthorizationRequest): Promise<Types.DebitAuthorization> => {

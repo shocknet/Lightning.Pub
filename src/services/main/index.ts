@@ -71,7 +71,7 @@ export default class {
         this.productManager = new ProductManager(this.storage, this.paymentManager, this.settings)
         this.applicationManager = new ApplicationManager(this.storage, this.settings, this.paymentManager)
         this.appUserManager = new AppUserManager(this.storage, this.settings, this.applicationManager)
-        this.debitManager = new DebitManager(this.storage)
+        this.debitManager = new DebitManager(this.storage, this.lnd, this.applicationManager)
     }
 
     Stop() {
