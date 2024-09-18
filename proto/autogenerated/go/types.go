@@ -456,6 +456,7 @@ type UseInviteLinkRequest struct {
 type UserInfo struct {
 	Balance               int64  `json:"balance"`
 	Max_withdrawable      int64  `json:"max_withdrawable"`
+	Ndebit                string `json:"ndebit"`
 	Network_max_fee_bps   int64  `json:"network_max_fee_bps"`
 	Network_max_fee_fixed int64  `json:"network_max_fee_fixed"`
 	Noffer                string `json:"noffer"`
