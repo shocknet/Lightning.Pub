@@ -1,7 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, Index, Check, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn } from "typeorm"
-export type DebitKeyType = 'simpleId' | 'pubKey'
+export type DebitAccessRules = Record<string/* rule name */, string[]/* rule values */>
 @Entity()
-@Index("unique_debit_access", ["app_user_id", "key", "key_type"], { unique: true })
+@Index("unique_debit_access", ["app_user_id", "npub"], { unique: true })
 export class DebitAccess {
 
     @PrimaryGeneratedColumn()
@@ -11,10 +11,13 @@ export class DebitAccess {
     app_user_id: string
 
     @Column()
-    key: string
+    npub: string
 
     @Column()
-    key_type: DebitKeyType
+    authorized: boolean
+
+    @Column({ type: 'simple-json', default: null, nullable: true })
+    rules: DebitAccessRules | null
 
     @Column({ default: 0 })
     total_debits: number

@@ -480,25 +480,53 @@ message GetInviteTokenStateResponse {
 
 
 
+message DebitAuthorizationRequest {
+    string authorize_npub = 1;
+    repeated DebitRule rules = 2;
+}
+
 message DebitAuthorization {
-    optional string authorize_npub =1;
-}
-
-enum AuthorizedDebitType {
-    NPUB = 0;
-    KEY = 1;
-}
-
-message AuthorizedDebit {
     string debit_id = 1;
-    AuthorizedDebitType debit_type = 2;
-    string key = 3;
+    bool authorized = 2;
+    string npub = 3;
+    repeated DebitRule rules = 4;
+
 }
 
-message AuthorizedDebits {
-    repeated AuthorizedDebit debits = 1;
+message DebitAuthorizations {
+    repeated DebitAuthorization debits = 1;
 }
 
 message RemoveAuthorizedDebitRequest {
-    string debit_id = 1;
+    string npub = 1;
+}
+
+message DebitExpirationRule {
+    int64 expires_at_unix = 1;
+}
+
+enum IntervalType {
+    DAY = 0;
+    WEEK = 1;
+    MONTH = 2;
+}
+message FrequencyRule {
+    int64 number_of_intervals = 1;
+    IntervalType interval = 2;
+}
+
+message DebitRule {
+    oneof rule  {
+        DebitExpirationRule expiration_rule = 1;
+        FrequencyRule frequency_rule = 2;
+    }
+}
+
+message LiveDebitRequest {
+    string npub = 1;
+    int64 amount = 2;
+    oneof debit {
+        string invoice = 3;
+        FrequencyRule frequency = 4;
+    }
 }

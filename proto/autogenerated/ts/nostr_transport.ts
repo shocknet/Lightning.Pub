@@ -87,7 +87,7 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     stats.guard = process.hrtime.bigint()
                     authCtx = authContext
                     const request = req.body
-                    const error = Types.DebitAuthorizationValidate(request)
+                    const error = Types.DebitAuthorizationRequestValidate(request)
                     stats.validate = process.hrtime.bigint()
                     if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
                     const response = await methods.AuthorizeDebit({rpcName:'AuthorizeDebit', ctx:authContext , req: request})
@@ -147,7 +147,7 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                                     if (!methods.AuthorizeDebit) {
                                         throw new Error('method not defined: AuthorizeDebit')
                                     } else {
-                                        const error = Types.DebitAuthorizationValidate(operation.req)
+                                        const error = Types.DebitAuthorizationRequestValidate(operation.req)
                                         opStats.validate = process.hrtime.bigint()
                                         if (error !== null) throw error
                                         const res = await methods.AuthorizeDebit({...operation, ctx}); responses.push({ status: 'OK', ...res  })
@@ -179,12 +179,12 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                                         callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
                                     }
                                     break
-                                case 'GetAuthorizedDebits':
-                                    if (!methods.GetAuthorizedDebits) {
-                                        throw new Error('method not defined: GetAuthorizedDebits')
+                                case 'GetDebitAuthorizations':
+                                    if (!methods.GetDebitAuthorizations) {
+                                        throw new Error('method not defined: GetDebitAuthorizations')
                                     } else {
                                         opStats.validate = opStats.guard
-                                        const res = await methods.GetAuthorizedDebits({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                                        const res = await methods.GetDebitAuthorizations({...operation, ctx}); responses.push({ status: 'OK', ...res  })
                                         opStats.handle = process.hrtime.bigint()
                                         callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
                                     }
@@ -419,14 +419,14 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     opts.metricsCallback([{ ...info, ...stats, ...authContext }])
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
-            case 'GetAuthorizedDebits':
+            case 'GetDebitAuthorizations':
                 try {
-                    if (!methods.GetAuthorizedDebits) throw new Error('method: GetAuthorizedDebits is not implemented')
+                    if (!methods.GetDebitAuthorizations) throw new Error('method: GetDebitAuthorizations is not implemented')
                     const authContext = await opts.NostrUserAuthGuard(req.appId, req.authIdentifier)
                     stats.guard = process.hrtime.bigint()
                     authCtx = authContext
                     stats.validate = stats.guard
-                    const response = await methods.GetAuthorizedDebits({rpcName:'GetAuthorizedDebits', ctx:authContext })
+                    const response = await methods.GetDebitAuthorizations({rpcName:'GetDebitAuthorizations', ctx:authContext })
                     stats.handle = process.hrtime.bigint()
                     res({status: 'OK', ...response})
                     opts.metricsCallback([{ ...info, ...stats, ...authContext }])
@@ -472,6 +472,19 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     stats.handle = process.hrtime.bigint()
                     res({status: 'OK', ...response})
                     opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+                break
+            case 'GetLiveDebitRequests':
+                try {
+                    if (!methods.GetLiveDebitRequests) throw new Error('method: GetLiveDebitRequests is not implemented')
+                    const authContext = await opts.NostrUserAuthGuard(req.appId, req.authIdentifier)
+                    stats.guard = process.hrtime.bigint()
+                    authCtx = authContext
+                    stats.validate = stats.guard
+                    methods.GetLiveDebitRequests({rpcName:'GetLiveDebitRequests', ctx:authContext  ,cb: (response, err) => {
+                    stats.handle = process.hrtime.bigint()
+                    if (err) { logErrorAndReturnResponse(err, err.message, res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)} else { res({status: 'OK', ...response});opts.metricsCallback([{ ...info, ...stats, ...authContext }])}
+                    }})
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
             case 'GetLiveUserOperations':

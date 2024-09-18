@@ -30,8 +30,8 @@ The nostr server will send back a message response, and inside the body there wi
 
 - AuthorizeDebit
   - auth type: __User__
-  - input: [DebitAuthorization](#DebitAuthorization)
-  - output: [AuthorizedDebit](#AuthorizedDebit)
+  - input: [DebitAuthorizationRequest](#DebitAuthorizationRequest)
+  - output: [DebitAuthorization](#DebitAuthorization)
 
 - BanUser
   - auth type: __Admin__
@@ -63,10 +63,10 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [AppsMetricsRequest](#AppsMetricsRequest)
   - output: [AppsMetrics](#AppsMetrics)
 
-- GetAuthorizedDebits
+- GetDebitAuthorizations
   - auth type: __User__
   - This methods has an __empty__ __request__ body
-  - output: [AuthorizedDebits](#AuthorizedDebits)
+  - output: [DebitAuthorizations](#DebitAuthorizations)
 
 - GetHttpCreds
   - auth type: __User__
@@ -82,6 +82,11 @@ The nostr server will send back a message response, and inside the body there wi
   - auth type: __User__
   - This methods has an __empty__ __request__ body
   - output: [LnurlLinkResponse](#LnurlLinkResponse)
+
+- GetLiveDebitRequests
+  - auth type: __User__
+  - This methods has an __empty__ __request__ body
+  - output: [LiveDebitRequest](#LiveDebitRequest)
 
 - GetLiveUserOperations
   - auth type: __User__
@@ -275,8 +280,8 @@ The nostr server will send back a message response, and inside the body there wi
   - auth type: __User__
   - http method: __post__
   - http route: __/api/user/debit/authorize__
-  - input: [DebitAuthorization](#DebitAuthorization)
-  - output: [AuthorizedDebit](#AuthorizedDebit)
+  - input: [DebitAuthorizationRequest](#DebitAuthorizationRequest)
+  - output: [DebitAuthorization](#DebitAuthorization)
 
 - BanUser
   - auth type: __Admin__
@@ -348,12 +353,12 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [AppsMetricsRequest](#AppsMetricsRequest)
   - output: [AppsMetrics](#AppsMetrics)
 
-- GetAuthorizedDebits
+- GetDebitAuthorizations
   - auth type: __User__
   - http method: __get__
   - http route: __/api/user/debit/get__
   - This methods has an __empty__ __request__ body
-  - output: [AuthorizedDebits](#AuthorizedDebits)
+  - output: [DebitAuthorizations](#DebitAuthorizations)
 
 - GetHttpCreds
   - auth type: __User__
@@ -375,6 +380,13 @@ The nostr server will send back a message response, and inside the body there wi
   - http route: __/api/user/lnurl_channel/url__
   - This methods has an __empty__ __request__ body
   - output: [LnurlLinkResponse](#LnurlLinkResponse)
+
+- GetLiveDebitRequests
+  - auth type: __User__
+  - http method: __post__
+  - http route: __/api/user/debit/sub__
+  - This methods has an __empty__ __request__ body
+  - output: [LiveDebitRequest](#LiveDebitRequest)
 
 - GetLiveUserOperations
   - auth type: __User__
@@ -711,14 +723,6 @@ The nostr server will send back a message response, and inside the body there wi
   - __allow_user_creation__: _boolean_ *this field is optional
   - __name__: _string_
 
-### AuthorizedDebit
-  - __debit_id__: _string_
-  - __debit_type__: _[AuthorizedDebitType](#AuthorizedDebitType)_
-  - __key__: _string_
-
-### AuthorizedDebits
-  - __debits__: ARRAY of: _[AuthorizedDebit](#AuthorizedDebit)_
-
 ### BanUserRequest
   - __user_id__: _string_
 
@@ -747,7 +751,23 @@ The nostr server will send back a message response, and inside the body there wi
   - __invitation_link__: _string_
 
 ### DebitAuthorization
-  - __authorize_npub__: _string_ *this field is optional
+  - __authorized__: _boolean_
+  - __debit_id__: _string_
+  - __npub__: _string_
+  - __rules__: ARRAY of: _[DebitRule](#DebitRule)_
+
+### DebitAuthorizationRequest
+  - __authorize_npub__: _string_
+  - __rules__: ARRAY of: _[DebitRule](#DebitRule)_
+
+### DebitAuthorizations
+  - __debits__: ARRAY of: _[DebitAuthorization](#DebitAuthorization)_
+
+### DebitExpirationRule
+  - __expires_at_unix__: _number_
+
+### DebitRule
+  - __rule__: _[DebitRule_rule](#DebitRule_rule)_
 
 ### DecodeInvoiceRequest
   - __invoice__: _string_
@@ -763,6 +783,10 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### EnrollAdminTokenRequest
   - __admin_token__: _string_
+
+### FrequencyRule
+  - __interval__: _[IntervalType](#IntervalType)_
+  - __number_of_intervals__: _number_
 
 ### GetAppUserLNURLInfoRequest
   - __base_url_override__: _string_
@@ -814,6 +838,11 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### LinkNPubThroughTokenRequest
   - __token__: _string_
+
+### LiveDebitRequest
+  - __amount__: _number_
+  - __debit__: _[LiveDebitRequest_debit](#LiveDebitRequest_debit)_
+  - __npub__: _string_
 
 ### LiveUserOperation
   - __operation__: _[UserOperation](#UserOperation)_
@@ -951,7 +980,7 @@ The nostr server will send back a message response, and inside the body there wi
   - __relays__: ARRAY of: _string_
 
 ### RemoveAuthorizedDebitRequest
-  - __debit_id__: _string_
+  - __npub__: _string_
 
 ### RequestNPubLinkingTokenRequest
   - __user_identifier__: _string_
@@ -1053,9 +1082,10 @@ The nostr server will send back a message response, and inside the body there wi
   - __TAPROOT_PUBKEY__
   - __WITNESS_PUBKEY_HASH__
 
-### AuthorizedDebitType
-  - __KEY__
-  - __NPUB__
+### IntervalType
+  - __DAY__
+  - __MONTH__
+  - __WEEK__
 
 ### UserOperationType
   - __INCOMING_INVOICE__

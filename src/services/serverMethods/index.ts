@@ -265,12 +265,12 @@ export default (mainHandler: Main): Types.ServerMethods => {
         AuthorizeDebit: async ({ ctx, req }) => {
             return mainHandler.debitManager.AuthorizeDebit(ctx, req)
         },
-        GetAuthorizedDebits: async ({ ctx }) => {
-            return mainHandler.debitManager.GetAuthorizedDebits(ctx)
+        GetDebitAuthorizations: async ({ ctx }) => {
+            return mainHandler.debitManager.GetDebitAuthorizations(ctx)
         },
         RemoveAuthorizedDebit: async ({ ctx, req }) => {
             const err = Types.RemoveAuthorizedDebitRequestValidate(req, {
-                debit_id_CustomCheck: id => id !== '',
+                npub_CustomCheck: pub => pub !== '',
             })
             if (err != null) throw new Error(err.message)
             return mainHandler.debitManager.RemoveAuthorizedDebit(ctx, req)

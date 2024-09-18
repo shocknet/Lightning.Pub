@@ -177,7 +177,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             authCtx = authContext
             stats.guard = process.hrtime.bigint()
             const request = req.body
-            const error = Types.DebitAuthorizationValidate(request)
+            const error = Types.DebitAuthorizationRequestValidate(request)
             stats.validate = process.hrtime.bigint()
             if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
             const query = req.query
@@ -247,7 +247,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
                             if (!methods.AuthorizeDebit) {
                                 throw new Error('method AuthorizeDebit not found' )
                             } else {
-                                const error = Types.DebitAuthorizationValidate(operation.req)
+                                const error = Types.DebitAuthorizationRequestValidate(operation.req)
                                 opStats.validate = process.hrtime.bigint()
                                 if (error !== null) throw error
                                 const res = await methods.AuthorizeDebit({...operation, ctx}); responses.push({ status: 'OK', ...res  })
@@ -279,12 +279,12 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
                                 callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
                             }
                             break
-                        case 'GetAuthorizedDebits':
-                            if (!methods.GetAuthorizedDebits) {
-                                throw new Error('method GetAuthorizedDebits not found' )
+                        case 'GetDebitAuthorizations':
+                            if (!methods.GetDebitAuthorizations) {
+                                throw new Error('method GetDebitAuthorizations not found' )
                             } else {
                                 opStats.validate = opStats.guard
-                                const res = await methods.GetAuthorizedDebits({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                                const res = await methods.GetDebitAuthorizations({...operation, ctx}); responses.push({ status: 'OK', ...res  })
                                 opStats.handle = process.hrtime.bigint()
                                 callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
                             }
@@ -628,20 +628,20 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
-    if (!opts.allowNotImplementedMethods && !methods.GetAuthorizedDebits) throw new Error('method: GetAuthorizedDebits is not implemented')
+    if (!opts.allowNotImplementedMethods && !methods.GetDebitAuthorizations) throw new Error('method: GetDebitAuthorizations is not implemented')
     app.get('/api/user/debit/get', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'GetAuthorizedDebits', batch: false, nostr: false, batchSize: 0}
+        const info: Types.RequestInfo = { rpcName: 'GetDebitAuthorizations', batch: false, nostr: false, batchSize: 0}
         const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
-            if (!methods.GetAuthorizedDebits) throw new Error('method: GetAuthorizedDebits is not implemented')
+            if (!methods.GetDebitAuthorizations) throw new Error('method: GetDebitAuthorizations is not implemented')
             const authContext = await opts.UserAuthGuard(req.headers['authorization'])
             authCtx = authContext
             stats.guard = process.hrtime.bigint()
             stats.validate = stats.guard
             const query = req.query
             const params = req.params
-            const response =  await methods.GetAuthorizedDebits({rpcName:'GetAuthorizedDebits', ctx:authContext })
+            const response =  await methods.GetDebitAuthorizations({rpcName:'GetDebitAuthorizations', ctx:authContext })
             stats.handle = process.hrtime.bigint()
             res.json({status: 'OK', ...response})
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])

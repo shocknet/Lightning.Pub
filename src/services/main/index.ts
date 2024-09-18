@@ -23,7 +23,6 @@ import { AdminManager } from "./adminManager.js"
 import { Unlocker } from "./unlocker.js"
 import { defaultInvoiceExpiry } from "../storage/paymentStorage.js"
 import { DebitPointer } from "../../custom-nip19.js"
-import { DebitKeyType } from "../storage/entity/DebitAccess.js"
 import { DebitManager, NdebitData } from "./debitManager.js"
 
 type UserOperationsSub = {
@@ -322,16 +321,23 @@ export default class {
 
     handleNip68Debit = async (pointerdata: NdebitData, event: NostrEvent) => {
         const res = await this.debitManager.payNdebitInvoice(event.appId, event.pub, pointerdata)
-        if (!res.ok) {
+        if (res.status === 'fail' || res.status === 'authOk') {
             const e = newNdebitResponse(JSON.stringify(res.debitRes), event)
             this.nostrSend({ type: 'app', appId: event.appId }, { type: 'event', event: e, encrypt: { toPub: event.pub } })
             return
         }
-        const { op, appUserId, debitRes } = res
-        const message: Types.LiveUserOperation & { requestId: string, status: 'OK' } = { operation: op, requestId: "GetLiveUserOperations", status: 'OK' }
         const app = await this.storage.applicationStorage.GetApplication(event.appId)
-        const appUser = await this.storage.applicationStorage.GetApplicationUser(app, appUserId)
-        if (appUser.nostr_public_key) {
+        const appUser = await this.storage.applicationStorage.GetApplicationUser(app, res.appUserId)
+        if (res.status === 'authRequired') {
+            const message: Types.LiveDebitRequest & { requestId: string, status: 'OK' } = { ...res.liveDebitReq, requestId: "GetLiveUserOperations", status: 'OK' }
+            if (appUser.nostr_public_key) {// TODO - fix before support for http streams
+                this.nostrSend({ type: 'app', appId: event.appId }, { type: 'content', content: JSON.stringify(message), pub: appUser.nostr_public_key })
+            }
+            return
+        }
+        const { op, debitRes } = res
+        const message: Types.LiveUserOperation & { requestId: string, status: 'OK' } = { operation: op, requestId: "GetLiveUserOperations", status: 'OK' }
+        if (appUser.nostr_public_key) { // TODO - fix before support for http streams
             this.nostrSend({ type: 'app', appId: event.appId }, { type: 'content', content: JSON.stringify(message), pub: appUser.nostr_public_key })
         }
         const e = newNdebitResponse(JSON.stringify(debitRes), event)
