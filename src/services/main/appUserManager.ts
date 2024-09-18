@@ -50,6 +50,8 @@ export default class {
         const user = await this.storage.userStorage.GetUser(ctx.user_id)
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
         const appUser = await this.storage.applicationStorage.GetAppUserFromUser(app, user.user_id)
+        console.log("User Identifier/pointer here", appUser?.identifier)
+        
         if (!appUser) {
             throw new Error(`app user ${ctx.user_id} not found`) // TODO: fix logs doxing
         }
