@@ -209,6 +209,7 @@ export default (mainHandler: Main): Types.ServerMethods => {
         SetMockAppBalance: async ({ ctx, req }) => {
             await mainHandler.applicationManager.SetMockAppBalance(ctx.app_id, req)
         },
+        GetLiveDebitRequests: async ({ ctx }) => { },
         GetLiveUserOperations: async ({ ctx, cb }) => {
         },
         GetMigrationUpdate: async ({ ctx, cb }) => {
