@@ -159,7 +159,8 @@ export default class {
                 network_max_fee_bps: this.settings.lndSettings.feeRateBps,
                 network_max_fee_fixed: this.settings.lndSettings.feeFixedLimit,
                 service_fee_bps: this.settings.outgoingAppUserInvoiceFeeBps,
-                noffer: encodeNoffer({ pubkey: app.nostr_public_key!, offer: u.identifier, priceType: PriceType.spontaneous, relay: "" })
+                noffer: encodeNoffer({ pubkey: app.nostr_public_key!, offer: u.identifier, priceType: PriceType.spontaneous, relay: "" }),
+                bridge_url: this.settings.bridgeUrl
 
             },
             max_withdrawable: this.paymentManager.GetMaxPayableInvoice(u.user.balance_sats, true)
@@ -199,7 +200,8 @@ export default class {
                 network_max_fee_bps: this.settings.lndSettings.feeRateBps,
                 network_max_fee_fixed: this.settings.lndSettings.feeFixedLimit,
                 service_fee_bps: this.settings.outgoingAppUserInvoiceFeeBps,
-                noffer: encodeNoffer({ pubkey: app.nostr_public_key!, offer: user.identifier, priceType: PriceType.spontaneous, relay: "" })
+                noffer: encodeNoffer({ pubkey: app.nostr_public_key!, offer: user.identifier, priceType: PriceType.spontaneous, relay: "" }),
+                bridge_url: this.settings.bridgeUrl
             },
         }
     }
