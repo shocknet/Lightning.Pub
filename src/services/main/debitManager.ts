@@ -94,6 +94,9 @@ export class DebitManager {
         const appUserId = pointer
         const pointerFreq = pointerdata as RecurringDebit
         if (pointerFreq.frequency) {
+            if (!amount_sats) {
+                return { status: 'fail', debitRes: { res: 'GFY', error: nip68errs[5], code: 5 } }
+            }
             const debitAccess = await this.storage.debitStorage.GetDebitAccess(appUserId, requestorPub)
             if (!debitAccess) {
                 return {
