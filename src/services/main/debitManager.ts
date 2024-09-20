@@ -5,6 +5,9 @@ import Storage from '../storage/index.js'
 import LND from "../lnd/lnd.js"
 import { ERROR, getLogger } from "../helpers/logger.js";
 import { DebitAccess, DebitAccessRules } from '../storage/entity/DebitAccess.js';
+import paymentManager from './paymentManager.js';
+import { Application } from '../storage/entity/Application.js';
+import { ApplicationUser } from '../storage/entity/ApplicationUser.js';
 export const expirationRuleName = 'expiration'
 export const frequencyRuleName = 'frequency'
 type RecurringDebitTimeUnit = 'day' | 'week' | 'month'
@@ -16,8 +19,78 @@ const unitToIntervalType = (unit: RecurringDebitTimeUnit) => {
         case 'month': return Types.IntervalType.MONTH
         default: throw new Error("invalid unit")
     }
-
 }
+const intervalTypeToUnit = (interval: Types.IntervalType): RecurringDebitTimeUnit => {
+    switch (interval) {
+        case Types.IntervalType.DAY: return 'day'
+        case Types.IntervalType.WEEK: return 'week'
+        case Types.IntervalType.MONTH: return 'month'
+        default: throw new Error("invalid interval")
+    }
+}
+const IntervalTypeToSeconds = (interval: Types.IntervalType) => {
+    switch (interval) {
+        case Types.IntervalType.DAY: return 24 * 60 * 60
+        case Types.IntervalType.WEEK: return 7 * 24 * 60 * 60
+        case Types.IntervalType.MONTH: return 30 * 24 * 60 * 60
+        default: throw new Error("invalid interval")
+    }
+}
+const debitRulesToDebitAccessRules = (rule: Types.DebitRule[]): DebitAccessRules | undefined => {
+    let rules: DebitAccessRules | undefined = undefined
+    rule.forEach(r => {
+        if (!rules) {
+            rules = {}
+        }
+        const { rule } = r
+        switch (rule.type) {
+            case Types.DebitRule_rule_type.EXPIRATION_RULE:
+
+                rules[expirationRuleName] = [rule.expiration_rule.expires_at_unix.toString()]
+                break
+            case Types.DebitRule_rule_type.FREQUENCY_RULE:
+                const intervals = rule.frequency_rule.number_of_intervals.toString()
+                const unit = intervalTypeToUnit(rule.frequency_rule.interval)
+                return { key: frequencyRuleName, val: [intervals, unit, rule.frequency_rule.amount.toString()] }
+            default:
+                throw new Error("invalid rule")
+        }
+    })
+    return rules
+}
+
+const debitAccessRulesToDebitRules = (rules: DebitAccessRules | null): Types.DebitRule[] => {
+    if (!rules) {
+        return []
+    }
+    return Object.entries(rules).map(([key, val]) => {
+        switch (key) {
+            case expirationRuleName:
+                return {
+                    rule: {
+                        type: Types.DebitRule_rule_type.EXPIRATION_RULE,
+                        expiration_rule: {
+                            expires_at_unix: +val[0]
+                        }
+                    }
+                }
+            case frequencyRuleName:
+                return {
+                    rule: {
+                        type: Types.DebitRule_rule_type.FREQUENCY_RULE,
+                        frequency_rule: {
+                            number_of_intervals: +val[0],
+                            interval: unitToIntervalType(val[1] as RecurringDebitTimeUnit),
+                            amount: +val[2]
+                        }
+                    }
+                }
+            default:
+                throw new Error("invalid rule")
+        }
+    })
+}
+
 export type NdebitData = { pointer?: string, amount_sats: number } & (RecurringDebit | { bolt11: string })
 export type NdebitSuccess = { res: 'ok' }
 export type NdebitSuccessPayment = { res: 'ok', preimage: string }
@@ -31,14 +104,15 @@ const nip68errs = {
     6: "Invalid Request",
 }
 type HandleNdebitRes = { status: 'fail', debitRes: NdebitFailure }
-    | { status: 'invoicePaid', op: Types.UserOperation, appUserId: string, debitRes: NdebitSuccessPayment }
-    | { status: 'authRequired', liveDebitReq: Types.LiveDebitRequest, appUserId: string }
+    | { status: 'invoicePaid', op: Types.UserOperation, app: Application, appUser: ApplicationUser, debitRes: NdebitSuccessPayment }
+    | { status: 'authRequired', liveDebitReq: Types.LiveDebitRequest, app: Application, appUser: ApplicationUser }
     | { status: 'authOk', debitRes: NdebitSuccess }
 export class DebitManager {
 
 
 
     applicationManager: ApplicationManager
+
     storage: Storage
     lnd: LND
     logger = getLogger({ component: 'DebitManager' })
@@ -49,12 +123,16 @@ export class DebitManager {
     }
 
     AuthorizeDebit = async (ctx: Types.UserContext, req: Types.DebitAuthorizationRequest): Promise<Types.DebitAuthorization> => {
-        const access = await this.storage.debitStorage.AddDebitAccess(ctx.app_user_id, req.authorize_npub)
+        const access = await this.storage.debitStorage.AddDebitAccess(ctx.app_user_id, {
+            authorize: true,
+            npub: req.authorize_npub,
+            rules: debitRulesToDebitAccessRules(req.rules)
+        })
         return {
             debit_id: access.serial_id.toString(),
             npub: req.authorize_npub,
             authorized: true,
-            rules: []
+            rules: req.rules
         }
     }
 
@@ -64,7 +142,7 @@ export class DebitManager {
             debit_id: access.serial_id.toString(),
             authorized: access.authorized,
             npub: access.npub,
-            rules: []
+            rules: debitAccessRulesToDebitRules(access.rules)
         }))
         return { debits }
     }
@@ -92,6 +170,8 @@ export class DebitManager {
             return { status: 'fail', debitRes: { res: 'GFY', error: nip68errs[1], code: 1 } }
         }
         const appUserId = pointer
+        const app = await this.storage.applicationStorage.GetApplication(appId)
+        const appUser = await this.storage.applicationStorage.GetApplicationUser(app, appUserId)
         const pointerFreq = pointerdata as RecurringDebit
         if (pointerFreq.frequency) {
             if (!amount_sats) {
@@ -100,14 +180,14 @@ export class DebitManager {
             const debitAccess = await this.storage.debitStorage.GetDebitAccess(appUserId, requestorPub)
             if (!debitAccess) {
                 return {
-                    status: 'authRequired', appUserId, liveDebitReq: {
-                        amount: pointerdata.amount_sats,
+                    status: 'authRequired', app, appUser, liveDebitReq: {
                         npub: requestorPub,
                         debit: {
                             type: Types.LiveDebitRequest_debit_type.FREQUENCY,
                             frequency: {
                                 interval: unitToIntervalType(pointerFreq.frequency.unit),
                                 number_of_intervals: pointerFreq.frequency.number,
+                                amount: pointerdata.amount_sats,
                             }
                         }
                     }
@@ -132,8 +212,7 @@ export class DebitManager {
         const authorization = await this.storage.debitStorage.GetDebitAccess(appUserId, requestorPub)
         if (!authorization) {
             return {
-                status: 'authRequired', appUserId, liveDebitReq: {
-                    amount: pointerdata.amount_sats,
+                status: 'authRequired', app, appUser, liveDebitReq: {
                     npub: requestorPub,
                     debit: {
                         type: Types.LiveDebitRequest_debit_type.INVOICE,
@@ -145,33 +224,46 @@ export class DebitManager {
         if (!authorization.authorized) {
             return { status: 'fail', debitRes: { res: 'GFY', error: nip68errs[1], code: 1 } }
         }
-        await this.validateAccessRules(authorization)
+        await this.validateAccessRules(authorization, app, appUser)
         const payment = await this.applicationManager.PayAppUserInvoice(appId, { amount: 0, invoice: bolt11, user_identifier: appUserId })
         await this.storage.debitStorage.IncrementDebitAccess(appUserId, requestorPub, payment.amount_paid + payment.service_fee + payment.network_fee)
         const op = this.newPaymentOperation(payment, bolt11)
-        return { status: 'invoicePaid', op, appUserId, debitRes: { res: 'ok', preimage: payment.preimage } }
+        return { status: 'invoicePaid', op, app, appUser, debitRes: { res: 'ok', preimage: payment.preimage } }
     }
 
-    validateAccessRules = async (access: DebitAccess): Promise<boolean> => {
+    validateAccessRules = async (access: DebitAccess, app: Application, appUser: ApplicationUser): Promise<boolean> => {
         const { rules } = access
         if (!rules) {
             return true
         }
-        return false
-        // TODO: rules validation
-        /*         if (rules[expirationRuleName]) {
-        
-                }
-                if (rules[frequencyRuleName]) {
-        
-                } */
+        if (rules[expirationRuleName]) {
+            const [expiration] = rules[expirationRuleName]
+            if (+expiration < Date.now()) {
+                await this.storage.debitStorage.RemoveDebitAccess(access.app_user_id, access.npub)
+                return false
+            }
+        }
+        if (rules[frequencyRuleName]) {
+            const [number, unit, max] = rules[frequencyRuleName]
+            const intervalType = unitToIntervalType(unit as RecurringDebitTimeUnit)
+            const seconds = IntervalTypeToSeconds(intervalType) * (+number)
+            const sinceUnix = Math.floor(Date.now() / 1000) * seconds
+            const payments = await this.storage.paymentStorage.GetUserDebitPayments(appUser.user.user_id, sinceUnix, access.npub)
+            let total = 0
+            for (const payment of payments) {
+                total += payment.paid_amount
+            }
+            if (total > +max) {
+                return false
+            }
+        }
+        return true
     }
-
 
     newPaymentOperation = (payment: Types.PayInvoiceResponse, bolt11: string) => {
         return {
             amount: payment.amount_paid,
-            paidAtUnix: Date.now() / 1000,
+            paidAtUnix: Math.floor(Date.now() / 1000),
             inbound: false,
             type: Types.UserOperationType.OUTGOING_INVOICE,
             identifier: bolt11,

@@ -800,6 +800,7 @@ The nostr server will send back a message response, and inside the body there wi
   - __admin_token__: _string_
 
 ### FrequencyRule
+  - __amount__: _number_
   - __interval__: _[IntervalType](#IntervalType)_
   - __number_of_intervals__: _number_
 
@@ -855,7 +856,6 @@ The nostr server will send back a message response, and inside the body there wi
   - __token__: _string_
 
 ### LiveDebitRequest
-  - __amount__: _number_
   - __debit__: _[LiveDebitRequest_debit](#LiveDebitRequest_debit)_
   - __npub__: _string_
 

@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { Between, DataSource, EntityManager, FindOperator, IsNull, LessThanOrEqual, MoreThan, MoreThanOrEqual } from "typeorm"
+import { Between, DataSource, EntityManager, FindOperator, IsNull, LessThanOrEqual, MoreThan, MoreThanOrEqual, Not } from "typeorm"
 import { User } from './entity/User.js';
 import { UserTransactionPayment } from './entity/UserTransactionPayment.js';
 import { EphemeralKeyType, UserEphemeralKey } from './entity/UserEphemeralKey.js';
@@ -154,9 +154,9 @@ export default class {
         })
     }
 
-    async AddPendingExternalPayment(userId: string, invoice: string, amounts: { payAmount: number, serviceFee: number, networkFee: number }, linkedApplication: Application, liquidityProvider: string | undefined,dbTx:DataSource|EntityManager): Promise<UserInvoicePayment> {
+    async AddPendingExternalPayment(userId: string, invoice: string, amounts: { payAmount: number, serviceFee: number, networkFee: number }, linkedApplication: Application, liquidityProvider: string | undefined, dbTx: DataSource | EntityManager): Promise<UserInvoicePayment> {
         const newPayment = dbTx.getRepository(UserInvoicePayment).create({
-            user: await this.userStorage.GetUser(userId,dbTx),
+            user: await this.userStorage.GetUser(userId, dbTx),
             paid_amount: amounts.payAmount,
             invoice,
             routing_fees: amounts.networkFee,
@@ -212,6 +212,25 @@ export default class {
                 paid_at_unix: 'DESC'
             },
             take
+        })
+    }
+
+    GetUserDebitPayments(userId: string, sinceUnix: number, debitToNpub: string, entityManager = this.DB): Promise<UserInvoicePayment[]> {
+        const pending = {
+            user: { user_id: userId },
+            debit_to_pub: debitToNpub,
+            paid_at_unix: 0,
+        }
+        const paid = {
+            user: { user_id: userId },
+            debit_to_pub: debitToNpub,
+            paid_at_unix: MoreThan(sinceUnix),
+        }
+        return entityManager.getRepository(UserInvoicePayment).find({
+            where: [pending, paid],
+            order: {
+                paid_at_unix: 'DESC'
+            }
         })
     }
 

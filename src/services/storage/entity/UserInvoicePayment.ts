@@ -44,6 +44,9 @@ export class UserInvoicePayment {
     })
     paymentIndex: number
 
+    @Column({ nullable: true })
+    debit_to_pub: string
+
     @CreateDateColumn()
     created_at: Date
 

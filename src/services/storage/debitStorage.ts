@@ -2,6 +2,11 @@ import { DataSource, EntityManager } from "typeorm"
 import UserStorage from './userStorage.js';
 import TransactionsQueue from "./transactionsQueue.js";
 import { DebitAccess, DebitAccessRules } from "./entity/DebitAccess.js";
+type AccessToAdd = {
+    npub: string
+    rules?: DebitAccessRules
+    authorize: boolean
+}
 export default class {
     DB: DataSource | EntityManager
     txQueue: TransactionsQueue
@@ -10,11 +15,12 @@ export default class {
         this.txQueue = txQueue
     }
 
-    async AddDebitAccess(appUserId: string, pubToAuthorize: string, authorize = true, entityManager = this.DB) {
+    async AddDebitAccess(appUserId: string, access: AccessToAdd, entityManager = this.DB) {
         const entry = entityManager.getRepository(DebitAccess).create({
             app_user_id: appUserId,
-            npub: pubToAuthorize,
-            authorized: authorize,
+            npub: access.npub,
+            authorized: access.authorize,
+            rules: access.rules,
         })
         return this.txQueue.PushToQueue<DebitAccess>({ exec: async db => db.getRepository(DebitAccess).save(entry), dbTx: false })
     }
@@ -41,7 +47,7 @@ export default class {
     async DenyDebitAccess(appUserId: string, pub: string) {
         const access = await this.GetDebitAccess(appUserId, pub)
         if (!access) {
-            await this.AddDebitAccess(appUserId, pub, false)
+            await this.AddDebitAccess(appUserId, { npub: pub, authorize: false })
         }
         await this.UpdateDebitAccess(appUserId, pub, false)
     }

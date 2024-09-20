@@ -328,8 +328,7 @@ export default class {
             this.nostrSend({ type: 'app', appId: event.appId }, { type: 'event', event: e, encrypt: { toPub: event.pub } })
             return
         }
-        const app = await this.storage.applicationStorage.GetApplication(event.appId)
-        const appUser = await this.storage.applicationStorage.GetApplicationUser(app, res.appUserId)
+        const { appUser } = res
         if (res.status === 'authRequired') {
             const message: Types.LiveDebitRequest & { requestId: string, status: 'OK' } = { ...res.liveDebitReq, requestId: "GetLiveDebitRequests", status: 'OK' }
             if (appUser.nostr_public_key) {// TODO - fix before support for http streams

@@ -202,6 +202,7 @@ type EnrollAdminTokenRequest struct {
 	Admin_token string `json:"admin_token"`
 }
 type FrequencyRule struct {
+	Amount              int64        `json:"amount"`
 	Interval            IntervalType `json:"interval"`
 	Number_of_intervals int64        `json:"number_of_intervals"`
 }
@@ -257,9 +258,8 @@ type LinkNPubThroughTokenRequest struct {
 	Token string `json:"token"`
 }
 type LiveDebitRequest struct {
-	Amount int64                   `json:"amount"`
-	Debit  *LiveDebitRequest_debit `json:"debit"`
-	Npub   string                  `json:"npub"`
+	Debit *LiveDebitRequest_debit `json:"debit"`
+	Npub  string                  `json:"npub"`
 }
 type LiveUserOperation struct {
 	Operation *UserOperation `json:"operation"`

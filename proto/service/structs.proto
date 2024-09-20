@@ -512,6 +512,7 @@ enum IntervalType {
 message FrequencyRule {
     int64 number_of_intervals = 1;
     IntervalType interval = 2;
+    int64 amount = 3;
 }
 
 message DebitRule {
@@ -523,7 +524,6 @@ message DebitRule {
 
 message LiveDebitRequest {
     string npub = 1;
-    int64 amount = 2;
     oneof debit {
         string invoice = 3;
         FrequencyRule frequency = 4;

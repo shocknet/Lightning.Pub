@@ -1094,18 +1094,23 @@ export const EnrollAdminTokenRequestValidate = (o?: EnrollAdminTokenRequest, opt
 }
 
 export type FrequencyRule = {
+    amount: number
     interval: IntervalType
     number_of_intervals: number
 }
 export const FrequencyRuleOptionalFields: [] = []
 export type FrequencyRuleOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
+    amount_CustomCheck?: (v: number) => boolean
     interval_CustomCheck?: (v: IntervalType) => boolean
     number_of_intervals_CustomCheck?: (v: number) => boolean
 }
 export const FrequencyRuleValidate = (o?: FrequencyRule, opts: FrequencyRuleOptions = {}, path: string = 'FrequencyRule::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
     if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.amount !== 'number') return new Error(`${path}.amount: is not a number`)
+    if (opts.amount_CustomCheck && !opts.amount_CustomCheck(o.amount)) return new Error(`${path}.amount: custom check failed`)
 
     if (!enumCheckIntervalType(o.interval)) return new Error(`${path}.interval: is not a valid IntervalType`)
     if (opts.interval_CustomCheck && !opts.interval_CustomCheck(o.interval)) return new Error(`${path}.interval: custom check failed`)
@@ -1419,23 +1424,18 @@ export const LinkNPubThroughTokenRequestValidate = (o?: LinkNPubThroughTokenRequ
 }
 
 export type LiveDebitRequest = {
-    amount: number
     debit: LiveDebitRequest_debit
     npub: string
 }
 export const LiveDebitRequestOptionalFields: [] = []
 export type LiveDebitRequestOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
-    amount_CustomCheck?: (v: number) => boolean
     debit_Options?: LiveDebitRequest_debitOptions
     npub_CustomCheck?: (v: string) => boolean
 }
 export const LiveDebitRequestValidate = (o?: LiveDebitRequest, opts: LiveDebitRequestOptions = {}, path: string = 'LiveDebitRequest::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
     if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
-
-    if (typeof o.amount !== 'number') return new Error(`${path}.amount: is not a number`)
-    if (opts.amount_CustomCheck && !opts.amount_CustomCheck(o.amount)) return new Error(`${path}.amount: custom check failed`)
 
     const debitErr = LiveDebitRequest_debitValidate(o.debit, opts.debit_Options, `${path}.debit`)
     if (debitErr !== null) return debitErr
