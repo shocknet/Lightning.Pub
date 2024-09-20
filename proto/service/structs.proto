@@ -479,7 +479,9 @@ message GetInviteTokenStateResponse {
     bool used = 1;
 }
 
-
+message DebitOperation {
+    string npub = 1;
+}
 
 message DebitAuthorizationRequest {
     string authorize_npub = 1;
@@ -496,10 +498,6 @@ message DebitAuthorization {
 
 message DebitAuthorizations {
     repeated DebitAuthorization debits = 1;
-}
-
-message RemoveAuthorizedDebitRequest {
-    string npub = 1;
 }
 
 message DebitExpirationRule {

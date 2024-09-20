@@ -180,6 +180,9 @@ type DebitAuthorizations struct {
 type DebitExpirationRule struct {
 	Expires_at_unix int64 `json:"expires_at_unix"`
 }
+type DebitOperation struct {
+	Npub string `json:"npub"`
+}
 type DebitRule struct {
 	Rule *DebitRule_rule `json:"rule"`
 }
@@ -392,9 +395,6 @@ type Product struct {
 }
 type RelaysMigration struct {
 	Relays []string `json:"relays"`
-}
-type RemoveAuthorizedDebitRequest struct {
-	Npub string `json:"npub"`
 }
 type RequestNPubLinkingTokenRequest struct {
 	User_identifier string `json:"user_identifier"`

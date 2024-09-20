@@ -33,6 +33,11 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [DebitAuthorizationRequest](#DebitAuthorizationRequest)
   - output: [DebitAuthorization](#DebitAuthorization)
 
+- BanDebit
+  - auth type: __User__
+  - input: [DebitOperation](#DebitOperation)
+  - This methods has an __empty__ __response__ body
+
 - BanUser
   - auth type: __Admin__
   - input: [BanUserRequest](#BanUserRequest)
@@ -185,9 +190,9 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [PayInvoiceRequest](#PayInvoiceRequest)
   - output: [PayInvoiceResponse](#PayInvoiceResponse)
 
-- RemoveAuthorizedDebit
+- ResetDebit
   - auth type: __User__
-  - input: [RemoveAuthorizedDebitRequest](#RemoveAuthorizedDebitRequest)
+  - input: [DebitOperation](#DebitOperation)
   - This methods has an __empty__ __response__ body
 
 - UseInviteLink
@@ -282,6 +287,13 @@ The nostr server will send back a message response, and inside the body there wi
   - http route: __/api/user/debit/authorize__
   - input: [DebitAuthorizationRequest](#DebitAuthorizationRequest)
   - output: [DebitAuthorization](#DebitAuthorization)
+
+- BanDebit
+  - auth type: __User__
+  - http method: __post__
+  - http route: __/api/user/debit/ban__
+  - input: [DebitOperation](#DebitOperation)
+  - This methods has an __empty__ __response__ body
 
 - BanUser
   - auth type: __Admin__
@@ -586,19 +598,19 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [PayInvoiceRequest](#PayInvoiceRequest)
   - output: [PayInvoiceResponse](#PayInvoiceResponse)
 
-- RemoveAuthorizedDebit
-  - auth type: __User__
-  - http method: __post__
-  - http route: __/api/user/debit/remove__
-  - input: [RemoveAuthorizedDebitRequest](#RemoveAuthorizedDebitRequest)
-  - This methods has an __empty__ __response__ body
-
 - RequestNPubLinkingToken
   - auth type: __App__
   - http method: __post__
   - http route: __/api/app/user/npub/token__
   - input: [RequestNPubLinkingTokenRequest](#RequestNPubLinkingTokenRequest)
   - output: [RequestNPubLinkingTokenResponse](#RequestNPubLinkingTokenResponse)
+
+- ResetDebit
+  - auth type: __User__
+  - http method: __post__
+  - http route: __/api/user/debit/reset__
+  - input: [DebitOperation](#DebitOperation)
+  - This methods has an __empty__ __response__ body
 
 - ResetNPubLinkingToken
   - auth type: __App__
@@ -765,6 +777,9 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### DebitExpirationRule
   - __expires_at_unix__: _number_
+
+### DebitOperation
+  - __npub__: _string_
 
 ### DebitRule
   - __rule__: _[DebitRule_rule](#DebitRule_rule)_
@@ -978,9 +993,6 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### RelaysMigration
   - __relays__: ARRAY of: _string_
-
-### RemoveAuthorizedDebitRequest
-  - __npub__: _string_
 
 ### RequestNPubLinkingTokenRequest
   - __user_identifier__: _string_

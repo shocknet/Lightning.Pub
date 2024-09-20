@@ -269,13 +269,20 @@ export default (mainHandler: Main): Types.ServerMethods => {
         GetDebitAuthorizations: async ({ ctx }) => {
             return mainHandler.debitManager.GetDebitAuthorizations(ctx)
         },
-        RemoveAuthorizedDebit: async ({ ctx, req }) => {
-            const err = Types.RemoveAuthorizedDebitRequestValidate(req, {
+        BanDebit: async ({ ctx, req }) => {
+            const err = Types.DebitOperationValidate(req, {
                 npub_CustomCheck: pub => pub !== '',
             })
             if (err != null) throw new Error(err.message)
-            return mainHandler.debitManager.RemoveAuthorizedDebit(ctx, req)
+            return mainHandler.debitManager.BanDebit(ctx, req)
         },
+        ResetDebit: async ({ ctx, req }) => {
+            const err = Types.DebitOperationValidate(req, {
+                npub_CustomCheck: pub => pub !== '',
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.debitManager.ResetDebit(ctx, req)
+        }
 
     }
 }

@@ -69,7 +69,10 @@ export class DebitManager {
         return { debits }
     }
 
-    RemoveAuthorizedDebit = async (ctx: Types.UserContext, req: Types.RemoveAuthorizedDebitRequest): Promise<void> => {
+    BanDebit = async (ctx: Types.UserContext, req: Types.DebitOperation): Promise<void> => {
+        await this.storage.debitStorage.DenyDebitAccess(ctx.app_user_id, req.npub)
+    }
+    ResetDebit = async (ctx: Types.UserContext, req: Types.DebitOperation): Promise<void> => {
         await this.storage.debitStorage.RemoveDebitAccess(ctx.app_user_id, req.npub)
     }
 
@@ -86,7 +89,7 @@ export class DebitManager {
         const { amount_sats, pointer } = pointerdata
         if (!pointer) {
             // TODO: debit from app owner balance
-            return { status: 'fail', debitRes: { res: 'GFY', error: nip68errs[2], code: 2 } }
+            return { status: 'fail', debitRes: { res: 'GFY', error: nip68errs[1], code: 1 } }
         }
         const appUserId = pointer
         const pointerFreq = pointerdata as RecurringDebit

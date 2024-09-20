@@ -61,6 +61,7 @@ type Client struct {
 	AddProduct        func(req AddProductRequest) (*Product, error)
 	AuthApp           func(req AuthAppRequest) (*AuthApp, error)
 	AuthorizeDebit    func(req DebitAuthorizationRequest) (*DebitAuthorization, error)
+	BanDebit          func(req DebitOperation) error
 	BanUser           func(req BanUserRequest) (*BanUserResponse, error)
 	// batching method: BatchUser not implemented
 	CreateOneTimeInviteLink     func(req CreateOneTimeInviteLinkRequest) (*CreateOneTimeInviteLinkResponse, error)
@@ -102,8 +103,8 @@ type Client struct {
 	PayAddress                  func(req PayAddressRequest) (*PayAddressResponse, error)
 	PayAppUserInvoice           func(req PayAppUserInvoiceRequest) (*PayInvoiceResponse, error)
 	PayInvoice                  func(req PayInvoiceRequest) (*PayInvoiceResponse, error)
-	RemoveAuthorizedDebit       func(req RemoveAuthorizedDebitRequest) error
 	RequestNPubLinkingToken     func(req RequestNPubLinkingTokenRequest) (*RequestNPubLinkingTokenResponse, error)
+	ResetDebit                  func(req DebitOperation) error
 	ResetNPubLinkingToken       func(req RequestNPubLinkingTokenRequest) (*RequestNPubLinkingTokenResponse, error)
 	SendAppUserToAppPayment     func(req SendAppUserToAppPaymentRequest) error
 	SendAppUserToAppUserPayment func(req SendAppUserToAppUserPaymentRequest) error
@@ -318,6 +319,30 @@ func NewClient(params ClientParams) *Client {
 				return nil, err
 			}
 			return &res, nil
+		},
+		BanDebit: func(req DebitOperation) error {
+			auth, err := params.RetrieveUserAuth()
+			if err != nil {
+				return err
+			}
+			finalRoute := "/api/user/debit/ban"
+			body, err := json.Marshal(req)
+			if err != nil {
+				return err
+			}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return err
+			}
+			if result.Status == "ERROR" {
+				return fmt.Errorf(result.Reason)
+			}
+			return nil
 		},
 		BanUser: func(req BanUserRequest) (*BanUserResponse, error) {
 			auth, err := params.RetrieveAdminAuth()
@@ -1300,30 +1325,6 @@ func NewClient(params ClientParams) *Client {
 			}
 			return &res, nil
 		},
-		RemoveAuthorizedDebit: func(req RemoveAuthorizedDebitRequest) error {
-			auth, err := params.RetrieveUserAuth()
-			if err != nil {
-				return err
-			}
-			finalRoute := "/api/user/debit/remove"
-			body, err := json.Marshal(req)
-			if err != nil {
-				return err
-			}
-			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
-			if err != nil {
-				return err
-			}
-			result := ResultError{}
-			err = json.Unmarshal(resBody, &result)
-			if err != nil {
-				return err
-			}
-			if result.Status == "ERROR" {
-				return fmt.Errorf(result.Reason)
-			}
-			return nil
-		},
 		RequestNPubLinkingToken: func(req RequestNPubLinkingTokenRequest) (*RequestNPubLinkingTokenResponse, error) {
 			auth, err := params.RetrieveAppAuth()
 			if err != nil {
@@ -1352,6 +1353,30 @@ func NewClient(params ClientParams) *Client {
 				return nil, err
 			}
 			return &res, nil
+		},
+		ResetDebit: func(req DebitOperation) error {
+			auth, err := params.RetrieveUserAuth()
+			if err != nil {
+				return err
+			}
+			finalRoute := "/api/user/debit/reset"
+			body, err := json.Marshal(req)
+			if err != nil {
+				return err
+			}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return err
+			}
+			if result.Status == "ERROR" {
+				return fmt.Errorf(result.Reason)
+			}
+			return nil
 		},
 		ResetNPubLinkingToken: func(req RequestNPubLinkingTokenRequest) (*RequestNPubLinkingTokenResponse, error) {
 			auth, err := params.RetrieveAppAuth()

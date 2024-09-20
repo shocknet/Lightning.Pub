@@ -34,8 +34,8 @@ export type UserContext = {
     app_user_id: string
     user_id: string
 }
-export type UserMethodInputs = AddProduct_Input | AuthorizeDebit_Input | DecodeInvoice_Input | EnrollAdminToken_Input | GetDebitAuthorizations_Input | GetLNURLChannelLink_Input | GetLnurlPayLink_Input | GetLnurlWithdrawLink_Input | GetPaymentState_Input | GetUserInfo_Input | GetUserOperations_Input | NewAddress_Input | NewInvoice_Input | NewProductInvoice_Input | OpenChannel_Input | PayAddress_Input | PayInvoice_Input | RemoveAuthorizedDebit_Input | UserHealth_Input
-export type UserMethodOutputs = AddProduct_Output | AuthorizeDebit_Output | DecodeInvoice_Output | EnrollAdminToken_Output | GetDebitAuthorizations_Output | GetLNURLChannelLink_Output | GetLnurlPayLink_Output | GetLnurlWithdrawLink_Output | GetPaymentState_Output | GetUserInfo_Output | GetUserOperations_Output | NewAddress_Output | NewInvoice_Output | NewProductInvoice_Output | OpenChannel_Output | PayAddress_Output | PayInvoice_Output | RemoveAuthorizedDebit_Output | UserHealth_Output
+export type UserMethodInputs = AddProduct_Input | AuthorizeDebit_Input | BanDebit_Input | DecodeInvoice_Input | EnrollAdminToken_Input | GetDebitAuthorizations_Input | GetLNURLChannelLink_Input | GetLnurlPayLink_Input | GetLnurlWithdrawLink_Input | GetPaymentState_Input | GetUserInfo_Input | GetUserOperations_Input | NewAddress_Input | NewInvoice_Input | NewProductInvoice_Input | OpenChannel_Input | PayAddress_Input | PayInvoice_Input | ResetDebit_Input | UserHealth_Input
+export type UserMethodOutputs = AddProduct_Output | AuthorizeDebit_Output | BanDebit_Output | DecodeInvoice_Output | EnrollAdminToken_Output | GetDebitAuthorizations_Output | GetLNURLChannelLink_Output | GetLnurlPayLink_Output | GetLnurlWithdrawLink_Output | GetPaymentState_Output | GetUserInfo_Output | GetUserOperations_Output | NewAddress_Output | NewInvoice_Output | NewProductInvoice_Output | OpenChannel_Output | PayAddress_Output | PayInvoice_Output | ResetDebit_Output | UserHealth_Output
 export type AuthContext = AdminContext | AppContext | GuestContext | GuestWithPubContext | MetricsContext | UserContext
 
 export type AddApp_Input = {rpcName:'AddApp', req: AddAppRequest}
@@ -58,6 +58,9 @@ export type AuthApp_Output = ResultError | ({ status: 'OK' } & AuthApp)
 
 export type AuthorizeDebit_Input = {rpcName:'AuthorizeDebit', req: DebitAuthorizationRequest}
 export type AuthorizeDebit_Output = ResultError | ({ status: 'OK' } & DebitAuthorization)
+
+export type BanDebit_Input = {rpcName:'BanDebit', req: DebitOperation}
+export type BanDebit_Output = ResultError | { status: 'OK' }
 
 export type BanUser_Input = {rpcName:'BanUser', req: BanUserRequest}
 export type BanUser_Output = ResultError | ({ status: 'OK' } & BanUserResponse)
@@ -204,11 +207,11 @@ export type PayAppUserInvoice_Output = ResultError | ({ status: 'OK' } & PayInvo
 export type PayInvoice_Input = {rpcName:'PayInvoice', req: PayInvoiceRequest}
 export type PayInvoice_Output = ResultError | ({ status: 'OK' } & PayInvoiceResponse)
 
-export type RemoveAuthorizedDebit_Input = {rpcName:'RemoveAuthorizedDebit', req: RemoveAuthorizedDebitRequest}
-export type RemoveAuthorizedDebit_Output = ResultError | { status: 'OK' }
-
 export type RequestNPubLinkingToken_Input = {rpcName:'RequestNPubLinkingToken', req: RequestNPubLinkingTokenRequest}
 export type RequestNPubLinkingToken_Output = ResultError | ({ status: 'OK' } & RequestNPubLinkingTokenResponse)
+
+export type ResetDebit_Input = {rpcName:'ResetDebit', req: DebitOperation}
+export type ResetDebit_Output = ResultError | { status: 'OK' }
 
 export type ResetNPubLinkingToken_Input = {rpcName:'ResetNPubLinkingToken', req: RequestNPubLinkingTokenRequest}
 export type ResetNPubLinkingToken_Output = ResultError | ({ status: 'OK' } & RequestNPubLinkingTokenResponse)
@@ -242,6 +245,7 @@ export type ServerMethods = {
     AddProduct?: (req: AddProduct_Input & {ctx: UserContext }) => Promise<Product>
     AuthApp?: (req: AuthApp_Input & {ctx: AdminContext }) => Promise<AuthApp>
     AuthorizeDebit?: (req: AuthorizeDebit_Input & {ctx: UserContext }) => Promise<DebitAuthorization>
+    BanDebit?: (req: BanDebit_Input & {ctx: UserContext }) => Promise<void>
     BanUser?: (req: BanUser_Input & {ctx: AdminContext }) => Promise<BanUserResponse>
     CreateOneTimeInviteLink?: (req: CreateOneTimeInviteLink_Input & {ctx: AdminContext }) => Promise<CreateOneTimeInviteLinkResponse>
     DecodeInvoice?: (req: DecodeInvoice_Input & {ctx: UserContext }) => Promise<DecodeInvoiceResponse>
@@ -282,8 +286,8 @@ export type ServerMethods = {
     PayAddress?: (req: PayAddress_Input & {ctx: UserContext }) => Promise<PayAddressResponse>
     PayAppUserInvoice?: (req: PayAppUserInvoice_Input & {ctx: AppContext }) => Promise<PayInvoiceResponse>
     PayInvoice?: (req: PayInvoice_Input & {ctx: UserContext }) => Promise<PayInvoiceResponse>
-    RemoveAuthorizedDebit?: (req: RemoveAuthorizedDebit_Input & {ctx: UserContext }) => Promise<void>
     RequestNPubLinkingToken?: (req: RequestNPubLinkingToken_Input & {ctx: AppContext }) => Promise<RequestNPubLinkingTokenResponse>
+    ResetDebit?: (req: ResetDebit_Input & {ctx: UserContext }) => Promise<void>
     ResetNPubLinkingToken?: (req: ResetNPubLinkingToken_Input & {ctx: AppContext }) => Promise<RequestNPubLinkingTokenResponse>
     SendAppUserToAppPayment?: (req: SendAppUserToAppPayment_Input & {ctx: AppContext }) => Promise<void>
     SendAppUserToAppUserPayment?: (req: SendAppUserToAppUserPayment_Input & {ctx: AppContext }) => Promise<void>
@@ -958,6 +962,24 @@ export const DebitExpirationRuleValidate = (o?: DebitExpirationRule, opts: Debit
 
     if (typeof o.expires_at_unix !== 'number') return new Error(`${path}.expires_at_unix: is not a number`)
     if (opts.expires_at_unix_CustomCheck && !opts.expires_at_unix_CustomCheck(o.expires_at_unix)) return new Error(`${path}.expires_at_unix: custom check failed`)
+
+    return null
+}
+
+export type DebitOperation = {
+    npub: string
+}
+export const DebitOperationOptionalFields: [] = []
+export type DebitOperationOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    npub_CustomCheck?: (v: string) => boolean
+}
+export const DebitOperationValidate = (o?: DebitOperation, opts: DebitOperationOptions = {}, path: string = 'DebitOperation::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.npub !== 'string') return new Error(`${path}.npub: is not a string`)
+    if (opts.npub_CustomCheck && !opts.npub_CustomCheck(o.npub)) return new Error(`${path}.npub: custom check failed`)
 
     return null
 }
@@ -2227,24 +2249,6 @@ export const RelaysMigrationValidate = (o?: RelaysMigration, opts: RelaysMigrati
         if (typeof o.relays[index] !== 'string') return new Error(`${path}.relays[${index}]: is not a string`)
     }
     if (opts.relays_CustomCheck && !opts.relays_CustomCheck(o.relays)) return new Error(`${path}.relays: custom check failed`)
-
-    return null
-}
-
-export type RemoveAuthorizedDebitRequest = {
-    npub: string
-}
-export const RemoveAuthorizedDebitRequestOptionalFields: [] = []
-export type RemoveAuthorizedDebitRequestOptions = OptionsBaseMessage & {
-    checkOptionalsAreSet?: []
-    npub_CustomCheck?: (v: string) => boolean
-}
-export const RemoveAuthorizedDebitRequestValidate = (o?: RemoveAuthorizedDebitRequest, opts: RemoveAuthorizedDebitRequestOptions = {}, path: string = 'RemoveAuthorizedDebitRequest::root.'): Error | null => {
-    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
-    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
-
-    if (typeof o.npub !== 'string') return new Error(`${path}.npub: is not a string`)
-    if (opts.npub_CustomCheck && !opts.npub_CustomCheck(o.npub)) return new Error(`${path}.npub: custom check failed`)
 
     return null
 }

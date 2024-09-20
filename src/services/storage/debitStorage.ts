@@ -10,11 +10,11 @@ export default class {
         this.txQueue = txQueue
     }
 
-    async AddDebitAccess(appUserId: string, pubToAuthorize: string, entityManager = this.DB) {
+    async AddDebitAccess(appUserId: string, pubToAuthorize: string, authorize = true, entityManager = this.DB) {
         const entry = entityManager.getRepository(DebitAccess).create({
             app_user_id: appUserId,
             npub: pubToAuthorize,
-            authorized: true,
+            authorized: authorize,
         })
         return this.txQueue.PushToQueue<DebitAccess>({ exec: async db => db.getRepository(DebitAccess).save(entry), dbTx: false })
     }
@@ -31,11 +31,22 @@ export default class {
         return this.DB.getRepository(DebitAccess).increment({ app_user_id: appUserId, npub: authorizedPub }, 'total_debits', amount)
     }
 
+    async UpdateDebitAccess(appUserId: string, authorizedPub: string, authorized: boolean) {
+        return this.DB.getRepository(DebitAccess).update({ app_user_id: appUserId, npub: authorizedPub }, { authorized })
+    }
     async UpdateDebitAccessRules(appUserId: string, authorizedPub: string, rules: DebitAccessRules) {
         return this.DB.getRepository(DebitAccess).update({ app_user_id: appUserId, npub: authorizedPub }, { rules })
     }
 
+    async DenyDebitAccess(appUserId: string, pub: string) {
+        const access = await this.GetDebitAccess(appUserId, pub)
+        if (!access) {
+            await this.AddDebitAccess(appUserId, pub, false)
+        }
+        await this.UpdateDebitAccess(appUserId, pub, false)
+    }
+
     async RemoveDebitAccess(appUserId: string, authorizedPub: string) {
-        return this.DB.getRepository(DebitAccess).update({ app_user_id: appUserId, npub: authorizedPub }, { authorized: false })
+        return this.DB.getRepository(DebitAccess).delete({ app_user_id: appUserId, npub: authorizedPub })
     }
 }

@@ -115,6 +115,17 @@ export default (params: ClientParams) => ({
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
+    BanDebit: async (request: Types.DebitOperation): Promise<ResultError | ({ status: 'OK' })> => {
+        const auth = await params.retrieveUserAuth()
+        if (auth === null) throw new Error('retrieveUserAuth() returned null')
+        let finalRoute = '/api/user/debit/ban'
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            return data
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
     BanUser: async (request: Types.BanUserRequest): Promise<ResultError | ({ status: 'OK' }& Types.BanUserResponse)> => {
         const auth = await params.retrieveAdminAuth()
         if (auth === null) throw new Error('retrieveAdminAuth() returned null')
@@ -630,17 +641,6 @@ export default (params: ClientParams) => ({
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
-    RemoveAuthorizedDebit: async (request: Types.RemoveAuthorizedDebitRequest): Promise<ResultError | ({ status: 'OK' })> => {
-        const auth = await params.retrieveUserAuth()
-        if (auth === null) throw new Error('retrieveUserAuth() returned null')
-        let finalRoute = '/api/user/debit/remove'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
-        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
-        if (data.status === 'OK') { 
-            return data
-        }
-        return { status: 'ERROR', reason: 'invalid response' }
-    },
     RequestNPubLinkingToken: async (request: Types.RequestNPubLinkingTokenRequest): Promise<ResultError | ({ status: 'OK' }& Types.RequestNPubLinkingTokenResponse)> => {
         const auth = await params.retrieveAppAuth()
         if (auth === null) throw new Error('retrieveAppAuth() returned null')
@@ -652,6 +652,17 @@ export default (params: ClientParams) => ({
             if(!params.checkResult) return { status: 'OK', ...result }
             const error = Types.RequestNPubLinkingTokenResponseValidate(result)
             if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
+    ResetDebit: async (request: Types.DebitOperation): Promise<ResultError | ({ status: 'OK' })> => {
+        const auth = await params.retrieveUserAuth()
+        if (auth === null) throw new Error('retrieveUserAuth() returned null')
+        let finalRoute = '/api/user/debit/reset'
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            return data
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },

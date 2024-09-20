@@ -188,6 +188,28 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
+    if (!opts.allowNotImplementedMethods && !methods.BanDebit) throw new Error('method: BanDebit is not implemented')
+    app.post('/api/user/debit/ban', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'BanDebit', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.BanDebit) throw new Error('method: BanDebit is not implemented')
+            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.DebitOperationValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+             await methods.BanDebit({rpcName:'BanDebit', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK'})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
     if (!opts.allowNotImplementedMethods && !methods.BanUser) throw new Error('method: BanUser is not implemented')
     app.post('/api/admin/user/ban', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'BanUser', batch: false, nostr: false, batchSize: 0}
@@ -251,6 +273,18 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
                                 opStats.validate = process.hrtime.bigint()
                                 if (error !== null) throw error
                                 const res = await methods.AuthorizeDebit({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                                opStats.handle = process.hrtime.bigint()
+                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
+                            }
+                            break
+                        case 'BanDebit':
+                            if (!methods.BanDebit) {
+                                throw new Error('method BanDebit not found' )
+                            } else {
+                                const error = Types.DebitOperationValidate(operation.req)
+                                opStats.validate = process.hrtime.bigint()
+                                if (error !== null) throw error
+                                await methods.BanDebit({...operation, ctx}); responses.push({ status: 'OK' })
                                 opStats.handle = process.hrtime.bigint()
                                 callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
                             }
@@ -423,14 +457,14 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
                                 callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
                             }
                             break
-                        case 'RemoveAuthorizedDebit':
-                            if (!methods.RemoveAuthorizedDebit) {
-                                throw new Error('method RemoveAuthorizedDebit not found' )
+                        case 'ResetDebit':
+                            if (!methods.ResetDebit) {
+                                throw new Error('method ResetDebit not found' )
                             } else {
-                                const error = Types.RemoveAuthorizedDebitRequestValidate(operation.req)
+                                const error = Types.DebitOperationValidate(operation.req)
                                 opStats.validate = process.hrtime.bigint()
                                 if (error !== null) throw error
-                                await methods.RemoveAuthorizedDebit({...operation, ctx}); responses.push({ status: 'OK' })
+                                await methods.ResetDebit({...operation, ctx}); responses.push({ status: 'OK' })
                                 opStats.handle = process.hrtime.bigint()
                                 callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
                             }
@@ -1177,28 +1211,6 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
-    if (!opts.allowNotImplementedMethods && !methods.RemoveAuthorizedDebit) throw new Error('method: RemoveAuthorizedDebit is not implemented')
-    app.post('/api/user/debit/remove', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'RemoveAuthorizedDebit', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
-        let authCtx: Types.AuthContext = {}
-        try {
-            if (!methods.RemoveAuthorizedDebit) throw new Error('method: RemoveAuthorizedDebit is not implemented')
-            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
-            authCtx = authContext
-            stats.guard = process.hrtime.bigint()
-            const request = req.body
-            const error = Types.RemoveAuthorizedDebitRequestValidate(request)
-            stats.validate = process.hrtime.bigint()
-            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
-            const query = req.query
-            const params = req.params
-             await methods.RemoveAuthorizedDebit({rpcName:'RemoveAuthorizedDebit', ctx:authContext , req: request})
-            stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK'})
-            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
-    })
     if (!opts.allowNotImplementedMethods && !methods.RequestNPubLinkingToken) throw new Error('method: RequestNPubLinkingToken is not implemented')
     app.post('/api/app/user/npub/token', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'RequestNPubLinkingToken', batch: false, nostr: false, batchSize: 0}
@@ -1218,6 +1230,28 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const response =  await methods.RequestNPubLinkingToken({rpcName:'RequestNPubLinkingToken', ctx:authContext , req: request})
             stats.handle = process.hrtime.bigint()
             res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.ResetDebit) throw new Error('method: ResetDebit is not implemented')
+    app.post('/api/user/debit/reset', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'ResetDebit', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.ResetDebit) throw new Error('method: ResetDebit is not implemented')
+            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.DebitOperationValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+             await methods.ResetDebit({rpcName:'ResetDebit', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK'})
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })

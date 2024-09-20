@@ -96,6 +96,22 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     opts.metricsCallback([{ ...info, ...stats, ...authContext }])
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
+            case 'BanDebit':
+                try {
+                    if (!methods.BanDebit) throw new Error('method: BanDebit is not implemented')
+                    const authContext = await opts.NostrUserAuthGuard(req.appId, req.authIdentifier)
+                    stats.guard = process.hrtime.bigint()
+                    authCtx = authContext
+                    const request = req.body
+                    const error = Types.DebitOperationValidate(request)
+                    stats.validate = process.hrtime.bigint()
+                    if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
+                    await methods.BanDebit({rpcName:'BanDebit', ctx:authContext , req: request})
+                    stats.handle = process.hrtime.bigint()
+                    res({status: 'OK'})
+                    opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+                break
             case 'BanUser':
                 try {
                     if (!methods.BanUser) throw new Error('method: BanUser is not implemented')
@@ -151,6 +167,18 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                                         opStats.validate = process.hrtime.bigint()
                                         if (error !== null) throw error
                                         const res = await methods.AuthorizeDebit({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                                        opStats.handle = process.hrtime.bigint()
+                                        callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
+                                    }
+                                    break
+                                case 'BanDebit':
+                                    if (!methods.BanDebit) {
+                                        throw new Error('method not defined: BanDebit')
+                                    } else {
+                                        const error = Types.DebitOperationValidate(operation.req)
+                                        opStats.validate = process.hrtime.bigint()
+                                        if (error !== null) throw error
+                                        await methods.BanDebit({...operation, ctx}); responses.push({ status: 'OK' })
                                         opStats.handle = process.hrtime.bigint()
                                         callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
                                     }
@@ -323,14 +351,14 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                                         callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
                                     }
                                     break
-                                case 'RemoveAuthorizedDebit':
-                                    if (!methods.RemoveAuthorizedDebit) {
-                                        throw new Error('method not defined: RemoveAuthorizedDebit')
+                                case 'ResetDebit':
+                                    if (!methods.ResetDebit) {
+                                        throw new Error('method not defined: ResetDebit')
                                     } else {
-                                        const error = Types.RemoveAuthorizedDebitRequestValidate(operation.req)
+                                        const error = Types.DebitOperationValidate(operation.req)
                                         opStats.validate = process.hrtime.bigint()
                                         if (error !== null) throw error
-                                        await methods.RemoveAuthorizedDebit({...operation, ctx}); responses.push({ status: 'OK' })
+                                        await methods.ResetDebit({...operation, ctx}); responses.push({ status: 'OK' })
                                         opStats.handle = process.hrtime.bigint()
                                         callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
                                     }
@@ -764,17 +792,17 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     opts.metricsCallback([{ ...info, ...stats, ...authContext }])
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
-            case 'RemoveAuthorizedDebit':
+            case 'ResetDebit':
                 try {
-                    if (!methods.RemoveAuthorizedDebit) throw new Error('method: RemoveAuthorizedDebit is not implemented')
+                    if (!methods.ResetDebit) throw new Error('method: ResetDebit is not implemented')
                     const authContext = await opts.NostrUserAuthGuard(req.appId, req.authIdentifier)
                     stats.guard = process.hrtime.bigint()
                     authCtx = authContext
                     const request = req.body
-                    const error = Types.RemoveAuthorizedDebitRequestValidate(request)
+                    const error = Types.DebitOperationValidate(request)
                     stats.validate = process.hrtime.bigint()
                     if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
-                    await methods.RemoveAuthorizedDebit({rpcName:'RemoveAuthorizedDebit', ctx:authContext , req: request})
+                    await methods.ResetDebit({rpcName:'ResetDebit', ctx:authContext , req: request})
                     stats.handle = process.hrtime.bigint()
                     res({status: 'OK'})
                     opts.metricsCallback([{ ...info, ...stats, ...authContext }])

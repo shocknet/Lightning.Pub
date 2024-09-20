@@ -72,6 +72,18 @@ export default (params: NostrClientParams,  send: (to:string, message: NostrRequ
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
+    BanDebit: async (request: Types.DebitOperation): Promise<ResultError | ({ status: 'OK' })> => {
+        const auth = await params.retrieveNostrUserAuth()
+        if (auth === null) throw new Error('retrieveNostrUserAuth() returned null')
+        const nostrRequest: NostrRequest = {}
+        nostrRequest.body = request
+        const data = await send(params.pubDestination, {rpcName:'BanDebit',authIdentifier:auth, ...nostrRequest }) 
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            return data
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
     BanUser: async (request: Types.BanUserRequest): Promise<ResultError | ({ status: 'OK' }& Types.BanUserResponse)> => {
         const auth = await params.retrieveNostrAdminAuth()
         if (auth === null) throw new Error('retrieveNostrAdminAuth() returned null')
@@ -504,12 +516,12 @@ export default (params: NostrClientParams,  send: (to:string, message: NostrRequ
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
-    RemoveAuthorizedDebit: async (request: Types.RemoveAuthorizedDebitRequest): Promise<ResultError | ({ status: 'OK' })> => {
+    ResetDebit: async (request: Types.DebitOperation): Promise<ResultError | ({ status: 'OK' })> => {
         const auth = await params.retrieveNostrUserAuth()
         if (auth === null) throw new Error('retrieveNostrUserAuth() returned null')
         const nostrRequest: NostrRequest = {}
         nostrRequest.body = request
-        const data = await send(params.pubDestination, {rpcName:'RemoveAuthorizedDebit',authIdentifier:auth, ...nostrRequest }) 
+        const data = await send(params.pubDestination, {rpcName:'ResetDebit',authIdentifier:auth, ...nostrRequest }) 
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             return data
