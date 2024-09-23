@@ -225,7 +225,7 @@ export class DebitManager {
             return { status: 'fail', debitRes: { res: 'GFY', error: nip68errs[1], code: 1 } }
         }
         await this.validateAccessRules(authorization, app, appUser)
-        const payment = await this.applicationManager.PayAppUserInvoice(appId, { amount: 0, invoice: bolt11, user_identifier: appUserId })
+        const payment = await this.applicationManager.PayAppUserInvoice(appId, { amount: 0, invoice: bolt11, user_identifier: appUserId, debit_npub: requestorPub })
         await this.storage.debitStorage.IncrementDebitAccess(appUserId, requestorPub, payment.amount_paid + payment.service_fee + payment.network_fee)
         const op = this.newPaymentOperation(payment, bolt11)
         return { status: 'invoicePaid', op, app, appUser, debitRes: { res: 'ok', preimage: payment.preimage } }

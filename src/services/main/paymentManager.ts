@@ -299,9 +299,9 @@ export default class {
         }
         let paymentInfo = { preimage: "", amtPaid: 0, networkFee: 0, serialId: 0 }
         if (internalInvoice) {
-            paymentInfo = await this.PayInternalInvoice(userId, internalInvoice, { payAmount, serviceFee }, linkedApplication)
+            paymentInfo = await this.PayInternalInvoice(userId, internalInvoice, { payAmount, serviceFee }, linkedApplication, req.debit_npub)
         } else {
-            paymentInfo = await this.PayExternalInvoice(userId, req.invoice, { payAmount, serviceFee, amountForLnd: req.amount }, linkedApplication)
+            paymentInfo = await this.PayExternalInvoice(userId, req.invoice, { payAmount, serviceFee, amountForLnd: req.amount }, linkedApplication, req.debit_npub)
         }
         if (isAppUserPayment && serviceFee > 0) {
             await this.storage.userStorage.IncrementUserBalance(linkedApplication.owner.user_id, serviceFee, "fees")
@@ -317,7 +317,7 @@ export default class {
         }
     }
 
-    async PayExternalInvoice(userId: string, invoice: string, amounts: { payAmount: number, serviceFee: number, amountForLnd: number }, linkedApplication: Application) {
+    async PayExternalInvoice(userId: string, invoice: string, amounts: { payAmount: number, serviceFee: number, amountForLnd: number }, linkedApplication: Application, debitNpub?: string) {
         if (this.settings.disableExternalPayments) {
             throw new Error("something went wrong sending payment, please try again later")
         }
@@ -338,7 +338,7 @@ export default class {
         const pendingPayment = await this.storage.txQueue.PushToQueue({
             dbTx: true, description: "payment started", exec: async tx => {
                 await this.storage.userStorage.DecrementUserBalance(userId, totalAmountToDecrement + routingFeeLimit, invoice, tx)
-                return await this.storage.paymentStorage.AddPendingExternalPayment(userId, invoice, { payAmount, serviceFee, networkFee: routingFeeLimit }, linkedApplication, provider, tx)
+                return await this.storage.paymentStorage.AddPendingExternalPayment(userId, invoice, { payAmount, serviceFee, networkFee: routingFeeLimit }, linkedApplication, provider, tx, debitNpub)
             }
         })
         this.log("ready to pay")
@@ -361,7 +361,7 @@ export default class {
         }
     }
 
-    async PayInternalInvoice(userId: string, internalInvoice: UserReceivingInvoice, amounts: { payAmount: number, serviceFee: number }, linkedApplication: Application) {
+    async PayInternalInvoice(userId: string, internalInvoice: UserReceivingInvoice, amounts: { payAmount: number, serviceFee: number }, linkedApplication: Application, debitNpub?: string) {
         if (internalInvoice.paid_at_unix > 0) {
             throw new Error("this invoice was already paid")
         }
@@ -370,7 +370,7 @@ export default class {
         await this.storage.userStorage.DecrementUserBalance(userId, totalAmountToDecrement, internalInvoice.invoice)
         try {
             await this.invoicePaidCb(internalInvoice.invoice, payAmount, 'internal')
-            const newPayment = await this.storage.paymentStorage.AddInternalPayment(userId, internalInvoice.invoice, payAmount, serviceFee, linkedApplication)
+            const newPayment = await this.storage.paymentStorage.AddInternalPayment(userId, internalInvoice.invoice, payAmount, serviceFee, linkedApplication, debitNpub)
             this.utils.stateBundler.AddTxPoint('paidAnInvoice', payAmount, { used: 'internal', from: 'user' })
             return { preimage: "", amtPaid: payAmount, networkFee: 0, serialId: newPayment.serial_id }
         } catch (err) {

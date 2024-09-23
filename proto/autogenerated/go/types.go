@@ -367,12 +367,14 @@ type PayAddressResponse struct {
 }
 type PayAppUserInvoiceRequest struct {
 	Amount          int64  `json:"amount"`
+	Debit_npub      string `json:"debit_npub"`
 	Invoice         string `json:"invoice"`
 	User_identifier string `json:"user_identifier"`
 }
 type PayInvoiceRequest struct {
-	Amount  int64  `json:"amount"`
-	Invoice string `json:"invoice"`
+	Amount     int64  `json:"amount"`
+	Debit_npub string `json:"debit_npub"`
+	Invoice    string `json:"invoice"`
 }
 type PayInvoiceResponse struct {
 	Amount_paid  int64  `json:"amount_paid"`

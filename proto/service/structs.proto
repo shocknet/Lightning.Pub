@@ -215,6 +215,7 @@ message PayAppUserInvoiceRequest {
     string user_identifier = 1;
     string invoice = 2;
     int64 amount = 3;
+    optional string debit_npub = 4;
 }
 
 message SendAppUserToAppUserPaymentRequest {
@@ -283,6 +284,7 @@ message DecodeInvoiceResponse{
 message PayInvoiceRequest{
     string invoice = 1;
     int64 amount = 2;
+    optional string debit_npub = 3;
 }
 
 message PayInvoiceResponse{

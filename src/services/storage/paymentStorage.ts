@@ -154,7 +154,7 @@ export default class {
         })
     }
 
-    async AddPendingExternalPayment(userId: string, invoice: string, amounts: { payAmount: number, serviceFee: number, networkFee: number }, linkedApplication: Application, liquidityProvider: string | undefined, dbTx: DataSource | EntityManager): Promise<UserInvoicePayment> {
+    async AddPendingExternalPayment(userId: string, invoice: string, amounts: { payAmount: number, serviceFee: number, networkFee: number }, linkedApplication: Application, liquidityProvider: string | undefined, dbTx: DataSource | EntityManager, debitNpub?: string): Promise<UserInvoicePayment> {
         const newPayment = dbTx.getRepository(UserInvoicePayment).create({
             user: await this.userStorage.GetUser(userId, dbTx),
             paid_amount: amounts.payAmount,
@@ -164,7 +164,8 @@ export default class {
             paid_at_unix: 0,
             internal: false,
             linkedApplication,
-            liquidityProvider
+            liquidityProvider,
+            debit_to_pub: debitNpub
         })
         return dbTx.getRepository(UserInvoicePayment).save(newPayment)
     }
@@ -185,7 +186,7 @@ export default class {
         })
     }
 
-    async AddInternalPayment(userId: string, invoice: string, amount: number, serviceFees: number, linkedApplication: Application): Promise<UserInvoicePayment> {
+    async AddInternalPayment(userId: string, invoice: string, amount: number, serviceFees: number, linkedApplication: Application, debitNpub?: string): Promise<UserInvoicePayment> {
         const newPayment = this.DB.getRepository(UserInvoicePayment).create({
             user: await this.userStorage.GetUser(userId),
             paid_amount: amount,
@@ -194,7 +195,8 @@ export default class {
             service_fees: serviceFees,
             paid_at_unix: Math.floor(Date.now() / 1000),
             internal: true,
-            linkedApplication
+            linkedApplication,
+            debit_to_pub: debitNpub
         })
         return this.txQueue.PushToQueue<UserInvoicePayment>({ exec: async db => db.getRepository(UserInvoicePayment).save(newPayment), dbTx: false, description: `add internal invoice payment for ${userId} linked to ${linkedApplication.app_id}: ${invoice}, amt: ${amount} ` })
     }

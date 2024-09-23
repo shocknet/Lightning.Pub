@@ -2079,13 +2079,16 @@ export const PayAddressResponseValidate = (o?: PayAddressResponse, opts: PayAddr
 
 export type PayAppUserInvoiceRequest = {
     amount: number
+    debit_npub?: string
     invoice: string
     user_identifier: string
 }
-export const PayAppUserInvoiceRequestOptionalFields: [] = []
+export type PayAppUserInvoiceRequestOptionalField = 'debit_npub'
+export const PayAppUserInvoiceRequestOptionalFields: PayAppUserInvoiceRequestOptionalField[] = ['debit_npub']
 export type PayAppUserInvoiceRequestOptions = OptionsBaseMessage & {
-    checkOptionalsAreSet?: []
+    checkOptionalsAreSet?: PayAppUserInvoiceRequestOptionalField[]
     amount_CustomCheck?: (v: number) => boolean
+    debit_npub_CustomCheck?: (v?: string) => boolean
     invoice_CustomCheck?: (v: string) => boolean
     user_identifier_CustomCheck?: (v: string) => boolean
 }
@@ -2095,6 +2098,9 @@ export const PayAppUserInvoiceRequestValidate = (o?: PayAppUserInvoiceRequest, o
 
     if (typeof o.amount !== 'number') return new Error(`${path}.amount: is not a number`)
     if (opts.amount_CustomCheck && !opts.amount_CustomCheck(o.amount)) return new Error(`${path}.amount: custom check failed`)
+
+    if ((o.debit_npub || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('debit_npub')) && typeof o.debit_npub !== 'string') return new Error(`${path}.debit_npub: is not a string`)
+    if (opts.debit_npub_CustomCheck && !opts.debit_npub_CustomCheck(o.debit_npub)) return new Error(`${path}.debit_npub: custom check failed`)
 
     if (typeof o.invoice !== 'string') return new Error(`${path}.invoice: is not a string`)
     if (opts.invoice_CustomCheck && !opts.invoice_CustomCheck(o.invoice)) return new Error(`${path}.invoice: custom check failed`)
@@ -2107,12 +2113,15 @@ export const PayAppUserInvoiceRequestValidate = (o?: PayAppUserInvoiceRequest, o
 
 export type PayInvoiceRequest = {
     amount: number
+    debit_npub?: string
     invoice: string
 }
-export const PayInvoiceRequestOptionalFields: [] = []
+export type PayInvoiceRequestOptionalField = 'debit_npub'
+export const PayInvoiceRequestOptionalFields: PayInvoiceRequestOptionalField[] = ['debit_npub']
 export type PayInvoiceRequestOptions = OptionsBaseMessage & {
-    checkOptionalsAreSet?: []
+    checkOptionalsAreSet?: PayInvoiceRequestOptionalField[]
     amount_CustomCheck?: (v: number) => boolean
+    debit_npub_CustomCheck?: (v?: string) => boolean
     invoice_CustomCheck?: (v: string) => boolean
 }
 export const PayInvoiceRequestValidate = (o?: PayInvoiceRequest, opts: PayInvoiceRequestOptions = {}, path: string = 'PayInvoiceRequest::root.'): Error | null => {
@@ -2121,6 +2130,9 @@ export const PayInvoiceRequestValidate = (o?: PayInvoiceRequest, opts: PayInvoic
 
     if (typeof o.amount !== 'number') return new Error(`${path}.amount: is not a number`)
     if (opts.amount_CustomCheck && !opts.amount_CustomCheck(o.amount)) return new Error(`${path}.amount: custom check failed`)
+
+    if ((o.debit_npub || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('debit_npub')) && typeof o.debit_npub !== 'string') return new Error(`${path}.debit_npub: is not a string`)
+    if (opts.debit_npub_CustomCheck && !opts.debit_npub_CustomCheck(o.debit_npub)) return new Error(`${path}.debit_npub: custom check failed`)
 
     if (typeof o.invoice !== 'string') return new Error(`${path}.invoice: is not a string`)
     if (opts.invoice_CustomCheck && !opts.invoice_CustomCheck(o.invoice)) return new Error(`${path}.invoice: custom check failed`)
