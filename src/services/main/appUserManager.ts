@@ -6,6 +6,7 @@ import { MainSettings } from './settings.js'
 import ApplicationManager from './applicationManager.js'
 import { encodeNdebit, encodeNoffer, PriceType } from '../../custom-nip19.js'
 export default class {
+
     storage: Storage
     settings: MainSettings
     applicationManager: ApplicationManager
@@ -51,7 +52,7 @@ export default class {
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
         const appUser = await this.storage.applicationStorage.GetAppUserFromUser(app, user.user_id)
         console.log("User Identifier/pointer here", appUser?.identifier)
-        
+
         if (!appUser) {
             throw new Error(`app user ${ctx.user_id} not found`) // TODO: fix logs doxing
         }
@@ -64,8 +65,15 @@ export default class {
             network_max_fee_fixed: this.settings.lndSettings.feeFixedLimit,
             service_fee_bps: this.settings.outgoingAppUserInvoiceFeeBps,
             noffer: encodeNoffer({ pubkey: app.nostr_public_key!, offer: appUser.identifier, priceType: PriceType.spontaneous, relay: "" }),
-            ndebit: encodeNdebit({ pubkey: app.nostr_public_key!, pointerId: appUser.identifier, relay: "" })
+            ndebit: encodeNdebit({ pubkey: app.nostr_public_key!, pointerId: appUser.identifier, relay: "" }),
+            callback_url: appUser.callback_url
         }
+    }
+
+    async UpdateCallbackUrl(ctx: Types.UserContext, req: Types.CallbackUrl): Promise<Types.CallbackUrl> {
+        const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
+        await this.storage.applicationStorage.UpdateUserCallbackUrl(app, ctx.app_user_id, req.url)
+        return { url: req.url }
     }
 
     async NewInvoice(ctx: Types.UserContext, req: Types.NewInvoiceRequest): Promise<Types.NewInvoiceResponse> {

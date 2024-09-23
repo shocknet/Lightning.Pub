@@ -347,6 +347,10 @@ message HandleLnurlPayResponse {
     repeated Empty routes = 2;
 }
 
+message CallbackUrl {
+    string url = 1;
+}
+
 message UserInfo{
     string userId = 1;
     int64 balance = 2;
@@ -357,8 +361,8 @@ message UserInfo{
     int64 network_max_fee_fixed = 7;
     string noffer = 8;
     string ndebit = 9;
+    string callback_url = 10;
 }
-
 message GetUserOperationsRequest{
     int64 latestIncomingInvoice = 1;
     int64 latestOutgoingInvoice = 2;

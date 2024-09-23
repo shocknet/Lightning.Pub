@@ -150,6 +150,9 @@ type BannedAppUser struct {
 	Nostr_pub       string `json:"nostr_pub"`
 	User_identifier string `json:"user_identifier"`
 }
+type CallbackUrl struct {
+	Url string `json:"url"`
+}
 type ClosedChannel struct {
 	Capacity      int64  `json:"capacity"`
 	Channel_id    string `json:"channel_id"`
@@ -457,6 +460,7 @@ type UseInviteLinkRequest struct {
 }
 type UserInfo struct {
 	Balance               int64  `json:"balance"`
+	Callback_url          string `json:"callback_url"`
 	Max_withdrawable      int64  `json:"max_withdrawable"`
 	Ndebit                string `json:"ndebit"`
 	Network_max_fee_bps   int64  `json:"network_max_fee_bps"`

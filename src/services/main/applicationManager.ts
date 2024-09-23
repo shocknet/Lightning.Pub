@@ -160,7 +160,8 @@ export default class {
                 network_max_fee_fixed: this.settings.lndSettings.feeFixedLimit,
                 service_fee_bps: this.settings.outgoingAppUserInvoiceFeeBps,
                 noffer: encodeNoffer({ pubkey: app.nostr_public_key!, offer: u.identifier, priceType: PriceType.spontaneous, relay: "" }),
-                ndebit: encodeNdebit({ pubkey: app.nostr_public_key!, pointerId: u.identifier, relay: "" })
+                ndebit: encodeNdebit({ pubkey: app.nostr_public_key!, pointerId: u.identifier, relay: "" }),
+                callback_url: u.callback_url
 
             },
             max_withdrawable: this.paymentManager.GetMaxPayableInvoice(u.user.balance_sats, true)
@@ -181,7 +182,8 @@ export default class {
         const log = getLogger({ appName: app.name })
         const receiver = await this.storage.applicationStorage.GetApplicationUser(app, req.receiver_identifier)
         const { user: payer } = await this.storage.applicationStorage.GetOrCreateApplicationUser(app, req.payer_identifier, 0)
-        const opts: InboundOptionals = { callbackUrl: req.http_callback_url, expiry: defaultInvoiceExpiry, expectedPayer: payer.user, linkedApplication: app }
+        const cbUrl = req.http_callback_url || receiver.callback_url || ""
+        const opts: InboundOptionals = { callbackUrl: cbUrl, expiry: defaultInvoiceExpiry, expectedPayer: payer.user, linkedApplication: app }
         const appUserInvoice = await this.paymentManager.NewInvoice(receiver.user.user_id, req.invoice_req, opts)
         return {
             invoice: appUserInvoice.invoice
@@ -201,7 +203,8 @@ export default class {
                 network_max_fee_fixed: this.settings.lndSettings.feeFixedLimit,
                 service_fee_bps: this.settings.outgoingAppUserInvoiceFeeBps,
                 noffer: encodeNoffer({ pubkey: app.nostr_public_key!, offer: user.identifier, priceType: PriceType.spontaneous, relay: "" }),
-                ndebit: encodeNdebit({ pubkey: app.nostr_public_key!, pointerId: user.identifier, relay: "" })
+                ndebit: encodeNdebit({ pubkey: app.nostr_public_key!, pointerId: user.identifier, relay: "" }),
+                callback_url: user.callback_url
             },
         }
     }

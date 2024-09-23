@@ -195,6 +195,11 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [DebitOperation](#DebitOperation)
   - This methods has an __empty__ __response__ body
 
+- UpdateCallbackUrl
+  - auth type: __User__
+  - input: [CallbackUrl](#CallbackUrl)
+  - output: [CallbackUrl](#CallbackUrl)
+
 - UseInviteLink
   - auth type: __GuestWithPub__
   - input: [UseInviteLinkRequest](#UseInviteLinkRequest)
@@ -654,6 +659,13 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [SetMockInvoiceAsPaidRequest](#SetMockInvoiceAsPaidRequest)
   - This methods has an __empty__ __response__ body
 
+- UpdateCallbackUrl
+  - auth type: __User__
+  - http method: __post__
+  - http route: __/api/user/cb/update__
+  - input: [CallbackUrl](#CallbackUrl)
+  - output: [CallbackUrl](#CallbackUrl)
+
 - UseInviteLink
   - auth type: __GuestWithPub__
   - http method: __post__
@@ -747,6 +759,9 @@ The nostr server will send back a message response, and inside the body there wi
   - __app_name__: _string_
   - __nostr_pub__: _string_
   - __user_identifier__: _string_
+
+### CallbackUrl
+  - __url__: _string_
 
 ### ClosedChannel
   - __capacity__: _number_
@@ -1055,6 +1070,7 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### UserInfo
   - __balance__: _number_
+  - __callback_url__: _string_
   - __max_withdrawable__: _number_
   - __ndebit__: _string_
   - __network_max_fee_bps__: _number_

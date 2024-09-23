@@ -469,6 +469,18 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
                                 callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
                             }
                             break
+                        case 'UpdateCallbackUrl':
+                            if (!methods.UpdateCallbackUrl) {
+                                throw new Error('method UpdateCallbackUrl not found' )
+                            } else {
+                                const error = Types.CallbackUrlValidate(operation.req)
+                                opStats.validate = process.hrtime.bigint()
+                                if (error !== null) throw error
+                                const res = await methods.UpdateCallbackUrl({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                                opStats.handle = process.hrtime.bigint()
+                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
+                            }
+                            break
                         case 'UserHealth':
                             if (!methods.UserHealth) {
                                 throw new Error('method UserHealth not found' )
@@ -1384,6 +1396,28 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
              await methods.SetMockInvoiceAsPaid({rpcName:'SetMockInvoiceAsPaid', ctx:authContext , req: request})
             stats.handle = process.hrtime.bigint()
             res.json({status: 'OK'})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.UpdateCallbackUrl) throw new Error('method: UpdateCallbackUrl is not implemented')
+    app.post('/api/user/cb/update', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'UpdateCallbackUrl', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.UpdateCallbackUrl) throw new Error('method: UpdateCallbackUrl is not implemented')
+            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.CallbackUrlValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+            const response =  await methods.UpdateCallbackUrl({rpcName:'UpdateCallbackUrl', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })

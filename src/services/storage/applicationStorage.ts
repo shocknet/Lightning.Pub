@@ -161,9 +161,11 @@ export default class {
 
     async AddNPubToApplicationUser(serialId: number, nPub: string, entityManager = this.DB) {
         return entityManager.getRepository(ApplicationUser).update(serialId, { nostr_public_key: nPub })
-
     }
 
+    async UpdateUserCallbackUrl(application: Application, userIdentifier: string, callbackUrl: string, entityManager = this.DB) {
+        return entityManager.getRepository(ApplicationUser).update({ application: { app_id: application.app_id }, identifier: userIdentifier }, { callback_url: callbackUrl })
+    }
 
     async RemoveApplicationUserAndBaseUser(appUser: ApplicationUser, entityManager = this.DB) {
         const baseUser = appUser.user;

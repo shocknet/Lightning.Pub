@@ -41,6 +41,9 @@ export default (mainHandler: Main): Types.ServerMethods => {
         },
         UserHealth: async () => { },
         GetUserInfo: ({ ctx }) => mainHandler.appUserManager.GetUserInfo(ctx),
+        UpdateCallbackUrl: async ({ ctx, req }) => {
+            return mainHandler.appUserManager.UpdateCallbackUrl(ctx, req)
+        },
         GetUserOperations: async ({ ctx, req }) => {
             return mainHandler.paymentManager.GetUserOperations(ctx.user_id, req)
         },
