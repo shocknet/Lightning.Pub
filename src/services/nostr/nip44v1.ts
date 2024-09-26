@@ -12,17 +12,15 @@ export const getSharedSecret = (privateKey: string, publicKey: string) => {
     return sha256(key.slice(1, 33));
 }
 
-export const encryptData = (content: string, sharedSecret: Uint8Array) => {
+export const encrypt = (content: string, sharedSecret: Uint8Array) => {
     const nonce = randomBytes(24);
     const plaintext = new TextEncoder().encode(content);
     const ciphertext = xchacha20(sharedSecret, nonce, plaintext, plaintext);
-    return {
-        ciphertext: Uint8Array.from(ciphertext),
-        nonce: nonce,
-    } as EncryptedData;
+    return encodePayload({ ciphertext, nonce });
 }
 
-export const decryptData = (payload: EncryptedData, sharedSecret: Uint8Array) => {
+export const decrypt = (content: string, sharedSecret: Uint8Array) => {
+    const payload = decodePayload(content);
     const dst = xchacha20(sharedSecret, payload.nonce, payload.ciphertext, payload.ciphertext);
     const decoded = new TextDecoder().decode(dst);
     return decoded;

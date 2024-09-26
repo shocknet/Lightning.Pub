@@ -11,7 +11,7 @@ import { ERROR, getLogger, PubLogger } from "../helpers/logger.js"
 import AppUserManager from "./appUserManager.js"
 import { Application } from '../storage/entity/Application.js'
 import { UserReceivingInvoice } from '../storage/entity/UserReceivingInvoice.js'
-import { UnsignedEvent } from '../nostr/tools/event.js'
+import { UnsignedEvent } from 'nostr-tools'
 import { NostrEvent, NostrSend } from '../nostr/handler.js'
 import MetricsManager from '../metrics/index.js'
 import { LoggedEvent } from '../storage/eventsLog.js'
@@ -22,7 +22,6 @@ import { RugPullTracker } from "./rugPullTracker.js"
 import { AdminManager } from "./adminManager.js"
 import { Unlocker } from "./unlocker.js"
 import { defaultInvoiceExpiry } from "../storage/paymentStorage.js"
-import { DebitPointer } from "../../custom-nip19.js"
 import { DebitManager, NdebitData } from "./debitManager.js"
 
 type UserOperationsSub = {

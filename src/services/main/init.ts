@@ -9,7 +9,6 @@ import { LoadMainSettingsFromEnv, MainSettings } from "./settings.js"
 import { Utils } from "../helpers/utilsWrapper.js"
 import { Wizard } from "../wizard/index.js"
 import { AdminManager } from "./adminManager.js"
-import { encodeNprofile } from "../../custom-nip19.js"
 export type AppData = {
     privateKey: string;
     publicKey: string;

@@ -11,7 +11,7 @@ import { UserReceivingAddress } from '../storage/entity/UserReceivingAddress.js'
 import { AddressPaidCb, InvoicePaidCb, PaidInvoice } from '../lnd/settings.js'
 import { UserReceivingInvoice, ZapInfo } from '../storage/entity/UserReceivingInvoice.js'
 import { Payment_PaymentStatus, SendCoinsResponse } from '../../../proto/lnd/lightning.js'
-import { Event, verifiedSymbol, verifySignature } from '../nostr/tools/event.js'
+import { Event, verifiedSymbol, verifyEvent } from 'nostr-tools'
 import { AddressReceivingTransaction } from '../storage/entity/AddressReceivingTransaction.js'
 import { UserTransactionPayment } from '../storage/entity/UserTransactionPayment.js'
 import { Watchdog } from './watchdog.js'
@@ -580,7 +580,7 @@ export default class {
     validateZapEvent(event: string, amt: number): ZapInfo {
         const nostrEvent = JSON.parse(event) as Event
         delete nostrEvent[verifiedSymbol]
-        const verified = verifySignature(nostrEvent)
+        const verified = verifyEvent(nostrEvent)
         if (!verified) {
             throw new Error("nostr event not valid")
         }
