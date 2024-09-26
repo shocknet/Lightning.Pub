@@ -9,8 +9,6 @@ import { initMainHandler } from './services/main/init.js';
 import { LoadMainSettingsFromEnv } from './services/main/settings.js';
 import { nip19 } from 'nostr-tools'
 //@ts-ignore
-import { WebSocket } from 'ws'
-Object.assign(global, { WebSocket: WebSocket });
 const { nprofileEncode } = nip19
 
 const start = async () => {

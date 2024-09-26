@@ -1,4 +1,6 @@
 //import { SimplePool, Sub, Event, UnsignedEvent, getEventHash, signEvent } from 'nostr-tools'
+import * as ws from 'ws'
+Object.assign(global, { WebSocket: ws });
 import { SimplePool, Event, UnsignedEvent, getEventHash, finalizeEvent, Relay, nip44 } from 'nostr-tools'
 //import { encryptData, decryptData, getSharedSecret, decodePayload, encodePayload, EncryptedData, nip44 } from 'nostr-tools'
 import { ERROR, getLogger } from '../helpers/logger.js'
