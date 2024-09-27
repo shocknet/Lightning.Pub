@@ -189,7 +189,6 @@ export default class Handler {
             return
 
         }
-        console.log(content)
         this.eventCallback({ id: eventId, content, pub: e.pubkey, appId: app.appId, startAtNano, startAtMs, kind: e.kind })
     }
 

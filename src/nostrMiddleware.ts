@@ -46,6 +46,7 @@ export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSett
             log(ERROR, "invalid json event received", event.content)
             return
         }
+        console.log(event)
         if (event.kind === 21001) {
             const offerReq = j as NofferData
             mainHandler.handleNip69Noffer(offerReq, event)
