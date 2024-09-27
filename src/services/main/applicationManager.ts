@@ -164,7 +164,8 @@ export default class {
                 service_fee_bps: this.settings.outgoingAppUserInvoiceFeeBps,
                 noffer: nofferEncode({ pubkey: app.nostr_public_key!, offer: u.identifier, priceType: OfferPriceType.Spontaneous, relay: nostrSettings.relays[0] }),
                 ndebit: ndebitEncode({ pubkey: app.nostr_public_key!, pointerId: u.identifier, relay: nostrSettings.relays[0] }),
-                callback_url: u.callback_url
+                callback_url: u.callback_url,
+                bridge_url: this.settings.bridgeUrl
 
             },
             max_withdrawable: this.paymentManager.GetMaxPayableInvoice(u.user.balance_sats, true)
@@ -208,7 +209,8 @@ export default class {
                 service_fee_bps: this.settings.outgoingAppUserInvoiceFeeBps,
                 noffer: nofferEncode({ pubkey: app.nostr_public_key!, offer: user.identifier, priceType: OfferPriceType.Spontaneous, relay: nostrSettings.relays[0] }),
                 ndebit: ndebitEncode({ pubkey: app.nostr_public_key!, pointerId: user.identifier, relay: nostrSettings.relays[0] }),
-                callback_url: user.callback_url
+                callback_url: user.callback_url,
+                bridge_url: this.settings.bridgeUrl
             },
         }
     }

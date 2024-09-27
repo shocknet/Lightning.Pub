@@ -362,6 +362,7 @@ message UserInfo{
     string noffer = 8;
     string ndebit = 9;
     string callback_url = 10;
+    string bridge_url = 11;
 }
 message GetUserOperationsRequest{
     int64 latestIncomingInvoice = 1;

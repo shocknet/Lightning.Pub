@@ -460,6 +460,7 @@ type UseInviteLinkRequest struct {
 }
 type UserInfo struct {
 	Balance               int64  `json:"balance"`
+	Bridge_url            string `json:"bridge_url"`
 	Callback_url          string `json:"callback_url"`
 	Max_withdrawable      int64  `json:"max_withdrawable"`
 	Ndebit                string `json:"ndebit"`

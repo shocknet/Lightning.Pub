@@ -2612,6 +2612,7 @@ export const UseInviteLinkRequestValidate = (o?: UseInviteLinkRequest, opts: Use
 
 export type UserInfo = {
     balance: number
+    bridge_url: string
     callback_url: string
     max_withdrawable: number
     ndebit: string
@@ -2626,6 +2627,7 @@ export const UserInfoOptionalFields: [] = []
 export type UserInfoOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
     balance_CustomCheck?: (v: number) => boolean
+    bridge_url_CustomCheck?: (v: string) => boolean
     callback_url_CustomCheck?: (v: string) => boolean
     max_withdrawable_CustomCheck?: (v: number) => boolean
     ndebit_CustomCheck?: (v: string) => boolean
@@ -2642,6 +2644,9 @@ export const UserInfoValidate = (o?: UserInfo, opts: UserInfoOptions = {}, path:
 
     if (typeof o.balance !== 'number') return new Error(`${path}.balance: is not a number`)
     if (opts.balance_CustomCheck && !opts.balance_CustomCheck(o.balance)) return new Error(`${path}.balance: custom check failed`)
+
+    if (typeof o.bridge_url !== 'string') return new Error(`${path}.bridge_url: is not a string`)
+    if (opts.bridge_url_CustomCheck && !opts.bridge_url_CustomCheck(o.bridge_url)) return new Error(`${path}.bridge_url: custom check failed`)
 
     if (typeof o.callback_url !== 'string') return new Error(`${path}.callback_url: is not a string`)
     if (opts.callback_url_CustomCheck && !opts.callback_url_CustomCheck(o.callback_url)) return new Error(`${path}.callback_url: custom check failed`)

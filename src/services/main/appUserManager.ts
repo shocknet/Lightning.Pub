@@ -69,7 +69,8 @@ export default class {
             service_fee_bps: this.settings.outgoingAppUserInvoiceFeeBps,
             noffer: nofferEncode({ pubkey: app.nostr_public_key!, offer: appUser.identifier, priceType: OfferPriceType.Spontaneous, relay: nostrSettings.relays[0] }),
             ndebit: ndebitEncode({ pubkey: app.nostr_public_key!, pointerId: appUser.identifier, relay: nostrSettings.relays[0] }),
-            callback_url: appUser.callback_url
+            callback_url: appUser.callback_url,
+            bridge_url: this.settings.bridgeUrl
         }
     }
 
