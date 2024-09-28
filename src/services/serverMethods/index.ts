@@ -285,6 +285,9 @@ export default (mainHandler: Main): Types.ServerMethods => {
             })
             if (err != null) throw new Error(err.message)
             return mainHandler.debitManager.ResetDebit(ctx, req)
+        },
+        EditDebit: async ({ ctx, req }) => {
+            return mainHandler.debitManager.EditDebit(ctx, req);
         }
 
     }

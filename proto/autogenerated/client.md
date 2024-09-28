@@ -58,6 +58,11 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [DecodeInvoiceRequest](#DecodeInvoiceRequest)
   - output: [DecodeInvoiceResponse](#DecodeInvoiceResponse)
 
+- EditDebit
+  - auth type: __User__
+  - input: [DebitAuthorizationRequest](#DebitAuthorizationRequest)
+  - This methods has an __empty__ __response__ body
+
 - EnrollAdminToken
   - auth type: __User__
   - input: [EnrollAdminTokenRequest](#EnrollAdminTokenRequest)
@@ -327,6 +332,13 @@ The nostr server will send back a message response, and inside the body there wi
   - http route: __/api/user/invoice/decode__
   - input: [DecodeInvoiceRequest](#DecodeInvoiceRequest)
   - output: [DecodeInvoiceResponse](#DecodeInvoiceResponse)
+
+- EditDebit
+  - auth type: __User__
+  - http method: __post__
+  - http route: __/api/user/debit/edit__
+  - input: [DebitAuthorizationRequest](#DebitAuthorizationRequest)
+  - This methods has an __empty__ __response__ body
 
 - EncryptionExchange
   - auth type: __Guest__

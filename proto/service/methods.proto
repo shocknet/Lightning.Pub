@@ -453,6 +453,12 @@ service LightningPub {
         option (http_route) = "/api/user/debit/authorize";
         option (nostr) = true;
     }
+    rpc EditDebit(structs.DebitAuthorizationRequest) returns (structs.Empty){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/debit/edit";
+        option (nostr) = true;
+    }
     rpc BanDebit(structs.DebitOperation) returns (structs.Empty){
         option (auth_type)  = "User";
         option (http_method) = "post";
