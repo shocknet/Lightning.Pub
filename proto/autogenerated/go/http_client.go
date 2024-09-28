@@ -66,6 +66,7 @@ type Client struct {
 	// batching method: BatchUser not implemented
 	CreateOneTimeInviteLink     func(req CreateOneTimeInviteLinkRequest) (*CreateOneTimeInviteLinkResponse, error)
 	DecodeInvoice               func(req DecodeInvoiceRequest) (*DecodeInvoiceResponse, error)
+	EditDebit                   func(req DebitAuthorizationRequest) error
 	EncryptionExchange          func(req EncryptionExchangeRequest) error
 	EnrollAdminToken            func(req EnrollAdminTokenRequest) error
 	GetApp                      func() (*Application, error)
@@ -432,6 +433,30 @@ func NewClient(params ClientParams) *Client {
 				return nil, err
 			}
 			return &res, nil
+		},
+		EditDebit: func(req DebitAuthorizationRequest) error {
+			auth, err := params.RetrieveUserAuth()
+			if err != nil {
+				return err
+			}
+			finalRoute := "/api/user/debit/edit"
+			body, err := json.Marshal(req)
+			if err != nil {
+				return err
+			}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return err
+			}
+			if result.Status == "ERROR" {
+				return fmt.Errorf(result.Reason)
+			}
+			return nil
 		},
 		EncryptionExchange: func(req EncryptionExchangeRequest) error {
 			auth, err := params.RetrieveGuestAuth()

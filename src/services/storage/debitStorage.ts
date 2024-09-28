@@ -40,7 +40,7 @@ export default class {
     async UpdateDebitAccess(appUserId: string, authorizedPub: string, authorized: boolean) {
         return this.DB.getRepository(DebitAccess).update({ app_user_id: appUserId, npub: authorizedPub }, { authorized })
     }
-    async UpdateDebitAccessRules(appUserId: string, authorizedPub: string, rules: DebitAccessRules) {
+    async UpdateDebitAccessRules(appUserId: string, authorizedPub: string, rules?: DebitAccessRules) {
         return this.DB.getRepository(DebitAccess).update({ app_user_id: appUserId, npub: authorizedPub }, { rules })
     }
 

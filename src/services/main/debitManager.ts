@@ -51,7 +51,8 @@ const debitRulesToDebitAccessRules = (rule: Types.DebitRule[]): DebitAccessRules
             case Types.DebitRule_rule_type.FREQUENCY_RULE:
                 const intervals = rule.frequency_rule.number_of_intervals.toString()
                 const unit = intervalTypeToUnit(rule.frequency_rule.interval)
-                return { key: frequencyRuleName, val: [intervals, unit, rule.frequency_rule.amount.toString()] }
+                rules[frequencyRuleName] = [intervals, unit, rule.frequency_rule.amount.toString()];
+                break
             default:
                 throw new Error("invalid rule")
         }
@@ -145,6 +146,14 @@ export class DebitManager {
             rules: debitAccessRulesToDebitRules(access.rules)
         }))
         return { debits }
+    }
+
+    EditDebit = async (ctx: Types.UserContext, req: Types.DebitAuthorizationRequest): Promise<void> => {
+        const access = await this.storage.debitStorage.GetDebitAccess(ctx.app_user_id, req.authorize_npub);
+        if (!access) {
+            throw new Error("Debit does not exist")
+        }
+        await this.storage.debitStorage.UpdateDebitAccessRules(ctx.app_user_id, req.authorize_npub, debitRulesToDebitAccessRules(req.rules));
     }
 
     BanDebit = async (ctx: Types.UserContext, req: Types.DebitOperation): Promise<void> => {
