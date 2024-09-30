@@ -163,7 +163,7 @@ export default class {
                 network_max_fee_fixed: this.settings.lndSettings.feeFixedLimit,
                 service_fee_bps: this.settings.outgoingAppUserInvoiceFeeBps,
                 noffer: nofferEncode({ pubkey: app.nostr_public_key!, offer: u.identifier, priceType: OfferPriceType.Spontaneous, relay: nostrSettings.relays[0] }),
-                ndebit: ndebitEncode({ pubkey: app.nostr_public_key!, pointerId: u.identifier, relay: nostrSettings.relays[0] }),
+                ndebit: ndebitEncode({ pubkey: app.nostr_public_key!, pointer: u.identifier, relay: nostrSettings.relays[0] }),
                 callback_url: u.callback_url,
                 bridge_url: this.settings.bridgeUrl
 
@@ -208,7 +208,7 @@ export default class {
                 network_max_fee_fixed: this.settings.lndSettings.feeFixedLimit,
                 service_fee_bps: this.settings.outgoingAppUserInvoiceFeeBps,
                 noffer: nofferEncode({ pubkey: app.nostr_public_key!, offer: user.identifier, priceType: OfferPriceType.Spontaneous, relay: nostrSettings.relays[0] }),
-                ndebit: ndebitEncode({ pubkey: app.nostr_public_key!, pointerId: user.identifier, relay: nostrSettings.relays[0] }),
+                ndebit: ndebitEncode({ pubkey: app.nostr_public_key!, pointer: user.identifier, relay: nostrSettings.relays[0] }),
                 callback_url: user.callback_url,
                 bridge_url: this.settings.bridgeUrl
             },
