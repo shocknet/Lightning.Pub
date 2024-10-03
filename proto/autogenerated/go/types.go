@@ -175,6 +175,7 @@ type DebitAuthorization struct {
 }
 type DebitAuthorizationRequest struct {
 	Authorize_npub string      `json:"authorize_npub"`
+	Request_id     string      `json:"request_id"`
 	Rules          []DebitRule `json:"rules"`
 }
 type DebitAuthorizations struct {
@@ -185,6 +186,11 @@ type DebitExpirationRule struct {
 }
 type DebitOperation struct {
 	Npub string `json:"npub"`
+}
+type DebitResponse struct {
+	Npub       string                  `json:"npub"`
+	Request_id string                  `json:"request_id"`
+	Response   *DebitResponse_response `json:"response"`
 }
 type DebitRule struct {
 	Rule *DebitRule_rule `json:"rule"`
@@ -261,8 +267,9 @@ type LinkNPubThroughTokenRequest struct {
 	Token string `json:"token"`
 }
 type LiveDebitRequest struct {
-	Debit *LiveDebitRequest_debit `json:"debit"`
-	Npub  string                  `json:"npub"`
+	Debit      *LiveDebitRequest_debit `json:"debit"`
+	Npub       string                  `json:"npub"`
+	Request_id string                  `json:"request_id"`
 }
 type LiveUserOperation struct {
 	Operation *UserOperation `json:"operation"`
@@ -496,6 +503,18 @@ type UsersInfo struct {
 	Negative_balance     int64 `json:"negative_balance"`
 	No_balance           int64 `json:"no_balance"`
 	Total                int64 `json:"total"`
+}
+type DebitResponse_response_type string
+
+const (
+	DENIED  DebitResponse_response_type = "denied"
+	INVOICE DebitResponse_response_type = "invoice"
+)
+
+type DebitResponse_response struct {
+	Type    DebitResponse_response_type `json:"type"`
+	Denied  *Empty                      `json:"denied"`
+	Invoice *string                     `json:"invoice"`
 }
 type DebitRule_rule_type string
 

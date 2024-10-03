@@ -107,6 +107,7 @@ type Client struct {
 	RequestNPubLinkingToken     func(req RequestNPubLinkingTokenRequest) (*RequestNPubLinkingTokenResponse, error)
 	ResetDebit                  func(req DebitOperation) error
 	ResetNPubLinkingToken       func(req RequestNPubLinkingTokenRequest) (*RequestNPubLinkingTokenResponse, error)
+	RespondToDebit              func(req DebitResponse) error
 	SendAppUserToAppPayment     func(req SendAppUserToAppPaymentRequest) error
 	SendAppUserToAppUserPayment func(req SendAppUserToAppUserPaymentRequest) error
 	SetMockAppBalance           func(req SetMockAppBalanceRequest) error
@@ -1432,6 +1433,30 @@ func NewClient(params ClientParams) *Client {
 				return nil, err
 			}
 			return &res, nil
+		},
+		RespondToDebit: func(req DebitResponse) error {
+			auth, err := params.RetrieveUserAuth()
+			if err != nil {
+				return err
+			}
+			finalRoute := "/api/user/debit/finish"
+			body, err := json.Marshal(req)
+			if err != nil {
+				return err
+			}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return err
+			}
+			if result.Status == "ERROR" {
+				return fmt.Errorf(result.Reason)
+			}
+			return nil
 		},
 		SendAppUserToAppPayment: func(req SendAppUserToAppPaymentRequest) error {
 			auth, err := params.RetrieveAppAuth()

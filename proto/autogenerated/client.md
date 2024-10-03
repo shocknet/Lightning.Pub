@@ -200,6 +200,11 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [DebitOperation](#DebitOperation)
   - This methods has an __empty__ __response__ body
 
+- RespondToDebit
+  - auth type: __User__
+  - input: [DebitResponse](#DebitResponse)
+  - This methods has an __empty__ __response__ body
+
 - UpdateCallbackUrl
   - auth type: __User__
   - input: [CallbackUrl](#CallbackUrl)
@@ -636,6 +641,13 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [RequestNPubLinkingTokenRequest](#RequestNPubLinkingTokenRequest)
   - output: [RequestNPubLinkingTokenResponse](#RequestNPubLinkingTokenResponse)
 
+- RespondToDebit
+  - auth type: __User__
+  - http method: __post__
+  - http route: __/api/user/debit/finish__
+  - input: [DebitResponse](#DebitResponse)
+  - This methods has an __empty__ __response__ body
+
 - SendAppUserToAppPayment
   - auth type: __App__
   - http method: __post__
@@ -797,6 +809,7 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### DebitAuthorizationRequest
   - __authorize_npub__: _string_
+  - __request_id__: _string_ *this field is optional
   - __rules__: ARRAY of: _[DebitRule](#DebitRule)_
 
 ### DebitAuthorizations
@@ -807,6 +820,11 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### DebitOperation
   - __npub__: _string_
+
+### DebitResponse
+  - __npub__: _string_
+  - __request_id__: _string_
+  - __response__: _[DebitResponse_response](#DebitResponse_response)_
 
 ### DebitRule
   - __rule__: _[DebitRule_rule](#DebitRule_rule)_
@@ -885,6 +903,7 @@ The nostr server will send back a message response, and inside the body there wi
 ### LiveDebitRequest
   - __debit__: _[LiveDebitRequest_debit](#LiveDebitRequest_debit)_
   - __npub__: _string_
+  - __request_id__: _string_
 
 ### LiveUserOperation
   - __operation__: _[UserOperation](#UserOperation)_

@@ -52,7 +52,7 @@ export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSett
             return
         } else if (event.kind === 21002) {
             const debitReq = j as NdebitData
-            mainHandler.handleNip68Debit(debitReq, event)
+            mainHandler.debitManager.handleNip68Debit(debitReq, event)
             return
         }
         if (!j.rpcName) {

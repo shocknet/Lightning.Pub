@@ -34,8 +34,8 @@ export type UserContext = {
     app_user_id: string
     user_id: string
 }
-export type UserMethodInputs = AddProduct_Input | AuthorizeDebit_Input | BanDebit_Input | DecodeInvoice_Input | EditDebit_Input | EnrollAdminToken_Input | GetDebitAuthorizations_Input | GetLNURLChannelLink_Input | GetLnurlPayLink_Input | GetLnurlWithdrawLink_Input | GetPaymentState_Input | GetUserInfo_Input | GetUserOperations_Input | NewAddress_Input | NewInvoice_Input | NewProductInvoice_Input | OpenChannel_Input | PayAddress_Input | PayInvoice_Input | ResetDebit_Input | UpdateCallbackUrl_Input | UserHealth_Input
-export type UserMethodOutputs = AddProduct_Output | AuthorizeDebit_Output | BanDebit_Output | DecodeInvoice_Output | EditDebit_Output | EnrollAdminToken_Output | GetDebitAuthorizations_Output | GetLNURLChannelLink_Output | GetLnurlPayLink_Output | GetLnurlWithdrawLink_Output | GetPaymentState_Output | GetUserInfo_Output | GetUserOperations_Output | NewAddress_Output | NewInvoice_Output | NewProductInvoice_Output | OpenChannel_Output | PayAddress_Output | PayInvoice_Output | ResetDebit_Output | UpdateCallbackUrl_Output | UserHealth_Output
+export type UserMethodInputs = AddProduct_Input | AuthorizeDebit_Input | BanDebit_Input | DecodeInvoice_Input | EditDebit_Input | EnrollAdminToken_Input | GetDebitAuthorizations_Input | GetLNURLChannelLink_Input | GetLnurlPayLink_Input | GetLnurlWithdrawLink_Input | GetPaymentState_Input | GetUserInfo_Input | GetUserOperations_Input | NewAddress_Input | NewInvoice_Input | NewProductInvoice_Input | OpenChannel_Input | PayAddress_Input | PayInvoice_Input | ResetDebit_Input | RespondToDebit_Input | UpdateCallbackUrl_Input | UserHealth_Input
+export type UserMethodOutputs = AddProduct_Output | AuthorizeDebit_Output | BanDebit_Output | DecodeInvoice_Output | EditDebit_Output | EnrollAdminToken_Output | GetDebitAuthorizations_Output | GetLNURLChannelLink_Output | GetLnurlPayLink_Output | GetLnurlWithdrawLink_Output | GetPaymentState_Output | GetUserInfo_Output | GetUserOperations_Output | NewAddress_Output | NewInvoice_Output | NewProductInvoice_Output | OpenChannel_Output | PayAddress_Output | PayInvoice_Output | ResetDebit_Output | RespondToDebit_Output | UpdateCallbackUrl_Output | UserHealth_Output
 export type AuthContext = AdminContext | AppContext | GuestContext | GuestWithPubContext | MetricsContext | UserContext
 
 export type AddApp_Input = {rpcName:'AddApp', req: AddAppRequest}
@@ -219,6 +219,9 @@ export type ResetDebit_Output = ResultError | { status: 'OK' }
 export type ResetNPubLinkingToken_Input = {rpcName:'ResetNPubLinkingToken', req: RequestNPubLinkingTokenRequest}
 export type ResetNPubLinkingToken_Output = ResultError | ({ status: 'OK' } & RequestNPubLinkingTokenResponse)
 
+export type RespondToDebit_Input = {rpcName:'RespondToDebit', req: DebitResponse}
+export type RespondToDebit_Output = ResultError | { status: 'OK' }
+
 export type SendAppUserToAppPayment_Input = {rpcName:'SendAppUserToAppPayment', req: SendAppUserToAppPaymentRequest}
 export type SendAppUserToAppPayment_Output = ResultError | { status: 'OK' }
 
@@ -296,6 +299,7 @@ export type ServerMethods = {
     RequestNPubLinkingToken?: (req: RequestNPubLinkingToken_Input & {ctx: AppContext }) => Promise<RequestNPubLinkingTokenResponse>
     ResetDebit?: (req: ResetDebit_Input & {ctx: UserContext }) => Promise<void>
     ResetNPubLinkingToken?: (req: ResetNPubLinkingToken_Input & {ctx: AppContext }) => Promise<RequestNPubLinkingTokenResponse>
+    RespondToDebit?: (req: RespondToDebit_Input & {ctx: UserContext }) => Promise<void>
     SendAppUserToAppPayment?: (req: SendAppUserToAppPayment_Input & {ctx: AppContext }) => Promise<void>
     SendAppUserToAppUserPayment?: (req: SendAppUserToAppUserPayment_Input & {ctx: AppContext }) => Promise<void>
     SetMockAppBalance?: (req: SetMockAppBalance_Input & {ctx: AppContext }) => Promise<void>
@@ -925,12 +929,15 @@ export const DebitAuthorizationValidate = (o?: DebitAuthorization, opts: DebitAu
 
 export type DebitAuthorizationRequest = {
     authorize_npub: string
+    request_id?: string
     rules: DebitRule[]
 }
-export const DebitAuthorizationRequestOptionalFields: [] = []
+export type DebitAuthorizationRequestOptionalField = 'request_id'
+export const DebitAuthorizationRequestOptionalFields: DebitAuthorizationRequestOptionalField[] = ['request_id']
 export type DebitAuthorizationRequestOptions = OptionsBaseMessage & {
-    checkOptionalsAreSet?: []
+    checkOptionalsAreSet?: DebitAuthorizationRequestOptionalField[]
     authorize_npub_CustomCheck?: (v: string) => boolean
+    request_id_CustomCheck?: (v?: string) => boolean
     rules_ItemOptions?: DebitRuleOptions
     rules_CustomCheck?: (v: DebitRule[]) => boolean
 }
@@ -940,6 +947,9 @@ export const DebitAuthorizationRequestValidate = (o?: DebitAuthorizationRequest,
 
     if (typeof o.authorize_npub !== 'string') return new Error(`${path}.authorize_npub: is not a string`)
     if (opts.authorize_npub_CustomCheck && !opts.authorize_npub_CustomCheck(o.authorize_npub)) return new Error(`${path}.authorize_npub: custom check failed`)
+
+    if ((o.request_id || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('request_id')) && typeof o.request_id !== 'string') return new Error(`${path}.request_id: is not a string`)
+    if (opts.request_id_CustomCheck && !opts.request_id_CustomCheck(o.request_id)) return new Error(`${path}.request_id: custom check failed`)
 
     if (!Array.isArray(o.rules)) return new Error(`${path}.rules: is not an array`)
     for (let index = 0; index < o.rules.length; index++) {
@@ -1006,6 +1016,35 @@ export const DebitOperationValidate = (o?: DebitOperation, opts: DebitOperationO
 
     if (typeof o.npub !== 'string') return new Error(`${path}.npub: is not a string`)
     if (opts.npub_CustomCheck && !opts.npub_CustomCheck(o.npub)) return new Error(`${path}.npub: custom check failed`)
+
+    return null
+}
+
+export type DebitResponse = {
+    npub: string
+    request_id: string
+    response: DebitResponse_response
+}
+export const DebitResponseOptionalFields: [] = []
+export type DebitResponseOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    npub_CustomCheck?: (v: string) => boolean
+    request_id_CustomCheck?: (v: string) => boolean
+    response_Options?: DebitResponse_responseOptions
+}
+export const DebitResponseValidate = (o?: DebitResponse, opts: DebitResponseOptions = {}, path: string = 'DebitResponse::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.npub !== 'string') return new Error(`${path}.npub: is not a string`)
+    if (opts.npub_CustomCheck && !opts.npub_CustomCheck(o.npub)) return new Error(`${path}.npub: custom check failed`)
+
+    if (typeof o.request_id !== 'string') return new Error(`${path}.request_id: is not a string`)
+    if (opts.request_id_CustomCheck && !opts.request_id_CustomCheck(o.request_id)) return new Error(`${path}.request_id: custom check failed`)
+
+    const responseErr = DebitResponse_responseValidate(o.response, opts.response_Options, `${path}.response`)
+    if (responseErr !== null) return responseErr
+    
 
     return null
 }
@@ -1452,12 +1491,14 @@ export const LinkNPubThroughTokenRequestValidate = (o?: LinkNPubThroughTokenRequ
 export type LiveDebitRequest = {
     debit: LiveDebitRequest_debit
     npub: string
+    request_id: string
 }
 export const LiveDebitRequestOptionalFields: [] = []
 export type LiveDebitRequestOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
     debit_Options?: LiveDebitRequest_debitOptions
     npub_CustomCheck?: (v: string) => boolean
+    request_id_CustomCheck?: (v: string) => boolean
 }
 export const LiveDebitRequestValidate = (o?: LiveDebitRequest, opts: LiveDebitRequestOptions = {}, path: string = 'LiveDebitRequest::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
@@ -1469,6 +1510,9 @@ export const LiveDebitRequestValidate = (o?: LiveDebitRequest, opts: LiveDebitRe
 
     if (typeof o.npub !== 'string') return new Error(`${path}.npub: is not a string`)
     if (opts.npub_CustomCheck && !opts.npub_CustomCheck(o.npub)) return new Error(`${path}.npub: custom check failed`)
+
+    if (typeof o.request_id !== 'string') return new Error(`${path}.request_id: is not a string`)
+    if (opts.request_id_CustomCheck && !opts.request_id_CustomCheck(o.request_id)) return new Error(`${path}.request_id: custom check failed`)
 
     return null
 }
@@ -2826,6 +2870,42 @@ export const UsersInfoValidate = (o?: UsersInfo, opts: UsersInfoOptions = {}, pa
     return null
 }
 
+export enum DebitResponse_response_type {
+    DENIED = 'denied',
+    INVOICE = 'invoice',
+}
+export const enumCheckDebitResponse_response_type = (e?: DebitResponse_response_type): boolean => {
+    for (const v in DebitResponse_response_type) if (e === v) return true
+    return false
+}
+export type DebitResponse_response = 
+    {type:DebitResponse_response_type.DENIED, denied:Empty}|
+    {type:DebitResponse_response_type.INVOICE, invoice:string}
+
+export type DebitResponse_responseOptions = {
+    denied_Options?: EmptyOptions
+    invoice_CustomCheck?: (v: string) => boolean
+}
+export const DebitResponse_responseValidate = (o?: DebitResponse_response, opts:DebitResponse_responseOptions = {}, path: string = 'DebitResponse_response::root.'): Error | null => {
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+    const stringType: string = o.type
+    switch (o.type) {
+        case DebitResponse_response_type.DENIED:
+        const deniedErr = EmptyValidate(o.denied, opts.denied_Options, `${path}.denied`)
+        if (deniedErr !== null) return deniedErr
+        
+
+        break
+        case DebitResponse_response_type.INVOICE:
+        if (typeof o.invoice !== 'string') return new Error(`${path}.invoice: is not a string`)
+        if (opts.invoice_CustomCheck && !opts.invoice_CustomCheck(o.invoice)) return new Error(`${path}.invoice: custom check failed`)
+
+        break
+        default:
+            return new Error(path + ': unknown type '+ stringType)
+    }
+    return null
+}
 export enum DebitRule_rule_type {
     EXPIRATION_RULE = 'expiration_rule',
     FREQUENCY_RULE = 'frequency_rule',

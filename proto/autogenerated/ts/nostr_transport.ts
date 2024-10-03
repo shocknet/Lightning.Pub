@@ -375,6 +375,18 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                                         callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
                                     }
                                     break
+                                case 'RespondToDebit':
+                                    if (!methods.RespondToDebit) {
+                                        throw new Error('method not defined: RespondToDebit')
+                                    } else {
+                                        const error = Types.DebitResponseValidate(operation.req)
+                                        opStats.validate = process.hrtime.bigint()
+                                        if (error !== null) throw error
+                                        await methods.RespondToDebit({...operation, ctx}); responses.push({ status: 'OK' })
+                                        opStats.handle = process.hrtime.bigint()
+                                        callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
+                                    }
+                                    break
                                 case 'UpdateCallbackUrl':
                                     if (!methods.UpdateCallbackUrl) {
                                         throw new Error('method not defined: UpdateCallbackUrl')
@@ -843,6 +855,22 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     stats.validate = process.hrtime.bigint()
                     if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
                     await methods.ResetDebit({rpcName:'ResetDebit', ctx:authContext , req: request})
+                    stats.handle = process.hrtime.bigint()
+                    res({status: 'OK'})
+                    opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+                break
+            case 'RespondToDebit':
+                try {
+                    if (!methods.RespondToDebit) throw new Error('method: RespondToDebit is not implemented')
+                    const authContext = await opts.NostrUserAuthGuard(req.appId, req.authIdentifier)
+                    stats.guard = process.hrtime.bigint()
+                    authCtx = authContext
+                    const request = req.body
+                    const error = Types.DebitResponseValidate(request)
+                    stats.validate = process.hrtime.bigint()
+                    if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
+                    await methods.RespondToDebit({rpcName:'RespondToDebit', ctx:authContext , req: request})
                     stats.handle = process.hrtime.bigint()
                     res({status: 'OK'})
                     opts.metricsCallback([{ ...info, ...stats, ...authContext }])

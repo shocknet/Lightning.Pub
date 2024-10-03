@@ -691,6 +691,17 @@ export default (params: ClientParams) => ({
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
+    RespondToDebit: async (request: Types.DebitResponse): Promise<ResultError | ({ status: 'OK' })> => {
+        const auth = await params.retrieveUserAuth()
+        if (auth === null) throw new Error('retrieveUserAuth() returned null')
+        let finalRoute = '/api/user/debit/finish'
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            return data
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
     SendAppUserToAppPayment: async (request: Types.SendAppUserToAppPaymentRequest): Promise<ResultError | ({ status: 'OK' })> => {
         const auth = await params.retrieveAppAuth()
         if (auth === null) throw new Error('retrieveAppAuth() returned null')

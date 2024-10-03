@@ -288,7 +288,9 @@ export default (mainHandler: Main): Types.ServerMethods => {
         },
         EditDebit: async ({ ctx, req }) => {
             return mainHandler.debitManager.EditDebit(ctx, req);
+        },
+        RespondToDebit: async ({ ctx, req }) => {
+            return mainHandler.debitManager.RespondToDebit(ctx, req);
         }
-
     }
 }

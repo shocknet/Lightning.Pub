@@ -493,6 +493,7 @@ message DebitOperation {
 message DebitAuthorizationRequest {
     string authorize_npub = 1;
     repeated DebitRule rules = 2;
+    optional string request_id = 3;
 }
 
 message DebitAuthorization {
@@ -530,9 +531,19 @@ message DebitRule {
 }
 
 message LiveDebitRequest {
-    string npub = 1;
+    string request_id = 1;
+    string npub = 2;
     oneof debit {
         string invoice = 3;
         FrequencyRule frequency = 4;
+    }
+}
+
+message DebitResponse {
+    string request_id = 1;
+    string npub = 2;
+    oneof response {
+        Empty denied = 3;
+        string invoice = 4;
     }
 }

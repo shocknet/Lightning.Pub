@@ -88,6 +88,7 @@ export default class {
     attachNostrSend(f: NostrSend) {
         this.nostrSend = f
         this.liquidityProvider.attachNostrSend(f)
+        this.debitManager.attachNostrSend(f)
     }
 
     htlcCb: HtlcCb = (e) => {
@@ -319,31 +320,7 @@ export default class {
         return
     }
 
-    handleNip68Debit = async (pointerdata: NdebitData, event: NostrEvent) => {
-        console.log({ pointerdata, event })
-        const res = await this.debitManager.payNdebitInvoice(event.appId, event.pub, pointerdata)
-        console.log({ debitRes: res })
-        if (res.status === 'fail' || res.status === 'authOk') {
-            const e = newNdebitResponse(JSON.stringify(res.debitRes), event)
-            this.nostrSend({ type: 'app', appId: event.appId }, { type: 'event', event: e, encrypt: { toPub: event.pub } })
-            return
-        }
-        const { appUser } = res
-        if (res.status === 'authRequired') {
-            const message: Types.LiveDebitRequest & { requestId: string, status: 'OK' } = { ...res.liveDebitReq, requestId: "GetLiveDebitRequests", status: 'OK' }
-            if (appUser.nostr_public_key) {// TODO - fix before support for http streams
-                this.nostrSend({ type: 'app', appId: event.appId }, { type: 'content', content: JSON.stringify(message), pub: appUser.nostr_public_key })
-            }
-            return
-        }
-        const { op, debitRes } = res
-        const message: Types.LiveUserOperation & { requestId: string, status: 'OK' } = { operation: op, requestId: "GetLiveUserOperations", status: 'OK' }
-        if (appUser.nostr_public_key) { // TODO - fix before support for http streams
-            this.nostrSend({ type: 'app', appId: event.appId }, { type: 'content', content: JSON.stringify(message), pub: appUser.nostr_public_key })
-        }
-        const e = newNdebitResponse(JSON.stringify(debitRes), event)
-        this.nostrSend({ type: 'app', appId: event.appId }, { type: 'event', event: e, encrypt: { toPub: event.pub } })
-    }
+
 }
 
 const codeToMessage = (code: number) => {
@@ -370,15 +347,4 @@ const newNofferResponse = (content: string, event: NostrEvent): UnsignedEvent =>
     }
 }
 
-const newNdebitResponse = (content: string, event: NostrEvent): UnsignedEvent => {
-    return {
-        content,
-        created_at: Math.floor(Date.now() / 1000),
-        kind: 21002,
-        pubkey: "",
-        tags: [
-            ['p', event.pub],
-            ['e', event.id],
-        ],
-    }
-}
+
