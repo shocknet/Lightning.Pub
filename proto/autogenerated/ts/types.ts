@@ -2945,6 +2945,7 @@ export const DebitRule_ruleValidate = (o?: DebitRule_rule, opts:DebitRule_ruleOp
 }
 export enum LiveDebitRequest_debit_type {
     FREQUENCY = 'frequency',
+    FULL_ACCESS = 'full_access',
     INVOICE = 'invoice',
 }
 export const enumCheckLiveDebitRequest_debit_type = (e?: LiveDebitRequest_debit_type): boolean => {
@@ -2953,10 +2954,12 @@ export const enumCheckLiveDebitRequest_debit_type = (e?: LiveDebitRequest_debit_
 }
 export type LiveDebitRequest_debit = 
     {type:LiveDebitRequest_debit_type.FREQUENCY, frequency:FrequencyRule}|
+    {type:LiveDebitRequest_debit_type.FULL_ACCESS, full_access:Empty}|
     {type:LiveDebitRequest_debit_type.INVOICE, invoice:string}
 
 export type LiveDebitRequest_debitOptions = {
     frequency_Options?: FrequencyRuleOptions
+    full_access_Options?: EmptyOptions
     invoice_CustomCheck?: (v: string) => boolean
 }
 export const LiveDebitRequest_debitValidate = (o?: LiveDebitRequest_debit, opts:LiveDebitRequest_debitOptions = {}, path: string = 'LiveDebitRequest_debit::root.'): Error | null => {
@@ -2966,6 +2969,12 @@ export const LiveDebitRequest_debitValidate = (o?: LiveDebitRequest_debit, opts:
         case LiveDebitRequest_debit_type.FREQUENCY:
         const frequencyErr = FrequencyRuleValidate(o.frequency, opts.frequency_Options, `${path}.frequency`)
         if (frequencyErr !== null) return frequencyErr
+        
+
+        break
+        case LiveDebitRequest_debit_type.FULL_ACCESS:
+        const full_accessErr = EmptyValidate(o.full_access, opts.full_access_Options, `${path}.full_access`)
+        if (full_accessErr !== null) return full_accessErr
         
 
         break

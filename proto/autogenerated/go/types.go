@@ -531,12 +531,14 @@ type DebitRule_rule struct {
 type LiveDebitRequest_debit_type string
 
 const (
-	FREQUENCY LiveDebitRequest_debit_type = "frequency"
-	INVOICE   LiveDebitRequest_debit_type = "invoice"
+	FREQUENCY   LiveDebitRequest_debit_type = "frequency"
+	FULL_ACCESS LiveDebitRequest_debit_type = "full_access"
+	INVOICE     LiveDebitRequest_debit_type = "invoice"
 )
 
 type LiveDebitRequest_debit struct {
-	Type      LiveDebitRequest_debit_type `json:"type"`
-	Frequency *FrequencyRule              `json:"frequency"`
-	Invoice   *string                     `json:"invoice"`
+	Type        LiveDebitRequest_debit_type `json:"type"`
+	Frequency   *FrequencyRule              `json:"frequency"`
+	Full_access *Empty                      `json:"full_access"`
+	Invoice     *string                     `json:"invoice"`
 }

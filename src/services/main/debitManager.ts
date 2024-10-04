@@ -10,10 +10,9 @@ import { Application } from '../storage/entity/Application.js';
 import { ApplicationUser } from '../storage/entity/ApplicationUser.js';
 import { NostrEvent, NostrSend, SendData, SendInitiator } from '../nostr/handler.js';
 import { UnsignedEvent } from 'nostr-tools';
+import { BudgetFrequency, NdebitData, NdebitFailure, NdebitSuccess, NdebitSuccessPayment, RecurringDebitTimeUnit } from 'nostr-tools/lib/types/nip68.js';
 export const expirationRuleName = 'expiration'
 export const frequencyRuleName = 'frequency'
-type RecurringDebitTimeUnit = 'day' | 'week' | 'month'
-type RecurringDebit = { frequency: { number: number, unit: RecurringDebitTimeUnit } }
 const unitToIntervalType = (unit: RecurringDebitTimeUnit) => {
     switch (unit) {
         case 'day': return Types.IntervalType.DAY
@@ -93,11 +92,6 @@ const debitAccessRulesToDebitRules = (rules: DebitAccessRules | null): Types.Deb
         }
     })
 }
-
-export type NdebitData = { pointer?: string, amount_sats: number } & (RecurringDebit | { bolt11: string })
-export type NdebitSuccess = { res: 'ok' }
-export type NdebitSuccessPayment = { res: 'ok', preimage: string }
-export type NdebitFailure = { res: 'GFY', error: string, code: number }
 const nip68errs = {
     1: "Request Denied Warning",
     2: "Temporary Failure",
@@ -244,7 +238,7 @@ export class DebitManager {
 
     doNdebit = async (event: NostrEvent, pointerdata: NdebitData): Promise<HandleNdebitRes> => {
         const { appId, pub: requestorPub } = event
-        const { amount_sats, pointer } = pointerdata
+        const { amount_sats, pointer, bolt11, frequency } = pointerdata
         if (!pointer) {
             // TODO: debit from app owner balance
             return { status: 'fail', debitRes: { res: 'GFY', error: nip68errs[1], code: 1 } }
@@ -252,9 +246,14 @@ export class DebitManager {
         const appUserId = pointer
         const app = await this.storage.applicationStorage.GetApplication(appId)
         const appUser = await this.storage.applicationStorage.GetApplicationUser(app, appUserId)
-        const pointerFreq = pointerdata as RecurringDebit
-        if (pointerFreq.frequency) {
-            if (!amount_sats) {
+        let decodedAmount = null
+        if (bolt11) {
+            const decoded = await this.lnd.DecodeInvoice(bolt11)
+            decodedAmount = decoded.numSatoshis
+        }
+        if (frequency) {
+            const amt = amount_sats || decodedAmount
+            if (!amt) {
                 return { status: 'fail', debitRes: { res: 'GFY', error: nip68errs[5], code: 5 } }
             }
             const debitAccess = await this.storage.debitStorage.GetDebitAccess(appUserId, requestorPub)
@@ -266,9 +265,9 @@ export class DebitManager {
                         debit: {
                             type: Types.LiveDebitRequest_debit_type.FREQUENCY,
                             frequency: {
-                                interval: unitToIntervalType(pointerFreq.frequency.unit),
-                                number_of_intervals: pointerFreq.frequency.number,
-                                amount: pointerdata.amount_sats,
+                                interval: unitToIntervalType(frequency.unit),
+                                number_of_intervals: frequency.number,
+                                amount: amt,
                             }
                         }
                     }
@@ -278,15 +277,33 @@ export class DebitManager {
             }
             return { status: 'authOk', debitRes: { res: 'ok' } }
         }
-        const { bolt11 } = pointerdata as { bolt11: string }
+
         if (!bolt11) {
+            if (!amount_sats) {
+                const debitAccess = await this.storage.debitStorage.GetDebitAccess(appUserId, requestorPub)
+                if (!debitAccess) {
+                    return {
+                        status: 'authRequired', app, appUser, liveDebitReq: {
+                            request_id: event.id,
+                            npub: requestorPub,
+                            debit: {
+                                type: Types.LiveDebitRequest_debit_type.FULL_ACCESS,
+                                full_access: {}
+                            }
+                        }
+                    }
+                } else if (!debitAccess.authorized) {
+                    return { status: 'fail', debitRes: { res: 'GFY', error: nip68errs[1], code: 1 } }
+                }
+                return { status: 'authOk', debitRes: { res: 'ok' } }
+            }
             return { status: 'fail', debitRes: { res: 'GFY', error: nip68errs[6], code: 6 } }
         }
-        const decoded = await this.lnd.DecodeInvoice(bolt11)
-        if (decoded.numSatoshis === 0) {
+
+        if (!decodedAmount) {
             return { status: 'fail', debitRes: { res: 'GFY', error: nip68errs[6], code: 6 } }
         }
-        if (amount_sats && amount_sats !== decoded.numSatoshis) {
+        if (amount_sats && amount_sats !== decodedAmount) {
             return { status: 'fail', debitRes: { res: 'GFY', error: nip68errs[5], code: 5 } }
         }
 

@@ -536,6 +536,7 @@ message LiveDebitRequest {
     oneof debit {
         string invoice = 3;
         FrequencyRule frequency = 4;
+        Empty full_access = 5;
     }
 }
 
