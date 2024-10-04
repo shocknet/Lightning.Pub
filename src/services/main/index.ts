@@ -22,7 +22,7 @@ import { RugPullTracker } from "./rugPullTracker.js"
 import { AdminManager } from "./adminManager.js"
 import { Unlocker } from "./unlocker.js"
 import { defaultInvoiceExpiry } from "../storage/paymentStorage.js"
-import { DebitManager, NdebitData } from "./debitManager.js"
+import { DebitManager } from "./debitManager.js"
 
 type UserOperationsSub = {
     id: string
