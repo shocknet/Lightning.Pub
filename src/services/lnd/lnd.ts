@@ -14,7 +14,7 @@ import { AddInvoiceReq } from './addInvoiceReq.js';
 import { PayInvoiceReq } from './payInvoiceReq.js';
 import { SendCoinsReq } from './sendCoinsReq.js';
 import { LndSettings, AddressPaidCb, InvoicePaidCb, NodeInfo, Invoice, DecodedInvoice, PaidInvoice, NewBlockCb, HtlcCb, BalanceInfo } from './settings.js';
-import { getLogger } from '../helpers/logger.js';
+import { ERROR, getLogger } from '../helpers/logger.js';
 import { HtlcEvent_EventType } from '../../../proto/lnd/router.js';
 import { LiquidityProvider, LiquidityRequest } from '../main/liquidityProvider.js';
 import { Utils } from '../helpers/utilsWrapper.js';
@@ -462,6 +462,25 @@ export default class {
             timeout: 0n
         }, DeadLineMetadata())
         return res.response
+    }
+
+    async GetPaymentFromHash(paymentHash: string): Promise<Payment | null> {
+        const abortController = new AbortController()
+        const stream = this.router.trackPaymentV2({
+            paymentHash: Buffer.from(paymentHash, 'hex'),
+            noInflightUpdates: false
+        }, { abort: abortController.signal })
+        return new Promise((res, rej) => {
+            stream.responses.onError(error => {
+                this.log(ERROR, "error with trackPaymentV2", error.message)
+                rej(null)
+            })
+            stream.responses.onMessage(payment => {
+                abortController.abort()
+                res(payment)
+            })
+        })
+
     }
 
     async ListPeers() {

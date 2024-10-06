@@ -6,7 +6,7 @@ import { MainSettings } from './settings.js'
 import { InboundOptionals, defaultInvoiceExpiry } from '../storage/paymentStorage.js'
 import LND from '../lnd/lnd.js'
 import { Application } from '../storage/entity/Application.js'
-import { getLogger, PubLogger } from '../helpers/logger.js'
+import { ERROR, getLogger, PubLogger } from '../helpers/logger.js'
 import { UserReceivingAddress } from '../storage/entity/UserReceivingAddress.js'
 import { AddressPaidCb, InvoicePaidCb, PaidInvoice } from '../lnd/settings.js'
 import { UserReceivingInvoice, ZapInfo } from '../storage/entity/UserReceivingInvoice.js'
@@ -124,23 +124,10 @@ export default class {
     }
 
     checkPendingLndPayment = async (log: PubLogger, p: UserInvoicePayment) => {
-        if (p.paymentIndex === 0 || p.paymentIndex === -1) {
-            log("found a pending payment with no payment index, skipping", p.serial_id)
-            //const fullAmount = p.paid_amount + p.service_fees + p.routing_fees
-            //log("found a pending payment with no payment index, refunding", fullAmount, "sats to user", p.user.user_id)
-            //await this.storage.txQueue.PushToQueue({
-            //    dbTx: true, description: "refund failed pending payment", exec: async tx => {
-            //        await this.storage.userStorage.IncrementUserBalance(p.user.user_id, fullAmount, "payment_refund:" + p.invoice, tx)
-            //        await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, 0, 0, false)
-            //    }
-            //})
-            return
-        }
-        console.log({ p })
-        const paymentRes = await this.lnd.GetPayment(p.paymentIndex)
-        const payment = paymentRes.payments[0]
-        if (!payment || Number(payment.paymentIndex) !== p.paymentIndex) {
-            log("lnd payment not found for pending payment", p.serial_id, "with index", p.paymentIndex)
+        const decoded = await this.lnd.DecodeInvoice(p.invoice)
+        const payment = await this.lnd.GetPaymentFromHash(decoded.paymentHash)
+        if (!payment || payment.paymentHash !== decoded.paymentHash) {
+            log(ERROR, "lnd payment not found for pending payment hash ", decoded.paymentHash)
             return
         }
 
