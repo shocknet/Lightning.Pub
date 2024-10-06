@@ -1,8 +1,15 @@
 //import { SimplePool, Sub, Event, UnsignedEvent, getEventHash, signEvent } from 'nostr-tools'
-import { SimplePool, Sub, Event, UnsignedEvent, getEventHash, finishEvent, relayInit } from './tools/index.js'
-import { encryptData, decryptData, getSharedSecret, decodePayload, encodePayload, EncryptedData } from './nip44.js'
+import WebSocket from 'ws'
+Object.assign(global, { WebSocket: WebSocket });
+import { SimplePool, Event, UnsignedEvent, getEventHash, finalizeEvent, Relay, nip44 } from 'nostr-tools'
+//import { encryptData, decryptData, getSharedSecret, decodePayload, encodePayload, EncryptedData, nip44 } from 'nostr-tools'
 import { ERROR, getLogger } from '../helpers/logger.js'
-import { encodeNprofile } from '../../custom-nip19.js'
+import { nip19 } from 'nostr-tools'
+import { encrypt as encryptV1, decrypt as decryptV1, getSharedSecret as getConversationKeyV1 } from './nip44v1.js'
+const { nprofileEncode } = nip19
+const { v2 } = nip44
+const { encrypt: encryptV2, decrypt: decryptV2, utils } = v2
+const { getConversationKey: getConversationKeyV2 } = utils
 const handledEvents: string[] = [] // TODO: - big memory leak here, add TTL
 type AppInfo = { appId: string, publicKey: string, privateKey: string, name: string }
 type ClientInfo = { clientId: string, publicKey: string, privateKey: string, name: string }
@@ -90,11 +97,10 @@ const sendToNostr: NostrSend = (initiator, data, relays) => {
     subProcessHandler.Send(initiator, data, relays)
 }
 send({ type: 'ready' })
-const supportedKinds = [21000, 21001]
+const supportedKinds = [21000, 21001, 21002]
 export default class Handler {
     pool = new SimplePool()
     settings: NostrSettings
-    subs: Sub[] = []
     apps: Record<string, AppInfo> = {}
     eventCallback: (event: NostrEvent) => void
     log = getLogger({ component: "nostrMiddleware" })
@@ -102,7 +108,7 @@ export default class Handler {
         this.settings = settings
         this.log("connecting to relays:", settings.relays)
         this.settings.apps.forEach(app => {
-            this.log("appId:", app.appId, "pubkey:", app.publicKey, "nprofile:", encodeNprofile({ pubkey: app.publicKey, relays: settings.relays }))
+            this.log("appId:", app.appId, "pubkey:", app.publicKey, "nprofile:", nprofileEncode({ pubkey: app.publicKey, relays: settings.relays }))
         })
         this.eventCallback = eventCallback
         this.settings.apps.forEach(app => {
@@ -114,9 +120,13 @@ export default class Handler {
     async Connect() {
         const log = getLogger({})
         log("conneting to relay...", this.settings.relays[0])
-        const relay = relayInit(this.settings.relays[0]) // TODO: create multiple conns for multiple relays
+        let relay: Relay | null = null
+        //const relay = relayInit(this.settings.relays[0]) // TODO: create multiple conns for multiple relays
         try {
-            await relay.connect()
+            relay = await Relay.connect(this.settings.relays[0])
+            if (!relay.connected) {
+                throw new Error("failed to connect to relay")
+            }
         } catch (err) {
             log("failed to connect to relay, will try again in 2 seconds")
             setTimeout(() => {
@@ -124,34 +134,36 @@ export default class Handler {
             }, 2000)
             return
         }
+
         log("connected, subbing...")
-        relay.on('disconnect', () => {
+        relay.onclose = (() => {
             log("relay disconnected, will try to reconnect")
             relay.close()
             this.Connect()
         })
-        const sub = relay.sub([
+        const sub = relay.subscribe([
             {
                 since: Math.ceil(Date.now() / 1000),
                 kinds: supportedKinds,
                 '#p': Object.keys(this.apps),
             }
-        ])
-        sub.on('eose', () => {
-            log("up to date with nostr events")
-        })
-        sub.on('event', async (e) => {
-            if (!supportedKinds.includes(e.kind) || !e.pubkey) {
-                return
-            }
-            const pubTags = e.tags.find(tags => tags && tags.length > 1 && tags[0] === 'p')
-            if (!pubTags) {
-                return
-            }
-            const app = this.apps[pubTags[1]]
-            if (app) {
-                await this.processEvent(e, app)
-                return
+        ], {
+            oneose: () => {
+                log("up to date with nostr events")
+            },
+            onevent: async (e) => {
+                if (!supportedKinds.includes(e.kind) || !e.pubkey) {
+                    return
+                }
+                const pubTags = e.tags.find(tags => tags && tags.length > 1 && tags[0] === 'p')
+                if (!pubTags) {
+                    return
+                }
+                const app = this.apps[pubTags[1]]
+                if (app) {
+                    await this.processEvent(e, app)
+                    return
+                }
             }
         })
     }
@@ -167,8 +179,11 @@ export default class Handler {
         const startAtNano = process.hrtime.bigint().toString()
         let content = ""
         try {
-            const decoded = decodePayload(e.content)
-            content = await decryptData(decoded, getSharedSecret(app.privateKey, e.pubkey))
+            if (e.kind === 21000) {
+                content = decryptV1(e.content, getConversationKeyV1(app.privateKey, e.pubkey))
+            } else {
+                content = decryptV2(e.content, getConversationKeyV2(Buffer.from(app.privateKey, 'hex'), e.pubkey))
+            }
         } catch (e: any) {
             this.log(ERROR, "failed to decrypt event", e.message, e.content)
             return
@@ -179,12 +194,12 @@ export default class Handler {
 
     async Send(initiator: SendInitiator, data: SendData, relays?: string[]) {
         const keys = this.GetSendKeys(initiator)
+        const privateKey = Buffer.from(keys.privateKey, 'hex')
         let toSign: UnsignedEvent
         if (data.type === 'content') {
             let content: string
             try {
-                const decoded = await encryptData(data.content, getSharedSecret(keys.privateKey, data.pub))
-                content = encodePayload(decoded)
+                content = encryptV1(data.content, getConversationKeyV1(keys.privateKey, data.pub))
             } catch (e: any) {
                 this.log(ERROR, "failed to encrypt content", e.message, data.content)
                 return
@@ -197,11 +212,11 @@ export default class Handler {
                 tags: [['p', data.pub]],
             }
         } else {
+            console.log(data)
             toSign = data.event
             if (data.encrypt) {
                 try {
-                    const content = await encryptData(data.event.content, getSharedSecret(keys.privateKey, data.encrypt.toPub))
-                    toSign.content = encodePayload(content)
+                    toSign.content = encryptV2(data.event.content, getConversationKeyV2(Buffer.from(keys.privateKey, 'hex'), data.encrypt.toPub))
                 } catch (e: any) {
                     this.log(ERROR, "failed to encrypt content", e.message)
                     return
@@ -212,7 +227,7 @@ export default class Handler {
             }
         }
 
-        const signed = finishEvent(toSign, keys.privateKey)
+        const signed = finalizeEvent(toSign, Buffer.from(keys.privateKey, 'hex'))
         let sent = false
         const log = getLogger({ appName: keys.name })
         await Promise.all(this.pool.publish(relays || this.settings.relays, signed).map(async p => {

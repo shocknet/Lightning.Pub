@@ -41,6 +41,9 @@ export default (mainHandler: Main): Types.ServerMethods => {
         },
         UserHealth: async () => { },
         GetUserInfo: ({ ctx }) => mainHandler.appUserManager.GetUserInfo(ctx),
+        UpdateCallbackUrl: async ({ ctx, req }) => {
+            return mainHandler.appUserManager.UpdateCallbackUrl(ctx, req)
+        },
         GetUserOperations: async ({ ctx, req }) => {
             return mainHandler.paymentManager.GetUserOperations(ctx.user_id, req)
         },
@@ -209,6 +212,7 @@ export default (mainHandler: Main): Types.ServerMethods => {
         SetMockAppBalance: async ({ ctx, req }) => {
             await mainHandler.applicationManager.SetMockAppBalance(ctx.app_id, req)
         },
+        GetLiveDebitRequests: async ({ ctx }) => { },
         GetLiveUserOperations: async ({ ctx, cb }) => {
         },
         GetMigrationUpdate: async ({ ctx, cb }) => {
@@ -261,7 +265,32 @@ export default (mainHandler: Main): Types.ServerMethods => {
             })
             if (err != null) throw new Error(err.message)
             return mainHandler.adminManager.GetInviteTokenState(ctx, req);
+        },
+        AuthorizeDebit: async ({ ctx, req }) => {
+            return mainHandler.debitManager.AuthorizeDebit(ctx, req)
+        },
+        GetDebitAuthorizations: async ({ ctx }) => {
+            return mainHandler.debitManager.GetDebitAuthorizations(ctx)
+        },
+        BanDebit: async ({ ctx, req }) => {
+            const err = Types.DebitOperationValidate(req, {
+                npub_CustomCheck: pub => pub !== '',
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.debitManager.BanDebit(ctx, req)
+        },
+        ResetDebit: async ({ ctx, req }) => {
+            const err = Types.DebitOperationValidate(req, {
+                npub_CustomCheck: pub => pub !== '',
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.debitManager.ResetDebit(ctx, req)
+        },
+        EditDebit: async ({ ctx, req }) => {
+            return mainHandler.debitManager.EditDebit(ctx, req);
+        },
+        RespondToDebit: async ({ ctx, req }) => {
+            return mainHandler.debitManager.RespondToDebit(ctx, req);
         }
-
     }
 }

@@ -8,8 +8,10 @@ import { ApplicationUser } from '../storage/entity/ApplicationUser.js'
 import { PubLogger, getLogger } from '../helpers/logger.js'
 import crypto from 'crypto'
 import { Application } from '../storage/entity/Application.js'
-import { encodeNoffer, PriceType } from '../../custom-nip19.js'
-
+import { nip69, nip19 } from 'nostr-tools'
+import { LoadNosrtSettingsFromEnv } from '../nostr/index.js'
+const { SendNofferRequest } = nip69
+const { nofferEncode, ndebitEncode, OfferPriceType } = nip19
 const TOKEN_EXPIRY_TIME = 2 * 60 * 1000 // 2 minutes, in milliseconds
 
 type NsecLinkingData = {
@@ -149,6 +151,7 @@ export default class {
             u = user
             if (created) log(u.identifier, u.user.user_id, "user created")
         }
+        const nostrSettings = LoadNosrtSettingsFromEnv()
         return {
             identifier: u.identifier,
             info: {
@@ -159,7 +162,9 @@ export default class {
                 network_max_fee_bps: this.settings.lndSettings.feeRateBps,
                 network_max_fee_fixed: this.settings.lndSettings.feeFixedLimit,
                 service_fee_bps: this.settings.outgoingAppUserInvoiceFeeBps,
-                noffer: encodeNoffer({ pubkey: app.nostr_public_key!, offer: u.identifier, priceType: PriceType.spontaneous, relay: "" }),
+                noffer: nofferEncode({ pubkey: app.nostr_public_key!, offer: u.identifier, priceType: OfferPriceType.Spontaneous, relay: nostrSettings.relays[0] }),
+                ndebit: ndebitEncode({ pubkey: app.nostr_public_key!, pointer: u.identifier, relay: nostrSettings.relays[0] }),
+                callback_url: u.callback_url,
                 bridge_url: this.settings.bridgeUrl
 
             },
@@ -181,7 +186,8 @@ export default class {
         const log = getLogger({ appName: app.name })
         const receiver = await this.storage.applicationStorage.GetApplicationUser(app, req.receiver_identifier)
         const { user: payer } = await this.storage.applicationStorage.GetOrCreateApplicationUser(app, req.payer_identifier, 0)
-        const opts: InboundOptionals = { callbackUrl: req.http_callback_url, expiry: defaultInvoiceExpiry, expectedPayer: payer.user, linkedApplication: app }
+        const cbUrl = req.http_callback_url || receiver.callback_url || ""
+        const opts: InboundOptionals = { callbackUrl: cbUrl, expiry: defaultInvoiceExpiry, expectedPayer: payer.user, linkedApplication: app }
         const appUserInvoice = await this.paymentManager.NewInvoice(receiver.user.user_id, req.invoice_req, opts)
         return {
             invoice: appUserInvoice.invoice
@@ -192,6 +198,7 @@ export default class {
         const app = await this.storage.applicationStorage.GetApplication(appId)
         const user = await this.storage.applicationStorage.GetApplicationUser(app, req.user_identifier)
         const max = this.paymentManager.GetMaxPayableInvoice(user.user.balance_sats, true)
+        const nostrSettings = LoadNosrtSettingsFromEnv()
         return {
             max_withdrawable: max, identifier: req.user_identifier, info: {
                 userId: user.user.user_id, balance: user.user.balance_sats,
@@ -200,7 +207,9 @@ export default class {
                 network_max_fee_bps: this.settings.lndSettings.feeRateBps,
                 network_max_fee_fixed: this.settings.lndSettings.feeFixedLimit,
                 service_fee_bps: this.settings.outgoingAppUserInvoiceFeeBps,
-                noffer: encodeNoffer({ pubkey: app.nostr_public_key!, offer: user.identifier, priceType: PriceType.spontaneous, relay: "" }),
+                noffer: nofferEncode({ pubkey: app.nostr_public_key!, offer: user.identifier, priceType: OfferPriceType.Spontaneous, relay: nostrSettings.relays[0] }),
+                ndebit: ndebitEncode({ pubkey: app.nostr_public_key!, pointer: user.identifier, relay: nostrSettings.relays[0] }),
+                callback_url: user.callback_url,
                 bridge_url: this.settings.bridgeUrl
             },
         }

@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { Between, DataSource, EntityManager, FindOperator, IsNull, LessThanOrEqual, MoreThanOrEqual } from "typeorm"
-import { generatePrivateKey, getPublicKey } from 'nostr-tools';
+import { generateSecretKey, getPublicKey } from 'nostr-tools';
 import { Application } from "./entity/Application.js"
 import UserStorage from './userStorage.js';
 import { ApplicationUser } from './entity/ApplicationUser.js';
@@ -67,10 +67,11 @@ export default class {
     }
 
     async GenerateApplicationKeys(app: Application) {
-        const priv = generatePrivateKey()
+        const priv = generateSecretKey()
         const pub = getPublicKey(priv)
-        await this.UpdateApplication(app, { nostr_private_key: priv, nostr_public_key: pub })
-        return { privateKey: priv, publicKey: pub, appId: app.app_id, name: app.name }
+        const privString = Buffer.from(priv).toString('hex')
+        await this.UpdateApplication(app, { nostr_private_key: privString, nostr_public_key: pub })
+        return { privateKey: privString, publicKey: pub, appId: app.app_id, name: app.name }
     }
 
     async AddApplicationUser(application: Application, userIdentifier: string, balance: number, nostrPub?: string) {
@@ -161,9 +162,11 @@ export default class {
 
     async AddNPubToApplicationUser(serialId: number, nPub: string, entityManager = this.DB) {
         return entityManager.getRepository(ApplicationUser).update(serialId, { nostr_public_key: nPub })
-
     }
 
+    async UpdateUserCallbackUrl(application: Application, userIdentifier: string, callbackUrl: string, entityManager = this.DB) {
+        return entityManager.getRepository(ApplicationUser).update({ application: { app_id: application.app_id }, identifier: userIdentifier }, { callback_url: callbackUrl })
+    }
 
     async RemoveApplicationUserAndBaseUser(appUser: ApplicationUser, entityManager = this.DB) {
         const baseUser = appUser.user;

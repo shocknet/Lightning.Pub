@@ -343,6 +343,12 @@ service LightningPub {
         option (http_route) = "/api/user/info";
         option (nostr) = true;
     }
+    rpc UpdateCallbackUrl(structs.CallbackUrl)returns(structs.CallbackUrl){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/cb/update";
+        option (nostr) = true;
+    }
 
     rpc AddProduct(structs.AddProductRequest) returns (structs.Product){
         option (auth_type)  = "User";
@@ -430,9 +436,51 @@ service LightningPub {
     }
 
     rpc GetLNURLChannelLink(structs.Empty) returns (structs.LnurlLinkResponse){
-        option (auth_type)  = "User";
+        option (auth_type)  = "User"; 
         option (http_method) = "post";
         option (http_route) = "/api/user/lnurl_channel/url";
+        option (nostr) = true;
+    }
+    rpc GetDebitAuthorizations(structs.Empty) returns (structs.DebitAuthorizations){
+        option (auth_type)  = "User";
+        option (http_method) = "get";
+        option (http_route) = "/api/user/debit/get";
+        option (nostr) = true;
+    }
+    rpc AuthorizeDebit(structs.DebitAuthorizationRequest) returns (structs.DebitAuthorization){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/debit/authorize";
+        option (nostr) = true;
+    }
+    rpc EditDebit(structs.DebitAuthorizationRequest) returns (structs.Empty){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/debit/edit";
+        option (nostr) = true;
+    }
+    rpc BanDebit(structs.DebitOperation) returns (structs.Empty){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/debit/ban";
+        option (nostr) = true;
+    }
+    rpc ResetDebit(structs.DebitOperation) returns (structs.Empty){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/debit/reset";
+        option (nostr) = true;
+    }
+    rpc RespondToDebit(structs.DebitResponse) returns (structs.Empty){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/debit/finish";
+        option (nostr) = true;
+    }
+    rpc GetLiveDebitRequests(structs.Empty) returns (stream structs.LiveDebitRequest){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/debit/sub";
         option (nostr) = true;
     }
     rpc GetLiveUserOperations(structs.Empty) returns (stream structs.LiveUserOperation){

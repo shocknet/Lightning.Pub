@@ -28,6 +28,16 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [AuthAppRequest](#AuthAppRequest)
   - output: [AuthApp](#AuthApp)
 
+- AuthorizeDebit
+  - auth type: __User__
+  - input: [DebitAuthorizationRequest](#DebitAuthorizationRequest)
+  - output: [DebitAuthorization](#DebitAuthorization)
+
+- BanDebit
+  - auth type: __User__
+  - input: [DebitOperation](#DebitOperation)
+  - This methods has an __empty__ __response__ body
+
 - BanUser
   - auth type: __Admin__
   - input: [BanUserRequest](#BanUserRequest)
@@ -48,6 +58,11 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [DecodeInvoiceRequest](#DecodeInvoiceRequest)
   - output: [DecodeInvoiceResponse](#DecodeInvoiceResponse)
 
+- EditDebit
+  - auth type: __User__
+  - input: [DebitAuthorizationRequest](#DebitAuthorizationRequest)
+  - This methods has an __empty__ __response__ body
+
 - EnrollAdminToken
   - auth type: __User__
   - input: [EnrollAdminTokenRequest](#EnrollAdminTokenRequest)
@@ -57,6 +72,11 @@ The nostr server will send back a message response, and inside the body there wi
   - auth type: __Metrics__
   - input: [AppsMetricsRequest](#AppsMetricsRequest)
   - output: [AppsMetrics](#AppsMetrics)
+
+- GetDebitAuthorizations
+  - auth type: __User__
+  - This methods has an __empty__ __request__ body
+  - output: [DebitAuthorizations](#DebitAuthorizations)
 
 - GetHttpCreds
   - auth type: __User__
@@ -72,6 +92,11 @@ The nostr server will send back a message response, and inside the body there wi
   - auth type: __User__
   - This methods has an __empty__ __request__ body
   - output: [LnurlLinkResponse](#LnurlLinkResponse)
+
+- GetLiveDebitRequests
+  - auth type: __User__
+  - This methods has an __empty__ __request__ body
+  - output: [LiveDebitRequest](#LiveDebitRequest)
 
 - GetLiveUserOperations
   - auth type: __User__
@@ -170,6 +195,21 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [PayInvoiceRequest](#PayInvoiceRequest)
   - output: [PayInvoiceResponse](#PayInvoiceResponse)
 
+- ResetDebit
+  - auth type: __User__
+  - input: [DebitOperation](#DebitOperation)
+  - This methods has an __empty__ __response__ body
+
+- RespondToDebit
+  - auth type: __User__
+  - input: [DebitResponse](#DebitResponse)
+  - This methods has an __empty__ __response__ body
+
+- UpdateCallbackUrl
+  - auth type: __User__
+  - input: [CallbackUrl](#CallbackUrl)
+  - output: [CallbackUrl](#CallbackUrl)
+
 - UseInviteLink
   - auth type: __GuestWithPub__
   - input: [UseInviteLinkRequest](#UseInviteLinkRequest)
@@ -256,6 +296,20 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [AuthAppRequest](#AuthAppRequest)
   - output: [AuthApp](#AuthApp)
 
+- AuthorizeDebit
+  - auth type: __User__
+  - http method: __post__
+  - http route: __/api/user/debit/authorize__
+  - input: [DebitAuthorizationRequest](#DebitAuthorizationRequest)
+  - output: [DebitAuthorization](#DebitAuthorization)
+
+- BanDebit
+  - auth type: __User__
+  - http method: __post__
+  - http route: __/api/user/debit/ban__
+  - input: [DebitOperation](#DebitOperation)
+  - This methods has an __empty__ __response__ body
+
 - BanUser
   - auth type: __Admin__
   - http method: __post__
@@ -283,6 +337,13 @@ The nostr server will send back a message response, and inside the body there wi
   - http route: __/api/user/invoice/decode__
   - input: [DecodeInvoiceRequest](#DecodeInvoiceRequest)
   - output: [DecodeInvoiceResponse](#DecodeInvoiceResponse)
+
+- EditDebit
+  - auth type: __User__
+  - http method: __post__
+  - http route: __/api/user/debit/edit__
+  - input: [DebitAuthorizationRequest](#DebitAuthorizationRequest)
+  - This methods has an __empty__ __response__ body
 
 - EncryptionExchange
   - auth type: __Guest__
@@ -326,6 +387,13 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [AppsMetricsRequest](#AppsMetricsRequest)
   - output: [AppsMetrics](#AppsMetrics)
 
+- GetDebitAuthorizations
+  - auth type: __User__
+  - http method: __get__
+  - http route: __/api/user/debit/get__
+  - This methods has an __empty__ __request__ body
+  - output: [DebitAuthorizations](#DebitAuthorizations)
+
 - GetHttpCreds
   - auth type: __User__
   - http method: __post__
@@ -346,6 +414,13 @@ The nostr server will send back a message response, and inside the body there wi
   - http route: __/api/user/lnurl_channel/url__
   - This methods has an __empty__ __request__ body
   - output: [LnurlLinkResponse](#LnurlLinkResponse)
+
+- GetLiveDebitRequests
+  - auth type: __User__
+  - http method: __post__
+  - http route: __/api/user/debit/sub__
+  - This methods has an __empty__ __request__ body
+  - output: [LiveDebitRequest](#LiveDebitRequest)
 
 - GetLiveUserOperations
   - auth type: __User__
@@ -552,12 +627,26 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [RequestNPubLinkingTokenRequest](#RequestNPubLinkingTokenRequest)
   - output: [RequestNPubLinkingTokenResponse](#RequestNPubLinkingTokenResponse)
 
+- ResetDebit
+  - auth type: __User__
+  - http method: __post__
+  - http route: __/api/user/debit/reset__
+  - input: [DebitOperation](#DebitOperation)
+  - This methods has an __empty__ __response__ body
+
 - ResetNPubLinkingToken
   - auth type: __App__
   - http method: __post__
   - http route: __/api/app/user/npub/token/reset__
   - input: [RequestNPubLinkingTokenRequest](#RequestNPubLinkingTokenRequest)
   - output: [RequestNPubLinkingTokenResponse](#RequestNPubLinkingTokenResponse)
+
+- RespondToDebit
+  - auth type: __User__
+  - http method: __post__
+  - http route: __/api/user/debit/finish__
+  - input: [DebitResponse](#DebitResponse)
+  - This methods has an __empty__ __response__ body
 
 - SendAppUserToAppPayment
   - auth type: __App__
@@ -593,6 +682,13 @@ The nostr server will send back a message response, and inside the body there wi
   - http route: __/api/lnd/mock/invoice/paid__
   - input: [SetMockInvoiceAsPaidRequest](#SetMockInvoiceAsPaidRequest)
   - This methods has an __empty__ __response__ body
+
+- UpdateCallbackUrl
+  - auth type: __User__
+  - http method: __post__
+  - http route: __/api/user/cb/update__
+  - input: [CallbackUrl](#CallbackUrl)
+  - output: [CallbackUrl](#CallbackUrl)
 
 - UseInviteLink
   - auth type: __GuestWithPub__
@@ -688,6 +784,9 @@ The nostr server will send back a message response, and inside the body there wi
   - __nostr_pub__: _string_
   - __user_identifier__: _string_
 
+### CallbackUrl
+  - __url__: _string_
+
 ### ClosedChannel
   - __capacity__: _number_
   - __channel_id__: _string_
@@ -701,6 +800,34 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### CreateOneTimeInviteLinkResponse
   - __invitation_link__: _string_
+
+### DebitAuthorization
+  - __authorized__: _boolean_
+  - __debit_id__: _string_
+  - __npub__: _string_
+  - __rules__: ARRAY of: _[DebitRule](#DebitRule)_
+
+### DebitAuthorizationRequest
+  - __authorize_npub__: _string_
+  - __request_id__: _string_ *this field is optional
+  - __rules__: ARRAY of: _[DebitRule](#DebitRule)_
+
+### DebitAuthorizations
+  - __debits__: ARRAY of: _[DebitAuthorization](#DebitAuthorization)_
+
+### DebitExpirationRule
+  - __expires_at_unix__: _number_
+
+### DebitOperation
+  - __npub__: _string_
+
+### DebitResponse
+  - __npub__: _string_
+  - __request_id__: _string_
+  - __response__: _[DebitResponse_response](#DebitResponse_response)_
+
+### DebitRule
+  - __rule__: _[DebitRule_rule](#DebitRule_rule)_
 
 ### DecodeInvoiceRequest
   - __invoice__: _string_
@@ -716,6 +843,11 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### EnrollAdminTokenRequest
   - __admin_token__: _string_
+
+### FrequencyRule
+  - __amount__: _number_
+  - __interval__: _[IntervalType](#IntervalType)_
+  - __number_of_intervals__: _number_
 
 ### GetAppUserLNURLInfoRequest
   - __base_url_override__: _string_
@@ -767,6 +899,11 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### LinkNPubThroughTokenRequest
   - __token__: _string_
+
+### LiveDebitRequest
+  - __debit__: _[LiveDebitRequest_debit](#LiveDebitRequest_debit)_
+  - __npub__: _string_
+  - __request_id__: _string_
 
 ### LiveUserOperation
   - __operation__: _[UserOperation](#UserOperation)_
@@ -874,11 +1011,13 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### PayAppUserInvoiceRequest
   - __amount__: _number_
+  - __debit_npub__: _string_ *this field is optional
   - __invoice__: _string_
   - __user_identifier__: _string_
 
 ### PayInvoiceRequest
   - __amount__: _number_
+  - __debit_npub__: _string_ *this field is optional
   - __invoice__: _string_
 
 ### PayInvoiceResponse
@@ -963,7 +1102,9 @@ The nostr server will send back a message response, and inside the body there wi
 ### UserInfo
   - __balance__: _number_
   - __bridge_url__: _string_
+  - __callback_url__: _string_
   - __max_withdrawable__: _number_
+  - __ndebit__: _string_
   - __network_max_fee_bps__: _number_
   - __network_max_fee_fixed__: _number_
   - __noffer__: _string_
@@ -1003,6 +1144,11 @@ The nostr server will send back a message response, and inside the body there wi
   - __NESTED_PUBKEY_HASH__
   - __TAPROOT_PUBKEY__
   - __WITNESS_PUBKEY_HASH__
+
+### IntervalType
+  - __DAY__
+  - __MONTH__
+  - __WEEK__
 
 ### UserOperationType
   - __INCOMING_INVOICE__

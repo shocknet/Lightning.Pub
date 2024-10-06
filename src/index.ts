@@ -7,7 +7,9 @@ import nostrMiddleware from './nostrMiddleware.js'
 import { getLogger } from './services/helpers/logger.js';
 import { initMainHandler } from './services/main/init.js';
 import { LoadMainSettingsFromEnv } from './services/main/settings.js';
-import { encodeNprofile } from './custom-nip19.js';
+import { nip19 } from 'nostr-tools'
+//@ts-ignore
+const { nprofileEncode } = nip19
 
 const start = async () => {
     const log = getLogger({})
@@ -29,7 +31,7 @@ const start = async () => {
     log("starting server")
     mainHandler.attachNostrSend(Send)
     mainHandler.StartBeacons()
-    const appNprofile = encodeNprofile({ pubkey: liquidityProviderInfo.publicKey, relays: nostrSettings.relays })
+    const appNprofile = nprofileEncode({ pubkey: liquidityProviderInfo.publicKey, relays: nostrSettings.relays })
     if (wizard) {
         wizard.AddConnectInfo(appNprofile, nostrSettings.relays)
     }

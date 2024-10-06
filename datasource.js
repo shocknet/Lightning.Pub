@@ -15,6 +15,7 @@ import { LspOrder } from "./build/src/services/storage/entity/LspOrder.js"
 import { LndNodeInfo } from "./build/src/services/storage/entity/LndNodeInfo.js"
 import { TrackedProvider } from "./build/src/services/storage/entity/TrackedProvider.js"
 import { InviteToken } from "./build/src/services/storage/entity/InviteToken.js"
+import { DebitAccess } from "./build/src/services/storage/entity/DebitAccess.js"
 
 import { Initial1703170309875 } from './build/src/services/storage/migrations/1703170309875-initial.js'
 import { LspOrder1718387847693 } from './build/src/services/storage/migrations/1718387847693-lsp_order.js'
@@ -22,13 +23,17 @@ import { LndNodeInfo1720187506189 } from './build/src/services/storage/migration
 import { LiquidityProvider1719335699480 } from './build/src/services/storage/migrations/1719335699480-liquidity_provider.js'
 import { CreateInviteTokenTable1721751414878 } from './build/src/services/storage/migrations/1721751414878-create_invite_token_table.js'
 import { PaymentIndex1721760297610 } from './build/src/services/storage/migrations/1721760297610-payment_index.js'
+import { DebitAccess1726496225078 } from './build/src/services/storage/migrations/1726496225078-debit_access.js'
+import { DebitAccessFixes1726685229264 } from './build/src/services/storage/migrations/1726685229264-debit_access_fixes.js'
+import { DebitToPub1727105758354 } from './build/src/services/storage/migrations/1727105758354-debit_to_pub.js'
+import { UserCbUrl1727112281043 } from './build/src/services/storage/migrations/1727112281043-user_cb_url.js'
 export default new DataSource({
     type: "sqlite",
     database: "db.sqlite",
     // logging: true,
-    migrations: [Initial1703170309875, LspOrder1718387847693, LiquidityProvider1719335699480, LndNodeInfo1720187506189, CreateInviteTokenTable1721751414878, PaymentIndex1721760297610],
+    migrations: [Initial1703170309875, LspOrder1718387847693, LiquidityProvider1719335699480, LndNodeInfo1720187506189, CreateInviteTokenTable1721751414878, PaymentIndex1721760297610, DebitAccess1726496225078, DebitAccessFixes1726685229264, DebitToPub1727105758354, UserCbUrl1727112281043],
     entities: [User, UserReceivingInvoice, UserReceivingAddress, AddressReceivingTransaction, UserInvoicePayment, UserTransactionPayment,
-        UserBasicAuth, UserEphemeralKey, Product, UserToUserPayment, Application, ApplicationUser, UserToUserPayment, LspOrder, LndNodeInfo, TrackedProvider, InviteToken],
+        UserBasicAuth, UserEphemeralKey, Product, UserToUserPayment, Application, ApplicationUser, UserToUserPayment, LspOrder, LndNodeInfo, TrackedProvider, InviteToken, DebitAccess],
     // synchronize: true,
 })
-//npx typeorm migration:generate ./src/services/storage/migrations/lnd_node_info -d ./datasource.js
+//npx typeorm migration:generate ./src/services/storage/migrations/usert_cb_url -d ./datasource.js

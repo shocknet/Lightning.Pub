@@ -11,7 +11,7 @@ import { ERROR, getLogger, PubLogger } from "../helpers/logger.js"
 import AppUserManager from "./appUserManager.js"
 import { Application } from '../storage/entity/Application.js'
 import { UserReceivingInvoice } from '../storage/entity/UserReceivingInvoice.js'
-import { UnsignedEvent } from '../nostr/tools/event.js'
+import { UnsignedEvent } from 'nostr-tools'
 import { NostrEvent, NostrSend } from '../nostr/handler.js'
 import MetricsManager from '../metrics/index.js'
 import { LoggedEvent } from '../storage/eventsLog.js'
@@ -22,6 +22,7 @@ import { RugPullTracker } from "./rugPullTracker.js"
 import { AdminManager } from "./adminManager.js"
 import { Unlocker } from "./unlocker.js"
 import { defaultInvoiceExpiry } from "../storage/paymentStorage.js"
+import { DebitManager } from "./debitManager.js"
 
 type UserOperationsSub = {
     id: string
@@ -32,6 +33,7 @@ type UserOperationsSub = {
 }
 const appTag = "Lightning.Pub"
 export type NofferData = { offer: string, amount?: number }
+
 export default class {
     storage: Storage
     lnd: LND
@@ -46,6 +48,7 @@ export default class {
     metricsManager: MetricsManager
     liquidityManager: LiquidityManager
     liquidityProvider: LiquidityProvider
+    debitManager: DebitManager
     utils: Utils
     rugPullTracker: RugPullTracker
     unlocker: Unlocker
@@ -67,6 +70,7 @@ export default class {
         this.productManager = new ProductManager(this.storage, this.paymentManager, this.settings)
         this.applicationManager = new ApplicationManager(this.storage, this.settings, this.paymentManager)
         this.appUserManager = new AppUserManager(this.storage, this.settings, this.applicationManager)
+        this.debitManager = new DebitManager(this.storage, this.lnd, this.applicationManager)
     }
 
     Stop() {
@@ -84,6 +88,7 @@ export default class {
     attachNostrSend(f: NostrSend) {
         this.nostrSend = f
         this.liquidityProvider.attachNostrSend(f)
+        this.debitManager.attachNostrSend(f)
     }
 
     htlcCb: HtlcCb = (e) => {
@@ -223,7 +228,8 @@ export default class {
             return
         }
         try {
-            await fetch(url + "&ok=true")
+            const symbol = url.includes('?') ? "&" : "?"
+            await fetch(url + symbol + "ok=true")
         } catch (err: any) {
             log(ERROR, "error sending paid callback for invoice", err.message || "")
         }
@@ -313,6 +319,8 @@ export default class {
         this.nostrSend({ type: 'app', appId: event.appId }, { type: 'event', event: e, encrypt: { toPub: event.pub } })
         return
     }
+
+
 }
 
 const codeToMessage = (code: number) => {
@@ -338,3 +346,5 @@ const newNofferResponse = (content: string, event: NostrEvent): UnsignedEvent =>
         ],
     }
 }
+
+

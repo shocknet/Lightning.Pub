@@ -23,6 +23,9 @@ export class ApplicationUser {
     @Column({ nullable: true, unique: true })
     nostr_public_key?: string
 
+    @Column({ default: "" })
+    callback_url: string
+
     @CreateDateColumn()
     created_at: Date
 
