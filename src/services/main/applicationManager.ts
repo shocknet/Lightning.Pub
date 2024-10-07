@@ -10,6 +10,7 @@ import crypto from 'crypto'
 import { Application } from '../storage/entity/Application.js'
 import { nip69, nip19 } from 'nostr-tools'
 import { LoadNosrtSettingsFromEnv } from '../nostr/index.js'
+import { ZapInfo } from '../storage/entity/UserReceivingInvoice.js'
 const { SendNofferRequest } = nip69
 const { nofferEncode, ndebitEncode, OfferPriceType } = nip19
 const TOKEN_EXPIRY_TIME = 2 * 60 * 1000 // 2 minutes, in milliseconds
@@ -187,7 +188,11 @@ export default class {
         const receiver = await this.storage.applicationStorage.GetApplicationUser(app, req.receiver_identifier)
         const { user: payer } = await this.storage.applicationStorage.GetOrCreateApplicationUser(app, req.payer_identifier, 0)
         const cbUrl = req.http_callback_url || receiver.callback_url || ""
-        const opts: InboundOptionals = { callbackUrl: cbUrl, expiry: defaultInvoiceExpiry, expectedPayer: payer.user, linkedApplication: app }
+        let zapInfo: ZapInfo | undefined = undefined
+        if (req.invoice_req.zap) {
+            zapInfo = this.paymentManager.validateZapEvent(req.invoice_req.zap, req.invoice_req.amountSats)
+        }
+        const opts: InboundOptionals = { callbackUrl: cbUrl, expiry: defaultInvoiceExpiry, expectedPayer: payer.user, linkedApplication: app, zapInfo }
         const appUserInvoice = await this.paymentManager.NewInvoice(receiver.user.user_id, req.invoice_req, opts)
         return {
             invoice: appUserInvoice.invoice

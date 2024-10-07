@@ -10,7 +10,7 @@ import { AddressPaidCb, HtlcCb, InvoicePaidCb, NewBlockCb } from "../lnd/setting
 import { ERROR, getLogger, PubLogger } from "../helpers/logger.js"
 import AppUserManager from "./appUserManager.js"
 import { Application } from '../storage/entity/Application.js'
-import { UserReceivingInvoice } from '../storage/entity/UserReceivingInvoice.js'
+import { UserReceivingInvoice, ZapInfo } from '../storage/entity/UserReceivingInvoice.js'
 import { UnsignedEvent } from 'nostr-tools'
 import { NostrEvent, NostrSend } from '../nostr/handler.js'
 import MetricsManager from '../metrics/index.js'
@@ -23,6 +23,7 @@ import { AdminManager } from "./adminManager.js"
 import { Unlocker } from "./unlocker.js"
 import { defaultInvoiceExpiry } from "../storage/paymentStorage.js"
 import { DebitManager } from "./debitManager.js"
+import { NofferData } from "nostr-tools/lib/types/nip69.js"
 
 type UserOperationsSub = {
     id: string
@@ -32,7 +33,6 @@ type UserOperationsSub = {
     newOutgoingTx: (operation: Types.UserOperation) => void
 }
 const appTag = "Lightning.Pub"
-export type NofferData = { offer: string, amount?: number }
 
 export default class {
     storage: Storage
@@ -283,6 +283,7 @@ export default class {
 
     async getNofferInvoice(offerReq: NofferData, appId: string): Promise<{ success: true, invoice: string } | { success: false, code: number, max: number }> {
         try {
+
             const { remote } = await this.lnd.ChannelBalance()
             const { offer, amount } = offerReq
             const split = offer.split(':')
@@ -292,7 +293,7 @@ export default class {
                 }
                 const res = await this.applicationManager.AddAppUserInvoice(appId, {
                     http_callback_url: "", payer_identifier: split[0], receiver_identifier: split[0],
-                    invoice_req: { amountSats: amount, memo: "Default NIP-69 Offer" }
+                    invoice_req: { amountSats: amount, memo: "Default NIP-69 Offer", zap: offerReq.zap }
                 })
                 return { success: true, invoice: res.invoice }
             } else if (split[0] === 'p') {
@@ -319,8 +320,6 @@ export default class {
         this.nostrSend({ type: 'app', appId: event.appId }, { type: 'event', event: e, encrypt: { toPub: event.pub } })
         return
     }
-
-
 }
 
 const codeToMessage = (code: number) => {
