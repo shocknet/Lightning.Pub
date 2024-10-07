@@ -342,6 +342,7 @@ type NewAddressResponse struct {
 type NewInvoiceRequest struct {
 	Amountsats int64  `json:"amountSats"`
 	Memo       string `json:"memo"`
+	Zap        string `json:"zap"`
 }
 type NewInvoiceResponse struct {
 	Invoice string `json:"invoice"`

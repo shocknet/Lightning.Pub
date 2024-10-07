@@ -976,6 +976,7 @@ The nostr server will send back a message response, and inside the body there wi
 ### NewInvoiceRequest
   - __amountSats__: _number_
   - __memo__: _string_
+  - __zap__: _string_ *this field is optional
 
 ### NewInvoiceResponse
   - __invoice__: _string_

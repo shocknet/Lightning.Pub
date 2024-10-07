@@ -571,6 +571,9 @@ export default class {
         if (!verified) {
             throw new Error("nostr event not valid")
         }
+        if (nostrEvent.kind !== 9734) {
+            throw new Error("nostr event not a zap event")
+        }
         const p = this.parseTags("p", nostrEvent.tags, { required: true })
         const e = this.parseTags("e", nostrEvent.tags)
         const relays = this.parseTags("relays", nostrEvent.tags, { required: true, multiples: true })

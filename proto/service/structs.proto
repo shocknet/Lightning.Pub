@@ -270,6 +270,7 @@ message PayAddressResponse{
 message NewInvoiceRequest{
     int64 amountSats = 1;
     string memo = 2;
+    optional string zap = 3;
 }
 
 message NewInvoiceResponse{
