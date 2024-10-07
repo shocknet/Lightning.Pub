@@ -278,7 +278,7 @@ export default class {
             tags,
         }
         log({ unsigned: event })
-        this.nostrSend({ type: 'app', appId: invoice.linkedApplication.app_id }, { type: 'event', event })
+        this.nostrSend({ type: 'app', appId: invoice.linkedApplication.app_id }, { type: 'event', event }, zapInfo.relays || undefined)
     }
 
     async getNofferInvoice(offerReq: NofferData, appId: string): Promise<{ success: true, invoice: string } | { success: false, code: number, max: number }> {
