@@ -39,9 +39,9 @@ const start = async () => {
     adminManager.setAppNprofile(appNprofile)
     const server = NewServer(serverMethods, serverOptions(mainHandler))
     collectDefaultMetrics()
-    server.app.get('/metrics', (req, res) => {
+    server.app.get('/metrics', async (req, res) => {
         res.set('Content-Type', register.contentType)
-        res.end(register.metrics())
+        res.end(await register.metrics())
     })
     server.Listen(mainSettings.servicePort)
 }
