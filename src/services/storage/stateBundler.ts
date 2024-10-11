@@ -7,13 +7,13 @@ export type TransactionStatePointType = typeof transactionStatePointTypes[number
 export type BalanceStatePointType = typeof balanceStatePointTypes[number]
 export type MaxStatePointType = typeof maxStatePointTypes[number]
 const reports = {
-    'addedInvoice': new Counter({ name: 'addedInvoice', help: 'addedInvoice', labelNames: ['user', 'system', 'lnd', 'internal', 'provider', 'unknown'] }),
-    'invoiceWasPaid': new Counter({ name: 'invoiceWasPaid', help: 'invoiceWasPaid', labelNames: ['user', 'system', 'lnd', 'internal', 'provider', 'unknown'] }),
-    'paidAnInvoice': new Counter({ name: 'paidAnInvoice', help: 'paidAnInvoice', labelNames: ['user', 'system', 'lnd', 'internal', 'provider', 'unknown'] }),
-    'addedAddress': new Counter({ name: 'addedAddress', help: 'addedAddress', labelNames: ['user', 'system', 'lnd', 'internal', 'provider', 'unknown'] }),
-    'addressWasPaid': new Counter({ name: 'addressWasPaid', help: 'addressWasPaid', labelNames: ['user', 'system', 'lnd', 'internal', 'provider', 'unknown'] }),
-    'paidAnAddress': new Counter({ name: 'paidAnAddress', help: 'paidAnAddress', labelNames: ['user', 'system', 'lnd', 'internal', 'provider', 'unknown'] }),
-    'user2user': new Counter({ name: 'user2user', help: 'user2user', labelNames: ['user', 'system', 'lnd', 'internal', 'provider', 'unknown'] }),
+    'addedInvoice': new Counter({ name: 'addedInvoice', help: 'addedInvoice', labelNames: ['from', 'used', 'result'] }),
+    'invoiceWasPaid': new Counter({ name: 'invoiceWasPaid', help: 'invoiceWasPaid', labelNames: ['from', 'used', 'result'] }),
+    'paidAnInvoice': new Counter({ name: 'paidAnInvoice', help: 'paidAnInvoice', labelNames: ['from', 'used', 'result'] }),
+    'addedAddress': new Counter({ name: 'addedAddress', help: 'addedAddress', labelNames: ['from', 'used', 'result'] }),
+    'addressWasPaid': new Counter({ name: 'addressWasPaid', help: 'addressWasPaid', labelNames: ['from', 'used', 'result'] }),
+    'paidAnAddress': new Counter({ name: 'paidAnAddress', help: 'paidAnAddress', labelNames: ['from', 'used', 'result'] }),
+    'user2user': new Counter({ name: 'user2user', help: 'user2user', labelNames: ['from', 'used', 'result'] }),
 
     'providerBalance': new Gauge({ name: 'providerBalance', help: 'providerBalance' }),
     'providerMaxWithdrawable': new Gauge({ name: 'providerMaxWithdrawable', help: 'providerMaxWithdrawable' }),
@@ -96,7 +96,7 @@ export class StateBundler {
 
     AddTxPoint = (actionName: TransactionStatePointType, v: number, settings: TxPointSettings) => {
         const { used, from, timeDiscount } = settings
-        const labels = [from, used]
+        const labels = [from, used, 'success']
         if (timeDiscount) {
             this.totalSatsForDiscount += v
         }
