@@ -1,11 +1,31 @@
 import { getLogger } from "../helpers/logger.js"
-
+import { Gauge, Counter } from 'prom-client'
 const transactionStatePointTypes = ['addedInvoice', 'invoiceWasPaid', 'paidAnInvoice', 'addedAddress', 'addressWasPaid', 'paidAnAddress', 'user2user'] as const
 const balanceStatePointTypes = ['providerBalance', 'providerMaxWithdrawable', 'walletBalance', 'channelBalance', 'usersBalance', 'feesPaidForLiquidity', 'totalLndBalance', 'accumulatedHtlcFees', 'deltaUsers', 'deltaExternal'] as const
 const maxStatePointTypes = ['maxProviderRespTime'] as const
 export type TransactionStatePointType = typeof transactionStatePointTypes[number]
 export type BalanceStatePointType = typeof balanceStatePointTypes[number]
 export type MaxStatePointType = typeof maxStatePointTypes[number]
+const reports = {
+    'addedInvoice': new Counter({ name: 'addedInvoice', help: 'addedInvoice' }),
+    'invoiceWasPaid': new Counter({ name: 'invoiceWasPaid', help: 'invoiceWasPaid' }),
+    'paidAnInvoice': new Counter({ name: 'paidAnInvoice', help: 'paidAnInvoice' }),
+    'addedAddress': new Counter({ name: 'addedAddress', help: 'addedAddress' }),
+    'addressWasPaid': new Counter({ name: 'addressWasPaid', help: 'addressWasPaid' }),
+    'paidAnAddress': new Counter({ name: 'paidAnAddress', help: 'paidAnAddress' }),
+    'user2user': new Counter({ name: 'user2user', help: 'user2user' }),
+    'providerBalance': new Gauge({ name: 'providerBalance', help: 'providerBalance' }),
+    'providerMaxWithdrawable': new Gauge({ name: 'providerMaxWithdrawable', help: 'providerMaxWithdrawable' }),
+    'walletBalance': new Gauge({ name: 'walletBalance', help: 'walletBalance' }),
+    'channelBalance': new Gauge({ name: 'channelBalance', help: 'channelBalance' }),
+    'usersBalance': new Gauge({ name: 'usersBalance', help: 'usersBalance' }),
+    'feesPaidForLiquidity': new Gauge({ name: 'feesPaidForLiquidity', help: 'feesPaidForLiquidity' }),
+    'totalLndBalance': new Gauge({ name: 'totalLndBalance', help: 'totalLndBalance' }),
+    'accumulatedHtlcFees': new Gauge({ name: 'accumulatedHtlcFees', help: 'accumulatedHtlcFees' }),
+    'deltaUsers': new Gauge({ name: 'deltaUsers', help: 'deltaUsers' }),
+    'deltaExternal': new Gauge({ name: 'deltaExternal', help: 'deltaExternal' }),
+    'maxProviderRespTime': new Gauge({ name: 'maxProviderRespTime', help: 'maxProviderRespTime' }),
+}
 /*export type TransactionStatePoint = {
     type: typeof TransactionStatePointTypes[number]
     with: 'lnd' | 'internal' | 'provider'
@@ -52,17 +72,23 @@ export class StateBundler {
         });
     }
 
-    increment = (key: string, value: number) => {
+    increment = (actionName: TransactionStatePointType, labels: string[], value: number) => {
+        reports[actionName].labels(...labels).inc(value)
+        const key = [actionName, ...labels].join('_')
         this.sinceStart[key] = (this.sinceStart[key] || 0) + value
         this.sinceLatestReport[key] = (this.sinceLatestReport[key] || 0) + value
         this.triggerReportCheck()
     }
-    set = (key: string, value: number) => {
+    set = (actionName: BalanceStatePointType, labels: string[], value: number) => {
+        reports[actionName].labels(...labels).set(value)
+        const key = [actionName, ...labels].join('_')
         this.sinceStart[key] = value
         this.sinceLatestReport[key] = value
         this.triggerReportCheck()
     }
-    max = (key: string, value: number) => {
+    max = (actionName: MaxStatePointType, labels: string[], value: number) => {
+        reports[actionName].labels(...labels).set(value)
+        const key = [actionName, ...labels].join('_')
         this.sinceStart[key] = Math.max(this.sinceStart[key] || 0, value)
         this.sinceLatestReport[key] = Math.max(this.sinceLatestReport[key] || 0, value)
         this.triggerReportCheck()
@@ -71,29 +97,27 @@ export class StateBundler {
     AddTxPoint = (actionName: TransactionStatePointType, v: number, settings: TxPointSettings) => {
         const { used, from, timeDiscount } = settings
         const meta = settings.meta || []
-        const key = [actionName, from, used, ...meta].join('_')
+        const labels = [from, used, ...meta]
         if (timeDiscount) {
             this.totalSatsForDiscount += v
         }
-        this.increment(key, v)
+        this.increment(actionName, labels, v)
         //this.smallLogEvent(actionName, from)
     }
 
     AddTxPointFailed = (actionName: TransactionStatePointType, v: number, settings: TxPointSettings) => {
         const { used, from } = settings
         const meta = settings.meta || []
-        const key = [actionName, from, used, ...meta, 'failed'].join('_')
-        this.increment(key, v)
+        const labels = [from, used, ...meta, 'failed']
+        this.increment(actionName, labels, v)
     }
 
     AddBalancePoint = (actionName: BalanceStatePointType, v: number, meta = []) => {
-        const key = [actionName, ...meta].join('_')
-        this.set(key, v)
+        this.set(actionName, meta, v)
     }
 
     AddMaxPoint = (actionName: MaxStatePointType, v: number, meta = []) => {
-        const key = [actionName, ...meta].join('_')
-        this.max(key, v)
+        this.max(actionName, meta, v)
     }
 
     triggerReportCheck = () => {

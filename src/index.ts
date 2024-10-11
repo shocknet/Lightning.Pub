@@ -8,6 +8,7 @@ import { getLogger } from './services/helpers/logger.js';
 import { initMainHandler } from './services/main/init.js';
 import { LoadMainSettingsFromEnv } from './services/main/settings.js';
 import { nip19 } from 'nostr-tools'
+import { register, collectDefaultMetrics } from 'prom-client'
 //@ts-ignore
 const { nprofileEncode } = nip19
 
@@ -36,7 +37,12 @@ const start = async () => {
         wizard.AddConnectInfo(appNprofile, nostrSettings.relays)
     }
     adminManager.setAppNprofile(appNprofile)
-    const Server = NewServer(serverMethods, serverOptions(mainHandler))
-    Server.Listen(mainSettings.servicePort)
+    const server = NewServer(serverMethods, serverOptions(mainHandler))
+    collectDefaultMetrics()
+    server.app.get('/metrics', (req, res) => {
+        res.set('Content-Type', register.contentType)
+        res.end(register.metrics())
+    })
+    server.Listen(mainSettings.servicePort)
 }
 start()

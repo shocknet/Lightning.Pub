@@ -1536,6 +1536,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     }
     var server: { close: () => void } | undefined
     return {
+        app,
         Close: () => { if (!server) { throw new Error('tried closing server before starting') } else server.close() },
         Listen: (port: number) => { server = app.listen(port, () => logger.log('LightningPub listening on port ' + port)) }
     }
