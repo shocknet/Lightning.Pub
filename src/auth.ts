@@ -16,8 +16,8 @@ const serverOptions = (mainHandler: Main): ServerOptions => {
         GuestAuthGuard: async (_) => ({}),
         metricsCallback: metrics => mainHandler.settings.recordPerformance ? mainHandler.metricsManager.AddMetrics(metrics) : null,
         allowCors: true,
-        logMethod: true,
-        logBody: true
+        // logMethod: true,
+        // logBody: true
         //throwErrors: true
     }
 }

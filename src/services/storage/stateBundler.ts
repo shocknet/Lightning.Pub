@@ -7,13 +7,14 @@ export type TransactionStatePointType = typeof transactionStatePointTypes[number
 export type BalanceStatePointType = typeof balanceStatePointTypes[number]
 export type MaxStatePointType = typeof maxStatePointTypes[number]
 const reports = {
-    'addedInvoice': new Counter({ name: 'addedInvoice', help: 'addedInvoice' }),
-    'invoiceWasPaid': new Counter({ name: 'invoiceWasPaid', help: 'invoiceWasPaid' }),
-    'paidAnInvoice': new Counter({ name: 'paidAnInvoice', help: 'paidAnInvoice' }),
-    'addedAddress': new Counter({ name: 'addedAddress', help: 'addedAddress' }),
-    'addressWasPaid': new Counter({ name: 'addressWasPaid', help: 'addressWasPaid' }),
-    'paidAnAddress': new Counter({ name: 'paidAnAddress', help: 'paidAnAddress' }),
-    'user2user': new Counter({ name: 'user2user', help: 'user2user' }),
+    'addedInvoice': new Counter({ name: 'addedInvoice', help: 'addedInvoice', labelNames: ['user', 'system', 'lnd', 'internal', 'provider', 'unknown'] }),
+    'invoiceWasPaid': new Counter({ name: 'invoiceWasPaid', help: 'invoiceWasPaid', labelNames: ['user', 'system', 'lnd', 'internal', 'provider', 'unknown'] }),
+    'paidAnInvoice': new Counter({ name: 'paidAnInvoice', help: 'paidAnInvoice', labelNames: ['user', 'system', 'lnd', 'internal', 'provider', 'unknown'] }),
+    'addedAddress': new Counter({ name: 'addedAddress', help: 'addedAddress', labelNames: ['user', 'system', 'lnd', 'internal', 'provider', 'unknown'] }),
+    'addressWasPaid': new Counter({ name: 'addressWasPaid', help: 'addressWasPaid', labelNames: ['user', 'system', 'lnd', 'internal', 'provider', 'unknown'] }),
+    'paidAnAddress': new Counter({ name: 'paidAnAddress', help: 'paidAnAddress', labelNames: ['user', 'system', 'lnd', 'internal', 'provider', 'unknown'] }),
+    'user2user': new Counter({ name: 'user2user', help: 'user2user', labelNames: ['user', 'system', 'lnd', 'internal', 'provider', 'unknown'] }),
+
     'providerBalance': new Gauge({ name: 'providerBalance', help: 'providerBalance' }),
     'providerMaxWithdrawable': new Gauge({ name: 'providerMaxWithdrawable', help: 'providerMaxWithdrawable' }),
     'walletBalance': new Gauge({ name: 'walletBalance', help: 'walletBalance' }),
@@ -41,7 +42,6 @@ type StateBundle = Record<string, number>
 export type TxPointSettings = {
     used: 'lnd' | 'internal' | 'provider' | 'unknown'
     from: 'user' | 'system'
-    meta?: string[]
     timeDiscount?: true
 }
 export class StateBundler {
@@ -96,8 +96,7 @@ export class StateBundler {
 
     AddTxPoint = (actionName: TransactionStatePointType, v: number, settings: TxPointSettings) => {
         const { used, from, timeDiscount } = settings
-        const meta = settings.meta || []
-        const labels = [from, used, ...meta]
+        const labels = [from, used]
         if (timeDiscount) {
             this.totalSatsForDiscount += v
         }
@@ -107,17 +106,16 @@ export class StateBundler {
 
     AddTxPointFailed = (actionName: TransactionStatePointType, v: number, settings: TxPointSettings) => {
         const { used, from } = settings
-        const meta = settings.meta || []
-        const labels = [from, used, ...meta, 'failed']
+        const labels = [from, used, 'failed']
         this.increment(actionName, labels, v)
     }
 
-    AddBalancePoint = (actionName: BalanceStatePointType, v: number, meta = []) => {
-        this.set(actionName, meta, v)
+    AddBalancePoint = (actionName: BalanceStatePointType, v: number) => {
+        this.set(actionName, [], v)
     }
 
-    AddMaxPoint = (actionName: MaxStatePointType, v: number, meta = []) => {
-        this.max(actionName, meta, v)
+    AddMaxPoint = (actionName: MaxStatePointType, v: number) => {
+        this.max(actionName, [], v)
     }
 
     triggerReportCheck = () => {
