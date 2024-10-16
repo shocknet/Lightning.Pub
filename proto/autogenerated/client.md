@@ -475,6 +475,13 @@ The nostr server will send back a message response, and inside the body there wi
   - This methods has an __empty__ __request__ body
   - output: [MigrationUpdate](#MigrationUpdate)
 
+- GetNPubLinkingState
+  - auth type: __App__
+  - http method: __post__
+  - http route: __/api/app/user/npub/token__
+  - input: [GetNPubLinking](#GetNPubLinking)
+  - output: [NPubLinking](#NPubLinking)
+
 - GetPaymentState
   - auth type: __User__
   - http method: __post__
@@ -862,6 +869,9 @@ The nostr server will send back a message response, and inside the body there wi
 ### GetInviteTokenStateResponse
   - __used__: _boolean_
 
+### GetNPubLinking
+  - __user_identifier__: _string_
+
 ### GetPaymentStateRequest
   - __invoice__: _string_
 
@@ -966,6 +976,9 @@ The nostr server will send back a message response, and inside the body there wi
 ### MigrationUpdate
   - __closure__: _[ClosureMigration](#ClosureMigration)_ *this field is optional
   - __relays__: _[RelaysMigration](#RelaysMigration)_ *this field is optional
+
+### NPubLinking
+  - __state__: _[NPubLinking_state](#NPubLinking_state)_
 
 ### NewAddressRequest
   - __addressType__: _[AddressType](#AddressType)_

@@ -19,6 +19,7 @@ type NsecLinkingData = {
     expiry: number
 }
 export default class {
+
     storage: Storage
     settings: MainSettings
     paymentManager: PaymentManager
@@ -242,6 +243,20 @@ export default class {
         const user = await this.storage.applicationStorage.GetApplicationUser(app, req.user_identifier)
         return this.paymentManager.GetLnurlPayInfoFromUser(user.user.user_id, app, { baseUrl: req.base_url_override })
     }
+
+    async GetNPubLinkingState(app_id: string, req: Types.GetNPubLinking): Promise<Types.NPubLinking> {
+        const app = await this.storage.applicationStorage.GetApplication(app_id);
+        const user = await this.storage.applicationStorage.GetApplicationUser(app, req.user_identifier);
+        const linking = Object.entries(this.nPubLinkingTokens).find(([_, data]) => data.serialId === user.serial_id)
+        if (linking) {
+            return { state: { type: Types.NPubLinking_state_type.LINKING_TOKEN, linking_token: linking[0] } }
+        }
+        if (user.nostr_public_key) {
+            return { state: { type: Types.NPubLinking_state_type.LINKED_NPUB, linked_npub: user.nostr_public_key } }
+        }
+        return { state: { type: Types.NPubLinking_state_type.UNLINKED, unlinked: {} } }
+    }
+
     async RequestNPubLinkingToken(appId: string, req: Types.RequestNPubLinkingTokenRequest, reset: boolean): Promise<Types.RequestNPubLinkingTokenResponse> {
         const app = await this.storage.applicationStorage.GetApplication(appId);
         const user = await this.storage.applicationStorage.GetApplicationUser(app, req.user_identifier);

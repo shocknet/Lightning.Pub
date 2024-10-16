@@ -228,6 +228,9 @@ type GetInviteTokenStateRequest struct {
 type GetInviteTokenStateResponse struct {
 	Used bool `json:"used"`
 }
+type GetNPubLinking struct {
+	User_identifier string `json:"user_identifier"`
+}
 type GetPaymentStateRequest struct {
 	Invoice string `json:"invoice"`
 }
@@ -332,6 +335,9 @@ type LnurlWithdrawInfoResponse struct {
 type MigrationUpdate struct {
 	Closure *ClosureMigration `json:"closure"`
 	Relays  *RelaysMigration  `json:"relays"`
+}
+type NPubLinking struct {
+	State *NPubLinking_state `json:"state"`
 }
 type NewAddressRequest struct {
 	Addresstype AddressType `json:"addressType"`
@@ -541,4 +547,18 @@ type LiveDebitRequest_debit struct {
 	Frequency   *FrequencyRule              `json:"frequency"`
 	Full_access *Empty                      `json:"full_access"`
 	Invoice     *string                     `json:"invoice"`
+}
+type NPubLinking_state_type string
+
+const (
+	LINKED_NPUB   NPubLinking_state_type = "linked_npub"
+	LINKING_TOKEN NPubLinking_state_type = "linking_token"
+	UNLINKED      NPubLinking_state_type = "unlinked"
+)
+
+type NPubLinking_state struct {
+	Type          NPubLinking_state_type `json:"type"`
+	Linked_npub   *string                `json:"linked_npub"`
+	Linking_token *string                `json:"linking_token"`
+	Unlinked      *Empty                 `json:"unlinked"`
 }
