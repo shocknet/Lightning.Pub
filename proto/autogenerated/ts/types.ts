@@ -1990,12 +1990,15 @@ export const NewAddressResponseValidate = (o?: NewAddressResponse, opts: NewAddr
 export type NewInvoiceRequest = {
     amountSats: number
     memo: string
+    zap?: string
 }
-export const NewInvoiceRequestOptionalFields: [] = []
+export type NewInvoiceRequestOptionalField = 'zap'
+export const NewInvoiceRequestOptionalFields: NewInvoiceRequestOptionalField[] = ['zap']
 export type NewInvoiceRequestOptions = OptionsBaseMessage & {
-    checkOptionalsAreSet?: []
+    checkOptionalsAreSet?: NewInvoiceRequestOptionalField[]
     amountSats_CustomCheck?: (v: number) => boolean
     memo_CustomCheck?: (v: string) => boolean
+    zap_CustomCheck?: (v?: string) => boolean
 }
 export const NewInvoiceRequestValidate = (o?: NewInvoiceRequest, opts: NewInvoiceRequestOptions = {}, path: string = 'NewInvoiceRequest::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
@@ -2006,6 +2009,9 @@ export const NewInvoiceRequestValidate = (o?: NewInvoiceRequest, opts: NewInvoic
 
     if (typeof o.memo !== 'string') return new Error(`${path}.memo: is not a string`)
     if (opts.memo_CustomCheck && !opts.memo_CustomCheck(o.memo)) return new Error(`${path}.memo: custom check failed`)
+
+    if ((o.zap || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('zap')) && typeof o.zap !== 'string') return new Error(`${path}.zap: is not a string`)
+    if (opts.zap_CustomCheck && !opts.zap_CustomCheck(o.zap)) return new Error(`${path}.zap: custom check failed`)
 
     return null
 }
