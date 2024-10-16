@@ -388,6 +388,20 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     GetMigrationUpdate: async (cb: (v:ResultError | ({ status: 'OK' }& Types.MigrationUpdate)) => void): Promise<void> => { throw  new Error('http streams are not supported')},
+    GetNPubLinkingState: async (request: Types.GetNPubLinking): Promise<ResultError | ({ status: 'OK' }& Types.NPubLinking)> => {
+        const auth = await params.retrieveAppAuth()
+        if (auth === null) throw new Error('retrieveAppAuth() returned null')
+        let finalRoute = '/api/app/user/npub/token'
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.NPubLinkingValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
     GetPaymentState: async (request: Types.GetPaymentStateRequest): Promise<ResultError | ({ status: 'OK' }& Types.PaymentState)> => {
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')

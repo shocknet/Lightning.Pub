@@ -12,8 +12,8 @@ export type AdminMethodOutputs = AddApp_Output | AuthApp_Output | BanUser_Output
 export type AppContext = {
     app_id: string
 }
-export type AppMethodInputs = AddAppInvoice_Input | AddAppUser_Input | AddAppUserInvoice_Input | GetApp_Input | GetAppUser_Input | GetAppUserLNURLInfo_Input | PayAppUserInvoice_Input | RequestNPubLinkingToken_Input | ResetNPubLinkingToken_Input | SendAppUserToAppPayment_Input | SendAppUserToAppUserPayment_Input | SetMockAppBalance_Input | SetMockAppUserBalance_Input
-export type AppMethodOutputs = AddAppInvoice_Output | AddAppUser_Output | AddAppUserInvoice_Output | GetApp_Output | GetAppUser_Output | GetAppUserLNURLInfo_Output | PayAppUserInvoice_Output | RequestNPubLinkingToken_Output | ResetNPubLinkingToken_Output | SendAppUserToAppPayment_Output | SendAppUserToAppUserPayment_Output | SetMockAppBalance_Output | SetMockAppUserBalance_Output
+export type AppMethodInputs = AddAppInvoice_Input | AddAppUser_Input | AddAppUserInvoice_Input | GetApp_Input | GetAppUser_Input | GetAppUserLNURLInfo_Input | GetNPubLinkingState_Input | PayAppUserInvoice_Input | RequestNPubLinkingToken_Input | ResetNPubLinkingToken_Input | SendAppUserToAppPayment_Input | SendAppUserToAppUserPayment_Input | SetMockAppBalance_Input | SetMockAppUserBalance_Input
+export type AppMethodOutputs = AddAppInvoice_Output | AddAppUser_Output | AddAppUserInvoice_Output | GetApp_Output | GetAppUser_Output | GetAppUserLNURLInfo_Output | GetNPubLinkingState_Output | PayAppUserInvoice_Output | RequestNPubLinkingToken_Output | ResetNPubLinkingToken_Output | SendAppUserToAppPayment_Output | SendAppUserToAppUserPayment_Output | SetMockAppBalance_Output | SetMockAppUserBalance_Output
 export type GuestContext = {
 }
 export type GuestMethodInputs = EncryptionExchange_Input | GetLnurlPayInfo_Input | GetLnurlWithdrawInfo_Input | HandleLnurlAddress_Input | HandleLnurlPay_Input | HandleLnurlWithdraw_Input | Health_Input | SetMockInvoiceAsPaid_Input
@@ -136,6 +136,9 @@ export type GetLnurlWithdrawLink_Output = ResultError | ({ status: 'OK' } & Lnur
 
 export type GetMigrationUpdate_Input = {rpcName:'GetMigrationUpdate',  cb:(res: MigrationUpdate, err:Error|null)=> void}
 export type GetMigrationUpdate_Output = ResultError | { status: 'OK' }
+
+export type GetNPubLinkingState_Input = {rpcName:'GetNPubLinkingState', req: GetNPubLinking}
+export type GetNPubLinkingState_Output = ResultError | ({ status: 'OK' } & NPubLinking)
 
 export type GetPaymentState_Input = {rpcName:'GetPaymentState', req: GetPaymentStateRequest}
 export type GetPaymentState_Output = ResultError | ({ status: 'OK' } & PaymentState)
@@ -277,6 +280,7 @@ export type ServerMethods = {
     GetLnurlWithdrawInfo?: (req: GetLnurlWithdrawInfo_Input & {ctx: GuestContext }) => Promise<LnurlWithdrawInfoResponse>
     GetLnurlWithdrawLink?: (req: GetLnurlWithdrawLink_Input & {ctx: UserContext }) => Promise<LnurlLinkResponse>
     GetMigrationUpdate?: (req: GetMigrationUpdate_Input & {ctx: UserContext }) => Promise<void>
+    GetNPubLinkingState?: (req: GetNPubLinkingState_Input & {ctx: AppContext }) => Promise<NPubLinking>
     GetPaymentState?: (req: GetPaymentState_Input & {ctx: UserContext }) => Promise<PaymentState>
     GetSeed?: (req: GetSeed_Input & {ctx: AdminContext }) => Promise<LndSeed>
     GetUsageMetrics?: (req: GetUsageMetrics_Input & {ctx: MetricsContext }) => Promise<UsageMetrics>
@@ -1263,6 +1267,24 @@ export const GetInviteTokenStateResponseValidate = (o?: GetInviteTokenStateRespo
     return null
 }
 
+export type GetNPubLinking = {
+    user_identifier: string
+}
+export const GetNPubLinkingOptionalFields: [] = []
+export type GetNPubLinkingOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    user_identifier_CustomCheck?: (v: string) => boolean
+}
+export const GetNPubLinkingValidate = (o?: GetNPubLinking, opts: GetNPubLinkingOptions = {}, path: string = 'GetNPubLinking::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.user_identifier !== 'string') return new Error(`${path}.user_identifier: is not a string`)
+    if (opts.user_identifier_CustomCheck && !opts.user_identifier_CustomCheck(o.user_identifier)) return new Error(`${path}.user_identifier: custom check failed`)
+
+    return null
+}
+
 export type GetPaymentStateRequest = {
     invoice: string
 }
@@ -1905,6 +1927,25 @@ export const MigrationUpdateValidate = (o?: MigrationUpdate, opts: MigrationUpda
         const relaysErr = RelaysMigrationValidate(o.relays, opts.relays_Options, `${path}.relays`)
         if (relaysErr !== null) return relaysErr
     }
+    
+
+    return null
+}
+
+export type NPubLinking = {
+    state: NPubLinking_state
+}
+export const NPubLinkingOptionalFields: [] = []
+export type NPubLinkingOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    state_Options?: NPubLinking_stateOptions
+}
+export const NPubLinkingValidate = (o?: NPubLinking, opts: NPubLinkingOptions = {}, path: string = 'NPubLinking::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    const stateErr = NPubLinking_stateValidate(o.state, opts.state_Options, `${path}.state`)
+    if (stateErr !== null) return stateErr
     
 
     return null
@@ -2981,6 +3022,50 @@ export const LiveDebitRequest_debitValidate = (o?: LiveDebitRequest_debit, opts:
         case LiveDebitRequest_debit_type.INVOICE:
         if (typeof o.invoice !== 'string') return new Error(`${path}.invoice: is not a string`)
         if (opts.invoice_CustomCheck && !opts.invoice_CustomCheck(o.invoice)) return new Error(`${path}.invoice: custom check failed`)
+
+        break
+        default:
+            return new Error(path + ': unknown type '+ stringType)
+    }
+    return null
+}
+export enum NPubLinking_state_type {
+    LINKED_NPUB = 'linked_npub',
+    LINKING_TOKEN = 'linking_token',
+    UNLINKED = 'unlinked',
+}
+export const enumCheckNPubLinking_state_type = (e?: NPubLinking_state_type): boolean => {
+    for (const v in NPubLinking_state_type) if (e === v) return true
+    return false
+}
+export type NPubLinking_state = 
+    {type:NPubLinking_state_type.LINKED_NPUB, linked_npub:string}|
+    {type:NPubLinking_state_type.LINKING_TOKEN, linking_token:string}|
+    {type:NPubLinking_state_type.UNLINKED, unlinked:Empty}
+
+export type NPubLinking_stateOptions = {
+    linked_npub_CustomCheck?: (v: string) => boolean
+    linking_token_CustomCheck?: (v: string) => boolean
+    unlinked_Options?: EmptyOptions
+}
+export const NPubLinking_stateValidate = (o?: NPubLinking_state, opts:NPubLinking_stateOptions = {}, path: string = 'NPubLinking_state::root.'): Error | null => {
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+    const stringType: string = o.type
+    switch (o.type) {
+        case NPubLinking_state_type.LINKED_NPUB:
+        if (typeof o.linked_npub !== 'string') return new Error(`${path}.linked_npub: is not a string`)
+        if (opts.linked_npub_CustomCheck && !opts.linked_npub_CustomCheck(o.linked_npub)) return new Error(`${path}.linked_npub: custom check failed`)
+
+        break
+        case NPubLinking_state_type.LINKING_TOKEN:
+        if (typeof o.linking_token !== 'string') return new Error(`${path}.linking_token: is not a string`)
+        if (opts.linking_token_CustomCheck && !opts.linking_token_CustomCheck(o.linking_token)) return new Error(`${path}.linking_token: custom check failed`)
+
+        break
+        case NPubLinking_state_type.UNLINKED:
+        const unlinkedErr = EmptyValidate(o.unlinked, opts.unlinked_Options, `${path}.unlinked`)
+        if (unlinkedErr !== null) return unlinkedErr
+        
 
         break
         default:
