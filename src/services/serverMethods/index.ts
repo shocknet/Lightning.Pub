@@ -217,6 +217,13 @@ export default (mainHandler: Main): Types.ServerMethods => {
         },
         GetMigrationUpdate: async ({ ctx, cb }) => {
         },
+        GetNPubLinkingState: async ({ ctx, req }) => {
+            const err = Types.GetNPubLinkingValidate(req, {
+                user_identifier_CustomCheck: userIdentifier => userIdentifier !== '',
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.applicationManager.GetNPubLinkingState(ctx.app_id, req)
+        },
         RequestNPubLinkingToken: async ({ ctx, req }) => {
             const err = Types.RequestNPubLinkingTokenRequestValidate(req, {
                 user_identifier_CustomCheck: userIdentifier => userIdentifier !== '',

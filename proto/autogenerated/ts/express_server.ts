@@ -878,6 +878,28 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
+    if (!opts.allowNotImplementedMethods && !methods.GetNPubLinkingState) throw new Error('method: GetNPubLinkingState is not implemented')
+    app.post('/api/app/user/npub/token', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'GetNPubLinkingState', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.GetNPubLinkingState) throw new Error('method: GetNPubLinkingState is not implemented')
+            const authContext = await opts.AppAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.GetNPubLinkingValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+            const response =  await methods.GetNPubLinkingState({rpcName:'GetNPubLinkingState', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
     if (!opts.allowNotImplementedMethods && !methods.GetPaymentState) throw new Error('method: GetPaymentState is not implemented')
     app.post('/api/user/payment/state', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'GetPaymentState', batch: false, nostr: false, batchSize: 0}

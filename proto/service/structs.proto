@@ -441,6 +441,18 @@ message RelaysMigration {
     repeated string relays = 1;
 }
 
+message GetNPubLinking {
+    string user_identifier = 1;
+}
+
+message NPubLinking {
+    oneof state {
+        Empty unlinked = 1;
+        string linked_npub = 2;
+        string linking_token = 3;
+    }
+}
+
 
 message RequestNPubLinkingTokenRequest {
     string user_identifier = 1;
