@@ -71,7 +71,7 @@
     "@types/chai-string": "^1.4.5",
     "@types/cors": "^2.8.17",
     "@types/eccrypto": "^1.1.6",
-    "@types/jsonwebtoken": "^9.0.6",
+    "@types/jsonwebtoken": "^9.0.7",
     "@types/lodash": "^4.14.182",
     "@types/node": "^16.11.10",
     "@types/node-fetch": "^2.6.3",
