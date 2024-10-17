@@ -879,7 +879,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.GetNPubLinkingState) throw new Error('method: GetNPubLinkingState is not implemented')
-    app.post('/api/app/user/npub/token', async (req, res) => {
+    app.post('/api/app/user/npub/state', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'GetNPubLinkingState', batch: false, nostr: false, batchSize: 0}
         const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
