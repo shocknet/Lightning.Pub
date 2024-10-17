@@ -391,7 +391,7 @@ export default (params: ClientParams) => ({
     GetNPubLinkingState: async (request: Types.GetNPubLinking): Promise<ResultError | ({ status: 'OK' }& Types.NPubLinking)> => {
         const auth = await params.retrieveAppAuth()
         if (auth === null) throw new Error('retrieveAppAuth() returned null')
-        let finalRoute = '/api/app/user/npub/token'
+        let finalRoute = '/api/app/user/npub/state'
         const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 

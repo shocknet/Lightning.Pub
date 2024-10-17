@@ -840,7 +840,7 @@ func NewClient(params ClientParams) *Client {
 			if err != nil {
 				return nil, err
 			}
-			finalRoute := "/api/app/user/npub/token"
+			finalRoute := "/api/app/user/npub/state"
 			body, err := json.Marshal(req)
 			if err != nil {
 				return nil, err

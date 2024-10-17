@@ -478,7 +478,7 @@ The nostr server will send back a message response, and inside the body there wi
 - GetNPubLinkingState
   - auth type: __App__
   - http method: __post__
-  - http route: __/api/app/user/npub/token__
+  - http route: __/api/app/user/npub/state__
   - input: [GetNPubLinking](#GetNPubLinking)
   - output: [NPubLinking](#NPubLinking)
 
