@@ -321,7 +321,7 @@ service LightningPub {
     rpc GetNPubLinkingState(structs.GetNPubLinking) returns (structs.NPubLinking) {
         option (auth_type) = "App";
         option (http_method) = "post";
-        option (http_route) = "/api/app/user/npub/token";
+        option (http_route) = "/api/app/user/npub/state";
     }
     rpc RequestNPubLinkingToken(structs.RequestNPubLinkingTokenRequest) returns (structs.RequestNPubLinkingTokenResponse) {
         option (auth_type) = "App";
