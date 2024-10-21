@@ -250,23 +250,28 @@ export default class {
     }
 
     async GetNPubLinkingState(app_id: string, req: Types.GetNPubLinking): Promise<Types.NPubLinking> {
+        console.log("getting npub linking state for", req.user_identifier)
         const app = await this.storage.applicationStorage.GetApplication(app_id);
         const user = await this.storage.applicationStorage.GetApplicationUser(app, req.user_identifier);
         const iter = this.nPubLinkingTokens.keys()
         let result = iter.next()
         while (!result.done) {
             if (this.nPubLinkingTokens.get(result.value)?.serialId === user.serial_id) {
+                console.log("found linking token for", req.user_identifier)
                 return { state: { type: Types.NPubLinking_state_type.LINKING_TOKEN, linking_token: result.value } }
             }
             result = iter.next()
         }
         if (user.nostr_public_key) {
+            console.log("user already has npub", req.user_identifier)
             return { state: { type: Types.NPubLinking_state_type.LINKED_NPUB, linked_npub: user.nostr_public_key } }
         }
+        console.log("user has no npub and no linking token", req.user_identifier)
         return { state: { type: Types.NPubLinking_state_type.UNLINKED, unlinked: {} } }
     }
 
     async RequestNPubLinkingToken(appId: string, req: Types.RequestNPubLinkingTokenRequest, reset: boolean): Promise<Types.RequestNPubLinkingTokenResponse> {
+        console.log("requesting npub linking token for", req.user_identifier)
         const app = await this.storage.applicationStorage.GetApplication(appId);
         const user = await this.storage.applicationStorage.GetApplicationUser(app, req.user_identifier);
         if (Array.from(this.nPubLinkingTokens.values()).find(t => t.serialId === user.serial_id)) {
@@ -277,10 +282,12 @@ export default class {
         }
         const token = crypto.randomBytes(32).toString("hex");
         this.nPubLinkingTokens.set(token, { serialId: user.serial_id, expiry: Date.now() + TOKEN_EXPIRY_TIME })
+        console.log("generating linking token for", req.user_identifier)
         return { token };
     }
 
     async LinkNpubThroughToken(ctx: Types.GuestWithPubContext, req: Types.LinkNPubThroughTokenRequest): Promise<void> {
+        console.log("linking npub", ctx.pub, " through token", req.token)
         const entry = this.nPubLinkingTokens.get(req.token)
         if (entry && entry.expiry > Date.now()) {
             const copy = { ...entry }
@@ -293,6 +300,7 @@ export default class {
         } else {
             throw new Error("Token invalid or expired")
         }
+        console.log("linked npub", ctx.pub, " through token", req.token)
     }
 
     async UseInviteLink(ctx: Types.GuestWithPubContext, req: Types.UseInviteLinkRequest): Promise<void> {
