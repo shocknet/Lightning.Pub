@@ -45,7 +45,7 @@
     "dotenv": "^16.4.5",
     "eccrypto": "^1.1.6",
     "express": "^4.21.1",
-    "globby": "^13.1.2",
+    "globby": "^14.0.2",
     "grpc-tools": "^1.12.4",
     "jsonwebtoken": "^9.0.2",
     "lodash": "^4.17.21",
