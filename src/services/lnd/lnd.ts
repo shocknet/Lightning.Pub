@@ -472,12 +472,14 @@ export default class {
         }, { abort: abortController.signal })
         return new Promise((res, rej) => {
             stream.responses.onError(error => {
-                this.log(ERROR, "error with trackPaymentV2", error.message)
-                rej(null)
+                if (abortController.signal.aborted) {
+                    this.log(ERROR, "error with trackPaymentV2", error.message)
+                    rej(null)
+                }
             })
             stream.responses.onMessage(payment => {
-                abortController.abort()
                 res(payment)
+                abortController.abort()
             })
         })
 
