@@ -71,13 +71,12 @@ export default class {
         const log = getLogger({ component: 'pendingPaymentsOnStart' })
         const pendingPayments = await this.storage.paymentStorage.GetPendingPayments()
         for (const p of pendingPayments) {
+            log("checking state of payment: ", p.invoice)
             if (p.internal) {
                 log("found pending internal payment", p.serial_id)
-                return
             } else if (p.liquidityProvider) {
                 log("found pending liquidity provider payment", p.serial_id)
                 await this.checkPendingProviderPayment(log, p)
-                return
             } else {
                 log("found pending external payment", p.serial_id)
                 await this.checkPendingLndPayment(log, p)
@@ -93,7 +92,7 @@ export default class {
             await this.storage.txQueue.PushToQueue({
                 dbTx: true, description: "refund failed provider payment", exec: async tx => {
                     await this.storage.userStorage.IncrementUserBalance(p.user.user_id, fullAmount, "payment_refund:" + p.invoice, tx)
-                    await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, 0, 0, false)
+                    await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, 0, 0, false, undefined, tx)
                 }
             })
             return
@@ -106,9 +105,9 @@ export default class {
                 dbTx: true, description: "pending provider payment success after restart", exec: async tx => {
                     if (routingFeeLimit - actualFee > 0) {
                         this.log("refund pending provider payment routing fee", routingFeeLimit, actualFee, "sats")
-                        await this.storage.userStorage.IncrementUserBalance(p.user.user_id, routingFeeLimit - actualFee, "routing_fee_refund:" + p.invoice)
+                        await this.storage.userStorage.IncrementUserBalance(p.user.user_id, routingFeeLimit - actualFee, "routing_fee_refund:" + p.invoice, tx)
                     }
-                    await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, actualFee, p.service_fees, true)
+                    await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, actualFee, p.service_fees, true, undefined, tx)
                 }
             })
             if (p.linkedApplication && p.user.user_id !== p.linkedApplication.owner.user_id && serviceFee > 0) {
@@ -119,8 +118,6 @@ export default class {
             return
         }
         log("provider payment still pending", p.serial_id, "no action will be performed")
-
-
     }
 
     checkPendingLndPayment = async (log: PubLogger, p: UserInvoicePayment) => {
@@ -147,9 +144,9 @@ export default class {
                     dbTx: true, description: "pending payment success after restart", exec: async tx => {
                         if (routingFeeLimit - actualFee > 0) {
                             this.log("refund pending payment routing fee", routingFeeLimit, actualFee, "sats")
-                            await this.storage.userStorage.IncrementUserBalance(p.user.user_id, routingFeeLimit - actualFee, "routing_fee_refund:" + p.invoice)
+                            await this.storage.userStorage.IncrementUserBalance(p.user.user_id, routingFeeLimit - actualFee, "routing_fee_refund:" + p.invoice, tx)
                         }
-                        await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, actualFee, p.service_fees, true)
+                        await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, actualFee, p.service_fees, true, undefined, tx)
                     }
                 })
                 if (p.linkedApplication && p.user.user_id !== p.linkedApplication.owner.user_id && serviceFee > 0) {
@@ -164,7 +161,7 @@ export default class {
                 await this.storage.txQueue.PushToQueue({
                     dbTx: true, description: "refund failed pending payment", exec: async tx => {
                         await this.storage.userStorage.IncrementUserBalance(p.user.user_id, fullAmount, "payment_refund:" + p.invoice, tx)
-                        await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, 0, 0, false)
+                        await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, 0, 0, false, undefined, tx)
                     }
                 })
             default:
