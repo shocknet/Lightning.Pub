@@ -177,13 +177,16 @@ export default class {
     async SetExternalPaymentIndex(invoicePaymentSerialId: number, index: number, entityManager = this.DB) {
         return entityManager.getRepository(UserInvoicePayment).update(invoicePaymentSerialId, { paymentIndex: index })
     }
-    async UpdateExternalPayment(invoicePaymentSerialId: number, routingFees: number, serviceFees: number, success: boolean, providerDestination?: string) {
-        return this.DB.getRepository(UserInvoicePayment).update(invoicePaymentSerialId, {
+    async UpdateExternalPayment(invoicePaymentSerialId: number, routingFees: number, serviceFees: number, success: boolean, providerDestination?: string, entityManager = this.DB) {
+        const up: Partial<UserInvoicePayment> = {
             routing_fees: routingFees,
             service_fees: serviceFees,
             paid_at_unix: success ? Math.floor(Date.now() / 1000) : -1,
-            liquidityProvider: providerDestination
-        })
+        }
+        if (providerDestination) {
+            up.liquidityProvider = providerDestination
+        }
+        return entityManager.getRepository(UserInvoicePayment).update(invoicePaymentSerialId, up)
     }
 
     async AddInternalPayment(userId: string, invoice: string, amount: number, serviceFees: number, linkedApplication: Application, debitNpub?: string): Promise<UserInvoicePayment> {
