@@ -58,12 +58,14 @@ type Client struct {
 	AddAppInvoice     func(req AddAppInvoiceRequest) (*NewInvoiceResponse, error)
 	AddAppUser        func(req AddAppUserRequest) (*AppUser, error)
 	AddAppUserInvoice func(req AddAppUserInvoiceRequest) (*NewInvoiceResponse, error)
+	AddPeer           func(req AddPeerRequest) error
 	AddProduct        func(req AddProductRequest) (*Product, error)
 	AuthApp           func(req AuthAppRequest) (*AuthApp, error)
 	AuthorizeDebit    func(req DebitAuthorizationRequest) (*DebitAuthorization, error)
 	BanDebit          func(req DebitOperation) error
 	BanUser           func(req BanUserRequest) (*BanUserResponse, error)
 	// batching method: BatchUser not implemented
+	CloseChannel                func(req CloseChannelRequest) (*CloseChannelResponse, error)
 	CreateOneTimeInviteLink     func(req CreateOneTimeInviteLinkRequest) (*CreateOneTimeInviteLinkResponse, error)
 	DecodeInvoice               func(req DecodeInvoiceRequest) (*DecodeInvoiceResponse, error)
 	EditDebit                   func(req DebitAuthorizationRequest) error
@@ -237,6 +239,30 @@ func NewClient(params ClientParams) *Client {
 			}
 			return &res, nil
 		},
+		AddPeer: func(req AddPeerRequest) error {
+			auth, err := params.RetrieveAdminAuth()
+			if err != nil {
+				return err
+			}
+			finalRoute := "/api/admin/peer"
+			body, err := json.Marshal(req)
+			if err != nil {
+				return err
+			}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return err
+			}
+			if result.Status == "ERROR" {
+				return fmt.Errorf(result.Reason)
+			}
+			return nil
+		},
 		AddProduct: func(req AddProductRequest) (*Product, error) {
 			auth, err := params.RetrieveUserAuth()
 			if err != nil {
@@ -378,6 +404,35 @@ func NewClient(params ClientParams) *Client {
 			return &res, nil
 		},
 		// batching method: BatchUser not implemented
+		CloseChannel: func(req CloseChannelRequest) (*CloseChannelResponse, error) {
+			auth, err := params.RetrieveAdminAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/admin/channel/close"
+			body, err := json.Marshal(req)
+			if err != nil {
+				return nil, err
+			}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return nil, err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := CloseChannelResponse{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
+		},
 		CreateOneTimeInviteLink: func(req CreateOneTimeInviteLinkRequest) (*CreateOneTimeInviteLinkResponse, error) {
 			auth, err := params.RetrieveAdminAuth()
 			if err != nil {
@@ -1267,11 +1322,11 @@ func NewClient(params ClientParams) *Client {
 			return &res, nil
 		},
 		OpenChannel: func(req OpenChannelRequest) (*OpenChannelResponse, error) {
-			auth, err := params.RetrieveUserAuth()
+			auth, err := params.RetrieveAdminAuth()
 			if err != nil {
 				return nil, err
 			}
-			finalRoute := "/api/user/open/channel"
+			finalRoute := "/api/admin/channel/open"
 			body, err := json.Marshal(req)
 			if err != nil {
 				return nil, err

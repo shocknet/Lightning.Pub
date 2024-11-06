@@ -1,12 +1,12 @@
 import { CommitmentType, OpenChannelRequest } from "../../../proto/lnd/lightning.js";
 
-export const OpenChannelReq = (destination: string, closeAddress: string, fundingAmount: number, pushSats: number): OpenChannelRequest => ({
+export const OpenChannelReq = (destination: string, closeAddress: string, fundingAmount: number, pushSats: number, satsPerVByte: number): OpenChannelRequest => ({
     nodePubkey: Buffer.from(destination, 'hex'),
     closeAddress: closeAddress,
     localFundingAmount: BigInt(fundingAmount),
     pushSat: BigInt(pushSats),
 
-    satPerVbyte: 0n, // TBD
+    satPerVbyte: BigInt(satsPerVByte), // TBD
     private: false,
     minConfs: 0, // TBD
     baseFee: 1n, // TBD

@@ -131,6 +131,41 @@ message LndChannels {
     repeated OpenChannel open_channels = 1;
 }
 
+message GetChannelPolicyRequest {
+    string channel_id = 1;
+}
+
+
+
+message OpenChannelRequest{
+    string node_pubkey = 1;
+    int64 local_funding_amount = 2;
+    int64 sat_per_v_byte = 3;
+    optional int64 push_sat = 5;
+    optional string close_address = 6;
+}
+
+message OpenChannelResponse{
+    string channel_id = 1;
+}
+
+message CloseChannelRequest{
+    bool force = 2;
+    int64 sat_per_v_byte = 3;
+    string funding_txid = 4;
+    int64 output_index = 5;
+}
+
+message CloseChannelResponse{
+    string closing_txid = 1;
+}
+
+message AddPeerRequest {
+    string pubkey = 1;
+    string host = 2;
+    int64 port = 3;
+}
+
 message LndGetInfoRequest {
     int64 nodeId = 1;
 }
@@ -306,17 +341,6 @@ message PaymentState{
     int64 amount = 2;
     int64 service_fee = 3;
     int64 network_fee = 4;
-}
-
-message OpenChannelRequest{
-    string destination = 1;
-    int64 fundingAmount = 2;
-    int64 pushAmount = 3;
-    string closeAddress = 4;
-}
-
-message OpenChannelResponse{
-    string channelId = 1;
 }
 
 message LnurlLinkResponse{

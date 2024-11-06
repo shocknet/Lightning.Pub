@@ -8,7 +8,7 @@ import { LightningClient } from '../../../proto/lnd/lightning.client.js'
 import { InvoicesClient } from '../../../proto/lnd/invoices.client.js'
 import { RouterClient } from '../../../proto/lnd/router.client.js'
 import { ChainNotifierClient } from '../../../proto/lnd/chainnotifier.client.js'
-import { GetInfoResponse, AddressType, NewAddressResponse, AddInvoiceResponse, Invoice_InvoiceState, PayReq, Payment_PaymentStatus, Payment, PaymentFailureReason, SendCoinsResponse, EstimateFeeResponse, ChannelBalanceResponse, TransactionDetails, ListChannelsResponse, ClosedChannelsResponse, PendingChannelsResponse, ForwardingHistoryResponse, CoinSelectionStrategy } from '../../../proto/lnd/lightning.js'
+import { GetInfoResponse, AddressType, NewAddressResponse, AddInvoiceResponse, Invoice_InvoiceState, PayReq, Payment_PaymentStatus, Payment, PaymentFailureReason, SendCoinsResponse, EstimateFeeResponse, ChannelBalanceResponse, TransactionDetails, ListChannelsResponse, ClosedChannelsResponse, PendingChannelsResponse, ForwardingHistoryResponse, CoinSelectionStrategy, OpenStatusUpdate, CloseStatusUpdate, PendingUpdate } from '../../../proto/lnd/lightning.js'
 import { OpenChannelReq } from './openChannelReq.js';
 import { AddInvoiceReq } from './addInvoiceReq.js';
 import { PayInvoiceReq } from './payInvoiceReq.js';
@@ -380,6 +380,11 @@ export default class {
         return res.response
     }
 
+    async GetChannelInfo(chanId: string) {
+        const res = await this.lightning.getChanInfo({ chanId, chanPoint: "" }, DeadLineMetadata())
+        return res.response
+    }
+
     async GetChannelBalance() {
         const res = await this.lightning.channelBalance({}, DeadLineMetadata())
         return res.response
@@ -485,21 +490,66 @@ export default class {
 
     }
 
+    async AddPeer(pub: string, host: string, port: number) {
+        const res = await this.lightning.connectPeer({
+            addr: {
+                pubkey: pub,
+                host: host + ":" + port,
+            },
+            perm: true,
+            timeout: 0n
+        })
+        return res.response
+    }
+
     async ListPeers() {
         const res = await this.lightning.listPeers({ latestError: true }, DeadLineMetadata())
         return res.response
     }
 
-    async OpenChannel(destination: string, closeAddress: string, fundingAmount: number, pushSats: number) {
+    async OpenChannel(destination: string, closeAddress: string, fundingAmount: number, pushSats: number, satsPerVByte: number): Promise<OpenStatusUpdate> {
         const abortController = new AbortController()
-        const req = OpenChannelReq(destination, closeAddress, fundingAmount, pushSats)
+        const req = OpenChannelReq(destination, closeAddress, fundingAmount, pushSats, satsPerVByte)
         const stream = this.lightning.openChannel(req, { abort: abortController.signal })
         return new Promise((res, rej) => {
             stream.responses.onMessage(message => {
                 console.log("message", message)
                 switch (message.update.oneofKind) {
                     case 'chanPending':
-                        res(Buffer.from(message.pendingChanId).toString('base64'))
+                        res(message)
+                        break
+                }
+            })
+            stream.responses.onError(error => {
+                console.log("error", error)
+                rej(error)
+            })
+        })
+    }
+
+    async CloseChannel(fundingTx: string, outputIndex: number, force: boolean, satPerVByte: number): Promise<PendingUpdate> {
+        const stream = this.lightning.closeChannel({
+            deliveryAddress: "",
+            force: force,
+            satPerByte: 0n,
+            satPerVbyte: BigInt(satPerVByte),
+            noWait: false,
+            maxFeePerVbyte: 0n,
+            targetConf: 0,
+            channelPoint: {
+                fundingTxid: {
+                    fundingTxidStr: fundingTx,
+                    oneofKind: "fundingTxidStr"
+                },
+                outputIndex: outputIndex
+            },
+        }, DeadLineMetadata())
+        return new Promise((res, rej) => {
+            stream.responses.onMessage(message => {
+                console.log("message", message)
+                switch (message.update.oneofKind) {
+                    case 'closePending':
+                        res(message.update.closePending)
                         break
                 }
             })

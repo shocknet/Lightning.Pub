@@ -48,6 +48,22 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     opts.metricsCallback([{ ...info, ...stats, ...authContext }])
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
+            case 'AddPeer':
+                try {
+                    if (!methods.AddPeer) throw new Error('method: AddPeer is not implemented')
+                    const authContext = await opts.NostrAdminAuthGuard(req.appId, req.authIdentifier)
+                    stats.guard = process.hrtime.bigint()
+                    authCtx = authContext
+                    const request = req.body
+                    const error = Types.AddPeerRequestValidate(request)
+                    stats.validate = process.hrtime.bigint()
+                    if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
+                    await methods.AddPeer({rpcName:'AddPeer', ctx:authContext , req: request})
+                    stats.handle = process.hrtime.bigint()
+                    res({status: 'OK'})
+                    opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+                break
             case 'AddProduct':
                 try {
                     if (!methods.AddProduct) throw new Error('method: AddProduct is not implemented')
@@ -327,18 +343,6 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                                         callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
                                     }
                                     break
-                                case 'OpenChannel':
-                                    if (!methods.OpenChannel) {
-                                        throw new Error('method not defined: OpenChannel')
-                                    } else {
-                                        const error = Types.OpenChannelRequestValidate(operation.req)
-                                        opStats.validate = process.hrtime.bigint()
-                                        if (error !== null) throw error
-                                        const res = await methods.OpenChannel({...operation, ctx}); responses.push({ status: 'OK', ...res  })
-                                        opStats.handle = process.hrtime.bigint()
-                                        callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
-                                    }
-                                    break
                                 case 'PayAddress':
                                     if (!methods.PayAddress) {
                                         throw new Error('method not defined: PayAddress')
@@ -417,6 +421,22 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     stats.handle = process.hrtime.bigint()
                     res({ status: 'OK', responses })
                     opts.metricsCallback([{ ...info, ...stats, ...ctx }, ...callsMetrics])
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+                break
+            case 'CloseChannel':
+                try {
+                    if (!methods.CloseChannel) throw new Error('method: CloseChannel is not implemented')
+                    const authContext = await opts.NostrAdminAuthGuard(req.appId, req.authIdentifier)
+                    stats.guard = process.hrtime.bigint()
+                    authCtx = authContext
+                    const request = req.body
+                    const error = Types.CloseChannelRequestValidate(request)
+                    stats.validate = process.hrtime.bigint()
+                    if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
+                    const response = await methods.CloseChannel({rpcName:'CloseChannel', ctx:authContext , req: request})
+                    stats.handle = process.hrtime.bigint()
+                    res({status: 'OK', ...response})
+                    opts.metricsCallback([{ ...info, ...stats, ...authContext }])
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
             case 'CreateOneTimeInviteLink':
@@ -799,7 +819,7 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
             case 'OpenChannel':
                 try {
                     if (!methods.OpenChannel) throw new Error('method: OpenChannel is not implemented')
-                    const authContext = await opts.NostrUserAuthGuard(req.appId, req.authIdentifier)
+                    const authContext = await opts.NostrAdminAuthGuard(req.appId, req.authIdentifier)
                     stats.guard = process.hrtime.bigint()
                     authCtx = authContext
                     const request = req.body

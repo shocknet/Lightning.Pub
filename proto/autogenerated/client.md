@@ -18,6 +18,11 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [AddAppRequest](#AddAppRequest)
   - output: [AuthApp](#AuthApp)
 
+- AddPeer
+  - auth type: __Admin__
+  - input: [AddPeerRequest](#AddPeerRequest)
+  - This methods has an __empty__ __response__ body
+
 - AddProduct
   - auth type: __User__
   - input: [AddProductRequest](#AddProductRequest)
@@ -47,6 +52,11 @@ The nostr server will send back a message response, and inside the body there wi
   - auth type: __User__
   - This methods has an __empty__ __request__ body
   - This methods has an __empty__ __response__ body
+
+- CloseChannel
+  - auth type: __Admin__
+  - input: [CloseChannelRequest](#CloseChannelRequest)
+  - output: [CloseChannelResponse](#CloseChannelResponse)
 
 - CreateOneTimeInviteLink
   - auth type: __Admin__
@@ -181,7 +191,7 @@ The nostr server will send back a message response, and inside the body there wi
   - output: [NewInvoiceResponse](#NewInvoiceResponse)
 
 - OpenChannel
-  - auth type: __User__
+  - auth type: __Admin__
   - input: [OpenChannelRequest](#OpenChannelRequest)
   - output: [OpenChannelResponse](#OpenChannelResponse)
 
@@ -282,6 +292,13 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [AddAppUserInvoiceRequest](#AddAppUserInvoiceRequest)
   - output: [NewInvoiceResponse](#NewInvoiceResponse)
 
+- AddPeer
+  - auth type: __Admin__
+  - http method: __post__
+  - http route: __/api/admin/peer__
+  - input: [AddPeerRequest](#AddPeerRequest)
+  - This methods has an __empty__ __response__ body
+
 - AddProduct
   - auth type: __User__
   - http method: __post__
@@ -323,6 +340,13 @@ The nostr server will send back a message response, and inside the body there wi
   - http route: __/api/user/batch__
   - This methods has an __empty__ __request__ body
   - This methods has an __empty__ __response__ body
+
+- CloseChannel
+  - auth type: __Admin__
+  - http method: __post__
+  - http route: __/api/admin/channel/close__
+  - input: [CloseChannelRequest](#CloseChannelRequest)
+  - output: [CloseChannelResponse](#CloseChannelResponse)
 
 - CreateOneTimeInviteLink
   - auth type: __Admin__
@@ -600,9 +624,9 @@ The nostr server will send back a message response, and inside the body there wi
   - output: [NewInvoiceResponse](#NewInvoiceResponse)
 
 - OpenChannel
-  - auth type: __User__
+  - auth type: __Admin__
   - http method: __post__
-  - http route: __/api/user/open/channel__
+  - http route: __/api/admin/channel/open__
   - input: [OpenChannelRequest](#OpenChannelRequest)
   - output: [OpenChannelResponse](#OpenChannelResponse)
 
@@ -736,6 +760,11 @@ The nostr server will send back a message response, and inside the body there wi
   - __fail_if_exists__: _boolean_
   - __identifier__: _string_
 
+### AddPeerRequest
+  - __host__: _string_
+  - __port__: _number_
+  - __pubkey__: _string_
+
 ### AddProductRequest
   - __name__: _string_
   - __price_sats__: _number_
@@ -793,6 +822,15 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### CallbackUrl
   - __url__: _string_
+
+### CloseChannelRequest
+  - __force__: _boolean_
+  - __funding_txid__: _string_
+  - __output_index__: _number_
+  - __sat_per_v_byte__: _number_
+
+### CloseChannelResponse
+  - __closing_txid__: _string_
 
 ### ClosedChannel
   - __capacity__: _number_
@@ -862,6 +900,9 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### GetAppUserRequest
   - __user_identifier__: _string_
+
+### GetChannelPolicyRequest
+  - __channel_id__: _string_
 
 ### GetInviteTokenStateRequest
   - __invite_token__: _string_
@@ -1004,13 +1045,14 @@ The nostr server will send back a message response, and inside the body there wi
   - __remote_balance__: _number_
 
 ### OpenChannelRequest
-  - __closeAddress__: _string_
-  - __destination__: _string_
-  - __fundingAmount__: _number_
-  - __pushAmount__: _number_
+  - __close_address__: _string_ *this field is optional
+  - __local_funding_amount__: _number_
+  - __node_pubkey__: _string_
+  - __push_sat__: _number_ *this field is optional
+  - __sat_per_v_byte__: _number_
 
 ### OpenChannelResponse
-  - __channelId__: _string_
+  - __channel_id__: _string_
 
 ### PayAddressRequest
   - __address__: _string_

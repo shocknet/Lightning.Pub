@@ -95,6 +95,11 @@ type AddAppUserRequest struct {
 	Fail_if_exists bool   `json:"fail_if_exists"`
 	Identifier     string `json:"identifier"`
 }
+type AddPeerRequest struct {
+	Host   string `json:"host"`
+	Port   int64  `json:"port"`
+	Pubkey string `json:"pubkey"`
+}
 type AddProductRequest struct {
 	Name       string `json:"name"`
 	Price_sats int64  `json:"price_sats"`
@@ -152,6 +157,15 @@ type BannedAppUser struct {
 }
 type CallbackUrl struct {
 	Url string `json:"url"`
+}
+type CloseChannelRequest struct {
+	Force          bool   `json:"force"`
+	Funding_txid   string `json:"funding_txid"`
+	Output_index   int64  `json:"output_index"`
+	Sat_per_v_byte int64  `json:"sat_per_v_byte"`
+}
+type CloseChannelResponse struct {
+	Closing_txid string `json:"closing_txid"`
 }
 type ClosedChannel struct {
 	Capacity      int64  `json:"capacity"`
@@ -221,6 +235,9 @@ type GetAppUserLNURLInfoRequest struct {
 }
 type GetAppUserRequest struct {
 	User_identifier string `json:"user_identifier"`
+}
+type GetChannelPolicyRequest struct {
+	Channel_id string `json:"channel_id"`
 }
 type GetInviteTokenStateRequest struct {
 	Invite_token string `json:"invite_token"`
@@ -363,13 +380,14 @@ type OpenChannel struct {
 	Remote_balance int64  `json:"remote_balance"`
 }
 type OpenChannelRequest struct {
-	Closeaddress  string `json:"closeAddress"`
-	Destination   string `json:"destination"`
-	Fundingamount int64  `json:"fundingAmount"`
-	Pushamount    int64  `json:"pushAmount"`
+	Close_address        string `json:"close_address"`
+	Local_funding_amount int64  `json:"local_funding_amount"`
+	Node_pubkey          string `json:"node_pubkey"`
+	Push_sat             int64  `json:"push_sat"`
+	Sat_per_v_byte       int64  `json:"sat_per_v_byte"`
 }
 type OpenChannelResponse struct {
-	Channelid string `json:"channelId"`
+	Channel_id string `json:"channel_id"`
 }
 type PayAddressRequest struct {
 	Address      string `json:"address"`
