@@ -11,7 +11,9 @@ export default async (T: TestBase) => {
 
 const openAdminChannel = async (T: TestBase) => {
     T.d("starting openAdminChannel")
-    const otherPub = (await T.externalAccessToOtherLnd.GetInfo()).identityPubkey
+    const info = await T.externalAccessToThirdLnd.GetInfo()
+    console.log(info)
+    const otherPub = info.identityPubkey
     const openChannel = await T.main.adminManager.OpenChannel({
         node_pubkey: otherPub, local_funding_amount: 100000, sat_per_v_byte: 1
     })
