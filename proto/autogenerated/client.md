@@ -220,6 +220,11 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [CallbackUrl](#CallbackUrl)
   - output: [CallbackUrl](#CallbackUrl)
 
+- UpdateChannelPolicy
+  - auth type: __Admin__
+  - input: [UpdateChannelPolicyRequest](#UpdateChannelPolicyRequest)
+  - This methods has an __empty__ __response__ body
+
 - UseInviteLink
   - auth type: __GuestWithPub__
   - input: [UseInviteLinkRequest](#UseInviteLinkRequest)
@@ -721,6 +726,13 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [CallbackUrl](#CallbackUrl)
   - output: [CallbackUrl](#CallbackUrl)
 
+- UpdateChannelPolicy
+  - auth type: __Admin__
+  - http method: __post__
+  - http route: __/api/admin/channel/policy/update__
+  - input: [UpdateChannelPolicyRequest](#UpdateChannelPolicyRequest)
+  - This methods has an __empty__ __response__ body
+
 - UseInviteLink
   - auth type: __GuestWithPub__
   - http method: __post__
@@ -823,6 +835,13 @@ The nostr server will send back a message response, and inside the body there wi
 ### CallbackUrl
   - __url__: _string_
 
+### ChannelPolicy
+  - __base_fee_msat__: _number_
+  - __fee_rate_ppm__: _number_
+  - __max_htlc_msat__: _number_
+  - __min_htlc_msat__: _number_
+  - __timelock_delta__: _number_
+
 ### CloseChannelRequest
   - __force__: _boolean_
   - __funding_txid__: _string_
@@ -900,9 +919,6 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### GetAppUserRequest
   - __user_identifier__: _string_
-
-### GetChannelPolicyRequest
-  - __channel_id__: _string_
 
 ### GetInviteTokenStateRequest
   - __invite_token__: _string_
@@ -1039,9 +1055,11 @@ The nostr server will send back a message response, and inside the body there wi
   - __active__: _boolean_
   - __capacity__: _number_
   - __channel_id__: _string_
+  - __channel_point__: _string_
   - __label__: _string_
   - __lifetime__: _number_
   - __local_balance__: _number_
+  - __policy__: _[ChannelPolicy](#ChannelPolicy)_ *this field is optional
   - __remote_balance__: _number_
 
 ### OpenChannelRequest
@@ -1137,6 +1155,10 @@ The nostr server will send back a message response, and inside the body there wi
 ### SetMockInvoiceAsPaidRequest
   - __amount__: _number_
   - __invoice__: _string_
+
+### UpdateChannelPolicyRequest
+  - __policy__: _[ChannelPolicy](#ChannelPolicy)_
+  - __update__: _[UpdateChannelPolicyRequest_update](#UpdateChannelPolicyRequest_update)_
 
 ### UsageMetric
   - __auth_in_nano__: _number_

@@ -385,6 +385,23 @@ export default class {
         return res.response
     }
 
+    async UpdateChannelPolicy(chanPoint: string, policy: Types.ChannelPolicy) {
+        const split = chanPoint.split(':')
+
+        const res = await this.lightning.updateChannelPolicy({
+            scope: policy ? { oneofKind: 'chanPoint', chanPoint: { fundingTxid: { oneofKind: 'fundingTxidStr', fundingTxidStr: split[0] }, outputIndex: Number(split[1]) } } : { oneofKind: 'global', global: true },
+            baseFeeMsat: BigInt(policy.base_fee_msat),
+            feeRate: 0,
+            maxHtlcMsat: BigInt(policy.max_htlc_msat),
+            minHtlcMsat: BigInt(policy.min_htlc_msat),
+            timeLockDelta: policy.timelock_delta,
+            inboundFee: undefined,
+            feeRatePpm: policy.fee_rate_ppm,
+            minHtlcMsatSpecified: policy.min_htlc_msat > 0,
+        }, DeadLineMetadata())
+        return res.response
+    }
+
     async GetChannelBalance() {
         const res = await this.lightning.channelBalance({}, DeadLineMetadata())
         return res.response

@@ -117,6 +117,7 @@ type Client struct {
 	SetMockAppUserBalance       func(req SetMockAppUserBalanceRequest) error
 	SetMockInvoiceAsPaid        func(req SetMockInvoiceAsPaidRequest) error
 	UpdateCallbackUrl           func(req CallbackUrl) (*CallbackUrl, error)
+	UpdateChannelPolicy         func(req UpdateChannelPolicyRequest) error
 	UseInviteLink               func(req UseInviteLinkRequest) error
 	UserHealth                  func() error
 }
@@ -1691,6 +1692,30 @@ func NewClient(params ClientParams) *Client {
 				return nil, err
 			}
 			return &res, nil
+		},
+		UpdateChannelPolicy: func(req UpdateChannelPolicyRequest) error {
+			auth, err := params.RetrieveAdminAuth()
+			if err != nil {
+				return err
+			}
+			finalRoute := "/api/admin/channel/policy/update"
+			body, err := json.Marshal(req)
+			if err != nil {
+				return err
+			}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return err
+			}
+			if result.Status == "ERROR" {
+				return fmt.Errorf(result.Reason)
+			}
+			return nil
 		},
 		UseInviteLink: func(req UseInviteLinkRequest) error {
 			auth, err := params.RetrieveGuestWithPubAuth()

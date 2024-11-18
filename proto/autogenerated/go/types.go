@@ -158,6 +158,13 @@ type BannedAppUser struct {
 type CallbackUrl struct {
 	Url string `json:"url"`
 }
+type ChannelPolicy struct {
+	Base_fee_msat  int64 `json:"base_fee_msat"`
+	Fee_rate_ppm   int64 `json:"fee_rate_ppm"`
+	Max_htlc_msat  int64 `json:"max_htlc_msat"`
+	Min_htlc_msat  int64 `json:"min_htlc_msat"`
+	Timelock_delta int64 `json:"timelock_delta"`
+}
 type CloseChannelRequest struct {
 	Force          bool   `json:"force"`
 	Funding_txid   string `json:"funding_txid"`
@@ -235,9 +242,6 @@ type GetAppUserLNURLInfoRequest struct {
 }
 type GetAppUserRequest struct {
 	User_identifier string `json:"user_identifier"`
-}
-type GetChannelPolicyRequest struct {
-	Channel_id string `json:"channel_id"`
 }
 type GetInviteTokenStateRequest struct {
 	Invite_token string `json:"invite_token"`
@@ -371,13 +375,15 @@ type NewInvoiceResponse struct {
 	Invoice string `json:"invoice"`
 }
 type OpenChannel struct {
-	Active         bool   `json:"active"`
-	Capacity       int64  `json:"capacity"`
-	Channel_id     string `json:"channel_id"`
-	Label          string `json:"label"`
-	Lifetime       int64  `json:"lifetime"`
-	Local_balance  int64  `json:"local_balance"`
-	Remote_balance int64  `json:"remote_balance"`
+	Active         bool           `json:"active"`
+	Capacity       int64          `json:"capacity"`
+	Channel_id     string         `json:"channel_id"`
+	Channel_point  string         `json:"channel_point"`
+	Label          string         `json:"label"`
+	Lifetime       int64          `json:"lifetime"`
+	Local_balance  int64          `json:"local_balance"`
+	Policy         *ChannelPolicy `json:"policy"`
+	Remote_balance int64          `json:"remote_balance"`
 }
 type OpenChannelRequest struct {
 	Close_address        string `json:"close_address"`
@@ -472,6 +478,10 @@ type SetMockAppUserBalanceRequest struct {
 type SetMockInvoiceAsPaidRequest struct {
 	Amount  int64  `json:"amount"`
 	Invoice string `json:"invoice"`
+}
+type UpdateChannelPolicyRequest struct {
+	Policy *ChannelPolicy                     `json:"policy"`
+	Update *UpdateChannelPolicyRequest_update `json:"update"`
 }
 type UsageMetric struct {
 	Auth_in_nano     int64  `json:"auth_in_nano"`
@@ -580,4 +590,16 @@ type NPubLinking_state struct {
 	Linked_npub   *string                `json:"linked_npub"`
 	Linking_token *string                `json:"linking_token"`
 	Unlinked      *Empty                 `json:"unlinked"`
+}
+type UpdateChannelPolicyRequest_update_type string
+
+const (
+	ALL           UpdateChannelPolicyRequest_update_type = "all"
+	CHANNEL_POINT UpdateChannelPolicyRequest_update_type = "channel_point"
+)
+
+type UpdateChannelPolicyRequest_update struct {
+	Type          UpdateChannelPolicyRequest_update_type `json:"type"`
+	All           *Empty                                 `json:"all"`
+	Channel_point *string                                `json:"channel_point"`
 }

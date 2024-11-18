@@ -25,6 +25,15 @@ export default (mainHandler: Main): Types.ServerMethods => {
             if (err != null) throw new Error(err.message)
             return mainHandler.adminManager.AddPeer(req)
         },
+        UpdateChannelPolicy: async ({ ctx, req }) => {
+            const err = Types.UpdateChannelPolicyRequestValidate(req, {
+                update_Options: {
+                    channel_point_CustomCheck: cp => cp !== '',
+                }
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.adminManager.UpdateChannelPolicy(req)
+        },
         OpenChannel: async ({ ctx, req }) => {
             const err = Types.OpenChannelRequestValidate(req, {
                 node_pubkey_CustomCheck: pubkey => pubkey !== '',

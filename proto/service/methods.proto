@@ -151,6 +151,13 @@ service LightningPub {
         option (nostr) = true;
     }
 
+    rpc UpdateChannelPolicy (structs.UpdateChannelPolicyRequest) returns (structs.Empty) {
+        option (auth_type)  = "Admin";
+        option (http_method) = "post";
+        option (http_route) = "/api/admin/channel/policy/update";
+        option (nostr) = true;
+    }
+
     rpc OpenChannel(structs.OpenChannelRequest) returns (structs.OpenChannelResponse) {
         option (auth_type)  = "Admin";
         option (http_method) = "post";
