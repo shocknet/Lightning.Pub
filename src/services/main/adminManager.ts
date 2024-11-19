@@ -180,7 +180,7 @@ export class AdminManager {
     async UpdateChannelPolicy(req: Types.UpdateChannelPolicyRequest): Promise<void> {
         const chanPoint = req.update.type === Types.UpdateChannelPolicyRequest_update_type.CHANNEL_POINT ? req.update.channel_point : ""
         const res = await this.lnd.UpdateChannelPolicy(chanPoint, req.policy)
-        if (res.failedUpdates) {
+        if (res.failedUpdates.length > 0) {
             this.log(ERROR, "failed to update policy", res.failedUpdates)
             throw new Error("failed to update policy")
         }
