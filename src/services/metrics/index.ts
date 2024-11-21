@@ -25,13 +25,11 @@ export default class Handler {
 
     async NewBlockCb(height: number, balanceInfo: BalanceInfo) {
         const providers = await this.storage.liquidityStorage.GetTrackedProviders()
-        let lndTotal = 0
+        const channels = await this.lnd.GetChannelBalance()
         let providerTotal = 0
         console.log({ providers })
         providers.forEach(p => {
-            if (p.provider_type === 'lnd') {
-                lndTotal += p.latest_balance
-            } else {
+            if (p.provider_type === 'lnPub') {
                 providerTotal += p.latest_balance
             }
         })
@@ -40,7 +38,7 @@ export default class Handler {
             confirmed_chain_balance: balanceInfo.confirmedBalance,
             unconfirmed_chain_balance: balanceInfo.unconfirmedBalance,
             total_chain_balance: balanceInfo.totalBalance,
-            channels_balance: lndTotal,
+            channels_balance: Number(channels.localBalance?.sat) || 0,
             external_balance: providerTotal
         }
         const channelsEvents: Partial<ChannelBalanceEvent>[] = balanceInfo.channelsBalance.map(c => ({
