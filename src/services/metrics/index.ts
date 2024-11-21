@@ -27,6 +27,7 @@ export default class Handler {
         const providers = await this.storage.liquidityStorage.GetTrackedProviders()
         let lndTotal = 0
         let providerTotal = 0
+        console.log({ providers })
         providers.forEach(p => {
             if (p.provider_type === 'lnd') {
                 lndTotal += p.latest_balance

@@ -191,6 +191,9 @@ message SetMockInvoiceAsPaidRequest {
 
 message LndGetInfoResponse {
     string alias = 1;
+    bool synced_to_chain = 2;
+    bool synced_to_graph = 3;
+    bool watchdog_barking = 4;
 }
 
 message BanUserRequest {

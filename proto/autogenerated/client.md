@@ -983,6 +983,9 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### LndGetInfoResponse
   - __alias__: _string_
+  - __synced_to_chain__: _boolean_
+  - __synced_to_graph__: _boolean_
+  - __watchdog_barking__: _boolean_
 
 ### LndMetrics
   - __nodes__: ARRAY of: _[LndNodeMetrics](#LndNodeMetrics)_

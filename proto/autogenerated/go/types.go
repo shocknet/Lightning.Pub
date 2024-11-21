@@ -305,7 +305,10 @@ type LndGetInfoRequest struct {
 	Nodeid int64 `json:"nodeId"`
 }
 type LndGetInfoResponse struct {
-	Alias string `json:"alias"`
+	Alias            string `json:"alias"`
+	Synced_to_chain  bool   `json:"synced_to_chain"`
+	Synced_to_graph  bool   `json:"synced_to_graph"`
+	Watchdog_barking bool   `json:"watchdog_barking"`
 }
 type LndMetrics struct {
 	Nodes []LndNodeMetrics `json:"nodes"`

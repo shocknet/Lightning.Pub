@@ -10,6 +10,7 @@ export class AdminManager {
 
 
 
+
     storage: Storage
     log = getLogger({ component: "adminManager" })
     adminNpub = ""
@@ -25,8 +26,8 @@ export class AdminManager {
         this.storage = storage
         this.dataDir = mainSettings.storageSettings.dataDir
         this.adminNpubPath = getDataPath(this.dataDir, 'admin.npub')
-        this.adminEnrollTokenPath = getDataPath(this.dataDir, '.admin_enroll')
-        this.adminConnectPath = getDataPath(this.dataDir, '.admin_connect')
+        this.adminEnrollTokenPath = getDataPath(this.dataDir, 'admin.enroll')
+        this.adminConnectPath = getDataPath(this.dataDir, 'admin.connect')
         this.appNprofilePath = getDataPath(this.dataDir, 'app.nprofile')
         this.start()
     }
@@ -142,6 +143,17 @@ export class AdminManager {
         }
         return {
             used: inviteToken.used
+        }
+    }
+
+    async LndGetInfo(): Promise<Types.LndGetInfoResponse> {
+        const info = await this.lnd.GetInfo()
+        return {
+            alias: info.alias,
+            synced_to_chain: info.syncedToChain,
+            synced_to_graph: info.syncedToGraph,
+            watchdog_barking: this.lnd.outgoingOpsLocked
+
         }
     }
 

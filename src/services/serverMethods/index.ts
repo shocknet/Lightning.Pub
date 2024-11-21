@@ -54,8 +54,7 @@ export default (mainHandler: Main): Types.ServerMethods => {
         EncryptionExchange: async () => { },
         Health: async () => { await mainHandler.lnd.Health() },
         LndGetInfo: async ({ ctx }) => {
-            const info = await mainHandler.lnd.GetInfo()
-            return { alias: info.alias }
+            return await mainHandler.adminManager.LndGetInfo()
         },
         BanUser: async ({ ctx, req }) => {
             const err = Types.BanUserRequestValidate(req, {

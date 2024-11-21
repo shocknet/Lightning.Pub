@@ -1730,11 +1730,17 @@ export const LndGetInfoRequestValidate = (o?: LndGetInfoRequest, opts: LndGetInf
 
 export type LndGetInfoResponse = {
     alias: string
+    synced_to_chain: boolean
+    synced_to_graph: boolean
+    watchdog_barking: boolean
 }
 export const LndGetInfoResponseOptionalFields: [] = []
 export type LndGetInfoResponseOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
     alias_CustomCheck?: (v: string) => boolean
+    synced_to_chain_CustomCheck?: (v: boolean) => boolean
+    synced_to_graph_CustomCheck?: (v: boolean) => boolean
+    watchdog_barking_CustomCheck?: (v: boolean) => boolean
 }
 export const LndGetInfoResponseValidate = (o?: LndGetInfoResponse, opts: LndGetInfoResponseOptions = {}, path: string = 'LndGetInfoResponse::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
@@ -1742,6 +1748,15 @@ export const LndGetInfoResponseValidate = (o?: LndGetInfoResponse, opts: LndGetI
 
     if (typeof o.alias !== 'string') return new Error(`${path}.alias: is not a string`)
     if (opts.alias_CustomCheck && !opts.alias_CustomCheck(o.alias)) return new Error(`${path}.alias: custom check failed`)
+
+    if (typeof o.synced_to_chain !== 'boolean') return new Error(`${path}.synced_to_chain: is not a boolean`)
+    if (opts.synced_to_chain_CustomCheck && !opts.synced_to_chain_CustomCheck(o.synced_to_chain)) return new Error(`${path}.synced_to_chain: custom check failed`)
+
+    if (typeof o.synced_to_graph !== 'boolean') return new Error(`${path}.synced_to_graph: is not a boolean`)
+    if (opts.synced_to_graph_CustomCheck && !opts.synced_to_graph_CustomCheck(o.synced_to_graph)) return new Error(`${path}.synced_to_graph: custom check failed`)
+
+    if (typeof o.watchdog_barking !== 'boolean') return new Error(`${path}.watchdog_barking: is not a boolean`)
+    if (opts.watchdog_barking_CustomCheck && !opts.watchdog_barking_CustomCheck(o.watchdog_barking)) return new Error(`${path}.watchdog_barking: custom check failed`)
 
     return null
 }
