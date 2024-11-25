@@ -22,6 +22,7 @@ import { LndNodeInfo } from "./entity/LndNodeInfo.js"
 import { TrackedProvider } from "./entity/TrackedProvider.js"
 import { InviteToken } from "./entity/InviteToken.js"
 import { DebitAccess } from "./entity/DebitAccess.js"
+import { RootOperation } from "./entity/RootOperation.js"
 
 
 export type DbSettings = {
@@ -41,7 +42,7 @@ export const newMetricsDb = async (settings: DbSettings, metricsMigrations: Func
     const source = await new DataSource({
         type: "sqlite",
         database: settings.metricsDatabaseFile,
-        entities: [BalanceEvent, ChannelBalanceEvent, ChannelRouting],
+        entities: [BalanceEvent, ChannelBalanceEvent, ChannelRouting, RootOperation],
         migrations: metricsMigrations
     }).initialize();
     const log = getLogger({});
