@@ -3,155 +3,138 @@
 // tslint:disable
 import type { RpcTransport } from "@protobuf-ts/runtime-rpc";
 import type { ServiceInfo } from "@protobuf-ts/runtime-rpc";
-import { Lightning } from "./lightning.js";
-import type { ListAliasesResponse } from "./lightning.js";
-import type { ListAliasesRequest } from "./lightning.js";
-import type { CustomMessage } from "./lightning.js";
-import type { SubscribeCustomMessagesRequest } from "./lightning.js";
-import type { SendCustomMessageResponse } from "./lightning.js";
-import type { SendCustomMessageRequest } from "./lightning.js";
-import type { RPCMiddlewareRequest } from "./lightning.js";
-import type { RPCMiddlewareResponse } from "./lightning.js";
-import type { CheckMacPermResponse } from "./lightning.js";
-import type { CheckMacPermRequest } from "./lightning.js";
-import type { ListPermissionsResponse } from "./lightning.js";
-import type { ListPermissionsRequest } from "./lightning.js";
-import type { DeleteMacaroonIDResponse } from "./lightning.js";
-import type { DeleteMacaroonIDRequest } from "./lightning.js";
-import type { ListMacaroonIDsResponse } from "./lightning.js";
-import type { ListMacaroonIDsRequest } from "./lightning.js";
-import type { BakeMacaroonResponse } from "./lightning.js";
-import type { BakeMacaroonRequest } from "./lightning.js";
-import type { ChannelBackupSubscription } from "./lightning.js";
-import type { RestoreBackupResponse } from "./lightning.js";
-import type { RestoreChanBackupRequest } from "./lightning.js";
-import type { VerifyChanBackupResponse } from "./lightning.js";
-import type { ChanBackupSnapshot } from "./lightning.js";
-import type { ChanBackupExportRequest } from "./lightning.js";
-import type { ChannelBackup } from "./lightning.js";
-import type { ExportChannelBackupRequest } from "./lightning.js";
-import type { ForwardingHistoryResponse } from "./lightning.js";
-import type { ForwardingHistoryRequest } from "./lightning.js";
-import type { PolicyUpdateResponse } from "./lightning.js";
-import type { PolicyUpdateRequest } from "./lightning.js";
-import type { FeeReportResponse } from "./lightning.js";
-import type { FeeReportRequest } from "./lightning.js";
-import type { DebugLevelResponse } from "./lightning.js";
-import type { DebugLevelRequest } from "./lightning.js";
-import type { GraphTopologyUpdate } from "./lightning.js";
-import type { GraphTopologySubscription } from "./lightning.js";
-import type { StopResponse } from "./lightning.js";
-import type { StopRequest } from "./lightning.js";
-import type { NetworkInfo } from "./lightning.js";
-import type { NetworkInfoRequest } from "./lightning.js";
-import type { QueryRoutesResponse } from "./lightning.js";
-import type { QueryRoutesRequest } from "./lightning.js";
-import type { NodeInfo } from "./lightning.js";
-import type { NodeInfoRequest } from "./lightning.js";
-import type { ChannelEdge } from "./lightning.js";
-import type { ChanInfoRequest } from "./lightning.js";
-import type { NodeMetricsResponse } from "./lightning.js";
-import type { NodeMetricsRequest } from "./lightning.js";
-import type { ChannelGraph } from "./lightning.js";
-import type { ChannelGraphRequest } from "./lightning.js";
-import type { DeleteAllPaymentsResponse } from "./lightning.js";
-import type { DeleteAllPaymentsRequest } from "./lightning.js";
-import type { DeletePaymentResponse } from "./lightning.js";
-import type { DeletePaymentRequest } from "./lightning.js";
-import type { ListPaymentsResponse } from "./lightning.js";
-import type { ListPaymentsRequest } from "./lightning.js";
-import type { PayReq } from "./lightning.js";
-import type { PayReqString } from "./lightning.js";
-import type { InvoiceSubscription } from "./lightning.js";
-import type { PaymentHash } from "./lightning.js";
-import type { ListInvoiceResponse } from "./lightning.js";
-import type { ListInvoiceRequest } from "./lightning.js";
-import type { AddInvoiceResponse } from "./lightning.js";
-import type { Invoice } from "./lightning.js";
-import type { SendToRouteRequest } from "./lightning.js";
-import type { SendResponse } from "./lightning.js";
-import type { SendRequest } from "./lightning.js";
-import type { AbandonChannelResponse } from "./lightning.js";
-import type { AbandonChannelRequest } from "./lightning.js";
-import type { CloseStatusUpdate } from "./lightning.js";
-import type { CloseChannelRequest } from "./lightning.js";
-import type { ChannelAcceptRequest } from "./lightning.js";
-import type { ChannelAcceptResponse } from "./lightning.js";
+import { Lightning } from "./lightning";
+import type { LookupHtlcResolutionResponse } from "./lightning";
+import type { LookupHtlcResolutionRequest } from "./lightning";
+import type { ListAliasesResponse } from "./lightning";
+import type { ListAliasesRequest } from "./lightning";
+import type { CustomMessage } from "./lightning";
+import type { SubscribeCustomMessagesRequest } from "./lightning";
+import type { SendCustomMessageResponse } from "./lightning";
+import type { SendCustomMessageRequest } from "./lightning";
+import type { RPCMiddlewareRequest } from "./lightning";
+import type { RPCMiddlewareResponse } from "./lightning";
+import type { CheckMacPermResponse } from "./lightning";
+import type { CheckMacPermRequest } from "./lightning";
+import type { ListPermissionsResponse } from "./lightning";
+import type { ListPermissionsRequest } from "./lightning";
+import type { DeleteMacaroonIDResponse } from "./lightning";
+import type { DeleteMacaroonIDRequest } from "./lightning";
+import type { ListMacaroonIDsResponse } from "./lightning";
+import type { ListMacaroonIDsRequest } from "./lightning";
+import type { BakeMacaroonResponse } from "./lightning";
+import type { BakeMacaroonRequest } from "./lightning";
+import type { ChannelBackupSubscription } from "./lightning";
+import type { RestoreBackupResponse } from "./lightning";
+import type { RestoreChanBackupRequest } from "./lightning";
+import type { VerifyChanBackupResponse } from "./lightning";
+import type { ChanBackupSnapshot } from "./lightning";
+import type { ChanBackupExportRequest } from "./lightning";
+import type { ChannelBackup } from "./lightning";
+import type { ExportChannelBackupRequest } from "./lightning";
+import type { ForwardingHistoryResponse } from "./lightning";
+import type { ForwardingHistoryRequest } from "./lightning";
+import type { PolicyUpdateResponse } from "./lightning";
+import type { PolicyUpdateRequest } from "./lightning";
+import type { FeeReportResponse } from "./lightning";
+import type { FeeReportRequest } from "./lightning";
+import type { DebugLevelResponse } from "./lightning";
+import type { DebugLevelRequest } from "./lightning";
+import type { GraphTopologyUpdate } from "./lightning";
+import type { GraphTopologySubscription } from "./lightning";
+import type { StopResponse } from "./lightning";
+import type { StopRequest } from "./lightning";
+import type { NetworkInfo } from "./lightning";
+import type { NetworkInfoRequest } from "./lightning";
+import type { QueryRoutesResponse } from "./lightning";
+import type { QueryRoutesRequest } from "./lightning";
+import type { NodeInfo } from "./lightning";
+import type { NodeInfoRequest } from "./lightning";
+import type { ChannelEdge } from "./lightning";
+import type { ChanInfoRequest } from "./lightning";
+import type { NodeMetricsResponse } from "./lightning";
+import type { NodeMetricsRequest } from "./lightning";
+import type { ChannelGraph } from "./lightning";
+import type { ChannelGraphRequest } from "./lightning";
+import type { DeleteAllPaymentsResponse } from "./lightning";
+import type { DeleteAllPaymentsRequest } from "./lightning";
+import type { DeletePaymentResponse } from "./lightning";
+import type { DeletePaymentRequest } from "./lightning";
+import type { ListPaymentsResponse } from "./lightning";
+import type { ListPaymentsRequest } from "./lightning";
+import type { PayReq } from "./lightning";
+import type { PayReqString } from "./lightning";
+import type { InvoiceSubscription } from "./lightning";
+import type { PaymentHash } from "./lightning";
+import type { ListInvoiceResponse } from "./lightning";
+import type { ListInvoiceRequest } from "./lightning";
+import type { AddInvoiceResponse } from "./lightning";
+import type { Invoice } from "./lightning";
+import type { SendToRouteRequest } from "./lightning";
+import type { SendResponse } from "./lightning";
+import type { SendRequest } from "./lightning";
+import type { AbandonChannelResponse } from "./lightning";
+import type { AbandonChannelRequest } from "./lightning";
+import type { CloseStatusUpdate } from "./lightning";
+import type { CloseChannelRequest } from "./lightning";
+import type { ChannelAcceptRequest } from "./lightning";
+import type { ChannelAcceptResponse } from "./lightning";
 import type { DuplexStreamingCall } from "@protobuf-ts/runtime-rpc";
-import type { FundingStateStepResp } from "./lightning.js";
-import type { FundingTransitionMsg } from "./lightning.js";
-import type { BatchOpenChannelResponse } from "./lightning.js";
-import type { BatchOpenChannelRequest } from "./lightning.js";
-import type { OpenStatusUpdate } from "./lightning.js";
-import type { ChannelPoint } from "./lightning.js";
-import type { OpenChannelRequest } from "./lightning.js";
-import type { ClosedChannelsResponse } from "./lightning.js";
-import type { ClosedChannelsRequest } from "./lightning.js";
-import type { ChannelEventUpdate } from "./lightning.js";
-import type { ChannelEventSubscription } from "./lightning.js";
-import type { ListChannelsResponse } from "./lightning.js";
-import type { ListChannelsRequest } from "./lightning.js";
-import type { PendingChannelsResponse } from "./lightning.js";
-import type { PendingChannelsRequest } from "./lightning.js";
-import type { GetRecoveryInfoResponse } from "./lightning.js";
-import type { GetRecoveryInfoRequest } from "./lightning.js";
-import type { GetInfoResponse } from "./lightning.js";
-import type { GetInfoRequest } from "./lightning.js";
-import type { PeerEvent } from "./lightning.js";
-import type { PeerEventSubscription } from "./lightning.js";
-import type { ListPeersResponse } from "./lightning.js";
-import type { ListPeersRequest } from "./lightning.js";
-import type { DisconnectPeerResponse } from "./lightning.js";
-import type { DisconnectPeerRequest } from "./lightning.js";
-import type { ConnectPeerResponse } from "./lightning.js";
-import type { ConnectPeerRequest } from "./lightning.js";
-import type { VerifyMessageResponse } from "./lightning.js";
-import type { VerifyMessageRequest } from "./lightning.js";
-import type { SignMessageResponse } from "./lightning.js";
-import type { SignMessageRequest } from "./lightning.js";
-import type { NewAddressResponse } from "./lightning.js";
-import type { NewAddressRequest } from "./lightning.js";
-import type { SendManyResponse } from "./lightning.js";
-import type { SendManyRequest } from "./lightning.js";
-import type { Transaction } from "./lightning.js";
+import type { FundingStateStepResp } from "./lightning";
+import type { FundingTransitionMsg } from "./lightning";
+import type { BatchOpenChannelResponse } from "./lightning";
+import type { BatchOpenChannelRequest } from "./lightning";
+import type { OpenStatusUpdate } from "./lightning";
+import type { ChannelPoint } from "./lightning";
+import type { OpenChannelRequest } from "./lightning";
+import type { ClosedChannelsResponse } from "./lightning";
+import type { ClosedChannelsRequest } from "./lightning";
+import type { ChannelEventUpdate } from "./lightning";
+import type { ChannelEventSubscription } from "./lightning";
+import type { ListChannelsResponse } from "./lightning";
+import type { ListChannelsRequest } from "./lightning";
+import type { PendingChannelsResponse } from "./lightning";
+import type { PendingChannelsRequest } from "./lightning";
+import type { GetRecoveryInfoResponse } from "./lightning";
+import type { GetRecoveryInfoRequest } from "./lightning";
+import type { GetDebugInfoResponse } from "./lightning";
+import type { GetDebugInfoRequest } from "./lightning";
+import type { GetInfoResponse } from "./lightning";
+import type { GetInfoRequest } from "./lightning";
+import type { PeerEvent } from "./lightning";
+import type { PeerEventSubscription } from "./lightning";
+import type { ListPeersResponse } from "./lightning";
+import type { ListPeersRequest } from "./lightning";
+import type { DisconnectPeerResponse } from "./lightning";
+import type { DisconnectPeerRequest } from "./lightning";
+import type { ConnectPeerResponse } from "./lightning";
+import type { ConnectPeerRequest } from "./lightning";
+import type { VerifyMessageResponse } from "./lightning";
+import type { VerifyMessageRequest } from "./lightning";
+import type { SignMessageResponse } from "./lightning";
+import type { SignMessageRequest } from "./lightning";
+import type { NewAddressResponse } from "./lightning";
+import type { NewAddressRequest } from "./lightning";
+import type { SendManyResponse } from "./lightning";
+import type { SendManyRequest } from "./lightning";
+import type { Transaction } from "./lightning";
 import type { ServerStreamingCall } from "@protobuf-ts/runtime-rpc";
-import type { ListUnspentResponse } from "./lightning.js";
-import type { ListUnspentRequest } from "./lightning.js";
-import type { SendCoinsResponse } from "./lightning.js";
-import type { SendCoinsRequest } from "./lightning.js";
-import type { EstimateFeeResponse } from "./lightning.js";
-import type { EstimateFeeRequest } from "./lightning.js";
-import type { TransactionDetails } from "./lightning.js";
-import type { GetTransactionsRequest } from "./lightning.js";
-import type { ChannelBalanceResponse } from "./lightning.js";
-import type { ChannelBalanceRequest } from "./lightning.js";
+import type { ListUnspentResponse } from "./lightning";
+import type { ListUnspentRequest } from "./lightning";
+import type { SendCoinsResponse } from "./lightning";
+import type { SendCoinsRequest } from "./lightning";
+import type { EstimateFeeResponse } from "./lightning";
+import type { EstimateFeeRequest } from "./lightning";
+import type { TransactionDetails } from "./lightning";
+import type { GetTransactionsRequest } from "./lightning";
+import type { ChannelBalanceResponse } from "./lightning";
+import type { ChannelBalanceRequest } from "./lightning";
 import { stackIntercept } from "@protobuf-ts/runtime-rpc";
-import type { WalletBalanceResponse } from "./lightning.js";
-import type { WalletBalanceRequest } from "./lightning.js";
+import type { WalletBalanceResponse } from "./lightning";
+import type { WalletBalanceRequest } from "./lightning";
 import type { UnaryCall } from "@protobuf-ts/runtime-rpc";
 import type { RpcOptions } from "@protobuf-ts/runtime-rpc";
-
-import type { GetDebugInfoResponse } from "./lightning.js";
-import type { GetDebugInfoRequest } from "./lightning.js";
-
-import type { LookupHtlcResolutionResponse } from "./lightning.js";
-import type { LookupHtlcResolutionRequest } from "./lightning.js";
-// 
-// Comments in this file will be directly parsed into the API
-// Documentation as descriptions of the associated method, message, or field.
-// These descriptions should go right above the definition of the object, and
-// can be in either block or // comment format.
-// 
-// An RPC method can be matched to an lncli command by placing a line in the
-// beginning of the description in exactly the following format:
-// lncli: `methodname`
-// 
-// Failure to specify the exact name of the command will cause documentation
-// generation to fail.
-// 
-// More information on how exactly the gRPC documentation is generated from
-// this proto file can be found here:
-// https://github.com/lightninglabs/lightning-api
+// // Comments in this file will be directly parsed into the API// Documentation as descriptions of the associated method, message, or field.// These descriptions should go right above the definition of the object, and// can be in either block or // comment format.// // An RPC method can be matched to an lncli command by placing a line in the// beginning of the description in exactly the following format:// lncli: `methodname`// // Failure to specify the exact name of the command will cause documentation// generation to fail.// // More information on how exactly the gRPC documentation is generated from// this proto file can be found here:// https://github.com/lightninglabs/lightning-api
 
 /**
  * Lightning is the main RPC server of the daemon.
@@ -847,22 +830,7 @@ export interface ILightningClient {
      */
     lookupHtlcResolution(input: LookupHtlcResolutionRequest, options?: RpcOptions): UnaryCall<LookupHtlcResolutionRequest, LookupHtlcResolutionResponse>;
 }
-// 
-// Comments in this file will be directly parsed into the API
-// Documentation as descriptions of the associated method, message, or field.
-// These descriptions should go right above the definition of the object, and
-// can be in either block or // comment format.
-// 
-// An RPC method can be matched to an lncli command by placing a line in the
-// beginning of the description in exactly the following format:
-// lncli: `methodname`
-// 
-// Failure to specify the exact name of the command will cause documentation
-// generation to fail.
-// 
-// More information on how exactly the gRPC documentation is generated from
-// this proto file can be found here:
-// https://github.com/lightninglabs/lightning-api
+// // Comments in this file will be directly parsed into the API// Documentation as descriptions of the associated method, message, or field.// These descriptions should go right above the definition of the object, and// can be in either block or // comment format.// // An RPC method can be matched to an lncli command by placing a line in the// beginning of the description in exactly the following format:// lncli: `methodname`// // Failure to specify the exact name of the command will cause documentation// generation to fail.// // More information on how exactly the gRPC documentation is generated from// this proto file can be found here:// https://github.com/lightninglabs/lightning-api
 
 /**
  * Lightning is the main RPC server of the daemon.

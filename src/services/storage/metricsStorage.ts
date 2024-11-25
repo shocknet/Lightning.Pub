@@ -5,7 +5,9 @@ import TransactionsQueue, { TX } from "./transactionsQueue.js";
 import { StorageSettings } from "./index.js";
 import { newMetricsDb } from "./db.js";
 import { ChannelRouting } from "./entity/ChannelRouting.js";
+import { RootOperation } from "./entity/RootOperation.js";
 export default class {
+
 
     DB: DataSource | EntityManager
     settings: StorageSettings
@@ -97,6 +99,16 @@ export default class {
         if (event.latest_index_offset) {
             await repo.update(existing.serial_id, { latest_index_offset: event.latest_index_offset })
         }
+    }
+
+    async AddRootOperation(opType: string, id: string, amount: number, entityManager = this.DB) {
+        const newOp = entityManager.getRepository(RootOperation).create({ operation_type: opType, operation_amount: amount, operation_identifier: id })
+        return this.txQueue.PushToQueue<RootOperation>({ exec: async db => db.getRepository(RootOperation).save(newOp), dbTx: false })
+    }
+
+    async GetRootOperations({ from, to }: { from?: number, to?: number }, entityManager = this.DB) {
+        const q = getTimeQuery({ from, to })
+        return entityManager.getRepository(RootOperation).find(q)
     }
 }
 

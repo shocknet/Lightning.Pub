@@ -854,6 +854,7 @@ The nostr server will send back a message response, and inside the body there wi
 ### ClosedChannel
   - __capacity__: _number_
   - __channel_id__: _string_
+  - __close_tx_timestamp__: _number_
   - __closed_height__: _number_
 
 ### ClosureMigration
@@ -1006,6 +1007,7 @@ The nostr server will send back a message response, and inside the body there wi
   - __online_channels__: _number_
   - __open_channels__: ARRAY of: _[OpenChannel](#OpenChannel)_
   - __pending_channels__: _number_
+  - __root_ops__: ARRAY of: _[RootOperation](#RootOperation)_
 
 ### LndSeed
   - __seed__: ARRAY of: _string_
@@ -1125,6 +1127,12 @@ The nostr server will send back a message response, and inside the body there wi
 ### RequestNPubLinkingTokenResponse
   - __token__: _string_
 
+### RootOperation
+  - __amount__: _number_
+  - __created_at_unix__: _number_
+  - __op_id__: _string_
+  - __op_type__: _[OperationType](#OperationType)_
+
 ### RoutingEvent
   - __event_type__: _string_
   - __failure_string__: _string_
@@ -1230,6 +1238,10 @@ The nostr server will send back a message response, and inside the body there wi
   - __DAY__
   - __MONTH__
   - __WEEK__
+
+### OperationType
+  - __CHAIN_OP__
+  - __INVOICE_OP__
 
 ### UserOperationType
   - __INCOMING_INVOICE__

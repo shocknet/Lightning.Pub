@@ -64,6 +64,13 @@ const (
 	WEEK  IntervalType = "WEEK"
 )
 
+type OperationType string
+
+const (
+	CHAIN_OP   OperationType = "CHAIN_OP"
+	INVOICE_OP OperationType = "INVOICE_OP"
+)
+
 type UserOperationType string
 
 const (
@@ -175,9 +182,10 @@ type CloseChannelResponse struct {
 	Closing_txid string `json:"closing_txid"`
 }
 type ClosedChannel struct {
-	Capacity      int64  `json:"capacity"`
-	Channel_id    string `json:"channel_id"`
-	Closed_height int64  `json:"closed_height"`
+	Capacity           int64  `json:"capacity"`
+	Channel_id         string `json:"channel_id"`
+	Close_tx_timestamp int64  `json:"close_tx_timestamp"`
+	Closed_height      int64  `json:"closed_height"`
 }
 type ClosureMigration struct {
 	Closes_at_unix int64 `json:"closes_at_unix"`
@@ -329,6 +337,7 @@ type LndNodeMetrics struct {
 	Online_channels   int64           `json:"online_channels"`
 	Open_channels     []OpenChannel   `json:"open_channels"`
 	Pending_channels  int64           `json:"pending_channels"`
+	Root_ops          []RootOperation `json:"root_ops"`
 }
 type LndSeed struct {
 	Seed []string `json:"seed"`
@@ -447,6 +456,12 @@ type RequestNPubLinkingTokenRequest struct {
 }
 type RequestNPubLinkingTokenResponse struct {
 	Token string `json:"token"`
+}
+type RootOperation struct {
+	Amount          int64         `json:"amount"`
+	Created_at_unix int64         `json:"created_at_unix"`
+	Op_id           string        `json:"op_id"`
+	Op_type         OperationType `json:"op_type"`
 }
 type RoutingEvent struct {
 	Event_type          string `json:"event_type"`

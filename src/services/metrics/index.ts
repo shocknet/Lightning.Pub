@@ -9,6 +9,8 @@ import LND from '../lnd/lnd.js'
 import HtlcTracker from './htlcTracker.js'
 const maxEvents = 100_000
 export default class Handler {
+
+
     storage: Storage
     lnd: LND
     htlcTracker: HtlcTracker
@@ -215,10 +217,17 @@ export default class Handler {
 
 
     async GetLndMetrics(req: Types.LndMetricsRequest): Promise<Types.LndMetrics> {
-        const { openChannels, totalActive, totalInactive } = await this.GetChannelsInfo()
-        const { totalPendingOpen, totalPendingClose } = await this.GetPendingChannelsInfo()
-        const { channels: closedChannels } = await this.lnd.ListClosedChannels()
-        const rawRouting = await this.storage.metricsStorage.GetChannelRouting({ from: req.from_unix, to: req.to_unix })
+        const [chansInfo, pendingChansInfo, closedChansInfo, routing, rootOps] = await Promise.all([
+            this.GetChannelsInfo(),
+            this.GetPendingChannelsInfo(),
+            this.lnd.ListClosedChannels(),
+            this.storage.metricsStorage.GetChannelRouting({ from: req.from_unix, to: req.to_unix }),
+            this.storage.metricsStorage.GetRootOperations({ from: req.from_unix, to: req.to_unix })
+        ])
+        const { openChannels, totalActive, totalInactive } = chansInfo
+        const { totalPendingOpen, totalPendingClose } = pendingChansInfo
+        const { channels: closedChannels } = closedChansInfo
+        const rawRouting = routing
         let totalEvents = 0
         let totalFees = 0
         rawRouting.forEach(r => {
@@ -242,7 +251,10 @@ export default class Handler {
                 externalBalance.push({ x: e.block_height, y: e.external_balance })
             }
         })
-
+        const closed = await Promise.all(closedChannels.map(async c => {
+            const tx = await this.lnd.GetTx(c.closingTxHash)
+            return { capacity: Number(c.capacity), channel_id: c.chanId, closed_height: c.closeHeight, close_tx_timestamp: Number(tx.timeStamp) }
+        }))
         return {
             nodes: [{
                 chain_balance: chainBalance,
@@ -252,11 +264,28 @@ export default class Handler {
                 pending_channels: totalPendingOpen,
                 offline_channels: totalInactive,
                 online_channels: totalActive,
-                closed_channels: closedChannels.map(c => ({ capacity: Number(c.capacity), channel_id: c.chanId, closed_height: c.closeHeight })),
+                closed_channels: closed,
                 open_channels: openChannels.map(c => ({ channel_point: c.channelPoint, active: c.active, capacity: Number(c.capacity), channel_id: c.chanId, lifetime: Number(c.lifetime), local_balance: Number(c.localBalance), remote_balance: Number(c.remoteBalance), label: c.peerAlias })),
                 forwarding_events: totalEvents,
-                forwarding_fees: totalFees
+                forwarding_fees: totalFees,
+                root_ops: rootOps.map(r => ({ amount: r.operation_amount, created_at_unix: r.created_at.getTime(), op_id: r.operation_identifier, op_type: mapRootOpType(r.operation_type) })),
             }],
         }
+    }
+
+    async AddRootAddressPaid(address: string, txOutput: { hash: string; index: number }, amount: number) {
+        await this.storage.metricsStorage.AddRootOperation("chain", `${address}:${txOutput.hash}:${txOutput.index}`, amount)
+    }
+
+    async AddRootInvoicePaid(paymentRequest: string, amount: number) {
+        await this.storage.metricsStorage.AddRootOperation("invoice", paymentRequest, amount)
+    }
+}
+
+const mapRootOpType = (opType: string): Types.OperationType => {
+    switch (opType) {
+        case "chain": return Types.OperationType.CHAIN_OP
+        case "invoice": return Types.OperationType.INVOICE_OP
+        default: throw new Error("Unknown operation type")
     }
 }

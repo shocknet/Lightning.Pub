@@ -344,6 +344,14 @@ export const enumCheckIntervalType = (e?: IntervalType): boolean => {
     for (const v in IntervalType) if (e === v) return true
     return false
 }
+export enum OperationType {
+    CHAIN_OP = 'CHAIN_OP',
+    INVOICE_OP = 'INVOICE_OP',
+}
+export const enumCheckOperationType = (e?: OperationType): boolean => {
+    for (const v in OperationType) if (e === v) return true
+    return false
+}
 export enum UserOperationType {
     INCOMING_INVOICE = 'INCOMING_INVOICE',
     INCOMING_TX = 'INCOMING_TX',
@@ -942,6 +950,7 @@ export const CloseChannelResponseValidate = (o?: CloseChannelResponse, opts: Clo
 export type ClosedChannel = {
     capacity: number
     channel_id: string
+    close_tx_timestamp: number
     closed_height: number
 }
 export const ClosedChannelOptionalFields: [] = []
@@ -949,6 +958,7 @@ export type ClosedChannelOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
     capacity_CustomCheck?: (v: number) => boolean
     channel_id_CustomCheck?: (v: string) => boolean
+    close_tx_timestamp_CustomCheck?: (v: number) => boolean
     closed_height_CustomCheck?: (v: number) => boolean
 }
 export const ClosedChannelValidate = (o?: ClosedChannel, opts: ClosedChannelOptions = {}, path: string = 'ClosedChannel::root.'): Error | null => {
@@ -960,6 +970,9 @@ export const ClosedChannelValidate = (o?: ClosedChannel, opts: ClosedChannelOpti
 
     if (typeof o.channel_id !== 'string') return new Error(`${path}.channel_id: is not a string`)
     if (opts.channel_id_CustomCheck && !opts.channel_id_CustomCheck(o.channel_id)) return new Error(`${path}.channel_id: custom check failed`)
+
+    if (typeof o.close_tx_timestamp !== 'number') return new Error(`${path}.close_tx_timestamp: is not a number`)
+    if (opts.close_tx_timestamp_CustomCheck && !opts.close_tx_timestamp_CustomCheck(o.close_tx_timestamp)) return new Error(`${path}.close_tx_timestamp: custom check failed`)
 
     if (typeof o.closed_height !== 'number') return new Error(`${path}.closed_height: is not a number`)
     if (opts.closed_height_CustomCheck && !opts.closed_height_CustomCheck(o.closed_height)) return new Error(`${path}.closed_height: custom check failed`)
@@ -1820,6 +1833,7 @@ export type LndNodeMetrics = {
     online_channels: number
     open_channels: OpenChannel[]
     pending_channels: number
+    root_ops: RootOperation[]
 }
 export const LndNodeMetricsOptionalFields: [] = []
 export type LndNodeMetricsOptions = OptionsBaseMessage & {
@@ -1840,6 +1854,8 @@ export type LndNodeMetricsOptions = OptionsBaseMessage & {
     open_channels_ItemOptions?: OpenChannelOptions
     open_channels_CustomCheck?: (v: OpenChannel[]) => boolean
     pending_channels_CustomCheck?: (v: number) => boolean
+    root_ops_ItemOptions?: RootOperationOptions
+    root_ops_CustomCheck?: (v: RootOperation[]) => boolean
 }
 export const LndNodeMetricsValidate = (o?: LndNodeMetrics, opts: LndNodeMetricsOptions = {}, path: string = 'LndNodeMetrics::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
@@ -1897,6 +1913,13 @@ export const LndNodeMetricsValidate = (o?: LndNodeMetrics, opts: LndNodeMetricsO
 
     if (typeof o.pending_channels !== 'number') return new Error(`${path}.pending_channels: is not a number`)
     if (opts.pending_channels_CustomCheck && !opts.pending_channels_CustomCheck(o.pending_channels)) return new Error(`${path}.pending_channels: custom check failed`)
+
+    if (!Array.isArray(o.root_ops)) return new Error(`${path}.root_ops: is not an array`)
+    for (let index = 0; index < o.root_ops.length; index++) {
+        const root_opsErr = RootOperationValidate(o.root_ops[index], opts.root_ops_ItemOptions, `${path}.root_ops[${index}]`)
+        if (root_opsErr !== null) return root_opsErr
+    }
+    if (opts.root_ops_CustomCheck && !opts.root_ops_CustomCheck(o.root_ops)) return new Error(`${path}.root_ops: custom check failed`)
 
     return null
 }
@@ -2578,6 +2601,39 @@ export const RequestNPubLinkingTokenResponseValidate = (o?: RequestNPubLinkingTo
 
     if (typeof o.token !== 'string') return new Error(`${path}.token: is not a string`)
     if (opts.token_CustomCheck && !opts.token_CustomCheck(o.token)) return new Error(`${path}.token: custom check failed`)
+
+    return null
+}
+
+export type RootOperation = {
+    amount: number
+    created_at_unix: number
+    op_id: string
+    op_type: OperationType
+}
+export const RootOperationOptionalFields: [] = []
+export type RootOperationOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    amount_CustomCheck?: (v: number) => boolean
+    created_at_unix_CustomCheck?: (v: number) => boolean
+    op_id_CustomCheck?: (v: string) => boolean
+    op_type_CustomCheck?: (v: OperationType) => boolean
+}
+export const RootOperationValidate = (o?: RootOperation, opts: RootOperationOptions = {}, path: string = 'RootOperation::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.amount !== 'number') return new Error(`${path}.amount: is not a number`)
+    if (opts.amount_CustomCheck && !opts.amount_CustomCheck(o.amount)) return new Error(`${path}.amount: custom check failed`)
+
+    if (typeof o.created_at_unix !== 'number') return new Error(`${path}.created_at_unix: is not a number`)
+    if (opts.created_at_unix_CustomCheck && !opts.created_at_unix_CustomCheck(o.created_at_unix)) return new Error(`${path}.created_at_unix: custom check failed`)
+
+    if (typeof o.op_id !== 'string') return new Error(`${path}.op_id: is not a string`)
+    if (opts.op_id_CustomCheck && !opts.op_id_CustomCheck(o.op_id)) return new Error(`${path}.op_id: custom check failed`)
+
+    if (!enumCheckOperationType(o.op_type)) return new Error(`${path}.op_type: is not a valid OperationType`)
+    if (opts.op_type_CustomCheck && !opts.op_type_CustomCheck(o.op_type)) return new Error(`${path}.op_type: custom check failed`)
 
     return null
 }

@@ -119,11 +119,22 @@ message ClosedChannel {
     string channel_id = 1;
     int64 capacity = 2;
     int64 closed_height =4;
+    int64 close_tx_timestamp = 5;
 }
 
 message GraphPoint {
     int64 x = 1;
     int64 y = 2;
+}
+enum OperationType {
+    CHAIN_OP = 0;
+    INVOICE_OP = 1;
+}
+message RootOperation {
+    OperationType op_type = 1;
+    string op_id = 2;
+    int64 amount = 3;
+    int64 created_at_unix = 4;
 }
 
 message LndNodeMetrics {
@@ -138,6 +149,7 @@ message LndNodeMetrics {
     repeated ClosedChannel closed_channels = 9;
     int64 forwarding_events = 11;
     int64 forwarding_fees = 12;
+    repeated RootOperation root_ops = 13;
 }
 
 message LndMetrics {

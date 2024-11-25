@@ -3,18 +3,18 @@
 // tslint:disable
 import type { RpcTransport } from "@protobuf-ts/runtime-rpc";
 import type { ServiceInfo } from "@protobuf-ts/runtime-rpc";
-import { Invoices } from "./invoices.js";
-import type { LookupInvoiceMsg } from "./invoices.js";
-import type { SettleInvoiceResp } from "./invoices.js";
-import type { SettleInvoiceMsg } from "./invoices.js";
-import type { AddHoldInvoiceResp } from "./invoices.js";
-import type { AddHoldInvoiceRequest } from "./invoices.js";
-import type { CancelInvoiceResp } from "./invoices.js";
-import type { CancelInvoiceMsg } from "./invoices.js";
+import { Invoices } from "./invoices";
+import type { LookupInvoiceMsg } from "./invoices";
+import type { SettleInvoiceResp } from "./invoices";
+import type { SettleInvoiceMsg } from "./invoices";
+import type { AddHoldInvoiceResp } from "./invoices";
+import type { AddHoldInvoiceRequest } from "./invoices";
+import type { CancelInvoiceResp } from "./invoices";
+import type { CancelInvoiceMsg } from "./invoices";
 import type { UnaryCall } from "@protobuf-ts/runtime-rpc";
 import { stackIntercept } from "@protobuf-ts/runtime-rpc";
-import type { Invoice } from "./lightning.js";
-import type { SubscribeSingleInvoiceRequest } from "./invoices.js";
+import type { Invoice } from "./lightning";
+import type { SubscribeSingleInvoiceRequest } from "./invoices";
 import type { ServerStreamingCall } from "@protobuf-ts/runtime-rpc";
 import type { RpcOptions } from "@protobuf-ts/runtime-rpc";
 /**

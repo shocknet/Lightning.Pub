@@ -19,6 +19,7 @@ import { HtlcEvent_EventType } from '../../../proto/lnd/router.js';
 import { LiquidityProvider, LiquidityRequest } from '../main/liquidityProvider.js';
 import { Utils } from '../helpers/utilsWrapper.js';
 import { TxPointSettings } from '../storage/stateBundler.js';
+import { WalletKitClient } from '../../../proto/lnd/walletkit.client.js';
 const DeadLineMetadata = (deadline = 10 * 1000) => ({ deadline: Date.now() + deadline })
 const deadLndRetrySeconds = 5
 type TxActionOptions = { useProvider: boolean, from: 'user' | 'system' }
@@ -27,6 +28,7 @@ export default class {
     invoices: InvoicesClient
     router: RouterClient
     chainNotifier: ChainNotifierClient
+    walletKit: WalletKitClient
     settings: LndSettings
     ready = false
     latestKnownBlockHeigh = 0
@@ -67,6 +69,7 @@ export default class {
         this.invoices = new InvoicesClient(transport)
         this.router = new RouterClient(transport)
         this.chainNotifier = new ChainNotifierClient(transport)
+        this.walletKit = new WalletKitClient(transport)
         this.liquidProvider = liquidProvider
     }
 
@@ -505,6 +508,11 @@ export default class {
             })
         })
 
+    }
+
+    async GetTx(txid: string) {
+        const res = await this.walletKit.getTransaction({ txid }, DeadLineMetadata())
+        return res.response
     }
 
     async AddPeer(pub: string, host: string, port: number) {
