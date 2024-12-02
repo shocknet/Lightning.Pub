@@ -18,6 +18,11 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [AddAppRequest](#AddAppRequest)
   - output: [AuthApp](#AuthApp)
 
+- AddPeer
+  - auth type: __Admin__
+  - input: [AddPeerRequest](#AddPeerRequest)
+  - This methods has an __empty__ __response__ body
+
 - AddProduct
   - auth type: __User__
   - input: [AddProductRequest](#AddProductRequest)
@@ -47,6 +52,11 @@ The nostr server will send back a message response, and inside the body there wi
   - auth type: __User__
   - This methods has an __empty__ __request__ body
   - This methods has an __empty__ __response__ body
+
+- CloseChannel
+  - auth type: __Admin__
+  - input: [CloseChannelRequest](#CloseChannelRequest)
+  - output: [CloseChannelResponse](#CloseChannelResponse)
 
 - CreateOneTimeInviteLink
   - auth type: __Admin__
@@ -181,7 +191,7 @@ The nostr server will send back a message response, and inside the body there wi
   - output: [NewInvoiceResponse](#NewInvoiceResponse)
 
 - OpenChannel
-  - auth type: __User__
+  - auth type: __Admin__
   - input: [OpenChannelRequest](#OpenChannelRequest)
   - output: [OpenChannelResponse](#OpenChannelResponse)
 
@@ -209,6 +219,11 @@ The nostr server will send back a message response, and inside the body there wi
   - auth type: __User__
   - input: [CallbackUrl](#CallbackUrl)
   - output: [CallbackUrl](#CallbackUrl)
+
+- UpdateChannelPolicy
+  - auth type: __Admin__
+  - input: [UpdateChannelPolicyRequest](#UpdateChannelPolicyRequest)
+  - This methods has an __empty__ __response__ body
 
 - UseInviteLink
   - auth type: __GuestWithPub__
@@ -282,6 +297,13 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [AddAppUserInvoiceRequest](#AddAppUserInvoiceRequest)
   - output: [NewInvoiceResponse](#NewInvoiceResponse)
 
+- AddPeer
+  - auth type: __Admin__
+  - http method: __post__
+  - http route: __/api/admin/peer__
+  - input: [AddPeerRequest](#AddPeerRequest)
+  - This methods has an __empty__ __response__ body
+
 - AddProduct
   - auth type: __User__
   - http method: __post__
@@ -323,6 +345,13 @@ The nostr server will send back a message response, and inside the body there wi
   - http route: __/api/user/batch__
   - This methods has an __empty__ __request__ body
   - This methods has an __empty__ __response__ body
+
+- CloseChannel
+  - auth type: __Admin__
+  - http method: __post__
+  - http route: __/api/admin/channel/close__
+  - input: [CloseChannelRequest](#CloseChannelRequest)
+  - output: [CloseChannelResponse](#CloseChannelResponse)
 
 - CreateOneTimeInviteLink
   - auth type: __Admin__
@@ -600,9 +629,9 @@ The nostr server will send back a message response, and inside the body there wi
   - output: [NewInvoiceResponse](#NewInvoiceResponse)
 
 - OpenChannel
-  - auth type: __User__
+  - auth type: __Admin__
   - http method: __post__
-  - http route: __/api/user/open/channel__
+  - http route: __/api/admin/channel/open__
   - input: [OpenChannelRequest](#OpenChannelRequest)
   - output: [OpenChannelResponse](#OpenChannelResponse)
 
@@ -697,6 +726,13 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [CallbackUrl](#CallbackUrl)
   - output: [CallbackUrl](#CallbackUrl)
 
+- UpdateChannelPolicy
+  - auth type: __Admin__
+  - http method: __post__
+  - http route: __/api/admin/channel/policy/update__
+  - input: [UpdateChannelPolicyRequest](#UpdateChannelPolicyRequest)
+  - This methods has an __empty__ __response__ body
+
 - UseInviteLink
   - auth type: __GuestWithPub__
   - http method: __post__
@@ -735,6 +771,11 @@ The nostr server will send back a message response, and inside the body there wi
   - __balance__: _number_
   - __fail_if_exists__: _boolean_
   - __identifier__: _string_
+
+### AddPeerRequest
+  - __host__: _string_
+  - __port__: _number_
+  - __pubkey__: _string_
 
 ### AddProductRequest
   - __name__: _string_
@@ -794,9 +835,26 @@ The nostr server will send back a message response, and inside the body there wi
 ### CallbackUrl
   - __url__: _string_
 
+### ChannelPolicy
+  - __base_fee_msat__: _number_
+  - __fee_rate_ppm__: _number_
+  - __max_htlc_msat__: _number_
+  - __min_htlc_msat__: _number_
+  - __timelock_delta__: _number_
+
+### CloseChannelRequest
+  - __force__: _boolean_
+  - __funding_txid__: _string_
+  - __output_index__: _number_
+  - __sat_per_v_byte__: _number_
+
+### CloseChannelResponse
+  - __closing_txid__: _string_
+
 ### ClosedChannel
   - __capacity__: _number_
   - __channel_id__: _string_
+  - __close_tx_timestamp__: _number_
   - __closed_height__: _number_
 
 ### ClosureMigration
@@ -926,6 +984,9 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### LndGetInfoResponse
   - __alias__: _string_
+  - __synced_to_chain__: _boolean_
+  - __synced_to_graph__: _boolean_
+  - __watchdog_barking__: _boolean_
 
 ### LndMetrics
   - __nodes__: ARRAY of: _[LndNodeMetrics](#LndNodeMetrics)_
@@ -946,6 +1007,7 @@ The nostr server will send back a message response, and inside the body there wi
   - __online_channels__: _number_
   - __open_channels__: ARRAY of: _[OpenChannel](#OpenChannel)_
   - __pending_channels__: _number_
+  - __root_ops__: ARRAY of: _[RootOperation](#RootOperation)_
 
 ### LndSeed
   - __seed__: ARRAY of: _string_
@@ -998,19 +1060,22 @@ The nostr server will send back a message response, and inside the body there wi
   - __active__: _boolean_
   - __capacity__: _number_
   - __channel_id__: _string_
+  - __channel_point__: _string_
   - __label__: _string_
   - __lifetime__: _number_
   - __local_balance__: _number_
+  - __policy__: _[ChannelPolicy](#ChannelPolicy)_ *this field is optional
   - __remote_balance__: _number_
 
 ### OpenChannelRequest
-  - __closeAddress__: _string_
-  - __destination__: _string_
-  - __fundingAmount__: _number_
-  - __pushAmount__: _number_
+  - __close_address__: _string_ *this field is optional
+  - __local_funding_amount__: _number_
+  - __node_pubkey__: _string_
+  - __push_sat__: _number_ *this field is optional
+  - __sat_per_v_byte__: _number_
 
 ### OpenChannelResponse
-  - __channelId__: _string_
+  - __channel_id__: _string_
 
 ### PayAddressRequest
   - __address__: _string_
@@ -1062,6 +1127,12 @@ The nostr server will send back a message response, and inside the body there wi
 ### RequestNPubLinkingTokenResponse
   - __token__: _string_
 
+### RootOperation
+  - __amount__: _number_
+  - __created_at_unix__: _number_
+  - __op_id__: _string_
+  - __op_type__: _[OperationType](#OperationType)_
+
 ### RoutingEvent
   - __event_type__: _string_
   - __failure_string__: _string_
@@ -1095,6 +1166,10 @@ The nostr server will send back a message response, and inside the body there wi
 ### SetMockInvoiceAsPaidRequest
   - __amount__: _number_
   - __invoice__: _string_
+
+### UpdateChannelPolicyRequest
+  - __policy__: _[ChannelPolicy](#ChannelPolicy)_
+  - __update__: _[UpdateChannelPolicyRequest_update](#UpdateChannelPolicyRequest_update)_
 
 ### UsageMetric
   - __auth_in_nano__: _number_
@@ -1163,6 +1238,10 @@ The nostr server will send back a message response, and inside the body there wi
   - __DAY__
   - __MONTH__
   - __WEEK__
+
+### OperationType
+  - __CHAIN_OP__
+  - __INVOICE_OP__
 
 ### UserOperationType
   - __INCOMING_INVOICE__

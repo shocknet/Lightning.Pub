@@ -64,6 +64,13 @@ const (
 	WEEK  IntervalType = "WEEK"
 )
 
+type OperationType string
+
+const (
+	CHAIN_OP   OperationType = "CHAIN_OP"
+	INVOICE_OP OperationType = "INVOICE_OP"
+)
+
 type UserOperationType string
 
 const (
@@ -94,6 +101,11 @@ type AddAppUserRequest struct {
 	Balance        int64  `json:"balance"`
 	Fail_if_exists bool   `json:"fail_if_exists"`
 	Identifier     string `json:"identifier"`
+}
+type AddPeerRequest struct {
+	Host   string `json:"host"`
+	Port   int64  `json:"port"`
+	Pubkey string `json:"pubkey"`
 }
 type AddProductRequest struct {
 	Name       string `json:"name"`
@@ -153,10 +165,27 @@ type BannedAppUser struct {
 type CallbackUrl struct {
 	Url string `json:"url"`
 }
+type ChannelPolicy struct {
+	Base_fee_msat  int64 `json:"base_fee_msat"`
+	Fee_rate_ppm   int64 `json:"fee_rate_ppm"`
+	Max_htlc_msat  int64 `json:"max_htlc_msat"`
+	Min_htlc_msat  int64 `json:"min_htlc_msat"`
+	Timelock_delta int64 `json:"timelock_delta"`
+}
+type CloseChannelRequest struct {
+	Force          bool   `json:"force"`
+	Funding_txid   string `json:"funding_txid"`
+	Output_index   int64  `json:"output_index"`
+	Sat_per_v_byte int64  `json:"sat_per_v_byte"`
+}
+type CloseChannelResponse struct {
+	Closing_txid string `json:"closing_txid"`
+}
 type ClosedChannel struct {
-	Capacity      int64  `json:"capacity"`
-	Channel_id    string `json:"channel_id"`
-	Closed_height int64  `json:"closed_height"`
+	Capacity           int64  `json:"capacity"`
+	Channel_id         string `json:"channel_id"`
+	Close_tx_timestamp int64  `json:"close_tx_timestamp"`
+	Closed_height      int64  `json:"closed_height"`
 }
 type ClosureMigration struct {
 	Closes_at_unix int64 `json:"closes_at_unix"`
@@ -284,7 +313,10 @@ type LndGetInfoRequest struct {
 	Nodeid int64 `json:"nodeId"`
 }
 type LndGetInfoResponse struct {
-	Alias string `json:"alias"`
+	Alias            string `json:"alias"`
+	Synced_to_chain  bool   `json:"synced_to_chain"`
+	Synced_to_graph  bool   `json:"synced_to_graph"`
+	Watchdog_barking bool   `json:"watchdog_barking"`
 }
 type LndMetrics struct {
 	Nodes []LndNodeMetrics `json:"nodes"`
@@ -305,6 +337,7 @@ type LndNodeMetrics struct {
 	Online_channels   int64           `json:"online_channels"`
 	Open_channels     []OpenChannel   `json:"open_channels"`
 	Pending_channels  int64           `json:"pending_channels"`
+	Root_ops          []RootOperation `json:"root_ops"`
 }
 type LndSeed struct {
 	Seed []string `json:"seed"`
@@ -354,22 +387,25 @@ type NewInvoiceResponse struct {
 	Invoice string `json:"invoice"`
 }
 type OpenChannel struct {
-	Active         bool   `json:"active"`
-	Capacity       int64  `json:"capacity"`
-	Channel_id     string `json:"channel_id"`
-	Label          string `json:"label"`
-	Lifetime       int64  `json:"lifetime"`
-	Local_balance  int64  `json:"local_balance"`
-	Remote_balance int64  `json:"remote_balance"`
+	Active         bool           `json:"active"`
+	Capacity       int64          `json:"capacity"`
+	Channel_id     string         `json:"channel_id"`
+	Channel_point  string         `json:"channel_point"`
+	Label          string         `json:"label"`
+	Lifetime       int64          `json:"lifetime"`
+	Local_balance  int64          `json:"local_balance"`
+	Policy         *ChannelPolicy `json:"policy"`
+	Remote_balance int64          `json:"remote_balance"`
 }
 type OpenChannelRequest struct {
-	Closeaddress  string `json:"closeAddress"`
-	Destination   string `json:"destination"`
-	Fundingamount int64  `json:"fundingAmount"`
-	Pushamount    int64  `json:"pushAmount"`
+	Close_address        string `json:"close_address"`
+	Local_funding_amount int64  `json:"local_funding_amount"`
+	Node_pubkey          string `json:"node_pubkey"`
+	Push_sat             int64  `json:"push_sat"`
+	Sat_per_v_byte       int64  `json:"sat_per_v_byte"`
 }
 type OpenChannelResponse struct {
-	Channelid string `json:"channelId"`
+	Channel_id string `json:"channel_id"`
 }
 type PayAddressRequest struct {
 	Address      string `json:"address"`
@@ -421,6 +457,12 @@ type RequestNPubLinkingTokenRequest struct {
 type RequestNPubLinkingTokenResponse struct {
 	Token string `json:"token"`
 }
+type RootOperation struct {
+	Amount          int64         `json:"amount"`
+	Created_at_unix int64         `json:"created_at_unix"`
+	Op_id           string        `json:"op_id"`
+	Op_type         OperationType `json:"op_type"`
+}
 type RoutingEvent struct {
 	Event_type          string `json:"event_type"`
 	Failure_string      string `json:"failure_string"`
@@ -454,6 +496,10 @@ type SetMockAppUserBalanceRequest struct {
 type SetMockInvoiceAsPaidRequest struct {
 	Amount  int64  `json:"amount"`
 	Invoice string `json:"invoice"`
+}
+type UpdateChannelPolicyRequest struct {
+	Policy *ChannelPolicy                     `json:"policy"`
+	Update *UpdateChannelPolicyRequest_update `json:"update"`
 }
 type UsageMetric struct {
 	Auth_in_nano     int64  `json:"auth_in_nano"`
@@ -562,4 +608,16 @@ type NPubLinking_state struct {
 	Linked_npub   *string                `json:"linked_npub"`
 	Linking_token *string                `json:"linking_token"`
 	Unlinked      *Empty                 `json:"unlinked"`
+}
+type UpdateChannelPolicyRequest_update_type string
+
+const (
+	ALL           UpdateChannelPolicyRequest_update_type = "all"
+	CHANNEL_POINT UpdateChannelPolicyRequest_update_type = "channel_point"
+)
+
+type UpdateChannelPolicyRequest_update struct {
+	Type          UpdateChannelPolicyRequest_update_type `json:"type"`
+	All           *Empty                                 `json:"all"`
+	Channel_point *string                                `json:"channel_point"`
 }

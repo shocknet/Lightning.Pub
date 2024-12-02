@@ -4,6 +4,8 @@
 import type { RpcTransport } from "@protobuf-ts/runtime-rpc";
 import type { ServiceInfo } from "@protobuf-ts/runtime-rpc";
 import { Lightning } from "./lightning.js";
+import type { LookupHtlcResolutionResponse } from "./lightning.js";
+import type { LookupHtlcResolutionRequest } from "./lightning.js";
 import type { ListAliasesResponse } from "./lightning.js";
 import type { ListAliasesRequest } from "./lightning.js";
 import type { CustomMessage } from "./lightning.js";
@@ -95,6 +97,8 @@ import type { PendingChannelsResponse } from "./lightning.js";
 import type { PendingChannelsRequest } from "./lightning.js";
 import type { GetRecoveryInfoResponse } from "./lightning.js";
 import type { GetRecoveryInfoRequest } from "./lightning.js";
+import type { GetDebugInfoResponse } from "./lightning.js";
+import type { GetDebugInfoRequest } from "./lightning.js";
 import type { GetInfoResponse } from "./lightning.js";
 import type { GetInfoRequest } from "./lightning.js";
 import type { PeerEvent } from "./lightning.js";
@@ -130,12 +134,6 @@ import type { WalletBalanceResponse } from "./lightning.js";
 import type { WalletBalanceRequest } from "./lightning.js";
 import type { UnaryCall } from "@protobuf-ts/runtime-rpc";
 import type { RpcOptions } from "@protobuf-ts/runtime-rpc";
-
-import type { GetDebugInfoResponse } from "./lightning.js";
-import type { GetDebugInfoRequest } from "./lightning.js";
-
-import type { LookupHtlcResolutionResponse } from "./lightning.js";
-import type { LookupHtlcResolutionRequest } from "./lightning.js";
 // 
 // Comments in this file will be directly parsed into the API
 // Documentation as descriptions of the associated method, message, or field.

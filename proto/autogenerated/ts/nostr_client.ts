@@ -27,6 +27,18 @@ export default (params: NostrClientParams,  send: (to:string, message: NostrRequ
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
+    AddPeer: async (request: Types.AddPeerRequest): Promise<ResultError | ({ status: 'OK' })> => {
+        const auth = await params.retrieveNostrAdminAuth()
+        if (auth === null) throw new Error('retrieveNostrAdminAuth() returned null')
+        const nostrRequest: NostrRequest = {}
+        nostrRequest.body = request
+        const data = await send(params.pubDestination, {rpcName:'AddPeer',authIdentifier:auth, ...nostrRequest }) 
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            return data
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
     AddProduct: async (request: Types.AddProductRequest): Promise<ResultError | ({ status: 'OK' }& Types.Product)> => {
         const auth = await params.retrieveNostrUserAuth()
         if (auth === null) throw new Error('retrieveNostrUserAuth() returned null')
@@ -108,6 +120,21 @@ export default (params: NostrClientParams,  send: (to:string, message: NostrRequ
         if (data.status === 'OK') { 
             return data
         } 
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
+    CloseChannel: async (request: Types.CloseChannelRequest): Promise<ResultError | ({ status: 'OK' }& Types.CloseChannelResponse)> => {
+        const auth = await params.retrieveNostrAdminAuth()
+        if (auth === null) throw new Error('retrieveNostrAdminAuth() returned null')
+        const nostrRequest: NostrRequest = {}
+        nostrRequest.body = request
+        const data = await send(params.pubDestination, {rpcName:'CloseChannel',authIdentifier:auth, ...nostrRequest }) 
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.CloseChannelResponseValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
         return { status: 'ERROR', reason: 'invalid response' }
     },
     CreateOneTimeInviteLink: async (request: Types.CreateOneTimeInviteLinkRequest): Promise<ResultError | ({ status: 'OK' }& Types.CreateOneTimeInviteLinkResponse)> => {
@@ -484,8 +511,8 @@ export default (params: NostrClientParams,  send: (to:string, message: NostrRequ
         return { status: 'ERROR', reason: 'invalid response' }
     },
     OpenChannel: async (request: Types.OpenChannelRequest): Promise<ResultError | ({ status: 'OK' }& Types.OpenChannelResponse)> => {
-        const auth = await params.retrieveNostrUserAuth()
-        if (auth === null) throw new Error('retrieveNostrUserAuth() returned null')
+        const auth = await params.retrieveNostrAdminAuth()
+        if (auth === null) throw new Error('retrieveNostrAdminAuth() returned null')
         const nostrRequest: NostrRequest = {}
         nostrRequest.body = request
         const data = await send(params.pubDestination, {rpcName:'OpenChannel',authIdentifier:auth, ...nostrRequest }) 
@@ -564,6 +591,18 @@ export default (params: NostrClientParams,  send: (to:string, message: NostrRequ
             if(!params.checkResult) return { status: 'OK', ...result }
             const error = Types.CallbackUrlValidate(result)
             if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
+    UpdateChannelPolicy: async (request: Types.UpdateChannelPolicyRequest): Promise<ResultError | ({ status: 'OK' })> => {
+        const auth = await params.retrieveNostrAdminAuth()
+        if (auth === null) throw new Error('retrieveNostrAdminAuth() returned null')
+        const nostrRequest: NostrRequest = {}
+        nostrRequest.body = request
+        const data = await send(params.pubDestination, {rpcName:'UpdateChannelPolicy',authIdentifier:auth, ...nostrRequest }) 
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            return data
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },

@@ -626,8 +626,6 @@ export default class {
         return this.GetLnurlPayInfoFromUser(linkedUser.user.user_id, linkedUser.application, { metadata: defaultLnAddressMetadata(this.settings.lnurlMetaText, addressName) })
     }
 
-    async OpenChannel(userId: string, req: Types.OpenChannelRequest): Promise<Types.OpenChannelResponse> { throw new Error("WIP") }
-
     mapOperations(operations: UserOperationInfo[], type: Types.UserOperationType, inbound: boolean): Types.UserOperations {
         if (operations.length === 0) {
             return {

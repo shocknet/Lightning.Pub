@@ -88,6 +88,22 @@ message RoutingEvent {
     bool forward_fail_event = 12;
 }
 
+message ChannelPolicy {
+    int64 base_fee_msat= 1;
+    int64 fee_rate_ppm = 2;
+    int64 max_htlc_msat = 3;
+    int64 min_htlc_msat = 4;
+    int64 timelock_delta = 5;
+}
+
+message UpdateChannelPolicyRequest {
+    oneof update {
+        string channel_point = 1;
+        Empty all = 2;
+    }
+    ChannelPolicy policy = 3;
+}
+
 message OpenChannel {
     string channel_id = 1;
     int64 capacity = 2;
@@ -96,16 +112,29 @@ message OpenChannel {
     int64 local_balance=5;
     int64 remote_balance = 6;
     string label = 7;
+    string channel_point = 8;
+    optional ChannelPolicy policy = 9;
 }
 message ClosedChannel {
     string channel_id = 1;
     int64 capacity = 2;
     int64 closed_height =4;
+    int64 close_tx_timestamp = 5;
 }
 
 message GraphPoint {
     int64 x = 1;
     int64 y = 2;
+}
+enum OperationType {
+    CHAIN_OP = 0;
+    INVOICE_OP = 1;
+}
+message RootOperation {
+    OperationType op_type = 1;
+    string op_id = 2;
+    int64 amount = 3;
+    int64 created_at_unix = 4;
 }
 
 message LndNodeMetrics {
@@ -120,6 +149,7 @@ message LndNodeMetrics {
     repeated ClosedChannel closed_channels = 9;
     int64 forwarding_events = 11;
     int64 forwarding_fees = 12;
+    repeated RootOperation root_ops = 13;
 }
 
 message LndMetrics {
@@ -129,6 +159,37 @@ message LndMetrics {
 
 message LndChannels {
     repeated OpenChannel open_channels = 1;
+}
+
+
+
+message OpenChannelRequest{
+    string node_pubkey = 1;
+    int64 local_funding_amount = 2;
+    int64 sat_per_v_byte = 3;
+    optional int64 push_sat = 5;
+    optional string close_address = 6;
+}
+
+message OpenChannelResponse{
+    string channel_id = 1;
+}
+
+message CloseChannelRequest{
+    bool force = 2;
+    int64 sat_per_v_byte = 3;
+    string funding_txid = 4;
+    int64 output_index = 5;
+}
+
+message CloseChannelResponse{
+    string closing_txid = 1;
+}
+
+message AddPeerRequest {
+    string pubkey = 1;
+    string host = 2;
+    int64 port = 3;
 }
 
 message LndGetInfoRequest {
@@ -142,6 +203,9 @@ message SetMockInvoiceAsPaidRequest {
 
 message LndGetInfoResponse {
     string alias = 1;
+    bool synced_to_chain = 2;
+    bool synced_to_graph = 3;
+    bool watchdog_barking = 4;
 }
 
 message BanUserRequest {
@@ -306,17 +370,6 @@ message PaymentState{
     int64 amount = 2;
     int64 service_fee = 3;
     int64 network_fee = 4;
-}
-
-message OpenChannelRequest{
-    string destination = 1;
-    int64 fundingAmount = 2;
-    int64 pushAmount = 3;
-    string closeAddress = 4;
-}
-
-message OpenChannelResponse{
-    string channelId = 1;
 }
 
 message LnurlLinkResponse{

@@ -16,11 +16,45 @@ export default (mainHandler: Main): Types.ServerMethods => {
         ListChannels: async ({ ctx }) => {
             return mainHandler.adminManager.ListChannels()
         },
+        AddPeer: async ({ ctx, req }) => {
+            const err = Types.AddPeerRequestValidate(req, {
+                pubkey_CustomCheck: pubkey => pubkey !== '',
+                host_CustomCheck: host => host !== '',
+                port_CustomCheck: port => port > 0
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.adminManager.AddPeer(req)
+        },
+        UpdateChannelPolicy: async ({ ctx, req }) => {
+            const err = Types.UpdateChannelPolicyRequestValidate(req, {
+                update_Options: {
+                    channel_point_CustomCheck: cp => cp !== '',
+                }
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.adminManager.UpdateChannelPolicy(req)
+        },
+        OpenChannel: async ({ ctx, req }) => {
+            const err = Types.OpenChannelRequestValidate(req, {
+                node_pubkey_CustomCheck: pubkey => pubkey !== '',
+                local_funding_amount_CustomCheck: amt => amt > 0,
+                sat_per_v_byte_CustomCheck: spv => spv > 0,
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.adminManager.OpenChannel(req)
+        },
+        CloseChannel: async ({ ctx, req }) => {
+            const err = Types.CloseChannelRequestValidate(req, {
+                funding_txid_CustomCheck: chanId => chanId !== '',
+                sat_per_v_byte_CustomCheck: spv => spv > 0
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.adminManager.CloseChannel(req)
+        },
         EncryptionExchange: async () => { },
         Health: async () => { await mainHandler.lnd.Health() },
         LndGetInfo: async ({ ctx }) => {
-            const info = await mainHandler.lnd.GetInfo()
-            return { alias: info.alias }
+            return await mainHandler.adminManager.LndGetInfo()
         },
         BanUser: async ({ ctx, req }) => {
             const err = Types.BanUserRequestValidate(req, {
@@ -53,15 +87,6 @@ export default (mainHandler: Main): Types.ServerMethods => {
             })
             if (err != null) throw new Error(err.message)
             return mainHandler.paymentManager.GetPaymentState(ctx.user_id, req)
-        },
-        OpenChannel: async ({ ctx, req }) => {
-            const err = Types.OpenChannelRequestValidate(req, {
-                fundingAmount_CustomCheck: amt => amt > 0,
-                pushAmount_CustomCheck: amt => amt > 0,
-                destination_CustomCheck: dest => dest !== ""
-            })
-            if (err != null) throw new Error(err.message)
-            return mainHandler.paymentManager.OpenChannel(ctx.user_id, req)
         },
         NewAddress: ({ ctx, req }) => mainHandler.paymentManager.NewAddress(ctx, req),
         PayAddress: async ({ ctx, req }) => {

@@ -148,7 +148,10 @@ export default class {
         return this.storage.StartTransaction(async tx => {
             const { blockHeight } = await this.lnd.GetInfo()
             const userAddress = await this.storage.paymentStorage.GetAddressOwner(address, tx)
-            if (!userAddress) { return }
+            if (!userAddress) {
+                await this.metricsManager.AddRootAddressPaid(address, txOutput, amount)
+                return
+            }
             const internal = used === 'internal'
             let log = getLogger({})
             if (!userAddress.linkedApplication) {
@@ -188,7 +191,10 @@ export default class {
         return this.storage.StartTransaction(async tx => {
             let log = getLogger({})
             const userInvoice = await this.storage.paymentStorage.GetInvoiceOwner(paymentRequest, tx)
-            if (!userInvoice) { return }
+            if (!userInvoice) {
+                await this.metricsManager.AddRootInvoicePaid(paymentRequest, amount)
+                return
+            }
             const internal = used === 'internal'
             if (userInvoice.paid_at_unix > 0 && internal) { log("cannot pay internally, invoice already paid"); return }
             if (userInvoice.paid_at_unix > 0 && !internal && userInvoice.paidByLnd) { log("invoice already paid by lnd"); return }
