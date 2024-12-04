@@ -60,6 +60,7 @@ type Client struct {
 	AddAppUserInvoice func(req AddAppUserInvoiceRequest) (*NewInvoiceResponse, error)
 	AddPeer           func(req AddPeerRequest) error
 	AddProduct        func(req AddProductRequest) (*Product, error)
+	AddUserOffer      func(req OfferConfig) (*OfferId, error)
 	AuthApp           func(req AuthAppRequest) (*AuthApp, error)
 	AuthorizeDebit    func(req DebitAuthorizationRequest) (*DebitAuthorization, error)
 	BanDebit          func(req DebitOperation) error
@@ -68,6 +69,7 @@ type Client struct {
 	CloseChannel                func(req CloseChannelRequest) (*CloseChannelResponse, error)
 	CreateOneTimeInviteLink     func(req CreateOneTimeInviteLinkRequest) (*CreateOneTimeInviteLinkResponse, error)
 	DecodeInvoice               func(req DecodeInvoiceRequest) (*DecodeInvoiceResponse, error)
+	DeleteUserOffer             func(req OfferId) error
 	EditDebit                   func(req DebitAuthorizationRequest) error
 	EncryptionExchange          func(req EncryptionExchangeRequest) error
 	EnrollAdminToken            func(req EnrollAdminTokenRequest) error
@@ -92,6 +94,8 @@ type Client struct {
 	GetSeed                     func() (*LndSeed, error)
 	GetUsageMetrics             func() (*UsageMetrics, error)
 	GetUserInfo                 func() (*UserInfo, error)
+	GetUserOffer                func(req OfferId) (*OfferConfig, error)
+	GetUserOffers               func() (*UserOffers, error)
 	GetUserOperations           func(req GetUserOperationsRequest) (*GetUserOperationsResponse, error)
 	HandleLnurlAddress          func(routeParams HandleLnurlAddress_RouteParams) (*LnurlPayInfoResponse, error)
 	HandleLnurlPay              func(query HandleLnurlPay_Query) (*HandleLnurlPayResponse, error)
@@ -118,6 +122,7 @@ type Client struct {
 	SetMockInvoiceAsPaid        func(req SetMockInvoiceAsPaidRequest) error
 	UpdateCallbackUrl           func(req CallbackUrl) (*CallbackUrl, error)
 	UpdateChannelPolicy         func(req UpdateChannelPolicyRequest) error
+	UpdateUserOffer             func(req OfferConfig) error
 	UseInviteLink               func(req UseInviteLinkRequest) error
 	UserHealth                  func() error
 }
@@ -287,6 +292,35 @@ func NewClient(params ClientParams) *Client {
 				return nil, fmt.Errorf(result.Reason)
 			}
 			res := Product{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
+		},
+		AddUserOffer: func(req OfferConfig) (*OfferId, error) {
+			auth, err := params.RetrieveUserAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/user/offer/add"
+			body, err := json.Marshal(req)
+			if err != nil {
+				return nil, err
+			}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return nil, err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := OfferId{}
 			err = json.Unmarshal(resBody, &res)
 			if err != nil {
 				return nil, err
@@ -491,6 +525,30 @@ func NewClient(params ClientParams) *Client {
 				return nil, err
 			}
 			return &res, nil
+		},
+		DeleteUserOffer: func(req OfferId) error {
+			auth, err := params.RetrieveUserAuth()
+			if err != nil {
+				return err
+			}
+			finalRoute := "/api/user/offer/delete"
+			body, err := json.Marshal(req)
+			if err != nil {
+				return err
+			}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return err
+			}
+			if result.Status == "ERROR" {
+				return fmt.Errorf(result.Reason)
+			}
+			return nil
 		},
 		EditDebit: func(req DebitAuthorizationRequest) error {
 			auth, err := params.RetrieveUserAuth()
@@ -1017,6 +1075,50 @@ func NewClient(params ClientParams) *Client {
 				return nil, fmt.Errorf(result.Reason)
 			}
 			res := UserInfo{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
+		},
+		GetUserOffer: func(req OfferId) (*OfferConfig, error) {
+			auth, err := params.RetrieveUserAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/user/offer/get"
+			resBody, err := doGetRequest(params.BaseURL+finalRoute, auth)
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := OfferConfig{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
+		},
+		GetUserOffers: func() (*UserOffers, error) {
+			auth, err := params.RetrieveUserAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/user/offers/get"
+			resBody, err := doGetRequest(params.BaseURL+finalRoute, auth)
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := UserOffers{}
 			err = json.Unmarshal(resBody, &res)
 			if err != nil {
 				return nil, err
@@ -1699,6 +1801,30 @@ func NewClient(params ClientParams) *Client {
 				return err
 			}
 			finalRoute := "/api/admin/channel/policy/update"
+			body, err := json.Marshal(req)
+			if err != nil {
+				return err
+			}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return err
+			}
+			if result.Status == "ERROR" {
+				return fmt.Errorf(result.Reason)
+			}
+			return nil
+		},
+		UpdateUserOffer: func(req OfferConfig) error {
+			auth, err := params.RetrieveUserAuth()
+			if err != nil {
+				return err
+			}
+			finalRoute := "/api/user/offer/update"
 			body, err := json.Marshal(req)
 			if err != nil {
 				return err

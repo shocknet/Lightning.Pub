@@ -323,6 +323,33 @@ export default (mainHandler: Main): Types.ServerMethods => {
         },
         RespondToDebit: async ({ ctx, req }) => {
             return mainHandler.debitManager.RespondToDebit(ctx, req);
+        },
+        AddUserOffer: async ({ ctx, req }) => {
+            const err = Types.OfferConfigValidate(req, {
+                label_CustomCheck: label => label !== '',
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.offerManager.AddUserOffer(ctx, req)
+        },
+        DeleteUserOffer: async ({ ctx, req }) => {
+            const err = Types.OfferIdValidate(req, {
+                offer_id_CustomCheck: id => id !== ''
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.offerManager.DeleteUserOffer(ctx, req)
+        },
+        UpdateUserOffer: async ({ ctx, req }) => {
+            return mainHandler.offerManager.UpdateUserOffer(ctx, req)
+        },
+        GetUserOffers: async ({ ctx }) => {
+            return mainHandler.offerManager.GetUserOffers(ctx)
+        },
+        GetUserOffer: async ({ ctx, req }) => {
+            const err = Types.OfferIdValidate(req, {
+                offer_id_CustomCheck: id => id !== ''
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.offerManager.GetUserOffer(ctx, req)
         }
     }
 }

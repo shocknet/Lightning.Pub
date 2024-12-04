@@ -269,6 +269,8 @@ message AddAppUserInvoiceRequest {
     string payer_identifier = 2;
     string http_callback_url = 3;
     NewInvoiceRequest invoice_req = 4;
+    optional PayerData payer_data = 5;
+    optional string offer_string = 6;
 }
 
 message GetAppUserRequest {
@@ -329,6 +331,10 @@ message PayAddressResponse{
     string operation_id = 2;
     int64 service_fee = 3;
     int64 network_fee = 4;
+}
+
+message PayerData {
+    map<string,string> data = 1;
 }
 
 message NewInvoiceRequest{
@@ -613,4 +619,25 @@ message DebitResponse {
         Empty denied = 3;
         string invoice = 4;
     }
+}
+
+enum OfferDataType {
+    DATA_STRING = 0;
+}
+
+message OfferId {
+    string offer_id = 1;
+}
+
+message OfferConfig {
+    string offer_id = 1;
+    string label = 2;
+    int64 price_sats = 3;
+    string callback_url = 4;
+    map<string, OfferDataType> expected_data = 5;
+    string noffer = 6;
+}
+
+message UserOffers {
+    repeated OfferConfig offers = 1;
 }

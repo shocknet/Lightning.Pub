@@ -64,6 +64,12 @@ const (
 	WEEK  IntervalType = "WEEK"
 )
 
+type OfferDataType string
+
+const (
+	DATA_STRING OfferDataType = "DATA_STRING"
+)
+
 type OperationType string
 
 const (
@@ -94,6 +100,8 @@ type AddAppRequest struct {
 type AddAppUserInvoiceRequest struct {
 	Http_callback_url   string             `json:"http_callback_url"`
 	Invoice_req         *NewInvoiceRequest `json:"invoice_req"`
+	Offer_string        string             `json:"offer_string"`
+	Payer_data          *PayerData         `json:"payer_data"`
 	Payer_identifier    string             `json:"payer_identifier"`
 	Receiver_identifier string             `json:"receiver_identifier"`
 }
@@ -386,6 +394,17 @@ type NewInvoiceRequest struct {
 type NewInvoiceResponse struct {
 	Invoice string `json:"invoice"`
 }
+type OfferConfig struct {
+	Callback_url  string                   `json:"callback_url"`
+	Expected_data map[string]OfferDataType `json:"expected_data"`
+	Label         string                   `json:"label"`
+	Noffer        string                   `json:"noffer"`
+	Offer_id      string                   `json:"offer_id"`
+	Price_sats    int64                    `json:"price_sats"`
+}
+type OfferId struct {
+	Offer_id string `json:"offer_id"`
+}
 type OpenChannel struct {
 	Active         bool           `json:"active"`
 	Capacity       int64          `json:"capacity"`
@@ -435,6 +454,9 @@ type PayInvoiceResponse struct {
 	Operation_id string `json:"operation_id"`
 	Preimage     string `json:"preimage"`
 	Service_fee  int64  `json:"service_fee"`
+}
+type PayerData struct {
+	Data map[string]string `json:"data"`
 }
 type PaymentState struct {
 	Amount       int64 `json:"amount"`
@@ -530,6 +552,9 @@ type UserInfo struct {
 	Service_fee_bps       int64  `json:"service_fee_bps"`
 	Userid                string `json:"userId"`
 	User_identifier       string `json:"user_identifier"`
+}
+type UserOffers struct {
+	Offers []OfferConfig `json:"offers"`
 }
 type UserOperation struct {
 	Amount      int64             `json:"amount"`

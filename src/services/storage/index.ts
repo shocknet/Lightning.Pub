@@ -11,6 +11,7 @@ import EventsLogManager from "./eventsLog.js";
 import { LiquidityStorage } from "./liquidityStorage.js";
 import { StateBundler } from "./stateBundler.js";
 import DebitStorage from "./debitStorage.js"
+import OfferStorage from "./offerStorage.js"
 export type StorageSettings = {
     dbSettings: DbSettings
     eventLogPath: string
@@ -30,6 +31,7 @@ export default class {
     metricsStorage: MetricsStorage
     liquidityStorage: LiquidityStorage
     debitStorage: DebitStorage
+    offerStorage: OfferStorage
     eventsLog: EventsLogManager
     stateBundler: StateBundler
     constructor(settings: StorageSettings) {
@@ -47,6 +49,7 @@ export default class {
         this.metricsStorage = new MetricsStorage(this.settings)
         this.liquidityStorage = new LiquidityStorage(this.DB, this.txQueue)
         this.debitStorage = new DebitStorage(this.DB, this.txQueue)
+        this.offerStorage = new OfferStorage(this.DB, this.txQueue)
         try { if (this.settings.dataDir) fs.mkdirSync(this.settings.dataDir) } catch (e) { }
         const executedMetricsMigrations = await this.metricsStorage.Connect(metricsMigrations)
         return { executedMigrations, executedMetricsMigrations };

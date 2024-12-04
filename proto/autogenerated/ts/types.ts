@@ -34,8 +34,8 @@ export type UserContext = {
     app_user_id: string
     user_id: string
 }
-export type UserMethodInputs = AddProduct_Input | AuthorizeDebit_Input | BanDebit_Input | DecodeInvoice_Input | EditDebit_Input | EnrollAdminToken_Input | GetDebitAuthorizations_Input | GetLNURLChannelLink_Input | GetLnurlPayLink_Input | GetLnurlWithdrawLink_Input | GetPaymentState_Input | GetUserInfo_Input | GetUserOperations_Input | NewAddress_Input | NewInvoice_Input | NewProductInvoice_Input | PayAddress_Input | PayInvoice_Input | ResetDebit_Input | RespondToDebit_Input | UpdateCallbackUrl_Input | UserHealth_Input
-export type UserMethodOutputs = AddProduct_Output | AuthorizeDebit_Output | BanDebit_Output | DecodeInvoice_Output | EditDebit_Output | EnrollAdminToken_Output | GetDebitAuthorizations_Output | GetLNURLChannelLink_Output | GetLnurlPayLink_Output | GetLnurlWithdrawLink_Output | GetPaymentState_Output | GetUserInfo_Output | GetUserOperations_Output | NewAddress_Output | NewInvoice_Output | NewProductInvoice_Output | PayAddress_Output | PayInvoice_Output | ResetDebit_Output | RespondToDebit_Output | UpdateCallbackUrl_Output | UserHealth_Output
+export type UserMethodInputs = AddProduct_Input | AddUserOffer_Input | AuthorizeDebit_Input | BanDebit_Input | DecodeInvoice_Input | DeleteUserOffer_Input | EditDebit_Input | EnrollAdminToken_Input | GetDebitAuthorizations_Input | GetLNURLChannelLink_Input | GetLnurlPayLink_Input | GetLnurlWithdrawLink_Input | GetPaymentState_Input | GetUserInfo_Input | GetUserOffer_Input | GetUserOffers_Input | GetUserOperations_Input | NewAddress_Input | NewInvoice_Input | NewProductInvoice_Input | PayAddress_Input | PayInvoice_Input | ResetDebit_Input | RespondToDebit_Input | UpdateCallbackUrl_Input | UpdateUserOffer_Input | UserHealth_Input
+export type UserMethodOutputs = AddProduct_Output | AddUserOffer_Output | AuthorizeDebit_Output | BanDebit_Output | DecodeInvoice_Output | DeleteUserOffer_Output | EditDebit_Output | EnrollAdminToken_Output | GetDebitAuthorizations_Output | GetLNURLChannelLink_Output | GetLnurlPayLink_Output | GetLnurlWithdrawLink_Output | GetPaymentState_Output | GetUserInfo_Output | GetUserOffer_Output | GetUserOffers_Output | GetUserOperations_Output | NewAddress_Output | NewInvoice_Output | NewProductInvoice_Output | PayAddress_Output | PayInvoice_Output | ResetDebit_Output | RespondToDebit_Output | UpdateCallbackUrl_Output | UpdateUserOffer_Output | UserHealth_Output
 export type AuthContext = AdminContext | AppContext | GuestContext | GuestWithPubContext | MetricsContext | UserContext
 
 export type AddApp_Input = {rpcName:'AddApp', req: AddAppRequest}
@@ -55,6 +55,9 @@ export type AddPeer_Output = ResultError | { status: 'OK' }
 
 export type AddProduct_Input = {rpcName:'AddProduct', req: AddProductRequest}
 export type AddProduct_Output = ResultError | ({ status: 'OK' } & Product)
+
+export type AddUserOffer_Input = {rpcName:'AddUserOffer', req: OfferConfig}
+export type AddUserOffer_Output = ResultError | ({ status: 'OK' } & OfferId)
 
 export type AuthApp_Input = {rpcName:'AuthApp', req: AuthAppRequest}
 export type AuthApp_Output = ResultError | ({ status: 'OK' } & AuthApp)
@@ -79,6 +82,9 @@ export type CreateOneTimeInviteLink_Output = ResultError | ({ status: 'OK' } & C
 
 export type DecodeInvoice_Input = {rpcName:'DecodeInvoice', req: DecodeInvoiceRequest}
 export type DecodeInvoice_Output = ResultError | ({ status: 'OK' } & DecodeInvoiceResponse)
+
+export type DeleteUserOffer_Input = {rpcName:'DeleteUserOffer', req: OfferId}
+export type DeleteUserOffer_Output = ResultError | { status: 'OK' }
 
 export type EditDebit_Input = {rpcName:'EditDebit', req: DebitAuthorizationRequest}
 export type EditDebit_Output = ResultError | { status: 'OK' }
@@ -157,6 +163,12 @@ export type GetUsageMetrics_Output = ResultError | ({ status: 'OK' } & UsageMetr
 
 export type GetUserInfo_Input = {rpcName:'GetUserInfo'}
 export type GetUserInfo_Output = ResultError | ({ status: 'OK' } & UserInfo)
+
+export type GetUserOffer_Input = {rpcName:'GetUserOffer', req: OfferId}
+export type GetUserOffer_Output = ResultError | ({ status: 'OK' } & OfferConfig)
+
+export type GetUserOffers_Input = {rpcName:'GetUserOffers'}
+export type GetUserOffers_Output = ResultError | ({ status: 'OK' } & UserOffers)
 
 export type GetUserOperations_Input = {rpcName:'GetUserOperations', req: GetUserOperationsRequest}
 export type GetUserOperations_Output = ResultError | ({ status: 'OK' } & GetUserOperationsResponse)
@@ -252,6 +264,9 @@ export type UpdateCallbackUrl_Output = ResultError | ({ status: 'OK' } & Callbac
 export type UpdateChannelPolicy_Input = {rpcName:'UpdateChannelPolicy', req: UpdateChannelPolicyRequest}
 export type UpdateChannelPolicy_Output = ResultError | { status: 'OK' }
 
+export type UpdateUserOffer_Input = {rpcName:'UpdateUserOffer', req: OfferConfig}
+export type UpdateUserOffer_Output = ResultError | { status: 'OK' }
+
 export type UseInviteLink_Input = {rpcName:'UseInviteLink', req: UseInviteLinkRequest}
 export type UseInviteLink_Output = ResultError | { status: 'OK' }
 
@@ -265,6 +280,7 @@ export type ServerMethods = {
     AddAppUserInvoice?: (req: AddAppUserInvoice_Input & {ctx: AppContext }) => Promise<NewInvoiceResponse>
     AddPeer?: (req: AddPeer_Input & {ctx: AdminContext }) => Promise<void>
     AddProduct?: (req: AddProduct_Input & {ctx: UserContext }) => Promise<Product>
+    AddUserOffer?: (req: AddUserOffer_Input & {ctx: UserContext }) => Promise<OfferId>
     AuthApp?: (req: AuthApp_Input & {ctx: AdminContext }) => Promise<AuthApp>
     AuthorizeDebit?: (req: AuthorizeDebit_Input & {ctx: UserContext }) => Promise<DebitAuthorization>
     BanDebit?: (req: BanDebit_Input & {ctx: UserContext }) => Promise<void>
@@ -272,6 +288,7 @@ export type ServerMethods = {
     CloseChannel?: (req: CloseChannel_Input & {ctx: AdminContext }) => Promise<CloseChannelResponse>
     CreateOneTimeInviteLink?: (req: CreateOneTimeInviteLink_Input & {ctx: AdminContext }) => Promise<CreateOneTimeInviteLinkResponse>
     DecodeInvoice?: (req: DecodeInvoice_Input & {ctx: UserContext }) => Promise<DecodeInvoiceResponse>
+    DeleteUserOffer?: (req: DeleteUserOffer_Input & {ctx: UserContext }) => Promise<void>
     EditDebit?: (req: EditDebit_Input & {ctx: UserContext }) => Promise<void>
     EncryptionExchange?: (req: EncryptionExchange_Input & {ctx: GuestContext }) => Promise<void>
     EnrollAdminToken?: (req: EnrollAdminToken_Input & {ctx: UserContext }) => Promise<void>
@@ -296,6 +313,8 @@ export type ServerMethods = {
     GetSeed?: (req: GetSeed_Input & {ctx: AdminContext }) => Promise<LndSeed>
     GetUsageMetrics?: (req: GetUsageMetrics_Input & {ctx: MetricsContext }) => Promise<UsageMetrics>
     GetUserInfo?: (req: GetUserInfo_Input & {ctx: UserContext }) => Promise<UserInfo>
+    GetUserOffer?: (req: GetUserOffer_Input & {ctx: UserContext }) => Promise<OfferConfig>
+    GetUserOffers?: (req: GetUserOffers_Input & {ctx: UserContext }) => Promise<UserOffers>
     GetUserOperations?: (req: GetUserOperations_Input & {ctx: UserContext }) => Promise<GetUserOperationsResponse>
     HandleLnurlAddress?: (req: HandleLnurlAddress_Input & {ctx: GuestContext }) => Promise<LnurlPayInfoResponse>
     HandleLnurlPay?: (req: HandleLnurlPay_Input & {ctx: GuestContext }) => Promise<HandleLnurlPayResponse>
@@ -322,6 +341,7 @@ export type ServerMethods = {
     SetMockInvoiceAsPaid?: (req: SetMockInvoiceAsPaid_Input & {ctx: GuestContext }) => Promise<void>
     UpdateCallbackUrl?: (req: UpdateCallbackUrl_Input & {ctx: UserContext }) => Promise<CallbackUrl>
     UpdateChannelPolicy?: (req: UpdateChannelPolicy_Input & {ctx: AdminContext }) => Promise<void>
+    UpdateUserOffer?: (req: UpdateUserOffer_Input & {ctx: UserContext }) => Promise<void>
     UseInviteLink?: (req: UseInviteLink_Input & {ctx: GuestWithPubContext }) => Promise<void>
     UserHealth?: (req: UserHealth_Input & {ctx: UserContext }) => Promise<void>
 }
@@ -342,6 +362,13 @@ export enum IntervalType {
 }
 export const enumCheckIntervalType = (e?: IntervalType): boolean => {
     for (const v in IntervalType) if (e === v) return true
+    return false
+}
+export enum OfferDataType {
+    DATA_STRING = 'DATA_STRING',
+}
+export const enumCheckOfferDataType = (e?: OfferDataType): boolean => {
+    for (const v in OfferDataType) if (e === v) return true
     return false
 }
 export enum OperationType {
@@ -424,14 +451,19 @@ export const AddAppRequestValidate = (o?: AddAppRequest, opts: AddAppRequestOpti
 export type AddAppUserInvoiceRequest = {
     http_callback_url: string
     invoice_req: NewInvoiceRequest
+    offer_string?: string
+    payer_data?: PayerData
     payer_identifier: string
     receiver_identifier: string
 }
-export const AddAppUserInvoiceRequestOptionalFields: [] = []
+export type AddAppUserInvoiceRequestOptionalField = 'offer_string' | 'payer_data'
+export const AddAppUserInvoiceRequestOptionalFields: AddAppUserInvoiceRequestOptionalField[] = ['offer_string', 'payer_data']
 export type AddAppUserInvoiceRequestOptions = OptionsBaseMessage & {
-    checkOptionalsAreSet?: []
+    checkOptionalsAreSet?: AddAppUserInvoiceRequestOptionalField[]
     http_callback_url_CustomCheck?: (v: string) => boolean
     invoice_req_Options?: NewInvoiceRequestOptions
+    offer_string_CustomCheck?: (v?: string) => boolean
+    payer_data_Options?: PayerDataOptions
     payer_identifier_CustomCheck?: (v: string) => boolean
     receiver_identifier_CustomCheck?: (v: string) => boolean
 }
@@ -444,6 +476,15 @@ export const AddAppUserInvoiceRequestValidate = (o?: AddAppUserInvoiceRequest, o
 
     const invoice_reqErr = NewInvoiceRequestValidate(o.invoice_req, opts.invoice_req_Options, `${path}.invoice_req`)
     if (invoice_reqErr !== null) return invoice_reqErr
+    
+
+    if ((o.offer_string || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('offer_string')) && typeof o.offer_string !== 'string') return new Error(`${path}.offer_string: is not a string`)
+    if (opts.offer_string_CustomCheck && !opts.offer_string_CustomCheck(o.offer_string)) return new Error(`${path}.offer_string: custom check failed`)
+
+    if (typeof o.payer_data === 'object' || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('payer_data')) {
+        const payer_dataErr = PayerDataValidate(o.payer_data, opts.payer_data_Options, `${path}.payer_data`)
+        if (payer_dataErr !== null) return payer_dataErr
+    }
     
 
     if (typeof o.payer_identifier !== 'string') return new Error(`${path}.payer_identifier: is not a string`)
@@ -2201,6 +2242,69 @@ export const NewInvoiceResponseValidate = (o?: NewInvoiceResponse, opts: NewInvo
     return null
 }
 
+export type OfferConfig = {
+    callback_url: string
+    expected_data: Record<string, OfferDataType>
+    label: string
+    noffer: string
+    offer_id: string
+    price_sats: number
+}
+export const OfferConfigOptionalFields: [] = []
+export type OfferConfigOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    callback_url_CustomCheck?: (v: string) => boolean
+    expected_data_CustomCheck?: (v: Record<string, OfferDataType>) => boolean
+    label_CustomCheck?: (v: string) => boolean
+    noffer_CustomCheck?: (v: string) => boolean
+    offer_id_CustomCheck?: (v: string) => boolean
+    price_sats_CustomCheck?: (v: number) => boolean
+}
+export const OfferConfigValidate = (o?: OfferConfig, opts: OfferConfigOptions = {}, path: string = 'OfferConfig::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.callback_url !== 'string') return new Error(`${path}.callback_url: is not a string`)
+    if (opts.callback_url_CustomCheck && !opts.callback_url_CustomCheck(o.callback_url)) return new Error(`${path}.callback_url: custom check failed`)
+
+    if (typeof o.expected_data !== 'object' || o.expected_data === null) return new Error(`${path}.expected_data: is not an object or is null`)
+    for (const key in o.expected_data) {
+        if (!enumCheckOfferDataType(o.expected_data[key])) return new Error(`${path}.expected_data['${key}']: is not a OfferDataType`)
+    }
+
+    if (typeof o.label !== 'string') return new Error(`${path}.label: is not a string`)
+    if (opts.label_CustomCheck && !opts.label_CustomCheck(o.label)) return new Error(`${path}.label: custom check failed`)
+
+    if (typeof o.noffer !== 'string') return new Error(`${path}.noffer: is not a string`)
+    if (opts.noffer_CustomCheck && !opts.noffer_CustomCheck(o.noffer)) return new Error(`${path}.noffer: custom check failed`)
+
+    if (typeof o.offer_id !== 'string') return new Error(`${path}.offer_id: is not a string`)
+    if (opts.offer_id_CustomCheck && !opts.offer_id_CustomCheck(o.offer_id)) return new Error(`${path}.offer_id: custom check failed`)
+
+    if (typeof o.price_sats !== 'number') return new Error(`${path}.price_sats: is not a number`)
+    if (opts.price_sats_CustomCheck && !opts.price_sats_CustomCheck(o.price_sats)) return new Error(`${path}.price_sats: custom check failed`)
+
+    return null
+}
+
+export type OfferId = {
+    offer_id: string
+}
+export const OfferIdOptionalFields: [] = []
+export type OfferIdOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    offer_id_CustomCheck?: (v: string) => boolean
+}
+export const OfferIdValidate = (o?: OfferId, opts: OfferIdOptions = {}, path: string = 'OfferId::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.offer_id !== 'string') return new Error(`${path}.offer_id: is not a string`)
+    if (opts.offer_id_CustomCheck && !opts.offer_id_CustomCheck(o.offer_id)) return new Error(`${path}.offer_id: custom check failed`)
+
+    return null
+}
+
 export type OpenChannel = {
     active: boolean
     capacity: number
@@ -2478,6 +2582,26 @@ export const PayInvoiceResponseValidate = (o?: PayInvoiceResponse, opts: PayInvo
 
     if (typeof o.service_fee !== 'number') return new Error(`${path}.service_fee: is not a number`)
     if (opts.service_fee_CustomCheck && !opts.service_fee_CustomCheck(o.service_fee)) return new Error(`${path}.service_fee: custom check failed`)
+
+    return null
+}
+
+export type PayerData = {
+    data: Record<string, string>
+}
+export const PayerDataOptionalFields: [] = []
+export type PayerDataOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    data_CustomCheck?: (v: Record<string, string>) => boolean
+}
+export const PayerDataValidate = (o?: PayerData, opts: PayerDataOptions = {}, path: string = 'PayerData::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.data !== 'object' || o.data === null) return new Error(`${path}.data: is not an object or is null`)
+    for (const key in o.data) {
+        if (typeof o.data[key] !== 'string') return new Error(`${path}.data['${key}']: is not a string`)
+    }
 
     return null
 }
@@ -3014,6 +3138,29 @@ export const UserInfoValidate = (o?: UserInfo, opts: UserInfoOptions = {}, path:
 
     if (typeof o.user_identifier !== 'string') return new Error(`${path}.user_identifier: is not a string`)
     if (opts.user_identifier_CustomCheck && !opts.user_identifier_CustomCheck(o.user_identifier)) return new Error(`${path}.user_identifier: custom check failed`)
+
+    return null
+}
+
+export type UserOffers = {
+    offers: OfferConfig[]
+}
+export const UserOffersOptionalFields: [] = []
+export type UserOffersOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    offers_ItemOptions?: OfferConfigOptions
+    offers_CustomCheck?: (v: OfferConfig[]) => boolean
+}
+export const UserOffersValidate = (o?: UserOffers, opts: UserOffersOptions = {}, path: string = 'UserOffers::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (!Array.isArray(o.offers)) return new Error(`${path}.offers: is not an array`)
+    for (let index = 0; index < o.offers.length; index++) {
+        const offersErr = OfferConfigValidate(o.offers[index], opts.offers_ItemOptions, `${path}.offers[${index}]`)
+        if (offersErr !== null) return offersErr
+    }
+    if (opts.offers_CustomCheck && !opts.offers_CustomCheck(o.offers)) return new Error(`${path}.offers: custom check failed`)
 
     return null
 }
