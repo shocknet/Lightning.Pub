@@ -197,7 +197,7 @@ export class OfferManager {
             return { success: false, code: 1, max: remote }
         }
         const res = await this.applicationManager.AddAppUserInvoice(appId, {
-            http_callback_url: userOffer.callback_url, payer_identifier: offer, receiver_identifier: offer,
+            http_callback_url: userOffer.callback_url, payer_identifier: userOffer.app_user_id, receiver_identifier: userOffer.app_user_id,
             invoice_req: { amountSats: amt, memo: userOffer.label, zap: offerReq.zap },
             payer_data: validated ? { data: validated } : undefined,
             offer_string: offer
