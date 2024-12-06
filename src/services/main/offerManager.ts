@@ -90,7 +90,7 @@ export class OfferManager {
     }
 
     async UpdateUserOffer(ctx: Types.UserContext, req: Types.OfferConfig) {
-        await this.storage.offerStorage.UpdateUserOffer(ctx.app_user_id, {
+        await this.storage.offerStorage.UpdateUserOffer(ctx.app_user_id, req.offer_id, {
             expected_data: req.expected_data,
             label: req.label,
             price_sats: req.price_sats,

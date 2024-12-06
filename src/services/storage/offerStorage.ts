@@ -33,8 +33,8 @@ export default class {
     async DeleteUserOffer(appUserId: string, offerId: string, entityManager = this.DB) {
         await entityManager.getRepository(UserOffer).delete({ app_user_id: appUserId, offer_id: offerId })
     }
-    async UpdateUserOffer(app_user_id: string, req: Partial<UserOffer>) {
-        return this.DB.getRepository(UserOffer).update({ app_user_id, offer_id: req.offer_id }, req)
+    async UpdateUserOffer(app_user_id: string, offerId: string, req: Partial<UserOffer>) {
+        return this.DB.getRepository(UserOffer).update({ app_user_id, offer_id: offerId }, req)
     }
 
     async GetUserOffers(app_user_id: string): Promise<UserOffer[]> {
