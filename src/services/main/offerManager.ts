@@ -30,7 +30,7 @@ const mapToOfferConfig = (appUserId: string, offer: UserOffer, { pubkey, relay }
     }
     const offerStr = offer.offer_id
     const priceType: nip19.OfferPriceType = offer.price_sats === 0 ? nip19.OfferPriceType.Spontaneous : nip19.OfferPriceType.Fixed
-    const noffer = nip19.nofferEncode({ pubkey, offer: offerStr, priceType, relay })
+    const noffer = nip19.nofferEncode({ pubkey, offer: offerStr, priceType, relay, price: offer.price_sats || undefined })
     return {
         label: offer.label,
         price_sats: offer.price_sats,
