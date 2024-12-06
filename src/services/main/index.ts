@@ -220,7 +220,7 @@ export default class {
                 if (fee > 0) {
                     await this.storage.userStorage.IncrementUserBalance(userInvoice.linkedApplication.owner.user_id, fee, 'fees', tx)
                 }
-                await this.triggerPaidCallback(log, userInvoice.callbackUrl)
+                await this.triggerPaidCallback(log, userInvoice.callbackUrl, { invoice: paymentRequest, amount, other: userInvoice.payer_data })
                 const operationId = `${Types.UserOperationType.INCOMING_INVOICE}-${userInvoice.serial_id}`
                 const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_INVOICE, identifier: userInvoice.invoice, operationId, network_fee: 0, service_fee: fee, confirmed: true, tx_hash: "", internal }
                 this.sendOperationToNostr(userInvoice.linkedApplication, userInvoice.user.user_id, op)
@@ -234,9 +234,15 @@ export default class {
         })
     }
 
-    async triggerPaidCallback(log: PubLogger, url: string) {
+    async triggerPaidCallback(log: PubLogger, url: string, { invoice, amount, other }: { invoice: string, amount: number, other?: Record<string, string> }) {
         if (!url) {
             return
+        }
+        url.replace(`%[invoice]`, invoice).replace(`%[amount]`, amount.toString())
+        if (other) {
+            for (const [key, value] of Object.entries(other)) {
+                url.replace(`%[${key}]`, value)
+            }
         }
         try {
             const symbol = url.includes('?') ? "&" : "?"
