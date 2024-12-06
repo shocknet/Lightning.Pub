@@ -512,7 +512,7 @@ export default (params: ClientParams) => ({
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
         let finalRoute = '/api/user/offer/get'
-        const { data } = await axios.get(params.baseUrl + finalRoute, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data

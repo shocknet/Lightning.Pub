@@ -1087,7 +1087,14 @@ func NewClient(params ClientParams) *Client {
 				return nil, err
 			}
 			finalRoute := "/api/user/offer/get"
-			resBody, err := doGetRequest(params.BaseURL+finalRoute, auth)
+			body, err := json.Marshal(req)
+			if err != nil {
+				return nil, err
+			}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return nil, err
+			}
 			result := ResultError{}
 			err = json.Unmarshal(resBody, &result)
 			if err != nil {

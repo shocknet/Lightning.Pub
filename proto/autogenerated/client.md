@@ -580,7 +580,7 @@ The nostr server will send back a message response, and inside the body there wi
 
 - GetUserOffer
   - auth type: __User__
-  - http method: __get__
+  - http method: __post__
   - http route: __/api/user/offer/get__
   - input: [OfferId](#OfferId)
   - output: [OfferConfig](#OfferConfig)

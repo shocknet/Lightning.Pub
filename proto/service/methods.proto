@@ -477,7 +477,7 @@ service LightningPub {
 
     rpc GetUserOffer(structs.OfferId) returns (structs.OfferConfig){
         option (auth_type)  = "User";
-        option (http_method) = "get";
+        option (http_method) = "post";
         option (http_route) = "/api/user/offer/get";
         option (nostr) = true;
     }

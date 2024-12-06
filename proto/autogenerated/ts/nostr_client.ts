@@ -440,6 +440,7 @@ export default (params: NostrClientParams,  send: (to:string, message: NostrRequ
         const auth = await params.retrieveNostrUserAuth()
         if (auth === null) throw new Error('retrieveNostrUserAuth() returned null')
         const nostrRequest: NostrRequest = {}
+        nostrRequest.body = request
         const data = await send(params.pubDestination, {rpcName:'GetUserOffer',authIdentifier:auth, ...nostrRequest }) 
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 

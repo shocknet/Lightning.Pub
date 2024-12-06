@@ -1114,7 +1114,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.GetUserOffer) throw new Error('method: GetUserOffer is not implemented')
-    app.get('/api/user/offer/get', async (req, res) => {
+    app.post('/api/user/offer/get', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'GetUserOffer', batch: false, nostr: false, batchSize: 0}
         const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
