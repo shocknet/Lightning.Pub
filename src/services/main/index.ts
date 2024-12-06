@@ -224,7 +224,11 @@ export default class {
                 const operationId = `${Types.UserOperationType.INCOMING_INVOICE}-${userInvoice.serial_id}`
                 const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_INVOICE, identifier: userInvoice.invoice, operationId, network_fee: 0, service_fee: fee, confirmed: true, tx_hash: "", internal }
                 this.sendOperationToNostr(userInvoice.linkedApplication, userInvoice.user.user_id, op)
-                this.createZapReceipt(log, userInvoice)
+                try {
+                    this.createZapReceipt(log, userInvoice)
+                } catch (err: any) {
+                    log(ERROR, "cannot create zap receipt", err.message || "")
+                }
                 this.liquidityManager.afterInInvoicePaid()
                 this.utils.stateBundler.AddTxPoint('invoiceWasPaid', amount, { used, from: 'system', timeDiscount: true })
             } catch (err: any) {
