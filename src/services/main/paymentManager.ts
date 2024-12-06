@@ -575,7 +575,7 @@ export default class {
         const e = this.parseTags("e", nostrEvent.tags)
         const relays = this.parseTags("relays", nostrEvent.tags, { required: true, multiples: true })
         const amount = this.parseTags("amount", nostrEvent.tags)
-        if (+amount !== amt) {
+        if (amount.length > 0 && +amount[0] !== amt) {
             throw new Error("amount mismatch")
         }
         return { pub: p[0], eventId: e.length > 0 ? e[0] : "", relays, description: event }
