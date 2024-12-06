@@ -2244,6 +2244,7 @@ export const NewInvoiceResponseValidate = (o?: NewInvoiceResponse, opts: NewInvo
 
 export type OfferConfig = {
     callback_url: string
+    default_offer: boolean
     expected_data: Record<string, OfferDataType>
     label: string
     noffer: string
@@ -2254,6 +2255,7 @@ export const OfferConfigOptionalFields: [] = []
 export type OfferConfigOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
     callback_url_CustomCheck?: (v: string) => boolean
+    default_offer_CustomCheck?: (v: boolean) => boolean
     expected_data_CustomCheck?: (v: Record<string, OfferDataType>) => boolean
     label_CustomCheck?: (v: string) => boolean
     noffer_CustomCheck?: (v: string) => boolean
@@ -2266,6 +2268,9 @@ export const OfferConfigValidate = (o?: OfferConfig, opts: OfferConfigOptions = 
 
     if (typeof o.callback_url !== 'string') return new Error(`${path}.callback_url: is not a string`)
     if (opts.callback_url_CustomCheck && !opts.callback_url_CustomCheck(o.callback_url)) return new Error(`${path}.callback_url: custom check failed`)
+
+    if (typeof o.default_offer !== 'boolean') return new Error(`${path}.default_offer: is not a boolean`)
+    if (opts.default_offer_CustomCheck && !opts.default_offer_CustomCheck(o.default_offer)) return new Error(`${path}.default_offer: custom check failed`)
 
     if (typeof o.expected_data !== 'object' || o.expected_data === null) return new Error(`${path}.expected_data: is not an object or is null`)
     for (const key in o.expected_data) {

@@ -1120,6 +1120,7 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### OfferConfig
   - __callback_url__: _string_
+  - __default_offer__: _boolean_
   - __expected_data__: MAP with key: _string_ and value: _[OfferDataType](#OfferDataType)_
   - __label__: _string_
   - __noffer__: _string_

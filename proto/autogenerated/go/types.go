@@ -396,6 +396,7 @@ type NewInvoiceResponse struct {
 }
 type OfferConfig struct {
 	Callback_url  string                   `json:"callback_url"`
+	Default_offer bool                     `json:"default_offer"`
 	Expected_data map[string]OfferDataType `json:"expected_data"`
 	Label         string                   `json:"label"`
 	Noffer        string                   `json:"noffer"`

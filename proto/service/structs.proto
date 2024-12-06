@@ -636,6 +636,7 @@ message OfferConfig {
     string callback_url = 4;
     map<string, OfferDataType> expected_data = 5;
     string noffer = 6;
+    bool default_offer = 7;
 }
 
 message UserOffers {

@@ -18,7 +18,7 @@ import { DeepPartial } from 'typeorm';
 import { nip19 } from 'nostr-tools';
 import { LoadNosrtSettingsFromEnv } from '../nostr/index.js';
 
-const mapToOfferConfig = (offer: UserOffer, { pubkey, relay }: { pubkey: string, relay: string }): Types.OfferConfig => {
+const mapToOfferConfig = (appUserId: string, offer: UserOffer, { pubkey, relay }: { pubkey: string, relay: string }): Types.OfferConfig => {
     if (offer.expected_data) {
         const keys = Object.keys(offer.expected_data)
         for (const key of keys) {
@@ -37,7 +37,8 @@ const mapToOfferConfig = (offer: UserOffer, { pubkey, relay }: { pubkey: string,
         callback_url: offer.callback_url,
         expected_data: (offer.expected_data || {}) as Record<string, Types.OfferDataType>,
         offer_id: offer.offer_id,
-        noffer: noffer
+        noffer: noffer,
+        default_offer: appUserId === offer.app_user_id
     }
 }
 export class OfferManager {
@@ -107,7 +108,7 @@ export class OfferManager {
             throw new Error("Offer not found")
         }
         const nostrSettings = LoadNosrtSettingsFromEnv()
-        return mapToOfferConfig(offer, { pubkey: app.npub, relay: nostrSettings.relays[0] })
+        return mapToOfferConfig(ctx.app_user_id, offer, { pubkey: app.npub, relay: nostrSettings.relays[0] })
     }
 
     async GetUserOffers(ctx: Types.UserContext): Promise<Types.UserOffers> {
@@ -118,7 +119,7 @@ export class OfferManager {
         const offers = await this.storage.offerStorage.GetUserOffers(ctx.app_user_id)
         const nostrSettings = LoadNosrtSettingsFromEnv()
         return {
-            offers: offers.map(o => mapToOfferConfig(o, { pubkey: app.npub, relay: nostrSettings.relays[0] }))
+            offers: offers.map(o => mapToOfferConfig(ctx.app_user_id, o, { pubkey: app.npub, relay: nostrSettings.relays[0] }))
         }
     }
 
