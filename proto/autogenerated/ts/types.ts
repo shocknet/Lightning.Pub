@@ -34,8 +34,8 @@ export type UserContext = {
     app_user_id: string
     user_id: string
 }
-export type UserMethodInputs = AddProduct_Input | AddUserOffer_Input | AuthorizeDebit_Input | BanDebit_Input | DecodeInvoice_Input | DeleteUserOffer_Input | EditDebit_Input | EnrollAdminToken_Input | GetDebitAuthorizations_Input | GetLNURLChannelLink_Input | GetLnurlPayLink_Input | GetLnurlWithdrawLink_Input | GetPaymentState_Input | GetUserInfo_Input | GetUserOffer_Input | GetUserOffers_Input | GetUserOperations_Input | NewAddress_Input | NewInvoice_Input | NewProductInvoice_Input | PayAddress_Input | PayInvoice_Input | ResetDebit_Input | RespondToDebit_Input | UpdateCallbackUrl_Input | UpdateUserOffer_Input | UserHealth_Input
-export type UserMethodOutputs = AddProduct_Output | AddUserOffer_Output | AuthorizeDebit_Output | BanDebit_Output | DecodeInvoice_Output | DeleteUserOffer_Output | EditDebit_Output | EnrollAdminToken_Output | GetDebitAuthorizations_Output | GetLNURLChannelLink_Output | GetLnurlPayLink_Output | GetLnurlWithdrawLink_Output | GetPaymentState_Output | GetUserInfo_Output | GetUserOffer_Output | GetUserOffers_Output | GetUserOperations_Output | NewAddress_Output | NewInvoice_Output | NewProductInvoice_Output | PayAddress_Output | PayInvoice_Output | ResetDebit_Output | RespondToDebit_Output | UpdateCallbackUrl_Output | UpdateUserOffer_Output | UserHealth_Output
+export type UserMethodInputs = AddProduct_Input | AddUserOffer_Input | AuthorizeDebit_Input | BanDebit_Input | DecodeInvoice_Input | DeleteUserOffer_Input | EditDebit_Input | EnrollAdminToken_Input | GetDebitAuthorizations_Input | GetLNURLChannelLink_Input | GetLnurlPayLink_Input | GetLnurlWithdrawLink_Input | GetPaymentState_Input | GetUserInfo_Input | GetUserOffer_Input | GetUserOfferInvoices_Input | GetUserOffers_Input | GetUserOperations_Input | NewAddress_Input | NewInvoice_Input | NewProductInvoice_Input | PayAddress_Input | PayInvoice_Input | ResetDebit_Input | RespondToDebit_Input | UpdateCallbackUrl_Input | UpdateUserOffer_Input | UserHealth_Input
+export type UserMethodOutputs = AddProduct_Output | AddUserOffer_Output | AuthorizeDebit_Output | BanDebit_Output | DecodeInvoice_Output | DeleteUserOffer_Output | EditDebit_Output | EnrollAdminToken_Output | GetDebitAuthorizations_Output | GetLNURLChannelLink_Output | GetLnurlPayLink_Output | GetLnurlWithdrawLink_Output | GetPaymentState_Output | GetUserInfo_Output | GetUserOffer_Output | GetUserOfferInvoices_Output | GetUserOffers_Output | GetUserOperations_Output | NewAddress_Output | NewInvoice_Output | NewProductInvoice_Output | PayAddress_Output | PayInvoice_Output | ResetDebit_Output | RespondToDebit_Output | UpdateCallbackUrl_Output | UpdateUserOffer_Output | UserHealth_Output
 export type AuthContext = AdminContext | AppContext | GuestContext | GuestWithPubContext | MetricsContext | UserContext
 
 export type AddApp_Input = {rpcName:'AddApp', req: AddAppRequest}
@@ -166,6 +166,9 @@ export type GetUserInfo_Output = ResultError | ({ status: 'OK' } & UserInfo)
 
 export type GetUserOffer_Input = {rpcName:'GetUserOffer', req: OfferId}
 export type GetUserOffer_Output = ResultError | ({ status: 'OK' } & OfferConfig)
+
+export type GetUserOfferInvoices_Input = {rpcName:'GetUserOfferInvoices', req: GetUserOfferInvoicesReq}
+export type GetUserOfferInvoices_Output = ResultError | ({ status: 'OK' } & OfferInvoices)
 
 export type GetUserOffers_Input = {rpcName:'GetUserOffers'}
 export type GetUserOffers_Output = ResultError | ({ status: 'OK' } & UserOffers)
@@ -314,6 +317,7 @@ export type ServerMethods = {
     GetUsageMetrics?: (req: GetUsageMetrics_Input & {ctx: MetricsContext }) => Promise<UsageMetrics>
     GetUserInfo?: (req: GetUserInfo_Input & {ctx: UserContext }) => Promise<UserInfo>
     GetUserOffer?: (req: GetUserOffer_Input & {ctx: UserContext }) => Promise<OfferConfig>
+    GetUserOfferInvoices?: (req: GetUserOfferInvoices_Input & {ctx: UserContext }) => Promise<OfferInvoices>
     GetUserOffers?: (req: GetUserOffers_Input & {ctx: UserContext }) => Promise<UserOffers>
     GetUserOperations?: (req: GetUserOperations_Input & {ctx: UserContext }) => Promise<GetUserOperationsResponse>
     HandleLnurlAddress?: (req: HandleLnurlAddress_Input & {ctx: GuestContext }) => Promise<LnurlPayInfoResponse>
@@ -1504,6 +1508,29 @@ export const GetProductBuyLinkResponseValidate = (o?: GetProductBuyLinkResponse,
     return null
 }
 
+export type GetUserOfferInvoicesReq = {
+    include_unpaid: boolean
+    offer_id: string
+}
+export const GetUserOfferInvoicesReqOptionalFields: [] = []
+export type GetUserOfferInvoicesReqOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    include_unpaid_CustomCheck?: (v: boolean) => boolean
+    offer_id_CustomCheck?: (v: string) => boolean
+}
+export const GetUserOfferInvoicesReqValidate = (o?: GetUserOfferInvoicesReq, opts: GetUserOfferInvoicesReqOptions = {}, path: string = 'GetUserOfferInvoicesReq::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.include_unpaid !== 'boolean') return new Error(`${path}.include_unpaid: is not a boolean`)
+    if (opts.include_unpaid_CustomCheck && !opts.include_unpaid_CustomCheck(o.include_unpaid)) return new Error(`${path}.include_unpaid: custom check failed`)
+
+    if (typeof o.offer_id !== 'string') return new Error(`${path}.offer_id: is not a string`)
+    if (opts.offer_id_CustomCheck && !opts.offer_id_CustomCheck(o.offer_id)) return new Error(`${path}.offer_id: custom check failed`)
+
+    return null
+}
+
 export type GetUserOperationsRequest = {
     latestIncomingInvoice: number
     latestIncomingTx: number
@@ -2306,6 +2333,69 @@ export const OfferIdValidate = (o?: OfferId, opts: OfferIdOptions = {}, path: st
 
     if (typeof o.offer_id !== 'string') return new Error(`${path}.offer_id: is not a string`)
     if (opts.offer_id_CustomCheck && !opts.offer_id_CustomCheck(o.offer_id)) return new Error(`${path}.offer_id: custom check failed`)
+
+    return null
+}
+
+export type OfferInvoice = {
+    amount: number
+    data: Record<string, string>
+    invoice: string
+    offer_id: string
+    paid_at_unix: number
+}
+export const OfferInvoiceOptionalFields: [] = []
+export type OfferInvoiceOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    amount_CustomCheck?: (v: number) => boolean
+    data_CustomCheck?: (v: Record<string, string>) => boolean
+    invoice_CustomCheck?: (v: string) => boolean
+    offer_id_CustomCheck?: (v: string) => boolean
+    paid_at_unix_CustomCheck?: (v: number) => boolean
+}
+export const OfferInvoiceValidate = (o?: OfferInvoice, opts: OfferInvoiceOptions = {}, path: string = 'OfferInvoice::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.amount !== 'number') return new Error(`${path}.amount: is not a number`)
+    if (opts.amount_CustomCheck && !opts.amount_CustomCheck(o.amount)) return new Error(`${path}.amount: custom check failed`)
+
+    if (typeof o.data !== 'object' || o.data === null) return new Error(`${path}.data: is not an object or is null`)
+    for (const key in o.data) {
+        if (typeof o.data[key] !== 'string') return new Error(`${path}.data['${key}']: is not a string`)
+    }
+
+    if (typeof o.invoice !== 'string') return new Error(`${path}.invoice: is not a string`)
+    if (opts.invoice_CustomCheck && !opts.invoice_CustomCheck(o.invoice)) return new Error(`${path}.invoice: custom check failed`)
+
+    if (typeof o.offer_id !== 'string') return new Error(`${path}.offer_id: is not a string`)
+    if (opts.offer_id_CustomCheck && !opts.offer_id_CustomCheck(o.offer_id)) return new Error(`${path}.offer_id: custom check failed`)
+
+    if (typeof o.paid_at_unix !== 'number') return new Error(`${path}.paid_at_unix: is not a number`)
+    if (opts.paid_at_unix_CustomCheck && !opts.paid_at_unix_CustomCheck(o.paid_at_unix)) return new Error(`${path}.paid_at_unix: custom check failed`)
+
+    return null
+}
+
+export type OfferInvoices = {
+    invoices: OfferInvoice[]
+}
+export const OfferInvoicesOptionalFields: [] = []
+export type OfferInvoicesOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    invoices_ItemOptions?: OfferInvoiceOptions
+    invoices_CustomCheck?: (v: OfferInvoice[]) => boolean
+}
+export const OfferInvoicesValidate = (o?: OfferInvoices, opts: OfferInvoicesOptions = {}, path: string = 'OfferInvoices::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (!Array.isArray(o.invoices)) return new Error(`${path}.invoices: is not an array`)
+    for (let index = 0; index < o.invoices.length; index++) {
+        const invoicesErr = OfferInvoiceValidate(o.invoices[index], opts.invoices_ItemOptions, `${path}.invoices[${index}]`)
+        if (invoicesErr !== null) return invoicesErr
+    }
+    if (opts.invoices_CustomCheck && !opts.invoices_CustomCheck(o.invoices)) return new Error(`${path}.invoices: custom check failed`)
 
     return null
 }

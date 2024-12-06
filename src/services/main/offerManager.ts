@@ -44,11 +44,6 @@ const mapToOfferConfig = (appUserId: string, offer: UserOffer, { pubkey, relay }
 export class OfferManager {
 
 
-
-
-
-
-
     _nostrSend: NostrSend | null = null
 
     applicationManager: ApplicationManager
@@ -96,6 +91,22 @@ export class OfferManager {
             price_sats: req.price_sats,
             callback_url: req.callback_url,
         })
+    }
+    async GetUserOfferInvoices(ctx: Types.UserContext, req: Types.GetUserOfferInvoicesReq): Promise<Types.OfferInvoices> {
+        const userOffer = await this.storage.offerStorage.GetUserOffer(ctx.app_user_id, req.offer_id)
+        if (!userOffer) {
+            throw new Error("Offer not found")
+        }
+        const i = await this.storage.paymentStorage.GetOfferInvoices(req.offer_id, req.include_unpaid)
+        return {
+            invoices: i.map(i => ({
+                invoice: i.invoice,
+                offer_id: i.offer_id || "",
+                paid_at_unix: i.paid_at_unix,
+                amount: i.paid_amount,
+                data: i.payer_data || {}
+            }))
+        }
     }
 
     async GetUserOffer(ctx: Types.UserContext, req: Types.OfferId): Promise<Types.OfferConfig> {

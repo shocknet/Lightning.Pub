@@ -274,6 +274,10 @@ type GetPaymentStateRequest struct {
 type GetProductBuyLinkResponse struct {
 	Link string `json:"link"`
 }
+type GetUserOfferInvoicesReq struct {
+	Include_unpaid bool   `json:"include_unpaid"`
+	Offer_id       string `json:"offer_id"`
+}
 type GetUserOperationsRequest struct {
 	Latestincominginvoice           int64 `json:"latestIncomingInvoice"`
 	Latestincomingtx                int64 `json:"latestIncomingTx"`
@@ -405,6 +409,16 @@ type OfferConfig struct {
 }
 type OfferId struct {
 	Offer_id string `json:"offer_id"`
+}
+type OfferInvoice struct {
+	Amount       int64             `json:"amount"`
+	Data         map[string]string `json:"data"`
+	Invoice      string            `json:"invoice"`
+	Offer_id     string            `json:"offer_id"`
+	Paid_at_unix int64             `json:"paid_at_unix"`
+}
+type OfferInvoices struct {
+	Invoices []OfferInvoice `json:"invoices"`
 }
 type OpenChannel struct {
 	Active         bool           `json:"active"`

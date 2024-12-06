@@ -95,6 +95,7 @@ type Client struct {
 	GetUsageMetrics             func() (*UsageMetrics, error)
 	GetUserInfo                 func() (*UserInfo, error)
 	GetUserOffer                func(req OfferId) (*OfferConfig, error)
+	GetUserOfferInvoices        func(req GetUserOfferInvoicesReq) (*OfferInvoices, error)
 	GetUserOffers               func() (*UserOffers, error)
 	GetUserOperations           func(req GetUserOperationsRequest) (*GetUserOperationsResponse, error)
 	HandleLnurlAddress          func(routeParams HandleLnurlAddress_RouteParams) (*LnurlPayInfoResponse, error)
@@ -1104,6 +1105,35 @@ func NewClient(params ClientParams) *Client {
 				return nil, fmt.Errorf(result.Reason)
 			}
 			res := OfferConfig{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
+		},
+		GetUserOfferInvoices: func(req GetUserOfferInvoicesReq) (*OfferInvoices, error) {
+			auth, err := params.RetrieveUserAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/user/offer/get/invoices"
+			body, err := json.Marshal(req)
+			if err != nil {
+				return nil, err
+			}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return nil, err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := OfferInvoices{}
 			err = json.Unmarshal(resBody, &res)
 			if err != nil {
 				return nil, err

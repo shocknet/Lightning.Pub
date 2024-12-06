@@ -454,4 +454,12 @@ export default class {
     async GetPendingPayments(entityManager = this.DB) {
         return entityManager.getRepository(UserInvoicePayment).find({ where: { paid_at_unix: 0 } })
     }
+
+    async GetOfferInvoices(offerId: string, includeUnpaid: boolean, entityManager = this.DB) {
+        const where: { offer_id: string, paid_at_unix?: FindOperator<number> } = { offer_id: offerId }
+        if (!includeUnpaid) {
+            where.paid_at_unix = MoreThan(0)
+        }
+        return entityManager.getRepository(UserReceivingInvoice).find({ where })
+    }
 }

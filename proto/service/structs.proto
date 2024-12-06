@@ -642,3 +642,20 @@ message OfferConfig {
 message UserOffers {
     repeated OfferConfig offers = 1;
 }
+
+message GetUserOfferInvoicesReq {
+    string offer_id = 1;
+    bool include_unpaid = 2;
+}
+
+message OfferInvoices {
+    repeated OfferInvoice invoices = 1;
+}
+
+message OfferInvoice {
+    string invoice = 1;
+    string offer_id = 2;
+    int64 paid_at_unix = 3;
+    int64 amount = 4;
+    map<string,string> data = 5;
+}

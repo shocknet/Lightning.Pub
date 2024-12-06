@@ -168,6 +168,11 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [OfferId](#OfferId)
   - output: [OfferConfig](#OfferConfig)
 
+- GetUserOfferInvoices
+  - auth type: __User__
+  - input: [GetUserOfferInvoicesReq](#GetUserOfferInvoicesReq)
+  - output: [OfferInvoices](#OfferInvoices)
+
 - GetUserOffers
   - auth type: __User__
   - This methods has an __empty__ __request__ body
@@ -585,6 +590,13 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [OfferId](#OfferId)
   - output: [OfferConfig](#OfferConfig)
 
+- GetUserOfferInvoices
+  - auth type: __User__
+  - http method: __post__
+  - http route: __/api/user/offer/get/invoices__
+  - input: [GetUserOfferInvoicesReq](#GetUserOfferInvoicesReq)
+  - output: [OfferInvoices](#OfferInvoices)
+
 - GetUserOffers
   - auth type: __User__
   - http method: __get__
@@ -998,6 +1010,10 @@ The nostr server will send back a message response, and inside the body there wi
 ### GetProductBuyLinkResponse
   - __link__: _string_
 
+### GetUserOfferInvoicesReq
+  - __include_unpaid__: _boolean_
+  - __offer_id__: _string_
+
 ### GetUserOperationsRequest
   - __latestIncomingInvoice__: _number_
   - __latestIncomingTx__: _number_
@@ -1129,6 +1145,16 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### OfferId
   - __offer_id__: _string_
+
+### OfferInvoice
+  - __amount__: _number_
+  - __data__: MAP with key: _string_ and value: _string_
+  - __invoice__: _string_
+  - __offer_id__: _string_
+  - __paid_at_unix__: _number_
+
+### OfferInvoices
+  - __invoices__: ARRAY of: _[OfferInvoice](#OfferInvoice)_
 
 ### OpenChannel
   - __active__: _boolean_

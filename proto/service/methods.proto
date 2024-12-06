@@ -481,6 +481,12 @@ service LightningPub {
         option (http_route) = "/api/user/offer/get";
         option (nostr) = true;
     }
+    rpc GetUserOfferInvoices(structs.GetUserOfferInvoicesReq) returns (structs.OfferInvoices){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/offer/get/invoices";
+        option (nostr) = true;
+    }
 
     rpc UpdateUserOffer(structs.OfferConfig) returns (structs.Empty){
         option (auth_type)  = "User";

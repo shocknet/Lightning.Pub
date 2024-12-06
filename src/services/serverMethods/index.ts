@@ -350,6 +350,13 @@ export default (mainHandler: Main): Types.ServerMethods => {
             })
             if (err != null) throw new Error(err.message)
             return mainHandler.offerManager.GetUserOffer(ctx, req)
+        },
+        GetUserOfferInvoices: async ({ ctx, req }) => {
+            const err = Types.GetUserOfferInvoicesReqValidate(req, {
+                offer_id_CustomCheck: id => id !== ''
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.offerManager.GetUserOfferInvoices(ctx, req)
         }
     }
 }
