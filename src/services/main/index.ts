@@ -242,15 +242,15 @@ export default class {
         if (!url) {
             return
         }
-        url.replace(`%[invoice]`, invoice).replace(`%[amount]`, amount.toString())
+        let finalUrl = url.replace(`%[invoice]`, invoice).replace(`%[amount]`, amount.toString())
         if (other) {
             for (const [key, value] of Object.entries(other)) {
-                url.replace(`%[${key}]`, value)
+                finalUrl = url.replace(`%[${key}]`, value)
             }
         }
         try {
             const symbol = url.includes('?') ? "&" : "?"
-            const finalUrl = url + symbol + "ok=true"
+            finalUrl = finalUrl + symbol + "ok=true"
             log("sending paid callback to", finalUrl)
             await fetch(finalUrl)
         } catch (err: any) {
