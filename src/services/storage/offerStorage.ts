@@ -13,6 +13,14 @@ export default class {
         this.DB = DB
         this.txQueue = txQueue
     }
+    async AddDefaultUserOffer(appUserId: string): Promise<UserOffer> {
+        const newUserOffer = this.DB.getRepository(UserOffer).create({
+            app_user_id: appUserId,
+            offer_id: appUserId,
+            label: 'Default NIP-69 Offer',
+        })
+        return this.txQueue.PushToQueue<UserOffer>({ exec: async db => db.getRepository(UserOffer).save(newUserOffer), dbTx: false, description: `add default offer for ${appUserId}` })
+    }
     async AddUserOffer(appUserId: string, req: Partial<UserOffer>): Promise<UserOffer> {
         const newUserOffer = this.DB.getRepository(UserOffer).create({
             ...req,

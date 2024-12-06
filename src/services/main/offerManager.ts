@@ -117,6 +117,14 @@ export class OfferManager {
             throw new Error("App not found")
         }
         const offers = await this.storage.offerStorage.GetUserOffers(ctx.app_user_id)
+        const defaultOffer = offers.find(o => o.app_user_id === o.offer_id)
+        let toAppend: UserOffer | undefined = undefined
+        if (!defaultOffer) {
+            toAppend = await this.storage.offerStorage.AddDefaultUserOffer(ctx.app_user_id)
+        }
+        if (toAppend) {
+            offers.push(toAppend)
+        }
         const nostrSettings = LoadNosrtSettingsFromEnv()
         return {
             offers: offers.map(o => mapToOfferConfig(ctx.app_user_id, o, { pubkey: app.npub, relay: nostrSettings.relays[0] }))
