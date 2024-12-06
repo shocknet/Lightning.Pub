@@ -246,7 +246,9 @@ export default class {
         }
         try {
             const symbol = url.includes('?') ? "&" : "?"
-            await fetch(url + symbol + "ok=true")
+            const finalUrl = url + symbol + "ok=true"
+            log("sending paid callback to", finalUrl)
+            await fetch(finalUrl)
         } catch (err: any) {
             log(ERROR, "error sending paid callback for invoice", err.message || "")
         }
