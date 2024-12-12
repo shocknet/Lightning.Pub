@@ -612,7 +612,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
                                 throw new Error('method UserHealth not found' )
                             } else {
                                 opStats.validate = opStats.guard
-                                await methods.UserHealth({...operation, ctx}); responses.push({ status: 'OK' })
+                                const res = await methods.UserHealth({...operation, ctx}); responses.push({ status: 'OK', ...res  })
                                 opStats.handle = process.hrtime.bigint()
                                 callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
                             }
@@ -1799,9 +1799,9 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             stats.validate = stats.guard
             const query = req.query
             const params = req.params
-             await methods.UserHealth({rpcName:'UserHealth', ctx:authContext })
+            const response =  await methods.UserHealth({rpcName:'UserHealth', ctx:authContext })
             stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK'})
+            res.json({status: 'OK', ...response})
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })

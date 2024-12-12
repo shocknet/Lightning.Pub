@@ -263,7 +263,7 @@ The nostr server will send back a message response, and inside the body there wi
 - UserHealth
   - auth type: __User__
   - This methods has an __empty__ __request__ body
-  - This methods has an __empty__ __response__ body
+  - output: [UserHealthState](#UserHealthState)
 
 # HTTP API DEFINITION
 
@@ -817,7 +817,7 @@ The nostr server will send back a message response, and inside the body there wi
   - http method: __post__
   - http route: __/api/user/health__
   - This methods has an __empty__ __request__ body
-  - This methods has an __empty__ __response__ body
+  - output: [UserHealthState](#UserHealthState)
 
 # INPUTS AND OUTPUTS
 
@@ -1290,6 +1290,9 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### UseInviteLinkRequest
   - __invite_token__: _string_
+
+### UserHealthState
+  - __downtime_reason__: _string_
 
 ### UserInfo
   - __balance__: _number_

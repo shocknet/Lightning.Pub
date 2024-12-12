@@ -555,6 +555,9 @@ type UsageMetrics struct {
 type UseInviteLinkRequest struct {
 	Invite_token string `json:"invite_token"`
 }
+type UserHealthState struct {
+	Downtime_reason string `json:"downtime_reason"`
+}
 type UserInfo struct {
 	Balance               int64  `json:"balance"`
 	Bridge_url            string `json:"bridge_url"`

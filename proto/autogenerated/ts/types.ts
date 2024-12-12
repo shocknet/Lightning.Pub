@@ -274,7 +274,7 @@ export type UseInviteLink_Input = {rpcName:'UseInviteLink', req: UseInviteLinkRe
 export type UseInviteLink_Output = ResultError | { status: 'OK' }
 
 export type UserHealth_Input = {rpcName:'UserHealth'}
-export type UserHealth_Output = ResultError | { status: 'OK' }
+export type UserHealth_Output = ResultError | ({ status: 'OK' } & UserHealthState)
 
 export type ServerMethods = {
     AddApp?: (req: AddApp_Input & {ctx: AdminContext }) => Promise<AuthApp>
@@ -347,7 +347,7 @@ export type ServerMethods = {
     UpdateChannelPolicy?: (req: UpdateChannelPolicy_Input & {ctx: AdminContext }) => Promise<void>
     UpdateUserOffer?: (req: UpdateUserOffer_Input & {ctx: UserContext }) => Promise<void>
     UseInviteLink?: (req: UseInviteLink_Input & {ctx: GuestWithPubContext }) => Promise<void>
-    UserHealth?: (req: UserHealth_Input & {ctx: UserContext }) => Promise<void>
+    UserHealth?: (req: UserHealth_Input & {ctx: UserContext }) => Promise<UserHealthState>
 }
 
 export enum AddressType {
@@ -3165,6 +3165,24 @@ export const UseInviteLinkRequestValidate = (o?: UseInviteLinkRequest, opts: Use
 
     if (typeof o.invite_token !== 'string') return new Error(`${path}.invite_token: is not a string`)
     if (opts.invite_token_CustomCheck && !opts.invite_token_CustomCheck(o.invite_token)) return new Error(`${path}.invite_token: custom check failed`)
+
+    return null
+}
+
+export type UserHealthState = {
+    downtime_reason: string
+}
+export const UserHealthStateOptionalFields: [] = []
+export type UserHealthStateOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    downtime_reason_CustomCheck?: (v: string) => boolean
+}
+export const UserHealthStateValidate = (o?: UserHealthState, opts: UserHealthStateOptions = {}, path: string = 'UserHealthState::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.downtime_reason !== 'string') return new Error(`${path}.downtime_reason: is not a string`)
+    if (opts.downtime_reason_CustomCheck && !opts.downtime_reason_CustomCheck(o.downtime_reason)) return new Error(`${path}.downtime_reason: custom check failed`)
 
     return null
 }

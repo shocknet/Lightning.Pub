@@ -15,6 +15,10 @@ message EncryptionExchangeRequest {
     string deviceId = 2;
 }
 
+message UserHealthState {
+    string downtime_reason = 1;
+}
+
 message UsageMetric {
     int64 processed_at_ms = 1;
     int64 parsed_in_nano = 2;

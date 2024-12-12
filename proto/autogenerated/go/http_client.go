@@ -125,7 +125,7 @@ type Client struct {
 	UpdateChannelPolicy         func(req UpdateChannelPolicyRequest) error
 	UpdateUserOffer             func(req OfferConfig) error
 	UseInviteLink               func(req UseInviteLinkRequest) error
-	UserHealth                  func() error
+	UserHealth                  func() (*UserHealthState, error)
 }
 
 func NewClient(params ClientParams) *Client {
@@ -1904,26 +1904,31 @@ func NewClient(params ClientParams) *Client {
 			}
 			return nil
 		},
-		UserHealth: func() error {
+		UserHealth: func() (*UserHealthState, error) {
 			auth, err := params.RetrieveUserAuth()
 			if err != nil {
-				return err
+				return nil, err
 			}
 			finalRoute := "/api/user/health"
 			body := []byte{}
 			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			result := ResultError{}
 			err = json.Unmarshal(resBody, &result)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			if result.Status == "ERROR" {
-				return fmt.Errorf(result.Reason)
+				return nil, fmt.Errorf(result.Reason)
 			}
-			return nil
+			res := UserHealthState{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
 		},
 	}
 }
