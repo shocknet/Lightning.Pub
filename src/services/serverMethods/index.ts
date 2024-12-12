@@ -73,7 +73,7 @@ export default (mainHandler: Main): Types.ServerMethods => {
             if (err != null) throw new Error(err.message)
             await mainHandler.paymentManager.SetMockInvoiceAsPaid(req)
         },
-        UserHealth: async () => { },
+        UserHealth: async () => { await mainHandler.lnd.Health() },
         GetUserInfo: ({ ctx }) => mainHandler.appUserManager.GetUserInfo(ctx),
         UpdateCallbackUrl: async ({ ctx, req }) => {
             return mainHandler.appUserManager.UpdateCallbackUrl(ctx, req)
