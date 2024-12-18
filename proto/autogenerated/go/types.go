@@ -130,6 +130,9 @@ type AppMetrics struct {
 	Total_fees int64           `json:"total_fees"`
 	Users      *UsersInfo      `json:"users"`
 }
+type AppUsageMetrics struct {
+	App_metrics map[string]UsageMetricTlv `json:"app_metrics"`
+}
 type AppUser struct {
 	Identifier       string    `json:"identifier"`
 	Info             *UserInfo `json:"info"`
@@ -539,6 +542,7 @@ type UpdateChannelPolicyRequest struct {
 	Update *UpdateChannelPolicyRequest_update `json:"update"`
 }
 type UsageMetric struct {
+	App_id           string `json:"app_id"`
 	Auth_in_nano     int64  `json:"auth_in_nano"`
 	Batch            bool   `json:"batch"`
 	Batch_size       int64  `json:"batch_size"`
@@ -547,10 +551,14 @@ type UsageMetric struct {
 	Parsed_in_nano   int64  `json:"parsed_in_nano"`
 	Processed_at_ms  int64  `json:"processed_at_ms"`
 	Rpc_name         string `json:"rpc_name"`
+	Success          bool   `json:"success"`
 	Validate_in_nano int64  `json:"validate_in_nano"`
 }
+type UsageMetricTlv struct {
+	Base_64_tlvs []string `json:"base_64_tlvs"`
+}
 type UsageMetrics struct {
-	Metrics []UsageMetric `json:"metrics"`
+	Apps map[string]AppUsageMetrics `json:"apps"`
 }
 type UseInviteLinkRequest struct {
 	Invite_token string `json:"invite_token"`

@@ -866,6 +866,9 @@ The nostr server will send back a message response, and inside the body there wi
   - __total_fees__: _number_
   - __users__: _[UsersInfo](#UsersInfo)_
 
+### AppUsageMetrics
+  - __app_metrics__: MAP with key: _string_ and value: _[UsageMetricTlv](#UsageMetricTlv)_
+
 ### AppUser
   - __identifier__: _string_
   - __info__: _[UserInfo](#UserInfo)_
@@ -1275,6 +1278,7 @@ The nostr server will send back a message response, and inside the body there wi
   - __update__: _[UpdateChannelPolicyRequest_update](#UpdateChannelPolicyRequest_update)_
 
 ### UsageMetric
+  - __app_id__: _string_ *this field is optional
   - __auth_in_nano__: _number_
   - __batch__: _boolean_
   - __batch_size__: _number_
@@ -1283,10 +1287,14 @@ The nostr server will send back a message response, and inside the body there wi
   - __parsed_in_nano__: _number_
   - __processed_at_ms__: _number_
   - __rpc_name__: _string_
+  - __success__: _boolean_
   - __validate_in_nano__: _number_
 
+### UsageMetricTlv
+  - __base_64_tlvs__: ARRAY of: _string_
+
 ### UsageMetrics
-  - __metrics__: ARRAY of: _[UsageMetric](#UsageMetric)_
+  - __apps__: MAP with key: _string_ and value: _[AppUsageMetrics](#AppUsageMetrics)_
 
 ### UseInviteLinkRequest
   - __invite_token__: _string_

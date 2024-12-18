@@ -29,10 +29,20 @@ message UsageMetric {
     bool batch = 7;
     bool nostr = 8;
     int64 batch_size = 9;
+    bool success = 10;
+    optional string app_id = 11;
+}
+
+message UsageMetricTlv {
+    repeated string base_64_tlvs = 1;
+}
+
+message AppUsageMetrics {
+    map<string,UsageMetricTlv> app_metrics = 1;
 }
 
 message UsageMetrics {
-    repeated UsageMetric metrics = 1; 
+    map<string,AppUsageMetrics> apps = 1;
 }
 
 message AppsMetricsRequest {

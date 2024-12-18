@@ -644,6 +644,28 @@ export const AppMetricsValidate = (o?: AppMetrics, opts: AppMetricsOptions = {},
     return null
 }
 
+export type AppUsageMetrics = {
+    app_metrics: Record<string, UsageMetricTlv>
+}
+export const AppUsageMetricsOptionalFields: [] = []
+export type AppUsageMetricsOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    app_metrics_EntryOptions?: UsageMetricTlvOptions
+    app_metrics_CustomCheck?: (v: Record<string, UsageMetricTlv>) => boolean
+}
+export const AppUsageMetricsValidate = (o?: AppUsageMetrics, opts: AppUsageMetricsOptions = {}, path: string = 'AppUsageMetrics::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.app_metrics !== 'object' || o.app_metrics === null) return new Error(`${path}.app_metrics: is not an object or is null`)
+    for (const key in o.app_metrics) {
+        const app_metricsErr = UsageMetricTlvValidate(o.app_metrics[key], opts.app_metrics_EntryOptions, `${path}.app_metrics['${key}']`)
+        if (app_metricsErr !== null) return app_metricsErr
+    }
+
+    return null
+}
+
 export type AppUser = {
     identifier: string
     info: UserInfo
@@ -3071,6 +3093,7 @@ export const UpdateChannelPolicyRequestValidate = (o?: UpdateChannelPolicyReques
 }
 
 export type UsageMetric = {
+    app_id?: string
     auth_in_nano: number
     batch: boolean
     batch_size: number
@@ -3079,11 +3102,14 @@ export type UsageMetric = {
     parsed_in_nano: number
     processed_at_ms: number
     rpc_name: string
+    success: boolean
     validate_in_nano: number
 }
-export const UsageMetricOptionalFields: [] = []
+export type UsageMetricOptionalField = 'app_id'
+export const UsageMetricOptionalFields: UsageMetricOptionalField[] = ['app_id']
 export type UsageMetricOptions = OptionsBaseMessage & {
-    checkOptionalsAreSet?: []
+    checkOptionalsAreSet?: UsageMetricOptionalField[]
+    app_id_CustomCheck?: (v?: string) => boolean
     auth_in_nano_CustomCheck?: (v: number) => boolean
     batch_CustomCheck?: (v: boolean) => boolean
     batch_size_CustomCheck?: (v: number) => boolean
@@ -3092,11 +3118,15 @@ export type UsageMetricOptions = OptionsBaseMessage & {
     parsed_in_nano_CustomCheck?: (v: number) => boolean
     processed_at_ms_CustomCheck?: (v: number) => boolean
     rpc_name_CustomCheck?: (v: string) => boolean
+    success_CustomCheck?: (v: boolean) => boolean
     validate_in_nano_CustomCheck?: (v: number) => boolean
 }
 export const UsageMetricValidate = (o?: UsageMetric, opts: UsageMetricOptions = {}, path: string = 'UsageMetric::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
     if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if ((o.app_id || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('app_id')) && typeof o.app_id !== 'string') return new Error(`${path}.app_id: is not a string`)
+    if (opts.app_id_CustomCheck && !opts.app_id_CustomCheck(o.app_id)) return new Error(`${path}.app_id: custom check failed`)
 
     if (typeof o.auth_in_nano !== 'number') return new Error(`${path}.auth_in_nano: is not a number`)
     if (opts.auth_in_nano_CustomCheck && !opts.auth_in_nano_CustomCheck(o.auth_in_nano)) return new Error(`${path}.auth_in_nano: custom check failed`)
@@ -3122,31 +3152,54 @@ export const UsageMetricValidate = (o?: UsageMetric, opts: UsageMetricOptions = 
     if (typeof o.rpc_name !== 'string') return new Error(`${path}.rpc_name: is not a string`)
     if (opts.rpc_name_CustomCheck && !opts.rpc_name_CustomCheck(o.rpc_name)) return new Error(`${path}.rpc_name: custom check failed`)
 
+    if (typeof o.success !== 'boolean') return new Error(`${path}.success: is not a boolean`)
+    if (opts.success_CustomCheck && !opts.success_CustomCheck(o.success)) return new Error(`${path}.success: custom check failed`)
+
     if (typeof o.validate_in_nano !== 'number') return new Error(`${path}.validate_in_nano: is not a number`)
     if (opts.validate_in_nano_CustomCheck && !opts.validate_in_nano_CustomCheck(o.validate_in_nano)) return new Error(`${path}.validate_in_nano: custom check failed`)
 
     return null
 }
 
+export type UsageMetricTlv = {
+    base_64_tlvs: string[]
+}
+export const UsageMetricTlvOptionalFields: [] = []
+export type UsageMetricTlvOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    base_64_tlvs_CustomCheck?: (v: string[]) => boolean
+}
+export const UsageMetricTlvValidate = (o?: UsageMetricTlv, opts: UsageMetricTlvOptions = {}, path: string = 'UsageMetricTlv::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (!Array.isArray(o.base_64_tlvs)) return new Error(`${path}.base_64_tlvs: is not an array`)
+    for (let index = 0; index < o.base_64_tlvs.length; index++) {
+        if (typeof o.base_64_tlvs[index] !== 'string') return new Error(`${path}.base_64_tlvs[${index}]: is not a string`)
+    }
+    if (opts.base_64_tlvs_CustomCheck && !opts.base_64_tlvs_CustomCheck(o.base_64_tlvs)) return new Error(`${path}.base_64_tlvs: custom check failed`)
+
+    return null
+}
+
 export type UsageMetrics = {
-    metrics: UsageMetric[]
+    apps: Record<string, AppUsageMetrics>
 }
 export const UsageMetricsOptionalFields: [] = []
 export type UsageMetricsOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
-    metrics_ItemOptions?: UsageMetricOptions
-    metrics_CustomCheck?: (v: UsageMetric[]) => boolean
+    apps_EntryOptions?: AppUsageMetricsOptions
+    apps_CustomCheck?: (v: Record<string, AppUsageMetrics>) => boolean
 }
 export const UsageMetricsValidate = (o?: UsageMetrics, opts: UsageMetricsOptions = {}, path: string = 'UsageMetrics::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
     if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
 
-    if (!Array.isArray(o.metrics)) return new Error(`${path}.metrics: is not an array`)
-    for (let index = 0; index < o.metrics.length; index++) {
-        const metricsErr = UsageMetricValidate(o.metrics[index], opts.metrics_ItemOptions, `${path}.metrics[${index}]`)
-        if (metricsErr !== null) return metricsErr
+    if (typeof o.apps !== 'object' || o.apps === null) return new Error(`${path}.apps: is not an object or is null`)
+    for (const key in o.apps) {
+        const appsErr = AppUsageMetricsValidate(o.apps[key], opts.apps_EntryOptions, `${path}.apps['${key}']`)
+        if (appsErr !== null) return appsErr
     }
-    if (opts.metrics_CustomCheck && !opts.metrics_CustomCheck(o.metrics)) return new Error(`${path}.metrics: custom check failed`)
 
     return null
 }

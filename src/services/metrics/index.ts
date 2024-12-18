@@ -7,14 +7,16 @@ import { BalanceEvent } from '../storage/entity/BalanceEvent.js'
 import { ChannelBalanceEvent } from '../storage/entity/ChannelsBalanceEvent.js'
 import LND from '../lnd/lnd.js'
 import HtlcTracker from './htlcTracker.js'
+import { encodeTLV, usageMetricsToTlv } from './tlv.js'
 const maxEvents = 100_000
+
 export default class Handler {
 
 
     storage: Storage
     lnd: LND
     htlcTracker: HtlcTracker
-    metrics: Types.UsageMetric[] = []
+    metrics: Record<string, Types.AppUsageMetrics> = {}
     constructor(storage: Storage, lnd: LND) {
         this.storage = storage
         this.lnd = lnd
@@ -63,27 +65,39 @@ export default class Handler {
     }
 
     AddMetrics(newMetrics: (Types.RequestMetric & { app_id?: string })[]) {
-        const parsed: Types.UsageMetric[] = newMetrics.map(m => ({
-            rpc_name: m.rpcName,
-            batch: m.batch,
-            nostr: m.nostr,
-            batch_size: m.batchSize,
-            parsed_in_nano: Number(m.parse - m.start),
-            auth_in_nano: Number(m.guard - m.parse),
-            validate_in_nano: Number(m.validate - m.guard),
-            handle_in_nano: Number(m.handle - m.validate),
-            success: !m.error,
-            app_id: m.app_id ? m.app_id : "",
-            processed_at_ms: m.startMs
-        }))
-        const len = this.metrics.push(...parsed)
-        if (len > maxEvents) {
-            this.metrics.splice(0, len - maxEvents)
-        }
+        newMetrics.forEach(m => {
+            const appId = m.app_id || "_root"
+            const um: Types.UsageMetric = {
+                rpc_name: m.rpcName,
+                batch: m.batch,
+                nostr: m.nostr,
+                batch_size: m.batchSize,
+                parsed_in_nano: Number(m.parse - m.start),
+                auth_in_nano: Number(m.guard - m.parse),
+                validate_in_nano: Number(m.validate - m.guard),
+                handle_in_nano: Number(m.handle - m.validate),
+                success: !m.error,
+                app_id: m.app_id ? m.app_id : "",
+                processed_at_ms: m.startMs
+            }
+            const tlv = usageMetricsToTlv(um)
+            const tlvString = Buffer.from(encodeTLV(tlv)).toString("base64")
+            if (!this.metrics[appId]) {
+                this.metrics[appId] = { app_metrics: {} }
+            }
+            if (!this.metrics[appId].app_metrics[m.rpcName]) {
+                this.metrics[appId].app_metrics[m.rpcName] = { base_64_tlvs: [] }
+            }
+            const len = this.metrics[appId].app_metrics[m.rpcName].base_64_tlvs.push(tlvString)
+            if (len > maxEvents) {
+                this.metrics[appId].app_metrics[m.rpcName].base_64_tlvs.splice(0, len - maxEvents)
+            }
+        })
     }
+
     async GetUsageMetrics(): Promise<Types.UsageMetrics> {
         return {
-            metrics: this.metrics
+            apps: this.metrics
         }
     }
     async GetAppsMetrics(req: Types.AppsMetricsRequest): Promise<Types.AppsMetrics> {
