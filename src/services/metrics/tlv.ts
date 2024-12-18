@@ -5,7 +5,7 @@ export const utf8Encoder: TextEncoder = new TextEncoder()
 
 export const usageMetricsToTlv = (metric: Types.UsageMetric): TLV => {
     const tlv: TLV = {}
-    tlv[2] = [integerToUint8Array(metric.processed_at_ms)] // 6 -> 6
+    tlv[2] = [integerToUint8Array(metric.processed_at_ms / 1000)] // 6 -> 6
     tlv[3] = [integerToUint8Array(metric.parsed_in_nano)] // 6 -> 12
     tlv[4] = [integerToUint8Array(metric.auth_in_nano)] // 6 -> 18
     tlv[5] = [integerToUint8Array(metric.validate_in_nano)] // 6 -> 24
@@ -20,7 +20,7 @@ export const usageMetricsToTlv = (metric: Types.UsageMetric): TLV => {
 export const tlvToUsageMetrics = (rpcName: string, tlv: TLV): Types.UsageMetric => {
     const metric: Types.UsageMetric = {
         rpc_name: rpcName,
-        processed_at_ms: parseInt(bytesToHex(tlv[2][0]), 16),
+        processed_at_ms: parseInt(bytesToHex(tlv[2][0]), 16) * 1000,
         parsed_in_nano: parseInt(bytesToHex(tlv[3][0]), 16),
         auth_in_nano: parseInt(bytesToHex(tlv[4][0]), 16),
         validate_in_nano: parseInt(bytesToHex(tlv[5][0]), 16),
