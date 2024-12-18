@@ -13,7 +13,7 @@ import { UserToUserPayment } from './entity/UserToUserPayment.js';
 import { Application } from './entity/Application.js';
 import TransactionsQueue from "./transactionsQueue.js";
 import { LoggedEvent } from './eventsLog.js';
-export type InboundOptionals = { product?: Product, callbackUrl?: string, expiry: number, expectedPayer?: User, linkedApplication?: Application, zapInfo?: ZapInfo }
+export type InboundOptionals = { product?: Product, callbackUrl?: string, expiry: number, expectedPayer?: User, linkedApplication?: Application, zapInfo?: ZapInfo, offerId?: string, payerData?: Record<string, string> }
 export const defaultInvoiceExpiry = 60 * 60
 export default class {
     DB: DataSource | EntityManager
@@ -102,7 +102,9 @@ export default class {
             payer: options.expectedPayer,
             linkedApplication: options.linkedApplication,
             zap_info: options.zapInfo,
-            liquidityProvider: providerDestination
+            liquidityProvider: providerDestination,
+            offer_id: options.offerId,
+            payer_data: options.payerData,
         })
         return this.txQueue.PushToQueue<UserReceivingInvoice>({ exec: async db => db.getRepository(UserReceivingInvoice).save(newUserInvoice), dbTx: false, description: `add invoice for ${user.user_id} linked to ${options.linkedApplication?.app_id}: ${invoice} ` })
     }
@@ -451,5 +453,13 @@ export default class {
 
     async GetPendingPayments(entityManager = this.DB) {
         return entityManager.getRepository(UserInvoicePayment).find({ where: { paid_at_unix: 0 } })
+    }
+
+    async GetOfferInvoices(offerId: string, includeUnpaid: boolean, entityManager = this.DB) {
+        const where: { offer_id: string, paid_at_unix?: FindOperator<number> } = { offer_id: offerId }
+        if (!includeUnpaid) {
+            where.paid_at_unix = MoreThan(0)
+        }
+        return entityManager.getRepository(UserReceivingInvoice).find({ where })
     }
 }

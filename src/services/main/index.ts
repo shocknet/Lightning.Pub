@@ -24,6 +24,7 @@ import { Unlocker } from "./unlocker.js"
 import { defaultInvoiceExpiry } from "../storage/paymentStorage.js"
 import { DebitManager } from "./debitManager.js"
 import { NofferData } from "nostr-tools/lib/types/nip69.js"
+import { OfferManager } from "./offerManager.js"
 
 type UserOperationsSub = {
     id: string
@@ -49,6 +50,7 @@ export default class {
     liquidityManager: LiquidityManager
     liquidityProvider: LiquidityProvider
     debitManager: DebitManager
+    offerManager: OfferManager
     utils: Utils
     rugPullTracker: RugPullTracker
     unlocker: Unlocker
@@ -71,6 +73,8 @@ export default class {
         this.applicationManager = new ApplicationManager(this.storage, this.settings, this.paymentManager)
         this.appUserManager = new AppUserManager(this.storage, this.settings, this.applicationManager)
         this.debitManager = new DebitManager(this.storage, this.lnd, this.applicationManager)
+        this.offerManager = new OfferManager(this.storage, this.lnd, this.applicationManager, this.productManager)
+
     }
 
     Stop() {
@@ -89,6 +93,7 @@ export default class {
         this.nostrSend = f
         this.liquidityProvider.attachNostrSend(f)
         this.debitManager.attachNostrSend(f)
+        this.offerManager.attachNostrSend(f)
     }
 
     htlcCb: HtlcCb = (e) => {
@@ -215,11 +220,15 @@ export default class {
                 if (fee > 0) {
                     await this.storage.userStorage.IncrementUserBalance(userInvoice.linkedApplication.owner.user_id, fee, 'fees', tx)
                 }
-                await this.triggerPaidCallback(log, userInvoice.callbackUrl)
+                await this.triggerPaidCallback(log, userInvoice.callbackUrl, { invoice: paymentRequest, amount, other: userInvoice.payer_data })
                 const operationId = `${Types.UserOperationType.INCOMING_INVOICE}-${userInvoice.serial_id}`
                 const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_INVOICE, identifier: userInvoice.invoice, operationId, network_fee: 0, service_fee: fee, confirmed: true, tx_hash: "", internal }
                 this.sendOperationToNostr(userInvoice.linkedApplication, userInvoice.user.user_id, op)
-                this.createZapReceipt(log, userInvoice)
+                try {
+                    this.createZapReceipt(log, userInvoice)
+                } catch (err: any) {
+                    log(ERROR, "cannot create zap receipt", err.message || "")
+                }
                 this.liquidityManager.afterInInvoicePaid()
                 this.utils.stateBundler.AddTxPoint('invoiceWasPaid', amount, { used, from: 'system', timeDiscount: true })
             } catch (err: any) {
@@ -229,13 +238,21 @@ export default class {
         })
     }
 
-    async triggerPaidCallback(log: PubLogger, url: string) {
+    async triggerPaidCallback(log: PubLogger, url: string, { invoice, amount, other }: { invoice: string, amount: number, other?: Record<string, string> }) {
         if (!url) {
             return
         }
+        let finalUrl = url.replace(`%[invoice]`, invoice).replace(`%[amount]`, amount.toString())
+        if (other) {
+            for (const [key, value] of Object.entries(other)) {
+                finalUrl = finalUrl.replace(`%[${key}]`, value)
+            }
+        }
         try {
-            const symbol = url.includes('?') ? "&" : "?"
-            await fetch(url + symbol + "ok=true")
+            const symbol = finalUrl.includes('?') ? "&" : "?"
+            finalUrl = finalUrl + symbol + "ok=true"
+            log("sending paid callback to", finalUrl)
+            await fetch(finalUrl)
         } catch (err: any) {
             log(ERROR, "error sending paid callback for invoice", err.message || "")
         }
@@ -285,70 +302,6 @@ export default class {
         }
         log({ unsigned: event })
         this.nostrSend({ type: 'app', appId: invoice.linkedApplication.app_id }, { type: 'event', event }, zapInfo.relays || undefined)
-    }
-
-    async getNofferInvoice(offerReq: NofferData, appId: string): Promise<{ success: true, invoice: string } | { success: false, code: number, max: number }> {
-        try {
-
-            const { remote } = await this.lnd.ChannelBalance()
-            const { offer, amount } = offerReq
-            const split = offer.split(':')
-            if (split.length === 1) {
-                if (!amount || isNaN(amount) || amount < 10 || amount > remote) {
-                    return { success: false, code: 5, max: remote }
-                }
-                const res = await this.applicationManager.AddAppUserInvoice(appId, {
-                    http_callback_url: "", payer_identifier: split[0], receiver_identifier: split[0],
-                    invoice_req: { amountSats: amount, memo: "Default NIP-69 Offer", zap: offerReq.zap }
-                })
-                return { success: true, invoice: res.invoice }
-            } else if (split[0] === 'p') {
-                const product = await this.productManager.NewProductInvoice(split[1])
-                return { success: true, invoice: product.invoice }
-            } else {
-                return { success: false, code: 1, max: remote }
-            }
-        } catch (e: any) {
-            getLogger({ component: "noffer" })(ERROR, e.message || e)
-            return { success: false, code: 1, max: 0 }
-        }
-    }
-
-    async handleNip69Noffer(offerReq: NofferData, event: NostrEvent) {
-        const offerInvoice = await this.getNofferInvoice(offerReq, event.appId)
-        if (!offerInvoice.success) {
-            const code = offerInvoice.code
-            const e = newNofferResponse(JSON.stringify({ code, error: codeToMessage(code), range: { min: 10, max: offerInvoice.max } }), event)
-            this.nostrSend({ type: 'app', appId: event.appId }, { type: 'event', event: e, encrypt: { toPub: event.pub } })
-            return
-        }
-        const e = newNofferResponse(JSON.stringify({ bolt11: offerInvoice.invoice }), event)
-        this.nostrSend({ type: 'app', appId: event.appId }, { type: 'event', event: e, encrypt: { toPub: event.pub } })
-        return
-    }
-}
-
-const codeToMessage = (code: number) => {
-    switch (code) {
-        case 1: return 'Invalid Offer'
-        case 2: return 'Temporary Failure'
-        case 3: return 'Expired Offer'
-        case 4: return 'Unsupported Feature'
-        case 5: return 'Invalid Amount'
-        default: throw new Error("unknown error code" + code)
-    }
-}
-
-const newNofferResponse = (content: string, event: NostrEvent): UnsignedEvent => {
-    return {
-        content,
-        created_at: Math.floor(Date.now() / 1000),
-        kind: 21001,
-        pubkey: "",
-        tags: [
-            ['p', event.pub],
-            ['e', event.id],
-        ],
     }
 }
 

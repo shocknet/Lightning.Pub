@@ -60,6 +60,15 @@ export class UserReceivingInvoice {
 
     @Column({
         nullable: true,
+        type: 'simple-json'
+    })
+    payer_data?: Record<string, string>
+
+    @Column({ default: "" })
+    offer_id?: string
+
+    @Column({
+        nullable: true,
     })
     liquidityProvider?: string
 

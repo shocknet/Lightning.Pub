@@ -49,7 +49,7 @@
     "grpc-tools": "^1.12.4",
     "jsonwebtoken": "^9.0.2",
     "lodash": "^4.17.21",
-    "nostr-tools": "github:shocknet/nostr-tools#da188cd4bd195f44cc690074a3898f354ae85100",
+    "nostr-tools": "github:shocknet/nostr-tools#27575ffb69d615691242df433a0ccc063f6b8346",
     "pg": "^8.4.0",
     "reflect-metadata": "^0.2.2",
     "rimraf": "^3.0.2",

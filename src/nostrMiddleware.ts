@@ -49,7 +49,7 @@ export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSett
         }
         if (event.kind === 21001) {
             const offerReq = j as NofferData
-            mainHandler.handleNip69Noffer(offerReq, event)
+            mainHandler.offerManager.handleNip69Noffer(offerReq, event)
             return
         } else if (event.kind === 21002) {
             const debitReq = j as NdebitData
