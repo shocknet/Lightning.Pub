@@ -18,13 +18,11 @@ export default class Handler {
     storage: Storage
     lnd: LND
     htlcTracker: HtlcTracker
-    metricsPath: string
     logger = getLogger({ component: "metrics" })
-    constructor(mainSettings: MainSettings, storage: Storage, lnd: LND) {
+    constructor(storage: Storage, lnd: LND) {
         this.storage = storage
         this.lnd = lnd
         this.htlcTracker = new HtlcTracker(this.storage)
-        this.metricsPath = [mainSettings.storageSettings.dataDir, "metrics"].join("/")
 
     }
 
