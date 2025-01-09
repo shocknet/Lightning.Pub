@@ -60,6 +60,7 @@ export default class {
     }
 
     pushToCache = (ok: boolean) => {
+        console.log("pushing to cache", ok)
         const now = Math.floor(Date.now() / 1000)
         this.rotateCache(now)
         if (this.last24hCache.length === 0) {
