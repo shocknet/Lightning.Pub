@@ -3162,22 +3162,35 @@ export const UsageMetricValidate = (o?: UsageMetric, opts: UsageMetricOptions = 
 }
 
 export type UsageMetricTlv = {
+    available_chunks: number[]
     base_64_tlvs: string[]
+    current_chunk: number
 }
 export const UsageMetricTlvOptionalFields: [] = []
 export type UsageMetricTlvOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
+    available_chunks_CustomCheck?: (v: number[]) => boolean
     base_64_tlvs_CustomCheck?: (v: string[]) => boolean
+    current_chunk_CustomCheck?: (v: number) => boolean
 }
 export const UsageMetricTlvValidate = (o?: UsageMetricTlv, opts: UsageMetricTlvOptions = {}, path: string = 'UsageMetricTlv::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
     if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (!Array.isArray(o.available_chunks)) return new Error(`${path}.available_chunks: is not an array`)
+    for (let index = 0; index < o.available_chunks.length; index++) {
+        if (typeof o.available_chunks[index] !== 'number') return new Error(`${path}.available_chunks[${index}]: is not a number`)
+    }
+    if (opts.available_chunks_CustomCheck && !opts.available_chunks_CustomCheck(o.available_chunks)) return new Error(`${path}.available_chunks: custom check failed`)
 
     if (!Array.isArray(o.base_64_tlvs)) return new Error(`${path}.base_64_tlvs: is not an array`)
     for (let index = 0; index < o.base_64_tlvs.length; index++) {
         if (typeof o.base_64_tlvs[index] !== 'string') return new Error(`${path}.base_64_tlvs[${index}]: is not a string`)
     }
     if (opts.base_64_tlvs_CustomCheck && !opts.base_64_tlvs_CustomCheck(o.base_64_tlvs)) return new Error(`${path}.base_64_tlvs: custom check failed`)
+
+    if (typeof o.current_chunk !== 'number') return new Error(`${path}.current_chunk: is not a number`)
+    if (opts.current_chunk_CustomCheck && !opts.current_chunk_CustomCheck(o.current_chunk)) return new Error(`${path}.current_chunk: custom check failed`)
 
     return null
 }

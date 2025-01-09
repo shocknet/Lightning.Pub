@@ -1291,7 +1291,9 @@ The nostr server will send back a message response, and inside the body there wi
   - __validate_in_nano__: _number_
 
 ### UsageMetricTlv
+  - __available_chunks__: ARRAY of: _number_
   - __base_64_tlvs__: ARRAY of: _string_
+  - __current_chunk__: _number_
 
 ### UsageMetrics
   - __apps__: MAP with key: _string_ and value: _[AppUsageMetrics](#AppUsageMetrics)_

@@ -35,6 +35,9 @@ message UsageMetric {
 
 message UsageMetricTlv {
     repeated string base_64_tlvs = 1;
+    int64 current_chunk = 2;
+    repeated int64 available_chunks = 3;
+
 }
 
 message AppUsageMetrics {

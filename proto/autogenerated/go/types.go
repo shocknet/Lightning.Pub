@@ -555,7 +555,9 @@ type UsageMetric struct {
 	Validate_in_nano int64  `json:"validate_in_nano"`
 }
 type UsageMetricTlv struct {
-	Base_64_tlvs []string `json:"base_64_tlvs"`
+	Available_chunks []int64  `json:"available_chunks"`
+	Base_64_tlvs     []string `json:"base_64_tlvs"`
+	Current_chunk    int64    `json:"current_chunk"`
 }
 type UsageMetrics struct {
 	Apps map[string]AppUsageMetrics `json:"apps"`
