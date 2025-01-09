@@ -82,6 +82,9 @@ export default class Handler {
             past10m: { errors: 0, total: 0, from_unix: nowUnix - 60 * 10 },
             past1m: { errors: 0, total: 0, from_unix: nowUnix - 60 },
         }
+        if (last24h.length === 0) {
+            return stats
+        }
         for (let i = last24h.length; i >= 0; i--) {
             const e = last24h[i]
             if (e.ts < stats.past24h.from_unix) {
