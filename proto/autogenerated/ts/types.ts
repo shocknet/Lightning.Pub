@@ -27,8 +27,8 @@ export type GuestWithPubMethodOutputs = LinkNPubThroughToken_Output | UseInviteL
 export type MetricsContext = {
     operator_id: string
 }
-export type MetricsMethodInputs = GetAppsMetrics_Input | GetLndMetrics_Input | GetUsageMetrics_Input
-export type MetricsMethodOutputs = GetAppsMetrics_Output | GetLndMetrics_Output | GetUsageMetrics_Output
+export type MetricsMethodInputs = GetAppsMetrics_Input | GetErrorStats_Input | GetLndMetrics_Input | GetUsageMetrics_Input
+export type MetricsMethodOutputs = GetAppsMetrics_Output | GetErrorStats_Output | GetLndMetrics_Output | GetUsageMetrics_Output
 export type UserContext = {
     app_id: string
     app_user_id: string
@@ -109,6 +109,9 @@ export type GetAppsMetrics_Output = ResultError | ({ status: 'OK' } & AppsMetric
 
 export type GetDebitAuthorizations_Input = {rpcName:'GetDebitAuthorizations'}
 export type GetDebitAuthorizations_Output = ResultError | ({ status: 'OK' } & DebitAuthorizations)
+
+export type GetErrorStats_Input = {rpcName:'GetErrorStats'}
+export type GetErrorStats_Output = ResultError | ({ status: 'OK' } & ErrorStats)
 
 export type GetHttpCreds_Input = {rpcName:'GetHttpCreds',  cb:(res: HttpCreds, err:Error|null)=> void}
 export type GetHttpCreds_Output = ResultError | { status: 'OK' }
@@ -300,6 +303,7 @@ export type ServerMethods = {
     GetAppUserLNURLInfo?: (req: GetAppUserLNURLInfo_Input & {ctx: AppContext }) => Promise<LnurlPayInfoResponse>
     GetAppsMetrics?: (req: GetAppsMetrics_Input & {ctx: MetricsContext }) => Promise<AppsMetrics>
     GetDebitAuthorizations?: (req: GetDebitAuthorizations_Input & {ctx: UserContext }) => Promise<DebitAuthorizations>
+    GetErrorStats?: (req: GetErrorStats_Input & {ctx: MetricsContext }) => Promise<ErrorStats>
     GetHttpCreds?: (req: GetHttpCreds_Input & {ctx: UserContext }) => Promise<void>
     GetInviteLinkState?: (req: GetInviteLinkState_Input & {ctx: AdminContext }) => Promise<GetInviteTokenStateResponse>
     GetLNURLChannelLink?: (req: GetLNURLChannelLink_Input & {ctx: UserContext }) => Promise<LnurlLinkResponse>
@@ -1367,6 +1371,77 @@ export const EnrollAdminTokenRequestValidate = (o?: EnrollAdminTokenRequest, opt
 
     if (typeof o.admin_token !== 'string') return new Error(`${path}.admin_token: is not a string`)
     if (opts.admin_token_CustomCheck && !opts.admin_token_CustomCheck(o.admin_token)) return new Error(`${path}.admin_token: custom check failed`)
+
+    return null
+}
+
+export type ErrorStat = {
+    errors: number
+    from_unix: number
+    total: number
+}
+export const ErrorStatOptionalFields: [] = []
+export type ErrorStatOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    errors_CustomCheck?: (v: number) => boolean
+    from_unix_CustomCheck?: (v: number) => boolean
+    total_CustomCheck?: (v: number) => boolean
+}
+export const ErrorStatValidate = (o?: ErrorStat, opts: ErrorStatOptions = {}, path: string = 'ErrorStat::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.errors !== 'number') return new Error(`${path}.errors: is not a number`)
+    if (opts.errors_CustomCheck && !opts.errors_CustomCheck(o.errors)) return new Error(`${path}.errors: custom check failed`)
+
+    if (typeof o.from_unix !== 'number') return new Error(`${path}.from_unix: is not a number`)
+    if (opts.from_unix_CustomCheck && !opts.from_unix_CustomCheck(o.from_unix)) return new Error(`${path}.from_unix: custom check failed`)
+
+    if (typeof o.total !== 'number') return new Error(`${path}.total: is not a number`)
+    if (opts.total_CustomCheck && !opts.total_CustomCheck(o.total)) return new Error(`${path}.total: custom check failed`)
+
+    return null
+}
+
+export type ErrorStats = {
+    past10m: ErrorStat
+    past1h: ErrorStat
+    past1m: ErrorStat
+    past24h: ErrorStat
+    past6h: ErrorStat
+}
+export const ErrorStatsOptionalFields: [] = []
+export type ErrorStatsOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    past10m_Options?: ErrorStatOptions
+    past1h_Options?: ErrorStatOptions
+    past1m_Options?: ErrorStatOptions
+    past24h_Options?: ErrorStatOptions
+    past6h_Options?: ErrorStatOptions
+}
+export const ErrorStatsValidate = (o?: ErrorStats, opts: ErrorStatsOptions = {}, path: string = 'ErrorStats::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    const past10mErr = ErrorStatValidate(o.past10m, opts.past10m_Options, `${path}.past10m`)
+    if (past10mErr !== null) return past10mErr
+    
+
+    const past1hErr = ErrorStatValidate(o.past1h, opts.past1h_Options, `${path}.past1h`)
+    if (past1hErr !== null) return past1hErr
+    
+
+    const past1mErr = ErrorStatValidate(o.past1m, opts.past1m_Options, `${path}.past1m`)
+    if (past1mErr !== null) return past1mErr
+    
+
+    const past24hErr = ErrorStatValidate(o.past24h, opts.past24h_Options, `${path}.past24h`)
+    if (past24hErr !== null) return past24hErr
+    
+
+    const past6hErr = ErrorStatValidate(o.past6h, opts.past6h_Options, `${path}.past6h`)
+    if (past6hErr !== null) return past6hErr
+    
 
     return null
 }

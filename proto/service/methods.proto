@@ -178,6 +178,12 @@ service LightningPub {
         option (http_route) = "/api/reports/usage";
         option (nostr) = true;
     }
+    rpc GetErrorStats(structs.Empty) returns (structs.ErrorStats) {
+        option (auth_type)  = "Metrics";
+        option (http_method) = "post";
+        option (http_route) = "/api/reports/errors";
+        option (nostr) = true;
+    }
 
     rpc GetAppsMetrics(structs.AppsMetricsRequest) returns (structs.AppsMetrics) {
         option (auth_type)  = "Metrics";

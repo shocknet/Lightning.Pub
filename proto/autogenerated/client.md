@@ -98,6 +98,11 @@ The nostr server will send back a message response, and inside the body there wi
   - This methods has an __empty__ __request__ body
   - output: [DebitAuthorizations](#DebitAuthorizations)
 
+- GetErrorStats
+  - auth type: __Metrics__
+  - This methods has an __empty__ __request__ body
+  - output: [ErrorStats](#ErrorStats)
+
 - GetHttpCreds
   - auth type: __User__
   - This methods has an __empty__ __request__ body
@@ -466,6 +471,13 @@ The nostr server will send back a message response, and inside the body there wi
   - http route: __/api/user/debit/get__
   - This methods has an __empty__ __request__ body
   - output: [DebitAuthorizations](#DebitAuthorizations)
+
+- GetErrorStats
+  - auth type: __Metrics__
+  - http method: __post__
+  - http route: __/api/reports/errors__
+  - This methods has an __empty__ __request__ body
+  - output: [ErrorStats](#ErrorStats)
 
 - GetHttpCreds
   - auth type: __User__
@@ -985,6 +997,18 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### EnrollAdminTokenRequest
   - __admin_token__: _string_
+
+### ErrorStat
+  - __errors__: _number_
+  - __from_unix__: _number_
+  - __total__: _number_
+
+### ErrorStats
+  - __past10m__: _[ErrorStat](#ErrorStat)_
+  - __past1h__: _[ErrorStat](#ErrorStat)_
+  - __past1m__: _[ErrorStat](#ErrorStat)_
+  - __past24h__: _[ErrorStat](#ErrorStat)_
+  - __past6h__: _[ErrorStat](#ErrorStat)_
 
 ### FrequencyRule
   - __amount__: _number_

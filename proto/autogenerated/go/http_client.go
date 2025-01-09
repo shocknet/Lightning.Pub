@@ -78,6 +78,7 @@ type Client struct {
 	GetAppUserLNURLInfo         func(req GetAppUserLNURLInfoRequest) (*LnurlPayInfoResponse, error)
 	GetAppsMetrics              func(req AppsMetricsRequest) (*AppsMetrics, error)
 	GetDebitAuthorizations      func() (*DebitAuthorizations, error)
+	GetErrorStats               func() (*ErrorStats, error)
 	GetHttpCreds                func() (*HttpCreds, error)
 	GetInviteLinkState          func(req GetInviteTokenStateRequest) (*GetInviteTokenStateResponse, error)
 	GetLNURLChannelLink         func() (*LnurlLinkResponse, error)
@@ -752,6 +753,32 @@ func NewClient(params ClientParams) *Client {
 				return nil, fmt.Errorf(result.Reason)
 			}
 			res := DebitAuthorizations{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
+		},
+		GetErrorStats: func() (*ErrorStats, error) {
+			auth, err := params.RetrieveMetricsAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/reports/errors"
+			body := []byte{}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return nil, err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := ErrorStats{}
 			err = json.Unmarshal(resBody, &res)
 			if err != nil {
 				return nil, err

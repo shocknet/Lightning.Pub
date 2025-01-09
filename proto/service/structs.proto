@@ -19,6 +19,20 @@ message UserHealthState {
     string downtime_reason = 1;
 }
 
+message ErrorStat {
+    int64 from_unix = 1;
+    int64 total = 2;
+    int64 errors = 3;
+}
+
+message ErrorStats {
+    ErrorStat past24h = 1;
+    ErrorStat past6h = 2;
+    ErrorStat past1h = 3;
+    ErrorStat past10m = 4;
+    ErrorStat past1m = 5;
+}
+
 message UsageMetric {
     int64 processed_at_ms = 1;
     int64 parsed_in_nano = 2;

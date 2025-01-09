@@ -250,6 +250,18 @@ type EncryptionExchangeRequest struct {
 type EnrollAdminTokenRequest struct {
 	Admin_token string `json:"admin_token"`
 }
+type ErrorStat struct {
+	Errors    int64 `json:"errors"`
+	From_unix int64 `json:"from_unix"`
+	Total     int64 `json:"total"`
+}
+type ErrorStats struct {
+	Past10m *ErrorStat `json:"past10m"`
+	Past1h  *ErrorStat `json:"past1h"`
+	Past1m  *ErrorStat `json:"past1m"`
+	Past24h *ErrorStat `json:"past24h"`
+	Past6h  *ErrorStat `json:"past6h"`
+}
 type FrequencyRule struct {
 	Amount              int64        `json:"amount"`
 	Interval            IntervalType `json:"interval"`

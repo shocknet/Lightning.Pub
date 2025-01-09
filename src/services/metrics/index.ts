@@ -72,6 +72,48 @@ export default class Handler {
         return this.storage.metricsEventStorage.LoadLatestMetrics()
     }
 
+    async GetErrorStats(): Promise<Types.ErrorStats> {
+        const last24h = this.storage.metricsEventStorage.getlast24hCache()
+        const nowUnix = Math.floor(Date.now() / 1000)
+        const stats: Types.ErrorStats = {
+            past24h: { errors: 0, total: 0, from_unix: nowUnix - 60 * 60 * 24 },
+            past6h: { errors: 0, total: 0, from_unix: nowUnix - 60 * 60 * 6 },
+            past1h: { errors: 0, total: 0, from_unix: nowUnix - 60 * 60 },
+            past10m: { errors: 0, total: 0, from_unix: nowUnix - 60 * 10 },
+            past1m: { errors: 0, total: 0, from_unix: nowUnix - 60 },
+        }
+        for (let i = last24h.length; i >= 0; i--) {
+            const e = last24h[i]
+            if (e.ts < stats.past24h.from_unix) {
+                break
+            }
+
+            stats.past24h.total += e.ok + e.fail
+            stats.past24h.errors += e.fail
+
+            if (e.ts >= stats.past6h.from_unix) {
+                stats.past6h.total += e.ok + e.fail
+                stats.past6h.errors += e.fail
+            }
+
+            if (e.ts >= stats.past1h.from_unix) {
+                stats.past1h.total += e.ok + e.fail
+                stats.past1h.errors += e.fail
+            }
+
+            if (e.ts >= stats.past10m.from_unix) {
+                stats.past10m.total += e.ok + e.fail
+                stats.past10m.errors += e.fail
+            }
+
+            if (e.ts >= stats.past1m.from_unix) {
+                stats.past1m.total += e.ok + e.fail
+                stats.past1m.errors += e.fail
+            }
+        }
+        return stats
+    }
+
 
 
     AddMetrics(newMetrics: (Types.RequestMetric & { app_id?: string })[]) {
@@ -91,7 +133,7 @@ export default class Handler {
                 processed_at_ms: m.startMs
             }
             const tlv = usageMetricsToTlv(um)
-            this.storage.metricsEventStorage.AddMetricEvent(appId, m.rpcName, encodeTLV(tlv))
+            this.storage.metricsEventStorage.AddMetricEvent(appId, m.rpcName, encodeTLV(tlv), !m.error)
         })
     }
 

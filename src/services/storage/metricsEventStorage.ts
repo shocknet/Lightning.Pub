@@ -6,19 +6,25 @@ const chunkSizeBytes = 128 * 1024
 export default class {
     settings: StorageSettings
     metricsPath: string
+    cachePath: string
     metaReady = false
     metricsMeta: Record<string, Record<string, { chunks: number[] }>> = {}
     pendingMetrics: Record<string, Record<string, { tlvs: Uint8Array[] }>> = {}
-    last24hOk: Record<number, number> = {}
-    last24hFail: Record<number, number> = {}
-    lastPersisted: number = 0
+    last24hCache: { ts: number, ok: number, fail: number }[] = []
+    lastPersistedMetrics: number = 0
+    lastPersistedCache: number = 0
     constructor(settings: StorageSettings) {
         this.settings = settings;
         this.metricsPath = [settings.dataDir, "metric_events"].join("/")
+        this.cachePath = [settings.dataDir, "metric_cache"].join("/")
         this.initMetricsMeta()
+        this.loadCache()
         setInterval(() => {
-            if (Date.now() - this.lastPersisted > 1000 * 60 * 5) {
+            if (Date.now() - this.lastPersistedMetrics > 1000 * 60 * 4) {
                 this.persistMetrics()
+            }
+            if (Date.now() - this.lastPersistedCache > 1000 * 60 * 4) {
+                this.persistCache()
             }
         }, 1000 * 60 * 5)
         process.on('exit', () => {
@@ -39,7 +45,50 @@ export default class {
         });
     }
 
-    AddMetricEvent = (appId: string, method: string, metric: Uint8Array) => {
+    getlast24hCache = () => { return this.last24hCache }
+
+    rotateCache = (nowUnix: number) => {
+        const yesterday = nowUnix - 60 * 60 * 24
+        const latest = this.last24hCache.findIndex(c => c.ts >= yesterday)
+        if (latest === -1) {
+            this.last24hCache = []
+            return
+        } else if (latest === 0) {
+            return
+        }
+        this.last24hCache = this.last24hCache.slice(latest)
+    }
+
+    pushToCache = (ok: boolean) => {
+        const now = Math.floor(Date.now() / 1000)
+        this.rotateCache(now)
+        if (this.last24hCache.length === 0) {
+            this.last24hCache.push({ ts: now, ok: ok ? 1 : 0, fail: ok ? 0 : 1 })
+            return
+        }
+        const last = this.last24hCache[this.last24hCache.length - 1]
+        if (last.ts === now) {
+            last.ok += ok ? 1 : 0
+            last.fail += ok ? 0 : 1
+        } else {
+            this.last24hCache.push({ ts: now, ok: ok ? 1 : 0, fail: ok ? 0 : 1 })
+        }
+    }
+
+    persistCache = () => {
+        const last24CachePath = [this.cachePath, "last24hSF.json"].join("/")
+        fs.writeFileSync(last24CachePath, JSON.stringify(this.last24hCache))
+    }
+
+    loadCache = () => {
+        const last24CachePath = [this.cachePath, "last24hSF.json"].join("/")
+        if (fs.existsSync(last24CachePath)) {
+            this.last24hCache = JSON.parse(fs.readFileSync(last24CachePath, 'utf-8'))
+            this.rotateCache(Math.floor(Date.now() / 1000))
+        }
+    }
+
+    AddMetricEvent = (appId: string, method: string, metric: Uint8Array, success: boolean) => {
         if (!this.metaReady) {
             throw new Error("meta metrics not ready")
         }
@@ -50,6 +99,8 @@ export default class {
             this.pendingMetrics[appId][method] = { tlvs: [] }
         }
         this.pendingMetrics[appId][method].tlvs.push(metric)
+        this.pushToCache(success)
+
     }
 
     LoadLatestMetrics = async (): Promise<Types.UsageMetrics> => {
@@ -78,7 +129,7 @@ export default class {
         if (!this.metaReady) {
             throw new Error("meta metrics not ready")
         }
-        this.lastPersisted = Date.now()
+        this.lastPersistedMetrics = Date.now()
         const tosync = this.pendingMetrics
         this.pendingMetrics = {}
         const apps = Object.keys(tosync)

@@ -885,6 +885,25 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
+    if (!opts.allowNotImplementedMethods && !methods.GetErrorStats) throw new Error('method: GetErrorStats is not implemented')
+    app.post('/api/reports/errors', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'GetErrorStats', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.GetErrorStats) throw new Error('method: GetErrorStats is not implemented')
+            const authContext = await opts.MetricsAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            stats.validate = stats.guard
+            const query = req.query
+            const params = req.params
+            const response =  await methods.GetErrorStats({rpcName:'GetErrorStats', ctx:authContext })
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
     if (!opts.allowNotImplementedMethods && !methods.GetInviteLinkState) throw new Error('method: GetInviteLinkState is not implemented')
     app.post('/api/admin/app/invite/get', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'GetInviteLinkState', batch: false, nostr: false, batchSize: 0}
