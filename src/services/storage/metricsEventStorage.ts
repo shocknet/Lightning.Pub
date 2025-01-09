@@ -17,6 +17,9 @@ export default class {
         this.settings = settings;
         this.metricsPath = [settings.dataDir, "metric_events"].join("/")
         this.cachePath = [settings.dataDir, "metric_cache"].join("/")
+        if (!fs.existsSync(this.cachePath)) {
+            fs.mkdirSync(this.cachePath, { recursive: true });
+        }
         this.initMetricsMeta()
         this.loadCache()
         setInterval(() => {
@@ -78,7 +81,7 @@ export default class {
 
     persistCache = () => {
         const last24CachePath = [this.cachePath, "last24hSF.json"].join("/")
-        fs.writeFileSync(last24CachePath, JSON.stringify(this.last24hCache))
+        fs.writeFileSync(last24CachePath, JSON.stringify(this.last24hCache), {})
     }
 
     loadCache = () => {
