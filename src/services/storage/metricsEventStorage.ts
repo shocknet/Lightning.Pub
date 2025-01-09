@@ -29,6 +29,7 @@ export default class {
         }, 1000 * 60 * 5)
         process.on('exit', () => {
             this.persistMetrics()
+            this.persistCache()
         });
 
         // catch ctrl+c event and exit normally
