@@ -84,7 +84,6 @@ export default class Handler {
         }
         for (let i = last24h.length - 1; i >= 0; i--) {
             const e = last24h[i]
-            console.log(e)
             if (e.ts < stats.past24h.from_unix) {
                 break
             }
