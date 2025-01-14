@@ -11,6 +11,7 @@ import HtlcTracker from './htlcTracker.js'
 import { MainSettings } from '../main/settings.js'
 import { getLogger } from '../helpers/logger.js'
 import { encodeTLV, usageMetricsToTlv } from '../helpers/tlv.js'
+import { ChannelCloseSummary_ClosureType } from '../../../proto/lnd/lightning.js'
 
 
 export default class Handler {
@@ -321,7 +322,7 @@ export default class Handler {
                 externalBalance.push({ x: e.block_height, y: e.external_balance })
             }
         })
-        const closed = await Promise.all(closedChannels.map(async c => {
+        const closed = await Promise.all(closedChannels.filter(c => c.closeType !== ChannelCloseSummary_ClosureType.FUNDING_CANCELED).map(async c => {
             const tx = await this.lnd.GetTx(c.closingTxHash)
             return { capacity: Number(c.capacity), channel_id: c.chanId, closed_height: c.closeHeight, close_tx_timestamp: Number(tx.timeStamp) }
         }))

@@ -41,7 +41,7 @@ install_lightning_pub() {
 
   # Merge if upgrade
   if [ $upgrade_status -eq 100 ]; then
-    rsync -a --quiet --exclude='*.sqlite' --exclude='.env' --exclude='logs' --exclude='node_modules' --exclude='.jwt_secret' --exclude='.wallet_secret' --exclude='admin.npub' --exclude='app.nprofile' --exclude='.admin_connect' --exclude='.admin_enroll' $USER_HOME/lightning_pub_temp/ $USER_HOME/lightning_pub/
+    rsync -a --quiet --exclude='*.sqlite' --exclude='.env' --exclude='logs' --exclude='node_modules' --exclude='.jwt_secret' --exclude='.wallet_secret' --exclude='admin.npub' --exclude='app.nprofile' --exclude='admin.connect' --exclude='admin.enroll' $USER_HOME/lightning_pub_temp/ $USER_HOME/lightning_pub/
   else
     mv $USER_HOME/lightning_pub_temp $USER_HOME/lightning_pub
   fi
