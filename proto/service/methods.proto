@@ -178,6 +178,12 @@ service LightningPub {
         option (http_route) = "/api/reports/usage";
         option (nostr) = true;
     }
+    rpc GetErrorStats(structs.Empty) returns (structs.ErrorStats) {
+        option (auth_type)  = "Metrics";
+        option (http_method) = "post";
+        option (http_route) = "/api/reports/errors";
+        option (nostr) = true;
+    }
 
     rpc GetAppsMetrics(structs.AppsMetricsRequest) returns (structs.AppsMetrics) {
         option (auth_type)  = "Metrics";
@@ -364,7 +370,7 @@ service LightningPub {
     // </App>
     
     // <User>
-    rpc UserHealth(structs.Empty)returns(structs.Empty){
+    rpc UserHealth(structs.Empty)returns(structs.UserHealthState){
         option (auth_type)  = "User";
         option (http_method) = "post";
         option (http_route) = "/api/user/health";
@@ -467,6 +473,48 @@ service LightningPub {
         option (http_route) = "/api/user/lnurl_channel/url";
         option (nostr) = true;
     }
+
+    rpc GetUserOffers(structs.Empty) returns (structs.UserOffers){
+        option (auth_type)  = "User";
+        option (http_method) = "get";
+        option (http_route) = "/api/user/offers/get";
+        option (nostr) = true;
+    }
+
+    rpc GetUserOffer(structs.OfferId) returns (structs.OfferConfig){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/offer/get";
+        option (nostr) = true;
+    }
+    rpc GetUserOfferInvoices(structs.GetUserOfferInvoicesReq) returns (structs.OfferInvoices){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/offer/get/invoices";
+        option (nostr) = true;
+    }
+
+    rpc UpdateUserOffer(structs.OfferConfig) returns (structs.Empty){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/offer/update";
+        option (nostr) = true;
+    }
+
+    rpc DeleteUserOffer(structs.OfferId) returns (structs.Empty){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/offer/delete";
+        option (nostr) = true;
+    }
+
+    rpc AddUserOffer(structs.OfferConfig) returns (structs.OfferId){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/offer/add";
+        option (nostr) = true;
+    }
+
     rpc GetDebitAuthorizations(structs.Empty) returns (structs.DebitAuthorizations){
         option (auth_type)  = "User";
         option (http_method) = "get";

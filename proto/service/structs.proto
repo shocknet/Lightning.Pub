@@ -15,6 +15,24 @@ message EncryptionExchangeRequest {
     string deviceId = 2;
 }
 
+message UserHealthState {
+    string downtime_reason = 1;
+}
+
+message ErrorStat {
+    int64 from_unix = 1;
+    int64 total = 2;
+    int64 errors = 3;
+}
+
+message ErrorStats {
+    ErrorStat past24h = 1;
+    ErrorStat past6h = 2;
+    ErrorStat past1h = 3;
+    ErrorStat past10m = 4;
+    ErrorStat past1m = 5;
+}
+
 message UsageMetric {
     int64 processed_at_ms = 1;
     int64 parsed_in_nano = 2;
@@ -25,10 +43,23 @@ message UsageMetric {
     bool batch = 7;
     bool nostr = 8;
     int64 batch_size = 9;
+    bool success = 10;
+    optional string app_id = 11;
+}
+
+message UsageMetricTlv {
+    repeated string base_64_tlvs = 1;
+    int64 current_chunk = 2;
+    repeated int64 available_chunks = 3;
+
+}
+
+message AppUsageMetrics {
+    map<string,UsageMetricTlv> app_metrics = 1;
 }
 
 message UsageMetrics {
-    repeated UsageMetric metrics = 1; 
+    map<string,AppUsageMetrics> apps = 1;
 }
 
 message AppsMetricsRequest {
@@ -269,6 +300,8 @@ message AddAppUserInvoiceRequest {
     string payer_identifier = 2;
     string http_callback_url = 3;
     NewInvoiceRequest invoice_req = 4;
+    optional PayerData payer_data = 5;
+    optional string offer_string = 6;
 }
 
 message GetAppUserRequest {
@@ -329,6 +362,10 @@ message PayAddressResponse{
     string operation_id = 2;
     int64 service_fee = 3;
     int64 network_fee = 4;
+}
+
+message PayerData {
+    map<string,string> data = 1;
 }
 
 message NewInvoiceRequest{
@@ -613,4 +650,43 @@ message DebitResponse {
         Empty denied = 3;
         string invoice = 4;
     }
+}
+
+enum OfferDataType {
+    DATA_STRING = 0;
+}
+
+message OfferId {
+    string offer_id = 1;
+}
+
+message OfferConfig {
+    string offer_id = 1;
+    string label = 2;
+    int64 price_sats = 3;
+    string callback_url = 4;
+    map<string, OfferDataType> expected_data = 5;
+    string noffer = 6;
+    bool default_offer = 7;
+}
+
+message UserOffers {
+    repeated OfferConfig offers = 1;
+}
+
+message GetUserOfferInvoicesReq {
+    string offer_id = 1;
+    bool include_unpaid = 2;
+}
+
+message OfferInvoices {
+    repeated OfferInvoice invoices = 1;
+}
+
+message OfferInvoice {
+    string invoice = 1;
+    string offer_id = 2;
+    int64 paid_at_unix = 3;
+    int64 amount = 4;
+    map<string,string> data = 5;
 }

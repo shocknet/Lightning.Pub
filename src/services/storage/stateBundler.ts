@@ -34,7 +34,7 @@ export class StateBundler {
     latestReport = Date.now()
     reportLog = getLogger({ component: 'stateBundlerReport' })
     constructor() {
-        process.on('exit', () => {
+        /* process.on('exit', () => {
             this.Report()
         });
 
@@ -49,7 +49,7 @@ export class StateBundler {
             console.log('Uncaught Exception...');
             console.log(e.stack);
             process.exit(99);
-        });
+        }); */
     }
 
     increment = (key: string, value: number) => {

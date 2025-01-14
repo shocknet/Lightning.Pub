@@ -7,6 +7,9 @@ export default (mainHandler: Main): Types.ServerMethods => {
         GetUsageMetrics: async ({ ctx }) => {
             return mainHandler.metricsManager.GetUsageMetrics()
         },
+        GetErrorStats: async ({ ctx }) => {
+            return mainHandler.metricsManager.GetErrorStats()
+        },
         GetAppsMetrics: async ({ ctx, req }) => {
             return mainHandler.metricsManager.GetAppsMetrics(req)
         },
@@ -73,7 +76,10 @@ export default (mainHandler: Main): Types.ServerMethods => {
             if (err != null) throw new Error(err.message)
             await mainHandler.paymentManager.SetMockInvoiceAsPaid(req)
         },
-        UserHealth: async () => { },
+        UserHealth: async () => {
+            try { await mainHandler.lnd.Health(); return { downtime_reason: "" } }
+            catch (e: any) { return { downtime_reason: e.message } }
+        },
         GetUserInfo: ({ ctx }) => mainHandler.appUserManager.GetUserInfo(ctx),
         UpdateCallbackUrl: async ({ ctx, req }) => {
             return mainHandler.appUserManager.UpdateCallbackUrl(ctx, req)
@@ -323,6 +329,40 @@ export default (mainHandler: Main): Types.ServerMethods => {
         },
         RespondToDebit: async ({ ctx, req }) => {
             return mainHandler.debitManager.RespondToDebit(ctx, req);
+        },
+        AddUserOffer: async ({ ctx, req }) => {
+            const err = Types.OfferConfigValidate(req, {
+                label_CustomCheck: label => label !== '',
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.offerManager.AddUserOffer(ctx, req)
+        },
+        DeleteUserOffer: async ({ ctx, req }) => {
+            const err = Types.OfferIdValidate(req, {
+                offer_id_CustomCheck: id => id !== ''
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.offerManager.DeleteUserOffer(ctx, req)
+        },
+        UpdateUserOffer: async ({ ctx, req }) => {
+            return mainHandler.offerManager.UpdateUserOffer(ctx, req)
+        },
+        GetUserOffers: async ({ ctx }) => {
+            return mainHandler.offerManager.GetUserOffers(ctx)
+        },
+        GetUserOffer: async ({ ctx, req }) => {
+            const err = Types.OfferIdValidate(req, {
+                offer_id_CustomCheck: id => id !== ''
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.offerManager.GetUserOffer(ctx, req)
+        },
+        GetUserOfferInvoices: async ({ ctx, req }) => {
+            const err = Types.GetUserOfferInvoicesReqValidate(req, {
+                offer_id_CustomCheck: id => id !== ''
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.offerManager.GetUserOfferInvoices(ctx, req)
         }
     }
 }

@@ -80,6 +80,22 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     opts.metricsCallback([{ ...info, ...stats, ...authContext }])
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
+            case 'AddUserOffer':
+                try {
+                    if (!methods.AddUserOffer) throw new Error('method: AddUserOffer is not implemented')
+                    const authContext = await opts.NostrUserAuthGuard(req.appId, req.authIdentifier)
+                    stats.guard = process.hrtime.bigint()
+                    authCtx = authContext
+                    const request = req.body
+                    const error = Types.OfferConfigValidate(request)
+                    stats.validate = process.hrtime.bigint()
+                    if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
+                    const response = await methods.AddUserOffer({rpcName:'AddUserOffer', ctx:authContext , req: request})
+                    stats.handle = process.hrtime.bigint()
+                    res({status: 'OK', ...response})
+                    opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+                break
             case 'AuthApp':
                 try {
                     if (!methods.AuthApp) throw new Error('method: AuthApp is not implemented')
@@ -175,6 +191,18 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                                         callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
                                     }
                                     break
+                                case 'AddUserOffer':
+                                    if (!methods.AddUserOffer) {
+                                        throw new Error('method not defined: AddUserOffer')
+                                    } else {
+                                        const error = Types.OfferConfigValidate(operation.req)
+                                        opStats.validate = process.hrtime.bigint()
+                                        if (error !== null) throw error
+                                        const res = await methods.AddUserOffer({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                                        opStats.handle = process.hrtime.bigint()
+                                        callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
+                                    }
+                                    break
                                 case 'AuthorizeDebit':
                                     if (!methods.AuthorizeDebit) {
                                         throw new Error('method not defined: AuthorizeDebit')
@@ -207,6 +235,18 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                                         opStats.validate = process.hrtime.bigint()
                                         if (error !== null) throw error
                                         const res = await methods.DecodeInvoice({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                                        opStats.handle = process.hrtime.bigint()
+                                        callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
+                                    }
+                                    break
+                                case 'DeleteUserOffer':
+                                    if (!methods.DeleteUserOffer) {
+                                        throw new Error('method not defined: DeleteUserOffer')
+                                    } else {
+                                        const error = Types.OfferIdValidate(operation.req)
+                                        opStats.validate = process.hrtime.bigint()
+                                        if (error !== null) throw error
+                                        await methods.DeleteUserOffer({...operation, ctx}); responses.push({ status: 'OK' })
                                         opStats.handle = process.hrtime.bigint()
                                         callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
                                     }
@@ -293,6 +333,40 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                                     } else {
                                         opStats.validate = opStats.guard
                                         const res = await methods.GetUserInfo({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                                        opStats.handle = process.hrtime.bigint()
+                                        callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
+                                    }
+                                    break
+                                case 'GetUserOffer':
+                                    if (!methods.GetUserOffer) {
+                                        throw new Error('method not defined: GetUserOffer')
+                                    } else {
+                                        const error = Types.OfferIdValidate(operation.req)
+                                        opStats.validate = process.hrtime.bigint()
+                                        if (error !== null) throw error
+                                        const res = await methods.GetUserOffer({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                                        opStats.handle = process.hrtime.bigint()
+                                        callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
+                                    }
+                                    break
+                                case 'GetUserOfferInvoices':
+                                    if (!methods.GetUserOfferInvoices) {
+                                        throw new Error('method not defined: GetUserOfferInvoices')
+                                    } else {
+                                        const error = Types.GetUserOfferInvoicesReqValidate(operation.req)
+                                        opStats.validate = process.hrtime.bigint()
+                                        if (error !== null) throw error
+                                        const res = await methods.GetUserOfferInvoices({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                                        opStats.handle = process.hrtime.bigint()
+                                        callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
+                                    }
+                                    break
+                                case 'GetUserOffers':
+                                    if (!methods.GetUserOffers) {
+                                        throw new Error('method not defined: GetUserOffers')
+                                    } else {
+                                        opStats.validate = opStats.guard
+                                        const res = await methods.GetUserOffers({...operation, ctx}); responses.push({ status: 'OK', ...res  })
                                         opStats.handle = process.hrtime.bigint()
                                         callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
                                     }
@@ -403,12 +477,24 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                                         callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
                                     }
                                     break
+                                case 'UpdateUserOffer':
+                                    if (!methods.UpdateUserOffer) {
+                                        throw new Error('method not defined: UpdateUserOffer')
+                                    } else {
+                                        const error = Types.OfferConfigValidate(operation.req)
+                                        opStats.validate = process.hrtime.bigint()
+                                        if (error !== null) throw error
+                                        await methods.UpdateUserOffer({...operation, ctx}); responses.push({ status: 'OK' })
+                                        opStats.handle = process.hrtime.bigint()
+                                        callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
+                                    }
+                                    break
                                 case 'UserHealth':
                                     if (!methods.UserHealth) {
                                         throw new Error('method not defined: UserHealth')
                                     } else {
                                         opStats.validate = opStats.guard
-                                        await methods.UserHealth({...operation, ctx}); responses.push({ status: 'OK' })
+                                        const res = await methods.UserHealth({...operation, ctx}); responses.push({ status: 'OK', ...res  })
                                         opStats.handle = process.hrtime.bigint()
                                         callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
                                     }
@@ -471,6 +557,22 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     opts.metricsCallback([{ ...info, ...stats, ...authContext }])
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
+            case 'DeleteUserOffer':
+                try {
+                    if (!methods.DeleteUserOffer) throw new Error('method: DeleteUserOffer is not implemented')
+                    const authContext = await opts.NostrUserAuthGuard(req.appId, req.authIdentifier)
+                    stats.guard = process.hrtime.bigint()
+                    authCtx = authContext
+                    const request = req.body
+                    const error = Types.OfferIdValidate(request)
+                    stats.validate = process.hrtime.bigint()
+                    if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
+                    await methods.DeleteUserOffer({rpcName:'DeleteUserOffer', ctx:authContext , req: request})
+                    stats.handle = process.hrtime.bigint()
+                    res({status: 'OK'})
+                    opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+                break
             case 'EditDebit':
                 try {
                     if (!methods.EditDebit) throw new Error('method: EditDebit is not implemented')
@@ -527,6 +629,19 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     authCtx = authContext
                     stats.validate = stats.guard
                     const response = await methods.GetDebitAuthorizations({rpcName:'GetDebitAuthorizations', ctx:authContext })
+                    stats.handle = process.hrtime.bigint()
+                    res({status: 'OK', ...response})
+                    opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+                break
+            case 'GetErrorStats':
+                try {
+                    if (!methods.GetErrorStats) throw new Error('method: GetErrorStats is not implemented')
+                    const authContext = await opts.NostrMetricsAuthGuard(req.appId, req.authIdentifier)
+                    stats.guard = process.hrtime.bigint()
+                    authCtx = authContext
+                    stats.validate = stats.guard
+                    const response = await methods.GetErrorStats({rpcName:'GetErrorStats', ctx:authContext })
                     stats.handle = process.hrtime.bigint()
                     res({status: 'OK', ...response})
                     opts.metricsCallback([{ ...info, ...stats, ...authContext }])
@@ -705,6 +820,51 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     authCtx = authContext
                     stats.validate = stats.guard
                     const response = await methods.GetUserInfo({rpcName:'GetUserInfo', ctx:authContext })
+                    stats.handle = process.hrtime.bigint()
+                    res({status: 'OK', ...response})
+                    opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+                break
+            case 'GetUserOffer':
+                try {
+                    if (!methods.GetUserOffer) throw new Error('method: GetUserOffer is not implemented')
+                    const authContext = await opts.NostrUserAuthGuard(req.appId, req.authIdentifier)
+                    stats.guard = process.hrtime.bigint()
+                    authCtx = authContext
+                    const request = req.body
+                    const error = Types.OfferIdValidate(request)
+                    stats.validate = process.hrtime.bigint()
+                    if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
+                    const response = await methods.GetUserOffer({rpcName:'GetUserOffer', ctx:authContext , req: request})
+                    stats.handle = process.hrtime.bigint()
+                    res({status: 'OK', ...response})
+                    opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+                break
+            case 'GetUserOfferInvoices':
+                try {
+                    if (!methods.GetUserOfferInvoices) throw new Error('method: GetUserOfferInvoices is not implemented')
+                    const authContext = await opts.NostrUserAuthGuard(req.appId, req.authIdentifier)
+                    stats.guard = process.hrtime.bigint()
+                    authCtx = authContext
+                    const request = req.body
+                    const error = Types.GetUserOfferInvoicesReqValidate(request)
+                    stats.validate = process.hrtime.bigint()
+                    if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
+                    const response = await methods.GetUserOfferInvoices({rpcName:'GetUserOfferInvoices', ctx:authContext , req: request})
+                    stats.handle = process.hrtime.bigint()
+                    res({status: 'OK', ...response})
+                    opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+                break
+            case 'GetUserOffers':
+                try {
+                    if (!methods.GetUserOffers) throw new Error('method: GetUserOffers is not implemented')
+                    const authContext = await opts.NostrUserAuthGuard(req.appId, req.authIdentifier)
+                    stats.guard = process.hrtime.bigint()
+                    authCtx = authContext
+                    stats.validate = stats.guard
+                    const response = await methods.GetUserOffers({rpcName:'GetUserOffers', ctx:authContext })
                     stats.handle = process.hrtime.bigint()
                     res({status: 'OK', ...response})
                     opts.metricsCallback([{ ...info, ...stats, ...authContext }])
@@ -928,6 +1088,22 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     opts.metricsCallback([{ ...info, ...stats, ...authContext }])
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
+            case 'UpdateUserOffer':
+                try {
+                    if (!methods.UpdateUserOffer) throw new Error('method: UpdateUserOffer is not implemented')
+                    const authContext = await opts.NostrUserAuthGuard(req.appId, req.authIdentifier)
+                    stats.guard = process.hrtime.bigint()
+                    authCtx = authContext
+                    const request = req.body
+                    const error = Types.OfferConfigValidate(request)
+                    stats.validate = process.hrtime.bigint()
+                    if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
+                    await methods.UpdateUserOffer({rpcName:'UpdateUserOffer', ctx:authContext , req: request})
+                    stats.handle = process.hrtime.bigint()
+                    res({status: 'OK'})
+                    opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+                break
             case 'UseInviteLink':
                 try {
                     if (!methods.UseInviteLink) throw new Error('method: UseInviteLink is not implemented')
@@ -951,9 +1127,9 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     stats.guard = process.hrtime.bigint()
                     authCtx = authContext
                     stats.validate = stats.guard
-                    await methods.UserHealth({rpcName:'UserHealth', ctx:authContext })
+                    const response = await methods.UserHealth({rpcName:'UserHealth', ctx:authContext })
                     stats.handle = process.hrtime.bigint()
-                    res({status: 'OK'})
+                    res({status: 'OK', ...response})
                     opts.metricsCallback([{ ...info, ...stats, ...authContext }])
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break

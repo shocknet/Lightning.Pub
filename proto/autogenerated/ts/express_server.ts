@@ -166,6 +166,28 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
+    if (!opts.allowNotImplementedMethods && !methods.AddUserOffer) throw new Error('method: AddUserOffer is not implemented')
+    app.post('/api/user/offer/add', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'AddUserOffer', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.AddUserOffer) throw new Error('method: AddUserOffer is not implemented')
+            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.OfferConfigValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+            const response =  await methods.AddUserOffer({rpcName:'AddUserOffer', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
     if (!opts.allowNotImplementedMethods && !methods.AuthApp) throw new Error('method: AuthApp is not implemented')
     app.post('/api/admin/app/auth', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'AuthApp', batch: false, nostr: false, batchSize: 0}
@@ -287,6 +309,18 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
                                 callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
                             }
                             break
+                        case 'AddUserOffer':
+                            if (!methods.AddUserOffer) {
+                                throw new Error('method AddUserOffer not found' )
+                            } else {
+                                const error = Types.OfferConfigValidate(operation.req)
+                                opStats.validate = process.hrtime.bigint()
+                                if (error !== null) throw error
+                                const res = await methods.AddUserOffer({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                                opStats.handle = process.hrtime.bigint()
+                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
+                            }
+                            break
                         case 'AuthorizeDebit':
                             if (!methods.AuthorizeDebit) {
                                 throw new Error('method AuthorizeDebit not found' )
@@ -319,6 +353,18 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
                                 opStats.validate = process.hrtime.bigint()
                                 if (error !== null) throw error
                                 const res = await methods.DecodeInvoice({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                                opStats.handle = process.hrtime.bigint()
+                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
+                            }
+                            break
+                        case 'DeleteUserOffer':
+                            if (!methods.DeleteUserOffer) {
+                                throw new Error('method DeleteUserOffer not found' )
+                            } else {
+                                const error = Types.OfferIdValidate(operation.req)
+                                opStats.validate = process.hrtime.bigint()
+                                if (error !== null) throw error
+                                await methods.DeleteUserOffer({...operation, ctx}); responses.push({ status: 'OK' })
                                 opStats.handle = process.hrtime.bigint()
                                 callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
                             }
@@ -405,6 +451,40 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
                             } else {
                                 opStats.validate = opStats.guard
                                 const res = await methods.GetUserInfo({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                                opStats.handle = process.hrtime.bigint()
+                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
+                            }
+                            break
+                        case 'GetUserOffer':
+                            if (!methods.GetUserOffer) {
+                                throw new Error('method GetUserOffer not found' )
+                            } else {
+                                const error = Types.OfferIdValidate(operation.req)
+                                opStats.validate = process.hrtime.bigint()
+                                if (error !== null) throw error
+                                const res = await methods.GetUserOffer({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                                opStats.handle = process.hrtime.bigint()
+                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
+                            }
+                            break
+                        case 'GetUserOfferInvoices':
+                            if (!methods.GetUserOfferInvoices) {
+                                throw new Error('method GetUserOfferInvoices not found' )
+                            } else {
+                                const error = Types.GetUserOfferInvoicesReqValidate(operation.req)
+                                opStats.validate = process.hrtime.bigint()
+                                if (error !== null) throw error
+                                const res = await methods.GetUserOfferInvoices({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                                opStats.handle = process.hrtime.bigint()
+                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
+                            }
+                            break
+                        case 'GetUserOffers':
+                            if (!methods.GetUserOffers) {
+                                throw new Error('method GetUserOffers not found' )
+                            } else {
+                                opStats.validate = opStats.guard
+                                const res = await methods.GetUserOffers({...operation, ctx}); responses.push({ status: 'OK', ...res  })
                                 opStats.handle = process.hrtime.bigint()
                                 callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
                             }
@@ -515,12 +595,24 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
                                 callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
                             }
                             break
+                        case 'UpdateUserOffer':
+                            if (!methods.UpdateUserOffer) {
+                                throw new Error('method UpdateUserOffer not found' )
+                            } else {
+                                const error = Types.OfferConfigValidate(operation.req)
+                                opStats.validate = process.hrtime.bigint()
+                                if (error !== null) throw error
+                                await methods.UpdateUserOffer({...operation, ctx}); responses.push({ status: 'OK' })
+                                opStats.handle = process.hrtime.bigint()
+                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
+                            }
+                            break
                         case 'UserHealth':
                             if (!methods.UserHealth) {
                                 throw new Error('method UserHealth not found' )
                             } else {
                                 opStats.validate = opStats.guard
-                                await methods.UserHealth({...operation, ctx}); responses.push({ status: 'OK' })
+                                const res = await methods.UserHealth({...operation, ctx}); responses.push({ status: 'OK', ...res  })
                                 opStats.handle = process.hrtime.bigint()
                                 callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
                             }
@@ -598,6 +690,28 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const response =  await methods.DecodeInvoice({rpcName:'DecodeInvoice', ctx:authContext , req: request})
             stats.handle = process.hrtime.bigint()
             res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.DeleteUserOffer) throw new Error('method: DeleteUserOffer is not implemented')
+    app.post('/api/user/offer/delete', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'DeleteUserOffer', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.DeleteUserOffer) throw new Error('method: DeleteUserOffer is not implemented')
+            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.OfferIdValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+             await methods.DeleteUserOffer({rpcName:'DeleteUserOffer', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK'})
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
@@ -766,6 +880,25 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const query = req.query
             const params = req.params
             const response =  await methods.GetDebitAuthorizations({rpcName:'GetDebitAuthorizations', ctx:authContext })
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.GetErrorStats) throw new Error('method: GetErrorStats is not implemented')
+    app.post('/api/reports/errors', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'GetErrorStats', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.GetErrorStats) throw new Error('method: GetErrorStats is not implemented')
+            const authContext = await opts.MetricsAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            stats.validate = stats.guard
+            const query = req.query
+            const params = req.params
+            const response =  await methods.GetErrorStats({rpcName:'GetErrorStats', ctx:authContext })
             stats.handle = process.hrtime.bigint()
             res.json({status: 'OK', ...response})
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
@@ -1006,6 +1139,69 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const query = req.query
             const params = req.params
             const response =  await methods.GetUserInfo({rpcName:'GetUserInfo', ctx:authContext })
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.GetUserOffer) throw new Error('method: GetUserOffer is not implemented')
+    app.post('/api/user/offer/get', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'GetUserOffer', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.GetUserOffer) throw new Error('method: GetUserOffer is not implemented')
+            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.OfferIdValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+            const response =  await methods.GetUserOffer({rpcName:'GetUserOffer', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.GetUserOfferInvoices) throw new Error('method: GetUserOfferInvoices is not implemented')
+    app.post('/api/user/offer/get/invoices', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'GetUserOfferInvoices', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.GetUserOfferInvoices) throw new Error('method: GetUserOfferInvoices is not implemented')
+            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.GetUserOfferInvoicesReqValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+            const response =  await methods.GetUserOfferInvoices({rpcName:'GetUserOfferInvoices', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.GetUserOffers) throw new Error('method: GetUserOffers is not implemented')
+    app.get('/api/user/offers/get', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'GetUserOffers', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.GetUserOffers) throw new Error('method: GetUserOffers is not implemented')
+            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            stats.validate = stats.guard
+            const query = req.query
+            const params = req.params
+            const response =  await methods.GetUserOffers({rpcName:'GetUserOffers', ctx:authContext })
             stats.handle = process.hrtime.bigint()
             res.json({status: 'OK', ...response})
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
@@ -1565,6 +1761,28 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
+    if (!opts.allowNotImplementedMethods && !methods.UpdateUserOffer) throw new Error('method: UpdateUserOffer is not implemented')
+    app.post('/api/user/offer/update', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'UpdateUserOffer', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.UpdateUserOffer) throw new Error('method: UpdateUserOffer is not implemented')
+            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.OfferConfigValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+             await methods.UpdateUserOffer({rpcName:'UpdateUserOffer', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK'})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
     if (!opts.allowNotImplementedMethods && !methods.UseInviteLink) throw new Error('method: UseInviteLink is not implemented')
     app.post('/api/guest/invite', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'UseInviteLink', batch: false, nostr: false, batchSize: 0}
@@ -1600,9 +1818,9 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             stats.validate = stats.guard
             const query = req.query
             const params = req.params
-             await methods.UserHealth({rpcName:'UserHealth', ctx:authContext })
+            const response =  await methods.UserHealth({rpcName:'UserHealth', ctx:authContext })
             stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK'})
+            res.json({status: 'OK', ...response})
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })

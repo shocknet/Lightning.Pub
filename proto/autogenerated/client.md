@@ -28,6 +28,11 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [AddProductRequest](#AddProductRequest)
   - output: [Product](#Product)
 
+- AddUserOffer
+  - auth type: __User__
+  - input: [OfferConfig](#OfferConfig)
+  - output: [OfferId](#OfferId)
+
 - AuthApp
   - auth type: __Admin__
   - input: [AuthAppRequest](#AuthAppRequest)
@@ -68,6 +73,11 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [DecodeInvoiceRequest](#DecodeInvoiceRequest)
   - output: [DecodeInvoiceResponse](#DecodeInvoiceResponse)
 
+- DeleteUserOffer
+  - auth type: __User__
+  - input: [OfferId](#OfferId)
+  - This methods has an __empty__ __response__ body
+
 - EditDebit
   - auth type: __User__
   - input: [DebitAuthorizationRequest](#DebitAuthorizationRequest)
@@ -87,6 +97,11 @@ The nostr server will send back a message response, and inside the body there wi
   - auth type: __User__
   - This methods has an __empty__ __request__ body
   - output: [DebitAuthorizations](#DebitAuthorizations)
+
+- GetErrorStats
+  - auth type: __Metrics__
+  - This methods has an __empty__ __request__ body
+  - output: [ErrorStats](#ErrorStats)
 
 - GetHttpCreds
   - auth type: __User__
@@ -152,6 +167,21 @@ The nostr server will send back a message response, and inside the body there wi
   - auth type: __User__
   - This methods has an __empty__ __request__ body
   - output: [UserInfo](#UserInfo)
+
+- GetUserOffer
+  - auth type: __User__
+  - input: [OfferId](#OfferId)
+  - output: [OfferConfig](#OfferConfig)
+
+- GetUserOfferInvoices
+  - auth type: __User__
+  - input: [GetUserOfferInvoicesReq](#GetUserOfferInvoicesReq)
+  - output: [OfferInvoices](#OfferInvoices)
+
+- GetUserOffers
+  - auth type: __User__
+  - This methods has an __empty__ __request__ body
+  - output: [UserOffers](#UserOffers)
 
 - GetUserOperations
   - auth type: __User__
@@ -225,6 +255,11 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [UpdateChannelPolicyRequest](#UpdateChannelPolicyRequest)
   - This methods has an __empty__ __response__ body
 
+- UpdateUserOffer
+  - auth type: __User__
+  - input: [OfferConfig](#OfferConfig)
+  - This methods has an __empty__ __response__ body
+
 - UseInviteLink
   - auth type: __GuestWithPub__
   - input: [UseInviteLinkRequest](#UseInviteLinkRequest)
@@ -233,7 +268,7 @@ The nostr server will send back a message response, and inside the body there wi
 - UserHealth
   - auth type: __User__
   - This methods has an __empty__ __request__ body
-  - This methods has an __empty__ __response__ body
+  - output: [UserHealthState](#UserHealthState)
 
 # HTTP API DEFINITION
 
@@ -311,6 +346,13 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [AddProductRequest](#AddProductRequest)
   - output: [Product](#Product)
 
+- AddUserOffer
+  - auth type: __User__
+  - http method: __post__
+  - http route: __/api/user/offer/add__
+  - input: [OfferConfig](#OfferConfig)
+  - output: [OfferId](#OfferId)
+
 - AuthApp
   - auth type: __Admin__
   - http method: __post__
@@ -367,6 +409,13 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [DecodeInvoiceRequest](#DecodeInvoiceRequest)
   - output: [DecodeInvoiceResponse](#DecodeInvoiceResponse)
 
+- DeleteUserOffer
+  - auth type: __User__
+  - http method: __post__
+  - http route: __/api/user/offer/delete__
+  - input: [OfferId](#OfferId)
+  - This methods has an __empty__ __response__ body
+
 - EditDebit
   - auth type: __User__
   - http method: __post__
@@ -422,6 +471,13 @@ The nostr server will send back a message response, and inside the body there wi
   - http route: __/api/user/debit/get__
   - This methods has an __empty__ __request__ body
   - output: [DebitAuthorizations](#DebitAuthorizations)
+
+- GetErrorStats
+  - auth type: __Metrics__
+  - http method: __post__
+  - http route: __/api/reports/errors__
+  - This methods has an __empty__ __request__ body
+  - output: [ErrorStats](#ErrorStats)
 
 - GetHttpCreds
   - auth type: __User__
@@ -538,6 +594,27 @@ The nostr server will send back a message response, and inside the body there wi
   - http route: __/api/user/info__
   - This methods has an __empty__ __request__ body
   - output: [UserInfo](#UserInfo)
+
+- GetUserOffer
+  - auth type: __User__
+  - http method: __post__
+  - http route: __/api/user/offer/get__
+  - input: [OfferId](#OfferId)
+  - output: [OfferConfig](#OfferConfig)
+
+- GetUserOfferInvoices
+  - auth type: __User__
+  - http method: __post__
+  - http route: __/api/user/offer/get/invoices__
+  - input: [GetUserOfferInvoicesReq](#GetUserOfferInvoicesReq)
+  - output: [OfferInvoices](#OfferInvoices)
+
+- GetUserOffers
+  - auth type: __User__
+  - http method: __get__
+  - http route: __/api/user/offers/get__
+  - This methods has an __empty__ __request__ body
+  - output: [UserOffers](#UserOffers)
 
 - GetUserOperations
   - auth type: __User__
@@ -733,6 +810,13 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [UpdateChannelPolicyRequest](#UpdateChannelPolicyRequest)
   - This methods has an __empty__ __response__ body
 
+- UpdateUserOffer
+  - auth type: __User__
+  - http method: __post__
+  - http route: __/api/user/offer/update__
+  - input: [OfferConfig](#OfferConfig)
+  - This methods has an __empty__ __response__ body
+
 - UseInviteLink
   - auth type: __GuestWithPub__
   - http method: __post__
@@ -745,7 +829,7 @@ The nostr server will send back a message response, and inside the body there wi
   - http method: __post__
   - http route: __/api/user/health__
   - This methods has an __empty__ __request__ body
-  - This methods has an __empty__ __response__ body
+  - output: [UserHealthState](#UserHealthState)
 
 # INPUTS AND OUTPUTS
 
@@ -764,6 +848,8 @@ The nostr server will send back a message response, and inside the body there wi
 ### AddAppUserInvoiceRequest
   - __http_callback_url__: _string_
   - __invoice_req__: _[NewInvoiceRequest](#NewInvoiceRequest)_
+  - __offer_string__: _string_ *this field is optional
+  - __payer_data__: _[PayerData](#PayerData)_ *this field is optional
   - __payer_identifier__: _string_
   - __receiver_identifier__: _string_
 
@@ -791,6 +877,9 @@ The nostr server will send back a message response, and inside the body there wi
   - __spent__: _number_
   - __total_fees__: _number_
   - __users__: _[UsersInfo](#UsersInfo)_
+
+### AppUsageMetrics
+  - __app_metrics__: MAP with key: _string_ and value: _[UsageMetricTlv](#UsageMetricTlv)_
 
 ### AppUser
   - __identifier__: _string_
@@ -909,6 +998,18 @@ The nostr server will send back a message response, and inside the body there wi
 ### EnrollAdminTokenRequest
   - __admin_token__: _string_
 
+### ErrorStat
+  - __errors__: _number_
+  - __from_unix__: _number_
+  - __total__: _number_
+
+### ErrorStats
+  - __past10m__: _[ErrorStat](#ErrorStat)_
+  - __past1h__: _[ErrorStat](#ErrorStat)_
+  - __past1m__: _[ErrorStat](#ErrorStat)_
+  - __past24h__: _[ErrorStat](#ErrorStat)_
+  - __past6h__: _[ErrorStat](#ErrorStat)_
+
 ### FrequencyRule
   - __amount__: _number_
   - __interval__: _[IntervalType](#IntervalType)_
@@ -935,6 +1036,10 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### GetProductBuyLinkResponse
   - __link__: _string_
+
+### GetUserOfferInvoicesReq
+  - __include_unpaid__: _boolean_
+  - __offer_id__: _string_
 
 ### GetUserOperationsRequest
   - __latestIncomingInvoice__: _number_
@@ -1056,6 +1161,28 @@ The nostr server will send back a message response, and inside the body there wi
 ### NewInvoiceResponse
   - __invoice__: _string_
 
+### OfferConfig
+  - __callback_url__: _string_
+  - __default_offer__: _boolean_
+  - __expected_data__: MAP with key: _string_ and value: _[OfferDataType](#OfferDataType)_
+  - __label__: _string_
+  - __noffer__: _string_
+  - __offer_id__: _string_
+  - __price_sats__: _number_
+
+### OfferId
+  - __offer_id__: _string_
+
+### OfferInvoice
+  - __amount__: _number_
+  - __data__: MAP with key: _string_ and value: _string_
+  - __invoice__: _string_
+  - __offer_id__: _string_
+  - __paid_at_unix__: _number_
+
+### OfferInvoices
+  - __invoices__: ARRAY of: _[OfferInvoice](#OfferInvoice)_
+
 ### OpenChannel
   - __active__: _boolean_
   - __capacity__: _number_
@@ -1105,6 +1232,9 @@ The nostr server will send back a message response, and inside the body there wi
   - __operation_id__: _string_
   - __preimage__: _string_
   - __service_fee__: _number_
+
+### PayerData
+  - __data__: MAP with key: _string_ and value: _string_
 
 ### PaymentState
   - __amount__: _number_
@@ -1172,6 +1302,7 @@ The nostr server will send back a message response, and inside the body there wi
   - __update__: _[UpdateChannelPolicyRequest_update](#UpdateChannelPolicyRequest_update)_
 
 ### UsageMetric
+  - __app_id__: _string_ *this field is optional
   - __auth_in_nano__: _number_
   - __batch__: _boolean_
   - __batch_size__: _number_
@@ -1180,13 +1311,22 @@ The nostr server will send back a message response, and inside the body there wi
   - __parsed_in_nano__: _number_
   - __processed_at_ms__: _number_
   - __rpc_name__: _string_
+  - __success__: _boolean_
   - __validate_in_nano__: _number_
 
+### UsageMetricTlv
+  - __available_chunks__: ARRAY of: _number_
+  - __base_64_tlvs__: ARRAY of: _string_
+  - __current_chunk__: _number_
+
 ### UsageMetrics
-  - __metrics__: ARRAY of: _[UsageMetric](#UsageMetric)_
+  - __apps__: MAP with key: _string_ and value: _[AppUsageMetrics](#AppUsageMetrics)_
 
 ### UseInviteLinkRequest
   - __invite_token__: _string_
+
+### UserHealthState
+  - __downtime_reason__: _string_
 
 ### UserInfo
   - __balance__: _number_
@@ -1200,6 +1340,9 @@ The nostr server will send back a message response, and inside the body there wi
   - __service_fee_bps__: _number_
   - __userId__: _string_
   - __user_identifier__: _string_
+
+### UserOffers
+  - __offers__: ARRAY of: _[OfferConfig](#OfferConfig)_
 
 ### UserOperation
   - __amount__: _number_
@@ -1238,6 +1381,9 @@ The nostr server will send back a message response, and inside the body there wi
   - __DAY__
   - __MONTH__
   - __WEEK__
+
+### OfferDataType
+  - __DATA_STRING__
 
 ### OperationType
   - __CHAIN_OP__

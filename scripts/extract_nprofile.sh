@@ -64,11 +64,11 @@ get_log_info() {
 
   log "Retrieving connection information..."
 
-  # Wait for either .admin_connect or app.nprofile to appear
+  # Wait for either admin.connect or app.nprofile to appear
   START_TIME=$(date +%s)
   while [ $(($(date +%s) - START_TIME)) -lt $MAX_WAIT_TIME ]; do
-    if [ -f "$DATA_DIR/.admin_connect" ]; then
-      admin_connect=$(cat "$DATA_DIR/.admin_connect")
+    if [ -f "$DATA_DIR/admin.connect" ]; then
+      admin_connect=$(cat "$DATA_DIR/admin.connect")
       # Check if the admin_connect string is complete (contains both nprofile and secret)
       if [[ $admin_connect == nprofile* ]] && [[ $admin_connect == *:* ]]; then
         log "An admin has not yet been enrolled."
@@ -87,10 +87,10 @@ get_log_info() {
     sleep $WAIT_INTERVAL
   done
 
-  if [ ! -f "$DATA_DIR/.admin_connect" ] && [ ! -f "$DATA_DIR/app.nprofile" ]; then
-    log "Neither .admin_connect nor app.nprofile file found after waiting. Please check the service status."
+  if [ ! -f "$DATA_DIR/admin.connect" ] && [ ! -f "$DATA_DIR/app.nprofile" ]; then
+    log "Neither admin.connect nor app.nprofile file found after waiting. Please check the service status."
     exit 1
-  elif [ -f "$DATA_DIR/.admin_connect" ] && ! [[ $(cat "$DATA_DIR/.admin_connect") == nprofile1* ]] && ! [[ $(cat "$DATA_DIR/.admin_connect") == *:* ]]; then
+  elif [ -f "$DATA_DIR/admin.connect" ] && ! [[ $(cat "$DATA_DIR/admin.connect") == nprofile1* ]] && ! [[ $(cat "$DATA_DIR/admin.connect") == *:* ]]; then
     log "Admin connect information is incomplete. Please check the service status."
     exit 1
   fi

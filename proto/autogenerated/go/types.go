@@ -64,6 +64,12 @@ const (
 	WEEK  IntervalType = "WEEK"
 )
 
+type OfferDataType string
+
+const (
+	DATA_STRING OfferDataType = "DATA_STRING"
+)
+
 type OperationType string
 
 const (
@@ -94,6 +100,8 @@ type AddAppRequest struct {
 type AddAppUserInvoiceRequest struct {
 	Http_callback_url   string             `json:"http_callback_url"`
 	Invoice_req         *NewInvoiceRequest `json:"invoice_req"`
+	Offer_string        string             `json:"offer_string"`
+	Payer_data          *PayerData         `json:"payer_data"`
 	Payer_identifier    string             `json:"payer_identifier"`
 	Receiver_identifier string             `json:"receiver_identifier"`
 }
@@ -121,6 +129,9 @@ type AppMetrics struct {
 	Spent      int64           `json:"spent"`
 	Total_fees int64           `json:"total_fees"`
 	Users      *UsersInfo      `json:"users"`
+}
+type AppUsageMetrics struct {
+	App_metrics map[string]UsageMetricTlv `json:"app_metrics"`
 }
 type AppUser struct {
 	Identifier       string    `json:"identifier"`
@@ -239,6 +250,18 @@ type EncryptionExchangeRequest struct {
 type EnrollAdminTokenRequest struct {
 	Admin_token string `json:"admin_token"`
 }
+type ErrorStat struct {
+	Errors    int64 `json:"errors"`
+	From_unix int64 `json:"from_unix"`
+	Total     int64 `json:"total"`
+}
+type ErrorStats struct {
+	Past10m *ErrorStat `json:"past10m"`
+	Past1h  *ErrorStat `json:"past1h"`
+	Past1m  *ErrorStat `json:"past1m"`
+	Past24h *ErrorStat `json:"past24h"`
+	Past6h  *ErrorStat `json:"past6h"`
+}
 type FrequencyRule struct {
 	Amount              int64        `json:"amount"`
 	Interval            IntervalType `json:"interval"`
@@ -265,6 +288,10 @@ type GetPaymentStateRequest struct {
 }
 type GetProductBuyLinkResponse struct {
 	Link string `json:"link"`
+}
+type GetUserOfferInvoicesReq struct {
+	Include_unpaid bool   `json:"include_unpaid"`
+	Offer_id       string `json:"offer_id"`
 }
 type GetUserOperationsRequest struct {
 	Latestincominginvoice           int64 `json:"latestIncomingInvoice"`
@@ -386,6 +413,28 @@ type NewInvoiceRequest struct {
 type NewInvoiceResponse struct {
 	Invoice string `json:"invoice"`
 }
+type OfferConfig struct {
+	Callback_url  string                   `json:"callback_url"`
+	Default_offer bool                     `json:"default_offer"`
+	Expected_data map[string]OfferDataType `json:"expected_data"`
+	Label         string                   `json:"label"`
+	Noffer        string                   `json:"noffer"`
+	Offer_id      string                   `json:"offer_id"`
+	Price_sats    int64                    `json:"price_sats"`
+}
+type OfferId struct {
+	Offer_id string `json:"offer_id"`
+}
+type OfferInvoice struct {
+	Amount       int64             `json:"amount"`
+	Data         map[string]string `json:"data"`
+	Invoice      string            `json:"invoice"`
+	Offer_id     string            `json:"offer_id"`
+	Paid_at_unix int64             `json:"paid_at_unix"`
+}
+type OfferInvoices struct {
+	Invoices []OfferInvoice `json:"invoices"`
+}
 type OpenChannel struct {
 	Active         bool           `json:"active"`
 	Capacity       int64          `json:"capacity"`
@@ -435,6 +484,9 @@ type PayInvoiceResponse struct {
 	Operation_id string `json:"operation_id"`
 	Preimage     string `json:"preimage"`
 	Service_fee  int64  `json:"service_fee"`
+}
+type PayerData struct {
+	Data map[string]string `json:"data"`
 }
 type PaymentState struct {
 	Amount       int64 `json:"amount"`
@@ -502,6 +554,7 @@ type UpdateChannelPolicyRequest struct {
 	Update *UpdateChannelPolicyRequest_update `json:"update"`
 }
 type UsageMetric struct {
+	App_id           string `json:"app_id"`
 	Auth_in_nano     int64  `json:"auth_in_nano"`
 	Batch            bool   `json:"batch"`
 	Batch_size       int64  `json:"batch_size"`
@@ -510,13 +563,22 @@ type UsageMetric struct {
 	Parsed_in_nano   int64  `json:"parsed_in_nano"`
 	Processed_at_ms  int64  `json:"processed_at_ms"`
 	Rpc_name         string `json:"rpc_name"`
+	Success          bool   `json:"success"`
 	Validate_in_nano int64  `json:"validate_in_nano"`
 }
+type UsageMetricTlv struct {
+	Available_chunks []int64  `json:"available_chunks"`
+	Base_64_tlvs     []string `json:"base_64_tlvs"`
+	Current_chunk    int64    `json:"current_chunk"`
+}
 type UsageMetrics struct {
-	Metrics []UsageMetric `json:"metrics"`
+	Apps map[string]AppUsageMetrics `json:"apps"`
 }
 type UseInviteLinkRequest struct {
 	Invite_token string `json:"invite_token"`
+}
+type UserHealthState struct {
+	Downtime_reason string `json:"downtime_reason"`
 }
 type UserInfo struct {
 	Balance               int64  `json:"balance"`
@@ -530,6 +592,9 @@ type UserInfo struct {
 	Service_fee_bps       int64  `json:"service_fee_bps"`
 	Userid                string `json:"userId"`
 	User_identifier       string `json:"user_identifier"`
+}
+type UserOffers struct {
+	Offers []OfferConfig `json:"offers"`
 }
 type UserOperation struct {
 	Amount      int64             `json:"amount"`
