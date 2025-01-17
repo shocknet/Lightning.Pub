@@ -132,6 +132,28 @@ export default class {
         return metrics
     }
 
+    LoadMetricsFile = async (app: string, method: string, chunk: number): Promise<Types.UsageMetrics> => {
+        if (!this.metaReady || !this.metricsMeta[app] || !this.metricsMeta[app][method] || !this.metricsMeta[app][method].chunks.includes(chunk)) {
+            return { apps: {} }
+        }
+        const fullPath = [this.metricsPath, app, method, `${chunk}.mtlv`].join("/")
+        const tlv = fs.readFileSync(fullPath)
+        const decoded = decodeListTLV(parseTLV(tlv))
+        return {
+            apps: {
+                [app]: {
+                    app_metrics: {
+                        [method]: {
+                            base_64_tlvs: decoded.map(d => Buffer.from(d).toString('base64')),
+                            current_chunk: chunk,
+                            available_chunks: this.metricsMeta[app][method].chunks
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     persistMetrics = () => {
         if (!this.metaReady) {
             throw new Error("meta metrics not ready")

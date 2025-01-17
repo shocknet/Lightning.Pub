@@ -392,6 +392,11 @@ type LnurlWithdrawInfoResponse struct {
 	Paylink            string `json:"payLink"`
 	Tag                string `json:"tag"`
 }
+type MetricsFile struct {
+	App_id       string `json:"app_id"`
+	Metrics_name string `json:"metrics_name"`
+	Page         int64  `json:"page"`
+}
 type MigrationUpdate struct {
 	Closure *ClosureMigration `json:"closure"`
 	Relays  *RelaysMigration  `json:"relays"`
@@ -565,6 +570,10 @@ type UsageMetric struct {
 	Rpc_name         string `json:"rpc_name"`
 	Success          bool   `json:"success"`
 	Validate_in_nano int64  `json:"validate_in_nano"`
+}
+type UsageMetricReq struct {
+	Limit        int64        `json:"limit"`
+	Metrics_file *MetricsFile `json:"metrics_file"`
 }
 type UsageMetricTlv struct {
 	Available_chunks []int64  `json:"available_chunks"`

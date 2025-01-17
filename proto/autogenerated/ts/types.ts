@@ -161,7 +161,7 @@ export type GetPaymentState_Output = ResultError | ({ status: 'OK' } & PaymentSt
 export type GetSeed_Input = {rpcName:'GetSeed'}
 export type GetSeed_Output = ResultError | ({ status: 'OK' } & LndSeed)
 
-export type GetUsageMetrics_Input = {rpcName:'GetUsageMetrics'}
+export type GetUsageMetrics_Input = {rpcName:'GetUsageMetrics', req: UsageMetricReq}
 export type GetUsageMetrics_Output = ResultError | ({ status: 'OK' } & UsageMetrics)
 
 export type GetUserInfo_Input = {rpcName:'GetUserInfo'}
@@ -2234,6 +2234,34 @@ export const LnurlWithdrawInfoResponseValidate = (o?: LnurlWithdrawInfoResponse,
     return null
 }
 
+export type MetricsFile = {
+    app_id: string
+    metrics_name: string
+    page: number
+}
+export const MetricsFileOptionalFields: [] = []
+export type MetricsFileOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    app_id_CustomCheck?: (v: string) => boolean
+    metrics_name_CustomCheck?: (v: string) => boolean
+    page_CustomCheck?: (v: number) => boolean
+}
+export const MetricsFileValidate = (o?: MetricsFile, opts: MetricsFileOptions = {}, path: string = 'MetricsFile::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.app_id !== 'string') return new Error(`${path}.app_id: is not a string`)
+    if (opts.app_id_CustomCheck && !opts.app_id_CustomCheck(o.app_id)) return new Error(`${path}.app_id: custom check failed`)
+
+    if (typeof o.metrics_name !== 'string') return new Error(`${path}.metrics_name: is not a string`)
+    if (opts.metrics_name_CustomCheck && !opts.metrics_name_CustomCheck(o.metrics_name)) return new Error(`${path}.metrics_name: custom check failed`)
+
+    if (typeof o.page !== 'number') return new Error(`${path}.page: is not a number`)
+    if (opts.page_CustomCheck && !opts.page_CustomCheck(o.page)) return new Error(`${path}.page: custom check failed`)
+
+    return null
+}
+
 export type MigrationUpdate = {
     closure?: ClosureMigration
     relays?: RelaysMigration
@@ -3232,6 +3260,33 @@ export const UsageMetricValidate = (o?: UsageMetric, opts: UsageMetricOptions = 
 
     if (typeof o.validate_in_nano !== 'number') return new Error(`${path}.validate_in_nano: is not a number`)
     if (opts.validate_in_nano_CustomCheck && !opts.validate_in_nano_CustomCheck(o.validate_in_nano)) return new Error(`${path}.validate_in_nano: custom check failed`)
+
+    return null
+}
+
+export type UsageMetricReq = {
+    limit?: number
+    metrics_file?: MetricsFile
+}
+export type UsageMetricReqOptionalField = 'limit' | 'metrics_file'
+export const UsageMetricReqOptionalFields: UsageMetricReqOptionalField[] = ['limit', 'metrics_file']
+export type UsageMetricReqOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: UsageMetricReqOptionalField[]
+    limit_CustomCheck?: (v?: number) => boolean
+    metrics_file_Options?: MetricsFileOptions
+}
+export const UsageMetricReqValidate = (o?: UsageMetricReq, opts: UsageMetricReqOptions = {}, path: string = 'UsageMetricReq::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if ((o.limit || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('limit')) && typeof o.limit !== 'number') return new Error(`${path}.limit: is not a number`)
+    if (opts.limit_CustomCheck && !opts.limit_CustomCheck(o.limit)) return new Error(`${path}.limit: custom check failed`)
+
+    if (typeof o.metrics_file === 'object' || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('metrics_file')) {
+        const metrics_fileErr = MetricsFileValidate(o.metrics_file, opts.metrics_file_Options, `${path}.metrics_file`)
+        if (metrics_fileErr !== null) return metrics_fileErr
+    }
+    
 
     return null
 }

@@ -805,8 +805,11 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     const authContext = await opts.NostrMetricsAuthGuard(req.appId, req.authIdentifier)
                     stats.guard = process.hrtime.bigint()
                     authCtx = authContext
-                    stats.validate = stats.guard
-                    const response = await methods.GetUsageMetrics({rpcName:'GetUsageMetrics', ctx:authContext })
+                    const request = req.body
+                    const error = Types.UsageMetricReqValidate(request)
+                    stats.validate = process.hrtime.bigint()
+                    if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
+                    const response = await methods.GetUsageMetrics({rpcName:'GetUsageMetrics', ctx:authContext , req: request})
                     stats.handle = process.hrtime.bigint()
                     res({status: 'OK', ...response})
                     opts.metricsCallback([{ ...info, ...stats, ...authContext }])

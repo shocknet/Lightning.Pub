@@ -1116,10 +1116,13 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const authContext = await opts.MetricsAuthGuard(req.headers['authorization'])
             authCtx = authContext
             stats.guard = process.hrtime.bigint()
-            stats.validate = stats.guard
+            const request = req.body
+            const error = Types.UsageMetricReqValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
             const query = req.query
             const params = req.params
-            const response =  await methods.GetUsageMetrics({rpcName:'GetUsageMetrics', ctx:authContext })
+            const response =  await methods.GetUsageMetrics({rpcName:'GetUsageMetrics', ctx:authContext , req: request})
             stats.handle = process.hrtime.bigint()
             res.json({status: 'OK', ...response})
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])

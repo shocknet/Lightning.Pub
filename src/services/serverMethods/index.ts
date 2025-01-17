@@ -4,8 +4,8 @@ import main from '../main/index.js'
 import Main from '../main/index.js'
 export default (mainHandler: Main): Types.ServerMethods => {
     return {
-        GetUsageMetrics: async ({ ctx }) => {
-            return mainHandler.metricsManager.GetUsageMetrics()
+        GetUsageMetrics: async ({ ctx, req }) => {
+            return mainHandler.metricsManager.GetUsageMetrics(req)
         },
         GetErrorStats: async ({ ctx }) => {
             return mainHandler.metricsManager.GetErrorStats()

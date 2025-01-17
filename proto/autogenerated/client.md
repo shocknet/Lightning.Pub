@@ -160,7 +160,7 @@ The nostr server will send back a message response, and inside the body there wi
 
 - GetUsageMetrics
   - auth type: __Metrics__
-  - This methods has an __empty__ __request__ body
+  - input: [UsageMetricReq](#UsageMetricReq)
   - output: [UsageMetrics](#UsageMetrics)
 
 - GetUserInfo
@@ -585,7 +585,7 @@ The nostr server will send back a message response, and inside the body there wi
   - auth type: __Metrics__
   - http method: __post__
   - http route: __/api/reports/usage__
-  - This methods has an __empty__ __request__ body
+  - input: [UsageMetricReq](#UsageMetricReq)
   - output: [UsageMetrics](#UsageMetrics)
 
 - GetUserInfo
@@ -1140,6 +1140,11 @@ The nostr server will send back a message response, and inside the body there wi
   - __payLink__: _string_
   - __tag__: _string_
 
+### MetricsFile
+  - __app_id__: _string_
+  - __metrics_name__: _string_
+  - __page__: _number_
+
 ### MigrationUpdate
   - __closure__: _[ClosureMigration](#ClosureMigration)_ *this field is optional
   - __relays__: _[RelaysMigration](#RelaysMigration)_ *this field is optional
@@ -1313,6 +1318,10 @@ The nostr server will send back a message response, and inside the body there wi
   - __rpc_name__: _string_
   - __success__: _boolean_
   - __validate_in_nano__: _number_
+
+### UsageMetricReq
+  - __limit__: _number_ *this field is optional
+  - __metrics_file__: _[MetricsFile](#MetricsFile)_ *this field is optional
 
 ### UsageMetricTlv
   - __available_chunks__: ARRAY of: _number_

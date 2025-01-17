@@ -93,7 +93,7 @@ type Client struct {
 	GetNPubLinkingState         func(req GetNPubLinking) (*NPubLinking, error)
 	GetPaymentState             func(req GetPaymentStateRequest) (*PaymentState, error)
 	GetSeed                     func() (*LndSeed, error)
-	GetUsageMetrics             func() (*UsageMetrics, error)
+	GetUsageMetrics             func(req UsageMetricReq) (*UsageMetrics, error)
 	GetUserInfo                 func() (*UserInfo, error)
 	GetUserOffer                func(req OfferId) (*OfferConfig, error)
 	GetUserOfferInvoices        func(req GetUserOfferInvoicesReq) (*OfferInvoices, error)
@@ -1057,13 +1057,16 @@ func NewClient(params ClientParams) *Client {
 			}
 			return &res, nil
 		},
-		GetUsageMetrics: func() (*UsageMetrics, error) {
+		GetUsageMetrics: func(req UsageMetricReq) (*UsageMetrics, error) {
 			auth, err := params.RetrieveMetricsAuth()
 			if err != nil {
 				return nil, err
 			}
 			finalRoute := "/api/reports/usage"
-			body := []byte{}
+			body, err := json.Marshal(req)
+			if err != nil {
+				return nil, err
+			}
 			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
 			if err != nil {
 				return nil, err
