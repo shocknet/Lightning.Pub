@@ -27,8 +27,8 @@ export type GuestWithPubMethodOutputs = LinkNPubThroughToken_Output | UseInviteL
 export type MetricsContext = {
     operator_id: string
 }
-export type MetricsMethodInputs = GetAppsMetrics_Input | GetErrorStats_Input | GetLndMetrics_Input | GetUsageMetrics_Input
-export type MetricsMethodOutputs = GetAppsMetrics_Output | GetErrorStats_Output | GetLndMetrics_Output | GetUsageMetrics_Output
+export type MetricsMethodInputs = GetAppsMetrics_Input | GetErrorStats_Input | GetLndMetrics_Input | GetSingleUsageMetrics_Input | GetUsageMetrics_Input
+export type MetricsMethodOutputs = GetAppsMetrics_Output | GetErrorStats_Output | GetLndMetrics_Output | GetSingleUsageMetrics_Output | GetUsageMetrics_Output
 export type UserContext = {
     app_id: string
     app_user_id: string
@@ -161,7 +161,10 @@ export type GetPaymentState_Output = ResultError | ({ status: 'OK' } & PaymentSt
 export type GetSeed_Input = {rpcName:'GetSeed'}
 export type GetSeed_Output = ResultError | ({ status: 'OK' } & LndSeed)
 
-export type GetUsageMetrics_Input = {rpcName:'GetUsageMetrics'}
+export type GetSingleUsageMetrics_Input = {rpcName:'GetSingleUsageMetrics', req: SingleUsageMetricReq}
+export type GetSingleUsageMetrics_Output = ResultError | ({ status: 'OK' } & UsageMetricTlv)
+
+export type GetUsageMetrics_Input = {rpcName:'GetUsageMetrics', req: LatestUsageMetricReq}
 export type GetUsageMetrics_Output = ResultError | ({ status: 'OK' } & UsageMetrics)
 
 export type GetUserInfo_Input = {rpcName:'GetUserInfo'}
@@ -318,6 +321,7 @@ export type ServerMethods = {
     GetNPubLinkingState?: (req: GetNPubLinkingState_Input & {ctx: AppContext }) => Promise<NPubLinking>
     GetPaymentState?: (req: GetPaymentState_Input & {ctx: UserContext }) => Promise<PaymentState>
     GetSeed?: (req: GetSeed_Input & {ctx: AdminContext }) => Promise<LndSeed>
+    GetSingleUsageMetrics?: (req: GetSingleUsageMetrics_Input & {ctx: MetricsContext }) => Promise<UsageMetricTlv>
     GetUsageMetrics?: (req: GetUsageMetrics_Input & {ctx: MetricsContext }) => Promise<UsageMetrics>
     GetUserInfo?: (req: GetUserInfo_Input & {ctx: UserContext }) => Promise<UserInfo>
     GetUserOffer?: (req: GetUserOffer_Input & {ctx: UserContext }) => Promise<OfferConfig>
@@ -1799,6 +1803,25 @@ export const HttpCredsValidate = (o?: HttpCreds, opts: HttpCredsOptions = {}, pa
     return null
 }
 
+export type LatestUsageMetricReq = {
+    limit?: number
+}
+export type LatestUsageMetricReqOptionalField = 'limit'
+export const LatestUsageMetricReqOptionalFields: LatestUsageMetricReqOptionalField[] = ['limit']
+export type LatestUsageMetricReqOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: LatestUsageMetricReqOptionalField[]
+    limit_CustomCheck?: (v?: number) => boolean
+}
+export const LatestUsageMetricReqValidate = (o?: LatestUsageMetricReq, opts: LatestUsageMetricReqOptions = {}, path: string = 'LatestUsageMetricReq::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if ((o.limit || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('limit')) && typeof o.limit !== 'number') return new Error(`${path}.limit: is not a number`)
+    if (opts.limit_CustomCheck && !opts.limit_CustomCheck(o.limit)) return new Error(`${path}.limit: custom check failed`)
+
+    return null
+}
+
 export type LinkNPubThroughTokenRequest = {
     token: string
 }
@@ -2230,6 +2253,19 @@ export const LnurlWithdrawInfoResponseValidate = (o?: LnurlWithdrawInfoResponse,
 
     if (typeof o.tag !== 'string') return new Error(`${path}.tag: is not a string`)
     if (opts.tag_CustomCheck && !opts.tag_CustomCheck(o.tag)) return new Error(`${path}.tag: custom check failed`)
+
+    return null
+}
+
+export type MetricsFile = {
+}
+export const MetricsFileOptionalFields: [] = []
+export type MetricsFileOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+}
+export const MetricsFileValidate = (o?: MetricsFile, opts: MetricsFileOptions = {}, path: string = 'MetricsFile::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
 
     return null
 }
@@ -3138,6 +3174,34 @@ export const SetMockInvoiceAsPaidRequestValidate = (o?: SetMockInvoiceAsPaidRequ
 
     if (typeof o.invoice !== 'string') return new Error(`${path}.invoice: is not a string`)
     if (opts.invoice_CustomCheck && !opts.invoice_CustomCheck(o.invoice)) return new Error(`${path}.invoice: custom check failed`)
+
+    return null
+}
+
+export type SingleUsageMetricReq = {
+    app_id: string
+    metrics_name: string
+    page: number
+}
+export const SingleUsageMetricReqOptionalFields: [] = []
+export type SingleUsageMetricReqOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    app_id_CustomCheck?: (v: string) => boolean
+    metrics_name_CustomCheck?: (v: string) => boolean
+    page_CustomCheck?: (v: number) => boolean
+}
+export const SingleUsageMetricReqValidate = (o?: SingleUsageMetricReq, opts: SingleUsageMetricReqOptions = {}, path: string = 'SingleUsageMetricReq::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.app_id !== 'string') return new Error(`${path}.app_id: is not a string`)
+    if (opts.app_id_CustomCheck && !opts.app_id_CustomCheck(o.app_id)) return new Error(`${path}.app_id: custom check failed`)
+
+    if (typeof o.metrics_name !== 'string') return new Error(`${path}.metrics_name: is not a string`)
+    if (opts.metrics_name_CustomCheck && !opts.metrics_name_CustomCheck(o.metrics_name)) return new Error(`${path}.metrics_name: custom check failed`)
+
+    if (typeof o.page !== 'number') return new Error(`${path}.page: is not a number`)
+    if (opts.page_CustomCheck && !opts.page_CustomCheck(o.page)) return new Error(`${path}.page: custom check failed`)
 
     return null
 }

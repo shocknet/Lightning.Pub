@@ -107,7 +107,7 @@ export default class {
 
     }
 
-    LoadLatestMetrics = async (): Promise<Types.UsageMetrics> => {
+    LoadLatestMetrics = async (limit = 100): Promise<Types.UsageMetrics> => {
         this.persistMetrics()
         const metrics: Types.UsageMetrics = { apps: {} }
         this.foreachMetricMethodFile((app, method, tlvFiles) => {
@@ -120,6 +120,9 @@ export default class {
             if (!metrics.apps[app]) {
                 metrics.apps[app] = { app_metrics: {} }
             }
+            if (decoded.length > limit) {
+                decoded.splice(0, decoded.length - limit)
+            }
             metrics.apps[app].app_metrics[method] = {
                 base_64_tlvs: decoded.map(d => Buffer.from(d).toString('base64')),
                 current_chunk: latest,
@@ -127,6 +130,20 @@ export default class {
             }
         })
         return metrics
+    }
+
+    LoadMetricsFile = async (app: string, method: string, chunk: number): Promise<Types.UsageMetricTlv> => {
+        if (!this.metaReady || !this.metricsMeta[app] || !this.metricsMeta[app][method] || !this.metricsMeta[app][method].chunks.includes(chunk)) {
+            throw new Error("metrics not found")
+        }
+        const fullPath = [this.metricsPath, app, method, `${chunk}.mtlv`].join("/")
+        const tlv = fs.readFileSync(fullPath)
+        const decoded = decodeListTLV(parseTLV(tlv))
+        return {
+            base_64_tlvs: decoded.map(d => Buffer.from(d).toString('base64')),
+            current_chunk: chunk,
+            available_chunks: this.metricsMeta[app][method].chunks
+        }
     }
 
     persistMetrics = () => {

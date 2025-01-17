@@ -158,9 +158,14 @@ The nostr server will send back a message response, and inside the body there wi
   - This methods has an __empty__ __request__ body
   - output: [LndSeed](#LndSeed)
 
+- GetSingleUsageMetrics
+  - auth type: __Metrics__
+  - input: [SingleUsageMetricReq](#SingleUsageMetricReq)
+  - output: [UsageMetricTlv](#UsageMetricTlv)
+
 - GetUsageMetrics
   - auth type: __Metrics__
-  - This methods has an __empty__ __request__ body
+  - input: [LatestUsageMetricReq](#LatestUsageMetricReq)
   - output: [UsageMetrics](#UsageMetrics)
 
 - GetUserInfo
@@ -581,11 +586,18 @@ The nostr server will send back a message response, and inside the body there wi
   - This methods has an __empty__ __request__ body
   - output: [LndSeed](#LndSeed)
 
+- GetSingleUsageMetrics
+  - auth type: __Metrics__
+  - http method: __post__
+  - http route: __/api/reports/usage/single__
+  - input: [SingleUsageMetricReq](#SingleUsageMetricReq)
+  - output: [UsageMetricTlv](#UsageMetricTlv)
+
 - GetUsageMetrics
   - auth type: __Metrics__
   - http method: __post__
   - http route: __/api/reports/usage__
-  - This methods has an __empty__ __request__ body
+  - input: [LatestUsageMetricReq](#LatestUsageMetricReq)
   - output: [UsageMetrics](#UsageMetrics)
 
 - GetUserInfo
@@ -1070,6 +1082,9 @@ The nostr server will send back a message response, and inside the body there wi
   - __token__: _string_
   - __url__: _string_
 
+### LatestUsageMetricReq
+  - __limit__: _number_ *this field is optional
+
 ### LinkNPubThroughTokenRequest
   - __token__: _string_
 
@@ -1139,6 +1154,8 @@ The nostr server will send back a message response, and inside the body there wi
   - __minWithdrawable__: _number_
   - __payLink__: _string_
   - __tag__: _string_
+
+### MetricsFile
 
 ### MigrationUpdate
   - __closure__: _[ClosureMigration](#ClosureMigration)_ *this field is optional
@@ -1296,6 +1313,11 @@ The nostr server will send back a message response, and inside the body there wi
 ### SetMockInvoiceAsPaidRequest
   - __amount__: _number_
   - __invoice__: _string_
+
+### SingleUsageMetricReq
+  - __app_id__: _string_
+  - __metrics_name__: _string_
+  - __page__: _number_
 
 ### UpdateChannelPolicyRequest
   - __policy__: _[ChannelPolicy](#ChannelPolicy)_

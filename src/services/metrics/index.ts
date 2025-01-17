@@ -69,8 +69,12 @@ export default class Handler {
         }))
     }
 
-    async GetUsageMetrics(): Promise<Types.UsageMetrics> {
-        return this.storage.metricsEventStorage.LoadLatestMetrics()
+    async GetUsageMetrics(req: Types.LatestUsageMetricReq): Promise<Types.UsageMetrics> {
+        return this.storage.metricsEventStorage.LoadLatestMetrics(req.limit)
+    }
+
+    async GetSingleUsageMetrics(req: Types.SingleUsageMetricReq): Promise<Types.UsageMetricTlv> {
+        return this.storage.metricsEventStorage.LoadMetricsFile(req.app_id, req.metrics_name, req.page)
     }
 
     async GetErrorStats(): Promise<Types.ErrorStats> {

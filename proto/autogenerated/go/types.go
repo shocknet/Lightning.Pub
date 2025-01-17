@@ -322,6 +322,9 @@ type HttpCreds struct {
 	Token string `json:"token"`
 	Url   string `json:"url"`
 }
+type LatestUsageMetricReq struct {
+	Limit int64 `json:"limit"`
+}
 type LinkNPubThroughTokenRequest struct {
 	Token string `json:"token"`
 }
@@ -391,6 +394,8 @@ type LnurlWithdrawInfoResponse struct {
 	Minwithdrawable    int64  `json:"minWithdrawable"`
 	Paylink            string `json:"payLink"`
 	Tag                string `json:"tag"`
+}
+type MetricsFile struct {
 }
 type MigrationUpdate struct {
 	Closure *ClosureMigration `json:"closure"`
@@ -548,6 +553,11 @@ type SetMockAppUserBalanceRequest struct {
 type SetMockInvoiceAsPaidRequest struct {
 	Amount  int64  `json:"amount"`
 	Invoice string `json:"invoice"`
+}
+type SingleUsageMetricReq struct {
+	App_id       string `json:"app_id"`
+	Metrics_name string `json:"metrics_name"`
+	Page         int64  `json:"page"`
 }
 type UpdateChannelPolicyRequest struct {
 	Policy *ChannelPolicy                     `json:"policy"`
