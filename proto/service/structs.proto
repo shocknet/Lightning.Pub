@@ -34,14 +34,17 @@ message ErrorStats {
 }
 
 message MetricsFile {
+    
+}
+
+message LatestUsageMetricReq {
+    optional int64 limit = 1;
+}
+
+message SingleUsageMetricReq {
     string app_id = 1;
     string metrics_name = 2;
     int64 page = 3;
-}
-
-message UsageMetricReq {
-    optional int64 limit = 1;
-    optional MetricsFile metrics_file = 2;
 }
 
 message UsageMetric {

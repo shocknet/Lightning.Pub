@@ -422,7 +422,22 @@ export default (params: NostrClientParams,  send: (to:string, message: NostrRequ
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
-    GetUsageMetrics: async (request: Types.UsageMetricReq): Promise<ResultError | ({ status: 'OK' }& Types.UsageMetrics)> => {
+    GetSingleUsageMetrics: async (request: Types.SingleUsageMetricReq): Promise<ResultError | ({ status: 'OK' }& Types.UsageMetricTlv)> => {
+        const auth = await params.retrieveNostrMetricsAuth()
+        if (auth === null) throw new Error('retrieveNostrMetricsAuth() returned null')
+        const nostrRequest: NostrRequest = {}
+        nostrRequest.body = request
+        const data = await send(params.pubDestination, {rpcName:'GetSingleUsageMetrics',authIdentifier:auth, ...nostrRequest }) 
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.UsageMetricTlvValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
+    GetUsageMetrics: async (request: Types.LatestUsageMetricReq): Promise<ResultError | ({ status: 'OK' }& Types.UsageMetrics)> => {
         const auth = await params.retrieveNostrMetricsAuth()
         if (auth === null) throw new Error('retrieveNostrMetricsAuth() returned null')
         const nostrRequest: NostrRequest = {}

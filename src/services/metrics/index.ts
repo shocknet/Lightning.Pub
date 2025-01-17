@@ -69,11 +69,12 @@ export default class Handler {
         }))
     }
 
-    async GetUsageMetrics(req: Types.UsageMetricReq): Promise<Types.UsageMetrics> {
-        if (!req.metrics_file) {
-            return this.storage.metricsEventStorage.LoadLatestMetrics(req.limit)
-        }
-        return this.storage.metricsEventStorage.LoadMetricsFile(req.metrics_file.app_id, req.metrics_file.metrics_name, req.metrics_file.page)
+    async GetUsageMetrics(req: Types.LatestUsageMetricReq): Promise<Types.UsageMetrics> {
+        return this.storage.metricsEventStorage.LoadLatestMetrics(req.limit)
+    }
+
+    async GetSingleUsageMetrics(req: Types.SingleUsageMetricReq): Promise<Types.UsageMetricTlv> {
+        return this.storage.metricsEventStorage.LoadMetricsFile(req.app_id, req.metrics_name, req.page)
     }
 
     async GetErrorStats(): Promise<Types.ErrorStats> {

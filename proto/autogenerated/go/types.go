@@ -322,6 +322,9 @@ type HttpCreds struct {
 	Token string `json:"token"`
 	Url   string `json:"url"`
 }
+type LatestUsageMetricReq struct {
+	Limit int64 `json:"limit"`
+}
 type LinkNPubThroughTokenRequest struct {
 	Token string `json:"token"`
 }
@@ -393,9 +396,6 @@ type LnurlWithdrawInfoResponse struct {
 	Tag                string `json:"tag"`
 }
 type MetricsFile struct {
-	App_id       string `json:"app_id"`
-	Metrics_name string `json:"metrics_name"`
-	Page         int64  `json:"page"`
 }
 type MigrationUpdate struct {
 	Closure *ClosureMigration `json:"closure"`
@@ -554,6 +554,11 @@ type SetMockInvoiceAsPaidRequest struct {
 	Amount  int64  `json:"amount"`
 	Invoice string `json:"invoice"`
 }
+type SingleUsageMetricReq struct {
+	App_id       string `json:"app_id"`
+	Metrics_name string `json:"metrics_name"`
+	Page         int64  `json:"page"`
+}
 type UpdateChannelPolicyRequest struct {
 	Policy *ChannelPolicy                     `json:"policy"`
 	Update *UpdateChannelPolicyRequest_update `json:"update"`
@@ -570,10 +575,6 @@ type UsageMetric struct {
 	Rpc_name         string `json:"rpc_name"`
 	Success          bool   `json:"success"`
 	Validate_in_nano int64  `json:"validate_in_nano"`
-}
-type UsageMetricReq struct {
-	Limit        int64        `json:"limit"`
-	Metrics_file *MetricsFile `json:"metrics_file"`
 }
 type UsageMetricTlv struct {
 	Available_chunks []int64  `json:"available_chunks"`

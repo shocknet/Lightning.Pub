@@ -158,9 +158,14 @@ The nostr server will send back a message response, and inside the body there wi
   - This methods has an __empty__ __request__ body
   - output: [LndSeed](#LndSeed)
 
+- GetSingleUsageMetrics
+  - auth type: __Metrics__
+  - input: [SingleUsageMetricReq](#SingleUsageMetricReq)
+  - output: [UsageMetricTlv](#UsageMetricTlv)
+
 - GetUsageMetrics
   - auth type: __Metrics__
-  - input: [UsageMetricReq](#UsageMetricReq)
+  - input: [LatestUsageMetricReq](#LatestUsageMetricReq)
   - output: [UsageMetrics](#UsageMetrics)
 
 - GetUserInfo
@@ -581,11 +586,18 @@ The nostr server will send back a message response, and inside the body there wi
   - This methods has an __empty__ __request__ body
   - output: [LndSeed](#LndSeed)
 
+- GetSingleUsageMetrics
+  - auth type: __Metrics__
+  - http method: __post__
+  - http route: __/api/reports/usage/single__
+  - input: [SingleUsageMetricReq](#SingleUsageMetricReq)
+  - output: [UsageMetricTlv](#UsageMetricTlv)
+
 - GetUsageMetrics
   - auth type: __Metrics__
   - http method: __post__
   - http route: __/api/reports/usage__
-  - input: [UsageMetricReq](#UsageMetricReq)
+  - input: [LatestUsageMetricReq](#LatestUsageMetricReq)
   - output: [UsageMetrics](#UsageMetrics)
 
 - GetUserInfo
@@ -1070,6 +1082,9 @@ The nostr server will send back a message response, and inside the body there wi
   - __token__: _string_
   - __url__: _string_
 
+### LatestUsageMetricReq
+  - __limit__: _number_ *this field is optional
+
 ### LinkNPubThroughTokenRequest
   - __token__: _string_
 
@@ -1141,9 +1156,6 @@ The nostr server will send back a message response, and inside the body there wi
   - __tag__: _string_
 
 ### MetricsFile
-  - __app_id__: _string_
-  - __metrics_name__: _string_
-  - __page__: _number_
 
 ### MigrationUpdate
   - __closure__: _[ClosureMigration](#ClosureMigration)_ *this field is optional
@@ -1302,6 +1314,11 @@ The nostr server will send back a message response, and inside the body there wi
   - __amount__: _number_
   - __invoice__: _string_
 
+### SingleUsageMetricReq
+  - __app_id__: _string_
+  - __metrics_name__: _string_
+  - __page__: _number_
+
 ### UpdateChannelPolicyRequest
   - __policy__: _[ChannelPolicy](#ChannelPolicy)_
   - __update__: _[UpdateChannelPolicyRequest_update](#UpdateChannelPolicyRequest_update)_
@@ -1318,10 +1335,6 @@ The nostr server will send back a message response, and inside the body there wi
   - __rpc_name__: _string_
   - __success__: _boolean_
   - __validate_in_nano__: _number_
-
-### UsageMetricReq
-  - __limit__: _number_ *this field is optional
-  - __metrics_file__: _[MetricsFile](#MetricsFile)_ *this field is optional
 
 ### UsageMetricTlv
   - __available_chunks__: ARRAY of: _number_
