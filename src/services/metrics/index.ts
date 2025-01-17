@@ -70,7 +70,8 @@ export default class Handler {
     }
 
     async GetUsageMetrics(): Promise<Types.UsageMetrics> {
-        return this.storage.metricsEventStorage.LoadLatestMetrics()
+        const metrics = await this.storage.metricsEventStorage.LoadLatestMetrics()
+        return metrics
     }
 
     async GetErrorStats(): Promise<Types.ErrorStats> {

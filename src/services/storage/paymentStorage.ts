@@ -213,7 +213,7 @@ export default class {
                     user_id: userId
                 },
                 serial_id: MoreThanOrEqual(fromIndex),
-                paid_at_unix: MoreThan(0),
+                paid_at_unix: MoreThan(-1),
             },
             order: {
                 paid_at_unix: 'DESC'

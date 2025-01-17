@@ -107,7 +107,7 @@ export default class {
 
     }
 
-    LoadLatestMetrics = async (): Promise<Types.UsageMetrics> => {
+    LoadLatestMetrics = async (limit = 100): Promise<Types.UsageMetrics> => {
         this.persistMetrics()
         const metrics: Types.UsageMetrics = { apps: {} }
         this.foreachMetricMethodFile((app, method, tlvFiles) => {
@@ -119,6 +119,9 @@ export default class {
             const decoded = decodeListTLV(parseTLV(tlv))
             if (!metrics.apps[app]) {
                 metrics.apps[app] = { app_metrics: {} }
+            }
+            if (decoded.length > limit) {
+                decoded.splice(0, decoded.length - limit)
             }
             metrics.apps[app].app_metrics[method] = {
                 base_64_tlvs: decoded.map(d => Buffer.from(d).toString('base64')),

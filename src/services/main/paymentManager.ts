@@ -690,7 +690,7 @@ export default class {
             throw new Error("user is banned, cannot retrieve operations")
         }
         const [outgoingInvoices, outgoingTransactions, incomingInvoices, incomingTransactions, incomingUserToUser, outgoingUserToUser] = await Promise.all([
-            this.storage.paymentStorage.GetUserInvoicePayments(userId, req.latestOutgoingInvoice, req.max_size),
+            this.storage.paymentStorage.GetUserInvoicePayments(userId, req.latestOutgoingInvoice, req.max_size), //
             this.storage.paymentStorage.GetUserTransactionPayments(userId, req.latestOutgoingTx, req.max_size),
             this.storage.paymentStorage.GetUserInvoicesFlaggedAsPaid(userId, req.latestIncomingInvoice, req.max_size),
             this.storage.paymentStorage.GetUserReceivingTransactions(userId, req.latestIncomingTx, req.max_size),
