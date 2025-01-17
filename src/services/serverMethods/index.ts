@@ -7,6 +7,9 @@ export default (mainHandler: Main): Types.ServerMethods => {
         GetUsageMetrics: async ({ ctx, req }) => {
             return mainHandler.metricsManager.GetUsageMetrics(req)
         },
+        GetSingleUsageMetrics: async ({ ctx, req }) => {
+            return mainHandler.metricsManager.GetSingleUsageMetrics(req)
+        },
         GetErrorStats: async ({ ctx }) => {
             return mainHandler.metricsManager.GetErrorStats()
         },
