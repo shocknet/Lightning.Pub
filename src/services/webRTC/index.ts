@@ -31,7 +31,6 @@ export default class webRTC {
             return this.onCandidate(u, message.candidate)
         }
         return {}
-
     }
     private onCandidate = async (u: UserInfo, candidate: string): Promise<Types.WebRtcAnswer> => {
         const key = this.getConnectionsKey(u)
@@ -49,6 +48,7 @@ export default class webRTC {
     }
     private connect = async (u: UserInfo, offer: string): Promise<Types.WebRtcAnswer> => {
         const key = this.getConnectionsKey(u)
+        console.log("connect", key)
         if (this.connections[key]) {
             throw new Error('Connection already exists')
         }
@@ -80,6 +80,7 @@ export default class webRTC {
         const answer = await conn.createAnswer()
         await conn.setLocalDescription(answer)
         this.connections[key] = conn
+        console.log("answer", answer)
         return { answer: JSON.stringify(answer) }
     }
 
