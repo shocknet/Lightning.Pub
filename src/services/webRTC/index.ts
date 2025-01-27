@@ -41,7 +41,7 @@ export default class webRTC {
         const conn = this.connections[key]
         const iceCandidate: IceCandidate = JSON.parse(candidate)
         if (!iceCandidate.candidate) {
-            await conn.addIceCandidate(null);
+            await conn.addIceCandidate(undefined);
         } else {
             await conn.addIceCandidate(iceCandidate);
         }
