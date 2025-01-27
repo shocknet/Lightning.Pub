@@ -52,7 +52,7 @@ export default class webRTC {
         const key = this.getConnectionsKey(u)
         console.log("connect", key)
         if (this.connections[key]) {
-            throw new Error('Connection already exists')
+            this.connections[key].close()
         }
         const conn = new wrtc.RTCPeerConnection(configuration) as RTCPeerConnection
         conn.onicecandidate = (event) => {
