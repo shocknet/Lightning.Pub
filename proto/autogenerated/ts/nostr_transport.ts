@@ -1075,6 +1075,35 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     opts.metricsCallback([{ ...info, ...stats, ...authContext }])
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
+            case 'SubToWebRtcCandidates':
+                try {
+                    if (!methods.SubToWebRtcCandidates) throw new Error('method: SubToWebRtcCandidates is not implemented')
+                    const authContext = await opts.NostrMetricsAuthGuard(req.appId, req.authIdentifier)
+                    stats.guard = process.hrtime.bigint()
+                    authCtx = authContext
+                    stats.validate = stats.guard
+                    methods.SubToWebRtcCandidates({rpcName:'SubToWebRtcCandidates', ctx:authContext  ,cb: (response, err) => {
+                    stats.handle = process.hrtime.bigint()
+                    if (err) { logErrorAndReturnResponse(err, err.message, res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)} else { res({status: 'OK', ...response});opts.metricsCallback([{ ...info, ...stats, ...authContext }])}
+                    }})
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+                break
+            case 'SubmitWebRtcMessage':
+                try {
+                    if (!methods.SubmitWebRtcMessage) throw new Error('method: SubmitWebRtcMessage is not implemented')
+                    const authContext = await opts.NostrMetricsAuthGuard(req.appId, req.authIdentifier)
+                    stats.guard = process.hrtime.bigint()
+                    authCtx = authContext
+                    const request = req.body
+                    const error = Types.WebRtcMessageValidate(request)
+                    stats.validate = process.hrtime.bigint()
+                    if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
+                    const response = await methods.SubmitWebRtcMessage({rpcName:'SubmitWebRtcMessage', ctx:authContext , req: request})
+                    stats.handle = process.hrtime.bigint()
+                    res({status: 'OK', ...response})
+                    opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+                break
             case 'UpdateCallbackUrl':
                 try {
                     if (!methods.UpdateCallbackUrl) throw new Error('method: UpdateCallbackUrl is not implemented')

@@ -25,6 +25,7 @@ import { defaultInvoiceExpiry } from "../storage/paymentStorage.js"
 import { DebitManager } from "./debitManager.js"
 import { NofferData } from "nostr-tools/lib/types/nip69.js"
 import { OfferManager } from "./offerManager.js"
+import webRTC from "../webRTC/index.js"
 
 type UserOperationsSub = {
     id: string
@@ -54,6 +55,7 @@ export default class {
     utils: Utils
     rugPullTracker: RugPullTracker
     unlocker: Unlocker
+    webRTC: webRTC
     nostrSend: NostrSend = () => { getLogger({})("nostr send not initialized yet") }
     constructor(settings: MainSettings, storage: Storage, adminManager: AdminManager, utils: Utils, unlocker: Unlocker) {
         this.settings = settings
@@ -74,6 +76,7 @@ export default class {
         this.appUserManager = new AppUserManager(this.storage, this.settings, this.applicationManager)
         this.debitManager = new DebitManager(this.storage, this.lnd, this.applicationManager)
         this.offerManager = new OfferManager(this.storage, this.lnd, this.applicationManager, this.productManager)
+        this.webRTC = new webRTC()
 
     }
 
@@ -94,6 +97,7 @@ export default class {
         this.liquidityProvider.attachNostrSend(f)
         this.debitManager.attachNostrSend(f)
         this.offerManager.attachNostrSend(f)
+        this.webRTC.attachNostrSend(f)
     }
 
     htlcCb: HtlcCb = (e) => {

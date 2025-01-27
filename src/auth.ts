@@ -67,6 +67,6 @@ const metricsAuth = async (header: string | undefined): Promise<MetricsContext> 
     if (h !== metricsToken) {
         throw new Error("metrics token invalid")
     }
-    return { operator_id: "metrics1" }
+    return { operator_id: "http_operator", app_id: "" }
 }
 export default serverOptions

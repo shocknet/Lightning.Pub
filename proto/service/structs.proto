@@ -206,6 +206,21 @@ message LndChannels {
     repeated OpenChannel open_channels = 1;
 }
 
+message WebRtcMessage {
+    oneof message {
+        string offer = 1;
+        string candidate = 2;
+    }
+}
+
+message WebRtcAnswer {
+    optional string answer = 1;
+}
+
+message WebRtcCandidate {
+    string candidate = 1;
+}
+
 
 
 message OpenChannelRequest{
