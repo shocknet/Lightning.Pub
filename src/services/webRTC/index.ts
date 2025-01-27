@@ -71,6 +71,11 @@ export default class webRTC {
         }
         conn.ondatachannel = (event) => {
             console.log('ondatachannel', event)
+            const channel = event.channel
+            channel.addEventListener('message', (event) => {
+                console.log('message', event)
+                channel.send(event.data + " to you!")
+            })
         }
         conn.oniceconnectionstatechange = (event) => {
             console.log('oniceconnectionstatechange', event)
