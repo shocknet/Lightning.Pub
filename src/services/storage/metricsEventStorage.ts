@@ -15,8 +15,8 @@ export default class {
     lastPersistedCache: number = 0
     constructor(settings: StorageSettings) {
         this.settings = settings;
-        this.metricsPath = [settings.dataDir, "metric_events"].join("/")
-        this.cachePath = [settings.dataDir, "metric_cache"].join("/")
+        this.metricsPath = [settings.dataDir, "metric_events"].filter(s => !!s).join("/")
+        this.cachePath = [settings.dataDir, "metric_cache"].filter(s => !!s).join("/")
         if (!fs.existsSync(this.cachePath)) {
             fs.mkdirSync(this.cachePath, { recursive: true });
         }
