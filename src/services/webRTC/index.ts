@@ -67,7 +67,7 @@ export default class webRTC {
             this.sendCandidate(u, JSON.stringify(message))
         }
         conn.onconnectionstatechange = (event) => {
-            console.log('onconnectionstatechange', event)
+            console.log('onconnectionstatechange', event, conn.connectionState)
         }
         conn.ondatachannel = (event) => {
             console.log('ondatachannel', event)
