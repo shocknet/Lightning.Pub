@@ -78,29 +78,33 @@ export default class webRTC {
             console.log('ondatachannel', event)
             const channel = event.channel
             channel.addEventListener('message', async (event) => {
-                const j = JSON.parse(event.data) as Types.SingleUsageMetricReq
-                const err = Types.SingleUsageMetricReqValidate(j, {
-                    app_id_CustomCheck: id => id === u.appId,
-                    metrics_name_CustomCheck: name => name !== ""
-                })
-                if (err) {
-                    this.log(ERROR, 'SingleUsageMetricReqValidate', err)
-                    return
-                }
-                const res = await this.storage.metricsEventStorage.LoadRawMetricsFile(j.app_id, j.metrics_name, j.page)
-                const id = Math.floor(Math.random() * 2_000_000_000)
-                let i = 0
-                const packets: Buffer[] = []
-                while (i < res.length) {
-                    const chunk = res.slice(i, Math.min(i + 15_000, res.length))
-                    packets.push(chunk)
-                    i += 15_000
-                }
-                for (let i = 0; i < packets.length; i++) {
-                    const packet = packets[i]
-                    const tlv = encodeTLVDataPacket({ dataId: id, packetNum: i + 1, totalPackets: packets.length, data: packet })
-                    const bytes = encodeTLV(tlv)
-                    channel.send(bytes)
+                try {
+                    const j = JSON.parse(event.data) as Types.SingleUsageMetricReq
+                    const err = Types.SingleUsageMetricReqValidate(j, {
+                        app_id_CustomCheck: id => id === u.appId,
+                        metrics_name_CustomCheck: name => name !== ""
+                    })
+                    if (err) {
+                        this.log(ERROR, 'SingleUsageMetricReqValidate', err)
+                        return
+                    }
+                    const res = await this.storage.metricsEventStorage.LoadRawMetricsFile(j.app_id, j.metrics_name, j.page)
+                    const id = Math.floor(Math.random() * 2_000_000_000)
+                    let i = 0
+                    const packets: Buffer[] = []
+                    while (i < res.length) {
+                        const chunk = res.slice(i, Math.min(i + 15_000, res.length))
+                        packets.push(chunk)
+                        i += 15_000
+                    }
+                    for (let i = 0; i < packets.length; i++) {
+                        const packet = packets[i]
+                        const tlv = encodeTLVDataPacket({ dataId: id, packetNum: i + 1, totalPackets: packets.length, data: packet })
+                        const bytes = encodeTLV(tlv)
+                        channel.send(bytes)
+                    }
+                } catch (e: any) {
+                    this.log(ERROR, 'ondatachannel', e.message || e)
                 }
             })
         }
