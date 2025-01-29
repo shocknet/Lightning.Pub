@@ -132,12 +132,15 @@ export default class {
         return metrics
     }
 
-    LoadMetricsFile = async (app: string, method: string, chunk: number): Promise<Types.UsageMetricTlv> => {
+    LoadRawMetricsFile = async (app: string, method: string, chunk: number): Promise<Buffer> => {
         if (!this.metaReady || !this.metricsMeta[app] || !this.metricsMeta[app][method] || !this.metricsMeta[app][method].chunks.includes(chunk)) {
             throw new Error("metrics not found")
         }
         const fullPath = [this.metricsPath, app, method, `${chunk}.mtlv`].join("/")
-        const tlv = fs.readFileSync(fullPath)
+        return fs.readFileSync(fullPath)
+    }
+    LoadMetricsFile = async (app: string, method: string, chunk: number): Promise<Types.UsageMetricTlv> => {
+        const tlv = await this.LoadRawMetricsFile(app, method, chunk)
         const decoded = decodeListTLV(parseTLV(tlv))
         return {
             base_64_tlvs: decoded.map(d => Buffer.from(d).toString('base64')),
