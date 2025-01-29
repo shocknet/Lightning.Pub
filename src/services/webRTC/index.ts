@@ -102,6 +102,9 @@ export default class webRTC {
                         const packet = packets[i]
                         const tlv = encodeTLVDataPacket({ dataId: id, packetNum: i + 1, totalPackets: packets.length, data: packet })
                         const bytes = encodeTLV(tlv)
+                        if (i === 0) {
+                            console.log("sending first packet", bytes)
+                        }
                         channel.send(bytes)
                     }
                 } catch (e: any) {
