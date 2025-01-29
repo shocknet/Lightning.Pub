@@ -55,7 +55,7 @@ export default class webRTC {
     }
     private connect = async (u: UserInfo, offer: string): Promise<Types.WebRtcAnswer> => {
         const key = this.getConnectionsKey(u)
-        console.log("connect", key)
+        this.log("connect", key)
         if (this.connections[key]) {
             this.connections[key].close()
         }
@@ -71,11 +71,13 @@ export default class webRTC {
             }
             this.sendCandidate(u, JSON.stringify(message))
         }
-        conn.onconnectionstatechange = (event) => {
-            console.log('onconnectionstatechange', conn.connectionState)
+        conn.onconnectionstatechange = () => {
+            if (conn.connectionState === 'disconnected') {
+                conn.close()
+                delete this.connections[key]
+            }
         }
         conn.ondatachannel = (event) => {
-            console.log('ondatachannel', event)
             const channel = event.channel
             channel.addEventListener('message', async (event) => {
                 try {
@@ -90,7 +92,6 @@ export default class webRTC {
                     }
                     const res = await this.storage.metricsEventStorage.LoadRawMetricsFile(j.app_id, j.metrics_name, j.page)
                     const id = j.request_id || Math.floor(Math.random() * 100_000_000)
-                    console.log("processing req:", j, "id:", id)
                     let i = 0
                     const packets: Buffer[] = []
                     while (i < res.length) {
@@ -102,9 +103,6 @@ export default class webRTC {
                         const packet = packets[i]
                         const tlv = encodeTLVDataPacket({ dataId: id, packetNum: i + 1, totalPackets: packets.length, data: packet })
                         const bytes = encodeTLbV(tlv)
-                        if (i === 0) {
-                            console.log("sending first packet", tlv)
-                        }
                         channel.send(bytes)
                     }
                 } catch (e: any) {
@@ -112,17 +110,10 @@ export default class webRTC {
                 }
             })
         }
-        /*         conn.oniceconnectionstatechange = (event) => {
-                    console.log('oniceconnectionstatechange', event)
-                }
-                conn.onicegatheringstatechange = (event) => {
-                    console.log('onicegatheringstatechange', event)
-                } */
         await conn.setRemoteDescription(JSON.parse(offer))
         const answer = await conn.createAnswer()
         await conn.setLocalDescription(answer)
         this.connections[key] = conn
-        console.log("answer", answer)
         return { answer: JSON.stringify(answer) }
     }
 
