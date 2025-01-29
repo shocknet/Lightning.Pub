@@ -76,12 +76,14 @@ export const integerToUint8Array = (number: number): Uint8Array => {
 }
 
 export type TLV = { [t: number]: Uint8Array[] }
-export const parseTLV = (data: Uint8Array): TLV => {
+export type TLbV = { [t: number]: Uint8Array[] }
+export const parseTLV = (data: Uint8Array, log = false): TLV => {
     const result: TLV = {}
     let rest = data
     while (rest.length > 0) {
         const t = rest[0]
         const l = rest[1]
+        if (log) console.log({ t, l })
         const v = rest.slice(2, 2 + l)
         rest = rest.slice(2 + l)
         if (v.length < l) throw new Error(`not enough data to read on TLV ${t}`)
@@ -97,6 +99,7 @@ export const encodeTLV = (tlv: TLV): Uint8Array => {
         .reverse()
         .forEach(([t, vs]) => {
             vs.forEach(v => {
+                if (v.length > 255) throw new Error(`value too long to encode in TLV ${t}`)
                 const entry = new Uint8Array(v.length + 2)
                 entry.set([parseInt(t)], 0)
                 entry.set([v.length], 1)
@@ -105,5 +108,36 @@ export const encodeTLV = (tlv: TLV): Uint8Array => {
             })
         })
 
+    return concatBytes(...entries)
+}
+export const parseTLbV = (data: Uint8Array, log = false): TLV => {
+    const result: TLV = {}
+    let rest = data
+    while (rest.length > 0) {
+        const t = rest[0]
+        const l = parseInt(bytesToHex(rest.slice(1, 5)), 16)
+        if (log) console.log({ t, l })
+        const v = rest.slice(5, 5 + l)
+        rest = rest.slice(5 + l)
+        if (v.length < l) throw new Error(`not enough data to read on TLV ${t}`)
+        result[t] = result[t] || []
+        result[t].push(v)
+    }
+    return result
+}
+
+export const encodeTLbV = (tlv: TLV): Uint8Array => {
+    const entries: Uint8Array[] = []
+    Object.entries(tlv)
+        .reverse()
+        .forEach(([t, vs]) => {
+            vs.forEach(v => {
+                const entry = new Uint8Array(v.length + 5)
+                entry.set([parseInt(t)], 0)
+                entry.set(integerToUint8Array(v.length), 1)
+                entry.set(v, 5)
+                entries.push(entry)
+            })
+        })
     return concatBytes(...entries)
 }
