@@ -3191,13 +3191,16 @@ export type SingleUsageMetricReq = {
     app_id: string
     metrics_name: string
     page: number
+    request_id?: number
 }
-export const SingleUsageMetricReqOptionalFields: [] = []
+export type SingleUsageMetricReqOptionalField = 'request_id'
+export const SingleUsageMetricReqOptionalFields: SingleUsageMetricReqOptionalField[] = ['request_id']
 export type SingleUsageMetricReqOptions = OptionsBaseMessage & {
-    checkOptionalsAreSet?: []
+    checkOptionalsAreSet?: SingleUsageMetricReqOptionalField[]
     app_id_CustomCheck?: (v: string) => boolean
     metrics_name_CustomCheck?: (v: string) => boolean
     page_CustomCheck?: (v: number) => boolean
+    request_id_CustomCheck?: (v?: number) => boolean
 }
 export const SingleUsageMetricReqValidate = (o?: SingleUsageMetricReq, opts: SingleUsageMetricReqOptions = {}, path: string = 'SingleUsageMetricReq::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
@@ -3211,6 +3214,9 @@ export const SingleUsageMetricReqValidate = (o?: SingleUsageMetricReq, opts: Sin
 
     if (typeof o.page !== 'number') return new Error(`${path}.page: is not a number`)
     if (opts.page_CustomCheck && !opts.page_CustomCheck(o.page)) return new Error(`${path}.page: custom check failed`)
+
+    if ((o.request_id || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('request_id')) && typeof o.request_id !== 'number') return new Error(`${path}.request_id: is not a number`)
+    if (opts.request_id_CustomCheck && !opts.request_id_CustomCheck(o.request_id)) return new Error(`${path}.request_id: custom check failed`)
 
     return null
 }

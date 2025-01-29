@@ -1343,6 +1343,7 @@ The nostr server will send back a message response, and inside the body there wi
   - __app_id__: _string_
   - __metrics_name__: _string_
   - __page__: _number_
+  - __request_id__: _number_ *this field is optional
 
 ### UpdateChannelPolicyRequest
   - __policy__: _[ChannelPolicy](#ChannelPolicy)_

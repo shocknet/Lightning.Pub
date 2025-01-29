@@ -89,7 +89,7 @@ export default class webRTC {
                         return
                     }
                     const res = await this.storage.metricsEventStorage.LoadRawMetricsFile(j.app_id, j.metrics_name, j.page)
-                    const id = Math.floor(Math.random() * 2_000_000_000)
+                    const id = j.request_id || Math.floor(Math.random() * 2_000_000_000)
                     let i = 0
                     const packets: Buffer[] = []
                     while (i < res.length) {

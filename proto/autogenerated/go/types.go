@@ -559,6 +559,7 @@ type SingleUsageMetricReq struct {
 	App_id       string `json:"app_id"`
 	Metrics_name string `json:"metrics_name"`
 	Page         int64  `json:"page"`
+	Request_id   int64  `json:"request_id"`
 }
 type UpdateChannelPolicyRequest struct {
 	Policy *ChannelPolicy                     `json:"policy"`
