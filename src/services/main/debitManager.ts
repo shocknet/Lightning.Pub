@@ -194,9 +194,7 @@ export class DebitManager {
         if (!this._nostrSend) {
             throw new Error("No nostrSend attached")
         }
-        console.log({ pointerdata, event })
         const res = await this.payNdebitInvoice(event, pointerdata)
-        console.log({ debitRes: res })
         if (res.status === 'fail' || res.status === 'authOk') {
             const e = newNdebitResponse(JSON.stringify(res.debitRes), event)
             this.nostrSend({ type: 'app', appId: event.appId }, { type: 'event', event: e, encrypt: { toPub: event.pub } })

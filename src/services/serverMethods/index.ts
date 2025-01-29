@@ -4,6 +4,16 @@ import main from '../main/index.js'
 import Main from '../main/index.js'
 export default (mainHandler: Main): Types.ServerMethods => {
     return {
+        SubmitWebRtcMessage: async ({ ctx, req }) => {
+            const err = Types.WebRtcMessageValidate(req, {
+                message_Options: {
+                    candidate_CustomCheck: candidate => candidate !== '',
+                    offer_CustomCheck: offer => offer !== '',
+                }
+            })
+            return mainHandler.webRTC.OnMessage({ userPub: ctx.operator_id, appId: ctx.app_id }, req.message)
+        },
+        SubToWebRtcCandidates: async ({ ctx }) => { },
         GetUsageMetrics: async ({ ctx, req }) => {
             return mainHandler.metricsManager.GetUsageMetrics(req)
         },
