@@ -62,6 +62,8 @@ message UsageMetric {
     optional string app_id = 11;
 }
 
+
+
 message UsageMetricTlv {
     repeated string base_64_tlvs = 1;
     int64 current_chunk = 2;
@@ -75,6 +77,24 @@ message AppUsageMetrics {
 
 message UsageMetrics {
     map<string,AppUsageMetrics> apps = 1;
+}
+
+message LatestBundleMetricReq {
+    optional int64 limit = 1;
+}
+
+message BundleData {
+    repeated string base_64_data = 1;
+    int64 current_chunk = 2;
+    repeated int64 available_chunks = 3;
+}
+
+message BundleMetric {
+    map<string, BundleData> app_bundles = 1;
+}
+
+message BundleMetrics {
+    map<string, BundleMetric> apps = 1;
 }
 
 message AppsMetricsRequest {

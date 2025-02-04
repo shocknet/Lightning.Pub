@@ -174,6 +174,17 @@ type BannedAppUser struct {
 	Nostr_pub       string `json:"nostr_pub"`
 	User_identifier string `json:"user_identifier"`
 }
+type BundleData struct {
+	Available_chunks []int64  `json:"available_chunks"`
+	Base_64_data     []string `json:"base_64_data"`
+	Current_chunk    int64    `json:"current_chunk"`
+}
+type BundleMetric struct {
+	App_bundles map[string]BundleData `json:"app_bundles"`
+}
+type BundleMetrics struct {
+	Apps map[string]BundleMetric `json:"apps"`
+}
 type CallbackUrl struct {
 	Url string `json:"url"`
 }
@@ -322,6 +333,9 @@ type HandleLnurlPayResponse struct {
 type HttpCreds struct {
 	Token string `json:"token"`
 	Url   string `json:"url"`
+}
+type LatestBundleMetricReq struct {
+	Limit int64 `json:"limit"`
 }
 type LatestUsageMetricReq struct {
 	Limit int64 `json:"limit"`

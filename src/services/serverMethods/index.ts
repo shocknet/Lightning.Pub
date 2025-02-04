@@ -17,6 +17,9 @@ export default (mainHandler: Main): Types.ServerMethods => {
         GetUsageMetrics: async ({ ctx, req }) => {
             return mainHandler.metricsManager.GetUsageMetrics(req)
         },
+        GetBundleMetrics: async ({ ctx, req }) => {
+            return mainHandler.utils.stateBundler.GetBundleMetrics(req)
+        },
         GetSingleUsageMetrics: async ({ ctx, req }) => {
             return mainHandler.metricsManager.GetSingleUsageMetrics(req)
         },

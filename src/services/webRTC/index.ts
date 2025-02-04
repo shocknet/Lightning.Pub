@@ -90,12 +90,12 @@ export default class webRTC {
                         this.log(ERROR, 'SingleUsageMetricReqValidate', err)
                         return
                     }
-                    const res = await this.storage.metricsEventStorage.LoadRawMetricsFile(j.app_id, j.metrics_name, j.page)
+                    const { fileData } = this.storage.metricsEventStorage.tlvStorage.LoadFile(j.app_id, j.metrics_name, j.page)
                     const id = j.request_id || Math.floor(Math.random() * 100_000_000)
                     let i = 0
                     const packets: Buffer[] = []
-                    while (i < res.length) {
-                        const chunk = res.slice(i, Math.min(i + 15_000, res.length))
+                    while (i < fileData.length) {
+                        const chunk = fileData.slice(i, Math.min(i + 15_000, fileData.length))
                         packets.push(chunk)
                         i += 15_000
                     }

@@ -93,6 +93,11 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [AppsMetricsRequest](#AppsMetricsRequest)
   - output: [AppsMetrics](#AppsMetrics)
 
+- GetBundleMetrics
+  - auth type: __Metrics__
+  - input: [LatestBundleMetricReq](#LatestBundleMetricReq)
+  - output: [BundleMetrics](#BundleMetrics)
+
 - GetDebitAuthorizations
   - auth type: __User__
   - This methods has an __empty__ __request__ body
@@ -480,6 +485,13 @@ The nostr server will send back a message response, and inside the body there wi
   - http route: __/api/reports/apps__
   - input: [AppsMetricsRequest](#AppsMetricsRequest)
   - output: [AppsMetrics](#AppsMetrics)
+
+- GetBundleMetrics
+  - auth type: __Metrics__
+  - http method: __post__
+  - http route: __/api/reports/bundle__
+  - input: [LatestBundleMetricReq](#LatestBundleMetricReq)
+  - output: [BundleMetrics](#BundleMetrics)
 
 - GetDebitAuthorizations
   - auth type: __User__
@@ -958,6 +970,17 @@ The nostr server will send back a message response, and inside the body there wi
   - __nostr_pub__: _string_
   - __user_identifier__: _string_
 
+### BundleData
+  - __available_chunks__: ARRAY of: _number_
+  - __base_64_data__: ARRAY of: _string_
+  - __current_chunk__: _number_
+
+### BundleMetric
+  - __app_bundles__: MAP with key: _string_ and value: _[BundleData](#BundleData)_
+
+### BundleMetrics
+  - __apps__: MAP with key: _string_ and value: _[BundleMetric](#BundleMetric)_
+
 ### CallbackUrl
   - __url__: _string_
 
@@ -1106,6 +1129,9 @@ The nostr server will send back a message response, and inside the body there wi
 ### HttpCreds
   - __token__: _string_
   - __url__: _string_
+
+### LatestBundleMetricReq
+  - __limit__: _number_ *this field is optional
 
 ### LatestUsageMetricReq
   - __limit__: _number_ *this field is optional

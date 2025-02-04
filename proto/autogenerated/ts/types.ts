@@ -28,8 +28,8 @@ export type MetricsContext = {
     app_id: string
     operator_id: string
 }
-export type MetricsMethodInputs = GetAppsMetrics_Input | GetErrorStats_Input | GetLndMetrics_Input | GetSingleUsageMetrics_Input | GetUsageMetrics_Input | SubmitWebRtcMessage_Input
-export type MetricsMethodOutputs = GetAppsMetrics_Output | GetErrorStats_Output | GetLndMetrics_Output | GetSingleUsageMetrics_Output | GetUsageMetrics_Output | SubmitWebRtcMessage_Output
+export type MetricsMethodInputs = GetAppsMetrics_Input | GetBundleMetrics_Input | GetErrorStats_Input | GetLndMetrics_Input | GetSingleUsageMetrics_Input | GetUsageMetrics_Input | SubmitWebRtcMessage_Input
+export type MetricsMethodOutputs = GetAppsMetrics_Output | GetBundleMetrics_Output | GetErrorStats_Output | GetLndMetrics_Output | GetSingleUsageMetrics_Output | GetUsageMetrics_Output | SubmitWebRtcMessage_Output
 export type UserContext = {
     app_id: string
     app_user_id: string
@@ -107,6 +107,9 @@ export type GetAppUserLNURLInfo_Output = ResultError | ({ status: 'OK' } & Lnurl
 
 export type GetAppsMetrics_Input = {rpcName:'GetAppsMetrics', req: AppsMetricsRequest}
 export type GetAppsMetrics_Output = ResultError | ({ status: 'OK' } & AppsMetrics)
+
+export type GetBundleMetrics_Input = {rpcName:'GetBundleMetrics', req: LatestBundleMetricReq}
+export type GetBundleMetrics_Output = ResultError | ({ status: 'OK' } & BundleMetrics)
 
 export type GetDebitAuthorizations_Input = {rpcName:'GetDebitAuthorizations'}
 export type GetDebitAuthorizations_Output = ResultError | ({ status: 'OK' } & DebitAuthorizations)
@@ -312,6 +315,7 @@ export type ServerMethods = {
     GetAppUser?: (req: GetAppUser_Input & {ctx: AppContext }) => Promise<AppUser>
     GetAppUserLNURLInfo?: (req: GetAppUserLNURLInfo_Input & {ctx: AppContext }) => Promise<LnurlPayInfoResponse>
     GetAppsMetrics?: (req: GetAppsMetrics_Input & {ctx: MetricsContext }) => Promise<AppsMetrics>
+    GetBundleMetrics?: (req: GetBundleMetrics_Input & {ctx: MetricsContext }) => Promise<BundleMetrics>
     GetDebitAuthorizations?: (req: GetDebitAuthorizations_Input & {ctx: UserContext }) => Promise<DebitAuthorizations>
     GetErrorStats?: (req: GetErrorStats_Input & {ctx: MetricsContext }) => Promise<ErrorStats>
     GetHttpCreds?: (req: GetHttpCreds_Input & {ctx: UserContext }) => Promise<void>
@@ -920,6 +924,84 @@ export const BannedAppUserValidate = (o?: BannedAppUser, opts: BannedAppUserOpti
 
     if (typeof o.user_identifier !== 'string') return new Error(`${path}.user_identifier: is not a string`)
     if (opts.user_identifier_CustomCheck && !opts.user_identifier_CustomCheck(o.user_identifier)) return new Error(`${path}.user_identifier: custom check failed`)
+
+    return null
+}
+
+export type BundleData = {
+    available_chunks: number[]
+    base_64_data: string[]
+    current_chunk: number
+}
+export const BundleDataOptionalFields: [] = []
+export type BundleDataOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    available_chunks_CustomCheck?: (v: number[]) => boolean
+    base_64_data_CustomCheck?: (v: string[]) => boolean
+    current_chunk_CustomCheck?: (v: number) => boolean
+}
+export const BundleDataValidate = (o?: BundleData, opts: BundleDataOptions = {}, path: string = 'BundleData::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (!Array.isArray(o.available_chunks)) return new Error(`${path}.available_chunks: is not an array`)
+    for (let index = 0; index < o.available_chunks.length; index++) {
+        if (typeof o.available_chunks[index] !== 'number') return new Error(`${path}.available_chunks[${index}]: is not a number`)
+    }
+    if (opts.available_chunks_CustomCheck && !opts.available_chunks_CustomCheck(o.available_chunks)) return new Error(`${path}.available_chunks: custom check failed`)
+
+    if (!Array.isArray(o.base_64_data)) return new Error(`${path}.base_64_data: is not an array`)
+    for (let index = 0; index < o.base_64_data.length; index++) {
+        if (typeof o.base_64_data[index] !== 'string') return new Error(`${path}.base_64_data[${index}]: is not a string`)
+    }
+    if (opts.base_64_data_CustomCheck && !opts.base_64_data_CustomCheck(o.base_64_data)) return new Error(`${path}.base_64_data: custom check failed`)
+
+    if (typeof o.current_chunk !== 'number') return new Error(`${path}.current_chunk: is not a number`)
+    if (opts.current_chunk_CustomCheck && !opts.current_chunk_CustomCheck(o.current_chunk)) return new Error(`${path}.current_chunk: custom check failed`)
+
+    return null
+}
+
+export type BundleMetric = {
+    app_bundles: Record<string, BundleData>
+}
+export const BundleMetricOptionalFields: [] = []
+export type BundleMetricOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    app_bundles_EntryOptions?: BundleDataOptions
+    app_bundles_CustomCheck?: (v: Record<string, BundleData>) => boolean
+}
+export const BundleMetricValidate = (o?: BundleMetric, opts: BundleMetricOptions = {}, path: string = 'BundleMetric::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.app_bundles !== 'object' || o.app_bundles === null) return new Error(`${path}.app_bundles: is not an object or is null`)
+    for (const key in o.app_bundles) {
+        const app_bundlesErr = BundleDataValidate(o.app_bundles[key], opts.app_bundles_EntryOptions, `${path}.app_bundles['${key}']`)
+        if (app_bundlesErr !== null) return app_bundlesErr
+    }
+
+    return null
+}
+
+export type BundleMetrics = {
+    apps: Record<string, BundleMetric>
+}
+export const BundleMetricsOptionalFields: [] = []
+export type BundleMetricsOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    apps_EntryOptions?: BundleMetricOptions
+    apps_CustomCheck?: (v: Record<string, BundleMetric>) => boolean
+}
+export const BundleMetricsValidate = (o?: BundleMetrics, opts: BundleMetricsOptions = {}, path: string = 'BundleMetrics::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.apps !== 'object' || o.apps === null) return new Error(`${path}.apps: is not an object or is null`)
+    for (const key in o.apps) {
+        const appsErr = BundleMetricValidate(o.apps[key], opts.apps_EntryOptions, `${path}.apps['${key}']`)
+        if (appsErr !== null) return appsErr
+    }
 
     return null
 }
@@ -1808,6 +1890,25 @@ export const HttpCredsValidate = (o?: HttpCreds, opts: HttpCredsOptions = {}, pa
 
     if (typeof o.url !== 'string') return new Error(`${path}.url: is not a string`)
     if (opts.url_CustomCheck && !opts.url_CustomCheck(o.url)) return new Error(`${path}.url: custom check failed`)
+
+    return null
+}
+
+export type LatestBundleMetricReq = {
+    limit?: number
+}
+export type LatestBundleMetricReqOptionalField = 'limit'
+export const LatestBundleMetricReqOptionalFields: LatestBundleMetricReqOptionalField[] = ['limit']
+export type LatestBundleMetricReqOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: LatestBundleMetricReqOptionalField[]
+    limit_CustomCheck?: (v?: number) => boolean
+}
+export const LatestBundleMetricReqValidate = (o?: LatestBundleMetricReq, opts: LatestBundleMetricReqOptions = {}, path: string = 'LatestBundleMetricReq::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if ((o.limit || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('limit')) && typeof o.limit !== 'number') return new Error(`${path}.limit: is not a number`)
+    if (opts.limit_CustomCheck && !opts.limit_CustomCheck(o.limit)) return new Error(`${path}.limit: custom check failed`)
 
     return null
 }
