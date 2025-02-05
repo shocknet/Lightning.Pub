@@ -48,6 +48,7 @@ export default class webRTC {
         const iceCandidate: IceCandidate = JSON.parse(candidate)
         console.log({ iceCandidate })
         if (!iceCandidate.candidate) {
+            //@ts-ignore
             await conn.addIceCandidate(null);
         } else {
             await conn.addIceCandidate(iceCandidate);
