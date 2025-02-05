@@ -32,7 +32,7 @@ export class StateBundler {
     tlvStorage: TlvFilesStorage
     reportLog = getLogger({ component: 'stateBundlerReport' })
     constructor(settings: StorageSettings) {
-        const bundlerPath = [settings.dataDir, "bundler_events"].join("/")
+        const bundlerPath = [settings.dataDir, "bundler_events"].filter(s => !!s).join("/")
         this.tlvStorage = new TlvFilesStorage(bundlerPath)
         this.tlvStorage.initMeta()
     }

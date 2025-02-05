@@ -28,7 +28,7 @@ export class TlvFilesStorage {
         if (!this.metaReady || !this.meta[app] || !this.meta[app][dataName] || !this.meta[app][dataName].chunks.includes(chunk)) {
             throw new Error("metrics not found")
         }
-        const fullPath = [this.storagePath, app, dataName, `${chunk}.mtlv`].join("/")
+        const fullPath = [this.storagePath, app, dataName, `${chunk}.mtlv`].filter(s => !!s).join("/")
         const fileData = fs.readFileSync(fullPath)
         return { fileData, chunks: this.meta[app][dataName].chunks }
     }
@@ -51,9 +51,9 @@ export class TlvFilesStorage {
         const data: LatestData = {}
         this.foreachFile((app, dataName, tlvFiles) => {
             if (tlvFiles.length === 0) { return }
-            const methodPath = [this.storagePath, app, dataName].join("/")
+            const methodPath = [this.storagePath, app, dataName].filter(s => !!s).join("/")
             const latest = tlvFiles[tlvFiles.length - 1]
-            const tlvFile = [methodPath, `${latest}.mtlv`].join("/")
+            const tlvFile = [methodPath, `${latest}.mtlv`].filter(s => !!s).join("/")
             const tlv = fs.readFileSync(tlvFile)
             const decoded = decodeListTLV(parseTLV(tlv))
             if (!data[app]) {
@@ -80,13 +80,13 @@ export class TlvFilesStorage {
         this.pending = {}
         const apps = Object.keys(tosync)
         apps.map(app => {
-            const appPath = [this.storagePath, app].join("/")
+            const appPath = [this.storagePath, app].filter(s => !!s).join("/")
             if (!fs.existsSync(appPath)) {
                 fs.mkdirSync(appPath, { recursive: true });
             }
             const dataNames = Object.keys(tosync[app])
             dataNames.map(dataName => {
-                const dataPath = [appPath, dataName].join("/")
+                const dataPath = [appPath, dataName].filter(s => !!s).join("/")
                 if (!fs.existsSync(dataPath)) {
                     fs.mkdirSync(dataPath, { recursive: true });
                 }
@@ -95,7 +95,7 @@ export class TlvFilesStorage {
                 const chunks = meta.chunks.length > 0 ? meta.chunks : [0]
                 const latest = chunks[chunks.length - 1]
                 const tlv = encodeTLV(encodeListTLV(data.tlvs))
-                const tlvFile = [dataPath, `${latest}.mtlv`].join("/")
+                const tlvFile = [dataPath, `${latest}.mtlv`].filter(s => !!s).join("/")
                 fs.appendFileSync(tlvFile, Buffer.from(tlv))
                 if (fs.lstatSync(tlvFile).size > chunkSizeBytes) {
                     this.updateMeta(app, dataName, [...chunks, latest + 1])
@@ -131,13 +131,13 @@ export class TlvFilesStorage {
         }
         const apps = fs.readdirSync(this.storagePath)
         apps.forEach(appDir => {
-            const appPath = [this.storagePath, appDir].join("/")
+            const appPath = [this.storagePath, appDir].filter(s => !!s).join("/")
             if (!fs.lstatSync(appPath).isDirectory()) {
                 return
             }
             const dataNames = fs.readdirSync(appPath)
             dataNames.forEach(dataName => {
-                const dataPath = [appPath, dataName].join("/")
+                const dataPath = [appPath, dataName].filter(s => !!s).join("/")
                 if (!fs.lstatSync(dataPath).isDirectory()) {
                     return
                 }

@@ -9,9 +9,9 @@ export default class {
     last24hCache: { ts: number, ok: number, fail: number }[] = []
     lastPersistedCache: number = 0
     constructor(settings: StorageSettings) {
-        const metricsPath = [settings.dataDir, "metric_events"].join("/")
+        const metricsPath = [settings.dataDir, "metric_events"].filter(s => !!s).join("/")
         this.tlvStorage = new TlvFilesStorage(metricsPath)
-        this.cachePath = [settings.dataDir, "metric_cache"].join("/")
+        this.cachePath = [settings.dataDir, "metric_cache"].filter(s => !!s).join("/")
         if (!fs.existsSync(this.cachePath)) {
             fs.mkdirSync(this.cachePath, { recursive: true });
         }
@@ -60,12 +60,12 @@ export default class {
     }
 
     persistCache = () => {
-        const last24CachePath = [this.cachePath, "last24hSF.json"].join("/")
+        const last24CachePath = [this.cachePath, "last24hSF.json"].filter(s => !!s).filter(s => !!s).join("/")
         fs.writeFileSync(last24CachePath, JSON.stringify(this.last24hCache), {})
     }
 
     loadCache = () => {
-        const last24CachePath = [this.cachePath, "last24hSF.json"].join("/")
+        const last24CachePath = [this.cachePath, "last24hSF.json"].filter(s => !!s).filter(s => !!s).join("/")
         if (fs.existsSync(last24CachePath)) {
             this.last24hCache = JSON.parse(fs.readFileSync(last24CachePath, 'utf-8'))
             this.rotateCache(Math.floor(Date.now() / 1000))
