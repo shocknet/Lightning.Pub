@@ -31,6 +31,7 @@ export type TxPointSettings = {
 export class StateBundler {
     tlvStorage: TlvFilesStorage
     reportLog = getLogger({ component: 'stateBundlerReport' })
+    prevValues: Record<string, number> = {}
     constructor(settings: StorageSettings) {
         const bundlerPath = [settings.dataDir, "bundler_events"].filter(s => !!s).join("/")
         this.tlvStorage = new TlvFilesStorage(bundlerPath)
@@ -53,45 +54,38 @@ export class StateBundler {
         })
         return metrics
     }
-    /*     increment = (key: string, value: number) => {
-            this.sinceStart[key] = (this.sinceStart[key] || 0) + value
-            this.sinceLatestReport[key] = (this.sinceLatestReport[key] || 0) + value
-            this.triggerReportCheck()
+    AddValue = (appId: string, key: string, v: number) => {
+        const prevValueKey = `${appId}_${key}`
+        if (this.prevValues[prevValueKey] === v) {
+            return
         }
-        set = (key: string, value: number) => {
-            this.sinceStart[key] = value
-            this.sinceLatestReport[key] = value
-            this.triggerReportCheck()
-        }
-        max = (key: string, value: number) => {
-            this.sinceStart[key] = Math.max(this.sinceStart[key] || 0, value)
-            this.sinceLatestReport[key] = Math.max(this.sinceLatestReport[key] || 0, value)
-            this.triggerReportCheck()
-        } */
+        this.prevValues[prevValueKey] = v
+        this.tlvStorage.AddTlv(appId, key, this.serializeNow(v))
+    }
 
-    AddTxPoint = (actionName: TransactionStatePointType, v: number, settings: TxPointSettings, appId = '__root') => {
+    AddTxPoint = (actionName: TransactionStatePointType, v: number, settings: TxPointSettings, appId = '_root') => {
         const { used, from } = settings
         const meta = settings.meta || []
         const key = [actionName, from, used, ...meta].join('_')
 
-        this.tlvStorage.AddTlv(appId, key, this.serializeNow(v))
+        this.AddValue(appId, key, v)
     }
 
-    AddTxPointFailed = (actionName: TransactionStatePointType, v: number, settings: TxPointSettings, appId = '__root') => {
+    AddTxPointFailed = (actionName: TransactionStatePointType, v: number, settings: TxPointSettings, appId = '_root') => {
         const { used, from } = settings
         const meta = settings.meta || []
         const key = [actionName, from, used, ...meta, 'failed'].join('_')
-        this.tlvStorage.AddTlv(appId, key, this.serializeNow(v))
+        this.AddValue(appId, key, v)
     }
 
-    AddBalancePoint = (actionName: BalanceStatePointType, v: number, meta = [], appId = '__root') => {
+    AddBalancePoint = (actionName: BalanceStatePointType, v: number, meta = [], appId = '_root') => {
         const key = [actionName, ...meta].join('_')
-        this.tlvStorage.AddTlv(appId, key, this.serializeNow(v))
+        this.AddValue(appId, key, v)
     }
 
-    AddMaxPoint = (actionName: MaxStatePointType, v: number, meta = [], appId = '__root') => {
+    AddMaxPoint = (actionName: MaxStatePointType, v: number, meta = [], appId = '_root') => {
         const key = [actionName, ...meta].join('_')
-        this.tlvStorage.AddTlv(appId, key, this.serializeNow(v))
+        this.AddValue(appId, key, v)
     }
 
     serializeNow = (v: number) => {
