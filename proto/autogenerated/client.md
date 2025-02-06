@@ -93,6 +93,11 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [AppsMetricsRequest](#AppsMetricsRequest)
   - output: [AppsMetrics](#AppsMetrics)
 
+- GetBundleMetrics
+  - auth type: __Metrics__
+  - input: [LatestBundleMetricReq](#LatestBundleMetricReq)
+  - output: [BundleMetrics](#BundleMetrics)
+
 - GetDebitAuthorizations
   - auth type: __User__
   - This methods has an __empty__ __request__ body
@@ -158,9 +163,14 @@ The nostr server will send back a message response, and inside the body there wi
   - This methods has an __empty__ __request__ body
   - output: [LndSeed](#LndSeed)
 
+- GetSingleBundleMetrics
+  - auth type: __Metrics__
+  - input: [SingleMetricReq](#SingleMetricReq)
+  - output: [BundleData](#BundleData)
+
 - GetSingleUsageMetrics
   - auth type: __Metrics__
-  - input: [SingleUsageMetricReq](#SingleUsageMetricReq)
+  - input: [SingleMetricReq](#SingleMetricReq)
   - output: [UsageMetricTlv](#UsageMetricTlv)
 
 - GetUsageMetrics
@@ -250,6 +260,16 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [DebitResponse](#DebitResponse)
   - This methods has an __empty__ __response__ body
 
+- SubToWebRtcCandidates
+  - auth type: __Metrics__
+  - This methods has an __empty__ __request__ body
+  - output: [WebRtcCandidate](#WebRtcCandidate)
+
+- SubmitWebRtcMessage
+  - auth type: __Metrics__
+  - input: [WebRtcMessage](#WebRtcMessage)
+  - output: [WebRtcAnswer](#WebRtcAnswer)
+
 - UpdateCallbackUrl
   - auth type: __User__
   - input: [CallbackUrl](#CallbackUrl)
@@ -298,6 +318,7 @@ The nostr server will send back a message response, and inside the body there wi
 
 - __Metrics__:
   - expected context content
+    - __app_id__: _string_
     - __operator_id__: _string_
 
 - __User__:
@@ -470,6 +491,13 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [AppsMetricsRequest](#AppsMetricsRequest)
   - output: [AppsMetrics](#AppsMetrics)
 
+- GetBundleMetrics
+  - auth type: __Metrics__
+  - http method: __post__
+  - http route: __/api/reports/bundle__
+  - input: [LatestBundleMetricReq](#LatestBundleMetricReq)
+  - output: [BundleMetrics](#BundleMetrics)
+
 - GetDebitAuthorizations
   - auth type: __User__
   - http method: __get__
@@ -586,11 +614,18 @@ The nostr server will send back a message response, and inside the body there wi
   - This methods has an __empty__ __request__ body
   - output: [LndSeed](#LndSeed)
 
+- GetSingleBundleMetrics
+  - auth type: __Metrics__
+  - http method: __post__
+  - http route: __/api/reports/bundle/single__
+  - input: [SingleMetricReq](#SingleMetricReq)
+  - output: [BundleData](#BundleData)
+
 - GetSingleUsageMetrics
   - auth type: __Metrics__
   - http method: __post__
   - http route: __/api/reports/usage/single__
-  - input: [SingleUsageMetricReq](#SingleUsageMetricReq)
+  - input: [SingleMetricReq](#SingleMetricReq)
   - output: [UsageMetricTlv](#UsageMetricTlv)
 
 - GetUsageMetrics
@@ -808,6 +843,20 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [SetMockInvoiceAsPaidRequest](#SetMockInvoiceAsPaidRequest)
   - This methods has an __empty__ __response__ body
 
+- SubToWebRtcCandidates
+  - auth type: __Metrics__
+  - http method: __post__
+  - http route: __/api/upgrade/wrtc/candidates__
+  - This methods has an __empty__ __request__ body
+  - output: [WebRtcCandidate](#WebRtcCandidate)
+
+- SubmitWebRtcMessage
+  - auth type: __Metrics__
+  - http method: __post__
+  - http route: __/api/upgrade/wrtc__
+  - input: [WebRtcMessage](#WebRtcMessage)
+  - output: [WebRtcAnswer](#WebRtcAnswer)
+
 - UpdateCallbackUrl
   - auth type: __User__
   - http method: __post__
@@ -932,6 +981,17 @@ The nostr server will send back a message response, and inside the body there wi
   - __app_name__: _string_
   - __nostr_pub__: _string_
   - __user_identifier__: _string_
+
+### BundleData
+  - __available_chunks__: ARRAY of: _number_
+  - __base_64_data__: ARRAY of: _string_
+  - __current_chunk__: _number_
+
+### BundleMetric
+  - __app_bundles__: MAP with key: _string_ and value: _[BundleData](#BundleData)_
+
+### BundleMetrics
+  - __apps__: MAP with key: _string_ and value: _[BundleMetric](#BundleMetric)_
 
 ### CallbackUrl
   - __url__: _string_
@@ -1081,6 +1141,9 @@ The nostr server will send back a message response, and inside the body there wi
 ### HttpCreds
   - __token__: _string_
   - __url__: _string_
+
+### LatestBundleMetricReq
+  - __limit__: _number_ *this field is optional
 
 ### LatestUsageMetricReq
   - __limit__: _number_ *this field is optional
@@ -1314,10 +1377,12 @@ The nostr server will send back a message response, and inside the body there wi
   - __amount__: _number_
   - __invoice__: _string_
 
-### SingleUsageMetricReq
+### SingleMetricReq
   - __app_id__: _string_
+  - __metric_type__: _[SingleMetricType](#SingleMetricType)_
   - __metrics_name__: _string_
   - __page__: _number_
+  - __request_id__: _number_ *this field is optional
 
 ### UpdateChannelPolicyRequest
   - __policy__: _[ChannelPolicy](#ChannelPolicy)_
@@ -1391,6 +1456,15 @@ The nostr server will send back a message response, and inside the body there wi
   - __negative_balance__: _number_
   - __no_balance__: _number_
   - __total__: _number_
+
+### WebRtcAnswer
+  - __answer__: _string_ *this field is optional
+
+### WebRtcCandidate
+  - __candidate__: _string_
+
+### WebRtcMessage
+  - __message__: _[WebRtcMessage_message](#WebRtcMessage_message)_
 ## Enums
 ### The enumerators used in the messages
 
@@ -1410,6 +1484,10 @@ The nostr server will send back a message response, and inside the body there wi
 ### OperationType
   - __CHAIN_OP__
   - __INVOICE_OP__
+
+### SingleMetricType
+  - __BUNDLE_METRIC__
+  - __USAGE_METRIC__
 
 ### UserOperationType
   - __INCOMING_INVOICE__

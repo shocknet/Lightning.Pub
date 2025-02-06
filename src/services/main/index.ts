@@ -25,6 +25,7 @@ import { defaultInvoiceExpiry } from "../storage/paymentStorage.js"
 import { DebitManager } from "./debitManager.js"
 import { NofferData } from "nostr-tools/lib/types/nip69.js"
 import { OfferManager } from "./offerManager.js"
+import webRTC from "../webRTC/index.js"
 
 type UserOperationsSub = {
     id: string
@@ -54,6 +55,7 @@ export default class {
     utils: Utils
     rugPullTracker: RugPullTracker
     unlocker: Unlocker
+    webRTC: webRTC
     nostrSend: NostrSend = () => { getLogger({})("nostr send not initialized yet") }
     constructor(settings: MainSettings, storage: Storage, adminManager: AdminManager, utils: Utils, unlocker: Unlocker) {
         this.settings = settings
@@ -74,6 +76,7 @@ export default class {
         this.appUserManager = new AppUserManager(this.storage, this.settings, this.applicationManager)
         this.debitManager = new DebitManager(this.storage, this.lnd, this.applicationManager)
         this.offerManager = new OfferManager(this.storage, this.lnd, this.applicationManager, this.productManager)
+        this.webRTC = new webRTC(this.storage, this.utils)
 
     }
 
@@ -94,6 +97,7 @@ export default class {
         this.liquidityProvider.attachNostrSend(f)
         this.debitManager.attachNostrSend(f)
         this.offerManager.attachNostrSend(f)
+        this.webRTC.attachNostrSend(f)
     }
 
     htlcCb: HtlcCb = (e) => {
@@ -184,9 +188,9 @@ export default class {
                 const operationId = `${Types.UserOperationType.INCOMING_TX}-${addedTx.serial_id}`
                 const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_TX, identifier: userAddress.address, operationId, network_fee: 0, service_fee: fee, confirmed: internal, tx_hash: txOutput.hash, internal: false }
                 this.sendOperationToNostr(userAddress.linkedApplication, userAddress.user.user_id, op)
-                this.utils.stateBundler.AddTxPoint('addressWasPaid', amount, { used, from: 'system', timeDiscount: true })
+                this.utils.stateBundler.AddTxPoint('addressWasPaid', amount, { used, from: 'system', timeDiscount: true }, userAddress.linkedApplication.app_id)
             } catch (err: any) {
-                this.utils.stateBundler.AddTxPointFailed('addressWasPaid', amount, { used, from: 'system' })
+                this.utils.stateBundler.AddTxPointFailed('addressWasPaid', amount, { used, from: 'system' }, userAddress.linkedApplication.app_id)
                 log(ERROR, "cannot process address paid transaction, already registered")
             }
         })
@@ -230,9 +234,9 @@ export default class {
                     log(ERROR, "cannot create zap receipt", err.message || "")
                 }
                 this.liquidityManager.afterInInvoicePaid()
-                this.utils.stateBundler.AddTxPoint('invoiceWasPaid', amount, { used, from: 'system', timeDiscount: true })
+                this.utils.stateBundler.AddTxPoint('invoiceWasPaid', amount, { used, from: 'system', timeDiscount: true }, userInvoice.linkedApplication.app_id)
             } catch (err: any) {
-                this.utils.stateBundler.AddTxPointFailed('invoiceWasPaid', amount, { used, from: 'system' })
+                this.utils.stateBundler.AddTxPointFailed('invoiceWasPaid', amount, { used, from: 'system' }, userInvoice.linkedApplication.app_id)
                 log(ERROR, "cannot process paid invoice", err.message || "")
             }
         })

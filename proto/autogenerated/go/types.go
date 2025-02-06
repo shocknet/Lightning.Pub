@@ -19,6 +19,7 @@ type GuestWithPubContext struct {
 	Pub    string `json:"pub"`
 }
 type MetricsContext struct {
+	App_id      string `json:"app_id"`
 	Operator_id string `json:"operator_id"`
 }
 type UserContext struct {
@@ -75,6 +76,13 @@ type OperationType string
 const (
 	CHAIN_OP   OperationType = "CHAIN_OP"
 	INVOICE_OP OperationType = "INVOICE_OP"
+)
+
+type SingleMetricType string
+
+const (
+	BUNDLE_METRIC SingleMetricType = "BUNDLE_METRIC"
+	USAGE_METRIC  SingleMetricType = "USAGE_METRIC"
 )
 
 type UserOperationType string
@@ -172,6 +180,17 @@ type BannedAppUser struct {
 	App_name        string `json:"app_name"`
 	Nostr_pub       string `json:"nostr_pub"`
 	User_identifier string `json:"user_identifier"`
+}
+type BundleData struct {
+	Available_chunks []int64  `json:"available_chunks"`
+	Base_64_data     []string `json:"base_64_data"`
+	Current_chunk    int64    `json:"current_chunk"`
+}
+type BundleMetric struct {
+	App_bundles map[string]BundleData `json:"app_bundles"`
+}
+type BundleMetrics struct {
+	Apps map[string]BundleMetric `json:"apps"`
 }
 type CallbackUrl struct {
 	Url string `json:"url"`
@@ -321,6 +340,9 @@ type HandleLnurlPayResponse struct {
 type HttpCreds struct {
 	Token string `json:"token"`
 	Url   string `json:"url"`
+}
+type LatestBundleMetricReq struct {
+	Limit int64 `json:"limit"`
 }
 type LatestUsageMetricReq struct {
 	Limit int64 `json:"limit"`
@@ -554,10 +576,12 @@ type SetMockInvoiceAsPaidRequest struct {
 	Amount  int64  `json:"amount"`
 	Invoice string `json:"invoice"`
 }
-type SingleUsageMetricReq struct {
-	App_id       string `json:"app_id"`
-	Metrics_name string `json:"metrics_name"`
-	Page         int64  `json:"page"`
+type SingleMetricReq struct {
+	App_id       string           `json:"app_id"`
+	Metric_type  SingleMetricType `json:"metric_type"`
+	Metrics_name string           `json:"metrics_name"`
+	Page         int64            `json:"page"`
+	Request_id   int64            `json:"request_id"`
 }
 type UpdateChannelPolicyRequest struct {
 	Policy *ChannelPolicy                     `json:"policy"`
@@ -632,6 +656,15 @@ type UsersInfo struct {
 	No_balance           int64 `json:"no_balance"`
 	Total                int64 `json:"total"`
 }
+type WebRtcAnswer struct {
+	Answer string `json:"answer"`
+}
+type WebRtcCandidate struct {
+	Candidate string `json:"candidate"`
+}
+type WebRtcMessage struct {
+	Message *WebRtcMessage_message `json:"message"`
+}
 type DebitResponse_response_type string
 
 const (
@@ -695,4 +728,16 @@ type UpdateChannelPolicyRequest_update struct {
 	Type          UpdateChannelPolicyRequest_update_type `json:"type"`
 	All           *Empty                                 `json:"all"`
 	Channel_point *string                                `json:"channel_point"`
+}
+type WebRtcMessage_message_type string
+
+const (
+	CANDIDATE WebRtcMessage_message_type = "candidate"
+	OFFER     WebRtcMessage_message_type = "offer"
+)
+
+type WebRtcMessage_message struct {
+	Type      WebRtcMessage_message_type `json:"type"`
+	Candidate *string                    `json:"candidate"`
+	Offer     *string                    `json:"offer"`
 }

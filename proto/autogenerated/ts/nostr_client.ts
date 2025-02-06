@@ -233,6 +233,21 @@ export default (params: NostrClientParams,  send: (to:string, message: NostrRequ
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
+    GetBundleMetrics: async (request: Types.LatestBundleMetricReq): Promise<ResultError | ({ status: 'OK' }& Types.BundleMetrics)> => {
+        const auth = await params.retrieveNostrMetricsAuth()
+        if (auth === null) throw new Error('retrieveNostrMetricsAuth() returned null')
+        const nostrRequest: NostrRequest = {}
+        nostrRequest.body = request
+        const data = await send(params.pubDestination, {rpcName:'GetBundleMetrics',authIdentifier:auth, ...nostrRequest }) 
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.BundleMetricsValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
     GetDebitAuthorizations: async (): Promise<ResultError | ({ status: 'OK' }& Types.DebitAuthorizations)> => {
         const auth = await params.retrieveNostrUserAuth()
         if (auth === null) throw new Error('retrieveNostrUserAuth() returned null')
@@ -422,7 +437,22 @@ export default (params: NostrClientParams,  send: (to:string, message: NostrRequ
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
-    GetSingleUsageMetrics: async (request: Types.SingleUsageMetricReq): Promise<ResultError | ({ status: 'OK' }& Types.UsageMetricTlv)> => {
+    GetSingleBundleMetrics: async (request: Types.SingleMetricReq): Promise<ResultError | ({ status: 'OK' }& Types.BundleData)> => {
+        const auth = await params.retrieveNostrMetricsAuth()
+        if (auth === null) throw new Error('retrieveNostrMetricsAuth() returned null')
+        const nostrRequest: NostrRequest = {}
+        nostrRequest.body = request
+        const data = await send(params.pubDestination, {rpcName:'GetSingleBundleMetrics',authIdentifier:auth, ...nostrRequest }) 
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.BundleDataValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
+    GetSingleUsageMetrics: async (request: Types.SingleMetricReq): Promise<ResultError | ({ status: 'OK' }& Types.UsageMetricTlv)> => {
         const auth = await params.retrieveNostrMetricsAuth()
         if (auth === null) throw new Error('retrieveNostrMetricsAuth() returned null')
         const nostrRequest: NostrRequest = {}
@@ -677,6 +707,36 @@ export default (params: NostrClientParams,  send: (to:string, message: NostrRequ
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             return data
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
+    SubToWebRtcCandidates: async (cb: (res:ResultError | ({ status: 'OK' }& Types.WebRtcCandidate)) => void): Promise<void> => {
+        const auth = await params.retrieveNostrMetricsAuth()
+        if (auth === null) throw new Error('retrieveNostrMetricsAuth() returned null')
+        const nostrRequest: NostrRequest = {}
+        subscribe(params.pubDestination, {rpcName:'SubToWebRtcCandidates',authIdentifier:auth, ...nostrRequest }, (data) => {
+            if (data.status === 'ERROR' && typeof data.reason === 'string') return cb(data)
+            if (data.status === 'OK') { 
+                const result = data
+                if(!params.checkResult) return cb({ status: 'OK', ...result })
+                const error = Types.WebRtcCandidateValidate(result)
+                if (error === null) { return cb({ status: 'OK', ...result }) } else return cb({ status: 'ERROR', reason: error.message })
+            }
+            return cb({ status: 'ERROR', reason: 'invalid response' })
+        })
+    },
+    SubmitWebRtcMessage: async (request: Types.WebRtcMessage): Promise<ResultError | ({ status: 'OK' }& Types.WebRtcAnswer)> => {
+        const auth = await params.retrieveNostrMetricsAuth()
+        if (auth === null) throw new Error('retrieveNostrMetricsAuth() returned null')
+        const nostrRequest: NostrRequest = {}
+        nostrRequest.body = request
+        const data = await send(params.pubDestination, {rpcName:'SubmitWebRtcMessage',authIdentifier:auth, ...nostrRequest }) 
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.WebRtcAnswerValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },

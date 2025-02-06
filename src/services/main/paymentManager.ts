@@ -355,11 +355,11 @@ export default class {
         try {
             await this.invoicePaidCb(internalInvoice.invoice, payAmount, 'internal')
             const newPayment = await this.storage.paymentStorage.AddInternalPayment(userId, internalInvoice.invoice, payAmount, serviceFee, linkedApplication, debitNpub)
-            this.utils.stateBundler.AddTxPoint('paidAnInvoice', payAmount, { used: 'internal', from: 'user' })
+            this.utils.stateBundler.AddTxPoint('paidAnInvoice', payAmount, { used: 'internal', from: 'user' }, linkedApplication.app_id)
             return { preimage: "", amtPaid: payAmount, networkFee: 0, serialId: newPayment.serial_id }
         } catch (err) {
             await this.storage.userStorage.IncrementUserBalance(userId, totalAmountToDecrement, "internal_payment_refund:" + internalInvoice.invoice)
-            this.utils.stateBundler.AddTxPointFailed('paidAnInvoice', payAmount, { used: 'internal', from: 'user' })
+            this.utils.stateBundler.AddTxPointFailed('paidAnInvoice', payAmount, { used: 'internal', from: 'user' }, linkedApplication.app_id)
 
             throw err
         }

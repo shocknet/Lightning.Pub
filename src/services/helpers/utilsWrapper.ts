@@ -6,6 +6,6 @@ export class Utils {
     settings: MainSettings
     constructor(settings: MainSettings) {
         this.settings = settings
-        this.stateBundler = new StateBundler()
+        this.stateBundler = new StateBundler(settings.storageSettings)
     }
 }

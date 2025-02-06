@@ -27,7 +27,7 @@ export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSett
             if (!adminNpub) { throw new Error("admin access not configured") }
             if (pub !== adminNpub) { throw new Error("Metrics unavailable") }
             log("operator access from", pub)
-            return { operator_id: pub }
+            return { operator_id: pub, app_id: appId || "" }
         },
         metricsCallback: metrics => mainHandler.settings.recordPerformance ? mainHandler.metricsManager.AddMetrics(metrics) : null,
         NostrGuestWithPubAuthGuard: async (appId, pub) => {
