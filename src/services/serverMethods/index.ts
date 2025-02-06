@@ -21,7 +21,20 @@ export default (mainHandler: Main): Types.ServerMethods => {
             return mainHandler.utils.stateBundler.GetBundleMetrics(req)
         },
         GetSingleUsageMetrics: async ({ ctx, req }) => {
+            const err = Types.SingleMetricReqValidate(req, {
+                app_id_CustomCheck: id => id === "",
+                metrics_name_CustomCheck: name => name !== ""
+            })
+            if (err != null) throw new Error(err.message)
             return mainHandler.metricsManager.GetSingleUsageMetrics(req)
+        },
+        GetSingleBundleMetrics: async ({ ctx, req }) => {
+            const err = Types.SingleMetricReqValidate(req, {
+                app_id_CustomCheck: id => id === "",
+                metrics_name_CustomCheck: name => name !== ""
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.utils.stateBundler.GetSingleBundleMetrics(req)
         },
         GetErrorStats: async ({ ctx }) => {
             return mainHandler.metricsManager.GetErrorStats()

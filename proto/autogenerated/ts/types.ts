@@ -28,8 +28,8 @@ export type MetricsContext = {
     app_id: string
     operator_id: string
 }
-export type MetricsMethodInputs = GetAppsMetrics_Input | GetBundleMetrics_Input | GetErrorStats_Input | GetLndMetrics_Input | GetSingleUsageMetrics_Input | GetUsageMetrics_Input | SubmitWebRtcMessage_Input
-export type MetricsMethodOutputs = GetAppsMetrics_Output | GetBundleMetrics_Output | GetErrorStats_Output | GetLndMetrics_Output | GetSingleUsageMetrics_Output | GetUsageMetrics_Output | SubmitWebRtcMessage_Output
+export type MetricsMethodInputs = GetAppsMetrics_Input | GetBundleMetrics_Input | GetErrorStats_Input | GetLndMetrics_Input | GetSingleBundleMetrics_Input | GetSingleUsageMetrics_Input | GetUsageMetrics_Input | SubmitWebRtcMessage_Input
+export type MetricsMethodOutputs = GetAppsMetrics_Output | GetBundleMetrics_Output | GetErrorStats_Output | GetLndMetrics_Output | GetSingleBundleMetrics_Output | GetSingleUsageMetrics_Output | GetUsageMetrics_Output | SubmitWebRtcMessage_Output
 export type UserContext = {
     app_id: string
     app_user_id: string
@@ -165,7 +165,10 @@ export type GetPaymentState_Output = ResultError | ({ status: 'OK' } & PaymentSt
 export type GetSeed_Input = {rpcName:'GetSeed'}
 export type GetSeed_Output = ResultError | ({ status: 'OK' } & LndSeed)
 
-export type GetSingleUsageMetrics_Input = {rpcName:'GetSingleUsageMetrics', req: SingleUsageMetricReq}
+export type GetSingleBundleMetrics_Input = {rpcName:'GetSingleBundleMetrics', req: SingleMetricReq}
+export type GetSingleBundleMetrics_Output = ResultError | ({ status: 'OK' } & BundleData)
+
+export type GetSingleUsageMetrics_Input = {rpcName:'GetSingleUsageMetrics', req: SingleMetricReq}
 export type GetSingleUsageMetrics_Output = ResultError | ({ status: 'OK' } & UsageMetricTlv)
 
 export type GetUsageMetrics_Input = {rpcName:'GetUsageMetrics', req: LatestUsageMetricReq}
@@ -332,6 +335,7 @@ export type ServerMethods = {
     GetNPubLinkingState?: (req: GetNPubLinkingState_Input & {ctx: AppContext }) => Promise<NPubLinking>
     GetPaymentState?: (req: GetPaymentState_Input & {ctx: UserContext }) => Promise<PaymentState>
     GetSeed?: (req: GetSeed_Input & {ctx: AdminContext }) => Promise<LndSeed>
+    GetSingleBundleMetrics?: (req: GetSingleBundleMetrics_Input & {ctx: MetricsContext }) => Promise<BundleData>
     GetSingleUsageMetrics?: (req: GetSingleUsageMetrics_Input & {ctx: MetricsContext }) => Promise<UsageMetricTlv>
     GetUsageMetrics?: (req: GetUsageMetrics_Input & {ctx: MetricsContext }) => Promise<UsageMetrics>
     GetUserInfo?: (req: GetUserInfo_Input & {ctx: UserContext }) => Promise<UserInfo>
@@ -402,6 +406,14 @@ export enum OperationType {
 }
 export const enumCheckOperationType = (e?: OperationType): boolean => {
     for (const v in OperationType) if (e === v) return true
+    return false
+}
+export enum SingleMetricType {
+    BUNDLE_METRIC = 'BUNDLE_METRIC',
+    USAGE_METRIC = 'USAGE_METRIC',
+}
+export const enumCheckSingleMetricType = (e?: SingleMetricType): boolean => {
+    for (const v in SingleMetricType) if (e === v) return true
     return false
 }
 export enum UserOperationType {
@@ -3288,27 +3300,32 @@ export const SetMockInvoiceAsPaidRequestValidate = (o?: SetMockInvoiceAsPaidRequ
     return null
 }
 
-export type SingleUsageMetricReq = {
+export type SingleMetricReq = {
     app_id: string
+    metric_type: SingleMetricType
     metrics_name: string
     page: number
     request_id?: number
 }
-export type SingleUsageMetricReqOptionalField = 'request_id'
-export const SingleUsageMetricReqOptionalFields: SingleUsageMetricReqOptionalField[] = ['request_id']
-export type SingleUsageMetricReqOptions = OptionsBaseMessage & {
-    checkOptionalsAreSet?: SingleUsageMetricReqOptionalField[]
+export type SingleMetricReqOptionalField = 'request_id'
+export const SingleMetricReqOptionalFields: SingleMetricReqOptionalField[] = ['request_id']
+export type SingleMetricReqOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: SingleMetricReqOptionalField[]
     app_id_CustomCheck?: (v: string) => boolean
+    metric_type_CustomCheck?: (v: SingleMetricType) => boolean
     metrics_name_CustomCheck?: (v: string) => boolean
     page_CustomCheck?: (v: number) => boolean
     request_id_CustomCheck?: (v?: number) => boolean
 }
-export const SingleUsageMetricReqValidate = (o?: SingleUsageMetricReq, opts: SingleUsageMetricReqOptions = {}, path: string = 'SingleUsageMetricReq::root.'): Error | null => {
+export const SingleMetricReqValidate = (o?: SingleMetricReq, opts: SingleMetricReqOptions = {}, path: string = 'SingleMetricReq::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
     if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
 
     if (typeof o.app_id !== 'string') return new Error(`${path}.app_id: is not a string`)
     if (opts.app_id_CustomCheck && !opts.app_id_CustomCheck(o.app_id)) return new Error(`${path}.app_id: custom check failed`)
+
+    if (!enumCheckSingleMetricType(o.metric_type)) return new Error(`${path}.metric_type: is not a valid SingleMetricType`)
+    if (opts.metric_type_CustomCheck && !opts.metric_type_CustomCheck(o.metric_type)) return new Error(`${path}.metric_type: custom check failed`)
 
     if (typeof o.metrics_name !== 'string') return new Error(`${path}.metrics_name: is not a string`)
     if (opts.metrics_name_CustomCheck && !opts.metrics_name_CustomCheck(o.metrics_name)) return new Error(`${path}.metrics_name: custom check failed`)

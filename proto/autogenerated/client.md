@@ -163,9 +163,14 @@ The nostr server will send back a message response, and inside the body there wi
   - This methods has an __empty__ __request__ body
   - output: [LndSeed](#LndSeed)
 
+- GetSingleBundleMetrics
+  - auth type: __Metrics__
+  - input: [SingleMetricReq](#SingleMetricReq)
+  - output: [BundleData](#BundleData)
+
 - GetSingleUsageMetrics
   - auth type: __Metrics__
-  - input: [SingleUsageMetricReq](#SingleUsageMetricReq)
+  - input: [SingleMetricReq](#SingleMetricReq)
   - output: [UsageMetricTlv](#UsageMetricTlv)
 
 - GetUsageMetrics
@@ -609,11 +614,18 @@ The nostr server will send back a message response, and inside the body there wi
   - This methods has an __empty__ __request__ body
   - output: [LndSeed](#LndSeed)
 
+- GetSingleBundleMetrics
+  - auth type: __Metrics__
+  - http method: __post__
+  - http route: __/api/reports/bundle/single__
+  - input: [SingleMetricReq](#SingleMetricReq)
+  - output: [BundleData](#BundleData)
+
 - GetSingleUsageMetrics
   - auth type: __Metrics__
   - http method: __post__
   - http route: __/api/reports/usage/single__
-  - input: [SingleUsageMetricReq](#SingleUsageMetricReq)
+  - input: [SingleMetricReq](#SingleMetricReq)
   - output: [UsageMetricTlv](#UsageMetricTlv)
 
 - GetUsageMetrics
@@ -1365,8 +1377,9 @@ The nostr server will send back a message response, and inside the body there wi
   - __amount__: _number_
   - __invoice__: _string_
 
-### SingleUsageMetricReq
+### SingleMetricReq
   - __app_id__: _string_
+  - __metric_type__: _[SingleMetricType](#SingleMetricType)_
   - __metrics_name__: _string_
   - __page__: _number_
   - __request_id__: _number_ *this field is optional
@@ -1471,6 +1484,10 @@ The nostr server will send back a message response, and inside the body there wi
 ### OperationType
   - __CHAIN_OP__
   - __INVOICE_OP__
+
+### SingleMetricType
+  - __BUNDLE_METRIC__
+  - __USAGE_METRIC__
 
 ### UserOperationType
   - __INCOMING_INVOICE__

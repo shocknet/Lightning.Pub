@@ -78,6 +78,13 @@ const (
 	INVOICE_OP OperationType = "INVOICE_OP"
 )
 
+type SingleMetricType string
+
+const (
+	BUNDLE_METRIC SingleMetricType = "BUNDLE_METRIC"
+	USAGE_METRIC  SingleMetricType = "USAGE_METRIC"
+)
+
 type UserOperationType string
 
 const (
@@ -569,11 +576,12 @@ type SetMockInvoiceAsPaidRequest struct {
 	Amount  int64  `json:"amount"`
 	Invoice string `json:"invoice"`
 }
-type SingleUsageMetricReq struct {
-	App_id       string `json:"app_id"`
-	Metrics_name string `json:"metrics_name"`
-	Page         int64  `json:"page"`
-	Request_id   int64  `json:"request_id"`
+type SingleMetricReq struct {
+	App_id       string           `json:"app_id"`
+	Metric_type  SingleMetricType `json:"metric_type"`
+	Metrics_name string           `json:"metrics_name"`
+	Page         int64            `json:"page"`
+	Request_id   int64            `json:"request_id"`
 }
 type UpdateChannelPolicyRequest struct {
 	Policy *ChannelPolicy                     `json:"policy"`

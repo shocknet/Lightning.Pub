@@ -189,7 +189,13 @@ service LightningPub {
         option (nostr) = true;
     }
 
-    rpc GetSingleUsageMetrics(structs.SingleUsageMetricReq) returns (structs.UsageMetricTlv) {
+    rpc GetSingleBundleMetrics(structs.SingleMetricReq) returns (structs.BundleData) {
+        option (auth_type)  = "Metrics";
+        option (http_method) = "post";
+        option (http_route) = "/api/reports/bundle/single";
+        option (nostr) = true;
+    }
+    rpc GetSingleUsageMetrics(structs.SingleMetricReq) returns (structs.UsageMetricTlv) {
         option (auth_type)  = "Metrics";
         option (http_method) = "post";
         option (http_route) = "/api/reports/usage/single";

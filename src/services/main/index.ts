@@ -76,7 +76,7 @@ export default class {
         this.appUserManager = new AppUserManager(this.storage, this.settings, this.applicationManager)
         this.debitManager = new DebitManager(this.storage, this.lnd, this.applicationManager)
         this.offerManager = new OfferManager(this.storage, this.lnd, this.applicationManager, this.productManager)
-        this.webRTC = new webRTC(this.storage)
+        this.webRTC = new webRTC(this.storage, this.utils)
 
     }
 
