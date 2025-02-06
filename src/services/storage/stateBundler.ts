@@ -66,9 +66,9 @@ export class StateBundler {
         }
     }
 
-    AddValue = (appId: string, key: string, v: number) => {
+    AddValue = (appId: string, key: string, v: number, updateOnly = false) => {
         const prevValueKey = `${appId}_${key}`
-        if (this.prevValues[prevValueKey] === v) {
+        if (updateOnly && this.prevValues[prevValueKey] === v) {
             return
         }
         this.prevValues[prevValueKey] = v
@@ -92,7 +92,7 @@ export class StateBundler {
 
     AddBalancePoint = (actionName: BalanceStatePointType, v: number, meta = [], appId = '_root') => {
         const key = [actionName, ...meta].join('_')
-        this.AddValue(appId, key, v)
+        this.AddValue(appId, key, v, true)
     }
 
     AddMaxPoint = (actionName: MaxStatePointType, v: number, meta = [], appId = '_root') => {
