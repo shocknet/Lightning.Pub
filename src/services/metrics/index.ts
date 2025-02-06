@@ -327,8 +327,13 @@ export default class Handler {
             }
         })
         const closed = await Promise.all(closedChannels.filter(c => c.closeType !== ChannelCloseSummary_ClosureType.FUNDING_CANCELED).map(async c => {
-            const tx = await this.lnd.GetTx(c.closingTxHash)
-            return { capacity: Number(c.capacity), channel_id: c.chanId, closed_height: c.closeHeight, close_tx_timestamp: Number(tx.timeStamp) }
+            try {
+                const tx = await this.lnd.GetTx(c.closingTxHash)
+                return { capacity: Number(c.capacity), channel_id: c.chanId, closed_height: c.closeHeight, close_tx_timestamp: Number(tx.timeStamp) }
+            } catch (e) {
+                return { capacity: Number(c.capacity), channel_id: c.chanId, closed_height: c.closeHeight, close_tx_timestamp: 0 }
+            }
+
         }))
         return {
             nodes: [{
