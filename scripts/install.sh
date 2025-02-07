@@ -13,8 +13,11 @@ log() {
 }
 
 SCRIPT_VERSION="0.1.0"
-REPO_URL="https://github.com/shocknet/Lightning.Pub/tarball/master"
-BASE_URL="https://raw.githubusercontent.com/shocknet/Lightning.Pub/master/scripts/"
+REPO_URL="https://github.com/shocknet/Lightning.Pub/tarball/script-fix"
+BASE_URL="https://raw.githubusercontent.com/shocknet/Lightning.Pub/script-fix/scripts/"
+
+# Add debug flag
+DEBUG=true
 
 cleanup() {
     echo "Cleaning up temporary files..."
@@ -29,6 +32,12 @@ log_error() {
     exit $2
 }
 
+# Add debug logging function
+debug_log() {
+    if [ "$DEBUG" = true ]; then
+        log "DEBUG: $1"
+    fi
+}
 
 modules=(
   "utils"
@@ -44,10 +53,21 @@ modules=(
 )
 
 log "Script version $SCRIPT_VERSION"
+debug_log "Attempting to download modules from $BASE_URL"
 
 for module in "${modules[@]}"; do
-  wget -q "${BASE_URL}/${module}.sh" -O "/tmp/${module}.sh" || log_error "Failed to download ${module}.sh" 1
-  source "/tmp/${module}.sh" || log_error "Failed to source ${module}.sh" 1
+  debug_log "Downloading ${module}.sh..."
+  
+  # Add wget verbose output and timeout
+  if ! wget -v --timeout=10 --tries=3 "${BASE_URL}/${module}.sh" -O "/tmp/${module}.sh" 2>&1; then
+    log_error "Failed to download ${module}.sh" 1
+  fi
+  
+  debug_log "Sourcing ${module}.sh..."
+  if ! source "/tmp/${module}.sh"; then
+    log_error "Failed to source ${module}.sh" 1
+  fi
+  debug_log "Successfully loaded ${module}.sh"
 done
 
 detect_os_arch
