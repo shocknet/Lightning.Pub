@@ -41,10 +41,13 @@ option (file_options) = {
             id: "metrics", 
             name: "Metrics", 
             //encrypted:true, 
-            context:{
+            context:[{
                 key:"operator_id", 
                 value:"string"
-            }
+            },{
+                key:"app_id",
+                value:"string"
+            }]
         },
         {
             id:"app",
@@ -202,6 +205,18 @@ service LightningPub {
         option (auth_type)  = "Metrics";
         option (http_method) = "post";
         option (http_route) = "/api/reports/lnd";
+        option (nostr) = true;
+    }
+    rpc SubmitWebRtcMessage(structs.WebRtcMessage) returns (structs.WebRtcAnswer) {
+        option (auth_type)  = "Metrics";
+        option (http_method) = "post";
+        option (http_route) = "/api/upgrade/wrtc";
+        option (nostr) = true;
+    }
+    rpc SubToWebRtcCandidates(structs.Empty) returns (stream structs.WebRtcCandidate) {
+        option (auth_type)  = "Metrics";
+        option (http_method) = "post";
+        option (http_route) = "/api/upgrade/wrtc/candidates";
         option (nostr) = true;
     }
 

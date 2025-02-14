@@ -123,6 +123,8 @@ type Client struct {
 	SetMockAppBalance           func(req SetMockAppBalanceRequest) error
 	SetMockAppUserBalance       func(req SetMockAppUserBalanceRequest) error
 	SetMockInvoiceAsPaid        func(req SetMockInvoiceAsPaidRequest) error
+	SubToWebRtcCandidates       func() (*WebRtcCandidate, error)
+	SubmitWebRtcMessage         func(req WebRtcMessage) (*WebRtcAnswer, error)
 	UpdateCallbackUrl           func(req CallbackUrl) (*CallbackUrl, error)
 	UpdateChannelPolicy         func(req UpdateChannelPolicyRequest) error
 	UpdateUserOffer             func(req OfferConfig) error
@@ -1862,6 +1864,36 @@ func NewClient(params ClientParams) *Client {
 				return fmt.Errorf(result.Reason)
 			}
 			return nil
+		},
+		// server streaming method: SubToWebRtcCandidates not implemented
+		SubmitWebRtcMessage: func(req WebRtcMessage) (*WebRtcAnswer, error) {
+			auth, err := params.RetrieveMetricsAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/upgrade/wrtc"
+			body, err := json.Marshal(req)
+			if err != nil {
+				return nil, err
+			}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return nil, err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := WebRtcAnswer{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
 		},
 		UpdateCallbackUrl: func(req CallbackUrl) (*CallbackUrl, error) {
 			auth, err := params.RetrieveUserAuth()

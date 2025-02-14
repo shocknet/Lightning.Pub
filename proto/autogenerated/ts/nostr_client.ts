@@ -680,6 +680,36 @@ export default (params: NostrClientParams,  send: (to:string, message: NostrRequ
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
+    SubToWebRtcCandidates: async (cb: (res:ResultError | ({ status: 'OK' }& Types.WebRtcCandidate)) => void): Promise<void> => {
+        const auth = await params.retrieveNostrMetricsAuth()
+        if (auth === null) throw new Error('retrieveNostrMetricsAuth() returned null')
+        const nostrRequest: NostrRequest = {}
+        subscribe(params.pubDestination, {rpcName:'SubToWebRtcCandidates',authIdentifier:auth, ...nostrRequest }, (data) => {
+            if (data.status === 'ERROR' && typeof data.reason === 'string') return cb(data)
+            if (data.status === 'OK') { 
+                const result = data
+                if(!params.checkResult) return cb({ status: 'OK', ...result })
+                const error = Types.WebRtcCandidateValidate(result)
+                if (error === null) { return cb({ status: 'OK', ...result }) } else return cb({ status: 'ERROR', reason: error.message })
+            }
+            return cb({ status: 'ERROR', reason: 'invalid response' })
+        })
+    },
+    SubmitWebRtcMessage: async (request: Types.WebRtcMessage): Promise<ResultError | ({ status: 'OK' }& Types.WebRtcAnswer)> => {
+        const auth = await params.retrieveNostrMetricsAuth()
+        if (auth === null) throw new Error('retrieveNostrMetricsAuth() returned null')
+        const nostrRequest: NostrRequest = {}
+        nostrRequest.body = request
+        const data = await send(params.pubDestination, {rpcName:'SubmitWebRtcMessage',authIdentifier:auth, ...nostrRequest }) 
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.WebRtcAnswerValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
     UpdateCallbackUrl: async (request: Types.CallbackUrl): Promise<ResultError | ({ status: 'OK' }& Types.CallbackUrl)> => {
         const auth = await params.retrieveNostrUserAuth()
         if (auth === null) throw new Error('retrieveNostrUserAuth() returned null')

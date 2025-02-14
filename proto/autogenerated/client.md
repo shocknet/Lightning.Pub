@@ -250,6 +250,16 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [DebitResponse](#DebitResponse)
   - This methods has an __empty__ __response__ body
 
+- SubToWebRtcCandidates
+  - auth type: __Metrics__
+  - This methods has an __empty__ __request__ body
+  - output: [WebRtcCandidate](#WebRtcCandidate)
+
+- SubmitWebRtcMessage
+  - auth type: __Metrics__
+  - input: [WebRtcMessage](#WebRtcMessage)
+  - output: [WebRtcAnswer](#WebRtcAnswer)
+
 - UpdateCallbackUrl
   - auth type: __User__
   - input: [CallbackUrl](#CallbackUrl)
@@ -298,6 +308,7 @@ The nostr server will send back a message response, and inside the body there wi
 
 - __Metrics__:
   - expected context content
+    - __app_id__: _string_
     - __operator_id__: _string_
 
 - __User__:
@@ -807,6 +818,20 @@ The nostr server will send back a message response, and inside the body there wi
   - http route: __/api/lnd/mock/invoice/paid__
   - input: [SetMockInvoiceAsPaidRequest](#SetMockInvoiceAsPaidRequest)
   - This methods has an __empty__ __response__ body
+
+- SubToWebRtcCandidates
+  - auth type: __Metrics__
+  - http method: __post__
+  - http route: __/api/upgrade/wrtc/candidates__
+  - This methods has an __empty__ __request__ body
+  - output: [WebRtcCandidate](#WebRtcCandidate)
+
+- SubmitWebRtcMessage
+  - auth type: __Metrics__
+  - http method: __post__
+  - http route: __/api/upgrade/wrtc__
+  - input: [WebRtcMessage](#WebRtcMessage)
+  - output: [WebRtcAnswer](#WebRtcAnswer)
 
 - UpdateCallbackUrl
   - auth type: __User__
@@ -1318,6 +1343,7 @@ The nostr server will send back a message response, and inside the body there wi
   - __app_id__: _string_
   - __metrics_name__: _string_
   - __page__: _number_
+  - __request_id__: _number_ *this field is optional
 
 ### UpdateChannelPolicyRequest
   - __policy__: _[ChannelPolicy](#ChannelPolicy)_
@@ -1391,6 +1417,15 @@ The nostr server will send back a message response, and inside the body there wi
   - __negative_balance__: _number_
   - __no_balance__: _number_
   - __total__: _number_
+
+### WebRtcAnswer
+  - __answer__: _string_ *this field is optional
+
+### WebRtcCandidate
+  - __candidate__: _string_
+
+### WebRtcMessage
+  - __message__: _[WebRtcMessage_message](#WebRtcMessage_message)_
 ## Enums
 ### The enumerators used in the messages
 

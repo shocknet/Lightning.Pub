@@ -25,10 +25,11 @@ export type GuestWithPubContext = {
 export type GuestWithPubMethodInputs = LinkNPubThroughToken_Input | UseInviteLink_Input
 export type GuestWithPubMethodOutputs = LinkNPubThroughToken_Output | UseInviteLink_Output
 export type MetricsContext = {
+    app_id: string
     operator_id: string
 }
-export type MetricsMethodInputs = GetAppsMetrics_Input | GetErrorStats_Input | GetLndMetrics_Input | GetSingleUsageMetrics_Input | GetUsageMetrics_Input
-export type MetricsMethodOutputs = GetAppsMetrics_Output | GetErrorStats_Output | GetLndMetrics_Output | GetSingleUsageMetrics_Output | GetUsageMetrics_Output
+export type MetricsMethodInputs = GetAppsMetrics_Input | GetErrorStats_Input | GetLndMetrics_Input | GetSingleUsageMetrics_Input | GetUsageMetrics_Input | SubmitWebRtcMessage_Input
+export type MetricsMethodOutputs = GetAppsMetrics_Output | GetErrorStats_Output | GetLndMetrics_Output | GetSingleUsageMetrics_Output | GetUsageMetrics_Output | SubmitWebRtcMessage_Output
 export type UserContext = {
     app_id: string
     app_user_id: string
@@ -267,6 +268,12 @@ export type SetMockAppUserBalance_Output = ResultError | { status: 'OK' }
 export type SetMockInvoiceAsPaid_Input = {rpcName:'SetMockInvoiceAsPaid', req: SetMockInvoiceAsPaidRequest}
 export type SetMockInvoiceAsPaid_Output = ResultError | { status: 'OK' }
 
+export type SubToWebRtcCandidates_Input = {rpcName:'SubToWebRtcCandidates',  cb:(res: WebRtcCandidate, err:Error|null)=> void}
+export type SubToWebRtcCandidates_Output = ResultError | { status: 'OK' }
+
+export type SubmitWebRtcMessage_Input = {rpcName:'SubmitWebRtcMessage', req: WebRtcMessage}
+export type SubmitWebRtcMessage_Output = ResultError | ({ status: 'OK' } & WebRtcAnswer)
+
 export type UpdateCallbackUrl_Input = {rpcName:'UpdateCallbackUrl', req: CallbackUrl}
 export type UpdateCallbackUrl_Output = ResultError | ({ status: 'OK' } & CallbackUrl)
 
@@ -351,6 +358,8 @@ export type ServerMethods = {
     SetMockAppBalance?: (req: SetMockAppBalance_Input & {ctx: AppContext }) => Promise<void>
     SetMockAppUserBalance?: (req: SetMockAppUserBalance_Input & {ctx: AppContext }) => Promise<void>
     SetMockInvoiceAsPaid?: (req: SetMockInvoiceAsPaid_Input & {ctx: GuestContext }) => Promise<void>
+    SubToWebRtcCandidates?: (req: SubToWebRtcCandidates_Input & {ctx: MetricsContext }) => Promise<void>
+    SubmitWebRtcMessage?: (req: SubmitWebRtcMessage_Input & {ctx: MetricsContext }) => Promise<WebRtcAnswer>
     UpdateCallbackUrl?: (req: UpdateCallbackUrl_Input & {ctx: UserContext }) => Promise<CallbackUrl>
     UpdateChannelPolicy?: (req: UpdateChannelPolicy_Input & {ctx: AdminContext }) => Promise<void>
     UpdateUserOffer?: (req: UpdateUserOffer_Input & {ctx: UserContext }) => Promise<void>
@@ -3182,13 +3191,16 @@ export type SingleUsageMetricReq = {
     app_id: string
     metrics_name: string
     page: number
+    request_id?: number
 }
-export const SingleUsageMetricReqOptionalFields: [] = []
+export type SingleUsageMetricReqOptionalField = 'request_id'
+export const SingleUsageMetricReqOptionalFields: SingleUsageMetricReqOptionalField[] = ['request_id']
 export type SingleUsageMetricReqOptions = OptionsBaseMessage & {
-    checkOptionalsAreSet?: []
+    checkOptionalsAreSet?: SingleUsageMetricReqOptionalField[]
     app_id_CustomCheck?: (v: string) => boolean
     metrics_name_CustomCheck?: (v: string) => boolean
     page_CustomCheck?: (v: number) => boolean
+    request_id_CustomCheck?: (v?: number) => boolean
 }
 export const SingleUsageMetricReqValidate = (o?: SingleUsageMetricReq, opts: SingleUsageMetricReqOptions = {}, path: string = 'SingleUsageMetricReq::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
@@ -3202,6 +3214,9 @@ export const SingleUsageMetricReqValidate = (o?: SingleUsageMetricReq, opts: Sin
 
     if (typeof o.page !== 'number') return new Error(`${path}.page: is not a number`)
     if (opts.page_CustomCheck && !opts.page_CustomCheck(o.page)) return new Error(`${path}.page: custom check failed`)
+
+    if ((o.request_id || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('request_id')) && typeof o.request_id !== 'number') return new Error(`${path}.request_id: is not a number`)
+    if (opts.request_id_CustomCheck && !opts.request_id_CustomCheck(o.request_id)) return new Error(`${path}.request_id: custom check failed`)
 
     return null
 }
@@ -3627,6 +3642,62 @@ export const UsersInfoValidate = (o?: UsersInfo, opts: UsersInfoOptions = {}, pa
     return null
 }
 
+export type WebRtcAnswer = {
+    answer?: string
+}
+export type WebRtcAnswerOptionalField = 'answer'
+export const WebRtcAnswerOptionalFields: WebRtcAnswerOptionalField[] = ['answer']
+export type WebRtcAnswerOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: WebRtcAnswerOptionalField[]
+    answer_CustomCheck?: (v?: string) => boolean
+}
+export const WebRtcAnswerValidate = (o?: WebRtcAnswer, opts: WebRtcAnswerOptions = {}, path: string = 'WebRtcAnswer::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if ((o.answer || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('answer')) && typeof o.answer !== 'string') return new Error(`${path}.answer: is not a string`)
+    if (opts.answer_CustomCheck && !opts.answer_CustomCheck(o.answer)) return new Error(`${path}.answer: custom check failed`)
+
+    return null
+}
+
+export type WebRtcCandidate = {
+    candidate: string
+}
+export const WebRtcCandidateOptionalFields: [] = []
+export type WebRtcCandidateOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    candidate_CustomCheck?: (v: string) => boolean
+}
+export const WebRtcCandidateValidate = (o?: WebRtcCandidate, opts: WebRtcCandidateOptions = {}, path: string = 'WebRtcCandidate::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.candidate !== 'string') return new Error(`${path}.candidate: is not a string`)
+    if (opts.candidate_CustomCheck && !opts.candidate_CustomCheck(o.candidate)) return new Error(`${path}.candidate: custom check failed`)
+
+    return null
+}
+
+export type WebRtcMessage = {
+    message: WebRtcMessage_message
+}
+export const WebRtcMessageOptionalFields: [] = []
+export type WebRtcMessageOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    message_Options?: WebRtcMessage_messageOptions
+}
+export const WebRtcMessageValidate = (o?: WebRtcMessage, opts: WebRtcMessageOptions = {}, path: string = 'WebRtcMessage::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    const messageErr = WebRtcMessage_messageValidate(o.message, opts.message_Options, `${path}.message`)
+    if (messageErr !== null) return messageErr
+    
+
+    return null
+}
+
 export enum DebitResponse_response_type {
     DENIED = 'denied',
     INVOICE = 'invoice',
@@ -3818,6 +3889,41 @@ export const UpdateChannelPolicyRequest_updateValidate = (o?: UpdateChannelPolic
         case UpdateChannelPolicyRequest_update_type.CHANNEL_POINT:
         if (typeof o.channel_point !== 'string') return new Error(`${path}.channel_point: is not a string`)
         if (opts.channel_point_CustomCheck && !opts.channel_point_CustomCheck(o.channel_point)) return new Error(`${path}.channel_point: custom check failed`)
+
+        break
+        default:
+            return new Error(path + ': unknown type '+ stringType)
+    }
+    return null
+}
+export enum WebRtcMessage_message_type {
+    CANDIDATE = 'candidate',
+    OFFER = 'offer',
+}
+export const enumCheckWebRtcMessage_message_type = (e?: WebRtcMessage_message_type): boolean => {
+    for (const v in WebRtcMessage_message_type) if (e === v) return true
+    return false
+}
+export type WebRtcMessage_message = 
+    {type:WebRtcMessage_message_type.CANDIDATE, candidate:string}|
+    {type:WebRtcMessage_message_type.OFFER, offer:string}
+
+export type WebRtcMessage_messageOptions = {
+    candidate_CustomCheck?: (v: string) => boolean
+    offer_CustomCheck?: (v: string) => boolean
+}
+export const WebRtcMessage_messageValidate = (o?: WebRtcMessage_message, opts:WebRtcMessage_messageOptions = {}, path: string = 'WebRtcMessage_message::root.'): Error | null => {
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+    const stringType: string = o.type
+    switch (o.type) {
+        case WebRtcMessage_message_type.CANDIDATE:
+        if (typeof o.candidate !== 'string') return new Error(`${path}.candidate: is not a string`)
+        if (opts.candidate_CustomCheck && !opts.candidate_CustomCheck(o.candidate)) return new Error(`${path}.candidate: custom check failed`)
+
+        break
+        case WebRtcMessage_message_type.OFFER:
+        if (typeof o.offer !== 'string') return new Error(`${path}.offer: is not a string`)
+        if (opts.offer_CustomCheck && !opts.offer_CustomCheck(o.offer)) return new Error(`${path}.offer: custom check failed`)
 
         break
         default:

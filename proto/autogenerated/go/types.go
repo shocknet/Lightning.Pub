@@ -19,6 +19,7 @@ type GuestWithPubContext struct {
 	Pub    string `json:"pub"`
 }
 type MetricsContext struct {
+	App_id      string `json:"app_id"`
 	Operator_id string `json:"operator_id"`
 }
 type UserContext struct {
@@ -558,6 +559,7 @@ type SingleUsageMetricReq struct {
 	App_id       string `json:"app_id"`
 	Metrics_name string `json:"metrics_name"`
 	Page         int64  `json:"page"`
+	Request_id   int64  `json:"request_id"`
 }
 type UpdateChannelPolicyRequest struct {
 	Policy *ChannelPolicy                     `json:"policy"`
@@ -632,6 +634,15 @@ type UsersInfo struct {
 	No_balance           int64 `json:"no_balance"`
 	Total                int64 `json:"total"`
 }
+type WebRtcAnswer struct {
+	Answer string `json:"answer"`
+}
+type WebRtcCandidate struct {
+	Candidate string `json:"candidate"`
+}
+type WebRtcMessage struct {
+	Message *WebRtcMessage_message `json:"message"`
+}
 type DebitResponse_response_type string
 
 const (
@@ -695,4 +706,16 @@ type UpdateChannelPolicyRequest_update struct {
 	Type          UpdateChannelPolicyRequest_update_type `json:"type"`
 	All           *Empty                                 `json:"all"`
 	Channel_point *string                                `json:"channel_point"`
+}
+type WebRtcMessage_message_type string
+
+const (
+	CANDIDATE WebRtcMessage_message_type = "candidate"
+	OFFER     WebRtcMessage_message_type = "offer"
+)
+
+type WebRtcMessage_message struct {
+	Type      WebRtcMessage_message_type `json:"type"`
+	Candidate *string                    `json:"candidate"`
+	Offer     *string                    `json:"offer"`
 }

@@ -212,7 +212,6 @@ export default class Handler {
                 tags: [['p', data.pub]],
             }
         } else {
-            console.log(data)
             toSign = data.event
             if (data.encrypt) {
                 try {

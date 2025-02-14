@@ -45,6 +45,7 @@ message SingleUsageMetricReq {
     string app_id = 1;
     string metrics_name = 2;
     int64 page = 3;
+    optional int64 request_id = 4;
 }
 
 message UsageMetric {
@@ -204,6 +205,21 @@ message LndMetrics {
 
 message LndChannels {
     repeated OpenChannel open_channels = 1;
+}
+
+message WebRtcMessage {
+    oneof message {
+        string offer = 1;
+        string candidate = 2;
+    }
+}
+
+message WebRtcAnswer {
+    optional string answer = 1;
+}
+
+message WebRtcCandidate {
+    string candidate = 1;
 }
 
 
