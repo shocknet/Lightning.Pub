@@ -32,6 +32,8 @@ export const decodeListTLV = (tlv: TLV): Uint8Array[] => {
     return tlv[64]
 }
 
+
+
 export const usageMetricsToTlv = (metric: Types.UsageMetric): TLV => {
     const tlv: TLV = {}
     tlv[2] = [integerToUint8Array(Math.ceil(metric.processed_at_ms / 1000))] // 6 -> 6

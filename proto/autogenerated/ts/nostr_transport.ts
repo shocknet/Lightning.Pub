@@ -621,6 +621,22 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     opts.metricsCallback([{ ...info, ...stats, ...authContext }])
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
+            case 'GetBundleMetrics':
+                try {
+                    if (!methods.GetBundleMetrics) throw new Error('method: GetBundleMetrics is not implemented')
+                    const authContext = await opts.NostrMetricsAuthGuard(req.appId, req.authIdentifier)
+                    stats.guard = process.hrtime.bigint()
+                    authCtx = authContext
+                    const request = req.body
+                    const error = Types.LatestBundleMetricReqValidate(request)
+                    stats.validate = process.hrtime.bigint()
+                    if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
+                    const response = await methods.GetBundleMetrics({rpcName:'GetBundleMetrics', ctx:authContext , req: request})
+                    stats.handle = process.hrtime.bigint()
+                    res({status: 'OK', ...response})
+                    opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+                break
             case 'GetDebitAuthorizations':
                 try {
                     if (!methods.GetDebitAuthorizations) throw new Error('method: GetDebitAuthorizations is not implemented')
@@ -799,6 +815,22 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     opts.metricsCallback([{ ...info, ...stats, ...authContext }])
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
+            case 'GetSingleBundleMetrics':
+                try {
+                    if (!methods.GetSingleBundleMetrics) throw new Error('method: GetSingleBundleMetrics is not implemented')
+                    const authContext = await opts.NostrMetricsAuthGuard(req.appId, req.authIdentifier)
+                    stats.guard = process.hrtime.bigint()
+                    authCtx = authContext
+                    const request = req.body
+                    const error = Types.SingleMetricReqValidate(request)
+                    stats.validate = process.hrtime.bigint()
+                    if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
+                    const response = await methods.GetSingleBundleMetrics({rpcName:'GetSingleBundleMetrics', ctx:authContext , req: request})
+                    stats.handle = process.hrtime.bigint()
+                    res({status: 'OK', ...response})
+                    opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+                break
             case 'GetSingleUsageMetrics':
                 try {
                     if (!methods.GetSingleUsageMetrics) throw new Error('method: GetSingleUsageMetrics is not implemented')
@@ -806,7 +838,7 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     stats.guard = process.hrtime.bigint()
                     authCtx = authContext
                     const request = req.body
-                    const error = Types.SingleUsageMetricReqValidate(request)
+                    const error = Types.SingleMetricReqValidate(request)
                     stats.validate = process.hrtime.bigint()
                     if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
                     const response = await methods.GetSingleUsageMetrics({rpcName:'GetSingleUsageMetrics', ctx:authContext , req: request})

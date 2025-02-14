@@ -41,11 +41,17 @@ message LatestUsageMetricReq {
     optional int64 limit = 1;
 }
 
-message SingleUsageMetricReq {
+enum SingleMetricType {
+    USAGE_METRIC = 0;
+    BUNDLE_METRIC = 1;
+}
+
+message SingleMetricReq {
     string app_id = 1;
     string metrics_name = 2;
     int64 page = 3;
-    optional int64 request_id = 4;
+    SingleMetricType metric_type = 4;
+    optional int64 request_id = 5;
 }
 
 message UsageMetric {
@@ -62,6 +68,8 @@ message UsageMetric {
     optional string app_id = 11;
 }
 
+
+
 message UsageMetricTlv {
     repeated string base_64_tlvs = 1;
     int64 current_chunk = 2;
@@ -75,6 +83,24 @@ message AppUsageMetrics {
 
 message UsageMetrics {
     map<string,AppUsageMetrics> apps = 1;
+}
+
+message LatestBundleMetricReq {
+    optional int64 limit = 1;
+}
+
+message BundleData {
+    repeated string base_64_data = 1;
+    int64 current_chunk = 2;
+    repeated int64 available_chunks = 3;
+}
+
+message BundleMetric {
+    map<string, BundleData> app_bundles = 1;
+}
+
+message BundleMetrics {
+    map<string, BundleMetric> apps = 1;
 }
 
 message AppsMetricsRequest {

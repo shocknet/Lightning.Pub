@@ -10,7 +10,6 @@ import MetricsEventStorage from "./metricsEventStorage.js";
 import TransactionsQueue, { TX } from "./transactionsQueue.js";
 import EventsLogManager from "./eventsLog.js";
 import { LiquidityStorage } from "./liquidityStorage.js";
-import { StateBundler } from "./stateBundler.js";
 import DebitStorage from "./debitStorage.js"
 import OfferStorage from "./offerStorage.js"
 export type StorageSettings = {
@@ -35,7 +34,6 @@ export default class {
     debitStorage: DebitStorage
     offerStorage: OfferStorage
     eventsLog: EventsLogManager
-    stateBundler: StateBundler
     constructor(settings: StorageSettings) {
         this.settings = settings
         this.eventsLog = new EventsLogManager(settings.eventLogPath)

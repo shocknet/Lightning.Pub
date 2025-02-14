@@ -77,6 +77,7 @@ type Client struct {
 	GetAppUser                  func(req GetAppUserRequest) (*AppUser, error)
 	GetAppUserLNURLInfo         func(req GetAppUserLNURLInfoRequest) (*LnurlPayInfoResponse, error)
 	GetAppsMetrics              func(req AppsMetricsRequest) (*AppsMetrics, error)
+	GetBundleMetrics            func(req LatestBundleMetricReq) (*BundleMetrics, error)
 	GetDebitAuthorizations      func() (*DebitAuthorizations, error)
 	GetErrorStats               func() (*ErrorStats, error)
 	GetHttpCreds                func() (*HttpCreds, error)
@@ -93,7 +94,8 @@ type Client struct {
 	GetNPubLinkingState         func(req GetNPubLinking) (*NPubLinking, error)
 	GetPaymentState             func(req GetPaymentStateRequest) (*PaymentState, error)
 	GetSeed                     func() (*LndSeed, error)
-	GetSingleUsageMetrics       func(req SingleUsageMetricReq) (*UsageMetricTlv, error)
+	GetSingleBundleMetrics      func(req SingleMetricReq) (*BundleData, error)
+	GetSingleUsageMetrics       func(req SingleMetricReq) (*UsageMetricTlv, error)
 	GetUsageMetrics             func(req LatestUsageMetricReq) (*UsageMetrics, error)
 	GetUserInfo                 func() (*UserInfo, error)
 	GetUserOffer                func(req OfferId) (*OfferConfig, error)
@@ -740,6 +742,35 @@ func NewClient(params ClientParams) *Client {
 			}
 			return &res, nil
 		},
+		GetBundleMetrics: func(req LatestBundleMetricReq) (*BundleMetrics, error) {
+			auth, err := params.RetrieveMetricsAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/reports/bundle"
+			body, err := json.Marshal(req)
+			if err != nil {
+				return nil, err
+			}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return nil, err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := BundleMetrics{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
+		},
 		GetDebitAuthorizations: func() (*DebitAuthorizations, error) {
 			auth, err := params.RetrieveUserAuth()
 			if err != nil {
@@ -1060,7 +1091,36 @@ func NewClient(params ClientParams) *Client {
 			}
 			return &res, nil
 		},
-		GetSingleUsageMetrics: func(req SingleUsageMetricReq) (*UsageMetricTlv, error) {
+		GetSingleBundleMetrics: func(req SingleMetricReq) (*BundleData, error) {
+			auth, err := params.RetrieveMetricsAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/reports/bundle/single"
+			body, err := json.Marshal(req)
+			if err != nil {
+				return nil, err
+			}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return nil, err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := BundleData{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
+		},
+		GetSingleUsageMetrics: func(req SingleMetricReq) (*UsageMetricTlv, error) {
 			auth, err := params.RetrieveMetricsAuth()
 			if err != nil {
 				return nil, err

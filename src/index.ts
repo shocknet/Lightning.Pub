@@ -24,10 +24,11 @@ const start = async () => {
     const serverMethods = GetServerMethods(mainHandler)
     const nostrSettings = LoadNosrtSettingsFromEnv()
     log("initializing nostr middleware")
-    const { Send } = nostrMiddleware(serverMethods, mainHandler,
+    const { Send, Stop } = nostrMiddleware(serverMethods, mainHandler,
         { ...nostrSettings, apps, clients: [liquidityProviderInfo] },
         (e, p) => mainHandler.liquidityProvider.onEvent(e, p)
     )
+    exitHandler(() => { Stop() })
     log("starting server")
     mainHandler.attachNostrSend(Send)
     mainHandler.StartBeacons()
@@ -40,3 +41,19 @@ const start = async () => {
     Server.Listen(mainSettings.servicePort)
 }
 start()
+
+const exitHandler = async (kill: () => void) => {
+    // catch ctrl+c event and exit normally
+    process.on('SIGINT', () => {
+        console.log('Ctrl-C detected, exiting safely...');
+        process.exit(2);
+    });
+
+    //catch uncaught exceptions, trace, then exit normally
+    process.on('uncaughtException', (e) => {
+        console.log('Uncaught Exception detected, exiting safely, and killing all child processes...');
+        console.log(e.stack);
+        kill();
+        process.exit(99);
+    });
+}

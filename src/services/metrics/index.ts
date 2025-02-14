@@ -73,7 +73,7 @@ export default class Handler {
         return this.storage.metricsEventStorage.LoadLatestMetrics(req.limit)
     }
 
-    async GetSingleUsageMetrics(req: Types.SingleUsageMetricReq): Promise<Types.UsageMetricTlv> {
+    async GetSingleUsageMetrics(req: Types.SingleMetricReq): Promise<Types.UsageMetricTlv> {
         return this.storage.metricsEventStorage.LoadMetricsFile(req.app_id, req.metrics_name, req.page)
     }
 
