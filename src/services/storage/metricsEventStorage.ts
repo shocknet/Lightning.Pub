@@ -15,7 +15,6 @@ export default class {
         if (!fs.existsSync(this.cachePath)) {
             fs.mkdirSync(this.cachePath, { recursive: true });
         }
-        this.tlvStorage.initMeta()
         this.loadCache()
         setInterval(() => {
             if (Date.now() - this.lastPersistedCache > 1000 * 60 * 4) {

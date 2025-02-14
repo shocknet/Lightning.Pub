@@ -113,7 +113,18 @@ export class TlvFilesStorage {
 
     initMeta = () => {
         this.foreachFile((app, dataName, tlvFiles) => {
+            if (tlvFiles.length > 10) {
+                const oldestFiles = tlvFiles.slice(0, tlvFiles.length - 10)
+                const remainingFiles = tlvFiles.slice(tlvFiles.length - 10)
+                oldestFiles.forEach(f => {
+                    const fullPath = [this.storagePath, app, dataName, `${f}.mtlv`].filter(s => !!s).join("/")
+                    fs.unlinkSync(fullPath)
+                })
+                this.updateMeta(app, dataName, remainingFiles)
+                return
+            }
             this.updateMeta(app, dataName, tlvFiles)
+
         })
         this.metaReady = true
     }
