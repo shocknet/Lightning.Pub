@@ -36,7 +36,6 @@ export class StateBundler {
     constructor(settings: StorageSettings) {
         const bundlerPath = [settings.dataDir, "bundler_events"].filter(s => !!s).join("/")
         this.tlvStorage = new TlvFilesStorage(bundlerPath)
-        this.tlvStorage.initMeta()
     }
 
     async GetBundleMetrics(req: Types.LatestBundleMetricReq): Promise<Types.BundleMetrics> {
