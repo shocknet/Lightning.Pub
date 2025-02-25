@@ -25,8 +25,6 @@ export default class {
         process.on('exit', () => {
             this.persistCache()
         });
-
-
     }
 
     getlast24hCache = () => { return this.last24hCache }
@@ -78,7 +76,7 @@ export default class {
 
     }
 
-    LoadLatestMetrics = async (limit = 100): Promise<Types.UsageMetrics> => {
+    LoadLatestMetrics = async (limit = 30): Promise<Types.UsageMetrics> => {
         const raw = this.tlvStorage.LoadLatest(limit)
         const metrics: Types.UsageMetrics = { apps: {} }
         Object.keys(raw).forEach(app => {
