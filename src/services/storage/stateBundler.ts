@@ -33,10 +33,23 @@ export class StateBundler {
     tlvStorage: TlvFilesStorage
     reportLog = getLogger({ component: 'stateBundlerReport' })
     prevValues: Record<string, number> = {}
+    interval: NodeJS.Timeout
     constructor(settings: StorageSettings) {
         const bundlerPath = [settings.dataDir, "bundler_events"].filter(s => !!s).join("/")
         this.tlvStorage = new TlvFilesStorage(bundlerPath)
         this.tlvStorage.initMeta()
+        this.interval = setInterval(() => {
+            const mem = process.memoryUsage()
+            this.AddValue('_root', 'memory_rss', mem.rss || 0, true)
+            this.AddValue('_root', 'memory_buffer', mem.arrayBuffers || 0, true)
+            this.AddValue('_root', 'memory_heap_total', mem.heapTotal || 0, true)
+            this.AddValue('_root', 'memory_heap_used', mem.heapUsed || 0, true)
+            this.AddValue('_root', 'memory_external', mem.external || 0, true)
+        }, 60 * 1000)
+    }
+
+    Stop() {
+        clearInterval(this.interval)
     }
 
     async GetBundleMetrics(req: Types.LatestBundleMetricReq): Promise<Types.BundleMetrics> {
