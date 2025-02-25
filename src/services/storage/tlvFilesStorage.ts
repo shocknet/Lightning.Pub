@@ -46,7 +46,7 @@ export class TlvFilesStorage {
         this.pending[appId][dataName].tlvs.push(tlv)
     }
 
-    LoadLatest = (limit = 100): LatestData => {
+    LoadLatest = (limit = 30): LatestData => {
         this.persist()
         const data: LatestData = {}
         this.foreachFile((app, dataName, tlvFiles) => {
