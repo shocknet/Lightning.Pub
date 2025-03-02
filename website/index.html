@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lightning.Pub - The Future of Lightning Infrastructure</title>
+    <title>Lightning.Pub - The easiest and most powerful Lightning Node</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
@@ -243,7 +243,7 @@
                 </div>
                 <div class="flex items-center space-x-6">
                     <a href="https://t.me/ShockBTC" class="text-gray-300 hover:text-brand-orange transition-colors duration-300 font-bank">Telegram</a>
-                    <a href="https://twitter.com/ShockBTC" class="text-gray-300 hover:text-brand-orange transition-colors duration-300 font-bank">Twitter</a>
+                    <a href="https://twitter.com/ShockBTC" class="text-gray-300 hover:text-brand-orange transition-colors duration-300 font-bank">Xitter</a>
                 </div>
             </div>
         </div>
@@ -254,7 +254,7 @@
             <div class="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-radial from-brand-orange/20 via-transparent to-transparent opacity-30"></div>
         </div>
 
-        <header class="relative min-h-screen flex items-center justify-center overflow-hidden">
+        <header class="relative min-h-[calc(100vh-4rem)] flex items-center justify-center overflow-hidden">
             <!-- Dynamic background elements -->
             <div class="hero-glow top-1/4 left-1/4"></div>
             <div class="hero-glow bottom-1/4 right-1/4" style="animation-delay: -2s;"></div>
@@ -283,7 +283,7 @@
             </div>
 
             <!-- Scroll indicator -->
-            <div class="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce cursor-pointer" 
+            <div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 animate-bounce cursor-pointer" 
                  onclick="document.getElementById('features').scrollIntoView({behavior: 'smooth'})">
                 <svg class="w-6 h-6 text-brand-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
@@ -292,10 +292,59 @@
         </header>
 
         <main class="relative">
-            <!-- Feature Section -->
+            <!-- Perfect For Section -->
             <div id="features" class="py-24">
-                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div class="text-center mb-20">
+                <div class="absolute inset-0 bg-gradient-to-b from-transparent via-brand-orange/5 to-transparent"></div>
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+                    <div class="text-center mb-16">
+                        <h2 class="font-bank text-brand-orange text-base tracking-wider mb-3">THE NODE FOR ANYONE</h2>
+                        <p class="text-2xl sm:text-3xl font-bold text-white font-bank">
+                            Perfect For
+                        </p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                        <!-- Family & Friends -->
+                        <div class="feature-card p-8 rounded-xl transform hover:scale-105 transition-all duration-300">
+                            <div class="w-16 h-16 rounded-lg bg-gradient-to-br from-brand-orange to-brand-purple flex items-center justify-center mx-auto mb-6">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                                </svg>
+                            </div>
+                            <h3 class="text-xl font-bank text-white text-center mb-4">Family & Friends</h3>
+                            <p class="text-gray-300 text-center">Share Lightning access with loved ones through simple invitation codes, powered by Nostr. <br><br> Lower fees and higher reliability vs. mobile nodes, and personalizes trust away from big centralized custodians.</p>
+                        </div>
+
+                        <!-- Small Businesses -->
+                        <div class="feature-card p-8 rounded-xl transform hover:scale-105 transition-all duration-300">
+                            <div class="w-16 h-16 rounded-lg bg-gradient-to-br from-brand-orange to-brand-purple flex items-center justify-center mx-auto mb-6">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                </svg>
+                            </div>
+                            <h3 class="text-xl font-bank text-white text-center mb-4">Businesses</h3>
+                            <p class="text-gray-300 text-center">Run Lightning infrastructure for your customers and employees without an engineering department. <br><br>Easily integrate your existing line of business applications with static payment codes and webhooks.</p>
+                        </div>
+
+                        <!-- Node Operators -->
+                        <div class="feature-card p-8 rounded-xl transform hover:scale-105 transition-all duration-300">
+                            <div class="w-16 h-16 rounded-lg bg-gradient-to-br from-brand-orange to-brand-purple flex items-center justify-center mx-auto mb-6">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+                                </svg>
+                            </div>
+                            <h3 class="text-xl font-bank text-white text-center mb-4">Node Operators</h3>
+                            <p class="text-gray-300 text-center">Manage your Lightning node remotely over Nostr from the ShockWallet integrated dashboard. <br><br> Achieve sovereignty and generate income without compromising on Enterprise-Class usability.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Feature Section -->
+            <div class="py-24 relative">
+                <div class="absolute inset-0 bg-gradient-to-b from-transparent via-brand-purple/5 to-transparent"></div>
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+                    <div class="text-center mb-16">
                         <h2 class="font-bank text-brand-orange text-base tracking-wider mb-3">PUB IS THE ACCOUNT SYSTEM THAT GETS IT DONE</h2>
                         <p class="text-3xl sm:text-4xl font-bold text-white font-bank">
                             Everything you need to run a<br>professional Lightning service
@@ -305,79 +354,67 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
                         <!-- Nostr-Native Account System -->
                         <div class="feature-card p-8 rounded-xl transform hover:scale-105 transition-all duration-300">
-                            <div class="flex items-center mb-6">
-                                <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-brand-orange to-brand-purple flex items-center justify-center">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                                    </svg>
-                                </div>
-                                <h3 class="ml-4 text-xl font-bank text-white">Nostr-Native Account System</h3>
+                            <div class="w-16 h-16 rounded-lg bg-gradient-to-br from-brand-orange to-brand-purple flex items-center justify-center mx-auto mb-6">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                </svg>
                             </div>
-                            <p class="text-gray-300">Seamlessly manage Lightning infrastructure with a P2P-like design that eliminates traditional server configuration complexities.</p>
+                            <h3 class="text-xl font-bank text-white mb-4">Nostr-Native Account System</h3>
+                            <p class="text-gray-300">Complete Lightning infrastructure with a P2P-like design eliminates traditional server configuration hurdles.</p>
                         </div>
 
                         <!-- Automated Channel Management -->
                         <div class="feature-card p-8 rounded-xl transform hover:scale-105 transition-all duration-300">
-                            <div class="flex items-center mb-6">
-                                <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-brand-orange to-brand-purple flex items-center justify-center">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                    </svg>
-                                </div>
-                                <h3 class="ml-4 text-xl font-bank text-white">Automated Channel Management</h3>
+                            <div class="w-16 h-16 rounded-lg bg-gradient-to-br from-brand-orange to-brand-purple flex items-center justify-center mx-auto mb-6">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
                             </div>
-                            <p class="text-gray-300">Compare quotes from top LSPs including Zeus and Flashsats for automated channel creation and management.</p>
+                            <h3 class="text-xl font-bank text-white mb-4">Automated Channel Management</h3>
+                            <p class="text-gray-300">Fetches quotes from top LSPs including Zeus and Flashsats for automated channel creation and management.</p>
                         </div>
 
                         <!-- Enhanced Security -->
                         <div class="feature-card p-8 rounded-xl transform hover:scale-105 transition-all duration-300">
-                            <div class="flex items-center mb-6">
-                                <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-brand-orange to-brand-purple flex items-center justify-center">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                                    </svg>
-                                </div>
-                                <h3 class="ml-4 text-xl font-bank text-white">Advanced Security Monitoring</h3>
+                            <div class="w-16 h-16 rounded-lg bg-gradient-to-br from-brand-orange to-brand-purple flex items-center justify-center mx-auto mb-6">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                </svg>
                             </div>
+                            <h3 class="text-xl font-bank text-white mb-4">Advanced Security Monitoring</h3>
                             <p class="text-gray-300">Integrated Watchdog mitigates zero-day drainage attacks by tracking LND state discrepancies.</p>
                         </div>
 
                         <!-- Multi-Layer Accounting -->
                         <div class="feature-card p-8 rounded-xl transform hover:scale-105 transition-all duration-300">
-                            <div class="flex items-center mb-6">
-                                <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-brand-orange to-brand-purple flex items-center justify-center">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                                    </svg>
-                                </div>
-                                <h3 class="ml-4 text-xl font-bank text-white">Multi-Layer Accounting</h3>
+                            <div class="w-16 h-16 rounded-lg bg-gradient-to-br from-brand-orange to-brand-purple flex items-center justify-center mx-auto mb-6">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                </svg>
                             </div>
+                            <h3 class="text-xl font-bank text-white mb-4">Multi-Layer Accounting</h3>
                             <p class="text-gray-300">Support for application pools and users with customizable fee regimes for monetization.</p>
                         </div>
 
                         <!-- Offers & Webhooks -->
                         <div class="feature-card p-8 rounded-xl transform hover:scale-105 transition-all duration-300">
-                            <div class="flex items-center mb-6">
-                                <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-brand-orange to-brand-purple flex items-center justify-center">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
-                                    </svg>
-                                </div>
-                                <h3 class="ml-4 text-xl font-bank text-white">Offers & Webhooks</h3>
+                            <div class="w-16 h-16 rounded-lg bg-gradient-to-br from-brand-orange to-brand-purple flex items-center justify-center mx-auto mb-6">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
+                                </svg>
                             </div>
+                            <h3 class="text-xl font-bank text-white mb-4">Static Offers & Webhooks</h3>
                             <p class="text-gray-300">Receive instant notifications for order status changes via webhooks, perfect for e-commerce software and automation.</p>
                         </div>
 
                         <!-- Nostr Protocol Integration -->
                         <div class="feature-card p-8 rounded-xl transform hover:scale-105 transition-all duration-300">
-                            <div class="flex items-center mb-6">
-                                <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-brand-orange to-brand-purple flex items-center justify-center">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7zm-9 4l-3 3m0 0l3 3m-3-3h14" />
-                                    </svg>
-                                </div>
-                                <h3 class="ml-4 text-xl font-bank text-white">Connect Apps</h3>
+                            <div class="w-16 h-16 rounded-lg bg-gradient-to-br from-brand-orange to-brand-purple flex items-center justify-center mx-auto mb-6">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                                </svg>
                             </div>
+                            <h3 class="text-xl font-bank text-white mb-4">Connect Apps</h3>
                             <p class="text-gray-300">Connect external apps over Nostr with Kind 21k or NWC for seamless integration.</p>
                         </div>
                     </div>
@@ -389,7 +426,7 @@
                 <div class="absolute inset-0 bg-gradient-to-b from-transparent via-brand-purple/5 to-transparent"></div>
                 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
                     <div class="text-center mb-16">
-                        <h2 class="font-bank text-brand-orange text-base tracking-wider mb-3">SYSTEM ARCHITECTURE</h2>
+                        <h2 class="font-bank text-brand-orange text-base tracking-wider mb-3">ENTERPRISE-GRADE ARCHITECTURE</h2>
                         <p class="text-2xl sm:text-3xl font-bold text-white font-bank">
                             Built for Scale & Security
                         </p>
@@ -412,6 +449,40 @@
                 </div>
             </div>
 
+            <!-- Simple Setup Section -->
+            <div class="py-24 relative">
+                <div class="absolute inset-0 bg-gradient-to-b from-transparent via-brand-orange/5 to-transparent"></div>
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+                    <div class="text-center mb-16">
+                        <h2 class="font-bank text-brand-orange text-base tracking-wider mb-3">SIMPLE SETUP FOR BEGINNERS</h2>
+                        <p class="text-2xl sm:text-3xl font-bold text-white font-bank">
+                            Up and Running in 2 Minutes
+                        </p>
+                        <p class="mt-4 text-gray-300 text-lg">
+                            Runs great on cheap VPS instances or old laptops
+                        </p>
+                    </div>
+
+                    <div class="feature-card p-6 rounded-xl mb-12">
+                        <pre class="bg-brand-dark/50 p-4 rounded-lg overflow-x-auto text-center"><code class="text-sm text-brand-orange">sudo wget -qO- https://deploy.lightning.pub | sudo bash</code></pre>
+                    </div>
+
+                    <div class="aspect-w-16 aspect-h-9 rounded-xl overflow-hidden">
+                        <video 
+                            class="w-full h-full object-cover"
+                            controls
+                            autoplay
+                            muted
+                            loop
+                            playsinline
+                            poster="public/video-poster.png">
+                            <source src="https://cdn.lightning.video/a375ac4590e6191d8705585fc563bbdcf17781626c52e17a47a7cc1a19f420e8/FVHVg31x58.mp4" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+                    </div>
+                </div>
+            </div>
+
             <!-- Developer API Section -->
             <div class="py-24 relative">
                 <div class="absolute inset-0 bg-gradient-to-b from-transparent via-brand-orange/5 to-transparent"></div>
@@ -419,7 +490,7 @@
                     <div class="text-center mb-16">
                         <h2 class="font-bank text-brand-orange text-base tracking-wider mb-3">DEVELOPER API</h2>
                         <p class="text-2xl sm:text-3xl font-bold text-white font-bank">
-                            Simple, Powerful API
+                            Build Something Great
                         </p>
                         <p class="mt-4 text-gray-300 text-lg">
                             Get started with just a few lines of code
@@ -484,7 +555,7 @@
   <span class="text-gray-300">invoice:</span> <span class="text-orange-400">'lnbc...'</span>,
   <span class="text-gray-300">amount:</span> <span class="text-purple-400">1000</span>
 }).<span class="text-purple-400">then</span>(<span class="text-gray-300">payment</span> => {
-  <span class="text-gray-300">console</span>.<span class="text-purple-400">log</span>(<span class="text-orange-400">'Paid!'</span>, <span class="text-gray-300">payment</span>.<span class="text-gray-300">preimage</span>);
+  <span class="text-gray-300">console</span>.<span class="text-purple-400">log</span>(<span class="text-orange-400">'Paid!'</span>, <span class="text-gray-300">payment</span>.<span class="text-gray-300">hash</span>);
 });</code></pre>
                         </div>
                     </div>
@@ -504,14 +575,14 @@
             <!-- CTA Section -->
             <div class="relative py-24 overflow-hidden">
                 <div class="absolute inset-0 bg-gradient-to-r from-brand-orange/10 to-brand-purple/10"></div>
-                <div class="max-w-3xl mx-auto text-center px-4 sm:px-6 lg:px-8 relative">
+                <div class="max-w-7xl mx-auto text-center px-4 sm:px-6 lg:px-8 relative">
                     <h2 class="text-4xl sm:text-5xl font-bank font-bold mb-8 gradient-text">
                         Choose Your Path
                     </h2>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         <div class="feature-card p-8 rounded-xl">
-                            <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-brand-orange to-brand-purple flex items-center justify-center mx-auto mb-4">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <div class="w-16 h-16 rounded-lg bg-gradient-to-br from-brand-orange to-brand-purple flex items-center justify-center mx-auto mb-4">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
                                 </svg>
                             </div>
@@ -525,18 +596,18 @@
                                 </svg>
                             </a>
                         </div>
-                        <div class="feature-card p-8 rounded-xl">
-                            <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-brand-orange to-brand-purple flex items-center justify-center mx-auto mb-4">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <div class="feature-card p-8 rounded-xl transform hover:scale-105 transition-all duration-300">
+                            <div class="w-16 h-16 rounded-lg bg-gradient-to-br from-brand-orange to-brand-purple flex items-center justify-center mx-auto mb-4">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
                                 </svg>
                             </div>
                             <h3 class="text-2xl font-bank text-brand-orange mb-4">Cloud-Managed</h3>
                             <p class="text-gray-300 mb-6">Let us handle the infrastructure while you focus on building</p>
                             <a href="https://cloud.lightning.pub"
-                               class="inline-flex items-center px-6 py-3 rounded-lg text-base font-bank font-medium text-white bg-gradient-to-r from-brand-orange to-brand-purple hover:from-brand-orange/90 hover:to-brand-purple/90 transform hover:scale-105 transition-all duration-300">
+                               class="inline-flex items-center px-8 py-4 rounded-lg text-lg font-bank font-medium text-white bg-gradient-to-r from-brand-orange to-brand-purple hover:from-brand-orange/90 hover:to-brand-purple/90 transform hover:scale-105 transition-all duration-300">
                                 Start Free Trial
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 ml-2" viewBox="0 0 20 20" fill="currentColor">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 ml-2" viewBox="0 0 20 20" fill="currentColor">
                                     <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd" />
                                 </svg>
                             </a>
@@ -544,16 +615,39 @@
                     </div>
                 </div>
             </div>
-        </div>
-    </main>
+        </main>
 
-    <footer class="relative py-12 overflow-hidden">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="text-center text-gray-500 font-bank">
-                &copy; <script>document.write(new Date().getFullYear())</script> ShockNet Open Source. All rights reserved.
+        <footer class="relative py-12 overflow-hidden bg-brand-dark/50 backdrop-blur-lg border-t border-brand-orange/10">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+                    <div class="text-center md:text-left">
+                        <h3 class="font-bank text-brand-orange mb-4">Documentation</h3>
+                        <ul class="space-y-2">
+                            <li><a href="https://github.com/shocknet/Lightning.Pub/blob/main/docs/API.md" class="text-gray-300 hover:text-brand-orange transition-colors duration-300">API Reference</a></li>
+                            <li><a href="https://github.com/shocknet/Lightning.Pub#installation" class="text-gray-300 hover:text-brand-orange transition-colors duration-300">Installation Guide</a></li>
+                        </ul>
+                    </div>
+                    <div class="text-center">
+                        <h3 class="font-bank text-brand-orange mb-4">Community</h3>
+                        <ul class="space-y-2">
+                            <li><a href="https://t.me/ShockBTC" class="text-gray-300 hover:text-brand-orange transition-colors duration-300">Telegram</a></li>
+                            <li><a href="https://twitter.com/ShockBTC" class="text-gray-300 hover:text-brand-orange transition-colors duration-300">Twitter</a></li>
+                        </ul>
+                    </div>
+                    <div class="text-center md:text-right">
+                        <h3 class="font-bank text-brand-orange mb-4">Open Source</h3>
+                        <ul class="space-y-2">
+                            <li><a href="https://github.com/shocknet/Lightning.Pub" class="text-gray-300 hover:text-brand-orange transition-colors duration-300">GitHub Repository</a></li>
+                            <li><a href="https://github.com/shocknet/Lightning.Pub/issues" class="text-gray-300 hover:text-brand-orange transition-colors duration-300">Issue Tracker</a></li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="text-center text-gray-500 font-bank pt-8 border-t border-brand-orange/10">
+                    &copy; <script>document.write(new Date().getFullYear())</script> ShockNet Open Source. All rights reserved.
+                </div>
             </div>
-        </div>
-    </footer>
+        </footer>
+    </div>
 
     <script>
         function createDiagram(containerId) {
