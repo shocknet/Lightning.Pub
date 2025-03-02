@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lightning.Pub - The Future of Lightning Infrastructure</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/backbone.js/1.4.0/backbone-min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jointjs/3.7.5/joint.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jointjs/3.7.5/joint.min.css" />
+    <link href="https://fonts.cdnfonts.com/css/bank-gothic" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            orange: '#ff7700',
+                            purple: '#c740c7',
+                            dark: '#16191c'
+                        }
+                    },
+                    fontFamily: {
+                        'bank': ['Bank Gothic', 'sans-serif']
+                    },
+                    animation: {
+                        'gradient': 'gradient 8s linear infinite',
+                        'float': 'float 6s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        gradient: {
+                            '0%, 100%': {
+                                'background-size': '200% 200%',
+                                'background-position': 'left center'
+                            },
+                            '50%': {
+                                'background-size': '200% 200%',
+                                'background-position': 'right center'
+                            }
+                        },
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-20px)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .gradient-text {
+            background: linear-gradient(45deg, #ff7700, #c740c7);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-size: 200% 200%;
+            animation: gradient 8s linear infinite;
+        }
+        
+        .gradient-border {
+            position: relative;
+            border: 2px solid transparent;
+            background: linear-gradient(45deg, #ff7700, #c740c7);
+            background-clip: padding-box;
+        }
+        
+        .gradient-border::after {
+            content: '';
+            position: absolute;
+            top: -2px; right: -2px; bottom: -2px; left: -2px;
+            background: linear-gradient(45deg, #ff7700, #c740c7);
+            z-index: -1;
+            border-radius: 0.5rem;
+        }
+
+        .hero-glow {
+            position: absolute;
+            width: 60%;
+            height: 60%;
+            background: radial-gradient(circle, rgba(199, 64, 199, 0.3) 0%, rgba(255, 119, 0, 0.2) 50%, transparent 70%);
+            filter: blur(60px);
+            animation: pulse 4s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.1); opacity: 0.7; }
+        }
+
+        .lightning-bolt {
+            position: absolute;
+            width: 2px;
+            height: 100px;
+            background: linear-gradient(to bottom, transparent, #ff7700, transparent);
+            animation: lightning 3s linear infinite;
+            opacity: 0;
+        }
+
+        @keyframes lightning {
+            0% { transform: translateY(-100%) rotate(20deg); opacity: 0; }
+            40% { opacity: 0; }
+            45% { opacity: 1; }
+            50% { opacity: 0; }
+            55% { opacity: 1; }
+            60% { opacity: 0; }
+            100% { transform: translateY(100%) rotate(20deg); opacity: 0; }
+        }
+
+        .feature-card {
+            backdrop-filter: blur(16px);
+            background: rgba(22, 25, 28, 0.7);
+            border: 1px solid rgba(255, 119, 0, 0.1);
+        }
+
+        .diagram-container {
+            position: relative;
+            padding: clamp(1rem, 3vw, 2rem);
+            transition: transform 0.3s ease;
+            height: clamp(400px, 80vh, 800px);
+            width: 100%;
+            background: rgba(22, 25, 28, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .diagram-container:hover {
+            transform: scale(1.01);
+        }
+
+        #diagram, #modalDiagram {
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: visible;
+        }
+
+        .joint-element .label {
+            fill: #fff;
+            font-family: 'Bank Gothic', sans-serif;
+            font-size: 13px;
+        }
+
+        .joint-link path {
+            stroke: #ff7700;
+            stroke-width: 2;
+        }
+
+        .joint-link .marker-arrowhead {
+            fill: #ff7700;
+        }
+
+        .expand-hint {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            padding: 0.5rem 1rem;
+            background: rgba(255, 119, 0, 0.1);
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            color: #ff7700;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .diagram-container:hover .expand-hint {
+            opacity: 1;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(22, 25, 28, 0.95);
+            z-index: 50;
+            overflow-y: auto;
+            backdrop-filter: blur(8px);
+        }
+
+        .modal-content {
+            position: relative;
+            width: 95%;
+            max-width: min(95vw, 1400px);
+            margin: clamp(1rem, 3vh, 2rem) auto;
+            padding: clamp(1rem, 3vw, 2rem);
+            background: rgba(22, 25, 28, 0.95);
+            border: 1px solid rgba(255, 119, 0, 0.2);
+            border-radius: 1rem;
+            box-shadow: 0 0 30px rgba(199, 64, 199, 0.3);
+            height: clamp(300px, 90vh, calc(100vh - 4rem));
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .close-button {
+            position: fixed;
+            top: 1.5rem;
+            right: 1.5rem;
+            background: rgba(22, 25, 28, 0.9);
+            padding: 0.75rem;
+            z-index: 60;
+        }
+
+        @media (max-width: 768px) {
+            .diagram-container {
+                padding: 0.5rem;
+                height: clamp(300px, 60vh, 600px);
+            }
+
+            .modal-content {
+                width: 98%;
+                margin: 0.5rem auto;
+                padding: 0.5rem;
+            }
+        }
+
+        .hexagon-grid {
+            background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 0l25.98 15v30L30 60 4.02 45V15z' stroke-width='2' stroke='%23ff7700' fill='none' fill-rule='evenodd'/%3E%3C/svg%3E");
+        }
+    </style>
+</head>
+<body class="bg-brand-dark text-white">
+    <nav class="fixed top-0 left-0 right-0 z-50 bg-brand-dark/90 backdrop-blur-lg border-b border-brand-orange/10">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center">
+                    <a href="https://github.com/shocknet/Lightning.Pub" class="text-gray-300 hover:text-brand-orange transition-colors duration-300 font-bank flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                            <path fill-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clip-rule="evenodd"/>
+                        </svg>
+                        GitHub
+                    </a>
+                </div>
+                <div class="flex items-center space-x-6">
+                    <a href="https://t.me/ShockBTC" class="text-gray-300 hover:text-brand-orange transition-colors duration-300 font-bank">Telegram</a>
+                    <a href="https://twitter.com/ShockBTC" class="text-gray-300 hover:text-brand-orange transition-colors duration-300 font-bank">Twitter</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+    <div class="pt-16">
+        <div class="absolute inset-0 overflow-hidden pointer-events-none">
+            <div class="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-radial from-brand-purple/20 via-transparent to-transparent opacity-30"></div>
+            <div class="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-radial from-brand-orange/20 via-transparent to-transparent opacity-30"></div>
+        </div>
+
+        <header class="relative min-h-screen flex items-center justify-center overflow-hidden">
+            <!-- Dynamic background elements -->
+            <div class="hero-glow top-1/4 left-1/4"></div>
+            <div class="hero-glow bottom-1/4 right-1/4" style="animation-delay: -2s;"></div>
+            
+            <!-- Lightning effects -->
+            <div class="lightning-bolt" style="left: 20%;"></div>
+            <div class="lightning-bolt" style="left: 80%; animation-delay: -1.5s;"></div>
+            
+            <!-- Hexagon grid background -->
+            <div class="absolute inset-0 opacity-10 hexagon-grid"></div>
+
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+                <div class="text-center relative">
+                    <div class="relative inline-flex items-center justify-center gap-4">
+                        <div class="relative">
+                            <div class="absolute inset-0 bg-gradient-to-r from-brand-orange/20 to-brand-purple/20 blur-3xl transform scale-150"></div>
+                            <img src="public/logo.png" alt="Lightning.Pub Logo" class="relative h-32 w-auto animate-float">
+                        </div>
+                        <img src="public/logo_text.png" alt="Lightning.Pub" class="relative h-16 w-auto">
+                    </div>
+                    <p class="mt-12 max-w-2xl mx-auto text-xl sm:text-2xl text-gray-300 font-bank tracking-wide backdrop-blur-sm py-4">
+                        Don't just run a Lightning Node,<br>
+                        <span class="gradient-text font-bold text-3xl sm:text-4xl">run a Lightning Pub</span>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Scroll indicator -->
+            <div class="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce cursor-pointer" 
+                 onclick="document.getElementById('features').scrollIntoView({behavior: 'smooth'})">
+                <svg class="w-6 h-6 text-brand-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
+                </svg>
+            </div>
+        </header>
+
+        <main class="relative">
+            <!-- Feature Section -->
+            <div id="features" class="py-24">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div class="text-center mb-20">
+                        <h2 class="font-bank text-brand-orange text-base tracking-wider mb-3">PUB IS THE ACCOUNT SYSTEM THAT GETS IT DONE</h2>
+                        <p class="text-3xl sm:text-4xl font-bold text-white font-bank">
+                            Everything you need to run a<br>professional Lightning service
+                        </p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
+                        <!-- Nostr-Native Account System -->
+                        <div class="feature-card p-8 rounded-xl transform hover:scale-105 transition-all duration-300">
+                            <div class="flex items-center mb-6">
+                                <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-brand-orange to-brand-purple flex items-center justify-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                    </svg>
+                                </div>
+                                <h3 class="ml-4 text-xl font-bank text-white">Nostr-Native Account System</h3>
+                            </div>
+                            <p class="text-gray-300">Seamlessly manage Lightning infrastructure with a P2P-like design that eliminates traditional server configuration complexities.</p>
+                        </div>
+
+                        <!-- Automated Channel Management -->
+                        <div class="feature-card p-8 rounded-xl transform hover:scale-105 transition-all duration-300">
+                            <div class="flex items-center mb-6">
+                                <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-brand-orange to-brand-purple flex items-center justify-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                    </svg>
+                                </div>
+                                <h3 class="ml-4 text-xl font-bank text-white">Automated Channel Management</h3>
+                            </div>
+                            <p class="text-gray-300">Compare quotes from top LSPs including Zeus and Flashsats for automated channel creation and management.</p>
+                        </div>
+
+                        <!-- Enhanced Security -->
+                        <div class="feature-card p-8 rounded-xl transform hover:scale-105 transition-all duration-300">
+                            <div class="flex items-center mb-6">
+                                <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-brand-orange to-brand-purple flex items-center justify-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                    </svg>
+                                </div>
+                                <h3 class="ml-4 text-xl font-bank text-white">Advanced Security Monitoring</h3>
+                            </div>
+                            <p class="text-gray-300">Integrated Watchdog mitigates zero-day drainage attacks by tracking LND state discrepancies.</p>
+                        </div>
+
+                        <!-- Multi-Layer Accounting -->
+                        <div class="feature-card p-8 rounded-xl transform hover:scale-105 transition-all duration-300">
+                            <div class="flex items-center mb-6">
+                                <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-brand-orange to-brand-purple flex items-center justify-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                    </svg>
+                                </div>
+                                <h3 class="ml-4 text-xl font-bank text-white">Multi-Layer Accounting</h3>
+                            </div>
+                            <p class="text-gray-300">Support for application pools and users with customizable fee regimes for monetization.</p>
+                        </div>
+
+                        <!-- Offers & Webhooks -->
+                        <div class="feature-card p-8 rounded-xl transform hover:scale-105 transition-all duration-300">
+                            <div class="flex items-center mb-6">
+                                <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-brand-orange to-brand-purple flex items-center justify-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
+                                    </svg>
+                                </div>
+                                <h3 class="ml-4 text-xl font-bank text-white">Offers & Webhooks</h3>
+                            </div>
+                            <p class="text-gray-300">Receive instant notifications for order status changes via webhooks, perfect for e-commerce software and automation.</p>
+                        </div>
+
+                        <!-- Nostr Protocol Integration -->
+                        <div class="feature-card p-8 rounded-xl transform hover:scale-105 transition-all duration-300">
+                            <div class="flex items-center mb-6">
+                                <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-brand-orange to-brand-purple flex items-center justify-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7zm-9 4l-3 3m0 0l3 3m-3-3h14" />
+                                    </svg>
+                                </div>
+                                <h3 class="ml-4 text-xl font-bank text-white">Connect Apps</h3>
+                            </div>
+                            <p class="text-gray-300">Connect external apps over Nostr with Kind 21k or NWC for seamless integration.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Architecture Diagram -->
+            <div class="py-24 relative">
+                <div class="absolute inset-0 bg-gradient-to-b from-transparent via-brand-purple/5 to-transparent"></div>
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+                    <div class="text-center mb-16">
+                        <h2 class="font-bank text-brand-orange text-base tracking-wider mb-3">SYSTEM ARCHITECTURE</h2>
+                        <p class="text-2xl sm:text-3xl font-bold text-white font-bank">
+                            Built for Scale & Security
+                        </p>
+                    </div>
+                    <div class="rounded-xl overflow-hidden backdrop-blur-xl bg-brand-dark/50 border border-brand-purple/20 diagram-container">
+                        <div id="diagram"></div>
+                    </div>
+
+                    <!-- Modal -->
+                    <div id="diagramModal" class="modal">
+                        <div class="modal-content">
+                            <div class="close-button" onclick="closeModal()">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </div>
+                            <div id="modalDiagram"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Developer API Section -->
+            <div class="py-24 relative">
+                <div class="absolute inset-0 bg-gradient-to-b from-transparent via-brand-orange/5 to-transparent"></div>
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+                    <div class="text-center mb-16">
+                        <h2 class="font-bank text-brand-orange text-base tracking-wider mb-3">DEVELOPER API</h2>
+                        <p class="text-2xl sm:text-3xl font-bold text-white font-bank">
+                            Simple, Powerful API
+                        </p>
+                        <p class="mt-4 text-gray-300 text-lg">
+                            Get started with just a few lines of code
+                        </p>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <!-- Create User -->
+                        <div class="feature-card p-6 rounded-xl">
+                            <div class="flex items-center mb-4">
+                                <h3 class="text-lg font-bank text-brand-orange">Create User</h3>
+                            </div>
+                            <pre class="bg-brand-dark/50 p-4 rounded-lg overflow-x-auto"><code class="text-sm"><span class="text-gray-500">// Import the ShockDK</span>
+<span class="text-purple-400">import</span> { <span class="text-gray-300">Pub</span> } <span class="text-purple-400">from</span> <span class="text-orange-400">'@shocknet/sdk'</span>;
+
+<span class="text-gray-500">// Create a new user with Nostr auth</span>
+<span class="text-gray-300">Pub</span>.<span class="text-purple-400">createUser</span>({
+  <span class="text-gray-300">npub:</span> <span class="text-orange-400">'npub1...'</span>
+}).<span class="text-purple-400">then</span>(<span class="text-gray-300">user</span> => {
+  <span class="text-gray-300">console</span>.<span class="text-purple-400">log</span>(<span class="text-orange-400">'User created!'</span>, <span class="text-gray-300">user</span>.<span class="text-gray-300">id</span>);
+});</code></pre>
+                        </div>
+
+                        <!-- Create Invoice -->
+                        <div class="feature-card p-6 rounded-xl">
+                            <div class="flex items-center mb-4">
+                                <h3 class="text-lg font-bank text-brand-orange">Create Invoice</h3>
+                            </div>
+                            <pre class="bg-brand-dark/50 p-4 rounded-lg overflow-x-auto"><code class="text-sm"><span class="text-gray-500">// Generate a Lightning invoice ⚡</span>
+<span class="text-gray-300">Pub</span>.<span class="text-purple-400">createInvoice</span>({
+  <span class="text-gray-300">amount:</span> <span class="text-purple-400">1000</span>,
+  <span class="text-gray-300">memo:</span> <span class="text-orange-400">'Coffee payment'</span>
+}).<span class="text-purple-400">then</span>(<span class="text-gray-300">invoice</span> => {
+  <span class="text-gray-300">console</span>.<span class="text-purple-400">log</span>(<span class="text-gray-300">invoice</span>.<span class="text-gray-300">bolt11</span>);
+});</code></pre>
+                        </div>
+
+                        <!-- Handle Offers -->
+                        <div class="feature-card p-6 rounded-xl">
+                            <div class="flex items-center mb-4">
+                                <h3 class="text-lg font-bank text-brand-orange">Handle Offers</h3>
+                            </div>
+                            <pre class="bg-brand-dark/50 p-4 rounded-lg overflow-x-auto"><code class="text-sm"><span class="text-gray-500">// Configure webhook for offer callbacks</span>
+<span class="text-brand-orange">app</span>.<span class="text-purple-400">post</span>(<span class="text-orange-400">'/webhook/offers'</span>, (<span class="text-gray-300">req</span>, <span class="text-gray-300">res</span>) => {
+  <span class="text-gray-300">const</span> { <span class="text-gray-300">offerId, amount, paid</span> } = <span class="text-gray-300">req</span>.<span class="text-gray-300">body</span>;
+  
+  <span class="text-gray-300">console</span>.<span class="text-purple-400">log</span>(<span class="text-orange-400">'Offer status: 💰'</span>, {
+    <span class="text-gray-300">offerId</span>,
+    <span class="text-gray-300">amount</span>,
+    <span class="text-gray-300">paid</span>
+  });
+});</code></pre>
+                        </div>
+
+                        <!-- Send Payment -->
+                        <div class="feature-card p-6 rounded-xl">
+                            <div class="flex items-center mb-4">
+                                <h3 class="text-lg font-bank text-brand-orange">Send Payment</h3>
+                            </div>
+                            <pre class="bg-brand-dark/50 p-4 rounded-lg overflow-x-auto"><code class="text-sm"><span class="text-gray-500">// Pay a Lightning invoice ⚡</span>
+<span class="text-gray-300">Pub</span>.<span class="text-purple-400">sendPayment</span>({
+  <span class="text-gray-300">invoice:</span> <span class="text-orange-400">'lnbc...'</span>,
+  <span class="text-gray-300">amount:</span> <span class="text-purple-400">1000</span>
+}).<span class="text-purple-400">then</span>(<span class="text-gray-300">payment</span> => {
+  <span class="text-gray-300">console</span>.<span class="text-purple-400">log</span>(<span class="text-orange-400">'Paid!'</span>, <span class="text-gray-300">payment</span>.<span class="text-gray-300">preimage</span>);
+});</code></pre>
+                        </div>
+                    </div>
+
+                    <div class="mt-12 text-center">
+                        <a href="https://github.com/shocknet/Lightning.Pub/blob/main/docs/API.md" 
+                           class="inline-flex items-center px-6 py-3 rounded-lg text-base font-bank font-medium text-white bg-brand-dark hover:bg-brand-dark/80 transition-colors duration-300">
+                            View Full API Documentation
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 ml-2" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd" />
+                            </svg>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CTA Section -->
+            <div class="relative py-24 overflow-hidden">
+                <div class="absolute inset-0 bg-gradient-to-r from-brand-orange/10 to-brand-purple/10"></div>
+                <div class="max-w-3xl mx-auto text-center px-4 sm:px-6 lg:px-8 relative">
+                    <h2 class="text-4xl sm:text-5xl font-bank font-bold mb-8 gradient-text">
+                        Choose Your Path
+                    </h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div class="feature-card p-8 rounded-xl">
+                            <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-brand-orange to-brand-purple flex items-center justify-center mx-auto mb-4">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                                </svg>
+                            </div>
+                            <h3 class="text-2xl font-bank text-brand-orange mb-4">Self-Hosted</h3>
+                            <p class="text-gray-300 mb-6">Deploy and manage your own Lightning.Pub node with full control</p>
+                            <a href="https://github.com/shocknet/Lightning.Pub#installation"
+                               class="inline-flex items-center px-6 py-3 rounded-lg text-base font-bank font-medium text-white bg-brand-dark hover:bg-brand-dark/80 transition-colors duration-300">
+                                Install Now
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 ml-2" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                </svg>
+                            </a>
+                        </div>
+                        <div class="feature-card p-8 rounded-xl">
+                            <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-brand-orange to-brand-purple flex items-center justify-center mx-auto mb-4">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+                                </svg>
+                            </div>
+                            <h3 class="text-2xl font-bank text-brand-orange mb-4">Cloud-Managed</h3>
+                            <p class="text-gray-300 mb-6">Let us handle the infrastructure while you focus on building</p>
+                            <a href="https://cloud.lightning.pub"
+                               class="inline-flex items-center px-6 py-3 rounded-lg text-base font-bank font-medium text-white bg-gradient-to-r from-brand-orange to-brand-purple hover:from-brand-orange/90 hover:to-brand-purple/90 transform hover:scale-105 transition-all duration-300">
+                                Start Free Trial
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 ml-2" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                </svg>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="relative py-12 overflow-hidden">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center text-gray-500 font-bank">
+                &copy; <script>document.write(new Date().getFullYear())</script> ShockNet Open Source. All rights reserved.
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        function createDiagram(containerId) {
+            const container = document.getElementById(containerId);
+            const containerWidth = container.clientWidth;
+            const containerHeight = container.clientHeight;
+            
+            const graph = new joint.dia.Graph();
+            const paper = new joint.dia.Paper({
+                el: container,
+                model: graph,
+                width: containerWidth,
+                height: containerHeight,
+                background: { color: 'transparent' },
+                gridSize: 1,
+                interactive: {
+                    elementMove: false,
+                    addLinkFromMagnet: false,
+                    linkMove: false,
+                    labelMove: false,
+                    arrowheadMove: false,
+                    vertexMove: false,
+                    useLinkTools: false
+                },
+                defaultConnector: { name: 'rounded' },
+                defaultRouter: { name: 'manhattan' },
+                defaultConnectionPoint: { name: 'boundary' }
+            });
+
+            // Base position adjustments - centered in container
+            const baseX = Math.min(containerWidth / 2 - (containerWidth > 768 ? 450 : 250), containerWidth * 0.4);
+            const baseY = containerHeight * 0.1;
+            const columnWidth = Math.min(containerWidth * 0.15, 200);  // Responsive column width
+            const rowHeight = Math.min(containerHeight * 0.12, 80);    // Responsive row height
+            const nodeWidth = Math.min(containerWidth * 0.12, 140);    // Responsive node width
+            const nodeHeight = Math.min(containerHeight * 0.08, 45);   // Responsive node height
+
+            // Update font size based on container width
+            const fontSize = Math.min(Math.max(containerWidth * 0.012, 10), 13);
+
+            // Custom shapes with adjusted base position and responsive font
+            const CustomRect = joint.shapes.standard.Rectangle.define('custom.Rect', {
+                attrs: {
+                    body: {
+                        fill: '#c740c7',
+                        stroke: '#ff7700',
+                        strokeWidth: 2,
+                        rx: 8,
+                        ry: 8
+                    },
+                    label: {
+                        fill: '#ffffff',
+                        fontSize: fontSize,
+                        fontFamily: 'Bank Gothic',
+                        refX: 0.5,
+                        refY: 0.5,
+                        yAlign: 'middle',
+                        xAlign: 'center',
+                        textVerticalAnchor: 'middle',
+                        textAnchor: 'middle'
+                    }
+                }
+            });
+
+            // Create nodes with adjusted positions and sizes
+            const lnd = new CustomRect({
+                position: { x: baseX + columnWidth, y: baseY },
+                size: { width: nodeWidth, height: nodeHeight },
+                attrs: { 
+                    label: { text: 'LND Node' },
+                    body: { fill: '#c740c7' }
+                }
+            });
+
+            const pub = new CustomRect({
+                position: { x: baseX + columnWidth, y: baseY + rowHeight },
+                size: { width: nodeWidth, height: nodeHeight },
+                attrs: { 
+                    label: { text: 'Core Service' },
+                    body: { fill: '#c740c7' }
+                }
+            });
+
+            const http = new CustomRect({
+                position: { x: baseX, y: baseY + rowHeight * 2 },
+                size: { width: nodeWidth, height: nodeHeight },
+                attrs: { 
+                    label: { text: 'HTTP Server' },
+                    body: { fill: '#16191c' }
+                }
+            });
+
+            const serial = new CustomRect({
+                position: { x: baseX + columnWidth, y: baseY + rowHeight * 2 },
+                size: { width: nodeWidth, height: nodeHeight },
+                attrs: { 
+                    label: { text: 'Serialization' },
+                    body: { fill: '#16191c' }
+                }
+            });
+
+            const metrics = new CustomRect({
+                position: { x: baseX + columnWidth * 2, y: baseY + rowHeight * 2 },
+                size: { width: nodeWidth, height: nodeHeight },
+                attrs: { 
+                    label: { text: 'Metrics' },
+                    body: { fill: '#16191c' }
+                }
+            });
+
+            const acc = new CustomRect({
+                position: { x: baseX + columnWidth, y: baseY + rowHeight * 3 },
+                size: { width: nodeWidth, height: nodeHeight },
+                attrs: { 
+                    label: { text: 'Account System' },
+                    body: { fill: '#16191c' }
+                }
+            });
+
+            const bal = new CustomRect({
+                position: { x: baseX, y: baseY + rowHeight * 4 },
+                size: { width: nodeWidth, height: nodeHeight },
+                attrs: { 
+                    label: { text: 'Balance Monitor' },
+                    body: { fill: '#c740c7' }
+                }
+            });
+
+            const rugp = new CustomRect({
+                position: { x: baseX + columnWidth, y: baseY + rowHeight * 4 },
+                size: { width: nodeWidth, height: nodeHeight },
+                attrs: { 
+                    label: { text: 'Rug Detection' },
+                    body: { fill: '#c740c7' }
+                }
+            });
+
+            const lsp = new CustomRect({
+                position: { x: baseX + columnWidth * 2, y: baseY + rowHeight * 4 },
+                size: { width: nodeWidth, height: nodeHeight },
+                attrs: { 
+                    label: { text: 'LSP' },
+                    body: { fill: '#2d3139' }
+                }
+            });
+
+            const nostr = new CustomRect({
+                position: { x: baseX, y: baseY + rowHeight * 5 },
+                size: { width: nodeWidth, height: nodeHeight },
+                attrs: { 
+                    label: { text: 'Nostr Relays' },
+                    body: { fill: '#c740c7' }
+                }
+            });
+
+            const lnurl = new CustomRect({
+                position: { x: baseX + columnWidth, y: baseY + rowHeight * 5 },
+                size: { width: nodeWidth, height: nodeHeight },
+                attrs: { 
+                    label: { text: 'LNURL Services' },
+                    body: { fill: '#2d3139' }
+                }
+            });
+
+            const shock = new CustomRect({
+                position: { x: baseX, y: baseY + rowHeight * 6 },
+                size: { width: nodeWidth, height: nodeHeight },
+                attrs: { 
+                    label: { text: 'ShockWallet' },
+                    body: { fill: '#2d3139' }
+                }
+            });
+
+            const other = new CustomRect({
+                position: { x: baseX + columnWidth, y: baseY + rowHeight * 6 },
+                size: { width: nodeWidth, height: nodeHeight },
+                attrs: { 
+                    label: { text: 'Other Apps' },
+                    body: { fill: '#2d3139' }
+                }
+            });
+
+            // Add all nodes to graph
+            const nodes = [lnd, pub, http, serial, metrics, acc, bal, rugp, lsp, nostr, lnurl, shock, other];
+            graph.addCells(nodes);
+
+            // Helper function to create links with consistent styling
+            function createLink(source, target) {
+                return new joint.shapes.standard.Link({
+                    source: { id: source.id },
+                    target: { id: target.id },
+                    attrs: {
+                        line: {
+                            stroke: '#ff7700',
+                            strokeWidth: 2,
+                            targetMarker: {
+                                type: 'path',
+                                d: 'M 10 -5 0 0 10 5 Z',
+                                fill: '#ff7700'
+                            }
+                        }
+                    },
+                    connector: { name: 'rounded' },
+                    router: { name: 'manhattan', args: { padding: 20 } }
+                });
+            }
+
+            // Create all links with improved routing
+            const links = [
+                createLink(lnd, pub),
+                createLink(pub, http),
+                createLink(pub, serial),
+                createLink(pub, metrics),
+                createLink(http, acc),
+                createLink(serial, acc),
+                createLink(acc, bal),
+                createLink(bal, rugp),
+                createLink(lsp, rugp),
+                createLink(acc, nostr),
+                createLink(nostr, shock),
+                createLink(nostr, other),
+                createLink(pub, lsp),
+                createLink(lsp, lnurl),
+                createLink(http, lnurl),
+                createLink(shock, lnurl),
+                createLink(other, lnurl)
+            ];
+
+            graph.addCells(links);
+
+            // Add groups with responsive padding
+            const groups = [
+                { name: 'Core', nodes: [lnd, pub], color: '#c740c7' },
+                { name: 'Process', nodes: [http, serial, metrics], color: '#16191c' },
+                { name: 'App Pool', nodes: [acc], color: '#16191c' },
+                { name: 'Watchdog', nodes: [bal, rugp], color: '#c740c7' },
+                { name: 'Network', nodes: [nostr, lnurl], color: '#2d3139' },
+                { name: 'Clients', nodes: [shock, other], color: '#2d3139' }
+            ];
+
+            groups.forEach(group => {
+                const padding = Math.min(containerWidth * 0.03, 30);  // Responsive padding
+                const minX = Math.min(...group.nodes.map(n => n.position().x)) - padding;
+                const minY = Math.min(...group.nodes.map(n => n.position().y)) - padding;
+                const maxX = Math.max(...group.nodes.map(n => n.position().x + n.size().width)) + padding;
+                const maxY = Math.max(...group.nodes.map(n => n.position().y + n.size().height)) + padding;
+
+                const groupElement = new joint.shapes.standard.Rectangle({
+                    position: { x: minX, y: minY },
+                    size: { width: maxX - minX, height: maxY - minY },
+                    attrs: {
+                        body: {
+                            fill: 'transparent',
+                            stroke: group.color,
+                            strokeWidth: 2,
+                            strokeDasharray: '5 5',
+                            rx: 8,
+                            ry: 8
+                        },
+                        label: {
+                            text: group.name,
+                            fill: '#ffffff',
+                            fontSize: Math.min(Math.max(containerWidth * 0.01, 9), 12),
+                            fontFamily: 'Bank Gothic',
+                            refX: 10,
+                            refY: 10,
+                            textAnchor: 'start',
+                            textVerticalAnchor: 'top'
+                        }
+                    },
+                    z: -1
+                });
+
+                graph.addCell(groupElement);
+            });
+
+            // Calculate scale with better mobile handling
+            const contentBBox = graph.getBBox();
+            const contentWidth = contentBBox.width;
+            const contentHeight = contentBBox.height;
+
+            // More aggressive scaling for mobile
+            const minScale = containerWidth < 768 ? 0.4 : 0.6;
+            const maxScale = containerWidth < 768 ? 0.8 : 1;
+            
+            const scaleX = (containerWidth - containerWidth * 0.1) / contentWidth;
+            const scaleY = (containerHeight - containerHeight * 0.1) / contentHeight;
+            const scale = Math.min(Math.max(Math.min(scaleX, scaleY), minScale), maxScale);
+
+            // Center with responsive margins
+            const tx = (containerWidth - contentWidth * scale) / 2 - contentBBox.x * scale;
+            const ty = (containerHeight - contentHeight * scale) / 2 - contentBBox.y * scale;
+
+            // Apply the transform
+            paper.scale(scale, scale);
+            paper.translate(tx, ty);
+
+            // Disable panning for the main diagram
+            if (containerId === 'diagram') {
+                return;
+            }
+
+            // Enable panning only for modal view
+            let isDragging = false;
+            let dragStartPosition = { x: 0, y: 0 };
+
+            paper.on('blank:pointerdown', (evt, x, y) => {
+                isDragging = true;
+                dragStartPosition = { x, y };
+                paper.el.style.cursor = 'grabbing';
+            });
+
+            paper.on('cell:pointerup blank:pointerup', () => {
+                isDragging = false;
+                paper.el.style.cursor = 'default';
+            });
+
+            document.addEventListener('mouseup', () => {
+                isDragging = false;
+                paper.el.style.cursor = 'default';
+            });
+
+            paper.on('blank:pointermove', (evt, x, y) => {
+                if (!isDragging) return;
+                
+                const scale = paper.scale();
+                const dx = (x - dragStartPosition.x) / scale.sx;
+                const dy = (y - dragStartPosition.y) / scale.sy;
+                
+                paper.translate(dx, dy);
+                dragStartPosition = { x, y };
+            });
+        }
+
+        // Initialize diagrams with a slight delay to ensure proper sizing
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(() => createDiagram('diagram'), 100);
+        });
+
+        let modalDiagram = null;
+        function openModal() {
+            const modal = document.getElementById('diagramModal');
+            modal.style.display = 'block';
+            document.body.style.overflow = 'hidden';
+            
+            // Create modal diagram only once
+            if (!modalDiagram) {
+                setTimeout(() => {
+                    createDiagram('modalDiagram');
+                    modalDiagram = true;
+                }, 100);
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('diagramModal').style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+
+        // Close modal when clicking outside of it
+        window.onclick = function(event) {
+            const modal = document.getElementById('diagramModal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        }
+
+        // Close modal on escape key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeModal();
+            }
+        });
+    </script>
+</body>
+</html> 
