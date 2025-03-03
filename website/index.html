@@ -4,6 +4,41 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lightning.Pub - The easiest and most powerful Lightning Node</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="https://cdn.shockwallet.app/pubfavicon.png">
+    <link rel="apple-touch-icon" href="https://cdn.shockwallet.app/pubfavicon.png">
+    
+    <!-- Primary Meta Tags -->
+    <meta name="title" content="Lightning.Pub - The easiest and most powerful Lightning Node">
+    <meta name="description" content="Run a professional Lightning Node with enterprise features, Nostr integration, and automated channel management. Perfect for families, businesses, and node operators.">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://lightning.pub/">
+    <meta property="og:title" content="Lightning.Pub - The easiest and most powerful Lightning Node">
+    <meta property="og:description" content="Run a professional Lightning Node with enterprise features, Nostr integration, and automated channel management. Perfect for families, businesses, and node operators.">
+    <meta property="og:image" content="https://cdn.shockwallet.app/pubcard1.png>
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://lightning.pub/">
+    <meta property="twitter:title" content="Lightning.Pub - The easiest and most powerful Lightning Node">
+    <meta property="twitter:description" content="Run a professional Lightning Node with enterprise features, Nostr integration, and automated channel management. Perfect for families, businesses, and node operators.">
+    <meta property="twitter:image" content="https://cdn.shockwallet.app/pubcard1.png">
+    
+    <!-- Theme Color for browsers -->
+    <meta name="theme-color" content="#ff7700">
+    
+    <!-- Security headers -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="SAMEORIGIN">
+    
+    <!-- Preconnect to CDNs -->
+    <link rel="preconnect" href="https://cdn.tailwindcss.com">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    <link rel="preconnect" href="https://fonts.cdnfonts.com">
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
@@ -230,31 +265,13 @@
     </style>
 </head>
 <body class="bg-brand-dark text-white">
-    <nav class="fixed top-0 left-0 right-0 z-50 bg-brand-dark/90 backdrop-blur-lg border-b border-brand-orange/10">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex items-center justify-between h-16">
-                <div class="flex items-center">
-                    <a href="https://github.com/shocknet/Lightning.Pub" class="text-gray-300 hover:text-brand-orange transition-colors duration-300 font-bank flex items-center">
-                        <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
-                            <path fill-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clip-rule="evenodd"/>
-                        </svg>
-                        GitHub
-                    </a>
-                </div>
-                <div class="flex items-center space-x-6">
-                    <a href="https://t.me/ShockBTC" class="text-gray-300 hover:text-brand-orange transition-colors duration-300 font-bank">Telegram</a>
-                    <a href="https://twitter.com/ShockBTC" class="text-gray-300 hover:text-brand-orange transition-colors duration-300 font-bank">Xitter</a>
-                </div>
-            </div>
-        </div>
-    </nav>
-    <div class="pt-16">
+    <div>
         <div class="absolute inset-0 overflow-hidden pointer-events-none">
             <div class="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-radial from-brand-purple/20 via-transparent to-transparent opacity-30"></div>
             <div class="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-radial from-brand-orange/20 via-transparent to-transparent opacity-30"></div>
         </div>
 
-        <header class="relative min-h-[calc(100vh-4rem)] flex items-center justify-center overflow-hidden">
+        <header class="relative min-h-screen flex items-center justify-center overflow-hidden">
             <!-- Dynamic background elements -->
             <div class="hero-glow top-1/4 left-1/4"></div>
             <div class="hero-glow bottom-1/4 right-1/4" style="animation-delay: -2s;"></div>
@@ -312,7 +329,7 @@
                                 </svg>
                             </div>
                             <h3 class="text-xl font-bank text-white text-center mb-4">Family & Friends</h3>
-                            <p class="text-gray-300 text-center">Share Lightning access with loved ones through simple invitation codes, powered by Nostr. <br><br> Lower fees and higher reliability vs. mobile nodes, and personalizes trust away from big centralized custodians.</p>
+                            <p class="text-gray-300 text-center">Share Lightning access with loved ones easily through simple invitation codes. <br><br> Offer users lower fees and more reliability than mobile node wallets without big centralized custodians.</p>
                         </div>
 
                         <!-- Small Businesses -->
@@ -345,7 +362,7 @@
                 <div class="absolute inset-0 bg-gradient-to-b from-transparent via-brand-purple/5 to-transparent"></div>
                 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
                     <div class="text-center mb-16">
-                        <h2 class="font-bank text-brand-orange text-base tracking-wider mb-3">PUB IS THE ACCOUNT SYSTEM THAT GETS IT DONE</h2>
+                        <h2 class="font-bank text-brand-orange text-base tracking-wider mb-3">PUB IS THE NODE DISTRIBUTION THAT GETS IT DONE</h2>
                         <p class="text-3xl sm:text-4xl font-bold text-white font-bank">
                             Everything you need to run a<br>professional Lightning service
                         </p>
@@ -459,7 +476,7 @@
                             Up and Running in 2 Minutes
                         </p>
                         <p class="mt-4 text-gray-300 text-lg">
-                            Runs great on cheap VPS instances or old laptops
+                            Lightweight enough for cheap VPS instances, mini computers, and old laptops
                         </p>
                     </div>
 
@@ -499,11 +516,11 @@
 
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         <!-- Create User -->
-                        <div class="feature-card p-6 rounded-xl">
+                        <div class="feature-card p-6 rounded-xl transform hover:scale-105 transition-all duration-300">
                             <div class="flex items-center mb-4">
                                 <h3 class="text-lg font-bank text-brand-orange">Create User</h3>
                             </div>
-                            <pre class="bg-brand-dark/50 p-4 rounded-lg overflow-x-auto"><code class="text-sm"><span class="text-gray-500">// Import the ShockDK</span>
+                            <pre class="bg-brand-dark/50 p-4 rounded-lg overflow-x-auto"><code class="text-sm"><span class="text-gray-500">// Import the ShockDK (coming soon)</span>
 <span class="text-purple-400">import</span> { <span class="text-gray-300">Pub</span> } <span class="text-purple-400">from</span> <span class="text-orange-400">'@shocknet/sdk'</span>;
 
 <span class="text-gray-500">// Create a new user with Nostr auth</span>
@@ -515,7 +532,7 @@
                         </div>
 
                         <!-- Create Invoice -->
-                        <div class="feature-card p-6 rounded-xl">
+                        <div class="feature-card p-6 rounded-xl transform hover:scale-105 transition-all duration-300">
                             <div class="flex items-center mb-4">
                                 <h3 class="text-lg font-bank text-brand-orange">Create Invoice</h3>
                             </div>
@@ -529,15 +546,15 @@
                         </div>
 
                         <!-- Handle Offers -->
-                        <div class="feature-card p-6 rounded-xl">
+                        <div class="feature-card p-6 rounded-xl transform hover:scale-105 transition-all duration-300">
                             <div class="flex items-center mb-4">
                                 <h3 class="text-lg font-bank text-brand-orange">Handle Offers</h3>
                             </div>
-                            <pre class="bg-brand-dark/50 p-4 rounded-lg overflow-x-auto"><code class="text-sm"><span class="text-gray-500">// Configure webhook for offer callbacks</span>
+                            <pre class="bg-brand-dark/50 p-4 rounded-lg overflow-x-auto"><code class="text-sm"><span class="text-gray-500">// Configure webhook for static offer callbacks</span>
 <span class="text-brand-orange">app</span>.<span class="text-purple-400">post</span>(<span class="text-orange-400">'/webhook/offers'</span>, (<span class="text-gray-300">req</span>, <span class="text-gray-300">res</span>) => {
   <span class="text-gray-300">const</span> { <span class="text-gray-300">offerId, amount, paid</span> } = <span class="text-gray-300">req</span>.<span class="text-gray-300">body</span>;
   
-  <span class="text-gray-300">console</span>.<span class="text-purple-400">log</span>(<span class="text-orange-400">'Offer status: 💰'</span>, {
+  <span class="text-gray-300">console</span>.<span class="text-purple-400">log</span>(<span class="text-orange-400">'Item sold: 💰'</span>, {
     <span class="text-gray-300">offerId</span>,
     <span class="text-gray-300">amount</span>,
     <span class="text-gray-300">paid</span>
@@ -546,7 +563,7 @@
                         </div>
 
                         <!-- Send Payment -->
-                        <div class="feature-card p-6 rounded-xl">
+                        <div class="feature-card p-6 rounded-xl transform hover:scale-105 transition-all duration-300">
                             <div class="flex items-center mb-4">
                                 <h3 class="text-lg font-bank text-brand-orange">Send Payment</h3>
                             </div>
@@ -562,7 +579,7 @@
 
                     <div class="mt-12 text-center">
                         <a href="https://github.com/shocknet/Lightning.Pub/blob/main/docs/API.md" 
-                           class="inline-flex items-center px-6 py-3 rounded-lg text-base font-bank font-medium text-white bg-brand-dark hover:bg-brand-dark/80 transition-colors duration-300">
+                           class="inline-flex items-center px-8 py-4 rounded-lg text-lg font-bank font-medium text-white bg-brand-dark hover:bg-brand-dark/80 transition-colors duration-300">
                             View Full API Documentation
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 ml-2" viewBox="0 0 20 20" fill="currentColor">
                                 <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd" />
@@ -577,17 +594,17 @@
                 <div class="absolute inset-0 bg-gradient-to-r from-brand-orange/10 to-brand-purple/10"></div>
                 <div class="max-w-7xl mx-auto text-center px-4 sm:px-6 lg:px-8 relative">
                     <h2 class="text-4xl sm:text-5xl font-bank font-bold mb-8 gradient-text">
-                        Choose Your Path
+                        Start slinging sats today!
                     </h2>
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        <div class="feature-card p-8 rounded-xl">
+                        <div class="feature-card p-8 rounded-xl transform hover:scale-105 transition-all duration-300">
                             <div class="w-16 h-16 rounded-lg bg-gradient-to-br from-brand-orange to-brand-purple flex items-center justify-center mx-auto mb-4">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
                                 </svg>
                             </div>
                             <h3 class="text-2xl font-bank text-brand-orange mb-4">Self-Hosted</h3>
-                            <p class="text-gray-300 mb-6">Deploy and manage your own Lightning.Pub node with full control</p>
+                            <p class="text-gray-300 mb-6">Deploy from GitHub to retain total control to your own device.</p>
                             <a href="https://github.com/shocknet/Lightning.Pub#installation"
                                class="inline-flex items-center px-6 py-3 rounded-lg text-base font-bank font-medium text-white bg-brand-dark hover:bg-brand-dark/80 transition-colors duration-300">
                                 Install Now
@@ -597,20 +614,20 @@
                             </a>
                         </div>
                         <div class="feature-card p-8 rounded-xl transform hover:scale-105 transition-all duration-300">
-                            <div class="w-16 h-16 rounded-lg bg-gradient-to-br from-brand-orange to-brand-purple flex items-center justify-center mx-auto mb-4">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <div class="w-16 h-16 rounded-lg bg-gradient-to-br from-brand-orange/30 to-brand-purple/30 flex items-center justify-center mx-auto mb-4">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
                                 </svg>
                             </div>
-                            <h3 class="text-2xl font-bank text-brand-orange mb-4">Cloud-Managed</h3>
-                            <p class="text-gray-300 mb-6">Let us handle the infrastructure while you focus on building</p>
-                            <a href="https://cloud.lightning.pub"
-                               class="inline-flex items-center px-8 py-4 rounded-lg text-lg font-bank font-medium text-white bg-gradient-to-r from-brand-orange to-brand-purple hover:from-brand-orange/90 hover:to-brand-purple/90 transform hover:scale-105 transition-all duration-300">
-                                Start Free Trial
+                            <h3 class="text-2xl font-bank text-gray-500 mb-4">Cloud-Hosting</h3>
+                            <p class="text-gray-500 mb-6">Get added support with a pre-configured cloud server. Coming soon!</p>
+                            <button disabled
+                               class="inline-flex items-center px-8 py-4 rounded-lg text-lg font-bank font-medium text-gray-400 bg-gradient-to-r from-brand-orange/30 to-brand-purple/30 cursor-not-allowed">
+                                Coming Soon
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 ml-2" viewBox="0 0 20 20" fill="currentColor">
                                     <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd" />
                                 </svg>
-                            </a>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -630,20 +647,57 @@
                     <div class="text-center">
                         <h3 class="font-bank text-brand-orange mb-4">Community</h3>
                         <ul class="space-y-2">
-                            <li><a href="https://t.me/ShockBTC" class="text-gray-300 hover:text-brand-orange transition-colors duration-300">Telegram</a></li>
-                            <li><a href="https://twitter.com/ShockBTC" class="text-gray-300 hover:text-brand-orange transition-colors duration-300">Twitter</a></li>
+                            <li>
+                                <a href="https://github.com/shocknet/Lightning.Pub/discussions" class="text-gray-300 hover:text-brand-orange transition-colors duration-300 flex items-center justify-center">
+                                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                                        <path fill-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clip-rule="evenodd"/>
+                                    </svg>
+                                    GitHub
+                                </a>
+                            </li>
+                            <li>
+                                <a href="https://t.me/ShockBTC" class="text-gray-300 hover:text-brand-orange transition-colors duration-300 flex items-center justify-center">
+                                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.14.27-.01.06-.01.13-.02.2z"/>
+                                    </svg>
+                                    Telegram
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#" class="group text-gray-300 hover:text-brand-orange transition-colors duration-300 flex items-center justify-center">
+                                    <img src="public/312229.svg" class="w-5 h-5 mr-2 [filter:invert(80%)_sepia(9%)_saturate(109%)_hue-rotate(169deg)_brightness(82%)_contrast(84%)] group-hover:[filter:invert(48%)_sepia(79%)_saturate(2476%)_hue-rotate(1deg)_brightness(105%)_contrast(106%)] scale-x-[-1]" />
+                                    Nostr
+                                </a>
+                            </li>
+                            <li>
+                                <a href="https://twitter.com/ShockBTC" class="text-gray-300 hover:text-brand-orange transition-colors duration-300 flex items-center justify-center">
+                                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                                    </svg>
+                                    Xitter
+                                </a>
+                            </li>
                         </ul>
                     </div>
                     <div class="text-center md:text-right">
                         <h3 class="font-bank text-brand-orange mb-4">Open Source</h3>
                         <ul class="space-y-2">
-                            <li><a href="https://github.com/shocknet/Lightning.Pub" class="text-gray-300 hover:text-brand-orange transition-colors duration-300">GitHub Repository</a></li>
+                            <li><a href="https://github.com/shocknet/Lightning.Pub" class="text-gray-300 hover:text-brand-orange transition-colors duration-300">Repository</a></li>
                             <li><a href="https://github.com/shocknet/Lightning.Pub/issues" class="text-gray-300 hover:text-brand-orange transition-colors duration-300">Issue Tracker</a></li>
                         </ul>
                     </div>
                 </div>
                 <div class="text-center text-gray-500 font-bank pt-8 border-t border-brand-orange/10">
-                    &copy; <script>document.write(new Date().getFullYear())</script> ShockNet Open Source. All rights reserved.
+                    <div class="mb-2">
+                        &copy; <script>document.write(new Date().getFullYear())</script> ShockNet Open Source
+                    </div>
+                    <div class="text-sm mb-2">
+                        Licensed under <a href="https://www.gnu.org/licenses/agpl-3.0.en.html" class="text-brand-orange hover:text-brand-orange/80 transition-colors duration-300">GNU AGPL-3.0</a>. 
+                        The source code is available under terms that protect your freedom and prevent vendor lock-in.
+                    </div>
+                    <div class="text-sm">
+                        If you find this software useful, please consider <a href="https://github.com/sponsors/shocknet" class="text-brand-orange hover:text-brand-orange/80 transition-colors duration-300">supporting its development</a>.
+                    </div>
                 </div>
             </div>
         </footer>
