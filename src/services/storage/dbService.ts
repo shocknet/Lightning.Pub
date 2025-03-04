@@ -66,7 +66,7 @@ const createConnectionPool = (settings: DbSettings, entities: any[], migrations:
                 extra: {
                     pragma: [
                         "PRAGMA journal_mode = WAL",
-                        "PRAGMA busy_timeout = 5000"
+                        "PRAGMA busy_timeout = 30000"
                     ]
                 }
             }).initialize()
@@ -78,7 +78,8 @@ const createConnectionPool = (settings: DbSettings, entities: any[], migrations:
     }, {
         max: 10, // Maximum 10 connections
         min: 2,  // Minimum 2 connections
-        acquireTimeoutMillis: 5000
+        acquireTimeoutMillis: 30000,
+        idleTimeoutMillis: 30000
     })
 }
 
@@ -93,12 +94,34 @@ process.on('message', async (msg: DbMessage) => {
 
         switch (action) {
             case 'init':
-                const { settings, entities, migrations } = payload
-                pool = createConnectionPool(settings, entities, migrations)
-                process.send({ id, type: 'response', success: true } as DbResponse)
+                try {
+                    const { settings, entities, migrations } = payload
+                    pool = createConnectionPool(settings, entities, migrations)
+                    // Ensure at least one connection is ready
+                    await pool.acquire()
+                    await pool.release(await pool.acquire())
+                    process.send({ id, type: 'response', success: true } as DbResponse)
+                } catch (error: any) {
+                    console.error('Failed to initialize database pool:', error)
+                    process.send({ 
+                        id, 
+                        type: 'response', 
+                        success: false, 
+                        error: `Failed to initialize database: ${error.message}` 
+                    } as DbResponse)
+                }
                 break
 
             case 'query':
+                if (!pool) {
+                    process.send({ 
+                        id, 
+                        type: 'response', 
+                        success: false, 
+                        error: 'Database pool not initialized' 
+                    } as DbResponse)
+                    break
+                }
                 const { query, params } = payload
                 const connection = await pool.acquire()
                 try {

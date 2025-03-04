@@ -56,22 +56,62 @@ export class DbProxy implements IDbOperations {
                 pending.reject(error)
                 this.pendingRequests.delete(id)
             }
+            // Attempt to restart the process
+            this.restartProcess()
         })
 
         this.process.on('exit', (code: number | null) => {
             console.error('Database service process exited with code:', code)
             for (const [id, pending] of this.pendingRequests) {
-                pending.reject(new Error('Database service process exited'))
+                pending.reject(new Error(`Database service process exited with code: ${code}`))
                 this.pendingRequests.delete(id)
+            }
+            // Attempt to restart the process if it wasn't a clean exit
+            if (code !== 0) {
+                this.restartProcess()
             }
         })
     }
 
+    private restartProcess() {
+        try {
+            if (!this.process.killed) {
+                this.process.kill()
+            }
+            this.process = fork(path.join(__dirname, 'dbService.js'))
+        } catch (error) {
+            console.error('Failed to restart database service process:', error)
+        }
+    }
+
     private async sendMessage(action: string, payload: any): Promise<any> {
+        if (!this.process || this.process.killed) {
+            throw new Error('Database service process is not running')
+        }
+        
         return new Promise((resolve, reject) => {
             const id = uuidv4()
-            this.pendingRequests.set(id, { resolve, reject })
-            this.process.send({ id, action, payload })
+            const timeout = setTimeout(() => {
+                this.pendingRequests.delete(id)
+                reject(new Error('Database request timed out'))
+            }, 5000) // Back to 5 second timeout
+            this.pendingRequests.set(id, { 
+                resolve: (data: any) => {
+                    clearTimeout(timeout)
+                    resolve(data)
+                }, 
+                reject: (error: Error) => {
+                    clearTimeout(timeout)
+                    reject(error)
+                } 
+            })
+            try {
+                this.process.send({ id, action, payload })
+            } catch (error) {
+                clearTimeout(timeout)
+                this.pendingRequests.delete(id)
+                reject(new Error('Failed to send message to database service'))
+            }
         })
     }
 
