@@ -1,7 +1,10 @@
-import { DataSource, EntityManager, EntityTarget } from "typeorm"
+/// <reference types="node" />
+/// <reference types="typeorm" />
+import { DataSource, EntityManager } from "typeorm"
 import { PubLogger, getLogger } from "../helpers/logger.js"
+import { DbProxy, IDbOperations } from "./dbProxy.js"
 
-export type TX<T> = (entityManager: EntityManager | DataSource) => Promise<T>
+export type TX<T> = (entityManager: IDbOperations) => Promise<T>
 export type TxOperation<T> = {
     exec: TX<T>
     dbTx: boolean
@@ -9,11 +12,12 @@ export type TxOperation<T> = {
 }
 
 export default class {
-    DB: DataSource | EntityManager
+    DB: IDbOperations
     pendingTx: boolean
     transactionsQueue: { op: TxOperation<any>, res: (v: any) => void, rej: (message: string) => void }[] = []
     log: PubLogger
-    constructor(name: string, DB: DataSource | EntityManager) {
+
+    constructor(name: string, DB: IDbOperations) {
         this.DB = DB
         this.log = getLogger({ component: name })
     }
@@ -65,11 +69,10 @@ export default class {
         }
     }
 
-
     async doTransaction<T>(exec: TX<T>) {
         try {
-            const res = await this.DB.transaction(async tx => {
-                return exec(tx)
+            const res = await this.DB.transaction(async (manager) => {
+                return exec(manager)
             })
             this.execNextInQueue()
             return res
