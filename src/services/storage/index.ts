@@ -15,7 +15,7 @@ import { LiquidityStorage } from "./liquidityStorage.js"
 import { StateBundler } from "./stateBundler.js"
 import DebitStorage from "./debitStorage.js"
 import OfferStorage from "./offerStorage.js"
-import { DbProxy } from "./dbProxy.js"
+import { DbProxy, IDbOperations } from "./dbProxy.js"
 import { User } from './entity/User.js'
 import { UserReceivingInvoice } from './entity/UserReceivingInvoice.js'
 import { UserReceivingAddress } from './entity/UserReceivingAddress.js'
@@ -45,8 +45,10 @@ export const LoadStorageSettingsFromEnv = (): StorageSettings => {
     return { dbSettings: LoadDbSettingsFromEnv(), eventLogPath: "logs/eventLogV3.csv", dataDir: process.env.DATA_DIR || "" }
 }
 
+type DbType = DataSource | IDbOperations
+
 export default class {
-    DB: DbProxy
+    DB: DbType
     settings: StorageSettings
     txQueue: TransactionsQueue
     productStorage: ProductStorage

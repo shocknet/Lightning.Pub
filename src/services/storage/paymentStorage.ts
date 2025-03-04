@@ -13,13 +13,18 @@ import { UserToUserPayment } from './entity/UserToUserPayment.js';
 import { Application } from './entity/Application.js';
 import TransactionsQueue from "./transactionsQueue.js";
 import { LoggedEvent } from './eventsLog.js';
+import { IDbOperations } from "./dbProxy.js"
+
+type DbType = DataSource | EntityManager | IDbOperations
+
 export type InboundOptionals = { product?: Product, callbackUrl?: string, expiry: number, expectedPayer?: User, linkedApplication?: Application, zapInfo?: ZapInfo, offerId?: string, payerData?: Record<string, string> }
 export const defaultInvoiceExpiry = 60 * 60
+
 export default class {
-    DB: DataSource | EntityManager
+    DB: DbType
     userStorage: UserStorage
     txQueue: TransactionsQueue
-    constructor(DB: DataSource | EntityManager, userStorage: UserStorage, txQueue: TransactionsQueue) {
+    constructor(DB: DbType, userStorage: UserStorage, txQueue: TransactionsQueue) {
         this.DB = DB
         this.userStorage = userStorage
         this.txQueue = txQueue

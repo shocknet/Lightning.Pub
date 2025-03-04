@@ -8,11 +8,15 @@ import { getLogger } from '../helpers/logger.js';
 import TransactionsQueue, { TX } from "./transactionsQueue.js";
 import { User } from './entity/User.js';
 import { InviteToken } from './entity/InviteToken.js';
+import { IDbOperations } from './dbProxy.js';
+
+type DbType = DataSource | EntityManager | IDbOperations;
+
 export default class {
-    DB: DataSource | EntityManager
+    DB: DbType
     userStorage: UserStorage
     txQueue: TransactionsQueue
-    constructor(DB: DataSource | EntityManager, userStorage: UserStorage, txQueue: TransactionsQueue) {
+    constructor(DB: DbType, userStorage: UserStorage, txQueue: TransactionsQueue) {
         this.DB = DB
         this.userStorage = userStorage
         this.txQueue = txQueue
@@ -32,7 +36,7 @@ export default class {
         })
     }
 
-    async GetApplicationByName(name: string, entityManager = this.DB) {
+    async GetApplicationByName(name: string, entityManager: DbType = this.DB) {
         const found = await entityManager.getRepository(Application).findOne({
             where: {
                 name
@@ -44,10 +48,11 @@ export default class {
         return found
     }
 
-    async GetApplications(entityManager = this.DB): Promise<Application[]> {
+    async GetApplications(entityManager: DbType = this.DB): Promise<Application[]> {
         return entityManager.getRepository(Application).find()
     }
-    async GetApplication(appId: string, entityManager = this.DB): Promise<Application> {
+
+    async GetApplication(appId: string, entityManager: DbType = this.DB): Promise<Application> {
         if (!appId) {
             throw new Error("invalid app id provided")
         }
@@ -62,7 +67,7 @@ export default class {
         return found
     }
 
-    async UpdateApplication(app: Application, update: Partial<Application>, entityManager = this.DB) {
+    async UpdateApplication(app: Application, update: Partial<Application>, entityManager: DbType = this.DB) {
         await entityManager.getRepository(Application).update(app.serial_id, update)
     }
 
@@ -88,19 +93,16 @@ export default class {
         })
     }
 
-    async GetApplicationUserIfExists(application: Application, userIdentifier: string, entityManager = this.DB): Promise<ApplicationUser | null> {
+    async GetApplicationUserIfExists(application: Application, userIdentifier: string, entityManager: DbType = this.DB): Promise<ApplicationUser | null> {
         return entityManager.getRepository(ApplicationUser).findOne({ where: { identifier: userIdentifier, application: { serial_id: application.serial_id } } })
     }
 
-    async GetOrCreateNostrAppUser(application: Application, nostrPub: string, entityManager = this.DB): Promise<ApplicationUser> {
+    async GetOrCreateNostrAppUser(application: Application, nostrPub: string, entityManager: DbType = this.DB): Promise<ApplicationUser> {
         if (!nostrPub) {
             throw new Error("no nostrPub provided")
         }
         const user = await entityManager.getRepository(ApplicationUser).findOne({ where: { nostr_public_key: nostrPub } })
         if (user) {
-            //if (user.application.app_id !== application.app_id) {
-            //    throw new Error("tried to access a user of application:" + user.application.app_id + "from application:" + application.app_id)
-            //}
             return user
         }
         if (!application.allow_user_creation) {
@@ -109,11 +111,11 @@ export default class {
         return this.AddApplicationUser(application, crypto.randomBytes(32).toString('hex'), 0, nostrPub)
     }
 
-    async FindNostrAppUser(nostrPub: string, entityManager = this.DB) {
+    async FindNostrAppUser(nostrPub: string, entityManager: DbType = this.DB) {
         return entityManager.getRepository(ApplicationUser).findOne({ where: { nostr_public_key: nostrPub } })
     }
 
-    async GetOrCreateApplicationUser(application: Application, userIdentifier: string, balance: number, entityManager = this.DB): Promise<{ user: ApplicationUser, created: boolean }> {
+    async GetOrCreateApplicationUser(application: Application, userIdentifier: string, balance: number, entityManager: DbType = this.DB): Promise<{ user: ApplicationUser, created: boolean }> {
         const user = await this.GetApplicationUserIfExists(application, userIdentifier, entityManager)
         if (user) {
             return { user, created: false }
@@ -121,7 +123,7 @@ export default class {
         return { user: await this.AddApplicationUser(application, userIdentifier, balance), created: true }
     }
 
-    async GetApplicationUser(application: Application, userIdentifier: string, entityManager = this.DB): Promise<ApplicationUser> {
+    async GetApplicationUser(application: Application, userIdentifier: string, entityManager: DbType = this.DB): Promise<ApplicationUser> {
         const found = await this.GetApplicationUserIfExists(application, userIdentifier, entityManager)
         if (!found) {
             getLogger({ appName: application.name })("user", userIdentifier, "not found", application.name)
@@ -134,7 +136,7 @@ export default class {
         return found
     }
 
-    async GetApplicationUsers(application: Application | null, { from, to }: { from?: number, to?: number }, entityManager = this.DB) {
+    async GetApplicationUsers(application: Application | null, { from, to }: { from?: number, to?: number }, entityManager: DbType = this.DB) {
         const q = application ? { app_id: application.app_id } : IsNull()
         let time: { created_at?: FindOperator<Date> } = {}
         if (!!from && !!to) {
@@ -147,33 +149,31 @@ export default class {
         return entityManager.getRepository(ApplicationUser).find({ where: { application: q, ...time } })
     }
 
-    async GetAppUserFromUser(application: Application, userId: string, entityManager = this.DB): Promise<ApplicationUser | null> {
+    async GetAppUserFromUser(application: Application, userId: string, entityManager: DbType = this.DB): Promise<ApplicationUser | null> {
         return entityManager.getRepository(ApplicationUser).findOne({ where: { user: { user_id: userId }, application: { app_id: application.app_id } } })
     }
 
-    async GetAllAppUsersFromUser(userId: string, entityManager = this.DB): Promise<ApplicationUser[]> {
+    async GetAllAppUsersFromUser(userId: string, entityManager: DbType = this.DB): Promise<ApplicationUser[]> {
         return entityManager.getRepository(ApplicationUser).find({ where: { user: { user_id: userId } } })
     }
 
-    async IsApplicationOwner(userId: string, entityManager = this.DB) {
+    async IsApplicationOwner(userId: string, entityManager: DbType = this.DB) {
         return entityManager.getRepository(Application).findOne({ where: { owner: { user_id: userId } } })
     }
 
-
-    async AddNPubToApplicationUser(serialId: number, nPub: string, entityManager = this.DB) {
+    async AddNPubToApplicationUser(serialId: number, nPub: string, entityManager: DbType = this.DB) {
         return entityManager.getRepository(ApplicationUser).update(serialId, { nostr_public_key: nPub })
     }
 
-    async UpdateUserCallbackUrl(application: Application, userIdentifier: string, callbackUrl: string, entityManager = this.DB) {
+    async UpdateUserCallbackUrl(application: Application, userIdentifier: string, callbackUrl: string, entityManager: DbType = this.DB) {
         return entityManager.getRepository(ApplicationUser).update({ application: { app_id: application.app_id }, identifier: userIdentifier }, { callback_url: callbackUrl })
     }
 
-    async RemoveApplicationUserAndBaseUser(appUser: ApplicationUser, entityManager = this.DB) {
+    async RemoveApplicationUserAndBaseUser(appUser: ApplicationUser, entityManager: DbType = this.DB) {
         const baseUser = appUser.user;
         await entityManager.getRepository(ApplicationUser).remove(appUser);
         await entityManager.getRepository(User).remove(baseUser);
     }
-
 
     async AddInviteToken(app: Application, sats?: number) {
         return this.txQueue.PushToQueue({
@@ -196,9 +196,7 @@ export default class {
         return this.DB.getRepository(InviteToken).findOne({ where: { inviteToken: token } })
     }
 
-
     async SetInviteTokenAsUsed(inviteToken: InviteToken) {
         return this.DB.getRepository(InviteToken).update(inviteToken, { used: true });
-
     }
 }

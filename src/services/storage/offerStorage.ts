@@ -4,12 +4,16 @@ import UserStorage from './userStorage.js';
 import TransactionsQueue from "./transactionsQueue.js";
 import { DebitAccess, DebitAccessRules } from "./entity/DebitAccess.js";
 import { UserOffer } from "./entity/UserOffer.js";
+import { IDbOperations } from "./dbProxy.js"
+
+type DbType = DataSource | EntityManager | IDbOperations
+
 export default class {
 
 
-    DB: DataSource | EntityManager
+    DB: DbType
     txQueue: TransactionsQueue
-    constructor(DB: DataSource | EntityManager, txQueue: TransactionsQueue) {
+    constructor(DB: DbType, txQueue: TransactionsQueue) {
         this.DB = DB
         this.txQueue = txQueue
     }
@@ -45,5 +49,17 @@ export default class {
     }
     async GetOffer(offer_id: string): Promise<UserOffer | null> {
         return this.DB.getRepository(UserOffer).findOne({ where: { offer_id } })
+    }
+
+    async AddOffer(userId: string, appId: string, appUserId: string, offerId: string, offerSecret: string) {
+        const offer = this.DB.getRepository(UserOffer).create({
+            app_user_id: appUserId,
+            offer_id: offerId,
+            label: 'Created via AddOffer',
+            price_sats: 0,
+            callback_url: '',
+            expected_data: null
+        })
+        return this.DB.getRepository(UserOffer).save(offer)
     }
 }

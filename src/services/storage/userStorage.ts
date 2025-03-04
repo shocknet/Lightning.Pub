@@ -5,17 +5,21 @@ import { UserBasicAuth } from './entity/UserBasicAuth.js';
 import { getLogger } from '../helpers/logger.js';
 import TransactionsQueue from "./transactionsQueue.js";
 import EventsLogManager from './eventsLog.js';
+import { IDbOperations } from './dbProxy.js';
+
+type DbType = DataSource | EntityManager | IDbOperations;
+
 export default class {
-    DB: DataSource | EntityManager
+    DB: DbType
     txQueue: TransactionsQueue
     eventsLog: EventsLogManager
-    constructor(DB: DataSource | EntityManager, txQueue: TransactionsQueue, eventsLog: EventsLogManager) {
+    constructor(DB: DbType, txQueue: TransactionsQueue, eventsLog: EventsLogManager) {
         this.DB = DB
         this.txQueue = txQueue
         this.eventsLog = eventsLog
     }
 
-    async AddUser(balance: number, dbTx: DataSource | EntityManager): Promise<User> {
+    async AddUser(balance: number, dbTx: DbType): Promise<User> {
         if (balance && process.env.ALLOW_BALANCE_MIGRATION !== 'true') {
             throw new Error("balance migration is not allowed")
         }
@@ -76,7 +80,7 @@ export default class {
         }
         return user
     }
-    async IncrementUserBalance(userId: string, increment: number, reason: string, entityManager?: DataSource | EntityManager) {
+    async IncrementUserBalance(userId: string, increment: number, reason: string, entityManager?: DbType) {
         if (entityManager) {
             return this.IncrementUserBalanceInTx(userId, increment, reason, entityManager)
         }
@@ -88,7 +92,7 @@ export default class {
             }
         })
     }
-    async IncrementUserBalanceInTx(userId: string, increment: number, reason: string, dbTx: DataSource | EntityManager) {
+    async IncrementUserBalanceInTx(userId: string, increment: number, reason: string, dbTx: DbType) {
         const user = await this.GetUser(userId, dbTx)
         const res = await dbTx.getRepository(User).increment({
             user_id: userId,
@@ -100,7 +104,7 @@ export default class {
         getLogger({ userId: userId, component: "balanceUpdates" })("incremented balance from", user.balance_sats, "sats, by", increment, "sats")
         this.eventsLog.LogEvent({ type: 'balance_increment', userId, appId: "", appUserId: "", balance: user.balance_sats, data: reason, amount: increment })
     }
-    async DecrementUserBalance(userId: string, decrement: number, reason: string, entityManager?: DataSource | EntityManager) {
+    async DecrementUserBalance(userId: string, decrement: number, reason: string, entityManager?: DbType) {
         if (entityManager) {
             return this.DecrementUserBalanceInTx(userId, decrement, reason, entityManager)
         }
@@ -113,7 +117,7 @@ export default class {
         })
     }
 
-    async DecrementUserBalanceInTx(userId: string, decrement: number, reason: string, dbTx: DataSource | EntityManager) {
+    async DecrementUserBalanceInTx(userId: string, decrement: number, reason: string, dbTx: DbType) {
         const user = await this.GetUser(userId, dbTx)
         if (!user || user.balance_sats < decrement) {
             getLogger({ userId: userId, component: "balanceUpdates" })("not enough balance to decrement")
@@ -130,7 +134,7 @@ export default class {
         this.eventsLog.LogEvent({ type: 'balance_decrement', userId, appId: "", appUserId: "", balance: user.balance_sats, data: reason, amount: decrement })
     }
 
-    async UpdateUser(userId: string, update: Partial<User>, entityManager = this.DB) {
+    async UpdateUser(userId: string, update: Partial<User>, entityManager: DbType = this.DB) {
         const user = await this.GetUser(userId, entityManager)
         await entityManager.getRepository(User).update(user.serial_id, update)
     }

@@ -1,4 +1,4 @@
-import { Between, DataSource, EntityManager, FindManyOptions, FindOperator, LessThanOrEqual, MoreThanOrEqual } from "typeorm"
+import { Between, DataSource, EntityManager, EntityTarget, FindManyOptions, FindOperator, LessThanOrEqual, MoreThanOrEqual, ObjectLiteral, Repository } from "typeorm"
 import { BalanceEvent } from "./entity/BalanceEvent.js"
 import { ChannelBalanceEvent } from "./entity/ChannelsBalanceEvent.js"
 import TransactionsQueue, { TX } from "./transactionsQueue.js";
@@ -6,23 +6,58 @@ import { StorageSettings } from "./index.js";
 import { newMetricsDb } from "./db.js";
 import { ChannelRouting } from "./entity/ChannelRouting.js";
 import { RootOperation } from "./entity/RootOperation.js";
+import { IDbOperations } from "./dbProxy.js"
+import { DbSettings } from "./db.js"
+
+class DataSourceWrapper implements IDbOperations {
+    private dataSource: DataSource;
+
+    constructor(dataSource: DataSource) {
+        this.dataSource = dataSource;
+    }
+
+    async initialize(settings: DbSettings, entities: any[], migrations: Function[]): Promise<void> {
+        await this.dataSource.initialize();
+    }
+
+    async query(query: string, params?: any[]): Promise<any> {
+        return this.dataSource.query(query, params);
+    }
+
+    async transaction<T>(runInTransaction: (entityManager: EntityManager) => Promise<T>): Promise<T> {
+        return this.dataSource.transaction(runInTransaction);
+    }
+
+    getRepository<Entity extends ObjectLiteral>(target: EntityTarget<Entity>): Repository<Entity> {
+        return this.dataSource.getRepository(target);
+    }
+
+    async close(): Promise<void> {
+        await this.dataSource.destroy();
+    }
+}
+
+type DbType = DataSource | EntityManager | IDbOperations
+
 export default class {
-
-
-    DB: DataSource | EntityManager
     settings: StorageSettings
-    txQueue: TransactionsQueue
+    DB: IDbOperations | null = null
+    txQueue: TransactionsQueue | null = null
+
     constructor(settings: StorageSettings) {
         this.settings = settings;
     }
+
     async Connect(metricsMigrations: Function[]) {
         const { source, executedMigrations } = await newMetricsDb(this.settings.dbSettings, metricsMigrations)
-        this.DB = source;
+        this.DB = new DataSourceWrapper(source);
+        if (!this.DB) throw new Error("Failed to initialize database");
         this.txQueue = new TransactionsQueue("metrics", this.DB)
         return executedMigrations;
     }
 
     async SaveBalanceEvents(balanceEvent: Partial<BalanceEvent>, channelBalanceEvents: Partial<ChannelBalanceEvent>[]) {
+        if (!this.DB || !this.txQueue) throw new Error("Database not initialized");
         const blanceEventEntry = this.DB.getRepository(BalanceEvent).create(balanceEvent)
         const balanceEntry = await this.txQueue.PushToQueue<BalanceEvent>({ exec: async db => db.getRepository(BalanceEvent).save(blanceEventEntry), dbTx: false })
 
@@ -32,6 +67,7 @@ export default class {
     }
 
     async GetBalanceEvents({ from, to }: { from?: number, to?: number }, entityManager = this.DB) {
+        if (!entityManager) throw new Error("Database not initialized");
         const q = getTimeQuery({ from, to })
 
         const [chainBalanceEvents] = await Promise.all([
@@ -41,6 +77,7 @@ export default class {
     }
 
     async initChannelRoutingEvent(dayUnix: number, channelId: string) {
+        if (!this.DB || !this.txQueue) throw new Error("Database not initialized");
         const existing = await this.DB.getRepository(ChannelRouting).findOne({ where: { day_unix: dayUnix, channel_id: channelId } })
         if (!existing) {
             const entry = this.DB.getRepository(ChannelRouting).create({ day_unix: dayUnix, channel_id: channelId })
@@ -50,11 +87,13 @@ export default class {
     }
 
     GetChannelRouting({ from, to }: { from?: number, to?: number }, entityManager = this.DB) {
+        if (!entityManager) throw new Error("Database not initialized");
         const q = getTimeQuery({ from, to })
         return entityManager.getRepository(ChannelRouting).find(q)
     }
 
     async GetLatestForwardingIndexOffset() {
+        if (!this.DB) throw new Error("Database not initialized");
         const latestIndex = await this.DB.getRepository(ChannelRouting).find({ order: { latest_index_offset: "DESC" }, take: 1 })
         if (latestIndex.length > 0) {
             return latestIndex[0].latest_index_offset
@@ -63,6 +102,7 @@ export default class {
     }
 
     async IncrementChannelRouting(channelId: string, event: Partial<ChannelRouting>) {
+        if (!this.DB) throw new Error("Database not initialized");
         const dayUnix = getTodayUnix()
         const existing = await this.initChannelRoutingEvent(dayUnix, channelId)
         const repo = this.DB.getRepository(ChannelRouting)
@@ -102,11 +142,14 @@ export default class {
     }
 
     async AddRootOperation(opType: string, id: string, amount: number, entityManager = this.DB) {
+        if (!entityManager) throw new Error("Database not initialized");
         const newOp = entityManager.getRepository(RootOperation).create({ operation_type: opType, operation_amount: amount, operation_identifier: id })
+        if (!this.txQueue) throw new Error("Transaction queue not initialized");
         return this.txQueue.PushToQueue<RootOperation>({ exec: async db => db.getRepository(RootOperation).save(newOp), dbTx: false })
     }
 
     async GetRootOperations({ from, to }: { from?: number, to?: number }, entityManager = this.DB) {
+        if (!entityManager) throw new Error("Database not initialized");
         const q = getTimeQuery({ from, to })
         return entityManager.getRepository(RootOperation).find(q)
     }

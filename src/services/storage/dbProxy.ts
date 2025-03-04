@@ -3,7 +3,7 @@
 /// <reference types="uuid" />
 import { fork, ChildProcess } from 'child_process'
 import { DbSettings } from './db.js'
-import { DataSource, EntityManager, EntityTarget, ObjectLiteral, Repository } from 'typeorm'
+import { DataSource, EntityManager, EntityTarget, ObjectLiteral, Repository, QueryRunner, Logger } from 'typeorm'
 import path from 'path'
 import { v4 as uuidv4 } from 'uuid'
 import { fileURLToPath } from 'url'
@@ -24,12 +24,14 @@ export interface IDbOperations {
     query(query: string, params?: any[]): Promise<any>
     transaction<T>(runInTransaction: (entityManager: EntityManager) => Promise<T>): Promise<T>
     getRepository<Entity extends ObjectLiteral>(target: EntityTarget<Entity>): Repository<Entity>
+    initialize(settings: DbSettings, entities: any[], migrations: Function[]): Promise<void>
+    close(): Promise<void>
 }
 
 export class DbProxy implements IDbOperations {
     private process: ChildProcess
     private pendingRequests: Map<string, { resolve: Function, reject: Function }> = new Map()
-    private repositories: Map<string, Repository<any>> = new Map()
+    private repositoryCache: Map<string, Repository<any>> = new Map()
 
     constructor() {
         this.process = fork(path.join(__dirname, 'dbService.js'))
@@ -91,7 +93,7 @@ export class DbProxy implements IDbOperations {
                    typeof target === 'string' ? target :
                    'name' in target ? target.name : target.toString()
 
-        if (!this.repositories.has(key)) {
+        if (!this.repositoryCache.has(key)) {
             // Create a proxy repository that forwards operations to the database service
             const repository = new Proxy({} as Repository<Entity>, {
                 get: (target, prop: string) => {
@@ -107,9 +109,9 @@ export class DbProxy implements IDbOperations {
                     }
                 }
             })
-            this.repositories.set(key, repository)
+            this.repositoryCache.set(key, repository)
         }
-        return this.repositories.get(key) as Repository<Entity>
+        return this.repositoryCache.get(key) as Repository<Entity>
     }
 
     async close(): Promise<void> {

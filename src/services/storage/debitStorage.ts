@@ -2,15 +2,20 @@ import { DataSource, EntityManager } from "typeorm"
 import UserStorage from './userStorage.js';
 import TransactionsQueue from "./transactionsQueue.js";
 import { DebitAccess, DebitAccessRules } from "./entity/DebitAccess.js";
+import { IDbOperations } from "./dbProxy.js"
+
 type AccessToAdd = {
     npub: string
     rules?: DebitAccessRules
     authorize: boolean
 }
+
+type DbType = DataSource | EntityManager | IDbOperations
+
 export default class {
-    DB: DataSource | EntityManager
+    DB: DbType
     txQueue: TransactionsQueue
-    constructor(DB: DataSource | EntityManager, txQueue: TransactionsQueue) {
+    constructor(DB: DbType, txQueue: TransactionsQueue) {
         this.DB = DB
         this.txQueue = txQueue
     }

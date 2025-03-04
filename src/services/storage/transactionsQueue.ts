@@ -2,9 +2,9 @@
 /// <reference types="typeorm" />
 import { DataSource, EntityManager } from "typeorm"
 import { PubLogger, getLogger } from "../helpers/logger.js"
-import { DbProxy, IDbOperations } from "./dbProxy.js"
+import { IDbOperations } from "./dbProxy.js"
 
-export type TX<T> = (entityManager: IDbOperations) => Promise<T>
+export type TX<T> = (entityManager: EntityManager | IDbOperations) => Promise<T>
 export type TxOperation<T> = {
     exec: TX<T>
     dbTx: boolean
