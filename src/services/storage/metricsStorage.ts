@@ -28,6 +28,10 @@ class DataSourceWrapper implements IDbOperations {
         return this.dataSource.transaction(runInTransaction);
     }
 
+    async StartTransaction<T>(exec: (entityManager: EntityManager) => Promise<T>, description?: string): Promise<T> {
+        return this.transaction(exec);
+    }
+
     getRepository<Entity extends ObjectLiteral>(target: EntityTarget<Entity>): Repository<Entity> {
         return this.dataSource.getRepository(target);
     }

@@ -32,16 +32,18 @@ export default class {
     }
 
     async AddBasicUser(name: string, secret: string): Promise<UserBasicAuth> {
-        return this.DB.transaction(async tx => {
-            const user = await this.AddUser(0, tx)
-            const newUserAuth = tx.getRepository(UserBasicAuth).create({
-                user: user,
-                name: name,
-                secret_sha256: crypto.createHash('sha256').update(secret).digest('base64')
-            })
-            return tx.getRepository(UserBasicAuth).save(newUserAuth)
+        return this.txQueue.PushToQueue({
+            dbTx: true,
+            exec: async tx => {
+                const user = await this.AddUser(0, tx)
+                const newUserAuth = tx.getRepository(UserBasicAuth).create({
+                    user: user,
+                    name: name,
+                    secret_sha256: crypto.createHash('sha256').update(secret).digest('base64')
+                })
+                return tx.getRepository(UserBasicAuth).save(newUserAuth)
+            }
         })
-
     }
     FindUser(userId: string, entityManager = this.DB) {
         return entityManager.getRepository(User).findOne({

@@ -71,7 +71,7 @@ export default class {
 
     async doTransaction<T>(exec: TX<T>) {
         try {
-            const res = await this.DB.transaction(async (manager) => {
+            const res = await this.DB.StartTransaction(async (manager) => {
                 return exec(manager)
             })
             this.execNextInQueue()

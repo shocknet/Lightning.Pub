@@ -5,7 +5,7 @@ import { LndNodeInfo } from "./entity/LndNodeInfo.js";
 import { TrackedProvider } from "./entity/TrackedProvider.js";
 import { IDbOperations } from "./dbProxy.js"
 
-type DbType = IDbOperations
+type DbType = DataSource | EntityManager | IDbOperations
 
 export class LiquidityStorage {
     DB: DbType

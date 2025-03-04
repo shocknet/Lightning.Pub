@@ -2,9 +2,10 @@
 /// <reference types="typeorm" />
 /// <reference types="generic-pool" />
 import "reflect-metadata"
-import { DataSource, EntityManager } from "typeorm"
+import { DataSource, EntityManager, EntityTarget, ObjectLiteral, Repository } from "typeorm"
 import { DbSettings } from "./db.js"
 import { createPool, Pool } from 'generic-pool'
+import { IDbOperations } from "./dbProxy.js"
 
 type DbMessage = {
     id: string
@@ -18,6 +19,38 @@ type DbResponse = {
     success: boolean
     data?: any
     error?: string
+}
+
+class DataSourceWrapper implements IDbOperations {
+    private dataSource: DataSource;
+
+    constructor(dataSource: DataSource) {
+        this.dataSource = dataSource;
+    }
+
+    async initialize(settings: DbSettings, entities: any[], migrations: Function[]): Promise<void> {
+        await this.dataSource.initialize();
+    }
+
+    async query(query: string, params?: any[]): Promise<any> {
+        return this.dataSource.query(query, params);
+    }
+
+    async transaction<T>(runInTransaction: (entityManager: EntityManager) => Promise<T>): Promise<T> {
+        return this.dataSource.transaction(runInTransaction);
+    }
+
+    getRepository<Entity extends ObjectLiteral>(target: EntityTarget<Entity>): Repository<Entity> {
+        return this.dataSource.getRepository(target);
+    }
+
+    async close(): Promise<void> {
+        await this.dataSource.destroy();
+    }
+
+    async StartTransaction<T>(exec: (entityManager: EntityManager) => Promise<T>, description?: string): Promise<T> {
+        return this.transaction(exec);
+    }
 }
 
 // Create connection pool
@@ -37,10 +70,10 @@ const createConnectionPool = (settings: DbSettings, entities: any[], migrations:
                     ]
                 }
             }).initialize()
-            return source
+            return new DataSourceWrapper(source)
         },
-        destroy: async (source: DataSource) => {
-            await source.destroy()
+        destroy: async (wrapper: DataSourceWrapper) => {
+            await wrapper.close()
         }
     }, {
         max: 10, // Maximum 10 connections
@@ -49,7 +82,7 @@ const createConnectionPool = (settings: DbSettings, entities: any[], migrations:
     })
 }
 
-let pool: Pool<DataSource>
+let pool: Pool<DataSourceWrapper>
 
 // Handle IPC messages
 process.on('message', async (msg: DbMessage) => {
@@ -82,7 +115,7 @@ process.on('message', async (msg: DbMessage) => {
                 const { callback } = payload
                 const transactionConnection = await pool.acquire()
                 try {
-                    const result = await transactionConnection.transaction(async (manager: EntityManager) => {
+                    const result = await transactionConnection.StartTransaction(async (manager: EntityManager) => {
                         // Execute the transaction callback
                         const fn = new Function('manager', `return (${callback})(manager)`)
                         return fn(manager)

@@ -45,7 +45,7 @@ export const LoadStorageSettingsFromEnv = (): StorageSettings => {
     return { dbSettings: LoadDbSettingsFromEnv(), eventLogPath: "logs/eventLogV3.csv", dataDir: process.env.DATA_DIR || "" }
 }
 
-type DbType = DataSource | IDbOperations
+type DbType = DataSource | EntityManager | IDbOperations
 
 export default class {
     DB: DbType
@@ -97,10 +97,17 @@ export default class {
     }
 
     StartTransaction<T>(exec: TX<T>, description?: string) {
-        return this.txQueue.PushToQueue({ exec, dbTx: true, description })
+        if ('StartTransaction' in this.DB) {
+            return this.DB.StartTransaction(exec, description)
+        } else if (this.DB instanceof DataSource) {
+            return this.txQueue.PushToQueue({ exec, dbTx: true, description })
+        }
+        throw new Error('Database does not support transactions')
     }
 
     async close() {
-        await this.DB.close()
+        if ('close' in this.DB) {
+            await this.DB.close()
+        }
     }
 }

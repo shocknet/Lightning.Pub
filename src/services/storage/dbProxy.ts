@@ -26,6 +26,7 @@ export interface IDbOperations {
     getRepository<Entity extends ObjectLiteral>(target: EntityTarget<Entity>): Repository<Entity>
     initialize(settings: DbSettings, entities: any[], migrations: Function[]): Promise<void>
     close(): Promise<void>
+    StartTransaction<T>(exec: (entityManager: EntityManager) => Promise<T>, description?: string): Promise<T>
 }
 
 export class DbProxy implements IDbOperations {
@@ -119,5 +120,9 @@ export class DbProxy implements IDbOperations {
         return new Promise((resolve) => {
             this.process.on('exit', resolve)
         })
+    }
+
+    async StartTransaction<T>(exec: (entityManager: EntityManager) => Promise<T>, description?: string): Promise<T> {
+        return this.transaction(exec);
     }
 } 
