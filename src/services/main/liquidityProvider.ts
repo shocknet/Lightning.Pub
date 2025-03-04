@@ -16,19 +16,21 @@ export class LiquidityProvider {
     clientId: string = ""
     myPub: string = ""
     log = getLogger({ component: 'liquidityProvider' })
-    nostrSend: NostrSend | null = null
+    pub: string
+    utils: Utils
+    invoicePaidCb: InvoicePaidCb
+    updateProviderBalance: (b: number) => Promise<any>
+    nostrSend: NostrSend = (_initiator, _data, _relays) => { getLogger({})("nostr send not initialized yet") }
     configured = false
     pubDestination: string
     ready: boolean
-    invoicePaidCb: InvoicePaidCb
     connecting = false
     configuredInterval: NodeJS.Timeout
     queue: ((state: 'ready') => void)[] = []
-    utils: Utils
     pendingPayments: Record<string, number> = {}
-    incrementProviderBalance: (balance: number) => Promise<void>
+
     // make the sub process accept client
-    constructor(pubDestination: string, utils: Utils, invoicePaidCb: InvoicePaidCb, incrementProviderBalance: (balance: number) => Promise<any>) {
+    constructor(pubDestination: string, utils: Utils, invoicePaidCb: InvoicePaidCb, updateProviderBalance: (b: number) => Promise<any>) {
         this.utils = utils
         if (!pubDestination) {
             this.log("No pub provider to liquidity provider, will not be initialized")
@@ -37,7 +39,7 @@ export class LiquidityProvider {
         this.log("connecting to liquidity provider:", pubDestination)
         this.pubDestination = pubDestination
         this.invoicePaidCb = invoicePaidCb
-        this.incrementProviderBalance = incrementProviderBalance
+        this.updateProviderBalance = updateProviderBalance
         this.client = newNostrClient({
             pubDestination: this.pubDestination,
             retrieveNostrUserAuth: async () => this.myPub,
@@ -97,7 +99,7 @@ export class LiquidityProvider {
             if (res.operation.type === Types.UserOperationType.INCOMING_INVOICE) {
                 try {
                     await this.invoicePaidCb(res.operation.identifier, res.operation.amount, 'provider')
-                    this.incrementProviderBalance(res.operation.amount)
+                    await this.updateProviderBalance(res.operation.amount)
                 } catch (err: any) {
                     this.log("error processing incoming invoice", err.message)
                 }
@@ -200,7 +202,7 @@ export class LiquidityProvider {
                 throw new Error(res.reason)
             }
             const totalPaid = res.amount_paid + res.network_fee + res.service_fee
-            this.incrementProviderBalance(-totalPaid).then(() => { delete this.pendingPayments[invoice] })
+            await this.updateProviderBalance(-totalPaid)
             this.utils.stateBundler.AddTxPoint('paidAnInvoice', decodedAmount, { used: 'provider', from, timeDiscount: true })
             return res
         } catch (err) {
@@ -245,8 +247,6 @@ export class LiquidityProvider {
         this.setSetIfConfigured()
     }
 
-
-
     attachNostrSend(f: NostrSend) {
         this.log("attaching nostrSend action")
         this.nostrSend = f
@@ -254,7 +254,8 @@ export class LiquidityProvider {
     }
 
     setSetIfConfigured = () => {
-        if (this.nostrSend && !!this.pubDestination && !!this.clientId && !!this.myPub) {
+        const isDefaultNostrSend = this.nostrSend.toString() === ((initiator: string, data: NostrRequest, relays: string[]) => { getLogger({})("nostr send not initialized yet") }).toString()
+        if (!isDefaultNostrSend && !!this.pubDestination && !!this.clientId && !!this.myPub) {
             this.configured = true
             this.log("configured to send to ", this.pubDestination)
         }
@@ -341,6 +342,14 @@ export class LiquidityProvider {
     }
     getSingleSubs = () => {
         return Object.entries(this.clientCbs).filter(([_, cb]) => cb.type === 'single')
+    }
+
+    async updateBalance(amount: number) {
+        try {
+            await this.updateProviderBalance(amount)
+        } catch (error) {
+            console.error('Failed to update provider balance:', error)
+        }
     }
 }
 
