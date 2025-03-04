@@ -97,9 +97,9 @@ export default class {
     }
 
     StartTransaction<T>(exec: TX<T>, description?: string) {
-        if ('StartTransaction' in this.DB) {
-            return this.DB.StartTransaction(exec, description)
-        } else if (this.DB instanceof DataSource) {
+        if ('transaction' in this.DB) {
+            return this.DB.transaction(exec)
+        } else if ('initialize' in this.DB && 'close' in this.DB) {
             return this.txQueue.PushToQueue({ exec, dbTx: true, description })
         }
         throw new Error('Database does not support transactions')

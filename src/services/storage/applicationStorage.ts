@@ -23,19 +23,16 @@ export default class {
     }
 
     async AddApplication(name: string, allowUserCreation: boolean): Promise<Application> {
-        return this.txQueue.PushToQueue({
-            dbTx: true,
-            exec: async tx => {
-                const owner = await this.userStorage.AddUser(0, tx)
-                const repo = this.DB.getRepository(Application)
-                const newApplication = repo.create({
-                    app_id: crypto.randomBytes(32).toString('hex'),
-                    name,
-                    owner,
-                    allow_user_creation: allowUserCreation
-                })
-                return tx.getRepository(Application).save(newApplication)
-            }
+        return this.DB.transaction(async (entityManager) => {
+            const owner = await this.userStorage.AddUser(0, entityManager)
+            const repo = entityManager.getRepository(Application)
+            const newApplication = repo.create({
+                app_id: crypto.randomBytes(32).toString('hex'),
+                name,
+                owner,
+                allow_user_creation: allowUserCreation
+            })
+            return entityManager.getRepository(Application).save(newApplication)
         })
     }
 
@@ -83,19 +80,16 @@ export default class {
     }
 
     async AddApplicationUser(application: Application, userIdentifier: string, balance: number, nostrPub?: string) {
-        return this.txQueue.PushToQueue({
-            dbTx: true,
-            exec: async tx => {
-                const user = await this.userStorage.AddUser(balance, tx)
-                const repo = tx.getRepository(ApplicationUser)
-                const appUser = repo.create({
-                    user: user,
-                    application,
-                    identifier: userIdentifier,
-                    nostr_public_key: nostrPub
-                })
-                return repo.save(appUser)
-            }
+        return this.DB.transaction(async (entityManager) => {
+            const user = await this.userStorage.AddUser(balance, entityManager)
+            const repo = entityManager.getRepository(ApplicationUser)
+            const appUser = repo.create({
+                user: user,
+                application,
+                identifier: userIdentifier,
+                nostr_public_key: nostrPub
+            })
+            return repo.save(appUser)
         })
     }
 
