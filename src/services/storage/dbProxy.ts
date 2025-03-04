@@ -3,7 +3,7 @@
 /// <reference types="uuid" />
 import { fork, ChildProcess } from 'child_process'
 import { DbSettings } from './db.js'
-import { DataSource, EntityManager } from 'typeorm'
+import { DataSource, EntityManager, EntityTarget, ObjectLiteral, Repository } from 'typeorm'
 import path from 'path'
 import { v4 as uuidv4 } from 'uuid'
 import { fileURLToPath } from 'url'
@@ -19,15 +19,17 @@ type DbMessage = {
     error?: string
 }
 
-// Define minimal interface for database operations
+// Define interface that matches required TypeORM functionality
 export interface IDbOperations {
     query(query: string, params?: any[]): Promise<any>
-    transaction<T>(callback: (manager: IDbOperations) => Promise<T>): Promise<T>
+    transaction<T>(runInTransaction: (entityManager: EntityManager) => Promise<T>): Promise<T>
+    getRepository<Entity extends ObjectLiteral>(target: EntityTarget<Entity>): Repository<Entity>
 }
 
 export class DbProxy implements IDbOperations {
     private process: ChildProcess
     private pendingRequests: Map<string, { resolve: Function, reject: Function }> = new Map()
+    private repositories: Map<string, Repository<any>> = new Map()
 
     constructor() {
         this.process = fork(path.join(__dirname, 'dbService.js'))
@@ -78,10 +80,36 @@ export class DbProxy implements IDbOperations {
         return this.sendMessage('query', { query, params })
     }
 
-    async transaction<T>(callback: (manager: IDbOperations) => Promise<T>): Promise<T> {
-        // For now, we'll execute the callback with this instance
-        // In the future, we could create a transaction-specific proxy
-        return callback(this)
+    async transaction<T>(
+        runInTransaction: (entityManager: EntityManager) => Promise<T>
+    ): Promise<T> {
+        return this.sendMessage('transaction', { callback: runInTransaction.toString() })
+    }
+
+    getRepository<Entity extends ObjectLiteral>(target: EntityTarget<Entity>): Repository<Entity> {
+        const key = typeof target === 'function' ? target.name : 
+                   typeof target === 'string' ? target :
+                   'name' in target ? target.name : target.toString()
+
+        if (!this.repositories.has(key)) {
+            // Create a proxy repository that forwards operations to the database service
+            const repository = new Proxy({} as Repository<Entity>, {
+                get: (target, prop: string) => {
+                    if (prop === 'then') {
+                        return undefined // Make the proxy non-thenable
+                    }
+                    return async (...args: any[]) => {
+                        return this.sendMessage('repository', {
+                            entity: key,
+                            method: prop,
+                            args
+                        })
+                    }
+                }
+            })
+            this.repositories.set(key, repository)
+        }
+        return this.repositories.get(key) as Repository<Entity>
     }
 
     async close(): Promise<void> {

@@ -8,7 +8,7 @@ import { createPool, Pool } from 'generic-pool'
 
 type DbMessage = {
     id: string
-    action: 'init' | 'query' | 'transaction'
+    action: 'init' | 'query' | 'transaction' | 'repository'
     payload: any
 }
 
@@ -84,13 +84,28 @@ process.on('message', async (msg: DbMessage) => {
                 try {
                     const result = await transactionConnection.transaction(async (manager: EntityManager) => {
                         // Execute the transaction callback
-                        return callback(manager)
+                        const fn = new Function('manager', `return (${callback})(manager)`)
+                        return fn(manager)
                     })
                     process.send({ id, type: 'response', success: true, data: result } as DbResponse)
                 } catch (error: any) {
                     process.send({ id, type: 'response', success: false, error: error.message } as DbResponse)
                 } finally {
                     await pool.release(transactionConnection)
+                }
+                break
+
+            case 'repository':
+                const { entity, method, args } = payload
+                const repoConnection = await pool.acquire()
+                try {
+                    const repository = repoConnection.getRepository(entity)
+                    const result = await (repository as any)[method](...args)
+                    process.send({ id, type: 'response', success: true, data: result } as DbResponse)
+                } catch (error: any) {
+                    process.send({ id, type: 'response', success: false, error: error.message } as DbResponse)
+                } finally {
+                    await pool.release(repoConnection)
                 }
                 break
         }
