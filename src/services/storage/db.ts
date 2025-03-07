@@ -39,11 +39,51 @@ export const LoadDbSettingsFromEnv = (): DbSettings => {
     }
 }
 
+/* const MainDbEntitiesNames = ['User', 'UserReceivingInvoice', 'UserReceivingAddress', 'AddressReceivingTransaction', 'UserInvoicePayment', 'UserTransactionPayment',
+    'UserBasicAuth', 'UserEphemeralKey', 'Product', 'UserToUserPayment', 'Application', 'ApplicationUser', 'UserToUserPayment', 'LspOrder', 'LndNodeInfo', 'TrackedProvider',
+    'InviteToken', 'DebitAccess', 'UserOffer'] as const
+type MainDbEntitiesName = typeof MainDbEntitiesNames[number]
+
+const MetricsDbEntitiesNames = ['BalanceEvent', 'ChannelBalanceEvent', 'ChannelRouting', 'RootOperation'] as const
+type MetricsDbEntitiesName = typeof MetricsDbEntitiesNames[number] */
+
+export const MainDbEntities = {
+    'AddressReceivingTransaction': AddressReceivingTransaction,
+    'Application': Application,
+    'ApplicationUser': ApplicationUser,
+    'User': User,
+    'UserReceivingAddress': UserReceivingAddress,
+    'UserReceivingInvoice': UserReceivingInvoice,
+    'UserInvoicePayment': UserInvoicePayment,
+    'UserTransactionPayment': UserTransactionPayment,
+    'UserBasicAuth': UserBasicAuth,
+    'UserEphemeralKey': UserEphemeralKey,
+    'UserToUserPayment': UserToUserPayment,
+    'LspOrder': LspOrder,
+    'LndNodeInfo': LndNodeInfo,
+    'TrackedProvider': TrackedProvider,
+    'InviteToken': InviteToken,
+    'DebitAccess': DebitAccess,
+    'UserOffer': UserOffer,
+    'Product': Product
+}
+export type MainDbNames = keyof typeof MainDbEntities
+export const MainDbEntitiesNames = Object.keys(MainDbEntities)
+
+const MetricsDbEntities = {
+    'BalanceEvent': BalanceEvent,
+    'ChannelBalanceEvent': ChannelBalanceEvent,
+    'ChannelRouting': ChannelRouting,
+    'RootOperation': RootOperation
+}
+export type MetricsDbNames = keyof typeof MetricsDbEntities
+export const MetricsDbEntitiesNames = Object.keys(MetricsDbEntities)
+
 export const newMetricsDb = async (settings: DbSettings, metricsMigrations: Function[]): Promise<{ source: DataSource, executedMigrations: Migration[] }> => {
     const source = await new DataSource({
         type: "sqlite",
         database: settings.metricsDatabaseFile,
-        entities: [BalanceEvent, ChannelBalanceEvent, ChannelRouting, RootOperation],
+        entities: Object.values(MetricsDbEntities),
         migrations: metricsMigrations
     }).initialize();
     const log = getLogger({});
@@ -62,10 +102,7 @@ export default async (settings: DbSettings, migrations: Function[]): Promise<{ s
         type: "sqlite",
         database: settings.databaseFile,
         // logging: true,
-        entities: [User, UserReceivingInvoice, UserReceivingAddress, AddressReceivingTransaction, UserInvoicePayment, UserTransactionPayment,
-            UserBasicAuth, UserEphemeralKey, Product, UserToUserPayment, Application, ApplicationUser, UserToUserPayment, LspOrder, LndNodeInfo, TrackedProvider,
-            InviteToken, DebitAccess, UserOffer
-        ],
+        entities: Object.values(MainDbEntities),
         //synchronize: true,
         migrations
     }).initialize()
@@ -79,7 +116,7 @@ export default async (settings: DbSettings, migrations: Function[]): Promise<{ s
     return { source, executedMigrations: [] }
 }
 
-export const runFakeMigration = async (databaseFile: string, migrations: Function[]) => {
+/* export const runFakeMigration = async (databaseFile: string, migrations: Function[]) => {
     const source = await new DataSource({
         type: "sqlite",
         database: databaseFile,
@@ -90,4 +127,4 @@ export const runFakeMigration = async (databaseFile: string, migrations: Functio
         migrations
     }).initialize()
     return source.runMigrations({ fake: true })
-}
+} */
