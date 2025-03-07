@@ -1,47 +1,42 @@
-import { DataSource, EntityManager } from "typeorm"
-import UserStorage from './userStorage.js';
-import TransactionsQueue from "./transactionsQueue.js";
 import { DebitAccess, DebitAccessRules } from "./entity/DebitAccess.js";
+import { StorageInterface } from "./storageInterface.js";
 type AccessToAdd = {
     npub: string
     rules?: DebitAccessRules
     authorize: boolean
 }
 export default class {
-    DB: DataSource | EntityManager
-    txQueue: TransactionsQueue
-    constructor(DB: DataSource | EntityManager, txQueue: TransactionsQueue) {
-        this.DB = DB
-        this.txQueue = txQueue
+    dbs: StorageInterface
+    constructor(dbs: StorageInterface) {
+        this.dbs = dbs
     }
 
-    async AddDebitAccess(appUserId: string, access: AccessToAdd, entityManager = this.DB) {
-        const entry = entityManager.getRepository(DebitAccess).create({
+    async AddDebitAccess(appUserId: string, access: AccessToAdd) {
+        return this.dbs.CreateAndSave<DebitAccess>('DebitAccess', {
             app_user_id: appUserId,
             npub: access.npub,
             authorized: access.authorize,
             rules: access.rules,
         })
-        return this.txQueue.PushToQueue<DebitAccess>({ exec: async db => db.getRepository(DebitAccess).save(entry), dbTx: false })
     }
 
-    async GetAllUserDebitAccess(appUserId: string) {
-        return this.DB.getRepository(DebitAccess).find({ where: { app_user_id: appUserId } })
+    async GetAllUserDebitAccess(appUserId: string, txId?: string) {
+        return this.dbs.Find<DebitAccess>('DebitAccess', { where: { app_user_id: appUserId } }, txId)
     }
 
-    async GetDebitAccess(appUserId: string, authorizedPub: string) {
-        return this.DB.getRepository(DebitAccess).findOne({ where: { app_user_id: appUserId, npub: authorizedPub } })
+    async GetDebitAccess(appUserId: string, authorizedPub: string, txId?: string) {
+        return this.dbs.FindOne<DebitAccess>('DebitAccess', { where: { app_user_id: appUserId, npub: authorizedPub } }, txId)
     }
 
-    async IncrementDebitAccess(appUserId: string, authorizedPub: string, amount: number) {
-        return this.DB.getRepository(DebitAccess).increment({ app_user_id: appUserId, npub: authorizedPub }, 'total_debits', amount)
+    async IncrementDebitAccess(appUserId: string, authorizedPub: string, amount: number, txId?: string) {
+        return this.dbs.Increment<DebitAccess>('DebitAccess', { app_user_id: appUserId, npub: authorizedPub }, 'total_debits', amount, txId)
     }
 
-    async UpdateDebitAccess(appUserId: string, authorizedPub: string, authorized: boolean) {
-        return this.DB.getRepository(DebitAccess).update({ app_user_id: appUserId, npub: authorizedPub }, { authorized })
+    async UpdateDebitAccess(appUserId: string, authorizedPub: string, authorized: boolean, txId?: string) {
+        return this.dbs.Update<DebitAccess>('DebitAccess', { app_user_id: appUserId, npub: authorizedPub }, { authorized }, txId)
     }
-    async UpdateDebitAccessRules(appUserId: string, authorizedPub: string, rules?: DebitAccessRules) {
-        return this.DB.getRepository(DebitAccess).update({ app_user_id: appUserId, npub: authorizedPub }, { rules: rules || null })
+    async UpdateDebitAccessRules(appUserId: string, authorizedPub: string, rules?: DebitAccessRules, txId?: string) {
+        return this.dbs.Update<DebitAccess>('DebitAccess', { app_user_id: appUserId, npub: authorizedPub }, { rules: rules || null }, txId)
     }
 
     async DenyDebitAccess(appUserId: string, pub: string) {
@@ -52,7 +47,7 @@ export default class {
         await this.UpdateDebitAccess(appUserId, pub, false)
     }
 
-    async RemoveDebitAccess(appUserId: string, authorizedPub: string) {
-        return this.DB.getRepository(DebitAccess).delete({ app_user_id: appUserId, npub: authorizedPub })
+    async RemoveDebitAccess(appUserId: string, authorizedPub: string, txId?: string) {
+        return this.dbs.Delete<DebitAccess>('DebitAccess', { app_user_id: appUserId, npub: authorizedPub }, txId)
     }
 }

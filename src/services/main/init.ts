@@ -2,7 +2,7 @@ import { PubLogger, getLogger } from "../helpers/logger.js"
 import { LiquidityProvider } from "./liquidityProvider.js"
 import { Unlocker } from "./unlocker.js"
 import Storage from "../storage/index.js"
-import { TypeOrmMigrationRunner } from "../storage/migrations/runner.js"
+/* import { TypeOrmMigrationRunner } from "../storage/migrations/runner.js" */
 import Main from "./index.js"
 import SanityChecker from "./sanityChecker.js"
 import { LoadMainSettingsFromEnv, MainSettings } from "./settings.js"
@@ -18,10 +18,11 @@ export type AppData = {
 export const initMainHandler = async (log: PubLogger, mainSettings: MainSettings) => {
     const utils = new Utils(mainSettings)
     const storageManager = new Storage(mainSettings.storageSettings)
-    const manualMigration = await TypeOrmMigrationRunner(log, storageManager, mainSettings.storageSettings.dbSettings, process.argv[2])
-    if (manualMigration) {
-        return
-    }
+    await storageManager.Connect(log)
+    /*     const manualMigration = await TypeOrmMigrationRunner(log, storageManager, mainSettings.storageSettings.dbSettings, process.argv[2])
+        if (manualMigration) {
+            return
+        } */
     const unlocker = new Unlocker(mainSettings, storageManager)
     await unlocker.Unlock()
     const adminManager = new AdminManager(mainSettings, storageManager)

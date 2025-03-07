@@ -1,8 +1,8 @@
 import { DataSource, EntityManager, EntityTarget } from "typeorm"
 import { PubLogger, getLogger } from "../helpers/logger.js"
 
-export type TX<T> = (entityManager: EntityManager | DataSource) => Promise<T>
-export type TxOperation<T> = {
+type TX<T> = (entityManager: EntityManager | DataSource) => Promise<T>
+type TxOperation<T> = {
     exec: TX<T>
     dbTx: boolean
     description?: string

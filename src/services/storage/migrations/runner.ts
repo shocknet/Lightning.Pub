@@ -1,6 +1,3 @@
-import { PubLogger } from '../../helpers/logger.js'
-import { DbSettings, runFakeMigration } from '../db.js'
-import Storage, { StorageSettings } from '../index.js'
 import { Initial1703170309875 } from './1703170309875-initial.js'
 import { LndMetrics1703170330183 } from './1703170330183-lnd_metrics.js'
 import { ChannelRouting1709316653538 } from './1709316653538-channel_routing.js'
@@ -18,26 +15,21 @@ import { DebitToPub1727105758354 } from './1727105758354-debit_to_pub.js'
 import { UserCbUrl1727112281043 } from './1727112281043-user_cb_url.js'
 import { RootOps1732566440447 } from './1732566440447-root_ops.js'
 import { UserOffer1733502626042 } from './1733502626042-user_offer.js'
-const allMigrations = [Initial1703170309875, LspOrder1718387847693, LiquidityProvider1719335699480, LndNodeInfo1720187506189, TrackedProvider1720814323679, CreateInviteTokenTable1721751414878, PaymentIndex1721760297610, DebitAccess1726496225078, DebitAccessFixes1726685229264, DebitToPub1727105758354, UserCbUrl1727112281043, UserOffer1733502626042]
-const allMetricsMigrations = [LndMetrics1703170330183, ChannelRouting1709316653538, HtlcCount1724266887195, BalanceEvents1724860966825, RootOps1732566440447]
-export const TypeOrmMigrationRunner = async (log: PubLogger, storageManager: Storage, settings: DbSettings, arg: string | undefined): Promise<boolean> => {
-    if (arg === 'fake_initial_migration') {
-        runFakeMigration(settings.databaseFile, [Initial1703170309875])
-        return true
-    }
+export const allMigrations = [Initial1703170309875, LspOrder1718387847693, LiquidityProvider1719335699480, LndNodeInfo1720187506189, TrackedProvider1720814323679, CreateInviteTokenTable1721751414878, PaymentIndex1721760297610, DebitAccess1726496225078, DebitAccessFixes1726685229264, DebitToPub1727105758354, UserCbUrl1727112281043, UserOffer1733502626042]
+export const allMetricsMigrations = [LndMetrics1703170330183, ChannelRouting1709316653538, HtlcCount1724266887195, BalanceEvents1724860966825, RootOps1732566440447]
+/* export const TypeOrmMigrationRunner = async (log: PubLogger, storageManager: Storage, settings: DbSettings, arg: string | undefined): Promise<boolean> => {
     await connectAndMigrate(log, storageManager, allMigrations, allMetricsMigrations)
     return false
 }
 
 const connectAndMigrate = async (log: PubLogger, storageManager: Storage, migrations: Function[], metricsMigrations: Function[]) => {
     const { executedMigrations, executedMetricsMigrations } = await storageManager.Connect(migrations, metricsMigrations)
-    if (migrations.length > 0) {
-        log(executedMigrations.length, "of", migrations.length, "migrations were executed correctly")
-        log(executedMigrations)
+    if (executedMigrations.length > 0) {
+        log(executedMigrations.length, "new migrations executed")
         log("-------------------")
 
-    } if (metricsMigrations.length > 0) {
-        log(executedMetricsMigrations.length, "of", metricsMigrations.length, "metrics migrations were executed correctly")
-        log(executedMetricsMigrations)
+    } if (executedMetricsMigrations.length > 0) {
+        log(executedMetricsMigrations.length, "new metrics migrations executed")
+        log("-------------------")
     }
-}
+} */

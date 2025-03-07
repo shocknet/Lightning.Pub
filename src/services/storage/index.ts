@@ -1,4 +1,3 @@
-import { DataSource, EntityManager } from "typeorm"
 import fs from 'fs'
 import NewDB, { DbSettings, LoadDbSettingsFromEnv } from "./db.js"
 import ProductStorage from './productStorage.js'
@@ -7,11 +6,13 @@ import UserStorage from "./userStorage.js";
 import PaymentStorage from "./paymentStorage.js";
 import MetricsStorage from "./metricsStorage.js";
 import MetricsEventStorage from "./metricsEventStorage.js";
-import TransactionsQueue, { TX } from "./transactionsQueue.js";
 import EventsLogManager from "./eventsLog.js";
 import { LiquidityStorage } from "./liquidityStorage.js";
 import DebitStorage from "./debitStorage.js"
 import OfferStorage from "./offerStorage.js"
+import { StorageInterface, TX } from "./storageInterface.js";
+import { allMetricsMigrations, allMigrations } from "./migrations/runner.js"
+import { PubLogger } from "../helpers/logger.js"
 export type StorageSettings = {
     dbSettings: DbSettings
     eventLogPath: string
@@ -21,9 +22,10 @@ export const LoadStorageSettingsFromEnv = (): StorageSettings => {
     return { dbSettings: LoadDbSettingsFromEnv(), eventLogPath: "logs/eventLogV3.csv", dataDir: process.env.DATA_DIR || "" }
 }
 export default class {
-    DB: DataSource | EntityManager
+    //DB: DataSource | EntityManager
     settings: StorageSettings
-    txQueue: TransactionsQueue
+    //txQueue: TransactionsQueue
+    dbs: StorageInterface
     productStorage: ProductStorage
     applicationStorage: ApplicationStorage
     userStorage: UserStorage
@@ -38,25 +40,35 @@ export default class {
         this.settings = settings
         this.eventsLog = new EventsLogManager(settings.eventLogPath)
     }
-    async Connect(migrations: Function[], metricsMigrations: Function[]) {
-        const { source, executedMigrations } = await NewDB(this.settings.dbSettings, migrations)
-        this.DB = source
-        this.txQueue = new TransactionsQueue("main", this.DB)
-        this.userStorage = new UserStorage(this.DB, this.txQueue, this.eventsLog)
-        this.productStorage = new ProductStorage(this.DB, this.txQueue)
-        this.applicationStorage = new ApplicationStorage(this.DB, this.userStorage, this.txQueue)
-        this.paymentStorage = new PaymentStorage(this.DB, this.userStorage, this.txQueue)
+    async Connect(log: PubLogger) {
+        this.dbs = new StorageInterface()
+        await this.dbs.Connect(this.settings.dbSettings)
+        //const { source, executedMigrations } = await NewDB(this.settings.dbSettings, allMigrations)
+        //this.DB = source
+        //this.txQueue = new TransactionsQueue("main", this.DB)
+        this.userStorage = new UserStorage(this.dbs, this.eventsLog)
+        this.productStorage = new ProductStorage(this.dbs)
+        this.applicationStorage = new ApplicationStorage(this.dbs, this.userStorage)
+        this.paymentStorage = new PaymentStorage(this.dbs, this.userStorage)
         this.metricsStorage = new MetricsStorage(this.settings)
         this.metricsEventStorage = new MetricsEventStorage(this.settings)
-        this.liquidityStorage = new LiquidityStorage(this.DB, this.txQueue)
-        this.debitStorage = new DebitStorage(this.DB, this.txQueue)
-        this.offerStorage = new OfferStorage(this.DB, this.txQueue)
+        this.liquidityStorage = new LiquidityStorage(this.dbs)
+        this.debitStorage = new DebitStorage(this.dbs)
+        this.offerStorage = new OfferStorage(this.dbs)
         try { if (this.settings.dataDir) fs.mkdirSync(this.settings.dataDir) } catch (e) { }
-        const executedMetricsMigrations = await this.metricsStorage.Connect(metricsMigrations)
-        return { executedMigrations, executedMetricsMigrations };
+        const executedMetricsMigrations = await this.metricsStorage.Connect(allMetricsMigrations)
+        /*         if (executedMigrations.length > 0) {
+                    log(executedMigrations.length, "new migrations executed")
+                    log("-------------------")
+        
+                }  */
+        if (executedMetricsMigrations.length > 0) {
+            log(executedMetricsMigrations.length, "new metrics migrations executed")
+            log("-------------------")
+        }
     }
 
     StartTransaction<T>(exec: TX<T>, description?: string) {
-        return this.txQueue.PushToQueue({ exec, dbTx: true, description })
+        return this.dbs.Tx(tx => exec(tx), description)
     }
 }
