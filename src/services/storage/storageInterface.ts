@@ -14,15 +14,21 @@ import {
 import { PickKeysByType } from 'typeorm/common/PickKeysByType.js';
 import { serializeRequest, WhereCondition } from './serializationHelpers.js';
 
+
 export type TX<T> = (txId: string) => Promise<T>
 
 export class StorageInterface extends EventEmitter {
     private process: any;
     private isConnected: boolean = false;
+    private debug: boolean = false;
 
     constructor() {
         super();
         this.initializeSubprocess();
+    }
+
+    setDebug(debug: boolean) {
+        this.debug = debug;
     }
 
     private initializeSubprocess() {
@@ -131,11 +137,11 @@ export class StorageInterface extends EventEmitter {
     }
 
     private handleOp<T>(op: IStorageOperation): Promise<T> {
-        console.log('handleOp', op)
+        if (this.debug) console.log('handleOp', op)
         this.checkConnected()
         return new Promise<T>((resolve, reject) => {
             const responseHandler = (response: OperationResponse<T>) => {
-                console.log('responseHandler', response)
+                if (this.debug) console.log('responseHandler', response)
                 if (!response.success) {
                     reject(new Error(response.error));
                     return
@@ -169,6 +175,7 @@ export class StorageInterface extends EventEmitter {
         if (this.process) {
             this.process.kill();
             this.isConnected = false;
+            this.debug = false;
         }
     }
-} 
+}
