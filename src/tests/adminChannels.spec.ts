@@ -4,7 +4,6 @@ export const ignore = false
 export const dev = false
 
 export default async (T: TestBase) => {
-    T.main.storage.dbs.setDebug(true)
     await safelySetUserBalance(T, T.user1, 2000)
     await openAdminChannel(T)
     await runSanityCheck(T)

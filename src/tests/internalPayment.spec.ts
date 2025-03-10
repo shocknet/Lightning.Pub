@@ -35,7 +35,7 @@ const testFailedInternalPayment = async (T: TestBase) => {
     const invoice = await T.main.paymentManager.NewInvoice(T.user2.userId, { amountSats: 1000, memo: "test" }, { linkedApplication: application, expiry: defaultInvoiceExpiry })
     expect(invoice.invoice).to.startWith("lnbcrt10u")
     T.d("generated 1000 sats invoice for user2")
-    await expectThrowsAsync(T.main.paymentManager.PayInvoice(T.user1.userId, { invoice: invoice.invoice, amount: 0 }, application), "Error: not enough balance to decrement")
+    await expectThrowsAsync(T.main.paymentManager.PayInvoice(T.user1.userId, { invoice: invoice.invoice, amount: 0 }, application), "not enough balance to decrement")
     T.d("payment failed as expected, with the expected error message")
 }
 
