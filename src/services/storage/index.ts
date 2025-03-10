@@ -68,6 +68,10 @@ export default class {
         }
     }
 
+    Stop() {
+        this.dbs.disconnect()
+    }
+
     StartTransaction<T>(exec: TX<T>, description?: string) {
         return this.dbs.Tx(tx => exec(tx), description)
     }
