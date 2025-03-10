@@ -131,9 +131,11 @@ export class StorageInterface extends EventEmitter {
     }
 
     private handleOp<T>(op: IStorageOperation): Promise<T> {
+        console.log('handleOp', op)
         this.checkConnected()
         return new Promise<T>((resolve, reject) => {
             const responseHandler = (response: OperationResponse<T>) => {
+                console.log('responseHandler', response)
                 if (!response.success) {
                     reject(new Error(response.error));
                     return
