@@ -21,7 +21,7 @@ const testSpamExternalPayment = async (T: TestBase) => {
             const result = await T.main.paymentManager.PayInvoice(T.user1.userId, { invoice: invoice.payRequest, amount: 0 }, application)
             return { success: true, result }
         } catch (e: any) {
-            return { success: false, err: e }
+            return { success: false, err: e.message }
         }
     }))
 
