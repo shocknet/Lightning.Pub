@@ -217,21 +217,23 @@ class StorageProcessor {
         const res = await this.txQueue.PushToQueue({
             dbTx: false,
             description: operation.description || "startTx",
-            exec: tx => new Promise((resolve, reject) => {
-                this.activeTransaction = {
-                    txId: operation.opId,
-                    manager: tx,
-                    resolve,
-                    reject
-                }
-            })
+            exec: tx => {
+                this.sendResponse({
+                    success: true,
+                    type: 'startTx',
+                    data: operation.opId,
+                    opId: operation.opId
+                });
+                return new Promise((resolve, reject) => {
+                    this.activeTransaction = {
+                        txId: operation.opId,
+                        manager: tx,
+                        resolve,
+                        reject
+                    }
+                })
+            }
         })
-        this.sendResponse({
-            success: true,
-            type: 'startTx',
-            data: res,
-            opId: operation.opId
-        });
     }
 
     private async handleEndTx(operation: EndTxOperation<any>) {
