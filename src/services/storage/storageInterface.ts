@@ -10,9 +10,9 @@ import {
     IncrementOperation,
     DecrementOperation,
     SumOperation,
-    WhereCondition
 } from './storageProcessor.js';
 import { PickKeysByType } from 'typeorm/common/PickKeysByType.js';
+import { serializeRequest, WhereCondition } from './serializationHelpers.js';
 
 export type TX<T> = (txId: string) => Promise<T>
 
@@ -147,8 +147,16 @@ export class StorageInterface extends EventEmitter {
                 resolve(response.data);
             }
             this.once(op.opId, responseHandler)
-            this.process.send(op)
+            this.process.send(this.serializeOperation(op))
         })
+    }
+
+    private serializeOperation(operation: IStorageOperation): IStorageOperation {
+        const serialized = { ...operation };
+        if ('q' in serialized) {
+            (serialized as any).q = serializeRequest((serialized as any).q);
+        }
+        return serialized;
     }
 
     private checkConnected() {

@@ -1,11 +1,12 @@
-import { DataSource, EntityManager, DeepPartial, FindOptionsWhere, FindOptionsOrder } from 'typeorm';
+import { DataSource, EntityManager, DeepPartial, FindOptionsWhere, FindOptionsOrder, FindOperator } from 'typeorm';
 import NewDB, { DbSettings, MainDbEntities, MainDbNames, newMetricsDb } from './db.js';
 import { PubLogger, getLogger } from '../helpers/logger.js';
 import { allMetricsMigrations, allMigrations } from './migrations/runner.js';
 import transactionsQueue from './transactionsQueue.js';
 import { PickKeysByType } from 'typeorm/common/PickKeysByType';
+import { deserializeRequest, WhereCondition } from './serializationHelpers.js';
 
-export type WhereCondition<T> = FindOptionsWhere<T> | FindOptionsWhere<T>[]
+
 export type QueryOptions<T> = {
     where?: WhereCondition<T>
     order?: FindOptionsOrder<T>
@@ -154,6 +155,9 @@ class StorageProcessor {
     private async handleOperation(operation: StorageOperation<any>) {
         try {
             const opId = operation.opId;
+            if ((operation as any).q) {
+                (operation as any).q = deserializeRequest((operation as any).q)
+            }
             switch (operation.type) {
                 case 'connect':
                     return this.handleConnect(operation);
