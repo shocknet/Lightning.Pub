@@ -333,6 +333,7 @@ class StorageProcessor {
 
     private async handleFindOne(operation: FindOneOperation<any>) {
         const manager = this.getManager(operation.txId);
+        console.log(operation.q.where)
         const res = await manager.getRepository(MainDbEntities[operation.entity]).findOne(operation.q)
 
         this.sendResponse({
