@@ -73,6 +73,7 @@ const runTestFile = async (fileName: string, mod: TestModule) => {
         await teardown(T)
     } catch (e: any) {
         d(e, true)
+        d("test crashed")
         await teardown(T)
     }
     if (mod.dev) {
