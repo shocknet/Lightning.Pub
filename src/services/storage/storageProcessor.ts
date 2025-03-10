@@ -214,26 +214,34 @@ class StorageProcessor {
 
 
     private async handleStartTx(operation: StartTxOperation) {
-        const res = await this.txQueue.PushToQueue({
-            dbTx: false,
-            description: operation.description || "startTx",
-            exec: tx => {
-                this.sendResponse({
-                    success: true,
-                    type: 'startTx',
-                    data: operation.opId,
-                    opId: operation.opId
-                });
-                return new Promise((resolve, reject) => {
-                    this.activeTransaction = {
-                        txId: operation.opId,
-                        manager: tx,
-                        resolve,
-                        reject
-                    }
-                })
-            }
-        })
+        try {
+            await this.txQueue.PushToQueue({
+                dbTx: false,
+                description: operation.description || "startTx",
+                exec: tx => {
+                    this.sendResponse({
+                        success: true,
+                        type: 'startTx',
+                        data: operation.opId,
+                        opId: operation.opId
+                    });
+                    return new Promise((resolve, reject) => {
+                        this.activeTransaction = {
+                            txId: operation.opId,
+                            manager: tx,
+                            resolve,
+                            reject
+                        }
+                    })
+                }
+            })
+        } catch (error: any) {
+            this.sendResponse({
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error occurred',
+                opId: operation.opId
+            });
+        }
     }
 
     private async handleEndTx(operation: EndTxOperation<any>) {
