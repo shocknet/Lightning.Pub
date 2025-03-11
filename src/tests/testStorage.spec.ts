@@ -7,6 +7,7 @@ export const dev = false
 export const storageOnly = false
 
 export default async (T: TestBase) => {
+    T.main.storage.dbs.setDebug(true)
     await testCanReadUser(T)
     await testConcurrentReads(T)
     await testTransactionIsolation(T)
