@@ -4,6 +4,7 @@ import { runSanityCheck, safelySetUserBalance, TestBase } from './testBase.js'
 import { FindOptionsWhere } from 'typeorm'
 export const ignore = false
 export const dev = false
+export const storageOnly = false
 
 export default async (T: TestBase) => {
     await testCanReadUser(T)
@@ -45,6 +46,11 @@ const testConcurrentReads = async (T: TestBase) => {
 const testTransactionIsolation = async (T: TestBase) => {
     T.d('Starting testTransactionIsolation')
     // Start a transaction
+    // Check initial balance before transaction
+    const userBefore = await T.main.storage.dbs.FindOne<User>('User', {
+        where: { user_id: T.user1.userId }
+    })
+    T.expect(userBefore?.balance_sats).to.not.equal(1000, 'User should not start with balance of 1000')
 
     const txId = await T.main.storage.dbs.StartTx('test-transaction')
 
