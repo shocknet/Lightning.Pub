@@ -48,6 +48,4 @@ const testSpamExternalPayment = async (T: TestBase) => {
     T.d("user1 balance is now 490 (2000 - (500 + 3 fee + 1 routing + (500 + 3fee) * 2))")
     expect(owner.balance_sats).to.be.equal(9)
     T.d("app balance is 9 sats")*/
-
 }
-
