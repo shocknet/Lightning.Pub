@@ -78,12 +78,19 @@ export const LoadMainSettingsFromEnv = (): MainSettings => {
     }
 }
 
+export const GetTestStorageSettings = (s?: StorageSettings): StorageSettings => {
+    if (s) {
+        return { dbSettings: { ...s.dbSettings, databaseFile: ":memory:", metricsDatabaseFile: ":memory:" }, eventLogPath: s.eventLogPath, dataDir: "test-data" }
+    }
+    return { dbSettings: { databaseFile: ":memory:", metricsDatabaseFile: ":memory:", migrate: true }, eventLogPath: "logs/eventLogV3Test.csv", dataDir: "test-data" }
+}
+
 export const LoadTestSettingsFromEnv = (): TestSettings => {
     const eventLogPath = `logs/eventLogV3Test${Date.now()}.csv`
     const settings = LoadMainSettingsFromEnv()
     return {
         ...settings,
-        storageSettings: { dbSettings: { ...settings.storageSettings.dbSettings, databaseFile: ":memory:", metricsDatabaseFile: ":memory:" }, eventLogPath, dataDir: "data" },
+        storageSettings: GetTestStorageSettings(settings.storageSettings),
         lndSettings: {
             ...settings.lndSettings,
             otherNode: {

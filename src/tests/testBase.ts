@@ -4,7 +4,7 @@ import { AppData, initMainHandler } from '../services/main/init.js'
 import Main from '../services/main/index.js'
 import Storage from '../services/storage/index.js'
 import { User } from '../services/storage/entity/User.js'
-import { LoadMainSettingsFromEnv, LoadTestSettingsFromEnv, MainSettings } from '../services/main/settings.js'
+import { GetTestStorageSettings, LoadMainSettingsFromEnv, LoadTestSettingsFromEnv, MainSettings } from '../services/main/settings.js'
 import chaiString from 'chai-string'
 import { defaultInvoiceExpiry } from '../services/storage/paymentStorage.js'
 import SanityChecker from '../services/main/sanityChecker.js'
@@ -33,6 +33,27 @@ export type TestBase = {
     externalAccessToThirdLnd: LND
     adminManager: AdminManager
     d: Describe
+}
+
+export type StorageTestBase = {
+    expect: Chai.ExpectStatic;
+    storage: Storage
+    d: Describe
+}
+
+export const setupStorageTest = async (d: Describe): Promise<StorageTestBase> => {
+    const settings = GetTestStorageSettings()
+    const storageManager = new Storage(settings)
+    await storageManager.Connect(console.log)
+    return {
+        expect,
+        storage: storageManager,
+        d
+    }
+}
+
+export const teardownStorageTest = async (T: StorageTestBase) => {
+    T.storage.Stop()
 }
 
 export const SetupTest = async (d: Describe): Promise<TestBase> => {
