@@ -14,12 +14,15 @@ export default async (T: TestBase) => {
 }
 
 const testCanReadUser = async (T: TestBase) => {
+    T.d('Starting testCanReadUser')
     const u = await T.main.storage.dbs.FindOne<User>('User', { where: { user_id: T.user1.userId } })
     T.expect(u).to.not.be.equal(null)
     T.expect(u?.user_id).to.be.equal(T.user1.userId)
+    T.d('Finished testCanReadUser')
 }
 
 const testConcurrentReads = async (T: TestBase) => {
+    T.d('Starting testConcurrentReads')
     // Test multiple concurrent read operations
     const promises = [
         T.main.storage.dbs.FindOne<User>('User', { where: { user_id: T.user1.userId } }),
@@ -36,10 +39,13 @@ const testConcurrentReads = async (T: TestBase) => {
     T.expect(user2?.user_id).to.be.equal(T.user2.userId)
     T.expect(allUsers).to.not.be.equal(null)
     T.expect(allUsers.length).to.be.greaterThan(1)
+    T.d('Finished testConcurrentReads')
 }
 
 const testTransactionIsolation = async (T: TestBase) => {
+    T.d('Starting testTransactionIsolation')
     // Start a transaction
+
     const txId = await T.main.storage.dbs.StartTx('test-transaction')
 
     try {
@@ -79,9 +85,11 @@ const testTransactionIsolation = async (T: TestBase) => {
         await T.main.storage.dbs.EndTx(txId, false, error instanceof Error ? error.message : 'Unknown error')
         throw error
     }
+    T.d('Finished testTransactionIsolation')
 }
 
 const testUserCRUD = async (T: TestBase) => {
+    T.d('Starting testUserCRUD')
     // Create
     const newUser = {
         user_id: 'test-user-' + Date.now(),
@@ -119,9 +127,11 @@ const testUserCRUD = async (T: TestBase) => {
         { where: { user_id: newUser.user_id } as FindOptionsWhere<User> }
     )
     T.expect(deletedUser).to.be.equal(null)
+    T.d('Finished testUserCRUD')
 }
 
 const testErrorHandling = async (T: TestBase) => {
+    T.d('Starting testErrorHandling')
     // Test null result (not an error)
     const nonExistentUser = await T.main.storage.dbs.FindOne<User>('User',
         { where: { user_id: 'does-not-exist' } as FindOptionsWhere<User> }
@@ -160,4 +170,5 @@ const testErrorHandling = async (T: TestBase) => {
         await T.main.storage.dbs.EndTx(txId, false, error instanceof Error ? error.message : 'Unknown error')
         T.expect(error).to.not.be.equal(null)
     }
+    T.d('Finished testErrorHandling')
 }
