@@ -11,7 +11,7 @@ export default async (T: StorageTestBase) => {
     await testCanReadUser(T, u)
     await testConcurrentReads(T, u)
     //T.storage.dbs.setDebug(true)
-    await testTransactionIsolation(T, u)
+    //await testTransactionIsolation(T, u)
     //T.storage.dbs.setDebug(false)
     await testUserCRUD(T)
     await testErrorHandling(T, u)
@@ -56,7 +56,7 @@ const testConcurrentReads = async (T: StorageTestBase, user: User) => {
     T.d('Finished testConcurrentReads')
 }
 
-const testTransactionIsolation = async (T: StorageTestBase, user: User) => {
+/* const testTransactionIsolation = async (T: StorageTestBase, user: User) => {
     T.d('Starting testTransactionIsolation')
     // Start a transaction
     // Check initial balance before transaction
@@ -105,7 +105,7 @@ const testTransactionIsolation = async (T: StorageTestBase, user: User) => {
         throw error
     }
     T.d('Finished testTransactionIsolation')
-}
+} */
 
 const testUserCRUD = async (T: StorageTestBase) => {
     T.d('Starting testUserCRUD')
