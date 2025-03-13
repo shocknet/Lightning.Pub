@@ -46,6 +46,7 @@ const start = async () => {
         await runTestFile(file, module)
     } else {
         console.log("running all tests")
+        await setupNetwork()
         for (const { file, module } of modules) {
             await runTestFile(file, module)
         }

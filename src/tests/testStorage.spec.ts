@@ -3,16 +3,16 @@ import { defaultInvoiceExpiry } from '../services/storage/paymentStorage.js'
 import { runSanityCheck, safelySetUserBalance, StorageTestBase, TestBase } from './testBase.js'
 import { FindOptionsWhere } from 'typeorm'
 export const ignore = false
-export const dev = true
+export const dev = false
 export const requires = 'storage'
 
 export default async (T: StorageTestBase) => {
     const u = await testCanCreateUser(T)
     await testCanReadUser(T, u)
     await testConcurrentReads(T, u)
-    T.storage.dbs.setDebug(true)
+    //T.storage.dbs.setDebug(true)
     await testTransactionIsolation(T, u)
-    T.storage.dbs.setDebug(false)
+    //T.storage.dbs.setDebug(false)
     await testUserCRUD(T)
     await testErrorHandling(T, u)
 }

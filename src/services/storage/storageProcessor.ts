@@ -268,19 +268,25 @@ class StorageProcessor {
 
     }
 
+    private getTx(txId: string) {
+        if (!this.activeTransaction || this.activeTransaction.txId !== txId) {
+            throw new Error('Transaction not found');
+        }
+        return this.activeTransaction.manager
+    }
+
     private getManager(txId?: string): DataSource | EntityManager {
         if (txId) {
-            if (!this.activeTransaction || this.activeTransaction.txId !== txId) {
-                throw new Error('Transaction not found');
-            }
-            return this.activeTransaction.manager
+            return this.getTx(txId)
         }
         return this.DB
     }
 
     private async handleDelete(operation: DeleteOperation<any>) {
-        const manager = this.getManager(operation.txId);
-        const res = await manager.getRepository(MainDbEntities[operation.entity]).delete(operation.q)
+
+        const res = await this.handleWrite(operation.txId, eM => {
+            return eM.getRepository(MainDbEntities[operation.entity]).delete(operation.q)
+        })
         this.sendResponse({
             success: true,
             type: 'delete',
@@ -290,8 +296,9 @@ class StorageProcessor {
     }
 
     private async handleRemove(operation: RemoveOperation<any>) {
-        const manager = this.getManager(operation.txId);
-        const res = await manager.getRepository(MainDbEntities[operation.entity]).remove(operation.q)
+        const res = await this.handleWrite(operation.txId, eM => {
+            return eM.getRepository(MainDbEntities[operation.entity]).remove(operation.q)
+        })
 
         this.sendResponse({
             success: true,
@@ -302,8 +309,9 @@ class StorageProcessor {
     }
 
     private async handleUpdate(operation: UpdateOperation<any>) {
-        const manager = this.getManager(operation.txId);
-        const res = await manager.getRepository(MainDbEntities[operation.entity]).update(operation.q, operation.toUpdate)
+        const res = await this.handleWrite(operation.txId, eM => {
+            return eM.getRepository(MainDbEntities[operation.entity]).update(operation.q, operation.toUpdate)
+        })
 
         this.sendResponse({
             success: true,
@@ -314,8 +322,10 @@ class StorageProcessor {
     }
 
     private async handleIncrement(operation: IncrementOperation<any>) {
-        const manager = this.getManager(operation.txId);
-        const res = await manager.getRepository(MainDbEntities[operation.entity]).increment(operation.q, operation.propertyPath, operation.value)
+        const res = await this.handleWrite(operation.txId, eM => {
+            return eM.getRepository(MainDbEntities[operation.entity]).increment(operation.q, operation.propertyPath, operation.value)
+        })
+
         this.sendResponse({
             success: true,
             type: 'increment',
@@ -325,8 +335,10 @@ class StorageProcessor {
     }
 
     private async handleDecrement(operation: DecrementOperation<any>) {
-        const manager = this.getManager(operation.txId);
-        const res = await manager.getRepository(MainDbEntities[operation.entity]).decrement(operation.q, operation.propertyPath, operation.value)
+        const res = await this.handleWrite(operation.txId, eM => {
+            return eM.getRepository(MainDbEntities[operation.entity]).decrement(operation.q, operation.propertyPath, operation.value)
+        })
+
         this.sendResponse({
             success: true,
             type: 'decrement',
@@ -336,8 +348,9 @@ class StorageProcessor {
     }
 
     private async handleFindOne(operation: FindOneOperation<any>) {
-        const manager = this.getManager(operation.txId);
-        const res = await manager.getRepository(MainDbEntities[operation.entity]).findOne(operation.q)
+        const res = await this.handleRead(operation.txId, eM => {
+            return eM.getRepository(MainDbEntities[operation.entity]).findOne(operation.q)
+        })
 
         this.sendResponse({
             success: true,
@@ -348,8 +361,9 @@ class StorageProcessor {
     }
 
     private async handleFind(operation: FindOperation<any>) {
-        const manager = this.getManager(operation.txId);
-        const res = await manager.getRepository(MainDbEntities[operation.entity]).find(operation.q)
+        const res = await this.handleRead(operation.txId, eM => {
+            return eM.getRepository(MainDbEntities[operation.entity]).find(operation.q)
+        })
 
         this.sendResponse({
             success: true,
@@ -360,8 +374,9 @@ class StorageProcessor {
     }
 
     private async handleSum(operation: SumOperation<object>) {
-        const manager = this.getManager(operation.txId);
-        const res = await manager.getRepository(MainDbEntities[operation.entity]).sum(operation.columnName, operation.q)
+        const res = await this.handleRead(operation.txId, eM => {
+            return eM.getRepository(MainDbEntities[operation.entity]).sum(operation.columnName, operation.q)
+        })
         this.sendResponse({
             success: true,
             type: 'sum',
@@ -371,7 +386,10 @@ class StorageProcessor {
     }
 
     private async handleCreateAndSave(operation: CreateAndSaveOperation<any>) {
-        const saved = await this.createAndSave(operation)
+        const saved = await this.handleWrite(operation.txId, async eM => {
+            const res = eM.getRepository(MainDbEntities[operation.entity]).create(operation.toSave)
+            return eM.getRepository(MainDbEntities[operation.entity]).save(res)
+        })
 
         this.sendResponse({
             success: true,
@@ -381,19 +399,23 @@ class StorageProcessor {
         });
     }
 
-    private async createAndSave(operation: CreateAndSaveOperation<any>) {
-        if (operation.txId) {
-            const manager = this.getManager(operation.txId);
-            const res = manager.getRepository(MainDbEntities[operation.entity]).create(operation.toSave)
-            return manager.getRepository(MainDbEntities[operation.entity]).save(res)
+    private async handleRead(txId: string | undefined, read: (tx: DataSource | EntityManager) => Promise<any>) {
+        if (txId) {
+            const tx = this.getTx(txId)
+            return read(tx)
+        }
+        return this.txQueue.Read(read)
+    }
+
+    private async handleWrite(txId: string | undefined, write: (tx: DataSource | EntityManager) => Promise<any>) {
+        if (txId) {
+            const tx = this.getTx(txId)
+            return write(tx)
         }
         return this.txQueue.PushToQueue({
             dbTx: false,
-            description: operation.description || "createAndSave",
-            exec: async tx => {
-                const res = tx.getRepository(MainDbEntities[operation.entity]).create(operation.toSave)
-                return tx.getRepository(MainDbEntities[operation.entity]).save(res)
-            }
+            description: "write",
+            exec: write
         })
     }
 
