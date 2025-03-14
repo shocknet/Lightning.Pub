@@ -127,7 +127,7 @@ export default class {
     }
 
     async AddPendingExternalPayment(userId: string, invoice: string, amounts: { payAmount: number, serviceFee: number, networkFee: number }, linkedApplication: Application, liquidityProvider: string | undefined, txId: string, debitNpub?: string): Promise<UserInvoicePayment> {
-        const user = await this.userStorage.GetUser(userId)
+        const user = await this.userStorage.GetUser(userId, txId)
         return this.dbs.CreateAndSave<UserInvoicePayment>('UserInvoicePayment', {
             user,
             paid_amount: amounts.payAmount,
