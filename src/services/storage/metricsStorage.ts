@@ -1,14 +1,12 @@
 import { Between, DataSource, EntityManager, FindManyOptions, FindOperator, LessThanOrEqual, MoreThanOrEqual } from "typeorm"
 import { BalanceEvent } from "./entity/BalanceEvent.js"
 import { ChannelBalanceEvent } from "./entity/ChannelsBalanceEvent.js"
-import TransactionsQueue, { TX } from "./transactionsQueue.js";
+import TransactionsQueue from "./transactionsQueue.js";
 import { StorageSettings } from "./index.js";
 import { newMetricsDb } from "./db.js";
 import { ChannelRouting } from "./entity/ChannelRouting.js";
 import { RootOperation } from "./entity/RootOperation.js";
 export default class {
-
-
     DB: DataSource | EntityManager
     settings: StorageSettings
     txQueue: TransactionsQueue

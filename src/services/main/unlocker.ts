@@ -18,7 +18,7 @@ export class Unlocker {
     storage: Storage
     abortController = new AbortController()
     subbedToBackups = false
-    nodePub: string|null =null
+    nodePub: string | null = null
     log = getLogger({ component: "unlocker" })
     constructor(settings: MainSettings, storage: Storage) {
         this.settings = settings
@@ -133,7 +133,7 @@ export class Unlocker {
         return { ln, pub: info.pub }
     }
 
-    GetSeed = async ():  Promise<Types.LndSeed> => {
+    GetSeed = async (): Promise<Types.LndSeed> => {
         if (!this.nodePub) {
             throw new Error("node pub not found")
         }
@@ -259,7 +259,7 @@ export class Unlocker {
                     await this.storage.liquidityStorage.SaveNodeBackup(pub, JSON.stringify(encryptedData))
                     this.log("new channel backup saved correctly")
                 } catch (err: any) {
-                    this.log("new channel backup was not saved")
+                    this.log("new channel backup was not saved", err.message || err)
                 }
             }
         })

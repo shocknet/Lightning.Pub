@@ -85,6 +85,7 @@ export default class {
         this.applicationManager.Stop()
         this.paymentManager.Stop()
         this.utils.Stop()
+        this.storage.Stop()
     }
 
     StartBeacons() {
@@ -136,8 +137,8 @@ export default class {
                         log(ERROR, "an address was paid, that has no linked application")
                         return
                     }
-                    const updateResult = await this.storage.paymentStorage.UpdateAddressReceivingTransaction(serialId, { confs: c.confs }, tx)
-                    if (!updateResult.affected) {
+                    const affected = await this.storage.paymentStorage.UpdateAddressReceivingTransaction(serialId, { confs: c.confs }, tx)
+                    if (!affected) {
                         throw new Error("unable to flag chain transaction as paid")
                     }
                     const addressData = `${userAddress.address}:${tx_hash}`

@@ -1,72 +1,66 @@
-import { DataSource, EntityManager, IsNull, MoreThan, Not } from "typeorm"
+import { IsNull, MoreThan, Not } from "typeorm"
 import { LspOrder } from "./entity/LspOrder.js";
-import TransactionsQueue, { TX } from "./transactionsQueue.js";
 import { LndNodeInfo } from "./entity/LndNodeInfo.js";
 import { TrackedProvider } from "./entity/TrackedProvider.js";
+import { StorageInterface } from "./storageInterface.js";
 export class LiquidityStorage {
-    DB: DataSource | EntityManager
-    txQueue: TransactionsQueue
-    constructor(DB: DataSource | EntityManager, txQueue: TransactionsQueue) {
-        this.DB = DB
-        this.txQueue = txQueue
+    dbs: StorageInterface
+    constructor(dbs: StorageInterface) {
+        this.dbs = dbs
     }
 
     GetLatestLspOrder() {
-        return this.DB.getRepository(LspOrder).findOne({ where: { serial_id: MoreThan(0) }, order: { serial_id: "DESC" } })
+        return this.dbs.FindOne<LspOrder>('LspOrder', { where: { serial_id: MoreThan(0) }, order: { serial_id: "DESC" } })
     }
 
     SaveLspOrder(order: Partial<LspOrder>) {
-        const entry = this.DB.getRepository(LspOrder).create(order)
-        return this.txQueue.PushToQueue<LspOrder>({ exec: async db => db.getRepository(LspOrder).save(entry), dbTx: false })
+        return this.dbs.CreateAndSave<LspOrder>('LspOrder', order)
     }
 
     async GetNoodeSeed(pubkey: string) {
-        return this.DB.getRepository(LndNodeInfo).findOne({ where: { pubkey, seed: Not(IsNull()) } })
+        return this.dbs.FindOne<LndNodeInfo>('LndNodeInfo', { where: { pubkey, seed: Not(IsNull()) } })
     }
 
     async SaveNodeSeed(pubkey: string, seed: string) {
-        const existing = await this.DB.getRepository(LndNodeInfo).findOne({ where: { pubkey } })
+        const existing = await this.dbs.FindOne<LndNodeInfo>('LndNodeInfo', { where: { pubkey } })
         if (existing) {
             throw new Error("A seed already exists for this pub key")
         }
-        const entry = this.DB.getRepository(LndNodeInfo).create({ pubkey, seed })
-        return this.txQueue.PushToQueue<LndNodeInfo>({ exec: async db => db.getRepository(LndNodeInfo).save(entry), dbTx: false })
+        return this.dbs.CreateAndSave<LndNodeInfo>('LndNodeInfo', { pubkey, seed })
     }
 
     async SaveNodeBackup(pubkey: string, backup: string) {
-        const existing = await this.DB.getRepository(LndNodeInfo).findOne({ where: { pubkey } })
+        const existing = await this.dbs.FindOne<LndNodeInfo>('LndNodeInfo', { where: { pubkey } })
         if (existing) {
-            await this.DB.getRepository(LndNodeInfo).update(existing.serial_id, { backup })
+            await this.dbs.Update<LndNodeInfo>('LndNodeInfo', existing.serial_id, { backup })
             return
         }
-        const entry = this.DB.getRepository(LndNodeInfo).create({ pubkey, backup })
-        await this.txQueue.PushToQueue<LndNodeInfo>({ exec: async db => db.getRepository(LndNodeInfo).save(entry), dbTx: false })
+        return this.dbs.CreateAndSave<LndNodeInfo>('LndNodeInfo', { pubkey, backup })
     }
 
     async GetTrackedProviders() {
-        return this.DB.getRepository(TrackedProvider).find({})
+        return this.dbs.Find<TrackedProvider>('TrackedProvider', {})
     }
 
     async GetTrackedProvider(providerType: 'lnd' | 'lnPub', pub: string) {
-        return this.DB.getRepository(TrackedProvider).findOne({ where: { provider_pubkey: pub, provider_type: providerType } })
+        return this.dbs.FindOne<TrackedProvider>('TrackedProvider', { where: { provider_pubkey: pub, provider_type: providerType } })
     }
     async CreateTrackedProvider(providerType: 'lnd' | 'lnPub', pub: string, latestBalance = 0) {
-        const entry = this.DB.getRepository(TrackedProvider).create({ provider_pubkey: pub, provider_type: providerType, latest_balance: latestBalance })
-        return this.txQueue.PushToQueue<TrackedProvider>({ exec: async db => db.getRepository(TrackedProvider).save(entry), dbTx: false })
+        return this.dbs.CreateAndSave<TrackedProvider>('TrackedProvider', { provider_pubkey: pub, provider_type: providerType, latest_balance: latestBalance })
     }
     async UpdateTrackedProviderBalance(providerType: 'lnd' | 'lnPub', pub: string, latestBalance: number) {
         console.log("updating tracked balance:", latestBalance)
-        return this.DB.getRepository(TrackedProvider).update({ provider_pubkey: pub, provider_type: providerType }, { latest_balance: latestBalance })
+        return this.dbs.Update<TrackedProvider>('TrackedProvider', { provider_pubkey: pub, provider_type: providerType }, { latest_balance: latestBalance })
     }
     async IncrementTrackedProviderBalance(providerType: 'lnd' | 'lnPub', pub: string, amount: number) {
         if (amount < 0) {
-            return this.DB.getRepository(TrackedProvider).increment({ provider_pubkey: pub, provider_type: providerType }, "latest_balance", amount)
+            return this.dbs.Increment<TrackedProvider>('TrackedProvider', { provider_pubkey: pub, provider_type: providerType }, "latest_balance", amount)
         } else {
-            return this.DB.getRepository(TrackedProvider).decrement({ provider_pubkey: pub, provider_type: providerType }, "latest_balance", -amount)
+            return this.dbs.Decrement<TrackedProvider>('TrackedProvider', { provider_pubkey: pub, provider_type: providerType }, "latest_balance", -amount)
         }
 
     }
     async UpdateTrackedProviderDisruption(providerType: 'lnd' | 'lnPub', pub: string, latestDisruptionAtUnix: number) {
-        return this.DB.getRepository(TrackedProvider).update({ provider_pubkey: pub, provider_type: providerType }, { latest_distruption_at_unix: latestDisruptionAtUnix })
+        return this.dbs.Update<TrackedProvider>('TrackedProvider', { provider_pubkey: pub, provider_type: providerType }, { latest_distruption_at_unix: latestDisruptionAtUnix })
     }
 }

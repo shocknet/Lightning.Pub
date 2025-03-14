@@ -21,12 +21,13 @@ const testSpamExternalPayment = async (T: TestBase) => {
             const result = await T.main.paymentManager.PayInvoice(T.user1.userId, { invoice: invoice.payRequest, amount: 0 }, application)
             return { success: true, result }
         } catch (e: any) {
-            return { success: false, err: e }
+            return { success: false, err: e.message }
         }
     }))
 
     const successfulPayments = res.filter(r => r.success)
     const failedPayments = res.filter(r => !r.success)
+    console.log(failedPayments)
     failedPayments.forEach(f => expect(f.err).to.be.equal("not enough balance to decrement"))
     successfulPayments.forEach(s => expect(s.result).to.contain({ amount_paid: 500, network_fee: 1, service_fee: 3 }))
     expect(successfulPayments.length).to.be.equal(3)

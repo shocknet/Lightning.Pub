@@ -1,11 +1,12 @@
 //import whyIsNodeRunning from 'why-is-node-running'
 import { globby } from 'globby'
 import { setupNetwork } from './networkSetup.js'
-import { Describe, SetupTest, teardown, TestBase } from './testBase.js'
+import { Describe, SetupTest, teardown, TestBase, StorageTestBase, setupStorageTest, teardownStorageTest } from './testBase.js'
 type TestModule = {
     ignore?: boolean
     dev?: boolean
-    default: (T: TestBase) => Promise<void>
+    requires?: 'storage' | '*'
+    default: (T: TestBase | StorageTestBase) => Promise<void>
 }
 let failures = 0
 const getDescribe = (fileName: string): Describe => {
@@ -20,7 +21,6 @@ const getDescribe = (fileName: string): Describe => {
 }
 
 const start = async () => {
-    await setupNetwork()
     const files = await globby(["**/*.spec.js", "!**/node_modules/**"])
     const modules: { file: string, module: TestModule }[] = []
     let devModule = -1
@@ -37,9 +37,16 @@ const start = async () => {
     }
     if (devModule !== -1) {
         console.log("running dev module")
-        await runTestFile(modules[devModule].file, modules[devModule].module)
+        const { file, module } = modules[devModule]
+        if (module.requires === 'storage') {
+            console.log("dev module requires only storage, skipping network setup")
+        } else {
+            await setupNetwork()
+        }
+        await runTestFile(file, module)
     } else {
         console.log("running all tests")
+        await setupNetwork()
         for (const { file, module } of modules) {
             await runTestFile(file, module)
         }
@@ -65,16 +72,28 @@ const runTestFile = async (fileName: string, mod: TestModule) => {
     if (mod.dev) {
         d("-----running only this file-----")
     }
-    const T = await SetupTest(d)
+    let T: TestBase | StorageTestBase
+    if (mod.requires === 'storage') {
+        d("-----requires only storage-----")
+        T = await setupStorageTest(d)
+    } else {
+        d("-----requires all-----")
+        T = await SetupTest(d)
+    }
     try {
         d("test starting")
         await mod.default(T)
-        d("test finished")
-        await teardown(T)
     } catch (e: any) {
         d(e, true)
-        await teardown(T)
+        d("test crashed", true)
+    } finally {
+        if (mod.requires === 'storage') {
+            await teardownStorageTest(T as StorageTestBase)
+        } else {
+            await teardown(T as TestBase)
+        }
     }
+    d("test finished")
     if (mod.dev) {
         d("dev mod is not allowed to in CI, failing for precaution", true)
     }
