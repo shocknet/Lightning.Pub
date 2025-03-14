@@ -38,7 +38,7 @@ export default class {
         }
     }
     async Read(read: (tx: DataSource | EntityManager) => Promise<any>) {
-        console.log("Read", this.activeReaders, this.pendingTx, this.writeRequested)
+        //console.log("Read", this.activeReaders, this.pendingTx, this.writeRequested)
         if (!this.writeRequested) {
             return this.executeRead(read)
         }
@@ -71,7 +71,7 @@ export default class {
     }
 
     PushToQueue<T>(op: TxOperation<T>) {
-        console.log("PushToQueue", this.activeReaders, this.pendingTx, this.writeRequested)
+        //console.log("PushToQueue", this.activeReaders, this.pendingTx, this.writeRequested)
         this.writeRequested = true
         if (!this.pendingTx && this.activeReaders === 0) {
             return this.execQueueItem(op)
