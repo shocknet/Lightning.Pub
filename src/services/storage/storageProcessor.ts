@@ -17,18 +17,21 @@ export type ConnectOperation = {
     type: 'connect'
     opId: string
     settings: DbSettings
+    debug?: boolean
 }
 
 export type StartTxOperation = {
     type: 'startTx'
     opId: string
     description?: string
+    debug?: boolean
 }
 
 export type EndTxOperation<T> = {
     type: 'endTx'
     txId: string
     opId: string
+    debug?: boolean
 } & ({ success: true, data: T } | { success: false })
 
 export type DeleteOperation<T> = {
@@ -37,6 +40,7 @@ export type DeleteOperation<T> = {
     opId: string
     q: number | FindOptionsWhere<T>
     txId?: string
+    debug?: boolean
 }
 
 export type RemoveOperation<T> = {
@@ -45,6 +49,7 @@ export type RemoveOperation<T> = {
     opId: string
     q: T
     txId?: string
+    debug?: boolean
 }
 
 export type UpdateOperation<T> = {
@@ -54,6 +59,7 @@ export type UpdateOperation<T> = {
     toUpdate: DeepPartial<T>
     q: number | FindOptionsWhere<T>
     txId?: string
+    debug?: boolean
 }
 
 export type IncrementOperation<T> = {
@@ -64,6 +70,7 @@ export type IncrementOperation<T> = {
     propertyPath: string,
     value: number | string
     txId?: string
+    debug?: boolean
 }
 
 export type DecrementOperation<T> = {
@@ -74,6 +81,7 @@ export type DecrementOperation<T> = {
     propertyPath: string,
     value: number | string
     txId?: string
+    debug?: boolean
 }
 
 export type FindOneOperation<T> = {
@@ -82,6 +90,7 @@ export type FindOneOperation<T> = {
     opId: string
     q: QueryOptions<T>
     txId?: string
+    debug?: boolean
 }
 
 export type FindOperation<T> = {
@@ -90,6 +99,7 @@ export type FindOperation<T> = {
     opId: string
     q: QueryOptions<T>
     txId?: string
+    debug?: boolean
 }
 
 export type SumOperation<T> = {
@@ -99,6 +109,7 @@ export type SumOperation<T> = {
     columnName: PickKeysByType<T, number>
     q: WhereCondition<T>
     txId?: string
+    debug?: boolean
 }
 
 export type CreateAndSaveOperation<T> = {
@@ -108,6 +119,7 @@ export type CreateAndSaveOperation<T> = {
     toSave: DeepPartial<T>
     txId?: string
     description?: string
+    debug?: boolean
 }
 
 export type ErrorOperationResponse = { success: false, error: string, opId: string }
@@ -115,6 +127,7 @@ export type ErrorOperationResponse = { success: false, error: string, opId: stri
 export interface IStorageOperation {
     opId: string
     type: string
+    debug?: boolean
 }
 
 export type StorageOperation<T> = ConnectOperation | StartTxOperation | EndTxOperation<T> | DeleteOperation<T> | RemoveOperation<T> | UpdateOperation<T> |
@@ -157,6 +170,9 @@ class StorageProcessor {
             const opId = operation.opId;
             if ((operation as any).q) {
                 (operation as any).q = deserializeRequest((operation as any).q)
+                if (operation.debug) {
+                    this.log(operation.type, opId, (operation as any).q)
+                }
             }
             switch (operation.type) {
                 case 'connect':

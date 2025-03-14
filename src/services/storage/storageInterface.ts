@@ -125,7 +125,7 @@ export class StorageInterface extends EventEmitter {
     }
 
     async Tx<T>(exec: TX<T>, description?: string): Promise<T> {
-        const txId = await this.StartTx()
+        const txId = await this.StartTx(description)
         try {
             const res = await exec(txId)
             await this.EndTx(txId, true, res)
@@ -161,6 +161,9 @@ export class StorageInterface extends EventEmitter {
         const serialized = { ...operation };
         if ('q' in serialized) {
             (serialized as any).q = serializeRequest((serialized as any).q);
+        }
+        if (this.debug) {
+            serialized.debug = true
         }
         return serialized;
     }

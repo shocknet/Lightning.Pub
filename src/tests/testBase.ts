@@ -111,10 +111,8 @@ export const safelySetUserBalance = async (T: TestBase, user: TestUserData, amou
 }
 
 export const runSanityCheck = async (T: TestBase) => {
-    T.main.storage.dbs.setDebug(true)
     const sanityChecker = new SanityChecker(T.main.storage, T.main.lnd)
     await sanityChecker.VerifyEventsLog()
-    T.main.storage.dbs.setDebug(false)
 }
 
 export const expectThrowsAsync = async (promise: Promise<any>, errorMessage?: string) => {
