@@ -3,12 +3,10 @@ import { Describe, expect, expectThrowsAsync, runSanityCheck, safelySetUserBalan
 export const ignore = false
 export const dev = false
 export default async (T: TestBase) => {
-    T.main.storage.dbs.setDebug(true)
     await safelySetUserBalance(T, T.user1, 2000)
     await testSuccessfulExternalPayment(T)
     await testFailedExternalPayment(T)
     await runSanityCheck(T)
-    T.main.storage.dbs.setDebug(false)
 }
 
 
