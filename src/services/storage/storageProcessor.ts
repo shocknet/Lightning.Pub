@@ -160,29 +160,41 @@ class StorageProcessor {
             }
             switch (operation.type) {
                 case 'connect':
-                    return this.handleConnect(operation);
+                    await this.handleConnect(operation);
+                    break;
                 case 'startTx':
-                    return this.handleStartTx(operation);
+                    await this.handleStartTx(operation);
+                    break;
                 case 'endTx':
-                    return this.handleEndTx(operation);
+                    await this.handleEndTx(operation);
+                    break;
                 case 'delete':
-                    return this.handleDelete(operation);
+                    await this.handleDelete(operation);
+                    break;
                 case 'remove':
-                    return this.handleRemove(operation);
+                    await this.handleRemove(operation);
+                    break;
                 case 'update':
-                    return this.handleUpdate(operation);
+                    await this.handleUpdate(operation);
+                    break;
                 case 'increment':
-                    return this.handleIncrement(operation);
+                    await this.handleIncrement(operation);
+                    break;
                 case 'decrement':
-                    return this.handleDecrement(operation);
+                    await this.handleDecrement(operation);
+                    break;
                 case 'findOne':
-                    return this.handleFindOne(operation);
+                    await this.handleFindOne(operation);
+                    break;
                 case 'find':
-                    return this.handleFind(operation);
+                    await this.handleFind(operation);
+                    break;
                 case 'sum':
-                    return this.handleSum(operation);
+                    await this.handleSum(operation);
+                    break;
                 case 'createAndSave':
-                    return this.handleCreateAndSave(operation);
+                    await this.handleCreateAndSave(operation);
+                    break;
                 default:
                     this.sendResponse({
                         success: false,
@@ -415,7 +427,9 @@ class StorageProcessor {
         return this.txQueue.PushToQueue({
             dbTx: false,
             description: "write",
-            exec: write
+            exec: tx => {
+                return write(tx)
+            }
         })
     }
 
