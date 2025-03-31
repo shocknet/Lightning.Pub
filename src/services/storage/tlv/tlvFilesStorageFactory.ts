@@ -12,7 +12,7 @@ export type TlvStorageInterface = {
 export class TlvStorageFactory extends EventEmitter {
     private process: ChildProcess;
     private isConnected: boolean = false;
-    private debug: boolean = false;
+    private debug: boolean = true;
 
     constructor() {
         super();
