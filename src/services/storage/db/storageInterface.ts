@@ -1,4 +1,4 @@
-import { fork } from 'child_process';
+import { ChildProcess, fork } from 'child_process';
 import { EventEmitter } from 'events';
 import { DbSettings, MainDbNames } from './db.js';
 import { DeepPartial, FindOptionsWhere } from 'typeorm';
@@ -19,7 +19,7 @@ import { serializeRequest, WhereCondition } from './serializationHelpers.js';
 export type TX<T> = (txId: string) => Promise<T>
 
 export class StorageInterface extends EventEmitter {
-    private process: any;
+    private process: ChildProcess;
     private isConnected: boolean = false;
     private debug: boolean = false;
 

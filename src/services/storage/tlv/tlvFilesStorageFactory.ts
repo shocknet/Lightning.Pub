@@ -1,4 +1,4 @@
-import { fork } from 'child_process';
+import { ChildProcess, fork } from 'child_process';
 import { EventEmitter } from 'events';
 import { AddTlvOperation, ITlvStorageOperation, LoadLatestTlvOperation, LoadTlvFileOperation, NewTlvStorageOperation, TlvOperationResponse, TlvStorageSettings } from './tlvFilesStorageProcessor';
 import { LatestData, TlvFile } from './tlvFilesStorage';
@@ -10,7 +10,7 @@ export type TlvStorageInterface = {
 }
 
 export class TlvStorageFactory extends EventEmitter {
-    private process: any;
+    private process: ChildProcess;
     private isConnected: boolean = false;
     private debug: boolean = false;
 

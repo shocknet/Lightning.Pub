@@ -27,7 +27,7 @@ export class TlvFilesStorage {
 
     LoadFile = (app: string, dataName: string, chunk: number): TlvFile => {
         if (!this.metaReady || !this.meta[app] || !this.meta[app][dataName] || !this.meta[app][dataName].chunks.includes(chunk)) {
-            throw new Error("metrics not found")
+            throw new Error(`tlv file for ${app} ${dataName} chunk ${chunk} not found`)
         }
         const fullPath = [this.storagePath, app, dataName, `${chunk}.mtlv`].filter(s => !!s).join("/")
         const fileData = fs.readFileSync(fullPath)
