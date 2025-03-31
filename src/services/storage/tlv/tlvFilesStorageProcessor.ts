@@ -73,6 +73,7 @@ class TlvFilesStorageProcessor {
     private async handleOperation(operation: TlvStorageOperation) {
         try {
             const opId = operation.opId;
+            if (operation.debug) console.log('handleOperation', operation)
             switch (operation.type) {
                 case 'newStorage':
                     await this.handleNewStorage(operation);

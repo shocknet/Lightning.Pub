@@ -45,8 +45,8 @@ export class TlvStorageFactory extends EventEmitter {
 
     NewStorage(settings: TlvStorageSettings): TlvStorageInterface {
         const opId = Math.random().toString()
-        const connectOp: NewTlvStorageOperation = { type: 'newStorage', opId, settings }
-        this.handleOp<void>(connectOp)
+        const op: NewTlvStorageOperation = { type: 'newStorage', opId, settings }
+        this.handleOp<void>(op)
         return {
             AddTlv: (appId: string, dataName: string, tlv: Uint8Array) => this.AddTlv(settings.name, appId, dataName, tlv),
             LoadLatest: (limit?: number) => this.LoadLatest(settings.name, limit),
@@ -56,20 +56,20 @@ export class TlvStorageFactory extends EventEmitter {
 
     AddTlv(storageName: string, appId: string, dataName: string, tlv: Uint8Array): Promise<number> {
         const opId = Math.random().toString()
-        const connectOp: AddTlvOperation = { type: 'addTlv', opId, storageName, appId, dataName, tlv }
-        return this.handleOp<number>(connectOp)
+        const op: AddTlvOperation = { type: 'addTlv', opId, storageName, appId, dataName, tlv }
+        return this.handleOp<number>(op)
     }
 
     LoadLatest(storageName: string, limit?: number): Promise<LatestData> {
         const opId = Math.random().toString()
-        const connectOp: LoadLatestTlvOperation = { type: 'loadLatestTlv', opId, storageName, limit }
-        return this.handleOp<LatestData>(connectOp)
+        const op: LoadLatestTlvOperation = { type: 'loadLatestTlv', opId, storageName, limit }
+        return this.handleOp<LatestData>(op)
     }
 
     LoadFile(storageName: string, appId: string, dataName: string, chunk: number): Promise<TlvFile> {
         const opId = Math.random().toString()
-        const connectOp: LoadTlvFileOperation = { type: 'loadTlvFile', opId, storageName, appId, dataName, chunk }
-        return this.handleOp<TlvFile>(connectOp)
+        const op: LoadTlvFileOperation = { type: 'loadTlvFile', opId, storageName, appId, dataName, chunk }
+        return this.handleOp<TlvFile>(op)
     }
 
     private handleOp<T>(op: ITlvStorageOperation): Promise<T> {
