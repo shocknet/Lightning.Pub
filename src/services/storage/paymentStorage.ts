@@ -11,9 +11,9 @@ import { AddressReceivingTransaction } from './entity/AddressReceivingTransactio
 import { UserInvoicePayment } from './entity/UserInvoicePayment.js';
 import { UserToUserPayment } from './entity/UserToUserPayment.js';
 import { Application } from './entity/Application.js';
-import TransactionsQueue from "./transactionsQueue.js";
+import TransactionsQueue from "./db/transactionsQueue.js";
 import { LoggedEvent } from './eventsLog.js';
-import { StorageInterface } from './storageInterface.js';
+import { StorageInterface } from './db/storageInterface.js';
 export type InboundOptionals = { product?: Product, callbackUrl?: string, expiry: number, expectedPayer?: User, linkedApplication?: Application, zapInfo?: ZapInfo, offerId?: string, payerData?: Record<string, string> }
 export const defaultInvoiceExpiry = 60 * 60
 export default class {

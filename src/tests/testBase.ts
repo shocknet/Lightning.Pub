@@ -13,6 +13,7 @@ import { getLogger, resetDisabledLoggers } from '../services/helpers/logger.js'
 import { LiquidityProvider } from '../services/main/liquidityProvider.js'
 import { Utils } from '../services/helpers/utilsWrapper.js'
 import { AdminManager } from '../services/main/adminManager.js'
+import { TlvStorageFactory } from '../services/storage/tlv/tlvFilesStorageFactory.js'
 chai.use(chaiString)
 export const expect = chai.expect
 export type Describe = (message: string, failure?: boolean) => void
@@ -44,7 +45,8 @@ export type StorageTestBase = {
 export const setupStorageTest = async (d: Describe): Promise<StorageTestBase> => {
     const settings = GetTestStorageSettings()
     const storageManager = new Storage(settings)
-    await storageManager.Connect(console.log)
+    const tlvStorageFactory = new TlvStorageFactory()
+    await storageManager.Connect(console.log, tlvStorageFactory)
     return {
         expect,
         storage: storageManager,
@@ -69,7 +71,8 @@ export const SetupTest = async (d: Describe): Promise<TestBase> => {
     const user1 = { userId: u1.info.userId, appUserIdentifier: u1.identifier, appId: app.appId }
     const user2 = { userId: u2.info.userId, appUserIdentifier: u2.identifier, appId: app.appId }
 
-    const extermnalUtils = new Utils(settings)
+    const tlvStorageFactory = new TlvStorageFactory()
+    const extermnalUtils = new Utils(settings, tlvStorageFactory)
     const externalAccessToMainLnd = new LND(settings.lndSettings, new LiquidityProvider("", extermnalUtils, async () => { }, async () => { }), extermnalUtils, async () => { }, async () => { }, () => { }, () => { })
     await externalAccessToMainLnd.Warmup()
 

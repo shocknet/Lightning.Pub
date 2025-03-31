@@ -1,6 +1,6 @@
 import { Product } from "./entity/Product.js"
 import { User } from "./entity/User.js"
-import { StorageInterface } from "./storageInterface.js";
+import { StorageInterface } from "./db/storageInterface.js";
 export default class {
     dbs: StorageInterface
     constructor(dbs: StorageInterface) {

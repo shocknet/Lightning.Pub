@@ -1,12 +1,12 @@
 import { DataSource, EntityManager, DeepPartial, FindOptionsWhere, FindOptionsOrder, FindOperator } from 'typeorm';
-import NewDB, { DbSettings, MainDbEntities, MainDbNames, newMetricsDb } from './db.js';
-import { PubLogger, getLogger } from '../helpers/logger.js';
-import { allMetricsMigrations, allMigrations } from './migrations/runner.js';
+import NewDB, { DbSettings, MainDbEntities, MainDbNames, MetricsDbEntities, MetricsDbNames, newMetricsDb } from './db.js';
+import { PubLogger, getLogger } from '../../helpers/logger.js';
+import { allMetricsMigrations, allMigrations } from '../migrations/runner.js';
 import transactionsQueue from './transactionsQueue.js';
 import { PickKeysByType } from 'typeorm/common/PickKeysByType';
 import { deserializeRequest, WhereCondition } from './serializationHelpers.js';
 
-
+export type DBNames = MainDbNames | MetricsDbNames
 export type QueryOptions<T> = {
     where?: WhereCondition<T>
     order?: FindOptionsOrder<T>
@@ -17,6 +17,7 @@ export type ConnectOperation = {
     type: 'connect'
     opId: string
     settings: DbSettings
+    dbType: 'main' | 'metrics'
     debug?: boolean
 }
 
@@ -36,7 +37,7 @@ export type EndTxOperation<T> = {
 
 export type DeleteOperation<T> = {
     type: 'delete'
-    entity: MainDbNames
+    entity: DBNames
     opId: string
     q: number | FindOptionsWhere<T>
     txId?: string
@@ -45,7 +46,7 @@ export type DeleteOperation<T> = {
 
 export type RemoveOperation<T> = {
     type: 'remove'
-    entity: MainDbNames
+    entity: DBNames
     opId: string
     q: T
     txId?: string
@@ -54,7 +55,7 @@ export type RemoveOperation<T> = {
 
 export type UpdateOperation<T> = {
     type: 'update'
-    entity: MainDbNames
+    entity: DBNames
     opId: string
     toUpdate: DeepPartial<T>
     q: number | FindOptionsWhere<T>
@@ -64,7 +65,7 @@ export type UpdateOperation<T> = {
 
 export type IncrementOperation<T> = {
     type: 'increment'
-    entity: MainDbNames
+    entity: DBNames
     opId: string
     q: FindOptionsWhere<T>
     propertyPath: string,
@@ -75,7 +76,7 @@ export type IncrementOperation<T> = {
 
 export type DecrementOperation<T> = {
     type: 'decrement'
-    entity: MainDbNames
+    entity: DBNames
     opId: string
     q: FindOptionsWhere<T>
     propertyPath: string,
@@ -86,7 +87,7 @@ export type DecrementOperation<T> = {
 
 export type FindOneOperation<T> = {
     type: 'findOne'
-    entity: MainDbNames
+    entity: DBNames
     opId: string
     q: QueryOptions<T>
     txId?: string
@@ -95,7 +96,7 @@ export type FindOneOperation<T> = {
 
 export type FindOperation<T> = {
     type: 'find'
-    entity: MainDbNames
+    entity: DBNames
     opId: string
     q: QueryOptions<T>
     txId?: string
@@ -104,7 +105,7 @@ export type FindOperation<T> = {
 
 export type SumOperation<T> = {
     type: 'sum'
-    entity: MainDbNames
+    entity: DBNames
     opId: string
     columnName: PickKeysByType<T, number>
     q: WhereCondition<T>
@@ -114,7 +115,7 @@ export type SumOperation<T> = {
 
 export type CreateAndSaveOperation<T> = {
     type: 'createAndSave'
-    entity: MainDbNames
+    entity: DBNames
     opId: string
     toSave: DeepPartial<T>
     txId?: string
@@ -150,12 +151,12 @@ class StorageProcessor {
     //private locked: boolean = false
     private activeTransaction: ActiveTransaction | null = null
     //private queue: StartTxOperation[] = []
+    private mode: 'main' | 'metrics' | '' = ''
 
     constructor() {
         if (!process.send) {
             throw new Error('This process must be spawned as a child process');
         }
-        this.log = getLogger({ component: 'StorageProcessor' })
         process.on('message', (operation: StorageOperation<any>) => {
             this.handleOperation(operation);
         });
@@ -229,17 +230,38 @@ class StorageProcessor {
     }
 
     private async handleConnect(operation: ConnectOperation) {
-        const { source, executedMigrations } = await NewDB(operation.settings, allMigrations)
-        this.DB = source
-        this.txQueue = new transactionsQueue('StorageProcessorQueue', this.DB)
-        if (executedMigrations.length > 0) {
-            this.log(executedMigrations.length, "new migrations executed")
-            this.log("-------------------")
+        let migrationsExecuted = 0
+        if (this.mode !== '') {
+            throw new Error('Already connected to a database')
+        }
+        this.log = getLogger({ component: 'StorageProcessor_' + operation.dbType })
+        if (operation.dbType === 'main') {
+            const { source, executedMigrations } = await NewDB(operation.settings, allMigrations)
+            this.DB = source
+            this.txQueue = new transactionsQueue('StorageProcessorQueue', this.DB)
+            migrationsExecuted = executedMigrations.length
+            if (executedMigrations.length > 0) {
+                this.log(executedMigrations.length, "new migrations executed")
+                this.log("-------------------")
+            }
+            this.mode = 'main'
+        } else if (operation.dbType === 'metrics') {
+            const { source, executedMigrations } = await newMetricsDb(operation.settings, allMetricsMigrations)
+            this.DB = source
+            this.txQueue = new transactionsQueue('MetricsStorageProcessorQueue', this.DB)
+            migrationsExecuted = executedMigrations.length
+            if (executedMigrations.length > 0) {
+                this.log(executedMigrations.length, "new metrics migrations executed")
+                this.log("-------------------")
+            }
+            this.mode = 'metrics'
+        } else {
+            throw new Error('Unknown database type')
         }
         this.sendResponse({
             success: true,
             type: 'connect',
-            data: executedMigrations.length,
+            data: migrationsExecuted,
             opId: operation.opId
         });
     }
@@ -303,17 +325,28 @@ class StorageProcessor {
         return this.activeTransaction.manager
     }
 
-    private getManager(txId?: string): DataSource | EntityManager {
-        if (txId) {
-            return this.getTx(txId)
+    private getEntity(entityName: DBNames) {
+        if (this.mode === 'main') {
+            const e = MainDbEntities[entityName as MainDbNames]
+            if (!e) {
+                throw new Error(`Unknown entity type for main db: ${entityName}`)
+            }
+            return e
+        } else if (this.mode === 'metrics') {
+            const e = MetricsDbEntities[entityName as MetricsDbNames]
+            if (!e) {
+                throw new Error(`Unknown entity type for metrics db: ${entityName}`)
+            }
+            return e
+        } else {
+            throw new Error('Unknown database mode')
         }
-        return this.DB
     }
 
     private async handleDelete(operation: DeleteOperation<any>) {
 
         const res = await this.handleWrite(operation.txId, eM => {
-            return eM.getRepository(MainDbEntities[operation.entity]).delete(operation.q)
+            return eM.getRepository(this.getEntity(operation.entity)).delete(operation.q)
         })
         this.sendResponse({
             success: true,
@@ -325,7 +358,7 @@ class StorageProcessor {
 
     private async handleRemove(operation: RemoveOperation<any>) {
         const res = await this.handleWrite(operation.txId, eM => {
-            return eM.getRepository(MainDbEntities[operation.entity]).remove(operation.q)
+            return eM.getRepository(this.getEntity(operation.entity)).remove(operation.q)
         })
 
         this.sendResponse({
@@ -338,7 +371,7 @@ class StorageProcessor {
 
     private async handleUpdate(operation: UpdateOperation<any>) {
         const res = await this.handleWrite(operation.txId, eM => {
-            return eM.getRepository(MainDbEntities[operation.entity]).update(operation.q, operation.toUpdate)
+            return eM.getRepository(this.getEntity(operation.entity)).update(operation.q, operation.toUpdate)
         })
 
         this.sendResponse({
@@ -351,7 +384,7 @@ class StorageProcessor {
 
     private async handleIncrement(operation: IncrementOperation<any>) {
         const res = await this.handleWrite(operation.txId, eM => {
-            return eM.getRepository(MainDbEntities[operation.entity]).increment(operation.q, operation.propertyPath, operation.value)
+            return eM.getRepository(this.getEntity(operation.entity)).increment(operation.q, operation.propertyPath, operation.value)
         })
 
         this.sendResponse({
@@ -364,7 +397,7 @@ class StorageProcessor {
 
     private async handleDecrement(operation: DecrementOperation<any>) {
         const res = await this.handleWrite(operation.txId, eM => {
-            return eM.getRepository(MainDbEntities[operation.entity]).decrement(operation.q, operation.propertyPath, operation.value)
+            return eM.getRepository(this.getEntity(operation.entity)).decrement(operation.q, operation.propertyPath, operation.value)
         })
 
         this.sendResponse({
@@ -377,7 +410,7 @@ class StorageProcessor {
 
     private async handleFindOne(operation: FindOneOperation<any>) {
         const res = await this.handleRead(operation.txId, eM => {
-            return eM.getRepository(MainDbEntities[operation.entity]).findOne(operation.q)
+            return eM.getRepository(this.getEntity(operation.entity)).findOne(operation.q)
         })
 
         this.sendResponse({
@@ -390,7 +423,7 @@ class StorageProcessor {
 
     private async handleFind(operation: FindOperation<any>) {
         const res = await this.handleRead(operation.txId, eM => {
-            return eM.getRepository(MainDbEntities[operation.entity]).find(operation.q)
+            return eM.getRepository(this.getEntity(operation.entity)).find(operation.q)
         })
 
         this.sendResponse({
@@ -403,7 +436,7 @@ class StorageProcessor {
 
     private async handleSum(operation: SumOperation<object>) {
         const res = await this.handleRead(operation.txId, eM => {
-            return eM.getRepository(MainDbEntities[operation.entity]).sum(operation.columnName, operation.q)
+            return eM.getRepository(this.getEntity(operation.entity)).sum(operation.columnName, operation.q)
         })
         this.sendResponse({
             success: true,
@@ -415,8 +448,8 @@ class StorageProcessor {
 
     private async handleCreateAndSave(operation: CreateAndSaveOperation<any>) {
         const saved = await this.handleWrite(operation.txId, async eM => {
-            const res = eM.getRepository(MainDbEntities[operation.entity]).create(operation.toSave)
-            return eM.getRepository(MainDbEntities[operation.entity]).save(res)
+            const res = eM.getRepository(this.getEntity(operation.entity)).create(operation.toSave)
+            return eM.getRepository(this.getEntity(operation.entity)).save(res)
         })
 
         this.sendResponse({

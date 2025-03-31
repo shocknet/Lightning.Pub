@@ -10,6 +10,7 @@ import {
     IncrementOperation,
     DecrementOperation,
     SumOperation,
+    DBNames,
 } from './storageProcessor.js';
 import { PickKeysByType } from 'typeorm/common/PickKeysByType.js';
 import { serializeRequest, WhereCondition } from './serializationHelpers.js';
@@ -32,7 +33,7 @@ export class StorageInterface extends EventEmitter {
     }
 
     private initializeSubprocess() {
-        this.process = fork('./build/src/services/storage/storageProcessor');
+        this.process = fork('./build/src/services/storage/db/storageProcessor');
 
         this.process.on('message', (response: OperationResponse<any>) => {
             this.emit(response.opId, response);
@@ -51,61 +52,61 @@ export class StorageInterface extends EventEmitter {
         this.isConnected = true;
     }
 
-    Connect(settings: DbSettings): Promise<number> {
+    Connect(settings: DbSettings, dbType: 'main' | 'metrics'): Promise<number> {
         const opId = Math.random().toString()
-        const connectOp: ConnectOperation = { type: 'connect', opId, settings }
+        const connectOp: ConnectOperation = { type: 'connect', opId, settings, dbType }
         return this.handleOp<number>(connectOp)
     }
 
-    Delete<T>(entity: MainDbNames, q: number | FindOptionsWhere<T>, txId?: string): Promise<number> {
+    Delete<T>(entity: DBNames, q: number | FindOptionsWhere<T>, txId?: string): Promise<number> {
         const opId = Math.random().toString()
         const deleteOp: DeleteOperation<T> = { type: 'delete', entity, opId, q, txId }
         return this.handleOp<number>(deleteOp)
     }
 
-    Remove<T>(entity: MainDbNames, q: T, txId?: string): Promise<T> {
+    Remove<T>(entity: DBNames, q: T, txId?: string): Promise<T> {
         const opId = Math.random().toString()
         const removeOp: RemoveOperation<T> = { type: 'remove', entity, opId, q, txId }
         return this.handleOp<T>(removeOp)
     }
 
-    FindOne<T>(entity: MainDbNames, q: QueryOptions<T>, txId?: string): Promise<T | null> {
+    FindOne<T>(entity: DBNames, q: QueryOptions<T>, txId?: string): Promise<T | null> {
         const opId = Math.random().toString()
         const findOp: FindOneOperation<T> = { type: 'findOne', entity, opId, q, txId }
         return this.handleOp<T | null>(findOp)
     }
 
-    Find<T>(entity: MainDbNames, q: QueryOptions<T>, txId?: string): Promise<T[]> {
+    Find<T>(entity: DBNames, q: QueryOptions<T>, txId?: string): Promise<T[]> {
         const opId = Math.random().toString()
         const findOp: FindOperation<T> = { type: 'find', entity, opId, q, txId }
         return this.handleOp<T[]>(findOp)
     }
 
-    Sum<T>(entity: MainDbNames, columnName: PickKeysByType<T, number>, q: WhereCondition<T>, txId?: string): Promise<number> {
+    Sum<T>(entity: DBNames, columnName: PickKeysByType<T, number>, q: WhereCondition<T>, txId?: string): Promise<number> {
         const opId = Math.random().toString()
         const sumOp: SumOperation<T> = { type: 'sum', entity, opId, columnName, q, txId }
         return this.handleOp<number>(sumOp)
     }
 
-    Update<T>(entity: MainDbNames, q: number | FindOptionsWhere<T>, toUpdate: DeepPartial<T>, txId?: string): Promise<number> {
+    Update<T>(entity: DBNames, q: number | FindOptionsWhere<T>, toUpdate: DeepPartial<T>, txId?: string): Promise<number> {
         const opId = Math.random().toString()
         const updateOp: UpdateOperation<T> = { type: 'update', entity, opId, toUpdate, q, txId }
         return this.handleOp<number>(updateOp)
     }
 
-    Increment<T>(entity: MainDbNames, q: FindOptionsWhere<T>, propertyPath: string, value: number | string, txId?: string): Promise<number> {
+    Increment<T>(entity: DBNames, q: FindOptionsWhere<T>, propertyPath: string, value: number | string, txId?: string): Promise<number> {
         const opId = Math.random().toString()
         const incrementOp: IncrementOperation<T> = { type: 'increment', entity, opId, q, propertyPath, value, txId }
         return this.handleOp<number>(incrementOp)
     }
 
-    Decrement<T>(entity: MainDbNames, q: FindOptionsWhere<T>, propertyPath: string, value: number | string, txId?: string): Promise<number> {
+    Decrement<T>(entity: DBNames, q: FindOptionsWhere<T>, propertyPath: string, value: number | string, txId?: string): Promise<number> {
         const opId = Math.random().toString()
         const decrementOp: DecrementOperation<T> = { type: 'decrement', entity, opId, q, propertyPath, value, txId }
         return this.handleOp<number>(decrementOp)
     }
 
-    CreateAndSave<T>(entity: MainDbNames, toSave: DeepPartial<T>, txId?: string): Promise<T> {
+    CreateAndSave<T>(entity: DBNames, toSave: DeepPartial<T>, txId?: string): Promise<T> {
         const opId = Math.random().toString()
         const createAndSaveOp: CreateAndSaveOperation<T> = { type: 'createAndSave', entity, opId, toSave, txId }
         return this.handleOp<T>(createAndSaveOp)
