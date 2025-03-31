@@ -89,7 +89,7 @@ export class TlvStorageFactory extends EventEmitter {
                 resolve(response.data);
             }
             this.once(op.opId, responseHandler)
-            this.process.send(op)
+            this.process.send({ ...op, debug: this.debug || op.debug })
         })
     }
 
