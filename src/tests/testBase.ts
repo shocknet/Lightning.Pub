@@ -71,8 +71,7 @@ export const SetupTest = async (d: Describe): Promise<TestBase> => {
     const user1 = { userId: u1.info.userId, appUserIdentifier: u1.identifier, appId: app.appId }
     const user2 = { userId: u2.info.userId, appUserIdentifier: u2.identifier, appId: app.appId }
 
-    const tlvStorageFactory = new TlvStorageFactory()
-    const extermnalUtils = new Utils(settings, tlvStorageFactory)
+    const extermnalUtils = new Utils(settings)
     const externalAccessToMainLnd = new LND(settings.lndSettings, new LiquidityProvider("", extermnalUtils, async () => { }, async () => { }), extermnalUtils, async () => { }, async () => { }, () => { }, () => { })
     await externalAccessToMainLnd.Warmup()
 
