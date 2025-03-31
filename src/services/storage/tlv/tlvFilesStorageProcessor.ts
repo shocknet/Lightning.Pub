@@ -73,6 +73,7 @@ class TlvFilesStorageProcessor {
     private async handleOperation(operation: TlvStorageOperation) {
         try {
             const opId = operation.opId;
+            if (operation.type === 'addTlv') operation.tlv = new Uint8Array(operation.tlv)
             if (operation.debug) console.log('handleOperation', operation)
             switch (operation.type) {
                 case 'newStorage':
