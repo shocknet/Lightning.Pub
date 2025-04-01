@@ -8,9 +8,11 @@ import { ProcessMetrics, ProcessMetricsCollector } from './processMetricsCollect
 import { integerToUint8Array } from '../../helpers/tlv.js';
 export type SerializableLatestData = Record<string, Record<string, { base64tlvs: string[], current_chunk: number, available_chunks: number[] }>>
 export type SerializableTlvFile = { base64fileData: string, chunks: number[] }
+const usageStorageName = 'usage'
+const bundlerStorageName = 'bundler'
 export type TlvStorageSettings = {
     path: string
-    name: string
+    name: typeof usageStorageName | typeof bundlerStorageName
 }
 
 export type NewTlvStorageOperation = {
@@ -96,9 +98,9 @@ class TlvFilesStorageProcessor {
         this.wrtc = new webRTC(t => {
             switch (t) {
                 case Types.SingleMetricType.USAGE_METRIC:
-                    return this.storages['usage']
+                    return this.storages[usageStorageName]
                 case Types.SingleMetricType.BUNDLE_METRIC:
-                    return this.storages['bundle']
+                    return this.storages[bundlerStorageName]
                 default:
                     throw new Error('Unknown metric type: ' + t)
             }
@@ -126,15 +128,15 @@ class TlvFilesStorageProcessor {
 
     private saveProcessMetrics = (pMetrics: ProcessMetrics, processName = "") => {
         const pName = processName ? '_' + processName : ''
-        if (!this.storages['bundle']) {
+        if (!this.storages[bundlerStorageName]) {
             console.log('no bundle storage yet')
             return
         }
-        if (pMetrics.memory_rss_kb) this.storages['bundle'].AddTlv('_root', 'memory_rss_kb' + pName, this.serializeNowTlv(pMetrics.memory_rss_kb))
-        if (pMetrics.memory_buffer_kb) this.storages['bundle'].AddTlv('_root', 'memory_buffer_kb' + pName, this.serializeNowTlv(pMetrics.memory_buffer_kb))
-        if (pMetrics.memory_heap_total_kb) this.storages['bundle'].AddTlv('_root', 'memory_heap_total_kb' + pName, this.serializeNowTlv(pMetrics.memory_heap_total_kb))
-        if (pMetrics.memory_heap_used_kb) this.storages['bundle'].AddTlv('_root', 'memory_heap_used_kb' + pName, this.serializeNowTlv(pMetrics.memory_heap_used_kb))
-        if (pMetrics.memory_external_kb) this.storages['bundle'].AddTlv('_root', 'memory_external_kb' + pName, this.serializeNowTlv(pMetrics.memory_external_kb))
+        if (pMetrics.memory_rss_kb) this.storages[bundlerStorageName].AddTlv('_root', 'memory_rss_kb' + pName, this.serializeNowTlv(pMetrics.memory_rss_kb))
+        if (pMetrics.memory_buffer_kb) this.storages[bundlerStorageName].AddTlv('_root', 'memory_buffer_kb' + pName, this.serializeNowTlv(pMetrics.memory_buffer_kb))
+        if (pMetrics.memory_heap_total_kb) this.storages[bundlerStorageName].AddTlv('_root', 'memory_heap_total_kb' + pName, this.serializeNowTlv(pMetrics.memory_heap_total_kb))
+        if (pMetrics.memory_heap_used_kb) this.storages[bundlerStorageName].AddTlv('_root', 'memory_heap_used_kb' + pName, this.serializeNowTlv(pMetrics.memory_heap_used_kb))
+        if (pMetrics.memory_external_kb) this.storages[bundlerStorageName].AddTlv('_root', 'memory_external_kb' + pName, this.serializeNowTlv(pMetrics.memory_external_kb))
     }
 
     private async handleOperation(operation: TlvStorageOperation) {
