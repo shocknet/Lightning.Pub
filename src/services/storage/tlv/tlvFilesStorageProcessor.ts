@@ -25,7 +25,7 @@ export type AddTlvOperation = {
 }
 
 export type LoadLatestTlvOperation = {
-    type: 'loadLatestTlv'
+    type: 'loadLatest'
     opId: string
     storageName: string
     limit?: number
@@ -33,7 +33,7 @@ export type LoadLatestTlvOperation = {
 }
 
 export type LoadTlvFileOperation = {
-    type: 'loadTlvFile'
+    type: 'loadFile'
     opId: string
     storageName: string
     appId: string
@@ -82,10 +82,10 @@ class TlvFilesStorageProcessor {
                 case 'addTlv':
                     await this.handleAddTlv(operation);
                     break;
-                case 'loadLatestTlv':
+                case 'loadLatest':
                     await this.handleLoadLatestTlv(operation);
                     break;
-                case 'loadTlvFile':
+                case 'loadFile':
                     await this.handleLoadTlvFile(operation);
                     break;
                 default:

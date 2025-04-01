@@ -62,7 +62,7 @@ export class TlvStorageFactory extends EventEmitter {
 
     async LoadLatest(storageName: string, limit?: number): Promise<LatestData> {
         const opId = Math.random().toString()
-        const op: LoadLatestTlvOperation = { type: 'loadLatestTlv', opId, storageName, limit, debug: true }
+        const op: LoadLatestTlvOperation = { type: 'loadLatest', opId, storageName, limit, debug: true }
         const latestData = await this.handleOp<SerializableLatestData>(op)
         const deserializedLatestData: LatestData = {}
         for (const appId in latestData) {
@@ -76,7 +76,7 @@ export class TlvStorageFactory extends EventEmitter {
 
     async LoadFile(storageName: string, appId: string, dataName: string, chunk: number): Promise<TlvFile> {
         const opId = Math.random().toString()
-        const op: LoadTlvFileOperation = { type: 'loadTlvFile', opId, storageName, appId, dataName, chunk, debug: true }
+        const op: LoadTlvFileOperation = { type: 'loadFile', opId, storageName, appId, dataName, chunk, debug: true }
         const tlvFile = await this.handleOp<SerializableTlvFile>(op)
         return { fileData: Buffer.from(tlvFile.base64fileData, 'base64'), chunks: tlvFile.chunks }
     }
