@@ -11,9 +11,12 @@ import {
     DecrementOperation,
     SumOperation,
     DBNames,
+    SuccessOperationResponse,
 } from './storageProcessor.js';
 import { PickKeysByType } from 'typeorm/common/PickKeysByType.js';
 import { serializeRequest, WhereCondition } from './serializationHelpers.js';
+import { Utils } from '../../helpers/utilsWrapper.js';
+import { ProcessMetrics } from '../tlv/processMetricsCollector.js';
 
 
 export type TX<T> = (txId: string) => Promise<T>
@@ -22,21 +25,33 @@ export class StorageInterface extends EventEmitter {
     private process: ChildProcess;
     private isConnected: boolean = false;
     private debug: boolean = false;
+    private utils: Utils
+    private dbType: 'main' | 'metrics'
 
-    constructor() {
+    constructor(utils: Utils) {
         super();
         this.initializeSubprocess();
+        this.utils = utils
     }
 
     setDebug(debug: boolean) {
         this.debug = debug;
     }
 
+    private handleCollectedProcessMetrics(metrics: SuccessOperationResponse<ProcessMetrics>) {
+        if (!this.dbType) return
+        this.utils.tlvStorageFactory.ProcessMetrics(metrics.data, this.dbType + '_storage')
+    }
+
     private initializeSubprocess() {
         this.process = fork('./build/src/services/storage/db/storageProcessor');
 
         this.process.on('message', (response: OperationResponse<any>) => {
-            this.emit(response.opId, response);
+            if (response.success && response.type === 'processMetrics') {
+                this.handleCollectedProcessMetrics(response)
+            } else {
+                this.emit(response.opId, response);
+            }
         });
 
         this.process.on('error', (error: Error) => {
@@ -54,6 +69,7 @@ export class StorageInterface extends EventEmitter {
 
     Connect(settings: DbSettings, dbType: 'main' | 'metrics'): Promise<number> {
         const opId = Math.random().toString()
+        this.dbType = dbType
         const connectOp: ConnectOperation = { type: 'connect', opId, settings, dbType }
         return this.handleOp<number>(connectOp)
     }

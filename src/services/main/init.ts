@@ -17,9 +17,9 @@ export type AppData = {
     name: string;
 }
 export const initMainHandler = async (log: PubLogger, mainSettings: MainSettings) => {
-    const utils = new Utils(mainSettings)
-    const storageManager = new Storage(mainSettings.storageSettings)
-    await storageManager.Connect(log, utils.tlvStorageFactory)
+    const utils = new Utils({ dataDir: mainSettings.storageSettings.dataDir })
+    const storageManager = new Storage(mainSettings.storageSettings, utils)
+    await storageManager.Connect(log)
     /*     const manualMigration = await TypeOrmMigrationRunner(log, storageManager, mainSettings.storageSettings.dbSettings, process.argv[2])
         if (manualMigration) {
             return

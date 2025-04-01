@@ -1,6 +1,7 @@
 import { ChildProcess, fork } from 'child_process'
 import { EnvMustBeNonEmptyString } from "../helpers/envParser.js"
 import { NostrSettings, NostrEvent, ChildProcessRequest, ChildProcessResponse, SendData, SendInitiator } from "./handler.js"
+import { Utils } from '../helpers/utilsWrapper.js'
 type EventCallback = (event: NostrEvent) => void
 
 const getEnvOrDefault = (name: string, defaultValue: string): string => {
@@ -17,7 +18,9 @@ export const LoadNosrtSettingsFromEnv = (test = false) => {
 export default class NostrSubprocess {
     settings: NostrSettings
     childProcess: ChildProcess
-    constructor(settings: NostrSettings, eventCallback: EventCallback) {
+    utils: Utils
+    constructor(settings: NostrSettings, utils: Utils, eventCallback: EventCallback) {
+        this.utils = utils
         this.childProcess = fork("./build/src/services/nostr/handler")
         this.childProcess.on("error", console.error)
         this.childProcess.on("message", (message: ChildProcessResponse) => {
@@ -27,6 +30,9 @@ export default class NostrSubprocess {
                     break;
                 case 'event':
                     eventCallback(message.event)
+                    break
+                case 'processMetrics':
+                    this.utils.tlvStorageFactory.ProcessMetrics(message.metrics, 'nostr')
                     break
                 default:
                     console.error("unknown nostr event response", message)

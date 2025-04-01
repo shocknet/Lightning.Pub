@@ -13,6 +13,7 @@ import OfferStorage from "./offerStorage.js"
 import { StorageInterface, TX } from "./db/storageInterface.js";
 import { PubLogger } from "../helpers/logger.js"
 import { TlvStorageFactory } from './tlv/tlvFilesStorageFactory.js';
+import { Utils } from '../helpers/utilsWrapper.js';
 export type StorageSettings = {
     dbSettings: DbSettings
     eventLogPath: string
@@ -36,12 +37,14 @@ export default class {
     debitStorage: DebitStorage
     offerStorage: OfferStorage
     eventsLog: EventsLogManager
-    constructor(settings: StorageSettings) {
+    utils: Utils
+    constructor(settings: StorageSettings, utils: Utils) {
         this.settings = settings
+        this.utils = utils
         this.eventsLog = new EventsLogManager(settings.eventLogPath)
     }
-    async Connect(log: PubLogger, tlvStorageFactory: TlvStorageFactory) {
-        this.dbs = new StorageInterface()
+    async Connect(log: PubLogger) {
+        this.dbs = new StorageInterface(this.utils)
         await this.dbs.Connect(this.settings.dbSettings, 'main')
         //const { source, executedMigrations } = await NewDB(this.settings.dbSettings, allMigrations)
         //this.DB = source
@@ -50,8 +53,8 @@ export default class {
         this.productStorage = new ProductStorage(this.dbs)
         this.applicationStorage = new ApplicationStorage(this.dbs, this.userStorage)
         this.paymentStorage = new PaymentStorage(this.dbs, this.userStorage)
-        this.metricsStorage = new MetricsStorage(this.settings)
-        this.metricsEventStorage = new MetricsEventStorage(this.settings, tlvStorageFactory)
+        this.metricsStorage = new MetricsStorage(this.settings, this.utils)
+        this.metricsEventStorage = new MetricsEventStorage(this.settings, this.utils.tlvStorageFactory)
         this.liquidityStorage = new LiquidityStorage(this.dbs)
         this.debitStorage = new DebitStorage(this.dbs)
         this.offerStorage = new OfferStorage(this.dbs)

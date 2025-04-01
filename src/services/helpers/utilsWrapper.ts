@@ -2,15 +2,24 @@ import { MainSettings } from "../main/settings.js";
 import { StateBundler } from "../storage/tlv/stateBundler.js";
 import { TlvStorageFactory } from "../storage/tlv/tlvFilesStorageFactory.js";
 import { NostrSend } from "../nostr/handler.js";
+import { ProcessMetricsCollector } from "../storage/tlv/processMetricsCollector.js";
+type UtilsSettings = {
+    noCollector?: boolean
+    dataDir: string
+}
 export class Utils {
     tlvStorageFactory: TlvStorageFactory
     stateBundler: StateBundler
     settings: MainSettings
     _nostrSend: NostrSend = () => { throw new Error('nostr send not initialized yet') }
-    constructor(settings: MainSettings) {
-        this.settings = settings
+    constructor({ noCollector, dataDir }: UtilsSettings) {
         this.tlvStorageFactory = new TlvStorageFactory()
-        this.stateBundler = new StateBundler(settings.storageSettings, this.tlvStorageFactory)
+        this.stateBundler = new StateBundler(dataDir, this.tlvStorageFactory)
+        if (!noCollector) {
+            new ProcessMetricsCollector((metrics) => {
+                this.tlvStorageFactory.ProcessMetrics(metrics, '')
+            })
+        }
     }
 
     attachNostrSend(f: NostrSend) {

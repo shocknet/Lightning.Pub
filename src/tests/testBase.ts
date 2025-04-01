@@ -44,9 +44,9 @@ export type StorageTestBase = {
 
 export const setupStorageTest = async (d: Describe): Promise<StorageTestBase> => {
     const settings = GetTestStorageSettings()
-    const storageManager = new Storage(settings)
-    const tlvStorageFactory = new TlvStorageFactory()
-    await storageManager.Connect(console.log, tlvStorageFactory)
+    const utils = new Utils({ dataDir: settings.dataDir })
+    const storageManager = new Storage(settings, utils)
+    await storageManager.Connect(console.log)
     return {
         expect,
         storage: storageManager,
@@ -71,7 +71,7 @@ export const SetupTest = async (d: Describe): Promise<TestBase> => {
     const user1 = { userId: u1.info.userId, appUserIdentifier: u1.identifier, appId: app.appId }
     const user2 = { userId: u2.info.userId, appUserIdentifier: u2.identifier, appId: app.appId }
 
-    const extermnalUtils = new Utils(settings)
+    const extermnalUtils = new Utils({ dataDir: settings.storageSettings.dataDir })
     const externalAccessToMainLnd = new LND(settings.lndSettings, new LiquidityProvider("", extermnalUtils, async () => { }, async () => { }), extermnalUtils, async () => { }, async () => { }, () => { }, () => { })
     await externalAccessToMainLnd.Warmup()
 

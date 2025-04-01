@@ -34,8 +34,8 @@ export class StateBundler {
     reportLog = getLogger({ component: 'stateBundlerReport' })
     prevValues: Record<string, number> = {}
     interval: NodeJS.Timeout
-    constructor(settings: StorageSettings, tlvStorageFactory: TlvStorageFactory) {
-        const bundlerPath = [settings.dataDir, "bundler_events"].filter(s => !!s).join("/")
+    constructor(dataDir: string, tlvStorageFactory: TlvStorageFactory) {
+        const bundlerPath = [dataDir, "bundler_events"].filter(s => !!s).join("/")
         this.tlvStorage = tlvStorageFactory.NewStorage({ name: "bundler", path: bundlerPath })
         this.interval = setInterval(() => {
             const mem = process.memoryUsage()

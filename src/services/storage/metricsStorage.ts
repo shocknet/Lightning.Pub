@@ -7,19 +7,22 @@ import { newMetricsDb } from "./db/db.js";
 import { ChannelRouting } from "./entity/ChannelRouting.js";
 import { RootOperation } from "./entity/RootOperation.js";
 import { StorageInterface } from "./db/storageInterface.js";
+import { Utils } from "../helpers/utilsWrapper.js";
 export default class {
     //DB: DataSource | EntityManager
     settings: StorageSettings
     dbs: StorageInterface
+    utils: Utils
     //txQueue: TransactionsQueue
-    constructor(settings: StorageSettings) {
+    constructor(settings: StorageSettings, utils: Utils) {
         this.settings = settings;
+        this.utils = utils
     }
     async Connect() {
         //const { source, executedMigrations } = await newMetricsDb(this.settings.dbSettings, metricsMigrations)
         //this.DB = source;
         //this.txQueue = new TransactionsQueue("metrics", this.DB)
-        this.dbs = new StorageInterface()
+        this.dbs = new StorageInterface(this.utils)
         await this.dbs.Connect(this.settings.dbSettings, 'metrics')
         //return executedMigrations;
     }
