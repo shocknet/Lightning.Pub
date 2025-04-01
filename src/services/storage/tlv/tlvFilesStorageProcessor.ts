@@ -1,6 +1,7 @@
 import { PubLogger, getLogger } from '../../helpers/logger.js';
 import { TlvFilesStorage } from './tlvFilesStorage.js';
-
+export type SerializableLatestData = Record<string, Record<string, { base64tlvs: string[], current_chunk: number, available_chunks: number[] }>>
+export type SerializableTlvFile = { base64fileData: string, chunks: number[] }
 export type TlvStorageSettings = {
     path: string
     name: string
@@ -19,7 +20,7 @@ export type AddTlvOperation = {
     storageName: string
     appId: string
     dataName: string
-    tlv: Uint8Array
+    base64Tlv: string
     debug?: boolean
 }
 
@@ -73,7 +74,6 @@ class TlvFilesStorageProcessor {
     private async handleOperation(operation: TlvStorageOperation) {
         try {
             const opId = operation.opId;
-            if (operation.type === 'addTlv') operation.tlv = new Uint8Array(operation.tlv)
             if (operation.debug) console.log('handleOperation', operation)
             switch (operation.type) {
                 case 'newStorage':
@@ -132,8 +132,9 @@ class TlvFilesStorageProcessor {
             })
             return
         }
-        this.storages[operation.storageName].AddTlv(operation.appId, operation.dataName, operation.tlv)
-        this.sendResponse({
+        const tlv = new Uint8Array(Buffer.from(operation.base64Tlv, 'base64'))
+        this.storages[operation.storageName].AddTlv(operation.appId, operation.dataName, tlv)
+        this.sendResponse<null>({
             success: true,
             type: 'addTlv',
             data: null,
@@ -151,10 +152,17 @@ class TlvFilesStorageProcessor {
             return
         }
         const data = this.storages[operation.storageName].LoadLatest(operation.limit)
-        this.sendResponse({
+        const serializableData: SerializableLatestData = {}
+        for (const appId in data) {
+            serializableData[appId] = {}
+            for (const dataName in data[appId]) {
+                serializableData[appId][dataName] = { base64tlvs: data[appId][dataName].tlvs.map(tlv => Buffer.from(tlv).toString('base64')), current_chunk: data[appId][dataName].current_chunk, available_chunks: data[appId][dataName].available_chunks }
+            }
+        }
+        this.sendResponse<SerializableLatestData>({
             success: true,
             type: 'loadLatest',
-            data: data,
+            data: serializableData,
             opId: operation.opId
         });
     }
@@ -169,15 +177,15 @@ class TlvFilesStorageProcessor {
             return
         }
         const data = this.storages[operation.storageName].LoadFile(operation.appId, operation.dataName, operation.chunk)
-        this.sendResponse({
+        this.sendResponse<SerializableTlvFile>({
             success: true,
             type: 'loadFile',
-            data: data,
+            data: { base64fileData: Buffer.from(data.fileData).toString('base64'), chunks: data.chunks },
             opId: operation.opId
         });
     }
 
-    private sendResponse(response: TlvOperationResponse<any>) {
+    private sendResponse<T>(response: TlvOperationResponse<T>) {
         if (process.send) {
             process.send(response);
         }

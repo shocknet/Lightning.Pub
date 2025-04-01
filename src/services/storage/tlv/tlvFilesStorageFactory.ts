@@ -1,6 +1,6 @@
 import { ChildProcess, fork } from 'child_process';
 import { EventEmitter } from 'events';
-import { AddTlvOperation, ITlvStorageOperation, LoadLatestTlvOperation, LoadTlvFileOperation, NewTlvStorageOperation, TlvOperationResponse, TlvStorageSettings } from './tlvFilesStorageProcessor';
+import { AddTlvOperation, ITlvStorageOperation, LoadLatestTlvOperation, LoadTlvFileOperation, NewTlvStorageOperation, SerializableLatestData, SerializableTlvFile, TlvOperationResponse, TlvStorageSettings } from './tlvFilesStorageProcessor';
 import { LatestData, TlvFile } from './tlvFilesStorage';
 
 export type TlvStorageInterface = {
@@ -56,20 +56,29 @@ export class TlvStorageFactory extends EventEmitter {
 
     AddTlv(storageName: string, appId: string, dataName: string, tlv: Uint8Array): Promise<number> {
         const opId = Math.random().toString()
-        const op: AddTlvOperation = { type: 'addTlv', opId, storageName, appId, dataName, tlv }
+        const op: AddTlvOperation = { type: 'addTlv', opId, storageName, appId, dataName, base64Tlv: Buffer.from(tlv).toString('base64') }
         return this.handleOp<number>(op)
     }
 
-    LoadLatest(storageName: string, limit?: number): Promise<LatestData> {
+    async LoadLatest(storageName: string, limit?: number): Promise<LatestData> {
         const opId = Math.random().toString()
         const op: LoadLatestTlvOperation = { type: 'loadLatestTlv', opId, storageName, limit }
-        return this.handleOp<LatestData>(op)
+        const latestData = await this.handleOp<SerializableLatestData>(op)
+        const deserializedLatestData: LatestData = {}
+        for (const appId in latestData) {
+            deserializedLatestData[appId] = {}
+            for (const dataName in latestData[appId]) {
+                deserializedLatestData[appId][dataName] = { tlvs: latestData[appId][dataName].base64tlvs.map(tlv => new Uint8Array(Buffer.from(tlv, 'base64'))), current_chunk: latestData[appId][dataName].current_chunk, available_chunks: latestData[appId][dataName].available_chunks }
+            }
+        }
+        return deserializedLatestData
     }
 
-    LoadFile(storageName: string, appId: string, dataName: string, chunk: number): Promise<TlvFile> {
+    async LoadFile(storageName: string, appId: string, dataName: string, chunk: number): Promise<TlvFile> {
         const opId = Math.random().toString()
         const op: LoadTlvFileOperation = { type: 'loadTlvFile', opId, storageName, appId, dataName, chunk }
-        return this.handleOp<TlvFile>(op)
+        const tlvFile = await this.handleOp<SerializableTlvFile>(op)
+        return { fileData: Buffer.from(tlvFile.base64fileData, 'base64'), chunks: tlvFile.chunks }
     }
 
     private handleOp<T>(op: ITlvStorageOperation): Promise<T> {
