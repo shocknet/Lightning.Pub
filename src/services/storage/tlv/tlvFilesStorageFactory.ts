@@ -82,11 +82,12 @@ export class TlvStorageFactory extends EventEmitter {
     }
 
     private handleOp<T>(op: ITlvStorageOperation): Promise<T> {
-        if (this.debug) console.log('handleOp', op)
+        const debug = this.debug || op.debug
+        if (debug) console.log('handleOp', op)
         this.checkConnected()
         return new Promise<T>((resolve, reject) => {
             const responseHandler = (response: TlvOperationResponse<T>) => {
-                if (this.debug) console.log('tlv responseHandler', response)
+                if (debug) console.log('tlv responseHandler', response)
                 if (!response.success) {
                     reject(new Error(response.error));
                     return
@@ -98,7 +99,7 @@ export class TlvStorageFactory extends EventEmitter {
                 resolve(response.data);
             }
             this.once(op.opId, responseHandler)
-            this.process.send({ ...op, debug: this.debug || op.debug })
+            this.process.send({ ...op, debug })
         })
     }
 
