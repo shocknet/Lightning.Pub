@@ -5,6 +5,7 @@ import { allMetricsMigrations, allMigrations } from '../migrations/runner.js';
 import transactionsQueue from './transactionsQueue.js';
 import { PickKeysByType } from 'typeorm/common/PickKeysByType';
 import { deserializeRequest, WhereCondition } from './serializationHelpers.js';
+import { ProcessMetricsCollector } from '../tlv/processMetricsCollector.js';
 
 export type DBNames = MainDbNames | MetricsDbNames
 export type QueryOptions<T> = {
@@ -164,6 +165,15 @@ class StorageProcessor {
         process.on('error', (error: Error) => {
             console.error('Error in storage processor:', error);
         });
+
+        new ProcessMetricsCollector((pMetrics) => {
+            this.sendResponse({
+                success: true,
+                type: 'processMetrics',
+                data: pMetrics,
+                opId: Math.random().toString()
+            })
+        })
     }
 
     private async handleOperation(operation: StorageOperation<any>) {
