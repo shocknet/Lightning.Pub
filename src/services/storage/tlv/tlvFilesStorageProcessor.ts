@@ -126,6 +126,10 @@ class TlvFilesStorageProcessor {
 
     private saveProcessMetrics = (pMetrics: ProcessMetrics, processName = "") => {
         const pName = processName ? '_' + processName : ''
+        if (!this.storages['bundle']) {
+            console.log('no bundle storage yet')
+            return
+        }
         if (pMetrics.memory_rss_kb) this.storages['bundle'].AddTlv('_root', 'memory_rss_kb' + pName, this.serializeNowTlv(pMetrics.memory_rss_kb))
         if (pMetrics.memory_buffer_kb) this.storages['bundle'].AddTlv('_root', 'memory_buffer_kb' + pName, this.serializeNowTlv(pMetrics.memory_buffer_kb))
         if (pMetrics.memory_heap_total_kb) this.storages['bundle'].AddTlv('_root', 'memory_heap_total_kb' + pName, this.serializeNowTlv(pMetrics.memory_heap_total_kb))
