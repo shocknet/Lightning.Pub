@@ -93,7 +93,7 @@ export class TlvStorageFactory extends EventEmitter {
                     return
                 }
                 if (response.type !== op.type) {
-                    reject(new Error('Invalid tlv storage response type'));
+                    reject(new Error('Invalid tlv storage response type: ' + response.type + ' expected: ' + op.type));
                     return
                 }
                 resolve(response.data);
