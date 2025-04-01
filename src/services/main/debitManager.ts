@@ -186,7 +186,7 @@ export class DebitManager {
                 this.notifyPaymentSuccess(appUser, debitRes, op, { appId: ctx.app_id, pub: req.npub, id: req.request_id })
                 return
             default:
-                throw new Error("invalid response type")
+                throw new Error("invalid debit response type")
         }
     }
 

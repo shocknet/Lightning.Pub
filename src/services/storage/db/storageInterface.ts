@@ -148,7 +148,7 @@ export class StorageInterface extends EventEmitter {
                     return
                 }
                 if (response.type !== op.type) {
-                    reject(new Error('Invalid response type'));
+                    reject(new Error('Invalid storage response type'));
                     return
                 }
                 resolve(response.data);

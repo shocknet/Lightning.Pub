@@ -12,7 +12,7 @@ export type TlvStorageInterface = {
 export class TlvStorageFactory extends EventEmitter {
     private process: ChildProcess;
     private isConnected: boolean = false;
-    private debug: boolean = true;
+    private debug: boolean = false;
 
     constructor() {
         super();
@@ -62,7 +62,7 @@ export class TlvStorageFactory extends EventEmitter {
 
     async LoadLatest(storageName: string, limit?: number): Promise<LatestData> {
         const opId = Math.random().toString()
-        const op: LoadLatestTlvOperation = { type: 'loadLatestTlv', opId, storageName, limit }
+        const op: LoadLatestTlvOperation = { type: 'loadLatestTlv', opId, storageName, limit, debug: true }
         const latestData = await this.handleOp<SerializableLatestData>(op)
         const deserializedLatestData: LatestData = {}
         for (const appId in latestData) {
@@ -76,7 +76,7 @@ export class TlvStorageFactory extends EventEmitter {
 
     async LoadFile(storageName: string, appId: string, dataName: string, chunk: number): Promise<TlvFile> {
         const opId = Math.random().toString()
-        const op: LoadTlvFileOperation = { type: 'loadTlvFile', opId, storageName, appId, dataName, chunk }
+        const op: LoadTlvFileOperation = { type: 'loadTlvFile', opId, storageName, appId, dataName, chunk, debug: true }
         const tlvFile = await this.handleOp<SerializableTlvFile>(op)
         return { fileData: Buffer.from(tlvFile.base64fileData, 'base64'), chunks: tlvFile.chunks }
     }
@@ -92,7 +92,7 @@ export class TlvStorageFactory extends EventEmitter {
                     return
                 }
                 if (response.type !== op.type) {
-                    reject(new Error('Invalid response type'));
+                    reject(new Error('Invalid tlv storage response type'));
                     return
                 }
                 resolve(response.data);
