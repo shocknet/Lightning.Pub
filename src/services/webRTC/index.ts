@@ -10,16 +10,19 @@ import { TlvFilesStorage } from '../storage/tlv/tlvFilesStorage.js'
 import { TlvStorageInterface } from '../storage/tlv/tlvFilesStorageFactory.js'
 type IceCandidate = { type: string, candidate?: string, sdpMid?: string, sdpMLineIndex?: number }
 const configuration = { 'iceServers': [{ 'urls': 'stun:relay.webwormhole.io' }] }
-type UserInfo = { userPub: string, appId: string }
+export type WebRtcUserInfo = { userPub: string, appId: string }
+
+export type TlvStorageGetter = (t: Types.SingleMetricType) => TlvFilesStorage
+
 export default class webRTC {
-    private storage: Storage
+    //private storage: Storage
     private log = getLogger({ component: 'webRTC' })
     private connections: Record<string, RTCPeerConnection> = {}
     private _nostrSend: NostrSend
-    private utils: Utils
-    constructor(storage: Storage, utils: Utils) {
-        this.storage = storage
-        this.utils = utils
+    private tlvStorageGetter: TlvStorageGetter
+    //private utils: Utils
+    constructor(tlvStorageGetter: TlvStorageGetter) {
+        this.tlvStorageGetter = tlvStorageGetter
     }
     attachNostrSend(f: NostrSend) {
         this._nostrSend = f
@@ -31,12 +34,12 @@ export default class webRTC {
         this._nostrSend(initiator, data, relays)
     }
 
-    private sendCandidate = (u: UserInfo, candidate: string) => {
+    private sendCandidate = (u: WebRtcUserInfo, candidate: string) => {
         const message: Types.WebRtcCandidate & { requestId: string, status: 'OK' } = { candidate, requestId: "SubToWebRtcCandidates", status: 'OK' }
         this.nostrSend({ type: 'app', appId: u.appId }, { type: 'content', content: JSON.stringify(message), pub: u.userPub })
     }
 
-    OnMessage = async (u: UserInfo, message: Types.WebRtcMessage_message): Promise<Types.WebRtcAnswer> => {
+    OnMessage = async (u: WebRtcUserInfo, message: Types.WebRtcMessage_message): Promise<Types.WebRtcAnswer> => {
         if (message.type === Types.WebRtcMessage_message_type.OFFER) {
             return this.connect(u, message.offer)
         } else if (message.type === Types.WebRtcMessage_message_type.CANDIDATE) {
@@ -45,7 +48,7 @@ export default class webRTC {
         return {}
     }
 
-    private onCandidate = async (u: UserInfo, candidate: string): Promise<Types.WebRtcAnswer> => {
+    private onCandidate = async (u: WebRtcUserInfo, candidate: string): Promise<Types.WebRtcAnswer> => {
         const key = this.getConnectionsKey(u)
         if (!this.connections[key]) {
             throw new Error('Connection not found')
@@ -57,7 +60,7 @@ export default class webRTC {
         }
         return {}
     }
-    private connect = async (u: UserInfo, offer: string): Promise<Types.WebRtcAnswer> => {
+    private connect = async (u: WebRtcUserInfo, offer: string): Promise<Types.WebRtcAnswer> => {
         const key = this.getConnectionsKey(u)
         this.log("connect", key)
         if (this.connections[key]) {
@@ -94,17 +97,7 @@ export default class webRTC {
                         this.log(ERROR, 'SingleUsageMetricReqValidate', err)
                         return
                     }
-                    let tlvStorage: TlvStorageInterface
-                    switch (j.metric_type) {
-                        case Types.SingleMetricType.USAGE_METRIC:
-                            tlvStorage = this.storage.metricsEventStorage.tlvStorage
-                            break
-                        case Types.SingleMetricType.BUNDLE_METRIC:
-                            tlvStorage = this.utils.stateBundler.tlvStorage
-                            break
-                        default:
-                            throw new Error("Unknown metric type")
-                    }
+                    const tlvStorage = this.tlvStorageGetter(j.metric_type)
                     const { fileData } = await tlvStorage.LoadFile(j.app_id, j.metrics_name, j.page)
                     const id = j.request_id || Math.floor(Math.random() * 100_000_000)
                     let i = 0
@@ -132,7 +125,7 @@ export default class webRTC {
         return { answer: JSON.stringify(answer) }
     }
 
-    getConnectionsKey = (u: UserInfo) => {
+    getConnectionsKey = (u: WebRtcUserInfo) => {
         return u.appId + ":" + u.userPub
     }
 }

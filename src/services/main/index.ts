@@ -55,7 +55,7 @@ export default class {
     utils: Utils
     rugPullTracker: RugPullTracker
     unlocker: Unlocker
-    webRTC: webRTC
+    //webRTC: webRTC
     nostrSend: NostrSend = () => { getLogger({})("nostr send not initialized yet") }
     constructor(settings: MainSettings, storage: Storage, adminManager: AdminManager, utils: Utils, unlocker: Unlocker) {
         this.settings = settings
@@ -76,7 +76,7 @@ export default class {
         this.appUserManager = new AppUserManager(this.storage, this.settings, this.applicationManager)
         this.debitManager = new DebitManager(this.storage, this.lnd, this.applicationManager)
         this.offerManager = new OfferManager(this.storage, this.lnd, this.applicationManager, this.productManager)
-        this.webRTC = new webRTC(this.storage, this.utils)
+        //this.webRTC = new webRTC(this.storage, this.utils)
 
     }
 
@@ -99,7 +99,8 @@ export default class {
         this.liquidityProvider.attachNostrSend(f)
         this.debitManager.attachNostrSend(f)
         this.offerManager.attachNostrSend(f)
-        this.webRTC.attachNostrSend(f)
+        this.utils.attachNostrSend(f)
+        //this.webRTC.attachNostrSend(f)
     }
 
     htlcCb: HtlcCb = (e) => {
