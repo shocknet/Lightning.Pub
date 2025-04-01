@@ -36,7 +36,7 @@ export class StateBundler {
     interval: NodeJS.Timeout
     constructor(dataDir: string, tlvStorageFactory: TlvStorageFactory) {
         const bundlerPath = [dataDir, "bundler_events"].filter(s => !!s).join("/")
-        this.tlvStorage = tlvStorageFactory.NewStorage({ name: "bundler", path: bundlerPath })
+        this.tlvStorage = tlvStorageFactory.NewStorage({ name: 'bundler', path: bundlerPath })
         this.interval = setInterval(() => {
             const mem = process.memoryUsage()
             this.AddValue('_root', 'memory_rss_kb', Math.ceil(mem.rss / 1000 || 0), true)

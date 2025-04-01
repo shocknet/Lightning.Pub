@@ -8,8 +8,8 @@ import { ProcessMetrics, ProcessMetricsCollector } from './processMetricsCollect
 import { integerToUint8Array } from '../../helpers/tlv.js';
 export type SerializableLatestData = Record<string, Record<string, { base64tlvs: string[], current_chunk: number, available_chunks: number[] }>>
 export type SerializableTlvFile = { base64fileData: string, chunks: number[] }
-const usageStorageName = 'usage'
-const bundlerStorageName = 'bundler'
+export const usageStorageName = 'usage'
+export const bundlerStorageName = 'bundler'
 export type TlvStorageSettings = {
     path: string
     name: typeof usageStorageName | typeof bundlerStorageName

@@ -10,7 +10,7 @@ export default class {
     lastPersistedCache: number = 0
     constructor(settings: StorageSettings, tlvStorageFactory: TlvStorageFactory) {
         const metricsPath = [settings.dataDir, "metric_events"].filter(s => !!s).join("/")
-        this.tlvStorage = tlvStorageFactory.NewStorage({ name: "metrics", path: metricsPath })
+        this.tlvStorage = tlvStorageFactory.NewStorage({ name: 'usage', path: metricsPath })
         this.cachePath = [settings.dataDir, "metric_cache"].filter(s => !!s).join("/")
         if (!fs.existsSync(this.cachePath)) {
             fs.mkdirSync(this.cachePath, { recursive: true });
