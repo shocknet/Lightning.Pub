@@ -90,7 +90,7 @@ export default class webRTC {
                 try {
                     const j = JSON.parse(event.data) as Types.SingleMetricReq
                     const err = Types.SingleMetricReqValidate(j, {
-                        app_id_CustomCheck: id => id === u.appId,
+                        app_id_CustomCheck: id => id !== "",
                         metrics_name_CustomCheck: name => name !== ""
                     })
                     if (err) {
