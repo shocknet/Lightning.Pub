@@ -94,7 +94,7 @@ export default class webRTC {
                         metrics_name_CustomCheck: name => name !== ""
                     })
                     if (err) {
-                        this.log(ERROR, 'SingleUsageMetricReqValidate', err)
+                        this.log(ERROR, 'SingleUsageMetricReqValidate', err.message || err)
                         return
                     }
                     const tlvStorage = this.tlvStorageGetter(j.metric_type)
