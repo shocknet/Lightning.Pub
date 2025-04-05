@@ -1,5 +1,5 @@
 import { DebitAccess, DebitAccessRules } from "./entity/DebitAccess.js";
-import { StorageInterface } from "./storageInterface.js";
+import { StorageInterface } from "./db/storageInterface.js";
 type AccessToAdd = {
     npub: string
     rules?: DebitAccessRules

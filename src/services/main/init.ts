@@ -9,6 +9,7 @@ import { LoadMainSettingsFromEnv, MainSettings } from "./settings.js"
 import { Utils } from "../helpers/utilsWrapper.js"
 import { Wizard } from "../wizard/index.js"
 import { AdminManager } from "./adminManager.js"
+import { TlvStorageFactory } from "../storage/tlv/tlvFilesStorageFactory.js"
 export type AppData = {
     privateKey: string;
     publicKey: string;
@@ -16,8 +17,8 @@ export type AppData = {
     name: string;
 }
 export const initMainHandler = async (log: PubLogger, mainSettings: MainSettings) => {
-    const utils = new Utils(mainSettings)
-    const storageManager = new Storage(mainSettings.storageSettings)
+    const utils = new Utils({ dataDir: mainSettings.storageSettings.dataDir })
+    const storageManager = new Storage(mainSettings.storageSettings, utils)
     await storageManager.Connect(log)
     /*     const manualMigration = await TypeOrmMigrationRunner(log, storageManager, mainSettings.storageSettings.dbSettings, process.argv[2])
         if (manualMigration) {

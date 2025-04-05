@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { UserOffer } from "./entity/UserOffer.js";
-import { StorageInterface } from "./storageInterface.js";
+import { StorageInterface } from "./db/storageInterface.js";
 export default class {
 
 

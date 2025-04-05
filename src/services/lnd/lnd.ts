@@ -18,7 +18,7 @@ import { ERROR, getLogger } from '../helpers/logger.js';
 import { HtlcEvent_EventType } from '../../../proto/lnd/router.js';
 import { LiquidityProvider, LiquidityRequest } from '../main/liquidityProvider.js';
 import { Utils } from '../helpers/utilsWrapper.js';
-import { TxPointSettings } from '../storage/stateBundler.js';
+import { TxPointSettings } from '../storage/tlv/stateBundler.js';
 import { WalletKitClient } from '../../../proto/lnd/walletkit.client.js';
 const DeadLineMetadata = (deadline = 10 * 1000) => ({ deadline: Date.now() + deadline })
 const deadLndRetrySeconds = 5

@@ -7,7 +7,7 @@ import { ApplicationUser } from './entity/ApplicationUser.js';
 import { getLogger } from '../helpers/logger.js';
 import { User } from './entity/User.js';
 import { InviteToken } from './entity/InviteToken.js';
-import { StorageInterface } from './storageInterface.js';
+import { StorageInterface } from './db/storageInterface.js';
 export default class {
     dbs: StorageInterface
     userStorage: UserStorage

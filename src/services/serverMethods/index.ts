@@ -11,7 +11,8 @@ export default (mainHandler: Main): Types.ServerMethods => {
                     offer_CustomCheck: offer => offer !== '',
                 }
             })
-            return mainHandler.webRTC.OnMessage({ userPub: ctx.operator_id, appId: ctx.app_id }, req.message)
+            if (err != null) throw new Error(err.message)
+            return mainHandler.utils.tlvStorageFactory.WebRtcMessage({ userPub: ctx.operator_id, appId: ctx.app_id }, req.message)
         },
         SubToWebRtcCandidates: async ({ ctx }) => { },
         GetUsageMetrics: async ({ ctx, req }) => {
