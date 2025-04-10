@@ -842,7 +842,7 @@ export default (params: ClientParams) => ({
     ResetMetricsStorages: async (): Promise<ResultError | ({ status: 'OK' })> => {
         const auth = await params.retrieveMetricsAuth()
         if (auth === null) throw new Error('retrieveMetricsAuth() returned null')
-        let finalRoute = '/api/admin/metrics/reset'
+        let finalRoute = '/api/metrics/reset'
         const { data } = await axios.post(params.baseUrl + finalRoute, {}, { headers: { 'authorization': auth } })
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
@@ -1009,7 +1009,7 @@ export default (params: ClientParams) => ({
     ZipMetricsStorages: async (): Promise<ResultError | ({ status: 'OK' }& Types.ZippedMetrics)> => {
         const auth = await params.retrieveMetricsAuth()
         if (auth === null) throw new Error('retrieveMetricsAuth() returned null')
-        let finalRoute = '/api/admin/metrics/zip'
+        let finalRoute = '/api/metrics/zip'
         const { data } = await axios.post(params.baseUrl + finalRoute, {}, { headers: { 'authorization': auth } })
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 

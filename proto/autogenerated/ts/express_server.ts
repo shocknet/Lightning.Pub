@@ -1633,7 +1633,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.ResetMetricsStorages) throw new Error('method: ResetMetricsStorages is not implemented')
-    app.post('/api/admin/metrics/reset', async (req, res) => {
+    app.post('/api/metrics/reset', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'ResetMetricsStorages', batch: false, nostr: false, batchSize: 0}
         const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
@@ -1935,7 +1935,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.ZipMetricsStorages) throw new Error('method: ZipMetricsStorages is not implemented')
-    app.post('/api/admin/metrics/zip', async (req, res) => {
+    app.post('/api/metrics/zip', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'ZipMetricsStorages', batch: false, nostr: false, batchSize: 0}
         const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}

@@ -807,7 +807,7 @@ The nostr server will send back a message response, and inside the body there wi
 - ResetMetricsStorages
   - auth type: __Metrics__
   - http method: __post__
-  - http route: __/api/admin/metrics/reset__
+  - http route: __/api/metrics/reset__
   - This methods has an __empty__ __request__ body
   - This methods has an __empty__ __response__ body
 
@@ -912,7 +912,7 @@ The nostr server will send back a message response, and inside the body there wi
 - ZipMetricsStorages
   - auth type: __Metrics__
   - http method: __post__
-  - http route: __/api/admin/metrics/zip__
+  - http route: __/api/metrics/zip__
   - This methods has an __empty__ __request__ body
   - output: [ZippedMetrics](#ZippedMetrics)
 

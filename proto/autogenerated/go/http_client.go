@@ -1759,7 +1759,7 @@ func NewClient(params ClientParams) *Client {
 			if err != nil {
 				return err
 			}
-			finalRoute := "/api/admin/metrics/reset"
+			finalRoute := "/api/metrics/reset"
 			body := []byte{}
 			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
 			if err != nil {
@@ -2110,7 +2110,7 @@ func NewClient(params ClientParams) *Client {
 			if err != nil {
 				return nil, err
 			}
-			finalRoute := "/api/admin/metrics/zip"
+			finalRoute := "/api/metrics/zip"
 			body := []byte{}
 			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
 			if err != nil {
