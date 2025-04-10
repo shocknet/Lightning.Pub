@@ -318,10 +318,21 @@ class TlvFilesStorageProcessor {
 
     private async handleZipStorages(operation: ZipStoragesOperation) {
         const paths = []
-        const cwd = process.cwd()
+        //const cwd = process.cwd()
+        const name = crypto.randomBytes(16).toString('hex') + '.zip'
         for (const storageName in this.storages) {
             this.storages[storageName].PersistNow()
-            paths.push(cwd + '/' + this.storages[storageName].GetStoragePath())
+            //paths.push(cwd + '/' + this.storages[storageName].GetStoragePath())
+            const path = this.storages[storageName].GetStoragePath()
+            const err = await zip(path, name)
+            if (err) {
+                this.sendResponse({
+                    success: false,
+                    error: err.message,
+                    opId: operation.opId
+                })
+                return
+            }
 
         }
         if (paths.length === 0) {
@@ -332,17 +343,7 @@ class TlvFilesStorageProcessor {
             })
             return
         }
-        const name = crypto.randomBytes(16).toString('hex') + '.zip'
-        const path = paths.join(', ')
-        const err = await zip(path, name)
-        if (err) {
-            this.sendResponse({
-                success: false,
-                error: err.message,
-                opId: operation.opId
-            })
-            return
-        }
+
         this.sendResponse<string>({
             success: true,
             type: 'zipStorages',
