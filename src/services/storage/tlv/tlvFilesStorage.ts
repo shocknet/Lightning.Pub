@@ -90,6 +90,10 @@ export class TlvFilesStorage {
         return data
     }
 
+    PersistNow = () => {
+        this.persist()
+    }
+
     private persist = () => {
         if (!this.metaReady) {
             throw new Error("meta metrics not ready")
