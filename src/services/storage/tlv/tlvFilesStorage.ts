@@ -35,6 +35,9 @@ export class TlvFilesStorage {
     }
 
     Reset = () => {
+        if (this.storagePath === "" && this.storagePath.startsWith("/")) {
+            throw new Error("cannot delete root storage path")
+        }
         clearInterval(this.interval)
         fs.rmSync(this.storagePath, { recursive: true, force: true })
         this.init()
