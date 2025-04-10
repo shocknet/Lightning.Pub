@@ -840,8 +840,8 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     ResetMetricsStorages: async (): Promise<ResultError | ({ status: 'OK' })> => {
-        const auth = await params.retrieveAdminAuth()
-        if (auth === null) throw new Error('retrieveAdminAuth() returned null')
+        const auth = await params.retrieveMetricsAuth()
+        if (auth === null) throw new Error('retrieveMetricsAuth() returned null')
         let finalRoute = '/api/admin/metrics/reset'
         const { data } = await axios.post(params.baseUrl + finalRoute, {}, { headers: { 'authorization': auth } })
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
@@ -1007,8 +1007,8 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     ZipMetricsStorages: async (): Promise<ResultError | ({ status: 'OK' }& Types.ZippedMetrics)> => {
-        const auth = await params.retrieveAdminAuth()
-        if (auth === null) throw new Error('retrieveAdminAuth() returned null')
+        const auth = await params.retrieveMetricsAuth()
+        if (auth === null) throw new Error('retrieveMetricsAuth() returned null')
         let finalRoute = '/api/admin/metrics/zip'
         const { data } = await axios.post(params.baseUrl + finalRoute, {}, { headers: { 'authorization': auth } })
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data

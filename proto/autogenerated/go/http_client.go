@@ -1755,7 +1755,7 @@ func NewClient(params ClientParams) *Client {
 			return nil
 		},
 		ResetMetricsStorages: func() error {
-			auth, err := params.RetrieveAdminAuth()
+			auth, err := params.RetrieveMetricsAuth()
 			if err != nil {
 				return err
 			}
@@ -2106,7 +2106,7 @@ func NewClient(params ClientParams) *Client {
 			return &res, nil
 		},
 		ZipMetricsStorages: func() (*ZippedMetrics, error) {
-			auth, err := params.RetrieveAdminAuth()
+			auth, err := params.RetrieveMetricsAuth()
 			if err != nil {
 				return nil, err
 			}

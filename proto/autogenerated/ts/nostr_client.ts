@@ -699,8 +699,8 @@ export default (params: NostrClientParams,  send: (to:string, message: NostrRequ
         return { status: 'ERROR', reason: 'invalid response' }
     },
     ResetMetricsStorages: async (): Promise<ResultError | ({ status: 'OK' })> => {
-        const auth = await params.retrieveNostrAdminAuth()
-        if (auth === null) throw new Error('retrieveNostrAdminAuth() returned null')
+        const auth = await params.retrieveNostrMetricsAuth()
+        if (auth === null) throw new Error('retrieveNostrMetricsAuth() returned null')
         const nostrRequest: NostrRequest = {}
         const data = await send(params.pubDestination, {rpcName:'ResetMetricsStorages',authIdentifier:auth, ...nostrRequest }) 
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
@@ -817,8 +817,8 @@ export default (params: NostrClientParams,  send: (to:string, message: NostrRequ
         return { status: 'ERROR', reason: 'invalid response' }
     },
     ZipMetricsStorages: async (): Promise<ResultError | ({ status: 'OK' }& Types.ZippedMetrics)> => {
-        const auth = await params.retrieveNostrAdminAuth()
-        if (auth === null) throw new Error('retrieveNostrAdminAuth() returned null')
+        const auth = await params.retrieveNostrMetricsAuth()
+        if (auth === null) throw new Error('retrieveNostrMetricsAuth() returned null')
         const nostrRequest: NostrRequest = {}
         const data = await send(params.pubDestination, {rpcName:'ZipMetricsStorages',authIdentifier:auth, ...nostrRequest }) 
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data

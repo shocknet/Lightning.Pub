@@ -1639,7 +1639,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.ResetMetricsStorages) throw new Error('method: ResetMetricsStorages is not implemented')
-            const authContext = await opts.AdminAuthGuard(req.headers['authorization'])
+            const authContext = await opts.MetricsAuthGuard(req.headers['authorization'])
             authCtx = authContext
             stats.guard = process.hrtime.bigint()
             stats.validate = stats.guard
@@ -1941,7 +1941,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
         let authCtx: Types.AuthContext = {}
         try {
             if (!methods.ZipMetricsStorages) throw new Error('method: ZipMetricsStorages is not implemented')
-            const authContext = await opts.AdminAuthGuard(req.headers['authorization'])
+            const authContext = await opts.MetricsAuthGuard(req.headers['authorization'])
             authCtx = authContext
             stats.guard = process.hrtime.bigint()
             stats.validate = stats.guard

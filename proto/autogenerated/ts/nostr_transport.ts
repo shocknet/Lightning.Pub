@@ -1094,7 +1094,7 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
             case 'ResetMetricsStorages':
                 try {
                     if (!methods.ResetMetricsStorages) throw new Error('method: ResetMetricsStorages is not implemented')
-                    const authContext = await opts.NostrAdminAuthGuard(req.appId, req.authIdentifier)
+                    const authContext = await opts.NostrMetricsAuthGuard(req.appId, req.authIdentifier)
                     stats.guard = process.hrtime.bigint()
                     authCtx = authContext
                     stats.validate = stats.guard
@@ -1229,7 +1229,7 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
             case 'ZipMetricsStorages':
                 try {
                     if (!methods.ZipMetricsStorages) throw new Error('method: ZipMetricsStorages is not implemented')
-                    const authContext = await opts.NostrAdminAuthGuard(req.appId, req.authIdentifier)
+                    const authContext = await opts.NostrMetricsAuthGuard(req.appId, req.authIdentifier)
                     stats.guard = process.hrtime.bigint()
                     authCtx = authContext
                     stats.validate = stats.guard

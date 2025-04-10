@@ -256,7 +256,7 @@ The nostr server will send back a message response, and inside the body there wi
   - This methods has an __empty__ __response__ body
 
 - ResetMetricsStorages
-  - auth type: __Admin__
+  - auth type: __Metrics__
   - This methods has an __empty__ __request__ body
   - This methods has an __empty__ __response__ body
 
@@ -301,7 +301,7 @@ The nostr server will send back a message response, and inside the body there wi
   - output: [UserHealthState](#UserHealthState)
 
 - ZipMetricsStorages
-  - auth type: __Admin__
+  - auth type: __Metrics__
   - This methods has an __empty__ __request__ body
   - output: [ZippedMetrics](#ZippedMetrics)
 
@@ -805,7 +805,7 @@ The nostr server will send back a message response, and inside the body there wi
   - This methods has an __empty__ __response__ body
 
 - ResetMetricsStorages
-  - auth type: __Admin__
+  - auth type: __Metrics__
   - http method: __post__
   - http route: __/api/admin/metrics/reset__
   - This methods has an __empty__ __request__ body
@@ -910,7 +910,7 @@ The nostr server will send back a message response, and inside the body there wi
   - output: [UserHealthState](#UserHealthState)
 
 - ZipMetricsStorages
-  - auth type: __Admin__
+  - auth type: __Metrics__
   - http method: __post__
   - http route: __/api/admin/metrics/zip__
   - This methods has an __empty__ __request__ body
