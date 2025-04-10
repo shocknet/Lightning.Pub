@@ -317,10 +317,11 @@ class TlvFilesStorageProcessor {
     }
 
     private async handleZipStorages(operation: ZipStoragesOperation) {
-        const paths = []
+        let noAction = true
         //const cwd = process.cwd()
         const name = crypto.randomBytes(16).toString('hex') + '.zip'
         for (const storageName in this.storages) {
+            noAction = false
             this.storages[storageName].PersistNow()
             //paths.push(cwd + '/' + this.storages[storageName].GetStoragePath())
             const path = this.storages[storageName].GetStoragePath()
@@ -335,7 +336,7 @@ class TlvFilesStorageProcessor {
             }
 
         }
-        if (paths.length === 0) {
+        if (noAction) {
             this.sendResponse({
                 success: false,
                 error: 'No storages to zip',
