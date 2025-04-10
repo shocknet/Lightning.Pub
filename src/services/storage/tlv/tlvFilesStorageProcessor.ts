@@ -318,9 +318,10 @@ class TlvFilesStorageProcessor {
 
     private async handleZipStorages(operation: ZipStoragesOperation) {
         const paths = []
+        const cwd = process.cwd()
         for (const storageName in this.storages) {
             this.storages[storageName].PersistNow()
-            paths.push(this.storages[storageName].GetStoragePath())
+            paths.push(cwd + '/' + this.storages[storageName].GetStoragePath())
 
         }
         if (paths.length === 0) {
