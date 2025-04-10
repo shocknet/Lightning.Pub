@@ -7,8 +7,8 @@ export type RequestMetric = AuthContext & RequestInfo & RequestStats & { error?:
 export type AdminContext = {
     admin_id: string
 }
-export type AdminMethodInputs = AddApp_Input | AddPeer_Input | AuthApp_Input | BanUser_Input | CloseChannel_Input | CreateOneTimeInviteLink_Input | GetInviteLinkState_Input | GetSeed_Input | ListChannels_Input | LndGetInfo_Input | OpenChannel_Input | UpdateChannelPolicy_Input
-export type AdminMethodOutputs = AddApp_Output | AddPeer_Output | AuthApp_Output | BanUser_Output | CloseChannel_Output | CreateOneTimeInviteLink_Output | GetInviteLinkState_Output | GetSeed_Output | ListChannels_Output | LndGetInfo_Output | OpenChannel_Output | UpdateChannelPolicy_Output
+export type AdminMethodInputs = AddApp_Input | AddPeer_Input | AuthApp_Input | BanUser_Input | CloseChannel_Input | CreateOneTimeInviteLink_Input | GetInviteLinkState_Input | GetSeed_Input | ListChannels_Input | LndGetInfo_Input | OpenChannel_Input | ResetMetricsStorages_Input | UpdateChannelPolicy_Input | ZipMetricsStorages_Input
+export type AdminMethodOutputs = AddApp_Output | AddPeer_Output | AuthApp_Output | BanUser_Output | CloseChannel_Output | CreateOneTimeInviteLink_Output | GetInviteLinkState_Output | GetSeed_Output | ListChannels_Output | LndGetInfo_Output | OpenChannel_Output | ResetMetricsStorages_Output | UpdateChannelPolicy_Output | ZipMetricsStorages_Output
 export type AppContext = {
     app_id: string
 }
@@ -253,6 +253,9 @@ export type RequestNPubLinkingToken_Output = ResultError | ({ status: 'OK' } & R
 export type ResetDebit_Input = {rpcName:'ResetDebit', req: DebitOperation}
 export type ResetDebit_Output = ResultError | { status: 'OK' }
 
+export type ResetMetricsStorages_Input = {rpcName:'ResetMetricsStorages'}
+export type ResetMetricsStorages_Output = ResultError | { status: 'OK' }
+
 export type ResetNPubLinkingToken_Input = {rpcName:'ResetNPubLinkingToken', req: RequestNPubLinkingTokenRequest}
 export type ResetNPubLinkingToken_Output = ResultError | ({ status: 'OK' } & RequestNPubLinkingTokenResponse)
 
@@ -294,6 +297,9 @@ export type UseInviteLink_Output = ResultError | { status: 'OK' }
 
 export type UserHealth_Input = {rpcName:'UserHealth'}
 export type UserHealth_Output = ResultError | ({ status: 'OK' } & UserHealthState)
+
+export type ZipMetricsStorages_Input = {rpcName:'ZipMetricsStorages'}
+export type ZipMetricsStorages_Output = ResultError | ({ status: 'OK' } & ZippedMetrics)
 
 export type ServerMethods = {
     AddApp?: (req: AddApp_Input & {ctx: AdminContext }) => Promise<AuthApp>
@@ -359,6 +365,7 @@ export type ServerMethods = {
     PayInvoice?: (req: PayInvoice_Input & {ctx: UserContext }) => Promise<PayInvoiceResponse>
     RequestNPubLinkingToken?: (req: RequestNPubLinkingToken_Input & {ctx: AppContext }) => Promise<RequestNPubLinkingTokenResponse>
     ResetDebit?: (req: ResetDebit_Input & {ctx: UserContext }) => Promise<void>
+    ResetMetricsStorages?: (req: ResetMetricsStorages_Input & {ctx: AdminContext }) => Promise<void>
     ResetNPubLinkingToken?: (req: ResetNPubLinkingToken_Input & {ctx: AppContext }) => Promise<RequestNPubLinkingTokenResponse>
     RespondToDebit?: (req: RespondToDebit_Input & {ctx: UserContext }) => Promise<void>
     SendAppUserToAppPayment?: (req: SendAppUserToAppPayment_Input & {ctx: AppContext }) => Promise<void>
@@ -373,6 +380,7 @@ export type ServerMethods = {
     UpdateUserOffer?: (req: UpdateUserOffer_Input & {ctx: UserContext }) => Promise<void>
     UseInviteLink?: (req: UseInviteLink_Input & {ctx: GuestWithPubContext }) => Promise<void>
     UserHealth?: (req: UserHealth_Input & {ctx: UserContext }) => Promise<UserHealthState>
+    ZipMetricsStorages?: (req: ZipMetricsStorages_Input & {ctx: AdminContext }) => Promise<ZippedMetrics>
 }
 
 export enum AddressType {
@@ -3812,6 +3820,24 @@ export const WebRtcMessageValidate = (o?: WebRtcMessage, opts: WebRtcMessageOpti
     const messageErr = WebRtcMessage_messageValidate(o.message, opts.message_Options, `${path}.message`)
     if (messageErr !== null) return messageErr
     
+
+    return null
+}
+
+export type ZippedMetrics = {
+    path: string
+}
+export const ZippedMetricsOptionalFields: [] = []
+export type ZippedMetricsOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    path_CustomCheck?: (v: string) => boolean
+}
+export const ZippedMetricsValidate = (o?: ZippedMetrics, opts: ZippedMetricsOptions = {}, path: string = 'ZippedMetrics::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.path !== 'string') return new Error(`${path}.path: is not a string`)
+    if (opts.path_CustomCheck && !opts.path_CustomCheck(o.path)) return new Error(`${path}.path: custom check failed`)
 
     return null
 }

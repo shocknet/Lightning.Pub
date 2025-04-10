@@ -34,7 +34,8 @@ export type MainSettings = {
     defaultAppName: string
     pushBackupsToNostr: boolean
     lnurlMetaText: string,
-    bridgeUrl: string
+    bridgeUrl: string,
+    allowResetMetricsStorages: boolean
 }
 
 export type BitcoinCoreSettings = {
@@ -74,7 +75,8 @@ export const LoadMainSettingsFromEnv = (): MainSettings => {
         defaultAppName: process.env.DEFAULT_APP_NAME || "wallet",
         pushBackupsToNostr: process.env.PUSH_BACKUPS_TO_NOSTR === 'true' || false,
         lnurlMetaText: process.env.LNURL_META_TEXT || "LNURL via Lightning.pub",
-        bridgeUrl: process.env.BRIDGE_URL || "https://shockwallet.app"
+        bridgeUrl: process.env.BRIDGE_URL || "https://shockwallet.app",
+        allowResetMetricsStorages: process.env.ALLOW_RESET_METRICS_STORAGES === 'true' || false
     }
 }
 

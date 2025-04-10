@@ -5,15 +5,15 @@ import { NostrSend } from "../nostr/handler.js";
 import { ProcessMetricsCollector } from "../storage/tlv/processMetricsCollector.js";
 type UtilsSettings = {
     noCollector?: boolean
-    dataDir: string
+    dataDir: string,
+    allowResetMetricsStorages: boolean
 }
 export class Utils {
     tlvStorageFactory: TlvStorageFactory
     stateBundler: StateBundler
-    settings: MainSettings
     _nostrSend: NostrSend = () => { throw new Error('nostr send not initialized yet') }
-    constructor({ noCollector, dataDir }: UtilsSettings) {
-        this.tlvStorageFactory = new TlvStorageFactory()
+    constructor({ noCollector, dataDir, allowResetMetricsStorages }: UtilsSettings) {
+        this.tlvStorageFactory = new TlvStorageFactory(allowResetMetricsStorages)
         this.stateBundler = new StateBundler(dataDir, this.tlvStorageFactory)
         if (!noCollector) {
             new ProcessMetricsCollector((metrics) => {

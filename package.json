@@ -65,7 +65,8 @@
     "websocket-polyfill": "^0.0.3",
     "why-is-node-running": "^3.2.0",
     "wrtc": "^0.4.7",
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "zip-a-folder": "^3.1.9"
   },
   "devDependencies": {
     "@types/chai": "^4.3.4",

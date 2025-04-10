@@ -3,14 +3,12 @@ import { BitcoinCoreWrapper } from "./bitcoinCore.js"
 import LND from '../services/lnd/lnd.js'
 import { LiquidityProvider } from "../services/main/liquidityProvider.js"
 import { Utils } from "../services/helpers/utilsWrapper.js"
-import { TlvStorageFactory } from "../services/storage/tlv/tlvFilesStorageFactory.js"
 export const setupNetwork = async () => {
     const settings = LoadTestSettingsFromEnv()
     const core = new BitcoinCoreWrapper(settings)
     await core.InitAddress()
     await core.Mine(1)
-    const tlvStorageFactory = new TlvStorageFactory()
-    const setupUtils = new Utils({ dataDir: settings.storageSettings.dataDir })
+    const setupUtils = new Utils({ dataDir: settings.storageSettings.dataDir, allowResetMetricsStorages: settings.allowResetMetricsStorages })
     const alice = new LND(settings.lndSettings, new LiquidityProvider("", setupUtils, async () => { }, async () => { }), setupUtils, async () => { }, async () => { }, () => { }, () => { })
     const bob = new LND({ ...settings.lndSettings, mainNode: settings.lndSettings.otherNode }, new LiquidityProvider("", setupUtils, async () => { }, async () => { }), setupUtils, async () => { }, async () => { }, () => { }, () => { })
     await tryUntil<void>(async i => {

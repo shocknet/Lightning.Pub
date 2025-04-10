@@ -46,6 +46,13 @@ export default (mainHandler: Main): Types.ServerMethods => {
         GetLndMetrics: async ({ ctx, req }) => {
             return mainHandler.metricsManager.GetLndMetrics(req)
         },
+        ResetMetricsStorages: async ({ ctx }) => {
+            return mainHandler.utils.tlvStorageFactory.ResetStorages()
+        },
+        ZipMetricsStorages: async ({ ctx }) => {
+            const path = await mainHandler.utils.tlvStorageFactory.ZipStorages()
+            return { path }
+        },
         ListChannels: async ({ ctx }) => {
             return mainHandler.adminManager.ListChannels()
         },
