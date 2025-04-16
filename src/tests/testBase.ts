@@ -14,6 +14,7 @@ import { LiquidityProvider } from '../services/main/liquidityProvider.js'
 import { Utils } from '../services/helpers/utilsWrapper.js'
 import { AdminManager } from '../services/main/adminManager.js'
 import { TlvStorageFactory } from '../services/storage/tlv/tlvFilesStorageFactory.js'
+import { ChainTools } from './networkSetup.js'
 chai.use(chaiString)
 export const expect = chai.expect
 export type Describe = (message: string, failure?: boolean) => void
@@ -34,6 +35,7 @@ export type TestBase = {
     externalAccessToThirdLnd: LND
     adminManager: AdminManager
     d: Describe
+    chainTools: ChainTools
 }
 
 export type StorageTestBase = {
@@ -58,7 +60,7 @@ export const teardownStorageTest = async (T: StorageTestBase) => {
     T.storage.Stop()
 }
 
-export const SetupTest = async (d: Describe): Promise<TestBase> => {
+export const SetupTest = async (d: Describe, chainTools: ChainTools): Promise<TestBase> => {
     const settings = LoadTestSettingsFromEnv()
     const initialized = await initMainHandler(getLogger({ component: "mainForTest" }), settings)
     if (!initialized) {
@@ -89,7 +91,8 @@ export const SetupTest = async (d: Describe): Promise<TestBase> => {
         user1, user2,
         externalAccessToMainLnd, externalAccessToOtherLnd, externalAccessToThirdLnd,
         d,
-        adminManager: initialized.adminManager
+        adminManager: initialized.adminManager,
+        chainTools
     }
 }
 

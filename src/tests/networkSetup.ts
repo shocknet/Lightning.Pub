@@ -3,7 +3,12 @@ import { BitcoinCoreWrapper } from "./bitcoinCore.js"
 import LND from '../services/lnd/lnd.js'
 import { LiquidityProvider } from "../services/main/liquidityProvider.js"
 import { Utils } from "../services/helpers/utilsWrapper.js"
-export const setupNetwork = async () => {
+
+export type ChainTools = {
+    mine: (amount: number) => Promise<void>
+}
+
+export const setupNetwork = async (): Promise<ChainTools> => {
     const settings = LoadTestSettingsFromEnv()
     const core = new BitcoinCoreWrapper(settings)
     await core.InitAddress()
@@ -51,6 +56,7 @@ export const setupNetwork = async () => {
 
     alice.Stop()
     bob.Stop()
+    return { mine: (amount: number) => core.Mine(amount) }
 }
 
 const tryUntil = async <T>(fn: (attempt: number) => Promise<T>, maxTries: number, interval: number) => {
