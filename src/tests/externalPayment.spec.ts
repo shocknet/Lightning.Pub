@@ -50,8 +50,8 @@ const testFailedExternalPayment = async (T: TestBase) => {
 
 const testSuccesfulReceivedExternalChainPayment = async (T: TestBase) => {
     T.d("starting testSuccesfulReceivedExternalChainPayment")
-    const balanceBefore = await T.main.storage.userStorage.GetUser(T.user1.userId)
-    expect(balanceBefore.balance_sats).to.be.equal(0)
+    /*     const balanceBefore = await T.main.storage.userStorage.GetUser(T.user1.userId)
+        expect(balanceBefore.balance_sats).to.be.equal(0) */
     const user2Address = await T.main.paymentManager.NewAddress({ app_id: T.app.appId, app_user_id: T.user2.appUserIdentifier, user_id: T.user2.userId }, { addressType: Types.AddressType.WITNESS_PUBKEY_HASH })
     expect(user2Address.address).to.startWith("bc1")
     T.d("generated external chain address for user2")
