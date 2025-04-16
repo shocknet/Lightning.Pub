@@ -59,6 +59,7 @@ const testSuccesfulReceivedExternalChainPayment = async (T: TestBase) => {
     expect(payment.txid).to.not.be.undefined
     T.d("paid 1000 sats to user2's external chain address")
     await T.chainTools.mine(1)
+    await new Promise(resolve => setTimeout(resolve, 100))
     T.d("mined 1 blocks to confirm the payment")
     const u2 = await T.main.storage.userStorage.GetUser(T.user2.userId)
     expect(u2.balance_sats).to.be.equal(1000)
