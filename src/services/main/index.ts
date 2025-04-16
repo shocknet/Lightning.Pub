@@ -114,12 +114,11 @@ export default class {
     NewBlockHandler = async (height: number) => {
         let confirmed: (PendingTx & { confs: number; })[]
         let log = getLogger({})
-        log("checking new block", height)
+
         try {
             const balanceEvents = await this.paymentManager.GetLndBalance()
             await this.metricsManager.NewBlockCb(height, balanceEvents)
             confirmed = await this.paymentManager.CheckNewlyConfirmedTxs(height)
-            log("checked newly confirmed transactions", confirmed)
             await this.liquidityManager.onNewBlock()
         } catch (err: any) {
             log(ERROR, "failed to check transactions after new block", err.message || err)
