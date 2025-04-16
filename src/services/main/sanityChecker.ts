@@ -236,6 +236,7 @@ export default class SanityChecker {
         this.decrementEvents = {}
         for (let i = 0; i < this.events.length; i++) {
             const e = this.events[i]
+            this.log("checking event", e.type, e.data)
             if (e.type === 'balance_decrement') {
                 await this.verifyDecrementEvent(e)
             } else if (e.type === 'balance_increment') {
