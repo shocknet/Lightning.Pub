@@ -211,9 +211,11 @@ export default class {
         }
         const existingAddress = await this.storage.paymentStorage.GetExistingUserAddress(ctx.user_id, app)
         if (existingAddress) {
+            this.log("returning existing address", existingAddress.address)
             return { address: existingAddress.address }
         }
         const res = await this.lnd.NewAddress(req.addressType, { useProvider: false, from: 'user' })
+        this.log("generated new address", res.address)
         const userAddress = await this.storage.paymentStorage.AddUserAddress(user, res.address, { linkedApplication: app })
         this.storage.eventsLog.LogEvent({ type: 'new_address', userId: user.user_id, appUserId: "", appId: app.app_id, balance: user.balance_sats, data: res.address, amount: 0 })
         return { address: userAddress.address }
