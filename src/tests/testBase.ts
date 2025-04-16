@@ -30,7 +30,7 @@ export type TestBase = {
     app: AppData
     user1: TestUserData
     user2: TestUserData
-    externalAccessToMainLnd: LND
+    //externalAccessToMainLnd: LND
     externalAccessToOtherLnd: LND
     externalAccessToThirdLnd: LND
     adminManager: AdminManager
@@ -74,8 +74,8 @@ export const SetupTest = async (d: Describe, chainTools: ChainTools): Promise<Te
     const user2 = { userId: u2.info.userId, appUserIdentifier: u2.identifier, appId: app.appId }
 
     const extermnalUtils = new Utils({ dataDir: settings.storageSettings.dataDir, allowResetMetricsStorages: settings.allowResetMetricsStorages })
-    const externalAccessToMainLnd = new LND(settings.lndSettings, new LiquidityProvider("", extermnalUtils, async () => { }, async () => { }), extermnalUtils, async () => { }, async () => { }, () => { }, () => { })
-    await externalAccessToMainLnd.Warmup()
+    /*     const externalAccessToMainLnd = new LND(settings.lndSettings, new LiquidityProvider("", extermnalUtils, async () => { }, async () => { }), extermnalUtils, async () => { }, async () => { }, () => { }, () => { })
+        await externalAccessToMainLnd.Warmup() */
 
     const otherLndSetting = { ...settings.lndSettings, mainNode: settings.lndSettings.otherNode }
     const externalAccessToOtherLnd = new LND(otherLndSetting, new LiquidityProvider("", extermnalUtils, async () => { }, async () => { }), extermnalUtils, async () => { }, async () => { }, () => { }, () => { })
@@ -89,7 +89,7 @@ export const SetupTest = async (d: Describe, chainTools: ChainTools): Promise<Te
     return {
         expect, main, app,
         user1, user2,
-        externalAccessToMainLnd, externalAccessToOtherLnd, externalAccessToThirdLnd,
+        /* externalAccessToMainLnd, */ externalAccessToOtherLnd, externalAccessToThirdLnd,
         d,
         adminManager: initialized.adminManager,
         chainTools
@@ -98,7 +98,7 @@ export const SetupTest = async (d: Describe, chainTools: ChainTools): Promise<Te
 
 export const teardown = async (T: TestBase) => {
     T.main.Stop()
-    T.externalAccessToMainLnd.Stop()
+    /* T.externalAccessToMainLnd.Stop() */
     T.externalAccessToOtherLnd.Stop()
     T.externalAccessToThirdLnd.Stop()
     T.adminManager.Stop()

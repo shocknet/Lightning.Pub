@@ -114,7 +114,7 @@ export default class {
     NewBlockHandler = async (height: number) => {
         let confirmed: (PendingTx & { confs: number; })[]
         let log = getLogger({})
-
+        log("checking new block", height)
         try {
             const balanceEvents = await this.paymentManager.GetLndBalance()
             await this.metricsManager.NewBlockCb(height, balanceEvents)
