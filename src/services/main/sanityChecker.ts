@@ -36,7 +36,7 @@ export default class SanityChecker {
                 return { type: fullData, data: fullData }
             } else if (LN_INVOICE_REGEX.test(fullData)) {
                 return { type: 'invoice', data: fullData }
-            } else if (BITCOIN_ADDRESS_REGEX.test(fullData)) {
+            } else if (BITCOIN_ADDRESS_REGEX.test(fullData) || fullData.startsWith("bcrt1")) {
                 return { type: 'address', data: fullData }
             } else {
                 return { type: 'u2u', data: fullData }
@@ -45,7 +45,7 @@ export default class SanityChecker {
             const [prefix, data] = parts
             if (prefix === 'routing_fee_refund' || prefix === 'payment_refund') {
                 return { type: prefix, data }
-            } else if (BITCOIN_ADDRESS_REGEX.test(prefix)) {
+            } else if (BITCOIN_ADDRESS_REGEX.test(prefix) || prefix.startsWith("bcrt1")) {
                 return { type: 'address', data: prefix, txHash: data }
             } else {
                 return { type: 'u2u', data: prefix, serialId: +data }
@@ -236,6 +236,7 @@ export default class SanityChecker {
         this.decrementEvents = {}
         for (let i = 0; i < this.events.length; i++) {
             const e = this.events[i]
+            this.log("checking event", e.type, e.data)
             if (e.type === 'balance_decrement') {
                 await this.verifyDecrementEvent(e)
             } else if (e.type === 'balance_increment') {

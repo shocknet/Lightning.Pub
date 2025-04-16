@@ -1632,6 +1632,25 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
+    if (!opts.allowNotImplementedMethods && !methods.ResetMetricsStorages) throw new Error('method: ResetMetricsStorages is not implemented')
+    app.post('/api/metrics/reset', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'ResetMetricsStorages', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.ResetMetricsStorages) throw new Error('method: ResetMetricsStorages is not implemented')
+            const authContext = await opts.MetricsAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            stats.validate = stats.guard
+            const query = req.query
+            const params = req.params
+             await methods.ResetMetricsStorages({rpcName:'ResetMetricsStorages', ctx:authContext })
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK'})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
     if (!opts.allowNotImplementedMethods && !methods.ResetNPubLinkingToken) throw new Error('method: ResetNPubLinkingToken is not implemented')
     app.post('/api/app/user/npub/token/reset', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'ResetNPubLinkingToken', batch: false, nostr: false, batchSize: 0}
@@ -1910,6 +1929,25 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const query = req.query
             const params = req.params
             const response =  await methods.UserHealth({rpcName:'UserHealth', ctx:authContext })
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.ZipMetricsStorages) throw new Error('method: ZipMetricsStorages is not implemented')
+    app.post('/api/metrics/zip', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'ZipMetricsStorages', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.ZipMetricsStorages) throw new Error('method: ZipMetricsStorages is not implemented')
+            const authContext = await opts.MetricsAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            stats.validate = stats.guard
+            const query = req.query
+            const params = req.params
+            const response =  await methods.ZipMetricsStorages({rpcName:'ZipMetricsStorages', ctx:authContext })
             stats.handle = process.hrtime.bigint()
             res.json({status: 'OK', ...response})
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])

@@ -9,20 +9,38 @@ export class TlvFilesStorage {
     private meta: Record<string, Record<string, { chunks: number[] }>> = {}
     private pending: Record<string, Record<string, { tlvs: Uint8Array[] }>> = {}
     private metaReady = false
+    private interval: NodeJS.Timeout
     constructor(storagePath: string) {
         this.storagePath = storagePath
         if (!fs.existsSync(this.storagePath)) {
             fs.mkdirSync(this.storagePath, { recursive: true });
         }
+        this.init()
+        process.on('exit', () => {
+            this.persist()
+        });
+    }
+
+    GetStoragePath = () => {
+        return this.storagePath
+    }
+
+    init = () => {
         this.initMeta()
-        setInterval(() => {
+        this.interval = setInterval(() => {
             if (Date.now() - this.lastPersisted > 1000 * 60 * 4) {
                 this.persist()
             }
         }, 1000 * 60 * 5)
-        process.on('exit', () => {
-            this.persist()
-        });
+    }
+
+    Reset = () => {
+        if (this.storagePath === "" && this.storagePath.startsWith("/")) {
+            throw new Error("cannot delete root storage path")
+        }
+        clearInterval(this.interval)
+        fs.rmSync(this.storagePath, { recursive: true, force: true })
+        this.init()
     }
 
     LoadFile = (app: string, dataName: string, chunk: number): TlvFile => {
@@ -70,6 +88,10 @@ export class TlvFilesStorage {
             }
         })
         return data
+    }
+
+    PersistNow = () => {
+        this.persist()
     }
 
     private persist = () => {

@@ -6,6 +6,8 @@ import { SendData } from '../../nostr/handler.js';
 import { SendInitiator } from '../../nostr/handler.js';
 import { ProcessMetrics, ProcessMetricsCollector } from './processMetricsCollector.js';
 import { integerToUint8Array } from '../../helpers/tlv.js';
+import { zip } from 'zip-a-folder'
+import crypto from 'crypto'
 export type SerializableLatestData = Record<string, Record<string, { base64tlvs: string[], current_chunk: number, available_chunks: number[] }>>
 export type SerializableTlvFile = { base64fileData: string, chunks: number[] }
 export const usageStorageName = 'usage'
@@ -13,6 +15,18 @@ export const bundlerStorageName = 'bundler'
 export type TlvStorageSettings = {
     path: string
     name: typeof usageStorageName | typeof bundlerStorageName
+}
+
+export type ZipStoragesOperation = {
+    type: 'zipStorages'
+    opId: string
+    debug?: boolean
+}
+
+export type ResetTlvStorageOperation = {
+    type: 'resetStorage'
+    opId: string
+    debug?: boolean
 }
 
 export type NewTlvStorageOperation = {
@@ -74,7 +88,7 @@ export interface ITlvStorageOperation {
     debug?: boolean
 }
 
-export type TlvStorageOperation = NewTlvStorageOperation | AddTlvOperation | LoadLatestTlvOperation | LoadTlvFileOperation | WebRtcMessageOperation | ProcessMetricsTlvOperation
+export type TlvStorageOperation = NewTlvStorageOperation | AddTlvOperation | LoadLatestTlvOperation | LoadTlvFileOperation | WebRtcMessageOperation | ProcessMetricsTlvOperation | ResetTlvStorageOperation | ZipStoragesOperation
 
 export type SuccessTlvOperationResponse<T> = { success: true, type: string, data: T, opId: string }
 export type TlvOperationResponse<T> = SuccessTlvOperationResponse<T> | ErrorTlvOperationResponse
@@ -132,11 +146,15 @@ class TlvFilesStorageProcessor {
             console.log('no bundle storage yet')
             return
         }
-        if (pMetrics.memory_rss_kb) this.storages[bundlerStorageName].AddTlv('_root', 'memory_rss_kb' + pName, this.serializeNowTlv(pMetrics.memory_rss_kb))
-        if (pMetrics.memory_buffer_kb) this.storages[bundlerStorageName].AddTlv('_root', 'memory_buffer_kb' + pName, this.serializeNowTlv(pMetrics.memory_buffer_kb))
-        if (pMetrics.memory_heap_total_kb) this.storages[bundlerStorageName].AddTlv('_root', 'memory_heap_total_kb' + pName, this.serializeNowTlv(pMetrics.memory_heap_total_kb))
-        if (pMetrics.memory_heap_used_kb) this.storages[bundlerStorageName].AddTlv('_root', 'memory_heap_used_kb' + pName, this.serializeNowTlv(pMetrics.memory_heap_used_kb))
-        if (pMetrics.memory_external_kb) this.storages[bundlerStorageName].AddTlv('_root', 'memory_external_kb' + pName, this.serializeNowTlv(pMetrics.memory_external_kb))
+        for (const key in pMetrics) {
+            const v = pMetrics[key as keyof ProcessMetrics]
+            if (v) this.storages[bundlerStorageName].AddTlv('_root', key + pName, this.serializeNowTlv(v))
+        }
+        /*         if (pMetrics.memory_rss_kb) this.storages[bundlerStorageName].AddTlv('_root', 'memory_rss_kb' + pName, this.serializeNowTlv(pMetrics.memory_rss_kb))
+                if (pMetrics.memory_buffer_kb) this.storages[bundlerStorageName].AddTlv('_root', 'memory_buffer_kb' + pName, this.serializeNowTlv(pMetrics.memory_buffer_kb))
+                if (pMetrics.memory_heap_total_kb) this.storages[bundlerStorageName].AddTlv('_root', 'memory_heap_total_kb' + pName, this.serializeNowTlv(pMetrics.memory_heap_total_kb))
+                if (pMetrics.memory_heap_used_kb) this.storages[bundlerStorageName].AddTlv('_root', 'memory_heap_used_kb' + pName, this.serializeNowTlv(pMetrics.memory_heap_used_kb))
+                if (pMetrics.memory_external_kb) this.storages[bundlerStorageName].AddTlv('_root', 'memory_external_kb' + pName, this.serializeNowTlv(pMetrics.memory_external_kb)) */
     }
 
     private async handleOperation(operation: TlvStorageOperation) {
@@ -144,6 +162,9 @@ class TlvFilesStorageProcessor {
             const opId = operation.opId;
             if (operation.debug) console.log('handleOperation', operation)
             switch (operation.type) {
+                case 'resetStorage':
+                    await this.handleResetStorage(operation);
+                    break;
                 case 'newStorage':
                     await this.handleNewStorage(operation);
                     break;
@@ -162,6 +183,9 @@ class TlvFilesStorageProcessor {
                 case 'processMetrics':
                     await this.handleProcessMetrics(operation);
                     break;
+                case 'zipStorages':
+                    await this.handleZipStorages(operation);
+                    break;
                 default:
                     this.sendResponse({
                         success: false,
@@ -178,6 +202,19 @@ class TlvFilesStorageProcessor {
             });
         }
     }
+
+    private async handleResetStorage(operation: ResetTlvStorageOperation) {
+        for (const storageName in this.storages) {
+            this.storages[storageName].Reset()
+        }
+        this.sendResponse({
+            success: true,
+            type: 'resetStorage',
+            data: null,
+            opId: operation.opId
+        });
+    }
+
 
     private async handleNewStorage(operation: NewTlvStorageOperation) {
         if (this.storages[operation.settings.name]) {
@@ -277,6 +314,45 @@ class TlvFilesStorageProcessor {
             data: null,
             opId: operation.opId
         });
+    }
+
+    private async handleZipStorages(operation: ZipStoragesOperation) {
+        let noAction = true
+        //const cwd = process.cwd()
+        const name = crypto.randomBytes(16).toString('hex') + '.zip'
+        for (const storageName in this.storages) {
+            noAction = false
+            this.storages[storageName].PersistNow()
+            //paths.push(cwd + '/' + this.storages[storageName].GetStoragePath())
+            const path = this.storages[storageName].GetStoragePath()
+            const err = await zip(path, name)
+            if (err) {
+                this.sendResponse({
+                    success: false,
+                    error: err.message,
+                    opId: operation.opId
+                })
+                return
+            }
+
+        }
+        if (noAction) {
+            this.sendResponse({
+                success: false,
+                error: 'No storages to zip',
+                opId: operation.opId
+            })
+            return
+        }
+
+        this.sendResponse<string>({
+            success: true,
+            type: 'zipStorages',
+            data: name,
+            opId: operation.opId
+        });
+
+
     }
 
     private sendResponse<T>(response: TlvOperationResponse<T>) {

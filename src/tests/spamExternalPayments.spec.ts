@@ -1,6 +1,6 @@
 import { disableLoggers } from '../services/helpers/logger.js'
 import { defaultInvoiceExpiry } from '../services/storage/paymentStorage.js'
-import { Describe, expect, expectThrowsAsync, runSanityCheck, safelySetUserBalance, SetupTest, TestBase } from './testBase.js'
+import { Describe, expect, expectThrowsAsync, runSanityCheck, safelySetUserBalance, TestBase } from './testBase.js'
 export const ignore = false
 
 export default async (T: TestBase) => {

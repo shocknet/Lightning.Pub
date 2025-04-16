@@ -1,6 +1,6 @@
 import { ChildProcess, fork } from 'child_process';
 import { EventEmitter } from 'events';
-import { AddTlvOperation, ITlvStorageOperation, SuccessTlvOperationResponse, LoadLatestTlvOperation, LoadTlvFileOperation, NewTlvStorageOperation, SerializableLatestData, SerializableTlvFile, TlvOperationResponse, TlvStorageSettings, WebRtcMessageOperation, ProcessMetricsTlvOperation } from './tlvFilesStorageProcessor';
+import { AddTlvOperation, ITlvStorageOperation, SuccessTlvOperationResponse, LoadLatestTlvOperation, LoadTlvFileOperation, NewTlvStorageOperation, SerializableLatestData, SerializableTlvFile, TlvOperationResponse, TlvStorageSettings, WebRtcMessageOperation, ProcessMetricsTlvOperation, ZipStoragesOperation, ResetTlvStorageOperation } from './tlvFilesStorageProcessor';
 import { LatestData, TlvFile } from './tlvFilesStorage';
 import { NostrSend, SendData, SendInitiator } from '../../nostr/handler';
 import { WebRtcUserInfo } from '../../webRTC';
@@ -17,8 +17,10 @@ export class TlvStorageFactory extends EventEmitter {
     private isConnected: boolean = false;
     private debug: boolean = false;
     private _nostrSend: NostrSend = () => { throw new Error('nostr send not initialized yet') }
-    constructor() {
+    private allowResetMetricsStorages: boolean
+    constructor(allowResetMetricsStorages: boolean) {
         super();
+        this.allowResetMetricsStorages = allowResetMetricsStorages
         this.initializeSubprocess();
     }
 
@@ -59,6 +61,21 @@ export class TlvStorageFactory extends EventEmitter {
         });
 
         this.isConnected = true;
+    }
+
+    ZipStorages(): Promise<string> {
+        const opId = Math.random().toString()
+        const op: ZipStoragesOperation = { type: 'zipStorages', opId }
+        return this.handleOp<string>(op)
+    }
+
+    ResetStorages(): Promise<void> {
+        if (!this.allowResetMetricsStorages) {
+            throw new Error('Resetting metrics storages is not allowed')
+        }
+        const opId = Math.random().toString()
+        const op: ResetTlvStorageOperation = { type: 'resetStorage', opId }
+        return this.handleOp<void>(op)
     }
 
     NewStorage(settings: TlvStorageSettings): TlvStorageInterface {

@@ -698,6 +698,17 @@ export default (params: NostrClientParams,  send: (to:string, message: NostrRequ
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
+    ResetMetricsStorages: async (): Promise<ResultError | ({ status: 'OK' })> => {
+        const auth = await params.retrieveNostrMetricsAuth()
+        if (auth === null) throw new Error('retrieveNostrMetricsAuth() returned null')
+        const nostrRequest: NostrRequest = {}
+        const data = await send(params.pubDestination, {rpcName:'ResetMetricsStorages',authIdentifier:auth, ...nostrRequest }) 
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            return data
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
     RespondToDebit: async (request: Types.DebitResponse): Promise<ResultError | ({ status: 'OK' })> => {
         const auth = await params.retrieveNostrUserAuth()
         if (auth === null) throw new Error('retrieveNostrUserAuth() returned null')
@@ -801,6 +812,20 @@ export default (params: NostrClientParams,  send: (to:string, message: NostrRequ
             const result = data
             if(!params.checkResult) return { status: 'OK', ...result }
             const error = Types.UserHealthStateValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
+    ZipMetricsStorages: async (): Promise<ResultError | ({ status: 'OK' }& Types.ZippedMetrics)> => {
+        const auth = await params.retrieveNostrMetricsAuth()
+        if (auth === null) throw new Error('retrieveNostrMetricsAuth() returned null')
+        const nostrRequest: NostrRequest = {}
+        const data = await send(params.pubDestination, {rpcName:'ZipMetricsStorages',authIdentifier:auth, ...nostrRequest }) 
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.ZippedMetricsValidate(result)
             if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
         }
         return { status: 'ERROR', reason: 'invalid response' }

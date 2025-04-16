@@ -14,6 +14,7 @@ import { LiquidityProvider } from '../services/main/liquidityProvider.js'
 import { Utils } from '../services/helpers/utilsWrapper.js'
 import { AdminManager } from '../services/main/adminManager.js'
 import { TlvStorageFactory } from '../services/storage/tlv/tlvFilesStorageFactory.js'
+import { ChainTools } from './networkSetup.js'
 chai.use(chaiString)
 export const expect = chai.expect
 export type Describe = (message: string, failure?: boolean) => void
@@ -29,11 +30,12 @@ export type TestBase = {
     app: AppData
     user1: TestUserData
     user2: TestUserData
-    externalAccessToMainLnd: LND
+    //externalAccessToMainLnd: LND
     externalAccessToOtherLnd: LND
     externalAccessToThirdLnd: LND
     adminManager: AdminManager
     d: Describe
+    chainTools: ChainTools
 }
 
 export type StorageTestBase = {
@@ -44,7 +46,7 @@ export type StorageTestBase = {
 
 export const setupStorageTest = async (d: Describe): Promise<StorageTestBase> => {
     const settings = GetTestStorageSettings()
-    const utils = new Utils({ dataDir: settings.dataDir })
+    const utils = new Utils({ dataDir: settings.dataDir, allowResetMetricsStorages: true })
     const storageManager = new Storage(settings, utils)
     await storageManager.Connect(console.log)
     return {
@@ -58,7 +60,7 @@ export const teardownStorageTest = async (T: StorageTestBase) => {
     T.storage.Stop()
 }
 
-export const SetupTest = async (d: Describe): Promise<TestBase> => {
+export const SetupTest = async (d: Describe, chainTools: ChainTools): Promise<TestBase> => {
     const settings = LoadTestSettingsFromEnv()
     const initialized = await initMainHandler(getLogger({ component: "mainForTest" }), settings)
     if (!initialized) {
@@ -71,9 +73,9 @@ export const SetupTest = async (d: Describe): Promise<TestBase> => {
     const user1 = { userId: u1.info.userId, appUserIdentifier: u1.identifier, appId: app.appId }
     const user2 = { userId: u2.info.userId, appUserIdentifier: u2.identifier, appId: app.appId }
 
-    const extermnalUtils = new Utils({ dataDir: settings.storageSettings.dataDir })
-    const externalAccessToMainLnd = new LND(settings.lndSettings, new LiquidityProvider("", extermnalUtils, async () => { }, async () => { }), extermnalUtils, async () => { }, async () => { }, () => { }, () => { })
-    await externalAccessToMainLnd.Warmup()
+    const extermnalUtils = new Utils({ dataDir: settings.storageSettings.dataDir, allowResetMetricsStorages: settings.allowResetMetricsStorages })
+    /*     const externalAccessToMainLnd = new LND(settings.lndSettings, new LiquidityProvider("", extermnalUtils, async () => { }, async () => { }), extermnalUtils, async () => { }, async () => { }, () => { }, () => { })
+        await externalAccessToMainLnd.Warmup() */
 
     const otherLndSetting = { ...settings.lndSettings, mainNode: settings.lndSettings.otherNode }
     const externalAccessToOtherLnd = new LND(otherLndSetting, new LiquidityProvider("", extermnalUtils, async () => { }, async () => { }), extermnalUtils, async () => { }, async () => { }, () => { }, () => { })
@@ -87,15 +89,16 @@ export const SetupTest = async (d: Describe): Promise<TestBase> => {
     return {
         expect, main, app,
         user1, user2,
-        externalAccessToMainLnd, externalAccessToOtherLnd, externalAccessToThirdLnd,
+        /* externalAccessToMainLnd, */ externalAccessToOtherLnd, externalAccessToThirdLnd,
         d,
-        adminManager: initialized.adminManager
+        adminManager: initialized.adminManager,
+        chainTools
     }
 }
 
 export const teardown = async (T: TestBase) => {
     T.main.Stop()
-    T.externalAccessToMainLnd.Stop()
+    /* T.externalAccessToMainLnd.Stop() */
     T.externalAccessToOtherLnd.Stop()
     T.externalAccessToThirdLnd.Stop()
     T.adminManager.Stop()

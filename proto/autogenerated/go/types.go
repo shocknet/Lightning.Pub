@@ -665,6 +665,9 @@ type WebRtcCandidate struct {
 type WebRtcMessage struct {
 	Message *WebRtcMessage_message `json:"message"`
 }
+type ZippedMetrics struct {
+	Path string `json:"path"`
+}
 type DebitResponse_response_type string
 
 const (

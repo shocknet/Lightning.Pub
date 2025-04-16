@@ -234,6 +234,20 @@ service LightningPub {
         option (nostr) = true;
     }
 
+    rpc ZipMetricsStorages(structs.Empty) returns (structs.ZippedMetrics) {
+        option (auth_type)  = "Metrics";
+        option (http_method) = "post";
+        option (http_route) = "/api/metrics/zip";
+        option (nostr) = true;
+    }
+
+    rpc ResetMetricsStorages(structs.Empty) returns (structs.Empty) {
+        option (auth_type)  = "Metrics";
+        option (http_method) = "post";
+        option (http_route) = "/api/metrics/reset";
+        option (nostr) = true;
+    }
+
     rpc CreateOneTimeInviteLink(structs.CreateOneTimeInviteLinkRequest) returns (structs.CreateOneTimeInviteLinkResponse) {
         option (auth_type) = "Admin";
         option (http_method) = "post";

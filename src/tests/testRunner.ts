@@ -1,6 +1,6 @@
 //import whyIsNodeRunning from 'why-is-node-running'
 import { globby } from 'globby'
-import { setupNetwork } from './networkSetup.js'
+import { ChainTools, setupNetwork } from './networkSetup.js'
 import { Describe, SetupTest, teardown, TestBase, StorageTestBase, setupStorageTest, teardownStorageTest } from './testBase.js'
 type TestModule = {
     ignore?: boolean
@@ -38,17 +38,18 @@ const start = async () => {
     if (devModule !== -1) {
         console.log("running dev module")
         const { file, module } = modules[devModule]
+        let chainTools: ChainTools | undefined
         if (module.requires === 'storage') {
             console.log("dev module requires only storage, skipping network setup")
         } else {
-            await setupNetwork()
+            chainTools = await setupNetwork()
         }
-        await runTestFile(file, module)
+        await runTestFile(file, module, chainTools)
     } else {
         console.log("running all tests")
-        await setupNetwork()
+        const chainTools = await setupNetwork()
         for (const { file, module } of modules) {
-            await runTestFile(file, module)
+            await runTestFile(file, module, chainTools)
         }
     }
     console.log(failures)
@@ -62,7 +63,7 @@ const start = async () => {
 
 }
 
-const runTestFile = async (fileName: string, mod: TestModule) => {
+const runTestFile = async (fileName: string, mod: TestModule, chainTools?: ChainTools) => {
     console.log(fileName)
     const d = getDescribe(fileName)
     if (mod.ignore) {
@@ -78,7 +79,10 @@ const runTestFile = async (fileName: string, mod: TestModule) => {
         T = await setupStorageTest(d)
     } else {
         d("-----requires all-----")
-        T = await SetupTest(d)
+        if (!chainTools) {
+            throw new Error("chainTools are required for this test")
+        }
+        T = await SetupTest(d, chainTools)
     }
     try {
         d("test starting")
