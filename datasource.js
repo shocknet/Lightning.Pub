@@ -38,4 +38,4 @@ export default new DataSource({
         UserBasicAuth, UserEphemeralKey, Product, UserToUserPayment, Application, ApplicationUser, UserToUserPayment, LspOrder, LndNodeInfo, TrackedProvider, InviteToken, DebitAccess, UserOffer],
     // synchronize: true,
 })
-//npx typeorm migration:generate ./src/services/storage/migrations/user_offer -d ./datasource.js
+//npx typeorm migration:generate ./src/services/storage/migrations/ops_time -d ./datasource.js
