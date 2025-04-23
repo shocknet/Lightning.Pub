@@ -109,7 +109,7 @@ export default class {
     }
 
     async AddRootOperation(opType: string, id: string, amount: number, txId?: string) {
-        return this.dbs.CreateAndSave<RootOperation>('RootOperation', { operation_type: opType, operation_amount: amount, operation_identifier: id }, txId)
+        return this.dbs.CreateAndSave<RootOperation>('RootOperation', { operation_type: opType, operation_amount: amount, operation_identifier: id, at_unix: Math.floor(Date.now() / 1000) }, txId)
     }
 
     async GetRootOperations({ from, to }: { from?: number, to?: number }, txId?: string) {

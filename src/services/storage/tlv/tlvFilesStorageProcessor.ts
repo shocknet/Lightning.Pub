@@ -356,8 +356,13 @@ class TlvFilesStorageProcessor {
     }
 
     private sendResponse<T>(response: TlvOperationResponse<T>) {
-        if (process.send) {
-            process.send(response);
+        try {
+            if (process.send) {
+                process.send(response);
+            }
+        } catch (error) {
+            console.error("failed to send response to main process from tlv files storage processor, killing sub process")
+            process.exit(1)
         }
     }
 }

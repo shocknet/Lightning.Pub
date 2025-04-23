@@ -15,4 +15,4 @@ export default new DataSource({
     migrations: [LndMetrics1703170330183, ChannelRouting1709316653538, HtlcCount1724266887195, BalanceEvents1724860966825]
 });
 
-//npx typeorm migration:generate ./src/services/storage/migrations/root_ops -d ./metricsDatasource.js
+//npx typeorm migration:generate ./src/services/storage/migrations/root_ops_time -d ./metricsDatasource.js

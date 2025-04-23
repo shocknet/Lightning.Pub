@@ -62,7 +62,7 @@ const send = (message: ChildProcessResponse) => {
     if (process.send) {
         process.send(message, undefined, undefined, err => {
             if (err) {
-                getLogger({ component: "nostrMiddleware" })(ERROR, "failed to send message to parent process", err, "message:", message)
+                getLogger({ component: "nostrMiddleware" })(ERROR, "failed to send message to parent process from nostr handler", err, "message:", message)
                 process.exit(1)
             }
         })

@@ -14,6 +14,9 @@ export class RootOperation {
     @Column()
     operation_identifier: string
 
+    @Column({ default: 0 })
+    at_unix: number
+
     @CreateDateColumn()
     created_at: Date
 
