@@ -106,7 +106,7 @@ class TlvFilesStorageProcessor {
         });
 
         process.on('error', (error: Error) => {
-            console.error('Error in storage processor:', error);
+            console.error('Error in tlv files storage processor:', error);
         });
 
         this.wrtc = new webRTC(t => {
@@ -358,7 +358,12 @@ class TlvFilesStorageProcessor {
     private sendResponse<T>(response: TlvOperationResponse<T>) {
         try {
             if (process.send) {
-                process.send(response);
+                process.send(response, undefined, undefined, err => {
+                    if (err) {
+                        console.error("failed to send response to main process from tlv files storage processor, killing sub process")
+                        process.exit(1)
+                    }
+                });
             }
         } catch (error) {
             console.error("failed to send response to main process from tlv files storage processor, killing sub process")

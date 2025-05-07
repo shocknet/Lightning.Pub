@@ -494,9 +494,13 @@ class StorageProcessor {
 
     private sendResponse(response: OperationResponse<any>) {
         try {
-
             if (process.send) {
-                process.send(response);
+                process.send(response, undefined, undefined, err => {
+                    if (err) {
+                        console.error("failed to send response to main process from storage processor, killing sub process")
+                        process.exit(1)
+                    }
+                });
             }
         } catch (error) {
             console.error("failed to send response to main process from storage processor, killing sub process")
