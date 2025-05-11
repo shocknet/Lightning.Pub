@@ -6,6 +6,7 @@ import { SimplePool, Event, UnsignedEvent, getEventHash, finalizeEvent, Relay, n
 import { ERROR, getLogger } from '../helpers/logger.js'
 import { nip19 } from 'nostr-tools'
 import { encrypt as encryptV1, decrypt as decryptV1, getSharedSecret as getConversationKeyV1 } from './nip44v1.js'
+import { ProcessMetrics, ProcessMetricsCollector } from '../storage/tlv/processMetricsCollector.js'
 const { nprofileEncode } = nip19
 const { v2 } = nip44
 const { encrypt: encryptV2, decrypt: decryptV2, utils } = v2
@@ -50,14 +51,18 @@ type EventResponse = {
     type: 'event'
     event: NostrEvent
 }
+type ProcessMetricsResponse = {
+    type: 'processMetrics'
+    metrics: ProcessMetrics
+}
 
 export type ChildProcessRequest = SettingsRequest | SendRequest
-export type ChildProcessResponse = ReadyResponse | EventResponse
+export type ChildProcessResponse = ReadyResponse | EventResponse | ProcessMetricsResponse
 const send = (message: ChildProcessResponse) => {
     if (process.send) {
         process.send(message, undefined, undefined, err => {
             if (err) {
-                getLogger({ component: "nostrMiddleware" })(ERROR, "failed to send message to parent process", err, "message:", message)
+                getLogger({ component: "nostrMiddleware" })(ERROR, "failed to send message to parent process from nostr handler", err, "message:", message)
                 process.exit(1)
             }
         })
@@ -86,6 +91,13 @@ const initSubprocessHandler = (settings: NostrSettings) => {
         send({
             type: 'event',
             event: event
+        })
+    })
+
+    new ProcessMetricsCollector((metrics) => {
+        send({
+            type: 'processMetrics',
+            metrics
         })
     })
 }

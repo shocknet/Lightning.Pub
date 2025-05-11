@@ -2,7 +2,7 @@ import { IsNull, MoreThan, Not } from "typeorm"
 import { LspOrder } from "./entity/LspOrder.js";
 import { LndNodeInfo } from "./entity/LndNodeInfo.js";
 import { TrackedProvider } from "./entity/TrackedProvider.js";
-import { StorageInterface } from "./storageInterface.js";
+import { StorageInterface } from "./db/storageInterface.js";
 export class LiquidityStorage {
     dbs: StorageInterface
     constructor(dbs: StorageInterface) {

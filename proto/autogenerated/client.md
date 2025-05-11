@@ -255,6 +255,11 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [DebitOperation](#DebitOperation)
   - This methods has an __empty__ __response__ body
 
+- ResetMetricsStorages
+  - auth type: __Metrics__
+  - This methods has an __empty__ __request__ body
+  - This methods has an __empty__ __response__ body
+
 - RespondToDebit
   - auth type: __User__
   - input: [DebitResponse](#DebitResponse)
@@ -294,6 +299,11 @@ The nostr server will send back a message response, and inside the body there wi
   - auth type: __User__
   - This methods has an __empty__ __request__ body
   - output: [UserHealthState](#UserHealthState)
+
+- ZipMetricsStorages
+  - auth type: __Metrics__
+  - This methods has an __empty__ __request__ body
+  - output: [ZippedMetrics](#ZippedMetrics)
 
 # HTTP API DEFINITION
 
@@ -794,6 +804,13 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [DebitOperation](#DebitOperation)
   - This methods has an __empty__ __response__ body
 
+- ResetMetricsStorages
+  - auth type: __Metrics__
+  - http method: __post__
+  - http route: __/api/metrics/reset__
+  - This methods has an __empty__ __request__ body
+  - This methods has an __empty__ __response__ body
+
 - ResetNPubLinkingToken
   - auth type: __App__
   - http method: __post__
@@ -891,6 +908,13 @@ The nostr server will send back a message response, and inside the body there wi
   - http route: __/api/user/health__
   - This methods has an __empty__ __request__ body
   - output: [UserHealthState](#UserHealthState)
+
+- ZipMetricsStorages
+  - auth type: __Metrics__
+  - http method: __post__
+  - http route: __/api/metrics/zip__
+  - This methods has an __empty__ __request__ body
+  - output: [ZippedMetrics](#ZippedMetrics)
 
 # INPUTS AND OUTPUTS
 
@@ -1465,6 +1489,9 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### WebRtcMessage
   - __message__: _[WebRtcMessage_message](#WebRtcMessage_message)_
+
+### ZippedMetrics
+  - __path__: _string_
 ## Enums
 ### The enumerators used in the messages
 

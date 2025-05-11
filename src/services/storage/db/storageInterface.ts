@@ -1,4 +1,4 @@
-import { fork } from 'child_process';
+import { ChildProcess, fork } from 'child_process';
 import { EventEmitter } from 'events';
 import { DbSettings, MainDbNames } from './db.js';
 import { DeepPartial, FindOptionsWhere } from 'typeorm';
@@ -10,32 +10,48 @@ import {
     IncrementOperation,
     DecrementOperation,
     SumOperation,
+    DBNames,
+    SuccessOperationResponse,
 } from './storageProcessor.js';
 import { PickKeysByType } from 'typeorm/common/PickKeysByType.js';
 import { serializeRequest, WhereCondition } from './serializationHelpers.js';
+import { Utils } from '../../helpers/utilsWrapper.js';
+import { ProcessMetrics } from '../tlv/processMetricsCollector.js';
 
 
 export type TX<T> = (txId: string) => Promise<T>
 
 export class StorageInterface extends EventEmitter {
-    private process: any;
+    private process: ChildProcess;
     private isConnected: boolean = false;
     private debug: boolean = false;
+    private utils: Utils
+    private dbType: 'main' | 'metrics'
 
-    constructor() {
+    constructor(utils: Utils) {
         super();
         this.initializeSubprocess();
+        this.utils = utils
     }
 
     setDebug(debug: boolean) {
         this.debug = debug;
     }
 
+    private handleCollectedProcessMetrics(metrics: SuccessOperationResponse<ProcessMetrics>) {
+        if (!this.dbType) return
+        this.utils.tlvStorageFactory.ProcessMetrics(metrics.data, this.dbType + '_storage')
+    }
+
     private initializeSubprocess() {
-        this.process = fork('./build/src/services/storage/storageProcessor');
+        this.process = fork('./build/src/services/storage/db/storageProcessor');
 
         this.process.on('message', (response: OperationResponse<any>) => {
-            this.emit(response.opId, response);
+            if (response.success && response.type === 'processMetrics') {
+                this.handleCollectedProcessMetrics(response)
+            } else {
+                this.emit(response.opId, response);
+            }
         });
 
         this.process.on('error', (error: Error) => {
@@ -51,61 +67,62 @@ export class StorageInterface extends EventEmitter {
         this.isConnected = true;
     }
 
-    Connect(settings: DbSettings): Promise<number> {
+    Connect(settings: DbSettings, dbType: 'main' | 'metrics'): Promise<number> {
         const opId = Math.random().toString()
-        const connectOp: ConnectOperation = { type: 'connect', opId, settings }
+        this.dbType = dbType
+        const connectOp: ConnectOperation = { type: 'connect', opId, settings, dbType }
         return this.handleOp<number>(connectOp)
     }
 
-    Delete<T>(entity: MainDbNames, q: number | FindOptionsWhere<T>, txId?: string): Promise<number> {
+    Delete<T>(entity: DBNames, q: number | FindOptionsWhere<T>, txId?: string): Promise<number> {
         const opId = Math.random().toString()
         const deleteOp: DeleteOperation<T> = { type: 'delete', entity, opId, q, txId }
         return this.handleOp<number>(deleteOp)
     }
 
-    Remove<T>(entity: MainDbNames, q: T, txId?: string): Promise<T> {
+    Remove<T>(entity: DBNames, q: T, txId?: string): Promise<T> {
         const opId = Math.random().toString()
         const removeOp: RemoveOperation<T> = { type: 'remove', entity, opId, q, txId }
         return this.handleOp<T>(removeOp)
     }
 
-    FindOne<T>(entity: MainDbNames, q: QueryOptions<T>, txId?: string): Promise<T | null> {
+    FindOne<T>(entity: DBNames, q: QueryOptions<T>, txId?: string): Promise<T | null> {
         const opId = Math.random().toString()
         const findOp: FindOneOperation<T> = { type: 'findOne', entity, opId, q, txId }
         return this.handleOp<T | null>(findOp)
     }
 
-    Find<T>(entity: MainDbNames, q: QueryOptions<T>, txId?: string): Promise<T[]> {
+    Find<T>(entity: DBNames, q: QueryOptions<T>, txId?: string): Promise<T[]> {
         const opId = Math.random().toString()
         const findOp: FindOperation<T> = { type: 'find', entity, opId, q, txId }
         return this.handleOp<T[]>(findOp)
     }
 
-    Sum<T>(entity: MainDbNames, columnName: PickKeysByType<T, number>, q: WhereCondition<T>, txId?: string): Promise<number> {
+    Sum<T>(entity: DBNames, columnName: PickKeysByType<T, number>, q: WhereCondition<T>, txId?: string): Promise<number> {
         const opId = Math.random().toString()
         const sumOp: SumOperation<T> = { type: 'sum', entity, opId, columnName, q, txId }
         return this.handleOp<number>(sumOp)
     }
 
-    Update<T>(entity: MainDbNames, q: number | FindOptionsWhere<T>, toUpdate: DeepPartial<T>, txId?: string): Promise<number> {
+    Update<T>(entity: DBNames, q: number | FindOptionsWhere<T>, toUpdate: DeepPartial<T>, txId?: string): Promise<number> {
         const opId = Math.random().toString()
         const updateOp: UpdateOperation<T> = { type: 'update', entity, opId, toUpdate, q, txId }
         return this.handleOp<number>(updateOp)
     }
 
-    Increment<T>(entity: MainDbNames, q: FindOptionsWhere<T>, propertyPath: string, value: number | string, txId?: string): Promise<number> {
+    Increment<T>(entity: DBNames, q: FindOptionsWhere<T>, propertyPath: string, value: number | string, txId?: string): Promise<number> {
         const opId = Math.random().toString()
         const incrementOp: IncrementOperation<T> = { type: 'increment', entity, opId, q, propertyPath, value, txId }
         return this.handleOp<number>(incrementOp)
     }
 
-    Decrement<T>(entity: MainDbNames, q: FindOptionsWhere<T>, propertyPath: string, value: number | string, txId?: string): Promise<number> {
+    Decrement<T>(entity: DBNames, q: FindOptionsWhere<T>, propertyPath: string, value: number | string, txId?: string): Promise<number> {
         const opId = Math.random().toString()
         const decrementOp: DecrementOperation<T> = { type: 'decrement', entity, opId, q, propertyPath, value, txId }
         return this.handleOp<number>(decrementOp)
     }
 
-    CreateAndSave<T>(entity: MainDbNames, toSave: DeepPartial<T>, txId?: string): Promise<T> {
+    CreateAndSave<T>(entity: DBNames, toSave: DeepPartial<T>, txId?: string): Promise<T> {
         const opId = Math.random().toString()
         const createAndSaveOp: CreateAndSaveOperation<T> = { type: 'createAndSave', entity, opId, toSave, txId }
         return this.handleOp<T>(createAndSaveOp)
@@ -147,7 +164,7 @@ export class StorageInterface extends EventEmitter {
                     return
                 }
                 if (response.type !== op.type) {
-                    reject(new Error('Invalid response type'));
+                    reject(new Error('Invalid storage response type'));
                     return
                 }
                 resolve(response.data);

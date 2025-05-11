@@ -38,7 +38,7 @@ export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSett
         },
         logger: { log: console.log, error: err => log(ERROR, err) },
     })
-    const nostr = new Nostr(nostrSettings, event => {
+    const nostr = new Nostr(nostrSettings, mainHandler.utils, event => {
         let j: NostrRequest
         try {
             j = JSON.parse(event.content)

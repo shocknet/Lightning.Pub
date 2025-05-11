@@ -1091,6 +1091,19 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     opts.metricsCallback([{ ...info, ...stats, ...authContext }])
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
+            case 'ResetMetricsStorages':
+                try {
+                    if (!methods.ResetMetricsStorages) throw new Error('method: ResetMetricsStorages is not implemented')
+                    const authContext = await opts.NostrMetricsAuthGuard(req.appId, req.authIdentifier)
+                    stats.guard = process.hrtime.bigint()
+                    authCtx = authContext
+                    stats.validate = stats.guard
+                    await methods.ResetMetricsStorages({rpcName:'ResetMetricsStorages', ctx:authContext })
+                    stats.handle = process.hrtime.bigint()
+                    res({status: 'OK'})
+                    opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+                break
             case 'RespondToDebit':
                 try {
                     if (!methods.RespondToDebit) throw new Error('method: RespondToDebit is not implemented')
@@ -1208,6 +1221,19 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     authCtx = authContext
                     stats.validate = stats.guard
                     const response = await methods.UserHealth({rpcName:'UserHealth', ctx:authContext })
+                    stats.handle = process.hrtime.bigint()
+                    res({status: 'OK', ...response})
+                    opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+                break
+            case 'ZipMetricsStorages':
+                try {
+                    if (!methods.ZipMetricsStorages) throw new Error('method: ZipMetricsStorages is not implemented')
+                    const authContext = await opts.NostrMetricsAuthGuard(req.appId, req.authIdentifier)
+                    stats.guard = process.hrtime.bigint()
+                    authCtx = authContext
+                    stats.validate = stats.guard
+                    const response = await methods.ZipMetricsStorages({rpcName:'ZipMetricsStorages', ctx:authContext })
                     stats.handle = process.hrtime.bigint()
                     res({status: 'OK', ...response})
                     opts.metricsCallback([{ ...info, ...stats, ...authContext }])

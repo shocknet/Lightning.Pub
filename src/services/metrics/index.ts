@@ -348,7 +348,7 @@ export default class Handler {
                 open_channels: openChannels.map(c => ({ channel_point: c.channelPoint, active: c.active, capacity: Number(c.capacity), channel_id: c.chanId, lifetime: Number(c.lifetime), local_balance: Number(c.localBalance), remote_balance: Number(c.remoteBalance), label: c.peerAlias })),
                 forwarding_events: totalEvents,
                 forwarding_fees: totalFees,
-                root_ops: rootOps.map(r => ({ amount: r.operation_amount, created_at_unix: r.created_at.getTime(), op_id: r.operation_identifier, op_type: mapRootOpType(r.operation_type) })),
+                root_ops: rootOps.map(r => ({ amount: r.operation_amount, created_at_unix: r.at_unix || 0, op_id: r.operation_identifier, op_type: mapRootOpType(r.operation_type) })),
             }],
         }
     }

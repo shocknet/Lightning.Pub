@@ -1,18 +1,19 @@
 import fs from 'fs'
-import NewDB, { DbSettings, LoadDbSettingsFromEnv } from "./db.js"
+import NewDB, { DbSettings, LoadDbSettingsFromEnv } from "./db/db.js"
 import ProductStorage from './productStorage.js'
 import ApplicationStorage from './applicationStorage.js'
 import UserStorage from "./userStorage.js";
 import PaymentStorage from "./paymentStorage.js";
 import MetricsStorage from "./metricsStorage.js";
-import MetricsEventStorage from "./metricsEventStorage.js";
+import MetricsEventStorage from "./tlv/metricsEventStorage.js";
 import EventsLogManager from "./eventsLog.js";
 import { LiquidityStorage } from "./liquidityStorage.js";
 import DebitStorage from "./debitStorage.js"
 import OfferStorage from "./offerStorage.js"
-import { StorageInterface, TX } from "./storageInterface.js";
-import { allMetricsMigrations, allMigrations } from "./migrations/runner.js"
+import { StorageInterface, TX } from "./db/storageInterface.js";
 import { PubLogger } from "../helpers/logger.js"
+import { TlvStorageFactory } from './tlv/tlvFilesStorageFactory.js';
+import { Utils } from '../helpers/utilsWrapper.js';
 export type StorageSettings = {
     dbSettings: DbSettings
     eventLogPath: string
@@ -36,13 +37,15 @@ export default class {
     debitStorage: DebitStorage
     offerStorage: OfferStorage
     eventsLog: EventsLogManager
-    constructor(settings: StorageSettings) {
+    utils: Utils
+    constructor(settings: StorageSettings, utils: Utils) {
         this.settings = settings
+        this.utils = utils
         this.eventsLog = new EventsLogManager(settings.eventLogPath)
     }
     async Connect(log: PubLogger) {
-        this.dbs = new StorageInterface()
-        await this.dbs.Connect(this.settings.dbSettings)
+        this.dbs = new StorageInterface(this.utils)
+        await this.dbs.Connect(this.settings.dbSettings, 'main')
         //const { source, executedMigrations } = await NewDB(this.settings.dbSettings, allMigrations)
         //this.DB = source
         //this.txQueue = new TransactionsQueue("main", this.DB)
@@ -50,22 +53,22 @@ export default class {
         this.productStorage = new ProductStorage(this.dbs)
         this.applicationStorage = new ApplicationStorage(this.dbs, this.userStorage)
         this.paymentStorage = new PaymentStorage(this.dbs, this.userStorage)
-        this.metricsStorage = new MetricsStorage(this.settings)
-        this.metricsEventStorage = new MetricsEventStorage(this.settings)
+        this.metricsStorage = new MetricsStorage(this.settings, this.utils)
+        this.metricsEventStorage = new MetricsEventStorage(this.settings, this.utils.tlvStorageFactory)
         this.liquidityStorage = new LiquidityStorage(this.dbs)
         this.debitStorage = new DebitStorage(this.dbs)
         this.offerStorage = new OfferStorage(this.dbs)
         try { if (this.settings.dataDir) fs.mkdirSync(this.settings.dataDir) } catch (e) { }
-        const executedMetricsMigrations = await this.metricsStorage.Connect(allMetricsMigrations)
+        /* const executedMetricsMigrations = */ await this.metricsStorage.Connect()
         /*         if (executedMigrations.length > 0) {
                     log(executedMigrations.length, "new migrations executed")
                     log("-------------------")
         
                 }  */
-        if (executedMetricsMigrations.length > 0) {
-            log(executedMetricsMigrations.length, "new metrics migrations executed")
-            log("-------------------")
-        }
+        /*         if (executedMetricsMigrations.length > 0) {
+                    log(executedMetricsMigrations.length, "new metrics migrations executed")
+                    log("-------------------")
+                } */
     }
 
     Stop() {

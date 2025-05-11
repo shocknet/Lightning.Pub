@@ -11,7 +11,8 @@ export default (mainHandler: Main): Types.ServerMethods => {
                     offer_CustomCheck: offer => offer !== '',
                 }
             })
-            return mainHandler.webRTC.OnMessage({ userPub: ctx.operator_id, appId: ctx.app_id }, req.message)
+            if (err != null) throw new Error(err.message)
+            return mainHandler.utils.tlvStorageFactory.WebRtcMessage({ userPub: ctx.operator_id, appId: ctx.app_id }, req.message)
         },
         SubToWebRtcCandidates: async ({ ctx }) => { },
         GetUsageMetrics: async ({ ctx, req }) => {
@@ -44,6 +45,13 @@ export default (mainHandler: Main): Types.ServerMethods => {
         },
         GetLndMetrics: async ({ ctx, req }) => {
             return mainHandler.metricsManager.GetLndMetrics(req)
+        },
+        ResetMetricsStorages: async ({ ctx }) => {
+            return mainHandler.utils.tlvStorageFactory.ResetStorages()
+        },
+        ZipMetricsStorages: async ({ ctx }) => {
+            const path = await mainHandler.utils.tlvStorageFactory.ZipStorages()
+            return { path }
         },
         ListChannels: async ({ ctx }) => {
             return mainHandler.adminManager.ListChannels()

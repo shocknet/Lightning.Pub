@@ -1,29 +1,29 @@
 import "reflect-metadata"
 import { DataSource, Migration } from "typeorm"
-import { AddressReceivingTransaction } from "./entity/AddressReceivingTransaction.js"
-import { User } from "./entity/User.js"
-import { UserReceivingAddress } from "./entity/UserReceivingAddress.js"
-import { UserReceivingInvoice } from "./entity/UserReceivingInvoice.js"
-import { UserInvoicePayment } from "./entity/UserInvoicePayment.js"
-import { EnvMustBeNonEmptyString } from "../helpers/envParser.js"
-import { UserTransactionPayment } from "./entity/UserTransactionPayment.js"
-import { UserBasicAuth } from "./entity/UserBasicAuth.js"
-import { UserEphemeralKey } from "./entity/UserEphemeralKey.js"
-import { UserToUserPayment } from "./entity/UserToUserPayment.js"
-import { Application } from "./entity/Application.js"
-import { ApplicationUser } from "./entity/ApplicationUser.js"
-import { BalanceEvent } from "./entity/BalanceEvent.js"
-import { ChannelBalanceEvent } from "./entity/ChannelsBalanceEvent.js"
-import { getLogger } from "../helpers/logger.js"
-import { ChannelRouting } from "./entity/ChannelRouting.js"
-import { LspOrder } from "./entity/LspOrder.js"
-import { Product } from "./entity/Product.js"
-import { LndNodeInfo } from "./entity/LndNodeInfo.js"
-import { TrackedProvider } from "./entity/TrackedProvider.js"
-import { InviteToken } from "./entity/InviteToken.js"
-import { DebitAccess } from "./entity/DebitAccess.js"
-import { RootOperation } from "./entity/RootOperation.js"
-import { UserOffer } from "./entity/UserOffer.js"
+import { AddressReceivingTransaction } from "../entity/AddressReceivingTransaction.js"
+import { User } from "../entity/User.js"
+import { UserReceivingAddress } from "../entity/UserReceivingAddress.js"
+import { UserReceivingInvoice } from "../entity/UserReceivingInvoice.js"
+import { UserInvoicePayment } from "../entity/UserInvoicePayment.js"
+import { EnvMustBeNonEmptyString } from "../../helpers/envParser.js"
+import { UserTransactionPayment } from "../entity/UserTransactionPayment.js"
+import { UserBasicAuth } from "../entity/UserBasicAuth.js"
+import { UserEphemeralKey } from "../entity/UserEphemeralKey.js"
+import { UserToUserPayment } from "../entity/UserToUserPayment.js"
+import { Application } from "../entity/Application.js"
+import { ApplicationUser } from "../entity/ApplicationUser.js"
+import { BalanceEvent } from "../entity/BalanceEvent.js"
+import { ChannelBalanceEvent } from "../entity/ChannelsBalanceEvent.js"
+import { getLogger } from "../../helpers/logger.js"
+import { ChannelRouting } from "../entity/ChannelRouting.js"
+import { LspOrder } from "../entity/LspOrder.js"
+import { Product } from "../entity/Product.js"
+import { LndNodeInfo } from "../entity/LndNodeInfo.js"
+import { TrackedProvider } from "../entity/TrackedProvider.js"
+import { InviteToken } from "../entity/InviteToken.js"
+import { DebitAccess } from "../entity/DebitAccess.js"
+import { RootOperation } from "../entity/RootOperation.js"
+import { UserOffer } from "../entity/UserOffer.js"
 
 
 export type DbSettings = {
@@ -70,7 +70,7 @@ export const MainDbEntities = {
 export type MainDbNames = keyof typeof MainDbEntities
 export const MainDbEntitiesNames = Object.keys(MainDbEntities)
 
-const MetricsDbEntities = {
+export const MetricsDbEntities = {
     'BalanceEvent': BalanceEvent,
     'ChannelBalanceEvent': ChannelBalanceEvent,
     'ChannelRouting': ChannelRouting,

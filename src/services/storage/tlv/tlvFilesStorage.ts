@@ -1,32 +1,51 @@
 import fs from 'fs'
-import { decodeListTLV, encodeListTLV, encodeTLV, parseTLV } from '../helpers/tlv.js'
+import { decodeListTLV, encodeListTLV, encodeTLV, parseTLV } from '../../helpers/tlv.js'
 const chunkSizeBytes = 128 * 1024
 export type LatestData = Record<string, Record<string, { tlvs: Uint8Array[], current_chunk: number, available_chunks: number[] }>>
+export type TlvFile = { fileData: Buffer, chunks: number[] }
 export class TlvFilesStorage {
-    storagePath: string
-    lastPersisted: number = 0
-    meta: Record<string, Record<string, { chunks: number[] }>> = {}
-    pending: Record<string, Record<string, { tlvs: Uint8Array[] }>> = {}
-    metaReady = false
+    private storagePath: string
+    private lastPersisted: number = 0
+    private meta: Record<string, Record<string, { chunks: number[] }>> = {}
+    private pending: Record<string, Record<string, { tlvs: Uint8Array[] }>> = {}
+    private metaReady = false
+    private interval: NodeJS.Timeout
     constructor(storagePath: string) {
         this.storagePath = storagePath
         if (!fs.existsSync(this.storagePath)) {
             fs.mkdirSync(this.storagePath, { recursive: true });
         }
-        this.initMeta()
-        setInterval(() => {
-            if (Date.now() - this.lastPersisted > 1000 * 60 * 4) {
-                this.persist()
-            }
-        }, 1000 * 60 * 5)
+        this.init()
         process.on('exit', () => {
             this.persist()
         });
     }
 
-    LoadFile = (app: string, dataName: string, chunk: number): { fileData: Buffer, chunks: number[] } => {
+    GetStoragePath = () => {
+        return this.storagePath
+    }
+
+    init = () => {
+        this.initMeta()
+        this.interval = setInterval(() => {
+            if (Date.now() - this.lastPersisted > 1000 * 60 * 4) {
+                this.persist()
+            }
+        }, 1000 * 60 * 5)
+    }
+
+    Reset = () => {
+        if (this.storagePath === "" && this.storagePath.startsWith("/")) {
+            throw new Error("cannot delete root storage path")
+        }
+        clearInterval(this.interval)
+        fs.rmSync(this.storagePath, { recursive: true, force: true })
+        this.init()
+    }
+
+    LoadFile = (app: string, dataName: string, chunk: number): TlvFile => {
         if (!this.metaReady || !this.meta[app] || !this.meta[app][dataName] || !this.meta[app][dataName].chunks.includes(chunk)) {
-            throw new Error("metrics not found")
+            throw new Error(`tlv file for ${app} ${dataName} chunk ${chunk} not found`)
         }
         const fullPath = [this.storagePath, app, dataName, `${chunk}.mtlv`].filter(s => !!s).join("/")
         const fileData = fs.readFileSync(fullPath)
@@ -71,7 +90,11 @@ export class TlvFilesStorage {
         return data
     }
 
-    persist = () => {
+    PersistNow = () => {
+        this.persist()
+    }
+
+    private persist = () => {
         if (!this.metaReady) {
             throw new Error("meta metrics not ready")
         }
@@ -104,28 +127,28 @@ export class TlvFilesStorage {
         })
     }
 
-    getMeta = (appId: string, dataName: string) => {
+    private getMeta = (appId: string, dataName: string) => {
         if (!this.meta[appId]) {
             return { chunks: [] }
         }
         return this.meta[appId][dataName] || { chunks: [] }
     }
 
-    initMeta = () => {
+    private initMeta = () => {
         this.foreachFile((app, dataName, tlvFiles) => {
             this.updateMeta(app, dataName, tlvFiles)
         })
         this.metaReady = true
     }
 
-    updateMeta = (appId: string, dataName: string, sortedChunks: number[]) => {
+    private updateMeta = (appId: string, dataName: string, sortedChunks: number[]) => {
         if (!this.meta[appId]) {
             this.meta[appId] = {}
         }
         this.meta[appId][dataName] = { chunks: sortedChunks }
     }
 
-    foreachFile = (cb: (appId: string, dataName: string, tlvFiles: number[]) => void) => {
+    private foreachFile = (cb: (appId: string, dataName: string, tlvFiles: number[]) => void) => {
         if (!fs.existsSync(this.storagePath)) {
             fs.mkdirSync(this.storagePath, { recursive: true });
         }

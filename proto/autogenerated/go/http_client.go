@@ -118,6 +118,7 @@ type Client struct {
 	PayInvoice                  func(req PayInvoiceRequest) (*PayInvoiceResponse, error)
 	RequestNPubLinkingToken     func(req RequestNPubLinkingTokenRequest) (*RequestNPubLinkingTokenResponse, error)
 	ResetDebit                  func(req DebitOperation) error
+	ResetMetricsStorages        func() error
 	ResetNPubLinkingToken       func(req RequestNPubLinkingTokenRequest) (*RequestNPubLinkingTokenResponse, error)
 	RespondToDebit              func(req DebitResponse) error
 	SendAppUserToAppPayment     func(req SendAppUserToAppPaymentRequest) error
@@ -132,6 +133,7 @@ type Client struct {
 	UpdateUserOffer             func(req OfferConfig) error
 	UseInviteLink               func(req UseInviteLinkRequest) error
 	UserHealth                  func() (*UserHealthState, error)
+	ZipMetricsStorages          func() (*ZippedMetrics, error)
 }
 
 func NewClient(params ClientParams) *Client {
@@ -1752,6 +1754,27 @@ func NewClient(params ClientParams) *Client {
 			}
 			return nil
 		},
+		ResetMetricsStorages: func() error {
+			auth, err := params.RetrieveMetricsAuth()
+			if err != nil {
+				return err
+			}
+			finalRoute := "/api/metrics/reset"
+			body := []byte{}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return err
+			}
+			if result.Status == "ERROR" {
+				return fmt.Errorf(result.Reason)
+			}
+			return nil
+		},
 		ResetNPubLinkingToken: func(req RequestNPubLinkingTokenRequest) (*RequestNPubLinkingTokenResponse, error) {
 			auth, err := params.RetrieveAppAuth()
 			if err != nil {
@@ -2076,6 +2099,32 @@ func NewClient(params ClientParams) *Client {
 				return nil, fmt.Errorf(result.Reason)
 			}
 			res := UserHealthState{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
+		},
+		ZipMetricsStorages: func() (*ZippedMetrics, error) {
+			auth, err := params.RetrieveMetricsAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/metrics/zip"
+			body := []byte{}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return nil, err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := ZippedMetrics{}
 			err = json.Unmarshal(resBody, &res)
 			if err != nil {
 				return nil, err
