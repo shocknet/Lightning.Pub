@@ -497,10 +497,14 @@ export default class {
         const payK1 = await this.storage.paymentStorage.AddUserEphemeralKey(userId, 'pay', linkedApplication)
         const url = baseUrl ? baseUrl : `${this.settings.serviceUrl}/api/guest/lnurl_pay/handle`
         const { remote } = await this.lnd.ChannelBalance()
+        let maxSendable = remote * 1000
+        if (remote === 0 && (await this.liquidityManager.liquidityProvider.IsReady())) {
+            maxSendable = 10_000_000 * 1000
+        }
         return {
             tag: 'payRequest',
             callback: `${url}?k1=${payK1.key}`,
-            maxSendable: remote * 1000,
+            maxSendable: maxSendable,
             minSendable: 10000,
             metadata: metadata ? metadata : defaultLnurlPayMetadata(this.settings.lnurlMetaText),
             allowsNostr: !!linkedApplication.nostr_public_key,
@@ -517,10 +521,14 @@ export default class {
             throw new Error("invalid lnurl request")
         }
         const { remote } = await this.lnd.ChannelBalance()
+        let maxSendable = remote * 1000
+        if (remote === 0 && (await this.liquidityManager.liquidityProvider.IsReady())) {
+            maxSendable = 10_000_000 * 1000
+        }
         return {
             tag: 'payRequest',
             callback: `${this.settings.serviceUrl}/api/guest/lnurl_pay/handle?k1=${payInfoK1}`,
-            maxSendable: remote * 1000,
+            maxSendable: maxSendable,
             minSendable: 10000,
             metadata: defaultLnurlPayMetadata(this.settings.lnurlMetaText),
             allowsNostr: !!key.linkedApplication.nostr_public_key,
