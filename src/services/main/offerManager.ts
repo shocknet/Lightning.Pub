@@ -17,6 +17,7 @@ import { UserOffer } from '../storage/entity/UserOffer.js';
 import { DeepPartial } from 'typeorm';
 import { nip19 } from 'nostr-tools';
 import { LoadNosrtSettingsFromEnv } from '../nostr/index.js';
+import { LiquidityManager } from "./liquidityManager.js"
 
 const mapToOfferConfig = (appUserId: string, offer: UserOffer, { pubkey, relay }: { pubkey: string, relay: string }): Types.OfferConfig => {
     if (offer.expected_data) {
@@ -50,12 +51,14 @@ export class OfferManager {
     productManager: ProductManager
     storage: Storage
     lnd: LND
+    liquidityManager: LiquidityManager
     logger = getLogger({ component: 'DebitManager' })
-    constructor(storage: Storage, lnd: LND, applicationManager: ApplicationManager, productManager: ProductManager) {
+    constructor(storage: Storage, lnd: LND, applicationManager: ApplicationManager, productManager: ProductManager, liquidityManager: LiquidityManager) {
         this.storage = storage
         this.lnd = lnd
         this.applicationManager = applicationManager
         this.productManager = productManager
+        this.liquidityManager = liquidityManager
     }
 
     attachNostrSend = (nostrSend: NostrSend) => {
@@ -219,14 +222,18 @@ export class OfferManager {
     async getNofferInvoice(offerReq: NofferData, appId: string): Promise<{ success: true, invoice: string } | { success: false, code: number, max: number }> {
         try {
             const { remote } = await this.lnd.ChannelBalance()
+            let maxSendable = remote
+            if (remote === 0 && (await this.liquidityManager.liquidityProvider.IsReady())) {
+                maxSendable = 10_000_000
+            }
             const split = offerReq.offer.split(':')
             if (split.length === 1) {
-                return this.HandleUserOffer(offerReq, appId, remote)
+                return this.HandleUserOffer(offerReq, appId, maxSendable)
             } else if (split[0] === 'p') {
                 const product = await this.productManager.NewProductInvoice(split[1])
                 return { success: true, invoice: product.invoice }
             } else {
-                return { success: false, code: 1, max: remote }
+                return { success: false, code: 1, max: maxSendable }
             }
         } catch (e: any) {
             getLogger({ component: "noffer" })(ERROR, e.message || e)
