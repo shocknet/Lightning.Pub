@@ -285,6 +285,16 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                                         callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
                                     }
                                     break
+                                case 'GetHttpCreds':
+                                    if (!methods.GetHttpCreds) {
+                                        throw new Error('method not defined: GetHttpCreds')
+                                    } else {
+                                        opStats.validate = opStats.guard
+                                        const res = await methods.GetHttpCreds({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                                        opStats.handle = process.hrtime.bigint()
+                                        callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
+                                    }
+                                    break
                                 case 'GetLNURLChannelLink':
                                     if (!methods.GetLNURLChannelLink) {
                                         throw new Error('method not defined: GetLNURLChannelLink')
@@ -670,10 +680,10 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     stats.guard = process.hrtime.bigint()
                     authCtx = authContext
                     stats.validate = stats.guard
-                    methods.GetHttpCreds({rpcName:'GetHttpCreds', ctx:authContext  ,cb: (response, err) => {
+                    const response = await methods.GetHttpCreds({rpcName:'GetHttpCreds', ctx:authContext })
                     stats.handle = process.hrtime.bigint()
-                    if (err) { logErrorAndReturnResponse(err, err.message, res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)} else { res({status: 'OK', ...response});opts.metricsCallback([{ ...info, ...stats, ...authContext }])}
-                    }})
+                    res({status: 'OK', ...response})
+                    opts.metricsCallback([{ ...info, ...stats, ...authContext }])
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
             case 'GetInviteLinkState':

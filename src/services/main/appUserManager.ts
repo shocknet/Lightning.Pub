@@ -35,6 +35,16 @@ export default class {
         return decoded
     }
 
+    GetHttpCreds(ctx: Types.UserContext): Types.HttpCreds {
+        if (!this.settings.allowHttpUpgrade) {
+            throw new Error("http upgrade not allowed")
+        }
+        return {
+            url: this.settings.serviceUrl,
+            token: this.SignUserToken(ctx.user_id, ctx.app_id, ctx.app_user_id)
+        }
+    }
+
     async BanUser(userId: string): Promise<Types.BanUserResponse> {
         const banned = await this.storage.userStorage.BanUser(userId)
         const appUsers = await this.storage.applicationStorage.GetAllAppUsersFromUser(userId)

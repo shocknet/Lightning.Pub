@@ -81,9 +81,14 @@ export class Unlocker {
         const unlocker = this.GetUnlockerClient(lndCert)
         const walletPassword = this.GetWalletPassword()
         await unlocker.unlockWallet({ walletPassword, recoveryWindow: 0, statelessInit: false, channelBackups: undefined }, DeadLineMetadata())
-        const infoAfter = await this.GetLndInfo(ln)
+        let infoAfter = await this.GetLndInfo(ln)
         if (!infoAfter.ok) {
-            throw new Error("failed to unlock lnd wallet " + infoAfter.failure)
+            this.log("failed to unlock lnd wallet, retrying in 5 seconds...")
+            await new Promise(resolve => setTimeout(resolve, 5000))
+            infoAfter = await this.GetLndInfo(ln)
+            if (!infoAfter.ok) {
+                throw new Error("failed to unlock lnd wallet " + infoAfter.failure)
+            }
         }
         this.log("unlocked wallet with pub:", infoAfter.pub)
         this.nodePub = infoAfter.pub
@@ -152,7 +157,7 @@ export class Unlocker {
                 const info = await ln.getInfo({}, DeadLineMetadata())
                 return { ok: true, pub: info.response.identityPubkey }
             } catch (err: any) {
-                if (err.message === '2 UNKNOWN: wallet locked, unlock it to enable full RPC access') {
+                if (err.message === 'wallet locked, unlock it to enable full RPC access') {
                     this.log("wallet is locked")
                     return { ok: false, failure: 'locked' }
                 } else if (err.message === '2 UNKNOWN: the RPC server is in the process of starting up, but not yet ready to accept calls') {

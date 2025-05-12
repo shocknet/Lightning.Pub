@@ -400,6 +400,9 @@ export default (mainHandler: Main): Types.ServerMethods => {
             })
             if (err != null) throw new Error(err.message)
             return mainHandler.offerManager.GetUserOfferInvoices(ctx, req)
-        }
+        },
+        GetHttpCreds: async ({ ctx }) => {
+            return mainHandler.appUserManager.GetHttpCreds(ctx)
+        },
     }
 }

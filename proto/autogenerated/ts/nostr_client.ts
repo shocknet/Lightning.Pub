@@ -276,20 +276,19 @@ export default (params: NostrClientParams,  send: (to:string, message: NostrRequ
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
-    GetHttpCreds: async (cb: (res:ResultError | ({ status: 'OK' }& Types.HttpCreds)) => void): Promise<void> => {
+    GetHttpCreds: async (): Promise<ResultError | ({ status: 'OK' }& Types.HttpCreds)> => {
         const auth = await params.retrieveNostrUserAuth()
         if (auth === null) throw new Error('retrieveNostrUserAuth() returned null')
         const nostrRequest: NostrRequest = {}
-        subscribe(params.pubDestination, {rpcName:'GetHttpCreds',authIdentifier:auth, ...nostrRequest }, (data) => {
-            if (data.status === 'ERROR' && typeof data.reason === 'string') return cb(data)
-            if (data.status === 'OK') { 
-                const result = data
-                if(!params.checkResult) return cb({ status: 'OK', ...result })
-                const error = Types.HttpCredsValidate(result)
-                if (error === null) { return cb({ status: 'OK', ...result }) } else return cb({ status: 'ERROR', reason: error.message })
-            }
-            return cb({ status: 'ERROR', reason: 'invalid response' })
-        })
+        const data = await send(params.pubDestination, {rpcName:'GetHttpCreds',authIdentifier:auth, ...nostrRequest }) 
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.HttpCredsValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
     },
     GetInviteLinkState: async (request: Types.GetInviteTokenStateRequest): Promise<ResultError | ({ status: 'OK' }& Types.GetInviteTokenStateResponse)> => {
         const auth = await params.retrieveNostrAdminAuth()

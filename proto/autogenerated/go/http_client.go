@@ -821,7 +821,32 @@ func NewClient(params ClientParams) *Client {
 			}
 			return &res, nil
 		},
-		// server streaming method: GetHttpCreds not implemented
+		GetHttpCreds: func() (*HttpCreds, error) {
+			auth, err := params.RetrieveUserAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/user/http_creds"
+			body := []byte{}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return nil, err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := HttpCreds{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
+		},
 		GetInviteLinkState: func(req GetInviteTokenStateRequest) (*GetInviteTokenStateResponse, error) {
 			auth, err := params.RetrieveAdminAuth()
 			if err != nil {
