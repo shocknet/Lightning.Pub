@@ -157,10 +157,10 @@ export class Unlocker {
                 const info = await ln.getInfo({}, DeadLineMetadata())
                 return { ok: true, pub: info.response.identityPubkey }
             } catch (err: any) {
-                if (err.message === 'wallet locked, unlock it to enable full RPC access') {
+                if ((err.message as string).includes('wallet locked, unlock it to enable full RPC access')) {
                     this.log("wallet is locked")
                     return { ok: false, failure: 'locked' }
-                } else if (err.message === '2 UNKNOWN: the RPC server is in the process of starting up, but not yet ready to accept calls') {
+                } else if ((err.message as string).includes('the RPC server is in the process of starting up, but not yet ready to accept calls')) {
                     this.log("lnd is not ready yet, waiting...")
                     await new Promise((res) => setTimeout(res, 1000))
                 } else {
