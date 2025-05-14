@@ -24,13 +24,14 @@ const start = async () => {
     const serverMethods = GetServerMethods(mainHandler)
     const nostrSettings = LoadNosrtSettingsFromEnv()
     log("initializing nostr middleware")
-    const { Send, Stop } = nostrMiddleware(serverMethods, mainHandler,
+    const { Send, Stop, Ping } = nostrMiddleware(serverMethods, mainHandler,
         { ...nostrSettings, apps, clients: [liquidityProviderInfo] },
         (e, p) => mainHandler.liquidityProvider.onEvent(e, p)
     )
     exitHandler(() => { Stop() })
     log("starting server")
     mainHandler.attachNostrSend(Send)
+    mainHandler.attachNostrProcessPing(Ping)
     mainHandler.StartBeacons()
     const appNprofile = nprofileEncode({ pubkey: liquidityProviderInfo.publicKey, relays: nostrSettings.relays })
     if (wizard) {

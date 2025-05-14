@@ -22,6 +22,12 @@ export type ConnectOperation = {
     debug?: boolean
 }
 
+export type PingOperation = {
+    type: 'ping'
+    opId: string
+    debug?: boolean
+}
+
 export type StartTxOperation = {
     type: 'startTx'
     opId: string
@@ -133,7 +139,7 @@ export interface IStorageOperation {
 }
 
 export type StorageOperation<T> = ConnectOperation | StartTxOperation | EndTxOperation<T> | DeleteOperation<T> | RemoveOperation<T> | UpdateOperation<T> |
-    FindOneOperation<T> | FindOperation<T> | CreateAndSaveOperation<T> | IncrementOperation<T> | DecrementOperation<T> | SumOperation<T>
+    FindOneOperation<T> | FindOperation<T> | CreateAndSaveOperation<T> | IncrementOperation<T> | DecrementOperation<T> | SumOperation<T> | PingOperation
 
 export type SuccessOperationResponse<T> = { success: true, type: string, data: T, opId: string }
 export type OperationResponse<T> = SuccessOperationResponse<T> | ErrorOperationResponse
@@ -222,6 +228,9 @@ class StorageProcessor {
                 case 'createAndSave':
                     await this.handleCreateAndSave(operation);
                     break;
+                case 'ping':
+                    await this.handlePing(operation);
+                    break;
                 default:
                     this.sendResponse({
                         success: false,
@@ -239,6 +248,14 @@ class StorageProcessor {
         }
     }
 
+    private async handlePing(operation: PingOperation) {
+        this.sendResponse({
+            success: true,
+            type: 'ping',
+            data: null,
+            opId: operation.opId
+        });
+    }
     private async handleConnect(operation: ConnectOperation) {
         let migrationsExecuted = 0
         if (this.mode !== '') {

@@ -28,8 +28,8 @@ export type MetricsContext = {
     app_id: string
     operator_id: string
 }
-export type MetricsMethodInputs = GetAppsMetrics_Input | GetBundleMetrics_Input | GetErrorStats_Input | GetLndMetrics_Input | GetSingleBundleMetrics_Input | GetSingleUsageMetrics_Input | GetUsageMetrics_Input | ResetMetricsStorages_Input | SubmitWebRtcMessage_Input | ZipMetricsStorages_Input
-export type MetricsMethodOutputs = GetAppsMetrics_Output | GetBundleMetrics_Output | GetErrorStats_Output | GetLndMetrics_Output | GetSingleBundleMetrics_Output | GetSingleUsageMetrics_Output | GetUsageMetrics_Output | ResetMetricsStorages_Output | SubmitWebRtcMessage_Output | ZipMetricsStorages_Output
+export type MetricsMethodInputs = GetAppsMetrics_Input | GetBundleMetrics_Input | GetErrorStats_Input | GetLndMetrics_Input | GetProvidersDisruption_Input | GetSingleBundleMetrics_Input | GetSingleUsageMetrics_Input | GetUsageMetrics_Input | PingSubProcesses_Input | ResetMetricsStorages_Input | SubmitWebRtcMessage_Input | ZipMetricsStorages_Input
+export type MetricsMethodOutputs = GetAppsMetrics_Output | GetBundleMetrics_Output | GetErrorStats_Output | GetLndMetrics_Output | GetProvidersDisruption_Output | GetSingleBundleMetrics_Output | GetSingleUsageMetrics_Output | GetUsageMetrics_Output | PingSubProcesses_Output | ResetMetricsStorages_Output | SubmitWebRtcMessage_Output | ZipMetricsStorages_Output
 export type UserContext = {
     app_id: string
     app_user_id: string
@@ -162,6 +162,9 @@ export type GetNPubLinkingState_Output = ResultError | ({ status: 'OK' } & NPubL
 export type GetPaymentState_Input = {rpcName:'GetPaymentState', req: GetPaymentStateRequest}
 export type GetPaymentState_Output = ResultError | ({ status: 'OK' } & PaymentState)
 
+export type GetProvidersDisruption_Input = {rpcName:'GetProvidersDisruption'}
+export type GetProvidersDisruption_Output = ResultError | ({ status: 'OK' } & ProvidersDisruption)
+
 export type GetSeed_Input = {rpcName:'GetSeed'}
 export type GetSeed_Output = ResultError | ({ status: 'OK' } & LndSeed)
 
@@ -246,6 +249,9 @@ export type PayAppUserInvoice_Output = ResultError | ({ status: 'OK' } & PayInvo
 
 export type PayInvoice_Input = {rpcName:'PayInvoice', req: PayInvoiceRequest}
 export type PayInvoice_Output = ResultError | ({ status: 'OK' } & PayInvoiceResponse)
+
+export type PingSubProcesses_Input = {rpcName:'PingSubProcesses'}
+export type PingSubProcesses_Output = ResultError | { status: 'OK' }
 
 export type RequestNPubLinkingToken_Input = {rpcName:'RequestNPubLinkingToken', req: RequestNPubLinkingTokenRequest}
 export type RequestNPubLinkingToken_Output = ResultError | ({ status: 'OK' } & RequestNPubLinkingTokenResponse)
@@ -340,6 +346,7 @@ export type ServerMethods = {
     GetMigrationUpdate?: (req: GetMigrationUpdate_Input & {ctx: UserContext }) => Promise<void>
     GetNPubLinkingState?: (req: GetNPubLinkingState_Input & {ctx: AppContext }) => Promise<NPubLinking>
     GetPaymentState?: (req: GetPaymentState_Input & {ctx: UserContext }) => Promise<PaymentState>
+    GetProvidersDisruption?: (req: GetProvidersDisruption_Input & {ctx: MetricsContext }) => Promise<ProvidersDisruption>
     GetSeed?: (req: GetSeed_Input & {ctx: AdminContext }) => Promise<LndSeed>
     GetSingleBundleMetrics?: (req: GetSingleBundleMetrics_Input & {ctx: MetricsContext }) => Promise<BundleData>
     GetSingleUsageMetrics?: (req: GetSingleUsageMetrics_Input & {ctx: MetricsContext }) => Promise<UsageMetricTlv>
@@ -363,6 +370,7 @@ export type ServerMethods = {
     PayAddress?: (req: PayAddress_Input & {ctx: UserContext }) => Promise<PayAddressResponse>
     PayAppUserInvoice?: (req: PayAppUserInvoice_Input & {ctx: AppContext }) => Promise<PayInvoiceResponse>
     PayInvoice?: (req: PayInvoice_Input & {ctx: UserContext }) => Promise<PayInvoiceResponse>
+    PingSubProcesses?: (req: PingSubProcesses_Input & {ctx: MetricsContext }) => Promise<void>
     RequestNPubLinkingToken?: (req: RequestNPubLinkingToken_Input & {ctx: AppContext }) => Promise<RequestNPubLinkingTokenResponse>
     ResetDebit?: (req: ResetDebit_Input & {ctx: UserContext }) => Promise<void>
     ResetMetricsStorages?: (req: ResetMetricsStorages_Input & {ctx: MetricsContext }) => Promise<void>
@@ -3026,6 +3034,57 @@ export const ProductValidate = (o?: Product, opts: ProductOptions = {}, path: st
 
     if (typeof o.price_sats !== 'number') return new Error(`${path}.price_sats: is not a number`)
     if (opts.price_sats_CustomCheck && !opts.price_sats_CustomCheck(o.price_sats)) return new Error(`${path}.price_sats: custom check failed`)
+
+    return null
+}
+
+export type ProviderDisruption = {
+    provider_pubkey: string
+    provider_type: string
+    since_unix: number
+}
+export const ProviderDisruptionOptionalFields: [] = []
+export type ProviderDisruptionOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    provider_pubkey_CustomCheck?: (v: string) => boolean
+    provider_type_CustomCheck?: (v: string) => boolean
+    since_unix_CustomCheck?: (v: number) => boolean
+}
+export const ProviderDisruptionValidate = (o?: ProviderDisruption, opts: ProviderDisruptionOptions = {}, path: string = 'ProviderDisruption::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.provider_pubkey !== 'string') return new Error(`${path}.provider_pubkey: is not a string`)
+    if (opts.provider_pubkey_CustomCheck && !opts.provider_pubkey_CustomCheck(o.provider_pubkey)) return new Error(`${path}.provider_pubkey: custom check failed`)
+
+    if (typeof o.provider_type !== 'string') return new Error(`${path}.provider_type: is not a string`)
+    if (opts.provider_type_CustomCheck && !opts.provider_type_CustomCheck(o.provider_type)) return new Error(`${path}.provider_type: custom check failed`)
+
+    if (typeof o.since_unix !== 'number') return new Error(`${path}.since_unix: is not a number`)
+    if (opts.since_unix_CustomCheck && !opts.since_unix_CustomCheck(o.since_unix)) return new Error(`${path}.since_unix: custom check failed`)
+
+    return null
+}
+
+export type ProvidersDisruption = {
+    disruptions: ProviderDisruption[]
+}
+export const ProvidersDisruptionOptionalFields: [] = []
+export type ProvidersDisruptionOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    disruptions_ItemOptions?: ProviderDisruptionOptions
+    disruptions_CustomCheck?: (v: ProviderDisruption[]) => boolean
+}
+export const ProvidersDisruptionValidate = (o?: ProvidersDisruption, opts: ProvidersDisruptionOptions = {}, path: string = 'ProvidersDisruption::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (!Array.isArray(o.disruptions)) return new Error(`${path}.disruptions: is not an array`)
+    for (let index = 0; index < o.disruptions.length; index++) {
+        const disruptionsErr = ProviderDisruptionValidate(o.disruptions[index], opts.disruptions_ItemOptions, `${path}.disruptions[${index}]`)
+        if (disruptionsErr !== null) return disruptionsErr
+    }
+    if (opts.disruptions_CustomCheck && !opts.disruptions_CustomCheck(o.disruptions)) return new Error(`${path}.disruptions: custom check failed`)
 
     return null
 }

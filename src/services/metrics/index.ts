@@ -27,6 +27,18 @@ export default class Handler {
 
     }
 
+    async GetProvidersDisruption(): Promise<Types.ProvidersDisruption> {
+        const providers = await this.storage.liquidityStorage.GetTrackedProviders()
+        const disruptions = providers.filter(p => p.latest_distruption_at_unix > 0)
+        return {
+            disruptions: disruptions.map(d => ({
+                provider_pubkey: d.provider_pubkey,
+                provider_type: d.provider_type,
+                since_unix: d.latest_distruption_at_unix
+            }))
+        }
+    }
+
 
 
     async HtlcCb(htlc: HtlcEvent) {

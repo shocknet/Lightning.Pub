@@ -57,6 +57,7 @@ export default class {
     unlocker: Unlocker
     //webRTC: webRTC
     nostrSend: NostrSend = () => { getLogger({})("nostr send not initialized yet") }
+    nostrProcessPing: (() => Promise<void>) | null = null
     constructor(settings: MainSettings, storage: Storage, adminManager: AdminManager, utils: Utils, unlocker: Unlocker) {
         this.settings = settings
         this.storage = storage
@@ -100,6 +101,37 @@ export default class {
         this.offerManager.attachNostrSend(f)
         this.utils.attachNostrSend(f)
         //this.webRTC.attachNostrSend(f)
+    }
+
+    attachNostrProcessPing(f: () => Promise<void>) {
+        this.nostrProcessPing = f
+    }
+
+    async pingSubProcesses() {
+        if (!this.nostrProcessPing) {
+            throw new Error("nostr process ping not initialized")
+        }
+        const storageP = this.storage.dbs.Ping()
+        const metricsP = this.storage.metricsStorage.dbs.Ping()
+        const tlvP = this.utils.tlvStorageFactory.Ping()
+        const nostrP = this.nostrProcessPing()
+        const timeout = new Promise<true>(res => setTimeout(() => res(true), 2 * 1000))
+        const storageFail = await Promise.race([storageP, timeout])
+        const metricsFail = await Promise.race([metricsP, timeout])
+        const tlvFail = await Promise.race([tlvP, timeout])
+        const nostrFail = await Promise.race([nostrP, timeout])
+        if (storageFail) {
+            throw new Error("storage ping failed")
+        }
+        if (metricsFail) {
+            throw new Error("metrics ping failed")
+        }
+        if (tlvFail) {
+            throw new Error("tlv ping failed")
+        }
+        if (nostrFail) {
+            throw new Error("nostr ping failed")
+        }
     }
 
     htlcCb: HtlcCb = (e) => {

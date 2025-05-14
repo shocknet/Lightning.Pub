@@ -93,6 +93,7 @@ type Client struct {
 	GetMigrationUpdate          func() (*MigrationUpdate, error)
 	GetNPubLinkingState         func(req GetNPubLinking) (*NPubLinking, error)
 	GetPaymentState             func(req GetPaymentStateRequest) (*PaymentState, error)
+	GetProvidersDisruption      func() (*ProvidersDisruption, error)
 	GetSeed                     func() (*LndSeed, error)
 	GetSingleBundleMetrics      func(req SingleMetricReq) (*BundleData, error)
 	GetSingleUsageMetrics       func(req SingleMetricReq) (*UsageMetricTlv, error)
@@ -116,6 +117,7 @@ type Client struct {
 	PayAddress                  func(req PayAddressRequest) (*PayAddressResponse, error)
 	PayAppUserInvoice           func(req PayAppUserInvoiceRequest) (*PayInvoiceResponse, error)
 	PayInvoice                  func(req PayInvoiceRequest) (*PayInvoiceResponse, error)
+	PingSubProcesses            func() error
 	RequestNPubLinkingToken     func(req RequestNPubLinkingTokenRequest) (*RequestNPubLinkingTokenResponse, error)
 	ResetDebit                  func(req DebitOperation) error
 	ResetMetricsStorages        func() error
@@ -1096,6 +1098,32 @@ func NewClient(params ClientParams) *Client {
 			}
 			return &res, nil
 		},
+		GetProvidersDisruption: func() (*ProvidersDisruption, error) {
+			auth, err := params.RetrieveMetricsAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/metrics/providers/disruption"
+			body := []byte{}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return nil, err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := ProvidersDisruption{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
+		},
 		GetSeed: func() (*LndSeed, error) {
 			auth, err := params.RetrieveAdminAuth()
 			if err != nil {
@@ -1725,6 +1753,27 @@ func NewClient(params ClientParams) *Client {
 				return nil, err
 			}
 			return &res, nil
+		},
+		PingSubProcesses: func() error {
+			auth, err := params.RetrieveMetricsAuth()
+			if err != nil {
+				return err
+			}
+			finalRoute := "/api/metrics/ping"
+			body := []byte{}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return err
+			}
+			if result.Status == "ERROR" {
+				return fmt.Errorf(result.Reason)
+			}
+			return nil
 		},
 		RequestNPubLinkingToken: func(req RequestNPubLinkingTokenRequest) (*RequestNPubLinkingTokenResponse, error) {
 			auth, err := params.RetrieveAppAuth()

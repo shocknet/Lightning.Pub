@@ -422,6 +422,20 @@ export default (params: NostrClientParams,  send: (to:string, message: NostrRequ
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
+    GetProvidersDisruption: async (): Promise<ResultError | ({ status: 'OK' }& Types.ProvidersDisruption)> => {
+        const auth = await params.retrieveNostrMetricsAuth()
+        if (auth === null) throw new Error('retrieveNostrMetricsAuth() returned null')
+        const nostrRequest: NostrRequest = {}
+        const data = await send(params.pubDestination, {rpcName:'GetProvidersDisruption',authIdentifier:auth, ...nostrRequest }) 
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.ProvidersDisruptionValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
     GetSeed: async (): Promise<ResultError | ({ status: 'OK' }& Types.LndSeed)> => {
         const auth = await params.retrieveNostrAdminAuth()
         if (auth === null) throw new Error('retrieveNostrAdminAuth() returned null')
@@ -682,6 +696,17 @@ export default (params: NostrClientParams,  send: (to:string, message: NostrRequ
             if(!params.checkResult) return { status: 'OK', ...result }
             const error = Types.PayInvoiceResponseValidate(result)
             if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
+    PingSubProcesses: async (): Promise<ResultError | ({ status: 'OK' })> => {
+        const auth = await params.retrieveNostrMetricsAuth()
+        if (auth === null) throw new Error('retrieveNostrMetricsAuth() returned null')
+        const nostrRequest: NostrRequest = {}
+        const data = await send(params.pubDestination, {rpcName:'PingSubProcesses',authIdentifier:auth, ...nostrRequest }) 
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            return data
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
