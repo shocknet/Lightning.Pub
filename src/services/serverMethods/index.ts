@@ -91,6 +91,12 @@ export default (mainHandler: Main): Types.ServerMethods => {
             if (err != null) throw new Error(err.message)
             return mainHandler.adminManager.CloseChannel(req)
         },
+        GetProvidersDisruption: async () => {
+            return mainHandler.metricsManager.GetProvidersDisruption()
+        },
+        PingSubProcesses: async () => {
+            await mainHandler.pingSubProcesses()
+        },
         EncryptionExchange: async () => { },
         Health: async () => { await mainHandler.lnd.Health() },
         LndGetInfo: async ({ ctx }) => {
@@ -400,6 +406,9 @@ export default (mainHandler: Main): Types.ServerMethods => {
             })
             if (err != null) throw new Error(err.message)
             return mainHandler.offerManager.GetUserOfferInvoices(ctx, req)
-        }
+        },
+        GetHttpCreds: async ({ ctx }) => {
+            return mainHandler.appUserManager.GetHttpCreds(ctx)
+        },
     }
 }

@@ -750,3 +750,15 @@ message OfferInvoice {
     int64 amount = 4;
     map<string,string> data = 5;
 }
+
+message ProviderDisruption {
+    string provider_pubkey = 1;
+    string provider_type = 2;
+    int64 since_unix = 3;
+}
+
+message ProvidersDisruption {
+    repeated ProviderDisruption disruptions = 1;
+}
+
+

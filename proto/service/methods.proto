@@ -240,6 +240,19 @@ service LightningPub {
         option (http_route) = "/api/metrics/zip";
         option (nostr) = true;
     }
+    rpc PingSubProcesses(structs.Empty) returns (structs.Empty) {
+        option (auth_type)  = "Metrics";
+        option (http_method) = "post";
+        option (http_route) = "/api/metrics/ping";
+        option (nostr) = true;
+    }
+
+    rpc GetProvidersDisruption(structs.Empty) returns (structs.ProvidersDisruption) {
+        option (auth_type)  = "Metrics";
+        option (http_method) = "post";
+        option (http_route) = "/api/metrics/providers/disruption";
+        option (nostr) = true;
+    }
 
     rpc ResetMetricsStorages(structs.Empty) returns (structs.Empty) {
         option (auth_type)  = "Metrics";
@@ -618,7 +631,7 @@ service LightningPub {
         option (http_route) = "/api/user/migrations/sub";
         option (nostr) = true;
     }
-    rpc GetHttpCreds(structs.Empty) returns (stream structs.HttpCreds){
+    rpc GetHttpCreds(structs.Empty) returns (structs.HttpCreds){
         option (auth_type)  = "User";
         option (http_method) = "post";
         option (http_route) = "/api/user/http_creds";

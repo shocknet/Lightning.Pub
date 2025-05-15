@@ -38,12 +38,21 @@ type SettingsRequest = {
     settings: NostrSettings
 }
 
+type PingRequest = {
+    type: 'ping'
+}
+
 type SendRequest = {
     type: 'send'
     initiator: SendInitiator
     data: SendData
     relays?: string[]
 }
+
+type PingResponse = {
+    type: 'pong'
+}
+
 type ReadyResponse = {
     type: 'ready'
 }
@@ -56,8 +65,8 @@ type ProcessMetricsResponse = {
     metrics: ProcessMetrics
 }
 
-export type ChildProcessRequest = SettingsRequest | SendRequest
-export type ChildProcessResponse = ReadyResponse | EventResponse | ProcessMetricsResponse
+export type ChildProcessRequest = SettingsRequest | SendRequest | PingRequest
+export type ChildProcessResponse = ReadyResponse | EventResponse | ProcessMetricsResponse | PingResponse
 const send = (message: ChildProcessResponse) => {
     if (process.send) {
         process.send(message, undefined, undefined, err => {
@@ -76,6 +85,9 @@ process.on("message", (message: ChildProcessRequest) => {
             break
         case 'send':
             sendToNostr(message.initiator, message.data, message.relays)
+            break
+        case 'ping':
+            send({ type: 'pong' })
             break
         default:
             getLogger({ component: "nostrMiddleware" })(ERROR, "unknown nostr request", message)
@@ -252,6 +264,8 @@ export default class Handler {
         }))
         if (!sent) {
             log("failed to send event")
+        } else {
+            log("sent event")
         }
     }
 

@@ -80,6 +80,12 @@ export type ProcessMetricsTlvOperation = {
     debug?: boolean
 }
 
+export type PingTlvOperation = {
+    type: 'ping'
+    opId: string
+    debug?: boolean
+}
+
 export type ErrorTlvOperationResponse = { success: false, error: string, opId: string }
 
 export interface ITlvStorageOperation {
@@ -88,7 +94,7 @@ export interface ITlvStorageOperation {
     debug?: boolean
 }
 
-export type TlvStorageOperation = NewTlvStorageOperation | AddTlvOperation | LoadLatestTlvOperation | LoadTlvFileOperation | WebRtcMessageOperation | ProcessMetricsTlvOperation | ResetTlvStorageOperation | ZipStoragesOperation
+export type TlvStorageOperation = NewTlvStorageOperation | AddTlvOperation | LoadLatestTlvOperation | LoadTlvFileOperation | WebRtcMessageOperation | ProcessMetricsTlvOperation | ResetTlvStorageOperation | ZipStoragesOperation | PingTlvOperation
 
 export type SuccessTlvOperationResponse<T> = { success: true, type: string, data: T, opId: string }
 export type TlvOperationResponse<T> = SuccessTlvOperationResponse<T> | ErrorTlvOperationResponse
@@ -186,6 +192,9 @@ class TlvFilesStorageProcessor {
                 case 'zipStorages':
                     await this.handleZipStorages(operation);
                     break;
+                case 'ping':
+                    await this.handlePing(operation);
+                    break;
                 default:
                     this.sendResponse({
                         success: false,
@@ -203,6 +212,14 @@ class TlvFilesStorageProcessor {
         }
     }
 
+    private async handlePing(operation: PingTlvOperation) {
+        this.sendResponse({
+            success: true,
+            type: 'ping',
+            data: null,
+            opId: operation.opId
+        });
+    }
     private async handleResetStorage(operation: ResetTlvStorageOperation) {
         for (const storageName in this.storages) {
             this.storages[storageName].Reset()

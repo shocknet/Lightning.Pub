@@ -158,6 +158,11 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [GetPaymentStateRequest](#GetPaymentStateRequest)
   - output: [PaymentState](#PaymentState)
 
+- GetProvidersDisruption
+  - auth type: __Metrics__
+  - This methods has an __empty__ __request__ body
+  - output: [ProvidersDisruption](#ProvidersDisruption)
+
 - GetSeed
   - auth type: __Admin__
   - This methods has an __empty__ __request__ body
@@ -249,6 +254,11 @@ The nostr server will send back a message response, and inside the body there wi
   - auth type: __User__
   - input: [PayInvoiceRequest](#PayInvoiceRequest)
   - output: [PayInvoiceResponse](#PayInvoiceResponse)
+
+- PingSubProcesses
+  - auth type: __Metrics__
+  - This methods has an __empty__ __request__ body
+  - This methods has an __empty__ __response__ body
 
 - ResetDebit
   - auth type: __User__
@@ -617,6 +627,13 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [GetPaymentStateRequest](#GetPaymentStateRequest)
   - output: [PaymentState](#PaymentState)
 
+- GetProvidersDisruption
+  - auth type: __Metrics__
+  - http method: __post__
+  - http route: __/api/metrics/providers/disruption__
+  - This methods has an __empty__ __request__ body
+  - output: [ProvidersDisruption](#ProvidersDisruption)
+
 - GetSeed
   - auth type: __Admin__
   - http method: __get__
@@ -789,6 +806,13 @@ The nostr server will send back a message response, and inside the body there wi
   - http route: __/api/user/invoice/pay__
   - input: [PayInvoiceRequest](#PayInvoiceRequest)
   - output: [PayInvoiceResponse](#PayInvoiceResponse)
+
+- PingSubProcesses
+  - auth type: __Metrics__
+  - http method: __post__
+  - http route: __/api/metrics/ping__
+  - This methods has an __empty__ __request__ body
+  - This methods has an __empty__ __response__ body
 
 - RequestNPubLinkingToken
   - auth type: __App__
@@ -1351,6 +1375,14 @@ The nostr server will send back a message response, and inside the body there wi
   - __name__: _string_
   - __noffer__: _string_
   - __price_sats__: _number_
+
+### ProviderDisruption
+  - __provider_pubkey__: _string_
+  - __provider_type__: _string_
+  - __since_unix__: _number_
+
+### ProvidersDisruption
+  - __disruptions__: ARRAY of: _[ProviderDisruption](#ProviderDisruption)_
 
 ### RelaysMigration
   - __relays__: ARRAY of: _string_

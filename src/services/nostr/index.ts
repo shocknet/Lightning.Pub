@@ -19,6 +19,7 @@ export default class NostrSubprocess {
     settings: NostrSettings
     childProcess: ChildProcess
     utils: Utils
+    awaitingPongs: (() => void)[] = []
     constructor(settings: NostrSettings, utils: Utils, eventCallback: EventCallback) {
         this.utils = utils
         this.childProcess = fork("./build/src/services/nostr/handler")
@@ -34,6 +35,10 @@ export default class NostrSubprocess {
                 case 'processMetrics':
                     this.utils.tlvStorageFactory.ProcessMetrics(message.metrics, 'nostr')
                     break
+                case 'pong':
+                    this.awaitingPongs.forEach(resolve => resolve())
+                    this.awaitingPongs = []
+                    break
                 default:
                     console.error("unknown nostr event response", message)
                     break;
@@ -42,6 +47,13 @@ export default class NostrSubprocess {
     }
     sendToChildProcess(message: ChildProcessRequest) {
         this.childProcess.send(message)
+    }
+
+    Ping() {
+        this.sendToChildProcess({ type: 'ping' })
+        return new Promise<void>((resolve) => {
+            this.awaitingPongs.push(resolve)
+        })
     }
 
     Send(initiator: SendInitiator, data: SendData, relays?: string[]) {

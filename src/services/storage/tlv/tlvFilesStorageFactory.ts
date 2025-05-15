@@ -1,6 +1,6 @@
 import { ChildProcess, fork } from 'child_process';
 import { EventEmitter } from 'events';
-import { AddTlvOperation, ITlvStorageOperation, SuccessTlvOperationResponse, LoadLatestTlvOperation, LoadTlvFileOperation, NewTlvStorageOperation, SerializableLatestData, SerializableTlvFile, TlvOperationResponse, TlvStorageSettings, WebRtcMessageOperation, ProcessMetricsTlvOperation, ZipStoragesOperation, ResetTlvStorageOperation } from './tlvFilesStorageProcessor';
+import { AddTlvOperation, ITlvStorageOperation, SuccessTlvOperationResponse, LoadLatestTlvOperation, LoadTlvFileOperation, NewTlvStorageOperation, SerializableLatestData, SerializableTlvFile, TlvOperationResponse, TlvStorageSettings, WebRtcMessageOperation, ProcessMetricsTlvOperation, ZipStoragesOperation, ResetTlvStorageOperation, PingTlvOperation } from './tlvFilesStorageProcessor';
 import { LatestData, TlvFile } from './tlvFilesStorage';
 import { NostrSend, SendData, SendInitiator } from '../../nostr/handler';
 import { WebRtcUserInfo } from '../../webRTC';
@@ -61,6 +61,12 @@ export class TlvStorageFactory extends EventEmitter {
         });
 
         this.isConnected = true;
+    }
+
+    Ping(): Promise<void> {
+        const opId = Math.random().toString()
+        const op: PingTlvOperation = { type: 'ping', opId }
+        return this.handleOp<void>(op)
     }
 
     ZipStorages(): Promise<string> {

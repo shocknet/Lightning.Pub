@@ -7,7 +7,7 @@ import { ERROR, getLogger } from "./services/helpers/logger.js";
 import { NdebitData } from "nostr-tools/lib/types/nip68.js";
 import { NofferData } from "nostr-tools/lib/types/nip69.js";
 
-export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSettings: NostrSettings, onClientEvent: (e: { requestId: string }, fromPub: string) => void): { Stop: () => void, Send: NostrSend } => {
+export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSettings: NostrSettings, onClientEvent: (e: { requestId: string }, fromPub: string) => void): { Stop: () => void, Send: NostrSend, Ping: () => Promise<void> } => {
     const log = getLogger({})
     const nostrTransport = NewNostrTransport(serverMethods, {
         NostrUserAuthGuard: async (appId, pub) => {
@@ -68,7 +68,7 @@ export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSett
             nostr.Send({ type: 'app', appId: event.appId }, { type: 'content', pub: event.pub, content: JSON.stringify({ ...res, requestId: j.requestId }) })
         }, event.startAtNano, event.startAtMs)
     })
-    return { Stop: () => nostr.Stop, Send: (...args) => nostr.Send(...args) }
+    return { Stop: () => nostr.Stop, Send: (...args) => nostr.Send(...args), Ping: () => nostr.Ping() }
 }
 
 

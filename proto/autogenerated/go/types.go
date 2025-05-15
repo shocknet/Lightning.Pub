@@ -527,6 +527,14 @@ type Product struct {
 	Noffer     string `json:"noffer"`
 	Price_sats int64  `json:"price_sats"`
 }
+type ProviderDisruption struct {
+	Provider_pubkey string `json:"provider_pubkey"`
+	Provider_type   string `json:"provider_type"`
+	Since_unix      int64  `json:"since_unix"`
+}
+type ProvidersDisruption struct {
+	Disruptions []ProviderDisruption `json:"disruptions"`
+}
 type RelaysMigration struct {
 	Relays []string `json:"relays"`
 }

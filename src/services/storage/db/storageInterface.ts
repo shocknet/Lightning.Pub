@@ -12,6 +12,7 @@ import {
     SumOperation,
     DBNames,
     SuccessOperationResponse,
+    PingOperation,
 } from './storageProcessor.js';
 import { PickKeysByType } from 'typeorm/common/PickKeysByType.js';
 import { serializeRequest, WhereCondition } from './serializationHelpers.js';
@@ -65,6 +66,12 @@ export class StorageInterface extends EventEmitter {
         });
 
         this.isConnected = true;
+    }
+
+    Ping(): Promise<void> {
+        const opId = Math.random().toString()
+        const pingOp: PingOperation = { type: 'ping', opId }
+        return this.handleOp<void>(pingOp)
     }
 
     Connect(settings: DbSettings, dbType: 'main' | 'metrics'): Promise<number> {
