@@ -60,6 +60,7 @@ export default class webRTC2 {
     }
 
     private handleRequest = async (u: WebRtcUserInfo, data: SupportedInput) => {
+        console.log('handleRequest', data)
         if (!this.serverMethods) throw new Error('Server methods not attached')
         const rpcName = data.rpcName
         switch (rpcName) {

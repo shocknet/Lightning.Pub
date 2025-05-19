@@ -10,7 +10,7 @@ import { LoadMainSettingsFromEnv } from './services/main/settings.js';
 import { nip19 } from 'nostr-tools'
 //@ts-ignore
 const { nprofileEncode } = nip19
-
+import webRTC2 from './services/webRTC/wrtc2.js';
 const start = async () => {
     const log = getLogger({})
     const mainSettings = LoadMainSettingsFromEnv()
@@ -21,7 +21,8 @@ const start = async () => {
     }
 
     const { apps, mainHandler, liquidityProviderInfo, wizard, adminManager } = keepOn
-    const serverMethods = GetServerMethods(mainHandler)
+    const wrtc2 = new webRTC2()
+    const serverMethods = GetServerMethods(mainHandler, wrtc2)
     const nostrSettings = LoadNosrtSettingsFromEnv()
     log("initializing nostr middleware")
     const { Send } = nostrMiddleware(serverMethods, mainHandler,
