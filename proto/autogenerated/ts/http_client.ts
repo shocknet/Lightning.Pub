@@ -968,7 +968,22 @@ export default (params: ClientParams) => ({
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
+    SubToUserWebRtcCandidates: async (cb: (v:ResultError | ({ status: 'OK' }& Types.WebRtcCandidate)) => void): Promise<void> => { throw  new Error('http streams are not supported')},
     SubToWebRtcCandidates: async (cb: (v:ResultError | ({ status: 'OK' }& Types.WebRtcCandidate)) => void): Promise<void> => { throw  new Error('http streams are not supported')},
+    SubmitUserWebRtcMessage: async (request: Types.WebRtcMessage): Promise<ResultError | ({ status: 'OK' }& Types.WebRtcAnswer)> => {
+        const auth = await params.retrieveUserAuth()
+        if (auth === null) throw new Error('retrieveUserAuth() returned null')
+        let finalRoute = '/api/user/wrtc'
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.WebRtcAnswerValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
     SubmitWebRtcMessage: async (request: Types.WebRtcMessage): Promise<ResultError | ({ status: 'OK' }& Types.WebRtcAnswer)> => {
         const auth = await params.retrieveMetricsAuth()
         if (auth === null) throw new Error('retrieveMetricsAuth() returned null')

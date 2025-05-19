@@ -475,6 +475,18 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                                         callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
                                     }
                                     break
+                                case 'SubmitUserWebRtcMessage':
+                                    if (!methods.SubmitUserWebRtcMessage) {
+                                        throw new Error('method not defined: SubmitUserWebRtcMessage')
+                                    } else {
+                                        const error = Types.WebRtcMessageValidate(operation.req)
+                                        opStats.validate = process.hrtime.bigint()
+                                        if (error !== null) throw error
+                                        const res = await methods.SubmitUserWebRtcMessage({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                                        opStats.handle = process.hrtime.bigint()
+                                        callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
+                                    }
+                                    break
                                 case 'UpdateCallbackUrl':
                                     if (!methods.UpdateCallbackUrl) {
                                         throw new Error('method not defined: UpdateCallbackUrl')
@@ -1156,6 +1168,19 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     opts.metricsCallback([{ ...info, ...stats, ...authContext }])
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
+            case 'SubToUserWebRtcCandidates':
+                try {
+                    if (!methods.SubToUserWebRtcCandidates) throw new Error('method: SubToUserWebRtcCandidates is not implemented')
+                    const authContext = await opts.NostrUserAuthGuard(req.appId, req.authIdentifier)
+                    stats.guard = process.hrtime.bigint()
+                    authCtx = authContext
+                    stats.validate = stats.guard
+                    methods.SubToUserWebRtcCandidates({rpcName:'SubToUserWebRtcCandidates', ctx:authContext  ,cb: (response, err) => {
+                    stats.handle = process.hrtime.bigint()
+                    if (err) { logErrorAndReturnResponse(err, err.message, res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)} else { res({status: 'OK', ...response});opts.metricsCallback([{ ...info, ...stats, ...authContext }])}
+                    }})
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+                break
             case 'SubToWebRtcCandidates':
                 try {
                     if (!methods.SubToWebRtcCandidates) throw new Error('method: SubToWebRtcCandidates is not implemented')
@@ -1167,6 +1192,22 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     stats.handle = process.hrtime.bigint()
                     if (err) { logErrorAndReturnResponse(err, err.message, res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)} else { res({status: 'OK', ...response});opts.metricsCallback([{ ...info, ...stats, ...authContext }])}
                     }})
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+                break
+            case 'SubmitUserWebRtcMessage':
+                try {
+                    if (!methods.SubmitUserWebRtcMessage) throw new Error('method: SubmitUserWebRtcMessage is not implemented')
+                    const authContext = await opts.NostrUserAuthGuard(req.appId, req.authIdentifier)
+                    stats.guard = process.hrtime.bigint()
+                    authCtx = authContext
+                    const request = req.body
+                    const error = Types.WebRtcMessageValidate(request)
+                    stats.validate = process.hrtime.bigint()
+                    if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
+                    const response = await methods.SubmitUserWebRtcMessage({rpcName:'SubmitUserWebRtcMessage', ctx:authContext , req: request})
+                    stats.handle = process.hrtime.bigint()
+                    res({status: 'OK', ...response})
+                    opts.metricsCallback([{ ...info, ...stats, ...authContext }])
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
             case 'SubmitWebRtcMessage':

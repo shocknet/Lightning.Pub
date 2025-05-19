@@ -7,6 +7,7 @@ import nostrMiddleware from './nostrMiddleware.js'
 import { getLogger } from './services/helpers/logger.js';
 import { initMainHandler } from './services/main/init.js';
 import { LoadMainSettingsFromEnv } from './services/main/settings.js';
+import WebRTC2 from './services/webRTC/wrtc2.js';
 import { nip19 } from 'nostr-tools'
 //@ts-ignore
 const { nprofileEncode } = nip19
@@ -21,15 +22,19 @@ const start = async () => {
     }
 
     const { apps, mainHandler, liquidityProviderInfo, wizard, adminManager } = keepOn
-    const serverMethods = GetServerMethods(mainHandler)
+    const webRTC2 = new WebRTC2()
+    const serverMethods = GetServerMethods(mainHandler, webRTC2)
     const nostrSettings = LoadNosrtSettingsFromEnv()
     log("initializing nostr middleware")
     const { Send, Stop, Ping } = nostrMiddleware(serverMethods, mainHandler,
         { ...nostrSettings, apps, clients: [liquidityProviderInfo] },
         (e, p) => mainHandler.liquidityProvider.onEvent(e, p)
     )
+
     exitHandler(() => { Stop() })
     log("starting server")
+    webRTC2.attachServerMethods(serverMethods)
+    webRTC2.attachNostrSend(Send)
     mainHandler.attachNostrSend(Send)
     mainHandler.attachNostrProcessPing(Ping)
     mainHandler.StartBeacons()

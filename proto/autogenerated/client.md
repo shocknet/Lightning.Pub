@@ -275,10 +275,20 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [DebitResponse](#DebitResponse)
   - This methods has an __empty__ __response__ body
 
+- SubToUserWebRtcCandidates
+  - auth type: __User__
+  - This methods has an __empty__ __request__ body
+  - output: [WebRtcCandidate](#WebRtcCandidate)
+
 - SubToWebRtcCandidates
   - auth type: __Metrics__
   - This methods has an __empty__ __request__ body
   - output: [WebRtcCandidate](#WebRtcCandidate)
+
+- SubmitUserWebRtcMessage
+  - auth type: __User__
+  - input: [WebRtcMessage](#WebRtcMessage)
+  - output: [WebRtcAnswer](#WebRtcAnswer)
 
 - SubmitWebRtcMessage
   - auth type: __Metrics__
@@ -884,12 +894,26 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [SetMockInvoiceAsPaidRequest](#SetMockInvoiceAsPaidRequest)
   - This methods has an __empty__ __response__ body
 
+- SubToUserWebRtcCandidates
+  - auth type: __User__
+  - http method: __post__
+  - http route: __/api/user/wrtc/candidates__
+  - This methods has an __empty__ __request__ body
+  - output: [WebRtcCandidate](#WebRtcCandidate)
+
 - SubToWebRtcCandidates
   - auth type: __Metrics__
   - http method: __post__
   - http route: __/api/upgrade/wrtc/candidates__
   - This methods has an __empty__ __request__ body
   - output: [WebRtcCandidate](#WebRtcCandidate)
+
+- SubmitUserWebRtcMessage
+  - auth type: __User__
+  - http method: __post__
+  - http route: __/api/user/wrtc__
+  - input: [WebRtcMessage](#WebRtcMessage)
+  - output: [WebRtcAnswer](#WebRtcAnswer)
 
 - SubmitWebRtcMessage
   - auth type: __Metrics__
