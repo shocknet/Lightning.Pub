@@ -28,7 +28,7 @@ const start = async () => {
         { ...nostrSettings, apps, clients: [liquidityProviderInfo] },
         (e, p) => mainHandler.liquidityProvider.onEvent(e, p)
     )
-    exitHandler(() => { Stop() })
+    exitHandler(() => { Stop(); mainHandler.Stop() })
     log("starting server")
     mainHandler.attachNostrSend(Send)
     mainHandler.attachNostrProcessPing(Ping)
