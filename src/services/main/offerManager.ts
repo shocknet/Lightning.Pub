@@ -200,9 +200,12 @@ export class OfferManager {
             return this.HandleDefaultUserOffer(offerReq, appId, remote)
         }
         if (userOffer.app_user_id === userOffer.offer_id) {
-            this.logger("default user offer has db entry, deleting")
-            await this.storage.offerStorage.DeleteUserOffer(userOffer.app_user_id, userOffer.offer_id)
-            return this.HandleDefaultUserOffer(offerReq, appId, remote)
+            if (userOffer.price_sats !== 0 || userOffer.expected_data) {
+                this.logger("default offer has custom price or expected data, resetting")
+                await this.storage.offerStorage.UpdateUserOffer(userOffer.app_user_id, userOffer.offer_id, { price_sats: 0, expected_data: null })
+                userOffer.price_sats = 0
+                userOffer.expected_data = null
+            }
         }
         let amt = userOffer.price_sats
         if (userOffer.price_sats === 0) {
