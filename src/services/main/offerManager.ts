@@ -208,6 +208,7 @@ export class OfferManager {
         }
         const { passed, validated } = this.ValidateExpectedData(userOffer, offerReq.payer_data)
         if (!passed) {
+            console.log("Invalid expected data", validated)
             return { success: false, code: 1, max: remote }
         }
         const res = await this.applicationManager.AddAppUserInvoice(appId, {
