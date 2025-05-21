@@ -199,6 +199,11 @@ export class OfferManager {
         if (!userOffer) {
             return this.HandleDefaultUserOffer(offerReq, appId, remote)
         }
+        if (userOffer.app_user_id === userOffer.offer_id) {
+            this.logger("default user offer has db entry, deleting")
+            await this.storage.offerStorage.DeleteUserOffer(userOffer.app_user_id, userOffer.offer_id)
+            return this.HandleDefaultUserOffer(offerReq, appId, remote)
+        }
         let amt = userOffer.price_sats
         if (userOffer.price_sats === 0) {
             if (!amount || isNaN(amount) || amount < 10 || amount > remote) {
