@@ -8,11 +8,9 @@ import { ApplicationUser } from '../storage/entity/ApplicationUser.js'
 import { PubLogger, getLogger } from '../helpers/logger.js'
 import crypto from 'crypto'
 import { Application } from '../storage/entity/Application.js'
-import { nip69, nip19 } from 'nostr-tools'
 import { LoadNosrtSettingsFromEnv } from '../nostr/index.js'
 import { ZapInfo } from '../storage/entity/UserReceivingInvoice.js'
-const { SendNofferRequest } = nip69
-const { nofferEncode, ndebitEncode, OfferPriceType } = nip19
+import { nofferEncode, ndebitEncode, OfferPriceType } from '@shocknet/clink-sdk'
 const TOKEN_EXPIRY_TIME = 2 * 60 * 1000 // 2 minutes, in milliseconds
 
 type NsecLinkingData = {

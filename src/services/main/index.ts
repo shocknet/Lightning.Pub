@@ -23,7 +23,6 @@ import { AdminManager } from "./adminManager.js"
 import { Unlocker } from "./unlocker.js"
 import { defaultInvoiceExpiry } from "../storage/paymentStorage.js"
 import { DebitManager } from "./debitManager.js"
-import { NofferData } from "nostr-tools/lib/types/nip69.js"
 import { OfferManager } from "./offerManager.js"
 import webRTC from "../webRTC/index.js"
 
