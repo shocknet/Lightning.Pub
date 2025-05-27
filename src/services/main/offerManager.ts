@@ -191,6 +191,14 @@ export class OfferManager {
         if (!userOffer) {
             return this.HandleDefaultUserOffer(offerReq, appId, remote)
         }
+        if (userOffer.app_user_id === userOffer.offer_id) {
+            if (userOffer.price_sats !== 0 || userOffer.expected_data) {
+                this.logger("default offer has custom price or expected data, resetting")
+                await this.storage.offerStorage.UpdateUserOffer(userOffer.app_user_id, userOffer.offer_id, { price_sats: 0, expected_data: null })
+                userOffer.price_sats = 0
+                userOffer.expected_data = null
+            }
+        }
         let amt = userOffer.price_sats
         if (userOffer.price_sats === 0) {
             if (!amount || isNaN(amount) || amount < 10 || amount > remote) {
@@ -200,6 +208,7 @@ export class OfferManager {
         }
         const { passed, validated } = this.ValidateExpectedData(userOffer, offerReq.payer_data)
         if (!passed) {
+            console.log("Invalid expected data", validated)
             return { success: false, code: 1, max: remote }
         }
         const res = await this.applicationManager.AddAppUserInvoice(appId, {
