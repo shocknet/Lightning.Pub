@@ -1,5 +1,5 @@
 import { ChildProcess, fork } from 'child_process'
-import { EnvMustBeNonEmptyString } from "../helpers/envParser.js"
+import { EnvCanBeInteger, EnvMustBeNonEmptyString } from "../helpers/envParser.js"
 import { NostrSettings, NostrEvent, ChildProcessRequest, ChildProcessResponse, SendData, SendInitiator } from "./handler.js"
 import { Utils } from '../helpers/utilsWrapper.js'
 type EventCallback = (event: NostrEvent) => void
@@ -10,8 +10,10 @@ const getEnvOrDefault = (name: string, defaultValue: string): string => {
 
 export const LoadNosrtSettingsFromEnv = (test = false) => {
     const relaysEnv = getEnvOrDefault("NOSTR_RELAYS", "wss://relay.lightning.pub");
+    const maxEventContentLength = EnvCanBeInteger("NOSTR_MAX_EVENT_CONTENT_LENGTH", 45000)
     return {
-        relays: relaysEnv.split(' ')
+        relays: relaysEnv.split(' '),
+        maxEventContentLength
     }
 }
 
