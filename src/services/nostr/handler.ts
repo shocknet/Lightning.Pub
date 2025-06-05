@@ -1,8 +1,8 @@
 //import { SimplePool, Sub, Event, UnsignedEvent, getEventHash, signEvent } from 'nostr-tools'
 import WebSocket from 'ws'
 Object.assign(global, { WebSocket: WebSocket });
-import { SimplePool, Event, UnsignedEvent, getEventHash, finalizeEvent, Relay, nip44 } from 'nostr-tools'
-//import { encryptData, decryptData, getSharedSecret, decodePayload, encodePayload, EncryptedData, nip44 } from 'nostr-tools'
+import crypto from 'crypto'
+import { SimplePool, Event, UnsignedEvent, finalizeEvent, Relay, nip44 } from 'nostr-tools'
 import { ERROR, getLogger } from '../helpers/logger.js'
 import { nip19 } from 'nostr-tools'
 import { encrypt as encryptV1, decrypt as decryptV1, getSharedSecret as getConversationKeyV1 } from './nip44v1.js'
@@ -14,7 +14,9 @@ const { getConversationKey: getConversationKeyV2 } = utils
 const handledEvents: string[] = [] // TODO: - big memory leak here, add TTL
 type AppInfo = { appId: string, publicKey: string, privateKey: string, name: string }
 type ClientInfo = { clientId: string, publicKey: string, privateKey: string, name: string }
-export type SendData = { type: "content", content: string, pub: string } | { type: "event", event: UnsignedEvent, encrypt?: { toPub: string } }
+type SendDataContent = { type: "content", content: string, pub: string, index?: number, totalShards?: number, shardsId?: string }
+type SendDataEvent = { type: "event", event: UnsignedEvent, encrypt?: { toPub: string } }
+export type SendData = SendDataContent | SendDataEvent
 export type SendInitiator = { type: 'app', appId: string } | { type: 'client', clientId: string }
 export type NostrSend = (initiator: SendInitiator, data: SendData, relays?: string[] | undefined) => void
 
@@ -22,6 +24,7 @@ export type NostrSettings = {
     apps: AppInfo[]
     relays: string[]
     clients: ClientInfo[]
+    maxEventContentLength: number
 }
 export type NostrEvent = {
     id: string
@@ -219,38 +222,49 @@ export default class Handler {
     async Send(initiator: SendInitiator, data: SendData, relays?: string[]) {
         const keys = this.GetSendKeys(initiator)
         const privateKey = Buffer.from(keys.privateKey, 'hex')
-        let toSign: UnsignedEvent
-        if (data.type === 'content') {
-            let content: string
-            try {
-                content = encryptV1(data.content, getConversationKeyV1(keys.privateKey, data.pub))
-            } catch (e: any) {
-                this.log(ERROR, "failed to encrypt content", e.message, data.content)
-                return
-            }
-            toSign = {
-                content,
-                created_at: Math.floor(Date.now() / 1000),
-                kind: 21000,
-                pubkey: keys.publicKey,
-                tags: [['p', data.pub]],
-            }
-        } else {
-            toSign = data.event
-            if (data.encrypt) {
-                try {
-                    toSign.content = encryptV2(data.event.content, getConversationKeyV2(Buffer.from(keys.privateKey, 'hex'), data.encrypt.toPub))
-                } catch (e: any) {
-                    this.log(ERROR, "failed to encrypt content", e.message)
-                    return
-                }
-            }
-            if (!toSign.pubkey) {
-                toSign.pubkey = keys.publicKey
-            }
-        }
+        const toSign = await this.handleSend(data, keys)
+        await Promise.all(toSign.map(ue => this.sendEvent(ue, keys, relays)))
+    }
 
-        const signed = finalizeEvent(toSign, Buffer.from(keys.privateKey, 'hex'))
+    async handleSend(data: SendData, keys: { name: string, privateKey: string, publicKey: string }): Promise<UnsignedEvent[]> {
+        if (data.type === 'content') {
+            const parts = splitContent(data.content, this.settings.maxEventContentLength)
+            if (parts.length > 1) {
+                const shardsId = crypto.randomBytes(16).toString('hex')
+                const totalShards = parts.length
+                const ues = await Promise.all(parts.map((part, index) => this.handleSendDataContent({ ...data, content: part, index, totalShards, shardsId }, keys)))
+                return ues
+            }
+            return [await this.handleSendDataContent(data, keys)]
+        }
+        const ue = await this.handleSendDataEvent(data, keys)
+        return [ue]
+    }
+
+    async handleSendDataContent(data: SendDataContent, keys: { name: string, privateKey: string, publicKey: string }): Promise<UnsignedEvent> {
+        let content = encryptV1(data.content, getConversationKeyV1(keys.privateKey, data.pub))
+        return {
+            content,
+            created_at: Math.floor(Date.now() / 1000),
+            kind: 21000,
+            pubkey: keys.publicKey,
+            tags: [['p', data.pub]],
+        }
+    }
+
+    async handleSendDataEvent(data: SendDataEvent, keys: { name: string, privateKey: string, publicKey: string }): Promise<UnsignedEvent> {
+        const toSign = data.event
+        if (data.encrypt) {
+            toSign.content = encryptV2(data.event.content, getConversationKeyV2(Buffer.from(keys.privateKey, 'hex'), data.encrypt.toPub))
+        }
+        if (!toSign.pubkey) {
+            toSign.pubkey = keys.publicKey
+        }
+        return toSign
+    }
+
+    async sendEvent(event: UnsignedEvent, keys: { name: string, privateKey: string }, relays?: string[]) {
+        const signed = finalizeEvent(event, Buffer.from(keys.privateKey, 'hex'))
         let sent = false
         const log = getLogger({ appName: keys.name })
         await Promise.all(this.pool.publish(relays || this.settings.relays, signed).map(async p => {
@@ -265,7 +279,7 @@ export default class Handler {
         if (!sent) {
             log("failed to send event")
         } else {
-            log("sent event")
+            //log("sent event")
         }
     }
 
@@ -287,4 +301,12 @@ export default class Handler {
         }
         throw new Error("unkown initiator type")
     }
+}
+
+const splitContent = (content: string, maxLength: number) => {
+    const parts = []
+    for (let i = 0; i < content.length; i += maxLength) {
+        parts.push(content.slice(i, i + maxLength))
+    }
+    return parts
 }
