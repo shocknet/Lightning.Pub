@@ -14,7 +14,7 @@ const { getConversationKey: getConversationKeyV2 } = utils
 const handledEvents: string[] = [] // TODO: - big memory leak here, add TTL
 type AppInfo = { appId: string, publicKey: string, privateKey: string, name: string }
 type ClientInfo = { clientId: string, publicKey: string, privateKey: string, name: string }
-type SendDataContent = { type: "content", content: string, pub: string, index?: number, totalShards?: number, shardsId?: string }
+type SendDataContent = { type: "content", content: string, pub: string }
 type SendDataEvent = { type: "event", event: UnsignedEvent, encrypt?: { toPub: string } }
 export type SendData = SendDataContent | SendDataEvent
 export type SendInitiator = { type: 'app', appId: string } | { type: 'client', clientId: string }
@@ -232,7 +232,7 @@ export default class Handler {
             if (parts.length > 1) {
                 const shardsId = crypto.randomBytes(16).toString('hex')
                 const totalShards = parts.length
-                const ues = await Promise.all(parts.map((part, index) => this.handleSendDataContent({ ...data, content: part, index, totalShards, shardsId }, keys)))
+                const ues = await Promise.all(parts.map((part, index) => this.handleSendDataContent({ ...data, content: JSON.stringify({ part, index, totalShards, shardsId }) }, keys)))
                 return ues
             }
             return [await this.handleSendDataContent(data, keys)]
