@@ -64,7 +64,11 @@ export default class {
             sslCreds,
             macaroonCreds,
         );
-        const transport = new GrpcTransport({ host: lndAddr, channelCredentials: creds })
+        const transport = new GrpcTransport({
+            host: lndAddr, channelCredentials: creds, clientOptions: {
+                //"grpc.ssl_target_name_override"
+            }
+        })
         this.lightning = new LightningClient(transport)
         this.invoices = new InvoicesClient(transport)
         this.router = new RouterClient(transport)
