@@ -277,7 +277,7 @@ export default class Handler {
             total_fees: totalFees,
             invoices: receivingInvoices.length,
 
-            operations: []
+            operations: req.include_operations ? operations : []
         }
     }
 
