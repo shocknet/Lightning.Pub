@@ -29,13 +29,20 @@ export default class Handler {
 
     async GetProvidersDisruption(): Promise<Types.ProvidersDisruption> {
         const providers = await this.storage.liquidityStorage.GetTrackedProviders()
-        const disruptions = providers.filter(p => p.latest_distruption_at_unix > 0)
+        const disruptions = providers.filter(p => p.latest_distruption_at_unix > 0 && p.provider_type !== 'lnd').map(d => ({
+            provider_pubkey: d.provider_pubkey,
+            provider_type: d.provider_type,
+            since_unix: d.latest_distruption_at_unix
+        }))
+        if (this.lnd.outgoingOpsLocked) {
+            disruptions.push({
+                provider_pubkey: "",
+                provider_type: 'lnd',
+                since_unix: Math.floor(Date.now() / 1000)
+            })
+        }
         return {
-            disruptions: disruptions.map(d => ({
-                provider_pubkey: d.provider_pubkey,
-                provider_type: d.provider_type,
-                since_unix: d.latest_distruption_at_unix
-            }))
+            disruptions: disruptions
         }
     }
 
