@@ -1,10 +1,13 @@
-import { NostrEvent } from "@shocknet/clink-sdk";
-import { User } from "./storage/entity/User";
-import { ManagementGrant } from "./storage/entity/ManagementGrant";
-import { validateEvent } from "nostr-tools";
 import { getRepository } from "typeorm";
+import { User } from "./storage/entity/User";
 import { UserOffer } from "./storage/entity/UserOffer";
+import { validateEvent, type Event as BaseNostrEvent } from "nostr-tools";
+import { ManagementGrant } from "./storage/entity/ManagementGrant";
 import { NostrSend, NostrSettings } from "./nostr/handler";
+
+type NostrEvent = BaseNostrEvent & {
+    appId: string;
+};
 
 export class ManagementManager {
     private nostrSend: NostrSend;
