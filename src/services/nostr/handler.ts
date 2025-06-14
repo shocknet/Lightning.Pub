@@ -124,7 +124,7 @@ const sendToNostr: NostrSend = (initiator, data, relays) => {
     subProcessHandler.Send(initiator, data, relays)
 }
 send({ type: 'ready' })
-const supportedKinds = [21000, 21001, 21002]
+const supportedKinds = [21000, 21001, 21002, 21003]
 export default class Handler {
     pool = new SimplePool()
     settings: NostrSettings

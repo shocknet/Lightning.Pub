@@ -13,6 +13,9 @@ export class UserOffer {
     @Column({ unique: true, nullable: false })
     offer_id: string
 
+    @Column({ nullable: true })
+    managing_app_pubkey: string | null
+
     @Column()
     label: string
 
