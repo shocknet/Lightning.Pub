@@ -25,6 +25,7 @@ import { defaultInvoiceExpiry } from "../storage/paymentStorage.js"
 import { DebitManager } from "./debitManager.js"
 import { OfferManager } from "./offerManager.js"
 import webRTC from "../webRTC/index.js"
+import { ManagementManager } from "./managementManager.js"
 
 type UserOperationsSub = {
     id: string
@@ -51,17 +52,16 @@ export default class {
     liquidityProvider: LiquidityProvider
     debitManager: DebitManager
     offerManager: OfferManager
+    managementManager?: ManagementManager
     utils: Utils
     rugPullTracker: RugPullTracker
     unlocker: Unlocker
     //webRTC: webRTC
     nostrSend: NostrSend = () => { getLogger({})("nostr send not initialized yet") }
     nostrProcessPing: (() => Promise<void>) | null = null
-    constructor(settings: MainSettings, storage: Storage, adminManager: AdminManager, utils: Utils, unlocker: Unlocker) {
+    constructor(settings: MainSettings, utils: Utils, unlocker: Unlocker) {
         this.settings = settings
-        this.storage = storage
         this.utils = utils
-        this.adminManager = adminManager
         this.unlocker = unlocker
         const updateProviderBalance = (b: number) => this.storage.liquidityStorage.IncrementTrackedProviderBalance('lnPub', settings.liquiditySettings.liquidityProviderPub, b)
         this.liquidityProvider = new LiquidityProvider(settings.liquiditySettings.liquidityProviderPub, this.utils, this.invoicePaidCb, updateProviderBalance)
@@ -339,6 +339,10 @@ export default class {
         }
         log({ unsigned: event })
         this.nostrSend({ type: 'app', appId: invoice.linkedApplication.app_id }, { type: 'event', event }, zapInfo.relays || undefined)
+    }
+
+    async Start() {
+        // ... existing code ...
     }
 }
 
