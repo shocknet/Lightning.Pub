@@ -26,6 +26,7 @@ import { DebitManager } from "./debitManager.js"
 import { OfferManager } from "./offerManager.js"
 import webRTC from "../webRTC/index.js"
 import { ManagementManager } from "./managementManager.js"
+import NostrSubprocess, { LoadNosrtSettingsFromEnv } from "../nostr/index.js"
 
 type UserOperationsSub = {
     id: string
@@ -59,8 +60,10 @@ export default class {
     //webRTC: webRTC
     nostrSend: NostrSend = () => { getLogger({})("nostr send not initialized yet") }
     nostrProcessPing: (() => Promise<void>) | null = null
-    constructor(settings: MainSettings, utils: Utils, unlocker: Unlocker) {
+    constructor(settings: MainSettings, storage: Storage, adminManager: AdminManager, utils: Utils, unlocker: Unlocker) {
         this.settings = settings
+        this.storage = storage
+        this.adminManager = adminManager
         this.utils = utils
         this.unlocker = unlocker
         const updateProviderBalance = (b: number) => this.storage.liquidityStorage.IncrementTrackedProviderBalance('lnPub', settings.liquiditySettings.liquidityProviderPub, b)
@@ -76,6 +79,8 @@ export default class {
         this.appUserManager = new AppUserManager(this.storage, this.settings, this.applicationManager)
         this.debitManager = new DebitManager(this.storage, this.lnd, this.applicationManager)
         this.offerManager = new OfferManager(this.storage, this.lnd, this.applicationManager, this.productManager, this.liquidityManager)
+        const nostrSettings = LoadNosrtSettingsFromEnv()
+        this.managementManager = new ManagementManager(this.nostrSend, this.storage)
         //this.webRTC = new webRTC(this.storage, this.utils)
     }
 

@@ -40,7 +40,7 @@ export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSett
     })
 
     let nostr: Nostr;
-    const managementManager = new ManagementManager((...args: Parameters<NostrSend>) => nostr.Send(...args), nostrSettings, mainHandler.storage.managementStorage);
+    const managementManager = new ManagementManager((...args: Parameters<NostrSend>) => nostr.Send(...args), mainHandler.storage);
     mainHandler.managementManager = managementManager;
 
     nostr = new Nostr(nostrSettings, mainHandler.utils, event => {

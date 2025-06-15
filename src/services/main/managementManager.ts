@@ -2,17 +2,15 @@ import { getRepository } from "typeorm";
 import { User } from "../storage/entity/User.js";
 import { UserOffer } from "../storage/entity/UserOffer.js";
 import { ManagementGrant } from "../storage/entity/ManagementGrant.js";
-import { NostrEvent, NostrSend, NostrSettings } from "../nostr/handler.js";
-import { ManagementStorage } from "../storage/managementStorage.js";
+import { NostrEvent, NostrSend } from "../nostr/handler.js";
+import Storage from "../storage/index.js";
 
 export class ManagementManager {
     private nostrSend: NostrSend;
-    private settings: NostrSettings;
-    private storage: ManagementStorage;
+    private storage: Storage;
 
-    constructor(nostrSend: NostrSend, settings: NostrSettings, storage: ManagementStorage) {
+    constructor(nostrSend: NostrSend, storage: Storage) {
         this.nostrSend = nostrSend;
-        this.settings = settings;
         this.storage = storage;
     }
 
@@ -21,23 +19,31 @@ export class ManagementManager {
      * @param event The raw Nostr event
      */
     public async handleRequest(event: NostrEvent) {
-        const app = this.settings.apps.find((a: any) => a.appId === event.appId);
-        if (!app) {
-            console.error(`App with id ${event.appId} not found in settings`);
-            return; // Cannot proceed
+        let app;
+        try {
+            app = await this.storage.applicationStorage.GetApplication(event.appId);
+        } catch {
+            console.error(`App with id ${event.appId} not found`);
+            return;
         }
 
         if (!this._validateRequest(event)) {
             return;
         }
 
-        const grant = await this._checkGrant(event, app.publicKey);
-        if (!grant) {
-            this.sendErrorResponse(event.pubkey, "Permission denied.", app);
+        if (!app.nostr_public_key) {
+            console.error(`App with id ${event.appId} has no nostr public key configured.`);
             return;
         }
 
-        await this._performAction(event, app);
+        const grant = await this._checkGrant(event, app.nostr_public_key);
+        if (!grant) {
+            this.sendErrorResponse(event.pubkey, "Permission denied.", { publicKey: app.nostr_public_key, appId: app.app_id });
+            return;
+        }
+
+        const appInfo = { publicKey: app.nostr_public_key, appId: app.app_id };
+        await this._performAction(event, appInfo);
     }
 
     private _validateRequest(event: NostrEvent): boolean {
@@ -52,7 +58,7 @@ export class ManagementManager {
         }
         const userId = userIdTag[1];
         
-        const grant = await this.storage.getGrant(userId, appPubkey);
+        const grant = await this.storage.managementStorage.getGrant(userId, appPubkey);
 
         if (!grant || (grant.expires_at && grant.expires_at.getTime() < Date.now())) {
             return null;
@@ -61,7 +67,7 @@ export class ManagementManager {
         return grant;
     }
 
-    private async _performAction(event: NostrEvent, app: {publicKey: string, appId: string}) {
+    private async _performAction(event: NostrEvent, app: { publicKey: string; appId: string }) {
         const actionTag = event.tags.find((t: string[]) => t[0] === 'a');
         if (!actionTag) {
             console.error("No action specified in event");
@@ -86,7 +92,7 @@ export class ManagementManager {
         }
     }
 
-    private async _createOffer(event: NostrEvent, app: {publicKey: string, appId: string}) {
+    private async _createOffer(event: NostrEvent, app: { publicKey: string; appId: string }) {
         const createDetailsTag = event.tags.find((t: string[]) => t[0] === 'd');
         if (!createDetailsTag || !createDetailsTag[1]) {
             console.error("No details provided for create action");
@@ -111,7 +117,7 @@ export class ManagementManager {
         }
     }
 
-    private async _updateOffer(event: NostrEvent, app: {publicKey: string, appId: string}) {
+    private async _updateOffer(event: NostrEvent, app: { publicKey: string; appId: string }) {
         const updateTags = event.tags.filter((t: string[]) => t[0] === 'd');
         if (updateTags.length < 2) {
             console.error("Insufficient details for update action");
@@ -142,7 +148,7 @@ export class ManagementManager {
         }
     }
 
-    private async _deleteOffer(event: NostrEvent, app: {publicKey: string, appId: string}) {
+    private async _deleteOffer(event: NostrEvent, app: { publicKey: string; appId: string }) {
         const deleteDetailsTag = event.tags.find((t: string[]) => t[0] === 'd');
         if (!deleteDetailsTag || !deleteDetailsTag[1]) {
             console.error("No details provided for delete action");
