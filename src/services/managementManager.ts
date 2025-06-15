@@ -1,13 +1,8 @@
 import { getRepository } from "typeorm";
 import { User } from "./storage/entity/User";
 import { UserOffer } from "./storage/entity/UserOffer";
-import { validateEvent, type Event as BaseNostrEvent } from "nostr-tools";
 import { ManagementGrant } from "./storage/entity/ManagementGrant";
-import { NostrSend, NostrSettings } from "./nostr/handler";
-
-type NostrEvent = BaseNostrEvent & {
-    appId: string;
-};
+import { NostrEvent, NostrSend, NostrSettings } from "./nostr/handler.js";
 
 export class ManagementManager {
     private nostrSend: NostrSend;
@@ -29,13 +24,6 @@ export class ManagementManager {
             return; // Cannot proceed
         }
         const appPubkey = app.publicKey;
-
-        // Validate event
-        const isValid = validateEvent(event);
-        if (!isValid) {
-            console.error("Invalid event");
-            return;
-        }
 
         // Check grant
         const userIdTag = event.tags.find((t: string[]) => t[0] === 'p');

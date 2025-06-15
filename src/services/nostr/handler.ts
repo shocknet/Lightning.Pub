@@ -26,15 +26,16 @@ export type NostrSettings = {
     clients: ClientInfo[]
     maxEventContentLength: number
 }
-export type NostrEvent = {
-    id: string
-    pub: string
-    content: string
-    appId: string
-    startAtNano: string
-    startAtMs: number
-    kind: number
-}
+export type NostrEvent = Event & {
+    /** Identifier of the application as defined in NostrSettings.apps */
+    appId: string;
+    /** High-resolution timer capture when processing began (BigInt serialized as string to keep JSON friendly) */
+    startAtNano: string;
+    /** wall-clock millis when processing began */
+    startAtMs: number;
+    /** Convenience duplicate of the sender pubkey (e.pubkey) kept for backwards-compat */
+    pub: string;
+};
 
 type SettingsRequest = {
     type: 'settings'
@@ -216,7 +217,15 @@ export default class Handler {
             return
 
         }
-        this.eventCallback({ id: eventId, content, pub: e.pubkey, appId: app.appId, startAtNano, startAtMs, kind: e.kind })
+        const nostrEvent: NostrEvent = {
+            ...e,
+            content,
+            appId: app.appId,
+            startAtNano,
+            startAtMs,
+            pub: e.pubkey,
+        }
+        this.eventCallback(nostrEvent)
     }
 
     async Send(initiator: SendInitiator, data: SendData, relays?: string[]) {
