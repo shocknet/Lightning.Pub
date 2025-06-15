@@ -79,7 +79,6 @@ export default class {
         this.appUserManager = new AppUserManager(this.storage, this.settings, this.applicationManager)
         this.debitManager = new DebitManager(this.storage, this.lnd, this.applicationManager)
         this.offerManager = new OfferManager(this.storage, this.lnd, this.applicationManager, this.productManager, this.liquidityManager)
-        const nostrSettings = LoadNosrtSettingsFromEnv()
         this.managementManager = new ManagementManager(this.nostrSend, this.storage)
         //this.webRTC = new webRTC(this.storage, this.utils)
     }

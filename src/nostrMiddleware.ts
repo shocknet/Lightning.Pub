@@ -40,8 +40,11 @@ export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSett
     })
 
     let nostr: Nostr;
-    const managementManager = new ManagementManager((...args: Parameters<NostrSend>) => nostr.Send(...args), mainHandler.storage);
-    mainHandler.managementManager = managementManager;
+    if (!mainHandler.managementManager) {
+        throw new Error("management manager not initialized on main handler")
+    }
+
+    const managementManager = mainHandler.managementManager;
 
     nostr = new Nostr(nostrSettings, mainHandler.utils, event => {
         let j: NostrRequest
