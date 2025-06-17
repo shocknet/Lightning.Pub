@@ -133,6 +133,11 @@ The nostr server will send back a message response, and inside the body there wi
   - This methods has an __empty__ __request__ body
   - output: [LiveUserOperation](#LiveUserOperation)
 
+- GetLndForwardingMetrics
+  - auth type: __Metrics__
+  - input: [LndMetricsRequest](#LndMetricsRequest)
+  - output: [LndForwardingMetrics](#LndForwardingMetrics)
+
 - GetLndMetrics
   - auth type: __Metrics__
   - input: [LndMetricsRequest](#LndMetricsRequest)
@@ -566,6 +571,13 @@ The nostr server will send back a message response, and inside the body there wi
   - http route: __/api/user/operations/sub__
   - This methods has an __empty__ __request__ body
   - output: [LiveUserOperation](#LiveUserOperation)
+
+- GetLndForwardingMetrics
+  - auth type: __Metrics__
+  - http method: __post__
+  - http route: __/api/reports/lnd/forwarding__
+  - input: [LndMetricsRequest](#LndMetricsRequest)
+  - output: [LndForwardingMetrics](#LndForwardingMetrics)
 
 - GetLndMetrics
   - auth type: __Metrics__
@@ -1209,6 +1221,18 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### LndChannels
   - __open_channels__: ARRAY of: _[OpenChannel](#OpenChannel)_
+
+### LndForwardingEvent
+  - __amt_in__: _number_
+  - __amt_out__: _number_
+  - __at_unix__: _number_
+  - __chan_id_in__: _string_
+  - __chan_id_out__: _string_
+  - __fee__: _number_
+
+### LndForwardingMetrics
+  - __events__: ARRAY of: _[LndForwardingEvent](#LndForwardingEvent)_
+  - __total_fees__: _number_
 
 ### LndGetInfoRequest
   - __nodeId__: _number_

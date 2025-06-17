@@ -404,6 +404,20 @@ export default (params: ClientParams) => ({
     },
     GetLiveDebitRequests: async (cb: (v:ResultError | ({ status: 'OK' }& Types.LiveDebitRequest)) => void): Promise<void> => { throw  new Error('http streams are not supported')},
     GetLiveUserOperations: async (cb: (v:ResultError | ({ status: 'OK' }& Types.LiveUserOperation)) => void): Promise<void> => { throw  new Error('http streams are not supported')},
+    GetLndForwardingMetrics: async (request: Types.LndMetricsRequest): Promise<ResultError | ({ status: 'OK' }& Types.LndForwardingMetrics)> => {
+        const auth = await params.retrieveMetricsAuth()
+        if (auth === null) throw new Error('retrieveMetricsAuth() returned null')
+        let finalRoute = '/api/reports/lnd/forwarding'
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.LndForwardingMetricsValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
     GetLndMetrics: async (request: Types.LndMetricsRequest): Promise<ResultError | ({ status: 'OK' }& Types.LndMetrics)> => {
         const auth = await params.retrieveMetricsAuth()
         if (auth === null) throw new Error('retrieveMetricsAuth() returned null')
