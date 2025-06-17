@@ -46,6 +46,9 @@ export default (mainHandler: Main): Types.ServerMethods => {
         GetLndMetrics: async ({ ctx, req }) => {
             return mainHandler.metricsManager.GetLndMetrics(req)
         },
+        GetLndForwardingMetrics: async ({ ctx, req }) => {
+            return mainHandler.metricsManager.GetLndForwardingMetrics(req)
+        },
         ResetMetricsStorages: async ({ ctx }) => {
             return mainHandler.utils.tlvStorageFactory.ResetStorages()
         },
