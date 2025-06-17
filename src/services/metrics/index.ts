@@ -309,6 +309,21 @@ export default class Handler {
 
     }
 
+    async GetLndForwardingMetrics(req: Types.LndMetricsRequest): Promise<Types.LndForwardingMetrics> {
+        const fwEvents = await this.lnd.GetForwardingHistory(0, req.from_unix, req.to_unix)
+        let totalFees = 0
+        const events: Types.LndForwardingEvent[] = fwEvents.forwardingEvents.map(e => {
+            totalFees += Number(e.fee)
+            return {
+                chan_id_in: e.chanIdIn, chan_id_out: e.chanIdOut, amt_in: Number(e.amtIn), amt_out: Number(e.amtOut), fee: Number(e.fee), at_unix: Number(e.timestampNs)
+            }
+        })
+        return {
+            total_fees: totalFees,
+            events: events
+        }
+    }
+
 
     async GetLndMetrics(req: Types.LndMetricsRequest): Promise<Types.LndMetrics> {
         const [chansInfo, pendingChansInfo, closedChansInfo, routing, rootOps] = await Promise.all([

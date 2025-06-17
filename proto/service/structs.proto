@@ -213,6 +213,20 @@ message RootOperation {
     int64 created_at_unix = 4;
 }
 
+message LndForwardingEvent {
+    string chan_id_in = 1;
+    string chan_id_out = 2;
+    int64 amt_in = 3;
+    int64 amt_out = 4;
+    int64 fee = 5;
+    int64 at_unix = 6;
+}
+
+message LndForwardingMetrics {
+    int64 total_fees = 1;
+    repeated LndForwardingEvent events = 2;
+}
+
 message LndNodeMetrics {
     repeated GraphPoint chain_balance = 1;
     repeated GraphPoint channel_balance = 2;

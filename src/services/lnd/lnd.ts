@@ -448,8 +448,8 @@ export default class {
         return { confirmedBalance: Number(confirmedBalance), unconfirmedBalance: Number(unconfirmedBalance), totalBalance: Number(totalBalance), channelsBalance }
     }
 
-    async GetForwardingHistory(indexOffset: number, startTime = 0): Promise<ForwardingHistoryResponse> {
-        const { response } = await this.lightning.forwardingHistory({ indexOffset, numMaxEvents: 0, startTime: BigInt(startTime), endTime: 0n, peerAliasLookup: false }, DeadLineMetadata())
+    async GetForwardingHistory(indexOffset: number, startTime = 0, endTime = 0): Promise<ForwardingHistoryResponse> {
+        const { response } = await this.lightning.forwardingHistory({ indexOffset, numMaxEvents: 0, startTime: BigInt(startTime), endTime: BigInt(endTime), peerAliasLookup: false }, DeadLineMetadata())
         return response
     }
 
