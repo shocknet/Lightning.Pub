@@ -1340,6 +1340,7 @@ The nostr server will send back a message response, and inside the body there wi
   - __capacity__: _number_
   - __channel_id__: _string_
   - __channel_point__: _string_
+  - __inactive_since_unix__: _number_
   - __label__: _string_
   - __lifetime__: _number_
   - __local_balance__: _number_

@@ -8,12 +8,12 @@ import { LightningClient } from '../../../proto/lnd/lightning.client.js'
 import { InvoicesClient } from '../../../proto/lnd/invoices.client.js'
 import { RouterClient } from '../../../proto/lnd/router.client.js'
 import { ChainNotifierClient } from '../../../proto/lnd/chainnotifier.client.js'
-import { GetInfoResponse, AddressType, NewAddressResponse, AddInvoiceResponse, Invoice_InvoiceState, PayReq, Payment_PaymentStatus, Payment, PaymentFailureReason, SendCoinsResponse, EstimateFeeResponse, ChannelBalanceResponse, TransactionDetails, ListChannelsResponse, ClosedChannelsResponse, PendingChannelsResponse, ForwardingHistoryResponse, CoinSelectionStrategy, OpenStatusUpdate, CloseStatusUpdate, PendingUpdate } from '../../../proto/lnd/lightning.js'
+import { GetInfoResponse, AddressType, NewAddressResponse, AddInvoiceResponse, Invoice_InvoiceState, PayReq, Payment_PaymentStatus, Payment, PaymentFailureReason, SendCoinsResponse, EstimateFeeResponse, ChannelBalanceResponse, TransactionDetails, ListChannelsResponse, ClosedChannelsResponse, PendingChannelsResponse, ForwardingHistoryResponse, CoinSelectionStrategy, OpenStatusUpdate, CloseStatusUpdate, PendingUpdate, ChannelEventUpdate_UpdateType } from '../../../proto/lnd/lightning.js'
 import { OpenChannelReq } from './openChannelReq.js';
 import { AddInvoiceReq } from './addInvoiceReq.js';
 import { PayInvoiceReq } from './payInvoiceReq.js';
 import { SendCoinsReq } from './sendCoinsReq.js';
-import { LndSettings, AddressPaidCb, InvoicePaidCb, NodeInfo, Invoice, DecodedInvoice, PaidInvoice, NewBlockCb, HtlcCb, BalanceInfo } from './settings.js';
+import { LndSettings, AddressPaidCb, InvoicePaidCb, NodeInfo, Invoice, DecodedInvoice, PaidInvoice, NewBlockCb, HtlcCb, BalanceInfo, ChannelEventCb } from './settings.js';
 import { ERROR, getLogger } from '../helpers/logger.js';
 import { HtlcEvent_EventType } from '../../../proto/lnd/router.js';
 import { LiquidityProvider, LiquidityRequest } from '../main/liquidityProvider.js';
@@ -38,17 +38,19 @@ export default class {
     invoicePaidCb: InvoicePaidCb
     newBlockCb: NewBlockCb
     htlcCb: HtlcCb
+    channelEventCb: ChannelEventCb
     log = getLogger({ component: 'lndManager' })
     outgoingOpsLocked = false
     liquidProvider: LiquidityProvider
     utils: Utils
-    constructor(settings: LndSettings, liquidProvider: LiquidityProvider, utils: Utils, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb, newBlockCb: NewBlockCb, htlcCb: HtlcCb) {
+    constructor(settings: LndSettings, liquidProvider: LiquidityProvider, utils: Utils, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb, newBlockCb: NewBlockCb, htlcCb: HtlcCb, channelEventCb: ChannelEventCb) {
         this.settings = settings
         this.utils = utils
         this.addressPaidCb = addressPaidCb
         this.invoicePaidCb = invoicePaidCb
         this.newBlockCb = newBlockCb
         this.htlcCb = htlcCb
+        this.channelEventCb = channelEventCb
         const { lndAddr, lndCertPath, lndMacaroonPath } = this.settings.mainNode
         const lndCert = fs.readFileSync(lndCertPath);
         const macaroon = fs.readFileSync(lndMacaroonPath).toString('hex');
@@ -97,6 +99,7 @@ export default class {
         this.SubscribeInvoicePaid()
         this.SubscribeNewBlock()
         this.SubscribeHtlcEvents()
+        this.SubscribeChannelEvents()
         const now = Date.now()
         return new Promise<void>((res, rej) => {
             const interval = setInterval(async () => {
@@ -166,6 +169,20 @@ export default class {
                 this.log("LND still dead, will try again in", deadLndRetrySeconds, "seconds")
             }
         }, deadLndRetrySeconds * 1000)
+    }
+
+    async SubscribeChannelEvents() {
+        const stream = this.lightning.subscribeChannelEvents({}, { abort: this.abortController.signal })
+        stream.responses.onMessage(async channel => {
+            const channels = await this.ListChannels()
+            this.channelEventCb(channel, channels.channels)
+        })
+        stream.responses.onError(error => {
+            this.log("Error with subscribeChannelEvents stream")
+        })
+        stream.responses.onComplete(() => {
+            this.log("subscribeChannelEvents stream closed")
+        })
     }
 
     async SubscribeHtlcEvents() {
