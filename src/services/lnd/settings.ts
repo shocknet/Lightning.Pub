@@ -1,3 +1,4 @@
+import { Channel, ChannelEventUpdate } from "../../../proto/lnd/lightning"
 import { HtlcEvent } from "../../../proto/lnd/router"
 export type NodeSettings = {
     lndAddr: string
@@ -35,6 +36,7 @@ export type AddressPaidCb = (txOutput: TxOutput, address: string, amount: number
 export type InvoicePaidCb = (paymentRequest: string, amount: number, used: 'lnd' | 'provider' | 'internal') => Promise<void>
 export type NewBlockCb = (height: number) => void
 export type HtlcCb = (event: HtlcEvent) => void
+export type ChannelEventCb = (event: ChannelEventUpdate, channels: Channel[]) => void
 
 export type NodeInfo = {
     alias: string

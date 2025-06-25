@@ -16,8 +16,9 @@ import { UserCbUrl1727112281043 } from './1727112281043-user_cb_url.js'
 import { RootOps1732566440447 } from './1732566440447-root_ops.js'
 import { UserOffer1733502626042 } from './1733502626042-user_offer.js'
 import { RootOpsTime1745428134124 } from './1745428134124-root_ops_time.js'
+import { ChannelEvents1750777346411 } from './1750777346411-channel_events.js'
 export const allMigrations = [Initial1703170309875, LspOrder1718387847693, LiquidityProvider1719335699480, LndNodeInfo1720187506189, TrackedProvider1720814323679, CreateInviteTokenTable1721751414878, PaymentIndex1721760297610, DebitAccess1726496225078, DebitAccessFixes1726685229264, DebitToPub1727105758354, UserCbUrl1727112281043, UserOffer1733502626042]
-export const allMetricsMigrations = [LndMetrics1703170330183, ChannelRouting1709316653538, HtlcCount1724266887195, BalanceEvents1724860966825, RootOps1732566440447, RootOpsTime1745428134124]
+export const allMetricsMigrations = [LndMetrics1703170330183, ChannelRouting1709316653538, HtlcCount1724266887195, BalanceEvents1724860966825, RootOps1732566440447, RootOpsTime1745428134124, ChannelEvents1750777346411]
 /* export const TypeOrmMigrationRunner = async (log: PubLogger, storageManager: Storage, settings: DbSettings, arg: string | undefined): Promise<boolean> => {
     await connectAndMigrate(log, storageManager, allMigrations, allMetricsMigrations)
     return false

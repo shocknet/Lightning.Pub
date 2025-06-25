@@ -24,6 +24,7 @@ import { InviteToken } from "../entity/InviteToken.js"
 import { DebitAccess } from "../entity/DebitAccess.js"
 import { RootOperation } from "../entity/RootOperation.js"
 import { UserOffer } from "../entity/UserOffer.js"
+import { ChannelEvent } from "../entity/ChannelEvent.js"
 
 
 export type DbSettings = {
@@ -74,7 +75,8 @@ export const MetricsDbEntities = {
     'BalanceEvent': BalanceEvent,
     'ChannelBalanceEvent': ChannelBalanceEvent,
     'ChannelRouting': ChannelRouting,
-    'RootOperation': RootOperation
+    'RootOperation': RootOperation,
+    'ChannelEvent': ChannelEvent
 }
 export type MetricsDbNames = keyof typeof MetricsDbEntities
 export const MetricsDbEntitiesNames = Object.keys(MetricsDbEntities)

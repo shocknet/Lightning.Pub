@@ -6,7 +6,7 @@ import ApplicationManager from './applicationManager.js'
 import PaymentManager, { PendingTx } from './paymentManager.js'
 import { MainSettings } from './settings.js'
 import LND from "../lnd/lnd.js"
-import { AddressPaidCb, HtlcCb, InvoicePaidCb, NewBlockCb } from "../lnd/settings.js"
+import { AddressPaidCb, ChannelEventCb, HtlcCb, InvoicePaidCb, NewBlockCb } from "../lnd/settings.js"
 import { ERROR, getLogger, PubLogger } from "../helpers/logger.js"
 import AppUserManager from "./appUserManager.js"
 import { Application } from '../storage/entity/Application.js'
@@ -66,7 +66,7 @@ export default class {
         const updateProviderBalance = (b: number) => this.storage.liquidityStorage.IncrementTrackedProviderBalance('lnPub', settings.liquiditySettings.liquidityProviderPub, b)
         this.liquidityProvider = new LiquidityProvider(settings.liquiditySettings.liquidityProviderPub, this.utils, this.invoicePaidCb, updateProviderBalance)
         this.rugPullTracker = new RugPullTracker(this.storage, this.liquidityProvider)
-        this.lnd = new LND(settings.lndSettings, this.liquidityProvider, this.utils, this.addressPaidCb, this.invoicePaidCb, this.newBlockCb, this.htlcCb)
+        this.lnd = new LND(settings.lndSettings, this.liquidityProvider, this.utils, this.addressPaidCb, this.invoicePaidCb, this.newBlockCb, this.htlcCb, this.channelEventCb)
         this.liquidityManager = new LiquidityManager(this.settings.liquiditySettings, this.storage, this.utils, this.liquidityProvider, this.lnd, this.rugPullTracker)
         this.metricsManager = new MetricsManager(this.storage, this.lnd)
 
@@ -131,6 +131,10 @@ export default class {
         if (nostrFail) {
             throw new Error("nostr ping failed")
         }
+    }
+
+    channelEventCb: ChannelEventCb = (e, channels) => {
+        this.metricsManager.ChannelEventCb(e, channels)
     }
 
     htlcCb: HtlcCb = (e) => {

@@ -2751,6 +2751,7 @@ export type OpenChannel = {
     capacity: number
     channel_id: string
     channel_point: string
+    inactive_since_unix: number
     label: string
     lifetime: number
     local_balance: number
@@ -2765,6 +2766,7 @@ export type OpenChannelOptions = OptionsBaseMessage & {
     capacity_CustomCheck?: (v: number) => boolean
     channel_id_CustomCheck?: (v: string) => boolean
     channel_point_CustomCheck?: (v: string) => boolean
+    inactive_since_unix_CustomCheck?: (v: number) => boolean
     label_CustomCheck?: (v: string) => boolean
     lifetime_CustomCheck?: (v: number) => boolean
     local_balance_CustomCheck?: (v: number) => boolean
@@ -2786,6 +2788,9 @@ export const OpenChannelValidate = (o?: OpenChannel, opts: OpenChannelOptions = 
 
     if (typeof o.channel_point !== 'string') return new Error(`${path}.channel_point: is not a string`)
     if (opts.channel_point_CustomCheck && !opts.channel_point_CustomCheck(o.channel_point)) return new Error(`${path}.channel_point: custom check failed`)
+
+    if (typeof o.inactive_since_unix !== 'number') return new Error(`${path}.inactive_since_unix: is not a number`)
+    if (opts.inactive_since_unix_CustomCheck && !opts.inactive_since_unix_CustomCheck(o.inactive_since_unix)) return new Error(`${path}.inactive_since_unix: custom check failed`)
 
     if (typeof o.label !== 'string') return new Error(`${path}.label: is not a string`)
     if (opts.label_CustomCheck && !opts.label_CustomCheck(o.label)) return new Error(`${path}.label: custom check failed`)
