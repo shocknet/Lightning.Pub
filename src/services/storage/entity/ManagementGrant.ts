@@ -1,7 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn, UpdateDateColumn } from "typeorm";
 import { User } from "./User";
 
-@Entity("management_grants")
+@Entity()
 export class ManagementGrant {
     @PrimaryGeneratedColumn()
     serial_id: number

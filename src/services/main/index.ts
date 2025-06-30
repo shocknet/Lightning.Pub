@@ -77,8 +77,8 @@ export default class {
         this.applicationManager = new ApplicationManager(this.storage, this.settings, this.paymentManager)
         this.appUserManager = new AppUserManager(this.storage, this.settings, this.applicationManager)
         this.debitManager = new DebitManager(this.storage, this.lnd, this.applicationManager)
-        this.offerManager = new OfferManager(this.storage, this.lnd, this.applicationManager, this.productManager, this.liquidityManager)
-        this.managementManager = new ManagementManager(this.storage, this.offerManager)
+        this.offerManager = new OfferManager(this.storage, this.settings, this.lnd, this.applicationManager, this.productManager, this.liquidityManager)
+        this.managementManager = new ManagementManager(this.storage, this.settings)
         //this.webRTC = new webRTC(this.storage, this.utils)
     }
 
