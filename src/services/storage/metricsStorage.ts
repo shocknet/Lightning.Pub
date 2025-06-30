@@ -8,6 +8,8 @@ import { ChannelRouting } from "./entity/ChannelRouting.js";
 import { RootOperation } from "./entity/RootOperation.js";
 import { StorageInterface } from "./db/storageInterface.js";
 import { Utils } from "../helpers/utilsWrapper.js";
+import { Channel, ChannelEventUpdate } from "../../../proto/lnd/lightning.js";
+import { ChannelEvent } from "./entity/ChannelEvent.js";
 export default class {
     //DB: DataSource | EntityManager
     settings: StorageSettings
@@ -25,6 +27,42 @@ export default class {
         this.dbs = new StorageInterface(this.utils)
         await this.dbs.Connect(this.settings.dbSettings, 'metrics')
         //return executedMigrations;
+    }
+
+    async FlagActiveChannel(chanId: string) {
+        const existing = await this.dbs.FindOne<ChannelEvent>('ChannelEvent', { where: { channel_id: chanId, event_type: 'activity' } })
+        if (!existing) {
+            await this.dbs.CreateAndSave<ChannelEvent>('ChannelEvent', { channel_id: chanId, event_type: 'activity', inactive_since_unix: 0 })
+            return
+        }
+
+        if (existing.inactive_since_unix > 0) {
+            await this.dbs.Update<ChannelEvent>('ChannelEvent', existing.serial_id, { inactive_since_unix: 0 })
+            return
+        }
+        return
+    }
+
+    async FlagInactiveChannel(chanId: string) {
+        const existing = await this.dbs.FindOne<ChannelEvent>('ChannelEvent', { where: { channel_id: chanId, event_type: 'activity' } })
+        if (!existing) {
+            await this.dbs.CreateAndSave<ChannelEvent>('ChannelEvent', { channel_id: chanId, event_type: 'activity', inactive_since_unix: Math.floor(Date.now() / 1000) })
+            return
+        }
+        if (existing.inactive_since_unix > 0) {
+            return
+        }
+        await this.dbs.Update<ChannelEvent>('ChannelEvent', existing.serial_id, { inactive_since_unix: Math.floor(Date.now() / 1000) })
+        return
+    }
+
+    async GetChannelsActivity(): Promise<Record<string, number>> {
+        const events = await this.dbs.Find<ChannelEvent>('ChannelEvent', { where: { event_type: 'activity' } })
+        const activityMap: Record<string, number> = {}
+        events.forEach(e => {
+            activityMap[e.channel_id] = e.inactive_since_unix
+        })
+        return activityMap
     }
 
     async SaveBalanceEvents(balanceEvent: Partial<BalanceEvent>, channelBalanceEvents: Partial<ChannelBalanceEvent>[]) {

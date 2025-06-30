@@ -28,8 +28,8 @@ export type MetricsContext = {
     app_id: string
     operator_id: string
 }
-export type MetricsMethodInputs = GetAppsMetrics_Input | GetBundleMetrics_Input | GetErrorStats_Input | GetLndMetrics_Input | GetProvidersDisruption_Input | GetSingleBundleMetrics_Input | GetSingleUsageMetrics_Input | GetUsageMetrics_Input | PingSubProcesses_Input | ResetMetricsStorages_Input | SubmitWebRtcMessage_Input | ZipMetricsStorages_Input
-export type MetricsMethodOutputs = GetAppsMetrics_Output | GetBundleMetrics_Output | GetErrorStats_Output | GetLndMetrics_Output | GetProvidersDisruption_Output | GetSingleBundleMetrics_Output | GetSingleUsageMetrics_Output | GetUsageMetrics_Output | PingSubProcesses_Output | ResetMetricsStorages_Output | SubmitWebRtcMessage_Output | ZipMetricsStorages_Output
+export type MetricsMethodInputs = GetAppsMetrics_Input | GetBundleMetrics_Input | GetErrorStats_Input | GetLndForwardingMetrics_Input | GetLndMetrics_Input | GetProvidersDisruption_Input | GetSingleBundleMetrics_Input | GetSingleUsageMetrics_Input | GetUsageMetrics_Input | PingSubProcesses_Input | ResetMetricsStorages_Input | SubmitWebRtcMessage_Input | ZipMetricsStorages_Input
+export type MetricsMethodOutputs = GetAppsMetrics_Output | GetBundleMetrics_Output | GetErrorStats_Output | GetLndForwardingMetrics_Output | GetLndMetrics_Output | GetProvidersDisruption_Output | GetSingleBundleMetrics_Output | GetSingleUsageMetrics_Output | GetUsageMetrics_Output | PingSubProcesses_Output | ResetMetricsStorages_Output | SubmitWebRtcMessage_Output | ZipMetricsStorages_Output
 export type UserContext = {
     app_id: string
     app_user_id: string
@@ -131,6 +131,9 @@ export type GetLiveDebitRequests_Output = ResultError | { status: 'OK' }
 
 export type GetLiveUserOperations_Input = {rpcName:'GetLiveUserOperations',  cb:(res: LiveUserOperation, err:Error|null)=> void}
 export type GetLiveUserOperations_Output = ResultError | { status: 'OK' }
+
+export type GetLndForwardingMetrics_Input = {rpcName:'GetLndForwardingMetrics', req: LndMetricsRequest}
+export type GetLndForwardingMetrics_Output = ResultError | ({ status: 'OK' } & LndForwardingMetrics)
 
 export type GetLndMetrics_Input = {rpcName:'GetLndMetrics', req: LndMetricsRequest}
 export type GetLndMetrics_Output = ResultError | ({ status: 'OK' } & LndMetrics)
@@ -338,6 +341,7 @@ export type ServerMethods = {
     GetLNURLChannelLink?: (req: GetLNURLChannelLink_Input & {ctx: UserContext }) => Promise<LnurlLinkResponse>
     GetLiveDebitRequests?: (req: GetLiveDebitRequests_Input & {ctx: UserContext }) => Promise<void>
     GetLiveUserOperations?: (req: GetLiveUserOperations_Input & {ctx: UserContext }) => Promise<void>
+    GetLndForwardingMetrics?: (req: GetLndForwardingMetrics_Input & {ctx: MetricsContext }) => Promise<LndForwardingMetrics>
     GetLndMetrics?: (req: GetLndMetrics_Input & {ctx: MetricsContext }) => Promise<LndMetrics>
     GetLnurlPayInfo?: (req: GetLnurlPayInfo_Input & {ctx: GuestContext }) => Promise<LnurlPayInfoResponse>
     GetLnurlPayLink?: (req: GetLnurlPayLink_Input & {ctx: UserContext }) => Promise<LnurlLinkResponse>
@@ -2049,6 +2053,77 @@ export const LndChannelsValidate = (o?: LndChannels, opts: LndChannelsOptions = 
     return null
 }
 
+export type LndForwardingEvent = {
+    amt_in: number
+    amt_out: number
+    at_unix: number
+    chan_id_in: string
+    chan_id_out: string
+    fee: number
+}
+export const LndForwardingEventOptionalFields: [] = []
+export type LndForwardingEventOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    amt_in_CustomCheck?: (v: number) => boolean
+    amt_out_CustomCheck?: (v: number) => boolean
+    at_unix_CustomCheck?: (v: number) => boolean
+    chan_id_in_CustomCheck?: (v: string) => boolean
+    chan_id_out_CustomCheck?: (v: string) => boolean
+    fee_CustomCheck?: (v: number) => boolean
+}
+export const LndForwardingEventValidate = (o?: LndForwardingEvent, opts: LndForwardingEventOptions = {}, path: string = 'LndForwardingEvent::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.amt_in !== 'number') return new Error(`${path}.amt_in: is not a number`)
+    if (opts.amt_in_CustomCheck && !opts.amt_in_CustomCheck(o.amt_in)) return new Error(`${path}.amt_in: custom check failed`)
+
+    if (typeof o.amt_out !== 'number') return new Error(`${path}.amt_out: is not a number`)
+    if (opts.amt_out_CustomCheck && !opts.amt_out_CustomCheck(o.amt_out)) return new Error(`${path}.amt_out: custom check failed`)
+
+    if (typeof o.at_unix !== 'number') return new Error(`${path}.at_unix: is not a number`)
+    if (opts.at_unix_CustomCheck && !opts.at_unix_CustomCheck(o.at_unix)) return new Error(`${path}.at_unix: custom check failed`)
+
+    if (typeof o.chan_id_in !== 'string') return new Error(`${path}.chan_id_in: is not a string`)
+    if (opts.chan_id_in_CustomCheck && !opts.chan_id_in_CustomCheck(o.chan_id_in)) return new Error(`${path}.chan_id_in: custom check failed`)
+
+    if (typeof o.chan_id_out !== 'string') return new Error(`${path}.chan_id_out: is not a string`)
+    if (opts.chan_id_out_CustomCheck && !opts.chan_id_out_CustomCheck(o.chan_id_out)) return new Error(`${path}.chan_id_out: custom check failed`)
+
+    if (typeof o.fee !== 'number') return new Error(`${path}.fee: is not a number`)
+    if (opts.fee_CustomCheck && !opts.fee_CustomCheck(o.fee)) return new Error(`${path}.fee: custom check failed`)
+
+    return null
+}
+
+export type LndForwardingMetrics = {
+    events: LndForwardingEvent[]
+    total_fees: number
+}
+export const LndForwardingMetricsOptionalFields: [] = []
+export type LndForwardingMetricsOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    events_ItemOptions?: LndForwardingEventOptions
+    events_CustomCheck?: (v: LndForwardingEvent[]) => boolean
+    total_fees_CustomCheck?: (v: number) => boolean
+}
+export const LndForwardingMetricsValidate = (o?: LndForwardingMetrics, opts: LndForwardingMetricsOptions = {}, path: string = 'LndForwardingMetrics::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (!Array.isArray(o.events)) return new Error(`${path}.events: is not an array`)
+    for (let index = 0; index < o.events.length; index++) {
+        const eventsErr = LndForwardingEventValidate(o.events[index], opts.events_ItemOptions, `${path}.events[${index}]`)
+        if (eventsErr !== null) return eventsErr
+    }
+    if (opts.events_CustomCheck && !opts.events_CustomCheck(o.events)) return new Error(`${path}.events: custom check failed`)
+
+    if (typeof o.total_fees !== 'number') return new Error(`${path}.total_fees: is not a number`)
+    if (opts.total_fees_CustomCheck && !opts.total_fees_CustomCheck(o.total_fees)) return new Error(`${path}.total_fees: custom check failed`)
+
+    return null
+}
+
 export type LndGetInfoRequest = {
     nodeId: number
 }
@@ -2676,6 +2751,7 @@ export type OpenChannel = {
     capacity: number
     channel_id: string
     channel_point: string
+    inactive_since_unix: number
     label: string
     lifetime: number
     local_balance: number
@@ -2690,6 +2766,7 @@ export type OpenChannelOptions = OptionsBaseMessage & {
     capacity_CustomCheck?: (v: number) => boolean
     channel_id_CustomCheck?: (v: string) => boolean
     channel_point_CustomCheck?: (v: string) => boolean
+    inactive_since_unix_CustomCheck?: (v: number) => boolean
     label_CustomCheck?: (v: string) => boolean
     lifetime_CustomCheck?: (v: number) => boolean
     local_balance_CustomCheck?: (v: number) => boolean
@@ -2711,6 +2788,9 @@ export const OpenChannelValidate = (o?: OpenChannel, opts: OpenChannelOptions = 
 
     if (typeof o.channel_point !== 'string') return new Error(`${path}.channel_point: is not a string`)
     if (opts.channel_point_CustomCheck && !opts.channel_point_CustomCheck(o.channel_point)) return new Error(`${path}.channel_point: custom check failed`)
+
+    if (typeof o.inactive_since_unix !== 'number') return new Error(`${path}.inactive_since_unix: is not a number`)
+    if (opts.inactive_since_unix_CustomCheck && !opts.inactive_since_unix_CustomCheck(o.inactive_since_unix)) return new Error(`${path}.inactive_since_unix: custom check failed`)
 
     if (typeof o.label !== 'string') return new Error(`${path}.label: is not a string`)
     if (opts.label_CustomCheck && !opts.label_CustomCheck(o.label)) return new Error(`${path}.label: custom check failed`)

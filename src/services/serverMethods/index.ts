@@ -46,6 +46,9 @@ export default (mainHandler: Main): Types.ServerMethods => {
         GetLndMetrics: async ({ ctx, req }) => {
             return mainHandler.metricsManager.GetLndMetrics(req)
         },
+        GetLndForwardingMetrics: async ({ ctx, req }) => {
+            return mainHandler.metricsManager.GetLndForwardingMetrics(req)
+        },
         ResetMetricsStorages: async ({ ctx }) => {
             return mainHandler.utils.tlvStorageFactory.ResetStorages()
         },
@@ -85,8 +88,7 @@ export default (mainHandler: Main): Types.ServerMethods => {
         },
         CloseChannel: async ({ ctx, req }) => {
             const err = Types.CloseChannelRequestValidate(req, {
-                funding_txid_CustomCheck: chanId => chanId !== '',
-                sat_per_v_byte_CustomCheck: spv => spv > 0
+                funding_txid_CustomCheck: chanId => chanId !== ''
             })
             if (err != null) throw new Error(err.message)
             return mainHandler.adminManager.CloseChannel(req)

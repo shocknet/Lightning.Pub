@@ -184,12 +184,13 @@ message OpenChannel {
     string channel_id = 1;
     int64 capacity = 2;
     bool active = 3;
-    int64 lifetime =4 ;
+    int64 lifetime =4;
     int64 local_balance=5;
     int64 remote_balance = 6;
     string label = 7;
     string channel_point = 8;
     optional ChannelPolicy policy = 9;
+    int64 inactive_since_unix = 10;
 }
 message ClosedChannel {
     string channel_id = 1;
@@ -211,6 +212,20 @@ message RootOperation {
     string op_id = 2;
     int64 amount = 3;
     int64 created_at_unix = 4;
+}
+
+message LndForwardingEvent {
+    string chan_id_in = 1;
+    string chan_id_out = 2;
+    int64 amt_in = 3;
+    int64 amt_out = 4;
+    int64 fee = 5;
+    int64 at_unix = 6;
+}
+
+message LndForwardingMetrics {
+    int64 total_fees = 1;
+    repeated LndForwardingEvent events = 2;
 }
 
 message LndNodeMetrics {

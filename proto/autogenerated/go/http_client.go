@@ -85,6 +85,7 @@ type Client struct {
 	GetLNURLChannelLink         func() (*LnurlLinkResponse, error)
 	GetLiveDebitRequests        func() (*LiveDebitRequest, error)
 	GetLiveUserOperations       func() (*LiveUserOperation, error)
+	GetLndForwardingMetrics     func(req LndMetricsRequest) (*LndForwardingMetrics, error)
 	GetLndMetrics               func(req LndMetricsRequest) (*LndMetrics, error)
 	GetLnurlPayInfo             func(query GetLnurlPayInfo_Query) (*LnurlPayInfoResponse, error)
 	GetLnurlPayLink             func() (*LnurlLinkResponse, error)
@@ -906,6 +907,35 @@ func NewClient(params ClientParams) *Client {
 		},
 		// server streaming method: GetLiveDebitRequests not implemented
 		// server streaming method: GetLiveUserOperations not implemented
+		GetLndForwardingMetrics: func(req LndMetricsRequest) (*LndForwardingMetrics, error) {
+			auth, err := params.RetrieveMetricsAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/reports/lnd/forwarding"
+			body, err := json.Marshal(req)
+			if err != nil {
+				return nil, err
+			}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return nil, err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := LndForwardingMetrics{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
+		},
 		GetLndMetrics: func(req LndMetricsRequest) (*LndMetrics, error) {
 			auth, err := params.RetrieveMetricsAuth()
 			if err != nil {

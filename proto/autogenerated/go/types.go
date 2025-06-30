@@ -361,6 +361,18 @@ type LiveUserOperation struct {
 type LndChannels struct {
 	Open_channels []OpenChannel `json:"open_channels"`
 }
+type LndForwardingEvent struct {
+	Amt_in      int64  `json:"amt_in"`
+	Amt_out     int64  `json:"amt_out"`
+	At_unix     int64  `json:"at_unix"`
+	Chan_id_in  string `json:"chan_id_in"`
+	Chan_id_out string `json:"chan_id_out"`
+	Fee         int64  `json:"fee"`
+}
+type LndForwardingMetrics struct {
+	Events     []LndForwardingEvent `json:"events"`
+	Total_fees int64                `json:"total_fees"`
+}
 type LndGetInfoRequest struct {
 	Nodeid int64 `json:"nodeId"`
 }
@@ -463,15 +475,16 @@ type OfferInvoices struct {
 	Invoices []OfferInvoice `json:"invoices"`
 }
 type OpenChannel struct {
-	Active         bool           `json:"active"`
-	Capacity       int64          `json:"capacity"`
-	Channel_id     string         `json:"channel_id"`
-	Channel_point  string         `json:"channel_point"`
-	Label          string         `json:"label"`
-	Lifetime       int64          `json:"lifetime"`
-	Local_balance  int64          `json:"local_balance"`
-	Policy         *ChannelPolicy `json:"policy"`
-	Remote_balance int64          `json:"remote_balance"`
+	Active              bool           `json:"active"`
+	Capacity            int64          `json:"capacity"`
+	Channel_id          string         `json:"channel_id"`
+	Channel_point       string         `json:"channel_point"`
+	Inactive_since_unix int64          `json:"inactive_since_unix"`
+	Label               string         `json:"label"`
+	Lifetime            int64          `json:"lifetime"`
+	Local_balance       int64          `json:"local_balance"`
+	Policy              *ChannelPolicy `json:"policy"`
+	Remote_balance      int64          `json:"remote_balance"`
 }
 type OpenChannelRequest struct {
 	Close_address        string `json:"close_address"`
