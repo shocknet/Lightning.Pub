@@ -13,8 +13,8 @@ export class UserOffer {
     @Column({ unique: true, nullable: false })
     offer_id: string
 
-    @Column({ type: "text", nullable: true })
-    managing_app_pubkey: string | null
+    @Column({ default: "" })
+    management_pubkey: string
 
     @Column()
     label: string

@@ -26,7 +26,6 @@ import { DebitManager } from "./debitManager.js"
 import { OfferManager } from "./offerManager.js"
 import webRTC from "../webRTC/index.js"
 import { ManagementManager } from "./managementManager.js"
-import NostrSubprocess, { LoadNosrtSettingsFromEnv } from "../nostr/index.js"
 
 type UserOperationsSub = {
     id: string
@@ -53,7 +52,7 @@ export default class {
     liquidityProvider: LiquidityProvider
     debitManager: DebitManager
     offerManager: OfferManager
-    managementManager?: ManagementManager
+    managementManager: ManagementManager
     utils: Utils
     rugPullTracker: RugPullTracker
     unlocker: Unlocker
@@ -79,7 +78,7 @@ export default class {
         this.appUserManager = new AppUserManager(this.storage, this.settings, this.applicationManager)
         this.debitManager = new DebitManager(this.storage, this.lnd, this.applicationManager)
         this.offerManager = new OfferManager(this.storage, this.lnd, this.applicationManager, this.productManager, this.liquidityManager)
-        this.managementManager = new ManagementManager(this.nostrSend, this.storage)
+        this.managementManager = new ManagementManager(this.storage, this.offerManager)
         //this.webRTC = new webRTC(this.storage, this.utils)
     }
 
@@ -102,6 +101,7 @@ export default class {
         this.liquidityProvider.attachNostrSend(f)
         this.debitManager.attachNostrSend(f)
         this.offerManager.attachNostrSend(f)
+        this.managementManager.attachNostrSend(f)
         this.utils.attachNostrSend(f)
         //this.webRTC.attachNostrSend(f)
     }
@@ -343,10 +343,6 @@ export default class {
         }
         log({ unsigned: event })
         this.nostrSend({ type: 'app', appId: invoice.linkedApplication.app_id }, { type: 'event', event }, zapInfo.relays || undefined)
-    }
-
-    async Start() {
-        // ... existing code ...
     }
 }
 

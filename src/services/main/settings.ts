@@ -7,12 +7,14 @@ import { getLogger } from '../helpers/logger.js'
 import fs from 'fs'
 import crypto from 'crypto';
 import { LiquiditySettings, LoadLiquiditySettingsFromEnv } from './liquidityManager.js'
+import { LoadNosrtRelaySettingsFromEnv, NostrRelaySettings } from '../nostr/handler.js'
 
 export type MainSettings = {
     storageSettings: StorageSettings,
     lndSettings: LndSettings,
     watchDogSettings: WatchdogSettings,
     liquiditySettings: LiquiditySettings,
+    nostrRelaySettings: NostrRelaySettings,
     jwtSecret: string
     walletPasswordPath: string
     walletSecretPath: string
@@ -49,12 +51,13 @@ export type TestSettings = MainSettings & { lndSettings: { otherNode: NodeSettin
 export const LoadMainSettingsFromEnv = (): MainSettings => {
     const storageSettings = LoadStorageSettingsFromEnv()
     const outgoingAppUserInvoiceFeeBps = EnvCanBeInteger("OUTGOING_INVOICE_FEE_USER_BPS", 0)
-
+    const nostrRelaySettings = LoadNosrtRelaySettingsFromEnv()
     return {
         watchDogSettings: LoadWatchdogSettingsFromEnv(),
         lndSettings: LoadLndSettingsFromEnv(),
         storageSettings: storageSettings,
         liquiditySettings: LoadLiquiditySettingsFromEnv(),
+        nostrRelaySettings: nostrRelaySettings,
         jwtSecret: loadJwtSecret(storageSettings.dataDir),
         walletSecretPath: process.env.WALLET_SECRET_PATH || getDataPath(storageSettings.dataDir, ".wallet_secret"),
         walletPasswordPath: process.env.WALLET_PASSWORD_PATH || getDataPath(storageSettings.dataDir, ".wallet_password"),

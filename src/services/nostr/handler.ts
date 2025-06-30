@@ -7,6 +7,7 @@ import { ERROR, getLogger } from '../helpers/logger.js'
 import { nip19 } from 'nostr-tools'
 import { encrypt as encryptV1, decrypt as decryptV1, getSharedSecret as getConversationKeyV1 } from './nip44v1.js'
 import { ProcessMetrics, ProcessMetricsCollector } from '../storage/tlv/processMetricsCollector.js'
+import { EnvCanBeInteger, } from '../helpers/envParser.js'
 const { nprofileEncode } = nip19
 const { v2 } = nip44
 const { encrypt: encryptV2, decrypt: decryptV2, utils } = v2
@@ -26,16 +27,34 @@ export type NostrSettings = {
     clients: ClientInfo[]
     maxEventContentLength: number
 }
-export type NostrEvent = Event & {
-    /** Identifier of the application as defined in NostrSettings.apps */
-    appId: string;
-    /** High-resolution timer capture when processing began (BigInt serialized as string to keep JSON friendly) */
-    startAtNano: string;
-    /** wall-clock millis when processing began */
-    startAtMs: number;
-    /** Convenience duplicate of the sender pubkey (e.pubkey) kept for backwards-compat */
-    pub: string;
-};
+
+export type NostrRelaySettings = {
+    relays: string[],
+    maxEventContentLength: number
+}
+
+const getEnvOrDefault = (name: string, defaultValue: string): string => {
+    return process.env[name] || defaultValue;
+}
+
+export const LoadNosrtRelaySettingsFromEnv = (test = false): NostrRelaySettings => {
+    const relaysEnv = getEnvOrDefault("NOSTR_RELAYS", "wss://relay.lightning.pub");
+    const maxEventContentLength = EnvCanBeInteger("NOSTR_MAX_EVENT_CONTENT_LENGTH", 40000)
+    return {
+        relays: relaysEnv.split(' '),
+        maxEventContentLength
+    }
+}
+
+export type NostrEvent = {
+    id: string
+    pub: string
+    content: string
+    appId: string
+    startAtNano: string
+    startAtMs: number
+    kind: number
+}
 
 type SettingsRequest = {
     type: 'settings'
@@ -217,15 +236,7 @@ export default class Handler {
             return
 
         }
-        const nostrEvent: NostrEvent = {
-            ...e,
-            content,
-            appId: app.appId,
-            startAtNano,
-            startAtMs,
-            pub: e.pubkey,
-        }
-        this.eventCallback(nostrEvent)
+        this.eventCallback({ id: eventId, content, pub: e.pubkey, appId: app.appId, startAtNano, startAtMs, kind: e.kind })
     }
 
     async Send(initiator: SendInitiator, data: SendData, relays?: string[]) {
