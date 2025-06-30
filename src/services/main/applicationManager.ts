@@ -8,7 +8,6 @@ import { ApplicationUser } from '../storage/entity/ApplicationUser.js'
 import { PubLogger, getLogger } from '../helpers/logger.js'
 import crypto from 'crypto'
 import { Application } from '../storage/entity/Application.js'
-import { LoadNosrtSettingsFromEnv } from '../nostr/index.js'
 import { ZapInfo } from '../storage/entity/UserReceivingInvoice.js'
 import { nofferEncode, ndebitEncode, OfferPriceType } from '@shocknet/clink-sdk'
 const TOKEN_EXPIRY_TIME = 2 * 60 * 1000 // 2 minutes, in milliseconds
@@ -151,7 +150,7 @@ export default class {
             u = user
             if (created) log(u.identifier, u.user.user_id, "user created")
         }
-        const nostrSettings = LoadNosrtSettingsFromEnv()
+        const nostrSettings = this.settings.nostrRelaySettings
         return {
             identifier: u.identifier,
             info: {
@@ -205,7 +204,7 @@ export default class {
         const app = await this.storage.applicationStorage.GetApplication(appId)
         const user = await this.storage.applicationStorage.GetApplicationUser(app, req.user_identifier)
         const max = this.paymentManager.GetMaxPayableInvoice(user.user.balance_sats, true)
-        const nostrSettings = LoadNosrtSettingsFromEnv()
+        const nostrSettings = this.settings.nostrRelaySettings
         return {
             max_withdrawable: max, identifier: req.user_identifier, info: {
                 userId: user.user.user_id, balance: user.user.balance_sats,

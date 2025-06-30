@@ -34,6 +34,11 @@ export default class {
     async GetUserOffers(app_user_id: string): Promise<UserOffer[]> {
         return this.dbs.Find<UserOffer>('UserOffer', { where: { app_user_id } })
     }
+
+    async getManagedUserOffers(app_user_id: string, management_pubkey: string): Promise<UserOffer[]> {
+        return this.dbs.Find<UserOffer>('UserOffer', { where: { app_user_id, management_pubkey } })
+    }
+
     async GetUserOffer(app_user_id: string, offer_id: string): Promise<UserOffer | null> {
         return this.dbs.FindOne<UserOffer>('UserOffer', { where: { app_user_id, offer_id } })
     }

@@ -17,6 +17,7 @@ import { TrackedProvider } from "./build/src/services/storage/entity/TrackedProv
 import { InviteToken } from "./build/src/services/storage/entity/InviteToken.js"
 import { DebitAccess } from "./build/src/services/storage/entity/DebitAccess.js"
 import { UserOffer } from "./build/src/services/storage/entity/UserOffer.js"
+import { ManagementGrant } from "./build/src/services/storage/entity/ManagementGrant.js"
 
 import { Initial1703170309875 } from './build/src/services/storage/migrations/1703170309875-initial.js'
 import { LspOrder1718387847693 } from './build/src/services/storage/migrations/1718387847693-lsp_order.js'
@@ -35,7 +36,7 @@ export default new DataSource({
     // logging: true,
     migrations: [Initial1703170309875, LspOrder1718387847693, LiquidityProvider1719335699480, LndNodeInfo1720187506189, CreateInviteTokenTable1721751414878, PaymentIndex1721760297610, DebitAccess1726496225078, DebitAccessFixes1726685229264, DebitToPub1727105758354, UserCbUrl1727112281043, UserOffer1733502626042],
     entities: [User, UserReceivingInvoice, UserReceivingAddress, AddressReceivingTransaction, UserInvoicePayment, UserTransactionPayment,
-        UserBasicAuth, UserEphemeralKey, Product, UserToUserPayment, Application, ApplicationUser, UserToUserPayment, LspOrder, LndNodeInfo, TrackedProvider, InviteToken, DebitAccess, UserOffer],
+        UserBasicAuth, UserEphemeralKey, Product, UserToUserPayment, Application, ApplicationUser, UserToUserPayment, LspOrder, LndNodeInfo, TrackedProvider, InviteToken, DebitAccess, UserOffer, ManagementGrant],
     // synchronize: true,
 })
-//npx typeorm migration:generate ./src/services/storage/migrations/ops_time -d ./datasource.js
+//npx typeorm migration:generate ./src/services/storage/migrations/management_grant -d ./datasource.js

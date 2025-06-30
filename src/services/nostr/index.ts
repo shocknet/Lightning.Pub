@@ -4,18 +4,9 @@ import { NostrSettings, NostrEvent, ChildProcessRequest, ChildProcessResponse, S
 import { Utils } from '../helpers/utilsWrapper.js'
 type EventCallback = (event: NostrEvent) => void
 
-const getEnvOrDefault = (name: string, defaultValue: string): string => {
-    return process.env[name] || defaultValue;
-}
 
-export const LoadNosrtSettingsFromEnv = (test = false) => {
-    const relaysEnv = getEnvOrDefault("NOSTR_RELAYS", "wss://relay.lightning.pub");
-    const maxEventContentLength = EnvCanBeInteger("NOSTR_MAX_EVENT_CONTENT_LENGTH", 40000)
-    return {
-        relays: relaysEnv.split(' '),
-        maxEventContentLength
-    }
-}
+
+
 
 export default class NostrSubprocess {
     settings: NostrSettings

@@ -7,6 +7,7 @@ import { ERROR, getLogger } from '../helpers/logger.js'
 import { nip19 } from 'nostr-tools'
 import { encrypt as encryptV1, decrypt as decryptV1, getSharedSecret as getConversationKeyV1 } from './nip44v1.js'
 import { ProcessMetrics, ProcessMetricsCollector } from '../storage/tlv/processMetricsCollector.js'
+import { EnvCanBeInteger, } from '../helpers/envParser.js'
 const { nprofileEncode } = nip19
 const { v2 } = nip44
 const { encrypt: encryptV2, decrypt: decryptV2, utils } = v2
@@ -26,6 +27,25 @@ export type NostrSettings = {
     clients: ClientInfo[]
     maxEventContentLength: number
 }
+
+export type NostrRelaySettings = {
+    relays: string[],
+    maxEventContentLength: number
+}
+
+const getEnvOrDefault = (name: string, defaultValue: string): string => {
+    return process.env[name] || defaultValue;
+}
+
+export const LoadNosrtRelaySettingsFromEnv = (test = false): NostrRelaySettings => {
+    const relaysEnv = getEnvOrDefault("NOSTR_RELAYS", "wss://relay.lightning.pub");
+    const maxEventContentLength = EnvCanBeInteger("NOSTR_MAX_EVENT_CONTENT_LENGTH", 40000)
+    return {
+        relays: relaysEnv.split(' '),
+        maxEventContentLength
+    }
+}
+
 export type NostrEvent = {
     id: string
     pub: string
@@ -124,7 +144,7 @@ const sendToNostr: NostrSend = (initiator, data, relays) => {
     subProcessHandler.Send(initiator, data, relays)
 }
 send({ type: 'ready' })
-const supportedKinds = [21000, 21001, 21002]
+const supportedKinds = [21000, 21001, 21002, 21003]
 export default class Handler {
     pool = new SimplePool()
     settings: NostrSettings

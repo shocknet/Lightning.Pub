@@ -25,6 +25,7 @@ import { defaultInvoiceExpiry } from "../storage/paymentStorage.js"
 import { DebitManager } from "./debitManager.js"
 import { OfferManager } from "./offerManager.js"
 import webRTC from "../webRTC/index.js"
+import { ManagementManager } from "./managementManager.js"
 
 type UserOperationsSub = {
     id: string
@@ -51,6 +52,7 @@ export default class {
     liquidityProvider: LiquidityProvider
     debitManager: DebitManager
     offerManager: OfferManager
+    managementManager: ManagementManager
     utils: Utils
     rugPullTracker: RugPullTracker
     unlocker: Unlocker
@@ -60,8 +62,8 @@ export default class {
     constructor(settings: MainSettings, storage: Storage, adminManager: AdminManager, utils: Utils, unlocker: Unlocker) {
         this.settings = settings
         this.storage = storage
-        this.utils = utils
         this.adminManager = adminManager
+        this.utils = utils
         this.unlocker = unlocker
         const updateProviderBalance = (b: number) => this.storage.liquidityStorage.IncrementTrackedProviderBalance('lnPub', settings.liquiditySettings.liquidityProviderPub, b)
         this.liquidityProvider = new LiquidityProvider(settings.liquiditySettings.liquidityProviderPub, this.utils, this.invoicePaidCb, updateProviderBalance)
@@ -75,7 +77,8 @@ export default class {
         this.applicationManager = new ApplicationManager(this.storage, this.settings, this.paymentManager)
         this.appUserManager = new AppUserManager(this.storage, this.settings, this.applicationManager)
         this.debitManager = new DebitManager(this.storage, this.lnd, this.applicationManager)
-        this.offerManager = new OfferManager(this.storage, this.lnd, this.applicationManager, this.productManager, this.liquidityManager)
+        this.offerManager = new OfferManager(this.storage, this.settings, this.lnd, this.applicationManager, this.productManager, this.liquidityManager)
+        this.managementManager = new ManagementManager(this.storage, this.settings)
         //this.webRTC = new webRTC(this.storage, this.utils)
     }
 
@@ -98,6 +101,7 @@ export default class {
         this.liquidityProvider.attachNostrSend(f)
         this.debitManager.attachNostrSend(f)
         this.offerManager.attachNostrSend(f)
+        this.managementManager.attachNostrSend(f)
         this.utils.attachNostrSend(f)
         //this.webRTC.attachNostrSend(f)
     }
