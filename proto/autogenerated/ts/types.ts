@@ -3795,6 +3795,7 @@ export type UserInfo = {
     ndebit: string
     network_max_fee_bps: number
     network_max_fee_fixed: number
+    nmanage: string
     noffer: string
     service_fee_bps: number
     userId: string
@@ -3810,6 +3811,7 @@ export type UserInfoOptions = OptionsBaseMessage & {
     ndebit_CustomCheck?: (v: string) => boolean
     network_max_fee_bps_CustomCheck?: (v: number) => boolean
     network_max_fee_fixed_CustomCheck?: (v: number) => boolean
+    nmanage_CustomCheck?: (v: string) => boolean
     noffer_CustomCheck?: (v: string) => boolean
     service_fee_bps_CustomCheck?: (v: number) => boolean
     userId_CustomCheck?: (v: string) => boolean
@@ -3839,6 +3841,9 @@ export const UserInfoValidate = (o?: UserInfo, opts: UserInfoOptions = {}, path:
 
     if (typeof o.network_max_fee_fixed !== 'number') return new Error(`${path}.network_max_fee_fixed: is not a number`)
     if (opts.network_max_fee_fixed_CustomCheck && !opts.network_max_fee_fixed_CustomCheck(o.network_max_fee_fixed)) return new Error(`${path}.network_max_fee_fixed: custom check failed`)
+
+    if (typeof o.nmanage !== 'string') return new Error(`${path}.nmanage: is not a string`)
+    if (opts.nmanage_CustomCheck && !opts.nmanage_CustomCheck(o.nmanage)) return new Error(`${path}.nmanage: custom check failed`)
 
     if (typeof o.noffer !== 'string') return new Error(`${path}.noffer: is not a string`)
     if (opts.noffer_CustomCheck && !opts.noffer_CustomCheck(o.noffer)) return new Error(`${path}.noffer: custom check failed`)

@@ -9,7 +9,7 @@ import { PubLogger, getLogger } from '../helpers/logger.js'
 import crypto from 'crypto'
 import { Application } from '../storage/entity/Application.js'
 import { ZapInfo } from '../storage/entity/UserReceivingInvoice.js'
-import { nofferEncode, ndebitEncode, OfferPriceType } from '@shocknet/clink-sdk'
+import { nofferEncode, ndebitEncode, OfferPriceType, nmanageEncode } from '@shocknet/clink-sdk'
 const TOKEN_EXPIRY_TIME = 2 * 60 * 1000 // 2 minutes, in milliseconds
 
 type NsecLinkingData = {
@@ -163,6 +163,7 @@ export default class {
                 service_fee_bps: this.settings.outgoingAppUserInvoiceFeeBps,
                 noffer: nofferEncode({ pubkey: app.nostr_public_key!, offer: u.identifier, priceType: OfferPriceType.Spontaneous, relay: nostrSettings.relays[0] }),
                 ndebit: ndebitEncode({ pubkey: app.nostr_public_key!, pointer: u.identifier, relay: nostrSettings.relays[0] }),
+                nmanage: nmanageEncode({ pubkey: app.nostr_public_key!, pointer: u.identifier, relay: nostrSettings.relays[0] }),
                 callback_url: u.callback_url,
                 bridge_url: this.settings.bridgeUrl
 
@@ -215,6 +216,7 @@ export default class {
                 service_fee_bps: this.settings.outgoingAppUserInvoiceFeeBps,
                 noffer: nofferEncode({ pubkey: app.nostr_public_key!, offer: user.identifier, priceType: OfferPriceType.Spontaneous, relay: nostrSettings.relays[0] }),
                 ndebit: ndebitEncode({ pubkey: app.nostr_public_key!, pointer: user.identifier, relay: nostrSettings.relays[0] }),
+                nmanage: nmanageEncode({ pubkey: app.nostr_public_key!, pointer: user.identifier, relay: nostrSettings.relays[0] }),
                 callback_url: user.callback_url,
                 bridge_url: this.settings.bridgeUrl
             },

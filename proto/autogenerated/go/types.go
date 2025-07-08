@@ -660,6 +660,7 @@ type UserInfo struct {
 	Ndebit                string `json:"ndebit"`
 	Network_max_fee_bps   int64  `json:"network_max_fee_bps"`
 	Network_max_fee_fixed int64  `json:"network_max_fee_fixed"`
+	Nmanage               string `json:"nmanage"`
 	Noffer                string `json:"noffer"`
 	Service_fee_bps       int64  `json:"service_fee_bps"`
 	Userid                string `json:"userId"`

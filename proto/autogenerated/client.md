@@ -1557,6 +1557,7 @@ The nostr server will send back a message response, and inside the body there wi
   - __ndebit__: _string_
   - __network_max_fee_bps__: _number_
   - __network_max_fee_fixed__: _number_
+  - __nmanage__: _string_
   - __noffer__: _string_
   - __service_fee_bps__: _number_
   - __userId__: _string_
