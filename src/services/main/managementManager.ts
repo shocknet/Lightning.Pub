@@ -59,13 +59,26 @@ export class ManagementManager {
         this.nostrSend({ type: 'app', appId: event.appId }, { type: 'event', event: e, encrypt: { toPub: event.pub } })
     }
 
-    private handleAuthRequired(nmanageReq: NmanageRequest, event: NostrEvent, userPub: string) {
+    private async handleAuthRequired(nmanageReq: NmanageRequest, event: NostrEvent) {
         if (this.awaitingRequests[event.pub]) {
             this.sendError(event, { res: 'GFY', code: 4, error: 'Rate Limited', retry_after: 60 * 10 })
             return
         }
+        const appUserId = (nmanageReq as { pointer?: string }).pointer
+        if (!appUserId) {
+            this.logger(ERROR, "No pointer provided", event.pub)
+            this.sendError(event, { res: 'GFY', code: 1, error: 'Request Denied: No pointer provided, cannot sent auth request' })
+            return
+        }
+        const app = await this.storage.applicationStorage.GetApplication(event.appId)
+        const appUser = await this.storage.applicationStorage.GetApplicationUser(app, appUserId)
+        if (!appUser.nostr_public_key) {
+            this.logger(ERROR, "App user has no nostr public key", event.pub)
+            this.sendError(event, { res: 'GFY', code: 1, error: 'Request Denied: App user has no nostr public key' })
+            return
+        }
         this.awaitingRequests[event.pub] = { request: nmanageReq, event }
-        this.sendManageAuthorizationRequest(event.appId, userPub, { requestId: event.id, npub: event.pub })
+        this.sendManageAuthorizationRequest(event.appId, appUser.nostr_public_key, { requestId: event.id, npub: event.pub })
     }
 
 
@@ -74,14 +87,7 @@ export class ManagementManager {
         try {
             const r = await this.doNmanage(nmanageReq, event)
             if (r.state === 'authRequired') {
-                const app = await this.storage.applicationStorage.GetApplication(event.appId)
-                const appUser = await this.storage.applicationStorage.GetApplicationUser(app, event.pub)
-                if (!appUser.nostr_public_key) {
-                    this.logger(ERROR, "App user has no nostr public key", event.pub)
-                    this.sendError(event, { res: 'GFY', code: 1, error: 'Request Denied: App user has no nostr public key' })
-                    return
-                }
-                this.handleAuthRequired(nmanageReq, event, appUser.nostr_public_key)
+                await this.handleAuthRequired(nmanageReq, event)
                 return
             }
             if (r.state === 'error') {
