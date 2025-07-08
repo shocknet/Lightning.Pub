@@ -78,7 +78,7 @@ export class Watchdog {
         const knownMaxIndex = paymentFound.length > 0 ? Math.max(paymentFound[0].paymentIndex, 0) : 0
         this.latestPaymentIndexOffset = await this.lnd.GetLatestPaymentIndex(knownMaxIndex)
         const other = { ilnd: this.initialLndBalance, hf: this.accumulatedHtlcFees, iu: this.initialUsersBalance, tu: totalUsersBalance, oext: otherExternal }
-        getLogger({ component: 'watchdog_debug2' })(JSON.stringify({ deltaLnd: 0, deltaUsers: 0, totalExternal, latestIndex: this.latestPaymentIndexOffset, other }))
+        //getLogger({ component: 'watchdog_debug2' })(JSON.stringify({ deltaLnd: 0, deltaUsers: 0, totalExternal, latestIndex: this.latestPaymentIndexOffset, other }))
         this.interval = setInterval(() => {
             if (this.latestCheckStart + (1000 * 58) < Date.now()) {
                 this.PaymentRequested()
@@ -192,7 +192,7 @@ export class Watchdog {
         const newLatest = await this.lnd.GetLatestPaymentIndex(knownMaxIndex)
         const historyMismatch = newLatest > knownMaxIndex
         const other = { ilnd: this.initialLndBalance, hf: this.accumulatedHtlcFees, iu: this.initialUsersBalance, tu: totalUsersBalance, km: knownMaxIndex, nl: newLatest, oext: otherExternal }
-        getLogger({ component: 'watchdog_debug2' })(JSON.stringify({ deltaLnd, deltaUsers, totalExternal, other }))
+        //getLogger({ component: 'watchdog_debug2' })(JSON.stringify({ deltaLnd, deltaUsers, totalExternal, other }))
         const deny = await this.checkBalanceUpdate(deltaLnd, deltaUsers)
         if (historyMismatch) {
             getLogger({ component: 'bark' })("History mismatch detected in absolute update, locking outgoing operations")

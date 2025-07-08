@@ -50,6 +50,7 @@ export class ManagementManager {
 
     private sendManageAuthorizationRequest = (appId: string, { requestId, npub }: { requestId: string, npub: string }) => {
         const message: Types.LiveManageRequest & { requestId: string, status: 'OK' } = { requestId: "GetLiveManageRequests", status: 'OK', npub: npub, request_id: requestId }
+        this.logger("Sending manage authorization request to", npub, "for app", appId)
         this.nostrSend({ type: 'app', appId: appId }, { type: 'content', content: JSON.stringify(message), pub: npub })
     }
 
