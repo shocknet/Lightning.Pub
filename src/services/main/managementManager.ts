@@ -114,7 +114,7 @@ export class ManagementManager {
         const action = nmanageReq.action
         switch (action) {
             case "create":
-                const createResult = await this.createOffer(nmanageReq)
+                const createResult = await this.createOffer(nmanageReq, event.pub)
                 return this.getNmanageResponse(event.appId, createResult)
             case "update":
                 const updateResult = await this.updateOffer(nmanageReq, event.pub);
@@ -212,12 +212,12 @@ export class ManagementManager {
         return { state: 'success', result: undefined }
     }
 
-    private async createOffer(nmanageReq: NmanageCreateOffer): Promise<Result<UserOffer>> {
+    private async createOffer(nmanageReq: NmanageCreateOffer, requestorPub: string): Promise<Result<UserOffer>> {
         const appUserId = nmanageReq.pointer
         if (!appUserId) {
             return { state: 'error', err: { res: 'GFY', code: 1, error: 'Request Denied: No pointer provided' } }
         }
-        const grantResult = await this.validateGrantAccess(appUserId, appUserId)
+        const grantResult = await this.validateGrantAccess(appUserId, requestorPub)
         if (grantResult.state !== 'success') {
             return grantResult
         }
