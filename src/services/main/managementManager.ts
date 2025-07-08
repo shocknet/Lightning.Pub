@@ -33,7 +33,9 @@ export class ManagementManager {
         const awaiting = this.awaitingRequests[req.authorize_npub]
         if (awaiting) {
             delete this.awaitingRequests[req.authorize_npub]
-            await this.handleRequest(awaiting.request, awaiting.event)
+            if (!grant.banned) {
+                await this.handleRequest(awaiting.request, awaiting.event)
+            }
         }
         return {
             manage_id: grant.serial_id.toString(),
