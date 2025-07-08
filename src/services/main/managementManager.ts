@@ -242,10 +242,12 @@ export class ManagementManager {
         const grant = await this.storage.managementStorage.getGrant(appUserId, requestorPub)
 
         if (!grant) {
+            this.logger(ERROR, "No grant found", appUserId, requestorPub)
             return { state: 'authRequired' }
         }
 
         if (grant.expires_at_unix > 0 && grant.expires_at_unix < Date.now()) {
+            this.logger(ERROR, "Grant expired", appUserId, requestorPub)
             return { state: 'authRequired' }
         }
 
