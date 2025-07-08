@@ -234,6 +234,7 @@ export class ManagementManager {
             callback_url: nmanageReq.offer.fields.callback_url,
             price_sats: nmanageReq.offer.fields.price_sats,
             expected_data: dataMap,
+            management_pubkey: requestorPub,
         })
         return { state: 'success', result: offer }
     }
