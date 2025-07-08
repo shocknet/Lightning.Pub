@@ -48,10 +48,10 @@ export class ManagementManager {
         }
     }
 
-    private sendManageAuthorizationRequest = (appId: string, { requestId, npub }: { requestId: string, npub: string }) => {
+    private sendManageAuthorizationRequest = (appId: string, userPub: string, { requestId, npub }: { requestId: string, npub: string }) => {
         const message: Types.LiveManageRequest & { requestId: string, status: 'OK' } = { requestId: "GetLiveManageRequests", status: 'OK', npub: npub, request_id: requestId }
         this.logger("Sending manage authorization request to", npub, "for app", appId)
-        this.nostrSend({ type: 'app', appId: appId }, { type: 'content', content: JSON.stringify(message), pub: npub })
+        this.nostrSend({ type: 'app', appId: appId }, { type: 'content', content: JSON.stringify(message), pub: userPub })
     }
 
     private sendError(event: NostrEvent, err: NmanageFailure) {
@@ -59,13 +59,13 @@ export class ManagementManager {
         this.nostrSend({ type: 'app', appId: event.appId }, { type: 'event', event: e, encrypt: { toPub: event.pub } })
     }
 
-    private handleAuthRequired(nmanageReq: NmanageRequest, event: NostrEvent) {
+    private handleAuthRequired(nmanageReq: NmanageRequest, event: NostrEvent, userPub: string) {
         if (this.awaitingRequests[event.pub]) {
             this.sendError(event, { res: 'GFY', code: 4, error: 'Rate Limited', retry_after: 60 * 10 })
             return
         }
         this.awaitingRequests[event.pub] = { request: nmanageReq, event }
-        this.sendManageAuthorizationRequest(event.appId, { requestId: event.id, npub: event.pub })
+        this.sendManageAuthorizationRequest(event.appId, userPub, { requestId: event.id, npub: event.pub })
     }
 
 
@@ -74,10 +74,18 @@ export class ManagementManager {
         try {
             const r = await this.doNmanage(nmanageReq, event)
             if (r.state === 'authRequired') {
-                this.handleAuthRequired(nmanageReq, event)
+                const app = await this.storage.applicationStorage.GetApplication(event.appId)
+                const appUser = await this.storage.applicationStorage.GetApplicationUser(app, event.pub)
+                if (!appUser.nostr_public_key) {
+                    this.logger(ERROR, "App user has no nostr public key", event.pub)
+                    this.sendError(event, { res: 'GFY', code: 1, error: 'Request Denied: App user has no nostr public key' })
+                    return
+                }
+                this.handleAuthRequired(nmanageReq, event, appUser.nostr_public_key)
                 return
             }
             if (r.state === 'error') {
+                this.logger(ERROR, "Error in nmanage request", r.err)
                 this.sendError(event, r.err)
                 return
             }
