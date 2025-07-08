@@ -30,13 +30,16 @@ import { DebitAccessFixes1726685229264 } from './build/src/services/storage/migr
 import { DebitToPub1727105758354 } from './build/src/services/storage/migrations/1727105758354-debit_to_pub.js'
 import { UserCbUrl1727112281043 } from './build/src/services/storage/migrations/1727112281043-user_cb_url.js'
 import { UserOffer1733502626042 } from './build/src/services/storage/migrations/1733502626042-user_offer.js'
+import { ManagementGrant1751307732346 } from './build/src/services/storage/migrations/1751307732346-management_grant.js'
 export default new DataSource({
     type: "sqlite",
     database: "db.sqlite",
     // logging: true,
-    migrations: [Initial1703170309875, LspOrder1718387847693, LiquidityProvider1719335699480, LndNodeInfo1720187506189, CreateInviteTokenTable1721751414878, PaymentIndex1721760297610, DebitAccess1726496225078, DebitAccessFixes1726685229264, DebitToPub1727105758354, UserCbUrl1727112281043, UserOffer1733502626042],
+    migrations: [Initial1703170309875, LspOrder1718387847693, LiquidityProvider1719335699480, LndNodeInfo1720187506189, CreateInviteTokenTable1721751414878,
+        PaymentIndex1721760297610, DebitAccess1726496225078, DebitAccessFixes1726685229264, DebitToPub1727105758354, UserCbUrl1727112281043,
+        UserOffer1733502626042, ManagementGrant1751307732346],
     entities: [User, UserReceivingInvoice, UserReceivingAddress, AddressReceivingTransaction, UserInvoicePayment, UserTransactionPayment,
         UserBasicAuth, UserEphemeralKey, Product, UserToUserPayment, Application, ApplicationUser, UserToUserPayment, LspOrder, LndNodeInfo, TrackedProvider, InviteToken, DebitAccess, UserOffer, ManagementGrant],
     // synchronize: true,
 })
-//npx typeorm migration:generate ./src/services/storage/migrations/management_grant -d ./datasource.js
+//npx typeorm migration:generate ./src/services/storage/migrations/management_grant_banned -d ./datasource.js

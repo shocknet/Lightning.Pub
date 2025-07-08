@@ -11,7 +11,11 @@ export class ManagementStorage {
         return this.dbs.FindOne<ManagementGrant>('ManagementGrant', { where: { app_pubkey: appPubkey, app_user_id: appUserId } });
     }
 
-    async addGrant(appUserId: string, appPubkey: string, expires_at_unix: number) {
-        return this.dbs.CreateAndSave<ManagementGrant>('ManagementGrant', { app_user_id: appUserId, app_pubkey: appPubkey, expires_at_unix });
+    async addGrant(appUserId: string, appPubkey: string, banned: boolean, expires_at_unix = 0) {
+        return this.dbs.CreateAndSave<ManagementGrant>('ManagementGrant', { app_user_id: appUserId, app_pubkey: appPubkey, banned, expires_at_unix });
+    }
+
+    async getGrants(appUserId: string) {
+        return this.dbs.Find<ManagementGrant>('ManagementGrant', { where: { app_user_id: appUserId } });
     }
 } 

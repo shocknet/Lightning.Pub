@@ -15,6 +15,9 @@ export class ManagementGrant {
     @Column()
     expires_at_unix: number
 
+    @Column()
+    banned: boolean
+
     @CreateDateColumn()
     created_at: Date
 

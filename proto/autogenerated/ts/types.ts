@@ -35,8 +35,8 @@ export type UserContext = {
     app_user_id: string
     user_id: string
 }
-export type UserMethodInputs = AddProduct_Input | AddUserOffer_Input | AuthorizeDebit_Input | BanDebit_Input | DecodeInvoice_Input | DeleteUserOffer_Input | EditDebit_Input | EnrollAdminToken_Input | GetDebitAuthorizations_Input | GetHttpCreds_Input | GetLNURLChannelLink_Input | GetLnurlPayLink_Input | GetLnurlWithdrawLink_Input | GetPaymentState_Input | GetUserInfo_Input | GetUserOffer_Input | GetUserOfferInvoices_Input | GetUserOffers_Input | GetUserOperations_Input | NewAddress_Input | NewInvoice_Input | NewProductInvoice_Input | PayAddress_Input | PayInvoice_Input | ResetDebit_Input | RespondToDebit_Input | UpdateCallbackUrl_Input | UpdateUserOffer_Input | UserHealth_Input
-export type UserMethodOutputs = AddProduct_Output | AddUserOffer_Output | AuthorizeDebit_Output | BanDebit_Output | DecodeInvoice_Output | DeleteUserOffer_Output | EditDebit_Output | EnrollAdminToken_Output | GetDebitAuthorizations_Output | GetHttpCreds_Output | GetLNURLChannelLink_Output | GetLnurlPayLink_Output | GetLnurlWithdrawLink_Output | GetPaymentState_Output | GetUserInfo_Output | GetUserOffer_Output | GetUserOfferInvoices_Output | GetUserOffers_Output | GetUserOperations_Output | NewAddress_Output | NewInvoice_Output | NewProductInvoice_Output | PayAddress_Output | PayInvoice_Output | ResetDebit_Output | RespondToDebit_Output | UpdateCallbackUrl_Output | UpdateUserOffer_Output | UserHealth_Output
+export type UserMethodInputs = AddProduct_Input | AddUserOffer_Input | AuthorizeDebit_Input | AuthorizeManage_Input | BanDebit_Input | DecodeInvoice_Input | DeleteUserOffer_Input | EditDebit_Input | EnrollAdminToken_Input | GetDebitAuthorizations_Input | GetHttpCreds_Input | GetLNURLChannelLink_Input | GetLnurlPayLink_Input | GetLnurlWithdrawLink_Input | GetManageAuthorizations_Input | GetPaymentState_Input | GetUserInfo_Input | GetUserOffer_Input | GetUserOfferInvoices_Input | GetUserOffers_Input | GetUserOperations_Input | NewAddress_Input | NewInvoice_Input | NewProductInvoice_Input | PayAddress_Input | PayInvoice_Input | ResetDebit_Input | RespondToDebit_Input | UpdateCallbackUrl_Input | UpdateUserOffer_Input | UserHealth_Input
+export type UserMethodOutputs = AddProduct_Output | AddUserOffer_Output | AuthorizeDebit_Output | AuthorizeManage_Output | BanDebit_Output | DecodeInvoice_Output | DeleteUserOffer_Output | EditDebit_Output | EnrollAdminToken_Output | GetDebitAuthorizations_Output | GetHttpCreds_Output | GetLNURLChannelLink_Output | GetLnurlPayLink_Output | GetLnurlWithdrawLink_Output | GetManageAuthorizations_Output | GetPaymentState_Output | GetUserInfo_Output | GetUserOffer_Output | GetUserOfferInvoices_Output | GetUserOffers_Output | GetUserOperations_Output | NewAddress_Output | NewInvoice_Output | NewProductInvoice_Output | PayAddress_Output | PayInvoice_Output | ResetDebit_Output | RespondToDebit_Output | UpdateCallbackUrl_Output | UpdateUserOffer_Output | UserHealth_Output
 export type AuthContext = AdminContext | AppContext | GuestContext | GuestWithPubContext | MetricsContext | UserContext
 
 export type AddApp_Input = {rpcName:'AddApp', req: AddAppRequest}
@@ -65,6 +65,9 @@ export type AuthApp_Output = ResultError | ({ status: 'OK' } & AuthApp)
 
 export type AuthorizeDebit_Input = {rpcName:'AuthorizeDebit', req: DebitAuthorizationRequest}
 export type AuthorizeDebit_Output = ResultError | ({ status: 'OK' } & DebitAuthorization)
+
+export type AuthorizeManage_Input = {rpcName:'AuthorizeManage', req: ManageAuthorizationRequest}
+export type AuthorizeManage_Output = ResultError | ({ status: 'OK' } & ManageAuthorization)
 
 export type BanDebit_Input = {rpcName:'BanDebit', req: DebitOperation}
 export type BanDebit_Output = ResultError | { status: 'OK' }
@@ -129,6 +132,9 @@ export type GetLNURLChannelLink_Output = ResultError | ({ status: 'OK' } & Lnurl
 export type GetLiveDebitRequests_Input = {rpcName:'GetLiveDebitRequests',  cb:(res: LiveDebitRequest, err:Error|null)=> void}
 export type GetLiveDebitRequests_Output = ResultError | { status: 'OK' }
 
+export type GetLiveManageRequests_Input = {rpcName:'GetLiveManageRequests',  cb:(res: LiveManageRequest, err:Error|null)=> void}
+export type GetLiveManageRequests_Output = ResultError | { status: 'OK' }
+
 export type GetLiveUserOperations_Input = {rpcName:'GetLiveUserOperations',  cb:(res: LiveUserOperation, err:Error|null)=> void}
 export type GetLiveUserOperations_Output = ResultError | { status: 'OK' }
 
@@ -155,6 +161,9 @@ export type GetLnurlWithdrawInfo_Output = ResultError | ({ status: 'OK' } & Lnur
 
 export type GetLnurlWithdrawLink_Input = {rpcName:'GetLnurlWithdrawLink'}
 export type GetLnurlWithdrawLink_Output = ResultError | ({ status: 'OK' } & LnurlLinkResponse)
+
+export type GetManageAuthorizations_Input = {rpcName:'GetManageAuthorizations'}
+export type GetManageAuthorizations_Output = ResultError | ({ status: 'OK' } & ManageAuthorizations)
 
 export type GetMigrationUpdate_Input = {rpcName:'GetMigrationUpdate',  cb:(res: MigrationUpdate, err:Error|null)=> void}
 export type GetMigrationUpdate_Output = ResultError | { status: 'OK' }
@@ -320,6 +329,7 @@ export type ServerMethods = {
     AddUserOffer?: (req: AddUserOffer_Input & {ctx: UserContext }) => Promise<OfferId>
     AuthApp?: (req: AuthApp_Input & {ctx: AdminContext }) => Promise<AuthApp>
     AuthorizeDebit?: (req: AuthorizeDebit_Input & {ctx: UserContext }) => Promise<DebitAuthorization>
+    AuthorizeManage?: (req: AuthorizeManage_Input & {ctx: UserContext }) => Promise<ManageAuthorization>
     BanDebit?: (req: BanDebit_Input & {ctx: UserContext }) => Promise<void>
     BanUser?: (req: BanUser_Input & {ctx: AdminContext }) => Promise<BanUserResponse>
     CloseChannel?: (req: CloseChannel_Input & {ctx: AdminContext }) => Promise<CloseChannelResponse>
@@ -340,6 +350,7 @@ export type ServerMethods = {
     GetInviteLinkState?: (req: GetInviteLinkState_Input & {ctx: AdminContext }) => Promise<GetInviteTokenStateResponse>
     GetLNURLChannelLink?: (req: GetLNURLChannelLink_Input & {ctx: UserContext }) => Promise<LnurlLinkResponse>
     GetLiveDebitRequests?: (req: GetLiveDebitRequests_Input & {ctx: UserContext }) => Promise<void>
+    GetLiveManageRequests?: (req: GetLiveManageRequests_Input & {ctx: UserContext }) => Promise<void>
     GetLiveUserOperations?: (req: GetLiveUserOperations_Input & {ctx: UserContext }) => Promise<void>
     GetLndForwardingMetrics?: (req: GetLndForwardingMetrics_Input & {ctx: MetricsContext }) => Promise<LndForwardingMetrics>
     GetLndMetrics?: (req: GetLndMetrics_Input & {ctx: MetricsContext }) => Promise<LndMetrics>
@@ -347,6 +358,7 @@ export type ServerMethods = {
     GetLnurlPayLink?: (req: GetLnurlPayLink_Input & {ctx: UserContext }) => Promise<LnurlLinkResponse>
     GetLnurlWithdrawInfo?: (req: GetLnurlWithdrawInfo_Input & {ctx: GuestContext }) => Promise<LnurlWithdrawInfoResponse>
     GetLnurlWithdrawLink?: (req: GetLnurlWithdrawLink_Input & {ctx: UserContext }) => Promise<LnurlLinkResponse>
+    GetManageAuthorizations?: (req: GetManageAuthorizations_Input & {ctx: UserContext }) => Promise<ManageAuthorizations>
     GetMigrationUpdate?: (req: GetMigrationUpdate_Input & {ctx: UserContext }) => Promise<void>
     GetNPubLinkingState?: (req: GetNPubLinkingState_Input & {ctx: AppContext }) => Promise<NPubLinking>
     GetPaymentState?: (req: GetPaymentState_Input & {ctx: UserContext }) => Promise<PaymentState>
@@ -2011,6 +2023,29 @@ export const LiveDebitRequestValidate = (o?: LiveDebitRequest, opts: LiveDebitRe
     return null
 }
 
+export type LiveManageRequest = {
+    npub: string
+    request_id: string
+}
+export const LiveManageRequestOptionalFields: [] = []
+export type LiveManageRequestOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    npub_CustomCheck?: (v: string) => boolean
+    request_id_CustomCheck?: (v: string) => boolean
+}
+export const LiveManageRequestValidate = (o?: LiveManageRequest, opts: LiveManageRequestOptions = {}, path: string = 'LiveManageRequest::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.npub !== 'string') return new Error(`${path}.npub: is not a string`)
+    if (opts.npub_CustomCheck && !opts.npub_CustomCheck(o.npub)) return new Error(`${path}.npub: custom check failed`)
+
+    if (typeof o.request_id !== 'string') return new Error(`${path}.request_id: is not a string`)
+    if (opts.request_id_CustomCheck && !opts.request_id_CustomCheck(o.request_id)) return new Error(`${path}.request_id: custom check failed`)
+
+    return null
+}
+
 export type LiveUserOperation = {
     operation: UserOperation
 }
@@ -2466,6 +2501,86 @@ export const LnurlWithdrawInfoResponseValidate = (o?: LnurlWithdrawInfoResponse,
 
     if (typeof o.tag !== 'string') return new Error(`${path}.tag: is not a string`)
     if (opts.tag_CustomCheck && !opts.tag_CustomCheck(o.tag)) return new Error(`${path}.tag: custom check failed`)
+
+    return null
+}
+
+export type ManageAuthorization = {
+    authorized: boolean
+    manage_id: string
+    npub: string
+}
+export const ManageAuthorizationOptionalFields: [] = []
+export type ManageAuthorizationOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    authorized_CustomCheck?: (v: boolean) => boolean
+    manage_id_CustomCheck?: (v: string) => boolean
+    npub_CustomCheck?: (v: string) => boolean
+}
+export const ManageAuthorizationValidate = (o?: ManageAuthorization, opts: ManageAuthorizationOptions = {}, path: string = 'ManageAuthorization::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.authorized !== 'boolean') return new Error(`${path}.authorized: is not a boolean`)
+    if (opts.authorized_CustomCheck && !opts.authorized_CustomCheck(o.authorized)) return new Error(`${path}.authorized: custom check failed`)
+
+    if (typeof o.manage_id !== 'string') return new Error(`${path}.manage_id: is not a string`)
+    if (opts.manage_id_CustomCheck && !opts.manage_id_CustomCheck(o.manage_id)) return new Error(`${path}.manage_id: custom check failed`)
+
+    if (typeof o.npub !== 'string') return new Error(`${path}.npub: is not a string`)
+    if (opts.npub_CustomCheck && !opts.npub_CustomCheck(o.npub)) return new Error(`${path}.npub: custom check failed`)
+
+    return null
+}
+
+export type ManageAuthorizationRequest = {
+    authorize_npub: string
+    ban: boolean
+    request_id?: string
+}
+export type ManageAuthorizationRequestOptionalField = 'request_id'
+export const ManageAuthorizationRequestOptionalFields: ManageAuthorizationRequestOptionalField[] = ['request_id']
+export type ManageAuthorizationRequestOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: ManageAuthorizationRequestOptionalField[]
+    authorize_npub_CustomCheck?: (v: string) => boolean
+    ban_CustomCheck?: (v: boolean) => boolean
+    request_id_CustomCheck?: (v?: string) => boolean
+}
+export const ManageAuthorizationRequestValidate = (o?: ManageAuthorizationRequest, opts: ManageAuthorizationRequestOptions = {}, path: string = 'ManageAuthorizationRequest::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.authorize_npub !== 'string') return new Error(`${path}.authorize_npub: is not a string`)
+    if (opts.authorize_npub_CustomCheck && !opts.authorize_npub_CustomCheck(o.authorize_npub)) return new Error(`${path}.authorize_npub: custom check failed`)
+
+    if (typeof o.ban !== 'boolean') return new Error(`${path}.ban: is not a boolean`)
+    if (opts.ban_CustomCheck && !opts.ban_CustomCheck(o.ban)) return new Error(`${path}.ban: custom check failed`)
+
+    if ((o.request_id || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('request_id')) && typeof o.request_id !== 'string') return new Error(`${path}.request_id: is not a string`)
+    if (opts.request_id_CustomCheck && !opts.request_id_CustomCheck(o.request_id)) return new Error(`${path}.request_id: custom check failed`)
+
+    return null
+}
+
+export type ManageAuthorizations = {
+    manages: ManageAuthorization[]
+}
+export const ManageAuthorizationsOptionalFields: [] = []
+export type ManageAuthorizationsOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    manages_ItemOptions?: ManageAuthorizationOptions
+    manages_CustomCheck?: (v: ManageAuthorization[]) => boolean
+}
+export const ManageAuthorizationsValidate = (o?: ManageAuthorizations, opts: ManageAuthorizationsOptions = {}, path: string = 'ManageAuthorizations::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (!Array.isArray(o.manages)) return new Error(`${path}.manages: is not an array`)
+    for (let index = 0; index < o.manages.length; index++) {
+        const managesErr = ManageAuthorizationValidate(o.manages[index], opts.manages_ItemOptions, `${path}.manages[${index}]`)
+        if (managesErr !== null) return managesErr
+    }
+    if (opts.manages_CustomCheck && !opts.manages_CustomCheck(o.manages)) return new Error(`${path}.manages: custom check failed`)
 
     return null
 }

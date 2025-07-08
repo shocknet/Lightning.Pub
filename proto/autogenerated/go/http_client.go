@@ -63,6 +63,7 @@ type Client struct {
 	AddUserOffer      func(req OfferConfig) (*OfferId, error)
 	AuthApp           func(req AuthAppRequest) (*AuthApp, error)
 	AuthorizeDebit    func(req DebitAuthorizationRequest) (*DebitAuthorization, error)
+	AuthorizeManage   func(req ManageAuthorizationRequest) (*ManageAuthorization, error)
 	BanDebit          func(req DebitOperation) error
 	BanUser           func(req BanUserRequest) (*BanUserResponse, error)
 	// batching method: BatchUser not implemented
@@ -84,6 +85,7 @@ type Client struct {
 	GetInviteLinkState          func(req GetInviteTokenStateRequest) (*GetInviteTokenStateResponse, error)
 	GetLNURLChannelLink         func() (*LnurlLinkResponse, error)
 	GetLiveDebitRequests        func() (*LiveDebitRequest, error)
+	GetLiveManageRequests       func() (*LiveManageRequest, error)
 	GetLiveUserOperations       func() (*LiveUserOperation, error)
 	GetLndForwardingMetrics     func(req LndMetricsRequest) (*LndForwardingMetrics, error)
 	GetLndMetrics               func(req LndMetricsRequest) (*LndMetrics, error)
@@ -91,6 +93,7 @@ type Client struct {
 	GetLnurlPayLink             func() (*LnurlLinkResponse, error)
 	GetLnurlWithdrawInfo        func(query GetLnurlWithdrawInfo_Query) (*LnurlWithdrawInfoResponse, error)
 	GetLnurlWithdrawLink        func() (*LnurlLinkResponse, error)
+	GetManageAuthorizations     func() (*ManageAuthorizations, error)
 	GetMigrationUpdate          func() (*MigrationUpdate, error)
 	GetNPubLinkingState         func(req GetNPubLinking) (*NPubLinking, error)
 	GetPaymentState             func(req GetPaymentStateRequest) (*PaymentState, error)
@@ -391,6 +394,35 @@ func NewClient(params ClientParams) *Client {
 				return nil, fmt.Errorf(result.Reason)
 			}
 			res := DebitAuthorization{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
+		},
+		AuthorizeManage: func(req ManageAuthorizationRequest) (*ManageAuthorization, error) {
+			auth, err := params.RetrieveUserAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/user/manage/authorize"
+			body, err := json.Marshal(req)
+			if err != nil {
+				return nil, err
+			}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return nil, err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := ManageAuthorization{}
 			err = json.Unmarshal(resBody, &res)
 			if err != nil {
 				return nil, err
@@ -906,6 +938,7 @@ func NewClient(params ClientParams) *Client {
 			return &res, nil
 		},
 		// server streaming method: GetLiveDebitRequests not implemented
+		// server streaming method: GetLiveManageRequests not implemented
 		// server streaming method: GetLiveUserOperations not implemented
 		GetLndForwardingMetrics: func(req LndMetricsRequest) (*LndForwardingMetrics, error) {
 			auth, err := params.RetrieveMetricsAuth()
@@ -1063,6 +1096,28 @@ func NewClient(params ClientParams) *Client {
 				return nil, fmt.Errorf(result.Reason)
 			}
 			res := LnurlLinkResponse{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
+		},
+		GetManageAuthorizations: func() (*ManageAuthorizations, error) {
+			auth, err := params.RetrieveUserAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/user/manage/get"
+			resBody, err := doGetRequest(params.BaseURL+finalRoute, auth)
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := ManageAuthorizations{}
 			err = json.Unmarshal(resBody, &res)
 			if err != nil {
 				return nil, err

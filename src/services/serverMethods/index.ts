@@ -289,6 +289,7 @@ export default (mainHandler: Main): Types.ServerMethods => {
             await mainHandler.applicationManager.SetMockAppBalance(ctx.app_id, req)
         },
         GetLiveDebitRequests: async ({ ctx }) => { },
+        GetLiveManageRequests: async ({ ctx }) => { },
         GetLiveUserOperations: async ({ ctx, cb }) => {
         },
         GetMigrationUpdate: async ({ ctx, cb }) => {
@@ -354,6 +355,12 @@ export default (mainHandler: Main): Types.ServerMethods => {
         },
         GetDebitAuthorizations: async ({ ctx }) => {
             return mainHandler.debitManager.GetDebitAuthorizations(ctx)
+        },
+        AuthorizeManage: async ({ ctx, req }) => {
+            return mainHandler.managementManager.AuthorizeManage(ctx, req)
+        },
+        GetManageAuthorizations: async ({ ctx }) => {
+            return mainHandler.managementManager.GetManageAuthorizations(ctx)
         },
         BanDebit: async ({ ctx, req }) => {
             const err = Types.DebitOperationValidate(req, {
