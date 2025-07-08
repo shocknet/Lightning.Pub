@@ -30,6 +30,11 @@ export class ManagementManager {
 
     AuthorizeManage = async (ctx: Types.UserContext, req: Types.ManageAuthorizationRequest): Promise<Types.ManageAuthorization> => {
         const grant = await this.storage.managementStorage.addGrant(ctx.app_user_id, req.authorize_npub, req.ban)
+        const awaiting = this.awaitingRequests[req.authorize_npub]
+        if (awaiting) {
+            delete this.awaitingRequests[req.authorize_npub]
+            await this.handleRequest(awaiting.request, awaiting.event)
+        }
         return {
             manage_id: grant.serial_id.toString(),
             authorized: !grant.banned,
