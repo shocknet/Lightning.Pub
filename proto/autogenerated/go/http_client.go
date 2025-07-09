@@ -124,6 +124,7 @@ type Client struct {
 	PingSubProcesses            func() error
 	RequestNPubLinkingToken     func(req RequestNPubLinkingTokenRequest) (*RequestNPubLinkingTokenResponse, error)
 	ResetDebit                  func(req DebitOperation) error
+	ResetManage                 func(req ManageOperation) error
 	ResetMetricsStorages        func() error
 	ResetNPubLinkingToken       func(req RequestNPubLinkingTokenRequest) (*RequestNPubLinkingTokenResponse, error)
 	RespondToDebit              func(req DebitResponse) error
@@ -1895,6 +1896,30 @@ func NewClient(params ClientParams) *Client {
 				return err
 			}
 			finalRoute := "/api/user/debit/reset"
+			body, err := json.Marshal(req)
+			if err != nil {
+				return err
+			}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return err
+			}
+			if result.Status == "ERROR" {
+				return fmt.Errorf(result.Reason)
+			}
+			return nil
+		},
+		ResetManage: func(req ManageOperation) error {
+			auth, err := params.RetrieveUserAuth()
+			if err != nil {
+				return err
+			}
+			finalRoute := "/api/user/manage/reset"
 			body, err := json.Marshal(req)
 			if err != nil {
 				return err

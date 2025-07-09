@@ -35,8 +35,8 @@ export type UserContext = {
     app_user_id: string
     user_id: string
 }
-export type UserMethodInputs = AddProduct_Input | AddUserOffer_Input | AuthorizeDebit_Input | AuthorizeManage_Input | BanDebit_Input | DecodeInvoice_Input | DeleteUserOffer_Input | EditDebit_Input | EnrollAdminToken_Input | GetDebitAuthorizations_Input | GetHttpCreds_Input | GetLNURLChannelLink_Input | GetLnurlPayLink_Input | GetLnurlWithdrawLink_Input | GetManageAuthorizations_Input | GetPaymentState_Input | GetUserInfo_Input | GetUserOffer_Input | GetUserOfferInvoices_Input | GetUserOffers_Input | GetUserOperations_Input | NewAddress_Input | NewInvoice_Input | NewProductInvoice_Input | PayAddress_Input | PayInvoice_Input | ResetDebit_Input | RespondToDebit_Input | UpdateCallbackUrl_Input | UpdateUserOffer_Input | UserHealth_Input
-export type UserMethodOutputs = AddProduct_Output | AddUserOffer_Output | AuthorizeDebit_Output | AuthorizeManage_Output | BanDebit_Output | DecodeInvoice_Output | DeleteUserOffer_Output | EditDebit_Output | EnrollAdminToken_Output | GetDebitAuthorizations_Output | GetHttpCreds_Output | GetLNURLChannelLink_Output | GetLnurlPayLink_Output | GetLnurlWithdrawLink_Output | GetManageAuthorizations_Output | GetPaymentState_Output | GetUserInfo_Output | GetUserOffer_Output | GetUserOfferInvoices_Output | GetUserOffers_Output | GetUserOperations_Output | NewAddress_Output | NewInvoice_Output | NewProductInvoice_Output | PayAddress_Output | PayInvoice_Output | ResetDebit_Output | RespondToDebit_Output | UpdateCallbackUrl_Output | UpdateUserOffer_Output | UserHealth_Output
+export type UserMethodInputs = AddProduct_Input | AddUserOffer_Input | AuthorizeDebit_Input | AuthorizeManage_Input | BanDebit_Input | DecodeInvoice_Input | DeleteUserOffer_Input | EditDebit_Input | EnrollAdminToken_Input | GetDebitAuthorizations_Input | GetHttpCreds_Input | GetLNURLChannelLink_Input | GetLnurlPayLink_Input | GetLnurlWithdrawLink_Input | GetManageAuthorizations_Input | GetPaymentState_Input | GetUserInfo_Input | GetUserOffer_Input | GetUserOfferInvoices_Input | GetUserOffers_Input | GetUserOperations_Input | NewAddress_Input | NewInvoice_Input | NewProductInvoice_Input | PayAddress_Input | PayInvoice_Input | ResetDebit_Input | ResetManage_Input | RespondToDebit_Input | UpdateCallbackUrl_Input | UpdateUserOffer_Input | UserHealth_Input
+export type UserMethodOutputs = AddProduct_Output | AddUserOffer_Output | AuthorizeDebit_Output | AuthorizeManage_Output | BanDebit_Output | DecodeInvoice_Output | DeleteUserOffer_Output | EditDebit_Output | EnrollAdminToken_Output | GetDebitAuthorizations_Output | GetHttpCreds_Output | GetLNURLChannelLink_Output | GetLnurlPayLink_Output | GetLnurlWithdrawLink_Output | GetManageAuthorizations_Output | GetPaymentState_Output | GetUserInfo_Output | GetUserOffer_Output | GetUserOfferInvoices_Output | GetUserOffers_Output | GetUserOperations_Output | NewAddress_Output | NewInvoice_Output | NewProductInvoice_Output | PayAddress_Output | PayInvoice_Output | ResetDebit_Output | ResetManage_Output | RespondToDebit_Output | UpdateCallbackUrl_Output | UpdateUserOffer_Output | UserHealth_Output
 export type AuthContext = AdminContext | AppContext | GuestContext | GuestWithPubContext | MetricsContext | UserContext
 
 export type AddApp_Input = {rpcName:'AddApp', req: AddAppRequest}
@@ -271,6 +271,9 @@ export type RequestNPubLinkingToken_Output = ResultError | ({ status: 'OK' } & R
 export type ResetDebit_Input = {rpcName:'ResetDebit', req: DebitOperation}
 export type ResetDebit_Output = ResultError | { status: 'OK' }
 
+export type ResetManage_Input = {rpcName:'ResetManage', req: ManageOperation}
+export type ResetManage_Output = ResultError | { status: 'OK' }
+
 export type ResetMetricsStorages_Input = {rpcName:'ResetMetricsStorages'}
 export type ResetMetricsStorages_Output = ResultError | { status: 'OK' }
 
@@ -389,6 +392,7 @@ export type ServerMethods = {
     PingSubProcesses?: (req: PingSubProcesses_Input & {ctx: MetricsContext }) => Promise<void>
     RequestNPubLinkingToken?: (req: RequestNPubLinkingToken_Input & {ctx: AppContext }) => Promise<RequestNPubLinkingTokenResponse>
     ResetDebit?: (req: ResetDebit_Input & {ctx: UserContext }) => Promise<void>
+    ResetManage?: (req: ResetManage_Input & {ctx: UserContext }) => Promise<void>
     ResetMetricsStorages?: (req: ResetMetricsStorages_Input & {ctx: MetricsContext }) => Promise<void>
     ResetNPubLinkingToken?: (req: ResetNPubLinkingToken_Input & {ctx: AppContext }) => Promise<RequestNPubLinkingTokenResponse>
     RespondToDebit?: (req: RespondToDebit_Input & {ctx: UserContext }) => Promise<void>
@@ -2581,6 +2585,24 @@ export const ManageAuthorizationsValidate = (o?: ManageAuthorizations, opts: Man
         if (managesErr !== null) return managesErr
     }
     if (opts.manages_CustomCheck && !opts.manages_CustomCheck(o.manages)) return new Error(`${path}.manages: custom check failed`)
+
+    return null
+}
+
+export type ManageOperation = {
+    npub: string
+}
+export const ManageOperationOptionalFields: [] = []
+export type ManageOperationOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    npub_CustomCheck?: (v: string) => boolean
+}
+export const ManageOperationValidate = (o?: ManageOperation, opts: ManageOperationOptions = {}, path: string = 'ManageOperation::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.npub !== 'string') return new Error(`${path}.npub: is not a string`)
+    if (opts.npub_CustomCheck && !opts.npub_CustomCheck(o.npub)) return new Error(`${path}.npub: custom check failed`)
 
     return null
 }

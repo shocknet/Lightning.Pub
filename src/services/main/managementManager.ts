@@ -28,6 +28,10 @@ export class ManagementManager {
         this.nostrSend = f
     }
 
+    ResetManage = async (ctx: Types.UserContext, req: Types.ManageOperation): Promise<void> => {
+        await this.storage.managementStorage.removeGrant(ctx.app_user_id, req.npub)
+    }
+
     AuthorizeManage = async (ctx: Types.UserContext, req: Types.ManageAuthorizationRequest): Promise<Types.ManageAuthorization> => {
         const grant = await this.storage.managementStorage.addGrant(ctx.app_user_id, req.authorize_npub, req.ban)
         const awaiting = this.awaitingRequests[req.authorize_npub]

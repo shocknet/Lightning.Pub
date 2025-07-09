@@ -598,16 +598,22 @@ service LightningPub {
         option (http_route) = "/api/user/manage/get";
         option (nostr) = true;
     }
-    rpc AuthorizeDebit(structs.DebitAuthorizationRequest) returns (structs.DebitAuthorization){
-        option (auth_type)  = "User";
-        option (http_method) = "post";
-        option (http_route) = "/api/user/debit/authorize";
-        option (nostr) = true;
-    }
     rpc AuthorizeManage(structs.ManageAuthorizationRequest) returns (structs.ManageAuthorization){
         option (auth_type)  = "User";
         option (http_method) = "post";
         option (http_route) = "/api/user/manage/authorize";
+        option (nostr) = true;
+    }
+    rpc ResetManage(structs.ManageOperation) returns (structs.Empty){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/manage/reset";
+        option (nostr) = true;
+    }
+    rpc AuthorizeDebit(structs.DebitAuthorizationRequest) returns (structs.DebitAuthorization){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/debit/authorize";
         option (nostr) = true;
     }
     rpc EditDebit(structs.DebitAuthorizationRequest) returns (structs.Empty){

@@ -675,6 +675,10 @@ message DebitAuthorizationRequest {
     optional string request_id = 3;
 }
 
+message ManageOperation {
+    string npub = 1;
+}
+
 message ManageAuthorizationRequest {
     string authorize_npub = 1;
     optional string request_id = 2;

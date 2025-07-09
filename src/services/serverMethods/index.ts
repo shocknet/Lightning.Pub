@@ -362,6 +362,13 @@ export default (mainHandler: Main): Types.ServerMethods => {
         GetManageAuthorizations: async ({ ctx }) => {
             return mainHandler.managementManager.GetManageAuthorizations(ctx)
         },
+        ResetManage: async ({ ctx, req }) => {
+            const err = Types.ManageOperationValidate(req, {
+                npub_CustomCheck: pub => pub !== '',
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.managementManager.ResetManage(ctx, req)
+        },
         BanDebit: async ({ ctx, req }) => {
             const err = Types.DebitOperationValidate(req, {
                 npub_CustomCheck: pub => pub !== '',

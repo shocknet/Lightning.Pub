@@ -446,6 +446,9 @@ type ManageAuthorizationRequest struct {
 type ManageAuthorizations struct {
 	Manages []ManageAuthorization `json:"manages"`
 }
+type ManageOperation struct {
+	Npub string `json:"npub"`
+}
 type MetricsFile struct {
 }
 type MigrationUpdate struct {

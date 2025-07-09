@@ -920,6 +920,17 @@ export default (params: ClientParams) => ({
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
+    ResetManage: async (request: Types.ManageOperation): Promise<ResultError | ({ status: 'OK' })> => {
+        const auth = await params.retrieveUserAuth()
+        if (auth === null) throw new Error('retrieveUserAuth() returned null')
+        let finalRoute = '/api/user/manage/reset'
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            return data
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
     ResetMetricsStorages: async (): Promise<ResultError | ({ status: 'OK' })> => {
         const auth = await params.retrieveMetricsAuth()
         if (auth === null) throw new Error('retrieveMetricsAuth() returned null')

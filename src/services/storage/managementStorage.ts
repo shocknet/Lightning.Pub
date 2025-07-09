@@ -18,4 +18,8 @@ export class ManagementStorage {
     async getGrants(appUserId: string) {
         return this.dbs.Find<ManagementGrant>('ManagementGrant', { where: { app_user_id: appUserId } });
     }
+
+    async removeGrant(appUserId: string, appPubkey: string) {
+        return this.dbs.Delete<ManagementGrant>('ManagementGrant', { app_pubkey: appPubkey, app_user_id: appUserId });
+    }
 } 

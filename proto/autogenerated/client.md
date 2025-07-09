@@ -285,6 +285,11 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [DebitOperation](#DebitOperation)
   - This methods has an __empty__ __response__ body
 
+- ResetManage
+  - auth type: __User__
+  - input: [ManageOperation](#ManageOperation)
+  - This methods has an __empty__ __response__ body
+
 - ResetMetricsStorages
   - auth type: __Metrics__
   - This methods has an __empty__ __request__ body
@@ -876,6 +881,13 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [DebitOperation](#DebitOperation)
   - This methods has an __empty__ __response__ body
 
+- ResetManage
+  - auth type: __User__
+  - http method: __post__
+  - http route: __/api/user/manage/reset__
+  - input: [ManageOperation](#ManageOperation)
+  - This methods has an __empty__ __response__ body
+
 - ResetMetricsStorages
   - auth type: __Metrics__
   - http method: __post__
@@ -1342,6 +1354,9 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### ManageAuthorizations
   - __manages__: ARRAY of: _[ManageAuthorization](#ManageAuthorization)_
+
+### ManageOperation
+  - __npub__: _string_
 
 ### MetricsFile
 
