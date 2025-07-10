@@ -174,7 +174,7 @@ export class StorageInterface extends EventEmitter {
                     reject(new Error('Invalid storage response type'));
                     return
                 }
-                resolve(response.data);
+                resolve(this.reviveDateObjects(response.data));
             }
             this.once(op.opId, responseHandler)
             this.process.send(this.serializeOperation(op))
@@ -196,6 +196,26 @@ export class StorageInterface extends EventEmitter {
         if (!this.isConnected) {
             throw new Error('Storage processor is not connected');
         }
+    }
+
+    private reviveDateObjects<T>(childResponse: T): T {
+        const isoDateRegex =
+            /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/;
+
+        function revive(value: any): any {
+            if (typeof value === 'string' && isoDateRegex.test(value)) {
+                return new Date(value);
+            } else if (Array.isArray(value)) {
+                return value.map(revive);
+            } else if (value && typeof value === 'object') {
+                for (const key in value) {
+                    value[key] = revive(value[key]);
+                }
+            }
+            return value;
+        }
+
+        return revive(childResponse);
     }
 
     public disconnect() {
