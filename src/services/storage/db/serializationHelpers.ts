@@ -85,3 +85,48 @@ export function deserializeRequest<T>(r: object): T {
     }
     return result;
 }
+
+export function serializeResponseData<T>(r: T) {
+    // flag Date objects
+    function replaceDates(val: any): any {
+        if (val instanceof Date) {
+            return { __type: 'Date', value: val.toISOString() };
+        } else if (Array.isArray(val)) {
+            return val.map(replaceDates);
+        } else if (val && typeof val === 'object') {
+            const result: any = {};
+            for (const key in val) {
+                result[key] = replaceDates(val[key]);
+            }
+            return result;
+        }
+        return val;
+    }
+
+    return replaceDates(r);
+}
+
+export function deserializeResponseData<T>(r: T) {
+
+    // reconstruct flagged Date objects
+    function reviveFlaggedDates(value: any): any {
+        if (
+            value &&
+            typeof value === 'object' &&
+            value.__type === 'Date' &&
+            typeof value.value === 'string'
+        ) {
+            return new Date(value.value);
+        } else if (Array.isArray(value)) {
+            return value.map(reviveFlaggedDates);
+        } else if (value && typeof value === 'object') {
+            for (const key in value) {
+                value[key] = reviveFlaggedDates(value[key]);
+            }
+        }
+        return value;
+    }
+
+    return reviveFlaggedDates(r);
+}
+

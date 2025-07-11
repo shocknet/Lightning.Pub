@@ -15,7 +15,7 @@ import {
     PingOperation,
 } from './storageProcessor.js';
 import { PickKeysByType } from 'typeorm/common/PickKeysByType.js';
-import { serializeRequest, WhereCondition } from './serializationHelpers.js';
+import { deserializeResponseData, serializeRequest, WhereCondition } from './serializationHelpers.js';
 import { Utils } from '../../helpers/utilsWrapper.js';
 import { ProcessMetrics } from '../tlv/processMetricsCollector.js';
 
@@ -174,7 +174,7 @@ export class StorageInterface extends EventEmitter {
                     reject(new Error('Invalid storage response type'));
                     return
                 }
-                resolve(response.data);
+               resolve(deserializeResponseData(response.data));
             }
             this.once(op.opId, responseHandler)
             this.process.send(this.serializeOperation(op))
