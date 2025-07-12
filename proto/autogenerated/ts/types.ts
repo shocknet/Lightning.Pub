@@ -413,13 +413,6 @@ export const enumCheckIntervalType = (e?: IntervalType): boolean => {
     for (const v in IntervalType) if (e === v) return true
     return false
 }
-export enum OfferDataType {
-    DATA_STRING = 'DATA_STRING',
-}
-export const enumCheckOfferDataType = (e?: OfferDataType): boolean => {
-    for (const v in OfferDataType) if (e === v) return true
-    return false
-}
 export enum OperationType {
     CHAIN_OP = 'CHAIN_OP',
     INVOICE_OP = 'INVOICE_OP',
@@ -512,9 +505,11 @@ export type AddAppUserInvoiceRequest = {
     payer_data?: PayerData
     payer_identifier: string
     receiver_identifier: string
+    rejectUnauthorized?: boolean
+    token?: string
 }
-export type AddAppUserInvoiceRequestOptionalField = 'offer_string' | 'payer_data'
-export const AddAppUserInvoiceRequestOptionalFields: AddAppUserInvoiceRequestOptionalField[] = ['offer_string', 'payer_data']
+export type AddAppUserInvoiceRequestOptionalField = 'offer_string' | 'payer_data' | 'rejectUnauthorized' | 'token'
+export const AddAppUserInvoiceRequestOptionalFields: AddAppUserInvoiceRequestOptionalField[] = ['offer_string', 'payer_data', 'rejectUnauthorized', 'token']
 export type AddAppUserInvoiceRequestOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: AddAppUserInvoiceRequestOptionalField[]
     http_callback_url_CustomCheck?: (v: string) => boolean
@@ -523,6 +518,8 @@ export type AddAppUserInvoiceRequestOptions = OptionsBaseMessage & {
     payer_data_Options?: PayerDataOptions
     payer_identifier_CustomCheck?: (v: string) => boolean
     receiver_identifier_CustomCheck?: (v: string) => boolean
+    rejectUnauthorized_CustomCheck?: (v?: boolean) => boolean
+    token_CustomCheck?: (v?: string) => boolean
 }
 export const AddAppUserInvoiceRequestValidate = (o?: AddAppUserInvoiceRequest, opts: AddAppUserInvoiceRequestOptions = {}, path: string = 'AddAppUserInvoiceRequest::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
@@ -549,6 +546,12 @@ export const AddAppUserInvoiceRequestValidate = (o?: AddAppUserInvoiceRequest, o
 
     if (typeof o.receiver_identifier !== 'string') return new Error(`${path}.receiver_identifier: is not a string`)
     if (opts.receiver_identifier_CustomCheck && !opts.receiver_identifier_CustomCheck(o.receiver_identifier)) return new Error(`${path}.receiver_identifier: custom check failed`)
+
+    if ((o.rejectUnauthorized || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('rejectUnauthorized')) && typeof o.rejectUnauthorized !== 'boolean') return new Error(`${path}.rejectUnauthorized: is not a boolean`)
+    if (opts.rejectUnauthorized_CustomCheck && !opts.rejectUnauthorized_CustomCheck(o.rejectUnauthorized)) return new Error(`${path}.rejectUnauthorized: custom check failed`)
+
+    if ((o.token || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('token')) && typeof o.token !== 'string') return new Error(`${path}.token: is not a string`)
+    if (opts.token_CustomCheck && !opts.token_CustomCheck(o.token)) return new Error(`${path}.token: custom check failed`)
 
     return null
 }
@@ -2617,23 +2620,31 @@ export const NewInvoiceResponseValidate = (o?: NewInvoiceResponse, opts: NewInvo
 
 export type OfferConfig = {
     callback_url: string
+    createdAtUnix: number
     default_offer: boolean
-    expected_data: Record<string, OfferDataType>
     label: string
     noffer: string
     offer_id: string
+    payer_data: string[]
     price_sats: number
+    rejectUnauthorized: boolean
+    token: string
+    updatedAtUnix: number
 }
 export const OfferConfigOptionalFields: [] = []
 export type OfferConfigOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
     callback_url_CustomCheck?: (v: string) => boolean
+    createdAtUnix_CustomCheck?: (v: number) => boolean
     default_offer_CustomCheck?: (v: boolean) => boolean
-    expected_data_CustomCheck?: (v: Record<string, OfferDataType>) => boolean
     label_CustomCheck?: (v: string) => boolean
     noffer_CustomCheck?: (v: string) => boolean
     offer_id_CustomCheck?: (v: string) => boolean
+    payer_data_CustomCheck?: (v: string[]) => boolean
     price_sats_CustomCheck?: (v: number) => boolean
+    rejectUnauthorized_CustomCheck?: (v: boolean) => boolean
+    token_CustomCheck?: (v: string) => boolean
+    updatedAtUnix_CustomCheck?: (v: number) => boolean
 }
 export const OfferConfigValidate = (o?: OfferConfig, opts: OfferConfigOptions = {}, path: string = 'OfferConfig::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
@@ -2642,13 +2653,11 @@ export const OfferConfigValidate = (o?: OfferConfig, opts: OfferConfigOptions = 
     if (typeof o.callback_url !== 'string') return new Error(`${path}.callback_url: is not a string`)
     if (opts.callback_url_CustomCheck && !opts.callback_url_CustomCheck(o.callback_url)) return new Error(`${path}.callback_url: custom check failed`)
 
+    if (typeof o.createdAtUnix !== 'number') return new Error(`${path}.createdAtUnix: is not a number`)
+    if (opts.createdAtUnix_CustomCheck && !opts.createdAtUnix_CustomCheck(o.createdAtUnix)) return new Error(`${path}.createdAtUnix: custom check failed`)
+
     if (typeof o.default_offer !== 'boolean') return new Error(`${path}.default_offer: is not a boolean`)
     if (opts.default_offer_CustomCheck && !opts.default_offer_CustomCheck(o.default_offer)) return new Error(`${path}.default_offer: custom check failed`)
-
-    if (typeof o.expected_data !== 'object' || o.expected_data === null) return new Error(`${path}.expected_data: is not an object or is null`)
-    for (const key in o.expected_data) {
-        if (!enumCheckOfferDataType(o.expected_data[key])) return new Error(`${path}.expected_data['${key}']: is not a OfferDataType`)
-    }
 
     if (typeof o.label !== 'string') return new Error(`${path}.label: is not a string`)
     if (opts.label_CustomCheck && !opts.label_CustomCheck(o.label)) return new Error(`${path}.label: custom check failed`)
@@ -2659,8 +2668,23 @@ export const OfferConfigValidate = (o?: OfferConfig, opts: OfferConfigOptions = 
     if (typeof o.offer_id !== 'string') return new Error(`${path}.offer_id: is not a string`)
     if (opts.offer_id_CustomCheck && !opts.offer_id_CustomCheck(o.offer_id)) return new Error(`${path}.offer_id: custom check failed`)
 
+    if (!Array.isArray(o.payer_data)) return new Error(`${path}.payer_data: is not an array`)
+    for (let index = 0; index < o.payer_data.length; index++) {
+        if (typeof o.payer_data[index] !== 'string') return new Error(`${path}.payer_data[${index}]: is not a string`)
+    }
+    if (opts.payer_data_CustomCheck && !opts.payer_data_CustomCheck(o.payer_data)) return new Error(`${path}.payer_data: custom check failed`)
+
     if (typeof o.price_sats !== 'number') return new Error(`${path}.price_sats: is not a number`)
     if (opts.price_sats_CustomCheck && !opts.price_sats_CustomCheck(o.price_sats)) return new Error(`${path}.price_sats: custom check failed`)
+
+    if (typeof o.rejectUnauthorized !== 'boolean') return new Error(`${path}.rejectUnauthorized: is not a boolean`)
+    if (opts.rejectUnauthorized_CustomCheck && !opts.rejectUnauthorized_CustomCheck(o.rejectUnauthorized)) return new Error(`${path}.rejectUnauthorized: custom check failed`)
+
+    if (typeof o.token !== 'string') return new Error(`${path}.token: is not a string`)
+    if (opts.token_CustomCheck && !opts.token_CustomCheck(o.token)) return new Error(`${path}.token: custom check failed`)
+
+    if (typeof o.updatedAtUnix !== 'number') return new Error(`${path}.updatedAtUnix: is not a number`)
+    if (opts.updatedAtUnix_CustomCheck && !opts.updatedAtUnix_CustomCheck(o.updatedAtUnix)) return new Error(`${path}.updatedAtUnix: custom check failed`)
 
     return null
 }

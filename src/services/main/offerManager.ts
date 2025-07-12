@@ -12,15 +12,6 @@ import { LiquidityManager } from "./liquidityManager.js"
 import { NofferData, OfferPriceType, nofferEncode } from '@shocknet/clink-sdk';
 
 const mapToOfferConfig = (appUserId: string, offer: UserOffer, { pubkey, relay }: { pubkey: string, relay: string }): Types.OfferConfig => {
-    if (offer.expected_data) {
-        const keys = Object.keys(offer.expected_data)
-        for (const key of keys) {
-            const v = offer.expected_data[key] as Types.OfferDataType
-            if (!Types.OfferDataType[v]) {
-                offer.expected_data[key] = Types.OfferDataType.DATA_STRING
-            }
-        }
-    }
     const offerStr = offer.offer_id
     const priceType: OfferPriceType = offer.price_sats === 0 ? OfferPriceType.Spontaneous : OfferPriceType.Fixed
     const noffer = nofferEncode({ pubkey, offer: offerStr, priceType, relay, price: offer.price_sats || undefined })
@@ -28,10 +19,14 @@ const mapToOfferConfig = (appUserId: string, offer: UserOffer, { pubkey, relay }
         label: offer.label,
         price_sats: offer.price_sats,
         callback_url: offer.callback_url,
-        expected_data: (offer.expected_data || {}) as Record<string, Types.OfferDataType>,
+        payer_data: offer.payer_data || [],
         offer_id: offer.offer_id,
         noffer: noffer,
-        default_offer: appUserId === offer.app_user_id
+        default_offer: appUserId === offer.app_user_id,
+        createdAtUnix: offer.created_at.getTime(),
+        updatedAtUnix: offer.updated_at.getTime(),
+        token: offer.bearer_token,
+        rejectUnauthorized: offer.rejectUnauthorized
     }
 }
 export class OfferManager {
@@ -65,7 +60,7 @@ export class OfferManager {
 
     async AddUserOffer(ctx: Types.UserContext, req: Types.OfferConfig): Promise<Types.OfferId> {
         const newOffer = await this.storage.offerStorage.AddUserOffer(ctx.app_user_id, {
-            expected_data: req.expected_data,
+            payer_data: req.payer_data,
             label: req.label,
             price_sats: req.price_sats,
             callback_url: req.callback_url,
@@ -81,7 +76,7 @@ export class OfferManager {
 
     async UpdateUserOffer(ctx: Types.UserContext, req: Types.OfferConfig) {
         await this.storage.offerStorage.UpdateUserOffer(ctx.app_user_id, req.offer_id, {
-            expected_data: req.expected_data,
+            payer_data: req.payer_data,
             label: req.label,
             price_sats: req.price_sats,
             callback_url: req.callback_url,
@@ -138,17 +133,15 @@ export class OfferManager {
     }
 
     ValidateExpectedData(userOffer: UserOffer, payerData: any): { passed: false, validated: undefined } | { passed: true, validated: Record<string, string> } {
-        const expected = userOffer.expected_data
-        if (!expected) {
+        const expectedKeys = userOffer.payer_data
+        if (!expectedKeys || expectedKeys.length === 0) {
             return { passed: true, validated: {} }
         }
-        const expectedKeys = Object.keys(expected)
-        if (expectedKeys.length === 0) {
-            return { passed: true, validated: {} }
-        }
+
         if (typeof payerData !== 'object' || payerData === null) {
             return { passed: false, validated: undefined }
         }
+
         const validated: Record<string, string> = {}
         for (const key of expectedKeys) {
             if (typeof payerData[key] !== 'string') {
@@ -192,11 +185,11 @@ export class OfferManager {
             return this.HandleDefaultUserOffer(offerReq, appId, remote)
         }
         if (userOffer.app_user_id === userOffer.offer_id) {
-            if (userOffer.price_sats !== 0 || userOffer.expected_data) {
+            if (userOffer.price_sats !== 0 || userOffer.payer_data) {
                 this.logger("default offer has custom price or expected data, resetting")
-                await this.storage.offerStorage.UpdateUserOffer(userOffer.app_user_id, userOffer.offer_id, { price_sats: 0, expected_data: null })
+                await this.storage.offerStorage.UpdateUserOffer(userOffer.app_user_id, userOffer.offer_id, { price_sats: 0, payer_data: null })
                 userOffer.price_sats = 0
-                userOffer.expected_data = null
+                userOffer.payer_data = null
             }
         }
         let amt = userOffer.price_sats
@@ -215,7 +208,9 @@ export class OfferManager {
             http_callback_url: userOffer.callback_url, payer_identifier: userOffer.app_user_id, receiver_identifier: userOffer.app_user_id,
             invoice_req: { amountSats: amt, memo: userOffer.label, zap: offerReq.zap },
             payer_data: validated ? { data: validated } : undefined,
-            offer_string: offer
+            offer_string: offer,
+            rejectUnauthorized: userOffer.rejectUnauthorized,
+            token: userOffer.bearer_token
         })
         return { success: true, invoice: res.invoice }
     }

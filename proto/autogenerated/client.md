@@ -973,6 +973,8 @@ The nostr server will send back a message response, and inside the body there wi
   - __payer_data__: _[PayerData](#PayerData)_ *this field is optional
   - __payer_identifier__: _string_
   - __receiver_identifier__: _string_
+  - __rejectUnauthorized__: _boolean_ *this field is optional
+  - __token__: _string_ *this field is optional
 
 ### AddAppUserRequest
   - __balance__: _number_
@@ -1315,12 +1317,16 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### OfferConfig
   - __callback_url__: _string_
+  - __createdAtUnix__: _number_
   - __default_offer__: _boolean_
-  - __expected_data__: MAP with key: _string_ and value: _[OfferDataType](#OfferDataType)_
   - __label__: _string_
   - __noffer__: _string_
   - __offer_id__: _string_
+  - __payer_data__: ARRAY of: _string_
   - __price_sats__: _number_
+  - __rejectUnauthorized__: _boolean_
+  - __token__: _string_
+  - __updatedAtUnix__: _number_
 
 ### OfferId
   - __offer_id__: _string_
@@ -1561,9 +1567,6 @@ The nostr server will send back a message response, and inside the body there wi
   - __DAY__
   - __MONTH__
   - __WEEK__
-
-### OfferDataType
-  - __DATA_STRING__
 
 ### OperationType
   - __CHAIN_OP__

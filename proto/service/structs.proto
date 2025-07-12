@@ -377,6 +377,9 @@ message AddAppUserInvoiceRequest {
     NewInvoiceRequest invoice_req = 4;
     optional PayerData payer_data = 5;
     optional string offer_string = 6;
+    optional bool rejectUnauthorized = 7;
+    optional string token = 8;
+
 }
 
 message GetAppUserRequest {
@@ -727,9 +730,6 @@ message DebitResponse {
     }
 }
 
-enum OfferDataType {
-    DATA_STRING = 0;
-}
 
 message OfferId {
     string offer_id = 1;
@@ -740,9 +740,13 @@ message OfferConfig {
     string label = 2;
     int64 price_sats = 3;
     string callback_url = 4;
-    map<string, OfferDataType> expected_data = 5;
+    repeated string payer_data = 5;
     string noffer = 6;
     bool default_offer = 7;
+    string token = 8;
+    bool rejectUnauthorized = 9;
+    int64 createdAtUnix = 10;
+    int64 updatedAtUnix = 11;
 }
 
 message UserOffers {
