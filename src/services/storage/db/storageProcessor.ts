@@ -4,7 +4,7 @@ import { PubLogger, getLogger } from '../../helpers/logger.js';
 import { allMetricsMigrations, allMigrations } from '../migrations/runner.js';
 import transactionsQueue from './transactionsQueue.js';
 import { PickKeysByType } from 'typeorm/common/PickKeysByType';
-import { deserializeRequest, WhereCondition } from './serializationHelpers.js';
+import { deserializeRequest, serializeResponseData, WhereCondition } from './serializationHelpers.js';
 import { ProcessMetricsCollector } from '../tlv/processMetricsCollector.js';
 
 export type DBNames = MainDbNames | MetricsDbNames
@@ -510,9 +510,15 @@ class StorageProcessor {
     }
 
     private sendResponse(response: OperationResponse<any>) {
+        let finalResponse = response
+        if (finalResponse.success && finalResponse.data) {
+            const datesFlaggedData = serializeResponseData(finalResponse.data)
+            finalResponse = { ...finalResponse, data: datesFlaggedData }
+        }
+
         try {
             if (process.send) {
-                process.send(response, undefined, undefined, err => {
+                process.send(finalResponse, undefined, undefined, err => {
                     if (err) {
                         console.error("failed to send response to main process from storage processor, killing sub process")
                         process.exit(1)
