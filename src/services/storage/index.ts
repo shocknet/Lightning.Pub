@@ -10,6 +10,7 @@ import EventsLogManager from "./eventsLog.js";
 import { LiquidityStorage } from "./liquidityStorage.js";
 import DebitStorage from "./debitStorage.js"
 import OfferStorage from "./offerStorage.js"
+import { ManagementStorage } from "./managementStorage.js";
 import { StorageInterface, TX } from "./db/storageInterface.js";
 import { PubLogger } from "../helpers/logger.js"
 import { TlvStorageFactory } from './tlv/tlvFilesStorageFactory.js';
@@ -36,6 +37,7 @@ export default class {
     liquidityStorage: LiquidityStorage
     debitStorage: DebitStorage
     offerStorage: OfferStorage
+    managementStorage: ManagementStorage
     eventsLog: EventsLogManager
     utils: Utils
     constructor(settings: StorageSettings, utils: Utils) {
@@ -58,6 +60,7 @@ export default class {
         this.liquidityStorage = new LiquidityStorage(this.dbs)
         this.debitStorage = new DebitStorage(this.dbs)
         this.offerStorage = new OfferStorage(this.dbs)
+        this.managementStorage = new ManagementStorage(this.dbs);
         try { if (this.settings.dataDir) fs.mkdirSync(this.settings.dataDir) } catch (e) { }
         /* const executedMetricsMigrations = */ await this.metricsStorage.Connect()
         /*         if (executedMigrations.length > 0) {

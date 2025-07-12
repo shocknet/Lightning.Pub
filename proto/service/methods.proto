@@ -592,6 +592,24 @@ service LightningPub {
         option (http_route) = "/api/user/debit/get";
         option (nostr) = true;
     }
+    rpc GetManageAuthorizations(structs.Empty) returns (structs.ManageAuthorizations){
+        option (auth_type)  = "User";
+        option (http_method) = "get";
+        option (http_route) = "/api/user/manage/get";
+        option (nostr) = true;
+    }
+    rpc AuthorizeManage(structs.ManageAuthorizationRequest) returns (structs.ManageAuthorization){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/manage/authorize";
+        option (nostr) = true;
+    }
+    rpc ResetManage(structs.ManageOperation) returns (structs.Empty){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/manage/reset";
+        option (nostr) = true;
+    }
     rpc AuthorizeDebit(structs.DebitAuthorizationRequest) returns (structs.DebitAuthorization){
         option (auth_type)  = "User";
         option (http_method) = "post";
@@ -628,6 +646,14 @@ service LightningPub {
         option (http_route) = "/api/user/debit/sub";
         option (nostr) = true;
     }
+
+    rpc GetLiveManageRequests(structs.Empty) returns (stream structs.LiveManageRequest){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/manage/sub";
+        option (nostr) = true;
+    }
+
     rpc GetLiveUserOperations(structs.Empty) returns (stream structs.LiveUserOperation){
         option (auth_type)  = "User";
         option (http_method) = "post";

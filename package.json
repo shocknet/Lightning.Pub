@@ -31,7 +31,7 @@
     "@protobuf-ts/grpc-transport": "^2.9.4",
     "@protobuf-ts/plugin": "^2.5.0",
     "@protobuf-ts/runtime": "^2.5.0",
-    "@shocknet/clink-sdk": "^1.0.4",
+    "@shocknet/clink-sdk": "^1.1.7",
     "@stablelib/xchacha20": "^1.0.1",
     "@types/express": "^4.17.21",
     "@types/node": "^17.0.31",

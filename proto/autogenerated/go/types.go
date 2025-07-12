@@ -355,6 +355,10 @@ type LiveDebitRequest struct {
 	Npub       string                  `json:"npub"`
 	Request_id string                  `json:"request_id"`
 }
+type LiveManageRequest struct {
+	Npub       string `json:"npub"`
+	Request_id string `json:"request_id"`
+}
 type LiveUserOperation struct {
 	Operation *UserOperation `json:"operation"`
 }
@@ -428,6 +432,22 @@ type LnurlWithdrawInfoResponse struct {
 	Minwithdrawable    int64  `json:"minWithdrawable"`
 	Paylink            string `json:"payLink"`
 	Tag                string `json:"tag"`
+}
+type ManageAuthorization struct {
+	Authorized bool   `json:"authorized"`
+	Manage_id  string `json:"manage_id"`
+	Npub       string `json:"npub"`
+}
+type ManageAuthorizationRequest struct {
+	Authorize_npub string `json:"authorize_npub"`
+	Ban            bool   `json:"ban"`
+	Request_id     string `json:"request_id"`
+}
+type ManageAuthorizations struct {
+	Manages []ManageAuthorization `json:"manages"`
+}
+type ManageOperation struct {
+	Npub string `json:"npub"`
 }
 type MetricsFile struct {
 }
@@ -643,6 +663,7 @@ type UserInfo struct {
 	Ndebit                string `json:"ndebit"`
 	Network_max_fee_bps   int64  `json:"network_max_fee_bps"`
 	Network_max_fee_fixed int64  `json:"network_max_fee_fixed"`
+	Nmanage               string `json:"nmanage"`
 	Noffer                string `json:"noffer"`
 	Service_fee_bps       int64  `json:"service_fee_bps"`
 	Userid                string `json:"userId"`

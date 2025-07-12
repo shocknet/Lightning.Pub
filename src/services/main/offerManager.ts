@@ -7,9 +7,9 @@ import { ERROR, getLogger } from "../helpers/logger.js";
 import { NostrEvent, NostrSend, SendData, SendInitiator } from '../nostr/handler.js';
 import { UnsignedEvent } from 'nostr-tools';
 import { UserOffer } from '../storage/entity/UserOffer.js';
-import { LoadNosrtSettingsFromEnv } from '../nostr/index.js';
 import { LiquidityManager } from "./liquidityManager.js"
 import { NofferData, OfferPriceType, nofferEncode } from '@shocknet/clink-sdk';
+import { MainSettings } from "./settings.js";
 
 const mapToOfferConfig = (appUserId: string, offer: UserOffer, { pubkey, relay }: { pubkey: string, relay: string }): Types.OfferConfig => {
     if (offer.expected_data) {
@@ -38,15 +38,16 @@ export class OfferManager {
 
 
     _nostrSend: NostrSend | null = null
-
+    settings: MainSettings
     applicationManager: ApplicationManager
     productManager: ProductManager
     storage: Storage
     lnd: LND
     liquidityManager: LiquidityManager
     logger = getLogger({ component: 'DebitManager' })
-    constructor(storage: Storage, lnd: LND, applicationManager: ApplicationManager, productManager: ProductManager, liquidityManager: LiquidityManager) {
+    constructor(storage: Storage, settings: MainSettings, lnd: LND, applicationManager: ApplicationManager, productManager: ProductManager, liquidityManager: LiquidityManager) {
         this.storage = storage
+        this.settings = settings
         this.lnd = lnd
         this.applicationManager = applicationManager
         this.productManager = productManager
@@ -113,7 +114,7 @@ export class OfferManager {
         if (!offer) {
             throw new Error("Offer not found")
         }
-        const nostrSettings = LoadNosrtSettingsFromEnv()
+        const nostrSettings = this.settings.nostrRelaySettings
         return mapToOfferConfig(ctx.app_user_id, offer, { pubkey: app.npub, relay: nostrSettings.relays[0] })
     }
 
@@ -131,7 +132,7 @@ export class OfferManager {
         if (toAppend) {
             offers.push(toAppend)
         }
-        const nostrSettings = LoadNosrtSettingsFromEnv()
+        const nostrSettings = this.settings.nostrRelaySettings
         return {
             offers: offers.map(o => mapToOfferConfig(ctx.app_user_id, o, { pubkey: app.npub, relay: nostrSettings.relays[0] }))
         }

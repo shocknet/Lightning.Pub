@@ -529,6 +529,7 @@ message UserInfo{
     string ndebit = 9;
     string callback_url = 10;
     string bridge_url = 11;
+    string nmanage = 12;
 }
 message GetUserOperationsRequest{
     int64 latestIncomingInvoice = 1;
@@ -674,6 +675,26 @@ message DebitAuthorizationRequest {
     optional string request_id = 3;
 }
 
+message ManageOperation {
+    string npub = 1;
+}
+
+message ManageAuthorizationRequest {
+    string authorize_npub = 1;
+    optional string request_id = 2;
+    bool ban = 3;
+}
+
+message ManageAuthorization {
+    string manage_id = 1;
+    bool authorized = 2;
+    string npub = 3;
+}
+
+message ManageAuthorizations {
+    repeated ManageAuthorization manages = 1;
+}
+
 message DebitAuthorization {
     string debit_id = 1;
     bool authorized = 2;
@@ -716,6 +737,11 @@ message LiveDebitRequest {
         FrequencyRule frequency = 4;
         Empty full_access = 5;
     }
+}
+
+message LiveManageRequest {
+    string request_id = 1;
+    string npub = 2;
 }
 
 message DebitResponse {

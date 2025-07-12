@@ -43,6 +43,11 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [DebitAuthorizationRequest](#DebitAuthorizationRequest)
   - output: [DebitAuthorization](#DebitAuthorization)
 
+- AuthorizeManage
+  - auth type: __User__
+  - input: [ManageAuthorizationRequest](#ManageAuthorizationRequest)
+  - output: [ManageAuthorization](#ManageAuthorization)
+
 - BanDebit
   - auth type: __User__
   - input: [DebitOperation](#DebitOperation)
@@ -128,6 +133,11 @@ The nostr server will send back a message response, and inside the body there wi
   - This methods has an __empty__ __request__ body
   - output: [LiveDebitRequest](#LiveDebitRequest)
 
+- GetLiveManageRequests
+  - auth type: __User__
+  - This methods has an __empty__ __request__ body
+  - output: [LiveManageRequest](#LiveManageRequest)
+
 - GetLiveUserOperations
   - auth type: __User__
   - This methods has an __empty__ __request__ body
@@ -152,6 +162,11 @@ The nostr server will send back a message response, and inside the body there wi
   - auth type: __User__
   - This methods has an __empty__ __request__ body
   - output: [LnurlLinkResponse](#LnurlLinkResponse)
+
+- GetManageAuthorizations
+  - auth type: __User__
+  - This methods has an __empty__ __request__ body
+  - output: [ManageAuthorizations](#ManageAuthorizations)
 
 - GetMigrationUpdate
   - auth type: __User__
@@ -268,6 +283,11 @@ The nostr server will send back a message response, and inside the body there wi
 - ResetDebit
   - auth type: __User__
   - input: [DebitOperation](#DebitOperation)
+  - This methods has an __empty__ __response__ body
+
+- ResetManage
+  - auth type: __User__
+  - input: [ManageOperation](#ManageOperation)
   - This methods has an __empty__ __response__ body
 
 - ResetMetricsStorages
@@ -418,6 +438,13 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [DebitAuthorizationRequest](#DebitAuthorizationRequest)
   - output: [DebitAuthorization](#DebitAuthorization)
 
+- AuthorizeManage
+  - auth type: __User__
+  - http method: __post__
+  - http route: __/api/user/manage/authorize__
+  - input: [ManageAuthorizationRequest](#ManageAuthorizationRequest)
+  - output: [ManageAuthorization](#ManageAuthorization)
+
 - BanDebit
   - auth type: __User__
   - http method: __post__
@@ -565,6 +592,13 @@ The nostr server will send back a message response, and inside the body there wi
   - This methods has an __empty__ __request__ body
   - output: [LiveDebitRequest](#LiveDebitRequest)
 
+- GetLiveManageRequests
+  - auth type: __User__
+  - http method: __post__
+  - http route: __/api/user/manage/sub__
+  - This methods has an __empty__ __request__ body
+  - output: [LiveManageRequest](#LiveManageRequest)
+
 - GetLiveUserOperations
   - auth type: __User__
   - http method: __post__
@@ -617,6 +651,13 @@ The nostr server will send back a message response, and inside the body there wi
   - http route: __/api/user/lnurl_withdraw/link__
   - This methods has an __empty__ __request__ body
   - output: [LnurlLinkResponse](#LnurlLinkResponse)
+
+- GetManageAuthorizations
+  - auth type: __User__
+  - http method: __get__
+  - http route: __/api/user/manage/get__
+  - This methods has an __empty__ __request__ body
+  - output: [ManageAuthorizations](#ManageAuthorizations)
 
 - GetMigrationUpdate
   - auth type: __User__
@@ -838,6 +879,13 @@ The nostr server will send back a message response, and inside the body there wi
   - http method: __post__
   - http route: __/api/user/debit/reset__
   - input: [DebitOperation](#DebitOperation)
+  - This methods has an __empty__ __response__ body
+
+- ResetManage
+  - auth type: __User__
+  - http method: __post__
+  - http route: __/api/user/manage/reset__
+  - input: [ManageOperation](#ManageOperation)
   - This methods has an __empty__ __response__ body
 
 - ResetMetricsStorages
@@ -1216,6 +1264,10 @@ The nostr server will send back a message response, and inside the body there wi
   - __npub__: _string_
   - __request_id__: _string_
 
+### LiveManageRequest
+  - __npub__: _string_
+  - __request_id__: _string_
+
 ### LiveUserOperation
   - __operation__: _[UserOperation](#UserOperation)_
 
@@ -1289,6 +1341,22 @@ The nostr server will send back a message response, and inside the body there wi
   - __minWithdrawable__: _number_
   - __payLink__: _string_
   - __tag__: _string_
+
+### ManageAuthorization
+  - __authorized__: _boolean_
+  - __manage_id__: _string_
+  - __npub__: _string_
+
+### ManageAuthorizationRequest
+  - __authorize_npub__: _string_
+  - __ban__: _boolean_
+  - __request_id__: _string_ *this field is optional
+
+### ManageAuthorizations
+  - __manages__: ARRAY of: _[ManageAuthorization](#ManageAuthorization)_
+
+### ManageOperation
+  - __npub__: _string_
 
 ### MetricsFile
 
@@ -1504,6 +1572,7 @@ The nostr server will send back a message response, and inside the body there wi
   - __ndebit__: _string_
   - __network_max_fee_bps__: _number_
   - __network_max_fee_fixed__: _number_
+  - __nmanage__: _string_
   - __noffer__: _string_
   - __service_fee_bps__: _number_
   - __userId__: _string_

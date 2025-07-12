@@ -13,6 +13,9 @@ export class UserOffer {
     @Column({ unique: true, nullable: false })
     offer_id: string
 
+    @Column({ default: "" })
+    management_pubkey: string
+
     @Column()
     label: string
 

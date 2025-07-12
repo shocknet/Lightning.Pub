@@ -8,9 +8,8 @@ import { ApplicationUser } from '../storage/entity/ApplicationUser.js'
 import { PubLogger, getLogger } from '../helpers/logger.js'
 import crypto from 'crypto'
 import { Application } from '../storage/entity/Application.js'
-import { LoadNosrtSettingsFromEnv } from '../nostr/index.js'
 import { ZapInfo } from '../storage/entity/UserReceivingInvoice.js'
-import { nofferEncode, ndebitEncode, OfferPriceType } from '@shocknet/clink-sdk'
+import { nofferEncode, ndebitEncode, OfferPriceType, nmanageEncode } from '@shocknet/clink-sdk'
 const TOKEN_EXPIRY_TIME = 2 * 60 * 1000 // 2 minutes, in milliseconds
 
 type NsecLinkingData = {
@@ -151,7 +150,7 @@ export default class {
             u = user
             if (created) log(u.identifier, u.user.user_id, "user created")
         }
-        const nostrSettings = LoadNosrtSettingsFromEnv()
+        const nostrSettings = this.settings.nostrRelaySettings
         return {
             identifier: u.identifier,
             info: {
@@ -164,6 +163,7 @@ export default class {
                 service_fee_bps: this.settings.outgoingAppUserInvoiceFeeBps,
                 noffer: nofferEncode({ pubkey: app.nostr_public_key!, offer: u.identifier, priceType: OfferPriceType.Spontaneous, relay: nostrSettings.relays[0] }),
                 ndebit: ndebitEncode({ pubkey: app.nostr_public_key!, pointer: u.identifier, relay: nostrSettings.relays[0] }),
+                nmanage: nmanageEncode({ pubkey: app.nostr_public_key!, pointer: u.identifier, relay: nostrSettings.relays[0] }),
                 callback_url: u.callback_url,
                 bridge_url: this.settings.bridgeUrl
 
@@ -205,7 +205,7 @@ export default class {
         const app = await this.storage.applicationStorage.GetApplication(appId)
         const user = await this.storage.applicationStorage.GetApplicationUser(app, req.user_identifier)
         const max = this.paymentManager.GetMaxPayableInvoice(user.user.balance_sats, true)
-        const nostrSettings = LoadNosrtSettingsFromEnv()
+        const nostrSettings = this.settings.nostrRelaySettings
         return {
             max_withdrawable: max, identifier: req.user_identifier, info: {
                 userId: user.user.user_id, balance: user.user.balance_sats,
@@ -216,6 +216,7 @@ export default class {
                 service_fee_bps: this.settings.outgoingAppUserInvoiceFeeBps,
                 noffer: nofferEncode({ pubkey: app.nostr_public_key!, offer: user.identifier, priceType: OfferPriceType.Spontaneous, relay: nostrSettings.relays[0] }),
                 ndebit: ndebitEncode({ pubkey: app.nostr_public_key!, pointer: user.identifier, relay: nostrSettings.relays[0] }),
+                nmanage: nmanageEncode({ pubkey: app.nostr_public_key!, pointer: user.identifier, relay: nostrSettings.relays[0] }),
                 callback_url: user.callback_url,
                 bridge_url: this.settings.bridgeUrl
             },

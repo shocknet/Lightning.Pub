@@ -24,6 +24,7 @@ import { InviteToken } from "../entity/InviteToken.js"
 import { DebitAccess } from "../entity/DebitAccess.js"
 import { RootOperation } from "../entity/RootOperation.js"
 import { UserOffer } from "../entity/UserOffer.js"
+import { ManagementGrant } from "../entity/ManagementGrant.js"
 import { ChannelEvent } from "../entity/ChannelEvent.js"
 
 
@@ -66,7 +67,8 @@ export const MainDbEntities = {
     'InviteToken': InviteToken,
     'DebitAccess': DebitAccess,
     'UserOffer': UserOffer,
-    'Product': Product
+    'Product': Product,
+    'ManagementGrant': ManagementGrant
 }
 export type MainDbNames = keyof typeof MainDbEntities
 export const MainDbEntitiesNames = Object.keys(MainDbEntities)
