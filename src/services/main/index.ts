@@ -24,8 +24,10 @@ import { Unlocker } from "./unlocker.js"
 import { defaultInvoiceExpiry } from "../storage/paymentStorage.js"
 import { DebitManager } from "./debitManager.js"
 import { OfferManager } from "./offerManager.js"
+import { parse } from "uri-template"
 import webRTC from "../webRTC/index.js"
 import { ManagementManager } from "./managementManager.js"
+import { Agent } from "https"
 
 type UserOperationsSub = {
     id: string
@@ -265,7 +267,7 @@ export default class {
                 if (fee > 0) {
                     await this.storage.userStorage.IncrementUserBalance(userInvoice.linkedApplication.owner.user_id, fee, 'fees', tx)
                 }
-                await this.triggerPaidCallback(log, userInvoice.callbackUrl, { invoice: paymentRequest, amount, other: userInvoice.payer_data })
+                await this.triggerPaidCallback(log, userInvoice.callbackUrl, { invoice: paymentRequest, amount, payerData: userInvoice.payer_data, token: userInvoice.bearer_token, rejectUnauthorized: userInvoice.rejectUnauthorized })
                 const operationId = `${Types.UserOperationType.INCOMING_INVOICE}-${userInvoice.serial_id}`
                 const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_INVOICE, identifier: userInvoice.invoice, operationId, network_fee: 0, service_fee: fee, confirmed: true, tx_hash: "", internal }
                 this.sendOperationToNostr(userInvoice.linkedApplication, userInvoice.user.user_id, op)
@@ -283,21 +285,67 @@ export default class {
         })
     }
 
-    async triggerPaidCallback(log: PubLogger, url: string, { invoice, amount, other }: { invoice: string, amount: number, other?: Record<string, string> }) {
+    async triggerPaidCallback(log: PubLogger, url: string,
+        { invoice, amount, payerData, token, rejectUnauthorized }:
+        { invoice: string,
+            amount: number,
+            payerData?: Record<string, string>,
+            token?: string,
+            rejectUnauthorized?: boolean
+        }
+    ) {
         if (!url) {
             return
         }
-        let finalUrl = url.replace(`%[invoice]`, invoice).replace(`%[amount]`, amount.toString())
-        if (other) {
-            for (const [key, value] of Object.entries(other)) {
-                finalUrl = finalUrl.replace(`%[${key}]`, value)
-            }
+        let finalUrl = "";
+        const payerDataToExpand = {
+            amount,
+            invoice,
+            ...(payerData !== undefined ? payerData : {})
+        };
+        try {
+            const parsed = parse(url);
+            finalUrl = parsed.expand(payerDataToExpand)
+        } catch (err: any) {
+            log(ERROR, "error expanding callback url template for invoice", err?.message || "");
+            return;
+        }
+        const symbol = finalUrl.includes('?') ? "&" : "?"
+        finalUrl = finalUrl + symbol + "ok=true"
+
+        /* 
+         *   Construct URL to find protocol.
+         *   If it's https we then use an agent
+         *   with the passed rejectUnauthorized
+         *   value.
+         *   If it's http we don't use an agent.
+         *   If it's neither we log error and
+         *   return.
+        */
+        let parsedUrl: URL | null = null;
+        let agent: Agent | undefined;
+        try {
+            parsedUrl = new URL(finalUrl);
+        } catch (err: any) {
+            log(ERROR, "error parsing callback url for invoice", err?.message || "");
+            return;
+        }
+        if (parsedUrl.protocol === "https:") {
+            agent = new Agent({
+                rejectUnauthorized
+            })
+        } else if (parsedUrl.protocol === "http:") {
+            agent = undefined
+        } else {
+            log(ERROR, "callback url's protocol is neither http or https");
+            return;
+        }
+        const headers = {
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
         }
         try {
-            const symbol = finalUrl.includes('?') ? "&" : "?"
-            finalUrl = finalUrl + symbol + "ok=true"
             log("sending paid callback to", finalUrl)
-            await fetch(finalUrl)
+            await fetch(finalUrl, { agent, headers })
         } catch (err: any) {
             log(ERROR, "error sending paid callback for invoice", err.message || "")
         }

@@ -64,6 +64,13 @@ export class UserReceivingInvoice {
     })
     payer_data?: Record<string, string>
 
+
+    @Column({ default: true })
+    rejectUnauthorized: boolean
+
+    @Column({ default: "" })
+    bearer_token: string
+
     @Column({ default: "" })
     offer_id?: string
 

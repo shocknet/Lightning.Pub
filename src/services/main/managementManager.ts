@@ -150,7 +150,7 @@ export class ManagementManager {
             label: offer.label,
             price_sats: offer.price_sats,
             callback_url: offer.callback_url,
-            payer_data: Object.keys(offer.expected_data || {}),
+            payer_data: offer.payer_data || [],
             noffer: nofferEncode(pointer),
         }
     }
@@ -229,15 +229,11 @@ export class ManagementManager {
         if (validateResult.state !== 'success') {
             return validateResult
         }
-        const dataMap: Record<string, Types.OfferDataType> = {}
-        nmanageReq.offer.fields.payer_data.forEach(data => {
-            dataMap[data] = Types.OfferDataType.DATA_STRING
-        })
         const offer = await this.storage.offerStorage.AddUserOffer(appUserId, {
             label: nmanageReq.offer.fields.label,
             callback_url: nmanageReq.offer.fields.callback_url,
             price_sats: nmanageReq.offer.fields.price_sats,
-            expected_data: dataMap,
+            payer_data: nmanageReq.offer.fields.payer_data,
             management_pubkey: requestorPub,
         })
         return { state: 'success', result: offer }
@@ -288,18 +284,16 @@ export class ManagementManager {
         if (validateResult.state !== 'success') {
             return validateResult
         }
-        const dataMap: Record<string, Types.OfferDataType> = {}
         for (const data of nmanageReq.offer.fields.payer_data || []) {
             if (typeof data !== 'string') {
                 return { state: 'error', err: { res: 'GFY', code: 5, error: 'Invalid Field/Value', field: 'payer_data' } }
             }
-            dataMap[data] = Types.OfferDataType.DATA_STRING
         }
         await this.storage.offerStorage.UpdateUserOffer(offer.result.app_user_id, nmanageReq.offer.id, {
             label: nmanageReq.offer.fields.label,
             callback_url: nmanageReq.offer.fields.callback_url,
             price_sats: nmanageReq.offer.fields.price_sats,
-            expected_data: dataMap,
+            payer_data: nmanageReq.offer.fields.payer_data,
         })
         const updatedOffer = await this.storage.offerStorage.GetOffer(nmanageReq.offer.id)
         if (!updatedOffer) {
