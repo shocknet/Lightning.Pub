@@ -30,7 +30,14 @@ export class UserOffer {
         type: 'simple-json',
         default: null
     })
-    expected_data: Record<string, string> | null
+    payer_data: string[] | null
+
+    @Column({ default: "" })
+    bearer_token: string
+
+    @Column({ default: true })
+    rejectUnauthorized: boolean
+
 
     @CreateDateColumn()
     created_at: Date

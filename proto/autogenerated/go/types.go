@@ -65,12 +65,6 @@ const (
 	WEEK  IntervalType = "WEEK"
 )
 
-type OfferDataType string
-
-const (
-	DATA_STRING OfferDataType = "DATA_STRING"
-)
-
 type OperationType string
 
 const (
@@ -112,6 +106,8 @@ type AddAppUserInvoiceRequest struct {
 	Payer_data          *PayerData         `json:"payer_data"`
 	Payer_identifier    string             `json:"payer_identifier"`
 	Receiver_identifier string             `json:"receiver_identifier"`
+	Rejectunauthorized  bool               `json:"rejectUnauthorized"`
+	Token               string             `json:"token"`
 }
 type AddAppUserRequest struct {
 	Balance        int64  `json:"balance"`
@@ -473,13 +469,17 @@ type NewInvoiceResponse struct {
 	Invoice string `json:"invoice"`
 }
 type OfferConfig struct {
-	Callback_url  string                   `json:"callback_url"`
-	Default_offer bool                     `json:"default_offer"`
-	Expected_data map[string]OfferDataType `json:"expected_data"`
-	Label         string                   `json:"label"`
-	Noffer        string                   `json:"noffer"`
-	Offer_id      string                   `json:"offer_id"`
-	Price_sats    int64                    `json:"price_sats"`
+	Callback_url       string   `json:"callback_url"`
+	Createdatunix      int64    `json:"createdAtUnix"`
+	Default_offer      bool     `json:"default_offer"`
+	Label              string   `json:"label"`
+	Noffer             string   `json:"noffer"`
+	Offer_id           string   `json:"offer_id"`
+	Payer_data         []string `json:"payer_data"`
+	Price_sats         int64    `json:"price_sats"`
+	Rejectunauthorized bool     `json:"rejectUnauthorized"`
+	Token              string   `json:"token"`
+	Updatedatunix      int64    `json:"updatedAtUnix"`
 }
 type OfferId struct {
 	Offer_id string `json:"offer_id"`

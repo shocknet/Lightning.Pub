@@ -14,7 +14,7 @@ import { Application } from './entity/Application.js';
 import TransactionsQueue from "./db/transactionsQueue.js";
 import { LoggedEvent } from './eventsLog.js';
 import { StorageInterface } from './db/storageInterface.js';
-export type InboundOptionals = { product?: Product, callbackUrl?: string, expiry: number, expectedPayer?: User, linkedApplication?: Application, zapInfo?: ZapInfo, offerId?: string, payerData?: Record<string, string> }
+export type InboundOptionals = { product?: Product, callbackUrl?: string, expiry: number, expectedPayer?: User, linkedApplication?: Application, zapInfo?: ZapInfo, offerId?: string, payerData?: Record<string, string> , rejectUnauthorized?: boolean, token?: string}
 export const defaultInvoiceExpiry = 60 * 60
 export default class {
     dbs: StorageInterface
@@ -102,6 +102,8 @@ export default class {
             liquidityProvider: providerDestination,
             offer_id: options.offerId,
             payer_data: options.payerData,
+            rejectUnauthorized: options.rejectUnauthorized,
+            bearer_token: options.token
         }, txId)
     }
 
