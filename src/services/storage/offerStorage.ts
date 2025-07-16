@@ -12,7 +12,7 @@ export default class {
         return this.dbs.CreateAndSave<UserOffer>('UserOffer', {
             app_user_id: appUserId,
             offer_id: appUserId,
-            label: 'Default NIP-69 Offer',
+            label: 'Default CLINK Offer',
         })
     }
     async AddUserOffer(appUserId: string, req: Partial<UserOffer>): Promise<UserOffer> {
