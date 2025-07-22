@@ -1775,46 +1775,52 @@ export const GetUserOfferInvoicesReqValidate = (o?: GetUserOfferInvoicesReq, opt
 }
 
 export type GetUserOperationsRequest = {
-    latestIncomingInvoice: number
-    latestIncomingTx: number
-    latestIncomingUserToUserPayment: number
-    latestOutgoingInvoice: number
-    latestOutgoingTx: number
-    latestOutgoingUserToUserPayment: number
+    latestIncomingInvoice: OperationsCursor
+    latestIncomingTx: OperationsCursor
+    latestIncomingUserToUserPayment: OperationsCursor
+    latestOutgoingInvoice: OperationsCursor
+    latestOutgoingTx: OperationsCursor
+    latestOutgoingUserToUserPayment: OperationsCursor
     max_size: number
 }
 export const GetUserOperationsRequestOptionalFields: [] = []
 export type GetUserOperationsRequestOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
-    latestIncomingInvoice_CustomCheck?: (v: number) => boolean
-    latestIncomingTx_CustomCheck?: (v: number) => boolean
-    latestIncomingUserToUserPayment_CustomCheck?: (v: number) => boolean
-    latestOutgoingInvoice_CustomCheck?: (v: number) => boolean
-    latestOutgoingTx_CustomCheck?: (v: number) => boolean
-    latestOutgoingUserToUserPayment_CustomCheck?: (v: number) => boolean
+    latestIncomingInvoice_Options?: OperationsCursorOptions
+    latestIncomingTx_Options?: OperationsCursorOptions
+    latestIncomingUserToUserPayment_Options?: OperationsCursorOptions
+    latestOutgoingInvoice_Options?: OperationsCursorOptions
+    latestOutgoingTx_Options?: OperationsCursorOptions
+    latestOutgoingUserToUserPayment_Options?: OperationsCursorOptions
     max_size_CustomCheck?: (v: number) => boolean
 }
 export const GetUserOperationsRequestValidate = (o?: GetUserOperationsRequest, opts: GetUserOperationsRequestOptions = {}, path: string = 'GetUserOperationsRequest::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
     if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
 
-    if (typeof o.latestIncomingInvoice !== 'number') return new Error(`${path}.latestIncomingInvoice: is not a number`)
-    if (opts.latestIncomingInvoice_CustomCheck && !opts.latestIncomingInvoice_CustomCheck(o.latestIncomingInvoice)) return new Error(`${path}.latestIncomingInvoice: custom check failed`)
+    const latestIncomingInvoiceErr = OperationsCursorValidate(o.latestIncomingInvoice, opts.latestIncomingInvoice_Options, `${path}.latestIncomingInvoice`)
+    if (latestIncomingInvoiceErr !== null) return latestIncomingInvoiceErr
+    
 
-    if (typeof o.latestIncomingTx !== 'number') return new Error(`${path}.latestIncomingTx: is not a number`)
-    if (opts.latestIncomingTx_CustomCheck && !opts.latestIncomingTx_CustomCheck(o.latestIncomingTx)) return new Error(`${path}.latestIncomingTx: custom check failed`)
+    const latestIncomingTxErr = OperationsCursorValidate(o.latestIncomingTx, opts.latestIncomingTx_Options, `${path}.latestIncomingTx`)
+    if (latestIncomingTxErr !== null) return latestIncomingTxErr
+    
 
-    if (typeof o.latestIncomingUserToUserPayment !== 'number') return new Error(`${path}.latestIncomingUserToUserPayment: is not a number`)
-    if (opts.latestIncomingUserToUserPayment_CustomCheck && !opts.latestIncomingUserToUserPayment_CustomCheck(o.latestIncomingUserToUserPayment)) return new Error(`${path}.latestIncomingUserToUserPayment: custom check failed`)
+    const latestIncomingUserToUserPaymentErr = OperationsCursorValidate(o.latestIncomingUserToUserPayment, opts.latestIncomingUserToUserPayment_Options, `${path}.latestIncomingUserToUserPayment`)
+    if (latestIncomingUserToUserPaymentErr !== null) return latestIncomingUserToUserPaymentErr
+    
 
-    if (typeof o.latestOutgoingInvoice !== 'number') return new Error(`${path}.latestOutgoingInvoice: is not a number`)
-    if (opts.latestOutgoingInvoice_CustomCheck && !opts.latestOutgoingInvoice_CustomCheck(o.latestOutgoingInvoice)) return new Error(`${path}.latestOutgoingInvoice: custom check failed`)
+    const latestOutgoingInvoiceErr = OperationsCursorValidate(o.latestOutgoingInvoice, opts.latestOutgoingInvoice_Options, `${path}.latestOutgoingInvoice`)
+    if (latestOutgoingInvoiceErr !== null) return latestOutgoingInvoiceErr
+    
 
-    if (typeof o.latestOutgoingTx !== 'number') return new Error(`${path}.latestOutgoingTx: is not a number`)
-    if (opts.latestOutgoingTx_CustomCheck && !opts.latestOutgoingTx_CustomCheck(o.latestOutgoingTx)) return new Error(`${path}.latestOutgoingTx: custom check failed`)
+    const latestOutgoingTxErr = OperationsCursorValidate(o.latestOutgoingTx, opts.latestOutgoingTx_Options, `${path}.latestOutgoingTx`)
+    if (latestOutgoingTxErr !== null) return latestOutgoingTxErr
+    
 
-    if (typeof o.latestOutgoingUserToUserPayment !== 'number') return new Error(`${path}.latestOutgoingUserToUserPayment: is not a number`)
-    if (opts.latestOutgoingUserToUserPayment_CustomCheck && !opts.latestOutgoingUserToUserPayment_CustomCheck(o.latestOutgoingUserToUserPayment)) return new Error(`${path}.latestOutgoingUserToUserPayment: custom check failed`)
+    const latestOutgoingUserToUserPaymentErr = OperationsCursorValidate(o.latestOutgoingUserToUserPayment, opts.latestOutgoingUserToUserPayment_Options, `${path}.latestOutgoingUserToUserPayment`)
+    if (latestOutgoingUserToUserPaymentErr !== null) return latestOutgoingUserToUserPaymentErr
+    
 
     if (typeof o.max_size !== 'number') return new Error(`${path}.max_size: is not a number`)
     if (opts.max_size_CustomCheck && !opts.max_size_CustomCheck(o.max_size)) return new Error(`${path}.max_size: custom check failed`)
@@ -3031,6 +3037,29 @@ export const OpenChannelResponseValidate = (o?: OpenChannelResponse, opts: OpenC
     return null
 }
 
+export type OperationsCursor = {
+    id: number
+    ts: number
+}
+export const OperationsCursorOptionalFields: [] = []
+export type OperationsCursorOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    id_CustomCheck?: (v: number) => boolean
+    ts_CustomCheck?: (v: number) => boolean
+}
+export const OperationsCursorValidate = (o?: OperationsCursor, opts: OperationsCursorOptions = {}, path: string = 'OperationsCursor::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.id !== 'number') return new Error(`${path}.id: is not a number`)
+    if (opts.id_CustomCheck && !opts.id_CustomCheck(o.id)) return new Error(`${path}.id: custom check failed`)
+
+    if (typeof o.ts !== 'number') return new Error(`${path}.ts: is not a number`)
+    if (opts.ts_CustomCheck && !opts.ts_CustomCheck(o.ts)) return new Error(`${path}.ts: custom check failed`)
+
+    return null
+}
+
 export type PayAddressRequest = {
     address: string
     amoutSats: number
@@ -3998,24 +4027,25 @@ export const UserOperationValidate = (o?: UserOperation, opts: UserOperationOpti
 }
 
 export type UserOperations = {
-    fromIndex: number
+    fromIndex: OperationsCursor
     operations: UserOperation[]
-    toIndex: number
+    toIndex: OperationsCursor
 }
 export const UserOperationsOptionalFields: [] = []
 export type UserOperationsOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
-    fromIndex_CustomCheck?: (v: number) => boolean
+    fromIndex_Options?: OperationsCursorOptions
     operations_ItemOptions?: UserOperationOptions
     operations_CustomCheck?: (v: UserOperation[]) => boolean
-    toIndex_CustomCheck?: (v: number) => boolean
+    toIndex_Options?: OperationsCursorOptions
 }
 export const UserOperationsValidate = (o?: UserOperations, opts: UserOperationsOptions = {}, path: string = 'UserOperations::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
     if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
 
-    if (typeof o.fromIndex !== 'number') return new Error(`${path}.fromIndex: is not a number`)
-    if (opts.fromIndex_CustomCheck && !opts.fromIndex_CustomCheck(o.fromIndex)) return new Error(`${path}.fromIndex: custom check failed`)
+    const fromIndexErr = OperationsCursorValidate(o.fromIndex, opts.fromIndex_Options, `${path}.fromIndex`)
+    if (fromIndexErr !== null) return fromIndexErr
+    
 
     if (!Array.isArray(o.operations)) return new Error(`${path}.operations: is not an array`)
     for (let index = 0; index < o.operations.length; index++) {
@@ -4024,8 +4054,9 @@ export const UserOperationsValidate = (o?: UserOperations, opts: UserOperationsO
     }
     if (opts.operations_CustomCheck && !opts.operations_CustomCheck(o.operations)) return new Error(`${path}.operations: custom check failed`)
 
-    if (typeof o.toIndex !== 'number') return new Error(`${path}.toIndex: is not a number`)
-    if (opts.toIndex_CustomCheck && !opts.toIndex_CustomCheck(o.toIndex)) return new Error(`${path}.toIndex: custom check failed`)
+    const toIndexErr = OperationsCursorValidate(o.toIndex, opts.toIndex_Options, `${path}.toIndex`)
+    if (toIndexErr !== null) return toIndexErr
+    
 
     return null
 }

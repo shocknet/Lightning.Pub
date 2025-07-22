@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { Between, FindOperator, IsNull, LessThanOrEqual, MoreThan, MoreThanOrEqual, Not } from "typeorm"
+import { Between, FindOperator, FindOptionsWhere, IsNull, LessThanOrEqual, MoreThan, MoreThanOrEqual, Not } from "typeorm"
 import { User } from './entity/User.js';
 import { UserTransactionPayment } from './entity/UserTransactionPayment.js';
 import { EphemeralKeyType, UserEphemeralKey } from './entity/UserEphemeralKey.js';
@@ -73,17 +73,27 @@ export default class {
         return this.dbs.Update<UserReceivingInvoice>('UserReceivingInvoice', invoice.serial_id, i, txId)
     }
 
-    GetUserInvoicesFlaggedAsPaid(userId: string, fromIndex: number, take = 50, txId?: string): Promise<UserReceivingInvoice[]> {
+    async GetUserInvoicesFlaggedAsPaid(userId: string, fromIndex: number, fromPaidTimestamp: number, take = 50, txId?: string): Promise<UserReceivingInvoice[]> {
+        const whereArray: FindOptionsWhere<UserReceivingInvoice>[] = [
+        // Later paid_at_unix timestamp
+            {
+                user: { user_id: userId },
+                paid_at_unix: MoreThan(Math.max(fromPaidTimestamp, 0)),  // also excludes 0
+            }
+        ];
+        // Same timestamp, higher serial_id
+        if (fromPaidTimestamp > 0) {
+            whereArray.push({
+                user: { user_id: userId },
+                paid_at_unix: fromPaidTimestamp,
+                serial_id: MoreThan(fromIndex),
+            });
+        }
         return this.dbs.Find<UserReceivingInvoice>('UserReceivingInvoice', {
-            where: {
-                user: {
-                    user_id: userId
-                },
-                serial_id: MoreThanOrEqual(fromIndex),
-                paid_at_unix: MoreThan(0),
-            },
+            where: whereArray,
             order: {
-                paid_at_unix: 'DESC'
+                paid_at_unix: 'DESC',
+                serial_id: 'DESC'
             },
             take
         }, txId)
