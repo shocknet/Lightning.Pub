@@ -52,8 +52,8 @@ export class ShockPush {
         return nip98Header
     }
 
-    SendNotification = async (message: string, messagingToken: string) => {
-        const res = await this.client.SendNotification({ recipient_registration_tokens: [messagingToken], data: message })
+    SendNotification = async (message: string, messagingTokens: string[]) => {
+        const res = await this.client.SendNotification({ recipient_registration_tokens: messagingTokens, data: message })
         if (res.status !== 'OK') {
             this.logger(ERROR, `failed to send notification: ${res.status}`)
         }

@@ -20,12 +20,12 @@ export class NotificationsManager {
         return newClient
     }
 
-    SendNotification = async (message: string, messagingToken: string, pair: PushPair) => {
+    SendNotification = async (message: string, messagingTokens: string[], pair: PushPair) => {
         if (!this.shockPushBaseUrl) {
             this.logger("ShockPush is not configured, skipping notification")
             return
         }
         const client = this.getClient(pair)
-        await client.SendNotification(message, messagingToken)
+        await client.SendNotification(message, messagingTokens)
     }
 }
