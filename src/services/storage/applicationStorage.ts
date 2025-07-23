@@ -8,6 +8,7 @@ import { getLogger } from '../helpers/logger.js';
 import { User } from './entity/User.js';
 import { InviteToken } from './entity/InviteToken.js';
 import { StorageInterface } from './db/storageInterface.js';
+import { AppUserDevice } from './entity/AppUserDevice.js';
 export default class {
     dbs: StorageInterface
     userStorage: UserStorage
@@ -177,5 +178,24 @@ export default class {
     async SetInviteTokenAsUsed(inviteToken: InviteToken) {
         return this.dbs.Update<InviteToken>('InviteToken', inviteToken, { used: true })
 
+    }
+
+    async UpdateAppUserMessagingToken(appUserId: string, deviceId: string, firebaseMessagingToken: string) {
+        const existing = await this.dbs.FindOne<AppUserDevice>('AppUserDevice', { where: { app_user_id: appUserId, device_id: deviceId } })
+        if (!existing) {
+            return this.dbs.CreateAndSave<AppUserDevice>('AppUserDevice', {
+                app_user_id: appUserId,
+                device_id: deviceId,
+                firebase_messaging_token: firebaseMessagingToken
+            })
+        }
+        if (existing.firebase_messaging_token === firebaseMessagingToken) {
+            return
+        }
+        return this.dbs.Update<AppUserDevice>('AppUserDevice', existing.serial_id, { firebase_messaging_token: firebaseMessagingToken })
+    }
+
+    async GetAppUserDevices(appUserId: string, txId?: string) {
+        return this.dbs.Find<AppUserDevice>('AppUserDevice', { where: { app_user_id: appUserId } }, txId)
     }
 }

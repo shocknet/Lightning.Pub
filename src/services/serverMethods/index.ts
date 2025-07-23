@@ -426,5 +426,13 @@ export default (mainHandler: Main): Types.ServerMethods => {
         GetHttpCreds: async ({ ctx }) => {
             return mainHandler.appUserManager.GetHttpCreds(ctx)
         },
+        EnrollMessagingToken: async ({ ctx, req }) => {
+            const err = Types.MessagingTokenValidate(req, {
+                device_id_CustomCheck: id => id !== '',
+                firebase_messaging_token_CustomCheck: token => token !== ''
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.appUserManager.EnrollMessagingToken(ctx, req)
+        },
     }
 }

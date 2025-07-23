@@ -1,23 +1,23 @@
-  manifestVersion: 1
+manifestVersion: 1
 id: lightning-pub
 category: finance
 name: Lightning.Pub
 version: "1.0.0"
 tagline: lightning, nostr, accounts, lnurl, web
 description: >-
-"Pub" is a Nostr-native account system designed 
-to make running Lightning infrastructure for your friends/family/customers 
-easier than previously thought possible.
+  "Pub" is a Nostr-native account system designed 
+  to make running Lightning infrastructure for your friends/family/customers 
+  easier than previously thought possible.
 
- Being Nostr-native eliminates the complexity of configuring your node like a server by using commodity Nostr relays. 
-These relays, unlike LNURL proxies, are trustless by nature of Nostr's own encryption spec (NIP44).
+  Being Nostr-native eliminates the complexity of configuring your node like a server by using commodity Nostr relays. 
+  These relays, unlike LNURL proxies, are trustless by nature of Nostr's own encryption spec (NIP44).
 
- Support for optional services are integrated into Pub for operators seeking backward compatibility with legacy LNURLs and Lightning Addresses.
+  Support for optional services are integrated into Pub for operators seeking backward compatibility with legacy LNURLs and Lightning Addresses.
 
- By solving the networking and programability hurdles, Pub provides Lightning with a 3rd Layer that enables node-runners and 
- Uncle Jims to more easily bring their personal network into Bitcoin's permissionless economy. In doing so, Pub runners 
- can keep the Lightning Network decentralized, with custodial scaling that is free of fiat rails, large banks, 
- and other forms of high-time-preference shitcoinery.
+  By solving the networking and programability hurdles, Pub provides Lightning with a 3rd Layer that enables node-runners and 
+  Uncle Jims to more easily bring their personal network into Bitcoin's permissionless economy. In doing so, Pub runners 
+  can keep the Lightning Network decentralized, with custodial scaling that is free of fiat rails, large banks, 
+  and other forms of high-time-preference shitcoinery.
 developer: shocknet
 website: https://shock.network
 dependencies:

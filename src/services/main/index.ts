@@ -28,6 +28,7 @@ import { parse } from "uri-template"
 import webRTC from "../webRTC/index.js"
 import { ManagementManager } from "./managementManager.js"
 import { Agent } from "https"
+import { NotificationsManager } from "./notificationsManager.js"
 
 type UserOperationsSub = {
     id: string
@@ -58,6 +59,7 @@ export default class {
     utils: Utils
     rugPullTracker: RugPullTracker
     unlocker: Unlocker
+    notificationsManager: NotificationsManager
     //webRTC: webRTC
     nostrSend: NostrSend = () => { getLogger({})("nostr send not initialized yet") }
     nostrProcessPing: (() => Promise<void>) | null = null
@@ -81,6 +83,7 @@ export default class {
         this.debitManager = new DebitManager(this.storage, this.lnd, this.applicationManager)
         this.offerManager = new OfferManager(this.storage, this.settings, this.lnd, this.applicationManager, this.productManager, this.liquidityManager)
         this.managementManager = new ManagementManager(this.storage, this.settings)
+        this.notificationsManager = new NotificationsManager(this.settings.shockPushBaseUrl)
         //this.webRTC = new webRTC(this.storage, this.utils)
     }
 
@@ -287,12 +290,13 @@ export default class {
 
     async triggerPaidCallback(log: PubLogger, url: string,
         { invoice, amount, payerData, token, rejectUnauthorized }:
-        { invoice: string,
-            amount: number,
-            payerData?: Record<string, string>,
-            token?: string,
-            rejectUnauthorized?: boolean
-        }
+            {
+                invoice: string,
+                amount: number,
+                payerData?: Record<string, string>,
+                token?: string,
+                rejectUnauthorized?: boolean
+            }
     ) {
         if (!url) {
             return
@@ -357,8 +361,16 @@ export default class {
             getLogger({ appName: app.name })("cannot notify user, not a nostr user")
             return
         }
+        const devices = await this.storage.applicationStorage.GetAppUserDevices(user.identifier)
         const message: Types.LiveUserOperation & { requestId: string, status: 'OK' } = { operation: op, requestId: "GetLiveUserOperations", status: 'OK' }
-        this.nostrSend({ type: 'app', appId: app.app_id }, { type: 'content', content: JSON.stringify(message), pub: user.nostr_public_key })
+        const j = JSON.stringify(message)
+        this.nostrSend({ type: 'app', appId: app.app_id }, { type: 'content', content: j, pub: user.nostr_public_key })
+        for (const device of devices) {
+            this.notificationsManager.SendNotification(JSON.stringify(message), device.firebase_messaging_token, {
+                pubkey: app.nostr_public_key!,
+                privateKey: app.nostr_private_key!
+            })
+        }
     }
 
     async UpdateBeacon(app: Application, content: { type: 'service', name: string }) {

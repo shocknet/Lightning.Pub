@@ -111,4 +111,10 @@ export default class {
             user_identifier: ctx.app_user_id
         })
     }
+
+    async EnrollMessagingToken(ctx: Types.UserContext, req: Types.MessagingToken): Promise<void> {
+        const app = await this.storage.applicationStorage.GetApplication(ctx.app_id);
+        const user = await this.storage.applicationStorage.GetApplicationUser(app, ctx.app_user_id);
+        await this.storage.applicationStorage.UpdateAppUserMessagingToken(user.identifier, req.device_id, req.firebase_messaging_token);
+    }
 }

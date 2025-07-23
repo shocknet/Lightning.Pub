@@ -806,4 +806,7 @@ message ProvidersDisruption {
     repeated ProviderDisruption disruptions = 1;
 }
 
-
+message MessagingToken {
+    string device_id = 1;
+    string firebase_messaging_token = 2;
+}
