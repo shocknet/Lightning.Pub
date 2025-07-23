@@ -1,5 +1,5 @@
-import { PushPair, ShockPush } from "../ShockPush"
-import { getLogger, PubLogger } from "../helpers/logger"
+import { PushPair, ShockPush } from "../ShockPush/index.js"
+import { getLogger, PubLogger } from "../helpers/logger.js"
 
 export class NotificationsManager {
     private shockPushBaseUrl: string
