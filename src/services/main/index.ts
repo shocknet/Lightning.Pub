@@ -376,7 +376,7 @@ export default class {
             return
         }
         const tokens = devices.map(d => d.firebase_messaging_token)
-        const ck = nip44.getConversationKey(Buffer.from(app.nostr_public_key, 'hex'), appUser.nostr_public_key)
+        const ck = nip44.getConversationKey(Buffer.from(app.nostr_private_key, 'hex'), appUser.nostr_public_key)
         const j = JSON.stringify(op)
         const encrypted = nip44.encrypt(j, ck)
         const encryptedData: { encrypted: string, app_npub: string } = { encrypted, app_npub: app.nostr_public_key }
