@@ -73,38 +73,6 @@ export default class {
         return this.dbs.Update<UserReceivingInvoice>('UserReceivingInvoice', invoice.serial_id, i, txId)
     }
 
-
-
-    async GetUserInvoicesFlaggedAsPaid2(serialId: number, fromIndex: number, fromTs: number, take = 50, txId?: string): Promise<UserReceivingInvoice[]> {
-        let items = await this.dbs.Find<UserReceivingInvoice>('UserReceivingInvoice', {
-            where: {
-                user: { serial_id: serialId },
-                paid_at_unix: And(MoreThan(0), Equal(fromTs)),
-                serial_id: MoreThan(fromIndex)
-            },
-            order: {
-                paid_at_unix: 'DESC',
-                serial_id: 'DESC'
-            },
-            take
-        }, txId)
-        const more = take - items.length
-        if (more > 0) {
-            const more = await this.dbs.Find<UserReceivingInvoice>('UserReceivingInvoice', {
-                where: {
-                    user: { serial_id: serialId },
-                    paid_at_unix: And(MoreThan(0), MoreThan(fromTs)),
-                },
-                order: {
-                    paid_at_unix: 'DESC',
-                    serial_id: 'DESC'
-                },
-                take
-            }, txId)
-            items.push(...more)
-        }
-        return items
-    }
     GetUserInvoicesFlaggedAsPaid(userId: string, fromIndex: number, take = 50, txId?: string): Promise<UserReceivingInvoice[]> {
         return this.dbs.Find<UserReceivingInvoice>('UserReceivingInvoice', {
             where: {
