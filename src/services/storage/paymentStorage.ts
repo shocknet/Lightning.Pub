@@ -42,7 +42,7 @@ export default class {
         return this.dbs.Find<AddressReceivingTransaction>('AddressReceivingTransaction', {
             where: {
                 user_address: { user: { user_id: userId } },
-                serial_id: MoreThanOrEqual(fromIndex),
+                serial_id: MoreThan(fromIndex),
                 paid_at_unix: MoreThan(0),
             },
             order: {
@@ -202,7 +202,7 @@ export default class {
                 user: {
                     user_id: userId
                 },
-                serial_id: MoreThanOrEqual(fromIndex),
+                serial_id: MoreThan(fromIndex),
                 paid_at_unix: MoreThan(-1),
             },
             order: {
@@ -250,7 +250,7 @@ export default class {
                 user: {
                     user_id: userId
                 },
-                serial_id: MoreThanOrEqual(fromIndex),
+                serial_id: MoreThan(fromIndex),
                 paid_at_unix: MoreThan(0),
             },
             order: {
@@ -319,7 +319,7 @@ export default class {
                 to_user: {
                     user_id: userId
                 },
-                serial_id: MoreThanOrEqual(fromIndex),
+                serial_id: MoreThan(fromIndex),
                 paid_at_unix: MoreThan(0),
             },
             order: {
@@ -336,7 +336,7 @@ export default class {
                 from_user: {
                     user_id: userId
                 },
-                serial_id: MoreThanOrEqual(fromIndex),
+                serial_id: MoreThan(fromIndex),
                 paid_at_unix: MoreThan(0),
             },
             order: {
