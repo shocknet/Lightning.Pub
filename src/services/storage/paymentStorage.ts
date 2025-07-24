@@ -74,24 +74,28 @@ export default class {
     }
 
     async GetUserInvoicesFlaggedAsPaid(userSerialId: number, fromIndex: number, fromPaidTimestamp: number, take = 50, txId?: string): Promise<UserReceivingInvoice[]> {
-        // First fetch same paid_at_unix, higher serial_id
-        let items = await this.dbs.Find<UserReceivingInvoice>('UserReceivingInvoice', {
-            where: {
-                user: { serial_id: userSerialId },
-                paid_at_unix: And(MoreThan(0), Equal(fromPaidTimestamp)),
-                serial_id: MoreThan(fromIndex)
-            },
-            order: {
-                paid_at_unix: 'ASC',
-                serial_id: 'ASC'
-            },
-            take
-        }, txId)
+        let items: UserReceivingInvoice[] = [];
+        if (fromPaidTimestamp > 0) {
+            // First fetch same paid_at_unix, higher serial_id
+            const firstBatch = await this.dbs.Find<UserReceivingInvoice>('UserReceivingInvoice', {
+                where: {
+                    user: { serial_id: userSerialId },
+                    paid_at_unix: And(MoreThan(0), Equal(fromPaidTimestamp)),
+                    serial_id: MoreThan(fromIndex)
+                },
+                order: {
+                    paid_at_unix: 'ASC',
+                    serial_id: 'ASC'
+                },
+                take
+            }, txId);
+            items.push(...firstBatch);
+        } 
 
         const needMore = take - items.length
         // If need more, fetch higher paid_at_unix
         if (needMore > 0) {
-            const more = await this.dbs.Find<UserReceivingInvoice>('UserReceivingInvoice', {
+            const secondBatch = await this.dbs.Find<UserReceivingInvoice>('UserReceivingInvoice', {
                 where: {
                     user: { serial_id: userSerialId },
                     paid_at_unix: And(MoreThan(0), MoreThan(fromPaidTimestamp)),
@@ -102,7 +106,7 @@ export default class {
                 },
                 take: needMore
             }, txId)
-            items.push(...more)
+            items.push(...secondBatch)
         }
         return items
     }
