@@ -626,14 +626,15 @@ export default class {
     mapOperations(operations: UserOperationInfo[], type: Types.UserOperationType, inbound: boolean): Types.UserOperations {
         if (operations.length === 0) {
             return {
-                fromIndex: 0,
-                toIndex: 0,
+                fromIndex: { ts: 0, id: 0 },
+                toIndex: { ts: 0, id: 0 },
                 operations: []
             }
         }
         return {
-            toIndex: operations[0].serial_id,
-            fromIndex: operations[operations.length - 1].serial_id,
+            // We fetch in ascending order
+            toIndex: { ts: operations.at(-1)!.paid_at_unix, id:  operations.at(-1)!.serial_id } ,
+            fromIndex: { ts: operations[0].paid_at_unix, id:  operations[0]!.serial_id },
             operations: operations.map((o: UserOperationInfo): Types.UserOperation => {
                 let identifier = "";
                 if (o.invoice) {
@@ -687,12 +688,12 @@ export default class {
             throw new Error("user is banned, cannot retrieve operations")
         }
         const [outgoingInvoices, outgoingTransactions, incomingInvoices, incomingTransactions, incomingUserToUser, outgoingUserToUser] = await Promise.all([
-            this.storage.paymentStorage.GetUserInvoicePayments(userId, req.latestOutgoingInvoice, req.max_size), //
-            this.storage.paymentStorage.GetUserTransactionPayments(userId, req.latestOutgoingTx, req.max_size),
-            this.storage.paymentStorage.GetUserInvoicesFlaggedAsPaid(userId, req.latestIncomingInvoice, req.max_size),
-            this.storage.paymentStorage.GetUserReceivingTransactions(userId, req.latestIncomingTx, req.max_size),
-            this.storage.paymentStorage.GetUserToUserReceivedPayments(userId, req.latestIncomingUserToUserPayment, req.max_size),
-            this.storage.paymentStorage.GetUserToUserSentPayments(userId, req.latestOutgoingUserToUserPayment, req.max_size)
+            this.storage.paymentStorage.GetUserInvoicePayments(userId, req.latestOutgoingInvoice.id, req.max_size), //
+            this.storage.paymentStorage.GetUserTransactionPayments(userId, req.latestOutgoingTx.id, req.max_size),
+            this.storage.paymentStorage.GetUserInvoicesFlaggedAsPaid(user.serial_id, req.latestIncomingInvoice.id, req.latestIncomingInvoice.ts, req.max_size),
+            this.storage.paymentStorage.GetUserReceivingTransactions(userId, req.latestIncomingTx.id, req.max_size),
+            this.storage.paymentStorage.GetUserToUserReceivedPayments(userId, req.latestIncomingUserToUserPayment.id, req.max_size),
+            this.storage.paymentStorage.GetUserToUserSentPayments(userId, req.latestOutgoingUserToUserPayment.id, req.max_size)
         ])
         return {
             latestIncomingInvoiceOperations: this.mapOperations(incomingInvoices, Types.UserOperationType.INCOMING_INVOICE, true),

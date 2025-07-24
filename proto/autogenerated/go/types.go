@@ -309,13 +309,13 @@ type GetUserOfferInvoicesReq struct {
 	Offer_id       string `json:"offer_id"`
 }
 type GetUserOperationsRequest struct {
-	Latestincominginvoice           int64 `json:"latestIncomingInvoice"`
-	Latestincomingtx                int64 `json:"latestIncomingTx"`
-	Latestincomingusertouserpayment int64 `json:"latestIncomingUserToUserPayment"`
-	Latestoutgoinginvoice           int64 `json:"latestOutgoingInvoice"`
-	Latestoutgoingtx                int64 `json:"latestOutgoingTx"`
-	Latestoutgoingusertouserpayment int64 `json:"latestOutgoingUserToUserPayment"`
-	Max_size                        int64 `json:"max_size"`
+	Latestincominginvoice           *OperationsCursor `json:"latestIncomingInvoice"`
+	Latestincomingtx                *OperationsCursor `json:"latestIncomingTx"`
+	Latestincomingusertouserpayment *OperationsCursor `json:"latestIncomingUserToUserPayment"`
+	Latestoutgoinginvoice           *OperationsCursor `json:"latestOutgoingInvoice"`
+	Latestoutgoingtx                *OperationsCursor `json:"latestOutgoingTx"`
+	Latestoutgoingusertouserpayment *OperationsCursor `json:"latestOutgoingUserToUserPayment"`
+	Max_size                        int64             `json:"max_size"`
 }
 type GetUserOperationsResponse struct {
 	Latestincominginvoiceoperations  *UserOperations `json:"latestIncomingInvoiceOperations"`
@@ -516,6 +516,10 @@ type OpenChannelRequest struct {
 type OpenChannelResponse struct {
 	Channel_id string `json:"channel_id"`
 }
+type OperationsCursor struct {
+	Id int64 `json:"id"`
+	Ts int64 `json:"ts"`
+}
 type PayAddressRequest struct {
 	Address      string `json:"address"`
 	Amoutsats    int64  `json:"amoutSats"`
@@ -686,9 +690,9 @@ type UserOperation struct {
 	Type        UserOperationType `json:"type"`
 }
 type UserOperations struct {
-	Fromindex  int64           `json:"fromIndex"`
-	Operations []UserOperation `json:"operations"`
-	Toindex    int64           `json:"toIndex"`
+	Fromindex  *OperationsCursor `json:"fromIndex"`
+	Operations []UserOperation   `json:"operations"`
+	Toindex    *OperationsCursor `json:"toIndex"`
 }
 type UsersInfo struct {
 	Always_been_inactive int64 `json:"always_been_inactive"`
