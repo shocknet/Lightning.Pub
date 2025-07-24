@@ -632,8 +632,9 @@ export default class {
             }
         }
         return {
-            toIndex: { ts: operations[0].paid_at_unix, id:  operations[0]!.serial_id },
-            fromIndex: { ts: operations.at(-1)!.paid_at_unix, id:  operations.at(-1)!.serial_id },
+            // We fetch in ascending order
+            toIndex: { ts: operations.at(-1)!.paid_at_unix, id:  operations.at(-1)!.serial_id } ,
+            fromIndex: { ts: operations[0].paid_at_unix, id:  operations[0]!.serial_id },
             operations: operations.map((o: UserOperationInfo): Types.UserOperation => {
                 let identifier = "";
                 if (o.invoice) {
@@ -689,7 +690,7 @@ export default class {
         const [outgoingInvoices, outgoingTransactions, incomingInvoices, incomingTransactions, incomingUserToUser, outgoingUserToUser] = await Promise.all([
             this.storage.paymentStorage.GetUserInvoicePayments(userId, req.latestOutgoingInvoice.id, req.max_size), //
             this.storage.paymentStorage.GetUserTransactionPayments(userId, req.latestOutgoingTx.id, req.max_size),
-            this.storage.paymentStorage.GetUserInvoicesFlaggedAsPaid(userId, req.latestIncomingInvoice.id, req.latestIncomingInvoice.ts, req.max_size),
+            this.storage.paymentStorage.GetUserInvoicesFlaggedAsPaid(user.serial_id, req.latestIncomingInvoice.id, req.latestIncomingInvoice.ts, req.max_size),
             this.storage.paymentStorage.GetUserReceivingTransactions(userId, req.latestIncomingTx.id, req.max_size),
             this.storage.paymentStorage.GetUserToUserReceivedPayments(userId, req.latestIncomingUserToUserPayment.id, req.max_size),
             this.storage.paymentStorage.GetUserToUserSentPayments(userId, req.latestOutgoingUserToUserPayment.id, req.max_size)

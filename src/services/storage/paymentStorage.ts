@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { Between, FindOperator, FindOptionsWhere, IsNull, LessThanOrEqual, MoreThan, MoreThanOrEqual, Not } from "typeorm"
+import { And, Between, Equal, FindOperator, IsNull, LessThanOrEqual, MoreThan, MoreThanOrEqual } from "typeorm"
 import { User } from './entity/User.js';
 import { UserTransactionPayment } from './entity/UserTransactionPayment.js';
 import { EphemeralKeyType, UserEphemeralKey } from './entity/UserEphemeralKey.js';
@@ -46,7 +46,7 @@ export default class {
                 paid_at_unix: MoreThan(0),
             },
             order: {
-                paid_at_unix: 'DESC'
+                paid_at_unix: 'ASC'
             },
             take
         }, txId)
@@ -73,30 +73,38 @@ export default class {
         return this.dbs.Update<UserReceivingInvoice>('UserReceivingInvoice', invoice.serial_id, i, txId)
     }
 
-    async GetUserInvoicesFlaggedAsPaid(userId: string, fromIndex: number, fromPaidTimestamp: number, take = 50, txId?: string): Promise<UserReceivingInvoice[]> {
-        const whereArray: FindOptionsWhere<UserReceivingInvoice>[] = [
-        // Later paid_at_unix timestamp
-            {
-                user: { user_id: userId },
-                paid_at_unix: MoreThan(Math.max(fromPaidTimestamp, 0)),  // also excludes 0
-            }
-        ];
-        // Same timestamp, higher serial_id
-        if (fromPaidTimestamp > 0) {
-            whereArray.push({
-                user: { user_id: userId },
-                paid_at_unix: fromPaidTimestamp,
-                serial_id: MoreThan(fromIndex),
-            });
-        }
-        return this.dbs.Find<UserReceivingInvoice>('UserReceivingInvoice', {
-            where: whereArray,
+    async GetUserInvoicesFlaggedAsPaid(userSerialId: number, fromIndex: number, fromPaidTimestamp: number, take = 50, txId?: string): Promise<UserReceivingInvoice[]> {
+        // First fetch same paid_at_unix, higher serial_id
+        let items = await this.dbs.Find<UserReceivingInvoice>('UserReceivingInvoice', {
+            where: {
+                user: { serial_id: userSerialId },
+                paid_at_unix: And(MoreThan(0), Equal(fromPaidTimestamp)),
+                serial_id: MoreThan(fromIndex)
+            },
             order: {
-                paid_at_unix: 'DESC',
-                serial_id: 'DESC'
+                paid_at_unix: 'ASC',
+                serial_id: 'ASC'
             },
             take
         }, txId)
+
+        const needMore = take - items.length
+        // If need more, fetch higher paid_at_unix
+        if (needMore > 0) {
+            const more = await this.dbs.Find<UserReceivingInvoice>('UserReceivingInvoice', {
+                where: {
+                    user: { serial_id: userSerialId },
+                    paid_at_unix: And(MoreThan(0), MoreThan(fromPaidTimestamp)),
+                },
+                order: {
+                    paid_at_unix: 'ASC',
+                    serial_id: 'ASC'
+                },
+                take: needMore
+            }, txId)
+            items.push(...more)
+        }
+        return items
     }
 
     async AddUserInvoice(user: User, invoice: string, options: InboundOptionals = { expiry: defaultInvoiceExpiry }, providerDestination?: string, txId?: string): Promise<UserReceivingInvoice> {
@@ -198,7 +206,7 @@ export default class {
                 paid_at_unix: MoreThan(-1),
             },
             order: {
-                paid_at_unix: 'DESC'
+                paid_at_unix: 'ASC'
             },
             take
         }, txId)
@@ -246,7 +254,7 @@ export default class {
                 paid_at_unix: MoreThan(0),
             },
             order: {
-                paid_at_unix: 'DESC'
+                paid_at_unix: 'ASC'
             },
             take
         }, txId)
@@ -315,7 +323,7 @@ export default class {
                 paid_at_unix: MoreThan(0),
             },
             order: {
-                paid_at_unix: 'DESC'
+                paid_at_unix: 'ASC'
             },
             take
         }, txId)
@@ -332,7 +340,7 @@ export default class {
                 paid_at_unix: MoreThan(0),
             },
             order: {
-                paid_at_unix: 'DESC'
+                paid_at_unix: 'ASC'
             },
             take
         }, txId)
