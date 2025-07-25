@@ -1236,12 +1236,12 @@ The nostr server will send back a message response, and inside the body there wi
   - __offer_id__: _string_
 
 ### GetUserOperationsRequest
-  - __latestIncomingInvoice__: _number_
-  - __latestIncomingTx__: _number_
-  - __latestIncomingUserToUserPayment__: _number_
-  - __latestOutgoingInvoice__: _number_
-  - __latestOutgoingTx__: _number_
-  - __latestOutgoingUserToUserPayment__: _number_
+  - __latestIncomingInvoice__: _[OperationsCursor](#OperationsCursor)_
+  - __latestIncomingTx__: _[OperationsCursor](#OperationsCursor)_
+  - __latestIncomingUserToUserPayment__: _[OperationsCursor](#OperationsCursor)_
+  - __latestOutgoingInvoice__: _[OperationsCursor](#OperationsCursor)_
+  - __latestOutgoingTx__: _[OperationsCursor](#OperationsCursor)_
+  - __latestOutgoingUserToUserPayment__: _[OperationsCursor](#OperationsCursor)_
   - __max_size__: _number_
 
 ### GetUserOperationsResponse
@@ -1447,6 +1447,10 @@ The nostr server will send back a message response, and inside the body there wi
 ### OpenChannelResponse
   - __channel_id__: _string_
 
+### OperationsCursor
+  - __id__: _number_
+  - __ts__: _number_
+
 ### PayAddressRequest
   - __address__: _string_
   - __amoutSats__: _number_
@@ -1617,9 +1621,9 @@ The nostr server will send back a message response, and inside the body there wi
   - __type__: _[UserOperationType](#UserOperationType)_
 
 ### UserOperations
-  - __fromIndex__: _number_
+  - __fromIndex__: _[OperationsCursor](#OperationsCursor)_
   - __operations__: ARRAY of: _[UserOperation](#UserOperation)_
-  - __toIndex__: _number_
+  - __toIndex__: _[OperationsCursor](#OperationsCursor)_
 
 ### UsersInfo
   - __always_been_inactive__: _number_

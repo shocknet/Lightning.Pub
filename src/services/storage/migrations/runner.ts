@@ -21,10 +21,14 @@ import { ManagementGrant1751307732346 } from './1751307732346-management_grant.j
 import { ManagementGrantBanned1751989251513 } from './1751989251513-management_grant_banned.js'
 import { InvoiceCallbackUrls1752425992291 } from './1752425992291-invoice_callback_urls.js'
 import { AppUserDevice1753285173175 } from './1753285173175-app_user_device.js'
+import { OldSomethingLeftover1753106599604 } from './1753106599604-old_something_leftover.js'
+import { UserReceivingInvoiceIdx1753109184611 } from './1753109184611-user_receiving_invoice_idx.js'
+
+
 export const allMigrations = [Initial1703170309875, LspOrder1718387847693, LiquidityProvider1719335699480, LndNodeInfo1720187506189,
     TrackedProvider1720814323679, CreateInviteTokenTable1721751414878, PaymentIndex1721760297610, DebitAccess1726496225078, DebitAccessFixes1726685229264,
-    DebitToPub1727105758354, UserCbUrl1727112281043, UserOffer1733502626042, ManagementGrant1751307732346, ManagementGrantBanned1751989251513,
-    InvoiceCallbackUrls1752425992291, AppUserDevice1753285173175]
+    DebitToPub1727105758354, UserCbUrl1727112281043, UserOffer1733502626042, ManagementGrant1751307732346, ManagementGrantBanned1751989251513, InvoiceCallbackUrls1752425992291, OldSomethingLeftover1753106599604, UserReceivingInvoiceIdx1753109184611, AppUserDevice1753285173175]
+
 export const allMetricsMigrations = [LndMetrics1703170330183, ChannelRouting1709316653538, HtlcCount1724266887195, BalanceEvents1724860966825, RootOps1732566440447, RootOpsTime1745428134124, ChannelEvents1750777346411]
 /* export const TypeOrmMigrationRunner = async (log: PubLogger, storageManager: Storage, settings: DbSettings, arg: string | undefined): Promise<boolean> => {
     await connectAndMigrate(log, storageManager, allMigrations, allMetricsMigrations)

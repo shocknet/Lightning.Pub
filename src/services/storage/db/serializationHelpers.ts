@@ -1,4 +1,4 @@
-import { FindOperator, LessThan, MoreThan, LessThanOrEqual, MoreThanOrEqual, Equal, Like, ILike, Between, In, Any, IsNull, Not, FindOptionsWhere } from 'typeorm';
+import { FindOperator, LessThan, MoreThan, LessThanOrEqual, MoreThanOrEqual, Equal, Like, ILike, Between, In, Any, IsNull, Not, FindOptionsWhere, And } from 'typeorm';
 export type WhereCondition<T> = FindOptionsWhere<T> | FindOptionsWhere<T>[]
 
 type SerializedFindOperator = {
@@ -11,7 +11,7 @@ export function serializeFindOperator(operator: FindOperator<any>): SerializedFi
     return {
         _type: 'FindOperator',
         type: operator['type'],
-        value: operator['value'],
+        value: Array.isArray(operator['value']) ? operator["value"].map(serializeFindOperator) : operator["value"],
     };
 }
 
@@ -41,6 +41,11 @@ export function deserializeFindOperator(serialized: SerializedFindOperator): Fin
             return IsNull();
         case 'not':
             return Not(deserializeFindOperator(serialized.value));
+        case 'and':
+            if (serialized.value.length !== 2) {
+                throw new Error("Typeorm and operator with more than 2 arguments not supported");
+            }
+            return And(deserializeFindOperator(serialized.value[0]), deserializeFindOperator(serialized.value[1]));
         default:
             throw new Error(`Unknown FindOperator type: ${serialized.type}`);
     }

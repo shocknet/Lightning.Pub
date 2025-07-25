@@ -534,13 +534,19 @@ message UserInfo{
     string bridge_url = 11;
     string nmanage = 12;
 }
+
+
+message OperationsCursor {
+    int64 ts = 1;       // last timestamp
+    int64 id = 2;       // last serial_id
+}
 message GetUserOperationsRequest{
-    int64 latestIncomingInvoice = 1;
-    int64 latestOutgoingInvoice = 2;
-    int64 latestIncomingTx = 3;
-    int64 latestOutgoingTx = 4;
-    int64 latestIncomingUserToUserPayment = 5;
-    int64 latestOutgoingUserToUserPayment = 6;
+    OperationsCursor latestIncomingInvoice = 1;
+    OperationsCursor latestOutgoingInvoice = 2;
+    OperationsCursor latestIncomingTx = 3;
+    OperationsCursor latestOutgoingTx = 4;
+    OperationsCursor latestIncomingUserToUserPayment = 5;
+    OperationsCursor latestOutgoingUserToUserPayment = 6;
     int64 max_size = 7;
 }
 enum UserOperationType {
@@ -566,8 +572,8 @@ message UserOperation {
     bool internal = 11;
 }
 message UserOperations {
-    int64 fromIndex=1;
-    int64 toIndex=2;
+    OperationsCursor fromIndex=1;
+    OperationsCursor toIndex=2;
     repeated UserOperation operations=3;
 }
 message GetUserOperationsResponse{
