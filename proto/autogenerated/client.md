@@ -93,6 +93,11 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [EnrollAdminTokenRequest](#EnrollAdminTokenRequest)
   - This methods has an __empty__ __response__ body
 
+- EnrollMessagingToken
+  - auth type: __User__
+  - input: [MessagingToken](#MessagingToken)
+  - This methods has an __empty__ __response__ body
+
 - GetAppsMetrics
   - auth type: __Metrics__
   - input: [AppsMetricsRequest](#AppsMetricsRequest)
@@ -513,6 +518,13 @@ The nostr server will send back a message response, and inside the body there wi
   - http method: __post__
   - http route: __/api/guest/npub/enroll/admin__
   - input: [EnrollAdminTokenRequest](#EnrollAdminTokenRequest)
+  - This methods has an __empty__ __response__ body
+
+- EnrollMessagingToken
+  - auth type: __User__
+  - http method: __post__
+  - http route: __/api/user/messaging/enroll__
+  - input: [MessagingToken](#MessagingToken)
   - This methods has an __empty__ __response__ body
 
 - GetApp
@@ -1359,6 +1371,10 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### ManageOperation
   - __npub__: _string_
+
+### MessagingToken
+  - __device_id__: _string_
+  - __firebase_messaging_token__: _string_
 
 ### MetricsFile
 

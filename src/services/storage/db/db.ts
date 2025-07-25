@@ -26,6 +26,7 @@ import { RootOperation } from "../entity/RootOperation.js"
 import { UserOffer } from "../entity/UserOffer.js"
 import { ManagementGrant } from "../entity/ManagementGrant.js"
 import { ChannelEvent } from "../entity/ChannelEvent.js"
+import { AppUserDevice } from "../entity/AppUserDevice.js"
 
 
 export type DbSettings = {
@@ -68,7 +69,8 @@ export const MainDbEntities = {
     'DebitAccess': DebitAccess,
     'UserOffer': UserOffer,
     'Product': Product,
-    'ManagementGrant': ManagementGrant
+    'ManagementGrant': ManagementGrant,
+    'AppUserDevice': AppUserDevice
 }
 export type MainDbNames = keyof typeof MainDbEntities
 export const MainDbEntitiesNames = Object.keys(MainDbEntities)

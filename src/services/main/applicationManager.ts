@@ -316,4 +316,6 @@ export default class {
         await this.storage.applicationStorage.SetInviteTokenAsUsed(inviteToken);
 
     }
+
+
 }

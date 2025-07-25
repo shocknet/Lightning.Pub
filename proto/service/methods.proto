@@ -672,6 +672,12 @@ service LightningPub {
         option (http_route) = "/api/user/http_creds";
         option (nostr) = true;
     }
+    rpc EnrollMessagingToken(structs.MessagingToken) returns (structs.Empty){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/messaging/enroll";
+        option (nostr) = true;
+    }
     rpc BatchUser(structs.Empty) returns (structs.Empty){
         option (auth_type)  = "User";
         option (http_method) = "post";

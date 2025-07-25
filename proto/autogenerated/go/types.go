@@ -445,6 +445,10 @@ type ManageAuthorizations struct {
 type ManageOperation struct {
 	Npub string `json:"npub"`
 }
+type MessagingToken struct {
+	Device_id                string `json:"device_id"`
+	Firebase_messaging_token string `json:"firebase_messaging_token"`
+}
 type MetricsFile struct {
 }
 type MigrationUpdate struct {

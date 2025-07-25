@@ -74,6 +74,7 @@ type Client struct {
 	EditDebit                   func(req DebitAuthorizationRequest) error
 	EncryptionExchange          func(req EncryptionExchangeRequest) error
 	EnrollAdminToken            func(req EnrollAdminTokenRequest) error
+	EnrollMessagingToken        func(req MessagingToken) error
 	GetApp                      func() (*Application, error)
 	GetAppUser                  func(req GetAppUserRequest) (*AppUser, error)
 	GetAppUserLNURLInfo         func(req GetAppUserLNURLInfoRequest) (*LnurlPayInfoResponse, error)
@@ -649,6 +650,30 @@ func NewClient(params ClientParams) *Client {
 				return err
 			}
 			finalRoute := "/api/guest/npub/enroll/admin"
+			body, err := json.Marshal(req)
+			if err != nil {
+				return err
+			}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return err
+			}
+			if result.Status == "ERROR" {
+				return fmt.Errorf(result.Reason)
+			}
+			return nil
+		},
+		EnrollMessagingToken: func(req MessagingToken) error {
+			auth, err := params.RetrieveUserAuth()
+			if err != nil {
+				return err
+			}
+			finalRoute := "/api/user/messaging/enroll"
 			body, err := json.Marshal(req)
 			if err != nil {
 				return err
