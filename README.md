@@ -54,9 +54,9 @@ By solving the networking and programability hurdles, Pub provides Lightning wit
 ## Planned Features
 
 - [x] A management dashboard is actively being integrated into [ShockWallet](https://github.com/shocknet/wallet2)
-- [x] NIP-69 Nostr native "offers" 
+- [x] Nostr native CLINK "offers"
+- [x] Encrypted Push Notifications
 - [ ] P2P "LSP" coordination for channel batching over Nostr
-- [ ] Event Notifications
 - [ ] Swap integration
 - [ ] High-Availabilty / Clustering
 
