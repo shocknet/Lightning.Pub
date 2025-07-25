@@ -85,19 +85,19 @@ export const NotificationValidate = (o?: Notification, opts: NotificationOptions
 }
 
 export type ServiceNpub = {
-    npub: string
+    pubkey_hex: string
 }
 export const ServiceNpubOptionalFields: [] = []
 export type ServiceNpubOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
-    npub_CustomCheck?: (v: string) => boolean
+    pubkey_hex_CustomCheck?: (v: string) => boolean
 }
 export const ServiceNpubValidate = (o?: ServiceNpub, opts: ServiceNpubOptions = {}, path: string = 'ServiceNpub::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
     if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
 
-    if (typeof o.npub !== 'string') return new Error(`${path}.npub: is not a string`)
-    if (opts.npub_CustomCheck && !opts.npub_CustomCheck(o.npub)) return new Error(`${path}.npub: custom check failed`)
+    if (typeof o.pubkey_hex !== 'string') return new Error(`${path}.pubkey_hex: is not a string`)
+    if (opts.pubkey_hex_CustomCheck && !opts.pubkey_hex_CustomCheck(o.pubkey_hex)) return new Error(`${path}.pubkey_hex: custom check failed`)
 
     return null
 }
