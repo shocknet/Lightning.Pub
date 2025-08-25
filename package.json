@@ -60,7 +60,7 @@
     "sqlite3": "^5.1.7",
     "ts-node": "^10.7.0",
     "ts-proto": "^1.131.2",
-    "typeorm": "0.3.15",
+    "typeorm": "0.3.26",
     "typescript": "^5.5.4",
     "uri-template": "^2.0.0",
     "uuid": "^8.3.2",
