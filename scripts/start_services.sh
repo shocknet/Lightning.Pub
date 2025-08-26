@@ -12,10 +12,15 @@ start_services() {
     USER_NAME=$(whoami)
   fi
 
+  # Ensure NVM_DIR is set
+  if [ -z "$NVM_DIR" ]; then
+    export NVM_DIR="$USER_HOME/.nvm"
+  fi
+
   if [ "$OS" = "Linux" ]; then
     if [ "$SYSTEMCTL_AVAILABLE" = true ]; then
-      mkdir -p "$HOME/.config/systemd/user"
-      cat > "$HOME/.config/systemd/user/lnd.service" <<EOF
+      mkdir -p "$USER_HOME/.config/systemd/user"
+      cat > "$USER_HOME/.config/systemd/user/lnd.service" <<EOF
 [Unit]
 Description=LND Service
 After=network.target
@@ -28,7 +33,7 @@ Restart=always
 WantedBy=default.target
 EOF
 
-      cat > "$HOME/.config/systemd/user/lightning_pub.service" <<EOF
+      cat > "$USER_HOME/.config/systemd/user/lightning_pub.service" <<EOF
 [Unit]
 Description=Lightning.Pub Service
 After=network.target
