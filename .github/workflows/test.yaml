@@ -9,8 +9,24 @@ jobs:
         run: unzip src/tests/regtestNetwork.zip
       - name: list files
         run: ls -la
+      - name: Remove expired certificates
+        run: |
+          echo "Removing expired certificates so LND will generate fresh ones..."
+          rm -f volumes/lnd/alice/tls.cert
+          rm -f volumes/lnd/bob/tls.cert
+          rm -f volumes/lnd/carol/tls.cert
+          rm -f volumes/lnd/dave/tls.cert
       - name: Build the stack
         run: docker compose --project-directory ./ -f src/tests/docker-compose.yml up -d
+      - name: Wait for LND containers to be ready
+        run: |
+          echo "Waiting for LND containers to start and generate certificates..."
+          sleep 30
+          # Wait for certificates to be generated
+          timeout 120 bash -c 'until docker exec polar-n2-alice test -f /home/lnd/.lnd/tls.cert; do sleep 5; done'
+          timeout 120 bash -c 'until docker exec polar-n2-bob test -f /home/lnd/.lnd/tls.cert; do sleep 5; done'
+          timeout 120 bash -c 'until docker exec polar-n2-carol test -f /home/lnd/.lnd/tls.cert; do sleep 5; done'
+          timeout 120 bash -c 'until docker exec polar-n2-dave test -f /home/lnd/.lnd/tls.cert; do sleep 5; done'
       - name: Copy alice cert file
         run: docker cp polar-n2-alice:/home/lnd/.lnd/tls.cert alice-tls.cert
       - name: Copy bob cert file
