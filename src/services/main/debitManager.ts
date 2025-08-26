@@ -8,7 +8,7 @@ import { Application } from '../storage/entity/Application.js';
 import { ApplicationUser } from '../storage/entity/ApplicationUser.js';
 import { NostrEvent, NostrSend, SendData, SendInitiator } from '../nostr/handler.js';
 import { UnsignedEvent } from 'nostr-tools';
-import { NdebitData, NdebitFailure, NdebitSuccess, NdebitSuccessPayment, RecurringDebitTimeUnit } from "@shocknet/clink-sdk";
+import { NdebitData, NdebitFailure, NdebitSuccess, RecurringDebitTimeUnit } from "@shocknet/clink-sdk";
 
 export const expirationRuleName = 'expiration'
 export const frequencyRuleName = 'frequency'
@@ -100,7 +100,7 @@ const nip68errs = {
     6: "Invalid Request",
 }
 type HandleNdebitRes = { status: 'fail', debitRes: NdebitFailure }
-    | { status: 'invoicePaid', op: Types.UserOperation, app: Application, appUser: ApplicationUser, debitRes: NdebitSuccessPayment }
+    | { status: 'invoicePaid', op: Types.UserOperation, app: Application, appUser: ApplicationUser, debitRes: NdebitSuccess }
     | { status: 'authRequired', liveDebitReq: Types.LiveDebitRequest, app: Application, appUser: ApplicationUser }
     | { status: 'authOk', debitRes: NdebitSuccess }
 export class DebitManager {
@@ -181,7 +181,7 @@ export class DebitManager {
                 const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
                 const appUser = await this.storage.applicationStorage.GetApplicationUser(app, ctx.app_user_id)
                 const { op, payment } = await this.sendDebitPayment(ctx.app_id, ctx.app_user_id, req.npub, req.response.invoice)
-                const debitRes: NdebitSuccessPayment = { res: 'ok', preimage: payment.preimage }
+                const debitRes: NdebitSuccess = { res: 'ok', preimage: payment.preimage }
                 this.notifyPaymentSuccess(appUser, debitRes, op, { appId: ctx.app_id, pub: req.npub, id: req.request_id })
                 return
             default:
@@ -211,7 +211,7 @@ export class DebitManager {
         this.notifyPaymentSuccess(appUser, debitRes, op, event)
     }
 
-    notifyPaymentSuccess = (appUser: ApplicationUser, debitRes: NdebitSuccessPayment, op: Types.UserOperation, event: { pub: string, id: string, appId: string }) => {
+    notifyPaymentSuccess = (appUser: ApplicationUser, debitRes: NdebitSuccess, op: Types.UserOperation, event: { pub: string, id: string, appId: string }) => {
         const message: Types.LiveUserOperation & { requestId: string, status: 'OK' } = { operation: op, requestId: "GetLiveUserOperations", status: 'OK' }
         if (appUser.nostr_public_key) { // TODO - fix before support for http streams
             this.nostrSend({ type: 'app', appId: event.appId }, { type: 'content', content: JSON.stringify(message), pub: appUser.nostr_public_key })
@@ -219,7 +219,7 @@ export class DebitManager {
         this.sendDebitResponse(debitRes, event)
     }
 
-    sendDebitResponse = (debitRes: NdebitFailure | NdebitSuccess | NdebitSuccessPayment, event: { pub: string, id: string, appId: string }) => {
+    sendDebitResponse = (debitRes: NdebitFailure | NdebitSuccess, event: { pub: string, id: string, appId: string }) => {
         const e = newNdebitResponse(JSON.stringify(debitRes), event)
         this.nostrSend({ type: 'app', appId: event.appId }, { type: 'event', event: e, encrypt: { toPub: event.pub } })
     }
