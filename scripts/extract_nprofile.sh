@@ -36,7 +36,7 @@ get_log_info() {
   while [ $(($(date +%s) - START_TIME)) -lt $MAX_WAIT_TIME ]; do
     current_size=$(stat -c %s "$latest_unlocker_log")
     if [ $current_size -gt $initial_size ]; then
-      latest_entry=$(tail -c +$((initial_size + 1)) "$latest_unlocker_log" | grep -E "unlocker >> (the wallet is already unlocked|created wallet with pub|unlocked wallet with pub)" | tail -n 1)
+      latest_entry=$(tail -c +$((initial_size + 1)) "$latest_unlocker_log" | grep -E "unlocker >> (the wallet is already unlocked|created wallet with pub:|unlocked wallet with pub)" | tail -n 1)
       if [ -n "$latest_entry" ]; then
         break
       fi
