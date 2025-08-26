@@ -10,7 +10,7 @@ import { HtlcCount1724266887195 } from './build/src/services/storage/migrations/
 import { BalanceEvents1724860966825 } from './build/src/services/storage/migrations/1724860966825-balance_events.js'
 
 export default new DataSource({
-    type: "sqlite",
+    type: "better-sqlite3",
     database: "metrics.sqlite",
     entities: [BalanceEvent, ChannelBalanceEvent, ChannelRouting, RootOperation, ChannelEvent],
     migrations: [LndMetrics1703170330183, ChannelRouting1709316653538, HtlcCount1724266887195, BalanceEvents1724860966825]

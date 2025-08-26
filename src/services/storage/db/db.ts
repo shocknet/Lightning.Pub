@@ -87,7 +87,7 @@ export const MetricsDbEntitiesNames = Object.keys(MetricsDbEntities)
 
 export const newMetricsDb = async (settings: DbSettings, metricsMigrations: Function[]): Promise<{ source: DataSource, executedMigrations: Migration[] }> => {
     const source = await new DataSource({
-        type: "sqlite",
+        type: "better-sqlite3",
         database: settings.metricsDatabaseFile,
         entities: Object.values(MetricsDbEntities),
         migrations: metricsMigrations
@@ -105,7 +105,7 @@ export const newMetricsDb = async (settings: DbSettings, metricsMigrations: Func
 
 export default async (settings: DbSettings, migrations: Function[]): Promise<{ source: DataSource, executedMigrations: Migration[] }> => {
     const source = await new DataSource({
-        type: "sqlite",
+        type: "better-sqlite3",
         database: settings.databaseFile,
         // logging: true,
         entities: Object.values(MainDbEntities),
