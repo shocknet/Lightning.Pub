@@ -19,13 +19,13 @@ install_lightning_pub() {
 
   log "${PRIMARY_COLOR}Installing${RESET_COLOR} ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR}..."
   
-  sudo -u $USER_NAME wget -q $REPO_URL -O $USER_HOME/lightning_pub.tar.gz > /dev/null 2>&1 || {
+  wget -q $REPO_URL -O $USER_HOME/lightning_pub.tar.gz > /dev/null 2>&1 || {
     log "${PRIMARY_COLOR}Failed to download Lightning.Pub.${RESET_COLOR}"
     return 1
   }
   
-  sudo -u $USER_NAME mkdir -p $USER_HOME/lightning_pub_temp
-  sudo -u $USER_NAME tar -xzf $USER_HOME/lightning_pub.tar.gz -C $USER_HOME/lightning_pub_temp --strip-components=1 > /dev/null 2>&1 || {
+  mkdir -p $USER_HOME/lightning_pub_temp
+  tar -xzf $USER_HOME/lightning_pub.tar.gz -C $USER_HOME/lightning_pub_temp --strip-components=1 > /dev/null 2>&1 || {
     log "${PRIMARY_COLOR}Failed to extract Lightning.Pub.${RESET_COLOR}"
     return 1
   }

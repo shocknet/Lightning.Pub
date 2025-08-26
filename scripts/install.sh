@@ -1,8 +1,10 @@
 #!/bin/bash
 set -e
 
-LOG_FILE="/var/log/pubdeploy.log"
+# Use user-space log file
+LOG_FILE="$HOME/.lightning_pub/install.log"
 
+mkdir -p "$(dirname "$LOG_FILE")"
 touch $LOG_FILE
 chmod 644 $LOG_FILE
 
@@ -18,7 +20,7 @@ BASE_URL="https://raw.githubusercontent.com/shocknet/Lightning.Pub/master/script
 
 cleanup() {
     echo "Cleaning up temporary files..."
-    rm -f /tmp/*.sh
+    rm -f "$HOME/.lightning_pub/tmp"/*.sh 2>/dev/null || true
 }
 
 trap cleanup EXIT
@@ -45,9 +47,12 @@ modules=(
 
 log "Script version $SCRIPT_VERSION"
 
+# Create user-space temp directory
+mkdir -p "$HOME/.lightning_pub/tmp"
+
 for module in "${modules[@]}"; do
-  wget -q "${BASE_URL}/${module}.sh" -O "/tmp/${module}.sh" || log_error "Failed to download ${module}.sh" 1
-  source "/tmp/${module}.sh" || log_error "Failed to source ${module}.sh" 1
+  wget -q "${BASE_URL}/${module}.sh" -O "$HOME/.lightning_pub/tmp/${module}.sh" || log_error "Failed to download ${module}.sh" 1
+  source "$HOME/.lightning_pub/tmp/${module}.sh" || log_error "Failed to source ${module}.sh" 1
 done
 
 detect_os_arch

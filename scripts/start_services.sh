@@ -14,21 +14,21 @@ start_services() {
 
   if [ "$OS" = "Linux" ]; then
     if [ "$SYSTEMCTL_AVAILABLE" = true ]; then
-      sudo bash -c "cat > /etc/systemd/system/lnd.service <<EOF
+      mkdir -p "$HOME/.config/systemd/user"
+      cat > "$HOME/.config/systemd/user/lnd.service" <<EOF
 [Unit]
 Description=LND Service
 After=network.target
 
 [Service]
 ExecStart=${USER_HOME}/lnd/lnd
-User=${USER_NAME}
 Restart=always
 
 [Install]
-WantedBy=multi-user.target
-EOF"
+WantedBy=default.target
+EOF
 
-      sudo bash -c "cat > /etc/systemd/system/lightning_pub.service <<EOF
+      cat > "$HOME/.config/systemd/user/lightning_pub.service" <<EOF
 [Unit]
 Description=Lightning.Pub Service
 After=network.target
@@ -36,32 +36,31 @@ After=network.target
 [Service]
 ExecStart=/bin/bash -c 'source ${NVM_DIR}/nvm.sh && npm start'
 WorkingDirectory=${USER_HOME}/lightning_pub
-User=${USER_NAME}
 Restart=always
 
 [Install]
-WantedBy=multi-user.target
-EOF"
+WantedBy=default.target
+EOF
 
-      sudo systemctl daemon-reload
-      sudo systemctl enable lnd >/dev/null 2>&1
-      sudo systemctl enable lightning_pub >/dev/null 2>&1
+      systemctl --user daemon-reload
+      systemctl --user enable lnd >/dev/null 2>&1
+      systemctl --user enable lightning_pub >/dev/null 2>&1
 
       # Always attempt to start or restart LND
-      if systemctl is-active --quiet lnd; then
+      if systemctl --user is-active --quiet lnd; then
         if [ "$LND_STATUS" = "1" ]; then
           log "${PRIMARY_COLOR}Restarting${RESET_COLOR} ${SECONDARY_COLOR}LND${RESET_COLOR} service..."
-          sudo systemctl restart lnd
+          systemctl --user restart lnd
         else
           log "${SECONDARY_COLOR}LND${RESET_COLOR} service is already running."
         fi
       else
         log "${PRIMARY_COLOR}Starting${RESET_COLOR} ${SECONDARY_COLOR}LND${RESET_COLOR} service..."
-        sudo systemctl start lnd
+        systemctl --user start lnd
       fi
 
       # Check LND status after attempting to start/restart
-      if ! systemctl is-active --quiet lnd; then
+      if ! systemctl --user is-active --quiet lnd; then
         log "Failed to start or restart ${SECONDARY_COLOR}LND${RESET_COLOR}. Please check the logs."
         exit 1
       fi
@@ -70,20 +69,20 @@ EOF"
       sleep 10
 
       # Always attempt to start or restart Lightning.Pub
-      if systemctl is-active --quiet lightning_pub; then
+      if systemctl --user is-active --quiet lightning_pub; then
         if [ "$PUB_UPGRADE" = "100" ]; then
           log "${PRIMARY_COLOR}Restarting${RESET_COLOR} ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} service..."
-          sudo systemctl restart lightning_pub
+          systemctl --user restart lightning_pub
         else
           log "${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} service is already running."
         fi
       else
         log "${PRIMARY_COLOR}Starting${RESET_COLOR} ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} service..."
-        sudo systemctl start lightning_pub
+        systemctl --user start lightning_pub
       fi
 
       # Check Lightning.Pub status after attempting to start/restart
-      if ! systemctl is-active --quiet lightning_pub; then
+      if ! systemctl --user is-active --quiet lightning_pub; then
         log "Failed to start or restart ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR}. Please check the logs."
         exit 1
       fi
@@ -112,9 +111,7 @@ LND_PID=\$!
 sleep 10
 npm start &
 NODE_PID=\$!
-wait \$LND_PID
-wait \$NODE_PID
+wait \$LND_PID \$NODE_PID
 EOF
   chmod +x start.sh
-  log "systemctl not available. Created start.sh. Please use this script to start the services manually."
 }
