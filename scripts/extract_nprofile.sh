@@ -18,11 +18,23 @@ get_log_info() {
   log "Checking wallet status... This may take a moment."
   
   TIMESTAMP_FILE="/tmp/pub_install_timestamp"
+  # Get the modification time of the timestamp file as a UNIX timestamp
+  ref_timestamp=$(stat -c %Y "$TIMESTAMP_FILE")
 
   # Wait for a new unlocker log file to be created
   while [ $(($(date +%s) - START_TIME)) -lt $MAX_WAIT_TIME ]; do
-    # Find a log file that is newer than our installation timestamp
-    latest_unlocker_log=$(find "${LOG_DIR}/components/" -name "unlocker_*.log" -newer "$TIMESTAMP_FILE" -print0 2>/dev/null | xargs -0 ls -1t 2>/dev/null | head -n 1)
+    latest_unlocker_log=""
+    # Loop through log files and check their modification time
+    for log_file in "${LOG_DIR}/components/"unlocker_*.log; do
+      if [ -f "$log_file" ]; then
+        file_timestamp=$(stat -c %Y "$log_file")
+        if [ "$file_timestamp" -gt "$ref_timestamp" ]; then
+          latest_unlocker_log="$log_file"
+          break # Found the newest log file
+        fi
+      fi
+    done
+
     if [ -n "$latest_unlocker_log" ]; then
       break
     fi
