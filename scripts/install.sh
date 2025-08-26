@@ -15,7 +15,7 @@ log() {
 }
 
 SCRIPT_VERSION="0.2.0"
-REPO_URL="https://github.com/shocknet/Lightning.Pub/tarball/master"
+REPO_URL="https://github.com/shocknet/Lightning.Pub/tarball/script"
 BASE_URL="https://raw.githubusercontent.com/shocknet/Lightning.Pub/master/scripts/"
 
 cleanup() {
