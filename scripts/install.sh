@@ -14,7 +14,7 @@ log() {
   echo -e "$(echo $message | sed 's/\\e\[[0-9;]*m//g')" >> $LOG_FILE
 }
 
-SCRIPT_VERSION="0.1.0"
+SCRIPT_VERSION="0.2.0"
 REPO_URL="https://github.com/shocknet/Lightning.Pub/tarball/master"
 BASE_URL="https://raw.githubusercontent.com/shocknet/Lightning.Pub/master/scripts/"
 
