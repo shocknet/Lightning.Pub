@@ -9,13 +9,13 @@ jobs:
         run: unzip src/tests/regtestNetwork.zip
       - name: list files
         run: ls -la
-      - name: Remove expired certificates
+      - name: Remove expired certificates and keys
         run: |
-          echo "Removing expired certificates so LND will generate fresh ones..."
-          rm -f volumes/lnd/alice/tls.cert
-          rm -f volumes/lnd/bob/tls.cert
-          rm -f volumes/lnd/carol/tls.cert
-          rm -f volumes/lnd/dave/tls.cert
+          echo "Removing expired certificates and keys so LND will generate fresh ones..."
+          rm -f volumes/lnd/alice/tls.cert volumes/lnd/alice/tls.key
+          rm -f volumes/lnd/bob/tls.cert volumes/lnd/bob/tls.key
+          rm -f volumes/lnd/carol/tls.cert volumes/lnd/carol/tls.key
+          rm -f volumes/lnd/dave/tls.cert volumes/lnd/dave/tls.key
       - name: Build the stack
         run: docker compose --project-directory ./ -f src/tests/docker-compose.yml up -d
       - name: Check container status
