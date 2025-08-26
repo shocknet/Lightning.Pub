@@ -31,19 +31,51 @@ install_lightning_pub() {
   }
   rm $USER_HOME/lightning_pub.tar.gz
 
-  if [ -d "$USER_HOME/lightning_pub" ]; then
+  # Check if directory exists and is not empty to determine if it's an upgrade
+  if [ -d "$USER_HOME/lightning_pub" ] && [ "$(ls -A $USER_HOME/lightning_pub)" ]; then
     log "Upgrading existing Lightning.Pub installation..."
     upgrade_status=100  # Use 100 to indicate an upgrade
   else
+    # If directory exists but is empty, remove it to ensure a clean 'mv'
+    if [ -d "$USER_HOME/lightning_pub" ]; then
+      rm -d "$USER_HOME/lightning_pub"
+    fi
     log "Performing fresh Lightning.Pub installation..."
     upgrade_status=0
   fi
 
   # Merge if upgrade
   if [ $upgrade_status -eq 100 ]; then
-    rsync -a --quiet --exclude='*.sqlite' --exclude='.env' --exclude='logs' --exclude='node_modules' --exclude='.jwt_secret' --exclude='.wallet_secret' --exclude='admin.npub' --exclude='app.nprofile' --exclude='admin.connect' --exclude='admin.enroll' $USER_HOME/lightning_pub_temp/ $USER_HOME/lightning_pub/
+    log "Backing up user data before upgrade..."
+    BACKUP_DIR="$USER_HOME/lightning_pub_backup_$(date +%s)"
+    mkdir -p "$BACKUP_DIR"
+
+    # Move files and folders to preserve to the backup directory
+    # Use 2>/dev/null to suppress errors if files don't exist
+    mv "$USER_HOME/lightning_pub"/*.sqlite "$BACKUP_DIR/" 2>/dev/null || true
+    mv "$USER_HOME/lightning_pub"/.env "$BACKUP_DIR/" 2>/dev/null || true
+    mv "$USER_HOME/lightning_pub"/logs "$BACKUP_DIR/" 2>/dev/null || true
+    mv "$USER_HOME/lightning_pub"/.jwt_secret "$BACKUP_DIR/" 2>/dev/null || true
+    mv "$USER_HOME/lightning_pub"/.wallet_secret "$BACKUP_DIR/" 2>/dev/null || true
+    mv "$USER_HOME/lightning_pub"/admin.npub "$BACKUP_DIR/" 2>/dev/null || true
+    mv "$USER_HOME/lightning_pub"/app.nprofile "$BACKUP_DIR/" 2>/dev/null || true
+    mv "$USER_HOME/lightning_pub"/admin.connect "$BACKUP_DIR/" 2>/dev/null || true
+    mv "$USER_HOME/lightning_pub"/admin.enroll "$BACKUP_DIR/" 2>/dev/null || true
+
+    log "Replacing application files..."
+    # Remove the old application directory (user data is now backed up)
+    rm -rf "$USER_HOME/lightning_pub"
+    # Move the new version into place
+    mv "$USER_HOME/lightning_pub_temp" "$USER_HOME/lightning_pub"
+
+    log "Restoring user data..."
+    # Move the backed-up data into the new directory
+    cp -r "$BACKUP_DIR"/* "$USER_HOME/lightning_pub/"
+    
+    # Clean up the backup directory
+    rm -rf "$BACKUP_DIR"
   else
-    mv $USER_HOME/lightning_pub_temp $USER_HOME/lightning_pub
+    mv "$USER_HOME/lightning_pub_temp" "$USER_HOME/lightning_pub"
   fi
   rm -rf $USER_HOME/lightning_pub_temp
 

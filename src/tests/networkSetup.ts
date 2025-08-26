@@ -68,6 +68,9 @@ export const setupNetwork = async (): Promise<ChainTools> => {
         }
     }, 10, 8000)
 
+    console.log("network setup complete, waiting for graph to settle...")
+    await new Promise(resolve => setTimeout(resolve, 15000))
+
     alice.Stop()
     bob.Stop()
     return { mine: (amount: number) => core.Mine(amount) }
