@@ -17,31 +17,30 @@ get_log_info() {
 
   log "Checking wallet status... This may take a moment."
   
-  # Wait for unlocker log file
+  TIMESTAMP_FILE="/tmp/pub_install_timestamp"
+
+  # Wait for a new unlocker log file to be created
   while [ $(($(date +%s) - START_TIME)) -lt $MAX_WAIT_TIME ]; do
-    latest_unlocker_log=$(ls -1t ${LOG_DIR}/components/unlocker_*.log 2>/dev/null | head -n 1)
-    [ -n "$latest_unlocker_log" ] && break
+    # Find a log file that is newer than our installation timestamp
+    latest_unlocker_log=$(find "${LOG_DIR}/components/" -name "unlocker_*.log" -newer "$TIMESTAMP_FILE" -print0 2>/dev/null | xargs -0 ls -1t 2>/dev/null | head -n 1)
+    if [ -n "$latest_unlocker_log" ]; then
+      break
+    fi
     sleep $WAIT_INTERVAL
   done
 
   if [ -z "$latest_unlocker_log" ]; then
-    log "Error: No unlocker log file found. Please check the service status."
+    log "Error: No new unlocker log file found after starting services. Please check the service status."
     exit 1
   fi
 
-  # Get the initial file size instead of line count
-  initial_size=$(stat -c %s "$latest_unlocker_log")
-
-  # Wait for new wallet status in log file
+  # Now that we have the correct log file, wait for the wallet status message
+  START_TIME=$(date +%s)
   while [ $(($(date +%s) - START_TIME)) -lt $MAX_WAIT_TIME ]; do
-    current_size=$(stat -c %s "$latest_unlocker_log")
-    if [ $current_size -gt $initial_size ]; then
-      latest_entry=$(tail -c +$((initial_size + 1)) "$latest_unlocker_log" | grep -E "unlocker >> (the wallet is already unlocked|created wallet with pub:|unlocked wallet with pub)" | tail -n 1)
-      if [ -n "$latest_entry" ]; then
-        break
-      fi
+    latest_entry=$(grep -E "unlocker >> (the wallet is already unlocked|created wallet with pub:|unlocked wallet with pub)" "$latest_unlocker_log" | tail -n 1)
+    if [ -n "$latest_entry" ]; then
+      break
     fi
-    initial_size=$current_size
     sleep $WAIT_INTERVAL
   done
 

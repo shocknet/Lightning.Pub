@@ -84,6 +84,7 @@ else
  install_lightning_pub "$REPO_URL" || log_error "Failed to install Lightning.Pub" 1
 
   log "Starting services..."
+  touch /tmp/pub_install_timestamp
   start_services $lnd_status $pub_upgrade_status || log_error "Failed to start services" 1
   get_log_info || log_error "Failed to get log info" 1
 
