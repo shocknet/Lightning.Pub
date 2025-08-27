@@ -22,8 +22,8 @@ REPO_URL="https://github.com/${REPO}/tarball/${BRANCH}"
 SCRIPTS_URL="${BASE_URL}/scripts/"
 
 cleanup() {
-    echo "Cleaning up temporary files..."
-    rm -f "$HOME/lightning_pub_tmp"/*.sh 2>/dev/null || true
+    log "Cleaning up temporary files..."
+    rm -rf "$HOME/lightning_pub_tmp" 2>/dev/null || true
 }
 
 trap cleanup EXIT
