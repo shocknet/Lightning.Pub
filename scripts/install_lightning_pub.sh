@@ -39,16 +39,14 @@ install_lightning_pub() {
     # Get latest commit hash from GitHub API, logging the response for debugging.
     API_RESPONSE=$(wget -qO- "https://api.github.com/repos/${REPO}/commits/${BRANCH}" 2>&1 | tee /tmp/api_response.log)
 
-    # Check for a rate limit error first.
-    if echo "$API_RESPONSE" | grep -q "API rate limit exceeded"; then
-      log_error "GitHub API rate limit exceeded. Please wait a while before trying again." 1
-    fi
+    # Parse commit hash from the commit html_url first (most robust, dependency-free)
+    LATEST_COMMIT=$(echo "$API_RESPONSE" | awk -F'[/"]' '/"html_url": ".*\/commit\// {print $(NF-1); exit}')
 
-    # Safely parse the JSON using awk to extract the commit hash from the stable "html_url" field.
-    LATEST_COMMIT=$(echo "$API_RESPONSE" | awk -F'[/"]' '/"html_url": ".*\/commit\// {print $(NF-1)}')
-    
-    # If we still couldn't get the commit, it's a different network or API error.
+    # If parsing failed, check explicitly for a rate-limit message; otherwise abort with full response
     if [ -z "$LATEST_COMMIT" ]; then
+      if grep -q '"message"[[:space:]]*:[[:space:]]*"API rate limit exceeded"' <<< "$API_RESPONSE"; then
+        log_error "GitHub API rate limit exceeded. Please wait a while before trying again." 1
+      fi
       log "GitHub API response was not as expected. Full response for debugging:"
       log "$API_RESPONSE"
       log_error "Could not retrieve latest version from GitHub. Upgrade check failed. Aborting." 1
