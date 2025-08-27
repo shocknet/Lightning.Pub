@@ -44,7 +44,8 @@ install_lightning_pub() {
       log_error "GitHub API rate limit exceeded. Please wait a while before trying again." 1
     fi
 
-    LATEST_COMMIT=$(echo "$API_RESPONSE" | grep -o '"sha":"[^"]*"' | cut -d'"' -f4 | head -c 40)
+    # Safely parse the JSON by finding the first "html_url" that contains "/commit/" and extracting the hash from it.
+    LATEST_COMMIT=$(echo "$API_RESPONSE" | grep '"html_url":.*commit/' | head -n 1 | sed -n 's|.*commit/\([0-9a-f]\{40\}\).*|\1|p')
     
     # If we still couldn't get the commit, it's a different network or API error.
     if [ -z "$LATEST_COMMIT" ]; then
