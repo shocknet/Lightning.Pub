@@ -33,6 +33,25 @@ install_lightning_pub() {
 
   # Check if directory exists and is not empty to determine if it's an upgrade
   if [ -d "$USER_HOME/lightning_pub" ] && [ "$(ls -A $USER_HOME/lightning_pub)" ]; then
+    log "Checking if Lightning.Pub update is needed..."
+    
+    # Check if update is needed by comparing commit hashes
+    # Get latest commit hash from GitHub API
+    LATEST_COMMIT=$(wget -qO- "https://api.github.com/repos/${REPO}/commits/${BRANCH}" 2>/dev/null | grep -o '"sha":"[^"]*"' | cut -d'"' -f4 | head -c 40)
+    
+    if [ -n "$LATEST_COMMIT" ]; then
+      # Check if we have a stored commit hash and compare
+      if [ -f "$USER_HOME/lightning_pub/.installed_commit" ]; then
+        CURRENT_COMMIT=$(cat "$USER_HOME/lightning_pub/.installed_commit" 2>/dev/null | head -c 40)
+        
+        if [ "$CURRENT_COMMIT" = "$LATEST_COMMIT" ]; then
+          log "${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} is already at the latest commit. No update needed."
+          rm -rf $USER_HOME/lightning_pub_temp
+          return 2  # Special exit code to indicate no changes
+        fi
+      fi
+    fi
+    
     log "Upgrading existing Lightning.Pub installation..."
     upgrade_status=100  # Use 100 to indicate an upgrade
   else
@@ -97,6 +116,11 @@ install_lightning_pub() {
     done
     log "${PRIMARY_COLOR}Full log available in $USER_HOME/lightning_pub/npm_install.log${RESET_COLOR}"
     return 1
+  fi
+  
+  # Store the commit hash for future update checks
+  if [ -n "$LATEST_COMMIT" ]; then
+    echo "$LATEST_COMMIT" > "$USER_HOME/lightning_pub/.installed_commit"
   fi
   
   return 0 

@@ -2,7 +2,7 @@
 set -e
 
 # Use user-space log file
-LOG_FILE="$HOME/.lightning_pub/install.log"
+LOG_FILE="$HOME/lightning_pub/install.log"
 
 mkdir -p "$(dirname "$LOG_FILE")"
 touch $LOG_FILE
@@ -15,12 +15,15 @@ log() {
 }
 
 SCRIPT_VERSION="0.2.0"
-REPO_URL="https://github.com/shocknet/Lightning.Pub/tarball/script"
-BASE_URL="https://raw.githubusercontent.com/shocknet/Lightning.Pub/script/scripts/"
+REPO="shocknet/Lightning.Pub"
+BRANCH="script"
+BASE_URL="https://raw.githubusercontent.com/${REPO}/${BRANCH}"
+REPO_URL="https://github.com/${REPO}/tarball/${BRANCH}"
+SCRIPTS_URL="${BASE_URL}/scripts/"
 
 cleanup() {
     echo "Cleaning up temporary files..."
-    rm -f "$HOME/.lightning_pub/tmp"/*.sh 2>/dev/null || true
+    rm -f "$HOME/lightning_pub_tmp"/*.sh 2>/dev/null || true
 }
 
 trap cleanup EXIT
@@ -48,11 +51,11 @@ modules=(
 log "Script version $SCRIPT_VERSION"
 
 # Create user-space temp directory
-mkdir -p "$HOME/.lightning_pub/tmp"
+mkdir -p "$HOME/lightning_pub_tmp"
 
 for module in "${modules[@]}"; do
-  wget -q "${BASE_URL}/${module}.sh" -O "$HOME/.lightning_pub/tmp/${module}.sh" || log_error "Failed to download ${module}.sh" 1
-  source "$HOME/.lightning_pub/tmp/${module}.sh" || log_error "Failed to source ${module}.sh" 1
+  wget -q "${SCRIPTS_URL}${module}.sh" -O "$HOME/lightning_pub_tmp/${module}.sh" || log_error "Failed to download ${module}.sh" 1
+  source "$HOME/lightning_pub_tmp/${module}.sh" || log_error "Failed to source ${module}.sh" 1
 done
 
 detect_os_arch
@@ -81,7 +84,22 @@ else
 
  install_nodejs || log_error "Failed to install Node.js" 1
 
- install_lightning_pub "$REPO_URL" || log_error "Failed to install Lightning.Pub" 1
+  pub_install_result=$(install_lightning_pub "$REPO_URL")
+ pub_install_status=$?
+
+  case $pub_install_status in
+    0) 
+      log "Lightning.Pub installation/upgrade completed successfully."
+      pub_upgrade_status=100
+      ;;
+    2) 
+      log "Lightning.Pub is already up-to-date. No restart needed."
+      pub_upgrade_status=0
+      ;;
+    *) 
+      log_error "Lightning.Pub installation failed" $pub_install_status
+      ;;
+  esac
 
   log "Starting services..."
   touch /tmp/pub_install_timestamp
