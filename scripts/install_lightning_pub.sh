@@ -37,11 +37,24 @@ install_lightning_pub() {
     
     # Check if update is needed by comparing commit hashes
     # Get latest commit hash from GitHub API
-    LATEST_COMMIT=$(wget -qO- "https://api.github.com/repos/${REPO}/commits/${BRANCH}" 2>/dev/null | grep -o '"sha":"[^"]*"' | cut -d'"' -f4 | head -c 40)
+    API_RESPONSE=$(wget -qO- "https://api.github.com/repos/${REPO}/commits/${BRANCH}" 2>&1)
+
+    # Check for a rate limit error first.
+    if echo "$API_RESPONSE" | grep -q "API rate limit exceeded"; then
+      log_error "GitHub API rate limit exceeded. Please wait a while before trying again." 1
+    fi
+
+    LATEST_COMMIT=$(echo "$API_RESPONSE" | grep -o '"sha":"[^"]*"' | cut -d'"' -f4 | head -c 40)
     
-    if [ -n "$LATEST_COMMIT" ]; then
-      # Check if we have a stored commit hash and compare
-      if [ -f "$USER_HOME/lightning_pub/.installed_commit" ]; then
+    # If we still couldn't get the commit, it's a different network or API error.
+    if [ -z "$LATEST_COMMIT" ]; then
+      log "GitHub API response was not as expected. Full response for debugging:"
+      log "$API_RESPONSE"
+      log_error "Could not retrieve latest version from GitHub. Upgrade check failed. Aborting." 1
+    fi
+    
+    # Check if we have a stored commit hash and compare
+    if [ -f "$USER_HOME/lightning_pub/.installed_commit" ]; then
         CURRENT_COMMIT=$(cat "$USER_HOME/lightning_pub/.installed_commit" 2>/dev/null | head -c 40)
         
         if [ "$CURRENT_COMMIT" = "$LATEST_COMMIT" ]; then
@@ -50,7 +63,6 @@ install_lightning_pub() {
           return 2  # Special exit code to indicate no changes
         fi
       fi
-    fi
     
     log "Upgrading existing Lightning.Pub installation..."
     upgrade_status=100  # Use 100 to indicate an upgrade
@@ -76,6 +88,7 @@ install_lightning_pub() {
     mv "$USER_HOME/lightning_pub"/logs "$BACKUP_DIR/" 2>/dev/null || true
     mv "$USER_HOME/lightning_pub"/.jwt_secret "$BACKUP_DIR/" 2>/dev/null || true
     mv "$USER_HOME/lightning_pub"/.wallet_secret "$BACKUP_DIR/" 2>/dev/null || true
+    mv "$USER_HOME/lightning_pub"/.installed_commit "$BACKUP_DIR/" 2>/dev/null || true
     mv "$USER_HOME/lightning_pub"/admin.npub "$BACKUP_DIR/" 2>/dev/null || true
     mv "$USER_HOME/lightning_pub"/app.nprofile "$BACKUP_DIR/" 2>/dev/null || true
     mv "$USER_HOME/lightning_pub"/admin.connect "$BACKUP_DIR/" 2>/dev/null || true
