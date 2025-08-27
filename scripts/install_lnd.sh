@@ -87,7 +87,7 @@ install_lnd() {
 bitcoin.mainnet=true
 bitcoin.node=neutrino
 neutrino.addpeer=neutrino.shock.network
-feeurl=https://nodes.lightning.computer/fees/v1/btc-fee-estimates.json
+fee.url=https://nodes.lightning.computer/fees/v1/btc-fee-estimates.json
 EOF
     fi
 
