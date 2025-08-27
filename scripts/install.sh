@@ -84,8 +84,8 @@ else
 
  install_nodejs || log_error "Failed to install Node.js" 1
 
-  pub_install_result=$(install_lightning_pub "$REPO_URL")
- pub_install_status=$?
+  install_lightning_pub "$REPO_URL" || true
+  pub_install_status=$?
 
   case $pub_install_status in
     0) 
