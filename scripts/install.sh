@@ -1,17 +1,14 @@
 #!/bin/bash
 set -e
 
-# Use user-space log file
-LOG_FILE="$HOME/lightning_pub/install.log"
-
-mkdir -p "$(dirname "$LOG_FILE")"
-touch $LOG_FILE
-chmod 644 $LOG_FILE
+# --- Use a secure temporary log file during installation ---
+TMP_LOG_FILE=$(mktemp)
 
 log() {
   local message="$(date '+%Y-%m-%d %H:%M:%S') $1"
   echo -e "$message"
-  echo -e "$(echo $message | sed 's/\\e\[[0-9;]*m//g')" >> $LOG_FILE
+  # Write to the temporary log file.
+  echo -e "$(echo "$message" | sed 's/\\e\[[0-9;]*m//g')" >> "$TMP_LOG_FILE"
 }
 
 SCRIPT_VERSION="0.2.0"
@@ -107,4 +104,13 @@ else
   get_log_info || log_error "Failed to get log info" 1
 
   log "Installation process completed successfully"
+
+  # --- Move temporary log to permanent location ---
+  if [ -d "$HOME/lightning_pub" ]; then
+    mv "$TMP_LOG_FILE" "$HOME/lightning_pub/install.log"
+    chmod 600 "$HOME/lightning_pub/install.log"
+  else
+    # If the installation failed before the dir was created, clean up the temp log.
+    rm -f "$TMP_LOG_FILE"
+  fi
 fi
