@@ -36,17 +36,16 @@ install_lightning_pub() {
     log "Checking if Lightning.Pub update is needed..."
     
     # Check if update is needed by comparing commit hashes
-    # Get latest commit hash from GitHub API
-    API_RESPONSE=$(wget -qO- "https://api.github.com/repos/${REPO}/commits/${BRANCH}" 2>&1)
-    echo "$API_RESPONSE" > /tmp/api_response.log
+    # Get latest commit hash from GitHub API, logging the response for debugging.
+    API_RESPONSE=$(wget -qO- "https://api.github.com/repos/${REPO}/commits/${BRANCH}" 2>&1 | tee /tmp/api_response.log)
 
     # Check for a rate limit error first.
     if echo "$API_RESPONSE" | grep -q "API rate limit exceeded"; then
       log_error "GitHub API rate limit exceeded. Please wait a while before trying again." 1
     fi
 
-    # Safely parse the JSON by finding the first "html_url" that contains "/commit/" and extracting the hash from it.
-    LATEST_COMMIT=$(echo "$API_RESPONSE" | grep '"html_url":.*commit/' | head -n 1 | sed -n 's|.*commit/\([0-9a-f]\{40\}\).*|\1|p')
+    # Safely parse the JSON using awk to extract the commit hash from the stable "html_url" field.
+    LATEST_COMMIT=$(echo "$API_RESPONSE" | awk -F'[/"]' '/"html_url": ".*\/commit\// {print $(NF-1)}')
     
     # If we still couldn't get the commit, it's a different network or API error.
     if [ -z "$LATEST_COMMIT" ]; then
