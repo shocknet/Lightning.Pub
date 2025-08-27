@@ -38,6 +38,7 @@ install_lightning_pub() {
     # Check if update is needed by comparing commit hashes
     # Get latest commit hash from GitHub API
     API_RESPONSE=$(wget -qO- "https://api.github.com/repos/${REPO}/commits/${BRANCH}" 2>&1)
+    echo "$API_RESPONSE" > /tmp/api_response.log
 
     # Check for a rate limit error first.
     if echo "$API_RESPONSE" | grep -q "API rate limit exceeded"; then
