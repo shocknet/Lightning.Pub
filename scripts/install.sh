@@ -81,27 +81,36 @@ else
 
  install_nodejs || log_error "Failed to install Node.js" 1
 
-  install_lightning_pub "$REPO_URL" || true
+  # Run install_lightning_pub and capture its exit code directly.
+  # We expect specific exit codes (0 for success, 2 for no update), so we handle them.
+  install_lightning_pub "$REPO_URL"
   pub_install_status=$?
-
+  
   case $pub_install_status in
     0) 
-      log "Lightning.Pub installation/upgrade completed successfully."
-      pub_upgrade_status=100
+      log "Lightning.Pub fresh installation completed successfully."
+      pub_upgrade_status=0 # Indicates a fresh install, services should start
+      ;;
+    100)
+      log "Lightning.Pub upgrade completed successfully."
+      pub_upgrade_status=100 # Indicates an upgrade, services should restart
       ;;
     2) 
-      log "Lightning.Pub is already up-to-date. No restart needed."
-      pub_upgrade_status=0
+      log "Lightning.Pub is already up-to-date. No action needed."
+      pub_upgrade_status=2 # Special status to skip service restart
       ;;
     *) 
-      log_error "Lightning.Pub installation failed" $pub_install_status
+      log_error "Lightning.Pub installation failed with exit code $pub_install_status" $pub_install_status
       ;;
   esac
 
-  log "Starting services..."
-  touch /tmp/pub_install_timestamp
-  start_services $lnd_status $pub_upgrade_status || log_error "Failed to start services" 1
-  get_log_info || log_error "Failed to get log info" 1
+  # Only start services if it was a fresh install or an upgrade.
+  if [ "$pub_upgrade_status" -eq 0 ] || [ "$pub_upgrade_status" -eq 100 ]; then
+    log "Starting services..."
+    touch /tmp/pub_install_timestamp
+    start_services $lnd_status $pub_upgrade_status || log_error "Failed to start services" 1
+    get_log_info || log_error "Failed to get log info" 1
+  fi
 
   log "Installation process completed successfully"
 
