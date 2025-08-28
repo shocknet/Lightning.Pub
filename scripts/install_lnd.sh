@@ -69,12 +69,27 @@ install_lnd() {
       log "${PRIMARY_COLOR}Please stop ${SECONDARY_COLOR}LND${RESET_COLOR} manually if it is running.${RESET_COLOR}"
     fi
 
-    tar -xzf $USER_HOME/lnd.tar.gz -C $USER_HOME > /dev/null || {
+    log "Extracting LND..."
+    LND_TMP_DIR=$(mktemp -d -p "$USER_HOME")
+    
+    tar -xzf "$USER_HOME/lnd.tar.gz" -C "$LND_TMP_DIR" --strip-components=1 > /dev/null || {
       log "${PRIMARY_COLOR}Failed to extract LND.${RESET_COLOR}"
+      rm -rf "$LND_TMP_DIR"
+      rm -f "$USER_HOME/lnd.tar.gz"
       exit 1
     }
-    rm $USER_HOME/lnd.tar.gz
-    mv $USER_HOME/lnd-* $USER_HOME/lnd
+    
+    rm "$USER_HOME/lnd.tar.gz"
+    
+    if [ -d "$USER_HOME/lnd" ]; then
+        log "Removing old LND directory..."
+        rm -rf "$USER_HOME/lnd"
+    fi
+    
+    mv "$LND_TMP_DIR" "$USER_HOME/lnd" || {
+        log "${PRIMARY_COLOR}Failed to move new LND version into place.${RESET_COLOR}"
+        exit 1
+    }
 
     # Create .lnd directory if it doesn't exist
     mkdir -p $USER_HOME/.lnd
