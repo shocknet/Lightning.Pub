@@ -70,11 +70,6 @@ EOF
         exit 1
       fi
 
-      if [ "$LND_STATUS" = "0" ] || [ "$LND_STATUS" = "1" ]; then
-        log "Giving ${SECONDARY_COLOR}LND${RESET_COLOR} a few seconds to start before starting ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR}..."
-        sleep 10
-      fi
-
       # Always attempt to start or restart Lightning.Pub
       if systemctl --user is-active --quiet lightning_pub; then
         if [ "$PUB_UPGRADE" = "100" ]; then

@@ -15,8 +15,6 @@ get_log_info() {
   MAX_WAIT_TIME=360  # Maximum wait time in seconds (6 minutes)
   WAIT_INTERVAL=5    # Time to wait between checks in seconds
 
-  log "Checking wallet status... This may take a moment."
-  
   TIMESTAMP_FILE="/tmp/pub_install_timestamp"
   # Get the modification time of the timestamp file as a UNIX timestamp
   ref_timestamp=$(stat -c %Y "$TIMESTAMP_FILE")
@@ -72,6 +70,8 @@ get_log_info() {
     fi
     sleep $WAIT_INTERVAL
   done
+
+  log "Checking wallet status... This may take a moment."
 
   if [ -z "$latest_entry" ]; then
     log "Can't retrieve wallet status, check the service logs."
