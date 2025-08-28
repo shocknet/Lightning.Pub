@@ -64,6 +64,12 @@ get_log_info() {
       fi
     fi
     if [ -n "$latest_entry" ]; then
+      bar_len=30
+      filled=$bar_len
+      empty=0
+      filled_bar=$(printf '%*s' "$filled" | tr ' ' '#')
+      empty_bar=$(printf '%*s' "$empty" | tr ' ' ' ')
+      echo -ne "Header sync: [${filled_bar}${empty_bar}] 100%\r"
       # End the progress line cleanly
       echo ""
       break
@@ -99,12 +105,10 @@ get_log_info() {
       admin_connect=$(cat "$DATA_DIR/admin.connect")
       # Check if the admin_connect string is complete (contains both nprofile and secret)
       if [[ $admin_connect == nprofile* ]] && [[ $admin_connect == *:* ]]; then
-        log "An admin has not yet been enrolled."
-        log "Paste this string into ShockWallet to administer the node:"
+        log "A node admin has not yet enrolled via Nostr."
+        log "Paste this string into ShockWallet as a node source to connect as administrator:"
         log "${SECONDARY_COLOR}$admin_connect${RESET_COLOR}"
         break
-      else
-        log "Waiting for complete admin connect information..."
       fi
     elif [ -f "$DATA_DIR/app.nprofile" ]; then
       app_nprofile=$(cat "$DATA_DIR/app.nprofile")
