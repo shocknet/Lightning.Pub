@@ -95,8 +95,76 @@ export class Unlocker {
         return { ln, pub: infoAfter.pub, action: 'unlocked' }
     }
 
+    private waitForLndSync = async (timeoutSeconds: number): Promise<void> => {
+        const lndLogPath = this.settings.lndSettings.lndLogDir;
+        if (this.settings.lndSettings.mockLnd) {
+            this.log("MOCK_LND set, skipping header sync wait.");
+            return;
+        }
+
+        let targetHeight = 0;
+        this.log(`Waiting for LND to sync headers (timeout: ${timeoutSeconds}s). Log: ${lndLogPath} (discovering target height...)`);
+
+        let lastPercentReported = -1;
+        const startTime = Date.now();
+        const checkLog = async (resolve: () => void, reject: (reason?: any) => void) => {
+            const elapsedTime = (Date.now() - startTime) / 1000;
+            if (elapsedTime > timeoutSeconds) {
+                return reject(new Error("Timed out waiting for LND to sync."));
+            }
+
+            try {
+                if (fs.existsSync(lndLogPath)) {
+                    const logContent = fs.readFileSync(lndLogPath, 'utf8');
+
+                    if (logContent.includes("Fully caught up with cfheaders")) {
+                        this.log("LND sync complete.");
+                        return resolve();
+                    }
+
+                    // If target height isn't known yet, try to derive it from the log
+                    if (targetHeight === 0) {
+                        const targetMatch = [...logContent.matchAll(/Syncing to block height\s+(\d+)\s+from peer/gi)];
+                        if (targetMatch.length > 0) {
+                            const lastTarget = targetMatch[targetMatch.length - 1];
+                            const parsedTarget = Number.parseInt(lastTarget[1], 10);
+                            if (!Number.isNaN(parsedTarget) && parsedTarget > 0) {
+                                targetHeight = parsedTarget;
+                                this.log(`Detected target header height: ${targetHeight}`);
+                            }
+                        }
+                    }
+
+                    // Parse latest reported height: look for "height=NNNN" occurrences
+                    const matches = [...logContent.matchAll(/height=(\d+)/g)];
+                    if (matches.length > 0) {
+                        const lastMatch = matches[matches.length - 1];
+                        const currentHeight = Number.parseInt(lastMatch[1], 10);
+                        if (!Number.isNaN(currentHeight) && currentHeight > 0 && targetHeight > 0) {
+                            const percent = Math.min(99, Math.max(0, Math.floor((Math.min(currentHeight, targetHeight) * 100) / targetHeight)));
+                            // Report only on first run and on >=5% increments to reduce noise
+                            if (lastPercentReported === -1 || percent >= lastPercentReported + 5) {
+                                this.log(`LND header sync ${percent}% (height=${currentHeight}/${targetHeight})`);
+                                lastPercentReported = percent;
+                            }
+                        }
+                    }
+                }
+            } catch (err) {
+                // Log file might not exist yet, which is fine.
+            }
+
+            setTimeout(() => checkLog(resolve, reject), 3000);
+        };
+
+        return new Promise<void>((resolve, reject) => {
+            checkLog(resolve, reject);
+        });
+    }
+
     InitFlow = async (lndCert: Buffer) => {
         this.log("macaroon not found, creating wallet...")
+        await this.waitForLndSync(300); // Wait up to 5 minutes
         const unlocker = this.GetUnlockerClient(lndCert)
         const { plaintextSeed, encryptedSeed } = await this.genSeed(unlocker)
         return this.initWallet(lndCert, unlocker, { plaintextSeed, encryptedSeed })

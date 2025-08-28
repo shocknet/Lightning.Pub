@@ -7,6 +7,7 @@ export type NodeSettings = {
 }
 export type LndSettings = {
     mainNode: NodeSettings
+    lndLogDir: string
     feeRateLimit: number
     feeFixedLimit: number
     feeRateBps: number
@@ -15,6 +16,7 @@ export type LndSettings = {
     otherNode?: NodeSettings
     thirdNode?: NodeSettings
 }
+
 type TxOutput = {
     hash: string
     index: number

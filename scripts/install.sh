@@ -107,6 +107,7 @@ else
   # Only start services if it was a fresh install or an upgrade.
   if [ "$pub_upgrade_status" -eq 0 ] || [ "$pub_upgrade_status" -eq 100 ]; then
     log "Starting services..."
+    log "Note: LND may take several minutes to sync block headers depending on network conditions."
     touch /tmp/pub_install_timestamp
     start_services $lnd_status $pub_upgrade_status || log_error "Failed to start services" 1
     get_log_info || log_error "Failed to get log info" 1

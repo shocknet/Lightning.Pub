@@ -12,7 +12,7 @@ get_log_info() {
   LOG_DIR="$USER_HOME/lightning_pub/logs"
   DATA_DIR="$USER_HOME/lightning_pub/"
   START_TIME=$(date +%s)
-  MAX_WAIT_TIME=120  # Maximum wait time in seconds
+  MAX_WAIT_TIME=360  # Maximum wait time in seconds (6 minutes)
   WAIT_INTERVAL=5    # Time to wait between checks in seconds
 
   log "Checking wallet status... This may take a moment."
@@ -50,7 +50,24 @@ get_log_info() {
   START_TIME=$(date +%s)
   while [ $(($(date +%s) - START_TIME)) -lt $MAX_WAIT_TIME ]; do
     latest_entry=$(grep -E "unlocker >> (the wallet is already unlocked|created wallet with pub:|unlocked wallet with pub)" "$latest_unlocker_log" | tail -n 1)
+
+    # Show dynamic header sync progress if available from unlocker logs
+    progress_line=$(grep -E "LND header sync [0-9]+% \(height=" "$latest_unlocker_log" | tail -n 1)
+    if [ -n "$progress_line" ]; then
+      percent=$(echo "$progress_line" | sed -E 's/.*LND header sync ([0-9]+)%.*/\1/')
+      if [[ "$percent" =~ ^[0-9]+$ ]]; then
+        bar_len=30
+        filled=$((percent*bar_len/100))
+        if [ $filled -gt $bar_len ]; then filled=$bar_len; fi
+        empty=$((bar_len-filled))
+        filled_bar=$(printf '%*s' "$filled" | tr ' ' '#')
+        empty_bar=$(printf '%*s' "$empty" | tr ' ' ' ')
+        echo -ne "Header sync: [${filled_bar}${empty_bar}] ${percent}%\r"
+      fi
+    fi
     if [ -n "$latest_entry" ]; then
+      # End the progress line cleanly
+      echo ""
       break
     fi
     sleep $WAIT_INTERVAL
