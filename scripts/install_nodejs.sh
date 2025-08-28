@@ -36,10 +36,8 @@ install_nodejs() {
     log "Node.js is not installed. ${PRIMARY_COLOR}Installing the LTS version...${RESET_COLOR}"
   fi
 
-  # Keep only the download progress bar; hide all other chatter
-  if ! bash -c "source ${NVM_DIR}/nvm.sh && nvm install --lts" \
-       1>/dev/null \
-       2> >(grep -E '%\[' >&2); then
+  # Silence all nvm output to keep installer logs clean
+  if ! bash -c "source ${NVM_DIR}/nvm.sh && nvm install --lts" >/dev/null 2>&1; then
     log "${PRIMARY_COLOR}Failed to install Node.js.${RESET_COLOR}"
     return 1
   fi

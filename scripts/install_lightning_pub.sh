@@ -16,8 +16,6 @@ install_lightning_pub() {
     USER_HOME=$HOME
     USER_NAME=$(whoami)
   fi
-
-  log "${PRIMARY_COLOR}Installing${RESET_COLOR} ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR}..."
   
   wget -q $REPO_URL -O $USER_HOME/lightning_pub.tar.gz > /dev/null 2>&1 || {
     log "${PRIMARY_COLOR}Failed to download Lightning.Pub.${RESET_COLOR}"
@@ -55,7 +53,7 @@ install_lightning_pub() {
       return 2
     fi
     
-    log "Upgrading existing Lightning.Pub installation..."
+    log "${PRIMARY_COLOR}Upgrading${RESET_COLOR} ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} installation..."
     upgrade_status=100
 
     log "Backing up user data before upgrade..."
@@ -90,7 +88,7 @@ install_lightning_pub() {
   else
     # --- FRESH INSTALL PATH ---
     # This path is only taken if the ~/lightning_pub directory does not exist.
-    log "Performing fresh Lightning.Pub installation..."
+    log "${PRIMARY_COLOR}Installing${RESET_COLOR} ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR}..."
     upgrade_status=0
     mv "$USER_HOME/lightning_pub_temp" "$USER_HOME/lightning_pub"
   fi

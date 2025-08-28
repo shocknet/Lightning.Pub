@@ -63,6 +63,8 @@ if [ "$OS" = "Mac" ]; then
   log "Handling macOS specific setup"
   handle_macos || log_error "macOS setup failed" 1
 else
+  # Explicit kickoff log for LND so the flow is clear in the install log
+  log "${PRIMARY_COLOR}Installing${RESET_COLOR} ${SECONDARY_COLOR}LND${RESET_COLOR}..."
   lnd_output=$(install_lnd)
   install_result=$?
 
@@ -71,15 +73,15 @@ else
   fi
 
   lnd_status=$(echo "$lnd_output" | grep "LND_STATUS:" | cut -d':' -f2)
-
+  
   case $lnd_status in
     0) log "LND fresh installation completed successfully." ;;
     1) log "LND upgrade completed successfully." ;;
     2) log "LND is already up-to-date. No action needed." ;;
     *) log "WARNING: Unexpected status from install_lnd: $lnd_status" ;;
   esac
-
- install_nodejs || log_error "Failed to install Node.js" 1
+ 
+  install_nodejs || log_error "Failed to install Node.js" 1
 
   # Run install_lightning_pub and capture its exit code directly.
   # We expect specific exit codes (0 for success, 2 for no update), so we handle them.
