@@ -43,6 +43,7 @@ export class AdminManager {
         if (enrollToken) {
             const connectString = `${this.appNprofile}:${enrollToken}`
             fs.writeFileSync(this.adminConnectPath, connectString)
+            fs.chmodSync(this.adminConnectPath, 0o600)
         }
     }
     Stop = () => {
@@ -52,8 +53,11 @@ export class AdminManager {
     GenerateAdminEnrollToken = async () => {
         const token = crypto.randomBytes(32).toString('hex')
         fs.writeFileSync(this.adminEnrollTokenPath, token)
+        fs.chmodSync(this.adminEnrollTokenPath, 0o600)
+
         const connectString = `${this.appNprofile}:${token}`
         fs.writeFileSync(this.adminConnectPath, connectString)
+        fs.chmodSync(this.adminConnectPath, 0o600)
         return token
     }
 
