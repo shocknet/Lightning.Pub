@@ -51,6 +51,12 @@ install_lightning_pub() {
     log "${PRIMARY_COLOR}Upgrading${RESET_COLOR} ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} installation..."
     upgrade_status=100
 
+    # Stop the service if running to avoid rug-pull during backup and file replacement
+    if systemctl --user is-active --quiet lightning_pub 2>/dev/null; then
+      log "Stopping Lightning.Pub service before upgrade..."
+      systemctl --user stop lightning_pub
+    fi
+
     log "Backing up user data before upgrade..."
     BACKUP_DIR="$USER_HOME/lightning_pub_backup_$(date +%s)"
     mkdir -p "$BACKUP_DIR"
@@ -67,6 +73,7 @@ install_lightning_pub() {
     mv "$USER_HOME/lightning_pub"/admin.enroll "$BACKUP_DIR/" 2>/dev/null || true
 
     log "Replacing application files..."
+    
     rm -rf "$USER_HOME/lightning_pub"
     mv "$USER_HOME/lightning_pub_temp" "$USER_HOME/lightning_pub"
 
