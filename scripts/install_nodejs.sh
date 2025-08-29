@@ -1,13 +1,8 @@
 #!/bin/bash
 
 install_nodejs() {
-  if [ "$EUID" -eq 0 ] && [ -n "$SUDO_USER" ]; then
-    USER_HOME=$(getent passwd ${SUDO_USER} | cut -d: -f6)
-    USER_NAME=${SUDO_USER}
-  else
-    USER_HOME=$HOME
-    USER_NAME=$(whoami)
-  fi
+  USER_HOME=$HOME
+  USER_NAME=$(whoami)
 
   export NVM_DIR="$USER_HOME/.nvm"
   log "${PRIMARY_COLOR}Checking${RESET_COLOR} for Node.js..."

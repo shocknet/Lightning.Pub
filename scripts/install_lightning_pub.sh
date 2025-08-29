@@ -9,13 +9,8 @@ install_lightning_pub() {
     return 1
   fi
 
-  if [ "$EUID" -eq 0 ]; then
-    USER_HOME=$(getent passwd ${SUDO_USER} | cut -d: -f6)
-    USER_NAME=$SUDO_USER
-  else
-    USER_HOME=$HOME
-    USER_NAME=$(whoami)
-  fi
+  USER_HOME=$HOME
+  USER_NAME=$(whoami)
   
   wget -q $REPO_URL -O $USER_HOME/lightning_pub.tar.gz > /dev/null 2>&1 || {
     log "${PRIMARY_COLOR}Failed to download Lightning.Pub.${RESET_COLOR}"
@@ -77,6 +72,8 @@ install_lightning_pub() {
     log "Restoring user data..."
     if [ -n "$(ls -A "$BACKUP_DIR" 2>/dev/null)" ]; then
       cp -r "$BACKUP_DIR"/* "$USER_HOME/lightning_pub/"
+      chmod 600 "$USER_HOME/lightning_pub/.jwt_secret" 2>/dev/null || true
+      chmod 600 "$USER_HOME/lightning_pub/.wallet_secret" 2>/dev/null || true
     fi
     rm -rf "$BACKUP_DIR"
 
@@ -118,7 +115,11 @@ install_lightning_pub() {
   # Store the commit hash for future update checks
   # Note: LATEST_COMMIT will be empty on a fresh install, which is fine.
   # The file will be created, and the next run will be an upgrade.
-  echo "$LATEST_COMMIT" > "$USER_HOME/lightning_pub/.installed_commit"
+  if [ -n "$LATEST_COMMIT" ]; then
+    echo "$LATEST_COMMIT" > "$USER_HOME/lightning_pub/.installed_commit"
+  else
+    touch "$USER_HOME/lightning_pub/.installed_commit"
+  fi
   
   return $upgrade_status 
 }

@@ -1,13 +1,8 @@
 #!/bin/bash
 
 get_log_info() {
-  if [ "$EUID" -eq 0 ]; then
-    USER_HOME=$(getent passwd ${SUDO_USER} | cut -d: -f6)
-    USER_NAME=$SUDO_USER
-  else
-    USER_HOME=$HOME
-    USER_NAME=$(whoami)
-  fi
+  USER_HOME=$HOME
+  USER_NAME=$(whoami)
 
   LOG_DIR="$USER_HOME/lightning_pub/logs"
   DATA_DIR="$USER_HOME/lightning_pub/"
@@ -44,6 +39,7 @@ get_log_info() {
     exit 1
   fi
 
+  # TODO: This wallet status polling is temporary; move to querying via the management port eventually.
   # Now that we have the correct log file, wait for the wallet status message
   START_TIME=$(date +%s)
   while [ $(($(date +%s) - START_TIME)) -lt $MAX_WAIT_TIME ]; do

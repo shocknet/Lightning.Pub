@@ -5,13 +5,8 @@ install_lnd() {
 
   log "Starting LND installation/check process..."
 
-  if [ "$EUID" -eq 0 ]; then
-    USER_HOME=$(getent passwd ${SUDO_USER} | cut -d: -f6)
-    USER_NAME=$SUDO_USER
-  else
-    USER_HOME=$HOME
-    USER_NAME=$(whoami)
-  fi
+  USER_HOME=$HOME
+  USER_NAME=$(whoami)
 
   log "Checking latest LND version..."
   LND_VERSION=$(wget -qO- https://api.github.com/repos/lightningnetwork/lnd/releases/latest | grep -oP '"tag_name": "\K(.*)(?=")')
@@ -104,6 +99,7 @@ bitcoin.node=neutrino
 neutrino.addpeer=neutrino.shock.network
 fee.url=https://nodes.lightning.computer/fees/v1/btc-fee-estimates.json
 EOF
+      chmod 600 $USER_HOME/.lnd/lnd.conf
     fi
 
     log "${SECONDARY_COLOR}LND${RESET_COLOR} installation and configuration completed."

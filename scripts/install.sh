@@ -34,10 +34,10 @@ log_error() {
 
 modules=(
   "utils"
-  "check_homebrew"
-  "install_rsync_mac"
-  "create_launchd_plist"
-  "start_services_mac"
+  "check_homebrew"  # NOTE: Used for macOS, which is untested/unsupported
+  "install_rsync_mac"  # NOTE: Used for macOS, which is untested/unsupported
+  "create_launchd_plist"  # NOTE: Used for macOS, which is untested/unsupported
+  "start_services_mac"  # NOTE: Used for macOS, which is untested/unsupported
   "install_lnd"
   "install_nodejs"
   "install_lightning_pub"
