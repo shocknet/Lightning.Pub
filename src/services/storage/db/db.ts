@@ -27,6 +27,7 @@ import { UserOffer } from "../entity/UserOffer.js"
 import { ManagementGrant } from "../entity/ManagementGrant.js"
 import { ChannelEvent } from "../entity/ChannelEvent.js"
 import { AppUserDevice } from "../entity/AppUserDevice.js"
+import * as fs from 'fs'
 
 
 export type DbSettings = {
@@ -92,6 +93,12 @@ export const newMetricsDb = async (settings: DbSettings, metricsMigrations: Func
         entities: Object.values(MetricsDbEntities),
         migrations: metricsMigrations
     }).initialize();
+    
+    // Secure the DB file permissions
+    if (fs.existsSync(settings.metricsDatabaseFile)) {
+        fs.chmodSync(settings.metricsDatabaseFile, 0o600);
+    }
+    
     const log = getLogger({});
     const pendingMigrations = await source.showMigrations()
     if (pendingMigrations) {
@@ -112,6 +119,12 @@ export default async (settings: DbSettings, migrations: Function[]): Promise<{ s
         //synchronize: true,
         migrations
     }).initialize()
+    
+    // Secure the DB file permissions
+    if (fs.existsSync(settings.databaseFile)) {
+        fs.chmodSync(settings.databaseFile, 0o600);
+    }
+    
     const log = getLogger({})
     const pendingMigrations = await source.showMigrations()
     if (pendingMigrations) {
