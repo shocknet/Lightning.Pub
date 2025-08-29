@@ -57,6 +57,7 @@ install_lightning_pub() {
     mv "$USER_HOME/lightning_pub"/*.sqlite "$BACKUP_DIR/" 2>/dev/null || true
     mv "$USER_HOME/lightning_pub"/.env "$BACKUP_DIR/" 2>/dev/null || true
     mv "$USER_HOME/lightning_pub"/logs "$BACKUP_DIR/" 2>/dev/null || true
+    mv "$USER_HOME/lightning_pub"/metric_cache "$BACKUP_DIR/" 2>/dev/null || true
     mv "$USER_HOME/lightning_pub"/.jwt_secret "$BACKUP_DIR/" 2>/dev/null || true
     mv "$USER_HOME/lightning_pub"/.wallet_secret "$BACKUP_DIR/" 2>/dev/null || true
     mv "$USER_HOME/lightning_pub"/.installed_commit "$BACKUP_DIR/" 2>/dev/null || true
@@ -72,8 +73,19 @@ install_lightning_pub() {
     log "Restoring user data..."
     if [ -n "$(ls -A "$BACKUP_DIR" 2>/dev/null)" ]; then
       cp -r "$BACKUP_DIR"/* "$USER_HOME/lightning_pub/"
+      # Ensure correct ownership post-restore (fixes potential mismatches)
+      chown -R "$USER_NAME:$USER_NAME" "$USER_HOME/lightning_pub/" 2>/dev/null || true
+      # Secure DB files (as before)
+      chmod 600 "$USER_HOME/lightning_pub/db.sqlite" 2>/dev/null || true
+      chmod 600 "$USER_HOME/lightning_pub/metrics.sqlite" 2>/dev/null || true
       chmod 600 "$USER_HOME/lightning_pub/.jwt_secret" 2>/dev/null || true
       chmod 600 "$USER_HOME/lightning_pub/.wallet_secret" 2>/dev/null || true
+      chmod 600 "$USER_HOME/lightning_pub/admin.connect" 2>/dev/null || true
+      chmod 600 "$USER_HOME/lightning_pub/admin.enroll" 2>/dev/null || true
+      # Ensure log/metric dirs are writable (dirs need execute for traversal)
+      chmod 755 "$USER_HOME/lightning_pub/logs" 2>/dev/null || true
+      chmod 755 "$USER_HOME/lightning_pub/logs/"*/ 2>/dev/null || true  # Subdirs like apps/
+      chmod 755 "$USER_HOME/lightning_pub/metric_cache" 2>/dev/null || true
     fi
     rm -rf "$BACKUP_DIR"
 
