@@ -7,6 +7,20 @@ start_services() {
   USER_HOME=$HOME
   USER_NAME=$(whoami)
 
+  # Detect if running as root and set mode
+  if [ "$(id -u)" -eq 0 ]; then
+    IS_ROOT=true
+    INSTALL_DIR="/opt/lightning_pub"  # System-wide dir for root installs
+    UNIT_DIR="/etc/systemd/system"
+    SYSTEMCTL_CMD="systemctl"
+    log "Running as root: Installing system-wide to $INSTALL_DIR."
+  else
+    IS_ROOT=false
+    INSTALL_DIR="$USER_HOME/lightning_pub"
+    UNIT_DIR="$USER_HOME/.config/systemd/user"
+    SYSTEMCTL_CMD="systemctl --user"
+  fi
+
   # Ensure NVM_DIR is set
   if [ -z "$NVM_DIR" ]; then
     export NVM_DIR="$USER_HOME/.nvm"
@@ -14,61 +28,61 @@ start_services() {
 
   if [ "$OS" = "Linux" ]; then
     if [ "$SYSTEMCTL_AVAILABLE" = true ]; then
-      mkdir -p "$USER_HOME/.config/systemd/user"
+      mkdir -p "$UNIT_DIR"
 
       # Check and create lnd.service if needed
-      LND_UNIT="$USER_HOME/.config/systemd/user/lnd.service"
+      LND_UNIT="$UNIT_DIR/lnd.service"
       NEW_LND_CONTENT="[Unit]\nDescription=LND Service\nAfter=network.target\n\n[Service]\nExecStart=${USER_HOME}/lnd/lnd\nRestart=always\n\n[Install]\nWantedBy=default.target"
       if [ ! -f "$LND_UNIT" ] || [ "$(cat "$LND_UNIT")" != "$NEW_LND_CONTENT" ]; then
         echo -e "$NEW_LND_CONTENT" > "$LND_UNIT"
-        systemctl --user daemon-reload
+        $SYSTEMCTL_CMD daemon-reload
       fi
 
       # Check and create lightning_pub.service if needed
-      PUB_UNIT="$USER_HOME/.config/systemd/user/lightning_pub.service"
-      NEW_PUB_CONTENT="[Unit]\nDescription=Lightning.Pub Service\nAfter=network.target\n\n[Service]\nExecStart=/bin/bash -c 'source ${NVM_DIR}/nvm.sh && npm start'\nWorkingDirectory=${USER_HOME}/lightning_pub\nRestart=always\n\n[Install]\nWantedBy=default.target"
+      PUB_UNIT="$UNIT_DIR/lightning_pub.service"
+      NEW_PUB_CONTENT="[Unit]\nDescription=Lightning.Pub Service\nAfter=network.target\n\n[Service]\nExecStart=/bin/bash -c 'source ${NVM_DIR}/nvm.sh && npm start'\nWorkingDirectory=${INSTALL_DIR}\nRestart=always\n\n[Install]\nWantedBy=default.target"
       if [ ! -f "$PUB_UNIT" ] || [ "$(cat "$PUB_UNIT")" != "$NEW_PUB_CONTENT" ]; then
         echo -e "$NEW_PUB_CONTENT" > "$PUB_UNIT"
-        systemctl --user daemon-reload
+        $SYSTEMCTL_CMD daemon-reload
       fi
 
-      systemctl --user enable lnd >/dev/null 2>&1
-      systemctl --user enable lightning_pub >/dev/null 2>&1
+      $SYSTEMCTL_CMD enable lnd >/dev/null 2>&1
+      $SYSTEMCTL_CMD enable lightning_pub >/dev/null 2>&1
 
       # Always attempt to start or restart LND
-      if systemctl --user is-active --quiet lnd; then
+      if $SYSTEMCTL_CMD is-active --quiet lnd; then
         if [ "$LND_STATUS" = "1" ]; then
           log "${PRIMARY_COLOR}Restarting${RESET_COLOR} ${SECONDARY_COLOR}LND${RESET_COLOR} service..."
-          systemctl --user restart lnd
+          $SYSTEMCTL_CMD restart lnd
         else
           log "${SECONDARY_COLOR}LND${RESET_COLOR} service is already running."
         fi
       else
         log "${PRIMARY_COLOR}Starting${RESET_COLOR} ${SECONDARY_COLOR}LND${RESET_COLOR} service..."
-        systemctl --user start lnd
+        $SYSTEMCTL_CMD start lnd
       fi
 
       # Check LND status after attempting to start/restart
-      if ! systemctl --user is-active --quiet lnd; then
+      if ! $SYSTEMCTL_CMD is-active --quiet lnd; then
         log "Failed to start or restart ${SECONDARY_COLOR}LND${RESET_COLOR}. Please check the logs."
         exit 1
       fi
 
       # Always attempt to start or restart Lightning.Pub
-      if systemctl --user is-active --quiet lightning_pub; then
+      if $SYSTEMCTL_CMD is-active --quiet lightning_pub; then
         if [ "$PUB_UPGRADE" = "100" ]; then
           log "${PRIMARY_COLOR}Restarting${RESET_COLOR} ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} service..."
-          systemctl --user restart lightning_pub
+          $SYSTEMCTL_CMD restart lightning_pub
         else
           log "${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} service is already running."
         fi
       else
         log "${PRIMARY_COLOR}Starting${RESET_COLOR} ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} service..."
-        systemctl --user start lightning_pub
+        $SYSTEMCTL_CMD start lightning_pub
       fi
 
       # Check Lightning.Pub status after attempting to start/restart
-      if ! systemctl --user is-active --quiet lightning_pub; then
+      if ! $SYSTEMCTL_CMD is-active --quiet lightning_pub; then
         log "Failed to start or restart ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR}. Please check the logs."
         exit 1
       fi
