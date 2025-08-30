@@ -52,49 +52,47 @@ install_lightning_pub() {
     upgrade_status=100
 
     # Stop the service if running to avoid rug-pull during backup and file replacement
+    was_running=false
     if systemctl --user is-active --quiet lightning_pub 2>/dev/null; then
       log "Stopping Lightning.Pub service before upgrade..."
       systemctl --user stop lightning_pub
+      was_running=true
     fi
 
     log "Backing up user data before upgrade..."
     BACKUP_DIR="$USER_HOME/lightning_pub_backup_$(date +%s)"
-    mkdir -p "$BACKUP_DIR"
-    mv "$USER_HOME/lightning_pub"/*.sqlite "$BACKUP_DIR/" 2>/dev/null || true
-    mv "$USER_HOME/lightning_pub"/.env "$BACKUP_DIR/" 2>/dev/null || true
-    mv "$USER_HOME/lightning_pub"/logs "$BACKUP_DIR/" 2>/dev/null || true
-    mv "$USER_HOME/lightning_pub"/metric_cache "$BACKUP_DIR/" 2>/dev/null || true
-    mv "$USER_HOME/lightning_pub"/.jwt_secret "$BACKUP_DIR/" 2>/dev/null || true
-    mv "$USER_HOME/lightning_pub"/.wallet_secret "$BACKUP_DIR/" 2>/dev/null || true
-    mv "$USER_HOME/lightning_pub"/.installed_commit "$BACKUP_DIR/" 2>/dev/null || true
-    mv "$USER_HOME/lightning_pub"/admin.npub "$BACKUP_DIR/" 2>/dev/null || true
-    mv "$USER_HOME/lightning_pub"/app.nprofile "$BACKUP_DIR/" 2>/dev/null || true
-    mv "$USER_HOME/lightning_pub"/admin.connect "$BACKUP_DIR/" 2>/dev/null || true
-    mv "$USER_HOME/lightning_pub"/admin.enroll "$BACKUP_DIR/" 2>/dev/null || true
+    mv "$USER_HOME/lightning_pub" "$BACKUP_DIR"
 
     log "Replacing application files..."
     
-    rm -rf "$USER_HOME/lightning_pub"
     mv "$USER_HOME/lightning_pub_temp" "$USER_HOME/lightning_pub"
 
     log "Restoring user data..."
-    if [ -n "$(ls -A "$BACKUP_DIR" 2>/dev/null)" ]; then
-      cp -r "$BACKUP_DIR"/* "$USER_HOME/lightning_pub/"
-      # Ensure correct ownership post-restore (fixes potential mismatches)
-      chown -R "$USER_NAME:$USER_NAME" "$USER_HOME/lightning_pub/" 2>/dev/null || true
-      # Secure DB files (as before)
-      chmod 600 "$USER_HOME/lightning_pub/db.sqlite" 2>/dev/null || true
-      chmod 600 "$USER_HOME/lightning_pub/metrics.sqlite" 2>/dev/null || true
-      chmod 600 "$USER_HOME/lightning_pub/.jwt_secret" 2>/dev/null || true
-      chmod 600 "$USER_HOME/lightning_pub/.wallet_secret" 2>/dev/null || true
-      chmod 600 "$USER_HOME/lightning_pub/admin.connect" 2>/dev/null || true
-      chmod 600 "$USER_HOME/lightning_pub/admin.enroll" 2>/dev/null || true
-      # Ensure log/metric dirs are writable (dirs need execute for traversal)
-      chmod 755 "$USER_HOME/lightning_pub/logs" 2>/dev/null || true
-      chmod 755 "$USER_HOME/lightning_pub/logs/"*/ 2>/dev/null || true  # Subdirs like apps/
-      chmod 755 "$USER_HOME/lightning_pub/metric_cache" 2>/dev/null || true
-    fi
-    rm -rf "$BACKUP_DIR"
+    cp "$BACKUP_DIR"/*.sqlite "$USER_HOME/lightning_pub/" 2>/dev/null || true
+    cp "$BACKUP_DIR"/.env "$USER_HOME/lightning_pub/" 2>/dev/null || true
+    cp -r "$BACKUP_DIR"/logs "$USER_HOME/lightning_pub/" 2>/dev/null || true
+    cp -r "$BACKUP_DIR"/metric_cache "$USER_HOME/lightning_pub/" 2>/dev/null || true
+    cp "$BACKUP_DIR"/.jwt_secret "$USER_HOME/lightning_pub/" 2>/dev/null || true
+    cp "$BACKUP_DIR"/.wallet_secret "$USER_HOME/lightning_pub/" 2>/dev/null || true
+    cp "$BACKUP_DIR"/.installed_commit "$USER_HOME/lightning_pub/" 2>/dev/null || true
+    cp "$BACKUP_DIR"/admin.npub "$USER_HOME/lightning_pub/" 2>/dev/null || true
+    cp "$BACKUP_DIR"/app.nprofile "$USER_HOME/lightning_pub/" 2>/dev/null || true
+    cp "$BACKUP_DIR"/admin.connect "$USER_HOME/lightning_pub/" 2>/dev/null || true
+    cp "$BACKUP_DIR"/admin.enroll "$USER_HOME/lightning_pub/" 2>/dev/null || true
+
+    # Ensure correct ownership post-restore (fixes potential mismatches)
+    chown -R "$USER_NAME:$USER_NAME" "$USER_HOME/lightning_pub/" 2>/dev/null || true
+    # Secure DB files (as before)
+    chmod 600 "$USER_HOME/lightning_pub/db.sqlite" 2>/dev/null || true
+    chmod 600 "$USER_HOME/lightning_pub/metrics.sqlite" 2>/dev/null || true
+    chmod 600 "$USER_HOME/lightning_pub/.jwt_secret" 2>/dev/null || true
+    chmod 600 "$USER_HOME/lightning_pub/.wallet_secret" 2>/dev/null || true
+    chmod 600 "$USER_HOME/lightning_pub/admin.connect" 2>/dev/null || true
+    chmod 600 "$USER_HOME/lightning_pub/admin.enroll" 2>/dev/null || true
+    # Ensure log/metric dirs are writable (dirs need execute for traversal)
+    chmod 755 "$USER_HOME/lightning_pub/logs" 2>/dev/null || true
+    chmod 755 "$USER_HOME/lightning_pub/logs/"*/ 2>/dev/null || true  # Subdirs like apps/
+    chmod 755 "$USER_HOME/lightning_pub/metric_cache" 2>/dev/null || true
 
   elif [ -d "$USER_HOME/lightning_pub" ]; then
     # --- CONFLICT/UNSAFE PATH ---
@@ -128,6 +126,16 @@ install_lightning_pub() {
       log "  $line"
     done
     log "${PRIMARY_COLOR}Full log available in $USER_HOME/lightning_pub/npm_install.log${RESET_COLOR}"
+
+    log "Restoring previous installation due to upgrade failure..."
+    rm -rf "$USER_HOME/lightning_pub"
+    mv "$BACKUP_DIR" "$USER_HOME/lightning_pub"
+
+    if [ "$was_running" = true ]; then
+      log "Restarting Lightning.Pub service after restore."
+      systemctl --user start lightning_pub
+    fi
+
     return 1
   fi
   
@@ -139,6 +147,8 @@ install_lightning_pub() {
   else
     touch "$USER_HOME/lightning_pub/.installed_commit"
   fi
+
+  rm -rf "$BACKUP_DIR"
   
   return $upgrade_status 
 }
