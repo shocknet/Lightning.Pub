@@ -56,6 +56,7 @@ for module in "${modules[@]}"; do
 done
 
 detect_os_arch
+check_deps
 log "Detected OS: $OS"
 log "Detected ARCH: $ARCH"
 
