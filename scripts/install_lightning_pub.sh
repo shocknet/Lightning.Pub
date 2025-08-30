@@ -2,6 +2,11 @@
 
 install_lightning_pub() {
   local REPO_URL="$1"
+  # Defined exit codes for this function:
+  # 0: Fresh install success (triggers service start)
+  # 100: Upgrade success (triggers service restart)
+  # 2: No-op (already up-to-date, skip services)
+  # Other: Error
   local upgrade_status=0
 
   if [ -z "$REPO_URL" ]; then
@@ -36,8 +41,6 @@ install_lightning_pub() {
     fi
     LATEST_COMMIT=$(echo "$API_RESPONSE" | awk -F'[/"]' '/"html_url": ".*\/commit\// {print $(NF-1); exit}')
     if [ -z "$LATEST_COMMIT" ]; then
-      log "GitHub API response was not as expected. Full response for debugging:"
-      log "$API_RESPONSE"
       log_error "Could not retrieve latest version from GitHub. Upgrade check failed. Aborting." 1
     fi
     

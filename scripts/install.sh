@@ -93,7 +93,7 @@ else
   install_nodejs || log_error "Failed to install Node.js" 1
 
   # Run install_lightning_pub and capture its exit code directly.
-  # We expect specific exit codes (0 for success, 2 for no update), so we handle them.
+  # Exit codes from install_lightning_pub: 0=fresh, 100=upgrade, 2=no-op
   install_lightning_pub "$REPO_URL"
   pub_install_status=$?
   

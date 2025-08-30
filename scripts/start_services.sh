@@ -91,8 +91,8 @@ start_services() {
       log "systemctl not available. Please start the services manually (e.g., run lnd and npm start in separate terminals)."
     fi
   elif [ "$OS" = "Mac" ]; then
-    # NOTE: macOS support is untested and unsupported. Use at your own risk.
-    log "macOS detected. Please configure launchd manually to start ${SECONDARY_COLOR}LND${RESET_COLOR} and ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} at startup."
+    # NOTE: macOS support is untested and unsupported. Use at your own risk. (restore)
+    log "macOS detected. Please configure launchd manually..."
   elif [ "$OS" = "Cygwin" ] || [ "$OS" = "MinGw" ]; then
     log "Windows detected. Please configure your startup scripts manually to start ${SECONDARY_COLOR}LND${RESET_COLOR} and ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} at startup."
   else
