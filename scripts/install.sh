@@ -13,7 +13,7 @@ log() {
 
 SCRIPT_VERSION="0.2.0"
 REPO="shocknet/Lightning.Pub"
-BRANCH="script"
+BRANCH="master"
 BASE_URL="https://raw.githubusercontent.com/${REPO}/${BRANCH}"
 REPO_URL="https://github.com/${REPO}/tarball/${BRANCH}"
 SCRIPTS_URL="${BASE_URL}/scripts/"
@@ -46,6 +46,14 @@ modules=(
 )
 
 log "Script version $SCRIPT_VERSION"
+
+# Parse args for branch override
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --branch) BRANCH="$2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
 
 # Create user-space temp directory
 mkdir -p "$HOME/lightning_pub_tmp"
