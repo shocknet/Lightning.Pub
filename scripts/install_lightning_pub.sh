@@ -60,7 +60,7 @@ install_lightning_pub() {
     fi
 
     log "Backing up user data before upgrade..."
-    BACKUP_DIR="$USER_HOME/lightning_pub_backup_$(date +%s)"
+    BACKUP_DIR=$(mktemp -d)
     mv "$USER_HOME/lightning_pub" "$BACKUP_DIR"
 
     log "Replacing application files..."
@@ -129,7 +129,8 @@ install_lightning_pub() {
 
     log "Restoring previous installation due to upgrade failure..."
     rm -rf "$USER_HOME/lightning_pub"
-    mv "$BACKUP_DIR" "$USER_HOME/lightning_pub"
+    mv "$BACKUP_DIR" "$USER_HOME/lightning_pub"  # Restore directly
+    log "Backup remnant at $BACKUP_DIR for manual review but may auto-clean on reboot."
 
     if [ "$was_running" = true ]; then
       log "Restarting Lightning.Pub service after restore."
