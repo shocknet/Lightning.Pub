@@ -36,17 +36,17 @@ start_services() {
       $SYSTEMCTL_CMD enable lnd >/dev/null 2>&1
       $SYSTEMCTL_CMD enable lightning_pub >/dev/null 2>&1
 
-      # Always attempt to start or restart LND
-      if $SYSTEMCTL_CMD is-active --quiet lnd; then
-        if [ "$LND_STATUS" = "1" ]; then
+      # Only start/restart LND if it was freshly installed or upgraded
+      if [ "$LND_STATUS" = "0" ] || [ "$LND_STATUS" = "1" ]; then
+        if $SYSTEMCTL_CMD is-active --quiet lnd; then
           log "${PRIMARY_COLOR}Restarting${RESET_COLOR} ${SECONDARY_COLOR}LND${RESET_COLOR} service..."
           $SYSTEMCTL_CMD restart lnd
         else
-          log "${SECONDARY_COLOR}LND${RESET_COLOR} service is already running."
+          log "${PRIMARY_COLOR}Starting${RESET_COLOR} ${SECONDARY_COLOR}LND${RESET_COLOR} service..."
+          $SYSTEMCTL_CMD start lnd
         fi
       else
-        log "${PRIMARY_COLOR}Starting${RESET_COLOR} ${SECONDARY_COLOR}LND${RESET_COLOR} service..."
-        $SYSTEMCTL_CMD start lnd
+        log "${SECONDARY_COLOR}LND${RESET_COLOR} not updated, service status unchanged."
       fi
 
       # Check LND status after attempting to start/restart
@@ -57,7 +57,7 @@ start_services() {
 
       if [ "$PUB_UPGRADE" = "0" ] || [ "$PUB_UPGRADE" = "100" ]; then
         if [ "$PUB_UPGRADE" = "100" ]; then
-t            log "${PRIMARY_COLOR}Restarting${RESET_COLOR} ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} service after upgrade..."
+            log "${PRIMARY_COLOR}Restarting${RESET_COLOR} ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} service after upgrade..."
         else
             log "${PRIMARY_COLOR}Starting${RESET_COLOR} ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} service..."
         fi
