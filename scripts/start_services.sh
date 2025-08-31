@@ -57,7 +57,7 @@ start_services() {
 
       if [ "$PUB_UPGRADE" = "0" ] || [ "$PUB_UPGRADE" = "100" ]; then
         if [ "$PUB_UPGRADE" = "100" ]; then
-            log "${PRIMARY_COLOR}Starting${RESET_COLOR} ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} service after upgrade..."
+t            log "${PRIMARY_COLOR}Restarting${RESET_COLOR} ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} service after upgrade..."
         else
             log "${PRIMARY_COLOR}Starting${RESET_COLOR} ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} service..."
         fi

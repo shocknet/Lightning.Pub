@@ -119,10 +119,9 @@ else
 
   # Run install_lightning_pub and capture its exit code directly.
   # Exit codes from install_lightning_pub: 0=fresh, 100=upgrade, 2=no-op
-  install_lightning_pub "$REPO_URL"
-  pub_install_status=$?
+  install_lightning_pub "$REPO_URL" || pub_install_status=$?
   
-  case $pub_install_status in
+  case ${pub_install_status:-0} in
     0) 
       log "Lightning.Pub fresh installation completed successfully."
       pub_upgrade_status=0 # Indicates a fresh install, services should start
@@ -136,7 +135,7 @@ else
       pub_upgrade_status=2 # Special status to skip service restart
       ;;
     *) 
-      log_error "Lightning.Pub installation failed with exit code $pub_install_status" $pub_install_status
+      log_error "Lightning.Pub installation failed with exit code $pub_install_status" "$pub_install_status"
       ;;
   esac
 
