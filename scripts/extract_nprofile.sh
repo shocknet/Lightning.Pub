@@ -10,7 +10,11 @@ get_log_info() {
   MAX_WAIT_TIME=360  # Maximum wait time in seconds (6 minutes)
   WAIT_INTERVAL=5    # Time to wait between checks in seconds
 
-  TIMESTAMP_FILE="/tmp/pub_install_timestamp"
+  if [ -z "$TIMESTAMP_FILE" ] || [ ! -f "$TIMESTAMP_FILE" ]; then
+    log "Error: TIMESTAMP_FILE not set or found. Cannot determine new logs."
+    exit 1
+  fi
+
   # Get the modification time of the timestamp file as a UNIX timestamp
   ref_timestamp=$(stat -c %Y "$TIMESTAMP_FILE")
 

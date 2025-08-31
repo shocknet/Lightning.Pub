@@ -72,7 +72,7 @@ install_lightning_pub() {
     BACKUP_DIR=$(mktemp -d)
     mv "$INSTALL_DIR" "$BACKUP_DIR"
 
-    log "Replacing application files..."
+    log "Installing latest version..."
     
     mv "$EXTRACT_DIR" "$INSTALL_DIR"
 
