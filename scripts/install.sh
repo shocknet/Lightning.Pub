@@ -47,8 +47,17 @@ log "Script version $SCRIPT_VERSION"
 # Parse args for branch override
 while [[ $# -gt 0 ]]; do
   case $1 in
-    --branch) BRANCH="$2"; shift 2 ;;
-    *) shift ;;
+    --branch=*)
+      BRANCH="${1#*=}"
+      shift
+      ;;
+    --branch)
+      BRANCH="$2"
+      shift 2
+      ;;
+    *)
+      shift
+      ;;
   esac
 done
 
