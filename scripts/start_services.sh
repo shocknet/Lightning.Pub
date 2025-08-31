@@ -55,16 +55,16 @@ start_services() {
         exit 1
       fi
 
-      # Always attempt to start or restart Lightning.Pub
-      if [ "$PUB_UPGRADE" = "100" ]; then
-        log "${PRIMARY_COLOR}Restarting${RESET_COLOR} ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} service after upgrade..."
-        $SYSTEMCTL_CMD restart lightning_pub
-      elif [ "$PUB_UPGRADE" = "0" ]; then
-        log "${PRIMARY_COLOR}Starting${RESET_COLOR} ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} service..."
+      if [ "$PUB_UPGRADE" = "0" ] || [ "$PUB_UPGRADE" = "100" ]; then
+        if [ "$PUB_UPGRADE" = "100" ]; then
+            log "${PRIMARY_COLOR}Starting${RESET_COLOR} ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} service after upgrade..."
+        else
+            log "${PRIMARY_COLOR}Starting${RESET_COLOR} ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} service..."
+        fi
         $SYSTEMCTL_CMD start lightning_pub
       fi
 
-      # Check Lightning.Pub status after attempting to start/restart
+      # Check Lightning.Pub status after attempting to start
       if [ "$PUB_UPGRADE" = "0" ] || [ "$PUB_UPGRADE" = "100" ]; then
           if ! $SYSTEMCTL_CMD is-active --quiet lightning_pub; then
             log "Failed to start or restart ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR}. Please check the logs."
