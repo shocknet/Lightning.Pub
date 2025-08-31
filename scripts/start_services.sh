@@ -17,24 +17,23 @@ start_services() {
     if [ "$SYSTEMCTL_AVAILABLE" = true ]; then
       mkdir -p "$UNIT_DIR"
 
-      # Check and create lnd.service if needed
+      # Check and create lnd.service if needed (only if it doesn't exist)
       LND_UNIT="$UNIT_DIR/lnd.service"
-      NEW_LND_CONTENT="[Unit]\nDescription=LND Service\nAfter=network.target\n\n[Service]\nExecStart=${USER_HOME}/lnd/lnd\nRestart=always\n\n[Install]\nWantedBy=default.target"
-      if [ ! -f "$LND_UNIT" ] || [ "$(cat "$LND_UNIT")" != "$NEW_LND_CONTENT" ]; then
+      if [ ! -f "$LND_UNIT" ]; then
+        NEW_LND_CONTENT="[Unit]\nDescription=LND Service\nAfter=network.target\n\n[Service]\nExecStart=${USER_HOME}/lnd/lnd\nRestart=always\n\n[Install]\nWantedBy=default.target"
         echo -e "$NEW_LND_CONTENT" > "$LND_UNIT"
         $SYSTEMCTL_CMD daemon-reload
+        $SYSTEMCTL_CMD enable lnd >/dev/null 2>&1
       fi
 
-      # Check and create lightning_pub.service if needed
+      # Check and create lightning_pub.service if needed (only if it doesn't exist)
       PUB_UNIT="$UNIT_DIR/lightning_pub.service"
-      NEW_PUB_CONTENT="[Unit]\nDescription=Lightning.Pub Service\nAfter=network.target\n\n[Service]\nExecStart=/bin/bash -c 'source ${NVM_DIR}/nvm.sh && npm start'\nWorkingDirectory=${INSTALL_DIR}\nRestart=always\n\n[Install]\nWantedBy=default.target"
-      if [ ! -f "$PUB_UNIT" ] || [ "$(cat "$PUB_UNIT")" != "$NEW_PUB_CONTENT" ]; then
+      if [ ! -f "$PUB_UNIT" ]; then
+        NEW_PUB_CONTENT="[Unit]\nDescription=Lightning.Pub Service\nAfter=network.target\n\n[Service]\nExecStart=/bin/bash -c 'source ${NVM_DIR}/nvm.sh && npm start'\nWorkingDirectory=${INSTALL_DIR}\nRestart=always\n\n[Install]\nWantedBy=default.target"
         echo -e "$NEW_PUB_CONTENT" > "$PUB_UNIT"
         $SYSTEMCTL_CMD daemon-reload
+        $SYSTEMCTL_CMD enable lightning_pub >/dev/null 2>&1
       fi
-
-      $SYSTEMCTL_CMD enable lnd >/dev/null 2>&1
-      $SYSTEMCTL_CMD enable lightning_pub >/dev/null 2>&1
 
       # Only start/restart LND if it was freshly installed or upgraded
       if [ "$LND_STATUS" = "0" ] || [ "$LND_STATUS" = "1" ]; then
@@ -45,14 +44,14 @@ start_services() {
           log "${PRIMARY_COLOR}Starting${RESET_COLOR} ${SECONDARY_COLOR}LND${RESET_COLOR} service..."
           $SYSTEMCTL_CMD start lnd
         fi
+
+        # Check LND status after attempting to start/restart
+        if ! $SYSTEMCTL_CMD is-active --quiet lnd; then
+          log "Failed to start or restart ${SECONDARY_COLOR}LND${RESET_COLOR}. Please check the logs."
+          exit 1
+        fi
       else
         log "${SECONDARY_COLOR}LND${RESET_COLOR} not updated, service status unchanged."
-      fi
-
-      # Check LND status after attempting to start/restart
-      if ! $SYSTEMCTL_CMD is-active --quiet lnd; then
-        log "Failed to start or restart ${SECONDARY_COLOR}LND${RESET_COLOR}. Please check the logs."
-        exit 1
       fi
 
       if [ "$PUB_UPGRADE" = "0" ] || [ "$PUB_UPGRADE" = "100" ]; then
