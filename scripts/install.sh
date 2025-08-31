@@ -14,9 +14,6 @@ log() {
 SCRIPT_VERSION="0.2.0"
 REPO="shocknet/Lightning.Pub"
 BRANCH="master"
-BASE_URL="https://raw.githubusercontent.com/${REPO}/${BRANCH}"
-REPO_URL="https://github.com/${REPO}/tarball/${BRANCH}"
-SCRIPTS_URL="${BASE_URL}/scripts/"
 
 cleanup() {
     log "Cleaning up temporary files..."
@@ -54,6 +51,10 @@ while [[ $# -gt 0 ]]; do
     *) shift ;;
   esac
 done
+
+BASE_URL="https://raw.githubusercontent.com/${REPO}/${BRANCH}"
+REPO_URL="https://github.com/${REPO}/tarball/${BRANCH}"
+SCRIPTS_URL="${BASE_URL}/scripts/"
 
 # Create user-space temp directory
 mkdir -p "$HOME/lightning_pub_tmp"
