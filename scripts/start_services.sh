@@ -65,9 +65,27 @@ start_services() {
 
       # Check Lightning.Pub status after attempting to start
       if [ "$PUB_UPGRADE" = "0" ] || [ "$PUB_UPGRADE" = "100" ]; then
-          if ! $SYSTEMCTL_CMD is-active --quiet lightning_pub; then
-            log "Failed to start or restart ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR}. Please check the logs."
-            exit 1
+          SERVICE_ACTIVE=false
+          for i in {1..15}; do
+            if $SYSTEMCTL_CMD is-active --quiet lightning_pub; then
+              SERVICE_ACTIVE=true
+              break
+            fi
+            # Check for failed state to exit early
+            if $SYSTEMCTL_CMD is-failed --quiet lightning_pub; then
+              break
+            fi
+            sleep 1
+          done
+
+          if [ "$SERVICE_ACTIVE" = false ]; then
+            log "${PRIMARY_COLOR}ERROR:${RESET_COLOR} ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} service failed to start. Recent logs:"
+            if [ "$IS_ROOT" = true ]; then
+              journalctl -u lightning_pub.service -n 20 --no-pager | while IFS= read -r line; do log "  $line"; done
+            else
+              journalctl --user-unit lightning_pub.service -n 20 --no-pager | while IFS= read -r line; do log "  $line"; done
+            fi
+            log_error "Service startup failed." 1
           fi
       fi
 
