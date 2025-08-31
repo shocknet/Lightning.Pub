@@ -7,19 +7,6 @@ start_services() {
   USER_HOME=$HOME
   USER_NAME=$(whoami)
 
-  # Detect if running as root and set mode
-  if [ "$(id -u)" -eq 0 ]; then
-    IS_ROOT=true
-    INSTALL_DIR="/opt/lightning_pub"  # System-wide dir for root installs
-    UNIT_DIR="/etc/systemd/system"
-    SYSTEMCTL_CMD="systemctl"
-    log "Running as root: Installing system-wide to $INSTALL_DIR."
-  else
-    IS_ROOT=false
-    INSTALL_DIR="$USER_HOME/lightning_pub"
-    UNIT_DIR="$USER_HOME/.config/systemd/user"
-    SYSTEMCTL_CMD="systemctl --user"
-  fi
 
   # Ensure NVM_DIR is set
   if [ -z "$NVM_DIR" ]; then

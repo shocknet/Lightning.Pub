@@ -17,7 +17,7 @@ BRANCH="master"
 
 cleanup() {
     log "Cleaning up temporary files..."
-    rm -rf "$HOME/lightning_pub_tmp" 2>/dev/null || true
+    rm -rf "$TMP_DIR" 2>/dev/null || true
 }
 
 trap cleanup EXIT
@@ -56,15 +56,30 @@ BASE_URL="https://raw.githubusercontent.com/${REPO}/${BRANCH}"
 REPO_URL="https://github.com/${REPO}/tarball/${BRANCH}"
 SCRIPTS_URL="${BASE_URL}/scripts/"
 
-# Create user-space temp directory
-mkdir -p "$HOME/lightning_pub_tmp"
+TMP_DIR=$(mktemp -d)
 
 for module in "${modules[@]}"; do
-  wget -q "${SCRIPTS_URL}${module}.sh" -O "$HOME/lightning_pub_tmp/${module}.sh" || log_error "Failed to download ${module}.sh" 1
-  source "$HOME/lightning_pub_tmp/${module}.sh" || log_error "Failed to source ${module}.sh" 1
+  wget -q "${SCRIPTS_URL}${module}.sh" -O "${TMP_DIR}/${module}.sh" || log_error "Failed to download ${module}.sh" 1
+  source "${TMP_DIR}/${module}.sh" || log_error "Failed to source ${module}.sh" 1
 done
 
 detect_os_arch
+
+# Define installation paths based on user
+if [ "$(id -u)" -eq 0 ]; then
+  IS_ROOT=true
+  # For root, install under /opt for system-wide access
+  export INSTALL_DIR="/opt/lightning_pub"
+  export UNIT_DIR="/etc/systemd/system"
+  export SYSTEMCTL_CMD="systemctl"
+  log "Running as root: App will be installed in $INSTALL_DIR"
+else
+  IS_ROOT=false
+  export INSTALL_DIR="$HOME/lightning_pub"
+  export UNIT_DIR="$HOME/.config/systemd/user"
+  export SYSTEMCTL_CMD="systemctl --user"
+fi
+
 check_deps
 log "Detected OS: $OS"
 log "Detected ARCH: $ARCH"

@@ -4,8 +4,8 @@ get_log_info() {
   USER_HOME=$HOME
   USER_NAME=$(whoami)
 
-  LOG_DIR="$USER_HOME/lightning_pub/logs"
-  DATA_DIR="$USER_HOME/lightning_pub/"
+  LOG_DIR="$INSTALL_DIR/logs"
+  DATA_DIR="$INSTALL_DIR/"
   START_TIME=$(date +%s)
   MAX_WAIT_TIME=360  # Maximum wait time in seconds (6 minutes)
   WAIT_INTERVAL=5    # Time to wait between checks in seconds
