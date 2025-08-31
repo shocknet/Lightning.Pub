@@ -122,33 +122,35 @@ install_lightning_pub() {
     return 1
   fi
 
-  # Restore user data AFTER successful NPM install
-  log "Restoring user data..."
-  cp "$BACKUP_DIR"/*.sqlite "$INSTALL_DIR/" 2>/dev/null || true
-  cp "$BACKUP_DIR"/.env "$INSTALL_DIR/" 2>/dev/null || true
-  cp -r "$BACKUP_DIR"/logs "$INSTALL_DIR/" 2>/dev/null || true
-  cp -r "$BACKUP_DIR"/metric_cache "$INSTALL_DIR/" 2>/dev/null || true
-  cp "$BACKUP_DIR"/.jwt_secret "$INSTALL_DIR/" 2>/dev/null || true
-  cp "$BACKUP_DIR"/.wallet_secret "$INSTALL_DIR/" 2>/dev/null || true
-  cp "$BACKUP_DIR"/.installed_commit "$INSTALL_DIR/" 2>/dev/null || true
-  cp "$BACKUP_DIR"/admin.npub "$INSTALL_DIR/" 2>/dev/null || true
-  cp "$BACKUP_DIR"/app.nprofile "$INSTALL_DIR/" 2>/dev/null || true
-  cp "$BACKUP_DIR"/admin.connect "$INSTALL_DIR/" 2>/dev/null || true
-  cp "$BACKUP_DIR"/admin.enroll "$INSTALL_DIR/" 2>/dev/null || true
+  if [ "$upgrade_status" -eq 100 ]; then
+    # Restore user data AFTER successful NPM install
+    log "Restoring user data..."
+    cp "$BACKUP_DIR"/*.sqlite "$INSTALL_DIR/" 2>/dev/null || true
+    cp "$BACKUP_DIR"/.env "$INSTALL_DIR/" 2>/dev/null || true
+    cp -r "$BACKUP_DIR"/logs "$INSTALL_DIR/" 2>/dev/null || true
+    cp -r "$BACKUP_DIR"/metric_cache "$INSTALL_DIR/" 2>/dev/null || true
+    cp "$BACKUP_DIR"/.jwt_secret "$INSTALL_DIR/" 2>/dev/null || true
+    cp "$BACKUP_DIR"/.wallet_secret "$INSTALL_DIR/" 2>/dev/null || true
+    cp "$BACKUP_DIR"/.installed_commit "$INSTALL_DIR/" 2>/dev/null || true
+    cp "$BACKUP_DIR"/admin.npub "$INSTALL_DIR/" 2>/dev/null || true
+    cp "$BACKUP_DIR"/app.nprofile "$INSTALL_DIR/" 2>/dev/null || true
+    cp "$BACKUP_DIR"/admin.connect "$INSTALL_DIR/" 2>/dev/null || true
+    cp "$BACKUP_DIR"/admin.enroll "$INSTALL_DIR/" 2>/dev/null || true
 
-  # Ensure correct ownership post-restore (fixes potential mismatches)
-  chown -R "$USER_NAME:$USER_NAME" "$INSTALL_DIR/" 2>/dev/null || true
-  # Secure DB files (as before)
-  chmod 600 "$INSTALL_DIR/db.sqlite" 2>/dev/null || true
-  chmod 600 "$INSTALL_DIR/metrics.sqlite" 2>/dev/null || true
-  chmod 600 "$INSTALL_DIR/.jwt_secret" 2>/dev/null || true
-  chmod 600 "$INSTALL_DIR/.wallet_secret" 2>/dev/null || true
-  chmod 600 "$INSTALL_DIR/admin.connect" 2>/dev/null || true
-  chmod 600 "$INSTALL_DIR/admin.enroll" 2>/dev/null || true
-  # Ensure log/metric dirs are writable (dirs need execute for traversal)
-  chmod 755 "$INSTALL_DIR/logs" 2>/dev/null || true
-  chmod 755 "$INSTALL_DIR/logs/"*/ 2>/dev/null || true  # Subdirs like apps/
-  chmod 755 "$INSTALL_DIR/metric_cache" 2>/dev/null || true
+    # Ensure correct ownership post-restore (fixes potential mismatches)
+    chown -R "$USER_NAME:$USER_NAME" "$INSTALL_DIR/" 2>/dev/null || true
+    # Secure DB files (as before)
+    chmod 600 "$INSTALL_DIR/db.sqlite" 2>/dev/null || true
+    chmod 600 "$INSTALL_DIR/metrics.sqlite" 2>/dev/null || true
+    chmod 600 "$INSTALL_DIR/.jwt_secret" 2>/dev/null || true
+    chmod 600 "$INSTALL_DIR/.wallet_secret" 2>/dev/null || true
+    chmod 600 "$INSTALL_DIR/admin.connect" 2>/dev/null || true
+    chmod 600 "$INSTALL_DIR/admin.enroll" 2>/dev/null || true
+    # Ensure log/metric dirs are writable (dirs need execute for traversal)
+    chmod 755 "$INSTALL_DIR/logs" 2>/dev/null || true
+    chmod 755 "$INSTALL_DIR/logs/"*/ 2>/dev/null || true  # Subdirs like apps/
+    chmod 755 "$INSTALL_DIR/metric_cache" 2>/dev/null || true
+  fi
 
   # Store the commit hash for future update checks
   # Note: LATEST_COMMIT will be empty on a fresh install, which is fine.
