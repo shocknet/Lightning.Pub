@@ -71,6 +71,7 @@ install_lightning_pub() {
     log "Backing up user data before upgrade..."
     BACKUP_DIR=$(mktemp -d)
     mv "$INSTALL_DIR" "$BACKUP_DIR"
+    BACKUP_DIR="$BACKUP_DIR/$(basename "$INSTALL_DIR")"
 
     log "Installing latest version..."
     
