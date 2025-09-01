@@ -99,7 +99,7 @@ install_lightning_pub() {
 
   log "${PRIMARY_COLOR}Installing${RESET_COLOR} npm dependencies..."
   
-  npm install > npm_install.log 2>&1
+  npm install --fallback-to-build=false > npm_install.log 2>&1
   npm_exit_code=$?
 
   if [ $npm_exit_code -ne 0 ]; then
