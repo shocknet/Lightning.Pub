@@ -28,6 +28,12 @@ export class AdminManager {
         this.adminNpubPath = getDataPath(this.dataDir, 'admin.npub')
         this.adminEnrollTokenPath = getDataPath(this.dataDir, 'admin.enroll')
         this.adminConnectPath = getDataPath(this.dataDir, 'admin.connect')
+        this.log("AdminManager configured with paths:", {
+            dataDir: this.dataDir || process.cwd(),
+            adminNpubPath: this.adminNpubPath,
+            adminEnrollTokenPath: this.adminEnrollTokenPath,
+            adminConnectPath: this.adminConnectPath
+        })
         this.appNprofilePath = getDataPath(this.dataDir, 'app.nprofile')
         this.start()
     }
@@ -108,6 +114,7 @@ export class AdminManager {
     }
 
     PromoteUserToAdmin = async (appId: string, appUserId: string, token: string) => {
+        this.log(`Attempting to promote user ${appUserId} to admin.`)
         const app = await this.storage.applicationStorage.GetApplication(appId)
         const appUser = await this.storage.applicationStorage.GetApplicationUser(app, appUserId)
         const npub = appUser.nostr_public_key
@@ -118,15 +125,21 @@ export class AdminManager {
         try {
             actualToken = fs.readFileSync(this.adminEnrollTokenPath, 'utf8').trim()
         } catch (err: any) {
+            this.log(ERROR, `Failed to read admin enroll token from ${this.adminEnrollTokenPath}:`, err.message)
             throw new Error("invalid enroll token")
         }
         if (token !== actualToken) {
+            this.log(ERROR, `Provided admin token does not match stored token.`)
             throw new Error("invalid enroll token")
         }
+        this.log(`Token validated. Writing admin npub ${npub} to ${this.adminNpubPath}`)
         fs.writeFileSync(this.adminNpubPath, npub)
+        this.log(`Unlinking enroll token at ${this.adminEnrollTokenPath}`)
         fs.unlinkSync(this.adminEnrollTokenPath)
+        this.log(`Unlinking connect file at ${this.adminConnectPath}`)
         fs.unlinkSync(this.adminConnectPath)
         this.adminNpub = npub
+        this.log(`User ${npub} successfully promoted to admin in memory.`)
     }
 
     CreateInviteLink = async (adminNpub: string, sats?: number): Promise<Types.CreateOneTimeInviteLinkResponse> => {
