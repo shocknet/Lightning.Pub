@@ -64,8 +64,6 @@
     "typescript": "^5.5.4",
     "uri-template": "^2.0.0",
     "uuid": "^8.3.2",
-    "websocket": "^1.0.35",
-    "websocket-polyfill": "^0.0.3",
     "why-is-node-running": "^3.2.0",
     "wrtc": "^0.4.7",
     "ws": "^8.18.0",
@@ -87,7 +85,5 @@
     "ts-node": "10.7.0",
     "typescript": "5.5.4"
   },
-  "overrides": {
-    "bufferutil": "npm:true"
-  }
+  "overrides": {}
 }
