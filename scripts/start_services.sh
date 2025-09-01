@@ -35,7 +35,7 @@ start_services() {
         $SYSTEMCTL_CMD enable lightning_pub >/dev/null 2>&1
       fi
 
-      # Only start/restart LND if it was freshly installed or upgraded
+      # Start/restart LND if it was freshly installed or upgraded
       if [ "$LND_STATUS" = "0" ] || [ "$LND_STATUS" = "1" ]; then
         if $SYSTEMCTL_CMD is-active --quiet lnd; then
           log "${PRIMARY_COLOR}Restarting${RESET_COLOR} ${SECONDARY_COLOR}LND${RESET_COLOR} service..."
@@ -51,7 +51,20 @@ start_services() {
           exit 1
         fi
       else
-        log "${SECONDARY_COLOR}LND${RESET_COLOR} not updated, service status unchanged."
+        # Edge case: LND not updated but may be installed and not yet running.
+        # If we're about to start Pub, ensure LND is running; otherwise Pub will fail.
+        if [ "$PUB_UPGRADE" = "0" ] || [ "$PUB_UPGRADE" = "100" ]; then
+          if ! $SYSTEMCTL_CMD is-active --quiet lnd; then
+            log "${PRIMARY_COLOR}Starting${RESET_COLOR} ${SECONDARY_COLOR}LND${RESET_COLOR} service..."
+            $SYSTEMCTL_CMD start lnd
+            if ! $SYSTEMCTL_CMD is-active --quiet lnd; then
+              log "Failed to start ${SECONDARY_COLOR}LND${RESET_COLOR}. Please check the logs."
+              exit 1
+            fi
+          else
+            log "${SECONDARY_COLOR}LND${RESET_COLOR} already running."
+          fi
+        fi
       fi
 
       if [ "$PUB_UPGRADE" = "0" ] || [ "$PUB_UPGRADE" = "100" ]; then
