@@ -50,15 +50,15 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/lightning-pub:latest
+            ghcr.io/${{ github.repository_owner }}/lightning-pub:master
           labels: ${{ steps.meta.outputs.labels }}
 
       - name: Capture image digest
         id: capture-digest
         run: |
-          # Get the first tag from the metadata output
-          FIRST_TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -n1)
-          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' $FIRST_TAG | cut -d'@' -f2)
+          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/${{ github.repository_owner }}/lightning-pub:latest | cut -d'@' -f2)
           echo "Raw Digest is $DIGEST"
           echo "digest=$DIGEST" >> $GITHUB_OUTPUT
 
