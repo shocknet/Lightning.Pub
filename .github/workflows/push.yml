@@ -18,7 +18,7 @@ jobs:
       contents: read
       packages: write
       id-token: write
-      security-events: write
+      attestations: write
 
     steps:
       - name: Checkout repository
@@ -70,4 +70,4 @@ jobs:
         with:
           subject-digest: ${{ steps.capture-digest.outputs.digest }}
           subject-name: ${{ steps.meta.outputs.tags }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          push-to-registry: true
