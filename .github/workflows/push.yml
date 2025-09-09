@@ -1,6 +1,8 @@
 name: Create and publish a Docker image
 
 on:
+  push:
+    branches: [ main, master ]
   release:
     types: [created, published, prereleased]
   workflow_dispatch: # This allows manual triggering of the workflow
@@ -33,7 +35,13 @@ jobs:
         id: meta
         uses: docker/metadata-action@v4
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/lightning-pub
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push Docker image
         id: build-and-push
@@ -42,15 +50,17 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/lightning-pub:latest
+          tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
       - name: Capture image digest
         id: capture-digest
         run: |
-          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/${{ github.repository_owner }}/lightning-pub:latest | cut -d'@' -f2)
+          # Get the first tag from the metadata output
+          FIRST_TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -n1)
+          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' $FIRST_TAG | cut -d'@' -f2)
           echo "Raw Digest is $DIGEST"
-          echo "::set-output name=digest::$DIGEST"
+          echo "digest=$DIGEST" >> $GITHUB_OUTPUT
 
       - name: Debug Print Digest
         run: echo "Digest is ${{ steps.capture-digest.outputs.digest }}"
@@ -59,5 +69,5 @@ jobs:
         uses: actions/attest-build-provenance@v1
         with:
           subject-digest: ${{ steps.capture-digest.outputs.digest }}
-          subject-name: ghcr.io/${{ github.repository_owner }}/lightning-pub:latest
-          github-token: ${{ secrets.PAT_TOKEN }}
+          subject-name: ${{ steps.meta.outputs.tags }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
