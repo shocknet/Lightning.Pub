@@ -69,5 +69,5 @@ jobs:
         uses: actions/attest-build-provenance@v1
         with:
           subject-digest: ${{ steps.capture-digest.outputs.digest }}
-          subject-name: ${{ steps.meta.outputs.tags }}
+          subject-name: ghcr.io/${{ github.repository_owner }}/lightning-pub
           push-to-registry: true
