@@ -49,6 +49,12 @@ export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSett
         }
         if (event.kind === 21001) {
             const offerReq = j as NofferData
+            log("🎯 [NOSTR EVENT] Received offer request (kind 21001)", {
+                fromPub: event.pub,
+                appId: event.appId,
+                eventId: event.id,
+                offer: offerReq.offer
+            })
             mainHandler.offerManager.handleNip69Noffer(offerReq, event)
             return
         } else if (event.kind === 21002) {

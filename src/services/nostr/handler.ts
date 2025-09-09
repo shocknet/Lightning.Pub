@@ -188,11 +188,20 @@ export default class Handler {
             relay.close()
             this.Connect()
         })
+        
+        const appIds = Object.keys(this.apps)
+        log("🔍 [NOSTR SUBSCRIPTION] Setting up subscription", {
+            since: Math.ceil(Date.now() / 1000),
+            kinds: supportedKinds,
+            appIds: appIds,
+            listeningForPubkeys: appIds
+        })
+        
         const sub = relay.subscribe([
             {
                 since: Math.ceil(Date.now() / 1000),
                 kinds: supportedKinds,
-                '#p': Object.keys(this.apps),
+                '#p': appIds,
             }
         ], {
             oneose: () => {

@@ -39,7 +39,7 @@ export class OfferManager {
     storage: Storage
     lnd: LND
     liquidityManager: LiquidityManager
-    logger = getLogger({ component: 'DebitManager' })
+    logger = getLogger({ component: 'OfferManager' })
     constructor(storage: Storage, settings: MainSettings, lnd: LND, applicationManager: ApplicationManager, productManager: ProductManager, liquidityManager: LiquidityManager) {
         this.storage = storage
         this.settings = settings
@@ -152,15 +152,46 @@ export class OfferManager {
     }
 
     async handleNip69Noffer(offerReq: NofferData, event: NostrEvent) {
+        this.logger("📥 [OFFER REQUEST] Received offer request", {
+            fromPub: event.pub,
+            appId: event.appId,
+            eventId: event.id,
+            offer: offerReq.offer,
+            amount: offerReq.amount_sats,
+            payerData: offerReq.payer_data
+        })
+        
         const offerInvoice = await this.getNofferInvoice(offerReq, event.appId)
+        
         if (!offerInvoice.success) {
             const code = offerInvoice.code
+            this.logger("❌ [OFFER REJECTED] Offer request failed", {
+                fromPub: event.pub,
+                eventId: event.id,
+                code,
+                error: codeToMessage(code),
+                max: offerInvoice.max
+            })
             const e = newNofferResponse(JSON.stringify({ code, error: codeToMessage(code), range: { min: 10, max: offerInvoice.max } }), event)
             this.nostrSend({ type: 'app', appId: event.appId }, { type: 'event', event: e, encrypt: { toPub: event.pub } })
             return
         }
+        
+        this.logger("✅ [OFFER SUCCESS] Generated invoice for offer request", {
+            fromPub: event.pub,
+            eventId: event.id,
+            invoice: offerInvoice.invoice.substring(0, 50) + "...",
+            offer: offerReq.offer
+        })
+        
         const e = newNofferResponse(JSON.stringify({ bolt11: offerInvoice.invoice }), event)
         this.nostrSend({ type: 'app', appId: event.appId }, { type: 'event', event: e, encrypt: { toPub: event.pub } })
+        
+        this.logger("📤 [OFFER RESPONSE] Sent offer response", {
+            toPub: event.pub,
+            eventId: event.id,
+            responseEventId: "generated"
+        })
         return
     }
 
@@ -200,7 +231,7 @@ export class OfferManager {
         }
         const { passed, validated } = this.ValidateExpectedData(userOffer, offerReq.payer_data)
         if (!passed) {
-            console.log("Invalid expected data", validated)
+            this.logger("Invalid expected data", validated || {})
             return { success: false, code: 1, max: remote }
         }
         const res = await this.applicationManager.AddAppUserInvoice(appId, {
