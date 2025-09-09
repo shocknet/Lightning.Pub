@@ -5,13 +5,8 @@ install_lnd() {
 
   log "Starting LND installation/check process..."
 
-  if [ "$EUID" -eq 0 ]; then
-    USER_HOME=$(getent passwd ${SUDO_USER} | cut -d: -f6)
-    USER_NAME=$SUDO_USER
-  else
-    USER_HOME=$HOME
-    USER_NAME=$(whoami)
-  fi
+  USER_HOME=$HOME
+  USER_NAME=$(whoami)
 
   log "Checking latest LND version..."
   LND_VERSION=$(wget -qO- https://api.github.com/repos/lightningnetwork/lnd/releases/latest | grep -oP '"tag_name": "\K(.*)(?=")')
@@ -54,41 +49,57 @@ install_lnd() {
     log "${PRIMARY_COLOR}Downloading${RESET_COLOR} ${SECONDARY_COLOR}LND${RESET_COLOR}..."
 
     # Start the download
-    sudo -u $USER_NAME wget -q $LND_URL -O $USER_HOME/lnd.tar.gz || {
+    wget -q $LND_URL -O $USER_HOME/lnd.tar.gz || {
       log "${PRIMARY_COLOR}Failed to download LND.${RESET_COLOR}"
       exit 1
     }
 
-    # Check if LND is already running and stop it if necessary (Linux)
-    if [ "$OS" = "Linux" ] && [ "$SYSTEMCTL_AVAILABLE" = true ]; then
-      if systemctl is-active --quiet lnd; then
-        log "${PRIMARY_COLOR}Stopping${RESET_COLOR} ${SECONDARY_COLOR}LND${RESET_COLOR} service..."
-        sudo systemctl stop lnd
+    # Check if LND is already running and stop it if necessary (user-space)
+    if [ "$OS" = "Linux" ] && command -v systemctl >/dev/null 2>&1; then
+      if systemctl --user is-active --quiet lnd 2>/dev/null; then
+        log "${PRIMARY_COLOR}Stopping${RESET_COLOR} ${SECONDARY_COLOR}LND${RESET_COLOR} user service..."
+        systemctl --user stop lnd
       fi
     else
-      log "${PRIMARY_COLOR}systemctl not found. Please stop ${SECONDARY_COLOR}LND${RESET_COLOR} manually if it is running.${RESET_COLOR}"
+      log "${PRIMARY_COLOR}Please stop ${SECONDARY_COLOR}LND${RESET_COLOR} manually if it is running.${RESET_COLOR}"
     fi
 
-    sudo -u $USER_NAME tar -xzf $USER_HOME/lnd.tar.gz -C $USER_HOME > /dev/null || {
+    log "Extracting LND..."
+    LND_TMP_DIR=$(mktemp -d -p "$USER_HOME")
+    
+    tar -xzf "$USER_HOME/lnd.tar.gz" -C "$LND_TMP_DIR" --strip-components=1 > /dev/null || {
       log "${PRIMARY_COLOR}Failed to extract LND.${RESET_COLOR}"
+      rm -rf "$LND_TMP_DIR"
+      rm -f "$USER_HOME/lnd.tar.gz"
       exit 1
     }
-    rm $USER_HOME/lnd.tar.gz
-    sudo -u $USER_NAME mv $USER_HOME/lnd-* $USER_HOME/lnd
+    
+    rm "$USER_HOME/lnd.tar.gz"
+    
+    if [ -d "$USER_HOME/lnd" ]; then
+        log "Removing old LND directory..."
+        rm -rf "$USER_HOME/lnd"
+    fi
+    
+    mv "$LND_TMP_DIR" "$USER_HOME/lnd" || {
+        log "${PRIMARY_COLOR}Failed to move new LND version into place.${RESET_COLOR}"
+        exit 1
+    }
 
     # Create .lnd directory if it doesn't exist
-    sudo -u $USER_NAME mkdir -p $USER_HOME/.lnd
+    mkdir -p $USER_HOME/.lnd
 
     # Check if lnd.conf already exists and avoid overwriting it
     if [ -f $USER_HOME/.lnd/lnd.conf ]; then
       log "${PRIMARY_COLOR}lnd.conf already exists. Skipping creation of new lnd.conf file.${RESET_COLOR}"
     else
-      sudo -u $USER_NAME bash -c "cat <<EOF > $USER_HOME/.lnd/lnd.conf
+      cat <<EOF > $USER_HOME/.lnd/lnd.conf
 bitcoin.mainnet=true
 bitcoin.node=neutrino
 neutrino.addpeer=neutrino.shock.network
-feeurl=https://nodes.lightning.computer/fees/v1/btc-fee-estimates.json
-EOF"
+fee.url=https://nodes.lightning.computer/fees/v1/btc-fee-estimates.json
+EOF
+      chmod 600 $USER_HOME/.lnd/lnd.conf
     fi
 
     log "${SECONDARY_COLOR}LND${RESET_COLOR} installation and configuration completed."

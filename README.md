@@ -70,47 +70,52 @@ Dashboard Wireframe:
 
 Paste one-line and have a Pub node in under 2 minutes. It uses neutrino so you can run it on a $5 VPS or old laptop.
 
-This method installs all dependencies and creates systemd entries. It has been tested only in Ubuntu/Debian x64 environments, but is general enough that it should work on any linux system with systemd. 
+This method installs all dependencies and creates user-level systemd services.
 
-Mac support is rough'd in, but completely untested. Help wanted.
+**Platform Support:**
+- ✅ **Debian/Ubuntu**: Fully tested and supported
+- ⚠️ **Arch/Fedora**: Should work but untested - please report issues
+- 🚧 **macOS**: Basic support stubbed in but completely untested - help wanted
 
 To start, run the following command:
 
-```ssh
-sudo wget -qO- https://deploy.lightning.pub | sudo bash
+```bash
+wget -qO- https://deploy.lightning.pub | bash
 ```
 
 It should look like this in a minute or so
 
 ![One-Line Deployment](https://raw.githubusercontent.com/shocknet/Lightning.Pub/master/one-liner.png)
 
+**Note:** The installation is now confined to user-space, meaning:
+- No sudo required for installation
+- All data stored in `$HOME/lightning_pub/`
+- Logs available at `$HOME/lightning_pub/install.log`
+
+**⚠️ Migration from Previous Versions:**
+Previous system-wide installations (as of 8.27.2025) need some manual intervention:
+1. Stop existing services: `sudo systemctl stop lnd lightning_pub`
+2. Disable services: `sudo systemctl disable lnd lightning_pub`
+3. Remove old systemd units: `sudo rm /etc/systemd/system/lnd.service /etc/systemd/system/lightning_pub.service`
+4. Reload systemd: `sudo systemctl daemon-reload`
+5. Run the new installer: `wget -qO- https://deploy.lightning.pub | bash`
+
 Please report any issues to the [issue tracker](https://github.com/shocknet/Lightning.Pub/issues).
 
 #### Automatic updates
 
-These are controversial to push by default and we're leaning against it. You can however add the line to cron to run it periodically and it will handle updating.
+These are controversial, so we don't include them. You can however add a line to your crontab to re-run the installer on your time preference and it will gracefully handle updating:
+
+```bash
+# Add to user's crontab (crontab -e) - runs weekly on Sunday at 2 AM
+0 2 * * 0 wget -qO- https://deploy.lightning.pub | bash
+```
+
+**Note:** The installer will only restart services if version checks deem necessary.
 
 ### Docker Installation
 
-1. Pull the Docker image:
-
-```ssh
-docker pull ghcr.io/shocknet/lightning-pub:latest
-```
-
-2. Run the Docker container:
-
-```ssh
-docker run -d \
-  --name lightning-pub \
-  --network host \
-  -p 1776:1776 \
-  -p 1777:1777 \
-  -v /path/to/local/data:/app/data \
-  -v $HOME/.lnd:/root/.lnd \
-  ghcr.io/shocknet/lightning-pub:latest
-```
-Network host is used so the service can reach a local LND via localhost. LND is assumed to be under the users home folder, update this location as needed.
+See the [Docker Installation Guide](DOCKER.md).
 
 ### Manual CLI Installation
 
@@ -140,9 +145,11 @@ npm start
 
 ## Usage Notes
 
-Connect with [wallet2](https://github.com/shocknet/wallet2) using the wallet admin string that gets logged at startup. The nprofile of the node can also be used to send invitation links to guests.
+Connect with ShockWallet ([wallet2](https://github.com/shocknet/wallet2)) using the wallet admin string that gets logged at startup. Simply copy/paste the string into the node connection screen.
 
-Note that connecting with wallet will create an account on the node, it will not show or have access to the full LND balance. 
+The nprofile of the node can also be used to send invitation links to guests via the web version of ShockWallet.
+
+**Note that connecting with wallet will create an account on the node, it will not show or have access to the full LND balance. Allocating existing funds to the admin user will be added to the operator dashboard in a future release.**
 
 Additional docs are WIP at [docs.shock.network](https://docs.shock.network)
 
@@ -156,4 +163,4 @@ Additional docs are WIP at [docs.shock.network](https://docs.shock.network)
 ## Warning
 
 > [!WARNING]  
-> While this software has been used in a high-profile production environment for over a year, it should still be considered bleeding edge. Special care has been taken to mitigate the risk of drainage attacks, which is a common risk to all Lightning API's. An integrated Watchdog service will terminate spends if it detects a discrepency between LND and the database, for this reason **IT IS NOT RECOMMENDED TO USE PUB ALONGSIDE OTHER ACCOUNT SYSTEMS**. While we give the utmost care and attention to security, **the internet is an adversarial environment and SECURITY/RELIABILITY ARE NOT GUARANTEED- USE AT YOUR OWN RISK**.
+> While this software has been used in a high-profile production environment for several years, it should still be considered bleeding edge. Special care has been taken to mitigate the risk of drainage attacks, which is a common risk to all Lightning APIs. An integrated Watchdog service will terminate spends if it detects a discrepancy between LND and the database, for this reason **IT IS NOT RECOMMENDED TO USE PUB ALONGSIDE OTHER ACCOUNT SYSTEMS** such as AlbyHub, LNBits, or BTCPay - this watchdog may however be disabled. While we give the utmost care and attention to security, **the internet is an adversarial environment and SECURITY/RELIABILITY ARE NOT GUARANTEED- USE AT YOUR OWN RISK**.

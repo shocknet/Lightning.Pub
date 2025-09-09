@@ -165,7 +165,7 @@ export class OfferManager {
     }
 
     async HandleDefaultUserOffer(offerReq: NofferData, appId: string, remote: number): Promise<{ success: true, invoice: string } | { success: false, code: number, max: number }> {
-        const { amount, offer } = offerReq
+        const { amount_sats: amount, offer } = offerReq
         if (!amount || isNaN(amount) || amount < 10 || amount > remote) {
             return { success: false, code: 5, max: remote }
         }
@@ -178,7 +178,7 @@ export class OfferManager {
     }
 
     async HandleUserOffer(offerReq: NofferData, appId: string, remote: number): Promise<{ success: true, invoice: string } | { success: false, code: number, max: number }> {
-        const { amount, offer } = offerReq
+        const { amount_sats: amount, offer } = offerReq
         const userOffer = await this.storage.offerStorage.GetOffer(offer)
         if (!userOffer) {
             return this.HandleDefaultUserOffer(offerReq, appId, remote)

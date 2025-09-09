@@ -27,3 +27,12 @@ detect_os_arch() {
     SYSTEMCTL_AVAILABLE=false
   fi
 }
+
+check_deps() {
+  for cmd in wget grep stat tar sha256sum; do
+    if ! command -v $cmd &> /dev/null; then
+      log "Missing system dependency: $cmd. Install $cmd via your package manager and retry."
+      exit 1
+    fi
+  done
+}

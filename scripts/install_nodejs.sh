@@ -1,15 +1,10 @@
 #!/bin/bash
 
 install_nodejs() {
-  if [ "$EUID" -eq 0 ] && [ -n "$SUDO_USER" ]; then
-    USER_HOME=$(getent passwd ${SUDO_USER} | cut -d: -f6)
-    USER_NAME=${SUDO_USER}
-  else
-    USER_HOME=$HOME
-    USER_NAME=$(whoami)
-  fi
+  USER_HOME=$HOME
+  USER_NAME=$(whoami)
 
-  NVM_DIR="$USER_HOME/.nvm"
+  export NVM_DIR="$USER_HOME/.nvm"
   log "${PRIMARY_COLOR}Checking${RESET_COLOR} for Node.js..."
   MINIMUM_VERSION="18.0.0"
   
@@ -19,7 +14,7 @@ install_nodejs() {
 
   if ! command -v nvm &> /dev/null; then
     NVM_VERSION=$(wget -qO- https://api.github.com/repos/nvm-sh/nvm/releases/latest | grep -oP '"tag_name": "\K(.*)(?=")')
-    sudo -u $USER_NAME bash -c "wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/${NVM_VERSION}/install.sh | bash > /dev/null 2>&1"
+    wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/${NVM_VERSION}/install.sh | bash > /dev/null 2>&1
     export NVM_DIR="${NVM_DIR}"
     [ -s "${NVM_DIR}/nvm.sh" ] && \. "${NVM_DIR}/nvm.sh"
   fi
@@ -36,7 +31,8 @@ install_nodejs() {
     log "Node.js is not installed. ${PRIMARY_COLOR}Installing the LTS version...${RESET_COLOR}"
   fi
 
-  if ! sudo -u $USER_NAME bash -c "source ${NVM_DIR}/nvm.sh && nvm install --lts"; then
+  # Silence all nvm output to keep installer logs clean
+  if ! bash -c "source ${NVM_DIR}/nvm.sh && nvm install --lts" >/dev/null 2>&1; then
     log "${PRIMARY_COLOR}Failed to install Node.js.${RESET_COLOR}"
     return 1
   fi

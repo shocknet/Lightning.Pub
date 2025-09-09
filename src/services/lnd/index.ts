@@ -17,9 +17,10 @@ export const LoadLndSettingsFromEnv = (): LndSettings => {
   const lndAddr = process.env.LND_ADDRESS || "127.0.0.1:10009"
   const lndCertPath = process.env.LND_CERT_PATH || resolveHome("/.lnd/tls.cert")
   const lndMacaroonPath = process.env.LND_MACAROON_PATH || resolveHome("/.lnd/data/chain/bitcoin/mainnet/admin.macaroon")
+  const lndLogDir = process.env.LND_LOG_DIR || resolveHome("/.lnd/logs/bitcoin/mainnet/lnd.log")
   const feeRateBps = EnvCanBeInteger("OUTBOUND_MAX_FEE_BPS", 60)
   const feeRateLimit = feeRateBps / 10000
   const feeFixedLimit = EnvCanBeInteger("OUTBOUND_MAX_FEE_EXTRA_SATS", 100)
   const mockLnd = EnvCanBeBoolean("MOCK_LND")
-  return { mainNode: { lndAddr, lndCertPath, lndMacaroonPath }, feeRateLimit, feeFixedLimit, feeRateBps, mockLnd }
+  return { mainNode: { lndAddr, lndCertPath, lndMacaroonPath }, lndLogDir, feeRateLimit, feeFixedLimit, feeRateBps, mockLnd }
 }

@@ -27,6 +27,7 @@ import { UserOffer } from "../entity/UserOffer.js"
 import { ManagementGrant } from "../entity/ManagementGrant.js"
 import { ChannelEvent } from "../entity/ChannelEvent.js"
 import { AppUserDevice } from "../entity/AppUserDevice.js"
+import * as fs from 'fs'
 
 
 export type DbSettings = {
@@ -87,11 +88,17 @@ export const MetricsDbEntitiesNames = Object.keys(MetricsDbEntities)
 
 export const newMetricsDb = async (settings: DbSettings, metricsMigrations: Function[]): Promise<{ source: DataSource, executedMigrations: Migration[] }> => {
     const source = await new DataSource({
-        type: "sqlite",
+        type: "better-sqlite3",
         database: settings.metricsDatabaseFile,
         entities: Object.values(MetricsDbEntities),
         migrations: metricsMigrations
     }).initialize();
+    
+    // Secure the DB file permissions
+    if (fs.existsSync(settings.metricsDatabaseFile)) {
+        fs.chmodSync(settings.metricsDatabaseFile, 0o600);
+    }
+    
     const log = getLogger({});
     const pendingMigrations = await source.showMigrations()
     if (pendingMigrations) {
@@ -105,13 +112,19 @@ export const newMetricsDb = async (settings: DbSettings, metricsMigrations: Func
 
 export default async (settings: DbSettings, migrations: Function[]): Promise<{ source: DataSource, executedMigrations: Migration[] }> => {
     const source = await new DataSource({
-        type: "sqlite",
+        type: "better-sqlite3",
         database: settings.databaseFile,
         // logging: true,
         entities: Object.values(MainDbEntities),
         //synchronize: true,
         migrations
     }).initialize()
+    
+    // Secure the DB file permissions
+    if (fs.existsSync(settings.databaseFile)) {
+        fs.chmodSync(settings.databaseFile, 0o600);
+    }
+    
     const log = getLogger({})
     const pendingMigrations = await source.showMigrations()
     if (pendingMigrations) {

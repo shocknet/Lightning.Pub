@@ -37,7 +37,7 @@ import { OldSomethingLeftover1753106599604 } from './build/src/services/storage/
 import { UserReceivingInvoiceIdx1753109184611 } from './build/src/services/storage/migrations/1753109184611-user_receiving_invoice_idx.js'
 
 export default new DataSource({
-    type: "sqlite",
+    type: "better-sqlite3",
     database: "db.sqlite",
     // logging: true,
     migrations: [Initial1703170309875, LspOrder1718387847693, LiquidityProvider1719335699480, LndNodeInfo1720187506189, CreateInviteTokenTable1721751414878,
