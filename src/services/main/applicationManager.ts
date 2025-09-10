@@ -151,6 +151,10 @@ export default class {
             if (created) log(u.identifier, u.user.user_id, "user created")
         }
         const nostrSettings = this.settings.nostrRelaySettings
+        
+        const ndebitString = ndebitEncode({ pubkey: app.nostr_public_key!, pointer: u.identifier, relay: nostrSettings.relays[0] })
+        log("🔗 [DEBUG] Generated ndebit for user", { userId: u.user.user_id, ndebit: ndebitString })
+        
         return {
             identifier: u.identifier,
             info: {
