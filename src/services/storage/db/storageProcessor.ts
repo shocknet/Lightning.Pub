@@ -449,10 +449,11 @@ class StorageProcessor {
     }
 
     private async handleFind(operation: FindOperation<any>) {
+        console.log("handling find")
         const res = await this.handleRead(operation.txId, eM => {
             return eM.getRepository(this.getEntity(operation.entity)).find(operation.q)
         })
-
+        console.log("handled find")
         this.sendResponse({
             success: true,
             type: 'find',
