@@ -214,12 +214,15 @@ export default class Handler {
     }
 
     async GetAppMetrics(req: Types.AppsMetricsRequest, app: Application | null): Promise<Types.AppMetrics> {
+        console.log("fetching app metrics")
         const totalFees = await this.storage.paymentStorage.GetTotalFeesPaidInApp(app)
+        console.log("fetching ops")
         const { receivingInvoices, receivingTransactions, outgoingInvoices, outgoingTransactions, receivingAddresses, userToUser } = await this.storage.paymentStorage.GetAppOperations(app, { from: req.from_unix, to: req.to_unix })
         let totalReceived = 0
         let totalSpent = 0
         let unpaidInvoices = 0
         let feesInRange = 0
+        console.log("processing metrics")
         const operations: Types.UserOperation[] = []
         receivingInvoices.forEach(i => {
             if (i.paid_at_unix > 0) {
