@@ -380,7 +380,7 @@ export default class {
         } else if (!!to) {
             time.created_at = LessThanOrEqual<Date>(new Date(to * 1000))
         }
-
+        console.log("fetching db data")
         const [receivingInvoices, receivingAddresses, outgoingInvoices, outgoingTransactions, userToUser] = await Promise.all([
             this.dbs.Find<UserReceivingInvoice>('UserReceivingInvoice', { where: { linkedApplication: q, ...time } }),
             this.dbs.Find<UserReceivingAddress>('UserReceivingAddress', { where: { linkedApplication: q, ...time } }),
@@ -388,9 +388,11 @@ export default class {
             this.dbs.Find<UserTransactionPayment>('UserTransactionPayment', { where: { linkedApplication: q, ...time } }),
             this.dbs.Find<UserToUserPayment>('UserToUserPayment', { where: { linkedApplication: q, ...time } })
         ])
+        console.log("fetched db data 2")
         const receivingTransactions = await Promise.all(receivingAddresses.map(addr =>
             this.dbs.Find<AddressReceivingTransaction>('AddressReceivingTransaction', { where: { user_address: { serial_id: addr.serial_id }, ...time } })))
-        return {
+        console.log("fetched db data 3")
+            return {
             receivingInvoices, receivingAddresses, receivingTransactions,
             outgoingInvoices, outgoingTransactions,
             userToUser
