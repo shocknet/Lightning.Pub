@@ -217,14 +217,14 @@ export default class Handler {
         console.log("fetching app metrics")
         const totalFees = await this.storage.paymentStorage.GetTotalFeesPaidInApp(app)
         console.log("fetching ops")
-        const { receivingInvoices, receivingTransactions, outgoingInvoices, outgoingTransactions, receivingAddresses, userToUser } = await this.storage.paymentStorage.GetAppOperations(app, { from: req.from_unix, to: req.to_unix })
+        const ops = await this.storage.paymentStorage.GetAppOperations(app, { from: req.from_unix, to: req.to_unix })
         let totalReceived = 0
         let totalSpent = 0
         let unpaidInvoices = 0
         let feesInRange = 0
         console.log("processing metrics")
         const operations: Types.UserOperation[] = []
-        receivingInvoices.forEach(i => {
+        ops.receivingInvoices.forEach(i => {
             if (i.paid_at_unix > 0) {
                 totalReceived += i.paid_amount
                 feesInRange += i.service_fee
@@ -233,7 +233,7 @@ export default class Handler {
                 unpaidInvoices++
             }
         })
-        receivingTransactions.forEach(txs => {
+        ops.receivingTransactions.forEach(txs => {
             txs.forEach(tx => {
                 if (req.include_operations) operations.push({ type: Types.UserOperationType.INCOMING_TX, amount: tx.paid_amount, inbound: true, paidAtUnix: tx.paid_at_unix, confirmed: tx.confs > 1, service_fee: tx.service_fee, network_fee: 0, identifier: "", operationId: "", tx_hash: tx.tx_hash, internal: tx.internal })
                 if (tx.confs > 1) {
@@ -242,18 +242,18 @@ export default class Handler {
                 }
             })
         })
-        outgoingInvoices.forEach(i => {
+        ops.outgoingInvoices.forEach(i => {
             if (req.include_operations) operations.push({ type: Types.UserOperationType.OUTGOING_INVOICE, amount: i.paid_amount, inbound: false, paidAtUnix: i.paid_at_unix, confirmed: true, service_fee: i.service_fees, network_fee: i.routing_fees, identifier: "", operationId: "", tx_hash: "", internal: i.internal })
             totalSpent += i.paid_amount
             feesInRange += i.service_fees
         })
-        outgoingTransactions.forEach(tx => {
+        ops.outgoingTransactions.forEach(tx => {
             if (req.include_operations) operations.push({ type: Types.UserOperationType.OUTGOING_TX, amount: tx.paid_amount, inbound: false, paidAtUnix: tx.paid_at_unix, confirmed: tx.confs > 1, service_fee: tx.service_fees, network_fee: tx.chain_fees, identifier: "", operationId: "", tx_hash: tx.tx_hash, internal: tx.internal })
             totalSpent += tx.paid_amount
             feesInRange += tx.service_fees
         })
 
-        userToUser.forEach(op => {
+        ops.userToUser.forEach(op => {
             if (req.include_operations) operations.push({ type: Types.UserOperationType.INCOMING_USER_TO_USER, amount: op.paid_amount, inbound: true, paidAtUnix: op.paid_at_unix, confirmed: true, service_fee: op.service_fees, network_fee: 0, identifier: "", operationId: "", tx_hash: "", internal: true })
             feesInRange += op.service_fees
         })
@@ -308,7 +308,7 @@ export default class Handler {
             available: balanceSum,
             fees: feesInRange,
             total_fees: totalFees,
-            invoices: receivingInvoices.length,
+            invoices: ops.receivingInvoices.length,
 
             operations: req.include_operations ? operations : []
         }
