@@ -83,7 +83,6 @@ export default class {
         const q = getTimeQuery({ from, to })
         const chainBalanceEvents = await this.dbs.Find<BalanceEvent>('BalanceEvent', q, txId)
         console.log("chainBalanceEvents")
-        console.log(q)
         console.log(chainBalanceEvents)
         return { chainBalanceEvents }
     }
