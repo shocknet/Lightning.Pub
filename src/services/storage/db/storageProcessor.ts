@@ -449,6 +449,9 @@ class StorageProcessor {
     }
 
     private async handleFind(operation: FindOperation<any>) {
+        if(operation.entity == 'BalanceEvent') {
+            console.log(operation.q)
+        }
         const res = await this.handleRead(operation.txId, eM => {
             return eM.getRepository(this.getEntity(operation.entity)).find(operation.q)
         })
