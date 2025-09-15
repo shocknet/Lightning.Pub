@@ -82,6 +82,8 @@ export default class {
     async GetBalanceEvents({ from, to }: { from?: number, to?: number }, txId?: string) {
         const q = getTimeQuery({ from, to })
         const chainBalanceEvents = await this.dbs.Find<BalanceEvent>('BalanceEvent', q, txId)
+        //@ts-ignore
+        console.log(q.where?.created_at._value)
         console.log("chainBalanceEvents")
         console.log(chainBalanceEvents)
         return { chainBalanceEvents }
