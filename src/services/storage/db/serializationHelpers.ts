@@ -11,7 +11,7 @@ export function serializeFindOperator(operator: FindOperator<any>): SerializedFi
     return {
         _type: 'FindOperator',
         type: operator['type'],
-        value: Array.isArray(operator['value']) ? operator["value"].map(serializeFindOperator) : operator["value"],
+        value: (Array.isArray(operator['value']) && operator['type'] !== 'between') ? operator["value"].map(serializeFindOperator) : operator["value"],
     };
 }
 
