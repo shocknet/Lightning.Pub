@@ -160,11 +160,19 @@ export default class {
 
 const getTimeQuery = ({ from, to }: { from?: number, to?: number }): FindManyOptions<{ created_at: Date }> => {
     if (!!from && !!to) {
-        return { where: { created_at: Between<Date>(new Date(from * 1000), new Date(to * 1000)) }, order: { created_at: 'ASC' } }
+        const fromDate = new Date(from * 1000)
+        const toDate = new Date(to * 1000)
+        console.log("from", fromDate)
+        console.log("to", toDate)
+        return { where: { created_at: Between<Date>(fromDate, toDate) }, order: { created_at: 'ASC' } }
     } else if (!!from) {
-        return { where: { created_at: MoreThanOrEqual<Date>(new Date(from * 1000)) }, order: { created_at: 'ASC' } }
+        const fromDate = new Date(from * 1000)
+        console.log("from", fromDate)   
+        return { where: { created_at: MoreThanOrEqual<Date>(fromDate) }, order: { created_at: 'ASC' } }
     } else if (!!to) {
-        return { where: { created_at: LessThanOrEqual<Date>(new Date(to * 1000)) }, order: { created_at: 'ASC' } }
+        const toDate = new Date(to * 1000)
+        console.log("to", toDate)
+        return { where: { created_at: LessThanOrEqual<Date>(toDate) }, order: { created_at: 'ASC' } }
     }
     return {}
 }
