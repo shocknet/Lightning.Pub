@@ -452,7 +452,6 @@ class StorageProcessor {
         const res = await this.handleRead(operation.txId, eM => {
             return eM.getRepository(this.getEntity(operation.entity)).find(operation.q)
         })
-
         this.sendResponse({
             success: true,
             type: 'find',

@@ -380,7 +380,6 @@ export default class {
         } else if (!!to) {
             time.created_at = LessThanOrEqual<Date>(new Date(to * 1000))
         }
-
         const [receivingInvoices, receivingAddresses, outgoingInvoices, outgoingTransactions, userToUser] = await Promise.all([
             this.dbs.Find<UserReceivingInvoice>('UserReceivingInvoice', { where: { linkedApplication: q, ...time } }),
             this.dbs.Find<UserReceivingAddress>('UserReceivingAddress', { where: { linkedApplication: q, ...time } }),
@@ -390,7 +389,7 @@ export default class {
         ])
         const receivingTransactions = await Promise.all(receivingAddresses.map(addr =>
             this.dbs.Find<AddressReceivingTransaction>('AddressReceivingTransaction', { where: { user_address: { serial_id: addr.serial_id }, ...time } })))
-        return {
+            return {
             receivingInvoices, receivingAddresses, receivingTransactions,
             outgoingInvoices, outgoingTransactions,
             userToUser
