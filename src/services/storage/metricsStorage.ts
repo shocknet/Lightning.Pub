@@ -82,10 +82,6 @@ export default class {
     async GetBalanceEvents({ from, to }: { from?: number, to?: number }, txId?: string) {
         const q = getTimeQuery({ from, to })
         const chainBalanceEvents = await this.dbs.Find<BalanceEvent>('BalanceEvent', q, txId)
-        //@ts-ignore
-        console.log(q.where?.created_at._value)
-        console.log("chainBalanceEvents")
-        console.log(chainBalanceEvents)
         return { chainBalanceEvents }
     }
 
@@ -163,16 +159,12 @@ const getTimeQuery = ({ from, to }: { from?: number, to?: number }): FindManyOpt
     if (!!from && !!to) {
         const fromDate = new Date(from * 1000)
         const toDate = new Date(to * 1000)
-        console.log("from", fromDate)
-        console.log("to", toDate)
         return { where: { created_at: Between<Date>(fromDate, toDate) }, order: { created_at: 'ASC' } }
     } else if (!!from) {
         const fromDate = new Date(from * 1000)
-        console.log("from", fromDate)   
         return { where: { created_at: MoreThanOrEqual<Date>(fromDate) }, order: { created_at: 'ASC' } }
     } else if (!!to) {
         const toDate = new Date(to * 1000)
-        console.log("to", toDate)
         return { where: { created_at: LessThanOrEqual<Date>(toDate) }, order: { created_at: 'ASC' } }
     }
     return {}
