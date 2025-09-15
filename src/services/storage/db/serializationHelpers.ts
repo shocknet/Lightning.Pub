@@ -32,6 +32,7 @@ export function deserializeFindOperator(serialized: SerializedFindOperator): Fin
         case 'ilike':
             return ILike(serialized.value);
         case 'between':
+            console.log("serializing between", serialized.value)
             return Between(serialized.value[0], serialized.value[1]);
         case 'in':
             return In(serialized.value);
