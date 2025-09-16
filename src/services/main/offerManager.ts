@@ -234,9 +234,14 @@ export class OfferManager {
             this.logger("Invalid expected data", validated || {})
             return { success: false, code: 1, max: remote }
         }
+        if (offerReq.description && (typeof offerReq.description !== 'string' || offerReq.description.length > 100)) {
+            return { success: false, code: 1, max: remote }
+        }
+        const memo = offerReq.description || userOffer.label
+        const expiry = offerReq.expires_in_seconds ?  Date.now()/1000 + offerReq.expires_in_seconds : undefined
         const res = await this.applicationManager.AddAppUserInvoice(appId, {
             http_callback_url: userOffer.callback_url, payer_identifier: userOffer.app_user_id, receiver_identifier: userOffer.app_user_id,
-            invoice_req: { amountSats: amt, memo: userOffer.label, zap: offerReq.zap },
+            invoice_req: { amountSats: amt, memo, zap: offerReq.zap, expiry },
             payer_data: validated ? { data: validated } : undefined,
             offer_string: offer,
             rejectUnauthorized: userOffer.rejectUnauthorized,
