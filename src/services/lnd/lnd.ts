@@ -290,7 +290,8 @@ export default class {
 
     async NewInvoice(value: number, memo: string, expiry: number, { useProvider, from }: TxActionOptions): Promise<Invoice> {
         if (useProvider) {
-            const invoice = await this.liquidProvider.AddInvoice(value, memo, from)
+            console.log("using provider")
+            const invoice = await this.liquidProvider.AddInvoice(value, memo, from, expiry)
             const providerDst = this.liquidProvider.GetProviderDestination()
             return { payRequest: invoice, providerDst }
         }

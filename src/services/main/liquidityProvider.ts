@@ -165,12 +165,12 @@ export class LiquidityProvider {
         return true
     }
 
-    AddInvoice = async (amount: number, memo: string, from: 'user' | 'system') => {
+    AddInvoice = async (amount: number, memo: string, from: 'user' | 'system', expiry: number) => {
         try {
             if (!this.ready) {
                 throw new Error("liquidity provider is not ready yet")
             }
-            const res = await this.client.NewInvoice({ amountSats: amount, memo })
+            const res = await this.client.NewInvoice({ amountSats: amount, memo, expiry })
             if (res.status === 'ERROR') {
                 this.log("error creating invoice", res.reason)
                 throw new Error(res.reason)
