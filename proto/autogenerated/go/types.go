@@ -466,6 +466,7 @@ type NewAddressResponse struct {
 }
 type NewInvoiceRequest struct {
 	Amountsats int64  `json:"amountSats"`
+	Expiry     int64  `json:"expiry"`
 	Memo       string `json:"memo"`
 	Zap        string `json:"zap"`
 }

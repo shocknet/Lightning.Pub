@@ -1393,6 +1393,7 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### NewInvoiceRequest
   - __amountSats__: _number_
+  - __expiry__: _number_ *this field is optional
   - __memo__: _string_
   - __zap__: _string_ *this field is optional
 

@@ -195,14 +195,14 @@ export class OfferManager {
         return
     }
 
-    async HandleDefaultUserOffer(offerReq: NofferData, appId: string, remote: number): Promise<{ success: true, invoice: string } | { success: false, code: number, max: number }> {
+    async HandleDefaultUserOffer(offerReq: NofferData, appId: string, remote: number, { memo, expiry }: { memo?: string, expiry?: number }): Promise<{ success: true, invoice: string } | { success: false, code: number, max: number }> {
         const { amount_sats: amount, offer } = offerReq
         if (!amount || isNaN(amount) || amount < 10 || amount > remote) {
             return { success: false, code: 5, max: remote }
         }
         const res = await this.applicationManager.AddAppUserInvoice(appId, {
             http_callback_url: "", payer_identifier: offer, receiver_identifier: offer,
-            invoice_req: { amountSats: amount, memo: "Default NIP-69 Offer", zap: offerReq.zap },
+            invoice_req: { amountSats: amount, memo: memo ||"Default NIP-69 Offer", zap: offerReq.zap, expiry },
             offer_string: 'offer'
         })
         return { success: true, invoice: res.invoice }
@@ -211,8 +211,10 @@ export class OfferManager {
     async HandleUserOffer(offerReq: NofferData, appId: string, remote: number): Promise<{ success: true, invoice: string } | { success: false, code: number, max: number }> {
         const { amount_sats: amount, offer } = offerReq
         const userOffer = await this.storage.offerStorage.GetOffer(offer)
+        const expiry = offerReq.expires_in_seconds ?  offerReq.expires_in_seconds : undefined
+
         if (!userOffer) {
-            return this.HandleDefaultUserOffer(offerReq, appId, remote)
+            return this.HandleDefaultUserOffer(offerReq, appId, remote, { memo: offerReq.description, expiry })
         }
         if (userOffer.app_user_id === userOffer.offer_id) {
             if (userOffer.price_sats !== 0 || userOffer.payer_data) {
@@ -234,9 +236,13 @@ export class OfferManager {
             this.logger("Invalid expected data", validated || {})
             return { success: false, code: 1, max: remote }
         }
+        if (offerReq.description && (typeof offerReq.description !== 'string' || offerReq.description.length > 100)) {
+            return { success: false, code: 1, max: remote }
+        }
+        const memo = offerReq.description || userOffer.label
         const res = await this.applicationManager.AddAppUserInvoice(appId, {
             http_callback_url: userOffer.callback_url, payer_identifier: userOffer.app_user_id, receiver_identifier: userOffer.app_user_id,
-            invoice_req: { amountSats: amt, memo: userOffer.label, zap: offerReq.zap },
+            invoice_req: { amountSats: amt, memo, zap: offerReq.zap, expiry },
             payer_data: validated ? { data: validated } : undefined,
             offer_string: offer,
             rejectUnauthorized: userOffer.rejectUnauthorized,
