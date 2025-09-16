@@ -195,6 +195,8 @@ export default class {
         if (req.invoice_req.zap) {
             zapInfo = this.paymentManager.validateZapEvent(req.invoice_req.zap, req.invoice_req.amountSats)
         }
+        console.log("req.invoice_req.expiry", req.invoice_req.expiry)
+        console.log("defaultInvoiceExpiry", defaultInvoiceExpiry)
         const expiry = req.invoice_req.expiry ? Math.min(req.invoice_req.expiry, defaultInvoiceExpiry) : defaultInvoiceExpiry
         const opts: InboundOptionals = {
             callbackUrl: cbUrl, expiry: expiry, expectedPayer: payer.user, linkedApplication: app, zapInfo,
