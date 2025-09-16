@@ -211,7 +211,7 @@ export class OfferManager {
     async HandleUserOffer(offerReq: NofferData, appId: string, remote: number): Promise<{ success: true, invoice: string } | { success: false, code: number, max: number }> {
         const { amount_sats: amount, offer } = offerReq
         const userOffer = await this.storage.offerStorage.GetOffer(offer)
-        const expiry = offerReq.expires_in_seconds ?  Date.now()/1000 + offerReq.expires_in_seconds : undefined
+        const expiry = offerReq.expires_in_seconds ?  offerReq.expires_in_seconds : undefined
 
         if (!userOffer) {
             return this.HandleDefaultUserOffer(offerReq, appId, remote, { memo: offerReq.description, expiry })
