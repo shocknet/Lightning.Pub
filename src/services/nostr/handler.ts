@@ -184,9 +184,11 @@ export default class Handler {
 
         log("connected, subbing...")
         relay.onclose = (() => {
-            log("relay disconnected, will try to reconnect")
+            log("relay disconnected, will try to reconnect in 2 seconds")
             relay.close()
-            this.Connect()
+            setTimeout(() => {
+                this.Connect()
+            }, 2000)
         })
         
         const appIds = Object.keys(this.apps)

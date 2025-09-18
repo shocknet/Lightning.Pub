@@ -16,7 +16,10 @@ export default class NostrSubprocess {
     constructor(settings: NostrSettings, utils: Utils, eventCallback: EventCallback) {
         this.utils = utils
         this.childProcess = fork("./build/src/services/nostr/handler")
-        this.childProcess.on("error", console.error)
+        this.childProcess.on("error", (error) => {
+            console.error("nostr subprocess error")
+            throw error
+        })
         this.childProcess.on("message", (message: ChildProcessResponse) => {
             switch (message.type) {
                 case 'ready':
