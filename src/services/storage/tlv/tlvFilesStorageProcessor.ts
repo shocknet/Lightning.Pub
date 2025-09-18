@@ -113,6 +113,7 @@ class TlvFilesStorageProcessor {
 
         process.on('error', (error: Error) => {
             console.error('Error in tlv files storage processor:', error);
+            throw error
         });
 
         this.wrtc = new webRTC(t => {
