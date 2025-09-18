@@ -180,9 +180,14 @@ export class DebitManager {
             case Types.DebitResponse_response_type.INVOICE:
                 const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
                 const appUser = await this.storage.applicationStorage.GetApplicationUser(app, ctx.app_user_id)
-                const { op, payment } = await this.sendDebitPayment(ctx.app_id, ctx.app_user_id, req.npub, req.response.invoice)
-                const debitRes: NdebitSuccess = { res: 'ok', preimage: payment.preimage }
-                this.notifyPaymentSuccess(appUser, debitRes, op, { appId: ctx.app_id, pub: req.npub, id: req.request_id })
+                try {
+                    const { op, payment } = await this.sendDebitPayment(ctx.app_id, ctx.app_user_id, req.npub, req.response.invoice)
+                    const debitRes: NdebitSuccess = { res: 'ok', preimage: payment.preimage }
+                    this.notifyPaymentSuccess(appUser, debitRes, op, { appId: ctx.app_id, pub: req.npub, id: req.request_id })
+                } catch(e) {
+                    const err:NdebitFailure = { res: 'GFY', error: nip68errs[1], code: 1 }
+                    this.sendDebitResponse(err, { pub: req.npub, id: req.request_id, appId: ctx.app_id })
+                }
                 return
             default:
                 throw new Error("invalid debit response type")
