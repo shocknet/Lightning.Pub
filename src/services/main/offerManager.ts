@@ -202,7 +202,7 @@ export class OfferManager {
         }
         const res = await this.applicationManager.AddAppUserInvoice(appId, {
             http_callback_url: "", payer_identifier: offer, receiver_identifier: offer,
-            invoice_req: { amountSats: amount, memo: memo ||"Default NIP-69 Offer", zap: offerReq.zap, expiry },
+            invoice_req: { amountSats: amount, memo: memo ||"Default CLINK Offer", zap: offerReq.zap, expiry },
             offer_string: 'offer'
         })
         return { success: true, invoice: res.invoice }
