@@ -112,22 +112,6 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     opts.metricsCallback([{ ...info, ...stats, ...authContext }])
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
-            case 'AuthorizeDebit':
-                try {
-                    if (!methods.AuthorizeDebit) throw new Error('method: AuthorizeDebit is not implemented')
-                    const authContext = await opts.NostrUserAuthGuard(req.appId, req.authIdentifier)
-                    stats.guard = process.hrtime.bigint()
-                    authCtx = authContext
-                    const request = req.body
-                    const error = Types.DebitAuthorizationRequestValidate(request)
-                    stats.validate = process.hrtime.bigint()
-                    if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
-                    const response = await methods.AuthorizeDebit({rpcName:'AuthorizeDebit', ctx:authContext , req: request})
-                    stats.handle = process.hrtime.bigint()
-                    res({status: 'OK', ...response})
-                    opts.metricsCallback([{ ...info, ...stats, ...authContext }])
-                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
-                break
             case 'AuthorizeManage':
                 try {
                     if (!methods.AuthorizeManage) throw new Error('method: AuthorizeManage is not implemented')
@@ -215,18 +199,6 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                                         opStats.validate = process.hrtime.bigint()
                                         if (error !== null) throw error
                                         const res = await methods.AddUserOffer({...operation, ctx}); responses.push({ status: 'OK', ...res  })
-                                        opStats.handle = process.hrtime.bigint()
-                                        callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
-                                    }
-                                    break
-                                case 'AuthorizeDebit':
-                                    if (!methods.AuthorizeDebit) {
-                                        throw new Error('method not defined: AuthorizeDebit')
-                                    } else {
-                                        const error = Types.DebitAuthorizationRequestValidate(operation.req)
-                                        opStats.validate = process.hrtime.bigint()
-                                        if (error !== null) throw error
-                                        const res = await methods.AuthorizeDebit({...operation, ctx}); responses.push({ status: 'OK', ...res  })
                                         opStats.handle = process.hrtime.bigint()
                                         callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
                                     }

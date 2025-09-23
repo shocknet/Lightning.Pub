@@ -753,12 +753,18 @@ message LiveManageRequest {
     string npub = 2;
 }
 
+message DebitToAuthorize {
+    repeated DebitRule rules = 1;
+    optional string invoice = 2;
+}
+
 message DebitResponse {
     string request_id = 1;
     string npub = 2;
     oneof response {
         Empty denied = 3;
         string invoice = 4;
+        DebitToAuthorize authorize = 5;
     }
 }
 

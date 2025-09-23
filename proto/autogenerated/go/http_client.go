@@ -62,7 +62,6 @@ type Client struct {
 	AddProduct        func(req AddProductRequest) (*Product, error)
 	AddUserOffer      func(req OfferConfig) (*OfferId, error)
 	AuthApp           func(req AuthAppRequest) (*AuthApp, error)
-	AuthorizeDebit    func(req DebitAuthorizationRequest) (*DebitAuthorization, error)
 	AuthorizeManage   func(req ManageAuthorizationRequest) (*ManageAuthorization, error)
 	BanDebit          func(req DebitOperation) error
 	BanUser           func(req BanUserRequest) (*BanUserResponse, error)
@@ -367,35 +366,6 @@ func NewClient(params ClientParams) *Client {
 				return nil, fmt.Errorf(result.Reason)
 			}
 			res := AuthApp{}
-			err = json.Unmarshal(resBody, &res)
-			if err != nil {
-				return nil, err
-			}
-			return &res, nil
-		},
-		AuthorizeDebit: func(req DebitAuthorizationRequest) (*DebitAuthorization, error) {
-			auth, err := params.RetrieveUserAuth()
-			if err != nil {
-				return nil, err
-			}
-			finalRoute := "/api/user/debit/authorize"
-			body, err := json.Marshal(req)
-			if err != nil {
-				return nil, err
-			}
-			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
-			if err != nil {
-				return nil, err
-			}
-			result := ResultError{}
-			err = json.Unmarshal(resBody, &result)
-			if err != nil {
-				return nil, err
-			}
-			if result.Status == "ERROR" {
-				return nil, fmt.Errorf(result.Reason)
-			}
-			res := DebitAuthorization{}
 			err = json.Unmarshal(resBody, &res)
 			if err != nil {
 				return nil, err

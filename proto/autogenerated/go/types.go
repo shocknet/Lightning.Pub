@@ -250,6 +250,10 @@ type DebitResponse struct {
 type DebitRule struct {
 	Rule *DebitRule_rule `json:"rule"`
 }
+type DebitToAuthorize struct {
+	Invoice string      `json:"invoice"`
+	Rules   []DebitRule `json:"rules"`
+}
 type DecodeInvoiceRequest struct {
 	Invoice string `json:"invoice"`
 }
@@ -722,14 +726,16 @@ type ZippedMetrics struct {
 type DebitResponse_response_type string
 
 const (
-	DENIED  DebitResponse_response_type = "denied"
-	INVOICE DebitResponse_response_type = "invoice"
+	AUTHORIZE DebitResponse_response_type = "authorize"
+	DENIED    DebitResponse_response_type = "denied"
+	INVOICE   DebitResponse_response_type = "invoice"
 )
 
 type DebitResponse_response struct {
-	Type    DebitResponse_response_type `json:"type"`
-	Denied  *Empty                      `json:"denied"`
-	Invoice *string                     `json:"invoice"`
+	Type      DebitResponse_response_type `json:"type"`
+	Authorize *DebitToAuthorize           `json:"authorize"`
+	Denied    *Empty                      `json:"denied"`
+	Invoice   *string                     `json:"invoice"`
 }
 type DebitRule_rule_type string
 

@@ -8,101 +8,11 @@ import { Application } from '../storage/entity/Application.js';
 import { ApplicationUser } from '../storage/entity/ApplicationUser.js';
 import { NostrEvent, NostrSend, SendData, SendInitiator } from '../nostr/handler.js';
 import { UnsignedEvent } from 'nostr-tools';
-import { NdebitData, NdebitFailure, NdebitSuccess, RecurringDebitTimeUnit } from "@shocknet/clink-sdk";
+import { Ndebit, NdebitData, NdebitFailure, NdebitSuccess, RecurringDebitTimeUnit } from "@shocknet/clink-sdk";
+import { debitAccessRulesToDebitRules, newNdebitResponse,debitRulesToDebitAccessRules, 
+    nip68errs, AuthRequiredRes, HandleNdebitRes, expirationRuleName, 
+    frequencyRuleName,IntervalTypeToSeconds,unitToIntervalType } from "./debitTypes.js";
 
-export const expirationRuleName = 'expiration'
-export const frequencyRuleName = 'frequency'
-const unitToIntervalType = (unit: RecurringDebitTimeUnit) => {
-    switch (unit) {
-        case 'day': return Types.IntervalType.DAY
-        case 'week': return Types.IntervalType.WEEK
-        case 'month': return Types.IntervalType.MONTH
-        default: throw new Error("invalid unit")
-    }
-}
-const intervalTypeToUnit = (interval: Types.IntervalType): RecurringDebitTimeUnit => {
-    switch (interval) {
-        case Types.IntervalType.DAY: return 'day'
-        case Types.IntervalType.WEEK: return 'week'
-        case Types.IntervalType.MONTH: return 'month'
-        default: throw new Error("invalid interval")
-    }
-}
-const IntervalTypeToSeconds = (interval: Types.IntervalType) => {
-    switch (interval) {
-        case Types.IntervalType.DAY: return 24 * 60 * 60
-        case Types.IntervalType.WEEK: return 7 * 24 * 60 * 60
-        case Types.IntervalType.MONTH: return 30 * 24 * 60 * 60
-        default: throw new Error("invalid interval")
-    }
-}
-const debitRulesToDebitAccessRules = (rule: Types.DebitRule[]): DebitAccessRules | undefined => {
-    let rules: DebitAccessRules | undefined = undefined
-    rule.forEach(r => {
-        if (!rules) {
-            rules = {}
-        }
-        const { rule } = r
-        switch (rule.type) {
-            case Types.DebitRule_rule_type.EXPIRATION_RULE:
-
-                rules[expirationRuleName] = [rule.expiration_rule.expires_at_unix.toString()]
-                break
-            case Types.DebitRule_rule_type.FREQUENCY_RULE:
-                const intervals = rule.frequency_rule.number_of_intervals.toString()
-                const unit = intervalTypeToUnit(rule.frequency_rule.interval)
-                rules[frequencyRuleName] = [intervals, unit, rule.frequency_rule.amount.toString()];
-                break
-            default:
-                throw new Error("invalid rule")
-        }
-    })
-    return rules
-}
-
-const debitAccessRulesToDebitRules = (rules: DebitAccessRules | null): Types.DebitRule[] => {
-    if (!rules) {
-        return []
-    }
-    return Object.entries(rules).map(([key, val]) => {
-        switch (key) {
-            case expirationRuleName:
-                return {
-                    rule: {
-                        type: Types.DebitRule_rule_type.EXPIRATION_RULE,
-                        expiration_rule: {
-                            expires_at_unix: +val[0]
-                        }
-                    }
-                }
-            case frequencyRuleName:
-                return {
-                    rule: {
-                        type: Types.DebitRule_rule_type.FREQUENCY_RULE,
-                        frequency_rule: {
-                            number_of_intervals: +val[0],
-                            interval: unitToIntervalType(val[1] as RecurringDebitTimeUnit),
-                            amount: +val[2]
-                        }
-                    }
-                }
-            default:
-                throw new Error("invalid rule")
-        }
-    })
-}
-const nip68errs = {
-    1: "Request Denied Warning",
-    2: "Temporary Failure",
-    3: "Expired Request",
-    4: "Rate Limited",
-    5: "Invalid Amount",
-    6: "Invalid Request",
-}
-type HandleNdebitRes = { status: 'fail', debitRes: NdebitFailure }
-    | { status: 'invoicePaid', op: Types.UserOperation, app: Application, appUser: ApplicationUser, debitRes: NdebitSuccess }
-    | { status: 'authRequired', liveDebitReq: Types.LiveDebitRequest, app: Application, appUser: ApplicationUser }
-    | { status: 'authOk', debitRes: NdebitSuccess }
 export class DebitManager {
 
 
@@ -129,7 +39,7 @@ export class DebitManager {
         this._nostrSend(initiator, data, relays)
     }
 
-    AuthorizeDebit = async (ctx: Types.UserContext, req: Types.DebitAuthorizationRequest): Promise<Types.DebitAuthorization> => {
+/*     AuthorizeDebit = async (ctx: Types.UserContext, req: Types.DebitAuthorizationRequest): Promise<Types.DebitAuthorization> => {
         const access = await this.storage.debitStorage.AddDebitAccess(ctx.app_user_id, {
             authorize: true,
             npub: req.authorize_npub,
@@ -144,7 +54,7 @@ export class DebitManager {
             authorized: true,
             rules: req.rules
         }
-    }
+    } */
 
     GetDebitAuthorizations = async (ctx: Types.UserContext): Promise<Types.DebitAuthorizations> => {
         const allDebitsAccesses = await this.storage.debitStorage.GetAllUserDebitAccess(ctx.app_user_id)
@@ -178,15 +88,56 @@ export class DebitManager {
                 this.sendDebitResponse({ res: 'GFY', error: nip68errs[1], code: 1 }, { pub: req.npub, id: req.request_id, appId: ctx.app_id })
                 return
             case Types.DebitResponse_response_type.INVOICE:
-                const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
-                const appUser = await this.storage.applicationStorage.GetApplicationUser(app, ctx.app_user_id)
-                const { op, payment } = await this.sendDebitPayment(ctx.app_id, ctx.app_user_id, req.npub, req.response.invoice)
-                const debitRes: NdebitSuccess = { res: 'ok', preimage: payment.preimage }
-                this.notifyPaymentSuccess(appUser, debitRes, op, { appId: ctx.app_id, pub: req.npub, id: req.request_id })
+                await this.paySingleInvoice(ctx, {invoice: req.response.invoice, npub: req.npub, request_id: req.request_id})
+                return
+            case Types.DebitResponse_response_type.AUTHORIZE:
+                await this.handleAuthorization(ctx, req.response.authorize, { npub: req.npub, request_id: req.request_id })
                 return
             default:
                 throw new Error("invalid debit response type")
         }
+    }
+
+    paySingleInvoice = async (ctx: Types.UserContext, {invoice,npub,request_id}:{invoice:string, npub:string, request_id:string}) => {
+        try {
+            const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
+            const appUser = await this.storage.applicationStorage.GetApplicationUser(app, ctx.app_user_id)
+            const { op, payment } = await this.sendDebitPayment(ctx.app_id, ctx.app_user_id, npub, invoice)
+            const debitRes: NdebitSuccess = { res: 'ok', preimage: payment.preimage }
+            this.notifyPaymentSuccess(appUser, debitRes, op, { appId: ctx.app_id, pub: npub, id: request_id })
+        } catch (e: any) {
+            this.sendDebitResponse({ res: 'GFY', error: nip68errs[1], code: 1 }, { pub: npub, id: request_id, appId: ctx.app_id })
+            throw e
+        }
+        
+    }
+
+    handleAuthorization = async(ctx: Types.UserContext,debit:Types.DebitToAuthorize, {npub,request_id}:{ npub:string, request_id:string})=>{
+        const access = await this.storage.debitStorage.AddDebitAccess(ctx.app_user_id, {
+            authorize: true,
+            npub,
+            rules: debitRulesToDebitAccessRules(debit.rules)
+        })
+        const { invoice } = debit
+        if (!request_id) {
+            return
+        }
+        if (!invoice) {
+            this.sendDebitResponse({ res: 'ok' }, { pub: npub, id: request_id, appId: ctx.app_id })
+            return
+        }
+        try {
+            const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
+            const appUser = await this.storage.applicationStorage.GetApplicationUser(app, ctx.app_user_id)
+            this.validateAccessRules(access, app, appUser)
+            const { op, payment } = await this.sendDebitPayment(ctx.app_id, ctx.app_user_id, npub, invoice)
+            const debitRes: NdebitSuccess = { res: 'ok', preimage: payment.preimage }
+            this.notifyPaymentSuccess(appUser, debitRes, op, { appId: ctx.app_id, pub: npub, id: request_id })
+        } catch (e: any) {
+            this.sendDebitResponse({ res: 'GFY', error: nip68errs[1], code: 1 }, { pub: npub, id: request_id, appId: ctx.app_id })
+            throw e
+        }
+        
     }
 
     handleNip68Debit = async (pointerdata: NdebitData, event: NostrEvent) => {
@@ -201,14 +152,20 @@ export class DebitManager {
         }
         const { appUser } = res
         if (res.status === 'authRequired') {
-            const message: Types.LiveDebitRequest & { requestId: string, status: 'OK' } = { ...res.liveDebitReq, requestId: "GetLiveDebitRequests", status: 'OK' }
-            if (appUser.nostr_public_key) {// TODO - fix before support for http streams
-                this.nostrSend({ type: 'app', appId: event.appId }, { type: 'content', content: JSON.stringify(message), pub: appUser.nostr_public_key })
-            }
+            this.handleAuthRequired(pointerdata, event, res)
             return
         }
         const { op, debitRes } = res
         this.notifyPaymentSuccess(appUser, debitRes, op, event)
+    }
+
+    handleAuthRequired = (data:NdebitData, event: NostrEvent, res: AuthRequiredRes) => {
+        if (!res.appUser.nostr_public_key) {
+            this.sendDebitResponse({ res: 'GFY', error: nip68errs[1], code: 1 }, { pub: event.pub, id: event.id, appId: event.appId })
+            return
+        }
+        const message: Types.LiveDebitRequest & { requestId: string, status: 'OK' } = { ...res.liveDebitReq, requestId: "GetLiveDebitRequests", status: 'OK' }
+        this.nostrSend({ type: 'app', appId: event.appId }, { type: 'content', content: JSON.stringify(message), pub: res.appUser.nostr_public_key })
     }
 
     notifyPaymentSuccess = (appUser: ApplicationUser, debitRes: NdebitSuccess, op: Types.UserOperation, event: { pub: string, id: string, appId: string }) => {
@@ -378,15 +335,3 @@ export class DebitManager {
     }
 }
 
-const newNdebitResponse = (content: string, event: { pub: string, id: string }): UnsignedEvent => {
-    return {
-        content,
-        created_at: Math.floor(Date.now() / 1000),
-        kind: 21002,
-        pubkey: "",
-        tags: [
-            ['p', event.pub],
-            ['e', event.id],
-        ],
-    }
-}
