@@ -55,7 +55,7 @@ export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSett
                 eventId: event.id,
                 offer: offerReq.offer
             })
-            mainHandler.offerManager.handleNip69Noffer(offerReq, event)
+            mainHandler.offerManager.handleClinkOffer(offerReq, event)
             return
         } else if (event.kind === 21002) {
             const debitReq = j as NdebitData

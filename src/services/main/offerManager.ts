@@ -151,7 +151,7 @@ export class OfferManager {
         return { passed: true, validated }
     }
 
-    async handleNip69Noffer(offerReq: NofferData, event: NostrEvent) {
+    async handleClinkOffer(offerReq: NofferData, event: NostrEvent) {
         this.logger("📥 [OFFER REQUEST] Received offer request", {
             fromPub: event.pub,
             appId: event.appId,
