@@ -41,7 +41,6 @@ export class DebitManager {
 
     GetDebitAuthorizations = async (ctx: Types.UserContext): Promise<Types.DebitAuthorizations> => {
         const allDebitsAccesses = await this.storage.debitStorage.GetAllUserDebitAccess(ctx.app_user_id)
-        console.log("allDebitsAccesses", allDebitsAccesses)
         const debits: Types.DebitAuthorization[] = allDebitsAccesses.map(access => ({
             debit_id: access.serial_id.toString(),
             authorized: access.authorized,
