@@ -10,7 +10,7 @@ import { NostrEvent, NostrSend, SendData, SendInitiator } from '../nostr/handler
 import { UnsignedEvent } from 'nostr-tools';
 import { Ndebit, NdebitData, NdebitFailure, NdebitSuccess, RecurringDebitTimeUnit } from "@shocknet/clink-sdk";
 import { debitAccessRulesToDebitRules, newNdebitResponse,debitRulesToDebitAccessRules, 
-    nip68errs, AuthRequiredRes, HandleNdebitRes, expirationRuleName, 
+    nofferErrors, AuthRequiredRes, HandleNdebitRes, expirationRuleName, 
     frequencyRuleName,IntervalTypeToSeconds,unitToIntervalType } from "./debitTypes.js";
 
 export class DebitManager {
@@ -38,23 +38,6 @@ export class DebitManager {
         }
         this._nostrSend(initiator, data, relays)
     }
-
-/*     AuthorizeDebit = async (ctx: Types.UserContext, req: Types.DebitAuthorizationRequest): Promise<Types.DebitAuthorization> => {
-        const access = await this.storage.debitStorage.AddDebitAccess(ctx.app_user_id, {
-            authorize: true,
-            npub: req.authorize_npub,
-            rules: debitRulesToDebitAccessRules(req.rules)
-        })
-        if (req.request_id) {
-            this.sendDebitResponse({ res: 'ok' }, { pub: req.authorize_npub, id: req.request_id, appId: ctx.app_id })
-        }
-        return {
-            debit_id: access.serial_id.toString(),
-            npub: req.authorize_npub,
-            authorized: true,
-            rules: req.rules
-        }
-    } */
 
     GetDebitAuthorizations = async (ctx: Types.UserContext): Promise<Types.DebitAuthorizations> => {
         const allDebitsAccesses = await this.storage.debitStorage.GetAllUserDebitAccess(ctx.app_user_id)
@@ -85,7 +68,8 @@ export class DebitManager {
     RespondToDebit = async (ctx: Types.UserContext, req: Types.DebitResponse): Promise<void> => {
         switch (req.response.type) {
             case Types.DebitResponse_response_type.DENIED:
-                this.sendDebitResponse({ res: 'GFY', error: nip68errs[1], code: 1 }, { pub: req.npub, id: req.request_id, appId: ctx.app_id })
+                this.logger("🔍 [DEBIT REQUEST] Sending denied response")
+                this.sendDebitResponse({ res: 'GFY', error: nofferErrors[1], code: 1 }, { pub: req.npub, id: req.request_id, appId: ctx.app_id })
                 return
             case Types.DebitResponse_response_type.INVOICE:
                 await this.paySingleInvoice(ctx, {invoice: req.response.invoice, npub: req.npub, request_id: req.request_id})
@@ -100,19 +84,25 @@ export class DebitManager {
 
     paySingleInvoice = async (ctx: Types.UserContext, {invoice,npub,request_id}:{invoice:string, npub:string, request_id:string}) => {
         try {
+            this.logger("🔍 [DEBIT REQUEST] Paying single invoice")
             const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
             const appUser = await this.storage.applicationStorage.GetApplicationUser(app, ctx.app_user_id)
             const { op, payment } = await this.sendDebitPayment(ctx.app_id, ctx.app_user_id, npub, invoice)
             const debitRes: NdebitSuccess = { res: 'ok', preimage: payment.preimage }
             this.notifyPaymentSuccess(appUser, debitRes, op, { appId: ctx.app_id, pub: npub, id: request_id })
         } catch (e: any) {
-            this.sendDebitResponse({ res: 'GFY', error: nip68errs[1], code: 1 }, { pub: npub, id: request_id, appId: ctx.app_id })
+            this.logger("❌ [DEBIT REQUEST] Error in single invoice payment")
+            this.sendDebitResponse({ res: 'GFY', error: nofferErrors[1], code: 1 }, { pub: npub, id: request_id, appId: ctx.app_id })
             throw e
         }
-        
     }
 
-    handleAuthorization = async(ctx: Types.UserContext,debit:Types.DebitToAuthorize, {npub,request_id}:{ npub:string, request_id:string})=>{
+    handleAuthorization = async (ctx: Types.UserContext,debit:Types.DebitToAuthorize, {npub,request_id}:{ npub:string, request_id:string})=>{
+        this.logger("🔍 [DEBIT REQUEST] Handling authorization", {
+            npub,
+            request_id,
+            debit
+        })
         const access = await this.storage.debitStorage.AddDebitAccess(ctx.app_user_id, {
             authorize: true,
             npub,
@@ -123,6 +113,7 @@ export class DebitManager {
             return
         }
         if (!invoice) {
+            this.logger("🔍 [DEBIT REQUEST] Sending ok response")
             this.sendDebitResponse({ res: 'ok' }, { pub: npub, id: request_id, appId: ctx.app_id })
             return
         }
@@ -130,11 +121,13 @@ export class DebitManager {
             const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
             const appUser = await this.storage.applicationStorage.GetApplicationUser(app, ctx.app_user_id)
             this.validateAccessRules(access, app, appUser)
+            this.logger("🔍 [DEBIT REQUEST] Sending debit payment")
             const { op, payment } = await this.sendDebitPayment(ctx.app_id, ctx.app_user_id, npub, invoice)
             const debitRes: NdebitSuccess = { res: 'ok', preimage: payment.preimage }
             this.notifyPaymentSuccess(appUser, debitRes, op, { appId: ctx.app_id, pub: npub, id: request_id })
         } catch (e: any) {
-            this.sendDebitResponse({ res: 'GFY', error: nip68errs[1], code: 1 }, { pub: npub, id: request_id, appId: ctx.app_id })
+            this.logger("❌ [DEBIT REQUEST] Error in debit authorization")
+            this.sendDebitResponse({ res: 'GFY', error: nofferErrors[1], code: 1 }, { pub: npub, id: request_id, appId: ctx.app_id })
             throw e
         }
         
@@ -144,7 +137,14 @@ export class DebitManager {
         if (!this._nostrSend) {
             throw new Error("No nostrSend attached")
         }
+        this.logger("📥 [DEBIT REQUEST] Received debit request", {
+            fromPub: event.pub,
+            appId: event.appId,
+            eventId: event.id,
+            pointerdata
+        })
         const res = await this.payNdebitInvoice(event, pointerdata)
+        this.logger("🔍 [DEBIT REQUEST] Sending ",res.status," response")
         if (res.status === 'fail' || res.status === 'authOk') {
             const e = newNdebitResponse(JSON.stringify(res.debitRes), event)
             this.nostrSend({ type: 'app', appId: event.appId }, { type: 'event', event: e, encrypt: { toPub: event.pub } })
@@ -161,7 +161,7 @@ export class DebitManager {
 
     handleAuthRequired = (data:NdebitData, event: NostrEvent, res: AuthRequiredRes) => {
         if (!res.appUser.nostr_public_key) {
-            this.sendDebitResponse({ res: 'GFY', error: nip68errs[1], code: 1 }, { pub: event.pub, id: event.id, appId: event.appId })
+            this.sendDebitResponse({ res: 'GFY', error: nofferErrors[1], code: 1 }, { pub: event.pub, id: event.id, appId: event.appId })
             return
         }
         const message: Types.LiveDebitRequest & { requestId: string, status: 'OK' } = { ...res.liveDebitReq, requestId: "GetLiveDebitRequests", status: 'OK' }
@@ -185,8 +185,9 @@ export class DebitManager {
         try {
             return await this.doNdebit(event, pointerdata)
         } catch (e: any) {
+            this.logger("❌ [DEBIT ERROR] Error in debit request")
             this.logger(ERROR, e.message || e)
-            return { status: 'fail', debitRes: { res: 'GFY', error: nip68errs[1], code: 1 } }
+            return { status: 'fail', debitRes: { res: 'GFY', error: nofferErrors[1], code: 1 } }
         }
     }
 
@@ -195,21 +196,24 @@ export class DebitManager {
         const { amount_sats, pointer, bolt11, frequency } = pointerdata
         if (!pointer) {
             // TODO: debit from app owner balance
-            return { status: 'fail', debitRes: { res: 'GFY', error: nip68errs[1], code: 1 } }
+            return { status: 'fail', debitRes: { res: 'GFY', error: nofferErrors[1], code: 1 } }
         }
         const appUserId = pointer
         const app = await this.storage.applicationStorage.GetApplication(appId)
         const appUser = await this.storage.applicationStorage.GetApplicationUser(app, appUserId)
         let decodedAmount = null
         if (bolt11) {
+            this.logger("🔍 [DEBIT REQUEST] Decoding invoice")
             const decoded = await this.lnd.DecodeInvoice(bolt11)
             decodedAmount = decoded.numSatoshis
         }
         if (frequency) {
+            this.logger("🔍 [DEBIT REQUEST] Checking frequency")
             const amt = amount_sats || decodedAmount
             if (!amt) {
-                return { status: 'fail', debitRes: { res: 'GFY', error: nip68errs[5], code: 5 } }
+                return { status: 'fail', debitRes: { res: 'GFY', error: nofferErrors[5], code: 5 } }
             }
+
             const debitAccess = await this.storage.debitStorage.GetDebitAccess(appUserId, requestorPub)
             if (!debitAccess) {
                 return {
@@ -227,13 +231,14 @@ export class DebitManager {
                     }
                 }
             } else if (!debitAccess.authorized) {
-                return { status: 'fail', debitRes: { res: 'GFY', error: nip68errs[1], code: 1 } }
+                return { status: 'fail', debitRes: { res: 'GFY', error: nofferErrors[1], code: 1 } }
             }
             return { status: 'authOk', debitRes: { res: 'ok' } }
         }
 
         if (!bolt11) {
             if (!amount_sats) {
+                this.logger("🔍 [DEBIT REQUEST] Checking full access")
                 const debitAccess = await this.storage.debitStorage.GetDebitAccess(appUserId, requestorPub)
                 if (!debitAccess) {
                     return {
@@ -247,19 +252,21 @@ export class DebitManager {
                         }
                     }
                 } else if (!debitAccess.authorized) {
-                    return { status: 'fail', debitRes: { res: 'GFY', error: nip68errs[1], code: 1 } }
+                    return { status: 'fail', debitRes: { res: 'GFY', error: nofferErrors[1], code: 1 } }
                 }
                 return { status: 'authOk', debitRes: { res: 'ok' } }
             }
-            return { status: 'fail', debitRes: { res: 'GFY', error: nip68errs[6], code: 6 } }
+            return { status: 'fail', debitRes: { res: 'GFY', error: nofferErrors[6], code: 6 } }
         }
 
         if (!decodedAmount) {
-            return { status: 'fail', debitRes: { res: 'GFY', error: nip68errs[6], code: 6 } }
+            return { status: 'fail', debitRes: { res: 'GFY', error: nofferErrors[6], code: 6 } }
         }
         if (amount_sats && amount_sats !== decodedAmount) {
-            return { status: 'fail', debitRes: { res: 'GFY', error: nip68errs[5], code: 5 } }
+            return { status: 'fail', debitRes: { res: 'GFY', error: nofferErrors[5], code: 5 } }
         }
+
+        this.logger("🔍 [DEBIT REQUEST] Checking authorization")
 
         const authorization = await this.storage.debitStorage.GetDebitAccess(appUserId, requestorPub)
         if (!authorization) {
@@ -275,9 +282,10 @@ export class DebitManager {
             }
         }
         if (!authorization.authorized) {
-            return { status: 'fail', debitRes: { res: 'GFY', error: nip68errs[1], code: 1 } }
+            return { status: 'fail', debitRes: { res: 'GFY', error: nofferErrors[1], code: 1 } }
         }
         await this.validateAccessRules(authorization, app, appUser)
+        this.logger("🔍 [DEBIT REQUEST] Sending requested debit payment")
         const { op, payment } = await this.sendDebitPayment(appId, appUserId, requestorPub, bolt11)
         return { status: 'invoicePaid', op, app, appUser, debitRes: { res: 'ok', preimage: payment.preimage } }
     }

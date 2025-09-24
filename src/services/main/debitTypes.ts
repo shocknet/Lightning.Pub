@@ -86,7 +86,7 @@ export const debitAccessRulesToDebitRules = (rules: DebitAccessRules | null): Ty
         }
     })
 }
-export const nip68errs = {
+export const nofferErrors = {
     1: "Request Denied Warning",
     2: "Temporary Failure",
     3: "Expired Request",
