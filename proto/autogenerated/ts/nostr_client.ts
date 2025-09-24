@@ -84,21 +84,6 @@ export default (params: NostrClientParams,  send: (to:string, message: NostrRequ
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
-    AuthorizeDebit: async (request: Types.DebitAuthorizationRequest): Promise<ResultError | ({ status: 'OK' }& Types.DebitAuthorization)> => {
-        const auth = await params.retrieveNostrUserAuth()
-        if (auth === null) throw new Error('retrieveNostrUserAuth() returned null')
-        const nostrRequest: NostrRequest = {}
-        nostrRequest.body = request
-        const data = await send(params.pubDestination, {rpcName:'AuthorizeDebit',authIdentifier:auth, ...nostrRequest }) 
-        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
-        if (data.status === 'OK') { 
-            const result = data
-            if(!params.checkResult) return { status: 'OK', ...result }
-            const error = Types.DebitAuthorizationValidate(result)
-            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
-        }
-        return { status: 'ERROR', reason: 'invalid response' }
-    },
     AuthorizeManage: async (request: Types.ManageAuthorizationRequest): Promise<ResultError | ({ status: 'OK' }& Types.ManageAuthorization)> => {
         const auth = await params.retrieveNostrUserAuth()
         if (auth === null) throw new Error('retrieveNostrUserAuth() returned null')

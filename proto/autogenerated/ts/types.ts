@@ -35,8 +35,8 @@ export type UserContext = {
     app_user_id: string
     user_id: string
 }
-export type UserMethodInputs = AddProduct_Input | AddUserOffer_Input | AuthorizeDebit_Input | AuthorizeManage_Input | BanDebit_Input | DecodeInvoice_Input | DeleteUserOffer_Input | EditDebit_Input | EnrollAdminToken_Input | EnrollMessagingToken_Input | GetDebitAuthorizations_Input | GetHttpCreds_Input | GetLNURLChannelLink_Input | GetLnurlPayLink_Input | GetLnurlWithdrawLink_Input | GetManageAuthorizations_Input | GetPaymentState_Input | GetUserInfo_Input | GetUserOffer_Input | GetUserOfferInvoices_Input | GetUserOffers_Input | GetUserOperations_Input | NewAddress_Input | NewInvoice_Input | NewProductInvoice_Input | PayAddress_Input | PayInvoice_Input | ResetDebit_Input | ResetManage_Input | RespondToDebit_Input | UpdateCallbackUrl_Input | UpdateUserOffer_Input | UserHealth_Input
-export type UserMethodOutputs = AddProduct_Output | AddUserOffer_Output | AuthorizeDebit_Output | AuthorizeManage_Output | BanDebit_Output | DecodeInvoice_Output | DeleteUserOffer_Output | EditDebit_Output | EnrollAdminToken_Output | EnrollMessagingToken_Output | GetDebitAuthorizations_Output | GetHttpCreds_Output | GetLNURLChannelLink_Output | GetLnurlPayLink_Output | GetLnurlWithdrawLink_Output | GetManageAuthorizations_Output | GetPaymentState_Output | GetUserInfo_Output | GetUserOffer_Output | GetUserOfferInvoices_Output | GetUserOffers_Output | GetUserOperations_Output | NewAddress_Output | NewInvoice_Output | NewProductInvoice_Output | PayAddress_Output | PayInvoice_Output | ResetDebit_Output | ResetManage_Output | RespondToDebit_Output | UpdateCallbackUrl_Output | UpdateUserOffer_Output | UserHealth_Output
+export type UserMethodInputs = AddProduct_Input | AddUserOffer_Input | AuthorizeManage_Input | BanDebit_Input | DecodeInvoice_Input | DeleteUserOffer_Input | EditDebit_Input | EnrollAdminToken_Input | EnrollMessagingToken_Input | GetDebitAuthorizations_Input | GetHttpCreds_Input | GetLNURLChannelLink_Input | GetLnurlPayLink_Input | GetLnurlWithdrawLink_Input | GetManageAuthorizations_Input | GetPaymentState_Input | GetUserInfo_Input | GetUserOffer_Input | GetUserOfferInvoices_Input | GetUserOffers_Input | GetUserOperations_Input | NewAddress_Input | NewInvoice_Input | NewProductInvoice_Input | PayAddress_Input | PayInvoice_Input | ResetDebit_Input | ResetManage_Input | RespondToDebit_Input | UpdateCallbackUrl_Input | UpdateUserOffer_Input | UserHealth_Input
+export type UserMethodOutputs = AddProduct_Output | AddUserOffer_Output | AuthorizeManage_Output | BanDebit_Output | DecodeInvoice_Output | DeleteUserOffer_Output | EditDebit_Output | EnrollAdminToken_Output | EnrollMessagingToken_Output | GetDebitAuthorizations_Output | GetHttpCreds_Output | GetLNURLChannelLink_Output | GetLnurlPayLink_Output | GetLnurlWithdrawLink_Output | GetManageAuthorizations_Output | GetPaymentState_Output | GetUserInfo_Output | GetUserOffer_Output | GetUserOfferInvoices_Output | GetUserOffers_Output | GetUserOperations_Output | NewAddress_Output | NewInvoice_Output | NewProductInvoice_Output | PayAddress_Output | PayInvoice_Output | ResetDebit_Output | ResetManage_Output | RespondToDebit_Output | UpdateCallbackUrl_Output | UpdateUserOffer_Output | UserHealth_Output
 export type AuthContext = AdminContext | AppContext | GuestContext | GuestWithPubContext | MetricsContext | UserContext
 
 export type AddApp_Input = {rpcName:'AddApp', req: AddAppRequest}
@@ -62,9 +62,6 @@ export type AddUserOffer_Output = ResultError | ({ status: 'OK' } & OfferId)
 
 export type AuthApp_Input = {rpcName:'AuthApp', req: AuthAppRequest}
 export type AuthApp_Output = ResultError | ({ status: 'OK' } & AuthApp)
-
-export type AuthorizeDebit_Input = {rpcName:'AuthorizeDebit', req: DebitAuthorizationRequest}
-export type AuthorizeDebit_Output = ResultError | ({ status: 'OK' } & DebitAuthorization)
 
 export type AuthorizeManage_Input = {rpcName:'AuthorizeManage', req: ManageAuthorizationRequest}
 export type AuthorizeManage_Output = ResultError | ({ status: 'OK' } & ManageAuthorization)
@@ -334,7 +331,6 @@ export type ServerMethods = {
     AddProduct?: (req: AddProduct_Input & {ctx: UserContext }) => Promise<Product>
     AddUserOffer?: (req: AddUserOffer_Input & {ctx: UserContext }) => Promise<OfferId>
     AuthApp?: (req: AuthApp_Input & {ctx: AdminContext }) => Promise<AuthApp>
-    AuthorizeDebit?: (req: AuthorizeDebit_Input & {ctx: UserContext }) => Promise<DebitAuthorization>
     AuthorizeManage?: (req: AuthorizeManage_Input & {ctx: UserContext }) => Promise<ManageAuthorization>
     BanDebit?: (req: BanDebit_Input & {ctx: UserContext }) => Promise<void>
     BanUser?: (req: BanUser_Input & {ctx: AdminContext }) => Promise<BanUserResponse>
@@ -1431,6 +1427,35 @@ export const DebitRuleValidate = (o?: DebitRule, opts: DebitRuleOptions = {}, pa
     const ruleErr = DebitRule_ruleValidate(o.rule, opts.rule_Options, `${path}.rule`)
     if (ruleErr !== null) return ruleErr
     
+
+    return null
+}
+
+export type DebitToAuthorize = {
+    invoice?: string
+    rules: DebitRule[]
+}
+export type DebitToAuthorizeOptionalField = 'invoice'
+export const DebitToAuthorizeOptionalFields: DebitToAuthorizeOptionalField[] = ['invoice']
+export type DebitToAuthorizeOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: DebitToAuthorizeOptionalField[]
+    invoice_CustomCheck?: (v?: string) => boolean
+    rules_ItemOptions?: DebitRuleOptions
+    rules_CustomCheck?: (v: DebitRule[]) => boolean
+}
+export const DebitToAuthorizeValidate = (o?: DebitToAuthorize, opts: DebitToAuthorizeOptions = {}, path: string = 'DebitToAuthorize::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if ((o.invoice || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('invoice')) && typeof o.invoice !== 'string') return new Error(`${path}.invoice: is not a string`)
+    if (opts.invoice_CustomCheck && !opts.invoice_CustomCheck(o.invoice)) return new Error(`${path}.invoice: custom check failed`)
+
+    if (!Array.isArray(o.rules)) return new Error(`${path}.rules: is not an array`)
+    for (let index = 0; index < o.rules.length; index++) {
+        const rulesErr = DebitRuleValidate(o.rules[index], opts.rules_ItemOptions, `${path}.rules[${index}]`)
+        if (rulesErr !== null) return rulesErr
+    }
+    if (opts.rules_CustomCheck && !opts.rules_CustomCheck(o.rules)) return new Error(`${path}.rules: custom check failed`)
 
     return null
 }
@@ -4211,6 +4236,7 @@ export const ZippedMetricsValidate = (o?: ZippedMetrics, opts: ZippedMetricsOpti
 }
 
 export enum DebitResponse_response_type {
+    AUTHORIZE = 'authorize',
     DENIED = 'denied',
     INVOICE = 'invoice',
 }
@@ -4219,10 +4245,12 @@ export const enumCheckDebitResponse_response_type = (e?: DebitResponse_response_
     return false
 }
 export type DebitResponse_response = 
+    {type:DebitResponse_response_type.AUTHORIZE, authorize:DebitToAuthorize}|
     {type:DebitResponse_response_type.DENIED, denied:Empty}|
     {type:DebitResponse_response_type.INVOICE, invoice:string}
 
 export type DebitResponse_responseOptions = {
+    authorize_Options?: DebitToAuthorizeOptions
     denied_Options?: EmptyOptions
     invoice_CustomCheck?: (v: string) => boolean
 }
@@ -4230,6 +4258,12 @@ export const DebitResponse_responseValidate = (o?: DebitResponse_response, opts:
     if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
     const stringType: string = o.type
     switch (o.type) {
+        case DebitResponse_response_type.AUTHORIZE:
+        const authorizeErr = DebitToAuthorizeValidate(o.authorize, opts.authorize_Options, `${path}.authorize`)
+        if (authorizeErr !== null) return authorizeErr
+        
+
+        break
         case DebitResponse_response_type.DENIED:
         const deniedErr = EmptyValidate(o.denied, opts.denied_Options, `${path}.denied`)
         if (deniedErr !== null) return deniedErr

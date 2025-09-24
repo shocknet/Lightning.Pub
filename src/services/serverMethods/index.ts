@@ -350,9 +350,9 @@ export default (mainHandler: Main): Types.ServerMethods => {
             if (err != null) throw new Error(err.message)
             return mainHandler.adminManager.GetInviteTokenState(ctx, req);
         },
-        AuthorizeDebit: async ({ ctx, req }) => {
+/*         AuthorizeDebit: async ({ ctx, req }) => {
             return mainHandler.debitManager.AuthorizeDebit(ctx, req)
-        },
+        }, */
         GetDebitAuthorizations: async ({ ctx }) => {
             return mainHandler.debitManager.GetDebitAuthorizations(ctx)
         },
@@ -387,6 +387,11 @@ export default (mainHandler: Main): Types.ServerMethods => {
             return mainHandler.debitManager.EditDebit(ctx, req);
         },
         RespondToDebit: async ({ ctx, req }) => {
+            const err = Types.DebitResponseValidate(req, {
+                npub_CustomCheck: pub => pub !== '',
+                request_id_CustomCheck: id => id !== '',
+            })
+            if (err != null) throw new Error(err.message)
             return mainHandler.debitManager.RespondToDebit(ctx, req);
         },
         AddUserOffer: async ({ ctx, req }) => {

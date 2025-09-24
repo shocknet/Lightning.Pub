@@ -38,11 +38,6 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [AuthAppRequest](#AuthAppRequest)
   - output: [AuthApp](#AuthApp)
 
-- AuthorizeDebit
-  - auth type: __User__
-  - input: [DebitAuthorizationRequest](#DebitAuthorizationRequest)
-  - output: [DebitAuthorization](#DebitAuthorization)
-
 - AuthorizeManage
   - auth type: __User__
   - input: [ManageAuthorizationRequest](#ManageAuthorizationRequest)
@@ -435,13 +430,6 @@ The nostr server will send back a message response, and inside the body there wi
   - http route: __/api/admin/app/auth__
   - input: [AuthAppRequest](#AuthAppRequest)
   - output: [AuthApp](#AuthApp)
-
-- AuthorizeDebit
-  - auth type: __User__
-  - http method: __post__
-  - http route: __/api/user/debit/authorize__
-  - input: [DebitAuthorizationRequest](#DebitAuthorizationRequest)
-  - output: [DebitAuthorization](#DebitAuthorization)
 
 - AuthorizeManage
   - auth type: __User__
@@ -1176,6 +1164,10 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### DebitRule
   - __rule__: _[DebitRule_rule](#DebitRule_rule)_
+
+### DebitToAuthorize
+  - __invoice__: _string_ *this field is optional
+  - __rules__: ARRAY of: _[DebitRule](#DebitRule)_
 
 ### DecodeInvoiceRequest
   - __invoice__: _string_
