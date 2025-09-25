@@ -111,7 +111,7 @@ install_lnd() {
         log "Configuring LND to use new port $lnd_port_new."
         
         sed -i '/^listen=/d' $USER_HOME/.lnd/lnd.conf
-        echo "listen=:$lnd_port_new" >> $USER_HOME/.lnd/lnd.conf
+        echo "listen=0.0.0.0:$lnd_port_new" >> $USER_HOME/.lnd/lnd.conf
         log "LND configuration updated. The service will be restarted by the installer."
       else
         log "Port $lnd_port is in use by a healthy LND service (assumed to be our own). No changes will be made."
