@@ -11,7 +11,7 @@ log() {
   echo -e "$(echo "$message" | sed 's/\\e\[[0-9;]*m//g')" >> "$TMP_LOG_FILE"
 }
 
-SCRIPT_VERSION="0.2.0"
+SCRIPT_VERSION="0.2.1"
 REPO="shocknet/Lightning.Pub"
 BRANCH="master"
 
@@ -31,10 +31,7 @@ log_error() {
 
 modules=(
   "utils"
-  "check_homebrew"  # NOTE: Used for macOS, which is untested/unsupported
-  "install_rsync_mac"  # NOTE: Used for macOS, which is untested/unsupported
-  "create_launchd_plist"  # NOTE: Used for macOS, which is untested/unsupported
-  "start_services_mac"  # NOTE: Used for macOS, which is untested/unsupported
+  "ports"
   "install_lnd"
   "install_nodejs"
   "install_lightning_pub"
@@ -94,8 +91,7 @@ log "Detected OS: $OS"
 log "Detected ARCH: $ARCH"
 
 if [ "$OS" = "Mac" ]; then
-  log "Handling macOS specific setup"
-  handle_macos || log_error "macOS setup failed" 1
+  log_error "macOS is not currently supported by this install script. Please use a Linux-based system." 1
 else
   # Explicit kickoff log for LND so the flow is clear in the install log
   log "${PRIMARY_COLOR}Installing${RESET_COLOR} ${SECONDARY_COLOR}LND${RESET_COLOR}..."
