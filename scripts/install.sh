@@ -11,7 +11,7 @@ log() {
   echo -e "$(echo "$message" | sed 's/\\e\[[0-9;]*m//g')" >> "$TMP_LOG_FILE"
 }
 
-SCRIPT_VERSION="0.2.0"
+SCRIPT_VERSION="0.2.1"
 REPO="shocknet/Lightning.Pub"
 BRANCH="master"
 
@@ -31,6 +31,7 @@ log_error() {
 
 modules=(
   "utils"
+  "ports"
   "install_lnd"
   "install_nodejs"
   "install_lightning_pub"

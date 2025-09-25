@@ -89,17 +89,33 @@ install_lnd() {
     # Create .lnd directory if it doesn't exist
     mkdir -p $USER_HOME/.lnd
 
-    # Check if lnd.conf already exists and avoid overwriting it
-    if [ -f $USER_HOME/.lnd/lnd.conf ]; then
-      log "${PRIMARY_COLOR}lnd.conf already exists. Skipping creation of new lnd.conf file.${RESET_COLOR}"
-    else
-      cat <<EOF > $USER_HOME/.lnd/lnd.conf
-bitcoin.mainnet=true
-bitcoin.node=neutrino
-neutrino.addpeer=neutrino.shock.network
-fee.url=https://nodes.lightning.computer/fees/v1/btc-fee-estimates.json
-EOF
-      chmod 600 $USER_HOME/.lnd/lnd.conf
+    # Ensure lnd.conf exists.
+    touch $USER_HOME/.lnd/lnd.conf
+    
+    # Check for and add default settings only if the keys are missing.
+    grep -q "^bitcoin.mainnet=" $USER_HOME/.lnd/lnd.conf || echo "bitcoin.mainnet=true" >> $USER_HOME/.lnd/lnd.conf
+    grep -q "^bitcoin.node=" $USER_HOME/.lnd/lnd.conf || echo "bitcoin.node=neutrino" >> $USER_HOME/.lnd/lnd.conf
+    grep -q "^neutrino.addpeer=" $USER_HOME/.lnd/lnd.conf || echo "neutrino.addpeer=neutrino.shock.network" >> $USER_HOME/.lnd/lnd.conf
+    grep -q "^fee.url=" $USER_HOME/.lnd/lnd.conf || echo "fee.url=https://nodes.lightning.computer/fees/v1/btc-fee-estimates.json" >> $USER_HOME/.lnd/lnd.conf
+    
+    chmod 600 $USER_HOME/.lnd/lnd.conf
+
+    # Port conflict resolution for fresh installs
+    if [ $lnd_status -eq 0 ]; then
+      local lnd_port=9735
+      if ! is_port_available $lnd_port; then
+        if ! systemctl --user -q is-active lnd.service >/dev/null 2>&1; then
+          log "Port $lnd_port is in use by another process. Finding an alternative port."
+          lnd_port_new=$(find_available_port $lnd_port)
+          log "Configuring LND to use port $lnd_port_new."
+          
+          # Remove any existing listen entry and add the new one.
+          sed -i '/^listen=/d' $USER_HOME/.lnd/lnd.conf
+          echo "listen=:$lnd_port_new" >> $USER_HOME/.lnd/lnd.conf
+        else
+          log "Port $lnd_port is in use, but it seems to be by our own lnd service. No changes made."
+        fi
+      fi
     fi
 
     log "${SECONDARY_COLOR}LND${RESET_COLOR} installation and configuration completed."
