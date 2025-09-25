@@ -22,11 +22,5 @@ find_available_port() {
 # @return 0 if the port is available, 1 otherwise.
 is_port_available() {
   local port=$1
-  if [[ "$OS" == "Mac" ]]; then
-    # Use lsof on macOS
-    ! lsof -iTCP:"$port" -sTCP:LISTEN -P -t >/dev/null
-  else
-    # Use ss on Linux
-    ! ss -lntu | awk '{print $5}' | grep -q ":$port$"
-  fi
+  ! lsof -iTCP:"$port" -sTCP:LISTEN -P -t >/dev/null 2>&1
 }
