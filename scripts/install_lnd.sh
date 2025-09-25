@@ -100,21 +100,21 @@ install_lnd() {
     
     chmod 600 $USER_HOME/.lnd/lnd.conf
 
-    # Port conflict resolution for fresh installs
-    if [ $lnd_status -eq 0 ]; then
-      local lnd_port=9735
-      if ! is_port_available $lnd_port; then
-        if ! systemctl --user -q is-active lnd.service >/dev/null 2>&1; then
-          log "Port $lnd_port is in use by another process. Finding an alternative port."
-          lnd_port_new=$(find_available_port $lnd_port)
-          log "Configuring LND to use port $lnd_port_new."
-          
-          # Remove any existing listen entry and add the new one.
-          sed -i '/^listen=/d' $USER_HOME/.lnd/lnd.conf
-          echo "listen=:$lnd_port_new" >> $USER_HOME/.lnd/lnd.conf
-        else
-          log "Port $lnd_port is in use, but it seems to be by our own lnd service. No changes made."
-        fi
+    # Port conflict resolution.
+    local lnd_port=9735
+    if ! is_port_available $lnd_port; then
+      # The port is occupied. We should intervene if our service is either in a failed state
+      # or not active at all (which covers fresh installs and failure loops).
+      if systemctl --user -q is-failed lnd.service 2>/dev/null || ! systemctl --user -q is-active lnd.service 2>/dev/null; then
+        log "Port $lnd_port is occupied and LND service is not healthy. Attempting to resolve by finding a new port."
+        lnd_port_new=$(find_available_port $lnd_port)
+        log "Configuring LND to use new port $lnd_port_new."
+        
+        sed -i '/^listen=/d' $USER_HOME/.lnd/lnd.conf
+        echo "listen=:$lnd_port_new" >> $USER_HOME/.lnd/lnd.conf
+        log "LND configuration updated. The service will be restarted by the installer."
+      else
+        log "Port $lnd_port is in use by a healthy LND service (assumed to be our own). No changes will be made."
       fi
     fi
 
