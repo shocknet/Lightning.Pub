@@ -143,6 +143,7 @@ const sendToNostr: NostrSend = (initiator, data, relays) => {
     }
     subProcessHandler.Send(initiator, data, relays)
 }
+
 send({ type: 'ready' })
 const supportedKinds = [21000, 21001, 21002, 21003]
 export default class Handler {
@@ -174,8 +175,8 @@ export default class Handler {
             if (!relay.connected) {
                 throw new Error("failed to connect to relay")
             }
-        } catch (err) {
-            log("failed to connect to relay, will try again in 2 seconds")
+        } catch (err:any) {
+            log("failed to connect to relay, will try again in 2 seconds", err.message || err)
             setTimeout(() => {
                 this.Connect()
             }, 2000)
@@ -251,10 +252,16 @@ export default class Handler {
     }
 
     async Send(initiator: SendInitiator, data: SendData, relays?: string[]) {
-        const keys = this.GetSendKeys(initiator)
-        const privateKey = Buffer.from(keys.privateKey, 'hex')
-        const toSign = await this.handleSend(data, keys)
-        await Promise.all(toSign.map(ue => this.sendEvent(ue, keys, relays)))
+        try {
+            const keys = this.GetSendKeys(initiator)
+            const privateKey = Buffer.from(keys.privateKey, 'hex')
+            const toSign = await this.handleSend(data, keys)
+            await Promise.all(toSign.map(ue => this.sendEvent(ue, keys, relays)))
+        } catch (e: any) {
+            this.log(ERROR, "failed to send event", e.message || e)
+            throw e
+        }
+        
     }
 
     async handleSend(data: SendData, keys: { name: string, privateKey: string, publicKey: string }): Promise<UnsignedEvent[]> {
