@@ -2,6 +2,7 @@ import { ChildProcess, fork } from 'child_process'
 import { EnvCanBeInteger, EnvMustBeNonEmptyString } from "../helpers/envParser.js"
 import { NostrSettings, NostrEvent, ChildProcessRequest, ChildProcessResponse, SendData, SendInitiator } from "./handler.js"
 import { Utils } from '../helpers/utilsWrapper.js'
+import {getLogger, ERROR} from '../helpers/logger.js'
 type EventCallback = (event: NostrEvent) => void
 
 
@@ -13,13 +14,22 @@ export default class NostrSubprocess {
     childProcess: ChildProcess
     utils: Utils
     awaitingPongs: (() => void)[] = []
+    log = getLogger({})
     constructor(settings: NostrSettings, utils: Utils, eventCallback: EventCallback) {
         this.utils = utils
         this.childProcess = fork("./build/src/services/nostr/handler")
         this.childProcess.on("error", (error) => {
-            console.error("nostr subprocess error")
-            throw error
+            this.log(ERROR, "nostr subprocess error", error)
         })
+
+        this.childProcess.on("exit", (code) => {
+            this.log(ERROR, `nostr subprocess exited with code ${code}`)
+            if (!code) {
+                return
+            }
+            throw new Error(`nostr subprocess exited with code ${code}`)
+        })
+
         this.childProcess.on("message", (message: ChildProcessResponse) => {
             switch (message.type) {
                 case 'ready':

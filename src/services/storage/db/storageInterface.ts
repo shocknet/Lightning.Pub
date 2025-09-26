@@ -18,6 +18,7 @@ import { PickKeysByType } from 'typeorm/common/PickKeysByType.js';
 import { deserializeResponseData, serializeRequest, WhereCondition } from './serializationHelpers.js';
 import { Utils } from '../../helpers/utilsWrapper.js';
 import { ProcessMetrics } from '../tlv/processMetricsCollector.js';
+import { getLogger, ERROR } from '../../helpers/logger.js';
 
 
 export type TX<T> = (txId: string) => Promise<T>
@@ -28,7 +29,7 @@ export class StorageInterface extends EventEmitter {
     private debug: boolean = false;
     private utils: Utils
     private dbType: 'main' | 'metrics'
-
+    private log = getLogger({component: 'StorageInterface'})
     constructor(utils: Utils) {
         super();
         this.initializeSubprocess();
@@ -56,14 +57,17 @@ export class StorageInterface extends EventEmitter {
         });
 
         this.process.on('error', (error: Error) => {
-            console.error('Storage processor error:', error);
+            this.log(ERROR, 'Storage processor error:', error);
             this.isConnected = false;
-            throw error
         });
 
         this.process.on('exit', (code: number) => {
-            console.log(`Storage processor exited with code ${code}`);
+            this.log(ERROR, `Storage processor exited with code ${code}`);
             this.isConnected = false;
+            if (!code) {
+                return
+            }
+            throw new Error(`Storage processor exited with code ${code}`)
         });
 
         this.isConnected = true;
