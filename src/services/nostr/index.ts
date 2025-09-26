@@ -24,6 +24,9 @@ export default class NostrSubprocess {
 
         this.childProcess.on("exit", (code) => {
             this.log(ERROR, `nostr subprocess exited with code ${code}`)
+            if (!code) {
+                return
+            }
             throw new Error(`nostr subprocess exited with code ${code}`)
         })
 
