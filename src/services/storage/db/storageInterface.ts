@@ -59,12 +59,12 @@ export class StorageInterface extends EventEmitter {
         this.process.on('error', (error: Error) => {
             this.log(ERROR, 'Storage processor error:', error);
             this.isConnected = false;
-            throw error
         });
 
         this.process.on('exit', (code: number) => {
             this.log(ERROR, `Storage processor exited with code ${code}`);
             this.isConnected = false;
+            throw new Error(`Storage processor exited with code ${code}`)
         });
 
         this.isConnected = true;

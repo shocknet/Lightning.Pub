@@ -60,6 +60,7 @@ export class TlvStorageFactory extends EventEmitter {
         this.process.on('exit', (code: number) => {
             this.log(ERROR, `Tlv Storage processor exited with code ${code}`);
             this.isConnected = false;
+            throw new Error(`Tlv Storage processor exited with code ${code}`)
         });
 
         this.isConnected = true;

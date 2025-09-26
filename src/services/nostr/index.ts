@@ -20,11 +20,11 @@ export default class NostrSubprocess {
         this.childProcess = fork("./build/src/services/nostr/handler")
         this.childProcess.on("error", (error) => {
             this.log(ERROR, "nostr subprocess error", error)
-            throw error
         })
-        
+
         this.childProcess.on("exit", (code) => {
-            this.log(ERROR, "nostr subprocess exited with code", `nostr subprocess exited with code ${code}`)
+            this.log(ERROR, `nostr subprocess exited with code ${code}`)
+            throw new Error(`nostr subprocess exited with code ${code}`)
         })
 
         this.childProcess.on("message", (message: ChildProcessResponse) => {
