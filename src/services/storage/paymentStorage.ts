@@ -129,6 +129,10 @@ export default class {
         }, txId)
     }
 
+    async RemoveUserInvoices(userId: string, txId?: string) {
+        return this.dbs.Delete<UserReceivingInvoice>('UserReceivingInvoice',  { user: { user_id: userId } }, txId)
+    }
+
     async GetAddressOwner(address: string, txId?: string): Promise<UserReceivingAddress | null> {
         return this.dbs.FindOne<UserReceivingAddress>('UserReceivingAddress', { where: { address } }, txId)
     }
@@ -301,6 +305,10 @@ export default class {
             await this.dbs.Delete<UserEphemeralKey>('UserEphemeralKey', found.serial_id, txId)
         }
         return found
+    }
+
+    async RemoveUserEphemeralKeys(userId: string, txId?: string) {
+        return this.dbs.Delete<UserEphemeralKey>('UserEphemeralKey', { user: { user_id: userId } }, txId)
     }
 
     async AddPendingUserToUserPayment(fromUserId: string, toUserId: string, amount: number, fee: number, linkedApplication: Application, txId: string) {
