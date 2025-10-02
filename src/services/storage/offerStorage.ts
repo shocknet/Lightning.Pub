@@ -27,6 +27,11 @@ export default class {
     async DeleteUserOffer(appUserId: string, offerId: string, txId?: string) {
         await this.dbs.Delete<UserOffer>('UserOffer', { app_user_id: appUserId, offer_id: offerId }, txId)
     }
+
+    async DeleteUserOffers(appUserId: string, txId?: string) {
+        await this.dbs.Delete<UserOffer>('UserOffer', { app_user_id: appUserId }, txId)
+    }
+
     async UpdateUserOffer(app_user_id: string, offerId: string, req: Partial<UserOffer>, txId?: string) {
         return this.dbs.Update<UserOffer>('UserOffer', { app_user_id, offer_id: offerId }, req, txId)
     }

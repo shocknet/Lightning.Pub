@@ -22,4 +22,8 @@ export class ManagementStorage {
     async removeGrant(appUserId: string, appPubkey: string) {
         return this.dbs.Delete<ManagementGrant>('ManagementGrant', { app_pubkey: appPubkey, app_user_id: appUserId });
     }
-} 
+
+    async removeUserGrants(appUserId: string, txId?: string) {
+        return this.dbs.Delete<ManagementGrant>('ManagementGrant', { app_user_id: appUserId }, txId);
+    }
+}

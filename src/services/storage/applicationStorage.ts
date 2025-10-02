@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { Between, FindOperator, IsNull, LessThanOrEqual, MoreThanOrEqual } from "typeorm"
+import { Between, FindOperator, IsNull, LessThanOrEqual, MoreThanOrEqual, In } from "typeorm"
 import { generateSecretKey, getPublicKey } from 'nostr-tools';
 import { Application } from "./entity/Application.js"
 import UserStorage from './userStorage.js';
@@ -160,6 +160,12 @@ export default class {
         this.dbs.Remove<User>('User', baseUser, txId)
     }
 
+    async RemoveAppUsersAndBaseUsers(appUserIds: string[],baseUser:string, txId?: string) {
+        await this.dbs.Delete<ApplicationUser>('ApplicationUser', { identifier: In(appUserIds) }, txId)
+        await this.dbs.Delete<User>('User', { user_id: baseUser }, txId)
+
+    }
+
 
     async AddInviteToken(app: Application, sats?: number) {
         return this.dbs.CreateAndSave<InviteToken>('InviteToken', {
@@ -197,5 +203,9 @@ export default class {
 
     async GetAppUserDevices(appUserId: string, txId?: string) {
         return this.dbs.Find<AppUserDevice>('AppUserDevice', { where: { app_user_id: appUserId } }, txId)
+    }
+
+    async RemoveAppUserDevices(appUserId: string, txId?: string) {
+        return this.dbs.Delete<AppUserDevice>('AppUserDevice', { app_user_id: appUserId }, txId)
     }
 }
