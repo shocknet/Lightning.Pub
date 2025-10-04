@@ -3,7 +3,7 @@ import { OpenChannelRequest, Invoice } from "../../../proto/lnd/lightning";
 export const AddInvoiceReq = (value: number, expiry = 60 * 60, privateHints = false, memo?: string, blind = false): Invoice => ({
     expiry: BigInt(expiry),
     memo: memo || "",
-    private: privateHints,
+    private: blind ? false : privateHints,
     value: BigInt(value),
 
     fallbackAddr: "",
