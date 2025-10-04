@@ -26,7 +26,8 @@ const mapToOfferConfig = (appUserId: string, offer: UserOffer, { pubkey, relay }
         createdAtUnix: offer.created_at.getTime(),
         updatedAtUnix: offer.updated_at.getTime(),
         token: offer.bearer_token,
-        rejectUnauthorized: offer.rejectUnauthorized
+        rejectUnauthorized: offer.rejectUnauthorized,
+        blind: offer.blind
     }
 }
 export class OfferManager {
@@ -65,6 +66,7 @@ export class OfferManager {
             label: req.label,
             price_sats: req.price_sats,
             callback_url: req.callback_url,
+            blind: req.blind,
         })
         return {
             offer_id: newOffer.offer_id
@@ -81,6 +83,7 @@ export class OfferManager {
             label: req.label,
             price_sats: req.price_sats,
             callback_url: req.callback_url,
+            blind: req.blind,
         })
     }
     async GetUserOfferInvoices(ctx: Types.UserContext, req: Types.GetUserOfferInvoicesReq): Promise<Types.OfferInvoices> {
@@ -242,7 +245,7 @@ export class OfferManager {
         const memo = offerReq.description || userOffer.label
         const res = await this.applicationManager.AddAppUserInvoice(appId, {
             http_callback_url: userOffer.callback_url, payer_identifier: userOffer.app_user_id, receiver_identifier: userOffer.app_user_id,
-            invoice_req: { amountSats: amt, memo, zap: offerReq.zap, expiry },
+            invoice_req: { amountSats: amt, memo, zap: offerReq.zap, expiry, blind: userOffer.blind },
             payer_data: validated ? { data: validated } : undefined,
             offer_string: offer,
             rejectUnauthorized: userOffer.rejectUnauthorized,
