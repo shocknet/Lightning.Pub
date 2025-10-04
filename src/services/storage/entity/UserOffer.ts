@@ -38,6 +38,9 @@ export class UserOffer {
     @Column({ default: true })
     rejectUnauthorized: boolean
 
+    @Column({ default: false })
+    blind: boolean
+
 
     @CreateDateColumn()
     created_at: Date

@@ -199,7 +199,8 @@ export default class {
         const opts: InboundOptionals = {
             callbackUrl: cbUrl, expiry: expiry, expectedPayer: payer.user, linkedApplication: app, zapInfo,
             offerId: req.offer_string, payerData: req.payer_data?.data, rejectUnauthorized: req.rejectUnauthorized,
-            token: req.token
+            token: req.token,
+            blind: req.invoice_req.blind
         }
         const appUserInvoice = await this.paymentManager.NewInvoice(receiver.user.user_id, req.invoice_req, opts)
         return {

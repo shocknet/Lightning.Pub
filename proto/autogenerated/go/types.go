@@ -470,6 +470,7 @@ type NewAddressResponse struct {
 }
 type NewInvoiceRequest struct {
 	Amountsats int64  `json:"amountSats"`
+	Blind      bool   `json:"blind"`
 	Expiry     int64  `json:"expiry"`
 	Memo       string `json:"memo"`
 	Zap        string `json:"zap"`
@@ -478,6 +479,7 @@ type NewInvoiceResponse struct {
 	Invoice string `json:"invoice"`
 }
 type OfferConfig struct {
+	Blind              bool     `json:"blind"`
 	Callback_url       string   `json:"callback_url"`
 	Createdatunix      int64    `json:"createdAtUnix"`
 	Default_offer      bool     `json:"default_offer"`
