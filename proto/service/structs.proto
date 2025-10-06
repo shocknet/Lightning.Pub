@@ -786,7 +786,7 @@ message OfferConfig {
     bool rejectUnauthorized = 9;
     int64 createdAtUnix = 10;
     int64 updatedAtUnix = 11;
-    bool blind = 12;
+    optional bool blind = 12;
 }
 
 message UserOffers {

@@ -2824,7 +2824,7 @@ export const NewInvoiceResponseValidate = (o?: NewInvoiceResponse, opts: NewInvo
 }
 
 export type OfferConfig = {
-    blind: boolean
+    blind?: boolean
     callback_url: string
     createdAtUnix: number
     default_offer: boolean
@@ -2837,10 +2837,11 @@ export type OfferConfig = {
     token: string
     updatedAtUnix: number
 }
-export const OfferConfigOptionalFields: [] = []
+export type OfferConfigOptionalField = 'blind'
+export const OfferConfigOptionalFields: OfferConfigOptionalField[] = ['blind']
 export type OfferConfigOptions = OptionsBaseMessage & {
-    checkOptionalsAreSet?: []
-    blind_CustomCheck?: (v: boolean) => boolean
+    checkOptionalsAreSet?: OfferConfigOptionalField[]
+    blind_CustomCheck?: (v?: boolean) => boolean
     callback_url_CustomCheck?: (v: string) => boolean
     createdAtUnix_CustomCheck?: (v: number) => boolean
     default_offer_CustomCheck?: (v: boolean) => boolean
@@ -2857,7 +2858,7 @@ export const OfferConfigValidate = (o?: OfferConfig, opts: OfferConfigOptions = 
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
     if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
 
-    if (typeof o.blind !== 'boolean') return new Error(`${path}.blind: is not a boolean`)
+    if ((o.blind || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('blind')) && typeof o.blind !== 'boolean') return new Error(`${path}.blind: is not a boolean`)
     if (opts.blind_CustomCheck && !opts.blind_CustomCheck(o.blind)) return new Error(`${path}.blind: custom check failed`)
 
     if (typeof o.callback_url !== 'string') return new Error(`${path}.callback_url: is not a string`)

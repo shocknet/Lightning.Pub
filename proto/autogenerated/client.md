@@ -1394,7 +1394,7 @@ The nostr server will send back a message response, and inside the body there wi
   - __invoice__: _string_
 
 ### OfferConfig
-  - __blind__: _boolean_
+  - __blind__: _boolean_ *this field is optional
   - __callback_url__: _string_
   - __createdAtUnix__: _number_
   - __default_offer__: _boolean_
