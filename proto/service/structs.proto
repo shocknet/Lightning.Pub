@@ -450,6 +450,7 @@ message NewInvoiceRequest{
     string memo = 2;
     optional string zap = 3;
     optional int64 expiry = 4;
+    optional bool blind = 5;
 }
 
 message NewInvoiceResponse{
@@ -785,6 +786,7 @@ message OfferConfig {
     bool rejectUnauthorized = 9;
     int64 createdAtUnix = 10;
     int64 updatedAtUnix = 11;
+    optional bool blind = 12;
 }
 
 message UserOffers {

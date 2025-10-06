@@ -288,7 +288,7 @@ export default class {
         }
     }
 
-    async NewInvoice(value: number, memo: string, expiry: number, { useProvider, from }: TxActionOptions): Promise<Invoice> {
+    async NewInvoice(value: number, memo: string, expiry: number, { useProvider, from }: TxActionOptions, blind = false): Promise<Invoice> {
         if (useProvider) {
             console.log("using provider")
             const invoice = await this.liquidProvider.AddInvoice(value, memo, from, expiry)
@@ -296,7 +296,7 @@ export default class {
             return { payRequest: invoice, providerDst }
         }
         try {
-            const res = await this.lightning.addInvoice(AddInvoiceReq(value, expiry, true, memo), DeadLineMetadata())
+            const res = await this.lightning.addInvoice(AddInvoiceReq(value, expiry, true, memo, blind), DeadLineMetadata())
             this.utils.stateBundler.AddTxPoint('addedInvoice', value, { from, used: 'lnd' })
             return { payRequest: res.response.paymentRequest }
         } catch (err) {
