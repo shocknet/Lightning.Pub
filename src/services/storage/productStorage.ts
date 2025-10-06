@@ -19,4 +19,8 @@ export default class {
         }
         return product
     }
+
+    async RemoveUserProducts(userId: string, txId?: string) {
+        return this.dbs.Delete<Product>('Product', { owner: { user_id: userId } }, txId)
+    }
 }

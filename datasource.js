@@ -19,6 +19,7 @@ import { DebitAccess } from "./build/src/services/storage/entity/DebitAccess.js"
 import { UserOffer } from "./build/src/services/storage/entity/UserOffer.js"
 import { ManagementGrant } from "./build/src/services/storage/entity/ManagementGrant.js"
 import { AppUserDevice } from "./build/src/services/storage/entity/AppUserDevice.js"
+import { UserAccess } from "./build/src/services/storage/entity/UserAccess.js"
 
 import { Initial1703170309875 } from './build/src/services/storage/migrations/1703170309875-initial.js'
 import { LspOrder1718387847693 } from './build/src/services/storage/migrations/1718387847693-lsp_order.js'
@@ -35,6 +36,7 @@ import { ManagementGrant1751307732346 } from './build/src/services/storage/migra
 import { InvoiceCallbackUrls1752425992291 } from './build/src/services/storage/migrations/1752425992291-invoice_callback_urls.js'
 import { OldSomethingLeftover1753106599604 } from './build/src/services/storage/migrations/1753106599604-old_something_leftover.js'
 import { UserReceivingInvoiceIdx1753109184611 } from './build/src/services/storage/migrations/1753109184611-user_receiving_invoice_idx.js'
+import { AppUserDevice1753285173175 } from './build/src/services/storage/migrations/1753285173175-app_user_device.js'
 
 export default new DataSource({
     type: "better-sqlite3",
@@ -42,10 +44,11 @@ export default new DataSource({
     // logging: true,
     migrations: [Initial1703170309875, LspOrder1718387847693, LiquidityProvider1719335699480, LndNodeInfo1720187506189, CreateInviteTokenTable1721751414878,
         PaymentIndex1721760297610, DebitAccess1726496225078, DebitAccessFixes1726685229264, DebitToPub1727105758354, UserCbUrl1727112281043,
-        UserOffer1733502626042, ManagementGrant1751307732346, InvoiceCallbackUrls1752425992291, OldSomethingLeftover1753106599604, UserReceivingInvoiceIdx1753109184611],
+        UserOffer1733502626042, ManagementGrant1751307732346, InvoiceCallbackUrls1752425992291, OldSomethingLeftover1753106599604, UserReceivingInvoiceIdx1753109184611,
+        AppUserDevice1753285173175],
     entities: [User, UserReceivingInvoice, UserReceivingAddress, AddressReceivingTransaction, UserInvoicePayment, UserTransactionPayment,
         UserBasicAuth, UserEphemeralKey, Product, UserToUserPayment, Application, ApplicationUser, UserToUserPayment, LspOrder, LndNodeInfo,
-        TrackedProvider, InviteToken, DebitAccess, UserOffer, ManagementGrant, AppUserDevice],
+        TrackedProvider, InviteToken, DebitAccess, UserOffer, ManagementGrant, AppUserDevice, UserAccess],
     // synchronize: true,
 })
-//npx typeorm migration:generate ./src/services/storage/migrations/app_user_device -d ./datasource.js
+//npx typeorm migration:generate ./src/services/storage/migrations/user_access -d ./datasource.js

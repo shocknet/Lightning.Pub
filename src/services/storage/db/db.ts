@@ -28,6 +28,7 @@ import { ManagementGrant } from "../entity/ManagementGrant.js"
 import { ChannelEvent } from "../entity/ChannelEvent.js"
 import { AppUserDevice } from "../entity/AppUserDevice.js"
 import * as fs from 'fs'
+import { UserAccess } from "../entity/UserAccess.js"
 
 
 export type DbSettings = {
@@ -71,7 +72,8 @@ export const MainDbEntities = {
     'UserOffer': UserOffer,
     'Product': Product,
     'ManagementGrant': ManagementGrant,
-    'AppUserDevice': AppUserDevice
+    'AppUserDevice': AppUserDevice,
+    'UserAccess': UserAccess
 }
 export type MainDbNames = keyof typeof MainDbEntities
 export const MainDbEntitiesNames = Object.keys(MainDbEntities)

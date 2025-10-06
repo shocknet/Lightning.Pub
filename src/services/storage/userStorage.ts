@@ -4,6 +4,8 @@ import { UserBasicAuth } from './entity/UserBasicAuth.js';
 import { getLogger } from '../helpers/logger.js';
 import EventsLogManager from './eventsLog.js';
 import { StorageInterface } from './db/storageInterface.js';
+import { UserAccess } from './entity/UserAccess.js';
+import { LessThan, MoreThan } from 'typeorm';
 export default class {
     dbs: StorageInterface
     eventsLog: EventsLogManager
@@ -112,5 +114,16 @@ export default class {
     async UpdateUser(userId: string, update: Partial<User>, txId?: string) {
         const user = await this.GetUser(userId, txId)
         await this.dbs.Update<User>('User', user.serial_id, update, txId)
+    }
+
+    async UpsertUserAccess(userId: string, lastSeenAtUnix: number, txId?: string) {
+        return this.dbs.CreateAndSave<UserAccess>('UserAccess', { user_id: userId, last_seen_at_unix: lastSeenAtUnix }, txId)
+    }
+
+    async GetInactiveUsers(inactiveForDays: number) {
+        const seconds = inactiveForDays * 24 * 60 * 60
+        const now = Math.floor(Date.now() / 1000)
+        const lastSeenAtUnix = now - seconds
+        return this.dbs.Find<UserAccess>('UserAccess', { where: { last_seen_at_unix: LessThan(lastSeenAtUnix) } })
     }
 }

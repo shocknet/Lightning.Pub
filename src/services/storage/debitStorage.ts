@@ -50,4 +50,8 @@ export default class {
     async RemoveDebitAccess(appUserId: string, authorizedPub: string, txId?: string) {
         return this.dbs.Delete<DebitAccess>('DebitAccess', { app_user_id: appUserId, npub: authorizedPub }, txId)
     }
+
+    async RemoveUserDebitAccess(appUserId: string, txId?: string) {
+        return this.dbs.Delete<DebitAccess>('DebitAccess', { app_user_id: appUserId }, txId)
+    }
 }
