@@ -162,10 +162,52 @@ export default class Handler {
         this.settings.apps.forEach(app => {
             this.apps[app.publicKey] = app
         })
-        this.Connect()
+        this.ConnectLoop()
     }
 
-    async Connect() {
+    async ConnectLoop() {
+        let failures = 0
+        while (true) {
+            await this.ConnectPromise()
+            const pow = Math.pow(2, failures)
+            const delay = Math.min(pow, 900)
+            this.log("relay connection failed, will try again in", delay, "seconds (failures:", failures, ")")
+            await new Promise(resolve => setTimeout(resolve, delay*1000))
+            failures++
+        }
+    }
+
+    async ConnectPromise() {
+        return new Promise<void>( async (res) => {
+            const relay = await this.GetRelay()
+            if (!relay) {
+                res()
+                return
+            }
+            const sub =this.Subscribe(relay)
+            relay.onclose = (() => {
+                this.log("relay disconnected")
+                sub.close()
+                relay.close()
+                res()
+            })
+        })
+    }
+
+    async GetRelay(): Promise<Relay|null> {
+        try {
+            const relay = await Relay.connect(this.settings.relays[0])
+            if (!relay.connected) {
+                throw new Error("failed to connect to relay")
+            }
+            return relay
+        } catch (err:any) {
+            this.log("failed to connect to relay", err.message || err)
+            return null
+        }
+    }
+
+/*     async Connect() {
         const log = getLogger({})
         log("conneting to relay...", this.settings.relays[0])
         let relay: Relay | null = null
@@ -192,15 +234,20 @@ export default class Handler {
             }, 2000)
         })
         
+        this.Subscribe(relay)
+
+    } */
+
+    Subscribe(relay: Relay) {
         const appIds = Object.keys(this.apps)
-        log("🔍 [NOSTR SUBSCRIPTION] Setting up subscription", {
+        this.log("🔍 [NOSTR SUBSCRIPTION] Setting up subscription", {
             since: Math.ceil(Date.now() / 1000),
             kinds: supportedKinds,
             appIds: appIds,
             listeningForPubkeys: appIds
         })
         
-        const sub = relay.subscribe([
+        return relay.subscribe([
             {
                 since: Math.ceil(Date.now() / 1000),
                 kinds: supportedKinds,
@@ -208,7 +255,7 @@ export default class Handler {
             }
         ], {
             oneose: () => {
-                log("up to date with nostr events")
+                this.log("up to date with nostr events")
             },
             onevent: async (e) => {
                 if (!supportedKinds.includes(e.kind) || !e.pubkey) {
