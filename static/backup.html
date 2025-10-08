@@ -54,7 +54,7 @@
       </div>
       <div class="checkbox-container">
         <div class="checkbox" style="margin-top: 12px">
-          <input type="checkbox" id="backup" />
+          <input type="radio" id="backup" name="backup-option" />
           <div class="checkbox-shape"></div>
           <label for="backup">
             Encrypted Backup to Nostr Relay
@@ -63,7 +63,7 @@
       </div>
       <div class="checkbox-container">
         <div class="checkbox manual-checkbox" style="margin-top: 12px">
-          <input type="checkbox" id="manual-backup" />
+          <input type="radio" id="manual-backup" name="backup-option" />
           <div class="checkbox-shape"></div>
           <label for="manual-backup">
             DO NOT store on relay (Manual Backups)
@@ -124,10 +124,6 @@
       const manual = document.getElementById('manual-backup').checked
       if (!backup && !manual) {
         document.getElementById('errorText').innerText = 'Please select an option'
-        return
-      }
-      if (backup && manual) {
-        document.getElementById('errorText').innerText = 'Please select only one option'
         return
       }
       if (backup) {

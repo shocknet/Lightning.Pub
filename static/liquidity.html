@@ -37,7 +37,7 @@
 
     <section class="setup-content">
       <div class="checkbox" style="margin-top: 60px">
-        <input type="checkbox" id="automate" data-group="service" />
+        <input type="radio" id="automate" name="service" data-group="service" />
         <div class="checkbox-shape"></div>
         <label for="automate" class="automate">
           Use Automation Service
@@ -57,7 +57,7 @@
         </label>
       </div>
       <div class="checkbox" style="margin-top: 30px">
-        <input type="checkbox" id="manual" data-group="service" />
+        <input type="radio" id="manual" name="service" data-group="service" />
         <div class="checkbox-shape"></div>
         <label for="manual">Manage my channels manually</label>
       </div>
@@ -89,10 +89,6 @@
       const manual = document.getElementById('manual').checked
       if (!automate && !manual) {
         document.getElementById('errorText').innerText = 'Please select an option'
-        return
-      }
-      if (automate && manual) {
-        document.getElementById('errorText').innerText = 'Please select only one option'
         return
       }
       if (automate) {
