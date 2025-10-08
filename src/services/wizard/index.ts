@@ -40,21 +40,40 @@ export class Wizard {
     }
 
     GetServiceState = async (): Promise<WizardTypes.ServiceStateResponse> => {
-        const apps = await this.storage.applicationStorage.GetApplications()
-        const appNamesList = apps.map(app => app.name).join(', ')
-        return {
-            admin_npub: this.adminManager.GetAdminNpub(),
-            http_url: this.settings.serviceUrl,
-            lnd_state: WizardTypes.LndState.OFFLINE,
-            nprofile: this.nprofile,
-            provider_name: appNamesList,
-            relay_connected: false,
-            relays: this.relays,
-            watchdog_ok: false,
-            source_name: this.settings.defaultAppName,
-            relay_url: this.settings.nostrRelaySettings.relays[0] || '',
-            automate_liquidity: this.settings.liquiditySettings.liquidityProviderPub !== 'null',
-            push_backups_to_nostr: this.settings.pushBackupsToNostr,
+        try {
+            const apps = await this.storage.applicationStorage.GetApplications()
+            const appNamesList = apps.map(app => app.name).join(', ')
+            return {
+                admin_npub: this.adminManager.GetAdminNpub(),
+                http_url: this.settings.serviceUrl,
+                lnd_state: WizardTypes.LndState.OFFLINE,
+                nprofile: this.nprofile,
+                provider_name: appNamesList,
+                relay_connected: false,
+                relays: this.relays,
+                watchdog_ok: false,
+                source_name: appNamesList || this.settings.defaultAppName,
+                relay_url: this.settings.nostrRelaySettings.relays[0] || '',
+                automate_liquidity: this.settings.liquiditySettings.liquidityProviderPub !== 'null',
+                push_backups_to_nostr: this.settings.pushBackupsToNostr,
+            }
+        } catch (e) {
+            this.log(`Error in GetServiceState: ${(e as Error).message}`)
+            // Return a default/error state that is still valid JSON to prevent client-side parse errors
+            return {
+                admin_npub: '',
+                http_url: '',
+                lnd_state: WizardTypes.LndState.OFFLINE,
+                nprofile: '',
+                provider_name: 'Error loading state',
+                relay_connected: false,
+                relays: [],
+                watchdog_ok: false,
+                source_name: 'Error',
+                relay_url: '',
+                automate_liquidity: false,
+                push_backups_to_nostr: false,
+            }
         }
     }
     WizardState = async (): Promise<WizardTypes.StateResponse> => {

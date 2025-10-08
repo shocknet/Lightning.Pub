@@ -122,21 +122,21 @@ $(() => {
         } else {
             // Pre-populate from service state
             fetch("/wizard/service-state").then(res => res.json()).then(state => {
-                nodeNameInput.val(state.sourceName);
-                if (state.relayUrl === 'wss://relay.lightning.pub') {
+                nodeNameInput.val(state.source_name);
+                if (state.relay_url === 'wss://relay.lightning.pub') {
                     customCheckbox.prop('checked', true);
                 } else {
-                    relayUrlInput.val(state.relayUrl);
+                    relayUrlInput.val(state.relay_url);
                 }
                 syncRelayState();
 
-                if (state.automateLiquidity) {
+                if (state.automate_liquidity) {
                     automateLiquidityRadio.prop('checked', true);
                 } else {
                     manualLiquidityRadio.prop('checked', true);
                 }
 
-                if (state.pushBackupsToNostr) {
+                if (state.push_backups_to_nostr) {
                     backupNostrRadio.prop('checked', true);
                 } else {
                     manualBackupRadio.prop('checked', true);
