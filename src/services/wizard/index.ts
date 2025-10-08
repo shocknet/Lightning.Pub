@@ -153,10 +153,16 @@ export class Wizard {
         }
 
         const automateLiquidityIndex = envFileContent.findIndex(line => line.startsWith('LIQUIDITY_PROVIDER_PUB'))
-        if (automateLiquidityIndex === -1) {
-            toMerge.push(`LIQUIDITY_PROVIDER_PUB=${pendingConfig.automateLiquidity ? defaultProviderPub : ""}`)
+        if (pendingConfig.automateLiquidity) {
+            if (automateLiquidityIndex !== -1) {
+                envFileContent.splice(automateLiquidityIndex, 1)
+            }
         } else {
-            envFileContent[automateLiquidityIndex] = `LIQUIDITY_PROVIDER_PUB=null`
+            if (automateLiquidityIndex === -1) {
+                toMerge.push(`LIQUIDITY_PROVIDER_PUB=null`)
+            } else {
+                envFileContent[automateLiquidityIndex] = `LIQUIDITY_PROVIDER_PUB=null`
+            }
         }
 
         const pushBackupsToNostrIndex = envFileContent.findIndex(line => line.startsWith('PUSH_BACKUPS_TO_NOSTR'))
