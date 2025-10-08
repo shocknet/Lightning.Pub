@@ -759,6 +759,12 @@ export default class {
         return newlyConfirmedTxs.filter(t => t !== undefined) as (PendingTx & { confs: number })[]
     }
 
+    async CleanupOldUnpaidInvoices() {
+        this.log("Cleaning up old unpaid invoices")
+        const affected = await this.storage.paymentStorage.RemoveOldUnpaidInvoices()
+        this.log("Cleaned up",affected, "old unpaid invoices")
+    }
+
     async GetLndBalance() {
         return this.lnd.GetBalance()
     }
