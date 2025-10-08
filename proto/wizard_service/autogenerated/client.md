@@ -24,20 +24,6 @@ The nostr server will send back a message response, and inside the body there wi
 ## HTTP Methods
 ### These are the http methods the client implements to communicate with the API
 
-- WizardState
-  - auth type: __Guest__
-  - http method: __get__
-  - http route: __/wizard/state__
-  - This methods has an __empty__ __request__ body
-  - output: [StateResponse](#StateResponse)
-
-- WizardConfig
-  - auth type: __Guest__
-  - http method: __post__
-  - http route: __/wizard/config__
-  - input: [ConfigRequest](#ConfigRequest)
-  - This methods has an __empty__ __response__ body
-
 - GetAdminConnectInfo
   - auth type: __Guest__
   - http method: __get__
@@ -52,40 +38,58 @@ The nostr server will send back a message response, and inside the body there wi
   - This methods has an __empty__ __request__ body
   - output: [ServiceStateResponse](#ServiceStateResponse)
 
+- WizardConfig
+  - auth type: __Guest__
+  - http method: __post__
+  - http route: __/wizard/config__
+  - input: [ConfigRequest](#ConfigRequest)
+  - This methods has an __empty__ __response__ body
+
+- WizardState
+  - auth type: __Guest__
+  - http method: __get__
+  - http route: __/wizard/state__
+  - This methods has an __empty__ __request__ body
+  - output: [StateResponse](#StateResponse)
+
 # INPUTS AND OUTPUTS
 
 ## Messages
 ### The content of requests and response from the methods
 
-### StateResponse
-  - __config_sent__: _boolean_
-  - __admin_linked__: _boolean_
+### AdminConnectInfoResponse
+  - __connect_info__: _[AdminConnectInfoResponse_connect_info](#AdminConnectInfoResponse_connect_info)_
+  - __nprofile__: _string_
 
 ### ConfigRequest
-  - __source_name__: _string_
-  - __relay_url__: _string_
   - __automate_liquidity__: _boolean_
   - __push_backups_to_nostr__: _boolean_
-
-### AdminConnectInfoResponse
-  - __nprofile__: _string_
-  - __connect_info__: _AdminConnectInfoResponse_connect_info_
-
-### ServiceStateResponse
-  - __http_url__: _string_
-  - __nprofile__: _string_
-  - __provider_name__: _string_
-  - __relays__: ARRAY of: _string_
-  - __admin_npub__: _string_
-  - __relay_connected__: _boolean_
-  - __lnd_state__: _[LndState](#LndState)_
-  - __watchdog_ok__: _boolean_
+  - __relay_url__: _string_
+  - __source_name__: _string_
 
 ### Empty
+
+### ServiceStateResponse
+  - __admin_npub__: _string_
+  - __automate_liquidity__: _boolean_
+  - __http_url__: _string_
+  - __lnd_state__: _[LndState](#LndState)_
+  - __nprofile__: _string_
+  - __provider_name__: _string_
+  - __push_backups_to_nostr__: _boolean_
+  - __relay_connected__: _boolean_
+  - __relay_url__: _string_
+  - __relays__: ARRAY of: _string_
+  - __source_name__: _string_
+  - __watchdog_ok__: _boolean_
+
+### StateResponse
+  - __admin_linked__: _boolean_
+  - __config_sent__: _boolean_
 ## Enums
 ### The enumerators used in the messages
 
 ### LndState
   - __OFFLINE__
-  - __SYNCING__
   - __ONLINE__
+  - __SYNCING__

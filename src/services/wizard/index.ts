@@ -50,7 +50,11 @@ export class Wizard {
             provider_name: appNamesList,
             relay_connected: false,
             relays: this.relays,
-            watchdog_ok: false
+            watchdog_ok: false,
+            source_name: this.settings.defaultAppName,
+            relay_url: this.settings.nostrRelaySettings.relays[0] || '',
+            automate_liquidity: this.settings.liquiditySettings.liquidityProviderPub !== 'null',
+            push_backups_to_nostr: this.settings.pushBackupsToNostr,
         }
     }
     WizardState = async (): Promise<WizardTypes.StateResponse> => {

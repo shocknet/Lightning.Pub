@@ -94,6 +94,28 @@
       location.href = 'liquidity.html'
     }
 
+    const nodeNameInput = document.getElementById("nodeName");
+    const relayUrlInput = document.getElementById("relayUrl");
+    const customCheckbox = document.getElementById("customCheckbox");
+
+    const syncRelayState = () => {
+      if (customCheckbox.checked) {
+        relayUrlInput.value = '';
+        relayUrlInput.disabled = true;
+      } else {
+        relayUrlInput.disabled = false;
+      }
+    };
+
+    customCheckbox.addEventListener('change', syncRelayState);
+
+    relayUrlInput.addEventListener('input', () => {
+      if (relayUrlInput.value) {
+        customCheckbox.checked = false;
+        syncRelayState();
+      }
+    });
+
     fetch("/wizard/state").then((res) => {
       if (res.status === 200) {
         res.json().then((data) => {
@@ -103,6 +125,16 @@
             location.href = 'connect.html'
           } else {
             console.log("ready to initialize")
+            // Pre-populate from service state if not configured
+            fetch("/wizard/service-state").then(res => res.json()).then(state => {
+              nodeNameInput.value = state.source_name;
+              if (state.relay_url === 'wss://relay.lightning.pub') {
+                customCheckbox.checked = true;
+              } else {
+                relayUrlInput.value = state.relay_url;
+              }
+              syncRelayState();
+            });
           }
         });
       }

@@ -37,4 +37,8 @@ message ServiceStateResponse {
     bool watchdog_ok = 6;
     string http_url = 7;
     string nprofile = 8;
+    string source_name = 9;
+    string relay_url = 10;
+    bool automate_liquidity = 11;
+    bool push_backups_to_nostr = 12;
 }

@@ -84,6 +84,14 @@
   </footer>
   <script src="js/liquidity.js"></script>
   <script>
+    fetch("/wizard/service-state").then(res => res.json()).then(state => {
+      if (state.automate_liquidity) {
+        document.getElementById('automate').checked = true;
+      } else {
+        document.getElementById('manual').checked = true;
+      }
+    });
+
     document.getElementById("backupBtn").onclick = (e) => {
       const automate = document.getElementById('automate').checked
       const manual = document.getElementById('manual').checked

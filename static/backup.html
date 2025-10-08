@@ -94,6 +94,15 @@
 
   <script src="js/backup.js"></script>
   <script>
+    fetch("/wizard/service-state").then(res => res.json()).then(state => {
+      if (state.push_backups_to_nostr) {
+        document.getElementById('backup').checked = true;
+      } else {
+        document.getElementById('manual-backup').checked = true;
+      }
+      document.getElementById('next-button').classList.remove('hidden-button');
+    });
+
     const sendConfig = async () => {
       const req = {
         source_name: localStorage.getItem("wizard/nodeName"),
