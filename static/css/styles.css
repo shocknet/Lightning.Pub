@@ -133,6 +133,10 @@ a {
   display: none;
 }
 
+.checkbox input[type="radio"] {
+  display: none;
+}
+
 /* Create a new box */
 .checkbox label {
   padding-left: 32px;
@@ -155,6 +159,31 @@ a {
   top: 50%;
   transform: translate(0, -50%);
   z-index: -1;
+}
+
+.checkbox input[type="radio"] + label::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  border: 1px solid #a3a3a3;
+  border-radius: 50%;
+  background-color: transparent;
+}
+
+.checkbox input[type="radio"]:checked + label::after {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: #a012c7;
 }
 
 /* Display a checkmark when the checkbox is checked */
