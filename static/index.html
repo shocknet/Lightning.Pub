@@ -8,6 +8,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Montserrat" />
   <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/liquidity.css" />
+  <link rel="stylesheet" href="css/backup.css" />
   <!-- HTML Meta Tags -->
   <title>Lightning.Pub</title>
   <meta name="description" content="Lightning for Everyone" />
@@ -21,41 +23,144 @@
   </header>
 
   <main>
-    <section class="setup-header">
-      <h2>Setup your Pub</h2>
-      <p class="header-title">
-      </p>
+    <section id="page-node">
+      <div class="setup-header">
+        <h2>Setup your Pub</h2>
+        <p class="header-title">
+        </p>
+      </div>
+
+      <div class="line"></div>
+
+      <div class="setup-content">
+        <div class="input-group">
+          <span>Give this node a name that wallet users will see:</span>
+          <input type="text" placeholder="Nodey McNodeFace" value="" style="width: 100%" id="nodeName" />
+        </div>
+
+        <div class="input-group" style="margin-top: 38px">
+          <span>If you want to use a specific Nostr relay, enter it now:</span>
+          <input type="text" placeholder="wss://relay.lightning.pub" style="width: 100%" id="relayUrl" />
+        </div>
+
+        <div class="checkbox" style="margin-top: 12px">
+          <input type="checkbox" id="customCheckbox" />
+          <div class="checkbox-shape"></div>
+          <label for="customCheckbox">
+            Use the default managed relay service and auto-pay 1000 sats
+            per month to support developers
+          </label>
+        </div>
+
+        <div>
+          <p id="errorText" style="color:red"></p>
+        </div>
+
+        <button class="push-button" style="margin-top: 60px" id="liquidityBtn">
+          Next
+        </button>
+      </div>
     </section>
 
-    <div class="line"></div>
-
-    <section class="setup-content">
-      <div class="input-group">
-        <span>Give this node a name that wallet users will see:</span>
-        <input type="text" placeholder="Nodey McNodeFace" value="" style="width: 100%" id="nodeName" />
+    <section id="page-liquidity" style="display: none;">
+      <div class="setup-header">
+        <button class="icon-button back-button" id="back-to-node">
+          <img src="img/back.svg" alt="" />
+        </button>
+        <h2>Manage Node Liquidity</h2>
+        <p class="header-title">
+          How do you want to manage Lightning channels?
+        </p>
       </div>
 
-      <div class="input-group" style="margin-top: 38px">
-        <span>If you want to use a specific Nostr relay, enter it now:</span>
-        <input type="text" placeholder="wss://relay.lightning.pub" style="width: 100%" id="relayUrl" />
+      <div class="line"></div>
+
+      <div class="setup-content">
+        <div class="checkbox" style="margin-top: 60px">
+          <input type="radio" id="automate" name="service" data-group="service" />
+          <label for="automate" class="automate">
+            Use Automation Service
+            <div class="question-box">
+              <button class="icon-button" id="show-question">
+                <img src="img/question.svg" />
+              </button>
+            </div>
+            <div class="question-content" id="question-content">
+              Automation helps reduce the fees you pay by trusting peers temporarily until your node balance is sufficient
+              to open a balanced Lightning channel.
+              <button class="icon-button close-button" id="close-question">
+                <img src="img/close.svg" alt="" />
+              </button>
+              <a href="https://docs.shock.network/" target="_blank" class="marked question-more">Learn More</a>
+            </div>
+          </label>
+        </div>
+        <div class="checkbox" style="margin-top: 30px">
+          <input type="radio" id="manual" name="service" data-group="service" />
+          <label for="manual">Manage my channels manually</label>
+        </div>
+        <div>
+          <p id="errorTextLiquidity" style="color:red"></p>
+        </div>
+        <button class="push-button" style="margin-top: 60px" id="backupBtn">
+          Next
+        </button>
+      </div>
+    </section>
+
+    <section id="page-backup" style="display: none;">
+      <div class="setup-header">
+        <button class="icon-button back-button" id="back-to-liquidity">
+          <img src="img/back.svg" alt="" />
+        </button>
+        <h2>Choose a Recovery Method</h2>
+        <p class="header-title">
+          <span style="font-weight: bold">New Node! 🎉</span> It's important
+          to backup your keys.
+        </p>
       </div>
 
-      <div class="checkbox" style="margin-top: 12px">
-        <input type="checkbox" id="customCheckbox" />
-        <div class="checkbox-shape"></div>
-        <label for="customCheckbox">
-          Use the default managed relay service and auto-pay 1000 sats
-          per month to support developers
-        </label>
-      </div>
+      <div class="line"></div>
 
-      <div>
-        <p id="errorText" style="color:red"></p>
+      <div class="setup-content">
+        <div class="description-box">
+          <div class="description">
+            In addition to your seed phrase, you also need channel details to recover funds should your node experience a
+            hardware failure.
+          </div>
+          <br />
+          <div class="description">
+            It's important always to have the latest version of this file. Fortunately, it's small enough to automatically
+            store on the Nostr relay.
+          </div>
+        </div>
+        <div class="warning-text">
+          If you did not choose the developers relay, be sure your relay has
+          adequate storage policies to hold NIP78 events.
+        </div>
+        <div class="checkbox-container">
+          <div class="checkbox" style="margin-top: 12px">
+            <input type="radio" id="backup" name="backup-option" />
+            <label for="backup">
+              Encrypted Backup to Nostr Relay
+            </label>
+          </div>
+        </div>
+        <div class="checkbox-container">
+          <div class="checkbox manual-checkbox" style="margin-top: 12px">
+            <input type="radio" id="manual-backup" name="backup-option" />
+            <label for="manual-backup">
+              DO NOT store on relay (Manual Backups)
+            </label>
+          </div>
+        </div>
+        <div>
+          <p id="errorTextBackup" style="color:red"></p>
+        </div>
+        <button class="push-button" style="margin-top: 60px;" id="next-button">
+          Finish Setup
+        </button>
       </div>
-
-      <button class="push-button" style="margin-top: 60px" id="liquidityBtn">
-        Next
-      </button>
     </section>
   </main>
 
@@ -71,75 +176,8 @@
     <div class="line"></div>
     <a href="https://docs.shock.network" class="marked need-help">Need Help?</a>
   </footer>
-  <script>
-
-    document.getElementById("liquidityBtn").onclick = (e) => {
-      const nodeName = document.getElementById("nodeName").value;
-      const relayUrl = document.getElementById("relayUrl").value;
-      const checked = document.getElementById("customCheckbox").checked;
-      if (!nodeName) {
-        document.getElementById("errorText").innerText = "Please enter a node name";
-        return;
-      }
-      if (!checked && !relayUrl) {
-        document.getElementById("errorText").innerText = "Please enter a relay URL or check the default relay box";
-        return;
-      }
-      localStorage.setItem("wizard/nodeName", nodeName);
-      if (checked) {
-        localStorage.setItem("wizard/relayUrl", "wss://relay.lightning.pub");
-      } else {
-        localStorage.setItem("wizard/relayUrl", relayUrl);
-      }
-      location.href = 'liquidity.html'
-    }
-
-    const nodeNameInput = document.getElementById("nodeName");
-    const relayUrlInput = document.getElementById("relayUrl");
-    const customCheckbox = document.getElementById("customCheckbox");
-
-    const syncRelayState = () => {
-      if (customCheckbox.checked) {
-        relayUrlInput.value = '';
-        relayUrlInput.disabled = true;
-      } else {
-        relayUrlInput.disabled = false;
-      }
-    };
-
-    customCheckbox.addEventListener('change', syncRelayState);
-
-    relayUrlInput.addEventListener('input', () => {
-      if (relayUrlInput.value) {
-        customCheckbox.checked = false;
-        syncRelayState();
-      }
-    });
-
-    fetch("/wizard/state").then((res) => {
-      if (res.status === 200) {
-        res.json().then((data) => {
-          if (data.admin_linked) {
-            location.href = 'status.html'
-          } else if (data.config_sent) {
-            location.href = 'connect.html'
-          } else {
-            console.log("ready to initialize")
-            // Pre-populate from service state if not configured
-            fetch("/wizard/service-state").then(res => res.json()).then(state => {
-              nodeNameInput.value = state.source_name;
-              if (state.relay_url === 'wss://relay.lightning.pub') {
-                customCheckbox.checked = true;
-              } else {
-                relayUrlInput.value = state.relay_url;
-              }
-              syncRelayState();
-            });
-          }
-        });
-      }
-    });
-  </script>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script src="js/wizard.js"></script>
 </body>
 
 </html>
