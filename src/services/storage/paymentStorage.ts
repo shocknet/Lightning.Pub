@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { And, Between, Equal, FindOperator, IsNull, LessThanOrEqual, MoreThan, MoreThanOrEqual } from "typeorm"
+import { And, Between, Equal, FindOperator, IsNull, LessThan, LessThanOrEqual, MoreThan, MoreThanOrEqual } from "typeorm"
 import { User } from './entity/User.js';
 import { UserTransactionPayment } from './entity/UserTransactionPayment.js';
 import { EphemeralKeyType, UserEphemeralKey } from './entity/UserEphemeralKey.js';
@@ -109,6 +109,10 @@ export default class {
             items.push(...secondBatch)
         }
         return items
+    }
+
+    async RemoveOldUnpaidInvoices(txId?: string) {
+        return this.dbs.Delete<UserReceivingInvoice>('UserReceivingInvoice', { paid_at_unix: 0, expires_at_unix: LessThan(Math.floor(Date.now() / 1000)) }, txId)
     }
 
     async AddUserInvoice(user: User, invoice: string, options: InboundOptionals = { expiry: defaultInvoiceExpiry }, providerDestination?: string, txId?: string): Promise<UserReceivingInvoice> {

@@ -75,7 +75,9 @@ export const initMainHandler = async (log: PubLogger, mainSettings: MainSettings
         return
     }
     await mainHandler.paymentManager.checkPendingPayments()
+    await mainHandler.paymentManager.CleanupOldUnpaidInvoices()
     await mainHandler.appUserManager.CleanupInactiveUsers()
+    await mainHandler.appUserManager.CleanupNeverActiveUsers()
     await mainHandler.paymentManager.watchDog.Start()
     return { mainHandler, apps, liquidityProviderInfo, liquidityProviderApp, wizard, adminManager }
 }

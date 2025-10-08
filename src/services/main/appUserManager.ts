@@ -123,6 +123,23 @@ export default class {
 
     async CleanupInactiveUsers() {
         this.log("Cleaning up inactive users")
+        const inactiveUsers = await this.storage.userStorage.GetInactiveUsers(365)
+        const toDelete:{userId: string, appUserIds: string[]}[] = []
+        for (const u of inactiveUsers) {
+            const user = await this.storage.userStorage.GetUser(u.user_id)
+            if (user.balance_sats > 10_000) {
+                continue
+            }
+            const appUsers = await this.storage.applicationStorage.GetAllAppUsersFromUser(u.user_id)
+            toDelete.push({userId: u.user_id, appUserIds: appUsers.map(a => a.identifier)})
+        }
+
+        this.log("Found",toDelete.length, "inactive users to delete")
+        // await this.RemoveUsers(toDelete)
+    }
+
+    async CleanupNeverActiveUsers() {
+        this.log("Cleaning up never active users")
         const inactiveUsers = await this.storage.userStorage.GetInactiveUsers(30)
         const toDelete:{userId: string, appUserIds: string[]}[] = []
         for (const u of inactiveUsers) {
@@ -146,11 +163,11 @@ export default class {
             toDelete.push({userId: u.user_id, appUserIds: appUsers.map(a => a.identifier)})
         }
         
-        this.log("Found",toDelete.length, "inactive users to delete")
-        // await this.RemoveIntactiveUsers(toDelete) TODO: activate deletion
+        this.log("Found",toDelete.length, "never active users to delete")
+        // await this.RemoveUsers(toDelete) TODO: activate deletion
     }
 
-    async RemoveIntactiveUsers(toDelete: { userId: string, appUserIds: string[] }[]) {
+    async RemoveUsers(toDelete: { userId: string, appUserIds: string[] }[]) {
         this.log("Deleting",toDelete.length, "inactive users")
         for (let i = 0; i < toDelete.length; i++) {
             const {userId,appUserIds} = toDelete[i]
