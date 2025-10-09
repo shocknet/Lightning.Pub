@@ -148,23 +148,28 @@ export class Wizard {
             relay_url_CustomCheck: relay => relay !== '',
         })
         if (err != null) { throw new Error(err.message) }
-        if (this.IsInitialized() || this.pendingConfig !== null) {
-            throw new Error("already initialized")
-        }
         const pendingConfig = { sourceName: req.source_name, relayUrl: req.relay_url, automateLiquidity: req.automate_liquidity, pushBackupsToNostr: req.push_backups_to_nostr }
-        
-        // Also update the application name in the database
-        try {
-            const appsList = await this.storage.applicationStorage.GetApplications()
-            const defaultNames = ['wallet', 'wallet-test', this.settings.defaultAppName]
-            const existingDefaultApp = appsList.find(app => defaultNames.includes(app.name))
-            if (existingDefaultApp) {
-                await this.storage.applicationStorage.UpdateApplication(existingDefaultApp, { name: req.source_name, avatar_url: (req as any).avatar_url || existingDefaultApp.avatar_url })
+
+        // If already initialized, treat as idempotent update: persist name/avatar and env settings, do not block.
+        if (this.IsInitialized()) {
+            try {
+                const appsList = await this.storage.applicationStorage.GetApplications()
+                const defaultNames = ['wallet', 'wallet-test', this.settings.defaultAppName]
+                const existingDefaultApp = appsList.find(app => defaultNames.includes(app.name)) || appsList[0]
+                if (existingDefaultApp) {
+                    await this.storage.applicationStorage.UpdateApplication(existingDefaultApp, { name: req.source_name, avatar_url: (req as any).avatar_url || (existingDefaultApp as any).avatar_url })
+                }
+            } catch (e) {
+                this.log(`Error updating app info: ${(e as Error).message}`)
             }
-        } catch (e) {
-            this.log(`Error updating app name: ${(e as Error).message}`)
+            this.updateEnvFile(pendingConfig)
+            return
         }
 
+        // First-time configuration flow
+        if (this.pendingConfig !== null) {
+            throw new Error("already initializing")
+        }
         this.updateEnvFile(pendingConfig)
         this.configQueue.forEach(q => q.res(true))
         this.configQueue = []

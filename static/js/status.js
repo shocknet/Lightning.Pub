@@ -1,4 +1,27 @@
 $(() => {
+    const postConfig = async (updates) => {
+        try {
+            const stateRes = await fetch('/wizard/service_state')
+            if (stateRes.status !== 200) return false
+            const s = await stateRes.json()
+            const body = {
+                source_name: updates.source_name ?? (s.source_name || s.provider_name || ''),
+                relay_url: updates.relay_url ?? (s.relay_url || (s.relays && s.relays[0]) || ''),
+                automate_liquidity: s.automate_liquidity || false,
+                push_backups_to_nostr: s.push_backups_to_nostr || false,
+                avatar_url: s.avatar_url || ''
+            }
+            const res = await fetch('/wizard/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            })
+            if (res.status !== 200) return false
+            const j = await res.json().catch(() => ({}))
+            if (j && j.status && j.status !== 'OK') return false
+            return true
+        } catch { return false }
+    }
     $("#show-reset").click(() => {
         $("#reset-content").text('Reset the administrator account if you lost access via the Dashboard.');
         $("#reset-box").show();
@@ -18,9 +41,13 @@ $(() => {
     });
     $("#save-show-nodey").click(() => {
         var targetInputVal = $('input[name="show-nodey"]').val()
-        $('#show-nodey-text').text(targetInputVal)
-        $('.show-nodey').hide()
-        $('#show-nodey-text').show()
+        postConfig({ source_name: targetInputVal }).then(ok => {
+            if (ok) {
+                $('#show-nodey-text').text(targetInputVal)
+            }
+            $('.show-nodey').hide()
+            $('#show-nodey-text').show()
+        })
     })
     $("#cancel-show-nodey").click(() => {
         $('.show-nodey').hide()
@@ -38,9 +65,13 @@ $(() => {
     });
     $("#save-show-nostr").click(() => {
         var targetInputVal = $('input[name="show-nostr"]').val()
-        $('#show-nostr-text').text(targetInputVal)
-        $('.show-nostr').hide()
-        $('#show-nostr-text').show()
+        postConfig({ relay_url: targetInputVal }).then(ok => {
+            if (ok) {
+                $('#show-nostr-text').text(targetInputVal)
+            }
+            $('.show-nostr').hide()
+            $('#show-nostr-text').show()
+        })
     })
     $("#cancel-show-nostr").click(() => {
         $('.show-nostr').hide()

@@ -19,7 +19,7 @@
 <body>
   <header>
     <img src="img/pub_logo.png" width="38px" height="auto" alt="Lightning Pub logo" />
-    <img src="img/LightningPub.png" height="33px" alt="Lightning Pub logo" />
+    <img src="img/LightningPub.png" height="26px" alt="Lightning Pub logo" />
   </header>
 
   <main>
@@ -157,20 +157,24 @@
       }
       const j = await res.json()
       console.log(j)
-      if (j.status !== 'OK') {
-        document.getElementById('errorText').innerText = "failed to get state info" + j.reason
-        return
-      }
-      document.getElementById("show-nodey-text").innerHTML = j.provider_name
-      document.getElementById("show-nostr-text").innerHTML = j.relays[0]
-      document.getElementById("adminNpub").innerText = j.admin_npub
-      document.getElementById("relayStatus").innerHTML = `<span class="${j.relay_connected ? 'green-dot' : 'red-dot'}">&#9679;</span> ${j.relay_connected ? 'Connected' : 'Disconnected'}`
-      document.getElementById("lndStatus").innerHTML = `<span class="${j.lnd_state === 'ONLINE' ? 'green-dot' : 'red-dot'}">&#9679;</span> ${j.lnd_state}`
+      // Map fields from service state
+      const name = j.source_name || j.provider_name || 'Unknown'
+      const relayUrl = j.relay_url || (j.relays && j.relays[0]) || ''
+      const admin = j.admin_npub || ''
+      const lndStateNum = typeof j.lnd_state === 'number' ? j.lnd_state : 0
+      const lndText = lndStateNum === 2 ? 'ONLINE' : (lndStateNum === 1 ? 'SYNCING' : 'OFFLINE')
+      const lndDot = lndStateNum === 2 ? 'green-dot' : (lndStateNum === 1 ? 'yellow-dot' : 'red-dot')
+      const relayConnected = !!relayUrl
+      document.getElementById("show-nodey-text").innerHTML = name
+      document.getElementById("show-nostr-text").innerHTML = relayUrl || '—'
+      document.getElementById("adminNpub").innerText = admin
+      document.getElementById("relayStatus").innerHTML = `<span class="${relayConnected ? 'green-dot' : 'red-dot'}">&#9679;</span> ${relayConnected ? 'Connected' : 'Disconnected'}`
+      document.getElementById("lndStatus").innerHTML = `<span class="${lndDot}">&#9679;</span> ${lndText}`
       document.getElementById("watchdog-status").innerHTML = `<span class="${j.watchdog_ok ? 'green-dot' : 'red-dot'}">&#9679;</span> ${j.watchdog_ok ? 'No Alerts' : 'ALERT!!'}`
       document.getElementById("inviteLinkHttp").href = `https://my.shockwallet.app/#/sources?addSource=${j.nprofile}`
       document.getElementById("inviteLinkHttp").innerHTML = `https://my.shockwallet.app/#/sources?addSource=${j.nprofile}`
-      document.querySelector('input[name="show-nodey"]').placeholder = j.provider_name;
-      document.title = j.provider_name;
+      document.querySelector('input[name="show-nodey"]').placeholder = name;
+      document.title = name;
     }
     try {
       fetchInfo()
