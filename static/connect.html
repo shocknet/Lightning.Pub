@@ -19,7 +19,7 @@
 <body>
   <header>
     <img src="img/pub_logo.png" width="38px" height="auto" alt="Lightning Pub logo" />
-    <img src="img/LightningPub.png" height="33px" alt="Lightning Pub logo" />
+    <img src="img/LightningPub.png" height="26px" alt="Lightning Pub logo" />
   </header>
 
   <main>
@@ -48,7 +48,7 @@
             <div style="text-align: center; color: #c434e0;" id="click-text">Click to reveal</div>
           </div>
           <div id="qrcode"></div>
-          <div style="color: #a3a3a3; font-size: 11px;">
+          <div style="color: #a3a3a3; font-size: 11px; word-break: break-all; overflow-wrap: anywhere; max-width: 220px; margin: 0 auto;">
             <div id="connectString"></div>
           </div>
         </div>
@@ -104,13 +104,20 @@
           height: 157,
           // correctLevel : QRCode.CorrectLevel.H
         });
-        document.getElementById('connectString').innerHTML = connectString
+        document.getElementById('connectString').innerText = connectString
       }
     }
     try {
 
       fetchInfo()
     } catch (e) { console.log({ e }) }
+    // Continue to status
+    const btn = document.createElement('button')
+    btn.className = 'push-button'
+    btn.style.marginTop = '20px'
+    btn.innerText = 'Continue'
+    btn.onclick = () => { location.href = 'status.html' }
+    document.querySelector('.setup-content').appendChild(btn)
   </script>
 </body>
 

@@ -10,6 +10,8 @@
   <link rel="stylesheet" href="css/styles.css" />
   <link rel="stylesheet" href="css/liquidity.css" />
   <link rel="stylesheet" href="css/backup.css" />
+  <link rel="stylesheet" href="css/connect.css" />
+  <link rel="stylesheet" href="css/status.css" />
   <!-- HTML Meta Tags -->
   <title>Lightning.Pub</title>
   <meta name="description" content="Lightning for Everyone" />
@@ -171,6 +173,156 @@
         </button>
       </div>
     </section>
+
+    <section id="page-connect" style="display: none;">
+      <div class="setup-header">
+        <button class="icon-button back-button" id="back-to-backup">
+          <img src="img/back.svg" alt="" />
+        </button>
+        <h2>Connect</h2>
+        <p class="header-title">You can now manage your node remotely</p>
+      </div>
+      <div class="line"></div>
+      <div class="setup-content">
+        <div style="font-size: 13px; margin-top: 5px;">Scan the QR or Copy-Paste the string to establish the connection.</div>
+        <div style="display: flex; justify-content: center;">
+          <div class="qrcode-box" id="codebox">
+            <div style="font-size: 11px;">
+              <div style="text-align: center; color: #a3a3a3;">Code contains a one-time pairing secret</div>
+              <div style="text-align: center; color: #c434e0;" id="click-text">Click to reveal</div>
+            </div>
+            <div id="qrcode"></div>
+            <div style="color: #a3a3a3; font-size: 11px; word-break: break-all; overflow-wrap: anywhere; max-width: 220px; margin: 0 auto;">
+              <div id="connectString"></div>
+            </div>
+          </div>
+        </div>
+        <button class="push-button" style="margin-top: 20px" id="to-status">Continue</button>
+      </div>
+    </section>
+
+    <section id="page-status" style="display: none;">
+      <div class="setup-header">
+        <button class="icon-button back-button" id="back-to-connect">
+          <img src="img/back.svg" alt="" />
+        </button>
+        <h2>Node Status</h2>
+        <p class="header-title"></p>
+      </div>
+      <div class="line" style="width: 100%;"></div>
+      <section class="node-status">
+        <p id="errorText" style="color:red"></p>
+        <div>
+          <div class="status-element" style="margin-top: 15px;">
+            <div style="text-align: left;">Public Node Name:</div>
+            <div class="fc-grey editable-content">
+              <div class="show-nodey" style="display: flex; flex-direction: column; display: none;">
+                <input type="text" value="" name="show-nodey" placeholder="" />
+                <div style="display: flex;justify-content: end;">
+                  <button class="small-btn" id="cancel-show-nodey">Cancel</button>
+                  <button class="small-btn" id="save-show-nodey">Save</button>
+                </div>
+              </div>
+              <div id="show-nodey-text">Nodey McNodeFace</div>
+              <div class="question-box">
+                <button class="icon-button" id="show-nodey">
+                  <img src="img/pencil.svg" style="cursor: pointer;" />
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="status-element" style="margin-top: 15px;">
+            <div style="text-align: left;">Nostr Relay:</div>
+            <div class="fc-grey editable-content">
+              <div class="show-nostr" style="display: flex; flex-direction: column; display: none;">
+                <input type="text" value="" name="show-nostr" placeholder="wss://relay.lightning.pub" />
+                <div style="display: flex;justify-content: end;">
+                  <button class="small-btn" id="cancel-show-nostr">Cancel</button>
+                  <button class="small-btn" id="save-show-nostr">Save</button>
+                </div>
+              </div>
+              <div id="show-nostr-text">wss://relay.lightning.pub</div>
+              <div class="question-box">
+                <button class="icon-button" id="show-nostr">
+                  <img src="img/pencil.svg" style="cursor: pointer;" />
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="status-element" style="margin-top: 15px;">
+            <div>Administrator:</div>
+            <div id="adminNpub" style="line-break: anywhere;">Loading...</div>
+          </div>
+          <div class="status-element" style="margin-top: 15px;">
+            <div style="text-align: left;">Avatar:</div>
+            <div class="fc-grey editable-content">
+              <div class="show-avatar" style="display: flex; flex-direction: column; display: none;">
+                <input type="text" value="" name="show-avatar" placeholder="" />
+                <div style="display: flex;justify-content: end;">
+                  <button class="small-btn" id="cancel-show-avatar">Cancel</button>
+                  <button class="small-btn" id="save-show-avatar">Save</button>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;">
+                <img id="avatarImg" src="" alt="avatar" style="width:48px;height:48px;border-radius:6px;object-fit:cover;box-shadow:0 0 2px rgba(0,0,0,1);" />
+                <div class="question-box">
+                  <button class="icon-button" id="show-avatar">
+                    <img src="img/pencil.svg" style="cursor: pointer;" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="display: flex; justify-content: end;padding-right: 12px;">
+          <div class="marked" id="show-reset" style="text-decoration: underline; margin-top: 5px;position: relative; display: none;">
+            Reset
+            <div class="watchdog-status">
+              <a href="https://docs.shock.network/pub/watchdog" target="_blank">
+                <button class="icon-button" id="show-question">
+                  <img src="img/question.svg" />
+                </button>
+              </a>
+            </div>
+          </div>
+        </div>
+        <div id="reset-box">
+          <div style="width: 100%;height: 100%;position: relative;">
+            <button class="icon-button close-button" id="close-reset-box">
+              <img src="img/close.svg" alt="">
+            </button>
+            <div class="reset-box-content" id="reset-content"></div>
+            <div class="continue-button-container">
+              <div class="continue-button" id="">Continue</div>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top: 40px;">
+          <div class="status-element">
+            <div>Relay Status:</div>
+            <div id="relayStatus"><span class="yellow-dot">&#9679;</span> Loading...</div>
+          </div>
+          <div class="status-element">
+            <div>Lightning Status:</div>
+            <div id="lndStatus"><span class="yellow-dot">&#9679;</span> Loading...</div>
+          </div>
+          <div class="status-element">
+            <div style="position: relative;">Watchdog Status:
+              <div class="watchdog-status">
+                <a href="https://docs.shock.network/pub/watchdog" target="_blank">
+                  <button class="icon-button" id="show-question"><img src="img/question.svg" /></button>
+                </a>
+              </div>
+            </div>
+            <div id="watchdog-status"><span class="green-dot">&#9679;</span> Loading...</div>
+          </div>
+        </div>
+        <div style="margin-top: 20px;">
+          <div style="font-size: 13px; text-align: left;">Guest Invitation Link:</div>
+          <a href="#" target="_blank" style="font-size: 11px;line-break: anywhere;" id="inviteLinkHttp" class="invite-link"></a>
+        </div>
+      </section>
+    </section>
   </main>
 
   <footer>
@@ -186,6 +338,8 @@
     <a href="https://docs.shock.network" class="marked need-help">Need Help?</a>
   </footer>
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
+  <script src="js/status.js"></script>
   <script src="js/wizard.js"></script>
 </body>
 

@@ -20,6 +20,7 @@ $(() => {
     // Buttons
     const toLiquidityBtn = $("#liquidityBtn");
     const toBackupBtn = $("#backupBtn");
+    const toStatusBtn = $("#to-status");
     const finishBtn = $("#next-button");
     const backToNodeBtn = $("#back-to-node");
     const backToLiquidityBtn = $("#back-to-liquidity");
@@ -95,11 +96,34 @@ $(() => {
                 const j = await res.json();
                 throw new Error(j.reason || "Failed to start service");
             }
-            location.href = 'connect.html';
+            // Move to in-page connect step
+            showPage(pages.connect || $('#page-connect'));
+            // fetch and render connect info (re-using logic from connect.html)
+            (async () => {
+                const res = await fetch('/wizard/admin_connect_info');
+                if (res.status !== 200) return;
+                const j = await res.json();
+                if (j.connect_info && j.connect_info.enrolled_npub) {
+                    showPage(pages.status || $('#page-status'))
+                    return
+                }
+                const connectString = j.nprofile + ':' + j.connect_info.admin_token
+                const qrElement = document.getElementById('qrcode')
+                if (qrElement && !qrElement.firstChild) {
+                    new QRCode(qrElement, { text: connectString, colorDark: '#000000', colorLight: '#ffffff', width: 157, height: 157 });
+                }
+                const cs = document.getElementById('connectString');
+                if (cs) cs.innerText = connectString
+            })();
         } catch (err) {
             errorTextBackup.text(err.message);
         }
     });
+
+    // Navigate from connect to status
+    toStatusBtn && toStatusBtn.click(() => {
+        showPage(pages.status || $('#page-status'))
+    })
 
     const syncRelayState = () => {
         relayUrlInput.prop('disabled', customCheckbox.prop('checked'));
