@@ -164,18 +164,20 @@ export class Wizard {
         if (err != null) { throw new Error(err.message) }
         const pendingConfig = { sourceName: req.source_name, relayUrl: req.relay_url, automateLiquidity: req.automate_liquidity, pushBackupsToNostr: req.push_backups_to_nostr }
 
-        // If already initialized, treat as idempotent update: persist name/avatar and env settings, do not block.
-        if (this.IsInitialized()) {
-            try {
-                const appsList = await this.storage.applicationStorage.GetApplications()
-                const defaultNames = ['wallet', 'wallet-test', this.settings.defaultAppName]
-                const existingDefaultApp = appsList.find(app => defaultNames.includes(app.name)) || appsList[0]
-                if (existingDefaultApp) {
-                    await this.storage.applicationStorage.UpdateApplication(existingDefaultApp, { name: req.source_name, avatar_url: (req as any).avatar_url || existingDefaultApp.avatar_url })
-                }
-            } catch (e) {
-                this.log(`Error updating app info: ${(e as Error).message}`)
+        // Persist app name/avatar to DB regardless (idempotent behavior)
+        try {
+            const appsList = await this.storage.applicationStorage.GetApplications()
+            const defaultNames = ['wallet', 'wallet-test', this.settings.defaultAppName]
+            const existingDefaultApp = appsList.find(app => defaultNames.includes(app.name)) || appsList[0]
+            if (existingDefaultApp) {
+                await this.storage.applicationStorage.UpdateApplication(existingDefaultApp, { name: req.source_name, avatar_url: (req as any).avatar_url || existingDefaultApp.avatar_url })
             }
+        } catch (e) {
+            this.log(`Error updating app info: ${(e as Error).message}`)
+        }
+
+        // If already initialized, treat as idempotent update for env and exit
+        if (this.IsInitialized()) {
             this.updateEnvFile(pendingConfig)
             return
         }
