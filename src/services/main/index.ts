@@ -99,7 +99,7 @@ export default class {
 
     StartBeacons() {
         this.applicationManager.StartAppsServiceBeacon(app => {
-            this.UpdateBeacon(app, { type: 'service', name: app.name })
+            this.UpdateBeacon(app, { type: 'service', name: app.name, avatarUrl: (app as any).avatar_url })
         })
     }
 
@@ -386,7 +386,7 @@ export default class {
         })
     }
 
-    async UpdateBeacon(app: Application, content: { type: 'service', name: string }) {
+    async UpdateBeacon(app: Application, content: { type: 'service', name: string, avatarUrl?: string }) {
         if (!app.nostr_public_key) {
             getLogger({ appName: app.name })("cannot update beacon, public key not set")
             return

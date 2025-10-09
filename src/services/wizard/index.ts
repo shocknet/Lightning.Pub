@@ -45,6 +45,7 @@ export class Wizard {
             const appNamesList = apps.map(app => app.name).join(', ')
             const relays = this.settings.nostrRelaySettings ? this.settings.nostrRelaySettings.relays : [];
             const relayUrl = (relays && relays.length > 0) ? relays[0] : '';
+            const defaultApp = apps.find(a => a.name === this.settings.defaultAppName) || apps[0]
             return {
                 admin_npub: this.adminManager.GetAdminNpub(),
                 http_url: this.settings.serviceUrl,
@@ -58,6 +59,8 @@ export class Wizard {
                 relay_url: relayUrl,
                 automate_liquidity: this.settings.liquiditySettings.liquidityProviderPub !== 'null',
                 push_backups_to_nostr: this.settings.pushBackupsToNostr,
+                avatar_url: (defaultApp as any)?.avatar_url || '',
+                app_id: defaultApp?.app_id || ''
             }
         } catch (e) {
             this.log(`Error in GetServiceState: ${(e as Error).message}`)
@@ -75,6 +78,8 @@ export class Wizard {
                 relay_url: '',
                 automate_liquidity: false,
                 push_backups_to_nostr: false,
+                avatar_url: '',
+                app_id: ''
             }
         }
     }
@@ -154,7 +159,7 @@ export class Wizard {
             const defaultNames = ['wallet', 'wallet-test', this.settings.defaultAppName]
             const existingDefaultApp = appsList.find(app => defaultNames.includes(app.name))
             if (existingDefaultApp) {
-                await this.storage.applicationStorage.UpdateApplication(existingDefaultApp, { name: req.source_name })
+                await this.storage.applicationStorage.UpdateApplication(existingDefaultApp, { name: req.source_name, avatar_url: (req as any).avatar_url || existingDefaultApp.avatar_url })
             }
         } catch (e) {
             this.log(`Error updating app name: ${(e as Error).message}`)

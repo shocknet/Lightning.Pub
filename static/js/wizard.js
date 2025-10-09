@@ -9,6 +9,7 @@ $(() => {
     // Inputs
     const nodeNameInput = $("#nodeName");
     const relayUrlInput = $("#relayUrl");
+    const avatarUrlInput = $("#avatarUrl");
     const customCheckbox = $("#customCheckbox");
     const automateLiquidityRadio = $("#automate");
     const manualLiquidityRadio = $("#manual");
@@ -80,6 +81,7 @@ $(() => {
             relay_url: relayUrl,
             automate_liquidity: automateLiquidityRadio.prop('checked'),
             push_backups_to_nostr: backupNostrRadio.prop('checked'),
+            avatar_url: avatarUrlInput.val()
         };
 
         try {
@@ -127,6 +129,11 @@ $(() => {
                     customCheckbox.prop('checked', true);
                 } else {
                     relayUrlInput.val(state.relay_url);
+                }
+                const robo = state.app_id ? `https://robohash.org/${encodeURIComponent(state.app_id)}.png?size=256x256&set=set3` : ''
+                avatarUrlInput.attr('placeholder', robo || 'https://example.com/avatar.png')
+                if (state.avatar_url) {
+                    avatarUrlInput.val(state.avatar_url);
                 }
                 syncRelayState();
 

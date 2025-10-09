@@ -63,6 +63,7 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### ConfigRequest
   - __automate_liquidity__: _boolean_
+  - __avatar_url__: _string_
   - __push_backups_to_nostr__: _boolean_
   - __relay_url__: _string_
   - __source_name__: _string_
@@ -71,7 +72,9 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### ServiceStateResponse
   - __admin_npub__: _string_
+  - __app_id__: _string_
   - __automate_liquidity__: _boolean_
+  - __avatar_url__: _string_
   - __http_url__: _string_
   - __lnd_state__: _[LndState](#LndState)_
   - __nprofile__: _string_

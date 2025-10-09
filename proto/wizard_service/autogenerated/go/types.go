@@ -22,6 +22,7 @@ type AdminConnectInfoResponse struct {
 }
 type ConfigRequest struct {
 	Automate_liquidity    bool   `json:"automate_liquidity"`
+	Avatar_url            string `json:"avatar_url"`
 	Push_backups_to_nostr bool   `json:"push_backups_to_nostr"`
 	Relay_url             string `json:"relay_url"`
 	Source_name           string `json:"source_name"`
@@ -30,7 +31,9 @@ type Empty struct {
 }
 type ServiceStateResponse struct {
 	Admin_npub            string   `json:"admin_npub"`
+	App_id                string   `json:"app_id"`
 	Automate_liquidity    bool     `json:"automate_liquidity"`
+	Avatar_url            string   `json:"avatar_url"`
 	Http_url              string   `json:"http_url"`
 	Lnd_state             LndState `json:"lnd_state"`
 	Nprofile              string   `json:"nprofile"`

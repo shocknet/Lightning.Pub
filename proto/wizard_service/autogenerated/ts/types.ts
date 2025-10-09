@@ -69,6 +69,7 @@ export const AdminConnectInfoResponseValidate = (o?: AdminConnectInfoResponse, o
 
 export type ConfigRequest = {
     automate_liquidity: boolean
+    avatar_url: string
     push_backups_to_nostr: boolean
     relay_url: string
     source_name: string
@@ -77,6 +78,7 @@ export const ConfigRequestOptionalFields: [] = []
 export type ConfigRequestOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
     automate_liquidity_CustomCheck?: (v: boolean) => boolean
+    avatar_url_CustomCheck?: (v: string) => boolean
     push_backups_to_nostr_CustomCheck?: (v: boolean) => boolean
     relay_url_CustomCheck?: (v: string) => boolean
     source_name_CustomCheck?: (v: string) => boolean
@@ -87,6 +89,9 @@ export const ConfigRequestValidate = (o?: ConfigRequest, opts: ConfigRequestOpti
 
     if (typeof o.automate_liquidity !== 'boolean') return new Error(`${path}.automate_liquidity: is not a boolean`)
     if (opts.automate_liquidity_CustomCheck && !opts.automate_liquidity_CustomCheck(o.automate_liquidity)) return new Error(`${path}.automate_liquidity: custom check failed`)
+
+    if (typeof o.avatar_url !== 'string') return new Error(`${path}.avatar_url: is not a string`)
+    if (opts.avatar_url_CustomCheck && !opts.avatar_url_CustomCheck(o.avatar_url)) return new Error(`${path}.avatar_url: custom check failed`)
 
     if (typeof o.push_backups_to_nostr !== 'boolean') return new Error(`${path}.push_backups_to_nostr: is not a boolean`)
     if (opts.push_backups_to_nostr_CustomCheck && !opts.push_backups_to_nostr_CustomCheck(o.push_backups_to_nostr)) return new Error(`${path}.push_backups_to_nostr: custom check failed`)
@@ -115,7 +120,9 @@ export const EmptyValidate = (o?: Empty, opts: EmptyOptions = {}, path: string =
 
 export type ServiceStateResponse = {
     admin_npub: string
+    app_id: string
     automate_liquidity: boolean
+    avatar_url: string
     http_url: string
     lnd_state: LndState
     nprofile: string
@@ -131,7 +138,9 @@ export const ServiceStateResponseOptionalFields: [] = []
 export type ServiceStateResponseOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
     admin_npub_CustomCheck?: (v: string) => boolean
+    app_id_CustomCheck?: (v: string) => boolean
     automate_liquidity_CustomCheck?: (v: boolean) => boolean
+    avatar_url_CustomCheck?: (v: string) => boolean
     http_url_CustomCheck?: (v: string) => boolean
     lnd_state_CustomCheck?: (v: LndState) => boolean
     nprofile_CustomCheck?: (v: string) => boolean
@@ -150,8 +159,14 @@ export const ServiceStateResponseValidate = (o?: ServiceStateResponse, opts: Ser
     if (typeof o.admin_npub !== 'string') return new Error(`${path}.admin_npub: is not a string`)
     if (opts.admin_npub_CustomCheck && !opts.admin_npub_CustomCheck(o.admin_npub)) return new Error(`${path}.admin_npub: custom check failed`)
 
+    if (typeof o.app_id !== 'string') return new Error(`${path}.app_id: is not a string`)
+    if (opts.app_id_CustomCheck && !opts.app_id_CustomCheck(o.app_id)) return new Error(`${path}.app_id: custom check failed`)
+
     if (typeof o.automate_liquidity !== 'boolean') return new Error(`${path}.automate_liquidity: is not a boolean`)
     if (opts.automate_liquidity_CustomCheck && !opts.automate_liquidity_CustomCheck(o.automate_liquidity)) return new Error(`${path}.automate_liquidity: custom check failed`)
+
+    if (typeof o.avatar_url !== 'string') return new Error(`${path}.avatar_url: is not a string`)
+    if (opts.avatar_url_CustomCheck && !opts.avatar_url_CustomCheck(o.avatar_url)) return new Error(`${path}.avatar_url: custom check failed`)
 
     if (typeof o.http_url !== 'string') return new Error(`${path}.http_url: is not a string`)
     if (opts.http_url_CustomCheck && !opts.http_url_CustomCheck(o.http_url)) return new Error(`${path}.http_url: custom check failed`)
