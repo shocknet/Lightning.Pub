@@ -81,7 +81,6 @@
             </div>
             <div style="display:flex;align-items:center;gap:12px;">
               <img id="avatarImg" src="" alt="avatar" style="width:48px;height:48px;border-radius:6px;object-fit:cover;box-shadow:0 0 2px rgba(0,0,0,1);" />
-              <div id="show-avatar-text" style="word-break:break-all;">—</div>
               <div class="question-box">
                 <button class="icon-button" id="show-avatar">
                   <img src="img/pencil.svg" style="cursor: pointer;" />
@@ -182,14 +181,16 @@
       const name = j.source_name || j.provider_name || 'Unknown'
       const relayUrl = j.relay_url || (j.relays && j.relays[0]) || ''
       const admin = j.admin_npub || ''
-      const lndStateNum = typeof j.lnd_state === 'number' ? j.lnd_state : 0
-      const lndText = lndStateNum === 2 ? 'ONLINE' : (lndStateNum === 1 ? 'SYNCING' : 'OFFLINE')
-      const lndDot = lndStateNum === 2 ? 'green-dot' : (lndStateNum === 1 ? 'yellow-dot' : 'red-dot')
-      const relayConnected = !!relayUrl
+      // lnd_state may arrive as enum number or string; normalize to text
+      const lndText = (typeof j.lnd_state === 'string')
+        ? j.lnd_state
+        : (j.lnd_state === 2 ? 'ONLINE' : (j.lnd_state === 1 ? 'SYNCING' : 'OFFLINE'))
+      const lndDot = (lndText === 'ONLINE') ? 'green-dot' : (lndText === 'SYNCING' ? 'yellow-dot' : 'red-dot')
+      // use actual relay_connected flag from backend
+      const relayConnected = !!j.relay_connected
       const avatar = j.avatar_url || (j.app_id ? `https://robohash.org/${encodeURIComponent(j.app_id)}.png?size=128x128&set=set3` : '')
       document.getElementById("show-nodey-text").innerHTML = name
       document.getElementById("show-nostr-text").innerHTML = relayUrl || '—'
-      document.getElementById("show-avatar-text").innerHTML = avatar || '—'
       if (avatar) { document.getElementById("avatarImg").src = avatar }
       document.getElementById("adminNpub").innerText = admin
       document.getElementById("relayStatus").innerHTML = `<span class="${relayConnected ? 'green-dot' : 'red-dot'}">&#9679;</span> ${relayConnected ? 'Connected' : 'Disconnected'}`

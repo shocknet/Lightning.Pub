@@ -71,7 +71,7 @@ export class Wizard {
                 relay_url: relayUrl,
                 automate_liquidity: this.settings.liquiditySettings.liquidityProviderPub !== 'null',
                 push_backups_to_nostr: this.settings.pushBackupsToNostr,
-                avatar_url: (defaultApp as any)?.avatar_url || '',
+                avatar_url: defaultApp?.avatar_url || '',
                 app_id: defaultApp?.app_id || ''
             }
         } catch (e) {
@@ -171,7 +171,7 @@ export class Wizard {
                 const defaultNames = ['wallet', 'wallet-test', this.settings.defaultAppName]
                 const existingDefaultApp = appsList.find(app => defaultNames.includes(app.name)) || appsList[0]
                 if (existingDefaultApp) {
-                    await this.storage.applicationStorage.UpdateApplication(existingDefaultApp, { name: req.source_name, avatar_url: (req as any).avatar_url || (existingDefaultApp as any).avatar_url })
+                    await this.storage.applicationStorage.UpdateApplication(existingDefaultApp, { name: req.source_name, avatar_url: (req as any).avatar_url || existingDefaultApp.avatar_url })
                 }
             } catch (e) {
                 this.log(`Error updating app info: ${(e as Error).message}`)
