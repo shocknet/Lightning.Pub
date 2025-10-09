@@ -34,6 +34,11 @@ $(() => {
         $("#reset-box").show();
         $('.continue-button').attr('id', 'set-show-nostr');
     });
+    $("#show-avatar").click(() => {
+        $('.show-avatar').show()
+        $('#show-avatar-text').hide()
+        $('input[name="show-avatar"]').focus();
+    });
     $("#show-nodey").click(() => {
         $('.show-nodey').show()
         $('#show-nodey-text').hide()
@@ -72,6 +77,21 @@ $(() => {
             $('.show-nostr').hide()
             $('#show-nostr-text').show()
         })
+    })
+    $("#save-show-avatar").click(() => {
+        var targetInputVal = $('input[name="show-avatar"]').val()
+        postConfig({ avatar_url: targetInputVal }).then(ok => {
+            if (ok) {
+                $('#show-avatar-text').text(targetInputVal || '—')
+                if (targetInputVal) { $('#avatarImg').attr('src', targetInputVal) }
+            }
+            $('.show-avatar').hide()
+            $('#show-avatar-text').show()
+        })
+    })
+    $("#cancel-show-avatar").click(() => {
+        $('.show-avatar').hide()
+        $('#show-avatar-text').show()
     })
     $("#cancel-show-nostr").click(() => {
         $('.show-nostr').hide()

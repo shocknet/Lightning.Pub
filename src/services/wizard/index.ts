@@ -46,15 +46,27 @@ export class Wizard {
             const relays = this.settings.nostrRelaySettings ? this.settings.nostrRelaySettings.relays : [];
             const relayUrl = (relays && relays.length > 0) ? relays[0] : '';
             const defaultApp = apps.find(a => a.name === this.settings.defaultAppName) || apps[0]
+            // Determine LND state and watchdog
+            let lndState: WizardTypes.LndState = WizardTypes.LndState.OFFLINE
+            let watchdogOk = false
+            try {
+                const info = await this.adminManager.LndGetInfo()
+                const online = info.synced_to_chain && info.synced_to_graph
+                lndState = online ? WizardTypes.LndState.ONLINE : WizardTypes.LndState.SYNCING
+                watchdogOk = !info.watchdog_barking
+            } catch {
+                lndState = WizardTypes.LndState.OFFLINE
+                watchdogOk = false
+            }
             return {
                 admin_npub: this.adminManager.GetAdminNpub(),
                 http_url: this.settings.serviceUrl,
-                lnd_state: WizardTypes.LndState.OFFLINE,
+                lnd_state: lndState,
                 nprofile: this.nprofile,
                 provider_name: appNamesList,
-                relay_connected: false,
+                relay_connected: this.adminManager.GetNostrConnected(),
                 relays: this.relays,
-                watchdog_ok: false,
+                watchdog_ok: watchdogOk,
                 source_name: this.settings.defaultAppName || appNamesList,
                 relay_url: relayUrl,
                 automate_liquidity: this.settings.liquiditySettings.liquidityProviderPub !== 'null',
@@ -83,6 +95,8 @@ export class Wizard {
             }
         }
     }
+
+    
     WizardState = async (): Promise<WizardTypes.StateResponse> => {
         return {
             config_sent: this.pendingConfig !== null,

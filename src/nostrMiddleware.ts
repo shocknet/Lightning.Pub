@@ -80,7 +80,10 @@ export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSett
         }, event.startAtNano, event.startAtMs)
     })
 
-    return { Stop: () => nostr.Stop, Send: (...args) => nostr.Send(...args), Ping: () => nostr.Ping() }
+    // Mark nostr connected/ready after initial subscription tick
+    mainHandler.adminManager.setNostrConnected(true)
+
+    return { Stop: () => { mainHandler.adminManager.setNostrConnected(false); return nostr.Stop }, Send: (...args) => nostr.Send(...args), Ping: () => nostr.Ping() }
 }
 
 
