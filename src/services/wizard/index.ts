@@ -43,6 +43,8 @@ export class Wizard {
         try {
             const apps = await this.storage.applicationStorage.GetApplications()
             const appNamesList = apps.map(app => app.name).join(', ')
+            const relays = this.settings.nostrRelaySettings ? this.settings.nostrRelaySettings.relays : [];
+            const relayUrl = (relays && relays.length > 0) ? relays[0] : '';
             return {
                 admin_npub: this.adminManager.GetAdminNpub(),
                 http_url: this.settings.serviceUrl,
@@ -53,7 +55,7 @@ export class Wizard {
                 relays: this.relays,
                 watchdog_ok: false,
                 source_name: appNamesList || this.settings.defaultAppName,
-                relay_url: this.settings.nostrRelaySettings.relays[0] || '',
+                relay_url: relayUrl,
                 automate_liquidity: this.settings.liquiditySettings.liquidityProviderPub !== 'null',
                 push_backups_to_nostr: this.settings.pushBackupsToNostr,
             }
