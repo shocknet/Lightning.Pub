@@ -121,7 +121,7 @@ $(() => {
             location.href = 'connect.html';
         } else {
             // Pre-populate from service state
-            fetch("/wizard/service-state").then(res => res.json()).then(state => {
+            fetch("/wizard/service_state").then(res => res.json()).then(state => {
                 nodeNameInput.val(state.source_name);
                 if (state.relay_url === 'wss://relay.lightning.pub') {
                     customCheckbox.prop('checked', true);
