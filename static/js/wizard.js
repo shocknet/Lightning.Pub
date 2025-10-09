@@ -10,6 +10,7 @@ $(() => {
     const nodeNameInput = $("#nodeName");
     const relayUrlInput = $("#relayUrl");
     const avatarUrlInput = $("#avatarUrl");
+    const avatarPreview = $("#avatarPreview");
     const customCheckbox = $("#customCheckbox");
     const automateLiquidityRadio = $("#automate");
     const manualLiquidityRadio = $("#manual");
@@ -130,10 +131,15 @@ $(() => {
                 } else {
                     relayUrlInput.val(state.relay_url);
                 }
-                const robo = state.app_id ? `https://robohash.org/${encodeURIComponent(state.app_id)}.png?size=256x256&set=set3` : ''
-                avatarUrlInput.attr('placeholder', robo || 'https://example.com/avatar.png')
+                const robo = state.app_id ? `https://robohash.org/${encodeURIComponent(state.app_id)}.png?size=128x128&set=set3` : ''
                 if (state.avatar_url) {
                     avatarUrlInput.val(state.avatar_url);
+                    avatarPreview.attr('src', state.avatar_url)
+                } else if (robo) {
+                    avatarPreview.attr('src', robo)
+                }
+                if (robo) {
+                    avatarUrlInput.attr('placeholder', robo)
                 }
                 syncRelayState();
 

@@ -38,23 +38,27 @@
           <input type="text" placeholder="Nodey McNodeFace" value="" style="width: 100%" id="nodeName" />
         </div>
 
-        <div class="input-group" style="margin-top: 38px">
-          <span>If you want to use a specific Nostr relay, enter it now:</span>
-          <input type="text" placeholder="wss://relay.lightning.pub" style="width: 100%" id="relayUrl" />
-        </div>
-
         <div class="input-group" style="margin-top: 20px">
-          <span>Avatar URL (shown in wallet):</span>
-          <input type="text" placeholder="https://example.com/avatar.png" style="width: 100%" id="avatarUrl" />
+          <span>Avatar (shown in wallet):</span>
+          <div style="display:flex; align-items:center; gap:12px; width:100%;">
+            <img id="avatarPreview" src="" alt="avatar" style="width:56px;height:56px;border-radius:6px;object-fit:cover;box-shadow:0 0 2px rgba(0,0,0,1);" />
+            <input type="text" placeholder="" style="flex:1" id="avatarUrl" />
+          </div>
         </div>
 
-        <div class="checkbox" style="margin-top: 12px">
-          <input type="checkbox" id="customCheckbox" />
-          <div class="checkbox-shape"></div>
-          <label for="customCheckbox">
-            Use the default managed relay service and auto-pay 1000 sats
-            per month to support developers
-          </label>
+        <div class="input-group" style="margin-top: 28px">
+          <span>If you want to use a specific Nostr relay, enter it now:</span>
+          <div style="display:flex; flex-direction: column; gap:10px; width:100%;">
+            <input type="text" placeholder="wss://relay.lightning.pub" style="width: 100%" id="relayUrl" />
+            <div class="checkbox" style="margin-top: 0">
+              <input type="checkbox" id="customCheckbox" />
+              <div class="checkbox-shape"></div>
+              <label for="customCheckbox">
+                Use the default managed relay service and auto-pay 1000 sats
+                per month to support developers
+              </label>
+            </div>
+          </div>
         </div>
 
         <div>
