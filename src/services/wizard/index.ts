@@ -54,7 +54,7 @@ export class Wizard {
                 relay_connected: false,
                 relays: this.relays,
                 watchdog_ok: false,
-                source_name: appNamesList || this.settings.defaultAppName,
+                source_name: this.settings.defaultAppName || appNamesList,
                 relay_url: relayUrl,
                 automate_liquidity: this.settings.liquiditySettings.liquidityProviderPub !== 'null',
                 push_backups_to_nostr: this.settings.pushBackupsToNostr,
@@ -147,6 +147,19 @@ export class Wizard {
             throw new Error("already initialized")
         }
         const pendingConfig = { sourceName: req.source_name, relayUrl: req.relay_url, automateLiquidity: req.automate_liquidity, pushBackupsToNostr: req.push_backups_to_nostr }
+        
+        // Also update the application name in the database
+        try {
+            const appsList = await this.storage.applicationStorage.GetApplications()
+            const defaultNames = ['wallet', 'wallet-test', this.settings.defaultAppName]
+            const existingDefaultApp = appsList.find(app => defaultNames.includes(app.name))
+            if (existingDefaultApp) {
+                await this.storage.applicationStorage.UpdateApplication(existingDefaultApp, { name: req.source_name })
+            }
+        } catch (e) {
+            this.log(`Error updating app name: ${(e as Error).message}`)
+        }
+
         this.updateEnvFile(pendingConfig)
         this.configQueue.forEach(q => q.res(true))
         this.configQueue = []
