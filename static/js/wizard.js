@@ -148,14 +148,13 @@ $(() => {
                 cs.text('');
                 if (qrElement) {
                     while (qrElement.firstChild) qrElement.removeChild(qrElement.firstChild);
+                    // Pre-generate QR behind veil to entice reveal
+                    new QRCode(qrElement, { text: connectString, colorDark: '#000000', colorLight: '#ffffff', width: 157, height: 157 });
                 }
 
-                // Reveal on click: generate QR and show string
+                // Reveal on click: show string and remove veil
                 codebox.off('click').on('click', () => {
                     if (!codebox.hasClass('revealed')) {
-                        if (qrElement && !qrElement.firstChild) {
-                            new QRCode(qrElement, { text: connectString, colorDark: '#000000', colorLight: '#ffffff', width: 157, height: 157 });
-                        }
                         cs.text(connectString);
                         codebox.addClass('revealed');
                         clickText.text('Pairing code');

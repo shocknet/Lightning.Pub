@@ -29,8 +29,36 @@
 /* prevent overlap: hide connect string until revealed; click surface on box */
 .qrcode-box #connectString { display: none; }
 .qrcode-box.revealed #connectString { display: block; }
-.qrcode-box #qrcode { pointer-events: none; }
 .qrcode-box { cursor: pointer; }
+
+/* QR viewport and veil overlay */
+.qrcode-viewport {
+    position: relative;
+    width: 100%;
+    height: 175px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+.qrcode-viewport #qrcode {
+    position: absolute;
+    width: 157px;
+    height: 157px;
+}
+.qrcode-viewport .qr-veil {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(7px);
+    -webkit-backdrop-filter: blur(7px);
+    background: rgba(0,0,0,0.25);
+    color: #c434e0;
+    font-size: 12px;
+}
+.qrcode-box.revealed .qr-veil { display: none; }
 
 .qrcode-box-clicked::before {
     content: "";
