@@ -34,6 +34,8 @@
     -ms-user-select: text !important;
     user-select: text !important;
     pointer-events: auto !important;
+    position: relative; /* Ensure z-index is respected */
+    z-index: 10; /* Bring to the front */
 }
 .qrcode-box { cursor: pointer; }
 .qrcode-box.revealed { cursor: default; }

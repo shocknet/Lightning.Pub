@@ -161,10 +161,24 @@ $(() => {
                         e.stopPropagation();
                         cs.text(connectString);
                         codebox.addClass('revealed');
-                        codebox.find('.qr-veil').hide();
+                        
+                        const veil = codebox.find('.qr-veil');
+                        veil.css({ // Force veil styles off
+                            'backdrop-filter': 'none',
+                            '-webkit-backdrop-filter': 'none',
+                        }).hide();
+                        
                         clickText.hide();
+                        
                         // Unbind to allow text selection and normal behavior after reveal
                         codebox.off('click');
+                        
+                        // Force text to be selectable on top
+                        cs.css({
+                            'user-select': 'text',
+                            '-webkit-user-select': 'text',
+                            'pointer-events': 'auto'
+                        });
                     }
                 });
             })();
@@ -195,6 +209,7 @@ $(() => {
     });
 
     // Initial state load (no redirects; SPA only)
+    console.log('Wizard script version: REVEAL_FIX_3 activated');
     fetch("/wizard/service_state").then(res => res.json()).then(state => {
         nodeNameInput.val(state.source_name);
         if (state.relay_url === 'wss://relay.lightning.pub') {
