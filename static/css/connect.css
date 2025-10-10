@@ -56,6 +56,9 @@
     width: 157px;
     height: 157px;
 }
+/* Remove global QR blur after reveal */
+.qrcode-box.revealed #qrcode { filter: none !important; }
+
 .qrcode-viewport .qr-veil {
     position: absolute;
     inset: 0;
