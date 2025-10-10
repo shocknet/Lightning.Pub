@@ -33,6 +33,7 @@
     -moz-user-select: text;
     -ms-user-select: text;
     user-select: text;
+    pointer-events: auto;
 }
 .qrcode-box { cursor: pointer; }
 .qrcode-box.revealed { cursor: default; }
@@ -66,6 +67,8 @@
     font-size: 12px;
 }
 .qrcode-box.revealed .qr-veil { display: none; }
+.qrcode-viewport.revealed .qr-veil { display: none; }
+.qrcode-box.revealed .qrcode-viewport { backdrop-filter: none; -webkit-backdrop-filter: none; pointer-events: none; }
 
 /* hide helper text when revealed to avoid overlap */
 .qrcode-box.revealed #click-text { display: none; }

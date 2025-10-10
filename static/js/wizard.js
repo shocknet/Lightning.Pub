@@ -156,13 +156,15 @@ $(() => {
 
                 // Reveal on click: show string below and remove veil/heading
                 codebox.off('click').on('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
                     if (!codebox.hasClass('revealed')) {
+                        e.preventDefault();
+                        e.stopPropagation();
                         cs.text(connectString);
                         codebox.addClass('revealed');
                         codebox.find('.qr-veil').hide();
                         clickText.hide();
+                        // Unbind to allow text selection and normal behavior after reveal
+                        codebox.off('click');
                     }
                 });
             })();
