@@ -95,7 +95,11 @@ install_lnd() {
     # Check for and add default settings only if the keys are missing.
     grep -q "^bitcoin.mainnet=" $USER_HOME/.lnd/lnd.conf || echo "bitcoin.mainnet=true" >> $USER_HOME/.lnd/lnd.conf
     grep -q "^bitcoin.node=" $USER_HOME/.lnd/lnd.conf || echo "bitcoin.node=neutrino" >> $USER_HOME/.lnd/lnd.conf
-    grep -q "^neutrino.addpeer=" $USER_HOME/.lnd/lnd.conf || echo "neutrino.addpeer=neutrino.shock.network" >> $USER_HOME/.lnd/lnd.conf
+    grep -q "^neutrino.addpeer=neutrino.shock.network" $USER_HOME/.lnd/lnd.conf || echo "neutrino.addpeer=neutrino.shock.network" >> $USER_HOME/.lnd/lnd.conf
+    grep -q "^neutrino.addpeer=asia.blixtwallet.com" $USER_HOME/.lnd/lnd.conf || echo "neutrino.addpeer=asia.blixtwallet.com" >> $USER_HOME/.lnd/lnd.conf
+    grep -q "^neutrino.addpeer=europe.blixtwallet.com" $USER_HOME/.lnd/lnd.conf || echo "neutrino.addpeer=europe.blixtwallet.com" >> $USER_HOME/.lnd/lnd.conf
+    grep -q "^neutrino.addpeer=btcd.lnolymp.us" $USER_HOME/.lnd/lnd.conf || echo "neutrino.addpeer=btcd.lnolymp.us" >> $USER_HOME/.lnd/lnd.conf
+    grep -q "^neutrino.addpeer=btcd-mainnet.lightning.computer" $USER_HOME/.lnd/lnd.conf || echo "neutrino.addpeer=btcd-mainnet.lightning.computer" >> $USER_HOME/.lnd/lnd.conf
     grep -q "^fee.url=" $USER_HOME/.lnd/lnd.conf || echo "fee.url=https://nodes.lightning.computer/fees/v1/btc-fee-estimates.json" >> $USER_HOME/.lnd/lnd.conf
     
     chmod 600 $USER_HOME/.lnd/lnd.conf
