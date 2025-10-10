@@ -29,11 +29,11 @@
 .qrcode-box #connectString { display: none; margin-top: 6px; }
 .qrcode-box.revealed #connectString { display: block; }
 .qrcode-box.revealed #connectString {
-    -webkit-user-select: text;
-    -moz-user-select: text;
-    -ms-user-select: text;
-    user-select: text;
-    pointer-events: auto;
+    -webkit-user-select: text !important;
+    -moz-user-select: text !important;
+    -ms-user-select: text !important;
+    user-select: text !important;
+    pointer-events: auto !important;
 }
 .qrcode-box { cursor: pointer; }
 .qrcode-box.revealed { cursor: default; }
@@ -65,10 +65,11 @@
     background: rgba(0,0,0,0.25);
     color: #c434e0;
     font-size: 12px;
+    pointer-events: none; /* allow clicks to pass through if needed */
 }
 .qrcode-box.revealed .qr-veil { display: none; }
 .qrcode-viewport.revealed .qr-veil { display: none; }
-.qrcode-box.revealed .qrcode-viewport { backdrop-filter: none; -webkit-backdrop-filter: none; pointer-events: none; }
+.qrcode-box.revealed .qrcode-viewport { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; pointer-events: none; }
 
 /* hide helper text when revealed to avoid overlap */
 .qrcode-box.revealed #click-text { display: none; }
