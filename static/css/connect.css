@@ -26,6 +26,12 @@
     transition: background-color 0.3s;
 }
 
+/* prevent overlap: hide connect string until revealed; click surface on box */
+.qrcode-box #connectString { display: none; }
+.qrcode-box.revealed #connectString { display: block; }
+.qrcode-box #qrcode { pointer-events: none; }
+.qrcode-box { cursor: pointer; }
+
 .qrcode-box-clicked::before {
     content: "";
     position: absolute;

@@ -3,7 +3,9 @@ $(() => {
     const pages = {
         node: $('#page-node'),
         liquidity: $('#page-liquidity'),
-        backup: $('#page-backup')
+        backup: $('#page-backup'),
+        connect: $('#page-connect'),
+        status: $('#page-status')
     };
 
     // Inputs
@@ -37,6 +39,33 @@ $(() => {
     const showPage = (pageToShow) => {
         Object.values(pages).forEach(page => page.hide());
         pageToShow.show();
+    };
+
+    const populateStatus = async () => {
+        try {
+            const res = await fetch('/wizard/service_state');
+            if (res.status !== 200) return;
+            const s = await res.json();
+            const name = s.source_name || s.provider_name || '';
+            const relay = s.relay_url || (s.relays && s.relays[0]) || '';
+            const admin = s.admin_npub || '';
+            const avatar = s.avatar_url || (s.app_id ? `https://robohash.org/${encodeURIComponent(s.app_id)}.png?size=128x128&set=set3` : '');
+
+            const lndState = s.lnd_state; // 0 OFFLINE, 1 SYNCING, 2 ONLINE (per enum)
+            const watchdogOk = !!s.watchdog_ok;
+            const relayConnected = !!s.relay_connected;
+
+            $('#show-nodey-text').text(name || '—');
+            $('#show-nostr-text').text(relay || '—');
+            $('#adminNpub').text(admin || '—');
+            if (avatar) { $('#avatarImg').attr('src', avatar); }
+
+            const mkDot = (ok) => ok ? '<span class="green-dot">&#9679;</span>' : '<span class="yellow-dot">&#9679;</span>';
+            const lndTxt = lndState === 2 ? 'Online' : (lndState === 1 ? 'Syncing' : 'Offline');
+            $('#lndStatus').html(`${mkDot(lndState === 2)} ${lndTxt}`);
+            $('#watchdog-status').html(`${mkDot(watchdogOk)} ${watchdogOk ? 'OK' : 'Alert'}`);
+            $('#relayStatus').html(`${mkDot(relayConnected)} ${relayConnected ? 'Connected' : 'Disconnected'}`);
+        } catch { /* noop */ }
     };
 
     // Navigation
@@ -97,23 +126,41 @@ $(() => {
                 throw new Error(j.reason || "Failed to start service");
             }
             // Move to in-page connect step
-            showPage(pages.connect || $('#page-connect'));
-            // fetch and render connect info (re-using logic from connect.html)
+            showPage(pages.connect);
+            // fetch and prepare connect info
             (async () => {
                 const res = await fetch('/wizard/admin_connect_info');
                 if (res.status !== 200) return;
                 const j = await res.json();
                 if (j.connect_info && j.connect_info.enrolled_npub) {
-                    showPage(pages.status || $('#page-status'))
-                    return
+                    showPage(pages.status);
+                    await populateStatus();
+                    return;
                 }
-                const connectString = j.nprofile + ':' + j.connect_info.admin_token
-                const qrElement = document.getElementById('qrcode')
-                if (qrElement && !qrElement.firstChild) {
-                    new QRCode(qrElement, { text: connectString, colorDark: '#000000', colorLight: '#ffffff', width: 157, height: 157 });
+                const connectString = j.nprofile + ':' + j.connect_info.admin_token;
+                const qrElement = document.getElementById('qrcode');
+                const codebox = $('#codebox');
+                const clickText = $('#click-text');
+                const cs = $('#connectString');
+
+                // Reset visual state
+                codebox.removeClass('revealed');
+                cs.text('');
+                if (qrElement) {
+                    while (qrElement.firstChild) qrElement.removeChild(qrElement.firstChild);
                 }
-                const cs = document.getElementById('connectString');
-                if (cs) cs.innerText = connectString
+
+                // Reveal on click: generate QR and show string
+                codebox.off('click').on('click', () => {
+                    if (!codebox.hasClass('revealed')) {
+                        if (qrElement && !qrElement.firstChild) {
+                            new QRCode(qrElement, { text: connectString, colorDark: '#000000', colorLight: '#ffffff', width: 157, height: 157 });
+                        }
+                        cs.text(connectString);
+                        codebox.addClass('revealed');
+                        clickText.text('Pairing code');
+                    }
+                });
             })();
         } catch (err) {
             errorTextBackup.text(err.message);
@@ -121,8 +168,9 @@ $(() => {
     });
 
     // Navigate from connect to status
-    toStatusBtn && toStatusBtn.click(() => {
-        showPage(pages.status || $('#page-status'))
+    toStatusBtn && toStatusBtn.click(async () => {
+        showPage(pages.status);
+        await populateStatus();
     })
 
     const syncRelayState = () => {
@@ -140,45 +188,36 @@ $(() => {
         }
     });
 
-    // Initial state load
-    fetch("/wizard/state").then(res => res.json()).then(data => {
-        if (data.admin_linked) {
-            location.href = 'status.html';
-        } else if (data.config_sent) {
-            location.href = 'connect.html';
+    // Initial state load (no redirects; SPA only)
+    fetch("/wizard/service_state").then(res => res.json()).then(state => {
+        nodeNameInput.val(state.source_name);
+        if (state.relay_url === 'wss://relay.lightning.pub') {
+            customCheckbox.prop('checked', true);
         } else {
-            // Pre-populate from service state
-            fetch("/wizard/service_state").then(res => res.json()).then(state => {
-                nodeNameInput.val(state.source_name);
-                if (state.relay_url === 'wss://relay.lightning.pub') {
-                    customCheckbox.prop('checked', true);
-                } else {
-                    relayUrlInput.val(state.relay_url);
-                }
-                const robo = state.app_id ? `https://robohash.org/${encodeURIComponent(state.app_id)}.png?size=128x128&set=set3` : ''
-                if (state.avatar_url) {
-                    avatarUrlInput.val(state.avatar_url);
-                    avatarPreview.attr('src', state.avatar_url)
-                } else if (robo) {
-                    avatarPreview.attr('src', robo)
-                }
-                if (robo) {
-                    avatarUrlInput.attr('placeholder', robo)
-                }
-                syncRelayState();
+            relayUrlInput.val(state.relay_url);
+        }
+        const robo = state.app_id ? `https://robohash.org/${encodeURIComponent(state.app_id)}.png?size=128x128&set=set3` : ''
+        if (state.avatar_url) {
+            avatarUrlInput.val(state.avatar_url);
+            avatarPreview.attr('src', state.avatar_url)
+        } else if (robo) {
+            avatarPreview.attr('src', robo)
+        }
+        if (robo) {
+            avatarUrlInput.attr('placeholder', robo)
+        }
+        syncRelayState();
 
-                if (state.automate_liquidity) {
-                    automateLiquidityRadio.prop('checked', true);
-                } else {
-                    manualLiquidityRadio.prop('checked', true);
-                }
+        if (state.automate_liquidity) {
+            automateLiquidityRadio.prop('checked', true);
+        } else {
+            manualLiquidityRadio.prop('checked', true);
+        }
 
-                if (state.push_backups_to_nostr) {
-                    backupNostrRadio.prop('checked', true);
-                } else {
-                    manualBackupRadio.prop('checked', true);
-                }
-            });
+        if (state.push_backups_to_nostr) {
+            backupNostrRadio.prop('checked', true);
+        } else {
+            manualBackupRadio.prop('checked', true);
         }
     });
 });
