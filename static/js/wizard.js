@@ -162,11 +162,8 @@ $(() => {
                         cs.text(connectString);
                         codebox.addClass('revealed');
                         
-                        const veil = codebox.find('.qr-veil');
-                        veil.css({ // Force veil styles off
-                            'backdrop-filter': 'none',
-                            '-webkit-backdrop-filter': 'none',
-                        }).hide();
+                        // Remove the veil from the DOM entirely to kill the blur
+                        codebox.find('.qr-veil').remove();
                         
                         clickText.hide();
                         
