@@ -152,12 +152,13 @@ $(() => {
                     new QRCode(qrElement, { text: connectString, colorDark: '#000000', colorLight: '#ffffff', width: 157, height: 157 });
                 }
 
-                // Reveal on click: show string and remove veil
-                codebox.off('click').on('click', () => {
+                // Reveal on click: show string below and remove veil/heading
+                codebox.off('click').on('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     if (!codebox.hasClass('revealed')) {
                         cs.text(connectString);
                         codebox.addClass('revealed');
-                        clickText.text('Pairing code');
                     }
                 });
             })();
