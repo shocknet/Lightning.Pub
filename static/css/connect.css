@@ -28,7 +28,14 @@
 /* prevent overlap: hide connect string until revealed; click surface on box */
 .qrcode-box #connectString { display: none; margin-top: 6px; }
 .qrcode-box.revealed #connectString { display: block; }
+.qrcode-box.revealed #connectString {
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+    user-select: text;
+}
 .qrcode-box { cursor: pointer; }
+.qrcode-box.revealed { cursor: default; }
 
 /* QR viewport and veil overlay */
 .qrcode-viewport {

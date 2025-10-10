@@ -146,6 +146,8 @@ $(() => {
                 // Reset visual state
                 codebox.removeClass('revealed');
                 cs.text('');
+                codebox.find('.qr-veil').show();
+                clickText.show();
                 if (qrElement) {
                     while (qrElement.firstChild) qrElement.removeChild(qrElement.firstChild);
                     // Pre-generate QR behind veil to entice reveal
@@ -159,6 +161,8 @@ $(() => {
                     if (!codebox.hasClass('revealed')) {
                         cs.text(connectString);
                         codebox.addClass('revealed');
+                        codebox.find('.qr-veil').hide();
+                        clickText.hide();
                     }
                 });
             })();
