@@ -40,19 +40,63 @@ export class Wizard {
     }
 
     GetServiceState = async (): Promise<WizardTypes.ServiceStateResponse> => {
-        const apps = await this.storage.applicationStorage.GetApplications()
-        const appNamesList = apps.map(app => app.name).join(', ')
-        return {
-            admin_npub: this.adminManager.GetAdminNpub(),
-            http_url: this.settings.serviceUrl,
-            lnd_state: WizardTypes.LndState.OFFLINE,
-            nprofile: this.nprofile,
-            provider_name: appNamesList,
-            relay_connected: false,
-            relays: this.relays,
-            watchdog_ok: false
+        try {
+            const apps = await this.storage.applicationStorage.GetApplications()
+            const appNamesList = apps.map(app => app.name).join(', ')
+            const relays = this.settings.nostrRelaySettings ? this.settings.nostrRelaySettings.relays : [];
+            const relayUrl = (relays && relays.length > 0) ? relays[0] : '';
+            const defaultApp = apps.find(a => a.name === this.settings.defaultAppName) || apps[0]
+            // Determine LND state and watchdog
+            let lndState: WizardTypes.LndState = WizardTypes.LndState.OFFLINE
+            let watchdogOk = false
+            try {
+                const info = await this.adminManager.LndGetInfo()
+                const online = info.synced_to_chain && info.synced_to_graph
+                lndState = online ? WizardTypes.LndState.ONLINE : WizardTypes.LndState.SYNCING
+                watchdogOk = !info.watchdog_barking
+            } catch {
+                lndState = WizardTypes.LndState.OFFLINE
+                watchdogOk = false
+            }
+            return {
+                admin_npub: this.adminManager.GetAdminNpub(),
+                http_url: this.settings.serviceUrl,
+                lnd_state: lndState,
+                nprofile: this.nprofile,
+                provider_name: defaultApp?.name || appNamesList,
+                relay_connected: this.adminManager.GetNostrConnected(),
+                relays: this.relays,
+                watchdog_ok: watchdogOk,
+                source_name: defaultApp?.name || this.settings.defaultAppName || appNamesList,
+                relay_url: relayUrl,
+                automate_liquidity: this.settings.liquiditySettings.liquidityProviderPub !== 'null',
+                push_backups_to_nostr: this.settings.pushBackupsToNostr,
+                avatar_url: defaultApp?.avatar_url || '',
+                app_id: defaultApp?.app_id || ''
+            }
+        } catch (e) {
+            this.log(`Error in GetServiceState: ${(e as Error).message}`)
+            // Return a default/error state that is still valid JSON to prevent client-side parse errors
+            return {
+                admin_npub: '',
+                http_url: '',
+                lnd_state: WizardTypes.LndState.OFFLINE,
+                nprofile: '',
+                provider_name: 'Error loading state',
+                relay_connected: false,
+                relays: [],
+                watchdog_ok: false,
+                source_name: 'Error',
+                relay_url: '',
+                automate_liquidity: false,
+                push_backups_to_nostr: false,
+                avatar_url: '',
+                app_id: ''
+            }
         }
     }
+
+    
     WizardState = async (): Promise<WizardTypes.StateResponse> => {
         return {
             config_sent: this.pendingConfig !== null,
@@ -118,10 +162,30 @@ export class Wizard {
             relay_url_CustomCheck: relay => relay !== '',
         })
         if (err != null) { throw new Error(err.message) }
-        if (this.IsInitialized() || this.pendingConfig !== null) {
-            throw new Error("already initialized")
-        }
         const pendingConfig = { sourceName: req.source_name, relayUrl: req.relay_url, automateLiquidity: req.automate_liquidity, pushBackupsToNostr: req.push_backups_to_nostr }
+
+        // Persist app name/avatar to DB regardless (idempotent behavior)
+        try {
+            const appsList = await this.storage.applicationStorage.GetApplications()
+            const defaultNames = ['wallet', 'wallet-test', this.settings.defaultAppName]
+            const existingDefaultApp = appsList.find(app => defaultNames.includes(app.name)) || appsList[0]
+            if (existingDefaultApp) {
+                await this.storage.applicationStorage.UpdateApplication(existingDefaultApp, { name: req.source_name, avatar_url: (req as any).avatar_url || existingDefaultApp.avatar_url })
+            }
+        } catch (e) {
+            this.log(`Error updating app info: ${(e as Error).message}`)
+        }
+
+        // If already initialized, treat as idempotent update for env and exit
+        if (this.IsInitialized()) {
+            this.updateEnvFile(pendingConfig)
+            return
+        }
+
+        // First-time configuration flow
+        if (this.pendingConfig !== null) {
+            throw new Error("already initializing")
+        }
         this.updateEnvFile(pendingConfig)
         this.configQueue.forEach(q => q.res(true))
         this.configQueue = []
@@ -153,10 +217,16 @@ export class Wizard {
         }
 
         const automateLiquidityIndex = envFileContent.findIndex(line => line.startsWith('LIQUIDITY_PROVIDER_PUB'))
-        if (automateLiquidityIndex === -1) {
-            toMerge.push(`LIQUIDITY_PROVIDER_PUB=${pendingConfig.automateLiquidity ? defaultProviderPub : ""}`)
+        if (pendingConfig.automateLiquidity) {
+            if (automateLiquidityIndex !== -1) {
+                envFileContent.splice(automateLiquidityIndex, 1)
+            }
         } else {
-            envFileContent[automateLiquidityIndex] = `LIQUIDITY_PROVIDER_PUB=null`
+            if (automateLiquidityIndex === -1) {
+                toMerge.push(`LIQUIDITY_PROVIDER_PUB=null`)
+            } else {
+                envFileContent[automateLiquidityIndex] = `LIQUIDITY_PROVIDER_PUB=null`
+            }
         }
 
         const pushBackupsToNostrIndex = envFileContent.findIndex(line => line.startsWith('PUSH_BACKUPS_TO_NOSTR'))

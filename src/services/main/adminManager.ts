@@ -22,6 +22,7 @@ export class AdminManager {
     interval: NodeJS.Timer
     appNprofile: string
     lnd: LND
+    nostrConnected: boolean = false
     constructor(mainSettings: MainSettings, storage: Storage) {
         this.storage = storage
         this.dataDir = mainSettings.storageSettings.dataDir
@@ -40,6 +41,14 @@ export class AdminManager {
 
     setLND = (lnd: LND) => {
         this.lnd = lnd
+    }
+
+    setNostrConnected = (connected: boolean) => {
+        this.nostrConnected = connected
+    }
+
+    GetNostrConnected = () => {
+        return this.nostrConnected
     }
 
     setAppNprofile = (nprofile: string) => {

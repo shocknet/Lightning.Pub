@@ -27,6 +27,9 @@ export class Application {
     @Column({ nullable: true, unique: true })
     nostr_public_key?: string
 
+    @Column({ nullable: true })
+    avatar_url?: string
+
     @CreateDateColumn()
     created_at: Date
 

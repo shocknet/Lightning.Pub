@@ -29,47 +29,6 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
     app.use(json())
     app.use(urlencoded({ extended: true }))
     if (opts.logMethod) app.use((req, _, next) => { console.log(req.method, req.path);  if (opts.logBody) console.log(req.body); next() })
-    if (!opts.allowNotImplementedMethods && !methods.WizardState) throw new Error('method: WizardState is not implemented')
-    app.get('/wizard/state', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'WizardState', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
-        let authCtx: Types.AuthContext = {}
-        try {
-            if (!methods.WizardState) throw new Error('method: WizardState is not implemented')
-            const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
-            authCtx = authContext
-            stats.guard = process.hrtime.bigint()
-            stats.validate = stats.guard
-            const query = req.query
-            const params = req.params
-            const response =  await methods.WizardState({rpcName:'WizardState', ctx:authContext })
-            stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK', ...response})
-            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
-    })
-    if (!opts.allowNotImplementedMethods && !methods.WizardConfig) throw new Error('method: WizardConfig is not implemented')
-    app.post('/wizard/config', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'WizardConfig', batch: false, nostr: false, batchSize: 0}
-        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
-        let authCtx: Types.AuthContext = {}
-        try {
-            if (!methods.WizardConfig) throw new Error('method: WizardConfig is not implemented')
-            const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
-            authCtx = authContext
-            stats.guard = process.hrtime.bigint()
-            const request = req.body
-            const error = Types.ConfigRequestValidate(request)
-            stats.validate = process.hrtime.bigint()
-            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
-            const query = req.query
-            const params = req.params
-             await methods.WizardConfig({rpcName:'WizardConfig', ctx:authContext , req: request})
-            stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK'})
-            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
-        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
-    })
     if (!opts.allowNotImplementedMethods && !methods.GetAdminConnectInfo) throw new Error('method: GetAdminConnectInfo is not implemented')
     app.get('/wizard/admin_connect_info', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'GetAdminConnectInfo', batch: false, nostr: false, batchSize: 0}
@@ -103,6 +62,47 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const query = req.query
             const params = req.params
             const response =  await methods.GetServiceState({rpcName:'GetServiceState', ctx:authContext })
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.WizardConfig) throw new Error('method: WizardConfig is not implemented')
+    app.post('/wizard/config', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'WizardConfig', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.WizardConfig) throw new Error('method: WizardConfig is not implemented')
+            const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.ConfigRequestValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+             await methods.WizardConfig({rpcName:'WizardConfig', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK'})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.WizardState) throw new Error('method: WizardState is not implemented')
+    app.get('/wizard/state', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'WizardState', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.WizardState) throw new Error('method: WizardState is not implemented')
+            const authContext = await opts.GuestAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            stats.validate = stats.guard
+            const query = req.query
+            const params = req.params
+            const response =  await methods.WizardState({rpcName:'WizardState', ctx:authContext })
             stats.handle = process.hrtime.bigint()
             res.json({status: 'OK', ...response})
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])

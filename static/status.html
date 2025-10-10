@@ -19,7 +19,7 @@
 <body>
   <header>
     <img src="img/pub_logo.png" width="38px" height="auto" alt="Lightning Pub logo" />
-    <img src="img/LightningPub.png" height="33px" alt="Lightning Pub logo" />
+    <img src="img/LightningPub.png" height="26px" alt="Lightning Pub logo" />
   </header>
 
   <main>
@@ -66,6 +66,26 @@
               <button class="icon-button" id="show-nostr">
                 <img src="img/pencil.svg" style="cursor: pointer;" />
               </button>
+            </div>
+          </div>
+        </div>
+        <div class="status-element" style="margin-top: 15px;">
+          <div style="text-align: left;">Avatar:</div>
+          <div class="fc-grey editable-content">
+            <div class="show-avatar" style="display: flex; flex-direction: column; display: none;">
+              <input type="text" value="" name="show-avatar" placeholder="" />
+              <div style="display: flex;justify-content: end;">
+                <button class="small-btn" id="cancel-show-avatar">Cancel</button>
+                <button class="small-btn" id="save-show-avatar">Save</button>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <img id="avatarImg" src="" alt="avatar" style="width:48px;height:48px;border-radius:6px;object-fit:cover;box-shadow:0 0 2px rgba(0,0,0,1);" />
+              <div class="question-box">
+                <button class="icon-button" id="show-avatar">
+                  <img src="img/pencil.svg" style="cursor: pointer;" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -157,20 +177,29 @@
       }
       const j = await res.json()
       console.log(j)
-      if (j.status !== 'OK') {
-        document.getElementById('errorText').innerText = "failed to get state info" + j.reason
-        return
-      }
-      document.getElementById("show-nodey-text").innerHTML = j.provider_name
-      document.getElementById("show-nostr-text").innerHTML = j.relays[0]
-      document.getElementById("adminNpub").innerText = j.admin_npub
-      document.getElementById("relayStatus").innerHTML = `<span class="${j.relay_connected ? 'green-dot' : 'red-dot'}">&#9679;</span> ${j.relay_connected ? 'Connected' : 'Disconnected'}`
-      document.getElementById("lndStatus").innerHTML = `<span class="${j.lnd_state === 'ONLINE' ? 'green-dot' : 'red-dot'}">&#9679;</span> ${j.lnd_state}`
+      // Map fields from service state
+      const name = j.source_name || j.provider_name || 'Unknown'
+      const relayUrl = j.relay_url || (j.relays && j.relays[0]) || ''
+      const admin = j.admin_npub || ''
+      // lnd_state may arrive as enum number or string; normalize to text
+      const lndText = (typeof j.lnd_state === 'string')
+        ? j.lnd_state
+        : (j.lnd_state === 2 ? 'ONLINE' : (j.lnd_state === 1 ? 'SYNCING' : 'OFFLINE'))
+      const lndDot = (lndText === 'ONLINE') ? 'green-dot' : (lndText === 'SYNCING' ? 'yellow-dot' : 'red-dot')
+      // use actual relay_connected flag from backend
+      const relayConnected = !!j.relay_connected
+      const avatar = j.avatar_url || (j.app_id ? `https://robohash.org/${encodeURIComponent(j.app_id)}.png?size=128x128&set=set3` : '')
+      document.getElementById("show-nodey-text").innerHTML = name
+      document.getElementById("show-nostr-text").innerHTML = relayUrl || '—'
+      if (avatar) { document.getElementById("avatarImg").src = avatar }
+      document.getElementById("adminNpub").innerText = admin
+      document.getElementById("relayStatus").innerHTML = `<span class="${relayConnected ? 'green-dot' : 'red-dot'}">&#9679;</span> ${relayConnected ? 'Connected' : 'Disconnected'}`
+      document.getElementById("lndStatus").innerHTML = `<span class="${lndDot}">&#9679;</span> ${lndText}`
       document.getElementById("watchdog-status").innerHTML = `<span class="${j.watchdog_ok ? 'green-dot' : 'red-dot'}">&#9679;</span> ${j.watchdog_ok ? 'No Alerts' : 'ALERT!!'}`
       document.getElementById("inviteLinkHttp").href = `https://my.shockwallet.app/#/sources?addSource=${j.nprofile}`
       document.getElementById("inviteLinkHttp").innerHTML = `https://my.shockwallet.app/#/sources?addSource=${j.nprofile}`
-      document.querySelector('input[name="show-nodey"]').placeholder = j.provider_name;
-      document.title = j.provider_name;
+      document.querySelector('input[name="show-nodey"]').placeholder = name;
+      document.title = name;
     }
     try {
       fetchInfo()
