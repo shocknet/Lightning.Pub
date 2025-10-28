@@ -6,11 +6,13 @@ import { Utils } from '../helpers/utilsWrapper.js'
 import { NostrEvent, NostrSend } from '../nostr/handler.js'
 import { InvoicePaidCb } from '../lnd/settings.js'
 import Storage from '../storage/index.js'
+import SettingsManager from './settingsManager.js'
+import { LiquiditySettings } from './settings.js'
 export type LiquidityRequest = { action: 'spend' | 'receive', amount: number }
 
 export type nostrCallback<T> = { startedAtMillis: number, type: 'single' | 'stream', f: (res: T) => void }
 export class LiquidityProvider {
-
+    getSettings: () => LiquiditySettings
     client: ReturnType<typeof newNostrClient>
     clientCbs: Record<string, nostrCallback<any>> = {}
     clientId: string = ""
@@ -28,10 +30,17 @@ export class LiquidityProvider {
     pendingPayments: Record<string, number> = {}
     incrementProviderBalance: (balance: number) => Promise<void>
     // make the sub process accept client
-    constructor(pubDestination: string, utils: Utils, invoicePaidCb: InvoicePaidCb, incrementProviderBalance: (balance: number) => Promise<any>) {
+    constructor(getSettings: () => LiquiditySettings, utils: Utils, invoicePaidCb: InvoicePaidCb, incrementProviderBalance: (balance: number) => Promise<any>) {
         this.utils = utils
+        this.getSettings = getSettings
+        const pubDestination = getSettings().liquidityProviderPub
+        const disableLiquidityProvider = getSettings().disableLiquidityProvider
         if (!pubDestination) {
             this.log("No pub provider to liquidity provider, will not be initialized")
+            return
+        }
+        if (disableLiquidityProvider) {
+            this.log("Liquidity provider is disabled, will not be initialized")
             return
         }
         this.log("connecting to liquidity provider:", pubDestination)
@@ -59,14 +68,14 @@ export class LiquidityProvider {
     }
 
     IsReady = () => {
-        return this.ready
+        return this.ready && !this.getSettings().disableLiquidityProvider
     }
 
     AwaitProviderReady = async (): Promise<'inactive' | 'ready'> => {
-        if (!this.pubDestination) {
+        if (!this.pubDestination || this.getSettings().disableLiquidityProvider) {
             return 'inactive'
         }
-        if (this.ready) {
+        if (this.IsReady()) {
             return 'ready'
         }
         return new Promise<'ready'>(res => {
@@ -119,7 +128,7 @@ export class LiquidityProvider {
     }
 
     GetLatestMaxWithdrawable = async () => {
-        if (!this.ready) {
+        if (!this.IsReady()) {
             return 0
         }
         const res = await this.GetUserState()
@@ -131,7 +140,7 @@ export class LiquidityProvider {
     }
 
     GetLatestBalance = async () => {
-        if (!this.ready) {
+        if (!this.IsReady()) {
             return 0
         }
         const res = await this.GetUserState()
@@ -155,7 +164,7 @@ export class LiquidityProvider {
     }
 
     CanProviderHandle = async (req: LiquidityRequest) => {
-        if (!this.ready) {
+        if (!this.IsReady()) {
             return false
         }
         const maxW = await this.GetLatestMaxWithdrawable()
@@ -167,8 +176,8 @@ export class LiquidityProvider {
 
     AddInvoice = async (amount: number, memo: string, from: 'user' | 'system', expiry: number) => {
         try {
-            if (!this.ready) {
-                throw new Error("liquidity provider is not ready yet")
+            if (!this.IsReady()) {
+                throw new Error("liquidity provider is not ready yet or disabled")
             }
             const res = await this.client.NewInvoice({ amountSats: amount, memo, expiry })
             if (res.status === 'ERROR') {
@@ -186,8 +195,8 @@ export class LiquidityProvider {
 
     PayInvoice = async (invoice: string, decodedAmount: number, from: 'user' | 'system') => {
         try {
-            if (!this.ready) {
-                throw new Error("liquidity provider is not ready yet")
+            if (!this.IsReady()) {
+                throw new Error("liquidity provider is not ready yet or disabled")
             }
             const userInfo = await this.GetUserState()
             if (userInfo.status === 'ERROR') {
@@ -211,8 +220,8 @@ export class LiquidityProvider {
     }
 
     GetPaymentState = async (invoice: string) => {
-        if (!this.ready) {
-            throw new Error("liquidity provider is not ready yet")
+        if (!this.IsReady()) {
+            throw new Error("liquidity provider is not ready yet or disabled")
         }
         const res = await this.client.GetPaymentState({ invoice })
         if (res.status === 'ERROR') {
@@ -223,8 +232,8 @@ export class LiquidityProvider {
     }
 
     GetOperations = async () => {
-        if (!this.ready) {
-            throw new Error("liquidity provider is not ready yet")
+        if (!this.IsReady()) {
+            throw new Error("liquidity provider is not ready yet or disabled")
         }
         const res = await this.client.GetUserOperations({
             latestIncomingInvoice: { ts: 0, id: 0 }, latestOutgoingInvoice: { ts: 0, id: 0 },

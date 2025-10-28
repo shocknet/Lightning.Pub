@@ -5,7 +5,6 @@ import { User } from "../entity/User.js"
 import { UserReceivingAddress } from "../entity/UserReceivingAddress.js"
 import { UserReceivingInvoice } from "../entity/UserReceivingInvoice.js"
 import { UserInvoicePayment } from "../entity/UserInvoicePayment.js"
-import { EnvMustBeNonEmptyString } from "../../helpers/envParser.js"
 import { UserTransactionPayment } from "../entity/UserTransactionPayment.js"
 import { UserBasicAuth } from "../entity/UserBasicAuth.js"
 import { UserEphemeralKey } from "../entity/UserEphemeralKey.js"
@@ -29,6 +28,7 @@ import { ChannelEvent } from "../entity/ChannelEvent.js"
 import { AppUserDevice } from "../entity/AppUserDevice.js"
 import * as fs from 'fs'
 import { UserAccess } from "../entity/UserAccess.js"
+import { AdminSettings } from "../entity/AdminSettings.js"
 
 
 export type DbSettings = {
@@ -73,7 +73,8 @@ export const MainDbEntities = {
     'Product': Product,
     'ManagementGrant': ManagementGrant,
     'AppUserDevice': AppUserDevice,
-    'UserAccess': UserAccess
+    'UserAccess': UserAccess,
+    'AdminSettings': AdminSettings
 }
 export type MainDbNames = keyof typeof MainDbEntities
 export const MainDbEntitiesNames = Object.keys(MainDbEntities)
@@ -95,12 +96,12 @@ export const newMetricsDb = async (settings: DbSettings, metricsMigrations: Func
         entities: Object.values(MetricsDbEntities),
         migrations: metricsMigrations
     }).initialize();
-    
+
     // Secure the DB file permissions
     if (fs.existsSync(settings.metricsDatabaseFile)) {
         fs.chmodSync(settings.metricsDatabaseFile, 0o600);
     }
-    
+
     const log = getLogger({});
     const pendingMigrations = await source.showMigrations()
     if (pendingMigrations) {
@@ -121,12 +122,12 @@ export default async (settings: DbSettings, migrations: Function[]): Promise<{ s
         //synchronize: true,
         migrations
     }).initialize()
-    
+
     // Secure the DB file permissions
     if (fs.existsSync(settings.databaseFile)) {
         fs.chmodSync(settings.databaseFile, 0o600);
     }
-    
+
     const log = getLogger({})
     const pendingMigrations = await source.showMigrations()
     if (pendingMigrations) {

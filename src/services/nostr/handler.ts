@@ -7,7 +7,7 @@ import { ERROR, getLogger } from '../helpers/logger.js'
 import { nip19 } from 'nostr-tools'
 import { encrypt as encryptV1, decrypt as decryptV1, getSharedSecret as getConversationKeyV1 } from './nip44v1.js'
 import { ProcessMetrics, ProcessMetricsCollector } from '../storage/tlv/processMetricsCollector.js'
-import { EnvCanBeInteger, } from '../helpers/envParser.js'
+import { Subscription } from 'nostr-tools/lib/types/abstract-relay.js';
 const { nprofileEncode } = nip19
 const { v2 } = nip44
 const { encrypt: encryptV2, decrypt: decryptV2, utils } = v2
@@ -26,24 +26,6 @@ export type NostrSettings = {
     relays: string[]
     clients: ClientInfo[]
     maxEventContentLength: number
-}
-
-export type NostrRelaySettings = {
-    relays: string[],
-    maxEventContentLength: number
-}
-
-const getEnvOrDefault = (name: string, defaultValue: string): string => {
-    return process.env[name] || defaultValue;
-}
-
-export const LoadNosrtRelaySettingsFromEnv = (test = false): NostrRelaySettings => {
-    const relaysEnv = getEnvOrDefault("NOSTR_RELAYS", "wss://relay.lightning.pub");
-    const maxEventContentLength = EnvCanBeInteger("NOSTR_MAX_EVENT_CONTENT_LENGTH", 40000)
-    return {
-        relays: relaysEnv.split(' '),
-        maxEventContentLength
-    }
 }
 
 export type NostrEvent = {
@@ -104,7 +86,7 @@ let subProcessHandler: Handler | undefined
 process.on("message", (message: ChildProcessRequest) => {
     switch (message.type) {
         case 'settings':
-            initSubprocessHandler(message.settings)
+            handleNostrSettings(message.settings)
             break
         case 'send':
             sendToNostr(message.initiator, message.data, message.relays)
@@ -117,22 +99,26 @@ process.on("message", (message: ChildProcessRequest) => {
             break
     }
 })
-const initSubprocessHandler = (settings: NostrSettings) => {
+const handleNostrSettings = (settings: NostrSettings) => {
     if (subProcessHandler) {
-        getLogger({ component: "nostrMiddleware" })(ERROR, "nostr settings ignored since handler already exists")
+        getLogger({ component: "nostrMiddleware" })("got new nostr setting, resetting nostr handler")
+        subProcessHandler.Stop()
+        initNostrHandler(settings)
         return
     }
-    subProcessHandler = new Handler(settings, event => {
-        send({
-            type: 'event',
-            event: event
-        })
-    })
-
+    initNostrHandler(settings)
     new ProcessMetricsCollector((metrics) => {
         send({
             type: 'processMetrics',
             metrics
+        })
+    })
+}
+const initNostrHandler = (settings: NostrSettings) => {
+    subProcessHandler = new Handler(settings, event => {
+        send({
+            type: 'event',
+            event: event
         })
     })
 }
@@ -152,13 +138,16 @@ export default class Handler {
     apps: Record<string, AppInfo> = {}
     eventCallback: (event: NostrEvent) => void
     log = getLogger({ component: "nostrMiddleware" })
+    relay: Relay | null = null
+    sub: Subscription | null = null
+    stopped = false
     constructor(settings: NostrSettings, eventCallback: (event: NostrEvent) => void) {
         this.settings = settings
         this.log("connecting to relays:", settings.relays)
         this.settings.apps.forEach(app => {
             this.log("appId:", app.appId, "pubkey:", app.publicKey, "nprofile:", nprofileEncode({ pubkey: app.publicKey, relays: settings.relays }))
         })
-        this.eventCallback = eventCallback
+        this.eventCallback = (e) => { if (!this.stopped) eventCallback(e) }
         this.settings.apps.forEach(app => {
             this.apps[app.publicKey] = app
         })
@@ -167,76 +156,87 @@ export default class Handler {
 
     async ConnectLoop() {
         let failures = 0
-        while (true) {
+        while (!this.stopped) {
             await this.ConnectPromise()
             const pow = Math.pow(2, failures)
             const delay = Math.min(pow, 900)
             this.log("relay connection failed, will try again in", delay, "seconds (failures:", failures, ")")
-            await new Promise(resolve => setTimeout(resolve, delay*1000))
+            await new Promise(resolve => setTimeout(resolve, delay * 1000))
             failures++
         }
+        this.log("nostr handler stopped")
+    }
+
+    Stop() {
+        this.stopped = true
+        this.sub?.close()
+        this.relay?.close()
+        this.relay = null
+        this.sub = null
     }
 
     async ConnectPromise() {
-        return new Promise<void>( async (res) => {
-            const relay = await this.GetRelay()
-            if (!relay) {
+        return new Promise<void>(async (res) => {
+            this.relay = await this.GetRelay()
+            if (!this.relay) {
                 res()
                 return
             }
-            const sub =this.Subscribe(relay)
-            relay.onclose = (() => {
+            this.sub = this.Subscribe(this.relay)
+            this.relay.onclose = (() => {
                 this.log("relay disconnected")
-                sub.close()
-                relay.close()
+                this.sub?.close()
+                this.relay?.close()
+                this.relay = null
+                this.sub = null
                 res()
             })
         })
     }
 
-    async GetRelay(): Promise<Relay|null> {
+    async GetRelay(): Promise<Relay | null> {
         try {
             const relay = await Relay.connect(this.settings.relays[0])
             if (!relay.connected) {
                 throw new Error("failed to connect to relay")
             }
             return relay
-        } catch (err:any) {
+        } catch (err: any) {
             this.log("failed to connect to relay", err.message || err)
             return null
         }
     }
 
-/*     async Connect() {
-        const log = getLogger({})
-        log("conneting to relay...", this.settings.relays[0])
-        let relay: Relay | null = null
-        //const relay = relayInit(this.settings.relays[0]) // TODO: create multiple conns for multiple relays
-        try {
-            relay = await Relay.connect(this.settings.relays[0])
-            if (!relay.connected) {
-                throw new Error("failed to connect to relay")
+    /*     async Connect() {
+            const log = getLogger({})
+            log("conneting to relay...", this.settings.relays[0])
+            let relay: Relay | null = null
+            //const relay = relayInit(this.settings.relays[0]) // TODO: create multiple conns for multiple relays
+            try {
+                relay = await Relay.connect(this.settings.relays[0])
+                if (!relay.connected) {
+                    throw new Error("failed to connect to relay")
+                }
+            } catch (err:any) {
+                log("failed to connect to relay, will try again in 2 seconds", err.message || err)
+                setTimeout(() => {
+                    this.Connect()
+                }, 2000)
+                return
             }
-        } catch (err:any) {
-            log("failed to connect to relay, will try again in 2 seconds", err.message || err)
-            setTimeout(() => {
-                this.Connect()
-            }, 2000)
-            return
-        }
-
-        log("connected, subbing...")
-        relay.onclose = (() => {
-            log("relay disconnected, will try to reconnect in 2 seconds")
-            relay.close()
-            setTimeout(() => {
-                this.Connect()
-            }, 2000)
-        })
-        
-        this.Subscribe(relay)
-
-    } */
+    
+            log("connected, subbing...")
+            relay.onclose = (() => {
+                log("relay disconnected, will try to reconnect in 2 seconds")
+                relay.close()
+                setTimeout(() => {
+                    this.Connect()
+                }, 2000)
+            })
+            
+            this.Subscribe(relay)
+    
+        } */
 
     Subscribe(relay: Relay) {
         const appIds = Object.keys(this.apps)
@@ -246,7 +246,7 @@ export default class Handler {
             appIds: appIds,
             listeningForPubkeys: appIds
         })
-        
+
         return relay.subscribe([
             {
                 since: Math.ceil(Date.now() / 1000),
@@ -308,7 +308,7 @@ export default class Handler {
             this.log(ERROR, "failed to send event", e.message || e)
             throw e
         }
-        
+
     }
 
     async handleSend(data: SendData, keys: { name: string, privateKey: string, publicKey: string }): Promise<UnsignedEvent[]> {

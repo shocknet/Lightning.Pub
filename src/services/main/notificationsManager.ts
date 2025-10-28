@@ -1,12 +1,13 @@
 import { PushPair, ShockPush } from "../ShockPush/index.js"
 import { getLogger, PubLogger } from "../helpers/logger.js"
+import SettingsManager from "./settingsManager.js"
 
 export class NotificationsManager {
-    private shockPushBaseUrl: string
+    private settings: SettingsManager
     private clients: Record<string, ShockPush> = {}
     private logger: PubLogger
-    constructor(shockPushBaseUrl: string) {
-        this.shockPushBaseUrl = shockPushBaseUrl
+    constructor(settings: SettingsManager) {
+        this.settings = settings
         this.logger = getLogger({ component: 'notificationsManager' })
     }
 
@@ -15,13 +16,13 @@ export class NotificationsManager {
         if (client) {
             return client
         }
-        const newClient = new ShockPush(this.shockPushBaseUrl, pair)
+        const newClient = new ShockPush(this.settings.getSettings().serviceSettings.shockPushBaseUrl, pair)
         this.clients[pair.pubkey] = newClient
         return newClient
     }
 
     SendNotification = async (message: string, messagingTokens: string[], pair: PushPair) => {
-        if (!this.shockPushBaseUrl) {
+        if (!this.settings.getSettings().serviceSettings.shockPushBaseUrl) {
             this.logger("ShockPush is not configured, skipping notification")
             return
         }

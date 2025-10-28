@@ -1,45 +1,68 @@
-import { LoadStorageSettingsFromEnv, StorageSettings } from '../storage/index.js'
-import { LndSettings, NodeSettings } from '../lnd/settings.js'
-import { LoadWatchdogSettingsFromEnv, WatchdogSettings } from './watchdog.js'
-import { LoadLndSettingsFromEnv } from '../lnd/index.js'
-import { EnvCanBeInteger, EnvMustBeInteger, EnvMustBeNonEmptyString } from '../helpers/envParser.js'
-import { getLogger } from '../helpers/logger.js'
-import fs from 'fs'
-import crypto from 'crypto';
-import { LiquiditySettings, LoadLiquiditySettingsFromEnv } from './liquidityManager.js'
-import { LoadNosrtRelaySettingsFromEnv, NostrRelaySettings } from '../nostr/handler.js'
+import { EnvCacher, EnvMustBeNonEmptyString, EnvMustBeInteger, chooseEnv, chooseEnvBool, chooseEnvInt } from '../helpers/envParser.js'
+import os from 'os'
+import path from 'path'
 
-export type MainSettings = {
-    storageSettings: StorageSettings,
-    lndSettings: LndSettings,
-    watchDogSettings: WatchdogSettings,
-    liquiditySettings: LiquiditySettings,
-    nostrRelaySettings: NostrRelaySettings,
-    jwtSecret: string
-    walletPasswordPath: string
-    walletSecretPath: string
-    incomingTxFee: number
-    outgoingTxFee: number
-    incomingAppInvoiceFee: number
-    incomingAppUserInvoiceFee: number
-    outgoingAppInvoiceFee: number
-    outgoingAppUserInvoiceFee: number
-    outgoingAppUserInvoiceFeeBps: number
-    userToUserFee: number
-    appToUserFee: number
-    serviceUrl: string
-    servicePort: number
-    recordPerformance: boolean
-    skipSanityCheck: boolean
-    disableExternalPayments: boolean
-    wizard: boolean
-    defaultAppName: string
-    pushBackupsToNostr: boolean
-    lnurlMetaText: string,
-    bridgeUrl: string,
-    allowResetMetricsStorages: boolean
-    allowHttpUpgrade: boolean
-    shockPushBaseUrl: string
+export type ServiceFeeSettings = {
+    incomingTxFee: number // Hot
+    outgoingTxFee: number // Hot
+    incomingAppInvoiceFee: number // Hot
+    incomingAppUserInvoiceFee: number // Hot
+    outgoingAppInvoiceFee: number // Hot
+    outgoingAppUserInvoiceFee: number // Hot
+    outgoingAppUserInvoiceFeeBps: number // Hot
+    userToUserFee: number // Hot
+    appToUserFee: number // Hot
+}
+
+export const LoadServiceFeeSettingsFromEnv = (dbEnv: Record<string, string | undefined>, addToDb?: EnvCacher): ServiceFeeSettings => {
+    const outgoingAppUserInvoiceFeeBps = chooseEnvInt("OUTGOING_INVOICE_FEE_USER_BPS", dbEnv, 0, addToDb)
+    return {
+        incomingTxFee: chooseEnvInt("INCOMING_CHAIN_FEE_ROOT_BPS", dbEnv, 0, addToDb) / 10000,
+        outgoingTxFee: chooseEnvInt("OUTGOING_CHAIN_FEE_ROOT_BPS", dbEnv, 60, addToDb) / 10000,
+        incomingAppInvoiceFee: chooseEnvInt("INCOMING_INVOICE_FEE_ROOT_BPS", dbEnv, 0, addToDb) / 10000,
+        outgoingAppInvoiceFee: chooseEnvInt("OUTGOING_INVOICE_FEE_ROOT_BPS", dbEnv, 60, addToDb) / 10000,
+        incomingAppUserInvoiceFee: chooseEnvInt("INCOMING_INVOICE_FEE_USER_BPS", dbEnv, 0, addToDb) / 10000,
+        outgoingAppUserInvoiceFeeBps,
+        outgoingAppUserInvoiceFee: outgoingAppUserInvoiceFeeBps / 10000,
+        userToUserFee: chooseEnvInt("TX_FEE_INTERNAL_USER_BPS", dbEnv, 0, addToDb) / 10000,
+        appToUserFee: chooseEnvInt("TX_FEE_INTERNAL_ROOT_BPS", dbEnv, 0, addToDb) / 10000,
+    }
+}
+
+export type ServiceSettings = {
+    servicePort: number // Cold
+    recordPerformance: boolean // Cold
+    skipSanityCheck: boolean // Cold
+    wizard: boolean // Cold
+    bridgeUrl: string, // Cold
+    shockPushBaseUrl: string // Cold
+
+    serviceUrl: string // Hot
+    disableExternalPayments: boolean // Hot
+    defaultAppName: string // Hot
+    pushBackupsToNostr: boolean // Hot
+    lnurlMetaText: string, // Hot
+    allowHttpUpgrade: boolean // Hot
+
+
+}
+
+export const LoadServiceSettingsFromEnv = (dbEnv: Record<string, string | undefined>, addToDb?: EnvCacher): ServiceSettings => {
+    const port = chooseEnvInt("PORT", dbEnv, 1776, addToDb)
+    return {
+        serviceUrl: chooseEnv("SERVICE_URL", dbEnv, `http://localhost:${port}`, addToDb),
+        servicePort: port,
+        recordPerformance: chooseEnvBool("RECORD_PERFORMANCE", dbEnv, false, addToDb),
+        skipSanityCheck: chooseEnvBool("SKIP_SANITY_CHECK", dbEnv, false, addToDb),
+        disableExternalPayments: chooseEnvBool("DISABLE_EXTERNAL_PAYMENTS", dbEnv, false, addToDb),
+        wizard: chooseEnvBool("WIZARD", dbEnv, false, addToDb),
+        defaultAppName: chooseEnv("DEFAULT_APP_NAME", dbEnv, "wallet", addToDb),
+        pushBackupsToNostr: chooseEnvBool("PUSH_BACKUPS_TO_NOSTR", dbEnv, false, addToDb),
+        lnurlMetaText: chooseEnv("LNURL_META_TEXT", dbEnv, "LNURL via Lightning.pub", addToDb),
+        bridgeUrl: chooseEnv("BRIDGE_URL", dbEnv, "https://shockwallet.app", addToDb),
+        allowHttpUpgrade: chooseEnvBool("ALLOW_HTTP_UPGRADE", dbEnv, false, addToDb),
+        shockPushBaseUrl: chooseEnv("SHOCK_PUSH_URL", dbEnv, "", addToDb),
+    }
 }
 
 export type BitcoinCoreSettings = {
@@ -48,54 +71,145 @@ export type BitcoinCoreSettings = {
     pass: string
 }
 
-export type TestSettings = MainSettings & { lndSettings: { otherNode: NodeSettings, thirdNode: NodeSettings, fourthNode: NodeSettings }, bitcoinCoreSettings: BitcoinCoreSettings }
-export const LoadMainSettingsFromEnv = (): MainSettings => {
-    const storageSettings = LoadStorageSettingsFromEnv()
-    const outgoingAppUserInvoiceFeeBps = EnvCanBeInteger("OUTGOING_INVOICE_FEE_USER_BPS", 0)
-    const nostrRelaySettings = LoadNosrtRelaySettingsFromEnv()
+export type LndNodeSettings = {
+    lndAddr: string // cold setting
+    lndCertPath: string // cold setting
+    lndMacaroonPath: string // cold setting
+}
+export type LndSettings = {
+    lndLogDir: string
+    feeRateLimit: number
+    feeFixedLimit: number
+    feeRateBps: number
+    mockLnd: boolean
+
+}
+
+const resolveHome = (filepath: string) => {
+    let homeDir;
+    if (process.env.SUDO_USER) {
+        homeDir = path.join('/home', process.env.SUDO_USER);
+    } else {
+        homeDir = os.homedir();
+    }
+    return path.join(homeDir, filepath);
+}
+
+export const LoadLndNodeSettingsFromEnv = (dbEnv: Record<string, string | undefined>, addToDb?: EnvCacher): LndNodeSettings => {
     return {
-        watchDogSettings: LoadWatchdogSettingsFromEnv(),
-        lndSettings: LoadLndSettingsFromEnv(),
-        storageSettings: storageSettings,
-        liquiditySettings: LoadLiquiditySettingsFromEnv(),
-        nostrRelaySettings: nostrRelaySettings,
-        jwtSecret: loadJwtSecret(storageSettings.dataDir),
-        walletSecretPath: process.env.WALLET_SECRET_PATH || getDataPath(storageSettings.dataDir, ".wallet_secret"),
-        walletPasswordPath: process.env.WALLET_PASSWORD_PATH || getDataPath(storageSettings.dataDir, ".wallet_password"),
-        incomingTxFee: EnvCanBeInteger("INCOMING_CHAIN_FEE_ROOT_BPS", 0) / 10000,
-        outgoingTxFee: EnvCanBeInteger("OUTGOING_CHAIN_FEE_ROOT_BPS", 60) / 10000,
-        incomingAppInvoiceFee: EnvCanBeInteger("INCOMING_INVOICE_FEE_ROOT_BPS", 0) / 10000,
-        outgoingAppInvoiceFee: EnvCanBeInteger("OUTGOING_INVOICE_FEE_ROOT_BPS", 60) / 10000,
-        incomingAppUserInvoiceFee: EnvCanBeInteger("INCOMING_INVOICE_FEE_USER_BPS", 0) / 10000,
-        outgoingAppUserInvoiceFeeBps,
-        outgoingAppUserInvoiceFee: outgoingAppUserInvoiceFeeBps / 10000,
-        userToUserFee: EnvCanBeInteger("TX_FEE_INTERNAL_USER_BPS", 0) / 10000,
-        appToUserFee: EnvCanBeInteger("TX_FEE_INTERNAL_ROOT_BPS", 0) / 10000,
-        serviceUrl: process.env.SERVICE_URL || `http://localhost:${EnvCanBeInteger("PORT", 1776)}`,
-        servicePort: EnvCanBeInteger("PORT", 1776),
-        recordPerformance: process.env.RECORD_PERFORMANCE === 'true' || false,
-        skipSanityCheck: process.env.SKIP_SANITY_CHECK === 'true' || false,
-        disableExternalPayments: process.env.DISABLE_EXTERNAL_PAYMENTS === 'true' || false,
-        wizard: process.env.WIZARD === 'true' || false,
-        defaultAppName: process.env.DEFAULT_APP_NAME || "wallet",
-        pushBackupsToNostr: process.env.PUSH_BACKUPS_TO_NOSTR === 'true' || false,
-        lnurlMetaText: process.env.LNURL_META_TEXT || "LNURL via Lightning.pub",
-        bridgeUrl: process.env.BRIDGE_URL || "https://shockwallet.app",
-        allowResetMetricsStorages: process.env.ALLOW_RESET_METRICS_STORAGES === 'true' || false,
-        allowHttpUpgrade: process.env.ALLOW_HTTP_UPGRADE === 'true' || false,
-        shockPushBaseUrl: process.env.SHOCK_PUSH_URL || ""
+        lndAddr: chooseEnv('LND_ADDRESS', dbEnv, "127.0.0.1:10009", addToDb),
+        lndCertPath: chooseEnv('LND_CERT_PATH', dbEnv, resolveHome("/.lnd/tls.cert"), addToDb),
+        lndMacaroonPath: chooseEnv('LND_MACAROON_PATH', dbEnv, resolveHome("/.lnd/data/chain/bitcoin/mainnet/admin.macaroon"), addToDb),
     }
 }
 
-export const GetTestStorageSettings = (s?: StorageSettings): StorageSettings => {
-    const eventLogPath = `logs/eventLogV3Test${Date.now()}.csv`
-    if (s) {
-        return { dbSettings: { ...s.dbSettings, databaseFile: ":memory:", metricsDatabaseFile: ":memory:" }, eventLogPath, dataDir: "test-data" }
+export const LoadLndSettingsFromEnv = (dbEnv: Record<string, string | undefined>, addToDb?: EnvCacher): LndSettings => {
+    const feeRateBps: number = chooseEnvInt('OUTBOUND_MAX_FEE_BPS', dbEnv, 60, addToDb)
+    return {
+        lndLogDir: chooseEnv('LND_LOG_DIR', dbEnv, resolveHome("/.lnd/logs/bitcoin/mainnet/lnd.log"), addToDb),
+        feeRateBps: feeRateBps,
+        feeRateLimit: feeRateBps / 10000,
+        feeFixedLimit: chooseEnvInt('OUTBOUND_MAX_FEE_EXTRA_SATS', dbEnv, 100, addToDb),
+        mockLnd: false
     }
-    return { dbSettings: { databaseFile: ":memory:", metricsDatabaseFile: ":memory:", migrate: true }, eventLogPath, dataDir: "test-data" }
 }
 
-export const LoadTestSettingsFromEnv = (): TestSettings => {
+export type NostrRelaySettings = {
+    relays: string[],
+    maxEventContentLength: number
+}
+
+const getEnvOrDefault = (name: string, defaultValue: string): string => {
+    return process.env[name] || defaultValue;
+}
+
+export const LoadNosrtRelaySettingsFromEnv = (dbEnv: Record<string, string | undefined>, addToDb?: EnvCacher): NostrRelaySettings => {
+    const relaysEnv = chooseEnv("NOSTR_RELAYS", dbEnv, "wss://relay.lightning.pub", addToDb);
+    const maxEventContentLength = chooseEnvInt("NOSTR_MAX_EVENT_CONTENT_LENGTH", dbEnv, 40000, addToDb)
+    return {
+        relays: relaysEnv.split(' '),
+        maxEventContentLength
+    }
+}
+
+export type WatchdogSettings = {
+    maxDiffSats: number // hot setting
+}
+export const LoadWatchdogSettingsFromEnv = (dbEnv: Record<string, string | undefined>, addToDb?: EnvCacher): WatchdogSettings => {
+    return {
+        maxDiffSats: chooseEnvInt("WATCHDOG_MAX_DIFF_SATS", dbEnv, 0, addToDb)
+    }
+}
+
+export type LSPSettings = {
+    olympusServiceUrl: string // hot setting
+    voltageServiceUrl: string // unused?
+    flashsatsServiceUrl: string // hot setting
+    channelThreshold: number // hot setting
+    maxRelativeFee: number // hot setting
+}
+
+export const LoadLSPSettingsFromEnv = (dbEnv: Record<string, string | undefined>, addToDb?: EnvCacher): LSPSettings => {
+    const olympusServiceUrl = chooseEnv("OLYMPUS_LSP_URL", dbEnv, "https://lsps1.lnolymp.us/api/v1", addToDb)
+    const voltageServiceUrl = chooseEnv("VOLTAGE_LSP_URL", dbEnv, "https://lsp.voltageapi.com/api/v1", addToDb)
+    const flashsatsServiceUrl = chooseEnv("FLASHSATS_LSP_URL", dbEnv, "https://lsp.flashsats.xyz/lsp/channel", addToDb)
+    const channelThreshold = chooseEnvInt("LSP_CHANNEL_THRESHOLD", dbEnv, 1000000, addToDb)
+    const maxRelativeFee = chooseEnvInt("LSP_MAX_FEE_BPS", dbEnv, 100, addToDb) / 10000
+    return { olympusServiceUrl, voltageServiceUrl, channelThreshold, maxRelativeFee, flashsatsServiceUrl }
+
+}
+
+export type LiquiditySettings = {
+
+    liquidityProviderPub: string // cold setting
+    useOnlyLiquidityProvider: boolean // hot setting
+    disableLiquidityProvider: boolean // hot setting
+}
+export const LoadLiquiditySettingsFromEnv = (dbEnv: Record<string, string | undefined>, addToDb?: EnvCacher): LiquiditySettings => {
+    //const liquidityProviderPub = process.env.LIQUIDITY_PROVIDER_PUB === "null" ? "" : (process.env.LIQUIDITY_PROVIDER_PUB || "76ed45f00cea7bac59d8d0b7d204848f5319d7b96c140ffb6fcbaaab0a13d44e")
+    const liquidityProviderPub = chooseEnv("LIQUIDITY_PROVIDER_PUB", dbEnv, "76ed45f00cea7bac59d8d0b7d204848f5319d7b96c140ffb6fcbaaab0a13d44e", addToDb)
+    const disableLiquidityProvider = chooseEnvBool("DISABLE_LIQUIDITY_PROVIDER", dbEnv, false, addToDb) || liquidityProviderPub === "null"
+    return { liquidityProviderPub, useOnlyLiquidityProvider: false, disableLiquidityProvider }
+}
+
+
+
+
+export const LoadSecondLndSettingsFromEnv = (): LndNodeSettings => {
+    return {
+        lndAddr: EnvMustBeNonEmptyString("LND_OTHER_ADDR"),
+        lndCertPath: EnvMustBeNonEmptyString("LND_OTHER_CERT_PATH"),
+        lndMacaroonPath: EnvMustBeNonEmptyString("LND_OTHER_MACAROON_PATH")
+    }
+}
+
+export const LoadThirdLndSettingsFromEnv = (): LndNodeSettings => {
+
+    return {
+        lndAddr: EnvMustBeNonEmptyString("LND_THIRD_ADDR"),
+        lndCertPath: EnvMustBeNonEmptyString("LND_THIRD_CERT_PATH"),
+        lndMacaroonPath: EnvMustBeNonEmptyString("LND_THIRD_MACAROON_PATH")
+    }
+}
+
+export const LoadFourthLndSettingsFromEnv = (): LndNodeSettings => {
+
+    return {
+        lndAddr: EnvMustBeNonEmptyString("LND_FOURTH_ADDR"),
+        lndCertPath: EnvMustBeNonEmptyString("LND_FOURTH_CERT_PATH"),
+        lndMacaroonPath: EnvMustBeNonEmptyString("LND_FOURTH_MACAROON_PATH")
+    }
+}
+
+export const LoadBitcoinCoreSettingsFromEnv = (): BitcoinCoreSettings => {
+    return {
+        port: EnvMustBeInteger("BITCOIN_CORE_PORT"),
+        user: EnvMustBeNonEmptyString("BITCOIN_CORE_USER"),
+        pass: EnvMustBeNonEmptyString("BITCOIN_CORE_PASS")
+    }
+}
+
+/* export const LoadTestSettingsFromEnv = (): TestSettings => {
 
     const settings = LoadMainSettingsFromEnv()
     return {
@@ -130,26 +244,9 @@ export const LoadTestSettingsFromEnv = (): TestSettings => {
             pass: EnvMustBeNonEmptyString("BITCOIN_CORE_PASS")
         },
     }
-}
+} */
 
-export const loadJwtSecret = (dataDir: string): string => {
-    const secret = process.env["JWT_SECRET"]
-    const log = getLogger({})
-    if (secret) {
-        return secret
-    }
-    log("JWT_SECRET not set in env, checking .jwt_secret file")
-    const secretPath = getDataPath(dataDir, ".jwt_secret")
-    try {
-        const fileContent = fs.readFileSync(secretPath, "utf-8")
-        return fileContent.trim()
-    } catch (e) {
-        log(".jwt_secret file not found, generating random secret")
-        const secret = crypto.randomBytes(32).toString('hex')
-        fs.writeFileSync(secretPath, secret)
-        return secret
-    }
-}
+
 
 export const getDataPath = (dataDir: string, dataPath: string) => {
     return dataDir !== "" ? `${dataDir}/${dataPath}` : dataPath

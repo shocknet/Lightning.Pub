@@ -1,4 +1,3 @@
-import { MainSettings } from "../main/settings.js";
 import { StateBundler } from "../storage/tlv/stateBundler.js";
 import { TlvStorageFactory } from "../storage/tlv/tlvFilesStorageFactory.js";
 import { NostrSend } from "../nostr/handler.js";

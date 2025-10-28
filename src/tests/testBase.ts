@@ -1,10 +1,9 @@
 import 'dotenv/config' // TODO - test env
 import chai from 'chai'
-import { AppData, initMainHandler } from '../services/main/init.js'
+import { AppData, initMainHandler, initSettings } from '../services/main/init.js'
 import Main from '../services/main/index.js'
-import Storage from '../services/storage/index.js'
+import Storage, { GetTestStorageSettings, LoadStorageSettingsFromEnv } from '../services/storage/index.js'
 import { User } from '../services/storage/entity/User.js'
-import { GetTestStorageSettings, LoadMainSettingsFromEnv, LoadTestSettingsFromEnv, MainSettings } from '../services/main/settings.js'
 import chaiString from 'chai-string'
 import { defaultInvoiceExpiry } from '../services/storage/paymentStorage.js'
 import SanityChecker from '../services/main/sanityChecker.js'
@@ -15,6 +14,7 @@ import { Utils } from '../services/helpers/utilsWrapper.js'
 import { AdminManager } from '../services/main/adminManager.js'
 import { TlvStorageFactory } from '../services/storage/tlv/tlvFilesStorageFactory.js'
 import { ChainTools } from './networkSetup.js'
+import { LiquiditySettings, LoadLndSettingsFromEnv, LoadSecondLndSettingsFromEnv, LoadThirdLndSettingsFromEnv } from '../services/main/settings.js'
 chai.use(chaiString)
 export const expect = chai.expect
 export type Describe = (message: string, failure?: boolean) => void
@@ -45,7 +45,7 @@ export type StorageTestBase = {
 }
 
 export const setupStorageTest = async (d: Describe): Promise<StorageTestBase> => {
-    const settings = GetTestStorageSettings()
+    const settings = GetTestStorageSettings(LoadStorageSettingsFromEnv())
     const utils = new Utils({ dataDir: settings.dataDir, allowResetMetricsStorages: true })
     const storageManager = new Storage(settings, utils)
     await storageManager.Connect(console.log)
@@ -61,8 +61,15 @@ export const teardownStorageTest = async (T: StorageTestBase) => {
 }
 
 export const SetupTest = async (d: Describe, chainTools: ChainTools): Promise<TestBase> => {
-    const settings = LoadTestSettingsFromEnv()
-    const initialized = await initMainHandler(getLogger({ component: "mainForTest" }), settings)
+    const storageSettings = GetTestStorageSettings(LoadStorageSettingsFromEnv())
+    const settingsManager = await initSettings(getLogger({ component: "mainForTest" }), storageSettings)
+    settingsManager.OverrideTestSettings(s => {
+        s.liquiditySettings.disableLiquidityProvider = true
+        s.liquiditySettings.liquidityProviderPub = ""
+        s.liquiditySettings.useOnlyLiquidityProvider = false
+        return s
+    })
+    const initialized = await initMainHandler(getLogger({ component: "mainForTest" }), settingsManager)
     if (!initialized) {
         throw new Error("failed to initialize main handler")
     }
@@ -73,16 +80,19 @@ export const SetupTest = async (d: Describe, chainTools: ChainTools): Promise<Te
     const user1 = { userId: u1.info.userId, appUserIdentifier: u1.identifier, appId: app.appId }
     const user2 = { userId: u2.info.userId, appUserIdentifier: u2.identifier, appId: app.appId }
 
-    const extermnalUtils = new Utils({ dataDir: settings.storageSettings.dataDir, allowResetMetricsStorages: settings.allowResetMetricsStorages })
+    const extermnalUtils = new Utils({ dataDir: storageSettings.dataDir, allowResetMetricsStorages: storageSettings.allowResetMetricsStorages })
     /*     const externalAccessToMainLnd = new LND(settings.lndSettings, new LiquidityProvider("", extermnalUtils, async () => { }, async () => { }), extermnalUtils, async () => { }, async () => { }, () => { }, () => { })
         await externalAccessToMainLnd.Warmup() */
-
-    const otherLndSetting = { ...settings.lndSettings, mainNode: settings.lndSettings.otherNode }
-    const externalAccessToOtherLnd = new LND(otherLndSetting, new LiquidityProvider("", extermnalUtils, async () => { }, async () => { }), extermnalUtils, async () => { }, async () => { }, () => { }, () => { }, () => { })
+    const liquiditySettings: LiquiditySettings = { disableLiquidityProvider: true, liquidityProviderPub: "", useOnlyLiquidityProvider: false }
+    const lndSettings = LoadLndSettingsFromEnv({})
+    const secondLndNodeSettings = LoadSecondLndSettingsFromEnv()
+    const otherLndSetting = () => ({ lndSettings, lndNodeSettings: secondLndNodeSettings })
+    const externalAccessToOtherLnd = new LND(otherLndSetting, new LiquidityProvider(() => liquiditySettings, extermnalUtils, async () => { }, async () => { }), extermnalUtils, async () => { }, async () => { }, () => { }, () => { }, () => { })
     await externalAccessToOtherLnd.Warmup()
 
-    const thirdLndSetting = { ...settings.lndSettings, mainNode: settings.lndSettings.thirdNode }
-    const externalAccessToThirdLnd = new LND(thirdLndSetting, new LiquidityProvider("", extermnalUtils, async () => { }, async () => { }), extermnalUtils, async () => { }, async () => { }, () => { }, () => { }, () => { })
+    const thirdLndNodeSettings = LoadThirdLndSettingsFromEnv()
+    const thirdLndSetting = () => ({ lndSettings, lndNodeSettings: thirdLndNodeSettings })
+    const externalAccessToThirdLnd = new LND(thirdLndSetting, new LiquidityProvider(() => liquiditySettings, extermnalUtils, async () => { }, async () => { }), extermnalUtils, async () => { }, async () => { }, () => { }, () => { }, () => { })
     await externalAccessToThirdLnd.Warmup()
 
 
