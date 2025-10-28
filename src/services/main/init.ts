@@ -31,17 +31,11 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
     const unlocker = new Unlocker(settingsManager, storageManager)
     await unlocker.Unlock()
     const adminManager = new AdminManager(settingsManager, storageManager)
-    const wizard = new Wizard(settingsManager, storageManager, adminManager)
-    await wizard.Configure()
-    /*     let reloadedSettings = mainSettings
-        let wizard: Wizard | null = null
-        if (mainSettings.wizard) {
-            wizard = new Wizard(settingsManager, storageManager, adminManager)
-            const reload = await wizard.Configure()
-            if (reload) {
-                reloadedSettings = LoadMainSettingsFromEnv()
-            }
-        } */
+    let wizard: Wizard | null = null
+    if (settingsManager.getSettings().serviceSettings.wizard) {
+        wizard = new Wizard(settingsManager, storageManager, adminManager)
+        await wizard.Configure()
+    }
 
     const mainHandler = new Main(settingsManager, storageManager, adminManager, utils, unlocker)
     adminManager.setLND(mainHandler.lnd)
