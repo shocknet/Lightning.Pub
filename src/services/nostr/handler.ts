@@ -184,10 +184,11 @@ export default class Handler {
                 res()
                 return
             }
-            const sub =this.Subscribe(relay)
+            const sub = this.Subscribe(relay)
             relay.onclose = (() => {
                 this.log("relay disconnected")
                 sub.close()
+                relay.onclose = null
                 relay.close()
                 res()
             })
