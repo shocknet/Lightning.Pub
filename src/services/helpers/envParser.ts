@@ -55,9 +55,3 @@ export const chooseEnvBool = (key: string, dbEnv: Record<string, string | undefi
     const v = chooseEnv(key, dbEnv, defaultValue.toString(), addToDb)
     return v.toLowerCase() === 'true'
 }
-
-export type StringSetting = { t: 'string', v?: string, defaultValue: string }
-export type NumberSetting = { t: 'number', v?: number, defaultValue: number }
-export type BooleanSetting = { t: 'boolean', v?: boolean, defaultValue: boolean }
-export type EnvSetting = StringSetting | NumberSetting | BooleanSetting
-export type SettingsJson = Record<string, Record<string, EnvSetting>>

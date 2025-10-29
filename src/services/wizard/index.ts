@@ -187,13 +187,6 @@ export class Wizard {
         return
     }
 
-    async updateConfigs(pendingConfig: WizardSettings): Promise<void> {
-        await this.settings.updateDefaultAppName(pendingConfig.sourceName)
-        await this.settings.updateRelayUrl(pendingConfig.relayUrl)
-        await this.settings.updateDisableLiquidityProvider(pendingConfig.automateLiquidity)
-        await this.settings.updatePushBackupsToNostr(pendingConfig.pushBackupsToNostr)
-    }
-
     updateDefaultApp = async (currentName: string, avatarUrl?: string): Promise<void> => {
         const newName = this.settings.getSettings().serviceSettings.defaultAppName
         try {
@@ -207,53 +200,4 @@ export class Wizard {
             this.log(`Error updating app info: ${(e as Error).message}`)
         }
     }
-    /* 
-        updateEnvFile = (pendingConfig: WizardSettings) => {
-            let envFileContent: string[] = []
-            try {
-                envFileContent = fs.readFileSync('.env', 'utf-8').split('\n')
-            } catch (err: any) {
-                if (err.code !== 'ENOENT') {
-                    throw err
-                }
-            }
-    
-            const toMerge: string[] = []
-            const sourceNameIndex = envFileContent.findIndex(line => line.startsWith('DEFAULT_APP_NAME'))
-            if (sourceNameIndex === -1) {
-                toMerge.push(`DEFAULT_APP_NAME=${pendingConfig.sourceName}`)
-            } else {
-                envFileContent[sourceNameIndex] = `DEFAULT_APP_NAME=${pendingConfig.sourceName}`
-            }
-    
-            const relayUrlIndex = envFileContent.findIndex(line => line.startsWith('RELAY_URL'))
-            if (relayUrlIndex === -1) {
-                toMerge.push(`RELAY_URL=${pendingConfig.relayUrl}`)
-            } else {
-                envFileContent[relayUrlIndex] = `RELAY_URL=${pendingConfig.relayUrl}`
-            }
-    
-            const automateLiquidityIndex = envFileContent.findIndex(line => line.startsWith('LIQUIDITY_PROVIDER_PUB'))
-            if (pendingConfig.automateLiquidity) {
-                if (automateLiquidityIndex !== -1) {
-                    envFileContent.splice(automateLiquidityIndex, 1)
-                }
-            } else {
-                if (automateLiquidityIndex === -1) {
-                    toMerge.push(`LIQUIDITY_PROVIDER_PUB=null`)
-                } else {
-                    envFileContent[automateLiquidityIndex] = `LIQUIDITY_PROVIDER_PUB=null`
-                }
-            }
-    
-            const pushBackupsToNostrIndex = envFileContent.findIndex(line => line.startsWith('PUSH_BACKUPS_TO_NOSTR'))
-            if (pushBackupsToNostrIndex === -1) {
-                toMerge.push(`PUSH_BACKUPS_TO_NOSTR=${pendingConfig.pushBackupsToNostr ? 'true' : 'false'}`)
-            } else {
-                envFileContent[pushBackupsToNostrIndex] = `PUSH_BACKUPS_TO_NOSTR=${pendingConfig.pushBackupsToNostr ? 'true' : 'false'}`
-            }
-            const merged = [...envFileContent, ...toMerge].join('\n')
-            fs.writeFileSync('.env', merged)
-            loadEnvFile()
-        } */
 }

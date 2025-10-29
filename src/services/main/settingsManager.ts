@@ -1,17 +1,15 @@
 import Storage, { StorageSettings } from "../storage/index.js"
-import { EnvCacher, EnvSetting, SettingsJson, StringSetting } from "../helpers/envParser.js"
+import { EnvCacher } from "../helpers/envParser.js"
 import { getLogger, PubLogger } from "../helpers/logger.js"
 import {
-    BitcoinCoreSettings, LiquiditySettings, LndNodeSettings, LndSettings, LoadBitcoinCoreSettingsFromEnv,
-    LoadFourthLndSettingsFromEnv, LoadLiquiditySettingsFromEnv, LoadSecondLndSettingsFromEnv, LoadThirdLndSettingsFromEnv,
+    LiquiditySettings, LndNodeSettings, LndSettings, LoadLiquiditySettingsFromEnv,
     LoadLSPSettingsFromEnv, LSPSettings, ServiceFeeSettings, ServiceSettings, LoadServiceFeeSettingsFromEnv,
-    LoadNosrtRelaySettingsFromEnv, LoadServiceSettingsFromEnv, LoadWatchdogSettingsFromEnv
+    LoadNosrtRelaySettingsFromEnv, LoadServiceSettingsFromEnv, LoadWatchdogSettingsFromEnv,
+    LoadLndNodeSettingsFromEnv, LoadLndSettingsFromEnv, NostrRelaySettings, WatchdogSettings
 } from "./settings.js"
-import { LoadLndNodeSettingsFromEnv, LoadLndSettingsFromEnv, NostrRelaySettings, WatchdogSettings } from "./settings.js"
 export default class SettingsManager {
     storage: Storage
     private settings: FullSettings | null = null
-    //private testSettings: TestSettings | null = null
 
     log: PubLogger
     constructor(storage: Storage) {
@@ -39,18 +37,6 @@ export default class SettingsManager {
         this.settings = f(this.settings)
     }
 
-    /*     async InitTestSettings(): Promise<void> {
-            await this.InitSettings()
-            await this.updateSkipSanityCheck(true)
-            await this.updateDisableLiquidityProvider(true)
-            this.testSettings = {
-                secondLndSettings: LoadSecondLndSettingsFromEnv(),
-                thirdLndSettings: LoadThirdLndSettingsFromEnv(),
-                fourthLndSettings: LoadFourthLndSettingsFromEnv(),
-                bitcoinCoreSettings: LoadBitcoinCoreSettingsFromEnv(),
-            }
-        } */
-
     async InitSettings(): Promise<FullSettings> {
         const dbSettings = await this.storage.settingsStorage.getAllDbEnvs()
         const toAdd: Record<string, string> = {}
@@ -58,6 +44,7 @@ export default class SettingsManager {
             toAdd[key] = value
         }
         this.settings = this.loadEnvs(dbSettings, addToDb)
+        this.log("adding", toAdd.length, "settings to db")
         for (const key in toAdd) {
             await this.storage.settingsStorage.setDbEnvIFNeeded(key, toAdd[key])
         }
@@ -74,13 +61,6 @@ export default class SettingsManager {
         }
         return this.settings
     }
-
-    /*     getTestSettings(): TestSettings {
-            if (!this.testSettings) {
-                throw new Error("Test settings not initialized")
-            }
-            return this.testSettings
-        } */
 
     async updateDefaultAppName(name: string): Promise<boolean> {
         if (!this.settings) {
@@ -164,16 +144,9 @@ type FullSettings = {
     lndNodeSettings: LndNodeSettings
     lndSettings: LndSettings
     liquiditySettings: LiquiditySettings
-    watchDogSettings: WatchdogSettings, // Hot
-    nostrRelaySettings: NostrRelaySettings, // Hot
-    serviceFeeSettings: ServiceFeeSettings, // Hot
-    serviceSettings: ServiceSettings, // Hot
+    watchDogSettings: WatchdogSettings,
+    nostrRelaySettings: NostrRelaySettings,
+    serviceFeeSettings: ServiceFeeSettings,
+    serviceSettings: ServiceSettings,
     lspSettings: LSPSettings
 }
-
-/* type TestSettings = {
-    secondLndSettings: LndNodeSettings
-    thirdLndSettings: LndNodeSettings
-    fourthLndSettings: LndNodeSettings
-    bitcoinCoreSettings: BitcoinCoreSettings
-} */

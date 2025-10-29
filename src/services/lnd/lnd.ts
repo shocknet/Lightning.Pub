@@ -51,7 +51,7 @@ export default class {
     outgoingOpsLocked = false
     liquidProvider: LiquidityProvider
     utils: Utils
-    constructor(getSettings: () => { lndSettings: LndSettings, lndNodeSettings: LndNodeSettings }, liquidProvider: LiquidityProvider, utils: Utils, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb, newBlockCb: NewBlockCb, htlcCb: HtlcCb, channelEventCb: ChannelEventCb, nodeToUse?: "other" | "third" | "fourth") {
+    constructor(getSettings: () => { lndSettings: LndSettings, lndNodeSettings: LndNodeSettings }, liquidProvider: LiquidityProvider, utils: Utils, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb, newBlockCb: NewBlockCb, htlcCb: HtlcCb, channelEventCb: ChannelEventCb) {
         this.getSettings = getSettings
         this.utils = utils
         this.addressPaidCb = addressPaidCb

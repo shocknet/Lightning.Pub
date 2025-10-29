@@ -3,15 +3,15 @@ import os from 'os'
 import path from 'path'
 
 export type ServiceFeeSettings = {
-    incomingTxFee: number // Hot
-    outgoingTxFee: number // Hot
-    incomingAppInvoiceFee: number // Hot
-    incomingAppUserInvoiceFee: number // Hot
-    outgoingAppInvoiceFee: number // Hot
-    outgoingAppUserInvoiceFee: number // Hot
-    outgoingAppUserInvoiceFeeBps: number // Hot
-    userToUserFee: number // Hot
-    appToUserFee: number // Hot
+    incomingTxFee: number
+    outgoingTxFee: number
+    incomingAppInvoiceFee: number
+    incomingAppUserInvoiceFee: number
+    outgoingAppInvoiceFee: number
+    outgoingAppUserInvoiceFee: number
+    outgoingAppUserInvoiceFeeBps: number
+    userToUserFee: number
+    appToUserFee: number
 }
 
 export const LoadServiceFeeSettingsFromEnv = (dbEnv: Record<string, string | undefined>, addToDb?: EnvCacher): ServiceFeeSettings => {
@@ -30,19 +30,19 @@ export const LoadServiceFeeSettingsFromEnv = (dbEnv: Record<string, string | und
 }
 
 export type ServiceSettings = {
-    servicePort: number // Cold
-    recordPerformance: boolean // Cold
-    skipSanityCheck: boolean // Cold
-    wizard: boolean // Cold
-    bridgeUrl: string, // Cold
-    shockPushBaseUrl: string // Cold
+    servicePort: number
+    recordPerformance: boolean
+    skipSanityCheck: boolean
+    wizard: boolean
+    bridgeUrl: string,
+    shockPushBaseUrl: string
 
-    serviceUrl: string // Hot
-    disableExternalPayments: boolean // Hot
-    defaultAppName: string // Hot
-    pushBackupsToNostr: boolean // Hot
-    lnurlMetaText: string, // Hot
-    allowHttpUpgrade: boolean // Hot
+    serviceUrl: string
+    disableExternalPayments: boolean
+    defaultAppName: string
+    pushBackupsToNostr: boolean
+    lnurlMetaText: string,
+    allowHttpUpgrade: boolean
 
 
 }
@@ -117,10 +117,6 @@ export const LoadLndSettingsFromEnv = (dbEnv: Record<string, string | undefined>
 export type NostrRelaySettings = {
     relays: string[],
     maxEventContentLength: number
-}
-
-const getEnvOrDefault = (name: string, defaultValue: string): string => {
-    return process.env[name] || defaultValue;
 }
 
 export const LoadNosrtRelaySettingsFromEnv = (dbEnv: Record<string, string | undefined>, addToDb?: EnvCacher): NostrRelaySettings => {
@@ -207,47 +203,4 @@ export const LoadBitcoinCoreSettingsFromEnv = (): BitcoinCoreSettings => {
         user: EnvMustBeNonEmptyString("BITCOIN_CORE_USER"),
         pass: EnvMustBeNonEmptyString("BITCOIN_CORE_PASS")
     }
-}
-
-/* export const LoadTestSettingsFromEnv = (): TestSettings => {
-
-    const settings = LoadMainSettingsFromEnv()
-    return {
-        ...settings,
-        storageSettings: GetTestStorageSettings(settings.storageSettings),
-        lndSettings: {
-            ...settings.lndSettings,
-            otherNode: {
-                lndAddr: EnvMustBeNonEmptyString("LND_OTHER_ADDR"),
-                lndCertPath: EnvMustBeNonEmptyString("LND_OTHER_CERT_PATH"),
-                lndMacaroonPath: EnvMustBeNonEmptyString("LND_OTHER_MACAROON_PATH")
-            },
-            thirdNode: {
-                lndAddr: EnvMustBeNonEmptyString("LND_THIRD_ADDR"),
-                lndCertPath: EnvMustBeNonEmptyString("LND_THIRD_CERT_PATH"),
-                lndMacaroonPath: EnvMustBeNonEmptyString("LND_THIRD_MACAROON_PATH")
-            },
-            fourthNode: {
-                lndAddr: EnvMustBeNonEmptyString("LND_FOURTH_ADDR"),
-                lndCertPath: EnvMustBeNonEmptyString("LND_FOURTH_CERT_PATH"),
-                lndMacaroonPath: EnvMustBeNonEmptyString("LND_FOURTH_MACAROON_PATH")
-            },
-        },
-        liquiditySettings: {
-            ...settings.liquiditySettings,
-            liquidityProviderPub: "",
-        },
-        skipSanityCheck: true,
-        bitcoinCoreSettings: {
-            port: EnvMustBeInteger("BITCOIN_CORE_PORT"),
-            user: EnvMustBeNonEmptyString("BITCOIN_CORE_USER"),
-            pass: EnvMustBeNonEmptyString("BITCOIN_CORE_PASS")
-        },
-    }
-} */
-
-
-
-export const getDataPath = (dataDir: string, dataPath: string) => {
-    return dataDir !== "" ? `${dataDir}/${dataPath}` : dataPath
 }

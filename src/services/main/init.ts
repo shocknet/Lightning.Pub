@@ -58,7 +58,7 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
             return mainHandler.storage.applicationStorage.GenerateApplicationKeys(app);
         } // --
         else {
-            return { privateKey: app.nostr_private_key, publicKey: app.nostr_public_key, appId: app.app_id, name: app.name, avatarUrl: app.avatar_url }
+            return { privateKey: app.nostr_private_key, publicKey: app.nostr_public_key, appId: app.app_id, name: app.name }
         }
     }))
     const liquidityProviderApp = apps.find(app => defaultNames.includes(app.name))
@@ -80,7 +80,7 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
     await mainHandler.appUserManager.CleanupInactiveUsers()
     await mainHandler.appUserManager.CleanupNeverActiveUsers()
     await mainHandler.paymentManager.watchDog.Start()
-    return { mainHandler, apps, liquidityProviderInfo, liquidityProviderApp, wizard, adminManager, settingsManager }
+    return { mainHandler, apps, liquidityProviderInfo, liquidityProviderApp, wizard, adminManager }
 }
 
 const processArgs = async (mainHandler: Main) => {

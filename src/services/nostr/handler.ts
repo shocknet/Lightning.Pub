@@ -207,37 +207,6 @@ export default class Handler {
         }
     }
 
-    /*     async Connect() {
-            const log = getLogger({})
-            log("conneting to relay...", this.settings.relays[0])
-            let relay: Relay | null = null
-            //const relay = relayInit(this.settings.relays[0]) // TODO: create multiple conns for multiple relays
-            try {
-                relay = await Relay.connect(this.settings.relays[0])
-                if (!relay.connected) {
-                    throw new Error("failed to connect to relay")
-                }
-            } catch (err:any) {
-                log("failed to connect to relay, will try again in 2 seconds", err.message || err)
-                setTimeout(() => {
-                    this.Connect()
-                }, 2000)
-                return
-            }
-    
-            log("connected, subbing...")
-            relay.onclose = (() => {
-                log("relay disconnected, will try to reconnect in 2 seconds")
-                relay.close()
-                setTimeout(() => {
-                    this.Connect()
-                }, 2000)
-            })
-            
-            this.Subscribe(relay)
-    
-        } */
-
     Subscribe(relay: Relay) {
         const appIds = Object.keys(this.apps)
         this.log("🔍 [NOSTR SUBSCRIPTION] Setting up subscription", {
