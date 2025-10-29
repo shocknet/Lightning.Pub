@@ -186,8 +186,11 @@ export default class Handler {
             this.relay.onclose = (() => {
                 this.log("relay disconnected")
                 this.sub?.close()
-                this.relay?.close()
-                this.relay = null
+                if (this.relay) {
+                    this.relay.onclose = null
+                    this.relay.close()
+                    this.relay = null
+                }
                 this.sub = null
                 res()
             })
