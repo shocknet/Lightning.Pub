@@ -22,12 +22,14 @@ export default class SettingsStorage {
     }
 
     async setDbEnvIFNeeded(envName: string, envValue: string): Promise<void> {
-        const setting = await this.dbs.FindOne<AdminSettings>('AdminSettings', { where: { env_name: envName } });
-        if (!setting) {
-            await this.dbs.CreateAndSave<AdminSettings>('AdminSettings', { env_name: envName, env_value: envValue });
-        } else if (setting.env_value !== envValue) {
-            setting.env_value = envValue;
-            await this.dbs.Update<AdminSettings>('AdminSettings', setting.serial_id, setting);
-        }
+        await this.dbs.Tx(async tx => {
+            const setting = await this.dbs.FindOne<AdminSettings>('AdminSettings', { where: { env_name: envName } }, tx);
+            if (!setting) {
+                await this.dbs.CreateAndSave<AdminSettings>('AdminSettings', { env_name: envName, env_value: envValue }, tx);
+            } else if (setting.env_value !== envValue) {
+                setting.env_value = envValue;
+                await this.dbs.Update<AdminSettings>('AdminSettings', setting.serial_id, setting, tx);
+            }
+        })
     }
 }
