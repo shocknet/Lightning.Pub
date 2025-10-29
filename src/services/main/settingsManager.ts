@@ -4,7 +4,7 @@ import { getLogger, PubLogger } from "../helpers/logger.js"
 import {
     LiquiditySettings, LndNodeSettings, LndSettings, LoadLiquiditySettingsFromEnv,
     LoadLSPSettingsFromEnv, LSPSettings, ServiceFeeSettings, ServiceSettings, LoadServiceFeeSettingsFromEnv,
-    LoadNosrtRelaySettingsFromEnv, LoadServiceSettingsFromEnv, LoadWatchdogSettingsFromEnv,
+    LoadNostrRelaySettingsFromEnv, LoadServiceSettingsFromEnv, LoadWatchdogSettingsFromEnv,
     LoadLndNodeSettingsFromEnv, LoadLndSettingsFromEnv, NostrRelaySettings, WatchdogSettings
 } from "./settings.js"
 export default class SettingsManager {
@@ -23,7 +23,7 @@ export default class SettingsManager {
             lndSettings: LoadLndSettingsFromEnv(dbEnv, addToDb),
             liquiditySettings: LoadLiquiditySettingsFromEnv(dbEnv, addToDb),
             lspSettings: LoadLSPSettingsFromEnv(dbEnv, addToDb),
-            nostrRelaySettings: LoadNosrtRelaySettingsFromEnv(dbEnv, addToDb),
+            nostrRelaySettings: LoadNostrRelaySettingsFromEnv(dbEnv, addToDb),
             serviceFeeSettings: LoadServiceFeeSettingsFromEnv(dbEnv, addToDb),
             serviceSettings: LoadServiceSettingsFromEnv(dbEnv, addToDb),
             watchDogSettings: LoadWatchdogSettingsFromEnv(dbEnv, addToDb),
