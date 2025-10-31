@@ -44,7 +44,7 @@ export default class SettingsManager {
             toAdd[key] = value
         }
         this.settings = this.loadEnvs(dbSettings, addToDb)
-        this.log("adding", toAdd.length, "settings to db")
+        this.log("adding", Object.keys(toAdd).length, "settings to db")
         for (const key in toAdd) {
             await this.storage.settingsStorage.setDbEnvIFNeeded(key, toAdd[key])
         }

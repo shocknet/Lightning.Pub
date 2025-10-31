@@ -24,8 +24,8 @@ export const setupNetwork = async (): Promise<ChainTools> => {
     const lndNodeSettings = LoadLndNodeSettingsFromEnv({})
     const secondLndNodeSettings = LoadSecondLndSettingsFromEnv()
     const liquiditySettings: LiquiditySettings = { disableLiquidityProvider: true, liquidityProviderPub: "", useOnlyLiquidityProvider: false }
-    const alice = new LND(() => ({ lndSettings, lndNodeSettings }), new LiquidityProvider(() => liquiditySettings, setupUtils, async () => { }, async () => { }), setupUtils, async () => { }, async () => { }, () => { }, () => { }, () => { })
-    const bob = new LND(() => ({ lndSettings, lndNodeSettings: secondLndNodeSettings }), new LiquidityProvider(() => liquiditySettings, setupUtils, async () => { }, async () => { }), setupUtils, async () => { }, async () => { }, () => { }, () => { }, () => { })
+    const alice = new LND(() => ({ lndSettings, lndNodeSettings }), new LiquidityProvider(() => liquiditySettings, setupUtils, async () => { }, async () => { }), async () => { }, setupUtils, async () => { }, async () => { }, () => { }, () => { }, () => { })
+    const bob = new LND(() => ({ lndSettings, lndNodeSettings: secondLndNodeSettings }), new LiquidityProvider(() => liquiditySettings, setupUtils, async () => { }, async () => { }), async () => { }, setupUtils, async () => { }, async () => { }, () => { }, () => { }, () => { })
     await tryUntil<void>(async i => {
         const peers = await alice.ListPeers()
         if (peers.peers.length > 0) {

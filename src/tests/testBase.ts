@@ -87,12 +87,12 @@ export const SetupTest = async (d: Describe, chainTools: ChainTools): Promise<Te
     const lndSettings = LoadLndSettingsFromEnv({})
     const secondLndNodeSettings = LoadSecondLndSettingsFromEnv()
     const otherLndSetting = () => ({ lndSettings, lndNodeSettings: secondLndNodeSettings })
-    const externalAccessToOtherLnd = new LND(otherLndSetting, new LiquidityProvider(() => liquiditySettings, extermnalUtils, async () => { }, async () => { }), extermnalUtils, async () => { }, async () => { }, () => { }, () => { }, () => { })
+    const externalAccessToOtherLnd = new LND(otherLndSetting, new LiquidityProvider(() => liquiditySettings, extermnalUtils, async () => { }, async () => { }), async () => { }, extermnalUtils, async () => { }, async () => { }, () => { }, () => { }, () => { })
     await externalAccessToOtherLnd.Warmup()
 
     const thirdLndNodeSettings = LoadThirdLndSettingsFromEnv()
     const thirdLndSetting = () => ({ lndSettings, lndNodeSettings: thirdLndNodeSettings })
-    const externalAccessToThirdLnd = new LND(thirdLndSetting, new LiquidityProvider(() => liquiditySettings, extermnalUtils, async () => { }, async () => { }), extermnalUtils, async () => { }, async () => { }, () => { }, () => { }, () => { })
+    const externalAccessToThirdLnd = new LND(thirdLndSetting, new LiquidityProvider(() => liquiditySettings, extermnalUtils, async () => { }, async () => { }), async () => { }, extermnalUtils, async () => { }, async () => { }, () => { }, () => { }, () => { })
     await externalAccessToThirdLnd.Warmup()
 
 

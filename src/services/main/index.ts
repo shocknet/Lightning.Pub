@@ -79,7 +79,7 @@ export default class {
             lndSettings: settings.getSettings().lndSettings,
             lndNodeSettings: settings.getSettings().lndNodeSettings
         })
-        this.lnd = new LND(lndGetSettings, this.liquidityProvider, this.utils, this.addressPaidCb, this.invoicePaidCb, this.newBlockCb, this.htlcCb, this.channelEventCb)
+        this.lnd = new LND(lndGetSettings, this.liquidityProvider, () => this.unlocker.Unlock(), this.utils, this.addressPaidCb, this.invoicePaidCb, this.newBlockCb, this.htlcCb, this.channelEventCb)
         this.liquidityManager = new LiquidityManager(this.settings, this.storage, this.utils, this.liquidityProvider, this.lnd, this.rugPullTracker)
         this.metricsManager = new MetricsManager(this.storage, this.lnd)
 

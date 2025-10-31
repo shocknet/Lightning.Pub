@@ -90,7 +90,7 @@ export default class {
                 take
             }, txId);
             items.push(...firstBatch);
-        } 
+        }
 
         const needMore = take - items.length
         // If need more, fetch higher paid_at_unix
@@ -134,7 +134,7 @@ export default class {
     }
 
     async RemoveUserInvoices(userId: string, txId?: string) {
-        return this.dbs.Delete<UserReceivingInvoice>('UserReceivingInvoice',  { user: { user_id: userId } }, txId)
+        return this.dbs.Delete<UserReceivingInvoice>('UserReceivingInvoice', { user: { user_id: userId } }, txId)
     }
 
     async GetAddressOwner(address: string, txId?: string): Promise<UserReceivingAddress | null> {
@@ -401,7 +401,7 @@ export default class {
         ])
         const receivingTransactions = await Promise.all(receivingAddresses.map(addr =>
             this.dbs.Find<AddressReceivingTransaction>('AddressReceivingTransaction', { where: { user_address: { serial_id: addr.serial_id }, ...time } })))
-            return {
+        return {
             receivingInvoices, receivingAddresses, receivingTransactions,
             outgoingInvoices, outgoingTransactions,
             userToUser
@@ -419,8 +419,8 @@ export default class {
 
     async VerifyDbEvent(e: LoggedEvent) {
         switch (e.type) {
-            case "new_invoice":
-                return orFail(this.dbs.FindOne<UserReceivingInvoice>('UserReceivingInvoice', { where: { invoice: e.data, user: { user_id: e.userId } } }))
+            /*             case "new_invoice":
+                            return orFail(this.dbs.FindOne<UserReceivingInvoice>('UserReceivingInvoice', { where: { invoice: e.data, user: { user_id: e.userId } } })) */
             case 'new_address':
                 return orFail(this.dbs.FindOne<UserReceivingAddress>('UserReceivingAddress', { where: { address: e.data, user: { user_id: e.userId } } }))
             case 'invoice_paid':
