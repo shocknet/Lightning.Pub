@@ -1,16 +1,16 @@
 // @ts-ignore
 import BitcoinCore from 'bitcoin-core';
-import { TestSettings } from '../services/main/settings';
+import { BitcoinCoreSettings } from '../services/main/settings';
 export class BitcoinCoreWrapper {
     core: BitcoinCore
     addr: { address: string }
-    constructor(settings: TestSettings) {
+    constructor(settings: BitcoinCoreSettings) {
         this.core = new BitcoinCore({
             //network: 'regtest',
             host: '127.0.0.1',
-            port: `${settings.bitcoinCoreSettings.port}`,
-            username: settings.bitcoinCoreSettings.user,
-            password: settings.bitcoinCoreSettings.pass,
+            port: `${settings.port}`,
+            username: settings.user,
+            password: settings.pass,
             // use a long timeout due to the time it takes to mine a lot of blocks
             timeout: 5 * 60 * 1000,
         })

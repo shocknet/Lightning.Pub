@@ -4,16 +4,17 @@ import GetServerMethods from './services/serverMethods/index.js'
 import serverOptions from './auth.js';
 import nostrMiddleware from './nostrMiddleware.js'
 import { getLogger } from './services/helpers/logger.js';
-import { initMainHandler } from './services/main/init.js';
-import { LoadMainSettingsFromEnv } from './services/main/settings.js';
+import { initMainHandler, initSettings } from './services/main/init.js';
 import { nip19 } from 'nostr-tools'
+import { LoadStorageSettingsFromEnv } from './services/storage/index.js';
 //@ts-ignore
 const { nprofileEncode } = nip19
 
 const start = async () => {
     const log = getLogger({})
-    const mainSettings = LoadMainSettingsFromEnv()
-    const keepOn = await initMainHandler(log, mainSettings)
+    const storageSettings = LoadStorageSettingsFromEnv()
+    const settingsManager = await initSettings(log, storageSettings)
+    const keepOn = await initMainHandler(log, settingsManager)
     if (!keepOn) {
         log("manual process ended")
         return
@@ -21,7 +22,7 @@ const start = async () => {
 
     const { apps, mainHandler, liquidityProviderInfo, wizard, adminManager } = keepOn
     const serverMethods = GetServerMethods(mainHandler)
-    const nostrSettings = mainSettings.nostrRelaySettings
+    const nostrSettings = settingsManager.getSettings().nostrRelaySettings
     log("initializing nostr middleware")
     const { Send } = nostrMiddleware(serverMethods, mainHandler,
         { ...nostrSettings, apps, clients: [liquidityProviderInfo] },
@@ -36,6 +37,6 @@ const start = async () => {
     }
     adminManager.setAppNprofile(appNprofile)
     const Server = NewServer(serverMethods, serverOptions(mainHandler))
-    Server.Listen(mainSettings.servicePort)
+    Server.Listen(settingsManager.getSettings().serviceSettings.servicePort)
 }
 start()

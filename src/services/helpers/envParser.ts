@@ -26,3 +26,32 @@ export const EnvCanBeBoolean = (name: string): boolean => {
     if (!env) return false
     return env.toLowerCase() === 'true'
 }
+
+export const IntOrUndefinedEnv = (v: string | undefined): number | undefined => {
+    if (!v) return undefined
+    const num = +v
+    if (isNaN(num) || !Number.isInteger(num)) return undefined
+    return num
+}
+
+export type EnvCacher = (key: string, value: string) => void
+
+export const chooseEnv = (key: string, dbEnv: Record<string, string | undefined>, defaultValue: string, addToDb?: EnvCacher): string => {
+    const fromProcess = process.env[key]
+    if (fromProcess) {
+        if (fromProcess !== dbEnv[key] && addToDb) addToDb(key, fromProcess)
+        return fromProcess
+    }
+    return dbEnv[key] || defaultValue
+}
+
+export const chooseEnvInt = (key: string, dbEnv: Record<string, string | undefined>, defaultValue: number, addToDb?: EnvCacher): number => {
+    const v = IntOrUndefinedEnv(chooseEnv(key, dbEnv, defaultValue.toString(), addToDb))
+    if (v === undefined) return defaultValue
+    return v
+}
+
+export const chooseEnvBool = (key: string, dbEnv: Record<string, string | undefined>, defaultValue: boolean, addToDb?: EnvCacher): boolean => {
+    const v = chooseEnv(key, dbEnv, defaultValue.toString(), addToDb)
+    return v.toLowerCase() === 'true'
+}

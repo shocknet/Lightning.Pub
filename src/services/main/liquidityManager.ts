@@ -2,22 +2,14 @@ import { getLogger } from "../helpers/logger.js"
 import { Utils } from "../helpers/utilsWrapper.js"
 import { LiquidityProvider } from "./liquidityProvider.js"
 import LND from "../lnd/lnd.js"
-import { FlashsatsLSP, LoadLSPSettingsFromEnv, LSPSettings, OlympusLSP, /* VoltageLSP */ } from "../lnd/lsp.js"
+import { FlashsatsLSP, OlympusLSP, /* VoltageLSP */ } from "../lnd/lsp.js"
 import Storage from '../storage/index.js'
 import { defaultInvoiceExpiry } from "../storage/paymentStorage.js"
 import { RugPullTracker } from "./rugPullTracker.js"
-export type LiquiditySettings = {
-    lspSettings: LSPSettings
-    liquidityProviderPub: string
-    useOnlyLiquidityProvider: boolean
-}
-export const LoadLiquiditySettingsFromEnv = (): LiquiditySettings => {
-    const lspSettings = LoadLSPSettingsFromEnv()
-    const liquidityProviderPub = process.env.LIQUIDITY_PROVIDER_PUB === "null" ? "" : (process.env.LIQUIDITY_PROVIDER_PUB || "76ed45f00cea7bac59d8d0b7d204848f5319d7b96c140ffb6fcbaaab0a13d44e")
-    return { lspSettings, liquidityProviderPub, useOnlyLiquidityProvider: false }
-}
+import SettingsManager from "./settingsManager.js"
+
 export class LiquidityManager {
-    settings: LiquiditySettings
+    settings: SettingsManager
     storage: Storage
     liquidityProvider: LiquidityProvider
     rugPullTracker: RugPullTracker
@@ -32,16 +24,16 @@ export class LiquidityManager {
     utils: Utils
     latestDrain: ({ success: true, amt: number } | { success: false, amt: number, attempt: number, at: Date }) = { success: true, amt: 0 }
     drainsSkipped = 0
-    constructor(settings: LiquiditySettings, storage: Storage, utils: Utils, liquidityProvider: LiquidityProvider, lnd: LND, rugPullTracker: RugPullTracker) {
+    constructor(settings: SettingsManager, storage: Storage, utils: Utils, liquidityProvider: LiquidityProvider, lnd: LND, rugPullTracker: RugPullTracker) {
         this.settings = settings
         this.storage = storage
         this.liquidityProvider = liquidityProvider
         this.lnd = lnd
         this.rugPullTracker = rugPullTracker
         this.utils = utils
-        this.olympusLSP = new OlympusLSP(settings.lspSettings, lnd, liquidityProvider)
+        this.olympusLSP = new OlympusLSP(settings, lnd, liquidityProvider)
         /* this.voltageLSP = new VoltageLSP(settings.lspSettings, lnd, liquidityProvider) */
-        this.flashsatsLSP = new FlashsatsLSP(settings.lspSettings, lnd, liquidityProvider)
+        this.flashsatsLSP = new FlashsatsLSP(settings, lnd, liquidityProvider)
     }
 
     GetPaidFees = () => {
@@ -58,7 +50,8 @@ export class LiquidityManager {
     }
 
     beforeInvoiceCreation = async (amount: number): Promise<'lnd' | 'provider'> => {
-        if (this.settings.useOnlyLiquidityProvider) {
+
+        if (this.settings.getSettings().liquiditySettings.useOnlyLiquidityProvider) {
             return 'provider'
         }
 
@@ -86,7 +79,7 @@ export class LiquidityManager {
     }
 
     beforeOutInvoicePayment = async (amount: number): Promise<'lnd' | 'provider'> => {
-        if (this.settings.useOnlyLiquidityProvider) {
+        if (this.settings.getSettings().liquiditySettings.useOnlyLiquidityProvider) {
             return 'provider'
         }
         const canHandle = await this.liquidityProvider.CanProviderHandle({ action: 'spend', amount })
@@ -155,7 +148,7 @@ export class LiquidityManager {
 
 
     shouldOpenChannel = async (): Promise<{ shouldOpen: false } | { shouldOpen: true, maxSpendable: number }> => {
-        const threshold = this.settings.lspSettings.channelThreshold
+        const threshold = this.settings.getSettings().lspSettings.channelThreshold
         if (threshold === 0) {
             return { shouldOpen: false }
         }

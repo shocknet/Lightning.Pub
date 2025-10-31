@@ -14,7 +14,7 @@ const serverOptions = (mainHandler: Main): ServerOptions => {
         UserAuthGuard: async (authHeader) => { return mainHandler.appUserManager.DecodeUserToken(stripBearer(authHeader)) },
         GuestWithPubAuthGuard: async (_) => { throw new Error("Nostr only route") },
         GuestAuthGuard: async (_) => ({}),
-        metricsCallback: metrics => mainHandler.settings.recordPerformance ? mainHandler.metricsManager.AddMetrics(metrics) : null,
+        metricsCallback: metrics => mainHandler.settings.getSettings().serviceSettings.recordPerformance ? mainHandler.metricsManager.AddMetrics(metrics) : null,
         allowCors: true,
         logMethod: true,
         logBody: true

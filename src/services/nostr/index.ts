@@ -1,8 +1,7 @@
 import { ChildProcess, fork } from 'child_process'
-import { EnvCanBeInteger, EnvMustBeNonEmptyString } from "../helpers/envParser.js"
 import { NostrSettings, NostrEvent, ChildProcessRequest, ChildProcessResponse, SendData, SendInitiator } from "./handler.js"
 import { Utils } from '../helpers/utilsWrapper.js'
-import {getLogger, ERROR} from '../helpers/logger.js'
+import { getLogger, ERROR } from '../helpers/logger.js'
 type EventCallback = (event: NostrEvent) => void
 
 
@@ -10,7 +9,6 @@ type EventCallback = (event: NostrEvent) => void
 
 
 export default class NostrSubprocess {
-    settings: NostrSettings
     childProcess: ChildProcess
     utils: Utils
     awaitingPongs: (() => void)[] = []
@@ -53,6 +51,10 @@ export default class NostrSubprocess {
     }
     sendToChildProcess(message: ChildProcessRequest) {
         this.childProcess.send(message)
+    }
+
+    Reset(settings: NostrSettings) {
+        this.sendToChildProcess({ type: 'settings', settings })
     }
 
     Ping() {

@@ -13,23 +13,31 @@ import { OpenChannelReq } from './openChannelReq.js';
 import { AddInvoiceReq } from './addInvoiceReq.js';
 import { PayInvoiceReq } from './payInvoiceReq.js';
 import { SendCoinsReq } from './sendCoinsReq.js';
-import { LndSettings, AddressPaidCb, InvoicePaidCb, NodeInfo, Invoice, DecodedInvoice, PaidInvoice, NewBlockCb, HtlcCb, BalanceInfo, ChannelEventCb } from './settings.js';
+import { AddressPaidCb, InvoicePaidCb, NodeInfo, Invoice, DecodedInvoice, PaidInvoice, NewBlockCb, HtlcCb, BalanceInfo, ChannelEventCb } from './settings.js';
 import { ERROR, getLogger } from '../helpers/logger.js';
 import { HtlcEvent_EventType } from '../../../proto/lnd/router.js';
 import { LiquidityProvider, LiquidityRequest } from '../main/liquidityProvider.js';
 import { Utils } from '../helpers/utilsWrapper.js';
 import { TxPointSettings } from '../storage/tlv/stateBundler.js';
 import { WalletKitClient } from '../../../proto/lnd/walletkit.client.js';
+import SettingsManager from '../main/settingsManager.js';
+import { LndNodeSettings, LndSettings } from '../main/settings.js';
+
 const DeadLineMetadata = (deadline = 10 * 1000) => ({ deadline: Date.now() + deadline })
 const deadLndRetrySeconds = 5
 type TxActionOptions = { useProvider: boolean, from: 'user' | 'system' }
+type NodeSettingsOverride = {
+    lndAddr: string
+    lndCertPath: string
+    lndMacaroonPath: string
+}
 export default class {
     lightning: LightningClient
     invoices: InvoicesClient
     router: RouterClient
     chainNotifier: ChainNotifierClient
     walletKit: WalletKitClient
-    settings: LndSettings
+    getSettings: () => { lndSettings: LndSettings, lndNodeSettings: LndNodeSettings }
     ready = false
     latestKnownBlockHeigh = 0
     latestKnownSettleIndex = 0
@@ -43,15 +51,15 @@ export default class {
     outgoingOpsLocked = false
     liquidProvider: LiquidityProvider
     utils: Utils
-    constructor(settings: LndSettings, liquidProvider: LiquidityProvider, utils: Utils, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb, newBlockCb: NewBlockCb, htlcCb: HtlcCb, channelEventCb: ChannelEventCb) {
-        this.settings = settings
+    constructor(getSettings: () => { lndSettings: LndSettings, lndNodeSettings: LndNodeSettings }, liquidProvider: LiquidityProvider, utils: Utils, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb, newBlockCb: NewBlockCb, htlcCb: HtlcCb, channelEventCb: ChannelEventCb) {
+        this.getSettings = getSettings
         this.utils = utils
         this.addressPaidCb = addressPaidCb
         this.invoicePaidCb = invoicePaidCb
         this.newBlockCb = newBlockCb
         this.htlcCb = htlcCb
         this.channelEventCb = channelEventCb
-        const { lndAddr, lndCertPath, lndMacaroonPath } = this.settings.mainNode
+        const { lndAddr, lndCertPath, lndMacaroonPath } = this.getSettings().lndNodeSettings
         const lndCert = fs.readFileSync(lndCertPath);
         const macaroon = fs.readFileSync(lndMacaroonPath).toString('hex');
         const sslCreds = credentials.createSsl(lndCert);
@@ -311,11 +319,11 @@ export default class {
     }
 
     GetFeeLimitAmount(amount: number): number {
-        return Math.ceil(amount * this.settings.feeRateLimit + this.settings.feeFixedLimit);
+        return Math.ceil(amount * this.getSettings().lndSettings.feeRateLimit + this.getSettings().lndSettings.feeFixedLimit);
     }
 
     GetMaxWithinLimit(amount: number): number {
-        return Math.max(0, Math.floor(amount * (1 - this.settings.feeRateLimit) - this.settings.feeFixedLimit))
+        return Math.max(0, Math.floor(amount * (1 - this.getSettings().lndSettings.feeRateLimit) - this.getSettings().lndSettings.feeFixedLimit))
     }
 
     async ChannelBalance(): Promise<{ local: number, remote: number }> {
