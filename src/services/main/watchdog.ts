@@ -179,7 +179,12 @@ export class Watchdog {
 
     StartCheck = async () => {
         this.latestCheckStart = Date.now()
-        await this.updateAccumulatedHtlcFees()
+        try {
+            await this.updateAccumulatedHtlcFees()
+        } catch (err: any) {
+            this.log("Error updating accumulated htlc fees", err.message || err)
+            return
+        }
         const totalUsersBalance = await this.storage.paymentStorage.GetTotalUsersBalance()
         this.utils.stateBundler.AddBalancePoint('usersBalance', totalUsersBalance)
         const { totalExternal, otherExternal } = await this.getAggregatedExternalBalance()
