@@ -1,4 +1,3 @@
-import { EnvCanBeInteger } from "../helpers/envParser.js";
 import FunctionQueue from "../helpers/functionQueue.js";
 import { getLogger } from "../helpers/logger.js";
 import { Utils } from "../helpers/utilsWrapper.js";
@@ -8,14 +7,8 @@ import { ChannelBalance } from "../lnd/settings.js";
 import Storage from '../storage/index.js'
 import { LiquidityManager } from "./liquidityManager.js";
 import { RugPullTracker } from "./rugPullTracker.js";
-export type WatchdogSettings = {
-    maxDiffSats: number
-}
-export const LoadWatchdogSettingsFromEnv = (test = false): WatchdogSettings => {
-    return {
-        maxDiffSats: EnvCanBeInteger("WATCHDOG_MAX_DIFF_SATS")
-    }
-}
+import SettingsManager from "./settingsManager.js";
+
 export class Watchdog {
     queue: FunctionQueue<void>
     initialLndBalance: number;
@@ -27,7 +20,7 @@ export class Watchdog {
     lnd: LND;
     liquidProvider: LiquidityProvider;
     liquidityManager: LiquidityManager;
-    settings: WatchdogSettings;
+    settings: SettingsManager;
     storage: Storage;
     rugPullTracker: RugPullTracker
     utils: Utils
@@ -36,7 +29,7 @@ export class Watchdog {
     ready = false
     interval: NodeJS.Timer;
     lndPubKey: string;
-    constructor(settings: WatchdogSettings, liquidityManager: LiquidityManager, lnd: LND, storage: Storage, utils: Utils, rugPullTracker: RugPullTracker) {
+    constructor(settings: SettingsManager, liquidityManager: LiquidityManager, lnd: LND, storage: Storage, utils: Utils, rugPullTracker: RugPullTracker) {
         this.lnd = lnd;
         this.settings = settings;
         this.storage = storage;
@@ -114,7 +107,7 @@ export class Watchdog {
         switch (result.type) {
             case 'mismatch':
                 if (deltaLnd < 0) {
-                    if (result.absoluteDiff > this.settings.maxDiffSats) {
+                    if (result.absoluteDiff > this.settings.getSettings().watchDogSettings.maxDiffSats) {
                         await this.updateDisruption(true, result.absoluteDiff, lndWithDeltaUsers)
                         return true
                     }
@@ -126,7 +119,7 @@ export class Watchdog {
                 break
             case 'negative':
                 if (Math.abs(deltaLnd) > Math.abs(deltaUsers)) {
-                    if (result.absoluteDiff > this.settings.maxDiffSats) {
+                    if (result.absoluteDiff > this.settings.getSettings().watchDogSettings.maxDiffSats) {
                         await this.updateDisruption(true, result.absoluteDiff, lndWithDeltaUsers)
                         return true
                     }
@@ -142,7 +135,7 @@ export class Watchdog {
             case 'positive':
                 if (deltaLnd < deltaUsers) {
                     this.log("WARNING! LND balance increased less than users balance with a difference of", result.absoluteDiff, "sats")
-                    if (result.absoluteDiff > this.settings.maxDiffSats) {
+                    if (result.absoluteDiff > this.settings.getSettings().watchDogSettings.maxDiffSats) {
                         await this.updateDisruption(true, result.absoluteDiff, lndWithDeltaUsers)
                         return true
                     }
@@ -160,12 +153,13 @@ export class Watchdog {
     updateDisruption = async (isDisrupted: boolean, absoluteDiff: number, lndWithDeltaUsers: number) => {
         const tracker = await this.getTracker()
         this.storage.liquidityStorage.UpdateTrackedProviderBalance('lnd', this.lndPubKey, lndWithDeltaUsers)
+        const maxDiffSats = this.settings.getSettings().watchDogSettings.maxDiffSats
         if (isDisrupted) {
             if (tracker.latest_distruption_at_unix === 0) {
                 await this.storage.liquidityStorage.UpdateTrackedProviderDisruption('lnd', this.lndPubKey, Math.floor(Date.now() / 1000))
-                this.log("detected lnd loss of", absoluteDiff, "sats,", absoluteDiff - this.settings.maxDiffSats, "above the max allowed")
+                this.log("detected lnd loss of", absoluteDiff, "sats,", absoluteDiff - maxDiffSats, "above the max allowed")
             } else {
-                this.log("ongoing lnd loss of", absoluteDiff, "sats,", absoluteDiff - this.settings.maxDiffSats, "above the max allowed")
+                this.log("ongoing lnd loss of", absoluteDiff, "sats,", absoluteDiff - maxDiffSats, "above the max allowed")
             }
         } else {
             if (tracker.latest_distruption_at_unix !== 0) {

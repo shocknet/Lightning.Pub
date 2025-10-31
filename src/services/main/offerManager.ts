@@ -9,7 +9,7 @@ import { UnsignedEvent } from 'nostr-tools';
 import { UserOffer } from '../storage/entity/UserOffer.js';
 import { LiquidityManager } from "./liquidityManager.js"
 import { NofferData, OfferPriceType, nofferEncode } from '@shocknet/clink-sdk';
-import { MainSettings } from "./settings.js";
+import SettingsManager from "./settingsManager.js";
 
 const mapToOfferConfig = (appUserId: string, offer: UserOffer, { pubkey, relay }: { pubkey: string, relay: string }): Types.OfferConfig => {
     const offerStr = offer.offer_id
@@ -34,14 +34,14 @@ export class OfferManager {
 
 
     _nostrSend: NostrSend | null = null
-    settings: MainSettings
+    settings: SettingsManager
     applicationManager: ApplicationManager
     productManager: ProductManager
     storage: Storage
     lnd: LND
     liquidityManager: LiquidityManager
     logger = getLogger({ component: 'OfferManager' })
-    constructor(storage: Storage, settings: MainSettings, lnd: LND, applicationManager: ApplicationManager, productManager: ProductManager, liquidityManager: LiquidityManager) {
+    constructor(storage: Storage, settings: SettingsManager, lnd: LND, applicationManager: ApplicationManager, productManager: ProductManager, liquidityManager: LiquidityManager) {
         this.storage = storage
         this.settings = settings
         this.lnd = lnd
@@ -112,7 +112,7 @@ export class OfferManager {
         if (!offer) {
             throw new Error("Offer not found")
         }
-        const nostrSettings = this.settings.nostrRelaySettings
+        const nostrSettings = this.settings.getSettings().nostrRelaySettings
         return mapToOfferConfig(ctx.app_user_id, offer, { pubkey: app.npub, relay: nostrSettings.relays[0] })
     }
 
@@ -130,7 +130,7 @@ export class OfferManager {
         if (toAppend) {
             offers.push(toAppend)
         }
-        const nostrSettings = this.settings.nostrRelaySettings
+        const nostrSettings = this.settings.getSettings().nostrRelaySettings
         return {
             offers: offers.map(o => mapToOfferConfig(ctx.app_user_id, o, { pubkey: app.npub, relay: nostrSettings.relays[0] }))
         }
@@ -163,9 +163,9 @@ export class OfferManager {
             amount: offerReq.amount_sats,
             payerData: offerReq.payer_data
         })
-        
+
         const offerInvoice = await this.getNofferInvoice(offerReq, event.appId)
-        
+
         if (!offerInvoice.success) {
             const code = offerInvoice.code
             this.logger("❌ [OFFER REJECTED] Offer request failed", {
@@ -179,17 +179,17 @@ export class OfferManager {
             this.nostrSend({ type: 'app', appId: event.appId }, { type: 'event', event: e, encrypt: { toPub: event.pub } })
             return
         }
-        
+
         this.logger("✅ [OFFER SUCCESS] Generated invoice for offer request", {
             fromPub: event.pub,
             eventId: event.id,
             invoice: offerInvoice.invoice.substring(0, 50) + "...",
             offer: offerReq.offer
         })
-        
+
         const e = newNofferResponse(JSON.stringify({ bolt11: offerInvoice.invoice }), event)
         this.nostrSend({ type: 'app', appId: event.appId }, { type: 'event', event: e, encrypt: { toPub: event.pub } })
-        
+
         this.logger("📤 [OFFER RESPONSE] Sent offer response", {
             toPub: event.pub,
             eventId: event.id,
@@ -205,7 +205,7 @@ export class OfferManager {
         }
         const res = await this.applicationManager.AddAppUserInvoice(appId, {
             http_callback_url: "", payer_identifier: offer, receiver_identifier: offer,
-            invoice_req: { amountSats: amount, memo: memo ||"Default CLINK Offer", zap: offerReq.zap, expiry },
+            invoice_req: { amountSats: amount, memo: memo || "Default CLINK Offer", zap: offerReq.zap, expiry },
             offer_string: 'offer'
         })
         return { success: true, invoice: res.invoice }
@@ -214,7 +214,7 @@ export class OfferManager {
     async HandleUserOffer(offerReq: NofferData, appId: string, remote: number): Promise<{ success: true, invoice: string } | { success: false, code: number, max: number }> {
         const { amount_sats: amount, offer } = offerReq
         const userOffer = await this.storage.offerStorage.GetOffer(offer)
-        const expiry = offerReq.expires_in_seconds ?  offerReq.expires_in_seconds : undefined
+        const expiry = offerReq.expires_in_seconds ? offerReq.expires_in_seconds : undefined
 
         if (!userOffer) {
             return this.HandleDefaultUserOffer(offerReq, appId, remote, { memo: offerReq.description, expiry })

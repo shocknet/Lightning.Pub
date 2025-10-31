@@ -1,21 +1,5 @@
 import { Channel, ChannelEventUpdate } from "../../../proto/lnd/lightning"
 import { HtlcEvent } from "../../../proto/lnd/router"
-export type NodeSettings = {
-    lndAddr: string
-    lndCertPath: string
-    lndMacaroonPath: string
-}
-export type LndSettings = {
-    mainNode: NodeSettings
-    lndLogDir: string
-    feeRateLimit: number
-    feeFixedLimit: number
-    feeRateBps: number
-    mockLnd: boolean
-
-    otherNode?: NodeSettings
-    thirdNode?: NodeSettings
-}
 
 type TxOutput = {
     hash: string
@@ -63,3 +47,6 @@ export type PaidInvoice = {
     paymentPreimage: string
     providerDst?: string
 }
+
+
+
