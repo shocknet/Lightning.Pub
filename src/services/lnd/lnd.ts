@@ -164,7 +164,7 @@ export default class {
 
     RestartStreams() {
         // console.log("Restarting streams")
-        if (!this.ready) {
+        if (!this.ready || this.abortController.signal.aborted) {
             return
         }
         this.log("LND is dead, will try to reconnect in", deadLndRetrySeconds, "seconds")
