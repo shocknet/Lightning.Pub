@@ -14,8 +14,8 @@ export const setupNetwork = async (): Promise<ChainTools> => {
     await core.InitAddress()
     await core.Mine(1)
     const setupUtils = new Utils({ dataDir: settings.storageSettings.dataDir, allowResetMetricsStorages: settings.allowResetMetricsStorages })
-    const alice = new LND(settings.lndSettings, new LiquidityProvider("", setupUtils, async () => { }, async () => { }), setupUtils, async () => { }, async () => { }, () => { }, () => { }, () => { })
-    const bob = new LND({ ...settings.lndSettings, mainNode: settings.lndSettings.otherNode }, new LiquidityProvider("", setupUtils, async () => { }, async () => { }), setupUtils, async () => { }, async () => { }, () => { }, () => { }, () => { })
+    const alice = new LND(settings.lndSettings, new LiquidityProvider("", setupUtils, async () => { }, async () => { }), async () => { }, setupUtils, async () => { }, async () => { }, () => { }, () => { }, () => { })
+    const bob = new LND({ ...settings.lndSettings, mainNode: settings.lndSettings.otherNode }, new LiquidityProvider("", setupUtils, async () => { }, async () => { }), async () => { }, setupUtils, async () => { }, async () => { }, () => { }, () => { }, () => { })
     await tryUntil<void>(async i => {
         const peers = await alice.ListPeers()
         if (peers.peers.length > 0) {

@@ -74,7 +74,7 @@ export default class {
         const updateProviderBalance = (b: number) => this.storage.liquidityStorage.IncrementTrackedProviderBalance('lnPub', settings.liquiditySettings.liquidityProviderPub, b)
         this.liquidityProvider = new LiquidityProvider(settings.liquiditySettings.liquidityProviderPub, this.utils, this.invoicePaidCb, updateProviderBalance)
         this.rugPullTracker = new RugPullTracker(this.storage, this.liquidityProvider)
-        this.lnd = new LND(settings.lndSettings, this.liquidityProvider, this.utils, this.addressPaidCb, this.invoicePaidCb, this.newBlockCb, this.htlcCb, this.channelEventCb)
+        this.lnd = new LND(settings.lndSettings, this.liquidityProvider, () => this.unlocker.Unlock(), this.utils, this.addressPaidCb, this.invoicePaidCb, this.newBlockCb, this.htlcCb, this.channelEventCb)
         this.liquidityManager = new LiquidityManager(this.settings.liquiditySettings, this.storage, this.utils, this.liquidityProvider, this.lnd, this.rugPullTracker)
         this.metricsManager = new MetricsManager(this.storage, this.lnd)
 

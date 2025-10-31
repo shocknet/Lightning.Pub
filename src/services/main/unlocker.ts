@@ -301,12 +301,12 @@ export class Unlocker {
 
     GetWalletPassword = () => {
         const path = this.settings.walletPasswordPath
-        let password = Buffer.alloc(0)
+        let password: Buffer | null = null
         try {
             password = fs.readFileSync(path)
         } catch {
         }
-        if (password.length === 0) {
+        if (!password || password.length === 0) {
             this.log("no wallet password configured, using wallet secret")
             const secret = this.GetWalletSecret(false)
             if (secret === "") {

@@ -21,7 +21,7 @@ import { Utils } from '../helpers/utilsWrapper.js';
 import { TxPointSettings } from '../storage/tlv/stateBundler.js';
 import { WalletKitClient } from '../../../proto/lnd/walletkit.client.js';
 const DeadLineMetadata = (deadline = 10 * 1000) => ({ deadline: Date.now() + deadline })
-const deadLndRetrySeconds = 5
+const deadLndRetrySeconds = 20
 type TxActionOptions = { useProvider: boolean, from: 'user' | 'system' }
 export default class {
     lightning: LightningClient
@@ -43,9 +43,11 @@ export default class {
     outgoingOpsLocked = false
     liquidProvider: LiquidityProvider
     utils: Utils
-    constructor(settings: LndSettings, liquidProvider: LiquidityProvider, utils: Utils, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb, newBlockCb: NewBlockCb, htlcCb: HtlcCb, channelEventCb: ChannelEventCb) {
+    unlockLnd: () => Promise<void>
+    constructor(settings: LndSettings, liquidProvider: LiquidityProvider, unlockLnd: () => Promise<any>, utils: Utils, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb, newBlockCb: NewBlockCb, htlcCb: HtlcCb, channelEventCb: ChannelEventCb) {
         this.settings = settings
         this.utils = utils
+        this.unlockLnd = unlockLnd
         this.addressPaidCb = addressPaidCb
         this.invoicePaidCb = invoicePaidCb
         this.newBlockCb = newBlockCb
@@ -168,7 +170,7 @@ export default class {
         this.log("LND is dead, will try to reconnect in", deadLndRetrySeconds, "seconds")
         const interval = setInterval(async () => {
             try {
-                await this.Health()
+                await this.unlockLnd()
                 this.log("LND is back online")
                 clearInterval(interval)
                 await this.Warmup()
