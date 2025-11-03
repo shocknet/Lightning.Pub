@@ -453,6 +453,7 @@ export default class {
             apps: apps.map(a => ({ appId: a.app_id, name: a.name, privateKey: a.nostr_private_key || "", publicKey: a.nostr_public_key || "" })),
             relays: this.settings.getSettings().nostrRelaySettings.relays,
             maxEventContentLength: this.settings.getSettings().nostrRelaySettings.maxEventContentLength,
+            relayAuthRequired: this.settings.getSettings().nostrRelaySettings.relayAuthRequired,
             clients: [liquidityProviderInfo]
         }
         this.nostrReset(s)
