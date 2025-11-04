@@ -108,12 +108,18 @@ get_log_info() {
         log "A node admin has not yet enrolled via Nostr."
         log "Paste this string into ShockWallet as a node source to connect as administrator:"
         log "${SECONDARY_COLOR}$admin_connect${RESET_COLOR}"
+        echo ""
+        log "Or scan this QR code with ShockWallet:"
+        node "$INSTALL_DIR/scripts/qr_generator.js" "$admin_connect" 2>/dev/null || log "QR code generation unavailable"
         break
       fi
     elif [ -f "$DATA_DIR/app.nprofile" ]; then
       app_nprofile=$(cat "$DATA_DIR/app.nprofile")
       log "Node is already set up. Use this nprofile to invite guest users:"
       log "${SECONDARY_COLOR}$app_nprofile${RESET_COLOR}"
+      echo ""
+      log "Or scan this QR code with ShockWallet:"
+      node "$INSTALL_DIR/scripts/qr_generator.js" "$app_nprofile" 2>/dev/null || log "QR code generation unavailable"
       break
     fi
     sleep $WAIT_INTERVAL
