@@ -157,7 +157,7 @@ export class Swaps {
         const keys = ECPairFactory(ecc).makeRandom()
         const url = `${this.settings.getSettings().swapsSettings.boltzHttpUrl}/v2/swap/reverse`
         const req = {
-            invoiceAmount,
+            onchainAmount: invoiceAmount,
             to: 'BTC',
             from: 'BTC',
             claimPublicKey: Buffer.from(keys.publicKey).toString('hex'),
