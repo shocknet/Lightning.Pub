@@ -13,7 +13,7 @@ log() {
 
 SCRIPT_VERSION="0.2.3
 REPO="shocknet/Lightning.Pub"
-BRANCH="master"
+BRANCH="wizard-update
 
 cleanup() {
     log "Cleaning up temporary files..."
