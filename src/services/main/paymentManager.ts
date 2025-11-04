@@ -17,6 +17,7 @@ import { LiquidityManager } from './liquidityManager.js'
 import { Utils } from '../helpers/utilsWrapper.js'
 import { UserInvoicePayment } from '../storage/entity/UserInvoicePayment.js'
 import SettingsManager from './settingsManager.js'
+import { Swaps } from '../lnd/swaps.js'
 interface UserOperationInfo {
     serial_id: number
     paid_amount: number
@@ -51,6 +52,7 @@ export default class {
     watchDog: Watchdog
     liquidityManager: LiquidityManager
     utils: Utils
+    swaps: Swaps
     constructor(storage: Storage, lnd: LND, settings: SettingsManager, liquidityManager: LiquidityManager, utils: Utils, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb) {
         this.storage = storage
         this.settings = settings
@@ -58,6 +60,7 @@ export default class {
         this.liquidityManager = liquidityManager
         this.utils = utils
         this.watchDog = new Watchdog(settings, this.liquidityManager, this.lnd, this.storage, this.utils, this.liquidityManager.rugPullTracker)
+        this.swaps = new Swaps(settings)
         this.addressPaidCb = addressPaidCb
         this.invoicePaidCb = invoicePaidCb
     }

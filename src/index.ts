@@ -7,6 +7,7 @@ import { getLogger } from './services/helpers/logger.js';
 import { initMainHandler, initSettings } from './services/main/init.js';
 import { nip19 } from 'nostr-tools'
 import { LoadStorageSettingsFromEnv } from './services/storage/index.js';
+import Main from './services/main/index.js';
 //@ts-ignore
 const { nprofileEncode } = nip19
 
@@ -44,6 +45,7 @@ const start = async () => {
     adminManager.setAppNprofile(appNprofile)
     const Server = NewServer(serverMethods, serverOptions(mainHandler))
     Server.Listen(mainHandler.settings.getSettings().serviceSettings.servicePort)
+    await TMP_swapTest_TMP(mainHandler) // TMP -- remove this
 }
 start()
 
@@ -61,4 +63,10 @@ const exitHandler = async (kill: () => void) => {
         kill();
         process.exit(99);
     });
+}
+
+const TMP_swapTest_TMP = async (mainHandler: Main) => {
+    const i = await mainHandler.lnd.NewInvoice(25000, 'test', 3600, { useProvider: false, from: 'user' })
+    const decoded = await mainHandler.lnd.DecodeInvoice(i.payRequest)
+    await mainHandler.paymentManager.swaps.SwapInvoice(i.payRequest, decoded.paymentHash)
 }
