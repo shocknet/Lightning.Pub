@@ -26,6 +26,7 @@ export type NostrSettings = {
     relays: string[]
     clients: ClientInfo[]
     maxEventContentLength: number
+    relayAuthRequired: boolean
 }
 
 export type NostrEvent = {
@@ -203,11 +204,33 @@ export default class Handler {
             if (!relay.connected) {
                 throw new Error("failed to connect to relay")
             }
+            if (this.settings.relayAuthRequired) {
+                await this.authenticateRelay(relay)
+            }
             return relay
         } catch (err: any) {
             this.log("failed to connect to relay", err.message || err)
             return null
         }
+    }
+
+    private async authenticateRelay(relay: Relay): Promise<void> {
+        const app = this.settings.apps[0]
+        if (!app) {
+            throw new Error("no app keys available for relay authentication")
+        }
+
+        (relay as any)._onauth = (challenge: string) => {
+            this.log("🔐 NIP-42 AUTH challenge received from relay")
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 500))
+
+        await relay.auth(async (event) => {
+            return finalizeEvent(event, Buffer.from(app.privateKey, 'hex'))
+        })
+
+        this.log("✅ NIP-42 authenticated to relay")
     }
 
     Subscribe(relay: Relay) {
