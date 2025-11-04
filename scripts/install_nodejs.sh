@@ -8,19 +8,7 @@ install_nodejs() {
   log "${PRIMARY_COLOR}Checking${RESET_COLOR} for Node.js..."
   MINIMUM_VERSION="18.0.0"
   
-  # Check for curl (required by nvm installer)
-  if ! command -v curl &> /dev/null; then
-    log "ERROR: curl is required for Node.js installation"
-    log ""
-    log "Please install curl first:"
-    log "  Debian/Ubuntu: sudo apt install curl"
-    log "  Fedora/RHEL:   sudo dnf install curl"
-    log "  Arch:          sudo pacman -S curl"
-    log ""
-    exit 1
-  fi
-  
-  # Check for snap curl which cannot access hidden folders
+  # Check for snap curl which cannot access hidden folders, nvm falls back to wget if curl is not installed
   if snap list 2>/dev/null | grep -q "^curl "; then
     log "ERROR: Snap curl detected"
     log ""
