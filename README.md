@@ -60,14 +60,14 @@ By solving the networking and programability hurdles, Pub provides Lightning wit
 - Connecting via ShockWallet is as easy as pasting an nprofile
 - Or use a link to share your nprofile with friends and family
 
-<img src="https://cdn.shockwallet.app/add_source.png" height="20%" alt="Connect Wallet"> <img src="https://cdn.shockwallet.app/invites.png" height="20%" alt="Invite Guests">
+<img src="https://cdn.shockwallet.app/add_source2.png" height="20%" alt="Connect Wallet"> <img src="https://cdn.shockwallet.app/invites2.png" height="20%" alt="Invite Guests">
 
 ## Planned Features
 
 - [x] A management dashboard is actively being integrated into [ShockWallet](https://github.com/shocknet/wallet2)
 - [x] Nostr native [CLINK](https://clinkme.dev) "offers"
 - [x] Encrypted Push Notifications
-- [ ] Swap integration 
+- [_] Swap integration (in progress)
 - [ ] P2P "LSP" coordination for channel batching over Nostr
 - [ ] High-Availabilty / Clustering
 
@@ -280,7 +280,7 @@ SERVICE_URL=https://yourdomain.com
 
 See `env.example` for complete documentation of all available settings.
 
-Additional docs are WIP at [docs.shock.network](https://docs.shock.network)
+For additional documentation, guides, and FAQs, visit [docs.shock.network](https://docs.shock.network) or contribute to the [docs repository](https://github.com/shocknet/docs).
 
 ## Support Development
 
