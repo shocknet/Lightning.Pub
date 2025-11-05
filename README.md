@@ -35,10 +35,10 @@ By solving the networking and programability hurdles, Pub provides Lightning wit
 - [Usage Notes](#usage-notes)
   - [Connecting to ShockWallet](#connecting-to-shockwallet)
   - [Lightning Address](#lightning-address)
-  - [Node Type](#node-type)
-  - [Running Your Own Nostr Relay](#running-your-own-nostr-relay)
-  - [Bootstrap vs Self-Hosted Mode](#bootstrap-vs-self-hosted-mode)
-  - [Configuration](#configuration)
+- [Advanced Configuration](#advanced-configuration)
+  - [Custom Nostr Relay](#custom-nostr-relay)
+  - [Bootstrap Liquidity Provider](#bootstrap-liquidity-provider)
+  - [Custom Lightning Address Domain](#custom-lightning-address-domain)
 - [Support Development](#support-development)
 
 ## Features
@@ -60,15 +60,15 @@ By solving the networking and programability hurdles, Pub provides Lightning wit
 - Connecting via ShockWallet is as easy as pasting an nprofile
 - Or use a link to share your nprofile with friends and family
 
-<img src="https://cdn.shockwallet.app/add_src_sm.png" height="20%" alt="Connect Wallet"> <img src="https://cdn.shockwallet.app/src_invite_sm.png" height="20%" alt="Invite Guests">
+<img src="https://cdn.shockwallet.app/add_source.png" height="20%" alt="Connect Wallet"> <img src="https://cdn.shockwallet.app/invites.png" height="20%" alt="Invite Guests">
 
 ## Planned Features
 
 - [x] A management dashboard is actively being integrated into [ShockWallet](https://github.com/shocknet/wallet2)
 - [x] Nostr native [CLINK](https://clinkme.dev) "offers"
 - [x] Encrypted Push Notifications
+- [ ] Swap integration 
 - [ ] P2P "LSP" coordination for channel batching over Nostr
-- [ ] Swap integration
 - [ ] High-Availabilty / Clustering
 
 Dashboard Wireframe:
@@ -219,35 +219,9 @@ When you run your own Lightning Pub, obtaining a Lightning Address is fully auto
 > [!TIP]
 > **CLINK Integration**: Your Pub's CLINK offers enable ShockWallet to connect to CLINK-compatible services, like [Stacker News](https://stacker.news), allowing you to send and receive payments without additional setup.
 
-**Alternative Options for Custom Lightning Addresses:**
+For custom Lightning Address domains, see the [Advanced Configuration](#advanced-configuration) section.
 
-1. **Run your own [Bridgelet](https://github.com/shocknet/bridgelet)**: A minimalist LNURL-P and Lightning Address bridge service that uses CLINK Offers. This gives you full control over your Lightning Address domain without trusting third-party bridges.
-
-2. **Enable LNURL directly on Pub**: Set `SERVICE_URL` to your domain (e.g., `https://yourdomain.com`). Pub will serve LNURL callbacks directly. Requires an SSL reverse proxy pointing your domain to Pub's port.
-
-### Running Your Own Nostr Relay
-
-By default, Lightning.Pub uses the ShockNet relay. To use your own Nostr relay:
-
-1. Set the `NOSTR_RELAYS` environment variable in your `.env` file:
-   ```bash
-   NOSTR_RELAYS=wss://your-relay-url.com
-   ```
-2. Multiple relays can be specified (space-separated):
-   ```bash
-   NOSTR_RELAYS="wss://relay1.com wss://relay2.com wss://relay3.com"
-   ```
-3. The wizard interface (coming soon for Start9/Umbrel) will make this graphical
-
-See `env.example` for all available configuration options.
-
-### Bootstrap Liquidity Provider
-
-By default, Lightning.Pub uses a bootstrap liquidity provider that provides initial channel funding as a service credit until you can afford your own channels. Pub compares rates from top LSPs and automatically requests a channel when needed.
-
-You can disable this for full sovereignty via `DISABLE_LIQUIDITY_PROVIDER=true` in `.env`, or re-point to any other Lightning Pub (not just ShockNet's) via `LIQUIDITY_PROVIDER_PUB`.
-
-### Configuration
+## Advanced Configuration
 
 Copy `env.example` to `.env` and customize settings:
 ```bash
@@ -258,12 +232,53 @@ nano .env  # or use your preferred editor
 > [!IMPORTANT]
 > Environment variables set in `.env` will override any settings configured via the wizard or stored in the settings database table.
 
-Key settings:
-- `NOSTR_RELAYS`: Custom Nostr relay(s) to use
-- `DISABLE_LIQUIDITY_PROVIDER`: Set to `true` to disable bootstrap liquidity provider (alternatively, set `LIQUIDITY_PROVIDER_PUB=null` or to the nprofile of a preferred Pub instance)
-- `BRIDGE_URL`: Configure which CLINK -> Suggets a LNURL bridge to wallets to use for Lightning Address enrollment (default: `https://shockwallet.app`)
-- `SERVICE_URL`: Your domain URL for enabling LNURL directly on Pub (requires SSL via a reverse-proxy pointing to Pub's port)
-- See `env.example` for complete documentation
+### Custom Nostr Relay
+
+By default, Lightning.Pub uses the ShockNet relay. To use your own:
+
+```bash
+# Single relay
+NOSTR_RELAYS=wss://your-relay-url.com
+
+# Multiple relays (space-separated)
+NOSTR_RELAYS="wss://relay1.com wss://relay2.com wss://relay3.com"
+```
+
+The wizard interface (coming soon for Start9/Umbrel) will make this graphical.
+
+### Bootstrap Liquidity Provider
+
+By default, Lightning.Pub uses a bootstrap liquidity provider that provides initial channel funding as a service credit until you can afford your own channels. Pub compares rates from top LSPs and automatically requests a channel when needed.
+
+```bash
+# Disable for full sovereignty
+DISABLE_LIQUIDITY_PROVIDER=true
+
+# Or point to a different Pub instance
+LIQUIDITY_PROVIDER_PUB=nprofile1...
+```
+
+### Custom Lightning Address Domain
+
+By default, ShockWallet automatically enrolls your CLINK offer at `@shockwallet.app`. For custom domains, you have two options:
+
+**Option 1: Run your own [Bridgelet](https://github.com/shocknet/bridgelet)**
+
+A minimalist LNURL-P and Lightning Address bridge service that uses CLINK Offers. This gives you full control over your Lightning Address domain without trusting third-party bridges.
+
+**Option 2: Enable LNURL directly on Pub**
+
+```bash
+# Configure which LNURL bridge to suggest to wallets (default: https://shockwallet.app)
+BRIDGE_URL=https://your-bridge.com
+
+# Enable LNURL callbacks directly on Pub (requires SSL reverse proxy pointing to Pub's port)
+SERVICE_URL=https://yourdomain.com
+```
+
+### Complete Reference
+
+See `env.example` for complete documentation of all available settings.
 
 Additional docs are WIP at [docs.shock.network](https://docs.shock.network)
 
