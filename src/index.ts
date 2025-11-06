@@ -26,9 +26,10 @@ const start = async () => {
     const serverMethods = GetServerMethods(mainHandler)
     log("initializing nostr middleware")
     const relays = mainHandler.settings.getSettings().nostrRelaySettings.relays
+    const providerRelay = mainHandler.settings.getSettings().nostrRelaySettings.providerRelay
     const maxEventContentLength = mainHandler.settings.getSettings().nostrRelaySettings.maxEventContentLength
     const { Send, Stop, Ping, Reset } = nostrMiddleware(serverMethods, mainHandler,
-        { relays, maxEventContentLength, apps, clients: [liquidityProviderInfo] },
+        { relays, providerRelay, maxEventContentLength, apps, clients: [liquidityProviderInfo] },
         (e, p) => mainHandler.liquidityProvider.onEvent(e, p)
     )
     exitHandler(() => { Stop(); mainHandler.Stop() })
