@@ -47,7 +47,6 @@ const start = async () => {
     adminManager.setAppNprofile(appNprofile)
     const Server = NewServer(serverMethods, serverOptions(mainHandler))
     Server.Listen(mainHandler.settings.getSettings().serviceSettings.servicePort)
-    await TMP_swapTest_TMP(mainHandler) // TMP -- remove this
 }
 start()
 
@@ -65,16 +64,4 @@ const exitHandler = async (kill: () => void) => {
         kill();
         process.exit(99);
     });
-}
-
-const TMP_swapTest_TMP = async (mainHandler: Main) => {
-    await new Promise(resolve => setTimeout(resolve, 10000))
-    /*    const i = await mainHandler.lnd.NewInvoice(25000, 'test', 3600, { useProvider: true, from: 'user' })
-        console.log('Invoice created with provider destination', i.providerDst)
-        const decoded = await mainHandler.lnd.DecodeInvoice(i.payRequest)
-        await mainHandler.paymentManager.swaps.SwapInvoice(i.payRequest, decoded.paymentHash) */
-    const a = await mainHandler.lnd.NewAddress(Types.AddressType.WITNESS_PUBKEY_HASH, { useProvider: false, from: 'user' })
-    console.log('Address created', a.address)
-    await mainHandler.paymentManager.swaps.SwapTransaction(a.address, 25000, networks.bitcoin)
-
 }

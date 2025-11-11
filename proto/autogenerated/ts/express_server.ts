@@ -477,6 +477,18 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
                                 callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
                             }
                             break
+                        case 'GetTransactionSwapQuote':
+                            if (!methods.GetTransactionSwapQuote) {
+                                throw new Error('method GetTransactionSwapQuote not found' )
+                            } else {
+                                const error = Types.TransactionSwapRequestValidate(operation.req)
+                                opStats.validate = process.hrtime.bigint()
+                                if (error !== null) throw error
+                                const res = await methods.GetTransactionSwapQuote({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                                opStats.handle = process.hrtime.bigint()
+                                callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
+                            }
+                            break
                         case 'GetUserInfo':
                             if (!methods.GetUserInfo) {
                                 throw new Error('method GetUserInfo not found' )
@@ -1312,6 +1324,28 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const query = req.query
             const params = req.params
             const response =  await methods.GetSingleUsageMetrics({rpcName:'GetSingleUsageMetrics', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.GetTransactionSwapQuote) throw new Error('method: GetTransactionSwapQuote is not implemented')
+    app.post('/api/user/swap/quote', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'GetTransactionSwapQuote', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.GetTransactionSwapQuote) throw new Error('method: GetTransactionSwapQuote is not implemented')
+            const authContext = await opts.UserAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.TransactionSwapRequestValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+            const response =  await methods.GetTransactionSwapQuote({rpcName:'GetTransactionSwapQuote', ctx:authContext , req: request})
             stats.handle = process.hrtime.bigint()
             res.json({status: 'OK', ...response})
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])

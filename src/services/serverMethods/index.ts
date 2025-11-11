@@ -142,10 +142,13 @@ export default (mainHandler: Main): Types.ServerMethods => {
             const err = Types.PayAddressRequestValidate(req, {
                 address_CustomCheck: addr => addr !== '',
                 amoutSats_CustomCheck: amt => amt > 0,
-                satsPerVByte_CustomCheck: spb => spb > 0
+                // satsPerVByte_CustomCheck: spb => spb > 0
             })
             if (err != null) throw new Error(err.message)
             return mainHandler.paymentManager.PayAddress(ctx, req)
+        },
+        GetTransactionSwapQuote: async ({ ctx, req }) => {
+            return mainHandler.paymentManager.GetTransactionSwapQuote(ctx, req)
         },
         NewInvoice: ({ ctx, req }) => mainHandler.appUserManager.NewInvoice(ctx, req),
         DecodeInvoice: async ({ ctx, req }) => {

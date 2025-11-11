@@ -496,6 +496,13 @@ service LightningPub {
         option (nostr) = true;
     }
 
+    rpc GetTransactionSwapQuote(structs.TransactionSwapRequest) returns (structs.TransactionSwapQuote){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/swap/quote";
+        option (nostr) = true;
+    }
+
     rpc NewInvoice(structs.NewInvoiceRequest) returns (structs.NewInvoiceResponse){
         option (auth_type)  = "User";
         option (http_method) = "post";

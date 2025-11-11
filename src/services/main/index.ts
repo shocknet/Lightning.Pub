@@ -458,5 +458,3 @@ export default class {
         this.nostrReset(s)
     }
 }
-
-

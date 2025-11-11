@@ -198,6 +198,11 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [SingleMetricReq](#SingleMetricReq)
   - output: [UsageMetricTlv](#UsageMetricTlv)
 
+- GetTransactionSwapQuote
+  - auth type: __User__
+  - input: [TransactionSwapRequest](#TransactionSwapRequest)
+  - output: [TransactionSwapQuote](#TransactionSwapQuote)
+
 - GetUsageMetrics
   - auth type: __Metrics__
   - input: [LatestUsageMetricReq](#LatestUsageMetricReq)
@@ -707,6 +712,13 @@ The nostr server will send back a message response, and inside the body there wi
   - http route: __/api/reports/usage/single__
   - input: [SingleMetricReq](#SingleMetricReq)
   - output: [UsageMetricTlv](#UsageMetricTlv)
+
+- GetTransactionSwapQuote
+  - auth type: __User__
+  - http method: __post__
+  - http route: __/api/user/swap/quote__
+  - input: [TransactionSwapRequest](#TransactionSwapRequest)
+  - output: [TransactionSwapQuote](#TransactionSwapQuote)
 
 - GetUsageMetrics
   - auth type: __Metrics__
@@ -1450,6 +1462,7 @@ The nostr server will send back a message response, and inside the body there wi
   - __address__: _string_
   - __amoutSats__: _number_
   - __satsPerVByte__: _number_
+  - __swap_operation_id__: _string_ *this field is optional
 
 ### PayAddressResponse
   - __network_fee__: _number_
@@ -1553,6 +1566,16 @@ The nostr server will send back a message response, and inside the body there wi
   - __metrics_name__: _string_
   - __page__: _number_
   - __request_id__: _number_ *this field is optional
+
+### TransactionSwapQuote
+  - __chain_fee_sats__: _number_
+  - __invoice_amount_sats__: _number_
+  - __swap_fee_sats__: _number_
+  - __swap_operation_id__: _string_
+  - __transaction_amount_sats__: _number_
+
+### TransactionSwapRequest
+  - __transaction_amount_sats__: _number_
 
 ### UpdateChannelPolicyRequest
   - __policy__: _[ChannelPolicy](#ChannelPolicy)_

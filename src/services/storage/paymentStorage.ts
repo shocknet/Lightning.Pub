@@ -14,6 +14,7 @@ import { Application } from './entity/Application.js';
 import TransactionsQueue from "./db/transactionsQueue.js";
 import { LoggedEvent } from './eventsLog.js';
 import { StorageInterface } from './db/storageInterface.js';
+import { TransactionSwap } from './entity/TransactionSwap.js';
 export type InboundOptionals = { product?: Product, callbackUrl?: string, expiry: number, expectedPayer?: User, linkedApplication?: Application, zapInfo?: ZapInfo, offerId?: string, payerData?: Record<string, string>, rejectUnauthorized?: boolean, token?: string, blind?: boolean }
 export const defaultInvoiceExpiry = 60 * 60
 export default class {
@@ -90,7 +91,7 @@ export default class {
                 take
             }, txId);
             items.push(...firstBatch);
-        } 
+        }
 
         const needMore = take - items.length
         // If need more, fetch higher paid_at_unix
@@ -134,7 +135,7 @@ export default class {
     }
 
     async RemoveUserInvoices(userId: string, txId?: string) {
-        return this.dbs.Delete<UserReceivingInvoice>('UserReceivingInvoice',  { user: { user_id: userId } }, txId)
+        return this.dbs.Delete<UserReceivingInvoice>('UserReceivingInvoice', { user: { user_id: userId } }, txId)
     }
 
     async GetAddressOwner(address: string, txId?: string): Promise<UserReceivingAddress | null> {
@@ -158,7 +159,8 @@ export default class {
         return this.dbs.FindOne<UserToUserPayment>('UserToUserPayment', { where: { serial_id: serialId } }, txId)
     }
 
-    async AddPendingExternalPayment(userId: string, invoice: string, amounts: { payAmount: number, serviceFee: number, networkFee: number }, linkedApplication: Application, liquidityProvider: string | undefined, txId: string, debitNpub?: string): Promise<UserInvoicePayment> {
+    async AddPendingExternalPayment(userId: string, invoice: string, amounts: { payAmount: number, serviceFee: number, networkFee: number }, linkedApplication: Application, liquidityProvider: string | undefined, txId: string, optionals: { debitNpub?: string, swapOperationId?: string } = {}): Promise<UserInvoicePayment> {
+        const { debitNpub, swapOperationId } = optionals
         const user = await this.userStorage.GetUser(userId, txId)
         return this.dbs.CreateAndSave<UserInvoicePayment>('UserInvoicePayment', {
             user,
@@ -170,7 +172,8 @@ export default class {
             internal: false,
             linkedApplication,
             liquidityProvider,
-            debit_to_pub: debitNpub
+            debit_to_pub: debitNpub,
+            swap_operation_id: swapOperationId
         }, txId)
     }
 
@@ -401,7 +404,7 @@ export default class {
         ])
         const receivingTransactions = await Promise.all(receivingAddresses.map(addr =>
             this.dbs.Find<AddressReceivingTransaction>('AddressReceivingTransaction', { where: { user_address: { serial_id: addr.serial_id }, ...time } })))
-            return {
+        return {
             receivingInvoices, receivingAddresses, receivingTransactions,
             outgoingInvoices, outgoingTransactions,
             userToUser
@@ -457,6 +460,36 @@ export default class {
             where.paid_at_unix = MoreThan(0)
         }
         return this.dbs.Find<UserReceivingInvoice>('UserReceivingInvoice', { where })
+    }
+
+    async AddTransactionSwap(swap: Partial<TransactionSwap>) {
+        return this.dbs.CreateAndSave<TransactionSwap>('TransactionSwap', swap)
+    }
+
+    async GetTransactionSwap(swapOperationId: string, txId?: string) {
+        return this.dbs.FindOne<TransactionSwap>('TransactionSwap', { where: { swap_operation_id: swapOperationId } }, txId)
+    }
+
+    async FinalizeTransactionSwap(swapOperationId: string, txId: string) {
+        return this.dbs.Update<TransactionSwap>('TransactionSwap', { swap_operation_id: swapOperationId }, {
+            used: true,
+            tx_id: txId,
+        })
+    }
+
+    async FailTransactionSwap(swapOperationId: string, failureReason: string) {
+        return this.dbs.Update<TransactionSwap>('TransactionSwap', { swap_operation_id: swapOperationId }, {
+            used: true,
+            failure_reason: failureReason,
+        })
+    }
+
+    async DeleteTransactionSwap(swapOperationId: string, txId?: string) {
+        return this.dbs.Delete<TransactionSwap>('TransactionSwap', { swap_operation_id: swapOperationId }, txId)
+    }
+
+    async DeleteExpiredTransactionSwaps(currentHeight: number, txId?: string) {
+        return this.dbs.Delete<TransactionSwap>('TransactionSwap', { timeout_block_height: LessThan(currentHeight) }, txId)
     }
 }
 

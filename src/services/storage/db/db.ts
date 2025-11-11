@@ -29,6 +29,7 @@ import { AppUserDevice } from "../entity/AppUserDevice.js"
 import * as fs from 'fs'
 import { UserAccess } from "../entity/UserAccess.js"
 import { AdminSettings } from "../entity/AdminSettings.js"
+import { TransactionSwap } from "../entity/TransactionSwap.js"
 
 
 export type DbSettings = {
@@ -74,7 +75,8 @@ export const MainDbEntities = {
     'ManagementGrant': ManagementGrant,
     'AppUserDevice': AppUserDevice,
     'UserAccess': UserAccess,
-    'AdminSettings': AdminSettings
+    'AdminSettings': AdminSettings,
+    'TransactionSwap': TransactionSwap
 }
 export type MainDbNames = keyof typeof MainDbEntities
 export const MainDbEntitiesNames = Object.keys(MainDbEntities)

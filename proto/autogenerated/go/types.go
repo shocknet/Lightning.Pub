@@ -532,9 +532,10 @@ type OperationsCursor struct {
 	Ts int64 `json:"ts"`
 }
 type PayAddressRequest struct {
-	Address      string `json:"address"`
-	Amoutsats    int64  `json:"amoutSats"`
-	Satspervbyte int64  `json:"satsPerVByte"`
+	Address           string `json:"address"`
+	Amoutsats         int64  `json:"amoutSats"`
+	Satspervbyte      int64  `json:"satsPerVByte"`
+	Swap_operation_id string `json:"swap_operation_id"`
 }
 type PayAddressResponse struct {
 	Network_fee  int64  `json:"network_fee"`
@@ -638,6 +639,16 @@ type SingleMetricReq struct {
 	Metrics_name string           `json:"metrics_name"`
 	Page         int64            `json:"page"`
 	Request_id   int64            `json:"request_id"`
+}
+type TransactionSwapQuote struct {
+	Chain_fee_sats          int64  `json:"chain_fee_sats"`
+	Invoice_amount_sats     int64  `json:"invoice_amount_sats"`
+	Swap_fee_sats           int64  `json:"swap_fee_sats"`
+	Swap_operation_id       string `json:"swap_operation_id"`
+	Transaction_amount_sats int64  `json:"transaction_amount_sats"`
+}
+type TransactionSwapRequest struct {
+	Transaction_amount_sats int64 `json:"transaction_amount_sats"`
 }
 type UpdateChannelPolicyRequest struct {
 	Policy *ChannelPolicy                     `json:"policy"`
