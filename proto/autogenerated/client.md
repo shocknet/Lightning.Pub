@@ -1570,6 +1570,8 @@ The nostr server will send back a message response, and inside the body there wi
 ### TransactionSwapQuote
   - __chain_fee_sats__: _number_
   - __invoice_amount_sats__: _number_
+  - __routing_fee_reserve_sats__: _number_
+  - __service_fee_sats__: _number_
   - __swap_fee_sats__: _number_
   - __swap_operation_id__: _string_
   - __transaction_amount_sats__: _number_

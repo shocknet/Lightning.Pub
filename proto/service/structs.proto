@@ -832,8 +832,11 @@ message TransactionSwapRequest {
 
 message TransactionSwapQuote {
     string swap_operation_id = 1;
-    int64 swap_fee_sats = 2;
-    int64 invoice_amount_sats = 3;
-    int64 transaction_amount_sats = 4;
+    int64 invoice_amount_sats = 2;
+    int64 transaction_amount_sats = 3;
+
+    int64 swap_fee_sats = 4;
     int64 chain_fee_sats = 5;
+    int64 routing_fee_reserve_sats = 6;
+    int64 service_fee_sats = 7;
 }

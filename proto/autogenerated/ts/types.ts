@@ -3757,6 +3757,8 @@ export const SingleMetricReqValidate = (o?: SingleMetricReq, opts: SingleMetricR
 export type TransactionSwapQuote = {
     chain_fee_sats: number
     invoice_amount_sats: number
+    routing_fee_reserve_sats: number
+    service_fee_sats: number
     swap_fee_sats: number
     swap_operation_id: string
     transaction_amount_sats: number
@@ -3766,6 +3768,8 @@ export type TransactionSwapQuoteOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
     chain_fee_sats_CustomCheck?: (v: number) => boolean
     invoice_amount_sats_CustomCheck?: (v: number) => boolean
+    routing_fee_reserve_sats_CustomCheck?: (v: number) => boolean
+    service_fee_sats_CustomCheck?: (v: number) => boolean
     swap_fee_sats_CustomCheck?: (v: number) => boolean
     swap_operation_id_CustomCheck?: (v: string) => boolean
     transaction_amount_sats_CustomCheck?: (v: number) => boolean
@@ -3779,6 +3783,12 @@ export const TransactionSwapQuoteValidate = (o?: TransactionSwapQuote, opts: Tra
 
     if (typeof o.invoice_amount_sats !== 'number') return new Error(`${path}.invoice_amount_sats: is not a number`)
     if (opts.invoice_amount_sats_CustomCheck && !opts.invoice_amount_sats_CustomCheck(o.invoice_amount_sats)) return new Error(`${path}.invoice_amount_sats: custom check failed`)
+
+    if (typeof o.routing_fee_reserve_sats !== 'number') return new Error(`${path}.routing_fee_reserve_sats: is not a number`)
+    if (opts.routing_fee_reserve_sats_CustomCheck && !opts.routing_fee_reserve_sats_CustomCheck(o.routing_fee_reserve_sats)) return new Error(`${path}.routing_fee_reserve_sats: custom check failed`)
+
+    if (typeof o.service_fee_sats !== 'number') return new Error(`${path}.service_fee_sats: is not a number`)
+    if (opts.service_fee_sats_CustomCheck && !opts.service_fee_sats_CustomCheck(o.service_fee_sats)) return new Error(`${path}.service_fee_sats: custom check failed`)
 
     if (typeof o.swap_fee_sats !== 'number') return new Error(`${path}.swap_fee_sats: is not a number`)
     if (opts.swap_fee_sats_CustomCheck && !opts.swap_fee_sats_CustomCheck(o.swap_fee_sats)) return new Error(`${path}.swap_fee_sats: custom check failed`)

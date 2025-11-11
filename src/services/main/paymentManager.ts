@@ -373,7 +373,10 @@ export default class {
         }
         const decoded = await this.lnd.DecodeInvoice(res.createdResponse.invoice)
         const swapFee = decoded.numSatoshis - chainTotal
-
+        const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
+        const isAppUserPayment = ctx.user_id !== app.owner.user_id
+        const serviceFee = this.getServiceFee(Types.UserOperationType.OUTGOING_INVOICE, decoded.numSatoshis, isAppUserPayment)
+        const routingFeeLimit = this.lnd.GetFeeLimitAmount(decoded.numSatoshis)
         const newSwap = await this.storage.paymentStorage.AddTransactionSwap({
             app_user_id: ctx.app_user_id,
             swap_quote_id: res.createdResponse.id,
@@ -396,6 +399,8 @@ export default class {
             invoice_amount_sats: decoded.numSatoshis,
             transaction_amount_sats: req.transaction_amount_sats,
             chain_fee_sats: minerFee,
+            service_fee_sats: serviceFee,
+            routing_fee_reserve_sats: routingFeeLimit
         }
     }
 
