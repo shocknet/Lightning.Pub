@@ -256,29 +256,26 @@ export class ReverseSwaps {
         }
     }
 
-    SubscribeToTransactionSwap = async (data: TransactionSwapData) => {
+    SubscribeToTransactionSwap = async (data: TransactionSwapData, swapDone: (result: { ok: true, txId: string } | { ok: false, error: string }) => void) => {
         const webSocket = new ws(`${this.settings.getSettings().swapsSettings.boltzWebSocketUrl}/v2/ws`)
         const subReq = { op: 'subscribe', channel: 'swap.update', args: [data.createdResponse.id] }
         webSocket.on('open', () => {
             webSocket.send(JSON.stringify(subReq))
         })
-        return new Promise<string>((resolve, reject) => {
-            const done = (txId: string) => {
+        const done = (txId: string) => {
+            webSocket.close()
+            swapDone({ ok: true, txId })
+        }
+        webSocket.on('message', async (rawMsg) => {
+            try {
+                await this.handleSwapTransactionMessage(rawMsg, data, done)
+            } catch (err: any) {
+                this.log(ERROR, 'Error handling transaction WebSocket message', err.message)
                 webSocket.close()
-                resolve(txId)
+                swapDone({ ok: false, error: err.message })
+                return
             }
-            webSocket.on('message', async (rawMsg) => {
-                try {
-                    await this.handleSwapTransactionMessage(rawMsg, data, done)
-                } catch (err: any) {
-                    this.log(ERROR, 'Error handling transaction WebSocket message', err.message)
-                    webSocket.close()
-                    reject(err)
-                    return
-                }
-            })
         })
-
     }
 
     handleSwapTransactionMessage = async (rawMsg: ws.RawData, data: TransactionSwapData, done: (txId: string) => void) => {

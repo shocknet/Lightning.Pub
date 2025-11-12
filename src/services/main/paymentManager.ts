@@ -451,19 +451,33 @@ export default class {
                 preimage: Buffer.from(txSwap.preimage, 'hex'),
             }
         }
-        const swapPromise = this.swaps.reverseSwaps.SubscribeToTransactionSwap(data)
-        const payment = await this.PayInvoice(ctx.user_id, { amount: 0, invoice: txSwap.invoice }, app, req.swap_operation_id)
-        let txId = ""
+        let swapResult = { ok: false, error: "swap never completed" } as { ok: true, txId: string } | { ok: false, error: string }
+        this.swaps.reverseSwaps.SubscribeToTransactionSwap(data, result => {
+            swapResult = result
+        })
+        let payment: Types.PayInvoiceResponse
         try {
-            txId = await swapPromise
-            await this.storage.paymentStorage.FinalizeTransactionSwap(req.swap_operation_id, txId)
+            payment = await this.PayInvoice(ctx.user_id, { amount: 0, invoice: txSwap.invoice }, app, req.swap_operation_id)
+            if (!swapResult.ok) {
+                this.log("invoice payment successful, but swap failed")
+                await this.storage.paymentStorage.FailTransactionSwap(req.swap_operation_id, swapResult.error)
+                throw new Error(swapResult.error)
+            }
+            this.log("swap completed successfully")
+            await this.storage.paymentStorage.FinalizeTransactionSwap(req.swap_operation_id, swapResult.txId)
         } catch (err: any) {
-            await this.storage.paymentStorage.FailTransactionSwap(req.swap_operation_id, err.message)
+            if (swapResult.ok) {
+                this.log("failed to pay swap invoice, but swap completed successfully", swapResult.txId)
+                await this.storage.paymentStorage.FailTransactionSwap(req.swap_operation_id, err.message)
+            } else {
+                this.log("failed to pay swap invoice and swap failed", swapResult.error)
+                await this.storage.paymentStorage.FailTransactionSwap(req.swap_operation_id, swapResult.error)
+            }
             throw err
         }
         const networkFeesTotal = txSwap.chain_fee_sats + txSwap.swap_fee_sats + payment.network_fee
         return {
-            txId: txId,
+            txId: swapResult.txId,
             network_fee: networkFeesTotal,
             service_fee: payment.service_fee,
             operation_id: payment.operation_id,
