@@ -10,9 +10,11 @@ export class RugPullTracker {
     storage: Storage
     log = getLogger({ component: "rugPullTracker" })
     rugPulled = false
-    constructor(storage: Storage, liquidProvider: LiquidityProvider) {
+    onRugPullDetected?: () => void
+    constructor(storage: Storage, liquidProvider: LiquidityProvider, onRugPullDetected?: () => void) {
         this.liquidProvider = liquidProvider
         this.storage = storage
+        this.onRugPullDetected = onRugPullDetected
     }
 
     HasProviderRugPulled = () => {
@@ -44,10 +46,16 @@ export class RugPullTracker {
     checkForDisruption = async (pubDst: string, trackedBalance: number, providerTracker: TrackedProvider) => {
         const diff = trackedBalance - providerTracker.latest_balance
         if (diff < 0) {
+            const wasNotRugPulled = !this.rugPulled
             this.rugPulled = true
             if (providerTracker.latest_distruption_at_unix === 0) {
                 await this.storage.liquidityStorage.UpdateTrackedProviderDisruption('lnPub', pubDst, Math.floor(Date.now() / 1000))
                 getLogger({ component: 'rugPull' })("detected rugpull from: ", pubDst, "provider balance changed from", providerTracker.latest_balance, "to", trackedBalance, "losing", diff)
+                // Trigger relay switch on first detection
+                if (wasNotRugPulled && this.onRugPullDetected) {
+                    getLogger({ component: 'rugPull' })("triggering provider relay switch due to rugpull")
+                    this.onRugPullDetected()
+                }
             } else {
                 getLogger({ component: 'rugPull' })("ongoing rugpull from: ", pubDst, "provider balance changed from", providerTracker.latest_balance, "to", trackedBalance, "losing", diff)
             }
