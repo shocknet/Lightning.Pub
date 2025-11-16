@@ -1,8 +1,5 @@
 # Docker Installation
 
-> [!WARNING]  
-> The Docker deployment method is currently unmaintained and may not work as expected. Help is wanted! If you are a Docker enjoyer, please consider contributing to this deployment method.
-
 1. Pull the Docker image:
 
 ```ssh
@@ -21,4 +18,5 @@ docker run -d \
   -v $HOME/.lnd:/root/.lnd \
   ghcr.io/shocknet/lightning-pub:latest
 ```
-Network host is used so the service can reach a local LND via localhost. LND is assumed to be under the users home folder, update this location as needed.
+
+Network host is used so the service can reach a local LND via localhost. LND is assumed to be under the users home folder, update these resources as needed.
