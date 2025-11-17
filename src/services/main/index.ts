@@ -108,13 +108,16 @@ export default class {
         })
     }
 
-    attachNostrSend(f: NostrSend) {
+    attachNostrSend(f: NostrSend, appId?: string) {
         this.nostrSend = f
         this.liquidityProvider.attachNostrSend(f)
         this.debitManager.attachNostrSend(f)
         this.offerManager.attachNostrSend(f)
         this.managementManager.attachNostrSend(f)
         this.utils.attachNostrSend(f)
+        if (appId) {
+            this.unlocker.attachNostrSend(f, appId)
+        }
         //this.webRTC.attachNostrSend(f)
     }
 
