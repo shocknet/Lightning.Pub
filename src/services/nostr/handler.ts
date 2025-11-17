@@ -25,6 +25,7 @@ export type NostrSettings = {
     apps: AppInfo[]
     relays: string[]
     clients: ClientInfo[]
+    providerRelay: string
     maxEventContentLength: number
 }
 
@@ -136,20 +137,30 @@ export default class Handler {
     pool = new SimplePool()
     settings: NostrSettings
     apps: Record<string, AppInfo> = {}
+    clients: Record<string, ClientInfo> = {}
     eventCallback: (event: NostrEvent) => void
     log = getLogger({ component: "nostrMiddleware" })
     relay: Relay | null = null
+    providerRelay: Relay | null = null
     sub: Subscription | null = null
+    providerSub: Subscription | null = null
     stopped = false
     constructor(settings: NostrSettings, eventCallback: (event: NostrEvent) => void) {
         this.settings = settings
         this.log("connecting to relays:", settings.relays)
+        this.log("provider relay:", settings.providerRelay)
         this.settings.apps.forEach(app => {
             this.log("appId:", app.appId, "pubkey:", app.publicKey, "nprofile:", nprofileEncode({ pubkey: app.publicKey, relays: settings.relays }))
+        })
+        this.settings.clients.forEach(client => {
+            this.log("clientId:", client.clientId, "pubkey:", client.publicKey, "name:", client.name)
         })
         this.eventCallback = (e) => { if (!this.stopped) eventCallback(e) }
         this.settings.apps.forEach(app => {
             this.apps[app.publicKey] = app
+        })
+        this.settings.clients.forEach(client => {
+            this.clients[client.publicKey] = client
         })
         this.ConnectLoop()
     }
@@ -173,17 +184,29 @@ export default class Handler {
         this.relay?.close()
         this.relay = null
         this.sub = null
+        this.providerSub?.close()
+        this.providerRelay?.close()
+        this.providerRelay = null
+        this.providerSub = null
     }
 
     async ConnectPromise() {
         return new Promise<void>(async (res) => {
-            this.relay = await this.GetRelay()
+            // Connect to main relay for apps
+            this.relay = await this.GetRelay(this.settings.relays[0], "main")
             if (!this.relay) {
                 res()
                 return
             }
-            this.sub = this.Subscribe(this.relay)
-            this.relay.onclose = (() => {
+            this.sub = this.Subscribe(this.relay, 'app')
+
+            // Connect to provider relay for clients
+            this.providerRelay = await this.GetRelay(this.settings.providerRelay, "provider")
+            if (this.providerRelay) {
+                this.providerSub = this.Subscribe(this.providerRelay, 'client')
+            }
+
+            const onclose = () => {
                 this.log("relay disconnected")
                 this.sub?.close()
                 if (this.relay) {
@@ -192,42 +215,56 @@ export default class Handler {
                     this.relay = null
                 }
                 this.sub = null
+
+                this.providerSub?.close()
+                if (this.providerRelay) {
+                    this.providerRelay.onclose = null
+                    this.providerRelay.close()
+                    this.providerRelay = null
+                }
+                this.providerSub = null
                 res()
-            })
+            }
+
+            this.relay.onclose = onclose
+            if (this.providerRelay) {
+                this.providerRelay.onclose = onclose
+            }
         })
     }
 
-    async GetRelay(): Promise<Relay | null> {
+    async GetRelay(relayUrl: string, relayType: string): Promise<Relay | null> {
         try {
-            const relay = await Relay.connect(this.settings.relays[0])
+            this.log(`connecting to ${relayType} relay:`, relayUrl)
+            const relay = await Relay.connect(relayUrl)
             if (!relay.connected) {
-                throw new Error("failed to connect to relay")
+                throw new Error(`failed to connect to ${relayType} relay`)
             }
+            this.log(`connected to ${relayType} relay:`, relayUrl)
             return relay
         } catch (err: any) {
-            this.log("failed to connect to relay", err.message || err)
+            this.log(`failed to connect to ${relayType} relay`, relayUrl, err.message || err)
             return null
         }
     }
 
-    Subscribe(relay: Relay) {
-        const appIds = Object.keys(this.apps)
-        this.log("🔍 [NOSTR SUBSCRIPTION] Setting up subscription", {
+    Subscribe(relay: Relay, type: 'app' | 'client') {
+        const ids = type === 'app' ? Object.keys(this.apps) : Object.keys(this.clients)
+        this.log(`🔍 [NOSTR SUBSCRIPTION] Setting up ${type} subscription`, {
             since: Math.ceil(Date.now() / 1000),
             kinds: supportedKinds,
-            appIds: appIds,
-            listeningForPubkeys: appIds
+            listeningForPubkeys: ids
         })
 
         return relay.subscribe([
             {
                 since: Math.ceil(Date.now() / 1000),
                 kinds: supportedKinds,
-                '#p': appIds,
+                '#p': ids,
             }
         ], {
             oneose: () => {
-                this.log("up to date with nostr events")
+                this.log(`up to date with ${type} nostr events`)
             },
             onevent: async (e) => {
                 if (!supportedKinds.includes(e.kind) || !e.pubkey) {
@@ -237,16 +274,23 @@ export default class Handler {
                 if (!pubTags) {
                     return
                 }
-                const app = this.apps[pubTags[1]]
+                const targetPub = pubTags[1]
+                const app = this.apps[targetPub]
                 if (app) {
                     await this.processEvent(e, app)
+                    return
+                }
+                // Check if it's a client message
+                const client = this.clients[targetPub]
+                if (client) {
+                    await this.processEvent(e, client)
                     return
                 }
             }
         })
     }
 
-    async processEvent(e: Event, app: AppInfo) {
+    async processEvent(e: Event, app: AppInfo | ClientInfo) {
         const eventId = e.id
         if (handledEvents.includes(eventId)) {
             this.log("event already handled")
@@ -267,7 +311,8 @@ export default class Handler {
             return
 
         }
-        this.eventCallback({ id: eventId, content, pub: e.pubkey, appId: app.appId, startAtNano, startAtMs, kind: e.kind })
+        const appId = 'appId' in app ? app.appId : app.clientId
+        this.eventCallback({ id: eventId, content, pub: e.pubkey, appId, startAtNano, startAtMs, kind: e.kind })
     }
 
     async Send(initiator: SendInitiator, data: SendData, relays?: string[]) {
@@ -275,7 +320,7 @@ export default class Handler {
             const keys = this.GetSendKeys(initiator)
             const privateKey = Buffer.from(keys.privateKey, 'hex')
             const toSign = await this.handleSend(data, keys)
-            await Promise.all(toSign.map(ue => this.sendEvent(ue, keys, relays)))
+            await Promise.all(toSign.map(ue => this.sendEvent(ue, keys, initiator, relays)))
         } catch (e: any) {
             this.log(ERROR, "failed to send event", e.message || e)
             throw e
@@ -320,11 +365,20 @@ export default class Handler {
         return toSign
     }
 
-    async sendEvent(event: UnsignedEvent, keys: { name: string, privateKey: string }, relays?: string[]) {
+    async sendEvent(event: UnsignedEvent, keys: { name: string, privateKey: string }, initiator: SendInitiator, relays?: string[]) {
         const signed = finalizeEvent(event, Buffer.from(keys.privateKey, 'hex'))
         let sent = false
         const log = getLogger({ appName: keys.name })
-        await Promise.all(this.pool.publish(relays || this.settings.relays, signed).map(async p => {
+
+        // If relays explicitly provided, use those
+        // Otherwise, use providerRelay for clients, regular relays for apps
+        let targetRelays = relays
+        if (!targetRelays) {
+            targetRelays = initiator.type === 'client' ? [this.settings.providerRelay] : this.settings.relays
+            log(`using ${initiator.type} relays:`, targetRelays)
+        }
+
+        await Promise.all(this.pool.publish(targetRelays, signed).map(async p => {
             try {
                 await p
                 sent = true
@@ -334,7 +388,7 @@ export default class Handler {
             }
         }))
         if (!sent) {
-            log("failed to send event")
+            log("failed to send event to", targetRelays)
         } else {
             //log("sent event")
         }

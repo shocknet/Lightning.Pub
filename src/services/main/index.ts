@@ -74,7 +74,8 @@ export default class {
         this.unlocker = unlocker
         const updateProviderBalance = (b: number) => this.storage.liquidityStorage.IncrementTrackedProviderBalance('lnPub', settings.getSettings().liquiditySettings.liquidityProviderPub, b)
         this.liquidityProvider = new LiquidityProvider(() => this.settings.getSettings().liquiditySettings, this.utils, this.invoicePaidCb, updateProviderBalance)
-        this.rugPullTracker = new RugPullTracker(this.storage, this.liquidityProvider)
+        const onRugPullDetected = () => this.switchProviderRelay()
+        this.rugPullTracker = new RugPullTracker(this.storage, this.liquidityProvider, onRugPullDetected)
         const lndGetSettings = () => ({
             lndSettings: settings.getSettings().lndSettings,
             lndNodeSettings: settings.getSettings().lndNodeSettings
@@ -432,6 +433,22 @@ export default class {
         this.nostrSend({ type: 'app', appId: invoice.linkedApplication.app_id }, { type: 'event', event }, zapInfo.relays || undefined)
     }
 
+    async switchProviderRelay() {
+        const log = getLogger({ component: "main" })
+        log("switching provider relay to backup due to rugpull detection")
+
+        // Swap primary and backup provider relays
+        const currentSettings = this.settings.getSettings().nostrRelaySettings
+        const temp = currentSettings.providerRelay
+        currentSettings.providerRelay = currentSettings.providerRelayBackup
+        currentSettings.providerRelayBackup = temp
+
+        log("switched provider relay from", temp, "to", currentSettings.providerRelay)
+
+        // Reset Nostr to apply the new relay
+        await this.ResetNostr()
+    }
+
     async ResetNostr() {
         const apps = await this.storage.applicationStorage.GetApplications()
         const nextRelay = this.settings.getSettings().nostrRelaySettings.relays[0]
@@ -452,6 +469,7 @@ export default class {
         const s: NostrSettings = {
             apps: apps.map(a => ({ appId: a.app_id, name: a.name, privateKey: a.nostr_private_key || "", publicKey: a.nostr_public_key || "" })),
             relays: this.settings.getSettings().nostrRelaySettings.relays,
+            providerRelay: this.settings.getSettings().nostrRelaySettings.providerRelay,
             maxEventContentLength: this.settings.getSettings().nostrRelaySettings.maxEventContentLength,
             clients: [liquidityProviderInfo]
         }

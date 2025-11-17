@@ -116,14 +116,20 @@ export const LoadLndSettingsFromEnv = (dbEnv: Record<string, string | undefined>
 
 export type NostrRelaySettings = {
     relays: string[],
+    providerRelay: string,
+    providerRelayBackup: string,
     maxEventContentLength: number
 }
 
 export const LoadNostrRelaySettingsFromEnv = (dbEnv: Record<string, string | undefined>, addToDb?: EnvCacher): NostrRelaySettings => {
     const relaysEnv = chooseEnv("NOSTR_RELAYS", dbEnv, "wss://relay.lightning.pub", addToDb);
+    const providerRelay = chooseEnv("PROVIDER_RELAY", dbEnv, "wss://relay.primal.net", addToDb);
+    const providerRelayBackup = chooseEnv("PROVIDER_RELAY_BACKUP", dbEnv, "wss://relay.damus.io", addToDb);
     const maxEventContentLength = chooseEnvInt("NOSTR_MAX_EVENT_CONTENT_LENGTH", dbEnv, 40000, addToDb)
     return {
         relays: relaysEnv.split(' '),
+        providerRelay,
+        providerRelayBackup,
         maxEventContentLength
     }
 }
