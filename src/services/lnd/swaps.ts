@@ -63,7 +63,7 @@ export class SubmarineSwaps {
     log: PubLogger
     constructor(settings: SettingsManager) {
         this.settings = settings
-        this.log = getLogger({ component: 'SwapsService' })
+        this.log = getLogger({ component: 'SubmarineSwaps' })
     }
 
     SwapInvoice = async (invoice: string, paymentHash: string) => {
@@ -190,7 +190,7 @@ export class ReverseSwaps {
     log: PubLogger
     constructor(settings: SettingsManager) {
         this.settings = settings
-        this.log = getLogger({ component: 'SwapsService' })
+        this.log = getLogger({ component: 'ReverseSwaps' })
         initEccLib(ecc)
     }
 
@@ -262,13 +262,17 @@ export class ReverseSwaps {
         webSocket.on('open', () => {
             webSocket.send(JSON.stringify(subReq))
         })
-        const done = (txId: string) => {
+        let txId = ""
+        const done = () => {
             webSocket.close()
             swapDone({ ok: true, txId })
         }
         webSocket.on('message', async (rawMsg) => {
             try {
-                await this.handleSwapTransactionMessage(rawMsg, data, done)
+                const result = await this.handleSwapTransactionMessage(rawMsg, data, done)
+                if (result) {
+                    txId = result
+                }
             } catch (err: any) {
                 this.log(ERROR, 'Error handling transaction WebSocket message', err.message)
                 webSocket.close()
@@ -278,7 +282,7 @@ export class ReverseSwaps {
         })
     }
 
-    handleSwapTransactionMessage = async (rawMsg: ws.RawData, data: TransactionSwapData, done: (txId: string) => void) => {
+    handleSwapTransactionMessage = async (rawMsg: ws.RawData, data: TransactionSwapData, done: () => void) => {
         const msg = JSON.parse(rawMsg.toString('utf-8'));
         if (msg.event !== 'update') {
             return;
@@ -286,7 +290,6 @@ export class ReverseSwaps {
 
         this.log('Got WebSocket update');
         this.log(msg);
-        let txId = ""
         switch (msg.args[0].status) {
             // "swap.created" means Boltz is waiting for the invoice to be paid
             case 'swap.created':
@@ -299,11 +302,10 @@ export class ReverseSwaps {
                 if (!txIdRes.ok) {
                     throw new Error(txIdRes.error)
                 }
-                txId = txIdRes.txId
-                return
+                return txIdRes.txId
             case 'invoice.settled':
                 this.log('Transaction swap successful');
-                done(txId)
+                done()
                 return;
         }
     }
