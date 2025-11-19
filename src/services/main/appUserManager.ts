@@ -69,14 +69,15 @@ export default class {
             throw new Error(`app user ${ctx.user_id} not found`) // TODO: fix logs doxing
         }
         const nostrSettings = this.settings.getSettings().nostrRelaySettings
+        const { max, networkFeeBps, networkFeeFixed, serviceFeeBps } = this.applicationManager.paymentManager.GetMaxPayableInvoice(user.balance_sats, true)
         return {
             userId: ctx.user_id,
             balance: user.balance_sats,
-            max_withdrawable: this.applicationManager.paymentManager.GetMaxPayableInvoice(user.balance_sats, true),
+            max_withdrawable: max,
             user_identifier: appUser.identifier,
-            network_max_fee_bps: this.settings.getSettings().lndSettings.feeRateBps,
-            network_max_fee_fixed: this.settings.getSettings().lndSettings.feeFixedLimit,
-            service_fee_bps: this.settings.getSettings().serviceFeeSettings.outgoingAppUserInvoiceFeeBps,
+            network_max_fee_bps: networkFeeBps,
+            network_max_fee_fixed: networkFeeFixed,
+            service_fee_bps: serviceFeeBps,
             noffer: nofferEncode({ pubkey: app.nostr_public_key!, offer: appUser.identifier, priceType: OfferPriceType.Spontaneous, relay: nostrSettings.relays[0] }),
             ndebit: ndebitEncode({ pubkey: app.nostr_public_key!, pointer: appUser.identifier, relay: nostrSettings.relays[0] }),
             nmanage: nmanageEncode({ pubkey: app.nostr_public_key!, pointer: appUser.identifier, relay: nostrSettings.relays[0] }),
@@ -104,8 +105,20 @@ export default class {
         return this.applicationManager.PayAppUserInvoice(ctx.app_id, {
             amount: req.amount,
             invoice: req.invoice,
-            user_identifier: ctx.app_user_id
+            user_identifier: ctx.app_user_id,
+            debit_npub: req.debit_npub,
+            fee_limit_sats: req.fee_limit_sats
         })
+    }
+
+    async PayInvoiceStream(ctx: Types.UserContext, req: Types.PayInvoiceRequest, cb: (res: Types.InvoicePaymentStream, err: Error | null) => void) {
+        return await this.applicationManager.PayAppUserInvoiceStream(ctx.app_id, {
+            amount: req.amount,
+            invoice: req.invoice,
+            user_identifier: ctx.app_user_id,
+            debit_npub: req.debit_npub,
+            fee_limit_sats: req.fee_limit_sats
+        }, cb)
     }
     async PayAddress(ctx: Types.UserContext, req: Types.PayInvoiceRequest): Promise<Types.PayInvoiceResponse> {
         return this.applicationManager.PayAppUserInvoice(ctx.app_id, {

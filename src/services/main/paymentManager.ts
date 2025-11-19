@@ -232,14 +232,29 @@ export default class {
         }
     }
 
-    GetMaxPayableInvoice(balance: number, appUser: boolean): number {
-        let maxWithinServiceFee = 0
-        if (appUser) {
-            maxWithinServiceFee = Math.max(0, Math.floor(balance * (1 - this.settings.getSettings().serviceFeeSettings.outgoingAppUserInvoiceFee)))
-        } else {
-            maxWithinServiceFee = Math.max(0, Math.floor(balance * (1 - this.settings.getSettings().serviceFeeSettings.outgoingAppInvoiceFee)))
+    GetMaxPayableInvoice(balance: number, appUser: boolean): { max: number, serviceFeeBps: number, networkFeeBps: number, networkFeeFixed: number } {
+        const { outgoingAppInvoiceFee, outgoingAppUserInvoiceFee, outgoingAppUserInvoiceFeeBps } = this.settings.getSettings().serviceFeeSettings
+        const serviceFee = appUser ? outgoingAppUserInvoiceFee : outgoingAppInvoiceFee
+        if (this.lnd.liquidProvider.IsReady()) {
+            const fees = this.lnd.liquidProvider.GetFees()
+            const providerServiceFee = fees.serviceFeeBps / 10000
+            const providerNetworkFee = fees.networkFeeBps / 10000
+            const div = 1 + serviceFee + providerServiceFee + providerNetworkFee
+            const max = Math.floor((balance - fees.networkFeeFixed) / div)
+            const networkFeeBps = fees.networkFeeBps + fees.serviceFeeBps
+            return { max, serviceFeeBps: outgoingAppUserInvoiceFeeBps, networkFeeBps, networkFeeFixed: fees.networkFeeFixed }
         }
-        return this.lnd.GetMaxWithinLimit(maxWithinServiceFee)
+        const { feeFixedLimit, feeRateLimit, feeRateBps } = this.settings.getSettings().lndSettings
+        const div = 1 + serviceFee + feeRateLimit
+        const max = Math.floor((balance - feeFixedLimit) / div)
+        return { max, serviceFeeBps: outgoingAppUserInvoiceFeeBps, networkFeeBps: feeRateBps, networkFeeFixed: feeFixedLimit }
+        /*         let maxWithinServiceFee = 0
+                if (appUser) {
+                    maxWithinServiceFee = Math.max(0, Math.floor(balance * (1 - this.settings.getSettings().serviceFeeSettings.outgoingAppUserInvoiceFee)))
+                } else {
+                    maxWithinServiceFee = Math.max(0, Math.floor(balance * (1 - this.settings.getSettings().serviceFeeSettings.outgoingAppInvoiceFee)))
+                }
+                return this.lnd.GetMaxWithinLimit(maxWithinServiceFee) */
     }
     async DecodeInvoice(req: Types.DecodeInvoiceRequest): Promise<Types.DecodeInvoiceResponse> {
         const decoded = await this.lnd.DecodeInvoice(req.invoice)
@@ -248,7 +263,17 @@ export default class {
         }
     }
 
-    async PayInvoice(userId: string, req: Types.PayInvoiceRequest, linkedApplication: Application): Promise<Types.PayInvoiceResponse> {
+    async PayInvoiceStream(userId: string, req: Types.PayInvoiceRequest, linkedApplication: Application, cb: (res: Types.InvoicePaymentStream, err: Error | null) => void) {
+        const ack = () => cb({ update: { type: Types.InvoicePaymentStream_update_type.ACK, ack: {} } }, null)
+        try {
+            const paid = await this.PayInvoice(userId, req, linkedApplication, ack)
+            cb({ update: { type: Types.InvoicePaymentStream_update_type.DONE, done: paid } }, null)
+        } catch (err: any) {
+            cb({ update: { type: Types.InvoicePaymentStream_update_type.ACK, ack: {} } }, err)
+        }
+    }
+
+    async PayInvoice(userId: string, req: Types.PayInvoiceRequest, linkedApplication: Application, ack?: () => void): Promise<Types.PayInvoiceResponse> {
         await this.watchDog.PaymentRequested()
         const maybeBanned = await this.storage.userStorage.GetUser(userId)
         if (maybeBanned.locked) {
@@ -264,6 +289,9 @@ export default class {
         const payAmount = req.amount !== 0 ? req.amount : Number(decoded.numSatoshis)
         const isAppUserPayment = userId !== linkedApplication.owner.user_id
         const serviceFee = this.getServiceFee(Types.UserOperationType.OUTGOING_INVOICE, payAmount, isAppUserPayment)
+        if (req.fee_limit_sats && req.fee_limit_sats < serviceFee) {
+            throw new Error("fee limit provided is too low to cover service fees")
+        }
         const internalInvoice = await this.storage.paymentStorage.GetInvoiceOwner(req.invoice)
         if (internalInvoice && internalInvoice.paid_at_unix > 0) {
             throw new Error("this invoice was already paid")
@@ -276,7 +304,7 @@ export default class {
         if (internalInvoice) {
             paymentInfo = await this.PayInternalInvoice(userId, internalInvoice, { payAmount, serviceFee }, linkedApplication, req.debit_npub)
         } else {
-            paymentInfo = await this.PayExternalInvoice(userId, req.invoice, { payAmount, serviceFee, amountForLnd: req.amount }, linkedApplication, req.debit_npub)
+            paymentInfo = await this.PayExternalInvoice(userId, req.invoice, { payAmount, serviceFee, amountForLnd: req.amount, feeLimit: req.fee_limit_sats }, linkedApplication, req.debit_npub, ack)
         }
         if (isAppUserPayment && serviceFee > 0) {
             await this.storage.userStorage.IncrementUserBalance(linkedApplication.owner.user_id, serviceFee, "fees")
@@ -292,7 +320,22 @@ export default class {
         }
     }
 
-    async PayExternalInvoice(userId: string, invoice: string, amounts: { payAmount: number, serviceFee: number, amountForLnd: number }, linkedApplication: Application, debitNpub?: string) {
+    getUse = async (payAmount: number, inputLimit: number | undefined): Promise<{ use: 'lnd' | 'provider', feeLimit: number }> => {
+        const use = await this.liquidityManager.beforeOutInvoicePayment(payAmount)
+        if (use.use === 'lnd') {
+            const lndFeeLimit = this.lnd.GetFeeLimitAmount(payAmount)
+            if (inputLimit && inputLimit < lndFeeLimit) {
+                this.log("WARNING requested fee limit is lower than suggested, payment might fail")
+            }
+            return { use: 'lnd', feeLimit: inputLimit || lndFeeLimit }
+        }
+        if (inputLimit && inputLimit < use.feeLimit) {
+            this.log("WARNING requested fee limit is lower than suggested by provider, payment might fail")
+        }
+        return { use: 'provider', feeLimit: inputLimit || use.feeLimit }
+    }
+
+    async PayExternalInvoice(userId: string, invoice: string, amounts: { payAmount: number, serviceFee: number, amountForLnd: number, feeLimit?: number }, linkedApplication: Application, debitNpub?: string, ack?: () => void) {
         if (this.settings.getSettings().serviceSettings.disableExternalPayments) {
             throw new Error("something went wrong sending payment, please try again later")
         }
@@ -305,16 +348,20 @@ export default class {
             }
             throw new Error("payment already in progress")
         }
+
         const { amountForLnd, payAmount, serviceFee } = amounts
         const totalAmountToDecrement = payAmount + serviceFee
-        const routingFeeLimit = this.lnd.GetFeeLimitAmount(payAmount)
-        const use = await this.liquidityManager.beforeOutInvoicePayment(payAmount)
+        /*         const routingFeeLimit = this.lnd.GetFeeLimitAmount(payAmount)
+                const use = await this.liquidityManager.beforeOutInvoicePayment(payAmount) */
+        const remainingLimit = amounts.feeLimit ? amounts.feeLimit - serviceFee : undefined
+        const { use, feeLimit: routingFeeLimit } = await this.getUse(payAmount, remainingLimit)
         const provider = use === 'provider' ? this.lnd.liquidProvider.GetProviderDestination() : undefined
         const pendingPayment = await this.storage.StartTransaction(async tx => {
             await this.storage.userStorage.DecrementUserBalance(userId, totalAmountToDecrement + routingFeeLimit, invoice, tx)
             return await this.storage.paymentStorage.AddPendingExternalPayment(userId, invoice, { payAmount, serviceFee, networkFee: routingFeeLimit }, linkedApplication, provider, tx, debitNpub)
         }, "payment started")
         this.log("ready to pay")
+        ack?.()
         try {
             const payment = await this.lnd.PayInvoice(invoice, amountForLnd, routingFeeLimit, payAmount, { useProvider: use === 'provider', from: 'user' }, index => {
                 this.storage.paymentStorage.SetExternalPaymentIndex(pendingPayment.serial_id, index)

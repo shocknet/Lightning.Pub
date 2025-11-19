@@ -390,6 +390,7 @@ message PayAppUserInvoiceRequest {
     string invoice = 2;
     int64 amount = 3;
     optional string debit_npub = 4;
+    optional int64 fee_limit_sats = 5;
 }
 
 message SendAppUserToAppUserPaymentRequest {
@@ -466,6 +467,7 @@ message PayInvoiceRequest{
     string invoice = 1;
     int64 amount = 2;
     optional string debit_npub = 3;
+    optional int64 fee_limit_sats = 4;
 }
 
 message PayInvoiceResponse{
@@ -474,6 +476,13 @@ message PayInvoiceResponse{
     string operation_id = 3;
     int64 service_fee = 4;
     int64 network_fee = 5;
+}
+
+message InvoicePaymentStream {
+    oneof update {
+        Empty ack = 1;
+        PayInvoiceResponse done = 2;
+    }
 }
 
 message GetPaymentStateRequest{

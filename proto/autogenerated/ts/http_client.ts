@@ -881,6 +881,7 @@ export default (params: ClientParams) => ({
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
+    PayInvoiceStream: async (request: Types.PayInvoiceRequest, cb: (v:ResultError | ({ status: 'OK' }& Types.InvoicePaymentStream)) => void): Promise<void> => { throw  new Error('http streams are not supported')},
     PingSubProcesses: async (): Promise<ResultError | ({ status: 'OK' })> => {
         const auth = await params.retrieveMetricsAuth()
         if (auth === null) throw new Error('retrieveMetricsAuth() returned null')

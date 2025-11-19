@@ -28,6 +28,9 @@ export class LiquidityProvider {
     queue: ((state: 'ready') => void)[] = []
     utils: Utils
     pendingPayments: Record<string, number> = {}
+    stateCache: Types.UserInfo | null = null
+    unreachableSince: number | null = null
+    reconnecting = false
     incrementProviderBalance: (balance: number) => Promise<void>
     // make the sub process accept client
     constructor(getSettings: () => LiquiditySettings, utils: Utils, invoicePaidCb: InvoicePaidCb, incrementProviderBalance: (balance: number) => Promise<any>) {
@@ -68,7 +71,11 @@ export class LiquidityProvider {
     }
 
     IsReady = () => {
-        return this.ready && !this.getSettings().disableLiquidityProvider
+        const elapsed = this.unreachableSince ? Date.now() - this.unreachableSince : 0
+        if (!this.reconnecting && elapsed > 1000 * 60 * 5) {
+            this.GetUserState().then(() => this.reconnecting = false)
+        }
+        return this.ready && !this.getSettings().disableLiquidityProvider && !this.unreachableSince
     }
 
     AwaitProviderReady = async (): Promise<'inactive' | 'ready'> => {
@@ -119,12 +126,27 @@ export class LiquidityProvider {
         if (res.status === 'ERROR') {
             if (res.reason !== 'timeout') {
                 this.log("error getting user info", res.reason)
+                if (!this.unreachableSince) this.unreachableSince = Date.now()
             }
             return res
         }
+        this.unreachableSince = null
+        this.stateCache = res
         this.utils.stateBundler.AddBalancePoint('providerBalance', res.balance)
         this.utils.stateBundler.AddBalancePoint('providerMaxWithdrawable', res.max_withdrawable)
         return res
+    }
+
+    GetFees = () => {
+        if (!this.stateCache) {
+            throw new Error("user state not cached")
+        }
+        return {
+            serviceFeeBps: this.stateCache.service_fee_bps,
+            networkFeeBps: this.stateCache.network_max_fee_bps,
+            networkFeeFixed: this.stateCache.network_max_fee_fixed,
+
+        }
     }
 
     GetLatestMaxWithdrawable = async () => {
@@ -163,21 +185,37 @@ export class LiquidityProvider {
         return serviceFee + networkFeeLimit
     }
 
-    CanProviderHandle = async (req: LiquidityRequest) => {
+    GetExpectedFeeLimit = async (amount: number) => {
+        if (!this.IsReady()) {
+            throw new Error("liquidity provider is not ready yet, disabled or unreachable")
+        }
+        const state = await this.GetUserState()
+        if (state.status === 'ERROR') {
+            throw new Error(state.reason)
+        }
+        return this.CalculateExpectedFeeLimit(amount, state)
+    }
+
+    CanProviderHandle = async (req: LiquidityRequest): Promise<false | Types.UserInfo> => {
         if (!this.IsReady()) {
             return false
         }
-        const maxW = await this.GetLatestMaxWithdrawable()
-        if (req.action === 'spend') {
-            return maxW > req.amount
+        const state = await this.GetUserState()
+        if (state.status === 'ERROR') {
+            this.log("error getting user state", state.reason)
+            return false
         }
-        return true
+        const maxW = state.max_withdrawable
+        if (req.action === 'spend' && maxW < req.amount) {
+            return false
+        }
+        return state
     }
 
     AddInvoice = async (amount: number, memo: string, from: 'user' | 'system', expiry: number) => {
         try {
             if (!this.IsReady()) {
-                throw new Error("liquidity provider is not ready yet or disabled")
+                throw new Error("liquidity provider is not ready yet, disabled or unreachable")
             }
             const res = await this.client.NewInvoice({ amountSats: amount, memo, expiry })
             if (res.status === 'ERROR') {
@@ -193,21 +231,43 @@ export class LiquidityProvider {
 
     }
 
-    PayInvoice = async (invoice: string, decodedAmount: number, from: 'user' | 'system') => {
+    PayInvoice = async (invoice: string, decodedAmount: number, from: 'user' | 'system', feeLimit?: number) => {
         try {
             if (!this.IsReady()) {
-                throw new Error("liquidity provider is not ready yet or disabled")
+                throw new Error("liquidity provider is not ready yet, disabled or unreachable")
             }
-            const userInfo = await this.GetUserState()
-            if (userInfo.status === 'ERROR') {
-                throw new Error(userInfo.reason)
-            }
-            this.pendingPayments[invoice] = decodedAmount + this.CalculateExpectedFeeLimit(decodedAmount, userInfo)
-            const res = await this.client.PayInvoice({ invoice, amount: 0 })
-            if (res.status === 'ERROR') {
+            /*             const userInfo = await this.GetUserState()
+                        if (userInfo.status === 'ERROR') {
+                            throw new Error(userInfo.reason)
+                        } */
+            const feeLimitToUse = feeLimit ? feeLimit : await this.GetExpectedFeeLimit(decodedAmount)
+            this.pendingPayments[invoice] = decodedAmount + feeLimitToUse //this.CalculateExpectedFeeLimit(decodedAmount, userInfo)
+            let acked = false
+            const timeout = setTimeout(() => {
+                this.log("10 seconds passed, still waiting for ack")
+                this.GetUserState()
+            }, 1000 * 10)
+            const res = await new Promise<Types.PayInvoiceResponse>((resolve, reject) => {
+                this.client.PayInvoiceStream({ invoice, amount: 0, fee_limit_sats: feeLimitToUse }, (resp) => {
+                    if (resp.status === 'ERROR') {
+                        this.log("error paying invoice", resp.reason)
+                        reject(new Error(resp.reason))
+                        return
+                    }
+                    if (resp.update.type === Types.InvoicePaymentStream_update_type.ACK) {
+                        this.log("acked")
+                        clearTimeout(timeout)
+                        acked = true
+                        return
+                    }
+                    resolve(resp.update.done)
+                })
+            })
+            //const res = await this.client.PayInvoice({ invoice, amount: 0, fee_limit_sats: feeLimitToUse })
+            /* if (res.status === 'ERROR') {
                 this.log("error paying invoice", res.reason)
                 throw new Error(res.reason)
-            }
+            } */
             const totalPaid = res.amount_paid + res.network_fee + res.service_fee
             this.incrementProviderBalance(-totalPaid).then(() => { delete this.pendingPayments[invoice] })
             this.utils.stateBundler.AddTxPoint('paidAnInvoice', decodedAmount, { used: 'provider', from, timeDiscount: true })
@@ -221,7 +281,7 @@ export class LiquidityProvider {
 
     GetPaymentState = async (invoice: string) => {
         if (!this.IsReady()) {
-            throw new Error("liquidity provider is not ready yet or disabled")
+            throw new Error("liquidity provider is not ready yet, disabled or unreachable")
         }
         const res = await this.client.GetPaymentState({ invoice })
         if (res.status === 'ERROR') {
@@ -233,7 +293,7 @@ export class LiquidityProvider {
 
     GetOperations = async () => {
         if (!this.IsReady()) {
-            throw new Error("liquidity provider is not ready yet or disabled")
+            throw new Error("liquidity provider is not ready yet, disabled or unreachable")
         }
         const res = await this.client.GetUserOperations({
             latestIncomingInvoice: { ts: 0, id: 0 }, latestOutgoingInvoice: { ts: 0, id: 0 },
