@@ -217,6 +217,7 @@ export class LiquidityProvider {
 
     CanProviderHandle = async (req: LiquidityRequest): Promise<false | Types.UserInfo> => {
         if (!this.IsReady()) {
+            this.log("provider is not ready", this.rand)
             return false
         }
         const state = await this.GetUserState()
