@@ -177,6 +177,13 @@ type BannedAppUser struct {
 	Nostr_pub       string `json:"nostr_pub"`
 	User_identifier string `json:"user_identifier"`
 }
+type BeaconData struct {
+	Avatarurl string          `json:"avatarUrl"`
+	Fees      *CumulativeFees `json:"fees"`
+	Name      string          `json:"name"`
+	Nextrelay string          `json:"nextRelay"`
+	Type      string          `json:"type"`
+}
 type BundleData struct {
 	Available_chunks []int64  `json:"available_chunks"`
 	Base_64_data     []string `json:"base_64_data"`
@@ -221,6 +228,11 @@ type CreateOneTimeInviteLinkRequest struct {
 }
 type CreateOneTimeInviteLinkResponse struct {
 	Invitation_link string `json:"invitation_link"`
+}
+type CumulativeFees struct {
+	Networkfeebps   int64 `json:"networkFeeBps"`
+	Networkfeefixed int64 `json:"networkFeeFixed"`
+	Servicefeebps   int64 `json:"serviceFeeBps"`
 }
 type DebitAuthorization struct {
 	Authorized bool        `json:"authorized"`
@@ -363,7 +375,8 @@ type LiveManageRequest struct {
 	Request_id string `json:"request_id"`
 }
 type LiveUserOperation struct {
-	Operation *UserOperation `json:"operation"`
+	Latest_balance int64          `json:"latest_balance"`
+	Operation      *UserOperation `json:"operation"`
 }
 type LndChannels struct {
 	Open_channels []OpenChannel `json:"open_channels"`
@@ -559,11 +572,12 @@ type PayInvoiceRequest struct {
 	Invoice        string `json:"invoice"`
 }
 type PayInvoiceResponse struct {
-	Amount_paid  int64  `json:"amount_paid"`
-	Network_fee  int64  `json:"network_fee"`
-	Operation_id string `json:"operation_id"`
-	Preimage     string `json:"preimage"`
-	Service_fee  int64  `json:"service_fee"`
+	Amount_paid    int64  `json:"amount_paid"`
+	Latest_balance int64  `json:"latest_balance"`
+	Network_fee    int64  `json:"network_fee"`
+	Operation_id   string `json:"operation_id"`
+	Preimage       string `json:"preimage"`
+	Service_fee    int64  `json:"service_fee"`
 }
 type PayerData struct {
 	Data map[string]string `json:"data"`

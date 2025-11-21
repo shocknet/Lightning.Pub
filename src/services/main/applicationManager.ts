@@ -47,12 +47,13 @@ export default class {
         }, 60 * 1000); // 1 minute
     }
 
-    async StartAppsServiceBeacon(publishBeacon: (app: Application) => void) {
+    async StartAppsServiceBeacon(publishBeacon: (app: Application, fees: Types.CumulativeFees) => void) {
         this.serviceBeaconInterval = setInterval(async () => {
             try {
+                const fees = this.paymentManager.GetAllFees()
                 const apps = await this.storage.applicationStorage.GetApplications()
                 apps.forEach(app => {
-                    publishBeacon(app)
+                    publishBeacon(app, fees)
                 })
             } catch (e) {
                 this.log("error in beacon", (e as any).message)
@@ -154,7 +155,7 @@ export default class {
 
         const ndebitString = ndebitEncode({ pubkey: app.nostr_public_key!, pointer: u.identifier, relay: nostrSettings.relays[0] })
         log("🔗 [DEBUG] Generated ndebit for user", { userId: u.user.user_id, ndebit: ndebitString })
-        const { max, networkFeeBps, networkFeeFixed, serviceFeeBps } = this.paymentManager.GetMaxPayableInvoice(u.user.balance_sats, true)
+        const { max, networkFeeBps, networkFeeFixed, serviceFeeBps } = this.paymentManager.GetMaxPayableInvoice(u.user.balance_sats)
         return {
             identifier: u.identifier,
             info: {
@@ -212,7 +213,7 @@ export default class {
         const app = await this.storage.applicationStorage.GetApplication(appId)
         const user = await this.storage.applicationStorage.GetApplicationUser(app, req.user_identifier)
         const nostrSettings = this.settings.getSettings().nostrRelaySettings
-        const { max, networkFeeBps, networkFeeFixed, serviceFeeBps } = this.paymentManager.GetMaxPayableInvoice(user.user.balance_sats, true)
+        const { max, networkFeeBps, networkFeeFixed, serviceFeeBps } = this.paymentManager.GetMaxPayableInvoice(user.user.balance_sats)
         return {
             max_withdrawable: max, identifier: req.user_identifier, info: {
                 userId: user.user.user_id, balance: user.user.balance_sats,

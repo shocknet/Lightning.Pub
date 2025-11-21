@@ -79,7 +79,7 @@ export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSett
         nostrTransport({ ...j, appId: event.appId }, res => {
             nostr.Send({ type: 'app', appId: event.appId }, { type: 'content', pub: event.pub, content: JSON.stringify({ ...res, requestId: j.requestId }) })
         }, event.startAtNano, event.startAtMs)
-    })
+    }, beacon => mainHandler.liquidityProvider.onBeaconEvent(beacon))
 
     // Mark nostr connected/ready after initial subscription tick
     mainHandler.adminManager.setNostrConnected(true)

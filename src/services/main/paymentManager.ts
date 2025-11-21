@@ -36,6 +36,8 @@ interface UserOperationInfo {
     };
     internal?: boolean;
 }
+
+
 export type PendingTx = { type: 'incoming', tx: AddressReceivingTransaction } | { type: 'outgoing', tx: UserTransactionPayment }
 const defaultLnurlPayMetadata = (text: string) => `[["text/plain", "${text}"]]`
 const defaultLnAddressMetadata = (text: string, id: string) => `[["text/plain", "${text}"],["text/identifier", "${id}"]]`
@@ -232,22 +234,37 @@ export default class {
         }
     }
 
-    GetMaxPayableInvoice(balance: number, appUser: boolean): { max: number, serviceFeeBps: number, networkFeeBps: number, networkFeeFixed: number } {
-        const { outgoingAppInvoiceFee, outgoingAppUserInvoiceFee, outgoingAppUserInvoiceFeeBps } = this.settings.getSettings().serviceFeeSettings
-        const serviceFee = appUser ? outgoingAppUserInvoiceFee : outgoingAppInvoiceFee
+    GetAllFees = (): Types.CumulativeFees => {
+        const { outgoingAppUserInvoiceFeeBps } = this.settings.getSettings().serviceFeeSettings
         if (this.lnd.liquidProvider.IsReady()) {
             const fees = this.lnd.liquidProvider.GetFees()
-            const providerServiceFee = fees.serviceFeeBps / 10000
-            const providerNetworkFee = fees.networkFeeBps / 10000
-            const div = 1 + serviceFee + providerServiceFee + providerNetworkFee
-            const max = Math.floor((balance - fees.networkFeeFixed) / div)
             const networkFeeBps = fees.networkFeeBps + fees.serviceFeeBps
-            return { max, serviceFeeBps: outgoingAppUserInvoiceFeeBps, networkFeeBps, networkFeeFixed: fees.networkFeeFixed }
+            return { networkFeeBps, networkFeeFixed: fees.networkFeeFixed, serviceFeeBps: outgoingAppUserInvoiceFeeBps }
         }
-        const { feeFixedLimit, feeRateLimit, feeRateBps } = this.settings.getSettings().lndSettings
-        const div = 1 + serviceFee + feeRateLimit
-        const max = Math.floor((balance - feeFixedLimit) / div)
-        return { max, serviceFeeBps: outgoingAppUserInvoiceFeeBps, networkFeeBps: feeRateBps, networkFeeFixed: feeFixedLimit }
+        const { feeFixedLimit, feeRateBps } = this.settings.getSettings().lndSettings
+        return { networkFeeBps: feeRateBps, networkFeeFixed: feeFixedLimit, serviceFeeBps: outgoingAppUserInvoiceFeeBps }
+    }
+
+    GetMaxPayableInvoice(balance: number): Types.CumulativeFees & { max: number } {
+        const { networkFeeBps, networkFeeFixed, serviceFeeBps } = this.GetAllFees()
+        const totalBps = networkFeeBps + serviceFeeBps
+        const div = 1 + (totalBps / 10000)
+        const max = Math.floor((balance - networkFeeFixed) / div)
+        return { max, serviceFeeBps, networkFeeBps, networkFeeFixed }
+
+        /*         if (this.lnd.liquidProvider.IsReady()) {
+                    const fees = this.lnd.liquidProvider.GetFees()
+                    const providerServiceFee = fees.serviceFeeBps / 10000
+                    const providerNetworkFee = fees.networkFeeBps / 10000
+                    const div = 1 + serviceFee + providerServiceFee + providerNetworkFee
+                    const max = Math.floor((balance - fees.networkFeeFixed) / div)
+                    const networkFeeBps = fees.networkFeeBps + fees.serviceFeeBps
+                    return { max, serviceFeeBps: outgoingAppUserInvoiceFeeBps, networkFeeBps, networkFeeFixed: fees.networkFeeFixed }
+                }
+                const { feeFixedLimit, feeRateLimit, feeRateBps } = this.settings.getSettings().lndSettings
+                const div = 1 + serviceFee + feeRateLimit
+                const max = Math.floor((balance - feeFixedLimit) / div)
+                return { max, serviceFeeBps: outgoingAppUserInvoiceFeeBps, networkFeeBps: feeRateBps, networkFeeFixed: feeFixedLimit } */
         /*         let maxWithinServiceFee = 0
                 if (appUser) {
                     maxWithinServiceFee = Math.max(0, Math.floor(balance * (1 - this.settings.getSettings().serviceFeeSettings.outgoingAppUserInvoiceFee)))
@@ -317,6 +334,7 @@ export default class {
             operation_id: `${Types.UserOperationType.OUTGOING_INVOICE}-${paymentInfo.serialId}`,
             network_fee: paymentInfo.networkFee,
             service_fee: serviceFee,
+            latest_balance: user.balance_sats
         }
     }
 

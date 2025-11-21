@@ -104,7 +104,7 @@ export class LiquidityManager {
     afterOutInvoicePaid = async () => { }
 
     shouldDrainProvider = async () => {
-        const maxW = await this.liquidityProvider.GetLatestMaxWithdrawable()
+        const maxW = await this.liquidityProvider.GetMaxWithdrawable()
         const { remote } = await this.lnd.ChannelBalance()
         const drainable = Math.min(maxW, remote)
         if (drainable < 500) {
@@ -173,7 +173,7 @@ export class LiquidityManager {
         if (pendingChannels.pendingOpenChannels.length > 0) {
             return { shouldOpen: false }
         }
-        const maxW = await this.liquidityProvider.GetLatestMaxWithdrawable()
+        const maxW = await this.liquidityProvider.GetMaxWithdrawable()
         if (maxW < threshold) {
             return { shouldOpen: false }
         }

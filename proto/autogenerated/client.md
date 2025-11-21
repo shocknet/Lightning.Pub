@@ -1104,6 +1104,13 @@ The nostr server will send back a message response, and inside the body there wi
   - __nostr_pub__: _string_
   - __user_identifier__: _string_
 
+### BeaconData
+  - __avatarUrl__: _string_ *this field is optional
+  - __fees__: _[CumulativeFees](#CumulativeFees)_ *this field is optional
+  - __name__: _string_
+  - __nextRelay__: _string_ *this field is optional
+  - __type__: _string_
+
 ### BundleData
   - __available_chunks__: ARRAY of: _number_
   - __base_64_data__: ARRAY of: _string_
@@ -1148,6 +1155,11 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### CreateOneTimeInviteLinkResponse
   - __invitation_link__: _string_
+
+### CumulativeFees
+  - __networkFeeBps__: _number_
+  - __networkFeeFixed__: _number_
+  - __serviceFeeBps__: _number_
 
 ### DebitAuthorization
   - __authorized__: _boolean_
@@ -1290,6 +1302,7 @@ The nostr server will send back a message response, and inside the body there wi
   - __request_id__: _string_
 
 ### LiveUserOperation
+  - __latest_balance__: _number_
   - __operation__: _[UserOperation](#UserOperation)_
 
 ### LndChannels
@@ -1487,6 +1500,7 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### PayInvoiceResponse
   - __amount_paid__: _number_
+  - __latest_balance__: _number_
   - __network_fee__: _number_
   - __operation_id__: _string_
   - __preimage__: _string_

@@ -69,7 +69,7 @@ export default class {
             throw new Error(`app user ${ctx.user_id} not found`) // TODO: fix logs doxing
         }
         const nostrSettings = this.settings.getSettings().nostrRelaySettings
-        const { max, networkFeeBps, networkFeeFixed, serviceFeeBps } = this.applicationManager.paymentManager.GetMaxPayableInvoice(user.balance_sats, true)
+        const { max, networkFeeBps, networkFeeFixed, serviceFeeBps } = this.applicationManager.paymentManager.GetMaxPayableInvoice(user.balance_sats)
         return {
             userId: ctx.user_id,
             balance: user.balance_sats,

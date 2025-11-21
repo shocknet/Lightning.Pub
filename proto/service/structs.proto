@@ -476,6 +476,7 @@ message PayInvoiceResponse{
     string operation_id = 3;
     int64 service_fee = 4;
     int64 network_fee = 5;
+    int64 latest_balance = 6;
 }
 
 message InvoicePaymentStream {
@@ -613,6 +614,7 @@ message GetProductBuyLinkResponse {
 
 message LiveUserOperation {
     UserOperation operation  = 1;
+    int64 latest_balance = 2;
 }
 message MigrationUpdate {
     optional ClosureMigration closure = 1;
@@ -832,4 +834,19 @@ message ProvidersDisruption {
 message MessagingToken {
     string device_id = 1;
     string firebase_messaging_token = 2;
+}
+
+
+message CumulativeFees {
+    int64 networkFeeBps = 1;
+    int64 networkFeeFixed = 2;
+    int64 serviceFeeBps = 3;
+}
+
+message BeaconData {
+    string type = 1;
+    string name = 2;
+    optional string avatarUrl = 3;
+    optional string nextRelay = 4;
+    optional CumulativeFees fees = 5;
 }

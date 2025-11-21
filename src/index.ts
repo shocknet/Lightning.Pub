@@ -25,10 +25,13 @@ const start = async () => {
     const { apps, mainHandler, liquidityProviderInfo, wizard, adminManager } = keepOn
     const serverMethods = GetServerMethods(mainHandler)
     log("initializing nostr middleware")
-    const relays = mainHandler.settings.getSettings().nostrRelaySettings.relays
-    const maxEventContentLength = mainHandler.settings.getSettings().nostrRelaySettings.maxEventContentLength
+    const relays = settingsManager.getSettings().nostrRelaySettings.relays
+    const maxEventContentLength = settingsManager.getSettings().nostrRelaySettings.maxEventContentLength
     const { Send, Stop, Ping, Reset } = nostrMiddleware(serverMethods, mainHandler,
-        { relays, maxEventContentLength, apps, clients: [liquidityProviderInfo] },
+        {
+            relays, maxEventContentLength, apps, clients: [liquidityProviderInfo],
+            providerDestinationPub: settingsManager.getSettings().liquiditySettings.liquidityProviderPub
+        },
         (e, p) => mainHandler.liquidityProvider.onEvent(e, p)
     )
     exitHandler(() => { Stop(); mainHandler.Stop() })
@@ -43,7 +46,7 @@ const start = async () => {
     }
     adminManager.setAppNprofile(appNprofile)
     const Server = NewServer(serverMethods, serverOptions(mainHandler))
-    Server.Listen(mainHandler.settings.getSettings().serviceSettings.servicePort)
+    Server.Listen(settingsManager.getSettings().serviceSettings.servicePort)
 }
 start()
 
