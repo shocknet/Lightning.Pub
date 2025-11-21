@@ -39,7 +39,7 @@ export class LiquidityProvider {
     lastSeenBeacon = 0
     latestReceivedBalance = 0
     incrementProviderBalance: (balance: number) => Promise<void>
-    rand = Math.random()
+    // rand = Math.random()
     // make the sub process accept client
     constructor(getSettings: () => LiquiditySettings, utils: Utils, invoicePaidCb: InvoicePaidCb, incrementProviderBalance: (balance: number) => Promise<any>) {
         this.utils = utils
@@ -109,7 +109,8 @@ export class LiquidityProvider {
         if (res.status === 'ERROR' && res.reason !== 'timeout') {
             return
         }
-        this.log("provider ready with balance:", res.status === 'OK' ? res.balance : 0, this.rand)
+        this.log("provider ready with balance:", res.status === 'OK' ? res.balance : 0)
+        this.lastSeenBeacon = Date.now()
         this.ready = true
         this.queue.forEach(q => q('ready'))
         this.log("subbing to user operations")
@@ -217,7 +218,7 @@ export class LiquidityProvider {
 
     CanProviderHandle = async (req: LiquidityRequest): Promise<false | Types.UserInfo> => {
         if (!this.IsReady()) {
-            this.log("provider is not ready", this.rand)
+            this.log("provider is not ready")
             return false
         }
         const state = await this.GetUserState()
@@ -329,7 +330,7 @@ export class LiquidityProvider {
     }
 
     setNostrInfo = ({ clientId, myPub }: { myPub: string, clientId: string }) => {
-        this.log("setting nostr info", this.rand)
+        this.log("setting nostr info")
         this.clientId = clientId
         this.myPub = myPub
         this.setSetIfConfigured()
@@ -338,7 +339,7 @@ export class LiquidityProvider {
 
 
     attachNostrSend(f: NostrSend) {
-        this.log("attaching nostrSend action", this.rand)
+        this.log("attaching nostrSend action")
         this.nostrSend = f
         this.setSetIfConfigured()
     }
@@ -346,7 +347,7 @@ export class LiquidityProvider {
     setSetIfConfigured = () => {
         if (this.nostrSend && !!this.pubDestination && !!this.clientId && !!this.myPub) {
             this.configured = true
-            this.log("configured to send to ", this.pubDestination, this.rand)
+            this.log("configured to send to ")
         }
     }
     // fees: { networkFeeBps: number, networkFeeFixed: number, serviceFeeBps: number }
