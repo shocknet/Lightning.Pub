@@ -109,7 +109,7 @@ export class LiquidityProvider {
         if (res.status === 'ERROR' && res.reason !== 'timeout') {
             return
         }
-        this.log("provider ready with balance:", res.status === 'OK' ? res.balance : 0)
+        this.log("provider ready with balance:", res.status === 'OK' ? res.balance : 0, this.rand)
         this.ready = true
         this.queue.forEach(q => q('ready'))
         this.log("subbing to user operations")
