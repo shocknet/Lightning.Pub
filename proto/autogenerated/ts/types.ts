@@ -262,6 +262,9 @@ export type PayAppUserInvoice_Output = ResultError | ({ status: 'OK' } & PayInvo
 export type PayInvoice_Input = {rpcName:'PayInvoice', req: PayInvoiceRequest}
 export type PayInvoice_Output = ResultError | ({ status: 'OK' } & PayInvoiceResponse)
 
+export type PayInvoiceStream_Input = {rpcName:'PayInvoiceStream', req: PayInvoiceRequest,  cb:(res: InvoicePaymentStream, err:Error|null)=> void}
+export type PayInvoiceStream_Output = ResultError | { status: 'OK' }
+
 export type PingSubProcesses_Input = {rpcName:'PingSubProcesses'}
 export type PingSubProcesses_Output = ResultError | { status: 'OK' }
 
@@ -389,6 +392,7 @@ export type ServerMethods = {
     PayAddress?: (req: PayAddress_Input & {ctx: UserContext }) => Promise<PayAddressResponse>
     PayAppUserInvoice?: (req: PayAppUserInvoice_Input & {ctx: AppContext }) => Promise<PayInvoiceResponse>
     PayInvoice?: (req: PayInvoice_Input & {ctx: UserContext }) => Promise<PayInvoiceResponse>
+    PayInvoiceStream?: (req: PayInvoiceStream_Input & {ctx: UserContext }) => Promise<void>
     PingSubProcesses?: (req: PingSubProcesses_Input & {ctx: MetricsContext }) => Promise<void>
     RequestNPubLinkingToken?: (req: RequestNPubLinkingToken_Input & {ctx: AppContext }) => Promise<RequestNPubLinkingTokenResponse>
     ResetDebit?: (req: ResetDebit_Input & {ctx: UserContext }) => Promise<void>
@@ -979,6 +983,48 @@ export const BannedAppUserValidate = (o?: BannedAppUser, opts: BannedAppUserOpti
     return null
 }
 
+export type BeaconData = {
+    avatarUrl?: string
+    fees?: CumulativeFees
+    name: string
+    nextRelay?: string
+    type: string
+}
+export type BeaconDataOptionalField = 'avatarUrl' | 'fees' | 'nextRelay'
+export const BeaconDataOptionalFields: BeaconDataOptionalField[] = ['avatarUrl', 'fees', 'nextRelay']
+export type BeaconDataOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: BeaconDataOptionalField[]
+    avatarUrl_CustomCheck?: (v?: string) => boolean
+    fees_Options?: CumulativeFeesOptions
+    name_CustomCheck?: (v: string) => boolean
+    nextRelay_CustomCheck?: (v?: string) => boolean
+    type_CustomCheck?: (v: string) => boolean
+}
+export const BeaconDataValidate = (o?: BeaconData, opts: BeaconDataOptions = {}, path: string = 'BeaconData::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if ((o.avatarUrl || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('avatarUrl')) && typeof o.avatarUrl !== 'string') return new Error(`${path}.avatarUrl: is not a string`)
+    if (opts.avatarUrl_CustomCheck && !opts.avatarUrl_CustomCheck(o.avatarUrl)) return new Error(`${path}.avatarUrl: custom check failed`)
+
+    if (typeof o.fees === 'object' || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('fees')) {
+        const feesErr = CumulativeFeesValidate(o.fees, opts.fees_Options, `${path}.fees`)
+        if (feesErr !== null) return feesErr
+    }
+    
+
+    if (typeof o.name !== 'string') return new Error(`${path}.name: is not a string`)
+    if (opts.name_CustomCheck && !opts.name_CustomCheck(o.name)) return new Error(`${path}.name: custom check failed`)
+
+    if ((o.nextRelay || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('nextRelay')) && typeof o.nextRelay !== 'string') return new Error(`${path}.nextRelay: is not a string`)
+    if (opts.nextRelay_CustomCheck && !opts.nextRelay_CustomCheck(o.nextRelay)) return new Error(`${path}.nextRelay: custom check failed`)
+
+    if (typeof o.type !== 'string') return new Error(`${path}.type: is not a string`)
+    if (opts.type_CustomCheck && !opts.type_CustomCheck(o.type)) return new Error(`${path}.type: custom check failed`)
+
+    return null
+}
+
 export type BundleData = {
     available_chunks: number[]
     base_64_data: string[]
@@ -1248,6 +1294,34 @@ export const CreateOneTimeInviteLinkResponseValidate = (o?: CreateOneTimeInviteL
 
     if (typeof o.invitation_link !== 'string') return new Error(`${path}.invitation_link: is not a string`)
     if (opts.invitation_link_CustomCheck && !opts.invitation_link_CustomCheck(o.invitation_link)) return new Error(`${path}.invitation_link: custom check failed`)
+
+    return null
+}
+
+export type CumulativeFees = {
+    networkFeeBps: number
+    networkFeeFixed: number
+    serviceFeeBps: number
+}
+export const CumulativeFeesOptionalFields: [] = []
+export type CumulativeFeesOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    networkFeeBps_CustomCheck?: (v: number) => boolean
+    networkFeeFixed_CustomCheck?: (v: number) => boolean
+    serviceFeeBps_CustomCheck?: (v: number) => boolean
+}
+export const CumulativeFeesValidate = (o?: CumulativeFees, opts: CumulativeFeesOptions = {}, path: string = 'CumulativeFees::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.networkFeeBps !== 'number') return new Error(`${path}.networkFeeBps: is not a number`)
+    if (opts.networkFeeBps_CustomCheck && !opts.networkFeeBps_CustomCheck(o.networkFeeBps)) return new Error(`${path}.networkFeeBps: custom check failed`)
+
+    if (typeof o.networkFeeFixed !== 'number') return new Error(`${path}.networkFeeFixed: is not a number`)
+    if (opts.networkFeeFixed_CustomCheck && !opts.networkFeeFixed_CustomCheck(o.networkFeeFixed)) return new Error(`${path}.networkFeeFixed: custom check failed`)
+
+    if (typeof o.serviceFeeBps !== 'number') return new Error(`${path}.serviceFeeBps: is not a number`)
+    if (opts.serviceFeeBps_CustomCheck && !opts.serviceFeeBps_CustomCheck(o.serviceFeeBps)) return new Error(`${path}.serviceFeeBps: custom check failed`)
 
     return null
 }
@@ -1980,6 +2054,25 @@ export const HttpCredsValidate = (o?: HttpCreds, opts: HttpCredsOptions = {}, pa
     return null
 }
 
+export type InvoicePaymentStream = {
+    update: InvoicePaymentStream_update
+}
+export const InvoicePaymentStreamOptionalFields: [] = []
+export type InvoicePaymentStreamOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    update_Options?: InvoicePaymentStream_updateOptions
+}
+export const InvoicePaymentStreamValidate = (o?: InvoicePaymentStream, opts: InvoicePaymentStreamOptions = {}, path: string = 'InvoicePaymentStream::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    const updateErr = InvoicePaymentStream_updateValidate(o.update, opts.update_Options, `${path}.update`)
+    if (updateErr !== null) return updateErr
+    
+
+    return null
+}
+
 export type LatestBundleMetricReq = {
     limit?: number
 }
@@ -2089,16 +2182,21 @@ export const LiveManageRequestValidate = (o?: LiveManageRequest, opts: LiveManag
 }
 
 export type LiveUserOperation = {
+    latest_balance: number
     operation: UserOperation
 }
 export const LiveUserOperationOptionalFields: [] = []
 export type LiveUserOperationOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
+    latest_balance_CustomCheck?: (v: number) => boolean
     operation_Options?: UserOperationOptions
 }
 export const LiveUserOperationValidate = (o?: LiveUserOperation, opts: LiveUserOperationOptions = {}, path: string = 'LiveUserOperation::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
     if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.latest_balance !== 'number') return new Error(`${path}.latest_balance: is not a number`)
+    if (opts.latest_balance_CustomCheck && !opts.latest_balance_CustomCheck(o.latest_balance)) return new Error(`${path}.latest_balance: custom check failed`)
 
     const operationErr = UserOperationValidate(o.operation, opts.operation_Options, `${path}.operation`)
     if (operationErr !== null) return operationErr
@@ -3192,15 +3290,17 @@ export const PayAddressResponseValidate = (o?: PayAddressResponse, opts: PayAddr
 export type PayAppUserInvoiceRequest = {
     amount: number
     debit_npub?: string
+    fee_limit_sats?: number
     invoice: string
     user_identifier: string
 }
-export type PayAppUserInvoiceRequestOptionalField = 'debit_npub'
-export const PayAppUserInvoiceRequestOptionalFields: PayAppUserInvoiceRequestOptionalField[] = ['debit_npub']
+export type PayAppUserInvoiceRequestOptionalField = 'debit_npub' | 'fee_limit_sats'
+export const PayAppUserInvoiceRequestOptionalFields: PayAppUserInvoiceRequestOptionalField[] = ['debit_npub', 'fee_limit_sats']
 export type PayAppUserInvoiceRequestOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: PayAppUserInvoiceRequestOptionalField[]
     amount_CustomCheck?: (v: number) => boolean
     debit_npub_CustomCheck?: (v?: string) => boolean
+    fee_limit_sats_CustomCheck?: (v?: number) => boolean
     invoice_CustomCheck?: (v: string) => boolean
     user_identifier_CustomCheck?: (v: string) => boolean
 }
@@ -3214,6 +3314,9 @@ export const PayAppUserInvoiceRequestValidate = (o?: PayAppUserInvoiceRequest, o
     if ((o.debit_npub || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('debit_npub')) && typeof o.debit_npub !== 'string') return new Error(`${path}.debit_npub: is not a string`)
     if (opts.debit_npub_CustomCheck && !opts.debit_npub_CustomCheck(o.debit_npub)) return new Error(`${path}.debit_npub: custom check failed`)
 
+    if ((o.fee_limit_sats || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('fee_limit_sats')) && typeof o.fee_limit_sats !== 'number') return new Error(`${path}.fee_limit_sats: is not a number`)
+    if (opts.fee_limit_sats_CustomCheck && !opts.fee_limit_sats_CustomCheck(o.fee_limit_sats)) return new Error(`${path}.fee_limit_sats: custom check failed`)
+
     if (typeof o.invoice !== 'string') return new Error(`${path}.invoice: is not a string`)
     if (opts.invoice_CustomCheck && !opts.invoice_CustomCheck(o.invoice)) return new Error(`${path}.invoice: custom check failed`)
 
@@ -3226,14 +3329,16 @@ export const PayAppUserInvoiceRequestValidate = (o?: PayAppUserInvoiceRequest, o
 export type PayInvoiceRequest = {
     amount: number
     debit_npub?: string
+    fee_limit_sats?: number
     invoice: string
 }
-export type PayInvoiceRequestOptionalField = 'debit_npub'
-export const PayInvoiceRequestOptionalFields: PayInvoiceRequestOptionalField[] = ['debit_npub']
+export type PayInvoiceRequestOptionalField = 'debit_npub' | 'fee_limit_sats'
+export const PayInvoiceRequestOptionalFields: PayInvoiceRequestOptionalField[] = ['debit_npub', 'fee_limit_sats']
 export type PayInvoiceRequestOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: PayInvoiceRequestOptionalField[]
     amount_CustomCheck?: (v: number) => boolean
     debit_npub_CustomCheck?: (v?: string) => boolean
+    fee_limit_sats_CustomCheck?: (v?: number) => boolean
     invoice_CustomCheck?: (v: string) => boolean
 }
 export const PayInvoiceRequestValidate = (o?: PayInvoiceRequest, opts: PayInvoiceRequestOptions = {}, path: string = 'PayInvoiceRequest::root.'): Error | null => {
@@ -3246,6 +3351,9 @@ export const PayInvoiceRequestValidate = (o?: PayInvoiceRequest, opts: PayInvoic
     if ((o.debit_npub || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('debit_npub')) && typeof o.debit_npub !== 'string') return new Error(`${path}.debit_npub: is not a string`)
     if (opts.debit_npub_CustomCheck && !opts.debit_npub_CustomCheck(o.debit_npub)) return new Error(`${path}.debit_npub: custom check failed`)
 
+    if ((o.fee_limit_sats || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('fee_limit_sats')) && typeof o.fee_limit_sats !== 'number') return new Error(`${path}.fee_limit_sats: is not a number`)
+    if (opts.fee_limit_sats_CustomCheck && !opts.fee_limit_sats_CustomCheck(o.fee_limit_sats)) return new Error(`${path}.fee_limit_sats: custom check failed`)
+
     if (typeof o.invoice !== 'string') return new Error(`${path}.invoice: is not a string`)
     if (opts.invoice_CustomCheck && !opts.invoice_CustomCheck(o.invoice)) return new Error(`${path}.invoice: custom check failed`)
 
@@ -3254,6 +3362,7 @@ export const PayInvoiceRequestValidate = (o?: PayInvoiceRequest, opts: PayInvoic
 
 export type PayInvoiceResponse = {
     amount_paid: number
+    latest_balance: number
     network_fee: number
     operation_id: string
     preimage: string
@@ -3263,6 +3372,7 @@ export const PayInvoiceResponseOptionalFields: [] = []
 export type PayInvoiceResponseOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
     amount_paid_CustomCheck?: (v: number) => boolean
+    latest_balance_CustomCheck?: (v: number) => boolean
     network_fee_CustomCheck?: (v: number) => boolean
     operation_id_CustomCheck?: (v: string) => boolean
     preimage_CustomCheck?: (v: string) => boolean
@@ -3274,6 +3384,9 @@ export const PayInvoiceResponseValidate = (o?: PayInvoiceResponse, opts: PayInvo
 
     if (typeof o.amount_paid !== 'number') return new Error(`${path}.amount_paid: is not a number`)
     if (opts.amount_paid_CustomCheck && !opts.amount_paid_CustomCheck(o.amount_paid)) return new Error(`${path}.amount_paid: custom check failed`)
+
+    if (typeof o.latest_balance !== 'number') return new Error(`${path}.latest_balance: is not a number`)
+    if (opts.latest_balance_CustomCheck && !opts.latest_balance_CustomCheck(o.latest_balance)) return new Error(`${path}.latest_balance: custom check failed`)
 
     if (typeof o.network_fee !== 'number') return new Error(`${path}.network_fee: is not a number`)
     if (opts.network_fee_CustomCheck && !opts.network_fee_CustomCheck(o.network_fee)) return new Error(`${path}.network_fee: custom check failed`)
@@ -4320,6 +4433,43 @@ export const DebitRule_ruleValidate = (o?: DebitRule_rule, opts:DebitRule_ruleOp
         case DebitRule_rule_type.FREQUENCY_RULE:
         const frequency_ruleErr = FrequencyRuleValidate(o.frequency_rule, opts.frequency_rule_Options, `${path}.frequency_rule`)
         if (frequency_ruleErr !== null) return frequency_ruleErr
+        
+
+        break
+        default:
+            return new Error(path + ': unknown type '+ stringType)
+    }
+    return null
+}
+export enum InvoicePaymentStream_update_type {
+    ACK = 'ack',
+    DONE = 'done',
+}
+export const enumCheckInvoicePaymentStream_update_type = (e?: InvoicePaymentStream_update_type): boolean => {
+    for (const v in InvoicePaymentStream_update_type) if (e === v) return true
+    return false
+}
+export type InvoicePaymentStream_update = 
+    {type:InvoicePaymentStream_update_type.ACK, ack:Empty}|
+    {type:InvoicePaymentStream_update_type.DONE, done:PayInvoiceResponse}
+
+export type InvoicePaymentStream_updateOptions = {
+    ack_Options?: EmptyOptions
+    done_Options?: PayInvoiceResponseOptions
+}
+export const InvoicePaymentStream_updateValidate = (o?: InvoicePaymentStream_update, opts:InvoicePaymentStream_updateOptions = {}, path: string = 'InvoicePaymentStream_update::root.'): Error | null => {
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+    const stringType: string = o.type
+    switch (o.type) {
+        case InvoicePaymentStream_update_type.ACK:
+        const ackErr = EmptyValidate(o.ack, opts.ack_Options, `${path}.ack`)
+        if (ackErr !== null) return ackErr
+        
+
+        break
+        case InvoicePaymentStream_update_type.DONE:
+        const doneErr = PayInvoiceResponseValidate(o.done, opts.done_Options, `${path}.done`)
+        if (doneErr !== null) return doneErr
         
 
         break

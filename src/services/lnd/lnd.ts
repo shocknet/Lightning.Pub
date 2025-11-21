@@ -346,9 +346,9 @@ export default class {
         return Math.ceil(amount * this.getSettings().lndSettings.feeRateLimit + this.getSettings().lndSettings.feeFixedLimit);
     }
 
-    GetMaxWithinLimit(amount: number): number {
-        return Math.max(0, Math.floor(amount * (1 - this.getSettings().lndSettings.feeRateLimit) - this.getSettings().lndSettings.feeFixedLimit))
-    }
+    /*     GetMaxWithinLimit(amount: number): number {
+            return Math.max(0, Math.floor(amount * (1 - this.getSettings().lndSettings.feeRateLimit) - this.getSettings().lndSettings.feeFixedLimit))
+        } */
 
     async ChannelBalance(): Promise<{ local: number, remote: number }> {
         // console.log("Getting channel balance")
@@ -363,7 +363,7 @@ export default class {
             throw new Error("lnd node is currently out of sync")
         }
         if (useProvider) {
-            const res = await this.liquidProvider.PayInvoice(invoice, decodedAmount, from)
+            const res = await this.liquidProvider.PayInvoice(invoice, decodedAmount, from, feeLimit)
             const providerDst = this.liquidProvider.GetProviderDestination()
             return { feeSat: res.network_fee + res.service_fee, valueSat: res.amount_paid, paymentPreimage: res.preimage, providerDst }
         }

@@ -103,8 +103,8 @@ export default class {
     }
 
     StartBeacons() {
-        this.applicationManager.StartAppsServiceBeacon(app => {
-            this.UpdateBeacon(app, { type: 'service', name: app.name, avatarUrl: app.avatar_url })
+        this.applicationManager.StartAppsServiceBeacon((app, fees) => {
+            this.UpdateBeacon(app, { type: 'service', name: app.name, avatarUrl: app.avatar_url, fees })
         })
     }
 
@@ -373,8 +373,9 @@ export default class {
             getLogger({ appName: app.name })("cannot notify user, not a nostr user")
             return
         }
-
-        const message: Types.LiveUserOperation & { requestId: string, status: 'OK' } = { operation: op, requestId: "GetLiveUserOperations", status: 'OK' }
+        const balance = user.user.balance_sats
+        const message: Types.LiveUserOperation & { requestId: string, status: 'OK' } =
+            { operation: op, requestId: "GetLiveUserOperations", status: 'OK', latest_balance: balance }
         const j = JSON.stringify(message)
         this.nostrSend({ type: 'app', appId: app.app_id }, { type: 'content', content: j, pub: user.nostr_public_key })
         this.SendEncryptedNotification(app, user, op)
@@ -396,7 +397,7 @@ export default class {
         })
     }
 
-    async UpdateBeacon(app: Application, content: { type: 'service', name: string, avatarUrl?: string, nextRelay?: string }) {
+    async UpdateBeacon(app: Application, content: Types.BeaconData) {
         if (!app.nostr_public_key) {
             getLogger({ appName: app.name })("cannot update beacon, public key not set")
             return
@@ -435,8 +436,9 @@ export default class {
     async ResetNostr() {
         const apps = await this.storage.applicationStorage.GetApplications()
         const nextRelay = this.settings.getSettings().nostrRelaySettings.relays[0]
+        const fees = this.paymentManager.GetAllFees()
         for (const app of apps) {
-            await this.UpdateBeacon(app, { type: 'service', name: app.name, avatarUrl: app.avatar_url, nextRelay })
+            await this.UpdateBeacon(app, { type: 'service', name: app.name, avatarUrl: app.avatar_url, nextRelay, fees })
         }
 
         const defaultNames = ['wallet', 'wallet-test', this.settings.getSettings().serviceSettings.defaultAppName]
@@ -453,7 +455,8 @@ export default class {
             apps: apps.map(a => ({ appId: a.app_id, name: a.name, privateKey: a.nostr_private_key || "", publicKey: a.nostr_public_key || "" })),
             relays: this.settings.getSettings().nostrRelaySettings.relays,
             maxEventContentLength: this.settings.getSettings().nostrRelaySettings.maxEventContentLength,
-            clients: [liquidityProviderInfo]
+            clients: [liquidityProviderInfo],
+            providerDestinationPub: this.settings.getSettings().liquiditySettings.liquidityProviderPub
         }
         this.nostrReset(s)
     }
