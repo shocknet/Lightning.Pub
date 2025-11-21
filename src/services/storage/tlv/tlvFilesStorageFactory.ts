@@ -19,7 +19,7 @@ export class TlvStorageFactory extends EventEmitter {
     private debug: boolean = false;
     private _nostrSend: NostrSend = () => { throw new Error('nostr send not initialized yet') }
     private allowResetMetricsStorages: boolean
-    log = getLogger({component: 'TlvStorageFactory'})
+    log = getLogger({ component: 'TlvStorageFactory' })
     constructor(allowResetMetricsStorages: boolean) {
         super();
         this.allowResetMetricsStorages = allowResetMetricsStorages
@@ -134,10 +134,15 @@ export class TlvStorageFactory extends EventEmitter {
         return this.handleOp<Types.WebRtcAnswer>(op)
     }
 
-    ProcessMetrics(metrics: ProcessMetrics, processName: string): Promise<void> {
+    async ProcessMetrics(metrics: ProcessMetrics, processName: string): Promise<void> {
         const opId = Math.random().toString()
         const op: ProcessMetricsTlvOperation = { type: 'processMetrics', opId, metrics, processName }
-        return this.handleOp<void>(op)
+        try {
+            return this.handleOp<void>(op)
+        } catch (error: any) {
+            this.log(ERROR, 'Error processing metrics', error.message)
+        }
+        return
     }
 
 
