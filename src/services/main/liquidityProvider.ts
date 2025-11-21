@@ -39,6 +39,7 @@ export class LiquidityProvider {
     lastSeenBeacon = 0
     latestReceivedBalance = 0
     incrementProviderBalance: (balance: number) => Promise<void>
+    rand = Math.random()
     // make the sub process accept client
     constructor(getSettings: () => LiquiditySettings, utils: Utils, invoicePaidCb: InvoicePaidCb, incrementProviderBalance: (balance: number) => Promise<any>) {
         this.utils = utils
@@ -327,7 +328,7 @@ export class LiquidityProvider {
     }
 
     setNostrInfo = ({ clientId, myPub }: { myPub: string, clientId: string }) => {
-        this.log("setting nostr info")
+        this.log("setting nostr info", this.rand)
         this.clientId = clientId
         this.myPub = myPub
         this.setSetIfConfigured()
@@ -336,7 +337,7 @@ export class LiquidityProvider {
 
 
     attachNostrSend(f: NostrSend) {
-        this.log("attaching nostrSend action")
+        this.log("attaching nostrSend action", this.rand)
         this.nostrSend = f
         this.setSetIfConfigured()
     }
@@ -344,7 +345,7 @@ export class LiquidityProvider {
     setSetIfConfigured = () => {
         if (this.nostrSend && !!this.pubDestination && !!this.clientId && !!this.myPub) {
             this.configured = true
-            this.log("configured to send to ", this.pubDestination)
+            this.log("configured to send to ", this.pubDestination, this.rand)
         }
     }
     // fees: { networkFeeBps: number, networkFeeFixed: number, serviceFeeBps: number }
