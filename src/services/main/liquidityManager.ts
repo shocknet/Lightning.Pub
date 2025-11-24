@@ -87,7 +87,7 @@ export class LiquidityManager {
             if (!providerReady) {
                 throw new Error("cannot use liquidity provider, it is not ready")
             }
-            const feeLimit = await this.liquidityProvider.GetExpectedFeeLimit(amount)
+            const feeLimit = this.liquidityProvider.CalculateExpectedFeeLimit(amount)
             return { use: 'provider', feeLimit }
         }
         if (!providerReady) {
@@ -97,7 +97,7 @@ export class LiquidityManager {
         if (!canHandle) {
             return { use: 'lnd' }
         }
-        const feeLimit = this.liquidityProvider.CalculateExpectedFeeLimit(amount, canHandle)
+        const feeLimit = this.liquidityProvider.CalculateExpectedFeeLimit(amount)
         return { use: 'provider', feeLimit }
     }
 
