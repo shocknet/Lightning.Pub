@@ -346,10 +346,6 @@ export default class {
         return Math.ceil(amount * this.getSettings().lndSettings.feeRateLimit + this.getSettings().lndSettings.feeFixedLimit);
     }
 
-    /*     GetMaxWithinLimit(amount: number): number {
-            return Math.max(0, Math.floor(amount * (1 - this.getSettings().lndSettings.feeRateLimit) - this.getSettings().lndSettings.feeFixedLimit))
-        } */
-
     async ChannelBalance(): Promise<{ local: number, remote: number }> {
         // console.log("Getting channel balance")
         const res = await this.lightning.channelBalance({})
