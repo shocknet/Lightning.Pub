@@ -251,27 +251,6 @@ export default class {
         const div = 1 + (totalBps / 10000)
         const max = Math.floor((balance - networkFeeFixed) / div)
         return { max, serviceFeeBps, networkFeeBps, networkFeeFixed }
-
-        /*         if (this.lnd.liquidProvider.IsReady()) {
-                    const fees = this.lnd.liquidProvider.GetFees()
-                    const providerServiceFee = fees.serviceFeeBps / 10000
-                    const providerNetworkFee = fees.networkFeeBps / 10000
-                    const div = 1 + serviceFee + providerServiceFee + providerNetworkFee
-                    const max = Math.floor((balance - fees.networkFeeFixed) / div)
-                    const networkFeeBps = fees.networkFeeBps + fees.serviceFeeBps
-                    return { max, serviceFeeBps: outgoingAppUserInvoiceFeeBps, networkFeeBps, networkFeeFixed: fees.networkFeeFixed }
-                }
-                const { feeFixedLimit, feeRateLimit, feeRateBps } = this.settings.getSettings().lndSettings
-                const div = 1 + serviceFee + feeRateLimit
-                const max = Math.floor((balance - feeFixedLimit) / div)
-                return { max, serviceFeeBps: outgoingAppUserInvoiceFeeBps, networkFeeBps: feeRateBps, networkFeeFixed: feeFixedLimit } */
-        /*         let maxWithinServiceFee = 0
-                if (appUser) {
-                    maxWithinServiceFee = Math.max(0, Math.floor(balance * (1 - this.settings.getSettings().serviceFeeSettings.outgoingAppUserInvoiceFee)))
-                } else {
-                    maxWithinServiceFee = Math.max(0, Math.floor(balance * (1 - this.settings.getSettings().serviceFeeSettings.outgoingAppInvoiceFee)))
-                }
-                return this.lnd.GetMaxWithinLimit(maxWithinServiceFee) */
     }
     async DecodeInvoice(req: Types.DecodeInvoiceRequest): Promise<Types.DecodeInvoiceResponse> {
         const decoded = await this.lnd.DecodeInvoice(req.invoice)
@@ -280,17 +259,7 @@ export default class {
         }
     }
 
-    async PayInvoiceStream(userId: string, req: Types.PayInvoiceRequest, linkedApplication: Application, cb: (res: Types.InvoicePaymentStream, err: Error | null) => void) {
-        const ack = () => cb({ update: { type: Types.InvoicePaymentStream_update_type.ACK, ack: {} } }, null)
-        try {
-            const paid = await this.PayInvoice(userId, req, linkedApplication, ack)
-            cb({ update: { type: Types.InvoicePaymentStream_update_type.DONE, done: paid } }, null)
-        } catch (err: any) {
-            cb({ update: { type: Types.InvoicePaymentStream_update_type.ACK, ack: {} } }, err)
-        }
-    }
-
-    async PayInvoice(userId: string, req: Types.PayInvoiceRequest, linkedApplication: Application, ack?: () => void): Promise<Types.PayInvoiceResponse> {
+    async PayInvoice(userId: string, req: Types.PayInvoiceRequest, linkedApplication: Application, ack?: (op: Types.UserOperation) => void): Promise<Types.PayInvoiceResponse & { operation: Types.UserOperation }> {
         await this.watchDog.PaymentRequested()
         const maybeBanned = await this.storage.userStorage.GetUser(userId)
         if (maybeBanned.locked) {
@@ -328,13 +297,16 @@ export default class {
         }
         const user = await this.storage.userStorage.GetUser(userId)
         this.storage.eventsLog.LogEvent({ type: 'invoice_payment', userId, appId: linkedApplication.app_id, appUserId: "", balance: user.balance_sats, data: req.invoice, amount: payAmount })
+        const opId = `${Types.UserOperationType.OUTGOING_INVOICE}-${paymentInfo.serialId}`
+        const operation = this.newInvoicePaymentOperation({ invoice: req.invoice, opId, amount: paymentInfo.amtPaid, networkFee: paymentInfo.networkFee, serviceFee: serviceFee, confirmed: true })
         return {
             preimage: paymentInfo.preimage,
             amount_paid: paymentInfo.amtPaid,
-            operation_id: `${Types.UserOperationType.OUTGOING_INVOICE}-${paymentInfo.serialId}`,
+            operation_id: opId,
             network_fee: paymentInfo.networkFee,
             service_fee: serviceFee,
-            latest_balance: user.balance_sats
+            latest_balance: user.balance_sats,
+            operation
         }
     }
 
@@ -353,7 +325,7 @@ export default class {
         return { use: 'provider', feeLimit: inputLimit || use.feeLimit }
     }
 
-    async PayExternalInvoice(userId: string, invoice: string, amounts: { payAmount: number, serviceFee: number, amountForLnd: number, feeLimit?: number }, linkedApplication: Application, debitNpub?: string, ack?: () => void) {
+    async PayExternalInvoice(userId: string, invoice: string, amounts: { payAmount: number, serviceFee: number, amountForLnd: number, feeLimit?: number }, linkedApplication: Application, debitNpub?: string, ack?: (op: Types.UserOperation) => void) {
         if (this.settings.getSettings().serviceSettings.disableExternalPayments) {
             throw new Error("something went wrong sending payment, please try again later")
         }
@@ -379,7 +351,9 @@ export default class {
             return await this.storage.paymentStorage.AddPendingExternalPayment(userId, invoice, { payAmount, serviceFee, networkFee: routingFeeLimit }, linkedApplication, provider, tx, debitNpub)
         }, "payment started")
         this.log("ready to pay")
-        ack?.()
+        const opId = `${Types.UserOperationType.OUTGOING_INVOICE}-${pendingPayment.serial_id}`
+        const op = this.newInvoicePaymentOperation({ invoice, opId, amount: payAmount, networkFee: routingFeeLimit, serviceFee: serviceFee, confirmed: false })
+        ack?.(op)
         try {
             const payment = await this.lnd.PayInvoice(invoice, amountForLnd, routingFeeLimit, payAmount, { useProvider: use === 'provider', from: 'user' }, index => {
                 this.storage.paymentStorage.SetExternalPaymentIndex(pendingPayment.serial_id, index)
@@ -414,10 +388,8 @@ export default class {
         } catch (err) {
             await this.storage.userStorage.IncrementUserBalance(userId, totalAmountToDecrement, "internal_payment_refund:" + internalInvoice.invoice)
             this.utils.stateBundler.AddTxPointFailed('paidAnInvoice', payAmount, { used: 'internal', from: 'user' }, linkedApplication.app_id)
-
             throw err
         }
-
     }
 
 
@@ -729,6 +701,23 @@ export default class {
                     internal: !!o.internal
                 }
             })
+        }
+    }
+
+    newInvoicePaymentOperation = (opInfo: { invoice: string, opId: string, amount: number, networkFee: number, serviceFee: number, confirmed: boolean }): Types.UserOperation => {
+        const { invoice, opId, amount, networkFee, serviceFee, confirmed } = opInfo
+        return {
+            amount: amount,
+            paidAtUnix: Math.floor(Date.now() / 1000),
+            inbound: false,
+            type: Types.UserOperationType.OUTGOING_INVOICE,
+            identifier: invoice,
+            operationId: opId,
+            network_fee: networkFee,
+            service_fee: serviceFee,
+            confirmed,
+            tx_hash: "",
+            internal: networkFee === 0
         }
     }
 

@@ -121,7 +121,6 @@ type Client struct {
 	PayAddress                  func(req PayAddressRequest) (*PayAddressResponse, error)
 	PayAppUserInvoice           func(req PayAppUserInvoiceRequest) (*PayInvoiceResponse, error)
 	PayInvoice                  func(req PayInvoiceRequest) (*PayInvoiceResponse, error)
-	PayInvoiceStream            func(req PayInvoiceRequest) (*InvoicePaymentStream, error)
 	PingSubProcesses            func() error
 	RequestNPubLinkingToken     func(req RequestNPubLinkingTokenRequest) (*RequestNPubLinkingTokenResponse, error)
 	ResetDebit                  func(req DebitOperation) error
@@ -1836,7 +1835,6 @@ func NewClient(params ClientParams) *Client {
 			}
 			return &res, nil
 		},
-		// server streaming method: PayInvoiceStream not implemented
 		PingSubProcesses: func() error {
 			auth, err := params.RetrieveMetricsAuth()
 			if err != nil {

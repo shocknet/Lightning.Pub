@@ -10,6 +10,7 @@ import { Application } from '../storage/entity/Application.js'
 import { ZapInfo } from '../storage/entity/UserReceivingInvoice.js'
 import { nofferEncode, ndebitEncode, OfferPriceType, nmanageEncode } from '@shocknet/clink-sdk'
 import SettingsManager from './settingsManager.js'
+import { NostrSend, SendData, SendInitiator } from '../nostr/handler.js'
 const TOKEN_EXPIRY_TIME = 2 * 60 * 1000 // 2 minutes, in milliseconds
 
 type NsecLinkingData = {
@@ -17,7 +18,7 @@ type NsecLinkingData = {
     expiry: number
 }
 export default class {
-
+    _nostrSend: NostrSend | null = null
     storage: Storage
     settings: SettingsManager
     paymentManager: PaymentManager
@@ -31,6 +32,17 @@ export default class {
         this.settings = settings
         this.paymentManager = paymentManager
         this.StartLinkingTokenInterval()
+    }
+
+    attachNostrSend = (nostrSend: NostrSend) => {
+        this._nostrSend = nostrSend
+    }
+
+    nostrSend: NostrSend = (initiator: SendInitiator, data: SendData, relays?: string[] | undefined) => {
+        if (!this._nostrSend) {
+            throw new Error("No nostrSend attached")
+        }
+        this._nostrSend(initiator, data, relays)
     }
 
     StartLinkingTokenInterval() {
@@ -234,15 +246,21 @@ export default class {
     async PayAppUserInvoice(appId: string, req: Types.PayAppUserInvoiceRequest): Promise<Types.PayInvoiceResponse> {
         const app = await this.storage.applicationStorage.GetApplication(appId)
         const appUser = await this.storage.applicationStorage.GetApplicationUser(app, req.user_identifier)
-        const paid = await this.paymentManager.PayInvoice(appUser.user.user_id, req, app)
+        const paid = await this.paymentManager.PayInvoice(appUser.user.user_id, req, app, pendingOp => {
+            this.notifyAppUserPayment(appUser, pendingOp)
+        })
+        this.notifyAppUserPayment(appUser, paid.operation)
         getLogger({ appName: app.name })(appUser.identifier, "invoice paid", paid.amount_paid, "sats")
         return paid
     }
 
-    async PayAppUserInvoiceStream(appId: string, req: Types.PayAppUserInvoiceRequest, cb: (res: Types.InvoicePaymentStream, err: Error | null) => void) {
-        const app = await this.storage.applicationStorage.GetApplication(appId)
-        const appUser = await this.storage.applicationStorage.GetApplicationUser(app, req.user_identifier)
-        return this.paymentManager.PayInvoiceStream(appUser.user.user_id, req, app, cb)
+    notifyAppUserPayment = (appUser: ApplicationUser, op: Types.UserOperation) => {
+        const balance = appUser.user.balance_sats
+        const message: Types.LiveUserOperation & { requestId: string, status: 'OK' } =
+            { operation: op, requestId: "GetLiveUserOperations", status: 'OK', latest_balance: balance }
+        if (appUser.nostr_public_key) { // TODO - fix before support for http streams
+            this.nostrSend({ type: 'app', appId: appUser.application.app_id }, { type: 'content', content: JSON.stringify(message), pub: appUser.nostr_public_key })
+        }
     }
 
     async SendAppUserToAppUserPayment(appId: string, req: Types.SendAppUserToAppUserPaymentRequest): Promise<void> {

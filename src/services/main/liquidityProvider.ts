@@ -9,12 +9,6 @@ import Storage from '../storage/index.js'
 import SettingsManager from './settingsManager.js'
 import { LiquiditySettings } from './settings.js'
 export type LiquidityRequest = { action: 'spend' | 'receive', amount: number }
-/* export type CumulativeFees = {
-    networkFeeBps: number;
-    networkFeeFixed: number;
-    serviceFeeBps: number;
-}
-export type BeaconData = { type: 'service', name: string, avatarUrl?: string, nextRelay?: string, fees?: CumulativeFees } */
 export type nostrCallback<T> = { startedAtMillis: number, type: 'single' | 'stream', f: (res: T) => void }
 export class LiquidityProvider {
     getSettings: () => LiquiditySettings
@@ -34,12 +28,10 @@ export class LiquidityProvider {
     utils: Utils
     pendingPayments: Record<string, number> = {}
     feesCache: { networkFeeBps: number, networkFeeFixed: number, serviceFeeBps: number } | null = null
-    // unreachableSince: number | null = null
-    // reconnecting = false
     lastSeenBeacon = 0
     latestReceivedBalance = 0
     incrementProviderBalance: (balance: number) => Promise<void>
-    // rand = Math.random()
+    pendingPaymentsAck: Record<string, boolean> = {}
     // make the sub process accept client
     constructor(getSettings: () => LiquiditySettings, utils: Utils, invoicePaidCb: InvoicePaidCb, incrementProviderBalance: (balance: number) => Promise<any>) {
         this.utils = utils
@@ -79,10 +71,6 @@ export class LiquidityProvider {
     }
 
     IsReady = () => {
-        /*         const elapsed = this.unreachableSince ? Date.now() - this.unreachableSince : 0
-                if (!this.reconnecting && elapsed > 1000 * 60 * 5) {
-                    this.GetUserState().then(() => this.reconnecting = false)
-                } */
         const seenInPast2Minutes = Date.now() - this.lastSeenBeacon < 1000 * 60 * 2
         return this.ready && !this.getSettings().disableLiquidityProvider && seenInPast2Minutes
     }
@@ -125,6 +113,9 @@ export class LiquidityProvider {
                     await this.invoicePaidCb(res.operation.identifier, res.operation.amount, 'provider')
                     this.incrementProviderBalance(res.operation.amount)
                     this.latestReceivedBalance = res.latest_balance
+                    if (!res.operation.inbound && !res.operation.confirmed) {
+                        delete this.pendingPaymentsAck[res.operation.identifier]
+                    }
                 } catch (err: any) {
                     this.log("error processing incoming invoice", err.message)
                 }
@@ -168,69 +159,36 @@ export class LiquidityProvider {
         return Math.floor((this.latestReceivedBalance - networkFeeFixed) / div)
     }
 
-    /*     GetLatestMaxWithdrawable = async () => {
-            if (!this.IsReady()) {
-                return 0
-            }
-            const res = await this.GetUserState()
-            if (res.status === 'ERROR') {
-                this.log("error getting user info", res.reason)
-                return 0
-            }
-            return res.max_withdrawable
-        } */
-
     GetLatestBalance = () => {
         if (!this.IsReady()) {
             return 0
         }
         return this.latestReceivedBalance
-        /* const res = await this.GetUserState()
-        if (res.status === 'ERROR') {
-            this.log("error getting user info", res.reason)
-            return 0
-        }
-        return res.balance */
     }
 
     GetPendingBalance = async () => {
         return Object.values(this.pendingPayments).reduce((a, b) => a + b, 0)
     }
 
-    CalculateExpectedFeeLimit = (amount: number, info: Types.UserInfo) => {
-        const serviceFeeRate = info.service_fee_bps / 10000
+    CalculateExpectedFeeLimit = (amount: number) => {
+        const fees = this.GetFees()
+        const serviceFeeRate = fees.serviceFeeBps / 10000
         const serviceFee = Math.ceil(serviceFeeRate * amount)
-        const networkMaxFeeRate = info.network_max_fee_bps / 10000
-        const networkFeeLimit = Math.ceil(amount * networkMaxFeeRate + info.network_max_fee_fixed)
+        const networkMaxFeeRate = fees.networkFeeBps / 10000
+        const networkFeeLimit = Math.ceil(amount * networkMaxFeeRate + fees.networkFeeFixed)
         return serviceFee + networkFeeLimit
     }
 
-    GetExpectedFeeLimit = async (amount: number) => {
-        if (!this.IsReady()) {
-            throw new Error("liquidity provider is not ready yet, disabled or unreachable")
-        }
-        const state = await this.GetUserState()
-        if (state.status === 'ERROR') {
-            throw new Error(state.reason)
-        }
-        return this.CalculateExpectedFeeLimit(amount, state)
-    }
-
-    CanProviderHandle = async (req: LiquidityRequest): Promise<false | Types.UserInfo> => {
+    CanProviderHandle = async (req: LiquidityRequest): Promise<boolean> => {
         if (!this.IsReady()) {
             this.log("provider is not ready")
             return false
         }
-        const state = await this.GetUserState()
-        if (state.status === 'ERROR') {
-            this.log("error getting user state", state.reason)
-            return false
-        }
-        const maxW = state.max_withdrawable
+        const maxW = this.GetMaxWithdrawable()
         if (req.action === 'spend' && maxW < req.amount) {
             return false
         }
-        return state
+        return true
     }
 
     AddInvoice = async (amount: number, memo: string, from: 'user' | 'system', expiry: number) => {
@@ -257,38 +215,22 @@ export class LiquidityProvider {
             if (!this.IsReady()) {
                 throw new Error("liquidity provider is not ready yet, disabled or unreachable")
             }
-            /*             const userInfo = await this.GetUserState()
-                        if (userInfo.status === 'ERROR') {
-                            throw new Error(userInfo.reason)
-                        } */
-            const feeLimitToUse = feeLimit ? feeLimit : await this.GetExpectedFeeLimit(decodedAmount)
-            this.pendingPayments[invoice] = decodedAmount + feeLimitToUse //this.CalculateExpectedFeeLimit(decodedAmount, userInfo)
-            let acked = false
+            const feeLimitToUse = feeLimit ? feeLimit : this.CalculateExpectedFeeLimit(decodedAmount)
+            this.pendingPayments[invoice] = decodedAmount + feeLimitToUse
             const timeout = setTimeout(() => {
-                this.log("10 seconds passed, still waiting for ack")
-                this.GetUserState()
+                if (!this.pendingPaymentsAck[invoice]) {
+                    return
+                }
+                this.log("10 seconds passed without a payment ack, locking provider until the next beacon")
+                this.lastSeenBeacon = 0
             }, 1000 * 10)
-            const res = await new Promise<Types.PayInvoiceResponse>((resolve, reject) => {
-                this.client.PayInvoiceStream({ invoice, amount: 0, fee_limit_sats: feeLimitToUse }, (resp) => {
-                    if (resp.status === 'ERROR') {
-                        this.log("error paying invoice", resp.reason)
-                        reject(new Error(resp.reason))
-                        return
-                    }
-                    if (resp.update.type === Types.InvoicePaymentStream_update_type.ACK) {
-                        this.log("acked")
-                        clearTimeout(timeout)
-                        acked = true
-                        return
-                    }
-                    resolve(resp.update.done)
-                })
-            })
-            //const res = await this.client.PayInvoice({ invoice, amount: 0, fee_limit_sats: feeLimitToUse })
-            /* if (res.status === 'ERROR') {
+            this.pendingPaymentsAck[invoice] = true
+            const res = await this.client.PayInvoice({ invoice, amount: 0, fee_limit_sats: feeLimitToUse })
+            delete this.pendingPaymentsAck[invoice]
+            if (res.status === 'ERROR') {
                 this.log("error paying invoice", res.reason)
                 throw new Error(res.reason)
-            } */
+            }
             const totalPaid = res.amount_paid + res.network_fee + res.service_fee
             this.incrementProviderBalance(-totalPaid).then(() => { delete this.pendingPayments[invoice] })
             this.latestReceivedBalance = res.latest_balance

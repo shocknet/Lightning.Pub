@@ -275,11 +275,6 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [PayInvoiceRequest](#PayInvoiceRequest)
   - output: [PayInvoiceResponse](#PayInvoiceResponse)
 
-- PayInvoiceStream
-  - auth type: __User__
-  - input: [PayInvoiceRequest](#PayInvoiceRequest)
-  - output: [InvoicePaymentStream](#InvoicePaymentStream)
-
 - PingSubProcesses
   - auth type: __Metrics__
   - This methods has an __empty__ __request__ body
@@ -865,13 +860,6 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [PayInvoiceRequest](#PayInvoiceRequest)
   - output: [PayInvoiceResponse](#PayInvoiceResponse)
 
-- PayInvoiceStream
-  - auth type: __User__
-  - http method: __post__
-  - http route: __/api/user/invoice/pay/stream__
-  - input: [PayInvoiceRequest](#PayInvoiceRequest)
-  - output: [InvoicePaymentStream](#InvoicePaymentStream)
-
 - PingSubProcesses
   - auth type: __Metrics__
   - http method: __post__
@@ -1279,9 +1267,6 @@ The nostr server will send back a message response, and inside the body there wi
 ### HttpCreds
   - __token__: _string_
   - __url__: _string_
-
-### InvoicePaymentStream
-  - __update__: _[InvoicePaymentStream_update](#InvoicePaymentStream_update)_
 
 ### LatestBundleMetricReq
   - __limit__: _number_ *this field is optional

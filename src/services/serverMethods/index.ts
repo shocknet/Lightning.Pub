@@ -158,13 +158,6 @@ export default (mainHandler: Main): Types.ServerMethods => {
             if (err != null) throw new Error(err.message)
             return mainHandler.appUserManager.PayInvoice(ctx, req)
         },
-        PayInvoiceStream: async ({ ctx, req, cb }) => {
-            const err = Types.PayInvoiceRequestValidate(req, {
-                invoice_CustomCheck: invoice => invoice !== ''
-            })
-            if (err != null) throw new Error(err.message)
-            mainHandler.appUserManager.PayInvoiceStream(ctx, req, cb)
-        },
         GetLnurlWithdrawLink: ({ ctx }) => mainHandler.paymentManager.GetLnurlWithdrawLink(ctx),
         GetLnurlWithdrawInfo: async ({ ctx, query }) => {
             if (!query.k1) {

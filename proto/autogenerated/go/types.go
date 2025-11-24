@@ -353,9 +353,6 @@ type HttpCreds struct {
 	Token string `json:"token"`
 	Url   string `json:"url"`
 }
-type InvoicePaymentStream struct {
-	Update *InvoicePaymentStream_update `json:"update"`
-}
 type LatestBundleMetricReq struct {
 	Limit int64 `json:"limit"`
 }
@@ -769,18 +766,6 @@ type DebitRule_rule struct {
 	Type            DebitRule_rule_type  `json:"type"`
 	Expiration_rule *DebitExpirationRule `json:"expiration_rule"`
 	Frequency_rule  *FrequencyRule       `json:"frequency_rule"`
-}
-type InvoicePaymentStream_update_type string
-
-const (
-	ACK  InvoicePaymentStream_update_type = "ack"
-	DONE InvoicePaymentStream_update_type = "done"
-)
-
-type InvoicePaymentStream_update struct {
-	Type InvoicePaymentStream_update_type `json:"type"`
-	Ack  *Empty                           `json:"ack"`
-	Done *PayInvoiceResponse              `json:"done"`
 }
 type LiveDebitRequest_debit_type string
 

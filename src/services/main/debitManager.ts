@@ -34,6 +34,7 @@ export class DebitManager {
     attachNostrSend = (nostrSend: NostrSend) => {
         this._nostrSend = nostrSend
     }
+
     nostrSend: NostrSend = (initiator: SendInitiator, data: SendData, relays?: string[] | undefined) => {
         if (!this._nostrSend) {
             throw new Error("No nostrSend attached")
@@ -87,11 +88,9 @@ export class DebitManager {
     paySingleInvoice = async (ctx: Types.UserContext, { invoice, npub, request_id }: { invoice: string, npub: string, request_id: string }) => {
         try {
             this.logger("🔍 [DEBIT REQUEST] Paying single invoice")
-            const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
-            const appUser = await this.storage.applicationStorage.GetApplicationUser(app, ctx.app_user_id)
-            const { op, payment } = await this.sendDebitPayment(ctx.app_id, ctx.app_user_id, npub, invoice)
+            const { payment } = await this.sendDebitPayment(ctx.app_id, ctx.app_user_id, npub, invoice)
             const debitRes: NdebitSuccess = { res: 'ok', preimage: payment.preimage }
-            this.notifyPaymentSuccess(appUser, debitRes, op, { appId: ctx.app_id, pub: npub, id: request_id })
+            this.notifyPaymentSuccess(debitRes, { appId: ctx.app_id, pub: npub, id: request_id })
         } catch (e: any) {
             this.logger("❌ [DEBIT REQUEST] Error in single invoice payment")
             this.sendDebitResponse({ res: 'GFY', error: nofferErrors[1], code: 1 }, { pub: npub, id: request_id, appId: ctx.app_id })
@@ -124,9 +123,9 @@ export class DebitManager {
             const appUser = await this.storage.applicationStorage.GetApplicationUser(app, ctx.app_user_id)
             this.validateAccessRules(access, app, appUser)
             this.logger("🔍 [DEBIT REQUEST] Sending debit payment")
-            const { op, payment } = await this.sendDebitPayment(ctx.app_id, ctx.app_user_id, npub, invoice)
+            const { payment } = await this.sendDebitPayment(ctx.app_id, ctx.app_user_id, npub, invoice)
             const debitRes: NdebitSuccess = { res: 'ok', preimage: payment.preimage }
-            this.notifyPaymentSuccess(appUser, debitRes, op, { appId: ctx.app_id, pub: npub, id: request_id })
+            this.notifyPaymentSuccess(debitRes, { appId: ctx.app_id, pub: npub, id: request_id })
         } catch (e: any) {
             this.logger("❌ [DEBIT REQUEST] Error in debit authorization")
             this.sendDebitResponse({ res: 'GFY', error: nofferErrors[1], code: 1 }, { pub: npub, id: request_id, appId: ctx.app_id })
@@ -157,8 +156,8 @@ export class DebitManager {
             this.handleAuthRequired(pointerdata, event, res)
             return
         }
-        const { op, debitRes } = res
-        this.notifyPaymentSuccess(appUser, debitRes, op, event)
+        const { debitRes } = res
+        this.notifyPaymentSuccess(debitRes, event)
     }
 
     handleAuthRequired = (data: NdebitData, event: NostrEvent, res: AuthRequiredRes) => {
@@ -170,13 +169,7 @@ export class DebitManager {
         this.nostrSend({ type: 'app', appId: event.appId }, { type: 'content', content: JSON.stringify(message), pub: res.appUser.nostr_public_key })
     }
 
-    notifyPaymentSuccess = (appUser: ApplicationUser, debitRes: NdebitSuccess, op: Types.UserOperation, event: { pub: string, id: string, appId: string }) => {
-        const balance = appUser.user.balance_sats
-        const message: Types.LiveUserOperation & { requestId: string, status: 'OK' } =
-            { operation: op, requestId: "GetLiveUserOperations", status: 'OK', latest_balance: balance }
-        if (appUser.nostr_public_key) { // TODO - fix before support for http streams
-            this.nostrSend({ type: 'app', appId: event.appId }, { type: 'content', content: JSON.stringify(message), pub: appUser.nostr_public_key })
-        }
+    notifyPaymentSuccess = (debitRes: NdebitSuccess, event: { pub: string, id: string, appId: string }) => {
         this.sendDebitResponse(debitRes, event)
     }
 
@@ -290,15 +283,14 @@ export class DebitManager {
         }
         await this.validateAccessRules(authorization, app, appUser)
         this.logger("🔍 [DEBIT REQUEST] Sending requested debit payment")
-        const { op, payment } = await this.sendDebitPayment(appId, appUserId, requestorPub, bolt11)
-        return { status: 'invoicePaid', op, app, appUser, debitRes: { res: 'ok', preimage: payment.preimage } }
+        const { payment } = await this.sendDebitPayment(appId, appUserId, requestorPub, bolt11)
+        return { status: 'invoicePaid', app, appUser, debitRes: { res: 'ok', preimage: payment.preimage } }
     }
 
     sendDebitPayment = async (appId: string, appUserId: string, requestorPub: string, bolt11: string) => {
         const payment = await this.applicationManager.PayAppUserInvoice(appId, { amount: 0, invoice: bolt11, user_identifier: appUserId, debit_npub: requestorPub })
         await this.storage.debitStorage.IncrementDebitAccess(appUserId, requestorPub, payment.amount_paid + payment.service_fee + payment.network_fee)
-        const op = this.newPaymentOperation(payment, bolt11)
-        return { payment, op }
+        return { payment }
     }
 
     validateAccessRules = async (access: DebitAccess, app: Application, appUser: ApplicationUser): Promise<boolean> => {
@@ -328,22 +320,6 @@ export class DebitManager {
             }
         }
         return true
-    }
-
-    newPaymentOperation = (payment: Types.PayInvoiceResponse, bolt11: string) => {
-        return {
-            amount: payment.amount_paid,
-            paidAtUnix: Math.floor(Date.now() / 1000),
-            inbound: false,
-            type: Types.UserOperationType.OUTGOING_INVOICE,
-            identifier: bolt11,
-            operationId: payment.operation_id,
-            network_fee: payment.network_fee,
-            service_fee: payment.service_fee,
-            confirmed: true,
-            tx_hash: "",
-            internal: payment.network_fee === 0
-        }
     }
 }
 

@@ -755,22 +755,6 @@ export default (params: NostrClientParams,  send: (to:string, message: NostrRequ
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
-    PayInvoiceStream: async (request: Types.PayInvoiceRequest, cb: (res:ResultError | ({ status: 'OK' }& Types.InvoicePaymentStream)) => void): Promise<void> => {
-        const auth = await params.retrieveNostrUserAuth()
-        if (auth === null) throw new Error('retrieveNostrUserAuth() returned null')
-        const nostrRequest: NostrRequest = {}
-        nostrRequest.body = request
-        subscribe(params.pubDestination, {rpcName:'PayInvoiceStream',authIdentifier:auth, ...nostrRequest }, (data) => {
-            if (data.status === 'ERROR' && typeof data.reason === 'string') return cb(data)
-            if (data.status === 'OK') { 
-                const result = data
-                if(!params.checkResult) return cb({ status: 'OK', ...result })
-                const error = Types.InvoicePaymentStreamValidate(result)
-                if (error === null) { return cb({ status: 'OK', ...result }) } else return cb({ status: 'ERROR', reason: error.message })
-            }
-            return cb({ status: 'ERROR', reason: 'invalid response' })
-        })
-    },
     PingSubProcesses: async (): Promise<ResultError | ({ status: 'OK' })> => {
         const auth = await params.retrieveNostrMetricsAuth()
         if (auth === null) throw new Error('retrieveNostrMetricsAuth() returned null')

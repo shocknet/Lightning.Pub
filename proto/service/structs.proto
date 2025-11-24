@@ -479,13 +479,6 @@ message PayInvoiceResponse{
     int64 latest_balance = 6;
 }
 
-message InvoicePaymentStream {
-    oneof update {
-        Empty ack = 1;
-        PayInvoiceResponse done = 2;
-    }
-}
-
 message GetPaymentStateRequest{
     string invoice = 1;
 

@@ -111,23 +111,6 @@ export default class {
         })
     }
 
-    async PayInvoiceStream(ctx: Types.UserContext, req: Types.PayInvoiceRequest, cb: (res: Types.InvoicePaymentStream, err: Error | null) => void) {
-        return await this.applicationManager.PayAppUserInvoiceStream(ctx.app_id, {
-            amount: req.amount,
-            invoice: req.invoice,
-            user_identifier: ctx.app_user_id,
-            debit_npub: req.debit_npub,
-            fee_limit_sats: req.fee_limit_sats
-        }, cb)
-    }
-    async PayAddress(ctx: Types.UserContext, req: Types.PayInvoiceRequest): Promise<Types.PayInvoiceResponse> {
-        return this.applicationManager.PayAppUserInvoice(ctx.app_id, {
-            amount: req.amount,
-            invoice: req.invoice,
-            user_identifier: ctx.app_user_id
-        })
-    }
-
     async EnrollMessagingToken(ctx: Types.UserContext, req: Types.MessagingToken): Promise<void> {
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id);
         const user = await this.storage.applicationStorage.GetApplicationUser(app, ctx.app_user_id);

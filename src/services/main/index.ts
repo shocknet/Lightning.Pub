@@ -115,6 +115,7 @@ export default class {
         this.offerManager.attachNostrSend(f)
         this.managementManager.attachNostrSend(f)
         this.utils.attachNostrSend(f)
+        this.applicationManager.attachNostrSend(f)
         //this.webRTC.attachNostrSend(f)
     }
 

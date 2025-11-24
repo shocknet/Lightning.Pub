@@ -517,13 +517,6 @@ service LightningPub {
         option (nostr) = true;
     }
 
-    rpc PayInvoiceStream(structs.PayInvoiceRequest) returns (stream structs.InvoicePaymentStream){
-        option (auth_type)  = "User";
-        option (http_method) = "post";
-        option (http_route) = "/api/user/invoice/pay/stream";
-        option (nostr) = true;
-    }
-
     rpc GetPaymentState(structs.GetPaymentStateRequest) returns (structs.PaymentState){
         option (auth_type)  = "User";
         option (http_method) = "post";
