@@ -10,11 +10,6 @@ handle_macos() {
   export LAUNCH_AGENTS_DIR="$HOME/Library/LaunchAgents"
   mkdir -p "$LAUNCH_AGENTS_DIR"
 
-  # Install Homebrew if needed (skipped if not found, we don't force it)
-  if ! command -v brew &> /dev/null; then
-    log "${PRIMARY_COLOR}Homebrew not found. Proceeding without it...${RESET_COLOR}"
-  fi
-  
   # Install LND
   log "${PRIMARY_COLOR}Installing${RESET_COLOR} ${SECONDARY_COLOR}LND${RESET_COLOR}..."
   LND_STATUS_FILE=$(mktemp)

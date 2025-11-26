@@ -101,7 +101,7 @@ mktemp_in() {
 json_value() {
   local key="$1"
   if [ "$OS" = "Mac" ]; then
-    echo "$2" | awk -F"\"${key}\"[[:space:]]*:[[:space:]]*\"" '{print $2}' | awk -F'"' '{print $1}' | head -1
+    echo "$2" | grep "\"${key}\"" | awk -F'"' '{print $4}' | head -1
   else
     echo "$2" | grep -oP "\"${key}\": \"\\K[^\"]+"
   fi
