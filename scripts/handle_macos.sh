@@ -21,6 +21,7 @@ handle_macos() {
   install_result=$?
 
   if [ $install_result -ne 0 ]; then
+    printf "%s\n" "$lnd_output"
     log_error "LND installation failed" $install_result
   fi
 

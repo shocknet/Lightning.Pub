@@ -6,9 +6,10 @@ TMP_LOG_FILE=$(mktemp)
 
 log() {
   local message="$(date '+%Y-%m-%d %H:%M:%S') $1"
-  echo -e "$message"
-  # Write to the temporary log file.
-  echo -e "$(echo "$message" | sed 's/\\e\[[0-9;]*m//g')" >> "$TMP_LOG_FILE"
+  # Use printf for cross-platform compatibility (macOS echo -e issues)
+  printf "%b\n" "$message"
+  # Write to the temporary log file (strip colors)
+  echo "$message" | sed 's/\\e\[[0-9;]*m//g' >> "$TMP_LOG_FILE"
 }
 
 SCRIPT_VERSION="0.3.0"
@@ -35,7 +36,7 @@ download() {
   if command -v wget &> /dev/null; then
     wget -q "$url" -O "$dest"
   elif command -v curl &> /dev/null; then
-    curl -sL "$url" -o "$dest"
+    curl -fsL "$url" -o "$dest"
   else
     log_error "Neither wget nor curl found. Please install one." 1
   fi
@@ -112,9 +113,10 @@ else
   lnd_output=$(install_lnd)
   install_result=$?
 
-  if [ $install_result -ne 0 ]; then
-    log_error "LND installation failed" $install_result
-  fi
+if [ $install_result -ne 0 ]; then
+  printf "%s\n" "$lnd_output"
+  log_error "LND installation failed" $install_result
+fi
 
   lnd_status=$(echo "$lnd_output" | grep "LND_STATUS:" | cut -d':' -f2)
   

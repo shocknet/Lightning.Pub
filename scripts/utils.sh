@@ -84,7 +84,10 @@ download() {
   if command -v wget &> /dev/null; then
     wget -q "$url" -O "$dest"
   elif command -v curl &> /dev/null; then
-    curl -sL "$url" -o "$dest"
+    # -f: fail on HTTP errors (404/500)
+    # -s: silent
+    # -L: follow redirects
+    curl -fsL "$url" -o "$dest"
   else
     log "Error: Neither wget nor curl found."
     return 1
@@ -97,7 +100,7 @@ download_stdout() {
   if command -v wget &> /dev/null; then
     wget -qO- "$url"
   elif command -v curl &> /dev/null; then
-    curl -sL "$url"
+    curl -fsL "$url"
   else
     log "Error: Neither wget nor curl found."
     return 1

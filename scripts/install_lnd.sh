@@ -11,6 +11,11 @@ install_lnd() {
   log "Checking latest LND version..."
   local api_response=$(download_stdout "https://api.github.com/repos/lightningnetwork/lnd/releases/latest")
   LND_VERSION=$(json_value "tag_name" "$api_response")
+  
+  if [ -z "$LND_VERSION" ]; then
+    log "${PRIMARY_COLOR}Failed to fetch latest LND version.${RESET_COLOR}"
+    exit 1
+  fi
   log "Latest LND version: $LND_VERSION"
 
   local LND_OS="$OS"; [ "$OS" = "Mac" ] && LND_OS="darwin"
