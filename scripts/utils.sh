@@ -81,28 +81,27 @@ json_value() {
 download() {
   local url="$1"
   local dest="$2"
-  if command -v wget &> /dev/null; then
-    wget -q "$url" -O "$dest"
-  elif command -v curl &> /dev/null; then
-    # -f: fail on HTTP errors (404/500)
-    # -s: silent
-    # -L: follow redirects
+  if [ "$OS" = "Mac" ]; then
     curl -fsL "$url" -o "$dest"
   else
-    log "Error: Neither wget nor curl found."
-    return 1
+    wget -q "$url" -O "$dest"
   fi
 }
 
 # Download to stdout (wget or curl)
 download_stdout() {
   local url="$1"
-  if command -v wget &> /dev/null; then
-    wget -qO- "$url"
-  elif command -v curl &> /dev/null; then
+  if [ "$OS" = "Mac" ]; then
     curl -fsL "$url"
   else
-    log "Error: Neither wget nor curl found."
-    return 1
+    wget -qO- "$url"
   fi
+}
+
+# Get latest release tag from GitHub (via API)
+get_latest_release_tag() {
+  local repo="$1"
+  local url="https://api.github.com/repos/${repo}/releases/latest"
+  local api_json=$(download_stdout "$url")
+  json_value "tag_name" "$api_json"
 }
