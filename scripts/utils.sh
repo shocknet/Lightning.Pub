@@ -29,12 +29,19 @@ detect_os_arch() {
 }
 
 check_deps() {
-  for cmd in wget grep stat tar; do
+  for cmd in grep stat tar; do
     if ! command -v $cmd &> /dev/null; then
       log "Missing system dependency: $cmd. Install $cmd via your package manager and retry."
       exit 1
     fi
   done
+
+  # Check for wget or curl (one is required)
+  if ! command -v wget &> /dev/null && ! command -v curl &> /dev/null; then
+    log "Missing system dependency: wget or curl. Install via your package manager and retry."
+    exit 1
+  fi
+
   if ! command -v sha256sum &> /dev/null && ! command -v shasum &> /dev/null; then
     log "Missing system dependency: sha256sum or shasum."
     exit 1
@@ -67,5 +74,32 @@ json_value() {
     echo "$2" | awk -F"\"${key}\"[[:space:]]*:[[:space:]]*\"" '{print $2}' | awk -F'"' '{print $1}' | head -1
   else
     echo "$2" | grep -oP "\"${key}\": \"\\K[^\"]+"
+  fi
+}
+
+# Download file (wget or curl)
+download() {
+  local url="$1"
+  local dest="$2"
+  if command -v wget &> /dev/null; then
+    wget -q "$url" -O "$dest"
+  elif command -v curl &> /dev/null; then
+    curl -sL "$url" -o "$dest"
+  else
+    log "Error: Neither wget nor curl found."
+    return 1
+  fi
+}
+
+# Download to stdout (wget or curl)
+download_stdout() {
+  local url="$1"
+  if command -v wget &> /dev/null; then
+    wget -qO- "$url"
+  elif command -v curl &> /dev/null; then
+    curl -sL "$url"
+  else
+    log "Error: Neither wget nor curl found."
+    return 1
   fi
 }

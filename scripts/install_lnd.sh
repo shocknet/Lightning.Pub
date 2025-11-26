@@ -9,7 +9,7 @@ install_lnd() {
   USER_NAME=$(whoami)
 
   log "Checking latest LND version..."
-  local api_response=$(wget -qO- https://api.github.com/repos/lightningnetwork/lnd/releases/latest)
+  local api_response=$(download_stdout "https://api.github.com/repos/lightningnetwork/lnd/releases/latest")
   LND_VERSION=$(json_value "tag_name" "$api_response")
   log "Latest LND version: $LND_VERSION"
 
@@ -51,7 +51,7 @@ install_lnd() {
     log "${PRIMARY_COLOR}Downloading${RESET_COLOR} ${SECONDARY_COLOR}LND${RESET_COLOR}..."
 
     # Start the download
-    wget -q $LND_URL -O $USER_HOME/lnd.tar.gz || {
+    download "$LND_URL" "$USER_HOME/lnd.tar.gz" || {
       log "${PRIMARY_COLOR}Failed to download LND.${RESET_COLOR}"
       exit 1
     }

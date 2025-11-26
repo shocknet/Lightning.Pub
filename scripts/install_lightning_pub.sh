@@ -19,7 +19,7 @@ install_lightning_pub() {
   USER_HOME=$HOME
   USER_NAME=$(whoami)
   
-  wget -q $REPO_URL -O $USER_HOME/lightning_pub.tar.gz > /dev/null 2>&1 || {
+  download "$REPO_URL" "$USER_HOME/lightning_pub.tar.gz" > /dev/null 2>&1 || {
     log "${PRIMARY_COLOR}Failed to download Lightning.Pub.${RESET_COLOR}"
     return 1
   }
@@ -37,7 +37,7 @@ install_lightning_pub() {
     log "Existing installation found. Checking for updates..."
     
     # Check if update is needed by comparing commit hashes
-    API_RESPONSE=$(wget -qO- "https://api.github.com/repos/${REPO}/commits/${BRANCH}" 2>&1 | tee /tmp/api_response.log)
+    API_RESPONSE=$(download_stdout "https://api.github.com/repos/${REPO}/commits/${BRANCH}" 2>&1 | tee /tmp/api_response.log)
     if grep -q '"message"[[:space:]]*:[[:space:]]*"API rate limit exceeded"' <<< "$API_RESPONSE"; then
       log_error "GitHub API rate limit exceeded. Please wait a while before trying again." 1
     fi

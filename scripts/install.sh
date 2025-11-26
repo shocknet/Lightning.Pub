@@ -28,6 +28,19 @@ log_error() {
     exit $2
 }
 
+# Helper to download files using wget or curl
+download() {
+  local url="$1"
+  local dest="$2"
+  if command -v wget &> /dev/null; then
+    wget -q "$url" -O "$dest"
+  elif command -v curl &> /dev/null; then
+    curl -sL "$url" -o "$dest"
+  else
+    log_error "Neither wget nor curl found. Please install one." 1
+  fi
+}
+
 
 modules=(
   "utils"
@@ -66,7 +79,7 @@ SCRIPTS_URL="${BASE_URL}/scripts/"
 TMP_DIR=$(mktemp -d)
 
 for module in "${modules[@]}"; do
-  wget -q "${SCRIPTS_URL}${module}.sh" -O "${TMP_DIR}/${module}.sh" || log_error "Failed to download ${module}.sh" 1
+  download "${SCRIPTS_URL}${module}.sh" "${TMP_DIR}/${module}.sh" || log_error "Failed to download ${module}.sh" 1
   source "${TMP_DIR}/${module}.sh" || log_error "Failed to source ${module}.sh" 1
 done
 
