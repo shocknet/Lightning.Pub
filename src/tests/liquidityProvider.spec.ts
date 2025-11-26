@@ -45,6 +45,6 @@ const testOutboundPaymentFromProvider = async (T: TestBase, bootstrapped: Main, 
     T.expect(userBalance.balance).to.equal(988) // 3000 - (2000 + 12)
 
     const providerBalance = await bootstrapped.liquidityProvider.GetLatestBalance()
-    T.expect(providerBalance).to.equal(998) // 3000 - (2000 + 12)
+    T.expect(providerBalance).to.equal(988) // 3000 - (2000 + 12)
     T.d("testOutboundPaymentFromProvider done")
 }

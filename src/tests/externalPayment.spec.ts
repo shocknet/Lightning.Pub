@@ -28,7 +28,6 @@ const testSuccessfulExternalPayment = async (T: TestBase) => {
     T.d("user1 balance is now 1490 (2000 - (500 + 10fee))")
     expect(owner.balance_sats).to.be.equal(9)
     T.d("app balance is 9 sats")
-
 }
 
 const testFailedExternalPayment = async (T: TestBase) => {
@@ -41,11 +40,11 @@ const testFailedExternalPayment = async (T: TestBase) => {
     await expectThrowsAsync(T.main.paymentManager.PayInvoice(T.user1.userId, { invoice: invoice.payRequest, amount: 0 }, application), "not enough balance to decrement")
     T.d("payment failed as expected, with the expected error message")
     const u1 = await T.main.storage.userStorage.GetUser(T.user1.userId)
-    expect(u1.balance_sats).to.be.equal(1496)
-    T.d("user1 balance is still 1496")
+    expect(u1.balance_sats).to.be.equal(1490)
+    T.d("user1 balance is still 1490")
     const owner = await T.main.storage.userStorage.GetUser(application.owner.user_id)
-    expect(owner.balance_sats).to.be.equal(3)
-    T.d("app balance is still 3 sats")
+    expect(owner.balance_sats).to.be.equal(9)
+    T.d("app balance is still 9 sats")
 }
 
 const testSuccesfulReceivedExternalChainPayment = async (T: TestBase) => {

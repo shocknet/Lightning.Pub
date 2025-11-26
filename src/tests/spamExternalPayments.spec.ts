@@ -37,7 +37,7 @@ const testSpamExternalPayment = async (T: TestBase) => {
     const owner = await T.main.storage.userStorage.GetUser(application.owner.user_id)
     expect(u.balance_sats).to.be.equal(470)
     T.d("user1 balance is now 470 (2000 - (500 + 10 fee) * 3)")
-    expect(owner.balance_sats).to.be.equal(9)
-    T.d("app balance is 9 sats")
+    expect(owner.balance_sats).to.be.equal(27)
+    T.d("app balance is 27 sats")
 }
 
