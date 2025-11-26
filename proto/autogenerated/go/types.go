@@ -230,7 +230,6 @@ type CreateOneTimeInviteLinkResponse struct {
 	Invitation_link string `json:"invitation_link"`
 }
 type CumulativeFees struct {
-	Networkfeebps   int64 `json:"networkFeeBps"`
 	Networkfeefixed int64 `json:"networkFeeFixed"`
 	Servicefeebps   int64 `json:"serviceFeeBps"`
 }
@@ -558,15 +557,13 @@ type PayAddressResponse struct {
 type PayAppUserInvoiceRequest struct {
 	Amount          int64  `json:"amount"`
 	Debit_npub      string `json:"debit_npub"`
-	Fee_limit_sats  int64  `json:"fee_limit_sats"`
 	Invoice         string `json:"invoice"`
 	User_identifier string `json:"user_identifier"`
 }
 type PayInvoiceRequest struct {
-	Amount         int64  `json:"amount"`
-	Debit_npub     string `json:"debit_npub"`
-	Fee_limit_sats int64  `json:"fee_limit_sats"`
-	Invoice        string `json:"invoice"`
+	Amount     int64  `json:"amount"`
+	Debit_npub string `json:"debit_npub"`
+	Invoice    string `json:"invoice"`
 }
 type PayInvoiceResponse struct {
 	Amount_paid    int64  `json:"amount_paid"`

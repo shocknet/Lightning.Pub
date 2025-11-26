@@ -62,7 +62,7 @@ export default class {
     async StartAppsServiceBeacon(publishBeacon: (app: Application, fees: Types.CumulativeFees) => void) {
         this.serviceBeaconInterval = setInterval(async () => {
             try {
-                const fees = this.paymentManager.GetAllFees()
+                const fees = this.paymentManager.GetFees()
                 const apps = await this.storage.applicationStorage.GetApplications()
                 apps.forEach(app => {
                     publishBeacon(app, fees)
@@ -167,7 +167,7 @@ export default class {
 
         const ndebitString = ndebitEncode({ pubkey: app.nostr_public_key!, pointer: u.identifier, relay: nostrSettings.relays[0] })
         log("🔗 [DEBUG] Generated ndebit for user", { userId: u.user.user_id, ndebit: ndebitString })
-        const { max, networkFeeBps, networkFeeFixed, serviceFeeBps } = this.paymentManager.GetMaxPayableInvoice(u.user.balance_sats)
+        const { max, /* networkFeeBps,  */networkFeeFixed, serviceFeeBps } = this.paymentManager.GetMaxPayableInvoice(u.user.balance_sats)
         return {
             identifier: u.identifier,
             info: {
@@ -175,7 +175,7 @@ export default class {
                 balance: u.user.balance_sats,
                 max_withdrawable: max,
                 user_identifier: u.identifier,
-                network_max_fee_bps: networkFeeBps,
+                network_max_fee_bps: 0,
                 network_max_fee_fixed: networkFeeFixed,
                 service_fee_bps: serviceFeeBps,
                 noffer: nofferEncode({ pubkey: app.nostr_public_key!, offer: u.identifier, priceType: OfferPriceType.Spontaneous, relay: nostrSettings.relays[0] }),
@@ -225,13 +225,13 @@ export default class {
         const app = await this.storage.applicationStorage.GetApplication(appId)
         const user = await this.storage.applicationStorage.GetApplicationUser(app, req.user_identifier)
         const nostrSettings = this.settings.getSettings().nostrRelaySettings
-        const { max, networkFeeBps, networkFeeFixed, serviceFeeBps } = this.paymentManager.GetMaxPayableInvoice(user.user.balance_sats)
+        const { max, /* networkFeeBps, */ networkFeeFixed, serviceFeeBps } = this.paymentManager.GetMaxPayableInvoice(user.user.balance_sats)
         return {
             max_withdrawable: max, identifier: req.user_identifier, info: {
                 userId: user.user.user_id, balance: user.user.balance_sats,
                 max_withdrawable: max,
                 user_identifier: user.identifier,
-                network_max_fee_bps: networkFeeBps,
+                network_max_fee_bps: 0,
                 network_max_fee_fixed: networkFeeFixed,
                 service_fee_bps: serviceFeeBps,
                 noffer: nofferEncode({ pubkey: app.nostr_public_key!, offer: user.identifier, priceType: OfferPriceType.Spontaneous, relay: nostrSettings.relays[0] }),

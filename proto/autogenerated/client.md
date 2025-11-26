@@ -1145,7 +1145,6 @@ The nostr server will send back a message response, and inside the body there wi
   - __invitation_link__: _string_
 
 ### CumulativeFees
-  - __networkFeeBps__: _number_
   - __networkFeeFixed__: _number_
   - __serviceFeeBps__: _number_
 
@@ -1473,14 +1472,12 @@ The nostr server will send back a message response, and inside the body there wi
 ### PayAppUserInvoiceRequest
   - __amount__: _number_
   - __debit_npub__: _string_ *this field is optional
-  - __fee_limit_sats__: _number_ *this field is optional
   - __invoice__: _string_
   - __user_identifier__: _string_
 
 ### PayInvoiceRequest
   - __amount__: _number_
   - __debit_npub__: _string_ *this field is optional
-  - __fee_limit_sats__: _number_ *this field is optional
   - __invoice__: _string_
 
 ### PayInvoiceResponse

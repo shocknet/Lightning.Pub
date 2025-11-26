@@ -228,7 +228,7 @@ export default class {
             }
             log = getLogger({ appName: userAddress.linkedApplication.name })
             const isAppUserPayment = userAddress.user.user_id !== userAddress.linkedApplication.owner.user_id
-            let fee = this.paymentManager.getServiceFee(Types.UserOperationType.INCOMING_TX, amount, isAppUserPayment)
+            let fee = this.paymentManager.getReceiveServiceFee(Types.UserOperationType.INCOMING_TX, amount, isAppUserPayment)
             if (userAddress.linkedApplication && userAddress.linkedApplication.owner.user_id === userAddress.user.user_id) {
                 fee = 0
             }
@@ -272,7 +272,7 @@ export default class {
             }
             log = getLogger({ appName: userInvoice.linkedApplication.name })
             const isAppUserPayment = userInvoice.user.user_id !== userInvoice.linkedApplication.owner.user_id
-            let fee = this.paymentManager.getServiceFee(Types.UserOperationType.INCOMING_INVOICE, amount, isAppUserPayment)
+            let fee = this.paymentManager.getReceiveServiceFee(Types.UserOperationType.INCOMING_INVOICE, amount, isAppUserPayment)
             if (userInvoice.linkedApplication && userInvoice.linkedApplication.owner.user_id === userInvoice.user.user_id) {
                 fee = 0
             }
@@ -437,7 +437,7 @@ export default class {
     async ResetNostr() {
         const apps = await this.storage.applicationStorage.GetApplications()
         const nextRelay = this.settings.getSettings().nostrRelaySettings.relays[0]
-        const fees = this.paymentManager.GetAllFees()
+        const fees = this.paymentManager.GetFees()
         for (const app of apps) {
             await this.UpdateBeacon(app, { type: 'service', name: app.name, avatarUrl: app.avatar_url, nextRelay, fees })
         }

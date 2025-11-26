@@ -45,7 +45,7 @@ export const initBootstrappedInstance = async (T: TestBase) => {
     bootstrapped.liquidityProvider.setNostrInfo({ clientId: liquidityProviderInfo.clientId, myPub: liquidityProviderInfo.publicKey })
     await new Promise<void>(res => {
         const interval = setInterval(async () => {
-            const canHandle = await bootstrapped.liquidityProvider.CanProviderHandle({ action: 'receive', amount: 2000 })
+            const canHandle = bootstrapped.liquidityProvider.IsReady()
             console.log("can handle", canHandle)
             if (canHandle) {
                 clearInterval(interval)

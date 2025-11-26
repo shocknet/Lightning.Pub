@@ -66,7 +66,7 @@ export class LiquidityManager {
         if (remote > amount) {
             return 'lnd'
         }
-        const providerCanHandle = await this.liquidityProvider.CanProviderHandle({ action: 'receive', amount })
+        const providerCanHandle = this.liquidityProvider.IsReady()
         if (!providerCanHandle) {
             return 'lnd'
         }
@@ -81,24 +81,24 @@ export class LiquidityManager {
         }
     }
 
-    beforeOutInvoicePayment = async (amount: number): Promise<{ use: 'lnd' } | { use: 'provider', feeLimit: number }> => {
+    beforeOutInvoicePayment = async (amount: number, localServiceFee: number): Promise<'lnd' | 'provider'> => {
         const providerReady = this.liquidityProvider.IsReady()
         if (this.settings.getSettings().liquiditySettings.useOnlyLiquidityProvider) {
             if (!providerReady) {
                 throw new Error("cannot use liquidity provider, it is not ready")
             }
-            const feeLimit = this.liquidityProvider.CalculateExpectedFeeLimit(amount)
-            return { use: 'provider', feeLimit }
+            // const feeLimit = this.liquidityProvider.CalculateExpectedFeeLimit(amount)
+            return 'provider'
         }
         if (!providerReady) {
-            return { use: 'lnd' }
+            return 'lnd'
         }
-        const canHandle = await this.liquidityProvider.CanProviderHandle({ action: 'spend', amount })
+        const canHandle = await this.liquidityProvider.CanProviderPay(amount, localServiceFee)
         if (!canHandle) {
-            return { use: 'lnd' }
+            return 'lnd'
         }
-        const feeLimit = this.liquidityProvider.CalculateExpectedFeeLimit(amount)
-        return { use: 'provider', feeLimit }
+        // const feeLimit = this.liquidityProvider.CalculateExpectedFeeLimit(amount)
+        return 'provider'
     }
 
     afterOutInvoicePaid = async () => { }

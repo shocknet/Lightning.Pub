@@ -1295,23 +1295,18 @@ export const CreateOneTimeInviteLinkResponseValidate = (o?: CreateOneTimeInviteL
 }
 
 export type CumulativeFees = {
-    networkFeeBps: number
     networkFeeFixed: number
     serviceFeeBps: number
 }
 export const CumulativeFeesOptionalFields: [] = []
 export type CumulativeFeesOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
-    networkFeeBps_CustomCheck?: (v: number) => boolean
     networkFeeFixed_CustomCheck?: (v: number) => boolean
     serviceFeeBps_CustomCheck?: (v: number) => boolean
 }
 export const CumulativeFeesValidate = (o?: CumulativeFees, opts: CumulativeFeesOptions = {}, path: string = 'CumulativeFees::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
     if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
-
-    if (typeof o.networkFeeBps !== 'number') return new Error(`${path}.networkFeeBps: is not a number`)
-    if (opts.networkFeeBps_CustomCheck && !opts.networkFeeBps_CustomCheck(o.networkFeeBps)) return new Error(`${path}.networkFeeBps: custom check failed`)
 
     if (typeof o.networkFeeFixed !== 'number') return new Error(`${path}.networkFeeFixed: is not a number`)
     if (opts.networkFeeFixed_CustomCheck && !opts.networkFeeFixed_CustomCheck(o.networkFeeFixed)) return new Error(`${path}.networkFeeFixed: custom check failed`)
@@ -3267,17 +3262,15 @@ export const PayAddressResponseValidate = (o?: PayAddressResponse, opts: PayAddr
 export type PayAppUserInvoiceRequest = {
     amount: number
     debit_npub?: string
-    fee_limit_sats?: number
     invoice: string
     user_identifier: string
 }
-export type PayAppUserInvoiceRequestOptionalField = 'debit_npub' | 'fee_limit_sats'
-export const PayAppUserInvoiceRequestOptionalFields: PayAppUserInvoiceRequestOptionalField[] = ['debit_npub', 'fee_limit_sats']
+export type PayAppUserInvoiceRequestOptionalField = 'debit_npub'
+export const PayAppUserInvoiceRequestOptionalFields: PayAppUserInvoiceRequestOptionalField[] = ['debit_npub']
 export type PayAppUserInvoiceRequestOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: PayAppUserInvoiceRequestOptionalField[]
     amount_CustomCheck?: (v: number) => boolean
     debit_npub_CustomCheck?: (v?: string) => boolean
-    fee_limit_sats_CustomCheck?: (v?: number) => boolean
     invoice_CustomCheck?: (v: string) => boolean
     user_identifier_CustomCheck?: (v: string) => boolean
 }
@@ -3291,9 +3284,6 @@ export const PayAppUserInvoiceRequestValidate = (o?: PayAppUserInvoiceRequest, o
     if ((o.debit_npub || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('debit_npub')) && typeof o.debit_npub !== 'string') return new Error(`${path}.debit_npub: is not a string`)
     if (opts.debit_npub_CustomCheck && !opts.debit_npub_CustomCheck(o.debit_npub)) return new Error(`${path}.debit_npub: custom check failed`)
 
-    if ((o.fee_limit_sats || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('fee_limit_sats')) && typeof o.fee_limit_sats !== 'number') return new Error(`${path}.fee_limit_sats: is not a number`)
-    if (opts.fee_limit_sats_CustomCheck && !opts.fee_limit_sats_CustomCheck(o.fee_limit_sats)) return new Error(`${path}.fee_limit_sats: custom check failed`)
-
     if (typeof o.invoice !== 'string') return new Error(`${path}.invoice: is not a string`)
     if (opts.invoice_CustomCheck && !opts.invoice_CustomCheck(o.invoice)) return new Error(`${path}.invoice: custom check failed`)
 
@@ -3306,16 +3296,14 @@ export const PayAppUserInvoiceRequestValidate = (o?: PayAppUserInvoiceRequest, o
 export type PayInvoiceRequest = {
     amount: number
     debit_npub?: string
-    fee_limit_sats?: number
     invoice: string
 }
-export type PayInvoiceRequestOptionalField = 'debit_npub' | 'fee_limit_sats'
-export const PayInvoiceRequestOptionalFields: PayInvoiceRequestOptionalField[] = ['debit_npub', 'fee_limit_sats']
+export type PayInvoiceRequestOptionalField = 'debit_npub'
+export const PayInvoiceRequestOptionalFields: PayInvoiceRequestOptionalField[] = ['debit_npub']
 export type PayInvoiceRequestOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: PayInvoiceRequestOptionalField[]
     amount_CustomCheck?: (v: number) => boolean
     debit_npub_CustomCheck?: (v?: string) => boolean
-    fee_limit_sats_CustomCheck?: (v?: number) => boolean
     invoice_CustomCheck?: (v: string) => boolean
 }
 export const PayInvoiceRequestValidate = (o?: PayInvoiceRequest, opts: PayInvoiceRequestOptions = {}, path: string = 'PayInvoiceRequest::root.'): Error | null => {
@@ -3327,9 +3315,6 @@ export const PayInvoiceRequestValidate = (o?: PayInvoiceRequest, opts: PayInvoic
 
     if ((o.debit_npub || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('debit_npub')) && typeof o.debit_npub !== 'string') return new Error(`${path}.debit_npub: is not a string`)
     if (opts.debit_npub_CustomCheck && !opts.debit_npub_CustomCheck(o.debit_npub)) return new Error(`${path}.debit_npub: custom check failed`)
-
-    if ((o.fee_limit_sats || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('fee_limit_sats')) && typeof o.fee_limit_sats !== 'number') return new Error(`${path}.fee_limit_sats: is not a number`)
-    if (opts.fee_limit_sats_CustomCheck && !opts.fee_limit_sats_CustomCheck(o.fee_limit_sats)) return new Error(`${path}.fee_limit_sats: custom check failed`)
 
     if (typeof o.invoice !== 'string') return new Error(`${path}.invoice: is not a string`)
     if (opts.invoice_CustomCheck && !opts.invoice_CustomCheck(o.invoice)) return new Error(`${path}.invoice: custom check failed`)
