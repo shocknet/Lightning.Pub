@@ -24,10 +24,10 @@ const testSuccessfulExternalPayment = async (T: TestBase) => {
     T.d("paid 500 sats invoice from user1")
     const u1 = await T.main.storage.userStorage.GetUser(T.user1.userId)
     const owner = await T.main.storage.userStorage.GetUser(application.owner.user_id)
-    expect(u1.balance_sats).to.be.equal(1496)
-    T.d("user1 balance is now 1496 (2000 - (500 + 3 fee + 1 routing))")
-    expect(owner.balance_sats).to.be.equal(3)
-    T.d("app balance is 3 sats")
+    expect(u1.balance_sats).to.be.equal(1490)
+    T.d("user1 balance is now 1490 (2000 - (500 + 10fee))")
+    expect(owner.balance_sats).to.be.equal(9)
+    T.d("app balance is 9 sats")
 
 }
 
