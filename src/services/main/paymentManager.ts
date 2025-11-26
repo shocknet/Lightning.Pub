@@ -298,9 +298,6 @@ export default class {
             paymentInfo = await this.PayExternalInvoice(userId, req.invoice, { payAmount, serviceFee, amountForLnd: req.amount }, linkedApplication, req.debit_npub, ack)
         }
         const feeDiff = serviceFee - paymentInfo.networkFee
-        if (feeDiff < 0) {
-            this.log("WARNING: provider fee was higher than expected,", feeDiff, "were lost")
-        }
         if (isAppUserPayment && feeDiff > 0) {
             await this.storage.userStorage.IncrementUserBalance(linkedApplication.owner.user_id, feeDiff, "fees")
         }
@@ -350,6 +347,10 @@ export default class {
                 this.storage.paymentStorage.SetExternalPaymentIndex(pendingPayment.serial_id, index)
             })
             await this.storage.paymentStorage.UpdateExternalPayment(pendingPayment.serial_id, payment.feeSat, serviceFee, true, payment.providerDst)
+            const feeDiff = serviceFee - payment.feeSat
+            if (feeDiff < 0) { // should not happen to lnd beacuse of the fee limit, culd happen to provider if the fee used to calculate the provider fee are out of date
+                this.log("WARNING: network fee was higher than expected,", feeDiff, "were lost by", use === 'provider' ? "provider" : "lnd")
+            }
             return { preimage: payment.paymentPreimage, amtPaid: payment.valueSat, networkFee: payment.feeSat, serialId: pendingPayment.serial_id }
 
         } catch (err) {
