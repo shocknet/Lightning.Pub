@@ -109,7 +109,7 @@ export const LoadLndSettingsFromEnv = (dbEnv: Record<string, string | undefined>
         lndLogDir: chooseEnv('LND_LOG_DIR', dbEnv, resolveHome("/.lnd/logs/bitcoin/mainnet/lnd.log"), addToDb),
         feeRateBps: feeRateBps,
         feeRateLimit: feeRateBps / 10000,
-        feeFixedLimit: chooseEnvInt('OUTBOUND_MAX_FEE_EXTRA_SATS', dbEnv, 100, addToDb),
+        feeFixedLimit: chooseEnvInt('OUTBOUND_MAX_FEE_EXTRA_SATS', dbEnv, 10, addToDb),
         mockLnd: false
     }
 }
