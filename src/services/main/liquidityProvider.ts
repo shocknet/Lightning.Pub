@@ -170,8 +170,8 @@ export class LiquidityProvider {
         return Object.values(this.pendingPayments).reduce((a, b) => a + b, 0)
     }
 
-    GetServiceFee = (amount: number) => {
-        const fees = this.GetFees()
+    GetServiceFee = (amount: number, f?: Types.CumulativeFees) => {
+        const fees = f ? f : this.GetFees()
         const serviceFeeRate = fees.serviceFeeBps / 10000
         const serviceFee = Math.ceil(serviceFeeRate * amount)
         return Math.max(serviceFee, fees.networkFeeFixed)
@@ -221,7 +221,8 @@ export class LiquidityProvider {
             if (!this.IsReady()) {
                 throw new Error("liquidity provider is not ready yet, disabled or unreachable")
             }
-            const providerServiceFee = this.GetServiceFee(decodedAmount)
+            const fees = this.GetFees()
+            const providerServiceFee = this.GetServiceFee(decodedAmount, fees)
             this.pendingPayments[invoice] = decodedAmount + providerServiceFee
             const timeout = setTimeout(() => {
                 if (!this.pendingPaymentsAck[invoice]) {
@@ -231,8 +232,9 @@ export class LiquidityProvider {
                 this.lastSeenBeacon = 0
             }, 1000 * 10)
             this.pendingPaymentsAck[invoice] = true
-            const res = await this.client.PayInvoice({ invoice, amount: 0 })
+            const res = await this.client.PayInvoice({ invoice, amount: 0, expected_fees: fees })
             delete this.pendingPaymentsAck[invoice]
+            clearTimeout(timeout)
             if (res.status === 'ERROR') {
                 this.log("error paying invoice", res.reason)
                 throw new Error(res.reason)

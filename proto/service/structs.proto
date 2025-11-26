@@ -390,6 +390,7 @@ message PayAppUserInvoiceRequest {
     string invoice = 2;
     int64 amount = 3;
     optional string debit_npub = 4; 
+    optional CumulativeFees expected_fees = 5;
 }
 
 message SendAppUserToAppUserPaymentRequest {
@@ -466,6 +467,7 @@ message PayInvoiceRequest{
     string invoice = 1;
     int64 amount = 2;
     optional string debit_npub = 3; 
+    optional CumulativeFees expected_fees = 4;
 }
 
 message PayInvoiceResponse{

@@ -107,6 +107,7 @@ export default class {
             invoice: req.invoice,
             user_identifier: ctx.app_user_id,
             debit_npub: req.debit_npub,
+            expected_fees: req.expected_fees,
         })
     }
 

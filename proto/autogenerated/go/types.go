@@ -555,15 +555,17 @@ type PayAddressResponse struct {
 	Txid         string `json:"txId"`
 }
 type PayAppUserInvoiceRequest struct {
-	Amount          int64  `json:"amount"`
-	Debit_npub      string `json:"debit_npub"`
-	Invoice         string `json:"invoice"`
-	User_identifier string `json:"user_identifier"`
+	Amount          int64           `json:"amount"`
+	Debit_npub      string          `json:"debit_npub"`
+	Expected_fees   *CumulativeFees `json:"expected_fees"`
+	Invoice         string          `json:"invoice"`
+	User_identifier string          `json:"user_identifier"`
 }
 type PayInvoiceRequest struct {
-	Amount     int64  `json:"amount"`
-	Debit_npub string `json:"debit_npub"`
-	Invoice    string `json:"invoice"`
+	Amount        int64           `json:"amount"`
+	Debit_npub    string          `json:"debit_npub"`
+	Expected_fees *CumulativeFees `json:"expected_fees"`
+	Invoice       string          `json:"invoice"`
 }
 type PayInvoiceResponse struct {
 	Amount_paid    int64  `json:"amount_paid"`

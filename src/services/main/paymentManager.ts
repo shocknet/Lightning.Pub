@@ -273,6 +273,14 @@ export default class {
         if (maybeBanned.locked) {
             throw new Error("user is banned, cannot send payment")
         }
+        if (req.expected_fees) {
+            const { networkFeeFixed, serviceFeeBps } = req.expected_fees
+            const serviceFixed = this.settings.getSettings().lndSettings.feeFixedLimit
+            const serviceBps = this.settings.getSettings().serviceFeeSettings.outgoingAppUserInvoiceFeeBps
+            if (serviceFixed !== networkFeeFixed || serviceBps !== serviceFeeBps) {
+                throw new Error("fees do not match the expected fees")
+            }
+        }
         const decoded = await this.lnd.DecodeInvoice(req.invoice)
         if (decoded.numSatoshis !== 0 && req.amount !== 0) {
             throw new Error("invoice has value, do not provide amount the the request")
