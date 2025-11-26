@@ -11,7 +11,7 @@ log() {
   echo -e "$(echo "$message" | sed 's/\\e\[[0-9;]*m//g')" >> "$TMP_LOG_FILE"
 }
 
-SCRIPT_VERSION="0.2.2"
+SCRIPT_VERSION="0.3.0"
 REPO="shocknet/Lightning.Pub"
 BRANCH="master"
 
@@ -36,6 +36,7 @@ modules=(
   "install_nodejs"
   "install_lightning_pub"
   "start_services"
+  "handle_macos"
   "extract_nprofile"
 )
 
@@ -91,7 +92,7 @@ log "Detected OS: $OS"
 log "Detected ARCH: $ARCH"
 
 if [ "$OS" = "Mac" ]; then
-  log_error "macOS is not currently supported by this install script. Please use a Linux-based system." 1
+  handle_macos "$REPO_URL"
 else
   # Explicit kickoff log for LND so the flow is clear in the install log
   log "${PRIMARY_COLOR}Installing${RESET_COLOR} ${SECONDARY_COLOR}LND${RESET_COLOR}..."

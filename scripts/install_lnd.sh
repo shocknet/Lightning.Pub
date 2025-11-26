@@ -9,15 +9,17 @@ install_lnd() {
   USER_NAME=$(whoami)
 
   log "Checking latest LND version..."
-  LND_VERSION=$(wget -qO- https://api.github.com/repos/lightningnetwork/lnd/releases/latest | grep -oP '"tag_name": "\K(.*)(?=")')
+  local api_response=$(wget -qO- https://api.github.com/repos/lightningnetwork/lnd/releases/latest)
+  LND_VERSION=$(json_value "tag_name" "$api_response")
   log "Latest LND version: $LND_VERSION"
 
-  LND_URL="https://github.com/lightningnetwork/lnd/releases/download/${LND_VERSION}/lnd-${OS}-${ARCH}-${LND_VERSION}.tar.gz"
+  local LND_OS="$OS"; [ "$OS" = "Mac" ] && LND_OS="darwin"
+  LND_URL="https://github.com/lightningnetwork/lnd/releases/download/${LND_VERSION}/lnd-${LND_OS}-${ARCH}-${LND_VERSION}.tar.gz"
 
   # Check if LND is already installed
   if [ -d "$USER_HOME/lnd" ]; then
     log "LND directory found. Checking current version..."
-    CURRENT_VERSION=$("$USER_HOME/lnd/lnd" --version | grep -oP 'version \K[^\s]+')
+    CURRENT_VERSION=$("$USER_HOME/lnd/lnd" --version | awk '/version/ {print $3}')
     log "Current LND version: $CURRENT_VERSION"
     
     if [ "$CURRENT_VERSION" == "${LND_VERSION#v}" ]; then
@@ -60,12 +62,13 @@ install_lnd() {
         log "${PRIMARY_COLOR}Stopping${RESET_COLOR} ${SECONDARY_COLOR}LND${RESET_COLOR} user service..."
         systemctl --user stop lnd
       fi
-    else
-      log "${PRIMARY_COLOR}Please stop ${SECONDARY_COLOR}LND${RESET_COLOR} manually if it is running.${RESET_COLOR}"
+    elif [ "$OS" = "Mac" ] && launchctl list 2>/dev/null | grep -q "local.lnd"; then
+      log "${PRIMARY_COLOR}Stopping${RESET_COLOR} ${SECONDARY_COLOR}LND${RESET_COLOR} launchd service..."
+      launchctl unload "$USER_HOME/Library/LaunchAgents/local.lnd.plist" 2>/dev/null || true
     fi
 
     log "Extracting LND..."
-    LND_TMP_DIR=$(mktemp -d -p "$USER_HOME")
+    LND_TMP_DIR=$(mktemp_in "$USER_HOME")
     
     tar -xzf "$USER_HOME/lnd.tar.gz" -C "$LND_TMP_DIR" --strip-components=1 > /dev/null || {
       log "${PRIMARY_COLOR}Failed to extract LND.${RESET_COLOR}"
@@ -106,7 +109,7 @@ install_lnd() {
 
     # Port conflict resolution.
     local lnd_port=9735
-    if ! is_port_available $lnd_port; then
+    if [ "$OS" = "Linux" ] && ! is_port_available $lnd_port; then
       # The port is occupied. We should intervene if our service is either in a failed state
       # or not active at all (which covers fresh installs and failure loops).
       if systemctl --user -q is-failed lnd.service 2>/dev/null || ! systemctl --user -q is-active lnd.service 2>/dev/null; then
@@ -114,7 +117,7 @@ install_lnd() {
         lnd_port_new=$(find_available_port $lnd_port)
         log "Configuring LND to use new port $lnd_port_new."
         
-        sed -i '/^listen=/d' $USER_HOME/.lnd/lnd.conf
+        sed_i '/^listen=/d' $USER_HOME/.lnd/lnd.conf
         echo "listen=0.0.0.0:$lnd_port_new" >> $USER_HOME/.lnd/lnd.conf
         log "LND configuration updated. The service will be restarted by the installer."
       else

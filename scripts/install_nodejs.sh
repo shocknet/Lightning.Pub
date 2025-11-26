@@ -13,7 +13,8 @@ install_nodejs() {
   [ -s "${NVM_DIR}/nvm.sh" ] && \. "${NVM_DIR}/nvm.sh"
 
   if ! command -v nvm &> /dev/null; then
-    NVM_VERSION=$(wget -qO- https://api.github.com/repos/nvm-sh/nvm/releases/latest | grep -oP '"tag_name": "\K(.*)(?=")')
+    local nvm_api=$(wget -qO- https://api.github.com/repos/nvm-sh/nvm/releases/latest)
+    NVM_VERSION=$(json_value "tag_name" "$nvm_api")
     wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/${NVM_VERSION}/install.sh | bash > /dev/null 2>&1
     export NVM_DIR="${NVM_DIR}"
     [ -s "${NVM_DIR}/nvm.sh" ] && \. "${NVM_DIR}/nvm.sh"

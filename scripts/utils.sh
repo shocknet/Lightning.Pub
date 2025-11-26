@@ -29,10 +29,43 @@ detect_os_arch() {
 }
 
 check_deps() {
-  for cmd in wget grep stat tar sha256sum; do
+  for cmd in wget grep stat tar; do
     if ! command -v $cmd &> /dev/null; then
       log "Missing system dependency: $cmd. Install $cmd via your package manager and retry."
       exit 1
     fi
   done
+  if ! command -v sha256sum &> /dev/null && ! command -v shasum &> /dev/null; then
+    log "Missing system dependency: sha256sum or shasum."
+    exit 1
+  fi
+}
+
+# Cross-platform sed in-place
+sed_i() {
+  if [ "$OS" = "Mac" ]; then
+    sed -i '' "$@"
+  else
+    sed -i "$@"
+  fi
+}
+
+# Cross-platform mktemp with parent directory
+mktemp_in() {
+  local parent="$1"
+  if [ "$OS" = "Mac" ]; then
+    mktemp -d "${parent}/tmp.XXXXXX"
+  else
+    mktemp -d -p "$parent"
+  fi
+}
+
+# Extract JSON value (cross-platform)
+json_value() {
+  local key="$1"
+  if [ "$OS" = "Mac" ]; then
+    echo "$2" | awk -F"\"${key}\"[[:space:]]*:[[:space:]]*\"" '{print $2}' | awk -F'"' '{print $1}' | head -1
+  else
+    echo "$2" | grep -oP "\"${key}\": \"\\K[^\"]+"
+  fi
 }
