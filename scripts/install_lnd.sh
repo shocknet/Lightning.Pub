@@ -31,22 +31,8 @@ install_lnd() {
       log "${SECONDARY_COLOR}LND${RESET_COLOR} is already up-to-date (version $CURRENT_VERSION)."
       lnd_status=2  # Set status to 2 to indicate no action needed
     else
-      if [ "$SKIP_PROMPT" != true ]; then
-        read -p "LND version $CURRENT_VERSION is installed. Do you want to upgrade to version $LND_VERSION? (y/N): " response
-        case "$response" in
-          [yY][eE][sS]|[yY]) 
-            log "${PRIMARY_COLOR}Upgrading${RESET_COLOR} ${SECONDARY_COLOR}LND${RESET_COLOR} from version $CURRENT_VERSION to $LND_VERSION..."
-            lnd_status=1  # Set status to 1 to indicate upgrade
-            ;;
-          *)
-            log "$(date '+%Y-%m-%d %H:%M:%S') Upgrade cancelled."
-            lnd_status=2  # Set status to 2 to indicate no action needed
-            ;;
-        esac
-      else
-        log "${PRIMARY_COLOR}Upgrading${RESET_COLOR} ${SECONDARY_COLOR}LND${RESET_COLOR} from version $CURRENT_VERSION to $LND_VERSION..."
-        lnd_status=1  # Set status to 1 to indicate upgrade
-      fi
+      log "${PRIMARY_COLOR}Upgrading${RESET_COLOR} ${SECONDARY_COLOR}LND${RESET_COLOR} from version $CURRENT_VERSION to $LND_VERSION..."
+      lnd_status=1  # Set status to 1 to indicate upgrade
     fi
   else
     log "LND not found. Proceeding with fresh installation..."
