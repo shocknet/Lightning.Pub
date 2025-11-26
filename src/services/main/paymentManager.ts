@@ -193,7 +193,6 @@ export default class {
             case Types.UserOperationType.OUTGOING_TX:
                 throw new Error("Sending a transaction is not supported")
             case Types.UserOperationType.OUTGOING_INVOICE:
-                console.log("fee fixed limit", this.settings.getSettings().lndSettings.feeFixedLimit)
                 const fee = this.getInvoicePaymentServiceFee(amount, appUser)
                 return Math.max(fee, this.settings.getSettings().lndSettings.feeFixedLimit)
             case Types.UserOperationType.OUTGOING_USER_TO_USER:
