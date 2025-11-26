@@ -14,8 +14,9 @@ install_lnd() {
   LND_VERSION=$(json_value "tag_name" "$api_response")
   
   if [ -z "$LND_VERSION" ]; then
-    log "${PRIMARY_COLOR}Failed to fetch latest LND version.${RESET_COLOR}"
-    exit 1
+    # Fallback to a known stable version if GitHub API fails (e.g. rate limit)
+    LND_VERSION="v0.18.3-beta"
+    log "${PRIMARY_COLOR}Warning: Failed to fetch latest LND version from GitHub. Using fallback: ${LND_VERSION}${RESET_COLOR}"
   fi
   log "Latest LND version: $LND_VERSION"
 

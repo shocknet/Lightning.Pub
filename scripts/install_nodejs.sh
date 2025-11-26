@@ -15,6 +15,10 @@ install_nodejs() {
   if ! command -v nvm &> /dev/null; then
     local nvm_api=$(download_stdout "https://api.github.com/repos/nvm-sh/nvm/releases/latest")
     NVM_VERSION=$(json_value "tag_name" "$nvm_api")
+    if [ -z "$NVM_VERSION" ]; then
+      NVM_VERSION="v0.39.7"
+      log "Warning: Failed to fetch latest NVM version. Using fallback: $NVM_VERSION"
+    fi
     download_stdout "https://raw.githubusercontent.com/nvm-sh/nvm/${NVM_VERSION}/install.sh" | bash > /dev/null 2>&1
     export NVM_DIR="${NVM_DIR}"
     [ -s "${NVM_DIR}/nvm.sh" ] && \. "${NVM_DIR}/nvm.sh"
