@@ -110,15 +110,17 @@ if [ "$OS" = "Mac" ]; then
 else
   # Explicit kickoff log for LND so the flow is clear in the install log
   log "${PRIMARY_COLOR}Installing${RESET_COLOR} ${SECONDARY_COLOR}LND${RESET_COLOR}..."
-  lnd_output=$(install_lnd)
+  LND_STATUS_FILE=$(mktemp)
+  install_lnd "$LND_STATUS_FILE"
   install_result=$?
 
-if [ $install_result -ne 0 ]; then
-  printf "%s\n" "$lnd_output"
-  log_error "LND installation failed" $install_result
-fi
+  if [ $install_result -ne 0 ]; then
+    rm -f "$LND_STATUS_FILE"
+    log_error "LND installation failed" $install_result
+  fi
 
-  lnd_status=$(echo "$lnd_output" | grep "LND_STATUS:" | cut -d':' -f2)
+  lnd_status=$(cat "$LND_STATUS_FILE")
+  rm -f "$LND_STATUS_FILE"
   
   case $lnd_status in
     0) log "LND fresh installation completed successfully." ;;

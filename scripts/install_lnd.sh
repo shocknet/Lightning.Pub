@@ -1,6 +1,7 @@
 #!/bin/bash
 
 install_lnd() {
+  local status_file="$1"
   local lnd_status=0
 
   log "Starting LND installation/check process..."
@@ -134,7 +135,10 @@ install_lnd() {
   fi
 
   log "LND installation/check process complete. Status: $lnd_status"
-  # Echo the LND status
-  echo "LND_STATUS:$lnd_status"
+  
+  if [ -n "$status_file" ]; then
+    echo "$lnd_status" > "$status_file"
+  fi
+  
   return 0  # Always return 0 to indicate success
 }
