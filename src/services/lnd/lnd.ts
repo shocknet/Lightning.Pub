@@ -357,7 +357,7 @@ export default class {
         if (useProvider) {
             const res = await this.liquidProvider.PayInvoice(invoice, decodedAmount, from)
             const providerDst = this.liquidProvider.GetProviderDestination()
-            return { feeSat: res.network_fee + res.service_fee, valueSat: res.amount_paid, paymentPreimage: res.preimage, providerDst }
+            return { feeSat: res.service_fee, valueSat: res.amount_paid, paymentPreimage: res.preimage, providerDst }
         }
         await this.Health()
         try {

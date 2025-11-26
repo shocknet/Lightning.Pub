@@ -87,7 +87,7 @@ export default class {
     checkPendingProviderPayment = async (log: PubLogger, p: UserInvoicePayment) => {
         const state = await this.lnd.liquidProvider.GetPaymentState(p.invoice)
         if (state.paid_at_unix < 0) {
-            const fullAmount = p.paid_amount + p.service_fees + p.routing_fees
+            const fullAmount = p.paid_amount + p.service_fees
             log("found a failed provider payment, refunding", fullAmount, "sats to user", p.user.user_id)
             await this.storage.StartTransaction(async tx => {
                 await this.storage.userStorage.IncrementUserBalance(p.user.user_id, fullAmount, "payment_refund:" + p.invoice, tx)
@@ -96,18 +96,16 @@ export default class {
             return
         } else if (state.paid_at_unix > 0) {
             log("provider payment succeeded", p.serial_id, "updating payment info")
-            const routingFeeLimit = p.routing_fees
             const serviceFee = p.service_fees
-            const actualFee = state.network_fee + state.service_fee
-            await this.storage.StartTransaction(async tx => {
-                if (routingFeeLimit - actualFee > 0) {
-                    this.log("refund pending provider payment routing fee", routingFeeLimit, actualFee, "sats")
-                    await this.storage.userStorage.IncrementUserBalance(p.user.user_id, routingFeeLimit - actualFee, "routing_fee_refund:" + p.invoice, tx)
-                }
-                await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, actualFee, p.service_fees, true, undefined, tx)
-            }, "pending provider payment success after restart")
-            if (p.linkedApplication && p.user.user_id !== p.linkedApplication.owner.user_id && serviceFee > 0) {
-                await this.storage.userStorage.IncrementUserBalance(p.linkedApplication.owner.user_id, serviceFee, "fees")
+            const networkFee = state.service_fee
+            await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, networkFee, serviceFee, true)
+            const remainingFee = serviceFee - networkFee
+            if (remainingFee < 0) {
+                this.log("WARNING: provider fee was higher than expected,", remainingFee, "were lost")
+            }
+
+            if (p.linkedApplication && p.user.user_id !== p.linkedApplication.owner.user_id && remainingFee > 0) {
+                await this.storage.userStorage.IncrementUserBalance(p.linkedApplication.owner.user_id, remainingFee, "fees")
             }
             const user = await this.storage.userStorage.GetUser(p.user.user_id)
             this.storage.eventsLog.LogEvent({ type: 'invoice_payment', userId: p.user.user_id, appId: p.linkedApplication?.app_id || "", appUserId: "", balance: user.balance_sats, data: p.invoice, amount: p.paid_amount })
@@ -123,7 +121,6 @@ export default class {
             log(ERROR, "lnd payment not found for pending payment hash ", decoded.paymentHash)
             return
         }
-
         switch (payment.status) {
             case Payment_PaymentStatus.UNKNOWN:
                 log("pending payment in unknown state", p.serial_id, "no action will be performed")
@@ -133,24 +130,22 @@ export default class {
                 return
             case Payment_PaymentStatus.SUCCEEDED:
                 log("pending payment succeeded", p.serial_id, "updating payment info")
-                const routingFeeLimit = p.routing_fees
                 const serviceFee = p.service_fees
-                const actualFee = Number(payment.feeSat)
-                await this.storage.StartTransaction(async tx => {
-                    if (routingFeeLimit - actualFee > 0) {
-                        this.log("refund pending payment routing fee", routingFeeLimit, actualFee, "sats")
-                        await this.storage.userStorage.IncrementUserBalance(p.user.user_id, routingFeeLimit - actualFee, "routing_fee_refund:" + p.invoice, tx)
-                    }
-                    await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, actualFee, p.service_fees, true, undefined, tx)
-                }, "pending payment success after restart")
-                if (p.linkedApplication && p.user.user_id !== p.linkedApplication.owner.user_id && serviceFee > 0) {
-                    await this.storage.userStorage.IncrementUserBalance(p.linkedApplication.owner.user_id, serviceFee, "fees")
+                const networkFee = Number(payment.feeSat)
+
+                await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, networkFee, p.service_fees, true, undefined)
+                const remainingFee = serviceFee - networkFee
+                if (remainingFee < 0) { // should not be possible beacuse of the fee limit
+                    this.log("WARNING: lnd fee was higher than expected,", remainingFee, "were lost")
+                }
+                if (p.linkedApplication && p.user.user_id !== p.linkedApplication.owner.user_id && remainingFee > 0) {
+                    await this.storage.userStorage.IncrementUserBalance(p.linkedApplication.owner.user_id, remainingFee, "fees")
                 }
                 const user = await this.storage.userStorage.GetUser(p.user.user_id)
                 this.storage.eventsLog.LogEvent({ type: 'invoice_payment', userId: p.user.user_id, appId: p.linkedApplication?.app_id || "", appUserId: "", balance: user.balance_sats, data: p.invoice, amount: p.paid_amount })
                 return
             case Payment_PaymentStatus.FAILED:
-                const fullAmount = p.paid_amount + p.service_fees + p.routing_fees
+                const fullAmount = p.paid_amount + p.service_fees
                 log("found a failed pending payment, refunding", fullAmount, "sats to user", p.user.user_id)
                 await this.storage.StartTransaction(async tx => {
                     await this.storage.userStorage.IncrementUserBalance(p.user.user_id, fullAmount, "payment_refund:" + p.invoice, tx)
@@ -303,6 +298,9 @@ export default class {
             paymentInfo = await this.PayExternalInvoice(userId, req.invoice, { payAmount, serviceFee, amountForLnd: req.amount }, linkedApplication, req.debit_npub, ack)
         }
         const feeDiff = serviceFee - paymentInfo.networkFee
+        if (feeDiff < 0) {
+            this.log("WARNING: provider fee was higher than expected,", feeDiff, "were lost")
+        }
         if (isAppUserPayment && feeDiff > 0) {
             await this.storage.userStorage.IncrementUserBalance(linkedApplication.owner.user_id, feeDiff, "fees")
         }
