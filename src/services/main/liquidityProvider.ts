@@ -131,7 +131,6 @@ export class LiquidityProvider {
             return res
         }
         this.feesCache = {
-            // networkFeeBps: res.network_max_fee_bps,
             networkFeeFixed: res.network_max_fee_fixed,
             serviceFeeBps: res.service_fee_bps
         }
@@ -158,9 +157,6 @@ export class LiquidityProvider {
         const maxWithoutFixed = Math.floor(balance / div)
         const fee = balance - maxWithoutFixed
         return balance - Math.max(fee, networkFeeFixed)
-        /* const totalBps = networkFeeBps + serviceFeeBps
-        const div = 1 + (totalBps / 10000)
-        return Math.floor((this.latestReceivedBalance - networkFeeFixed) / div) */
     }
 
     GetLatestBalance = () => {
@@ -180,15 +176,6 @@ export class LiquidityProvider {
         const serviceFee = Math.ceil(serviceFeeRate * amount)
         return Math.max(serviceFee, fees.networkFeeFixed)
     }
-
-    /*     CalculateExpectedFeeLimit = (amount: number) => {
-            const fees = this.GetFees()
-            const serviceFeeRate = fees.serviceFeeBps / 10000
-            const serviceFee = Math.ceil(serviceFeeRate * amount)
-            const networkMaxFeeRate = fees.networkFeeBps / 10000
-            const networkFeeLimit = Math.ceil(amount * networkMaxFeeRate + fees.networkFeeFixed)
-            return serviceFee + networkFeeLimit
-        } */
 
     CanProviderPay = async (amount: number, localServiceFee: number): Promise<boolean> => {
         if (!this.IsReady()) {
@@ -229,12 +216,11 @@ export class LiquidityProvider {
 
     }
 
-    PayInvoice = async (invoice: string, decodedAmount: number, from: 'user' | 'system'/* , feeLimit?: number */) => {
+    PayInvoice = async (invoice: string, decodedAmount: number, from: 'user' | 'system') => {
         try {
             if (!this.IsReady()) {
                 throw new Error("liquidity provider is not ready yet, disabled or unreachable")
             }
-            // const feeLimitToUse = feeLimit ? feeLimit : this.CalculateExpectedFeeLimit(decodedAmount)
             const providerServiceFee = this.GetServiceFee(decodedAmount)
             this.pendingPayments[invoice] = decodedAmount + providerServiceFee
             const timeout = setTimeout(() => {
@@ -245,7 +231,7 @@ export class LiquidityProvider {
                 this.lastSeenBeacon = 0
             }, 1000 * 10)
             this.pendingPaymentsAck[invoice] = true
-            const res = await this.client.PayInvoice({ invoice, amount: 0,/*  fee_limit_sats: feeLimitToUse */ })
+            const res = await this.client.PayInvoice({ invoice, amount: 0 })
             delete this.pendingPaymentsAck[invoice]
             if (res.status === 'ERROR') {
                 this.log("error paying invoice", res.reason)
@@ -312,7 +298,6 @@ export class LiquidityProvider {
             this.log("configured to send to ")
         }
     }
-    // fees: { networkFeeBps: number, networkFeeFixed: number, serviceFeeBps: number }
     onBeaconEvent = async (beaconData: { content: string, pub: string }) => {
         if (beaconData.pub !== this.pubDestination) {
             this.log(ERROR, "got beacon from invalid pub", beaconData.pub, this.pubDestination)

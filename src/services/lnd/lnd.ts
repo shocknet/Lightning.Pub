@@ -342,10 +342,6 @@ export default class {
         return { numSatoshis: Number(res.response.numSatoshis), paymentHash: res.response.paymentHash }
     }
 
-    /*     GetFeeLimitAmount(amount: number): number {
-            return Math.ceil(amount * this.getSettings().lndSettings.feeRateLimit + this.getSettings().lndSettings.feeFixedLimit);
-        } */
-
     async ChannelBalance(): Promise<{ local: number, remote: number }> {
         // console.log("Getting channel balance")
         const res = await this.lightning.channelBalance({})
@@ -359,7 +355,7 @@ export default class {
             throw new Error("lnd node is currently out of sync")
         }
         if (useProvider) {
-            const res = await this.liquidProvider.PayInvoice(invoice, decodedAmount, from/* , feeLimit */)
+            const res = await this.liquidProvider.PayInvoice(invoice, decodedAmount, from)
             const providerDst = this.liquidProvider.GetProviderDestination()
             return { feeSat: res.network_fee + res.service_fee, valueSat: res.amount_paid, paymentPreimage: res.preimage, providerDst }
         }

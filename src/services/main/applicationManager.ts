@@ -167,7 +167,7 @@ export default class {
 
         const ndebitString = ndebitEncode({ pubkey: app.nostr_public_key!, pointer: u.identifier, relay: nostrSettings.relays[0] })
         log("🔗 [DEBUG] Generated ndebit for user", { userId: u.user.user_id, ndebit: ndebitString })
-        const { max, /* networkFeeBps,  */networkFeeFixed, serviceFeeBps } = this.paymentManager.GetMaxPayableInvoice(u.user.balance_sats)
+        const { max, networkFeeFixed, serviceFeeBps } = this.paymentManager.GetMaxPayableInvoice(u.user.balance_sats)
         return {
             identifier: u.identifier,
             info: {
@@ -225,7 +225,7 @@ export default class {
         const app = await this.storage.applicationStorage.GetApplication(appId)
         const user = await this.storage.applicationStorage.GetApplicationUser(app, req.user_identifier)
         const nostrSettings = this.settings.getSettings().nostrRelaySettings
-        const { max, /* networkFeeBps, */ networkFeeFixed, serviceFeeBps } = this.paymentManager.GetMaxPayableInvoice(user.user.balance_sats)
+        const { max, networkFeeFixed, serviceFeeBps } = this.paymentManager.GetMaxPayableInvoice(user.user.balance_sats)
         return {
             max_withdrawable: max, identifier: req.user_identifier, info: {
                 userId: user.user.user_id, balance: user.user.balance_sats,

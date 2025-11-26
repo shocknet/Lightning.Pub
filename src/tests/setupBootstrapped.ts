@@ -46,7 +46,6 @@ export const initBootstrappedInstance = async (T: TestBase) => {
     await new Promise<void>(res => {
         const interval = setInterval(async () => {
             const canHandle = bootstrapped.liquidityProvider.IsReady()
-            console.log("can handle", canHandle)
             if (canHandle) {
                 clearInterval(interval)
                 res()
