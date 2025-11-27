@@ -18,9 +18,17 @@ install_nodejs() {
       log "Failed to fetch latest NVM version."
       return 1
     fi
+    log "Installing NVM ${NVM_VERSION}..."
     download_stdout "https://raw.githubusercontent.com/nvm-sh/nvm/${NVM_VERSION}/install.sh" | bash > /dev/null 2>&1
-    export NVM_DIR="${NVM_DIR}"
-    [ -s "${NVM_DIR}/nvm.sh" ] && \. "${NVM_DIR}/nvm.sh"
+  fi
+
+  # Source NVM
+  export NVM_DIR="${NVM_DIR}"
+  [ -s "${NVM_DIR}/nvm.sh" ] && \. "${NVM_DIR}/nvm.sh"
+
+  if ! command -v nvm &> /dev/null; then
+    log "NVM installation failed."
+    return 1
   fi
 
   if command -v node &> /dev/null; then
@@ -35,8 +43,8 @@ install_nodejs() {
     log "Node.js is not installed. ${PRIMARY_COLOR}Installing the LTS version...${RESET_COLOR}"
   fi
 
-  # Silence all nvm output to keep installer logs clean
-  if ! bash -c "source ${NVM_DIR}/nvm.sh && nvm install --lts" >/dev/null 2>&1; then
+  # Install Node.js LTS
+  if ! nvm install --lts > /dev/null 2>&1; then
     log "${PRIMARY_COLOR}Failed to install Node.js.${RESET_COLOR}"
     return 1
   fi
