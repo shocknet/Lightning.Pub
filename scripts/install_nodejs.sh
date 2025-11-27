@@ -19,7 +19,7 @@ install_nodejs() {
       return 1
     fi
     log "Installing NVM ${NVM_VERSION}..."
-    download_stdout "https://raw.githubusercontent.com/nvm-sh/nvm/${NVM_VERSION}/install.sh" | bash > /dev/null 2>&1
+    download_stdout "https://raw.githubusercontent.com/nvm-sh/nvm/${NVM_VERSION}/install.sh" | bash
   fi
 
   # Source NVM
