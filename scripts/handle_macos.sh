@@ -80,6 +80,7 @@ handle_macos() {
   fi
 
   log "Installation process completed successfully"
+  log "Run 'source ~/.zshrc' or open a new terminal to use lpub-status, lpub-log, etc."
 
   if [ -d "$HOME/lightning_pub" ]; then
     mv "$TMP_LOG_FILE" "$HOME/lightning_pub/install.log"
