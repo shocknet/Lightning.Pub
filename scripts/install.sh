@@ -231,7 +231,6 @@ else
       pub_upgrade_status=100 # Indicates an upgrade, services should restart
       ;;
     2) 
-      log "Lightning.Pub is already up-to-date. No action needed."
       pub_upgrade_status=2 # Special status to skip service restart
       ;;
     *) 

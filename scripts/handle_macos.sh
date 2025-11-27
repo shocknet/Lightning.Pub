@@ -40,7 +40,6 @@ handle_macos() {
       pub_upgrade_status=100
       ;;
     2) 
-      log "Lightning.Pub is already up-to-date. No action needed."
       pub_upgrade_status=2
       ;;
     *) 
