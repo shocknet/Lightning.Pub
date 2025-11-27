@@ -9,6 +9,13 @@ install_lnd() {
   USER_HOME=$HOME
   USER_NAME=$(whoami)
 
+  # LND data directory (Mac uses Application Support, Linux uses .lnd)
+  if [ "$OS" = "Mac" ]; then
+    LND_DIR="$USER_HOME/Library/Application Support/Lnd"
+  else
+    LND_DIR="$USER_HOME/.lnd"
+  fi
+
   log "Checking latest LND version..."
   LND_VERSION=$(get_latest_release_tag "lightningnetwork/lnd")
   
@@ -80,23 +87,23 @@ install_lnd() {
         exit 1
     }
 
-    # Create .lnd directory if it doesn't exist
-    mkdir -p $USER_HOME/.lnd
+    # Create LND data directory if it doesn't exist
+    mkdir -p "$LND_DIR"
 
     # Ensure lnd.conf exists.
-    touch $USER_HOME/.lnd/lnd.conf
+    touch "$LND_DIR/lnd.conf"
     
     # Check for and add default settings only if the keys are missing.
-    grep -q "^bitcoin.mainnet=" $USER_HOME/.lnd/lnd.conf || echo "bitcoin.mainnet=true" >> $USER_HOME/.lnd/lnd.conf
-    grep -q "^bitcoin.node=" $USER_HOME/.lnd/lnd.conf || echo "bitcoin.node=neutrino" >> $USER_HOME/.lnd/lnd.conf
-    grep -q "^neutrino.addpeer=neutrino.shock.network" $USER_HOME/.lnd/lnd.conf || echo "neutrino.addpeer=neutrino.shock.network" >> $USER_HOME/.lnd/lnd.conf
-    grep -q "^neutrino.addpeer=asia.blixtwallet.com" $USER_HOME/.lnd/lnd.conf || echo "neutrino.addpeer=asia.blixtwallet.com" >> $USER_HOME/.lnd/lnd.conf
-    grep -q "^neutrino.addpeer=europe.blixtwallet.com" $USER_HOME/.lnd/lnd.conf || echo "neutrino.addpeer=europe.blixtwallet.com" >> $USER_HOME/.lnd/lnd.conf
-    grep -q "^neutrino.addpeer=btcd.lnolymp.us" $USER_HOME/.lnd/lnd.conf || echo "neutrino.addpeer=btcd.lnolymp.us" >> $USER_HOME/.lnd/lnd.conf
-    grep -q "^neutrino.addpeer=btcd-mainnet.lightning.computer" $USER_HOME/.lnd/lnd.conf || echo "neutrino.addpeer=btcd-mainnet.lightning.computer" >> $USER_HOME/.lnd/lnd.conf
-    grep -q "^fee.url=" $USER_HOME/.lnd/lnd.conf || echo "fee.url=https://nodes.lightning.computer/fees/v1/btc-fee-estimates.json" >> $USER_HOME/.lnd/lnd.conf
+    grep -q "^bitcoin.mainnet=" "$LND_DIR/lnd.conf" || echo "bitcoin.mainnet=true" >> "$LND_DIR/lnd.conf"
+    grep -q "^bitcoin.node=" "$LND_DIR/lnd.conf" || echo "bitcoin.node=neutrino" >> "$LND_DIR/lnd.conf"
+    grep -q "^neutrino.addpeer=neutrino.shock.network" "$LND_DIR/lnd.conf" || echo "neutrino.addpeer=neutrino.shock.network" >> "$LND_DIR/lnd.conf"
+    grep -q "^neutrino.addpeer=asia.blixtwallet.com" "$LND_DIR/lnd.conf" || echo "neutrino.addpeer=asia.blixtwallet.com" >> "$LND_DIR/lnd.conf"
+    grep -q "^neutrino.addpeer=europe.blixtwallet.com" "$LND_DIR/lnd.conf" || echo "neutrino.addpeer=europe.blixtwallet.com" >> "$LND_DIR/lnd.conf"
+    grep -q "^neutrino.addpeer=btcd.lnolymp.us" "$LND_DIR/lnd.conf" || echo "neutrino.addpeer=btcd.lnolymp.us" >> "$LND_DIR/lnd.conf"
+    grep -q "^neutrino.addpeer=btcd-mainnet.lightning.computer" "$LND_DIR/lnd.conf" || echo "neutrino.addpeer=btcd-mainnet.lightning.computer" >> "$LND_DIR/lnd.conf"
+    grep -q "^fee.url=" "$LND_DIR/lnd.conf" || echo "fee.url=https://nodes.lightning.computer/fees/v1/btc-fee-estimates.json" >> "$LND_DIR/lnd.conf"
     
-    chmod 600 $USER_HOME/.lnd/lnd.conf
+    chmod 600 "$LND_DIR/lnd.conf"
 
     # Port conflict resolution.
     local lnd_port=9735
@@ -108,8 +115,8 @@ install_lnd() {
         lnd_port_new=$(find_available_port $lnd_port)
         log "Configuring LND to use new port $lnd_port_new."
         
-        sed_i '/^listen=/d' $USER_HOME/.lnd/lnd.conf
-        echo "listen=0.0.0.0:$lnd_port_new" >> $USER_HOME/.lnd/lnd.conf
+        sed_i '/^listen=/d' "$LND_DIR/lnd.conf"
+        echo "listen=0.0.0.0:$lnd_port_new" >> "$LND_DIR/lnd.conf"
         log "LND configuration updated. The service will be restarted by the installer."
       else
         log "Port $lnd_port is in use by a healthy LND service (assumed to be our own). No changes will be made."

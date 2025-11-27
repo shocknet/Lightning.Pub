@@ -27,7 +27,7 @@ install_nodejs_mac() {
 
   # Get latest LTS version from Node.js
   local node_index=$(download_stdout "https://nodejs.org/dist/index.json")
-  local lts_version=$(echo "$node_index" | grep -o '"version":"v[0-9.]*","date":"[^"]*","files":\[[^]]*\],"npm":"[^"]*","v8":"[^"]*","uv":"[^"]*","zlib":"[^"]*","openssl":"[^"]*","modules":"[^"]*","lts":"[^"]*"' | grep -v '"lts":false' | head -1 | grep -o '"version":"v[^"]*"' | awk -F'"' '{print $4}')
+  local lts_version=$(echo "$node_index" | grep -o '"version":"v[0-9.]*"[^}]*"lts":"[^"]*"' | grep -v '"lts":false' | awk -F'"' '{print $4; exit}')
   
   if [ -z "$lts_version" ]; then
     log "Failed to fetch Node.js LTS version."
