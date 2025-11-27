@@ -93,9 +93,13 @@ install_lightning_pub() {
   fi
 
 
-  # Load nvm and npm
-  export NVM_DIR="${NVM_DIR}"
-  [ -s "${NVM_DIR}/nvm.sh" ] && \. "${NVM_DIR}/nvm.sh"
+  # Load nvm (Linux) or add node to PATH (Mac)
+  if [ "$OS" = "Mac" ]; then
+    export PATH="$HOME/node/bin:$PATH"
+  else
+    export NVM_DIR="${NVM_DIR}"
+    [ -s "${NVM_DIR}/nvm.sh" ] && \. "${NVM_DIR}/nvm.sh"
+  fi
 
   cd "$INSTALL_DIR"
 
