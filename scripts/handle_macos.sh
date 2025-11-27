@@ -23,13 +23,6 @@ handle_macos() {
 
   lnd_status=$(cat "$LND_STATUS_FILE")
   rm -f "$LND_STATUS_FILE"
-  
-  case $lnd_status in
-    0) log "LND fresh installation completed successfully." ;;
-    1) log "LND upgrade completed successfully." ;;
-    2) log "LND is already up-to-date. No action needed." ;;
-    *) log "WARNING: Unexpected status from install_lnd: $lnd_status" ;;
-  esac
 
   # Install Node.js
   install_nodejs || log_error "Failed to install Node.js" 1
