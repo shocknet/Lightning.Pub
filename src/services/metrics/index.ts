@@ -241,12 +241,12 @@ export default class Handler {
         ops.outgoingInvoices.forEach(i => {
             if (req.include_operations) operations.push({ type: Types.UserOperationType.OUTGOING_INVOICE, amount: i.paid_amount, inbound: false, paidAtUnix: i.paid_at_unix, confirmed: true, service_fee: i.service_fees, network_fee: i.routing_fees, identifier: "", operationId: "", tx_hash: "", internal: i.internal })
             totalSpent += i.paid_amount
-            feesInRange += i.service_fees
+            feesInRange += (i.service_fees - i.routing_fees)
         })
         ops.outgoingTransactions.forEach(tx => {
             if (req.include_operations) operations.push({ type: Types.UserOperationType.OUTGOING_TX, amount: tx.paid_amount, inbound: false, paidAtUnix: tx.paid_at_unix, confirmed: tx.confs > 1, service_fee: tx.service_fees, network_fee: tx.chain_fees, identifier: "", operationId: "", tx_hash: tx.tx_hash, internal: tx.internal })
             totalSpent += tx.paid_amount
-            feesInRange += tx.service_fees
+            feesInRange += (tx.service_fees - tx.chain_fees)
         })
 
         ops.userToUser.forEach(op => {

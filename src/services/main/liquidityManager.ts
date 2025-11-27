@@ -132,7 +132,7 @@ export class LiquidityManager {
         try {
             const invoice = await this.lnd.NewInvoice(amt, "liqudity provider drain", defaultInvoiceExpiry, { from: 'system', useProvider: false })
             const res = await this.liquidityProvider.PayInvoice(invoice.payRequest, amt, 'system')
-            const fees = res.network_fee + res.service_fee
+            const fees = res.service_fee
             this.feesPaid += fees
             this.updateLatestDrain(true, amt)
         } catch (err: any) {

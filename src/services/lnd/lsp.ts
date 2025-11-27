@@ -101,7 +101,7 @@ export class FlashsatsLSP extends LSP {
             return null
         }
         const res = await this.liquidityProvider.PayInvoice(order.payment.bolt11_invoice, decoded.numSatoshis, 'system')
-        const fees = +order.payment.fee_total_sat + res.network_fee + res.service_fee
+        const fees = +order.payment.fee_total_sat + res.service_fee
         this.log("paid", res.amount_paid, "to open channel, and a fee of", fees)
         return { orderId: order.order_id, invoice: order.payment.bolt11_invoice, totalSats: +order.payment.order_total_sat, fees }
 

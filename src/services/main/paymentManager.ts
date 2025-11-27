@@ -317,7 +317,7 @@ export default class {
             preimage: paymentInfo.preimage,
             amount_paid: paymentInfo.amtPaid,
             operation_id: opId,
-            network_fee: paymentInfo.networkFee,
+            network_fee: 0,
             service_fee: serviceFee,
             latest_balance: user.balance_sats,
             operation
@@ -728,7 +728,7 @@ export default class {
         return {
             paid_at_unix: invoice.paid_at_unix,
             amount: invoice.paid_amount,
-            network_fee: invoice.routing_fees,
+            network_fee: 0,
             service_fee: invoice.service_fees,
         }
     }

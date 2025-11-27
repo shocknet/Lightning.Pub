@@ -239,7 +239,7 @@ export class LiquidityProvider {
                 this.log("error paying invoice", res.reason)
                 throw new Error(res.reason)
             }
-            const totalPaid = res.amount_paid + res.network_fee + res.service_fee
+            const totalPaid = res.amount_paid + res.service_fee
             this.incrementProviderBalance(-totalPaid).then(() => { delete this.pendingPayments[invoice] })
             this.latestReceivedBalance = res.latest_balance
             this.utils.stateBundler.AddTxPoint('paidAnInvoice', decodedAmount, { used: 'provider', from, timeDiscount: true })
