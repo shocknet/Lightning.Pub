@@ -96,6 +96,7 @@ install_lightning_pub() {
 LND_ADDRESS=127.0.0.1:10009
 LND_CERT_PATH=$HOME/Library/Application Support/Lnd/tls.cert
 LND_MACAROON_PATH=$HOME/Library/Application Support/Lnd/data/chain/bitcoin/mainnet/admin.macaroon
+LND_LOG_DIR=$HOME/Library/Application Support/Lnd/logs/bitcoin/mainnet
 EOF
     fi
   fi

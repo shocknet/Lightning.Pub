@@ -4,8 +4,6 @@ install_lnd() {
   local status_file="$1"
   local lnd_status=0
 
-  log "Starting LND installation/check process..."
-
   USER_HOME=$HOME
   USER_NAME=$(whoami)
 
@@ -16,33 +14,27 @@ install_lnd() {
     LND_DIR="$USER_HOME/.lnd"
   fi
 
-  log "Checking latest LND version..."
   LND_VERSION=$(get_latest_release_tag "lightningnetwork/lnd")
   
   if [ -z "$LND_VERSION" ]; then
     log "${PRIMARY_COLOR}Failed to fetch latest LND version.${RESET_COLOR}"
     exit 1
   fi
-  log "Latest LND version: $LND_VERSION"
 
   local LND_OS="$OS"; [ "$OS" = "Mac" ] && LND_OS="darwin"
   LND_URL="https://github.com/lightningnetwork/lnd/releases/download/${LND_VERSION}/lnd-${LND_OS}-${ARCH}-${LND_VERSION}.tar.gz"
 
   # Check if LND is already installed
   if [ -d "$USER_HOME/lnd" ]; then
-    log "LND directory found. Checking current version..."
     CURRENT_VERSION=$("$USER_HOME/lnd/lnd" --version | awk '/version/ {print $3}')
-    log "Current LND version: $CURRENT_VERSION"
     
     if [ "$CURRENT_VERSION" == "${LND_VERSION#v}" ]; then
-      log "${SECONDARY_COLOR}LND${RESET_COLOR} is already up-to-date (version $CURRENT_VERSION)."
+      log "${SECONDARY_COLOR}LND${RESET_COLOR} is already up-to-date (${LND_VERSION})."
       lnd_status=2  # Set status to 2 to indicate no action needed
     else
-      log "${PRIMARY_COLOR}Upgrading${RESET_COLOR} ${SECONDARY_COLOR}LND${RESET_COLOR} from version $CURRENT_VERSION to $LND_VERSION..."
+      log "${PRIMARY_COLOR}Upgrading${RESET_COLOR} ${SECONDARY_COLOR}LND${RESET_COLOR} from ${CURRENT_VERSION} to ${LND_VERSION}..."
       lnd_status=1  # Set status to 1 to indicate upgrade
     fi
-  else
-    log "LND not found. Proceeding with fresh installation..."
   fi
 
   if [ $lnd_status -eq 0 ] || [ $lnd_status -eq 1 ]; then

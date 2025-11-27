@@ -23,18 +23,17 @@ install_nodejs_mac() {
     fi
   fi
 
-  log "Node.js is not installed or outdated. ${PRIMARY_COLOR}Installing...${RESET_COLOR}"
-
   # Get latest LTS version from Node.js
   local node_index=$(download_stdout "https://nodejs.org/dist/index.json")
-  local lts_version=$(echo "$node_index" | grep -o '"version":"v[0-9.]*"[^}]*"lts":"[^"]*"' | grep -v '"lts":false' | awk -F'"' '{print $4; exit}')
+  local lts_line=$(printf '%s' "$node_index" | grep -o '"version":"v[0-9.]*"[^}]*"lts":"[A-Za-z]*"' | grep -v '"lts":false' | head -1)
+  local lts_version=$(printf '%s' "$lts_line" | awk -F'"' '{print $4}')
   
   if [ -z "$lts_version" ]; then
     log "Failed to fetch Node.js LTS version."
     return 1
   fi
   
-  log "Installing Node.js ${lts_version}..."
+  log "${PRIMARY_COLOR}Installing${RESET_COLOR} Node.js ${lts_version}..."
   
   local node_arch="x64"
   [ "$ARCH" = "arm64" ] && node_arch="arm64"
