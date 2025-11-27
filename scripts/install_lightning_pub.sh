@@ -90,15 +90,6 @@ install_lightning_pub() {
     mkdir -p "$(dirname "$INSTALL_DIR")"
     mv "$EXTRACT_DIR" "$INSTALL_DIR"
     
-    # Create .env with OS-specific LND paths
-    if [ "$OS" = "Mac" ]; then
-      cat > "$INSTALL_DIR/.env" <<EOF
-LND_ADDRESS=127.0.0.1:10009
-LND_CERT_PATH=$HOME/Library/Application Support/Lnd/tls.cert
-LND_MACAROON_PATH=$HOME/Library/Application Support/Lnd/data/chain/bitcoin/mainnet/admin.macaroon
-LND_LOG_DIR=$HOME/Library/Application Support/Lnd/logs/bitcoin/mainnet
-EOF
-    fi
   fi
 
 
