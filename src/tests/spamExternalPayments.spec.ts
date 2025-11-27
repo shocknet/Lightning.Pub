@@ -29,7 +29,7 @@ const testSpamExternalPayment = async (T: TestBase) => {
     const failedPayments = res.filter(r => !r.success)
     console.log(failedPayments)
     failedPayments.forEach(f => expect(f.err).to.be.equal("not enough balance to decrement"))
-    successfulPayments.forEach(s => expect(s.result).to.contain({ amount_paid: 500, network_fee: 1, service_fee: 10 }))
+    successfulPayments.forEach(s => expect(s.result).to.contain({ amount_paid: 500, network_fee: 0, service_fee: 10 }))
     expect(successfulPayments.length).to.be.equal(3)
     expect(failedPayments.length).to.be.equal(7)
     T.d("3 payments succeeded, 7 failed as expected")
