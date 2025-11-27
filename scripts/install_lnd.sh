@@ -57,7 +57,6 @@ install_lnd() {
       launchctl unload "$USER_HOME/Library/LaunchAgents/local.lnd.plist" 2>/dev/null || true
     fi
 
-    log "Extracting LND..."
     LND_TMP_DIR=$(mktemp_in "$USER_HOME")
     
     tar -xzf "$USER_HOME/lnd.tar.gz" -C "$LND_TMP_DIR" --strip-components=1 > /dev/null || {
@@ -69,10 +68,7 @@ install_lnd() {
     
     rm "$USER_HOME/lnd.tar.gz"
     
-    if [ -d "$USER_HOME/lnd" ]; then
-        log "Removing old LND directory..."
-        rm -rf "$USER_HOME/lnd"
-    fi
+    rm -rf "$USER_HOME/lnd" 2>/dev/null || true
     
     mv "$LND_TMP_DIR" "$USER_HOME/lnd" || {
         log "${PRIMARY_COLOR}Failed to move new LND version into place.${RESET_COLOR}"
@@ -115,11 +111,9 @@ install_lnd() {
       fi
     fi
 
-    log "${SECONDARY_COLOR}LND${RESET_COLOR} installation and configuration completed."
+    log "${SECONDARY_COLOR}LND${RESET_COLOR} installed successfully."
   fi
 
-  log "LND installation/check process complete. Status: $lnd_status"
-  
   if [ -n "$status_file" ]; then
     echo "$lnd_status" > "$status_file"
   fi
