@@ -34,7 +34,7 @@ install_lightning_pub() {
   # Decide flow based on whether a valid previous installation exists.
   if [ -f "$INSTALL_DIR/.installed_commit" ] || [ -f "$INSTALL_DIR/db.sqlite" ]; then
     # --- UPGRADE PATH ---
-    log "Existing installation found. Checking for updates..."
+    log "Existing ${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} installation found. Checking for updates..."
     
     # Check if update is needed by comparing commit hashes
     API_RESPONSE=$(download_stdout "https://api.github.com/repos/${REPO}/commits/${BRANCH}" 2>&1 | tee /tmp/api_response.log)

@@ -120,7 +120,7 @@ get_log_info() {
       fi
     elif [ -f "$DATA_DIR/app.nprofile" ]; then
       app_nprofile=$(cat "$DATA_DIR/app.nprofile")
-      log "Node is already set up. Use this nprofile to invite guest users:"
+      log "${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} is already set up. Use this nprofile to invite guest users:"
       log "${SECONDARY_COLOR}$app_nprofile${RESET_COLOR}"
       break
     fi
