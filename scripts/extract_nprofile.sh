@@ -16,7 +16,11 @@ get_log_info() {
   fi
 
   # Get the modification time of the timestamp file as a UNIX timestamp
-  ref_timestamp=$(stat -c %Y "$TIMESTAMP_FILE")
+  if [ "$OS" = "Mac" ]; then
+    ref_timestamp=$(stat -f %m "$TIMESTAMP_FILE")
+  else
+    ref_timestamp=$(stat -c %Y "$TIMESTAMP_FILE")
+  fi
 
   # Wait for a new unlocker log file to be created
   while [ $(($(date +%s) - START_TIME)) -lt $MAX_WAIT_TIME ]; do
@@ -24,7 +28,11 @@ get_log_info() {
     # Loop through log files and check their modification time
     for log_file in "${LOG_DIR}/components/"unlocker_*.log; do
       if [ -f "$log_file" ]; then
-        file_timestamp=$(stat -c %Y "$log_file")
+        if [ "$OS" = "Mac" ]; then
+          file_timestamp=$(stat -f %m "$log_file")
+        else
+          file_timestamp=$(stat -c %Y "$log_file")
+        fi
         if [ "$file_timestamp" -gt "$ref_timestamp" ]; then
           latest_unlocker_log="$log_file"
           break # Found the newest log file

@@ -91,7 +91,47 @@ handle_macos() {
 
 create_launchd_plists() {
   local NVM_DIR="$HOME/.nvm"
+  local NODE_BIN="$HOME/node/bin"
   
+  # Create wrapper scripts so macOS shows proper names in Background Items
+  mkdir -p "$HOME/.local/bin"
+  
+  # LND wrapper
+  cat > "$HOME/.local/bin/LND" <<EOF
+#!/bin/bash
+exec "$HOME/lnd/lnd" "\$@"
+EOF
+  chmod +x "$HOME/.local/bin/LND"
+  
+  # Lightning.Pub wrapper
+  cat > "$HOME/.local/bin/Lightning.Pub" <<EOF
+#!/bin/bash
+export PATH="$NODE_BIN:\$PATH"
+cd "$INSTALL_DIR"
+exec "$NODE_BIN/npm" start
+EOF
+  chmod +x "$HOME/.local/bin/Lightning.Pub"
+
+  # Add aliases to shell profile
+  local shell_profile="$HOME/.zshrc"
+  [ -f "$HOME/.bash_profile" ] && ! [ -f "$HOME/.zshrc" ] && shell_profile="$HOME/.bash_profile"
+  
+  if ! grep -q 'lpub-start' "$shell_profile" 2>/dev/null; then
+    cat >> "$shell_profile" <<'ALIASES'
+
+# Lightning.Pub service management
+alias lpub-start='launchctl load ~/Library/LaunchAgents/local.lightning_pub.plist ~/Library/LaunchAgents/local.lnd.plist'
+alias lpub-stop='launchctl unload ~/Library/LaunchAgents/local.lightning_pub.plist ~/Library/LaunchAgents/local.lnd.plist'
+alias lpub-restart='lpub-stop; lpub-start'
+alias lpub-log='tail -f ~/Library/Logs/Lightning.Pub/pub.log'
+alias lnd-log='tail -f ~/Library/Logs/Lightning.Pub/lnd.log'
+alias lpub-status='launchctl list | grep local.lightning_pub; launchctl list | grep local.lnd'
+ALIASES
+  fi
+  
+  # Create log directory
+  mkdir -p "$HOME/Library/Logs/Lightning.Pub"
+
   # LND plist
   if [ ! -f "$LAUNCH_AGENTS_DIR/local.lnd.plist" ]; then
     cat > "$LAUNCH_AGENTS_DIR/local.lnd.plist" <<EOF
@@ -103,12 +143,16 @@ create_launchd_plists() {
   <string>local.lnd</string>
   <key>ProgramArguments</key>
   <array>
-    <string>$HOME/lnd/lnd</string>
+    <string>$HOME/.local/bin/LND</string>
   </array>
   <key>RunAtLoad</key>
   <true/>
   <key>KeepAlive</key>
   <true/>
+  <key>StandardOutPath</key>
+  <string>$HOME/Library/Logs/Lightning.Pub/lnd.log</string>
+  <key>StandardErrorPath</key>
+  <string>$HOME/Library/Logs/Lightning.Pub/lnd.log</string>
 </dict>
 </plist>
 EOF
@@ -125,9 +169,7 @@ EOF
   <string>local.lightning_pub</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/bin/bash</string>
-    <string>-c</string>
-    <string>source $NVM_DIR/nvm.sh &amp;&amp; npm start</string>
+    <string>$HOME/.local/bin/Lightning.Pub</string>
   </array>
   <key>WorkingDirectory</key>
   <string>$INSTALL_DIR</string>
@@ -135,6 +177,10 @@ EOF
   <true/>
   <key>KeepAlive</key>
   <true/>
+  <key>StandardOutPath</key>
+  <string>$HOME/Library/Logs/Lightning.Pub/pub.log</string>
+  <key>StandardErrorPath</key>
+  <string>$HOME/Library/Logs/Lightning.Pub/pub.log</string>
 </dict>
 </plist>
 EOF
