@@ -4,6 +4,11 @@ get_log_info() {
   USER_HOME=$HOME
   USER_NAME=$(whoami)
 
+  # Ensure node is in PATH for QR generation
+  if [ "$OS" = "Mac" ]; then
+    export PATH="$USER_HOME/node/bin:$PATH"
+  fi
+
   LOG_DIR="$INSTALL_DIR/logs"
   DATA_DIR="$INSTALL_DIR/"
   START_TIME=$(date +%s)
@@ -116,12 +121,18 @@ get_log_info() {
         log "A node admin has not yet enrolled via Nostr."
         log "Paste this string into ShockWallet as a node source to connect as administrator:"
         log "${SECONDARY_COLOR}$admin_connect${RESET_COLOR}"
+        echo ""
+        log "Or scan this QR code with ShockWallet:"
+        node "$INSTALL_DIR/scripts/qr_generator.js" "$admin_connect" 2>/dev/null || log "QR code generation unavailable"
         break
       fi
     elif [ -f "$DATA_DIR/app.nprofile" ]; then
       app_nprofile=$(cat "$DATA_DIR/app.nprofile")
       log "${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} is already set up. Use this nprofile to invite guest users:"
       log "${SECONDARY_COLOR}$app_nprofile${RESET_COLOR}"
+      echo ""
+      log "Or scan this QR code with ShockWallet:"
+      node "$INSTALL_DIR/scripts/qr_generator.js" "$app_nprofile" 2>/dev/null || log "QR code generation unavailable"
       break
     fi
     sleep $WAIT_INTERVAL

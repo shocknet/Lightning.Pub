@@ -77,6 +77,18 @@ install_nodejs_mac() {
 install_nodejs_linux() {
   export NVM_DIR="$USER_HOME/.nvm"
   
+  # Check for snap curl which cannot access hidden folders, nvm falls back to wget if curl is not installed
+  if snap list 2>/dev/null | grep -q "^curl "; then
+    log "ERROR: Snap curl detected"
+    log ""
+    log "Snap curl cannot access hidden folders needed for Node.js installation."
+    log "Please remove snap curl and install native curl:"
+    log "  sudo snap remove curl"
+    log "  sudo apt install curl"
+    log ""
+    exit 1
+  fi
+  
   # Load nvm if it already exists
   [ -s "${NVM_DIR}/nvm.sh" ] && \. "${NVM_DIR}/nvm.sh"
 
