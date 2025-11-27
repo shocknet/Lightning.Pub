@@ -14,9 +14,11 @@ install_nodejs() {
 }
 
 install_nodejs_mac() {
+  local NODE_BIN="$USER_HOME/node/bin/node"
+  
   # Check if node exists and meets minimum version
-  if command -v node &> /dev/null; then
-    NODE_VERSION=$(node -v | sed 's/v//')
+  if [ -x "$NODE_BIN" ]; then
+    NODE_VERSION=$("$NODE_BIN" -v | sed 's/v//')
     if [ "$(printf '%s\n' "$MINIMUM_VERSION" "$NODE_VERSION" | sort -V | awk 'NR==1')" = "$MINIMUM_VERSION" ]; then
       log "Node.js is already installed and meets the minimum version requirement."
       return 0
