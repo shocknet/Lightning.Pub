@@ -177,7 +177,7 @@ export class OlympusLSP extends LSP {
             return null
         }
         const res = await this.liquidityProvider.PayInvoice(order.payment.bolt11.invoice, decoded.numSatoshis, 'system')
-        const fees = +order.payment.bolt11.fee_total_sat + res.network_fee + res.service_fee
+        const fees = +order.payment.bolt11.fee_total_sat + res.service_fee
         this.log("paid", res.amount_paid, "to open channel, and a fee of", fees)
         return { orderId: order.order_id, invoice: order.payment.bolt11.invoice, totalSats: +order.payment.bolt11.order_total_sat, fees }
     }
@@ -279,7 +279,7 @@ export class VoltageLSP extends LSP {
             return null
         }
         const res = await this.liquidityProvider.PayInvoice(proposalRes.jit_bolt11, decoded.numSatoshis, 'system')
-        const fees = feeSats + res.network_fee + res.service_fee
+        const fees = feeSats + res.service_fee
         this.log("paid", res.amount_paid, "to open channel, and a fee of", fees)
         return { orderId: fee.id, invoice: proposalRes.jit_bolt11, totalSats: decoded.numSatoshis, fees }
     }

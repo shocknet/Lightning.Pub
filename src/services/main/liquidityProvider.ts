@@ -152,7 +152,7 @@ export class LiquidityProvider {
             return 0
         }
         const balance = this.latestReceivedBalance
-        const { /* networkFeeBps, */ networkFeeFixed, serviceFeeBps } = this.feesCache
+        const { networkFeeFixed, serviceFeeBps } = this.feesCache
         const div = 1 + (serviceFeeBps / 10000)
         const maxWithoutFixed = Math.floor(balance / div)
         const fee = balance - maxWithoutFixed

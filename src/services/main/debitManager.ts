@@ -289,7 +289,7 @@ export class DebitManager {
 
     sendDebitPayment = async (appId: string, appUserId: string, requestorPub: string, bolt11: string) => {
         const payment = await this.applicationManager.PayAppUserInvoice(appId, { amount: 0, invoice: bolt11, user_identifier: appUserId, debit_npub: requestorPub })
-        await this.storage.debitStorage.IncrementDebitAccess(appUserId, requestorPub, payment.amount_paid + payment.service_fee + payment.network_fee)
+        await this.storage.debitStorage.IncrementDebitAccess(appUserId, requestorPub, payment.amount_paid + payment.service_fee)
         return { payment }
     }
 
