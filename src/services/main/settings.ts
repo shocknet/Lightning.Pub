@@ -95,18 +95,25 @@ const resolveHome = (filepath: string) => {
     return path.join(homeDir, filepath);
 }
 
+const lndDir = () => {
+    if (os.platform() === 'darwin') {
+        return path.join(os.homedir(), 'Library', 'Application Support', 'Lnd');
+    }
+    return resolveHome('/.lnd');
+}
+
 export const LoadLndNodeSettingsFromEnv = (dbEnv: Record<string, string | undefined>, addToDb?: EnvCacher): LndNodeSettings => {
     return {
         lndAddr: chooseEnv('LND_ADDRESS', dbEnv, "127.0.0.1:10009", addToDb),
-        lndCertPath: chooseEnv('LND_CERT_PATH', dbEnv, resolveHome("/.lnd/tls.cert"), addToDb),
-        lndMacaroonPath: chooseEnv('LND_MACAROON_PATH', dbEnv, resolveHome("/.lnd/data/chain/bitcoin/mainnet/admin.macaroon"), addToDb),
+        lndCertPath: chooseEnv('LND_CERT_PATH', dbEnv, path.join(lndDir(), "tls.cert"), addToDb),
+        lndMacaroonPath: chooseEnv('LND_MACAROON_PATH', dbEnv, path.join(lndDir(), "data", "chain", "bitcoin", "mainnet", "admin.macaroon"), addToDb),
     }
 }
 
 export const LoadLndSettingsFromEnv = (dbEnv: Record<string, string | undefined>, addToDb?: EnvCacher): LndSettings => {
     const feeRateBps: number = chooseEnvInt('OUTBOUND_MAX_FEE_BPS', dbEnv, 60, addToDb)
     return {
-        lndLogDir: chooseEnv('LND_LOG_DIR', dbEnv, resolveHome("/.lnd/logs/bitcoin/mainnet/lnd.log"), addToDb),
+        lndLogDir: chooseEnv('LND_LOG_DIR', dbEnv, path.join(lndDir(), "logs", "bitcoin", "mainnet", "lnd.log"), addToDb),
         feeRateBps: feeRateBps,
         feeRateLimit: feeRateBps / 10000,
         feeFixedLimit: chooseEnvInt('OUTBOUND_MAX_FEE_EXTRA_SATS', dbEnv, 100, addToDb),

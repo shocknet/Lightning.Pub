@@ -2,21 +2,110 @@
 
 install_nodejs() {
   USER_HOME=$HOME
-  USER_NAME=$(whoami)
-
-  export NVM_DIR="$USER_HOME/.nvm"
+  MINIMUM_VERSION="24.0.0"
+  
   log "${PRIMARY_COLOR}Checking${RESET_COLOR} for Node.js..."
-  MINIMUM_VERSION="18.0.0"
+
+  if [ "$OS" = "Mac" ]; then
+    install_nodejs_mac
+  else
+    install_nodejs_linux
+  fi
+}
+
+install_nodejs_mac() {
+  local NODE_BIN="$USER_HOME/node/bin/node"
+  
+  # Check if node exists and meets minimum version
+  if [ -x "$NODE_BIN" ]; then
+    NODE_VERSION=$("$NODE_BIN" -v | sed 's/v//')
+    if [ "$(printf '%s\n' "$MINIMUM_VERSION" "$NODE_VERSION" | sort -V | awk 'NR==1')" = "$MINIMUM_VERSION" ]; then
+      log "Node.js is already installed and meets the minimum version requirement."
+      return 0
+    fi
+  fi
+
+  # Get latest LTS version from Node.js
+  local node_tmp=$(mktemp)
+  download_stdout "https://nodejs.org/dist/index.json" > "$node_tmp"
+  local lts_version=$(grep -o '"version":"v[0-9.]*"[^}]*"lts":"[A-Za-z]*"' "$node_tmp" | grep -v '"lts":false' | head -1 | awk -F'"' '{print $4}')
+  rm -f "$node_tmp"
+  
+  if [ -z "$lts_version" ]; then
+    log "Failed to fetch Node.js LTS version."
+    return 1
+  fi
+  
+  log "${PRIMARY_COLOR}Installing${RESET_COLOR} Node.js ${lts_version}..."
+  
+  local node_arch="x64"
+  [ "$ARCH" = "arm64" ] && node_arch="arm64"
+  
+  local node_url="https://nodejs.org/dist/${lts_version}/node-${lts_version}-darwin-${node_arch}.tar.gz"
+  local node_tar="$USER_HOME/node.tar.gz"
+  
+  download "$node_url" "$node_tar" || {
+    log "Failed to download Node.js."
+    return 1
+  }
+  
+  # Extract to ~/node
+  rm -rf "$USER_HOME/node"
+  mkdir -p "$USER_HOME/node"
+  tar -xzf "$node_tar" -C "$USER_HOME/node" --strip-components=1 || {
+    log "Failed to extract Node.js."
+    rm -f "$node_tar"
+    return 1
+  }
+  rm -f "$node_tar"
+  
+  # Add to PATH for current session
+  export PATH="$USER_HOME/node/bin:$PATH"
+  
+  # Add to shell profile if not already there
+  local shell_profile="$USER_HOME/.zshrc"
+  [ -f "$USER_HOME/.bash_profile" ] && shell_profile="$USER_HOME/.bash_profile"
+  
+  if ! grep -q 'node/bin' "$shell_profile" 2>/dev/null; then
+    echo 'export PATH="$HOME/node/bin:$PATH"' >> "$shell_profile"
+  fi
+  
+  log "Node.js ${lts_version} installation completed."
+  return 0
+}
+
+install_nodejs_linux() {
+  export NVM_DIR="$USER_HOME/.nvm"
+  
+  # Check for snap curl which cannot access hidden folders, nvm falls back to wget if curl is not installed
+  if snap list 2>/dev/null | grep -q "^curl "; then
+    log "ERROR: Snap curl detected"
+    log ""
+    log "Snap curl cannot access hidden folders needed for Node.js installation."
+    log "Please remove snap curl and install native curl:"
+    log "  sudo snap remove curl"
+    log "  sudo apt install curl"
+    log ""
+    exit 1
+  fi
   
   # Load nvm if it already exists
-  export NVM_DIR="${NVM_DIR}"
   [ -s "${NVM_DIR}/nvm.sh" ] && \. "${NVM_DIR}/nvm.sh"
 
   if ! command -v nvm &> /dev/null; then
-    NVM_VERSION=$(wget -qO- https://api.github.com/repos/nvm-sh/nvm/releases/latest | grep -oP '"tag_name": "\K(.*)(?=")')
-    wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/${NVM_VERSION}/install.sh | bash > /dev/null 2>&1
-    export NVM_DIR="${NVM_DIR}"
+    NVM_VERSION=$(get_latest_release_tag "nvm-sh/nvm")
+    if [ -z "$NVM_VERSION" ]; then
+      log "Failed to fetch latest NVM version."
+      return 1
+    fi
+    log "Installing NVM ${NVM_VERSION}..."
+    download_stdout "https://raw.githubusercontent.com/nvm-sh/nvm/${NVM_VERSION}/install.sh" | bash > /dev/null 2>&1
     [ -s "${NVM_DIR}/nvm.sh" ] && \. "${NVM_DIR}/nvm.sh"
+  fi
+
+  if ! command -v nvm &> /dev/null; then
+    log "NVM installation failed."
+    return 1
   fi
 
   if command -v node &> /dev/null; then
@@ -31,8 +120,7 @@ install_nodejs() {
     log "Node.js is not installed. ${PRIMARY_COLOR}Installing the LTS version...${RESET_COLOR}"
   fi
 
-  # Silence all nvm output to keep installer logs clean
-  if ! bash -c "source ${NVM_DIR}/nvm.sh && nvm install --lts" >/dev/null 2>&1; then
+  if ! nvm install --lts > /dev/null 2>&1; then
     log "${PRIMARY_COLOR}Failed to install Node.js.${RESET_COLOR}"
     return 1
   fi
