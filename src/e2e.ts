@@ -25,7 +25,10 @@ const start = async () => {
     const nostrSettings = settingsManager.getSettings().nostrRelaySettings
     log("initializing nostr middleware")
     const { Send } = nostrMiddleware(serverMethods, mainHandler,
-        { ...nostrSettings, apps, clients: [liquidityProviderInfo] },
+        {
+            ...nostrSettings, apps, clients: [liquidityProviderInfo],
+            providerDestinationPub: settingsManager.getSettings().liquiditySettings.liquidityProviderPub
+        },
         (e, p) => mainHandler.liquidityProvider.onEvent(e, p)
     )
     log("starting server")

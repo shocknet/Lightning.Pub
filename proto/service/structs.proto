@@ -389,7 +389,8 @@ message PayAppUserInvoiceRequest {
     string user_identifier = 1;
     string invoice = 2;
     int64 amount = 3;
-    optional string debit_npub = 4;
+    optional string debit_npub = 4; 
+    optional CumulativeFees expected_fees = 5;
 }
 
 message SendAppUserToAppUserPaymentRequest {
@@ -466,7 +467,8 @@ message DecodeInvoiceResponse{
 message PayInvoiceRequest{
     string invoice = 1;
     int64 amount = 2;
-    optional string debit_npub = 3;
+    optional string debit_npub = 3; 
+    optional CumulativeFees expected_fees = 4;
 }
 
 message PayInvoiceResponse{
@@ -475,6 +477,7 @@ message PayInvoiceResponse{
     string operation_id = 3;
     int64 service_fee = 4;
     int64 network_fee = 5;
+    int64 latest_balance = 6;
 }
 
 message GetPaymentStateRequest{
@@ -605,6 +608,7 @@ message GetProductBuyLinkResponse {
 
 message LiveUserOperation {
     UserOperation operation  = 1;
+    int64 latest_balance = 2;
 }
 message MigrationUpdate {
     optional ClosureMigration closure = 1;
@@ -837,6 +841,17 @@ message TransactionSwapQuote {
 
     int64 swap_fee_sats = 4;
     int64 chain_fee_sats = 5;
-    int64 routing_fee_reserve_sats = 6;
     int64 service_fee_sats = 7;
+}
+message CumulativeFees {
+    int64 networkFeeFixed = 2;
+    int64 serviceFeeBps = 3;
+}
+
+message BeaconData {
+    string type = 1;
+    string name = 2;
+    optional string avatarUrl = 3;
+    optional string nextRelay = 4;
+    optional CumulativeFees fees = 5;
 }

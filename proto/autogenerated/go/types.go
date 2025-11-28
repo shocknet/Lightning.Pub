@@ -177,6 +177,13 @@ type BannedAppUser struct {
 	Nostr_pub       string `json:"nostr_pub"`
 	User_identifier string `json:"user_identifier"`
 }
+type BeaconData struct {
+	Avatarurl string          `json:"avatarUrl"`
+	Fees      *CumulativeFees `json:"fees"`
+	Name      string          `json:"name"`
+	Nextrelay string          `json:"nextRelay"`
+	Type      string          `json:"type"`
+}
 type BundleData struct {
 	Available_chunks []int64  `json:"available_chunks"`
 	Base_64_data     []string `json:"base_64_data"`
@@ -221,6 +228,10 @@ type CreateOneTimeInviteLinkRequest struct {
 }
 type CreateOneTimeInviteLinkResponse struct {
 	Invitation_link string `json:"invitation_link"`
+}
+type CumulativeFees struct {
+	Networkfeefixed int64 `json:"networkFeeFixed"`
+	Servicefeebps   int64 `json:"serviceFeeBps"`
 }
 type DebitAuthorization struct {
 	Authorized bool        `json:"authorized"`
@@ -360,7 +371,8 @@ type LiveManageRequest struct {
 	Request_id string `json:"request_id"`
 }
 type LiveUserOperation struct {
-	Operation *UserOperation `json:"operation"`
+	Latest_balance int64          `json:"latest_balance"`
+	Operation      *UserOperation `json:"operation"`
 }
 type LndChannels struct {
 	Open_channels []OpenChannel `json:"open_channels"`
@@ -544,22 +556,25 @@ type PayAddressResponse struct {
 	Txid         string `json:"txId"`
 }
 type PayAppUserInvoiceRequest struct {
-	Amount          int64  `json:"amount"`
-	Debit_npub      string `json:"debit_npub"`
-	Invoice         string `json:"invoice"`
-	User_identifier string `json:"user_identifier"`
+	Amount          int64           `json:"amount"`
+	Debit_npub      string          `json:"debit_npub"`
+	Expected_fees   *CumulativeFees `json:"expected_fees"`
+	Invoice         string          `json:"invoice"`
+	User_identifier string          `json:"user_identifier"`
 }
 type PayInvoiceRequest struct {
-	Amount     int64  `json:"amount"`
-	Debit_npub string `json:"debit_npub"`
-	Invoice    string `json:"invoice"`
+	Amount        int64           `json:"amount"`
+	Debit_npub    string          `json:"debit_npub"`
+	Expected_fees *CumulativeFees `json:"expected_fees"`
+	Invoice       string          `json:"invoice"`
 }
 type PayInvoiceResponse struct {
-	Amount_paid  int64  `json:"amount_paid"`
-	Network_fee  int64  `json:"network_fee"`
-	Operation_id string `json:"operation_id"`
-	Preimage     string `json:"preimage"`
-	Service_fee  int64  `json:"service_fee"`
+	Amount_paid    int64  `json:"amount_paid"`
+	Latest_balance int64  `json:"latest_balance"`
+	Network_fee    int64  `json:"network_fee"`
+	Operation_id   string `json:"operation_id"`
+	Preimage       string `json:"preimage"`
+	Service_fee    int64  `json:"service_fee"`
 }
 type PayerData struct {
 	Data map[string]string `json:"data"`
@@ -641,13 +656,12 @@ type SingleMetricReq struct {
 	Request_id   int64            `json:"request_id"`
 }
 type TransactionSwapQuote struct {
-	Chain_fee_sats           int64  `json:"chain_fee_sats"`
-	Invoice_amount_sats      int64  `json:"invoice_amount_sats"`
-	Routing_fee_reserve_sats int64  `json:"routing_fee_reserve_sats"`
-	Service_fee_sats         int64  `json:"service_fee_sats"`
-	Swap_fee_sats            int64  `json:"swap_fee_sats"`
-	Swap_operation_id        string `json:"swap_operation_id"`
-	Transaction_amount_sats  int64  `json:"transaction_amount_sats"`
+	Chain_fee_sats          int64  `json:"chain_fee_sats"`
+	Invoice_amount_sats     int64  `json:"invoice_amount_sats"`
+	Service_fee_sats        int64  `json:"service_fee_sats"`
+	Swap_fee_sats           int64  `json:"swap_fee_sats"`
+	Swap_operation_id       string `json:"swap_operation_id"`
+	Transaction_amount_sats int64  `json:"transaction_amount_sats"`
 }
 type TransactionSwapRequest struct {
 	Transaction_amount_sats int64 `json:"transaction_amount_sats"`

@@ -50,8 +50,11 @@ export class LiquidityManager {
     }
 
     beforeInvoiceCreation = async (amount: number): Promise<'lnd' | 'provider'> => {
-
+        const providerReady = this.liquidityProvider.IsReady()
         if (this.settings.getSettings().liquiditySettings.useOnlyLiquidityProvider) {
+            if (!providerReady) {
+                throw new Error("cannot use liquidity provider, it is not ready")
+            }
             return 'provider'
         }
 
@@ -63,7 +66,7 @@ export class LiquidityManager {
         if (remote > amount) {
             return 'lnd'
         }
-        const providerCanHandle = await this.liquidityProvider.CanProviderHandle({ action: 'receive', amount })
+        const providerCanHandle = this.liquidityProvider.IsReady()
         if (!providerCanHandle) {
             return 'lnd'
         }
@@ -78,20 +81,28 @@ export class LiquidityManager {
         }
     }
 
-    beforeOutInvoicePayment = async (amount: number): Promise<'lnd' | 'provider'> => {
+    beforeOutInvoicePayment = async (amount: number, localServiceFee: number): Promise<'lnd' | 'provider'> => {
+        const providerReady = this.liquidityProvider.IsReady()
         if (this.settings.getSettings().liquiditySettings.useOnlyLiquidityProvider) {
+            if (!providerReady) {
+                throw new Error("cannot use liquidity provider, it is not ready")
+            }
             return 'provider'
         }
-        const canHandle = await this.liquidityProvider.CanProviderHandle({ action: 'spend', amount })
-        if (canHandle) {
-            return 'provider'
+        if (!providerReady) {
+            return 'lnd'
         }
-        return 'lnd'
+        const canHandle = await this.liquidityProvider.CanProviderPay(amount, localServiceFee)
+        if (!canHandle) {
+            return 'lnd'
+        }
+        return 'provider'
     }
+
     afterOutInvoicePaid = async () => { }
 
     shouldDrainProvider = async () => {
-        const maxW = await this.liquidityProvider.GetLatestMaxWithdrawable()
+        const maxW = await this.liquidityProvider.GetMaxWithdrawable()
         const { remote } = await this.lnd.ChannelBalance()
         const drainable = Math.min(maxW, remote)
         if (drainable < 500) {
@@ -121,7 +132,7 @@ export class LiquidityManager {
         try {
             const invoice = await this.lnd.NewInvoice(amt, "liqudity provider drain", defaultInvoiceExpiry, { from: 'system', useProvider: false })
             const res = await this.liquidityProvider.PayInvoice(invoice.payRequest, amt, 'system')
-            const fees = res.network_fee + res.service_fee
+            const fees = res.service_fee
             this.feesPaid += fees
             this.updateLatestDrain(true, amt)
         } catch (err: any) {
@@ -160,7 +171,7 @@ export class LiquidityManager {
         if (pendingChannels.pendingOpenChannels.length > 0) {
             return { shouldOpen: false }
         }
-        const maxW = await this.liquidityProvider.GetLatestMaxWithdrawable()
+        const maxW = await this.liquidityProvider.GetMaxWithdrawable()
         if (maxW < threshold) {
             return { shouldOpen: false }
         }

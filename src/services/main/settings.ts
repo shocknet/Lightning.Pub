@@ -78,9 +78,7 @@ export type LndNodeSettings = {
 }
 export type LndSettings = {
     lndLogDir: string
-    feeRateLimit: number
     feeFixedLimit: number
-    feeRateBps: number
     mockLnd: boolean
 
 }
@@ -104,12 +102,9 @@ export const LoadLndNodeSettingsFromEnv = (dbEnv: Record<string, string | undefi
 }
 
 export const LoadLndSettingsFromEnv = (dbEnv: Record<string, string | undefined>, addToDb?: EnvCacher): LndSettings => {
-    const feeRateBps: number = chooseEnvInt('OUTBOUND_MAX_FEE_BPS', dbEnv, 60, addToDb)
     return {
         lndLogDir: chooseEnv('LND_LOG_DIR', dbEnv, resolveHome("/.lnd/logs/bitcoin/mainnet/lnd.log"), addToDb),
-        feeRateBps: feeRateBps,
-        feeRateLimit: feeRateBps / 10000,
-        feeFixedLimit: chooseEnvInt('OUTBOUND_MAX_FEE_EXTRA_SATS', dbEnv, 100, addToDb),
+        feeFixedLimit: chooseEnvInt('OUTBOUND_MAX_FEE_EXTRA_SATS', dbEnv, 10, addToDb),
         mockLnd: false
     }
 }

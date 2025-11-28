@@ -29,16 +29,15 @@ const testSpamExternalPayment = async (T: TestBase) => {
     const failedPayments = res.filter(r => !r.success)
     console.log(failedPayments)
     failedPayments.forEach(f => expect(f.err).to.be.equal("not enough balance to decrement"))
-    successfulPayments.forEach(s => expect(s.result).to.contain({ amount_paid: 500, network_fee: 1, service_fee: 3 }))
+    successfulPayments.forEach(s => expect(s.result).to.contain({ amount_paid: 500, network_fee: 0, service_fee: 10 }))
     expect(successfulPayments.length).to.be.equal(3)
     expect(failedPayments.length).to.be.equal(7)
     T.d("3 payments succeeded, 7 failed as expected")
     const u = await T.main.storage.userStorage.GetUser(T.user1.userId)
     const owner = await T.main.storage.userStorage.GetUser(application.owner.user_id)
-    expect(u.balance_sats).to.be.equal(488)
-    T.d("user1 balance is now 488 (2000 - (500 + 3 fee + 1 routing) * 3)")
-    expect(owner.balance_sats).to.be.equal(9)
-    T.d("app balance is 9 sats")
-
+    expect(u.balance_sats).to.be.equal(470)
+    T.d("user1 balance is now 470 (2000 - (500 + 10 fee) * 3)")
+    expect(owner.balance_sats).to.be.equal(27)
+    T.d("app balance is 27 sats")
 }
 
