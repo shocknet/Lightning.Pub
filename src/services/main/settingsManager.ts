@@ -5,7 +5,8 @@ import {
     LiquiditySettings, LndNodeSettings, LndSettings, LoadLiquiditySettingsFromEnv,
     LoadLSPSettingsFromEnv, LSPSettings, ServiceFeeSettings, ServiceSettings, LoadServiceFeeSettingsFromEnv,
     LoadNostrRelaySettingsFromEnv, LoadServiceSettingsFromEnv, LoadWatchdogSettingsFromEnv,
-    LoadLndNodeSettingsFromEnv, LoadLndSettingsFromEnv, NostrRelaySettings, WatchdogSettings
+    LoadLndNodeSettingsFromEnv, LoadLndSettingsFromEnv, NostrRelaySettings, WatchdogSettings, SwapsSettings, LoadSwapsSettingsFromEnv
+
 } from "./settings.js"
 export default class SettingsManager {
     storage: Storage
@@ -27,6 +28,7 @@ export default class SettingsManager {
             serviceFeeSettings: LoadServiceFeeSettingsFromEnv(dbEnv, addToDb),
             serviceSettings: LoadServiceSettingsFromEnv(dbEnv, addToDb),
             watchDogSettings: LoadWatchdogSettingsFromEnv(dbEnv, addToDb),
+            swapsSettings: LoadSwapsSettingsFromEnv(dbEnv, addToDb),
         }
     }
 
@@ -148,5 +150,6 @@ type FullSettings = {
     nostrRelaySettings: NostrRelaySettings,
     serviceFeeSettings: ServiceFeeSettings,
     serviceSettings: ServiceSettings,
-    lspSettings: LSPSettings
+    lspSettings: LSPSettings,
+    swapsSettings: SwapsSettings
 }

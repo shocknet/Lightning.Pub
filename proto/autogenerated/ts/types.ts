@@ -35,8 +35,8 @@ export type UserContext = {
     app_user_id: string
     user_id: string
 }
-export type UserMethodInputs = AddProduct_Input | AddUserOffer_Input | AuthorizeManage_Input | BanDebit_Input | DecodeInvoice_Input | DeleteUserOffer_Input | EditDebit_Input | EnrollAdminToken_Input | EnrollMessagingToken_Input | GetDebitAuthorizations_Input | GetHttpCreds_Input | GetLNURLChannelLink_Input | GetLnurlPayLink_Input | GetLnurlWithdrawLink_Input | GetManageAuthorizations_Input | GetPaymentState_Input | GetUserInfo_Input | GetUserOffer_Input | GetUserOfferInvoices_Input | GetUserOffers_Input | GetUserOperations_Input | NewAddress_Input | NewInvoice_Input | NewProductInvoice_Input | PayAddress_Input | PayInvoice_Input | ResetDebit_Input | ResetManage_Input | RespondToDebit_Input | UpdateCallbackUrl_Input | UpdateUserOffer_Input | UserHealth_Input
-export type UserMethodOutputs = AddProduct_Output | AddUserOffer_Output | AuthorizeManage_Output | BanDebit_Output | DecodeInvoice_Output | DeleteUserOffer_Output | EditDebit_Output | EnrollAdminToken_Output | EnrollMessagingToken_Output | GetDebitAuthorizations_Output | GetHttpCreds_Output | GetLNURLChannelLink_Output | GetLnurlPayLink_Output | GetLnurlWithdrawLink_Output | GetManageAuthorizations_Output | GetPaymentState_Output | GetUserInfo_Output | GetUserOffer_Output | GetUserOfferInvoices_Output | GetUserOffers_Output | GetUserOperations_Output | NewAddress_Output | NewInvoice_Output | NewProductInvoice_Output | PayAddress_Output | PayInvoice_Output | ResetDebit_Output | ResetManage_Output | RespondToDebit_Output | UpdateCallbackUrl_Output | UpdateUserOffer_Output | UserHealth_Output
+export type UserMethodInputs = AddProduct_Input | AddUserOffer_Input | AuthorizeManage_Input | BanDebit_Input | DecodeInvoice_Input | DeleteUserOffer_Input | EditDebit_Input | EnrollAdminToken_Input | EnrollMessagingToken_Input | GetDebitAuthorizations_Input | GetHttpCreds_Input | GetLNURLChannelLink_Input | GetLnurlPayLink_Input | GetLnurlWithdrawLink_Input | GetManageAuthorizations_Input | GetPaymentState_Input | GetTransactionSwapQuote_Input | GetUserInfo_Input | GetUserOffer_Input | GetUserOfferInvoices_Input | GetUserOffers_Input | GetUserOperations_Input | NewAddress_Input | NewInvoice_Input | NewProductInvoice_Input | PayAddress_Input | PayInvoice_Input | ResetDebit_Input | ResetManage_Input | RespondToDebit_Input | UpdateCallbackUrl_Input | UpdateUserOffer_Input | UserHealth_Input
+export type UserMethodOutputs = AddProduct_Output | AddUserOffer_Output | AuthorizeManage_Output | BanDebit_Output | DecodeInvoice_Output | DeleteUserOffer_Output | EditDebit_Output | EnrollAdminToken_Output | EnrollMessagingToken_Output | GetDebitAuthorizations_Output | GetHttpCreds_Output | GetLNURLChannelLink_Output | GetLnurlPayLink_Output | GetLnurlWithdrawLink_Output | GetManageAuthorizations_Output | GetPaymentState_Output | GetTransactionSwapQuote_Output | GetUserInfo_Output | GetUserOffer_Output | GetUserOfferInvoices_Output | GetUserOffers_Output | GetUserOperations_Output | NewAddress_Output | NewInvoice_Output | NewProductInvoice_Output | PayAddress_Output | PayInvoice_Output | ResetDebit_Output | ResetManage_Output | RespondToDebit_Output | UpdateCallbackUrl_Output | UpdateUserOffer_Output | UserHealth_Output
 export type AuthContext = AdminContext | AppContext | GuestContext | GuestWithPubContext | MetricsContext | UserContext
 
 export type AddApp_Input = {rpcName:'AddApp', req: AddAppRequest}
@@ -185,6 +185,9 @@ export type GetSingleBundleMetrics_Output = ResultError | ({ status: 'OK' } & Bu
 
 export type GetSingleUsageMetrics_Input = {rpcName:'GetSingleUsageMetrics', req: SingleMetricReq}
 export type GetSingleUsageMetrics_Output = ResultError | ({ status: 'OK' } & UsageMetricTlv)
+
+export type GetTransactionSwapQuote_Input = {rpcName:'GetTransactionSwapQuote', req: TransactionSwapRequest}
+export type GetTransactionSwapQuote_Output = ResultError | ({ status: 'OK' } & TransactionSwapQuote)
 
 export type GetUsageMetrics_Input = {rpcName:'GetUsageMetrics', req: LatestUsageMetricReq}
 export type GetUsageMetrics_Output = ResultError | ({ status: 'OK' } & UsageMetrics)
@@ -369,6 +372,7 @@ export type ServerMethods = {
     GetSeed?: (req: GetSeed_Input & {ctx: AdminContext }) => Promise<LndSeed>
     GetSingleBundleMetrics?: (req: GetSingleBundleMetrics_Input & {ctx: MetricsContext }) => Promise<BundleData>
     GetSingleUsageMetrics?: (req: GetSingleUsageMetrics_Input & {ctx: MetricsContext }) => Promise<UsageMetricTlv>
+    GetTransactionSwapQuote?: (req: GetTransactionSwapQuote_Input & {ctx: UserContext }) => Promise<TransactionSwapQuote>
     GetUsageMetrics?: (req: GetUsageMetrics_Input & {ctx: MetricsContext }) => Promise<UsageMetrics>
     GetUserInfo?: (req: GetUserInfo_Input & {ctx: UserContext }) => Promise<UserInfo>
     GetUserOffer?: (req: GetUserOffer_Input & {ctx: UserContext }) => Promise<OfferConfig>
@@ -979,6 +983,48 @@ export const BannedAppUserValidate = (o?: BannedAppUser, opts: BannedAppUserOpti
     return null
 }
 
+export type BeaconData = {
+    avatarUrl?: string
+    fees?: CumulativeFees
+    name: string
+    nextRelay?: string
+    type: string
+}
+export type BeaconDataOptionalField = 'avatarUrl' | 'fees' | 'nextRelay'
+export const BeaconDataOptionalFields: BeaconDataOptionalField[] = ['avatarUrl', 'fees', 'nextRelay']
+export type BeaconDataOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: BeaconDataOptionalField[]
+    avatarUrl_CustomCheck?: (v?: string) => boolean
+    fees_Options?: CumulativeFeesOptions
+    name_CustomCheck?: (v: string) => boolean
+    nextRelay_CustomCheck?: (v?: string) => boolean
+    type_CustomCheck?: (v: string) => boolean
+}
+export const BeaconDataValidate = (o?: BeaconData, opts: BeaconDataOptions = {}, path: string = 'BeaconData::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if ((o.avatarUrl || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('avatarUrl')) && typeof o.avatarUrl !== 'string') return new Error(`${path}.avatarUrl: is not a string`)
+    if (opts.avatarUrl_CustomCheck && !opts.avatarUrl_CustomCheck(o.avatarUrl)) return new Error(`${path}.avatarUrl: custom check failed`)
+
+    if (typeof o.fees === 'object' || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('fees')) {
+        const feesErr = CumulativeFeesValidate(o.fees, opts.fees_Options, `${path}.fees`)
+        if (feesErr !== null) return feesErr
+    }
+    
+
+    if (typeof o.name !== 'string') return new Error(`${path}.name: is not a string`)
+    if (opts.name_CustomCheck && !opts.name_CustomCheck(o.name)) return new Error(`${path}.name: custom check failed`)
+
+    if ((o.nextRelay || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('nextRelay')) && typeof o.nextRelay !== 'string') return new Error(`${path}.nextRelay: is not a string`)
+    if (opts.nextRelay_CustomCheck && !opts.nextRelay_CustomCheck(o.nextRelay)) return new Error(`${path}.nextRelay: custom check failed`)
+
+    if (typeof o.type !== 'string') return new Error(`${path}.type: is not a string`)
+    if (opts.type_CustomCheck && !opts.type_CustomCheck(o.type)) return new Error(`${path}.type: custom check failed`)
+
+    return null
+}
+
 export type BundleData = {
     available_chunks: number[]
     base_64_data: string[]
@@ -1248,6 +1294,29 @@ export const CreateOneTimeInviteLinkResponseValidate = (o?: CreateOneTimeInviteL
 
     if (typeof o.invitation_link !== 'string') return new Error(`${path}.invitation_link: is not a string`)
     if (opts.invitation_link_CustomCheck && !opts.invitation_link_CustomCheck(o.invitation_link)) return new Error(`${path}.invitation_link: custom check failed`)
+
+    return null
+}
+
+export type CumulativeFees = {
+    networkFeeFixed: number
+    serviceFeeBps: number
+}
+export const CumulativeFeesOptionalFields: [] = []
+export type CumulativeFeesOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    networkFeeFixed_CustomCheck?: (v: number) => boolean
+    serviceFeeBps_CustomCheck?: (v: number) => boolean
+}
+export const CumulativeFeesValidate = (o?: CumulativeFees, opts: CumulativeFeesOptions = {}, path: string = 'CumulativeFees::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.networkFeeFixed !== 'number') return new Error(`${path}.networkFeeFixed: is not a number`)
+    if (opts.networkFeeFixed_CustomCheck && !opts.networkFeeFixed_CustomCheck(o.networkFeeFixed)) return new Error(`${path}.networkFeeFixed: custom check failed`)
+
+    if (typeof o.serviceFeeBps !== 'number') return new Error(`${path}.serviceFeeBps: is not a number`)
+    if (opts.serviceFeeBps_CustomCheck && !opts.serviceFeeBps_CustomCheck(o.serviceFeeBps)) return new Error(`${path}.serviceFeeBps: custom check failed`)
 
     return null
 }
@@ -2089,16 +2158,21 @@ export const LiveManageRequestValidate = (o?: LiveManageRequest, opts: LiveManag
 }
 
 export type LiveUserOperation = {
+    latest_balance: number
     operation: UserOperation
 }
 export const LiveUserOperationOptionalFields: [] = []
 export type LiveUserOperationOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
+    latest_balance_CustomCheck?: (v: number) => boolean
     operation_Options?: UserOperationOptions
 }
 export const LiveUserOperationValidate = (o?: LiveUserOperation, opts: LiveUserOperationOptions = {}, path: string = 'LiveUserOperation::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
     if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.latest_balance !== 'number') return new Error(`${path}.latest_balance: is not a number`)
+    if (opts.latest_balance_CustomCheck && !opts.latest_balance_CustomCheck(o.latest_balance)) return new Error(`${path}.latest_balance: custom check failed`)
 
     const operationErr = UserOperationValidate(o.operation, opts.operation_Options, `${path}.operation`)
     if (operationErr !== null) return operationErr
@@ -3132,13 +3206,16 @@ export type PayAddressRequest = {
     address: string
     amoutSats: number
     satsPerVByte: number
+    swap_operation_id?: string
 }
-export const PayAddressRequestOptionalFields: [] = []
+export type PayAddressRequestOptionalField = 'swap_operation_id'
+export const PayAddressRequestOptionalFields: PayAddressRequestOptionalField[] = ['swap_operation_id']
 export type PayAddressRequestOptions = OptionsBaseMessage & {
-    checkOptionalsAreSet?: []
+    checkOptionalsAreSet?: PayAddressRequestOptionalField[]
     address_CustomCheck?: (v: string) => boolean
     amoutSats_CustomCheck?: (v: number) => boolean
     satsPerVByte_CustomCheck?: (v: number) => boolean
+    swap_operation_id_CustomCheck?: (v?: string) => boolean
 }
 export const PayAddressRequestValidate = (o?: PayAddressRequest, opts: PayAddressRequestOptions = {}, path: string = 'PayAddressRequest::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
@@ -3152,6 +3229,9 @@ export const PayAddressRequestValidate = (o?: PayAddressRequest, opts: PayAddres
 
     if (typeof o.satsPerVByte !== 'number') return new Error(`${path}.satsPerVByte: is not a number`)
     if (opts.satsPerVByte_CustomCheck && !opts.satsPerVByte_CustomCheck(o.satsPerVByte)) return new Error(`${path}.satsPerVByte: custom check failed`)
+
+    if ((o.swap_operation_id || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('swap_operation_id')) && typeof o.swap_operation_id !== 'string') return new Error(`${path}.swap_operation_id: is not a string`)
+    if (opts.swap_operation_id_CustomCheck && !opts.swap_operation_id_CustomCheck(o.swap_operation_id)) return new Error(`${path}.swap_operation_id: custom check failed`)
 
     return null
 }
@@ -3192,15 +3272,17 @@ export const PayAddressResponseValidate = (o?: PayAddressResponse, opts: PayAddr
 export type PayAppUserInvoiceRequest = {
     amount: number
     debit_npub?: string
+    expected_fees?: CumulativeFees
     invoice: string
     user_identifier: string
 }
-export type PayAppUserInvoiceRequestOptionalField = 'debit_npub'
-export const PayAppUserInvoiceRequestOptionalFields: PayAppUserInvoiceRequestOptionalField[] = ['debit_npub']
+export type PayAppUserInvoiceRequestOptionalField = 'debit_npub' | 'expected_fees'
+export const PayAppUserInvoiceRequestOptionalFields: PayAppUserInvoiceRequestOptionalField[] = ['debit_npub', 'expected_fees']
 export type PayAppUserInvoiceRequestOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: PayAppUserInvoiceRequestOptionalField[]
     amount_CustomCheck?: (v: number) => boolean
     debit_npub_CustomCheck?: (v?: string) => boolean
+    expected_fees_Options?: CumulativeFeesOptions
     invoice_CustomCheck?: (v: string) => boolean
     user_identifier_CustomCheck?: (v: string) => boolean
 }
@@ -3214,6 +3296,12 @@ export const PayAppUserInvoiceRequestValidate = (o?: PayAppUserInvoiceRequest, o
     if ((o.debit_npub || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('debit_npub')) && typeof o.debit_npub !== 'string') return new Error(`${path}.debit_npub: is not a string`)
     if (opts.debit_npub_CustomCheck && !opts.debit_npub_CustomCheck(o.debit_npub)) return new Error(`${path}.debit_npub: custom check failed`)
 
+    if (typeof o.expected_fees === 'object' || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('expected_fees')) {
+        const expected_feesErr = CumulativeFeesValidate(o.expected_fees, opts.expected_fees_Options, `${path}.expected_fees`)
+        if (expected_feesErr !== null) return expected_feesErr
+    }
+    
+
     if (typeof o.invoice !== 'string') return new Error(`${path}.invoice: is not a string`)
     if (opts.invoice_CustomCheck && !opts.invoice_CustomCheck(o.invoice)) return new Error(`${path}.invoice: custom check failed`)
 
@@ -3226,14 +3314,16 @@ export const PayAppUserInvoiceRequestValidate = (o?: PayAppUserInvoiceRequest, o
 export type PayInvoiceRequest = {
     amount: number
     debit_npub?: string
+    expected_fees?: CumulativeFees
     invoice: string
 }
-export type PayInvoiceRequestOptionalField = 'debit_npub'
-export const PayInvoiceRequestOptionalFields: PayInvoiceRequestOptionalField[] = ['debit_npub']
+export type PayInvoiceRequestOptionalField = 'debit_npub' | 'expected_fees'
+export const PayInvoiceRequestOptionalFields: PayInvoiceRequestOptionalField[] = ['debit_npub', 'expected_fees']
 export type PayInvoiceRequestOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: PayInvoiceRequestOptionalField[]
     amount_CustomCheck?: (v: number) => boolean
     debit_npub_CustomCheck?: (v?: string) => boolean
+    expected_fees_Options?: CumulativeFeesOptions
     invoice_CustomCheck?: (v: string) => boolean
 }
 export const PayInvoiceRequestValidate = (o?: PayInvoiceRequest, opts: PayInvoiceRequestOptions = {}, path: string = 'PayInvoiceRequest::root.'): Error | null => {
@@ -3246,6 +3336,12 @@ export const PayInvoiceRequestValidate = (o?: PayInvoiceRequest, opts: PayInvoic
     if ((o.debit_npub || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('debit_npub')) && typeof o.debit_npub !== 'string') return new Error(`${path}.debit_npub: is not a string`)
     if (opts.debit_npub_CustomCheck && !opts.debit_npub_CustomCheck(o.debit_npub)) return new Error(`${path}.debit_npub: custom check failed`)
 
+    if (typeof o.expected_fees === 'object' || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('expected_fees')) {
+        const expected_feesErr = CumulativeFeesValidate(o.expected_fees, opts.expected_fees_Options, `${path}.expected_fees`)
+        if (expected_feesErr !== null) return expected_feesErr
+    }
+    
+
     if (typeof o.invoice !== 'string') return new Error(`${path}.invoice: is not a string`)
     if (opts.invoice_CustomCheck && !opts.invoice_CustomCheck(o.invoice)) return new Error(`${path}.invoice: custom check failed`)
 
@@ -3254,6 +3350,7 @@ export const PayInvoiceRequestValidate = (o?: PayInvoiceRequest, opts: PayInvoic
 
 export type PayInvoiceResponse = {
     amount_paid: number
+    latest_balance: number
     network_fee: number
     operation_id: string
     preimage: string
@@ -3263,6 +3360,7 @@ export const PayInvoiceResponseOptionalFields: [] = []
 export type PayInvoiceResponseOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
     amount_paid_CustomCheck?: (v: number) => boolean
+    latest_balance_CustomCheck?: (v: number) => boolean
     network_fee_CustomCheck?: (v: number) => boolean
     operation_id_CustomCheck?: (v: string) => boolean
     preimage_CustomCheck?: (v: string) => boolean
@@ -3274,6 +3372,9 @@ export const PayInvoiceResponseValidate = (o?: PayInvoiceResponse, opts: PayInvo
 
     if (typeof o.amount_paid !== 'number') return new Error(`${path}.amount_paid: is not a number`)
     if (opts.amount_paid_CustomCheck && !opts.amount_paid_CustomCheck(o.amount_paid)) return new Error(`${path}.amount_paid: custom check failed`)
+
+    if (typeof o.latest_balance !== 'number') return new Error(`${path}.latest_balance: is not a number`)
+    if (opts.latest_balance_CustomCheck && !opts.latest_balance_CustomCheck(o.latest_balance)) return new Error(`${path}.latest_balance: custom check failed`)
 
     if (typeof o.network_fee !== 'number') return new Error(`${path}.network_fee: is not a number`)
     if (opts.network_fee_CustomCheck && !opts.network_fee_CustomCheck(o.network_fee)) return new Error(`${path}.network_fee: custom check failed`)
@@ -3740,6 +3841,67 @@ export const SingleMetricReqValidate = (o?: SingleMetricReq, opts: SingleMetricR
 
     if ((o.request_id || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('request_id')) && typeof o.request_id !== 'number') return new Error(`${path}.request_id: is not a number`)
     if (opts.request_id_CustomCheck && !opts.request_id_CustomCheck(o.request_id)) return new Error(`${path}.request_id: custom check failed`)
+
+    return null
+}
+
+export type TransactionSwapQuote = {
+    chain_fee_sats: number
+    invoice_amount_sats: number
+    service_fee_sats: number
+    swap_fee_sats: number
+    swap_operation_id: string
+    transaction_amount_sats: number
+}
+export const TransactionSwapQuoteOptionalFields: [] = []
+export type TransactionSwapQuoteOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    chain_fee_sats_CustomCheck?: (v: number) => boolean
+    invoice_amount_sats_CustomCheck?: (v: number) => boolean
+    service_fee_sats_CustomCheck?: (v: number) => boolean
+    swap_fee_sats_CustomCheck?: (v: number) => boolean
+    swap_operation_id_CustomCheck?: (v: string) => boolean
+    transaction_amount_sats_CustomCheck?: (v: number) => boolean
+}
+export const TransactionSwapQuoteValidate = (o?: TransactionSwapQuote, opts: TransactionSwapQuoteOptions = {}, path: string = 'TransactionSwapQuote::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.chain_fee_sats !== 'number') return new Error(`${path}.chain_fee_sats: is not a number`)
+    if (opts.chain_fee_sats_CustomCheck && !opts.chain_fee_sats_CustomCheck(o.chain_fee_sats)) return new Error(`${path}.chain_fee_sats: custom check failed`)
+
+    if (typeof o.invoice_amount_sats !== 'number') return new Error(`${path}.invoice_amount_sats: is not a number`)
+    if (opts.invoice_amount_sats_CustomCheck && !opts.invoice_amount_sats_CustomCheck(o.invoice_amount_sats)) return new Error(`${path}.invoice_amount_sats: custom check failed`)
+
+    if (typeof o.service_fee_sats !== 'number') return new Error(`${path}.service_fee_sats: is not a number`)
+    if (opts.service_fee_sats_CustomCheck && !opts.service_fee_sats_CustomCheck(o.service_fee_sats)) return new Error(`${path}.service_fee_sats: custom check failed`)
+
+    if (typeof o.swap_fee_sats !== 'number') return new Error(`${path}.swap_fee_sats: is not a number`)
+    if (opts.swap_fee_sats_CustomCheck && !opts.swap_fee_sats_CustomCheck(o.swap_fee_sats)) return new Error(`${path}.swap_fee_sats: custom check failed`)
+
+    if (typeof o.swap_operation_id !== 'string') return new Error(`${path}.swap_operation_id: is not a string`)
+    if (opts.swap_operation_id_CustomCheck && !opts.swap_operation_id_CustomCheck(o.swap_operation_id)) return new Error(`${path}.swap_operation_id: custom check failed`)
+
+    if (typeof o.transaction_amount_sats !== 'number') return new Error(`${path}.transaction_amount_sats: is not a number`)
+    if (opts.transaction_amount_sats_CustomCheck && !opts.transaction_amount_sats_CustomCheck(o.transaction_amount_sats)) return new Error(`${path}.transaction_amount_sats: custom check failed`)
+
+    return null
+}
+
+export type TransactionSwapRequest = {
+    transaction_amount_sats: number
+}
+export const TransactionSwapRequestOptionalFields: [] = []
+export type TransactionSwapRequestOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    transaction_amount_sats_CustomCheck?: (v: number) => boolean
+}
+export const TransactionSwapRequestValidate = (o?: TransactionSwapRequest, opts: TransactionSwapRequestOptions = {}, path: string = 'TransactionSwapRequest::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.transaction_amount_sats !== 'number') return new Error(`${path}.transaction_amount_sats: is not a number`)
+    if (opts.transaction_amount_sats_CustomCheck && !opts.transaction_amount_sats_CustomCheck(o.transaction_amount_sats)) return new Error(`${path}.transaction_amount_sats: custom check failed`)
 
     return null
 }

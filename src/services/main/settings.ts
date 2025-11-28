@@ -78,9 +78,7 @@ export type LndNodeSettings = {
 }
 export type LndSettings = {
     lndLogDir: string
-    feeRateLimit: number
     feeFixedLimit: number
-    feeRateBps: number
     mockLnd: boolean
 
 }
@@ -104,12 +102,9 @@ export const LoadLndNodeSettingsFromEnv = (dbEnv: Record<string, string | undefi
 }
 
 export const LoadLndSettingsFromEnv = (dbEnv: Record<string, string | undefined>, addToDb?: EnvCacher): LndSettings => {
-    const feeRateBps: number = chooseEnvInt('OUTBOUND_MAX_FEE_BPS', dbEnv, 60, addToDb)
     return {
         lndLogDir: chooseEnv('LND_LOG_DIR', dbEnv, resolveHome("/.lnd/logs/bitcoin/mainnet/lnd.log"), addToDb),
-        feeRateBps: feeRateBps,
-        feeRateLimit: feeRateBps / 10000,
-        feeFixedLimit: chooseEnvInt('OUTBOUND_MAX_FEE_EXTRA_SATS', dbEnv, 100, addToDb),
+        feeFixedLimit: chooseEnvInt('OUTBOUND_MAX_FEE_EXTRA_SATS', dbEnv, 10, addToDb),
         mockLnd: false
     }
 }
@@ -165,7 +160,22 @@ export const LoadLiquiditySettingsFromEnv = (dbEnv: Record<string, string | unde
     //const liquidityProviderPub = process.env.LIQUIDITY_PROVIDER_PUB === "null" ? "" : (process.env.LIQUIDITY_PROVIDER_PUB || "76ed45f00cea7bac59d8d0b7d204848f5319d7b96c140ffb6fcbaaab0a13d44e")
     const liquidityProviderPub = chooseEnv("LIQUIDITY_PROVIDER_PUB", dbEnv, "76ed45f00cea7bac59d8d0b7d204848f5319d7b96c140ffb6fcbaaab0a13d44e", addToDb)
     const disableLiquidityProvider = chooseEnvBool("DISABLE_LIQUIDITY_PROVIDER", dbEnv, false, addToDb) || liquidityProviderPub === "null"
-    return { liquidityProviderPub, useOnlyLiquidityProvider: false, disableLiquidityProvider }
+    const useOnlyLiquidityProvider = chooseEnvBool("USE_ONLY_LIQUIDITY_PROVIDER", dbEnv, false, addToDb)
+    return { liquidityProviderPub, useOnlyLiquidityProvider, disableLiquidityProvider }
+}
+
+export type SwapsSettings = {
+    boltzHttpUrl: string
+    boltzWebSocketUrl: string
+    enableSwaps: boolean
+}
+
+export const LoadSwapsSettingsFromEnv = (dbEnv: Record<string, string | undefined>, addToDb?: EnvCacher): SwapsSettings => {
+    return {
+        boltzHttpUrl: chooseEnv("BOLTZ_HTTP_URL", dbEnv, "http://127.0.0.1:9001", addToDb),
+        boltzWebSocketUrl: chooseEnv("BOLTZ_WEBSOCKET_URL", dbEnv, "ws://127.0.0.1:9004", addToDb),
+        enableSwaps: chooseEnvBool("ENABLE_SWAPS", dbEnv, false, addToDb)
+    }
 }
 
 

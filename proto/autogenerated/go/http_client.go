@@ -101,6 +101,7 @@ type Client struct {
 	GetSeed                     func() (*LndSeed, error)
 	GetSingleBundleMetrics      func(req SingleMetricReq) (*BundleData, error)
 	GetSingleUsageMetrics       func(req SingleMetricReq) (*UsageMetricTlv, error)
+	GetTransactionSwapQuote     func(req TransactionSwapRequest) (*TransactionSwapQuote, error)
 	GetUsageMetrics             func(req LatestUsageMetricReq) (*UsageMetrics, error)
 	GetUserInfo                 func() (*UserInfo, error)
 	GetUserOffer                func(req OfferId) (*OfferConfig, error)
@@ -1279,6 +1280,35 @@ func NewClient(params ClientParams) *Client {
 				return nil, fmt.Errorf(result.Reason)
 			}
 			res := UsageMetricTlv{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
+		},
+		GetTransactionSwapQuote: func(req TransactionSwapRequest) (*TransactionSwapQuote, error) {
+			auth, err := params.RetrieveUserAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/user/swap/quote"
+			body, err := json.Marshal(req)
+			if err != nil {
+				return nil, err
+			}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return nil, err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := TransactionSwapQuote{}
 			err = json.Unmarshal(resBody, &res)
 			if err != nil {
 				return nil, err

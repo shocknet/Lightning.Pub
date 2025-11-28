@@ -23,10 +23,10 @@ const testSuccessfulInternalPayment = async (T: TestBase) => {
     const owner = await T.main.storage.userStorage.GetUser(application.owner.user_id)
     expect(u2.balance_sats).to.be.equal(1000)
     T.d("user2 balance is 1000")
-    expect(u1.balance_sats).to.be.equal(994)
-    T.d("user1 balance is 994 cuz he paid 6 sats fee")
-    expect(owner.balance_sats).to.be.equal(6)
-    T.d("app balance is 6 sats")
+    expect(u1.balance_sats).to.be.equal(990)
+    T.d("user1 balance is 990 cuz he paid 10 sats fee")
+    expect(owner.balance_sats).to.be.equal(10)
+    T.d("app balance is 10 sats")
 }
 
 const testFailedInternalPayment = async (T: TestBase) => {
