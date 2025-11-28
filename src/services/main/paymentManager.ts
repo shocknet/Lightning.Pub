@@ -408,7 +408,6 @@ export default class {
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
         const isAppUserPayment = ctx.user_id !== app.owner.user_id
         const serviceFee = this.getSendServiceFee(Types.UserOperationType.OUTGOING_INVOICE, decoded.numSatoshis, isAppUserPayment)
-        // const routingFeeLimit = this.lnd.GetFeeLimitAmount(decoded.numSatoshis)
         const newSwap = await this.storage.paymentStorage.AddTransactionSwap({
             app_user_id: ctx.app_user_id,
             swap_quote_id: res.createdResponse.id,

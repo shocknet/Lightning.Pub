@@ -467,7 +467,7 @@ export default class {
     }
 
     async GetTransactionSwap(swapOperationId: string, txId?: string) {
-        return this.dbs.FindOne<TransactionSwap>('TransactionSwap', { where: { swap_operation_id: swapOperationId } }, txId)
+        return this.dbs.FindOne<TransactionSwap>('TransactionSwap', { where: { swap_operation_id: swapOperationId, used: false } }, txId)
     }
 
     async FinalizeTransactionSwap(swapOperationId: string, txId: string) {
