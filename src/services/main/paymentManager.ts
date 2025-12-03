@@ -459,7 +459,7 @@ export default class {
             throw new Error("request a swap quote before payng an external address")
         }
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
-        const txSwap = await this.storage.paymentStorage.GetTransactionSwap(req.swap_operation_id)
+        const txSwap = await this.storage.paymentStorage.GetTransactionSwap(req.swap_operation_id, ctx.app_user_id)
         if (!txSwap) {
             throw new Error("swap quote not found")
         }

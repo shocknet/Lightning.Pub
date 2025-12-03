@@ -466,8 +466,8 @@ export default class {
         return this.dbs.CreateAndSave<TransactionSwap>('TransactionSwap', swap)
     }
 
-    async GetTransactionSwap(swapOperationId: string, txId?: string) {
-        return this.dbs.FindOne<TransactionSwap>('TransactionSwap', { where: { swap_operation_id: swapOperationId, used: false } }, txId)
+    async GetTransactionSwap(swapOperationId: string, appUserId: string, txId?: string) {
+        return this.dbs.FindOne<TransactionSwap>('TransactionSwap', { where: { swap_operation_id: swapOperationId, used: false, app_user_id: appUserId } }, txId)
     }
 
     async FinalizeTransactionSwap(swapOperationId: string, txId: string) {
