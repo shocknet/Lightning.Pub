@@ -6,12 +6,13 @@ TMP_LOG_FILE=$(mktemp)
 
 log() {
   local message="$(date '+%Y-%m-%d %H:%M:%S') $1"
-  echo -e "$message"
-  # Write to the temporary log file.
-  echo -e "$(echo "$message" | sed 's/\\e\[[0-9;]*m//g')" >> "$TMP_LOG_FILE"
+  # Use printf for cross-platform compatibility (macOS echo -e issues)
+  printf "%b\n" "$message"
+  # Write to the temporary log file (strip colors)
+  echo "$message" | sed 's/\\e\[[0-9;]*m//g' >> "$TMP_LOG_FILE"
 }
 
-SCRIPT_VERSION="0.2.2"
+SCRIPT_VERSION="0.3.0"
 REPO="shocknet/Lightning.Pub"
 BRANCH="master"
 
@@ -28,14 +29,121 @@ log_error() {
     exit $2
 }
 
+# Detect OS early for bootstrap
+OS="$(uname -s)"
+case "$OS" in
+  Linux*)     OS=Linux;;
+  Darwin*)    OS=Mac;;
+  *)          OS="UNKNOWN"
+esac
+
+detect_os_arch() {
+  # OS already detected above, but we need ARCH and systemctl check
+  ARCH="$(uname -m)"
+  case "$ARCH" in
+    x86_64)     ARCH=amd64;;
+    arm64|aarch64|armv8*) ARCH=arm64;;
+    armv7*)     ARCH=armv7;;
+    *)          ARCH="UNKNOWN"
+  esac
+
+  if [ "$OS" = "Linux" ] && command -v systemctl &> /dev/null; then
+    SYSTEMCTL_AVAILABLE=true
+  else
+    SYSTEMCTL_AVAILABLE=false
+  fi
+}
+
+PRIMARY_COLOR="\e[38;5;208m"
+SECONDARY_COLOR="\e[38;5;165m"
+RESET_COLOR="\e[0m"
+
+check_deps() {
+  for cmd in grep stat tar; do
+    if ! command -v $cmd &> /dev/null; then
+      log "Missing system dependency: $cmd. Install $cmd via your package manager and retry."
+      exit 1
+    fi
+  done
+
+  # Check for wget or curl (one is required)
+  if ! command -v wget &> /dev/null && ! command -v curl &> /dev/null; then
+    log "Missing system dependency: wget or curl. Install via your package manager and retry."
+    exit 1
+  fi
+
+  if ! command -v sha256sum &> /dev/null && ! command -v shasum &> /dev/null; then
+    log "Missing system dependency: sha256sum or shasum."
+    exit 1
+  fi
+}
+
+# Cross-platform sed in-place
+sed_i() {
+  if [ "$OS" = "Mac" ]; then
+    sed -i '' "$@"
+  else
+    sed -i "$@"
+  fi
+}
+
+# Cross-platform mktemp with parent directory
+mktemp_in() {
+  local parent="$1"
+  if [ "$OS" = "Mac" ]; then
+    mktemp -d "${parent}/tmp.XXXXXX"
+  else
+    mktemp -d -p "$parent"
+  fi
+}
+
+# Extract JSON value (cross-platform)
+json_value() {
+  local key="$1"
+  if [ "$OS" = "Mac" ]; then
+    echo "$2" | grep "\"${key}\"" | awk -F'"' '{print $4; exit}'
+  else
+    echo "$2" | grep -oP "\"${key}\": \"\\K[^\"]+"
+  fi
+}
+
+# Download file (wget or curl)
+download() {
+  local url="$1"
+  local dest="$2"
+  if [ "$OS" = "Mac" ]; then
+    curl -fsL "$url" -o "$dest"
+  else
+    wget -q "$url" -O "$dest"
+  fi
+}
+
+# Download to stdout (wget or curl)
+download_stdout() {
+  local url="$1"
+  if [ "$OS" = "Mac" ]; then
+    curl -fsL "$url"
+  else
+    wget -qO- "$url"
+  fi
+}
+
+# Get latest release tag from GitHub (via API)
+get_latest_release_tag() {
+  local repo="$1"
+  local url="https://api.github.com/repos/${repo}/releases/latest"
+  local api_json=$(download_stdout "$url")
+  json_value "tag_name" "$api_json"
+}
+
 
 modules=(
-  "utils"
   "ports"
   "install_lnd"
   "install_nodejs"
   "install_lightning_pub"
   "start_services"
+  "handle_macos"
   "extract_nprofile"
 )
 
@@ -65,7 +173,7 @@ SCRIPTS_URL="${BASE_URL}/scripts/"
 TMP_DIR=$(mktemp -d)
 
 for module in "${modules[@]}"; do
-  wget -q "${SCRIPTS_URL}${module}.sh" -O "${TMP_DIR}/${module}.sh" || log_error "Failed to download ${module}.sh" 1
+  download "${SCRIPTS_URL}${module}.sh" "${TMP_DIR}/${module}.sh" || log_error "Failed to download ${module}.sh" 1
   source "${TMP_DIR}/${module}.sh" || log_error "Failed to source ${module}.sh" 1
 done
 
@@ -91,26 +199,22 @@ log "Detected OS: $OS"
 log "Detected ARCH: $ARCH"
 
 if [ "$OS" = "Mac" ]; then
-  log_error "macOS is not currently supported by this install script. Please use a Linux-based system." 1
+  handle_macos "$REPO_URL"
 else
   # Explicit kickoff log for LND so the flow is clear in the install log
   log "${PRIMARY_COLOR}Installing${RESET_COLOR} ${SECONDARY_COLOR}LND${RESET_COLOR}..."
-  lnd_output=$(install_lnd)
+  LND_STATUS_FILE=$(mktemp)
+  install_lnd "$LND_STATUS_FILE"
   install_result=$?
 
   if [ $install_result -ne 0 ]; then
+    rm -f "$LND_STATUS_FILE"
     log_error "LND installation failed" $install_result
   fi
 
-  lnd_status=$(echo "$lnd_output" | grep "LND_STATUS:" | cut -d':' -f2)
-  
-  case $lnd_status in
-    0) log "LND fresh installation completed successfully." ;;
-    1) log "LND upgrade completed successfully." ;;
-    2) log "LND is already up-to-date. No action needed." ;;
-    *) log "WARNING: Unexpected status from install_lnd: $lnd_status" ;;
-  esac
- 
+  lnd_status=$(cat "$LND_STATUS_FILE")
+  rm -f "$LND_STATUS_FILE"
+
   install_nodejs || log_error "Failed to install Node.js" 1
 
   # Run install_lightning_pub and capture its exit code directly.
@@ -127,7 +231,6 @@ else
       pub_upgrade_status=100 # Indicates an upgrade, services should restart
       ;;
     2) 
-      log "Lightning.Pub is already up-to-date. No action needed."
       pub_upgrade_status=2 # Special status to skip service restart
       ;;
     *) 

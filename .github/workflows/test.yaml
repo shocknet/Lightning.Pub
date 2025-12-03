@@ -1,5 +1,9 @@
 name: Docker Compose Actions Workflow
-on: push
+on:
+  push:
+    paths-ignore:
+      - 'scripts/**'
+      - 'README.md'
 jobs:
   test:
     runs-on: ubuntu-latest
