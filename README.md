@@ -81,12 +81,12 @@ Dashboard Wireframe:
 
 Paste one-line and have a Pub node in under 2 minutes. It uses neutrino so you can run it on a $5 VPS or old laptop.
 
-This method installs all dependencies and creates user-level systemd services.
+This method installs all dependencies and creates user-level services (systemd on Linux, launchd on macOS).
 
 **Platform Support:**
 - ✅ **Debian/Ubuntu**: Fully tested and supported
 - ✅ **Arch/Fedora**: Fully tested and supported
-- 🚧 **macOS**: Basic support stubbed in, but untested. Help wanted.
+- ✅ **macOS**: Fully supported with launchd service management
 
 > [!IMPORTANT]
 > **System Requirements:**
@@ -99,8 +99,14 @@ This method installs all dependencies and creates user-level systemd services.
 
 To start, run the following command:
 
+**Linux:**
 ```bash
 wget -qO- https://deploy.lightning.pub | bash
+```
+
+**macOS:**
+```bash
+curl -fsSL https://deploy.lightning.pub | bash
 ```
 
 It should look like this in a minute or so
@@ -110,11 +116,14 @@ It should look like this in a minute or so
 **Note:** The installation is now confined to user-space, meaning:
 - No sudo required for installation
 - All data stored in `$HOME/lightning_pub/`
+- **Linux**: Services managed via systemd (user-level)
+- **macOS**: Services managed via launchd with convenient aliases
 
 **After Installation:**
-- The installer will display an admin connection string (nprofile and secret separated by a colon) and a **QR code** for easy mobile setup
-- You can also access the connection info via web browser on Start9 and Umbrel appliances (releases forthcoming)
-- Copy the connection string or scan the QR code with ShockWallet to connect as administrator
+- The installer will display an admin connection string (nprofile and secret separated by a colon) and a **terminal QR code** for easy mobile setup
+- The QR code is displayed directly in your terminal - simply scan it with ShockWallet's node connetion flows
+- You can also copy/paste the connection string into ShockWallet if you prefer
+- Connection info is also available via web browser on Start9 and Umbrel appliances (releases forthcoming)
 
 **⚠️ Migration from Previous Versions:**
 Previous system-wide installations (as of 8.27.2025) need some manual intervention:
@@ -130,9 +139,16 @@ Please report any issues to the [issue tracker](https://github.com/shocknet/Ligh
 
 These are controversial, so we don't include them. You can however add a line to your crontab to re-run the installer on your time preference and it will gracefully handle updating:
 
+**Linux:**
 ```bash
 # Add to user's crontab (crontab -e) - runs weekly on Sunday at 2 AM
 0 2 * * 0 wget -qO- https://deploy.lightning.pub | bash
+```
+
+**macOS:**
+```bash
+# Add to user's crontab (crontab -e) - runs weekly on Sunday at 2 AM
+0 2 * * 0 curl -fsSL https://deploy.lightning.pub | bash
 ```
 
 **Note:** The installer will only restart services if version checks deem necessary.
@@ -141,6 +157,7 @@ These are controversial, so we don't include them. You can however add a line to
 
 If the installation fails or services don't start properly, use these commands to diagnose:
 
+**Linux:**
 ```bash
 # Check service status
 systemctl --user status lnd
@@ -153,7 +170,27 @@ journalctl --user-unit lightning_pub -f
 # Restart services if needed
 systemctl --user restart lnd
 systemctl --user restart lightning_pub
+```
 
+**macOS:**
+After installation, run `source ~/.zshrc` (or `source ~/.bash_profile`) to enable the convenience aliases, or open a new terminal. Then use:
+
+```bash
+# Check service status
+lpub-status
+
+# View logs
+lpub-log      # Lightning.Pub logs
+lnd-log       # LND logs
+
+# Control services
+lpub-start    # Start both services
+lpub-stop     # Stop both services
+lpub-restart  # Restart both services
+```
+
+**All Platforms:**
+```bash
 # Retrieve admin connection string (if installation completed but you need to find it again)
 cat ~/lightning_pub/admin.connect
 
@@ -198,13 +235,14 @@ npm start
 ### Connecting to ShockWallet
 
 **For Administrators:**
-1. After installation, you'll see an admin connection string (format: `nprofile1...:token`) and a QR code
-2. **Option 1**: Scan the QR code with ShockWallet mobile app
+1. After installation, you'll see an admin connection string (format: `nprofile1...:token`) and a **terminal QR code** containing the same admin connection string
+2. **Option 1**: Scan the terminal QR code directly with ShockWallet's "Add Source" feature (mobile or web) to pair as administrator
 3. **Option 2**: Copy/paste the connection string into ShockWallet's node connection screen
 
 **For Guest Users:**
-- The nprofile of the node (without the admin token) can be used to send invitation links to guests via the web version of ShockWallet
-- The nprofile is stored in `$HOME/lightning_pub/app.nprofile` or the administrator can copy a link from the "Invite" page in ShockWallet
+- The guest nprofile (without admin token) is stored in `$HOME/lightning_pub/app.nprofile`
+- Share the nprofile string with guests directly, or use invitation links from the "Invite" page in ShockWallet
+- Guests paste the nprofile string into ShockWallet's "Add Source" feature to connect
 
 > [!NOTE]
 > Connecting with wallet will create an account on the node, it will not show or have access to the full LND balance. Allocating existing funds to the admin user will be added to the operator dashboard in a future release.

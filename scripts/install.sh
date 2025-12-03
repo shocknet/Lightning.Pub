@@ -14,7 +14,7 @@ log() {
 
 SCRIPT_VERSION="0.3.0"
 REPO="shocknet/Lightning.Pub"
-BRANCH="mac-install"
+BRANCH="master"
 
 cleanup() {
     log "Cleaning up temporary files..."
