@@ -84,8 +84,10 @@ Paste one-line and have a Pub node in under 2 minutes. It uses neutrino so you c
 This method installs all dependencies and creates user-level services (systemd on Linux, launchd on macOS).
 
 **Platform Support:**
-- ✅ **Debian/Ubuntu**: Fully tested and supported
-- ✅ **Arch/Fedora**: Fully tested and supported
+- ✅ **Debian**: Fully tested and supported
+- ✅ **Ubuntu**: Fully tested and supported
+- ✅ **Arch**: Fully tested and supported
+- ✅ **Fedora**: Fully tested and supported
 - ✅ **macOS**: Fully supported with launchd service management
 
 > [!IMPORTANT]
