@@ -57,6 +57,9 @@ export class TransactionSwap {
     @Column({ default: "" })
     tx_id: string
 
+    @Column({ default: "" })
+    address_paid: string
+
     @CreateDateColumn()
     created_at: Date
 

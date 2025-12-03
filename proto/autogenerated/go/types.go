@@ -655,6 +655,15 @@ type SingleMetricReq struct {
 	Page         int64            `json:"page"`
 	Request_id   int64            `json:"request_id"`
 }
+type SwapOperation struct {
+	Address_paid      string         `json:"address_paid"`
+	Failure_reason    string         `json:"failure_reason"`
+	Operation_payment *UserOperation `json:"operation_payment"`
+	Swap_operation_id string         `json:"swap_operation_id"`
+}
+type SwapsList struct {
+	Swaps []SwapOperation `json:"swaps"`
+}
 type TransactionSwapQuote struct {
 	Chain_fee_sats          int64  `json:"chain_fee_sats"`
 	Invoice_amount_sats     int64  `json:"invoice_amount_sats"`

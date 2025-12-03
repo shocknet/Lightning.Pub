@@ -35,8 +35,8 @@ export type UserContext = {
     app_user_id: string
     user_id: string
 }
-export type UserMethodInputs = AddProduct_Input | AddUserOffer_Input | AuthorizeManage_Input | BanDebit_Input | DecodeInvoice_Input | DeleteUserOffer_Input | EditDebit_Input | EnrollAdminToken_Input | EnrollMessagingToken_Input | GetDebitAuthorizations_Input | GetHttpCreds_Input | GetLNURLChannelLink_Input | GetLnurlPayLink_Input | GetLnurlWithdrawLink_Input | GetManageAuthorizations_Input | GetPaymentState_Input | GetTransactionSwapQuote_Input | GetUserInfo_Input | GetUserOffer_Input | GetUserOfferInvoices_Input | GetUserOffers_Input | GetUserOperations_Input | NewAddress_Input | NewInvoice_Input | NewProductInvoice_Input | PayAddress_Input | PayInvoice_Input | ResetDebit_Input | ResetManage_Input | RespondToDebit_Input | UpdateCallbackUrl_Input | UpdateUserOffer_Input | UserHealth_Input
-export type UserMethodOutputs = AddProduct_Output | AddUserOffer_Output | AuthorizeManage_Output | BanDebit_Output | DecodeInvoice_Output | DeleteUserOffer_Output | EditDebit_Output | EnrollAdminToken_Output | EnrollMessagingToken_Output | GetDebitAuthorizations_Output | GetHttpCreds_Output | GetLNURLChannelLink_Output | GetLnurlPayLink_Output | GetLnurlWithdrawLink_Output | GetManageAuthorizations_Output | GetPaymentState_Output | GetTransactionSwapQuote_Output | GetUserInfo_Output | GetUserOffer_Output | GetUserOfferInvoices_Output | GetUserOffers_Output | GetUserOperations_Output | NewAddress_Output | NewInvoice_Output | NewProductInvoice_Output | PayAddress_Output | PayInvoice_Output | ResetDebit_Output | ResetManage_Output | RespondToDebit_Output | UpdateCallbackUrl_Output | UpdateUserOffer_Output | UserHealth_Output
+export type UserMethodInputs = AddProduct_Input | AddUserOffer_Input | AuthorizeManage_Input | BanDebit_Input | DecodeInvoice_Input | DeleteUserOffer_Input | EditDebit_Input | EnrollAdminToken_Input | EnrollMessagingToken_Input | GetDebitAuthorizations_Input | GetHttpCreds_Input | GetLNURLChannelLink_Input | GetLnurlPayLink_Input | GetLnurlWithdrawLink_Input | GetManageAuthorizations_Input | GetPaymentState_Input | GetTransactionSwapQuote_Input | GetUserInfo_Input | GetUserOffer_Input | GetUserOfferInvoices_Input | GetUserOffers_Input | GetUserOperations_Input | ListSwaps_Input | NewAddress_Input | NewInvoice_Input | NewProductInvoice_Input | PayAddress_Input | PayInvoice_Input | ResetDebit_Input | ResetManage_Input | RespondToDebit_Input | UpdateCallbackUrl_Input | UpdateUserOffer_Input | UserHealth_Input
+export type UserMethodOutputs = AddProduct_Output | AddUserOffer_Output | AuthorizeManage_Output | BanDebit_Output | DecodeInvoice_Output | DeleteUserOffer_Output | EditDebit_Output | EnrollAdminToken_Output | EnrollMessagingToken_Output | GetDebitAuthorizations_Output | GetHttpCreds_Output | GetLNURLChannelLink_Output | GetLnurlPayLink_Output | GetLnurlWithdrawLink_Output | GetManageAuthorizations_Output | GetPaymentState_Output | GetTransactionSwapQuote_Output | GetUserInfo_Output | GetUserOffer_Output | GetUserOfferInvoices_Output | GetUserOffers_Output | GetUserOperations_Output | ListSwaps_Output | NewAddress_Output | NewInvoice_Output | NewProductInvoice_Output | PayAddress_Output | PayInvoice_Output | ResetDebit_Output | ResetManage_Output | RespondToDebit_Output | UpdateCallbackUrl_Output | UpdateUserOffer_Output | UserHealth_Output
 export type AuthContext = AdminContext | AppContext | GuestContext | GuestWithPubContext | MetricsContext | UserContext
 
 export type AddApp_Input = {rpcName:'AddApp', req: AddAppRequest}
@@ -238,6 +238,9 @@ export type LinkNPubThroughToken_Output = ResultError | { status: 'OK' }
 export type ListChannels_Input = {rpcName:'ListChannels'}
 export type ListChannels_Output = ResultError | ({ status: 'OK' } & LndChannels)
 
+export type ListSwaps_Input = {rpcName:'ListSwaps'}
+export type ListSwaps_Output = ResultError | ({ status: 'OK' } & SwapsList)
+
 export type LndGetInfo_Input = {rpcName:'LndGetInfo', req: LndGetInfoRequest}
 export type LndGetInfo_Output = ResultError | ({ status: 'OK' } & LndGetInfoResponse)
 
@@ -385,6 +388,7 @@ export type ServerMethods = {
     Health?: (req: Health_Input & {ctx: GuestContext }) => Promise<void>
     LinkNPubThroughToken?: (req: LinkNPubThroughToken_Input & {ctx: GuestWithPubContext }) => Promise<void>
     ListChannels?: (req: ListChannels_Input & {ctx: AdminContext }) => Promise<LndChannels>
+    ListSwaps?: (req: ListSwaps_Input & {ctx: UserContext }) => Promise<SwapsList>
     LndGetInfo?: (req: LndGetInfo_Input & {ctx: AdminContext }) => Promise<LndGetInfoResponse>
     NewAddress?: (req: NewAddress_Input & {ctx: UserContext }) => Promise<NewAddressResponse>
     NewInvoice?: (req: NewInvoice_Input & {ctx: UserContext }) => Promise<NewInvoiceResponse>
@@ -3841,6 +3845,66 @@ export const SingleMetricReqValidate = (o?: SingleMetricReq, opts: SingleMetricR
 
     if ((o.request_id || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('request_id')) && typeof o.request_id !== 'number') return new Error(`${path}.request_id: is not a number`)
     if (opts.request_id_CustomCheck && !opts.request_id_CustomCheck(o.request_id)) return new Error(`${path}.request_id: custom check failed`)
+
+    return null
+}
+
+export type SwapOperation = {
+    address_paid: string
+    failure_reason?: string
+    operation_payment?: UserOperation
+    swap_operation_id: string
+}
+export type SwapOperationOptionalField = 'failure_reason' | 'operation_payment'
+export const SwapOperationOptionalFields: SwapOperationOptionalField[] = ['failure_reason', 'operation_payment']
+export type SwapOperationOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: SwapOperationOptionalField[]
+    address_paid_CustomCheck?: (v: string) => boolean
+    failure_reason_CustomCheck?: (v?: string) => boolean
+    operation_payment_Options?: UserOperationOptions
+    swap_operation_id_CustomCheck?: (v: string) => boolean
+}
+export const SwapOperationValidate = (o?: SwapOperation, opts: SwapOperationOptions = {}, path: string = 'SwapOperation::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.address_paid !== 'string') return new Error(`${path}.address_paid: is not a string`)
+    if (opts.address_paid_CustomCheck && !opts.address_paid_CustomCheck(o.address_paid)) return new Error(`${path}.address_paid: custom check failed`)
+
+    if ((o.failure_reason || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('failure_reason')) && typeof o.failure_reason !== 'string') return new Error(`${path}.failure_reason: is not a string`)
+    if (opts.failure_reason_CustomCheck && !opts.failure_reason_CustomCheck(o.failure_reason)) return new Error(`${path}.failure_reason: custom check failed`)
+
+    if (typeof o.operation_payment === 'object' || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('operation_payment')) {
+        const operation_paymentErr = UserOperationValidate(o.operation_payment, opts.operation_payment_Options, `${path}.operation_payment`)
+        if (operation_paymentErr !== null) return operation_paymentErr
+    }
+    
+
+    if (typeof o.swap_operation_id !== 'string') return new Error(`${path}.swap_operation_id: is not a string`)
+    if (opts.swap_operation_id_CustomCheck && !opts.swap_operation_id_CustomCheck(o.swap_operation_id)) return new Error(`${path}.swap_operation_id: custom check failed`)
+
+    return null
+}
+
+export type SwapsList = {
+    swaps: SwapOperation[]
+}
+export const SwapsListOptionalFields: [] = []
+export type SwapsListOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    swaps_ItemOptions?: SwapOperationOptions
+    swaps_CustomCheck?: (v: SwapOperation[]) => boolean
+}
+export const SwapsListValidate = (o?: SwapsList, opts: SwapsListOptions = {}, path: string = 'SwapsList::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (!Array.isArray(o.swaps)) return new Error(`${path}.swaps: is not an array`)
+    for (let index = 0; index < o.swaps.length; index++) {
+        const swapsErr = SwapOperationValidate(o.swaps[index], opts.swaps_ItemOptions, `${path}.swaps[${index}]`)
+        if (swapsErr !== null) return swapsErr
+    }
+    if (opts.swaps_CustomCheck && !opts.swaps_CustomCheck(o.swaps)) return new Error(`${path}.swaps: custom check failed`)
 
     return null
 }

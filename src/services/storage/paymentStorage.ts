@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { And, Between, Equal, FindOperator, IsNull, LessThan, LessThanOrEqual, MoreThan, MoreThanOrEqual } from "typeorm"
+import { And, Between, Equal, FindOperator, IsNull, LessThan, LessThanOrEqual, MoreThan, MoreThanOrEqual, Not } from "typeorm"
 import { User } from './entity/User.js';
 import { UserTransactionPayment } from './entity/UserTransactionPayment.js';
 import { EphemeralKeyType, UserEphemeralKey } from './entity/UserEphemeralKey.js';
@@ -470,17 +470,19 @@ export default class {
         return this.dbs.FindOne<TransactionSwap>('TransactionSwap', { where: { swap_operation_id: swapOperationId, used: false, app_user_id: appUserId } }, txId)
     }
 
-    async FinalizeTransactionSwap(swapOperationId: string, txId: string) {
+    async FinalizeTransactionSwap(swapOperationId: string, address: string, txId: string) {
         return this.dbs.Update<TransactionSwap>('TransactionSwap', { swap_operation_id: swapOperationId }, {
             used: true,
             tx_id: txId,
+            address_paid: address,
         })
     }
 
-    async FailTransactionSwap(swapOperationId: string, failureReason: string) {
+    async FailTransactionSwap(swapOperationId: string, address: string, failureReason: string) {
         return this.dbs.Update<TransactionSwap>('TransactionSwap', { swap_operation_id: swapOperationId }, {
             used: true,
             failure_reason: failureReason,
+            address_paid: address,
         })
     }
 
@@ -490,6 +492,18 @@ export default class {
 
     async DeleteExpiredTransactionSwaps(currentHeight: number, txId?: string) {
         return this.dbs.Delete<TransactionSwap>('TransactionSwap', { timeout_block_height: LessThan(currentHeight) }, txId)
+    }
+
+    async ListCompletedSwaps(appUserId: string, txId?: string) {
+        const completed = await this.dbs.Find<TransactionSwap>('TransactionSwap', { where: { used: true, app_user_id: appUserId } }, txId)
+        const payments = await this.dbs.Find<UserInvoicePayment>('UserInvoicePayment', { where: { swap_operation_id: Not(IsNull()) } }, txId)
+        const paymentsMap = new Map<string, UserInvoicePayment>()
+        payments.forEach(p => {
+            paymentsMap.set(p.swap_operation_id, p)
+        })
+        return completed.map(c => ({
+            swap: c, payment: paymentsMap.get(c.swap_operation_id)
+        }))
     }
 }
 

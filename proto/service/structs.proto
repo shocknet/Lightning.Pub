@@ -843,6 +843,18 @@ message TransactionSwapQuote {
     int64 chain_fee_sats = 5;
     int64 service_fee_sats = 7;
 }
+
+message SwapOperation {
+    string swap_operation_id = 1;
+    optional UserOperation operation_payment = 2;
+    optional string failure_reason = 3;
+    string address_paid = 4;
+}
+
+message SwapsList {
+    repeated SwapOperation swaps = 1;
+}
+
 message CumulativeFees {
     int64 networkFeeFixed = 2;
     int64 serviceFeeBps = 3;

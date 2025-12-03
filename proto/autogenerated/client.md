@@ -243,6 +243,11 @@ The nostr server will send back a message response, and inside the body there wi
   - This methods has an __empty__ __request__ body
   - output: [LndChannels](#LndChannels)
 
+- ListSwaps
+  - auth type: __User__
+  - This methods has an __empty__ __request__ body
+  - output: [SwapsList](#SwapsList)
+
 - LndGetInfo
   - auth type: __Admin__
   - input: [LndGetInfoRequest](#LndGetInfoRequest)
@@ -813,6 +818,13 @@ The nostr server will send back a message response, and inside the body there wi
   - http route: __/api/admin/channels__
   - This methods has an __empty__ __request__ body
   - output: [LndChannels](#LndChannels)
+
+- ListSwaps
+  - auth type: __User__
+  - http method: __post__
+  - http route: __/api/user/swap/list__
+  - This methods has an __empty__ __request__ body
+  - output: [SwapsList](#SwapsList)
 
 - LndGetInfo
   - auth type: __Admin__
@@ -1581,6 +1593,15 @@ The nostr server will send back a message response, and inside the body there wi
   - __metrics_name__: _string_
   - __page__: _number_
   - __request_id__: _number_ *this field is optional
+
+### SwapOperation
+  - __address_paid__: _string_
+  - __failure_reason__: _string_ *this field is optional
+  - __operation_payment__: _[UserOperation](#UserOperation)_ *this field is optional
+  - __swap_operation_id__: _string_
+
+### SwapsList
+  - __swaps__: ARRAY of: _[SwapOperation](#SwapOperation)_
 
 ### TransactionSwapQuote
   - __chain_fee_sats__: _number_

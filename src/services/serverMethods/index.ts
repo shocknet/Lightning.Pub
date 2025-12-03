@@ -147,6 +147,9 @@ export default (mainHandler: Main): Types.ServerMethods => {
             if (err != null) throw new Error(err.message)
             return mainHandler.paymentManager.PayAddress(ctx, req)
         },
+        ListSwaps: async ({ ctx }) => {
+            return mainHandler.paymentManager.ListSwaps(ctx)
+        },
         GetTransactionSwapQuote: async ({ ctx, req }) => {
             return mainHandler.paymentManager.GetTransactionSwapQuote(ctx, req)
         },

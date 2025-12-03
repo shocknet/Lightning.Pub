@@ -114,6 +114,7 @@ type Client struct {
 	Health                      func() error
 	LinkNPubThroughToken        func(req LinkNPubThroughTokenRequest) error
 	ListChannels                func() (*LndChannels, error)
+	ListSwaps                   func() (*SwapsList, error)
 	LndGetInfo                  func(req LndGetInfoRequest) (*LndGetInfoResponse, error)
 	NewAddress                  func(req NewAddressRequest) (*NewAddressResponse, error)
 	NewInvoice                  func(req NewInvoiceRequest) (*NewInvoiceResponse, error)
@@ -1626,6 +1627,32 @@ func NewClient(params ClientParams) *Client {
 				return nil, fmt.Errorf(result.Reason)
 			}
 			res := LndChannels{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
+		},
+		ListSwaps: func() (*SwapsList, error) {
+			auth, err := params.RetrieveUserAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/user/swap/list"
+			body := []byte{}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return nil, err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := SwapsList{}
 			err = json.Unmarshal(resBody, &res)
 			if err != nil {
 				return nil, err

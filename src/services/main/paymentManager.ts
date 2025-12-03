@@ -490,18 +490,18 @@ export default class {
             payment = await this.PayInvoice(ctx.user_id, { amount: 0, invoice: txSwap.invoice }, app, { swapOperationId: req.swap_operation_id })
             if (!swapResult.ok) {
                 this.log("invoice payment successful, but swap failed")
-                await this.storage.paymentStorage.FailTransactionSwap(req.swap_operation_id, swapResult.error)
+                await this.storage.paymentStorage.FailTransactionSwap(req.swap_operation_id, req.address, swapResult.error)
                 throw new Error(swapResult.error)
             }
             this.log("swap completed successfully")
-            await this.storage.paymentStorage.FinalizeTransactionSwap(req.swap_operation_id, swapResult.txId)
+            await this.storage.paymentStorage.FinalizeTransactionSwap(req.swap_operation_id, req.address, swapResult.txId)
         } catch (err: any) {
             if (swapResult.ok) {
                 this.log("failed to pay swap invoice, but swap completed successfully", swapResult.txId)
-                await this.storage.paymentStorage.FailTransactionSwap(req.swap_operation_id, err.message)
+                await this.storage.paymentStorage.FailTransactionSwap(req.swap_operation_id, req.address, err.message)
             } else {
                 this.log("failed to pay swap invoice and swap failed", swapResult.error)
-                await this.storage.paymentStorage.FailTransactionSwap(req.swap_operation_id, swapResult.error)
+                await this.storage.paymentStorage.FailTransactionSwap(req.swap_operation_id, req.address, swapResult.error)
             }
             throw err
         }
@@ -542,6 +542,23 @@ export default class {
             operation_id: `${Types.UserOperationType.OUTGOING_TX}-${newTx.serial_id}`,
             network_fee: chainFees,
             service_fee: serviceFee
+        }
+    }
+
+    async ListSwaps(ctx: Types.UserContext): Promise<Types.SwapsList> {
+        const swaps = await this.storage.paymentStorage.ListCompletedSwaps(ctx.app_user_id)
+        return {
+            swaps: swaps.map(s => {
+                const p = s.payment
+                const opId = `${Types.UserOperationType.OUTGOING_TX}-${p?.serial_id}`
+                const op = p ? this.newInvoicePaymentOperation({ amount: p.paid_amount, confirmed: p.paid_at_unix !== 0, invoice: p.invoice, opId, networkFee: p.routing_fees, serviceFee: p.service_fees }) : undefined
+                return {
+                    operation_payment: op,
+                    swap_operation_id: s.swap.swap_operation_id,
+                    address_paid: s.swap.address_paid,
+                    failure_reason: s.swap.failure_reason,
+                }
+            })
         }
     }
 

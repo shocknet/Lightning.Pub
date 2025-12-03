@@ -503,6 +503,13 @@ service LightningPub {
         option (nostr) = true;
     }
 
+    rpc ListSwaps(structs.Empty) returns (structs.SwapsList){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/swap/list";
+        option (nostr) = true;
+    }
+
     rpc NewInvoice(structs.NewInvoiceRequest) returns (structs.NewInvoiceResponse){
         option (auth_type)  = "User";
         option (http_method) = "post";
