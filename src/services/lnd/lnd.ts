@@ -16,7 +16,7 @@ import { SendCoinsReq } from './sendCoinsReq.js';
 import { AddressPaidCb, InvoicePaidCb, NodeInfo, Invoice, DecodedInvoice, PaidInvoice, NewBlockCb, HtlcCb, BalanceInfo, ChannelEventCb } from './settings.js';
 import { ERROR, getLogger } from '../helpers/logger.js';
 import { HtlcEvent_EventType } from '../../../proto/lnd/router.js';
-import { LiquidityProvider, LiquidityRequest } from '../main/liquidityProvider.js';
+import { LiquidityProvider } from '../main/liquidityProvider.js';
 import { Utils } from '../helpers/utilsWrapper.js';
 import { TxPointSettings } from '../storage/tlv/stateBundler.js';
 import { WalletKitClient } from '../../../proto/lnd/walletkit.client.js';
@@ -342,14 +342,6 @@ export default class {
         return { numSatoshis: Number(res.response.numSatoshis), paymentHash: res.response.paymentHash }
     }
 
-    GetFeeLimitAmount(amount: number): number {
-        return Math.ceil(amount * this.getSettings().lndSettings.feeRateLimit + this.getSettings().lndSettings.feeFixedLimit);
-    }
-
-    GetMaxWithinLimit(amount: number): number {
-        return Math.max(0, Math.floor(amount * (1 - this.getSettings().lndSettings.feeRateLimit) - this.getSettings().lndSettings.feeFixedLimit))
-    }
-
     async ChannelBalance(): Promise<{ local: number, remote: number }> {
         // console.log("Getting channel balance")
         const res = await this.lightning.channelBalance({})
@@ -365,7 +357,7 @@ export default class {
         if (useProvider) {
             const res = await this.liquidProvider.PayInvoice(invoice, decodedAmount, from)
             const providerDst = this.liquidProvider.GetProviderDestination()
-            return { feeSat: res.network_fee + res.service_fee, valueSat: res.amount_paid, paymentPreimage: res.preimage, providerDst }
+            return { feeSat: res.service_fee, valueSat: res.amount_paid, paymentPreimage: res.preimage, providerDst }
         }
         await this.Health()
         try {
