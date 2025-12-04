@@ -4,6 +4,11 @@ get_log_info() {
   USER_HOME=$HOME
   USER_NAME=$(whoami)
 
+  # Ensure node is in PATH for QR generation
+  if [ "$OS" = "Mac" ]; then
+    export PATH="$USER_HOME/node/bin:$PATH"
+  fi
+
   LOG_DIR="$INSTALL_DIR/logs"
   DATA_DIR="$INSTALL_DIR/"
   START_TIME=$(date +%s)
@@ -16,7 +21,11 @@ get_log_info() {
   fi
 
   # Get the modification time of the timestamp file as a UNIX timestamp
-  ref_timestamp=$(stat -c %Y "$TIMESTAMP_FILE")
+  if [ "$OS" = "Mac" ]; then
+    ref_timestamp=$(stat -f %m "$TIMESTAMP_FILE")
+  else
+    ref_timestamp=$(stat -c %Y "$TIMESTAMP_FILE")
+  fi
 
   # Wait for a new unlocker log file to be created
   while [ $(($(date +%s) - START_TIME)) -lt $MAX_WAIT_TIME ]; do
@@ -24,7 +33,11 @@ get_log_info() {
     # Loop through log files and check their modification time
     for log_file in "${LOG_DIR}/components/"unlocker_*.log; do
       if [ -f "$log_file" ]; then
-        file_timestamp=$(stat -c %Y "$log_file")
+        if [ "$OS" = "Mac" ]; then
+          file_timestamp=$(stat -f %m "$log_file")
+        else
+          file_timestamp=$(stat -c %Y "$log_file")
+        fi
         if [ "$file_timestamp" -gt "$ref_timestamp" ]; then
           latest_unlocker_log="$log_file"
           break # Found the newest log file
@@ -108,12 +121,18 @@ get_log_info() {
         log "A node admin has not yet enrolled via Nostr."
         log "Paste this string into ShockWallet as a node source to connect as administrator:"
         log "${SECONDARY_COLOR}$admin_connect${RESET_COLOR}"
+        echo ""
+        log "Or scan this QR code with ShockWallet:"
+        node "$INSTALL_DIR/scripts/qr_generator.js" "$admin_connect" 2>/dev/null || log "QR code generation unavailable"
         break
       fi
     elif [ -f "$DATA_DIR/app.nprofile" ]; then
       app_nprofile=$(cat "$DATA_DIR/app.nprofile")
-      log "Node is already set up. Use this nprofile to invite guest users:"
+      log "${SECONDARY_COLOR}Lightning.Pub${RESET_COLOR} is already set up. Use this nprofile to invite guest users:"
       log "${SECONDARY_COLOR}$app_nprofile${RESET_COLOR}"
+      echo ""
+      log "Or scan this QR code with ShockWallet:"
+      node "$INSTALL_DIR/scripts/qr_generator.js" "$app_nprofile" 2>/dev/null || log "QR code generation unavailable"
       break
     fi
     sleep $WAIT_INTERVAL

@@ -93,11 +93,18 @@ const resolveHome = (filepath: string) => {
     return path.join(homeDir, filepath);
 }
 
+const lndDir = () => {
+    if (os.platform() === 'darwin') {
+        return path.join(os.homedir(), 'Library', 'Application Support', 'Lnd');
+    }
+    return resolveHome('/.lnd');
+}
+
 export const LoadLndNodeSettingsFromEnv = (dbEnv: Record<string, string | undefined>, addToDb?: EnvCacher): LndNodeSettings => {
     return {
         lndAddr: chooseEnv('LND_ADDRESS', dbEnv, "127.0.0.1:10009", addToDb),
-        lndCertPath: chooseEnv('LND_CERT_PATH', dbEnv, resolveHome("/.lnd/tls.cert"), addToDb),
-        lndMacaroonPath: chooseEnv('LND_MACAROON_PATH', dbEnv, resolveHome("/.lnd/data/chain/bitcoin/mainnet/admin.macaroon"), addToDb),
+        lndCertPath: chooseEnv('LND_CERT_PATH', dbEnv, path.join(lndDir(), "tls.cert"), addToDb),
+        lndMacaroonPath: chooseEnv('LND_MACAROON_PATH', dbEnv, path.join(lndDir(), "data", "chain", "bitcoin", "mainnet", "admin.macaroon"), addToDb),
     }
 }
 
