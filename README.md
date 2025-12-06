@@ -1,6 +1,6 @@
 # Lightning.Pub
 
-![Lightning.Pub](https://github.com/shocknet/Lightning.Pub/raw/mac-install/pub_logo.png)
+![Lightning.Pub](https://github.com/shocknet/Lightning.Pub/raw/master/pub_logo.png)
 
 ![GitHub last commit](https://img.shields.io/github/last-commit/shocknet/Lightning.Pub?style=flat-square)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com) 
