@@ -2,7 +2,7 @@
 import WebSocket from 'ws'
 Object.assign(global, { WebSocket: WebSocket });
 import crypto from 'crypto'
-import { SimplePool, Event, UnsignedEvent, finalizeEvent, Relay, nip44 } from 'nostr-tools'
+import { SimplePool, Event, UnsignedEvent, finalizeEvent, Relay, nip44, Filter } from 'nostr-tools'
 import { ERROR, getLogger } from '../helpers/logger.js'
 import { nip19 } from 'nostr-tools'
 import { encrypt as encryptV1, decrypt as decryptV1, getSharedSecret as getConversationKeyV1 } from './nip44v1.js'
@@ -26,6 +26,7 @@ export type NostrSettings = {
     relays: string[]
     clients: ClientInfo[]
     maxEventContentLength: number
+    providerDestinationPub: string
 }
 
 export type NostrEvent = {
@@ -69,9 +70,14 @@ type ProcessMetricsResponse = {
     type: 'processMetrics'
     metrics: ProcessMetrics
 }
+type BeaconResponse = {
+    type: 'beacon'
+    content: string
+    pub: string
+}
 
 export type ChildProcessRequest = SettingsRequest | SendRequest | PingRequest
-export type ChildProcessResponse = ReadyResponse | EventResponse | ProcessMetricsResponse | PingResponse
+export type ChildProcessResponse = ReadyResponse | EventResponse | ProcessMetricsResponse | PingResponse | BeaconResponse
 const send = (message: ChildProcessResponse) => {
     if (process.send) {
         process.send(message, undefined, undefined, err => {
@@ -218,18 +224,28 @@ export default class Handler {
             appIds: appIds,
             listeningForPubkeys: appIds
         })
-
-        return relay.subscribe([
+        const subs: Filter[] = [
             {
                 since: Math.ceil(Date.now() / 1000),
                 kinds: supportedKinds,
                 '#p': appIds,
             }
-        ], {
+        ]
+        if (this.settings.providerDestinationPub) {
+            subs.push({
+                kinds: [30078], '#d': ['Lightning.Pub'],
+                authors: [this.settings.providerDestinationPub]
+            })
+        }
+        return relay.subscribe(subs, {
             oneose: () => {
                 this.log("up to date with nostr events")
             },
             onevent: async (e) => {
+                if (e.kind === 30078 && e.pubkey === this.settings.providerDestinationPub) {
+                    send({ type: 'beacon', content: e.content, pub: e.pubkey })
+                    return
+                }
                 if (!supportedKinds.includes(e.kind) || !e.pubkey) {
                     return
                 }
