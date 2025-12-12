@@ -10,7 +10,6 @@ import { UserOffer } from '../storage/entity/UserOffer.js';
 import { LiquidityManager } from "./liquidityManager.js"
 import { NofferData, OfferPriceType, nofferEncode } from '@shocknet/clink-sdk';
 import SettingsManager from "./settingsManager.js";
-import { ClinkRequester } from '../storage/entity/UserReceivingInvoice.js';
 
 const mapToOfferConfig = (appUserId: string, offer: UserOffer, { pubkey, relay }: { pubkey: string, relay: string }): Types.OfferConfig => {
     const offerStr = offer.offer_id
@@ -166,10 +165,9 @@ export class OfferManager {
         })
 
         // Store requester info for sending receipt when invoice is paid
-        const clinkRequester: ClinkRequester = {
+        const clinkRequester = {
             pub: event.pub,
-            eventId: event.id,
-            appId: event.appId
+            eventId: event.id
         }
 
         const offerInvoice = await this.getNofferInvoice(offerReq, event.appId, clinkRequester)
@@ -206,7 +204,7 @@ export class OfferManager {
         return
     }
 
-    async HandleDefaultUserOffer(offerReq: NofferData, appId: string, remote: number, { memo, expiry }: { memo?: string, expiry?: number }, clinkRequester?: ClinkRequester): Promise<{ success: true, invoice: string } | { success: false, code: number, max: number }> {
+    async HandleDefaultUserOffer(offerReq: NofferData, appId: string, remote: number, { memo, expiry }: { memo?: string, expiry?: number }, clinkRequester?: { pub: string, eventId: string }): Promise<{ success: true, invoice: string } | { success: false, code: number, max: number }> {
         const { amount_sats: amount, offer } = offerReq
         if (!amount || isNaN(amount) || amount < 10 || amount > remote) {
             return { success: false, code: 5, max: remote }
@@ -219,7 +217,7 @@ export class OfferManager {
         return { success: true, invoice: res.invoice }
     }
 
-    async HandleUserOffer(offerReq: NofferData, appId: string, remote: number, clinkRequester?: ClinkRequester): Promise<{ success: true, invoice: string } | { success: false, code: number, max: number }> {
+    async HandleUserOffer(offerReq: NofferData, appId: string, remote: number, clinkRequester?: { pub: string, eventId: string }): Promise<{ success: true, invoice: string } | { success: false, code: number, max: number }> {
         const { amount_sats: amount, offer } = offerReq
         const userOffer = await this.storage.offerStorage.GetOffer(offer)
         const expiry = offerReq.expires_in_seconds ? offerReq.expires_in_seconds : undefined
@@ -262,7 +260,7 @@ export class OfferManager {
         return { success: true, invoice: res.invoice }
     }
 
-    async getNofferInvoice(offerReq: NofferData, appId: string, clinkRequester?: ClinkRequester): Promise<{ success: true, invoice: string } | { success: false, code: number, max: number }> {
+    async getNofferInvoice(offerReq: NofferData, appId: string, clinkRequester?: { pub: string, eventId: string }): Promise<{ success: true, invoice: string } | { success: false, code: number, max: number }> {
         try {
             const { remote } = await this.lnd.ChannelBalance()
             let maxSendable = remote

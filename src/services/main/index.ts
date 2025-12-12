@@ -292,7 +292,7 @@ export default class {
                 }
                 // Send CLINK receipt if this invoice was from a noffer request
                 try {
-                    if (userInvoice.clink_requester) {
+                    if (userInvoice.clink_requester_pub && userInvoice.clink_requester_event_id) {
                         this.createClinkReceipt(log, userInvoice)
                     }
                 } catch (err: any) {
@@ -440,13 +440,12 @@ export default class {
     }
 
     async createClinkReceipt(log: PubLogger, invoice: UserReceivingInvoice) {
-        const clinkRequester = invoice.clink_requester
-        if (!clinkRequester || !invoice.linkedApplication) {
+        if (!invoice.clink_requester_pub || !invoice.clink_requester_event_id || !invoice.linkedApplication) {
             return
         }
         log("📤 [CLINK RECEIPT] Sending payment receipt", {
-            toPub: clinkRequester.pub,
-            eventId: clinkRequester.eventId
+            toPub: invoice.clink_requester_pub,
+            eventId: invoice.clink_requester_event_id
         })
         // Receipt payload - payer's wallet already has the preimage
         const content = JSON.stringify({ res: 'ok' })
@@ -456,14 +455,14 @@ export default class {
             kind: 21001,
             pubkey: "",
             tags: [
-                ["p", clinkRequester.pub],
-                ["e", clinkRequester.eventId],
+                ["p", invoice.clink_requester_pub],
+                ["e", invoice.clink_requester_event_id],
                 ["clink_version", "1"]
             ],
         }
         this.nostrSend(
-            { type: 'app', appId: clinkRequester.appId },
-            { type: 'event', event, encrypt: { toPub: clinkRequester.pub } }
+            { type: 'app', appId: invoice.linkedApplication.app_id },
+            { type: 'event', event, encrypt: { toPub: invoice.clink_requester_pub } }
         )
     }
 

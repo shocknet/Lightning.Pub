@@ -9,11 +9,6 @@ export type ZapInfo = {
     description: string
 }
 
-export type ClinkRequester = {
-    pub: string      // requester's pubkey
-    eventId: string  // original request event ID
-    appId: string    // app context for nostrSend
-}
 @Entity()
 @Index("recv_invoice_paid_serial", ["user.serial_id", "paid_at_unix", "serial_id"], { where: "paid_at_unix > 0" })
 export class UserReceivingInvoice {
@@ -86,11 +81,11 @@ export class UserReceivingInvoice {
     })
     liquidityProvider?: string
 
-    @Column({
-        nullable: true,
-        type: 'simple-json'
-    })
-    clink_requester?: ClinkRequester
+    @Column({ nullable: true })
+    clink_requester_pub?: string
+
+    @Column({ nullable: true })
+    clink_requester_event_id?: string
 
     @CreateDateColumn()
     created_at: Date
