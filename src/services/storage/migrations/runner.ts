@@ -27,13 +27,14 @@ import { UserAccess1759426050669 } from './1759426050669-user_access.js'
 import { AddBlindToUserOffer1760000000000 } from './1760000000000-add_blind_to_user_offer.js'
 import { ApplicationAvatarUrl1761000001000 } from './1761000001000-application_avatar_url.js'
 import { AdminSettings1761683639419 } from './1761683639419-admin_settings.js'
+import { ClinkRequester1765354000000 } from './1765354000000-clink_requester.js'
 
 
 export const allMigrations = [Initial1703170309875, LspOrder1718387847693, LiquidityProvider1719335699480, LndNodeInfo1720187506189,
     TrackedProvider1720814323679, CreateInviteTokenTable1721751414878, PaymentIndex1721760297610, DebitAccess1726496225078, DebitAccessFixes1726685229264,
     DebitToPub1727105758354, UserCbUrl1727112281043, UserOffer1733502626042, ManagementGrant1751307732346, ManagementGrantBanned1751989251513,
     InvoiceCallbackUrls1752425992291, OldSomethingLeftover1753106599604, UserReceivingInvoiceIdx1753109184611, AppUserDevice1753285173175,
-    UserAccess1759426050669, AddBlindToUserOffer1760000000000, ApplicationAvatarUrl1761000001000, AdminSettings1761683639419]
+    UserAccess1759426050669, AddBlindToUserOffer1760000000000, ApplicationAvatarUrl1761000001000, AdminSettings1761683639419, ClinkRequester1765354000000]
 
 export const allMetricsMigrations = [LndMetrics1703170330183, ChannelRouting1709316653538, HtlcCount1724266887195, BalanceEvents1724860966825, RootOps1732566440447, RootOpsTime1745428134124, ChannelEvents1750777346411]
 /* export const TypeOrmMigrationRunner = async (log: PubLogger, storageManager: Storage, settings: DbSettings, arg: string | undefined): Promise<boolean> => {
