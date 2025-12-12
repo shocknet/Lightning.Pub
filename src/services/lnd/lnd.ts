@@ -67,20 +67,10 @@ export default class {
         if (liquidProvider.getSettings().useOnlyLiquidityProvider) {
             this.log("USE_ONLY_LIQUIDITY_PROVIDER enabled, skipping LND client initialization")
             // Create minimal dummy clients - they won't be used but prevent null reference errors
-            // Use insecure credentials since LND won't be accessed
+            // Use insecure credentials directly (can't combine them)
             const { lndAddr } = this.getSettings().lndNodeSettings
             const insecureCreds = credentials.createInsecure()
-            const dummyMacaroonCreds = credentials.createFromMetadataGenerator(
-                function (args: any, callback: any) {
-                    let metadata = new Metadata();
-                    callback(null, metadata);
-                },
-            );
-            const dummyCombinedCreds = credentials.combineChannelCredentials(
-                insecureCreds,
-                dummyMacaroonCreds,
-            );
-            const dummyTransport = new GrpcTransport({ host: lndAddr || '127.0.0.1:10009', channelCredentials: dummyCombinedCreds })
+            const dummyTransport = new GrpcTransport({ host: lndAddr || '127.0.0.1:10009', channelCredentials: insecureCreds })
             this.lightning = new LightningClient(dummyTransport)
             this.invoices = new InvoicesClient(dummyTransport)
             this.router = new RouterClient(dummyTransport)
@@ -163,6 +153,18 @@ export default class {
     }
 
     async GetInfo(): Promise<NodeInfo> {
+        if (this.liquidProvider.getSettings().useOnlyLiquidityProvider) {
+            // Return dummy info when bypass is enabled
+            return {
+                identityPubkey: '',
+                alias: '',
+                syncedToChain: false,
+                syncedToGraph: false,
+                blockHeight: 0,
+                blockHash: '',
+                uris: []
+            }
+        }
         // console.log("Getting info")
         const res = await this.lightning.getInfo({}, DeadLineMetadata())
         return res.response
@@ -384,6 +386,9 @@ export default class {
     }
 
     async ChannelBalance(): Promise<{ local: number, remote: number }> {
+        if (this.liquidProvider.getSettings().useOnlyLiquidityProvider) {
+            return { local: 0, remote: 0 }
+        }
         // console.log("Getting channel balance")
         const res = await this.lightning.channelBalance({})
         const r = res.response
@@ -527,6 +532,9 @@ export default class {
     }
 
     async GetBalance(): Promise<BalanceInfo> { // TODO: remove this
+        if (this.liquidProvider.getSettings().useOnlyLiquidityProvider) {
+            return { confirmedBalance: 0, unconfirmedBalance: 0, totalBalance: 0, channelsBalance: [] }
+        }
         //      console.log("Getting balance")
         const wRes = await this.lightning.walletBalance({ account: "", minConfs: 1 }, DeadLineMetadata())
         const { confirmedBalance, unconfirmedBalance, totalBalance } = wRes.response
@@ -549,11 +557,17 @@ export default class {
     }
 
     async GetAllPaidInvoices(max: number) {
+        if (this.liquidProvider.getSettings().useOnlyLiquidityProvider) {
+            return { invoices: [] }
+        }
         // console.log("Getting all paid invoices")
         const res = await this.lightning.listInvoices({ indexOffset: 0n, numMaxInvoices: BigInt(max), pendingOnly: false, reversed: true, creationDateEnd: 0n, creationDateStart: 0n }, DeadLineMetadata())
         return res.response
     }
     async GetAllPayments(max: number) {
+        if (this.liquidProvider.getSettings().useOnlyLiquidityProvider) {
+            return { payments: [] }
+        }
         // console.log("Getting all payments")
         const res = await this.lightning.listPayments({ countTotalPayments: false, includeIncomplete: false, indexOffset: 0n, maxPayments: BigInt(max), reversed: true, creationDateEnd: 0n, creationDateStart: 0n })
         return res.response
