@@ -10,6 +10,7 @@ import { UserOffer } from '../storage/entity/UserOffer.js';
 import { LiquidityManager } from "./liquidityManager.js"
 import { NofferData, OfferPriceType, nofferEncode } from '@shocknet/clink-sdk';
 import SettingsManager from "./settingsManager.js";
+import { ClinkRequester } from '../storage/entity/UserReceivingInvoice.js';
 
 const mapToOfferConfig = (appUserId: string, offer: UserOffer, { pubkey, relay }: { pubkey: string, relay: string }): Types.OfferConfig => {
     const offerStr = offer.offer_id
@@ -164,7 +165,14 @@ export class OfferManager {
             payerData: offerReq.payer_data
         })
 
-        const offerInvoice = await this.getNofferInvoice(offerReq, event.appId)
+        // Store requester info for sending receipt when invoice is paid
+        const clinkRequester: ClinkRequester = {
+            pub: event.pub,
+            eventId: event.id,
+            appId: event.appId
+        }
+
+        const offerInvoice = await this.getNofferInvoice(offerReq, event.appId, clinkRequester)
 
         if (!offerInvoice.success) {
             const code = offerInvoice.code
@@ -198,7 +206,7 @@ export class OfferManager {
         return
     }
 
-    async HandleDefaultUserOffer(offerReq: NofferData, appId: string, remote: number, { memo, expiry }: { memo?: string, expiry?: number }): Promise<{ success: true, invoice: string } | { success: false, code: number, max: number }> {
+    async HandleDefaultUserOffer(offerReq: NofferData, appId: string, remote: number, { memo, expiry }: { memo?: string, expiry?: number }, clinkRequester?: ClinkRequester): Promise<{ success: true, invoice: string } | { success: false, code: number, max: number }> {
         const { amount_sats: amount, offer } = offerReq
         if (!amount || isNaN(amount) || amount < 10 || amount > remote) {
             return { success: false, code: 5, max: remote }
@@ -207,17 +215,17 @@ export class OfferManager {
             http_callback_url: "", payer_identifier: offer, receiver_identifier: offer,
             invoice_req: { amountSats: amount, memo: memo || "Default CLINK Offer", zap: offerReq.zap, expiry },
             offer_string: 'offer'
-        })
+        }, clinkRequester)
         return { success: true, invoice: res.invoice }
     }
 
-    async HandleUserOffer(offerReq: NofferData, appId: string, remote: number): Promise<{ success: true, invoice: string } | { success: false, code: number, max: number }> {
+    async HandleUserOffer(offerReq: NofferData, appId: string, remote: number, clinkRequester?: ClinkRequester): Promise<{ success: true, invoice: string } | { success: false, code: number, max: number }> {
         const { amount_sats: amount, offer } = offerReq
         const userOffer = await this.storage.offerStorage.GetOffer(offer)
         const expiry = offerReq.expires_in_seconds ? offerReq.expires_in_seconds : undefined
 
         if (!userOffer) {
-            return this.HandleDefaultUserOffer(offerReq, appId, remote, { memo: offerReq.description, expiry })
+            return this.HandleDefaultUserOffer(offerReq, appId, remote, { memo: offerReq.description, expiry }, clinkRequester)
         }
         if (userOffer.app_user_id === userOffer.offer_id) {
             if (userOffer.price_sats !== 0 || userOffer.payer_data) {
@@ -250,11 +258,11 @@ export class OfferManager {
             offer_string: offer,
             rejectUnauthorized: userOffer.rejectUnauthorized,
             token: userOffer.bearer_token
-        })
+        }, clinkRequester)
         return { success: true, invoice: res.invoice }
     }
 
-    async getNofferInvoice(offerReq: NofferData, appId: string): Promise<{ success: true, invoice: string } | { success: false, code: number, max: number }> {
+    async getNofferInvoice(offerReq: NofferData, appId: string, clinkRequester?: ClinkRequester): Promise<{ success: true, invoice: string } | { success: false, code: number, max: number }> {
         try {
             const { remote } = await this.lnd.ChannelBalance()
             let maxSendable = remote
@@ -263,7 +271,7 @@ export class OfferManager {
             }
             const split = offerReq.offer.split(':')
             if (split.length === 1) {
-                return this.HandleUserOffer(offerReq, appId, maxSendable)
+                return this.HandleUserOffer(offerReq, appId, maxSendable, clinkRequester)
             } else if (split[0] === 'p') {
                 const product = await this.productManager.NewProductInvoice(split[1])
                 return { success: true, invoice: product.invoice }

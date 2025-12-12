@@ -7,7 +7,7 @@ import { ApplicationUser } from '../storage/entity/ApplicationUser.js'
 import { PubLogger, getLogger } from '../helpers/logger.js'
 import crypto from 'crypto'
 import { Application } from '../storage/entity/Application.js'
-import { ZapInfo } from '../storage/entity/UserReceivingInvoice.js'
+import { ZapInfo, ClinkRequester } from '../storage/entity/UserReceivingInvoice.js'
 import { nofferEncode, ndebitEncode, OfferPriceType, nmanageEncode } from '@shocknet/clink-sdk'
 import SettingsManager from './settingsManager.js'
 const TOKEN_EXPIRY_TIME = 2 * 60 * 1000 // 2 minutes, in milliseconds
@@ -185,7 +185,7 @@ export default class {
         return invoice
     }
 
-    async AddAppUserInvoice(appId: string, req: Types.AddAppUserInvoiceRequest): Promise<Types.NewInvoiceResponse> {
+    async AddAppUserInvoice(appId: string, req: Types.AddAppUserInvoiceRequest, clinkRequester?: ClinkRequester): Promise<Types.NewInvoiceResponse> {
         const app = await this.storage.applicationStorage.GetApplication(appId)
         const log = getLogger({ appName: app.name })
         const receiver = await this.storage.applicationStorage.GetApplicationUser(app, req.receiver_identifier)
@@ -200,7 +200,8 @@ export default class {
             callbackUrl: cbUrl, expiry: expiry, expectedPayer: payer.user, linkedApplication: app, zapInfo,
             offerId: req.offer_string, payerData: req.payer_data?.data, rejectUnauthorized: req.rejectUnauthorized,
             token: req.token,
-            blind: req.invoice_req.blind
+            blind: req.invoice_req.blind,
+            clinkRequester
         }
         const appUserInvoice = await this.paymentManager.NewInvoice(receiver.user.user_id, req.invoice_req, opts)
         return {

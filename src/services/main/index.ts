@@ -10,11 +10,10 @@ import { AddressPaidCb, ChannelEventCb, HtlcCb, InvoicePaidCb, NewBlockCb } from
 import { ERROR, getLogger, PubLogger } from "../helpers/logger.js"
 import AppUserManager from "./appUserManager.js"
 import { Application } from '../storage/entity/Application.js'
-import { UserReceivingInvoice, ZapInfo } from '../storage/entity/UserReceivingInvoice.js'
+import { UserReceivingInvoice } from '../storage/entity/UserReceivingInvoice.js'
 import { UnsignedEvent } from 'nostr-tools'
-import { NostrEvent, NostrSend } from '../nostr/handler.js'
+import { NostrSend } from '../nostr/handler.js'
 import MetricsManager from '../metrics/index.js'
-import { LoggedEvent } from '../storage/eventsLog.js'
 import { LiquidityProvider } from "./liquidityProvider.js"
 import { LiquidityManager } from "./liquidityManager.js"
 import { Utils } from "../helpers/utilsWrapper.js"
@@ -291,6 +290,14 @@ export default class {
                 } catch (err: any) {
                     log(ERROR, "cannot create zap receipt", err.message || "")
                 }
+                // Send CLINK receipt if this invoice was from a noffer request
+                try {
+                    if (userInvoice.clink_requester) {
+                        this.createClinkReceipt(log, userInvoice)
+                    }
+                } catch (err: any) {
+                    log(ERROR, "cannot create clink receipt", err.message || "")
+                }
                 this.liquidityManager.afterInInvoicePaid()
                 this.utils.stateBundler.AddTxPoint('invoiceWasPaid', amount, { used, from: 'system', timeDiscount: true }, userInvoice.linkedApplication.app_id)
             } catch (err: any) {
@@ -430,6 +437,34 @@ export default class {
         }
         log({ unsigned: event })
         this.nostrSend({ type: 'app', appId: invoice.linkedApplication.app_id }, { type: 'event', event }, zapInfo.relays || undefined)
+    }
+
+    async createClinkReceipt(log: PubLogger, invoice: UserReceivingInvoice) {
+        const clinkRequester = invoice.clink_requester
+        if (!clinkRequester || !invoice.linkedApplication) {
+            return
+        }
+        log("📤 [CLINK RECEIPT] Sending payment receipt", {
+            toPub: clinkRequester.pub,
+            eventId: clinkRequester.eventId
+        })
+        // Receipt payload - payer's wallet already has the preimage
+        const content = JSON.stringify({ res: 'ok' })
+        const event: UnsignedEvent = {
+            content,
+            created_at: Math.floor(Date.now() / 1000),
+            kind: 21001,
+            pubkey: "",
+            tags: [
+                ["p", clinkRequester.pub],
+                ["e", clinkRequester.eventId],
+                ["clink_version", "1"]
+            ],
+        }
+        this.nostrSend(
+            { type: 'app', appId: clinkRequester.appId },
+            { type: 'event', event, encrypt: { toPub: clinkRequester.pub } }
+        )
     }
 
     async ResetNostr() {
