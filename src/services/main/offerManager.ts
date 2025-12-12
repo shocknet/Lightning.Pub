@@ -262,10 +262,18 @@ export class OfferManager {
 
     async getNofferInvoice(offerReq: NofferData, appId: string, clinkRequester?: { pub: string, eventId: string }): Promise<{ success: true, invoice: string } | { success: false, code: number, max: number }> {
         try {
-            const { remote } = await this.lnd.ChannelBalance()
-            let maxSendable = remote
-            if (remote === 0 && (await this.liquidityManager.liquidityProvider.IsReady())) {
-                maxSendable = 10_000_000
+            // When bypass is enabled, use provider balance instead of LND channel balance
+            let maxSendable = 0
+            if (this.liquidityManager.settings.getSettings().liquiditySettings.useOnlyLiquidityProvider) {
+                if (await this.liquidityManager.liquidityProvider.IsReady()) {
+                    maxSendable = 10_000_000
+                }
+            } else {
+                const { remote } = await this.lnd.ChannelBalance()
+                maxSendable = remote
+                if (remote === 0 && (await this.liquidityManager.liquidityProvider.IsReady())) {
+                    maxSendable = 10_000_000
+                }
             }
             const split = offerReq.offer.split(':')
             if (split.length === 1) {

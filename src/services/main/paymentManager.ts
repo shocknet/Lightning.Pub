@@ -115,6 +115,11 @@ export default class {
     }
 
     checkPendingLndPayment = async (log: PubLogger, p: UserInvoicePayment) => {
+        // Skip LND payment checks when bypass is enabled
+        if (this.liquidityManager.settings.getSettings().liquiditySettings.useOnlyLiquidityProvider) {
+            log("USE_ONLY_LIQUIDITY_PROVIDER enabled, skipping LND payment check for", p.serial_id)
+            return
+        }
         const decoded = await this.lnd.DecodeInvoice(p.invoice)
         const payment = await this.lnd.GetPaymentFromHash(decoded.paymentHash)
         if (!payment || payment.paymentHash !== decoded.paymentHash) {

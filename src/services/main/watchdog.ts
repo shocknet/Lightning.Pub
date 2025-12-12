@@ -211,6 +211,10 @@ export class Watchdog {
     }
 
     PaymentRequested = async () => {
+        // Skip watchdog check when bypass is enabled
+        if (this.liquidProvider.getSettings().useOnlyLiquidityProvider) {
+            return
+        }
         if (!this.ready) {
             throw new Error("Watchdog not ready")
         }

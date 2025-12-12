@@ -212,6 +212,11 @@ export default class {
 
     addressPaidCb: AddressPaidCb = (txOutput, address, amount, used) => {
         return this.storage.StartTransaction(async tx => {
+            // On-chain payments not supported when bypass is enabled
+            if (this.liquidityProvider.getSettings().useOnlyLiquidityProvider) {
+                getLogger({})("addressPaidCb called but USE_ONLY_LIQUIDITY_PROVIDER is enabled, ignoring")
+                return
+            }
             const { blockHeight } = await this.lnd.GetInfo()
             const userAddress = await this.storage.paymentStorage.GetAddressOwner(address, tx)
             if (!userAddress) {
