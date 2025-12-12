@@ -61,6 +61,34 @@ export default class {
         this.newBlockCb = newBlockCb
         this.htlcCb = htlcCb
         this.channelEventCb = channelEventCb
+        this.liquidProvider = liquidProvider
+        
+        // Skip LND client initialization if using only liquidity provider
+        if (liquidProvider.getSettings().useOnlyLiquidityProvider) {
+            this.log("USE_ONLY_LIQUIDITY_PROVIDER enabled, skipping LND client initialization")
+            // Create minimal dummy clients - they won't be used but prevent null reference errors
+            // Use insecure credentials since LND won't be accessed
+            const { lndAddr } = this.getSettings().lndNodeSettings
+            const insecureCreds = credentials.createInsecure()
+            const dummyMacaroonCreds = credentials.createFromMetadataGenerator(
+                function (args: any, callback: any) {
+                    let metadata = new Metadata();
+                    callback(null, metadata);
+                },
+            );
+            const dummyCombinedCreds = credentials.combineChannelCredentials(
+                insecureCreds,
+                dummyMacaroonCreds,
+            );
+            const dummyTransport = new GrpcTransport({ host: lndAddr || '127.0.0.1:10009', channelCredentials: dummyCombinedCreds })
+            this.lightning = new LightningClient(dummyTransport)
+            this.invoices = new InvoicesClient(dummyTransport)
+            this.router = new RouterClient(dummyTransport)
+            this.chainNotifier = new ChainNotifierClient(dummyTransport)
+            this.walletKit = new WalletKitClient(dummyTransport)
+            return
+        }
+        
         const { lndAddr, lndCertPath, lndMacaroonPath } = this.getSettings().lndNodeSettings
         const lndCert = fs.readFileSync(lndCertPath);
         const macaroon = fs.readFileSync(lndMacaroonPath).toString('hex');
@@ -86,7 +114,6 @@ export default class {
         this.router = new RouterClient(transport)
         this.chainNotifier = new ChainNotifierClient(transport)
         this.walletKit = new WalletKitClient(transport)
-        this.liquidProvider = liquidProvider
     }
 
     LockOutgoingOperations(): void {
@@ -105,6 +132,12 @@ export default class {
     }
 
     async Warmup() {
+        // Skip LND warmup if using only liquidity provider
+        if (this.liquidProvider.getSettings().useOnlyLiquidityProvider) {
+            this.log("USE_ONLY_LIQUIDITY_PROVIDER enabled, skipping LND warmup")
+            this.ready = true
+            return
+        }
         // console.log("Warming up LND")
         this.SubscribeAddressPaid()
         this.SubscribeInvoicePaid()
