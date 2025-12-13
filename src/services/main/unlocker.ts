@@ -55,6 +55,11 @@ export class Unlocker {
     }
 
     Unlock = async (): Promise<'created' | 'unlocked' | 'noaction'> => {
+        // Skip LND unlock if using only liquidity provider
+        if (this.settings.getSettings().liquiditySettings.useOnlyLiquidityProvider) {
+            this.log("USE_ONLY_LIQUIDITY_PROVIDER enabled, skipping LND unlock")
+            return 'noaction'
+        }
         const { lndCert, macaroon } = this.getCreds()
         if (macaroon === "") {
             const { ln, pub } = await this.InitFlow(lndCert)

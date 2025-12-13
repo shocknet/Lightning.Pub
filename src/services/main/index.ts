@@ -10,11 +10,10 @@ import { AddressPaidCb, ChannelEventCb, HtlcCb, InvoicePaidCb, NewBlockCb } from
 import { ERROR, getLogger, PubLogger } from "../helpers/logger.js"
 import AppUserManager from "./appUserManager.js"
 import { Application } from '../storage/entity/Application.js'
-import { UserReceivingInvoice, ZapInfo } from '../storage/entity/UserReceivingInvoice.js'
+import { UserReceivingInvoice } from '../storage/entity/UserReceivingInvoice.js'
 import { UnsignedEvent } from 'nostr-tools'
-import { NostrEvent, NostrSend } from '../nostr/handler.js'
+import { NostrSend } from '../nostr/handler.js'
 import MetricsManager from '../metrics/index.js'
-import { LoggedEvent } from '../storage/eventsLog.js'
 import { LiquidityProvider } from "./liquidityProvider.js"
 import { LiquidityManager } from "./liquidityManager.js"
 import { Utils } from "../helpers/utilsWrapper.js"
@@ -213,6 +212,11 @@ export default class {
 
     addressPaidCb: AddressPaidCb = (txOutput, address, amount, used) => {
         return this.storage.StartTransaction(async tx => {
+            // On-chain payments not supported when bypass is enabled
+            if (this.liquidityProvider.getSettings().useOnlyLiquidityProvider) {
+                getLogger({})("addressPaidCb called but USE_ONLY_LIQUIDITY_PROVIDER is enabled, ignoring")
+                return
+            }
             const { blockHeight } = await this.lnd.GetInfo()
             const userAddress = await this.storage.paymentStorage.GetAddressOwner(address, tx)
             if (!userAddress) {
@@ -290,6 +294,14 @@ export default class {
                     this.createZapReceipt(log, userInvoice)
                 } catch (err: any) {
                     log(ERROR, "cannot create zap receipt", err.message || "")
+                }
+                // Send CLINK receipt if this invoice was from a noffer request
+                try {
+                    if (userInvoice.clink_requester_pub && userInvoice.clink_requester_event_id) {
+                        await this.createClinkReceipt(log, userInvoice)
+                    }
+                } catch (err: any) {
+                    log(ERROR, "cannot create clink receipt", err.message || "")
                 }
                 this.liquidityManager.afterInInvoicePaid()
                 this.utils.stateBundler.AddTxPoint('invoiceWasPaid', amount, { used, from: 'system', timeDiscount: true }, userInvoice.linkedApplication.app_id)
@@ -430,6 +442,33 @@ export default class {
         }
         log({ unsigned: event })
         this.nostrSend({ type: 'app', appId: invoice.linkedApplication.app_id }, { type: 'event', event }, zapInfo.relays || undefined)
+    }
+
+    async createClinkReceipt(log: PubLogger, invoice: UserReceivingInvoice) {
+        if (!invoice.clink_requester_pub || !invoice.clink_requester_event_id || !invoice.linkedApplication) {
+            return
+        }
+        log("📤 [CLINK RECEIPT] Sending payment receipt", {
+            toPub: invoice.clink_requester_pub,
+            eventId: invoice.clink_requester_event_id
+        })
+        // Receipt payload - payer's wallet already has the preimage
+        const content = JSON.stringify({ res: 'ok' })
+        const event: UnsignedEvent = {
+            content,
+            created_at: Math.floor(Date.now() / 1000),
+            kind: 21001,
+            pubkey: "",
+            tags: [
+                ["p", invoice.clink_requester_pub],
+                ["e", invoice.clink_requester_event_id],
+                ["clink_version", "1"]
+            ],
+        }
+        this.nostrSend(
+            { type: 'app', appId: invoice.linkedApplication.app_id },
+            { type: 'event', event, encrypt: { toPub: invoice.clink_requester_pub } }
+        )
     }
 
     async ResetNostr() {

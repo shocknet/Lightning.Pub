@@ -80,6 +80,12 @@ export class UserReceivingInvoice {
     })
     liquidityProvider?: string
 
+    @Column({ nullable: true })
+    clink_requester_pub?: string
+
+    @Column({ nullable: true })
+    clink_requester_event_id?: string
+
     @CreateDateColumn()
     created_at: Date
 
