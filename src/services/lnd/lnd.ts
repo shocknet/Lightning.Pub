@@ -388,20 +388,28 @@ export default class {
     async DecodeInvoice(paymentRequest: string): Promise<DecodedInvoice> {
         if (this.liquidProvider.getSettings().useOnlyLiquidityProvider) {
             // Use light-bolt11-decoder when LND is bypassed
-            const decoded = decodeBolt11(paymentRequest)
-            let numSatoshis = 0
-            let paymentHash = ''
-            
-            for (const section of decoded.sections) {
-                if (section.name === 'amount') {
-                    // Amount is in millisatoshis
-                    numSatoshis = Math.floor(Number(section.value) / 1000)
-                } else if (section.name === 'payment_hash') {
-                    paymentHash = section.value as string
+            try {
+                const decoded = decodeBolt11(paymentRequest)
+                let numSatoshis = 0
+                let paymentHash = ''
+                
+                for (const section of decoded.sections) {
+                    if (section.name === 'amount') {
+                        // Amount is in millisatoshis
+                        numSatoshis = Math.floor(Number(section.value) / 1000)
+                    } else if (section.name === 'payment_hash') {
+                        paymentHash = section.value as string
+                    }
                 }
+                
+                if (!paymentHash) {
+                    throw new Error("Payment hash not found in invoice")
+                }
+                
+                return { numSatoshis, paymentHash }
+            } catch (err: any) {
+                throw new Error(`Failed to decode invoice: ${err.message}`)
             }
-            
-            return { numSatoshis, paymentHash }
         }
         // console.log("Decoding invoice")
         const res = await this.lightning.decodePayReq({ payReq: paymentRequest }, DeadLineMetadata())

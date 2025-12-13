@@ -8,7 +8,6 @@ export type ZapInfo = {
     relays: string[]
     description: string
 }
-
 @Entity()
 @Index("recv_invoice_paid_serial", ["user.serial_id", "paid_at_unix", "serial_id"], { where: "paid_at_unix > 0" })
 export class UserReceivingInvoice {

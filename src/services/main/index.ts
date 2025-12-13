@@ -298,7 +298,7 @@ export default class {
                 // Send CLINK receipt if this invoice was from a noffer request
                 try {
                     if (userInvoice.clink_requester_pub && userInvoice.clink_requester_event_id) {
-                        this.createClinkReceipt(log, userInvoice)
+                        await this.createClinkReceipt(log, userInvoice)
                     }
                 } catch (err: any) {
                     log(ERROR, "cannot create clink receipt", err.message || "")
