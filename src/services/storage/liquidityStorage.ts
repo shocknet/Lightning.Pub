@@ -18,7 +18,8 @@ export class LiquidityStorage {
     }
 
     async GetNoodeSeed(pubkey: string) {
-        return this.dbs.FindOne<LndNodeInfo>('LndNodeInfo', { where: { pubkey, seed: Not(IsNull()) } })
+        const node = await this.dbs.FindOne<LndNodeInfo>('LndNodeInfo', { where: { pubkey/* , seed: Not(IsNull()) */ } })
+        return node?.seed
     }
 
     async SaveNodeSeed(pubkey: string, seed: string) {

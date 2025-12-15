@@ -211,12 +211,10 @@ export class Unlocker {
             throw new Error("node pub not found")
         }
         const encrypted = await this.storage.liquidityStorage.GetNoodeSeed(this.nodePub)
-        if (!encrypted || !encrypted.seed) {
+        if (!encrypted) {
             throw new Error("seed not found")
         }
-        this.log("seed found, decrypting")
-        const decrypted = this.DecryptWalletSeed(JSON.parse(encrypted.seed))
-        this.log("seed decrypted")
+        const decrypted = this.DecryptWalletSeed(JSON.parse(encrypted))
         return { seed: decrypted }
     }
 
@@ -278,12 +276,9 @@ export class Unlocker {
         const secret = Buffer.from(sec, 'hex')
         const iv = Buffer.from(data.iv, 'hex')
         const encrypted = Buffer.from(data.encrypted, 'hex')
-        this.log("decoded encrypted data")
         const decipher = crypto.createDecipheriv('aes-256-cbc', secret, iv)
         const decrypted = decipher.update(encrypted)
-        this.log("decrypted data")
         const raw = Buffer.concat([decrypted, decipher.final()])
-        this.log("got raw data")
         return raw.toString('utf-8')
     }
 

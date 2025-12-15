@@ -110,7 +110,6 @@ export default (mainHandler: Main): Types.ServerMethods => {
             return mainHandler.appUserManager.BanUser(req.user_id)
         },
         GetSeed: async ({ ctx }) => {
-            console.log("admin getting seed")
             return mainHandler.unlocker.GetSeed()
         },
         SetMockInvoiceAsPaid: async ({ ctx, req }) => {
