@@ -211,11 +211,10 @@ export class Unlocker {
             throw new Error("node pub not found")
         }
         const encrypted = await this.storage.liquidityStorage.GetNoodeSeed(this.nodePub)
-        if (!encrypted || !encrypted.seed) {
+        if (!encrypted) {
             throw new Error("seed not found")
         }
-
-        const decrypted = this.DecryptWalletSeed(JSON.parse(encrypted.seed))
+        const decrypted = this.DecryptWalletSeed(JSON.parse(encrypted))
         return { seed: decrypted }
     }
 
