@@ -214,8 +214,9 @@ export class Unlocker {
         if (!encrypted || !encrypted.seed) {
             throw new Error("seed not found")
         }
-
+        this.log("seed found, decrypting")
         const decrypted = this.DecryptWalletSeed(JSON.parse(encrypted.seed))
+        this.log("seed decrypted")
         return { seed: decrypted }
     }
 
@@ -277,9 +278,12 @@ export class Unlocker {
         const secret = Buffer.from(sec, 'hex')
         const iv = Buffer.from(data.iv, 'hex')
         const encrypted = Buffer.from(data.encrypted, 'hex')
+        this.log("decoded encrypted data")
         const decipher = crypto.createDecipheriv('aes-256-cbc', secret, iv)
         const decrypted = decipher.update(encrypted)
+        this.log("decrypted data")
         const raw = Buffer.concat([decrypted, decipher.final()])
+        this.log("got raw data")
         return raw.toString('utf-8')
     }
 
