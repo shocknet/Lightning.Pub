@@ -12,7 +12,7 @@ import AppUserManager from "./appUserManager.js"
 import { Application } from '../storage/entity/Application.js'
 import { UserReceivingInvoice, ZapInfo } from '../storage/entity/UserReceivingInvoice.js'
 import { UnsignedEvent } from 'nostr-tools'
-import { NostrEvent, NostrSend } from '../nostr/handler.js'
+import { NostrSend } from '../nostr/nostrPool.js'
 import MetricsManager from '../metrics/index.js'
 import { LoggedEvent } from '../storage/eventsLog.js'
 import { LiquidityProvider } from "./liquidityProvider.js"
@@ -31,7 +31,7 @@ import { Agent } from "https"
 import { NotificationsManager } from "./notificationsManager.js"
 import { ApplicationUser } from '../storage/entity/ApplicationUser.js'
 import SettingsManager from './settingsManager.js'
-import { NostrSettings } from '../nostr/handler.js'
+import { NostrSettings, AppInfo } from '../nostr/nostrPool.js'
 type UserOperationsSub = {
     id: string
     newIncomingInvoice: (operation: Types.UserOperation) => void
@@ -453,12 +453,26 @@ export default class {
             publicKey: liquidityProviderApp.nostr_public_key || "",
             name: "liquidity_provider", clientId: `client_${liquidityProviderApp.app_id}`
         }
+        const relays = this.settings.getSettings().nostrRelaySettings.relays
+        const appsInfo: AppInfo[] = apps.map(app => {
+            return {
+                appId: app.app_id,
+                privateKey: app.nostr_private_key || "",
+                publicKey: app.nostr_public_key || "",
+                name: app.name,
+                provider: app.nostr_public_key === liquidityProviderInfo.publicKey ? {
+                    clientId: liquidityProviderInfo.clientId,
+                    pubDestination: this.settings.getSettings().liquiditySettings.liquidityProviderPub,
+                    relayUrl: this.settings.getSettings().liquiditySettings.providerRelayUrl || relays[0]
+                } : undefined
+            }
+        })
         const s: NostrSettings = {
-            apps: apps.map(a => ({ appId: a.app_id, name: a.name, privateKey: a.nostr_private_key || "", publicKey: a.nostr_public_key || "" })),
-            relays: this.settings.getSettings().nostrRelaySettings.relays,
+            apps: appsInfo,
+            relays,
             maxEventContentLength: this.settings.getSettings().nostrRelaySettings.maxEventContentLength,
-            clients: [liquidityProviderInfo],
-            providerDestinationPub: this.settings.getSettings().liquiditySettings.liquidityProviderPub
+            /* clients: [liquidityProviderInfo],
+            providerDestinationPub: this.settings.getSettings().liquiditySettings.liquidityProviderPub */
         }
         this.nostrReset(s)
     }

@@ -83,7 +83,7 @@ export const SetupTest = async (d: Describe, chainTools: ChainTools): Promise<Te
     const extermnalUtils = new Utils({ dataDir: storageSettings.dataDir, allowResetMetricsStorages: storageSettings.allowResetMetricsStorages })
     /*     const externalAccessToMainLnd = new LND(settings.lndSettings, new LiquidityProvider("", extermnalUtils, async () => { }, async () => { }), extermnalUtils, async () => { }, async () => { }, () => { }, () => { })
         await externalAccessToMainLnd.Warmup() */
-    const liquiditySettings: LiquiditySettings = { disableLiquidityProvider: true, liquidityProviderPub: "", useOnlyLiquidityProvider: false }
+    const liquiditySettings: LiquiditySettings = { disableLiquidityProvider: true, liquidityProviderPub: "", useOnlyLiquidityProvider: false, providerRelayUrl: "" }
     const lndSettings = LoadLndSettingsFromEnv({})
     const secondLndNodeSettings = LoadSecondLndSettingsFromEnv()
     const otherLndSetting = () => ({ lndSettings, lndNodeSettings: secondLndNodeSettings })

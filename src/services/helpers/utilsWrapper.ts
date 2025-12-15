@@ -1,6 +1,6 @@
 import { StateBundler } from "../storage/tlv/stateBundler.js";
 import { TlvStorageFactory } from "../storage/tlv/tlvFilesStorageFactory.js";
-import { NostrSend } from "../nostr/handler.js";
+import { NostrSend } from "../nostr/nostrPool.js";
 import { ProcessMetricsCollector } from "../storage/tlv/processMetricsCollector.js";
 type UtilsSettings = {
     noCollector?: boolean
