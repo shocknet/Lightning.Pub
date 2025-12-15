@@ -69,14 +69,14 @@ export default class {
             throw new Error(`app user ${ctx.user_id} not found`) // TODO: fix logs doxing
         }
         const nostrSettings = this.settings.getSettings().nostrRelaySettings
-        const { max, networkFeeFixed, serviceFeeBps } = this.applicationManager.paymentManager.GetMaxPayableInvoice(user.balance_sats)
+        const { max, outboundFeeFloor, serviceFeeBps } = this.applicationManager.paymentManager.GetMaxPayableInvoice(user.balance_sats)
         return {
             userId: ctx.user_id,
             balance: user.balance_sats,
             max_withdrawable: max,
             user_identifier: appUser.identifier,
             network_max_fee_bps: 0,
-            network_max_fee_fixed: networkFeeFixed,
+            network_max_fee_fixed: outboundFeeFloor,
             service_fee_bps: serviceFeeBps,
             noffer: nofferEncode({ pubkey: app.nostr_public_key!, offer: appUser.identifier, priceType: OfferPriceType.Spontaneous, relay: nostrSettings.relays[0] }),
             ndebit: ndebitEncode({ pubkey: app.nostr_public_key!, pointer: appUser.identifier, relay: nostrSettings.relays[0] }),

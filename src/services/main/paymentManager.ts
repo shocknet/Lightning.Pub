@@ -55,6 +55,7 @@ export default class {
     liquidityManager: LiquidityManager
     utils: Utils
     swaps: Swaps
+    invoiceLock: InvoiceLock
     constructor(storage: Storage, lnd: LND, settings: SettingsManager, liquidityManager: LiquidityManager, utils: Utils, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb) {
         this.storage = storage
         this.settings = settings
@@ -65,9 +66,13 @@ export default class {
         this.swaps = new Swaps(settings)
         this.addressPaidCb = addressPaidCb
         this.invoicePaidCb = invoicePaidCb
+        this.invoiceLock = new InvoiceLock()
     }
+
+
     Stop() {
         this.watchDog.Stop()
+        this.swaps.Stop()
     }
 
     checkPendingPayments = async () => {
@@ -192,7 +197,7 @@ export default class {
                 throw new Error("Sending a transaction is not supported")
             case Types.UserOperationType.OUTGOING_INVOICE:
                 const fee = this.getInvoicePaymentServiceFee(amount, appUser)
-                return Math.max(fee, this.settings.getSettings().lndSettings.feeFixedLimit)
+                return Math.max(fee, this.settings.getSettings().lndSettings.outboundFeeFloor)
             case Types.UserOperationType.OUTGOING_USER_TO_USER:
                 if (appUser) {
                     return Math.ceil(this.settings.getSettings().serviceFeeSettings.userToUserFee * amount)
@@ -251,17 +256,17 @@ export default class {
 
     GetFees = (): Types.CumulativeFees => {
         const { outgoingAppUserInvoiceFeeBps } = this.settings.getSettings().serviceFeeSettings
-        const { feeFixedLimit } = this.settings.getSettings().lndSettings
-        return { networkFeeFixed: feeFixedLimit, serviceFeeBps: outgoingAppUserInvoiceFeeBps }
+        const { outboundFeeFloor } = this.settings.getSettings().lndSettings
+        return { outboundFeeFloor, serviceFeeBps: outgoingAppUserInvoiceFeeBps }
     }
 
     GetMaxPayableInvoice(balance: number): Types.CumulativeFees & { max: number } {
-        const { networkFeeFixed, serviceFeeBps } = this.GetFees()
+        const { outboundFeeFloor, serviceFeeBps } = this.GetFees()
         const div = 1 + (serviceFeeBps / 10000)
         const maxWithoutFixed = Math.floor(balance / div)
         const fee = balance - maxWithoutFixed
-        const max = balance - Math.max(fee, networkFeeFixed)
-        return { max, networkFeeFixed, serviceFeeBps }
+        const max = balance - Math.max(fee, outboundFeeFloor)
+        return { max, outboundFeeFloor, serviceFeeBps }
     }
     async DecodeInvoice(req: Types.DecodeInvoiceRequest): Promise<Types.DecodeInvoiceResponse> {
         const decoded = await this.lnd.DecodeInvoice(req.invoice)
@@ -277,10 +282,10 @@ export default class {
             throw new Error("user is banned, cannot send payment")
         }
         if (req.expected_fees) {
-            const { networkFeeFixed, serviceFeeBps } = req.expected_fees
-            const serviceFixed = this.settings.getSettings().lndSettings.feeFixedLimit
+            const { outboundFeeFloor, serviceFeeBps } = req.expected_fees
+            const serviceFixed = this.settings.getSettings().lndSettings.outboundFeeFloor
             const serviceBps = this.settings.getSettings().serviceFeeSettings.outgoingAppUserInvoiceFeeBps
-            if (serviceFixed !== networkFeeFixed || serviceBps !== serviceFeeBps) {
+            if (serviceFixed !== outboundFeeFloor || serviceBps !== serviceFeeBps) {
                 throw new Error("fees do not match the expected fees")
             }
         }
@@ -303,10 +308,20 @@ export default class {
             throw new Error("this invoice was already paid")
         }
         let paymentInfo = { preimage: "", amtPaid: 0, networkFee: 0, serialId: 0 }
-        if (internalInvoice) {
-            paymentInfo = await this.PayInternalInvoice(userId, internalInvoice, { payAmount, serviceFee }, linkedApplication, req.debit_npub)
-        } else {
-            paymentInfo = await this.PayExternalInvoice(userId, req.invoice, { payAmount, serviceFee, amountForLnd: req.amount }, linkedApplication, { ...optionals, debitNpub: req.debit_npub })
+        if (this.invoiceLock.isLocked(req.invoice)) {
+            throw new Error("this invoice is already being paid")
+        }
+        this.invoiceLock.lock(req.invoice)
+        try {
+            if (internalInvoice) {
+                paymentInfo = await this.PayInternalInvoice(userId, internalInvoice, { payAmount, serviceFee }, linkedApplication, req.debit_npub)
+            } else {
+                paymentInfo = await this.PayExternalInvoice(userId, req.invoice, { payAmount, serviceFee, amountForLnd: req.amount }, linkedApplication, { ...optionals, debitNpub: req.debit_npub })
+            }
+            this.invoiceLock.unlock(req.invoice)
+        } catch (err) {
+            this.invoiceLock.unlock(req.invoice)
+            throw err
         }
         const feeDiff = serviceFee - paymentInfo.networkFee
         if (isAppUserPayment && feeDiff > 0) {
@@ -456,7 +471,7 @@ export default class {
     async PayAddressWithSwap(ctx: Types.UserContext, req: Types.PayAddressRequest): Promise<Types.PayAddressResponse> {
         this.log("paying external address")
         if (!req.swap_operation_id) {
-            throw new Error("request a swap quote before payng an external address")
+            throw new Error("request a swap quote before paying an external address")
         }
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
         const txSwap = await this.storage.paymentStorage.GetTransactionSwap(req.swap_operation_id, ctx.app_user_id)
@@ -547,6 +562,7 @@ export default class {
 
     async ListSwaps(ctx: Types.UserContext): Promise<Types.SwapsList> {
         const swaps = await this.storage.paymentStorage.ListCompletedSwaps(ctx.app_user_id)
+        const pendingSwaps = await this.storage.paymentStorage.ListPendingTransactionSwaps(ctx.app_user_id)
         return {
             swaps: swaps.map(s => {
                 const p = s.payment
@@ -557,6 +573,17 @@ export default class {
                     swap_operation_id: s.swap.swap_operation_id,
                     address_paid: s.swap.address_paid,
                     failure_reason: s.swap.failure_reason,
+                }
+            }),
+            quotes: pendingSwaps.map(s => {
+                const serviceFee = this.getSendServiceFee(Types.UserOperationType.OUTGOING_INVOICE, s.invoice_amount, true)
+                return {
+                    swap_operation_id: s.swap_operation_id,
+                    invoice_amount_sats: s.invoice_amount,
+                    transaction_amount_sats: s.transaction_amount,
+                    chain_fee_sats: s.chain_fee_sats,
+                    service_fee_sats: serviceFee,
+                    swap_fee_sats: s.swap_fee_sats,
                 }
             })
         }
@@ -948,3 +975,16 @@ export default class {
     }
 }
 
+
+class InvoiceLock {
+    locked: Record<string, boolean> = {}
+    lock(invoice: string) {
+        this.locked[invoice] = true
+    }
+    unlock(invoice: string) {
+        delete this.locked[invoice]
+    }
+    isLocked(invoice: string) {
+        return this.locked[invoice]
+    }
+}

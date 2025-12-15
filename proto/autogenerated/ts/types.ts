@@ -1303,21 +1303,21 @@ export const CreateOneTimeInviteLinkResponseValidate = (o?: CreateOneTimeInviteL
 }
 
 export type CumulativeFees = {
-    networkFeeFixed: number
+    outboundFeeFloor: number
     serviceFeeBps: number
 }
 export const CumulativeFeesOptionalFields: [] = []
 export type CumulativeFeesOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
-    networkFeeFixed_CustomCheck?: (v: number) => boolean
+    outboundFeeFloor_CustomCheck?: (v: number) => boolean
     serviceFeeBps_CustomCheck?: (v: number) => boolean
 }
 export const CumulativeFeesValidate = (o?: CumulativeFees, opts: CumulativeFeesOptions = {}, path: string = 'CumulativeFees::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
     if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
 
-    if (typeof o.networkFeeFixed !== 'number') return new Error(`${path}.networkFeeFixed: is not a number`)
-    if (opts.networkFeeFixed_CustomCheck && !opts.networkFeeFixed_CustomCheck(o.networkFeeFixed)) return new Error(`${path}.networkFeeFixed: custom check failed`)
+    if (typeof o.outboundFeeFloor !== 'number') return new Error(`${path}.outboundFeeFloor: is not a number`)
+    if (opts.outboundFeeFloor_CustomCheck && !opts.outboundFeeFloor_CustomCheck(o.outboundFeeFloor)) return new Error(`${path}.outboundFeeFloor: custom check failed`)
 
     if (typeof o.serviceFeeBps !== 'number') return new Error(`${path}.serviceFeeBps: is not a number`)
     if (opts.serviceFeeBps_CustomCheck && !opts.serviceFeeBps_CustomCheck(o.serviceFeeBps)) return new Error(`${path}.serviceFeeBps: custom check failed`)
@@ -3887,17 +3887,27 @@ export const SwapOperationValidate = (o?: SwapOperation, opts: SwapOperationOpti
 }
 
 export type SwapsList = {
+    quotes: TransactionSwapQuote[]
     swaps: SwapOperation[]
 }
 export const SwapsListOptionalFields: [] = []
 export type SwapsListOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
+    quotes_ItemOptions?: TransactionSwapQuoteOptions
+    quotes_CustomCheck?: (v: TransactionSwapQuote[]) => boolean
     swaps_ItemOptions?: SwapOperationOptions
     swaps_CustomCheck?: (v: SwapOperation[]) => boolean
 }
 export const SwapsListValidate = (o?: SwapsList, opts: SwapsListOptions = {}, path: string = 'SwapsList::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
     if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (!Array.isArray(o.quotes)) return new Error(`${path}.quotes: is not an array`)
+    for (let index = 0; index < o.quotes.length; index++) {
+        const quotesErr = TransactionSwapQuoteValidate(o.quotes[index], opts.quotes_ItemOptions, `${path}.quotes[${index}]`)
+        if (quotesErr !== null) return quotesErr
+    }
+    if (opts.quotes_CustomCheck && !opts.quotes_CustomCheck(o.quotes)) return new Error(`${path}.quotes: custom check failed`)
 
     if (!Array.isArray(o.swaps)) return new Error(`${path}.swaps: is not an array`)
     for (let index = 0; index < o.swaps.length; index++) {

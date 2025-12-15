@@ -45,6 +45,9 @@ export class TransactionSwap {
     @Column()
     ephemeral_public_key: string
 
+    // the private key is used on to perform a swap, it does not hold any funds once the swap is completed
+    // the swap should only last a few seconds, so it is not a security risk to store the private key in the database
+    // the key is stored here mostly for recovery purposes, in case something goes wrong with the swap
     @Column()
     ephemeral_private_key: string
 

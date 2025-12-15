@@ -853,10 +853,11 @@ message SwapOperation {
 
 message SwapsList {
     repeated SwapOperation swaps = 1;
+    repeated TransactionSwapQuote quotes = 2;
 }
 
 message CumulativeFees {
-    int64 networkFeeFixed = 2;
+    int64 outboundFeeFloor = 2;
     int64 serviceFeeBps = 3;
 }
 

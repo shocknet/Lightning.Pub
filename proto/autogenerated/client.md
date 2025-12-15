@@ -1169,7 +1169,7 @@ The nostr server will send back a message response, and inside the body there wi
   - __invitation_link__: _string_
 
 ### CumulativeFees
-  - __networkFeeFixed__: _number_
+  - __outboundFeeFloor__: _number_
   - __serviceFeeBps__: _number_
 
 ### DebitAuthorization
@@ -1601,6 +1601,7 @@ The nostr server will send back a message response, and inside the body there wi
   - __swap_operation_id__: _string_
 
 ### SwapsList
+  - __quotes__: ARRAY of: _[TransactionSwapQuote](#TransactionSwapQuote)_
   - __swaps__: ARRAY of: _[SwapOperation](#SwapOperation)_
 
 ### TransactionSwapQuote

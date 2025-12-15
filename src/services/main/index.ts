@@ -170,7 +170,8 @@ export default class {
     NewBlockHandler = async (height: number) => {
         let confirmed: (PendingTx & { confs: number; })[]
         let log = getLogger({})
-
+        this.storage.paymentStorage.DeleteExpiredTransactionSwaps(height)
+            .catch(err => log(ERROR, "failed to delete expired transaction swaps", err.message || err))
         try {
             const balanceEvents = await this.paymentManager.GetLndBalance()
             await this.metricsManager.NewBlockCb(height, balanceEvents)

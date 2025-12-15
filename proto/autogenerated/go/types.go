@@ -230,8 +230,8 @@ type CreateOneTimeInviteLinkResponse struct {
 	Invitation_link string `json:"invitation_link"`
 }
 type CumulativeFees struct {
-	Networkfeefixed int64 `json:"networkFeeFixed"`
-	Servicefeebps   int64 `json:"serviceFeeBps"`
+	Outboundfeefloor int64 `json:"outboundFeeFloor"`
+	Servicefeebps    int64 `json:"serviceFeeBps"`
 }
 type DebitAuthorization struct {
 	Authorized bool        `json:"authorized"`
@@ -662,7 +662,8 @@ type SwapOperation struct {
 	Swap_operation_id string         `json:"swap_operation_id"`
 }
 type SwapsList struct {
-	Swaps []SwapOperation `json:"swaps"`
+	Quotes []TransactionSwapQuote `json:"quotes"`
+	Swaps  []SwapOperation        `json:"swaps"`
 }
 type TransactionSwapQuote struct {
 	Chain_fee_sats          int64  `json:"chain_fee_sats"`

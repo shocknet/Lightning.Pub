@@ -76,11 +76,13 @@ export type LndNodeSettings = {
     lndCertPath: string // cold setting
     lndMacaroonPath: string // cold setting
 }
+const networks = ['mainnet', 'testnet', 'regtest'] as const
+export type BTCNetwork = (typeof networks)[number]
 export type LndSettings = {
     lndLogDir: string
-    feeFixedLimit: number
+    outboundFeeFloor: number
     mockLnd: boolean
-
+    network: BTCNetwork
 }
 
 const resolveHome = (filepath: string) => {
@@ -109,10 +111,14 @@ export const LoadLndNodeSettingsFromEnv = (dbEnv: Record<string, string | undefi
 }
 
 export const LoadLndSettingsFromEnv = (dbEnv: Record<string, string | undefined>, addToDb?: EnvCacher): LndSettings => {
+    const network = chooseEnv('BTC_NETWORK', dbEnv, 'mainnet', addToDb) as BTCNetwork
+    const limitOld = chooseEnvInt('OUTBOUND_MAX_FEE_EXTRA_SATS', dbEnv, 10, addToDb)
+    const outboundFeeFloor = chooseEnvInt('OUTBOUND_FEE_FLOOR_SATS', dbEnv, limitOld, addToDb)
     return {
         lndLogDir: chooseEnv('LND_LOG_DIR', dbEnv, resolveHome("/.lnd/logs/bitcoin/mainnet/lnd.log"), addToDb),
-        feeFixedLimit: chooseEnvInt('OUTBOUND_MAX_FEE_EXTRA_SATS', dbEnv, 10, addToDb),
-        mockLnd: false
+        outboundFeeFloor,
+        mockLnd: false,
+        network: networks.includes(network) ? network : 'mainnet'
     }
 }
 

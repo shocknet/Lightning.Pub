@@ -494,6 +494,10 @@ export default class {
         return this.dbs.Delete<TransactionSwap>('TransactionSwap', { timeout_block_height: LessThan(currentHeight) }, txId)
     }
 
+    async ListPendingTransactionSwaps(appUserId: string, txId?: string) {
+        return this.dbs.Find<TransactionSwap>('TransactionSwap', { where: { used: false, app_user_id: appUserId } }, txId)
+    }
+
     async ListCompletedSwaps(appUserId: string, txId?: string) {
         const completed = await this.dbs.Find<TransactionSwap>('TransactionSwap', { where: { used: true, app_user_id: appUserId } }, txId)
         const payments = await this.dbs.Find<UserInvoicePayment>('UserInvoicePayment', { where: { swap_operation_id: Not(IsNull()) } }, txId)
