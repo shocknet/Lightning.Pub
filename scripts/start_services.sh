@@ -15,6 +15,12 @@ start_services() {
 
   if [ "$OS" = "Linux" ]; then
     if [ "$SYSTEMCTL_AVAILABLE" = true ]; then
+      # Enable linger for user services so they persist after logout
+      if [ "$IS_ROOT" = false ] && command -v loginctl &> /dev/null; then
+        log "Enabling linger for user services to persist after logout..."
+        loginctl enable-linger || log "Warning: Failed to enable linger. Services may stop after logout."
+      fi
+
       mkdir -p "$UNIT_DIR"
 
       # Check and create lnd.service if needed (only if it doesn't exist)

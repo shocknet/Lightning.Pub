@@ -12,7 +12,7 @@ log() {
   echo "$message" | sed 's/\\e\[[0-9;]*m//g' >> "$TMP_LOG_FILE"
 }
 
-SCRIPT_VERSION="0.3.0"
+SCRIPT_VERSION="0.3.1"
 REPO="shocknet/Lightning.Pub"
 BRANCH="master"
 
@@ -181,14 +181,14 @@ detect_os_arch
 
 # Define installation paths based on user
 if [ "$(id -u)" -eq 0 ]; then
-  IS_ROOT=true
+  export IS_ROOT=true
   # For root, install under /opt for system-wide access
   export INSTALL_DIR="/opt/lightning_pub"
   export UNIT_DIR="/etc/systemd/system"
   export SYSTEMCTL_CMD="systemctl"
   log "Running as root: App will be installed in $INSTALL_DIR"
 else
-  IS_ROOT=false
+  export IS_ROOT=false
   export INSTALL_DIR="$HOME/lightning_pub"
   export UNIT_DIR="$HOME/.config/systemd/user"
   export SYSTEMCTL_CMD="systemctl --user"
