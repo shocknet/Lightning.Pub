@@ -123,15 +123,18 @@ export const LoadLndSettingsFromEnv = (dbEnv: Record<string, string | undefined>
 
 export type NostrRelaySettings = {
     relays: string[],
-    maxEventContentLength: number
+    maxEventContentLength: number,
+    relayAuthRequired: boolean
 }
 
 export const LoadNostrRelaySettingsFromEnv = (dbEnv: Record<string, string | undefined>, addToDb?: EnvCacher): NostrRelaySettings => {
     const relaysEnv = chooseEnv("NOSTR_RELAYS", dbEnv, "wss://relay.lightning.pub", addToDb);
     const maxEventContentLength = chooseEnvInt("NOSTR_MAX_EVENT_CONTENT_LENGTH", dbEnv, 40000, addToDb)
+    const relayAuthRequired = chooseEnvBool("NOSTR_RELAY_AUTH_REQUIRED", dbEnv, false, addToDb)
     return {
         relays: relaysEnv.split(' '),
-        maxEventContentLength
+        maxEventContentLength,
+        relayAuthRequired
     }
 }
 
