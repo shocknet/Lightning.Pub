@@ -1,12 +1,10 @@
 import { ChildProcess, fork } from 'child_process'
-import { NostrSettings, NostrEvent, ChildProcessRequest, ChildProcessResponse, SendData, SendInitiator } from "./handler.js"
+import { NostrSettings, NostrEvent, SendData, SendInitiator } from "./nostrPool.js"
+import { ChildProcessRequest, ChildProcessResponse } from "./handler.js"
 import { Utils } from '../helpers/utilsWrapper.js'
 import { getLogger, ERROR } from '../helpers/logger.js'
 type EventCallback = (event: NostrEvent) => void
 type BeaconCallback = (beacon: { content: string, pub: string }) => void
-
-
-
 
 export default class NostrSubprocess {
     childProcess: ChildProcess

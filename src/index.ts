@@ -7,6 +7,7 @@ import { getLogger } from './services/helpers/logger.js';
 import { initMainHandler, initSettings } from './services/main/init.js';
 import { nip19 } from 'nostr-tools'
 import { LoadStorageSettingsFromEnv } from './services/storage/index.js';
+import { AppInfo } from './services/nostr/nostrPool.js';
 //@ts-ignore
 const { nprofileEncode } = nip19
 
@@ -22,15 +23,28 @@ const start = async () => {
         return
     }
 
-    const { apps, mainHandler, liquidityProviderInfo, wizard, adminManager } = keepOn
+    const { mainHandler, liquidityProviderInfo, wizard, adminManager } = keepOn
     const serverMethods = GetServerMethods(mainHandler)
     log("initializing nostr middleware")
     const relays = settingsManager.getSettings().nostrRelaySettings.relays
     const maxEventContentLength = settingsManager.getSettings().nostrRelaySettings.maxEventContentLength
+    const apps: AppInfo[] = keepOn.apps.map(app => {
+        return {
+            appId: app.appId,
+            privateKey: app.privateKey,
+            publicKey: app.publicKey,
+            name: app.name,
+            provider: app.publicKey === liquidityProviderInfo.publicKey ? {
+                clientId: liquidityProviderInfo.clientId,
+                pubDestination: settingsManager.getSettings().liquiditySettings.liquidityProviderPub,
+                relayUrl: settingsManager.getSettings().liquiditySettings.providerRelayUrl || relays[0]
+            } : undefined
+        }
+    })
     const { Send, Stop, Ping, Reset } = nostrMiddleware(serverMethods, mainHandler,
         {
-            relays, maxEventContentLength, apps, clients: [liquidityProviderInfo],
-            providerDestinationPub: settingsManager.getSettings().liquiditySettings.liquidityProviderPub
+            relays, maxEventContentLength, apps, /* clients: [liquidityProviderInfo], */
+            /* providerDestinationPub: settingsManager.getSettings().liquiditySettings.liquidityProviderPub */
         },
         (e, p) => mainHandler.liquidityProvider.onEvent(e, p)
     )

@@ -168,13 +168,15 @@ export type LiquiditySettings = {
     liquidityProviderPub: string // cold setting
     useOnlyLiquidityProvider: boolean // hot setting
     disableLiquidityProvider: boolean // hot setting
+    providerRelayUrl: string
 }
 export const LoadLiquiditySettingsFromEnv = (dbEnv: Record<string, string | undefined>, addToDb?: EnvCacher): LiquiditySettings => {
     //const liquidityProviderPub = process.env.LIQUIDITY_PROVIDER_PUB === "null" ? "" : (process.env.LIQUIDITY_PROVIDER_PUB || "76ed45f00cea7bac59d8d0b7d204848f5319d7b96c140ffb6fcbaaab0a13d44e")
     const liquidityProviderPub = chooseEnv("LIQUIDITY_PROVIDER_PUB", dbEnv, "76ed45f00cea7bac59d8d0b7d204848f5319d7b96c140ffb6fcbaaab0a13d44e", addToDb)
     const disableLiquidityProvider = chooseEnvBool("DISABLE_LIQUIDITY_PROVIDER", dbEnv, false, addToDb) || liquidityProviderPub === "null"
     const useOnlyLiquidityProvider = chooseEnvBool("USE_ONLY_LIQUIDITY_PROVIDER", dbEnv, false, addToDb)
-    return { liquidityProviderPub, useOnlyLiquidityProvider, disableLiquidityProvider }
+    const providerRelayUrl = chooseEnv("PROVIDER_RELAY_URL", dbEnv, "", addToDb)
+    return { liquidityProviderPub, useOnlyLiquidityProvider, disableLiquidityProvider, providerRelayUrl }
 }
 
 export type SwapsSettings = {
