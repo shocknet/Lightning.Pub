@@ -459,7 +459,7 @@ export default class {
                 ["clink_version", "1"]
             ],
         }
-        this.nostrSend(
+        this.utils.nostrSender.Send(
             { type: 'app', appId: invoice.linkedApplication.app_id },
             { type: 'event', event, encrypt: { toPub: invoice.clink_requester_pub } }
         )
