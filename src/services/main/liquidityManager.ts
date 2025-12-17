@@ -74,6 +74,10 @@ export class LiquidityManager {
     }
 
     afterInInvoicePaid = async () => {
+        // Skip channel ordering if using only liquidity provider
+        if (this.settings.getSettings().liquiditySettings.useOnlyLiquidityProvider) {
+            return
+        }
         try {
             await this.orderChannelIfNeeded()
         } catch (e: any) {
@@ -102,6 +106,10 @@ export class LiquidityManager {
     afterOutInvoicePaid = async () => { }
 
     shouldDrainProvider = async () => {
+        // Skip draining when bypass is enabled
+        if (this.settings.getSettings().liquiditySettings.useOnlyLiquidityProvider) {
+            return
+        }
         const maxW = await this.liquidityProvider.GetMaxWithdrawable()
         const { remote } = await this.lnd.ChannelBalance()
         const drainable = Math.min(maxW, remote)
@@ -159,6 +167,10 @@ export class LiquidityManager {
 
 
     shouldOpenChannel = async (): Promise<{ shouldOpen: false } | { shouldOpen: true, maxSpendable: number }> => {
+        // Skip channel operations if using only liquidity provider
+        if (this.settings.getSettings().liquiditySettings.useOnlyLiquidityProvider) {
+            return { shouldOpen: false }
+        }
         const threshold = this.settings.getSettings().lspSettings.channelThreshold
         if (threshold === 0) {
             return { shouldOpen: false }

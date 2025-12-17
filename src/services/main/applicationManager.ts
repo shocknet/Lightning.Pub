@@ -185,7 +185,7 @@ export default class {
         return invoice
     }
 
-    async AddAppUserInvoice(appId: string, req: Types.AddAppUserInvoiceRequest): Promise<Types.NewInvoiceResponse> {
+    async AddAppUserInvoice(appId: string, req: Types.AddAppUserInvoiceRequest, clinkRequester?: { pub: string, eventId: string }): Promise<Types.NewInvoiceResponse> {
         const app = await this.storage.applicationStorage.GetApplication(appId)
         const log = getLogger({ appName: app.name })
         const receiver = await this.storage.applicationStorage.GetApplicationUser(app, req.receiver_identifier)
@@ -200,7 +200,9 @@ export default class {
             callbackUrl: cbUrl, expiry: expiry, expectedPayer: payer.user, linkedApplication: app, zapInfo,
             offerId: req.offer_string, payerData: req.payer_data?.data, rejectUnauthorized: req.rejectUnauthorized,
             token: req.token,
-            blind: req.invoice_req.blind
+            blind: req.invoice_req.blind,
+            clinkRequesterPub: clinkRequester?.pub,
+            clinkRequesterEventId: clinkRequester?.eventId
         }
         const appUserInvoice = await this.paymentManager.NewInvoice(receiver.user.user_id, req.invoice_req, opts)
         return {

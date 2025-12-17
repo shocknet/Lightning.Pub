@@ -54,6 +54,12 @@ export class Watchdog {
         }
     }
     StartWatching = async () => {
+        // Skip watchdog if using only liquidity provider
+        if (this.liquidProvider.getSettings().useOnlyLiquidityProvider) {
+            this.log("USE_ONLY_LIQUIDITY_PROVIDER enabled, skipping watchdog")
+            this.ready = true
+            return
+        }
         this.log("Starting watchdog")
         this.startedAtUnix = Math.floor(Date.now() / 1000)
         const info = await this.lnd.GetInfo()
@@ -205,6 +211,10 @@ export class Watchdog {
     }
 
     PaymentRequested = async () => {
+        // Skip watchdog check when bypass is enabled
+        if (this.liquidProvider.getSettings().useOnlyLiquidityProvider) {
+            return
+        }
         if (!this.ready) {
             throw new Error("Watchdog not ready")
         }

@@ -55,6 +55,7 @@
     "globby": "^13.1.2",
     "grpc-tools": "^1.12.4",
     "jsonwebtoken": "^9.0.2",
+    "light-bolt11-decoder": "^3.2.0",
     "lodash": "^4.17.21",
     "nostr-tools": "^2.13.0",
     "pg": "^8.4.0",

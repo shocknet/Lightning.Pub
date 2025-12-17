@@ -55,6 +55,11 @@ export class Unlocker {
     }
 
     Unlock = async (): Promise<'created' | 'unlocked' | 'noaction'> => {
+        // Skip LND unlock if using only liquidity provider
+        if (this.settings.getSettings().liquiditySettings.useOnlyLiquidityProvider) {
+            this.log("USE_ONLY_LIQUIDITY_PROVIDER enabled, skipping LND unlock")
+            return 'noaction'
+        }
         const { lndCert, macaroon } = this.getCreds()
         if (macaroon === "") {
             const { ln, pub } = await this.InitFlow(lndCert)
@@ -211,11 +216,10 @@ export class Unlocker {
             throw new Error("node pub not found")
         }
         const encrypted = await this.storage.liquidityStorage.GetNoodeSeed(this.nodePub)
-        if (!encrypted || !encrypted.seed) {
+        if (!encrypted) {
             throw new Error("seed not found")
         }
-
-        const decrypted = this.DecryptWalletSeed(JSON.parse(encrypted.seed))
+        const decrypted = this.DecryptWalletSeed(JSON.parse(encrypted))
         return { seed: decrypted }
     }
 

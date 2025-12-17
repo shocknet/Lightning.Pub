@@ -151,7 +151,13 @@ export class OfferManager {
             payerData: offerReq.payer_data
         })
 
-        const offerInvoice = await this.getNofferInvoice(offerReq, event.appId)
+        // Store requester info for sending receipt when invoice is paid
+        const clinkRequester = {
+            pub: event.pub,
+            eventId: event.id
+        }
+
+        const offerInvoice = await this.getNofferInvoice(offerReq, event.appId, clinkRequester)
 
         if (!offerInvoice.success) {
             const code = offerInvoice.code
@@ -185,7 +191,7 @@ export class OfferManager {
         return
     }
 
-    async HandleDefaultUserOffer(offerReq: NofferData, appId: string, remote: number, { memo, expiry }: { memo?: string, expiry?: number }): Promise<{ success: true, invoice: string } | { success: false, code: number, max: number }> {
+    async HandleDefaultUserOffer(offerReq: NofferData, appId: string, remote: number, { memo, expiry }: { memo?: string, expiry?: number }, clinkRequester?: { pub: string, eventId: string }): Promise<{ success: true, invoice: string } | { success: false, code: number, max: number }> {
         const { amount_sats: amount, offer } = offerReq
         if (!amount || isNaN(amount) || amount < 10 || amount > remote) {
             return { success: false, code: 5, max: remote }
@@ -194,17 +200,17 @@ export class OfferManager {
             http_callback_url: "", payer_identifier: offer, receiver_identifier: offer,
             invoice_req: { amountSats: amount, memo: memo || "Default CLINK Offer", zap: offerReq.zap, expiry },
             offer_string: 'offer'
-        })
+        }, clinkRequester)
         return { success: true, invoice: res.invoice }
     }
 
-    async HandleUserOffer(offerReq: NofferData, appId: string, remote: number): Promise<{ success: true, invoice: string } | { success: false, code: number, max: number }> {
+    async HandleUserOffer(offerReq: NofferData, appId: string, remote: number, clinkRequester?: { pub: string, eventId: string }): Promise<{ success: true, invoice: string } | { success: false, code: number, max: number }> {
         const { amount_sats: amount, offer } = offerReq
         const userOffer = await this.storage.offerStorage.GetOffer(offer)
         const expiry = offerReq.expires_in_seconds ? offerReq.expires_in_seconds : undefined
 
         if (!userOffer) {
-            return this.HandleDefaultUserOffer(offerReq, appId, remote, { memo: offerReq.description, expiry })
+            return this.HandleDefaultUserOffer(offerReq, appId, remote, { memo: offerReq.description, expiry }, clinkRequester)
         }
         if (userOffer.app_user_id === userOffer.offer_id) {
             if (userOffer.price_sats !== 0 || userOffer.payer_data) {
@@ -237,20 +243,28 @@ export class OfferManager {
             offer_string: offer,
             rejectUnauthorized: userOffer.rejectUnauthorized,
             token: userOffer.bearer_token
-        })
+        }, clinkRequester)
         return { success: true, invoice: res.invoice }
     }
 
-    async getNofferInvoice(offerReq: NofferData, appId: string): Promise<{ success: true, invoice: string } | { success: false, code: number, max: number }> {
+    async getNofferInvoice(offerReq: NofferData, appId: string, clinkRequester?: { pub: string, eventId: string }): Promise<{ success: true, invoice: string } | { success: false, code: number, max: number }> {
         try {
-            const { remote } = await this.lnd.ChannelBalance()
-            let maxSendable = remote
-            if (remote === 0 && (await this.liquidityManager.liquidityProvider.IsReady())) {
-                maxSendable = 10_000_000
+            // When bypass is enabled, use provider balance instead of LND channel balance
+            let maxSendable = 0
+            if (this.liquidityManager.settings.getSettings().liquiditySettings.useOnlyLiquidityProvider) {
+                if (await this.liquidityManager.liquidityProvider.IsReady()) {
+                    maxSendable = 10_000_000
+                }
+            } else {
+                const { remote } = await this.lnd.ChannelBalance()
+                maxSendable = remote
+                if (remote === 0 && (await this.liquidityManager.liquidityProvider.IsReady())) {
+                    maxSendable = 10_000_000
+                }
             }
             const split = offerReq.offer.split(':')
             if (split.length === 1) {
-                return this.HandleUserOffer(offerReq, appId, maxSendable)
+                return this.HandleUserOffer(offerReq, appId, maxSendable, clinkRequester)
             } else if (split[0] === 'p') {
                 const product = await this.productManager.NewProductInvoice(split[1])
                 return { success: true, invoice: product.invoice }
