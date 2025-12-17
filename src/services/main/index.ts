@@ -62,8 +62,6 @@ export default class {
     rugPullTracker: RugPullTracker
     unlocker: Unlocker
     notificationsManager: NotificationsManager
-    //webRTC: webRTC
-    nostrSend: NostrSend = () => { getLogger({})("nostr send not initialized yet") }
     nostrProcessPing: (() => Promise<void>) | null = null
     nostrReset: (settings: NostrSettings) => void = () => { getLogger({})("nostr reset not initialized yet") }
     constructor(settings: SettingsManager, storage: Storage, adminManager: AdminManager, utils: Utils, unlocker: Unlocker) {
@@ -109,14 +107,7 @@ export default class {
     }
 
     attachNostrSend(f: NostrSend) {
-        this.nostrSend = f
-        this.liquidityProvider.attachNostrSend(f)
-        this.debitManager.attachNostrSend(f)
-        this.offerManager.attachNostrSend(f)
-        this.managementManager.attachNostrSend(f)
-        this.utils.attachNostrSend(f)
-        this.applicationManager.attachNostrSend(f)
-        //this.webRTC.attachNostrSend(f)
+        this.utils.nostrSender.AttachNostrSend(f)
     }
 
     attachNostrProcessPing(f: () => Promise<void>) {
@@ -379,7 +370,7 @@ export default class {
         const message: Types.LiveUserOperation & { requestId: string, status: 'OK' } =
             { operation: op, requestId: "GetLiveUserOperations", status: 'OK', latest_balance: balance }
         const j = JSON.stringify(message)
-        this.nostrSend({ type: 'app', appId: app.app_id }, { type: 'content', content: j, pub: user.nostr_public_key })
+        this.utils.nostrSender.Send({ type: 'app', appId: app.app_id }, { type: 'content', content: j, pub: user.nostr_public_key })
         this.SendEncryptedNotification(app, user, op)
     }
 
@@ -412,7 +403,7 @@ export default class {
             pubkey: app.nostr_public_key,
             tags,
         }
-        this.nostrSend({ type: 'app', appId: app.app_id }, { type: 'event', event })
+        this.utils.nostrSender.Send({ type: 'app', appId: app.app_id }, { type: 'event', event })
     }
 
     async createZapReceipt(log: PubLogger, invoice: UserReceivingInvoice) {
@@ -432,7 +423,7 @@ export default class {
             tags,
         }
         log({ unsigned: event })
-        this.nostrSend({ type: 'app', appId: invoice.linkedApplication.app_id }, { type: 'event', event }, zapInfo.relays || undefined)
+        this.utils.nostrSender.Send({ type: 'app', appId: invoice.linkedApplication.app_id }, { type: 'event', event }, zapInfo.relays || undefined)
     }
 
     async ResetNostr() {

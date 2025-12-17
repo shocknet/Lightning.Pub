@@ -32,7 +32,7 @@ export const initBootstrappedInstance = async (T: TestBase) => {
         console.log("sending new operation to provider")
         bootstrapped.liquidityProvider.onEvent(j, T.app.publicKey)
     })
-    bootstrapped.liquidityProvider.attachNostrSend(async (_, data, r) => {
+    bootstrapped.attachNostrSend(async (_, data, r) => {
         const res = await handleSend(T, data)
         if (data.type === 'event') {
             throw new Error("unsupported event type")

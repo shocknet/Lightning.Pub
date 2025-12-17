@@ -43,8 +43,7 @@ const start = async () => {
     })
     const { Send, Stop, Ping, Reset } = nostrMiddleware(serverMethods, mainHandler,
         {
-            relays, maxEventContentLength, apps, /* clients: [liquidityProviderInfo], */
-            /* providerDestinationPub: settingsManager.getSettings().liquiditySettings.liquidityProviderPub */
+            relays, maxEventContentLength, apps
         },
         (e, p) => mainHandler.liquidityProvider.onEvent(e, p)
     )

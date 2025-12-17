@@ -10,6 +10,7 @@ import { Wizard } from "../wizard/index.js"
 import { AdminManager } from "./adminManager.js"
 import SettingsManager from "./settingsManager.js"
 import { LoadStorageSettingsFromEnv } from "../storage/index.js"
+import { NostrSender } from "../nostr/sender.js"
 export type AppData = {
     privateKey: string;
     publicKey: string;
@@ -18,7 +19,8 @@ export type AppData = {
 }
 
 export const initSettings = async (log: PubLogger, storageSettings: StorageSettings): Promise<SettingsManager> => {
-    const utils = new Utils({ dataDir: storageSettings.dataDir, allowResetMetricsStorages: storageSettings.allowResetMetricsStorages })
+    const nostrSender = new NostrSender()
+    const utils = new Utils({ dataDir: storageSettings.dataDir, allowResetMetricsStorages: storageSettings.allowResetMetricsStorages }, nostrSender)
     const storageManager = new Storage(storageSettings, utils)
     await storageManager.Connect(log)
     const settingsManager = new SettingsManager(storageManager)

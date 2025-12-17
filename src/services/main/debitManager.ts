@@ -6,8 +6,7 @@ import { ERROR, getLogger } from "../helpers/logger.js";
 import { DebitAccess, DebitAccessRules } from '../storage/entity/DebitAccess.js';
 import { Application } from '../storage/entity/Application.js';
 import { ApplicationUser } from '../storage/entity/ApplicationUser.js';
-import { NostrEvent, NostrSend, SendData, SendInitiator } from '../nostr/handler.js';
-import { UnsignedEvent } from 'nostr-tools';
+import { NostrEvent } from '../nostr/nostrPool.js';
 import { Ndebit, NdebitData, NdebitFailure, NdebitSuccess, RecurringDebitTimeUnit } from "@shocknet/clink-sdk";
 import {
     debitAccessRulesToDebitRules, newNdebitResponse, debitRulesToDebitAccessRules,
@@ -16,12 +15,7 @@ import {
 } from "./debitTypes.js";
 
 export class DebitManager {
-
-
-    _nostrSend: NostrSend | null = null
-
     applicationManager: ApplicationManager
-
     storage: Storage
     lnd: LND
     logger = getLogger({ component: 'DebitManager' })
@@ -29,17 +23,6 @@ export class DebitManager {
         this.storage = storage
         this.lnd = lnd
         this.applicationManager = applicationManager
-    }
-
-    attachNostrSend = (nostrSend: NostrSend) => {
-        this._nostrSend = nostrSend
-    }
-
-    nostrSend: NostrSend = (initiator: SendInitiator, data: SendData, relays?: string[] | undefined) => {
-        if (!this._nostrSend) {
-            throw new Error("No nostrSend attached")
-        }
-        this._nostrSend(initiator, data, relays)
     }
 
     GetDebitAuthorizations = async (ctx: Types.UserContext): Promise<Types.DebitAuthorizations> => {
@@ -135,8 +118,8 @@ export class DebitManager {
     }
 
     handleNip68Debit = async (pointerdata: NdebitData, event: NostrEvent) => {
-        if (!this._nostrSend) {
-            throw new Error("No nostrSend attached")
+        if (!this.storage.NostrSender().IsReady()) {
+            throw new Error("Nostr sender not ready")
         }
         this.logger("📥 [DEBIT REQUEST] Received debit request", {
             fromPub: event.pub,
@@ -148,7 +131,7 @@ export class DebitManager {
         this.logger("🔍 [DEBIT REQUEST] Sending ", res.status, " response")
         if (res.status === 'fail' || res.status === 'authOk') {
             const e = newNdebitResponse(JSON.stringify(res.debitRes), event)
-            this.nostrSend({ type: 'app', appId: event.appId }, { type: 'event', event: e, encrypt: { toPub: event.pub } })
+            this.storage.NostrSender().Send({ type: 'app', appId: event.appId }, { type: 'event', event: e, encrypt: { toPub: event.pub } })
             return
         }
         const { appUser } = res
@@ -166,7 +149,7 @@ export class DebitManager {
             return
         }
         const message: Types.LiveDebitRequest & { requestId: string, status: 'OK' } = { ...res.liveDebitReq, requestId: "GetLiveDebitRequests", status: 'OK' }
-        this.nostrSend({ type: 'app', appId: event.appId }, { type: 'content', content: JSON.stringify(message), pub: res.appUser.nostr_public_key })
+        this.storage.NostrSender().Send({ type: 'app', appId: event.appId }, { type: 'content', content: JSON.stringify(message), pub: res.appUser.nostr_public_key })
     }
 
     notifyPaymentSuccess = (debitRes: NdebitSuccess, event: { pub: string, id: string, appId: string }) => {
@@ -175,7 +158,8 @@ export class DebitManager {
 
     sendDebitResponse = (debitRes: NdebitFailure | NdebitSuccess, event: { pub: string, id: string, appId: string }) => {
         const e = newNdebitResponse(JSON.stringify(debitRes), event)
-        this.nostrSend({ type: 'app', appId: event.appId }, { type: 'event', event: e, encrypt: { toPub: event.pub } })
+        this.storage.NostrSender().Send({ type: 'app', appId: event.appId }, { type: 'event', event: e, encrypt: { toPub: event.pub } })
+
     }
 
     payNdebitInvoice = async (event: NostrEvent, pointerdata: NdebitData): Promise<HandleNdebitRes> => {

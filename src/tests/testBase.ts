@@ -15,6 +15,7 @@ import { AdminManager } from '../services/main/adminManager.js'
 import { TlvStorageFactory } from '../services/storage/tlv/tlvFilesStorageFactory.js'
 import { ChainTools } from './networkSetup.js'
 import { LiquiditySettings, LoadLndSettingsFromEnv, LoadSecondLndSettingsFromEnv, LoadThirdLndSettingsFromEnv } from '../services/main/settings.js'
+import { NostrSender } from '../services/nostr/sender.js'
 chai.use(chaiString)
 export const expect = chai.expect
 export type Describe = (message: string, failure?: boolean) => void
@@ -46,7 +47,8 @@ export type StorageTestBase = {
 
 export const setupStorageTest = async (d: Describe): Promise<StorageTestBase> => {
     const settings = GetTestStorageSettings(LoadStorageSettingsFromEnv())
-    const utils = new Utils({ dataDir: settings.dataDir, allowResetMetricsStorages: true })
+    const nostrSender = new NostrSender()
+    const utils = new Utils({ dataDir: settings.dataDir, allowResetMetricsStorages: true }, nostrSender)
     const storageManager = new Storage(settings, utils)
     await storageManager.Connect(console.log)
     return {
@@ -79,8 +81,8 @@ export const SetupTest = async (d: Describe, chainTools: ChainTools): Promise<Te
     const u2 = await main.applicationManager.AddAppUser(app.appId, { identifier: "user2", balance: 0, fail_if_exists: true })
     const user1 = { userId: u1.info.userId, appUserIdentifier: u1.identifier, appId: app.appId }
     const user2 = { userId: u2.info.userId, appUserIdentifier: u2.identifier, appId: app.appId }
-
-    const extermnalUtils = new Utils({ dataDir: storageSettings.dataDir, allowResetMetricsStorages: storageSettings.allowResetMetricsStorages })
+    const nostrSender = new NostrSender()
+    const extermnalUtils = new Utils({ dataDir: storageSettings.dataDir, allowResetMetricsStorages: storageSettings.allowResetMetricsStorages }, nostrSender)
     /*     const externalAccessToMainLnd = new LND(settings.lndSettings, new LiquidityProvider("", extermnalUtils, async () => { }, async () => { }), extermnalUtils, async () => { }, async () => { }, () => { }, () => { })
         await externalAccessToMainLnd.Warmup() */
     const liquiditySettings: LiquiditySettings = { disableLiquidityProvider: true, liquidityProviderPub: "", useOnlyLiquidityProvider: false, providerRelayUrl: "" }
