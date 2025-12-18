@@ -223,11 +223,8 @@ export default class {
                 return
             }
             log = getLogger({ appName: userAddress.linkedApplication.name })
-            const isAppUserPayment = userAddress.user.user_id !== userAddress.linkedApplication.owner.user_id
-            let fee = this.paymentManager.getReceiveServiceFee(Types.UserOperationType.INCOMING_TX, amount, isAppUserPayment)
-            if (userAddress.linkedApplication && userAddress.linkedApplication.owner.user_id === userAddress.user.user_id) {
-                fee = 0
-            }
+            const isManagedUser = userAddress.user.user_id !== userAddress.linkedApplication.owner.user_id
+            const fee = this.paymentManager.getReceiveServiceFee(Types.UserOperationType.INCOMING_TX, amount, isManagedUser)
             try {
                 // This call will fail if the transaction is already registered
                 const addedTx = await this.storage.paymentStorage.AddAddressReceivingTransaction(userAddress, txOutput.hash, txOutput.index, amount, fee, internal, blockHeight, tx)
@@ -267,11 +264,8 @@ export default class {
                 return
             }
             log = getLogger({ appName: userInvoice.linkedApplication.name })
-            const isAppUserPayment = userInvoice.user.user_id !== userInvoice.linkedApplication.owner.user_id
-            let fee = this.paymentManager.getReceiveServiceFee(Types.UserOperationType.INCOMING_INVOICE, amount, isAppUserPayment)
-            if (userInvoice.linkedApplication && userInvoice.linkedApplication.owner.user_id === userInvoice.user.user_id) {
-                fee = 0
-            }
+            const isManagedUser = userInvoice.user.user_id !== userInvoice.linkedApplication.owner.user_id
+            const fee = this.paymentManager.getReceiveServiceFee(Types.UserOperationType.INCOMING_INVOICE, amount, isManagedUser)
             try {
                 await this.storage.paymentStorage.FlagInvoiceAsPaid(userInvoice, amount, fee, internal, tx)
                 this.storage.eventsLog.LogEvent({ type: 'invoice_paid', userId: userInvoice.user.user_id, appId: userInvoice.linkedApplication.app_id, appUserId: "", balance: userInvoice.user.balance_sats, data: paymentRequest, amount })
