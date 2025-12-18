@@ -223,6 +223,8 @@ export class LiquidityProvider {
             const fees = this.GetFees()
             const providerServiceFee = this.GetServiceFee(decodedAmount, fees)
             if (feeLimit && providerServiceFee > feeLimit) {
+                this.log("fees", fees)
+                this.log("provider service fee is greater than the fee limit", providerServiceFee, feeLimit)
                 throw new Error("provider service fee is greater than the fee limit")
             }
             this.pendingPayments[invoice] = decodedAmount + providerServiceFee
