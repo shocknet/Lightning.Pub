@@ -518,9 +518,22 @@ export default class {
         this.swaps.reverseSwaps.SubscribeToTransactionSwap(data, result => {
             swapResult = result
         })
+        // Validate that the invoice amount matches what was quoted
+        const decoded = await this.lnd.DecodeInvoice(txSwap.invoice)
+        if (decoded.numSatoshis !== txSwap.invoice_amount) {
+            throw new Error("swap invoice amount does not match quote")
+        }
+        const fees = this.GetFees()
         let payment: Types.PayInvoiceResponse
         try {
-            payment = await this.PayInvoice(ctx.user_id, { amount: 0, invoice: txSwap.invoice }, app, { swapOperationId: req.swap_operation_id })
+            payment = await this.PayInvoice(ctx.user_id, { 
+                amount: 0, 
+                invoice: txSwap.invoice,
+                expected_fees: {
+                    outboundFeeFloor: fees.outboundFeeFloor,
+                    serviceFeeBps: fees.serviceFeeBps
+                }
+            }, app, { swapOperationId: req.swap_operation_id })
             if (!swapResult.ok) {
                 this.log("invoice payment successful, but swap failed")
                 await this.storage.paymentStorage.FailTransactionSwap(req.swap_operation_id, req.address, swapResult.error)
@@ -581,6 +594,8 @@ export default class {
     async ListSwaps(ctx: Types.UserContext): Promise<Types.SwapsList> {
         const swaps = await this.storage.paymentStorage.ListCompletedSwaps(ctx.app_user_id)
         const pendingSwaps = await this.storage.paymentStorage.ListPendingTransactionSwaps(ctx.app_user_id)
+        const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
+        const isManagedUser = ctx.user_id !== app.owner.user_id
         return {
             swaps: swaps.map(s => {
                 const p = s.payment
@@ -594,7 +609,6 @@ export default class {
                 }
             }),
             quotes: pendingSwaps.map(s => {
-                const isManagedUser = true // ListSwaps is only called by app users
                 const serviceFee = this.getSendServiceFee(Types.UserOperationType.OUTGOING_INVOICE, s.invoice_amount, isManagedUser)
                 return {
                     swap_operation_id: s.swap_operation_id,
