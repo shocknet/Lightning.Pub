@@ -23,7 +23,7 @@ const testInboundPaymentFromProvider = async (T: TestBase, bootstrapped: Main, b
     T.d("starting testInboundPaymentFromProvider")
     const invoiceRes = await bootstrapped.appUserManager.NewInvoice({ app_id: bUser.appId, user_id: bUser.userId, app_user_id: bUser.appUserIdentifier }, { amountSats: 3000, memo: "liquidityTest" })
 
-    await T.externalAccessToOtherLnd.PayInvoice(invoiceRes.invoice, 0, 100, 3000, { from: 'system', useProvider: false })
+    await T.externalAccessToOtherLnd.PayInvoice(invoiceRes.invoice, 0, { routingFeeLimit: 100, serviceFee: 100 }, 3000, { from: 'system', useProvider: false })
     await new Promise((resolve) => setTimeout(resolve, 200))
     const userBalance = await bootstrapped.appUserManager.GetUserInfo({ app_id: bUser.appId, user_id: bUser.userId, app_user_id: bUser.appUserIdentifier })
     T.expect(userBalance.balance).to.equal(3000)

@@ -425,7 +425,7 @@ export default class {
         const r = res.response
         return { local: r.localBalance ? Number(r.localBalance.sat) : 0, remote: r.remoteBalance ? Number(r.remoteBalance.sat) : 0 }
     }
-    async PayInvoice(invoice: string, amount: number, feeLimit: number, decodedAmount: number, { useProvider, from }: TxActionOptions, paymentIndexCb?: (index: number) => void): Promise<PaidInvoice> {
+    async PayInvoice(invoice: string, amount: number, { routingFeeLimit, serviceFee }: { routingFeeLimit: number, serviceFee: number }, decodedAmount: number, { useProvider, from }: TxActionOptions, paymentIndexCb?: (index: number) => void): Promise<PaidInvoice> {
         // console.log("Paying invoice")
         if (this.outgoingOpsLocked) {
             this.log("outgoing ops locked, rejecting payment request")
@@ -434,14 +434,14 @@ export default class {
         // Force use of provider when bypass is enabled
         const mustUseProvider = this.liquidProvider.getSettings().useOnlyLiquidityProvider || useProvider
         if (mustUseProvider) {
-            const res = await this.liquidProvider.PayInvoice(invoice, decodedAmount, from, feeLimit)
+            const res = await this.liquidProvider.PayInvoice(invoice, decodedAmount, from, serviceFee)
             const providerDst = this.liquidProvider.GetProviderDestination()
             return { feeSat: res.service_fee, valueSat: res.amount_paid, paymentPreimage: res.preimage, providerDst }
         }
         await this.Health()
         try {
             const abortController = new AbortController()
-            const req = PayInvoiceReq(invoice, amount, feeLimit)
+            const req = PayInvoiceReq(invoice, amount, routingFeeLimit)
             const stream = this.router.sendPaymentV2(req, { abort: abortController.signal })
             return new Promise((res, rej) => {
                 stream.responses.onError(error => {
