@@ -50,7 +50,24 @@ export default class SettingsManager {
         for (const key in toAdd) {
             await this.storage.settingsStorage.setDbEnvIFNeeded(key, toAdd[key])
         }
+        // Validate fee configuration: routing fee limit must be <= service fee
+        this.validateFeeSettings(this.settings)
         return this.settings
+    }
+
+    private validateFeeSettings(settings: FullSettings): void {
+        const { serviceFeeSettings, lndSettings } = settings
+        const serviceFeeBps = serviceFeeSettings.outgoingAppUserInvoiceFeeBps
+        const routingFeeLimitBps = lndSettings.routingFeeLimitBps
+        const serviceFeeFloor = lndSettings.serviceFeeFloor
+        const routingFeeFloor = lndSettings.routingFeeFloor
+
+        if (routingFeeLimitBps > serviceFeeBps) {
+            throw new Error(`ROUTING_FEE_LIMIT_BPS (${routingFeeLimitBps}) must be <= SERVICE_FEE_BPS (${serviceFeeBps}) to ensure Pub keeps a spread`)
+        }
+        if (routingFeeFloor > serviceFeeFloor) {
+            throw new Error(`ROUTING_FEE_FLOOR_SATS (${routingFeeFloor}) must be <= SERVICE_FEE_FLOOR_SATS (${serviceFeeFloor}) to ensure Pub keeps a spread`)
+        }
     }
 
     getStorageSettings(): StorageSettings {

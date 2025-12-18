@@ -175,10 +175,8 @@ export default class {
             case Types.UserOperationType.INCOMING_TX:
                 return Math.ceil(this.settings.getSettings().serviceFeeSettings.incomingTxFee * amount)
             case Types.UserOperationType.INCOMING_INVOICE:
-                if (appUser) {
-                    return Math.ceil(this.settings.getSettings().serviceFeeSettings.incomingAppUserInvoiceFee * amount)
-                }
-                return Math.ceil(this.settings.getSettings().serviceFeeSettings.incomingAppInvoiceFee * amount)
+                // Incoming invoice fees are always 0 (not configurable)
+                return 0
             case Types.UserOperationType.INCOMING_USER_TO_USER:
                 if (appUser) {
                     return Math.ceil(this.settings.getSettings().serviceFeeSettings.userToUserFee * amount)
@@ -202,7 +200,7 @@ export default class {
                 throw new Error("Sending a transaction is not supported")
             case Types.UserOperationType.OUTGOING_INVOICE:
                 const fee = this.getInvoicePaymentServiceFee(amount, appUser)
-                return Math.max(fee, this.settings.getSettings().lndSettings.outboundFeeFloor)
+                return Math.max(fee, this.settings.getSettings().lndSettings.serviceFeeFloor)
             case Types.UserOperationType.OUTGOING_USER_TO_USER:
                 if (appUser) {
                     return Math.ceil(this.settings.getSettings().serviceFeeSettings.userToUserFee * amount)
@@ -211,6 +209,12 @@ export default class {
             default:
                 throw new Error("Unknown service action type")
         }
+    }
+
+    getRoutingFeeLimit = (amount: number): number => {
+        const { routingFeeLimitBps, routingFeeFloor } = this.settings.getSettings().lndSettings
+        const limit = Math.floor(amount * routingFeeLimitBps / 10000)
+        return Math.max(limit, routingFeeFloor)
     }
 
     async SetMockInvoiceAsPaid(req: Types.SetMockInvoiceAsPaidRequest) {
@@ -261,8 +265,8 @@ export default class {
 
     GetFees = (): Types.CumulativeFees => {
         const { outgoingAppUserInvoiceFeeBps } = this.settings.getSettings().serviceFeeSettings
-        const { outboundFeeFloor } = this.settings.getSettings().lndSettings
-        return { outboundFeeFloor, serviceFeeBps: outgoingAppUserInvoiceFeeBps }
+        const { serviceFeeFloor } = this.settings.getSettings().lndSettings
+        return { outboundFeeFloor: serviceFeeFloor, serviceFeeBps: outgoingAppUserInvoiceFeeBps }
     }
 
     GetMaxPayableInvoice(balance: number): Types.CumulativeFees & { max: number } {
@@ -288,7 +292,7 @@ export default class {
         }
         if (req.expected_fees) {
             const { outboundFeeFloor, serviceFeeBps } = req.expected_fees
-            const serviceFixed = this.settings.getSettings().lndSettings.outboundFeeFloor
+            const serviceFixed = this.settings.getSettings().lndSettings.serviceFeeFloor
             const serviceBps = this.settings.getSettings().serviceFeeSettings.outgoingAppUserInvoiceFeeBps
             if (serviceFixed !== outboundFeeFloor || serviceBps !== serviceFeeBps) {
                 throw new Error("fees do not match the expected fees")
@@ -364,6 +368,7 @@ export default class {
 
         const { amountForLnd, payAmount, serviceFee } = amounts
         const totalAmountToDecrement = payAmount + serviceFee
+        const routingFeeLimit = this.getRoutingFeeLimit(payAmount)
         const use = await this.liquidityManager.beforeOutInvoicePayment(payAmount, serviceFee)
         const provider = use === 'provider' ? this.lnd.liquidProvider.GetProviderDestination() : undefined
         const pendingPayment = await this.storage.StartTransaction(async tx => {
@@ -375,7 +380,7 @@ export default class {
         const op = this.newInvoicePaymentOperation({ invoice, opId, amount: payAmount, networkFee: 0, serviceFee: serviceFee, confirmed: false })
         optionals.ack?.(op)
         try {
-            const payment = await this.lnd.PayInvoice(invoice, amountForLnd, serviceFee, payAmount, { useProvider: use === 'provider', from: 'user' }, index => {
+            const payment = await this.lnd.PayInvoice(invoice, amountForLnd, routingFeeLimit, payAmount, { useProvider: use === 'provider', from: 'user' }, index => {
                 this.storage.paymentStorage.SetExternalPaymentIndex(pendingPayment.serial_id, index)
             })
             await this.storage.paymentStorage.UpdateExternalPayment(pendingPayment.serial_id, payment.feeSat, serviceFee, true, payment.providerDst)

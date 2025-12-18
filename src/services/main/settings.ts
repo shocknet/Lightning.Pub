@@ -5,8 +5,6 @@ import path from 'path'
 export type ServiceFeeSettings = {
     incomingTxFee: number
     outgoingTxFee: number
-    incomingAppInvoiceFee: number
-    incomingAppUserInvoiceFee: number
     outgoingAppInvoiceFee: number
     outgoingAppUserInvoiceFee: number
     outgoingAppUserInvoiceFeeBps: number
@@ -15,15 +13,32 @@ export type ServiceFeeSettings = {
 }
 
 export const LoadServiceFeeSettingsFromEnv = (dbEnv: Record<string, string | undefined>, addToDb?: EnvCacher): ServiceFeeSettings => {
-    const outgoingAppUserInvoiceFeeBps = chooseEnvInt("OUTGOING_INVOICE_FEE_USER_BPS", dbEnv, 0, addToDb)
+    // Support both old and new env var names for backward compatibility (new name takes precedence)
+    // Check if new name exists first (in process.env or dbEnv)
+    const newExists = process.env["SERVICE_FEE_BPS"] !== undefined || dbEnv["SERVICE_FEE_BPS"] !== undefined
+    let serviceFeeBps: number
+    if (newExists) {
+        // New name exists, use it
+        serviceFeeBps = chooseEnvInt("SERVICE_FEE_BPS", dbEnv, 60, addToDb)
+    } else {
+        // New name doesn't exist, check old name for backward compatibility
+        const oldExists = process.env["OUTGOING_INVOICE_FEE_USER_BPS"] !== undefined || dbEnv["OUTGOING_INVOICE_FEE_USER_BPS"] !== undefined
+        if (oldExists) {
+            // Old name exists, use it and migrate to new name in DB
+            const oldValue = chooseEnvInt("OUTGOING_INVOICE_FEE_USER_BPS", dbEnv, 60) // Don't add old name to DB
+            serviceFeeBps = oldValue
+            if (addToDb) addToDb("SERVICE_FEE_BPS", oldValue.toString()) // Migrate to new name
+        } else {
+            // Neither exists, use default with new name
+            serviceFeeBps = chooseEnvInt("SERVICE_FEE_BPS", dbEnv, 60, addToDb)
+        }
+    }
     return {
-        incomingTxFee: chooseEnvInt("INCOMING_CHAIN_FEE_ROOT_BPS", dbEnv, 0, addToDb) / 10000,
+        incomingTxFee: 0, // Not configurable, always 0
         outgoingTxFee: chooseEnvInt("OUTGOING_CHAIN_FEE_ROOT_BPS", dbEnv, 60, addToDb) / 10000,
-        incomingAppInvoiceFee: chooseEnvInt("INCOMING_INVOICE_FEE_ROOT_BPS", dbEnv, 0, addToDb) / 10000,
         outgoingAppInvoiceFee: chooseEnvInt("OUTGOING_INVOICE_FEE_ROOT_BPS", dbEnv, 60, addToDb) / 10000,
-        incomingAppUserInvoiceFee: chooseEnvInt("INCOMING_INVOICE_FEE_USER_BPS", dbEnv, 0, addToDb) / 10000,
-        outgoingAppUserInvoiceFeeBps,
-        outgoingAppUserInvoiceFee: outgoingAppUserInvoiceFeeBps / 10000,
+        outgoingAppUserInvoiceFeeBps: serviceFeeBps,
+        outgoingAppUserInvoiceFee: serviceFeeBps / 10000,
         userToUserFee: chooseEnvInt("TX_FEE_INTERNAL_USER_BPS", dbEnv, 0, addToDb) / 10000,
         appToUserFee: chooseEnvInt("TX_FEE_INTERNAL_ROOT_BPS", dbEnv, 0, addToDb) / 10000,
     }
@@ -80,7 +95,9 @@ const networks = ['mainnet', 'testnet', 'regtest'] as const
 export type BTCNetwork = (typeof networks)[number]
 export type LndSettings = {
     lndLogDir: string
-    outboundFeeFloor: number
+    serviceFeeFloor: number
+    routingFeeLimitBps: number
+    routingFeeFloor: number
     mockLnd: boolean
     network: BTCNetwork
 }
@@ -112,11 +129,44 @@ export const LoadLndNodeSettingsFromEnv = (dbEnv: Record<string, string | undefi
 
 export const LoadLndSettingsFromEnv = (dbEnv: Record<string, string | undefined>, addToDb?: EnvCacher): LndSettings => {
     const network = chooseEnv('BTC_NETWORK', dbEnv, 'mainnet', addToDb) as BTCNetwork
-    const limitOld = chooseEnvInt('OUTBOUND_MAX_FEE_EXTRA_SATS', dbEnv, 10, addToDb)
-    const outboundFeeFloor = chooseEnvInt('OUTBOUND_FEE_FLOOR_SATS', dbEnv, limitOld, addToDb)
+    
+    // Routing fee floor: new name takes precedence, fall back to old name for backward compatibility
+    const routingFeeFloorNewExists = process.env['ROUTING_FEE_FLOOR_SATS'] !== undefined || dbEnv['ROUTING_FEE_FLOOR_SATS'] !== undefined
+    let routingFeeFloor: number
+    if (routingFeeFloorNewExists) {
+        routingFeeFloor = chooseEnvInt('ROUTING_FEE_FLOOR_SATS', dbEnv, 5, addToDb)
+    } else {
+        const routingFeeFloorOldExists = process.env['OUTBOUND_MAX_FEE_EXTRA_SATS'] !== undefined || dbEnv['OUTBOUND_MAX_FEE_EXTRA_SATS'] !== undefined
+        if (routingFeeFloorOldExists) {
+            const oldValue = chooseEnvInt('OUTBOUND_MAX_FEE_EXTRA_SATS', dbEnv, 5) // Don't add old name to DB
+            routingFeeFloor = oldValue
+            if (addToDb) addToDb('ROUTING_FEE_FLOOR_SATS', oldValue.toString()) // Migrate to new name
+        } else {
+            routingFeeFloor = chooseEnvInt('ROUTING_FEE_FLOOR_SATS', dbEnv, 5, addToDb)
+        }
+    }
+    
+    // Service fee floor: new name takes precedence, fall back to old name for backward compatibility
+    const serviceFeeFloorNewExists = process.env['SERVICE_FEE_FLOOR_SATS'] !== undefined || dbEnv['SERVICE_FEE_FLOOR_SATS'] !== undefined
+    let serviceFeeFloor: number
+    if (serviceFeeFloorNewExists) {
+        serviceFeeFloor = chooseEnvInt('SERVICE_FEE_FLOOR_SATS', dbEnv, 10, addToDb)
+    } else {
+        const serviceFeeFloorOldExists = process.env['OUTBOUND_MAX_FEE_EXTRA_SATS'] !== undefined || dbEnv['OUTBOUND_MAX_FEE_EXTRA_SATS'] !== undefined
+        if (serviceFeeFloorOldExists) {
+            const oldValue = chooseEnvInt('OUTBOUND_MAX_FEE_EXTRA_SATS', dbEnv, 10) // Don't add old name to DB
+            serviceFeeFloor = oldValue
+            if (addToDb) addToDb('SERVICE_FEE_FLOOR_SATS', oldValue.toString()) // Migrate to new name
+        } else {
+            serviceFeeFloor = chooseEnvInt('SERVICE_FEE_FLOOR_SATS', dbEnv, 10, addToDb)
+        }
+    }
+    const routingFeeLimitBps = chooseEnvInt('ROUTING_FEE_LIMIT_BPS', dbEnv, 50, addToDb)
     return {
         lndLogDir: chooseEnv('LND_LOG_DIR', dbEnv, resolveHome("/.lnd/logs/bitcoin/mainnet/lnd.log"), addToDb),
-        outboundFeeFloor,
+        serviceFeeFloor,
+        routingFeeLimitBps,
+        routingFeeFloor,
         mockLnd: false,
         network: networks.includes(network) ? network : 'mainnet'
     }
