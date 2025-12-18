@@ -1303,24 +1303,24 @@ export const CreateOneTimeInviteLinkResponseValidate = (o?: CreateOneTimeInviteL
 }
 
 export type CumulativeFees = {
-    outboundFeeFloor: number
     serviceFeeBps: number
+    serviceFeeFloor: number
 }
 export const CumulativeFeesOptionalFields: [] = []
 export type CumulativeFeesOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
-    outboundFeeFloor_CustomCheck?: (v: number) => boolean
     serviceFeeBps_CustomCheck?: (v: number) => boolean
+    serviceFeeFloor_CustomCheck?: (v: number) => boolean
 }
 export const CumulativeFeesValidate = (o?: CumulativeFees, opts: CumulativeFeesOptions = {}, path: string = 'CumulativeFees::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
     if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
 
-    if (typeof o.outboundFeeFloor !== 'number') return new Error(`${path}.outboundFeeFloor: is not a number`)
-    if (opts.outboundFeeFloor_CustomCheck && !opts.outboundFeeFloor_CustomCheck(o.outboundFeeFloor)) return new Error(`${path}.outboundFeeFloor: custom check failed`)
-
     if (typeof o.serviceFeeBps !== 'number') return new Error(`${path}.serviceFeeBps: is not a number`)
     if (opts.serviceFeeBps_CustomCheck && !opts.serviceFeeBps_CustomCheck(o.serviceFeeBps)) return new Error(`${path}.serviceFeeBps: custom check failed`)
+
+    if (typeof o.serviceFeeFloor !== 'number') return new Error(`${path}.serviceFeeFloor: is not a number`)
+    if (opts.serviceFeeFloor_CustomCheck && !opts.serviceFeeFloor_CustomCheck(o.serviceFeeFloor)) return new Error(`${path}.serviceFeeFloor: custom check failed`)
 
     return null
 }

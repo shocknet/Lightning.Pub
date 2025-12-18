@@ -857,7 +857,7 @@ message SwapsList {
 }
 
 message CumulativeFees {
-    int64 outboundFeeFloor = 2;
+    int64 serviceFeeFloor = 2;
     int64 serviceFeeBps = 3;
 }
 

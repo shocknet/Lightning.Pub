@@ -59,7 +59,7 @@ export default class SettingsManager {
         const { serviceFeeSettings, lndSettings } = settings
         const serviceFeeBps = serviceFeeSettings.serviceFeeBps
         const routingFeeLimitBps = lndSettings.routingFeeLimitBps
-        const serviceFeeFloor = lndSettings.serviceFeeFloor
+        const serviceFeeFloor = serviceFeeSettings.serviceFeeFloor
         const routingFeeFloor = lndSettings.routingFeeFloor
 
         if (routingFeeLimitBps > serviceFeeBps) {

@@ -173,7 +173,7 @@ export default class {
     getReceiveServiceFee = (action: Types.UserOperationType, amount: number, managedUser: boolean): number => {
         switch (action) {
             case Types.UserOperationType.INCOMING_TX:
-                return Math.ceil(this.settings.getSettings().serviceFeeSettings.incomingTxFee * amount)
+                return 0
             case Types.UserOperationType.INCOMING_INVOICE:
                 // Incoming invoice fees are always 0 (not configurable)
                 return 0
@@ -197,18 +197,14 @@ export default class {
     getSendServiceFee = (action: Types.UserOperationType, amount: number, managedUser: boolean): number => {
         switch (action) {
             case Types.UserOperationType.OUTGOING_TX:
-                // Internal address payment, treat like user-to-user
-                if (managedUser) {
-                    return Math.ceil(this.settings.getSettings().serviceFeeSettings.userToUserFee * amount)
-                }
-                return Math.ceil(this.settings.getSettings().serviceFeeSettings.rootToUserFee * amount)
+                throw new Error("OUTGOING_TX is not a valid send service fee action")
             case Types.UserOperationType.OUTGOING_INVOICE:
                 const fee = this.getInvoicePaymentServiceFee(amount, managedUser)
                 // Only managed users pay the service fee floor
                 if (!managedUser) {
                     return 0
                 }
-                return Math.max(fee, this.settings.getSettings().lndSettings.serviceFeeFloor)
+                return Math.max(fee, this.settings.getSettings().serviceFeeSettings.serviceFeeFloor)
             case Types.UserOperationType.OUTGOING_USER_TO_USER:
                 if (managedUser) {
                     return Math.ceil(this.settings.getSettings().serviceFeeSettings.userToUserFee * amount)
@@ -272,18 +268,17 @@ export default class {
     }
 
     GetFees = (): Types.CumulativeFees => {
-        const { serviceFeeBps } = this.settings.getSettings().serviceFeeSettings
-        const { serviceFeeFloor } = this.settings.getSettings().lndSettings
-        return { outboundFeeFloor: serviceFeeFloor, serviceFeeBps: serviceFeeBps }
+        const { serviceFeeBps, serviceFeeFloor } = this.settings.getSettings().serviceFeeSettings
+        return { serviceFeeFloor, serviceFeeBps }
     }
 
     GetMaxPayableInvoice(balance: number): Types.CumulativeFees & { max: number } {
-        const { outboundFeeFloor, serviceFeeBps } = this.GetFees()
+        const { serviceFeeFloor, serviceFeeBps } = this.GetFees()
         const div = 1 + (serviceFeeBps / 10000)
         const maxWithoutFixed = Math.floor(balance / div)
         const fee = balance - maxWithoutFixed
-        const max = balance - Math.max(fee, outboundFeeFloor)
-        return { max, outboundFeeFloor, serviceFeeBps }
+        const max = balance - Math.max(fee, serviceFeeFloor)
+        return { max, serviceFeeFloor, serviceFeeBps }
     }
     async DecodeInvoice(req: Types.DecodeInvoiceRequest): Promise<Types.DecodeInvoiceResponse> {
         const decoded = await this.lnd.DecodeInvoice(req.invoice)
@@ -299,10 +294,10 @@ export default class {
             throw new Error("user is banned, cannot send payment")
         }
         if (req.expected_fees) {
-            const { outboundFeeFloor, serviceFeeBps } = req.expected_fees
-            const serviceFixed = this.settings.getSettings().lndSettings.serviceFeeFloor
+            const { serviceFeeFloor, serviceFeeBps } = req.expected_fees
+            const serviceFixed = this.settings.getSettings().serviceFeeSettings.serviceFeeFloor
             const serviceBps = this.settings.getSettings().serviceFeeSettings.serviceFeeBps
-            if (serviceFixed !== outboundFeeFloor || serviceBps !== serviceFeeBps) {
+            if (serviceFixed !== serviceFeeFloor || serviceBps !== serviceFeeBps) {
                 throw new Error("fees do not match the expected fees")
             }
         }
@@ -522,21 +517,11 @@ export default class {
         this.swaps.reverseSwaps.SubscribeToTransactionSwap(data, result => {
             swapResult = result
         })
-        // Validate that the invoice amount matches what was quoted
-        const decoded = await this.lnd.DecodeInvoice(txSwap.invoice)
-        if (decoded.numSatoshis !== txSwap.invoice_amount) {
-            throw new Error("swap invoice amount does not match quote")
-        }
-        const fees = this.GetFees()
         let payment: Types.PayInvoiceResponse
         try {
             payment = await this.PayInvoice(ctx.user_id, {
                 amount: 0,
-                invoice: txSwap.invoice,
-                expected_fees: {
-                    outboundFeeFloor: fees.outboundFeeFloor,
-                    serviceFeeBps: fees.serviceFeeBps
-                }
+                invoice: txSwap.invoice
             }, app, { swapOperationId: req.swap_operation_id })
             if (!swapResult.ok) {
                 this.log("invoice payment successful, but swap failed")
@@ -572,7 +557,7 @@ export default class {
         const { blockHeight } = await this.lnd.GetInfo()
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
         const isManagedUser = ctx.user_id !== app.owner.user_id
-        const serviceFee = this.getSendServiceFee(Types.UserOperationType.OUTGOING_TX, req.amoutSats, isManagedUser)
+        const serviceFee = this.getSendServiceFee(Types.UserOperationType.OUTGOING_USER_TO_USER, req.amoutSats, isManagedUser)
 
         const txId = crypto.randomBytes(32).toString("hex")
         const addressData = `${req.address}:${txId}`

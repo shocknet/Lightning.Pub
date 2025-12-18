@@ -63,7 +63,7 @@ export default class {
         this.htlcCb = htlcCb
         this.channelEventCb = channelEventCb
         this.liquidProvider = liquidProvider
-        
+
         // Skip LND client initialization if using only liquidity provider
         if (liquidProvider.getSettings().useOnlyLiquidityProvider) {
             this.log("USE_ONLY_LIQUIDITY_PROVIDER enabled, skipping LND client initialization")
@@ -79,7 +79,7 @@ export default class {
             this.walletKit = new WalletKitClient(dummyTransport)
             return
         }
-        
+
         const { lndAddr, lndCertPath, lndMacaroonPath } = this.getSettings().lndNodeSettings
         const lndCert = fs.readFileSync(lndCertPath);
         const macaroon = fs.readFileSync(lndMacaroonPath).toString('hex');
@@ -392,7 +392,7 @@ export default class {
                 const decoded = decodeBolt11(paymentRequest)
                 let numSatoshis = 0
                 let paymentHash = ''
-                
+
                 for (const section of decoded.sections) {
                     if (section.name === 'amount') {
                         // Amount is in millisatoshis
@@ -401,11 +401,11 @@ export default class {
                         paymentHash = section.value as string
                     }
                 }
-                
+
                 if (!paymentHash) {
                     throw new Error("Payment hash not found in invoice")
                 }
-                
+
                 return { numSatoshis, paymentHash }
             } catch (err: any) {
                 throw new Error(`Failed to decode invoice: ${err.message}`)
@@ -434,7 +434,7 @@ export default class {
         // Force use of provider when bypass is enabled
         const mustUseProvider = this.liquidProvider.getSettings().useOnlyLiquidityProvider || useProvider
         if (mustUseProvider) {
-            const res = await this.liquidProvider.PayInvoice(invoice, decodedAmount, from)
+            const res = await this.liquidProvider.PayInvoice(invoice, decodedAmount, from, feeLimit)
             const providerDst = this.liquidProvider.GetProviderDestination()
             return { feeSat: res.service_fee, valueSat: res.amount_paid, paymentPreimage: res.preimage, providerDst }
         }

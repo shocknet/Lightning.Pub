@@ -130,7 +130,7 @@ export class LiquidityProvider {
             return res
         }
         this.feesCache = {
-            outboundFeeFloor: res.network_max_fee_fixed,
+            serviceFeeFloor: res.network_max_fee_fixed,
             serviceFeeBps: res.service_fee_bps
         }
         this.latestReceivedBalance = res.balance
@@ -151,11 +151,11 @@ export class LiquidityProvider {
             return 0
         }
         const balance = this.latestReceivedBalance
-        const { outboundFeeFloor, serviceFeeBps } = this.feesCache
+        const { serviceFeeFloor, serviceFeeBps } = this.feesCache
         const div = 1 + (serviceFeeBps / 10000)
         const maxWithoutFixed = Math.floor(balance / div)
         const fee = balance - maxWithoutFixed
-        return balance - Math.max(fee, outboundFeeFloor)
+        return balance - Math.max(fee, serviceFeeFloor)
     }
 
     GetLatestBalance = () => {
@@ -173,7 +173,7 @@ export class LiquidityProvider {
         const fees = f ? f : this.GetFees()
         const serviceFeeRate = fees.serviceFeeBps / 10000
         const serviceFee = Math.ceil(serviceFeeRate * amount)
-        return Math.max(serviceFee, fees.outboundFeeFloor)
+        return Math.max(serviceFee, fees.serviceFeeFloor)
     }
 
     CanProviderPay = async (amount: number, localServiceFee: number): Promise<boolean> => {
@@ -215,13 +215,16 @@ export class LiquidityProvider {
 
     }
 
-    PayInvoice = async (invoice: string, decodedAmount: number, from: 'user' | 'system') => {
+    PayInvoice = async (invoice: string, decodedAmount: number, from: 'user' | 'system', feeLimit?: number) => {
         try {
             if (!this.IsReady()) {
                 throw new Error("liquidity provider is not ready yet, disabled or unreachable")
             }
             const fees = this.GetFees()
             const providerServiceFee = this.GetServiceFee(decodedAmount, fees)
+            if (feeLimit && providerServiceFee > feeLimit) {
+                throw new Error("provider service fee is greater than the fee limit")
+            }
             this.pendingPayments[invoice] = decodedAmount + providerServiceFee
             const timeout = setTimeout(() => {
                 if (!this.pendingPaymentsAck[invoice]) {

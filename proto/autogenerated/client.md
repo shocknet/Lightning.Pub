@@ -1169,8 +1169,8 @@ The nostr server will send back a message response, and inside the body there wi
   - __invitation_link__: _string_
 
 ### CumulativeFees
-  - __outboundFeeFloor__: _number_
   - __serviceFeeBps__: _number_
+  - __serviceFeeFloor__: _number_
 
 ### DebitAuthorization
   - __authorized__: _boolean_

@@ -230,8 +230,8 @@ type CreateOneTimeInviteLinkResponse struct {
 	Invitation_link string `json:"invitation_link"`
 }
 type CumulativeFees struct {
-	Outboundfeefloor int64 `json:"outboundFeeFloor"`
-	Servicefeebps    int64 `json:"serviceFeeBps"`
+	Servicefeebps   int64 `json:"serviceFeeBps"`
+	Servicefeefloor int64 `json:"serviceFeeFloor"`
 }
 type DebitAuthorization struct {
 	Authorized bool        `json:"authorized"`
