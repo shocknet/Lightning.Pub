@@ -33,9 +33,10 @@ const start = async () => {
     )
     exitHandler(() => { Stop(); mainHandler.Stop() })
     log("starting server")
-    mainHandler.attachNostrSend(Send)
+    mainHandler.attachNostrSend(Send, keepOn.liquidityProviderApp.appId)
     mainHandler.attachNostrProcessPing(Ping)
     mainHandler.attachNostrReset(Reset)
+    await mainHandler.unlocker.PublishBackupsToNostr()
     mainHandler.StartBeacons()
     const appNprofile = nprofileEncode({ pubkey: liquidityProviderInfo.publicKey, relays })
     if (wizard) {
