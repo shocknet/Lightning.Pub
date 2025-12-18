@@ -142,14 +142,14 @@ export class NostrPool {
     async Send(initiator: SendInitiator, data: SendData, relays?: string[]) {
         try {
             const keys = this.getSendKeys(initiator)
+            const r = this.getRelays(initiator, relays)
             const privateKey = Buffer.from(keys.privateKey, 'hex')
             const toSign = await this.handleSend(data, keys)
-            await Promise.all(toSign.map(ue => this.sendEvent(ue, keys, relays)))
+            await Promise.all(toSign.map(ue => this.sendEvent(ue, keys, r)))
         } catch (e: any) {
             this.log(ERROR, "failed to send event", e.message || e)
             throw e
         }
-
     }
 
     private async handleSend(data: SendData, keys: { name: string, privateKey: string, publicKey: string }): Promise<UnsignedEvent[]> {
@@ -192,13 +192,17 @@ export class NostrPool {
         return Object.values(this.relays).filter(r => r.isServiceRelay()).map(r => r.GetUrl())
     }
 
-    private async sendEvent(event: UnsignedEvent, keys: { name: string, privateKey: string }, relays?: string[]) {
+    private getProviderRelays() {
+        return Object.values(this.relays).filter(r => r.isProviderRelay()).map(r => r.GetUrl())
+    }
+
+    private async sendEvent(event: UnsignedEvent, keys: { name: string, privateKey: string }, relays: string[]) {
         const signed = finalizeEvent(event, Buffer.from(keys.privateKey, 'hex'))
         let sent = false
         const log = getLogger({ appName: keys.name })
-        const r = relays ? relays : this.getServiceRelays()
+        // const r = relays ? relays : this.getServiceRelays()
         const pool = new SimplePool()
-        await Promise.all(pool.publish(r, signed).map(async p => {
+        await Promise.all(pool.publish(relays, signed).map(async p => {
             try {
                 await p
                 sent = true
@@ -212,6 +216,18 @@ export class NostrPool {
         } else {
             //log("sent event")
         }
+    }
+
+    private getRelays(initiator: SendInitiator, requestRelays?: string[]) {
+        if (requestRelays) {
+            return requestRelays
+        }
+        if (initiator.type === 'app') {
+            return this.getServiceRelays()
+        } else if (initiator.type === 'client') {
+            return this.getProviderRelays()
+        }
+        throw new Error("unkown initiator type")
     }
 
     private getSendKeys(initiator: SendInitiator) {

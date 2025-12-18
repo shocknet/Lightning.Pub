@@ -496,6 +496,10 @@ export default class {
         if (!txSwap) {
             throw new Error("swap quote not found")
         }
+        const info = await this.lnd.GetInfo()
+        if (info.blockHeight >= txSwap.timeout_block_height) {
+            throw new Error("swap timeout")
+        }
         const keys = this.swaps.GetKeys(txSwap.ephemeral_private_key)
         const data: TransactionSwapData = {
             createdResponse: {
@@ -526,8 +530,8 @@ export default class {
         const fees = this.GetFees()
         let payment: Types.PayInvoiceResponse
         try {
-            payment = await this.PayInvoice(ctx.user_id, { 
-                amount: 0, 
+            payment = await this.PayInvoice(ctx.user_id, {
+                amount: 0,
                 invoice: txSwap.invoice,
                 expected_fees: {
                     outboundFeeFloor: fees.outboundFeeFloor,
