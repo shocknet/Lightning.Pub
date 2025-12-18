@@ -57,7 +57,7 @@ export default class SettingsManager {
 
     private validateFeeSettings(settings: FullSettings): void {
         const { serviceFeeSettings, lndSettings } = settings
-        const serviceFeeBps = serviceFeeSettings.outgoingAppUserInvoiceFeeBps
+        const serviceFeeBps = serviceFeeSettings.serviceFeeBps
         const routingFeeLimitBps = lndSettings.routingFeeLimitBps
         const serviceFeeFloor = lndSettings.serviceFeeFloor
         const routingFeeFloor = lndSettings.routingFeeFloor

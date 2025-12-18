@@ -4,12 +4,10 @@ import path from 'path'
 
 export type ServiceFeeSettings = {
     incomingTxFee: number
-    outgoingTxFee: number
-    outgoingAppInvoiceFee: number
-    outgoingAppUserInvoiceFee: number
-    outgoingAppUserInvoiceFeeBps: number
+    serviceFee: number
+    serviceFeeBps: number
     userToUserFee: number
-    appToUserFee: number
+    rootToUserFee: number
 }
 
 export const LoadServiceFeeSettingsFromEnv = (dbEnv: Record<string, string | undefined>, addToDb?: EnvCacher): ServiceFeeSettings => {
@@ -35,12 +33,10 @@ export const LoadServiceFeeSettingsFromEnv = (dbEnv: Record<string, string | und
     }
     return {
         incomingTxFee: 0, // Not configurable, always 0
-        outgoingTxFee: chooseEnvInt("OUTGOING_CHAIN_FEE_ROOT_BPS", dbEnv, 60, addToDb) / 10000,
-        outgoingAppInvoiceFee: chooseEnvInt("OUTGOING_INVOICE_FEE_ROOT_BPS", dbEnv, 60, addToDb) / 10000,
-        outgoingAppUserInvoiceFeeBps: serviceFeeBps,
-        outgoingAppUserInvoiceFee: serviceFeeBps / 10000,
+        serviceFeeBps: serviceFeeBps,
+        serviceFee: serviceFeeBps / 10000,
         userToUserFee: chooseEnvInt("TX_FEE_INTERNAL_USER_BPS", dbEnv, 0, addToDb) / 10000,
-        appToUserFee: chooseEnvInt("TX_FEE_INTERNAL_ROOT_BPS", dbEnv, 0, addToDb) / 10000,
+        rootToUserFee: chooseEnvInt("TX_FEE_INTERNAL_ROOT_BPS", dbEnv, 0, addToDb) / 10000,
     }
 }
 

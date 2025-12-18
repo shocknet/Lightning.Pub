@@ -170,7 +170,7 @@ export default class {
         }
     }
 
-    getReceiveServiceFee = (action: Types.UserOperationType, amount: number, appUser: boolean): number => {
+    getReceiveServiceFee = (action: Types.UserOperationType, amount: number, managedUser: boolean): number => {
         switch (action) {
             case Types.UserOperationType.INCOMING_TX:
                 return Math.ceil(this.settings.getSettings().serviceFeeSettings.incomingTxFee * amount)
@@ -178,34 +178,42 @@ export default class {
                 // Incoming invoice fees are always 0 (not configurable)
                 return 0
             case Types.UserOperationType.INCOMING_USER_TO_USER:
-                if (appUser) {
+                if (managedUser) {
                     return Math.ceil(this.settings.getSettings().serviceFeeSettings.userToUserFee * amount)
                 }
-                return Math.ceil(this.settings.getSettings().serviceFeeSettings.appToUserFee * amount)
+                return Math.ceil(this.settings.getSettings().serviceFeeSettings.rootToUserFee * amount)
             default:
                 throw new Error("Unknown receive action type")
         }
     }
 
-    getInvoicePaymentServiceFee = (amount: number, appUser: boolean): number => {
-        if (appUser) {
-            return Math.ceil(this.settings.getSettings().serviceFeeSettings.outgoingAppUserInvoiceFee * amount)
+    getInvoicePaymentServiceFee = (amount: number, managedUser: boolean): number => {
+        if (!managedUser) {
+            return 0 // Root doesn't pay service fee to themselves
         }
-        return Math.ceil(this.settings.getSettings().serviceFeeSettings.outgoingAppInvoiceFee * amount)
+        return Math.ceil(this.settings.getSettings().serviceFeeSettings.serviceFee * amount)
     }
 
-    getSendServiceFee = (action: Types.UserOperationType, amount: number, appUser: boolean): number => {
+    getSendServiceFee = (action: Types.UserOperationType, amount: number, managedUser: boolean): number => {
         switch (action) {
             case Types.UserOperationType.OUTGOING_TX:
-                throw new Error("Sending a transaction is not supported")
-            case Types.UserOperationType.OUTGOING_INVOICE:
-                const fee = this.getInvoicePaymentServiceFee(amount, appUser)
-                return Math.max(fee, this.settings.getSettings().lndSettings.serviceFeeFloor)
-            case Types.UserOperationType.OUTGOING_USER_TO_USER:
-                if (appUser) {
+                // Internal address payment, treat like user-to-user
+                if (managedUser) {
                     return Math.ceil(this.settings.getSettings().serviceFeeSettings.userToUserFee * amount)
                 }
-                return Math.ceil(this.settings.getSettings().serviceFeeSettings.appToUserFee * amount)
+                return Math.ceil(this.settings.getSettings().serviceFeeSettings.rootToUserFee * amount)
+            case Types.UserOperationType.OUTGOING_INVOICE:
+                const fee = this.getInvoicePaymentServiceFee(amount, managedUser)
+                // Only managed users pay the service fee floor
+                if (!managedUser) {
+                    return 0
+                }
+                return Math.max(fee, this.settings.getSettings().lndSettings.serviceFeeFloor)
+            case Types.UserOperationType.OUTGOING_USER_TO_USER:
+                if (managedUser) {
+                    return Math.ceil(this.settings.getSettings().serviceFeeSettings.userToUserFee * amount)
+                }
+                return Math.ceil(this.settings.getSettings().serviceFeeSettings.rootToUserFee * amount)
             default:
                 throw new Error("Unknown service action type")
         }
@@ -264,9 +272,9 @@ export default class {
     }
 
     GetFees = (): Types.CumulativeFees => {
-        const { outgoingAppUserInvoiceFeeBps } = this.settings.getSettings().serviceFeeSettings
+        const { serviceFeeBps } = this.settings.getSettings().serviceFeeSettings
         const { serviceFeeFloor } = this.settings.getSettings().lndSettings
-        return { outboundFeeFloor: serviceFeeFloor, serviceFeeBps: outgoingAppUserInvoiceFeeBps }
+        return { outboundFeeFloor: serviceFeeFloor, serviceFeeBps: serviceFeeBps }
     }
 
     GetMaxPayableInvoice(balance: number): Types.CumulativeFees & { max: number } {
@@ -293,7 +301,7 @@ export default class {
         if (req.expected_fees) {
             const { outboundFeeFloor, serviceFeeBps } = req.expected_fees
             const serviceFixed = this.settings.getSettings().lndSettings.serviceFeeFloor
-            const serviceBps = this.settings.getSettings().serviceFeeSettings.outgoingAppUserInvoiceFeeBps
+            const serviceBps = this.settings.getSettings().serviceFeeSettings.serviceFeeBps
             if (serviceFixed !== outboundFeeFloor || serviceBps !== serviceFeeBps) {
                 throw new Error("fees do not match the expected fees")
             }
@@ -306,8 +314,8 @@ export default class {
             throw new Error("invoice has no value, an amount must be provided in the request")
         }
         const payAmount = req.amount !== 0 ? req.amount : Number(decoded.numSatoshis)
-        const isAppUserPayment = userId !== linkedApplication.owner.user_id
-        const serviceFee = this.getSendServiceFee(Types.UserOperationType.OUTGOING_INVOICE, payAmount, isAppUserPayment)
+        const isManagedUser = userId !== linkedApplication.owner.user_id
+        const serviceFee = this.getSendServiceFee(Types.UserOperationType.OUTGOING_INVOICE, payAmount, isManagedUser)
         const internalInvoice = await this.storage.paymentStorage.GetInvoiceOwner(req.invoice)
         if (internalInvoice && internalInvoice.paid_at_unix > 0) {
             throw new Error("this invoice was already paid")
@@ -333,7 +341,7 @@ export default class {
             throw err
         }
         const feeDiff = serviceFee - paymentInfo.networkFee
-        if (isAppUserPayment && feeDiff > 0) {
+        if (isManagedUser && feeDiff > 0) {
             await this.storage.userStorage.IncrementUserBalance(linkedApplication.owner.user_id, feeDiff, "fees")
         }
         const user = await this.storage.userStorage.GetUser(userId)
@@ -431,8 +439,8 @@ export default class {
         const decoded = await this.lnd.DecodeInvoice(res.createdResponse.invoice)
         const swapFee = decoded.numSatoshis - chainTotal
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
-        const isAppUserPayment = ctx.user_id !== app.owner.user_id
-        const serviceFee = this.getSendServiceFee(Types.UserOperationType.OUTGOING_INVOICE, decoded.numSatoshis, isAppUserPayment)
+        const isManagedUser = ctx.user_id !== app.owner.user_id
+        const serviceFee = this.getSendServiceFee(Types.UserOperationType.OUTGOING_INVOICE, decoded.numSatoshis, isManagedUser)
         const newSwap = await this.storage.paymentStorage.AddTransactionSwap({
             app_user_id: ctx.app_user_id,
             swap_quote_id: res.createdResponse.id,
@@ -546,14 +554,14 @@ export default class {
         }
         const { blockHeight } = await this.lnd.GetInfo()
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
-        const serviceFee = this.getSendServiceFee(Types.UserOperationType.OUTGOING_TX, req.amoutSats, false)
-        const isAppUserPayment = ctx.user_id !== app.owner.user_id
+        const isManagedUser = ctx.user_id !== app.owner.user_id
+        const serviceFee = this.getSendServiceFee(Types.UserOperationType.OUTGOING_TX, req.amoutSats, isManagedUser)
 
         const txId = crypto.randomBytes(32).toString("hex")
         const addressData = `${req.address}:${txId}`
         await this.storage.userStorage.DecrementUserBalance(ctx.user_id, req.amoutSats + serviceFee, addressData)
         this.addressPaidCb({ hash: txId, index: 0 }, req.address, req.amoutSats, 'internal')
-        if (isAppUserPayment && serviceFee > 0) {
+        if (isManagedUser && serviceFee > 0) {
             await this.storage.userStorage.IncrementUserBalance(app.owner.user_id, serviceFee, 'fees')
         }
         const chainFees = 0
@@ -586,7 +594,8 @@ export default class {
                 }
             }),
             quotes: pendingSwaps.map(s => {
-                const serviceFee = this.getSendServiceFee(Types.UserOperationType.OUTGOING_INVOICE, s.invoice_amount, true)
+                const isManagedUser = true // ListSwaps is only called by app users
+                const serviceFee = this.getSendServiceFee(Types.UserOperationType.OUTGOING_INVOICE, s.invoice_amount, isManagedUser)
                 return {
                     swap_operation_id: s.swap_operation_id,
                     invoice_amount_sats: s.invoice_amount,
@@ -922,14 +931,14 @@ export default class {
             if (fromUser.balance_sats < amount) {
                 throw new Error("not enough balance to send payment")
             }
-            const isAppUserPayment = fromUser.user_id !== linkedApplication.owner.user_id
-            let fee = this.getSendServiceFee(Types.UserOperationType.OUTGOING_USER_TO_USER, amount, isAppUserPayment)
+            const isManagedUser = fromUser.user_id !== linkedApplication.owner.user_id
+            let fee = this.getSendServiceFee(Types.UserOperationType.OUTGOING_USER_TO_USER, amount, isManagedUser)
             const toDecrement = amount + fee
             const paymentEntry = await this.storage.paymentStorage.AddPendingUserToUserPayment(fromUserId, toUserId, amount, fee, linkedApplication, tx)
             await this.storage.userStorage.DecrementUserBalance(fromUser.user_id, toDecrement, `${toUserId}:${paymentEntry.serial_id}`, tx)
             await this.storage.userStorage.IncrementUserBalance(toUser.user_id, amount, `${fromUserId}:${paymentEntry.serial_id}`, tx)
             await this.storage.paymentStorage.SetPendingUserToUserPaymentAsPaid(paymentEntry.serial_id, tx)
-            if (isAppUserPayment && fee > 0) {
+            if (isManagedUser && fee > 0) {
                 await this.storage.userStorage.IncrementUserBalance(linkedApplication.owner.user_id, fee, 'fees', tx)
             }
             return paymentEntry
