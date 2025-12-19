@@ -56,7 +56,17 @@ export class LiquidityProvider {
             retrieveNostrGuestWithPubAuth: async () => this.localPubkey
         }, this.clientSend, this.clientSub)
 
+        this.utils.nostrSender.OnReady(() => {
+            this.setSetIfConfigured()
+            if (this.configured) {
+                clearInterval(this.configuredInterval)
+                this.Connect()
+            }
+        })
         this.configuredInterval = setInterval(() => {
+            if (!this.configured && this.utils.nostrSender.IsReady()) {
+                this.setSetIfConfigured()
+            }
             if (this.configured) {
                 clearInterval(this.configuredInterval)
                 this.Connect()
