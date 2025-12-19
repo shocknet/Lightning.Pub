@@ -14,10 +14,23 @@ if (logLevel !== "DEBUG" && logLevel !== "WARN" && logLevel !== "ERROR") {
     throw new Error("Invalid log level " + logLevel + " must be one of (DEBUG, WARN, ERROR)")
 }
 const z = (n: number) => n < 10 ? `0${n}` : `${n}`
+// Sanitize filename to remove invalid characters for filesystem
+const sanitizeFileName = (fileName: string): string => {
+    // Replace invalid filename characters with underscores
+    // Invalid on most filesystems: / \ : * ? " < > |
+    return fileName.replace(/[/\\:*?"<>|]/g, '_')
+}
 const openWriter = (fileName: string): Writer => {
     const now = new Date()
     const date = `${now.getFullYear()}-${z(now.getMonth() + 1)}-${z(now.getDate())}`
-    const logStream = fs.createWriteStream(`${logsDir}/${fileName}_${date}.log`, { flags: 'a' });
+    const sanitizedFileName = sanitizeFileName(fileName)
+    const logPath = `${logsDir}/${sanitizedFileName}_${date}.log`
+    // Ensure parent directory exists
+    const dirPath = logPath.substring(0, logPath.lastIndexOf('/'))
+    if (!fs.existsSync(dirPath)) {
+        fs.mkdirSync(dirPath, { recursive: true })
+    }
+    const logStream = fs.createWriteStream(logPath, { flags: 'a' });
     return (message) => {
         logStream.write(message + "\n")
     }

@@ -5,7 +5,8 @@ import {
     LiquiditySettings, LndNodeSettings, LndSettings, LoadLiquiditySettingsFromEnv,
     LoadLSPSettingsFromEnv, LSPSettings, ServiceFeeSettings, ServiceSettings, LoadServiceFeeSettingsFromEnv,
     LoadNostrRelaySettingsFromEnv, LoadServiceSettingsFromEnv, LoadWatchdogSettingsFromEnv,
-    LoadLndNodeSettingsFromEnv, LoadLndSettingsFromEnv, NostrRelaySettings, WatchdogSettings
+    LoadLndNodeSettingsFromEnv, LoadLndSettingsFromEnv, NostrRelaySettings, WatchdogSettings, SwapsSettings, LoadSwapsSettingsFromEnv
+
 } from "./settings.js"
 export default class SettingsManager {
     storage: Storage
@@ -27,6 +28,7 @@ export default class SettingsManager {
             serviceFeeSettings: LoadServiceFeeSettingsFromEnv(dbEnv, addToDb),
             serviceSettings: LoadServiceSettingsFromEnv(dbEnv, addToDb),
             watchDogSettings: LoadWatchdogSettingsFromEnv(dbEnv, addToDb),
+            swapsSettings: LoadSwapsSettingsFromEnv(dbEnv, addToDb),
         }
     }
 
@@ -48,7 +50,24 @@ export default class SettingsManager {
         for (const key in toAdd) {
             await this.storage.settingsStorage.setDbEnvIFNeeded(key, toAdd[key])
         }
+        // Validate fee configuration: routing fee limit must be <= service fee
+        this.validateFeeSettings(this.settings)
         return this.settings
+    }
+
+    private validateFeeSettings(settings: FullSettings): void {
+        const { serviceFeeSettings, lndSettings } = settings
+        const serviceFeeBps = serviceFeeSettings.serviceFeeBps
+        const routingFeeLimitBps = lndSettings.routingFeeLimitBps
+        const serviceFeeFloor = serviceFeeSettings.serviceFeeFloor
+        const routingFeeFloor = lndSettings.routingFeeFloor
+
+        if (routingFeeLimitBps > serviceFeeBps) {
+            throw new Error(`ROUTING_FEE_LIMIT_BPS (${routingFeeLimitBps}) must be <= SERVICE_FEE_BPS (${serviceFeeBps}) to ensure Pub keeps a spread`)
+        }
+        if (routingFeeFloor > serviceFeeFloor) {
+            throw new Error(`ROUTING_FEE_FLOOR_SATS (${routingFeeFloor}) must be <= SERVICE_FEE_FLOOR_SATS (${serviceFeeFloor}) to ensure Pub keeps a spread`)
+        }
     }
 
     getStorageSettings(): StorageSettings {
@@ -148,5 +167,6 @@ type FullSettings = {
     nostrRelaySettings: NostrRelaySettings,
     serviceFeeSettings: ServiceFeeSettings,
     serviceSettings: ServiceSettings,
-    lspSettings: LSPSettings
+    lspSettings: LSPSettings,
+    swapsSettings: SwapsSettings
 }

@@ -118,6 +118,10 @@ export default class {
                 } */
     }
 
+    NostrSender() {
+        return this.utils.nostrSender
+    }
+
     getStorageSettings(): StorageSettings {
         return this.settings
     }

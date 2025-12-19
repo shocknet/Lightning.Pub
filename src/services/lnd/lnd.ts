@@ -17,7 +17,7 @@ import { SendCoinsReq } from './sendCoinsReq.js';
 import { AddressPaidCb, InvoicePaidCb, NodeInfo, Invoice, DecodedInvoice, PaidInvoice, NewBlockCb, HtlcCb, BalanceInfo, ChannelEventCb } from './settings.js';
 import { ERROR, getLogger } from '../helpers/logger.js';
 import { HtlcEvent_EventType } from '../../../proto/lnd/router.js';
-import { LiquidityProvider, LiquidityRequest } from '../main/liquidityProvider.js';
+import { LiquidityProvider } from '../main/liquidityProvider.js';
 import { Utils } from '../helpers/utilsWrapper.js';
 import { TxPointSettings } from '../storage/tlv/stateBundler.js';
 import { WalletKitClient } from '../../../proto/lnd/walletkit.client.js';
@@ -63,7 +63,7 @@ export default class {
         this.htlcCb = htlcCb
         this.channelEventCb = channelEventCb
         this.liquidProvider = liquidProvider
-        
+
         // Skip LND client initialization if using only liquidity provider
         if (liquidProvider.getSettings().useOnlyLiquidityProvider) {
             this.log("USE_ONLY_LIQUIDITY_PROVIDER enabled, skipping LND client initialization")
@@ -79,7 +79,7 @@ export default class {
             this.walletKit = new WalletKitClient(dummyTransport)
             return
         }
-        
+
         const { lndAddr, lndCertPath, lndMacaroonPath } = this.getSettings().lndNodeSettings
         const lndCert = fs.readFileSync(lndCertPath);
         const macaroon = fs.readFileSync(lndMacaroonPath).toString('hex');
@@ -372,8 +372,8 @@ export default class {
         if (mustUseProvider) {
             console.log("using provider")
             const invoice = await this.liquidProvider.AddInvoice(value, memo, from, expiry)
-            const providerDst = this.liquidProvider.GetProviderDestination()
-            return { payRequest: invoice, providerDst }
+            const providerPubkey = this.liquidProvider.GetProviderPubkey()
+            return { payRequest: invoice, providerPubkey }
         }
         try {
             const res = await this.lightning.addInvoice(AddInvoiceReq(value, expiry, true, memo, blind), DeadLineMetadata())
@@ -392,7 +392,7 @@ export default class {
                 const decoded = decodeBolt11(paymentRequest)
                 let numSatoshis = 0
                 let paymentHash = ''
-                
+
                 for (const section of decoded.sections) {
                     if (section.name === 'amount') {
                         // Amount is in millisatoshis
@@ -401,11 +401,11 @@ export default class {
                         paymentHash = section.value as string
                     }
                 }
-                
+
                 if (!paymentHash) {
                     throw new Error("Payment hash not found in invoice")
                 }
-                
+
                 return { numSatoshis, paymentHash }
             } catch (err: any) {
                 throw new Error(`Failed to decode invoice: ${err.message}`)
@@ -414,14 +414,6 @@ export default class {
         // console.log("Decoding invoice")
         const res = await this.lightning.decodePayReq({ payReq: paymentRequest }, DeadLineMetadata())
         return { numSatoshis: Number(res.response.numSatoshis), paymentHash: res.response.paymentHash }
-    }
-
-    GetFeeLimitAmount(amount: number): number {
-        return Math.ceil(amount * this.getSettings().lndSettings.feeRateLimit + this.getSettings().lndSettings.feeFixedLimit);
-    }
-
-    GetMaxWithinLimit(amount: number): number {
-        return Math.max(0, Math.floor(amount * (1 - this.getSettings().lndSettings.feeRateLimit) - this.getSettings().lndSettings.feeFixedLimit))
     }
 
     async ChannelBalance(): Promise<{ local: number, remote: number }> {
@@ -433,7 +425,7 @@ export default class {
         const r = res.response
         return { local: r.localBalance ? Number(r.localBalance.sat) : 0, remote: r.remoteBalance ? Number(r.remoteBalance.sat) : 0 }
     }
-    async PayInvoice(invoice: string, amount: number, feeLimit: number, decodedAmount: number, { useProvider, from }: TxActionOptions, paymentIndexCb?: (index: number) => void): Promise<PaidInvoice> {
+    async PayInvoice(invoice: string, amount: number, { routingFeeLimit, serviceFee }: { routingFeeLimit: number, serviceFee: number }, decodedAmount: number, { useProvider, from }: TxActionOptions, paymentIndexCb?: (index: number) => void): Promise<PaidInvoice> {
         // console.log("Paying invoice")
         if (this.outgoingOpsLocked) {
             this.log("outgoing ops locked, rejecting payment request")
@@ -442,14 +434,14 @@ export default class {
         // Force use of provider when bypass is enabled
         const mustUseProvider = this.liquidProvider.getSettings().useOnlyLiquidityProvider || useProvider
         if (mustUseProvider) {
-            const res = await this.liquidProvider.PayInvoice(invoice, decodedAmount, from)
-            const providerDst = this.liquidProvider.GetProviderDestination()
-            return { feeSat: res.network_fee + res.service_fee, valueSat: res.amount_paid, paymentPreimage: res.preimage, providerDst }
+            const res = await this.liquidProvider.PayInvoice(invoice, decodedAmount, from, serviceFee)
+            const providerPubkey = this.liquidProvider.GetProviderPubkey()
+            return { feeSat: res.service_fee, valueSat: res.amount_paid, paymentPreimage: res.preimage, providerPubkey }
         }
         await this.Health()
         try {
             const abortController = new AbortController()
-            const req = PayInvoiceReq(invoice, amount, feeLimit)
+            const req = PayInvoiceReq(invoice, amount, routingFeeLimit)
             const stream = this.router.sendPaymentV2(req, { abort: abortController.signal })
             return new Promise((res, rej) => {
                 stream.responses.onError(error => {
