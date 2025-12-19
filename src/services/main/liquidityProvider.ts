@@ -132,9 +132,6 @@ export class LiquidityProvider {
     }
 
     GetUserState = async () => {
-        if (!this.configured) {
-            throw new Error("liquidity provider not initialized")
-        }
         const res = await Promise.race([this.client.GetUserInfo(), new Promise<Types.ResultError>(res => setTimeout(() => res({ status: 'ERROR', reason: 'timeout' }), 10 * 1000))])
         if (res.status === 'ERROR') {
             if (res.reason !== 'timeout') {
@@ -214,9 +211,6 @@ export class LiquidityProvider {
             if (!this.IsReady()) {
                 throw new Error("liquidity provider is not ready yet, disabled or unreachable")
             }
-            if (!this.configured) {
-                throw new Error("liquidity provider not initialized")
-            }
             const res = await this.client.NewInvoice({ amountSats: amount, memo, expiry })
             if (res.status === 'ERROR') {
                 this.log("error creating invoice", res.reason)
@@ -235,9 +229,6 @@ export class LiquidityProvider {
         try {
             if (!this.IsReady()) {
                 throw new Error("liquidity provider is not ready yet, disabled or unreachable")
-            }
-            if (!this.configured) {
-                throw new Error("liquidity provider not initialized")
             }
             const fees = this.GetFees()
             const providerServiceFee = this.GetServiceFee(decodedAmount, fees)
@@ -278,9 +269,6 @@ export class LiquidityProvider {
         if (!this.IsReady()) {
             throw new Error("liquidity provider is not ready yet, disabled or unreachable")
         }
-        if (!this.configured || !this.utils.nostrSender.IsReady()) {
-            throw new Error("liquidity provider not initialized")
-        }
         const res = await this.client.GetPaymentState({ invoice })
         if (res.status === 'ERROR') {
             this.log("error getting payment state", res.reason)
@@ -292,9 +280,6 @@ export class LiquidityProvider {
     GetOperations = async () => {
         if (!this.IsReady()) {
             throw new Error("liquidity provider is not ready yet, disabled or unreachable")
-        }
-        if (!this.configured || !this.utils.nostrSender.IsReady()) {
-            throw new Error("liquidity provider not initialized")
         }
         const res = await this.client.GetUserOperations({
             latestIncomingInvoice: { ts: 0, id: 0 }, latestOutgoingInvoice: { ts: 0, id: 0 },
