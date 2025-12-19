@@ -20,7 +20,7 @@ export class RugPullTracker {
     }
 
     CheckProviderBalance = async (): Promise<{ balance: number, prevBalance?: number }> => {
-        const pubDst = this.liquidProvider.GetProviderDestination()
+        const pubDst = this.liquidProvider.GetProviderPubkey()
         if (!pubDst) {
             return { balance: 0 }
         }
@@ -31,7 +31,7 @@ export class RugPullTracker {
             const pendingBalance = await this.liquidProvider.GetPendingBalance()
             const trackedBalance = balance + pendingBalance
             if (!providerTracker) {
-                this.log("starting to track provider", this.liquidProvider.GetProviderDestination())
+                this.log("starting to track provider", this.liquidProvider.GetProviderPubkey())
                 await this.storage.liquidityStorage.CreateTrackedProvider('lnPub', pubDst, trackedBalance)
                 return { balance: trackedBalance }
             }

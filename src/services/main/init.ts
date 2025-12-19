@@ -63,16 +63,11 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
             return { privateKey: app.nostr_private_key, publicKey: app.nostr_public_key, appId: app.app_id, name: app.name }
         }
     }))
-    const liquidityProviderApp = apps.find(app => defaultNames.includes(app.name))
-    if (!liquidityProviderApp) {
-        throw new Error("wallet app not initialized correctly")
+    const localProviderClient = apps.find(app => defaultNames.includes(app.name))
+    if (!localProviderClient) {
+        throw new Error("local app not initialized correctly")
     }
-    const liquidityProviderInfo = {
-        privateKey: liquidityProviderApp.privateKey,
-        publicKey: liquidityProviderApp.publicKey,
-        name: "liquidity_provider", clientId: `client_${liquidityProviderApp.appId}`
-    }
-    mainHandler.liquidityProvider.setNostrInfo({ clientId: liquidityProviderInfo.clientId, myPub: liquidityProviderInfo.publicKey })
+    mainHandler.liquidityProvider.setNostrInfo({ localId: `client_${localProviderClient.appId}`, localPubkey: localProviderClient.publicKey })
     const stop = await processArgs(mainHandler)
     if (stop) {
         return
@@ -82,7 +77,7 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
     await mainHandler.appUserManager.CleanupInactiveUsers()
     await mainHandler.appUserManager.CleanupNeverActiveUsers()
     await mainHandler.paymentManager.watchDog.Start()
-    return { mainHandler, apps, liquidityProviderInfo, liquidityProviderApp, wizard, adminManager }
+    return { mainHandler, apps, localProviderClient, wizard, adminManager }
 }
 
 const processArgs = async (mainHandler: Main) => {

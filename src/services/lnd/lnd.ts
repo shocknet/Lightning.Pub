@@ -372,8 +372,8 @@ export default class {
         if (mustUseProvider) {
             console.log("using provider")
             const invoice = await this.liquidProvider.AddInvoice(value, memo, from, expiry)
-            const providerDst = this.liquidProvider.GetProviderDestination()
-            return { payRequest: invoice, providerDst }
+            const providerPubkey = this.liquidProvider.GetProviderPubkey()
+            return { payRequest: invoice, providerPubkey }
         }
         try {
             const res = await this.lightning.addInvoice(AddInvoiceReq(value, expiry, true, memo, blind), DeadLineMetadata())
@@ -435,8 +435,8 @@ export default class {
         const mustUseProvider = this.liquidProvider.getSettings().useOnlyLiquidityProvider || useProvider
         if (mustUseProvider) {
             const res = await this.liquidProvider.PayInvoice(invoice, decodedAmount, from, serviceFee)
-            const providerDst = this.liquidProvider.GetProviderDestination()
-            return { feeSat: res.service_fee, valueSat: res.amount_paid, paymentPreimage: res.preimage, providerDst }
+            const providerPubkey = this.liquidProvider.GetProviderPubkey()
+            return { feeSat: res.service_fee, valueSat: res.amount_paid, paymentPreimage: res.preimage, providerPubkey }
         }
         await this.Health()
         try {

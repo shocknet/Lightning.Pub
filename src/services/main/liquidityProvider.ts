@@ -12,12 +12,12 @@ export class LiquidityProvider {
     getSettings: () => LiquiditySettings
     client: ReturnType<typeof newNostrClient>
     clientCbs: Record<string, nostrCallback<any>> = {}
-    clientId: string = ""
-    myPub: string = ""
+    localId: string = ""
+    localPubkey: string = ""
     log = getLogger({ component: 'liquidityProvider' })
     // nostrSend: NostrSend | null = null
     configured = false
-    pubDestination: string
+    providerPubkey: string
     ready: boolean
     invoicePaidCb: InvoicePaidCb
     connecting = false
@@ -34,9 +34,9 @@ export class LiquidityProvider {
     constructor(getSettings: () => LiquiditySettings, utils: Utils, invoicePaidCb: InvoicePaidCb, incrementProviderBalance: (balance: number) => Promise<any>) {
         this.utils = utils
         this.getSettings = getSettings
-        const pubDestination = getSettings().liquidityProviderPub
+        const providerPubkey = getSettings().liquidityProviderPub
         const disableLiquidityProvider = getSettings().disableLiquidityProvider
-        if (!pubDestination) {
+        if (!providerPubkey) {
             this.log("No pub provider to liquidity provider, will not be initialized")
             return
         }
@@ -44,19 +44,29 @@ export class LiquidityProvider {
             this.log("Liquidity provider is disabled, will not be initialized")
             return
         }
-        this.log("connecting to liquidity provider:", pubDestination)
-        this.pubDestination = pubDestination
+        this.log("connecting to liquidity provider:", providerPubkey)
+        this.providerPubkey = providerPubkey
         this.invoicePaidCb = invoicePaidCb
         this.incrementProviderBalance = incrementProviderBalance
         this.client = newNostrClient({
-            pubDestination: this.pubDestination,
-            retrieveNostrUserAuth: async () => this.myPub,
-            retrieveNostrAdminAuth: async () => this.myPub,
-            retrieveNostrMetricsAuth: async () => this.myPub,
-            retrieveNostrGuestWithPubAuth: async () => this.myPub
+            pubDestination: this.providerPubkey,
+            retrieveNostrUserAuth: async () => this.localPubkey,
+            retrieveNostrAdminAuth: async () => this.localPubkey,
+            retrieveNostrMetricsAuth: async () => this.localPubkey,
+            retrieveNostrGuestWithPubAuth: async () => this.localPubkey
         }, this.clientSend, this.clientSub)
 
+        this.utils.nostrSender.OnReady(() => {
+            this.setSetIfConfigured()
+            if (this.configured) {
+                clearInterval(this.configuredInterval)
+                this.Connect()
+            }
+        })
         this.configuredInterval = setInterval(() => {
+            if (!this.configured && this.utils.nostrSender.IsReady()) {
+                this.setSetIfConfigured()
+            }
             if (this.configured) {
                 clearInterval(this.configuredInterval)
                 this.Connect()
@@ -64,8 +74,8 @@ export class LiquidityProvider {
         }, 1000)
     }
 
-    GetProviderDestination() {
-        return this.pubDestination
+    GetProviderPubkey() {
+        return this.providerPubkey
     }
 
     IsReady = () => {
@@ -74,7 +84,7 @@ export class LiquidityProvider {
     }
 
     AwaitProviderReady = async (): Promise<'inactive' | 'ready'> => {
-        if (!this.pubDestination || this.getSettings().disableLiquidityProvider) {
+        if (!this.providerPubkey || this.getSettings().disableLiquidityProvider) {
             return 'inactive'
         }
         if (this.IsReady()) {
@@ -283,24 +293,27 @@ export class LiquidityProvider {
         return res
     }
 
-    setNostrInfo = ({ clientId, myPub }: { myPub: string, clientId: string }) => {
-        this.log("setting nostr info")
-        this.clientId = clientId
-        this.myPub = myPub
+    setNostrInfo = ({ localId, localPubkey }: { localPubkey: string, localId: string }) => {
+        this.localId = localId
+        this.localPubkey = localPubkey
         this.setSetIfConfigured()
+        // If nostrSender becomes ready after setNostrInfo, ensure we check again
+        if (!this.configured && this.utils.nostrSender.IsReady()) {
+            this.setSetIfConfigured()
+        }
     }
 
 
     setSetIfConfigured = () => {
-        if (this.utils.nostrSender.IsReady() && !!this.pubDestination && !!this.clientId && !!this.myPub) {
-            this.configured = true
-            this.log("configured to send to ")
+        if (this.utils.nostrSender.IsReady() && !!this.providerPubkey && !!this.localId && !!this.localPubkey) {
+            if (!this.configured) {
+                this.configured = true
+            }
         }
     }
     onBeaconEvent = async (beaconData: { content: string, pub: string }) => {
-        this.log("received beacon event from", beaconData.pub, "expected", this.pubDestination)
-        if (beaconData.pub !== this.pubDestination) {
-            this.log(ERROR, "got beacon from invalid pub", beaconData.pub, this.pubDestination)
+        if (beaconData.pub !== this.providerPubkey) {
+            this.log(ERROR, "got beacon from invalid pub", beaconData.pub, this.providerPubkey)
             return
         }
         const beacon = JSON.parse(beaconData.content) as Types.BeaconData
@@ -313,7 +326,6 @@ export class LiquidityProvider {
             this.log(ERROR, "got beacon from invalid type", beacon.type)
             return
         }
-        this.log("valid beacon received, updating ready state")
         this.lastSeenBeacon = Date.now()
         if (beacon.fees) {
             this.feesCache = beacon.fees
@@ -321,8 +333,8 @@ export class LiquidityProvider {
     }
 
     onEvent = async (res: { requestId: string }, fromPub: string) => {
-        if (fromPub !== this.pubDestination) {
-            this.log("got event from invalid pub", fromPub, this.pubDestination)
+        if (fromPub !== this.providerPubkey) {
+            this.log("got event from invalid pub", fromPub, this.providerPubkey)
             return false
         }
         if (this.clientCbs[res.requestId]) {
@@ -339,9 +351,6 @@ export class LiquidityProvider {
     }
 
     clientSend = (to: string, message: NostrRequest): Promise<any> => {
-        if (!this.configured || !this.utils.nostrSender.IsReady()) {
-            throw new Error("liquidity provider not initialized")
-        }
         if (!message.requestId) {
             message.requestId = makeId(16)
         }
@@ -349,7 +358,7 @@ export class LiquidityProvider {
         if (this.clientCbs[reqId]) {
             throw new Error("request was already sent")
         }
-        this.utils.nostrSender.Send({ type: 'client', clientId: this.clientId }, {
+        this.utils.nostrSender.Send({ type: 'client', clientId: this.localId }, {
             type: 'content',
             pub: to,
             content: JSON.stringify(message)
@@ -368,9 +377,6 @@ export class LiquidityProvider {
     }
 
     clientSub = (to: string, message: NostrRequest, cb: (res: any) => void): void => {
-        if (!this.configured || !this.utils.nostrSender.IsReady()) {
-            throw new Error("liquidity provider not initialized")
-        }
         if (!message.requestId) {
             message.requestId = message.rpcName
         }
@@ -387,7 +393,7 @@ export class LiquidityProvider {
             this.log("sub for", reqId, "was already registered, overriding")
             return
         }
-        this.utils.nostrSender.Send({ type: 'client', clientId: this.clientId }, {
+        this.utils.nostrSender.Send({ type: 'client', clientId: this.localId }, {
             type: 'content',
             pub: to,
             content: JSON.stringify(message)
