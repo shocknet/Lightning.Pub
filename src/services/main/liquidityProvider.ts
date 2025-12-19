@@ -132,7 +132,7 @@ export class LiquidityProvider {
     }
 
     GetUserState = async () => {
-        if (!this.configured || !this.utils.nostrSender.IsReady()) {
+        if (!this.configured) {
             throw new Error("liquidity provider not initialized")
         }
         const res = await Promise.race([this.client.GetUserInfo(), new Promise<Types.ResultError>(res => setTimeout(() => res({ status: 'ERROR', reason: 'timeout' }), 10 * 1000))])
@@ -214,10 +214,8 @@ export class LiquidityProvider {
             if (!this.IsReady()) {
                 throw new Error("liquidity provider is not ready yet, disabled or unreachable")
             }
-            if (!this.configured || !this.utils.nostrSender.IsReady()) {
-                const reason = !this.configured ? `configured=false (nostrReady=${this.utils.nostrSender.IsReady()}, hasProviderPub=${!!this.providerPubkey}, hasLocalId=${!!this.localId}, hasLocalPubkey=${!!this.localPubkey})` : 'nostrSender not ready'
-                this.log(`liquidity provider not initialized: ${reason}`)
-                throw new Error(`liquidity provider not initialized: ${reason}`)
+            if (!this.configured) {
+                throw new Error("liquidity provider not initialized")
             }
             const res = await this.client.NewInvoice({ amountSats: amount, memo, expiry })
             if (res.status === 'ERROR') {
@@ -238,7 +236,7 @@ export class LiquidityProvider {
             if (!this.IsReady()) {
                 throw new Error("liquidity provider is not ready yet, disabled or unreachable")
             }
-            if (!this.configured || !this.utils.nostrSender.IsReady()) {
+            if (!this.configured) {
                 throw new Error("liquidity provider not initialized")
             }
             const fees = this.GetFees()
@@ -370,9 +368,6 @@ export class LiquidityProvider {
     }
 
     clientSend = (to: string, message: NostrRequest): Promise<any> => {
-        if (!this.configured || !this.utils.nostrSender.IsReady()) {
-            throw new Error("liquidity provider not initialized")
-        }
         if (!message.requestId) {
             message.requestId = makeId(16)
         }
@@ -399,9 +394,6 @@ export class LiquidityProvider {
     }
 
     clientSub = (to: string, message: NostrRequest, cb: (res: any) => void): void => {
-        if (!this.configured || !this.utils.nostrSender.IsReady()) {
-            throw new Error("liquidity provider not initialized")
-        }
         if (!message.requestId) {
             message.requestId = message.rpcName
         }
