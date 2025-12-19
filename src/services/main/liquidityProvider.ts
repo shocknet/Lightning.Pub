@@ -315,11 +315,9 @@ export class LiquidityProvider {
         }
         this.log("valid beacon received, updating ready state")
         this.lastSeenBeacon = Date.now()
-        this.ready = true
         if (beacon.fees) {
             this.feesCache = beacon.fees
         }
-        this.queue.forEach(q => q('ready'))
     }
 
     onEvent = async (res: { requestId: string }, fromPub: string) => {
