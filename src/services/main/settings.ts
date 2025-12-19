@@ -171,32 +171,26 @@ export type LiquiditySettings = {
 }
 export const LoadLiquiditySettingsFromEnv = (dbEnv: Record<string, string | undefined>, addToDb?: EnvCacher): LiquiditySettings => {
     const providerNprofile = chooseEnv("PROVIDER_NPROFILE", dbEnv, "nprofile1qyd8wumn8ghj7um5wfn8y7fwwd5x7cmt9ehx2arhdaexkqpqwmk5tuqvafa6ckwc6zmaypyy3af3n4aeds2ql7m0ew42kzsn638q9s9z8p", addToDb)
-    
-    // Decode nprofile to extract pubkey and relay URL
-    let liquidityProviderPub = ""
-    let providerRelayUrl = ""
-    if (providerNprofile) {
-        try {
-            const decoded = nip19.decode(providerNprofile)
-            if (decoded.type === 'nprofile') {
-                liquidityProviderPub = decoded.data.pubkey
-                if (decoded.data.relays && decoded.data.relays.length > 0) {
-                    providerRelayUrl = decoded.data.relays[0]
-                } else {
-                    throw new Error("PROVIDER_NPROFILE must contain at least one relay")
-                }
-            } else {
-                throw new Error("PROVIDER_NPROFILE must be a valid nprofile")
-            }
-        } catch (e) {
-            throw new Error(`Failed to decode PROVIDER_NPROFILE as nprofile: ${e}`)
-        }
-    }
-    
+    const { liquidityProviderPub, providerRelayUrl } = decodeNprofile(providerNprofile)
+
     const disableLiquidityProvider = chooseEnvBool("DISABLE_LIQUIDITY_PROVIDER", dbEnv, false, addToDb) || liquidityProviderPub === "null"
     const useOnlyLiquidityProvider = chooseEnvBool("USE_ONLY_LIQUIDITY_PROVIDER", dbEnv, false, addToDb)
-    
+
     return { liquidityProviderPub, useOnlyLiquidityProvider, disableLiquidityProvider, providerRelayUrl }
+}
+
+const decodeNprofile = (nprofile: string) => {
+    const decoded = nip19.decode(nprofile)
+    if (decoded.type !== 'nprofile') {
+        throw new Error("PROVIDER_NPROFILE must be a valid nprofile")
+    }
+    if (!decoded.data.pubkey) {
+        throw new Error("PROVIDER_NPROFILE must contain a pubkey")
+    }
+    if (!decoded.data.relays || decoded.data.relays.length === 0) {
+        throw new Error("PROVIDER_NPROFILE must contain at least one relay")
+    }
+    return { liquidityProviderPub: decoded.data.pubkey, providerRelayUrl: decoded.data.relays[0] }
 }
 
 export type SwapsSettings = {
