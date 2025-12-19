@@ -57,14 +57,10 @@ export class LiquidityProvider {
         }, this.clientSend, this.clientSub)
 
         this.utils.nostrSender.OnReady(() => {
-            this.log("nostrSender is ready, checking if liquidity provider can be configured")
             this.setSetIfConfigured()
             if (this.configured) {
-                this.log("liquidity provider configured, clearing interval and connecting")
                 clearInterval(this.configuredInterval)
                 this.Connect()
-            } else {
-                this.log("liquidity provider not yet configured, waiting for nostr info")
             }
         })
         this.configuredInterval = setInterval(() => {
@@ -72,7 +68,6 @@ export class LiquidityProvider {
                 this.setSetIfConfigured()
             }
             if (this.configured) {
-                this.log("liquidity provider configured via interval, clearing interval and connecting")
                 clearInterval(this.configuredInterval)
                 this.Connect()
             }
@@ -316,7 +311,6 @@ export class LiquidityProvider {
     }
 
     setNostrInfo = ({ localId, localPubkey }: { localPubkey: string, localId: string }) => {
-        this.log("setting nostr info")
         this.localId = localId
         this.localPubkey = localPubkey
         this.setSetIfConfigured()
@@ -328,22 +322,13 @@ export class LiquidityProvider {
 
 
     setSetIfConfigured = () => {
-        const nostrReady = this.utils.nostrSender.IsReady()
-        const hasProviderPub = !!this.providerPubkey
-        const hasLocalId = !!this.localId
-        const hasLocalPubkey = !!this.localPubkey
-        
-        if (nostrReady && hasProviderPub && hasLocalId && hasLocalPubkey) {
+        if (this.utils.nostrSender.IsReady() && !!this.providerPubkey && !!this.localId && !!this.localPubkey) {
             if (!this.configured) {
                 this.configured = true
-                this.log("configured to send to provider")
             }
-        } else if (!this.configured) {
-            this.log(`not configured yet: nostrReady=${nostrReady}, hasProviderPub=${hasProviderPub}, hasLocalId=${hasLocalId}, hasLocalPubkey=${hasLocalPubkey}`)
         }
     }
     onBeaconEvent = async (beaconData: { content: string, pub: string }) => {
-        this.log("received beacon event from", beaconData.pub, "expected", this.providerPubkey)
         if (beaconData.pub !== this.providerPubkey) {
             this.log(ERROR, "got beacon from invalid pub", beaconData.pub, this.providerPubkey)
             return
@@ -358,7 +343,6 @@ export class LiquidityProvider {
             this.log(ERROR, "got beacon from invalid type", beacon.type)
             return
         }
-        this.log("valid beacon received, updating ready state")
         this.lastSeenBeacon = Date.now()
         this.ready = true
         if (beacon.fees) {
