@@ -57,10 +57,14 @@ export class LiquidityProvider {
         }, this.clientSend, this.clientSub)
 
         this.utils.nostrSender.OnReady(() => {
+            this.log("nostrSender is ready, checking if liquidity provider can be configured")
             this.setSetIfConfigured()
             if (this.configured) {
+                this.log("liquidity provider configured, clearing interval and connecting")
                 clearInterval(this.configuredInterval)
                 this.Connect()
+            } else {
+                this.log("liquidity provider not yet configured, waiting for nostr info")
             }
         })
         this.configuredInterval = setInterval(() => {
@@ -68,6 +72,7 @@ export class LiquidityProvider {
                 this.setSetIfConfigured()
             }
             if (this.configured) {
+                this.log("liquidity provider configured via interval, clearing interval and connecting")
                 clearInterval(this.configuredInterval)
                 this.Connect()
             }
@@ -132,6 +137,9 @@ export class LiquidityProvider {
     }
 
     GetUserState = async () => {
+        if (!this.configured || !this.utils.nostrSender.IsReady()) {
+            throw new Error("liquidity provider not initialized")
+        }
         const res = await Promise.race([this.client.GetUserInfo(), new Promise<Types.ResultError>(res => setTimeout(() => res({ status: 'ERROR', reason: 'timeout' }), 10 * 1000))])
         if (res.status === 'ERROR') {
             if (res.reason !== 'timeout') {
@@ -211,6 +219,11 @@ export class LiquidityProvider {
             if (!this.IsReady()) {
                 throw new Error("liquidity provider is not ready yet, disabled or unreachable")
             }
+            if (!this.configured || !this.utils.nostrSender.IsReady()) {
+                const reason = !this.configured ? `configured=false (nostrReady=${this.utils.nostrSender.IsReady()}, hasProviderPub=${!!this.providerPubkey}, hasLocalId=${!!this.localId}, hasLocalPubkey=${!!this.localPubkey})` : 'nostrSender not ready'
+                this.log(`liquidity provider not initialized: ${reason}`)
+                throw new Error(`liquidity provider not initialized: ${reason}`)
+            }
             const res = await this.client.NewInvoice({ amountSats: amount, memo, expiry })
             if (res.status === 'ERROR') {
                 this.log("error creating invoice", res.reason)
@@ -229,6 +242,9 @@ export class LiquidityProvider {
         try {
             if (!this.IsReady()) {
                 throw new Error("liquidity provider is not ready yet, disabled or unreachable")
+            }
+            if (!this.configured || !this.utils.nostrSender.IsReady()) {
+                throw new Error("liquidity provider not initialized")
             }
             const fees = this.GetFees()
             const providerServiceFee = this.GetServiceFee(decodedAmount, fees)
@@ -269,6 +285,9 @@ export class LiquidityProvider {
         if (!this.IsReady()) {
             throw new Error("liquidity provider is not ready yet, disabled or unreachable")
         }
+        if (!this.configured || !this.utils.nostrSender.IsReady()) {
+            throw new Error("liquidity provider not initialized")
+        }
         const res = await this.client.GetPaymentState({ invoice })
         if (res.status === 'ERROR') {
             this.log("error getting payment state", res.reason)
@@ -280,6 +299,9 @@ export class LiquidityProvider {
     GetOperations = async () => {
         if (!this.IsReady()) {
             throw new Error("liquidity provider is not ready yet, disabled or unreachable")
+        }
+        if (!this.configured || !this.utils.nostrSender.IsReady()) {
+            throw new Error("liquidity provider not initialized")
         }
         const res = await this.client.GetUserOperations({
             latestIncomingInvoice: { ts: 0, id: 0 }, latestOutgoingInvoice: { ts: 0, id: 0 },
@@ -298,13 +320,26 @@ export class LiquidityProvider {
         this.localId = localId
         this.localPubkey = localPubkey
         this.setSetIfConfigured()
+        // If nostrSender becomes ready after setNostrInfo, ensure we check again
+        if (!this.configured && this.utils.nostrSender.IsReady()) {
+            this.setSetIfConfigured()
+        }
     }
 
 
     setSetIfConfigured = () => {
-        if (this.utils.nostrSender.IsReady() && !!this.providerPubkey && !!this.localId && !!this.localPubkey) {
-            this.configured = true
-            this.log("configured to send to ")
+        const nostrReady = this.utils.nostrSender.IsReady()
+        const hasProviderPub = !!this.providerPubkey
+        const hasLocalId = !!this.localId
+        const hasLocalPubkey = !!this.localPubkey
+        
+        if (nostrReady && hasProviderPub && hasLocalId && hasLocalPubkey) {
+            if (!this.configured) {
+                this.configured = true
+                this.log("configured to send to provider")
+            }
+        } else if (!this.configured) {
+            this.log(`not configured yet: nostrReady=${nostrReady}, hasProviderPub=${hasProviderPub}, hasLocalId=${hasLocalId}, hasLocalPubkey=${hasLocalPubkey}`)
         }
     }
     onBeaconEvent = async (beaconData: { content: string, pub: string }) => {
