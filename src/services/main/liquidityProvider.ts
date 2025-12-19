@@ -312,6 +312,7 @@ export class LiquidityProvider {
             this.log(ERROR, "got beacon from invalid type", beacon.type)
             return
         }
+        this.lastSeenBeacon = Date.now()
         if (beacon.fees) {
             this.feesCache = beacon.fees
         }
