@@ -12,12 +12,12 @@ export class LiquidityProvider {
     getSettings: () => LiquiditySettings
     client: ReturnType<typeof newNostrClient>
     clientCbs: Record<string, nostrCallback<any>> = {}
-    clientId: string = ""
-    myPub: string = ""
+    localId: string = ""
+    localPubkey: string = ""
     log = getLogger({ component: 'liquidityProvider' })
     // nostrSend: NostrSend | null = null
     configured = false
-    pubDestination: string
+    providerPubkey: string
     ready: boolean
     invoicePaidCb: InvoicePaidCb
     connecting = false
@@ -34,9 +34,9 @@ export class LiquidityProvider {
     constructor(getSettings: () => LiquiditySettings, utils: Utils, invoicePaidCb: InvoicePaidCb, incrementProviderBalance: (balance: number) => Promise<any>) {
         this.utils = utils
         this.getSettings = getSettings
-        const pubDestination = getSettings().liquidityProviderPub
+        const providerPubkey = getSettings().liquidityProviderPub
         const disableLiquidityProvider = getSettings().disableLiquidityProvider
-        if (!pubDestination) {
+        if (!providerPubkey) {
             this.log("No pub provider to liquidity provider, will not be initialized")
             return
         }
@@ -44,16 +44,16 @@ export class LiquidityProvider {
             this.log("Liquidity provider is disabled, will not be initialized")
             return
         }
-        this.log("connecting to liquidity provider:", pubDestination)
-        this.pubDestination = pubDestination
+        this.log("connecting to liquidity provider:", providerPubkey)
+        this.providerPubkey = providerPubkey
         this.invoicePaidCb = invoicePaidCb
         this.incrementProviderBalance = incrementProviderBalance
         this.client = newNostrClient({
-            pubDestination: this.pubDestination,
-            retrieveNostrUserAuth: async () => this.myPub,
-            retrieveNostrAdminAuth: async () => this.myPub,
-            retrieveNostrMetricsAuth: async () => this.myPub,
-            retrieveNostrGuestWithPubAuth: async () => this.myPub
+            pubDestination: this.providerPubkey,
+            retrieveNostrUserAuth: async () => this.localPubkey,
+            retrieveNostrAdminAuth: async () => this.localPubkey,
+            retrieveNostrMetricsAuth: async () => this.localPubkey,
+            retrieveNostrGuestWithPubAuth: async () => this.localPubkey
         }, this.clientSend, this.clientSub)
 
         this.configuredInterval = setInterval(() => {
@@ -64,8 +64,8 @@ export class LiquidityProvider {
         }, 1000)
     }
 
-    GetProviderDestination() {
-        return this.pubDestination
+    GetProviderPubkey() {
+        return this.providerPubkey
     }
 
     IsReady = () => {
@@ -74,7 +74,7 @@ export class LiquidityProvider {
     }
 
     AwaitProviderReady = async (): Promise<'inactive' | 'ready'> => {
-        if (!this.pubDestination || this.getSettings().disableLiquidityProvider) {
+        if (!this.providerPubkey || this.getSettings().disableLiquidityProvider) {
             return 'inactive'
         }
         if (this.IsReady()) {
@@ -283,24 +283,24 @@ export class LiquidityProvider {
         return res
     }
 
-    setNostrInfo = ({ clientId, myPub }: { myPub: string, clientId: string }) => {
+    setNostrInfo = ({ localId, localPubkey }: { localPubkey: string, localId: string }) => {
         this.log("setting nostr info")
-        this.clientId = clientId
-        this.myPub = myPub
+        this.localId = localId
+        this.localPubkey = localPubkey
         this.setSetIfConfigured()
     }
 
 
     setSetIfConfigured = () => {
-        if (this.utils.nostrSender.IsReady() && !!this.pubDestination && !!this.clientId && !!this.myPub) {
+        if (this.utils.nostrSender.IsReady() && !!this.providerPubkey && !!this.localId && !!this.localPubkey) {
             this.configured = true
             this.log("configured to send to ")
         }
     }
     onBeaconEvent = async (beaconData: { content: string, pub: string }) => {
-        this.log("received beacon event from", beaconData.pub, "expected", this.pubDestination)
-        if (beaconData.pub !== this.pubDestination) {
-            this.log(ERROR, "got beacon from invalid pub", beaconData.pub, this.pubDestination)
+        this.log("received beacon event from", beaconData.pub, "expected", this.providerPubkey)
+        if (beaconData.pub !== this.providerPubkey) {
+            this.log(ERROR, "got beacon from invalid pub", beaconData.pub, this.providerPubkey)
             return
         }
         const beacon = JSON.parse(beaconData.content) as Types.BeaconData
@@ -323,8 +323,8 @@ export class LiquidityProvider {
     }
 
     onEvent = async (res: { requestId: string }, fromPub: string) => {
-        if (fromPub !== this.pubDestination) {
-            this.log("got event from invalid pub", fromPub, this.pubDestination)
+        if (fromPub !== this.providerPubkey) {
+            this.log("got event from invalid pub", fromPub, this.providerPubkey)
             return false
         }
         if (this.clientCbs[res.requestId]) {
@@ -351,7 +351,7 @@ export class LiquidityProvider {
         if (this.clientCbs[reqId]) {
             throw new Error("request was already sent")
         }
-        this.utils.nostrSender.Send({ type: 'client', clientId: this.clientId }, {
+        this.utils.nostrSender.Send({ type: 'client', clientId: this.localId }, {
             type: 'content',
             pub: to,
             content: JSON.stringify(message)
@@ -389,7 +389,7 @@ export class LiquidityProvider {
             this.log("sub for", reqId, "was already registered, overriding")
             return
         }
-        this.utils.nostrSender.Send({ type: 'client', clientId: this.clientId }, {
+        this.utils.nostrSender.Send({ type: 'client', clientId: this.localId }, {
             type: 'content',
             pub: to,
             content: JSON.stringify(message)

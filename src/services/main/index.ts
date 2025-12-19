@@ -468,15 +468,11 @@ export default class {
         }
 
         const defaultNames = ['wallet', 'wallet-test', this.settings.getSettings().serviceSettings.defaultAppName]
-        const liquidityProviderApp = apps.find(app => defaultNames.includes(app.name))
-        if (!liquidityProviderApp) {
-            throw new Error("wallet app not initialized correctly")
+        const local = apps.find(app => defaultNames.includes(app.name))
+        if (!local) {
+            throw new Error("local app not initialized correctly")
         }
-        const liquidityProviderInfo = {
-            privateKey: liquidityProviderApp.nostr_private_key || "",
-            publicKey: liquidityProviderApp.nostr_public_key || "",
-            name: "liquidity_provider", clientId: `client_${liquidityProviderApp.app_id}`
-        }
+        this.liquidityProvider.setNostrInfo({ localId: `client_${local.app_id}`, localPubkey: local.nostr_public_key || "" })
         const relays = this.settings.getSettings().nostrRelaySettings.relays
         const appsInfo: AppInfo[] = apps.map(app => {
             return {
@@ -484,8 +480,8 @@ export default class {
                 privateKey: app.nostr_private_key || "",
                 publicKey: app.nostr_public_key || "",
                 name: app.name,
-                provider: app.nostr_public_key === liquidityProviderInfo.publicKey ? {
-                    clientId: liquidityProviderInfo.clientId,
+                provider: app.nostr_public_key === local.nostr_public_key ? {
+                    clientId: `client_${local.app_id}`,
                     pubkey: this.settings.getSettings().liquiditySettings.liquidityProviderPub,
                     relayUrl: this.settings.getSettings().liquiditySettings.providerRelayUrl
                 } : undefined
@@ -495,7 +491,7 @@ export default class {
             apps: appsInfo,
             relays,
             maxEventContentLength: this.settings.getSettings().nostrRelaySettings.maxEventContentLength,
-            /* clients: [liquidityProviderInfo],
+            /* clients: [local],
             providerDestinationPub: this.settings.getSettings().liquiditySettings.liquidityProviderPub */
         }
         this.nostrReset(s)

@@ -20,13 +20,13 @@ export const initBootstrappedInstance = async (T: TestBase) => {
     if (!initialized) {
         throw new Error("failed to initialize bootstrapped main handler")
     }
-    const { mainHandler: bootstrapped, liquidityProviderInfo, liquidityProviderApp } = initialized
+    const { mainHandler: bootstrapped, local } = initialized
     T.main.attachNostrSend(async (_, data, r) => {
         if (data.type === 'event') {
             throw new Error("unsupported event type")
         }
-        if (data.pub !== liquidityProviderInfo.publicKey) {
-            throw new Error("invalid pub " + data.pub + " expected " + liquidityProviderInfo.publicKey)
+        if (data.pub !== local.publicKey) {
+            throw new Error("invalid pub " + data.pub + " expected " + local.publicKey)
         }
         const j = JSON.parse(data.content) as { requestId: string }
         console.log("sending new operation to provider")
@@ -42,7 +42,7 @@ export const initBootstrappedInstance = async (T: TestBase) => {
         }
         bootstrapped.liquidityProvider.onEvent(res, data.pub)
     })
-    bootstrapped.liquidityProvider.setNostrInfo({ clientId: liquidityProviderInfo.clientId, myPub: liquidityProviderInfo.publicKey })
+    bootstrapped.liquidityProvider.setNostrInfo({ localId: `client_${local.appId}`, localPubkey: local.publicKey })
     await new Promise<void>(res => {
         const interval = setInterval(async () => {
             const canHandle = bootstrapped.liquidityProvider.IsReady()
@@ -54,10 +54,10 @@ export const initBootstrappedInstance = async (T: TestBase) => {
             }
         }, 500)
     })
-    const bUser = await bootstrapped.applicationManager.AddAppUser(liquidityProviderApp.appId, { identifier: "user1_bootstrapped", balance: 0, fail_if_exists: true })
-    const bootstrappedUser: TestUserData = { userId: bUser.info.userId, appUserIdentifier: bUser.identifier, appId: liquidityProviderApp.appId }
+    const bUser = await bootstrapped.applicationManager.AddAppUser(local.appId, { identifier: "user1_bootstrapped", balance: 0, fail_if_exists: true })
+    const bootstrappedUser: TestUserData = { userId: bUser.info.userId, appUserIdentifier: bUser.identifier, appId: local.appId }
     return {
-        bootstrapped, liquidityProviderInfo, liquidityProviderApp, bootstrappedUser, stop: () => {
+        bootstrapped, local, bootstrappedUser, stop: () => {
             bootstrapped.Stop()
         }
     }

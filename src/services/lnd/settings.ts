@@ -35,7 +35,7 @@ export type NodeInfo = {
 }
 export type Invoice = {
     payRequest: string
-    providerDst?: string
+    providerPubkey?: string
 }
 export type DecodedInvoice = {
     numSatoshis: number
@@ -45,7 +45,7 @@ export type PaidInvoice = {
     feeSat: number
     valueSat: number
     paymentPreimage: string
-    providerDst?: string
+    providerPubkey?: string
 }
 
 
