@@ -486,8 +486,8 @@ export default class {
                 name: app.name,
                 provider: app.nostr_public_key === liquidityProviderInfo.publicKey ? {
                     clientId: liquidityProviderInfo.clientId,
-                    pubDestination: this.settings.getSettings().liquiditySettings.liquidityProviderPub,
-                    relayUrl: this.settings.getSettings().liquiditySettings.providerRelayUrl || relays[0]
+                    pubkey: this.settings.getSettings().liquiditySettings.liquidityProviderPub,
+                    relayUrl: this.settings.getSettings().liquiditySettings.providerRelayUrl
                 } : undefined
             }
         })

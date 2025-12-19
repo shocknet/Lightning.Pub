@@ -35,8 +35,8 @@ const start = async () => {
             name: app.name,
             provider: app.publicKey === liquidityProviderInfo.publicKey ? {
                 clientId: liquidityProviderInfo.clientId,
-                pubDestination: settingsManager.getSettings().liquiditySettings.liquidityProviderPub,
-                relayUrl: settingsManager.getSettings().liquiditySettings.providerRelayUrl || relays[0]
+                pubkey: settingsManager.getSettings().liquiditySettings.liquidityProviderPub,
+                relayUrl: settingsManager.getSettings().liquiditySettings.providerRelayUrl
             } : undefined
         }
     })

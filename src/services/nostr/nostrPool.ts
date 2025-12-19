@@ -18,7 +18,7 @@ export type SendData = SendDataContent | SendDataEvent
 export type SendInitiator = { type: 'app', appId: string } | { type: 'client', clientId: string }
 export type NostrSend = (initiator: SendInitiator, data: SendData, relays?: string[] | undefined) => void
 
-export type LinkedProviderInfo = { pubDestination: string, clientId: string, relayUrl: string }
+export type LinkedProviderInfo = { pubkey: string, clientId: string, relayUrl: string }
 export type AppInfo = { appId: string, publicKey: string, privateKey: string, name: string, provider?: LinkedProviderInfo }
 // export type ClientInfo = { clientId: string, publicKey: string, privateKey: string, name: string }
 export type NostrSettings = {
@@ -122,8 +122,11 @@ export class NostrPool {
     }
 
     private validateEvent(e: Event, relay: RelayConnection): { type: 'event', pub: string, app: AppInfo } | { type: 'beacon', content: string, pub: string } | null {
-        if (e.kind === 30078 && this.providerInfo && relay.isProviderRelay() && e.pubkey === this.providerInfo.pubDestination) {
-            return { type: 'beacon', content: e.content, pub: e.pubkey }
+        if (e.kind === 30078 && this.providerInfo && e.pubkey === this.providerInfo.pubkey) {
+            // Accept beacons from provider relay (which may also be a service relay)
+            if (relay.isProviderRelay()) {
+                return { type: 'beacon', content: e.content, pub: e.pubkey }
+            }
         }
         if (!actionKinds.includes(e.kind) || !e.pubkey) {
             return null
@@ -268,7 +271,7 @@ const processApps = (settings: NostrSettings) => {
         const filters = [getServiceFilter(apps)]
         if (providerInfo && providerInfo.relayUrl === r) {
             providerAssigned = true
-            filters.push(getBeaconFilter(providerInfo.pubDestination))
+            filters.push(getBeaconFilter(providerInfo.pubkey))
         }
         rSettings.push({
             relayUrl: r,
@@ -283,8 +286,8 @@ const processApps = (settings: NostrSettings) => {
             providerRelay: true,
             serviceRelay: false,
             filters: [
-                getProviderFilter(providerInfo.appPub, providerInfo.pubDestination),
-                getBeaconFilter(providerInfo.pubDestination),
+                getProviderFilter(providerInfo.appPub, providerInfo.pubkey),
+                getBeaconFilter(providerInfo.pubkey),
             ],
         })
     }
