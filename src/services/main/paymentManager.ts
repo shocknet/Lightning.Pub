@@ -342,7 +342,7 @@ export default class {
         const user = await this.storage.userStorage.GetUser(userId)
         this.storage.eventsLog.LogEvent({ type: 'invoice_payment', userId, appId: linkedApplication.app_id, appUserId: "", balance: user.balance_sats, data: req.invoice, amount: payAmount })
         const opId = `${Types.UserOperationType.OUTGOING_INVOICE}-${paymentInfo.serialId}`
-        const operation = this.newInvoicePaymentOperation({ invoice: req.invoice, opId, amount: paymentInfo.amtPaid, networkFee: paymentInfo.networkFee, serviceFee: serviceFee, confirmed: true })
+        const operation = this.newInvoicePaymentOperation({ invoice: req.invoice, opId, amount: paymentInfo.amtPaid, networkFee: paymentInfo.networkFee, serviceFee: serviceFee, confirmed: true, paidAtUnix: Math.floor(Date.now() / 1000) })
         return {
             preimage: paymentInfo.preimage,
             amount_paid: paymentInfo.amtPaid,
@@ -380,7 +380,7 @@ export default class {
         }, "payment started")
         this.log("ready to pay")
         const opId = `${Types.UserOperationType.OUTGOING_INVOICE}-${pendingPayment.serial_id}`
-        const op = this.newInvoicePaymentOperation({ invoice, opId, amount: payAmount, networkFee: 0, serviceFee: serviceFee, confirmed: false })
+        const op = this.newInvoicePaymentOperation({ invoice, opId, amount: payAmount, networkFee: 0, serviceFee: serviceFee, confirmed: false, paidAtUnix: 0 })
         optionals.ack?.(op)
         try {
             const payment = await this.lnd.PayInvoice(invoice, amountForLnd, { routingFeeLimit, serviceFee }, payAmount, { useProvider: use === 'provider', from: 'user' }, index => {
@@ -589,7 +589,7 @@ export default class {
             swaps: swaps.map(s => {
                 const p = s.payment
                 const opId = `${Types.UserOperationType.OUTGOING_TX}-${p?.serial_id}`
-                const op = p ? this.newInvoicePaymentOperation({ amount: p.paid_amount, confirmed: p.paid_at_unix !== 0, invoice: p.invoice, opId, networkFee: p.routing_fees, serviceFee: p.service_fees }) : undefined
+                const op = p ? this.newInvoicePaymentOperation({ amount: p.paid_amount, confirmed: p.paid_at_unix !== 0, invoice: p.invoice, opId, networkFee: p.routing_fees, serviceFee: p.service_fees, paidAtUnix: p.paid_at_unix }) : undefined
                 return {
                     operation_payment: op,
                     swap_operation_id: s.swap.swap_operation_id,
@@ -867,11 +867,11 @@ export default class {
         }
     }
 
-    newInvoicePaymentOperation = (opInfo: { invoice: string, opId: string, amount: number, networkFee: number, serviceFee: number, confirmed: boolean }): Types.UserOperation => {
-        const { invoice, opId, amount, networkFee, serviceFee, confirmed } = opInfo
+    newInvoicePaymentOperation = (opInfo: { invoice: string, opId: string, amount: number, networkFee: number, serviceFee: number, confirmed: boolean, paidAtUnix: number }): Types.UserOperation => {
+        const { invoice, opId, amount, networkFee, serviceFee, confirmed, paidAtUnix } = opInfo
         return {
             amount: amount,
-            paidAtUnix: Math.floor(Date.now() / 1000),
+            paidAtUnix: paidAtUnix,
             inbound: false,
             type: Types.UserOperationType.OUTGOING_INVOICE,
             identifier: invoice,
