@@ -23,7 +23,7 @@ const start = async () => {
         return
     }
 
-    const { mainHandler, local, wizard, adminManager } = keepOn
+    const { mainHandler, localProviderClient, wizard, adminManager } = keepOn
     const serverMethods = GetServerMethods(mainHandler)
     log("initializing nostr middleware")
     const relays = settingsManager.getSettings().nostrRelaySettings.relays
@@ -34,8 +34,8 @@ const start = async () => {
             privateKey: app.privateKey,
             publicKey: app.publicKey,
             name: app.name,
-            provider: app.publicKey === local.publicKey ? {
-                clientId: `client_${local.appId}`,
+            provider: app.publicKey === localProviderClient.publicKey ? {
+                clientId: `client_${localProviderClient.appId}`,
                 pubkey: settingsManager.getSettings().liquiditySettings.liquidityProviderPub,
                 relayUrl: settingsManager.getSettings().liquiditySettings.providerRelayUrl
             } : undefined
@@ -53,7 +53,7 @@ const start = async () => {
     mainHandler.attachNostrProcessPing(Ping)
     mainHandler.attachNostrReset(Reset)
     mainHandler.StartBeacons()
-    const appNprofile = nprofileEncode({ pubkey: local.publicKey, relays })
+    const appNprofile = nprofileEncode({ pubkey: localProviderClient.publicKey, relays })
     if (wizard) {
         wizard.AddConnectInfo(appNprofile, relays)
     }
