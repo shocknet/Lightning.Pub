@@ -213,7 +213,10 @@ export default class {
                     // Check if this address belongs to a user (lazy lookup - only for addresses in transactions)
                     const userAddress = await this.storage.paymentStorage.GetAddressOwner(output.address)
                     if (!userAddress) {
-                        // Not a user address, skip
+                        // Root address - track for metrics (matches addressPaidCb behavior)
+                        const amount = Number(output.amount)
+                        const outputIndex = Number(output.outputIndex)
+                        await this.storage.metricsStorage.AddRootOperation("chain", `${output.address}:${tx.txHash}:${outputIndex}`, amount)
                         continue
                     }
 
