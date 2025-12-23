@@ -30,6 +30,7 @@ export type ServiceSettings = {
     recordPerformance: boolean
     skipSanityCheck: boolean
     wizard: boolean
+    wizardNonBlocking: boolean
     bridgeUrl: string,
     shockPushBaseUrl: string
 
@@ -52,6 +53,7 @@ export const LoadServiceSettingsFromEnv = (dbEnv: Record<string, string | undefi
         skipSanityCheck: chooseEnvBool("SKIP_SANITY_CHECK", dbEnv, false, addToDb),
         disableExternalPayments: chooseEnvBool("DISABLE_EXTERNAL_PAYMENTS", dbEnv, false, addToDb),
         wizard: chooseEnvBool("WIZARD", dbEnv, false, addToDb),
+        wizardNonBlocking: chooseEnvBool("WIZARD_NON_BLOCKING", dbEnv, false, addToDb),
         defaultAppName: chooseEnv("DEFAULT_APP_NAME", dbEnv, "wallet", addToDb),
         pushBackupsToNostr: chooseEnvBool("PUSH_BACKUPS_TO_NOSTR", dbEnv, false, addToDb),
         lnurlMetaText: chooseEnv("LNURL_META_TEXT", dbEnv, "LNURL via Lightning.pub", addToDb),
