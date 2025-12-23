@@ -12,6 +12,7 @@ import { Payment_PaymentStatus } from '../../../proto/lnd/lightning.js'
 import { Event, verifiedSymbol, verifyEvent } from 'nostr-tools'
 import { AddressReceivingTransaction } from '../storage/entity/AddressReceivingTransaction.js'
 import { UserTransactionPayment } from '../storage/entity/UserTransactionPayment.js'
+import { UserReceivingAddress } from '../storage/entity/UserReceivingAddress.js'
 import { Watchdog } from './watchdog.js'
 import { LiquidityManager } from './liquidityManager.js'
 import { Utils } from '../helpers/utilsWrapper.js'
@@ -75,11 +76,11 @@ export default class {
         this.swaps.Stop()
     }
 
-    checkPendingPayments = async () => {
-        const log = getLogger({ component: 'pendingPaymentsOnStart' })
+    checkPaymentStatus = async () => {
+        const log = getLogger({ component: 'checkPaymentStatus' })
         const pendingPayments = await this.storage.paymentStorage.GetPendingPayments()
         for (const p of pendingPayments) {
-            log("checking state of payment: ", p.invoice)
+            log("checking status of payment: ", p.invoice)
             if (p.internal) {
                 log("found pending internal payment", p.serial_id)
             } else if (p.liquidityProvider) {
@@ -168,6 +169,190 @@ export default class {
             default:
                 break;
         }
+    }
+
+    checkMissedChainTxs = async () => {
+        const log = getLogger({ component: 'checkMissedChainTxs' })
+        
+        if (this.liquidityManager.settings.getSettings().liquiditySettings.useOnlyLiquidityProvider) {
+            log("USE_ONLY_LIQUIDITY_PROVIDER enabled, skipping chain tx check")
+            return
+        }
+
+        try {
+            const lndInfo = await this.lnd.GetInfo()
+            const lndPubkey = lndInfo.identityPubkey
+            
+            const startHeight = await this.storage.liquidityStorage.GetLatestCheckedHeight('lnd', lndPubkey)
+            log(`checking for missed confirmed chain transactions from height ${startHeight}...`)
+
+            const { transactions } = await this.lnd.GetTransactions(startHeight)
+            log(`retrieved ${transactions.length} transactions from LND`)
+
+            const recoveredCount = await this.processMissedChainTransactions(transactions, log)
+
+            // Update latest checked height to current block height
+            const currentHeight = lndInfo.blockHeight
+            await this.storage.liquidityStorage.UpdateLatestCheckedHeight('lnd', lndPubkey, currentHeight)
+
+            if (recoveredCount > 0) {
+                log(`processed ${recoveredCount} missed chain tx(s)`)
+            } else {
+                log("no missed chain transactions found")
+            }
+        } catch (err: any) {
+            log(ERROR, "failed to check for missed chain transactions:", err.message || err)
+        }
+    }
+
+    private async processMissedChainTransactions(transactions: any[], log: PubLogger): Promise<number> {
+        let recoveredCount = 0
+
+        for (const tx of transactions) {
+            if (tx.numConfirmations === 0 || !tx.outputDetails || tx.outputDetails.length === 0) {
+                continue
+            }
+
+            const outputsWithAddresses = await this.collectOutputsWithAddresses(tx.outputDetails)
+            const hasUserOutputs = outputsWithAddresses.some(o => o.userAddress !== null)
+
+            for (const { output, userAddress } of outputsWithAddresses) {
+                if (!userAddress) {
+                    await this.processRootAddressOutput(output, tx, hasUserOutputs, log)
+                    continue
+                }
+
+                const processed = await this.processUserAddressOutput(output, tx, userAddress, log)
+                if (processed) {
+                    recoveredCount++
+                }
+            }
+        }
+
+        return recoveredCount
+    }
+
+    private async collectOutputsWithAddresses(outputDetails: any[]): Promise<Array<{ output: any, userAddress: UserReceivingAddress | null }>> {
+        const outputs: Array<{ output: any, userAddress: UserReceivingAddress | null }> = []
+
+        for (const output of outputDetails) {
+            if (!output.address || !output.isOurAddress) {
+                continue
+            }
+
+            const userAddress = await this.storage.paymentStorage.GetAddressOwner(output.address)
+            outputs.push({ output, userAddress })
+        }
+
+        return outputs
+    }
+
+    private async processRootAddressOutput(output: any, tx: any, hasUserOutputs: boolean, log: PubLogger): Promise<void> {
+        // Root outputs in transactions with user outputs are change, not new funds
+        if (hasUserOutputs) {
+            return
+        }
+
+        const amount = Number(output.amount)
+        const outputIndex = Number(output.outputIndex)
+        const rootOpId = `${output.address}:${tx.txHash}:${outputIndex}`
+        
+        const existingRootOp = await this.storage.dbs.FindOne('RootOperation', { 
+            where: { operation_identifier: rootOpId, operation_type: "chain" } 
+        })
+        
+        if (!existingRootOp) {
+            await this.storage.metricsStorage.AddRootOperation("chain", rootOpId, amount)
+        }
+    }
+
+    private async processUserAddressOutput(output: any, tx: any, userAddress: UserReceivingAddress, log: PubLogger): Promise<boolean> {
+        const existingTx = await this.storage.paymentStorage.GetAddressReceivingTransactionOwner(
+            output.address,
+            tx.txHash
+        )
+
+        if (existingTx) {
+            return false
+        }
+
+        const amount = Number(output.amount)
+        const outputIndex = Number(output.outputIndex)
+        log(`processing missed chain tx: address=${output.address}, txHash=${tx.txHash}, amount=${amount}, outputIndex=${outputIndex}`)
+
+        try {
+            await this.recordMissedUserTransaction(output, tx, userAddress, amount, outputIndex, log)
+            return true
+        } catch (err: any) {
+            log(ERROR, `failed to process missed chain tx for address=${output.address}, txHash=${tx.txHash}:`, err.message || err)
+            this.utils.stateBundler.AddTxPointFailed(
+                'addressWasPaid',
+                amount,
+                { used: 'lnd', from: 'system' },
+                userAddress.linkedApplication?.app_id
+            )
+            return false
+        }
+    }
+
+    private async recordMissedUserTransaction(output: any, tx: any, userAddress: UserReceivingAddress, amount: number, outputIndex: number, log: PubLogger): Promise<void> {
+        await this.storage.StartTransaction(async dbTx => {
+            if (!userAddress.linkedApplication) {
+                log(ERROR, "found address with no linked application during recovery:", output.address)
+                return
+            }
+
+            const isManagedUser = userAddress.user.user_id !== userAddress.linkedApplication.owner.user_id
+            const fee = this.getReceiveServiceFee(Types.UserOperationType.INCOMING_TX, amount, isManagedUser)
+            const blockHeight = tx.blockHeight || 0
+
+            const addedTx = await this.storage.paymentStorage.AddAddressReceivingTransaction(
+                userAddress,
+                tx.txHash,
+                outputIndex,
+                amount,
+                fee,
+                false,
+                blockHeight,
+                dbTx
+            )
+
+            const addressData = `${output.address}:${tx.txHash}`
+            this.storage.eventsLog.LogEvent({
+                type: 'address_paid',
+                userId: userAddress.user.user_id,
+                appId: userAddress.linkedApplication.app_id,
+                appUserId: "",
+                balance: userAddress.user.balance_sats,
+                data: addressData,
+                amount
+            })
+            
+            await this.storage.userStorage.IncrementUserBalance(
+                userAddress.user.user_id,
+                amount - fee,
+                addressData,
+                dbTx
+            )
+
+            if (fee > 0) {
+                await this.storage.userStorage.IncrementUserBalance(
+                    userAddress.linkedApplication.owner.user_id,
+                    fee,
+                    'fees',
+                    dbTx
+                )
+            }
+
+            this.utils.stateBundler.AddTxPoint(
+                'addressWasPaid',
+                amount,
+                { used: 'lnd', from: 'system', timeDiscount: true },
+                userAddress.linkedApplication.app_id
+            )
+
+            log(`successfully processed missed chain tx: address=${output.address}, txHash=${tx.txHash}, amount=${amount}`)
+        }, "process missed chain tx")
     }
 
     getReceiveServiceFee = (action: Types.UserOperationType, amount: number, managedUser: boolean): number => {
