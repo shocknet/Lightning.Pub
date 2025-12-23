@@ -179,13 +179,21 @@ export default class {
             return
         }
 
-        log("checking for missed confirmed chain transactions...")
-
         try {
-            const { transactions } = await this.lnd.GetTransactions(0)
+            const lndInfo = await this.lnd.GetInfo()
+            const lndPubkey = lndInfo.identityPubkey
+            
+            const startHeight = await this.storage.liquidityStorage.GetLatestCheckedHeight('lnd', lndPubkey)
+            log(`checking for missed confirmed chain transactions from height ${startHeight}...`)
+
+            const { transactions } = await this.lnd.GetTransactions(startHeight)
             log(`retrieved ${transactions.length} transactions from LND`)
 
             const recoveredCount = await this.processMissedChainTransactions(transactions, log)
+
+            // Update latest checked height to current block height
+            const currentHeight = lndInfo.blockHeight
+            await this.storage.liquidityStorage.UpdateLatestCheckedHeight('lnd', lndPubkey, currentHeight)
 
             if (recoveredCount > 0) {
                 log(`processed ${recoveredCount} missed chain tx(s)`)
