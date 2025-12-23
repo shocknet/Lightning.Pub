@@ -174,7 +174,6 @@ export default class {
     checkMissedChainTxs = async () => {
         const log = getLogger({ component: 'checkMissedChainTxs' })
         
-        // Skip chain tx check when bypass is enabled
         if (this.liquidityManager.settings.getSettings().liquiditySettings.useOnlyLiquidityProvider) {
             log("USE_ONLY_LIQUIDITY_PROVIDER enabled, skipping chain tx check")
             return
@@ -182,171 +181,11 @@ export default class {
 
         log("checking for missed confirmed chain transactions...")
 
-        // Get transactions from LND (only includes transactions relevant to the wallet)
-        // Use startHeight 0 to check all transactions
-        const startHeight = 0
-
         try {
-            const { transactions } = await this.lnd.GetTransactions(startHeight)
+            const { transactions } = await this.lnd.GetTransactions(0)
             log(`retrieved ${transactions.length} transactions from LND`)
 
-            let recoveredCount = 0
-
-            for (const tx of transactions) {
-                // Only process confirmed transactions (at least 1 confirmation)
-                // Pending transactions (0 confirmations) are handled by SubscribeAddressPaid() 
-                // and can be dropped from mempool, so we don't process them here
-                if (tx.numConfirmations === 0) {
-                    continue
-                }
-
-                // Check each output detail for addresses we care about
-                if (!tx.outputDetails || tx.outputDetails.length === 0) {
-                    continue
-                }
-
-                // First pass: check if transaction has any user address outputs
-                // If it does, root outputs are likely change and shouldn't be tracked as new operations
-                let hasUserOutputs = false
-                const outputsToProcess: Array<{ output: typeof tx.outputDetails[0], userAddress: UserReceivingAddress | null }> = []
-                
-                for (const output of tx.outputDetails) {
-                    // Only process outputs that are our addresses and have an address
-                    if (!output.address || !output.isOurAddress) {
-                        continue
-                    }
-
-                    const userAddress = await this.storage.paymentStorage.GetAddressOwner(output.address)
-                    if (userAddress) {
-                        hasUserOutputs = true
-                    }
-                    outputsToProcess.push({ output, userAddress })
-                }
-
-                for (const { output, userAddress } of outputsToProcess) {
-                    if (!userAddress) {
-                        // Root address - only track if transaction doesn't have user outputs
-                        // (if it has user outputs, root outputs are change from user txs, not new funds)
-                        if (!hasUserOutputs) {
-                            // Check if already recorded to prevent duplicates
-                            const amount = Number(output.amount)
-                            const outputIndex = Number(output.outputIndex)
-                            const rootOpId = `${output.address}:${tx.txHash}:${outputIndex}`
-                            const existingRootOp = await this.storage.dbs.FindOne('RootOperation', { where: { operation_identifier: rootOpId, operation_type: "chain" } })
-                            if (!existingRootOp) {
-                                await this.storage.metricsStorage.AddRootOperation("chain", rootOpId, amount)
-                            }
-                        }
-                        continue
-                    }
-
-                    // Check if we already have this transaction in the database
-                    const existingTx = await this.storage.paymentStorage.GetAddressReceivingTransactionOwner(
-                        output.address,
-                        tx.txHash
-                    )
-
-                    if (existingTx) {
-                        // Transaction already recorded, skip
-                        continue
-                    }
-
-                    // This is a missed transaction - process it
-                    const amount = Number(output.amount)
-                    const outputIndex = Number(output.outputIndex)
-                    log(`processing missed chain tx: address=${output.address}, txHash=${tx.txHash}, amount=${amount}, outputIndex=${outputIndex}`)
-
-                    try {
-                        await this.storage.StartTransaction(async dbTx => {
-                            if (!userAddress.linkedApplication) {
-                                log(ERROR, "found address with no linked application during recovery:", output.address)
-                                return
-                            }
-
-                            const isManagedUser = userAddress.user.user_id !== userAddress.linkedApplication.owner.user_id
-                            const fee = this.getReceiveServiceFee(Types.UserOperationType.INCOMING_TX, amount, isManagedUser)
-                            const blockHeight = tx.blockHeight || 0
-
-                            // Add the transaction record
-                            const addedTx = await this.storage.paymentStorage.AddAddressReceivingTransaction(
-                                userAddress,
-                                tx.txHash,
-                                outputIndex,
-                                amount,
-                                fee,
-                                false, // not internal
-                                blockHeight,
-                                dbTx
-                            )
-
-                            // Update balance
-                            const addressData = `${output.address}:${tx.txHash}`
-                            this.storage.eventsLog.LogEvent({
-                                type: 'address_paid',
-                                userId: userAddress.user.user_id,
-                                appId: userAddress.linkedApplication.app_id,
-                                appUserId: "",
-                                balance: userAddress.user.balance_sats,
-                                data: addressData,
-                                amount
-                            })
-                            
-                            await this.storage.userStorage.IncrementUserBalance(
-                                userAddress.user.user_id,
-                                amount - fee,
-                                addressData,
-                                dbTx
-                            )
-
-                            if (fee > 0) {
-                                await this.storage.userStorage.IncrementUserBalance(
-                                    userAddress.linkedApplication.owner.user_id,
-                                    fee,
-                                    'fees',
-                                    dbTx
-                                )
-                            }
-
-                            // Send operation to Nostr
-                            const operationId = `${Types.UserOperationType.INCOMING_TX}-${addedTx.serial_id}`
-                            const op = {
-                                amount,
-                                paidAtUnix: tx.timeStamp ? Number(tx.timeStamp) : Math.floor(Date.now() / 1000),
-                                inbound: true,
-                                type: Types.UserOperationType.INCOMING_TX,
-                                identifier: userAddress.address,
-                                operationId,
-                                network_fee: 0,
-                                service_fee: fee,
-                                confirmed: tx.numConfirmations > 0,
-                                tx_hash: tx.txHash,
-                                internal: false
-                            }
-                            
-                            // Note: sendOperationToNostr is not available here, but the operation will be synced
-                            // when the user next syncs their operations
-                            
-                            this.utils.stateBundler.AddTxPoint(
-                                'addressWasPaid',
-                                amount,
-                                { used: 'lnd', from: 'system', timeDiscount: true },
-                                userAddress.linkedApplication.app_id
-                            )
-
-                            recoveredCount++
-                            log(`successfully processed missed chain tx: address=${output.address}, txHash=${tx.txHash}, amount=${amount}`)
-                        }, "process missed chain tx")
-                    } catch (err: any) {
-                        log(ERROR, `failed to process missed chain tx for address=${output.address}, txHash=${tx.txHash}:`, err.message || err)
-                        this.utils.stateBundler.AddTxPointFailed(
-                            'addressWasPaid',
-                            amount,
-                            { used: 'lnd', from: 'system' },
-                            userAddress.linkedApplication?.app_id
-                        )
-                    }
-                }
-            }
+            const recoveredCount = await this.processMissedChainTransactions(transactions, log)
 
             if (recoveredCount > 0) {
                 log(`processed ${recoveredCount} missed chain tx(s)`)
@@ -356,6 +195,156 @@ export default class {
         } catch (err: any) {
             log(ERROR, "failed to check for missed chain transactions:", err.message || err)
         }
+    }
+
+    private async processMissedChainTransactions(transactions: any[], log: PubLogger): Promise<number> {
+        let recoveredCount = 0
+
+        for (const tx of transactions) {
+            if (tx.numConfirmations === 0 || !tx.outputDetails || tx.outputDetails.length === 0) {
+                continue
+            }
+
+            const outputsWithAddresses = await this.collectOutputsWithAddresses(tx.outputDetails)
+            const hasUserOutputs = outputsWithAddresses.some(o => o.userAddress !== null)
+
+            for (const { output, userAddress } of outputsWithAddresses) {
+                if (!userAddress) {
+                    await this.processRootAddressOutput(output, tx, hasUserOutputs, log)
+                    continue
+                }
+
+                const processed = await this.processUserAddressOutput(output, tx, userAddress, log)
+                if (processed) {
+                    recoveredCount++
+                }
+            }
+        }
+
+        return recoveredCount
+    }
+
+    private async collectOutputsWithAddresses(outputDetails: any[]): Promise<Array<{ output: any, userAddress: UserReceivingAddress | null }>> {
+        const outputs: Array<{ output: any, userAddress: UserReceivingAddress | null }> = []
+
+        for (const output of outputDetails) {
+            if (!output.address || !output.isOurAddress) {
+                continue
+            }
+
+            const userAddress = await this.storage.paymentStorage.GetAddressOwner(output.address)
+            outputs.push({ output, userAddress })
+        }
+
+        return outputs
+    }
+
+    private async processRootAddressOutput(output: any, tx: any, hasUserOutputs: boolean, log: PubLogger): Promise<void> {
+        // Root outputs in transactions with user outputs are change, not new funds
+        if (hasUserOutputs) {
+            return
+        }
+
+        const amount = Number(output.amount)
+        const outputIndex = Number(output.outputIndex)
+        const rootOpId = `${output.address}:${tx.txHash}:${outputIndex}`
+        
+        const existingRootOp = await this.storage.dbs.FindOne('RootOperation', { 
+            where: { operation_identifier: rootOpId, operation_type: "chain" } 
+        })
+        
+        if (!existingRootOp) {
+            await this.storage.metricsStorage.AddRootOperation("chain", rootOpId, amount)
+        }
+    }
+
+    private async processUserAddressOutput(output: any, tx: any, userAddress: UserReceivingAddress, log: PubLogger): Promise<boolean> {
+        const existingTx = await this.storage.paymentStorage.GetAddressReceivingTransactionOwner(
+            output.address,
+            tx.txHash
+        )
+
+        if (existingTx) {
+            return false
+        }
+
+        const amount = Number(output.amount)
+        const outputIndex = Number(output.outputIndex)
+        log(`processing missed chain tx: address=${output.address}, txHash=${tx.txHash}, amount=${amount}, outputIndex=${outputIndex}`)
+
+        try {
+            await this.recordMissedUserTransaction(output, tx, userAddress, amount, outputIndex, log)
+            return true
+        } catch (err: any) {
+            log(ERROR, `failed to process missed chain tx for address=${output.address}, txHash=${tx.txHash}:`, err.message || err)
+            this.utils.stateBundler.AddTxPointFailed(
+                'addressWasPaid',
+                amount,
+                { used: 'lnd', from: 'system' },
+                userAddress.linkedApplication?.app_id
+            )
+            return false
+        }
+    }
+
+    private async recordMissedUserTransaction(output: any, tx: any, userAddress: UserReceivingAddress, amount: number, outputIndex: number, log: PubLogger): Promise<void> {
+        await this.storage.StartTransaction(async dbTx => {
+            if (!userAddress.linkedApplication) {
+                log(ERROR, "found address with no linked application during recovery:", output.address)
+                return
+            }
+
+            const isManagedUser = userAddress.user.user_id !== userAddress.linkedApplication.owner.user_id
+            const fee = this.getReceiveServiceFee(Types.UserOperationType.INCOMING_TX, amount, isManagedUser)
+            const blockHeight = tx.blockHeight || 0
+
+            const addedTx = await this.storage.paymentStorage.AddAddressReceivingTransaction(
+                userAddress,
+                tx.txHash,
+                outputIndex,
+                amount,
+                fee,
+                false,
+                blockHeight,
+                dbTx
+            )
+
+            const addressData = `${output.address}:${tx.txHash}`
+            this.storage.eventsLog.LogEvent({
+                type: 'address_paid',
+                userId: userAddress.user.user_id,
+                appId: userAddress.linkedApplication.app_id,
+                appUserId: "",
+                balance: userAddress.user.balance_sats,
+                data: addressData,
+                amount
+            })
+            
+            await this.storage.userStorage.IncrementUserBalance(
+                userAddress.user.user_id,
+                amount - fee,
+                addressData,
+                dbTx
+            )
+
+            if (fee > 0) {
+                await this.storage.userStorage.IncrementUserBalance(
+                    userAddress.linkedApplication.owner.user_id,
+                    fee,
+                    'fees',
+                    dbTx
+                )
+            }
+
+            this.utils.stateBundler.AddTxPoint(
+                'addressWasPaid',
+                amount,
+                { used: 'lnd', from: 'system', timeDiscount: true },
+                userAddress.linkedApplication.app_id
+            )
+
+            log(`successfully processed missed chain tx: address=${output.address}, txHash=${tx.txHash}, amount=${amount}`)
+        }, "process missed chain tx")
     }
 
     getReceiveServiceFee = (action: Types.UserOperationType, amount: number, managedUser: boolean): number => {
