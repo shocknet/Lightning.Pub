@@ -36,9 +36,45 @@ $(() => {
     $("#show-question").click(() => $("#question-content").show());
     $("#close-question").click(() => $("#question-content").hide());
 
+    // Progress management
+    const updateProgress = (step) => {
+        // Steps: 1=node, 2=liquidity, 3=backup, 4=connect
+        const progressPercent = ((step - 1) / 3) * 100;
+        $('#progress-line-fill').css('width', progressPercent + '%');
+        
+        for (let i = 1; i <= 4; i++) {
+            const circle = $(`#step-${i}-circle`);
+            circle.removeClass('active completed');
+            if (i < step) {
+                circle.addClass('completed');
+            } else if (i === step) {
+                circle.addClass('active');
+            }
+        }
+    };
+
+    const getCurrentStep = (pageId) => {
+        const stepMap = {
+            'page-node': 1,
+            'page-liquidity': 2,
+            'page-backup': 3,
+            'page-connect': 4,
+            'page-status': 4 // Status doesn't show progress
+        };
+        return stepMap[pageId] || 1;
+    };
+
     const showPage = (pageToShow) => {
         Object.values(pages).forEach(page => page.hide());
         pageToShow.show();
+        const pageId = pageToShow.attr('id');
+        if (pageId !== 'page-status') {
+            $('#progress-indicator').show();
+            updateProgress(getCurrentStep(pageId));
+        } else {
+            // Hide progress on status page
+            $('#progress-indicator').hide();
+        }
     };
 
     const populateStatus = async () => {
@@ -71,14 +107,8 @@ $(() => {
     // Navigation
     toLiquidityBtn.click(() => {
         const nodeName = nodeNameInput.val();
-        const relayUrl = relayUrlInput.val();
-        const useDefaultRelay = customCheckbox.prop('checked');
-        if (!nodeName) {
+        if (!nodeName || !nodeName.trim()) {
             errorTextNode.text("Please enter a node name");
-            return;
-        }
-        if (!useDefaultRelay && !relayUrl) {
-            errorTextNode.text("Please enter a relay URL or check the default relay box");
             return;
         }
         errorTextNode.text("");
@@ -105,14 +135,16 @@ $(() => {
         }
         errorTextBackup.text("");
 
-        const relayUrl = customCheckbox.prop('checked') ? 'wss://relay.lightning.pub' : relayUrlInput.val();
+        // Default to managed relay (customCheckbox is checked by default)
+        const relayUrl = customCheckbox.prop('checked') ? 'wss://relay.lightning.pub' : (relayUrlInput.val() || 'wss://relay.lightning.pub');
 
+        const avatarUrl = avatarUrlInput.val();
         const req = {
             source_name: nodeNameInput.val(),
             relay_url: relayUrl,
             automate_liquidity: automateLiquidityRadio.prop('checked'),
             push_backups_to_nostr: backupNostrRadio.prop('checked'),
-            avatar_url: avatarUrlInput.val()
+            avatar_url: avatarUrl && avatarUrl.trim() ? avatarUrl.trim() : undefined
         };
 
         try {
@@ -141,7 +173,7 @@ $(() => {
                 const qrElement = document.getElementById('qrcode');
                 const codebox = $('#codebox');
                 const clickText = $('#click-text');
-                const cs = $('#connectString');
+                const cs = $('.qrcode-string');
 
                 // Reset visual state
                 codebox.removeClass('revealed');
@@ -169,15 +201,25 @@ $(() => {
                         
                         // Unbind to allow text selection and normal behavior after reveal
                         codebox.off('click');
-                        
-                        // Force text to be selectable on top
-                        cs.css({
-                            'user-select': 'text',
-                            '-webkit-user-select': 'text',
-                            'pointer-events': 'auto'
-                        });
                     }
                 });
+
+                // Poll for admin connection to auto-advance to status page
+                const pollInterval = setInterval(async () => {
+                    try {
+                        const pollRes = await fetch('/wizard/admin_connect_info');
+                        if (pollRes.status === 200) {
+                            const pollData = await pollRes.json();
+                            if (pollData.connect_info && pollData.connect_info.enrolled_npub) {
+                                clearInterval(pollInterval);
+                                showPage(pages.status);
+                                await populateStatus();
+                            }
+                        }
+                    } catch (err) {
+                        // Ignore polling errors
+                    }
+                }, 2000); // Poll every 2 seconds
             })();
         } catch (err) {
             errorTextBackup.text(err.message);
@@ -190,29 +232,27 @@ $(() => {
         await populateStatus();
     })
 
-    const syncRelayState = () => {
-        relayUrlInput.prop('disabled', customCheckbox.prop('checked'));
-        if (customCheckbox.prop('checked')) {
-            relayUrlInput.val('');
-        }
-    };
+    // Relay defaults to managed relay, no UI needed
 
-    customCheckbox.on('change', syncRelayState);
-    relayUrlInput.on('input', () => {
-        if (relayUrlInput.val()) {
-            customCheckbox.prop('checked', false);
-            syncRelayState();
-        }
-    });
+    // Initialize progress on load
+    updateProgress(1);
 
     // Initial state load (no redirects; SPA only)
     console.log('Wizard script version: REVEAL_FIX_3 activated');
-    fetch("/wizard/service_state").then(res => res.json()).then(state => {
+    fetch("/wizard/service_state").then(res => {
+        if (!res.ok) {
+            throw new Error(`Failed to load wizard state: ${res.status}`)
+        }
+        return res.json()
+    }).then(state => {
         nodeNameInput.val(state.source_name);
+        // Set relay defaults (hidden fields)
         if (state.relay_url === 'wss://relay.lightning.pub') {
             customCheckbox.prop('checked', true);
+            relayUrlInput.val('wss://relay.lightning.pub');
         } else {
-            relayUrlInput.val(state.relay_url);
+            customCheckbox.prop('checked', false);
+            relayUrlInput.val(state.relay_url || 'wss://relay.lightning.pub');
         }
         const robo = state.app_id ? `https://robohash.org/${encodeURIComponent(state.app_id)}.png?size=128x128&set=set3` : ''
         if (state.avatar_url) {
@@ -237,5 +277,12 @@ $(() => {
         } else {
             manualBackupRadio.prop('checked', true);
         }
+    }).catch(err => {
+        console.error('Failed to load wizard state:', err);
+        errorTextNode.text('Failed to load wizard state. Please refresh the page.');
     });
+
+    // Add back button handlers
+    $("#back-to-backup").click(() => showPage(pages.backup));
+    $("#back-to-connect").click(() => showPage(pages.connect));
 });
