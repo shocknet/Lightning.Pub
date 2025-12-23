@@ -12,6 +12,7 @@ import { Payment_PaymentStatus } from '../../../proto/lnd/lightning.js'
 import { Event, verifiedSymbol, verifyEvent } from 'nostr-tools'
 import { AddressReceivingTransaction } from '../storage/entity/AddressReceivingTransaction.js'
 import { UserTransactionPayment } from '../storage/entity/UserTransactionPayment.js'
+import { UserReceivingAddress } from '../storage/entity/UserReceivingAddress.js'
 import { Watchdog } from './watchdog.js'
 import { LiquidityManager } from './liquidityManager.js'
 import { Utils } from '../helpers/utilsWrapper.js'
@@ -204,19 +205,38 @@ export default class {
                     continue
                 }
 
+                // First pass: check if transaction has any user address outputs
+                // If it does, root outputs are likely change and shouldn't be tracked as new operations
+                let hasUserOutputs = false
+                const outputsToProcess: Array<{ output: typeof tx.outputDetails[0], userAddress: UserReceivingAddress | null }> = []
+                
                 for (const output of tx.outputDetails) {
                     // Only process outputs that are our addresses and have an address
                     if (!output.address || !output.isOurAddress) {
                         continue
                     }
 
-                    // Check if this address belongs to a user (lazy lookup - only for addresses in transactions)
                     const userAddress = await this.storage.paymentStorage.GetAddressOwner(output.address)
+                    if (userAddress) {
+                        hasUserOutputs = true
+                    }
+                    outputsToProcess.push({ output, userAddress })
+                }
+
+                for (const { output, userAddress } of outputsToProcess) {
                     if (!userAddress) {
-                        // Root address - track for metrics (matches addressPaidCb behavior)
-                        const amount = Number(output.amount)
-                        const outputIndex = Number(output.outputIndex)
-                        await this.storage.metricsStorage.AddRootOperation("chain", `${output.address}:${tx.txHash}:${outputIndex}`, amount)
+                        // Root address - only track if transaction doesn't have user outputs
+                        // (if it has user outputs, root outputs are change from user txs, not new funds)
+                        if (!hasUserOutputs) {
+                            // Check if already recorded to prevent duplicates
+                            const amount = Number(output.amount)
+                            const outputIndex = Number(output.outputIndex)
+                            const rootOpId = `${output.address}:${tx.txHash}:${outputIndex}`
+                            const existingRootOp = await this.storage.dbs.FindOne('RootOperation', { where: { operation_identifier: rootOpId, operation_type: "chain" } })
+                            if (!existingRootOp) {
+                                await this.storage.metricsStorage.AddRootOperation("chain", rootOpId, amount)
+                            }
+                        }
                         continue
                     }
 
