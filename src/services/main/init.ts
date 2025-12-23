@@ -38,7 +38,21 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
     let wizard: Wizard | null = null
     if (settingsManager.getSettings().serviceSettings.wizard) {
         wizard = new Wizard(settingsManager, storageManager, adminManager)
-        await wizard.Configure()
+        const wizardNonBlocking = settingsManager.getSettings().serviceSettings.wizardNonBlocking
+        if (wizardNonBlocking) {
+            // In dev mode, don't block on wizard - timeout after 1 second
+            Promise.race([
+                wizard.Configure(),
+                new Promise(resolve => setTimeout(() => {
+                    log("Wizard non-blocking mode: continuing startup without waiting for wizard config")
+                    resolve(false)
+                }, 1000))
+            ]).catch(err => {
+                log(`Wizard configure error (non-blocking): ${(err as Error).message}`)
+            })
+        } else {
+            await wizard.Configure()
+        }
     }
 
     const mainHandler = new Main(settingsManager, storageManager, adminManager, utils, unlocker)

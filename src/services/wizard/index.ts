@@ -65,7 +65,7 @@ export class Wizard {
                 watchdog_ok: watchdogOk,
                 source_name: defaultApp?.name || this.settings.getSettings().serviceSettings.defaultAppName || appNamesList,
                 relay_url: relayUrl,
-                automate_liquidity: this.settings.getSettings().liquiditySettings.liquidityProviderPub !== 'null',
+                automate_liquidity: !this.settings.getSettings().liquiditySettings.disableLiquidityProvider,
                 push_backups_to_nostr: this.settings.getSettings().serviceSettings.pushBackupsToNostr,
                 avatar_url: defaultApp?.avatar_url || '',
                 app_id: defaultApp?.app_id || ''
@@ -130,10 +130,16 @@ export class Wizard {
         if (this.nprofile !== "") {
             return this.nprofile
         }
-        console.log("waiting for nprofile")
-        return new Promise((res) => {
-            this.awaitingNprofile.push({ res })
-        })
+        this.log("waiting for nprofile")
+        // Add timeout to prevent hanging forever
+        return Promise.race([
+            new Promise<string>((res) => {
+                this.awaitingNprofile.push({ res })
+            }),
+            new Promise<string>((_, reject) => {
+                setTimeout(() => reject(new Error("timeout waiting for nprofile")), 30000)
+            })
+        ])
     }
 
     AddConnectInfo = (nprofile: string, relays: string[]) => {
@@ -161,7 +167,8 @@ export class Wizard {
         const pendingConfig = { sourceName: req.source_name, relayUrl: req.relay_url, automateLiquidity: req.automate_liquidity, pushBackupsToNostr: req.push_backups_to_nostr }
 
         // Persist app name/avatar to DB regardless (idempotent behavior)
-        await this.settings.updateDisableLiquidityProvider(pendingConfig.automateLiquidity)
+        // automateLiquidity=true means enable automation, so disableLiquidityProvider should be false
+        await this.settings.updateDisableLiquidityProvider(!pendingConfig.automateLiquidity)
         await this.settings.updatePushBackupsToNostr(pendingConfig.pushBackupsToNostr)
         const oldAppName = this.settings.getSettings().serviceSettings.defaultAppName
         const nameUpdated = await this.settings.updateDefaultAppName(pendingConfig.sourceName)
@@ -199,5 +206,19 @@ export class Wizard {
         } catch (e) {
             this.log(`Error updating app info: ${(e as Error).message}`)
         }
+    }
+
+    // Dev helper: Reset wizard in-memory state (doesn't clear DB settings)
+    ResetWizardState = async (): Promise<void> => {
+        this.log("Resetting wizard in-memory state for dev/testing")
+        this.nprofile = ""
+        this.relays = []
+        // Clear any pending config queues
+        this.configQueue.forEach(q => q.res(false))
+        this.configQueue = []
+        this.awaitingNprofile.forEach(q => q.res(""))
+        this.awaitingNprofile = []
+        // Note: To fully reset wizard config, clear AdminSettings DB entries:
+        // DEFAULT_APP_NAME, NOSTR_RELAYS, DISABLE_LIQUIDITY_PROVIDER, PUSH_BACKUPS_TO_NOSTR
     }
 }

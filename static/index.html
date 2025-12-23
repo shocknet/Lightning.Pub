@@ -8,6 +8,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Montserrat" />
   <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/wizard.css" />
   <link rel="stylesheet" href="css/liquidity.css" />
   <link rel="stylesheet" href="css/backup.css" />
   <link rel="stylesheet" href="css/connect.css" />
@@ -25,10 +26,32 @@
   </header>
 
   <main>
+    <!-- Progress Indicator -->
+    <div class="progress-indicator" id="progress-indicator">
+      <div class="progress-line">
+        <div class="progress-line-fill" id="progress-line-fill"></div>
+      </div>
+      <div class="progress-steps">
+        <div class="progress-step" data-step="1">
+          <div class="progress-step-circle" id="step-1-circle">1</div>
+        </div>
+        <div class="progress-step" data-step="2">
+          <div class="progress-step-circle" id="step-2-circle">2</div>
+        </div>
+        <div class="progress-step" data-step="3">
+          <div class="progress-step-circle" id="step-3-circle">3</div>
+        </div>
+        <div class="progress-step" data-step="4">
+          <div class="progress-step-circle" id="step-4-circle">4</div>
+        </div>
+      </div>
+    </div>
+
     <section id="page-node">
       <div class="setup-header">
         <h2>Setup your Pub</h2>
         <p class="header-title">
+          Lightning.Pub is a lightweight bitcoin node that is easily installable (as you have seen) and manageable. It aims to make it easy to run an Uncle Jim's bank for your family, friends, community and business. It aims to be the tool for sovereign individuals to find economic freedom.
         </p>
       </div>
 
@@ -36,38 +59,25 @@
 
       <div class="setup-content">
         <div class="input-group">
-          <span>Give this node a name that wallet users will see:</span>
-          <input type="text" placeholder="Nodey McNodeFace" value="" style="width: 100%" id="nodeName" />
+          <span>Set up your new public node, start by giving it a name:</span>
+          <input type="text" placeholder="Uncle Jim's Pub" value="" id="nodeName" />
         </div>
 
-        <div class="input-group" style="margin-top: 20px">
-          <span>Avatar (shown in wallet):</span>
-          <div style="display:flex; align-items:center; gap:12px; width:100%;">
-            <img id="avatarPreview" src="" alt="avatar" style="width:56px;height:56px;border-radius:6px;object-fit:cover;box-shadow:0 0 2px rgba(0,0,0,1);" />
-            <input type="text" placeholder="" style="flex:1" id="avatarUrl" />
+        <div class="input-group">
+          <span>Add an image to identify your Pub among others:</span>
+          <div class="avatar-input-group">
+            <img id="avatarPreview" src="" alt="avatar" />
+            <input type="text" placeholder="https://lightning.pub/favicon.png" id="avatarUrl" />
           </div>
         </div>
 
-        <div class="input-group" style="margin-top: 28px">
-          <span>If you want to use a specific Nostr relay, enter it now:</span>
-          <div style="display:flex; flex-direction: column; gap:10px; width:100%;">
-            <input type="text" placeholder="wss://relay.lightning.pub" style="width: 100%" id="relayUrl" />
-            <div class="checkbox" style="margin-top: 0">
-              <input type="checkbox" id="customCheckbox" />
-              <div class="checkbox-shape"></div>
-              <label for="customCheckbox">
-                Use the default managed relay service and auto-pay 1000 sats
-                per month to support developers
-              </label>
-            </div>
-          </div>
-        </div>
+        <!-- Hidden relay inputs - defaults to managed relay -->
+        <input type="hidden" id="relayUrl" value="wss://relay.lightning.pub" />
+        <input type="hidden" id="customCheckbox" checked />
 
-        <div>
-          <p id="errorText" style="color:red"></p>
-        </div>
+        <div class="error-message" id="errorText"></div>
 
-        <button class="push-button" style="margin-top: 60px" id="liquidityBtn">
+        <button class="push-button" id="liquidityBtn">
           Next
         </button>
       </div>
@@ -87,33 +97,30 @@
       <div class="line"></div>
 
       <div class="setup-content">
-        <div class="checkbox" style="margin-top: 60px">
-          <input type="radio" id="automate" name="service" data-group="service" />
+        <div class="radio-option">
+          <input type="radio" id="automate" name="service" />
           <label for="automate" class="automate">
-            Use Automation Service
+            Use automation service
             <div class="question-box">
               <button class="icon-button" id="show-question">
                 <img src="img/question.svg" />
               </button>
             </div>
             <div class="question-content" id="question-content">
-              Automation helps reduce the fees you pay by trusting peers temporarily until your node balance is sufficient
-              to open a balanced Lightning channel.
+              Automation helps reduce the fees you pay by trusting peers temporarily, until your node balance is sufficient to open a balanced Lightning channel.
               <button class="icon-button close-button" id="close-question">
                 <img src="img/close.svg" alt="" />
               </button>
-              <a href="https://docs.shock.network/" target="_blank" class="marked question-more">Learn More</a>
+              <a href="https://docs.shock.network/" target="_blank" class="marked question-more">Learn more.</a>
             </div>
           </label>
         </div>
-        <div class="checkbox" style="margin-top: 30px">
-          <input type="radio" id="manual" name="service" data-group="service" />
+        <div class="radio-option">
+          <input type="radio" id="manual" name="service" />
           <label for="manual">Manage my channels manually</label>
         </div>
-        <div>
-          <p id="errorTextLiquidity" style="color:red"></p>
-        </div>
-        <button class="push-button" style="margin-top: 60px" id="backupBtn">
+        <div class="error-message" id="errorTextLiquidity"></div>
+        <button class="push-button" id="backupBtn">
           Next
         </button>
       </div>
@@ -126,8 +133,7 @@
         </button>
         <h2>Choose a Recovery Method</h2>
         <p class="header-title">
-          <span style="font-weight: bold">New Node! 🎉</span> It's important
-          to backup your keys.
+          <span class="bold">New Node! 🎉</span> It's important to backup your keys.
         </p>
       </div>
 
@@ -135,40 +141,26 @@
 
       <div class="setup-content">
         <div class="description-box">
-          <div class="description">
-            In addition to your seed phrase, you also need channel details to recover funds should your node experience a
-            hardware failure.
-          </div>
-          <br />
-          <div class="description">
-            It's important always to have the latest version of this file. Fortunately, it's small enough to automatically
-            store on the Nostr relay.
-          </div>
+          <p class="description">
+            In addition to your seed phrase, you also need channel details to recover funds should your node experience a hardware failure.
+          </p>
+          <p class="description">
+            It's important always to have the latest version of this file. Fortunately, it's small enough to automatically store on the Nostr relay.
+          </p>
         </div>
         <div class="warning-text">
-          If you did not choose the developers relay, be sure your relay has
-          adequate storage policies to hold NIP78 events.
+          If you did not choose the developers relay, be sure your relay has adequate storage policies to hold NIP78 events.
         </div>
-        <div class="checkbox-container">
-          <div class="checkbox" style="margin-top: 12px">
-            <input type="radio" id="backup" name="backup-option" />
-            <label for="backup">
-              Encrypted Backup to Nostr Relay
-            </label>
-          </div>
+        <div class="radio-option">
+          <input type="radio" id="backup" name="backup-option" />
+          <label for="backup">Encrypted Backup to Nostr Relay</label>
         </div>
-        <div class="checkbox-container">
-          <div class="checkbox manual-checkbox" style="margin-top: 12px">
-            <input type="radio" id="manual-backup" name="backup-option" />
-            <label for="manual-backup">
-              DO NOT store on relay (Manual Backups)
-            </label>
-          </div>
+        <div class="radio-option">
+          <input type="radio" id="manual-backup" name="backup-option" />
+          <label for="manual-backup">DO NOT store on relay (Manual Backups)</label>
         </div>
-        <div>
-          <p id="errorTextBackup" style="color:red"></p>
-        </div>
-        <button class="push-button" style="margin-top: 60px;" id="next-button">
+        <div class="error-message" id="errorTextBackup"></div>
+        <button class="push-button" id="next-button">
           Finish Setup
         </button>
       </div>
@@ -184,35 +176,32 @@
       </div>
       <div class="line"></div>
       <div class="setup-content">
-        <div style="font-size: 13px; margin-top: 5px;">Scan the QR or Copy-Paste the string to establish the connection.</div>
-        <div style="display: flex; justify-content: center;">
+        <p class="connect-instructions">Scan the QR or Copy-Paste the string to establish the connection.</p>
+        <div class="qrcode-container">
           <div class="qrcode-box" id="codebox" aria-label="Pairing QR and string">
-            <div style="font-size: 11px;">
-              <div style="text-align: center; color: #a3a3a3;">Code contains a one-time pairing secret</div>
-              <div style="text-align: center; color: #c434e0;" id="click-text">Click to reveal</div>
+            <div class="qrcode-header">
+              <p class="qrcode-warning">Code contains a one-time pairing secret</p>
+              <p class="qrcode-reveal-hint" id="click-text">Click to reveal</p>
             </div>
             <div class="qrcode-viewport">
               <div id="qrcode"></div>
               <div class="qr-veil"><span>Click to reveal</span></div>
             </div>
-            <div style="color: #a3a3a3; font-size: 11px; word-break: break-all; overflow-wrap: anywhere; max-width: 220px; margin: 0 auto;">
+            <div class="qrcode-string">
               <div id="connectString"></div>
             </div>
           </div>
         </div>
-        <button class="push-button" style="margin-top: 20px" id="to-status">OK, I've connected my wallet</button>
+        <button class="push-button" id="to-status">OK, I've connected my wallet</button>
       </div>
     </section>
 
     <section id="page-status" style="display: none;">
       <div class="setup-header">
-        <button class="icon-button back-button" id="back-to-connect">
-          <img src="img/back.svg" alt="" />
-        </button>
         <h2>Node Status</h2>
         <p class="header-title"></p>
       </div>
-      <div class="line" style="width: 100%;"></div>
+      <div class="line"></div>
       <section class="node-status">
         <p id="errorText" style="color:red"></p>
         <div>

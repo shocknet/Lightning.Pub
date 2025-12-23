@@ -9,7 +9,7 @@ $(() => {
                 relay_url: updates.relay_url ?? (s.relay_url || (s.relays && s.relays[0]) || ''),
                 automate_liquidity: s.automate_liquidity || false,
                 push_backups_to_nostr: s.push_backups_to_nostr || false,
-                avatar_url: s.avatar_url || ''
+                avatar_url: updates.avatar_url !== undefined ? updates.avatar_url : (s.avatar_url || undefined)
             }
             const res = await fetch('/wizard/config', {
                 method: 'POST',
@@ -36,7 +36,7 @@ $(() => {
     });
     $("#show-avatar").click(() => {
         $('.show-avatar').show()
-        $('#show-avatar-text').hide()
+        $('#avatarImg').parent().hide()
         $('input[name="show-avatar"]').focus();
     });
     $("#show-nodey").click(() => {
@@ -80,18 +80,20 @@ $(() => {
     })
     $("#save-show-avatar").click(() => {
         var targetInputVal = $('input[name="show-avatar"]').val()
-        postConfig({ avatar_url: targetInputVal }).then(ok => {
+        const avatarUrl = targetInputVal && targetInputVal.trim() ? targetInputVal.trim() : undefined
+        postConfig({ avatar_url: avatarUrl }).then(ok => {
             if (ok) {
-                $('#show-avatar-text').text(targetInputVal || '—')
-                if (targetInputVal) { $('#avatarImg').attr('src', targetInputVal) }
+                if (avatarUrl) {
+                    $('#avatarImg').attr('src', avatarUrl)
+                }
             }
             $('.show-avatar').hide()
-            $('#show-avatar-text').show()
+            $('#avatarImg').parent().show()
         })
     })
     $("#cancel-show-avatar").click(() => {
         $('.show-avatar').hide()
-        $('#show-avatar-text').show()
+        $('#avatarImg').parent().show()
     })
     $("#cancel-show-nostr").click(() => {
         $('.show-nostr').hide()
