@@ -36,14 +36,21 @@ $(() => {
     $("#show-question").click(() => $("#question-content").show());
     $("#close-question").click(() => $("#question-content").hide());
 
+    // Avatar preview update
+    avatarUrlInput.on('input', function() {
+        const url = $(this).val().trim();
+        if (url) {
+            avatarPreview.attr('src', url);
+        } else {
+            avatarPreview.attr('src', 'img/pub_logo.png');
+        }
+    });
+
     // Progress management
     const updateProgress = (step) => {
-        // Steps: 1=node, 2=liquidity, 3=backup, 4=connect
-        const progressPercent = ((step - 1) / 3) * 100;
-        $('#progress-line-fill').css('width', progressPercent + '%');
-        
         for (let i = 1; i <= 4; i++) {
             const circle = $(`#step-${i}-circle`);
+            circle.attr('data-step', i);
             circle.removeClass('active completed');
             if (i < step) {
                 circle.addClass('completed');
@@ -254,15 +261,11 @@ $(() => {
             customCheckbox.prop('checked', false);
             relayUrlInput.val(state.relay_url || 'wss://relay.lightning.pub');
         }
-        const robo = state.app_id ? `https://robohash.org/${encodeURIComponent(state.app_id)}.png?size=128x128&set=set3` : ''
         if (state.avatar_url) {
             avatarUrlInput.val(state.avatar_url);
             avatarPreview.attr('src', state.avatar_url)
-        } else if (robo) {
-            avatarPreview.attr('src', robo)
-        }
-        if (robo) {
-            avatarUrlInput.attr('placeholder', robo)
+        } else {
+            avatarPreview.attr('src', 'img/pub_logo.png')
         }
         syncRelayState();
 
