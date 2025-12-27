@@ -3,10 +3,9 @@
 
 <head>
   <meta charset="UTF-8" />
-  <title></title>
-  <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Montserrat" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" />
   <link rel="stylesheet" href="css/styles.css" />
   <link rel="stylesheet" href="css/wizard.css" />
   <link rel="stylesheet" href="css/liquidity.css" />
@@ -25,37 +24,38 @@
     <img src="img/LightningPub.png" height="26px" alt="Lightning Pub logo" />
   </header>
 
-  <main>
-    <!-- Progress Indicator -->
-    <div class="progress-indicator" id="progress-indicator">
-      <div class="progress-line">
-        <div class="progress-line-fill" id="progress-line-fill"></div>
-      </div>
-      <div class="progress-steps">
-        <div class="progress-step" data-step="1">
-          <div class="progress-step-circle" id="step-1-circle">1</div>
-        </div>
-        <div class="progress-step" data-step="2">
-          <div class="progress-step-circle" id="step-2-circle">2</div>
-        </div>
-        <div class="progress-step" data-step="3">
-          <div class="progress-step-circle" id="step-3-circle">3</div>
-        </div>
-        <div class="progress-step" data-step="4">
-          <div class="progress-step-circle" id="step-4-circle">4</div>
-        </div>
-      </div>
-    </div>
-
+  <main class="wizard">
     <section id="page-node">
       <div class="setup-header">
         <h2>Setup your Pub</h2>
+      </div>
+
+      <!-- Progress Indicator -->
+      <div class="progress-indicator" id="progress-indicator">
+        <div class="progress-line">
+          <div class="progress-line-fill" id="progress-line-fill"></div>
+        </div>
+        <div class="progress-steps">
+          <div class="progress-step" data-step="1">
+            <div class="progress-step-circle" id="step-1-circle" data-step="1">1</div>
+          </div>
+          <div class="progress-step" data-step="2">
+            <div class="progress-step-circle" id="step-2-circle" data-step="2">2</div>
+          </div>
+          <div class="progress-step" data-step="3">
+            <div class="progress-step-circle" id="step-3-circle" data-step="3">3</div>
+          </div>
+          <div class="progress-step" data-step="4">
+            <div class="progress-step-circle" id="step-4-circle" data-step="4">4</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="setup-description">
         <p class="header-title">
           Lightning.Pub is a lightweight bitcoin node that is easily installable (as you have seen) and manageable. It aims to make it easy to run an Uncle Jim's bank for your family, friends, community and business. It aims to be the tool for sovereign individuals to find economic freedom.
         </p>
       </div>
-
-      <div class="line"></div>
 
       <div class="setup-content">
         <div class="input-group">
@@ -66,8 +66,8 @@
         <div class="input-group">
           <span>Add an image to identify your Pub among others:</span>
           <div class="avatar-input-group">
-            <img id="avatarPreview" src="" alt="avatar" />
             <input type="text" placeholder="https://lightning.pub/favicon.png" id="avatarUrl" />
+            <img id="avatarPreview" src="img/pub_logo.png" alt="avatar" />
           </div>
         </div>
 
@@ -77,7 +77,7 @@
 
         <div class="error-message" id="errorText"></div>
 
-        <button class="push-button" id="liquidityBtn">
+        <button class="wizard-cta" id="liquidityBtn">
           Next
         </button>
       </div>
@@ -93,8 +93,6 @@
           How do you want to manage Lightning channels?
         </p>
       </div>
-
-      <div class="line"></div>
 
       <div class="setup-content">
         <div class="radio-option">
@@ -120,7 +118,7 @@
           <label for="manual">Manage my channels manually</label>
         </div>
         <div class="error-message" id="errorTextLiquidity"></div>
-        <button class="push-button" id="backupBtn">
+        <button class="wizard-cta" id="backupBtn">
           Next
         </button>
       </div>
@@ -136,8 +134,6 @@
           <span class="bold">New Node! 🎉</span> It's important to backup your keys.
         </p>
       </div>
-
-      <div class="line"></div>
 
       <div class="setup-content">
         <div class="description-box">
@@ -160,7 +156,7 @@
           <label for="manual-backup">DO NOT store on relay (Manual Backups)</label>
         </div>
         <div class="error-message" id="errorTextBackup"></div>
-        <button class="push-button" id="next-button">
+        <button class="wizard-cta" id="next-button">
           Finish Setup
         </button>
       </div>
@@ -174,7 +170,6 @@
         <h2>Connect</h2>
         <p class="header-title">You can now manage your node remotely</p>
       </div>
-      <div class="line"></div>
       <div class="setup-content">
         <p class="connect-instructions">Scan the QR or Copy-Paste the string to establish the connection.</p>
         <div class="qrcode-container">
@@ -192,7 +187,7 @@
             </div>
           </div>
         </div>
-        <button class="push-button" id="to-status">OK, I've connected my wallet</button>
+        <button class="wizard-cta wizard-cta--wide" id="to-status">OK, I've connected my wallet</button>
       </div>
     </section>
 
@@ -201,7 +196,6 @@
         <h2>Node Status</h2>
         <p class="header-title"></p>
       </div>
-      <div class="line"></div>
       <section class="node-status">
         <p id="errorText" style="color:red"></p>
         <div>
