@@ -31,22 +31,22 @@
       </div>
 
       <!-- Progress Indicator -->
-      <div class="progress-indicator" id="progress-indicator">
+      <div class="progress-indicator">
         <div class="progress-line">
-          <div class="progress-line-fill" id="progress-line-fill"></div>
+          <div class="progress-line-fill"></div>
         </div>
         <div class="progress-steps">
-          <div class="progress-step" data-step="1">
-            <div class="progress-step-circle" id="step-1-circle" data-step="1">1</div>
+          <div class="progress-step">
+            <div class="progress-step-circle step-1-circle" data-step="1">1</div>
           </div>
-          <div class="progress-step" data-step="2">
-            <div class="progress-step-circle" id="step-2-circle" data-step="2">2</div>
+          <div class="progress-step">
+            <div class="progress-step-circle step-2-circle" data-step="2">2</div>
           </div>
-          <div class="progress-step" data-step="3">
-            <div class="progress-step-circle" id="step-3-circle" data-step="3">3</div>
+          <div class="progress-step">
+            <div class="progress-step-circle step-3-circle" data-step="3">3</div>
           </div>
-          <div class="progress-step" data-step="4">
-            <div class="progress-step-circle" id="step-4-circle" data-step="4">4</div>
+          <div class="progress-step">
+            <div class="progress-step-circle step-4-circle" data-step="4">4</div>
           </div>
         </div>
       </div>
@@ -89,6 +89,30 @@
           <img src="img/back.svg" alt="" />
         </button>
         <h2>Manage Node Liquidity</h2>
+      </div>
+
+      <!-- Progress Indicator -->
+      <div class="progress-indicator">
+        <div class="progress-line">
+          <div class="progress-line-fill"></div>
+        </div>
+        <div class="progress-steps">
+          <div class="progress-step">
+            <div class="progress-step-circle step-1-circle" data-step="1">1</div>
+          </div>
+          <div class="progress-step">
+            <div class="progress-step-circle step-2-circle" data-step="2">2</div>
+          </div>
+          <div class="progress-step">
+            <div class="progress-step-circle step-3-circle" data-step="3">3</div>
+          </div>
+          <div class="progress-step">
+            <div class="progress-step-circle step-4-circle" data-step="4">4</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="setup-description">
         <p class="header-title">
           How do you want to manage Lightning channels?
         </p>
@@ -100,7 +124,7 @@
           <label for="automate" class="automate">
             Use automation service
             <div class="question-box">
-              <button class="icon-button" id="show-question">
+              <button class="icon-button" id="show-question-liquidity">
                 <img src="img/question.svg" />
               </button>
             </div>
@@ -130,6 +154,30 @@
           <img src="img/back.svg" alt="" />
         </button>
         <h2>Choose a Recovery Method</h2>
+      </div>
+
+      <!-- Progress Indicator -->
+      <div class="progress-indicator">
+        <div class="progress-line">
+          <div class="progress-line-fill"></div>
+        </div>
+        <div class="progress-steps">
+          <div class="progress-step">
+            <div class="progress-step-circle step-1-circle" data-step="1">1</div>
+          </div>
+          <div class="progress-step">
+            <div class="progress-step-circle step-2-circle" data-step="2">2</div>
+          </div>
+          <div class="progress-step">
+            <div class="progress-step-circle step-3-circle" data-step="3">3</div>
+          </div>
+          <div class="progress-step">
+            <div class="progress-step-circle step-4-circle" data-step="4">4</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="setup-description">
         <p class="header-title">
           <span class="bold">New Node! 🎉</span> It's important to backup your keys.
         </p>
@@ -168,8 +216,33 @@
           <img src="img/back.svg" alt="" />
         </button>
         <h2>Connect</h2>
+      </div>
+
+      <!-- Progress Indicator -->
+      <div class="progress-indicator">
+        <div class="progress-line">
+          <div class="progress-line-fill"></div>
+        </div>
+        <div class="progress-steps">
+          <div class="progress-step">
+            <div class="progress-step-circle step-1-circle" data-step="1">1</div>
+          </div>
+          <div class="progress-step">
+            <div class="progress-step-circle step-2-circle" data-step="2">2</div>
+          </div>
+          <div class="progress-step">
+            <div class="progress-step-circle step-3-circle" data-step="3">3</div>
+          </div>
+          <div class="progress-step">
+            <div class="progress-step-circle step-4-circle" data-step="4">4</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="setup-description">
         <p class="header-title">You can now manage your node remotely</p>
       </div>
+
       <div class="setup-content">
         <p class="connect-instructions">Scan the QR or Copy-Paste the string to establish the connection.</p>
         <div class="qrcode-container">
@@ -197,7 +270,7 @@
         <p class="header-title"></p>
       </div>
       <section class="node-status">
-        <p id="errorText" style="color:red"></p>
+        <p id="statusErrorText" style="color:red"></p>
         <div>
           <div class="status-element" style="margin-top: 15px;">
             <div style="text-align: left;">Public Node Name:</div>
@@ -265,7 +338,7 @@
             Reset
             <div class="watchdog-status">
               <a href="https://docs.shock.network/pub/watchdog" target="_blank">
-                <button class="icon-button" id="show-question">
+                <button class="icon-button" id="show-question-watchdog">
                   <img src="img/question.svg" />
                 </button>
               </a>
@@ -307,6 +380,9 @@
           <div style="font-size: 13px; text-align: left;">Guest Invitation Link:</div>
           <a href="#" target="_blank" style="font-size: 11px;line-break: anywhere;" id="inviteLinkHttp" class="invite-link"></a>
         </div>
+        <div style="margin-top: 30px; display: flex; justify-content: center;">
+          <button class="wizard-cta" id="edit-settings">Edit Settings</button>
+        </div>
       </section>
     </section>
   </main>
@@ -323,9 +399,37 @@
     <div class="line"></div>
     <a href="https://docs.shock.network" class="marked need-help">Need Help?</a>
   </footer>
+  <script>
+    // Global error suppressor for selectionchange bugs in extensions/browsers
+    (function() {
+      window.addEventListener('error', function(e) {
+        if (e.message && (e.message.includes('nodeName') || e.message.includes('toLowerCase'))) {
+          e.stopImmediatePropagation();
+          return true;
+        }
+      }, true);
+      
+      window.addEventListener('unhandledrejection', function(e) {
+        if (e.reason && e.reason.message && (e.reason.message.includes('nodeName') || e.reason.message.includes('toLowerCase'))) {
+          e.stopImmediatePropagation();
+          return true;
+        }
+      }, true);
+
+      const fixSelection = () => {
+        try {
+          const sel = window.getSelection();
+          if (sel && sel.anchorNode && typeof sel.anchorNode.nodeName !== 'string') {
+            sel.removeAllRanges();
+          }
+        } catch(e) {}
+      };
+      
+      document.addEventListener('selectionchange', fixSelection, true);
+    })();
+  </script>
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
   <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
-  <script src="js/status.js"></script>
   <script src="js/wizard.js"></script>
 </body>
 
