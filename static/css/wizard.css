@@ -1,6 +1,18 @@
 /* Wizard layout (avoid fighting global styles) */
 main.wizard {
   text-align: center;
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+
+main.wizard section[id^="page-"] {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
 }
 
 main.wizard .setup-content {
@@ -14,6 +26,7 @@ main.wizard .setup-content {
   position: relative;
   padding: 0;
   text-align: center;
+  box-sizing: border-box;
 }
 
 .progress-line {
@@ -119,10 +132,22 @@ main.wizard .setup-content {
 }
 
 .progress-step-circle.active {
-  background-color: #FF7700;
-  border-color: #FF7700;
+  background: linear-gradient(135deg, #FF7700 0%, #EA624A 50%, #DC547C 100%);
+  border-color: transparent;
   color: #16191C;
   font-weight: 700;
+}
+
+.progress-step-circle.active[data-step="2"] {
+  background: linear-gradient(135deg, #EA624A 0%, #DC547C 50%, #C740C7 100%);
+}
+
+.progress-step-circle.active[data-step="3"] {
+  background: linear-gradient(135deg, #DC547C 0%, #C740C7 100%);
+}
+
+.progress-step-circle.active[data-step="4"] {
+  background: #C740C7;
 }
 
 
@@ -155,7 +180,6 @@ main.wizard .setup-content {
   color: #FFFFFF;
   text-align: left;
   margin: 1rem 0 0 0;
-  max-width: 436px;
 }
 
 .setup-description {
@@ -170,7 +194,6 @@ main.wizard .setup-content {
   flex-direction: column;
   gap: 1.5rem;
   align-items: stretch;
-  padding: 0 0.5rem;
 }
 
 
@@ -290,7 +313,8 @@ main.wizard .setup-content {
   content: '';
   position: absolute;
   left: -36px;
-  top: 2px;
+  top: 50%;
+  transform: translateY(-50%);
   width: 20px;
   height: 20px;
   border: 2px solid #a3a3a3;
@@ -309,15 +333,16 @@ main.wizard .setup-content {
 .radio-option label::after {
   content: '';
   position: absolute;
-  left: -30px;
-  top: 6px;
-  width: 12px;
-  height: 12px;
+  left: -26px;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 11px;
+  height: 11px;
   border-radius: 50%;
   background-color: transparent;
   box-sizing: border-box;
   transition: all 0.3s ease;
-  z-index: 0;
+  z-index: 1;
 }
 
 .radio-option input[type="radio"]:checked + label::after {
