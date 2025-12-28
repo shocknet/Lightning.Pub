@@ -134,11 +134,11 @@ export class Wizard {
         // Add timeout to prevent hanging forever
         return Promise.race([
             new Promise<string>((res) => {
-                this.awaitingNprofile.push({ res })
+            this.awaitingNprofile.push({ res })
             }),
             new Promise<string>((_, reject) => {
                 setTimeout(() => reject(new Error("timeout waiting for nprofile")), 30000)
-            })
+        })
         ])
     }
 
@@ -172,9 +172,9 @@ export class Wizard {
         await this.settings.updatePushBackupsToNostr(pendingConfig.pushBackupsToNostr)
         const oldAppName = this.settings.getSettings().serviceSettings.defaultAppName
         const nameUpdated = await this.settings.updateDefaultAppName(pendingConfig.sourceName)
-        if (nameUpdated) {
-            await this.updateDefaultApp(oldAppName, req.avatar_url)
-        }
+        // Always try to update the default app info (handles avatar update even if name didn't change)
+        await this.updateDefaultApp(oldAppName, req.avatar_url)
+        
         const relayUpdated = await this.settings.updateRelayUrl(pendingConfig.relayUrl)
         if (relayUpdated && this.IsInitialized()) {
             await this.adminManager.ResetNostr()
@@ -199,9 +199,20 @@ export class Wizard {
         try {
             const appsList = await this.storage.applicationStorage.GetApplications()
             const defaultNames = ['wallet', 'wallet-test', currentName]
-            const existingDefaultApp = appsList.find(app => defaultNames.includes(app.name)) || appsList[0]
+            let existingDefaultApp = appsList.find(app => defaultNames.includes(app.name)) || appsList[0]
+            
             if (existingDefaultApp) {
-                await this.storage.applicationStorage.UpdateApplication(existingDefaultApp, { name: newName, avatar_url: avatarUrl || existingDefaultApp.avatar_url })
+                await this.storage.applicationStorage.UpdateApplication(existingDefaultApp, { 
+                    name: newName, 
+                    avatar_url: avatarUrl !== undefined ? avatarUrl : existingDefaultApp.avatar_url 
+                    // Note: We don't update ID here to maintain consistency
+                })
+            } else {
+                // If no app exists yet (first run), create it now so settings are preserved
+                const newApp = await this.storage.applicationStorage.AddApplication(newName, true)
+                if (avatarUrl) {
+                    await this.storage.applicationStorage.UpdateApplication(newApp, { avatar_url: avatarUrl })
+                }
             }
         } catch (e) {
             this.log(`Error updating app info: ${(e as Error).message}`)
