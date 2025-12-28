@@ -44,7 +44,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const params = req.params
             const response =  await methods.GetAdminConnectInfo({rpcName:'GetAdminConnectInfo', ctx:authContext })
             stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK', ...response})
+            res.json(response)
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
@@ -63,7 +63,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const params = req.params
             const response =  await methods.GetServiceState({rpcName:'GetServiceState', ctx:authContext })
             stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK', ...response})
+            res.json(response)
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
@@ -85,7 +85,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const params = req.params
              await methods.WizardConfig({rpcName:'WizardConfig', ctx:authContext , req: request})
             stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK'})
+            res.json({})
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
@@ -104,7 +104,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const params = req.params
             const response =  await methods.WizardState({rpcName:'WizardState', ctx:authContext })
             stats.handle = process.hrtime.bigint()
-            res.json({status: 'OK', ...response})
+            res.json(response)
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
