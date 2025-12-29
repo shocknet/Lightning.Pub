@@ -1,3 +1,165 @@
+/* Status Page Styles - Designer Spec */
+
+.status-title {
+    font-family: 'Inter', sans-serif;
+    font-style: normal;
+    font-weight: 400;
+    font-size: 21px;
+    line-height: 25px;
+    text-align: center;
+    letter-spacing: -0.025em;
+    color: #FFFFFF;
+    margin: 0;
+}
+
+.status-line {
+    width: 100%;
+    max-width: 469px;
+    height: 1px;
+    margin: 20px auto;
+    background: linear-gradient(90deg, #FF7700 0%, #C740C7 100%);
+}
+
+.status-content {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+.status-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 21px;
+    min-height: 17px;
+}
+
+.status-label {
+    font-family: 'Inter', sans-serif;
+    font-style: normal;
+    font-weight: 400;
+    font-size: 14px;
+    line-height: 17px;
+    letter-spacing: -0.025em;
+    color: #FFFFFF;
+    opacity: 0.5;
+    flex: 0 0 auto;
+    min-width: 191px;
+    text-align: left;
+}
+
+.status-value-group {
+    flex: 1;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+}
+
+.status-value-wrapper {
+    position: relative;
+    width: 100%;
+    max-width: 244px;
+}
+
+.status-value-container {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: nowrap;
+}
+
+#avatar-display-container {
+    align-items: center;
+}
+
+#avatarImg {
+    flex-shrink: 0;
+}
+
+.avatar-image {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    object-fit: cover;
+    box-shadow: 0 0 1px rgba(0,0,0,1);
+    margin-left: 4px;
+    display: none;
+    flex-shrink: 0;
+}
+
+.avatar-image.show {
+    display: block;
+}
+
+.status-value {
+    font-family: 'Inter', sans-serif;
+    font-style: normal;
+    font-weight: 400;
+    font-size: 14px;
+    line-height: 17px;
+    text-align: right;
+    letter-spacing: -0.025em;
+    color: #FFFFFF;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+}
+
+.status-link {
+    color: #FFFFFF;
+    text-decoration: none;
+}
+
+.status-link:hover {
+    text-decoration: underline;
+}
+
+.status-icon-button {
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}
+
+.status-icon-button img {
+    width: 14px;
+    height: 14px;
+}
+
+.status-icon-button svg {
+    width: 14px;
+    height: 14px;
+}
+
+.status-dot {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: inline-block;
+}
+
+.status-dot-green {
+    background: #32A852;
+}
+
+.status-dot-orange {
+    background: #FF7700;
+}
+
+.status-dot-red {
+    background: #ff4444;
+}
+
+/* Legacy support for old status elements */
 .status-element {
     display: flex;
     justify-content: space-between;
@@ -26,11 +188,20 @@
     max-width: 50%;
 }
 
-.show-nodey>input {
-    /* border: none; */
-    /* box-shadow: none; */
+.show-nodey>input,
+.show-nostr>input,
+.show-avatar>input {
     padding: 5px;
     text-align: right;
+    width: 100%;
+    background-color: transparent;
+    padding: 7px 10px;
+    border: 1px solid #c740c7;
+    border-radius: 5px;
+    font-size: 14px;
+    outline: none;
+    color: #999999;
+    box-shadow: 0px 0px 2px rgba(0, 0, 0, 1);
 }
 
 .invite-link {
@@ -50,6 +221,21 @@
     }
     #reset-box {
         top: 30%!important;
+    }
+    
+    .status-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    .status-value-group {
+        width: 100%;
+        justify-content: flex-start;
+    }
+    
+    .status-value {
+        text-align: left;
     }
 }
 
@@ -141,7 +327,7 @@
 }
 
 #adminNpub {
-    font-size: 8px; /* Adjust font size to fit on one line */
-    text-align: left; /* Left align the text */
-    line-break: anywhere; /* Ensure long text breaks appropriately */
+    font-size: 14px;
+    text-align: right;
+    line-break: anywhere;
 }
