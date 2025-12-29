@@ -1,15 +1,9 @@
 $(() => {
-    // Suppress selectionchange errors at the window level - last line of defense
-    window.addEventListener('error', function(e) {
-        if (e.message && (e.message.includes('nodeName') || e.message.includes('toLowerCase'))) {
-            e.stopImmediatePropagation();
-            return true;
-        }
-    }, true);
 
     // Page sections
     const pages = {
         node: $('#page-node'),
+        relay: $('#page-relay'),
         liquidity: $('#page-liquidity'),
         backup: $('#page-backup'),
         connect: $('#page-connect'),
@@ -30,10 +24,12 @@ $(() => {
     let currentAppId = '';
 
     // Buttons
+    const toRelayBtn = $("#relayBtn");
     const toLiquidityBtn = $("#liquidityBtn");
     const toBackupBtn = $("#backupBtn");
     const finishBtn = $("#next-button");
     const backToNodeBtn = $("#back-to-node");
+    const backToRelayBtn = $("#back-to-relay");
     const backToLiquidityBtn = $("#back-to-liquidity");
     const backToBackupBtn = $("#back-to-backup");
     const backToConnectBtn = $("#back-to-connect");
@@ -41,6 +37,7 @@ $(() => {
 
     // Error text
     const errorTextNode = $("#errorText");
+    const errorTextRelay = $("#errorTextRelay");
     const errorTextLiquidity = $("#errorTextLiquidity");
     const errorTextBackup = $("#errorTextBackup");
     
@@ -67,7 +64,7 @@ $(() => {
 
     // Progress management
     const updateProgress = (step) => {
-        for (let i = 1; i <= 4; i++) {
+        for (let i = 1; i <= 5; i++) {
             const circles = $(`.step-${i}-circle`);
             circles.removeClass('active completed');
             if (i < step) {
@@ -81,10 +78,11 @@ $(() => {
     const getCurrentStep = (pageId) => {
         const stepMap = {
             'page-node': 1,
-            'page-liquidity': 2,
-            'page-backup': 3,
-            'page-connect': 4,
-            'page-status': 4
+            'page-relay': 2,
+            'page-liquidity': 3,
+            'page-backup': 4,
+            'page-connect': 5,
+            'page-status': 5
         };
         return stepMap[pageId] || 1;
     };
@@ -149,17 +147,68 @@ $(() => {
             $('#show-nodey-text').text(name || '—');
             $('#show-nostr-text').text(relay || '—');
             $('#adminNpub').text(admin || '—');
+            $('#avatar-url-text').text(avatar || '—');
+            
+            // Show avatar image if available
             const avatarImg = $('#avatarImg');
             if (avatarImg.length > 0) {
-                avatarImg[0].setAttribute('src', avatar);
-                avatarImg.parent().show();
+                if (avatar) {
+                    avatarImg.attr('src', avatar);
+                    // Show image when loaded, hide on error
+                    avatarImg.off('error load').on('error', function() {
+                        $(this).removeClass('show').hide();
+                    }).on('load', function() {
+                        $(this).addClass('show').show();
+                    });
+                    // If already loaded, show immediately
+                    if (avatarImg[0].complete && avatarImg[0].naturalWidth > 0) {
+                        avatarImg.addClass('show').show();
+                    } else {
+                        // Otherwise wait for load event
+                        avatarImg.addClass('show');
+                    }
+                } else {
+                    avatarImg.removeClass('show').hide();
+                }
             }
-
-            const mkDot = (ok) => ok ? '<span class="green-dot">&#9679;</span>' : '<span class="yellow-dot">&#9679;</span>';
+            
+            // Update status values with text only (dots are separate elements)
             const lndTxt = lndState === 2 ? 'Online' : (lndState === 1 ? 'Syncing' : 'Offline');
-            $('#lndStatus').html(`${mkDot(lndState === 2)} ${lndTxt}`);
-            $('#watchdog-status').html(`${mkDot(watchdogOk)} ${watchdogOk ? 'OK' : 'Alert'}`);
-            $('#relayStatus').html(`${mkDot(relayConnected)} ${relayConnected ? 'Connected' : 'Disconnected'}`);
+            const lndStatusEl = $('#lndStatus');
+            lndStatusEl.text(lndTxt);
+            const lndDot = lndStatusEl.siblings('.status-dot').first();
+            if (lndDot.length) {
+                lndDot.removeClass('status-dot-green status-dot-orange status-dot-red');
+                if (lndState === 2) {
+                    lndDot.addClass('status-dot-orange');
+                } else if (lndState === 1) {
+                    lndDot.addClass('status-dot-orange');
+                } else {
+                    lndDot.addClass('status-dot-red');
+                }
+            }
+            
+            const watchdogStatusEl = $('#watchdog-status');
+            watchdogStatusEl.text(watchdogOk ? 'Ok' : 'Alert');
+            const watchdogDot = watchdogStatusEl.siblings('.status-dot').first();
+            if (watchdogDot.length) {
+                watchdogDot.removeClass('status-dot-green status-dot-orange status-dot-red');
+                watchdogDot.addClass(watchdogOk ? 'status-dot-green' : 'status-dot-red');
+            }
+            
+            const relayStatusEl = $('#relayStatus');
+            relayStatusEl.text(relayConnected ? 'Connected' : 'Disconnected');
+            const relayDot = relayStatusEl.siblings('.status-dot').first();
+            if (relayDot.length) {
+                relayDot.removeClass('status-dot-green status-dot-orange status-dot-red');
+                relayDot.addClass(relayConnected ? 'status-dot-green' : 'status-dot-red');
+            }
+            
+            // Update invite link
+            if (s.nprofile) {
+                const inviteUrl = `https://my.shockwallet.app/#/sources?addSource=${s.nprofile}`;
+                $('#inviteLinkHttp').attr('href', inviteUrl).text(inviteUrl);
+            }
         } catch { /* noop */ }
     };
 
@@ -172,15 +221,25 @@ $(() => {
             console.log('Wizard state loaded:', state);
             currentAppId = state.app_id || '';
             
-            // Populate inputs - using direct DOM property setting
-            if (state.source_name && state.source_name !== 'Error' && nodeNameInput.length > 0) {
-                nodeNameInput[0].value = state.source_name;
-            }
+            // Populate inputs - temporarily block selectionchange to avoid extension errors
+            const blockSelectionChange = (e) => { e.stopImmediatePropagation(); };
+            document.addEventListener('selectionchange', blockSelectionChange, true);
             
-            if (avatarUrlInput.length > 0) {
-                const url = state.avatar_url || getAvatarFallback(currentAppId);
-                avatarUrlInput[0].value = url;
-                avatarPreview.attr('src', url);
+            try {
+                if (state.source_name && state.source_name !== 'Error' && nodeNameInput.length > 0) {
+                    nodeNameInput.val(state.source_name);
+                }
+                
+                if (avatarUrlInput.length > 0) {
+                    const url = state.avatar_url || getAvatarFallback(currentAppId);
+                    avatarUrlInput.val(url);
+                    avatarPreview.attr('src', url);
+                }
+            } finally {
+                // Remove blocker after a tick to catch any async selectionchange
+                setTimeout(() => {
+                    document.removeEventListener('selectionchange', blockSelectionChange, true);
+                }, 50);
             }
 
             if (automateLiquidityRadio.length > 0 && manualLiquidityRadio.length > 0) {
@@ -235,12 +294,17 @@ $(() => {
     }
 
     // Navigation buttons
-    toLiquidityBtn.click(() => {
+    toRelayBtn.click(() => {
         if (!nodeNameInput.val()?.trim()) {
             errorTextNode.text("Please enter a node name");
             return;
         }
         errorTextNode.text("");
+        showPage(pages.relay);
+    });
+
+    toLiquidityBtn.click(() => {
+        errorTextRelay.text("");
         showPage(pages.liquidity);
     });
 
@@ -254,6 +318,7 @@ $(() => {
     });
 
     backToNodeBtn.click(() => showPage(pages.node));
+    backToRelayBtn.click(() => showPage(pages.relay));
     backToLiquidityBtn.click(() => showPage(pages.liquidity));
     backToBackupBtn.click(() => showPage(pages.backup));
     backToConnectBtn.click(() => showPage(pages.connect));
@@ -341,13 +406,17 @@ $(() => {
     });
 
     $("#show-avatar").click(() => {
+        const currentVal = $('#avatar-url-text').text();
+        $('input[name="show-avatar"]').val(currentVal);
         $('.show-avatar').show();
-        $('#avatarImg').parent().hide();
+        $('#avatar-display-container').hide();
     });
 
     $("#show-nodey").click(() => {
+        const currentVal = $('#show-nodey-text').text();
+        $('input[name="show-nodey"]').val(currentVal);
         $('.show-nodey').show();
-        $('#show-nodey-text').hide();
+        $('#show-nodey-text').parent().hide();
     });
 
     $("#save-show-nodey").click(function() {
@@ -355,21 +424,23 @@ $(() => {
         postConfig({ source_name: val }).then(ok => {
             if (ok) $('#show-nodey-text').text(val);
             $('.show-nodey').hide();
-            $('#show-nodey-text').show();
+            $('#show-nodey-text').parent().show();
         });
     });
 
     $("#cancel-show-nodey").click(() => {
         $('.show-nodey').hide();
-        $('#show-nodey-text').show();
+        $('#show-nodey-text').parent().show();
     });
 
     $(".continue-button").click(function() {
         if ($(this).attr('id') === 'set-show-nostr') {
             $(this).attr('id', '');
             $("#reset-box").hide();
+            const currentVal = $('#show-nostr-text').text();
+            $('input[name="show-nostr"]').val(currentVal);
             $('.show-nostr').show();
-            $('#show-nostr-text').hide();
+            $('#show-nostr-text').parent().hide();
         }
     });
 
@@ -378,27 +449,68 @@ $(() => {
         postConfig({ relay_url: val }).then(ok => {
             if (ok) $('#show-nostr-text').text(val);
             $('.show-nostr').hide();
-            $('#show-nostr-text').show();
+            $('#show-nostr-text').parent().show();
         });
     });
 
     $("#save-show-avatar").click(function() {
         const val = $('input[name="show-avatar"]').val()?.trim() || "";
         postConfig({ avatar_url: val }).then(ok => {
-            if (ok) $('#avatarImg').attr('src', val || 'img/pub_logo.png');
+            if (ok) {
+                const avatarUrl = val || 'img/pub_logo.png';
+                $('#avatar-url-text').text(avatarUrl);
+                const avatarImg = $('#avatarImg');
+                if (avatarUrl) {
+                    avatarImg.attr('src', avatarUrl);
+                    avatarImg.off('error load').on('error', function() {
+                        $(this).removeClass('show').hide();
+                    }).on('load', function() {
+                        $(this).addClass('show').show();
+                    });
+                    if (avatarImg[0].complete && avatarImg[0].naturalWidth > 0) {
+                        avatarImg.addClass('show').show();
+                    } else {
+                        avatarImg.addClass('show');
+                    }
+                } else {
+                    avatarImg.removeClass('show').hide();
+                }
+            }
             $('.show-avatar').hide();
-            $('#avatarImg').parent().show();
+            $('#avatar-display-container').show();
         });
     });
 
     $("#cancel-show-avatar").click(() => {
         $('.show-avatar').hide();
-        $('#avatarImg').parent().show();
+        $('#avatar-display-container').show();
     });
 
     $("#cancel-show-nostr").click(() => {
         $('.show-nostr').hide();
-        $('#show-nostr-text').show();
+        $('#show-nostr-text').parent().show();
+    });
+
+    // Copy button functionality
+    $(document).on('click', '.status-copy-btn', function() {
+        const targetId = $(this).data('copy-target');
+        const targetElement = $('#' + targetId);
+        let textToCopy = '';
+        
+        if (targetElement.is('a')) {
+            textToCopy = targetElement.attr('href') || targetElement.text();
+        } else {
+            textToCopy = targetElement.text();
+        }
+        
+        if (textToCopy && textToCopy !== '—' && textToCopy !== '#') {
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                // Visual feedback could be added here
+                console.log('Copied:', textToCopy);
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+            });
+        }
     });
 
     // Initial load

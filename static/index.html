@@ -48,6 +48,9 @@
           <div class="progress-step">
             <div class="progress-step-circle step-4-circle" data-step="4">4</div>
           </div>
+          <div class="progress-step">
+            <div class="progress-step-circle step-5-circle" data-step="5">5</div>
+          </div>
         </div>
       </div>
 
@@ -71,11 +74,69 @@
           </div>
         </div>
 
-        <!-- Hidden relay inputs - defaults to managed relay -->
-        <input type="hidden" id="relayUrl" value="wss://relay.lightning.pub" />
-        <input type="hidden" id="customCheckbox" checked />
-
         <div class="error-message" id="errorText"></div>
+
+        <button class="wizard-cta" id="relayBtn">
+          Next
+        </button>
+      </div>
+    </section>
+
+    <section id="page-relay" style="display: none;">
+      <div class="setup-header">
+        <button class="icon-button back-button" id="back-to-node">
+          <img src="img/back.svg" alt="" />
+        </button>
+        <h2>Nostr Relay</h2>
+      </div>
+
+      <!-- Progress Indicator -->
+      <div class="progress-indicator">
+        <div class="progress-line">
+          <div class="progress-line-fill"></div>
+        </div>
+        <div class="progress-steps">
+          <div class="progress-step">
+            <div class="progress-step-circle step-1-circle" data-step="1">1</div>
+          </div>
+          <div class="progress-step">
+            <div class="progress-step-circle step-2-circle" data-step="2">2</div>
+          </div>
+          <div class="progress-step">
+            <div class="progress-step-circle step-3-circle" data-step="3">3</div>
+          </div>
+          <div class="progress-step">
+            <div class="progress-step-circle step-4-circle" data-step="4">4</div>
+          </div>
+          <div class="progress-step">
+            <div class="progress-step-circle step-5-circle" data-step="5">5</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="setup-description">
+        <p class="header-title">
+          A Nostr relay is in charge to transmit and receive all transactions from and to your Lightning node. We provide our relay by default, and you can change it later if you prefer setup a different one.
+        </p>
+      </div>
+
+      <div class="setup-content">
+        <div class="input-group">
+          <input type="text" placeholder="wss://relay.lightning.pub" value="wss://relay.lightning.pub" id="relayUrl" />
+        </div>
+
+        <div class="relay-support-toggle">
+          <div class="toggle-label">
+            <span>Support LN.pub relay infrastructure costs</span>
+            <span class="toggle-amount">1000 sats/month</span>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="relaySupportToggle" checked />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <div class="error-message" id="errorTextRelay"></div>
 
         <button class="wizard-cta" id="liquidityBtn">
           Next
@@ -85,7 +146,7 @@
 
     <section id="page-liquidity" style="display: none;">
       <div class="setup-header">
-        <button class="icon-button back-button" id="back-to-node">
+        <button class="icon-button back-button" id="back-to-relay">
           <img src="img/back.svg" alt="" />
         </button>
         <h2>Manage Node Liquidity</h2>
@@ -108,6 +169,9 @@
           </div>
           <div class="progress-step">
             <div class="progress-step-circle step-4-circle" data-step="4">4</div>
+          </div>
+          <div class="progress-step">
+            <div class="progress-step-circle step-5-circle" data-step="5">5</div>
           </div>
         </div>
       </div>
@@ -174,6 +238,9 @@
           <div class="progress-step">
             <div class="progress-step-circle step-4-circle" data-step="4">4</div>
           </div>
+          <div class="progress-step">
+            <div class="progress-step-circle step-5-circle" data-step="5">5</div>
+          </div>
         </div>
       </div>
 
@@ -236,6 +303,9 @@
           <div class="progress-step">
             <div class="progress-step-circle step-4-circle" data-step="4">4</div>
           </div>
+          <div class="progress-step">
+            <div class="progress-step-circle step-5-circle" data-step="5">5</div>
+          </div>
         </div>
       </div>
 
@@ -266,84 +336,134 @@
 
     <section id="page-status" style="display: none;">
       <div class="setup-header">
-        <h2>Node Status</h2>
-        <p class="header-title"></p>
+        <h2 class="status-title">Node Status</h2>
       </div>
+      <div class="status-line"></div>
       <section class="node-status">
         <p id="statusErrorText" style="color:red"></p>
-        <div>
-          <div class="status-element" style="margin-top: 15px;">
-            <div style="text-align: left;">Public Node Name:</div>
-            <div class="fc-grey editable-content">
-              <div class="show-nodey" style="display: flex; flex-direction: column; display: none;">
-                <input type="text" value="" name="show-nodey" placeholder="" />
-                <div style="display: flex;justify-content: end;">
-                  <button class="small-btn" id="cancel-show-nodey">Cancel</button>
-                  <button class="small-btn" id="save-show-nodey">Save</button>
+        <div class="status-content">
+          <div class="status-row">
+            <div class="status-label">Public node name:</div>
+            <div class="status-value-group">
+              <div class="status-value-wrapper">
+                <div class="show-nodey" style="display: none;">
+                  <input type="text" value="" name="show-nodey" placeholder="" />
+                  <div style="display: flex;justify-content: end; gap: 8px; margin-top: 8px;">
+                    <button class="small-btn" id="cancel-show-nodey">Cancel</button>
+                    <button class="small-btn" id="save-show-nodey">Save</button>
+                  </div>
                 </div>
-              </div>
-              <div id="show-nodey-text">Nodey McNodeFace</div>
-              <div class="question-box">
-                <button class="icon-button" id="show-nodey">
-                  <img src="img/pencil.svg" style="cursor: pointer;" />
-                </button>
-              </div>
-            </div>
-          </div>
-          <div class="status-element" style="margin-top: 15px;">
-            <div style="text-align: left;">Nostr Relay:</div>
-            <div class="fc-grey editable-content">
-              <div class="show-nostr" style="display: flex; flex-direction: column; display: none;">
-                <input type="text" value="" name="show-nostr" placeholder="wss://relay.lightning.pub" />
-                <div style="display: flex;justify-content: end;">
-                  <button class="small-btn" id="cancel-show-nostr">Cancel</button>
-                  <button class="small-btn" id="save-show-nostr">Save</button>
-                </div>
-              </div>
-              <div id="show-nostr-text">wss://relay.lightning.pub</div>
-              <div class="question-box">
-                <button class="icon-button" id="show-nostr">
-                  <img src="img/pencil.svg" style="cursor: pointer;" />
-                </button>
-              </div>
-            </div>
-          </div>
-          <div class="status-element" style="margin-top: 15px;">
-            <div>Administrator:</div>
-            <div id="adminNpub" style="line-break: anywhere;">Loading...</div>
-          </div>
-          <div class="status-element" style="margin-top: 15px;">
-            <div style="text-align: left;">Avatar:</div>
-            <div class="fc-grey editable-content">
-              <div class="show-avatar" style="display: flex; flex-direction: column; display: none;">
-                <input type="text" value="" name="show-avatar" placeholder="" />
-                <div style="display: flex;justify-content: end;">
-                  <button class="small-btn" id="cancel-show-avatar">Cancel</button>
-                  <button class="small-btn" id="save-show-avatar">Save</button>
-                </div>
-              </div>
-              <div style="display:flex;align-items:center;gap:12px;">
-                <img id="avatarImg" src="" alt="avatar" style="width:48px;height:48px;border-radius:6px;object-fit:cover;box-shadow:0 0 2px rgba(0,0,0,1);" />
-                <div class="question-box">
-                  <button class="icon-button" id="show-avatar">
-                    <img src="img/pencil.svg" style="cursor: pointer;" />
+                <div class="status-value-container">
+                  <button class="status-icon-button" id="show-nodey">
+                    <img src="img/pencil.svg" alt="edit" />
+                  </button>
+                  <span id="show-nodey-text" class="status-value">Nodey McNodeFace</span>
+                  <button class="status-icon-button status-copy-btn" data-copy-target="show-nodey-text">
+                    <img src="img/copy.svg" alt="copy" />
                   </button>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-        <div style="display: flex; justify-content: end;padding-right: 12px;">
-          <div class="marked" id="show-reset" style="text-decoration: underline; margin-top: 5px;position: relative; display: none;">
-            Reset
-            <div class="watchdog-status">
-              <a href="https://docs.shock.network/pub/watchdog" target="_blank">
-                <button class="icon-button" id="show-question-watchdog">
-                  <img src="img/question.svg" />
-                </button>
-              </a>
+          <div class="status-row">
+            <div class="status-label">Node avatar:</div>
+            <div class="status-value-group">
+              <div class="status-value-wrapper">
+                <div class="show-avatar" style="display: none;">
+                  <input type="text" value="" name="show-avatar" placeholder="" />
+                  <div style="display: flex;justify-content: end; gap: 8px; margin-top: 8px;">
+                    <button class="small-btn" id="cancel-show-avatar">Cancel</button>
+                    <button class="small-btn" id="save-show-avatar">Save</button>
+                  </div>
+                </div>
+                <div class="status-value-container" id="avatar-display-container">
+                  <button class="status-icon-button" id="show-avatar">
+                    <img src="img/pencil.svg" alt="edit" />
+                  </button>
+                  <span id="avatar-url-text" class="status-value">https://lightning.pub/favicon.png</span>
+                  <img id="avatarImg" src="" alt="avatar" class="avatar-image" />
+                  <button class="status-icon-button status-copy-btn" data-copy-target="avatar-url-text">
+                    <img src="img/copy.svg" alt="copy" />
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
+          <div class="status-row">
+            <div class="status-label">Nostr relay:</div>
+            <div class="status-value-group">
+              <div class="status-value-wrapper">
+                <div class="show-nostr" style="display: none;">
+                  <input type="text" value="" name="show-nostr" placeholder="wss://relay.lightning.pub" />
+                  <div style="display: flex;justify-content: end; gap: 8px; margin-top: 8px;">
+                    <button class="small-btn" id="cancel-show-nostr">Cancel</button>
+                    <button class="small-btn" id="save-show-nostr">Save</button>
+                  </div>
+                </div>
+                <div class="status-value-container">
+                  <button class="status-icon-button" id="show-nostr">
+                    <img src="img/pencil.svg" alt="edit" />
+                  </button>
+                  <span id="show-nostr-text" class="status-value">wss://relay.lightning.pub</span>
+                  <button class="status-icon-button status-copy-btn" data-copy-target="show-nostr-text">
+                    <img src="img/copy.svg" alt="copy" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="status-row">
+            <div class="status-label">Relay Status:</div>
+            <div class="status-value-group">
+              <div class="status-value-container">
+                <span id="relayStatus" class="status-value">Connected</span>
+                <span class="status-dot status-dot-green"></span>
+              </div>
+            </div>
+          </div>
+          <div class="status-row">
+            <div class="status-label">Admin npub:</div>
+            <div class="status-value-group">
+              <div class="status-value-container">
+                <span id="adminNpub" class="status-value">#</span>
+                <button class="status-icon-button status-copy-btn" data-copy-target="adminNpub">
+                  <img src="img/copy.svg" alt="copy" />
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="status-row">
+            <div class="status-label">Invite link:</div>
+            <div class="status-value-group">
+              <div class="status-value-container">
+                <a href="#" target="_blank" id="inviteLinkHttp" class="status-value status-link">#</a>
+                <button class="status-icon-button status-copy-btn" data-copy-target="inviteLinkHttp">
+                  <img src="img/copy.svg" alt="copy" />
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="status-row">
+            <div class="status-label">Lightning status:</div>
+            <div class="status-value-group">
+              <div class="status-value-container">
+                <span id="lndStatus" class="status-value">Online</span>
+                <span class="status-dot status-dot-orange"></span>
+              </div>
+            </div>
+          </div>
+          <div class="status-row">
+            <div class="status-label">Watchdog status:</div>
+            <div class="status-value-group">
+              <div class="status-value-container">
+                <span id="watchdog-status" class="status-value">Ok</span>
+                <span class="status-dot status-dot-green"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top: 30px; display: flex; justify-content: center;">
+          <button class="wizard-cta" id="edit-settings">Edit</button>
         </div>
         <div id="reset-box">
           <div style="width: 100%;height: 100%;position: relative;">
@@ -355,33 +475,6 @@
               <div class="continue-button" id="">Continue</div>
             </div>
           </div>
-        </div>
-        <div style="margin-top: 40px;">
-          <div class="status-element">
-            <div>Relay Status:</div>
-            <div id="relayStatus"><span class="yellow-dot">&#9679;</span> Loading...</div>
-          </div>
-          <div class="status-element">
-            <div>Lightning Status:</div>
-            <div id="lndStatus"><span class="yellow-dot">&#9679;</span> Loading...</div>
-          </div>
-          <div class="status-element">
-            <div style="position: relative;">Watchdog Status:
-              <div class="watchdog-status">
-                <a href="https://docs.shock.network/pub/watchdog" target="_blank">
-                  <button class="icon-button" id="show-question"><img src="img/question.svg" /></button>
-                </a>
-              </div>
-            </div>
-            <div id="watchdog-status"><span class="green-dot">&#9679;</span> Loading...</div>
-          </div>
-        </div>
-        <div style="margin-top: 20px;">
-          <div style="font-size: 13px; text-align: left;">Guest Invitation Link:</div>
-          <a href="#" target="_blank" style="font-size: 11px;line-break: anywhere;" id="inviteLinkHttp" class="invite-link"></a>
-        </div>
-        <div style="margin-top: 30px; display: flex; justify-content: center;">
-          <button class="wizard-cta" id="edit-settings">Edit Settings</button>
         </div>
       </section>
     </section>
@@ -399,35 +492,6 @@
     <div class="line"></div>
     <a href="https://docs.shock.network" class="marked need-help">Need Help?</a>
   </footer>
-  <script>
-    // Global error suppressor for selectionchange bugs in extensions/browsers
-    (function() {
-      window.addEventListener('error', function(e) {
-        if (e.message && (e.message.includes('nodeName') || e.message.includes('toLowerCase'))) {
-          e.stopImmediatePropagation();
-          return true;
-        }
-      }, true);
-      
-      window.addEventListener('unhandledrejection', function(e) {
-        if (e.reason && e.reason.message && (e.reason.message.includes('nodeName') || e.reason.message.includes('toLowerCase'))) {
-          e.stopImmediatePropagation();
-          return true;
-        }
-      }, true);
-
-      const fixSelection = () => {
-        try {
-          const sel = window.getSelection();
-          if (sel && sel.anchorNode && typeof sel.anchorNode.nodeName !== 'string') {
-            sel.removeAllRanges();
-          }
-        } catch(e) {}
-      };
-      
-      document.addEventListener('selectionchange', fixSelection, true);
-    })();
-  </script>
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
   <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
   <script src="js/wizard.js"></script>
