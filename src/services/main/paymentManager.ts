@@ -19,6 +19,9 @@ import { Utils } from '../helpers/utilsWrapper.js'
 import { UserInvoicePayment } from '../storage/entity/UserInvoicePayment.js'
 import SettingsManager from './settingsManager.js'
 import { Swaps, TransactionSwapData } from '../lnd/swaps.js'
+import { Transaction, OutputDetail } from '../../../proto/lnd/lightning.js'
+import { LndAddress } from '../lnd/lnd.js'
+import Metrics from '../metrics/index.js'
 interface UserOperationInfo {
     serial_id: number
     paid_amount: number
@@ -57,8 +60,10 @@ export default class {
     utils: Utils
     swaps: Swaps
     invoiceLock: InvoiceLock
-    constructor(storage: Storage, lnd: LND, settings: SettingsManager, liquidityManager: LiquidityManager, utils: Utils, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb) {
+    metrics: Metrics
+    constructor(storage: Storage, metrics: Metrics, lnd: LND, settings: SettingsManager, liquidityManager: LiquidityManager, utils: Utils, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb) {
         this.storage = storage
+        this.metrics = metrics
         this.settings = settings
         this.lnd = lnd
         this.liquidityManager = liquidityManager
@@ -173,26 +178,18 @@ export default class {
 
     checkMissedChainTxs = async () => {
         const log = getLogger({ component: 'checkMissedChainTxs' })
-        
+
         if (this.liquidityManager.settings.getSettings().liquiditySettings.useOnlyLiquidityProvider) {
             log("USE_ONLY_LIQUIDITY_PROVIDER enabled, skipping chain tx check")
             return
         }
 
         try {
-            const lndInfo = await this.lnd.GetInfo()
-            const lndPubkey = lndInfo.identityPubkey
-            
-            const startHeight = await this.storage.liquidityStorage.GetLatestCheckedHeight('lnd', lndPubkey)
-            log(`checking for missed confirmed chain transactions from height ${startHeight}...`)
+            const { txs, currentHeight, lndPubkey } = await this.getLatestTransactions(log)
 
-            const { transactions } = await this.lnd.GetTransactions(startHeight)
-            log(`retrieved ${transactions.length} transactions from LND`)
-
-            const recoveredCount = await this.processMissedChainTransactions(transactions, log)
+            const recoveredCount = await this.processMissedChainTransactions(txs, log)
 
             // Update latest checked height to current block height
-            const currentHeight = lndInfo.blockHeight
             await this.storage.liquidityStorage.UpdateLatestCheckedHeight('lnd', lndPubkey, currentHeight)
 
             if (recoveredCount > 0) {
@@ -205,24 +202,36 @@ export default class {
         }
     }
 
-    private async processMissedChainTransactions(transactions: any[], log: PubLogger): Promise<number> {
-        let recoveredCount = 0
+    private async getLatestTransactions(log: PubLogger): Promise<{ txs: Transaction[], currentHeight: number, lndPubkey: string }> {
+        const lndInfo = await this.lnd.GetInfo()
+        const lndPubkey = lndInfo.identityPubkey
 
+        const startHeight = await this.storage.liquidityStorage.GetLatestCheckedHeight('lnd', lndPubkey)
+        log(`checking for missed confirmed chain transactions from height ${startHeight}...`)
+
+        const { transactions } = await this.lnd.GetTransactions(startHeight)
+        log(`retrieved ${transactions.length} transactions from LND`)
+
+        return { txs: transactions, currentHeight: lndInfo.blockHeight, lndPubkey }
+    }
+
+    private async processMissedChainTransactions(transactions: Transaction[], log: PubLogger): Promise<number> {
+        let recoveredCount = 0
+        const addresses = await this.lnd.ListAddresses()
         for (const tx of transactions) {
-            if (tx.numConfirmations === 0 || !tx.outputDetails || tx.outputDetails.length === 0) {
+            if (!tx.outputDetails || tx.outputDetails.length === 0) {
                 continue
             }
 
-            const outputsWithAddresses = await this.collectOutputsWithAddresses(tx.outputDetails)
-            const hasUserOutputs = outputsWithAddresses.some(o => o.userAddress !== null)
+            const outputsWithAddresses = await this.collectOutputsWithAddresses(tx)
 
             for (const { output, userAddress } of outputsWithAddresses) {
                 if (!userAddress) {
-                    await this.processRootAddressOutput(output, tx, hasUserOutputs, log)
+                    await this.processRootAddressOutput(output, tx, addresses, log)
                     continue
                 }
 
-                const processed = await this.processUserAddressOutput(output, tx, userAddress, log)
+                const processed = await this.processUserAddressOutput(output, tx, log)
                 if (processed) {
                     recoveredCount++
                 }
@@ -232,41 +241,37 @@ export default class {
         return recoveredCount
     }
 
-    private async collectOutputsWithAddresses(outputDetails: any[]): Promise<Array<{ output: any, userAddress: UserReceivingAddress | null }>> {
-        const outputs: Array<{ output: any, userAddress: UserReceivingAddress | null }> = []
-
-        for (const output of outputDetails) {
+    private async collectOutputsWithAddresses(tx: Transaction) {
+        const outputs: { output: OutputDetail, userAddress: UserReceivingAddress | null, tx: Transaction }[] = []
+        for (const output of tx.outputDetails) {
             if (!output.address || !output.isOurAddress) {
                 continue
             }
-
             const userAddress = await this.storage.paymentStorage.GetAddressOwner(output.address)
-            outputs.push({ output, userAddress })
+            outputs.push({ output, userAddress, tx })
         }
-
         return outputs
     }
 
-    private async processRootAddressOutput(output: any, tx: any, hasUserOutputs: boolean, log: PubLogger): Promise<void> {
-        // Root outputs in transactions with user outputs are change, not new funds
-        if (hasUserOutputs) {
-            return
+    private async processRootAddressOutput(output: OutputDetail, tx: Transaction, addresses: LndAddress[], log: PubLogger): Promise<boolean> {
+        const addr = addresses.find(a => a.address === output.address)
+        if (!addr) {
+            throw new Error(`address ${output.address} not found in list of addresses`)
         }
-
-        const amount = Number(output.amount)
+        if (addr.change) {
+            log(`ignoring change address ${output.address}`)
+            return false
+        }
         const outputIndex = Number(output.outputIndex)
-        const rootOpId = `${output.address}:${tx.txHash}:${outputIndex}`
-        
-        const existingRootOp = await this.storage.dbs.FindOne('RootOperation', { 
-            where: { operation_identifier: rootOpId, operation_type: "chain" } 
-        })
-        
-        if (!existingRootOp) {
-            await this.storage.metricsStorage.AddRootOperation("chain", rootOpId, amount)
+        const existingRootOp = await this.metrics.GetRootAddressTransaction(output.address, tx.txHash, outputIndex)
+        if (existingRootOp) {
+            return false
         }
+        this.addressPaidCb({ hash: tx.txHash, index: outputIndex }, output.address, Number(output.amount), 'lnd')
+        return true
     }
 
-    private async processUserAddressOutput(output: any, tx: any, userAddress: UserReceivingAddress, log: PubLogger): Promise<boolean> {
+    private async processUserAddressOutput(output: OutputDetail, tx: Transaction, log: PubLogger) {
         const existingTx = await this.storage.paymentStorage.GetAddressReceivingTransactionOwner(
             output.address,
             tx.txHash
@@ -279,80 +284,8 @@ export default class {
         const amount = Number(output.amount)
         const outputIndex = Number(output.outputIndex)
         log(`processing missed chain tx: address=${output.address}, txHash=${tx.txHash}, amount=${amount}, outputIndex=${outputIndex}`)
-
-        try {
-            await this.recordMissedUserTransaction(output, tx, userAddress, amount, outputIndex, log)
-            return true
-        } catch (err: any) {
-            log(ERROR, `failed to process missed chain tx for address=${output.address}, txHash=${tx.txHash}:`, err.message || err)
-            this.utils.stateBundler.AddTxPointFailed(
-                'addressWasPaid',
-                amount,
-                { used: 'lnd', from: 'system' },
-                userAddress.linkedApplication?.app_id
-            )
-            return false
-        }
-    }
-
-    private async recordMissedUserTransaction(output: any, tx: any, userAddress: UserReceivingAddress, amount: number, outputIndex: number, log: PubLogger): Promise<void> {
-        await this.storage.StartTransaction(async dbTx => {
-            if (!userAddress.linkedApplication) {
-                log(ERROR, "found address with no linked application during recovery:", output.address)
-                return
-            }
-
-            const isManagedUser = userAddress.user.user_id !== userAddress.linkedApplication.owner.user_id
-            const fee = this.getReceiveServiceFee(Types.UserOperationType.INCOMING_TX, amount, isManagedUser)
-            const blockHeight = tx.blockHeight || 0
-
-            const addedTx = await this.storage.paymentStorage.AddAddressReceivingTransaction(
-                userAddress,
-                tx.txHash,
-                outputIndex,
-                amount,
-                fee,
-                false,
-                blockHeight,
-                dbTx
-            )
-
-            const addressData = `${output.address}:${tx.txHash}`
-            this.storage.eventsLog.LogEvent({
-                type: 'address_paid',
-                userId: userAddress.user.user_id,
-                appId: userAddress.linkedApplication.app_id,
-                appUserId: "",
-                balance: userAddress.user.balance_sats,
-                data: addressData,
-                amount
-            })
-            
-            await this.storage.userStorage.IncrementUserBalance(
-                userAddress.user.user_id,
-                amount - fee,
-                addressData,
-                dbTx
-            )
-
-            if (fee > 0) {
-                await this.storage.userStorage.IncrementUserBalance(
-                    userAddress.linkedApplication.owner.user_id,
-                    fee,
-                    'fees',
-                    dbTx
-                )
-            }
-
-            this.utils.stateBundler.AddTxPoint(
-                'addressWasPaid',
-                amount,
-                { used: 'lnd', from: 'system', timeDiscount: true },
-                userAddress.linkedApplication.app_id
-            )
-
-            log(`successfully processed missed chain tx: address=${output.address}, txHash=${tx.txHash}, amount=${amount}`)
-        }, "process missed chain tx")
+        this.addressPaidCb({ hash: tx.txHash, index: outputIndex }, output.address, amount, 'lnd')
+        return true
     }
 
     getReceiveServiceFee = (action: Types.UserOperationType, amount: number, managedUser: boolean): number => {
@@ -825,21 +758,6 @@ export default class {
 
     async GetLnurlWithdrawInfo(balanceCheckK1: string): Promise<Types.LnurlWithdrawInfoResponse> {
         throw new Error("LNURL withdraw currenlty not supported for non application users")
-        /*const key = await this.storage.paymentStorage.UseUserEphemeralKey(balanceCheckK1, 'balanceCheck')
-        const maxWithdrawable = this.GetMaxPayableInvoice(key.user.balance_sats)
-        const callbackK1 = await this.storage.paymentStorage.AddUserEphemeralKey(key.user.user_id, 'withdraw')
-        const newBalanceCheckK1 = await this.storage.paymentStorage.AddUserEphemeralKey(key.user.user_id, 'balanceCheck')
-        const payInfoK1 = await this.storage.paymentStorage.AddUserEphemeralKey(key.user.user_id, 'pay')
-        return {
-            tag: "withdrawRequest",
-            callback: `${this.settings.serviceUrl}/api/guest/lnurl_withdraw/handle`,
-            defaultDescription: "lnurl withdraw from lightning.pub",
-            k1: callbackK1.key,
-            maxWithdrawable: maxWithdrawable * 1000,
-            minWithdrawable: 10000,
-            balanceCheck: this.balanceCheckUrl(newBalanceCheckK1.key),
-            payLink: `${this.settings.serviceUrl}/api/guest/lnurl_pay/info?k1=${payInfoK1.key}`,
-        }*/
     }
 
     async HandleLnurlWithdraw(k1: string, invoice: string): Promise<void> {

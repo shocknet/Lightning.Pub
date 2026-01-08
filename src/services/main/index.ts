@@ -80,7 +80,7 @@ export default class {
         this.liquidityManager = new LiquidityManager(this.settings, this.storage, this.utils, this.liquidityProvider, this.lnd, this.rugPullTracker)
         this.metricsManager = new MetricsManager(this.storage, this.lnd)
 
-        this.paymentManager = new PaymentManager(this.storage, this.lnd, this.settings, this.liquidityManager, this.utils, this.addressPaidCb, this.invoicePaidCb)
+        this.paymentManager = new PaymentManager(this.storage, this.metricsManager, this.lnd, this.settings, this.liquidityManager, this.utils, this.addressPaidCb, this.invoicePaidCb)
         this.productManager = new ProductManager(this.storage, this.paymentManager, this.settings)
         this.applicationManager = new ApplicationManager(this.storage, this.settings, this.paymentManager)
         this.appUserManager = new AppUserManager(this.storage, this.settings, this.applicationManager)
@@ -213,6 +213,10 @@ export default class {
             const { blockHeight } = await this.lnd.GetInfo()
             const userAddress = await this.storage.paymentStorage.GetAddressOwner(address, tx)
             if (!userAddress) {
+                const isChange = await this.lnd.IsChangeAddress(address)
+                if (isChange) {
+                    return
+                }
                 await this.metricsManager.AddRootAddressPaid(address, txOutput, amount)
                 return
             }

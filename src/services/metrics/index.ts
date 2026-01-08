@@ -414,6 +414,10 @@ export default class Handler {
         await this.storage.metricsStorage.AddRootOperation("chain", `${address}:${txOutput.hash}:${txOutput.index}`, amount)
     }
 
+    async GetRootAddressTransaction(address: string, txHash: string, index: number) {
+        return this.storage.metricsStorage.GetRootOperation("chain", `${address}:${txHash}:${index}`)
+    }
+
     async AddRootInvoicePaid(paymentRequest: string, amount: number) {
         await this.storage.metricsStorage.AddRootOperation("invoice", paymentRequest, amount)
     }

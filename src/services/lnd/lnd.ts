@@ -23,6 +23,7 @@ import { TxPointSettings } from '../storage/tlv/stateBundler.js';
 import { WalletKitClient } from '../../../proto/lnd/walletkit.client.js';
 import SettingsManager from '../main/settingsManager.js';
 import { LndNodeSettings, LndSettings } from '../main/settings.js';
+import { ListAddressesResponse } from '../../../proto/lnd/walletkit.js';
 
 const DeadLineMetadata = (deadline = 10 * 1000) => ({ deadline: Date.now() + deadline })
 const deadLndRetrySeconds = 20
@@ -32,6 +33,7 @@ type NodeSettingsOverride = {
     lndCertPath: string
     lndMacaroonPath: string
 }
+export type LndAddress = { address: string, change: boolean }
 export default class {
     lightning: LightningClient
     invoices: InvoicesClient
@@ -329,6 +331,21 @@ export default class {
                 this.RestartStreams()
             }
         })
+    }
+
+    async IsChangeAddress(address: string): Promise<boolean> {
+        const addresses = await this.ListAddresses()
+        const addr = addresses.find(a => a.address === address)
+        if (!addr) {
+            throw new Error(`address ${address} not found in list of addresses`)
+        }
+        return addr.change
+    }
+
+    async ListAddresses(): Promise<LndAddress[]> {
+        const res = await this.walletKit.listAddresses({ accountName: "", showCustomAccounts: false }, DeadLineMetadata())
+        const addresses = res.response.accountWithAddresses.map(a => a.addresses.map(a => ({ address: a.address, change: a.isInternal }))).flat()
+        return addresses
     }
 
     async NewAddress(addressType: Types.AddressType, { useProvider, from }: TxActionOptions): Promise<NewAddressResponse> {

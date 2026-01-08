@@ -23,8 +23,8 @@ const sanitizeFileName = (fileName: string): string => {
 const openWriter = (fileName: string): Writer => {
     const now = new Date()
     const date = `${now.getFullYear()}-${z(now.getMonth() + 1)}-${z(now.getDate())}`
-    const sanitizedFileName = sanitizeFileName(fileName)
-    const logPath = `${logsDir}/${sanitizedFileName}_${date}.log`
+    // const sanitizedFileName = sanitizeFileName(fileName)
+    const logPath = `${logsDir}/${fileName}_${date}.log`
     // Ensure parent directory exists
     const dirPath = logPath.substring(0, logPath.lastIndexOf('/'))
     if (!fs.existsSync(dirPath)) {
@@ -48,13 +48,13 @@ if (!fs.existsSync(`${logsDir}/components`)) {
 export const getLogger = (params: LoggerParams): PubLogger => {
     const writers: Writer[] = []
     if (params.appName) {
-        writers.push(openWriter(`apps/${params.appName}`))
+        writers.push(openWriter(`apps/${sanitizeFileName(params.appName)}`))
     }
     if (params.userId) {
-        writers.push(openWriter(`users/${params.userId}`))
+        writers.push(openWriter(`users/${sanitizeFileName(params.userId)}`))
     }
     if (params.component) {
-        writers.push(openWriter(`components/${params.component}`))
+        writers.push(openWriter(`components/${sanitizeFileName(params.component)}`))
     }
     if (writers.length === 0) {
         writers.push(rootWriter)
