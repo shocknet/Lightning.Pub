@@ -23,7 +23,6 @@ const sanitizeFileName = (fileName: string): string => {
 const openWriter = (fileName: string): Writer => {
     const now = new Date()
     const date = `${now.getFullYear()}-${z(now.getMonth() + 1)}-${z(now.getDate())}`
-    // const sanitizedFileName = sanitizeFileName(fileName)
     const logPath = `${logsDir}/${fileName}_${date}.log`
     // Ensure parent directory exists
     const dirPath = logPath.substring(0, logPath.lastIndexOf('/'))

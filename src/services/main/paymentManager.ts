@@ -268,6 +268,7 @@ export default class {
             return false
         }
         this.addressPaidCb({ hash: tx.txHash, index: outputIndex }, output.address, Number(output.amount), 'lnd')
+            .catch(err => log(ERROR, "failed to process root address output:", err.message || err))
         return true
     }
 
@@ -285,6 +286,7 @@ export default class {
         const outputIndex = Number(output.outputIndex)
         log(`processing missed chain tx: address=${output.address}, txHash=${tx.txHash}, amount=${amount}, outputIndex=${outputIndex}`)
         this.addressPaidCb({ hash: tx.txHash, index: outputIndex }, output.address, amount, 'lnd')
+            .catch(err => log(ERROR, "failed to process user address output:", err.message || err))
         return true
     }
 
