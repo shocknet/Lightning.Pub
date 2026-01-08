@@ -55,6 +55,7 @@ export default class {
     liquidProvider: LiquidityProvider
     utils: Utils
     unlockLnd: () => Promise<void>
+    addressesCache: Record<string, { isChange: boolean }> = {}
     constructor(getSettings: () => { lndSettings: LndSettings, lndNodeSettings: LndNodeSettings }, liquidProvider: LiquidityProvider, unlockLnd: () => Promise<any>, utils: Utils, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb, newBlockCb: NewBlockCb, htlcCb: HtlcCb, channelEventCb: ChannelEventCb) {
         this.getSettings = getSettings
         this.utils = utils
@@ -334,6 +335,10 @@ export default class {
     }
 
     async IsChangeAddress(address: string): Promise<boolean> {
+        const cached = this.addressesCache[address]
+        if (cached) {
+            return cached.isChange
+        }
         const addresses = await this.ListAddresses()
         const addr = addresses.find(a => a.address === address)
         if (!addr) {
@@ -345,6 +350,7 @@ export default class {
     async ListAddresses(): Promise<LndAddress[]> {
         const res = await this.walletKit.listAddresses({ accountName: "", showCustomAccounts: false }, DeadLineMetadata())
         const addresses = res.response.accountWithAddresses.map(a => a.addresses.map(a => ({ address: a.address, change: a.isInternal }))).flat()
+        addresses.forEach(a => this.addressesCache[a.address] = { isChange: a.change })
         return addresses
     }
 
