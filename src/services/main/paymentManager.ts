@@ -633,6 +633,7 @@ export default class {
                 preimage: Buffer.from(txSwap.preimage, 'hex'),
             }
         }
+        // the swap and the invoice payment are linked, swap will not start until the invoice payment is started, and will not complete once the invoice payment is completed
         let swapResult = { ok: false, error: "swap never completed" } as { ok: true, txId: string } | { ok: false, error: string }
         this.swaps.reverseSwaps.SubscribeToTransactionSwap(data, result => {
             swapResult = result

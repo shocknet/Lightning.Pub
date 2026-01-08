@@ -333,6 +333,7 @@ export class ReverseSwaps {
         ]);
         const tweakedKey = TaprootUtils.tweakMusig(
             musig,
+            // swap tree can either be a string or an object
             SwapTreeSerializer.deserializeSwapTree(createdResponse.swapTree).tree,
         );
 

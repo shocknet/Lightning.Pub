@@ -256,9 +256,12 @@ export class NostrPool {
 const processApps = (settings: NostrSettings) => {
     const apps: Record<string, AppInfo> = {}
     let providerInfo: (LinkedProviderInfo & { appPub: string }) | undefined = undefined
+
     for (const app of settings.apps) {
         apps[app.publicKey] = app
+        // add provider info if the app has a provider
         if (app.provider) {
+            // make sure only one provider is configured
             if (providerInfo) {
                 throw new Error("found more than one provider")
             }
@@ -269,10 +272,12 @@ const processApps = (settings: NostrSettings) => {
     const rSettings: RelaySettings[] = []
     new Set(settings.relays).forEach(r => {
         const filters = [getServiceFilter(apps)]
+        // check if this service relay is also a provider relay, and add the beacon filter if so
         if (providerInfo && providerInfo.relayUrl === r) {
             providerAssigned = true
             filters.push(getBeaconFilter(providerInfo.pubkey))
         }
+        // add the relay settings to the list
         rSettings.push({
             relayUrl: r,
             serviceRelay: true,
@@ -280,6 +285,7 @@ const processApps = (settings: NostrSettings) => {
             filters: filters,
         })
     })
+    // if no provider was assigned to a service relay, add the provider relay settings with a provider filter
     if (!providerAssigned && providerInfo) {
         rSettings.push({
             relayUrl: providerInfo.relayUrl,
