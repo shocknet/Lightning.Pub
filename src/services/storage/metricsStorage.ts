@@ -149,6 +149,10 @@ export default class {
         return this.dbs.CreateAndSave<RootOperation>('RootOperation', { operation_type: opType, operation_amount: amount, operation_identifier: id, at_unix: Math.floor(Date.now() / 1000) }, txId)
     }
 
+    async GetRootOperation(opType: string, id: string, txId?: string) {
+        return this.dbs.FindOne<RootOperation>('RootOperation', { where: { operation_type: opType, operation_identifier: id } }, txId)
+    }
+
     async GetRootOperations({ from, to }: { from?: number, to?: number }, txId?: string) {
         const q = getTimeQuery({ from, to })
         return this.dbs.Find<RootOperation>('RootOperation', q, txId)
