@@ -61,7 +61,7 @@ export default class {
     swaps: Swaps
     invoiceLock: InvoiceLock
     metrics: Metrics
-    constructor(storage: Storage, metrics: Metrics, lnd: LND, settings: SettingsManager, liquidityManager: LiquidityManager, utils: Utils, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb) {
+    constructor(storage: Storage, metrics: Metrics, lnd: LND, swaps: Swaps, settings: SettingsManager, liquidityManager: LiquidityManager, utils: Utils, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb) {
         this.storage = storage
         this.metrics = metrics
         this.settings = settings
@@ -69,7 +69,7 @@ export default class {
         this.liquidityManager = liquidityManager
         this.utils = utils
         this.watchDog = new Watchdog(settings, this.liquidityManager, this.lnd, this.storage, this.utils, this.liquidityManager.rugPullTracker)
-        this.swaps = new Swaps(settings)
+        this.swaps = swaps
         this.addressPaidCb = addressPaidCb
         this.invoicePaidCb = invoicePaidCb
         this.invoiceLock = new InvoiceLock()
@@ -539,53 +539,15 @@ export default class {
         }
     }
 
+
+
     async GetTransactionSwapQuote(ctx: Types.UserContext, req: Types.TransactionSwapRequest): Promise<Types.TransactionSwapQuote> {
-        const feesRes = await this.swaps.reverseSwaps.GetFees()
-        if (!feesRes.ok) {
-            throw new Error(feesRes.error)
-        }
-        const { claim, lockup } = feesRes.fees.minerFees
-        const minerFee = claim + lockup
-        const chainTotal = req.transaction_amount_sats + minerFee
-        const res = await this.swaps.reverseSwaps.SwapTransaction(chainTotal)
-        if (!res.ok) {
-            throw new Error(res.error)
-        }
-        const decoded = await this.lnd.DecodeInvoice(res.createdResponse.invoice)
-        const swapFee = decoded.numSatoshis - chainTotal
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
-        const isManagedUser = ctx.user_id !== app.owner.user_id
-        const serviceFee = this.getSendServiceFee(Types.UserOperationType.OUTGOING_INVOICE, decoded.numSatoshis, isManagedUser)
-        const newSwap = await this.storage.paymentStorage.AddTransactionSwap({
-            app_user_id: ctx.app_user_id,
-            swap_quote_id: res.createdResponse.id,
-            swap_tree: JSON.stringify(res.createdResponse.swapTree),
-            lockup_address: res.createdResponse.lockupAddress,
-            refund_public_key: res.createdResponse.refundPublicKey,
-            timeout_block_height: res.createdResponse.timeoutBlockHeight,
-            invoice: res.createdResponse.invoice,
-            invoice_amount: decoded.numSatoshis,
-            transaction_amount: chainTotal,
-            swap_fee_sats: swapFee,
-            chain_fee_sats: minerFee,
-            preimage: res.preimage,
-            ephemeral_private_key: res.privKey,
-            ephemeral_public_key: res.pubkey,
+        return this.swaps.GetTxSwapQuote(ctx.app_user_id, req.transaction_amount_sats, decodedAmt => {
+            const isManagedUser = ctx.user_id !== app.owner.user_id
+            return this.getSendServiceFee(Types.UserOperationType.OUTGOING_INVOICE, decodedAmt, isManagedUser)
         })
-        return {
-            swap_operation_id: newSwap.swap_operation_id,
-            swap_fee_sats: swapFee,
-            invoice_amount_sats: decoded.numSatoshis,
-            transaction_amount_sats: req.transaction_amount_sats,
-            chain_fee_sats: minerFee,
-            service_fee_sats: serviceFee,
-        }
     }
-
-
-
-
-
 
     async PayAddress(ctx: Types.UserContext, req: Types.PayAddressRequest): Promise<Types.PayAddressResponse> {
         await this.watchDog.PaymentRequested()
@@ -607,66 +569,18 @@ export default class {
             throw new Error("request a swap quote before paying an external address")
         }
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
-        const txSwap = await this.storage.paymentStorage.GetTransactionSwap(req.swap_operation_id, ctx.app_user_id)
-        if (!txSwap) {
-            throw new Error("swap quote not found")
-        }
-        const info = await this.lnd.GetInfo()
-        if (info.blockHeight >= txSwap.timeout_block_height) {
-            throw new Error("swap timeout")
-        }
-        const keys = this.swaps.GetKeys(txSwap.ephemeral_private_key)
-        const data: TransactionSwapData = {
-            createdResponse: {
-                id: txSwap.swap_quote_id,
-                invoice: txSwap.invoice,
-                lockupAddress: txSwap.lockup_address,
-                refundPublicKey: txSwap.refund_public_key,
-                swapTree: txSwap.swap_tree,
-                timeoutBlockHeight: txSwap.timeout_block_height,
-                onchainAmount: txSwap.transaction_amount,
-            },
-            info: {
-                destinationAddress: req.address,
-                keys,
-                chainFee: txSwap.chain_fee_sats,
-                preimage: Buffer.from(txSwap.preimage, 'hex'),
-            }
-        }
-        // the swap and the invoice payment are linked, swap will not start until the invoice payment is started, and will not complete once the invoice payment is completed
-        let swapResult = { ok: false, error: "swap never completed" } as { ok: true, txId: string } | { ok: false, error: string }
-        this.swaps.reverseSwaps.SubscribeToTransactionSwap(data, result => {
-            swapResult = result
-        })
         let payment: Types.PayInvoiceResponse
-        try {
+        const swap = await this.swaps.PayAddrWithSwap(ctx.app_user_id, req.swap_operation_id, req.address, async (invoice) => {
             payment = await this.PayInvoice(ctx.user_id, {
                 amount: 0,
-                invoice: txSwap.invoice
+                invoice: invoice
             }, app, { swapOperationId: req.swap_operation_id })
-            if (!swapResult.ok) {
-                this.log("invoice payment successful, but swap failed")
-                await this.storage.paymentStorage.FailTransactionSwap(req.swap_operation_id, req.address, swapResult.error)
-                throw new Error(swapResult.error)
-            }
-            this.log("swap completed successfully")
-            await this.storage.paymentStorage.FinalizeTransactionSwap(req.swap_operation_id, req.address, swapResult.txId)
-        } catch (err: any) {
-            if (swapResult.ok) {
-                this.log("failed to pay swap invoice, but swap completed successfully", swapResult.txId)
-                await this.storage.paymentStorage.FailTransactionSwap(req.swap_operation_id, req.address, err.message)
-            } else {
-                this.log("failed to pay swap invoice and swap failed", swapResult.error)
-                await this.storage.paymentStorage.FailTransactionSwap(req.swap_operation_id, req.address, swapResult.error)
-            }
-            throw err
-        }
-        const networkFeesTotal = txSwap.chain_fee_sats + txSwap.swap_fee_sats // + payment.network_fee
+        })
         return {
-            txId: swapResult.txId,
-            network_fee: networkFeesTotal,
-            service_fee: payment.service_fee,
-            operation_id: payment.operation_id,
+            txId: swap.txId,
+            network_fee: swap.network_fee,
+            service_fee: payment!.service_fee,
+            operation_id: payment!.operation_id,
         }
     }
 

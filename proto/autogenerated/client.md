@@ -93,6 +93,11 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [MessagingToken](#MessagingToken)
   - This methods has an __empty__ __response__ body
 
+- GetAdminTransactionSwapQuote
+  - auth type: __Admin__
+  - input: [TransactionSwapRequest](#TransactionSwapRequest)
+  - output: [TransactionSwapQuote](#TransactionSwapQuote)
+
 - GetAppsMetrics
   - auth type: __Metrics__
   - input: [AppsMetricsRequest](#AppsMetricsRequest)
@@ -279,6 +284,11 @@ The nostr server will send back a message response, and inside the body there wi
   - auth type: __User__
   - input: [PayAddressRequest](#PayAddressRequest)
   - output: [PayAddressResponse](#PayAddressResponse)
+
+- PayAdminTransactionSwap
+  - auth type: __Admin__
+  - input: [TransactionSwapQuoteRequest](#TransactionSwapQuoteRequest)
+  - output: [AdminSwapResponse](#AdminSwapResponse)
 
 - PayInvoice
   - auth type: __User__
@@ -524,6 +534,13 @@ The nostr server will send back a message response, and inside the body there wi
   - http route: __/api/user/messaging/enroll__
   - input: [MessagingToken](#MessagingToken)
   - This methods has an __empty__ __response__ body
+
+- GetAdminTransactionSwapQuote
+  - auth type: __Admin__
+  - http method: __post__
+  - http route: __/api/admin/swap/transaction/quote__
+  - input: [TransactionSwapRequest](#TransactionSwapRequest)
+  - output: [TransactionSwapQuote](#TransactionSwapQuote)
 
 - GetApp
   - auth type: __App__
@@ -870,6 +887,13 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [PayAddressRequest](#PayAddressRequest)
   - output: [PayAddressResponse](#PayAddressResponse)
 
+- PayAdminTransactionSwap
+  - auth type: __Admin__
+  - http method: __post__
+  - http route: __/api/admin/swap/transaction/pay__
+  - input: [TransactionSwapQuoteRequest](#TransactionSwapQuoteRequest)
+  - output: [AdminSwapResponse](#AdminSwapResponse)
+
 - PayAppUserInvoice
   - auth type: __App__
   - http method: __post__
@@ -1061,6 +1085,10 @@ The nostr server will send back a message response, and inside the body there wi
 ### AddProductRequest
   - __name__: _string_
   - __price_sats__: _number_
+
+### AdminSwapResponse
+  - __network_fee__: _number_
+  - __tx_id__: _string_
 
 ### AppMetrics
   - __app__: _[Application](#Application)_
@@ -1611,6 +1639,10 @@ The nostr server will send back a message response, and inside the body there wi
   - __swap_fee_sats__: _number_
   - __swap_operation_id__: _string_
   - __transaction_amount_sats__: _number_
+
+### TransactionSwapQuoteRequest
+  - __address__: _string_
+  - __swap_operation_id__: _string_
 
 ### TransactionSwapRequest
   - __transaction_amount_sats__: _number_

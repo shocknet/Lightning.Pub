@@ -869,6 +869,28 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
+    if (!opts.allowNotImplementedMethods && !methods.GetAdminTransactionSwapQuote) throw new Error('method: GetAdminTransactionSwapQuote is not implemented')
+    app.post('/api/admin/swap/transaction/quote', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'GetAdminTransactionSwapQuote', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.GetAdminTransactionSwapQuote) throw new Error('method: GetAdminTransactionSwapQuote is not implemented')
+            const authContext = await opts.AdminAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.TransactionSwapRequestValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+            const response =  await methods.GetAdminTransactionSwapQuote({rpcName:'GetAdminTransactionSwapQuote', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
     if (!opts.allowNotImplementedMethods && !methods.GetApp) throw new Error('method: GetApp is not implemented')
     app.post('/api/app/get', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'GetApp', batch: false, nostr: false, batchSize: 0}
@@ -1747,6 +1769,28 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const query = req.query
             const params = req.params
             const response =  await methods.PayAddress({rpcName:'PayAddress', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.PayAdminTransactionSwap) throw new Error('method: PayAdminTransactionSwap is not implemented')
+    app.post('/api/admin/swap/transaction/pay', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'PayAdminTransactionSwap', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.PayAdminTransactionSwap) throw new Error('method: PayAdminTransactionSwap is not implemented')
+            const authContext = await opts.AdminAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.TransactionSwapQuoteRequestValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+            const response =  await methods.PayAdminTransactionSwap({rpcName:'PayAdminTransactionSwap', ctx:authContext , req: request})
             stats.handle = process.hrtime.bigint()
             res.json({status: 'OK', ...response})
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])

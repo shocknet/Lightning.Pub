@@ -175,6 +175,20 @@ service LightningPub {
         option (nostr) = true;
     }
 
+    rpc GetAdminTransactionSwapQuote(structs.TransactionSwapRequest) returns (structs.TransactionSwapQuote) {
+        option (auth_type)  = "Admin";
+        option (http_method) = "post";
+        option (http_route) = "/api/admin/swap/transaction/quote";
+        option (nostr) = true;
+    }
+
+    rpc PayAdminTransactionSwap(structs.TransactionSwapQuoteRequest) returns (structs.AdminSwapResponse) {
+        option (auth_type)  = "Admin";
+        option (http_method) = "post";
+        option (http_route) = "/api/admin/swap/transaction/pay";
+        option (nostr) = true;
+    }
+
     rpc GetUsageMetrics(structs.LatestUsageMetricReq) returns (structs.UsageMetrics) {
         option (auth_type)  = "Metrics";
         option (http_method) = "post";
@@ -480,7 +494,7 @@ service LightningPub {
         option (http_method) = "post";
         option (http_route) = "/api/user/operations";
         option (nostr) = true;
-    } 
+    }
 
     rpc NewAddress(structs.NewAddressRequest) returns (structs.NewAddressResponse) {
         option (auth_type)  = "User";

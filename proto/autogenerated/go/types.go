@@ -123,6 +123,10 @@ type AddProductRequest struct {
 	Name       string `json:"name"`
 	Price_sats int64  `json:"price_sats"`
 }
+type AdminSwapResponse struct {
+	Network_fee int64  `json:"network_fee"`
+	Tx_id       string `json:"tx_id"`
+}
 type AppMetrics struct {
 	App        *Application    `json:"app"`
 	Available  int64           `json:"available"`
@@ -672,6 +676,10 @@ type TransactionSwapQuote struct {
 	Swap_fee_sats           int64  `json:"swap_fee_sats"`
 	Swap_operation_id       string `json:"swap_operation_id"`
 	Transaction_amount_sats int64  `json:"transaction_amount_sats"`
+}
+type TransactionSwapQuoteRequest struct {
+	Address           string `json:"address"`
+	Swap_operation_id string `json:"swap_operation_id"`
 }
 type TransactionSwapRequest struct {
 	Transaction_amount_sats int64 `json:"transaction_amount_sats"`

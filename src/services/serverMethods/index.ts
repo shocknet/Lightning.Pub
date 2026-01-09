@@ -91,6 +91,13 @@ export default (mainHandler: Main): Types.ServerMethods => {
             if (err != null) throw new Error(err.message)
             return mainHandler.adminManager.CloseChannel(req)
         },
+        GetAdminTransactionSwapQuote: async ({ ctx, req }) => {
+            const err = Types.TransactionSwapRequestValidate(req, {
+                transaction_amount_sats_CustomCheck: amt => amt > 0
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.adminManager.GetAdminTransactionSwapQuote(req)
+        },
         GetProvidersDisruption: async () => {
             return mainHandler.metricsManager.GetProvidersDisruption()
         },

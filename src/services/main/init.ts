@@ -11,6 +11,7 @@ import { AdminManager } from "./adminManager.js"
 import SettingsManager from "./settingsManager.js"
 import { LoadStorageSettingsFromEnv } from "../storage/index.js"
 import { NostrSender } from "../nostr/sender.js"
+import { Swaps } from "../lnd/swaps.js"
 export type AppData = {
     privateKey: string;
     publicKey: string;
@@ -32,7 +33,8 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
     const utils = storageManager.utils
     const unlocker = new Unlocker(settingsManager, storageManager)
     await unlocker.Unlock()
-    const adminManager = new AdminManager(settingsManager, storageManager)
+    const swaps = new Swaps(settingsManager, storageManager)
+    const adminManager = new AdminManager(settingsManager, storageManager, swaps)
     let wizard: Wizard | null = null
     if (settingsManager.getSettings().serviceSettings.wizard) {
         wizard = new Wizard(settingsManager, storageManager, adminManager)

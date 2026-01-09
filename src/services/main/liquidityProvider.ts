@@ -121,12 +121,11 @@ export class LiquidityProvider {
                     await this.invoicePaidCb(res.operation.identifier, res.operation.amount, 'provider')
                     this.incrementProviderBalance(res.operation.amount)
                     this.latestReceivedBalance = res.latest_balance
-                    if (!res.operation.inbound && !res.operation.confirmed) {
-                        delete this.pendingPaymentsAck[res.operation.identifier]
-                    }
                 } catch (err: any) {
                     this.log("error processing incoming invoice", err.message)
                 }
+            } else if (res.operation.type === Types.UserOperationType.OUTGOING_INVOICE) {
+                delete this.pendingPaymentsAck[res.operation.identifier]
             }
         })
     }
