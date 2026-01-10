@@ -8,6 +8,7 @@ import LND from '../services/lnd/lnd.js'
 import { LiquidityProvider } from "../services/main/liquidityProvider.js"
 import { Utils } from "../services/helpers/utilsWrapper.js"
 import { LoadStorageSettingsFromEnv } from "../services/storage/index.js"
+import { NostrSender } from "../services/nostr/sender.js"
 
 export type ChainTools = {
     mine: (amount: number) => Promise<void>
@@ -15,7 +16,8 @@ export type ChainTools = {
 
 export const setupNetwork = async (): Promise<ChainTools> => {
     const storageSettings = GetTestStorageSettings(LoadStorageSettingsFromEnv())
-    const setupUtils = new Utils({ dataDir: storageSettings.dataDir, allowResetMetricsStorages: storageSettings.allowResetMetricsStorages })
+    const nostrSender = new NostrSender()
+    const setupUtils = new Utils({ dataDir: storageSettings.dataDir, allowResetMetricsStorages: storageSettings.allowResetMetricsStorages }, nostrSender)
     //const settingsManager = new SettingsManager(storageSettings)
     const core = new BitcoinCoreWrapper(LoadBitcoinCoreSettingsFromEnv())
     await core.InitAddress()
@@ -23,7 +25,7 @@ export const setupNetwork = async (): Promise<ChainTools> => {
     const lndSettings = LoadLndSettingsFromEnv({})
     const lndNodeSettings = LoadLndNodeSettingsFromEnv({})
     const secondLndNodeSettings = LoadSecondLndSettingsFromEnv()
-    const liquiditySettings: LiquiditySettings = { disableLiquidityProvider: true, liquidityProviderPub: "", useOnlyLiquidityProvider: false }
+    const liquiditySettings: LiquiditySettings = { disableLiquidityProvider: true, liquidityProviderPub: "", useOnlyLiquidityProvider: false, providerRelayUrl: "" }
     const alice = new LND(() => ({ lndSettings, lndNodeSettings }), new LiquidityProvider(() => liquiditySettings, setupUtils, async () => { }, async () => { }), async () => { }, setupUtils, async () => { }, async () => { }, () => { }, () => { }, () => { })
     const bob = new LND(() => ({ lndSettings, lndNodeSettings: secondLndNodeSettings }), new LiquidityProvider(() => liquiditySettings, setupUtils, async () => { }, async () => { }), async () => { }, setupUtils, async () => { }, async () => { }, () => { }, () => { }, () => { })
     await tryUntil<void>(async i => {

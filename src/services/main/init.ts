@@ -10,6 +10,8 @@ import { Wizard } from "../wizard/index.js"
 import { AdminManager } from "./adminManager.js"
 import SettingsManager from "./settingsManager.js"
 import { LoadStorageSettingsFromEnv } from "../storage/index.js"
+import { NostrSender } from "../nostr/sender.js"
+import { Swaps } from "../lnd/swaps.js"
 export type AppData = {
     privateKey: string;
     publicKey: string;
@@ -18,7 +20,8 @@ export type AppData = {
 }
 
 export const initSettings = async (log: PubLogger, storageSettings: StorageSettings): Promise<SettingsManager> => {
-    const utils = new Utils({ dataDir: storageSettings.dataDir, allowResetMetricsStorages: storageSettings.allowResetMetricsStorages })
+    const nostrSender = new NostrSender()
+    const utils = new Utils({ dataDir: storageSettings.dataDir, allowResetMetricsStorages: storageSettings.allowResetMetricsStorages }, nostrSender)
     const storageManager = new Storage(storageSettings, utils)
     await storageManager.Connect(log)
     const settingsManager = new SettingsManager(storageManager)
@@ -30,7 +33,8 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
     const utils = storageManager.utils
     const unlocker = new Unlocker(settingsManager, storageManager)
     await unlocker.Unlock()
-    const adminManager = new AdminManager(settingsManager, storageManager)
+    const swaps = new Swaps(settingsManager, storageManager)
+    const adminManager = new AdminManager(settingsManager, storageManager, swaps)
     let wizard: Wizard | null = null
     if (settingsManager.getSettings().serviceSettings.wizard) {
         wizard = new Wizard(settingsManager, storageManager, adminManager)
@@ -61,26 +65,22 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
             return { privateKey: app.nostr_private_key, publicKey: app.nostr_public_key, appId: app.app_id, name: app.name }
         }
     }))
-    const liquidityProviderApp = apps.find(app => defaultNames.includes(app.name))
-    if (!liquidityProviderApp) {
-        throw new Error("wallet app not initialized correctly")
+    const localProviderClient = apps.find(app => defaultNames.includes(app.name))
+    if (!localProviderClient) {
+        throw new Error("local app not initialized correctly")
     }
-    const liquidityProviderInfo = {
-        privateKey: liquidityProviderApp.privateKey,
-        publicKey: liquidityProviderApp.publicKey,
-        name: "liquidity_provider", clientId: `client_${liquidityProviderApp.appId}`
-    }
-    mainHandler.liquidityProvider.setNostrInfo({ clientId: liquidityProviderInfo.clientId, myPub: liquidityProviderInfo.publicKey })
+    mainHandler.liquidityProvider.setNostrInfo({ localId: `client_${localProviderClient.appId}`, localPubkey: localProviderClient.publicKey })
     const stop = await processArgs(mainHandler)
     if (stop) {
         return
     }
-    await mainHandler.paymentManager.checkPendingPayments()
+    await mainHandler.paymentManager.checkPaymentStatus()
+    await mainHandler.paymentManager.checkMissedChainTxs()
     await mainHandler.paymentManager.CleanupOldUnpaidInvoices()
     await mainHandler.appUserManager.CleanupInactiveUsers()
     await mainHandler.appUserManager.CleanupNeverActiveUsers()
     await mainHandler.paymentManager.watchDog.Start()
-    return { mainHandler, apps, liquidityProviderInfo, liquidityProviderApp, wizard, adminManager }
+    return { mainHandler, apps, localProviderClient, wizard, adminManager }
 }
 
 const processArgs = async (mainHandler: Main) => {

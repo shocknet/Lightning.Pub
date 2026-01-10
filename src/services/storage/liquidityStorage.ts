@@ -64,4 +64,13 @@ export class LiquidityStorage {
     async UpdateTrackedProviderDisruption(providerType: 'lnd' | 'lnPub', pub: string, latestDisruptionAtUnix: number) {
         return this.dbs.Update<TrackedProvider>('TrackedProvider', { provider_pubkey: pub, provider_type: providerType }, { latest_distruption_at_unix: latestDisruptionAtUnix })
     }
+
+    async GetLatestCheckedHeight(providerType: 'lnd' | 'lnPub', pub: string): Promise<number> {
+        const provider = await this.GetTrackedProvider(providerType, pub)
+        return provider?.latest_checked_height || 0
+    }
+
+    async UpdateLatestCheckedHeight(providerType: 'lnd' | 'lnPub', pub: string, height: number) {
+        return this.dbs.Update<TrackedProvider>('TrackedProvider', { provider_pubkey: pub, provider_type: providerType }, { latest_checked_height: height })
+    }
 }

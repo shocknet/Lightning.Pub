@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { And, Between, Equal, FindOperator, IsNull, LessThan, LessThanOrEqual, MoreThan, MoreThanOrEqual } from "typeorm"
+import { And, Between, Equal, FindOperator, IsNull, LessThan, LessThanOrEqual, MoreThan, MoreThanOrEqual, Not } from "typeorm"
 import { User } from './entity/User.js';
 import { UserTransactionPayment } from './entity/UserTransactionPayment.js';
 import { EphemeralKeyType, UserEphemeralKey } from './entity/UserEphemeralKey.js';
@@ -14,6 +14,7 @@ import { Application } from './entity/Application.js';
 import TransactionsQueue from "./db/transactionsQueue.js";
 import { LoggedEvent } from './eventsLog.js';
 import { StorageInterface } from './db/storageInterface.js';
+import { TransactionSwap } from './entity/TransactionSwap.js';
 export type InboundOptionals = { product?: Product, callbackUrl?: string, expiry: number, expectedPayer?: User, linkedApplication?: Application, zapInfo?: ZapInfo, offerId?: string, payerData?: Record<string, string>, rejectUnauthorized?: boolean, token?: string, blind?: boolean, clinkRequesterPub?: string, clinkRequesterEventId?: string }
 export const defaultInvoiceExpiry = 60 * 60
 export default class {
@@ -160,7 +161,8 @@ export default class {
         return this.dbs.FindOne<UserToUserPayment>('UserToUserPayment', { where: { serial_id: serialId } }, txId)
     }
 
-    async AddPendingExternalPayment(userId: string, invoice: string, amounts: { payAmount: number, serviceFee: number, networkFee: number }, linkedApplication: Application, liquidityProvider: string | undefined, txId: string, debitNpub?: string): Promise<UserInvoicePayment> {
+    async AddPendingExternalPayment(userId: string, invoice: string, amounts: { payAmount: number, serviceFee: number, networkFee: number }, linkedApplication: Application, liquidityProvider: string | undefined, txId: string, optionals: { debitNpub?: string, swapOperationId?: string } = {}): Promise<UserInvoicePayment> {
+        const { debitNpub, swapOperationId } = optionals
         const user = await this.userStorage.GetUser(userId, txId)
         return this.dbs.CreateAndSave<UserInvoicePayment>('UserInvoicePayment', {
             user,
@@ -172,7 +174,8 @@ export default class {
             internal: false,
             linkedApplication,
             liquidityProvider,
-            debit_to_pub: debitNpub
+            debit_to_pub: debitNpub,
+            swap_operation_id: swapOperationId
         }, txId)
     }
 
@@ -459,6 +462,58 @@ export default class {
             where.paid_at_unix = MoreThan(0)
         }
         return this.dbs.Find<UserReceivingInvoice>('UserReceivingInvoice', { where })
+    }
+
+    async AddTransactionSwap(swap: Partial<TransactionSwap>) {
+        return this.dbs.CreateAndSave<TransactionSwap>('TransactionSwap', swap)
+    }
+
+    async GetTransactionSwap(swapOperationId: string, appUserId: string, txId?: string) {
+        return this.dbs.FindOne<TransactionSwap>('TransactionSwap', { where: { swap_operation_id: swapOperationId, used: false, app_user_id: appUserId } }, txId)
+    }
+
+    async FinalizeTransactionSwap(swapOperationId: string, address: string, txId: string) {
+        return this.dbs.Update<TransactionSwap>('TransactionSwap', { swap_operation_id: swapOperationId }, {
+            used: true,
+            tx_id: txId,
+            address_paid: address,
+        })
+    }
+
+    async FailTransactionSwap(swapOperationId: string, address: string, failureReason: string) {
+        return this.dbs.Update<TransactionSwap>('TransactionSwap', { swap_operation_id: swapOperationId }, {
+            used: true,
+            failure_reason: failureReason,
+            address_paid: address,
+        })
+    }
+
+    async DeleteTransactionSwap(swapOperationId: string, txId?: string) {
+        return this.dbs.Delete<TransactionSwap>('TransactionSwap', { swap_operation_id: swapOperationId }, txId)
+    }
+
+    async DeleteExpiredTransactionSwaps(currentHeight: number, txId?: string) {
+        return this.dbs.Delete<TransactionSwap>('TransactionSwap', { timeout_block_height: LessThan(currentHeight) }, txId)
+    }
+
+    async ListPendingTransactionSwaps(appUserId: string, txId?: string) {
+        return this.dbs.Find<TransactionSwap>('TransactionSwap', { where: { used: false, app_user_id: appUserId } }, txId)
+    }
+
+    async ListSwapPayments(userId: string, txId?: string) {
+        return this.dbs.Find<UserInvoicePayment>('UserInvoicePayment', { where: { swap_operation_id: Not(IsNull()), user: { user_id: userId } } }, txId)
+    }
+
+    async ListCompletedSwaps(appUserId: string, payments: UserInvoicePayment[], txId?: string) {
+        const completed = await this.dbs.Find<TransactionSwap>('TransactionSwap', { where: { used: true, app_user_id: appUserId } }, txId)
+        // const payments = await this.dbs.Find<UserInvoicePayment>('UserInvoicePayment', { where: { swap_operation_id: Not(IsNull()), } }, txId)
+        const paymentsMap = new Map<string, UserInvoicePayment>()
+        payments.forEach(p => {
+            paymentsMap.set(p.swap_operation_id, p)
+        })
+        return completed.map(c => ({
+            swap: c, payment: paymentsMap.get(c.swap_operation_id)
+        }))
     }
 }
 

@@ -1,19 +1,17 @@
 import { ChildProcess, fork } from 'child_process'
-import { NostrSettings, NostrEvent, ChildProcessRequest, ChildProcessResponse, SendData, SendInitiator } from "./handler.js"
+import { NostrSettings, NostrEvent, SendData, SendInitiator } from "./nostrPool.js"
+import { ChildProcessRequest, ChildProcessResponse } from "./handler.js"
 import { Utils } from '../helpers/utilsWrapper.js'
 import { getLogger, ERROR } from '../helpers/logger.js'
 type EventCallback = (event: NostrEvent) => void
-
-
-
-
+type BeaconCallback = (beacon: { content: string, pub: string }) => void
 
 export default class NostrSubprocess {
     childProcess: ChildProcess
     utils: Utils
     awaitingPongs: (() => void)[] = []
     log = getLogger({})
-    constructor(settings: NostrSettings, utils: Utils, eventCallback: EventCallback) {
+    constructor(settings: NostrSettings, utils: Utils, eventCallback: EventCallback, beaconCallback: BeaconCallback) {
         this.utils = utils
         this.childProcess = fork("./build/src/services/nostr/handler")
         this.childProcess.on("error", (error) => {
@@ -42,6 +40,9 @@ export default class NostrSubprocess {
                 case 'pong':
                     this.awaitingPongs.forEach(resolve => resolve())
                     this.awaitingPongs = []
+                    break
+                case 'beacon':
+                    beaconCallback({ content: message.content, pub: message.pub })
                     break
                 default:
                     console.error("unknown nostr event response", message)

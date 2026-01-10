@@ -47,6 +47,9 @@ export class UserInvoicePayment {
     @Column({ nullable: true })
     debit_to_pub: string
 
+    @Column({ nullable: true })
+    swap_operation_id: string
+
     @CreateDateColumn()
     created_at: Date
 
