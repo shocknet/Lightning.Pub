@@ -584,10 +584,13 @@ type PayerData struct {
 	Data map[string]string `json:"data"`
 }
 type PaymentState struct {
-	Amount       int64 `json:"amount"`
-	Network_fee  int64 `json:"network_fee"`
-	Paid_at_unix int64 `json:"paid_at_unix"`
-	Service_fee  int64 `json:"service_fee"`
+	Amount       int64  `json:"amount"`
+	Internal     bool   `json:"internal"`
+	Network_fee  int64  `json:"network_fee"`
+	Operation_id string `json:"operation_id"`
+	Paid_at_unix int64  `json:"paid_at_unix"`
+	Preimage     string `json:"preimage"`
+	Service_fee  int64  `json:"service_fee"`
 }
 type Product struct {
 	Id         string `json:"id"`

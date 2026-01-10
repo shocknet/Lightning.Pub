@@ -137,6 +137,9 @@ export default (mainHandler: Main): Types.ServerMethods => {
         GetUserOperations: async ({ ctx, req }) => {
             return mainHandler.paymentManager.GetUserOperations(ctx.user_id, req)
         },
+        ListAdminSwaps: async ({ ctx }) => {
+            return mainHandler.adminManager.ListAdminSwaps()
+        },
         GetPaymentState: async ({ ctx, req }) => {
             const err = Types.GetPaymentStateRequestValidate(req, {
                 invoice_CustomCheck: invoice => invoice !== ""

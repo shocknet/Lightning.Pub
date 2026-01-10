@@ -7,8 +7,8 @@ export type RequestMetric = AuthContext & RequestInfo & RequestStats & { error?:
 export type AdminContext = {
     admin_id: string
 }
-export type AdminMethodInputs = AddApp_Input | AddPeer_Input | AuthApp_Input | BanUser_Input | CloseChannel_Input | CreateOneTimeInviteLink_Input | GetAdminTransactionSwapQuote_Input | GetInviteLinkState_Input | GetSeed_Input | ListChannels_Input | LndGetInfo_Input | OpenChannel_Input | PayAdminTransactionSwap_Input | UpdateChannelPolicy_Input
-export type AdminMethodOutputs = AddApp_Output | AddPeer_Output | AuthApp_Output | BanUser_Output | CloseChannel_Output | CreateOneTimeInviteLink_Output | GetAdminTransactionSwapQuote_Output | GetInviteLinkState_Output | GetSeed_Output | ListChannels_Output | LndGetInfo_Output | OpenChannel_Output | PayAdminTransactionSwap_Output | UpdateChannelPolicy_Output
+export type AdminMethodInputs = AddApp_Input | AddPeer_Input | AuthApp_Input | BanUser_Input | CloseChannel_Input | CreateOneTimeInviteLink_Input | GetAdminTransactionSwapQuote_Input | GetInviteLinkState_Input | GetSeed_Input | ListAdminSwaps_Input | ListChannels_Input | LndGetInfo_Input | OpenChannel_Input | PayAdminTransactionSwap_Input | UpdateChannelPolicy_Input
+export type AdminMethodOutputs = AddApp_Output | AddPeer_Output | AuthApp_Output | BanUser_Output | CloseChannel_Output | CreateOneTimeInviteLink_Output | GetAdminTransactionSwapQuote_Output | GetInviteLinkState_Output | GetSeed_Output | ListAdminSwaps_Output | ListChannels_Output | LndGetInfo_Output | OpenChannel_Output | PayAdminTransactionSwap_Output | UpdateChannelPolicy_Output
 export type AppContext = {
     app_id: string
 }
@@ -238,6 +238,9 @@ export type Health_Output = ResultError | { status: 'OK' }
 export type LinkNPubThroughToken_Input = {rpcName:'LinkNPubThroughToken', req: LinkNPubThroughTokenRequest}
 export type LinkNPubThroughToken_Output = ResultError | { status: 'OK' }
 
+export type ListAdminSwaps_Input = {rpcName:'ListAdminSwaps'}
+export type ListAdminSwaps_Output = ResultError | ({ status: 'OK' } & SwapsList)
+
 export type ListChannels_Input = {rpcName:'ListChannels'}
 export type ListChannels_Output = ResultError | ({ status: 'OK' } & LndChannels)
 
@@ -394,6 +397,7 @@ export type ServerMethods = {
     HandleLnurlWithdraw?: (req: HandleLnurlWithdraw_Input & {ctx: GuestContext }) => Promise<void>
     Health?: (req: Health_Input & {ctx: GuestContext }) => Promise<void>
     LinkNPubThroughToken?: (req: LinkNPubThroughToken_Input & {ctx: GuestWithPubContext }) => Promise<void>
+    ListAdminSwaps?: (req: ListAdminSwaps_Input & {ctx: AdminContext }) => Promise<SwapsList>
     ListChannels?: (req: ListChannels_Input & {ctx: AdminContext }) => Promise<LndChannels>
     ListSwaps?: (req: ListSwaps_Input & {ctx: UserContext }) => Promise<SwapsList>
     LndGetInfo?: (req: LndGetInfo_Input & {ctx: AdminContext }) => Promise<LndGetInfoResponse>
@@ -3448,16 +3452,23 @@ export const PayerDataValidate = (o?: PayerData, opts: PayerDataOptions = {}, pa
 
 export type PaymentState = {
     amount: number
+    internal: boolean
     network_fee: number
+    operation_id: string
     paid_at_unix: number
+    preimage?: string
     service_fee: number
 }
-export const PaymentStateOptionalFields: [] = []
+export type PaymentStateOptionalField = 'preimage'
+export const PaymentStateOptionalFields: PaymentStateOptionalField[] = ['preimage']
 export type PaymentStateOptions = OptionsBaseMessage & {
-    checkOptionalsAreSet?: []
+    checkOptionalsAreSet?: PaymentStateOptionalField[]
     amount_CustomCheck?: (v: number) => boolean
+    internal_CustomCheck?: (v: boolean) => boolean
     network_fee_CustomCheck?: (v: number) => boolean
+    operation_id_CustomCheck?: (v: string) => boolean
     paid_at_unix_CustomCheck?: (v: number) => boolean
+    preimage_CustomCheck?: (v?: string) => boolean
     service_fee_CustomCheck?: (v: number) => boolean
 }
 export const PaymentStateValidate = (o?: PaymentState, opts: PaymentStateOptions = {}, path: string = 'PaymentState::root.'): Error | null => {
@@ -3467,11 +3478,20 @@ export const PaymentStateValidate = (o?: PaymentState, opts: PaymentStateOptions
     if (typeof o.amount !== 'number') return new Error(`${path}.amount: is not a number`)
     if (opts.amount_CustomCheck && !opts.amount_CustomCheck(o.amount)) return new Error(`${path}.amount: custom check failed`)
 
+    if (typeof o.internal !== 'boolean') return new Error(`${path}.internal: is not a boolean`)
+    if (opts.internal_CustomCheck && !opts.internal_CustomCheck(o.internal)) return new Error(`${path}.internal: custom check failed`)
+
     if (typeof o.network_fee !== 'number') return new Error(`${path}.network_fee: is not a number`)
     if (opts.network_fee_CustomCheck && !opts.network_fee_CustomCheck(o.network_fee)) return new Error(`${path}.network_fee: custom check failed`)
 
+    if (typeof o.operation_id !== 'string') return new Error(`${path}.operation_id: is not a string`)
+    if (opts.operation_id_CustomCheck && !opts.operation_id_CustomCheck(o.operation_id)) return new Error(`${path}.operation_id: custom check failed`)
+
     if (typeof o.paid_at_unix !== 'number') return new Error(`${path}.paid_at_unix: is not a number`)
     if (opts.paid_at_unix_CustomCheck && !opts.paid_at_unix_CustomCheck(o.paid_at_unix)) return new Error(`${path}.paid_at_unix: custom check failed`)
+
+    if ((o.preimage || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('preimage')) && typeof o.preimage !== 'string') return new Error(`${path}.preimage: is not a string`)
+    if (opts.preimage_CustomCheck && !opts.preimage_CustomCheck(o.preimage)) return new Error(`${path}.preimage: custom check failed`)
 
     if (typeof o.service_fee !== 'number') return new Error(`${path}.service_fee: is not a number`)
     if (opts.service_fee_CustomCheck && !opts.service_fee_CustomCheck(o.service_fee)) return new Error(`${path}.service_fee: custom check failed`)

@@ -616,34 +616,13 @@ export default class {
     }
 
     async ListSwaps(ctx: Types.UserContext): Promise<Types.SwapsList> {
-        const swaps = await this.storage.paymentStorage.ListCompletedSwaps(ctx.app_user_id)
-        const pendingSwaps = await this.storage.paymentStorage.ListPendingTransactionSwaps(ctx.app_user_id)
+        const payments = await this.storage.paymentStorage.ListSwapPayments(ctx.app_user_id)
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
         const isManagedUser = ctx.user_id !== app.owner.user_id
-        return {
-            swaps: swaps.map(s => {
-                const p = s.payment
-                const opId = `${Types.UserOperationType.OUTGOING_TX}-${p?.serial_id}`
-                const op = p ? this.newInvoicePaymentOperation({ amount: p.paid_amount, confirmed: p.paid_at_unix !== 0, invoice: p.invoice, opId, networkFee: p.routing_fees, serviceFee: p.service_fees, paidAtUnix: p.paid_at_unix }) : undefined
-                return {
-                    operation_payment: op,
-                    swap_operation_id: s.swap.swap_operation_id,
-                    address_paid: s.swap.address_paid,
-                    failure_reason: s.swap.failure_reason,
-                }
-            }),
-            quotes: pendingSwaps.map(s => {
-                const serviceFee = this.getSendServiceFee(Types.UserOperationType.OUTGOING_INVOICE, s.invoice_amount, isManagedUser)
-                return {
-                    swap_operation_id: s.swap_operation_id,
-                    invoice_amount_sats: s.invoice_amount,
-                    transaction_amount_sats: s.transaction_amount,
-                    chain_fee_sats: s.chain_fee_sats,
-                    service_fee_sats: serviceFee,
-                    swap_fee_sats: s.swap_fee_sats,
-                }
-            })
-        }
+        return this.swaps.ListSwaps(ctx.app_user_id, payments, p => {
+            const opId = `${Types.UserOperationType.OUTGOING_TX}-${p.serial_id}`
+            return this.newInvoicePaymentOperation({ amount: p.paid_amount, confirmed: p.paid_at_unix !== 0, invoice: p.invoice, opId, networkFee: p.routing_fees, serviceFee: p.service_fees, paidAtUnix: p.paid_at_unix })
+        }, amt => this.getSendServiceFee(Types.UserOperationType.OUTGOING_INVOICE, amt, isManagedUser))
     }
 
     balanceCheckUrl(k1: string): string {
@@ -918,6 +897,8 @@ export default class {
             amount: invoice.paid_amount,
             network_fee: 0,
             service_fee: invoice.service_fees,
+            internal: invoice.internal,
+            operation_id: `${Types.UserOperationType.OUTGOING_INVOICE}-${invoice.serial_id}`,
         }
     }
 

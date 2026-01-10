@@ -500,9 +500,13 @@ export default class {
         return this.dbs.Find<TransactionSwap>('TransactionSwap', { where: { used: false, app_user_id: appUserId } }, txId)
     }
 
-    async ListCompletedSwaps(appUserId: string, txId?: string) {
+    async ListSwapPayments(userId: string, txId?: string) {
+        return this.dbs.Find<UserInvoicePayment>('UserInvoicePayment', { where: { swap_operation_id: Not(IsNull()), user: { user_id: userId } } }, txId)
+    }
+
+    async ListCompletedSwaps(appUserId: string, payments: UserInvoicePayment[], txId?: string) {
         const completed = await this.dbs.Find<TransactionSwap>('TransactionSwap', { where: { used: true, app_user_id: appUserId } }, txId)
-        const payments = await this.dbs.Find<UserInvoicePayment>('UserInvoicePayment', { where: { swap_operation_id: Not(IsNull()) } }, txId)
+        // const payments = await this.dbs.Find<UserInvoicePayment>('UserInvoicePayment', { where: { swap_operation_id: Not(IsNull()), } }, txId)
         const paymentsMap = new Map<string, UserInvoicePayment>()
         payments.forEach(p => {
             paymentsMap.set(p.swap_operation_id, p)

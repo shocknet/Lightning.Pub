@@ -260,6 +260,10 @@ export class AdminManager {
         }
     }
 
+    async ListAdminSwaps(): Promise<Types.SwapsList> {
+        return this.swaps.ListSwaps("admin", [], p => undefined, amt => 0)
+    }
+
     async GetAdminTransactionSwapQuote(req: Types.TransactionSwapRequest): Promise<Types.TransactionSwapQuote> {
         return this.swaps.GetTxSwapQuote("admin", req.transaction_amount_sats, () => 0)
     }

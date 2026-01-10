@@ -490,6 +490,9 @@ message PaymentState{
     int64 amount = 2;
     int64 service_fee = 3;
     int64 network_fee = 4;
+    bool internal = 5;
+    string operation_id = 6;
+
 }
 
 message LnurlLinkResponse{

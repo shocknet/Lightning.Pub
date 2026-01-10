@@ -243,6 +243,11 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [LinkNPubThroughTokenRequest](#LinkNPubThroughTokenRequest)
   - This methods has an __empty__ __response__ body
 
+- ListAdminSwaps
+  - auth type: __Admin__
+  - This methods has an __empty__ __request__ body
+  - output: [SwapsList](#SwapsList)
+
 - ListChannels
   - auth type: __Admin__
   - This methods has an __empty__ __request__ body
@@ -828,6 +833,13 @@ The nostr server will send back a message response, and inside the body there wi
   - http route: __/api/guest/npub/link__
   - input: [LinkNPubThroughTokenRequest](#LinkNPubThroughTokenRequest)
   - This methods has an __empty__ __response__ body
+
+- ListAdminSwaps
+  - auth type: __Admin__
+  - http method: __post__
+  - http route: __/api/admin/swap/list__
+  - This methods has an __empty__ __request__ body
+  - output: [SwapsList](#SwapsList)
 
 - ListChannels
   - auth type: __Admin__
@@ -1548,8 +1560,11 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### PaymentState
   - __amount__: _number_
+  - __internal__: _boolean_
   - __network_fee__: _number_
+  - __operation_id__: _string_
   - __paid_at_unix__: _number_
+  - __preimage__: _string_ *this field is optional
   - __service_fee__: _number_
 
 ### Product

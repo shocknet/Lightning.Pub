@@ -114,6 +114,7 @@ type Client struct {
 	HandleLnurlWithdraw          func(query HandleLnurlWithdraw_Query) error
 	Health                       func() error
 	LinkNPubThroughToken         func(req LinkNPubThroughTokenRequest) error
+	ListAdminSwaps               func() (*SwapsList, error)
 	ListChannels                 func() (*LndChannels, error)
 	ListSwaps                    func() (*SwapsList, error)
 	LndGetInfo                   func(req LndGetInfoRequest) (*LndGetInfoResponse, error)
@@ -1641,6 +1642,32 @@ func NewClient(params ClientParams) *Client {
 				return fmt.Errorf(result.Reason)
 			}
 			return nil
+		},
+		ListAdminSwaps: func() (*SwapsList, error) {
+			auth, err := params.RetrieveAdminAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/admin/swap/list"
+			body := []byte{}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return nil, err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := SwapsList{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
 		},
 		ListChannels: func() (*LndChannels, error) {
 			auth, err := params.RetrieveAdminAuth()
