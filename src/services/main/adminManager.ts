@@ -267,10 +267,9 @@ export class AdminManager {
     async GetAdminTransactionSwapQuote(req: Types.TransactionSwapRequest): Promise<Types.TransactionSwapQuote> {
         return this.swaps.GetTxSwapQuote("admin", req.transaction_amount_sats, () => 0)
     }
-    async PayAdminTransactionSwap(req: Types.TransactionSwapQuoteRequest): Promise<Types.AdminSwapResponse> {
+    async PayAdminTransactionSwap(req: Types.PayAdminTransactionSwapRequest): Promise<Types.AdminSwapResponse> {
         const routingFloor = this.settings.getSettings().lndSettings.routingFeeFloor
         const routingLimit = this.settings.getSettings().lndSettings.routingFeeLimitBps / 10000
-
 
         const swap = await this.swaps.PayAddrWithSwap("admin", req.swap_operation_id, req.address, async (invoice, amt) => {
             const r = Math.max(Math.ceil(routingLimit * amt), routingFloor)

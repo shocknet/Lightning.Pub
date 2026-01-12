@@ -99,7 +99,7 @@ export default (mainHandler: Main): Types.ServerMethods => {
             return mainHandler.adminManager.GetAdminTransactionSwapQuote(req)
         },
         PayAdminTransactionSwap: async ({ ctx, req }) => {
-            const err = Types.TransactionSwapQuoteRequestValidate(req, {
+            const err = Types.PayAdminTransactionSwapRequestValidate(req, {
                 address_CustomCheck: addr => addr !== '',
                 swap_operation_id_CustomCheck: id => id !== '',
             })

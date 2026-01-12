@@ -559,6 +559,10 @@ type PayAddressResponse struct {
 	Service_fee  int64  `json:"service_fee"`
 	Txid         string `json:"txId"`
 }
+type PayAdminTransactionSwapRequest struct {
+	Address           string `json:"address"`
+	Swap_operation_id string `json:"swap_operation_id"`
+}
 type PayAppUserInvoiceRequest struct {
 	Amount          int64           `json:"amount"`
 	Debit_npub      string          `json:"debit_npub"`
@@ -589,7 +593,6 @@ type PaymentState struct {
 	Network_fee  int64  `json:"network_fee"`
 	Operation_id string `json:"operation_id"`
 	Paid_at_unix int64  `json:"paid_at_unix"`
-	Preimage     string `json:"preimage"`
 	Service_fee  int64  `json:"service_fee"`
 }
 type Product struct {
@@ -679,10 +682,6 @@ type TransactionSwapQuote struct {
 	Swap_fee_sats           int64  `json:"swap_fee_sats"`
 	Swap_operation_id       string `json:"swap_operation_id"`
 	Transaction_amount_sats int64  `json:"transaction_amount_sats"`
-}
-type TransactionSwapQuoteRequest struct {
-	Address           string `json:"address"`
-	Swap_operation_id string `json:"swap_operation_id"`
 }
 type TransactionSwapRequest struct {
 	Transaction_amount_sats int64 `json:"transaction_amount_sats"`

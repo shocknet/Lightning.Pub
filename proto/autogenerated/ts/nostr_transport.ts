@@ -1261,7 +1261,7 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     stats.guard = process.hrtime.bigint()
                     authCtx = authContext
                     const request = req.body
-                    const error = Types.TransactionSwapQuoteRequestValidate(request)
+                    const error = Types.PayAdminTransactionSwapRequestValidate(request)
                     stats.validate = process.hrtime.bigint()
                     if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
                     const response = await methods.PayAdminTransactionSwap({rpcName:'PayAdminTransactionSwap', ctx:authContext , req: request})

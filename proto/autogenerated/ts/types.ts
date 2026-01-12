@@ -268,7 +268,7 @@ export type OpenChannel_Output = ResultError | ({ status: 'OK' } & OpenChannelRe
 export type PayAddress_Input = {rpcName:'PayAddress', req: PayAddressRequest}
 export type PayAddress_Output = ResultError | ({ status: 'OK' } & PayAddressResponse)
 
-export type PayAdminTransactionSwap_Input = {rpcName:'PayAdminTransactionSwap', req: TransactionSwapQuoteRequest}
+export type PayAdminTransactionSwap_Input = {rpcName:'PayAdminTransactionSwap', req: PayAdminTransactionSwapRequest}
 export type PayAdminTransactionSwap_Output = ResultError | ({ status: 'OK' } & AdminSwapResponse)
 
 export type PayAppUserInvoice_Input = {rpcName:'PayAppUserInvoice', req: PayAppUserInvoiceRequest}
@@ -3308,6 +3308,29 @@ export const PayAddressResponseValidate = (o?: PayAddressResponse, opts: PayAddr
     return null
 }
 
+export type PayAdminTransactionSwapRequest = {
+    address: string
+    swap_operation_id: string
+}
+export const PayAdminTransactionSwapRequestOptionalFields: [] = []
+export type PayAdminTransactionSwapRequestOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    address_CustomCheck?: (v: string) => boolean
+    swap_operation_id_CustomCheck?: (v: string) => boolean
+}
+export const PayAdminTransactionSwapRequestValidate = (o?: PayAdminTransactionSwapRequest, opts: PayAdminTransactionSwapRequestOptions = {}, path: string = 'PayAdminTransactionSwapRequest::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.address !== 'string') return new Error(`${path}.address: is not a string`)
+    if (opts.address_CustomCheck && !opts.address_CustomCheck(o.address)) return new Error(`${path}.address: custom check failed`)
+
+    if (typeof o.swap_operation_id !== 'string') return new Error(`${path}.swap_operation_id: is not a string`)
+    if (opts.swap_operation_id_CustomCheck && !opts.swap_operation_id_CustomCheck(o.swap_operation_id)) return new Error(`${path}.swap_operation_id: custom check failed`)
+
+    return null
+}
+
 export type PayAppUserInvoiceRequest = {
     amount: number
     debit_npub?: string
@@ -3456,19 +3479,16 @@ export type PaymentState = {
     network_fee: number
     operation_id: string
     paid_at_unix: number
-    preimage?: string
     service_fee: number
 }
-export type PaymentStateOptionalField = 'preimage'
-export const PaymentStateOptionalFields: PaymentStateOptionalField[] = ['preimage']
+export const PaymentStateOptionalFields: [] = []
 export type PaymentStateOptions = OptionsBaseMessage & {
-    checkOptionalsAreSet?: PaymentStateOptionalField[]
+    checkOptionalsAreSet?: []
     amount_CustomCheck?: (v: number) => boolean
     internal_CustomCheck?: (v: boolean) => boolean
     network_fee_CustomCheck?: (v: number) => boolean
     operation_id_CustomCheck?: (v: string) => boolean
     paid_at_unix_CustomCheck?: (v: number) => boolean
-    preimage_CustomCheck?: (v?: string) => boolean
     service_fee_CustomCheck?: (v: number) => boolean
 }
 export const PaymentStateValidate = (o?: PaymentState, opts: PaymentStateOptions = {}, path: string = 'PaymentState::root.'): Error | null => {
@@ -3489,9 +3509,6 @@ export const PaymentStateValidate = (o?: PaymentState, opts: PaymentStateOptions
 
     if (typeof o.paid_at_unix !== 'number') return new Error(`${path}.paid_at_unix: is not a number`)
     if (opts.paid_at_unix_CustomCheck && !opts.paid_at_unix_CustomCheck(o.paid_at_unix)) return new Error(`${path}.paid_at_unix: custom check failed`)
-
-    if ((o.preimage || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('preimage')) && typeof o.preimage !== 'string') return new Error(`${path}.preimage: is not a string`)
-    if (opts.preimage_CustomCheck && !opts.preimage_CustomCheck(o.preimage)) return new Error(`${path}.preimage: custom check failed`)
 
     if (typeof o.service_fee !== 'number') return new Error(`${path}.service_fee: is not a number`)
     if (opts.service_fee_CustomCheck && !opts.service_fee_CustomCheck(o.service_fee)) return new Error(`${path}.service_fee: custom check failed`)
@@ -4009,29 +4026,6 @@ export const TransactionSwapQuoteValidate = (o?: TransactionSwapQuote, opts: Tra
 
     if (typeof o.transaction_amount_sats !== 'number') return new Error(`${path}.transaction_amount_sats: is not a number`)
     if (opts.transaction_amount_sats_CustomCheck && !opts.transaction_amount_sats_CustomCheck(o.transaction_amount_sats)) return new Error(`${path}.transaction_amount_sats: custom check failed`)
-
-    return null
-}
-
-export type TransactionSwapQuoteRequest = {
-    address: string
-    swap_operation_id: string
-}
-export const TransactionSwapQuoteRequestOptionalFields: [] = []
-export type TransactionSwapQuoteRequestOptions = OptionsBaseMessage & {
-    checkOptionalsAreSet?: []
-    address_CustomCheck?: (v: string) => boolean
-    swap_operation_id_CustomCheck?: (v: string) => boolean
-}
-export const TransactionSwapQuoteRequestValidate = (o?: TransactionSwapQuoteRequest, opts: TransactionSwapQuoteRequestOptions = {}, path: string = 'TransactionSwapQuoteRequest::root.'): Error | null => {
-    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
-    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
-
-    if (typeof o.address !== 'string') return new Error(`${path}.address: is not a string`)
-    if (opts.address_CustomCheck && !opts.address_CustomCheck(o.address)) return new Error(`${path}.address: custom check failed`)
-
-    if (typeof o.swap_operation_id !== 'string') return new Error(`${path}.swap_operation_id: is not a string`)
-    if (opts.swap_operation_id_CustomCheck && !opts.swap_operation_id_CustomCheck(o.swap_operation_id)) return new Error(`${path}.swap_operation_id: custom check failed`)
 
     return null
 }

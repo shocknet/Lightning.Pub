@@ -1804,7 +1804,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             authCtx = authContext
             stats.guard = process.hrtime.bigint()
             const request = req.body
-            const error = Types.TransactionSwapQuoteRequestValidate(request)
+            const error = Types.PayAdminTransactionSwapRequestValidate(request)
             stats.validate = process.hrtime.bigint()
             if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
             const query = req.query

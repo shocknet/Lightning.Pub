@@ -798,7 +798,7 @@ export default (params: NostrClientParams,  send: (to:string, message: NostrRequ
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
-    PayAdminTransactionSwap: async (request: Types.TransactionSwapQuoteRequest): Promise<ResultError | ({ status: 'OK' }& Types.AdminSwapResponse)> => {
+    PayAdminTransactionSwap: async (request: Types.PayAdminTransactionSwapRequest): Promise<ResultError | ({ status: 'OK' }& Types.AdminSwapResponse)> => {
         const auth = await params.retrieveNostrAdminAuth()
         if (auth === null) throw new Error('retrieveNostrAdminAuth() returned null')
         const nostrRequest: NostrRequest = {}

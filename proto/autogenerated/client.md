@@ -292,7 +292,7 @@ The nostr server will send back a message response, and inside the body there wi
 
 - PayAdminTransactionSwap
   - auth type: __Admin__
-  - input: [TransactionSwapQuoteRequest](#TransactionSwapQuoteRequest)
+  - input: [PayAdminTransactionSwapRequest](#PayAdminTransactionSwapRequest)
   - output: [AdminSwapResponse](#AdminSwapResponse)
 
 - PayInvoice
@@ -903,7 +903,7 @@ The nostr server will send back a message response, and inside the body there wi
   - auth type: __Admin__
   - http method: __post__
   - http route: __/api/admin/swap/transaction/pay__
-  - input: [TransactionSwapQuoteRequest](#TransactionSwapQuoteRequest)
+  - input: [PayAdminTransactionSwapRequest](#PayAdminTransactionSwapRequest)
   - output: [AdminSwapResponse](#AdminSwapResponse)
 
 - PayAppUserInvoice
@@ -1534,6 +1534,10 @@ The nostr server will send back a message response, and inside the body there wi
   - __service_fee__: _number_
   - __txId__: _string_
 
+### PayAdminTransactionSwapRequest
+  - __address__: _string_
+  - __swap_operation_id__: _string_
+
 ### PayAppUserInvoiceRequest
   - __amount__: _number_
   - __debit_npub__: _string_ *this field is optional
@@ -1564,7 +1568,6 @@ The nostr server will send back a message response, and inside the body there wi
   - __network_fee__: _number_
   - __operation_id__: _string_
   - __paid_at_unix__: _number_
-  - __preimage__: _string_ *this field is optional
   - __service_fee__: _number_
 
 ### Product
@@ -1654,10 +1657,6 @@ The nostr server will send back a message response, and inside the body there wi
   - __swap_fee_sats__: _number_
   - __swap_operation_id__: _string_
   - __transaction_amount_sats__: _number_
-
-### TransactionSwapQuoteRequest
-  - __address__: _string_
-  - __swap_operation_id__: _string_
 
 ### TransactionSwapRequest
   - __transaction_amount_sats__: _number_

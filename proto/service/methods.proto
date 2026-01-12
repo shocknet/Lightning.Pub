@@ -182,7 +182,7 @@ service LightningPub {
         option (nostr) = true;
     }
 
-    rpc PayAdminTransactionSwap(structs.TransactionSwapQuoteRequest) returns (structs.AdminSwapResponse) {
+    rpc PayAdminTransactionSwap(structs.PayAdminTransactionSwapRequest) returns (structs.AdminSwapResponse) {
         option (auth_type)  = "Admin";
         option (http_method) = "post";
         option (http_route) = "/api/admin/swap/transaction/pay";

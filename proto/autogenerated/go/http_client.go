@@ -123,7 +123,7 @@ type Client struct {
 	NewProductInvoice            func(query NewProductInvoice_Query) (*NewInvoiceResponse, error)
 	OpenChannel                  func(req OpenChannelRequest) (*OpenChannelResponse, error)
 	PayAddress                   func(req PayAddressRequest) (*PayAddressResponse, error)
-	PayAdminTransactionSwap      func(req TransactionSwapQuoteRequest) (*AdminSwapResponse, error)
+	PayAdminTransactionSwap      func(req PayAdminTransactionSwapRequest) (*AdminSwapResponse, error)
 	PayAppUserInvoice            func(req PayAppUserInvoiceRequest) (*PayInvoiceResponse, error)
 	PayInvoice                   func(req PayInvoiceRequest) (*PayInvoiceResponse, error)
 	PingSubProcesses             func() error
@@ -1892,7 +1892,7 @@ func NewClient(params ClientParams) *Client {
 			}
 			return &res, nil
 		},
-		PayAdminTransactionSwap: func(req TransactionSwapQuoteRequest) (*AdminSwapResponse, error) {
+		PayAdminTransactionSwap: func(req PayAdminTransactionSwapRequest) (*AdminSwapResponse, error) {
 			auth, err := params.RetrieveAdminAuth()
 			if err != nil {
 				return nil, err

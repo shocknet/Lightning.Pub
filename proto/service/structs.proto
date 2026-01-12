@@ -837,7 +837,7 @@ message TransactionSwapRequest {
     int64 transaction_amount_sats = 2;
 }
 
-message TransactionSwapQuoteRequest {
+message PayAdminTransactionSwapRequest {
     string address = 1;
     string swap_operation_id = 2;
 }

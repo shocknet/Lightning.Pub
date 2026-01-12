@@ -909,7 +909,7 @@ export default (params: ClientParams) => ({
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
-    PayAdminTransactionSwap: async (request: Types.TransactionSwapQuoteRequest): Promise<ResultError | ({ status: 'OK' }& Types.AdminSwapResponse)> => {
+    PayAdminTransactionSwap: async (request: Types.PayAdminTransactionSwapRequest): Promise<ResultError | ({ status: 'OK' }& Types.AdminSwapResponse)> => {
         const auth = await params.retrieveAdminAuth()
         if (auth === null) throw new Error('retrieveAdminAuth() returned null')
         let finalRoute = '/api/admin/swap/transaction/pay'
