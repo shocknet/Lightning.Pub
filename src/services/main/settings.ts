@@ -201,8 +201,8 @@ export type SwapsSettings = {
 
 export const LoadSwapsSettingsFromEnv = (dbEnv: Record<string, string | undefined>, addToDb?: EnvCacher): SwapsSettings => {
     return {
-        boltzHttpUrl: chooseEnv("BOLTZ_HTTP_URL", dbEnv, "http://127.0.0.1:9001", addToDb),
-        boltzWebSocketUrl: chooseEnv("BOLTZ_WEBSOCKET_URL", dbEnv, "ws://127.0.0.1:9004", addToDb),
+        boltzHttpUrl: chooseEnv("BOLTZ_HTTP_URL", dbEnv, "https://swaps.zeuslsp.com/api", addToDb),
+        boltzWebSocketUrl: chooseEnv("BOLTZ_WEBSOCKET_URL", dbEnv, "wss://swaps.zeuslsp.com/api", addToDb),
         enableSwaps: chooseEnvBool("ENABLE_SWAPS", dbEnv, false, addToDb)
     }
 }
