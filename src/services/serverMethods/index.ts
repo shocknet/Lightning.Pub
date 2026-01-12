@@ -98,6 +98,14 @@ export default (mainHandler: Main): Types.ServerMethods => {
             if (err != null) throw new Error(err.message)
             return mainHandler.adminManager.GetAdminTransactionSwapQuote(req)
         },
+        PayAdminTransactionSwap: async ({ ctx, req }) => {
+            const err = Types.TransactionSwapQuoteRequestValidate(req, {
+                address_CustomCheck: addr => addr !== '',
+                swap_operation_id_CustomCheck: id => id !== '',
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.adminManager.PayAdminTransactionSwap(req)
+        },
         GetProvidersDisruption: async () => {
             return mainHandler.metricsManager.GetProvidersDisruption()
         },
