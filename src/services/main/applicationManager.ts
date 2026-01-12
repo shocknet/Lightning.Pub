@@ -235,12 +235,22 @@ export default class {
     async PayAppUserInvoice(appId: string, req: Types.PayAppUserInvoiceRequest): Promise<Types.PayInvoiceResponse> {
         const app = await this.storage.applicationStorage.GetApplication(appId)
         const appUser = await this.storage.applicationStorage.GetApplicationUser(app, req.user_identifier)
-        const paid = await this.paymentManager.PayInvoice(appUser.user.user_id, req, app, {
-            ack: pendingOp => { this.notifyAppUserPayment(appUser, pendingOp) }
-        })
-        this.notifyAppUserPayment(appUser, paid.operation)
-        getLogger({ appName: app.name })(appUser.identifier, "invoice paid", paid.amount_paid, "sats")
-        return paid
+        try {
+            const paid = await this.paymentManager.PayInvoice(appUser.user.user_id, req, app, {
+                ack: pendingOp => { this.notifyAppUserPayment(appUser, pendingOp) }
+            })
+            this.notifyAppUserPayment(appUser, paid.operation)
+            getLogger({ appName: app.name })(appUser.identifier, "invoice paid", paid.amount_paid, "sats")
+            return paid
+        } catch (e) {
+            const failedOp: Types.UserOperation = {
+                type: Types.UserOperationType.OUTGOING_INVOICE,
+                paidAtUnix: -1, amount: 0, confirmed: false, identifier: req.invoice, operationId: "",
+                inbound: false, internal: false, network_fee: 0, service_fee: 0, tx_hash: "",
+            }
+            this.notifyAppUserPayment(appUser, failedOp)
+            throw e
+        }
     }
 
     notifyAppUserPayment = (appUser: ApplicationUser, op: Types.UserOperation) => {
