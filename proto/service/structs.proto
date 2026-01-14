@@ -850,6 +850,11 @@ message TransactionSwapQuote {
     int64 swap_fee_sats = 4;
     int64 chain_fee_sats = 5;
     int64 service_fee_sats = 7;
+    string service_url = 8;
+}
+
+message TransactionSwapQuoteList {
+    repeated TransactionSwapQuote quotes = 1;
 }
 
 message AdminSwapResponse {

@@ -273,7 +273,7 @@ export default (params: ClientParams) => ({
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
-    GetAdminTransactionSwapQuote: async (request: Types.TransactionSwapRequest): Promise<ResultError | ({ status: 'OK' }& Types.TransactionSwapQuote)> => {
+    GetAdminTransactionSwapQuotes: async (request: Types.TransactionSwapRequest): Promise<ResultError | ({ status: 'OK' }& Types.TransactionSwapQuoteList)> => {
         const auth = await params.retrieveAdminAuth()
         if (auth === null) throw new Error('retrieveAdminAuth() returned null')
         let finalRoute = '/api/admin/swap/transaction/quote'
@@ -282,7 +282,7 @@ export default (params: ClientParams) => ({
         if (data.status === 'OK') { 
             const result = data
             if(!params.checkResult) return { status: 'OK', ...result }
-            const error = Types.TransactionSwapQuoteValidate(result)
+            const error = Types.TransactionSwapQuoteListValidate(result)
             if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
         }
         return { status: 'ERROR', reason: 'invalid response' }
@@ -617,7 +617,7 @@ export default (params: ClientParams) => ({
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
-    GetTransactionSwapQuote: async (request: Types.TransactionSwapRequest): Promise<ResultError | ({ status: 'OK' }& Types.TransactionSwapQuote)> => {
+    GetTransactionSwapQuotes: async (request: Types.TransactionSwapRequest): Promise<ResultError | ({ status: 'OK' }& Types.TransactionSwapQuoteList)> => {
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
         let finalRoute = '/api/user/swap/quote'
@@ -626,7 +626,7 @@ export default (params: ClientParams) => ({
         if (data.status === 'OK') { 
             const result = data
             if(!params.checkResult) return { status: 'OK', ...result }
-            const error = Types.TransactionSwapQuoteValidate(result)
+            const error = Types.TransactionSwapQuoteListValidate(result)
             if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
         }
         return { status: 'ERROR', reason: 'invalid response' }

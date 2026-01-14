@@ -359,14 +359,14 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                                         callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
                                     }
                                     break
-                                case 'GetTransactionSwapQuote':
-                                    if (!methods.GetTransactionSwapQuote) {
-                                        throw new Error('method not defined: GetTransactionSwapQuote')
+                                case 'GetTransactionSwapQuotes':
+                                    if (!methods.GetTransactionSwapQuotes) {
+                                        throw new Error('method not defined: GetTransactionSwapQuotes')
                                     } else {
                                         const error = Types.TransactionSwapRequestValidate(operation.req)
                                         opStats.validate = process.hrtime.bigint()
                                         if (error !== null) throw error
-                                        const res = await methods.GetTransactionSwapQuote({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                                        const res = await methods.GetTransactionSwapQuotes({...operation, ctx}); responses.push({ status: 'OK', ...res  })
                                         opStats.handle = process.hrtime.bigint()
                                         callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
                                     }
@@ -687,9 +687,9 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     opts.metricsCallback([{ ...info, ...stats, ...authContext }])
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
-            case 'GetAdminTransactionSwapQuote':
+            case 'GetAdminTransactionSwapQuotes':
                 try {
-                    if (!methods.GetAdminTransactionSwapQuote) throw new Error('method: GetAdminTransactionSwapQuote is not implemented')
+                    if (!methods.GetAdminTransactionSwapQuotes) throw new Error('method: GetAdminTransactionSwapQuotes is not implemented')
                     const authContext = await opts.NostrAdminAuthGuard(req.appId, req.authIdentifier)
                     stats.guard = process.hrtime.bigint()
                     authCtx = authContext
@@ -697,7 +697,7 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     const error = Types.TransactionSwapRequestValidate(request)
                     stats.validate = process.hrtime.bigint()
                     if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
-                    const response = await methods.GetAdminTransactionSwapQuote({rpcName:'GetAdminTransactionSwapQuote', ctx:authContext , req: request})
+                    const response = await methods.GetAdminTransactionSwapQuotes({rpcName:'GetAdminTransactionSwapQuotes', ctx:authContext , req: request})
                     stats.handle = process.hrtime.bigint()
                     res({status: 'OK', ...response})
                     opts.metricsCallback([{ ...info, ...stats, ...authContext }])
@@ -1000,9 +1000,9 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     opts.metricsCallback([{ ...info, ...stats, ...authContext }])
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
-            case 'GetTransactionSwapQuote':
+            case 'GetTransactionSwapQuotes':
                 try {
-                    if (!methods.GetTransactionSwapQuote) throw new Error('method: GetTransactionSwapQuote is not implemented')
+                    if (!methods.GetTransactionSwapQuotes) throw new Error('method: GetTransactionSwapQuotes is not implemented')
                     const authContext = await opts.NostrUserAuthGuard(req.appId, req.authIdentifier)
                     stats.guard = process.hrtime.bigint()
                     authCtx = authContext
@@ -1010,7 +1010,7 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     const error = Types.TransactionSwapRequestValidate(request)
                     stats.validate = process.hrtime.bigint()
                     if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
-                    const response = await methods.GetTransactionSwapQuote({rpcName:'GetTransactionSwapQuote', ctx:authContext , req: request})
+                    const response = await methods.GetTransactionSwapQuotes({rpcName:'GetTransactionSwapQuotes', ctx:authContext , req: request})
                     stats.handle = process.hrtime.bigint()
                     res({status: 'OK', ...response})
                     opts.metricsCallback([{ ...info, ...stats, ...authContext }])

@@ -63,6 +63,9 @@ export class TransactionSwap {
     @Column({ default: "" })
     address_paid: string
 
+    @Column({ default: "" })
+    service_url: string
+
     @CreateDateColumn()
     created_at: Date
 

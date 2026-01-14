@@ -541,12 +541,13 @@ export default class {
 
 
 
-    async GetTransactionSwapQuote(ctx: Types.UserContext, req: Types.TransactionSwapRequest): Promise<Types.TransactionSwapQuote> {
+    async GetTransactionSwapQuotes(ctx: Types.UserContext, req: Types.TransactionSwapRequest): Promise<Types.TransactionSwapQuoteList> {
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
-        return this.swaps.GetTxSwapQuote(ctx.app_user_id, req.transaction_amount_sats, decodedAmt => {
+        const quotes = await this.swaps.GetTxSwapQuotes(ctx.app_user_id, req.transaction_amount_sats, decodedAmt => {
             const isManagedUser = ctx.user_id !== app.owner.user_id
             return this.getSendServiceFee(Types.UserOperationType.OUTGOING_INVOICE, decodedAmt, isManagedUser)
         })
+        return { quotes }
     }
 
     async PayAddress(ctx: Types.UserContext, req: Types.PayAddressRequest): Promise<Types.PayAddressResponse> {

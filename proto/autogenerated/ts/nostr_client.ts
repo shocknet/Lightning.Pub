@@ -230,17 +230,17 @@ export default (params: NostrClientParams,  send: (to:string, message: NostrRequ
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
-    GetAdminTransactionSwapQuote: async (request: Types.TransactionSwapRequest): Promise<ResultError | ({ status: 'OK' }& Types.TransactionSwapQuote)> => {
+    GetAdminTransactionSwapQuotes: async (request: Types.TransactionSwapRequest): Promise<ResultError | ({ status: 'OK' }& Types.TransactionSwapQuoteList)> => {
         const auth = await params.retrieveNostrAdminAuth()
         if (auth === null) throw new Error('retrieveNostrAdminAuth() returned null')
         const nostrRequest: NostrRequest = {}
         nostrRequest.body = request
-        const data = await send(params.pubDestination, {rpcName:'GetAdminTransactionSwapQuote',authIdentifier:auth, ...nostrRequest }) 
+        const data = await send(params.pubDestination, {rpcName:'GetAdminTransactionSwapQuotes',authIdentifier:auth, ...nostrRequest }) 
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
             if(!params.checkResult) return { status: 'OK', ...result }
-            const error = Types.TransactionSwapQuoteValidate(result)
+            const error = Types.TransactionSwapQuoteListValidate(result)
             if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
         }
         return { status: 'ERROR', reason: 'invalid response' }
@@ -551,17 +551,17 @@ export default (params: NostrClientParams,  send: (to:string, message: NostrRequ
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
-    GetTransactionSwapQuote: async (request: Types.TransactionSwapRequest): Promise<ResultError | ({ status: 'OK' }& Types.TransactionSwapQuote)> => {
+    GetTransactionSwapQuotes: async (request: Types.TransactionSwapRequest): Promise<ResultError | ({ status: 'OK' }& Types.TransactionSwapQuoteList)> => {
         const auth = await params.retrieveNostrUserAuth()
         if (auth === null) throw new Error('retrieveNostrUserAuth() returned null')
         const nostrRequest: NostrRequest = {}
         nostrRequest.body = request
-        const data = await send(params.pubDestination, {rpcName:'GetTransactionSwapQuote',authIdentifier:auth, ...nostrRequest }) 
+        const data = await send(params.pubDestination, {rpcName:'GetTransactionSwapQuotes',authIdentifier:auth, ...nostrRequest }) 
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
             if(!params.checkResult) return { status: 'OK', ...result }
-            const error = Types.TransactionSwapQuoteValidate(result)
+            const error = Types.TransactionSwapQuoteListValidate(result)
             if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
         }
         return { status: 'ERROR', reason: 'invalid response' }

@@ -93,10 +93,10 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [MessagingToken](#MessagingToken)
   - This methods has an __empty__ __response__ body
 
-- GetAdminTransactionSwapQuote
+- GetAdminTransactionSwapQuotes
   - auth type: __Admin__
   - input: [TransactionSwapRequest](#TransactionSwapRequest)
-  - output: [TransactionSwapQuote](#TransactionSwapQuote)
+  - output: [TransactionSwapQuoteList](#TransactionSwapQuoteList)
 
 - GetAppsMetrics
   - auth type: __Metrics__
@@ -203,10 +203,10 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [SingleMetricReq](#SingleMetricReq)
   - output: [UsageMetricTlv](#UsageMetricTlv)
 
-- GetTransactionSwapQuote
+- GetTransactionSwapQuotes
   - auth type: __User__
   - input: [TransactionSwapRequest](#TransactionSwapRequest)
-  - output: [TransactionSwapQuote](#TransactionSwapQuote)
+  - output: [TransactionSwapQuoteList](#TransactionSwapQuoteList)
 
 - GetUsageMetrics
   - auth type: __Metrics__
@@ -540,12 +540,12 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [MessagingToken](#MessagingToken)
   - This methods has an __empty__ __response__ body
 
-- GetAdminTransactionSwapQuote
+- GetAdminTransactionSwapQuotes
   - auth type: __Admin__
   - http method: __post__
   - http route: __/api/admin/swap/transaction/quote__
   - input: [TransactionSwapRequest](#TransactionSwapRequest)
-  - output: [TransactionSwapQuote](#TransactionSwapQuote)
+  - output: [TransactionSwapQuoteList](#TransactionSwapQuoteList)
 
 - GetApp
   - auth type: __App__
@@ -740,12 +740,12 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [SingleMetricReq](#SingleMetricReq)
   - output: [UsageMetricTlv](#UsageMetricTlv)
 
-- GetTransactionSwapQuote
+- GetTransactionSwapQuotes
   - auth type: __User__
   - http method: __post__
   - http route: __/api/user/swap/quote__
   - input: [TransactionSwapRequest](#TransactionSwapRequest)
-  - output: [TransactionSwapQuote](#TransactionSwapQuote)
+  - output: [TransactionSwapQuoteList](#TransactionSwapQuoteList)
 
 - GetUsageMetrics
   - auth type: __Metrics__
@@ -1654,9 +1654,13 @@ The nostr server will send back a message response, and inside the body there wi
   - __chain_fee_sats__: _number_
   - __invoice_amount_sats__: _number_
   - __service_fee_sats__: _number_
+  - __service_url__: _string_
   - __swap_fee_sats__: _number_
   - __swap_operation_id__: _string_
   - __transaction_amount_sats__: _number_
+
+### TransactionSwapQuoteList
+  - __quotes__: ARRAY of: _[TransactionSwapQuote](#TransactionSwapQuote)_
 
 ### TransactionSwapRequest
   - __transaction_amount_sats__: _number_

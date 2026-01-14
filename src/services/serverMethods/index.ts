@@ -91,12 +91,12 @@ export default (mainHandler: Main): Types.ServerMethods => {
             if (err != null) throw new Error(err.message)
             return mainHandler.adminManager.CloseChannel(req)
         },
-        GetAdminTransactionSwapQuote: async ({ ctx, req }) => {
+        GetAdminTransactionSwapQuotes: async ({ ctx, req }) => {
             const err = Types.TransactionSwapRequestValidate(req, {
                 transaction_amount_sats_CustomCheck: amt => amt > 0
             })
             if (err != null) throw new Error(err.message)
-            return mainHandler.adminManager.GetAdminTransactionSwapQuote(req)
+            return mainHandler.adminManager.GetAdminTransactionSwapQuotes(req)
         },
         PayAdminTransactionSwap: async ({ ctx, req }) => {
             const err = Types.PayAdminTransactionSwapRequestValidate(req, {
@@ -168,8 +168,8 @@ export default (mainHandler: Main): Types.ServerMethods => {
         ListSwaps: async ({ ctx }) => {
             return mainHandler.paymentManager.ListSwaps(ctx)
         },
-        GetTransactionSwapQuote: async ({ ctx, req }) => {
-            return mainHandler.paymentManager.GetTransactionSwapQuote(ctx, req)
+        GetTransactionSwapQuotes: async ({ ctx, req }) => {
+            return mainHandler.paymentManager.GetTransactionSwapQuotes(ctx, req)
         },
         NewInvoice: ({ ctx, req }) => mainHandler.appUserManager.NewInvoice(ctx, req),
         DecodeInvoice: async ({ ctx, req }) => {

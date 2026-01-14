@@ -679,9 +679,13 @@ type TransactionSwapQuote struct {
 	Chain_fee_sats          int64  `json:"chain_fee_sats"`
 	Invoice_amount_sats     int64  `json:"invoice_amount_sats"`
 	Service_fee_sats        int64  `json:"service_fee_sats"`
+	Service_url             string `json:"service_url"`
 	Swap_fee_sats           int64  `json:"swap_fee_sats"`
 	Swap_operation_id       string `json:"swap_operation_id"`
 	Transaction_amount_sats int64  `json:"transaction_amount_sats"`
+}
+type TransactionSwapQuoteList struct {
+	Quotes []TransactionSwapQuote `json:"quotes"`
 }
 type TransactionSwapRequest struct {
 	Transaction_amount_sats int64 `json:"transaction_amount_sats"`

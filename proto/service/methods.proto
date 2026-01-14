@@ -175,7 +175,7 @@ service LightningPub {
         option (nostr) = true;
     }
 
-    rpc GetAdminTransactionSwapQuote(structs.TransactionSwapRequest) returns (structs.TransactionSwapQuote) {
+    rpc GetAdminTransactionSwapQuotes(structs.TransactionSwapRequest) returns (structs.TransactionSwapQuoteList) {
         option (auth_type)  = "Admin";
         option (http_method) = "post";
         option (http_route) = "/api/admin/swap/transaction/quote";
@@ -517,7 +517,7 @@ service LightningPub {
         option (nostr) = true;
     }
 
-    rpc GetTransactionSwapQuote(structs.TransactionSwapRequest) returns (structs.TransactionSwapQuote){
+    rpc GetTransactionSwapQuotes(structs.TransactionSwapRequest) returns (structs.TransactionSwapQuoteList){
         option (auth_type)  = "User";
         option (http_method) = "post";
         option (http_route) = "/api/user/swap/quote";

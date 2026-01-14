@@ -47,14 +47,23 @@ type TransactionSwapResponse = {
 type TransactionSwapInfo = { destinationAddress: string, preimage: Buffer, keys: ECPairInterface, chainFee: number }
 export type TransactionSwapData = { createdResponse: TransactionSwapResponse, info: TransactionSwapInfo }
 export class Swaps {
-    reverseSwaps: ReverseSwaps
-    submarineSwaps: SubmarineSwaps
+    settings: SettingsManager
+    revSwappers: Record<string, ReverseSwaps>
+    // submarineSwaps: SubmarineSwaps
     storage: Storage
     lnd: LND
     log = getLogger({ component: 'swaps' })
     constructor(settings: SettingsManager, storage: Storage) {
-        this.reverseSwaps = new ReverseSwaps(settings)
-        this.submarineSwaps = new SubmarineSwaps(settings)
+        this.settings = settings
+        this.revSwappers = {}
+        const network = settings.getSettings().lndSettings.network
+        const { boltzHttpUrl, boltzWebSocketUrl, boltsHttpUrlAlt, boltsWebSocketUrlAlt } = settings.getSettings().swapsSettings
+        if (boltzHttpUrl && boltzWebSocketUrl) {
+            this.revSwappers[boltzHttpUrl] = new ReverseSwaps({ httpUrl: boltzHttpUrl, wsUrl: boltzWebSocketUrl, network })
+        }
+        if (boltsHttpUrlAlt && boltsWebSocketUrlAlt) {
+            this.revSwappers[boltsHttpUrlAlt] = new ReverseSwaps({ httpUrl: boltsHttpUrlAlt, wsUrl: boltsWebSocketUrlAlt, network })
+        }
         this.storage = storage
     }
 
@@ -92,21 +101,45 @@ export class Swaps {
                     chain_fee_sats: s.chain_fee_sats,
                     service_fee_sats: serviceFee,
                     swap_fee_sats: s.swap_fee_sats,
+                    service_url: s.service_url,
                 }
             })
         }
     }
+    GetTxSwapQuotes = async (appUserId: string, amt: number, getServiceFee: (decodedAmt: number) => number): Promise<Types.TransactionSwapQuote[]> => {
+        if (!this.settings.getSettings().swapsSettings.enableSwaps) {
+            throw new Error("Swaps are not enabled")
+        }
+        const swappers = Object.values(this.revSwappers)
+        if (swappers.length === 0) {
+            throw new Error("No swap services available")
+        }
+        const res = await Promise.allSettled(Object.values(this.revSwappers).map(sw => this.getTxSwapQuote(sw, appUserId, amt, getServiceFee)))
+        const failures: string[] = []
+        const success: Types.TransactionSwapQuote[] = []
+        for (const r of res) {
+            if (r.status === 'fulfilled') {
+                success.push(r.value)
+            } else {
+                failures.push(r.reason.message ? r.reason.message : r.reason.toString())
+            }
+        }
+        if (success.length === 0) {
+            throw new Error(failures.join("\n"))
+        }
+        return success
+    }
 
-    async GetTxSwapQuote(appUserId: string, amt: number, getServiceFee: (decodedAmt: number) => number): Promise<Types.TransactionSwapQuote> {
+    private async getTxSwapQuote(swapper: ReverseSwaps, appUserId: string, amt: number, getServiceFee: (decodedAmt: number) => number): Promise<Types.TransactionSwapQuote> {
         this.log("getting transaction swap quote")
-        const feesRes = await this.reverseSwaps.GetFees()
+        const feesRes = await swapper.GetFees()
         if (!feesRes.ok) {
             throw new Error(feesRes.error)
         }
         const { claim, lockup } = feesRes.fees.minerFees
         const minerFee = claim + lockup
         const chainTotal = amt + minerFee
-        const res = await this.reverseSwaps.SwapTransaction(chainTotal)
+        const res = await swapper.SwapTransaction(chainTotal)
         if (!res.ok) {
             throw new Error(res.error)
         }
@@ -128,6 +161,7 @@ export class Swaps {
             preimage: res.preimage,
             ephemeral_private_key: res.privKey,
             ephemeral_public_key: res.pubkey,
+            service_url: swapper.getHttpUrl(),
         })
         return {
             swap_operation_id: newSwap.swap_operation_id,
@@ -136,10 +170,14 @@ export class Swaps {
             transaction_amount_sats: amt,
             chain_fee_sats: minerFee,
             service_fee_sats: serviceFee,
+            service_url: swapper.getHttpUrl(),
         }
     }
 
     async PayAddrWithSwap(appUserId: string, swapOpId: string, address: string, payInvoice: (invoice: string, amt: number) => Promise<void>) {
+        if (!this.settings.getSettings().swapsSettings.enableSwaps) {
+            throw new Error("Swaps are not enabled")
+        }
         this.log("paying address with swap", { appUserId, swapOpId, address })
         if (!swapOpId) {
             throw new Error("request a swap quote before paying an external address")
@@ -151,6 +189,10 @@ export class Swaps {
         const info = await this.lnd.GetInfo()
         if (info.blockHeight >= txSwap.timeout_block_height) {
             throw new Error("swap timeout")
+        }
+        const swapper = this.revSwappers[txSwap.service_url]
+        if (!swapper) {
+            throw new Error("swapper service not found")
         }
         const keys = this.GetKeys(txSwap.ephemeral_private_key)
         const data: TransactionSwapData = {
@@ -172,7 +214,7 @@ export class Swaps {
         }
         // the swap and the invoice payment are linked, swap will not start until the invoice payment is started, and will not complete once the invoice payment is completed
         let swapResult = { ok: false, error: "swap never completed" } as { ok: true, txId: string } | { ok: false, error: string }
-        this.reverseSwaps.SubscribeToTransactionSwap(data, result => {
+        swapper.SubscribeToTransactionSwap(data, result => {
             swapResult = result
         })
         try {
@@ -202,6 +244,289 @@ export class Swaps {
     }
 }
 
+
+
+export class ReverseSwaps {
+    // settings: SettingsManager
+    private httpUrl: string
+    private wsUrl: string
+    log: PubLogger
+    private network: BTCNetwork
+    constructor({ httpUrl, wsUrl, network }: { httpUrl: string, wsUrl: string, network: BTCNetwork }) {
+        this.httpUrl = httpUrl
+        this.wsUrl = wsUrl
+        this.network = network
+        this.log = getLogger({ component: 'ReverseSwaps' })
+        initEccLib(ecc)
+    }
+
+    getHttpUrl = () => {
+        return this.httpUrl
+    }
+    getWsUrl = () => {
+        return this.wsUrl
+    }
+
+    calculateFees = (fees: TransactionSwapFees, receiveAmount: number) => {
+        const pct = fees.percentage / 100
+        const minerFee = fees.minerFees.claim + fees.minerFees.lockup
+
+        const preFee = receiveAmount + minerFee
+        const fee = Math.ceil(preFee * pct)
+        const total = preFee + fee
+        return { total, fee, minerFee }
+    }
+
+    GetFees = async (): Promise<{ ok: true, fees: TransactionSwapFees, } | { ok: false, error: string }> => {
+        const url = `${this.httpUrl}/v2/swap/reverse`
+        const feesRes = await loggedGet<TransactionSwapFeesRes>(this.log, url)
+        if (!feesRes.ok) {
+            return { ok: false, error: feesRes.error }
+        }
+        if (!feesRes.data.BTC?.BTC?.fees) {
+            return { ok: false, error: 'No fees found for BTC to BTC swap' }
+        }
+
+        return { ok: true, fees: feesRes.data.BTC.BTC.fees }
+    }
+
+    SwapTransaction = async (txAmount: number): Promise<{ ok: true, createdResponse: TransactionSwapResponse, preimage: string, pubkey: string, privKey: string } | { ok: false, error: string }> => {
+        const preimage = randomBytes(32);
+        const keys = ECPairFactory(ecc).makeRandom()
+        if (!keys.privateKey) {
+            return { ok: false, error: 'Failed to generate keys' }
+        }
+        const url = `${this.httpUrl}/v2/swap/reverse`
+        const req: any = {
+            onchainAmount: txAmount,
+            to: 'BTC',
+            from: 'BTC',
+            claimPublicKey: Buffer.from(keys.publicKey).toString('hex'),
+            preimageHash: createHash('sha256').update(preimage).digest('hex'),
+        }
+        const createdResponseRes = await loggedPost<TransactionSwapResponse>(this.log, url, req)
+        if (!createdResponseRes.ok) {
+            return createdResponseRes
+        }
+        const createdResponse = createdResponseRes.data
+        this.log('Created transaction swap');
+        this.log(createdResponse);
+        return {
+            ok: true, createdResponse,
+            preimage: Buffer.from(preimage).toString('hex'),
+            pubkey: Buffer.from(keys.publicKey).toString('hex'),
+            privKey: Buffer.from(keys.privateKey).toString('hex')
+        }
+    }
+
+    SubscribeToTransactionSwap = async (data: TransactionSwapData, swapDone: (result: { ok: true, txId: string } | { ok: false, error: string }) => void) => {
+        const webSocket = new ws(`${this.wsUrl}/v2/ws`)
+        const subReq = { op: 'subscribe', channel: 'swap.update', args: [data.createdResponse.id] }
+        webSocket.on('open', () => {
+            webSocket.send(JSON.stringify(subReq))
+        })
+        let txId = "", isDone = false
+        const done = () => {
+            isDone = true
+            webSocket.close()
+            swapDone({ ok: true, txId })
+        }
+        webSocket.on('error', (err) => {
+            this.log(ERROR, 'Error in WebSocket', err.message)
+        })
+        webSocket.on('close', () => {
+            if (!isDone) {
+                this.log(ERROR, 'WebSocket closed before swap was done');
+                swapDone({ ok: false, error: 'WebSocket closed before swap was done' })
+            }
+        })
+        webSocket.on('message', async (rawMsg) => {
+            try {
+                const result = await this.handleSwapTransactionMessage(rawMsg, data, done)
+                if (result) {
+                    txId = result
+                }
+            } catch (err: any) {
+                this.log(ERROR, 'Error handling transaction WebSocket message', err.message)
+                isDone = true
+                webSocket.close()
+                swapDone({ ok: false, error: err.message })
+                return
+            }
+        })
+    }
+
+    handleSwapTransactionMessage = async (rawMsg: ws.RawData, data: TransactionSwapData, done: () => void) => {
+        const msg = JSON.parse(rawMsg.toString('utf-8'));
+        if (msg.event !== 'update') {
+            return;
+        }
+
+        this.log('Got WebSocket update');
+        this.log(msg);
+        switch (msg.args[0].status) {
+            // "swap.created" means Boltz is waiting for the invoice to be paid
+            case 'swap.created':
+                this.log('Waiting invoice to be paid');
+                return;
+
+            // "transaction.mempool" means that Boltz sent an onchain transaction
+            case 'transaction.mempool':
+                const txIdRes = await this.handleTransactionMempool(data, msg.args[0].transaction.hex)
+                if (!txIdRes.ok) {
+                    throw new Error(txIdRes.error)
+                }
+                return txIdRes.txId
+            case 'invoice.settled':
+                this.log('Transaction swap successful');
+                done()
+                return;
+        }
+    }
+
+    handleTransactionMempool = async (data: TransactionSwapData, txHex: string): Promise<{ ok: true, txId: string } | { ok: false, error: string }> => {
+        this.log('Creating claim transaction');
+        const { createdResponse, info } = data
+        const { destinationAddress, keys, preimage, chainFee } = info
+        const boltzPublicKey = Buffer.from(
+            createdResponse.refundPublicKey,
+            'hex',
+        );
+
+        // Create a musig signing session and tweak it with the Taptree of the swap scripts
+        const musig = new Musig(await zkpInit(), keys, randomBytes(32), [
+            boltzPublicKey,
+            Buffer.from(keys.publicKey),
+        ]);
+        const tweakedKey = TaprootUtils.tweakMusig(
+            musig,
+            // swap tree can either be a string or an object
+            SwapTreeSerializer.deserializeSwapTree(createdResponse.swapTree).tree,
+        );
+
+        // Parse the lockup transaction and find the output relevant for the swap
+        const lockupTx = Transaction.fromHex(txHex);
+        const swapOutput = detectSwap(tweakedKey, lockupTx);
+        if (swapOutput === undefined) {
+            this.log(ERROR, 'No swap output found in lockup transaction');
+            return { ok: false, error: 'No swap output found in lockup transaction' }
+        }
+        const network = getNetwork(this.network)
+        // Create a claim transaction to be signed cooperatively via a key path spend
+        const claimTx = constructClaimTransaction(
+            [
+                {
+                    ...swapOutput,
+                    keys,
+                    preimage,
+                    cooperative: true,
+                    type: OutputType.Taproot,
+                    txHash: lockupTx.getHash(),
+                },
+            ],
+            address.toOutputScript(destinationAddress, network),
+            chainFee,
+        )
+        // Get the partial signature from Boltz
+        const claimUrl = `${this.httpUrl}/v2/swap/reverse/${createdResponse.id}/claim`
+        const claimReq = {
+            index: 0,
+            transaction: claimTx.toHex(),
+            preimage: preimage.toString('hex'),
+            pubNonce: Buffer.from(musig.getPublicNonce()).toString('hex'),
+        }
+        const boltzSigRes = await loggedPost<{ pubNonce: string, partialSignature: string }>(this.log, claimUrl, claimReq)
+        if (!boltzSigRes.ok) {
+            return boltzSigRes
+        }
+        const boltzSig = boltzSigRes.data
+
+        // Aggregate the nonces
+        musig.aggregateNonces([
+            [boltzPublicKey, Buffer.from(boltzSig.pubNonce, 'hex')],
+        ]);
+
+        // Initialize the session to sign the claim transaction
+        musig.initializeSession(
+            claimTx.hashForWitnessV1(
+                0,
+                [swapOutput.script],
+                [swapOutput.value],
+                Transaction.SIGHASH_DEFAULT,
+            ),
+        );
+
+        // Add the partial signature from Boltz
+        musig.addPartial(
+            boltzPublicKey,
+            Buffer.from(boltzSig.partialSignature, 'hex'),
+        );
+
+        // Create our partial signature
+        musig.signPartial();
+
+        // Witness of the input to the aggregated signature
+        claimTx.ins[0].witness = [musig.aggregatePartials()];
+
+        // Broadcast the finalized transaction
+        const broadcastUrl = `${this.httpUrl}/v2/chain/BTC/transaction`
+        const broadcastReq = {
+            hex: claimTx.toHex(),
+        }
+
+        const broadcastResponse = await loggedPost<any>(this.log, broadcastUrl, broadcastReq)
+        if (!broadcastResponse.ok) {
+            return broadcastResponse
+        }
+        this.log('Transaction broadcasted', broadcastResponse.data)
+        const txId = claimTx.getId()
+        return { ok: true, txId }
+    }
+}
+
+const loggedPost = async <T>(log: PubLogger, url: string, req: any): Promise<{ ok: true, data: T } | { ok: false, error: string }> => {
+    try {
+        const { data } = await axios.post(url, req)
+        return { ok: true, data: data as T }
+    } catch (err: any) {
+        if (err.response?.data) {
+            log(ERROR, 'Error sending request', err.response.data)
+            return { ok: false, error: JSON.stringify(err.response.data) }
+        }
+        log(ERROR, 'Error sending request', err.message)
+        return { ok: false, error: err.message }
+    }
+}
+
+const loggedGet = async <T>(log: PubLogger, url: string): Promise<{ ok: true, data: T } | { ok: false, error: string }> => {
+    try {
+        const { data } = await axios.get(url)
+        return { ok: true, data: data as T }
+    } catch (err: any) {
+        if (err.response?.data) {
+            log(ERROR, 'Error getting request', err.response.data)
+            return { ok: false, error: err.response.data }
+        }
+        log(ERROR, 'Error getting request', err.message)
+        return { ok: false, error: err.message }
+    }
+}
+
+const getNetwork = (network: BTCNetwork): Network => {
+    switch (network) {
+        case 'mainnet':
+            return Networks.bitcoinMainnet
+        case 'testnet':
+            return Networks.bitcoinTestnet
+        case 'regtest':
+            return Networks.bitcoinRegtest
+        default:
+            throw new Error(`Invalid network: ${network}`)
+    }
+}
+
+// Submarine swaps currently not supported, keeping the code for future reference
+/*
 export class SubmarineSwaps {
     settings: SettingsManager
     log: PubLogger
@@ -329,274 +654,4 @@ export class SubmarineSwaps {
         this.log('Claim response', claimResponse)
     }
 }
-export class ReverseSwaps {
-    settings: SettingsManager
-    log: PubLogger
-    constructor(settings: SettingsManager) {
-        this.settings = settings
-        this.log = getLogger({ component: 'ReverseSwaps' })
-        initEccLib(ecc)
-    }
-
-    calculateFees = (fees: TransactionSwapFees, receiveAmount: number) => {
-        const pct = fees.percentage / 100
-        const minerFee = fees.minerFees.claim + fees.minerFees.lockup
-
-        const preFee = receiveAmount + minerFee
-        const fee = Math.ceil(preFee * pct)
-        const total = preFee + fee
-        return { total, fee, minerFee }
-    }
-
-    GetFees = async (): Promise<{ ok: true, fees: TransactionSwapFees, } | { ok: false, error: string }> => {
-        const url = `${this.settings.getSettings().swapsSettings.boltzHttpUrl}/v2/swap/reverse`
-        const feesRes = await loggedGet<TransactionSwapFeesRes>(this.log, url)
-        if (!feesRes.ok) {
-            return { ok: false, error: feesRes.error }
-        }
-        if (!feesRes.data.BTC?.BTC?.fees) {
-            return { ok: false, error: 'No fees found for BTC to BTC swap' }
-        }
-
-        return { ok: true, fees: feesRes.data.BTC.BTC.fees }
-    }
-
-    SwapTransaction = async (txAmount: number): Promise<{ ok: true, createdResponse: TransactionSwapResponse, preimage: string, pubkey: string, privKey: string } | { ok: false, error: string }> => {
-        if (!this.settings.getSettings().swapsSettings.enableSwaps) {
-            this.log(ERROR, 'Swaps are not enabled');
-            return { ok: false, error: 'Swaps are not enabled' }
-        }
-        const preimage = randomBytes(32);
-        const keys = ECPairFactory(ecc).makeRandom()
-        if (!keys.privateKey) {
-            return { ok: false, error: 'Failed to generate keys' }
-        }
-        const url = `${this.settings.getSettings().swapsSettings.boltzHttpUrl}/v2/swap/reverse`
-        const req: any = {
-            onchainAmount: txAmount,
-            to: 'BTC',
-            from: 'BTC',
-            claimPublicKey: Buffer.from(keys.publicKey).toString('hex'),
-            preimageHash: createHash('sha256').update(preimage).digest('hex'),
-        }
-        const createdResponseRes = await loggedPost<TransactionSwapResponse>(this.log, url, req)
-        if (!createdResponseRes.ok) {
-            return createdResponseRes
-        }
-        const createdResponse = createdResponseRes.data
-        this.log('Created transaction swap');
-        this.log(createdResponse);
-        return {
-            ok: true, createdResponse,
-            preimage: Buffer.from(preimage).toString('hex'),
-            pubkey: Buffer.from(keys.publicKey).toString('hex'),
-            privKey: Buffer.from(keys.privateKey).toString('hex')
-        }
-    }
-
-    SubscribeToTransactionSwap = async (data: TransactionSwapData, swapDone: (result: { ok: true, txId: string } | { ok: false, error: string }) => void) => {
-        const webSocket = new ws(`${this.settings.getSettings().swapsSettings.boltzWebSocketUrl}/v2/ws`)
-        const subReq = { op: 'subscribe', channel: 'swap.update', args: [data.createdResponse.id] }
-        webSocket.on('open', () => {
-            webSocket.send(JSON.stringify(subReq))
-        })
-        let txId = "", isDone = false
-        const done = () => {
-            isDone = true
-            webSocket.close()
-            swapDone({ ok: true, txId })
-        }
-        webSocket.on('error', (err) => {
-            this.log(ERROR, 'Error in WebSocket', err.message)
-        })
-        webSocket.on('close', () => {
-            if (!isDone) {
-                this.log(ERROR, 'WebSocket closed before swap was done');
-                swapDone({ ok: false, error: 'WebSocket closed before swap was done' })
-            }
-        })
-        webSocket.on('message', async (rawMsg) => {
-            try {
-                const result = await this.handleSwapTransactionMessage(rawMsg, data, done)
-                if (result) {
-                    txId = result
-                }
-            } catch (err: any) {
-                this.log(ERROR, 'Error handling transaction WebSocket message', err.message)
-                isDone = true
-                webSocket.close()
-                swapDone({ ok: false, error: err.message })
-                return
-            }
-        })
-    }
-
-    handleSwapTransactionMessage = async (rawMsg: ws.RawData, data: TransactionSwapData, done: () => void) => {
-        const msg = JSON.parse(rawMsg.toString('utf-8'));
-        if (msg.event !== 'update') {
-            return;
-        }
-
-        this.log('Got WebSocket update');
-        this.log(msg);
-        switch (msg.args[0].status) {
-            // "swap.created" means Boltz is waiting for the invoice to be paid
-            case 'swap.created':
-                this.log('Waiting invoice to be paid');
-                return;
-
-            // "transaction.mempool" means that Boltz sent an onchain transaction
-            case 'transaction.mempool':
-                const txIdRes = await this.handleTransactionMempool(data, msg.args[0].transaction.hex)
-                if (!txIdRes.ok) {
-                    throw new Error(txIdRes.error)
-                }
-                return txIdRes.txId
-            case 'invoice.settled':
-                this.log('Transaction swap successful');
-                done()
-                return;
-        }
-    }
-
-    handleTransactionMempool = async (data: TransactionSwapData, txHex: string): Promise<{ ok: true, txId: string } | { ok: false, error: string }> => {
-        this.log('Creating claim transaction');
-        const { createdResponse, info } = data
-        const { destinationAddress, keys, preimage, chainFee } = info
-        const boltzPublicKey = Buffer.from(
-            createdResponse.refundPublicKey,
-            'hex',
-        );
-
-        // Create a musig signing session and tweak it with the Taptree of the swap scripts
-        const musig = new Musig(await zkpInit(), keys, randomBytes(32), [
-            boltzPublicKey,
-            Buffer.from(keys.publicKey),
-        ]);
-        const tweakedKey = TaprootUtils.tweakMusig(
-            musig,
-            // swap tree can either be a string or an object
-            SwapTreeSerializer.deserializeSwapTree(createdResponse.swapTree).tree,
-        );
-
-        // Parse the lockup transaction and find the output relevant for the swap
-        const lockupTx = Transaction.fromHex(txHex);
-        const swapOutput = detectSwap(tweakedKey, lockupTx);
-        if (swapOutput === undefined) {
-            this.log(ERROR, 'No swap output found in lockup transaction');
-            return { ok: false, error: 'No swap output found in lockup transaction' }
-        }
-        const network = getNetwork(this.settings.getSettings().lndSettings.network)
-        // Create a claim transaction to be signed cooperatively via a key path spend
-        const claimTx = constructClaimTransaction(
-            [
-                {
-                    ...swapOutput,
-                    keys,
-                    preimage,
-                    cooperative: true,
-                    type: OutputType.Taproot,
-                    txHash: lockupTx.getHash(),
-                },
-            ],
-            address.toOutputScript(destinationAddress, network),
-            chainFee,
-        )
-        const { boltzHttpUrl } = this.settings.getSettings().swapsSettings
-        // Get the partial signature from Boltz
-        const claimUrl = `${boltzHttpUrl}/v2/swap/reverse/${createdResponse.id}/claim`
-        const claimReq = {
-            index: 0,
-            transaction: claimTx.toHex(),
-            preimage: preimage.toString('hex'),
-            pubNonce: Buffer.from(musig.getPublicNonce()).toString('hex'),
-        }
-        const boltzSigRes = await loggedPost<{ pubNonce: string, partialSignature: string }>(this.log, claimUrl, claimReq)
-        if (!boltzSigRes.ok) {
-            return boltzSigRes
-        }
-        const boltzSig = boltzSigRes.data
-
-        // Aggregate the nonces
-        musig.aggregateNonces([
-            [boltzPublicKey, Buffer.from(boltzSig.pubNonce, 'hex')],
-        ]);
-
-        // Initialize the session to sign the claim transaction
-        musig.initializeSession(
-            claimTx.hashForWitnessV1(
-                0,
-                [swapOutput.script],
-                [swapOutput.value],
-                Transaction.SIGHASH_DEFAULT,
-            ),
-        );
-
-        // Add the partial signature from Boltz
-        musig.addPartial(
-            boltzPublicKey,
-            Buffer.from(boltzSig.partialSignature, 'hex'),
-        );
-
-        // Create our partial signature
-        musig.signPartial();
-
-        // Witness of the input to the aggregated signature
-        claimTx.ins[0].witness = [musig.aggregatePartials()];
-
-        // Broadcast the finalized transaction
-        const broadcastUrl = `${boltzHttpUrl}/v2/chain/BTC/transaction`
-        const broadcastReq = {
-            hex: claimTx.toHex(),
-        }
-
-        const broadcastResponse = await loggedPost<any>(this.log, broadcastUrl, broadcastReq)
-        if (!broadcastResponse.ok) {
-            return broadcastResponse
-        }
-        this.log('Transaction broadcasted', broadcastResponse.data)
-        const txId = claimTx.getId()
-        return { ok: true, txId }
-    }
-}
-
-const loggedPost = async <T>(log: PubLogger, url: string, req: any): Promise<{ ok: true, data: T } | { ok: false, error: string }> => {
-    try {
-        const { data } = await axios.post(url, req)
-        return { ok: true, data: data as T }
-    } catch (err: any) {
-        if (err.response?.data) {
-            log(ERROR, 'Error sending request', err.response.data)
-            return { ok: false, error: err.response.data }
-        }
-        log(ERROR, 'Error sending request', err.message)
-        return { ok: false, error: err.message }
-    }
-}
-
-const loggedGet = async <T>(log: PubLogger, url: string): Promise<{ ok: true, data: T } | { ok: false, error: string }> => {
-    try {
-        const { data } = await axios.get(url)
-        return { ok: true, data: data as T }
-    } catch (err: any) {
-        if (err.response?.data) {
-            log(ERROR, 'Error getting request', err.response.data)
-            return { ok: false, error: err.response.data }
-        }
-        log(ERROR, 'Error getting request', err.message)
-        return { ok: false, error: err.message }
-    }
-}
-
-const getNetwork = (network: BTCNetwork): Network => {
-    switch (network) {
-        case 'mainnet':
-            return Networks.bitcoinMainnet
-        case 'testnet':
-            return Networks.bitcoinTestnet
-        case 'regtest':
-            return Networks.bitcoinRegtest
-        default:
-            throw new Error(`Invalid network: ${network}`)
-    }
-}
+*/

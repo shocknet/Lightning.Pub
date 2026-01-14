@@ -264,8 +264,9 @@ export class AdminManager {
         return this.swaps.ListSwaps("admin", [], p => undefined, amt => 0)
     }
 
-    async GetAdminTransactionSwapQuote(req: Types.TransactionSwapRequest): Promise<Types.TransactionSwapQuote> {
-        return this.swaps.GetTxSwapQuote("admin", req.transaction_amount_sats, () => 0)
+    async GetAdminTransactionSwapQuotes(req: Types.TransactionSwapRequest): Promise<Types.TransactionSwapQuoteList> {
+        const quotes = await this.swaps.GetTxSwapQuotes("admin", req.transaction_amount_sats, () => 0)
+        return { quotes }
     }
     async PayAdminTransactionSwap(req: Types.PayAdminTransactionSwapRequest): Promise<Types.AdminSwapResponse> {
         const routingFloor = this.settings.getSettings().lndSettings.routingFeeFloor

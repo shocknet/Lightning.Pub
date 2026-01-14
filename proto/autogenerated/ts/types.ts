@@ -7,8 +7,8 @@ export type RequestMetric = AuthContext & RequestInfo & RequestStats & { error?:
 export type AdminContext = {
     admin_id: string
 }
-export type AdminMethodInputs = AddApp_Input | AddPeer_Input | AuthApp_Input | BanUser_Input | CloseChannel_Input | CreateOneTimeInviteLink_Input | GetAdminTransactionSwapQuote_Input | GetInviteLinkState_Input | GetSeed_Input | ListAdminSwaps_Input | ListChannels_Input | LndGetInfo_Input | OpenChannel_Input | PayAdminTransactionSwap_Input | UpdateChannelPolicy_Input
-export type AdminMethodOutputs = AddApp_Output | AddPeer_Output | AuthApp_Output | BanUser_Output | CloseChannel_Output | CreateOneTimeInviteLink_Output | GetAdminTransactionSwapQuote_Output | GetInviteLinkState_Output | GetSeed_Output | ListAdminSwaps_Output | ListChannels_Output | LndGetInfo_Output | OpenChannel_Output | PayAdminTransactionSwap_Output | UpdateChannelPolicy_Output
+export type AdminMethodInputs = AddApp_Input | AddPeer_Input | AuthApp_Input | BanUser_Input | CloseChannel_Input | CreateOneTimeInviteLink_Input | GetAdminTransactionSwapQuotes_Input | GetInviteLinkState_Input | GetSeed_Input | ListAdminSwaps_Input | ListChannels_Input | LndGetInfo_Input | OpenChannel_Input | PayAdminTransactionSwap_Input | UpdateChannelPolicy_Input
+export type AdminMethodOutputs = AddApp_Output | AddPeer_Output | AuthApp_Output | BanUser_Output | CloseChannel_Output | CreateOneTimeInviteLink_Output | GetAdminTransactionSwapQuotes_Output | GetInviteLinkState_Output | GetSeed_Output | ListAdminSwaps_Output | ListChannels_Output | LndGetInfo_Output | OpenChannel_Output | PayAdminTransactionSwap_Output | UpdateChannelPolicy_Output
 export type AppContext = {
     app_id: string
 }
@@ -35,8 +35,8 @@ export type UserContext = {
     app_user_id: string
     user_id: string
 }
-export type UserMethodInputs = AddProduct_Input | AddUserOffer_Input | AuthorizeManage_Input | BanDebit_Input | DecodeInvoice_Input | DeleteUserOffer_Input | EditDebit_Input | EnrollAdminToken_Input | EnrollMessagingToken_Input | GetDebitAuthorizations_Input | GetHttpCreds_Input | GetLNURLChannelLink_Input | GetLnurlPayLink_Input | GetLnurlWithdrawLink_Input | GetManageAuthorizations_Input | GetPaymentState_Input | GetTransactionSwapQuote_Input | GetUserInfo_Input | GetUserOffer_Input | GetUserOfferInvoices_Input | GetUserOffers_Input | GetUserOperations_Input | ListSwaps_Input | NewAddress_Input | NewInvoice_Input | NewProductInvoice_Input | PayAddress_Input | PayInvoice_Input | ResetDebit_Input | ResetManage_Input | RespondToDebit_Input | UpdateCallbackUrl_Input | UpdateUserOffer_Input | UserHealth_Input
-export type UserMethodOutputs = AddProduct_Output | AddUserOffer_Output | AuthorizeManage_Output | BanDebit_Output | DecodeInvoice_Output | DeleteUserOffer_Output | EditDebit_Output | EnrollAdminToken_Output | EnrollMessagingToken_Output | GetDebitAuthorizations_Output | GetHttpCreds_Output | GetLNURLChannelLink_Output | GetLnurlPayLink_Output | GetLnurlWithdrawLink_Output | GetManageAuthorizations_Output | GetPaymentState_Output | GetTransactionSwapQuote_Output | GetUserInfo_Output | GetUserOffer_Output | GetUserOfferInvoices_Output | GetUserOffers_Output | GetUserOperations_Output | ListSwaps_Output | NewAddress_Output | NewInvoice_Output | NewProductInvoice_Output | PayAddress_Output | PayInvoice_Output | ResetDebit_Output | ResetManage_Output | RespondToDebit_Output | UpdateCallbackUrl_Output | UpdateUserOffer_Output | UserHealth_Output
+export type UserMethodInputs = AddProduct_Input | AddUserOffer_Input | AuthorizeManage_Input | BanDebit_Input | DecodeInvoice_Input | DeleteUserOffer_Input | EditDebit_Input | EnrollAdminToken_Input | EnrollMessagingToken_Input | GetDebitAuthorizations_Input | GetHttpCreds_Input | GetLNURLChannelLink_Input | GetLnurlPayLink_Input | GetLnurlWithdrawLink_Input | GetManageAuthorizations_Input | GetPaymentState_Input | GetTransactionSwapQuotes_Input | GetUserInfo_Input | GetUserOffer_Input | GetUserOfferInvoices_Input | GetUserOffers_Input | GetUserOperations_Input | ListSwaps_Input | NewAddress_Input | NewInvoice_Input | NewProductInvoice_Input | PayAddress_Input | PayInvoice_Input | ResetDebit_Input | ResetManage_Input | RespondToDebit_Input | UpdateCallbackUrl_Input | UpdateUserOffer_Input | UserHealth_Input
+export type UserMethodOutputs = AddProduct_Output | AddUserOffer_Output | AuthorizeManage_Output | BanDebit_Output | DecodeInvoice_Output | DeleteUserOffer_Output | EditDebit_Output | EnrollAdminToken_Output | EnrollMessagingToken_Output | GetDebitAuthorizations_Output | GetHttpCreds_Output | GetLNURLChannelLink_Output | GetLnurlPayLink_Output | GetLnurlWithdrawLink_Output | GetManageAuthorizations_Output | GetPaymentState_Output | GetTransactionSwapQuotes_Output | GetUserInfo_Output | GetUserOffer_Output | GetUserOfferInvoices_Output | GetUserOffers_Output | GetUserOperations_Output | ListSwaps_Output | NewAddress_Output | NewInvoice_Output | NewProductInvoice_Output | PayAddress_Output | PayInvoice_Output | ResetDebit_Output | ResetManage_Output | RespondToDebit_Output | UpdateCallbackUrl_Output | UpdateUserOffer_Output | UserHealth_Output
 export type AuthContext = AdminContext | AppContext | GuestContext | GuestWithPubContext | MetricsContext | UserContext
 
 export type AddApp_Input = {rpcName:'AddApp', req: AddAppRequest}
@@ -99,8 +99,8 @@ export type EnrollAdminToken_Output = ResultError | { status: 'OK' }
 export type EnrollMessagingToken_Input = {rpcName:'EnrollMessagingToken', req: MessagingToken}
 export type EnrollMessagingToken_Output = ResultError | { status: 'OK' }
 
-export type GetAdminTransactionSwapQuote_Input = {rpcName:'GetAdminTransactionSwapQuote', req: TransactionSwapRequest}
-export type GetAdminTransactionSwapQuote_Output = ResultError | ({ status: 'OK' } & TransactionSwapQuote)
+export type GetAdminTransactionSwapQuotes_Input = {rpcName:'GetAdminTransactionSwapQuotes', req: TransactionSwapRequest}
+export type GetAdminTransactionSwapQuotes_Output = ResultError | ({ status: 'OK' } & TransactionSwapQuoteList)
 
 export type GetApp_Input = {rpcName:'GetApp'}
 export type GetApp_Output = ResultError | ({ status: 'OK' } & Application)
@@ -189,8 +189,8 @@ export type GetSingleBundleMetrics_Output = ResultError | ({ status: 'OK' } & Bu
 export type GetSingleUsageMetrics_Input = {rpcName:'GetSingleUsageMetrics', req: SingleMetricReq}
 export type GetSingleUsageMetrics_Output = ResultError | ({ status: 'OK' } & UsageMetricTlv)
 
-export type GetTransactionSwapQuote_Input = {rpcName:'GetTransactionSwapQuote', req: TransactionSwapRequest}
-export type GetTransactionSwapQuote_Output = ResultError | ({ status: 'OK' } & TransactionSwapQuote)
+export type GetTransactionSwapQuotes_Input = {rpcName:'GetTransactionSwapQuotes', req: TransactionSwapRequest}
+export type GetTransactionSwapQuotes_Output = ResultError | ({ status: 'OK' } & TransactionSwapQuoteList)
 
 export type GetUsageMetrics_Input = {rpcName:'GetUsageMetrics', req: LatestUsageMetricReq}
 export type GetUsageMetrics_Output = ResultError | ({ status: 'OK' } & UsageMetrics)
@@ -357,7 +357,7 @@ export type ServerMethods = {
     EncryptionExchange?: (req: EncryptionExchange_Input & {ctx: GuestContext }) => Promise<void>
     EnrollAdminToken?: (req: EnrollAdminToken_Input & {ctx: UserContext }) => Promise<void>
     EnrollMessagingToken?: (req: EnrollMessagingToken_Input & {ctx: UserContext }) => Promise<void>
-    GetAdminTransactionSwapQuote?: (req: GetAdminTransactionSwapQuote_Input & {ctx: AdminContext }) => Promise<TransactionSwapQuote>
+    GetAdminTransactionSwapQuotes?: (req: GetAdminTransactionSwapQuotes_Input & {ctx: AdminContext }) => Promise<TransactionSwapQuoteList>
     GetApp?: (req: GetApp_Input & {ctx: AppContext }) => Promise<Application>
     GetAppUser?: (req: GetAppUser_Input & {ctx: AppContext }) => Promise<AppUser>
     GetAppUserLNURLInfo?: (req: GetAppUserLNURLInfo_Input & {ctx: AppContext }) => Promise<LnurlPayInfoResponse>
@@ -385,7 +385,7 @@ export type ServerMethods = {
     GetSeed?: (req: GetSeed_Input & {ctx: AdminContext }) => Promise<LndSeed>
     GetSingleBundleMetrics?: (req: GetSingleBundleMetrics_Input & {ctx: MetricsContext }) => Promise<BundleData>
     GetSingleUsageMetrics?: (req: GetSingleUsageMetrics_Input & {ctx: MetricsContext }) => Promise<UsageMetricTlv>
-    GetTransactionSwapQuote?: (req: GetTransactionSwapQuote_Input & {ctx: UserContext }) => Promise<TransactionSwapQuote>
+    GetTransactionSwapQuotes?: (req: GetTransactionSwapQuotes_Input & {ctx: UserContext }) => Promise<TransactionSwapQuoteList>
     GetUsageMetrics?: (req: GetUsageMetrics_Input & {ctx: MetricsContext }) => Promise<UsageMetrics>
     GetUserInfo?: (req: GetUserInfo_Input & {ctx: UserContext }) => Promise<UserInfo>
     GetUserOffer?: (req: GetUserOffer_Input & {ctx: UserContext }) => Promise<OfferConfig>
@@ -3991,6 +3991,7 @@ export type TransactionSwapQuote = {
     chain_fee_sats: number
     invoice_amount_sats: number
     service_fee_sats: number
+    service_url: string
     swap_fee_sats: number
     swap_operation_id: string
     transaction_amount_sats: number
@@ -4001,6 +4002,7 @@ export type TransactionSwapQuoteOptions = OptionsBaseMessage & {
     chain_fee_sats_CustomCheck?: (v: number) => boolean
     invoice_amount_sats_CustomCheck?: (v: number) => boolean
     service_fee_sats_CustomCheck?: (v: number) => boolean
+    service_url_CustomCheck?: (v: string) => boolean
     swap_fee_sats_CustomCheck?: (v: number) => boolean
     swap_operation_id_CustomCheck?: (v: string) => boolean
     transaction_amount_sats_CustomCheck?: (v: number) => boolean
@@ -4018,6 +4020,9 @@ export const TransactionSwapQuoteValidate = (o?: TransactionSwapQuote, opts: Tra
     if (typeof o.service_fee_sats !== 'number') return new Error(`${path}.service_fee_sats: is not a number`)
     if (opts.service_fee_sats_CustomCheck && !opts.service_fee_sats_CustomCheck(o.service_fee_sats)) return new Error(`${path}.service_fee_sats: custom check failed`)
 
+    if (typeof o.service_url !== 'string') return new Error(`${path}.service_url: is not a string`)
+    if (opts.service_url_CustomCheck && !opts.service_url_CustomCheck(o.service_url)) return new Error(`${path}.service_url: custom check failed`)
+
     if (typeof o.swap_fee_sats !== 'number') return new Error(`${path}.swap_fee_sats: is not a number`)
     if (opts.swap_fee_sats_CustomCheck && !opts.swap_fee_sats_CustomCheck(o.swap_fee_sats)) return new Error(`${path}.swap_fee_sats: custom check failed`)
 
@@ -4026,6 +4031,29 @@ export const TransactionSwapQuoteValidate = (o?: TransactionSwapQuote, opts: Tra
 
     if (typeof o.transaction_amount_sats !== 'number') return new Error(`${path}.transaction_amount_sats: is not a number`)
     if (opts.transaction_amount_sats_CustomCheck && !opts.transaction_amount_sats_CustomCheck(o.transaction_amount_sats)) return new Error(`${path}.transaction_amount_sats: custom check failed`)
+
+    return null
+}
+
+export type TransactionSwapQuoteList = {
+    quotes: TransactionSwapQuote[]
+}
+export const TransactionSwapQuoteListOptionalFields: [] = []
+export type TransactionSwapQuoteListOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    quotes_ItemOptions?: TransactionSwapQuoteOptions
+    quotes_CustomCheck?: (v: TransactionSwapQuote[]) => boolean
+}
+export const TransactionSwapQuoteListValidate = (o?: TransactionSwapQuoteList, opts: TransactionSwapQuoteListOptions = {}, path: string = 'TransactionSwapQuoteList::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (!Array.isArray(o.quotes)) return new Error(`${path}.quotes: is not an array`)
+    for (let index = 0; index < o.quotes.length; index++) {
+        const quotesErr = TransactionSwapQuoteValidate(o.quotes[index], opts.quotes_ItemOptions, `${path}.quotes[${index}]`)
+        if (quotesErr !== null) return quotesErr
+    }
+    if (opts.quotes_CustomCheck && !opts.quotes_CustomCheck(o.quotes)) return new Error(`${path}.quotes: custom check failed`)
 
     return null
 }

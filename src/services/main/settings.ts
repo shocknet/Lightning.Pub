@@ -196,6 +196,8 @@ const decodeNprofile = (nprofile: string) => {
 export type SwapsSettings = {
     boltzHttpUrl: string
     boltzWebSocketUrl: string
+    boltsHttpUrlAlt: string
+    boltsWebSocketUrlAlt: string
     enableSwaps: boolean
 }
 
@@ -203,6 +205,8 @@ export const LoadSwapsSettingsFromEnv = (dbEnv: Record<string, string | undefine
     return {
         boltzHttpUrl: chooseEnv("BOLTZ_HTTP_URL", dbEnv, "https://swaps.zeuslsp.com/api", addToDb),
         boltzWebSocketUrl: chooseEnv("BOLTZ_WEBSOCKET_URL", dbEnv, "wss://swaps.zeuslsp.com/api", addToDb),
+        boltsHttpUrlAlt: chooseEnv("BOLTZ_HTTP_URL_ALT", dbEnv, "https://api.boltz.exchange/", addToDb),
+        boltsWebSocketUrlAlt: chooseEnv("BOLTZ_WEBSOCKET_URL_ALT", dbEnv, "wss://api.boltz.exchange/", addToDb),
         enableSwaps: chooseEnvBool("ENABLE_SWAPS", dbEnv, false, addToDb)
     }
 }
