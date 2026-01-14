@@ -114,7 +114,7 @@ export class Swaps {
         if (swappers.length === 0) {
             throw new Error("No swap services available")
         }
-        const res = await Promise.allSettled(Object.values(this.revSwappers).map(sw => this.getTxSwapQuote(sw, appUserId, amt, getServiceFee)))
+        const res = await Promise.allSettled(swappers.map(sw => this.getTxSwapQuote(sw, appUserId, amt, getServiceFee)))
         const failures: string[] = []
         const success: Types.TransactionSwapQuote[] = []
         for (const r of res) {

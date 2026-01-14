@@ -26,6 +26,7 @@ export class NostrSender {
         if (!this.isReady) {
             this.log("tried to send before nostr was ready, caching request")
             this.pendingSends.push({ initiator, data, relays })
+            return
         }
         this._nostrSend(initiator, data, relays)
     }

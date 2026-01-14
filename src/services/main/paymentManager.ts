@@ -552,7 +552,7 @@ export default class {
 
     async PayAddress(ctx: Types.UserContext, req: Types.PayAddressRequest): Promise<Types.PayAddressResponse> {
         await this.watchDog.PaymentRequested()
-        this.log("paying address", req.address, "for user", ctx.user_id, "with amount", req.amoutSats)
+        this.log("paying address", req.address, "for user", ctx.user_id, "with amount", req.amountSats)
         const maybeBanned = await this.storage.userStorage.GetUser(ctx.user_id)
         if (maybeBanned.locked) {
             throw new Error("user is banned, cannot send chain tx")
@@ -593,21 +593,21 @@ export default class {
         const { blockHeight } = await this.lnd.GetInfo()
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
         const isManagedUser = ctx.user_id !== app.owner.user_id
-        const serviceFee = this.getSendServiceFee(Types.UserOperationType.OUTGOING_USER_TO_USER, req.amoutSats, isManagedUser)
+        const serviceFee = this.getSendServiceFee(Types.UserOperationType.OUTGOING_USER_TO_USER, req.amountSats, isManagedUser)
 
         const txId = crypto.randomBytes(32).toString("hex")
         const addressData = `${req.address}:${txId}`
-        await this.storage.userStorage.DecrementUserBalance(ctx.user_id, req.amoutSats + serviceFee, addressData)
-        this.addressPaidCb({ hash: txId, index: 0 }, req.address, req.amoutSats, 'internal')
+        await this.storage.userStorage.DecrementUserBalance(ctx.user_id, req.amountSats + serviceFee, addressData)
+        this.addressPaidCb({ hash: txId, index: 0 }, req.address, req.amountSats, 'internal')
         if (isManagedUser && serviceFee > 0) {
             await this.storage.userStorage.IncrementUserBalance(app.owner.user_id, serviceFee, 'fees')
         }
         const chainFees = 0
         const internalAddress = true
-        const newTx = await this.storage.paymentStorage.AddUserTransactionPayment(ctx.user_id, req.address, txId, 0, req.amoutSats, chainFees, serviceFee, internalAddress, blockHeight, app)
+        const newTx = await this.storage.paymentStorage.AddUserTransactionPayment(ctx.user_id, req.address, txId, 0, req.amountSats, chainFees, serviceFee, internalAddress, blockHeight, app)
         const user = await this.storage.userStorage.GetUser(ctx.user_id)
         const txData = `${newTx.address}:${newTx.tx_hash}`
-        this.storage.eventsLog.LogEvent({ type: 'address_payment', userId: ctx.user_id, appId: app.app_id, appUserId: "", balance: user.balance_sats, data: txData, amount: req.amoutSats })
+        this.storage.eventsLog.LogEvent({ type: 'address_payment', userId: ctx.user_id, appId: app.app_id, appUserId: "", balance: user.balance_sats, data: txData, amount: req.amountSats })
         return {
             txId: txId,
             operation_id: `${Types.UserOperationType.OUTGOING_TX}-${newTx.serial_id}`,

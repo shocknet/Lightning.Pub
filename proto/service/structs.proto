@@ -431,7 +431,7 @@ message NewAddressResponse{
 }
 message PayAddressRequest{
     string address = 1;
-    int64 amoutSats = 2;
+    int64 amountSats = 2;
     int64 satsPerVByte = 3;
     optional string swap_operation_id = 4;
 }

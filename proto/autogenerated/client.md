@@ -1524,7 +1524,7 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### PayAddressRequest
   - __address__: _string_
-  - __amoutSats__: _number_
+  - __amountSats__: _number_
   - __satsPerVByte__: _number_
   - __swap_operation_id__: _string_ *this field is optional
 

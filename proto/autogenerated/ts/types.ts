@@ -3243,7 +3243,7 @@ export const OperationsCursorValidate = (o?: OperationsCursor, opts: OperationsC
 
 export type PayAddressRequest = {
     address: string
-    amoutSats: number
+    amountSats: number
     satsPerVByte: number
     swap_operation_id?: string
 }
@@ -3252,7 +3252,7 @@ export const PayAddressRequestOptionalFields: PayAddressRequestOptionalField[] =
 export type PayAddressRequestOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: PayAddressRequestOptionalField[]
     address_CustomCheck?: (v: string) => boolean
-    amoutSats_CustomCheck?: (v: number) => boolean
+    amountSats_CustomCheck?: (v: number) => boolean
     satsPerVByte_CustomCheck?: (v: number) => boolean
     swap_operation_id_CustomCheck?: (v?: string) => boolean
 }
@@ -3263,8 +3263,8 @@ export const PayAddressRequestValidate = (o?: PayAddressRequest, opts: PayAddres
     if (typeof o.address !== 'string') return new Error(`${path}.address: is not a string`)
     if (opts.address_CustomCheck && !opts.address_CustomCheck(o.address)) return new Error(`${path}.address: custom check failed`)
 
-    if (typeof o.amoutSats !== 'number') return new Error(`${path}.amoutSats: is not a number`)
-    if (opts.amoutSats_CustomCheck && !opts.amoutSats_CustomCheck(o.amoutSats)) return new Error(`${path}.amoutSats: custom check failed`)
+    if (typeof o.amountSats !== 'number') return new Error(`${path}.amountSats: is not a number`)
+    if (opts.amountSats_CustomCheck && !opts.amountSats_CustomCheck(o.amountSats)) return new Error(`${path}.amountSats: custom check failed`)
 
     if (typeof o.satsPerVByte !== 'number') return new Error(`${path}.satsPerVByte: is not a number`)
     if (opts.satsPerVByte_CustomCheck && !opts.satsPerVByte_CustomCheck(o.satsPerVByte)) return new Error(`${path}.satsPerVByte: custom check failed`)

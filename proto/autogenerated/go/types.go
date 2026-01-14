@@ -549,7 +549,7 @@ type OperationsCursor struct {
 }
 type PayAddressRequest struct {
 	Address           string `json:"address"`
-	Amoutsats         int64  `json:"amoutSats"`
+	Amountsats        int64  `json:"amountSats"`
 	Satspervbyte      int64  `json:"satsPerVByte"`
 	Swap_operation_id string `json:"swap_operation_id"`
 }

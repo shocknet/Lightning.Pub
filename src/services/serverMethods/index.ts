@@ -159,7 +159,7 @@ export default (mainHandler: Main): Types.ServerMethods => {
         PayAddress: async ({ ctx, req }) => {
             const err = Types.PayAddressRequestValidate(req, {
                 address_CustomCheck: addr => addr !== '',
-                amoutSats_CustomCheck: amt => amt > 0,
+                amountSats_CustomCheck: amt => amt > 0,
                 // satsPerVByte_CustomCheck: spb => spb > 0
             })
             if (err != null) throw new Error(err.message)
