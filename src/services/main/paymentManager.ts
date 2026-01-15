@@ -397,7 +397,8 @@ export default class {
         const div = 1 + (serviceFeeBps / 10000)
         const maxWithoutFixed = Math.floor(balance / div)
         const fee = balance - maxWithoutFixed
-        const max = balance - Math.max(fee, serviceFeeFloor)
+        const m = balance - Math.max(fee, serviceFeeFloor)
+        const max = Math.max(m, 0)
         return { max, serviceFeeFloor, serviceFeeBps }
     }
     async DecodeInvoice(req: Types.DecodeInvoiceRequest): Promise<Types.DecodeInvoiceResponse> {
