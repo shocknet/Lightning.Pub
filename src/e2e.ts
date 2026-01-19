@@ -7,6 +7,7 @@ import { getLogger } from './services/helpers/logger.js';
 import { initMainHandler, initSettings } from './services/main/init.js';
 import { nip19 } from 'nostr-tools'
 import { LoadStorageSettingsFromEnv } from './services/storage/index.js';
+import { AppInfo } from './services/nostr/nostrPool.js';
 //@ts-ignore
 const { nprofileEncode } = nip19
 
@@ -20,18 +21,35 @@ const start = async () => {
         return
     }
 
-    const { apps, mainHandler, liquidityProviderInfo, wizard, adminManager } = keepOn
+    const { mainHandler, localProviderClient, wizard, adminManager } = keepOn
     const serverMethods = GetServerMethods(mainHandler)
     const nostrSettings = settingsManager.getSettings().nostrRelaySettings
     log("initializing nostr middleware")
+    const relays = settingsManager.getSettings().nostrRelaySettings.relays
+    const maxEventContentLength = settingsManager.getSettings().nostrRelaySettings.maxEventContentLength
+    const apps: AppInfo[] = keepOn.apps.map(app => {
+        return {
+            appId: app.appId,
+            privateKey: app.privateKey,
+            publicKey: app.publicKey,
+            name: app.name,
+            provider: app.publicKey === localProviderClient.publicKey ? {
+                clientId: `client_${localProviderClient.appId}`,
+                pubkey: settingsManager.getSettings().liquiditySettings.liquidityProviderPub,
+                relayUrl: settingsManager.getSettings().liquiditySettings.providerRelayUrl
+            } : undefined
+        }
+    })
     const { Send } = nostrMiddleware(serverMethods, mainHandler,
-        { ...nostrSettings, apps, clients: [liquidityProviderInfo] },
+        {
+            relays, maxEventContentLength, apps
+        },
         (e, p) => mainHandler.liquidityProvider.onEvent(e, p)
     )
     log("starting server")
     mainHandler.attachNostrSend(Send)
     mainHandler.StartBeacons()
-    const appNprofile = nprofileEncode({ pubkey: liquidityProviderInfo.publicKey, relays: nostrSettings.relays })
+    const appNprofile = nprofileEncode({ pubkey: localProviderClient.publicKey, relays: nostrSettings.relays })
     if (wizard) {
         wizard.AddConnectInfo(appNprofile, nostrSettings.relays)
     }

@@ -1,34 +1,37 @@
 //import { SimplePool, Sub, Event, UnsignedEvent, getEventHash, signEvent } from 'nostr-tools'
-import WebSocket from 'ws'
-Object.assign(global, { WebSocket: WebSocket });
-import crypto from 'crypto'
-import { SimplePool, Event, UnsignedEvent, finalizeEvent, Relay, nip44 } from 'nostr-tools'
+/* import WebSocket from 'ws'
+Object.assign(global, { WebSocket: WebSocket }); */
+/* import crypto from 'crypto'
+import { SimplePool, Event, UnsignedEvent, finalizeEvent, Relay, nip44, Filter } from 'nostr-tools' */
 import { ERROR, getLogger } from '../helpers/logger.js'
-import { nip19 } from 'nostr-tools'
-import { encrypt as encryptV1, decrypt as decryptV1, getSharedSecret as getConversationKeyV1 } from './nip44v1.js'
+/* import { nip19 } from 'nostr-tools'
+import { encrypt as encryptV1, decrypt as decryptV1, getSharedSecret as getConversationKeyV1 } from './nip44v1.js' */
 import { ProcessMetrics, ProcessMetricsCollector } from '../storage/tlv/processMetricsCollector.js'
-import { Subscription } from 'nostr-tools/lib/types/abstract-relay.js';
+/* import { Subscription } from 'nostr-tools/lib/types/abstract-relay.js';
 const { nprofileEncode } = nip19
 const { v2 } = nip44
 const { encrypt: encryptV2, decrypt: decryptV2, utils } = v2
-const { getConversationKey: getConversationKeyV2 } = utils
-const handledEvents: string[] = [] // TODO: - big memory leak here, add TTL
+const { getConversationKey: getConversationKeyV2 } = utils */
+/* const handledEvents: string[] = [] // TODO: - big memory leak here, add TTL
 type AppInfo = { appId: string, publicKey: string, privateKey: string, name: string }
 type ClientInfo = { clientId: string, publicKey: string, privateKey: string, name: string }
 type SendDataContent = { type: "content", content: string, pub: string }
 type SendDataEvent = { type: "event", event: UnsignedEvent, encrypt?: { toPub: string } }
 export type SendData = SendDataContent | SendDataEvent
 export type SendInitiator = { type: 'app', appId: string } | { type: 'client', clientId: string }
-export type NostrSend = (initiator: SendInitiator, data: SendData, relays?: string[] | undefined) => void
+export type NostrSend = (initiator: SendInitiator, data: SendData, relays?: string[] | undefined) => void */
+import { NostrPool } from './nostrPool.js'
+import { NostrSettings, SendInitiator, SendData, NostrEvent, NostrSend } from './nostrPool.js'
 
-export type NostrSettings = {
+/* export type NostrSettings = {
     apps: AppInfo[]
     relays: string[]
     clients: ClientInfo[]
     maxEventContentLength: number
-}
+    providerDestinationPub: string
+} */
 
-export type NostrEvent = {
+/* export type NostrEvent = {
     id: string
     pub: string
     content: string
@@ -36,7 +39,8 @@ export type NostrEvent = {
     startAtNano: string
     startAtMs: number
     kind: number
-}
+    relayConstraint?: 'service' | 'provider'
+} */
 
 type SettingsRequest = {
     type: 'settings'
@@ -69,9 +73,14 @@ type ProcessMetricsResponse = {
     type: 'processMetrics'
     metrics: ProcessMetrics
 }
+type BeaconResponse = {
+    type: 'beacon'
+    content: string
+    pub: string
+}
 
 export type ChildProcessRequest = SettingsRequest | SendRequest | PingRequest
-export type ChildProcessResponse = ReadyResponse | EventResponse | ProcessMetricsResponse | PingResponse
+export type ChildProcessResponse = ReadyResponse | EventResponse | ProcessMetricsResponse | PingResponse | BeaconResponse
 const send = (message: ChildProcessResponse) => {
     if (process.send) {
         process.send(message, undefined, undefined, err => {
@@ -82,7 +91,7 @@ const send = (message: ChildProcessResponse) => {
         })
     }
 }
-let subProcessHandler: Handler | undefined
+let subProcessHandler: NostrPool | undefined
 process.on("message", (message: ChildProcessRequest) => {
     switch (message.type) {
         case 'settings':
@@ -102,11 +111,15 @@ process.on("message", (message: ChildProcessRequest) => {
 const handleNostrSettings = (settings: NostrSettings) => {
     if (subProcessHandler) {
         getLogger({ component: "nostrMiddleware" })("got new nostr setting, resetting nostr handler")
-        subProcessHandler.Stop()
-        initNostrHandler(settings)
+        subProcessHandler.UpdateSettings(settings)
+        // initNostrHandler(settings)
         return
     }
-    initNostrHandler(settings)
+    subProcessHandler = new NostrPool(event => {
+        send(event)
+    })
+    subProcessHandler.UpdateSettings(settings)
+    // initNostrHandler(settings)
     new ProcessMetricsCollector((metrics) => {
         send({
             type: 'processMetrics',
@@ -114,14 +127,11 @@ const handleNostrSettings = (settings: NostrSettings) => {
         })
     })
 }
-const initNostrHandler = (settings: NostrSettings) => {
-    subProcessHandler = new Handler(settings, event => {
-        send({
-            type: 'event',
-            event: event
-        })
+/* const initNostrHandler = (settings: NostrSettings) => {
+    subProcessHandler = new NostrPool(event => {
+        send(event)
     })
-}
+} */
 const sendToNostr: NostrSend = (initiator, data, relays) => {
     if (!subProcessHandler) {
         getLogger({ component: "nostrMiddleware" })(ERROR, "nostr was not initialized")
@@ -131,7 +141,7 @@ const sendToNostr: NostrSend = (initiator, data, relays) => {
 }
 
 send({ type: 'ready' })
-const supportedKinds = [21000, 21001, 21002, 21003]
+/* const supportedKinds = [21000, 21001, 21002, 21003]
 export default class Handler {
     pool = new SimplePool()
     settings: NostrSettings
@@ -218,18 +228,28 @@ export default class Handler {
             appIds: appIds,
             listeningForPubkeys: appIds
         })
-
-        return relay.subscribe([
+        const subs: Filter[] = [
             {
                 since: Math.ceil(Date.now() / 1000),
                 kinds: supportedKinds,
                 '#p': appIds,
             }
-        ], {
+        ]
+        if (this.settings.providerDestinationPub) {
+            subs.push({
+                kinds: [30078], '#d': ['Lightning.Pub'],
+                authors: [this.settings.providerDestinationPub]
+            })
+        }
+        return relay.subscribe(subs, {
             oneose: () => {
                 this.log("up to date with nostr events")
             },
             onevent: async (e) => {
+                if (e.kind === 30078 && e.pubkey === this.settings.providerDestinationPub) {
+                    send({ type: 'beacon', content: e.content, pub: e.pubkey })
+                    return
+                }
                 if (!supportedKinds.includes(e.kind) || !e.pubkey) {
                     return
                 }
@@ -366,4 +386,4 @@ const splitContent = (content: string, maxLength: number) => {
         parts.push(content.slice(i, i + maxLength))
     }
     return parts
-}
+} */

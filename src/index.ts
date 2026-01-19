@@ -7,6 +7,7 @@ import { getLogger } from './services/helpers/logger.js';
 import { initMainHandler, initSettings } from './services/main/init.js';
 import { nip19 } from 'nostr-tools'
 import { LoadStorageSettingsFromEnv } from './services/storage/index.js';
+import { AppInfo } from './services/nostr/nostrPool.js';
 //@ts-ignore
 const { nprofileEncode } = nip19
 
@@ -22,13 +23,28 @@ const start = async () => {
         return
     }
 
-    const { apps, mainHandler, liquidityProviderInfo, wizard, adminManager } = keepOn
+    const { mainHandler, localProviderClient, wizard, adminManager } = keepOn
     const serverMethods = GetServerMethods(mainHandler)
     log("initializing nostr middleware")
-    const relays = mainHandler.settings.getSettings().nostrRelaySettings.relays
-    const maxEventContentLength = mainHandler.settings.getSettings().nostrRelaySettings.maxEventContentLength
+    const relays = settingsManager.getSettings().nostrRelaySettings.relays
+    const maxEventContentLength = settingsManager.getSettings().nostrRelaySettings.maxEventContentLength
+    const apps: AppInfo[] = keepOn.apps.map(app => {
+        return {
+            appId: app.appId,
+            privateKey: app.privateKey,
+            publicKey: app.publicKey,
+            name: app.name,
+            provider: app.publicKey === localProviderClient.publicKey ? {
+                clientId: `client_${localProviderClient.appId}`,
+                pubkey: settingsManager.getSettings().liquiditySettings.liquidityProviderPub,
+                relayUrl: settingsManager.getSettings().liquiditySettings.providerRelayUrl
+            } : undefined
+        }
+    })
     const { Send, Stop, Ping, Reset } = nostrMiddleware(serverMethods, mainHandler,
-        { relays, maxEventContentLength, apps, clients: [liquidityProviderInfo] },
+        {
+            relays, maxEventContentLength, apps
+        },
         (e, p) => mainHandler.liquidityProvider.onEvent(e, p)
     )
     exitHandler(() => { Stop(); mainHandler.Stop() })
@@ -37,13 +53,13 @@ const start = async () => {
     mainHandler.attachNostrProcessPing(Ping)
     mainHandler.attachNostrReset(Reset)
     mainHandler.StartBeacons()
-    const appNprofile = nprofileEncode({ pubkey: liquidityProviderInfo.publicKey, relays })
+    const appNprofile = nprofileEncode({ pubkey: localProviderClient.publicKey, relays })
     if (wizard) {
         wizard.AddConnectInfo(appNprofile, relays)
     }
     adminManager.setAppNprofile(appNprofile)
     const Server = NewServer(serverMethods, serverOptions(mainHandler))
-    Server.Listen(mainHandler.settings.getSettings().serviceSettings.servicePort)
+    Server.Listen(settingsManager.getSettings().serviceSettings.servicePort)
 }
 start()
 

@@ -12,7 +12,7 @@ import AppUserManager from "./appUserManager.js"
 import { Application } from '../storage/entity/Application.js'
 import { UserReceivingInvoice } from '../storage/entity/UserReceivingInvoice.js'
 import { UnsignedEvent } from 'nostr-tools'
-import { NostrSend } from '../nostr/handler.js'
+import { NostrSend } from '../nostr/nostrPool.js'
 import MetricsManager from '../metrics/index.js'
 import { LiquidityProvider } from "./liquidityProvider.js"
 import { LiquidityManager } from "./liquidityManager.js"
@@ -30,7 +30,7 @@ import { Agent } from "https"
 import { NotificationsManager } from "./notificationsManager.js"
 import { ApplicationUser } from '../storage/entity/ApplicationUser.js'
 import SettingsManager from './settingsManager.js'
-import { NostrSettings } from '../nostr/handler.js'
+import { NostrSettings, AppInfo } from '../nostr/nostrPool.js'
 type UserOperationsSub = {
     id: string
     newIncomingInvoice: (operation: Types.UserOperation) => void
@@ -61,8 +61,6 @@ export default class {
     rugPullTracker: RugPullTracker
     unlocker: Unlocker
     notificationsManager: NotificationsManager
-    //webRTC: webRTC
-    nostrSend: NostrSend = () => { getLogger({})("nostr send not initialized yet") }
     nostrProcessPing: (() => Promise<void>) | null = null
     nostrReset: (settings: NostrSettings) => void = () => { getLogger({})("nostr reset not initialized yet") }
     constructor(settings: SettingsManager, storage: Storage, adminManager: AdminManager, utils: Utils, unlocker: Unlocker) {
@@ -82,7 +80,7 @@ export default class {
         this.liquidityManager = new LiquidityManager(this.settings, this.storage, this.utils, this.liquidityProvider, this.lnd, this.rugPullTracker)
         this.metricsManager = new MetricsManager(this.storage, this.lnd)
 
-        this.paymentManager = new PaymentManager(this.storage, this.lnd, this.settings, this.liquidityManager, this.utils, this.addressPaidCb, this.invoicePaidCb)
+        this.paymentManager = new PaymentManager(this.storage, this.metricsManager, this.lnd, adminManager.swaps, this.settings, this.liquidityManager, this.utils, this.addressPaidCb, this.invoicePaidCb)
         this.productManager = new ProductManager(this.storage, this.paymentManager, this.settings)
         this.applicationManager = new ApplicationManager(this.storage, this.settings, this.paymentManager)
         this.appUserManager = new AppUserManager(this.storage, this.settings, this.applicationManager)
@@ -102,19 +100,13 @@ export default class {
     }
 
     StartBeacons() {
-        this.applicationManager.StartAppsServiceBeacon(app => {
-            this.UpdateBeacon(app, { type: 'service', name: app.name, avatarUrl: app.avatar_url })
+        this.applicationManager.StartAppsServiceBeacon((app, fees) => {
+            this.UpdateBeacon(app, { type: 'service', name: app.name, avatarUrl: app.avatar_url, fees })
         })
     }
 
     attachNostrSend(f: NostrSend) {
-        this.nostrSend = f
-        this.liquidityProvider.attachNostrSend(f)
-        this.debitManager.attachNostrSend(f)
-        this.offerManager.attachNostrSend(f)
-        this.managementManager.attachNostrSend(f)
-        this.utils.attachNostrSend(f)
-        //this.webRTC.attachNostrSend(f)
+        this.utils.nostrSender.AttachNostrSend(f)
     }
 
     attachNostrProcessPing(f: () => Promise<void>) {
@@ -168,7 +160,8 @@ export default class {
     NewBlockHandler = async (height: number) => {
         let confirmed: (PendingTx & { confs: number; })[]
         let log = getLogger({})
-
+        this.storage.paymentStorage.DeleteExpiredTransactionSwaps(height)
+            .catch(err => log(ERROR, "failed to delete expired transaction swaps", err.message || err))
         try {
             const balanceEvents = await this.paymentManager.GetLndBalance()
             await this.metricsManager.NewBlockCb(height, balanceEvents)
@@ -220,6 +213,10 @@ export default class {
             const { blockHeight } = await this.lnd.GetInfo()
             const userAddress = await this.storage.paymentStorage.GetAddressOwner(address, tx)
             if (!userAddress) {
+                const isChange = await this.lnd.IsChangeAddress(address)
+                if (isChange) {
+                    return
+                }
                 await this.metricsManager.AddRootAddressPaid(address, txOutput, amount)
                 return
             }
@@ -230,11 +227,8 @@ export default class {
                 return
             }
             log = getLogger({ appName: userAddress.linkedApplication.name })
-            const isAppUserPayment = userAddress.user.user_id !== userAddress.linkedApplication.owner.user_id
-            let fee = this.paymentManager.getServiceFee(Types.UserOperationType.INCOMING_TX, amount, isAppUserPayment)
-            if (userAddress.linkedApplication && userAddress.linkedApplication.owner.user_id === userAddress.user.user_id) {
-                fee = 0
-            }
+            const isManagedUser = userAddress.user.user_id !== userAddress.linkedApplication.owner.user_id
+            const fee = this.paymentManager.getReceiveServiceFee(Types.UserOperationType.INCOMING_TX, amount, isManagedUser)
             try {
                 // This call will fail if the transaction is already registered
                 const addedTx = await this.storage.paymentStorage.AddAddressReceivingTransaction(userAddress, txOutput.hash, txOutput.index, amount, fee, internal, blockHeight, tx)
@@ -274,11 +268,8 @@ export default class {
                 return
             }
             log = getLogger({ appName: userInvoice.linkedApplication.name })
-            const isAppUserPayment = userInvoice.user.user_id !== userInvoice.linkedApplication.owner.user_id
-            let fee = this.paymentManager.getServiceFee(Types.UserOperationType.INCOMING_INVOICE, amount, isAppUserPayment)
-            if (userInvoice.linkedApplication && userInvoice.linkedApplication.owner.user_id === userInvoice.user.user_id) {
-                fee = 0
-            }
+            const isManagedUser = userInvoice.user.user_id !== userInvoice.linkedApplication.owner.user_id
+            const fee = this.paymentManager.getReceiveServiceFee(Types.UserOperationType.INCOMING_INVOICE, amount, isManagedUser)
             try {
                 await this.storage.paymentStorage.FlagInvoiceAsPaid(userInvoice, amount, fee, internal, tx)
                 this.storage.eventsLog.LogEvent({ type: 'invoice_paid', userId: userInvoice.user.user_id, appId: userInvoice.linkedApplication.app_id, appUserId: "", balance: userInvoice.user.balance_sats, data: paymentRequest, amount })
@@ -385,10 +376,11 @@ export default class {
             getLogger({ appName: app.name })("cannot notify user, not a nostr user")
             return
         }
-
-        const message: Types.LiveUserOperation & { requestId: string, status: 'OK' } = { operation: op, requestId: "GetLiveUserOperations", status: 'OK' }
+        const balance = user.user.balance_sats
+        const message: Types.LiveUserOperation & { requestId: string, status: 'OK' } =
+            { operation: op, requestId: "GetLiveUserOperations", status: 'OK', latest_balance: balance }
         const j = JSON.stringify(message)
-        this.nostrSend({ type: 'app', appId: app.app_id }, { type: 'content', content: j, pub: user.nostr_public_key })
+        this.utils.nostrSender.Send({ type: 'app', appId: app.app_id }, { type: 'content', content: j, pub: user.nostr_public_key })
         this.SendEncryptedNotification(app, user, op)
     }
 
@@ -408,7 +400,7 @@ export default class {
         })
     }
 
-    async UpdateBeacon(app: Application, content: { type: 'service', name: string, avatarUrl?: string, nextRelay?: string }) {
+    async UpdateBeacon(app: Application, content: Types.BeaconData) {
         if (!app.nostr_public_key) {
             getLogger({ appName: app.name })("cannot update beacon, public key not set")
             return
@@ -421,7 +413,7 @@ export default class {
             pubkey: app.nostr_public_key,
             tags,
         }
-        this.nostrSend({ type: 'app', appId: app.app_id }, { type: 'event', event })
+        this.utils.nostrSender.Send({ type: 'app', appId: app.app_id }, { type: 'event', event })
     }
 
     async createZapReceipt(log: PubLogger, invoice: UserReceivingInvoice) {
@@ -441,7 +433,7 @@ export default class {
             tags,
         }
         log({ unsigned: event })
-        this.nostrSend({ type: 'app', appId: invoice.linkedApplication.app_id }, { type: 'event', event }, zapInfo.relays || undefined)
+        this.utils.nostrSender.Send({ type: 'app', appId: invoice.linkedApplication.app_id }, { type: 'event', event }, zapInfo.relays || undefined)
     }
 
     async createClinkReceipt(log: PubLogger, invoice: UserReceivingInvoice) {
@@ -465,7 +457,7 @@ export default class {
                 ["clink_version", "1"]
             ],
         }
-        this.nostrSend(
+        this.utils.nostrSender.Send(
             { type: 'app', appId: invoice.linkedApplication.app_id },
             { type: 'event', event, encrypt: { toPub: invoice.clink_requester_pub } }
         )
@@ -474,28 +466,38 @@ export default class {
     async ResetNostr() {
         const apps = await this.storage.applicationStorage.GetApplications()
         const nextRelay = this.settings.getSettings().nostrRelaySettings.relays[0]
+        const fees = this.paymentManager.GetFees()
         for (const app of apps) {
-            await this.UpdateBeacon(app, { type: 'service', name: app.name, avatarUrl: app.avatar_url, nextRelay })
+            await this.UpdateBeacon(app, { type: 'service', name: app.name, avatarUrl: app.avatar_url, nextRelay, fees })
         }
 
         const defaultNames = ['wallet', 'wallet-test', this.settings.getSettings().serviceSettings.defaultAppName]
-        const liquidityProviderApp = apps.find(app => defaultNames.includes(app.name))
-        if (!liquidityProviderApp) {
-            throw new Error("wallet app not initialized correctly")
+        const local = apps.find(app => defaultNames.includes(app.name))
+        if (!local) {
+            throw new Error("local app not initialized correctly")
         }
-        const liquidityProviderInfo = {
-            privateKey: liquidityProviderApp.nostr_private_key || "",
-            publicKey: liquidityProviderApp.nostr_public_key || "",
-            name: "liquidity_provider", clientId: `client_${liquidityProviderApp.app_id}`
-        }
+        this.liquidityProvider.setNostrInfo({ localId: `client_${local.app_id}`, localPubkey: local.nostr_public_key || "" })
+        const relays = this.settings.getSettings().nostrRelaySettings.relays
+        const appsInfo: AppInfo[] = apps.map(app => {
+            return {
+                appId: app.app_id,
+                privateKey: app.nostr_private_key || "",
+                publicKey: app.nostr_public_key || "",
+                name: app.name,
+                provider: app.nostr_public_key === local.nostr_public_key ? {
+                    clientId: `client_${local.app_id}`,
+                    pubkey: this.settings.getSettings().liquiditySettings.liquidityProviderPub,
+                    relayUrl: this.settings.getSettings().liquiditySettings.providerRelayUrl
+                } : undefined
+            }
+        })
         const s: NostrSettings = {
-            apps: apps.map(a => ({ appId: a.app_id, name: a.name, privateKey: a.nostr_private_key || "", publicKey: a.nostr_public_key || "" })),
-            relays: this.settings.getSettings().nostrRelaySettings.relays,
+            apps: appsInfo,
+            relays,
             maxEventContentLength: this.settings.getSettings().nostrRelaySettings.maxEventContentLength,
-            clients: [liquidityProviderInfo]
+            /* clients: [local],
+            providerDestinationPub: this.settings.getSettings().liquiditySettings.liquidityProviderPub */
         }
         this.nostrReset(s)
     }
 }
-
-

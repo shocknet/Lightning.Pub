@@ -18,6 +18,9 @@ export class TrackedProvider {
     @Column({ default: 0 })
     latest_distruption_at_unix: number
 
+    @Column({ default: 0 })
+    latest_checked_height: number
+
     @CreateDateColumn()
     created_at: Date
 

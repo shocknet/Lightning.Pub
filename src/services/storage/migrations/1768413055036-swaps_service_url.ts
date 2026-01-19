@@ -1,0 +1,20 @@
+import { MigrationInterface, QueryRunner } from "typeorm";
+
+export class SwapsServiceUrl1768413055036 implements MigrationInterface {
+    name = 'SwapsServiceUrl1768413055036'
+
+    public async up(queryRunner: QueryRunner): Promise<void> {
+        await queryRunner.query(`CREATE TABLE "temporary_transaction_swap" ("swap_operation_id" varchar PRIMARY KEY NOT NULL, "app_user_id" varchar NOT NULL, "swap_quote_id" varchar NOT NULL, "swap_tree" varchar NOT NULL, "lockup_address" varchar NOT NULL, "refund_public_key" varchar NOT NULL, "timeout_block_height" integer NOT NULL, "invoice" varchar NOT NULL, "invoice_amount" integer NOT NULL, "transaction_amount" integer NOT NULL, "swap_fee_sats" integer NOT NULL, "chain_fee_sats" integer NOT NULL, "preimage" varchar NOT NULL, "ephemeral_public_key" varchar NOT NULL, "ephemeral_private_key" varchar NOT NULL, "used" boolean NOT NULL DEFAULT (0), "failure_reason" varchar NOT NULL DEFAULT (''), "tx_id" varchar NOT NULL DEFAULT (''), "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "address_paid" varchar NOT NULL DEFAULT (''), "service_url" varchar NOT NULL DEFAULT (''))`);
+        await queryRunner.query(`INSERT INTO "temporary_transaction_swap"("swap_operation_id", "app_user_id", "swap_quote_id", "swap_tree", "lockup_address", "refund_public_key", "timeout_block_height", "invoice", "invoice_amount", "transaction_amount", "swap_fee_sats", "chain_fee_sats", "preimage", "ephemeral_public_key", "ephemeral_private_key", "used", "failure_reason", "tx_id", "created_at", "updated_at", "address_paid") SELECT "swap_operation_id", "app_user_id", "swap_quote_id", "swap_tree", "lockup_address", "refund_public_key", "timeout_block_height", "invoice", "invoice_amount", "transaction_amount", "swap_fee_sats", "chain_fee_sats", "preimage", "ephemeral_public_key", "ephemeral_private_key", "used", "failure_reason", "tx_id", "created_at", "updated_at", "address_paid" FROM "transaction_swap"`);
+        await queryRunner.query(`DROP TABLE "transaction_swap"`);
+        await queryRunner.query(`ALTER TABLE "temporary_transaction_swap" RENAME TO "transaction_swap"`);
+    }
+
+    public async down(queryRunner: QueryRunner): Promise<void> {
+        await queryRunner.query(`ALTER TABLE "transaction_swap" RENAME TO "temporary_transaction_swap"`);
+        await queryRunner.query(`CREATE TABLE "transaction_swap" ("swap_operation_id" varchar PRIMARY KEY NOT NULL, "app_user_id" varchar NOT NULL, "swap_quote_id" varchar NOT NULL, "swap_tree" varchar NOT NULL, "lockup_address" varchar NOT NULL, "refund_public_key" varchar NOT NULL, "timeout_block_height" integer NOT NULL, "invoice" varchar NOT NULL, "invoice_amount" integer NOT NULL, "transaction_amount" integer NOT NULL, "swap_fee_sats" integer NOT NULL, "chain_fee_sats" integer NOT NULL, "preimage" varchar NOT NULL, "ephemeral_public_key" varchar NOT NULL, "ephemeral_private_key" varchar NOT NULL, "used" boolean NOT NULL DEFAULT (0), "failure_reason" varchar NOT NULL DEFAULT (''), "tx_id" varchar NOT NULL DEFAULT (''), "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "address_paid" varchar NOT NULL DEFAULT (''))`);
+        await queryRunner.query(`INSERT INTO "transaction_swap"("swap_operation_id", "app_user_id", "swap_quote_id", "swap_tree", "lockup_address", "refund_public_key", "timeout_block_height", "invoice", "invoice_amount", "transaction_amount", "swap_fee_sats", "chain_fee_sats", "preimage", "ephemeral_public_key", "ephemeral_private_key", "used", "failure_reason", "tx_id", "created_at", "updated_at", "address_paid") SELECT "swap_operation_id", "app_user_id", "swap_quote_id", "swap_tree", "lockup_address", "refund_public_key", "timeout_block_height", "invoice", "invoice_amount", "transaction_amount", "swap_fee_sats", "chain_fee_sats", "preimage", "ephemeral_public_key", "ephemeral_private_key", "used", "failure_reason", "tx_id", "created_at", "updated_at", "address_paid" FROM "temporary_transaction_swap"`);
+        await queryRunner.query(`DROP TABLE "temporary_transaction_swap"`);
+    }
+
+}

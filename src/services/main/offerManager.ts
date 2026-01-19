@@ -4,7 +4,7 @@ import ProductManager from "./productManager.js";
 import Storage from '../storage/index.js'
 import LND from "../lnd/lnd.js"
 import { ERROR, getLogger } from "../helpers/logger.js";
-import { NostrEvent, NostrSend, SendData, SendInitiator } from '../nostr/handler.js';
+import { NostrEvent } from '../nostr/nostrPool.js';
 import { UnsignedEvent } from 'nostr-tools';
 import { UserOffer } from '../storage/entity/UserOffer.js';
 import { LiquidityManager } from "./liquidityManager.js"
@@ -31,9 +31,6 @@ const mapToOfferConfig = (appUserId: string, offer: UserOffer, { pubkey, relay }
     }
 }
 export class OfferManager {
-
-
-    _nostrSend: NostrSend | null = null
     settings: SettingsManager
     applicationManager: ApplicationManager
     productManager: ProductManager
@@ -48,16 +45,6 @@ export class OfferManager {
         this.applicationManager = applicationManager
         this.productManager = productManager
         this.liquidityManager = liquidityManager
-    }
-
-    attachNostrSend = (nostrSend: NostrSend) => {
-        this._nostrSend = nostrSend
-    }
-    nostrSend: NostrSend = (initiator: SendInitiator, data: SendData, relays?: string[] | undefined) => {
-        if (!this._nostrSend) {
-            throw new Error("No nostrSend attached")
-        }
-        this._nostrSend(initiator, data, relays)
     }
 
     async AddUserOffer(ctx: Types.UserContext, req: Types.OfferConfig): Promise<Types.OfferId> {
@@ -182,7 +169,7 @@ export class OfferManager {
                 max: offerInvoice.max
             })
             const e = newNofferResponse(JSON.stringify({ code, error: codeToMessage(code), range: { min: 10, max: offerInvoice.max } }), event)
-            this.nostrSend({ type: 'app', appId: event.appId }, { type: 'event', event: e, encrypt: { toPub: event.pub } })
+            this.storage.NostrSender().Send({ type: 'app', appId: event.appId }, { type: 'event', event: e, encrypt: { toPub: event.pub } })
             return
         }
 
@@ -194,7 +181,7 @@ export class OfferManager {
         })
 
         const e = newNofferResponse(JSON.stringify({ bolt11: offerInvoice.invoice }), event)
-        this.nostrSend({ type: 'app', appId: event.appId }, { type: 'event', event: e, encrypt: { toPub: event.pub } })
+        this.storage.NostrSender().Send({ type: 'app', appId: event.appId }, { type: 'event', event: e, encrypt: { toPub: event.pub } })
 
         this.logger("📤 [OFFER RESPONSE] Sent offer response", {
             toPub: event.pub,

@@ -17,7 +17,6 @@ type NsecLinkingData = {
     expiry: number
 }
 export default class {
-
     storage: Storage
     settings: SettingsManager
     paymentManager: PaymentManager
@@ -47,12 +46,13 @@ export default class {
         }, 60 * 1000); // 1 minute
     }
 
-    async StartAppsServiceBeacon(publishBeacon: (app: Application) => void) {
+    async StartAppsServiceBeacon(publishBeacon: (app: Application, fees: Types.CumulativeFees) => void) {
         this.serviceBeaconInterval = setInterval(async () => {
             try {
+                const fees = this.paymentManager.GetFees()
                 const apps = await this.storage.applicationStorage.GetApplications()
                 apps.forEach(app => {
-                    publishBeacon(app)
+                    publishBeacon(app, fees)
                 })
             } catch (e) {
                 this.log("error in beacon", (e as any).message)
@@ -154,17 +154,17 @@ export default class {
 
         const ndebitString = ndebitEncode({ pubkey: app.nostr_public_key!, pointer: u.identifier, relay: nostrSettings.relays[0] })
         log("🔗 [DEBUG] Generated ndebit for user", { userId: u.user.user_id, ndebit: ndebitString })
-
+        const { max, serviceFeeFloor, serviceFeeBps } = this.paymentManager.GetMaxPayableInvoice(u.user.balance_sats)
         return {
             identifier: u.identifier,
             info: {
                 userId: u.user.user_id,
                 balance: u.user.balance_sats,
-                max_withdrawable: this.paymentManager.GetMaxPayableInvoice(u.user.balance_sats, true),
+                max_withdrawable: max,
                 user_identifier: u.identifier,
-                network_max_fee_bps: this.settings.getSettings().lndSettings.feeRateBps,
-                network_max_fee_fixed: this.settings.getSettings().lndSettings.feeFixedLimit,
-                service_fee_bps: this.settings.getSettings().serviceFeeSettings.outgoingAppUserInvoiceFeeBps,
+                network_max_fee_bps: 0,
+                network_max_fee_fixed: serviceFeeFloor,
+                service_fee_bps: serviceFeeBps,
                 noffer: nofferEncode({ pubkey: app.nostr_public_key!, offer: u.identifier, priceType: OfferPriceType.Spontaneous, relay: nostrSettings.relays[0] }),
                 ndebit: ndebitEncode({ pubkey: app.nostr_public_key!, pointer: u.identifier, relay: nostrSettings.relays[0] }),
                 nmanage: nmanageEncode({ pubkey: app.nostr_public_key!, pointer: u.identifier, relay: nostrSettings.relays[0] }),
@@ -172,7 +172,7 @@ export default class {
                 bridge_url: this.settings.getSettings().serviceSettings.bridgeUrl
 
             },
-            max_withdrawable: this.paymentManager.GetMaxPayableInvoice(u.user.balance_sats, true)
+            max_withdrawable: max
         }
     }
 
@@ -213,16 +213,16 @@ export default class {
     async GetAppUser(appId: string, req: Types.GetAppUserRequest): Promise<Types.AppUser> {
         const app = await this.storage.applicationStorage.GetApplication(appId)
         const user = await this.storage.applicationStorage.GetApplicationUser(app, req.user_identifier)
-        const max = this.paymentManager.GetMaxPayableInvoice(user.user.balance_sats, true)
         const nostrSettings = this.settings.getSettings().nostrRelaySettings
+        const { max, serviceFeeFloor, serviceFeeBps } = this.paymentManager.GetMaxPayableInvoice(user.user.balance_sats)
         return {
             max_withdrawable: max, identifier: req.user_identifier, info: {
                 userId: user.user.user_id, balance: user.user.balance_sats,
-                max_withdrawable: this.paymentManager.GetMaxPayableInvoice(user.user.balance_sats, true),
+                max_withdrawable: max,
                 user_identifier: user.identifier,
-                network_max_fee_bps: this.settings.getSettings().lndSettings.feeRateBps,
-                network_max_fee_fixed: this.settings.getSettings().lndSettings.feeFixedLimit,
-                service_fee_bps: this.settings.getSettings().serviceFeeSettings.outgoingAppUserInvoiceFeeBps,
+                network_max_fee_bps: 0,
+                network_max_fee_fixed: serviceFeeFloor,
+                service_fee_bps: serviceFeeBps,
                 noffer: nofferEncode({ pubkey: app.nostr_public_key!, offer: user.identifier, priceType: OfferPriceType.Spontaneous, relay: nostrSettings.relays[0] }),
                 ndebit: ndebitEncode({ pubkey: app.nostr_public_key!, pointer: user.identifier, relay: nostrSettings.relays[0] }),
                 nmanage: nmanageEncode({ pubkey: app.nostr_public_key!, pointer: user.identifier, relay: nostrSettings.relays[0] }),
@@ -235,9 +235,31 @@ export default class {
     async PayAppUserInvoice(appId: string, req: Types.PayAppUserInvoiceRequest): Promise<Types.PayInvoiceResponse> {
         const app = await this.storage.applicationStorage.GetApplication(appId)
         const appUser = await this.storage.applicationStorage.GetApplicationUser(app, req.user_identifier)
-        const paid = await this.paymentManager.PayInvoice(appUser.user.user_id, req, app)
-        getLogger({ appName: app.name })(appUser.identifier, "invoice paid", paid.amount_paid, "sats")
-        return paid
+        try {
+            const paid = await this.paymentManager.PayInvoice(appUser.user.user_id, req, app, {
+                ack: pendingOp => { this.notifyAppUserPayment(appUser, pendingOp) }
+            })
+            this.notifyAppUserPayment(appUser, paid.operation)
+            getLogger({ appName: app.name })(appUser.identifier, "invoice paid", paid.amount_paid, "sats")
+            return paid
+        } catch (e) {
+            const failedOp: Types.UserOperation = {
+                type: Types.UserOperationType.OUTGOING_INVOICE,
+                paidAtUnix: -1, amount: 0, confirmed: false, identifier: req.invoice, operationId: "",
+                inbound: false, internal: false, network_fee: 0, service_fee: 0, tx_hash: "",
+            }
+            this.notifyAppUserPayment(appUser, failedOp)
+            throw e
+        }
+    }
+
+    notifyAppUserPayment = (appUser: ApplicationUser, op: Types.UserOperation) => {
+        const balance = appUser.user.balance_sats
+        const message: Types.LiveUserOperation & { requestId: string, status: 'OK' } =
+            { operation: op, requestId: "GetLiveUserOperations", status: 'OK', latest_balance: balance }
+        if (appUser.nostr_public_key) { // TODO - fix before support for http streams
+            this.storage.NostrSender().Send({ type: 'app', appId: appUser.application.app_id }, { type: 'content', content: JSON.stringify(message), pub: appUser.nostr_public_key })
+        }
     }
 
     async SendAppUserToAppUserPayment(appId: string, req: Types.SendAppUserToAppUserPaymentRequest): Promise<void> {

@@ -91,6 +91,21 @@ export default (mainHandler: Main): Types.ServerMethods => {
             if (err != null) throw new Error(err.message)
             return mainHandler.adminManager.CloseChannel(req)
         },
+        GetAdminTransactionSwapQuotes: async ({ ctx, req }) => {
+            const err = Types.TransactionSwapRequestValidate(req, {
+                transaction_amount_sats_CustomCheck: amt => amt > 0
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.adminManager.GetAdminTransactionSwapQuotes(req)
+        },
+        PayAdminTransactionSwap: async ({ ctx, req }) => {
+            const err = Types.PayAdminTransactionSwapRequestValidate(req, {
+                address_CustomCheck: addr => addr !== '',
+                swap_operation_id_CustomCheck: id => id !== '',
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.adminManager.PayAdminTransactionSwap(req)
+        },
         GetProvidersDisruption: async () => {
             return mainHandler.metricsManager.GetProvidersDisruption()
         },
@@ -130,6 +145,9 @@ export default (mainHandler: Main): Types.ServerMethods => {
         GetUserOperations: async ({ ctx, req }) => {
             return mainHandler.paymentManager.GetUserOperations(ctx.user_id, req)
         },
+        ListAdminSwaps: async ({ ctx }) => {
+            return mainHandler.adminManager.ListAdminSwaps()
+        },
         GetPaymentState: async ({ ctx, req }) => {
             const err = Types.GetPaymentStateRequestValidate(req, {
                 invoice_CustomCheck: invoice => invoice !== ""
@@ -141,11 +159,17 @@ export default (mainHandler: Main): Types.ServerMethods => {
         PayAddress: async ({ ctx, req }) => {
             const err = Types.PayAddressRequestValidate(req, {
                 address_CustomCheck: addr => addr !== '',
-                amoutSats_CustomCheck: amt => amt > 0,
-                satsPerVByte_CustomCheck: spb => spb > 0
+                amountSats_CustomCheck: amt => amt > 0,
+                // satsPerVByte_CustomCheck: spb => spb > 0
             })
             if (err != null) throw new Error(err.message)
             return mainHandler.paymentManager.PayAddress(ctx, req)
+        },
+        ListSwaps: async ({ ctx }) => {
+            return mainHandler.paymentManager.ListSwaps(ctx)
+        },
+        GetTransactionSwapQuotes: async ({ ctx, req }) => {
+            return mainHandler.paymentManager.GetTransactionSwapQuotes(ctx, req)
         },
         NewInvoice: ({ ctx, req }) => mainHandler.appUserManager.NewInvoice(ctx, req),
         DecodeInvoice: async ({ ctx, req }) => {

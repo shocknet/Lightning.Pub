@@ -1,31 +1,27 @@
 import { EnvCacher, EnvMustBeNonEmptyString, EnvMustBeInteger, chooseEnv, chooseEnvBool, chooseEnvInt } from '../helpers/envParser.js'
 import os from 'os'
 import path from 'path'
+import { nip19 } from '@shocknet/clink-sdk'
 
 export type ServiceFeeSettings = {
-    incomingTxFee: number
-    outgoingTxFee: number
-    incomingAppInvoiceFee: number
-    incomingAppUserInvoiceFee: number
-    outgoingAppInvoiceFee: number
-    outgoingAppUserInvoiceFee: number
-    outgoingAppUserInvoiceFeeBps: number
+    serviceFee: number
+    serviceFeeBps: number
+    serviceFeeFloor: number
     userToUserFee: number
-    appToUserFee: number
+    rootToUserFee: number
 }
 
 export const LoadServiceFeeSettingsFromEnv = (dbEnv: Record<string, string | undefined>, addToDb?: EnvCacher): ServiceFeeSettings => {
-    const outgoingAppUserInvoiceFeeBps = chooseEnvInt("OUTGOING_INVOICE_FEE_USER_BPS", dbEnv, 0, addToDb)
+    const oldServiceFeeBps = chooseEnvInt("OUTGOING_INVOICE_FEE_USER_BPS", dbEnv, 60, addToDb)
+    const serviceFeeBps = chooseEnvInt("SERVICE_FEE_BPS", dbEnv, oldServiceFeeBps, addToDb)
+    const oldRoutingFeeFloor = chooseEnvInt('OUTBOUND_MAX_FEE_EXTRA_SATS', dbEnv, 10, addToDb)
+    const serviceFeeFloor = chooseEnvInt("SERVICE_FEE_FLOOR_SATS", dbEnv, oldRoutingFeeFloor, addToDb)
     return {
-        incomingTxFee: chooseEnvInt("INCOMING_CHAIN_FEE_ROOT_BPS", dbEnv, 0, addToDb) / 10000,
-        outgoingTxFee: chooseEnvInt("OUTGOING_CHAIN_FEE_ROOT_BPS", dbEnv, 60, addToDb) / 10000,
-        incomingAppInvoiceFee: chooseEnvInt("INCOMING_INVOICE_FEE_ROOT_BPS", dbEnv, 0, addToDb) / 10000,
-        outgoingAppInvoiceFee: chooseEnvInt("OUTGOING_INVOICE_FEE_ROOT_BPS", dbEnv, 60, addToDb) / 10000,
-        incomingAppUserInvoiceFee: chooseEnvInt("INCOMING_INVOICE_FEE_USER_BPS", dbEnv, 0, addToDb) / 10000,
-        outgoingAppUserInvoiceFeeBps,
-        outgoingAppUserInvoiceFee: outgoingAppUserInvoiceFeeBps / 10000,
+        serviceFeeBps,
+        serviceFee: serviceFeeBps / 10000,
+        serviceFeeFloor,
         userToUserFee: chooseEnvInt("TX_FEE_INTERNAL_USER_BPS", dbEnv, 0, addToDb) / 10000,
-        appToUserFee: chooseEnvInt("TX_FEE_INTERNAL_ROOT_BPS", dbEnv, 0, addToDb) / 10000,
+        rootToUserFee: chooseEnvInt("TX_FEE_INTERNAL_ROOT_BPS", dbEnv, 0, addToDb) / 10000,
     }
 }
 
@@ -76,13 +72,14 @@ export type LndNodeSettings = {
     lndCertPath: string // cold setting
     lndMacaroonPath: string // cold setting
 }
+const networks = ['mainnet', 'testnet', 'regtest'] as const
+export type BTCNetwork = (typeof networks)[number]
 export type LndSettings = {
     lndLogDir: string
-    feeRateLimit: number
-    feeFixedLimit: number
-    feeRateBps: number
+    routingFeeLimitBps: number
+    routingFeeFloor: number
     mockLnd: boolean
-
+    network: BTCNetwork
 }
 
 const resolveHome = (filepath: string) => {
@@ -111,13 +108,16 @@ export const LoadLndNodeSettingsFromEnv = (dbEnv: Record<string, string | undefi
 }
 
 export const LoadLndSettingsFromEnv = (dbEnv: Record<string, string | undefined>, addToDb?: EnvCacher): LndSettings => {
-    const feeRateBps: number = chooseEnvInt('OUTBOUND_MAX_FEE_BPS', dbEnv, 60, addToDb)
+    const network = chooseEnv('BTC_NETWORK', dbEnv, 'mainnet', addToDb) as BTCNetwork
+    const oldRoutingFeeFloor = chooseEnvInt('OUTBOUND_MAX_FEE_EXTRA_SATS', dbEnv, 5, addToDb)
+    const routingFeeFloor = chooseEnvInt('ROUTING_FEE_FLOOR_SATS', dbEnv, oldRoutingFeeFloor, addToDb)
+    const routingFeeLimitBps = chooseEnvInt('ROUTING_FEE_LIMIT_BPS', dbEnv, 50, addToDb)
     return {
-        lndLogDir: chooseEnv('LND_LOG_DIR', dbEnv, path.join(lndDir(), "logs", "bitcoin", "mainnet", "lnd.log"), addToDb),
-        feeRateBps: feeRateBps,
-        feeRateLimit: feeRateBps / 10000,
-        feeFixedLimit: chooseEnvInt('OUTBOUND_MAX_FEE_EXTRA_SATS', dbEnv, 100, addToDb),
-        mockLnd: false
+        lndLogDir: chooseEnv('LND_LOG_DIR', dbEnv, resolveHome("/.lnd/logs/bitcoin/mainnet/lnd.log"), addToDb),
+        routingFeeLimitBps,
+        routingFeeFloor,
+        mockLnd: false,
+        network: networks.includes(network) ? network : 'mainnet'
     }
 }
 
@@ -167,13 +167,48 @@ export type LiquiditySettings = {
     liquidityProviderPub: string // cold setting
     useOnlyLiquidityProvider: boolean // hot setting
     disableLiquidityProvider: boolean // hot setting
+    providerRelayUrl: string
 }
 export const LoadLiquiditySettingsFromEnv = (dbEnv: Record<string, string | undefined>, addToDb?: EnvCacher): LiquiditySettings => {
-    //const liquidityProviderPub = process.env.LIQUIDITY_PROVIDER_PUB === "null" ? "" : (process.env.LIQUIDITY_PROVIDER_PUB || "76ed45f00cea7bac59d8d0b7d204848f5319d7b96c140ffb6fcbaaab0a13d44e")
-    const liquidityProviderPub = chooseEnv("LIQUIDITY_PROVIDER_PUB", dbEnv, "76ed45f00cea7bac59d8d0b7d204848f5319d7b96c140ffb6fcbaaab0a13d44e", addToDb)
+    const providerNprofile = chooseEnv("PROVIDER_NPROFILE", dbEnv, "nprofile1qyd8wumn8ghj7um5wfn8y7fwwd5x7cmt9ehx2arhdaexkqpqwmk5tuqvafa6ckwc6zmaypyy3af3n4aeds2ql7m0ew42kzsn638q9s9z8p", addToDb)
+    const { liquidityProviderPub, providerRelayUrl } = decodeNprofile(providerNprofile)
+
     const disableLiquidityProvider = chooseEnvBool("DISABLE_LIQUIDITY_PROVIDER", dbEnv, false, addToDb) || liquidityProviderPub === "null"
     const useOnlyLiquidityProvider = chooseEnvBool("USE_ONLY_LIQUIDITY_PROVIDER", dbEnv, false, addToDb)
-    return { liquidityProviderPub, useOnlyLiquidityProvider, disableLiquidityProvider }
+
+    return { liquidityProviderPub, useOnlyLiquidityProvider, disableLiquidityProvider, providerRelayUrl }
+}
+
+const decodeNprofile = (nprofile: string) => {
+    const decoded = nip19.decode(nprofile)
+    if (decoded.type !== 'nprofile') {
+        throw new Error("PROVIDER_NPROFILE must be a valid nprofile")
+    }
+    if (!decoded.data.pubkey) {
+        throw new Error("PROVIDER_NPROFILE must contain a pubkey")
+    }
+    if (!decoded.data.relays || decoded.data.relays.length === 0) {
+        throw new Error("PROVIDER_NPROFILE must contain at least one relay")
+    }
+    return { liquidityProviderPub: decoded.data.pubkey, providerRelayUrl: decoded.data.relays[0] }
+}
+
+export type SwapsSettings = {
+    boltzHttpUrl: string
+    boltzWebSocketUrl: string
+    boltsHttpUrlAlt: string
+    boltsWebSocketUrlAlt: string
+    enableSwaps: boolean
+}
+
+export const LoadSwapsSettingsFromEnv = (dbEnv: Record<string, string | undefined>, addToDb?: EnvCacher): SwapsSettings => {
+    return {
+        boltzHttpUrl: chooseEnv("BOLTZ_HTTP_URL", dbEnv, "https://swaps.zeuslsp.com/api", addToDb),
+        boltzWebSocketUrl: chooseEnv("BOLTZ_WEBSOCKET_URL", dbEnv, "wss://swaps.zeuslsp.com/api", addToDb),
+        boltsHttpUrlAlt: chooseEnv("BOLTZ_HTTP_URL_ALT", dbEnv, "https://api.boltz.exchange/", addToDb),
+        boltsWebSocketUrlAlt: chooseEnv("BOLTZ_WEBSOCKET_URL_ALT", dbEnv, "wss://api.boltz.exchange/", addToDb),
+        enableSwaps: chooseEnvBool("ENABLE_SWAPS", dbEnv, false, addToDb)
+    }
 }
 
 

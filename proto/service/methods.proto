@@ -175,6 +175,27 @@ service LightningPub {
         option (nostr) = true;
     }
 
+    rpc GetAdminTransactionSwapQuotes(structs.TransactionSwapRequest) returns (structs.TransactionSwapQuoteList) {
+        option (auth_type)  = "Admin";
+        option (http_method) = "post";
+        option (http_route) = "/api/admin/swap/transaction/quote";
+        option (nostr) = true;
+    }
+
+    rpc PayAdminTransactionSwap(structs.PayAdminTransactionSwapRequest) returns (structs.AdminSwapResponse) {
+        option (auth_type)  = "Admin";
+        option (http_method) = "post";
+        option (http_route) = "/api/admin/swap/transaction/pay";
+        option (nostr) = true;
+    }
+
+    rpc ListAdminSwaps(structs.Empty) returns (structs.SwapsList) {
+        option (auth_type)  = "Admin";
+        option (http_method) = "post";
+        option (http_route) = "/api/admin/swap/list";
+        option (nostr) = true;
+    }
+
     rpc GetUsageMetrics(structs.LatestUsageMetricReq) returns (structs.UsageMetrics) {
         option (auth_type)  = "Metrics";
         option (http_method) = "post";
@@ -480,7 +501,7 @@ service LightningPub {
         option (http_method) = "post";
         option (http_route) = "/api/user/operations";
         option (nostr) = true;
-    } 
+    }
 
     rpc NewAddress(structs.NewAddressRequest) returns (structs.NewAddressResponse) {
         option (auth_type)  = "User";
@@ -493,6 +514,20 @@ service LightningPub {
         option (auth_type)  = "User";
         option (http_method) = "post";
         option (http_route) = "/api/user/chain/pay";
+        option (nostr) = true;
+    }
+
+    rpc GetTransactionSwapQuotes(structs.TransactionSwapRequest) returns (structs.TransactionSwapQuoteList){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/swap/quote";
+        option (nostr) = true;
+    }
+
+    rpc ListSwaps(structs.Empty) returns (structs.SwapsList){
+        option (auth_type)  = "User";
+        option (http_method) = "post";
+        option (http_route) = "/api/user/swap/list";
         option (nostr) = true;
     }
 
