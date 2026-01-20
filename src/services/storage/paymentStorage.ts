@@ -25,7 +25,7 @@ export default class {
         this.userStorage = userStorage
     }
 
-    async AddAddressReceivingTransaction(address: UserReceivingAddress, txHash: string, outputIndex: number, amount: number, serviceFee: number, internal: boolean, height: number, txId: string) {
+    async AddAddressReceivingTransaction(address: UserReceivingAddress, txHash: string, outputIndex: number, amount: number, serviceFee: number, internal: boolean, height: number, txId: string, confs?: number) {
         return this.dbs.CreateAndSave<AddressReceivingTransaction>('AddressReceivingTransaction', {
             user_address: address,
             tx_hash: txHash,
@@ -35,7 +35,7 @@ export default class {
             paid_at_unix: Math.floor(Date.now() / 1000),
             internal,
             broadcast_height: height,
-            confs: internal ? 10 : 0
+            confs: confs !== undefined ? confs : (internal ? 10 : 0)
         }, txId)
     }
 

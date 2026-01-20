@@ -202,6 +202,118 @@ export default class {
         }
     }
 
+    repairStuckChainTxs = async () => {
+        const log = getLogger({ component: 'repairStuckChainTxs' })
+
+        if (this.liquidityManager.settings.getSettings().liquiditySettings.useOnlyLiquidityProvider) {
+            log("USE_ONLY_LIQUIDITY_PROVIDER enabled, skipping stuck tx repair")
+            return
+        }
+
+        try {
+            const repairedCount = await this.findAndRepairStuckTransactions(log)
+            if (repairedCount > 0) {
+                log(`repaired ${repairedCount} stuck chain tx(s)`)
+            } else {
+                log("no stuck chain transactions found")
+            }
+        } catch (err: any) {
+            log(ERROR, "failed to repair stuck chain transactions:", err.message || err)
+        }
+    }
+
+    private async findAndRepairStuckTransactions(log: PubLogger): Promise<number> {
+        const { incoming } = await this.storage.paymentStorage.GetPendingTransactions()
+        if (incoming.length === 0) {
+            return 0
+        }
+
+        log(`found ${incoming.length} pending incoming transaction(s), checking for stuck ones...`)
+
+        const lowestHeight = Math.min(...incoming.map(t => t.broadcast_height))
+        const { transactions } = await this.lnd.GetTransactions(lowestHeight)
+
+        const txMap = new Map<string, Transaction>()
+        for (const tx of transactions) {
+            txMap.set(tx.txHash, tx)
+        }
+
+        let repairedCount = 0
+        for (const pendingTx of incoming) {
+            const lndTx = txMap.get(pendingTx.tx_hash)
+            if (!lndTx || lndTx.numConfirmations === 0) {
+                continue
+            }
+
+            const repaired = await this.repairStuckTransaction(pendingTx, lndTx, log)
+            if (repaired) {
+                repairedCount++
+            }
+        }
+
+        return repairedCount
+    }
+
+    private async repairStuckTransaction(
+        pendingTx: { serial_id: number, tx_hash: string, paid_amount: number, service_fee: number, user_address: UserReceivingAddress },
+        lndTx: Transaction,
+        log: PubLogger
+    ): Promise<boolean> {
+        const { user_address: userAddress, serial_id: serialId, tx_hash: txHash, paid_amount: amount, service_fee: fee } = pendingTx
+
+        if (!userAddress.linkedApplication) {
+            log(ERROR, "stuck tx has no linked application:", txHash)
+            return false
+        }
+
+        try {
+            await this.storage.StartTransaction(async txId => {
+                const affected = await this.storage.paymentStorage.UpdateAddressReceivingTransaction(
+                    serialId,
+                    { confs: lndTx.numConfirmations },
+                    txId
+                )
+                if (!affected) {
+                    throw new Error("unable to update stuck chain transaction")
+                }
+
+                const addressData = `${userAddress.address}:${txHash}`
+                this.storage.eventsLog.LogEvent({
+                    type: 'address_paid',
+                    userId: userAddress.user.user_id,
+                    appId: userAddress.linkedApplication!.app_id,
+                    appUserId: "",
+                    balance: userAddress.user.balance_sats,
+                    data: addressData,
+                    amount
+                })
+
+                await this.storage.userStorage.IncrementUserBalance(
+                    userAddress.user.user_id,
+                    amount - fee,
+                    addressData,
+                    txId
+                )
+
+                if (fee > 0) {
+                    await this.storage.userStorage.IncrementUserBalance(
+                        userAddress.linkedApplication!.owner.user_id,
+                        fee,
+                        'fees',
+                        txId
+                    )
+                }
+
+                log(`repaired stuck tx: user=${userAddress.user.user_id}, txHash=${txHash}, amount=${amount}, fee=${fee}, confs=${lndTx.numConfirmations}`)
+            }, "repair stuck chain tx")
+
+            return true
+        } catch (err: any) {
+            log(ERROR, "failed to repair stuck tx:", txHash, err.message || err)
+            return false
+        }
+    }
+
     private async getLatestTransactions(log: PubLogger): Promise<{ txs: Transaction[], currentHeight: number, lndPubkey: string }> {
         const lndInfo = await this.lnd.GetInfo()
         const lndPubkey = lndInfo.identityPubkey
@@ -284,10 +396,88 @@ export default class {
 
         const amount = Number(output.amount)
         const outputIndex = Number(output.outputIndex)
-        log(`processing missed chain tx: address=${output.address}, txHash=${tx.txHash}, amount=${amount}, outputIndex=${outputIndex}`)
-        this.addressPaidCb({ hash: tx.txHash, index: outputIndex }, output.address, amount, 'lnd')
-            .catch(err => log(ERROR, "failed to process user address output:", err.message || err))
+        log(`processing missed chain tx: address=${output.address}, txHash=${tx.txHash}, amount=${amount}, outputIndex=${outputIndex}, confs=${tx.numConfirmations}`)
+
+        // For unconfirmed transactions, use the existing callback flow
+        if (tx.numConfirmations === 0) {
+            this.addressPaidCb({ hash: tx.txHash, index: outputIndex }, output.address, amount, 'lnd')
+                .catch(err => log(ERROR, "failed to process user address output:", err.message || err))
+            return true
+        }
+
+        // For already-confirmed transactions, handle immediately
+        await this.processConfirmedUserAddressOutput(output.address, tx.txHash, outputIndex, amount, tx.blockHeight, tx.numConfirmations, log)
         return true
+    }
+
+    private async processConfirmedUserAddressOutput(
+        address: string,
+        txHash: string,
+        outputIndex: number,
+        amount: number,
+        blockHeight: number,
+        confs: number,
+        log: PubLogger
+    ) {
+        try {
+            await this.storage.StartTransaction(async txId => {
+                const userAddress = await this.storage.paymentStorage.GetAddressOwner(address, txId)
+                if (!userAddress) {
+                    log(ERROR, "cannot find address owner for confirmed missed tx:", address)
+                    return
+                }
+                if (!userAddress.linkedApplication) {
+                    log(ERROR, "an address was paid, that has no linked application")
+                    return
+                }
+
+                const isManagedUser = userAddress.user.user_id !== userAddress.linkedApplication.owner.user_id
+                const fee = this.getReceiveServiceFee(Types.UserOperationType.INCOMING_TX, amount, isManagedUser)
+
+                const addedTx = await this.storage.paymentStorage.AddAddressReceivingTransaction(
+                    userAddress, txHash, outputIndex, amount, fee, false, blockHeight, txId, confs
+                )
+
+                const addressData = `${address}:${txHash}`
+                this.storage.eventsLog.LogEvent({
+                    type: 'address_paid',
+                    userId: userAddress.user.user_id,
+                    appId: userAddress.linkedApplication.app_id,
+                    appUserId: "",
+                    balance: userAddress.user.balance_sats,
+                    data: addressData,
+                    amount
+                })
+
+                await this.storage.userStorage.IncrementUserBalance(
+                    userAddress.user.user_id,
+                    addedTx.paid_amount - fee,
+                    addressData,
+                    txId
+                )
+
+                if (fee > 0) {
+                    await this.storage.userStorage.IncrementUserBalance(
+                        userAddress.linkedApplication.owner.user_id,
+                        fee,
+                        'fees',
+                        txId
+                    )
+                }
+
+                this.utils.stateBundler.AddTxPoint(
+                    'addressWasPaid',
+                    amount,
+                    { used: 'lnd', from: 'system', timeDiscount: true },
+                    userAddress.linkedApplication.app_id
+                )
+
+                log(`confirmed missed chain tx processed: user=${userAddress.user.user_id}, amount=${amount}, fee=${fee}`)
+            }, "process confirmed missed chain tx")
+        } catch (err: any) {
+            this.utils.stateBundler.AddTxPointFailed('addressWasPaid', amount, { used: 'lnd', from: 'system' }, '')
+            log(ERROR, "failed to process confirmed missed chain tx:", err.message || err)
+        }
     }
 
     getReceiveServiceFee = (action: Types.UserOperationType, amount: number, managedUser: boolean): number => {
