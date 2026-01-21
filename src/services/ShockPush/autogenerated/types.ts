@@ -25,7 +25,10 @@ export type NostrAppMethodInputs = SendNotification_Input
 export type NostrAppMethodOutputs = SendNotification_Output
 export type AuthContext = AdminContext | GuestContext | NostrAppContext
 
-export type EnrollServicePub_Input = { rpcName: 'EnrollServicePub', req: ServiceNpub }
+export type EnrollServicePub_Query = {
+    pubkey_hex?: string[] | string
+}
+export type EnrollServicePub_Input = { rpcName: 'EnrollServicePub', query: EnrollServicePub_Query }
 export type EnrollServicePub_Output = ResultError | { status: 'OK' }
 
 export type Health_Input = { rpcName: 'Health' }
@@ -59,18 +62,26 @@ export const EmptyValidate = (o?: Empty, opts: EmptyOptions = {}, path: string =
 }
 
 export type Notification = {
+    body?: string
     data: string
     recipient_registration_tokens: string[]
+    title?: string
 }
-export const NotificationOptionalFields: [] = []
+export type NotificationOptionalField = 'body' | 'title'
+export const NotificationOptionalFields: NotificationOptionalField[] = ['body', 'title']
 export type NotificationOptions = OptionsBaseMessage & {
-    checkOptionalsAreSet?: []
+    checkOptionalsAreSet?: NotificationOptionalField[]
+    body_CustomCheck?: (v?: string) => boolean
     data_CustomCheck?: (v: string) => boolean
     recipient_registration_tokens_CustomCheck?: (v: string[]) => boolean
+    title_CustomCheck?: (v?: string) => boolean
 }
 export const NotificationValidate = (o?: Notification, opts: NotificationOptions = {}, path: string = 'Notification::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
     if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if ((o.body || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('body')) && typeof o.body !== 'string') return new Error(`${path}.body: is not a string`)
+    if (opts.body_CustomCheck && !opts.body_CustomCheck(o.body)) return new Error(`${path}.body: custom check failed`)
 
     if (typeof o.data !== 'string') return new Error(`${path}.data: is not a string`)
     if (opts.data_CustomCheck && !opts.data_CustomCheck(o.data)) return new Error(`${path}.data: custom check failed`)
@@ -80,6 +91,9 @@ export const NotificationValidate = (o?: Notification, opts: NotificationOptions
         if (typeof o.recipient_registration_tokens[index] !== 'string') return new Error(`${path}.recipient_registration_tokens[${index}]: is not a string`)
     }
     if (opts.recipient_registration_tokens_CustomCheck && !opts.recipient_registration_tokens_CustomCheck(o.recipient_registration_tokens)) return new Error(`${path}.recipient_registration_tokens: custom check failed`)
+
+    if ((o.title || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('title')) && typeof o.title !== 'string') return new Error(`${path}.title: is not a string`)
+    if (opts.title_CustomCheck && !opts.title_CustomCheck(o.title)) return new Error(`${path}.title: custom check failed`)
 
     return null
 }

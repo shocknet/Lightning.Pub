@@ -18,9 +18,9 @@ export type BalanceInfo = {
     channelsBalance: ChannelBalance[];
 }
 
-export type AddressPaidCb = (txOutput: TxOutput, address: string, amount: number, used: 'lnd' | 'provider' | 'internal') => Promise<void>
+export type AddressPaidCb = (txOutput: TxOutput, address: string, amount: number, used: 'lnd' | 'provider' | 'internal', broadcastHeight?: number) => Promise<void>
 export type InvoicePaidCb = (paymentRequest: string, amount: number, used: 'lnd' | 'provider' | 'internal') => Promise<void>
-export type NewBlockCb = (height: number) => void
+export type NewBlockCb = (height: number, skipMetrics?: boolean) => Promise<void>
 export type HtlcCb = (event: HtlcEvent) => void
 export type ChannelEventCb = (event: ChannelEventUpdate, channels: Channel[]) => void
 
