@@ -6,7 +6,7 @@ import { InboundOptionals, defaultInvoiceExpiry } from '../storage/paymentStorag
 import LND from '../lnd/lnd.js'
 import { Application } from '../storage/entity/Application.js'
 import { ERROR, getLogger, PubLogger } from '../helpers/logger.js'
-import { AddressPaidCb, InvoicePaidCb } from '../lnd/settings.js'
+import { AddressPaidCb, InvoicePaidCb, NewBlockCb } from '../lnd/settings.js'
 import { UserReceivingInvoice, ZapInfo } from '../storage/entity/UserReceivingInvoice.js'
 import { Payment_PaymentStatus } from '../../../proto/lnd/lightning.js'
 import { Event, verifiedSymbol, verifyEvent } from 'nostr-tools'
@@ -54,6 +54,7 @@ export default class {
     lnd: LND
     addressPaidCb: AddressPaidCb
     invoicePaidCb: InvoicePaidCb
+    newBlockCb: NewBlockCb
     log = getLogger({ component: "PaymentManager" })
     watchDog: Watchdog
     liquidityManager: LiquidityManager
@@ -61,7 +62,7 @@ export default class {
     swaps: Swaps
     invoiceLock: InvoiceLock
     metrics: Metrics
-    constructor(storage: Storage, metrics: Metrics, lnd: LND, swaps: Swaps, settings: SettingsManager, liquidityManager: LiquidityManager, utils: Utils, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb) {
+    constructor(storage: Storage, metrics: Metrics, lnd: LND, swaps: Swaps, settings: SettingsManager, liquidityManager: LiquidityManager, utils: Utils, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb, newBlockCb: NewBlockCb) {
         this.storage = storage
         this.metrics = metrics
         this.settings = settings
@@ -72,6 +73,7 @@ export default class {
         this.swaps = swaps
         this.addressPaidCb = addressPaidCb
         this.invoicePaidCb = invoicePaidCb
+        this.newBlockCb = newBlockCb
         this.invoiceLock = new InvoiceLock()
     }
 
@@ -185,24 +187,39 @@ export default class {
         }
 
         try {
-            const { txs, currentHeight, lndPubkey } = await this.getLatestTransactions(log)
+            const { txs, currentHeight, lndPubkey, startHeight } = await this.getLatestTransactions(log)
 
-            const recoveredCount = await this.processMissedChainTransactions(txs, log)
+            const recoveredCount = await this.processMissedChainTransactions(txs, log, startHeight)
 
             // Update latest checked height to current block height
             await this.storage.liquidityStorage.UpdateLatestCheckedHeight('lnd', lndPubkey, currentHeight)
 
             if (recoveredCount > 0) {
-                log(`processed ${recoveredCount} missed chain tx(s)`)
+                log(`processed ${recoveredCount} missed chain tx(s) triggering new block callback`)
+                // Call new block callback to process any new transaction that was just added to the database as pending
+                await this.newBlockCb(currentHeight, true)
             } else {
                 log("no missed chain transactions found")
             }
+            await this.reprocessStuckPendingTx(log, currentHeight)
         } catch (err: any) {
             log(ERROR, "failed to check for missed chain transactions:", err.message || err)
         }
     }
 
-    private async getLatestTransactions(log: PubLogger): Promise<{ txs: Transaction[], currentHeight: number, lndPubkey: string }> {
+    reprocessStuckPendingTx = async (log: PubLogger, currentHeight: number) => {
+        const { incoming } = await this.storage.paymentStorage.GetPendingTransactions()
+        const found = incoming.find(t => t.broadcast_height < currentHeight - 100)
+        if (found) {
+            log("found a possibly stuck pending transaction, reprocessing with full transaction history")
+            // There is a pending transaction more than 100 blocks old, this is likely a transaction
+            // that has a broadcast height higher than it actually is, so its not getting picked up when being processed
+            // by calling new block cb with height of 1, we make sure that even if the transaction has a newer height, it will still be processed
+            await this.newBlockCb(1, true)
+        }
+    }
+
+    private async getLatestTransactions(log: PubLogger): Promise<{ txs: Transaction[], currentHeight: number, lndPubkey: string, startHeight: number }> {
         const lndInfo = await this.lnd.GetInfo()
         const lndPubkey = lndInfo.identityPubkey
 
@@ -212,10 +229,10 @@ export default class {
         const { transactions } = await this.lnd.GetTransactions(startHeight)
         log(`retrieved ${transactions.length} transactions from LND`)
 
-        return { txs: transactions, currentHeight: lndInfo.blockHeight, lndPubkey }
+        return { txs: transactions, currentHeight: lndInfo.blockHeight, lndPubkey, startHeight }
     }
 
-    private async processMissedChainTransactions(transactions: Transaction[], log: PubLogger): Promise<number> {
+    private async processMissedChainTransactions(transactions: Transaction[], log: PubLogger, startHeight: number): Promise<number> {
         let recoveredCount = 0
         const addresses = await this.lnd.ListAddresses()
         for (const tx of transactions) {
@@ -231,7 +248,7 @@ export default class {
                     continue
                 }
 
-                const processed = await this.processUserAddressOutput(output, tx, log)
+                const processed = await this.processUserAddressOutput(output, tx, log, startHeight)
                 if (processed) {
                     recoveredCount++
                 }
@@ -272,7 +289,7 @@ export default class {
         return true
     }
 
-    private async processUserAddressOutput(output: OutputDetail, tx: Transaction, log: PubLogger) {
+    private async processUserAddressOutput(output: OutputDetail, tx: Transaction, log: PubLogger, startHeight: number) {
         const existingTx = await this.storage.paymentStorage.GetAddressReceivingTransactionOwner(
             output.address,
             tx.txHash
@@ -285,7 +302,7 @@ export default class {
         const amount = Number(output.amount)
         const outputIndex = Number(output.outputIndex)
         log(`processing missed chain tx: address=${output.address}, txHash=${tx.txHash}, amount=${amount}, outputIndex=${outputIndex}`)
-        this.addressPaidCb({ hash: tx.txHash, index: outputIndex }, output.address, amount, 'lnd')
+        this.addressPaidCb({ hash: tx.txHash, index: outputIndex }, output.address, amount, 'lnd', startHeight)
             .catch(err => log(ERROR, "failed to process user address output:", err.message || err))
         return true
     }
