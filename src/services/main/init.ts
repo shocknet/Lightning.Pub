@@ -11,7 +11,7 @@ import { AdminManager } from "./adminManager.js"
 import SettingsManager from "./settingsManager.js"
 import { LoadStorageSettingsFromEnv } from "../storage/index.js"
 import { NostrSender } from "../nostr/sender.js"
-import { Swaps } from "../lnd/swaps.js"
+import { Swaps } from "../lnd/swaps/swaps.js"
 export type AppData = {
     privateKey: string;
     publicKey: string;

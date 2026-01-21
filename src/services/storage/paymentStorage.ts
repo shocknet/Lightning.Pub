@@ -15,6 +15,7 @@ import TransactionsQueue from "./db/transactionsQueue.js";
 import { LoggedEvent } from './eventsLog.js';
 import { StorageInterface } from './db/storageInterface.js';
 import { TransactionSwap } from './entity/TransactionSwap.js';
+import { InvoiceSwap } from './entity/InvoiceSwap.js';
 export type InboundOptionals = { product?: Product, callbackUrl?: string, expiry: number, expectedPayer?: User, linkedApplication?: Application, zapInfo?: ZapInfo, offerId?: string, payerData?: Record<string, string>, rejectUnauthorized?: boolean, token?: string, blind?: boolean, clinkRequesterPub?: string, clinkRequesterEventId?: string }
 export const defaultInvoiceExpiry = 60 * 60
 export default class {
@@ -500,11 +501,11 @@ export default class {
         return this.dbs.Find<TransactionSwap>('TransactionSwap', { where: { used: false, app_user_id: appUserId } }, txId)
     }
 
-    async ListSwapPayments(userId: string, txId?: string) {
+    async ListTxSwapPayments(userId: string, txId?: string) {
         return this.dbs.Find<UserInvoicePayment>('UserInvoicePayment', { where: { swap_operation_id: Not(IsNull()), user: { user_id: userId } } }, txId)
     }
 
-    async ListCompletedSwaps(appUserId: string, payments: UserInvoicePayment[], txId?: string) {
+    async ListCompletedTxSwaps(appUserId: string, payments: UserInvoicePayment[], txId?: string) {
         const completed = await this.dbs.Find<TransactionSwap>('TransactionSwap', { where: { used: true, app_user_id: appUserId } }, txId)
         // const payments = await this.dbs.Find<UserInvoicePayment>('UserInvoicePayment', { where: { swap_operation_id: Not(IsNull()), } }, txId)
         const paymentsMap = new Map<string, UserInvoicePayment>()
@@ -515,6 +516,15 @@ export default class {
             swap: c, payment: paymentsMap.get(c.swap_operation_id)
         }))
     }
+
+    async AddInvoiceSwap(swap: Partial<InvoiceSwap>) {
+        return this.dbs.CreateAndSave<InvoiceSwap>('InvoiceSwap', swap)
+    }
+
+    async GetInvoiceSwap(swapOperationId: string, appUserId: string, txId?: string) {
+        return this.dbs.FindOne<InvoiceSwap>('InvoiceSwap', { where: { swap_operation_id: swapOperationId, used: false, app_user_id: appUserId } }, txId)
+    }
+
 }
 
 const orFail = async <T>(resultPromise: Promise<T | null>) => {
