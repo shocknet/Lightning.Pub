@@ -42,7 +42,7 @@ export default class {
     async GetUser(userId: string, txId?: string): Promise<User> {
         const user = await this.FindUser(userId, txId)
         if (!user) {
-            throw new Error(`user ${userId} not found`) // TODO: fix logs doxing
+            throw new Error(`user not found`)
         }
         return user
     }
@@ -50,7 +50,7 @@ export default class {
     async UnbanUser(userId: string, txId?: string) {
         const affected = await this.dbs.Update<User>('User', { user_id: userId }, { locked: false }, txId)
         if (!affected) {
-            throw new Error("unaffected user unlock for " + userId) // TODO: fix logs doxing
+            throw new Error("unaffected user unlock")
         }
     }
 
@@ -58,7 +58,7 @@ export default class {
         const user = await this.GetUser(userId, txId)
         const affected = await this.dbs.Update<User>('User', { user_id: userId }, { balance_sats: 0, locked: true }, txId)
         if (!affected) {
-            throw new Error("unaffected ban user for " + userId) // TODO: fix logs doxing
+            throw new Error("unaffected ban user")
         }
         if (user.balance_sats > 0) {
             this.eventsLog.LogEvent({ type: 'balance_decrement', userId, appId: "", appUserId: "", balance: user.balance_sats, data: 'ban', amount: user.balance_sats })
@@ -80,7 +80,7 @@ export default class {
         const affected = await this.dbs.Increment<User>('User', { user_id: userId }, "balance_sats", increment, txId)
         if (!affected) {
             getLogger({ userId: userId, component: "balanceUpdates" })("user unaffected by increment")
-            throw new Error("unaffected balance increment for " + userId) // TODO: fix logs doxing
+            throw new Error("unaffected balance increment")
         }
         getLogger({ userId: userId, component: "balanceUpdates" })("incremented balance from", user.balance_sats, "sats, by", increment, "sats")
         this.eventsLog.LogEvent({ type: 'balance_increment', userId, appId: "", appUserId: "", balance: user.balance_sats, data: reason, amount: increment })
@@ -105,7 +105,7 @@ export default class {
         const affected = await this.dbs.Decrement<User>('User', { user_id: userId }, "balance_sats", decrement, txId)
         if (!affected) {
             getLogger({ userId: userId, component: "balanceUpdates" })("user unaffected by decrement")
-            throw new Error("unaffected balance decrement for " + userId) // TODO: fix logs doxing
+            throw new Error("unaffected balance decrement")
         }
         getLogger({ userId: userId, component: "balanceUpdates" })("decremented balance from", user.balance_sats, "sats, by", decrement, "sats")
         this.eventsLog.LogEvent({ type: 'balance_decrement', userId, appId: "", appUserId: "", balance: user.balance_sats, data: reason, amount: decrement })
