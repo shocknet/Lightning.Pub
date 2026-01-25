@@ -27,11 +27,11 @@ export default class webRTC {
     attachNostrSend(f: NostrSend) {
         this._nostrSend = f
     }
-    private nostrSend: NostrSend = (initiator: SendInitiator, data: SendData, relays?: string[] | undefined) => {
+    private nostrSend: NostrSend = async (initiator: SendInitiator, data: SendData, relays?: string[] | undefined) => {
         if (!this._nostrSend) {
             throw new Error("No nostrSend attached")
         }
-        this._nostrSend(initiator, data, relays)
+        await this._nostrSend(initiator, data, relays)
     }
 
     private sendCandidate = (u: WebRtcUserInfo, candidate: string) => {

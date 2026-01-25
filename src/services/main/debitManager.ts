@@ -153,13 +153,14 @@ export class DebitManager {
     }
 
     notifyPaymentSuccess = (debitRes: NdebitSuccess, event: { pub: string, id: string, appId: string }) => {
+        this.logger("✅ [DEBIT REQUEST] Payment successful, sending OK response to", event.pub.slice(0, 16) + "...", "for event", event.id.slice(0, 16) + "...")
         this.sendDebitResponse(debitRes, event)
     }
 
     sendDebitResponse = (debitRes: NdebitFailure | NdebitSuccess, event: { pub: string, id: string, appId: string }) => {
+        this.logger("📤 [DEBIT RESPONSE] Sending Kind 21002 response:", JSON.stringify(debitRes), "to", event.pub.slice(0, 16) + "...")
         const e = newNdebitResponse(JSON.stringify(debitRes), event)
         this.storage.NostrSender().Send({ type: 'app', appId: event.appId }, { type: 'event', event: e, encrypt: { toPub: event.pub } })
-
     }
 
     payNdebitInvoice = async (event: NostrEvent, pointerdata: NdebitData): Promise<HandleNdebitRes> => {
