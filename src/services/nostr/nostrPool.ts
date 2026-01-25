@@ -16,7 +16,7 @@ export type SendDataContent = { type: "content", content: string, pub: string }
 export type SendDataEvent = { type: "event", event: UnsignedEvent, encrypt?: { toPub: string } }
 export type SendData = SendDataContent | SendDataEvent
 export type SendInitiator = { type: 'app', appId: string } | { type: 'client', clientId: string }
-export type NostrSend = (initiator: SendInitiator, data: SendData, relays?: string[] | undefined) => void
+export type NostrSend = (initiator: SendInitiator, data: SendData, relays?: string[] | undefined) => Promise<void>
 
 export type LinkedProviderInfo = { pubkey: string, clientId: string, relayUrl: string }
 export type AppInfo = { appId: string, publicKey: string, privateKey: string, name: string, provider?: LinkedProviderInfo }
@@ -203,21 +203,22 @@ export class NostrPool {
         const signed = finalizeEvent(event, Buffer.from(keys.privateKey, 'hex'))
         let sent = false
         const log = getLogger({ appName: keys.name })
-        // const r = relays ? relays : this.getServiceRelays()
+        this.log(`📤 Publishing Kind ${event.kind} event to ${relays.length} relay(s): ${relays.join(', ')}`)
         const pool = new SimplePool()
         await Promise.all(pool.publish(relays, signed).map(async p => {
             try {
                 await p
                 sent = true
             } catch (e: any) {
-                console.log(e)
+                this.log(ERROR, `Failed to publish Kind ${event.kind} event:`, e.message || e)
                 log(e)
             }
         }))
         if (!sent) {
+            this.log(ERROR, `Failed to send Kind ${event.kind} event to any relay`)
             log("failed to send event")
         } else {
-            //log("sent event")
+            this.log(`✅ Kind ${event.kind} event published successfully (id: ${signed.id.slice(0, 16)}...)`)
         }
     }
 
