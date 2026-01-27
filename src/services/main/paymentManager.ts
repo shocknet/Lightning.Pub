@@ -18,7 +18,7 @@ import { LiquidityManager } from './liquidityManager.js'
 import { Utils } from '../helpers/utilsWrapper.js'
 import { UserInvoicePayment } from '../storage/entity/UserInvoicePayment.js'
 import SettingsManager from './settingsManager.js'
-import { Swaps, TransactionSwapData } from '../lnd/swaps/swaps.js'
+import { Swaps } from '../lnd/swaps/swaps.js'
 import { Transaction, OutputDetail } from '../../../proto/lnd/lightning.js'
 import { LndAddress } from '../lnd/lnd.js'
 import Metrics from '../metrics/index.js'
@@ -617,7 +617,7 @@ export default class {
         }
     }
 
-    async ListSwaps(ctx: Types.UserContext): Promise<Types.SwapsList> {
+    async ListTxSwaps(ctx: Types.UserContext): Promise<Types.TxSwapsList> {
         const payments = await this.storage.paymentStorage.ListTxSwapPayments(ctx.app_user_id)
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
         const isManagedUser = ctx.user_id !== app.owner.user_id

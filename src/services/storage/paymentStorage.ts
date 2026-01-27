@@ -473,20 +473,20 @@ export default class {
         return this.dbs.FindOne<TransactionSwap>('TransactionSwap', { where: { swap_operation_id: swapOperationId, used: false, app_user_id: appUserId } }, txId)
     }
 
-    async FinalizeTransactionSwap(swapOperationId: string, address: string, txId: string) {
+    async FinalizeTransactionSwap(swapOperationId: string, address: string, chainTxId: string, txId?: string) {
         return this.dbs.Update<TransactionSwap>('TransactionSwap', { swap_operation_id: swapOperationId }, {
             used: true,
-            tx_id: txId,
+            tx_id: chainTxId,
             address_paid: address,
-        })
+        }, txId)
     }
 
-    async FailTransactionSwap(swapOperationId: string, address: string, failureReason: string) {
+    async FailTransactionSwap(swapOperationId: string, address: string, failureReason: string, txId?: string) {
         return this.dbs.Update<TransactionSwap>('TransactionSwap', { swap_operation_id: swapOperationId }, {
             used: true,
             failure_reason: failureReason,
             address_paid: address,
-        })
+        }, txId)
     }
 
     async DeleteTransactionSwap(swapOperationId: string, txId?: string) {
@@ -522,7 +522,51 @@ export default class {
     }
 
     async GetInvoiceSwap(swapOperationId: string, appUserId: string, txId?: string) {
-        return this.dbs.FindOne<InvoiceSwap>('InvoiceSwap', { where: { swap_operation_id: swapOperationId, used: false, app_user_id: appUserId } }, txId)
+        const swap = await this.dbs.FindOne<InvoiceSwap>('InvoiceSwap', { where: { swap_operation_id: swapOperationId, used: false, app_user_id: appUserId } }, txId)
+        if (!swap || swap.tx_id) {
+            return null
+        }
+        return swap
+    }
+
+    async FinalizeInvoiceSwap(swapOperationId: string, txId?: string) {
+        return this.dbs.Update<InvoiceSwap>('InvoiceSwap', { swap_operation_id: swapOperationId }, {
+            used: true,
+        }, txId)
+    }
+
+    async SetInvoiceSwapTxId(swapOperationId: string, chainTxId: string, txId?: string) {
+        return this.dbs.Update<InvoiceSwap>('InvoiceSwap', { swap_operation_id: swapOperationId }, {
+            tx_id: chainTxId,
+        }, txId)
+    }
+
+    async FailInvoiceSwap(swapOperationId: string, failureReason: string, txId?: string) {
+        return this.dbs.Update<InvoiceSwap>('InvoiceSwap', { swap_operation_id: swapOperationId }, {
+            used: true,
+            failure_reason: failureReason,
+        }, txId)
+    }
+
+    async DeleteInvoiceSwap(swapOperationId: string, txId?: string) {
+        return this.dbs.Delete<InvoiceSwap>('InvoiceSwap', { swap_operation_id: swapOperationId }, txId)
+    }
+
+    async DeleteExpiredInvoiceSwaps(currentHeight: number, txId?: string) {
+        return this.dbs.Delete<InvoiceSwap>('InvoiceSwap', { timeout_block_height: LessThan(currentHeight) }, txId)
+    }
+
+    async ListCompletedInvoiceSwaps(appUserId: string, txId?: string) {
+        return this.dbs.Find<InvoiceSwap>('InvoiceSwap', { where: { used: true, app_user_id: appUserId } }, txId)
+    }
+
+    async ListPendingInvoiceSwaps(appUserId: string, txId?: string) {
+        return this.dbs.Find<InvoiceSwap>('InvoiceSwap', { where: { used: false, app_user_id: appUserId } }, txId)
+    }
+
+    async ListUnfinishedInvoiceSwaps(txId?: string) {
+        const swaps = await this.dbs.Find<InvoiceSwap>('InvoiceSwap', { where: { used: false } }, txId)
+        return swaps.filter(s => !s.tx_id)
     }
 
 }

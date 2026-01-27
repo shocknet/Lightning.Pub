@@ -11,10 +11,38 @@ import { getLogger, PubLogger, ERROR } from '../../helpers/logger.js';
 import { loggedGet, loggedPost } from './swapHelpers.js';
 import { BTCNetwork } from '../../main/settings.js';
 
-type InvoiceSwapResponse = { id: string, claimPublicKey: string, swapTree: string }
-type InvoiceSwapInfo = { paymentHash: string, keys: ECPairInterface }
-type InvoiceSwapData = { createdResponse: InvoiceSwapResponse, info: InvoiceSwapInfo }
+/* type InvoiceSwapFees = {
+    hash: string,
+    rate: number,
+    limits: {
+        maximal: number,
+        minimal: number,
+        maximalZeroConf: number
+    },
+    fees: {
+        percentage: number,
+        minerFees: number,
+    }
+} */
 
+type InvoiceSwapFees = {
+    percentage: number,
+    minerFees: number,
+}
+
+type InvoiceSwapFeesRes = {
+    BTC?: {
+        BTC?: {
+            fees: InvoiceSwapFees
+        }
+    }
+}
+type InvoiceSwapResponse = {
+    id: string, claimPublicKey: string, swapTree: string, timeoutBlockHeight: number,
+    expectedAmount: number, address: string
+}
+type InvoiceSwapInfo = { paymentHash: string, keys: ECPairInterface }
+export type InvoiceSwapData = { createdResponse: InvoiceSwapResponse, info: InvoiceSwapInfo }
 
 export class SubmarineSwaps {
     private httpUrl: string
@@ -33,8 +61,23 @@ export class SubmarineSwaps {
         return this.wsUrl
     }
 
-    SwapInvoice = async (invoice: string, paymentHash: string) => {
+    GetFees = async (): Promise<{ ok: true, fees: InvoiceSwapFees, } | { ok: false, error: string }> => {
+        const url = `${this.httpUrl}/v2/swap/submarine`
+        const feesRes = await loggedGet<InvoiceSwapFeesRes>(this.log, url)
+        if (!feesRes.ok) {
+            return { ok: false, error: feesRes.error }
+        }
+        if (!feesRes.data.BTC?.BTC?.fees) {
+            return { ok: false, error: 'No fees found for BTC to BTC swap' }
+        }
+        return { ok: true, fees: feesRes.data.BTC.BTC.fees }
+    }
+
+    SwapInvoice = async (invoice: string): Promise<{ ok: true, createdResponse: InvoiceSwapResponse, pubkey: string, privKey: string } | { ok: false, error: string }> => {
         const keys = ECPairFactory(ecc).makeRandom()
+        if (!keys.privateKey) {
+            return { ok: false, error: 'Failed to generate keys' }
+        }
         const refundPublicKey = Buffer.from(keys.publicKey).toString('hex')
         const req = { invoice, to: 'BTC', from: 'BTC', refundPublicKey }
         const url = `${this.httpUrl}/v2/swap/submarine`
@@ -46,21 +89,25 @@ export class SubmarineSwaps {
         const createdResponse = createdResponseRes.data
         this.log('Created invoice swap');
         this.log(createdResponse);
-
+        return {
+            ok: true, createdResponse,
+            pubkey: refundPublicKey,
+            privKey: Buffer.from(keys.privateKey).toString('hex')
+        }
 
     }
 
-    SubscribeToInvoiceSwap = async (data: InvoiceSwapData, swapDone: (result: { ok: true, txId: string } | { ok: false, error: string }) => void) => {
+    SubscribeToInvoiceSwap = (data: InvoiceSwapData, swapDone: (result: { ok: true } | { ok: false, error: string }) => void, waitingTx: () => void) => {
         const webSocket = new ws(`${this.wsUrl}/v2/ws`)
         const subReq = { op: 'subscribe', channel: 'swap.update', args: [data.createdResponse.id] }
         webSocket.on('open', () => {
             webSocket.send(JSON.stringify(subReq))
         })
-        let txId = "", isDone = false
+        let isDone = false
         const done = () => {
             isDone = true
             webSocket.close()
-            swapDone({ ok: true, txId })
+            swapDone({ ok: true })
         }
         webSocket.on('error', (err) => {
             this.log(ERROR, 'Error in WebSocket', err.message)
@@ -73,16 +120,19 @@ export class SubmarineSwaps {
         })
         webSocket.on('message', async (rawMsg) => {
             try {
-                await this.handleSwapInvoiceMessage(rawMsg, data, done)
+                await this.handleSwapInvoiceMessage(rawMsg, data, done, waitingTx)
             } catch (err: any) {
                 this.log(ERROR, 'Error handling invoice WebSocket message', err.message)
                 webSocket.close()
                 return
             }
         });
+        return () => {
+            webSocket.close()
+        }
     }
 
-    handleSwapInvoiceMessage = async (rawMsg: ws.RawData, data: InvoiceSwapData, closeWebSocket: () => void) => {
+    handleSwapInvoiceMessage = async (rawMsg: ws.RawData, data: InvoiceSwapData, closeWebSocket: () => void, waitingTx: () => void) => {
         const msg = JSON.parse(rawMsg.toString('utf-8'));
         if (msg.event !== 'update') {
             return;
@@ -94,6 +144,7 @@ export class SubmarineSwaps {
             // "invoice.set" means Boltz is waiting for an onchain transaction to be sent
             case 'invoice.set':
                 this.log('Waiting for onchain transaction');
+                waitingTx()
                 return;
             // Create a partial signature to allow Boltz to do a key path spend to claim the mainchain coins
             case 'transaction.claim.pending':

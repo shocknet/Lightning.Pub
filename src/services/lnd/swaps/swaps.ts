@@ -7,7 +7,8 @@ import Storage from '../../storage/index.js';
 import LND from '../lnd.js';
 import { UserInvoicePayment } from '../../storage/entity/UserInvoicePayment.js';
 import { ReverseSwaps, TransactionSwapData } from './reverseSwaps.js';
-import { SubmarineSwaps } from './submarineSwaps.js';
+import { SubmarineSwaps, InvoiceSwapData } from './submarineSwaps.js';
+import { InvoiceSwap } from '../../storage/entity/InvoiceSwap.js';
 
 
 export class Swaps {
@@ -16,6 +17,7 @@ export class Swaps {
     subSwappers: Record<string, SubmarineSwaps>
     storage: Storage
     lnd: LND
+    waitingSwaps: Record<string, boolean> = {}
     log = getLogger({ component: 'swaps' })
     constructor(settings: SettingsManager, storage: Storage) {
         this.settings = settings
@@ -45,7 +47,7 @@ export class Swaps {
         return keys
     }
 
-    GetInvoiceSwapQuotes = async (appUserId: string, payments: UserInvoicePayment[], getServiceFee: (amt: number) => number): Promise<Types.InvoiceSwapQuote[]> => {
+    GetInvoiceSwapQuotes = async (appUserId: string, invoice: string): Promise<Types.InvoiceSwapQuote[]> => {
         if (!this.settings.getSettings().swapsSettings.enableSwaps) {
             throw new Error("Swaps are not enabled")
         }
@@ -53,13 +55,178 @@ export class Swaps {
         if (swappers.length === 0) {
             throw new Error("No swap services available")
         }
-        const res = await Promise.allSettled(swappers.map(sw => this.getInvoiceSwapQuote(sw, appUserId, payments, getServiceFee)))
+        const res = await Promise.allSettled(swappers.map(sw => this.getInvoiceSwapQuote(sw, appUserId, invoice)))
         const failures: string[] = []
         const success: Types.InvoiceSwapQuote[] = []
-        for (const r of res) { }
+        for (const r of res) {
+            if (r.status === 'fulfilled') {
+                success.push(r.value)
+            } else {
+                failures.push(r.reason.message ? r.reason.message : r.reason.toString())
+            }
+        }
+        if (success.length === 0) {
+            throw new Error(failures.join("\n"))
+        }
+        return success
     }
 
-    ListTxSwaps = async (appUserId: string, payments: UserInvoicePayment[], newOp: (p: UserInvoicePayment) => Types.UserOperation | undefined, getServiceFee: (amt: number) => number): Promise<Types.SwapsList> => {
+    ListInvoiceSwaps = async (appUserId: string): Promise<Types.InvoiceSwapsList> => {
+        const completedSwaps = await this.storage.paymentStorage.ListCompletedInvoiceSwaps(appUserId)
+        const pendingSwaps = await this.storage.paymentStorage.ListPendingInvoiceSwaps(appUserId)
+        return {
+            swaps: completedSwaps.map(s => {
+                return {
+                    invoice_paid: s.invoice,
+                    swap_operation_id: s.swap_operation_id,
+                    failure_reason: s.failure_reason,
+                    tx_id: s.tx_id,
+                }
+            }),
+            quotes: pendingSwaps.map(s => {
+                return {
+                    swap_operation_id: s.swap_operation_id,
+                    invoice: s.invoice,
+                    invoice_amount_sats: s.invoice_amount,
+                    address: s.address,
+                    transaction_amount_sats: s.transaction_amount,
+                    chain_fee_sats: s.chain_fee_sats,
+                    service_fee_sats: 0,
+                    service_url: s.service_url,
+                    swap_fee_sats: s.swap_fee_sats,
+                    tx_id: s.tx_id,
+                }
+            })
+        }
+    }
+
+    PayInvoiceSwap = async (appUserId: string, swapOpId: string, satPerVByte: number, payAddress: (address: string, amt: number) => Promise<{ txId: string }>): Promise<void> => {
+        if (!this.settings.getSettings().swapsSettings.enableSwaps) {
+            throw new Error("Swaps are not enabled")
+        }
+        if (!swapOpId) {
+            throw new Error("swap operation id is required")
+        }
+        if (!satPerVByte) {
+            throw new Error("sat per v byte is required")
+        }
+        const swap = await this.storage.paymentStorage.GetInvoiceSwap(swapOpId, appUserId)
+        if (!swap) {
+            throw new Error("swap not found")
+        }
+        const swapper = this.subSwappers[swap.service_url]
+        if (!swapper) {
+            throw new Error("swapper service not found")
+        }
+        if (this.waitingSwaps[swapOpId]) {
+            throw new Error("swap already in progress")
+        }
+        this.waitingSwaps[swapOpId] = true
+        const data = this.getInvoiceSwapData(swap)
+        let txId = ""
+        const close = swapper.SubscribeToInvoiceSwap(data, async (result) => {
+            if (result.ok) {
+                await this.storage.paymentStorage.FinalizeInvoiceSwap(swapOpId)
+                this.log("invoice swap completed", { swapOpId, txId })
+            } else {
+                await this.storage.paymentStorage.FailInvoiceSwap(swapOpId, result.error, txId)
+                this.log("invoice swap failed", { swapOpId, error: result.error })
+            }
+        }, () => payAddress(swap.address, swap.transaction_amount).then(res => { txId = res.txId }).catch(err => { close(); this.log("error paying address", err) }))
+    }
+
+    ResumeInvoiceSwaps = async () => {
+        this.log("resuming invoice swaps")
+        const swaps = await this.storage.paymentStorage.ListUnfinishedInvoiceSwaps()
+        this.log("resuming", swaps.length, "invoice swaps")
+        for (const swap of swaps) {
+            this.resumeInvoiceSwap(swap)
+        }
+    }
+
+
+    private resumeInvoiceSwap = (swap: InvoiceSwap) => {
+        // const swap = await this.storage.paymentStorage.GetInvoiceSwap(swapOpId, appUserId)
+        if (!swap || !swap.tx_id || swap.used) {
+            throw new Error("swap to resume not found, or does not have a tx id")
+        }
+        const swapper = this.subSwappers[swap.service_url]
+        if (!swapper) {
+            throw new Error("swapper service not found")
+        }
+        const data = this.getInvoiceSwapData(swap)
+        swapper.SubscribeToInvoiceSwap(data, async (result) => {
+            if (result.ok) {
+                await this.storage.paymentStorage.FinalizeInvoiceSwap(swap.swap_operation_id)
+                this.log("invoice swap completed", { swapOpId: swap.swap_operation_id, txId: swap.tx_id })
+            } else {
+                await this.storage.paymentStorage.FailInvoiceSwap(swap.swap_operation_id, result.error)
+                this.log("invoice swap failed", { swapOpId: swap.swap_operation_id, error: result.error })
+            }
+        }, () => { throw new Error("swap tx already paid") })
+    }
+
+    private getInvoiceSwapData = (swap: InvoiceSwap) => {
+        return {
+            createdResponse: {
+                address: swap.address,
+                claimPublicKey: swap.claim_public_key,
+                id: swap.swap_quote_id,
+                swapTree: swap.swap_tree,
+                timeoutBlockHeight: swap.timeout_block_height,
+                expectedAmount: swap.transaction_amount,
+            },
+            info: {
+                keys: this.GetKeys(swap.ephemeral_private_key),
+                paymentHash: swap.payment_hash,
+            }
+        }
+    }
+
+    private async getInvoiceSwapQuote(swapper: SubmarineSwaps, appUserId: string, invoice: string): Promise<Types.InvoiceSwapQuote> {
+        const feesRes = await swapper.GetFees()
+        if (!feesRes.ok) {
+            throw new Error(feesRes.error)
+        }
+        const decoded = await this.lnd.DecodeInvoice(invoice)
+        const amt = decoded.numSatoshis
+        const fee = Math.ceil((feesRes.fees.percentage / 100) * amt) + feesRes.fees.minerFees
+        const res = await swapper.SwapInvoice(invoice)
+        if (!res.ok) {
+            throw new Error(res.error)
+        }
+        const newSwap = await this.storage.paymentStorage.AddInvoiceSwap({
+            app_user_id: appUserId,
+            swap_quote_id: res.createdResponse.id,
+            swap_tree: JSON.stringify(res.createdResponse.swapTree),
+            timeout_block_height: res.createdResponse.timeoutBlockHeight,
+            ephemeral_public_key: res.pubkey,
+            ephemeral_private_key: res.privKey,
+            invoice: invoice,
+            invoice_amount: amt,
+            transaction_amount: res.createdResponse.expectedAmount,
+            swap_fee_sats: fee,
+            chain_fee_sats: 0,
+            service_url: swapper.getHttpUrl(),
+            address: res.createdResponse.address,
+            claim_public_key: res.createdResponse.claimPublicKey,
+            payment_hash: decoded.paymentHash,
+        })
+        return {
+            swap_operation_id: newSwap.swap_operation_id,
+            invoice: invoice,
+            invoice_amount_sats: amt,
+            address: res.createdResponse.address,
+            transaction_amount_sats: res.createdResponse.expectedAmount,
+            chain_fee_sats: 0,
+            service_fee_sats: 0,
+            service_url: swapper.getHttpUrl(),
+            swap_fee_sats: fee,
+            tx_id: newSwap.tx_id,
+        }
+    }
+
+    ListTxSwaps = async (appUserId: string, payments: UserInvoicePayment[], newOp: (p: UserInvoicePayment) => Types.UserOperation | undefined, getServiceFee: (amt: number) => number): Promise<Types.TxSwapsList> => {
         const completedSwaps = await this.storage.paymentStorage.ListCompletedTxSwaps(appUserId, payments)
         const pendingSwaps = await this.storage.paymentStorage.ListPendingTransactionSwaps(appUserId)
         return {

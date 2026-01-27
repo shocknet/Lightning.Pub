@@ -16,10 +16,16 @@ export class InvoiceSwap {
     swap_tree: string
 
     @Column()
-    lockup_address: string
+    claim_public_key: string
 
     @Column()
-    refund_public_key: string
+    payment_hash: string
+
+    /*     @Column()
+        lockup_address: string */
+
+    /*     @Column()
+        refund_public_key: string */
 
     @Column()
     timeout_block_height: number
@@ -39,11 +45,13 @@ export class InvoiceSwap {
     @Column()
     chain_fee_sats: number
 
-    @Column()
-    preimage: string
+
 
     @Column()
     ephemeral_public_key: string
+
+    @Column()
+    address: string
 
     // the private key is used on to perform a swap, it does not hold any funds once the swap is completed
     // the swap should only last a few seconds, so it is not a security risk to store the private key in the database
@@ -55,13 +63,16 @@ export class InvoiceSwap {
     used: boolean
 
     @Column({ default: "" })
+    preimage: string
+
+    @Column({ default: "" })
     failure_reason: string
 
     @Column({ default: "" })
     tx_id: string
 
-    @Column({ default: "" })
-    address_paid: string
+    /*     @Column({ default: "" })
+        address_paid: string */
 
     @Column({ default: "" })
     service_url: string

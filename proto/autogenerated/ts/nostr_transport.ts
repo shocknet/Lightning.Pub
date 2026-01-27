@@ -427,12 +427,12 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                                         callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
                                     }
                                     break
-                                case 'ListSwaps':
-                                    if (!methods.ListSwaps) {
-                                        throw new Error('method not defined: ListSwaps')
+                                case 'ListTxSwaps':
+                                    if (!methods.ListTxSwaps) {
+                                        throw new Error('method not defined: ListTxSwaps')
                                     } else {
                                         opStats.validate = opStats.guard
-                                        const res = await methods.ListSwaps({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                                        const res = await methods.ListTxSwaps({...operation, ctx}); responses.push({ status: 'OK', ...res  })
                                         opStats.handle = process.hrtime.bigint()
                                         callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
                                     }
@@ -684,6 +684,22 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     await methods.EnrollMessagingToken({rpcName:'EnrollMessagingToken', ctx:authContext , req: request})
                     stats.handle = process.hrtime.bigint()
                     res({status: 'OK'})
+                    opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+                break
+            case 'GetAdminInvoiceSwapQuotes':
+                try {
+                    if (!methods.GetAdminInvoiceSwapQuotes) throw new Error('method: GetAdminInvoiceSwapQuotes is not implemented')
+                    const authContext = await opts.NostrAdminAuthGuard(req.appId, req.authIdentifier)
+                    stats.guard = process.hrtime.bigint()
+                    authCtx = authContext
+                    const request = req.body
+                    const error = Types.InvoiceSwapRequestValidate(request)
+                    stats.validate = process.hrtime.bigint()
+                    if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
+                    const response = await methods.GetAdminInvoiceSwapQuotes({rpcName:'GetAdminInvoiceSwapQuotes', ctx:authContext , req: request})
+                    stats.handle = process.hrtime.bigint()
+                    res({status: 'OK', ...response})
                     opts.metricsCallback([{ ...info, ...stats, ...authContext }])
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
@@ -1122,14 +1138,27 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     opts.metricsCallback([{ ...info, ...stats, ...authContext }])
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
-            case 'ListAdminSwaps':
+            case 'ListAdminInvoiceSwaps':
                 try {
-                    if (!methods.ListAdminSwaps) throw new Error('method: ListAdminSwaps is not implemented')
+                    if (!methods.ListAdminInvoiceSwaps) throw new Error('method: ListAdminInvoiceSwaps is not implemented')
                     const authContext = await opts.NostrAdminAuthGuard(req.appId, req.authIdentifier)
                     stats.guard = process.hrtime.bigint()
                     authCtx = authContext
                     stats.validate = stats.guard
-                    const response = await methods.ListAdminSwaps({rpcName:'ListAdminSwaps', ctx:authContext })
+                    const response = await methods.ListAdminInvoiceSwaps({rpcName:'ListAdminInvoiceSwaps', ctx:authContext })
+                    stats.handle = process.hrtime.bigint()
+                    res({status: 'OK', ...response})
+                    opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+                break
+            case 'ListAdminTxSwaps':
+                try {
+                    if (!methods.ListAdminTxSwaps) throw new Error('method: ListAdminTxSwaps is not implemented')
+                    const authContext = await opts.NostrAdminAuthGuard(req.appId, req.authIdentifier)
+                    stats.guard = process.hrtime.bigint()
+                    authCtx = authContext
+                    stats.validate = stats.guard
+                    const response = await methods.ListAdminTxSwaps({rpcName:'ListAdminTxSwaps', ctx:authContext })
                     stats.handle = process.hrtime.bigint()
                     res({status: 'OK', ...response})
                     opts.metricsCallback([{ ...info, ...stats, ...authContext }])
@@ -1148,14 +1177,14 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     opts.metricsCallback([{ ...info, ...stats, ...authContext }])
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
-            case 'ListSwaps':
+            case 'ListTxSwaps':
                 try {
-                    if (!methods.ListSwaps) throw new Error('method: ListSwaps is not implemented')
+                    if (!methods.ListTxSwaps) throw new Error('method: ListTxSwaps is not implemented')
                     const authContext = await opts.NostrUserAuthGuard(req.appId, req.authIdentifier)
                     stats.guard = process.hrtime.bigint()
                     authCtx = authContext
                     stats.validate = stats.guard
-                    const response = await methods.ListSwaps({rpcName:'ListSwaps', ctx:authContext })
+                    const response = await methods.ListTxSwaps({rpcName:'ListTxSwaps', ctx:authContext })
                     stats.handle = process.hrtime.bigint()
                     res({status: 'OK', ...response})
                     opts.metricsCallback([{ ...info, ...stats, ...authContext }])
@@ -1249,6 +1278,22 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     stats.validate = process.hrtime.bigint()
                     if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
                     const response = await methods.PayAddress({rpcName:'PayAddress', ctx:authContext , req: request})
+                    stats.handle = process.hrtime.bigint()
+                    res({status: 'OK', ...response})
+                    opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+                break
+            case 'PayAdminInvoiceSwap':
+                try {
+                    if (!methods.PayAdminInvoiceSwap) throw new Error('method: PayAdminInvoiceSwap is not implemented')
+                    const authContext = await opts.NostrAdminAuthGuard(req.appId, req.authIdentifier)
+                    stats.guard = process.hrtime.bigint()
+                    authCtx = authContext
+                    const request = req.body
+                    const error = Types.PayAdminInvoiceSwapRequestValidate(request)
+                    stats.validate = process.hrtime.bigint()
+                    if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
+                    const response = await methods.PayAdminInvoiceSwap({rpcName:'PayAdminInvoiceSwap', ctx:authContext , req: request})
                     stats.handle = process.hrtime.bigint()
                     res({status: 'OK', ...response})
                     opts.metricsCallback([{ ...info, ...stats, ...authContext }])

@@ -260,15 +260,36 @@ export class AdminManager {
         }
     }
 
-    async ListAdminSwaps(): Promise<Types.SwapsList> {
-        return this.swaps.ListSwaps("admin", [], p => undefined, amt => 0)
+    async ListAdminInvoiceSwaps(): Promise<Types.InvoiceSwapsList> {
+        return this.swaps.ListInvoiceSwaps("admin")
+    }
+
+    async GetAdminInvoiceSwapQuotes(req: Types.InvoiceSwapRequest): Promise<Types.InvoiceSwapQuoteList> {
+        const quotes = await this.swaps.GetInvoiceSwapQuotes("admin", req.invoice)
+        return { quotes }
+    }
+
+    async PayAdminInvoiceSwap(req: Types.PayAdminInvoiceSwapRequest): Promise<Types.AdminInvoiceSwapResponse> {
+        const txId = await new Promise<string>(res => {
+            this.swaps.PayInvoiceSwap("admin", req.swap_operation_id, req.sat_per_v_byte, async (addr, amt) => {
+                const tx = await this.lnd.PayAddress(addr, amt, req.sat_per_v_byte, "", { useProvider: false, from: 'system' })
+                this.log("paid admin invoice swap", { swapOpId: req.swap_operation_id, txId: tx.txid })
+                res(tx.txid)
+                return { txId: tx.txid }
+            })
+        })
+        return { tx_id: txId }
+    }
+
+    async ListAdminTxSwaps(): Promise<Types.TxSwapsList> {
+        return this.swaps.ListTxSwaps("admin", [], p => undefined, amt => 0)
     }
 
     async GetAdminTransactionSwapQuotes(req: Types.TransactionSwapRequest): Promise<Types.TransactionSwapQuoteList> {
         const quotes = await this.swaps.GetTxSwapQuotes("admin", req.transaction_amount_sats, () => 0)
         return { quotes }
     }
-    async PayAdminTransactionSwap(req: Types.PayAdminTransactionSwapRequest): Promise<Types.AdminSwapResponse> {
+    async PayAdminTransactionSwap(req: Types.PayAdminTransactionSwapRequest): Promise<Types.AdminTxSwapResponse> {
         const routingFloor = this.settings.getSettings().lndSettings.routingFeeFloor
         const routingLimit = this.settings.getSettings().lndSettings.routingFeeLimitBps / 10000
 

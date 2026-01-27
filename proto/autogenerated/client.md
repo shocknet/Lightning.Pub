@@ -93,6 +93,11 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [MessagingToken](#MessagingToken)
   - This methods has an __empty__ __response__ body
 
+- GetAdminInvoiceSwapQuotes
+  - auth type: __Admin__
+  - input: [InvoiceSwapRequest](#InvoiceSwapRequest)
+  - output: [InvoiceSwapQuoteList](#InvoiceSwapQuoteList)
+
 - GetAdminTransactionSwapQuotes
   - auth type: __Admin__
   - input: [TransactionSwapRequest](#TransactionSwapRequest)
@@ -243,20 +248,25 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [LinkNPubThroughTokenRequest](#LinkNPubThroughTokenRequest)
   - This methods has an __empty__ __response__ body
 
-- ListAdminSwaps
+- ListAdminInvoiceSwaps
   - auth type: __Admin__
   - This methods has an __empty__ __request__ body
-  - output: [SwapsList](#SwapsList)
+  - output: [InvoiceSwapsList](#InvoiceSwapsList)
+
+- ListAdminTxSwaps
+  - auth type: __Admin__
+  - This methods has an __empty__ __request__ body
+  - output: [TxSwapsList](#TxSwapsList)
 
 - ListChannels
   - auth type: __Admin__
   - This methods has an __empty__ __request__ body
   - output: [LndChannels](#LndChannels)
 
-- ListSwaps
+- ListTxSwaps
   - auth type: __User__
   - This methods has an __empty__ __request__ body
-  - output: [SwapsList](#SwapsList)
+  - output: [TxSwapsList](#TxSwapsList)
 
 - LndGetInfo
   - auth type: __Admin__
@@ -290,10 +300,15 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [PayAddressRequest](#PayAddressRequest)
   - output: [PayAddressResponse](#PayAddressResponse)
 
+- PayAdminInvoiceSwap
+  - auth type: __Admin__
+  - input: [PayAdminInvoiceSwapRequest](#PayAdminInvoiceSwapRequest)
+  - output: [AdminInvoiceSwapResponse](#AdminInvoiceSwapResponse)
+
 - PayAdminTransactionSwap
   - auth type: __Admin__
   - input: [PayAdminTransactionSwapRequest](#PayAdminTransactionSwapRequest)
-  - output: [AdminSwapResponse](#AdminSwapResponse)
+  - output: [AdminTxSwapResponse](#AdminTxSwapResponse)
 
 - PayInvoice
   - auth type: __User__
@@ -540,6 +555,13 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [MessagingToken](#MessagingToken)
   - This methods has an __empty__ __response__ body
 
+- GetAdminInvoiceSwapQuotes
+  - auth type: __Admin__
+  - http method: __post__
+  - http route: __/api/admin/swap/invoice/quote__
+  - input: [InvoiceSwapRequest](#InvoiceSwapRequest)
+  - output: [InvoiceSwapQuoteList](#InvoiceSwapQuoteList)
+
 - GetAdminTransactionSwapQuotes
   - auth type: __Admin__
   - http method: __post__
@@ -743,7 +765,7 @@ The nostr server will send back a message response, and inside the body there wi
 - GetTransactionSwapQuotes
   - auth type: __User__
   - http method: __post__
-  - http route: __/api/user/swap/quote__
+  - http route: __/api/user/swap/transaction/quote__
   - input: [TransactionSwapRequest](#TransactionSwapRequest)
   - output: [TransactionSwapQuoteList](#TransactionSwapQuoteList)
 
@@ -834,12 +856,19 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [LinkNPubThroughTokenRequest](#LinkNPubThroughTokenRequest)
   - This methods has an __empty__ __response__ body
 
-- ListAdminSwaps
+- ListAdminInvoiceSwaps
   - auth type: __Admin__
   - http method: __post__
-  - http route: __/api/admin/swap/list__
+  - http route: __/api/admin/swap/invoice/list__
   - This methods has an __empty__ __request__ body
-  - output: [SwapsList](#SwapsList)
+  - output: [InvoiceSwapsList](#InvoiceSwapsList)
+
+- ListAdminTxSwaps
+  - auth type: __Admin__
+  - http method: __post__
+  - http route: __/api/admin/swap/transaction/list__
+  - This methods has an __empty__ __request__ body
+  - output: [TxSwapsList](#TxSwapsList)
 
 - ListChannels
   - auth type: __Admin__
@@ -848,12 +877,12 @@ The nostr server will send back a message response, and inside the body there wi
   - This methods has an __empty__ __request__ body
   - output: [LndChannels](#LndChannels)
 
-- ListSwaps
+- ListTxSwaps
   - auth type: __User__
   - http method: __post__
-  - http route: __/api/user/swap/list__
+  - http route: __/api/user/swap/transaction/list__
   - This methods has an __empty__ __request__ body
-  - output: [SwapsList](#SwapsList)
+  - output: [TxSwapsList](#TxSwapsList)
 
 - LndGetInfo
   - auth type: __Admin__
@@ -899,12 +928,19 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [PayAddressRequest](#PayAddressRequest)
   - output: [PayAddressResponse](#PayAddressResponse)
 
+- PayAdminInvoiceSwap
+  - auth type: __Admin__
+  - http method: __post__
+  - http route: __/api/admin/swap/invoice/pay__
+  - input: [PayAdminInvoiceSwapRequest](#PayAdminInvoiceSwapRequest)
+  - output: [AdminInvoiceSwapResponse](#AdminInvoiceSwapResponse)
+
 - PayAdminTransactionSwap
   - auth type: __Admin__
   - http method: __post__
   - http route: __/api/admin/swap/transaction/pay__
   - input: [PayAdminTransactionSwapRequest](#PayAdminTransactionSwapRequest)
-  - output: [AdminSwapResponse](#AdminSwapResponse)
+  - output: [AdminTxSwapResponse](#AdminTxSwapResponse)
 
 - PayAppUserInvoice
   - auth type: __App__
@@ -1098,7 +1134,10 @@ The nostr server will send back a message response, and inside the body there wi
   - __name__: _string_
   - __price_sats__: _number_
 
-### AdminSwapResponse
+### AdminInvoiceSwapResponse
+  - __tx_id__: _string_
+
+### AdminTxSwapResponse
   - __network_fee__: _number_
   - __tx_id__: _string_
 
@@ -1331,6 +1370,35 @@ The nostr server will send back a message response, and inside the body there wi
   - __token__: _string_
   - __url__: _string_
 
+### InvoiceSwapOperation
+  - __failure_reason__: _string_ *this field is optional
+  - __invoice_paid__: _string_
+  - __operation_payment__: _[UserOperation](#UserOperation)_ *this field is optional
+  - __swap_operation_id__: _string_
+  - __tx_id__: _string_
+
+### InvoiceSwapQuote
+  - __address__: _string_
+  - __chain_fee_sats__: _number_
+  - __invoice__: _string_
+  - __invoice_amount_sats__: _number_
+  - __service_fee_sats__: _number_
+  - __service_url__: _string_
+  - __swap_fee_sats__: _number_
+  - __swap_operation_id__: _string_
+  - __transaction_amount_sats__: _number_
+  - __tx_id__: _string_
+
+### InvoiceSwapQuoteList
+  - __quotes__: ARRAY of: _[InvoiceSwapQuote](#InvoiceSwapQuote)_
+
+### InvoiceSwapRequest
+  - __invoice__: _string_
+
+### InvoiceSwapsList
+  - __quotes__: ARRAY of: _[InvoiceSwapQuote](#InvoiceSwapQuote)_
+  - __swaps__: ARRAY of: _[InvoiceSwapOperation](#InvoiceSwapOperation)_
+
 ### LatestBundleMetricReq
   - __limit__: _number_ *this field is optional
 
@@ -1534,6 +1602,10 @@ The nostr server will send back a message response, and inside the body there wi
   - __service_fee__: _number_
   - __txId__: _string_
 
+### PayAdminInvoiceSwapRequest
+  - __sat_per_v_byte__: _number_
+  - __swap_operation_id__: _string_
+
 ### PayAdminTransactionSwapRequest
   - __address__: _string_
   - __swap_operation_id__: _string_
@@ -1640,16 +1712,6 @@ The nostr server will send back a message response, and inside the body there wi
   - __page__: _number_
   - __request_id__: _number_ *this field is optional
 
-### SwapOperation
-  - __address_paid__: _string_
-  - __failure_reason__: _string_ *this field is optional
-  - __operation_payment__: _[UserOperation](#UserOperation)_ *this field is optional
-  - __swap_operation_id__: _string_
-
-### SwapsList
-  - __quotes__: ARRAY of: _[TransactionSwapQuote](#TransactionSwapQuote)_
-  - __swaps__: ARRAY of: _[SwapOperation](#SwapOperation)_
-
 ### TransactionSwapQuote
   - __chain_fee_sats__: _number_
   - __invoice_amount_sats__: _number_
@@ -1664,6 +1726,16 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### TransactionSwapRequest
   - __transaction_amount_sats__: _number_
+
+### TxSwapOperation
+  - __address_paid__: _string_
+  - __failure_reason__: _string_ *this field is optional
+  - __operation_payment__: _[UserOperation](#UserOperation)_ *this field is optional
+  - __swap_operation_id__: _string_
+
+### TxSwapsList
+  - __quotes__: ARRAY of: _[TransactionSwapQuote](#TransactionSwapQuote)_
+  - __swaps__: ARRAY of: _[TxSwapOperation](#TxSwapOperation)_
 
 ### UpdateChannelPolicyRequest
   - __policy__: _[ChannelPolicy](#ChannelPolicy)_
