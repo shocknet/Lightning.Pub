@@ -14,11 +14,18 @@ export type ClientParams = {
     checkResult?: true
 }
 export default (params: ClientParams) => ({
-    EnrollServicePub: async (request: Types.ServiceNpub): Promise<ResultError | ({ status: 'OK' })> => {
+    EnrollServicePub: async (query: Types.EnrollServicePub_Query): Promise<ResultError | ({ status: 'OK' })> => {
         let finalRoute = '/api/admin/service/enroll'
+        const initialQuery = query as Record<string, string | string[]>
+        const finalQuery: Record<string, string> = {}
+        for (const key in initialQuery)
+            if (Array.isArray(initialQuery[key]))
+                finalQuery[key] = initialQuery[key].join(',')
+        const q = (new URLSearchParams(finalQuery)).toString()
+        finalRoute = finalRoute + (q === '' ? '' : '?' + q)
         const auth = await params.retrieveAdminAuth()
         if (auth === null) throw new Error('retrieveAdminAuth() returned null')
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.get(params.baseUrl + finalRoute, { headers: { 'authorization': auth } })
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') {
             return data

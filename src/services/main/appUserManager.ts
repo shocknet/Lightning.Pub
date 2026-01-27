@@ -66,7 +66,7 @@ export default class {
         const appUser = await this.storage.applicationStorage.GetAppUserFromUser(app, user.user_id)
 
         if (!appUser) {
-            throw new Error(`app user ${ctx.user_id} not found`) // TODO: fix logs doxing
+            throw new Error("app user not found")
         }
         const nostrSettings = this.settings.getSettings().nostrRelaySettings
         const { max, serviceFeeFloor, serviceFeeBps } = this.applicationManager.paymentManager.GetMaxPayableInvoice(user.balance_sats)

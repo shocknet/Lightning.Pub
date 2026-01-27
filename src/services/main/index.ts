@@ -31,6 +31,7 @@ import { NotificationsManager } from "./notificationsManager.js"
 import { ApplicationUser } from '../storage/entity/ApplicationUser.js'
 import SettingsManager from './settingsManager.js'
 import { NostrSettings, AppInfo } from '../nostr/nostrPool.js'
+import { ShockPushNotification } from '../ShockPush/index.js'
 type UserOperationsSub = {
     id: string
     newIncomingInvoice: (operation: Types.UserOperation) => void
@@ -80,7 +81,7 @@ export default class {
         this.liquidityManager = new LiquidityManager(this.settings, this.storage, this.utils, this.liquidityProvider, this.lnd, this.rugPullTracker)
         this.metricsManager = new MetricsManager(this.storage, this.lnd)
 
-        this.paymentManager = new PaymentManager(this.storage, this.metricsManager, this.lnd, adminManager.swaps, this.settings, this.liquidityManager, this.utils, this.addressPaidCb, this.invoicePaidCb)
+        this.paymentManager = new PaymentManager(this.storage, this.metricsManager, this.lnd, adminManager.swaps, this.settings, this.liquidityManager, this.utils, this.addressPaidCb, this.invoicePaidCb, this.newBlockCb)
         this.productManager = new ProductManager(this.storage, this.paymentManager, this.settings)
         this.applicationManager = new ApplicationManager(this.storage, this.settings, this.paymentManager)
         this.appUserManager = new AppUserManager(this.storage, this.settings, this.applicationManager)
@@ -153,18 +154,20 @@ export default class {
         this.metricsManager.HtlcCb(e)
     }
 
-    newBlockCb: NewBlockCb = (height) => {
-        this.NewBlockHandler(height)
+    newBlockCb: NewBlockCb = (height, skipMetrics) => {
+        return this.NewBlockHandler(height, skipMetrics)
     }
 
-    NewBlockHandler = async (height: number) => {
+    NewBlockHandler = async (height: number, skipMetrics?: boolean) => {
         let confirmed: (PendingTx & { confs: number; })[]
         let log = getLogger({})
         this.storage.paymentStorage.DeleteExpiredTransactionSwaps(height)
             .catch(err => log(ERROR, "failed to delete expired transaction swaps", err.message || err))
         try {
             const balanceEvents = await this.paymentManager.GetLndBalance()
-            await this.metricsManager.NewBlockCb(height, balanceEvents)
+            if (!skipMetrics) {
+                await this.metricsManager.NewBlockCb(height, balanceEvents)
+            }
             confirmed = await this.paymentManager.CheckNewlyConfirmedTxs(height)
             await this.liquidityManager.onNewBlock()
         } catch (err: any) {
@@ -203,7 +206,7 @@ export default class {
         }))
     }
 
-    addressPaidCb: AddressPaidCb = (txOutput, address, amount, used) => {
+    addressPaidCb: AddressPaidCb = (txOutput, address, amount, used, broadcastHeight) => {
         return this.storage.StartTransaction(async tx => {
             // On-chain payments not supported when bypass is enabled
             if (this.liquidityProvider.getSettings().useOnlyLiquidityProvider) {
@@ -231,7 +234,8 @@ export default class {
             const fee = this.paymentManager.getReceiveServiceFee(Types.UserOperationType.INCOMING_TX, amount, isManagedUser)
             try {
                 // This call will fail if the transaction is already registered
-                const addedTx = await this.storage.paymentStorage.AddAddressReceivingTransaction(userAddress, txOutput.hash, txOutput.index, amount, fee, internal, blockHeight, tx)
+                const txBroadcastHeight = broadcastHeight ? broadcastHeight : blockHeight
+                const addedTx = await this.storage.paymentStorage.AddAddressReceivingTransaction(userAddress, txOutput.hash, txOutput.index, amount, fee, internal, txBroadcastHeight, tx)
                 if (internal) {
                     const addressData = `${address}:${txOutput.hash}`
                     this.storage.eventsLog.LogEvent({ type: 'address_paid', userId: userAddress.user.user_id, appId: userAddress.linkedApplication.app_id, appUserId: "", balance: userAddress.user.balance_sats, data: addressData, amount })
@@ -381,10 +385,36 @@ export default class {
             { operation: op, requestId: "GetLiveUserOperations", status: 'OK', latest_balance: balance }
         const j = JSON.stringify(message)
         this.utils.nostrSender.Send({ type: 'app', appId: app.app_id }, { type: 'content', content: j, pub: user.nostr_public_key })
-        this.SendEncryptedNotification(app, user, op)
+
+        this.SendEncryptedNotification(app, user, op, this.getOperationMessage(op))
     }
 
-    async SendEncryptedNotification(app: Application, appUser: ApplicationUser, op: Types.UserOperation) {
+    getOperationMessage = (op: Types.UserOperation) => {
+        switch (op.type) {
+            case Types.UserOperationType.INCOMING_TX:
+            case Types.UserOperationType.INCOMING_INVOICE:
+            case Types.UserOperationType.INCOMING_USER_TO_USER:
+                return {
+                    body: "You received a new payment",
+                    title: "Payment Received"
+                }
+            case Types.UserOperationType.OUTGOING_TX:
+            case Types.UserOperationType.OUTGOING_INVOICE:
+            case Types.UserOperationType.OUTGOING_USER_TO_USER:
+                return {
+                    body: "You sent a new payment",
+                    title: "Payment Sent"
+                }
+
+            default:
+                return {
+                    body: "Unknown operation",
+                    title: "Unknown Operation"
+                }
+        }
+    }
+
+    async SendEncryptedNotification(app: Application, appUser: ApplicationUser, op: Types.UserOperation, { body, title }: { body: string, title: string }) {
         const devices = await this.storage.applicationStorage.GetAppUserDevices(appUser.identifier)
         if (devices.length === 0 || !app.nostr_public_key || !app.nostr_private_key || !appUser.nostr_public_key) {
             return
@@ -394,8 +424,12 @@ export default class {
         const j = JSON.stringify(op)
         const encrypted = nip44.encrypt(j, ck)
         const encryptedData: { encrypted: string, app_npub_hex: string } = { encrypted, app_npub_hex: app.nostr_public_key }
-        
-        this.notificationsManager.SendNotification(JSON.stringify(encryptedData), tokens, {
+        const notification: ShockPushNotification = {
+            message: JSON.stringify(encryptedData),
+            body,
+            title
+        }
+        await this.notificationsManager.SendNotification(notification, tokens, {
             pubkey: app.nostr_public_key!,
             privateKey: app.nostr_private_key!
         })
