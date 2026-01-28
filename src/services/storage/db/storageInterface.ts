@@ -29,7 +29,7 @@ export class StorageInterface extends EventEmitter {
     private debug: boolean = false;
     private utils: Utils
     private dbType: 'main' | 'metrics'
-    private log = getLogger({component: 'StorageInterface'})
+    private log = getLogger({ component: 'StorageInterface' })
     constructor(utils: Utils) {
         super();
         this.initializeSubprocess();
@@ -61,13 +61,13 @@ export class StorageInterface extends EventEmitter {
             this.isConnected = false;
         });
 
-        this.process.on('exit', (code: number) => {
-            this.log(ERROR, `Storage processor exited with code ${code}`);
+        this.process.on('exit', (code: number, signal: string) => {
+            this.log(ERROR, `Storage processor exited with code ${code} and signal ${signal}`);
             this.isConnected = false;
-            if (!code) {
+            if (code === 0) {
                 return
             }
-            throw new Error(`Storage processor exited with code ${code}`)
+            throw new Error(`Storage processor exited with code ${code} and signal ${signal}`)
         });
 
         this.isConnected = true;
@@ -179,7 +179,7 @@ export class StorageInterface extends EventEmitter {
                     reject(new Error('Invalid storage response type'));
                     return
                 }
-               resolve(deserializeResponseData(response.data));
+                resolve(deserializeResponseData(response.data));
             }
             this.once(op.opId, responseHandler)
             this.process.send(this.serializeOperation(op))
@@ -205,7 +205,7 @@ export class StorageInterface extends EventEmitter {
 
     public disconnect() {
         if (this.process) {
-            this.process.kill();
+            this.process.kill(0);
             this.isConnected = false;
             this.debug = false;
         }
