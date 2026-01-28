@@ -53,13 +53,13 @@ export class TlvStorageFactory extends EventEmitter {
             this.isConnected = false;
         });
 
-        this.process.on('exit', (code: number) => {
-            this.log(ERROR, `Tlv Storage processor exited with code ${code}`);
+        this.process.on('exit', (code: number, signal: string) => {
+            this.log(ERROR, `Tlv Storage processor exited with code ${code} and signal ${signal}`);
             this.isConnected = false;
-            if (!code) {
+            if (code === 0) {
                 return
             }
-            throw new Error(`Tlv Storage processor exited with code ${code}`)
+            throw new Error(`Tlv Storage processor exited with code ${code} and signal ${signal}`)
         });
 
         this.isConnected = true;
@@ -173,7 +173,7 @@ export class TlvStorageFactory extends EventEmitter {
 
     public disconnect() {
         if (this.process) {
-            this.process.kill();
+            this.process.kill(0);
             this.isConnected = false;
             this.debug = false;
         }

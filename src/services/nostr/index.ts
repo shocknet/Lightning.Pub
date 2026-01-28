@@ -18,12 +18,12 @@ export default class NostrSubprocess {
             this.log(ERROR, "nostr subprocess error", error)
         })
 
-        this.childProcess.on("exit", (code) => {
-            this.log(ERROR, `nostr subprocess exited with code ${code}`)
-            if (!code) {
+        this.childProcess.on("exit", (code, signal) => {
+            this.log(ERROR, `nostr subprocess exited with code ${code} and signal ${signal}`)
+            if (code === 0) {
                 return
             }
-            throw new Error(`nostr subprocess exited with code ${code}`)
+            throw new Error(`nostr subprocess exited with code ${code} and signal ${signal}`)
         })
 
         this.childProcess.on("message", (message: ChildProcessResponse) => {
@@ -69,6 +69,6 @@ export default class NostrSubprocess {
         this.sendToChildProcess({ type: 'send', data, initiator, relays })
     }
     Stop() {
-        this.childProcess.kill()
+        this.childProcess.kill(0)
     }
 }
