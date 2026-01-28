@@ -545,12 +545,12 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
                                 callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
                             }
                             break
-                        case 'ListSwaps':
-                            if (!methods.ListSwaps) {
-                                throw new Error('method ListSwaps not found' )
+                        case 'ListTxSwaps':
+                            if (!methods.ListTxSwaps) {
+                                throw new Error('method ListTxSwaps not found' )
                             } else {
                                 opStats.validate = opStats.guard
-                                const res = await methods.ListSwaps({...operation, ctx}); responses.push({ status: 'OK', ...res  })
+                                const res = await methods.ListTxSwaps({...operation, ctx}); responses.push({ status: 'OK', ...res  })
                                 opStats.handle = process.hrtime.bigint()
                                 callsMetrics.push({ ...opInfo, ...opStats, ...ctx })
                             }
@@ -866,6 +866,28 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
              await methods.EnrollMessagingToken({rpcName:'EnrollMessagingToken', ctx:authContext , req: request})
             stats.handle = process.hrtime.bigint()
             res.json({status: 'OK'})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.GetAdminInvoiceSwapQuotes) throw new Error('method: GetAdminInvoiceSwapQuotes is not implemented')
+    app.post('/api/admin/swap/invoice/quote', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'GetAdminInvoiceSwapQuotes', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.GetAdminInvoiceSwapQuotes) throw new Error('method: GetAdminInvoiceSwapQuotes is not implemented')
+            const authContext = await opts.AdminAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.InvoiceSwapRequestValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+            const response =  await methods.GetAdminInvoiceSwapQuotes({rpcName:'GetAdminInvoiceSwapQuotes', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
@@ -1362,7 +1384,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
     if (!opts.allowNotImplementedMethods && !methods.GetTransactionSwapQuotes) throw new Error('method: GetTransactionSwapQuotes is not implemented')
-    app.post('/api/user/swap/quote', async (req, res) => {
+    app.post('/api/user/swap/transaction/quote', async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'GetTransactionSwapQuotes', batch: false, nostr: false, batchSize: 0}
         const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
@@ -1607,20 +1629,39 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
-    if (!opts.allowNotImplementedMethods && !methods.ListAdminSwaps) throw new Error('method: ListAdminSwaps is not implemented')
-    app.post('/api/admin/swap/list', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'ListAdminSwaps', batch: false, nostr: false, batchSize: 0}
+    if (!opts.allowNotImplementedMethods && !methods.ListAdminInvoiceSwaps) throw new Error('method: ListAdminInvoiceSwaps is not implemented')
+    app.post('/api/admin/swap/invoice/list', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'ListAdminInvoiceSwaps', batch: false, nostr: false, batchSize: 0}
         const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
-            if (!methods.ListAdminSwaps) throw new Error('method: ListAdminSwaps is not implemented')
+            if (!methods.ListAdminInvoiceSwaps) throw new Error('method: ListAdminInvoiceSwaps is not implemented')
             const authContext = await opts.AdminAuthGuard(req.headers['authorization'])
             authCtx = authContext
             stats.guard = process.hrtime.bigint()
             stats.validate = stats.guard
             const query = req.query
             const params = req.params
-            const response =  await methods.ListAdminSwaps({rpcName:'ListAdminSwaps', ctx:authContext })
+            const response =  await methods.ListAdminInvoiceSwaps({rpcName:'ListAdminInvoiceSwaps', ctx:authContext })
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.ListAdminTxSwaps) throw new Error('method: ListAdminTxSwaps is not implemented')
+    app.post('/api/admin/swap/transaction/list', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'ListAdminTxSwaps', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.ListAdminTxSwaps) throw new Error('method: ListAdminTxSwaps is not implemented')
+            const authContext = await opts.AdminAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            stats.validate = stats.guard
+            const query = req.query
+            const params = req.params
+            const response =  await methods.ListAdminTxSwaps({rpcName:'ListAdminTxSwaps', ctx:authContext })
             stats.handle = process.hrtime.bigint()
             res.json({status: 'OK', ...response})
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
@@ -1645,20 +1686,20 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
-    if (!opts.allowNotImplementedMethods && !methods.ListSwaps) throw new Error('method: ListSwaps is not implemented')
-    app.post('/api/user/swap/list', async (req, res) => {
-        const info: Types.RequestInfo = { rpcName: 'ListSwaps', batch: false, nostr: false, batchSize: 0}
+    if (!opts.allowNotImplementedMethods && !methods.ListTxSwaps) throw new Error('method: ListTxSwaps is not implemented')
+    app.post('/api/user/swap/transaction/list', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'ListTxSwaps', batch: false, nostr: false, batchSize: 0}
         const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
         let authCtx: Types.AuthContext = {}
         try {
-            if (!methods.ListSwaps) throw new Error('method: ListSwaps is not implemented')
+            if (!methods.ListTxSwaps) throw new Error('method: ListTxSwaps is not implemented')
             const authContext = await opts.UserAuthGuard(req.headers['authorization'])
             authCtx = authContext
             stats.guard = process.hrtime.bigint()
             stats.validate = stats.guard
             const query = req.query
             const params = req.params
-            const response =  await methods.ListSwaps({rpcName:'ListSwaps', ctx:authContext })
+            const response =  await methods.ListTxSwaps({rpcName:'ListTxSwaps', ctx:authContext })
             stats.handle = process.hrtime.bigint()
             res.json({status: 'OK', ...response})
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
@@ -1788,6 +1829,28 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             const query = req.query
             const params = req.params
             const response =  await methods.PayAddress({rpcName:'PayAddress', ctx:authContext , req: request})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
+    if (!opts.allowNotImplementedMethods && !methods.PayAdminInvoiceSwap) throw new Error('method: PayAdminInvoiceSwap is not implemented')
+    app.post('/api/admin/swap/invoice/pay', async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'PayAdminInvoiceSwap', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        try {
+            if (!methods.PayAdminInvoiceSwap) throw new Error('method: PayAdminInvoiceSwap is not implemented')
+            const authContext = await opts.AdminAuthGuard(req.headers['authorization'])
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            const request = req.body
+            const error = Types.PayAdminInvoiceSwapRequestValidate(request)
+            stats.validate = process.hrtime.bigint()
+            if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
+            const query = req.query
+            const params = req.params
+            const response =  await methods.PayAdminInvoiceSwap({rpcName:'PayAdminInvoiceSwap', ctx:authContext , req: request})
             stats.handle = process.hrtime.bigint()
             res.json({status: 'OK', ...response})
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])

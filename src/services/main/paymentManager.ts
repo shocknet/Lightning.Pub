@@ -18,7 +18,7 @@ import { LiquidityManager } from './liquidityManager.js'
 import { Utils } from '../helpers/utilsWrapper.js'
 import { UserInvoicePayment } from '../storage/entity/UserInvoicePayment.js'
 import SettingsManager from './settingsManager.js'
-import { Swaps, TransactionSwapData } from '../lnd/swaps.js'
+import { Swaps } from '../lnd/swaps/swaps.js'
 import { Transaction, OutputDetail } from '../../../proto/lnd/lightning.js'
 import { LndAddress } from '../lnd/lnd.js'
 import Metrics from '../metrics/index.js'
@@ -634,11 +634,11 @@ export default class {
         }
     }
 
-    async ListSwaps(ctx: Types.UserContext): Promise<Types.SwapsList> {
-        const payments = await this.storage.paymentStorage.ListSwapPayments(ctx.app_user_id)
+    async ListTxSwaps(ctx: Types.UserContext): Promise<Types.TxSwapsList> {
+        const payments = await this.storage.paymentStorage.ListTxSwapPayments(ctx.app_user_id)
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
         const isManagedUser = ctx.user_id !== app.owner.user_id
-        return this.swaps.ListSwaps(ctx.app_user_id, payments, p => {
+        return this.swaps.ListTxSwaps(ctx.app_user_id, payments, p => {
             const opId = `${Types.UserOperationType.OUTGOING_TX}-${p.serial_id}`
             return this.newInvoicePaymentOperation({ amount: p.paid_amount, confirmed: p.paid_at_unix !== 0, invoice: p.invoice, opId, networkFee: p.routing_fees, serviceFee: p.service_fees, paidAtUnix: p.paid_at_unix })
         }, amt => this.getSendServiceFee(Types.UserOperationType.OUTGOING_INVOICE, amt, isManagedUser))

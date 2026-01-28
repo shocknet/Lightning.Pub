@@ -273,6 +273,20 @@ export default (params: ClientParams) => ({
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
+    GetAdminInvoiceSwapQuotes: async (request: Types.InvoiceSwapRequest): Promise<ResultError | ({ status: 'OK' }& Types.InvoiceSwapQuoteList)> => {
+        const auth = await params.retrieveAdminAuth()
+        if (auth === null) throw new Error('retrieveAdminAuth() returned null')
+        let finalRoute = '/api/admin/swap/invoice/quote'
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.InvoiceSwapQuoteListValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
     GetAdminTransactionSwapQuotes: async (request: Types.TransactionSwapRequest): Promise<ResultError | ({ status: 'OK' }& Types.TransactionSwapQuoteList)> => {
         const auth = await params.retrieveAdminAuth()
         if (auth === null) throw new Error('retrieveAdminAuth() returned null')
@@ -620,7 +634,7 @@ export default (params: ClientParams) => ({
     GetTransactionSwapQuotes: async (request: Types.TransactionSwapRequest): Promise<ResultError | ({ status: 'OK' }& Types.TransactionSwapQuoteList)> => {
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
-        let finalRoute = '/api/user/swap/quote'
+        let finalRoute = '/api/user/swap/transaction/quote'
         const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
@@ -781,16 +795,30 @@ export default (params: ClientParams) => ({
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
-    ListAdminSwaps: async (): Promise<ResultError | ({ status: 'OK' }& Types.SwapsList)> => {
+    ListAdminInvoiceSwaps: async (): Promise<ResultError | ({ status: 'OK' }& Types.InvoiceSwapsList)> => {
         const auth = await params.retrieveAdminAuth()
         if (auth === null) throw new Error('retrieveAdminAuth() returned null')
-        let finalRoute = '/api/admin/swap/list'
+        let finalRoute = '/api/admin/swap/invoice/list'
         const { data } = await axios.post(params.baseUrl + finalRoute, {}, { headers: { 'authorization': auth } })
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
             if(!params.checkResult) return { status: 'OK', ...result }
-            const error = Types.SwapsListValidate(result)
+            const error = Types.InvoiceSwapsListValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
+    ListAdminTxSwaps: async (): Promise<ResultError | ({ status: 'OK' }& Types.TxSwapsList)> => {
+        const auth = await params.retrieveAdminAuth()
+        if (auth === null) throw new Error('retrieveAdminAuth() returned null')
+        let finalRoute = '/api/admin/swap/transaction/list'
+        const { data } = await axios.post(params.baseUrl + finalRoute, {}, { headers: { 'authorization': auth } })
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.TxSwapsListValidate(result)
             if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
         }
         return { status: 'ERROR', reason: 'invalid response' }
@@ -809,16 +837,16 @@ export default (params: ClientParams) => ({
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
-    ListSwaps: async (): Promise<ResultError | ({ status: 'OK' }& Types.SwapsList)> => {
+    ListTxSwaps: async (): Promise<ResultError | ({ status: 'OK' }& Types.TxSwapsList)> => {
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
-        let finalRoute = '/api/user/swap/list'
+        let finalRoute = '/api/user/swap/transaction/list'
         const { data } = await axios.post(params.baseUrl + finalRoute, {}, { headers: { 'authorization': auth } })
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
             if(!params.checkResult) return { status: 'OK', ...result }
-            const error = Types.SwapsListValidate(result)
+            const error = Types.TxSwapsListValidate(result)
             if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
         }
         return { status: 'ERROR', reason: 'invalid response' }
@@ -909,7 +937,21 @@ export default (params: ClientParams) => ({
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
-    PayAdminTransactionSwap: async (request: Types.PayAdminTransactionSwapRequest): Promise<ResultError | ({ status: 'OK' }& Types.AdminSwapResponse)> => {
+    PayAdminInvoiceSwap: async (request: Types.PayAdminInvoiceSwapRequest): Promise<ResultError | ({ status: 'OK' }& Types.AdminInvoiceSwapResponse)> => {
+        const auth = await params.retrieveAdminAuth()
+        if (auth === null) throw new Error('retrieveAdminAuth() returned null')
+        let finalRoute = '/api/admin/swap/invoice/pay'
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.AdminInvoiceSwapResponseValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
+    PayAdminTransactionSwap: async (request: Types.PayAdminTransactionSwapRequest): Promise<ResultError | ({ status: 'OK' }& Types.AdminTxSwapResponse)> => {
         const auth = await params.retrieveAdminAuth()
         if (auth === null) throw new Error('retrieveAdminAuth() returned null')
         let finalRoute = '/api/admin/swap/transaction/pay'
@@ -918,7 +960,7 @@ export default (params: ClientParams) => ({
         if (data.status === 'OK') { 
             const result = data
             if(!params.checkResult) return { status: 'OK', ...result }
-            const error = Types.AdminSwapResponseValidate(result)
+            const error = Types.AdminTxSwapResponseValidate(result)
             if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
         }
         return { status: 'ERROR', reason: 'invalid response' }
