@@ -71,6 +71,9 @@ export class InvoiceSwap {
     @Column({ default: "" })
     tx_id: string
 
+    @Column({ default: "", type: "text" })
+    lockup_tx_hex: string
+
     /*     @Column({ default: "" })
         address_paid: string */
 

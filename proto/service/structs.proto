@@ -867,9 +867,15 @@ message InvoiceSwapsList {
     repeated InvoiceSwapQuote quotes = 2;
 }
 
+message RefundAdminInvoiceSwapRequest {
+    string swap_operation_id = 1;
+    int64 sat_per_v_byte = 2;
+}
+
 message PayAdminInvoiceSwapRequest {
     string swap_operation_id = 1;
     int64 sat_per_v_byte = 2;
+    optional bool no_claim = 3;
 }
 
 message AdminInvoiceSwapResponse {

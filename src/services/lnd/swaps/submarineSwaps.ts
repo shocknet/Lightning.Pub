@@ -1,14 +1,16 @@
 import zkpInit from '@vulpemventures/secp256k1-zkp';
 // import bolt11 from 'bolt11';
 import {
-    Musig, SwapTreeSerializer, TaprootUtils
+    Musig, SwapTreeSerializer, TaprootUtils, constructRefundTransaction,
+    detectSwap, OutputType
 } from 'boltz-core';
 import { randomBytes, createHash } from 'crypto';
 import { ECPairFactory, ECPairInterface } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
+import { Transaction, address } from 'bitcoinjs-lib';
 import ws from 'ws';
 import { getLogger, PubLogger, ERROR } from '../../helpers/logger.js';
-import { loggedGet, loggedPost } from './swapHelpers.js';
+import { loggedGet, loggedPost, getNetwork } from './swapHelpers.js';
 import { BTCNetwork } from '../../main/settings.js';
 
 /* type InvoiceSwapFees = {
@@ -47,10 +49,12 @@ export type InvoiceSwapData = { createdResponse: InvoiceSwapResponse, info: Invo
 export class SubmarineSwaps {
     private httpUrl: string
     private wsUrl: string
+    private network: BTCNetwork
     log: PubLogger
-    constructor({ httpUrl, wsUrl }: { httpUrl: string, wsUrl: string, network: BTCNetwork }) {
+    constructor({ httpUrl, wsUrl, network }: { httpUrl: string, wsUrl: string, network: BTCNetwork }) {
         this.httpUrl = httpUrl
         this.wsUrl = wsUrl
+        this.network = network
         this.log = getLogger({ component: 'SubmarineSwaps' })
     }
 
@@ -95,6 +99,273 @@ export class SubmarineSwaps {
             privKey: Buffer.from(keys.privateKey).toString('hex')
         }
 
+    }
+
+    /**
+     * Get the lockup transaction for a swap from Boltz
+     */
+    private getLockupTransaction = async (swapId: string): Promise<{ ok: true, data: { hex: string } } | { ok: false, error: string }> => {
+        const url = `${this.httpUrl}/v2/swap/submarine/${swapId}/transaction`
+        return await loggedGet<{ hex: string }>(this.log, url)
+    }
+
+    /**
+     * Get partial refund signature from Boltz for cooperative refund
+     */
+    private getPartialRefundSignature = async (
+        swapId: string,
+        pubNonce: Buffer,
+        transaction: Transaction,
+        index: number
+    ): Promise<{ ok: true, data: { pubNonce: string, partialSignature: string } } | { ok: false, error: string }> => {
+        const url = `${this.httpUrl}/v2/swap/submarine/${swapId}/refund`
+        const req = {
+            index,
+            pubNonce: pubNonce.toString('hex'),
+            transaction: transaction.toHex()
+        }
+        return await loggedPost<{ pubNonce: string, partialSignature: string }>(this.log, url, req)
+    }
+
+    /**
+     * Constructs a Taproot refund transaction (cooperative or uncooperative)
+     */
+    private constructTaprootRefund = async (
+        swapId: string,
+        claimPublicKey: string,
+        swapTree: string,
+        timeoutBlockHeight: number,
+        lockupTx: Transaction,
+        privateKey: ECPairInterface,
+        refundAddress: string,
+        feePerVbyte: number,
+        cooperative: boolean = true
+    ): Promise<{
+        ok: true,
+        transaction: Transaction,
+        cooperativeError?: string
+    } | {
+        ok: false,
+        error: string
+    }> => {
+        this.log(`Constructing ${cooperative ? 'cooperative' : 'uncooperative'} Taproot refund for swap ${swapId}`)
+
+        const boltzPublicKey = Buffer.from(claimPublicKey, 'hex')
+        const swapTreeDeserialized = SwapTreeSerializer.deserializeSwapTree(swapTree)
+
+        // Create musig and tweak it
+        let musig = new Musig(await zkpInit(), privateKey, randomBytes(32), [
+            boltzPublicKey,
+            Buffer.from(privateKey.publicKey),
+        ])
+        const tweakedKey = TaprootUtils.tweakMusig(musig, swapTreeDeserialized.tree)
+
+        // Detect the swap output in the lockup transaction
+        const swapOutput = detectSwap(tweakedKey, lockupTx)
+        if (!swapOutput) {
+            return { ok: false, error: 'Could not detect swap output in lockup transaction' }
+        }
+
+        const network = getNetwork(this.network)
+        // const decodedAddress = address.fromBech32(refundAddress)
+
+        const details = [
+            {
+                ...swapOutput,
+                keys: privateKey,
+                cooperative,
+                type: OutputType.Taproot,
+                txHash: lockupTx.getHash(),
+                swapTree: swapTreeDeserialized,
+                internalKey: musig.getAggregatedPublicKey(),
+            }
+        ]
+        const outputScript = address.toOutputScript(refundAddress, network)
+        // Construct the refund transaction
+        const refundTx = constructRefundTransaction(
+            details,
+            outputScript,
+            cooperative ? 0 : timeoutBlockHeight,
+            feePerVbyte,
+            true
+        )
+
+        if (!cooperative) {
+            return { ok: true, transaction: refundTx }
+        }
+
+        // For cooperative refund, get Boltz's partial signature
+        try {
+            musig = new Musig(await zkpInit(), privateKey, randomBytes(32), [
+                boltzPublicKey,
+                Buffer.from(privateKey.publicKey),
+            ])
+            // Get the partial signature from Boltz
+            const boltzSigRes = await this.getPartialRefundSignature(
+                swapId,
+                Buffer.from(musig.getPublicNonce()),
+                refundTx,
+                0
+            )
+
+            if (!boltzSigRes.ok) {
+                this.log(ERROR, 'Failed to get Boltz partial signature, falling back to uncooperative refund')
+                // Fallback to uncooperative refund
+                return await this.constructTaprootRefund(
+                    swapId,
+                    claimPublicKey,
+                    swapTree,
+                    timeoutBlockHeight,
+                    lockupTx,
+                    privateKey,
+                    refundAddress,
+                    feePerVbyte,
+                    false
+                )
+            }
+
+            const boltzSig = boltzSigRes.data
+
+            // Aggregate nonces
+            musig.aggregateNonces([
+                [boltzPublicKey, Musig.parsePubNonce(boltzSig.pubNonce)],
+            ])
+
+            // Tweak musig again after aggregating nonces
+            TaprootUtils.tweakMusig(musig, swapTreeDeserialized.tree)
+
+            // Initialize session and sign
+            musig.initializeSession(
+                TaprootUtils.hashForWitnessV1(
+                    details,
+                    refundTx,
+                    0
+                )
+            )
+
+            musig.signPartial()
+            musig.addPartial(boltzPublicKey, Buffer.from(boltzSig.partialSignature, 'hex'))
+
+            // Set the witness to the aggregated signature
+            refundTx.ins[0].witness = [musig.aggregatePartials()]
+
+            return { ok: true, transaction: refundTx }
+        } catch (error: any) {
+            this.log(ERROR, 'Cooperative refund failed:', error.message)
+            // Fallback to uncooperative refund
+            return await this.constructTaprootRefund(
+                swapId,
+                claimPublicKey,
+                swapTree,
+                timeoutBlockHeight,
+                lockupTx,
+                privateKey,
+                refundAddress,
+                feePerVbyte,
+                false
+            )
+        }
+    }
+
+    /**
+     * Broadcasts a refund transaction
+     */
+    private broadcastRefundTransaction = async (transaction: Transaction): Promise<{ ok: true, txId: string } | { ok: false, error: string }> => {
+        const url = `${this.httpUrl}/v2/chain/BTC/transaction`
+        const req = { hex: transaction.toHex() }
+
+        const result = await loggedPost<{ id: string }>(this.log, url, req)
+        if (!result.ok) {
+            return result
+        }
+
+        return { ok: true, txId: result.data.id }
+    }
+
+    /**
+     * Refund a submarine swap
+     * @param swapId - The swap ID
+     * @param claimPublicKey - Boltz's claim public key
+     * @param swapTree - The swap tree
+     * @param timeoutBlockHeight - The timeout block height
+     * @param privateKey - The refund private key (hex string)
+     * @param refundAddress - The address to refund to
+     * @param currentHeight - The current block height
+     * @param lockupTxHex - The lockup transaction hex (optional, will fetch from Boltz if not provided)
+     * @param feePerVbyte - Fee rate in sat/vbyte (optional, will use default if not provided)
+     */
+    RefundSwap = async (params: {
+        swapId: string,
+        claimPublicKey: string,
+        swapTree: string,
+        timeoutBlockHeight: number,
+        privateKeyHex: string,
+        refundAddress: string,
+        currentHeight: number,
+        lockupTxHex?: string,
+        feePerVbyte?: number
+    }): Promise<{ ok: true, publish: { done: false, txHex: string, txId: string } | { done: true, txId: string } } | { ok: false, error: string }> => {
+        const { swapId, claimPublicKey, swapTree, timeoutBlockHeight, privateKeyHex, refundAddress, currentHeight, lockupTxHex, feePerVbyte = 2 } = params
+
+        this.log('Starting refund process for swap:', swapId)
+
+        // Get the lockup transaction (from parameter or fetch from Boltz)
+        let lockupTx: Transaction
+        if (lockupTxHex) {
+            this.log('Using provided lockup transaction hex')
+            lockupTx = Transaction.fromHex(lockupTxHex)
+        } else {
+            this.log('Fetching lockup transaction from Boltz')
+            const lockupTxRes = await this.getLockupTransaction(swapId)
+            if (!lockupTxRes.ok) {
+                return { ok: false, error: `Failed to get lockup transaction: ${lockupTxRes.error}` }
+            }
+            lockupTx = Transaction.fromHex(lockupTxRes.data.hex)
+        }
+        this.log('Lockup transaction retrieved:', lockupTx.getId())
+
+        // Check if swap has timed out
+        if (currentHeight < timeoutBlockHeight) {
+            return {
+                ok: false,
+                error: `Swap has not timed out yet. Current height: ${currentHeight}, timeout: ${timeoutBlockHeight}`
+            }
+        }
+        this.log(`Swap has timed out. Current height: ${currentHeight}, timeout: ${timeoutBlockHeight}`)
+
+        // Parse the private key
+        const privateKey = ECPairFactory(ecc).fromPrivateKey(Buffer.from(privateKeyHex, 'hex'))
+
+        // Construct the refund transaction (tries cooperative first, then falls back to uncooperative)
+        const refundTxRes = await this.constructTaprootRefund(
+            swapId,
+            claimPublicKey,
+            swapTree,
+            timeoutBlockHeight,
+            lockupTx,
+            privateKey,
+            refundAddress,
+            feePerVbyte,
+            true // Try cooperative first
+        )
+
+        if (!refundTxRes.ok) {
+            return { ok: false, error: refundTxRes.error }
+        }
+
+        const cooperative = !refundTxRes.cooperativeError
+        this.log(`Refund transaction constructed (${cooperative ? 'cooperative' : 'uncooperative'}):`, refundTxRes.transaction.getId())
+        if (!cooperative) {
+            return { ok: true, publish: { done: false, txHex: refundTxRes.transaction.toHex(), txId: refundTxRes.transaction.getId() } }
+        }
+        // Broadcast the refund transaction
+        const broadcastRes = await this.broadcastRefundTransaction(refundTxRes.transaction)
+        if (!broadcastRes.ok) {
+            return { ok: false, error: `Failed to broadcast refund transaction: ${broadcastRes.error}` }
+        }
+
+        this.log('Refund transaction broadcasted successfully:', broadcastRes.txId)
+        return { ok: true, publish: { done: true, txId: broadcastRes.txId } }
     }
 
     SubscribeToInvoiceSwap = (data: InvoiceSwapData, swapDone: (result: { ok: true } | { ok: false, error: string }) => void, waitingTx: () => void) => {

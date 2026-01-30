@@ -592,6 +592,7 @@ type PayAddressResponse struct {
 	Txid         string `json:"txId"`
 }
 type PayAdminInvoiceSwapRequest struct {
+	No_claim          bool   `json:"no_claim"`
 	Sat_per_v_byte    int64  `json:"sat_per_v_byte"`
 	Swap_operation_id string `json:"swap_operation_id"`
 }
@@ -644,6 +645,10 @@ type ProviderDisruption struct {
 }
 type ProvidersDisruption struct {
 	Disruptions []ProviderDisruption `json:"disruptions"`
+}
+type RefundAdminInvoiceSwapRequest struct {
+	Sat_per_v_byte    int64  `json:"sat_per_v_byte"`
+	Swap_operation_id string `json:"swap_operation_id"`
 }
 type RelaysMigration struct {
 	Relays []string `json:"relays"`

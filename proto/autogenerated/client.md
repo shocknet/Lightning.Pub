@@ -320,6 +320,11 @@ The nostr server will send back a message response, and inside the body there wi
   - This methods has an __empty__ __request__ body
   - This methods has an __empty__ __response__ body
 
+- RefundAdminInvoiceSwap
+  - auth type: __Admin__
+  - input: [RefundAdminInvoiceSwapRequest](#RefundAdminInvoiceSwapRequest)
+  - output: [AdminInvoiceSwapResponse](#AdminInvoiceSwapResponse)
+
 - ResetDebit
   - auth type: __User__
   - input: [DebitOperation](#DebitOperation)
@@ -963,6 +968,13 @@ The nostr server will send back a message response, and inside the body there wi
   - This methods has an __empty__ __request__ body
   - This methods has an __empty__ __response__ body
 
+- RefundAdminInvoiceSwap
+  - auth type: __Admin__
+  - http method: __post__
+  - http route: __/api/admin/swap/invoice/refund__
+  - input: [RefundAdminInvoiceSwapRequest](#RefundAdminInvoiceSwapRequest)
+  - output: [AdminInvoiceSwapResponse](#AdminInvoiceSwapResponse)
+
 - RequestNPubLinkingToken
   - auth type: __App__
   - http method: __post__
@@ -1603,6 +1615,7 @@ The nostr server will send back a message response, and inside the body there wi
   - __txId__: _string_
 
 ### PayAdminInvoiceSwapRequest
+  - __no_claim__: _boolean_ *this field is optional
   - __sat_per_v_byte__: _number_
   - __swap_operation_id__: _string_
 
@@ -1655,6 +1668,10 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### ProvidersDisruption
   - __disruptions__: ARRAY of: _[ProviderDisruption](#ProviderDisruption)_
+
+### RefundAdminInvoiceSwapRequest
+  - __sat_per_v_byte__: _number_
+  - __swap_operation_id__: _string_
 
 ### RelaysMigration
   - __relays__: ARRAY of: _string_

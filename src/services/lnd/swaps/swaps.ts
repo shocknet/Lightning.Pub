@@ -100,6 +100,36 @@ export class Swaps {
         }
     }
 
+    RefundInvoiceSwap = async (swapOperationId: string, satPerVByte: number, refundAddress: string, currentHeight: number): Promise<{ published: false, txHex: string, txId: string } | { published: true, txId: string }> => {
+        const swap = await this.storage.paymentStorage.GetRefundableInvoiceSwap(swapOperationId)
+        if (!swap) {
+            throw new Error("Swap not found or already used")
+        }
+        const swapper = this.subSwappers[swap.service_url]
+        if (!swapper) {
+            throw new Error("swapper service not found")
+        }
+        const result = await swapper.RefundSwap({
+            swapId: swap.swap_quote_id,
+            claimPublicKey: swap.claim_public_key,
+            currentHeight,
+            privateKeyHex: swap.ephemeral_private_key,
+            refundAddress,
+            swapTree: swap.swap_tree,
+            timeoutBlockHeight: swap.timeout_block_height,
+            feePerVbyte: satPerVByte,
+            lockupTxHex: swap.lockup_tx_hex,
+        })
+        if (!result.ok) {
+            throw new Error(result.error)
+        }
+        if (result.publish.done) {
+            return { published: true, txId: result.publish.txId }
+        }
+        return { published: false, txHex: result.publish.txHex, txId: result.publish.txId }
+
+    }
+
     PayInvoiceSwap = async (appUserId: string, swapOpId: string, satPerVByte: number, payAddress: (address: string, amt: number) => Promise<{ txId: string }>): Promise<void> => {
         if (!this.settings.getSettings().swapsSettings.enableSwaps) {
             throw new Error("Swaps are not enabled")

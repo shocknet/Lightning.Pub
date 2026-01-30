@@ -130,6 +130,7 @@ type Client struct {
 	PayAppUserInvoice             func(req PayAppUserInvoiceRequest) (*PayInvoiceResponse, error)
 	PayInvoice                    func(req PayInvoiceRequest) (*PayInvoiceResponse, error)
 	PingSubProcesses              func() error
+	RefundAdminInvoiceSwap        func(req RefundAdminInvoiceSwapRequest) (*AdminInvoiceSwapResponse, error)
 	RequestNPubLinkingToken       func(req RequestNPubLinkingTokenRequest) (*RequestNPubLinkingTokenResponse, error)
 	ResetDebit                    func(req DebitOperation) error
 	ResetManage                   func(req ManageOperation) error
@@ -2086,6 +2087,35 @@ func NewClient(params ClientParams) *Client {
 				return fmt.Errorf(result.Reason)
 			}
 			return nil
+		},
+		RefundAdminInvoiceSwap: func(req RefundAdminInvoiceSwapRequest) (*AdminInvoiceSwapResponse, error) {
+			auth, err := params.RetrieveAdminAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/admin/swap/invoice/refund"
+			body, err := json.Marshal(req)
+			if err != nil {
+				return nil, err
+			}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return nil, err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := AdminInvoiceSwapResponse{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
 		},
 		RequestNPubLinkingToken: func(req RequestNPubLinkingTokenRequest) (*RequestNPubLinkingTokenResponse, error) {
 			auth, err := params.RetrieveAppAuth()

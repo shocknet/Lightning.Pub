@@ -274,11 +274,35 @@ export class AdminManager {
             this.swaps.PayInvoiceSwap("admin", req.swap_operation_id, req.sat_per_v_byte, async (addr, amt) => {
                 const tx = await this.lnd.PayAddress(addr, amt, req.sat_per_v_byte, "", { useProvider: false, from: 'system' })
                 this.log("paid admin invoice swap", { swapOpId: req.swap_operation_id, txId: tx.txid })
+                await this.storage.metricsStorage.AddRootOperation("chain_payment", txId, amt)
+
+                // Fetch the full transaction hex for potential refunds
+                let lockupTxHex: string | undefined
+                try {
+                    const txDetails = await this.lnd.GetTx(tx.txid)
+                    lockupTxHex = txDetails.rawTxHex
+                } catch (err: any) {
+                    this.log("Warning: Could not fetch transaction hex for refund purposes:", err.message)
+                }
+
+                await this.storage.paymentStorage.SetInvoiceSwapTxId(req.swap_operation_id, txId, lockupTxHex)
                 res(tx.txid)
                 return { txId: tx.txid }
             })
         })
         return { tx_id: txId }
+    }
+
+    async RefundAdminInvoiceSwap(req: Types.RefundAdminInvoiceSwapRequest): Promise<Types.AdminInvoiceSwapResponse> {
+        const info = await this.lnd.GetInfo()
+        const currentHeight = info.blockHeight
+        const address = await this.lnd.NewAddress(Types.AddressType.WITNESS_PUBKEY_HASH, { useProvider: false, from: 'system' })
+        const result = await this.swaps.RefundInvoiceSwap(req.swap_operation_id, req.sat_per_v_byte, address.address, currentHeight)
+        if (result.published) {
+            return { tx_id: result.txId }
+        }
+        await this.lnd.PublishTransaction(result.txHex)
+        return { tx_id: result.txId }
     }
 
     async ListAdminTxSwaps(): Promise<Types.TxSwapsList> {

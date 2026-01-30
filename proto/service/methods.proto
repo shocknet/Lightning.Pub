@@ -196,6 +196,13 @@ service LightningPub {
         option (nostr) = true;
     }
 
+    rpc RefundAdminInvoiceSwap(structs.RefundAdminInvoiceSwapRequest) returns (structs.AdminInvoiceSwapResponse) {
+        option (auth_type)  = "Admin";
+        option (http_method) = "post";
+        option (http_route) = "/api/admin/swap/invoice/refund";
+        option (nostr) = true;
+    }
+
     rpc GetAdminTransactionSwapQuotes(structs.TransactionSwapRequest) returns (structs.TransactionSwapQuoteList) {
         option (auth_type)  = "Admin";
         option (http_method) = "post";

@@ -7,8 +7,8 @@ export type RequestMetric = AuthContext & RequestInfo & RequestStats & { error?:
 export type AdminContext = {
     admin_id: string
 }
-export type AdminMethodInputs = AddApp_Input | AddPeer_Input | AuthApp_Input | BanUser_Input | CloseChannel_Input | CreateOneTimeInviteLink_Input | GetAdminInvoiceSwapQuotes_Input | GetAdminTransactionSwapQuotes_Input | GetInviteLinkState_Input | GetSeed_Input | ListAdminInvoiceSwaps_Input | ListAdminTxSwaps_Input | ListChannels_Input | LndGetInfo_Input | OpenChannel_Input | PayAdminInvoiceSwap_Input | PayAdminTransactionSwap_Input | UpdateChannelPolicy_Input
-export type AdminMethodOutputs = AddApp_Output | AddPeer_Output | AuthApp_Output | BanUser_Output | CloseChannel_Output | CreateOneTimeInviteLink_Output | GetAdminInvoiceSwapQuotes_Output | GetAdminTransactionSwapQuotes_Output | GetInviteLinkState_Output | GetSeed_Output | ListAdminInvoiceSwaps_Output | ListAdminTxSwaps_Output | ListChannels_Output | LndGetInfo_Output | OpenChannel_Output | PayAdminInvoiceSwap_Output | PayAdminTransactionSwap_Output | UpdateChannelPolicy_Output
+export type AdminMethodInputs = AddApp_Input | AddPeer_Input | AuthApp_Input | BanUser_Input | CloseChannel_Input | CreateOneTimeInviteLink_Input | GetAdminInvoiceSwapQuotes_Input | GetAdminTransactionSwapQuotes_Input | GetInviteLinkState_Input | GetSeed_Input | ListAdminInvoiceSwaps_Input | ListAdminTxSwaps_Input | ListChannels_Input | LndGetInfo_Input | OpenChannel_Input | PayAdminInvoiceSwap_Input | PayAdminTransactionSwap_Input | RefundAdminInvoiceSwap_Input | UpdateChannelPolicy_Input
+export type AdminMethodOutputs = AddApp_Output | AddPeer_Output | AuthApp_Output | BanUser_Output | CloseChannel_Output | CreateOneTimeInviteLink_Output | GetAdminInvoiceSwapQuotes_Output | GetAdminTransactionSwapQuotes_Output | GetInviteLinkState_Output | GetSeed_Output | ListAdminInvoiceSwaps_Output | ListAdminTxSwaps_Output | ListChannels_Output | LndGetInfo_Output | OpenChannel_Output | PayAdminInvoiceSwap_Output | PayAdminTransactionSwap_Output | RefundAdminInvoiceSwap_Output | UpdateChannelPolicy_Output
 export type AppContext = {
     app_id: string
 }
@@ -289,6 +289,9 @@ export type PayInvoice_Output = ResultError | ({ status: 'OK' } & PayInvoiceResp
 export type PingSubProcesses_Input = {rpcName:'PingSubProcesses'}
 export type PingSubProcesses_Output = ResultError | { status: 'OK' }
 
+export type RefundAdminInvoiceSwap_Input = {rpcName:'RefundAdminInvoiceSwap', req: RefundAdminInvoiceSwapRequest}
+export type RefundAdminInvoiceSwap_Output = ResultError | ({ status: 'OK' } & AdminInvoiceSwapResponse)
+
 export type RequestNPubLinkingToken_Input = {rpcName:'RequestNPubLinkingToken', req: RequestNPubLinkingTokenRequest}
 export type RequestNPubLinkingToken_Output = ResultError | ({ status: 'OK' } & RequestNPubLinkingTokenResponse)
 
@@ -422,6 +425,7 @@ export type ServerMethods = {
     PayAppUserInvoice?: (req: PayAppUserInvoice_Input & {ctx: AppContext }) => Promise<PayInvoiceResponse>
     PayInvoice?: (req: PayInvoice_Input & {ctx: UserContext }) => Promise<PayInvoiceResponse>
     PingSubProcesses?: (req: PingSubProcesses_Input & {ctx: MetricsContext }) => Promise<void>
+    RefundAdminInvoiceSwap?: (req: RefundAdminInvoiceSwap_Input & {ctx: AdminContext }) => Promise<AdminInvoiceSwapResponse>
     RequestNPubLinkingToken?: (req: RequestNPubLinkingToken_Input & {ctx: AppContext }) => Promise<RequestNPubLinkingTokenResponse>
     ResetDebit?: (req: ResetDebit_Input & {ctx: UserContext }) => Promise<void>
     ResetManage?: (req: ResetManage_Input & {ctx: UserContext }) => Promise<void>
@@ -3518,18 +3522,24 @@ export const PayAddressResponseValidate = (o?: PayAddressResponse, opts: PayAddr
 }
 
 export type PayAdminInvoiceSwapRequest = {
+    no_claim?: boolean
     sat_per_v_byte: number
     swap_operation_id: string
 }
-export const PayAdminInvoiceSwapRequestOptionalFields: [] = []
+export type PayAdminInvoiceSwapRequestOptionalField = 'no_claim'
+export const PayAdminInvoiceSwapRequestOptionalFields: PayAdminInvoiceSwapRequestOptionalField[] = ['no_claim']
 export type PayAdminInvoiceSwapRequestOptions = OptionsBaseMessage & {
-    checkOptionalsAreSet?: []
+    checkOptionalsAreSet?: PayAdminInvoiceSwapRequestOptionalField[]
+    no_claim_CustomCheck?: (v?: boolean) => boolean
     sat_per_v_byte_CustomCheck?: (v: number) => boolean
     swap_operation_id_CustomCheck?: (v: string) => boolean
 }
 export const PayAdminInvoiceSwapRequestValidate = (o?: PayAdminInvoiceSwapRequest, opts: PayAdminInvoiceSwapRequestOptions = {}, path: string = 'PayAdminInvoiceSwapRequest::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
     if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if ((o.no_claim || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('no_claim')) && typeof o.no_claim !== 'boolean') return new Error(`${path}.no_claim: is not a boolean`)
+    if (opts.no_claim_CustomCheck && !opts.no_claim_CustomCheck(o.no_claim)) return new Error(`${path}.no_claim: custom check failed`)
 
     if (typeof o.sat_per_v_byte !== 'number') return new Error(`${path}.sat_per_v_byte: is not a number`)
     if (opts.sat_per_v_byte_CustomCheck && !opts.sat_per_v_byte_CustomCheck(o.sat_per_v_byte)) return new Error(`${path}.sat_per_v_byte: custom check failed`)
@@ -3828,6 +3838,29 @@ export const ProvidersDisruptionValidate = (o?: ProvidersDisruption, opts: Provi
         if (disruptionsErr !== null) return disruptionsErr
     }
     if (opts.disruptions_CustomCheck && !opts.disruptions_CustomCheck(o.disruptions)) return new Error(`${path}.disruptions: custom check failed`)
+
+    return null
+}
+
+export type RefundAdminInvoiceSwapRequest = {
+    sat_per_v_byte: number
+    swap_operation_id: string
+}
+export const RefundAdminInvoiceSwapRequestOptionalFields: [] = []
+export type RefundAdminInvoiceSwapRequestOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    sat_per_v_byte_CustomCheck?: (v: number) => boolean
+    swap_operation_id_CustomCheck?: (v: string) => boolean
+}
+export const RefundAdminInvoiceSwapRequestValidate = (o?: RefundAdminInvoiceSwapRequest, opts: RefundAdminInvoiceSwapRequestOptions = {}, path: string = 'RefundAdminInvoiceSwapRequest::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.sat_per_v_byte !== 'number') return new Error(`${path}.sat_per_v_byte: is not a number`)
+    if (opts.sat_per_v_byte_CustomCheck && !opts.sat_per_v_byte_CustomCheck(o.sat_per_v_byte)) return new Error(`${path}.sat_per_v_byte: custom check failed`)
+
+    if (typeof o.swap_operation_id !== 'string') return new Error(`${path}.swap_operation_id: is not a string`)
+    if (opts.swap_operation_id_CustomCheck && !opts.swap_operation_id_CustomCheck(o.swap_operation_id)) return new Error(`${path}.swap_operation_id: custom check failed`)
 
     return null
 }

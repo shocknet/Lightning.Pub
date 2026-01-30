@@ -1344,6 +1344,22 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     opts.metricsCallback([{ ...info, ...stats, ...authContext }])
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
+            case 'RefundAdminInvoiceSwap':
+                try {
+                    if (!methods.RefundAdminInvoiceSwap) throw new Error('method: RefundAdminInvoiceSwap is not implemented')
+                    const authContext = await opts.NostrAdminAuthGuard(req.appId, req.authIdentifier)
+                    stats.guard = process.hrtime.bigint()
+                    authCtx = authContext
+                    const request = req.body
+                    const error = Types.RefundAdminInvoiceSwapRequestValidate(request)
+                    stats.validate = process.hrtime.bigint()
+                    if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
+                    const response = await methods.RefundAdminInvoiceSwap({rpcName:'RefundAdminInvoiceSwap', ctx:authContext , req: request})
+                    stats.handle = process.hrtime.bigint()
+                    res({status: 'OK', ...response})
+                    opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+                }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+                break
             case 'ResetDebit':
                 try {
                     if (!methods.ResetDebit) throw new Error('method: ResetDebit is not implemented')

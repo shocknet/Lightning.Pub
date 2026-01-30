@@ -23,7 +23,7 @@ import { TxPointSettings } from '../storage/tlv/stateBundler.js';
 import { WalletKitClient } from '../../../proto/lnd/walletkit.client.js';
 import SettingsManager from '../main/settingsManager.js';
 import { LndNodeSettings, LndSettings } from '../main/settings.js';
-import { ListAddressesResponse } from '../../../proto/lnd/walletkit.js';
+import { ListAddressesResponse, PublishResponse } from '../../../proto/lnd/walletkit.js';
 
 const DeadLineMetadata = (deadline = 10 * 1000) => ({ deadline: Date.now() + deadline })
 const deadLndRetrySeconds = 20
@@ -154,6 +154,13 @@ export default class {
                 }
             }, 1000)
         })
+    }
+
+    async PublishTransaction(txHex: string): Promise<PublishResponse> {
+        const res = await this.walletKit.publishTransaction({
+            txHex: Buffer.from(txHex, 'hex'), label: ""
+        }, DeadLineMetadata())
+        return res.response
     }
 
     async GetInfo(): Promise<NodeInfo> {

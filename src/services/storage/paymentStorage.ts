@@ -535,10 +535,14 @@ export default class {
         }, txId)
     }
 
-    async SetInvoiceSwapTxId(swapOperationId: string, chainTxId: string, txId?: string) {
-        return this.dbs.Update<InvoiceSwap>('InvoiceSwap', { swap_operation_id: swapOperationId }, {
+    async SetInvoiceSwapTxId(swapOperationId: string, chainTxId: string, lockupTxHex?: string, txId?: string) {
+        const update: Partial<InvoiceSwap> = {
             tx_id: chainTxId,
-        }, txId)
+        }
+        if (lockupTxHex) {
+            update.lockup_tx_hex = lockupTxHex
+        }
+        return this.dbs.Update<InvoiceSwap>('InvoiceSwap', { swap_operation_id: swapOperationId }, update, txId)
     }
 
     async FailInvoiceSwap(swapOperationId: string, failureReason: string, txId?: string) {
@@ -566,7 +570,18 @@ export default class {
 
     async ListUnfinishedInvoiceSwaps(txId?: string) {
         const swaps = await this.dbs.Find<InvoiceSwap>('InvoiceSwap', { where: { used: false } }, txId)
-        return swaps.filter(s => !s.tx_id)
+        return swaps.filter(s => !!s.tx_id)
+    }
+
+    async GetRefundableInvoiceSwap(swapOperationId: string, txId?: string) {
+        const swap = await this.dbs.FindOne<InvoiceSwap>('InvoiceSwap', { where: { swap_operation_id: swapOperationId } }, txId)
+        if (!swap || !swap.tx_id) {
+            return null
+        }
+        if (swap.used && !swap.failure_reason) {
+            return null
+        }
+        return swap
     }
 
 }

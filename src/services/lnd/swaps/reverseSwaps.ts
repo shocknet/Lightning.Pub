@@ -3,7 +3,7 @@ import { initEccLib, Transaction, address } from 'bitcoinjs-lib';
 // import bolt11 from 'bolt11';
 import {
     Musig, SwapTreeSerializer, TaprootUtils, detectSwap,
-    constructClaimTransaction, OutputType,
+    constructClaimTransaction, OutputType, constructRefundTransaction
 } from 'boltz-core';
 import { randomBytes, createHash } from 'crypto';
 import { ECPairFactory, ECPairInterface } from 'ecpair';
