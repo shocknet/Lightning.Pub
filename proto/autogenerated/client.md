@@ -1405,7 +1405,7 @@ The nostr server will send back a message response, and inside the body there wi
   - __quotes__: ARRAY of: _[InvoiceSwapQuote](#InvoiceSwapQuote)_
 
 ### InvoiceSwapRequest
-  - __invoice__: _string_
+  - __amount_sats__: _number_
 
 ### InvoiceSwapsList
   - __quotes__: ARRAY of: _[InvoiceSwapQuote](#InvoiceSwapQuote)_

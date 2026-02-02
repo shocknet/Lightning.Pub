@@ -382,7 +382,7 @@ type InvoiceSwapQuoteList struct {
 	Quotes []InvoiceSwapQuote `json:"quotes"`
 }
 type InvoiceSwapRequest struct {
-	Invoice string `json:"invoice"`
+	Amount_sats int64 `json:"amount_sats"`
 }
 type InvoiceSwapsList struct {
 	Quotes []InvoiceSwapQuote     `json:"quotes"`

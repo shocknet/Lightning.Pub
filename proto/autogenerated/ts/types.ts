@@ -2251,19 +2251,19 @@ export const InvoiceSwapQuoteListValidate = (o?: InvoiceSwapQuoteList, opts: Inv
 }
 
 export type InvoiceSwapRequest = {
-    invoice: string
+    amount_sats: number
 }
 export const InvoiceSwapRequestOptionalFields: [] = []
 export type InvoiceSwapRequestOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
-    invoice_CustomCheck?: (v: string) => boolean
+    amount_sats_CustomCheck?: (v: number) => boolean
 }
 export const InvoiceSwapRequestValidate = (o?: InvoiceSwapRequest, opts: InvoiceSwapRequestOptions = {}, path: string = 'InvoiceSwapRequest::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
     if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
 
-    if (typeof o.invoice !== 'string') return new Error(`${path}.invoice: is not a string`)
-    if (opts.invoice_CustomCheck && !opts.invoice_CustomCheck(o.invoice)) return new Error(`${path}.invoice: custom check failed`)
+    if (typeof o.amount_sats !== 'number') return new Error(`${path}.amount_sats: is not a number`)
+    if (opts.amount_sats_CustomCheck && !opts.amount_sats_CustomCheck(o.amount_sats)) return new Error(`${path}.amount_sats: custom check failed`)
 
     return null
 }

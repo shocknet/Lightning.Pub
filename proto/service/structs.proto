@@ -834,7 +834,7 @@ message MessagingToken {
 }
 
 message InvoiceSwapRequest {
-    string invoice = 1;
+    int64 amount_sats = 1;
 }
 
 message InvoiceSwapQuote {
