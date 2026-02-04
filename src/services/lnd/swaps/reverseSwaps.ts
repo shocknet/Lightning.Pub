@@ -1,4 +1,5 @@
-import zkpInit from '@vulpemventures/secp256k1-zkp';
+import secp256k1ZkpModule from '@vulpemventures/secp256k1-zkp';
+const zkpInit = (secp256k1ZkpModule as any).default || secp256k1ZkpModule;
 import { initEccLib, Transaction, address } from 'bitcoinjs-lib';
 // import bolt11 from 'bolt11';
 import {
