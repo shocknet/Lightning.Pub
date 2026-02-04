@@ -170,7 +170,11 @@ export class Swaps {
         const swaps = await this.storage.paymentStorage.ListUnfinishedInvoiceSwaps()
         this.log("resuming", swaps.length, "invoice swaps")
         for (const swap of swaps) {
-            this.resumeInvoiceSwap(swap)
+            try {
+                this.resumeInvoiceSwap(swap)
+            } catch (err: any) {
+                this.log("error resuming invoice swap", err.message || err)
+            }
         }
     }
 

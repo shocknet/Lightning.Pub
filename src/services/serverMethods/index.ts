@@ -111,10 +111,17 @@ export default (mainHandler: Main): Types.ServerMethods => {
         },
         GetAdminInvoiceSwapQuotes: async ({ ctx, req }) => {
             const err = Types.InvoiceSwapRequestValidate(req, {
-                invoice_CustomCheck: invoice => invoice !== ''
+                amount_sats_CustomCheck: amt => amt > 0
             })
             if (err != null) throw new Error(err.message)
             return mainHandler.adminManager.GetAdminInvoiceSwapQuotes(req)
+        },
+        RefundAdminInvoiceSwap: async ({ ctx, req }) => {
+            const err = Types.RefundAdminInvoiceSwapRequestValidate(req, {
+                swap_operation_id_CustomCheck: id => id !== '',
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.adminManager.RefundAdminInvoiceSwap(req)
         },
         ListAdminInvoiceSwaps: async ({ ctx }) => {
             return mainHandler.adminManager.ListAdminInvoiceSwaps()
