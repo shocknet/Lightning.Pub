@@ -535,6 +535,10 @@ export default class {
         }, txId)
     }
 
+    async UpdateInvoiceSwap(swapOperationId: string, update: Partial<InvoiceSwap>, txId?: string) {
+        return this.dbs.Update<InvoiceSwap>('InvoiceSwap', { swap_operation_id: swapOperationId }, update, txId)
+    }
+
     async SetInvoiceSwapTxId(swapOperationId: string, chainTxId: string, lockupTxHex?: string, txId?: string) {
         const update: Partial<InvoiceSwap> = {
             tx_id: chainTxId,
