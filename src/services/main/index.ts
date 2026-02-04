@@ -208,6 +208,7 @@ export default class {
 
     addressPaidCb: AddressPaidCb = (txOutput, address, amount, used, broadcastHeight) => {
         return this.storage.StartTransaction(async tx => {
+            getLogger({})("addressPaidCb called", JSON.stringify({ txOutput, address, amount, used, broadcastHeight }))
             // On-chain payments not supported when bypass is enabled
             if (this.liquidityProvider.getSettings().useOnlyLiquidityProvider) {
                 getLogger({})("addressPaidCb called but USE_ONLY_LIQUIDITY_PROVIDER is enabled, ignoring")
