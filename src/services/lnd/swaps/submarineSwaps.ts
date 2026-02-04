@@ -369,6 +369,7 @@ export class SubmarineSwaps {
     }
 
     SubscribeToInvoiceSwap = (data: InvoiceSwapData, swapDone: (result: { ok: true } | { ok: false, error: string }) => void, waitingTx: () => void) => {
+        this.log("subscribing to invoice swap", { id: data.createdResponse.id })
         const webSocket = new ws(`${this.wsUrl}/v2/ws`)
         const subReq = { op: 'subscribe', channel: 'swap.update', args: [data.createdResponse.id] }
         webSocket.on('open', () => {

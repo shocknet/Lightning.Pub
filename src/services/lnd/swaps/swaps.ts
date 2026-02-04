@@ -101,6 +101,7 @@ export class Swaps {
     }
 
     RefundInvoiceSwap = async (swapOperationId: string, satPerVByte: number, refundAddress: string, currentHeight: number): Promise<{ published: false, txHex: string, txId: string } | { published: true, txId: string }> => {
+        this.log("refunding invoice swap", { swapOperationId, satPerVByte, refundAddress, currentHeight })
         const swap = await this.storage.paymentStorage.GetRefundableInvoiceSwap(swapOperationId)
         if (!swap) {
             throw new Error("Swap not found or already used")
@@ -131,6 +132,7 @@ export class Swaps {
     }
 
     PayInvoiceSwap = async (appUserId: string, swapOpId: string, satPerVByte: number, payAddress: (address: string, amt: number) => Promise<{ txId: string }>): Promise<void> => {
+        this.log("paying invoice swap", { appUserId, swapOpId, satPerVByte })
         if (!this.settings.getSettings().swapsSettings.enableSwaps) {
             throw new Error("Swaps are not enabled")
         }
