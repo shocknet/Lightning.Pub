@@ -3843,6 +3843,53 @@ export const ProvidersDisruptionValidate = (o?: ProvidersDisruption, opts: Provi
     return null
 }
 
+export type PushNotificationEnvelope = {
+    app_npub_hex: string
+    encrypted_payload: string
+    topic_id: string
+}
+export const PushNotificationEnvelopeOptionalFields: [] = []
+export type PushNotificationEnvelopeOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    app_npub_hex_CustomCheck?: (v: string) => boolean
+    encrypted_payload_CustomCheck?: (v: string) => boolean
+    topic_id_CustomCheck?: (v: string) => boolean
+}
+export const PushNotificationEnvelopeValidate = (o?: PushNotificationEnvelope, opts: PushNotificationEnvelopeOptions = {}, path: string = 'PushNotificationEnvelope::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.app_npub_hex !== 'string') return new Error(`${path}.app_npub_hex: is not a string`)
+    if (opts.app_npub_hex_CustomCheck && !opts.app_npub_hex_CustomCheck(o.app_npub_hex)) return new Error(`${path}.app_npub_hex: custom check failed`)
+
+    if (typeof o.encrypted_payload !== 'string') return new Error(`${path}.encrypted_payload: is not a string`)
+    if (opts.encrypted_payload_CustomCheck && !opts.encrypted_payload_CustomCheck(o.encrypted_payload)) return new Error(`${path}.encrypted_payload: custom check failed`)
+
+    if (typeof o.topic_id !== 'string') return new Error(`${path}.topic_id: is not a string`)
+    if (opts.topic_id_CustomCheck && !opts.topic_id_CustomCheck(o.topic_id)) return new Error(`${path}.topic_id: custom check failed`)
+
+    return null
+}
+
+export type PushNotificationPayload = {
+    data: PushNotificationPayload_data
+}
+export const PushNotificationPayloadOptionalFields: [] = []
+export type PushNotificationPayloadOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    data_Options?: PushNotificationPayload_dataOptions
+}
+export const PushNotificationPayloadValidate = (o?: PushNotificationPayload, opts: PushNotificationPayloadOptions = {}, path: string = 'PushNotificationPayload::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    const dataErr = PushNotificationPayload_dataValidate(o.data, opts.data_Options, `${path}.data`)
+    if (dataErr !== null) return dataErr
+    
+
+    return null
+}
+
 export type RefundAdminInvoiceSwapRequest = {
     sat_per_v_byte: number
     swap_operation_id: string
@@ -4539,6 +4586,7 @@ export type UserInfo = {
     nmanage: string
     noffer: string
     service_fee_bps: number
+    topic_id: string
     userId: string
     user_identifier: string
 }
@@ -4555,6 +4603,7 @@ export type UserInfoOptions = OptionsBaseMessage & {
     nmanage_CustomCheck?: (v: string) => boolean
     noffer_CustomCheck?: (v: string) => boolean
     service_fee_bps_CustomCheck?: (v: number) => boolean
+    topic_id_CustomCheck?: (v: string) => boolean
     userId_CustomCheck?: (v: string) => boolean
     user_identifier_CustomCheck?: (v: string) => boolean
 }
@@ -4591,6 +4640,9 @@ export const UserInfoValidate = (o?: UserInfo, opts: UserInfoOptions = {}, path:
 
     if (typeof o.service_fee_bps !== 'number') return new Error(`${path}.service_fee_bps: is not a number`)
     if (opts.service_fee_bps_CustomCheck && !opts.service_fee_bps_CustomCheck(o.service_fee_bps)) return new Error(`${path}.service_fee_bps: custom check failed`)
+
+    if (typeof o.topic_id !== 'string') return new Error(`${path}.topic_id: is not a string`)
+    if (opts.topic_id_CustomCheck && !opts.topic_id_CustomCheck(o.topic_id)) return new Error(`${path}.topic_id: custom check failed`)
 
     if (typeof o.userId !== 'string') return new Error(`${path}.userId: is not a string`)
     if (opts.userId_CustomCheck && !opts.userId_CustomCheck(o.userId)) return new Error(`${path}.userId: custom check failed`)
@@ -5007,6 +5059,43 @@ export const NPubLinking_stateValidate = (o?: NPubLinking_state, opts:NPubLinkin
         case NPubLinking_state_type.UNLINKED:
         const unlinkedErr = EmptyValidate(o.unlinked, opts.unlinked_Options, `${path}.unlinked`)
         if (unlinkedErr !== null) return unlinkedErr
+        
+
+        break
+        default:
+            return new Error(path + ': unknown type '+ stringType)
+    }
+    return null
+}
+export enum PushNotificationPayload_data_type {
+    RECEIVED_OPERATION = 'received_operation',
+    SENT_OPERATION = 'sent_operation',
+}
+export const enumCheckPushNotificationPayload_data_type = (e?: PushNotificationPayload_data_type): boolean => {
+    for (const v in PushNotificationPayload_data_type) if (e === v) return true
+    return false
+}
+export type PushNotificationPayload_data = 
+    {type:PushNotificationPayload_data_type.RECEIVED_OPERATION, received_operation:UserOperation}|
+    {type:PushNotificationPayload_data_type.SENT_OPERATION, sent_operation:UserOperation}
+
+export type PushNotificationPayload_dataOptions = {
+    received_operation_Options?: UserOperationOptions
+    sent_operation_Options?: UserOperationOptions
+}
+export const PushNotificationPayload_dataValidate = (o?: PushNotificationPayload_data, opts:PushNotificationPayload_dataOptions = {}, path: string = 'PushNotificationPayload_data::root.'): Error | null => {
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+    const stringType: string = o.type
+    switch (o.type) {
+        case PushNotificationPayload_data_type.RECEIVED_OPERATION:
+        const received_operationErr = UserOperationValidate(o.received_operation, opts.received_operation_Options, `${path}.received_operation`)
+        if (received_operationErr !== null) return received_operationErr
+        
+
+        break
+        case PushNotificationPayload_data_type.SENT_OPERATION:
+        const sent_operationErr = UserOperationValidate(o.sent_operation, opts.sent_operation_Options, `${path}.sent_operation`)
+        if (sent_operationErr !== null) return sent_operationErr
         
 
         break

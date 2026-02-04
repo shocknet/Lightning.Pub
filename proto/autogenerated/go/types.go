@@ -647,6 +647,14 @@ type ProviderDisruption struct {
 type ProvidersDisruption struct {
 	Disruptions []ProviderDisruption `json:"disruptions"`
 }
+type PushNotificationEnvelope struct {
+	App_npub_hex      string `json:"app_npub_hex"`
+	Encrypted_payload string `json:"encrypted_payload"`
+	Topic_id          string `json:"topic_id"`
+}
+type PushNotificationPayload struct {
+	Data *PushNotificationPayload_data `json:"data"`
+}
 type RefundAdminInvoiceSwapRequest struct {
 	Sat_per_v_byte    int64  `json:"sat_per_v_byte"`
 	Swap_operation_id string `json:"swap_operation_id"`
@@ -774,6 +782,7 @@ type UserInfo struct {
 	Nmanage               string `json:"nmanage"`
 	Noffer                string `json:"noffer"`
 	Service_fee_bps       int64  `json:"service_fee_bps"`
+	Topic_id              string `json:"topic_id"`
 	Userid                string `json:"userId"`
 	User_identifier       string `json:"user_identifier"`
 }
@@ -871,6 +880,18 @@ type NPubLinking_state struct {
 	Linked_npub   *string                `json:"linked_npub"`
 	Linking_token *string                `json:"linking_token"`
 	Unlinked      *Empty                 `json:"unlinked"`
+}
+type PushNotificationPayload_data_type string
+
+const (
+	RECEIVED_OPERATION PushNotificationPayload_data_type = "received_operation"
+	SENT_OPERATION     PushNotificationPayload_data_type = "sent_operation"
+)
+
+type PushNotificationPayload_data struct {
+	Type               PushNotificationPayload_data_type `json:"type"`
+	Received_operation *UserOperation                    `json:"received_operation"`
+	Sent_operation     *UserOperation                    `json:"sent_operation"`
 }
 type UpdateChannelPolicyRequest_update_type string
 

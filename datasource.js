@@ -62,6 +62,10 @@ import { TrackedProviderHeight1766504040000 } from './build/src/services/storage
 import { SwapsServiceUrl1768413055036 } from './build/src/services/storage/migrations/1768413055036-swaps_service_url.js'
 import { InvoiceSwaps1769529793283 } from './build/src/services/storage/migrations/1769529793283-invoice_swaps.js'
 import { InvoiceSwapsFixes1769805357459 } from './build/src/services/storage/migrations/1769805357459-invoice_swaps_fixes.js'
+import { ApplicationUserTopicId1770038768784 } from './build/src/services/storage/migrations/1770038768784-application_user_topic_id.js'
+import { SwapTimestamps1771347307798 } from './build/src/services/storage/migrations/1771347307798-swap_timestamps.js'
+
+
 
 export default new DataSource({
     type: "better-sqlite3",
@@ -71,7 +75,9 @@ export default new DataSource({
         PaymentIndex1721760297610, DebitAccess1726496225078, DebitAccessFixes1726685229264, DebitToPub1727105758354, UserCbUrl1727112281043,
         UserOffer1733502626042, ManagementGrant1751307732346, InvoiceCallbackUrls1752425992291, OldSomethingLeftover1753106599604, UserReceivingInvoiceIdx1753109184611,
         AppUserDevice1753285173175, UserAccess1759426050669, AddBlindToUserOffer1760000000000, ApplicationAvatarUrl1761000001000, AdminSettings1761683639419, TxSwap1762890527098,
-        TxSwapAddress1764779178945, ClinkRequester1765497600000, TrackedProviderHeight1766504040000, SwapsServiceUrl1768413055036, InvoiceSwaps1769529793283, InvoiceSwapsFixes1769805357459],
+        TxSwapAddress1764779178945, ClinkRequester1765497600000, TrackedProviderHeight1766504040000, SwapsServiceUrl1768413055036, InvoiceSwaps1769529793283, InvoiceSwapsFixes1769805357459,
+        ApplicationUserTopicId1770038768784, SwapTimestamps1771347307798],
+
 
     entities: [User, UserReceivingInvoice, UserReceivingAddress, AddressReceivingTransaction, UserInvoicePayment, UserTransactionPayment,
         UserBasicAuth, UserEphemeralKey, Product, UserToUserPayment, Application, ApplicationUser, UserToUserPayment, LspOrder, LndNodeInfo,
