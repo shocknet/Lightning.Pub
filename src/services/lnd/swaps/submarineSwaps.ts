@@ -375,10 +375,14 @@ export class SubmarineSwaps {
             webSocket.send(JSON.stringify(subReq))
         })
         let isDone = false
-        const done = () => {
+        const done = (failureReason?: string) => {
             isDone = true
             webSocket.close()
-            swapDone({ ok: true })
+            if (failureReason) {
+                swapDone({ ok: false, error: failureReason })
+            } else {
+                swapDone({ ok: true })
+            }
         }
         webSocket.on('error', (err) => {
             this.log(ERROR, 'Error in WebSocket', err.message)
@@ -386,7 +390,7 @@ export class SubmarineSwaps {
         webSocket.on('close', () => {
             if (!isDone) {
                 this.log(ERROR, 'WebSocket closed before swap was done');
-                swapDone({ ok: false, error: 'WebSocket closed before swap was done' })
+                done('WebSocket closed before swap was done')
             }
         })
         webSocket.on('message', async (rawMsg) => {
@@ -403,7 +407,7 @@ export class SubmarineSwaps {
         }
     }
 
-    handleSwapInvoiceMessage = async (rawMsg: ws.RawData, data: InvoiceSwapData, closeWebSocket: () => void, waitingTx: () => void) => {
+    handleSwapInvoiceMessage = async (rawMsg: ws.RawData, data: InvoiceSwapData, closeWebSocket: (failureReason?: string) => void, waitingTx: () => void) => {
         const msg = JSON.parse(rawMsg.toString('utf-8'));
         if (msg.event !== 'update') {
             return;
@@ -425,6 +429,14 @@ export class SubmarineSwaps {
             case 'transaction.claimed':
                 this.log('Invoice swap successful');
                 closeWebSocket()
+                return;
+            case 'swap.expired':
+            case 'transaction.lockupFailed':
+            case 'invoice.failedToPay':
+                closeWebSocket(`swap ${data.createdResponse.id} failed with status ${msg.args[0].status}`)
+                return;
+            default:
+                this.log('Unknown swap invoice WebSocket message', msg)
                 return;
         }
 

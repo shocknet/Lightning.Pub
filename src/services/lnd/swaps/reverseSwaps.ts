@@ -121,10 +121,14 @@ export class ReverseSwaps {
             webSocket.send(JSON.stringify(subReq))
         })
         let txId = "", isDone = false
-        const done = () => {
+        const done = (failureReason?: string) => {
             isDone = true
             webSocket.close()
-            swapDone({ ok: true, txId })
+            if (failureReason) {
+                swapDone({ ok: false, error: failureReason })
+            } else {
+                swapDone({ ok: true, txId })
+            }
         }
         webSocket.on('error', (err) => {
             this.log(ERROR, 'Error in WebSocket', err.message)
@@ -132,7 +136,7 @@ export class ReverseSwaps {
         webSocket.on('close', () => {
             if (!isDone) {
                 this.log(ERROR, 'WebSocket closed before swap was done');
-                swapDone({ ok: false, error: 'WebSocket closed before swap was done' })
+                done('WebSocket closed before swap was done')
             }
         })
         webSocket.on('message', async (rawMsg) => {
@@ -151,7 +155,7 @@ export class ReverseSwaps {
         })
     }
 
-    handleSwapTransactionMessage = async (rawMsg: ws.RawData, data: TransactionSwapData, done: () => void) => {
+    handleSwapTransactionMessage = async (rawMsg: ws.RawData, data: TransactionSwapData, done: (failureReason?: string) => void) => {
         const msg = JSON.parse(rawMsg.toString('utf-8'));
         if (msg.event !== 'update') {
             return;
@@ -176,6 +180,15 @@ export class ReverseSwaps {
                 this.log('Transaction swap successful');
                 done()
                 return;
+            case 'invoice.expired':
+            case 'swap.expired':
+            case 'transaction.failed':
+                done(`swap ${data.createdResponse.id} failed with status ${msg.args[0].status}`)
+                return;
+            default:
+                this.log('Unknown swap transaction WebSocket message', msg)
+                return;
+
         }
     }
 
