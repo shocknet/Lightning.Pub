@@ -1584,6 +1584,14 @@ The nostr server will send back a message response, and inside the body there wi
 ### ProvidersDisruption
   - __disruptions__: ARRAY of: _[ProviderDisruption](#ProviderDisruption)_
 
+### PushNotificationEnvelope
+  - __app_npub_hex__: _string_
+  - __encrypted_payload__: _string_
+  - __topic_id__: _string_
+
+### PushNotificationPayload
+  - __data__: _[PushNotificationPayload_data](#PushNotificationPayload_data)_
+
 ### RelaysMigration
   - __relays__: ARRAY of: _string_
 
@@ -1707,6 +1715,7 @@ The nostr server will send back a message response, and inside the body there wi
   - __nmanage__: _string_
   - __noffer__: _string_
   - __service_fee_bps__: _number_
+  - __topic_id__: _string_
   - __userId__: _string_
   - __user_identifier__: _string_
 

@@ -47,6 +47,8 @@ import { TxSwap1762890527098 } from './build/src/services/storage/migrations/176
 import { TxSwapAddress1764779178945 } from './build/src/services/storage/migrations/1764779178945-tx_swap_address.js'
 import { ClinkRequester1765497600000 } from './build/src/services/storage/migrations/1765497600000-clink_requester.js'
 import { TrackedProviderHeight1766504040000 } from './build/src/services/storage/migrations/1766504040000-tracked_provider_height.js'
+import { SwapsServiceUrl1768413055036 } from './build/src/services/storage/migrations/1768413055036-swaps_service_url.js'
+import { ApplicationUserTopicId1770038768784 } from './build/src/services/storage/migrations/1770038768784-application_user_topic_id.js'
 
 export default new DataSource({
     type: "better-sqlite3",
@@ -56,7 +58,7 @@ export default new DataSource({
         PaymentIndex1721760297610, DebitAccess1726496225078, DebitAccessFixes1726685229264, DebitToPub1727105758354, UserCbUrl1727112281043,
         UserOffer1733502626042, ManagementGrant1751307732346, InvoiceCallbackUrls1752425992291, OldSomethingLeftover1753106599604, UserReceivingInvoiceIdx1753109184611,
         AppUserDevice1753285173175, UserAccess1759426050669, AddBlindToUserOffer1760000000000, ApplicationAvatarUrl1761000001000, AdminSettings1761683639419, TxSwap1762890527098,
-        TxSwapAddress1764779178945, ClinkRequester1765497600000, TrackedProviderHeight1766504040000],
+        TxSwapAddress1764779178945, ClinkRequester1765497600000, TrackedProviderHeight1766504040000, SwapsServiceUrl1768413055036, ApplicationUserTopicId1770038768784],
 
     entities: [User, UserReceivingInvoice, UserReceivingAddress, AddressReceivingTransaction, UserInvoicePayment, UserTransactionPayment,
         UserBasicAuth, UserEphemeralKey, Product, UserToUserPayment, Application, ApplicationUser, UserToUserPayment, LspOrder, LndNodeInfo,
