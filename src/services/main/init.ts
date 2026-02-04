@@ -80,6 +80,7 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
     await mainHandler.appUserManager.CleanupInactiveUsers()
     await mainHandler.appUserManager.CleanupNeverActiveUsers()
     await swaps.ResumeInvoiceSwaps()
+    await adminManager.TMP_FIX_ADMIN_TX_ID()
     await mainHandler.paymentManager.watchDog.Start()
     return { mainHandler, apps, localProviderClient, wizard, adminManager }
 }

@@ -164,7 +164,9 @@ export class Swaps {
                 await this.storage.paymentStorage.FailInvoiceSwap(swapOpId, result.error, txId)
                 this.log("invoice swap failed", { swapOpId, error: result.error })
             }
-        }, () => payAddress(swap.address, swap.transaction_amount).then(res => { txId = res.txId }).catch(err => { close(); this.log("error paying address", err) }))
+        }, () => payAddress(swap.address, swap.transaction_amount)
+            .then(res => { txId = res.txId })
+            .catch(err => { close(); this.log("error paying address", err.message || err) }))
     }
 
     ResumeInvoiceSwaps = async () => {

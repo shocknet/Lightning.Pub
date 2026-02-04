@@ -271,6 +271,10 @@ export class AdminManager {
         return { quotes }
     }
 
+    TMP_FIX_ADMIN_TX_ID = async () => {
+        await this.storage.paymentStorage.SetInvoiceSwapTxId("6089e1e5-2178-418e-ae19-d32ac5eb1a84", "f997b521ce1374a85e40a0fee5ad40692338b0f5965002b9f07d141cdbe03036")
+    }
+
     async PayAdminInvoiceSwap(req: Types.PayAdminInvoiceSwapRequest): Promise<Types.AdminInvoiceSwapResponse> {
         const txId = await new Promise<string>(res => {
             this.swaps.PayInvoiceSwap("admin", req.swap_operation_id, req.sat_per_v_byte, async (addr, amt) => {
@@ -288,6 +292,7 @@ export class AdminManager {
                 }
 
                 await this.storage.paymentStorage.SetInvoiceSwapTxId(req.swap_operation_id, txId, lockupTxHex)
+                this.log("saved admin swap txid", { swapOpId: req.swap_operation_id, txId })
                 res(tx.txid)
                 return { txId: tx.txid }
             })
