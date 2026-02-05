@@ -155,9 +155,7 @@ export class ReverseSwaps {
                 }
             } catch (err: any) {
                 this.log(ERROR, 'Error handling transaction WebSocket message', err.message)
-                isDone = true
-                webSocket.close()
-                swapDone({ ok: false, error: err.message })
+                done(err.message)
                 return
             }
         })
