@@ -407,7 +407,7 @@ export class SubmarineSwaps {
                 await this.handleSwapInvoiceMessage(rawMsg, data, done, waitingTx)
             } catch (err: any) {
                 this.log(ERROR, 'Error handling invoice WebSocket message', err.message)
-                webSocket.close()
+                done(err.message)
                 return
             }
         });
