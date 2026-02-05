@@ -494,7 +494,7 @@ export default class {
     }
 
     async DeleteExpiredTransactionSwaps(currentHeight: number, txId?: string) {
-        return this.dbs.Delete<TransactionSwap>('TransactionSwap', { timeout_block_height: LessThan(currentHeight) }, txId)
+        return this.dbs.Delete<TransactionSwap>('TransactionSwap', { timeout_block_height: LessThan(currentHeight), used: false }, txId)
     }
 
     async ListPendingTransactionSwaps(appUserId: string, txId?: string) {
@@ -561,7 +561,7 @@ export default class {
     }
 
     async DeleteExpiredInvoiceSwaps(currentHeight: number, txId?: string) {
-        return this.dbs.Delete<InvoiceSwap>('InvoiceSwap', { timeout_block_height: LessThan(currentHeight) }, txId)
+        return this.dbs.Delete<InvoiceSwap>('InvoiceSwap', { timeout_block_height: LessThan(currentHeight), used: false, tx_id: "" }, txId)
     }
 
     async ListCompletedInvoiceSwaps(appUserId: string, txId?: string) {
