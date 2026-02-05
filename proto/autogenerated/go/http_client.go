@@ -74,6 +74,7 @@ type Client struct {
 	EncryptionExchange            func(req EncryptionExchangeRequest) error
 	EnrollAdminToken              func(req EnrollAdminTokenRequest) error
 	EnrollMessagingToken          func(req MessagingToken) error
+	GetAdminInvoiceSwapQuotes     func(req InvoiceSwapRequest) (*InvoiceSwapQuoteList, error)
 	GetAdminTransactionSwapQuotes func(req TransactionSwapRequest) (*TransactionSwapQuoteList, error)
 	GetApp                        func() (*Application, error)
 	GetAppUser                    func(req GetAppUserRequest) (*AppUser, error)
@@ -114,19 +115,22 @@ type Client struct {
 	HandleLnurlWithdraw           func(query HandleLnurlWithdraw_Query) error
 	Health                        func() error
 	LinkNPubThroughToken          func(req LinkNPubThroughTokenRequest) error
-	ListAdminSwaps                func() (*SwapsList, error)
+	ListAdminInvoiceSwaps         func() (*InvoiceSwapsList, error)
+	ListAdminTxSwaps              func() (*TxSwapsList, error)
 	ListChannels                  func() (*LndChannels, error)
-	ListSwaps                     func() (*SwapsList, error)
+	ListTxSwaps                   func() (*TxSwapsList, error)
 	LndGetInfo                    func(req LndGetInfoRequest) (*LndGetInfoResponse, error)
 	NewAddress                    func(req NewAddressRequest) (*NewAddressResponse, error)
 	NewInvoice                    func(req NewInvoiceRequest) (*NewInvoiceResponse, error)
 	NewProductInvoice             func(query NewProductInvoice_Query) (*NewInvoiceResponse, error)
 	OpenChannel                   func(req OpenChannelRequest) (*OpenChannelResponse, error)
 	PayAddress                    func(req PayAddressRequest) (*PayAddressResponse, error)
-	PayAdminTransactionSwap       func(req PayAdminTransactionSwapRequest) (*AdminSwapResponse, error)
+	PayAdminInvoiceSwap           func(req PayAdminInvoiceSwapRequest) (*AdminInvoiceSwapResponse, error)
+	PayAdminTransactionSwap       func(req PayAdminTransactionSwapRequest) (*AdminTxSwapResponse, error)
 	PayAppUserInvoice             func(req PayAppUserInvoiceRequest) (*PayInvoiceResponse, error)
 	PayInvoice                    func(req PayInvoiceRequest) (*PayInvoiceResponse, error)
 	PingSubProcesses              func() error
+	RefundAdminInvoiceSwap        func(req RefundAdminInvoiceSwapRequest) (*AdminInvoiceSwapResponse, error)
 	RequestNPubLinkingToken       func(req RequestNPubLinkingTokenRequest) (*RequestNPubLinkingTokenResponse, error)
 	ResetDebit                    func(req DebitOperation) error
 	ResetManage                   func(req ManageOperation) error
@@ -666,6 +670,35 @@ func NewClient(params ClientParams) *Client {
 				return fmt.Errorf(result.Reason)
 			}
 			return nil
+		},
+		GetAdminInvoiceSwapQuotes: func(req InvoiceSwapRequest) (*InvoiceSwapQuoteList, error) {
+			auth, err := params.RetrieveAdminAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/admin/swap/invoice/quote"
+			body, err := json.Marshal(req)
+			if err != nil {
+				return nil, err
+			}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return nil, err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := InvoiceSwapQuoteList{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
 		},
 		GetAdminTransactionSwapQuotes: func(req TransactionSwapRequest) (*TransactionSwapQuoteList, error) {
 			auth, err := params.RetrieveAdminAuth()
@@ -1324,7 +1357,7 @@ func NewClient(params ClientParams) *Client {
 			if err != nil {
 				return nil, err
 			}
-			finalRoute := "/api/user/swap/quote"
+			finalRoute := "/api/user/swap/transaction/quote"
 			body, err := json.Marshal(req)
 			if err != nil {
 				return nil, err
@@ -1643,12 +1676,12 @@ func NewClient(params ClientParams) *Client {
 			}
 			return nil
 		},
-		ListAdminSwaps: func() (*SwapsList, error) {
+		ListAdminInvoiceSwaps: func() (*InvoiceSwapsList, error) {
 			auth, err := params.RetrieveAdminAuth()
 			if err != nil {
 				return nil, err
 			}
-			finalRoute := "/api/admin/swap/list"
+			finalRoute := "/api/admin/swap/invoice/list"
 			body := []byte{}
 			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
 			if err != nil {
@@ -1662,7 +1695,33 @@ func NewClient(params ClientParams) *Client {
 			if result.Status == "ERROR" {
 				return nil, fmt.Errorf(result.Reason)
 			}
-			res := SwapsList{}
+			res := InvoiceSwapsList{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
+		},
+		ListAdminTxSwaps: func() (*TxSwapsList, error) {
+			auth, err := params.RetrieveAdminAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/admin/swap/transaction/list"
+			body := []byte{}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return nil, err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := TxSwapsList{}
 			err = json.Unmarshal(resBody, &res)
 			if err != nil {
 				return nil, err
@@ -1691,12 +1750,12 @@ func NewClient(params ClientParams) *Client {
 			}
 			return &res, nil
 		},
-		ListSwaps: func() (*SwapsList, error) {
+		ListTxSwaps: func() (*TxSwapsList, error) {
 			auth, err := params.RetrieveUserAuth()
 			if err != nil {
 				return nil, err
 			}
-			finalRoute := "/api/user/swap/list"
+			finalRoute := "/api/user/swap/transaction/list"
 			body := []byte{}
 			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
 			if err != nil {
@@ -1710,7 +1769,7 @@ func NewClient(params ClientParams) *Client {
 			if result.Status == "ERROR" {
 				return nil, fmt.Errorf(result.Reason)
 			}
-			res := SwapsList{}
+			res := TxSwapsList{}
 			err = json.Unmarshal(resBody, &res)
 			if err != nil {
 				return nil, err
@@ -1892,7 +1951,36 @@ func NewClient(params ClientParams) *Client {
 			}
 			return &res, nil
 		},
-		PayAdminTransactionSwap: func(req PayAdminTransactionSwapRequest) (*AdminSwapResponse, error) {
+		PayAdminInvoiceSwap: func(req PayAdminInvoiceSwapRequest) (*AdminInvoiceSwapResponse, error) {
+			auth, err := params.RetrieveAdminAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/admin/swap/invoice/pay"
+			body, err := json.Marshal(req)
+			if err != nil {
+				return nil, err
+			}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return nil, err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := AdminInvoiceSwapResponse{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
+		},
+		PayAdminTransactionSwap: func(req PayAdminTransactionSwapRequest) (*AdminTxSwapResponse, error) {
 			auth, err := params.RetrieveAdminAuth()
 			if err != nil {
 				return nil, err
@@ -1914,7 +2002,7 @@ func NewClient(params ClientParams) *Client {
 			if result.Status == "ERROR" {
 				return nil, fmt.Errorf(result.Reason)
 			}
-			res := AdminSwapResponse{}
+			res := AdminTxSwapResponse{}
 			err = json.Unmarshal(resBody, &res)
 			if err != nil {
 				return nil, err
@@ -1999,6 +2087,35 @@ func NewClient(params ClientParams) *Client {
 				return fmt.Errorf(result.Reason)
 			}
 			return nil
+		},
+		RefundAdminInvoiceSwap: func(req RefundAdminInvoiceSwapRequest) (*AdminInvoiceSwapResponse, error) {
+			auth, err := params.RetrieveAdminAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/admin/swap/invoice/refund"
+			body, err := json.Marshal(req)
+			if err != nil {
+				return nil, err
+			}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return nil, err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := AdminInvoiceSwapResponse{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
 		},
 		RequestNPubLinkingToken: func(req RequestNPubLinkingTokenRequest) (*RequestNPubLinkingTokenResponse, error) {
 			auth, err := params.RetrieveAppAuth()

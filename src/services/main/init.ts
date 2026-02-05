@@ -11,7 +11,7 @@ import { AdminManager } from "./adminManager.js"
 import SettingsManager from "./settingsManager.js"
 import { LoadStorageSettingsFromEnv } from "../storage/index.js"
 import { NostrSender } from "../nostr/sender.js"
-import { Swaps } from "../lnd/swaps.js"
+import { Swaps } from "../lnd/swaps/swaps.js"
 export type AppData = {
     privateKey: string;
     publicKey: string;
@@ -79,6 +79,7 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
     await mainHandler.paymentManager.CleanupOldUnpaidInvoices()
     await mainHandler.appUserManager.CleanupInactiveUsers()
     await mainHandler.appUserManager.CleanupNeverActiveUsers()
+    await swaps.ResumeInvoiceSwaps()
     await mainHandler.paymentManager.watchDog.Start()
     return { mainHandler, apps, localProviderClient, wizard, adminManager }
 }

@@ -123,7 +123,10 @@ type AddProductRequest struct {
 	Name       string `json:"name"`
 	Price_sats int64  `json:"price_sats"`
 }
-type AdminSwapResponse struct {
+type AdminInvoiceSwapResponse struct {
+	Tx_id string `json:"tx_id"`
+}
+type AdminTxSwapResponse struct {
 	Network_fee int64  `json:"network_fee"`
 	Tx_id       string `json:"tx_id"`
 }
@@ -356,6 +359,35 @@ type HttpCreds struct {
 	Token string `json:"token"`
 	Url   string `json:"url"`
 }
+type InvoiceSwapOperation struct {
+	Failure_reason    string         `json:"failure_reason"`
+	Invoice_paid      string         `json:"invoice_paid"`
+	Operation_payment *UserOperation `json:"operation_payment"`
+	Swap_operation_id string         `json:"swap_operation_id"`
+	Tx_id             string         `json:"tx_id"`
+}
+type InvoiceSwapQuote struct {
+	Address                 string `json:"address"`
+	Chain_fee_sats          int64  `json:"chain_fee_sats"`
+	Invoice                 string `json:"invoice"`
+	Invoice_amount_sats     int64  `json:"invoice_amount_sats"`
+	Service_fee_sats        int64  `json:"service_fee_sats"`
+	Service_url             string `json:"service_url"`
+	Swap_fee_sats           int64  `json:"swap_fee_sats"`
+	Swap_operation_id       string `json:"swap_operation_id"`
+	Transaction_amount_sats int64  `json:"transaction_amount_sats"`
+	Tx_id                   string `json:"tx_id"`
+}
+type InvoiceSwapQuoteList struct {
+	Quotes []InvoiceSwapQuote `json:"quotes"`
+}
+type InvoiceSwapRequest struct {
+	Amount_sats int64 `json:"amount_sats"`
+}
+type InvoiceSwapsList struct {
+	Quotes []InvoiceSwapQuote     `json:"quotes"`
+	Swaps  []InvoiceSwapOperation `json:"swaps"`
+}
 type LatestBundleMetricReq struct {
 	Limit int64 `json:"limit"`
 }
@@ -559,6 +591,11 @@ type PayAddressResponse struct {
 	Service_fee  int64  `json:"service_fee"`
 	Txid         string `json:"txId"`
 }
+type PayAdminInvoiceSwapRequest struct {
+	No_claim          bool   `json:"no_claim"`
+	Sat_per_v_byte    int64  `json:"sat_per_v_byte"`
+	Swap_operation_id string `json:"swap_operation_id"`
+}
 type PayAdminTransactionSwapRequest struct {
 	Address           string `json:"address"`
 	Swap_operation_id string `json:"swap_operation_id"`
@@ -608,6 +645,10 @@ type ProviderDisruption struct {
 }
 type ProvidersDisruption struct {
 	Disruptions []ProviderDisruption `json:"disruptions"`
+}
+type RefundAdminInvoiceSwapRequest struct {
+	Sat_per_v_byte    int64  `json:"sat_per_v_byte"`
+	Swap_operation_id string `json:"swap_operation_id"`
 }
 type RelaysMigration struct {
 	Relays []string `json:"relays"`
@@ -665,16 +706,6 @@ type SingleMetricReq struct {
 	Page         int64            `json:"page"`
 	Request_id   int64            `json:"request_id"`
 }
-type SwapOperation struct {
-	Address_paid      string         `json:"address_paid"`
-	Failure_reason    string         `json:"failure_reason"`
-	Operation_payment *UserOperation `json:"operation_payment"`
-	Swap_operation_id string         `json:"swap_operation_id"`
-}
-type SwapsList struct {
-	Quotes []TransactionSwapQuote `json:"quotes"`
-	Swaps  []SwapOperation        `json:"swaps"`
-}
 type TransactionSwapQuote struct {
 	Chain_fee_sats          int64  `json:"chain_fee_sats"`
 	Invoice_amount_sats     int64  `json:"invoice_amount_sats"`
@@ -689,6 +720,16 @@ type TransactionSwapQuoteList struct {
 }
 type TransactionSwapRequest struct {
 	Transaction_amount_sats int64 `json:"transaction_amount_sats"`
+}
+type TxSwapOperation struct {
+	Address_paid      string         `json:"address_paid"`
+	Failure_reason    string         `json:"failure_reason"`
+	Operation_payment *UserOperation `json:"operation_payment"`
+	Swap_operation_id string         `json:"swap_operation_id"`
+}
+type TxSwapsList struct {
+	Quotes []TransactionSwapQuote `json:"quotes"`
+	Swaps  []TxSwapOperation      `json:"swaps"`
 }
 type UpdateChannelPolicyRequest struct {
 	Policy *ChannelPolicy                     `json:"policy"`

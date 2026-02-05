@@ -163,6 +163,8 @@ export default class {
         let log = getLogger({})
         this.storage.paymentStorage.DeleteExpiredTransactionSwaps(height)
             .catch(err => log(ERROR, "failed to delete expired transaction swaps", err.message || err))
+        this.storage.paymentStorage.DeleteExpiredInvoiceSwaps(height)
+            .catch(err => log(ERROR, "failed to delete expired invoice swaps", err.message || err))
         try {
             const balanceEvents = await this.paymentManager.GetLndBalance()
             if (!skipMetrics) {
