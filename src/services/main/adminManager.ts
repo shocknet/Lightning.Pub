@@ -272,11 +272,11 @@ export class AdminManager {
     }
 
     async PayAdminInvoiceSwap(req: Types.PayAdminInvoiceSwapRequest): Promise<Types.AdminInvoiceSwapResponse> {
-        const txId = await new Promise<string>(res => {
+        const resolvedTxId = await new Promise<string>(res => {
             this.swaps.PayInvoiceSwap("admin", req.swap_operation_id, req.sat_per_v_byte, async (addr, amt) => {
                 const tx = await this.lnd.PayAddress(addr, amt, req.sat_per_v_byte, "", { useProvider: false, from: 'system' })
                 this.log("paid admin invoice swap", { swapOpId: req.swap_operation_id, txId: tx.txid })
-                await this.storage.metricsStorage.AddRootOperation("chain_payment", txId, amt)
+                await this.storage.metricsStorage.AddRootOperation("chain_payment", tx.txid, amt)
 
                 // Fetch the full transaction hex for potential refunds
                 let lockupTxHex: string | undefined
@@ -287,13 +287,13 @@ export class AdminManager {
                     this.log("Warning: Could not fetch transaction hex for refund purposes:", err.message)
                 }
 
-                await this.storage.paymentStorage.SetInvoiceSwapTxId(req.swap_operation_id, txId, lockupTxHex)
-                this.log("saved admin swap txid", { swapOpId: req.swap_operation_id, txId })
+                await this.storage.paymentStorage.SetInvoiceSwapTxId(req.swap_operation_id, tx.txid, lockupTxHex)
+                this.log("saved admin swap txid", { swapOpId: req.swap_operation_id, txId: tx.txid })
                 res(tx.txid)
                 return { txId: tx.txid }
             })
         })
-        return { tx_id: txId }
+        return { tx_id: resolvedTxId }
     }
 
     async RefundAdminInvoiceSwap(req: Types.RefundAdminInvoiceSwapRequest): Promise<Types.AdminInvoiceSwapResponse> {
