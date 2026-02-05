@@ -834,6 +834,55 @@ message MessagingToken {
     string firebase_messaging_token = 2;
 }
 
+message InvoiceSwapRequest {
+    int64 amount_sats = 1;
+}
+
+message InvoiceSwapQuote {
+    string swap_operation_id = 1;
+    string invoice = 2;
+    int64 invoice_amount_sats = 3;
+    string address = 4;
+    int64 transaction_amount_sats = 5;
+    int64 chain_fee_sats = 6;
+    int64 service_fee_sats = 7;
+    string service_url = 8;
+    int64 swap_fee_sats = 9;
+    string tx_id = 10;
+}
+
+message InvoiceSwapQuoteList {
+    repeated InvoiceSwapQuote quotes = 1;
+}
+
+message InvoiceSwapOperation {
+    string swap_operation_id = 1;
+    optional UserOperation operation_payment = 2;
+    optional string failure_reason = 3;
+    string invoice_paid = 4;
+    string tx_id = 5;
+}
+
+message InvoiceSwapsList {
+    repeated InvoiceSwapOperation swaps = 1;
+    repeated InvoiceSwapQuote quotes = 2;
+}
+
+message RefundAdminInvoiceSwapRequest {
+    string swap_operation_id = 1;
+    int64 sat_per_v_byte = 2;
+}
+
+message PayAdminInvoiceSwapRequest {
+    string swap_operation_id = 1;
+    int64 sat_per_v_byte = 2;
+    optional bool no_claim = 3;
+}
+
+message AdminInvoiceSwapResponse {
+    string tx_id = 1; 
+}
+
 message TransactionSwapRequest {
     int64 transaction_amount_sats = 2;
 }
@@ -858,20 +907,20 @@ message TransactionSwapQuoteList {
     repeated TransactionSwapQuote quotes = 1;
 }
 
-message AdminSwapResponse {
+message AdminTxSwapResponse {
     string tx_id = 1;
     int64 network_fee = 2;
 }
 
-message SwapOperation {
+message TxSwapOperation {
     string swap_operation_id = 1;
     optional UserOperation operation_payment = 2;
     optional string failure_reason = 3;
     string address_paid = 4;
 }
 
-message SwapsList {
-    repeated SwapOperation swaps = 1;
+message TxSwapsList {
+    repeated TxSwapOperation swaps = 1;
     repeated TransactionSwapQuote quotes = 2;
 }
 

@@ -15,6 +15,7 @@ import TransactionsQueue from "./db/transactionsQueue.js";
 import { LoggedEvent } from './eventsLog.js';
 import { StorageInterface } from './db/storageInterface.js';
 import { TransactionSwap } from './entity/TransactionSwap.js';
+import { InvoiceSwap } from './entity/InvoiceSwap.js';
 export type InboundOptionals = { product?: Product, callbackUrl?: string, expiry: number, expectedPayer?: User, linkedApplication?: Application, zapInfo?: ZapInfo, offerId?: string, payerData?: Record<string, string>, rejectUnauthorized?: boolean, token?: string, blind?: boolean, clinkRequesterPub?: string, clinkRequesterEventId?: string }
 export const defaultInvoiceExpiry = 60 * 60
 export default class {
@@ -472,20 +473,20 @@ export default class {
         return this.dbs.FindOne<TransactionSwap>('TransactionSwap', { where: { swap_operation_id: swapOperationId, used: false, app_user_id: appUserId } }, txId)
     }
 
-    async FinalizeTransactionSwap(swapOperationId: string, address: string, txId: string) {
+    async FinalizeTransactionSwap(swapOperationId: string, address: string, chainTxId: string, txId?: string) {
         return this.dbs.Update<TransactionSwap>('TransactionSwap', { swap_operation_id: swapOperationId }, {
             used: true,
-            tx_id: txId,
+            tx_id: chainTxId,
             address_paid: address,
-        })
+        }, txId)
     }
 
-    async FailTransactionSwap(swapOperationId: string, address: string, failureReason: string) {
+    async FailTransactionSwap(swapOperationId: string, address: string, failureReason: string, txId?: string) {
         return this.dbs.Update<TransactionSwap>('TransactionSwap', { swap_operation_id: swapOperationId }, {
             used: true,
             failure_reason: failureReason,
             address_paid: address,
-        })
+        }, txId)
     }
 
     async DeleteTransactionSwap(swapOperationId: string, txId?: string) {
@@ -500,11 +501,11 @@ export default class {
         return this.dbs.Find<TransactionSwap>('TransactionSwap', { where: { used: false, app_user_id: appUserId } }, txId)
     }
 
-    async ListSwapPayments(userId: string, txId?: string) {
+    async ListTxSwapPayments(userId: string, txId?: string) {
         return this.dbs.Find<UserInvoicePayment>('UserInvoicePayment', { where: { swap_operation_id: Not(IsNull()), user: { user_id: userId } } }, txId)
     }
 
-    async ListCompletedSwaps(appUserId: string, payments: UserInvoicePayment[], txId?: string) {
+    async ListCompletedTxSwaps(appUserId: string, payments: UserInvoicePayment[], txId?: string) {
         const completed = await this.dbs.Find<TransactionSwap>('TransactionSwap', { where: { used: true, app_user_id: appUserId } }, txId)
         // const payments = await this.dbs.Find<UserInvoicePayment>('UserInvoicePayment', { where: { swap_operation_id: Not(IsNull()), } }, txId)
         const paymentsMap = new Map<string, UserInvoicePayment>()
@@ -515,6 +516,78 @@ export default class {
             swap: c, payment: paymentsMap.get(c.swap_operation_id)
         }))
     }
+
+    async AddInvoiceSwap(swap: Partial<InvoiceSwap>) {
+        return this.dbs.CreateAndSave<InvoiceSwap>('InvoiceSwap', swap)
+    }
+
+    async GetInvoiceSwap(swapOperationId: string, appUserId: string, txId?: string) {
+        const swap = await this.dbs.FindOne<InvoiceSwap>('InvoiceSwap', { where: { swap_operation_id: swapOperationId, used: false, app_user_id: appUserId } }, txId)
+        if (!swap || swap.tx_id) {
+            return null
+        }
+        return swap
+    }
+
+    async FinalizeInvoiceSwap(swapOperationId: string, txId?: string) {
+        return this.dbs.Update<InvoiceSwap>('InvoiceSwap', { swap_operation_id: swapOperationId }, {
+            used: true,
+        }, txId)
+    }
+
+    async UpdateInvoiceSwap(swapOperationId: string, update: Partial<InvoiceSwap>, txId?: string) {
+        return this.dbs.Update<InvoiceSwap>('InvoiceSwap', { swap_operation_id: swapOperationId }, update, txId)
+    }
+
+    async SetInvoiceSwapTxId(swapOperationId: string, chainTxId: string, lockupTxHex?: string, txId?: string) {
+        const update: Partial<InvoiceSwap> = {
+            tx_id: chainTxId,
+        }
+        if (lockupTxHex) {
+            update.lockup_tx_hex = lockupTxHex
+        }
+        return this.dbs.Update<InvoiceSwap>('InvoiceSwap', { swap_operation_id: swapOperationId }, update, txId)
+    }
+
+    async FailInvoiceSwap(swapOperationId: string, failureReason: string, txId?: string) {
+        return this.dbs.Update<InvoiceSwap>('InvoiceSwap', { swap_operation_id: swapOperationId }, {
+            used: true,
+            failure_reason: failureReason,
+        }, txId)
+    }
+
+    async DeleteInvoiceSwap(swapOperationId: string, txId?: string) {
+        return this.dbs.Delete<InvoiceSwap>('InvoiceSwap', { swap_operation_id: swapOperationId }, txId)
+    }
+
+    async DeleteExpiredInvoiceSwaps(currentHeight: number, txId?: string) {
+        return this.dbs.Delete<InvoiceSwap>('InvoiceSwap', { timeout_block_height: LessThan(currentHeight) }, txId)
+    }
+
+    async ListCompletedInvoiceSwaps(appUserId: string, txId?: string) {
+        return this.dbs.Find<InvoiceSwap>('InvoiceSwap', { where: { used: true, app_user_id: appUserId } }, txId)
+    }
+
+    async ListPendingInvoiceSwaps(appUserId: string, txId?: string) {
+        return this.dbs.Find<InvoiceSwap>('InvoiceSwap', { where: { used: false, app_user_id: appUserId } }, txId)
+    }
+
+    async ListUnfinishedInvoiceSwaps(txId?: string) {
+        const swaps = await this.dbs.Find<InvoiceSwap>('InvoiceSwap', { where: { used: false } }, txId)
+        return swaps.filter(s => !!s.tx_id)
+    }
+
+    async GetRefundableInvoiceSwap(swapOperationId: string, txId?: string) {
+        const swap = await this.dbs.FindOne<InvoiceSwap>('InvoiceSwap', { where: { swap_operation_id: swapOperationId } }, txId)
+        if (!swap || !swap.tx_id) {
+            return null
+        }
+        if (swap.used && !swap.failure_reason) {
+            return null
+        }
+        return swap
+    }
+
 }
 
 const orFail = async <T>(resultPromise: Promise<T | null>) => {

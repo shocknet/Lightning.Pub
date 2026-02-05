@@ -163,6 +163,8 @@ export default class {
         let log = getLogger({})
         this.storage.paymentStorage.DeleteExpiredTransactionSwaps(height)
             .catch(err => log(ERROR, "failed to delete expired transaction swaps", err.message || err))
+        this.storage.paymentStorage.DeleteExpiredInvoiceSwaps(height)
+            .catch(err => log(ERROR, "failed to delete expired invoice swaps", err.message || err))
         try {
             const balanceEvents = await this.paymentManager.GetLndBalance()
             if (!skipMetrics) {
@@ -208,6 +210,7 @@ export default class {
 
     addressPaidCb: AddressPaidCb = (txOutput, address, amount, used, broadcastHeight) => {
         return this.storage.StartTransaction(async tx => {
+            getLogger({})("addressPaidCb called", JSON.stringify({ txOutput, address, amount, used, broadcastHeight }))
             // On-chain payments not supported when bypass is enabled
             if (this.liquidityProvider.getSettings().useOnlyLiquidityProvider) {
                 getLogger({})("addressPaidCb called but USE_ONLY_LIQUIDITY_PROVIDER is enabled, ignoring")
