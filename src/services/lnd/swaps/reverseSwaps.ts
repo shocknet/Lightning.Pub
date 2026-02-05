@@ -121,9 +121,13 @@ export class ReverseSwaps {
         webSocket.on('open', () => {
             webSocket.send(JSON.stringify(subReq))
         })
+        const interval = setInterval(() => {
+            webSocket.ping()
+        }, 30 * 1000)
         let txId = "", isDone = false
         const done = (failureReason?: string) => {
             isDone = true
+            clearInterval(interval)
             webSocket.close()
             if (failureReason) {
                 swapDone({ ok: false, error: failureReason })
@@ -131,6 +135,9 @@ export class ReverseSwaps {
                 swapDone({ ok: true, txId })
             }
         }
+        webSocket.on('pong', () => {
+            this.log('WebSocket transaction swap pong received')
+        })
         webSocket.on('error', (err) => {
             this.log(ERROR, 'Error in WebSocket', err.message)
         })

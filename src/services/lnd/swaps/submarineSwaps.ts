@@ -376,9 +376,13 @@ export class SubmarineSwaps {
         webSocket.on('open', () => {
             webSocket.send(JSON.stringify(subReq))
         })
+        const interval = setInterval(() => {
+            webSocket.ping()
+        }, 30 * 1000)
         let isDone = false
         const done = (failureReason?: string) => {
             isDone = true
+            clearInterval(interval)
             webSocket.close()
             if (failureReason) {
                 swapDone({ ok: false, error: failureReason })
@@ -386,6 +390,9 @@ export class SubmarineSwaps {
                 swapDone({ ok: true })
             }
         }
+        webSocket.on('pong', () => {
+            this.log('WebSocket invoice swap pong received')
+        })
         webSocket.on('error', (err) => {
             this.log(ERROR, 'Error in WebSocket', err.message)
         })
