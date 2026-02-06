@@ -425,8 +425,13 @@ export default class Handler {
 
 const mapRootOpType = (opType: string): Types.OperationType => {
     switch (opType) {
-        case "chain": return Types.OperationType.CHAIN_OP
-        case "invoice": return Types.OperationType.INVOICE_OP
+        case "chain_payment":
+        case "chain":
+            return Types.OperationType.CHAIN_OP
+        case "invoice_payment":
+        case "invoice":
+            return Types.OperationType.INVOICE_OP
+
         default: throw new Error("Unknown operation type")
     }
 }
