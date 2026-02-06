@@ -169,7 +169,8 @@ export default class {
                 ndebit: ndebitEncode({ pubkey: app.nostr_public_key!, pointer: u.identifier, relay: nostrSettings.relays[0] }),
                 nmanage: nmanageEncode({ pubkey: app.nostr_public_key!, pointer: u.identifier, relay: nostrSettings.relays[0] }),
                 callback_url: u.callback_url,
-                bridge_url: this.settings.getSettings().serviceSettings.bridgeUrl
+                bridge_url: this.settings.getSettings().serviceSettings.bridgeUrl,
+                topic_id: u.topic_id
 
             },
             max_withdrawable: max
@@ -227,7 +228,8 @@ export default class {
                 ndebit: ndebitEncode({ pubkey: app.nostr_public_key!, pointer: user.identifier, relay: nostrSettings.relays[0] }),
                 nmanage: nmanageEncode({ pubkey: app.nostr_public_key!, pointer: user.identifier, relay: nostrSettings.relays[0] }),
                 callback_url: user.callback_url,
-                bridge_url: this.settings.getSettings().serviceSettings.bridgeUrl
+                bridge_url: this.settings.getSettings().serviceSettings.bridgeUrl,
+                topic_id: user.topic_id
             },
         }
     }

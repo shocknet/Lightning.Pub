@@ -72,7 +72,8 @@ export default class {
                 user: user,
                 application,
                 identifier: userIdentifier,
-                nostr_public_key: nostrPub
+                nostr_public_key: nostrPub,
+                topic_id: crypto.randomBytes(32).toString('hex')
             }, txId)
         })
     }

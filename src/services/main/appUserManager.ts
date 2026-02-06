@@ -82,7 +82,8 @@ export default class {
             ndebit: ndebitEncode({ pubkey: app.nostr_public_key!, pointer: appUser.identifier, relay: nostrSettings.relays[0] }),
             nmanage: nmanageEncode({ pubkey: app.nostr_public_key!, pointer: appUser.identifier, relay: nostrSettings.relays[0] }),
             callback_url: appUser.callback_url,
-            bridge_url: this.settings.getSettings().serviceSettings.bridgeUrl
+            bridge_url: this.settings.getSettings().serviceSettings.bridgeUrl,
+            topic_id: appUser.topic_id
         }
     }
 
