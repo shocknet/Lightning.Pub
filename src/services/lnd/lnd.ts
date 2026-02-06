@@ -715,7 +715,6 @@ export default class {
     }
 
     async GetTx(txid: string) {
-        this.log("Getting transaction")
         const res = await this.walletKit.getTransaction({ txid }, DeadLineMetadata())
         return res.response
     }
