@@ -11,19 +11,31 @@ export default class NostrSubprocess {
     utils: Utils
     awaitingPongs: (() => void)[] = []
     log = getLogger({})
+    latestRestart = 0
     constructor(settings: NostrSettings, utils: Utils, eventCallback: EventCallback, beaconCallback: BeaconCallback) {
         this.utils = utils
+        this.startSubProcess(settings, eventCallback, beaconCallback)
+    }
+
+    startSubProcess(settings: NostrSettings, eventCallback: EventCallback, beaconCallback: BeaconCallback) {
         this.childProcess = fork("./build/src/services/nostr/handler")
         this.childProcess.on("error", (error) => {
             this.log(ERROR, "nostr subprocess error", error)
         })
 
         this.childProcess.on("exit", (code, signal) => {
-            this.log(ERROR, `nostr subprocess exited with code ${code} and signal ${signal}`)
             if (code === 0) {
+                this.log("nostr subprocess exited")
                 return
             }
-            throw new Error(`nostr subprocess exited with code ${code} and signal ${signal}`)
+            this.log(ERROR, `nostr subprocess exited with code ${code} and signal ${signal}`)
+            const now = Date.now()
+            if (now - this.latestRestart < 1000 * 5) {
+                this.log(ERROR, "nostr subprocess exited too quickly")
+                throw new Error("nostr subprocess exited too quickly")
+            }
+            this.latestRestart = now
+            this.startSubProcess(settings, eventCallback, beaconCallback)
         })
 
         this.childProcess.on("message", (message: ChildProcessResponse) => {
@@ -50,6 +62,8 @@ export default class NostrSubprocess {
             }
         })
     }
+
+
     sendToChildProcess(message: ChildProcessRequest) {
         this.childProcess.send(message)
     }
