@@ -12,39 +12,68 @@ export default class NostrSubprocess {
     awaitingPongs: (() => void)[] = []
     log = getLogger({})
     latestRestart = 0
+    private settings: NostrSettings
+    private eventCallback: EventCallback
+    private beaconCallback: BeaconCallback
+    private isShuttingDown = false
+    
     constructor(settings: NostrSettings, utils: Utils, eventCallback: EventCallback, beaconCallback: BeaconCallback) {
         this.utils = utils
-        this.startSubProcess(settings, eventCallback, beaconCallback)
+        this.settings = settings
+        this.eventCallback = eventCallback
+        this.beaconCallback = beaconCallback
+        this.startSubProcess()
     }
 
-    startSubProcess(settings: NostrSettings, eventCallback: EventCallback, beaconCallback: BeaconCallback) {
+    private cleanupProcess() {
+        if (this.childProcess) {
+            this.childProcess.removeAllListeners()
+            if (!this.childProcess.killed) {
+                this.childProcess.kill('SIGTERM')
+            }
+        }
+    }
+
+    private startSubProcess() {
+        this.cleanupProcess()
+        
         this.childProcess = fork("./build/src/services/nostr/handler")
+        
         this.childProcess.on("error", (error) => {
             this.log(ERROR, "nostr subprocess error", error)
         })
 
         this.childProcess.on("exit", (code, signal) => {
-            if (code === 0) {
-                this.log("nostr subprocess exited")
+            if (this.isShuttingDown) {
+                this.log("nostr subprocess stopped")
                 return
             }
-            this.log(ERROR, `nostr subprocess exited with code ${code} and signal ${signal}`)
-            const now = Date.now()
-            if (now - this.latestRestart < 1000 * 5) {
-                this.log(ERROR, "nostr subprocess exited too quickly")
-                throw new Error("nostr subprocess exited too quickly")
+            
+            if (code === 0) {
+                this.log("nostr subprocess exited cleanly")
+                return
             }
+            
+            this.log(ERROR, `nostr subprocess exited with code ${code} and signal ${signal}`)
+            
+            const now = Date.now()
+            if (now - this.latestRestart < 5000) {
+                this.log(ERROR, "nostr subprocess exited too quickly, not restarting")
+                throw new Error("nostr subprocess crashed repeatedly")
+            }
+            
+            this.log("restarting nostr subprocess...")
             this.latestRestart = now
-            this.startSubProcess(settings, eventCallback, beaconCallback)
+            setTimeout(() => this.startSubProcess(), 100)
         })
 
         this.childProcess.on("message", (message: ChildProcessResponse) => {
             switch (message.type) {
                 case 'ready':
-                    this.sendToChildProcess({ type: 'settings', settings: settings })
+                    this.sendToChildProcess({ type: 'settings', settings: this.settings })
                     break;
                 case 'event':
-                    eventCallback(message.event)
+                    this.eventCallback(message.event)
                     break
                 case 'processMetrics':
                     this.utils.tlvStorageFactory.ProcessMetrics(message.metrics, 'nostr')
@@ -54,7 +83,7 @@ export default class NostrSubprocess {
                     this.awaitingPongs = []
                     break
                 case 'beacon':
-                    beaconCallback({ content: message.content, pub: message.pub })
+                    this.beaconCallback({ content: message.content, pub: message.pub })
                     break
                 default:
                     console.error("unknown nostr event response", message)
@@ -63,12 +92,14 @@ export default class NostrSubprocess {
         })
     }
 
-
     sendToChildProcess(message: ChildProcessRequest) {
-        this.childProcess.send(message)
+        if (this.childProcess && !this.childProcess.killed) {
+            this.childProcess.send(message)
+        }
     }
 
     Reset(settings: NostrSettings) {
+        this.settings = settings
         this.sendToChildProcess({ type: 'settings', settings })
     }
 
@@ -82,7 +113,9 @@ export default class NostrSubprocess {
     Send(initiator: SendInitiator, data: SendData, relays?: string[]) {
         this.sendToChildProcess({ type: 'send', data, initiator, relays })
     }
+    
     Stop() {
-        this.childProcess.kill(0)
+        this.isShuttingDown = true
+        this.cleanupProcess()
     }
 }
