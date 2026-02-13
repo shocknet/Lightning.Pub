@@ -78,6 +78,20 @@ export interface PaymentReceivedData {
 }
 
 /**
+ * LNURL-pay info response (LUD-06/LUD-16)
+ * Used for Lightning Address and zap support
+ */
+export interface LnurlPayInfo {
+  tag: 'payRequest'
+  callback: string                // URL to call with amount
+  minSendable: number             // Minimum msats
+  maxSendable: number             // Maximum msats
+  metadata: string                // JSON-encoded metadata array
+  allowsNostr?: boolean           // Whether zaps are supported
+  nostrPubkey?: string            // Pubkey for zap receipts (hex)
+}
+
+/**
  * Nostr event structure (minimal)
  */
 export interface NostrEvent {
@@ -141,6 +155,15 @@ export interface ExtensionContext {
    * Publish a Nostr event (signed by application's key)
    */
   publishNostrEvent(event: UnsignedNostrEvent): Promise<string | null>
+
+  /**
+   * Get LNURL-pay info for a user (by pubkey)
+   * Used to enable Lightning Address support (LUD-16) and zaps (NIP-57)
+   */
+  getLnurlPayInfo(pubkeyHex: string, options?: {
+    metadata?: string              // Custom metadata JSON
+    description?: string           // Human-readable description
+  }): Promise<LnurlPayInfo>
 
   /**
    * Subscribe to payment received callbacks

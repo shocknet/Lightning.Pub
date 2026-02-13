@@ -8,7 +8,8 @@ import {
   PaymentReceivedData,
   NostrEvent,
   UnsignedNostrEvent,
-  RpcMethodHandler
+  RpcMethodHandler,
+  LnurlPayInfo
 } from './types.js'
 
 /**
@@ -44,6 +45,15 @@ export interface MainHandlerInterface {
       paymentHash: string
       feeSats: number
     }>
+
+    /**
+     * Get LNURL-pay info for a user by their Nostr pubkey
+     * This enables Lightning Address (LUD-16) and zap (NIP-57) support
+     */
+    getLnurlPayInfoByPubkey(pubkeyHex: string, options?: {
+      metadata?: string
+      description?: string
+    }): Promise<LnurlPayInfo>
   }
 
   // Nostr operations
@@ -175,6 +185,17 @@ export class ExtensionContextImpl implements ExtensionContext {
    */
   async publishNostrEvent(event: UnsignedNostrEvent): Promise<string | null> {
     return this.mainHandler.sendNostrEvent(event)
+  }
+
+  /**
+   * Get LNURL-pay info for a user by pubkey
+   * Enables Lightning Address and zap support
+   */
+  async getLnurlPayInfo(pubkeyHex: string, options?: {
+    metadata?: string
+    description?: string
+  }): Promise<LnurlPayInfo> {
+    return this.mainHandler.paymentManager.getLnurlPayInfoByPubkey(pubkeyHex, options)
   }
 
   /**
