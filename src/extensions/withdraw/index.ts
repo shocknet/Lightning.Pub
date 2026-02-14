@@ -82,11 +82,17 @@ export default class WithdrawExtension implements Extension {
    */
   getHttpRoutes(): HttpRoute[] {
     return [
-      // Initial LNURL request (simple link)
+      // Create withdraw link (HTTP API for ATM/external integrations)
+      {
+        method: 'POST',
+        path: '/api/v1/withdraw/create',
+        handler: this.handleCreateWithdrawLink.bind(this)
+      },
+      // LNURL callback (user submits invoice) - MUST be before :unique_hash routes
       {
         method: 'GET',
-        path: '/api/v1/lnurl/:unique_hash',
-        handler: this.handleLnurlRequest.bind(this)
+        path: '/api/v1/lnurl/cb/:unique_hash',
+        handler: this.handleLnurlCallback.bind(this)
       },
       // Initial LNURL request (unique link with use hash)
       {
@@ -94,11 +100,11 @@ export default class WithdrawExtension implements Extension {
         path: '/api/v1/lnurl/:unique_hash/:id_unique_hash',
         handler: this.handleLnurlUniqueRequest.bind(this)
       },
-      // LNURL callback (user submits invoice)
+      // Initial LNURL request (simple link) - MUST be last (catches all)
       {
         method: 'GET',
-        path: '/api/v1/lnurl/cb/:unique_hash',
-        handler: this.handleLnurlCallback.bind(this)
+        path: '/api/v1/lnurl/:unique_hash',
+        handler: this.handleLnurlRequest.bind(this)
       }
     ]
   }
@@ -230,6 +236,79 @@ export default class WithdrawExtension implements Extension {
   // =========================================================================
   // HTTP Route Handlers
   // =========================================================================
+
+  /**
+   * Handle create withdraw link request (HTTP API)
+   * POST /api/v1/withdraw/create
+   *
+   * Body: {
+   *   title: string
+   *   min_withdrawable: number (sats)
+   *   max_withdrawable: number (sats)
+   *   uses?: number (defaults to 1)
+   *   wait_time?: number (seconds between uses, defaults to 0)
+   * }
+   *
+   * Auth: Bearer token in Authorization header (app_<app_id>)
+   *
+   * Returns: {
+   *   link: { lnurl, unique_hash, id, ... }
+   * }
+   */
+  private async handleCreateWithdrawLink(req: HttpRequest): Promise<HttpResponse> {
+    try {
+      const { title, min_withdrawable, max_withdrawable, uses, wait_time } = req.body
+
+      // Extract app_id from Authorization header (Bearer app_<app_id>)
+      const authHeader = req.headers?.authorization || req.headers?.Authorization || ''
+      let app_id = 'default'
+      if (authHeader.startsWith('Bearer app_')) {
+        app_id = authHeader.replace('Bearer app_', '')
+      }
+
+      if (!title || !min_withdrawable) {
+        return {
+          status: 400,
+          body: { status: 'ERROR', reason: 'Missing required fields: title, min_withdrawable' },
+          headers: { 'Content-Type': 'application/json' }
+        }
+      }
+
+      const link = await this.manager.create(app_id, {
+        title,
+        min_withdrawable,
+        max_withdrawable: max_withdrawable || min_withdrawable,
+        uses: uses || 1,
+        wait_time: wait_time || 0,
+        is_unique: false // Simple single-use links for ATM
+      })
+
+      // Return in format expected by ATM client
+      return {
+        status: 200,
+        body: {
+          status: 'OK',
+          link: {
+            lnurl: link.lnurl,
+            unique_hash: link.unique_hash,
+            id: link.id,
+            title: link.title,
+            min_withdrawable: link.min_withdrawable,
+            max_withdrawable: link.max_withdrawable,
+            uses: link.uses,
+            used: link.used
+          }
+        },
+        headers: { 'Content-Type': 'application/json' }
+      }
+    } catch (error: any) {
+      return {
+        status: 500,
+        body: { status: 'ERROR', reason: error.message },
+        headers: { 'Content-Type': 'application/json' }
+      }
+    }
+  }
 
   /**
    * Handle initial LNURL request (simple link)
