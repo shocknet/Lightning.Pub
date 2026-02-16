@@ -35,41 +35,8 @@ const start = async () => {
 
     const { mainHandler, localProviderClient, wizard, adminManager } = keepOn
     const serverMethods = GetServerMethods(mainHandler)
-    log("initializing nostr middleware")
-    const relays = settingsManager.getSettings().nostrRelaySettings.relays
-    const maxEventContentLength = settingsManager.getSettings().nostrRelaySettings.maxEventContentLength
-    const apps: AppInfo[] = keepOn.apps.map(app => {
-        return {
-            appId: app.appId,
-            privateKey: app.privateKey,
-            publicKey: app.publicKey,
-            name: app.name,
-            provider: app.publicKey === localProviderClient.publicKey ? {
-                clientId: `client_${localProviderClient.appId}`,
-                pubkey: settingsManager.getSettings().liquiditySettings.liquidityProviderPub,
-                relayUrl: settingsManager.getSettings().liquiditySettings.providerRelayUrl
-            } : undefined
-        }
-    })
-    const { Send, Stop, Ping, Reset } = nostrMiddleware(serverMethods, mainHandler,
-        {
-            relays, maxEventContentLength, apps
-        },
-        (e, p) => mainHandler.liquidityProvider.onEvent(e, p)
-    )
-    exitHandler(() => { Stop(); mainHandler.Stop() })
-    log("starting server")
-    mainHandler.attachNostrSend(Send)
-    mainHandler.attachNostrProcessPing(Ping)
-    mainHandler.attachNostrReset(Reset)
-    mainHandler.StartBeacons()
-    const appNprofile = nprofileEncode({ pubkey: localProviderClient.publicKey, relays })
-    if (wizard) {
-        wizard.AddConnectInfo(appNprofile, relays)
-    }
-    adminManager.setAppNprofile(appNprofile)
 
-    // Initialize extension system
+    // Initialize extension system BEFORE nostrMiddleware so RPC methods are available
     let extensionLoader: ExtensionLoader | null = null
     const mainPort = settingsManager.getSettings().serviceSettings.servicePort
     const extensionPort = mainPort + 1
@@ -102,6 +69,42 @@ const start = async () => {
     } catch (e) {
         log(`extension system initialization failed: ${e}`)
     }
+
+    // Initialize nostr middleware with extension loader for RPC routing
+    log("initializing nostr middleware")
+    const relays = settingsManager.getSettings().nostrRelaySettings.relays
+    const maxEventContentLength = settingsManager.getSettings().nostrRelaySettings.maxEventContentLength
+    const apps: AppInfo[] = keepOn.apps.map(app => {
+        return {
+            appId: app.appId,
+            privateKey: app.privateKey,
+            publicKey: app.publicKey,
+            name: app.name,
+            provider: app.publicKey === localProviderClient.publicKey ? {
+                clientId: `client_${localProviderClient.appId}`,
+                pubkey: settingsManager.getSettings().liquiditySettings.liquidityProviderPub,
+                relayUrl: settingsManager.getSettings().liquiditySettings.providerRelayUrl
+            } : undefined
+        }
+    })
+    const { Send, Stop, Ping, Reset } = nostrMiddleware(serverMethods, mainHandler,
+        {
+            relays, maxEventContentLength, apps
+        },
+        (e, p) => mainHandler.liquidityProvider.onEvent(e, p),
+        { extensionLoader: extensionLoader || undefined }
+    )
+    exitHandler(() => { Stop(); mainHandler.Stop() })
+    log("starting server")
+    mainHandler.attachNostrSend(Send)
+    mainHandler.attachNostrProcessPing(Ping)
+    mainHandler.attachNostrReset(Reset)
+    mainHandler.StartBeacons()
+    const appNprofile = nprofileEncode({ pubkey: localProviderClient.publicKey, relays })
+    if (wizard) {
+        wizard.AddConnectInfo(appNprofile, relays)
+    }
+    adminManager.setAppNprofile(appNprofile)
 
     // Create Express app for extension HTTP routes
     const extensionApp = express()
