@@ -48,6 +48,7 @@ interface WithdrawLinkRow {
   is_unique: number
   uses_csv: string
   open_time: number
+  creator_pubkey: string | null
   webhook_url: string | null
   webhook_headers: string | null
   webhook_body: string | null
@@ -87,6 +88,7 @@ function rowToLink(row: WithdrawLinkRow): WithdrawLink {
     is_unique: row.is_unique === 1,
     uses_csv: row.uses_csv,
     open_time: row.open_time,
+    creator_pubkey: row.creator_pubkey || undefined,
     webhook_url: row.webhook_url || undefined,
     webhook_headers: row.webhook_headers || undefined,
     webhook_body: row.webhook_body || undefined,
@@ -150,7 +152,7 @@ export class WithdrawManager {
   /**
    * Create a new withdraw link
    */
-  async create(applicationId: string, req: CreateWithdrawLinkRequest): Promise<WithdrawLinkWithLnurl> {
+  async create(applicationId: string, req: CreateWithdrawLinkRequest, creatorPubkey?: string): Promise<WithdrawLinkWithLnurl> {
     // Validation
     if (req.uses < 1 || req.uses > 250) {
       throw new Error('Uses must be between 1 and 250')
@@ -200,6 +202,7 @@ export class WithdrawManager {
       is_unique: req.is_unique || false,
       uses_csv: usesCsv,
       open_time: now,
+      creator_pubkey: creatorPubkey,
       webhook_url: req.webhook_url,
       webhook_headers: req.webhook_headers,
       webhook_body: req.webhook_body,
@@ -212,13 +215,15 @@ export class WithdrawManager {
         id, application_id, title, description,
         min_withdrawable, max_withdrawable, uses, used, wait_time,
         unique_hash, k1, is_unique, uses_csv, open_time,
+        creator_pubkey,
         webhook_url, webhook_headers, webhook_body,
         created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         link.id, link.application_id, link.title, link.description || null,
         link.min_withdrawable, link.max_withdrawable, link.uses, link.used, link.wait_time,
         link.unique_hash, link.k1, link.is_unique ? 1 : 0, link.uses_csv, link.open_time,
+        link.creator_pubkey || null,
         link.webhook_url || null, link.webhook_headers || null, link.webhook_body || null,
         link.created_at, link.updated_at
       ]
@@ -502,11 +507,12 @@ export class WithdrawManager {
     }
 
     try {
-      // Pay the invoice
+      // Pay the invoice from the creator's balance (if created via Nostr RPC)
       const payment = await this.ctx.payInvoice(
         link.application_id,
         params.pr,
-        link.max_withdrawable
+        link.max_withdrawable,
+        link.creator_pubkey
       )
 
       // Record the withdrawal

@@ -122,6 +122,17 @@ export const migrations: Migration[] = [
         )
       `)
     }
+  },
+  {
+    version: 4,
+    name: 'add_creator_pubkey_column',
+    up: async (db: ExtensionDatabase) => {
+      // Store the Nostr pubkey of the user who created the withdraw link
+      // so that when the LNURL callback fires, we debit the correct user's balance
+      await db.execute(`
+        ALTER TABLE withdraw_links ADD COLUMN creator_pubkey TEXT
+      `)
+    }
   }
 ]
 

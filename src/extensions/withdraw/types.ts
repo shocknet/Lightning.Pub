@@ -46,6 +46,9 @@ export interface WithdrawLink {
   // Rate limiting
   open_time: number         // Unix timestamp when next use is allowed
 
+  // Creator identity (for Nostr RPC-created links)
+  creator_pubkey?: string   // Nostr pubkey of the user who created this link
+
   // Webhook notifications
   webhook_url?: string
   webhook_headers?: string  // JSON string

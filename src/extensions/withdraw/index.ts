@@ -114,8 +114,8 @@ export default class WithdrawExtension implements Extension {
    */
   private registerRpcMethods(ctx: ExtensionContext): void {
     // Create withdraw link
-    ctx.registerMethod('withdraw.createLink', async (req, appId) => {
-      const link = await this.manager.create(appId, req as CreateWithdrawLinkRequest)
+    ctx.registerMethod('withdraw.createLink', async (req, appId, userPubkey) => {
+      const link = await this.manager.create(appId, req as CreateWithdrawLinkRequest, userPubkey)
       const stats = await this.manager.getWithdrawalStats(link.id)
       return {
         link,
