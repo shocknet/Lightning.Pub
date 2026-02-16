@@ -32,6 +32,10 @@ export function createMainHandlerAdapter(mainHandler: Main): MainHandlerInterfac
           // GetApplication throws if not found
           return null
         }
+      },
+
+      async PayAppUserInvoice(appId, req) {
+        return mainHandler.applicationManager.PayAppUserInvoice(appId, req)
       }
     },
 
@@ -73,6 +77,7 @@ export function createMainHandlerAdapter(mainHandler: Main): MainHandlerInterfac
         applicationId: string
         paymentRequest: string
         maxFeeSats?: number
+        userPubkey?: string
       }) {
         // Get the app to find the user ID and app reference
         const app = await mainHandler.storage.applicationStorage.GetApplication(params.applicationId)
@@ -80,19 +85,41 @@ export function createMainHandlerAdapter(mainHandler: Main): MainHandlerInterfac
           throw new Error(`Application not found: ${params.applicationId}`)
         }
 
-        // Pay invoice from the app's balance
+        if (params.userPubkey) {
+          // Resolve the Nostr user's ApplicationUser to get their identifier
+          const appUser = await mainHandler.storage.applicationStorage.GetOrCreateNostrAppUser(app, params.userPubkey)
+          console.log(`[MainHandlerAdapter] Paying via PayAppUserInvoice from Nostr user ${params.userPubkey.slice(0, 8)}... (identifier: ${appUser.identifier})`)
+
+          // Use applicationManager.PayAppUserInvoice so notifyAppUserPayment fires
+          // This sends LiveUserOperation events via Nostr for real-time balance updates
+          const result = await mainHandler.applicationManager.PayAppUserInvoice(
+            params.applicationId,
+            {
+              invoice: params.paymentRequest,
+              amount: 0, // Use invoice amount
+              user_identifier: appUser.identifier
+            }
+          )
+
+          return {
+            paymentHash: result.preimage || '',
+            feeSats: result.network_fee || 0
+          }
+        }
+
+        // Fallback: pay from app owner's balance (no Nostr user context)
         const result = await mainHandler.paymentManager.PayInvoice(
           app.owner.user_id,
           {
             invoice: params.paymentRequest,
-            amount: 0 // Use invoice amount
+            amount: 0
           },
-          app, // linkedApplication
+          app,
           {}
         )
 
         return {
-          paymentHash: result.preimage || '', // preimage serves as proof of payment
+          paymentHash: result.preimage || '',
           feeSats: result.network_fee || 0
         }
       },

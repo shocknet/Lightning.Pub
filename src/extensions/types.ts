@@ -140,8 +140,9 @@ export interface ExtensionContext {
 
   /**
    * Pay a Lightning invoice (requires sufficient balance)
+   * If userPubkey is provided, pays from that user's balance instead of app.owner
    */
-  payInvoice(applicationId: string, paymentRequest: string, maxFeeSats?: number): Promise<{
+  payInvoice(applicationId: string, paymentRequest: string, maxFeeSats?: number, userPubkey?: string): Promise<{
     paymentHash: string
     feeSats: number
   }>
