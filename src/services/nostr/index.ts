@@ -16,7 +16,7 @@ export default class NostrSubprocess {
     private eventCallback: EventCallback
     private beaconCallback: BeaconCallback
     private isShuttingDown = false
-    
+
     constructor(settings: NostrSettings, utils: Utils, eventCallback: EventCallback, beaconCallback: BeaconCallback) {
         this.utils = utils
         this.settings = settings
@@ -36,9 +36,9 @@ export default class NostrSubprocess {
 
     private startSubProcess() {
         this.cleanupProcess()
-        
+
         this.childProcess = fork("./build/src/services/nostr/handler")
-        
+
         this.childProcess.on("error", (error) => {
             this.log(ERROR, "nostr subprocess error", error)
         })
@@ -48,20 +48,20 @@ export default class NostrSubprocess {
                 this.log("nostr subprocess stopped")
                 return
             }
-            
+
             if (code === 0) {
                 this.log("nostr subprocess exited cleanly")
                 return
             }
-            
+
             this.log(ERROR, `nostr subprocess exited with code ${code} and signal ${signal}`)
-            
+
             const now = Date.now()
             if (now - this.latestRestart < 5000) {
                 this.log(ERROR, "nostr subprocess exited too quickly, not restarting")
                 throw new Error("nostr subprocess crashed repeatedly")
             }
-            
+
             this.log("restarting nostr subprocess...")
             this.latestRestart = now
             setTimeout(() => this.startSubProcess(), 100)
@@ -113,7 +113,7 @@ export default class NostrSubprocess {
     Send(initiator: SendInitiator, data: SendData, relays?: string[]) {
         this.sendToChildProcess({ type: 'send', data, initiator, relays })
     }
-    
+
     Stop() {
         this.isShuttingDown = true
         this.cleanupProcess()

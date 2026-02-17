@@ -1383,17 +1383,18 @@ The nostr server will send back a message response, and inside the body there wi
   - __url__: _string_
 
 ### InvoiceSwapOperation
+  - __completed_at_unix__: _number_ *this field is optional
   - __failure_reason__: _string_ *this field is optional
-  - __invoice_paid__: _string_
   - __operation_payment__: _[UserOperation](#UserOperation)_ *this field is optional
-  - __swap_operation_id__: _string_
-  - __tx_id__: _string_
+  - __quote__: _[InvoiceSwapQuote](#InvoiceSwapQuote)_
 
 ### InvoiceSwapQuote
   - __address__: _string_
   - __chain_fee_sats__: _number_
+  - __expires_at_block_height__: _number_
   - __invoice__: _string_
   - __invoice_amount_sats__: _number_
+  - __paid_at_unix__: _number_
   - __service_fee_sats__: _number_
   - __service_url__: _string_
   - __swap_fee_sats__: _number_
@@ -1408,7 +1409,7 @@ The nostr server will send back a message response, and inside the body there wi
   - __amount_sats__: _number_
 
 ### InvoiceSwapsList
-  - __quotes__: ARRAY of: _[InvoiceSwapQuote](#InvoiceSwapQuote)_
+  - __current_block_height__: _number_
   - __swaps__: ARRAY of: _[InvoiceSwapOperation](#InvoiceSwapOperation)_
 
 ### LatestBundleMetricReq

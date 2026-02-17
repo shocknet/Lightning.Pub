@@ -1,3 +1,14 @@
+/**
+ * TypeORM DataSource used only by the TypeORM CLI (e.g. migration:generate).
+ *
+ * Migrations at runtime are run from src/services/storage/migrations/runner.ts (allMigrations),
+ * not from this file. The app never uses this DataSource to run migrations.
+ *
+ * Workflow: update the migrations array in this file *before* running
+ * migration:generate, so TypeORM knows the current schema (entities + existing migrations).
+ * We do not update this file immediately after adding a new migration; update it when you
+ * are about to generate the next migration.
+ */
 import { DataSource } from "typeorm"
 import { User } from "./build/src/services/storage/entity/User.js"
 import { UserReceivingInvoice } from "./build/src/services/storage/entity/UserReceivingInvoice.js"
@@ -50,6 +61,7 @@ import { ClinkRequester1765497600000 } from './build/src/services/storage/migrat
 import { TrackedProviderHeight1766504040000 } from './build/src/services/storage/migrations/1766504040000-tracked_provider_height.js'
 import { SwapsServiceUrl1768413055036 } from './build/src/services/storage/migrations/1768413055036-swaps_service_url.js'
 import { InvoiceSwaps1769529793283 } from './build/src/services/storage/migrations/1769529793283-invoice_swaps.js'
+import { InvoiceSwapsFixes1769805357459 } from './build/src/services/storage/migrations/1769805357459-invoice_swaps_fixes.js'
 
 export default new DataSource({
     type: "better-sqlite3",
@@ -59,11 +71,11 @@ export default new DataSource({
         PaymentIndex1721760297610, DebitAccess1726496225078, DebitAccessFixes1726685229264, DebitToPub1727105758354, UserCbUrl1727112281043,
         UserOffer1733502626042, ManagementGrant1751307732346, InvoiceCallbackUrls1752425992291, OldSomethingLeftover1753106599604, UserReceivingInvoiceIdx1753109184611,
         AppUserDevice1753285173175, UserAccess1759426050669, AddBlindToUserOffer1760000000000, ApplicationAvatarUrl1761000001000, AdminSettings1761683639419, TxSwap1762890527098,
-        TxSwapAddress1764779178945, ClinkRequester1765497600000, TrackedProviderHeight1766504040000, SwapsServiceUrl1768413055036, InvoiceSwaps1769529793283],
+        TxSwapAddress1764779178945, ClinkRequester1765497600000, TrackedProviderHeight1766504040000, SwapsServiceUrl1768413055036, InvoiceSwaps1769529793283, InvoiceSwapsFixes1769805357459],
 
     entities: [User, UserReceivingInvoice, UserReceivingAddress, AddressReceivingTransaction, UserInvoicePayment, UserTransactionPayment,
         UserBasicAuth, UserEphemeralKey, Product, UserToUserPayment, Application, ApplicationUser, UserToUserPayment, LspOrder, LndNodeInfo,
         TrackedProvider, InviteToken, DebitAccess, UserOffer, ManagementGrant, AppUserDevice, UserAccess, AdminSettings, TransactionSwap, InvoiceSwap],
     // synchronize: true,
 })
-//npx typeorm migration:generate ./src/services/storage/migrations/invoice_swaps_fixes -d ./datasource.js
+//npx typeorm migration:generate ./src/services/storage/migrations/swap_timestamps -d ./datasource.js

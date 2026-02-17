@@ -530,8 +530,10 @@ export default class {
     }
 
     async FinalizeInvoiceSwap(swapOperationId: string, txId?: string) {
+        const now = Math.floor(Date.now() / 1000)
         return this.dbs.Update<InvoiceSwap>('InvoiceSwap', { swap_operation_id: swapOperationId }, {
             used: true,
+            completed_at_unix: now,
         }, txId)
     }
 
@@ -539,9 +541,12 @@ export default class {
         return this.dbs.Update<InvoiceSwap>('InvoiceSwap', { swap_operation_id: swapOperationId }, update, txId)
     }
 
-    async SetInvoiceSwapTxId(swapOperationId: string, chainTxId: string, lockupTxHex?: string, txId?: string) {
+    async SetInvoiceSwapTxId(swapOperationId: string, chainTxId: string, chainFeeSats: number, lockupTxHex?: string, txId?: string) {
+        const now = Math.floor(Date.now() / 1000)
         const update: Partial<InvoiceSwap> = {
             tx_id: chainTxId,
+            paid_at_unix: now,
+            chain_fee_sats: chainFeeSats,
         }
         if (lockupTxHex) {
             update.lockup_tx_hex = lockupTxHex
@@ -550,9 +555,11 @@ export default class {
     }
 
     async FailInvoiceSwap(swapOperationId: string, failureReason: string, txId?: string) {
+        const now = Math.floor(Date.now() / 1000)
         return this.dbs.Update<InvoiceSwap>('InvoiceSwap', { swap_operation_id: swapOperationId }, {
             used: true,
             failure_reason: failureReason,
+            completed_at_unix: now,
         }, txId)
     }
 
