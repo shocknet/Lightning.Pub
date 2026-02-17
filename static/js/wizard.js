@@ -1,7 +1,8 @@
 $(() => {
 
-    // Page sections
+    // Page sections (welcome is landing before step 1)
     const pages = {
+        welcome: $('#page-welcome'),
         node: $('#page-node'),
         relay: $('#page-relay'),
         liquidity: $('#page-liquidity'),
@@ -67,7 +68,7 @@ $(() => {
         for (let i = 1; i <= 5; i++) {
             const circles = $(`.step-${i}-circle`);
             circles.removeClass('active completed');
-            if (i < step) {
+            if (step > 0 && i < step) {
                 circles.addClass('completed');
             } else if (i === step) {
                 circles.addClass('active');
@@ -77,6 +78,7 @@ $(() => {
 
     const getCurrentStep = (pageId) => {
         const stepMap = {
+            'page-welcome': 0,
             'page-node': 1,
             'page-relay': 2,
             'page-liquidity': 3,
@@ -84,7 +86,7 @@ $(() => {
             'page-connect': 5,
             'page-status': 5
         };
-        return stepMap[pageId] || 1;
+        return stepMap[pageId] ?? 0;
     };
 
     // Browser history management
@@ -93,6 +95,7 @@ $(() => {
         Object.values(pages).forEach(page => page.hide());
         pageToShow.show();
         const pageId = pageToShow.attr('id');
+        $('body').toggleClass('wizard-on-welcome', pageId === 'page-welcome');
         
         updateProgress(getCurrentStep(pageId));
         
@@ -110,17 +113,17 @@ $(() => {
         navigateToPage(pageToShow, true);
     };
 
-    window.addEventListener('popstate', (e) => {
+    window.addEventListener('popstate', () => {
         if (pageHistory.length > 1) {
             pageHistory.pop();
             const prevPageId = pageHistory[pageHistory.length - 1];
             const prevPage = Object.values(pages).find(p => p.attr('id') === prevPageId);
             if (prevPage) {
                 navigateToPage(prevPage, false);
-                loadWizardState(1, 0); 
+                loadWizardState(1, 0);
             }
         } else {
-            navigateToPage(pages.node, false);
+            navigateToPage(pages.welcome, false);
             loadWizardState(1, 0);
         }
     });
@@ -301,6 +304,123 @@ $(() => {
         }
         errorTextNode.text("");
         showPage(pages.relay);
+    });
+
+    // Relay selection and backup display
+    const customRelays = [];
+    
+    const updateNextButtonState = () => {
+        const selectedRelay = $('input[name="relay-tier"]:checked').val();
+        const nextBtn = $('#liquidityBtn');
+        
+        if (selectedRelay === 'custom' && customRelays.filter(r => r).length === 0) {
+            nextBtn.prop('disabled', true).css('opacity', '0.5');
+        } else {
+            nextBtn.prop('disabled', false).css('opacity', '1');
+        }
+    };
+    
+    const updateBackupLocation = () => {
+        const selectedRelay = $('input[name="relay-tier"]:checked').val();
+        const backupLocationEl = $('#backupLocation');
+        
+        if (selectedRelay === 'free') {
+            backupLocationEl.html('<span class="relay-option-description">Your channel state changes with Lightning activity. Unlike your seed phrase which is permanent, channel backups must be updated regularly and are required for recovery of Lightning funds. Your encrypted backup syncs automatically to the community relay.</span>');
+            $('.backup-recovery-hint').hide();
+        } else if (selectedRelay === 'premium') {
+            backupLocationEl.html('<span class="relay-option-description">Your channel state changes with Lightning activity. Unlike your seed phrase which is permanent, channel backups must be updated regularly and are required for recovery of Lightning funds. Your encrypted backup syncs automatically across the premium relay pool.</span>');
+            $('.backup-recovery-hint').hide();
+        } else if (selectedRelay === 'custom') {
+            if (customRelays.filter(r => r).length === 0) {
+                backupLocationEl.html('<span class="relay-option-description">Enter and validate your relay URLs</span>');
+                $('.backup-recovery-hint').hide();
+            } else {
+                const relayList = customRelays.filter(r => r).map(r => '<div class="backup-url-line"><span class="backup-url">' + r + '</span></div>').join('');
+                backupLocationEl.html(relayList + '<div class="relay-option-description" style="margin-top: 0.75rem;">Your channel state changes with Lightning activity. Unlike your seed phrase which is permanent, channel backups must be updated regularly and are required for recovery of Lightning funds. Your encrypted backup syncs automatically to these relays.</div>');
+                $('.backup-recovery-hint').show();
+            }
+        }
+        
+        updateNextButtonState();
+    };
+
+    // Validate relay (mock for now - replace with actual check)
+    const validateRelay = async (url) => {
+        // TODO: Real validation - check relay is up and supports NIP-78
+        return new Promise((resolve) => {
+            setTimeout(() => {
+                const isValid = url.startsWith('wss://') && url.length > 10;
+                resolve(isValid);
+            }, 1000);
+        });
+    };
+
+    // Handle custom relay input
+    $(document).on('input', '.relay-custom-input', async function() {
+        const input = $(this);
+        const index = input.data('relay-index');
+        const statusEl = $(`.relay-validation-status[data-status-index="${index}"]`);
+        const url = input.val().trim();
+
+        if (!url) {
+            statusEl.removeClass('validating valid invalid');
+            customRelays[index] = null;
+            updateBackupLocation();
+            return;
+        }
+
+        // Start validation
+        statusEl.removeClass('valid invalid').addClass('validating');
+        
+        const isValid = await validateRelay(url);
+        
+        if (isValid) {
+            statusEl.removeClass('validating invalid').addClass('valid');
+            customRelays[index] = url;
+            updateBackupLocation();
+            
+            // Add another input if this is the last one, it's valid, and we have less than 2 inputs
+            const container = $('#customRelaysContainer');
+            const existingInputs = container.find('.custom-relay-input-group').length;
+            if (index === existingInputs - 1 && existingInputs < 2) {
+                const nextIndex = existingInputs;
+                const newInputGroup = `
+                    <div class="custom-relay-input-group" data-index="${nextIndex}">
+                        <input type="text" class="relay-custom-input" placeholder="wss://another-relay.com (optional)" data-relay-index="${nextIndex}" />
+                        <span class="relay-validation-status" data-status-index="${nextIndex}"></span>
+                    </div>
+                `;
+                container.append(newInputGroup);
+            }
+        } else {
+            statusEl.removeClass('validating valid').addClass('invalid');
+            customRelays[index] = null;
+            updateBackupLocation();
+        }
+    });
+
+    $('input[name="relay-tier"]').on('change', updateBackupLocation);
+
+    // Show/hide custom relay inputs
+    $('input[name="relay-tier"]').on('change', function() {
+        const container = $('#customRelaysContainer');
+        if ($(this).val() === 'custom') {
+            container.show();
+            container.find('.relay-custom-input').first().focus();
+        } else {
+            container.hide();
+        }
+    });
+
+    // Backup toggle
+    $('#backupToggle').on('change', function() {
+        if ($(this).prop('checked')) {
+            $('#backupInfo').show();
+            $('#backupWarning').hide();
+        } else {
+            $('#backupInfo').hide();
+            $('#backupWarning').show();
+        }
     });
 
     toLiquidityBtn.click(() => {
@@ -513,13 +633,19 @@ $(() => {
         }
     });
 
-    // Initial load
-    updateProgress(1);
-    pageHistory.push('page-node');
+    // Welcome landing: Get Started! / Restore Backup -> node (restore flow TBD; terms acknowledged by proceeding)
+    $('#welcome-get-started-btn').click(() => showPage(pages.node));
+    $('#welcome-restore-btn').click(() => showPage(pages.node));
+
+    $('#back-to-welcome').click(() => showPage(pages.welcome));
+
+    // Initial load: welcome first for first-timers
+    updateProgress(0);
+    pageHistory.push('page-welcome');
     if (window.location.hash) {
         const hashPage = window.location.hash.substring(1);
         const hashPageElement = pages[hashPage.replace('page-', '')];
-        if (hashPageElement) navigateToPage(hashPageElement, false);
+        if (hashPageElement && hashPageElement.length) navigateToPage(hashPageElement, false);
     }
 
     loadWizardState();
