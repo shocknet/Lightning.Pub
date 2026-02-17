@@ -18,15 +18,56 @@
   <link rel="icon" type="image/png" href="img/pub_logo.png" />
 </head>
 
-<body>
+<body class="wizard-on-welcome">
   <header>
     <img src="img/pub_logo.png" width="38px" height="auto" alt="Lightning Pub logo" />
     <img src="img/LightningPub.png" height="26px" alt="Lightning Pub logo" />
   </header>
 
   <main class="wizard">
-    <section id="page-node">
+    <section id="page-welcome" class="welcome-page">
+      <div class="welcome-header">
+        <h1 class="welcome-title">Welcome</h1>
+        <div class="welcome-line"></div>
+      </div>
+      <p class="welcome-headline">Share your node with friends, family, and customers.</p>
+      <p class="welcome-intro">Lightning.Pub makes it simple—connect over Nostr, issue accounts, and automate the operational work.</p>
+      <ul class="welcome-features">
+        <li class="welcome-feature">
+          <span class="welcome-feature-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span>
+          <span>Connect wallets and apps over Nostr, avoiding complicated networking setups.</span>
+        </li>
+        <li class="welcome-feature">
+          <span class="welcome-feature-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M20 8v6M23 11h-6"/></svg></span>
+          <span>Guest accounts let family or community use your node safely.</span>
+        </li>
+        <li class="welcome-feature">
+          <span class="welcome-feature-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span>
+          <span>Liquidity automation handles the operational work so you can receive payments instantly.</span>
+        </li>
+        <li class="welcome-feature">
+          <span class="welcome-feature-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg></span>
+          <span>Apps integrate effortlessly, powering services with static offers and debits via CLINK.</span>
+        </li>
+        <li class="welcome-feature">
+          <span class="welcome-feature-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>
+          <span>Encrypted push notifications alert you of payments, admin alerts, and debit requests.</span>
+        </li>
+      </ul>
+      <div class="welcome-line"></div>
+      <p class="welcome-terms">By using this bleeding-edge software you acknowledge and agree to its <a href="https://docs.shock.network/" target="_blank" rel="noopener" class="marked">terms</a> regarding any services herein.</p>
+      <div class="welcome-actions">
+        <button type="button" class="wizard-cta wizard-cta--ghost" id="welcome-restore-btn">Restore Backup</button>
+        <button type="button" class="wizard-cta wizard-cta--gradient-border" id="welcome-get-started-btn">Get Started!</button>
+      </div>
+      <a href="https://docs.shock.network" target="_blank" rel="noopener" class="marked need-help welcome-need-help">Need Help?</a>
+    </section>
+
+    <section id="page-node" style="display: none;">
       <div class="setup-header">
+        <button class="icon-button back-button" id="back-to-welcome" type="button" aria-label="Back to welcome">
+          <img src="img/back.svg" alt="" />
+        </button>
         <h2>Setup your Pub</h2>
       </div>
 
@@ -56,18 +97,20 @@
 
       <div class="setup-description">
         <p class="header-title">
-          Lightning.Pub is a lightweight bitcoin node that is easily installable (as you have seen) and manageable. It aims to make it easy to run an Uncle Jim's bank for your family, friends, community and business. It aims to be the tool for sovereign individuals to find economic freedom.
+          Personalize your Pub with a name and image. This is what guests and apps see when connecting to your node.
         </p>
       </div>
 
       <div class="setup-content">
         <div class="input-group">
-          <span>Set up your new public node, start by giving it a name:</span>
-          <input type="text" placeholder="Uncle Jim's Pub" value="" id="nodeName" />
+          <h3>Name</h3>
+          <p class="field-hint">Need inspiration? Your node name can be anything - your business name, nickname, or whatever fits your style.</p>
+          <input type="text" placeholder="Uncle Jim, Inc." value="" id="nodeName" />
         </div>
 
         <div class="input-group">
-          <span>Add an image to identify your Pub among others:</span>
+          <h3>Image</h3>
+          <p class="field-hint">Add a logo or an image to make your node spark among others.</p>
           <div class="avatar-input-group">
             <input type="text" placeholder="https://lightning.pub/favicon.png" id="avatarUrl" />
             <img id="avatarPreview" src="img/pub_logo.png" alt="avatar" />
@@ -75,10 +118,13 @@
         </div>
 
         <div class="error-message" id="errorText"></div>
-
-        <button class="wizard-cta" id="relayBtn">
-          Next
-        </button>
+      </div>
+      
+      <div class="page-separator"></div>
+      
+      <div class="page-footer-actions">
+        <a href="https://docs.shock.network" class="marked need-help">Need Help?</a>
+        <button class="wizard-cta" id="relayBtn">Next</button>
       </div>
     </section>
 
@@ -116,31 +162,86 @@
 
       <div class="setup-description">
         <p class="header-title">
-          A Nostr relay is in charge to transmit and receive all transactions from and to your Lightning node. We provide our relay by default, and you can change it later if you prefer setup a different one.
+          This Nostr relay handles communication between your node, wallets, and apps - avoiding complex networking setups. Choose our service or bring your own.
         </p>
       </div>
 
       <div class="setup-content">
-        <div class="input-group">
-          <input type="text" placeholder="wss://relay.lightning.pub" value="wss://relay.lightning.pub" id="relayUrl" />
-        </div>
+        <div class="relay-options">
+          <label class="relay-option">
+            <input type="radio" name="relay-tier" value="free" id="relay-free" checked />
+            <div class="relay-option-content">
+              <div class="relay-option-header">
+                <span class="relay-option-title">Free community relay</span>
+              </div>
+              <span class="relay-option-description">Community run open relays</span>
+            </div>
+          </label>
 
-        <div class="relay-support-toggle">
-          <div class="toggle-label">
-            <span>Support LN.pub relay infrastructure costs</span>
-            <span class="toggle-amount">1000 sats/month</span>
-          </div>
-          <label class="toggle-switch">
-            <input type="checkbox" id="relaySupportToggle" checked />
-            <span class="toggle-slider"></span>
+          <label class="relay-option">
+            <input type="radio" name="relay-tier" value="premium" id="relay-premium" />
+            <div class="relay-option-content">
+              <div class="relay-option-header">
+                <span class="relay-option-title">Premium relay pool</span>
+                <span class="relay-option-price">1000 sats/month</span>
+              </div>
+              <span class="relay-option-description">Exclusive, Geo-Optimized, Redundant High Performance Relays</span>
+            </div>
+          </label>
+
+          <label class="relay-option">
+            <input type="radio" name="relay-tier" value="custom" id="relay-custom" />
+            <div class="relay-option-content">
+              <span class="relay-option-title">Custom relay(s)</span>
+              <div class="custom-relays-container" id="customRelaysContainer" style="display: none;">
+                <div class="custom-relay-input-group" data-index="0">
+                  <input type="text" class="relay-custom-input" placeholder="wss://your-relay.com" data-relay-index="0" />
+                  <span class="relay-validation-status" data-status-index="0"></span>
+                </div>
+              </div>
+            </div>
           </label>
         </div>
 
-        <div class="error-message" id="errorTextRelay"></div>
+        <div class="backup-section">
+          <div class="backup-toggle-row">
+            <span class="backup-label">Sync backups to relay</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="backupToggle" checked />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
 
-        <button class="wizard-cta" id="liquidityBtn">
-          Next
-        </button>
+          <div class="backup-info" id="backupInfo">
+            <p class="backup-info-title">Your backups will be encrypted and synced to:</p>
+            <div class="backup-location" id="backupLocation">
+              <span class="relay-option-description">Your channel state changes with Lightning activity. Unlike your seed phrase which is permanent, channel backups must be updated regularly and are required for recovery of Lightning funds. Your encrypted backup syncs automatically to the community relay.</span>
+            </div>
+            <p class="backup-recovery-hint" style="display: none;">Write down these relay URLs - you'll need them to recover your node if something goes wrong. Ensure your relay has adequate storage policies to retain NIP-78 backup events.</p>
+          </div>
+
+          <div class="backup-warning" id="backupWarning" style="display: none;">
+            <span class="warning-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#FF7700" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/>
+                <line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+            </span>
+            <div class="warning-text">
+              Your channel state changes with Lightning activity. Unlike your seed phrase which is permanent, channel backups must be updated regularly and are required for recovery of Lightning funds. If you disable relay sync, ensure you have another backup method configured. <a href="https://docs.shock.network" target="_blank" class="marked">Learn more</a>.
+            </div>
+          </div>
+        </div>
+
+        <div class="error-message" id="errorTextRelay"></div>
+      </div>
+
+      <div class="page-separator"></div>
+      
+      <div class="page-footer-actions">
+        <a href="https://docs.shock.network" class="marked need-help">Need Help?</a>
+        <button class="wizard-cta" id="liquidityBtn">Next</button>
       </div>
     </section>
 
@@ -481,16 +582,6 @@
   </main>
 
   <footer>
-    <div class="footer-text">
-      <div>By proceeding you acknowledge that this is</div>
-      <div>bleeding-edge software, and agree to the providers</div>
-      <div>
-        <span style="color: #c434e0">terms</span> regarding any services
-        herein.
-      </div>
-    </div>
-    <div class="line"></div>
-    <a href="https://docs.shock.network" class="marked need-help">Need Help?</a>
   </footer>
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
   <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
