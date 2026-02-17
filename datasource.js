@@ -1,3 +1,14 @@
+/**
+ * TypeORM DataSource used only by the TypeORM CLI (e.g. migration:generate).
+ *
+ * Migrations at runtime are run from src/services/storage/migrations/runner.ts (allMigrations),
+ * not from this file. The app never uses this DataSource to run migrations.
+ *
+ * Workflow: update the migrations array in this file *before* running
+ * migration:generate, so TypeORM knows the current schema (entities + existing migrations).
+ * We do not update this file immediately after adding a new migration; update it when you
+ * are about to generate the next migration.
+ */
 import { DataSource } from "typeorm"
 import { User } from "./build/src/services/storage/entity/User.js"
 import { UserReceivingInvoice } from "./build/src/services/storage/entity/UserReceivingInvoice.js"
