@@ -360,17 +360,18 @@ type HttpCreds struct {
 	Url   string `json:"url"`
 }
 type InvoiceSwapOperation struct {
-	Failure_reason    string         `json:"failure_reason"`
-	Invoice_paid      string         `json:"invoice_paid"`
-	Operation_payment *UserOperation `json:"operation_payment"`
-	Swap_operation_id string         `json:"swap_operation_id"`
-	Tx_id             string         `json:"tx_id"`
+	Completed_at_unix int64             `json:"completed_at_unix"`
+	Failure_reason    string            `json:"failure_reason"`
+	Operation_payment *UserOperation    `json:"operation_payment"`
+	Quote             *InvoiceSwapQuote `json:"quote"`
 }
 type InvoiceSwapQuote struct {
 	Address                 string `json:"address"`
 	Chain_fee_sats          int64  `json:"chain_fee_sats"`
+	Expires_at_block_height int64  `json:"expires_at_block_height"`
 	Invoice                 string `json:"invoice"`
 	Invoice_amount_sats     int64  `json:"invoice_amount_sats"`
+	Paid_at_unix            int64  `json:"paid_at_unix"`
 	Service_fee_sats        int64  `json:"service_fee_sats"`
 	Service_url             string `json:"service_url"`
 	Swap_fee_sats           int64  `json:"swap_fee_sats"`
@@ -385,8 +386,8 @@ type InvoiceSwapRequest struct {
 	Amount_sats int64 `json:"amount_sats"`
 }
 type InvoiceSwapsList struct {
-	Quotes []InvoiceSwapQuote     `json:"quotes"`
-	Swaps  []InvoiceSwapOperation `json:"swaps"`
+	Current_block_height int64                  `json:"current_block_height"`
+	Swaps                []InvoiceSwapOperation `json:"swaps"`
 }
 type LatestBundleMetricReq struct {
 	Limit int64 `json:"limit"`

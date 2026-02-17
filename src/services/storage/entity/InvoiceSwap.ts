@@ -62,6 +62,12 @@ export class InvoiceSwap {
     @Column({ default: false })
     used: boolean
 
+    @Column({ default: 0 })
+    completed_at_unix: number
+
+    @Column({ default: 0 })
+    paid_at_unix: number
+
     @Column({ default: "" })
     preimage: string
 

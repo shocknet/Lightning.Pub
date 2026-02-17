@@ -2123,31 +2123,29 @@ export const HttpCredsValidate = (o?: HttpCreds, opts: HttpCredsOptions = {}, pa
 }
 
 export type InvoiceSwapOperation = {
+    completed_at_unix?: number
     failure_reason?: string
-    invoice_paid: string
     operation_payment?: UserOperation
-    swap_operation_id: string
-    tx_id: string
+    quote: InvoiceSwapQuote
 }
-export type InvoiceSwapOperationOptionalField = 'failure_reason' | 'operation_payment'
-export const InvoiceSwapOperationOptionalFields: InvoiceSwapOperationOptionalField[] = ['failure_reason', 'operation_payment']
+export type InvoiceSwapOperationOptionalField = 'completed_at_unix' | 'failure_reason' | 'operation_payment'
+export const InvoiceSwapOperationOptionalFields: InvoiceSwapOperationOptionalField[] = ['completed_at_unix', 'failure_reason', 'operation_payment']
 export type InvoiceSwapOperationOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: InvoiceSwapOperationOptionalField[]
+    completed_at_unix_CustomCheck?: (v?: number) => boolean
     failure_reason_CustomCheck?: (v?: string) => boolean
-    invoice_paid_CustomCheck?: (v: string) => boolean
     operation_payment_Options?: UserOperationOptions
-    swap_operation_id_CustomCheck?: (v: string) => boolean
-    tx_id_CustomCheck?: (v: string) => boolean
+    quote_Options?: InvoiceSwapQuoteOptions
 }
 export const InvoiceSwapOperationValidate = (o?: InvoiceSwapOperation, opts: InvoiceSwapOperationOptions = {}, path: string = 'InvoiceSwapOperation::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
     if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
 
+    if ((o.completed_at_unix || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('completed_at_unix')) && typeof o.completed_at_unix !== 'number') return new Error(`${path}.completed_at_unix: is not a number`)
+    if (opts.completed_at_unix_CustomCheck && !opts.completed_at_unix_CustomCheck(o.completed_at_unix)) return new Error(`${path}.completed_at_unix: custom check failed`)
+
     if ((o.failure_reason || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('failure_reason')) && typeof o.failure_reason !== 'string') return new Error(`${path}.failure_reason: is not a string`)
     if (opts.failure_reason_CustomCheck && !opts.failure_reason_CustomCheck(o.failure_reason)) return new Error(`${path}.failure_reason: custom check failed`)
-
-    if (typeof o.invoice_paid !== 'string') return new Error(`${path}.invoice_paid: is not a string`)
-    if (opts.invoice_paid_CustomCheck && !opts.invoice_paid_CustomCheck(o.invoice_paid)) return new Error(`${path}.invoice_paid: custom check failed`)
 
     if (typeof o.operation_payment === 'object' || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('operation_payment')) {
         const operation_paymentErr = UserOperationValidate(o.operation_payment, opts.operation_payment_Options, `${path}.operation_payment`)
@@ -2155,11 +2153,9 @@ export const InvoiceSwapOperationValidate = (o?: InvoiceSwapOperation, opts: Inv
     }
     
 
-    if (typeof o.swap_operation_id !== 'string') return new Error(`${path}.swap_operation_id: is not a string`)
-    if (opts.swap_operation_id_CustomCheck && !opts.swap_operation_id_CustomCheck(o.swap_operation_id)) return new Error(`${path}.swap_operation_id: custom check failed`)
-
-    if (typeof o.tx_id !== 'string') return new Error(`${path}.tx_id: is not a string`)
-    if (opts.tx_id_CustomCheck && !opts.tx_id_CustomCheck(o.tx_id)) return new Error(`${path}.tx_id: custom check failed`)
+    const quoteErr = InvoiceSwapQuoteValidate(o.quote, opts.quote_Options, `${path}.quote`)
+    if (quoteErr !== null) return quoteErr
+    
 
     return null
 }
@@ -2167,8 +2163,10 @@ export const InvoiceSwapOperationValidate = (o?: InvoiceSwapOperation, opts: Inv
 export type InvoiceSwapQuote = {
     address: string
     chain_fee_sats: number
+    expires_at_block_height: number
     invoice: string
     invoice_amount_sats: number
+    paid_at_unix: number
     service_fee_sats: number
     service_url: string
     swap_fee_sats: number
@@ -2181,8 +2179,10 @@ export type InvoiceSwapQuoteOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
     address_CustomCheck?: (v: string) => boolean
     chain_fee_sats_CustomCheck?: (v: number) => boolean
+    expires_at_block_height_CustomCheck?: (v: number) => boolean
     invoice_CustomCheck?: (v: string) => boolean
     invoice_amount_sats_CustomCheck?: (v: number) => boolean
+    paid_at_unix_CustomCheck?: (v: number) => boolean
     service_fee_sats_CustomCheck?: (v: number) => boolean
     service_url_CustomCheck?: (v: string) => boolean
     swap_fee_sats_CustomCheck?: (v: number) => boolean
@@ -2200,11 +2200,17 @@ export const InvoiceSwapQuoteValidate = (o?: InvoiceSwapQuote, opts: InvoiceSwap
     if (typeof o.chain_fee_sats !== 'number') return new Error(`${path}.chain_fee_sats: is not a number`)
     if (opts.chain_fee_sats_CustomCheck && !opts.chain_fee_sats_CustomCheck(o.chain_fee_sats)) return new Error(`${path}.chain_fee_sats: custom check failed`)
 
+    if (typeof o.expires_at_block_height !== 'number') return new Error(`${path}.expires_at_block_height: is not a number`)
+    if (opts.expires_at_block_height_CustomCheck && !opts.expires_at_block_height_CustomCheck(o.expires_at_block_height)) return new Error(`${path}.expires_at_block_height: custom check failed`)
+
     if (typeof o.invoice !== 'string') return new Error(`${path}.invoice: is not a string`)
     if (opts.invoice_CustomCheck && !opts.invoice_CustomCheck(o.invoice)) return new Error(`${path}.invoice: custom check failed`)
 
     if (typeof o.invoice_amount_sats !== 'number') return new Error(`${path}.invoice_amount_sats: is not a number`)
     if (opts.invoice_amount_sats_CustomCheck && !opts.invoice_amount_sats_CustomCheck(o.invoice_amount_sats)) return new Error(`${path}.invoice_amount_sats: custom check failed`)
+
+    if (typeof o.paid_at_unix !== 'number') return new Error(`${path}.paid_at_unix: is not a number`)
+    if (opts.paid_at_unix_CustomCheck && !opts.paid_at_unix_CustomCheck(o.paid_at_unix)) return new Error(`${path}.paid_at_unix: custom check failed`)
 
     if (typeof o.service_fee_sats !== 'number') return new Error(`${path}.service_fee_sats: is not a number`)
     if (opts.service_fee_sats_CustomCheck && !opts.service_fee_sats_CustomCheck(o.service_fee_sats)) return new Error(`${path}.service_fee_sats: custom check failed`)
@@ -2269,14 +2275,13 @@ export const InvoiceSwapRequestValidate = (o?: InvoiceSwapRequest, opts: Invoice
 }
 
 export type InvoiceSwapsList = {
-    quotes: InvoiceSwapQuote[]
+    current_block_height: number
     swaps: InvoiceSwapOperation[]
 }
 export const InvoiceSwapsListOptionalFields: [] = []
 export type InvoiceSwapsListOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
-    quotes_ItemOptions?: InvoiceSwapQuoteOptions
-    quotes_CustomCheck?: (v: InvoiceSwapQuote[]) => boolean
+    current_block_height_CustomCheck?: (v: number) => boolean
     swaps_ItemOptions?: InvoiceSwapOperationOptions
     swaps_CustomCheck?: (v: InvoiceSwapOperation[]) => boolean
 }
@@ -2284,12 +2289,8 @@ export const InvoiceSwapsListValidate = (o?: InvoiceSwapsList, opts: InvoiceSwap
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
     if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
 
-    if (!Array.isArray(o.quotes)) return new Error(`${path}.quotes: is not an array`)
-    for (let index = 0; index < o.quotes.length; index++) {
-        const quotesErr = InvoiceSwapQuoteValidate(o.quotes[index], opts.quotes_ItemOptions, `${path}.quotes[${index}]`)
-        if (quotesErr !== null) return quotesErr
-    }
-    if (opts.quotes_CustomCheck && !opts.quotes_CustomCheck(o.quotes)) return new Error(`${path}.quotes: custom check failed`)
+    if (typeof o.current_block_height !== 'number') return new Error(`${path}.current_block_height: is not a number`)
+    if (opts.current_block_height_CustomCheck && !opts.current_block_height_CustomCheck(o.current_block_height)) return new Error(`${path}.current_block_height: custom check failed`)
 
     if (!Array.isArray(o.swaps)) return new Error(`${path}.swaps: is not an array`)
     for (let index = 0; index < o.swaps.length; index++) {

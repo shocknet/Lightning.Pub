@@ -280,14 +280,16 @@ export class AdminManager {
 
                 // Fetch the full transaction hex for potential refunds
                 let lockupTxHex: string | undefined
+                let chainFeeSats = 0
                 try {
                     const txDetails = await this.lnd.GetTx(tx.txid)
+                    chainFeeSats = Number(txDetails.totalFees)
                     lockupTxHex = txDetails.rawTxHex
                 } catch (err: any) {
                     this.log("Warning: Could not fetch transaction hex for refund purposes:", err.message)
                 }
 
-                await this.storage.paymentStorage.SetInvoiceSwapTxId(req.swap_operation_id, tx.txid, lockupTxHex)
+                await this.storage.paymentStorage.SetInvoiceSwapTxId(req.swap_operation_id, tx.txid, chainFeeSats, lockupTxHex)
                 this.log("saved admin swap txid", { swapOpId: req.swap_operation_id, txId: tx.txid })
                 res(tx.txid)
                 return { txId: tx.txid }

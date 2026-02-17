@@ -71,32 +71,37 @@ export class Swaps {
         return success
     }
 
+    private mapInvoiceSwapQuote = (s: InvoiceSwap): Types.InvoiceSwapQuote => {
+        return {
+            swap_operation_id: s.swap_operation_id,
+            invoice: s.invoice,
+            invoice_amount_sats: s.invoice_amount,
+            address: s.address,
+            transaction_amount_sats: s.transaction_amount,
+            chain_fee_sats: s.chain_fee_sats,
+            service_fee_sats: 0,
+            service_url: s.service_url,
+            swap_fee_sats: s.swap_fee_sats,
+            tx_id: s.tx_id,
+            paid_at_unix: s.paid_at_unix,
+            expires_at_block_height: s.timeout_block_height,
+        }
+    }
+
     ListInvoiceSwaps = async (appUserId: string): Promise<Types.InvoiceSwapsList> => {
+        const info = await this.lnd.GetInfo()
+        const currentBlockHeight = info.blockHeight
         const completedSwaps = await this.storage.paymentStorage.ListCompletedInvoiceSwaps(appUserId)
         const pendingSwaps = await this.storage.paymentStorage.ListPendingInvoiceSwaps(appUserId)
+        const quotes: Types.InvoiceSwapOperation[] = pendingSwaps.map(s => ({ quote: this.mapInvoiceSwapQuote(s) }))
+        const operations: Types.InvoiceSwapOperation[] = completedSwaps.map(s => ({
+            quote: this.mapInvoiceSwapQuote(s),
+            failure_reason: s.failure_reason,
+            completed_at_unix: s.completed_at_unix || 1,
+        }))
         return {
-            swaps: completedSwaps.map(s => {
-                return {
-                    invoice_paid: s.invoice,
-                    swap_operation_id: s.swap_operation_id,
-                    failure_reason: s.failure_reason,
-                    tx_id: s.tx_id,
-                }
-            }),
-            quotes: pendingSwaps.map(s => {
-                return {
-                    swap_operation_id: s.swap_operation_id,
-                    invoice: s.invoice,
-                    invoice_amount_sats: s.invoice_amount,
-                    address: s.address,
-                    transaction_amount_sats: s.transaction_amount,
-                    chain_fee_sats: s.chain_fee_sats,
-                    service_fee_sats: 0,
-                    service_url: s.service_url,
-                    swap_fee_sats: s.swap_fee_sats,
-                    tx_id: s.tx_id,
-                }
-            })
+            current_block_height: currentBlockHeight,
+            swaps: operations.concat(quotes),
         }
     }
 
@@ -261,6 +266,8 @@ export class Swaps {
             service_url: swapper.getHttpUrl(),
             swap_fee_sats: fee,
             tx_id: newSwap.tx_id,
+            paid_at_unix: newSwap.paid_at_unix,
+            expires_at_block_height: newSwap.timeout_block_height,
         }
     }
 
