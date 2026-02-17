@@ -850,6 +850,7 @@ message InvoiceSwapQuote {
     string tx_id = 10;
 }
 
+
 message InvoiceSwapQuoteList {
     repeated InvoiceSwapQuote quotes = 1;
 }
