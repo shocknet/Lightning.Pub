@@ -83,7 +83,7 @@ export class Swaps {
             service_url: s.service_url,
             swap_fee_sats: s.swap_fee_sats,
             tx_id: s.tx_id,
-            paid_at_unix: s.paid_at_unix,
+            paid_at_unix: s.paid_at_unix || (s.tx_id ? 1 : 0),
             expires_at_block_height: s.timeout_block_height,
         }
     }
