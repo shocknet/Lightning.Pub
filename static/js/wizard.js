@@ -307,109 +307,155 @@ $(() => {
     });
 
     // Relay selection and backup display
-    const customRelays = [];
-    
+    const customRelays = [null, null];
+
+    const getDotEl = (index) => $(`.relay-dot[data-dot-index="${index}"]`);
+    const getWrapEl = (index) => $(`.custom-relay-input-wrap[data-wrap-index="${index}"]`);
+    const getErrorEl = (index) => $(`.relay-input-error[data-error-index="${index}"]`);
+
+    const setDotState = (index, state) => {
+        getDotEl(index).removeClass('relay-dot--idle relay-dot--validating relay-dot--valid relay-dot--invalid')
+            .addClass('relay-dot--' + state);
+        getWrapEl(index).removeClass('relay-state--idle relay-state--validating relay-state--valid relay-state--invalid')
+            .addClass('relay-state--' + state);
+        if (state === 'invalid') {
+            getErrorEl(index).show();
+        } else {
+            getErrorEl(index).hide();
+        }
+    };
+
     const updateNextButtonState = () => {
         const selectedRelay = $('input[name="relay-tier"]:checked').val();
         const nextBtn = $('#liquidityBtn');
-        
-        if (selectedRelay === 'custom' && customRelays.filter(r => r).length === 0) {
+        if (selectedRelay === 'custom' && customRelays.filter(Boolean).length === 0) {
             nextBtn.prop('disabled', true).css('opacity', '0.5');
         } else {
             nextBtn.prop('disabled', false).css('opacity', '1');
         }
     };
-    
+
     const updateBackupLocation = () => {
         const selectedRelay = $('input[name="relay-tier"]:checked').val();
         const backupLocationEl = $('#backupLocation');
-        
+        const baseMsg = 'Your channel state changes with Lightning activity. Unlike your seed phrase which is permanent, channel backups must be updated regularly and are required for recovery of Lightning funds.';
+
         if (selectedRelay === 'free') {
-            backupLocationEl.html('<span class="relay-option-description">Your channel state changes with Lightning activity. Unlike your seed phrase which is permanent, channel backups must be updated regularly and are required for recovery of Lightning funds. Your encrypted backup syncs automatically to the community relay.</span>');
+            backupLocationEl.html(`<span class="relay-option-description">${baseMsg} Your encrypted backup syncs automatically to the community relay.</span>`);
             $('.backup-recovery-hint').hide();
         } else if (selectedRelay === 'premium') {
-            backupLocationEl.html('<span class="relay-option-description">Your channel state changes with Lightning activity. Unlike your seed phrase which is permanent, channel backups must be updated regularly and are required for recovery of Lightning funds. Your encrypted backup syncs automatically across the premium relay pool.</span>');
+            backupLocationEl.html(`<span class="relay-option-description">${baseMsg} Your encrypted backup syncs automatically across the premium relay pool.</span>`);
             $('.backup-recovery-hint').hide();
         } else if (selectedRelay === 'custom') {
-            if (customRelays.filter(r => r).length === 0) {
-                backupLocationEl.html('<span class="relay-option-description">Enter and validate your relay URLs</span>');
+            const validRelays = customRelays.filter(Boolean);
+            if (validRelays.length === 0) {
+                backupLocationEl.html('<span class="relay-option-description">Enter and validate your relay URLs above.</span>');
                 $('.backup-recovery-hint').hide();
             } else {
-                const relayList = customRelays.filter(r => r).map(r => '<div class="backup-url-line"><span class="backup-url">' + r + '</span></div>').join('');
-                backupLocationEl.html(relayList + '<div class="relay-option-description" style="margin-top: 0.75rem;">Your channel state changes with Lightning activity. Unlike your seed phrase which is permanent, channel backups must be updated regularly and are required for recovery of Lightning funds. Your encrypted backup syncs automatically to these relays.</div>');
+                const relayList = validRelays.map(r => `<div class="backup-url-line"><span class="backup-url">${r}</span></div>`).join('');
+                backupLocationEl.html(`${relayList}<div class="relay-option-description" style="margin-top:0.75rem;">${baseMsg} Your encrypted backup syncs automatically to these relays.</div>`);
                 $('.backup-recovery-hint').show();
             }
         }
-        
+
         updateNextButtonState();
     };
 
-    // Validate relay (mock for now - replace with actual check)
+    // Validate relay (mock - replace with NIP-78 capability check)
     const validateRelay = async (url) => {
         // TODO: Real validation - check relay is up and supports NIP-78
         return new Promise((resolve) => {
             setTimeout(() => {
-                const isValid = url.startsWith('wss://') && url.length > 10;
-                resolve(isValid);
+                resolve(url.startsWith('wss://') && url.length > 10);
             }, 1000);
         });
     };
 
-    // Handle custom relay input
+    const buildAddBtn = () => `<button type="button" class="relay-add-btn" id="relay-add-btn">+</button>`;
+    const buildRemoveBtn = () => `<button type="button" class="relay-remove-btn" id="relay-remove-btn">-</button>`;
+
+    const syncAddRemoveButtons = () => {
+        const container = $('#customRelaysContainer');
+        const rows = container.find('.custom-relay-row');
+        rows.each(function(i) {
+            const row = $(this);
+            row.find('.relay-add-btn, .relay-remove-btn').remove();
+            if (rows.length === 1 || i === 0) {
+                row.append(buildAddBtn());
+            } else {
+                row.append(buildRemoveBtn());
+            }
+        });
+    };
+
+    // Add relay input
+    $(document).on('click', '#relay-add-btn', function() {
+        const container = $('#customRelaysContainer');
+        if (container.find('.custom-relay-row').length >= 2) return;
+        const idx = 1;
+        container.append(`
+            <div class="custom-relay-row" data-index="${idx}">
+                <div class="custom-relay-input-wrap relay-state--idle" data-wrap-index="${idx}">
+                    <span class="relay-dot relay-dot--idle" data-dot-index="${idx}"></span>
+                    <input type="text" class="relay-custom-input" placeholder="wss://another-relay.com (optional)" data-relay-index="${idx}" />
+                </div>
+                <button type="button" class="relay-remove-btn" id="relay-remove-btn">-</button>
+            </div>
+            <p class="relay-input-error" data-error-index="${idx}" style="display:none;">This relay does not have adequate storage policies to hodl your channel backup with NIP-78 events. Remove it or try a different one.</p>
+        `);
+        syncAddRemoveButtons();
+        container.find(`.relay-custom-input[data-relay-index="${idx}"]`).focus();
+    });
+
+    // Remove relay input
+    $(document).on('click', '#relay-remove-btn', function() {
+        const container = $('#customRelaysContainer');
+        const rows = container.find('.custom-relay-row');
+        if (rows.length <= 1) return;
+        rows.last().remove();
+        container.find('.relay-input-error[data-error-index="1"]').remove();
+        customRelays[1] = null;
+        syncAddRemoveButtons();
+        updateBackupLocation();
+    });
+
+    // Handle custom relay input validation
     $(document).on('input', '.relay-custom-input', async function() {
         const input = $(this);
-        const index = input.data('relay-index');
-        const statusEl = $(`.relay-validation-status[data-status-index="${index}"]`);
+        const index = parseInt(input.data('relay-index'));
         const url = input.val().trim();
 
         if (!url) {
-            statusEl.removeClass('validating valid invalid');
+            setDotState(index, 'idle');
             customRelays[index] = null;
             updateBackupLocation();
             return;
         }
 
-        // Start validation
-        statusEl.removeClass('valid invalid').addClass('validating');
-        
+        setDotState(index, 'validating');
         const isValid = await validateRelay(url);
-        
+
         if (isValid) {
-            statusEl.removeClass('validating invalid').addClass('valid');
+            setDotState(index, 'valid');
             customRelays[index] = url;
-            updateBackupLocation();
-            
-            // Add another input if this is the last one, it's valid, and we have less than 2 inputs
-            const container = $('#customRelaysContainer');
-            const existingInputs = container.find('.custom-relay-input-group').length;
-            if (index === existingInputs - 1 && existingInputs < 2) {
-                const nextIndex = existingInputs;
-                const newInputGroup = `
-                    <div class="custom-relay-input-group" data-index="${nextIndex}">
-                        <input type="text" class="relay-custom-input" placeholder="wss://another-relay.com (optional)" data-relay-index="${nextIndex}" />
-                        <span class="relay-validation-status" data-status-index="${nextIndex}"></span>
-                    </div>
-                `;
-                container.append(newInputGroup);
-            }
         } else {
-            statusEl.removeClass('validating valid').addClass('invalid');
+            setDotState(index, 'invalid');
             customRelays[index] = null;
-            updateBackupLocation();
         }
+        updateBackupLocation();
     });
 
-    $('input[name="relay-tier"]').on('change', updateBackupLocation);
-
-    // Show/hide custom relay inputs
+    // Show/hide custom relay inputs and update backup on tier change
     $('input[name="relay-tier"]').on('change', function() {
         const container = $('#customRelaysContainer');
         if ($(this).val() === 'custom') {
             container.show();
+            syncAddRemoveButtons();
             container.find('.relay-custom-input').first().focus();
         } else {
             container.hide();
         }
+        updateBackupLocation();
     });
 
     // Backup toggle
