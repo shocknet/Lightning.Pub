@@ -18,7 +18,8 @@ main.wizard section[id^="page-"] {
 main.wizard .setup-content {
   text-align: left;
   width: 100%;
-  padding: 0;
+  padding: 0 14px;
+  box-sizing: border-box;
 }
 
 /* Progress Indicator */
@@ -216,8 +217,11 @@ main.wizard .setup-content {
   align-items: flex-start;
   gap: 0.75rem;
   width: 100%;
-  padding-left: 14px;
-  padding-right: 14px;
+  padding: 1rem;
+  background: #212325;
+  border: 1px solid #3C3C3C;
+  border-radius: 10px;
+  margin-bottom: 1rem;
 }
 
 .input-group span {
@@ -231,30 +235,24 @@ main.wizard .setup-content {
   width: 100%;
 }
 
-.setup-content .input-group input[type="text"] {
+.setup-content .input-group .input-text {
   width: 100%;
   background-color: #16191C;
-  padding: 12px 0;
-  border: none;
-  border-bottom: 1px solid #5F5F5F;
-  border-radius: 0;
-  font-size: 16px;
-  outline: none;
-  color: #5F5F5F;
-  box-shadow: none;
-  transition: border-color 0.3s ease, color 0.3s ease;
+  padding: 12px;
+  border: 1px solid #3C3C3C;
+  border-radius: 6px;
+  color: #fff;
   font-family: 'Inter', sans-serif;
-  font-weight: 400;
+  font-size: 16px;
   letter-spacing: -0.025em;
-  line-height: 19px;
 }
 
-.setup-content .input-group input[type="text"]:focus {
+.setup-content .input-group .input-text:focus {
   border-bottom-color: #5F5F5F;
   color: var(--color);
 }
 
-.setup-content .input-group input[type="text"]::placeholder {
+.setup-content .input-group .input-text::placeholder {
   color: #5F5F5F;
   opacity: 1;
 }
@@ -611,6 +609,8 @@ body.wizard-on-welcome footer {
   justify-content: space-between;
   align-items: center;
   width: 100%;
+  padding: 0 14px;
+  box-sizing: border-box;
   margin-bottom: 1rem;
 }
 
@@ -622,38 +622,57 @@ body.wizard-on-welcome footer {
   margin: 0;
 }
 
-/* Relay options (radio buttons) */
-.relay-options {
+/* Relay cards — three separate cards with tight gap */
+.relay-cards-group {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  margin-bottom: 2rem;
-  padding: 0 14px;
+  gap: 0.75rem;
 }
 
+.relay-card {
+  background: #212325;
+  border: 1px solid #3C3C3C;
+  border-radius: 10px;
+  overflow: visible;
+}
+
+/* Relay options (radio buttons inside relay-card) */
 .relay-option {
   display: flex;
   align-items: flex-start;
   gap: 0.75rem;
-  padding: 1rem;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid #3a3a3a;
-  border-radius: 8px;
+  padding: 0.875rem 1rem;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.2s;
 }
 
 .relay-option:hover {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: #5a5a5a;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.relay-option--custom {
+  align-items: center;
 }
 
 .relay-option input[type="radio"] {
-  margin-top: 0.2rem;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
   flex-shrink: 0;
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
+  border-radius: 12px;
+  border: 1px solid #CACBCD;
+  background: #16191C;
   cursor: pointer;
+  margin: 0;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.relay-option input[type="radio"]:checked {
+  background: radial-gradient(circle, #FF7700 46%, #16191C 46%);
+  border: 1px solid #CACBCD;
 }
 
 .relay-option-content {
@@ -667,6 +686,7 @@ body.wizard-on-welcome footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 0.5rem;
 }
 
 .relay-option-title {
@@ -678,81 +698,196 @@ body.wizard-on-welcome footer {
 
 .relay-option-price {
   font-family: 'Inter', sans-serif;
-  font-size: 14px;
+  font-size: 13px;
   color: #9CA3AF;
+  white-space: nowrap;
 }
 
-.relay-option-url,
+.relay-option-url {
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  color: #9CA3AF;
+  white-space: nowrap;
+}
+
 .relay-option-description {
   font-family: 'Inter', sans-serif;
-  font-size: 14px;
+  font-size: 13px;
   color: #9CA3AF;
 }
 
-.relay-custom-input {
-  width: 100%;
-  background-color: #16191C;
-  padding: 12px 16px;
-  border: 1px solid #5F5F5F;
-  border-radius: 8px;
-  color: #fff;
-  font-family: 'Inter', sans-serif;
+.relay-info-icon {
   font-size: 16px;
-  margin-top: 0.5rem;
+  color: #9CA3AF;
+  cursor: default;
+  position: relative;
+}
+
+.relay-info-tooltip {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 10px);
+  right: -8px;
+  width: 193px;
+  background: #2E302F;
+  border: 1px solid #8F9299;
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-family: 'Inter', sans-serif;
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 12px;
+  text-align: center;
   letter-spacing: -0.025em;
+  color: #FFFFFF;
+  z-index: 1000;
+  pointer-events: none;
+  white-space: normal;
+}
+
+/* Downward arrow caret */
+.relay-info-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  right: 14px;
+  transform: translateY(-50%) rotate(135deg);
+  width: 10px;
+  height: 10px;
+  background: #2E302F;
+  border-right: 1px solid #8F9299;
+  border-bottom: 1px solid #8F9299;
+}
+
+.relay-info-icon:hover .relay-info-tooltip {
+  display: block;
+}
+
+/* Custom relay inputs */
+.custom-relays-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0 1rem 1rem;
+}
+
+.custom-relay-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+
+/* Dark wrap holds dot + input; bottom border shows validation state */
+.custom-relay-input-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #16191C;
+  padding: 12px 10px;
+  border-bottom: 1px solid #5F5F5F;
+}
+
+.custom-relay-input-wrap.relay-state--invalid {
+  border-bottom-color: #E84C3D;
+}
+
+.custom-relay-input-wrap.relay-state--invalid .relay-custom-input {
+  color: #FFFFFF;
+}
+
+.custom-relay-input-wrap.relay-state--valid .relay-custom-input {
+  color: #D9D9D9;
+}
+
+.custom-relay-input-wrap:focus-within {
+  outline: none;
+  box-shadow: none;
+}
+
+.relay-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.relay-dot--idle { background: #5F5F5F; }
+.relay-dot--validating { background: #9CA3AF; }
+.relay-dot--valid { background: #22c55e; }
+.relay-dot--invalid { background: #E84C3D; }
+
+.relay-custom-input {
+  flex: 1;
+  background: transparent;
+  padding: 0;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  color: #D9D9D9;
+  font-family: 'Inter', sans-serif;
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 19px;
+  letter-spacing: -0.025em;
+  outline: none !important;
 }
 
 .relay-custom-input:focus {
   outline: none;
-  border-color: #C740C7;
+  box-shadow: none;
 }
 
 .relay-custom-input::placeholder {
   color: #5F5F5F;
 }
 
-.custom-relays-container {
+.relay-input-error {
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  color: #E84C3D;
+  margin: 0 0 0.5rem 0;
+  padding: 0;
+}
+
+.relay-add-btn,
+.relay-remove-btn {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  background: #16191C;
+  background-image: linear-gradient(#16191C, #16191C), linear-gradient(135deg, #FF7700 0%, #C740C7 100%);
+  background-origin: padding-box, border-box;
+  background-clip: padding-box, border-box;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
   display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  margin-top: 0.75rem;
-}
-
-.custom-relay-input-group {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.custom-relay-input-group input {
-  flex: 1;
-  margin-top: 0;
-}
-
-.relay-validation-status {
-  width: 24px;
-  height: 24px;
-  display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
-  flex-shrink: 0;
+  padding: 0;
 }
 
-.relay-validation-status.validating::after {
-  content: '⏳';
+.relay-add-btn:hover,
+.relay-remove-btn:hover {
+  opacity: 0.85;
 }
 
-.relay-validation-status.valid::after {
-  content: '✓';
-  color: #22c55e;
-  font-weight: bold;
+/* Gradient fill Next button for relay step */
+.wizard-cta--gradient-fill {
+  background-image: linear-gradient(135deg, #FF7700 0%, #EA624A 33%, #DC547C 66%, #C740C7 100%);
+  background-origin: border-box;
+  background-clip: border-box;
+  border-color: transparent;
+  color: #fff;
 }
 
-.relay-validation-status.invalid::after {
-  content: '✗';
-  color: #ef4444;
-  font-weight: bold;
+.wizard-cta--gradient-fill:hover {
+  opacity: 0.9;
 }
 
 /* Backup section */

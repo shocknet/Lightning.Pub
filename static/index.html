@@ -105,14 +105,14 @@
         <div class="input-group">
           <h3>Name</h3>
           <p class="field-hint">Need inspiration? Your node name can be anything - your business name, nickname, or whatever fits your style.</p>
-          <input type="text" placeholder="Uncle Jim, Inc." value="" id="nodeName" />
+          <input type="text" class="input-text" placeholder="Uncle Jim, Inc." value="" id="nodeName" />
         </div>
 
         <div class="input-group">
           <h3>Image</h3>
           <p class="field-hint">Add a logo or an image to make your node spark among others.</p>
           <div class="avatar-input-group">
-            <input type="text" placeholder="https://lightning.pub/favicon.png" id="avatarUrl" />
+            <input type="text" class="input-text" placeholder="https://lightning.pub/favicon.png" id="avatarUrl" />
             <img id="avatarPreview" src="img/pub_logo.png" alt="avatar" />
           </div>
         </div>
@@ -124,7 +124,7 @@
       
       <div class="page-footer-actions">
         <a href="https://docs.shock.network" class="marked need-help">Need Help?</a>
-        <button class="wizard-cta" id="relayBtn">Next</button>
+        <button class="wizard-cta wizard-cta--gradient-fill" id="relayBtn">Next</button>
       </div>
     </section>
 
@@ -167,41 +167,59 @@
       </div>
 
       <div class="setup-content">
-        <div class="relay-options">
-          <label class="relay-option">
-            <input type="radio" name="relay-tier" value="free" id="relay-free" checked />
-            <div class="relay-option-content">
-              <div class="relay-option-header">
-                <span class="relay-option-title">Free community relay</span>
+        <div class="relay-cards-group">
+          <div class="relay-card">
+            <label class="relay-option">
+              <input type="radio" name="relay-tier" value="free" id="relay-free" checked />
+              <div class="relay-option-content">
+                <div class="relay-option-header">
+                  <span class="relay-option-title">Free community relay</span>
+                  <span class="relay-option-url">wss://relay.lightning.pub</span>
+                </div>
+                <span class="relay-option-description">Community run public open relay</span>
               </div>
-              <span class="relay-option-description">Community run open relays</span>
-            </div>
-          </label>
+            </label>
+          </div>
 
-          <label class="relay-option">
-            <input type="radio" name="relay-tier" value="premium" id="relay-premium" />
-            <div class="relay-option-content">
-              <div class="relay-option-header">
-                <span class="relay-option-title">Premium relay pool</span>
-                <span class="relay-option-price">1000 sats/month</span>
+          <div class="relay-card">
+            <label class="relay-option">
+              <input type="radio" name="relay-tier" value="premium" id="relay-premium" />
+              <div class="relay-option-content">
+                <div class="relay-option-header">
+                  <span class="relay-option-title">Premium VIP relays pool</span>
+                  <span class="relay-option-price">1000 sats/month</span>
+                </div>
+                <span class="relay-option-description">Exclusive, Geo-Optimized, and High Performance Relays</span>
               </div>
-              <span class="relay-option-description">Exclusive, Geo-Optimized, Redundant High Performance Relays</span>
-            </div>
-          </label>
+            </label>
+          </div>
 
+          <div class="relay-card" id="customRelayCard">
           <label class="relay-option">
             <input type="radio" name="relay-tier" value="custom" id="relay-custom" />
             <div class="relay-option-content">
-              <span class="relay-option-title">Custom relay(s)</span>
-              <div class="custom-relays-container" id="customRelaysContainer" style="display: none;">
-                <div class="custom-relay-input-group" data-index="0">
-                  <input type="text" class="relay-custom-input" placeholder="wss://your-relay.com" data-relay-index="0" />
-                  <span class="relay-validation-status" data-status-index="0"></span>
-                </div>
+              <div class="relay-option-header">
+                <span class="relay-option-title">Custom nostr relay(s)</span>
+                <span class="relay-info-icon">ⓘ
+                  <div class="relay-info-tooltip"><u>Make sure</u> your relays have adequate storage policies to hold NIP78 events.</div>
+                </span>
               </div>
+              <span class="relay-option-description">Use your own or your most trusted relays</span>
             </div>
           </label>
+
+          <div class="custom-relays-container" id="customRelaysContainer" style="display: none;">
+            <div class="custom-relay-row" data-index="0">
+              <div class="custom-relay-input-wrap relay-state--idle" data-wrap-index="0">
+                <span class="relay-dot relay-dot--idle" data-dot-index="0"></span>
+                <input type="text" class="relay-custom-input" placeholder="wss://your-relay.com" data-relay-index="0" />
+              </div>
+              <button type="button" class="relay-add-btn" id="relay-add-btn">+</button>
+            </div>
+            <p class="relay-input-error" data-error-index="0" style="display:none;">This relay does not have adequate storage policies to hodl your channel backup with NIP-78 events. Remove it or try a different one.</p>
+          </div>
         </div>
+        </div><!-- /.relay-cards-group -->
 
         <div class="backup-section">
           <div class="backup-toggle-row">
@@ -241,7 +259,7 @@
       
       <div class="page-footer-actions">
         <a href="https://docs.shock.network" class="marked need-help">Need Help?</a>
-        <button class="wizard-cta" id="liquidityBtn">Next</button>
+        <button class="wizard-cta wizard-cta--gradient-fill" id="liquidityBtn">Next</button>
       </div>
     </section>
 
