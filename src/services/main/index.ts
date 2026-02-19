@@ -161,6 +161,7 @@ export default class {
     NewBlockHandler = async (height: number, skipMetrics?: boolean) => {
         let confirmed: (PendingTx & { confs: number; })[]
         let log = getLogger({})
+        log("NewBlockHandler called", JSON.stringify({ height, skipMetrics }))
         this.storage.paymentStorage.DeleteExpiredTransactionSwaps(height)
             .catch(err => log(ERROR, "failed to delete expired transaction swaps", err.message || err))
         this.storage.paymentStorage.DeleteExpiredInvoiceSwaps(height)
@@ -176,6 +177,7 @@ export default class {
             log(ERROR, "failed to check transactions after new block", err.message || err)
             return
         }
+        log("NewBlockHandler new confirmed transactions", confirmed.length)
         await Promise.all(confirmed.map(async c => {
             if (c.type === 'outgoing') {
                 await this.storage.paymentStorage.UpdateUserTransactionPayment(c.tx.serial_id, { confs: c.confs })

@@ -980,7 +980,8 @@ export default class {
         const pending = await this.storage.paymentStorage.GetPendingTransactions()
         let lowestHeight = height
         const map: Record<string, PendingTx> = {}
-
+        let log = getLogger({})
+        log("CheckNewlyConfirmedTxs ", pending.incoming.length, "incoming", pending.outgoing.length, "outgoing")
         const checkTx = (t: PendingTx) => {
             if (t.tx.broadcast_height < lowestHeight) { lowestHeight = t.tx.broadcast_height }
             map[t.tx.tx_hash] = t
