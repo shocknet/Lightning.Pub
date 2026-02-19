@@ -29,6 +29,7 @@ export class Watchdog {
     ready = false
     interval: NodeJS.Timer;
     lndPubKey: string;
+    lastHandlerRootOpsAtUnix = 0
     constructor(settings: SettingsManager, liquidityManager: LiquidityManager, lnd: LND, storage: Storage, utils: Utils, rugPullTracker: RugPullTracker) {
         this.lnd = lnd;
         this.settings = settings;
@@ -67,7 +68,7 @@ export class Watchdog {
         await this.getTracker()
         const totalUsersBalance = await this.storage.paymentStorage.GetTotalUsersBalance()
         this.utils.stateBundler.AddBalancePoint('usersBalance', totalUsersBalance)
-        const { totalExternal, otherExternal } = await this.getAggregatedExternalBalance()
+        const { totalExternal } = await this.getAggregatedExternalBalance()
         this.initialLndBalance = totalExternal
         this.initialUsersBalance = totalUsersBalance
         const fwEvents = await this.lnd.GetForwardingHistory(0, this.startedAtUnix)
@@ -76,8 +77,6 @@ export class Watchdog {
         const paymentFound = await this.storage.paymentStorage.GetMaxPaymentIndex()
         const knownMaxIndex = paymentFound.length > 0 ? Math.max(paymentFound[0].paymentIndex, 0) : 0
         this.latestPaymentIndexOffset = await this.lnd.GetLatestPaymentIndex(knownMaxIndex)
-        const other = { ilnd: this.initialLndBalance, hf: this.accumulatedHtlcFees, iu: this.initialUsersBalance, tu: totalUsersBalance, oext: otherExternal }
-        //getLogger({ component: 'watchdog_debug2' })(JSON.stringify({ deltaLnd: 0, deltaUsers: 0, totalExternal, latestIndex: this.latestPaymentIndexOffset, other }))
         this.interval = setInterval(() => {
             if (this.latestCheckStart + (1000 * 58) < Date.now()) {
                 this.PaymentRequested()
@@ -93,7 +92,44 @@ export class Watchdog {
         fwEvents.forwardingEvents.forEach((event) => {
             this.accumulatedHtlcFees += Number(event.fee)
         })
+    }
 
+    handleRootOperations = async () => {
+        let pendingChange = 0
+        const pendingChainPayments = await this.storage.metricsStorage.GetPendingChainPayments()
+        for (const payment of pendingChainPayments) {
+            const tx = await this.lnd.GetTx(payment.operation_identifier)
+            if (tx.numConfirmations > 0) {
+                await this.storage.metricsStorage.SetRootOpConfirmed(payment.serial_id)
+                continue
+            }
+            tx.outputDetails.forEach(o => pendingChange += o.isOurAddress ? Number(o.amount) : 0)
+        }
+        let newReceived = 0
+        let newSpent = 0
+        if (this.lastHandlerRootOpsAtUnix === 0) {
+            this.lastHandlerRootOpsAtUnix = Math.floor(Date.now() / 1000)
+            return { newReceived, newSpent, pendingChange }
+        }
+
+        const newOps = await this.storage.metricsStorage.GetRootOperations({ from: this.lastHandlerRootOpsAtUnix })
+        newOps.forEach(o => {
+            switch (o.operation_type) {
+                case 'chain_payment':
+                    newSpent += Number(o.operation_amount)
+                    break
+                case 'invoice_payment':
+                    newSpent += Number(o.operation_amount)
+                    break
+                case 'chain':
+                    newReceived += Number(o.operation_amount)
+                    break
+                case 'invoice':
+                    newReceived += Number(o.operation_amount)
+                    break
+            }
+        })
+        return { newReceived, newSpent, pendingChange }
     }
 
     getAggregatedExternalBalance = async () => {
@@ -101,8 +137,9 @@ export class Watchdog {
         const feesPaidForLiquidity = this.liquidityManager.GetPaidFees()
         const pb = await this.rugPullTracker.CheckProviderBalance()
         const providerBalance = pb.prevBalance || pb.balance
-        const otherExternal = { pb: providerBalance, f: feesPaidForLiquidity, lnd: totalLndBalance, olnd: othersFromLnd }
-        return { totalExternal: totalLndBalance + providerBalance + feesPaidForLiquidity, otherExternal }
+        const { newReceived, newSpent, pendingChange } = await this.handleRootOperations()
+        const opsTotal = newReceived + pendingChange - newSpent
+        return { totalExternal: totalLndBalance + providerBalance + feesPaidForLiquidity + opsTotal }
     }
 
     checkBalanceUpdate = async (deltaLnd: number, deltaUsers: number) => {
@@ -187,7 +224,7 @@ export class Watchdog {
         }
         const totalUsersBalance = await this.storage.paymentStorage.GetTotalUsersBalance()
         this.utils.stateBundler.AddBalancePoint('usersBalance', totalUsersBalance)
-        const { totalExternal, otherExternal } = await this.getAggregatedExternalBalance()
+        const { totalExternal } = await this.getAggregatedExternalBalance()
         this.utils.stateBundler.AddBalancePoint('accumulatedHtlcFees', this.accumulatedHtlcFees)
         const deltaLnd = totalExternal - (this.initialLndBalance + this.accumulatedHtlcFees)
         const deltaUsers = totalUsersBalance - this.initialUsersBalance
@@ -196,8 +233,6 @@ export class Watchdog {
         const knownMaxIndex = Math.max(maxFromDb, this.latestPaymentIndexOffset)
         const newLatest = await this.lnd.GetLatestPaymentIndex(knownMaxIndex)
         const historyMismatch = newLatest > knownMaxIndex
-        const other = { ilnd: this.initialLndBalance, hf: this.accumulatedHtlcFees, iu: this.initialUsersBalance, tu: totalUsersBalance, km: knownMaxIndex, nl: newLatest, oext: otherExternal }
-        //getLogger({ component: 'watchdog_debug2' })(JSON.stringify({ deltaLnd, deltaUsers, totalExternal, other }))
         const deny = await this.checkBalanceUpdate(deltaLnd, deltaUsers)
         if (historyMismatch) {
             getLogger({ component: 'bark' })("History mismatch detected in absolute update, locking outgoing operations")

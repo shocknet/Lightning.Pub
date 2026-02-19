@@ -8,12 +8,16 @@ import { LndMetrics1703170330183 } from './build/src/services/storage/migrations
 import { ChannelRouting1709316653538 } from './build/src/services/storage/migrations/1709316653538-channel_routing.js'
 import { HtlcCount1724266887195 } from './build/src/services/storage/migrations/1724266887195-htlc_count.js'
 import { BalanceEvents1724860966825 } from './build/src/services/storage/migrations/1724860966825-balance_events.js'
+import { RootOps1732566440447 } from './build/src/services/storage/migrations/1732566440447-root_ops.js'
+import { RootOpsTime1745428134124 } from './build/src/services/storage/migrations/1745428134124-root_ops_time.js'
+import { ChannelEvents1750777346411 } from './build/src/services/storage/migrations/1750777346411-channel_events.js'
 
 export default new DataSource({
     type: "better-sqlite3",
     database: "metrics.sqlite",
     entities: [BalanceEvent, ChannelBalanceEvent, ChannelRouting, RootOperation, ChannelEvent],
-    migrations: [LndMetrics1703170330183, ChannelRouting1709316653538, HtlcCount1724266887195, BalanceEvents1724860966825]
+    migrations: [LndMetrics1703170330183, ChannelRouting1709316653538, HtlcCount1724266887195, BalanceEvents1724860966825,
+        RootOps1732566440447, RootOpsTime1745428134124, ChannelEvents1750777346411]
 });
 
-//npx typeorm migration:generate ./src/services/storage/migrations/channel_events -d ./metricsDatasource.js
+//npx typeorm migration:generate ./src/services/storage/migrations/root_op_pending -d ./metricsDatasource.js
