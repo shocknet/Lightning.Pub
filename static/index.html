@@ -1,96 +1,119 @@
 <!DOCTYPE html>
-<html>
+<html lang="en" data-theme="dark">
 
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Montserrat" />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" />
-  <link rel="stylesheet" href="css/styles.css" />
-  <link rel="stylesheet" href="css/wizard.css" />
-  <link rel="stylesheet" href="css/liquidity.css" />
-  <link rel="stylesheet" href="css/backup.css" />
-  <link rel="stylesheet" href="css/connect.css" />
-  <link rel="stylesheet" href="css/status.css" />
-  <!-- HTML Meta Tags -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" />
+  <link rel="stylesheet" href="vendor/pico.min.css" />
+  <link rel="stylesheet" href="vendor/pico.colors.min.css" />
+  <link rel="stylesheet" href="css/pico-theme.css" />
+  <link rel="stylesheet" href="css/custom.css?v=20260213" />
+
+  <script src="js/app.js" defer></script>
+  <script src="vendor/alpine.min.js" defer></script>
+
   <title>Lightning.Pub</title>
   <meta name="description" content="Lightning for Everyone" />
   <link rel="icon" type="image/png" href="img/pub_logo.png" />
 </head>
 
-<body class="wizard-on-welcome">
+<body x-data="wizard()" x-cloak :class="{ 'wizard-on-welcome': step === 'welcome' }">
   <header>
-    <img src="img/pub_logo.png" width="38px" height="auto" alt="Lightning Pub logo" />
-    <img src="img/LightningPub.png" height="26px" alt="Lightning Pub logo" />
+    <img src="img/pub_logo.png" class="logo-symbol" alt="Lightning Pub logo" />
+    <img src="img/LightningPub.png" class="logo-text" alt="Lightning Pub logo" />
   </header>
 
   <main class="wizard">
-    <section id="page-welcome" class="welcome-page">
+    <!-- STEP: WELCOME -->
+    <section id="page-welcome" class="welcome-page" x-show="step === 'welcome'" x-transition.opacity>
       <div class="welcome-header">
         <h1 class="welcome-title">Welcome</h1>
         <div class="welcome-line"></div>
       </div>
       <p class="welcome-headline">Share your node with friends, family, and customers.</p>
-      <p class="welcome-intro">Lightning.Pub makes it simple—connect over Nostr, issue accounts, and automate the operational work.</p>
+      <p class="welcome-intro">Lightning.Pub makes it simple—connect over Nostr, issue accounts, and automate the
+        operational work.</p>
       <ul class="welcome-features">
         <li class="welcome-feature">
-          <span class="welcome-feature-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span>
+          <span class="welcome-feature-icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24"
+              fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+            </svg></span>
           <span>Connect wallets and apps over Nostr, avoiding complicated networking setups.</span>
         </li>
         <li class="welcome-feature">
-          <span class="welcome-feature-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M20 8v6M23 11h-6"/></svg></span>
+          <span class="welcome-feature-icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24"
+              fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="8.5" cy="7" r="4" />
+              <path d="M20 8v6M23 11h-6" />
+            </svg></span>
           <span>Guest accounts let family or community use your node safely.</span>
         </li>
         <li class="welcome-feature">
-          <span class="welcome-feature-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span>
+          <span class="welcome-feature-icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24"
+              fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+            </svg></span>
           <span>Liquidity automation handles the operational work so you can receive payments instantly.</span>
         </li>
         <li class="welcome-feature">
-          <span class="welcome-feature-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg></span>
+          <span class="welcome-feature-icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24"
+              fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="7" width="20" height="15" rx="2" ry="2" />
+              <polyline points="17 2 12 7 7 2" />
+            </svg></span>
           <span>Apps integrate effortlessly, powering services with static offers and debits via CLINK.</span>
         </li>
         <li class="welcome-feature">
-          <span class="welcome-feature-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>
+          <span class="welcome-feature-icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24"
+              fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+            </svg></span>
           <span>Encrypted push notifications alert you of payments, admin alerts, and debit requests.</span>
         </li>
       </ul>
       <div class="welcome-line"></div>
-      <p class="welcome-terms">By using this bleeding-edge software you acknowledge and agree to its <a href="https://docs.shock.network/" target="_blank" rel="noopener" class="marked">terms</a> regarding any services herein.</p>
+      <p class="welcome-terms">By using this bleeding-edge software you acknowledge and agree to its <a
+          href="https://docs.shock.network/" target="_blank" rel="noopener" class="marked">terms</a> regarding any
+        services herein.</p>
       <div class="welcome-actions">
-        <button type="button" class="wizard-cta wizard-cta--ghost" id="welcome-restore-btn">Restore Backup</button>
-        <button type="button" class="wizard-cta wizard-cta--gradient-border" id="welcome-get-started-btn">Get Started!</button>
+        <button type="button" class="wizard-cta wizard-cta--ghost" @click="goTo('node')">Restore Backup</button>
+        <button type="button" class="wizard-cta wizard-cta--gradient-fill" @click="goTo('node')">Get Started!</button>
       </div>
-      <a href="https://docs.shock.network" target="_blank" rel="noopener" class="marked need-help welcome-need-help">Need Help?</a>
+      <a href="https://docs.shock.network" target="_blank" rel="noopener"
+        class="marked need-help welcome-need-help">Need Help?</a>
     </section>
 
-    <section id="page-node" style="display: none;">
+    <!-- STEP: NODE -->
+    <section id="page-node" x-show="step === 'node'" x-cloak x-transition.opacity>
       <div class="setup-header">
-        <button class="icon-button back-button" id="back-to-welcome" type="button" aria-label="Back to welcome">
+        <button class="icon-button back-button" @click="goBack()" type="button" aria-label="Back to welcome">
           <img src="img/back.svg" alt="" />
         </button>
         <h2>Setup your Pub</h2>
       </div>
 
-      <!-- Progress Indicator -->
       <div class="progress-indicator">
-        <div class="progress-line">
-          <div class="progress-line-fill"></div>
-        </div>
         <div class="progress-steps">
           <div class="progress-step">
-            <div class="progress-step-circle step-1-circle" data-step="1">1</div>
+            <div class="progress-step-circle active" data-step="1">1</div>
           </div>
           <div class="progress-step">
-            <div class="progress-step-circle step-2-circle" data-step="2">2</div>
+            <div class="progress-step-circle" data-step="2">2</div>
           </div>
           <div class="progress-step">
-            <div class="progress-step-circle step-3-circle" data-step="3">3</div>
+            <div class="progress-step-circle" data-step="3">3</div>
           </div>
           <div class="progress-step">
-            <div class="progress-step-circle step-4-circle" data-step="4">4</div>
+            <div class="progress-step-circle" data-step="4">4</div>
           </div>
           <div class="progress-step">
-            <div class="progress-step-circle step-5-circle" data-step="5">5</div>
+            <div class="progress-step-circle" data-step="5">5</div>
           </div>
         </div>
       </div>
@@ -104,380 +127,343 @@
       <div class="setup-content">
         <div class="input-group">
           <h3>Name</h3>
-          <p class="field-hint">Need inspiration? Your node name can be anything - your business name, nickname, or whatever fits your style.</p>
-          <input type="text" class="input-text" placeholder="Uncle Jim, Inc." value="" id="nodeName" />
+          <p class="field-hint">Need inspiration? Your node name can be anything - your business name, nickname, or
+            whatever fits your style.</p>
+          <input type="text" class="input-text" placeholder="Uncle Jim, Inc." x-model="nodeName" />
         </div>
 
         <div class="input-group">
           <h3>Image</h3>
           <p class="field-hint">Add a logo or an image to make your node spark among others.</p>
           <div class="avatar-input-group">
-            <input type="text" class="input-text" placeholder="https://lightning.pub/favicon.png" id="avatarUrl" />
-            <img id="avatarPreview" src="img/pub_logo.png" alt="avatar" />
+            <input type="text" class="input-text" placeholder="https://lightning.pub/favicon.png" x-model="avatarUrl" />
+            <img :src="avatarPreview" alt="avatar" />
           </div>
         </div>
-
-        <div class="error-message" id="errorText"></div>
       </div>
-      
+
       <div class="page-separator"></div>
-      
+
       <div class="page-footer-actions">
         <a href="https://docs.shock.network" class="marked need-help">Need Help?</a>
-        <button class="wizard-cta wizard-cta--gradient-fill" id="relayBtn">Next</button>
+        <button class="wizard-cta wizard-cta--gradient-fill" @click="goTo('relay')">Next</button>
       </div>
     </section>
 
-    <section id="page-relay" style="display: none;">
+    <!-- STEP: RELAY -->
+    <section id="page-relay" x-show="step === 'relay'" x-cloak x-transition.opacity>
       <div class="setup-header">
-        <button class="icon-button back-button" id="back-to-node">
+        <button class="icon-button back-button" @click="goBack()" type="button">
           <img src="img/back.svg" alt="" />
         </button>
         <h2>Nostr Relay</h2>
       </div>
 
-      <!-- Progress Indicator -->
       <div class="progress-indicator">
-        <div class="progress-line">
-          <div class="progress-line-fill"></div>
-        </div>
         <div class="progress-steps">
           <div class="progress-step">
-            <div class="progress-step-circle step-1-circle" data-step="1">1</div>
+            <div class="progress-step-circle completed"></div>
           </div>
           <div class="progress-step">
-            <div class="progress-step-circle step-2-circle" data-step="2">2</div>
+            <div class="progress-step-circle active" data-step="2">2</div>
           </div>
           <div class="progress-step">
-            <div class="progress-step-circle step-3-circle" data-step="3">3</div>
+            <div class="progress-step-circle" data-step="3">3</div>
           </div>
           <div class="progress-step">
-            <div class="progress-step-circle step-4-circle" data-step="4">4</div>
+            <div class="progress-step-circle" data-step="4">4</div>
           </div>
           <div class="progress-step">
-            <div class="progress-step-circle step-5-circle" data-step="5">5</div>
+            <div class="progress-step-circle" data-step="5">5</div>
           </div>
         </div>
       </div>
 
       <div class="setup-description">
         <p class="header-title">
-          This Nostr relay handles communication between your node, wallets, and apps - avoiding complex networking setups. Choose our service or bring your own.
+          This Nostr relay handles communication between your node, wallets, and apps - avoiding complex networking
+          setups. Choose our service or bring your own.
         </p>
       </div>
 
       <div class="setup-content">
         <div class="relay-cards-group">
+          <!-- Free -->
           <div class="relay-card">
             <label class="relay-option">
-              <input type="radio" name="relay-tier" value="free" id="relay-free" checked />
+              <input type="radio" value="free" x-model="relayTier" />
               <div class="relay-option-content">
                 <div class="relay-option-header">
                   <span class="relay-option-title">Free community relay</span>
-                  <span class="relay-option-url">wss://relay.lightning.pub</span>
+                  <span class="relay-option-meta relay-option-url">wss://relay.lightning.pub</span>
                 </div>
                 <span class="relay-option-description">Community run public open relay</span>
               </div>
             </label>
           </div>
 
+          <!-- Premium -->
           <div class="relay-card">
             <label class="relay-option">
-              <input type="radio" name="relay-tier" value="premium" id="relay-premium" />
+              <input type="radio" value="premium" x-model="relayTier" />
               <div class="relay-option-content">
                 <div class="relay-option-header">
                   <span class="relay-option-title">Premium VIP relays pool</span>
-                  <span class="relay-option-price">1000 sats/month</span>
+                  <span class="relay-option-meta relay-option-price">1000 sats/month</span>
                 </div>
                 <span class="relay-option-description">Exclusive, Geo-Optimized, and High Performance Relays</span>
               </div>
             </label>
           </div>
 
-          <div class="relay-card" id="customRelayCard">
-          <label class="relay-option">
-            <input type="radio" name="relay-tier" value="custom" id="relay-custom" />
-            <div class="relay-option-content">
-              <div class="relay-option-header">
-                <span class="relay-option-title">Custom nostr relay(s)</span>
-                <span class="relay-info-icon">ⓘ
-                  <div class="relay-info-tooltip"><u>Make sure</u> your relays have adequate storage policies to hold NIP78 events.</div>
-                </span>
+          <!-- Custom -->
+          <div class="relay-card">
+            <label class="relay-option">
+              <input type="radio" value="custom" x-model="relayTier" />
+              <div class="relay-option-content">
+                <div class="relay-option-header">
+                  <span class="relay-option-title">Custom nostr relay(s)</span>
+                  <span class="relay-option-meta relay-info-icon">ⓘ
+                    <div class="relay-info-tooltip"><u>Make sure</u> your relays have adequate storage policies to hold
+                      NIP78 events.</div>
+                  </span>
+                </div>
+                <span class="relay-option-description">Use your own or your most trusted relays</span>
               </div>
-              <span class="relay-option-description">Use your own or your most trusted relays</span>
-            </div>
-          </label>
+            </label>
 
-          <div class="custom-relays-container" id="customRelaysContainer" style="display: none;">
-            <div class="custom-relay-row" data-index="0">
-              <div class="custom-relay-input-wrap relay-state--idle" data-wrap-index="0">
-                <span class="relay-dot relay-dot--idle" data-dot-index="0"></span>
-                <input type="text" class="relay-custom-input" placeholder="wss://your-relay.com" data-relay-index="0" />
-              </div>
-              <button type="button" class="relay-add-btn" id="relay-add-btn">+</button>
+            <div class="custom-relays-container" x-show="relayTier === 'custom'" x-transition>
+              <template x-for="(relay, index) in customRelays" :key="index">
+                <div class="custom-relay-row">
+                  <div class="custom-relay-input-wrap"
+                    :class="{'relay-state--invalid': relay.state === 'invalid', 'relay-state--valid': relay.state === 'valid'}">
+                    <span class="relay-dot" :class="{
+                      'relay-dot--idle': relay.state === 'idle',
+                      'relay-dot--validating': relay.state === 'validating',
+                      'relay-dot--valid': relay.state === 'valid',
+                      'relay-dot--invalid': relay.state === 'invalid'
+                    }"></span>
+                    <input type="text" class="relay-custom-input" placeholder="wss://your-relay.com" x-model="relay.url"
+                      @input="validateRelay(index)" />
+                  </div>
+                  <button type="button" class="relay-action-btn" @click="removeCustomRelay(index)"
+                    x-show="customRelays.length > 1">-</button>
+                  <button type="button" class="relay-action-btn" @click="addCustomRelay()"
+                    x-show="index === customRelays.length - 1">+</button>
+                </div>
+              </template>
             </div>
-            <p class="relay-input-error" data-error-index="0" style="display:none;">This relay does not have adequate storage policies to hodl your channel backup with NIP-78 events. Remove it or try a different one.</p>
           </div>
         </div>
-        </div><!-- /.relay-cards-group -->
 
         <div class="backup-section">
           <div class="backup-toggle-row">
             <span class="backup-label">Sync backups to relay</span>
             <label class="toggle-switch">
-              <input type="checkbox" id="backupToggle" checked />
+              <input type="checkbox" x-model="backupEnabled" />
               <span class="toggle-slider"></span>
             </label>
           </div>
 
-          <div class="backup-info" id="backupInfo">
-            <p class="backup-info-title">Your backups will be encrypted and synced to:</p>
-            <div class="backup-location" id="backupLocation">
-              <span class="relay-option-description">Your channel state changes with Lightning activity. Unlike your seed phrase which is permanent, channel backups must be updated regularly and are required for recovery of Lightning funds. Your encrypted backup syncs automatically to the community relay.</span>
+          <div class="backup-info" x-show="backupEnabled">
+            <p class="backup-info-title" style="color:#fff; margin-bottom: 0.5rem; font-size:14px;">Your backups will be
+              encrypted and synced to:</p>
+            <div class="backup-location">
+              <span class="relay-option-description" x-text="backupLocationText"></span>
             </div>
-            <p class="backup-recovery-hint" style="display: none;">Write down these relay URLs - you'll need them to recover your node if something goes wrong. Ensure your relay has adequate storage policies to retain NIP-78 backup events.</p>
           </div>
 
-          <div class="backup-warning" id="backupWarning" style="display: none;">
-            <span class="warning-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="#FF7700" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                <line x1="12" y1="9" x2="12" y2="13"/>
-                <line x1="12" y1="17" x2="12.01" y2="17"/>
-              </svg>
-            </span>
-            <div class="warning-text">
-              Your channel state changes with Lightning activity. Unlike your seed phrase which is permanent, channel backups must be updated regularly and are required for recovery of Lightning funds. If you disable relay sync, ensure you have another backup method configured. <a href="https://docs.shock.network" target="_blank" class="marked">Learn more</a>.
+          <div class="backup-warning" x-show="!backupEnabled"
+            style="display: flex; gap: 10px; align-items: flex-start; margin-top: 1rem;">
+            <span style="color: #FF7700;">⚠</span>
+            <div class="warning-text" style="color: #E84C3D; font-size: 13px; line-height: 1.5;">
+              Your channel state changes with Lightning activity. Unlike your seed phrase which is permanent, channel
+              backups must be updated regularly and are required for recovery of Lightning funds. If you disable relay
+              sync, ensure you have another backup method configured.
             </div>
           </div>
         </div>
-
-        <div class="error-message" id="errorTextRelay"></div>
       </div>
 
       <div class="page-separator"></div>
-      
+
       <div class="page-footer-actions">
         <a href="https://docs.shock.network" class="marked need-help">Need Help?</a>
-        <button class="wizard-cta wizard-cta--gradient-fill" id="liquidityBtn">Next</button>
+        <button class="wizard-cta wizard-cta--gradient-fill" @click="goTo('liquidity')">Next</button>
       </div>
     </section>
 
-    <section id="page-liquidity" style="display: none;">
+    <!-- STEP: LIQUIDITY -->
+    <section id="page-liquidity" x-show="step === 'liquidity'" x-cloak x-transition.opacity>
       <div class="setup-header">
-        <button class="icon-button back-button" id="back-to-relay">
+        <button class="icon-button back-button" @click="goBack()" type="button" aria-label="Back">
           <img src="img/back.svg" alt="" />
         </button>
         <h2>Manage Node Liquidity</h2>
       </div>
-
-      <!-- Progress Indicator -->
       <div class="progress-indicator">
-        <div class="progress-line">
-          <div class="progress-line-fill"></div>
-        </div>
         <div class="progress-steps">
-          <div class="progress-step">
-            <div class="progress-step-circle step-1-circle" data-step="1">1</div>
-          </div>
-          <div class="progress-step">
-            <div class="progress-step-circle step-2-circle" data-step="2">2</div>
-          </div>
-          <div class="progress-step">
-            <div class="progress-step-circle step-3-circle" data-step="3">3</div>
-          </div>
-          <div class="progress-step">
-            <div class="progress-step-circle step-4-circle" data-step="4">4</div>
-          </div>
-          <div class="progress-step">
-            <div class="progress-step-circle step-5-circle" data-step="5">5</div>
-          </div>
+          <div class="progress-step"><div class="progress-step-circle completed"></div></div>
+          <div class="progress-step"><div class="progress-step-circle completed"></div></div>
+          <div class="progress-step"><div class="progress-step-circle active" data-step="3">3</div></div>
+          <div class="progress-step"><div class="progress-step-circle" data-step="4">4</div></div>
+          <div class="progress-step"><div class="progress-step-circle" data-step="5">5</div></div>
         </div>
       </div>
-
       <div class="setup-description">
-        <p class="header-title">
-          How do you want to manage Lightning channels?
-        </p>
+        <p class="header-title">How do you want to manage Lightning channels?</p>
       </div>
-
       <div class="setup-content">
         <div class="radio-option">
-          <input type="radio" id="automate" name="service" />
+          <input type="radio" id="automate" name="service" value="automate" x-model="liquidityChoice" />
           <label for="automate" class="automate">
             Use automation service
-            <div class="question-box">
-              <button class="icon-button" id="show-question-liquidity">
-                <img src="img/question.svg" />
+            <span class="question-box">
+              <button type="button" class="icon-button" @click="showLiquidityQuestion = !showLiquidityQuestion" aria-label="Help">
+                <img src="img/question.svg" alt="" />
               </button>
-            </div>
-            <div class="question-content" id="question-content">
+            </span>
+            <div class="question-content" x-show="showLiquidityQuestion" x-cloak style="display: none;">
               Automation helps reduce the fees you pay by trusting peers temporarily, until your node balance is sufficient to open a balanced Lightning channel.
-              <button class="icon-button close-button" id="close-question">
+              <button type="button" class="icon-button close-button" @click="showLiquidityQuestion = false">
                 <img src="img/close.svg" alt="" />
               </button>
-              <a href="https://docs.shock.network/" target="_blank" class="marked question-more">Learn more.</a>
+              <a href="https://docs.shock.network/" target="_blank" rel="noopener" class="marked question-more">Learn more.</a>
             </div>
           </label>
         </div>
         <div class="radio-option">
-          <input type="radio" id="manual" name="service" />
+          <input type="radio" id="manual" name="service" value="manual" x-model="liquidityChoice" />
           <label for="manual">Manage my channels manually</label>
         </div>
         <div class="error-message" id="errorTextLiquidity"></div>
-        <button class="wizard-cta" id="backupBtn">
-          Next
-        </button>
+      </div>
+
+      <div class="page-separator"></div>
+      <div class="page-footer-actions">
+        <a href="https://docs.shock.network" class="marked need-help">Need Help?</a>
+        <button type="button" class="wizard-cta wizard-cta--gradient-fill" @click="goTo('backup')">Next</button>
       </div>
     </section>
 
-    <section id="page-backup" style="display: none;">
+    <!-- STEP: BACKUP -->
+    <section id="page-backup" x-show="step === 'backup'" x-cloak x-transition.opacity>
       <div class="setup-header">
-        <button class="icon-button back-button" id="back-to-liquidity">
+        <button class="icon-button back-button" @click="goBack()" type="button" aria-label="Back">
           <img src="img/back.svg" alt="" />
         </button>
         <h2>Choose a Recovery Method</h2>
       </div>
-
-      <!-- Progress Indicator -->
       <div class="progress-indicator">
-        <div class="progress-line">
-          <div class="progress-line-fill"></div>
-        </div>
         <div class="progress-steps">
-          <div class="progress-step">
-            <div class="progress-step-circle step-1-circle" data-step="1">1</div>
-          </div>
-          <div class="progress-step">
-            <div class="progress-step-circle step-2-circle" data-step="2">2</div>
-          </div>
-          <div class="progress-step">
-            <div class="progress-step-circle step-3-circle" data-step="3">3</div>
-          </div>
-          <div class="progress-step">
-            <div class="progress-step-circle step-4-circle" data-step="4">4</div>
-          </div>
-          <div class="progress-step">
-            <div class="progress-step-circle step-5-circle" data-step="5">5</div>
-          </div>
+          <div class="progress-step"><div class="progress-step-circle completed"></div></div>
+          <div class="progress-step"><div class="progress-step-circle completed"></div></div>
+          <div class="progress-step"><div class="progress-step-circle completed"></div></div>
+          <div class="progress-step"><div class="progress-step-circle active" data-step="4">4</div></div>
+          <div class="progress-step"><div class="progress-step-circle" data-step="5">5</div></div>
         </div>
       </div>
-
       <div class="setup-description">
-        <p class="header-title">
-          <span class="bold">New Node! 🎉</span> It's important to backup your keys.
-        </p>
+        <p class="header-title"><span class="bold">New Node! 🎉</span> It's important to backup your keys.</p>
       </div>
-
       <div class="setup-content">
         <div class="description-box">
-          <p class="description">
-            In addition to your seed phrase, you also need channel details to recover funds should your node experience a hardware failure.
-          </p>
-          <p class="description">
-            It's important always to have the latest version of this file. Fortunately, it's small enough to automatically store on the Nostr relay.
-          </p>
+          <p class="description">In addition to your seed phrase, you also need channel details to recover funds should your node experience a hardware failure.</p>
+          <p class="description">It's important always to have the latest version of this file. Fortunately, it's small enough to automatically store on the Nostr relay.</p>
         </div>
-        <div class="warning-text">
-          If you did not choose the developers relay, be sure your relay has adequate storage policies to hold NIP78 events.
-        </div>
+        <div class="warning-text">If you did not choose the developers relay, be sure your relay has adequate storage policies to hold NIP78 events.</div>
         <div class="radio-option">
-          <input type="radio" id="backup" name="backup-option" />
+          <input type="radio" id="backup" name="backup-option" value="relay" x-model="backupChoice" />
           <label for="backup">Encrypted Backup to Nostr Relay</label>
         </div>
         <div class="radio-option">
-          <input type="radio" id="manual-backup" name="backup-option" />
+          <input type="radio" id="manual-backup" name="backup-option" value="manual" x-model="backupChoice" />
           <label for="manual-backup">DO NOT store on relay (Manual Backups)</label>
         </div>
         <div class="error-message" id="errorTextBackup"></div>
-        <button class="wizard-cta" id="next-button">
-          Finish Setup
-        </button>
+      </div>
+
+      <div class="page-separator"></div>
+      <div class="page-footer-actions">
+        <a href="https://docs.shock.network" class="marked need-help">Need Help?</a>
+        <button type="button" class="wizard-cta wizard-cta--gradient-fill" @click="finishBackup()">Finish Setup</button>
       </div>
     </section>
 
-    <section id="page-connect" style="display: none;">
+    <!-- STEP: CONNECT -->
+    <section id="page-connect" x-show="step === 'connect'" x-cloak x-transition.opacity>
       <div class="setup-header">
-        <button class="icon-button back-button" id="back-to-backup">
+        <button class="icon-button back-button" @click="goBack()" type="button" aria-label="Back">
           <img src="img/back.svg" alt="" />
         </button>
         <h2>Connect</h2>
       </div>
-
-      <!-- Progress Indicator -->
       <div class="progress-indicator">
-        <div class="progress-line">
-          <div class="progress-line-fill"></div>
-        </div>
         <div class="progress-steps">
-          <div class="progress-step">
-            <div class="progress-step-circle step-1-circle" data-step="1">1</div>
-          </div>
-          <div class="progress-step">
-            <div class="progress-step-circle step-2-circle" data-step="2">2</div>
-          </div>
-          <div class="progress-step">
-            <div class="progress-step-circle step-3-circle" data-step="3">3</div>
-          </div>
-          <div class="progress-step">
-            <div class="progress-step-circle step-4-circle" data-step="4">4</div>
-          </div>
-          <div class="progress-step">
-            <div class="progress-step-circle step-5-circle" data-step="5">5</div>
-          </div>
+          <div class="progress-step"><div class="progress-step-circle completed"></div></div>
+          <div class="progress-step"><div class="progress-step-circle completed"></div></div>
+          <div class="progress-step"><div class="progress-step-circle completed"></div></div>
+          <div class="progress-step"><div class="progress-step-circle completed"></div></div>
+          <div class="progress-step"><div class="progress-step-circle active" data-step="5">5</div></div>
         </div>
       </div>
-
       <div class="setup-description">
         <p class="header-title">You can now manage your node remotely</p>
       </div>
-
       <div class="setup-content">
         <p class="connect-instructions">Scan the QR or Copy-Paste the string to establish the connection.</p>
         <div class="qrcode-container">
-          <div class="qrcode-box" id="codebox" aria-label="Pairing QR and string">
+          <div class="qrcode-box" id="codebox" aria-label="Pairing QR and string"
+               :class="{ 'revealed': qrRevealed }"
+               @click="!qrRevealed && revealQr()">
             <div class="qrcode-header">
               <p class="qrcode-warning">Code contains a one-time pairing secret</p>
-              <p class="qrcode-reveal-hint" id="click-text">Click to reveal</p>
+              <p class="qrcode-reveal-hint" id="click-text" x-show="!qrRevealed">Click to reveal</p>
             </div>
             <div class="qrcode-viewport">
               <div id="qrcode"></div>
-              <div class="qr-veil"><span>Click to reveal</span></div>
+              <div class="qr-veil" x-show="!qrRevealed"><span>Click to reveal</span></div>
             </div>
             <div class="qrcode-string">
-              <div id="connectString"></div>
+              <div id="connectString" x-text="connectStringDisplay"></div>
             </div>
           </div>
         </div>
-        <button class="wizard-cta wizard-cta--wide" id="to-status">OK, I've connected my wallet</button>
+      </div>
+
+      <div class="page-separator"></div>
+      <div class="page-footer-actions">
+        <a href="https://docs.shock.network" class="marked need-help">Need Help?</a>
+        <button type="button" class="wizard-cta wizard-cta--wide wizard-cta--gradient-fill" @click="goTo('status')">OK, I've connected my wallet</button>
       </div>
     </section>
 
-    <section id="page-status" style="display: none;">
+    <!-- STEP: STATUS -->
+    <section id="page-status" x-show="step === 'status'" x-cloak x-transition.opacity>
       <div class="setup-header">
         <h2 class="status-title">Node Status</h2>
       </div>
       <div class="status-line"></div>
       <section class="node-status">
-        <p id="statusErrorText" style="color:red"></p>
+        <p id="statusErrorText" x-show="error" x-text="error" style="color:red; display:none;"></p>
         <div class="status-content">
           <div class="status-row">
             <div class="status-label">Public node name:</div>
             <div class="status-value-group">
               <div class="status-value-wrapper">
-                <div class="show-nodey" style="display: none;">
-                  <input type="text" value="" name="show-nodey" placeholder="" />
-                  <div style="display: flex;justify-content: end; gap: 8px; margin-top: 8px;">
-                    <button class="small-btn" id="cancel-show-nodey">Cancel</button>
-                    <button class="small-btn" id="save-show-nodey">Save</button>
+                <div class="show-nodey" x-show="editingNodeName" style="display: none;">
+                  <input type="text" class="input-text" x-model="nodeName" name="show-nodey" placeholder="Node name" />
+                  <div style="display: flex; justify-content: end; gap: 8px; margin-top: 8px;">
+                    <button type="button" class="secondary" @click="editingNodeName = false">Cancel</button>
+                    <button type="button" @click="editingNodeName = false">Save</button>
                   </div>
                 </div>
-                <div class="status-value-container">
-                  <button class="status-icon-button" id="show-nodey">
+                <div class="status-value-container" x-show="!editingNodeName">
+                  <button type="button" class="status-icon-button" @click="editingNodeName = true" aria-label="Edit">
                     <img src="img/pencil.svg" alt="edit" />
                   </button>
-                  <span id="show-nodey-text" class="status-value">Nodey McNodeFace</span>
-                  <button class="status-icon-button status-copy-btn" data-copy-target="show-nodey-text">
+                  <span id="show-nodey-text" class="status-value" x-text="serviceState?.source_name || '—'"></span>
+                  <button type="button" class="status-icon-button status-copy-btn" data-copy-target="show-nodey-text" aria-label="Copy">
                     <img src="img/copy.svg" alt="copy" />
                   </button>
                 </div>
@@ -488,20 +474,20 @@
             <div class="status-label">Node avatar:</div>
             <div class="status-value-group">
               <div class="status-value-wrapper">
-                <div class="show-avatar" style="display: none;">
-                  <input type="text" value="" name="show-avatar" placeholder="" />
-                  <div style="display: flex;justify-content: end; gap: 8px; margin-top: 8px;">
-                    <button class="small-btn" id="cancel-show-avatar">Cancel</button>
-                    <button class="small-btn" id="save-show-avatar">Save</button>
+                <div class="show-avatar" x-show="editingAvatar" style="display: none;">
+                  <input type="text" class="input-text" x-model="avatarUrl" name="show-avatar" placeholder="Avatar URL" />
+                  <div style="display: flex; justify-content: end; gap: 8px; margin-top: 8px;">
+                    <button type="button" class="secondary" @click="editingAvatar = false">Cancel</button>
+                    <button type="button" @click="editingAvatar = false">Save</button>
                   </div>
                 </div>
-                <div class="status-value-container" id="avatar-display-container">
-                  <button class="status-icon-button" id="show-avatar">
+                <div class="status-value-container" x-show="!editingAvatar">
+                  <button type="button" class="status-icon-button" @click="editingAvatar = true" aria-label="Edit">
                     <img src="img/pencil.svg" alt="edit" />
                   </button>
-                  <span id="avatar-url-text" class="status-value">https://lightning.pub/favicon.png</span>
-                  <img id="avatarImg" src="" alt="avatar" class="avatar-image" />
-                  <button class="status-icon-button status-copy-btn" data-copy-target="avatar-url-text">
+                  <span id="avatar-url-text" class="status-value" x-text="serviceState?.avatar_url || '—'"></span>
+                  <img id="avatarImg" :src="avatarPreview" alt="avatar" class="avatar-image" :class="{ show: avatarUrl }" />
+                  <button type="button" class="status-icon-button status-copy-btn" data-copy-target="avatar-url-text" aria-label="Copy">
                     <img src="img/copy.svg" alt="copy" />
                   </button>
                 </div>
@@ -512,19 +498,19 @@
             <div class="status-label">Nostr relay:</div>
             <div class="status-value-group">
               <div class="status-value-wrapper">
-                <div class="show-nostr" style="display: none;">
-                  <input type="text" value="" name="show-nostr" placeholder="wss://relay.lightning.pub" />
-                  <div style="display: flex;justify-content: end; gap: 8px; margin-top: 8px;">
-                    <button class="small-btn" id="cancel-show-nostr">Cancel</button>
-                    <button class="small-btn" id="save-show-nostr">Save</button>
+                <div class="show-nostr" x-show="editingNostr" style="display: none;">
+                  <input type="text" class="input-text" x-model="relayUrl" name="show-nostr" placeholder="wss://relay.lightning.pub" />
+                  <div style="display: flex; justify-content: end; gap: 8px; margin-top: 8px;">
+                    <button type="button" class="secondary" @click="editingNostr = false">Cancel</button>
+                    <button type="button" @click="editingNostr = false">Save</button>
                   </div>
                 </div>
-                <div class="status-value-container">
-                  <button class="status-icon-button" id="show-nostr">
+                <div class="status-value-container" x-show="!editingNostr">
+                  <button type="button" class="status-icon-button" @click="editingNostr = true" aria-label="Edit">
                     <img src="img/pencil.svg" alt="edit" />
                   </button>
-                  <span id="show-nostr-text" class="status-value">wss://relay.lightning.pub</span>
-                  <button class="status-icon-button status-copy-btn" data-copy-target="show-nostr-text">
+                  <span id="show-nostr-text" class="status-value" x-text="relayUrl || serviceState?.relay_url || (serviceState?.relays && serviceState.relays[0]) || '—'"></span>
+                  <button type="button" class="status-icon-button status-copy-btn" data-copy-target="show-nostr-text" aria-label="Copy">
                     <img src="img/copy.svg" alt="copy" />
                   </button>
                 </div>
@@ -535,8 +521,8 @@
             <div class="status-label">Relay Status:</div>
             <div class="status-value-group">
               <div class="status-value-container">
-                <span id="relayStatus" class="status-value">Connected</span>
-                <span class="status-dot status-dot-green"></span>
+                <span id="relayStatus" class="status-value" x-text="serviceState?.relay_connected ? 'Connected' : 'Disconnected'"></span>
+                <span class="status-dot" :class="serviceState?.relay_connected ? 'status-dot-green' : 'status-dot-orange'"></span>
               </div>
             </div>
           </div>
@@ -544,8 +530,8 @@
             <div class="status-label">Admin npub:</div>
             <div class="status-value-group">
               <div class="status-value-container">
-                <span id="adminNpub" class="status-value">#</span>
-                <button class="status-icon-button status-copy-btn" data-copy-target="adminNpub">
+                <span id="adminNpub" class="status-value" x-text="serviceState?.admin_npub || '—'"></span>
+                <button type="button" class="status-icon-button status-copy-btn" data-copy-target="adminNpub" aria-label="Copy">
                   <img src="img/copy.svg" alt="copy" />
                 </button>
               </div>
@@ -555,8 +541,8 @@
             <div class="status-label">Invite link:</div>
             <div class="status-value-group">
               <div class="status-value-container">
-                <a href="#" target="_blank" id="inviteLinkHttp" class="status-value status-link">#</a>
-                <button class="status-icon-button status-copy-btn" data-copy-target="inviteLinkHttp">
+                <a href="#" target="_blank" rel="noopener" id="inviteLinkHttp" class="status-value status-link" x-text="serviceState?.invite_link_http || '—'" :href="serviceState?.invite_link_http || '#'"></a>
+                <button type="button" class="status-icon-button status-copy-btn" data-copy-target="inviteLinkHttp" aria-label="Copy">
                   <img src="img/copy.svg" alt="copy" />
                 </button>
               </div>
@@ -566,7 +552,7 @@
             <div class="status-label">Lightning status:</div>
             <div class="status-value-group">
               <div class="status-value-container">
-                <span id="lndStatus" class="status-value">Online</span>
+                <span id="lndStatus" class="status-value" x-text="lndStatusText"></span>
                 <span class="status-dot status-dot-orange"></span>
               </div>
             </div>
@@ -575,35 +561,31 @@
             <div class="status-label">Watchdog status:</div>
             <div class="status-value-group">
               <div class="status-value-container">
-                <span id="watchdog-status" class="status-value">Ok</span>
-                <span class="status-dot status-dot-green"></span>
+                <span id="watchdog-status" class="status-value" x-text="serviceState?.watchdog_ok ? 'Ok' : '—'"></span>
+                <span class="status-dot" :class="serviceState?.watchdog_ok ? 'status-dot-green' : 'status-dot-orange'"></span>
               </div>
             </div>
           </div>
         </div>
         <div style="margin-top: 30px; display: flex; justify-content: center;">
-          <button class="wizard-cta" id="edit-settings">Edit</button>
+          <button type="button" class="wizard-cta wizard-cta--gradient-fill" @click="goTo('welcome')">Edit</button>
         </div>
-        <div id="reset-box">
-          <div style="width: 100%;height: 100%;position: relative;">
-            <button class="icon-button close-button" id="close-reset-box">
-              <img src="img/close.svg" alt="">
+        <div id="reset-box" x-show="showResetBox" x-cloak>
+          <div style="width: 100%; position: relative;">
+            <button type="button" class="icon-button close-button" @click="closeResetBox()" aria-label="Close">
+              <img src="img/close.svg" alt="" />
             </button>
-            <div class="reset-box-content" id="reset-content"></div>
+            <div class="reset-box-content" x-text="resetBoxContent"></div>
             <div class="continue-button-container">
-              <div class="continue-button" id="">Continue</div>
+              <button type="button" class="continue-button" @click="closeResetBox()">Continue</button>
             </div>
           </div>
         </div>
       </section>
     </section>
-  </main>
 
-  <footer>
-  </footer>
-  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  </main>
   <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
-  <script src="js/wizard.js"></script>
 </body>
 
 </html>

@@ -1,0 +1,23 @@
+/* Pico theme overrides: dark + Lightning.Pub brand (orange/magenta).
+   Load after pico.min.css. Keeps first 3 wizard pages' design via custom.css. */
+
+[data-theme="dark"],
+:root[data-theme="dark"] {
+  --pico-background-color: #16191C;
+  --pico-color: #D9D9D9;
+  --pico-muted-color: #9CA3AF;
+  --pico-muted-border-color: #3C3C3C;
+  --pico-primary: #FF7700;
+  --pico-primary-background: #FF7700;
+  --pico-primary-border: var(--pico-primary-background);
+  --pico-primary-hover: #ea624a;
+  --pico-primary-hover-background: #ea624a;
+  --pico-primary-focus: rgba(255, 119, 0, 0.35);
+  --pico-primary-inverse: #16191C;
+  --pico-form-element-background-color: #212325;
+  --pico-form-element-border-color: #3C3C3C;
+  --pico-form-element-color: #fff;
+  --pico-form-element-placeholder-color: #5F5F5F;
+  --pico-card-background-color: #212325;
+  --pico-card-border-color: #3C3C3C;
+}

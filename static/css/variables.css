@@ -1,0 +1,16 @@
+:root {
+  /* Theme colors override for Pico.css */
+  --pico-background-color: #16191c;
+  --pico-color: #ffffff;
+  
+  /* Primary color - using the orange from existing --color-marked */
+  --pico-primary: #ff7700;
+  --pico-primary-background: #ff7700;
+  --pico-primary-hover: #e66b00;
+  --pico-primary-focus: rgba(255, 119, 0, 0.5);
+  --pico-primary-inverse: #ffffff;
+
+  /* Custom variables from legacy styles.css */
+  --color-marked: #ff7700;
+  --gradient: linear-gradient(60deg, #ff7700 0%, #c740c7 100%);
+}
