@@ -302,8 +302,11 @@ export default class {
         const amount = Number(output.amount)
         const outputIndex = Number(output.outputIndex)
         log(`processing missed chain tx: address=${output.address}, txHash=${tx.txHash}, amount=${amount}, outputIndex=${outputIndex}`)
-        this.addressPaidCb({ hash: tx.txHash, index: outputIndex }, output.address, amount, 'lnd', startHeight)
-            .catch(err => log(ERROR, "failed to process user address output:", err.message || err))
+        try {
+            await this.addressPaidCb({ hash: tx.txHash, index: outputIndex }, output.address, amount, 'lnd', startHeight)
+        } catch (err: any) {
+            log(ERROR, "failed to process user address output:", err.message || err)
+        }
         return true
     }
 
