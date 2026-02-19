@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Montserrat" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" />
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/wizard.css" />
+  <link rel="stylesheet" href="css/liquidity.css" />
+  <link rel="stylesheet" href="css/backup.css" />
+  <link rel="stylesheet" href="css/connect.css" />
+  <link rel="stylesheet" href="css/status.css" />
+  <!-- HTML Meta Tags -->
+  <title>Lightning.Pub</title>
+  <meta name="description" content="Lightning for Everyone" />
+  <link rel="icon" type="image/png" href="img/pub_logo.png" />
+</head>
+
+<body class="wizard-on-welcome">
+  <header>
+    <img src="img/pub_logo.png" width="38px" height="auto" alt="Lightning Pub logo" />
+    <img src="img/LightningPub.png" height="26px" alt="Lightning Pub logo" />
+  </header>
+
+  <main class="wizard">
+    <section id="page-welcome" class="welcome-page">
+      <div class="welcome-header">
+        <h1 class="welcome-title">Welcome</h1>
+        <div class="welcome-line"></div>
+      </div>
+      <p class="welcome-headline">Share your node with friends, family, and customers.</p>
+      <p class="welcome-intro">Lightning.Pub makes it simple—connect over Nostr, issue accounts, and automate the operational work.</p>
+      <ul class="welcome-features">
+        <li class="welcome-feature">
+          <span class="welcome-feature-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span>
+          <span>Connect wallets and apps over Nostr, avoiding complicated networking setups.</span>
+        </li>
+        <li class="welcome-feature">
+          <span class="welcome-feature-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M20 8v6M23 11h-6"/></svg></span>
+          <span>Guest accounts let family or community use your node safely.</span>
+        </li>
+        <li class="welcome-feature">
+          <span class="welcome-feature-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span>
+          <span>Liquidity automation handles the operational work so you can receive payments instantly.</span>
+        </li>
+        <li class="welcome-feature">
+          <span class="welcome-feature-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg></span>
+          <span>Apps integrate effortlessly, powering services with static offers and debits via CLINK.</span>
+        </li>
+        <li class="welcome-feature">
+          <span class="welcome-feature-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>
+          <span>Encrypted push notifications alert you of payments, admin alerts, and debit requests.</span>
+        </li>
+      </ul>
+      <div class="welcome-line"></div>
+      <p class="welcome-terms">By using this bleeding-edge software you acknowledge and agree to its <a href="https://docs.shock.network/" target="_blank" rel="noopener" class="marked">terms</a> regarding any services herein.</p>
+      <div class="welcome-actions">
+        <button type="button" class="wizard-cta wizard-cta--ghost" id="welcome-restore-btn">Restore Backup</button>
+        <button type="button" class="wizard-cta wizard-cta--gradient-border" id="welcome-get-started-btn">Get Started!</button>
+      </div>
+      <a href="https://docs.shock.network" target="_blank" rel="noopener" class="marked need-help welcome-need-help">Need Help?</a>
+    </section>
+
+    <section id="page-node" style="display: none;">
+      <div class="setup-header">
+        <button class="icon-button back-button" id="back-to-welcome" type="button" aria-label="Back to welcome">
+          <img src="img/back.svg" alt="" />
+        </button>
+        <h2>Setup your Pub</h2>
+      </div>
+
+      <!-- Progress Indicator -->
+      <div class="progress-indicator">
+        <div class="progress-line">
+          <div class="progress-line-fill"></div>
+        </div>
+        <div class="progress-steps">
+          <div class="progress-step">
+            <div class="progress-step-circle step-1-circle" data-step="1">1</div>
+          </div>
+          <div class="progress-step">
+            <div class="progress-step-circle step-2-circle" data-step="2">2</div>
+          </div>
+          <div class="progress-step">
+            <div class="progress-step-circle step-3-circle" data-step="3">3</div>
+          </div>
+          <div class="progress-step">
+            <div class="progress-step-circle step-4-circle" data-step="4">4</div>
+          </div>
+          <div class="progress-step">
+            <div class="progress-step-circle step-5-circle" data-step="5">5</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="setup-description">
+        <p class="header-title">
+          Personalize your Pub with a name and image. This is what guests and apps see when connecting to your node.
+        </p>
+      </div>
+
+      <div class="setup-content">
+        <div class="input-group">
+          <h3>Name</h3>
+          <p class="field-hint">Need inspiration? Your node name can be anything - your business name, nickname, or whatever fits your style.</p>
+          <input type="text" class="input-text" placeholder="Uncle Jim, Inc." value="" id="nodeName" />
+        </div>
+
+        <div class="input-group">
+          <h3>Image</h3>
+          <p class="field-hint">Add a logo or an image to make your node spark among others.</p>
+          <div class="avatar-input-group">
+            <input type="text" class="input-text" placeholder="https://lightning.pub/favicon.png" id="avatarUrl" />
+            <img id="avatarPreview" src="img/pub_logo.png" alt="avatar" />
+          </div>
+        </div>
+
+        <div class="error-message" id="errorText"></div>
+      </div>
+      
+      <div class="page-separator"></div>
+      
+      <div class="page-footer-actions">
+        <a href="https://docs.shock.network" class="marked need-help">Need Help?</a>
+        <button class="wizard-cta wizard-cta--gradient-fill" id="relayBtn">Next</button>
+      </div>
+    </section>
+
+    <section id="page-relay" style="display: none;">
+      <div class="setup-header">
+        <button class="icon-button back-button" id="back-to-node">
+          <img src="img/back.svg" alt="" />
+        </button>
+        <h2>Nostr Relay</h2>
+      </div>
+
+      <!-- Progress Indicator -->
+      <div class="progress-indicator">
+        <div class="progress-line">
+          <div class="progress-line-fill"></div>
+        </div>
+        <div class="progress-steps">
+          <div class="progress-step">
+            <div class="progress-step-circle step-1-circle" data-step="1">1</div>
+          </div>
+          <div class="progress-step">
+            <div class="progress-step-circle step-2-circle" data-step="2">2</div>
+          </div>
+          <div class="progress-step">
+            <div class="progress-step-circle step-3-circle" data-step="3">3</div>
+          </div>
+          <div class="progress-step">
+            <div class="progress-step-circle step-4-circle" data-step="4">4</div>
+          </div>
+          <div class="progress-step">
+            <div class="progress-step-circle step-5-circle" data-step="5">5</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="setup-description">
+        <p class="header-title">
+          This Nostr relay handles communication between your node, wallets, and apps - avoiding complex networking setups. Choose our service or bring your own.
+        </p>
+      </div>
+
+      <div class="setup-content">
+        <div class="relay-cards-group">
+          <div class="relay-card">
+            <label class="relay-option">
+              <input type="radio" name="relay-tier" value="free" id="relay-free" checked />
+              <div class="relay-option-content">
+                <div class="relay-option-header">
+                  <span class="relay-option-title">Free community relay</span>
+                  <span class="relay-option-url">wss://relay.lightning.pub</span>
+                </div>
+                <span class="relay-option-description">Community run public open relay</span>
+              </div>
+            </label>
+          </div>
+
+          <div class="relay-card">
+            <label class="relay-option">
+              <input type="radio" name="relay-tier" value="premium" id="relay-premium" />
+              <div class="relay-option-content">
+                <div class="relay-option-header">
+                  <span class="relay-option-title">Premium VIP relays pool</span>
+                  <span class="relay-option-price">1000 sats/month</span>
+                </div>
+                <span class="relay-option-description">Exclusive, Geo-Optimized, and High Performance Relays</span>
+              </div>
+            </label>
+          </div>
+
+          <div class="relay-card" id="customRelayCard">
+          <label class="relay-option">
+            <input type="radio" name="relay-tier" value="custom" id="relay-custom" />
+            <div class="relay-option-content">
+              <div class="relay-option-header">
+                <span class="relay-option-title">Custom nostr relay(s)</span>
+                <span class="relay-info-icon">ⓘ
+                  <div class="relay-info-tooltip"><u>Make sure</u> your relays have adequate storage policies to hold NIP78 events.</div>
+                </span>
+              </div>
+              <span class="relay-option-description">Use your own or your most trusted relays</span>
+            </div>
+          </label>
+
+          <div class="custom-relays-container" id="customRelaysContainer" style="display: none;">
+            <div class="custom-relay-row" data-index="0">
+              <div class="custom-relay-input-wrap relay-state--idle" data-wrap-index="0">
+                <span class="relay-dot relay-dot--idle" data-dot-index="0"></span>
+                <input type="text" class="relay-custom-input" placeholder="wss://your-relay.com" data-relay-index="0" />
+              </div>
+              <button type="button" class="relay-add-btn" id="relay-add-btn">+</button>
+            </div>
+            <p class="relay-input-error" data-error-index="0" style="display:none;">This relay does not have adequate storage policies to hodl your channel backup with NIP-78 events. Remove it or try a different one.</p>
+          </div>
+        </div>
+        </div><!-- /.relay-cards-group -->
+
+        <div class="backup-section">
+          <div class="backup-toggle-row">
+            <span class="backup-label">Sync backups to relay</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="backupToggle" checked />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="backup-info" id="backupInfo">
+            <p class="backup-info-title">Your backups will be encrypted and synced to:</p>
+            <div class="backup-location" id="backupLocation">
+              <span class="relay-option-description">Your channel state changes with Lightning activity. Unlike your seed phrase which is permanent, channel backups must be updated regularly and are required for recovery of Lightning funds. Your encrypted backup syncs automatically to the community relay.</span>
+            </div>
+            <p class="backup-recovery-hint" style="display: none;">Write down these relay URLs - you'll need them to recover your node if something goes wrong. Ensure your relay has adequate storage policies to retain NIP-78 backup events.</p>
+          </div>
+
+          <div class="backup-warning" id="backupWarning" style="display: none;">
+            <span class="warning-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#FF7700" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/>
+                <line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+            </span>
+            <div class="warning-text">
+              Your channel state changes with Lightning activity. Unlike your seed phrase which is permanent, channel backups must be updated regularly and are required for recovery of Lightning funds. If you disable relay sync, ensure you have another backup method configured. <a href="https://docs.shock.network" target="_blank" class="marked">Learn more</a>.
+            </div>
+          </div>
+        </div>
+
+        <div class="error-message" id="errorTextRelay"></div>
+      </div>
+
+      <div class="page-separator"></div>
+      
+      <div class="page-footer-actions">
+        <a href="https://docs.shock.network" class="marked need-help">Need Help?</a>
+        <button class="wizard-cta wizard-cta--gradient-fill" id="liquidityBtn">Next</button>
+      </div>
+    </section>
+
+    <section id="page-liquidity" style="display: none;">
+      <div class="setup-header">
+        <button class="icon-button back-button" id="back-to-relay">
+          <img src="img/back.svg" alt="" />
+        </button>
+        <h2>Manage Node Liquidity</h2>
+      </div>
+
+      <!-- Progress Indicator -->
+      <div class="progress-indicator">
+        <div class="progress-line">
+          <div class="progress-line-fill"></div>
+        </div>
+        <div class="progress-steps">
+          <div class="progress-step">
+            <div class="progress-step-circle step-1-circle" data-step="1">1</div>
+          </div>
+          <div class="progress-step">
+            <div class="progress-step-circle step-2-circle" data-step="2">2</div>
+          </div>
+          <div class="progress-step">
+            <div class="progress-step-circle step-3-circle" data-step="3">3</div>
+          </div>
+          <div class="progress-step">
+            <div class="progress-step-circle step-4-circle" data-step="4">4</div>
+          </div>
+          <div class="progress-step">
+            <div class="progress-step-circle step-5-circle" data-step="5">5</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="setup-description">
+        <p class="header-title">
+          How do you want to manage Lightning channels?
+        </p>
+      </div>
+
+      <div class="setup-content">
+        <div class="radio-option">
+          <input type="radio" id="automate" name="service" />
+          <label for="automate" class="automate">
+            Use automation service
+            <div class="question-box">
+              <button class="icon-button" id="show-question-liquidity">
+                <img src="img/question.svg" />
+              </button>
+            </div>
+            <div class="question-content" id="question-content">
+              Automation helps reduce the fees you pay by trusting peers temporarily, until your node balance is sufficient to open a balanced Lightning channel.
+              <button class="icon-button close-button" id="close-question">
+                <img src="img/close.svg" alt="" />
+              </button>
+              <a href="https://docs.shock.network/" target="_blank" class="marked question-more">Learn more.</a>
+            </div>
+          </label>
+        </div>
+        <div class="radio-option">
+          <input type="radio" id="manual" name="service" />
+          <label for="manual">Manage my channels manually</label>
+        </div>
+        <div class="error-message" id="errorTextLiquidity"></div>
+        <button class="wizard-cta" id="backupBtn">
+          Next
+        </button>
+      </div>
+    </section>
+
+    <section id="page-backup" style="display: none;">
+      <div class="setup-header">
+        <button class="icon-button back-button" id="back-to-liquidity">
+          <img src="img/back.svg" alt="" />
+        </button>
+        <h2>Choose a Recovery Method</h2>
+      </div>
+
+      <!-- Progress Indicator -->
+      <div class="progress-indicator">
+        <div class="progress-line">
+          <div class="progress-line-fill"></div>
+        </div>
+        <div class="progress-steps">
+          <div class="progress-step">
+            <div class="progress-step-circle step-1-circle" data-step="1">1</div>
+          </div>
+          <div class="progress-step">
+            <div class="progress-step-circle step-2-circle" data-step="2">2</div>
+          </div>
+          <div class="progress-step">
+            <div class="progress-step-circle step-3-circle" data-step="3">3</div>
+          </div>
+          <div class="progress-step">
+            <div class="progress-step-circle step-4-circle" data-step="4">4</div>
+          </div>
+          <div class="progress-step">
+            <div class="progress-step-circle step-5-circle" data-step="5">5</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="setup-description">
+        <p class="header-title">
+          <span class="bold">New Node! 🎉</span> It's important to backup your keys.
+        </p>
+      </div>
+
+      <div class="setup-content">
+        <div class="description-box">
+          <p class="description">
+            In addition to your seed phrase, you also need channel details to recover funds should your node experience a hardware failure.
+          </p>
+          <p class="description">
+            It's important always to have the latest version of this file. Fortunately, it's small enough to automatically store on the Nostr relay.
+          </p>
+        </div>
+        <div class="warning-text">
+          If you did not choose the developers relay, be sure your relay has adequate storage policies to hold NIP78 events.
+        </div>
+        <div class="radio-option">
+          <input type="radio" id="backup" name="backup-option" />
+          <label for="backup">Encrypted Backup to Nostr Relay</label>
+        </div>
+        <div class="radio-option">
+          <input type="radio" id="manual-backup" name="backup-option" />
+          <label for="manual-backup">DO NOT store on relay (Manual Backups)</label>
+        </div>
+        <div class="error-message" id="errorTextBackup"></div>
+        <button class="wizard-cta" id="next-button">
+          Finish Setup
+        </button>
+      </div>
+    </section>
+
+    <section id="page-connect" style="display: none;">
+      <div class="setup-header">
+        <button class="icon-button back-button" id="back-to-backup">
+          <img src="img/back.svg" alt="" />
+        </button>
+        <h2>Connect</h2>
+      </div>
+
+      <!-- Progress Indicator -->
+      <div class="progress-indicator">
+        <div class="progress-line">
+          <div class="progress-line-fill"></div>
+        </div>
+        <div class="progress-steps">
+          <div class="progress-step">
+            <div class="progress-step-circle step-1-circle" data-step="1">1</div>
+          </div>
+          <div class="progress-step">
+            <div class="progress-step-circle step-2-circle" data-step="2">2</div>
+          </div>
+          <div class="progress-step">
+            <div class="progress-step-circle step-3-circle" data-step="3">3</div>
+          </div>
+          <div class="progress-step">
+            <div class="progress-step-circle step-4-circle" data-step="4">4</div>
+          </div>
+          <div class="progress-step">
+            <div class="progress-step-circle step-5-circle" data-step="5">5</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="setup-description">
+        <p class="header-title">You can now manage your node remotely</p>
+      </div>
+
+      <div class="setup-content">
+        <p class="connect-instructions">Scan the QR or Copy-Paste the string to establish the connection.</p>
+        <div class="qrcode-container">
+          <div class="qrcode-box" id="codebox" aria-label="Pairing QR and string">
+            <div class="qrcode-header">
+              <p class="qrcode-warning">Code contains a one-time pairing secret</p>
+              <p class="qrcode-reveal-hint" id="click-text">Click to reveal</p>
+            </div>
+            <div class="qrcode-viewport">
+              <div id="qrcode"></div>
+              <div class="qr-veil"><span>Click to reveal</span></div>
+            </div>
+            <div class="qrcode-string">
+              <div id="connectString"></div>
+            </div>
+          </div>
+        </div>
+        <button class="wizard-cta wizard-cta--wide" id="to-status">OK, I've connected my wallet</button>
+      </div>
+    </section>
+
+    <section id="page-status" style="display: none;">
+      <div class="setup-header">
+        <h2 class="status-title">Node Status</h2>
+      </div>
+      <div class="status-line"></div>
+      <section class="node-status">
+        <p id="statusErrorText" style="color:red"></p>
+        <div class="status-content">
+          <div class="status-row">
+            <div class="status-label">Public node name:</div>
+            <div class="status-value-group">
+              <div class="status-value-wrapper">
+                <div class="show-nodey" style="display: none;">
+                  <input type="text" value="" name="show-nodey" placeholder="" />
+                  <div style="display: flex;justify-content: end; gap: 8px; margin-top: 8px;">
+                    <button class="small-btn" id="cancel-show-nodey">Cancel</button>
+                    <button class="small-btn" id="save-show-nodey">Save</button>
+                  </div>
+                </div>
+                <div class="status-value-container">
+                  <button class="status-icon-button" id="show-nodey">
+                    <img src="img/pencil.svg" alt="edit" />
+                  </button>
+                  <span id="show-nodey-text" class="status-value">Nodey McNodeFace</span>
+                  <button class="status-icon-button status-copy-btn" data-copy-target="show-nodey-text">
+                    <img src="img/copy.svg" alt="copy" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="status-row">
+            <div class="status-label">Node avatar:</div>
+            <div class="status-value-group">
+              <div class="status-value-wrapper">
+                <div class="show-avatar" style="display: none;">
+                  <input type="text" value="" name="show-avatar" placeholder="" />
+                  <div style="display: flex;justify-content: end; gap: 8px; margin-top: 8px;">
+                    <button class="small-btn" id="cancel-show-avatar">Cancel</button>
+                    <button class="small-btn" id="save-show-avatar">Save</button>
+                  </div>
+                </div>
+                <div class="status-value-container" id="avatar-display-container">
+                  <button class="status-icon-button" id="show-avatar">
+                    <img src="img/pencil.svg" alt="edit" />
+                  </button>
+                  <span id="avatar-url-text" class="status-value">https://lightning.pub/favicon.png</span>
+                  <img id="avatarImg" src="" alt="avatar" class="avatar-image" />
+                  <button class="status-icon-button status-copy-btn" data-copy-target="avatar-url-text">
+                    <img src="img/copy.svg" alt="copy" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="status-row">
+            <div class="status-label">Nostr relay:</div>
+            <div class="status-value-group">
+              <div class="status-value-wrapper">
+                <div class="show-nostr" style="display: none;">
+                  <input type="text" value="" name="show-nostr" placeholder="wss://relay.lightning.pub" />
+                  <div style="display: flex;justify-content: end; gap: 8px; margin-top: 8px;">
+                    <button class="small-btn" id="cancel-show-nostr">Cancel</button>
+                    <button class="small-btn" id="save-show-nostr">Save</button>
+                  </div>
+                </div>
+                <div class="status-value-container">
+                  <button class="status-icon-button" id="show-nostr">
+                    <img src="img/pencil.svg" alt="edit" />
+                  </button>
+                  <span id="show-nostr-text" class="status-value">wss://relay.lightning.pub</span>
+                  <button class="status-icon-button status-copy-btn" data-copy-target="show-nostr-text">
+                    <img src="img/copy.svg" alt="copy" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="status-row">
+            <div class="status-label">Relay Status:</div>
+            <div class="status-value-group">
+              <div class="status-value-container">
+                <span id="relayStatus" class="status-value">Connected</span>
+                <span class="status-dot status-dot-green"></span>
+              </div>
+            </div>
+          </div>
+          <div class="status-row">
+            <div class="status-label">Admin npub:</div>
+            <div class="status-value-group">
+              <div class="status-value-container">
+                <span id="adminNpub" class="status-value">#</span>
+                <button class="status-icon-button status-copy-btn" data-copy-target="adminNpub">
+                  <img src="img/copy.svg" alt="copy" />
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="status-row">
+            <div class="status-label">Invite link:</div>
+            <div class="status-value-group">
+              <div class="status-value-container">
+                <a href="#" target="_blank" id="inviteLinkHttp" class="status-value status-link">#</a>
+                <button class="status-icon-button status-copy-btn" data-copy-target="inviteLinkHttp">
+                  <img src="img/copy.svg" alt="copy" />
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="status-row">
+            <div class="status-label">Lightning status:</div>
+            <div class="status-value-group">
+              <div class="status-value-container">
+                <span id="lndStatus" class="status-value">Online</span>
+                <span class="status-dot status-dot-orange"></span>
+              </div>
+            </div>
+          </div>
+          <div class="status-row">
+            <div class="status-label">Watchdog status:</div>
+            <div class="status-value-group">
+              <div class="status-value-container">
+                <span id="watchdog-status" class="status-value">Ok</span>
+                <span class="status-dot status-dot-green"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top: 30px; display: flex; justify-content: center;">
+          <button class="wizard-cta" id="edit-settings">Edit</button>
+        </div>
+        <div id="reset-box">
+          <div style="width: 100%;height: 100%;position: relative;">
+            <button class="icon-button close-button" id="close-reset-box">
+              <img src="img/close.svg" alt="">
+            </button>
+            <div class="reset-box-content" id="reset-content"></div>
+            <div class="continue-button-container">
+              <div class="continue-button" id="">Continue</div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <footer>
+  </footer>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
+  <script src="js/wizard.js"></script>
+</body>
+
+</html>
