@@ -17,6 +17,9 @@ export class RootOperation {
     @Column({ default: 0 })
     at_unix: number
 
+    @Column({ default: false })
+    pending: boolean
+
     @CreateDateColumn()
     created_at: Date
 

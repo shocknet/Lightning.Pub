@@ -276,7 +276,7 @@ export class AdminManager {
             this.swaps.PayInvoiceSwap("admin", req.swap_operation_id, req.sat_per_v_byte, async (addr, amt) => {
                 const tx = await this.lnd.PayAddress(addr, amt, req.sat_per_v_byte, "", { useProvider: false, from: 'system' })
                 this.log("paid admin invoice swap", { swapOpId: req.swap_operation_id, txId: tx.txid })
-                await this.storage.metricsStorage.AddRootOperation("chain_payment", tx.txid, amt)
+                await this.storage.metricsStorage.AddRootOperation("chain_payment", tx.txid, amt, true)
 
                 // Fetch the full transaction hex for potential refunds
                 let lockupTxHex: string | undefined

@@ -10,6 +10,7 @@ import { StorageInterface } from "./db/storageInterface.js";
 import { Utils } from "../helpers/utilsWrapper.js";
 import { Channel, ChannelEventUpdate } from "../../../proto/lnd/lightning.js";
 import { ChannelEvent } from "./entity/ChannelEvent.js";
+export type RootOperationType = 'chain' | 'invoice' | 'chain_payment' | 'invoice_payment'
 export default class {
     //DB: DataSource | EntityManager
     settings: StorageSettings
@@ -145,12 +146,23 @@ export default class {
         }
     }
 
-    async AddRootOperation(opType: string, id: string, amount: number, txId?: string) {
-        return this.dbs.CreateAndSave<RootOperation>('RootOperation', { operation_type: opType, operation_amount: amount, operation_identifier: id, at_unix: Math.floor(Date.now() / 1000) }, txId)
+    async AddRootOperation(opType: RootOperationType, id: string, amount: number, pending = false, dbTxId?: string) {
+        return this.dbs.CreateAndSave<RootOperation>('RootOperation', {
+            operation_type: opType, operation_amount: amount,
+            operation_identifier: id, at_unix: Math.floor(Date.now() / 1000), pending
+        }, dbTxId)
     }
 
-    async GetRootOperation(opType: string, id: string, txId?: string) {
+    async GetRootOperation(opType: RootOperationType, id: string, txId?: string) {
         return this.dbs.FindOne<RootOperation>('RootOperation', { where: { operation_type: opType, operation_identifier: id } }, txId)
+    }
+
+    async GetPendingChainPayments() {
+        return this.dbs.Find<RootOperation>('RootOperation', { where: { operation_type: 'chain_payment', pending: true } })
+    }
+
+    async SetRootOpConfirmed(serialId: number) {
+        return this.dbs.Update<RootOperation>('RootOperation', serialId, { pending: false })
     }
 
     async GetRootOperations({ from, to }: { from?: number, to?: number }, txId?: string) {
