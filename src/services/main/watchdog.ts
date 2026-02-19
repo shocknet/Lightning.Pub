@@ -98,12 +98,17 @@ export class Watchdog {
         let pendingChange = 0
         const pendingChainPayments = await this.storage.metricsStorage.GetPendingChainPayments()
         for (const payment of pendingChainPayments) {
-            const tx = await this.lnd.GetTx(payment.operation_identifier)
-            if (tx.numConfirmations > 0) {
-                await this.storage.metricsStorage.SetRootOpConfirmed(payment.serial_id)
-                continue
+            try {
+                const tx = await this.lnd.GetTx(payment.operation_identifier)
+                if (tx.numConfirmations > 0) {
+                    await this.storage.metricsStorage.SetRootOpConfirmed(payment.serial_id)
+                    continue
+                }
+                tx.outputDetails.forEach(o => pendingChange += o.isOurAddress ? Number(o.amount) : 0)
+            } catch (err: any) {
+                this.log("Error getting tx for root operation", err.message || err)
             }
-            tx.outputDetails.forEach(o => pendingChange += o.isOurAddress ? Number(o.amount) : 0)
+
         }
         let newReceived = 0
         let newSpent = 0
