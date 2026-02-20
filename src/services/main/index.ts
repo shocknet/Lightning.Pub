@@ -171,7 +171,7 @@ export default class {
             if (!skipMetrics) {
                 await this.metricsManager.NewBlockCb(height, balanceEvents)
             }
-            confirmed = await this.paymentManager.CheckNewlyConfirmedTxs(height)
+            confirmed = await this.paymentManager.CheckNewlyConfirmedTxs()
             await this.liquidityManager.onNewBlock()
         } catch (err: any) {
             log(ERROR, "failed to check transactions after new block", err.message || err)
