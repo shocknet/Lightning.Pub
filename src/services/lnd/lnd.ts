@@ -15,7 +15,7 @@ import { AddInvoiceReq } from './addInvoiceReq.js';
 import { PayInvoiceReq } from './payInvoiceReq.js';
 import { SendCoinsReq } from './sendCoinsReq.js';
 import { AddressPaidCb, InvoicePaidCb, NodeInfo, Invoice, DecodedInvoice, PaidInvoice, NewBlockCb, HtlcCb, BalanceInfo, ChannelEventCb } from './settings.js';
-import { ERROR, getLogger } from '../helpers/logger.js';
+import { ERROR, getLogger, DEBUG, INFO } from '../helpers/logger.js';
 import { HtlcEvent_EventType } from '../../../proto/lnd/router.js';
 import { LiquidityProvider } from '../main/liquidityProvider.js';
 import { Utils } from '../helpers/utilsWrapper.js';
@@ -69,7 +69,7 @@ export default class {
 
         // Skip LND client initialization if using only liquidity provider
         if (liquidProvider.getSettings().useOnlyLiquidityProvider) {
-            this.log("USE_ONLY_LIQUIDITY_PROVIDER enabled, skipping LND client initialization")
+            this.log(INFO, "USE_ONLY_LIQUIDITY_PROVIDER enabled, skipping LND client initialization")
             // Create minimal dummy clients - they won't be used but prevent null reference errors
             // Use insecure credentials directly (can't combine them)
             const { lndAddr } = this.getSettings().lndNodeSettings
@@ -126,14 +126,13 @@ export default class {
     }
 
     async Warmup() {
-        this.log("Warming up LND")
+        this.log(INFO, "Warming up LND")
         // Skip LND warmup if using only liquidity provider
         if (this.liquidProvider.getSettings().useOnlyLiquidityProvider) {
-            this.log("USE_ONLY_LIQUIDITY_PROVIDER enabled, skipping LND warmup")
+            this.log(INFO, "USE_ONLY_LIQUIDITY_PROVIDER enabled, skipping LND warmup")
             this.ready = true
             return
         }
-        // console.log("Warming up LND")
         this.SubscribeAddressPaid()
         this.SubscribeInvoicePaid()
         await this.SubscribeNewBlock()
@@ -148,7 +147,7 @@ export default class {
                     this.ready = true
                     res()
                 } catch (err) {
-                    this.log("LND is not ready yet, will try again in 1 second")
+                    this.log(INFO, "LND is not ready yet, will try again in 1 second")
                     if (Date.now() - now > 1000 * 60) {
                         rej(new Error("LND not ready after 1 minute"))
                     }
@@ -177,28 +176,26 @@ export default class {
                 uris: []
             }
         }
-        // console.log("Getting info")
         const res = await this.lightning.getInfo({}, DeadLineMetadata())
         return res.response
     }
     async ListPendingChannels(): Promise<PendingChannelsResponse> {
-        this.log("Listing pending channels")
+        this.log(DEBUG, "Listing pending channels")
         if (this.liquidProvider.getSettings().useOnlyLiquidityProvider) {
             return { pendingOpenChannels: [], pendingClosingChannels: [], pendingForceClosingChannels: [], waitingCloseChannels: [], totalLimboBalance: 0n }
         }
-        // console.log("Listing pending channels")
         const res = await this.lightning.pendingChannels({ includeRawTx: false }, DeadLineMetadata())
         return res.response
     }
     async ListChannels(peerLookup = false): Promise<ListChannelsResponse> {
-        this.log("Listing channels")
+        this.log(DEBUG, "Listing channels")
         const res = await this.lightning.listChannels({
             activeOnly: false, inactiveOnly: false, privateOnly: false, publicOnly: false, peer: Buffer.alloc(0), peerAliasLookup: peerLookup
         }, DeadLineMetadata())
         return res.response
     }
     async ListClosedChannels(): Promise<ClosedChannelsResponse> {
-        this.log("Listing closed channels")
+        this.log(DEBUG, "Listing closed channels")
         const res = await this.lightning.closedChannels({
             abandoned: true,
             breach: true,
@@ -215,7 +212,6 @@ export default class {
         if (this.liquidProvider.getSettings().useOnlyLiquidityProvider) {
             return
         }
-        // console.log("Checking health")
         if (!this.ready) {
             throw new Error("not ready")
         }
@@ -226,69 +222,69 @@ export default class {
     }
 
     RestartStreams() {
-        this.log("Restarting streams")
+        this.log(INFO, "Restarting streams")
         if (!this.ready || this.abortController.signal.aborted) {
             return
         }
-        this.log("LND is dead, will try to reconnect in", deadLndRetrySeconds, "seconds")
+        this.log(INFO, "LND is dead, will try to reconnect in", deadLndRetrySeconds, "seconds")
         const interval = setInterval(async () => {
             try {
                 await this.unlockLnd()
-                this.log("LND is back online")
+                this.log(INFO, "LND is back online")
                 clearInterval(interval)
                 await this.Warmup()
             } catch (err) {
-                this.log("LND still dead, will try again in", deadLndRetrySeconds, "seconds")
+                this.log(INFO, "LND still dead, will try again in", deadLndRetrySeconds, "seconds")
             }
         }, deadLndRetrySeconds * 1000)
     }
 
     async SubscribeChannelEvents() {
-        this.log("Subscribing to channel events")
+        this.log(DEBUG, "Subscribing to channel events")
         const stream = this.lightning.subscribeChannelEvents({}, { abort: this.abortController.signal })
         stream.responses.onMessage(async channel => {
             const channels = await this.ListChannels()
             this.channelEventCb(channel, channels.channels)
         })
         stream.responses.onError(error => {
-            this.log("Error with subscribeChannelEvents stream")
+            this.log(ERROR, "Error with subscribeChannelEvents stream")
         })
         stream.responses.onComplete(() => {
-            this.log("subscribeChannelEvents stream closed")
+            this.log(INFO, "subscribeChannelEvents stream closed")
         })
     }
 
     async SubscribeHtlcEvents() {
-        this.log("Subscribing to htlc events")
+        this.log(DEBUG, "Subscribing to htlc events")
         const stream = this.router.subscribeHtlcEvents({}, { abort: this.abortController.signal })
         stream.responses.onMessage(htlc => {
             this.htlcCb(htlc)
         })
         stream.responses.onError(error => {
-            this.log("Error with subscribeHtlcEvents stream")
+            this.log(ERROR, "Error with subscribeHtlcEvents stream")
         })
         stream.responses.onComplete(() => {
-            this.log("subscribeHtlcEvents stream closed")
+            this.log(INFO, "subscribeHtlcEvents stream closed")
         })
     }
 
     async SubscribeNewBlock() {
-        this.log("Subscribing to new block")
+        this.log(DEBUG, "Subscribing to new block")
         const { blockHeight } = await this.GetInfo()
         const stream = this.chainNotifier.registerBlockEpochNtfn({ height: blockHeight, hash: Buffer.alloc(0) }, { abort: this.abortController.signal })
         stream.responses.onMessage(block => {
             this.newBlockCb(block.height)
         })
         stream.responses.onError(error => {
-            this.log("Error with new block stream")
+            this.log(ERROR, "Error with new block stream")
         })
         stream.responses.onComplete(() => {
-            this.log("new block stream closed")
+            this.log(INFO, "new block stream closed")
         })
     }
 
     SubscribeAddressPaid(): void {
-        this.log("Subscribing to address paid")
+        this.log(DEBUG, "Subscribing to address paid")
         const stream = this.lightning.subscribeTransactions({
             account: "",
             endHeight: 0,
@@ -307,15 +303,15 @@ export default class {
             }
         })
         stream.responses.onError(error => {
-            this.log("Error with onchain tx stream")
+            this.log(ERROR, "Error with onchain tx stream")
         })
         stream.responses.onComplete(() => {
-            this.log("onchain tx stream closed")
+            this.log(INFO, "onchain tx stream closed")
         })
     }
 
     SubscribeInvoicePaid(): void {
-        this.log("Subscribing to invoice paid")
+        this.log(DEBUG, "Subscribing to invoice paid")
         const stream = this.lightning.subscribeInvoices({
             settleIndex: BigInt(this.latestKnownSettleIndex),
             addIndex: 0n,
@@ -328,14 +324,14 @@ export default class {
         })
         let restarted = false
         stream.responses.onError(error => {
-            this.log("Error with invoice stream")
+            this.log(ERROR, "Error with invoice stream")
             if (!restarted) {
                 restarted = true
                 this.RestartStreams()
             }
         })
         stream.responses.onComplete(() => {
-            this.log("invoice stream closed")
+            this.log(INFO, "invoice stream closed")
             if (!restarted) {
                 restarted = true
                 this.RestartStreams()
@@ -357,7 +353,7 @@ export default class {
     }
 
     async ListAddresses(): Promise<LndAddress[]> {
-        this.log("Listing addresses")
+        this.log(DEBUG, "Listing addresses")
         const res = await this.walletKit.listAddresses({ accountName: "", showCustomAccounts: false }, DeadLineMetadata())
         const addresses = res.response.accountWithAddresses.map(a => a.addresses.map(a => ({ address: a.address, change: a.isInternal }))).flat()
         addresses.forEach(a => this.addressesCache[a.address] = { isChange: a.change })
@@ -365,12 +361,11 @@ export default class {
     }
 
     async NewAddress(addressType: Types.AddressType, { useProvider, from }: TxActionOptions): Promise<NewAddressResponse> {
-        this.log("Creating new address")
+        this.log(DEBUG, "Creating new address")
         // Force use of provider when bypass is enabled (addresses not supported by provider, but we should fail gracefully)
         if (this.liquidProvider.getSettings().useOnlyLiquidityProvider) {
             throw new Error("Address generation not supported when USE_ONLY_LIQUIDITY_PROVIDER is enabled")
         }
-        //  console.log("Creating new address")
         let lndAddressType: AddressType
         switch (addressType) {
             case Types.AddressType.NESTED_PUBKEY_HASH:
@@ -400,11 +395,11 @@ export default class {
     }
 
     async NewInvoice(value: number, memo: string, expiry: number, { useProvider, from }: TxActionOptions, blind = false): Promise<Invoice> {
-        this.log("Creating new invoice")
+        this.log(DEBUG, "Creating new invoice")
         // Force use of provider when bypass is enabled
         const mustUseProvider = this.liquidProvider.getSettings().useOnlyLiquidityProvider || useProvider
         if (mustUseProvider) {
-            console.log("using provider")
+            this.log(INFO, "using provider")
             const invoice = await this.liquidProvider.AddInvoice(value, memo, from, expiry)
             const providerPubkey = this.liquidProvider.GetProviderPubkey()
             return { payRequest: invoice, providerPubkey }
@@ -420,7 +415,7 @@ export default class {
     }
 
     async DecodeInvoice(paymentRequest: string): Promise<DecodedInvoice> {
-        this.log("Decoding invoice")
+        this.log(DEBUG, "Decoding invoice")
         if (this.liquidProvider.getSettings().useOnlyLiquidityProvider) {
             // Use light-bolt11-decoder when LND is bypassed
             try {
@@ -446,25 +441,23 @@ export default class {
                 throw new Error(`Failed to decode invoice: ${err.message}`)
             }
         }
-        // console.log("Decoding invoice")
         const res = await this.lightning.decodePayReq({ payReq: paymentRequest }, DeadLineMetadata())
         return { numSatoshis: Number(res.response.numSatoshis), paymentHash: res.response.paymentHash }
     }
 
     async ChannelBalance(): Promise<{ local: number, remote: number }> {
-        this.log("Getting channel balance")
+        this.log(DEBUG, "Getting channel balance")
         if (this.liquidProvider.getSettings().useOnlyLiquidityProvider) {
             return { local: 0, remote: 0 }
         }
-        // console.log("Getting channel balance")
         const res = await this.lightning.channelBalance({})
         const r = res.response
         return { local: r.localBalance ? Number(r.localBalance.sat) : 0, remote: r.remoteBalance ? Number(r.remoteBalance.sat) : 0 }
     }
     async PayInvoice(invoice: string, amount: number, { routingFeeLimit, serviceFee }: { routingFeeLimit: number, serviceFee: number }, decodedAmount: number, { useProvider, from }: TxActionOptions, paymentIndexCb?: (index: number) => void): Promise<PaidInvoice> {
-        this.log("Paying invoice")
+        this.log(DEBUG, "Paying invoice")
         if (this.outgoingOpsLocked) {
-            this.log("outgoing ops locked, rejecting payment request")
+            this.log(ERROR, "outgoing ops locked, rejecting payment request")
             throw new Error("lnd node is currently out of sync")
         }
         // Force use of provider when bypass is enabled
@@ -481,7 +474,7 @@ export default class {
             const stream = this.router.sendPaymentV2(req, { abort: abortController.signal })
             return new Promise((res, rej) => {
                 stream.responses.onError(error => {
-                    this.log("invoice payment failed", error)
+                    this.log(ERROR, "invoice payment failed", error)
                     rej(error)
                 })
                 let indexSent = false
@@ -493,7 +486,7 @@ export default class {
                     }
                     switch (payment.status) {
                         case Payment_PaymentStatus.FAILED:
-                            this.log("invoice payment failed", payment.failureReason)
+                            this.log(ERROR, "invoice payment failed", payment.failureReason)
                             rej(PaymentFailureReason[payment.failureReason])
                             return
                         case Payment_PaymentStatus.SUCCEEDED:
@@ -511,7 +504,7 @@ export default class {
     }
 
     async EstimateChainFees(address: string, amount: number, targetConf: number): Promise<EstimateFeeResponse> {
-        this.log("Estimating chain fees")
+        this.log(DEBUG, "Estimating chain fees")
         await this.Health()
         const res = await this.lightning.estimateFee({
             addrToAmount: { [address]: BigInt(amount) },
@@ -524,14 +517,13 @@ export default class {
     }
 
     async PayAddress(address: string, amount: number, satPerVByte: number, label = "", { useProvider, from }: TxActionOptions): Promise<SendCoinsResponse> {
-        this.log("Paying address")
+        this.log(DEBUG, "Paying address")
         // Address payments not supported when bypass is enabled
         if (this.liquidProvider.getSettings().useOnlyLiquidityProvider) {
             throw new Error("Address payments not supported when USE_ONLY_LIQUIDITY_PROVIDER is enabled")
         }
-        // console.log("Paying address")
         if (this.outgoingOpsLocked) {
-            this.log("outgoing ops locked, rejecting payment request")
+            this.log(ERROR, "outgoing ops locked, rejecting payment request")
             throw new Error("lnd node is currently out of sync")
         }
         if (useProvider) {
@@ -549,19 +541,19 @@ export default class {
     }
 
     async GetTransactions(startHeight: number): Promise<TransactionDetails> {
-        this.log("Getting transactions")
+        this.log(DEBUG, "Getting transactions")
         const res = await this.lightning.getTransactions({ startHeight, endHeight: 0, account: "" }, DeadLineMetadata())
         return res.response
     }
 
     async GetChannelInfo(chanId: string) {
-        this.log("Getting channel info")
+        this.log(DEBUG, "Getting channel info")
         const res = await this.lightning.getChanInfo({ chanId, chanPoint: "" }, DeadLineMetadata())
         return res.response
     }
 
     async UpdateChannelPolicy(chanPoint: string, policy: Types.ChannelPolicy) {
-        this.log("Updating channel policy")
+        this.log(DEBUG, "Updating channel policy")
         const split = chanPoint.split(':')
 
         const res = await this.lightning.updateChannelPolicy({
@@ -579,19 +571,19 @@ export default class {
     }
 
     async GetChannelBalance() {
-        this.log("Getting channel balance")
+        this.log(DEBUG, "Getting channel balance")
         const res = await this.lightning.channelBalance({}, DeadLineMetadata())
         return res.response
     }
 
     async GetWalletBalance() {
-        this.log("Getting wallet balance")
+        this.log(DEBUG, "Getting wallet balance")
         const res = await this.lightning.walletBalance({ account: "", minConfs: 1 }, DeadLineMetadata())
         return res.response
     }
 
     async GetTotalBalace() {
-        this.log("Getting total balance")
+        this.log(DEBUG, "Getting total balance")
         const walletBalance = await this.GetWalletBalance()
         const confirmedWalletBalance = Number(walletBalance.confirmedBalance)
         this.utils.stateBundler.AddBalancePoint('walletBalance', confirmedWalletBalance)
@@ -606,11 +598,10 @@ export default class {
     }
 
     async GetBalance(): Promise<BalanceInfo> { // TODO: remove this
-        this.log("Getting balance")
+        this.log(DEBUG, "Getting balance")
         if (this.liquidProvider.getSettings().useOnlyLiquidityProvider) {
             return { confirmedBalance: 0, unconfirmedBalance: 0, totalBalance: 0, channelsBalance: [] }
         }
-        //      console.log("Getting balance")
         const wRes = await this.lightning.walletBalance({ account: "", minConfs: 1 }, DeadLineMetadata())
         const { confirmedBalance, unconfirmedBalance, totalBalance } = wRes.response
         const { response } = await this.lightning.listChannels({
@@ -626,36 +617,33 @@ export default class {
     }
 
     async GetForwardingHistory(indexOffset: number, startTime = 0, endTime = 0): Promise<ForwardingHistoryResponse> {
-        this.log("Getting forwarding history")
+        this.log(DEBUG, "Getting forwarding history")
         if (this.liquidProvider.getSettings().useOnlyLiquidityProvider) {
             return { forwardingEvents: [], lastOffsetIndex: indexOffset }
         }
-        // console.log("Getting forwarding history")
         const { response } = await this.lightning.forwardingHistory({ indexOffset, numMaxEvents: 0, startTime: BigInt(startTime), endTime: BigInt(endTime), peerAliasLookup: false }, DeadLineMetadata())
         return response
     }
 
     async GetAllPaidInvoices(max: number) {
-        this.log("Getting all paid invoices")
+        this.log(DEBUG, "Getting all paid invoices")
         if (this.liquidProvider.getSettings().useOnlyLiquidityProvider) {
             return { invoices: [] }
         }
-        // console.log("Getting all paid invoices")
         const res = await this.lightning.listInvoices({ indexOffset: 0n, numMaxInvoices: BigInt(max), pendingOnly: false, reversed: true, creationDateEnd: 0n, creationDateStart: 0n }, DeadLineMetadata())
         return res.response
     }
     async GetAllPayments(max: number) {
-        this.log("Getting all payments")
+        this.log(DEBUG, "Getting all payments")
         if (this.liquidProvider.getSettings().useOnlyLiquidityProvider) {
             return { payments: [] }
         }
-        // console.log("Getting all payments")
         const res = await this.lightning.listPayments({ countTotalPayments: false, includeIncomplete: false, indexOffset: 0n, maxPayments: BigInt(max), reversed: true, creationDateEnd: 0n, creationDateStart: 0n })
         return res.response
     }
 
     async GetPayment(paymentIndex: number) {
-        this.log("Getting payment")
+        this.log(DEBUG, "Getting payment")
         if (paymentIndex === 0) {
             throw new Error("payment index starts from 1")
         }
@@ -667,11 +655,10 @@ export default class {
     }
 
     async GetLatestPaymentIndex(from = 0) {
-        this.log("Getting latest payment index")
+        this.log(DEBUG, "Getting latest payment index")
         if (this.liquidProvider.getSettings().useOnlyLiquidityProvider) {
             return from
         }
-        // console.log("Getting latest payment index")
         let indexOffset = BigInt(from)
         while (true) {
             const res = await this.lightning.listPayments({ countTotalPayments: false, includeIncomplete: false, indexOffset, maxPayments: 0n, reversed: false, creationDateEnd: 0n, creationDateStart: 0n }, DeadLineMetadata())
@@ -683,7 +670,7 @@ export default class {
     }
 
     async ConnectPeer(addr: { pubkey: string, host: string }) {
-        this.log("Connecting to peer")
+        this.log(DEBUG, "Connecting to peer")
         const res = await this.lightning.connectPeer({
             addr,
             perm: true,
@@ -693,7 +680,7 @@ export default class {
     }
 
     async GetPaymentFromHash(paymentHash: string): Promise<Payment | null> {
-        this.log("Getting payment from hash")
+        this.log(DEBUG, "Getting payment from hash")
         const abortController = new AbortController()
         const stream = this.router.trackPaymentV2({
             paymentHash: Buffer.from(paymentHash, 'hex'),
@@ -720,7 +707,7 @@ export default class {
     }
 
     async AddPeer(pub: string, host: string, port: number) {
-        this.log("Adding peer")
+        this.log(DEBUG, "Adding peer")
         const res = await this.lightning.connectPeer({
             addr: {
                 pubkey: pub,
@@ -733,19 +720,19 @@ export default class {
     }
 
     async ListPeers() {
-        this.log("Listing peers")
+        this.log(DEBUG, "Listing peers")
         const res = await this.lightning.listPeers({ latestError: true }, DeadLineMetadata())
         return res.response
     }
 
     async OpenChannel(destination: string, closeAddress: string, fundingAmount: number, pushSats: number, satsPerVByte: number): Promise<OpenStatusUpdate> {
-        this.log("Opening channel")
+        this.log(DEBUG, "Opening channel")
         const abortController = new AbortController()
         const req = OpenChannelReq(destination, closeAddress, fundingAmount, pushSats, satsPerVByte)
         const stream = this.lightning.openChannel(req, { abort: abortController.signal })
         return new Promise((res, rej) => {
             stream.responses.onMessage(message => {
-                console.log("message", message)
+                this.log(DEBUG, "open channel message", message)
                 switch (message.update.oneofKind) {
                     case 'chanPending':
                         res(message)
@@ -753,14 +740,14 @@ export default class {
                 }
             })
             stream.responses.onError(error => {
-                console.log("error", error)
+                this.log(ERROR, "open channel error", error)
                 rej(error)
             })
         })
     }
 
     async CloseChannel(fundingTx: string, outputIndex: number, force: boolean, satPerVByte: number): Promise<PendingUpdate> {
-        this.log("Closing channel")
+        this.log(DEBUG, "Closing channel")
         const stream = this.lightning.closeChannel({
             deliveryAddress: "",
             force: force,
@@ -779,7 +766,7 @@ export default class {
         }, DeadLineMetadata())
         return new Promise((res, rej) => {
             stream.responses.onMessage(message => {
-                console.log("message", message)
+                this.log(DEBUG, "close channel message", message)
                 switch (message.update.oneofKind) {
                     case 'closePending':
                         res(message.update.closePending)
@@ -787,7 +774,7 @@ export default class {
                 }
             })
             stream.responses.onError(error => {
-                console.log("error", error)
+                this.log(ERROR, "close channel error", error)
                 rej(error)
             })
         })
