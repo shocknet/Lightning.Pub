@@ -1,17 +1,17 @@
 import fs from 'fs'
 export const DEBUG = Symbol("DEBUG")
 export const ERROR = Symbol("ERROR")
-export const WARN = Symbol("WARN")
+export const INFO = Symbol("INFO")
 type LoggerParams = { appName?: string, userId?: string, component?: string }
 export type PubLogger = (...message: (string | number | object | symbol)[]) => void
 type Writer = (message: string) => void
 const logsDir = process.env.LOGS_DIR || "logs"
-const logLevel = process.env.LOG_LEVEL || "DEBUG"
+const logLevel = process.env.LOG_LEVEL || "INFO"
 try {
     fs.mkdirSync(logsDir)
 } catch { }
-if (logLevel !== "DEBUG" && logLevel !== "WARN" && logLevel !== "ERROR") {
-    throw new Error("Invalid log level " + logLevel + " must be one of (DEBUG, WARN, ERROR)")
+if (logLevel !== "DEBUG" && logLevel !== "INFO" && logLevel !== "ERROR") {
+    throw new Error("Invalid log level " + logLevel + " must be one of (DEBUG, INFO, ERROR)")
 }
 const z = (n: number) => n < 10 ? `0${n}` : `${n}`
 // Sanitize filename to remove invalid characters for filesystem
@@ -67,19 +67,17 @@ export const getLogger = (params: LoggerParams): PubLogger => {
                 }
                 message[0] = "DEBUG"
                 break;
-            case WARN:
+            case INFO:
                 if (logLevel === "ERROR") {
                     return
                 }
-                message[0] = "WARN"
+                message[0] = "INFO"
                 break;
             case ERROR:
                 message[0] = "ERROR"
                 break;
             default:
-                if (logLevel !== "DEBUG") {
-                    return
-                }
+            // treats logs without a level as ERROR level, without prefix so it can be found and fixed if needed
         }
         const now = new Date()
         const timestamp = `${now.getFullYear()}-${z(now.getMonth() + 1)}-${z(now.getDate())} ${z(now.getHours())}:${z(now.getMinutes())}:${z(now.getSeconds())}`
