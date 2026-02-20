@@ -201,21 +201,8 @@ export default class {
             } else {
                 log("no missed chain transactions found")
             }
-            await this.reprocessStuckPendingTx(log, currentHeight)
         } catch (err: any) {
             log(ERROR, "failed to check for missed chain transactions:", err.message || err)
-        }
-    }
-
-    reprocessStuckPendingTx = async (log: PubLogger, currentHeight: number) => {
-        const { incoming } = await this.storage.paymentStorage.GetPendingTransactions()
-        const found = incoming.find(t => t.broadcast_height < currentHeight - 100)
-        if (found) {
-            log("found a possibly stuck pending transaction, reprocessing with full transaction history")
-            // There is a pending transaction more than 100 blocks old, this is likely a transaction
-            // that has a broadcast height higher than it actually is, so its not getting picked up when being processed
-            // by calling new block cb with height of 1, we make sure that even if the transaction has a newer height, it will still be processed
-            await this.newBlockCb(1, true)
         }
     }
 
@@ -273,7 +260,7 @@ export default class {
     private async processRootAddressOutput(output: OutputDetail, tx: Transaction, addresses: LndAddress[], log: PubLogger): Promise<boolean> {
         const addr = addresses.find(a => a.address === output.address)
         if (!addr) {
-            throw new Error(`address ${output.address} not found in list of addresses`)
+            throw new Error(`root address ${output.address} not found in list of addresses`)
         }
         if (addr.change) {
             log(`ignoring change address ${output.address}`)
@@ -976,30 +963,38 @@ export default class {
         return { amount: payment.paid_amount, fees: payment.service_fees }
     }
 
-    async CheckNewlyConfirmedTxs(height: number) {
+    private async getTxConfs(txHash: string): Promise<number> {
+        try {
+            const info = await this.lnd.GetTx(txHash)
+            const { numConfirmations: confs, amount: amt } = info
+            if (confs > 2 || (amt <= confInTwo && confs > 1) || (amt <= confInOne && confs > 0)) {
+                return confs
+            }
+        } catch (err: any) {
+            getLogger({})("failed to get tx info", err.message || err)
+        }
+        return 0
+    }
+
+    async CheckNewlyConfirmedTxs() {
         const pending = await this.storage.paymentStorage.GetPendingTransactions()
-        let lowestHeight = height
-        const map: Record<string, PendingTx> = {}
         let log = getLogger({})
         log("CheckNewlyConfirmedTxs ", pending.incoming.length, "incoming", pending.outgoing.length, "outgoing")
-        const checkTx = (t: PendingTx) => {
-            if (t.tx.broadcast_height < lowestHeight) { lowestHeight = t.tx.broadcast_height }
-            map[t.tx.tx_hash] = t
+        const confirmedIncoming: (PendingTx & { confs: number })[] = []
+        const confirmedOutgoing: (PendingTx & { confs: number })[] = []
+        for (const tx of pending.incoming) {
+            const confs = await this.getTxConfs(tx.tx_hash)
+            if (confs > 0) {
+                confirmedIncoming.push({ type: "incoming", tx: tx, confs })
+            }
         }
-        pending.incoming.forEach(t => checkTx({ type: "incoming", tx: t }))
-        pending.outgoing.forEach(t => checkTx({ type: "outgoing", tx: t }))
-        const { transactions } = await this.lnd.GetTransactions(lowestHeight)
-        const newlyConfirmedTxs = transactions.map(tx => {
-            const { txHash, numConfirmations: confs, amount: amt } = tx
-            const t = map[txHash]
-            if (!t || confs === 0) {
-                return
+        for (const tx of pending.outgoing) {
+            const confs = await this.getTxConfs(tx.tx_hash)
+            if (confs > 0) {
+                confirmedOutgoing.push({ type: "outgoing", tx: tx, confs })
             }
-            if (confs > 2 || (amt <= confInTwo && confs > 1) || (amt <= confInOne && confs > 0)) {
-                return { ...t, confs }
-            }
-        })
-        return newlyConfirmedTxs.filter(t => t !== undefined) as (PendingTx & { confs: number })[]
+        }
+        return confirmedIncoming.concat(confirmedOutgoing)
     }
 
     async CleanupOldUnpaidInvoices() {
