@@ -424,13 +424,36 @@ export default class {
         if (devices.length === 0 || !app.nostr_public_key || !app.nostr_private_key || !appUser.nostr_public_key) {
             return
         }
+
         const tokens = devices.map(d => d.firebase_messaging_token)
         const ck = nip44.getConversationKey(Buffer.from(app.nostr_private_key, 'hex'), appUser.nostr_public_key)
-        const j = JSON.stringify(op)
+
+        let payloadToEncrypt: Types.PushNotificationPayload;
+        if (op.inbound) {
+            payloadToEncrypt = {
+                data: {
+                    type: Types.PushNotificationPayload_data_type.RECEIVED_OPERATION,
+                    received_operation: op
+                }
+            }
+        } else {
+            payloadToEncrypt = {
+                data: {
+                    type: Types.PushNotificationPayload_data_type.SENT_OPERATION,
+                    sent_operation: op
+                }
+            }
+        }
+        const j = JSON.stringify(payloadToEncrypt)
         const encrypted = nip44.encrypt(j, ck)
-        const encryptedData: { encrypted: string, app_npub_hex: string } = { encrypted, app_npub_hex: app.nostr_public_key }
+
+        const envelope: Types.PushNotificationEnvelope = {
+            topic_id: appUser.topic_id,
+            app_npub_hex: app.nostr_public_key,
+            encrypted_payload: encrypted
+        }
         const notification: ShockPushNotification = {
-            message: JSON.stringify(encryptedData),
+            message: JSON.stringify(envelope),
             body,
             title
         }

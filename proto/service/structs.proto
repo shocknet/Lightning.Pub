@@ -541,6 +541,7 @@ message UserInfo{
     string callback_url = 10;
     string bridge_url = 11;
     string nmanage = 12;
+    string topic_id = 13;
 }
 
 
@@ -935,4 +936,19 @@ message BeaconData {
     optional string avatarUrl = 3;
     optional string nextRelay = 4;
     optional CumulativeFees fees = 5;
+}
+
+
+message PushNotificationEnvelope {
+  string topic_id = 1;
+  string app_npub_hex = 2;
+  string encrypted_payload = 3; // encrypted PushNotificationPayload
+}
+
+
+message PushNotificationPayload {
+  oneof data {
+    UserOperation received_operation = 1;
+    UserOperation sent_operation = 2;
+  }
 }

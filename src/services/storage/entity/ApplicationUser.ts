@@ -26,6 +26,9 @@ export class ApplicationUser {
     @Column({ default: "" })
     callback_url: string
 
+    @Column({ unique: true })
+    topic_id: string;
+
     @CreateDateColumn()
     created_at: Date
 
