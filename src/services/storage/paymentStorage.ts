@@ -473,19 +473,30 @@ export default class {
         return this.dbs.FindOne<TransactionSwap>('TransactionSwap', { where: { swap_operation_id: swapOperationId, used: false, app_user_id: appUserId } }, txId)
     }
 
+    async SetTransactionSwapPaid(swapOperationId: string, txId?: string) {
+        const now = Math.floor(Date.now() / 1000)
+        return this.dbs.Update<TransactionSwap>('TransactionSwap', { swap_operation_id: swapOperationId }, {
+            paid_at_unix: now,
+        }, txId)
+    }
+
     async FinalizeTransactionSwap(swapOperationId: string, address: string, chainTxId: string, txId?: string) {
+        const now = Math.floor(Date.now() / 1000)
         return this.dbs.Update<TransactionSwap>('TransactionSwap', { swap_operation_id: swapOperationId }, {
             used: true,
             tx_id: chainTxId,
             address_paid: address,
+            completed_at_unix: now,
         }, txId)
     }
 
     async FailTransactionSwap(swapOperationId: string, address: string, failureReason: string, txId?: string) {
+        const now = Math.floor(Date.now() / 1000)
         return this.dbs.Update<TransactionSwap>('TransactionSwap', { swap_operation_id: swapOperationId }, {
             used: true,
             failure_reason: failureReason,
             address_paid: address,
+            completed_at_unix: now,
         }, txId)
     }
 

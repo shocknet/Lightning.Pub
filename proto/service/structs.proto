@@ -902,6 +902,10 @@ message TransactionSwapQuote {
     int64 chain_fee_sats = 5;
     int64 service_fee_sats = 7;
     string service_url = 8;
+
+    int64 expires_at_block_height = 9;
+    int64 paid_at_unix = 10;
+    int64 completed_at_unix = 11;
 }
 
 message TransactionSwapQuoteList {
@@ -914,15 +918,15 @@ message AdminTxSwapResponse {
 }
 
 message TxSwapOperation {
-    string swap_operation_id = 1;
+    TransactionSwapQuote quote = 1;
     optional UserOperation operation_payment = 2;
     optional string failure_reason = 3;
-    string address_paid = 4;
+    optional string address_paid = 4;
+    optional string tx_id = 5;
 }
 
 message TxSwapsList {
     repeated TxSwapOperation swaps = 1;
-    repeated TransactionSwapQuote quotes = 2;
 }
 
 message CumulativeFees {

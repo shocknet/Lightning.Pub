@@ -717,7 +717,10 @@ type SingleMetricReq struct {
 }
 type TransactionSwapQuote struct {
 	Chain_fee_sats          int64  `json:"chain_fee_sats"`
+	Completed_at_unix       int64  `json:"completed_at_unix"`
+	Expires_at_block_height int64  `json:"expires_at_block_height"`
 	Invoice_amount_sats     int64  `json:"invoice_amount_sats"`
+	Paid_at_unix            int64  `json:"paid_at_unix"`
 	Service_fee_sats        int64  `json:"service_fee_sats"`
 	Service_url             string `json:"service_url"`
 	Swap_fee_sats           int64  `json:"swap_fee_sats"`
@@ -731,14 +734,14 @@ type TransactionSwapRequest struct {
 	Transaction_amount_sats int64 `json:"transaction_amount_sats"`
 }
 type TxSwapOperation struct {
-	Address_paid      string         `json:"address_paid"`
-	Failure_reason    string         `json:"failure_reason"`
-	Operation_payment *UserOperation `json:"operation_payment"`
-	Swap_operation_id string         `json:"swap_operation_id"`
+	Address_paid      string                `json:"address_paid"`
+	Failure_reason    string                `json:"failure_reason"`
+	Operation_payment *UserOperation        `json:"operation_payment"`
+	Quote             *TransactionSwapQuote `json:"quote"`
+	Tx_id             string                `json:"tx_id"`
 }
 type TxSwapsList struct {
-	Quotes []TransactionSwapQuote `json:"quotes"`
-	Swaps  []TxSwapOperation      `json:"swaps"`
+	Swaps []TxSwapOperation `json:"swaps"`
 }
 type UpdateChannelPolicyRequest struct {
 	Policy *ChannelPolicy                     `json:"policy"`

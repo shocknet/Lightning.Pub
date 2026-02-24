@@ -625,7 +625,9 @@ export default class {
     }
 
     async ListTxSwaps(ctx: Types.UserContext): Promise<Types.TxSwapsList> {
+        console.log("listing tx swaps", { appUserId: ctx.app_user_id })
         const payments = await this.storage.paymentStorage.ListTxSwapPayments(ctx.app_user_id)
+        console.log("payments", payments.length)
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
         const isManagedUser = ctx.user_id !== app.owner.user_id
         return this.swaps.ListTxSwaps(ctx.app_user_id, payments, p => {

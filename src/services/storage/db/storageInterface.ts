@@ -104,9 +104,10 @@ export class StorageInterface extends EventEmitter {
         return this.handleOp<T | null>(findOp)
     }
 
-    Find<T>(entity: DBNames, q: QueryOptions<T>, txId?: string): Promise<T[]> {
+    Find<T>(entity: DBNames, q: QueryOptions<T>, txId?: string, debug = false): Promise<T[]> {
+        if (debug) console.log("Find", { entity })
         const opId = Math.random().toString()
-        const findOp: FindOperation<T> = { type: 'find', entity, opId, q, txId }
+        const findOp: FindOperation<T> = { type: 'find', entity, opId, q, txId, debug }
         return this.handleOp<T[]>(findOp)
     }
 
@@ -166,15 +167,16 @@ export class StorageInterface extends EventEmitter {
     }
 
     private handleOp<T>(op: IStorageOperation): Promise<T> {
-        if (this.debug) console.log('handleOp', op)
+        if (this.debug || op.debug) console.log('handleOp', op)
         this.checkConnected()
         return new Promise<T>((resolve, reject) => {
             const responseHandler = (response: OperationResponse<T>) => {
-                if (this.debug) console.log('responseHandler', response)
+                if (this.debug || op.debug) console.log('responseHandler', response)
                 if (!response.success) {
                     reject(new Error(response.error));
                     return
                 }
+                if (this.debug || op.debug) console.log("response", response, op)
                 if (response.type !== op.type) {
                     reject(new Error('Invalid storage response type'));
                     return
@@ -186,12 +188,12 @@ export class StorageInterface extends EventEmitter {
         })
     }
 
-    private serializeOperation(operation: IStorageOperation): IStorageOperation {
+    private serializeOperation(operation: IStorageOperation, debug = false): IStorageOperation {
         const serialized = { ...operation };
         if ('q' in serialized) {
-            (serialized as any).q = serializeRequest((serialized as any).q);
+            (serialized as any).q = serializeRequest((serialized as any).q, debug);
         }
-        if (this.debug) {
+        if (this.debug || debug) {
             serialized.debug = true
         }
         return serialized;
