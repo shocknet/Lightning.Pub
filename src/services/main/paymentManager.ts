@@ -595,8 +595,14 @@ export default class {
 
     async PayInternalAddress(ctx: Types.UserContext, req: Types.PayAddressRequest): Promise<Types.PayAddressResponse> {
         this.log("paying internal address")
+        let amount = req.amountSats
         if (req.swap_operation_id) {
+            const swap = await this.storage.paymentStorage.GetTransactionSwap(req.swap_operation_id, ctx.app_user_id)
+            amount = amount > 0 ? amount : swap?.invoice_amount || 0
             await this.storage.paymentStorage.DeleteTransactionSwap(req.swap_operation_id)
+        }
+        if (amount <= 0) {
+            throw new Error("invalid tx amount")
         }
         const { blockHeight } = await this.lnd.GetInfo()
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
