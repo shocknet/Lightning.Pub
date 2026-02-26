@@ -267,7 +267,7 @@ export default class {
             return false
         }
         const outputIndex = Number(output.outputIndex)
-        const existingRootOp = await this.metrics.GetRootAddressTransaction(output.address, tx.txHash, outputIndex)
+        const existingRootOp = await this.storage.metricsStorage.GetRootAddressTransaction(output.address, tx.txHash, outputIndex)
         if (existingRootOp) {
             return false
         }

@@ -156,6 +156,9 @@ export default class {
     async GetRootOperation(opType: RootOperationType, id: string, txId?: string) {
         return this.dbs.FindOne<RootOperation>('RootOperation', { where: { operation_type: opType, operation_identifier: id } }, txId)
     }
+    async GetRootAddressTransaction(address: string, txHash: string, index: number) {
+        return this.GetRootOperation("chain", `${address}:${txHash}:${index}`)
+    }
 
     async GetPendingChainPayments() {
         return this.dbs.Find<RootOperation>('RootOperation', { where: { operation_type: 'chain_payment', pending: true } })

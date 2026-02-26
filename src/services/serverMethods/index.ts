@@ -133,6 +133,9 @@ export default (mainHandler: Main): Types.ServerMethods => {
             if (err != null) throw new Error(err.message)
             return mainHandler.adminManager.PayAdminInvoiceSwap(req)
         },
+        GetAssetsAndLiabilities: async ({ ctx, req }) => {
+            return mainHandler.adminManager.GetAssetsAndLiabilities(req)
+        },
         GetProvidersDisruption: async () => {
             return mainHandler.metricsManager.GetProvidersDisruption()
         },

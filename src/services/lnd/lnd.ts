@@ -542,7 +542,7 @@ export default class {
 
     async GetTransactions(startHeight: number): Promise<TransactionDetails> {
         this.log(DEBUG, "Getting transactions")
-        const res = await this.lightning.getTransactions({ startHeight, endHeight: 0, account: "" }, DeadLineMetadata())
+        const res = await this.lightning.getTransactions({ startHeight, endHeight: 0, account: "", }, DeadLineMetadata())
         return res.response
     }
 
@@ -625,7 +625,7 @@ export default class {
         return response
     }
 
-    async GetAllPaidInvoices(max: number) {
+    async GetAllInvoices(max: number) {
         this.log(DEBUG, "Getting all paid invoices")
         if (this.liquidProvider.getSettings().useOnlyLiquidityProvider) {
             return { invoices: [] }

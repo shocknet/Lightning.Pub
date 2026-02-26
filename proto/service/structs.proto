@@ -19,6 +19,61 @@ message EncryptionExchangeRequest {
     string deviceId = 2;
 }
 
+message AssetsAndLiabilitiesReq {
+    optional int64 limit_invoices = 1;
+    optional int64 limit_payments = 2;
+    optional int64 limit_providers = 4;
+}
+
+enum TrackedOperationType {
+    USER = 0;
+    ROOT = 1;
+}
+
+message TrackedOperation {
+    int64 ts = 1;
+    int64 amount = 2;
+    TrackedOperationType type = 3;
+}
+
+message AssetOperation {
+    int64 ts = 1;
+    int64 amount = 2;
+    optional TrackedOperation tracked = 3;
+}
+
+message TrackedLndProvider {
+    int64 confirmed_balance = 1;
+    int64 unconfirmed_balance =  2;
+    int64 channels_balance = 3;
+    repeated AssetOperation payments = 4;
+    repeated AssetOperation invoices = 5;
+    repeated AssetOperation incoming_tx = 6;
+    repeated AssetOperation outgoing_tx = 7;
+}
+
+message TrackedLiquidityProvider {
+    int64 balance = 1;
+    repeated AssetOperation payments = 2;
+    repeated AssetOperation invoices = 3;
+}
+
+message LndAssetProvider {
+    string pubkey = 1;
+    optional TrackedLndProvider tracked = 2;
+}
+
+message LiquidityAssetProvider {
+    string pubkey = 1;
+    optional TrackedLiquidityProvider tracked = 2;
+}
+
+message AssetsAndLiabilities {
+    int64 users_balance = 1;
+    repeated LndAssetProvider lnds = 2;
+    repeated LiquidityAssetProvider liquidity_providers = 3;
+}
+
 message UserHealthState {
     string downtime_reason = 1;
 }
@@ -36,6 +91,8 @@ message ErrorStats {
     ErrorStat past10m = 4;
     ErrorStat past1m = 5;
 }
+
+
 
 message MetricsFile {
     

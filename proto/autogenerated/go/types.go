@@ -79,6 +79,13 @@ const (
 	USAGE_METRIC  SingleMetricType = "USAGE_METRIC"
 )
 
+type TrackedOperationType string
+
+const (
+	ROOT TrackedOperationType = "ROOT"
+	USER TrackedOperationType = "USER"
+)
+
 type UserOperationType string
 
 const (
@@ -162,6 +169,21 @@ type AppsMetricsRequest struct {
 	From_unix          int64 `json:"from_unix"`
 	Include_operations bool  `json:"include_operations"`
 	To_unix            int64 `json:"to_unix"`
+}
+type AssetOperation struct {
+	Amount  int64             `json:"amount"`
+	Tracked *TrackedOperation `json:"tracked"`
+	Ts      int64             `json:"ts"`
+}
+type AssetsAndLiabilities struct {
+	Liquidity_providers []LiquidityAssetProvider `json:"liquidity_providers"`
+	Lnds                []LndAssetProvider       `json:"lnds"`
+	Users_balance       int64                    `json:"users_balance"`
+}
+type AssetsAndLiabilitiesReq struct {
+	Limit_invoices  int64 `json:"limit_invoices"`
+	Limit_payments  int64 `json:"limit_payments"`
+	Limit_providers int64 `json:"limit_providers"`
 }
 type AuthApp struct {
 	App        *Application `json:"app"`
@@ -398,6 +420,10 @@ type LatestUsageMetricReq struct {
 type LinkNPubThroughTokenRequest struct {
 	Token string `json:"token"`
 }
+type LiquidityAssetProvider struct {
+	Pubkey  string                    `json:"pubkey"`
+	Tracked *TrackedLiquidityProvider `json:"tracked"`
+}
 type LiveDebitRequest struct {
 	Debit      *LiveDebitRequest_debit `json:"debit"`
 	Npub       string                  `json:"npub"`
@@ -410,6 +436,10 @@ type LiveManageRequest struct {
 type LiveUserOperation struct {
 	Latest_balance int64          `json:"latest_balance"`
 	Operation      *UserOperation `json:"operation"`
+}
+type LndAssetProvider struct {
+	Pubkey  string              `json:"pubkey"`
+	Tracked *TrackedLndProvider `json:"tracked"`
 }
 type LndChannels struct {
 	Open_channels []OpenChannel `json:"open_channels"`
@@ -714,6 +744,25 @@ type SingleMetricReq struct {
 	Metrics_name string           `json:"metrics_name"`
 	Page         int64            `json:"page"`
 	Request_id   int64            `json:"request_id"`
+}
+type TrackedLiquidityProvider struct {
+	Balance  int64            `json:"balance"`
+	Invoices []AssetOperation `json:"invoices"`
+	Payments []AssetOperation `json:"payments"`
+}
+type TrackedLndProvider struct {
+	Channels_balance    int64            `json:"channels_balance"`
+	Confirmed_balance   int64            `json:"confirmed_balance"`
+	Incoming_tx         []AssetOperation `json:"incoming_tx"`
+	Invoices            []AssetOperation `json:"invoices"`
+	Outgoing_tx         []AssetOperation `json:"outgoing_tx"`
+	Payments            []AssetOperation `json:"payments"`
+	Unconfirmed_balance int64            `json:"unconfirmed_balance"`
+}
+type TrackedOperation struct {
+	Amount int64                `json:"amount"`
+	Ts     int64                `json:"ts"`
+	Type   TrackedOperationType `json:"type"`
 }
 type TransactionSwapQuote struct {
 	Chain_fee_sats          int64  `json:"chain_fee_sats"`
