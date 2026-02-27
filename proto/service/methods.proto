@@ -112,6 +112,13 @@ service LightningPub {
         option (nostr) = true;
     };
 
+    rpc GetAssetsAndLiabilities(structs.AssetsAndLiabilitiesReq) returns (structs.AssetsAndLiabilities) {
+        option (auth_type)  = "Admin";
+        option (http_method) = "post";
+        option (http_route) = "/api/admin/assets/liabilities";
+        option (nostr) = true;
+    }
+
     rpc AddApp(structs.AddAppRequest) returns (structs.AuthApp) {
         option (auth_type)  = "Admin";
         option (http_method) = "post";

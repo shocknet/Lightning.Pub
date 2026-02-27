@@ -152,6 +152,10 @@ export default class {
         return this.dbs.FindOne<UserTransactionPayment>('UserTransactionPayment', { where: { address, tx_hash: txHash } }, txId)
     }
 
+    async GetTxHashPaymentOwner(txHash: string, txId?: string): Promise<UserTransactionPayment | null> {
+        return this.dbs.FindOne<UserTransactionPayment>('UserTransactionPayment', { where: { tx_hash: txHash } }, txId)
+    }
+
     async GetInvoiceOwner(paymentRequest: string, txId?: string): Promise<UserReceivingInvoice | null> {
         return this.dbs.FindOne<UserReceivingInvoice>('UserReceivingInvoice', { where: { invoice: paymentRequest } }, txId)
     }

@@ -226,7 +226,7 @@ export default class SanityChecker {
 
     async VerifyEventsLog() {
         this.events = await this.storage.eventsLog.GetAllLogs()
-        this.invoices = (await this.lnd.GetAllPaidInvoices(1000)).invoices
+        this.invoices = (await this.lnd.GetAllInvoices(1000)).invoices
         this.payments = (await this.lnd.GetAllPayments(1000)).payments
 
         this.incrementSources = {}

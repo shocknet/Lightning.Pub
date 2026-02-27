@@ -108,6 +108,11 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [AppsMetricsRequest](#AppsMetricsRequest)
   - output: [AppsMetrics](#AppsMetrics)
 
+- GetAssetsAndLiabilities
+  - auth type: __Admin__
+  - input: [AssetsAndLiabilitiesReq](#AssetsAndLiabilitiesReq)
+  - output: [AssetsAndLiabilities](#AssetsAndLiabilities)
+
 - GetBundleMetrics
   - auth type: __Metrics__
   - input: [LatestBundleMetricReq](#LatestBundleMetricReq)
@@ -601,6 +606,13 @@ The nostr server will send back a message response, and inside the body there wi
   - http route: __/api/reports/apps__
   - input: [AppsMetricsRequest](#AppsMetricsRequest)
   - output: [AppsMetrics](#AppsMetrics)
+
+- GetAssetsAndLiabilities
+  - auth type: __Admin__
+  - http method: __post__
+  - http route: __/api/admin/assets/liabilities__
+  - input: [AssetsAndLiabilitiesReq](#AssetsAndLiabilitiesReq)
+  - output: [AssetsAndLiabilities](#AssetsAndLiabilities)
 
 - GetBundleMetrics
   - auth type: __Metrics__
@@ -1186,6 +1198,21 @@ The nostr server will send back a message response, and inside the body there wi
   - __include_operations__: _boolean_ *this field is optional
   - __to_unix__: _number_ *this field is optional
 
+### AssetOperation
+  - __amount__: _number_
+  - __tracked__: _[TrackedOperation](#TrackedOperation)_ *this field is optional
+  - __ts__: _number_
+
+### AssetsAndLiabilities
+  - __liquidity_providers__: ARRAY of: _[LiquidityAssetProvider](#LiquidityAssetProvider)_
+  - __lnds__: ARRAY of: _[LndAssetProvider](#LndAssetProvider)_
+  - __users_balance__: _number_
+
+### AssetsAndLiabilitiesReq
+  - __limit_invoices__: _number_ *this field is optional
+  - __limit_payments__: _number_ *this field is optional
+  - __limit_providers__: _number_ *this field is optional
+
 ### AuthApp
   - __app__: _[Application](#Application)_
   - __auth_token__: _string_
@@ -1421,6 +1448,10 @@ The nostr server will send back a message response, and inside the body there wi
 ### LinkNPubThroughTokenRequest
   - __token__: _string_
 
+### LiquidityAssetProvider
+  - __pubkey__: _string_
+  - __tracked__: _[TrackedLiquidityProvider](#TrackedLiquidityProvider)_ *this field is optional
+
 ### LiveDebitRequest
   - __debit__: _[LiveDebitRequest_debit](#LiveDebitRequest_debit)_
   - __npub__: _string_
@@ -1433,6 +1464,10 @@ The nostr server will send back a message response, and inside the body there wi
 ### LiveUserOperation
   - __latest_balance__: _number_
   - __operation__: _[UserOperation](#UserOperation)_
+
+### LndAssetProvider
+  - __pubkey__: _string_
+  - __tracked__: _[TrackedLndProvider](#TrackedLndProvider)_ *this field is optional
 
 ### LndChannels
   - __open_channels__: ARRAY of: _[OpenChannel](#OpenChannel)_
@@ -1738,6 +1773,25 @@ The nostr server will send back a message response, and inside the body there wi
   - __page__: _number_
   - __request_id__: _number_ *this field is optional
 
+### TrackedLiquidityProvider
+  - __balance__: _number_
+  - __invoices__: ARRAY of: _[AssetOperation](#AssetOperation)_
+  - __payments__: ARRAY of: _[AssetOperation](#AssetOperation)_
+
+### TrackedLndProvider
+  - __channels_balance__: _number_
+  - __confirmed_balance__: _number_
+  - __incoming_tx__: ARRAY of: _[AssetOperation](#AssetOperation)_
+  - __invoices__: ARRAY of: _[AssetOperation](#AssetOperation)_
+  - __outgoing_tx__: ARRAY of: _[AssetOperation](#AssetOperation)_
+  - __payments__: ARRAY of: _[AssetOperation](#AssetOperation)_
+  - __unconfirmed_balance__: _number_
+
+### TrackedOperation
+  - __amount__: _number_
+  - __ts__: _number_
+  - __type__: _[TrackedOperationType](#TrackedOperationType)_
+
 ### TransactionSwapQuote
   - __chain_fee_sats__: _number_
   - __completed_at_unix__: _number_
@@ -1872,6 +1926,10 @@ The nostr server will send back a message response, and inside the body there wi
 ### SingleMetricType
   - __BUNDLE_METRIC__
   - __USAGE_METRIC__
+
+### TrackedOperationType
+  - __ROOT__
+  - __USER__
 
 ### UserOperationType
   - __INCOMING_INVOICE__

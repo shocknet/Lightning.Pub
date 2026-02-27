@@ -72,6 +72,7 @@ export default class {
         this.unlocker = unlocker
         const updateProviderBalance = (b: number) => this.storage.liquidityStorage.IncrementTrackedProviderBalance('lnPub', settings.getSettings().liquiditySettings.liquidityProviderPub, b)
         this.liquidityProvider = new LiquidityProvider(() => this.settings.getSettings().liquiditySettings, this.utils, this.invoicePaidCb, updateProviderBalance)
+        adminManager.attachLiquidityProvider(this.liquidityProvider)
         this.rugPullTracker = new RugPullTracker(this.storage, this.liquidityProvider)
         const lndGetSettings = () => ({
             lndSettings: settings.getSettings().lndSettings,
