@@ -60,6 +60,12 @@ export class TransactionSwap {
     @Column({ default: "" })
     tx_id: string
 
+    @Column({ default: 0 })
+    completed_at_unix: number
+
+    @Column({ default: 0 })
+    paid_at_unix: number
+
     @Column({ default: "" })
     address_paid: string
 

@@ -1740,7 +1740,10 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### TransactionSwapQuote
   - __chain_fee_sats__: _number_
+  - __completed_at_unix__: _number_
+  - __expires_at_block_height__: _number_
   - __invoice_amount_sats__: _number_
+  - __paid_at_unix__: _number_
   - __service_fee_sats__: _number_
   - __service_url__: _string_
   - __swap_fee_sats__: _number_
@@ -1754,13 +1757,13 @@ The nostr server will send back a message response, and inside the body there wi
   - __transaction_amount_sats__: _number_
 
 ### TxSwapOperation
-  - __address_paid__: _string_
+  - __address_paid__: _string_ *this field is optional
   - __failure_reason__: _string_ *this field is optional
   - __operation_payment__: _[UserOperation](#UserOperation)_ *this field is optional
-  - __swap_operation_id__: _string_
+  - __quote__: _[TransactionSwapQuote](#TransactionSwapQuote)_
+  - __tx_id__: _string_ *this field is optional
 
 ### TxSwapsList
-  - __quotes__: ARRAY of: _[TransactionSwapQuote](#TransactionSwapQuote)_
   - __swaps__: ARRAY of: _[TxSwapOperation](#TxSwapOperation)_
 
 ### UpdateChannelPolicyRequest

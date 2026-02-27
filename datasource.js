@@ -37,8 +37,9 @@ import { InvoiceSwap } from "./build/src/services/storage/entity/InvoiceSwap.js"
 
 import { Initial1703170309875 } from './build/src/services/storage/migrations/1703170309875-initial.js'
 import { LspOrder1718387847693 } from './build/src/services/storage/migrations/1718387847693-lsp_order.js'
-import { LndNodeInfo1720187506189 } from './build/src/services/storage/migrations/1720187506189-lnd_node_info.js'
 import { LiquidityProvider1719335699480 } from './build/src/services/storage/migrations/1719335699480-liquidity_provider.js'
+import { LndNodeInfo1720187506189 } from './build/src/services/storage/migrations/1720187506189-lnd_node_info.js'
+import { TrackedProvider1720814323679 } from './build/src/services/storage/migrations/1720814323679-tracked_provider.js'
 import { CreateInviteTokenTable1721751414878 } from './build/src/services/storage/migrations/1721751414878-create_invite_token_table.js'
 import { PaymentIndex1721760297610 } from './build/src/services/storage/migrations/1721760297610-payment_index.js'
 import { DebitAccess1726496225078 } from './build/src/services/storage/migrations/1726496225078-debit_access.js'
@@ -47,6 +48,7 @@ import { DebitToPub1727105758354 } from './build/src/services/storage/migrations
 import { UserCbUrl1727112281043 } from './build/src/services/storage/migrations/1727112281043-user_cb_url.js'
 import { UserOffer1733502626042 } from './build/src/services/storage/migrations/1733502626042-user_offer.js'
 import { ManagementGrant1751307732346 } from './build/src/services/storage/migrations/1751307732346-management_grant.js'
+import { ManagementGrantBanned1751989251513 } from './build/src/services/storage/migrations/1751989251513-management_grant_banned.js'
 import { InvoiceCallbackUrls1752425992291 } from './build/src/services/storage/migrations/1752425992291-invoice_callback_urls.js'
 import { OldSomethingLeftover1753106599604 } from './build/src/services/storage/migrations/1753106599604-old_something_leftover.js'
 import { UserReceivingInvoiceIdx1753109184611 } from './build/src/services/storage/migrations/1753109184611-user_receiving_invoice_idx.js'
@@ -67,16 +69,19 @@ import { SwapTimestamps1771347307798 } from './build/src/services/storage/migrat
 
 
 
+
 export default new DataSource({
     type: "better-sqlite3",
     database: "db.sqlite",
     // logging: true,
-    migrations: [Initial1703170309875, LspOrder1718387847693, LiquidityProvider1719335699480, LndNodeInfo1720187506189, CreateInviteTokenTable1721751414878,
-        PaymentIndex1721760297610, DebitAccess1726496225078, DebitAccessFixes1726685229264, DebitToPub1727105758354, UserCbUrl1727112281043,
-        UserOffer1733502626042, ManagementGrant1751307732346, InvoiceCallbackUrls1752425992291, OldSomethingLeftover1753106599604, UserReceivingInvoiceIdx1753109184611,
-        AppUserDevice1753285173175, UserAccess1759426050669, AddBlindToUserOffer1760000000000, ApplicationAvatarUrl1761000001000, AdminSettings1761683639419, TxSwap1762890527098,
-        TxSwapAddress1764779178945, ClinkRequester1765497600000, TrackedProviderHeight1766504040000, SwapsServiceUrl1768413055036, InvoiceSwaps1769529793283, InvoiceSwapsFixes1769805357459,
-        ApplicationUserTopicId1770038768784, SwapTimestamps1771347307798],
+    migrations: [Initial1703170309875, LspOrder1718387847693, LiquidityProvider1719335699480, LndNodeInfo1720187506189,
+        TrackedProvider1720814323679, CreateInviteTokenTable1721751414878, PaymentIndex1721760297610, DebitAccess1726496225078, DebitAccessFixes1726685229264,
+        DebitToPub1727105758354, UserCbUrl1727112281043, UserOffer1733502626042, ManagementGrant1751307732346, ManagementGrantBanned1751989251513,
+        InvoiceCallbackUrls1752425992291, OldSomethingLeftover1753106599604, UserReceivingInvoiceIdx1753109184611, AppUserDevice1753285173175,
+        UserAccess1759426050669, AddBlindToUserOffer1760000000000, ApplicationAvatarUrl1761000001000, AdminSettings1761683639419, TxSwap1762890527098,
+        TxSwapAddress1764779178945, ClinkRequester1765497600000, TrackedProviderHeight1766504040000, SwapsServiceUrl1768413055036,
+        InvoiceSwaps1769529793283, InvoiceSwapsFixes1769805357459, ApplicationUserTopicId1770038768784, SwapTimestamps1771347307798
+    ],
 
 
     entities: [User, UserReceivingInvoice, UserReceivingAddress, AddressReceivingTransaction, UserInvoicePayment, UserTransactionPayment,
@@ -84,4 +89,4 @@ export default new DataSource({
         TrackedProvider, InviteToken, DebitAccess, UserOffer, ManagementGrant, AppUserDevice, UserAccess, AdminSettings, TransactionSwap, InvoiceSwap],
     // synchronize: true,
 })
-//npx typeorm migration:generate ./src/services/storage/migrations/swap_timestamps -d ./datasource.js
+//npx typeorm migration:generate ./src/services/storage/migrations/tx_swap_timestamps -d ./datasource.js

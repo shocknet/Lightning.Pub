@@ -8,10 +8,19 @@ type SerializedFindOperator = {
 }
 
 export function serializeFindOperator(operator: FindOperator<any>): SerializedFindOperator {
+    let value: any;
+    if (Array.isArray(operator['value']) && operator['type'] !== 'between') {
+        value = operator['value'].map(serializeFindOperator);
+    } else if ((operator as any).child !== undefined) {
+        // Not(IsNull()) etc.: TypeORM's .value getter unwraps nested FindOperators, so we'd lose the inner operator. Use .child to serialize the nested operator.
+        value = serializeFindOperator((operator as any).child);
+    } else {
+        value = operator['value'];
+    }
     return {
         _type: 'FindOperator',
         type: operator['type'],
-        value: (Array.isArray(operator['value']) && operator['type'] !== 'between') ? operator["value"].map(serializeFindOperator) : operator["value"],
+        value,
     };
 }
 
@@ -51,7 +60,8 @@ export function deserializeFindOperator(serialized: SerializedFindOperator): Fin
     }
 }
 
-export function serializeRequest<T>(r: object): T {
+export function serializeRequest<T>(r: object, debug = false): T {
+    if (debug) console.log("serializeRequest", r)
     if (!r || typeof r !== 'object') {
         return r;
     }
@@ -61,23 +71,24 @@ export function serializeRequest<T>(r: object): T {
     }
 
     if (Array.isArray(r)) {
-        return r.map(item => serializeRequest(item)) as any;
+        return r.map(item => serializeRequest(item, debug)) as any;
     }
 
     const result: any = {};
     for (const [key, value] of Object.entries(r)) {
-        result[key] = serializeRequest(value);
+        result[key] = serializeRequest(value, debug);
     }
     return result;
 }
 
-export function deserializeRequest<T>(r: object): T {
+export function deserializeRequest<T>(r: object, debug = false): T {
+    if (debug) console.log("deserializeRequest", r)
     if (!r || typeof r !== 'object') {
         return r;
     }
 
     if (Array.isArray(r)) {
-        return r.map(item => deserializeRequest(item)) as any;
+        return r.map(item => deserializeRequest(item, debug)) as any;
     }
 
     if (r && typeof r === 'object' && (r as any)._type === 'FindOperator') {
@@ -86,7 +97,7 @@ export function deserializeRequest<T>(r: object): T {
 
     const result: any = {};
     for (const [key, value] of Object.entries(r)) {
-        result[key] = deserializeRequest(value);
+        result[key] = deserializeRequest(value, debug);
     }
     return result;
 }

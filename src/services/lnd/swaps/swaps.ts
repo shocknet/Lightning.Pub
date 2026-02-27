@@ -9,6 +9,7 @@ import { UserInvoicePayment } from '../../storage/entity/UserInvoicePayment.js';
 import { ReverseSwaps, TransactionSwapData } from './reverseSwaps.js';
 import { SubmarineSwaps, InvoiceSwapData } from './submarineSwaps.js';
 import { InvoiceSwap } from '../../storage/entity/InvoiceSwap.js';
+import { TransactionSwap } from '../../storage/entity/TransactionSwap.js';
 
 
 export class Swaps {
@@ -271,32 +272,35 @@ export class Swaps {
         }
     }
 
+    private mapTransactionSwapQuote = (s: TransactionSwap, getServiceFee: (amt: number) => number): Types.TransactionSwapQuote => {
+        const serviceFee = getServiceFee(s.invoice_amount)
+        return {
+            swap_operation_id: s.swap_operation_id,
+            transaction_amount_sats: s.transaction_amount,
+            invoice_amount_sats: s.invoice_amount,
+            chain_fee_sats: s.chain_fee_sats,
+            service_fee_sats: serviceFee,
+            swap_fee_sats: s.swap_fee_sats,
+            expires_at_block_height: s.timeout_block_height,
+            service_url: s.service_url,
+            paid_at_unix: s.paid_at_unix,
+            completed_at_unix: s.completed_at_unix,
+        }
+    }
+
     ListTxSwaps = async (appUserId: string, payments: UserInvoicePayment[], newOp: (p: UserInvoicePayment) => Types.UserOperation | undefined, getServiceFee: (amt: number) => number): Promise<Types.TxSwapsList> => {
         const completedSwaps = await this.storage.paymentStorage.ListCompletedTxSwaps(appUserId, payments)
         const pendingSwaps = await this.storage.paymentStorage.ListPendingTransactionSwaps(appUserId)
+        const quotes: Types.TxSwapOperation[] = pendingSwaps.map(s => ({ quote: this.mapTransactionSwapQuote(s, getServiceFee) }))
+        const swaps: Types.TxSwapOperation[] = completedSwaps.map(s => ({
+            quote: this.mapTransactionSwapQuote(s.swap, getServiceFee),
+            operation_payment: s.payment ? newOp(s.payment) : undefined,
+            address_paid: s.swap.address_paid,
+            tx_id: s.swap.tx_id,
+            failure_reason: s.swap.failure_reason,
+        }))
         return {
-            swaps: completedSwaps.map(s => {
-                const p = s.payment
-                const op = p ? newOp(p) : undefined
-                return {
-                    operation_payment: op,
-                    swap_operation_id: s.swap.swap_operation_id,
-                    address_paid: s.swap.address_paid,
-                    failure_reason: s.swap.failure_reason,
-                }
-            }),
-            quotes: pendingSwaps.map(s => {
-                const serviceFee = getServiceFee(s.invoice_amount)
-                return {
-                    swap_operation_id: s.swap_operation_id,
-                    invoice_amount_sats: s.invoice_amount,
-                    transaction_amount_sats: s.transaction_amount,
-                    chain_fee_sats: s.chain_fee_sats,
-                    service_fee_sats: serviceFee,
-                    swap_fee_sats: s.swap_fee_sats,
-                    service_url: s.service_url,
-                }
-            })
+            swaps: swaps.concat(quotes),
         }
     }
     GetTxSwapQuotes = async (appUserId: string, amt: number, getServiceFee: (decodedAmt: number) => number): Promise<Types.TransactionSwapQuote[]> => {
@@ -364,6 +368,9 @@ export class Swaps {
             chain_fee_sats: minerFee,
             service_fee_sats: serviceFee,
             service_url: swapper.getHttpUrl(),
+            expires_at_block_height: res.createdResponse.timeoutBlockHeight,
+            paid_at_unix: newSwap.paid_at_unix,
+            completed_at_unix: newSwap.completed_at_unix,
         }
     }
 
@@ -411,6 +418,7 @@ export class Swaps {
             swapResult = result
         })
         try {
+            await this.storage.paymentStorage.SetTransactionSwapPaid(swapOpId)
             await payInvoice(txSwap.invoice, txSwap.invoice_amount)
             if (!swapResult.ok) {
                 this.log("invoice payment successful, but swap failed")
