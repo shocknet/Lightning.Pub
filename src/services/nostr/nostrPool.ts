@@ -205,20 +205,24 @@ export class NostrPool {
         const log = getLogger({ appName: keys.name })
         this.log(`📤 Publishing Kind ${event.kind} event to ${relays.length} relay(s): ${relays.join(', ')}`)
         const pool = new SimplePool()
-        await Promise.all(pool.publish(relays, signed).map(async p => {
-            try {
-                await p
-                sent = true
-            } catch (e: any) {
-                this.log(ERROR, `Failed to publish Kind ${event.kind} event:`, e.message || e)
-                log(e)
+        try {
+            await Promise.all(pool.publish(relays, signed).map(async p => {
+                try {
+                    await p
+                    sent = true
+                } catch (e: any) {
+                    this.log(ERROR, `Failed to publish Kind ${event.kind} event:`, e.message || e)
+                    log(e)
+                }
+            }))
+            if (!sent) {
+                this.log(ERROR, `Failed to send Kind ${event.kind} event to any relay`)
+                log("failed to send event")
+            } else {
+                this.log(`✅ Kind ${event.kind} event published successfully (id: ${signed.id.slice(0, 16)}...)`)
             }
-        }))
-        if (!sent) {
-            this.log(ERROR, `Failed to send Kind ${event.kind} event to any relay`)
-            log("failed to send event")
-        } else {
-            this.log(`✅ Kind ${event.kind} event published successfully (id: ${signed.id.slice(0, 16)}...)`)
+        } finally {
+            pool.close(relays)
         }
     }
 
