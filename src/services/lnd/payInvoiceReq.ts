@@ -9,7 +9,7 @@ export const PayInvoiceReq = (invoice: string, amount: number, feeLimit: number)
     maxParts: 3,
     timeoutSeconds: 50,
 
-    allowSelfPayment: false,
+    allowSelfPayment: true,
     amp: false,
     amtMsat: 0n,
     cltvLimit: 0,
