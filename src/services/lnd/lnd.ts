@@ -142,15 +142,20 @@ export default class {
         return new Promise<void>((res, rej) => {
             const interval = setInterval(async () => {
                 try {
-                    await this.GetInfo()
+                    const info = await this.GetInfo()
+                    if (!info.syncedToChain || !info.syncedToGraph) {
+                        this.log("LND responding but not synced yet, waiting...")
+                        return
+                    }
                     clearInterval(interval)
                     this.ready = true
                     res()
                 } catch (err) {
                     this.log("LND is not ready yet, will try again in 1 second")
-                    if (Date.now() - now > 1000 * 60) {
-                        rej(new Error("LND not ready after 1 minute"))
-                    }
+                }
+                if (Date.now() - now > 1000 * 60 * 10) {
+                    clearInterval(interval)
+                    rej(new Error("LND not synced after 10 minutes"))
                 }
             }, 1000)
         })
