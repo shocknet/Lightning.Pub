@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { Between, FindOperator, IsNull, LessThanOrEqual, MoreThanOrEqual, In } from "typeorm"
+import { Between, FindOperator, IsNull, LessThanOrEqual, MoreThanOrEqual } from "typeorm"
 import { generateSecretKey, getPublicKey } from 'nostr-tools';
 import { Application } from "./entity/Application.js"
 import UserStorage from './userStorage.js';
@@ -162,15 +162,15 @@ export default class {
     }
 
     async RemoveAppUsersAndBaseUsers(appUserIds: string[], baseUser: string, txId?: string) {
-        if (appUserIds.length > 0) {
-            const appUsers = await this.dbs.Find<ApplicationUser>('ApplicationUser', { where: { identifier: In(appUserIds) } }, txId)
-            for (const appUser of appUsers) {
-                await this.dbs.Delete<ApplicationUser>('ApplicationUser', appUser.serial_id, txId)
+        for (const appUserId of appUserIds) {
+            const appUser = await this.dbs.FindOne<ApplicationUser>('ApplicationUser', { where: { identifier: appUserId } }, txId)
+            if (appUser) {
+                await this.dbs.Delete<ApplicationUser>('ApplicationUser', { serial_id: appUser.serial_id }, txId)
             }
         }
         const user = await this.userStorage.FindUser(baseUser, txId)
         if (!user) return
-        await this.dbs.Delete<User>('User', user.serial_id, txId)
+        await this.dbs.Delete<User>('User', { serial_id: user.serial_id }, txId)
     }
 
 

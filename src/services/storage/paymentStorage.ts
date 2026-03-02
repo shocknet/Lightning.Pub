@@ -144,7 +144,7 @@ export default class {
         }
         let deleted = 0
         for (const invoice of invoices) {
-            deleted += await this.dbs.Delete<UserReceivingInvoice>('UserReceivingInvoice', invoice.serial_id, txId)
+            deleted += await this.dbs.Delete<UserReceivingInvoice>('UserReceivingInvoice', { serial_id: invoice.serial_id }, txId)
         }
         return deleted
     }
@@ -336,7 +336,7 @@ export default class {
         }
         let deleted = 0
         for (const key of keys) {
-            deleted += await this.dbs.Delete<UserEphemeralKey>('UserEphemeralKey', key.serial_id, txId)
+            deleted += await this.dbs.Delete<UserEphemeralKey>('UserEphemeralKey', { serial_id: key.serial_id }, txId)
         }
         return deleted
     }
