@@ -21,6 +21,14 @@ export default class {
     }
 
     async RemoveUserProducts(userId: string, txId?: string) {
-        return this.dbs.Delete<Product>('Product', { owner: { user_id: userId } }, txId)
+        const products = await this.dbs.Find<Product>('Product', { where: { owner: { user_id: userId } } }, txId)
+        if (products.length === 0) {
+            return 0
+        }
+        let deleted = 0
+        for (const product of products) {
+            deleted += await this.dbs.Delete<Product>('Product', { product_id: product.product_id }, txId)
+        }
+        return deleted
     }
 }

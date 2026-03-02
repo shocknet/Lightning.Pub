@@ -138,7 +138,15 @@ export default class {
     }
 
     async RemoveUserInvoices(userId: string, txId?: string) {
-        return this.dbs.Delete<UserReceivingInvoice>('UserReceivingInvoice', { user: { user_id: userId } }, txId)
+        const invoices = await this.dbs.Find<UserReceivingInvoice>('UserReceivingInvoice', { where: { user: { user_id: userId } } }, txId)
+        if (invoices.length === 0) {
+            return 0
+        }
+        let deleted = 0
+        for (const invoice of invoices) {
+            deleted += await this.dbs.Delete<UserReceivingInvoice>('UserReceivingInvoice', invoice.serial_id, txId)
+        }
+        return deleted
     }
 
     async GetAddressOwner(address: string, txId?: string): Promise<UserReceivingAddress | null> {
@@ -322,7 +330,15 @@ export default class {
     }
 
     async RemoveUserEphemeralKeys(userId: string, txId?: string) {
-        return this.dbs.Delete<UserEphemeralKey>('UserEphemeralKey', { user: { user_id: userId } }, txId)
+        const keys = await this.dbs.Find<UserEphemeralKey>('UserEphemeralKey', { where: { user: { user_id: userId } } }, txId)
+        if (keys.length === 0) {
+            return 0
+        }
+        let deleted = 0
+        for (const key of keys) {
+            deleted += await this.dbs.Delete<UserEphemeralKey>('UserEphemeralKey', key.serial_id, txId)
+        }
+        return deleted
     }
 
     async AddPendingUserToUserPayment(fromUserId: string, toUserId: string, amount: number, fee: number, linkedApplication: Application, txId: string) {
