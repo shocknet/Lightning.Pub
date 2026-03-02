@@ -137,7 +137,7 @@ export default class {
 
     async CleanupNeverActiveUsers() {
         this.log("Cleaning up never active users")
-        const inactiveUsers = await this.storage.userStorage.GetInactiveUsers(30)
+        const inactiveUsers = await this.storage.userStorage.GetInactiveUsers(90)
         const toDelete: { userId: string, appUserIds: string[] }[] = []
         for (const u of inactiveUsers) {
             const user = await this.storage.userStorage.GetUser(u.user_id)
