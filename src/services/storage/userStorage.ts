@@ -47,6 +47,17 @@ export default class {
         return user
     }
 
+    async RemoveUser(userId: string, txId?: string) {
+        const user = await this.GetUser(userId, txId)
+        if (user.balance_sats > 0) {
+            throw new Error("user has balance, cannot remove")
+        }
+        const affected = await this.dbs.Delete<User>('User', user.serial_id, txId)
+        if (!affected) {
+            throw new Error("unaffected user removal")
+        }
+    }
+
     async UnbanUser(userId: string, txId?: string) {
         const affected = await this.dbs.Update<User>('User', { user_id: userId }, { locked: false }, txId)
         if (!affected) {

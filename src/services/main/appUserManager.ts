@@ -188,6 +188,7 @@ export default class {
                 await this.storage.paymentStorage.RemoveUserInvoices(userId, tx)
                 await this.storage.productStorage.RemoveUserProducts(userId, tx)
                 await this.storage.paymentStorage.RemoveUserEphemeralKeys(userId, tx)
+                await this.storage.userStorage.RemoveUser(userId, tx)
             })
         }
         this.log("Cleaned up inactive users")
