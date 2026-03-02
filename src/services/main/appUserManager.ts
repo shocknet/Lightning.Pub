@@ -183,11 +183,12 @@ export default class {
                     await this.storage.offerStorage.DeleteUserOffers(appUserId, tx)
                     await this.storage.debitStorage.RemoveUserDebitAccess(appUserId, tx)
                     await this.storage.applicationStorage.RemoveAppUserDevices(appUserId, tx)
-
                 }
                 await this.storage.paymentStorage.RemoveUserInvoices(userId, tx)
                 await this.storage.productStorage.RemoveUserProducts(userId, tx)
                 await this.storage.paymentStorage.RemoveUserEphemeralKeys(userId, tx)
+                await this.storage.userStorage.DeleteUserAccess(userId, tx)
+                await this.storage.applicationStorage.RemoveAppUsersAndBaseUsers(appUserIds, userId, tx)
             })
         }
         this.log("Cleaned up inactive users")

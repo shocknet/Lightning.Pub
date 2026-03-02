@@ -126,4 +126,8 @@ export default class {
         const lastSeenAtUnix = now - seconds
         return this.dbs.Find<UserAccess>('UserAccess', { where: { last_seen_at_unix: LessThan(lastSeenAtUnix) } })
     }
+
+    async DeleteUserAccess(userId: string, txId?: string) {
+        return this.dbs.Delete<UserAccess>('UserAccess', { user_id: userId }, txId)
+    }
 }
