@@ -176,6 +176,11 @@ export default class {
         this.log("Deleting", toDelete.length, "inactive users")
         for (let i = 0; i < toDelete.length; i++) {
             const { userId, appUserIds } = toDelete[i]
+            const user = await this.storage.userStorage.FindUser(userId)
+            if (!user || user.balance_sats > 0) {
+                if (user) this.log("Skipping user", userId, "has balance", user.balance_sats)
+                continue
+            }
             this.log("Deleting user", userId, "progress", i + 1, "/", toDelete.length)
             await this.storage.StartTransaction(async tx => {
                 for (const appUserId of appUserIds) {
