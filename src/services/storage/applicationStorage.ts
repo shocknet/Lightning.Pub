@@ -165,12 +165,12 @@ export default class {
         for (const appUserId of appUserIds) {
             const appUser = await this.dbs.FindOne<ApplicationUser>('ApplicationUser', { where: { identifier: appUserId } }, txId)
             if (appUser) {
-                await this.dbs.Delete<ApplicationUser>('ApplicationUser', { serial_id: appUser.serial_id }, txId)
+                await this.dbs.Delete<ApplicationUser>('ApplicationUser', appUser.serial_id, txId)
             }
         }
         const user = await this.userStorage.FindUser(baseUser, txId)
         if (!user) return
-        await this.dbs.Delete<User>('User', { serial_id: user.serial_id }, txId)
+        await this.dbs.Delete<User>('User', user.serial_id, txId)
     }
 
 
