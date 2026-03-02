@@ -161,10 +161,16 @@ export default class {
         this.dbs.Remove<User>('User', baseUser, txId)
     }
 
-    async RemoveAppUsersAndBaseUsers(appUserIds: string[],baseUser:string, txId?: string) {
-        await this.dbs.Delete<ApplicationUser>('ApplicationUser', { identifier: In(appUserIds) }, txId)
-        await this.dbs.Delete<User>('User', { user_id: baseUser }, txId)
-
+    async RemoveAppUsersAndBaseUsers(appUserIds: string[], baseUser: string, txId?: string) {
+        if (appUserIds.length > 0) {
+            const appUsers = await this.dbs.Find<ApplicationUser>('ApplicationUser', { where: { identifier: In(appUserIds) } }, txId)
+            for (const appUser of appUsers) {
+                await this.dbs.Delete<ApplicationUser>('ApplicationUser', appUser.serial_id, txId)
+            }
+        }
+        const user = await this.userStorage.FindUser(baseUser, txId)
+        if (!user) return
+        await this.dbs.Delete<User>('User', user.serial_id, txId)
     }
 
 

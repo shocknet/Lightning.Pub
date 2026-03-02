@@ -176,6 +176,11 @@ export default class {
         this.log("Deleting", toDelete.length, "inactive users")
         for (let i = 0; i < toDelete.length; i++) {
             const { userId, appUserIds } = toDelete[i]
+            const user = await this.storage.userStorage.FindUser(userId)
+            if (!user || user.balance_sats > 0) {
+                if (user) this.log("Skipping user", userId, "has balance", user.balance_sats)
+                continue
+            }
             this.log("Deleting user", userId, "progress", i + 1, "/", toDelete.length)
             await this.storage.StartTransaction(async tx => {
                 for (const appUserId of appUserIds) {
@@ -183,11 +188,12 @@ export default class {
                     await this.storage.offerStorage.DeleteUserOffers(appUserId, tx)
                     await this.storage.debitStorage.RemoveUserDebitAccess(appUserId, tx)
                     await this.storage.applicationStorage.RemoveAppUserDevices(appUserId, tx)
-
                 }
                 await this.storage.paymentStorage.RemoveUserInvoices(userId, tx)
                 await this.storage.productStorage.RemoveUserProducts(userId, tx)
                 await this.storage.paymentStorage.RemoveUserEphemeralKeys(userId, tx)
+                await this.storage.userStorage.DeleteUserAccess(userId, tx)
+                await this.storage.applicationStorage.RemoveAppUsersAndBaseUsers(appUserIds, userId, tx)
             })
         }
         this.log("Cleaned up inactive users")
