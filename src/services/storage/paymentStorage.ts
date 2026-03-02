@@ -452,8 +452,12 @@ export default class {
         }
     }
 
-    async GetTotalUsersBalance(txId?: string) {
-        const total = await this.dbs.Sum<User>('User', "balance_sats", {})
+    async GetTotalUsersBalance(excludeLocked?: boolean, txId?: string) {
+        const where: { locked?: boolean } = {}
+        if (excludeLocked) {
+            where.locked = false
+        }
+        const total = await this.dbs.Sum<User>('User', "balance_sats", where, txId)
         return total || 0
     }
 

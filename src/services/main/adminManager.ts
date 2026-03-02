@@ -391,7 +391,7 @@ export class AdminManager {
                 liquidityProviders.push(liquidityEntry)
             }
         }
-        const usersBalance = await this.storage.paymentStorage.GetTotalUsersBalance()
+        const usersBalance = await this.storage.paymentStorage.GetTotalUsersBalance(true)
         return {
             users_balance: usersBalance,
             lnds,
