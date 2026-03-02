@@ -341,6 +341,42 @@ export default class {
         return deleted
     }
 
+    async RemoveUserReceivingAddresses(userId: string, txId?: string) {
+        const addresses = await this.dbs.Find<UserReceivingAddress>('UserReceivingAddress', { where: { user: { user_id: userId } } }, txId)
+        for (const addr of addresses) {
+            const txs = await this.dbs.Find<AddressReceivingTransaction>('AddressReceivingTransaction', { where: { user_address: { serial_id: addr.serial_id } } }, txId)
+            for (const tx of txs) {
+                await this.dbs.Delete<AddressReceivingTransaction>('AddressReceivingTransaction', tx.serial_id, txId)
+            }
+            await this.dbs.Delete<UserReceivingAddress>('UserReceivingAddress', addr.serial_id, txId)
+        }
+    }
+
+    async RemoveUserInvoicePayments(userId: string, txId?: string) {
+        const payments = await this.dbs.Find<UserInvoicePayment>('UserInvoicePayment', { where: { user: { user_id: userId } } }, txId)
+        for (const p of payments) {
+            await this.dbs.Delete<UserInvoicePayment>('UserInvoicePayment', p.serial_id, txId)
+        }
+    }
+
+    async RemoveUserTransactionPayments(userId: string, txId?: string) {
+        const payments = await this.dbs.Find<UserTransactionPayment>('UserTransactionPayment', { where: { user: { user_id: userId } } }, txId)
+        for (const p of payments) {
+            await this.dbs.Delete<UserTransactionPayment>('UserTransactionPayment', p.serial_id, txId)
+        }
+    }
+
+    async RemoveUserToUserPayments(userId: string, txId?: string) {
+        const asSender = await this.dbs.Find<UserToUserPayment>('UserToUserPayment', { where: { from_user: { user_id: userId } } }, txId)
+        const asReceiver = await this.dbs.Find<UserToUserPayment>('UserToUserPayment', { where: { to_user: { user_id: userId } } }, txId)
+        const seen = new Set<number>()
+        for (const p of [...asSender, ...asReceiver]) {
+            if (seen.has(p.serial_id)) continue
+            seen.add(p.serial_id)
+            await this.dbs.Delete<UserToUserPayment>('UserToUserPayment', p.serial_id, txId)
+        }
+    }
+
     async AddPendingUserToUserPayment(fromUserId: string, toUserId: string, amount: number, fee: number, linkedApplication: Application, txId: string) {
         return this.dbs.CreateAndSave<UserToUserPayment>('UserToUserPayment', {
             from_user: await this.userStorage.GetUser(fromUserId, txId),
