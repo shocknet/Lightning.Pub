@@ -132,7 +132,7 @@ export default class {
         }
 
         this.log("Found", toDelete.length, "inactive users to delete")
-        // await this.RemoveUsers(toDelete)
+        await this.LockUsers(toDelete.map(u => u.userId))
     }
 
     async CleanupNeverActiveUsers() {
@@ -161,7 +161,15 @@ export default class {
         }
 
         this.log("Found", toDelete.length, "never active users to delete")
-        // await this.RemoveUsers(toDelete) TODO: activate deletion
+        await this.RemoveUsers(toDelete)
+    }
+
+    async LockUsers(toLock: string[]) {
+        this.log("Locking", toLock.length, "users")
+        for (const userId of toLock) {
+            await this.storage.userStorage.BanUser(userId)
+        }
+        this.log("Locked users")
     }
 
     async RemoveUsers(toDelete: { userId: string, appUserIds: string[] }[]) {
