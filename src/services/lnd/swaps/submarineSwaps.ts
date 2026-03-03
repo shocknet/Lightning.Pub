@@ -140,7 +140,9 @@ export class SubmarineSwaps {
         privateKey: ECPairInterface,
         refundAddress: string,
         feePerVbyte: number,
-        cooperative: boolean = true
+        cooperative: boolean = true,
+        allowUncooperativeFallback: boolean = true,
+        cooperativeErrorMessage?: string
     ): Promise<{
         ok: true,
         transaction: Transaction,
@@ -192,7 +194,11 @@ export class SubmarineSwaps {
         )
 
         if (!cooperative) {
-            return { ok: true, transaction: refundTx }
+            return {
+                ok: true,
+                transaction: refundTx,
+                cooperativeError: cooperativeErrorMessage,
+            }
         }
 
         // For cooperative refund, get Boltz's partial signature
@@ -210,7 +216,11 @@ export class SubmarineSwaps {
             )
 
             if (!boltzSigRes.ok) {
-                this.log(ERROR, 'Failed to get Boltz partial signature, falling back to uncooperative refund')
+                this.log(ERROR, 'Failed to get Boltz partial signature')
+                if (!allowUncooperativeFallback) {
+                    return { ok: false, error: `Failed to get Boltz partial signature: ${boltzSigRes.error}` }
+                }
+                this.log(ERROR, 'Falling back to uncooperative refund')
                 // Fallback to uncooperative refund
                 return await this.constructTaprootRefund(
                     swapId,
@@ -221,7 +231,9 @@ export class SubmarineSwaps {
                     privateKey,
                     refundAddress,
                     feePerVbyte,
-                    false
+                    false,
+                    allowUncooperativeFallback,
+                    boltzSigRes.error
                 )
             }
 
@@ -253,6 +265,9 @@ export class SubmarineSwaps {
             return { ok: true, transaction: refundTx }
         } catch (error: any) {
             this.log(ERROR, 'Cooperative refund failed:', error.message)
+            if (!allowUncooperativeFallback) {
+                return { ok: false, error: `Cooperative refund failed: ${error.message}` }
+            }
             // Fallback to uncooperative refund
             return await this.constructTaprootRefund(
                 swapId,
@@ -263,7 +278,9 @@ export class SubmarineSwaps {
                 privateKey,
                 refundAddress,
                 feePerVbyte,
-                false
+                false,
+                allowUncooperativeFallback,
+                error.message
             )
         }
     }
@@ -304,9 +321,10 @@ export class SubmarineSwaps {
         refundAddress: string,
         currentHeight: number,
         lockupTxHex?: string,
-        feePerVbyte?: number
+        feePerVbyte?: number,
+        allowEarlyRefund?: boolean
     }): Promise<{ ok: true, publish: { done: false, txHex: string, txId: string } | { done: true, txId: string } } | { ok: false, error: string }> => {
-        const { swapId, claimPublicKey, swapTree, timeoutBlockHeight, privateKeyHex, refundAddress, currentHeight, lockupTxHex, feePerVbyte = 2 } = params
+        const { swapId, claimPublicKey, swapTree, timeoutBlockHeight, privateKeyHex, refundAddress, currentHeight, lockupTxHex, feePerVbyte = 2, allowEarlyRefund = false } = params
 
         this.log('Starting refund process for swap:', swapId)
 
@@ -325,14 +343,21 @@ export class SubmarineSwaps {
         }
         this.log('Lockup transaction retrieved:', lockupTx.getId())
 
-        // Check if swap has timed out
-        if (currentHeight < timeoutBlockHeight) {
+        const hasTimedOut = currentHeight >= timeoutBlockHeight
+
+        // For stuck swaps, only allow refund after timeout. For completed (failed) swaps,
+        // we may attempt a cooperative refund before timeout.
+        if (!hasTimedOut && !allowEarlyRefund) {
             return {
                 ok: false,
                 error: `Swap has not timed out yet. Current height: ${currentHeight}, timeout: ${timeoutBlockHeight}`
             }
         }
-        this.log(`Swap has timed out. Current height: ${currentHeight}, timeout: ${timeoutBlockHeight}`)
+        if (hasTimedOut) {
+            this.log(`Swap has timed out. Current height: ${currentHeight}, timeout: ${timeoutBlockHeight}`)
+        } else {
+            this.log(`Swap has not timed out yet, attempting cooperative refund`)
+        }
 
         // Parse the private key
         const privateKey = ECPairFactory(ecc).fromPrivateKey(Buffer.from(privateKeyHex, 'hex'))
@@ -347,7 +372,8 @@ export class SubmarineSwaps {
             privateKey,
             refundAddress,
             feePerVbyte,
-            true // Try cooperative first
+            true, // Try cooperative first
+            hasTimedOut // only allow uncooperative fallback once timeout has passed
         )
 
         if (!refundTxRes.ok) {

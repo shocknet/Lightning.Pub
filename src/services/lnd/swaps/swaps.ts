@@ -112,6 +112,7 @@ export class Swaps {
         if (!swap) {
             throw new Error("Swap not found or already used")
         }
+        const allowEarlyRefund = !!swap.failure_reason
         const swapper = this.subSwappers[swap.service_url]
         if (!swapper) {
             throw new Error("swapper service not found")
@@ -124,6 +125,7 @@ export class Swaps {
             refundAddress,
             swapTree: swap.swap_tree,
             timeoutBlockHeight: swap.timeout_block_height,
+            allowEarlyRefund,
             feePerVbyte: satPerVByte,
             lockupTxHex: swap.lockup_tx_hex,
         })
