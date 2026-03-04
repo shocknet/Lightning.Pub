@@ -91,6 +91,14 @@ export default (mainHandler: Main): Types.ServerMethods => {
             if (err != null) throw new Error(err.message)
             return mainHandler.adminManager.CloseChannel(req)
         },
+        BumpTx: async ({ ctx, req }) => {
+            const err = Types.BumpTxValidate(req, {
+                txid_CustomCheck: txid => txid !== '',
+                sat_per_vbyte_CustomCheck: spv => spv > 0
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.adminManager.BumpTx(req)
+        },
         GetAdminTransactionSwapQuotes: async ({ ctx, req }) => {
             const err = Types.TransactionSwapRequestValidate(req, {
                 transaction_amount_sats_CustomCheck: amt => amt > 0
