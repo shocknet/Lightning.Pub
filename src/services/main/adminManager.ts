@@ -588,6 +588,10 @@ export class AdminManager {
         return { ts, amount, tracked: undefined }
     }
 
+    async BumpTx(req: Types.BumpTx): Promise<void> {
+        await this.lnd.BumpFee(req.txid, req.output_index, req.sat_per_vbyte)
+    }
+
 }
 
 const getDataPath = (dataDir: string, dataPath: string) => {

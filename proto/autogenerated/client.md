@@ -58,6 +58,11 @@ The nostr server will send back a message response, and inside the body there wi
   - This methods has an __empty__ __request__ body
   - This methods has an __empty__ __response__ body
 
+- BumpTx
+  - auth type: __Admin__
+  - input: [BumpTx](#BumpTx)
+  - This methods has an __empty__ __response__ body
+
 - CloseChannel
   - auth type: __Admin__
   - input: [CloseChannelRequest](#CloseChannelRequest)
@@ -507,6 +512,13 @@ The nostr server will send back a message response, and inside the body there wi
   - http method: __post__
   - http route: __/api/user/batch__
   - This methods has an __empty__ __request__ body
+  - This methods has an __empty__ __response__ body
+
+- BumpTx
+  - auth type: __Admin__
+  - http method: __post__
+  - http route: __/api/admin/tx/bump__
+  - input: [BumpTx](#BumpTx)
   - This methods has an __empty__ __response__ body
 
 - CloseChannel
@@ -1240,6 +1252,11 @@ The nostr server will send back a message response, and inside the body there wi
   - __name__: _string_
   - __nextRelay__: _string_ *this field is optional
   - __type__: _string_
+
+### BumpTx
+  - __output_index__: _number_
+  - __sat_per_vbyte__: _number_
+  - __txid__: _string_
 
 ### BundleData
   - __available_chunks__: ARRAY of: _number_

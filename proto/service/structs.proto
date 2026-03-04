@@ -25,6 +25,13 @@ message AssetsAndLiabilitiesReq {
     optional int64 limit_providers = 4;
 }
 
+message BumpTx {
+    string txid = 1;
+    int64 output_index = 2;
+    int64 sat_per_vbyte = 3;
+}
+
+
 enum TrackedOperationType {
     USER = 0;
     ROOT = 1;

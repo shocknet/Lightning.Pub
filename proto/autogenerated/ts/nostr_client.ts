@@ -137,6 +137,18 @@ export default (params: NostrClientParams,  send: (to:string, message: NostrRequ
         } 
         return { status: 'ERROR', reason: 'invalid response' }
     },
+    BumpTx: async (request: Types.BumpTx): Promise<ResultError | ({ status: 'OK' })> => {
+        const auth = await params.retrieveNostrAdminAuth()
+        if (auth === null) throw new Error('retrieveNostrAdminAuth() returned null')
+        const nostrRequest: NostrRequest = {}
+        nostrRequest.body = request
+        const data = await send(params.pubDestination, {rpcName:'BumpTx',authIdentifier:auth, ...nostrRequest }) 
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            return data
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
     CloseChannel: async (request: Types.CloseChannelRequest): Promise<ResultError | ({ status: 'OK' }& Types.CloseChannelResponse)> => {
         const auth = await params.retrieveNostrAdminAuth()
         if (auth === null) throw new Error('retrieveNostrAdminAuth() returned null')

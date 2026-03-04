@@ -66,6 +66,7 @@ type Client struct {
 	BanDebit          func(req DebitOperation) error
 	BanUser           func(req BanUserRequest) (*BanUserResponse, error)
 	// batching method: BatchUser not implemented
+	BumpTx                        func(req BumpTx) error
 	CloseChannel                  func(req CloseChannelRequest) (*CloseChannelResponse, error)
 	CreateOneTimeInviteLink       func(req CreateOneTimeInviteLinkRequest) (*CreateOneTimeInviteLinkResponse, error)
 	DecodeInvoice                 func(req DecodeInvoiceRequest) (*DecodeInvoiceResponse, error)
@@ -465,6 +466,30 @@ func NewClient(params ClientParams) *Client {
 			return &res, nil
 		},
 		// batching method: BatchUser not implemented
+		BumpTx: func(req BumpTx) error {
+			auth, err := params.RetrieveAdminAuth()
+			if err != nil {
+				return err
+			}
+			finalRoute := "/api/admin/tx/bump"
+			body, err := json.Marshal(req)
+			if err != nil {
+				return err
+			}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return err
+			}
+			if result.Status == "ERROR" {
+				return fmt.Errorf(result.Reason)
+			}
+			return nil
+		},
 		CloseChannel: func(req CloseChannelRequest) (*CloseChannelResponse, error) {
 			auth, err := params.RetrieveAdminAuth()
 			if err != nil {

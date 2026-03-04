@@ -7,8 +7,8 @@ export type RequestMetric = AuthContext & RequestInfo & RequestStats & { error?:
 export type AdminContext = {
     admin_id: string
 }
-export type AdminMethodInputs = AddApp_Input | AddPeer_Input | AuthApp_Input | BanUser_Input | CloseChannel_Input | CreateOneTimeInviteLink_Input | GetAdminInvoiceSwapQuotes_Input | GetAdminTransactionSwapQuotes_Input | GetAssetsAndLiabilities_Input | GetInviteLinkState_Input | GetSeed_Input | ListAdminInvoiceSwaps_Input | ListAdminTxSwaps_Input | ListChannels_Input | LndGetInfo_Input | OpenChannel_Input | PayAdminInvoiceSwap_Input | PayAdminTransactionSwap_Input | RefundAdminInvoiceSwap_Input | UpdateChannelPolicy_Input
-export type AdminMethodOutputs = AddApp_Output | AddPeer_Output | AuthApp_Output | BanUser_Output | CloseChannel_Output | CreateOneTimeInviteLink_Output | GetAdminInvoiceSwapQuotes_Output | GetAdminTransactionSwapQuotes_Output | GetAssetsAndLiabilities_Output | GetInviteLinkState_Output | GetSeed_Output | ListAdminInvoiceSwaps_Output | ListAdminTxSwaps_Output | ListChannels_Output | LndGetInfo_Output | OpenChannel_Output | PayAdminInvoiceSwap_Output | PayAdminTransactionSwap_Output | RefundAdminInvoiceSwap_Output | UpdateChannelPolicy_Output
+export type AdminMethodInputs = AddApp_Input | AddPeer_Input | AuthApp_Input | BanUser_Input | BumpTx_Input | CloseChannel_Input | CreateOneTimeInviteLink_Input | GetAdminInvoiceSwapQuotes_Input | GetAdminTransactionSwapQuotes_Input | GetAssetsAndLiabilities_Input | GetInviteLinkState_Input | GetSeed_Input | ListAdminInvoiceSwaps_Input | ListAdminTxSwaps_Input | ListChannels_Input | LndGetInfo_Input | OpenChannel_Input | PayAdminInvoiceSwap_Input | PayAdminTransactionSwap_Input | RefundAdminInvoiceSwap_Input | UpdateChannelPolicy_Input
+export type AdminMethodOutputs = AddApp_Output | AddPeer_Output | AuthApp_Output | BanUser_Output | BumpTx_Output | CloseChannel_Output | CreateOneTimeInviteLink_Output | GetAdminInvoiceSwapQuotes_Output | GetAdminTransactionSwapQuotes_Output | GetAssetsAndLiabilities_Output | GetInviteLinkState_Output | GetSeed_Output | ListAdminInvoiceSwaps_Output | ListAdminTxSwaps_Output | ListChannels_Output | LndGetInfo_Output | OpenChannel_Output | PayAdminInvoiceSwap_Output | PayAdminTransactionSwap_Output | RefundAdminInvoiceSwap_Output | UpdateChannelPolicy_Output
 export type AppContext = {
     app_id: string
 }
@@ -74,6 +74,9 @@ export type BanUser_Output = ResultError | ({ status: 'OK' } & BanUserResponse)
 
 export type BatchUser_Input = UserMethodInputs
 export type BatchUser_Output = UserMethodOutputs
+
+export type BumpTx_Input = {rpcName:'BumpTx', req: BumpTx}
+export type BumpTx_Output = ResultError | { status: 'OK' }
 
 export type CloseChannel_Input = {rpcName:'CloseChannel', req: CloseChannelRequest}
 export type CloseChannel_Output = ResultError | ({ status: 'OK' } & CloseChannelResponse)
@@ -364,6 +367,7 @@ export type ServerMethods = {
     AuthorizeManage?: (req: AuthorizeManage_Input & {ctx: UserContext }) => Promise<ManageAuthorization>
     BanDebit?: (req: BanDebit_Input & {ctx: UserContext }) => Promise<void>
     BanUser?: (req: BanUser_Input & {ctx: AdminContext }) => Promise<BanUserResponse>
+    BumpTx?: (req: BumpTx_Input & {ctx: AdminContext }) => Promise<void>
     CloseChannel?: (req: CloseChannel_Input & {ctx: AdminContext }) => Promise<CloseChannelResponse>
     CreateOneTimeInviteLink?: (req: CreateOneTimeInviteLink_Input & {ctx: AdminContext }) => Promise<CreateOneTimeInviteLinkResponse>
     DecodeInvoice?: (req: DecodeInvoice_Input & {ctx: UserContext }) => Promise<DecodeInvoiceResponse>
@@ -1205,6 +1209,34 @@ export const BeaconDataValidate = (o?: BeaconData, opts: BeaconDataOptions = {},
 
     if (typeof o.type !== 'string') return new Error(`${path}.type: is not a string`)
     if (opts.type_CustomCheck && !opts.type_CustomCheck(o.type)) return new Error(`${path}.type: custom check failed`)
+
+    return null
+}
+
+export type BumpTx = {
+    output_index: number
+    sat_per_vbyte: number
+    txid: string
+}
+export const BumpTxOptionalFields: [] = []
+export type BumpTxOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    output_index_CustomCheck?: (v: number) => boolean
+    sat_per_vbyte_CustomCheck?: (v: number) => boolean
+    txid_CustomCheck?: (v: string) => boolean
+}
+export const BumpTxValidate = (o?: BumpTx, opts: BumpTxOptions = {}, path: string = 'BumpTx::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.output_index !== 'number') return new Error(`${path}.output_index: is not a number`)
+    if (opts.output_index_CustomCheck && !opts.output_index_CustomCheck(o.output_index)) return new Error(`${path}.output_index: custom check failed`)
+
+    if (typeof o.sat_per_vbyte !== 'number') return new Error(`${path}.sat_per_vbyte: is not a number`)
+    if (opts.sat_per_vbyte_CustomCheck && !opts.sat_per_vbyte_CustomCheck(o.sat_per_vbyte)) return new Error(`${path}.sat_per_vbyte: custom check failed`)
+
+    if (typeof o.txid !== 'string') return new Error(`${path}.txid: is not a string`)
+    if (opts.txid_CustomCheck && !opts.txid_CustomCheck(o.txid)) return new Error(`${path}.txid: custom check failed`)
 
     return null
 }
