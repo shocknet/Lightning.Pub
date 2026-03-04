@@ -3,7 +3,7 @@ const zkpInit = (secp256k1ZkpModule as any).default || secp256k1ZkpModule;
 // import bolt11 from 'bolt11';
 import {
     Musig, SwapTreeSerializer, TaprootUtils, constructRefundTransaction,
-    detectSwap, OutputType
+    detectSwap, OutputType, targetFee
 } from 'boltz-core';
 import { randomBytes, createHash } from 'crypto';
 import { ECPairFactory, ECPairInterface } from 'ecpair';
@@ -184,13 +184,16 @@ export class SubmarineSwaps {
             }
         ]
         const outputScript = address.toOutputScript(refundAddress, network)
-        // Construct the refund transaction
-        const refundTx = constructRefundTransaction(
-            details,
-            outputScript,
-            cooperative ? 0 : timeoutBlockHeight,
+        // Construct the refund transaction: targetFee converts sat/vbyte rate to flat fee
+        const refundTx = targetFee(
             feePerVbyte,
-            true
+            (fee) => constructRefundTransaction(
+                details,
+                outputScript,
+                cooperative ? 0 : timeoutBlockHeight,
+                fee,
+                true
+            )
         )
 
         if (!cooperative) {
