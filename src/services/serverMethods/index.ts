@@ -489,5 +489,8 @@ export default (mainHandler: Main): Types.ServerMethods => {
             if (err != null) throw new Error(err.message)
             return mainHandler.appUserManager.EnrollMessagingToken(ctx, req)
         },
+        BumpTx: async ({ req }) => {
+            return mainHandler.adminManager.BumpTx(req)
+        },
     }
 }
