@@ -642,6 +642,20 @@ export default class {
         return res.response
     }
 
+    async BumpFee(txId: string, outputIndex: number, satPerVbyte: number) {
+        this.log(DEBUG, "Bumping fee")
+        const res = await this.walletKit.bumpFee({
+            budget: 0n, immediate: false, targetConf: 0, satPerVbyte: BigInt(satPerVbyte), outpoint: {
+                txidStr: txId,
+                outputIndex: outputIndex,
+                txidBytes: Buffer.alloc(0)
+            },
+            force: false,
+            satPerByte: 0
+        }, DeadLineMetadata())
+        return res.response
+    }
+
     async GetPayment(paymentIndex: number) {
         this.log(DEBUG, "Getting payment")
         if (paymentIndex === 0) {

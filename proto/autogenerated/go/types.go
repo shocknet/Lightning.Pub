@@ -213,6 +213,11 @@ type BeaconData struct {
 	Nextrelay string          `json:"nextRelay"`
 	Type      string          `json:"type"`
 }
+type BumpTx struct {
+	Output_index  int64  `json:"output_index"`
+	Sat_per_vbyte int64  `json:"sat_per_vbyte"`
+	Txid          string `json:"txid"`
+}
 type BundleData struct {
 	Available_chunks []int64  `json:"available_chunks"`
 	Base_64_data     []string `json:"base_64_data"`
