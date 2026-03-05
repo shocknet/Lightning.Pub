@@ -132,12 +132,12 @@ const handleNostrSettings = (settings: NostrSettings) => {
         send(event)
     })
 } */
-const sendToNostr: NostrSend = (initiator, data, relays) => {
+const sendToNostr: NostrSend = async (initiator, data, relays) => {
     if (!subProcessHandler) {
         getLogger({ component: "nostrMiddleware" })(ERROR, "nostr was not initialized")
         return
     }
-    subProcessHandler.Send(initiator, data, relays)
+    await subProcessHandler.Send(initiator, data, relays)
 }
 
 send({ type: 'ready' })
