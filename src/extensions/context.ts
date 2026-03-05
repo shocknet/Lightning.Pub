@@ -20,6 +20,17 @@ export interface MainHandlerInterface {
   // Application management
   applicationManager: {
     getById(id: string): Promise<any>
+    PayAppUserInvoice(appId: string, req: {
+      amount: number
+      invoice: string
+      user_identifier: string
+      debit_npub?: string
+    }): Promise<{
+      preimage: string
+      amount_paid: number
+      network_fee: number
+      service_fee: number
+    }>
   }
 
   // Payment operations
@@ -41,6 +52,7 @@ export interface MainHandlerInterface {
       applicationId: string
       paymentRequest: string
       maxFeeSats?: number
+      userPubkey?: string
     }): Promise<{
       paymentHash: string
       feeSats: number
@@ -156,16 +168,19 @@ export class ExtensionContextImpl implements ExtensionContext {
 
   /**
    * Pay a Lightning invoice
+   * If userPubkey is provided, pays from that user's balance instead of app.owner
    */
   async payInvoice(
     applicationId: string,
     paymentRequest: string,
-    maxFeeSats?: number
+    maxFeeSats?: number,
+    userPubkey?: string
   ): Promise<{ paymentHash: string; feeSats: number }> {
     return this.mainHandler.paymentManager.payInvoice({
       applicationId,
       paymentRequest,
-      maxFeeSats
+      maxFeeSats,
+      userPubkey
     })
   }
 
