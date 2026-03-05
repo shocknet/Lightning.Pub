@@ -41,6 +41,7 @@ export {
   CreateInvoiceOptions,
   CreatedInvoice,
   PaymentReceivedData,
+  LnurlPayInfo,
   NostrEvent,
   UnsignedNostrEvent,
   RpcMethodHandler

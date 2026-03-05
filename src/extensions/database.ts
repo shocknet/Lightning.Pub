@@ -14,6 +14,9 @@ export class ExtensionDatabaseImpl implements ExtensionDatabase {
   private extensionId: string
 
   constructor(extensionId: string, databaseDir: string) {
+    if (!/^[a-z0-9_-]+$/.test(extensionId)) {
+      throw new Error(`Invalid extensionId: must be [a-z0-9_-]+`)
+    }
     this.extensionId = extensionId
 
     // Ensure database directory exists
@@ -21,9 +24,13 @@ export class ExtensionDatabaseImpl implements ExtensionDatabase {
       fs.mkdirSync(databaseDir, { recursive: true })
     }
 
-    // Create database file for this extension
     const dbPath = path.join(databaseDir, `${extensionId}.db`)
-    this.db = new Database(dbPath)
+    const resolvedDb = path.resolve(dbPath)
+    const resolvedDir = path.resolve(databaseDir)
+    if (!resolvedDb.startsWith(resolvedDir + path.sep) && resolvedDb !== resolvedDir) {
+      throw new Error(`Extension DB path would escape databaseDir`)
+    }
+    this.db = new Database(resolvedDb)
 
     // Enable WAL mode for better concurrency
     this.db.pragma('journal_mode = WAL')

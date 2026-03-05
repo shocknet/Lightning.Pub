@@ -27,6 +27,10 @@ The extension system provides:
 - **Integration**: Extensions can register RPC methods, handle events, and interact with Lightning.Pub's payment and Nostr systems
 - **Lifecycle Management**: Automatic discovery, loading, and graceful shutdown
 
+### Security
+
+**Extensions are trusted code.** They run in the same process with full access to the capabilities granted by `ExtensionContext`: they can create and pay invoices (move funds), send Nostr DMs and publish events as the application, and read application/user data. Only install extensions from sources you trust. Extension IDs are restricted to `[a-z0-9_-]+` and the loader enforces that database files stay inside the configured extension database directory.
+
 ### Built-in Extensions
 
 | Extension | Description |
