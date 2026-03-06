@@ -238,13 +238,17 @@ export class Watchdog {
         const knownMaxIndex = Math.max(maxFromDb, this.latestPaymentIndexOffset)
         const newLatest = await this.lnd.GetLatestPaymentIndex(knownMaxIndex)
         const historyMismatch = newLatest > knownMaxIndex
-        const deny = await this.checkBalanceUpdate(deltaLnd, deltaUsers)
         if (historyMismatch) {
-            getLogger({ component: 'bark' })("History mismatch detected in absolute update, locking outgoing operations")
-            this.lnd.LockOutgoingOperations()
-            return
+            this.log("Payment index advanced from", knownMaxIndex, "to", newLatest, "- updating offset (likely LND restart or external payment)")
+            this.latestPaymentIndexOffset = newLatest
         }
+        const deny = await this.checkBalanceUpdate(deltaLnd, deltaUsers)
         if (deny) {
+            if (historyMismatch) {
+                getLogger({ component: 'bark' })("Balance mismatch with unexpected payment history, locking outgoing operations")
+                this.lnd.LockOutgoingOperations()
+                return
+            }
             this.log("Balance mismatch detected in absolute update, but history is ok")
         }
         this.lnd.UnlockOutgoingOperations()
