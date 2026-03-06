@@ -183,14 +183,23 @@ export default class {
             }
             this.log("Deleting user", userId, "progress", i + 1, "/", toDelete.length)
             await this.storage.StartTransaction(async tx => {
-                for (const appUserId of appUserIds) {
+                for (let j = 0; j < appUserIds.length; j++) {
+                    const appUserId = appUserIds[j]
+                    this.log("Deleting app user", appUserId, "progress", j + 1, "/", appUserIds.length)
+                    this.log("Removing user grants")
                     await this.storage.managementStorage.removeUserGrants(appUserId, tx)
+                    this.log("Removing user offers")
                     await this.storage.offerStorage.DeleteUserOffers(appUserId, tx)
+                    this.log("Removing user debit access")
                     await this.storage.debitStorage.RemoveUserDebitAccess(appUserId, tx)
+                    this.log("Removing user devices")
                     await this.storage.applicationStorage.RemoveAppUserDevices(appUserId, tx)
                 }
+                this.log("Removing user invoices")
                 await this.storage.paymentStorage.RemoveUserInvoices(userId, tx)
+                this.log("Removing user products")
                 await this.storage.productStorage.RemoveUserProducts(userId, tx)
+                this.log("Removing user ephemeral keys")
                 await this.storage.paymentStorage.RemoveUserEphemeralKeys(userId, tx)
                 await this.storage.paymentStorage.RemoveUserInvoicePayments(userId, tx)
                 await this.storage.paymentStorage.RemoveUserTransactionPayments(userId, tx)
