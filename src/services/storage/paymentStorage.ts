@@ -655,6 +655,15 @@ export default class {
         return swaps.filter(s => !!s.tx_id)
     }
 
+    async UpdateRefundInvoiceSwap(swapOperationId: string, refundAddress: string, refundTxId: string, txId?: string) {
+        const now = Math.floor(Date.now() / 1000)
+        return this.dbs.Update<InvoiceSwap>('InvoiceSwap', { swap_operation_id: swapOperationId }, {
+            refund_address: refundAddress,
+            refund_at_unix: now,
+            refund_tx_id: refundTxId,
+        }, txId)
+    }
+
     async GetRefundableInvoiceSwap(swapOperationId: string, txId?: string) {
         const swap = await this.dbs.FindOne<InvoiceSwap>('InvoiceSwap', { where: { swap_operation_id: swapOperationId } }, txId)
         if (!swap || !swap.tx_id) {

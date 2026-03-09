@@ -1431,6 +1431,9 @@ The nostr server will send back a message response, and inside the body there wi
   - __failure_reason__: _string_ *this field is optional
   - __operation_payment__: _[UserOperation](#UserOperation)_ *this field is optional
   - __quote__: _[InvoiceSwapQuote](#InvoiceSwapQuote)_
+  - __refund_address__: _string_ *this field is optional
+  - __refund_at_unix__: _number_ *this field is optional
+  - __refund_tx_id__: _string_ *this field is optional
 
 ### InvoiceSwapQuote
   - __address__: _string_

@@ -391,6 +391,9 @@ type InvoiceSwapOperation struct {
 	Failure_reason    string            `json:"failure_reason"`
 	Operation_payment *UserOperation    `json:"operation_payment"`
 	Quote             *InvoiceSwapQuote `json:"quote"`
+	Refund_address    string            `json:"refund_address"`
+	Refund_at_unix    int64             `json:"refund_at_unix"`
+	Refund_tx_id      string            `json:"refund_tx_id"`
 }
 type InvoiceSwapQuote struct {
 	Address                 string `json:"address"`

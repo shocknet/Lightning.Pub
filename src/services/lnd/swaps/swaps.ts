@@ -99,6 +99,9 @@ export class Swaps {
             quote: this.mapInvoiceSwapQuote(s),
             failure_reason: s.failure_reason,
             completed_at_unix: s.completed_at_unix || 1,
+            refund_address: s.refund_address,
+            refund_at_unix: s.refund_at_unix,
+            refund_tx_id: s.refund_tx_id,
         }))
         return {
             current_block_height: currentBlockHeight,
@@ -132,6 +135,7 @@ export class Swaps {
         if (!result.ok) {
             throw new Error(result.error)
         }
+        await this.storage.paymentStorage.UpdateRefundInvoiceSwap(swapOperationId, refundAddress, result.publish.txId)
         if (result.publish.done) {
             return { published: true, txId: result.publish.txId }
         }

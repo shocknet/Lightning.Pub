@@ -80,8 +80,14 @@ export class InvoiceSwap {
     @Column({ default: "", type: "text" })
     lockup_tx_hex: string
 
-    /*     @Column({ default: "" })
-        address_paid: string */
+    @Column({ default: "" })
+    refund_address: string
+
+    @Column({ default: "" })
+    refund_at_unix: number
+
+    @Column({ default: "" })
+    refund_tx_id: string
 
     @Column({ default: "" })
     service_url: string
