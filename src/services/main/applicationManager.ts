@@ -194,7 +194,7 @@ export default class {
         const cbUrl = req.http_callback_url || receiver.callback_url || ""
         let zapInfo: ZapInfo | undefined = undefined
         if (req.invoice_req.zap) {
-            zapInfo = this.paymentManager.validateZapEvent(req.invoice_req.zap, req.invoice_req.amountSats)
+            zapInfo = this.paymentManager.validateZapEvent(req.invoice_req.zap, req.invoice_req.amountSats * 1000)
         }
         const expiry = req.invoice_req.expiry ? Math.min(req.invoice_req.expiry, defaultInvoiceExpiry) : defaultInvoiceExpiry
         const opts: InboundOptionals = {
