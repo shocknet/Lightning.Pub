@@ -96,7 +96,7 @@ export default class {
     async NewInvoice(ctx: Types.UserContext, req: Types.NewInvoiceRequest): Promise<Types.NewInvoiceResponse> {
         return this.applicationManager.AddAppUserInvoice(ctx.app_id, {
             http_callback_url: "",
-            invoice_req: { ...req, zap: req.zap },
+            invoice_req: req,
             payer_identifier: ctx.app_user_id,
             receiver_identifier: ctx.app_user_id
         })
