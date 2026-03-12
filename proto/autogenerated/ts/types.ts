@@ -2270,15 +2270,21 @@ export type InvoiceSwapOperation = {
     failure_reason?: string
     operation_payment?: UserOperation
     quote: InvoiceSwapQuote
+    refund_address?: string
+    refund_at_unix?: number
+    refund_tx_id?: string
 }
-export type InvoiceSwapOperationOptionalField = 'completed_at_unix' | 'failure_reason' | 'operation_payment'
-export const InvoiceSwapOperationOptionalFields: InvoiceSwapOperationOptionalField[] = ['completed_at_unix', 'failure_reason', 'operation_payment']
+export type InvoiceSwapOperationOptionalField = 'completed_at_unix' | 'failure_reason' | 'operation_payment' | 'refund_address' | 'refund_at_unix' | 'refund_tx_id'
+export const InvoiceSwapOperationOptionalFields: InvoiceSwapOperationOptionalField[] = ['completed_at_unix', 'failure_reason', 'operation_payment', 'refund_address', 'refund_at_unix', 'refund_tx_id']
 export type InvoiceSwapOperationOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: InvoiceSwapOperationOptionalField[]
     completed_at_unix_CustomCheck?: (v?: number) => boolean
     failure_reason_CustomCheck?: (v?: string) => boolean
     operation_payment_Options?: UserOperationOptions
     quote_Options?: InvoiceSwapQuoteOptions
+    refund_address_CustomCheck?: (v?: string) => boolean
+    refund_at_unix_CustomCheck?: (v?: number) => boolean
+    refund_tx_id_CustomCheck?: (v?: string) => boolean
 }
 export const InvoiceSwapOperationValidate = (o?: InvoiceSwapOperation, opts: InvoiceSwapOperationOptions = {}, path: string = 'InvoiceSwapOperation::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
@@ -2299,6 +2305,15 @@ export const InvoiceSwapOperationValidate = (o?: InvoiceSwapOperation, opts: Inv
     const quoteErr = InvoiceSwapQuoteValidate(o.quote, opts.quote_Options, `${path}.quote`)
     if (quoteErr !== null) return quoteErr
     
+
+    if ((o.refund_address || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('refund_address')) && typeof o.refund_address !== 'string') return new Error(`${path}.refund_address: is not a string`)
+    if (opts.refund_address_CustomCheck && !opts.refund_address_CustomCheck(o.refund_address)) return new Error(`${path}.refund_address: custom check failed`)
+
+    if ((o.refund_at_unix || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('refund_at_unix')) && typeof o.refund_at_unix !== 'number') return new Error(`${path}.refund_at_unix: is not a number`)
+    if (opts.refund_at_unix_CustomCheck && !opts.refund_at_unix_CustomCheck(o.refund_at_unix)) return new Error(`${path}.refund_at_unix: custom check failed`)
+
+    if ((o.refund_tx_id || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('refund_tx_id')) && typeof o.refund_tx_id !== 'string') return new Error(`${path}.refund_tx_id: is not a string`)
+    if (opts.refund_tx_id_CustomCheck && !opts.refund_tx_id_CustomCheck(o.refund_tx_id)) return new Error(`${path}.refund_tx_id: custom check failed`)
 
     return null
 }

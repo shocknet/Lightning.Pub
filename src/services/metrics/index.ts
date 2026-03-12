@@ -183,8 +183,6 @@ export default class Handler {
         })
     }
 
-
-
     /*     addTrackedMetric = (appId: string, method: string, metric: Uint8Array) => {
             if (!this.metaReady) {
                 throw new Error("meta metrics not ready")

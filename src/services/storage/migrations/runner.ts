@@ -30,6 +30,7 @@ import { InvoiceSwapsFixes1769805357459 } from './1769805357459-invoice_swaps_fi
 import { ApplicationUserTopicId1770038768784 } from './1770038768784-application_user_topic_id.js'
 import { SwapTimestamps1771347307798 } from './1771347307798-swap_timestamps.js'
 import { TxSwapTimestamps1771878683383 } from './1771878683383-tx_swap_timestamps.js'
+import { RefundSwapInfo1773082318982 } from './1773082318982-refund_swap_info.js'
 
 import { LndMetrics1703170330183 } from './1703170330183-lnd_metrics.js'
 import { ChannelRouting1709316653538 } from './1709316653538-channel_routing.js'
@@ -51,7 +52,7 @@ export const allMigrations = [Initial1703170309875, LspOrder1718387847693, Liqui
     UserAccess1759426050669, AddBlindToUserOffer1760000000000, ApplicationAvatarUrl1761000001000, AdminSettings1761683639419, TxSwap1762890527098,
     TxSwapAddress1764779178945, ClinkRequester1765497600000, TrackedProviderHeight1766504040000, SwapsServiceUrl1768413055036,
     InvoiceSwaps1769529793283, InvoiceSwapsFixes1769805357459, ApplicationUserTopicId1770038768784, SwapTimestamps1771347307798,
-    TxSwapTimestamps1771878683383]
+    TxSwapTimestamps1771878683383, RefundSwapInfo1773082318982]
 
 
 export const allMetricsMigrations = [LndMetrics1703170330183, ChannelRouting1709316653538, HtlcCount1724266887195, BalanceEvents1724860966825,

@@ -926,6 +926,10 @@ message InvoiceSwapOperation {
     optional UserOperation operation_payment = 2;
     optional string failure_reason = 3;
     optional int64 completed_at_unix = 6;
+
+    optional string refund_address = 7;
+    optional int64 refund_at_unix = 8;
+    optional string refund_tx_id = 9;
 }
 
 message InvoiceSwapsList {

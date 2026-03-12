@@ -66,6 +66,7 @@ import { InvoiceSwaps1769529793283 } from './build/src/services/storage/migratio
 import { InvoiceSwapsFixes1769805357459 } from './build/src/services/storage/migrations/1769805357459-invoice_swaps_fixes.js'
 import { ApplicationUserTopicId1770038768784 } from './build/src/services/storage/migrations/1770038768784-application_user_topic_id.js'
 import { SwapTimestamps1771347307798 } from './build/src/services/storage/migrations/1771347307798-swap_timestamps.js'
+import { TxSwapTimestamps1771878683383 } from './build/src/services/storage/migrations/1771878683383-tx_swap_timestamps.js'
 
 
 
@@ -80,7 +81,8 @@ export default new DataSource({
         InvoiceCallbackUrls1752425992291, OldSomethingLeftover1753106599604, UserReceivingInvoiceIdx1753109184611, AppUserDevice1753285173175,
         UserAccess1759426050669, AddBlindToUserOffer1760000000000, ApplicationAvatarUrl1761000001000, AdminSettings1761683639419, TxSwap1762890527098,
         TxSwapAddress1764779178945, ClinkRequester1765497600000, TrackedProviderHeight1766504040000, SwapsServiceUrl1768413055036,
-        InvoiceSwaps1769529793283, InvoiceSwapsFixes1769805357459, ApplicationUserTopicId1770038768784, SwapTimestamps1771347307798
+        InvoiceSwaps1769529793283, InvoiceSwapsFixes1769805357459, ApplicationUserTopicId1770038768784, SwapTimestamps1771347307798,
+        TxSwapTimestamps1771878683383
     ],
 
 
@@ -89,4 +91,4 @@ export default new DataSource({
         TrackedProvider, InviteToken, DebitAccess, UserOffer, ManagementGrant, AppUserDevice, UserAccess, AdminSettings, TransactionSwap, InvoiceSwap],
     // synchronize: true,
 })
-//npx typeorm migration:generate ./src/services/storage/migrations/tx_swap_timestamps -d ./datasource.js
+//npx typeorm migration:generate ./src/services/storage/migrations/refund_swap_info -d ./datasource.js
