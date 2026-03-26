@@ -12,12 +12,15 @@ import HtlcTracker from './htlcTracker.js'
 import { getLogger } from '../helpers/logger.js'
 import { encodeTLV, usageMetricsToTlv } from '../helpers/tlv.js'
 import { ChannelCloseSummary_ClosureType } from '../../../proto/lnd/lightning.js'
-
+const cacheTTL = 1000 * 60 * 5 // 5 minutes
 export default class Handler {
 
     storage: Storage
     lnd: LND
     htlcTracker: HtlcTracker
+    appsMetricsCache: CacheController<Types.AppsMetrics> = new CacheController<Types.AppsMetrics>()
+    lndForwardingMetricsCache: CacheController<Types.LndForwardingMetrics> = new CacheController<Types.LndForwardingMetrics>()
+    lndMetricsCache: CacheController<Types.LndMetrics> = new CacheController<Types.LndMetrics>()
     logger = getLogger({ component: "metrics" })
     constructor(storage: Storage, lnd: LND) {
         this.storage = storage
@@ -201,13 +204,21 @@ export default class Handler {
         } */
 
     async GetAppsMetrics(req: Types.AppsMetricsRequest): Promise<Types.AppsMetrics> {
+        const cached = this.appsMetricsCache.Get(req)
+        const now = Date.now()
+        if (cached && now - cached.createdAt < cacheTTL) {
+
+            return cached.metrics
+        }
         const dbApps = await this.storage.applicationStorage.GetApplications()
         const apps = await Promise.all(dbApps.map(app => this.GetAppMetrics(req, app)))
         const unlinked = await this.GetAppMetrics(req, null)
         apps.push(unlinked)
-        return {
+        const metrics = {
             apps
         }
+        this.appsMetricsCache.Set(req, { metrics, createdAt: now })
+        return metrics
     }
 
     async GetAppMetrics(req: Types.AppsMetricsRequest, app: Application | null): Promise<Types.AppMetrics> {
@@ -330,6 +341,11 @@ export default class Handler {
     }
 
     async GetLndForwardingMetrics(req: Types.LndMetricsRequest): Promise<Types.LndForwardingMetrics> {
+        const cached = this.lndForwardingMetricsCache.Get(req)
+        const now = Date.now()
+        if (cached && now - cached.createdAt < cacheTTL) {
+            return cached.metrics
+        }
         const fwEvents = await this.lnd.GetForwardingHistory(0, req.from_unix, req.to_unix)
         let totalFees = 0
         const events: Types.LndForwardingEvent[] = fwEvents.forwardingEvents.map(e => {
@@ -338,14 +354,21 @@ export default class Handler {
                 chan_id_in: e.chanIdIn, chan_id_out: e.chanIdOut, amt_in: Number(e.amtIn), amt_out: Number(e.amtOut), fee: Number(e.fee), at_unix: Number(e.timestampNs)
             }
         })
-        return {
+        const metrics = {
             total_fees: totalFees,
             events: events
         }
+        this.lndForwardingMetricsCache.Set(req, { metrics, createdAt: now })
+        return metrics
     }
 
 
     async GetLndMetrics(req: Types.LndMetricsRequest): Promise<Types.LndMetrics> {
+        const cached = this.lndMetricsCache.Get(req)
+        const now = Date.now()
+        if (cached && now - cached.createdAt < cacheTTL) {
+            return cached.metrics
+        }
         const [chansInfo, pendingChansInfo, closedChansInfo, routing, rootOps, channelsActivity] = await Promise.all([
             this.GetChannelsInfo(),
             this.GetPendingChannelsInfo(),
@@ -390,7 +413,7 @@ export default class Handler {
             }
 
         }))
-        return {
+        const metrics = {
             nodes: [{
                 chain_balance: chainBalance,
                 channel_balance: chansBalance,
@@ -406,6 +429,8 @@ export default class Handler {
                 root_ops: rootOps.map(r => ({ amount: r.operation_amount, created_at_unix: r.at_unix || 0, op_id: r.operation_identifier, op_type: mapRootOpType(r.operation_type) })),
             }],
         }
+        this.lndMetricsCache.Set(req, { metrics, createdAt: now })
+        return metrics
     }
 
     async AddRootAddressPaid(address: string, txOutput: { hash: string; index: number }, amount: number) {
@@ -429,5 +454,33 @@ const mapRootOpType = (opType: string): Types.OperationType => {
             return Types.OperationType.INVOICE_OP
 
         default: throw new Error("Unknown operation type")
+    }
+}
+
+type CacheData<T> = {
+    metrics: T
+    createdAt: number
+}
+
+class CacheController<T> {
+    private cache: Record<string, CacheData<T>> = {}
+    Get = (req: Types.AppsMetricsRequest): CacheData<T> | undefined => {
+        const key = this.getKey(req)
+        return this.cache[key]
+    }
+    Set = (req: Types.AppsMetricsRequest, metrics: CacheData<T>) => {
+        const key = this.getKey(req)
+        this.cache[key] = metrics
+    }
+    Clear = (req: Types.AppsMetricsRequest) => {
+        const key = this.getKey(req)
+        delete this.cache[key]
+    }
+
+    private getKey = (req: Types.AppsMetricsRequest) => {
+        const start = req.from_unix || 0
+        const end = req.to_unix || 0
+        const includeOperations = req.include_operations ? "1" : "0"
+        return `${start}:${end}:${includeOperations}`
     }
 }

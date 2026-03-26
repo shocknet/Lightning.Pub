@@ -987,7 +987,9 @@ export default class {
     async CheckNewlyConfirmedTxs() {
         const pending = await this.storage.paymentStorage.GetPendingTransactions()
         let log = getLogger({})
-        log("CheckNewlyConfirmedTxs ", pending.incoming.length, "incoming", pending.outgoing.length, "outgoing")
+        if (pending.incoming.length > 0 || pending.outgoing.length > 0) {
+            log("CheckNewlyConfirmedTxs ", pending.incoming.length, "incoming", pending.outgoing.length, "outgoing")
+        }
         const confirmedIncoming: (PendingTx & { confs: number })[] = []
         const confirmedOutgoing: (PendingTx & { confs: number })[] = []
         for (const tx of pending.incoming) {

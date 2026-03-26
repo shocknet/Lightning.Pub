@@ -274,12 +274,14 @@ service Lightning {
     }
 
     /*
-    SendPaymentSync is the synchronous non-streaming version of SendPayment.
-    This RPC is intended to be consumed by clients of the REST proxy.
-    Additionally, this RPC expects the destination's public key and the payment
-    hash (if any) to be encoded as hex strings.
+    Deprecated, use routerrpc.SendPaymentV2. SendPaymentSync is the synchronous
+    non-streaming version of SendPayment. This RPC is intended to be consumed by
+    clients of the REST proxy. Additionally, this RPC expects the destination's
+    public key and the payment hash (if any) to be encoded as hex strings.
     */
-    rpc SendPaymentSync (SendRequest) returns (SendResponse);
+    rpc SendPaymentSync (SendRequest) returns (SendResponse) {
+        option deprecated = true;
+    }
 
     /* lncli: `sendtoroute`
     Deprecated, use routerrpc.SendToRouteV2. SendToRoute is a bi-directional
@@ -293,10 +295,13 @@ service Lightning {
     }
 
     /*
-    SendToRouteSync is a synchronous version of SendToRoute. It Will block
-    until the payment either fails or succeeds.
+    Deprecated, use routerrpc.SendToRouteV2. SendToRouteSync is a synchronous
+    version of SendToRoute. It Will block until the payment either fails or
+    succeeds.
     */
-    rpc SendToRouteSync (SendToRouteRequest) returns (SendResponse);
+    rpc SendToRouteSync (SendToRouteRequest) returns (SendResponse) {
+        option deprecated = true;
+    }
 
     /* lncli: `addinvoice`
     AddInvoice attempts to add a new invoice to the invoice database. Any
@@ -643,6 +648,8 @@ message SendCustomMessageRequest {
 }
 
 message SendCustomMessageResponse {
+    // The status of the send operation.
+    string status = 1;
 }
 
 message Utxo {
@@ -755,11 +762,35 @@ message GetTransactionsRequest {
 
     // An optional filter to only include transactions relevant to an account.
     string account = 3;
+
+    /*
+    The index of a transaction that will be used in a query to determine which
+    transaction should be returned in the response.
+    */
+    uint32 index_offset = 4;
+
+    /*
+    The maximal number of transactions returned in the response to this query.
+    This value should be set to 0 to return all transactions.
+    */
+    uint32 max_transactions = 5;
 }
 
 message TransactionDetails {
     // The list of transactions relevant to the wallet.
     repeated Transaction transactions = 1;
+
+    /*
+    The index of the last item in the set of returned transactions. This can be
+    used to seek further, pagination style.
+    */
+    uint64 last_index = 2;
+
+    /*
+    The index of the last item in the set of returned transactions. This can be
+    used to seek backwards, pagination style.
+    */
+    uint64 first_index = 3;
 }
 
 message FeeLimit {
@@ -1317,6 +1348,8 @@ message ConnectPeerRequest {
     uint64 timeout = 3;
 }
 message ConnectPeerResponse {
+    // The status of the connect operation.
+    string status = 1;
 }
 
 message DisconnectPeerRequest {
@@ -1324,6 +1357,8 @@ message DisconnectPeerRequest {
     string pub_key = 1;
 }
 message DisconnectPeerResponse {
+    // The status of the disconnect operation.
+    string status = 1;
 }
 
 message HTLC {
@@ -1346,6 +1381,13 @@ message HTLC {
 
     // Index identifying the htlc on the forwarding channel.
     uint64 forwarding_htlc_index = 7;
+
+    /*
+    Whether the HTLC is locked in. An HTLC is considered locked in when the
+    remote party has sent us the `revoke_and_ack` to irrevocably commit this
+    HTLC.
+    */
+    bool locked_in = 8;
 }
 
 enum CommitmentType {
@@ -1388,8 +1430,14 @@ enum CommitmentType {
     A channel that uses musig2 for the funding output, and the new tapscript
     features where relevant.
     */
-    // TODO(roasbeef): need script enforce mirror type for the above as well?
     SIMPLE_TAPROOT = 5;
+
+    /*
+    Identical to the SIMPLE_TAPROOT channel type, but with extra functionality.
+    This channel type also commits to additional meta data in the tapscript
+    leaves for the scripts in a channel.
+    */
+    SIMPLE_TAPROOT_OVERLAY = 6;
 }
 
 message ChannelConstraints {
@@ -1592,6 +1640,11 @@ message Channel {
     the channel's operation.
     */
     string memo = 36;
+
+    /*
+    Custom channel data that might be populated in custom channels.
+    */
+    bytes custom_channel_data = 37;
 }
 
 message ListChannelsRequest {
@@ -1705,6 +1758,10 @@ message ChannelCloseSummary {
 
     //  The confirmed SCID for a zero-conf channel.
     uint64 zero_conf_confirmed_scid = 15 [jstype = JS_STRING];
+
+    // The TLV encoded custom channel data records for this output, which might
+    // be set for custom channels.
+    bytes custom_channel_data = 16;
 }
 
 enum ResolutionType {
@@ -1955,8 +2012,8 @@ message GetInfoResponse {
     bool synced_to_graph = 18;
 
     /*
-    Whether the current node is connected to testnet. This field is
-    deprecated and the network field should be used instead
+    Whether the current node is connected to testnet or testnet4. This field is
+    deprecated and the network field should be used instead.
     */
     bool testnet = 10 [deprecated = true];
 
@@ -2028,10 +2085,38 @@ message ChannelOpenUpdate {
     ChannelPoint channel_point = 1;
 }
 
+message CloseOutput {
+    // The amount in satoshi of this close output. This amount is the final
+    // commitment balance of the channel and the actual amount paid out on chain
+    // might be smaller due to subtracted fees.
+    int64 amount_sat = 1;
+
+    // The pkScript of the close output.
+    bytes pk_script = 2;
+
+    // Whether this output is for the local or remote node.
+    bool is_local = 3;
+
+    // The TLV encoded custom channel data records for this output, which might
+    // be set for custom channels.
+    bytes custom_channel_data = 4;
+}
+
 message ChannelCloseUpdate {
     bytes closing_txid = 1;
 
     bool success = 2;
+
+    // The local channel close output. If the local channel balance was dust to
+    // begin with, this output will not be set.
+    CloseOutput local_close_output = 3;
+
+    // The remote channel close output. If the remote channel balance was dust
+    // to begin with, this output will not be set.
+    CloseOutput remote_close_output = 4;
+
+    // Any additional outputs that might be added for custom channel types.
+    repeated CloseOutput additional_outputs = 5;
 }
 
 message CloseChannelRequest {
@@ -2072,9 +2157,13 @@ message CloseChannelRequest {
     // NOTE: This field is only respected if we're the initiator of the channel.
     uint64 max_fee_per_vbyte = 7;
 
-    // If true, then the rpc call will not block while it awaits a closing txid.
-    // Consequently this RPC call will not return a closing txid if this value
-    // is set.
+    // If true, then the rpc call will not block while it awaits a closing txid
+    // to be broadcasted to the mempool. To obtain the closing tx one has to
+    // listen to the stream for the particular updates. Moreover if a coop close
+    // is specified and this flag is set to true the coop closing flow will be
+    // initiated even if HTLCs are active on the channel. The channel will wait
+    // until all HTLCs are resolved and then start the coop closing process. The
+    // channel will be disabled in the meantime and will disallow any new HTLCs.
     bool no_wait = 8;
 }
 
@@ -2089,9 +2178,15 @@ message CloseStatusUpdate {
 message PendingUpdate {
     bytes txid = 1;
     uint32 output_index = 2;
+    int64 fee_per_vbyte = 3;
+    bool local_close_tx = 4;
 }
 
 message InstantUpdate {
+    // The number of pending HTLCs that are currently active on the channel.
+    // These HTLCs need to be resolved before the channel can be closed
+    // cooperatively.
+    int32 num_pending_htlcs = 1;
 }
 
 message ReadyForPsbtFunding {
@@ -2709,6 +2804,11 @@ message PendingChannelsResponse {
         impacts the channel's operation.
         */
         string memo = 13;
+
+        /*
+        Custom channel data that might be populated in custom channels.
+        */
+        bytes custom_channel_data = 34;
     }
 
     message PendingOpenChannel {
@@ -2880,6 +2980,7 @@ message ChannelEventUpdate {
         ChannelPoint inactive_channel = 4;
         PendingUpdate pending_open_channel = 6;
         ChannelPoint fully_resolved_channel = 7;
+        ChannelPoint channel_funding_timeout = 8;
     }
 
     enum UpdateType {
@@ -2889,6 +2990,7 @@ message ChannelEventUpdate {
         INACTIVE_CHANNEL = 3;
         PENDING_OPEN_CHANNEL = 4;
         FULLY_RESOLVED_CHANNEL = 5;
+        CHANNEL_FUNDING_TIMEOUT = 6;
     }
 
     UpdateType type = 5;
@@ -2968,6 +3070,12 @@ message ChannelBalanceResponse {
 
     // Sum of channels pending remote balances.
     Amount pending_open_remote_balance = 8;
+
+    /*
+    Custom channel data that might be populated if there are custom channels
+    present.
+    */
+    bytes custom_channel_data = 9;
 }
 
 message QueryRoutesRequest {
@@ -3293,6 +3401,20 @@ message Route {
     The total amount in millisatoshis.
     */
     int64 total_amt_msat = 6;
+
+    /*
+    The actual on-chain amount that was sent out to the first hop. This value is
+    only different from the total_amt_msat field if this is a custom channel
+    payment and the value transported in the HTLC is different from the BTC
+    amount in the HTLC. If this value is zero, then this is an old payment that
+    didn't have this value yet and can be ignored.
+    */
+    int64 first_hop_amount_msat = 7;
+
+    /*
+    Custom channel data that might be populated in custom channels.
+    */
+    bytes custom_channel_data = 8;
 }
 
 message NodeInfoRequest {
@@ -3478,6 +3600,8 @@ message NetworkInfo {
 message StopRequest {
 }
 message StopResponse {
+    // The status of the stop operation.
+    string status = 1;
 }
 
 message GraphTopologySubscription {
@@ -3922,6 +4046,11 @@ message InvoiceHTLC {
 
     // Details relevant to AMP HTLCs, only populated if this is an AMP HTLC.
     AMP amp = 11;
+
+    /*
+    Custom channel data that might be populated in custom channels.
+    */
+    bytes custom_channel_data = 12;
 }
 
 // Details specific to AMP HTLCs.
@@ -4162,6 +4291,12 @@ message Payment {
     uint64 payment_index = 15;
 
     PaymentFailureReason failure_reason = 16;
+
+    /*
+    The custom TLV records that were sent to the first hop as part of the HTLC
+    wire message for this payment.
+    */
+    map<uint64, bytes> first_hop_custom_records = 17;
 }
 
 message HTLCAttempt {
@@ -4291,9 +4426,13 @@ message DeleteAllPaymentsRequest {
 }
 
 message DeletePaymentResponse {
+    // The status of the delete operation.
+    string status = 1;
 }
 
 message DeleteAllPaymentsResponse {
+    // The status of the delete operation.
+    string status = 1;
 }
 
 message AbandonChannelRequest {
@@ -4310,6 +4449,8 @@ message AbandonChannelRequest {
 }
 
 message AbandonChannelResponse {
+    // The status of the abandon operation.
+    string status = 1;
 }
 
 message DebugLevelRequest {
@@ -4469,6 +4610,15 @@ message PolicyUpdateRequest {
     // Optional inbound fee. If unset, the previously set value will be
     // retained [EXPERIMENTAL].
     InboundFee inbound_fee = 10;
+
+    // Under unknown circumstances a channel can exist with a missing edge in
+    // the graph database. This can cause an 'edge not found' error when calling
+    // `getchaninfo` and/or cause the default channel policy to be used during
+    // forwards. Setting this flag will recreate the edge if not found, allowing
+    // updating this channel policy and fixing the missing edge problem for this
+    // channel permanently. For fields not set in this command, the default
+    // policy will be created.
+    bool create_missing_edge = 11;
 }
 
 enum UpdateFailure {
@@ -4562,6 +4712,14 @@ message ForwardingEvent {
     // The peer alias of the outgoing channel.
     string peer_alias_out = 13;
 
+    // The ID of the incoming HTLC in the payment circuit. This field is
+    // optional and is unset for forwarding events happened before v0.20.
+    optional uint64 incoming_htlc_id = 14;
+
+    // The ID of the outgoing HTLC in the payment circuit. This field is
+    // optional and may be unset for legacy forwarding events.
+    optional uint64 outgoing_htlc_id = 15;
+
     // TODO(roasbeef): add settlement latency?
     //  * use FPE on the chan id?
     //  * also list failures?
@@ -4649,12 +4807,15 @@ message RestoreChanBackupRequest {
     }
 }
 message RestoreBackupResponse {
+    // The number of channels successfully restored.
+    uint32 num_restored = 1;
 }
 
 message ChannelBackupSubscription {
 }
 
 message VerifyChanBackupResponse {
+    repeated string chan_points = 1;
 }
 
 message MacaroonPermission {
@@ -4977,6 +5138,22 @@ message RPCMiddlewareRequest {
     intercept message.
     */
     uint64 msg_id = 7;
+
+    /*
+    The metadata pairs that were sent along with the original gRPC request via
+    the golang context.Context using explicit [gRPC
+    metadata](https://grpc.io/docs/guides/metadata/). Context values are not
+    propagated via gRPC and so we send any pairs along explicitly here so that
+    the interceptor can access them.
+    */
+    map<string, MetadataValues> metadata_pairs = 9;
+}
+
+message MetadataValues {
+    /*
+    The set of metadata values that correspond to the metadata key.
+    */
+    repeated string values = 1;
 }
 
 message StreamAuth {

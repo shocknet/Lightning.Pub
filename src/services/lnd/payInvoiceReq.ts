@@ -25,5 +25,7 @@ export const PayInvoiceReq = (invoice: string, amount: number, feeLimit: number)
     paymentHash: Buffer.alloc(0),
     routeHints: [],
     timePref: 0,
-    outgoingChanId: '0'
+    outgoingChanId: '0',
+    cancelable: false,
+    firstHopCustomRecords: {}
 })
