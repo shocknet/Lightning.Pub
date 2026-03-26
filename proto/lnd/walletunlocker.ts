@@ -11,7 +11,7 @@ import { UnknownFieldHandler } from "@protobuf-ts/runtime";
 import type { PartialMessage } from "@protobuf-ts/runtime";
 import { reflectionMergePartial } from "@protobuf-ts/runtime";
 import { MessageType } from "@protobuf-ts/runtime";
-import { ChanBackupSnapshot } from "./lightning";
+import { ChanBackupSnapshot } from "./lightning.js";
 /**
  * @generated from protobuf message lnrpc.GenSeedRequest
  */

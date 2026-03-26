@@ -11,8 +11,8 @@ import { UnknownFieldHandler } from "@protobuf-ts/runtime";
 import type { PartialMessage } from "@protobuf-ts/runtime";
 import { reflectionMergePartial } from "@protobuf-ts/runtime";
 import { MessageType } from "@protobuf-ts/runtime";
-import { Invoice } from "./lightning";
-import { RouteHint } from "./lightning";
+import { Invoice } from "./lightning.js";
+import { RouteHint } from "./lightning.js";
 /**
  * @generated from protobuf message invoicesrpc.CancelInvoiceMsg
  */

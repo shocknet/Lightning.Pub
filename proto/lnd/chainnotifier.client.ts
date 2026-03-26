@@ -3,13 +3,13 @@
 // tslint:disable
 import type { RpcTransport } from "@protobuf-ts/runtime-rpc";
 import type { ServiceInfo } from "@protobuf-ts/runtime-rpc";
-import { ChainNotifier } from "./chainnotifier";
-import type { BlockEpoch } from "./chainnotifier";
-import type { SpendEvent } from "./chainnotifier";
-import type { SpendRequest } from "./chainnotifier";
+import { ChainNotifier } from "./chainnotifier.js";
+import type { BlockEpoch } from "./chainnotifier.js";
+import type { SpendEvent } from "./chainnotifier.js";
+import type { SpendRequest } from "./chainnotifier.js";
 import { stackIntercept } from "@protobuf-ts/runtime-rpc";
-import type { ConfEvent } from "./chainnotifier";
-import type { ConfRequest } from "./chainnotifier";
+import type { ConfEvent } from "./chainnotifier.js";
+import type { ConfRequest } from "./chainnotifier.js";
 import type { ServerStreamingCall } from "@protobuf-ts/runtime-rpc";
 import type { RpcOptions } from "@protobuf-ts/runtime-rpc";
 /**

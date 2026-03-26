@@ -3,47 +3,62 @@
 // tslint:disable
 import type { RpcTransport } from "@protobuf-ts/runtime-rpc";
 import type { ServiceInfo } from "@protobuf-ts/runtime-rpc";
-import { Router } from "./router";
-import type { DeleteAliasesResponse } from "./router";
-import type { DeleteAliasesRequest } from "./router";
-import type { AddAliasesResponse } from "./router";
-import type { AddAliasesRequest } from "./router";
-import type { UpdateChanStatusResponse } from "./router";
-import type { UpdateChanStatusRequest } from "./router";
-import type { ForwardHtlcInterceptRequest } from "./router";
-import type { ForwardHtlcInterceptResponse } from "./router";
+import { Router } from "./router.js";
+import type { DeleteAliasesResponse } from "./router.js";
+import type { DeleteAliasesRequest } from "./router.js";
+import type { AddAliasesResponse } from "./router.js";
+import type { AddAliasesRequest } from "./router.js";
+import type { UpdateChanStatusResponse } from "./router.js";
+import type { UpdateChanStatusRequest } from "./router.js";
+import type { ForwardHtlcInterceptRequest } from "./router.js";
+import type { ForwardHtlcInterceptResponse } from "./router.js";
 import type { DuplexStreamingCall } from "@protobuf-ts/runtime-rpc";
-import type { PaymentStatus } from "./router";
-import type { HtlcEvent } from "./router";
-import type { SubscribeHtlcEventsRequest } from "./router";
-import type { BuildRouteResponse } from "./router";
-import type { BuildRouteRequest } from "./router";
-import type { QueryProbabilityResponse } from "./router";
-import type { QueryProbabilityRequest } from "./router";
-import type { SetMissionControlConfigResponse } from "./router";
-import type { SetMissionControlConfigRequest } from "./router";
-import type { GetMissionControlConfigResponse } from "./router";
-import type { GetMissionControlConfigRequest } from "./router";
-import type { XImportMissionControlResponse } from "./router";
-import type { XImportMissionControlRequest } from "./router";
-import type { QueryMissionControlResponse } from "./router";
-import type { QueryMissionControlRequest } from "./router";
-import type { ResetMissionControlResponse } from "./router";
-import type { ResetMissionControlRequest } from "./router";
-import type { HTLCAttempt } from "./lightning";
-import type { SendToRouteResponse } from "./router";
-import type { SendToRouteRequest } from "./router";
-import type { RouteFeeResponse } from "./router";
-import type { RouteFeeRequest } from "./router";
+import type { PaymentStatus } from "./router.js";
+import type { HtlcEvent } from "./router.js";
+import type { SubscribeHtlcEventsRequest } from "./router.js";
+import type { BuildRouteResponse } from "./router.js";
+import type { BuildRouteRequest } from "./router.js";
+import type { QueryProbabilityResponse } from "./router.js";
+import type { QueryProbabilityRequest } from "./router.js";
+import type { SetMissionControlConfigResponse } from "./router.js";
+import type { SetMissionControlConfigRequest } from "./router.js";
+import type { GetMissionControlConfigResponse } from "./router.js";
+import type { GetMissionControlConfigRequest } from "./router.js";
+import type { XImportMissionControlResponse } from "./router.js";
+import type { XImportMissionControlRequest } from "./router.js";
+import type { QueryMissionControlResponse } from "./router.js";
+import type { QueryMissionControlRequest } from "./router.js";
+import type { ResetMissionControlResponse } from "./router.js";
+import type { ResetMissionControlRequest } from "./router.js";
+import type { HTLCAttempt } from "./lightning.js";
+import type { SendToRouteResponse } from "./router.js";
+import type { SendToRouteRequest } from "./router.js";
+import type { RouteFeeResponse } from "./router.js";
+import type { RouteFeeRequest } from "./router.js";
 import type { UnaryCall } from "@protobuf-ts/runtime-rpc";
-import type { TrackPaymentsRequest } from "./router";
-import type { TrackPaymentRequest } from "./router";
+import type { TrackPaymentsRequest } from "./router.js";
+import type { TrackPaymentRequest } from "./router.js";
 import { stackIntercept } from "@protobuf-ts/runtime-rpc";
-import type { Payment } from "./lightning";
-import type { SendPaymentRequest } from "./router";
+import type { Payment } from "./lightning.js";
+import type { SendPaymentRequest } from "./router.js";
 import type { ServerStreamingCall } from "@protobuf-ts/runtime-rpc";
 import type { RpcOptions } from "@protobuf-ts/runtime-rpc";
-// // Comments in this file will be directly parsed into the API// Documentation as descriptions of the associated method, message, or field.// These descriptions should go right above the definition of the object, and// can be in either block or // comment format.// // An RPC method can be matched to an lncli command by placing a line in the// beginning of the description in exactly the following format:// lncli: `methodname`// // Failure to specify the exact name of the command will cause documentation// generation to fail.// // More information on how exactly the gRPC documentation is generated from// this proto file can be found here:// https://github.com/lightninglabs/lightning-api
+// 
+// Comments in this file will be directly parsed into the API
+// Documentation as descriptions of the associated method, message, or field.
+// These descriptions should go right above the definition of the object, and
+// can be in either block or // comment format.
+// 
+// An RPC method can be matched to an lncli command by placing a line in the
+// beginning of the description in exactly the following format:
+// lncli: `methodname`
+// 
+// Failure to specify the exact name of the command will cause documentation
+// generation to fail.
+// 
+// More information on how exactly the gRPC documentation is generated from
+// this proto file can be found here:
+// https://github.com/lightninglabs/lightning-api
 
 /**
  * Router is a service that offers advanced interaction with the router
@@ -249,7 +264,22 @@ export interface IRouterClient {
      */
     xDeleteLocalChanAliases(input: DeleteAliasesRequest, options?: RpcOptions): UnaryCall<DeleteAliasesRequest, DeleteAliasesResponse>;
 }
-// // Comments in this file will be directly parsed into the API// Documentation as descriptions of the associated method, message, or field.// These descriptions should go right above the definition of the object, and// can be in either block or // comment format.// // An RPC method can be matched to an lncli command by placing a line in the// beginning of the description in exactly the following format:// lncli: `methodname`// // Failure to specify the exact name of the command will cause documentation// generation to fail.// // More information on how exactly the gRPC documentation is generated from// this proto file can be found here:// https://github.com/lightninglabs/lightning-api
+// 
+// Comments in this file will be directly parsed into the API
+// Documentation as descriptions of the associated method, message, or field.
+// These descriptions should go right above the definition of the object, and
+// can be in either block or // comment format.
+// 
+// An RPC method can be matched to an lncli command by placing a line in the
+// beginning of the description in exactly the following format:
+// lncli: `methodname`
+// 
+// Failure to specify the exact name of the command will cause documentation
+// generation to fail.
+// 
+// More information on how exactly the gRPC documentation is generated from
+// this proto file can be found here:
+// https://github.com/lightninglabs/lightning-api
 
 /**
  * Router is a service that offers advanced interaction with the router

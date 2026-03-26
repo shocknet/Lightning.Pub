@@ -3,24 +3,39 @@
 // tslint:disable
 import type { RpcTransport } from "@protobuf-ts/runtime-rpc";
 import type { ServiceInfo } from "@protobuf-ts/runtime-rpc";
-import { Invoices } from "./invoices";
-import type { HtlcModifyRequest } from "./invoices";
-import type { HtlcModifyResponse } from "./invoices";
+import { Invoices } from "./invoices.js";
+import type { HtlcModifyRequest } from "./invoices.js";
+import type { HtlcModifyResponse } from "./invoices.js";
 import type { DuplexStreamingCall } from "@protobuf-ts/runtime-rpc";
-import type { LookupInvoiceMsg } from "./invoices";
-import type { SettleInvoiceResp } from "./invoices";
-import type { SettleInvoiceMsg } from "./invoices";
-import type { AddHoldInvoiceResp } from "./invoices";
-import type { AddHoldInvoiceRequest } from "./invoices";
-import type { CancelInvoiceResp } from "./invoices";
-import type { CancelInvoiceMsg } from "./invoices";
+import type { LookupInvoiceMsg } from "./invoices.js";
+import type { SettleInvoiceResp } from "./invoices.js";
+import type { SettleInvoiceMsg } from "./invoices.js";
+import type { AddHoldInvoiceResp } from "./invoices.js";
+import type { AddHoldInvoiceRequest } from "./invoices.js";
+import type { CancelInvoiceResp } from "./invoices.js";
+import type { CancelInvoiceMsg } from "./invoices.js";
 import type { UnaryCall } from "@protobuf-ts/runtime-rpc";
 import { stackIntercept } from "@protobuf-ts/runtime-rpc";
-import type { Invoice } from "./lightning";
-import type { SubscribeSingleInvoiceRequest } from "./invoices";
+import type { Invoice } from "./lightning.js";
+import type { SubscribeSingleInvoiceRequest } from "./invoices.js";
 import type { ServerStreamingCall } from "@protobuf-ts/runtime-rpc";
 import type { RpcOptions } from "@protobuf-ts/runtime-rpc";
-// // Comments in this file will be directly parsed into the API// Documentation as descriptions of the associated method, message, or field.// These descriptions should go right above the definition of the object, and// can be in either block or // comment format.// // An RPC method can be matched to an lncli command by placing a line in the// beginning of the description in exactly the following format:// lncli: `methodname`// // Failure to specify the exact name of the command will cause documentation// generation to fail.// // More information on how exactly the gRPC documentation is generated from// this proto file can be found here:// https://github.com/lightninglabs/lightning-api
+// 
+// Comments in this file will be directly parsed into the API
+// Documentation as descriptions of the associated method, message, or field.
+// These descriptions should go right above the definition of the object, and
+// can be in either block or // comment format.
+// 
+// An RPC method can be matched to an lncli command by placing a line in the
+// beginning of the description in exactly the following format:
+// lncli: `methodname`
+// 
+// Failure to specify the exact name of the command will cause documentation
+// generation to fail.
+// 
+// More information on how exactly the gRPC documentation is generated from
+// this proto file can be found here:
+// https://github.com/lightninglabs/lightning-api
 
 /**
  * Invoices is a service that can be used to create, accept, settle and cancel
@@ -82,7 +97,22 @@ export interface IInvoicesClient {
      */
     htlcModifier(options?: RpcOptions): DuplexStreamingCall<HtlcModifyResponse, HtlcModifyRequest>;
 }
-// // Comments in this file will be directly parsed into the API// Documentation as descriptions of the associated method, message, or field.// These descriptions should go right above the definition of the object, and// can be in either block or // comment format.// // An RPC method can be matched to an lncli command by placing a line in the// beginning of the description in exactly the following format:// lncli: `methodname`// // Failure to specify the exact name of the command will cause documentation// generation to fail.// // More information on how exactly the gRPC documentation is generated from// this proto file can be found here:// https://github.com/lightninglabs/lightning-api
+// 
+// Comments in this file will be directly parsed into the API
+// Documentation as descriptions of the associated method, message, or field.
+// These descriptions should go right above the definition of the object, and
+// can be in either block or // comment format.
+// 
+// An RPC method can be matched to an lncli command by placing a line in the
+// beginning of the description in exactly the following format:
+// lncli: `methodname`
+// 
+// Failure to specify the exact name of the command will cause documentation
+// generation to fail.
+// 
+// More information on how exactly the gRPC documentation is generated from
+// this proto file can be found here:
+// https://github.com/lightninglabs/lightning-api
 
 /**
  * Invoices is a service that can be used to create, accept, settle and cancel
