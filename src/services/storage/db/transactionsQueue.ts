@@ -84,7 +84,7 @@ export default class {
 
     async execNextInQueue() {
         this.pendingTx = false
-        const next = this.transactionsQueue.pop()
+        const next = this.transactionsQueue.shift()
         if (!next) {
             this.doneWriting()
             return

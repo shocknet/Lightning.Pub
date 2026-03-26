@@ -202,7 +202,7 @@ export default class {
             cooperative: true,
             fundingCanceled: true,
             localForce: true,
-            remoteForce: true
+            remoteForce: true,
         }, DeadLineMetadata())
         return res.response
     }
@@ -289,6 +289,8 @@ export default class {
             account: "",
             endHeight: 0,
             startHeight: this.latestKnownBlockHeigh,
+            indexOffset: 0,
+            maxTransactions: 0
         }, { abort: this.abortController.signal })
         stream.responses.onMessage(tx => {
             if (tx.blockHeight > this.latestKnownBlockHeigh) {
@@ -542,7 +544,7 @@ export default class {
 
     async GetTransactions(startHeight: number): Promise<TransactionDetails> {
         this.log(DEBUG, "Getting transactions")
-        const res = await this.lightning.getTransactions({ startHeight, endHeight: 0, account: "", }, DeadLineMetadata())
+        const res = await this.lightning.getTransactions({ startHeight, endHeight: 0, account: "", indexOffset: 0, maxTransactions: 0 }, DeadLineMetadata())
         return res.response
     }
 
@@ -566,6 +568,7 @@ export default class {
             inboundFee: undefined,
             feeRatePpm: policy.fee_rate_ppm,
             minHtlcMsatSpecified: policy.min_htlc_msat > 0,
+            createMissingEdge: false,
         }, DeadLineMetadata())
         return res.response
     }
@@ -651,7 +654,8 @@ export default class {
                 txidBytes: Buffer.alloc(0)
             },
             force: false,
-            satPerByte: 0
+            satPerByte: 0,
+            deadlineDelta: 0
         }, DeadLineMetadata())
         return res.response
     }
