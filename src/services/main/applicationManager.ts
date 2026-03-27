@@ -241,6 +241,8 @@ export default class {
             const paid = await this.paymentManager.PayInvoice(appUser.user.user_id, req, app, {
                 ack: pendingOp => { this.notifyAppUserPayment(appUser, pendingOp) }
             })
+            // Refresh appUser balance from DB so notification has accurate latest_balance
+            appUser.user.balance_sats = paid.latest_balance
             this.notifyAppUserPayment(appUser, paid.operation)
             getLogger({ appName: app.name })(appUser.identifier, "invoice paid", paid.amount_paid, "sats")
             return paid
