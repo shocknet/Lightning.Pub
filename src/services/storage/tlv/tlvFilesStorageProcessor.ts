@@ -126,7 +126,7 @@ class TlvFilesStorageProcessor {
                     throw new Error('Unknown metric type: ' + t)
             }
         })
-        this.wrtc.attachNostrSend((initiator: SendInitiator, data: SendData, relays?: string[] | undefined) => {
+        this.wrtc.attachNostrSend(async (initiator: SendInitiator, data: SendData, relays?: string[] | undefined) => {
             this.sendResponse({
                 success: true,
                 type: 'nostrSend',
