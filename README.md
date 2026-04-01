@@ -259,7 +259,7 @@ When you run your own Lightning Pub, obtaining a Lightning Address is fully auto
 > [!TIP]
 > **CLINK Integration**: Your Pub's CLINK offers enable ShockWallet to connect to CLINK-compatible services, like [Stacker News](https://stacker.news), allowing you to send and receive payments without additional setup.
 
-For custom Lightning Address domains, see the [Advanced Configuration](#advanced-configuration) section.
+For custom Lightning Address domains, edit the [Advanced Configuration](#advanced-configuration) section after installing your own [Bridglet](https://github.com/shocknet/bridgelet).
 
 ## Advanced Configuration
 
@@ -267,6 +267,10 @@ Copy `env.example` to `.env` and customize settings:
 ```bash
 cp env.example .env
 nano .env  # or use your preferred editor
+
+# Add these lines (in addition to what's already there):
+BRIDGE_URL=https://example.net
+
 ```
 
 > [!IMPORTANT]
