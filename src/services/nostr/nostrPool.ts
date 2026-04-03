@@ -203,21 +203,23 @@ export class NostrPool {
         const signed = finalizeEvent(event, Buffer.from(keys.privateKey, 'hex'))
         let sent = false
         const log = getLogger({ appName: keys.name })
-        // const r = relays ? relays : this.getServiceRelays()
         const pool = new SimplePool()
-        await Promise.all(pool.publish(relays, signed).map(async p => {
-            try {
-                await p
-                sent = true
-            } catch (e: any) {
-                console.log(e)
-                log(e)
+        try {
+            await Promise.all(pool.publish(relays, signed).map(async p => {
+                try {
+                    await p
+                    sent = true
+                } catch (e: any) {
+                    this.log(ERROR, `Failed to publish Kind ${event.kind} event:`, e.message || e)
+                    log(e)
+                }
+            }))
+            if (!sent) {
+                this.log(ERROR, `Failed to send Kind ${event.kind} event to any relay`)
+                log("failed to send event")
             }
-        }))
-        if (!sent) {
-            log("failed to send event")
-        } else {
-            //log("sent event")
+        } finally {
+            pool.close(relays)
         }
     }
 
