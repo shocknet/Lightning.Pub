@@ -12,12 +12,7 @@ export class NostrSender {
         this.isReady = true
         this.onReadyCallbacks.forEach(cb => cb())
         this.onReadyCallbacks = []
-        // Process pending sends with proper error handling
-        this.pendingSends.forEach(send => {
-            this._nostrSend(send.initiator, send.data, send.relays).catch(e => {
-                this.log(ERROR, "failed to send pending event", e.message || e)
-            })
-        })
+        this.pendingSends.forEach(send => this._nostrSend(send.initiator, send.data, send.relays))
         this.pendingSends = []
     }
     OnReady(callback: () => void) {
@@ -33,10 +28,7 @@ export class NostrSender {
             this.pendingSends.push({ initiator, data, relays })
             return
         }
-        // Fire and forget but log errors
-        this._nostrSend(initiator, data, relays).catch(e => {
-            this.log(ERROR, "failed to send event", e.message || e)
-        })
+        this._nostrSend(initiator, data, relays)
     }
     IsReady() {
         return this.isReady
