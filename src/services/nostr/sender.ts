@@ -1,7 +1,7 @@
 import { NostrSend, SendData, SendInitiator } from "./nostrPool.js"
-import { ERROR, getLogger } from "../helpers/logger.js"
+import { getLogger } from "../helpers/logger.js"
 export class NostrSender {
-    private _nostrSend: NostrSend = async () => { throw new Error('nostr send not initialized yet') }
+    private _nostrSend: NostrSend = () => { throw new Error('nostr send not initialized yet') }
     private isReady: boolean = false
     private onReadyCallbacks: (() => void)[] = []
     private pendingSends: { initiator: SendInitiator, data: SendData, relays?: string[] | undefined }[] = []
