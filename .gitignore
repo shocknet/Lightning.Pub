@@ -28,4 +28,5 @@ metric_cache/
 metrics_events/
 bundler_events/
 metric_events/
+plans
 .npmrc
