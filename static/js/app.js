@@ -36,6 +36,18 @@ window.wizard = function () {
         showResetBox: false,
         resetBoxContent: '',
 
+        // BACKUP CHANGE: Restore flow state
+        restoreIntent: '',
+        restorePhrase: '',
+        restorePhraseError: '',
+        restoreSource: 'cloud',
+        restoreSftpHost: '',
+        restoreSftpUser: '',
+        restoreSftpPass: '',
+        restoreLocalPath: '',
+        restoreError: '',
+        restoreLoading: false,
+
         async init() {
             await this.loadState();
             document.body.classList.add('wizard-ready');
@@ -89,7 +101,8 @@ window.wizard = function () {
                 // Always apply hash so deep links and back button work (even when backend is down)
                 if (window.location.hash) {
                     const hashStep = window.location.hash.substring(1).replace('page-', '');
-                    if (['welcome', 'node', 'relay', 'liquidity', 'backup', 'connect', 'status'].includes(hashStep)) {
+                    if (['welcome', 'node', 'relay', 'liquidity', 'backup', 'connect', 'status',
+                         'restore-intent', 'restore-phrase', 'restore-source', 'restore-nobackup', 'restore-lndonly'].includes(hashStep)) {
                         this.step = hashStep;
                     }
                 }
@@ -290,6 +303,69 @@ window.wizard = function () {
                 this.error = e.message;
                 const el = document.getElementById('errorTextBackup');
                 if (el) el.textContent = e.message;
+            }
+        },
+
+        // BACKUP CHANGE: Restore flow handlers
+
+        // Phrase validation is a UX gate only — catches typos before SFTP round-trip.
+        // Derivation correctness does NOT depend on aezeed validity.
+        // Future code must NOT couple this to any aezeed library.
+        validateAndProceedPhrase() {
+            const words = this.restorePhrase.trim().split(/\s+/);
+            if (words.length !== 24) {
+                this.restorePhraseError = `Expected 24 words, got ${words.length}. Check your phrase.`;
+                return;
+            }
+            // TODO: optionally validate each word against the aezeed wordlist
+            // and verify checksum. For now, word count is the UX gate.
+            this.restorePhraseError = '';
+            this.goTo('restore-source');
+        },
+
+        async executeRestore() {
+            this.restoreError = '';
+            this.restoreLoading = true;
+
+            try {
+                const payload = {
+                    phrase: this.restorePhrase.trim(),
+                    source: this.restoreSource,
+                };
+                if (this.restoreSource === 'ftp') {
+                    if (!this.restoreSftpHost.trim()) {
+                        this.restoreError = 'SFTP host is required.';
+                        return;
+                    }
+                    payload.sftp_host = this.restoreSftpHost.trim();
+                    if (this.restoreSftpUser.trim()) payload.sftp_user = this.restoreSftpUser.trim();
+                    if (this.restoreSftpPass.trim()) payload.sftp_pass = this.restoreSftpPass.trim();
+                }
+                if (this.restoreSource === 'local') {
+                    if (!this.restoreLocalPath.trim()) {
+                        this.restoreError = 'Path to db.sqlite is required.';
+                        return;
+                    }
+                    payload.local_path = this.restoreLocalPath.trim();
+                }
+
+                const res = await fetch('/wizard/restore', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+
+                const result = await res.json();
+                if (result.success) {
+                    this.goTo('node');
+                } else {
+                    this.restoreError = result.error || 'Restore failed.';
+                    this.goTo('restore-nobackup');
+                }
+            } catch (e) {
+                this.restoreError = e.message || 'Restore request failed.';
+            } finally {
+                this.restoreLoading = false;
             }
         }
     };

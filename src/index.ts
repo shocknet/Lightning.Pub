@@ -4,7 +4,7 @@ import GetServerMethods from './services/serverMethods/index.js'
 import serverOptions from './auth.js';
 import nostrMiddleware from './nostrMiddleware.js'
 import { getLogger } from './services/helpers/logger.js';
-import { initMainHandler, initSettings } from './services/main/init.js';
+import { initMainHandler, initSettings, handleRestoreCli } from './services/main/init.js';
 import { nip19 } from 'nostr-tools'
 import { LoadStorageSettingsFromEnv } from './services/storage/index.js';
 import { AppInfo } from './services/nostr/nostrPool.js';
@@ -16,6 +16,15 @@ const start = async () => {
     const log = getLogger({})
     //const mainSettings = LoadMainSettingsFromEnv()
     const storageSettings = LoadStorageSettingsFromEnv()
+
+    // BACKUP CHANGE: Check for CLI restore command before normal startup.
+    // Restore runs against a clean DB and exits — no need for full init.
+    const restored = await handleRestoreCli(log, storageSettings)
+    if (restored) {
+        log("Restore complete, exiting.")
+        process.exit(0)
+    }
+
     const settingsManager = await initSettings(log, storageSettings)
     const keepOn = await initMainHandler(log, settingsManager)
     if (!keepOn) {

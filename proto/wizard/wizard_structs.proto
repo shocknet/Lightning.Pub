@@ -45,3 +45,23 @@ message ServiceStateResponse {
     string avatar_url = 13;
     string app_id = 14;
 }
+
+// BACKUP CHANGE: Restore request/response messages.
+// NOTE: The /wizard/restore endpoint is currently wired as a direct Express route
+// (not via codegen). These definitions serve as the contract for future codegen.
+// Run: npx protoc -I ./wizard --pub_out=./wizard_service wizard/*
+message RestoreRequest {
+    string phrase = 1;
+    string source = 2;         // "cloud" | "ftp" | "local"
+    string sftp_host = 3;      // required if source=ftp
+    string sftp_user = 4;      // optional — derived from phrase if empty
+    string sftp_pass = 5;      // optional — derived from phrase if empty
+    string local_path = 6;     // required if source=local
+    string relay = 7;          // optional — overrides NOSTR_RELAYS for SCB fetch
+}
+
+message RestoreResponse {
+    bool success = 1;
+    string error = 2;
+    int32 tables_restored = 3;
+}

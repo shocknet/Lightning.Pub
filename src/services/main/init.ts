@@ -12,6 +12,8 @@ import SettingsManager from "./settingsManager.js"
 import { LoadStorageSettingsFromEnv } from "../storage/index.js"
 import { NostrSender } from "../nostr/sender.js"
 import { Swaps } from "../lnd/swaps/swaps.js"
+// BACKUP CHANGE: import restore pipeline for CLI usage
+import { restoreFromSource, type RestoreOptions, type RestoreSource } from "../backup/restoreManager.js"
 export type AppData = {
     privateKey: string;
     publicKey: string;
@@ -111,4 +113,84 @@ const processArgs = async (mainHandler: Main) => {
         default:
             return false
     }
+}
+
+// BACKUP CHANGE: CLI restore command.
+// Usage: node build/src/index.js restore --phrase "word1 word2 ..." --source cloud|ftp|local
+//   [--ftp-host host] [--ftp-user user] [--ftp-pass pass]
+//   [--local-path /path/to/db.sqlite]
+//   [--relay wss://relay.example.com]
+//
+// Exits non-zero on failure with human-readable error.
+// Shares restoreFromSource() with the wizard — single implementation path.
+export async function handleRestoreCli(log: PubLogger, storageSettings: StorageSettings): Promise<boolean> {
+    if (process.argv[2] !== 'restore') return false
+
+    log('Running CLI restore...')
+
+    const flags = parseCliFlags(process.argv.slice(3))
+
+    if (!flags['phrase']) {
+        console.error('Error: --phrase is required')
+        process.exit(1)
+    }
+    if (!flags['source']) {
+        console.error('Error: --source is required (cloud|ftp|local)')
+        process.exit(1)
+    }
+
+    const validSources: RestoreSource[] = ['cloud', 'ftp', 'local']
+    if (!validSources.includes(flags['source'] as RestoreSource)) {
+        console.error(`Error: --source must be one of: ${validSources.join(', ')}`)
+        process.exit(1)
+    }
+
+    if (flags['source'] === 'ftp' && !flags['ftp-host']) {
+        console.error('Error: --ftp-host is required when source=ftp')
+        process.exit(1)
+    }
+
+    if (flags['source'] === 'local' && !flags['local-path']) {
+        console.error('Error: --local-path is required when source=local')
+        process.exit(1)
+    }
+
+    const nostrSender = new NostrSender()
+    const utils = new Utils({ dataDir: storageSettings.dataDir, allowResetMetricsStorages: storageSettings.allowResetMetricsStorages }, nostrSender)
+    const storageManager = new Storage(storageSettings, utils)
+    await storageManager.Connect(log)
+
+    const opts: RestoreOptions = {
+        phrase: flags['phrase'],
+        source: flags['source'] as RestoreSource,
+        sftpHost: flags['ftp-host'],
+        sftpUser: flags['ftp-user'],
+        sftpPass: flags['ftp-pass'],
+        localPath: flags['local-path'],
+        relay: flags['relay'],
+    }
+
+    const result = await restoreFromSource(storageManager.dbs, opts)
+
+    if (result.success) {
+        log(`Restore complete. ${result.tablesRestored ?? 0} table groups imported.`)
+    } else {
+        console.error(`Restore failed: ${result.error}`)
+        process.exit(1)
+    }
+
+    await storageManager.Stop()
+    return true
+}
+
+function parseCliFlags(args: string[]): Record<string, string> {
+    const flags: Record<string, string> = {}
+    for (let i = 0; i < args.length; i++) {
+        if (args[i].startsWith('--') && i + 1 < args.length) {
+            const key = args[i].substring(2)
+            flags[key] = args[i + 1]
+            i++
+        }
+    }
+    return flags
 }

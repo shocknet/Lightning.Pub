@@ -82,11 +82,187 @@
           href="https://docs.shock.network/" target="_blank" rel="noopener" class="marked">terms</a> regarding any
         services herein.</p>
       <div class="welcome-actions">
-        <button type="button" class="wizard-cta wizard-cta--ghost" @click="goTo('node')">Restore Backup</button>
+        <button type="button" class="wizard-cta wizard-cta--ghost" @click="goTo('restore-intent')">Restore Backup</button>
         <button type="button" class="wizard-cta wizard-cta--gradient-fill" @click="goTo('node')">Get Started!</button>
       </div>
       <a href="https://docs.shock.network" target="_blank" rel="noopener"
         class="marked need-help welcome-need-help">Need Help?</a>
+    </section>
+
+    <!-- STEP: RESTORE INTENT -->
+    <!-- BACKUP CHANGE: New wizard step — asks user whether they are restoring an existing Pub or just setting up a new Pub on an existing LND -->
+    <section id="page-restore-intent" x-show="step === 'restore-intent'" x-cloak x-transition.opacity>
+      <div class="setup-header">
+        <button class="icon-button back-button" @click="goBack()" type="button" aria-label="Back">
+          <img src="img/back.svg" alt="" />
+        </button>
+        <h2>What are you restoring?</h2>
+      </div>
+      <div class="setup-description">
+        <p class="header-title">Choose the option that matches your situation.</p>
+      </div>
+      <div class="setup-content">
+        <div class="radio-option">
+          <input type="radio" id="restore-existing" name="restore-intent" value="restore" x-model="restoreIntent" />
+          <label for="restore-existing">
+            <strong>Restore an existing Lightning.Pub</strong>
+            <br /><span style="font-size:13px; opacity:0.7;">I previously ran a Pub and have my LND seed phrase. I want to recover my users, balances, and settings.</span>
+          </label>
+        </div>
+        <div class="radio-option">
+          <input type="radio" id="restore-lnd-only" name="restore-intent" value="lnd-only" x-model="restoreIntent" />
+          <label for="restore-lnd-only">
+            <strong>New Pub on an existing LND node</strong>
+            <br /><span style="font-size:13px; opacity:0.7;">I have an LND wallet with a seed phrase but never ran Lightning.Pub on it. I want a fresh setup.</span>
+          </label>
+        </div>
+      </div>
+      <div class="page-separator"></div>
+      <div class="page-footer-actions">
+        <a href="https://docs.shock.network" class="marked need-help">Need Help?</a>
+        <button type="button" class="wizard-cta wizard-cta--gradient-fill"
+          @click="restoreIntent === 'restore' ? goTo('restore-phrase') : goTo('node')"
+          :disabled="!restoreIntent">Next</button>
+      </div>
+    </section>
+
+    <!-- STEP: RESTORE PHRASE -->
+    <!-- BACKUP CHANGE: New wizard step — collects the LND seed phrase for key derivation -->
+    <section id="page-restore-phrase" x-show="step === 'restore-phrase'" x-cloak x-transition.opacity>
+      <div class="setup-header">
+        <button class="icon-button back-button" @click="goBack()" type="button" aria-label="Back">
+          <img src="img/back.svg" alt="" />
+        </button>
+        <h2>Enter Your Seed Phrase</h2>
+      </div>
+      <div class="setup-description">
+        <p class="header-title">Enter the 24-word LND seed phrase from the Pub you want to restore.</p>
+      </div>
+      <div class="setup-content">
+        <div class="input-group">
+          <textarea class="input-text" rows="4" placeholder="word1 word2 word3 ... word24"
+            x-model="restorePhrase" @input="restorePhraseError = ''"></textarea>
+          <div class="error-message" x-show="restorePhraseError" x-text="restorePhraseError" style="color:#E84C3D; margin-top:0.5rem;"></div>
+          <p style="font-size:12px; opacity:0.5; margin-top:0.5rem;">
+            This phrase is used to derive encryption keys for your backup files. It is not sent to any server.
+          </p>
+        </div>
+      </div>
+      <div class="page-separator"></div>
+      <div class="page-footer-actions">
+        <a href="https://docs.shock.network" class="marked need-help">Need Help?</a>
+        <button type="button" class="wizard-cta wizard-cta--gradient-fill"
+          @click="validateAndProceedPhrase()">Next</button>
+      </div>
+    </section>
+
+    <!-- STEP: RESTORE SOURCE -->
+    <!-- BACKUP CHANGE: New wizard step — select backup source (cloud, custom SFTP, or local file) -->
+    <section id="page-restore-source" x-show="step === 'restore-source'" x-cloak x-transition.opacity>
+      <div class="setup-header">
+        <button class="icon-button back-button" @click="goBack()" type="button" aria-label="Back">
+          <img src="img/back.svg" alt="" />
+        </button>
+        <h2>Backup Source</h2>
+      </div>
+      <div class="setup-description">
+        <p class="header-title">Where is your backup stored?</p>
+      </div>
+      <div class="setup-content">
+        <div class="radio-option">
+          <input type="radio" id="source-cloud" name="restore-source" value="cloud" x-model="restoreSource" />
+          <label for="source-cloud">
+            <strong>Cloud backup (Shocknet managed)</strong>
+            <br /><span style="font-size:13px; opacity:0.7;">Credentials are derived from your phrase automatically.</span>
+          </label>
+        </div>
+        <div class="radio-option">
+          <input type="radio" id="source-ftp" name="restore-source" value="ftp" x-model="restoreSource" />
+          <label for="source-ftp">
+            <strong>Custom SFTP server</strong>
+            <br /><span style="font-size:13px; opacity:0.7;">Provide host and optionally override credentials.</span>
+          </label>
+        </div>
+        <div x-show="restoreSource === 'ftp'" x-transition style="margin-top:1rem;">
+          <div class="input-group">
+            <h3>SFTP Host</h3>
+            <input type="text" class="input-text" placeholder="sftp.example.com" x-model="restoreSftpHost" />
+          </div>
+          <div class="input-group">
+            <h3>Username (optional — derived from phrase if empty)</h3>
+            <input type="text" class="input-text" placeholder="" x-model="restoreSftpUser" />
+          </div>
+          <div class="input-group">
+            <h3>Password (optional — derived from phrase if empty)</h3>
+            <input type="password" class="input-text" placeholder="" x-model="restoreSftpPass" />
+          </div>
+        </div>
+        <div class="radio-option">
+          <input type="radio" id="source-local" name="restore-source" value="local" x-model="restoreSource" />
+          <label for="source-local">
+            <strong>Local file</strong>
+            <br /><span style="font-size:13px; opacity:0.7;">Point to an existing db.sqlite file on disk.</span>
+          </label>
+        </div>
+        <div x-show="restoreSource === 'local'" x-transition style="margin-top:1rem;">
+          <div class="input-group">
+            <h3>Path to db.sqlite</h3>
+            <input type="text" class="input-text" placeholder="/path/to/db.sqlite" x-model="restoreLocalPath" />
+          </div>
+        </div>
+        <div class="error-message" x-show="restoreError" x-text="restoreError" style="color:#E84C3D; margin-top:1rem;"></div>
+      </div>
+      <div class="page-separator"></div>
+      <div class="page-footer-actions">
+        <a href="https://docs.shock.network" class="marked need-help">Need Help?</a>
+        <button type="button" class="wizard-cta wizard-cta--gradient-fill"
+          @click="executeRestore()" :disabled="!restoreSource || restoreLoading">
+          <span x-show="!restoreLoading">Restore</span>
+          <span x-show="restoreLoading">Restoring...</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- STEP: RESTORE NO BACKUP FOUND -->
+    <!-- BACKUP CHANGE: New wizard step — shown when backup files are not found on the chosen source -->
+    <section id="page-restore-nobackup" x-show="step === 'restore-nobackup'" x-cloak x-transition.opacity>
+      <div class="setup-header">
+        <button class="icon-button back-button" @click="goBack()" type="button" aria-label="Back">
+          <img src="img/back.svg" alt="" />
+        </button>
+        <h2>No Backup Found</h2>
+      </div>
+      <div class="setup-content">
+        <div class="description-box">
+          <p class="description" x-text="restoreError"></p>
+          <p class="description" style="margin-top:1rem;">Did this seed ever run a Lightning.Pub instance?</p>
+        </div>
+        <div class="welcome-actions" style="margin-top:2rem; flex-direction:column; gap:1rem;">
+          <button type="button" class="wizard-cta wizard-cta--gradient-fill" @click="goTo('restore-source')">Yes — try a different source</button>
+          <button type="button" class="wizard-cta wizard-cta--ghost" @click="goTo('restore-lndonly')">No — this is LND only</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP: RESTORE LND ONLY -->
+    <!-- BACKUP CHANGE: New wizard step — explains the distinction between Pub restore and LND wallet recovery -->
+    <section id="page-restore-lndonly" x-show="step === 'restore-lndonly'" x-cloak x-transition.opacity>
+      <div class="setup-header">
+        <button class="icon-button back-button" @click="goBack()" type="button" aria-label="Back">
+          <img src="img/back.svg" alt="" />
+        </button>
+        <h2>LND Wallet Recovery</h2>
+      </div>
+      <div class="setup-content">
+        <div class="description-box">
+          <p class="description">This restore flow recovers a Lightning.Pub database (users, balances, settings). It looks like this LND seed was not associated with a Pub instance.</p>
+          <p class="description" style="margin-top:1rem;">To recover LND channel funds only, run <code>lncli create</code>, enter your seed when prompted, and set a recovery window when asked.</p>
+          <p class="description" style="margin-top:1rem;">You can continue to set up a fresh Pub on this node.</p>
+        </div>
+        <div class="welcome-actions" style="margin-top:2rem;">
+          <button type="button" class="wizard-cta wizard-cta--gradient-fill" @click="goTo('node')">Continue to fresh setup</button>
+        </div>
+      </div>
     </section>
 
     <!-- STEP: NODE -->

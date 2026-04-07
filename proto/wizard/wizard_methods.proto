@@ -66,5 +66,13 @@ service Wizard {
         option (http_method) = "get";
         option (http_route) = "/wizard/service_state";
     };
+    // BACKUP CHANGE: Restore RPC definition. Currently wired as direct Express route.
+    // Uncomment after codegen supports it, or regenerate:
+    //   npx protoc -I ./wizard --pub_out=./wizard_service wizard/*
+    // rpc WizardRestore(wizard_structs.RestoreRequest) returns (wizard_structs.RestoreResponse){
+    //     option (auth_type)  = "Guest";
+    //     option (http_method) = "post";
+    //     option (http_route) = "/wizard/restore";
+    // };
     // </Guest>
 }
