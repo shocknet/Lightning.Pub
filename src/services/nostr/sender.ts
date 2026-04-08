@@ -22,7 +22,7 @@ export class NostrSender {
             this.onReadyCallbacks.push(callback)
         }
     }
-    Send(initiator: SendInitiator, data: SendData, relays?: string[] | undefined) {
+    Send(initiator: SendInitiator, data: SendData, relays?: string[] | undefined): void {
         if (!this.isReady) {
             this.log("tried to send before nostr was ready, caching request")
             this.pendingSends.push({ initiator, data, relays })
