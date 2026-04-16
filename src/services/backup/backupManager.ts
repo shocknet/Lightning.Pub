@@ -8,10 +8,16 @@
 
 import { getLogger } from '../helpers/logger.js'
 import { StorageInterface } from '../storage/db/storageInterface.js'
-import { collectBalancesSegment, collectIdentitySegment } from './segments.js'
+import {
+    mapAdminSettingBackupRow, mapAppBackupRow, mapAppUserBackupRow, mapAppUserDeviceBackupRow,
+    mapBalanceBackupRow, mapDebitAccessBackupRow, mapInviteTokenBackupRow, mapManagementGrantBackupRow,
+    mapProductBackupRow, mapTrackedProviderBackupRow, mapUserOfferBackupRow, STRIPPED_SETTINGS_KEYS
+} from './segments.js'
 import { encryptPayload } from './encryption.js'
 import { sftpUpload, cloudSftpConfig, type SftpConfig } from './sftpClient.js'
-
+import Storage from '../storage/index.js'
+import { BalancesData, encryptBalancesData, IdentityData } from './segments.js'
+import { encryptIdentityData } from './segments.js'
 const log = getLogger({ component: 'backupManager' })
 
 const BALANCE_DEBOUNCE_MS = 30_000
@@ -23,13 +29,13 @@ export type BackupConfig = {
 }
 
 export class BackupManager {
-    private config: BackupConfig | null = null
+    storage: Storage
+    private config: BackupConfig
     private balanceTimer: ReturnType<typeof setTimeout> | null = null
     private balanceUploadInProgress = false
-
-    configure(config: BackupConfig) {
+    constructor(storage: Storage, config: BackupConfig) {
+        this.storage = storage
         this.config = config
-        log(`Backup ${config.enabled ? 'enabled' : 'disabled'}`)
     }
 
     // Call after any User.balance_sats change.
@@ -50,36 +56,47 @@ export class BackupManager {
 
     // Call after any identity-segment-relevant change:
     // user registration, settings change, offer edit, etc.
-    async notifyIdentityChanged(dbs: StorageInterface) {
+    async notifyIdentityChanged() {
         if (!this.config?.enabled) return
 
         try {
-            await this.uploadIdentity(dbs)
+            await this.uploadIdentity()
         } catch (err: any) {
             log(`Identity backup upload failed: ${err.message}`)
         }
     }
 
-    // --- Upload methods ---
-    // TODO: These need a reference to `dbs` passed in. Currently the balance
-    // upload has no dbs reference. The wiring layer (in main/index.ts or similar)
-    // needs to supply this. For now, the balance upload stores a dbs ref at
-    // configure time or the caller passes it.
+    async collectIdentitySegment(): Promise<IdentityData> {
+        const applications = await this.storage.applicationStorage.ExportApplications()
+        const applicationUsers = await this.storage.applicationStorage.ExportApplicationUsers()
+        const userOffers = await this.storage.offerStorage.ExportUserOffers()
+        const products = await this.storage.productStorage.ExportProducts()
+        const managementGrants = await this.storage.managementStorage.ExportManagementGrants()
+        const debitAccesses = await this.storage.debitStorage.ExportDebitAccess()
+        const inviteTokens = await this.storage.applicationStorage.ExportInviteTokens()
+        const appUserDevices = await this.storage.applicationStorage.ExportAppUserDevices()
+        const adminSettings = await this.storage.settingsStorage.ExportSettings()
+        return {
+            adminSettings, applications, applicationUsers, appUserDevices,
+            debitAccesses, inviteTokens, managementGrants, products, userOffers
+        }
+    }
 
-    private dbs: StorageInterface | null = null
-
-    setStorage(dbs: StorageInterface) {
-        this.dbs = dbs
+    async collectBalancesSegment(): Promise<BalancesData> {
+        const balances = await this.storage.userStorage.ExportBalances()
+        const trackedProviders = await this.storage.liquidityStorage.ExportTrackedProviders()
+        return {
+            balances, trackedProviders
+        }
     }
 
     private async uploadBalances() {
-        if (!this.config || !this.dbs) return
         if (this.balanceUploadInProgress) return
         this.balanceUploadInProgress = true
 
         try {
-            const payload = await collectBalancesSegment(this.dbs)
-            const encrypted = encryptPayload(payload, this.config.encKey)
+            const data = await this.collectBalancesSegment()
+            const encrypted = encryptBalancesData(data, this.config.encKey)
             await sftpUpload(this.config.sftpConfig, 'balances.enc', encrypted)
             log(`balances.enc uploaded (${encrypted.length} bytes)`)
         } finally {
@@ -87,11 +104,10 @@ export class BackupManager {
         }
     }
 
-    private async uploadIdentity(dbs: StorageInterface) {
-        if (!this.config) return
+    private async uploadIdentity() {
 
-        const payload = await collectIdentitySegment(dbs)
-        const encrypted = encryptPayload(payload, this.config.encKey)
+        const data = await this.collectIdentitySegment()
+        const encrypted = encryptIdentityData(data, this.config.encKey)
         await sftpUpload(this.config.sftpConfig, 'identity.enc', encrypted)
         log(`identity.enc uploaded (${encrypted.length} bytes)`)
     }

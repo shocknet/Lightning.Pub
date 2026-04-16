@@ -6,7 +6,7 @@ import Storage from '../storage/index.js'
 import { Unlocker } from "../main/unlocker.js"
 import { AdminManager } from '../main/adminManager.js'
 // BACKUP CHANGE: import restore pipeline
-import { restoreFromSource, type RestoreOptions } from '../backup/restoreManager.js'
+import { RestoreManager } from '../backup/restoreManager.js'
 export type WizardSettings = {
     sourceName: string
     relayUrl: string
@@ -18,26 +18,29 @@ export class Wizard {
     log = getLogger({ component: "wizard" })
     settings: SettingsManager
     adminManager: AdminManager
+    restoreManager: RestoreManager
     storage: Storage
     configQueue: { res: (reload: boolean) => void }[] = []
     awaitingNprofile: { res: (nprofile: string) => void }[] = []
     nprofile = ""
     relays: string[] = []
-    constructor(settings: SettingsManager, storage: Storage, adminManager: AdminManager) {
+    constructor(settings: SettingsManager, storage: Storage, adminManager: AdminManager, restoreManager: RestoreManager) {
         this.settings = settings
         this.adminManager = adminManager
         this.storage = storage
+        this.restoreManager = restoreManager
         this.log('Starting wizard...')
         const wizardServer = NewWizardServer({
             WizardState: async () => { return this.WizardState() },
             WizardConfig: async ({ req }) => { return this.wizardConfig(req) },
             GetAdminConnectInfo: async () => { return this.GetAdminConnectInfo() },
-            GetServiceState: async () => { return this.GetServiceState() }
+            GetServiceState: async () => { return this.GetServiceState() },
+            WizardRestore: async ({ req }) => { return this.WizardRestore(req) }
         }, { GuestAuthGuard: async () => "", metricsCallback: () => { }, staticFiles: 'static' })
 
-        // BACKUP CHANGE: Register restore endpoint on the wizard Express app.
-        // This route must be registered BEFORE the static file catch-all in Listen.
-        this.registerRestoreRoute(wizardServer.app)
+        /*         // BACKUP CHANGE: Register restore endpoint on the wizard Express app.
+                // This route must be registered BEFORE the static file catch-all in Listen.
+                this.registerRestoreRoute(wizardServer.app) */
 
         wizardServer.Listen(settings.getSettings().serviceSettings.servicePort + 1)
     }
@@ -141,11 +144,11 @@ export class Wizard {
         // Add timeout to prevent hanging forever
         return Promise.race([
             new Promise<string>((res) => {
-            this.awaitingNprofile.push({ res })
+                this.awaitingNprofile.push({ res })
             }),
             new Promise<string>((_, reject) => {
                 setTimeout(() => reject(new Error("timeout waiting for nprofile")), 30000)
-        })
+            })
         ])
     }
 
@@ -181,7 +184,7 @@ export class Wizard {
         const nameUpdated = await this.settings.updateDefaultAppName(pendingConfig.sourceName)
         // Always try to update the default app info (handles avatar update even if name didn't change)
         await this.updateDefaultApp(oldAppName, req.avatar_url)
-        
+
         const relayUpdated = await this.settings.updateRelayUrl(pendingConfig.relayUrl)
         if (relayUpdated && this.IsInitialized()) {
             await this.adminManager.ResetNostr()
@@ -207,11 +210,11 @@ export class Wizard {
             const appsList = await this.storage.applicationStorage.GetApplications()
             const defaultNames = ['wallet', 'wallet-test', currentName]
             let existingDefaultApp = appsList.find(app => defaultNames.includes(app.name)) || appsList[0]
-            
+
             if (existingDefaultApp) {
-                await this.storage.applicationStorage.UpdateApplication(existingDefaultApp, { 
-                    name: newName, 
-                    avatar_url: avatarUrl !== undefined ? avatarUrl : existingDefaultApp.avatar_url 
+                await this.storage.applicationStorage.UpdateApplication(existingDefaultApp, {
+                    name: newName,
+                    avatar_url: avatarUrl !== undefined ? avatarUrl : existingDefaultApp.avatar_url
                     // Note: We don't update ID here to maintain consistency
                 })
             } else {
@@ -226,43 +229,12 @@ export class Wizard {
         }
     }
 
-    // BACKUP CHANGE: Register the /wizard/restore POST endpoint.
-    // Receives { phrase, source, sftp_host?, sftp_user?, sftp_pass?, local_path? }
-    // Calls the shared restoreFromSource() pipeline used by both wizard and CLI.
-    private registerRestoreRoute(app: import('express').Express) {
-        app.post('/wizard/restore', async (req, res) => {
-            try {
-                const body = req.body as {
-                    phrase?: string
-                    source?: string
-                    sftp_host?: string
-                    sftp_user?: string
-                    sftp_pass?: string
-                    local_path?: string
-                }
-
-                if (!body.phrase || !body.source) {
-                    res.json({ success: false, error: 'Missing phrase or source.' })
-                    return
-                }
-
-                const opts: RestoreOptions = {
-                    phrase: body.phrase,
-                    source: body.source as any,
-                    sftpHost: body.sftp_host,
-                    sftpUser: body.sftp_user,
-                    sftpPass: body.sftp_pass,
-                    localPath: body.local_path,
-                }
-
-                this.log('Wizard restore request received, source:', opts.source)
-                const result = await restoreFromSource(this.storage.dbs, opts)
-                res.json(result)
-            } catch (err: any) {
-                this.log('Wizard restore error:', err.message)
-                res.json({ success: false, error: err.message })
-            }
+    WizardRestore = async (req: WizardTypes.RestoreRequest): Promise<WizardTypes.RestoreResponse> => {
+        const err = WizardTypes.RestoreRequestValidate(req, {
+            phrase_CustomCheck: phrase => phrase !== '',
         })
+        if (err != null) throw new Error(err.message)
+        return this.restoreManager.RestoreFromSource(req)
     }
 
     // Dev helper: Reset wizard in-memory state (doesn't clear DB settings)

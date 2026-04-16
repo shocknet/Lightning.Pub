@@ -8,7 +8,7 @@
 // Restore dispatches by envelope version byte first, then by payload.v inside.
 
 import crypto from 'crypto'
-import { pack, unpack } from 'msgpackr'
+// import { pack, unpack } from 'msgpackr'
 
 const ENVELOPE_V1 = 0x01
 const IV_LENGTH = 12
@@ -16,13 +16,13 @@ const AUTH_TAG_LENGTH = 16
 
 export type BackupPayload = {
     v: number
-    data: Record<string, unknown>[]
+    data: Record<string, unknown>
 }
 
 // Encrypt a payload object into an .enc file buffer.
 // Envelope v1: [version:1][iv:12][ciphertext:N][authTag:16]
-export function encryptPayload(payload: BackupPayload, encKey: Buffer): Buffer {
-    const plaintext = pack(payload)
+export function encryptPayload(plaintext: Buffer, encKey: Buffer): Buffer {
+    // const plaintext = pack(payload)
     const iv = crypto.randomBytes(IV_LENGTH)
     const cipher = crypto.createCipheriv('aes-256-gcm', encKey, iv)
     const ct = Buffer.concat([cipher.update(plaintext), cipher.final()])
@@ -32,7 +32,7 @@ export function encryptPayload(payload: BackupPayload, encKey: Buffer): Buffer {
 
 // Decrypt an .enc file buffer back into a payload object.
 // Dispatches by envelope version byte. Throws on tampered/corrupted data.
-export function decryptPayload(buf: Buffer, encKey: Buffer): BackupPayload {
+export function decryptPayload(buf: Buffer, encKey: Buffer): Buffer {
     if (buf.length < 1 + IV_LENGTH + AUTH_TAG_LENGTH) {
         throw new Error('Backup file too short to contain valid envelope')
     }
@@ -45,7 +45,7 @@ export function decryptPayload(buf: Buffer, encKey: Buffer): BackupPayload {
     return decryptV1(buf, encKey)
 }
 
-function decryptV1(buf: Buffer, encKey: Buffer): BackupPayload {
+function decryptV1(buf: Buffer, encKey: Buffer): Buffer {
     const iv = buf.subarray(1, 1 + IV_LENGTH)
     const tag = buf.subarray(buf.length - AUTH_TAG_LENGTH)
     const ct = buf.subarray(1 + IV_LENGTH, buf.length - AUTH_TAG_LENGTH)
@@ -54,12 +54,5 @@ function decryptV1(buf: Buffer, encKey: Buffer): BackupPayload {
     decipher.setAuthTag(tag)
 
     // GCM auth tag rejects any tampered or corrupted upload before DB writes
-    const plain = Buffer.concat([decipher.update(ct), decipher.final()])
-    const payload = unpack(plain) as BackupPayload
-
-    if (typeof payload.v !== 'number') {
-        throw new Error('Decrypted payload missing version field')
-    }
-
-    return payload
+    return Buffer.concat([decipher.update(ct), decipher.final()])
 }

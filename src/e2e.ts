@@ -14,12 +14,14 @@ const { nprofileEncode } = nip19
 const start = async () => {
     const log = getLogger({})
     const storageSettings = LoadStorageSettingsFromEnv()
-    const settingsManager = await initSettings(log, storageSettings)
-    const keepOn = await initMainHandler(log, settingsManager)
-    if (!keepOn) {
+    const initOk = await initSettings(log, storageSettings)
+    if (!initOk) {
         log("manual process ended")
         return
     }
+    const { settingsManager, restore } = initOk
+    const keepOn = await initMainHandler(log, settingsManager, restore)
+
 
     const { mainHandler, localProviderClient, wizard, adminManager } = keepOn
     const serverMethods = GetServerMethods(mainHandler)

@@ -1,3 +1,5 @@
+import { AdminSettingRow, mapAdminSettingBackupRow } from "../backup/segments.js";
+import { getLogger } from "../helpers/logger.js";
 import { StorageInterface } from "./db/storageInterface.js";
 import { AdminSettings } from "./entity/AdminSettings.js";
 export default class SettingsStorage {
@@ -6,8 +8,33 @@ export default class SettingsStorage {
         this.dbs = dbs
     }
 
+    async GetallSettings(txId?: string) {
+        return this.dbs.Find<AdminSettings>('AdminSettings', {}, txId)
+    }
+
+    async ExportSettings(): Promise<AdminSettingRow[]> {
+        const settings = await this.GetallSettings()
+        return settings.map(mapAdminSettingBackupRow).filter(s => s !== null)
+    }
+
+    async RestoreSettings(settings: AdminSettingRow[], txId: string): Promise<number> {
+        let restoredSettings = 0;
+        for (const setting of settings) {
+            try {
+                await this.dbs.CreateAndSave<AdminSettings>('AdminSettings', {
+                    env_name: setting.env_name,
+                    env_value: setting.env_value,
+                }, txId)
+                restoredSettings++;
+            } catch (error: any) {
+                getLogger({ component: "backupRestore" })("error restoring admin setting", error.message)
+            }
+        }
+        return restoredSettings;
+    }
+
     async getAllDbEnvs(): Promise<Record<string, string>> {
-        const settings = await this.dbs.Find<AdminSettings>('AdminSettings', {});
+        const settings = await this.GetallSettings();
         const envs: Record<string, string> = {};
         for (const setting of settings) {
             envs[setting.env_name] = setting.env_value;

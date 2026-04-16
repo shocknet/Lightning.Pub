@@ -13,7 +13,7 @@ import { LoadStorageSettingsFromEnv } from "../storage/index.js"
 import { NostrSender } from "../nostr/sender.js"
 import { Swaps } from "../lnd/swaps/swaps.js"
 // BACKUP CHANGE: import restore pipeline for CLI usage
-import { restoreFromSource, type RestoreOptions, type RestoreSource } from "../backup/restoreManager.js"
+import { type RestoreOptions, type RestoreSource, validRestoreSources, type RestoreParams, parseRestoreFlags, RestoreManager } from "../backup/restoreManager.js"
 export type AppData = {
     privateKey: string;
     publicKey: string;
@@ -21,25 +21,30 @@ export type AppData = {
     name: string;
 }
 
-export const initSettings = async (log: PubLogger, storageSettings: StorageSettings): Promise<SettingsManager> => {
+export const initSettings = async (log: PubLogger, storageSettings: StorageSettings): Promise<{ settingsManager: SettingsManager, restore: RestoreManager } | undefined> => {
     const nostrSender = new NostrSender()
     const utils = new Utils({ dataDir: storageSettings.dataDir, allowResetMetricsStorages: storageSettings.allowResetMetricsStorages }, nostrSender)
     const storageManager = new Storage(storageSettings, utils)
     await storageManager.Connect(log)
     const settingsManager = new SettingsManager(storageManager)
     await settingsManager.InitSettings()
-    return settingsManager
+    const restore = new RestoreManager(storageManager, settingsManager)
+    const stop = await processArgs(storageManager, restore)
+    if (stop) {
+        return
+    }
+    return { settingsManager, restore }
 }
-export const initMainHandler = async (log: PubLogger, settingsManager: SettingsManager) => {
+export const initMainHandler = async (log: PubLogger, settingsManager: SettingsManager, restore: RestoreManager) => {
     const storageManager = settingsManager.storage
     const utils = storageManager.utils
-    const unlocker = new Unlocker(settingsManager, storageManager)
+    const unlocker = new Unlocker(settingsManager, storageManager, storageManager.NostrSender())
     await unlocker.Unlock()
     const swaps = new Swaps(settingsManager, storageManager)
     const adminManager = new AdminManager(settingsManager, storageManager, swaps)
     let wizard: Wizard | null = null
     if (settingsManager.getSettings().serviceSettings.wizard) {
-        wizard = new Wizard(settingsManager, storageManager, adminManager)
+        wizard = new Wizard(settingsManager, storageManager, adminManager, restore)
         const wizardNonBlocking = settingsManager.getSettings().serviceSettings.wizardNonBlocking
         if (wizardNonBlocking) {
             // In dev mode, don't block on wizard - timeout after 1 second
@@ -67,7 +72,7 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
     const defaultAppName = settingsManager.getSettings().serviceSettings.defaultAppName
     const appsData = await mainHandler.storage.applicationStorage.GetApplications()
     const defaultNames = ['wallet', 'wallet-test', defaultAppName]
-    const existingWalletApp = await appsData.find(app => defaultNames.includes(app.name))
+    const existingWalletApp = appsData.find(app => defaultNames.includes(app.name))
     if (!existingWalletApp) {
         log("no default wallet app found, creating one...")
         const newWalletApp = await mainHandler.storage.applicationStorage.AddApplication(defaultAppName, true)
@@ -86,10 +91,10 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
         throw new Error("local app not initialized correctly")
     }
     mainHandler.liquidityProvider.setNostrInfo({ localId: `client_${localProviderClient.appId}`, localPubkey: localProviderClient.publicKey })
-    const stop = await processArgs(mainHandler)
-    if (stop) {
-        return
-    }
+    /*     const stop = await processArgs(mainHandler)
+        if (stop) {
+            return
+        } */
     await mainHandler.paymentManager.checkPaymentStatus()
     await mainHandler.paymentManager.checkMissedChainTxs()
     await mainHandler.paymentManager.CleanupOldUnpaidInvoices()
@@ -100,20 +105,32 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
     return { mainHandler, apps, localProviderClient, wizard, adminManager }
 }
 
-const processArgs = async (mainHandler: Main) => {
+const processArgs = async (storage: Storage, restore: RestoreManager) => {
     switch (process.argv[2]) {
         case 'updateUserBalance':
-            await mainHandler.storage.userStorage.UpdateUser(process.argv[3], { balance_sats: +process.argv[4] })
+            await storage.userStorage.UpdateUser(process.argv[3], { balance_sats: +process.argv[4] })
             getLogger({ userId: process.argv[3] })(`user balance updated correctly`)
             return false
         case 'unlock':
-            await mainHandler.storage.userStorage.UnbanUser(process.argv[3])
+            await storage.userStorage.UnbanUser(process.argv[3])
             getLogger({ userId: process.argv[3] })(`user unlocked`)
+            return false
+        case 'restore':
+            const flags = parseCliFlags(process.argv.slice(3))
+            const req = parseRestoreFlags(flags)
+            const result = await restore.RestoreFromSource(req)
+            if (result.success) {
+                getLogger({ component: 'backupRestore' })(`restore complete`)
+            } else {
+                getLogger({ component: 'backupRestore' })(`restore failed: ${result.error}`)
+            }
             return false
         default:
             return false
     }
 }
+
+/* 
 
 // BACKUP CHANGE: CLI restore command.
 // Usage: node build/src/index.js restore --phrase "word1 word2 ..." --source cloud|ftp|local
@@ -123,7 +140,7 @@ const processArgs = async (mainHandler: Main) => {
 //
 // Exits non-zero on failure with human-readable error.
 // Shares restoreFromSource() with the wizard — single implementation path.
-export async function handleRestoreCli(log: PubLogger, storageSettings: StorageSettings): Promise<boolean> {
+export const handleRestoreCli = (log: PubLogger, storageSettings: StorageSettings): Promise<boolean> => {
     if (process.argv[2] !== 'restore') return false
 
     log('Running CLI restore...')
@@ -138,10 +155,8 @@ export async function handleRestoreCli(log: PubLogger, storageSettings: StorageS
         console.error('Error: --source is required (cloud|ftp|local)')
         process.exit(1)
     }
-
-    const validSources: RestoreSource[] = ['cloud', 'ftp', 'local']
-    if (!validSources.includes(flags['source'] as RestoreSource)) {
-        console.error(`Error: --source must be one of: ${validSources.join(', ')}`)
+    if (!validRestoreSources.includes(flags['source'] as RestoreSource)) {
+        console.error(`Error: --source must be one of: ${validRestoreSources.join(', ')}`)
         process.exit(1)
     }
 
@@ -182,8 +197,11 @@ export async function handleRestoreCli(log: PubLogger, storageSettings: StorageS
     await storageManager.Stop()
     return true
 }
+ */
 
-function parseCliFlags(args: string[]): Record<string, string> {
+
+
+const parseCliFlags = (args: string[]): Record<string, string> => {
     const flags: Record<string, string> = {}
     for (let i = 0; i < args.length; i++) {
         if (args[i].startsWith('--') && i + 1 < args.length) {

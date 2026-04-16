@@ -9,6 +9,7 @@ import { User } from './entity/User.js';
 import { InviteToken } from './entity/InviteToken.js';
 import { StorageInterface } from './db/storageInterface.js';
 import { AppUserDevice } from './entity/AppUserDevice.js';
+import { ApplicationRow, ApplicationUserRow, AppUserDeviceRow, InviteTokenRow, mapAppBackupRow, mapAppUserBackupRow, mapAppUserDeviceBackupRow, mapInviteTokenBackupRow } from '../backup/segments.js';
 export default class {
     dbs: StorageInterface
     userStorage: UserStorage
@@ -40,6 +41,34 @@ export default class {
     async GetApplications(txId?: string): Promise<Application[]> {
         return this.dbs.Find<Application>('Application', {}, txId)
     }
+
+    async ExportApplications(): Promise<ApplicationRow[]> {
+        const apps = await this.GetApplications()
+        return apps.map(mapAppBackupRow)
+    }
+
+    async RestoreApplications(applications: ApplicationRow[], txId: string): Promise<number> {
+        let restoredApplications = 0;
+        for (const app of applications) {
+            try {
+                const owner = await this.userStorage.GetUser(app.owner_user_id, txId)
+                await this.dbs.CreateAndSave<Application>('Application', {
+                    app_id: app.app_id,
+                    name: app.name,
+                    owner,
+                    allow_user_creation: app.allow_user_creation,
+                    nostr_private_key: app.nostr_private_key || undefined,
+                    nostr_public_key: app.nostr_public_key || undefined,
+                }, txId)
+                restoredApplications++;
+            } catch (error: any) {
+                getLogger({ component: "backupRestore" })("error restoring application", error.message)
+            }
+        }
+        return restoredApplications;
+    }
+
+
     async GetApplication(appId: string, txId?: string): Promise<Application> {
         if (!appId) {
             throw new Error("invalid app id provided")
@@ -121,6 +150,37 @@ export default class {
         return found
     }
 
+    async GetAllApplicationUsers(txId?: string) {
+        return this.dbs.Find<ApplicationUser>('ApplicationUser', {}, txId)
+    }
+
+    async ExportApplicationUsers(): Promise<ApplicationUserRow[]> {
+        const appUsers = await this.GetAllApplicationUsers()
+        return appUsers.map(mapAppUserBackupRow)
+    }
+
+    async RestoreApplicationUsers(appUsers: ApplicationUserRow[], txId: string): Promise<number> {
+        let restoredAppUsers = 0;
+        for (const appUser of appUsers) {
+            try {
+                const user = await this.userStorage.GetUser(appUser.user_id, txId)
+                const application = await this.GetApplication(appUser.app_id, txId)
+                await this.dbs.CreateAndSave<ApplicationUser>('ApplicationUser', {
+                    user,
+                    application,
+                    identifier: appUser.identifier,
+                    nostr_public_key: appUser.nostr_public_key || undefined,
+                    callback_url: appUser.callback_url,
+                    topic_id: appUser.topic_id,
+                }, txId)
+                restoredAppUsers++;
+            } catch (error: any) {
+                getLogger({ component: "backupRestore" })("error restoring application user", error.message)
+            }
+        }
+        return restoredAppUsers;
+    }
+
     async GetApplicationUsers(application: Application | null, { from, to }: { from?: number, to?: number }, txId?: string) {
         const q = application ? { app_id: application.app_id } : IsNull()
         let time: { created_at?: FindOperator<Date> } = {}
@@ -193,6 +253,34 @@ export default class {
 
     }
 
+    async GetAllInviteTokens(txId?: string) {
+        return this.dbs.Find<InviteToken>('InviteToken', {}, txId)
+    }
+
+    async ExportInviteTokens(): Promise<InviteTokenRow[]> {
+        const tokens = await this.GetAllInviteTokens()
+        return tokens.map(mapInviteTokenBackupRow)
+    }
+
+    async RestoreInviteTokens(tokens: InviteTokenRow[], txId: string): Promise<number> {
+        let restoredTokens = 0;
+        for (const token of tokens) {
+            try {
+                const application = await this.GetApplication(token.app_id, txId)
+                await this.dbs.CreateAndSave<InviteToken>('InviteToken', {
+                    inviteToken: token.inviteToken,
+                    application,
+                    sats: token.sats || 0,
+                    used: token.used,
+                }, txId)
+                restoredTokens++;
+            } catch (error: any) {
+                getLogger({ component: "backupRestore" })("error restoring invite token", error.message)
+            }
+        }
+        return restoredTokens;
+    }
+
     async UpdateAppUserMessagingToken(appUserId: string, deviceId: string, firebaseMessagingToken: string) {
         const existing = await this.dbs.FindOne<AppUserDevice>('AppUserDevice', { where: { app_user_id: appUserId, device_id: deviceId } })
         if (!existing) {
@@ -214,5 +302,30 @@ export default class {
 
     async RemoveAppUserDevices(appUserId: string, txId?: string) {
         return this.dbs.Delete<AppUserDevice>('AppUserDevice', { app_user_id: appUserId }, txId)
+    }
+    async GetAllAppUserDevices(txId?: string) {
+        return this.dbs.Find<AppUserDevice>('AppUserDevice', {}, txId)
+    }
+
+    async ExportAppUserDevices(): Promise<AppUserDeviceRow[]> {
+        const devices = await this.GetAllAppUserDevices()
+        return devices.map(mapAppUserDeviceBackupRow)
+    }
+
+    async RestoreAppUserDevices(devices: AppUserDeviceRow[], txId: string): Promise<number> {
+        let restoredDevices = 0;
+        for (const device of devices) {
+            try {
+                await this.dbs.CreateAndSave<AppUserDevice>('AppUserDevice', {
+                    app_user_id: device.app_user_id,
+                    device_id: device.device_id,
+                    firebase_messaging_token: device.firebase_messaging_token,
+                }, txId)
+                restoredDevices++;
+            } catch (error: any) {
+                getLogger({ component: "backupRestore" })("error restoring app user device", error.message)
+            }
+        }
+        return restoredDevices;
     }
 }

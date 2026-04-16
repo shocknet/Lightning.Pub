@@ -3,6 +3,8 @@ import { LspOrder } from "./entity/LspOrder.js";
 import { LndNodeInfo } from "./entity/LndNodeInfo.js";
 import { TrackedProvider } from "./entity/TrackedProvider.js";
 import { StorageInterface } from "./db/storageInterface.js";
+import { mapTrackedProviderBackupRow, TrackedProviderRow } from "../backup/segments.js";
+import { getLogger } from "../helpers/logger.js";
 export class LiquidityStorage {
     dbs: StorageInterface
     constructor(dbs: StorageInterface) {
@@ -41,6 +43,30 @@ export class LiquidityStorage {
 
     async GetTrackedProviders() {
         return this.dbs.Find<TrackedProvider>('TrackedProvider', {})
+    }
+
+    async ExportTrackedProviders(): Promise<TrackedProviderRow[]> {
+        const providers = await this.GetTrackedProviders()
+        return providers.map(mapTrackedProviderBackupRow)
+    }
+
+    async RestoreTrackedProviders(providers: TrackedProviderRow[], txId: string): Promise<number> {
+        let restoredProviders = 0;
+        for (const provider of providers) {
+            try {
+                await this.dbs.CreateAndSave<TrackedProvider>('TrackedProvider', {
+                    provider_type: provider.provider_type as 'lnd' | 'lnPub',
+                    provider_pubkey: provider.provider_pubkey,
+                    latest_balance: provider.latest_balance,
+                    latest_distruption_at_unix: provider.latest_distruption_at_unix,
+                    latest_checked_height: provider.latest_checked_height,
+                }, txId)
+                restoredProviders++;
+            } catch (error: any) {
+                getLogger({ component: "backupRestore" })("error restoring tracked provider", error.message)
+            }
+        }
+        return restoredProviders;
     }
 
     async GetTrackedProvider(providerType: 'lnd' | 'lnPub', pub: string) {

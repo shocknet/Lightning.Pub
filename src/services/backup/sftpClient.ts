@@ -4,7 +4,7 @@
 // Server is dumb storage — no Lightning.Pub-specific logic.
 // Cloud managed = Shocknet-hosted; self-hosters run any standard SFTP server.
 
-import { Client } from 'ssh2'
+import { Client, SFTPWrapper } from 'ssh2'
 import { getLogger } from '../helpers/logger.js'
 
 const log = getLogger({ component: 'sftpBackup' })
@@ -29,7 +29,7 @@ export function cloudSftpConfig(sftpUser: string, sftpPass: string): SftpConfig 
     }
 }
 
-function connectSftp(config: SftpConfig): Promise<{ client: Client, sftp: any }> {
+function connectSftp(config: SftpConfig): Promise<{ client: Client, sftp: SFTPWrapper }> {
     return new Promise((resolve, reject) => {
         const client = new Client()
         client.on('ready', () => {
@@ -68,19 +68,19 @@ export async function sftpUpload(config: SftpConfig, remotePath: string, data: B
         client.end()
     }
 }
-
+export type SFTPFile = { found: true, data: Buffer } | { found: false }
 // Download a remote file. Returns null if file not found.
-export async function sftpDownload(config: SftpConfig, remotePath: string): Promise<Buffer | null> {
+export async function sftpDownload(config: SftpConfig, remotePath: string): Promise<SFTPFile> {
     const { client, sftp } = await connectSftp(config)
     try {
-        return await new Promise<Buffer | null>((resolve, reject) => {
+        return await new Promise<SFTPFile>((resolve, reject) => {
             const chunks: Buffer[] = []
             const stream = sftp.createReadStream(remotePath)
             stream.on('data', (chunk: Buffer) => chunks.push(chunk))
-            stream.on('end', () => resolve(Buffer.concat(chunks)))
+            stream.on('end', () => resolve({ found: true, data: Buffer.concat(chunks) }))
             stream.on('error', (err: any) => {
                 if (err.code === 2 || err.message?.includes('No such file')) {
-                    resolve(null)
+                    resolve({ found: false })
                 } else {
                     reject(new Error(`SFTP read error: ${err.message}`))
                 }

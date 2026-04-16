@@ -13,7 +13,8 @@
     "build_lnd_client_1": "cd proto && protoc -I ./others --plugin=.\\node_modules\\.bin\\protoc-gen-ts_proto.cmd --ts_proto_out=./lnd --ts_proto_opt=esModuleInterop=true others/* ",
     "build_lnd_client": "cd proto && rimraf lnd/*  && npx protoc --ts_out ./lnd --ts_opt long_type_string  --proto_path others others/* ",
     "typeorm": "typeorm-ts-node-commonjs",
-    "test_relay": "npm run clean && tsc && node build/src/tests/testRelay.js"
+    "test_relay": "npm run clean && tsc && node build/src/tests/testRelay.js",
+    "gen:wizard": "cd proto && rimraf wizard_service/* && export PATH=$PATH:~/Lightning.Pub/proto && protoc -I ./wizard --pub_out=./wizard_service wizard/*"
   },
   "repository": {
     "type": "git",

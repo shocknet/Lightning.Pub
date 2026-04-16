@@ -29,6 +29,21 @@ type ConfigRequest struct {
 }
 type Empty struct {
 }
+type FtpCreds struct {
+	Pass string `json:"pass"`
+	User string `json:"user"`
+}
+type RestoreRequest struct {
+	Creds_override *FtpCreds              `json:"creds_override"`
+	Phrase         string                 `json:"phrase"`
+	Relay          string                 `json:"relay"`
+	Source         *RestoreRequest_source `json:"source"`
+}
+type RestoreResponse struct {
+	Error           string `json:"error"`
+	Success         bool   `json:"success"`
+	Tables_restored int64  `json:"tables_restored"`
+}
 type ServiceStateResponse struct {
 	Admin_npub            string   `json:"admin_npub"`
 	App_id                string   `json:"app_id"`
@@ -60,4 +75,18 @@ type AdminConnectInfoResponse_connect_info struct {
 	Type          AdminConnectInfoResponse_connect_info_type `json:"type"`
 	Admin_token   *string                                    `json:"admin_token"`
 	Enrolled_npub *string                                    `json:"enrolled_npub"`
+}
+type RestoreRequest_source_type string
+
+const (
+	CLOUD      RestoreRequest_source_type = "cloud"
+	FTP_HOST   RestoreRequest_source_type = "ftp_host"
+	LOCAL_PATH RestoreRequest_source_type = "local_path"
+)
+
+type RestoreRequest_source struct {
+	Type       RestoreRequest_source_type `json:"type"`
+	Cloud      *Empty                     `json:"cloud"`
+	Ftp_host   *string                    `json:"ftp_host"`
+	Local_path *string                    `json:"local_path"`
 }

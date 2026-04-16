@@ -6,12 +6,40 @@ import EventsLogManager from './eventsLog.js';
 import { StorageInterface } from './db/storageInterface.js';
 import { UserAccess } from './entity/UserAccess.js';
 import { LessThan, MoreThan } from 'typeorm';
+import { BalanceRow, mapBalanceBackupRow } from '../backup/segments.js';
 export default class {
     dbs: StorageInterface
     eventsLog: EventsLogManager
     constructor(dbs: StorageInterface, eventsLog: EventsLogManager) {
         this.dbs = dbs
         this.eventsLog = eventsLog
+    }
+
+    GetUsers(txId?: string) {
+        return this.dbs.Find<User>('User', {}, txId)
+    }
+
+    async ExportBalances(): Promise<BalanceRow[]> {
+        const users = await this.GetUsers()
+        return users.map(mapBalanceBackupRow)
+    }
+
+    async RestoreBalances(balances: BalanceRow[], txId: string): Promise<number> {
+        let restoredUsers = 0;
+        for (const user of balances) {
+            try {
+                await this.dbs.CreateAndSave<User>('User', {
+                    user_id: user.user_id,
+                    balance_sats: user.balance_sats,
+                    locked: user.locked,
+                }, txId)
+                restoredUsers++;
+            } catch (error: any) {
+                getLogger({ component: "backupRestore" })("error restoring user", error.message)
+            }
+        }
+        return restoredUsers;
+
     }
 
     async AddUser(balance: number, txId: string): Promise<User> {

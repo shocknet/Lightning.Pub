@@ -1,5 +1,5 @@
-([]*main.Method) (len=4 cap=4) {
- (*main.Method)(0xc0002b00f0)({
+([]*main.Method) (len=5 cap=8) {
+ (*main.Method)(0xc0001000f0)({
   in: (main.MethodMessage) {
    name: (string) (len=5) "Empty",
    hasZeroFields: (bool) true
@@ -9,8 +9,8 @@
    name: (string) (len=24) "AdminConnectInfoResponse",
    hasZeroFields: (bool) false
   },
-  opts: (*main.methodOptions)(0xc0006907e0)({
-   authType: (*main.supportedAuth)(0xc000347380)({
+  opts: (*main.methodOptions)(0xc00007c960)({
+   authType: (*main.supportedAuth)(0xc0000b5440)({
     id: (string) (len=5) "guest",
     name: (string) (len=5) "Guest",
     context: ([]*main.authContext) <nil>
@@ -26,7 +26,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc0002b0140)({
+ (*main.Method)(0xc000100140)({
   in: (main.MethodMessage) {
    name: (string) (len=5) "Empty",
    hasZeroFields: (bool) true
@@ -36,8 +36,8 @@
    name: (string) (len=20) "ServiceStateResponse",
    hasZeroFields: (bool) false
   },
-  opts: (*main.methodOptions)(0xc000690960)({
-   authType: (*main.supportedAuth)(0xc000347440)({
+  opts: (*main.methodOptions)(0xc00007cae0)({
+   authType: (*main.supportedAuth)(0xc0000b5500)({
     id: (string) (len=5) "guest",
     name: (string) (len=5) "Guest",
     context: ([]*main.authContext) <nil>
@@ -53,7 +53,7 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc0002b00a0)({
+ (*main.Method)(0xc0001000a0)({
   in: (main.MethodMessage) {
    name: (string) (len=13) "ConfigRequest",
    hasZeroFields: (bool) false
@@ -63,8 +63,8 @@
    name: (string) (len=5) "Empty",
    hasZeroFields: (bool) true
   },
-  opts: (*main.methodOptions)(0xc000690660)({
-   authType: (*main.supportedAuth)(0xc0003472c0)({
+  opts: (*main.methodOptions)(0xc00007c7e0)({
+   authType: (*main.supportedAuth)(0xc0000b5380)({
     id: (string) (len=5) "guest",
     name: (string) (len=5) "Guest",
     context: ([]*main.authContext) <nil>
@@ -80,7 +80,34 @@
   }),
   serverStream: (bool) false
  }),
- (*main.Method)(0xc0002b0050)({
+ (*main.Method)(0xc000100190)({
+  in: (main.MethodMessage) {
+   name: (string) (len=14) "RestoreRequest",
+   hasZeroFields: (bool) false
+  },
+  name: (string) (len=13) "WizardRestore",
+  out: (main.MethodMessage) {
+   name: (string) (len=15) "RestoreResponse",
+   hasZeroFields: (bool) false
+  },
+  opts: (*main.methodOptions)(0xc00007cc60)({
+   authType: (*main.supportedAuth)(0xc0000b55c0)({
+    id: (string) (len=5) "guest",
+    name: (string) (len=5) "Guest",
+    context: ([]*main.authContext) <nil>
+   }),
+   method: (string) (len=4) "post",
+   route: (main.decodedRoute) {
+    route: (string) (len=15) "/wizard/restore",
+    params: ([]string) <nil>
+   },
+   query: ([]string) <nil>,
+   nostr: (bool) false,
+   batch: (bool) false
+  }),
+  serverStream: (bool) false
+ }),
+ (*main.Method)(0xc000100050)({
   in: (main.MethodMessage) {
    name: (string) (len=5) "Empty",
    hasZeroFields: (bool) true
@@ -90,8 +117,8 @@
    name: (string) (len=13) "StateResponse",
    hasZeroFields: (bool) false
   },
-  opts: (*main.methodOptions)(0xc0006904e0)({
-   authType: (*main.supportedAuth)(0xc000347200)({
+  opts: (*main.methodOptions)(0xc00007c660)({
+   authType: (*main.supportedAuth)(0xc0000b52c0)({
     id: (string) (len=5) "guest",
     name: (string) (len=5) "Guest",
     context: ([]*main.authContext) <nil>
@@ -110,7 +137,7 @@
 }
 
 ([]*main.Enum) (len=1 cap=1) {
- (*main.Enum)(0xc000443d40)({
+ (*main.Enum)(0xc00010d320)({
   name: (string) (len=8) "LndState",
   values: ([]main.EnumValue) (len=3 cap=4) {
    (main.EnumValue) {
@@ -129,12 +156,12 @@
  })
 }
 
-([]*main.SortableMessage) (len=5 cap=8) {
- (*main.SortableMessage)(0xc0003475c0)({
+([]*main.SortableMessage) (len=8 cap=8) {
+ (*main.SortableMessage)(0xc0000b5940)({
   fullName: (string) (len=24) "AdminConnectInfoResponse",
   name: (string) (len=24) "AdminConnectInfoResponse",
   fields: ([]*main.Field) (len=2 cap=2) {
-   (*main.Field)(0xc000347480)({
+   (*main.Field)(0xc0000b5680)({
     name: (string) (len=12) "connect_info",
     kind: (string) (len=37) "AdminConnectInfoResponse_connect_info",
     isMap: (bool) false,
@@ -144,7 +171,7 @@
     isOptional: (bool) false,
     oneOfName: (string) (len=12) "connect_info"
    }),
-   (*main.Field)(0xc000346bc0)({
+   (*main.Field)(0xc0000b49c0)({
     name: (string) (len=8) "nprofile",
     kind: (string) (len=6) "string",
     isMap: (bool) false,
@@ -156,11 +183,11 @@
    })
   }
  }),
- (*main.SortableMessage)(0xc000347580)({
+ (*main.SortableMessage)(0xc0000b5900)({
   fullName: (string) (len=13) "ConfigRequest",
   name: (string) (len=13) "ConfigRequest",
   fields: ([]*main.Field) (len=5 cap=8) {
-   (*main.Field)(0xc000346b00)({
+   (*main.Field)(0xc0000b4900)({
     name: (string) (len=18) "automate_liquidity",
     kind: (string) (len=4) "bool",
     isMap: (bool) false,
@@ -170,7 +197,7 @@
     isOptional: (bool) false,
     oneOfName: (string) ""
    }),
-   (*main.Field)(0xc000346b80)({
+   (*main.Field)(0xc0000b4980)({
     name: (string) (len=10) "avatar_url",
     kind: (string) (len=6) "string",
     isMap: (bool) false,
@@ -180,7 +207,7 @@
     isOptional: (bool) false,
     oneOfName: (string) ""
    }),
-   (*main.Field)(0xc000346b40)({
+   (*main.Field)(0xc0000b4940)({
     name: (string) (len=21) "push_backups_to_nostr",
     kind: (string) (len=4) "bool",
     isMap: (bool) false,
@@ -190,7 +217,7 @@
     isOptional: (bool) false,
     oneOfName: (string) ""
    }),
-   (*main.Field)(0xc000346ac0)({
+   (*main.Field)(0xc0000b48c0)({
     name: (string) (len=9) "relay_url",
     kind: (string) (len=6) "string",
     isMap: (bool) false,
@@ -200,7 +227,7 @@
     isOptional: (bool) false,
     oneOfName: (string) ""
    }),
-   (*main.Field)(0xc000346a80)({
+   (*main.Field)(0xc0000b4880)({
     name: (string) (len=11) "source_name",
     kind: (string) (len=6) "string",
     isMap: (bool) false,
@@ -212,16 +239,124 @@
    })
   }
  }),
- (*main.SortableMessage)(0xc0003474c0)({
+ (*main.SortableMessage)(0xc0000b5800)({
   fullName: (string) (len=5) "Empty",
   name: (string) (len=5) "Empty",
   fields: ([]*main.Field) <nil>
  }),
- (*main.SortableMessage)(0xc000347640)({
+ (*main.SortableMessage)(0xc0000b5740)({
+  fullName: (string) (len=8) "FtpCreds",
+  name: (string) (len=8) "FtpCreds",
+  fields: ([]*main.Field) (len=2 cap=2) {
+   (*main.Field)(0xc0000b4e40)({
+    name: (string) (len=4) "pass",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false,
+    oneOfName: (string) ""
+   }),
+   (*main.Field)(0xc0000b4e00)({
+    name: (string) (len=4) "user",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false,
+    oneOfName: (string) ""
+   })
+  }
+ }),
+ (*main.SortableMessage)(0xc0000b5780)({
+  fullName: (string) (len=14) "RestoreRequest",
+  name: (string) (len=14) "RestoreRequest",
+  fields: ([]*main.Field) (len=4 cap=4) {
+   (*main.Field)(0xc0000b4f80)({
+    name: (string) (len=14) "creds_override",
+    kind: (string) (len=8) "FtpCreds",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) true,
+    isOptional: (bool) true,
+    oneOfName: (string) ""
+   }),
+   (*main.Field)(0xc0000b4e80)({
+    name: (string) (len=6) "phrase",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false,
+    oneOfName: (string) ""
+   }),
+   (*main.Field)(0xc0000b4fc0)({
+    name: (string) (len=5) "relay",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) true,
+    oneOfName: (string) ""
+   }),
+   (*main.Field)(0xc0000b5640)({
+    name: (string) (len=6) "source",
+    kind: (string) (len=21) "RestoreRequest_source",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) true,
+    isOptional: (bool) false,
+    oneOfName: (string) (len=6) "source"
+   })
+  }
+ }),
+ (*main.SortableMessage)(0xc0000b57c0)({
+  fullName: (string) (len=15) "RestoreResponse",
+  name: (string) (len=15) "RestoreResponse",
+  fields: ([]*main.Field) (len=3 cap=4) {
+   (*main.Field)(0xc0000b5040)({
+    name: (string) (len=5) "error",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false,
+    oneOfName: (string) ""
+   }),
+   (*main.Field)(0xc0000b5000)({
+    name: (string) (len=7) "success",
+    kind: (string) (len=4) "bool",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false,
+    oneOfName: (string) ""
+   }),
+   (*main.Field)(0xc0000b5080)({
+    name: (string) (len=15) "tables_restored",
+    kind: (string) (len=5) "int64",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false,
+    oneOfName: (string) ""
+   })
+  }
+ }),
+ (*main.SortableMessage)(0xc0000b5700)({
   fullName: (string) (len=20) "ServiceStateResponse",
   name: (string) (len=20) "ServiceStateResponse",
   fields: ([]*main.Field) (len=14 cap=16) {
-   (*main.Field)(0xc000346d00)({
+   (*main.Field)(0xc0000b4b00)({
     name: (string) (len=10) "admin_npub",
     kind: (string) (len=6) "string",
     isMap: (bool) false,
@@ -231,7 +366,7 @@
     isOptional: (bool) false,
     oneOfName: (string) ""
    }),
-   (*main.Field)(0xc000346fc0)({
+   (*main.Field)(0xc0000b4dc0)({
     name: (string) (len=6) "app_id",
     kind: (string) (len=6) "string",
     isMap: (bool) false,
@@ -241,7 +376,7 @@
     isOptional: (bool) false,
     oneOfName: (string) ""
    }),
-   (*main.Field)(0xc000346f00)({
+   (*main.Field)(0xc0000b4d00)({
     name: (string) (len=18) "automate_liquidity",
     kind: (string) (len=4) "bool",
     isMap: (bool) false,
@@ -251,7 +386,7 @@
     isOptional: (bool) false,
     oneOfName: (string) ""
    }),
-   (*main.Field)(0xc000346f80)({
+   (*main.Field)(0xc0000b4d80)({
     name: (string) (len=10) "avatar_url",
     kind: (string) (len=6) "string",
     isMap: (bool) false,
@@ -261,7 +396,7 @@
     isOptional: (bool) false,
     oneOfName: (string) ""
    }),
-   (*main.Field)(0xc000346e00)({
+   (*main.Field)(0xc0000b4c00)({
     name: (string) (len=8) "http_url",
     kind: (string) (len=6) "string",
     isMap: (bool) false,
@@ -271,7 +406,7 @@
     isOptional: (bool) false,
     oneOfName: (string) ""
    }),
-   (*main.Field)(0xc000346d80)({
+   (*main.Field)(0xc0000b4b80)({
     name: (string) (len=9) "lnd_state",
     kind: (string) (len=8) "LndState",
     isMap: (bool) false,
@@ -281,7 +416,7 @@
     isOptional: (bool) false,
     oneOfName: (string) ""
    }),
-   (*main.Field)(0xc000346e40)({
+   (*main.Field)(0xc0000b4c40)({
     name: (string) (len=8) "nprofile",
     kind: (string) (len=6) "string",
     isMap: (bool) false,
@@ -291,7 +426,7 @@
     isOptional: (bool) false,
     oneOfName: (string) ""
    }),
-   (*main.Field)(0xc000346c80)({
+   (*main.Field)(0xc0000b4a80)({
     name: (string) (len=13) "provider_name",
     kind: (string) (len=6) "string",
     isMap: (bool) false,
@@ -301,7 +436,7 @@
     isOptional: (bool) false,
     oneOfName: (string) ""
    }),
-   (*main.Field)(0xc000346f40)({
+   (*main.Field)(0xc0000b4d40)({
     name: (string) (len=21) "push_backups_to_nostr",
     kind: (string) (len=4) "bool",
     isMap: (bool) false,
@@ -311,7 +446,7 @@
     isOptional: (bool) false,
     oneOfName: (string) ""
    }),
-   (*main.Field)(0xc000346d40)({
+   (*main.Field)(0xc0000b4b40)({
     name: (string) (len=15) "relay_connected",
     kind: (string) (len=4) "bool",
     isMap: (bool) false,
@@ -321,7 +456,7 @@
     isOptional: (bool) false,
     oneOfName: (string) ""
    }),
-   (*main.Field)(0xc000346ec0)({
+   (*main.Field)(0xc0000b4cc0)({
     name: (string) (len=9) "relay_url",
     kind: (string) (len=6) "string",
     isMap: (bool) false,
@@ -331,7 +466,7 @@
     isOptional: (bool) false,
     oneOfName: (string) ""
    }),
-   (*main.Field)(0xc000346cc0)({
+   (*main.Field)(0xc0000b4ac0)({
     name: (string) (len=6) "relays",
     kind: (string) (len=6) "string",
     isMap: (bool) false,
@@ -341,7 +476,7 @@
     isOptional: (bool) false,
     oneOfName: (string) ""
    }),
-   (*main.Field)(0xc000346e80)({
+   (*main.Field)(0xc0000b4c80)({
     name: (string) (len=11) "source_name",
     kind: (string) (len=6) "string",
     isMap: (bool) false,
@@ -351,7 +486,7 @@
     isOptional: (bool) false,
     oneOfName: (string) ""
    }),
-   (*main.Field)(0xc000346dc0)({
+   (*main.Field)(0xc0000b4bc0)({
     name: (string) (len=11) "watchdog_ok",
     kind: (string) (len=4) "bool",
     isMap: (bool) false,
@@ -363,11 +498,11 @@
    })
   }
  }),
- (*main.SortableMessage)(0xc000347500)({
+ (*main.SortableMessage)(0xc0000b5880)({
   fullName: (string) (len=13) "StateResponse",
   name: (string) (len=13) "StateResponse",
   fields: ([]*main.Field) (len=2 cap=2) {
-   (*main.Field)(0xc000346a40)({
+   (*main.Field)(0xc0000b4840)({
     name: (string) (len=12) "admin_linked",
     kind: (string) (len=4) "bool",
     isMap: (bool) false,
@@ -377,7 +512,7 @@
     isOptional: (bool) false,
     oneOfName: (string) ""
    }),
-   (*main.Field)(0xc000346a00)({
+   (*main.Field)(0xc0000b4800)({
     name: (string) (len=11) "config_sent",
     kind: (string) (len=4) "bool",
     isMap: (bool) false,
@@ -391,11 +526,11 @@
  })
 }
 
-([]*main.OneOf) (len=1 cap=1) {
- (*main.OneOf)(0xc0000e31a0)({
+([]*main.OneOf) (len=2 cap=2) {
+ (*main.OneOf)(0xc00010d8c0)({
   kind: (string) (len=37) "AdminConnectInfoResponse_connect_info",
   fields: ([]*main.Field) (len=2 cap=2) {
-   (*main.Field)(0xc000346c00)({
+   (*main.Field)(0xc0000b4a00)({
     name: (string) (len=11) "admin_token",
     kind: (string) (len=6) "string",
     isMap: (bool) false,
@@ -405,7 +540,7 @@
     isOptional: (bool) false,
     oneOfName: (string) (len=12) "connect_info"
    }),
-   (*main.Field)(0xc000346c40)({
+   (*main.Field)(0xc0000b4a40)({
     name: (string) (len=13) "enrolled_npub",
     kind: (string) (len=6) "string",
     isMap: (bool) false,
@@ -416,10 +551,45 @@
     oneOfName: (string) (len=12) "connect_info"
    })
   }
+ }),
+ (*main.OneOf)(0xc00010d890)({
+  kind: (string) (len=21) "RestoreRequest_source",
+  fields: ([]*main.Field) (len=3 cap=4) {
+   (*main.Field)(0xc0000b4ec0)({
+    name: (string) (len=5) "cloud",
+    kind: (string) (len=5) "Empty",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) true,
+    isOptional: (bool) false,
+    oneOfName: (string) (len=6) "source"
+   }),
+   (*main.Field)(0xc0000b4f00)({
+    name: (string) (len=8) "ftp_host",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false,
+    oneOfName: (string) (len=6) "source"
+   }),
+   (*main.Field)(0xc0000b4f40)({
+    name: (string) (len=10) "local_path",
+    kind: (string) (len=6) "string",
+    isMap: (bool) false,
+    isArray: (bool) false,
+    isEnum: (bool) false,
+    isMessage: (bool) false,
+    isOptional: (bool) false,
+    oneOfName: (string) (len=6) "source"
+   })
+  }
  })
 }
 
-parsing file: wizard_structs 5
+parsing file: wizard_structs 8
 parsing file: wizard_methods 2
 -> [{guest Guest []}] 
 

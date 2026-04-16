@@ -1,5 +1,5 @@
 import fs from 'fs'
-import NewDB, { DbSettings, LoadDbSettingsFromEnv } from "./db/db.js"
+import NewDB, { DbSettings, LoadDbSettingsFromEnv, MainDbEntitiesNames, MainDbNames } from "./db/db.js"
 import ProductStorage from './productStorage.js'
 import ApplicationStorage from './applicationStorage.js'
 import UserStorage from "./userStorage.js";
@@ -96,7 +96,7 @@ export default class {
         //this.txQueue = new TransactionsQueue("main", this.DB)
         this.settingsStorage = new SettingsStorage(this.dbs)
         this.userStorage = new UserStorage(this.dbs, this.eventsLog)
-        this.productStorage = new ProductStorage(this.dbs)
+        this.productStorage = new ProductStorage(this.dbs, this.userStorage)
         this.applicationStorage = new ApplicationStorage(this.dbs, this.userStorage)
         this.paymentStorage = new PaymentStorage(this.dbs, this.userStorage)
         this.metricsStorage = new MetricsStorage(this.settings, this.utils)
@@ -132,5 +132,13 @@ export default class {
 
     StartTransaction<T>(exec: TX<T>, description?: string) {
         return this.dbs.Tx(tx => exec(tx), description)
+    }
+
+    async IsDbClean(): Promise<boolean> {
+        for (const entity of MainDbEntitiesNames) {
+            const rows = await this.dbs.Find(entity as MainDbNames, { take: 1 })
+            if (rows.length > 0) return false
+        }
+        return true
     }
 }

@@ -64,14 +64,18 @@ export const teardownStorageTest = async (T: StorageTestBase) => {
 
 export const SetupTest = async (d: Describe, chainTools: ChainTools): Promise<TestBase> => {
     const storageSettings = GetTestStorageSettings(LoadStorageSettingsFromEnv())
-    const settingsManager = await initSettings(getLogger({ component: "mainForTest" }), storageSettings)
+    const initOk = await initSettings(getLogger({ component: "mainForTest" }), storageSettings)
+    if (!initOk) {
+        throw new Error("failed to initialize settings manager")
+    }
+    const { settingsManager, restore } = initOk
     settingsManager.OverrideTestSettings(s => {
         s.liquiditySettings.disableLiquidityProvider = true
         s.liquiditySettings.liquidityProviderPub = ""
         s.liquiditySettings.useOnlyLiquidityProvider = false
         return s
     })
-    const initialized = await initMainHandler(getLogger({ component: "mainForTest" }), settingsManager)
+    const initialized = await initMainHandler(getLogger({ component: "mainForTest" }), settingsManager, restore)
     if (!initialized) {
         throw new Error("failed to initialize main handler")
     }

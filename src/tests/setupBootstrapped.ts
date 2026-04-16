@@ -8,7 +8,11 @@ import { LoadThirdLndSettingsFromEnv } from '../services/main/settings.js'
 
 export const initBootstrappedInstance = async (T: TestBase) => {
     const storageSettings = GetTestStorageSettings(LoadStorageSettingsFromEnv())
-    const settingsManager = await initSettings(getLogger({ component: "bootstrapped" }), storageSettings)
+    const initOk = await initSettings(getLogger({ component: "bootstrapped" }), storageSettings)
+    if (!initOk) {
+        throw new Error("failed to initialize settings manager")
+    }
+    const { settingsManager, restore } = initOk
     const thirdNodeSettings = LoadThirdLndSettingsFromEnv()
     settingsManager.OverrideTestSettings(s => {
         s.liquiditySettings.useOnlyLiquidityProvider = true
@@ -16,7 +20,7 @@ export const initBootstrappedInstance = async (T: TestBase) => {
         s.lndNodeSettings = thirdNodeSettings
         return s
     })
-    const initialized = await initMainHandler(getLogger({ component: "bootstrapped" }), settingsManager)
+    const initialized = await initMainHandler(getLogger({ component: "bootstrapped" }), settingsManager, restore)
     if (!initialized) {
         throw new Error("failed to initialize bootstrapped main handler")
     }
