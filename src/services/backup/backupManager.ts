@@ -18,11 +18,12 @@ import { sftpUpload, cloudSftpConfig, type SftpConfig } from './sftpClient.js'
 import Storage from '../storage/index.js'
 import { BalancesData, encryptBalancesData, IdentityData } from './segments.js'
 import { encryptIdentityData } from './segments.js'
+import SettingsManager from '../main/settingsManager.js'
 const log = getLogger({ component: 'backupManager' })
 
 const BALANCE_DEBOUNCE_MS = 30_000
 
-export type BackupConfig = {
+export type BackupSettings = {
     enabled: boolean
     sftpConfig: SftpConfig
     encKey: Buffer
@@ -30,18 +31,19 @@ export type BackupConfig = {
 
 export class BackupManager {
     storage: Storage
-    private config: BackupConfig
+    settings: SettingsManager
     private balanceTimer: ReturnType<typeof setTimeout> | null = null
     private balanceUploadInProgress = false
-    constructor(storage: Storage, config: BackupConfig) {
+    constructor(storage: Storage, settings: SettingsManager) {
         this.storage = storage
-        this.config = config
+        this.settings = settings
     }
 
     // Call after any User.balance_sats change.
     // Debounces — on a busy node, waits 30s of quiet before uploading.
     notifyBalanceChanged() {
-        if (!this.config?.enabled) return
+        const enabled = this.settings.getSettings().backupSettings.enabled
+        if (!enabled) return
 
         if (this.balanceTimer) {
             clearTimeout(this.balanceTimer)
@@ -57,7 +59,8 @@ export class BackupManager {
     // Call after any identity-segment-relevant change:
     // user registration, settings change, offer edit, etc.
     async notifyIdentityChanged() {
-        if (!this.config?.enabled) return
+        const enabled = this.settings.getSettings().backupSettings.enabled
+        if (!enabled) return
 
         try {
             await this.uploadIdentity()
@@ -95,9 +98,17 @@ export class BackupManager {
         this.balanceUploadInProgress = true
 
         try {
+            const { encKey: encKeyString, sftpHost } = this.settings.getSettings().backupSettings
+            const sftpConfig = {
+                host: sftpHost,
+                port: this.settings.getSettings().backupSettings.sftpPort,
+                username: this.settings.getSettings().backupSettings.sftpUser,
+                password: this.settings.getSettings().backupSettings.sftpPass,
+            }
+            const encKey = Buffer.from(encKeyString, 'hex')
             const data = await this.collectBalancesSegment()
-            const encrypted = encryptBalancesData(data, this.config.encKey)
-            await sftpUpload(this.config.sftpConfig, 'balances.enc', encrypted)
+            const encrypted = encryptBalancesData(data, encKey)
+            await sftpUpload(sftpConfig, 'balances.enc', encrypted)
             log(`balances.enc uploaded (${encrypted.length} bytes)`)
         } finally {
             this.balanceUploadInProgress = false
@@ -105,10 +116,17 @@ export class BackupManager {
     }
 
     private async uploadIdentity() {
-
+        const { encKey: encKeyString, sftpHost } = this.settings.getSettings().backupSettings
+        const encKey = Buffer.from(encKeyString, 'hex')
+        const sftpConfig = {
+            host: sftpHost,
+            port: this.settings.getSettings().backupSettings.sftpPort,
+            username: this.settings.getSettings().backupSettings.sftpUser,
+            password: this.settings.getSettings().backupSettings.sftpPass,
+        }
         const data = await this.collectIdentitySegment()
-        const encrypted = encryptIdentityData(data, this.config.encKey)
-        await sftpUpload(this.config.sftpConfig, 'identity.enc', encrypted)
+        const encrypted = encryptIdentityData(data, encKey)
+        await sftpUpload(sftpConfig, 'identity.enc', encrypted)
         log(`identity.enc uploaded (${encrypted.length} bytes)`)
     }
 

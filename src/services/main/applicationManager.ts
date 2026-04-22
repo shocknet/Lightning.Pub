@@ -10,6 +10,7 @@ import { Application } from '../storage/entity/Application.js'
 import { ZapInfo } from '../storage/entity/UserReceivingInvoice.js'
 import { nofferEncode, ndebitEncode, OfferPriceType, nmanageEncode } from '@shocknet/clink-sdk'
 import SettingsManager from './settingsManager.js'
+import { BackupManager } from '../backup/backupManager.js'
 const TOKEN_EXPIRY_TIME = 2 * 60 * 1000 // 2 minutes, in milliseconds
 
 type NsecLinkingData = {
@@ -23,12 +24,19 @@ export default class {
     nPubLinkingTokens = new Map<string, NsecLinkingData>();
     linkingTokenInterval: NodeJS.Timeout | null = null
     serviceBeaconInterval: NodeJS.Timeout | null = null
+    private backupManager: BackupManager
     log: PubLogger
-    constructor(storage: Storage, settings: SettingsManager, paymentManager: PaymentManager) {
+    constructor(
+        storage: Storage,
+        settings: SettingsManager,
+        paymentManager: PaymentManager,
+        backupManager: BackupManager
+    ) {
         this.log = getLogger({ component: "ApplicationManager" })
         this.storage = storage
         this.settings = settings
         this.paymentManager = paymentManager
+        this.backupManager = backupManager
         this.StartLinkingTokenInterval()
     }
 
@@ -99,6 +107,8 @@ export default class {
 
     async AddApp(req: Types.AddAppRequest): Promise<Types.AuthApp> {
         const app = await this.storage.applicationStorage.AddApplication(req.name, req.allow_user_creation)
+        void this.backupManager.notifyIdentityChanged()
+        this.backupManager.notifyBalanceChanged()
         getLogger({ appName: app.name })("app created")
 
         return {
@@ -116,6 +126,7 @@ export default class {
         const app = await this.storage.applicationStorage.GetApplicationByName(req.name)
         if (typeof req.allow_user_creation === 'boolean') {
             await this.storage.applicationStorage.UpdateApplication(app, { allow_user_creation: req.allow_user_creation })
+            void this.backupManager.notifyIdentityChanged()
         }
         return {
             app: {
@@ -144,11 +155,17 @@ export default class {
         let u: ApplicationUser
         if (req.fail_if_exists) {
             u = await this.storage.applicationStorage.AddApplicationUser(app, req.identifier, req.balance)
+            void this.backupManager.notifyIdentityChanged()
+            this.backupManager.notifyBalanceChanged()
             log(u.identifier, u.user.user_id, "user created")
         } else {
             const { user, created } = await this.storage.applicationStorage.GetOrCreateApplicationUser(app, req.identifier, req.balance)
             u = user
-            if (created) log(u.identifier, u.user.user_id, "user created")
+            if (created) {
+                void this.backupManager.notifyIdentityChanged()
+                this.backupManager.notifyBalanceChanged()
+                log(u.identifier, u.user.user_id, "user created")
+            }
         }
         const nostrSettings = this.settings.getSettings().nostrRelaySettings
 
@@ -329,6 +346,7 @@ export default class {
             const deleted = this.nPubLinkingTokens.delete(req.token)
             if (deleted) {
                 await this.storage.applicationStorage.AddNPubToApplicationUser(copy.serialId, ctx.pub)
+                void this.backupManager.notifyIdentityChanged()
             } else {
                 throw new Error("An uknown error occured")
             }
@@ -346,6 +364,8 @@ export default class {
         }
         await this.storage.applicationStorage.AddApplicationUser(app, crypto.randomBytes(32).toString('hex'), 0, ctx.pub)
         await this.storage.applicationStorage.SetInviteTokenAsUsed(inviteToken);
+        void this.backupManager.notifyIdentityChanged()
+        this.backupManager.notifyBalanceChanged()
 
     }
 

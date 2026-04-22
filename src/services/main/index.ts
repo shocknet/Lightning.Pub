@@ -32,6 +32,7 @@ import { ApplicationUser } from '../storage/entity/ApplicationUser.js'
 import SettingsManager from './settingsManager.js'
 import { NostrSettings, AppInfo } from '../nostr/nostrPool.js'
 import { ShockPushNotification } from '../ShockPush/index.js'
+import { BackupManager } from '../backup/backupManager.js'
 type UserOperationsSub = {
     id: string
     newIncomingInvoice: (operation: Types.UserOperation) => void
@@ -62,18 +63,23 @@ export default class {
     rugPullTracker: RugPullTracker
     unlocker: Unlocker
     notificationsManager: NotificationsManager
+    backupManager: BackupManager
     nostrProcessPing: (() => Promise<void>) | null = null
     nostrReset: (settings: NostrSettings) => void = () => { getLogger({})("nostr reset not initialized yet") }
-    constructor(settings: SettingsManager, storage: Storage, adminManager: AdminManager, utils: Utils, unlocker: Unlocker) {
+    constructor(settings: SettingsManager, storage: Storage, adminManager: AdminManager, utils: Utils, unlocker: Unlocker, backupManager: BackupManager) {
         this.settings = settings
         this.storage = storage
         this.adminManager = adminManager
         this.utils = utils
         this.unlocker = unlocker
-        const updateProviderBalance = (b: number) => this.storage.liquidityStorage.IncrementTrackedProviderBalance('lnPub', settings.getSettings().liquiditySettings.liquidityProviderPub, b)
+        const updateProviderBalance = async (b: number) => {
+            await this.storage.liquidityStorage.IncrementTrackedProviderBalance('lnPub', settings.getSettings().liquiditySettings.liquidityProviderPub, b)
+            this.backupManager?.notifyBalanceChanged()
+        }
+        this.backupManager = backupManager
         this.liquidityProvider = new LiquidityProvider(() => this.settings.getSettings().liquiditySettings, this.utils, this.invoicePaidCb, updateProviderBalance)
         adminManager.attachLiquidityProvider(this.liquidityProvider)
-        this.rugPullTracker = new RugPullTracker(this.storage, this.liquidityProvider)
+        this.rugPullTracker = new RugPullTracker(this.storage, this.liquidityProvider, this.backupManager)
         const lndGetSettings = () => ({
             lndSettings: settings.getSettings().lndSettings,
             lndNodeSettings: settings.getSettings().lndNodeSettings
@@ -82,13 +88,13 @@ export default class {
         this.liquidityManager = new LiquidityManager(this.settings, this.storage, this.utils, this.liquidityProvider, this.lnd, this.rugPullTracker)
         this.metricsManager = new MetricsManager(this.storage, this.lnd)
 
-        this.paymentManager = new PaymentManager(this.storage, this.metricsManager, this.lnd, adminManager.swaps, this.settings, this.liquidityManager, this.utils, this.addressPaidCb, this.invoicePaidCb, this.newBlockCb)
-        this.productManager = new ProductManager(this.storage, this.paymentManager, this.settings)
-        this.applicationManager = new ApplicationManager(this.storage, this.settings, this.paymentManager)
-        this.appUserManager = new AppUserManager(this.storage, this.settings, this.applicationManager)
-        this.debitManager = new DebitManager(this.storage, this.lnd, this.applicationManager)
-        this.offerManager = new OfferManager(this.storage, this.settings, this.lnd, this.applicationManager, this.productManager, this.liquidityManager)
-        this.managementManager = new ManagementManager(this.storage, this.settings)
+        this.paymentManager = new PaymentManager(this.storage, this.metricsManager, this.lnd, adminManager.swaps, this.settings, this.liquidityManager, this.utils, this.addressPaidCb, this.invoicePaidCb, this.newBlockCb, this.backupManager)
+        this.productManager = new ProductManager(this.storage, this.paymentManager, this.settings, this.backupManager)
+        this.applicationManager = new ApplicationManager(this.storage, this.settings, this.paymentManager, this.backupManager)
+        this.appUserManager = new AppUserManager(this.storage, this.settings, this.applicationManager, this.backupManager)
+        this.debitManager = new DebitManager(this.storage, this.lnd, this.applicationManager, this.backupManager)
+        this.offerManager = new OfferManager(this.storage, this.settings, this.lnd, this.applicationManager, this.productManager, this.liquidityManager, this.backupManager)
+        this.managementManager = new ManagementManager(this.storage, this.settings, this.backupManager)
         this.notificationsManager = new NotificationsManager(this.settings)
         //this.webRTC = new webRTC(this.storage, this.utils)
     }
@@ -205,6 +211,7 @@ export default class {
                     if (serviceFee > 0) {
                         await this.storage.userStorage.IncrementUserBalance(userAddress.linkedApplication.owner.user_id, serviceFee, 'fees', tx)
                     }
+                    this.backupManager.notifyBalanceChanged()
                     const operationId = `${Types.UserOperationType.INCOMING_TX}-${serialId}`
                     const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_TX, identifier: userAddress.address, operationId, network_fee: 0, service_fee: serviceFee, confirmed: true, tx_hash: c.tx.tx_hash, internal: c.tx.internal }
                     this.sendOperationToNostr(userAddress.linkedApplication!, userAddress.user.user_id, op)
@@ -251,6 +258,7 @@ export default class {
                     if (fee > 0) {
                         await this.storage.userStorage.IncrementUserBalance(userAddress.linkedApplication.owner.user_id, fee, 'fees', tx)
                     }
+                    this.backupManager.notifyBalanceChanged()
 
                 }
                 const operationId = `${Types.UserOperationType.INCOMING_TX}-${addedTx.serial_id}`
@@ -289,6 +297,7 @@ export default class {
                 if (fee > 0) {
                     await this.storage.userStorage.IncrementUserBalance(userInvoice.linkedApplication.owner.user_id, fee, 'fees', tx)
                 }
+                this.backupManager.notifyBalanceChanged()
                 await this.triggerPaidCallback(log, userInvoice.callbackUrl, { invoice: paymentRequest, amount, payerData: userInvoice.payer_data, token: userInvoice.bearer_token, rejectUnauthorized: userInvoice.rejectUnauthorized })
                 const operationId = `${Types.UserOperationType.INCOMING_INVOICE}-${userInvoice.serial_id}`
                 const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_INVOICE, identifier: userInvoice.invoice, operationId, network_fee: 0, service_fee: fee, confirmed: true, tx_hash: "", internal }

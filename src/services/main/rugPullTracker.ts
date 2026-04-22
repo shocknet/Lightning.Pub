@@ -4,15 +4,18 @@ import { Utils } from "../helpers/utilsWrapper.js";
 import { LiquidityProvider } from "./liquidityProvider.js";
 import { TrackedProvider } from "../storage/entity/TrackedProvider.js";
 import Storage from "../storage/index.js";
+import { BackupManager } from "../backup/backupManager.js";
 
 export class RugPullTracker {
     liquidProvider: LiquidityProvider
     storage: Storage
+    backupManager: BackupManager
     log = getLogger({ component: "rugPullTracker" })
     rugPulled = false
-    constructor(storage: Storage, liquidProvider: LiquidityProvider) {
+    constructor(storage: Storage, liquidProvider: LiquidityProvider, backupManager: BackupManager) {
         this.liquidProvider = liquidProvider
         this.storage = storage
+        this.backupManager = backupManager
     }
 
     HasProviderRugPulled = () => {
@@ -33,6 +36,7 @@ export class RugPullTracker {
             if (!providerTracker) {
                 this.log("starting to track provider", this.liquidProvider.GetProviderPubkey())
                 await this.storage.liquidityStorage.CreateTrackedProvider('lnPub', pubDst, trackedBalance)
+                this.backupManager.notifyBalanceChanged()
                 return { balance: trackedBalance }
             }
             return this.checkForDisruption(pubDst, trackedBalance, providerTracker)
@@ -47,6 +51,7 @@ export class RugPullTracker {
             this.rugPulled = true
             if (providerTracker.latest_distruption_at_unix === 0) {
                 await this.storage.liquidityStorage.UpdateTrackedProviderDisruption('lnPub', pubDst, Math.floor(Date.now() / 1000))
+                this.backupManager.notifyBalanceChanged()
                 getLogger({ component: 'rugPull' })("detected rugpull from: ", pubDst, "provider balance changed from", providerTracker.latest_balance, "to", trackedBalance, "losing", diff)
             } else {
                 getLogger({ component: 'rugPull' })("ongoing rugpull from: ", pubDst, "provider balance changed from", providerTracker.latest_balance, "to", trackedBalance, "losing", diff)
@@ -55,6 +60,7 @@ export class RugPullTracker {
             this.rugPulled = false
             if (providerTracker.latest_distruption_at_unix !== 0) {
                 await this.storage.liquidityStorage.UpdateTrackedProviderDisruption('lnPub', pubDst, 0)
+                this.backupManager.notifyBalanceChanged()
                 getLogger({ component: 'rugPull' })("rugpull from: ", pubDst, "cleared after: ", Math.floor(Date.now() / 1000) - providerTracker.latest_distruption_at_unix, "seconds")
             }
             if (diff > 0) {

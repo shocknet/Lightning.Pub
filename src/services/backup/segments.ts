@@ -31,10 +31,6 @@ export const STRIPPED_SETTINGS_KEYS = [
     'PORT',
 ]
 
-let TMP_optimize_hex = true
-export const setTmpOptimizeHex = (optimize: boolean) => {
-    TMP_optimize_hex = optimize
-}
 
 const boolToBytes = (value: boolean): Uint8Array => new Uint8Array([value ? 1 : 0])
 const boolFromBytes = (data: Uint8Array): boolean => data[0] === 1
@@ -46,16 +42,10 @@ const stringToBytes = (value: string): Uint8Array => utf8Encoder.encode(value)
 const stringFromBytes = (data: Uint8Array): string => utf8Decoder.decode(data)
 
 const hexToBytes = (value: string): Uint8Array => {
-    if (TMP_optimize_hex) {
-        return new Uint8Array(Buffer.from(value, 'hex'))
-    }
-    return stringToBytes(value)
+    return new Uint8Array(Buffer.from(value, 'hex'))
 }
 const hexFromBytes = (data: Uint8Array): string => {
-    if (TMP_optimize_hex) {
-        return Buffer.from(data).toString('hex')
-    }
-    return stringFromBytes(data)
+    return Buffer.from(data).toString('hex')
 }
 
 const splitChunk = (data: Uint8Array, chunkSize: number): Uint8Array[] => {

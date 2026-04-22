@@ -13,16 +13,19 @@ import {
     nofferErrors, AuthRequiredRes, HandleNdebitRes, expirationRuleName,
     frequencyRuleName, IntervalTypeToSeconds, unitToIntervalType
 } from "./debitTypes.js";
+import { BackupManager } from "../backup/backupManager.js";
 
 export class DebitManager {
     applicationManager: ApplicationManager
     storage: Storage
     lnd: LND
+    backupManager: BackupManager
     logger = getLogger({ component: 'DebitManager' })
-    constructor(storage: Storage, lnd: LND, applicationManager: ApplicationManager) {
+    constructor(storage: Storage, lnd: LND, applicationManager: ApplicationManager, backupManager: BackupManager) {
         this.storage = storage
         this.lnd = lnd
         this.applicationManager = applicationManager
+        this.backupManager = backupManager
     }
 
     GetDebitAuthorizations = async (ctx: Types.UserContext): Promise<Types.DebitAuthorizations> => {
@@ -42,13 +45,16 @@ export class DebitManager {
             throw new Error("Debit does not exist")
         }
         await this.storage.debitStorage.UpdateDebitAccessRules(ctx.app_user_id, req.authorize_npub, debitRulesToDebitAccessRules(req.rules));
+        void this.backupManager.notifyIdentityChanged()
     }
 
     BanDebit = async (ctx: Types.UserContext, req: Types.DebitOperation): Promise<void> => {
         await this.storage.debitStorage.DenyDebitAccess(ctx.app_user_id, req.npub)
+        void this.backupManager.notifyIdentityChanged()
     }
     ResetDebit = async (ctx: Types.UserContext, req: Types.DebitOperation): Promise<void> => {
         await this.storage.debitStorage.RemoveDebitAccess(ctx.app_user_id, req.npub)
+        void this.backupManager.notifyIdentityChanged()
     }
 
     RespondToDebit = async (ctx: Types.UserContext, req: Types.DebitResponse): Promise<void> => {
@@ -92,6 +98,7 @@ export class DebitManager {
             npub,
             rules: debitRulesToDebitAccessRules(debit.rules)
         })
+        void this.backupManager.notifyIdentityChanged()
         const { invoice } = debit
         if (!request_id) {
             return
@@ -275,6 +282,7 @@ export class DebitManager {
     sendDebitPayment = async (appId: string, appUserId: string, requestorPub: string, bolt11: string) => {
         const payment = await this.applicationManager.PayAppUserInvoice(appId, { amount: 0, invoice: bolt11, user_identifier: appUserId, debit_npub: requestorPub })
         await this.storage.debitStorage.IncrementDebitAccess(appUserId, requestorPub, payment.amount_paid + payment.service_fee)
+        void this.backupManager.notifyIdentityChanged()
         return { payment }
     }
 
@@ -287,6 +295,7 @@ export class DebitManager {
             const [expiration] = rules[expirationRuleName]
             if (+expiration < Date.now()) {
                 await this.storage.debitStorage.RemoveDebitAccess(access.app_user_id, access.npub)
+                void this.backupManager.notifyIdentityChanged()
                 return false
             }
         }

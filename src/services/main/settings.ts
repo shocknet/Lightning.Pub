@@ -213,6 +213,26 @@ export const LoadSwapsSettingsFromEnv = (dbEnv: Record<string, string | undefine
     }
 }
 
+export type BackupSettings = {
+    enabled: boolean
+    sftpHost: string
+    sftpUser: string
+    sftpPass: string
+    sftpPort: number
+    encKey: string
+}
+
+export const LoadBackupSettingsFromEnv = (dbEnv: Record<string, string | undefined>, addToDb?: EnvCacher): BackupSettings => {
+    return {
+        enabled: chooseEnvBool("BACKUP_ENABLED", dbEnv, false, addToDb),
+        sftpHost: chooseEnv("BACKUP_SFTP_HOST", dbEnv, "backup.lightning.pub", addToDb),
+        sftpUser: chooseEnv("BACKUP_SFTP_USER", dbEnv, "backup", addToDb),
+        sftpPass: chooseEnv("BACKUP_SFTP_PASS", dbEnv, "backup", addToDb),
+        sftpPort: chooseEnvInt("BACKUP_SFTP_PORT", dbEnv, 22, addToDb),
+        encKey: chooseEnv("BACKUP_ENC_KEY_HEX", dbEnv, "", addToDb),
+    }
+}
+
 
 
 

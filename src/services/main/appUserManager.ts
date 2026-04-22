@@ -6,16 +6,19 @@ import ApplicationManager from './applicationManager.js'
 import { OfferPriceType, ndebitEncode, nmanageEncode, nofferEncode } from '@shocknet/clink-sdk'
 import { getLogger } from '../helpers/logger.js'
 import SettingsManager from './settingsManager.js'
+import { BackupManager } from '../backup/backupManager.js'
 export default class {
 
     storage: Storage
     settings: SettingsManager
     applicationManager: ApplicationManager
+    backupManager: BackupManager
     log = getLogger({ component: 'AppUserManager' })
-    constructor(storage: Storage, settings: SettingsManager, applicationManager: ApplicationManager) {
+    constructor(storage: Storage, settings: SettingsManager, applicationManager: ApplicationManager, backupManager: BackupManager) {
         this.storage = storage
         this.settings = settings
         this.applicationManager = applicationManager
+        this.backupManager = backupManager
     }
     SignUserToken(userId: string, appId: string, userIdentifier: string): string {
         return jwt.sign({ user_id: userId, app_id: appId, app_user_id: userIdentifier }, this.settings.getStorageSettings().jwtSecret);
@@ -48,6 +51,7 @@ export default class {
 
     async BanUser(userId: string): Promise<Types.BanUserResponse> {
         const banned = await this.storage.userStorage.BanUser(userId)
+        this.backupManager.notifyBalanceChanged()
         const appUsers = await this.storage.applicationStorage.GetAllAppUsersFromUser(userId)
         return {
             balance_sats: banned.balance_sats,
@@ -90,6 +94,7 @@ export default class {
     async UpdateCallbackUrl(ctx: Types.UserContext, req: Types.CallbackUrl): Promise<Types.CallbackUrl> {
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
         await this.storage.applicationStorage.UpdateUserCallbackUrl(app, ctx.app_user_id, req.url)
+        void this.backupManager.notifyIdentityChanged()
         return { url: req.url }
     }
 
@@ -116,6 +121,7 @@ export default class {
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id);
         const user = await this.storage.applicationStorage.GetApplicationUser(app, ctx.app_user_id);
         await this.storage.applicationStorage.UpdateAppUserMessagingToken(user.identifier, req.device_id, req.firebase_messaging_token);
+        void this.backupManager.notifyIdentityChanged()
     }
 
     async CleanupInactiveUsers() {
@@ -168,6 +174,7 @@ export default class {
         this.log("Locking", toLock.length, "users")
         for (const userId of toLock) {
             await this.storage.userStorage.BanUser(userId)
+            this.backupManager.notifyBalanceChanged()
         }
         this.log("Locked users")
     }
@@ -208,6 +215,8 @@ export default class {
                 await this.storage.userStorage.DeleteUserAccess(userId, tx)
                 await this.storage.applicationStorage.RemoveAppUsersAndBaseUsers(appUserIds, userId, tx)
             })
+            void this.backupManager.notifyIdentityChanged()
+            this.backupManager.notifyBalanceChanged()
         }
         this.log("Cleaned up inactive users")
     }

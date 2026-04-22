@@ -364,7 +364,7 @@ export class Unlocker {
         }
 
         const ck = nip44.getConversationKey(Buffer.from(local.nostr_private_key, 'hex'), local.nostr_public_key)
-        const content = nip44.encrypt(scb.toString('hex'), ck)
+        const content = nip44.encrypt(scb.toString('base64'), ck)
         const event: UnsignedEvent = {
             content,
             created_at: Math.floor(Date.now() / 1000),

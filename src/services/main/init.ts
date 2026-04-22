@@ -14,6 +14,7 @@ import { NostrSender } from "../nostr/sender.js"
 import { Swaps } from "../lnd/swaps/swaps.js"
 // BACKUP CHANGE: import restore pipeline for CLI usage
 import { type RestoreOptions, type RestoreSource, validRestoreSources, type RestoreParams, parseRestoreFlags, RestoreManager } from "../backup/restoreManager.js"
+import { BackupManager } from "../backup/backupManager.js"
 export type AppData = {
     privateKey: string;
     publicKey: string;
@@ -41,7 +42,9 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
     const unlocker = new Unlocker(settingsManager, storageManager, storageManager.NostrSender())
     await unlocker.Unlock()
     const swaps = new Swaps(settingsManager, storageManager)
-    const adminManager = new AdminManager(settingsManager, storageManager, swaps)
+    const backupManager = new BackupManager(storageManager, settingsManager)
+    settingsManager.setBackupManager(backupManager)
+    const adminManager = new AdminManager(settingsManager, storageManager, swaps, backupManager)
     let wizard: Wizard | null = null
     if (settingsManager.getSettings().serviceSettings.wizard) {
         wizard = new Wizard(settingsManager, storageManager, adminManager, restore)
@@ -62,7 +65,7 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
         }
     }
 
-    const mainHandler = new Main(settingsManager, storageManager, adminManager, utils, unlocker)
+    const mainHandler = new Main(settingsManager, storageManager, adminManager, utils, unlocker, backupManager)
     adminManager.setLND(mainHandler.lnd)
     await mainHandler.lnd.Warmup()
     if (!settingsManager.getSettings().serviceSettings.skipSanityCheck && !settingsManager.getSettings().liquiditySettings.useOnlyLiquidityProvider) {

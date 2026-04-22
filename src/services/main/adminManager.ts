@@ -11,6 +11,7 @@ import { TrackedProvider } from "../storage/entity/TrackedProvider.js";
 import { NodeInfo } from "../lnd/settings.js";
 import { Invoice, Payment, OutputDetail, Transaction, Payment_PaymentStatus, Invoice_InvoiceState } from "../../../proto/lnd/lightning.js";
 import { LiquidityProvider } from "./liquidityProvider.js";
+import { BackupManager } from "../backup/backupManager.js";
 /* type TrackedOperation = {
     ts: number
     amount: number
@@ -62,11 +63,13 @@ export class AdminManager {
     lnd: LND
     swaps: Swaps
     nostrConnected: boolean = false
+    backupManager: BackupManager
     private nostrReset: () => Promise<void> = async () => { this.log("nostr reset not initialized yet") }
-    constructor(settings: SettingsManager, storage: Storage, swaps: Swaps) {
+    constructor(settings: SettingsManager, storage: Storage, swaps: Swaps, backupManager: BackupManager) {
         this.settings = settings
         this.storage = storage
         this.swaps = swaps
+        this.backupManager = backupManager
         this.dataDir = settings.getStorageSettings().dataDir
         this.adminNpubPath = getDataPath(this.dataDir, 'admin.npub')
         this.adminEnrollTokenPath = getDataPath(this.dataDir, 'admin.enroll')
@@ -212,6 +215,7 @@ export class AdminManager {
             throw new Error("Admin user expected but not found!!!");
         }
         const newInviteToken = await this.storage.applicationStorage.AddInviteToken(adminAppUser.application, sats);
+        void this.backupManager.notifyIdentityChanged()
         return {
             invitation_link: newInviteToken.inviteToken
         }

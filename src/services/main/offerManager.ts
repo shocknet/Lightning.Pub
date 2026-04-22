@@ -10,6 +10,7 @@ import { UserOffer } from '../storage/entity/UserOffer.js';
 import { LiquidityManager } from "./liquidityManager.js"
 import { NofferData, OfferPriceType, nofferEncode } from '@shocknet/clink-sdk';
 import SettingsManager from "./settingsManager.js";
+import { BackupManager } from "../backup/backupManager.js";
 
 const mapToOfferConfig = (appUserId: string, offer: UserOffer, { pubkey, relay }: { pubkey: string, relay: string }): Types.OfferConfig => {
     const offerStr = offer.offer_id
@@ -37,14 +38,16 @@ export class OfferManager {
     storage: Storage
     lnd: LND
     liquidityManager: LiquidityManager
+    backupManager: BackupManager
     logger = getLogger({ component: 'OfferManager' })
-    constructor(storage: Storage, settings: SettingsManager, lnd: LND, applicationManager: ApplicationManager, productManager: ProductManager, liquidityManager: LiquidityManager) {
+    constructor(storage: Storage, settings: SettingsManager, lnd: LND, applicationManager: ApplicationManager, productManager: ProductManager, liquidityManager: LiquidityManager, backupManager: BackupManager) {
         this.storage = storage
         this.settings = settings
         this.lnd = lnd
         this.applicationManager = applicationManager
         this.productManager = productManager
         this.liquidityManager = liquidityManager
+        this.backupManager = backupManager
     }
 
     async AddUserOffer(ctx: Types.UserContext, req: Types.OfferConfig): Promise<Types.OfferId> {
@@ -55,6 +58,7 @@ export class OfferManager {
             callback_url: req.callback_url,
             blind: req.blind,
         })
+        void this.backupManager.notifyIdentityChanged()
         return {
             offer_id: newOffer.offer_id
         }
@@ -62,6 +66,7 @@ export class OfferManager {
 
     async DeleteUserOffer(ctx: Types.UserContext, req: Types.OfferId) {
         await this.storage.offerStorage.DeleteUserOffer(ctx.app_user_id, req.offer_id)
+        void this.backupManager.notifyIdentityChanged()
     }
 
     async UpdateUserOffer(ctx: Types.UserContext, req: Types.OfferConfig) {
@@ -72,6 +77,7 @@ export class OfferManager {
             callback_url: req.callback_url,
             blind: req.blind,
         })
+        void this.backupManager.notifyIdentityChanged()
     }
     async GetUserOfferInvoices(ctx: Types.UserContext, req: Types.GetUserOfferInvoicesReq): Promise<Types.OfferInvoices> {
         const userOffer = await this.storage.offerStorage.GetUserOffer(ctx.app_user_id, req.offer_id)
@@ -113,6 +119,7 @@ export class OfferManager {
         let toAppend: UserOffer | undefined = undefined
         if (!defaultOffer) {
             toAppend = await this.storage.offerStorage.AddDefaultUserOffer(ctx.app_user_id)
+            void this.backupManager.notifyIdentityChanged()
         }
         if (toAppend) {
             offers.push(toAppend)
@@ -216,6 +223,7 @@ export class OfferManager {
             if (userOffer.price_sats !== 0 || userOffer.payer_data) {
                 this.logger("default offer has custom price or expected data, resetting")
                 await this.storage.offerStorage.UpdateUserOffer(userOffer.app_user_id, userOffer.offer_id, { price_sats: 0, payer_data: null })
+                void this.backupManager.notifyIdentityChanged()
                 userOffer.price_sats = 0
                 userOffer.payer_data = null
             }

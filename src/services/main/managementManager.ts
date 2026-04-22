@@ -10,25 +10,30 @@ import { nofferEncode, OfferPointer, OfferPriceType, NmanageRequest, NmanageResp
 import { UnsignedEvent } from "nostr-tools";
 import { getLogger, PubLogger, ERROR } from "../helpers/logger.js";
 import SettingsManager from "./settingsManager.js";
+import { BackupManager } from "../backup/backupManager.js";
 type Result<T> = { state: 'success', result: T } | { state: 'error', err: NmanageFailure } | { state: 'authRequired' }
 
 export class ManagementManager {
     private storage: Storage;
     private settings: SettingsManager;
+    private backupManager: BackupManager
     private awaitingRequests: Record<string, { request: NmanageRequest, event: NostrEvent }> = {}
     private logger: PubLogger
-    constructor(storage: Storage, settings: SettingsManager) {
+    constructor(storage: Storage, settings: SettingsManager, backupManager: BackupManager) {
         this.storage = storage;
         this.settings = settings;
+        this.backupManager = backupManager;
         this.logger = getLogger({ component: 'ManagementManager' })
     }
 
     ResetManage = async (ctx: Types.UserContext, req: Types.ManageOperation): Promise<void> => {
         await this.storage.managementStorage.removeGrant(ctx.app_user_id, req.npub)
+        void this.backupManager?.notifyIdentityChanged()
     }
 
     AuthorizeManage = async (ctx: Types.UserContext, req: Types.ManageAuthorizationRequest): Promise<Types.ManageAuthorization> => {
         const grant = await this.storage.managementStorage.addGrant(ctx.app_user_id, req.authorize_npub, req.ban)
+        void this.backupManager.notifyIdentityChanged()
         const awaiting = this.awaitingRequests[req.authorize_npub]
         if (awaiting) {
             delete this.awaitingRequests[req.authorize_npub]
@@ -231,6 +236,7 @@ export class ManagementManager {
             payer_data: nmanageReq.offer.fields.payer_data,
             management_pubkey: requestorPub,
         })
+        void this.backupManager.notifyIdentityChanged()
         return { state: 'success', result: offer }
     }
 
@@ -290,6 +296,7 @@ export class ManagementManager {
             price_sats: nmanageReq.offer.fields.price_sats,
             payer_data: nmanageReq.offer.fields.payer_data,
         })
+        void this.backupManager.notifyIdentityChanged()
         const updatedOffer = await this.storage.offerStorage.GetOffer(nmanageReq.offer.id)
         if (!updatedOffer) {
             return { state: 'error', err: { res: 'GFY', code: 2, error: 'Temporary Failure: Offer not found' } }
@@ -303,6 +310,7 @@ export class ManagementManager {
             return offerResult
         }
         await this.storage.offerStorage.DeleteUserOffer(offerResult.result.app_user_id, offerResult.result.offer_id)
+        void this.backupManager.notifyIdentityChanged()
         return { state: 'success', result: undefined }
     }
 }

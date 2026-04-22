@@ -8,7 +8,6 @@
 // Restore dispatches by envelope version byte first, then by payload.v inside.
 
 import crypto from 'crypto'
-// import { pack, unpack } from 'msgpackr'
 
 const ENVELOPE_V1 = 0x01
 const IV_LENGTH = 12
@@ -19,10 +18,9 @@ export type BackupPayload = {
     data: Record<string, unknown>
 }
 
-// Encrypt a payload object into an .enc file buffer.
+// Encrypt a payload into an .enc file buffer.
 // Envelope v1: [version:1][iv:12][ciphertext:N][authTag:16]
 export function encryptPayload(plaintext: Buffer, encKey: Buffer): Buffer {
-    // const plaintext = pack(payload)
     const iv = crypto.randomBytes(IV_LENGTH)
     const cipher = crypto.createCipheriv('aes-256-gcm', encKey, iv)
     const ct = Buffer.concat([cipher.update(plaintext), cipher.final()])
@@ -30,7 +28,7 @@ export function encryptPayload(plaintext: Buffer, encKey: Buffer): Buffer {
     return Buffer.concat([Buffer.from([ENVELOPE_V1]), iv, ct, tag])
 }
 
-// Decrypt an .enc file buffer back into a payload object.
+// Decrypt an .enc file buffer back into a payload.
 // Dispatches by envelope version byte. Throws on tampered/corrupted data.
 export function decryptPayload(buf: Buffer, encKey: Buffer): Buffer {
     if (buf.length < 1 + IV_LENGTH + AUTH_TAG_LENGTH) {

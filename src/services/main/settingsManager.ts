@@ -5,17 +5,25 @@ import {
     LiquiditySettings, LndNodeSettings, LndSettings, LoadLiquiditySettingsFromEnv,
     LoadLSPSettingsFromEnv, LSPSettings, ServiceFeeSettings, ServiceSettings, LoadServiceFeeSettingsFromEnv,
     LoadNostrRelaySettingsFromEnv, LoadServiceSettingsFromEnv, LoadWatchdogSettingsFromEnv,
-    LoadLndNodeSettingsFromEnv, LoadLndSettingsFromEnv, NostrRelaySettings, WatchdogSettings, SwapsSettings, LoadSwapsSettingsFromEnv
+    LoadLndNodeSettingsFromEnv, LoadLndSettingsFromEnv, NostrRelaySettings, WatchdogSettings, SwapsSettings, LoadSwapsSettingsFromEnv,
+    BackupSettings,
+    LoadBackupSettingsFromEnv
 
 } from "./settings.js"
+import { BackupManager } from "../backup/backupManager.js"
 export default class SettingsManager {
     storage: Storage
     private settings: FullSettings | null = null
+    private backupManager: BackupManager | null = null
 
     log: PubLogger
     constructor(storage: Storage) {
         this.storage = storage
         this.log = getLogger({ component: "SettingsManager" })
+    }
+
+    setBackupManager(backupManager: BackupManager) {
+        this.backupManager = backupManager
     }
 
     loadEnvs(dbEnv: Record<string, string | undefined>, addToDb?: EnvCacher): FullSettings {
@@ -29,6 +37,7 @@ export default class SettingsManager {
             serviceSettings: LoadServiceSettingsFromEnv(dbEnv, addToDb),
             watchDogSettings: LoadWatchdogSettingsFromEnv(dbEnv, addToDb),
             swapsSettings: LoadSwapsSettingsFromEnv(dbEnv, addToDb),
+            backupSettings: LoadBackupSettingsFromEnv(dbEnv, addToDb),
         }
     }
 
@@ -47,8 +56,13 @@ export default class SettingsManager {
         }
         this.settings = this.loadEnvs(dbSettings, addToDb)
         this.log("adding", Object.keys(toAdd).length, "settings to db")
+        let changed = false
         for (const key in toAdd) {
             await this.storage.settingsStorage.setDbEnvIFNeeded(key, toAdd[key])
+            changed = true
+        }
+        if (changed) {
+            void this.backupManager?.notifyIdentityChanged()
         }
         // Validate fee configuration: routing fee limit must be <= service fee
         this.validateFeeSettings(this.settings)
@@ -93,6 +107,7 @@ export default class SettingsManager {
         }
         await this.storage.settingsStorage.setDbEnvIFNeeded("DEFAULT_APP_NAME", name)
         this.settings.serviceSettings.defaultAppName = name
+        void this.backupManager?.notifyIdentityChanged()
         return true
     }
 
@@ -108,6 +123,7 @@ export default class SettingsManager {
         }
         await this.storage.settingsStorage.setDbEnvIFNeeded("NOSTR_RELAYS", url)
         this.settings.nostrRelaySettings.relays = [url]
+        void this.backupManager?.notifyIdentityChanged()
         return true
     }
 
@@ -123,6 +139,7 @@ export default class SettingsManager {
         }
         await this.storage.settingsStorage.setDbEnvIFNeeded("DISABLE_LIQUIDITY_PROVIDER", disable ? "true" : "false")
         this.settings.liquiditySettings.disableLiquidityProvider = disable
+        void this.backupManager?.notifyIdentityChanged()
         return true
     }
 
@@ -140,6 +157,7 @@ export default class SettingsManager {
         }
         await this.storage.settingsStorage.setDbEnvIFNeeded("PUSH_BACKUPS_TO_NOSTR", push ? "true" : "false")
         this.settings.serviceSettings.pushBackupsToNostr = push
+        void this.backupManager?.notifyIdentityChanged()
         return true
     }
 
@@ -155,6 +173,7 @@ export default class SettingsManager {
         }
         await this.storage.settingsStorage.setDbEnvIFNeeded("SKIP_SANITY_CHECK", skip ? "true" : "false")
         this.settings.serviceSettings.skipSanityCheck = skip
+        void this.backupManager?.notifyIdentityChanged()
         return true
     }
 }
@@ -168,5 +187,6 @@ type FullSettings = {
     serviceFeeSettings: ServiceFeeSettings,
     serviceSettings: ServiceSettings,
     lspSettings: LSPSettings,
-    swapsSettings: SwapsSettings
+    swapsSettings: SwapsSettings,
+    backupSettings: BackupSettings
 }

@@ -6,21 +6,25 @@ import PaymentManager from './paymentManager.js'
 import { defaultInvoiceExpiry } from '../storage/paymentStorage.js'
 import { nofferEncode, OfferPriceType } from '@shocknet/clink-sdk'
 import SettingsManager from './settingsManager.js'
+import { BackupManager } from '../backup/backupManager.js'
 
 export default class {
     storage: Storage
     settings: SettingsManager
     paymentManager: PaymentManager
+    backupManager: BackupManager
 
-    constructor(storage: Storage, paymentManager: PaymentManager, settings: SettingsManager) {
+    constructor(storage: Storage, paymentManager: PaymentManager, settings: SettingsManager, backupManager: BackupManager) {
         this.storage = storage
         this.settings = settings
         this.paymentManager = paymentManager
+        this.backupManager = backupManager
     }
 
     async AddProduct(userId: string, req: Types.AddProductRequest): Promise<Types.Product> {
         const user = await this.storage.userStorage.GetUser(userId)
         const newProduct = await this.storage.productStorage.AddProduct(req.name, req.price_sats, user)
+        void this.backupManager.notifyIdentityChanged()
         const offer = `p:${newProduct.product_id}`
         return {
             id: newProduct.product_id,

@@ -88,6 +88,25 @@ export class RestoreManager {
                 }
             }
 
+            if (req.source.type === wizardTypes.RestoreRequest_source_type.LOCAL_PATH) {
+                const localPath = req.source.local_path
+                if (!localPath) {
+                    throw new Error('Local path is required for source=local')
+                }
+                if (!fs.existsSync(localPath)) {
+                    throw new Error('Local path does not exist')
+                }
+                this.log("restoring db from local path: stopping storage")
+                this.storage.Stop()
+                const dbFile = this.settings.getStorageSettings().dbSettings.databaseFile
+                fs.cpSync(localPath, dbFile)
+                return {
+                    tables_restored: 0,
+                    success: true,
+                    error: '',
+                }
+            }
+
             const keys = await deriveBackupKeys(req.phrase, LATEST_DERIVATION_VERSION)
             const identityBuf = await fetchFile(keys, req, 'identity.enc')
             if (!identityBuf.found) {
@@ -99,7 +118,6 @@ export class RestoreManager {
             }
 
             const balancesBuf = await fetchFile(keys, req, 'balances.enc')
-
             const identityPayload = decryptIdentityData(identityBuf.data, keys.encKey)
             if (!balancesBuf.found) {
                 return {
@@ -330,12 +348,7 @@ const fetchFile = async (keys: DerivedKeys, opts: wizardTypes.RestoreRequest, fi
             return sftpDownload(sftpConf, filename)
 
         case wizardTypes.RestoreRequest_source_type.LOCAL_PATH:
-            if (!opts.source.local_path) throw new Error('--local-path is required for source=local')
-            // For local source, we expect a db.sqlite file, not .enc files.
-            // The local path restore imports from an unencrypted SQLite directly.
-            // TODO: Implement local db.sqlite import (copy file, skip encryption).
-            // For now, return null to indicate not-yet-implemented.
-            throw new Error('Local file restore not yet implemented')
+            throw new Error('Local path cannot fetch file')
 
         default:
             throw new Error(`Unknown restore source: ${opts.source}`)
