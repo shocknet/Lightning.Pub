@@ -385,7 +385,7 @@ export default class {
             throw new Error("user is banned, cannot generate invoice")
         }
         const use = await this.liquidityManager.beforeInvoiceCreation(req.amountSats)
-        const res = await this.lnd.NewInvoice(req.amountSats, req.memo, options.expiry, { useProvider: use === 'provider', from: 'user' }, req.blind)
+        const res = await this.lnd.NewInvoice(req.amountSats, req.memo, options.expiry, { useProvider: use === 'provider', from: 'user' }, req.blind, options.zapInfo?.description)
         const userInvoice = await this.storage.paymentStorage.AddUserInvoice(user, res.payRequest, options, res.providerPubkey)
         const appId = options.linkedApplication ? options.linkedApplication.app_id : ""
         this.storage.eventsLog.LogEvent({ type: 'new_invoice', userId: user.user_id, appUserId: "", appId, balance: user.balance_sats, data: userInvoice.invoice, amount: req.amountSats })
@@ -786,12 +786,22 @@ export default class {
         }
         const p = this.parseTags("p", nostrEvent.tags, { required: true })
         const e = this.parseTags("e", nostrEvent.tags)
+        const a = this.parseTags("a", nostrEvent.tags)
+        const k = this.parseTags("k", nostrEvent.tags)
         const relays = this.parseTags("relays", nostrEvent.tags, { required: true, multiples: true })
         const amount = this.parseTags("amount", nostrEvent.tags)
         if (amount.length > 0 && +amount[0] !== amt) {
             throw new Error("amount mismatch")
         }
-        return { pub: p[0], eventId: e.length > 0 ? e[0] : "", relays, description: event }
+        return {
+            pub: p[0],
+            eventId: e.length > 0 ? e[0] : "",
+            relays,
+            description: event,
+            senderPub: nostrEvent.pubkey,
+            eventCoordinate: a.length > 0 ? a[0] : "",
+            eventKind: k.length > 0 ? k[0] : "",
+        }
     }
 
     async HandleLnurlPay(ctx: Types.HandleLnurlPay_Query): Promise<Types.HandleLnurlPayResponse> {

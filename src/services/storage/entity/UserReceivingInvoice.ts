@@ -7,6 +7,9 @@ export type ZapInfo = {
     eventId: string
     relays: string[]
     description: string
+    senderPub?: string
+    eventCoordinate?: string
+    eventKind?: string
 }
 @Entity()
 @Index("recv_invoice_paid_serial", ["user.serial_id", "paid_at_unix", "serial_id"], { where: "paid_at_unix > 0" })
