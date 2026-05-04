@@ -294,7 +294,7 @@ export default class {
                 const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_INVOICE, identifier: userInvoice.invoice, operationId, network_fee: 0, service_fee: fee, confirmed: true, tx_hash: "", internal }
                 this.sendOperationToNostr(userInvoice.linkedApplication, userInvoice.user.user_id, op)
                 try {
-                    this.createZapReceipt(log, userInvoice)
+                    await this.createZapReceipt(log, userInvoice)
                 } catch (err: any) {
                     log(ERROR, "cannot create zap receipt", err.message || "")
                 }
@@ -487,10 +487,20 @@ export default class {
         if (!zapInfo || !invoice.linkedApplication || !invoice.linkedApplication.nostr_public_key) {
             return
         }
-        const tags = [["p", zapInfo.pub], ["bolt11", invoice.invoice], ["description", zapInfo.description]]
+        const tags = [["p", zapInfo.pub]]
+        if (zapInfo.senderPub) {
+            tags.push(["P", zapInfo.senderPub])
+        }
         if (zapInfo.eventId) {
             tags.push(["e", zapInfo.eventId])
         }
+        if (zapInfo.eventCoordinate) {
+            tags.push(["a", zapInfo.eventCoordinate])
+        }
+        if (zapInfo.eventKind) {
+            tags.push(["k", zapInfo.eventKind])
+        }
+        tags.push(["bolt11", invoice.invoice], ["description", zapInfo.description])
         const event: UnsignedEvent = {
             content: "",
             created_at: invoice.paid_at_unix,

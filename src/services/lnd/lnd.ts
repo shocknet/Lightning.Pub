@@ -396,18 +396,19 @@ export default class {
         }
     }
 
-    async NewInvoice(value: number, memo: string, expiry: number, { useProvider, from }: TxActionOptions, blind = false): Promise<Invoice> {
+    async NewInvoice(value: number, memo: string, expiry: number, { useProvider, from }: TxActionOptions, blind = false, zapDescription?: string): Promise<Invoice> {
         this.log(DEBUG, "Creating new invoice")
         // Force use of provider when bypass is enabled
         const mustUseProvider = this.liquidProvider.getSettings().useOnlyLiquidityProvider || useProvider
         if (mustUseProvider) {
             this.log(INFO, "using provider")
-            const invoice = await this.liquidProvider.AddInvoice(value, memo, from, expiry)
+            const invoice = await this.liquidProvider.AddInvoice(value, memo, from, expiry, zapDescription)
             const providerPubkey = this.liquidProvider.GetProviderPubkey()
             return { payRequest: invoice, providerPubkey }
         }
         try {
-            const res = await this.lightning.addInvoice(AddInvoiceReq(value, expiry, true, memo, blind), DeadLineMetadata())
+            const descriptionHash = zapDescription ? crypto.createHash('sha256').update(zapDescription).digest() : undefined
+            const res = await this.lightning.addInvoice(AddInvoiceReq(value, expiry, true, memo, blind, descriptionHash), DeadLineMetadata())
             this.utils.stateBundler.AddTxPoint('addedInvoice', value, { from, used: 'lnd' })
             return { payRequest: res.response.paymentRequest }
         } catch (err) {
