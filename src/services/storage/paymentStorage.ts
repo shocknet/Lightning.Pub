@@ -73,7 +73,13 @@ export default class {
             i.paidByLnd = true
         }
         await this.dbs.Update<UserReceivingInvoice>('UserReceivingInvoice', invoice.serial_id, i, txId)
-        Object.assign(invoice, i)
+        invoice.paid_at_unix = i.paid_at_unix!
+        invoice.paid_amount = i.paid_amount!
+        invoice.service_fee = i.service_fee!
+        invoice.internal = i.internal!
+        if (i.paidByLnd !== undefined) {
+            invoice.paidByLnd = i.paidByLnd
+        }
     }
 
     async GetUserInvoicesFlaggedAsPaid(userSerialId: number, fromIndex: number, fromPaidTimestamp: number, take = 50, txId?: string): Promise<UserReceivingInvoice[]> {
