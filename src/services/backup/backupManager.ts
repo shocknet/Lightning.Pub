@@ -62,9 +62,8 @@ export class BackupManager {
     /** Full snapshot of every backup shard (e.g. after settings init or bulk deletes). */
     async uploadAllTables(): Promise<void> {
         if (!this.isBackupConfigured()) return
-        const keys = await this.deriveKeys()
         for (const id of BACKUP_RESTORE_ORDER) {
-            await this.uploadTable(id, keys)
+            this.notifyBackupTableDebounced(id)
         }
     }
 
@@ -201,8 +200,8 @@ export class BackupManager {
                 await sftpUpload({
                     host: bs.sftpHost,
                     port: bs.sftpPort,
-                    username: keys.sftpUser,
-                    password: keys.sftpPass,
+                    username: bs.sftpUser || keys.sftpUser,
+                    password: bs.sftpPass || keys.sftpPass,
                 }, filename, encrypted)
                 log(`${filename} uploaded to SFTP ${bs.sftpHost}:${bs.sftpPort} (${encrypted.length} bytes)`)
                 anyOk = true
@@ -230,8 +229,9 @@ export class BackupManager {
     }
 
     stop() {
-        for (const t of this.debounceTimers.values()) {
-            clearTimeout(t)
+        for (const k of this.debounceTimers.keys()) {
+            this.flushDebouncedTable(k)
+            clearTimeout(this.debounceTimers.get(k))
         }
         this.debounceTimers.clear()
     }

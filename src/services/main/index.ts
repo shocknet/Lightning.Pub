@@ -105,6 +105,7 @@ export default class {
         this.paymentManager.Stop()
         this.utils.Stop()
         this.storage.Stop()
+        this.backupManager.stop()
     }
 
     StartBeacons() {
