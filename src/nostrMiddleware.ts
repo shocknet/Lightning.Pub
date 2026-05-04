@@ -105,7 +105,7 @@ export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSett
     mainHandler.adminManager.setNostrConnected(true)
 
     return {
-        Stop: () => { mainHandler.adminManager.setNostrConnected(false); return nostr.Stop },
+        Stop: () => { mainHandler.adminManager.setNostrConnected(false); nostr.Stop() },
         Send: (...args) => nostr.Send(...args),
         Ping: () => nostr.Ping(),
         Reset: (settings: NostrSettings) => nostr.Reset(settings)
