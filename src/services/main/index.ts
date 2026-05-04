@@ -283,31 +283,31 @@ export default class {
             const isManagedUser = userInvoice.user.user_id !== userInvoice.linkedApplication.owner.user_id
             const fee = this.paymentManager.getReceiveServiceFee(Types.UserOperationType.INCOMING_INVOICE, amount, isManagedUser)
             try {
-                await this.storage.paymentStorage.FlagInvoiceAsPaid(userInvoice, amount, fee, internal, tx)
-                this.storage.eventsLog.LogEvent({ type: 'invoice_paid', userId: userInvoice.user.user_id, appId: userInvoice.linkedApplication.app_id, appUserId: "", balance: userInvoice.user.balance_sats, data: paymentRequest, amount })
-                await this.storage.userStorage.IncrementUserBalance(userInvoice.user.user_id, amount - fee, userInvoice.invoice, tx)
+                const paidInvoice = await this.storage.paymentStorage.FlagInvoiceAsPaid(userInvoice, amount, fee, internal, tx)
+                this.storage.eventsLog.LogEvent({ type: 'invoice_paid', userId: paidInvoice.user.user_id, appId: paidInvoice.linkedApplication!.app_id, appUserId: "", balance: paidInvoice.user.balance_sats, data: paymentRequest, amount })
+                await this.storage.userStorage.IncrementUserBalance(paidInvoice.user.user_id, amount - fee, paidInvoice.invoice, tx)
                 if (fee > 0) {
-                    await this.storage.userStorage.IncrementUserBalance(userInvoice.linkedApplication.owner.user_id, fee, 'fees', tx)
+                    await this.storage.userStorage.IncrementUserBalance(paidInvoice.linkedApplication!.owner.user_id, fee, 'fees', tx)
                 }
-                await this.triggerPaidCallback(log, userInvoice.callbackUrl, { invoice: paymentRequest, amount, payerData: userInvoice.payer_data, token: userInvoice.bearer_token, rejectUnauthorized: userInvoice.rejectUnauthorized })
-                const operationId = `${Types.UserOperationType.INCOMING_INVOICE}-${userInvoice.serial_id}`
-                const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_INVOICE, identifier: userInvoice.invoice, operationId, network_fee: 0, service_fee: fee, confirmed: true, tx_hash: "", internal }
-                this.sendOperationToNostr(userInvoice.linkedApplication, userInvoice.user.user_id, op)
+                await this.triggerPaidCallback(log, paidInvoice.callbackUrl, { invoice: paymentRequest, amount, payerData: paidInvoice.payer_data, token: paidInvoice.bearer_token, rejectUnauthorized: paidInvoice.rejectUnauthorized })
+                const operationId = `${Types.UserOperationType.INCOMING_INVOICE}-${paidInvoice.serial_id}`
+                const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_INVOICE, identifier: paidInvoice.invoice, operationId, network_fee: 0, service_fee: fee, confirmed: true, tx_hash: "", internal }
+                this.sendOperationToNostr(paidInvoice.linkedApplication!, paidInvoice.user.user_id, op)
                 try {
-                    await this.createZapReceipt(log, userInvoice)
+                    await this.createZapReceipt(log, paidInvoice)
                 } catch (err: any) {
                     log(ERROR, "cannot create zap receipt", err.message || "")
                 }
                 // Send CLINK receipt if this invoice was from a noffer request
                 try {
-                    if (userInvoice.clink_requester_pub && userInvoice.clink_requester_event_id) {
-                        await this.createClinkReceipt(log, userInvoice)
+                    if (paidInvoice.clink_requester_pub && paidInvoice.clink_requester_event_id) {
+                        await this.createClinkReceipt(log, paidInvoice)
                     }
                 } catch (err: any) {
                     log(ERROR, "cannot create clink receipt", err.message || "")
                 }
                 this.liquidityManager.afterInInvoicePaid()
-                this.utils.stateBundler.AddTxPoint('invoiceWasPaid', amount, { used, from: 'system', timeDiscount: true }, userInvoice.linkedApplication.app_id)
+                this.utils.stateBundler.AddTxPoint('invoiceWasPaid', amount, { used, from: 'system', timeDiscount: true }, paidInvoice.linkedApplication!.app_id)
             } catch (err: any) {
                 this.utils.stateBundler.AddTxPointFailed('invoiceWasPaid', amount, { used, from: 'system' }, userInvoice.linkedApplication.app_id)
                 log(ERROR, "cannot process paid invoice", err.message || "")

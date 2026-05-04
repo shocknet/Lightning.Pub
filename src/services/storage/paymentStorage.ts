@@ -67,19 +67,17 @@ export default class {
         }, txId)
     }
 
-    async FlagInvoiceAsPaid(invoice: UserReceivingInvoice, amount: number, serviceFee: number, internal: boolean, txId: string) {
+    async FlagInvoiceAsPaid(invoice: UserReceivingInvoice, amount: number, serviceFee: number, internal: boolean, txId: string): Promise<UserReceivingInvoice> {
         const i: Partial<UserReceivingInvoice> = { paid_at_unix: Math.floor(Date.now() / 1000), paid_amount: amount, service_fee: serviceFee, internal }
         if (!internal) {
             i.paidByLnd = true
         }
         await this.dbs.Update<UserReceivingInvoice>('UserReceivingInvoice', invoice.serial_id, i, txId)
-        invoice.paid_at_unix = i.paid_at_unix!
-        invoice.paid_amount = i.paid_amount!
-        invoice.service_fee = i.service_fee!
-        invoice.internal = i.internal!
-        if (i.paidByLnd !== undefined) {
-            invoice.paidByLnd = i.paidByLnd
+        const updated = await this.dbs.FindOne<UserReceivingInvoice>('UserReceivingInvoice', { where: { serial_id: invoice.serial_id } }, txId)
+        if (!updated) {
+            throw new Error('invoice row missing after FlagInvoiceAsPaid')
         }
+        return updated
     }
 
     async GetUserInvoicesFlaggedAsPaid(userSerialId: number, fromIndex: number, fromPaidTimestamp: number, take = 50, txId?: string): Promise<UserReceivingInvoice[]> {
