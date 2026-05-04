@@ -31,6 +31,8 @@ export const initSettings = async (log: PubLogger, storageSettings: StorageSetti
     await settingsManager.InitSettings()
     const restore = new RestoreManager(storageManager, settingsManager)
     const backupManager = new BackupManager(storageManager, settingsManager)
+    settingsManager.setBackupManager(backupManager)
+    backupManager.notifyBackupTable('admin_settings')
     const stop = await processArgs(storageManager, restore, backupManager)
     if (stop) {
         return
@@ -43,7 +45,7 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
     const unlocker = new Unlocker(settingsManager, storageManager, storageManager.NostrSender())
     await unlocker.Unlock()
     const swaps = new Swaps(settingsManager, storageManager)
-    settingsManager.setBackupManager(backupManager)
+
     const adminManager = new AdminManager(settingsManager, storageManager, swaps, backupManager)
     let wizard: Wizard | null = null
     if (settingsManager.getSettings().serviceSettings.wizard) {
