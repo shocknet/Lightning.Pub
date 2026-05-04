@@ -74,7 +74,7 @@ export default class {
         this.unlocker = unlocker
         const updateProviderBalance = async (b: number) => {
             await this.storage.liquidityStorage.IncrementTrackedProviderBalance('lnPub', settings.getSettings().liquiditySettings.liquidityProviderPub, b)
-            this.backupManager?.notifyBalanceChanged()
+            this.backupManager.notifyBackupTable('tracked_providers')
         }
         this.backupManager = backupManager
         this.liquidityProvider = new LiquidityProvider(() => this.settings.getSettings().liquiditySettings, this.utils, this.invoicePaidCb, updateProviderBalance)
@@ -211,10 +211,11 @@ export default class {
                     if (serviceFee > 0) {
                         await this.storage.userStorage.IncrementUserBalance(userAddress.linkedApplication.owner.user_id, serviceFee, 'fees', tx)
                     }
-                    this.backupManager.notifyBalanceChanged()
                     const operationId = `${Types.UserOperationType.INCOMING_TX}-${serialId}`
                     const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_TX, identifier: userAddress.address, operationId, network_fee: 0, service_fee: serviceFee, confirmed: true, tx_hash: c.tx.tx_hash, internal: c.tx.internal }
                     this.sendOperationToNostr(userAddress.linkedApplication!, userAddress.user.user_id, op)
+                }).then(() => {
+                    this.backupManager.notifyBackupTable('user_balances')
                 })
             }
         }))
@@ -258,7 +259,6 @@ export default class {
                     if (fee > 0) {
                         await this.storage.userStorage.IncrementUserBalance(userAddress.linkedApplication.owner.user_id, fee, 'fees', tx)
                     }
-                    this.backupManager.notifyBalanceChanged()
 
                 }
                 const operationId = `${Types.UserOperationType.INCOMING_TX}-${addedTx.serial_id}`
@@ -269,6 +269,8 @@ export default class {
                 this.utils.stateBundler.AddTxPointFailed('addressWasPaid', amount, { used, from: 'system' }, userAddress.linkedApplication.app_id)
                 log(ERROR, "cannot process address paid transaction, already registered")
             }
+        }).then(() => {
+            this.backupManager.notifyBackupTable('user_balances')
         })
     }
 
@@ -297,7 +299,6 @@ export default class {
                 if (fee > 0) {
                     await this.storage.userStorage.IncrementUserBalance(userInvoice.linkedApplication.owner.user_id, fee, 'fees', tx)
                 }
-                this.backupManager.notifyBalanceChanged()
                 await this.triggerPaidCallback(log, userInvoice.callbackUrl, { invoice: paymentRequest, amount, payerData: userInvoice.payer_data, token: userInvoice.bearer_token, rejectUnauthorized: userInvoice.rejectUnauthorized })
                 const operationId = `${Types.UserOperationType.INCOMING_INVOICE}-${userInvoice.serial_id}`
                 const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_INVOICE, identifier: userInvoice.invoice, operationId, network_fee: 0, service_fee: fee, confirmed: true, tx_hash: "", internal }
@@ -321,6 +322,8 @@ export default class {
                 this.utils.stateBundler.AddTxPointFailed('invoiceWasPaid', amount, { used, from: 'system' }, userInvoice.linkedApplication.app_id)
                 log(ERROR, "cannot process paid invoice", err.message || "")
             }
+        }).then(() => {
+            this.backupManager.notifyBackupTable('user_balances')
         })
     }
 

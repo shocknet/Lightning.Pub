@@ -58,7 +58,7 @@ export class OfferManager {
             callback_url: req.callback_url,
             blind: req.blind,
         })
-        void this.backupManager.notifyIdentityChanged()
+        this.backupManager.notifyBackupTable('user_offers')
         return {
             offer_id: newOffer.offer_id
         }
@@ -66,7 +66,7 @@ export class OfferManager {
 
     async DeleteUserOffer(ctx: Types.UserContext, req: Types.OfferId) {
         await this.storage.offerStorage.DeleteUserOffer(ctx.app_user_id, req.offer_id)
-        void this.backupManager.notifyIdentityChanged()
+        this.backupManager.notifyBackupTable('user_offers')
     }
 
     async UpdateUserOffer(ctx: Types.UserContext, req: Types.OfferConfig) {
@@ -77,7 +77,7 @@ export class OfferManager {
             callback_url: req.callback_url,
             blind: req.blind,
         })
-        void this.backupManager.notifyIdentityChanged()
+        this.backupManager.notifyBackupTable('user_offers')
     }
     async GetUserOfferInvoices(ctx: Types.UserContext, req: Types.GetUserOfferInvoicesReq): Promise<Types.OfferInvoices> {
         const userOffer = await this.storage.offerStorage.GetUserOffer(ctx.app_user_id, req.offer_id)
@@ -119,7 +119,7 @@ export class OfferManager {
         let toAppend: UserOffer | undefined = undefined
         if (!defaultOffer) {
             toAppend = await this.storage.offerStorage.AddDefaultUserOffer(ctx.app_user_id)
-            void this.backupManager.notifyIdentityChanged()
+            this.backupManager.notifyBackupTable('user_offers')
         }
         if (toAppend) {
             offers.push(toAppend)
@@ -223,7 +223,7 @@ export class OfferManager {
             if (userOffer.price_sats !== 0 || userOffer.payer_data) {
                 this.logger("default offer has custom price or expected data, resetting")
                 await this.storage.offerStorage.UpdateUserOffer(userOffer.app_user_id, userOffer.offer_id, { price_sats: 0, payer_data: null })
-                void this.backupManager.notifyIdentityChanged()
+                this.backupManager.notifyBackupTable('user_offers')
                 userOffer.price_sats = 0
                 userOffer.payer_data = null
             }

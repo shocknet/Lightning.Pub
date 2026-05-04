@@ -19,8 +19,8 @@ const start = async () => {
         log("manual process ended")
         return
     }
-    const { settingsManager, restore } = initOk
-    const keepOn = await initMainHandler(log, settingsManager, restore)
+    const { settingsManager, restore, backupManager } = initOk
+    const keepOn = await initMainHandler(log, settingsManager, restore, backupManager)
 
 
     const { mainHandler, localProviderClient, wizard, adminManager } = keepOn

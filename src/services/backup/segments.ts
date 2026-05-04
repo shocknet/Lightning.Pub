@@ -1,8 +1,7 @@
 // BACKUP: Data segment collection and import
 //
-// Two segments stored as separate encrypted files on SFTP:
-//   - balances.enc (hot): user balances + tracked provider baseline. Debounced ~30s.
-//   - identity.enc (cold): app keys, user links, settings, offers, etc. On-change.
+// Live backups use one encrypted file per table (see backupTables.ts). Aggregate
+// IdentityData / BalancesData encode helpers remain for tests and tooling.
 //
 // ECONOMIC INVARIANT: Pending UserInvoicePayment rows (paid_at_unix = 0) are NOT
 // included. Restore favors non-inflation over exact replay. Balance is already
@@ -168,6 +167,29 @@ export const decodeTrackedProviderRow = (data: Uint8Array): TrackedProviderRow =
         latest_checked_height: numberFromBytes(tlv[6][0]),
     }
 }
+
+// --- Per-table .enc framing (v1): version byte + repeated row blobs (same TLV shape as identity list fields) ---
+
+const PER_TABLE_PAYLOAD_VERSION = 1
+
+export const encryptTableRows = (rowEncodings: Uint8Array[], encKey: Buffer): Buffer => {
+    const tlv: TLV = {
+        2: [new Uint8Array([PER_TABLE_PAYLOAD_VERSION])],
+        3: rowEncodings,
+    }
+    return encryptPayload(Buffer.from(encodeTLbV(tlv)), encKey)
+}
+
+export const decryptTableRows = (data: Buffer, encKey: Buffer): Uint8Array[] => {
+    const plaintext = decryptPayload(data, encKey)
+    const tlv = parseTLbV(plaintext)
+    const v = tlv[2]?.[0]?.[0]
+    if (v !== PER_TABLE_PAYLOAD_VERSION) {
+        throw new Error(`Unsupported per-table backup payload version: ${v}`)
+    }
+    return tlv[3] ?? []
+}
+
 // --- Identity segment (cold) ---
 
 export type IdentityData = {

@@ -14,6 +14,7 @@ export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSett
             const app = await mainHandler.storage.applicationStorage.GetApplication(appId || "")
             const nostrUser = await mainHandler.storage.applicationStorage.GetOrCreateNostrAppUser(app, pub || "")
             await mainHandler.storage.userStorage.UpsertUserAccess(nostrUser.user.user_id, Math.floor(Date.now() / 1000))
+            mainHandler.backupManager.notifyBackupTable('application_users', 'user_balances')
             return { user_id: nostrUser.user.user_id, app_user_id: nostrUser.identifier, app_id: appId || "" }
         },
         NostrAdminAuthGuard: async (appId, pub) => {

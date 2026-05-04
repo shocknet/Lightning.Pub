@@ -45,16 +45,16 @@ export class DebitManager {
             throw new Error("Debit does not exist")
         }
         await this.storage.debitStorage.UpdateDebitAccessRules(ctx.app_user_id, req.authorize_npub, debitRulesToDebitAccessRules(req.rules));
-        void this.backupManager.notifyIdentityChanged()
+        void this.backupManager.notifyBackupTable('debit_accesses')
     }
 
     BanDebit = async (ctx: Types.UserContext, req: Types.DebitOperation): Promise<void> => {
         await this.storage.debitStorage.DenyDebitAccess(ctx.app_user_id, req.npub)
-        void this.backupManager.notifyIdentityChanged()
+        void this.backupManager.notifyBackupTable('debit_accesses')
     }
     ResetDebit = async (ctx: Types.UserContext, req: Types.DebitOperation): Promise<void> => {
         await this.storage.debitStorage.RemoveDebitAccess(ctx.app_user_id, req.npub)
-        void this.backupManager.notifyIdentityChanged()
+        void this.backupManager.notifyBackupTable('debit_accesses')
     }
 
     RespondToDebit = async (ctx: Types.UserContext, req: Types.DebitResponse): Promise<void> => {
@@ -98,7 +98,7 @@ export class DebitManager {
             npub,
             rules: debitRulesToDebitAccessRules(debit.rules)
         })
-        void this.backupManager.notifyIdentityChanged()
+        void this.backupManager.notifyBackupTable('debit_accesses')
         const { invoice } = debit
         if (!request_id) {
             return
@@ -282,7 +282,7 @@ export class DebitManager {
     sendDebitPayment = async (appId: string, appUserId: string, requestorPub: string, bolt11: string) => {
         const payment = await this.applicationManager.PayAppUserInvoice(appId, { amount: 0, invoice: bolt11, user_identifier: appUserId, debit_npub: requestorPub })
         await this.storage.debitStorage.IncrementDebitAccess(appUserId, requestorPub, payment.amount_paid + payment.service_fee)
-        void this.backupManager.notifyIdentityChanged()
+        void this.backupManager.notifyBackupTable('debit_accesses')
         return { payment }
     }
 
@@ -295,7 +295,7 @@ export class DebitManager {
             const [expiration] = rules[expirationRuleName]
             if (+expiration < Date.now()) {
                 await this.storage.debitStorage.RemoveDebitAccess(access.app_user_id, access.npub)
-                void this.backupManager.notifyIdentityChanged()
+                void this.backupManager.notifyBackupTable('debit_accesses')
                 return false
             }
         }

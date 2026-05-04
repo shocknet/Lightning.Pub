@@ -36,7 +36,7 @@ export class RugPullTracker {
             if (!providerTracker) {
                 this.log("starting to track provider", this.liquidProvider.GetProviderPubkey())
                 await this.storage.liquidityStorage.CreateTrackedProvider('lnPub', pubDst, trackedBalance)
-                this.backupManager.notifyBalanceChanged()
+                this.backupManager.notifyBackupTable('tracked_providers')
                 return { balance: trackedBalance }
             }
             return this.checkForDisruption(pubDst, trackedBalance, providerTracker)
@@ -51,7 +51,7 @@ export class RugPullTracker {
             this.rugPulled = true
             if (providerTracker.latest_distruption_at_unix === 0) {
                 await this.storage.liquidityStorage.UpdateTrackedProviderDisruption('lnPub', pubDst, Math.floor(Date.now() / 1000))
-                this.backupManager.notifyBalanceChanged()
+                this.backupManager.notifyBackupTable('tracked_providers')
                 getLogger({ component: 'rugPull' })("detected rugpull from: ", pubDst, "provider balance changed from", providerTracker.latest_balance, "to", trackedBalance, "losing", diff)
             } else {
                 getLogger({ component: 'rugPull' })("ongoing rugpull from: ", pubDst, "provider balance changed from", providerTracker.latest_balance, "to", trackedBalance, "losing", diff)
@@ -60,7 +60,7 @@ export class RugPullTracker {
             this.rugPulled = false
             if (providerTracker.latest_distruption_at_unix !== 0) {
                 await this.storage.liquidityStorage.UpdateTrackedProviderDisruption('lnPub', pubDst, 0)
-                this.backupManager.notifyBalanceChanged()
+                this.backupManager.notifyBackupTable('tracked_providers')
                 getLogger({ component: 'rugPull' })("rugpull from: ", pubDst, "cleared after: ", Math.floor(Date.now() / 1000) - providerTracker.latest_distruption_at_unix, "seconds")
             }
             if (diff > 0) {

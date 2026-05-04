@@ -96,6 +96,7 @@ export default class {
     async SetMockAppUserBalance(appId: string, req: Types.SetMockAppUserBalanceRequest) {
         const app = await this.storage.applicationStorage.GetApplication(appId)
         const { user } = await this.storage.applicationStorage.GetOrCreateApplicationUser(app, req.user_identifier, 0)
+        this.backupManager.notifyBackupTable('user_balances', 'application_users')
         await this.paymentManager.SetMockUserBalance(user.user.user_id, req.amount)
     }
 
@@ -107,8 +108,8 @@ export default class {
 
     async AddApp(req: Types.AddAppRequest): Promise<Types.AuthApp> {
         const app = await this.storage.applicationStorage.AddApplication(req.name, req.allow_user_creation)
-        void this.backupManager.notifyIdentityChanged()
-        this.backupManager.notifyBalanceChanged()
+        void this.backupManager.notifyBackupTable('applications')
+        this.backupManager.notifyBackupTable('user_balances')
         getLogger({ appName: app.name })("app created")
 
         return {
@@ -126,7 +127,7 @@ export default class {
         const app = await this.storage.applicationStorage.GetApplicationByName(req.name)
         if (typeof req.allow_user_creation === 'boolean') {
             await this.storage.applicationStorage.UpdateApplication(app, { allow_user_creation: req.allow_user_creation })
-            void this.backupManager.notifyIdentityChanged()
+            void this.backupManager.notifyBackupTable('applications')
         }
         return {
             app: {
@@ -155,15 +156,13 @@ export default class {
         let u: ApplicationUser
         if (req.fail_if_exists) {
             u = await this.storage.applicationStorage.AddApplicationUser(app, req.identifier, req.balance)
-            void this.backupManager.notifyIdentityChanged()
-            this.backupManager.notifyBalanceChanged()
+            this.backupManager.notifyBackupTable('application_users', 'user_balances')
             log(u.identifier, u.user.user_id, "user created")
         } else {
             const { user, created } = await this.storage.applicationStorage.GetOrCreateApplicationUser(app, req.identifier, req.balance)
             u = user
             if (created) {
-                void this.backupManager.notifyIdentityChanged()
-                this.backupManager.notifyBalanceChanged()
+                void this.backupManager.notifyBackupTable('application_users', 'user_balances')
                 log(u.identifier, u.user.user_id, "user created")
             }
         }
@@ -197,6 +196,7 @@ export default class {
     async AddAppInvoice(appId: string, req: Types.AddAppInvoiceRequest): Promise<Types.NewInvoiceResponse> {
         const app = await this.storage.applicationStorage.GetApplication(appId)
         const { user: payer } = await this.storage.applicationStorage.GetOrCreateApplicationUser(app, req.payer_identifier, 0)
+        this.backupManager.notifyBackupTable('application_users', 'user_balances')
         const opts: InboundOptionals = { callbackUrl: req.http_callback_url, expiry: defaultInvoiceExpiry, expectedPayer: payer.user, linkedApplication: app }
         const invoice = await this.paymentManager.NewInvoice(app.owner.user_id, req.invoice_req, opts)
         getLogger({ appName: app.name })("app invoice created to be paid by", payer.identifier)
@@ -208,6 +208,7 @@ export default class {
         const log = getLogger({ appName: app.name })
         const receiver = await this.storage.applicationStorage.GetApplicationUser(app, req.receiver_identifier)
         const { user: payer } = await this.storage.applicationStorage.GetOrCreateApplicationUser(app, req.payer_identifier, 0)
+        this.backupManager.notifyBackupTable('application_users', 'user_balances')
         const cbUrl = req.http_callback_url || receiver.callback_url || ""
         let zapInfo: ZapInfo | undefined = undefined
         if (req.invoice_req.zap) {
@@ -285,6 +286,7 @@ export default class {
         const app = await this.storage.applicationStorage.GetApplication(appId)
         const fromUser = await this.storage.applicationStorage.GetApplicationUser(app, req.from_user_identifier)
         const { user: toUser } = await this.storage.applicationStorage.GetOrCreateApplicationUser(app, req.to_user_identifier, 0)
+        this.backupManager.notifyBackupTable('application_users', 'user_balances')
         await this.paymentManager.SendUserToUserPayment(fromUser.user.user_id, toUser.user.user_id, req.amount, app)
         getLogger({ appName: app.name })(toUser.identifier, "received internal payment by", fromUser.identifier, "of", req.amount, "sats")
     }
@@ -346,7 +348,7 @@ export default class {
             const deleted = this.nPubLinkingTokens.delete(req.token)
             if (deleted) {
                 await this.storage.applicationStorage.AddNPubToApplicationUser(copy.serialId, ctx.pub)
-                void this.backupManager.notifyIdentityChanged()
+                this.backupManager.notifyBackupTable('application_users')
             } else {
                 throw new Error("An uknown error occured")
             }
@@ -364,8 +366,7 @@ export default class {
         }
         await this.storage.applicationStorage.AddApplicationUser(app, crypto.randomBytes(32).toString('hex'), 0, ctx.pub)
         await this.storage.applicationStorage.SetInviteTokenAsUsed(inviteToken);
-        void this.backupManager.notifyIdentityChanged()
-        this.backupManager.notifyBalanceChanged()
+        this.backupManager.notifyBackupTable('application_users', 'invite_tokens', 'user_balances')
 
     }
 

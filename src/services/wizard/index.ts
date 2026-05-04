@@ -7,6 +7,7 @@ import { Unlocker } from "../main/unlocker.js"
 import { AdminManager } from '../main/adminManager.js'
 // BACKUP CHANGE: import restore pipeline
 import { RestoreManager } from '../backup/restoreManager.js'
+import { BackupManager } from "../backup/backupManager.js"
 export type WizardSettings = {
     sourceName: string
     relayUrl: string
@@ -19,16 +20,18 @@ export class Wizard {
     settings: SettingsManager
     adminManager: AdminManager
     restoreManager: RestoreManager
+    backupManager: BackupManager
     storage: Storage
     configQueue: { res: (reload: boolean) => void }[] = []
     awaitingNprofile: { res: (nprofile: string) => void }[] = []
     nprofile = ""
     relays: string[] = []
-    constructor(settings: SettingsManager, storage: Storage, adminManager: AdminManager, restoreManager: RestoreManager) {
+    constructor(settings: SettingsManager, storage: Storage, adminManager: AdminManager, restoreManager: RestoreManager, backupManager: BackupManager) {
         this.settings = settings
         this.adminManager = adminManager
         this.storage = storage
         this.restoreManager = restoreManager
+        this.backupManager = backupManager
         this.log('Starting wizard...')
         const wizardServer = NewWizardServer({
             WizardState: async () => { return this.WizardState() },
@@ -224,6 +227,7 @@ export class Wizard {
                     await this.storage.applicationStorage.UpdateApplication(newApp, { avatar_url: avatarUrl })
                 }
             }
+            this.backupManager.notifyBackupTable('applications', 'user_balances')
         } catch (e) {
             this.log(`Error updating app info: ${(e as Error).message}`)
         }

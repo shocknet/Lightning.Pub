@@ -28,12 +28,12 @@ export class ManagementManager {
 
     ResetManage = async (ctx: Types.UserContext, req: Types.ManageOperation): Promise<void> => {
         await this.storage.managementStorage.removeGrant(ctx.app_user_id, req.npub)
-        void this.backupManager?.notifyIdentityChanged()
+        this.backupManager.notifyBackupTable('management_grants')
     }
 
     AuthorizeManage = async (ctx: Types.UserContext, req: Types.ManageAuthorizationRequest): Promise<Types.ManageAuthorization> => {
         const grant = await this.storage.managementStorage.addGrant(ctx.app_user_id, req.authorize_npub, req.ban)
-        void this.backupManager.notifyIdentityChanged()
+        this.backupManager.notifyBackupTable('management_grants')
         const awaiting = this.awaitingRequests[req.authorize_npub]
         if (awaiting) {
             delete this.awaitingRequests[req.authorize_npub]
@@ -236,7 +236,7 @@ export class ManagementManager {
             payer_data: nmanageReq.offer.fields.payer_data,
             management_pubkey: requestorPub,
         })
-        void this.backupManager.notifyIdentityChanged()
+        this.backupManager.notifyBackupTable('user_offers')
         return { state: 'success', result: offer }
     }
 
@@ -296,7 +296,7 @@ export class ManagementManager {
             price_sats: nmanageReq.offer.fields.price_sats,
             payer_data: nmanageReq.offer.fields.payer_data,
         })
-        void this.backupManager.notifyIdentityChanged()
+        this.backupManager.notifyBackupTable('user_offers')
         const updatedOffer = await this.storage.offerStorage.GetOffer(nmanageReq.offer.id)
         if (!updatedOffer) {
             return { state: 'error', err: { res: 'GFY', code: 2, error: 'Temporary Failure: Offer not found' } }
@@ -310,7 +310,7 @@ export class ManagementManager {
             return offerResult
         }
         await this.storage.offerStorage.DeleteUserOffer(offerResult.result.app_user_id, offerResult.result.offer_id)
-        void this.backupManager.notifyIdentityChanged()
+        this.backupManager.notifyBackupTable('user_offers')
         return { state: 'success', result: undefined }
     }
 }

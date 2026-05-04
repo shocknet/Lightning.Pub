@@ -30,8 +30,8 @@ const start = async () => {
         log("early manual process ended")
         return
     }
-    const { settingsManager, restore } = initOk
-    const keepOn = await initMainHandler(log, settingsManager, restore)
+    const { settingsManager, restore, backupManager } = initOk
+    const keepOn = await initMainHandler(log, settingsManager, restore, backupManager)
     /* if (!keepOn) {
         log("manual process ended")
         return

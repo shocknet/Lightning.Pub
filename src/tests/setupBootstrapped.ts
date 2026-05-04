@@ -12,7 +12,7 @@ export const initBootstrappedInstance = async (T: TestBase) => {
     if (!initOk) {
         throw new Error("failed to initialize settings manager")
     }
-    const { settingsManager, restore } = initOk
+    const { settingsManager, restore, backupManager } = initOk
     const thirdNodeSettings = LoadThirdLndSettingsFromEnv()
     settingsManager.OverrideTestSettings(s => {
         s.liquiditySettings.useOnlyLiquidityProvider = true
@@ -20,7 +20,7 @@ export const initBootstrappedInstance = async (T: TestBase) => {
         s.lndNodeSettings = thirdNodeSettings
         return s
     })
-    const initialized = await initMainHandler(getLogger({ component: "bootstrapped" }), settingsManager, restore)
+    const initialized = await initMainHandler(getLogger({ component: "bootstrapped" }), settingsManager, restore, backupManager)
     if (!initialized) {
         throw new Error("failed to initialize bootstrapped main handler")
     }

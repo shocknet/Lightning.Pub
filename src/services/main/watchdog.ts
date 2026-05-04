@@ -204,12 +204,12 @@ export class Watchdog {
     updateDisruption = async (isDisrupted: boolean, absoluteDiff: number, lndWithDeltaUsers: number) => {
         const tracker = await this.getTracker()
         await this.storage.liquidityStorage.UpdateTrackedProviderBalance('lnd', this.lndPubKey, lndWithDeltaUsers)
-        this.backupManager.notifyBalanceChanged()
+        this.backupManager.notifyBackupTable('tracked_providers')
         const maxDiffSats = this.settings.getSettings().watchDogSettings.maxDiffSats
         if (isDisrupted) {
             if (tracker.latest_distruption_at_unix === 0) {
                 await this.storage.liquidityStorage.UpdateTrackedProviderDisruption('lnd', this.lndPubKey, Math.floor(Date.now() / 1000))
-                this.backupManager.notifyBalanceChanged()
+                this.backupManager.notifyBackupTable('tracked_providers')
                 this.log("detected lnd loss of", absoluteDiff, "sats,", absoluteDiff - maxDiffSats, "above the max allowed")
             } else {
                 this.log("ongoing lnd loss of", absoluteDiff, "sats,", absoluteDiff - maxDiffSats, "above the max allowed")
@@ -217,7 +217,7 @@ export class Watchdog {
         } else {
             if (tracker.latest_distruption_at_unix !== 0) {
                 await this.storage.liquidityStorage.UpdateTrackedProviderDisruption('lnd', this.lndPubKey, 0)
-                this.backupManager.notifyBalanceChanged()
+                this.backupManager.notifyBackupTable('tracked_providers')
                 this.log("loss cleared after: ", Math.floor(Date.now() / 1000) - tracker.latest_distruption_at_unix, "seconds")
             } else if (absoluteDiff > 0) {
                 this.log("lnd balance increased more than users balance by", absoluteDiff)
@@ -293,7 +293,7 @@ export class Watchdog {
         const tracker = await this.storage.liquidityStorage.GetTrackedProvider('lnd', this.lndPubKey)
         if (!tracker) {
             const created = await this.storage.liquidityStorage.CreateTrackedProvider('lnd', this.lndPubKey, 0)
-            this.backupManager.notifyBalanceChanged()
+            this.backupManager.notifyBackupTable('tracked_providers')
             return created
         }
         return tracker

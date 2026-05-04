@@ -215,7 +215,7 @@ export class AdminManager {
             throw new Error("Admin user expected but not found!!!");
         }
         const newInviteToken = await this.storage.applicationStorage.AddInviteToken(adminAppUser.application, sats);
-        void this.backupManager.notifyIdentityChanged()
+        void this.backupManager.notifyBackupTable('invite_tokens')
         return {
             invitation_link: newInviteToken.inviteToken
         }

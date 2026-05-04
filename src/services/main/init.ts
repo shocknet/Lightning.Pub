@@ -22,7 +22,7 @@ export type AppData = {
     name: string;
 }
 
-export const initSettings = async (log: PubLogger, storageSettings: StorageSettings): Promise<{ settingsManager: SettingsManager, restore: RestoreManager } | undefined> => {
+export const initSettings = async (log: PubLogger, storageSettings: StorageSettings): Promise<{ settingsManager: SettingsManager, restore: RestoreManager, backupManager: BackupManager } | undefined> => {
     const nostrSender = new NostrSender()
     const utils = new Utils({ dataDir: storageSettings.dataDir, allowResetMetricsStorages: storageSettings.allowResetMetricsStorages }, nostrSender)
     const storageManager = new Storage(storageSettings, utils)
@@ -30,24 +30,24 @@ export const initSettings = async (log: PubLogger, storageSettings: StorageSetti
     const settingsManager = new SettingsManager(storageManager)
     await settingsManager.InitSettings()
     const restore = new RestoreManager(storageManager, settingsManager)
-    const stop = await processArgs(storageManager, restore)
+    const backupManager = new BackupManager(storageManager, settingsManager)
+    const stop = await processArgs(storageManager, restore, backupManager)
     if (stop) {
         return
     }
-    return { settingsManager, restore }
+    return { settingsManager, restore, backupManager }
 }
-export const initMainHandler = async (log: PubLogger, settingsManager: SettingsManager, restore: RestoreManager) => {
+export const initMainHandler = async (log: PubLogger, settingsManager: SettingsManager, restore: RestoreManager, backupManager: BackupManager) => {
     const storageManager = settingsManager.storage
     const utils = storageManager.utils
     const unlocker = new Unlocker(settingsManager, storageManager, storageManager.NostrSender())
     await unlocker.Unlock()
     const swaps = new Swaps(settingsManager, storageManager)
-    const backupManager = new BackupManager(storageManager, settingsManager)
     settingsManager.setBackupManager(backupManager)
     const adminManager = new AdminManager(settingsManager, storageManager, swaps, backupManager)
     let wizard: Wizard | null = null
     if (settingsManager.getSettings().serviceSettings.wizard) {
-        wizard = new Wizard(settingsManager, storageManager, adminManager, restore)
+        wizard = new Wizard(settingsManager, storageManager, adminManager, restore, backupManager)
         const wizardNonBlocking = settingsManager.getSettings().serviceSettings.wizardNonBlocking
         if (wizardNonBlocking) {
             // In dev mode, don't block on wizard - timeout after 1 second
@@ -81,9 +81,11 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
         const newWalletApp = await mainHandler.storage.applicationStorage.AddApplication(defaultAppName, true)
         appsData.push(newWalletApp)
     }
-    const apps: AppData[] = await Promise.all(appsData.map(app => {
+    const apps: AppData[] = await Promise.all(appsData.map(async app => {
         if (!app.nostr_private_key || !app.nostr_public_key) { // TMP --
-            return mainHandler.storage.applicationStorage.GenerateApplicationKeys(app);
+            const newAppCreds = await mainHandler.storage.applicationStorage.GenerateApplicationKeys(app);
+            backupManager.notifyBackupTable('applications', 'user_balances')
+            return newAppCreds
         } // --
         else {
             return { privateKey: app.nostr_private_key, publicKey: app.nostr_public_key, appId: app.app_id, name: app.name }
@@ -108,14 +110,16 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
     return { mainHandler, apps, localProviderClient, wizard, adminManager }
 }
 
-const processArgs = async (storage: Storage, restore: RestoreManager) => {
+const processArgs = async (storage: Storage, restore: RestoreManager, backupManager: BackupManager) => {
     switch (process.argv[2]) {
         case 'updateUserBalance':
             await storage.userStorage.UpdateUser(process.argv[3], { balance_sats: +process.argv[4] })
+            backupManager.notifyBackupTable('user_balances')
             getLogger({ userId: process.argv[3] })(`user balance updated correctly`)
             return false
         case 'unlock':
             await storage.userStorage.UnbanUser(process.argv[3])
+            backupManager.notifyBackupTable('user_balances')
             getLogger({ userId: process.argv[3] })(`user unlocked`)
             return false
         case 'restore':

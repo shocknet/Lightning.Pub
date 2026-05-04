@@ -90,19 +90,3 @@ export async function sftpDownload(config: SftpConfig, remotePath: string): Prom
         client.end()
     }
 }
-
-// Check if both backup files exist on the server.
-export async function sftpCheckBackupExists(config: SftpConfig): Promise<boolean> {
-    const { client, sftp } = await connectSftp(config)
-    try {
-        const exists = await new Promise<boolean>((resolve) => {
-            sftp.stat('identity.enc', (err: any) => {
-                if (err) return resolve(false)
-                resolve(true)
-            })
-        })
-        return exists
-    } finally {
-        client.end()
-    }
-}

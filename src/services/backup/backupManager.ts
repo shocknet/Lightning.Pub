@@ -1,139 +1,238 @@
-// BACKUP: Orchestrates backup triggers and debounced uploads
+// BACKUP: Orchestrates per-table encrypted uploads and debounced hot paths
 //
-// Two upload paths:
-//   - balances.enc: debounced ~30s after any balance change
-//   - identity.enc: uploaded immediately on each relevant change event
-//
-// Both are encrypted client-side before upload; SFTP server never sees plaintext.
+// One .enc file per exported table (see backupTables.ts). High-churn tables use
+// `notifyBackupTableDebounced` so rapid writes coalesce into a single upload per table.
+// Destinations: managed cloud SFTP, custom SFTP (phrase-derived login), optional local dir.
 
+import fs from 'fs'
+import path from 'path'
 import { getLogger } from '../helpers/logger.js'
-import { StorageInterface } from '../storage/db/storageInterface.js'
-import {
-    mapAdminSettingBackupRow, mapAppBackupRow, mapAppUserBackupRow, mapAppUserDeviceBackupRow,
-    mapBalanceBackupRow, mapDebitAccessBackupRow, mapInviteTokenBackupRow, mapManagementGrantBackupRow,
-    mapProductBackupRow, mapTrackedProviderBackupRow, mapUserOfferBackupRow, STRIPPED_SETTINGS_KEYS
-} from './segments.js'
-import { encryptPayload } from './encryption.js'
-import { sftpUpload, cloudSftpConfig, type SftpConfig } from './sftpClient.js'
+import { deriveBackupKeys, LATEST_DERIVATION_VERSION, type DerivedKeys } from './derivation.js'
+import { sftpUpload, cloudSftpConfig } from './sftpClient.js'
 import Storage from '../storage/index.js'
-import { BalancesData, encryptBalancesData, IdentityData } from './segments.js'
-import { encryptIdentityData } from './segments.js'
+import {
+    encodeApplicationRow,
+    encodeApplicationUserRow,
+    encodeAdminSettingRow,
+    encodeAppUserDeviceRow,
+    encodeUserOfferRow,
+    encodeProductRow,
+    encodeManagementGrantRow,
+    encodeDebitAccessRow,
+    encodeInviteTokenRow,
+    encodeBalanceRow,
+    encodeTrackedProviderRow,
+    encryptTableRows,
+} from './segments.js'
+import { BACKUP_RESTORE_ORDER, backupTableFilename, type BackupTableId } from './backupTables.js'
 import SettingsManager from '../main/settingsManager.js'
+
+export type { BackupTableId } from './backupTables.js'
+
 const log = getLogger({ component: 'backupManager' })
 
-const BALANCE_DEBOUNCE_MS = 30_000
-
-export type BackupSettings = {
-    enabled: boolean
-    sftpConfig: SftpConfig
-    encKey: Buffer
-}
+const TABLE_DEBOUNCE_MS = 30_000
 
 export class BackupManager {
     storage: Storage
     settings: SettingsManager
-    private balanceTimer: ReturnType<typeof setTimeout> | null = null
-    private balanceUploadInProgress = false
+    private debounceTimers = new Map<BackupTableId, ReturnType<typeof setTimeout>>()
+    private debouncedUploadInProgress = new Set<BackupTableId>()
     constructor(storage: Storage, settings: SettingsManager) {
         this.storage = storage
         this.settings = settings
     }
 
-    // Call after any User.balance_sats change.
-    // Debounces — on a busy node, waits 30s of quiet before uploading.
-    notifyBalanceChanged() {
-        const enabled = this.settings.getSettings().backupSettings.enabled
-        if (!enabled) return
-
-        if (this.balanceTimer) {
-            clearTimeout(this.balanceTimer)
-        }
-
-        this.balanceTimer = setTimeout(() => {
-            this.uploadBalances().catch(err => {
-                log(`Balance backup upload failed: ${err.message}`)
-            })
-        }, BALANCE_DEBOUNCE_MS)
+    private isBackupConfigured(): boolean {
+        const bs = this.settings.getSettings().backupSettings
+        const phrase = bs.derivationPhrase.trim()
+        if (!phrase) return false
+        const hasDest =
+            bs.cloudEnabled ||
+            bs.sftpEnabled ||
+            !!bs.localPath?.trim()
+        return hasDest
     }
 
-    // Call after any identity-segment-relevant change:
-    // user registration, settings change, offer edit, etc.
-    async notifyIdentityChanged() {
-        const enabled = this.settings.getSettings().backupSettings.enabled
-        if (!enabled) return
+    private async deriveKeys(): Promise<DerivedKeys> {
+        const phrase = this.settings.getSettings().backupSettings.derivationPhrase.trim()
+        return deriveBackupKeys(phrase, LATEST_DERIVATION_VERSION)
+    }
 
+    /** Full snapshot of every backup shard (e.g. after settings init or bulk deletes). */
+    async uploadAllTables(): Promise<void> {
+        if (!this.isBackupConfigured()) return
+        const keys = await this.deriveKeys()
+        for (const id of BACKUP_RESTORE_ORDER) {
+            await this.uploadTable(id, keys)
+        }
+    }
+
+    /** Immediately upload one or more table shards (shares one key derivation per call). */
+    async notifyBackupTable(...ids: BackupTableId[]): Promise<void> {
+        if (!this.isBackupConfigured() || ids.length === 0) return
+        for (const id of ids) {
+            this.notifyBackupTableDebounced(id)
+        }
+    }
+
+    /** Debounced upload for any backup table (coalesces rapid writes per table id). */
+    private notifyBackupTableDebounced(id: BackupTableId) {
+        if (!this.isBackupConfigured()) return
+        const existing = this.debounceTimers.get(id)
+        if (existing) clearTimeout(existing)
+        this.debounceTimers.set(
+            id,
+            setTimeout(() => {
+                this.debounceTimers.delete(id)
+                this.flushDebouncedTable(id).catch(err => {
+                    log(`Debounced backup upload failed (${id}): ${err.message}`)
+                })
+            }, TABLE_DEBOUNCE_MS),
+        )
+    }
+
+    private async flushDebouncedTable(id: BackupTableId) {
+        if (this.debouncedUploadInProgress.has(id)) return
+        this.debouncedUploadInProgress.add(id)
         try {
-            await this.uploadIdentity()
-        } catch (err: any) {
-            log(`Identity backup upload failed: ${err.message}`)
-        }
-    }
-
-    async collectIdentitySegment(): Promise<IdentityData> {
-        const applications = await this.storage.applicationStorage.ExportApplications()
-        const applicationUsers = await this.storage.applicationStorage.ExportApplicationUsers()
-        const userOffers = await this.storage.offerStorage.ExportUserOffers()
-        const products = await this.storage.productStorage.ExportProducts()
-        const managementGrants = await this.storage.managementStorage.ExportManagementGrants()
-        const debitAccesses = await this.storage.debitStorage.ExportDebitAccess()
-        const inviteTokens = await this.storage.applicationStorage.ExportInviteTokens()
-        const appUserDevices = await this.storage.applicationStorage.ExportAppUserDevices()
-        const adminSettings = await this.storage.settingsStorage.ExportSettings()
-        return {
-            adminSettings, applications, applicationUsers, appUserDevices,
-            debitAccesses, inviteTokens, managementGrants, products, userOffers
-        }
-    }
-
-    async collectBalancesSegment(): Promise<BalancesData> {
-        const balances = await this.storage.userStorage.ExportBalances()
-        const trackedProviders = await this.storage.liquidityStorage.ExportTrackedProviders()
-        return {
-            balances, trackedProviders
-        }
-    }
-
-    private async uploadBalances() {
-        if (this.balanceUploadInProgress) return
-        this.balanceUploadInProgress = true
-
-        try {
-            const { encKey: encKeyString, sftpHost } = this.settings.getSettings().backupSettings
-            const sftpConfig = {
-                host: sftpHost,
-                port: this.settings.getSettings().backupSettings.sftpPort,
-                username: this.settings.getSettings().backupSettings.sftpUser,
-                password: this.settings.getSettings().backupSettings.sftpPass,
-            }
-            const encKey = Buffer.from(encKeyString, 'hex')
-            const data = await this.collectBalancesSegment()
-            const encrypted = encryptBalancesData(data, encKey)
-            await sftpUpload(sftpConfig, 'balances.enc', encrypted)
-            log(`balances.enc uploaded (${encrypted.length} bytes)`)
+            const keys = await this.deriveKeys()
+            await this.uploadTable(id, keys)
         } finally {
-            this.balanceUploadInProgress = false
+            this.debouncedUploadInProgress.delete(id)
         }
     }
 
-    private async uploadIdentity() {
-        const { encKey: encKeyString, sftpHost } = this.settings.getSettings().backupSettings
-        const encKey = Buffer.from(encKeyString, 'hex')
-        const sftpConfig = {
-            host: sftpHost,
-            port: this.settings.getSettings().backupSettings.sftpPort,
-            username: this.settings.getSettings().backupSettings.sftpUser,
-            password: this.settings.getSettings().backupSettings.sftpPass,
+    private async uploadTable(id: BackupTableId, keys: DerivedKeys) {
+        const encKey = keys.encKey
+        let encrypted: Buffer
+        switch (id) {
+            case 'applications': {
+                const rows = await this.storage.applicationStorage.ExportApplications()
+                const enc = rows.map(encodeApplicationRow)
+                encrypted = encryptTableRows(enc, encKey)
+                break
+            }
+            case 'application_users': {
+                const rows = await this.storage.applicationStorage.ExportApplicationUsers()
+                const enc = rows.map(encodeApplicationUserRow)
+                encrypted = encryptTableRows(enc, encKey)
+                break
+            }
+            case 'admin_settings': {
+                const rows = await this.storage.settingsStorage.ExportSettings()
+                const enc = rows.map(encodeAdminSettingRow)
+                encrypted = encryptTableRows(enc, encKey)
+                break
+            }
+            case 'app_user_devices': {
+                const rows = await this.storage.applicationStorage.ExportAppUserDevices()
+                const enc = rows.map(encodeAppUserDeviceRow)
+                encrypted = encryptTableRows(enc, encKey)
+                break
+            }
+            case 'user_offers': {
+                const rows = await this.storage.offerStorage.ExportUserOffers()
+                const enc = rows.map(encodeUserOfferRow)
+                encrypted = encryptTableRows(enc, encKey)
+                break
+            }
+            case 'products': {
+                const rows = await this.storage.productStorage.ExportProducts()
+                const enc = rows.map(encodeProductRow)
+                encrypted = encryptTableRows(enc, encKey)
+                break
+            }
+            case 'management_grants': {
+                const rows = await this.storage.managementStorage.ExportManagementGrants()
+                const enc = rows.map(encodeManagementGrantRow)
+                encrypted = encryptTableRows(enc, encKey)
+                break
+            }
+            case 'debit_accesses': {
+                const rows = await this.storage.debitStorage.ExportDebitAccess()
+                const enc = rows.map(encodeDebitAccessRow)
+                encrypted = encryptTableRows(enc, encKey)
+                break
+            }
+            case 'invite_tokens': {
+                const rows = await this.storage.applicationStorage.ExportInviteTokens()
+                const enc = rows.map(encodeInviteTokenRow)
+                encrypted = encryptTableRows(enc, encKey)
+                break
+            }
+            case 'user_balances': {
+                const rows = await this.storage.userStorage.ExportBalances()
+                const enc = rows.map(encodeBalanceRow)
+                encrypted = encryptTableRows(enc, encKey)
+                break
+            }
+            case 'tracked_providers': {
+                const rows = await this.storage.liquidityStorage.ExportTrackedProviders()
+                const enc = rows.map(encodeTrackedProviderRow)
+                encrypted = encryptTableRows(enc, encKey)
+                break
+            }
+            default: {
+                const _exhaustive: never = id
+                throw new Error(`Unhandled backup table: ${_exhaustive}`)
+            }
         }
-        const data = await this.collectIdentitySegment()
-        const encrypted = encryptIdentityData(data, encKey)
-        await sftpUpload(sftpConfig, 'identity.enc', encrypted)
-        log(`identity.enc uploaded (${encrypted.length} bytes)`)
+        await this.pushEncrypted(backupTableFilename(id), encrypted, keys)
+    }
+
+    private async pushEncrypted(filename: string, encrypted: Buffer, keys: DerivedKeys) {
+        const bs = this.settings.getSettings().backupSettings
+        const failures: string[] = []
+        let anyOk = false
+
+        if (bs.cloudEnabled) {
+            try {
+                await sftpUpload(cloudSftpConfig(keys.sftpUser, keys.sftpPass), filename, encrypted)
+                log(`${filename} uploaded to cloud (${encrypted.length} bytes)`)
+                anyOk = true
+            } catch (err: any) {
+                failures.push(`cloud: ${err.message}`)
+            }
+        }
+
+        if (bs.sftpEnabled) {
+            try {
+                await sftpUpload({
+                    host: bs.sftpHost,
+                    port: bs.sftpPort,
+                    username: keys.sftpUser,
+                    password: keys.sftpPass,
+                }, filename, encrypted)
+                log(`${filename} uploaded to SFTP ${bs.sftpHost}:${bs.sftpPort} (${encrypted.length} bytes)`)
+                anyOk = true
+            } catch (err: any) {
+                failures.push(`sftp: ${err.message}`)
+            }
+        }
+
+        const localDir = bs.localPath?.trim()
+        if (localDir) {
+            try {
+                fs.mkdirSync(localDir, { recursive: true })
+                const fp = path.join(localDir, filename)
+                fs.writeFileSync(fp, encrypted)
+                log(`${filename} written to ${fp} (${encrypted.length} bytes)`)
+                anyOk = true
+            } catch (err: any) {
+                failures.push(`local: ${err.message}`)
+            }
+        }
+
+        if (!anyOk && failures.length > 0) {
+            throw new Error(failures.join('; '))
+        }
     }
 
     stop() {
-        if (this.balanceTimer) {
-            clearTimeout(this.balanceTimer)
-            this.balanceTimer = null
+        for (const t of this.debounceTimers.values()) {
+            clearTimeout(t)
         }
+        this.debounceTimers.clear()
     }
 }

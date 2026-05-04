@@ -68,14 +68,14 @@ export const SetupTest = async (d: Describe, chainTools: ChainTools): Promise<Te
     if (!initOk) {
         throw new Error("failed to initialize settings manager")
     }
-    const { settingsManager, restore } = initOk
+    const { settingsManager, restore, backupManager } = initOk
     settingsManager.OverrideTestSettings(s => {
         s.liquiditySettings.disableLiquidityProvider = true
         s.liquiditySettings.liquidityProviderPub = ""
         s.liquiditySettings.useOnlyLiquidityProvider = false
         return s
     })
-    const initialized = await initMainHandler(getLogger({ component: "mainForTest" }), settingsManager, restore)
+    const initialized = await initMainHandler(getLogger({ component: "mainForTest" }), settingsManager, restore, backupManager)
     if (!initialized) {
         throw new Error("failed to initialize main handler")
     }

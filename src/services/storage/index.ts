@@ -17,6 +17,7 @@ import { TlvStorageFactory } from './tlv/tlvFilesStorageFactory.js';
 import { Utils } from '../helpers/utilsWrapper.js';
 import SettingsStorage from "./settingsStorage.js";
 import crypto from 'crypto';
+import { DBNames } from './db/storageProcessor.js';
 export type StorageSettings = {
     dbSettings: DbSettings
     eventLogPath: string
@@ -135,10 +136,10 @@ export default class {
     }
 
     async IsDbClean(): Promise<boolean> {
-        for (const entity of MainDbEntitiesNames) {
-            const rows = await this.dbs.Find(entity as MainDbNames, { take: 1 })
-            if (rows.length > 0) return false
-        }
+        const names: DBNames[] = ['Application', 'User', 'ApplicationUser']
+        const ent = Promise.all(names.map(entity => this.dbs.Find(entity, { take: 1 })))
+        const rows = await ent
+        if (rows.some(row => row.length > 0)) return false
         return true
     }
 }

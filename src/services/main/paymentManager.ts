@@ -112,7 +112,7 @@ export default class {
                 await this.storage.userStorage.IncrementUserBalance(p.user.user_id, fullAmount, "payment_refund:" + p.invoice, tx)
                 await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, 0, 0, false, undefined, tx)
             }, "refund failed provider payment")
-            this.backupManager.notifyBalanceChanged()
+            this.backupManager.notifyBackupTable('user_balances')
             return
         } else if (state.paid_at_unix > 0) {
             log("provider payment succeeded", p.serial_id, "updating payment info")
@@ -126,7 +126,7 @@ export default class {
 
             if (p.linkedApplication && p.user.user_id !== p.linkedApplication.owner.user_id && remainingFee > 0) {
                 await this.storage.userStorage.IncrementUserBalance(p.linkedApplication.owner.user_id, remainingFee, "fees")
-                this.backupManager.notifyBalanceChanged()
+                this.backupManager.notifyBackupTable('user_balances')
             }
             const user = await this.storage.userStorage.GetUser(p.user.user_id)
             this.storage.eventsLog.LogEvent({ type: 'invoice_payment', userId: p.user.user_id, appId: p.linkedApplication?.app_id || "", appUserId: "", balance: user.balance_sats, data: p.invoice, amount: p.paid_amount })
@@ -166,7 +166,7 @@ export default class {
                 }
                 if (p.linkedApplication && p.user.user_id !== p.linkedApplication.owner.user_id && remainingFee > 0) {
                     await this.storage.userStorage.IncrementUserBalance(p.linkedApplication.owner.user_id, remainingFee, "fees")
-                    this.backupManager.notifyBalanceChanged()
+                    this.backupManager.notifyBackupTable('user_balances')
                 }
                 const user = await this.storage.userStorage.GetUser(p.user.user_id)
                 this.storage.eventsLog.LogEvent({ type: 'invoice_payment', userId: p.user.user_id, appId: p.linkedApplication?.app_id || "", appUserId: "", balance: user.balance_sats, data: p.invoice, amount: p.paid_amount })
@@ -178,7 +178,7 @@ export default class {
                     await this.storage.userStorage.IncrementUserBalance(p.user.user_id, fullAmount, "payment_refund:" + p.invoice, tx)
                     await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, 0, 0, false, undefined, tx)
                 }, "refund failed pending payment")
-                this.backupManager.notifyBalanceChanged()
+                this.backupManager.notifyBackupTable('user_balances')
                 return
             default:
                 break;
@@ -200,7 +200,7 @@ export default class {
 
             // Update latest checked height to current block height
             await this.storage.liquidityStorage.UpdateLatestCheckedHeight('lnd', lndPubkey, currentHeight)
-            this.backupManager.notifyBalanceChanged()
+            this.backupManager.notifyBackupTable('user_balances')
 
             if (recoveredCount > 0) {
                 log(`processed ${recoveredCount} missed chain tx(s) triggering new block callback`)
@@ -369,7 +369,7 @@ export default class {
         }
         getLogger({})("setting mock balance...")
         await this.storage.userStorage.UpdateUser(userId, { balance_sats: balance })
-        this.backupManager.notifyBalanceChanged()
+        this.backupManager.notifyBackupTable('user_balances')
     }
 
     async NewAddress(ctx: Types.UserContext, req: Types.NewAddressRequest): Promise<Types.NewAddressResponse> {
@@ -475,7 +475,7 @@ export default class {
         const feeDiff = serviceFee - paymentInfo.networkFee
         if (isManagedUser && feeDiff > 0) {
             await this.storage.userStorage.IncrementUserBalance(linkedApplication.owner.user_id, feeDiff, "fees")
-            this.backupManager.notifyBalanceChanged()
+            this.backupManager.notifyBackupTable('user_balances')
         }
         const user = await this.storage.userStorage.GetUser(userId)
         this.storage.eventsLog.LogEvent({ type: 'invoice_payment', userId, appId: linkedApplication.app_id, appUserId: "", balance: user.balance_sats, data: req.invoice, amount: payAmount })
@@ -516,7 +516,7 @@ export default class {
             await this.storage.userStorage.DecrementUserBalance(userId, totalAmountToDecrement, invoice, tx)
             return await this.storage.paymentStorage.AddPendingExternalPayment(userId, invoice, { payAmount, serviceFee, networkFee: 0 }, linkedApplication, provider, tx, optionals)
         }, "payment started")
-        this.backupManager.notifyBalanceChanged()
+        this.backupManager.notifyBackupTable('user_balances')
         this.log("ready to pay")
         const opId = `${Types.UserOperationType.OUTGOING_INVOICE}-${pendingPayment.serial_id}`
         const op = this.newInvoicePaymentOperation({ invoice, opId, amount: payAmount, networkFee: 0, serviceFee: serviceFee, confirmed: false, paidAtUnix: 0 })
@@ -535,7 +535,7 @@ export default class {
         } catch (err) {
             await this.storage.userStorage.IncrementUserBalance(userId, totalAmountToDecrement, "payment_refund:" + invoice)
             await this.storage.paymentStorage.UpdateExternalPayment(pendingPayment.serial_id, 0, 0, false)
-            this.backupManager.notifyBalanceChanged()
+            this.backupManager.notifyBackupTable('user_balances')
             throw err
         }
     }
@@ -547,7 +547,7 @@ export default class {
         const { payAmount, serviceFee } = amounts
         const totalAmountToDecrement = payAmount + serviceFee
         await this.storage.userStorage.DecrementUserBalance(userId, totalAmountToDecrement, internalInvoice.invoice)
-        this.backupManager.notifyBalanceChanged()
+        this.backupManager.notifyBackupTable('user_balances')
         try {
             await this.invoicePaidCb(internalInvoice.invoice, payAmount, 'internal')
             const newPayment = await this.storage.paymentStorage.AddInternalPayment(userId, internalInvoice.invoice, payAmount, serviceFee, linkedApplication, debitNpub)
@@ -555,7 +555,7 @@ export default class {
             return { preimage: "", amtPaid: payAmount, networkFee: 0, serialId: newPayment.serial_id }
         } catch (err) {
             await this.storage.userStorage.IncrementUserBalance(userId, totalAmountToDecrement, "internal_payment_refund:" + internalInvoice.invoice)
-            this.backupManager.notifyBalanceChanged()
+            this.backupManager.notifyBackupTable('user_balances')
             this.utils.stateBundler.AddTxPointFailed('paidAnInvoice', payAmount, { used: 'internal', from: 'user' }, linkedApplication.app_id)
             throw err
         }
@@ -626,11 +626,11 @@ export default class {
         const txId = crypto.randomBytes(32).toString("hex")
         const addressData = `${req.address}:${txId}`
         await this.storage.userStorage.DecrementUserBalance(ctx.user_id, req.amountSats + serviceFee, addressData)
-        this.backupManager.notifyBalanceChanged()
+        this.backupManager.notifyBackupTable('user_balances')
         this.addressPaidCb({ hash: txId, index: 0 }, req.address, req.amountSats, 'internal')
         if (isManagedUser && serviceFee > 0) {
             await this.storage.userStorage.IncrementUserBalance(app.owner.user_id, serviceFee, 'fees')
-            this.backupManager.notifyBalanceChanged()
+            this.backupManager.notifyBackupTable('user_balances')
         }
         const chainFees = 0
         const internalAddress = true
@@ -980,7 +980,7 @@ export default class {
             }
             return paymentEntry
         })
-        this.backupManager.notifyBalanceChanged()
+        this.backupManager.notifyBackupTable('user_balances')
         const fromUser = await this.storage.userStorage.GetUser(fromUserId)
         const toUser = await this.storage.userStorage.GetUser(toUserId)
         this.storage.eventsLog.LogEvent({ type: 'u2u_sender', userId: fromUserId, appId: linkedApplication.app_id, appUserId: "", balance: fromUser.balance_sats, data: toUserId, amount: payment.paid_amount + payment.service_fees })

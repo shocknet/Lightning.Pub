@@ -36,6 +36,7 @@ export default class {
             throw new Error("the provided token is not a valid app user token token")
         }
         this.storage.userStorage.UpsertUserAccess(decoded.user_id, Math.floor(Date.now() / 1000))
+        this.backupManager.notifyBackupTable('user_balances')
         return decoded
     }
 
@@ -51,7 +52,7 @@ export default class {
 
     async BanUser(userId: string): Promise<Types.BanUserResponse> {
         const banned = await this.storage.userStorage.BanUser(userId)
-        this.backupManager.notifyBalanceChanged()
+        this.backupManager.notifyBackupTable('user_balances')
         const appUsers = await this.storage.applicationStorage.GetAllAppUsersFromUser(userId)
         return {
             balance_sats: banned.balance_sats,
@@ -94,7 +95,7 @@ export default class {
     async UpdateCallbackUrl(ctx: Types.UserContext, req: Types.CallbackUrl): Promise<Types.CallbackUrl> {
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
         await this.storage.applicationStorage.UpdateUserCallbackUrl(app, ctx.app_user_id, req.url)
-        void this.backupManager.notifyIdentityChanged()
+        void this.backupManager.notifyBackupTable('application_users')
         return { url: req.url }
     }
 
@@ -121,7 +122,7 @@ export default class {
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id);
         const user = await this.storage.applicationStorage.GetApplicationUser(app, ctx.app_user_id);
         await this.storage.applicationStorage.UpdateAppUserMessagingToken(user.identifier, req.device_id, req.firebase_messaging_token);
-        void this.backupManager.notifyIdentityChanged()
+        void this.backupManager.notifyBackupTable('app_user_devices')
     }
 
     async CleanupInactiveUsers() {
@@ -174,7 +175,7 @@ export default class {
         this.log("Locking", toLock.length, "users")
         for (const userId of toLock) {
             await this.storage.userStorage.BanUser(userId)
-            this.backupManager.notifyBalanceChanged()
+            this.backupManager.notifyBackupTable('user_balances')
         }
         this.log("Locked users")
     }
@@ -215,9 +216,8 @@ export default class {
                 await this.storage.userStorage.DeleteUserAccess(userId, tx)
                 await this.storage.applicationStorage.RemoveAppUsersAndBaseUsers(appUserIds, userId, tx)
             })
-            void this.backupManager.notifyIdentityChanged()
-            this.backupManager.notifyBalanceChanged()
         }
+        void this.backupManager.uploadAllTables()
         this.log("Cleaned up inactive users")
     }
 }

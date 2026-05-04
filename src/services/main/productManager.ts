@@ -24,7 +24,7 @@ export default class {
     async AddProduct(userId: string, req: Types.AddProductRequest): Promise<Types.Product> {
         const user = await this.storage.userStorage.GetUser(userId)
         const newProduct = await this.storage.productStorage.AddProduct(req.name, req.price_sats, user)
-        void this.backupManager.notifyIdentityChanged()
+        this.backupManager.notifyBackupTable('products')
         const offer = `p:${newProduct.product_id}`
         return {
             id: newProduct.product_id,
