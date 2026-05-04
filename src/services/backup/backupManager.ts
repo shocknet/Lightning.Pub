@@ -2,7 +2,8 @@
 //
 // One .enc file per exported table (see backupTables.ts). High-churn tables use
 // `notifyBackupTableDebounced` so rapid writes coalesce into a single upload per table.
-// Destinations: managed cloud SFTP, custom SFTP (phrase-derived login), optional local dir.
+// Destinations: managed cloud SFTP, custom SFTP (BACKUP_SFTP_USER/PASS override phrase-derived
+// login when set), optional local dir.
 
 import fs from 'fs'
 import path from 'path'
@@ -32,6 +33,7 @@ export type { BackupTableId } from './backupTables.js'
 const log = getLogger({ component: 'backupManager' })
 
 const TABLE_DEBOUNCE_MS = 30_000
+const WAIT_IN_FLIGHT_MS = 10_000
 
 export class BackupManager {
     storage: Storage
@@ -228,11 +230,36 @@ export class BackupManager {
         }
     }
 
-    stop() {
-        for (const k of this.debounceTimers.keys()) {
-            this.flushDebouncedTable(k)
-            clearTimeout(this.debounceTimers.get(k))
+    private async waitUntilUploadsIdle(timeoutMs: number): Promise<void> {
+        const start = Date.now()
+        while (this.debouncedUploadInProgress.size > 0) {
+            if (Date.now() - start > timeoutMs) {
+                return
+            }
+            await new Promise<void>((resolve) => setTimeout(resolve, 25))
+        }
+    }
+
+    /**
+     * Run before DB/storage teardown: clear debounce timers, let in-flight shard uploads finish,
+     * then upload every table once so remote matches current DB.
+     */
+    async shutdown(): Promise<void> {
+        for (const t of this.debounceTimers.values()) {
+            clearTimeout(t)
         }
         this.debounceTimers.clear()
+        await this.waitUntilUploadsIdle(WAIT_IN_FLIGHT_MS)
+        if (!this.isBackupConfigured()) {
+            return
+        }
+        const keys = await this.deriveKeys()
+        for (const id of BACKUP_RESTORE_ORDER) {
+            try {
+                await this.uploadTable(id, keys)
+            } catch (err: any) {
+                log(`Shutdown backup failed (${id}): ${err.message}`)
+            }
+        }
     }
 }

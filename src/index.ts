@@ -61,7 +61,25 @@ const start = async () => {
         },
         (e, p) => mainHandler.liquidityProvider.onEvent(e, p)
     )
-    exitHandler(() => { Stop(); mainHandler.Stop() })
+    const SHUTDOWN_GRACE_MS = 30_000
+    const shutdown = async (exitCode: number) => {
+        try {
+            Stop()
+            await Promise.race([
+                mainHandler.gracefulShutdown(),
+                new Promise<void>((_, reject) =>
+                    setTimeout(() => reject(new Error('shutdown grace period expired')), SHUTDOWN_GRACE_MS)),
+            ])
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err)
+            log(`Shutdown: ${msg}`)
+        }
+        process.exit(exitCode)
+    }
+    exitHandler(shutdown, () => {
+        Stop()
+        mainHandler.Stop()
+    })
     log("starting server")
     mainHandler.attachNostrSend(Send)
     mainHandler.attachNostrProcessPing(Ping)
@@ -77,18 +95,24 @@ const start = async () => {
 }
 start()
 
-const exitHandler = async (kill: () => void) => {
-    // catch ctrl+c event and exit normally
-    process.on('SIGINT', () => {
-        console.log('Ctrl-C detected, exiting safely...');
-        process.exit(2);
-    });
+const exitHandler = (shutdown: (code: number) => Promise<void>, syncKill: () => void) => {
+    let shuttingDown = false
+    const startShutdown = (code: number, label: string) => {
+        if (shuttingDown) {
+            return
+        }
+        shuttingDown = true
+        console.log(`${label}, shutting down...`)
+        void shutdown(code)
+    }
 
-    //catch uncaught exceptions, trace, then exit normally
+    process.on('SIGINT', () => startShutdown(2, 'SIGINT (Ctrl-C)'))
+    process.on('SIGTERM', () => startShutdown(0, 'SIGTERM'))
+
     process.on('uncaughtException', (e) => {
-        console.log('Uncaught Exception detected, exiting safely, and killing all child processes...');
-        console.log(e.stack);
-        kill();
-        process.exit(99);
-    });
+        console.log('Uncaught Exception detected, exiting safely, and killing all child processes...')
+        console.log(e.stack)
+        syncKill()
+        process.exit(99)
+    })
 }

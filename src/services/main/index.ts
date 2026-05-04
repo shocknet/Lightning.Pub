@@ -99,13 +99,19 @@ export default class {
         //this.webRTC = new webRTC(this.storage, this.utils)
     }
 
+    /** Sync teardown (tests, crash paths). Does not flush backups — use gracefulShutdown for that. */
     Stop() {
         this.lnd.Stop()
         this.applicationManager.Stop()
         this.paymentManager.Stop()
         this.utils.Stop()
         this.storage.Stop()
-        this.backupManager.stop()
+    }
+
+    /** Async shutdown: flush backups while DB is still open, then sync teardown. */
+    async gracefulShutdown(): Promise<void> {
+        await this.backupManager.shutdown()
+        this.Stop()
     }
 
     StartBeacons() {
