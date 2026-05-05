@@ -22,28 +22,33 @@ export type AppData = {
     name: string;
 }
 
-export const initSettings = async (log: PubLogger, storageSettings: StorageSettings): Promise<{ settingsManager: SettingsManager, restore: RestoreManager, backupManager: BackupManager } | undefined> => {
+export const initSettings = async (log: PubLogger, storageSettings: StorageSettings): Promise<{ settingsManager: SettingsManager, restore: RestoreManager, unlocker: Unlocker } | undefined> => {
     const nostrSender = new NostrSender()
     const utils = new Utils({ dataDir: storageSettings.dataDir, allowResetMetricsStorages: storageSettings.allowResetMetricsStorages }, nostrSender)
     const storageManager = new Storage(storageSettings, utils)
     await storageManager.Connect(log)
     const settingsManager = new SettingsManager(storageManager)
     await settingsManager.InitSettings()
-    const restore = new RestoreManager(storageManager, settingsManager)
-    const backupManager = new BackupManager(storageManager, settingsManager)
-    settingsManager.setBackupManager(backupManager)
-    backupManager.notifyBackupTable('admin_settings')
-    const stop = await processArgs(storageManager, restore, backupManager)
+    const unlocker = new Unlocker(settingsManager, storageManager, storageManager.NostrSender())
+    const restore = new RestoreManager(storageManager, settingsManager, unlocker)
+
+    const stop = await processPostSettingArgs(restore)
     if (stop) {
         return
     }
-    return { settingsManager, restore, backupManager }
+    return { settingsManager, restore, unlocker }
 }
-export const initMainHandler = async (log: PubLogger, settingsManager: SettingsManager, restore: RestoreManager, backupManager: BackupManager) => {
+export const initMainHandler = async (log: PubLogger, settingsManager: SettingsManager, restore: RestoreManager, unlocker: Unlocker) => {
     const storageManager = settingsManager.storage
     const utils = storageManager.utils
-    const unlocker = new Unlocker(settingsManager, storageManager, storageManager.NostrSender())
+
     await unlocker.Unlock()
+
+    const seed = await unlocker.GetSeedIfAvailable()
+    const backupManager = new BackupManager(storageManager, settingsManager, seed)
+    settingsManager.setBackupManager(backupManager)
+    backupManager.notifyBackupTable('admin_settings')
+
     const swaps = new Swaps(settingsManager, storageManager)
 
     const adminManager = new AdminManager(settingsManager, storageManager, swaps, backupManager)
@@ -98,10 +103,10 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
         throw new Error("local app not initialized correctly")
     }
     mainHandler.liquidityProvider.setNostrInfo({ localId: `client_${localProviderClient.appId}`, localPubkey: localProviderClient.publicKey })
-    /*     const stop = await processArgs(mainHandler)
-        if (stop) {
-            return
-        } */
+    const stop = await processPostInitArgs(mainHandler)
+    if (stop) {
+        return
+    }
     await mainHandler.paymentManager.checkPaymentStatus()
     await mainHandler.paymentManager.checkMissedChainTxs()
     await mainHandler.paymentManager.CleanupOldUnpaidInvoices()
@@ -112,18 +117,25 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
     return { mainHandler, apps, localProviderClient, wizard, adminManager }
 }
 
-const processArgs = async (storage: Storage, restore: RestoreManager, backupManager: BackupManager) => {
+const processPostInitArgs = async (mainHandler: Main) => {
     switch (process.argv[2]) {
         case 'updateUserBalance':
-            await storage.userStorage.UpdateUser(process.argv[3], { balance_sats: +process.argv[4] })
-            backupManager.notifyBackupTable('user_balances')
+            await mainHandler.storage.userStorage.UpdateUser(process.argv[3], { balance_sats: +process.argv[4] })
+            mainHandler.backupManager.notifyBackupTable('user_balances')
             getLogger({ userId: process.argv[3] })(`user balance updated correctly`)
             return false
         case 'unlock':
-            await storage.userStorage.UnbanUser(process.argv[3])
-            backupManager.notifyBackupTable('user_balances')
+            await mainHandler.storage.userStorage.UnbanUser(process.argv[3])
+            mainHandler.backupManager.notifyBackupTable('user_balances')
             getLogger({ userId: process.argv[3] })(`user unlocked`)
             return false
+        default:
+            return false
+    }
+}
+
+const processPostSettingArgs = async (restore: RestoreManager) => {
+    switch (process.argv[2]) {
         case 'restore':
             const flags = parseCliFlags(process.argv.slice(3))
             const req = parseRestoreFlags(flags)
@@ -139,74 +151,8 @@ const processArgs = async (storage: Storage, restore: RestoreManager, backupMana
     }
 }
 
-/* 
 
-// BACKUP CHANGE: CLI restore command.
-// Usage: node build/src/index.js restore --phrase "word1 word2 ..." --source cloud|ftp|local
-//   [--ftp-host host] [--ftp-user user] [--ftp-pass pass]
-//   [--local-path /path/to/db.sqlite]
-//   [--relay wss://relay.example.com]
-//
-// Exits non-zero on failure with human-readable error.
-// Shares restoreFromSource() with the wizard — single implementation path.
-export const handleRestoreCli = (log: PubLogger, storageSettings: StorageSettings): Promise<boolean> => {
-    if (process.argv[2] !== 'restore') return false
 
-    log('Running CLI restore...')
-
-    const flags = parseCliFlags(process.argv.slice(3))
-
-    if (!flags['phrase']) {
-        console.error('Error: --phrase is required')
-        process.exit(1)
-    }
-    if (!flags['source']) {
-        console.error('Error: --source is required (cloud|ftp|local)')
-        process.exit(1)
-    }
-    if (!validRestoreSources.includes(flags['source'] as RestoreSource)) {
-        console.error(`Error: --source must be one of: ${validRestoreSources.join(', ')}`)
-        process.exit(1)
-    }
-
-    if (flags['source'] === 'ftp' && !flags['ftp-host']) {
-        console.error('Error: --ftp-host is required when source=ftp')
-        process.exit(1)
-    }
-
-    if (flags['source'] === 'local' && !flags['local-path']) {
-        console.error('Error: --local-path is required when source=local')
-        process.exit(1)
-    }
-
-    const nostrSender = new NostrSender()
-    const utils = new Utils({ dataDir: storageSettings.dataDir, allowResetMetricsStorages: storageSettings.allowResetMetricsStorages }, nostrSender)
-    const storageManager = new Storage(storageSettings, utils)
-    await storageManager.Connect(log)
-
-    const opts: RestoreOptions = {
-        phrase: flags['phrase'],
-        source: flags['source'] as RestoreSource,
-        sftpHost: flags['ftp-host'],
-        sftpUser: flags['ftp-user'],
-        sftpPass: flags['ftp-pass'],
-        localPath: flags['local-path'],
-        relay: flags['relay'],
-    }
-
-    const result = await restoreFromSource(storageManager.dbs, opts)
-
-    if (result.success) {
-        log(`Restore complete. ${result.tablesRestored ?? 0} table groups imported.`)
-    } else {
-        console.error(`Restore failed: ${result.error}`)
-        process.exit(1)
-    }
-
-    await storageManager.Stop()
-    return true
-}
- */
 
 
 

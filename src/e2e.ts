@@ -19,10 +19,13 @@ const start = async () => {
         log("manual process ended")
         return
     }
-    const { settingsManager, restore, backupManager } = initOk
-    const keepOn = await initMainHandler(log, settingsManager, restore, backupManager)
+    const { settingsManager, restore, unlocker } = initOk
+    const keepOn = await initMainHandler(log, settingsManager, restore, unlocker)
 
-
+    if (!keepOn) {
+        log("manual process ended")
+        return
+    }
     const { mainHandler, localProviderClient, wizard, adminManager } = keepOn
     const serverMethods = GetServerMethods(mainHandler)
     const nostrSettings = settingsManager.getSettings().nostrRelaySettings

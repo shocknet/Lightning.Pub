@@ -34,6 +34,7 @@ import { credentials, Metadata } from '@grpc/grpc-js'
 import { LightningClient } from '../../../proto/lnd/lightning.client.js'
 import SettingsManager from '../main/settingsManager.js'
 import { Application } from '../storage/entity/Application.js'
+import { Unlocker } from '../main/unlocker.js'
 
 // const log = getLogger({ component: 'restore' })
 export const validRestoreSources = ['cloud', 'ftp', 'local'] as const
@@ -80,9 +81,11 @@ export class RestoreManager {
     storage: Storage
     settings: SettingsManager
     log = getLogger({ component: 'restoreManager' })
-    constructor(storage: Storage, settings: SettingsManager) {
+    unlocker: Unlocker
+    constructor(storage: Storage, settings: SettingsManager, unlocker: Unlocker) {
         this.storage = storage
         this.settings = settings
+        this.unlocker = unlocker
     }
     async RestoreFromSource(req: wizardTypes.RestoreRequest): Promise<wizardTypes.RestoreResponse> {
         try {
@@ -95,7 +98,21 @@ export class RestoreManager {
                     error: 'Database is not empty. Restore can only run against a freshly initialized database.',
                 }
             }
-
+            if (!req.phrase || req.phrase.trim() === '') {
+                return {
+                    tables_restored: 0,
+                    success: false,
+                    error: 'No phrase provided to restore',
+                }
+            }
+            const unlockResult = await this.unlocker.Unlock({ seed: req.phrase.split(' ') })
+            if (unlockResult !== 'created') {
+                return {
+                    tables_restored: 0,
+                    success: false,
+                    error: 'Failed to create LND wallet',
+                }
+            }
             const keys = await deriveBackupKeys(req.phrase, LATEST_DERIVATION_VERSION)
             const encKey = keys.encKey
             const buffers = new Map<BackupTableId, Buffer>()
@@ -214,7 +231,7 @@ export class RestoreManager {
         if (!scb) {
             throw new Error('SCB restore skipped: no SCB backup event found on relay')
         }
-        await this.applyScbToLnd(scb)
+        await this.unlocker.ApplyScb(scb)
         return scb.length
     }
 
@@ -269,26 +286,26 @@ export class RestoreManager {
         }
     }
 
-    private applyScbToLnd = async (scb: Buffer) => {
-        const { lndAddr, lndCertPath, lndMacaroonPath } = this.settings.getSettings().lndNodeSettings
-        const lndCert = fs.readFileSync(lndCertPath)
-        const macaroon = fs.readFileSync(lndMacaroonPath).toString('hex')
-        const sslCreds = credentials.createSsl(lndCert)
-        const macaroonCreds = credentials.createFromMetadataGenerator((args: any, callback: any) => {
-            const metadata = new Metadata()
-            metadata.add('macaroon', macaroon)
-            callback(null, metadata)
-        })
-        const creds = credentials.combineChannelCredentials(sslCreds, macaroonCreds)
-        const transport = new GrpcTransport({ host: lndAddr, channelCredentials: creds })
-        const ln = new LightningClient(transport)
-        await ln.verifyChanBackup({
-            multiChanBackup: { chanPoints: [], multiChanBackup: scb }
-        }, DeadLineMetadata())
-        await ln.restoreChannelBackups({
-            backup: { oneofKind: 'multiChanBackup', multiChanBackup: scb }
-        }, DeadLineMetadata())
-    }
+    /*     private applyScbToLnd = async (scb: Buffer) => {
+            const { lndAddr, lndCertPath, lndMacaroonPath } = this.settings.getSettings().lndNodeSettings
+            const lndCert = fs.readFileSync(lndCertPath)
+            const macaroon = fs.readFileSync(lndMacaroonPath).toString('hex')
+            const sslCreds = credentials.createSsl(lndCert)
+            const macaroonCreds = credentials.createFromMetadataGenerator((args: any, callback: any) => {
+                const metadata = new Metadata()
+                metadata.add('macaroon', macaroon)
+                callback(null, metadata)
+            })
+            const creds = credentials.combineChannelCredentials(sslCreds, macaroonCreds)
+            const transport = new GrpcTransport({ host: lndAddr, channelCredentials: creds })
+            const ln = new LightningClient(transport)
+            await ln.verifyChanBackup({
+                multiChanBackup: { chanPoints: [], multiChanBackup: scb }
+            }, DeadLineMetadata())
+            await ln.restoreChannelBackups({
+                backup: { oneofKind: 'multiChanBackup', multiChanBackup: scb }
+            }, DeadLineMetadata())
+        } */
 }
 
 

@@ -30,35 +30,49 @@ import SettingsManager from '../main/settingsManager.js'
 
 export type { BackupTableId } from './backupTables.js'
 
-const log = getLogger({ component: 'backupManager' })
 
 const TABLE_DEBOUNCE_MS = 30_000
 const WAIT_IN_FLIGHT_MS = 10_000
 
 export class BackupManager {
+    log = getLogger({ component: 'backupManager' })
     storage: Storage
     settings: SettingsManager
+    keys: DerivedKeys
     private debounceTimers = new Map<BackupTableId, ReturnType<typeof setTimeout>>()
     private debouncedUploadInProgress = new Set<BackupTableId>()
-    constructor(storage: Storage, settings: SettingsManager) {
+    constructor(storage: Storage, settings: SettingsManager, seed: string[]) {
         this.storage = storage
         this.settings = settings
+        this.initKeys(seed)
+    }
+
+    private initKeys = (seed: string[]) => {
+        if (!seed || seed.length === 0) {
+            this.log("no seed provided, skipping backup initialization")
+            return
+        }
+        const j = seed.join(' ')
+        if (j.length === 0) {
+            this.log("no seed provided, skipping backup initialization")
+            return
+        }
+        deriveBackupKeys(j, LATEST_DERIVATION_VERSION)
+            .then(keys => {
+                this.keys = keys
+            }).catch(err => {
+                this.log(`Failed to derive backup keys: ${err.message}`)
+            })
     }
 
     private isBackupConfigured(): boolean {
+        if (!this.keys) return false
         const bs = this.settings.getSettings().backupSettings
-        const phrase = bs.derivationPhrase.trim()
-        if (!phrase) return false
         const hasDest =
             bs.cloudEnabled ||
             bs.sftpEnabled ||
             !!bs.localPath?.trim()
         return hasDest
-    }
-
-    private async deriveKeys(): Promise<DerivedKeys> {
-        const phrase = this.settings.getSettings().backupSettings.derivationPhrase.trim()
-        return deriveBackupKeys(phrase, LATEST_DERIVATION_VERSION)
     }
 
     /** Full snapshot of every backup shard (e.g. after settings init or bulk deletes). */
@@ -87,7 +101,7 @@ export class BackupManager {
             setTimeout(() => {
                 this.debounceTimers.delete(id)
                 this.flushDebouncedTable(id).catch(err => {
-                    log(`Debounced backup upload failed (${id}): ${err.message}`)
+                    this.log(`Debounced backup upload failed (${id}): ${err.message}`)
                 })
             }, TABLE_DEBOUNCE_MS),
         )
@@ -97,15 +111,14 @@ export class BackupManager {
         if (this.debouncedUploadInProgress.has(id)) return
         this.debouncedUploadInProgress.add(id)
         try {
-            const keys = await this.deriveKeys()
-            await this.uploadTable(id, keys)
+            await this.uploadTable(id)
         } finally {
             this.debouncedUploadInProgress.delete(id)
         }
     }
 
-    private async uploadTable(id: BackupTableId, keys: DerivedKeys) {
-        const encKey = keys.encKey
+    private async uploadTable(id: BackupTableId) {
+        const encKey = this.keys.encKey
         let encrypted: Buffer
         switch (id) {
             case 'applications': {
@@ -179,18 +192,18 @@ export class BackupManager {
                 throw new Error(`Unhandled backup table: ${_exhaustive}`)
             }
         }
-        await this.pushEncrypted(backupTableFilename(id), encrypted, keys)
+        await this.pushEncrypted(backupTableFilename(id), encrypted)
     }
 
-    private async pushEncrypted(filename: string, encrypted: Buffer, keys: DerivedKeys) {
+    private async pushEncrypted(filename: string, encrypted: Buffer) {
         const bs = this.settings.getSettings().backupSettings
         const failures: string[] = []
         let anyOk = false
 
         if (bs.cloudEnabled) {
             try {
-                await sftpUpload(cloudSftpConfig(keys.sftpUser, keys.sftpPass), filename, encrypted)
-                log(`${filename} uploaded to cloud (${encrypted.length} bytes)`)
+                await sftpUpload(cloudSftpConfig(this.keys.sftpUser, this.keys.sftpPass), filename, encrypted)
+                this.log(`${filename} uploaded to cloud (${encrypted.length} bytes)`)
                 anyOk = true
             } catch (err: any) {
                 failures.push(`cloud: ${err.message}`)
@@ -202,10 +215,10 @@ export class BackupManager {
                 await sftpUpload({
                     host: bs.sftpHost,
                     port: bs.sftpPort,
-                    username: bs.sftpUser || keys.sftpUser,
-                    password: bs.sftpPass || keys.sftpPass,
+                    username: bs.sftpUser || this.keys.sftpUser,
+                    password: bs.sftpPass || this.keys.sftpPass,
                 }, filename, encrypted)
-                log(`${filename} uploaded to SFTP ${bs.sftpHost}:${bs.sftpPort} (${encrypted.length} bytes)`)
+                this.log(`${filename} uploaded to SFTP ${bs.sftpHost}:${bs.sftpPort} (${encrypted.length} bytes)`)
                 anyOk = true
             } catch (err: any) {
                 failures.push(`sftp: ${err.message}`)
@@ -218,7 +231,7 @@ export class BackupManager {
                 fs.mkdirSync(localDir, { recursive: true })
                 const fp = path.join(localDir, filename)
                 fs.writeFileSync(fp, encrypted)
-                log(`${filename} written to ${fp} (${encrypted.length} bytes)`)
+                this.log(`${filename} written to ${fp} (${encrypted.length} bytes)`)
                 anyOk = true
             } catch (err: any) {
                 failures.push(`local: ${err.message}`)
@@ -253,12 +266,11 @@ export class BackupManager {
         if (!this.isBackupConfigured()) {
             return
         }
-        const keys = await this.deriveKeys()
         for (const id of BACKUP_RESTORE_ORDER) {
             try {
-                await this.uploadTable(id, keys)
+                await this.uploadTable(id)
             } catch (err: any) {
-                log(`Shutdown backup failed (${id}): ${err.message}`)
+                this.log(`Shutdown backup failed (${id}): ${err.message}`)
             }
         }
     }

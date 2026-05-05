@@ -60,7 +60,7 @@ export class Unlocker {
         return macaroon !== ''
     }
 
-    Unlock = async (): Promise<'created' | 'unlocked' | 'noaction'> => {
+    Unlock = async (restore?: { seed: string[] }): Promise<'created' | 'unlocked' | 'noaction'> => {
         // Skip LND unlock if using only liquidity provider
         if (this.settings.getSettings().liquiditySettings.useOnlyLiquidityProvider) {
             this.log("USE_ONLY_LIQUIDITY_PROVIDER enabled, skipping LND unlock")
@@ -68,9 +68,11 @@ export class Unlocker {
         }
         const { lndCert, macaroon } = this.getCreds()
         if (macaroon === "") {
-            const { ln, pub } = await this.InitFlow(lndCert)
+            const { ln, pub } = await this.InitFlow(lndCert, restore)
             this.subscribeToBackups(ln, pub)
             return 'created'
+        } else if (restore) {
+            throw new Error("lnd is already initialized, cannot restore")
         }
         const { ln, pub, action } = await this.UnlockFlow(lndCert, macaroon)
         this.subscribeToBackups(ln, pub)
@@ -173,15 +175,26 @@ export class Unlocker {
         });
     }
 
-    InitFlow = async (lndCert: Buffer) => {
+    InitFlow = async (lndCert: Buffer, restore?: { seed: string[] }) => {
         this.log("macaroon not found, creating wallet...")
         await this.waitForLndSync(300); // Wait up to 5 minutes
         const unlocker = this.GetUnlockerClient(lndCert)
-        const { plaintextSeed, encryptedSeed } = await this.genSeed(unlocker)
+        const { plaintextSeed, encryptedSeed } = await this.getSeed(unlocker, restore)
         return this.initWallet(lndCert, unlocker, { plaintextSeed, encryptedSeed })
     }
 
-    genSeed = async (unlocker: WalletUnlockerClient): Promise<Seed> => {
+    private getSeed = async (unlocker: WalletUnlockerClient, restore?: { seed: string[] }): Promise<Seed> => {
+        if (restore) {
+            if (!restore.seed || restore.seed.length === 0) {
+                throw new Error("no seed provided to restore")
+            }
+            const { encryptedData } = this.EncryptWalletSeed(restore.seed)
+            return { plaintextSeed: restore.seed, encryptedSeed: encryptedData }
+        }
+        return this.genSeed(unlocker)
+    }
+
+    private genSeed = async (unlocker: WalletUnlockerClient): Promise<Seed> => {
         const entropy = crypto.randomBytes(16)
         const seedRes = await unlocker.genSeed({
             aezeedPassphrase: Buffer.alloc(0),
@@ -192,7 +205,7 @@ export class Unlocker {
         return { plaintextSeed: seedRes.response.cipherSeedMnemonic, encryptedSeed: encryptedData }
     }
 
-    initWallet = async (lndCert: Buffer, unlocker: WalletUnlockerClient, seed: Seed) => {
+    private initWallet = async (lndCert: Buffer, unlocker: WalletUnlockerClient, seed: Seed) => {
         const walletPw = this.GetWalletPassword()
         const req = InitWalletReq(walletPw, seed.plaintextSeed)
         const initRes = await unlocker.initWallet(req, DeadLineMetadata(60 * 1000))
@@ -227,6 +240,16 @@ export class Unlocker {
         }
         const decrypted = this.DecryptWalletSeed(JSON.parse(encrypted))
         return { seed: decrypted }
+    }
+
+    GetSeedIfAvailable = async (): Promise<string[]> => {
+        try {
+            const seed = await this.GetSeed()
+            return seed.seed
+        } catch (err: any) {
+            this.log("failed to get seed", err.message)
+            return []
+        }
     }
 
     GetLndInfo = async (ln: LightningClient): Promise<{ ok: false, failure: 'locked' | 'unknown' } | { ok: true, pub: string }> => {
@@ -373,6 +396,17 @@ export class Unlocker {
             tags: [['d', SCB_BACKUP_D_TAG]],
         }
         this.nostrSender.Send({ type: 'app', appId: local.app_id }, { type: 'event', event })
+    }
+
+    ApplyScb = async (scb: Buffer) => {
+        const { lndCert, macaroon } = this.getCreds()
+        const ln = this.GetLightningClient(lndCert, macaroon)
+        const res = await ln.verifyChanBackup({
+            multiChanBackup: { chanPoints: [], multiChanBackup: scb }
+        }, DeadLineMetadata())
+        await ln.restoreChannelBackups({
+            backup: { oneofKind: 'multiChanBackup', multiChanBackup: scb }
+        }, DeadLineMetadata())
     }
 
     GetUnlockerClient = (cert: Buffer) => {
