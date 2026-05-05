@@ -45,7 +45,8 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
     await unlocker.Unlock()
 
     const seed = await unlocker.GetSeedIfAvailable()
-    const backupManager = new BackupManager(storageManager, settingsManager, seed)
+    const backupManager = new BackupManager(storageManager, settingsManager)
+    await backupManager.InitKeys(seed)
     settingsManager.setBackupManager(backupManager)
     backupManager.notifyBackupTable('admin_settings')
 

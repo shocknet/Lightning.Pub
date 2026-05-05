@@ -41,13 +41,12 @@ export class BackupManager {
     keys: DerivedKeys
     private debounceTimers = new Map<BackupTableId, ReturnType<typeof setTimeout>>()
     private debouncedUploadInProgress = new Set<BackupTableId>()
-    constructor(storage: Storage, settings: SettingsManager, seed: string[]) {
+    constructor(storage: Storage, settings: SettingsManager) {
         this.storage = storage
         this.settings = settings
-        this.initKeys(seed)
     }
 
-    private initKeys = (seed: string[]) => {
+    InitKeys = async (seed: string[]) => {
         if (!seed || seed.length === 0) {
             this.log("no seed provided, skipping backup initialization")
             return
@@ -57,12 +56,7 @@ export class BackupManager {
             this.log("no seed provided, skipping backup initialization")
             return
         }
-        deriveBackupKeys(j, LATEST_DERIVATION_VERSION)
-            .then(keys => {
-                this.keys = keys
-            }).catch(err => {
-                this.log(`Failed to derive backup keys: ${err.message}`)
-            })
+        this.keys = await deriveBackupKeys(j, LATEST_DERIVATION_VERSION)
     }
 
     private isBackupConfigured(): boolean {
