@@ -252,6 +252,18 @@ export class Unlocker {
         }
     }
 
+    HasSeed = async (): Promise<boolean> => {
+        if (!this.nodePub) {
+            return false
+        }
+        try {
+            const encrypted = await this.storage.liquidityStorage.GetNoodeSeed(this.nodePub)
+            return !!encrypted
+        } catch {
+            return false
+        }
+    }
+
     GetLndInfo = async (ln: LightningClient): Promise<{ ok: false, failure: 'locked' | 'unknown' } | { ok: true, pub: string }> => {
         while (true) {
             try {

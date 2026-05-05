@@ -44,6 +44,8 @@ message ServiceStateResponse {
     bool push_backups_to_nostr = 12;
     string avatar_url = 13;
     string app_id = 14;
+    bool has_seed = 15;
+    bool is_db_clean = 16;
 }
 
 message FtpCreds {

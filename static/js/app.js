@@ -279,7 +279,7 @@ window.wizard = function () {
                 source_name: this.nodeName?.trim() || '',
                 relay_url: this.getWizardRelayUrl(),
                 automate_liquidity: this.liquidityChoice === 'automate',
-                push_backups_to_nostr: this.backupChoice === 'relay',
+                push_backups_to_nostr: this.serviceState?.has_seed ? (this.backupChoice === 'relay') : false,
                 avatar_url: (this.avatarUrl || '').trim() || ''
             };
             const res = await fetch('/wizard/config', {
@@ -330,23 +330,30 @@ window.wizard = function () {
             try {
                 const payload = {
                     phrase: this.restorePhrase.trim(),
-                    source: this.restoreSource,
                 };
-                if (this.restoreSource === 'ftp') {
+                if (this.restoreSource === 'cloud') {
+                    payload.source = { type: 'cloud', cloud: {} };
+                } else if (this.restoreSource === 'ftp') {
                     if (!this.restoreSftpHost.trim()) {
                         this.restoreError = 'SFTP host is required.';
+                        this.restoreLoading = false;
                         return;
                     }
-                    payload.sftp_host = this.restoreSftpHost.trim();
-                    if (this.restoreSftpUser.trim()) payload.sftp_user = this.restoreSftpUser.trim();
-                    if (this.restoreSftpPass.trim()) payload.sftp_pass = this.restoreSftpPass.trim();
-                }
-                if (this.restoreSource === 'local') {
+                    payload.source = { type: 'ftp_host', ftp_host: this.restoreSftpHost.trim() };
+                    
+                    if (this.restoreSftpUser.trim() || this.restoreSftpPass.trim()) {
+                        payload.creds_override = {
+                            user: this.restoreSftpUser.trim(),
+                            pass: this.restoreSftpPass.trim()
+                        };
+                    }
+                } else if (this.restoreSource === 'local') {
                     if (!this.restoreLocalPath.trim()) {
-                        this.restoreError = 'Path to db.sqlite is required.';
+                        this.restoreError = 'Path to local directory is required.';
+                        this.restoreLoading = false;
                         return;
                     }
-                    payload.local_path = this.restoreLocalPath.trim();
+                    payload.source = { type: 'local_path', local_path: this.restoreLocalPath.trim() };
                 }
 
                 const res = await fetch('/wizard/restore', {

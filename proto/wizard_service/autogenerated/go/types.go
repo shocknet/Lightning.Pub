@@ -49,7 +49,9 @@ type ServiceStateResponse struct {
 	App_id                string   `json:"app_id"`
 	Automate_liquidity    bool     `json:"automate_liquidity"`
 	Avatar_url            string   `json:"avatar_url"`
+	Has_seed              bool     `json:"has_seed"`
 	Http_url              string   `json:"http_url"`
+	Is_db_clean           bool     `json:"is_db_clean"`
 	Lnd_state             LndState `json:"lnd_state"`
 	Nprofile              string   `json:"nprofile"`
 	Provider_name         string   `json:"provider_name"`

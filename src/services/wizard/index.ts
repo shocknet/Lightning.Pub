@@ -25,7 +25,7 @@ export class Wizard {
     awaitingNprofile: { res: (nprofile: string) => void }[] = []
     nprofile = ""
     relays: string[] = []
-    constructor(settings: SettingsManager, storage: Storage, adminManager: AdminManager, restoreManager: RestoreManager) {
+    constructor(settings: SettingsManager, storage: Storage, adminManager: AdminManager, restoreManager: RestoreManager, private unlocker: Unlocker) {
         this.settings = settings
         this.adminManager = adminManager
         this.storage = storage
@@ -79,7 +79,9 @@ export class Wizard {
                 automate_liquidity: !this.settings.getSettings().liquiditySettings.disableLiquidityProvider,
                 push_backups_to_nostr: this.settings.getSettings().serviceSettings.pushBackupsToNostr,
                 avatar_url: defaultApp?.avatar_url || '',
-                app_id: defaultApp?.app_id || ''
+                app_id: defaultApp?.app_id || '',
+                has_seed: await this.unlocker.HasSeed() || !this.unlocker.IsInitialized(),
+                is_db_clean: await this.storage.IsDbClean()
             }
         } catch (e) {
             this.log(`Error in GetServiceState: ${(e as Error).message}`)
@@ -98,7 +100,9 @@ export class Wizard {
                 automate_liquidity: false,
                 push_backups_to_nostr: false,
                 avatar_url: '',
-                app_id: ''
+                app_id: '',
+                has_seed: false,
+                is_db_clean: false
             }
         }
     }
@@ -175,6 +179,13 @@ export class Wizard {
             relay_url_CustomCheck: relay => relay !== '',
         })
         if (err != null) { throw new Error(err.message) }
+        
+        const has_seed = await this.unlocker.HasSeed() || !this.unlocker.IsInitialized()
+        if (!has_seed && req.push_backups_to_nostr) {
+            this.log("Ignoring request to push backups to nostr because no seed is available")
+            req.push_backups_to_nostr = false
+        }
+        
         const pendingConfig = { sourceName: req.source_name, relayUrl: req.relay_url, automateLiquidity: req.automate_liquidity, pushBackupsToNostr: req.push_backups_to_nostr }
 
         // Persist app name/avatar to DB regardless (idempotent behavior)

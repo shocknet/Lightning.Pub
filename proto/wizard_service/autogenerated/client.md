@@ -97,7 +97,9 @@ The nostr server will send back a message response, and inside the body there wi
   - __app_id__: _string_
   - __automate_liquidity__: _boolean_
   - __avatar_url__: _string_
+  - __has_seed__: _boolean_
   - __http_url__: _string_
+  - __is_db_clean__: _boolean_
   - __lnd_state__: _[LndState](#LndState)_
   - __nprofile__: _string_
   - __provider_name__: _string_

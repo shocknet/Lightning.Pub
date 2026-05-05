@@ -82,8 +82,8 @@
           href="https://docs.shock.network/" target="_blank" rel="noopener" class="marked">terms</a> regarding any
         services herein.</p>
       <div class="welcome-actions">
-        <button type="button" class="wizard-cta wizard-cta--ghost" @click="goTo('restore-intent')">Restore Backup</button>
-        <button type="button" class="wizard-cta wizard-cta--gradient-fill" @click="goTo('node')">Get Started!</button>
+        <button type="button" class="wizard-cta wizard-cta--ghost" x-show="serviceState?.is_db_clean" @click="goTo('restore-intent')">Restore Backup</button>
+        <button type="button" class="wizard-cta wizard-cta--gradient-fill" @click="goTo('node')" x-text="serviceState?.is_db_clean ? 'Get Started!' : 'Edit Setup'"></button>
       </div>
       <a href="https://docs.shock.network" target="_blank" rel="noopener"
         class="marked need-help welcome-need-help">Need Help?</a>
@@ -518,7 +518,7 @@
       <div class="page-separator"></div>
       <div class="page-footer-actions">
         <a href="https://docs.shock.network" class="marked need-help">Need Help?</a>
-        <button type="button" class="wizard-cta wizard-cta--gradient-fill" @click="goTo('backup')">Next</button>
+        <button type="button" class="wizard-cta wizard-cta--gradient-fill" @click="serviceState.has_seed ? goTo('backup') : finishBackup()">Next</button>
       </div>
     </section>
 

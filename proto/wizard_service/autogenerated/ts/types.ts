@@ -216,7 +216,9 @@ export type ServiceStateResponse = {
     app_id: string
     automate_liquidity: boolean
     avatar_url: string
+    has_seed: boolean
     http_url: string
+    is_db_clean: boolean
     lnd_state: LndState
     nprofile: string
     provider_name: string
@@ -234,7 +236,9 @@ export type ServiceStateResponseOptions = OptionsBaseMessage & {
     app_id_CustomCheck?: (v: string) => boolean
     automate_liquidity_CustomCheck?: (v: boolean) => boolean
     avatar_url_CustomCheck?: (v: string) => boolean
+    has_seed_CustomCheck?: (v: boolean) => boolean
     http_url_CustomCheck?: (v: string) => boolean
+    is_db_clean_CustomCheck?: (v: boolean) => boolean
     lnd_state_CustomCheck?: (v: LndState) => boolean
     nprofile_CustomCheck?: (v: string) => boolean
     provider_name_CustomCheck?: (v: string) => boolean
@@ -261,8 +265,14 @@ export const ServiceStateResponseValidate = (o?: ServiceStateResponse, opts: Ser
     if (typeof o.avatar_url !== 'string') return new Error(`${path}.avatar_url: is not a string`)
     if (opts.avatar_url_CustomCheck && !opts.avatar_url_CustomCheck(o.avatar_url)) return new Error(`${path}.avatar_url: custom check failed`)
 
+    if (typeof o.has_seed !== 'boolean') return new Error(`${path}.has_seed: is not a boolean`)
+    if (opts.has_seed_CustomCheck && !opts.has_seed_CustomCheck(o.has_seed)) return new Error(`${path}.has_seed: custom check failed`)
+
     if (typeof o.http_url !== 'string') return new Error(`${path}.http_url: is not a string`)
     if (opts.http_url_CustomCheck && !opts.http_url_CustomCheck(o.http_url)) return new Error(`${path}.http_url: custom check failed`)
+
+    if (typeof o.is_db_clean !== 'boolean') return new Error(`${path}.is_db_clean: is not a boolean`)
+    if (opts.is_db_clean_CustomCheck && !opts.is_db_clean_CustomCheck(o.is_db_clean)) return new Error(`${path}.is_db_clean: custom check failed`)
 
     if (!enumCheckLndState(o.lnd_state)) return new Error(`${path}.lnd_state: is not a valid LndState`)
     if (opts.lnd_state_CustomCheck && !opts.lnd_state_CustomCheck(o.lnd_state)) return new Error(`${path}.lnd_state: custom check failed`)

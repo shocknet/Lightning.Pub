@@ -49,7 +49,7 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
     const adminManager = new AdminManager(settingsManager, storageManager, swaps)
     let wizard: Wizard | null = null
     if (settingsManager.getSettings().serviceSettings.wizard) {
-        wizard = new Wizard(settingsManager, storageManager, adminManager, restore)
+        wizard = new Wizard(settingsManager, storageManager, adminManager, restore, unlocker)
         const wizardNonBlocking = settingsManager.getSettings().serviceSettings.wizardNonBlocking
         if (wizardNonBlocking) {
             // In dev mode, don't block on wizard - timeout after 1 second
