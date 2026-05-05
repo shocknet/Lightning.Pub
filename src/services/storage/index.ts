@@ -136,7 +136,7 @@ export default class {
     }
 
     async IsDbClean(): Promise<boolean> {
-        const names: DBNames[] = ['Application', 'User', 'ApplicationUser']
+        const names: DBNames[] = ['Application', 'User', 'ApplicationUser', 'LndNodeInfo']
         const ent = Promise.all(names.map(entity => this.dbs.Find(entity, { take: 1 })))
         const rows = await ent
         if (rows.some(row => row.length > 0)) return false

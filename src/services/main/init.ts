@@ -42,20 +42,14 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
     const storageManager = settingsManager.storage
     const utils = storageManager.utils
 
-    await unlocker.Unlock()
 
-    const seed = await unlocker.GetSeedIfAvailable()
-    const backupManager = new BackupManager(storageManager, settingsManager)
-    await backupManager.InitKeys(seed)
-    settingsManager.setBackupManager(backupManager)
-    backupManager.notifyBackupTable('admin_settings')
 
     const swaps = new Swaps(settingsManager, storageManager)
 
-    const adminManager = new AdminManager(settingsManager, storageManager, swaps, backupManager)
+    const adminManager = new AdminManager(settingsManager, storageManager, swaps)
     let wizard: Wizard | null = null
     if (settingsManager.getSettings().serviceSettings.wizard) {
-        wizard = new Wizard(settingsManager, storageManager, adminManager, restore, backupManager)
+        wizard = new Wizard(settingsManager, storageManager, adminManager, restore)
         const wizardNonBlocking = settingsManager.getSettings().serviceSettings.wizardNonBlocking
         if (wizardNonBlocking) {
             // In dev mode, don't block on wizard - timeout after 1 second
@@ -72,6 +66,15 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
             await wizard.Configure()
         }
     }
+
+    await unlocker.Unlock()
+
+    const seed = await unlocker.GetSeedIfAvailable()
+    const backupManager = new BackupManager(storageManager, settingsManager)
+    await backupManager.InitKeys(seed)
+    settingsManager.setBackupManager(backupManager)
+    adminManager.setBackupManager(backupManager)
+    backupManager.notifyBackupTable('admin_settings', 'applications', 'user_balances')
 
     const mainHandler = new Main(settingsManager, storageManager, adminManager, utils, unlocker, backupManager)
     adminManager.setLND(mainHandler.lnd)
