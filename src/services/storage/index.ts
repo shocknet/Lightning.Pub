@@ -40,14 +40,19 @@ export const LoadStorageSettingsFromEnv = (): StorageSettings => {
         jwtSecret: loadJwtSecret(dataDir)
     }
 }
-export const GetTestStorageSettings = (s: StorageSettings): StorageSettings => {
-    const eventLogPath = `logs/eventLogV3Test${Date.now()}.csv`
+export const GetTestStorageSettings = (s?: StorageSettings): StorageSettings => {
+    const now = Date.now()
+    const eventLogPath = `logs/eventLogV3Test${now}.csv`
     return {
-        ...s,
-        dbSettings: { ...s.dbSettings, databaseFile: ":memory:", metricsDatabaseFile: ":memory:" },
-        eventLogPath, dataDir: "test-data"
+        dbSettings: { databaseFile: ":memory:", metricsDatabaseFile: ":memory:", migrate: false },
+        eventLogPath, dataDir: `test-data-${now}`,
+        allowResetMetricsStorages: true,
+        jwtSecret: `jwt_secret_${now}`,
+        walletSecretPath: `test-data-${now}/.wallet_secret`,
+        walletPasswordPath: `test-data-${now}/.wallet_password`,
     }
 }
+
 export const loadJwtSecret = (dataDir: string): string => {
     const secret = process.env["JWT_SECRET"]
     const log = getLogger({})

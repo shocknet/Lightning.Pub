@@ -14,7 +14,7 @@ import { Utils } from '../services/helpers/utilsWrapper.js'
 import { AdminManager } from '../services/main/adminManager.js'
 import { TlvStorageFactory } from '../services/storage/tlv/tlvFilesStorageFactory.js'
 import { ChainTools } from './networkSetup.js'
-import { LiquiditySettings, LoadLndSettingsFromEnv, LoadSecondLndSettingsFromEnv, LoadThirdLndSettingsFromEnv } from '../services/main/settings.js'
+import { LiquiditySettings, LoadLndSettingsFromEnv, LoadBobLndSettingsFromEnv, LoadCarolLndSettingsFromEnv, LndNodeSettings } from '../services/main/settings.js'
 import { NostrSender } from '../services/nostr/sender.js'
 chai.use(chaiString)
 export const expect = chai.expect
@@ -62,7 +62,7 @@ export const teardownStorageTest = async (T: StorageTestBase) => {
     T.storage.Stop()
 }
 
-export const SetupTest = async (d: Describe, chainTools: ChainTools): Promise<TestBase> => {
+export const SetupTest = async (d: Describe, chainTools: ChainTools, lndNodeSettings?: LndNodeSettings): Promise<TestBase> => {
     const storageSettings = GetTestStorageSettings(LoadStorageSettingsFromEnv())
     const initOk = await initSettings(getLogger({ component: "mainForTest" }), storageSettings)
     if (!initOk) {
@@ -73,6 +73,9 @@ export const SetupTest = async (d: Describe, chainTools: ChainTools): Promise<Te
         s.liquiditySettings.disableLiquidityProvider = true
         s.liquiditySettings.liquidityProviderPub = ""
         s.liquiditySettings.useOnlyLiquidityProvider = false
+        if (lndNodeSettings) {
+            s.lndNodeSettings = lndNodeSettings
+        }
         return s
     })
     const initialized = await initMainHandler(getLogger({ component: "mainForTest" }), settingsManager, restore, unlocker)
@@ -91,12 +94,12 @@ export const SetupTest = async (d: Describe, chainTools: ChainTools): Promise<Te
         await externalAccessToMainLnd.Warmup() */
     const liquiditySettings: LiquiditySettings = { disableLiquidityProvider: true, liquidityProviderPub: "", useOnlyLiquidityProvider: false, providerRelayUrl: "" }
     const lndSettings = LoadLndSettingsFromEnv({})
-    const secondLndNodeSettings = LoadSecondLndSettingsFromEnv()
+    const secondLndNodeSettings = LoadBobLndSettingsFromEnv()
     const otherLndSetting = () => ({ lndSettings, lndNodeSettings: secondLndNodeSettings })
     const externalAccessToOtherLnd = new LND(otherLndSetting, new LiquidityProvider(() => liquiditySettings, extermnalUtils, async () => { }, async () => { }), async () => { }, extermnalUtils, async () => { }, async () => { }, async () => { }, () => { }, () => { })
     await externalAccessToOtherLnd.Warmup()
 
-    const thirdLndNodeSettings = LoadThirdLndSettingsFromEnv()
+    const thirdLndNodeSettings = LoadCarolLndSettingsFromEnv()
     const thirdLndSetting = () => ({ lndSettings, lndNodeSettings: thirdLndNodeSettings })
     const externalAccessToThirdLnd = new LND(thirdLndSetting, new LiquidityProvider(() => liquiditySettings, extermnalUtils, async () => { }, async () => { }), async () => { }, extermnalUtils, async () => { }, async () => { }, async () => { }, () => { }, () => { })
     await externalAccessToThirdLnd.Warmup()
