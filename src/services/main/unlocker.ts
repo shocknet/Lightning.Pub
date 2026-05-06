@@ -109,7 +109,7 @@ export class Unlocker {
     }
 
     private waitForLndSync = async (timeoutSeconds: number): Promise<void> => {
-        const lndLogPath = this.settings.getSettings().lndSettings.lndLogDir;
+        const lndLogPath = this.settings.getSettings().lndNodeSettings.lndLogDir;
         if (this.settings.getSettings().lndSettings.mockLnd) {
             this.log("MOCK_LND set, skipping header sync wait.");
             return;
