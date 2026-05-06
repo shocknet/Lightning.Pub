@@ -23,7 +23,9 @@ const getDescribe = (fileName: string): Describe => {
 }
 
 const start = async () => {
-    const files = await globby(["**/*.spec.js", "!**/node_modules/**"])
+    // Scope to compiled tests only: a repo-root ** glob walks Docker volume dirs under
+    // volumes/lnd/*/data (root-owned, mode 0700), which breaks CI with EACCES.
+    const files = await globby("build/src/tests/**/*.spec.js")
     const modules: { file: string, module: TestModule }[] = []
     let devModule = -1
     for (const file of files) {
