@@ -473,7 +473,7 @@ export class Unlocker {
                 abortController.abort()
             }
 
-            timeoutId = setTimeout(() => fail(new Error("LND state stream timed out")), timeout)
+            timeoutId = setTimeout(() => fail(new Error("LND state stream timed out")), timeout * 1000)
             const stream = client.subscribeState({}, { abort: abortController.signal })
             stream.responses.onMessage(async (msg) => {
                 this.log("Current LND state: ", msg.state)
