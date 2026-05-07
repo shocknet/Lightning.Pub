@@ -448,7 +448,7 @@ export class Unlocker {
             const channels = await ln.listChannels({ activeOnly: false, inactiveOnly: false, privateOnly: false, publicOnly: false, peer: Buffer.alloc(0), peerAliasLookup: false }, DeadLineMetadata())
             const pendingChannels = await ln.pendingChannels({ includeRawTx: false }, DeadLineMetadata())
             const closedChannels = await ln.closedChannels({ abandoned: true, cooperative: true, localForce: true, remoteForce: true, breach: true, fundingCanceled: true }, DeadLineMetadata())
-            return { wBalance, cBalance, channels, pendingChannels, closedChannels }
+            return { w: wBalance.response, cb: cBalance.response, channels: channels.response, pendingChannels: pendingChannels.response, closedChannels: closedChannels.response }
         }
     }
 
