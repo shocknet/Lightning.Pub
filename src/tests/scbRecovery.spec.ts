@@ -11,6 +11,7 @@ export const ignore = false
 export const dev = true
 const [eliotSettings, eliot2Settings] = LoadEliotLndSettingsFromEnv()
 export const lndSettings: LndNodeSettings = eliotSettings
+export const pushBackupsToNostr = true
 
 export default async (T: TestBase) => {
     const seed = await T.main.unlocker.GetSeed()
@@ -57,7 +58,7 @@ export default async (T: TestBase) => {
     const channels = await T.main.lnd.ListChannels()
     T.d("Channels: " + channels.channels.length + " " + channels.channels.map(c => c.active))
     balance = await T.main.lnd.GetBalance()
-    T.d("Balance: " + balance)
+    T.d("Balance: " + JSON.stringify(balance))
     T.d("shutting down...")
     T.main.lnd.Stop()
     await T.main.lnd.lightning.stopDaemon({})

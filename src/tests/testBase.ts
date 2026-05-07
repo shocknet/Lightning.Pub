@@ -62,7 +62,7 @@ export const teardownStorageTest = async (T: StorageTestBase) => {
     T.storage.Stop()
 }
 
-export const SetupTest = async (d: Describe, chainTools: ChainTools, lndNodeSettings?: LndNodeSettings): Promise<TestBase> => {
+export const SetupTest = async (d: Describe, chainTools: ChainTools, lndNodeSettings?: LndNodeSettings, pushBackupsToNostr?: boolean): Promise<TestBase> => {
     const storageSettings = GetTestStorageSettings(LoadStorageSettingsFromEnv())
     const initOk = await initSettings(getLogger({ component: "mainForTest" }), storageSettings)
     if (!initOk) {
@@ -75,6 +75,9 @@ export const SetupTest = async (d: Describe, chainTools: ChainTools, lndNodeSett
         s.liquiditySettings.useOnlyLiquidityProvider = false
         if (lndNodeSettings) {
             s.lndNodeSettings = lndNodeSettings
+        }
+        if (pushBackupsToNostr !== undefined) {
+            s.serviceSettings.pushBackupsToNostr = pushBackupsToNostr
         }
         return s
     })

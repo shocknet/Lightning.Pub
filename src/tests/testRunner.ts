@@ -8,6 +8,7 @@ type TestModule = {
     dev?: boolean
     requires?: 'storage' | '*'
     lndSettings?: LndNodeSettings
+    pushBackupsToNostr?: boolean
     default: (T: TestBase | StorageTestBase) => Promise<void>
 }
 let failures = 0
@@ -86,7 +87,7 @@ const runTestFile = async (fileName: string, mod: TestModule, chainTools?: Chain
         if (!chainTools) {
             throw new Error("chainTools are required for this test")
         }
-        T = await SetupTest(d, chainTools, mod.lndSettings)
+        T = await SetupTest(d, chainTools, mod.lndSettings, mod.pushBackupsToNostr)
     }
     try {
         d("test starting")
