@@ -120,6 +120,7 @@ export class Unlocker {
 
         let lastPercentReported = -1;
         const startTime = Date.now();
+        let printedLines = 0
         const checkLog = async (resolve: () => void, reject: (reason?: any) => void) => {
             const elapsedTime = (Date.now() - startTime) / 1000;
             if (elapsedTime > timeoutSeconds) {
@@ -129,7 +130,11 @@ export class Unlocker {
             try {
                 if (fs.existsSync(lndLogPath)) {
                     const logContent = fs.readFileSync(lndLogPath, 'utf8');
-
+                    const lines = logContent.split('\n');
+                    for (let i = printedLines; i < lines.length; i++) {
+                        this.log("LND log line--> ", lines[i]);
+                    }
+                    printedLines = lines.length;
                     if (logContent.includes("Fully caught up with cfheaders")) {
                         this.log("LND sync complete.");
                         return resolve();
