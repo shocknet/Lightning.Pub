@@ -71,14 +71,15 @@ export class Unlocker {
         }
         const { lndCert, macaroon } = this.getCreds()
         if (macaroon === "") {
-            const { ln, pub } = await this.InitFlow(lndCert, restore)
-            this.subscribeToBackups(ln, pub)
+            const { ln, pub, state } = await this.InitFlow(lndCert, restore)
+            await this.subscribeToBackups(ln, state, pub)
             return 'created'
         } else if (restore) {
             throw new Error("lnd is already initialized, cannot restore")
         }
         const { ln, pub, action } = await this.UnlockFlow(lndCert, macaroon)
-        this.subscribeToBackups(ln, pub)
+        const state = this.GetStateClient(lndCert)
+        await this.subscribeToBackups(ln, state, pub)
         return action
     }
 
@@ -185,15 +186,17 @@ export class Unlocker {
 
     InitFlow = async (lndCert: Buffer, restore?: { seed: string[] }) => {
         this.log("macaroon not found, creating wallet...")
-        const state = await this.WaitWalletState(lndCert, 300) // Wait up to 5 minutes
-        if (state !== WalletState.NON_EXISTING) {
-            const stateString = WalletState[state]
+        const state = this.GetStateClient(lndCert)
+        const stateResult = await this.WaitWalletState(state, 300) // Wait up to 5 minutes
+        if (stateResult !== WalletState.NON_EXISTING) {
+            const stateString = WalletState[stateResult]
             throw new Error("LND is not in the expected state: " + stateString)
         }
         // await this.waitForLndSync(300); 
         const unlocker = this.GetUnlockerClient(lndCert)
         const { plaintextSeed, encryptedSeed } = await this.getSeed(unlocker, restore)
-        return this.initWallet(lndCert, unlocker, { plaintextSeed, encryptedSeed })
+        const res = await this.initWallet(lndCert, unlocker, { plaintextSeed, encryptedSeed })
+        return { ...res, state }
     }
 
     private getSeed = async (unlocker: WalletUnlockerClient, restore?: { seed: string[] }): Promise<Seed> => {
@@ -367,11 +370,13 @@ export class Unlocker {
         return password
     }
 
-    subscribeToBackups = async (ln: LightningClient, pub: string) => {
+    subscribeToBackups = async (ln: LightningClient, state: StateClient, pub: string) => {
         if (this.subbedToBackups) {
             return
         }
         this.subbedToBackups = true
+        this.log("waiting for server to be active...")
+        await this.WaitWalletState(state, 300, WalletState.SERVER_ACTIVE)
         this.log("subscribing to channel backups for: ", pub)
         const stream = ln.subscribeChannelBackups({}, { abort: this.abortController.signal })
         stream.responses.onMessage(async (msg) => {
@@ -439,39 +444,51 @@ export class Unlocker {
         }, DeadLineMetadata())
     }
 
-    WaitWalletState = (cert: Buffer, timeout: number): Promise<WalletState> => {
+    GetStateClient = (cert: Buffer): StateClient => {
         const host = this.settings.getSettings().lndNodeSettings.lndAddr
         const channelCredentials = credentials.createSsl(cert)
         const transport = new GrpcTransport({ host, channelCredentials })
         const client = new StateClient(transport)
+        return client
+    }
+
+    WaitWalletState = (client: StateClient, timeout: number, expect: WalletState | null = null): Promise<WalletState> => {
         const abortController = new AbortController()
         this.log("Waiting for LND to be ready for up to " + timeout + " seconds")
         return new Promise((resolve, reject) => {
-            let resolved = false
-            setTimeout(() => {
-                if (resolved) return
-                resolved = true
-                reject(new Error("LND state stream timed out"))
+            let ended = false
+            let timeoutId: NodeJS.Timeout | null = null
+            const done = (msgState: WalletState) => {
+                if (ended) return
+                ended = true
+                if (timeoutId) clearTimeout(timeoutId)
+                resolve(msgState)
                 abortController.abort()
-            }, timeout)
+            }
+            const fail = (err: any) => {
+                if (ended) return
+                ended = true
+                if (timeoutId) clearTimeout(timeoutId)
+                reject(err)
+                abortController.abort()
+            }
+
+            timeoutId = setTimeout(() => fail(new Error("LND state stream timed out")), timeout)
             const stream = client.subscribeState({}, { abort: abortController.signal })
             stream.responses.onMessage(async (msg) => {
                 this.log("Current LND state: ", msg.state)
-                resolve(msg.state)
-                resolved = true
-                abortController.abort()
+                if (expect === null) {
+                    done(msg.state)
+                } else if (msg.state === expect) {
+                    done(msg.state)
+                }
+
             })
             stream.responses.onError(err => {
-                resolved = true
-                reject(err)
-                abortController.abort()
+                fail(err)
             })
             stream.responses.onComplete(() => {
-                if (!resolved) {
-                    resolved = true
-                    reject(new Error("LND state stream closed"))
-                    abortController.abort()
-                }
+                fail(new Error("LND state stream closed"))
             })
         })
     }
