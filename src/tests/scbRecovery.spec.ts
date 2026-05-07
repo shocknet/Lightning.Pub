@@ -112,5 +112,10 @@ const recoverEliot = async (T: TestBase, seed: string[], scbEvent: UnsignedEvent
     await unlocker.Unlock({ seed })
     T.d("recovery wallet unlocked")
     const info = await unlocker.ApplyScb(scbEvent.content, true)
-    T.d("SCB applied, info: " + JSON.stringify(info))
+    T.d("SCB applied, info: " + JSON.stringify(info, (key, value) => {
+        if (typeof value === 'bigint') {
+            return value.toString()
+        }
+        return value
+    }, 2))
 }
