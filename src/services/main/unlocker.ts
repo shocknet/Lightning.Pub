@@ -196,7 +196,7 @@ export class Unlocker {
         const unlocker = this.GetUnlockerClient(lndCert)
         const { plaintextSeed, encryptedSeed } = await this.getSeed(unlocker, restore)
         const recoveryWindow = restore ? 1_000 : 0
-        const res = await this.initWallet(lndCert, unlocker, { plaintextSeed, encryptedSeed }, recoveryWindow)
+        const res = await this.initWallet(lndCert, unlocker, state, { plaintextSeed, encryptedSeed }, recoveryWindow)
         return { ...res, state }
     }
 
@@ -222,12 +222,13 @@ export class Unlocker {
         return { plaintextSeed: seedRes.response.cipherSeedMnemonic, encryptedSeed: encryptedData }
     }
 
-    private initWallet = async (lndCert: Buffer, unlocker: WalletUnlockerClient, seed: Seed, recoveryWindow: number = 0) => {
+    private initWallet = async (lndCert: Buffer, unlocker: WalletUnlockerClient, state: StateClient, seed: Seed, recoveryWindow: number = 0) => {
         const walletPw = this.GetWalletPassword()
         const req = InitWalletReq(walletPw, seed.plaintextSeed, recoveryWindow)
         const initRes = await unlocker.initWallet(req, DeadLineMetadata(60 * 1000))
         const adminMacaroon = Buffer.from(initRes.response.adminMacaroon).toString('hex')
         const ln = this.GetLightningClient(lndCert, adminMacaroon)
+        await this.WaitWalletState(state, 300, WalletState.SERVER_ACTIVE)
         await this.WaitRecovery(ln)
 
         // Retry mechanism to ensure LND is ready
