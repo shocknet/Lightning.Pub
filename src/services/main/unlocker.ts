@@ -390,7 +390,7 @@ export class Unlocker {
         })
     }
 
-    private getAppWithNostrKeys = async (): Promise<Application & { nostr_private_key: string, nostr_public_key: string }> => {
+    GetAppWithNostrKeys = async (): Promise<Application & { nostr_private_key: string, nostr_public_key: string }> => {
         const apps = await this.storage.applicationStorage.GetApplications()
         const defaultNames = ['wallet', 'wallet-test', this.settings.getSettings().serviceSettings.defaultAppName]
         const local = apps.find(app => defaultNames.includes(app.name))
@@ -404,7 +404,7 @@ export class Unlocker {
         if (!this.settings.getSettings().serviceSettings.pushBackupsToNostr) {
             return
         }
-        const local = await this.getAppWithNostrKeys()
+        const local = await this.GetAppWithNostrKeys()
 
         const ck = nip44.getConversationKey(Buffer.from(local.nostr_private_key, 'hex'), local.nostr_public_key)
         const content = nip44.encrypt(scb.toString('base64'), ck)
@@ -419,7 +419,7 @@ export class Unlocker {
     }
 
     private decryptScbEvent = async (encryptedScb: string) => {
-        const local = await this.getAppWithNostrKeys()
+        const local = await this.GetAppWithNostrKeys()
         const ck = nip44.getConversationKey(Buffer.from(local.nostr_private_key, 'hex'), local.nostr_public_key)
         const plaintext = nip44.decrypt(encryptedScb, ck).trim()
         const scb = Buffer.from(plaintext, 'base64')
