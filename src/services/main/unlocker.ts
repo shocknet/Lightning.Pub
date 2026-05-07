@@ -431,7 +431,7 @@ export class Unlocker {
         return scb
     }
 
-    ApplyScb = async (encryptedScb: string) => {
+    ApplyScb = async (encryptedScb: string, collectInfo = false) => {
         const scb = await this.decryptScbEvent(encryptedScb)
 
         const { lndCert, macaroon } = this.getCreds()
@@ -442,6 +442,14 @@ export class Unlocker {
         await ln.restoreChannelBackups({
             backup: { oneofKind: 'multiChanBackup', multiChanBackup: scb }
         }, DeadLineMetadata())
+        if (collectInfo) {
+            const wBalance = await ln.walletBalance({ account: "", minConfs: 0 }, DeadLineMetadata())
+            const cBalance = await ln.channelBalance({}, DeadLineMetadata())
+            const channels = await ln.listChannels({ activeOnly: false, inactiveOnly: false, privateOnly: false, publicOnly: false, peer: Buffer.alloc(0), peerAliasLookup: false }, DeadLineMetadata())
+            const pendingChannels = await ln.pendingChannels({ includeRawTx: false }, DeadLineMetadata())
+            const closedChannels = await ln.closedChannels({ abandoned: true, cooperative: true, localForce: true, remoteForce: true, breach: true, fundingCanceled: true }, DeadLineMetadata())
+            return { wBalance, cBalance, channels, pendingChannels, closedChannels }
+        }
     }
 
     GetStateClient = (cert: Buffer): StateClient => {
