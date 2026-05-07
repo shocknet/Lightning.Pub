@@ -227,12 +227,11 @@ export class RestoreManager {
         if (!relay) {
             throw new Error('SCB restore skipped: no relay configured')
         }
-        const scb = await this.fetchScbFromRelay(relay, app.nostr_public_key!, app.nostr_private_key!)
-        if (!scb) {
+        const scbEvent = await this.fetchScbEventFromRelay(relay, app.nostr_public_key!, app.nostr_private_key!)
+        if (!scbEvent) {
             throw new Error('SCB restore skipped: no SCB backup event found on relay')
         }
-        await this.unlocker.ApplyScb(scb)
-        return scb.length
+        await this.unlocker.ApplyScb(scbEvent.content)
     }
 
     private getRestoreRelay = (req: wizardTypes.RestoreRequest): string | null => {
@@ -253,7 +252,7 @@ export class RestoreManager {
         return apps.find(app => !!app.nostr_private_key && !!app.nostr_public_key) || null
     }
 
-    private fetchScbFromRelay = async (relayUrl: string, pubkey: string, privkey: string): Promise<Buffer | null> => {
+    private fetchScbEventFromRelay = async (relayUrl: string, pubkey: string, privkey: string): Promise<NostrEvent | null> => {
         const relay = await Relay.connect(relayUrl)
         try {
             const events: NostrEvent[] = []
@@ -278,9 +277,10 @@ export class RestoreManager {
                 return null
             }
             const latest = events.sort((a, b) => (b.created_at || 0) - (a.created_at || 0))[0]
-            const ck = nip44.getConversationKey(Buffer.from(privkey, 'hex'), pubkey)
+            return latest
+            /* const ck = nip44.getConversationKey(Buffer.from(privkey, 'hex'), pubkey)
             const plaintext = nip44.decrypt(latest.content, ck).trim()
-            return Buffer.from(plaintext, 'base64')
+            return Buffer.from(plaintext, 'base64') */
         } finally {
             relay.close()
         }
