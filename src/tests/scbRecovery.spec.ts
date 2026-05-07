@@ -58,7 +58,14 @@ export default async (T: TestBase) => {
     let balance = await T.main.lnd.GetBalance()
     T.d("Balance: " + JSON.stringify(balance))
     T.d("Opening channel to carol...")
-    await T.main.lnd.OpenChannel(T.chainTools.carolInfo.pubkey, addr.address, 100_000, 0, 1)
+    try {
+        await T.main.lnd.OpenChannel(T.chainTools.carolInfo.pubkey, addr.address, 100_000, 0, 1)
+    } catch (e) {
+        T.d("error opening channel: " + e)
+        T.d("sleeping for 3 seconds...")
+        await new Promise(resolve => setTimeout(resolve, 3 * 1000))
+        await T.main.lnd.OpenChannel(T.chainTools.carolInfo.pubkey, addr.address, 100_000, 0, 1)
+    }
     await T.chainTools.mine(3)
     await T.chainTools.mine(3)
     T.d("Channel opened")
