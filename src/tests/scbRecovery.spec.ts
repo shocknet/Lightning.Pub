@@ -52,7 +52,7 @@ export default async (T: TestBase) => {
     const addr = await T.main.lnd.NewAddress(Types.AddressType.WITNESS_PUBKEY_HASH, { useProvider: false, from: 'system' })
     await T.externalAccessToOtherLnd.PayAddress(addr.address, 200_000, 2, "test", { useProvider: false, from: 'system' })
     //await T.chainTools.sendToAddress(addr.address, 1_000_000)
-    await T.chainTools.mine(3)
+    await slowMine(T, 6)
     T.d("Wallet funded")
     T.d("Checking balance...")
     let balance = await T.main.lnd.GetBalance()
@@ -66,8 +66,7 @@ export default async (T: TestBase) => {
         await new Promise(resolve => setTimeout(resolve, 3 * 1000))
         await T.main.lnd.OpenChannel(T.chainTools.carolInfo.pubkey, addr.address, 100_000, 0, 1)
     }
-    await T.chainTools.mine(3)
-    await T.chainTools.mine(3)
+    await slowMine(T, 6)
     T.d("Channel opened")
     const channels = await T.main.lnd.ListChannels()
     T.d("Channels: " + channels.channels.length + " " + channels.channels.map(c => c.active))
@@ -78,6 +77,7 @@ export default async (T: TestBase) => {
     T.d("shutting down...")
     T.main.lnd.Stop()
     await T.main.lnd.lightning.stopDaemon({})
+    await slowMine(T, 6)
     T.d("lnd stopped")
     if (!latestSCBEvent) {
         throw new Error("no SCB event found")
@@ -111,11 +111,21 @@ const recoverEliot = async (T: TestBase, seed: string[], scbEvent: UnsignedEvent
     T.d("default application added to database")
     await unlocker.Unlock({ seed })
     T.d("recovery wallet unlocked")
-    const info = await unlocker.ApplyScb(scbEvent.content, true)
+    const ln = await unlocker.ApplyScb(scbEvent.content)
+    T.d("SCB applied")
+    await slowMine(T, 6)
+    const info = await unlocker.GetWalletInfo(ln)
     T.d("SCB applied, info: " + JSON.stringify(info, (key, value) => {
         if (typeof value === 'bigint') {
             return value.toString()
         }
         return value
     }, 2))
+}
+
+const slowMine = async (T: TestBase, blocks: number) => {
+    for (let i = 0; i < blocks; i++) {
+        await T.chainTools.mine(1)
+        await new Promise(resolve => setTimeout(resolve, 200))
+    }
 }

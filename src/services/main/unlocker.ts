@@ -431,7 +431,7 @@ export class Unlocker {
         return scb
     }
 
-    ApplyScb = async (encryptedScb: string, collectInfo = false) => {
+    ApplyScb = async (encryptedScb: string) => {
         const scb = await this.decryptScbEvent(encryptedScb)
 
         const { lndCert, macaroon } = this.getCreds()
@@ -444,15 +444,16 @@ export class Unlocker {
             backup: { oneofKind: 'multiChanBackup', multiChanBackup: scb }
         }, DeadLineMetadata())
         await this.WaitRecovery(ln)
+        return ln
+    }
 
-        if (collectInfo) {
-            const wBalance = await ln.walletBalance({ account: "", minConfs: 0 }, DeadLineMetadata())
-            const cBalance = await ln.channelBalance({}, DeadLineMetadata())
-            const channels = await ln.listChannels({ activeOnly: false, inactiveOnly: false, privateOnly: false, publicOnly: false, peer: Buffer.alloc(0), peerAliasLookup: false }, DeadLineMetadata())
-            const pendingChannels = await ln.pendingChannels({ includeRawTx: false }, DeadLineMetadata())
-            const closedChannels = await ln.closedChannels({ abandoned: true, cooperative: true, localForce: true, remoteForce: true, breach: true, fundingCanceled: true }, DeadLineMetadata())
-            return { w: wBalance.response, cb: cBalance.response, channels: channels.response, pendingChannels: pendingChannels.response, closedChannels: closedChannels.response }
-        }
+    GetWalletInfo = async (ln: LightningClient) => {
+        const wBalance = await ln.walletBalance({ account: "", minConfs: 0 }, DeadLineMetadata())
+        const cBalance = await ln.channelBalance({}, DeadLineMetadata())
+        const channels = await ln.listChannels({ activeOnly: false, inactiveOnly: false, privateOnly: false, publicOnly: false, peer: Buffer.alloc(0), peerAliasLookup: false }, DeadLineMetadata())
+        const pendingChannels = await ln.pendingChannels({ includeRawTx: false }, DeadLineMetadata())
+        const closedChannels = await ln.closedChannels({ abandoned: true, cooperative: true, localForce: true, remoteForce: true, breach: true, fundingCanceled: true }, DeadLineMetadata())
+        return { w: wBalance.response, cb: cBalance.response, channels: channels.response, pendingChannels: pendingChannels.response, closedChannels: closedChannels.response }
     }
 
     WaitRecovery = async (ln: LightningClient) => {
