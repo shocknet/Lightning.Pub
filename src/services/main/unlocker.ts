@@ -439,9 +439,12 @@ export class Unlocker {
         const res = await ln.verifyChanBackup({
             multiChanBackup: { chanPoints: [], multiChanBackup: scb }
         }, DeadLineMetadata())
+
         await ln.restoreChannelBackups({
             backup: { oneofKind: 'multiChanBackup', multiChanBackup: scb }
         }, DeadLineMetadata())
+        await this.WaitRecovery(ln)
+
         if (collectInfo) {
             const wBalance = await ln.walletBalance({ account: "", minConfs: 0 }, DeadLineMetadata())
             const cBalance = await ln.channelBalance({}, DeadLineMetadata())
@@ -449,6 +452,23 @@ export class Unlocker {
             const pendingChannels = await ln.pendingChannels({ includeRawTx: false }, DeadLineMetadata())
             const closedChannels = await ln.closedChannels({ abandoned: true, cooperative: true, localForce: true, remoteForce: true, breach: true, fundingCanceled: true }, DeadLineMetadata())
             return { w: wBalance.response, cb: cBalance.response, channels: channels.response, pendingChannels: pendingChannels.response, closedChannels: closedChannels.response }
+        }
+    }
+
+    WaitRecovery = async (ln: LightningClient) => {
+        while (true) {
+            const info = await ln.getRecoveryInfo({}, DeadLineMetadata())
+            const res = info.response
+            if (!res.recoveryMode) {
+                this.log("lnd is not in recovery mode")
+                return
+            }
+            if (res.recoveryFinished) {
+                this.log("recovery finished")
+                return
+            }
+            this.log("recovery progress: " + res.progress)
+            await new Promise(resolve => setTimeout(resolve, 1000))
         }
     }
 
