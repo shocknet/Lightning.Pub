@@ -425,10 +425,13 @@ export class Unlocker {
         const channelCredentials = credentials.createSsl(cert)
         const transport = new GrpcTransport({ host, channelCredentials })
         const client = new StateClient(transport)
-        const stream = client.subscribeState({})
+        client.getState({}).then((res) => {
+            this.log("Current LND state: ", res.response.state)
+        })
+        /* const stream = client.subscribeState({})
         stream.responses.onMessage(async (msg) => {
             this.log("Current LND state: ", msg.state)
-        })
+        }) */
     }
 
     GetUnlockerClient = (cert: Buffer) => {
