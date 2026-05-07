@@ -113,6 +113,8 @@ const recoverEliot = async (T: TestBase, seed: string[], scbEvent: UnsignedEvent
     T.d("recovery wallet unlocked")
     await unlocker.ApplyScb(scbEvent.content)
     T.d("SCB applied")
+    await unlocker.Unlock()
+    T.d("recovery wallet re-unlocked")
     const info = await T.main.lnd.GetInfo()
     T.d("Eliot info: " + info.identityPubkey)
     const balance = await T.main.lnd.GetBalance()
