@@ -3,12 +3,12 @@ import { globby } from 'globby'
 import { ChainTools, setupNetwork } from './networkSetup.js'
 import { Describe, SetupTest, teardown, TestBase, StorageTestBase, setupStorageTest, teardownStorageTest } from './testBase.js'
 import { LndNodeSettings } from '../services/main/settings.js'
+import { SettingOverrideFunction } from '../services/main/settingsManager.js'
 type TestModule = {
     ignore?: boolean
     dev?: boolean
     requires?: 'storage' | '*'
-    lndSettings?: LndNodeSettings
-    pushBackupsToNostr?: boolean
+    settingsOverride?: SettingOverrideFunction
     default: (T: TestBase | StorageTestBase) => Promise<void>
 }
 let failures = 0
@@ -87,7 +87,7 @@ const runTestFile = async (fileName: string, mod: TestModule, chainTools?: Chain
         if (!chainTools) {
             throw new Error("chainTools are required for this test")
         }
-        T = await SetupTest(d, chainTools, mod.lndSettings, mod.pushBackupsToNostr)
+        T = await SetupTest(d, chainTools, mod.settingsOverride || (s => s))
     }
     try {
         d("test starting")

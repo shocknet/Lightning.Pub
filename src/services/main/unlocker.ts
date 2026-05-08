@@ -450,7 +450,9 @@ export class Unlocker {
         return ln
     }
 
-    GetWalletInfo = async (ln: LightningClient) => {
+    GetWalletInfo = async () => {
+        const { lndCert, macaroon } = this.getCreds()
+        const ln = this.GetLightningClient(lndCert, macaroon)
         const wBalance = await ln.walletBalance({ account: "", minConfs: 0 }, DeadLineMetadata())
         const cBalance = await ln.channelBalance({}, DeadLineMetadata())
         const channels = await ln.listChannels({ activeOnly: false, inactiveOnly: false, privateOnly: false, publicOnly: false, peer: Buffer.alloc(0), peerAliasLookup: false }, DeadLineMetadata())

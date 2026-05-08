@@ -113,6 +113,7 @@ export class RestoreManager {
                     error: 'Failed to create LND wallet',
                 }
             }
+            this.log("LND wallet created, restoring segments data")
             const keys = await deriveBackupKeys(req.phrase, LATEST_DERIVATION_VERSION)
             const encKey = keys.encKey
             const buffers = new Map<BackupTableId, Buffer>()
@@ -150,8 +151,9 @@ export class RestoreManager {
             }
 
             const tablesRestored = await this.importDialtone(identityPayload, balancesPayload)
+            this.log("segments data restored, restoring SCB")
             await this.restoreScb(req)
-
+            this.log("SCB restored")
             return {
                 tables_restored: tablesRestored,
                 success: true,
