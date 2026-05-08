@@ -142,7 +142,9 @@ export class RestoreManager {
                     this.log("buffer not found: " + id)
                     return []
                 }
-                return decryptTableRows(buffer, encKey).map(decodeRow)
+                const rows = decryptTableRows(buffer, encKey).map(decodeRow)
+                this.log("rows found: " + id + " length: " + rows.length)
+                return rows
             }
 
             const balancesPayload: BalancesData = {
@@ -160,6 +162,7 @@ export class RestoreManager {
                 debitAccesses: readRows('debit_accesses', decodeDebitAccessRow),
                 inviteTokens: readRows('invite_tokens', decodeInviteTokenRow),
             }
+
             this.log("segments data decrypted, importing dialtone")
             this.log("balances Data: " + Object.entries(balancesPayload).map(([key, value]) => key + ": " + value.length).join(", "))
             this.log("identity Data: " + Object.entries(identityPayload).map(([key, value]) => key + ": " + value.length).join(", "))
