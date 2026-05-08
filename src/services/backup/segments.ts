@@ -323,11 +323,10 @@ export const mapAppUserBackupRow = (appUser: ApplicationUser): ApplicationUserRo
 })
 
 export const encodeApplicationUserRow = (row: ApplicationUserRow): Uint8Array => {
-    console.log("encoding application user: ", row)
     const tlv: TLV = {
         2: [hexToBytes(row.user_id)],
         3: [hexToBytes(row.app_id)],
-        4: [hexToBytes(row.identifier)],
+        4: splitChunk(stringToBytes(row.identifier), 255),
         5: splitChunk(stringToBytes(row.callback_url), 255),
         6: [hexToBytes(row.topic_id)],
     }
@@ -342,7 +341,7 @@ export const decodeApplicationUserRow = (data: Uint8Array): ApplicationUserRow =
     return {
         user_id: hexFromBytes(tlv[2][0]),
         app_id: hexFromBytes(tlv[3][0]),
-        identifier: hexFromBytes(tlv[4][0]),
+        identifier: stringFromBytes(joinChunks(tlv[4])),
         callback_url: stringFromBytes(joinChunks(tlv[5])),
         topic_id: hexFromBytes(tlv[6][0]),
         nostr_public_key: tlv[7] ? hexFromBytes(tlv[7][0]) : null,
