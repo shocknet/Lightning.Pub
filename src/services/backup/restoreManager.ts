@@ -142,6 +142,7 @@ export class RestoreManager {
                     this.log("buffer not found: " + id)
                     return []
                 }
+                this.log("decrypting table: " + id + " length: " + buffer.length)
                 const rows = decryptTableRows(buffer, encKey).map(decodeRow)
                 this.log("rows found: " + id + " length: " + rows.length)
                 return rows
