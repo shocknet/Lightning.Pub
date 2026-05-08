@@ -41,6 +41,7 @@ export class BackupManager {
     keys: DerivedKeys
     private debounceTimers = new Map<BackupTableId, ReturnType<typeof setTimeout>>()
     private debouncedUploadInProgress = new Set<BackupTableId>()
+    shuttingDown = false
     constructor(storage: Storage, settings: SettingsManager) {
         this.storage = storage
         this.settings = settings
@@ -87,6 +88,10 @@ export class BackupManager {
 
     /** Debounced upload for any backup table (coalesces rapid writes per table id). */
     private notifyBackupTableDebounced(id: BackupTableId) {
+        if (this.shuttingDown) {
+            this.log("shutting down, skipping backup table debounced: " + id)
+            return
+        }
         const isBackupConfigured = this.isBackupConfigured()
         this.log("notifying backup table debounced: " + id + " isBackupConfigured: " + isBackupConfigured)
         if (!isBackupConfigured) return
@@ -256,6 +261,7 @@ export class BackupManager {
      * then upload every table once so remote matches current DB.
      */
     async shutdown(): Promise<void> {
+        this.shuttingDown = true
         for (const t of this.debounceTimers.values()) {
             clearTimeout(t)
         }

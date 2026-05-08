@@ -137,7 +137,12 @@ export class RestoreManager {
             this.log("buffers: " + Object.entries(buffers).map(([key, value]) => key + ": " + value.length).join(", "))
 
             const readRows = <T>(id: BackupTableId, decodeRow: (u: Uint8Array) => T): T[] => {
-                return decryptTableRows(buffers.get(id)!, encKey).map(decodeRow)
+                const buffer = buffers.get(id)
+                if (!buffer) {
+                    this.log("buffer not found: " + id)
+                    return []
+                }
+                return decryptTableRows(buffer, encKey).map(decodeRow)
             }
 
             const balancesPayload: BalancesData = {

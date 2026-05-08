@@ -84,6 +84,7 @@ export default async (T: TestBase) => {
     T.d("shutting down...")
     T.main.lnd.Stop()
     await T.main.lnd.lightning.stopDaemon({})
+    await T.main.backupManager.shutdown()
     await slowMine(T, 6)
     T.d("lnd stopped")
     if (!latestSCBEvent) {
