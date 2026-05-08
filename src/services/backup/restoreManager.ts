@@ -13,7 +13,7 @@
 // restored. Restore favors non-inflation over exact replay. This must be stated
 // in code comments and restore-facing documentation.
 
-import { getLogger } from '../helpers/logger.js'
+import { getLogger, PubLogger } from '../helpers/logger.js'
 import { deriveBackupKeys, LATEST_DERIVATION_VERSION, type DerivedKeys } from './derivation.js'
 import { sftpDownload, cloudSftpConfig, type SftpConfig, SFTPFile } from './sftpClient.js'
 import fs from 'fs'
@@ -121,7 +121,7 @@ export class RestoreManager {
             const buffers = new Map<BackupTableId, Buffer>()
             for (const id of BACKUP_RESTORE_ORDER) {
                 const name = backupTableFilename(id)
-                const chunk = await fetchFile(keys, req, name)
+                const chunk = await fetchFile(this.log, keys, req, name)
                 if (!chunk.found) {
                     this.log("buffer not found: " + name)
                     continue
@@ -131,10 +131,10 @@ export class RestoreManager {
                         error: failureMessage(req.source.type, id),
                     } */
                 }
+                this.log("buffer found: " + name + " length: " + chunk.data.length)
                 buffers.set(id, chunk.data)
             }
 
-            this.log("buffers: " + Object.entries(buffers).map(([key, value]) => key + ": " + value.length).join(", "))
 
             const readRows = <T>(id: BackupTableId, decodeRow: (u: Uint8Array) => T): T[] => {
                 const buffer = buffers.get(id)
@@ -364,7 +364,8 @@ export const restoreFromSource = async (dbs: StorageInterface, opts: RestoreOpti
     return { success: true, tablesRestored }
 } */
 
-const fetchFile = async (keys: DerivedKeys, opts: wizardTypes.RestoreRequest, filename: string): Promise<SFTPFile> => {
+const fetchFile = async (log: PubLogger, keys: DerivedKeys, opts: wizardTypes.RestoreRequest, filename: string): Promise<SFTPFile> => {
+    log("fetching file: " + filename, "source: " + opts.source.type)
     switch (opts.source.type) {
         case wizardTypes.RestoreRequest_source_type.CLOUD:
             const couldConf = cloudSftpConfig(keys.sftpUser, keys.sftpPass)
