@@ -6,7 +6,9 @@ import {
     InviteTokenRow, ManagementGrantRow, ProductRow, TrackedProviderRow, UserOfferRow, encodeApplicationRow,
     decodeApplicationRow, decodeApplicationUserRow, decodeTrackedProviderRow, decodeBalanceRow,
     decodeAdminSettingRow, decodeUserOfferRow, decodeProductRow, decodeManagementGrantRow, decodeDebitAccessRow,
-    decodeInviteTokenRow, decodeAppUserDeviceRow
+    decodeInviteTokenRow, decodeAppUserDeviceRow,
+    encodeIndexesRow,
+    decodeIndexesRow
 } from '../services/backup/segments.js'
 import { StorageTestBase } from './testBase.js'
 import crypto from 'crypto'
@@ -23,6 +25,7 @@ const testSerializeBalanceData = (T: StorageTestBase) => {
     T.d('Starting testSerializeBalanceData')
     const backupData = generateBackupData(1)
     const encoded = {
+        indexes: backupData.indexes.map(encodeIndexesRow),
         applications: backupData.applications.map(encodeApplicationRow),
         applicationUsers: backupData.applicationUsers.map(encodeApplicationUserRow),
         adminSettings: backupData.adminSettings.map(encodeAdminSettingRow),
@@ -36,6 +39,7 @@ const testSerializeBalanceData = (T: StorageTestBase) => {
         trackedProviders: backupData.trackedProviders.map(encodeTrackedProviderRow),
     }
     const decoded = {
+        indexes: encoded.indexes.map(decodeIndexesRow),
         applications: encoded.applications.map(decodeApplicationRow),
         applicationUsers: encoded.applicationUsers.map(decodeApplicationUserRow),
         adminSettings: encoded.adminSettings.map(decodeAdminSettingRow),
