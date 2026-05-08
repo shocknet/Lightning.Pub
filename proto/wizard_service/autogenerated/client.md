@@ -82,6 +82,7 @@ The nostr server will send back a message response, and inside the body there wi
   - __user__: _string_
 
 ### RestoreRequest
+  - __address_recovery_window__: _number_
   - __creds_override__: _[FtpCreds](#FtpCreds)_ *this field is optional
   - __phrase__: _string_
   - __relay__: _string_ *this field is optional

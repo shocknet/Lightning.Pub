@@ -61,6 +61,7 @@ message RestoreRequest {
     }
     optional FtpCreds creds_override = 5;
     optional string relay = 6;
+    int64 address_recovery_window = 7;
 }
 
 message RestoreResponse {

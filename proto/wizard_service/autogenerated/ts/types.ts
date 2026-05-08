@@ -146,6 +146,7 @@ export const FtpCredsValidate = (o?: FtpCreds, opts: FtpCredsOptions = {}, path:
 }
 
 export type RestoreRequest = {
+    address_recovery_window: number
     creds_override?: FtpCreds
     phrase: string
     relay?: string
@@ -155,6 +156,7 @@ export type RestoreRequestOptionalField = 'creds_override' | 'relay'
 export const RestoreRequestOptionalFields: RestoreRequestOptionalField[] = ['creds_override', 'relay']
 export type RestoreRequestOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: RestoreRequestOptionalField[]
+    address_recovery_window_CustomCheck?: (v: number) => boolean
     creds_override_Options?: FtpCredsOptions
     phrase_CustomCheck?: (v: string) => boolean
     relay_CustomCheck?: (v?: string) => boolean
@@ -163,6 +165,9 @@ export type RestoreRequestOptions = OptionsBaseMessage & {
 export const RestoreRequestValidate = (o?: RestoreRequest, opts: RestoreRequestOptions = {}, path: string = 'RestoreRequest::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
     if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.address_recovery_window !== 'number') return new Error(`${path}.address_recovery_window: is not a number`)
+    if (opts.address_recovery_window_CustomCheck && !opts.address_recovery_window_CustomCheck(o.address_recovery_window)) return new Error(`${path}.address_recovery_window: custom check failed`)
 
     if (typeof o.creds_override === 'object' || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('creds_override')) {
         const creds_overrideErr = FtpCredsValidate(o.creds_override, opts.creds_override_Options, `${path}.creds_override`)

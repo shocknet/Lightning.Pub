@@ -19,6 +19,9 @@ type EncryptedData = { iv: string, encrypted: string }
 type Seed = { plaintextSeed: string[], encryptedSeed: EncryptedData }
 const SCB_BACKUP_KIND = 30078
 const SCB_BACKUP_D_TAG = 'Lightning.Pub/backup/scb'
+
+type AppWithKeys = Application & { nostr_private_key: string, nostr_public_key: string }
+
 export class Unlocker {
 
     settings: SettingsManager
@@ -63,7 +66,7 @@ export class Unlocker {
         return macaroon !== ''
     }
 
-    Unlock = async (restore?: { seed: string[] }): Promise<'created' | 'unlocked' | 'noaction'> => {
+    Unlock = async (restore?: { seed: string[], recoveryWindow: number }): Promise<'created' | 'unlocked' | 'noaction'> => {
         // Skip LND unlock if using only liquidity provider
         if (this.settings.getSettings().liquiditySettings.useOnlyLiquidityProvider) {
             this.log("USE_ONLY_LIQUIDITY_PROVIDER enabled, skipping LND unlock")
@@ -184,7 +187,7 @@ export class Unlocker {
         });
     }
 
-    InitFlow = async (lndCert: Buffer, restore?: { seed: string[] }) => {
+    InitFlow = async (lndCert: Buffer, restore?: { seed: string[], recoveryWindow: number }) => {
         this.log("macaroon not found, creating wallet...")
         const state = this.GetStateClient(lndCert)
         const stateResult = await this.WaitWalletState(state, 300) // Wait up to 5 minutes
@@ -195,7 +198,10 @@ export class Unlocker {
         // await this.waitForLndSync(300); 
         const unlocker = this.GetUnlockerClient(lndCert)
         const { plaintextSeed, encryptedSeed } = await this.getSeed(unlocker, restore)
-        const recoveryWindow = restore ? 1_000 : 0
+        const recoveryWindow = restore ? restore.recoveryWindow : 0
+        if (recoveryWindow) {
+            this.log("recovering addresses with window: " + recoveryWindow)
+        }
         const res = await this.initWallet(lndCert, unlocker, state, { plaintextSeed, encryptedSeed }, recoveryWindow)
         return { ...res, state }
     }
@@ -398,7 +404,7 @@ export class Unlocker {
         })
     }
 
-    GetAppWithNostrKeys = async (): Promise<Application & { nostr_private_key: string, nostr_public_key: string }> => {
+    GetAppWithNostrKeys = async (): Promise<AppWithKeys> => {
         const apps = await this.storage.applicationStorage.GetApplications()
         const defaultNames = ['wallet', 'wallet-test', this.settings.getSettings().serviceSettings.defaultAppName]
         const local = apps.find(app => defaultNames.includes(app.name))
@@ -426,16 +432,15 @@ export class Unlocker {
         this.nostrSender.Send({ type: 'app', appId: local.app_id }, { type: 'event', event })
     }
 
-    private decryptScbEvent = async (encryptedScb: string) => {
-        const local = await this.GetAppWithNostrKeys()
+    private decryptScbEvent = async (encryptedScb: string, local: AppWithKeys) => {
         const ck = nip44.getConversationKey(Buffer.from(local.nostr_private_key, 'hex'), local.nostr_public_key)
         const plaintext = nip44.decrypt(encryptedScb, ck).trim()
         const scb = Buffer.from(plaintext, 'base64')
         return scb
     }
 
-    ApplyScb = async (encryptedScb: string) => {
-        const scb = await this.decryptScbEvent(encryptedScb)
+    ApplyScb = async (encryptedScb: string, app: AppWithKeys) => {
+        const scb = await this.decryptScbEvent(encryptedScb, app)
 
         const { lndCert, macaroon } = this.getCreds()
         const ln = this.GetLightningClient(lndCert, macaroon)

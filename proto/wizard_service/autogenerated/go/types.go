@@ -34,10 +34,11 @@ type FtpCreds struct {
 	User string `json:"user"`
 }
 type RestoreRequest struct {
-	Creds_override *FtpCreds              `json:"creds_override"`
-	Phrase         string                 `json:"phrase"`
-	Relay          string                 `json:"relay"`
-	Source         *RestoreRequest_source `json:"source"`
+	Address_recovery_window int64                  `json:"address_recovery_window"`
+	Creds_override          *FtpCreds              `json:"creds_override"`
+	Phrase                  string                 `json:"phrase"`
+	Relay                   string                 `json:"relay"`
+	Source                  *RestoreRequest_source `json:"source"`
 }
 type RestoreResponse struct {
 	Error           string `json:"error"`

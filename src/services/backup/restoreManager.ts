@@ -105,7 +105,9 @@ export class RestoreManager {
                     error: 'No phrase provided to restore',
                 }
             }
-            const unlockResult = await this.unlocker.Unlock({ seed: req.phrase.split(' ') })
+            const phrase = req.phrase.split(' ')
+            const recoveryWindow = req.address_recovery_window
+            const unlockResult = await this.unlocker.Unlock({ seed: phrase, recoveryWindow })
             if (unlockResult !== 'created') {
                 return {
                     tables_restored: 0,
@@ -221,7 +223,7 @@ export class RestoreManager {
 
     private restoreScb = async (req: wizardTypes.RestoreRequest) => {
 
-        const app = await this.getRestoredAppWithNostrKeys()
+        const app = await this.unlocker.GetAppWithNostrKeys()
         if (!app) {
             throw new Error('SCB restore skipped: no restored app with nostr keys')
         }
@@ -229,11 +231,11 @@ export class RestoreManager {
         if (!relay) {
             throw new Error('SCB restore skipped: no relay configured')
         }
-        const scbEvent = await this.fetchScbEventFromRelay(relay, app.nostr_public_key!, app.nostr_private_key!)
+        const scbEvent = await this._fetchScbDataFromRelay(relay, app.nostr_public_key)
         if (!scbEvent) {
             throw new Error('SCB restore skipped: no SCB backup event found on relay')
         }
-        await this.unlocker.ApplyScb(scbEvent.content)
+        await this.unlocker.ApplyScb(scbEvent, app)
     }
 
     private getRestoreRelay = (req: wizardTypes.RestoreRequest): string | null => {
@@ -244,17 +246,17 @@ export class RestoreManager {
         return relays[0] || null
     }
 
-    private getRestoredAppWithNostrKeys = async (): Promise<Application | null> => {
-        const apps = await this.storage.applicationStorage.GetApplications()
-        const defaults = ['wallet', 'wallet-test', this.settings.getSettings().serviceSettings.defaultAppName]
-        const preferred = apps.find(app => defaults.includes(app.name) && !!app.nostr_private_key && !!app.nostr_public_key)
-        if (preferred) {
-            return preferred
-        }
-        return apps.find(app => !!app.nostr_private_key && !!app.nostr_public_key) || null
-    }
+    /*     private getRestoredAppWithNostrKeys = async (): Promise<Application | null> => {
+            const apps = await this.storage.applicationStorage.GetApplications()
+            const defaults = ['wallet', 'wallet-test', this.settings.getSettings().serviceSettings.defaultAppName]
+            const preferred = apps.find(app => defaults.includes(app.name) && !!app.nostr_private_key && !!app.nostr_public_key)
+            if (preferred) {
+                return preferred
+            }
+            return apps.find(app => !!app.nostr_private_key && !!app.nostr_public_key) || null
+        } */
 
-    private fetchScbEventFromRelay = async (relayUrl: string, pubkey: string, privkey: string): Promise<NostrEvent | null> => {
+    _fetchScbDataFromRelay = async (relayUrl: string, pubkey: string): Promise<string | null> => {
         const relay = await Relay.connect(relayUrl)
         try {
             const events: NostrEvent[] = []
@@ -279,7 +281,7 @@ export class RestoreManager {
                 return null
             }
             const latest = events.sort((a, b) => (b.created_at || 0) - (a.created_at || 0))[0]
-            return latest
+            return latest.content
             /* const ck = nip44.getConversationKey(Buffer.from(privkey, 'hex'), pubkey)
             const plaintext = nip44.decrypt(latest.content, ck).trim()
             return Buffer.from(plaintext, 'base64') */
@@ -585,6 +587,13 @@ export const parseRestoreFlags = (flags: Record<string, string>): wizardTypes.Re
         throw new Error('Error: --source is required (cloud|ftp|local)')
     }
 
+    const recoveryWindow = +flags['recovery-window'] || 0
+    if (recoveryWindow <= 0) {
+        throw new Error('Error: --recovery-window must be greater than 0')
+    }
+
+
+
     if (!validRestoreSources.includes(source)) {
         throw new Error(`Error: --source must be one of: ${validRestoreSources.join(', ')}`)
     }
@@ -604,8 +613,8 @@ export const parseRestoreFlags = (flags: Record<string, string>): wizardTypes.Re
             phrase, source: {
                 type: wizardTypes.RestoreRequest_source_type.FTP_HOST,
                 ftp_host: sftpHost,
-            }, creds_override: creds, relay
-
+            }, creds_override: creds, relay,
+            address_recovery_window: recoveryWindow
         }
     } else if (source === 'local') {
         const localPath = flags['local-path']
@@ -616,14 +625,16 @@ export const parseRestoreFlags = (flags: Record<string, string>): wizardTypes.Re
             phrase, source: {
                 type: wizardTypes.RestoreRequest_source_type.LOCAL_PATH,
                 local_path: localPath,
-            }, creds_override: creds, relay
+            }, creds_override: creds, relay,
+            address_recovery_window: recoveryWindow
         }
     } else {
         return {
             phrase, source: {
                 type: wizardTypes.RestoreRequest_source_type.CLOUD,
                 cloud: {}
-            }, creds_override: creds, relay
+            }, creds_override: creds, relay,
+            address_recovery_window: recoveryWindow
         }
     }
 }

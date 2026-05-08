@@ -110,10 +110,15 @@ const recoverEliot = async (T: TestBase, seed: string[], scbEvent: UnsignedEvent
         //s.backupSettings.localPath = backupLocalPath
         return s
     })
+    T.d("overriding fetch SCB data from relay")
+    restore._fetchScbDataFromRelay = async (_, __) => {
+        return scbEvent.content
+    }
     T.d("restoring segments data")
     await restore.RestoreFromSource({
         phrase: seed.join(" "),
-        source: { type: WizardTypes.RestoreRequest_source_type.LOCAL_PATH, local_path: backupLocalPath }
+        source: { type: WizardTypes.RestoreRequest_source_type.LOCAL_PATH, local_path: backupLocalPath },
+        address_recovery_window: 100
     })
     T.d("segments data restored")
     /*     T.d("adding default application to database")
