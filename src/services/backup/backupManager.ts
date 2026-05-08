@@ -87,7 +87,9 @@ export class BackupManager {
 
     /** Debounced upload for any backup table (coalesces rapid writes per table id). */
     private notifyBackupTableDebounced(id: BackupTableId) {
-        if (!this.isBackupConfigured()) return
+        const isBackupConfigured = this.isBackupConfigured()
+        this.log("notifying backup table debounced: " + id + " isBackupConfigured: " + isBackupConfigured)
+        if (!isBackupConfigured) return
         const existing = this.debounceTimers.get(id)
         if (existing) clearTimeout(existing)
         this.debounceTimers.set(
@@ -112,6 +114,7 @@ export class BackupManager {
     }
 
     private async uploadTable(id: BackupTableId) {
+        this.log("uploading table: " + id)
         const encKey = this.keys.encKey
         let encrypted: Buffer
         switch (id) {
@@ -187,6 +190,7 @@ export class BackupManager {
             }
         }
         await this.pushEncrypted(backupTableFilename(id), encrypted)
+        this.log("table uploaded: " + id)
     }
 
     private async pushEncrypted(filename: string, encrypted: Buffer) {

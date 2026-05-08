@@ -124,11 +124,12 @@ export class RestoreManager {
                 const chunk = await fetchFile(keys, req, name)
                 if (!chunk.found) {
                     this.log("buffer not found: " + name)
-                    return {
+                    continue
+                    /* return {
                         tables_restored: 0,
                         success: false,
                         error: failureMessage(req.source.type, id),
-                    }
+                    } */
                 }
                 buffers.set(id, chunk.data)
             }
