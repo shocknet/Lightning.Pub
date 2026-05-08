@@ -11,6 +11,7 @@ import {
 
 } from "./settings.js"
 import { BackupManager } from "../backup/backupManager.js"
+export type SettingOverrideFunction = (s: FullSettings) => FullSettings
 export default class SettingsManager {
     storage: Storage
     private settings: FullSettings | null = null
@@ -41,7 +42,7 @@ export default class SettingsManager {
         }
     }
 
-    OverrideTestSettings(f: (s: FullSettings) => FullSettings) {
+    OverrideTestSettings(f: SettingOverrideFunction) {
         if (!this.settings) {
             throw new Error("Settings not initialized")
         }

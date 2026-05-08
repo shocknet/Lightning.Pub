@@ -60,7 +60,7 @@ message RestoreRequest {
         string local_path = 4;
     }
     optional FtpCreds creds_override = 5;
-    optional string relay = 6;
+    optional string relay = 6; 
 }
 
 message RestoreResponse {

@@ -73,11 +73,12 @@ export type LndNodeSettings = {
     lndAddr: string // cold setting
     lndCertPath: string // cold setting
     lndMacaroonPath: string // cold setting
+    lndLogDir: string // cold setting
 }
 const networks = ['mainnet', 'testnet', 'regtest'] as const
 export type BTCNetwork = (typeof networks)[number]
 export type LndSettings = {
-    lndLogDir: string
+
     routingFeeLimitBps: number
     routingFeeFloor: number
     mockLnd: boolean
@@ -103,6 +104,7 @@ const lndDir = () => {
 
 export const LoadLndNodeSettingsFromEnv = (dbEnv: Record<string, string | undefined>, addToDb?: EnvCacher): LndNodeSettings => {
     return {
+        lndLogDir: chooseEnv('LND_LOG_DIR', dbEnv, resolveHome("/.lnd/logs/bitcoin/mainnet/lnd.log"), addToDb),
         lndAddr: chooseEnv('LND_ADDRESS', dbEnv, "127.0.0.1:10009", addToDb),
         lndCertPath: chooseEnv('LND_CERT_PATH', dbEnv, path.join(lndDir(), "tls.cert"), addToDb),
         lndMacaroonPath: chooseEnv('LND_MACAROON_PATH', dbEnv, path.join(lndDir(), "data", "chain", "bitcoin", "mainnet", "admin.macaroon"), addToDb),
@@ -115,7 +117,6 @@ export const LoadLndSettingsFromEnv = (dbEnv: Record<string, string | undefined>
     const routingFeeFloor = chooseEnvInt('ROUTING_FEE_FLOOR_SATS', dbEnv, oldRoutingFeeFloor, addToDb)
     const routingFeeLimitBps = chooseEnvInt('ROUTING_FEE_LIMIT_BPS', dbEnv, 50, addToDb)
     return {
-        lndLogDir: chooseEnv('LND_LOG_DIR', dbEnv, resolveHome("/.lnd/logs/bitcoin/mainnet/lnd.log"), addToDb),
         routingFeeLimitBps,
         routingFeeFloor,
         mockLnd: false,
@@ -238,30 +239,50 @@ export const LoadBackupSettingsFromEnv = (dbEnv: Record<string, string | undefin
 
 
 
-export const LoadSecondLndSettingsFromEnv = (): LndNodeSettings => {
+export const LoadBobLndSettingsFromEnv = (): LndNodeSettings => {
     return {
-        lndAddr: EnvMustBeNonEmptyString("LND_OTHER_ADDR"),
-        lndCertPath: EnvMustBeNonEmptyString("LND_OTHER_CERT_PATH"),
-        lndMacaroonPath: EnvMustBeNonEmptyString("LND_OTHER_MACAROON_PATH")
+        lndAddr: EnvMustBeNonEmptyString("LND_BOB_ADDR"),
+        lndCertPath: EnvMustBeNonEmptyString("LND_BOB_CERT_PATH"),
+        lndMacaroonPath: EnvMustBeNonEmptyString("LND_BOB_MACAROON_PATH"),
+        lndLogDir: EnvMustBeNonEmptyString("LND_BOB_LOG_DIR")
     }
 }
 
-export const LoadThirdLndSettingsFromEnv = (): LndNodeSettings => {
+export const LoadCarolLndSettingsFromEnv = (): LndNodeSettings => {
 
     return {
-        lndAddr: EnvMustBeNonEmptyString("LND_THIRD_ADDR"),
-        lndCertPath: EnvMustBeNonEmptyString("LND_THIRD_CERT_PATH"),
-        lndMacaroonPath: EnvMustBeNonEmptyString("LND_THIRD_MACAROON_PATH")
+        lndAddr: EnvMustBeNonEmptyString("LND_CAROL_ADDR"),
+        lndCertPath: EnvMustBeNonEmptyString("LND_CAROL_CERT_PATH"),
+        lndMacaroonPath: EnvMustBeNonEmptyString("LND_CAROL_MACAROON_PATH"),
+        lndLogDir: EnvMustBeNonEmptyString("LND_CAROL_LOG_DIR")
     }
 }
 
-export const LoadFourthLndSettingsFromEnv = (): LndNodeSettings => {
+export const LoadDaveLndSettingsFromEnv = (): LndNodeSettings => {
 
     return {
-        lndAddr: EnvMustBeNonEmptyString("LND_FOURTH_ADDR"),
-        lndCertPath: EnvMustBeNonEmptyString("LND_FOURTH_CERT_PATH"),
-        lndMacaroonPath: EnvMustBeNonEmptyString("LND_FOURTH_MACAROON_PATH")
+        lndAddr: EnvMustBeNonEmptyString("LND_DAVE_ADDR"),
+        lndCertPath: EnvMustBeNonEmptyString("LND_DAVE_CERT_PATH"),
+        lndMacaroonPath: EnvMustBeNonEmptyString("LND_DAVE_MACAROON_PATH"),
+        lndLogDir: EnvMustBeNonEmptyString("LND_DAVE_LOG_DIR")
     }
+}
+
+export const LoadEliotLndSettingsFromEnv = (): [LndNodeSettings, LndNodeSettings] => {
+    return [
+        {
+            lndAddr: EnvMustBeNonEmptyString("LND_ELIOT_ADDR"),
+            lndCertPath: EnvMustBeNonEmptyString("LND_ELIOT_CERT_PATH"),
+            lndMacaroonPath: EnvMustBeNonEmptyString("LND_ELIOT_MACAROON_PATH"),
+            lndLogDir: EnvMustBeNonEmptyString("LND_ELIOT_LOG_DIR")
+        },
+        {
+            lndAddr: EnvMustBeNonEmptyString("LND_ELIOT2_ADDR"),
+            lndCertPath: EnvMustBeNonEmptyString("LND_ELIOT2_CERT_PATH"),
+            lndMacaroonPath: EnvMustBeNonEmptyString("LND_ELIOT2_MACAROON_PATH"),
+            lndLogDir: EnvMustBeNonEmptyString("LND_ELIOT2_LOG_DIR")
+        }
+    ]
 }
 
 export const LoadBitcoinCoreSettingsFromEnv = (): BitcoinCoreSettings => {

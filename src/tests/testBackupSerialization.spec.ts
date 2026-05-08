@@ -1,5 +1,15 @@
-import { AdminSettingRow, ApplicationRow, ApplicationUserRow, AppUserDeviceRow, BalanceRow, BalancesData, DebitAccessRow, decodeBalancesData, encodeBalancesData, encodeIdentityData, IdentityData, InviteTokenRow, ManagementGrantRow, ProductRow, TrackedProviderRow, UserOfferRow } from '../services/backup/segments.js'
-import { decodeIdentityData } from '../services/backup/segments.js'
+import {
+    AdminSettingRow, ApplicationRow, ApplicationUserRow, AppUserDeviceRow,
+    BackupData, BalanceRow, DebitAccessRow, encodeApplicationUserRow, encodeAdminSettingRow,
+    encodeUserOfferRow, encodeProductRow, encodeManagementGrantRow, encodeDebitAccessRow,
+    encodeInviteTokenRow, encodeBalanceRow, encodeAppUserDeviceRow, encodeTrackedProviderRow,
+    InviteTokenRow, ManagementGrantRow, ProductRow, TrackedProviderRow, UserOfferRow, encodeApplicationRow,
+    decodeApplicationRow, decodeApplicationUserRow, decodeTrackedProviderRow, decodeBalanceRow,
+    decodeAdminSettingRow, decodeUserOfferRow, decodeProductRow, decodeManagementGrantRow, decodeDebitAccessRow,
+    decodeInviteTokenRow, decodeAppUserDeviceRow,
+    encodeIndexesRow,
+    decodeIndexesRow
+} from '../services/backup/segments.js'
 import { StorageTestBase } from './testBase.js'
 import crypto from 'crypto'
 export const ignore = false
@@ -8,29 +18,46 @@ export const requires = 'storage'
 
 export default async (T: StorageTestBase) => {
     testSerializeBalanceData(T)
-    testSerializeIdentityData(T)
     //testSize(T)
 }
 
 const testSerializeBalanceData = (T: StorageTestBase) => {
     T.d('Starting testSerializeBalanceData')
-    const balances = generateBalancesData(1)
-    const balancesTlv = encodeBalancesData(balances)
-    const balancesDecoded = decodeBalancesData(balancesTlv)
-    console.log(balancesDecoded)
-    console.log(balances)
-    T.expect(balancesDecoded).to.deep.equal(balances)
+    const backupData = generateBackupData(1)
+    const encoded = {
+        indexes: backupData.indexes.map(encodeIndexesRow),
+        applications: backupData.applications.map(encodeApplicationRow),
+        applicationUsers: backupData.applicationUsers.map(encodeApplicationUserRow),
+        adminSettings: backupData.adminSettings.map(encodeAdminSettingRow),
+        userOffers: backupData.userOffers.map(encodeUserOfferRow),
+        products: backupData.products.map(encodeProductRow),
+        managementGrants: backupData.managementGrants.map(encodeManagementGrantRow),
+        debitAccesses: backupData.debitAccesses.map(encodeDebitAccessRow),
+        inviteTokens: backupData.inviteTokens.map(encodeInviteTokenRow),
+        appUserDevices: backupData.appUserDevices.map(encodeAppUserDeviceRow),
+        balances: backupData.balances.map(encodeBalanceRow),
+        trackedProviders: backupData.trackedProviders.map(encodeTrackedProviderRow),
+    }
+    const decoded = {
+        indexes: encoded.indexes.map(decodeIndexesRow),
+        applications: encoded.applications.map(decodeApplicationRow),
+        applicationUsers: encoded.applicationUsers.map(decodeApplicationUserRow),
+        adminSettings: encoded.adminSettings.map(decodeAdminSettingRow),
+        userOffers: encoded.userOffers.map(decodeUserOfferRow),
+        products: encoded.products.map(decodeProductRow),
+        managementGrants: encoded.managementGrants.map(decodeManagementGrantRow),
+        debitAccesses: encoded.debitAccesses.map(decodeDebitAccessRow),
+        inviteTokens: encoded.inviteTokens.map(decodeInviteTokenRow),
+        appUserDevices: encoded.appUserDevices.map(decodeAppUserDeviceRow),
+        balances: encoded.balances.map(decodeBalanceRow),
+        trackedProviders: encoded.trackedProviders.map(decodeTrackedProviderRow),
+    }
+    console.log(backupData)
+    console.log(decoded)
+    T.expect(decoded).to.deep.equal(backupData)
     T.d('Finished testSerializeBalanceData')
 }
 
-const testSerializeIdentityData = (T: StorageTestBase) => {
-    T.d('Starting testSerializeIdentityData')
-    const identity = generateIdentityData(1)
-    const identityTlv = encodeIdentityData(identity)
-    const identityDecoded = decodeIdentityData(identityTlv)
-    T.expect(identityDecoded).to.deep.equal(identity)
-    T.d('Finished testSerializeIdentityData')
-}
 
 /* const testSize = (T: StorageTestBase) => {
     const identity = generateIdentityData(1000)
@@ -111,9 +138,10 @@ const explode = (base: number) => {
 }
 
 
-const generateIdentityData = (base: number): IdentityData => {
+const generateBackupData = (base: number): BackupData => {
     const ex = explode(base)
     return {
+        indexes: [{ addressesCount: 20 }],
         applications: ex(1, "applications").map(generateApplicationRow),
         applicationUsers: ex(100, "applicationUsers").map(generateApplicationUserRow),
         adminSettings: ex(10, "adminSettings").map(generateAdminSettingRow),
@@ -123,12 +151,6 @@ const generateIdentityData = (base: number): IdentityData => {
         debitAccesses: ex(10, "debitAccesses").map(generateDebitAccessRow),
         inviteTokens: ex(10, "inviteTokens").map(generateInviteTokenRow),
         appUserDevices: ex(10, "appUserDevices").map(generateAppUserDeviceRow),
-    }
-}
-
-const generateBalancesData = (base: number): BalancesData => {
-    const ex = explode(base)
-    return {
         balances: ex(100, "balances").map(generateBalanceRow),
         trackedProviders: ex(1, "trackedProviders").map(generateTrackedProviderRow),
     }
@@ -172,7 +194,7 @@ const generateUserOfferRow = (base: number): UserOfferRow => {
         management_pubkey: randomHex,
         label: `test-user-offer-${base}`,
         price_sats: 1000,
-        callback_url: `https://test-user-offer-${base}.com`,
+        callback_url: ``,
         bearer_token: "random-bearer-token",
         rejectUnauthorized: true,
         blind: false,

@@ -2,10 +2,13 @@
 import { globby } from 'globby'
 import { ChainTools, setupNetwork } from './networkSetup.js'
 import { Describe, SetupTest, teardown, TestBase, StorageTestBase, setupStorageTest, teardownStorageTest } from './testBase.js'
+import { LndNodeSettings } from '../services/main/settings.js'
+import { SettingOverrideFunction } from '../services/main/settingsManager.js'
 type TestModule = {
     ignore?: boolean
     dev?: boolean
     requires?: 'storage' | '*'
+    settingsOverride?: SettingOverrideFunction
     default: (T: TestBase | StorageTestBase) => Promise<void>
 }
 let failures = 0
@@ -21,7 +24,9 @@ const getDescribe = (fileName: string): Describe => {
 }
 
 const start = async () => {
-    const files = await globby(["**/*.spec.js", "!**/node_modules/**"])
+    // Scope to compiled tests only: a repo-root ** glob walks Docker volume dirs under
+    // volumes/lnd/*/data (root-owned, mode 0700), which breaks CI with EACCES.
+    const files = await globby("build/src/tests/**/*.spec.js")
     const modules: { file: string, module: TestModule }[] = []
     let devModule = -1
     for (const file of files) {
@@ -82,7 +87,7 @@ const runTestFile = async (fileName: string, mod: TestModule, chainTools?: Chain
         if (!chainTools) {
             throw new Error("chainTools are required for this test")
         }
-        T = await SetupTest(d, chainTools)
+        T = await SetupTest(d, chainTools, mod.settingsOverride || (s => s))
     }
     try {
         d("test starting")

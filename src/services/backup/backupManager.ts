@@ -24,6 +24,8 @@ import {
     encodeBalanceRow,
     encodeTrackedProviderRow,
     encryptTableRows,
+    IndexesRow,
+    encodeIndexesRow,
 } from './segments.js'
 import { BACKUP_RESTORE_ORDER, backupTableFilename, type BackupTableId } from './backupTables.js'
 import SettingsManager from '../main/settingsManager.js'
@@ -34,6 +36,7 @@ export type { BackupTableId } from './backupTables.js'
 const TABLE_DEBOUNCE_MS = 30_000
 const WAIT_IN_FLIGHT_MS = 10_000
 
+
 export class BackupManager {
     log = getLogger({ component: 'backupManager' })
     storage: Storage
@@ -41,6 +44,8 @@ export class BackupManager {
     keys: DerivedKeys
     private debounceTimers = new Map<BackupTableId, ReturnType<typeof setTimeout>>()
     private debouncedUploadInProgress = new Set<BackupTableId>()
+    shuttingDown = false
+    indexesBackup: IndexesRow | null = null
     constructor(storage: Storage, settings: SettingsManager) {
         this.storage = storage
         this.settings = settings
@@ -77,6 +82,13 @@ export class BackupManager {
         }
     }
 
+    async AddressUpdate(count: number) {
+        this.indexesBackup = {
+            addressesCount: count,
+        }
+        this.notifyBackupTableDebounced('indexes')
+    }
+
     /** Immediately upload one or more table shards (shares one key derivation per call). */
     async notifyBackupTable(...ids: BackupTableId[]): Promise<void> {
         if (!this.isBackupConfigured() || ids.length === 0) return
@@ -87,7 +99,13 @@ export class BackupManager {
 
     /** Debounced upload for any backup table (coalesces rapid writes per table id). */
     private notifyBackupTableDebounced(id: BackupTableId) {
-        if (!this.isBackupConfigured()) return
+        if (this.shuttingDown) {
+            this.log("shutting down, skipping backup table debounced: " + id)
+            return
+        }
+        const isBackupConfigured = this.isBackupConfigured()
+        this.log("notifying backup table debounced: " + id + " isBackupConfigured: " + isBackupConfigured)
+        if (!isBackupConfigured) return
         const existing = this.debounceTimers.get(id)
         if (existing) clearTimeout(existing)
         this.debounceTimers.set(
@@ -112,9 +130,18 @@ export class BackupManager {
     }
 
     private async uploadTable(id: BackupTableId) {
+        this.log("uploading table: " + id)
         const encKey = this.keys.encKey
         let encrypted: Buffer
         switch (id) {
+            case 'indexes': {
+                if (!this.indexesBackup) {
+                    return
+                }
+                const enc = [encodeIndexesRow(this.indexesBackup)]
+                encrypted = encryptTableRows(enc, encKey)
+                break
+            }
             case 'applications': {
                 const rows = await this.storage.applicationStorage.ExportApplications()
                 const enc = rows.map(encodeApplicationRow)
@@ -187,6 +214,7 @@ export class BackupManager {
             }
         }
         await this.pushEncrypted(backupTableFilename(id), encrypted)
+        this.log("table uploaded: " + id)
     }
 
     private async pushEncrypted(filename: string, encrypted: Buffer) {
@@ -252,6 +280,7 @@ export class BackupManager {
      * then upload every table once so remote matches current DB.
      */
     async shutdown(): Promise<void> {
+        this.shuttingDown = true
         for (const t of this.debounceTimers.values()) {
             clearTimeout(t)
         }

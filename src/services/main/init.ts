@@ -22,7 +22,7 @@ export type AppData = {
     name: string;
 }
 
-export const initSettings = async (log: PubLogger, storageSettings: StorageSettings): Promise<{ settingsManager: SettingsManager, restore: RestoreManager, unlocker: Unlocker } | undefined> => {
+export const initSettings = async (log: PubLogger, storageSettings: StorageSettings): Promise<{ settingsManager: SettingsManager, restore: RestoreManager, unlocker: Unlocker, nostrSender: NostrSender } | undefined> => {
     const nostrSender = new NostrSender()
     const utils = new Utils({ dataDir: storageSettings.dataDir, allowResetMetricsStorages: storageSettings.allowResetMetricsStorages }, nostrSender)
     const storageManager = new Storage(storageSettings, utils)
@@ -36,7 +36,7 @@ export const initSettings = async (log: PubLogger, storageSettings: StorageSetti
     if (stop) {
         return
     }
-    return { settingsManager, restore, unlocker }
+    return { settingsManager, restore, unlocker, nostrSender }
 }
 export const initMainHandler = async (log: PubLogger, settingsManager: SettingsManager, restore: RestoreManager, unlocker: Unlocker) => {
     const storageManager = settingsManager.storage

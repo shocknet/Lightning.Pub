@@ -14,7 +14,7 @@ import { OpenChannelReq } from './openChannelReq.js';
 import { AddInvoiceReq } from './addInvoiceReq.js';
 import { PayInvoiceReq } from './payInvoiceReq.js';
 import { SendCoinsReq } from './sendCoinsReq.js';
-import { AddressPaidCb, InvoicePaidCb, NodeInfo, Invoice, DecodedInvoice, PaidInvoice, NewBlockCb, HtlcCb, BalanceInfo, ChannelEventCb } from './settings.js';
+import { AddressPaidCb, InvoicePaidCb, NodeInfo, Invoice, DecodedInvoice, PaidInvoice, NewBlockCb, HtlcCb, BalanceInfo, ChannelEventCb, UnlockLndCb, NewAddressCb } from './settings.js';
 import { ERROR, getLogger, DEBUG, INFO } from '../helpers/logger.js';
 import { HtlcEvent_EventType } from '../../../proto/lnd/router.js';
 import { LiquidityProvider } from '../main/liquidityProvider.js';
@@ -28,11 +28,19 @@ import { ListAddressesResponse, PublishResponse } from '../../../proto/lnd/walle
 const DeadLineMetadata = (deadline = 10 * 1000) => ({ deadline: Date.now() + deadline })
 const deadLndRetrySeconds = 20
 type TxActionOptions = { useProvider: boolean, from: 'user' | 'system' }
-type NodeSettingsOverride = {
-    lndAddr: string
-    lndCertPath: string
-    lndMacaroonPath: string
+
+export type LndHooks = {
+    unlockLnd: UnlockLndCb
+    addressPaidCb: AddressPaidCb
+    invoicePaidCb: InvoicePaidCb
+    newBlockCb: NewBlockCb
+    htlcCb: HtlcCb
+    channelEventCb: ChannelEventCb
+    newAddressCb: NewAddressCb
 }
+
+
+
 export type LndAddress = { address: string, change: boolean }
 export default class {
     lightning: LightningClient
@@ -54,17 +62,20 @@ export default class {
     outgoingOpsLocked = false
     liquidProvider: LiquidityProvider
     utils: Utils
-    unlockLnd: () => Promise<void>
+    unlockLnd: UnlockLndCb
+    newAddressCb: NewAddressCb
     addressesCache: Record<string, { isChange: boolean }> = {}
-    constructor(getSettings: () => { lndSettings: LndSettings, lndNodeSettings: LndNodeSettings }, liquidProvider: LiquidityProvider, unlockLnd: () => Promise<any>, utils: Utils, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb, newBlockCb: NewBlockCb, htlcCb: HtlcCb, channelEventCb: ChannelEventCb) {
+    constructor(getSettings: () => { lndSettings: LndSettings, lndNodeSettings: LndNodeSettings }, liquidProvider: LiquidityProvider, utils: Utils, hooks: LndHooks) {
         this.getSettings = getSettings
         this.utils = utils
+        const { unlockLnd, addressPaidCb, invoicePaidCb, newBlockCb, htlcCb, channelEventCb, newAddressCb } = hooks
         this.unlockLnd = unlockLnd
         this.addressPaidCb = addressPaidCb
         this.invoicePaidCb = invoicePaidCb
         this.newBlockCb = newBlockCb
         this.htlcCb = htlcCb
         this.channelEventCb = channelEventCb
+        this.newAddressCb = newAddressCb
         this.liquidProvider = liquidProvider
 
         // Skip LND client initialization if using only liquidity provider
@@ -354,6 +365,11 @@ export default class {
         return addr.change
     }
 
+    async CountAddresses(): Promise<number> {
+        const res = await this.walletKit.listAddresses({ accountName: "", showCustomAccounts: false }, DeadLineMetadata())
+        return res.response.accountWithAddresses.reduce((acc, a) => acc + a.addresses.length, 0)
+    }
+
     async ListAddresses(): Promise<LndAddress[]> {
         this.log(DEBUG, "Listing addresses")
         const res = await this.walletKit.listAddresses({ accountName: "", showCustomAccounts: false }, DeadLineMetadata())
@@ -389,6 +405,9 @@ export default class {
         try {
             const res = await this.lightning.newAddress({ account: "", type: lndAddressType }, DeadLineMetadata())
             this.utils.stateBundler.AddTxPoint('addedAddress', 1, { from, used: 'lnd' })
+            this.CountAddresses()
+                .then(total => this.newAddressCb(res.response.address, total))
+                .catch(err => this.log(ERROR, "Error getting addresses count", err))
             return res.response
         } catch (err) {
             this.utils.stateBundler.AddTxPointFailed('addedAddress', 1, { from, used: 'lnd' })
