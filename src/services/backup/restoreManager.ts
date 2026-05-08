@@ -123,6 +123,7 @@ export class RestoreManager {
                 const name = backupTableFilename(id)
                 const chunk = await fetchFile(keys, req, name)
                 if (!chunk.found) {
+                    this.log("buffer not found: " + name)
                     return {
                         tables_restored: 0,
                         success: false,
