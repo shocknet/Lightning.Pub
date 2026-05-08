@@ -2,6 +2,7 @@
 // `BACKUP_RESTORE_ORDER` is the dialtone import order (must match FK / overlay semantics).
 
 export const BACKUP_TABLE_IDS = [
+    'indexes',
     'user_balances',
     'tracked_providers',
     'applications',

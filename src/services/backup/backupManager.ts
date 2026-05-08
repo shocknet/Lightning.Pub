@@ -24,6 +24,8 @@ import {
     encodeBalanceRow,
     encodeTrackedProviderRow,
     encryptTableRows,
+    IndexesRow,
+    encodeIndexesRow,
 } from './segments.js'
 import { BACKUP_RESTORE_ORDER, backupTableFilename, type BackupTableId } from './backupTables.js'
 import SettingsManager from '../main/settingsManager.js'
@@ -34,6 +36,7 @@ export type { BackupTableId } from './backupTables.js'
 const TABLE_DEBOUNCE_MS = 30_000
 const WAIT_IN_FLIGHT_MS = 10_000
 
+
 export class BackupManager {
     log = getLogger({ component: 'backupManager' })
     storage: Storage
@@ -42,6 +45,7 @@ export class BackupManager {
     private debounceTimers = new Map<BackupTableId, ReturnType<typeof setTimeout>>()
     private debouncedUploadInProgress = new Set<BackupTableId>()
     shuttingDown = false
+    indexesBackup: IndexesRow | null = null
     constructor(storage: Storage, settings: SettingsManager) {
         this.storage = storage
         this.settings = settings
@@ -76,6 +80,13 @@ export class BackupManager {
         for (const id of BACKUP_RESTORE_ORDER) {
             this.notifyBackupTableDebounced(id)
         }
+    }
+
+    async AddressUpdate(count: number) {
+        this.indexesBackup = {
+            addressesCount: count,
+        }
+        this.notifyBackupTableDebounced('indexes')
     }
 
     /** Immediately upload one or more table shards (shares one key derivation per call). */
@@ -123,6 +134,14 @@ export class BackupManager {
         const encKey = this.keys.encKey
         let encrypted: Buffer
         switch (id) {
+            case 'indexes': {
+                if (!this.indexesBackup) {
+                    return
+                }
+                const enc = [encodeIndexesRow(this.indexesBackup)]
+                encrypted = encryptTableRows(enc, encKey)
+                break
+            }
             case 'applications': {
                 const rows = await this.storage.applicationStorage.ExportApplications()
                 const enc = rows.map(encodeApplicationRow)

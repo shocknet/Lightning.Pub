@@ -62,14 +62,42 @@ const joinChunks = (chunks: Uint8Array[] | undefined): Uint8Array => {
     return concatBytes(...chunks)
 }
 
-// --- Balance segment (hot) ---
-
-export type BalancesData = {
+export type BackupData = {
+    indexes: IndexesRow[]
     balances: BalanceRow[]
     trackedProviders: TrackedProviderRow[]
+    applications: ApplicationRow[]
+    applicationUsers: ApplicationUserRow[]
+    adminSettings: AdminSettingRow[]
+    userOffers: UserOfferRow[]
+    products: ProductRow[]
+    managementGrants: ManagementGrantRow[]
+    debitAccesses: DebitAccessRow[]
+    inviteTokens: InviteTokenRow[]
+    appUserDevices: AppUserDeviceRow[]
 }
 
-export const encodeBalancesData = (data: BalancesData): Uint8Array => {
+// --- Balance segment (hot) ---
+
+/* export type IndexesData = {
+    addressesCount: number
+}
+
+export const encodeIndexesData = (data: IndexesData): Uint8Array => {
+    const version = 1
+    const tlv: TLV = {
+        2: [new Uint8Array([version])],
+        3: [numberToBytes(data.addressesCount)],
+    }
+    return encodeTLbV(tlv)
+} */
+
+/* export type BalancesData = {
+    balances: BalanceRow[]
+    trackedProviders: TrackedProviderRow[]
+} */
+
+/* export const encodeBalancesData = (data: BalancesData): Uint8Array => {
     const version = 1
     const tlv: TLV = {
         2: [new Uint8Array([version])],
@@ -77,9 +105,9 @@ export const encodeBalancesData = (data: BalancesData): Uint8Array => {
         4: data.trackedProviders.map(encodeTrackedProviderRow),
     }
     return encodeTLbV(tlv)
-}
+} */
 
-export const decodeBalancesData = (data: Uint8Array): BalancesData => {
+/* export const decodeBalancesData = (data: Uint8Array): BalancesData => {
     const tlv = parseTLbV(data)
     const v = tlv[2][0][0]
     if (v !== 1) {
@@ -88,17 +116,35 @@ export const decodeBalancesData = (data: Uint8Array): BalancesData => {
     const balances = tlv[3].map(decodeBalanceRow)
     const trackedProviders = tlv[4].map(decodeTrackedProviderRow)
     return { balances, trackedProviders }
-}
+} */
 
-export const encryptBalancesData = (data: BalancesData, key: Buffer): Buffer => {
+/* export const encryptBalancesData = (data: BalancesData, key: Buffer): Buffer => {
     const plaintext = encodeBalancesData(data)
     const encrypted = encryptPayload(Buffer.from(plaintext), key)
     return encrypted
-}
-
+} */
+/* 
 export const decryptBalancesData = (data: Buffer, key: Buffer): BalancesData => {
     const plaintext = decryptPayload(data, key)
     return decodeBalancesData(plaintext)
+} */
+
+export type IndexesRow = {
+    addressesCount: number
+}
+
+export const encodeIndexesRow = (indexes: IndexesRow): Uint8Array => {
+    const tlv: TLV = {
+        2: [numberToBytes(indexes.addressesCount)],
+    }
+    return encodeTLV(tlv)
+}
+
+export const decodeIndexesRow = (data: Uint8Array): IndexesRow => {
+    const tlv = parseTLV(data)
+    return {
+        addressesCount: numberFromBytes(tlv[2][0]),
+    }
 }
 
 export type BalanceRow = {
@@ -195,7 +241,7 @@ export const decryptTableRows = (data: Buffer, encKey: Buffer): Uint8Array[] => 
 
 // --- Identity segment (cold) ---
 
-export type IdentityData = {
+/* export type IdentityData = {
     applications: ApplicationRow[]
     applicationUsers: ApplicationUserRow[]
     adminSettings: AdminSettingRow[]
@@ -205,9 +251,9 @@ export type IdentityData = {
     debitAccesses: DebitAccessRow[]
     inviteTokens: InviteTokenRow[]
     appUserDevices: AppUserDeviceRow[]
-}
+} */
 
-export const encodeIdentityData = (data: IdentityData): Uint8Array => {
+/* export const encodeIdentityData = (data: IdentityData): Uint8Array => {
     const version = 1
     const tlv: TLV = {
         2: [new Uint8Array([version])],
@@ -222,9 +268,9 @@ export const encodeIdentityData = (data: IdentityData): Uint8Array => {
         11: data.appUserDevices.map(encodeAppUserDeviceRow),
     }
     return encodeTLbV(tlv)
-}
+} */
 
-export const decodeIdentityData = (data: Uint8Array): IdentityData => {
+/* export const decodeIdentityData = (data: Uint8Array): IdentityData => {
     const tlv = parseTLbV(data)
     const v = tlv[2][0][0]
     if (v !== 1) {
@@ -243,9 +289,9 @@ export const decodeIdentityData = (data: Uint8Array): IdentityData => {
         applications, applicationUsers, adminSettings, userOffers, products,
         managementGrants, debitAccesses, inviteTokens, appUserDevices
     }
-}
+} */
 
-export const encryptIdentityData = (data: IdentityData, key: Buffer): Buffer => {
+/* export const encryptIdentityData = (data: IdentityData, key: Buffer): Buffer => {
     const plaintext = encodeIdentityData(data)
     const encrypted = encryptPayload(Buffer.from(plaintext), key)
     return encrypted
@@ -254,7 +300,7 @@ export const encryptIdentityData = (data: IdentityData, key: Buffer): Buffer => 
 export const decryptIdentityData = (data: Buffer, key: Buffer): IdentityData => {
     const plaintext = decryptPayload(data, key)
     return decodeIdentityData(plaintext)
-}
+} */
 
 export type ApplicationRow = {
     app_id: string

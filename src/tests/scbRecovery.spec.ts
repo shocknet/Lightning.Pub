@@ -118,8 +118,7 @@ const recoverEliot = async (T: TestBase, seed: string[], scbEvent: UnsignedEvent
     T.d("restoring segments data")
     await restore.RestoreFromSource({
         phrase: seed.join(" "),
-        source: { type: WizardTypes.RestoreRequest_source_type.LOCAL_PATH, local_path: backupLocalPath },
-        address_recovery_window: 100
+        source: { type: WizardTypes.RestoreRequest_source_type.LOCAL_PATH, local_path: backupLocalPath }
     })
     T.d("segments data restored")
     /*     T.d("adding default application to database")
@@ -143,6 +142,9 @@ const recoverEliot = async (T: TestBase, seed: string[], scbEvent: UnsignedEvent
     T.d("channels: " + info.channels.channels.length)
     T.d("pendingChannels: " + info.pendingChannels.pendingOpenChannels.length)
     T.d("closedChannels: " + info.closedChannels.channels.length)
+    if (info.w.confirmedBalance < 190_000) {
+        throw new Error("confirmed balance is less than 190_000 after recovery")
+    }
     /*     T.d("SCB applied, info: " + JSON.stringify(info, (key, value) => {
             if (typeof value === 'bigint') {
                 return value.toString()
