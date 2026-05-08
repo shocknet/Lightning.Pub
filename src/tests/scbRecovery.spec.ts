@@ -12,7 +12,7 @@ import { NostrEvent, UnsignedEvent } from 'nostr-tools'
 import { Application } from '../services/storage/entity/Application.js'
 import { SettingOverrideFunction } from '../services/main/settingsManager.js'
 export const ignore = false
-export const dev = true
+export const dev = false
 const [eliotSettings, eliot2Settings] = LoadEliotLndSettingsFromEnv()
 const backupLocalPath = "backup_data"
 export const settingsOverride: SettingOverrideFunction = s => {
@@ -25,11 +25,9 @@ export const settingsOverride: SettingOverrideFunction = s => {
 export default async (T: TestBase) => {
     const seed = await T.main.unlocker.GetSeed()
     T.d("Wallet unlocked successfully, seed: " + seed.seed.join(" "))
-    // await safelySetUserBalance(T, T.user1, 2000)
     const defaultApp = await T.main.unlocker.GetAppWithNostrKeys()
     let latestSCBEvent: UnsignedEvent | null = null
     T.main.attachNostrSend(async (initiator, data, relays) => {
-        //console.log("got nostr send", initiator, data, relays)
         if (data.type === 'event') {
             console.log("got SCB event", data.event.content)
             latestSCBEvent = data.event
@@ -52,13 +50,9 @@ export default async (T: TestBase) => {
     }, 10, 8000)
     T.d("Eliot pubkey: " + pubkey)
     T.d("Funding wallet...")
-    /* const otherBalance = await T.externalAccessToOtherLnd.GetBalance()
-    T.d("Other balance: " + JSON.stringify(otherBalance))
-    const thirdBalance = await T.externalAccessToThirdLnd.GetBalance()
-    T.d("Third balance: " + JSON.stringify(thirdBalance)) */
     const addr = await T.main.lnd.NewAddress(Types.AddressType.WITNESS_PUBKEY_HASH, { useProvider: false, from: 'system' })
     await T.externalAccessToOtherLnd.PayAddress(addr.address, 200_000, 2, "test", { useProvider: false, from: 'system' })
-    //await T.chainTools.sendToAddress(addr.address, 1_000_000)
+
     await slowMine(T, 6)
     T.d("Wallet funded")
     T.d("Checking balance...")
@@ -121,17 +115,6 @@ const recoverEliot = async (T: TestBase, seed: string[], scbEvent: UnsignedEvent
         source: { type: WizardTypes.RestoreRequest_source_type.LOCAL_PATH, local_path: backupLocalPath }
     })
     T.d("segments data restored")
-    /*     T.d("adding default application to database")
-        const appDB = await settingsManager.storage.applicationStorage.AddApplication(app.name, true)
-        await settingsManager.storage.applicationStorage.UpdateApplication(appDB, {
-            nostr_private_key: app.nostr_private_key,
-            nostr_public_key: app.nostr_public_key,
-        })
-        T.d("default application added to database") */
-    // await unlocker.Unlock({ seed })
-    // T.d("recovery wallet unlocked")
-    // const ln = await unlocker.ApplyScb(scbEvent.content)
-    // T.d("SCB applied")
     await slowMine(T, 6)
     const info = await unlocker.GetWalletInfo()
     T.d("totalBalance: " + info.w.totalBalance)
@@ -145,12 +128,6 @@ const recoverEliot = async (T: TestBase, seed: string[], scbEvent: UnsignedEvent
     if (info.w.confirmedBalance < 190_000) {
         throw new Error("confirmed balance is less than 190_000 after recovery")
     }
-    /*     T.d("SCB applied, info: " + JSON.stringify(info, (key, value) => {
-            if (typeof value === 'bigint') {
-                return value.toString()
-            }
-            return value
-        }, 2)) */
 }
 
 const slowMine = async (T: TestBase, blocks: number) => {
