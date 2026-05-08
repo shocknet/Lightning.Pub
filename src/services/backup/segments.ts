@@ -323,6 +323,7 @@ export const mapAppUserBackupRow = (appUser: ApplicationUser): ApplicationUserRo
 })
 
 export const encodeApplicationUserRow = (row: ApplicationUserRow): Uint8Array => {
+    console.log("encoding application user: ", row)
     const tlv: TLV = {
         2: [hexToBytes(row.user_id)],
         3: [hexToBytes(row.app_id)],
