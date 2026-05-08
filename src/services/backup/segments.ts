@@ -55,7 +55,10 @@ const splitChunk = (data: Uint8Array, chunkSize: number): Uint8Array[] => {
     return chunks
 }
 
-const joinChunks = (chunks: Uint8Array[]): Uint8Array => {
+const joinChunks = (chunks: Uint8Array[] | undefined): Uint8Array => {
+    if (!chunks) {
+        return new Uint8Array()
+    }
     return concatBytes(...chunks)
 }
 
