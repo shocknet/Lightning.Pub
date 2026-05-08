@@ -161,9 +161,7 @@ export default class {
 
     async RestoreApplicationUsers(appUsers: ApplicationUserRow[], txId: string): Promise<number> {
         let restoredAppUsers = 0;
-        console.log("restoring application users: " + appUsers.length)
         for (const appUser of appUsers) {
-            console.log("restoring application user: ", appUser)
             try {
                 const user = await this.userStorage.GetUser(appUser.user_id, txId)
                 const application = await this.GetApplication(appUser.app_id, txId)

@@ -21,10 +21,15 @@ export default class SettingsStorage {
         let restoredSettings = 0;
         for (const setting of settings) {
             try {
-                await this.dbs.CreateAndSave<AdminSettings>('AdminSettings', {
-                    env_name: setting.env_name,
-                    env_value: setting.env_value,
-                }, txId)
+                const existing = await this.dbs.FindOne<AdminSettings>('AdminSettings', { where: { env_name: setting.env_name } }, txId);
+                if (existing) {
+                    await this.dbs.Update<AdminSettings>('AdminSettings', existing.serial_id, { env_value: setting.env_value }, txId);
+                } else {
+                    await this.dbs.CreateAndSave<AdminSettings>('AdminSettings', {
+                        env_name: setting.env_name,
+                        env_value: setting.env_value,
+                    }, txId)
+                }
                 restoredSettings++;
             } catch (error: any) {
                 getLogger({ component: "backupRestore" })("error restoring admin setting", error.message)
