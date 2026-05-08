@@ -151,6 +151,9 @@ export class RestoreManager {
                 debitAccesses: readRows('debit_accesses', decodeDebitAccessRow),
                 inviteTokens: readRows('invite_tokens', decodeInviteTokenRow),
             }
+            this.log("segments data decrypted, importing dialtone")
+            this.log("balances Data: " + Object.entries(balancesPayload).map(([key, value]) => key + ": " + value.length).join(", "))
+            this.log("identity Data: " + Object.entries(identityPayload).map(([key, value]) => key + ": " + value.length).join(", "))
 
             const tablesRestored = await this.importDialtone(identityPayload, balancesPayload)
             this.log("segments data restored, restoring SCB")
@@ -231,11 +234,12 @@ export class RestoreManager {
         if (!relay) {
             throw new Error('SCB restore skipped: no relay configured')
         }
-        const scbEvent = await this._fetchScbDataFromRelay(relay, app.nostr_public_key)
-        if (!scbEvent) {
+        const scbData = await this._fetchScbDataFromRelay(relay, app.nostr_public_key)
+        if (!scbData) {
             throw new Error('SCB restore skipped: no SCB backup event found on relay')
         }
-        await this.unlocker.ApplyScb(scbEvent, app)
+        this.log("SCB data fetched from relay, applying to LND", scbData)
+        await this.unlocker.ApplyScb(scbData, app)
     }
 
     private getRestoreRelay = (req: wizardTypes.RestoreRequest): string | null => {

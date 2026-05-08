@@ -134,12 +134,20 @@ const recoverEliot = async (T: TestBase, seed: string[], scbEvent: UnsignedEvent
     // T.d("SCB applied")
     await slowMine(T, 6)
     const info = await unlocker.GetWalletInfo()
-    T.d("SCB applied, info: " + JSON.stringify(info, (key, value) => {
-        if (typeof value === 'bigint') {
-            return value.toString()
-        }
-        return value
-    }, 2))
+    T.d("totalBalance: " + info.w.totalBalance)
+    T.d("confirmedBalance: " + info.w.confirmedBalance)
+    T.d("unconfirmedBalance: " + info.w.unconfirmedBalance)
+    T.d("lockedBalance: " + info.w.lockedBalance)
+    T.d("reservedBalanceAnchorChan: " + info.w.reservedBalanceAnchorChan)
+    T.d("channels: " + info.channels.channels.length)
+    T.d("pendingChannels: " + info.pendingChannels.pendingOpenChannels.length)
+    T.d("closedChannels: " + info.closedChannels.channels.length)
+    /*     T.d("SCB applied, info: " + JSON.stringify(info, (key, value) => {
+            if (typeof value === 'bigint') {
+                return value.toString()
+            }
+            return value
+        }, 2)) */
 }
 
 const slowMine = async (T: TestBase, blocks: number) => {
