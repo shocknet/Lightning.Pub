@@ -7,7 +7,7 @@ import { User } from '../services/storage/entity/User.js'
 import chaiString from 'chai-string'
 import { defaultInvoiceExpiry } from '../services/storage/paymentStorage.js'
 import SanityChecker from '../services/main/sanityChecker.js'
-import LND from '../services/lnd/lnd.js'
+import LND, { LndHooks } from '../services/lnd/lnd.js'
 import { getLogger, resetDisabledLoggers } from '../services/helpers/logger.js'
 import { LiquidityProvider } from '../services/main/liquidityProvider.js'
 import { Utils } from '../services/helpers/utilsWrapper.js'
@@ -94,12 +94,21 @@ export const SetupTest = async (d: Describe, chainTools: ChainTools, overrideFun
     const lndSettings = LoadLndSettingsFromEnv({})
     const secondLndNodeSettings = LoadBobLndSettingsFromEnv()
     const otherLndSetting = () => ({ lndSettings, lndNodeSettings: secondLndNodeSettings })
-    const externalAccessToOtherLnd = new LND(otherLndSetting, new LiquidityProvider(() => liquiditySettings, extermnalUtils, async () => { }, async () => { }), async () => { }, extermnalUtils, async () => { }, async () => { }, async () => { }, () => { }, () => { })
+    const hooks: LndHooks = {
+        unlockLnd: async () => 'unlocked',
+        addressPaidCb: async () => { },
+        invoicePaidCb: async () => { },
+        newBlockCb: async () => { },
+        htlcCb: async () => { },
+        channelEventCb: async () => { },
+        newAddressCb: async () => { },
+    }
+    const externalAccessToOtherLnd = new LND(otherLndSetting, new LiquidityProvider(() => liquiditySettings, extermnalUtils, async () => { }, async () => { }), extermnalUtils, hooks)
     await externalAccessToOtherLnd.Warmup()
 
     const thirdLndNodeSettings = LoadCarolLndSettingsFromEnv()
     const thirdLndSetting = () => ({ lndSettings, lndNodeSettings: thirdLndNodeSettings })
-    const externalAccessToThirdLnd = new LND(thirdLndSetting, new LiquidityProvider(() => liquiditySettings, extermnalUtils, async () => { }, async () => { }), async () => { }, extermnalUtils, async () => { }, async () => { }, async () => { }, () => { }, () => { })
+    const externalAccessToThirdLnd = new LND(thirdLndSetting, new LiquidityProvider(() => liquiditySettings, extermnalUtils, async () => { }, async () => { }), extermnalUtils, hooks)
     await externalAccessToThirdLnd.Warmup()
 
 

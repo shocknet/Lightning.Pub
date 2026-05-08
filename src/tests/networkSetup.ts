@@ -4,7 +4,7 @@ import {
 } from "../services/main/settings.js"
 import { GetTestStorageSettings } from "../services/storage/index.js"
 import { BitcoinCoreWrapper } from "./bitcoinCore.js"
-import LND from '../services/lnd/lnd.js'
+import LND, { LndHooks } from '../services/lnd/lnd.js'
 import { LiquidityProvider } from "../services/main/liquidityProvider.js"
 import { Utils } from "../services/helpers/utilsWrapper.js"
 import { LoadStorageSettingsFromEnv } from "../services/storage/index.js"
@@ -36,8 +36,17 @@ export const setupNetwork = async (): Promise<ChainTools> => {
     const lndNodeSettings = LoadLndNodeSettingsFromEnv({})
     const secondLndNodeSettings = LoadBobLndSettingsFromEnv()
     const liquiditySettings: LiquiditySettings = { disableLiquidityProvider: true, liquidityProviderPub: "", useOnlyLiquidityProvider: false, providerRelayUrl: "" }
-    const alice = new LND(() => ({ lndSettings, lndNodeSettings }), new LiquidityProvider(() => liquiditySettings, setupUtils, async () => { }, async () => { }), async () => { }, setupUtils, async () => { }, async () => { }, async () => { }, () => { }, () => { })
-    const bob = new LND(() => ({ lndSettings, lndNodeSettings: secondLndNodeSettings }), new LiquidityProvider(() => liquiditySettings, setupUtils, async () => { }, async () => { }), async () => { }, setupUtils, async () => { }, async () => { }, async () => { }, () => { }, () => { })
+    const hooks: LndHooks = {
+        unlockLnd: async () => 'unlocked',
+        addressPaidCb: async () => { },
+        invoicePaidCb: async () => { },
+        newBlockCb: async () => { },
+        htlcCb: async () => { },
+        channelEventCb: async () => { },
+        newAddressCb: async () => { },
+    }
+    const alice = new LND(() => ({ lndSettings, lndNodeSettings }), new LiquidityProvider(() => liquiditySettings, setupUtils, async () => { }, async () => { }), setupUtils, hooks)
+    const bob = new LND(() => ({ lndSettings, lndNodeSettings: secondLndNodeSettings }), new LiquidityProvider(() => liquiditySettings, setupUtils, async () => { }, async () => { }), setupUtils, hooks)
     await tryUntil<void>(async i => {
         const peers = await alice.ListPeers()
         if (peers.peers.length > 0) {
