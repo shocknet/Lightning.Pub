@@ -229,8 +229,8 @@ export const LoadBackupSettingsFromEnv = (dbEnv: Record<string, string | undefin
         cloudEnabled: chooseEnvBool("BACKUP_CLOUD_ENABLED", dbEnv, false, addToDb),
         sftpEnabled: chooseEnvBool("BACKUP_SFTP_ENABLED", dbEnv, false, addToDb),
         sftpHost: chooseEnv("BACKUP_SFTP_HOST", dbEnv, "backup.lightning.pub", addToDb),
-        sftpUser: chooseEnv("BACKUP_SFTP_USER", dbEnv, "backup", addToDb),
-        sftpPass: chooseEnv("BACKUP_SFTP_PASS", dbEnv, "backup", addToDb),
+        sftpUser: chooseEnv("BACKUP_SFTP_USER", dbEnv, "", addToDb),
+        sftpPass: chooseEnv("BACKUP_SFTP_PASS", dbEnv, "", addToDb),
         sftpPort: chooseEnvInt("BACKUP_SFTP_PORT", dbEnv, 22, addToDb),
         localPath: chooseEnv("BACKUP_LOCAL_PATH", dbEnv, "", addToDb),
     }

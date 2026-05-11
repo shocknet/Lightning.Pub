@@ -8,6 +8,7 @@ import { AdminManager } from '../main/adminManager.js'
 // BACKUP CHANGE: import restore pipeline
 import { RestoreManager } from '../backup/restoreManager.js'
 import { BackupManager } from "../backup/backupManager.js"
+import { selectDefaultApp } from "../helpers/defaultAppSelector.js"
 export type WizardSettings = {
     sourceName: string
     relayUrl: string
@@ -179,13 +180,13 @@ export class Wizard {
             relay_url_CustomCheck: relay => relay !== '',
         })
         if (err != null) { throw new Error(err.message) }
-        
+
         const has_seed = await this.unlocker.HasSeed() || !this.unlocker.IsInitialized()
         if (!has_seed && req.push_backups_to_nostr) {
             this.log("Ignoring request to push backups to nostr because no seed is available")
             req.push_backups_to_nostr = false
         }
-        
+
         const pendingConfig = { sourceName: req.source_name, relayUrl: req.relay_url, automateLiquidity: req.automate_liquidity, pushBackupsToNostr: req.push_backups_to_nostr }
 
         // Persist app name/avatar to DB regardless (idempotent behavior)
@@ -220,8 +221,7 @@ export class Wizard {
         const newName = this.settings.getSettings().serviceSettings.defaultAppName
         try {
             const appsList = await this.storage.applicationStorage.GetApplications()
-            const defaultNames = ['wallet', 'wallet-test', currentName]
-            let existingDefaultApp = appsList.find(app => defaultNames.includes(app.name)) || appsList[0]
+            const existingDefaultApp = selectDefaultApp(appsList, currentName)
 
             if (existingDefaultApp) {
                 await this.storage.applicationStorage.UpdateApplication(existingDefaultApp, {

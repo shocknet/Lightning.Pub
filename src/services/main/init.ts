@@ -15,6 +15,7 @@ import { Swaps } from "../lnd/swaps/swaps.js"
 // BACKUP CHANGE: import restore pipeline for CLI usage
 import { type RestoreOptions, type RestoreSource, validRestoreSources, type RestoreParams, parseRestoreFlags, RestoreManager } from "../backup/restoreManager.js"
 import { BackupManager } from "../backup/backupManager.js"
+import { selectDefaultApp } from "../helpers/defaultAppSelector.js"
 export type AppData = {
     privateKey: string;
     publicKey: string;
@@ -32,9 +33,9 @@ export const initSettings = async (log: PubLogger, storageSettings: StorageSetti
     const unlocker = new Unlocker(settingsManager, storageManager, storageManager.NostrSender())
     const restore = new RestoreManager(storageManager, settingsManager, unlocker)
 
-    const stop = await processPostSettingArgs(restore)
-    if (stop) {
-        return
+    const { keepOn } = await processPostSettingArgs(restore)
+    if (!keepOn) {
+        return undefined
     }
     return { settingsManager, restore, unlocker, nostrSender }
 }
@@ -85,8 +86,7 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
     }
     const defaultAppName = settingsManager.getSettings().serviceSettings.defaultAppName
     const appsData = await mainHandler.storage.applicationStorage.GetApplications()
-    const defaultNames = ['wallet', 'wallet-test', defaultAppName]
-    const existingWalletApp = appsData.find(app => defaultNames.includes(app.name))
+    const existingWalletApp = selectDefaultApp(appsData, defaultAppName)
     if (!existingWalletApp) {
         log("no default wallet app found, creating one...")
         const newWalletApp = await mainHandler.storage.applicationStorage.AddApplication(defaultAppName, true)
@@ -102,14 +102,14 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
             return { privateKey: app.nostr_private_key, publicKey: app.nostr_public_key, appId: app.app_id, name: app.name }
         }
     }))
-    const localProviderClient = apps.find(app => defaultNames.includes(app.name))
+    const localProviderClient = selectDefaultApp(apps, defaultAppName)
     if (!localProviderClient) {
         throw new Error("local app not initialized correctly")
     }
     mainHandler.liquidityProvider.setNostrInfo({ localId: `client_${localProviderClient.appId}`, localPubkey: localProviderClient.publicKey })
-    const stop = await processPostInitArgs(mainHandler)
-    if (stop) {
-        return
+    const { keepOn } = await processPostInitArgs(mainHandler)
+    if (!keepOn) {
+        return undefined
     }
     await mainHandler.paymentManager.checkPaymentStatus()
     await mainHandler.paymentManager.checkMissedChainTxs()
@@ -121,24 +121,24 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
     return { mainHandler, apps, localProviderClient, wizard, adminManager }
 }
 
-const processPostInitArgs = async (mainHandler: Main) => {
+const processPostInitArgs = async (mainHandler: Main): Promise<{ keepOn: boolean }> => {
     switch (process.argv[2]) {
         case 'updateUserBalance':
             await mainHandler.storage.userStorage.UpdateUser(process.argv[3], { balance_sats: +process.argv[4] })
             mainHandler.backupManager.notifyBackupTable('user_balances')
             getLogger({ userId: process.argv[3] })(`user balance updated correctly`)
-            return false
+            return { keepOn: false }
         case 'unlock':
             await mainHandler.storage.userStorage.UnbanUser(process.argv[3])
             mainHandler.backupManager.notifyBackupTable('user_balances')
             getLogger({ userId: process.argv[3] })(`user unlocked`)
-            return false
+            return { keepOn: false }
         default:
-            return false
+            return { keepOn: true }
     }
 }
 
-const processPostSettingArgs = async (restore: RestoreManager) => {
+const processPostSettingArgs = async (restore: RestoreManager): Promise<{ keepOn: boolean }> => {
     switch (process.argv[2]) {
         case 'restore':
             const flags = parseCliFlags(process.argv.slice(3))
@@ -149,9 +149,9 @@ const processPostSettingArgs = async (restore: RestoreManager) => {
             } else {
                 getLogger({ component: 'backupRestore' })(`restore failed: ${result.error}`)
             }
-            return false
+            return { keepOn: false }
         default:
-            return false
+            return { keepOn: true }
     }
 }
 

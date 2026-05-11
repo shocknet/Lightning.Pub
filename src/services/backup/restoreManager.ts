@@ -35,7 +35,8 @@ import { credentials, Metadata } from '@grpc/grpc-js'
 import { LightningClient } from '../../../proto/lnd/lightning.client.js'
 import SettingsManager from '../main/settingsManager.js'
 import { Application } from '../storage/entity/Application.js'
-import { Unlocker } from '../main/unlocker.js'
+import { Unlocker, type AppKeys } from '../main/unlocker.js'
+import { selectDefaultApp } from '../helpers/defaultAppSelector.js'
 
 // const log = getLogger({ component: 'restore' })
 export const validRestoreSources = ['cloud', 'ftp', 'local'] as const
@@ -119,11 +120,40 @@ export class RestoreManager {
             this.log("addresses count: " + indexes.addressesCount)
             const recoveryWindow = Math.max(1000, indexes.addressesCount * 10)
 
-            await this.UnlockLnd(req, recoveryWindow)
+            const apps = backupData.applications
+            if (apps.length === 0) {
+                throw new Error('No applications found in backup, cannot restore')
+            }
+            const existingWalletApp = selectDefaultApp(apps, this.settings.getSettings().serviceSettings.defaultAppName)
+            if (!existingWalletApp) {
+                throw new Error('No default wallet app found in backup, cannot restore')
+            }
+            const pubkey = existingWalletApp.nostr_public_key
+            const privateKey = existingWalletApp.nostr_private_key
+            if (!pubkey || !privateKey) {
+                throw new Error('Default wallet app has no nostr keys, cannot restore')
+            }
 
-            const tablesRestored = await this.importDialtone(backupData)
+            const scbData = await this.retreiveSCB(req, pubkey)
+            const decryptedScb = await this.unlocker.DecryptScbEvent(scbData, { nostr_private_key: privateKey, nostr_public_key: pubkey })
+            if (!decryptedScb) {
+                throw new Error('Failed to decrypt SCB data')
+            }
 
-            await this.restoreScb(req)
+            this.log("All data needed for restore is available, starting restore process")
+
+            const tablesRestored = await this.storage.StartTransaction(async tx => {
+                this.log("importing dialtone")
+                const entriesRestored = await this.importDialtone(backupData, tx)
+                await this.UnlockLnd(req, recoveryWindow)
+                return entriesRestored
+            })
+
+            try {
+                await this.restoreScb(decryptedScb)
+            } catch (err: any) {
+                this.log("Skipping SCB restore: " + err.message || err)
+            }
             this.log("RestoreFromSource completed")
             return {
                 tables_restored: tablesRestored,
@@ -198,49 +228,47 @@ export class RestoreManager {
         return { backupData }
     }
 
-    async importDialtone(backupData: BackupData, allowPartial = false) {
-        this.log("importing dialtone")
+    async importDialtone(backupData: BackupData, tx: string) {
         let entriesRestored = 0
-        await this.storage.StartTransaction(async (tx) => {
-            const { balances, trackedProviders, applications,
-                applicationUsers, adminSettings, appUserDevices, userOffers,
-                products, managementGrants, debitAccesses, inviteTokens } = backupData
+        const allowPartial = false
+        const { balances, trackedProviders, applications,
+            applicationUsers, adminSettings, appUserDevices, userOffers,
+            products, managementGrants, debitAccesses, inviteTokens } = backupData
 
-            await this.restore("balances", balances.length,
-                () => this.storage.userStorage.RestoreBalances(balances, tx), allowPartial)
-            entriesRestored += balances.length
-            await this.restore("trackedProviders", trackedProviders.length,
-                () => this.storage.liquidityStorage.RestoreTrackedProviders(trackedProviders, tx), allowPartial)
-            entriesRestored += trackedProviders.length
+        await this.restore("balances", balances.length,
+            () => this.storage.userStorage.RestoreBalances(balances, tx), allowPartial)
+        entriesRestored += balances.length
+        await this.restore("trackedProviders", trackedProviders.length,
+            () => this.storage.liquidityStorage.RestoreTrackedProviders(trackedProviders, tx), allowPartial)
+        entriesRestored += trackedProviders.length
 
-            await this.restore("applications", applications.length,
-                () => this.storage.applicationStorage.RestoreApplications(applications, tx), allowPartial)
-            entriesRestored += applications.length
-            await this.restore("applicationUsers", applicationUsers.length,
-                () => this.storage.applicationStorage.RestoreApplicationUsers(applicationUsers, tx), allowPartial)
-            entriesRestored += applicationUsers.length
-            await this.restore("adminSettings", adminSettings.length,
-                () => this.storage.settingsStorage.RestoreSettings(adminSettings, tx), allowPartial)
-            entriesRestored += adminSettings.length
-            await this.restore("appUserDevices", appUserDevices.length,
-                () => this.storage.applicationStorage.RestoreAppUserDevices(appUserDevices, tx), allowPartial)
-            entriesRestored += appUserDevices.length
-            await this.restore("userOffers", userOffers.length,
-                () => this.storage.offerStorage.RestoreUserOffers(userOffers, tx), allowPartial)
-            entriesRestored += userOffers.length
-            await this.restore("products", products.length,
-                () => this.storage.productStorage.RestoreProducts(products, tx), allowPartial)
-            entriesRestored += products.length
-            await this.restore("managementGrants", managementGrants.length,
-                () => this.storage.managementStorage.RestoreManagementGrants(managementGrants, tx), allowPartial)
-            entriesRestored += managementGrants.length
-            await this.restore("debitAccesses", debitAccesses.length,
-                () => this.storage.debitStorage.RestoreDebitAccesses(debitAccesses, tx), allowPartial)
-            entriesRestored += debitAccesses.length
-            await this.restore("inviteTokens", inviteTokens.length,
-                () => this.storage.applicationStorage.RestoreInviteTokens(inviteTokens, tx), allowPartial)
-            entriesRestored += inviteTokens.length
-        })
+        await this.restore("applications", applications.length,
+            () => this.storage.applicationStorage.RestoreApplications(applications, tx), allowPartial)
+        entriesRestored += applications.length
+        await this.restore("applicationUsers", applicationUsers.length,
+            () => this.storage.applicationStorage.RestoreApplicationUsers(applicationUsers, tx), allowPartial)
+        entriesRestored += applicationUsers.length
+        await this.restore("adminSettings", adminSettings.length,
+            () => this.storage.settingsStorage.RestoreSettings(adminSettings, tx), allowPartial)
+        entriesRestored += adminSettings.length
+        await this.restore("appUserDevices", appUserDevices.length,
+            () => this.storage.applicationStorage.RestoreAppUserDevices(appUserDevices, tx), allowPartial)
+        entriesRestored += appUserDevices.length
+        await this.restore("userOffers", userOffers.length,
+            () => this.storage.offerStorage.RestoreUserOffers(userOffers, tx), allowPartial)
+        entriesRestored += userOffers.length
+        await this.restore("products", products.length,
+            () => this.storage.productStorage.RestoreProducts(products, tx), allowPartial)
+        entriesRestored += products.length
+        await this.restore("managementGrants", managementGrants.length,
+            () => this.storage.managementStorage.RestoreManagementGrants(managementGrants, tx), allowPartial)
+        entriesRestored += managementGrants.length
+        await this.restore("debitAccesses", debitAccesses.length,
+            () => this.storage.debitStorage.RestoreDebitAccesses(debitAccesses, tx), allowPartial)
+        entriesRestored += debitAccesses.length
+        await this.restore("inviteTokens", inviteTokens.length,
+            () => this.storage.applicationStorage.RestoreInviteTokens(inviteTokens, tx), allowPartial)
+        entriesRestored += inviteTokens.length
         return entriesRestored
     }
 
@@ -250,22 +278,21 @@ export class RestoreManager {
         if (!allowPartial && r !== length) throw new Error("failed to restore all " + name)
     }
 
-    private restoreScb = async (req: wizardTypes.RestoreRequest) => {
-        this.log("restoring SCB")
-        const app = await this.unlocker.GetAppWithNostrKeys()
-        if (!app) {
-            throw new Error('SCB restore skipped: no restored app with nostr keys')
-        }
+    private retreiveSCB = async (req: wizardTypes.RestoreRequest, pubkey: string) => {
         const relay = this.getRestoreRelay(req)
         if (!relay) {
             throw new Error('SCB restore skipped: no relay configured')
         }
-        const scbData = await this._fetchScbDataFromRelay(relay, app.nostr_public_key)
+        const scbData = await this._fetchScbDataFromRelay(relay, pubkey)
         if (!scbData) {
             throw new Error('SCB restore skipped: no SCB backup event found on relay')
         }
-        this.log("SCB data fetched from relay, applying to LND", scbData)
-        await this.unlocker.ApplyScb(scbData, app)
+        return scbData
+    }
+
+    private restoreScb = async (scb: Buffer) => {
+        this.log("restoring SCB")
+        await this.unlocker.ApplyScb(scb)
     }
 
     private getRestoreRelay = (req: wizardTypes.RestoreRequest): string | null => {
@@ -367,13 +394,6 @@ export const parseRestoreFlags = (flags: Record<string, string>): wizardTypes.Re
     if (!source) {
         throw new Error('Error: --source is required (cloud|ftp|local)')
     }
-
-    const recoveryWindow = +flags['recovery-window'] || 0
-    if (recoveryWindow <= 0) {
-        throw new Error('Error: --recovery-window must be greater than 0')
-    }
-
-
 
     if (!validRestoreSources.includes(source)) {
         throw new Error(`Error: --source must be one of: ${validRestoreSources.join(', ')}`)

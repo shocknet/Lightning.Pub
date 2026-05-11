@@ -33,6 +33,7 @@ import SettingsManager from './settingsManager.js'
 import { NostrSettings, AppInfo } from '../nostr/nostrPool.js'
 import { ShockPushNotification } from '../ShockPush/index.js'
 import { BackupManager } from '../backup/backupManager.js'
+import { selectDefaultApp } from '../helpers/defaultAppSelector.js'
 type UserOperationsSub = {
     id: string
     newIncomingInvoice: (operation: Types.UserOperation) => void
@@ -564,9 +565,7 @@ export default class {
         for (const app of apps) {
             await this.UpdateBeacon(app, { type: 'service', name: app.name, avatarUrl: app.avatar_url, nextRelay, fees })
         }
-
-        const defaultNames = ['wallet', 'wallet-test', this.settings.getSettings().serviceSettings.defaultAppName]
-        const local = apps.find(app => defaultNames.includes(app.name))
+        const local = selectDefaultApp(apps, this.settings.getSettings().serviceSettings.defaultAppName)
         if (!local) {
             throw new Error("local app not initialized correctly")
         }
