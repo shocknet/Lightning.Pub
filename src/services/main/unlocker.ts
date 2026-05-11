@@ -14,13 +14,14 @@ import { NostrSender } from '../nostr/sender.js';
 import { nip44, NostrEvent, UnsignedEvent } from 'nostr-tools';
 import { WalletState } from '../../../proto/lnd/stateservice.js';
 import { Application } from '../storage/entity/Application.js';
+import { selectDefaultApp } from '../helpers/defaultAppSelector.js';
 const DeadLineMetadata = (deadline = 10 * 1000) => ({ deadline: Date.now() + deadline })
 type EncryptedData = { iv: string, encrypted: string }
 type Seed = { plaintextSeed: string[], encryptedSeed: EncryptedData }
 const SCB_BACKUP_KIND = 30078
 const SCB_BACKUP_D_TAG = 'Lightning.Pub/backup/scb'
-
-type AppWithKeys = Application & { nostr_private_key: string, nostr_public_key: string }
+export type AppKeys = { nostr_private_key: string, nostr_public_key: string }
+type AppWithKeys = Application & AppKeys
 
 export class Unlocker {
 
@@ -406,8 +407,7 @@ export class Unlocker {
 
     GetAppWithNostrKeys = async (): Promise<AppWithKeys> => {
         const apps = await this.storage.applicationStorage.GetApplications()
-        const defaultNames = ['wallet', 'wallet-test', this.settings.getSettings().serviceSettings.defaultAppName]
-        const local = apps.find(app => defaultNames.includes(app.name))
+        const local = selectDefaultApp(apps, this.settings.getSettings().serviceSettings.defaultAppName)
         if (!local || !local.nostr_private_key || !local.nostr_public_key) {
             throw new Error("local app nostr keys unavailable")
         }
@@ -432,16 +432,14 @@ export class Unlocker {
         this.nostrSender.Send({ type: 'app', appId: local.app_id }, { type: 'event', event })
     }
 
-    private decryptScbEvent = async (encryptedScb: string, local: AppWithKeys) => {
+    DecryptScbEvent = async (encryptedScb: string, local: AppKeys) => {
         const ck = nip44.getConversationKey(Buffer.from(local.nostr_private_key, 'hex'), local.nostr_public_key)
         const plaintext = nip44.decrypt(encryptedScb, ck).trim()
         const scb = Buffer.from(plaintext, 'base64')
         return scb
     }
 
-    ApplyScb = async (encryptedScb: string, app: AppWithKeys) => {
-        const scb = await this.decryptScbEvent(encryptedScb, app)
-
+    ApplyScb = async (scb: Buffer) => {
         const { lndCert, macaroon } = this.getCreds()
         const ln = this.GetLightningClient(lndCert, macaroon)
         const res = await ln.verifyChanBackup({

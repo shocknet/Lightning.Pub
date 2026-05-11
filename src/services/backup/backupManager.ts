@@ -2,6 +2,7 @@
 //
 // One .enc file per exported table (see backupTables.ts). High-churn tables use
 // `notifyBackupTableDebounced` so rapid writes coalesce into a single upload per table.
+// A max-wait caps continuous resets so backups still run under sustained load.
 // Destinations: managed cloud SFTP, custom SFTP (BACKUP_SFTP_USER/PASS override phrase-derived
 // login when set), optional local dir.
 
@@ -34,6 +35,8 @@ export type { BackupTableId } from './backupTables.js'
 
 
 const TABLE_DEBOUNCE_MS = 30_000
+/** Upper bound on how long uploads can be deferred while the same table keeps notifying. */
+const TABLE_DEBOUNCE_MAX_MS = 5 * 60_000
 const WAIT_IN_FLIGHT_MS = 10_000
 
 
@@ -43,6 +46,8 @@ export class BackupManager {
     settings: SettingsManager
     keys: DerivedKeys
     private debounceTimers = new Map<BackupTableId, ReturnType<typeof setTimeout>>()
+    /** Start of the current coalescing window for max-wait (first notify since last flush). */
+    private debounceWindowStart = new Map<BackupTableId, number>()
     private debouncedUploadInProgress = new Set<BackupTableId>()
     shuttingDown = false
     indexesBackup: IndexesRow | null = null
@@ -108,6 +113,16 @@ export class BackupManager {
         if (!isBackupConfigured) return
         const existing = this.debounceTimers.get(id)
         if (existing) clearTimeout(existing)
+
+        if (!this.debounceWindowStart.has(id)) {
+            this.debounceWindowStart.set(id, Date.now())
+        }
+        const windowStart = this.debounceWindowStart.get(id)!
+        const debounceAt = Date.now() + TABLE_DEBOUNCE_MS
+        const maxAt = windowStart + TABLE_DEBOUNCE_MAX_MS
+        const nextFire = Math.min(debounceAt, maxAt)
+        const delayMs = Math.max(0, Math.ceil(nextFire - Date.now()))
+
         this.debounceTimers.set(
             id,
             setTimeout(() => {
@@ -115,12 +130,13 @@ export class BackupManager {
                 this.flushDebouncedTable(id).catch(err => {
                     this.log(`Debounced backup upload failed (${id}): ${err.message}`)
                 })
-            }, TABLE_DEBOUNCE_MS),
+            }, delayMs),
         )
     }
 
     private async flushDebouncedTable(id: BackupTableId) {
         if (this.debouncedUploadInProgress.has(id)) return
+        this.debounceWindowStart.delete(id)
         this.debouncedUploadInProgress.add(id)
         try {
             await this.uploadTable(id)
@@ -285,6 +301,7 @@ export class BackupManager {
             clearTimeout(t)
         }
         this.debounceTimers.clear()
+        this.debounceWindowStart.clear()
         await this.waitUntilUploadsIdle(WAIT_IN_FLIGHT_MS)
         if (!this.isBackupConfigured()) {
             return
