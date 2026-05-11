@@ -113,12 +113,9 @@ export class RestoreManager {
             const buffers = await this.fetchSegmentsData(req, keys)
 
             const { backupData } = this.decodeSegmentsData(buffers, keys)
-            const indexes = backupData.indexes.find(i => i.addressesCount !== 0)
-            if (!indexes) {
-                throw new Error('No indexes backup found')
-            }
-            this.log("addresses count: " + indexes.addressesCount)
-            const recoveryWindow = Math.max(1000, indexes.addressesCount * 10)
+            const addressesCount = backupData.indexes.find(i => i.addressesCount !== 0)?.addressesCount ?? 0
+            this.log("addresses count: " + addressesCount)
+            const recoveryWindow = Math.max(1000, addressesCount * 10)
 
             const apps = backupData.applications
             if (apps.length === 0) {
@@ -134,7 +131,7 @@ export class RestoreManager {
                 throw new Error('Default wallet app has no nostr keys, cannot restore')
             }
 
-            const scbData = await this.retreiveSCB(req, pubkey)
+            const scbData = await this.retrieveSCB(req, pubkey)
             const decryptedScb = await this.unlocker.DecryptScbEvent(scbData, { nostr_private_key: privateKey, nostr_public_key: pubkey })
             if (!decryptedScb) {
                 throw new Error('Failed to decrypt SCB data')
@@ -278,7 +275,7 @@ export class RestoreManager {
         if (!allowPartial && r !== length) throw new Error("failed to restore all " + name)
     }
 
-    private retreiveSCB = async (req: wizardTypes.RestoreRequest, pubkey: string) => {
+    private retrieveSCB = async (req: wizardTypes.RestoreRequest, pubkey: string) => {
         const relay = this.getRestoreRelay(req)
         if (!relay) {
             throw new Error('SCB restore skipped: no relay configured')
