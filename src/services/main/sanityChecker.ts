@@ -20,7 +20,7 @@ export default class SanityChecker {
     payments: Payment[] = []
     incrementSources: Record<string, boolean> = {}
     decrementSources: Record<string, boolean> = {}
-    decrementEvents: Record<string, { userId: string, refund: number, failure: boolean }> = {}
+    decrementEvents: Record<string, { userId: string, refund: number, failure: boolean, pending: boolean }> = {}
     log = getLogger({ component: "SanityChecker" })
     users: Record<string, { ts: number, updatedBalance: number }> = {}
     constructor(storage: Storage, lnd: LND) {
@@ -100,14 +100,16 @@ export default class SanityChecker {
             throw new Error("payment user id mismatch for invoice " + invoice)
         }
         if (entry.paid_at_unix === 0) {
-            throw new Error("payment never settled for invoice " + invoice) // TODO: check if this is correct
+            this.log("payment still not settled for invoice " + invoice)
+            this.decrementEvents[invoice] = { userId, refund: amt, failure: false, pending: true }
+            return
         }
         if (entry.paid_at_unix === -1) {
-            this.decrementEvents[invoice] = { userId, refund: amt, failure: true }
+            this.decrementEvents[invoice] = { userId, refund: amt, failure: true, pending: false }
             return
         }
         const refund = amt - (entry.paid_amount + entry.routing_fees + entry.service_fees)
-        this.decrementEvents[invoice] = { userId, refund, failure: false }
+        this.decrementEvents[invoice] = { userId, refund, failure: false, pending: false }
         if (!entry.internal && !entry.liquidityProvider) {
             const lndEntry = this.payments.find(i => i.paymentRequest === invoice)
             if (!lndEntry) {
@@ -200,6 +202,10 @@ export default class SanityChecker {
         if (entry.userId !== userId) {
             throw new Error("user id mismatch for routing fee refund " + invoice)
         }
+        if (entry.pending) {
+            throw new Error("payment still pending, should not refund routing fees " + invoice)
+        }
+
         if (entry.failure) {
             throw new Error("payment failled, should not refund routing fees " + invoice)
         }
@@ -215,6 +221,9 @@ export default class SanityChecker {
         }
         if (entry.userId !== userId) {
             throw new Error("user id mismatch for payment refund " + invoice)
+        }
+        if (entry.pending) {
+            throw new Error("payment still pending, should not refund payment " + invoice)
         }
         if (!entry.failure) {
             throw new Error("payment did not fail, should not refund payment " + invoice)
