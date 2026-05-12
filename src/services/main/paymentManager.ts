@@ -101,7 +101,13 @@ export default class {
     }
 
     checkPendingProviderPayment = async (log: PubLogger, p: UserInvoicePayment) => {
-        const state = await this.lnd.liquidProvider.GetPaymentState(p.invoice)
+        let state: Types.PaymentState
+        try {
+            state = await this.lnd.liquidProvider.GetPaymentState(p.invoice)
+        } catch (err: any) {
+            log(ERROR, "failed to get payment state for provider payment, skipping", p.serial_id, err.message)
+            return
+        }
         if (state.paid_at_unix < 0) {
             const fullAmount = p.paid_amount + p.service_fees
             log("found a failed provider payment, refunding", fullAmount, "sats to user", p.user.user_id)
