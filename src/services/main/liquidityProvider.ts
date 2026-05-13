@@ -7,6 +7,7 @@ import { InvoicePaidCb } from '../lnd/settings.js'
 import Storage from '../storage/index.js'
 import SettingsManager from './settingsManager.js'
 import { LiquiditySettings } from './settings.js'
+import { TxPointSettings } from '../storage/tlv/stateBundler.js'
 export type nostrCallback<T> = { startedAtMillis: number, type: 'single' | 'stream', f: (res: T) => void }
 export class LiquidityProvider {
     getSettings: () => LiquiditySettings
@@ -25,6 +26,7 @@ export class LiquidityProvider {
     queue: ((state: 'ready') => void)[] = []
     utils: Utils
     pendingPayments: Record<string, number> = {}
+    recoveredPendingPayments: Record<string, { total: number, from: 'user' | 'system' }> = {}
     feesCache: Types.CumulativeFees | null = null
     lastSeenBeacon = 0
     latestReceivedBalance = 0
@@ -126,6 +128,19 @@ export class LiquidityProvider {
                 }
             } else if (res.operation.type === Types.UserOperationType.OUTGOING_INVOICE) {
                 delete this.pendingPaymentsAck[res.operation.identifier]
+                if (res.operation.paidAtUnix < 0) {
+                    delete this.recoveredPendingPayments[res.operation.identifier]
+                } else if (res.operation.paidAtUnix > 0) {
+                    const rec = this.recoveredPendingPayments[res.operation.identifier]
+                    if (!rec) {
+                        return
+                    }
+                    const totalPaid = res.operation.amount + res.operation.service_fee
+                    this.incrementProviderBalance(-totalPaid).then(() => { delete this.pendingPayments[res.operation.identifier] })
+                    this.latestReceivedBalance = res.latest_balance
+                    const txPoint: TxPointSettings = { used: 'provider', from: rec.from, timeDiscount: true }
+                    this.utils.stateBundler.AddTxPoint('paidAnInvoice', res.operation.amount, txPoint)
+                }
             }
         })
     }
@@ -176,7 +191,8 @@ export class LiquidityProvider {
     }
 
     GetPendingBalance = async () => {
-        return Object.values(this.pendingPayments).reduce((a, b) => a + b, 0)
+        return Object.values(this.pendingPayments).reduce((a, b) => a + b, 0) +
+            Object.values(this.recoveredPendingPayments).reduce((a, b) => a + b.total, 0)
     }
 
     GetServiceFee = (amount: number, f?: Types.CumulativeFees) => {
@@ -223,6 +239,10 @@ export class LiquidityProvider {
             throw err
         }
 
+    }
+
+    AddRecoveredPendingPayment = (invoice: string, amount: number, from: 'user' | 'system') => {
+        this.recoveredPendingPayments[invoice] = { total: amount, from }
     }
 
     PayInvoice = async (invoice: string, decodedAmount: number, from: 'user' | 'system', feeLimit?: number) => {

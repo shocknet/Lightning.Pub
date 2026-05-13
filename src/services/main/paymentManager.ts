@@ -134,6 +134,9 @@ export default class {
             return
         }
         log("provider payment still pending", p.serial_id, "no action will be performed")
+        // only user payments have an entry in UserInvoicePayment, and can be recovered this way
+        // TODO: add recovery for pending payments from system (lsp, drain, etc.)
+        this.lnd.liquidProvider.AddRecoveredPendingPayment(p.invoice, p.paid_amount + p.service_fees, 'user')
     }
 
     checkPendingLndPayment = async (log: PubLogger, p: UserInvoicePayment) => {
