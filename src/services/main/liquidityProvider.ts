@@ -26,7 +26,7 @@ export class LiquidityProvider {
     queue: ((state: 'ready') => void)[] = []
     utils: Utils
     pendingPayments: Record<string, number> = {}
-    recoveredPendingPayments: Record<string, { total: number, from: 'user' | 'system' }> = {}
+    recoveredPendingPayments: Record<string, { total: number, from: 'user' | 'system', processing?: true }> = {}
     feesCache: Types.CumulativeFees | null = null
     lastSeenBeacon = 0
     latestReceivedBalance = 0
@@ -132,11 +132,13 @@ export class LiquidityProvider {
                     delete this.recoveredPendingPayments[res.operation.identifier]
                 } else if (res.operation.paidAtUnix > 0) {
                     const rec = this.recoveredPendingPayments[res.operation.identifier]
-                    if (!rec) {
+                    if (!rec || rec.processing) {
                         return
                     }
+                    rec.processing = true
                     const totalPaid = res.operation.amount + res.operation.service_fee
-                    this.incrementProviderBalance(-totalPaid).then(() => { delete this.pendingPayments[res.operation.identifier] })
+                    await this.incrementProviderBalance(-totalPaid)
+                    delete this.recoveredPendingPayments[res.operation.identifier]
                     this.latestReceivedBalance = res.latest_balance
                     const txPoint: TxPointSettings = { used: 'provider', from: rec.from, timeDiscount: true }
                     this.utils.stateBundler.AddTxPoint('paidAnInvoice', res.operation.amount, txPoint)
@@ -242,6 +244,13 @@ export class LiquidityProvider {
     }
 
     AddRecoveredPendingPayment = (invoice: string, amount: number, from: 'user' | 'system') => {
+        if (this.pendingPayments[invoice]) {
+            this.log("already have a pending payment for", invoice, "skipping recovery")
+            return
+        }
+        if (this.recoveredPendingPayments[invoice]) {
+            throw new Error("already have a recovered pending payment for " + invoice)
+        }
         this.recoveredPendingPayments[invoice] = { total: amount, from }
     }
 
