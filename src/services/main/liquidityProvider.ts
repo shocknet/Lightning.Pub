@@ -30,7 +30,7 @@ export class LiquidityProvider {
     feesCache: Types.CumulativeFees | null = null
     lastSeenBeacon = 0
     latestReceivedBalance = 0
-    incrementProviderBalance: (balance: number) => Promise<void>
+    incrementProviderBalance: (balance: number, tx?: string) => Promise<void>
     pendingPaymentsAck: Record<string, boolean> = {}
     // make the sub process accept client
     constructor(getSettings: () => LiquiditySettings, utils: Utils, invoicePaidCb: InvoicePaidCb, incrementProviderBalance: (balance: number) => Promise<any>) {
@@ -128,20 +128,11 @@ export class LiquidityProvider {
                 }
             } else if (res.operation.type === Types.UserOperationType.OUTGOING_INVOICE) {
                 delete this.pendingPaymentsAck[res.operation.identifier]
+                // if a recovery pending payment exists, and the payment failed, delete it,
+                // if still pending, or success, leave it in the cache, to keep the balance consistent.
+                // the actual provider balance decrement is done by the pending payment checker on startup
                 if (res.operation.paidAtUnix < 0) {
                     delete this.recoveredPendingPayments[res.operation.identifier]
-                } else if (res.operation.paidAtUnix > 0) {
-                    const rec = this.recoveredPendingPayments[res.operation.identifier]
-                    if (!rec || rec.processing) {
-                        return
-                    }
-                    rec.processing = true
-                    const totalPaid = res.operation.amount + res.operation.service_fee
-                    await this.incrementProviderBalance(-totalPaid)
-                    delete this.recoveredPendingPayments[res.operation.identifier]
-                    this.latestReceivedBalance = res.latest_balance
-                    const txPoint: TxPointSettings = { used: 'provider', from: rec.from, timeDiscount: true }
-                    this.utils.stateBundler.AddTxPoint('paidAnInvoice', res.operation.amount, txPoint)
                 }
             }
         })

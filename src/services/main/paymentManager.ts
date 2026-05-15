@@ -22,6 +22,7 @@ import { Swaps } from '../lnd/swaps/swaps.js'
 import { Transaction, OutputDetail } from '../../../proto/lnd/lightning.js'
 import { LndAddress } from '../lnd/lnd.js'
 import Metrics from '../metrics/index.js'
+import { TxPointSettings } from '../storage/tlv/stateBundler.js'
 interface UserOperationInfo {
     serial_id: number
     paid_amount: number
@@ -115,22 +116,30 @@ export default class {
                 await this.storage.userStorage.IncrementUserBalance(p.user.user_id, fullAmount, "payment_refund:" + p.invoice, tx)
                 await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, 0, 0, false, undefined, tx)
             }, "refund failed provider payment")
+            this.utils.stateBundler.AddTxPointFailed('paidAnInvoice', fullAmount, { used: 'provider', from: 'user' })
             return
         } else if (state.paid_at_unix > 0) {
             log("provider payment succeeded", p.serial_id, "updating payment info")
             const serviceFee = p.service_fees
             const networkFee = state.service_fee
-            await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, networkFee, serviceFee, true)
-            const remainingFee = serviceFee - networkFee
-            if (remainingFee < 0) {
-                this.log("WARNING: provider fee was higher than expected,", remainingFee, "were lost")
-            }
+            const fullAmount = p.paid_amount + p.service_fees
+            await this.storage.StartTransaction(async tx => {
+                await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, networkFee, serviceFee, true, undefined, tx)
+                const remainingFee = serviceFee - networkFee
+                if (remainingFee < 0) {
+                    this.log("WARNING: provider fee was higher than expected,", remainingFee, "were lost")
+                }
+                if (p.linkedApplication && p.user.user_id !== p.linkedApplication.owner.user_id && remainingFee > 0) {
+                    await this.storage.userStorage.IncrementUserBalance(p.linkedApplication.owner.user_id, remainingFee, "fees", tx)
+                }
 
-            if (p.linkedApplication && p.user.user_id !== p.linkedApplication.owner.user_id && remainingFee > 0) {
-                await this.storage.userStorage.IncrementUserBalance(p.linkedApplication.owner.user_id, remainingFee, "fees")
-            }
+                await this.lnd.liquidProvider.incrementProviderBalance(-fullAmount, tx)
+
+            })
             const user = await this.storage.userStorage.GetUser(p.user.user_id)
             this.storage.eventsLog.LogEvent({ type: 'invoice_payment', userId: p.user.user_id, appId: p.linkedApplication?.app_id || "", appUserId: "", balance: user.balance_sats, data: p.invoice, amount: p.paid_amount })
+            const txPoint: TxPointSettings = { used: 'provider', from: 'user', timeDiscount: true }
+            this.utils.stateBundler.AddTxPoint('paidAnInvoice', fullAmount, txPoint)
             return
         }
         log("provider payment still pending", p.serial_id, "no action will be performed")
@@ -162,17 +171,22 @@ export default class {
                 log("pending payment succeeded", p.serial_id, "updating payment info")
                 const serviceFee = p.service_fees
                 const networkFee = Number(payment.feeSat)
+                await this.storage.StartTransaction(async tx => {
+                    await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, networkFee, p.service_fees, true, undefined, tx)
+                    const remainingFee = serviceFee - networkFee
+                    if (remainingFee < 0) { // should not be possible beacuse of the fee limit
+                        this.log("WARNING: lnd fee was higher than expected,", remainingFee, "were lost")
+                    }
+                    if (p.linkedApplication && p.user.user_id !== p.linkedApplication.owner.user_id && remainingFee > 0) {
+                        await this.storage.userStorage.IncrementUserBalance(p.linkedApplication.owner.user_id, remainingFee, "fees", tx)
+                    }
+                })
 
-                await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, networkFee, p.service_fees, true, undefined)
-                const remainingFee = serviceFee - networkFee
-                if (remainingFee < 0) { // should not be possible beacuse of the fee limit
-                    this.log("WARNING: lnd fee was higher than expected,", remainingFee, "were lost")
-                }
-                if (p.linkedApplication && p.user.user_id !== p.linkedApplication.owner.user_id && remainingFee > 0) {
-                    await this.storage.userStorage.IncrementUserBalance(p.linkedApplication.owner.user_id, remainingFee, "fees")
-                }
                 const user = await this.storage.userStorage.GetUser(p.user.user_id)
                 this.storage.eventsLog.LogEvent({ type: 'invoice_payment', userId: p.user.user_id, appId: p.linkedApplication?.app_id || "", appUserId: "", balance: user.balance_sats, data: p.invoice, amount: p.paid_amount })
+
+                const txPoint: TxPointSettings = { used: 'lnd', from: 'user', timeDiscount: true }
+                this.utils.stateBundler.AddTxPoint('paidAnInvoice', p.paid_amount, txPoint)
                 return
             case Payment_PaymentStatus.FAILED:
                 const fullAmount = p.paid_amount + p.service_fees
@@ -181,6 +195,7 @@ export default class {
                     await this.storage.userStorage.IncrementUserBalance(p.user.user_id, fullAmount, "payment_refund:" + p.invoice, tx)
                     await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, 0, 0, false, undefined, tx)
                 }, "refund failed pending payment")
+                this.utils.stateBundler.AddTxPointFailed('paidAnInvoice', fullAmount, { used: 'lnd', from: 'user' })
                 return
             default:
                 break;

@@ -490,6 +490,7 @@ export default class {
                     switch (payment.status) {
                         case Payment_PaymentStatus.FAILED:
                             this.log(ERROR, "invoice payment failed", payment.failureReason)
+                            this.utils.stateBundler.AddTxPointFailed('paidAnInvoice', decodedAmount, { from, used: 'lnd' })
                             rej(PaymentFailureReason[payment.failureReason])
                             return
                         case Payment_PaymentStatus.SUCCEEDED:
