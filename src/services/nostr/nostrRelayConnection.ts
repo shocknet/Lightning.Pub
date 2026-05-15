@@ -88,7 +88,7 @@ export class RelayConnection {
     async ConnectLoop() {
         let failures = 0
         while (!this.stopped) {
-            await this.ConnectPromise()
+            await this.ConnectPromise(() => failures = 0)
             const pow = Math.pow(2, failures)
             const delay = Math.min(pow, 900)
             this.log("connection failed, will try again in", delay, "seconds (failures:", failures, ")")
@@ -98,14 +98,14 @@ export class RelayConnection {
         this.log("nostr handler stopped")
     }
 
-    async ConnectPromise() {
+    async ConnectPromise(onReady: () => void) {
         return new Promise<void>(async (res) => {
             this.relay = await this.GetRelay()
             if (!this.relay) {
                 res()
                 return
             }
-            this.sub = this.Subscribe(this.relay)
+            this.sub = this.Subscribe(this.relay, onReady)
             this.relay.onclose = (() => {
                 this.log("disconnected")
                 this.sub?.close()
@@ -133,10 +133,13 @@ export class RelayConnection {
         }
     }
 
-    Subscribe(relay: Relay) {
+    Subscribe(relay: Relay, onReady: () => void) {
         this.log("🔍 subscribing...")
         return relay.subscribe(this.settings.filters, {
-            oneose: () => this.log("is ready"),
+            oneose: () => {
+                this.log("is ready")
+                onReady()
+            },
             onevent: (e) => this.eventCallback(e, this)
         })
     }
