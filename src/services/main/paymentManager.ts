@@ -48,6 +48,24 @@ const defaultLnurlPayMetadata = (text: string) => `[["text/plain", "${text}"]]`
 const defaultLnAddressMetadata = (text: string, id: string) => `[["text/plain", "${text}"],["text/identifier", "${id}"]]`
 const confInOne = 1000 * 1000
 const confInTwo = 100 * 1000 * 1000
+
+/** Some clients (e.g. Primal) URL-encode zap request nostr events in offer/LNURL-pay payloads. */
+function normalizeZapEventPayload(raw: string): string {
+    const trimmed = raw.trim()
+    if (trimmed.startsWith('{')) {
+        return trimmed
+    }
+    try {
+        const decoded = decodeURIComponent(trimmed)
+        if (decoded.startsWith('{')) {
+            return decoded
+        }
+    } catch {
+        // not URI-encoded JSON
+    }
+    return trimmed
+}
+
 export default class {
     storage: Storage
     settings: SettingsManager
@@ -781,7 +799,8 @@ export default class {
     }
 
     validateZapEvent(event: string, amt: number): ZapInfo {
-        const nostrEvent = JSON.parse(event) as Event
+        const zapPayload = normalizeZapEventPayload(event)
+        const nostrEvent = JSON.parse(zapPayload) as Event
         delete nostrEvent[verifiedSymbol]
         const verified = verifyEvent(nostrEvent)
         if (!verified) {
@@ -803,7 +822,7 @@ export default class {
             pub: p[0],
             eventId: e.length > 0 ? e[0] : "",
             relays,
-            description: event,
+            description: zapPayload,
             senderPub: nostrEvent.pubkey,
             eventCoordinate: a.length > 0 ? a[0] : "",
             eventKind: k.length > 0 ? k[0] : "",
