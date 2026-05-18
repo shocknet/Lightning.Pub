@@ -7,6 +7,7 @@ import { InvoicePaidCb } from '../lnd/settings.js'
 import Storage from '../storage/index.js'
 import SettingsManager from './settingsManager.js'
 import { LiquiditySettings } from './settings.js'
+import { TxPointSettings } from '../storage/tlv/stateBundler.js'
 export type nostrCallback<T> = { startedAtMillis: number, type: 'single' | 'stream', f: (res: T) => void }
 export class LiquidityProvider {
     getSettings: () => LiquiditySettings
@@ -25,10 +26,11 @@ export class LiquidityProvider {
     queue: ((state: 'ready') => void)[] = []
     utils: Utils
     pendingPayments: Record<string, number> = {}
+    recoveredPendingPayments: Record<string, { total: number, from: 'user' | 'system', processing?: true }> = {}
     feesCache: Types.CumulativeFees | null = null
     lastSeenBeacon = 0
     latestReceivedBalance = 0
-    incrementProviderBalance: (balance: number) => Promise<void>
+    incrementProviderBalance: (balance: number, tx?: string) => Promise<void>
     pendingPaymentsAck: Record<string, boolean> = {}
     // make the sub process accept client
     constructor(getSettings: () => LiquiditySettings, utils: Utils, invoicePaidCb: InvoicePaidCb, incrementProviderBalance: (balance: number) => Promise<any>) {
@@ -126,6 +128,12 @@ export class LiquidityProvider {
                 }
             } else if (res.operation.type === Types.UserOperationType.OUTGOING_INVOICE) {
                 delete this.pendingPaymentsAck[res.operation.identifier]
+                // if a recovery pending payment exists, and the payment failed, delete it,
+                // if still pending, or success, leave it in the cache, to keep the balance consistent.
+                // the actual provider balance decrement is done by the pending payment checker on startup
+                if (res.operation.paidAtUnix < 0) {
+                    delete this.recoveredPendingPayments[res.operation.identifier]
+                }
             }
         })
     }
@@ -176,7 +184,8 @@ export class LiquidityProvider {
     }
 
     GetPendingBalance = async () => {
-        return Object.values(this.pendingPayments).reduce((a, b) => a + b, 0)
+        return Object.values(this.pendingPayments).reduce((a, b) => a + b, 0) +
+            Object.values(this.recoveredPendingPayments).reduce((a, b) => a + b.total, 0)
     }
 
     GetServiceFee = (amount: number, f?: Types.CumulativeFees) => {
@@ -223,6 +232,17 @@ export class LiquidityProvider {
             throw err
         }
 
+    }
+
+    AddRecoveredPendingPayment = (invoice: string, amount: number, from: 'user' | 'system') => {
+        if (this.pendingPayments[invoice]) {
+            this.log("already have a pending payment for", invoice, "skipping recovery")
+            return
+        }
+        if (this.recoveredPendingPayments[invoice]) {
+            throw new Error("already have a recovered pending payment for " + invoice)
+        }
+        this.recoveredPendingPayments[invoice] = { total: amount, from }
     }
 
     PayInvoice = async (invoice: string, decodedAmount: number, from: 'user' | 'system', feeLimit?: number) => {
