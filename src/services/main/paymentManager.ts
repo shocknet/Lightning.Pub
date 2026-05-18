@@ -186,7 +186,7 @@ export default class {
                 this.storage.eventsLog.LogEvent({ type: 'invoice_payment', userId: p.user.user_id, appId: p.linkedApplication?.app_id || "", appUserId: "", balance: user.balance_sats, data: p.invoice, amount: p.paid_amount })
 
                 const txPoint: TxPointSettings = { used: 'lnd', from: 'user', timeDiscount: true }
-                this.utils.stateBundler.AddTxPoint('paidAnInvoice', p.paid_amount, txPoint)
+                this.utils.stateBundler.AddTxPoint('paidAnInvoice', p.paid_amount + p.service_fees, txPoint)
                 return
             case Payment_PaymentStatus.FAILED:
                 const fullAmount = p.paid_amount + p.service_fees
@@ -562,11 +562,11 @@ export default class {
         try {
             await this.invoicePaidCb(internalInvoice.invoice, payAmount, 'internal')
             const newPayment = await this.storage.paymentStorage.AddInternalPayment(userId, internalInvoice.invoice, payAmount, serviceFee, linkedApplication, debitNpub)
-            this.utils.stateBundler.AddTxPoint('paidAnInvoice', payAmount, { used: 'internal', from: 'user' }, linkedApplication.app_id)
+            this.utils.stateBundler.AddTxPoint('paidAnInvoice', totalAmountToDecrement, { used: 'internal', from: 'user' }, linkedApplication.app_id)
             return { preimage: "", amtPaid: payAmount, networkFee: 0, serialId: newPayment.serial_id }
         } catch (err) {
             await this.storage.userStorage.IncrementUserBalance(userId, totalAmountToDecrement, "internal_payment_refund:" + internalInvoice.invoice)
-            this.utils.stateBundler.AddTxPointFailed('paidAnInvoice', payAmount, { used: 'internal', from: 'user' }, linkedApplication.app_id)
+            this.utils.stateBundler.AddTxPointFailed('paidAnInvoice', totalAmountToDecrement, { used: 'internal', from: 'user' }, linkedApplication.app_id)
             throw err
         }
     }
