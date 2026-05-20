@@ -174,7 +174,6 @@ export class RestoreManager {
             }
 
             this.log("All data needed for restore is available, starting restore process")
-            this.updateCheckpoint(RestoreCheckpoint.STARTED)
             let restoredEntries = 0
             let macaroon: string | undefined
             if (checkpoint === RestoreCheckpoint.STARTED) {
