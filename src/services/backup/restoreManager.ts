@@ -102,14 +102,19 @@ export class RestoreManager {
     }
     getCheckpoint = (): RestoreCheckpoint => {
         const checkpintPath = ".restore_checkpoint"
-        const s = fs.readFileSync(checkpintPath, 'utf8').trim()
-        if (!s) {
+        try {
+            const s = fs.readFileSync(checkpintPath, 'utf8').trim()
+            if (!s) {
+                return RestoreCheckpoint.STARTED
+            }
+            if (!Object.values(RestoreCheckpoint).includes(s as RestoreCheckpoint)) {
+                throw new Error("Invalid checkpoint: " + s)
+            }
+            return s as RestoreCheckpoint
+        } catch (err: any) {
             return RestoreCheckpoint.STARTED
         }
-        if (!Object.values(RestoreCheckpoint).includes(s as RestoreCheckpoint)) {
-            throw new Error("Invalid checkpoint: " + s)
-        }
-        return s as RestoreCheckpoint
+
     }
 
     async RestoreFromSource(req: wizardTypes.RestoreRequest): Promise<wizardTypes.RestoreResponse> {
