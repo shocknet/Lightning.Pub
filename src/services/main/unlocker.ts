@@ -67,27 +67,56 @@ export class Unlocker {
         return macaroon !== ''
     }
 
-    Unlock = async (restore?: { seed: string[], recoveryWindow: number }): Promise<'created' | 'unlocked' | 'noaction'> => {
+    Restore = async (seed: string[], recoveryWindow: number) => {
+        if (this.settings.getSettings().liquiditySettings.useOnlyLiquidityProvider) {
+            this.log("USE_ONLY_LIQUIDITY_PROVIDER enabled, skipping LND restore")
+            throw new Error("USE_ONLY_LIQUIDITY_PROVIDER enabled, cannot restore LND")
+        }
+        const { lndCert, macaroon } = this.getCreds()
+        if (macaroon !== "") {
+            throw new Error("lnd is already initialized, cannot restore")
+        }
+        const state = this.GetStateClient(lndCert)
+        const { adminMacaroon } = await this.initFlow(lndCert, state, { seed, recoveryWindow })
+        /*         this.nodePub = await this.saveSeed(state, ln, encryptedSeed)
+                await this.subscribeToBackups(ln, state, this.nodePub) */
+        return { adminMacaroon }
+    }
+
+    PostRestore = async (seed: string[], initMacaroon: string | undefined) => {
+        if (this.settings.getSettings().liquiditySettings.useOnlyLiquidityProvider) {
+            this.log("USE_ONLY_LIQUIDITY_PROVIDER enabled, skipping LND restore")
+            return 'noaction'
+        }
+        const { lndCert, macaroon } = this.getCreds()
+        const m = initMacaroon || macaroon
+        const state = this.GetStateClient(lndCert)
+        const ln = this.GetLightningClient(lndCert, m)
+        const encryptedSeed = this.EncryptWalletSeed(seed)
+        this.nodePub = await this.saveSeed(state, ln, encryptedSeed.encryptedData)
+        await this.subscribeToBackups(ln, state, this.nodePub)
+    }
+
+    Unlock = async (): Promise<'created' | 'unlocked' | 'noaction'> => {
         // Skip LND unlock if using only liquidity provider
         if (this.settings.getSettings().liquiditySettings.useOnlyLiquidityProvider) {
             this.log("USE_ONLY_LIQUIDITY_PROVIDER enabled, skipping LND unlock")
             return 'noaction'
         }
         const { lndCert, macaroon } = this.getCreds()
-        if (macaroon === "") {
-            const { ln, pub, state } = await this.InitFlow(lndCert, restore)
-            await this.subscribeToBackups(ln, state, pub)
-            return 'created'
-        } else if (restore) {
-            throw new Error("lnd is already initialized, cannot restore")
-        }
-        const { ln, pub, action } = await this.UnlockFlow(lndCert, macaroon)
         const state = this.GetStateClient(lndCert)
+        if (macaroon === "") {
+            const { ln, encryptedSeed } = await this.initFlow(lndCert, state)
+            this.nodePub = await this.saveSeed(state, ln, encryptedSeed)
+            await this.subscribeToBackups(ln, state, this.nodePub)
+            return 'created'
+        }
+        const { ln, pub, action } = await this.unlockFlow(lndCert, macaroon)
         await this.subscribeToBackups(ln, state, pub)
         return action
     }
 
-    UnlockFlow = async (lndCert: Buffer, macaroon: string): Promise<{ ln: LightningClient, pub: string, action: 'unlocked' | 'noaction' }> => {
+    private unlockFlow = async (lndCert: Buffer, macaroon: string): Promise<{ ln: LightningClient, pub: string, action: 'unlocked' | 'noaction' }> => {
         const ln = this.GetLightningClient(lndCert, macaroon)
         const info = await this.GetLndInfo(ln)
         if (info.ok) {
@@ -116,81 +145,10 @@ export class Unlocker {
         return { ln, pub: infoAfter.pub, action: 'unlocked' }
     }
 
-    private waitForLndSync = async (timeoutSeconds: number): Promise<void> => {
-        const lndLogPath = this.settings.getSettings().lndNodeSettings.lndLogDir;
-        if (this.settings.getSettings().lndSettings.mockLnd) {
-            this.log("MOCK_LND set, skipping header sync wait.");
-            return;
-        }
 
-        let targetHeight = 0;
-        this.log(`Waiting for LND to sync headers (timeout: ${timeoutSeconds}s). Log: ${lndLogPath} (discovering target height...)`);
-
-        let lastPercentReported = -1;
-        const startTime = Date.now();
-        let printedLines = 0
-        const checkLog = async (resolve: () => void, reject: (reason?: any) => void) => {
-            const elapsedTime = (Date.now() - startTime) / 1000;
-            if (elapsedTime > timeoutSeconds) {
-                return reject(new Error("Timed out waiting for LND to sync."));
-            }
-
-            try {
-                if (fs.existsSync(lndLogPath)) {
-                    const logContent = fs.readFileSync(lndLogPath, 'utf8');
-                    const lines = logContent.split('\n');
-                    for (let i = printedLines; i < lines.length; i++) {
-                        this.log("LND log line--> ", lines[i]);
-                    }
-                    printedLines = lines.length;
-                    if (logContent.includes("Fully caught up with cfheaders")) {
-                        this.log("LND sync complete.");
-                        return resolve();
-                    }
-
-                    // If target height isn't known yet, try to derive it from the log
-                    if (targetHeight === 0) {
-                        const targetMatch = [...logContent.matchAll(/Syncing to block height\s+(\d+)\s+from peer/gi)];
-                        if (targetMatch.length > 0) {
-                            const lastTarget = targetMatch[targetMatch.length - 1];
-                            const parsedTarget = Number.parseInt(lastTarget[1], 10);
-                            if (!Number.isNaN(parsedTarget) && parsedTarget > 0) {
-                                targetHeight = parsedTarget;
-                                this.log(`Detected target header height: ${targetHeight}`);
-                            }
-                        }
-                    }
-
-                    // Parse latest reported height: look for "height=NNNN" occurrences
-                    const matches = [...logContent.matchAll(/height=(\d+)/g)];
-                    if (matches.length > 0) {
-                        const lastMatch = matches[matches.length - 1];
-                        const currentHeight = Number.parseInt(lastMatch[1], 10);
-                        if (!Number.isNaN(currentHeight) && currentHeight > 0 && targetHeight > 0) {
-                            const percent = Math.min(99, Math.max(0, Math.floor((Math.min(currentHeight, targetHeight) * 100) / targetHeight)));
-                            // Report only on first run and on >=5% increments to reduce noise
-                            if (lastPercentReported === -1 || percent >= lastPercentReported + 5) {
-                                this.log(`LND header sync ${percent}% (height=${currentHeight}/${targetHeight})`);
-                                lastPercentReported = percent;
-                            }
-                        }
-                    }
-                }
-            } catch (err) {
-                // Log file might not exist yet, which is fine.
-            }
-
-            setTimeout(() => checkLog(resolve, reject), 3000);
-        };
-
-        return new Promise<void>((resolve, reject) => {
-            checkLog(resolve, reject);
-        });
-    }
-
-    InitFlow = async (lndCert: Buffer, restore?: { seed: string[], recoveryWindow: number }) => {
-        this.log("macaroon not found, creating wallet...")
-        const state = this.GetStateClient(lndCert)
+    private initFlow = async (lndCert: Buffer, state: StateClient, restore?: { seed: string[], recoveryWindow: number }) => {
+        this.log("creating wallet...")
+        // const state = this.GetStateClient(lndCert)
         const stateResult = await this.WaitWalletState(state, 300) // Wait up to 5 minutes
         if (stateResult !== WalletState.NON_EXISTING) {
             const stateString = WalletState[stateResult]
@@ -203,8 +161,9 @@ export class Unlocker {
         if (recoveryWindow) {
             this.log("recovering addresses with window: " + recoveryWindow)
         }
-        const res = await this.initWallet(lndCert, unlocker, state, { plaintextSeed, encryptedSeed }, recoveryWindow)
-        return { ...res, state }
+        const { adminMacaroon } = await this.initWallet(unlocker, { plaintextSeed, encryptedSeed }, recoveryWindow)
+        const ln = this.GetLightningClient(lndCert, adminMacaroon)
+        return { adminMacaroon, ln, encryptedSeed }
     }
 
     private getSeed = async (unlocker: WalletUnlockerClient, restore?: { seed: string[] }): Promise<Seed> => {
@@ -229,16 +188,18 @@ export class Unlocker {
         return { plaintextSeed: seedRes.response.cipherSeedMnemonic, encryptedSeed: encryptedData }
     }
 
-    private initWallet = async (lndCert: Buffer, unlocker: WalletUnlockerClient, state: StateClient, seed: Seed, recoveryWindow: number = 0) => {
+    private initWallet = async (unlocker: WalletUnlockerClient, seed: Seed, recoveryWindow: number = 0) => {
         const walletPw = this.GetWalletPassword()
         const req = InitWalletReq(walletPw, seed.plaintextSeed, recoveryWindow)
         const initRes = await unlocker.initWallet(req, DeadLineMetadata(60 * 1000))
         const adminMacaroon = Buffer.from(initRes.response.adminMacaroon).toString('hex')
-        const ln = this.GetLightningClient(lndCert, adminMacaroon)
+
+        return { adminMacaroon }
+    }
+
+    private saveSeed = async (state: StateClient, ln: LightningClient, encryptedSeed: EncryptedData) => {
         await this.WaitWalletState(state, 300, WalletState.SERVER_ACTIVE)
         await this.WaitRecovery(ln)
-
-        // Retry mechanism to ensure LND is ready
         let info;
         for (let i = 0; i < 10; i++) {
             info = await this.GetLndInfo(ln);
@@ -250,10 +211,8 @@ export class Unlocker {
         if (!info || !info.ok) {
             throw new Error("failed to init lnd wallet " + (info ? info.failure : "unknown error"))
         }
-        this.nodePub = info.pub
-        await this.storage.liquidityStorage.SaveNodeSeed(info.pub, JSON.stringify(seed.encryptedSeed))
-        this.log("created wallet with pub:", info.pub)
-        return { ln, pub: info.pub }
+        await this.storage.liquidityStorage.SaveNodeSeed(info.pub, JSON.stringify(encryptedSeed))
+        return info.pub
     }
 
     GetSeed = async (): Promise<Types.LndSeed> => {
