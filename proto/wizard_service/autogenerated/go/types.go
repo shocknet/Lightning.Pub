@@ -40,9 +40,10 @@ type RestoreRequest struct {
 	Source         *RestoreRequest_source `json:"source"`
 }
 type RestoreResponse struct {
-	Error           string `json:"error"`
-	Success         bool   `json:"success"`
-	Tables_restored int64  `json:"tables_restored"`
+	Entries_restored int64  `json:"entries_restored"`
+	Error            string `json:"error"`
+	Scb_restored     bool   `json:"scb_restored"`
+	Success          bool   `json:"success"`
 }
 type ServiceStateResponse struct {
 	Admin_npub            string   `json:"admin_npub"`
