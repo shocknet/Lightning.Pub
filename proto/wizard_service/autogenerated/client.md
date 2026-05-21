@@ -88,9 +88,10 @@ The nostr server will send back a message response, and inside the body there wi
   - __source__: _[RestoreRequest_source](#RestoreRequest_source)_
 
 ### RestoreResponse
+  - __entries_restored__: _number_
   - __error__: _string_
+  - __scb_restored__: _boolean_
   - __success__: _boolean_
-  - __tables_restored__: _number_
 
 ### ServiceStateResponse
   - __admin_npub__: _string_

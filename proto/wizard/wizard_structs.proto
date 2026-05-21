@@ -66,5 +66,6 @@ message RestoreRequest {
 message RestoreResponse {
     bool success = 1;
     string error = 2;
-    int64 tables_restored = 3;
+    int64 entries_restored = 3;
+    bool scb_restored = 4;
 }

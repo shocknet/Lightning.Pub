@@ -78,7 +78,14 @@ const DeadLineMetadata = (deadline = 20 * 1000) => ({ deadline: Date.now() + dea
 const SCB_BACKUP_KIND = 30078
 const SCB_BACKUP_D_TAG = 'Lightning.Pub/backup/scb'
 const relayFetchTimeoutMs = 12_000
-
+const CHECKPOINT_FILE = ".restore_checkpoint"
+enum RestoreCheckpoint {
+    STARTED = 'STARTED', // just fetched data, can be retried anytime
+    LND_RECOVERED = 'LND_RECOVERED', // lnd was recovered, but DB not commit, cannot continue recovery from this state
+    DB_COMMITTED = 'DB_COMMITTED', // DB committed, any retry will start from after this checkpoint
+    LND_ACTIVE = 'LND_ACTIVE', // LND active, SCB can be restored, or retried
+    COMPLETED = 'COMPLETED', // SCB restored, restore completed
+}
 export class RestoreManager {
     storage: Storage
     settings: SettingsManager
@@ -89,24 +96,72 @@ export class RestoreManager {
         this.settings = settings
         this.unlocker = unlocker
     }
+
+    getCheckpointPath = () => {
+        const dataDir = this.settings.getStorageSettings().dataDir
+        return dataDir ? path.join(dataDir, CHECKPOINT_FILE) : CHECKPOINT_FILE
+    }
+
+    updateCheckpoint = (current: RestoreCheckpoint) => {
+        const checkpointPath = this.getCheckpointPath()
+        fs.writeFileSync(checkpointPath, current)
+    }
+    getCheckpoint = (): RestoreCheckpoint => {
+        const checkpointPath = this.getCheckpointPath()
+        try {
+            const s = fs.readFileSync(checkpointPath, 'utf8').trim()
+            if (!s) {
+                return RestoreCheckpoint.STARTED
+            }
+            if (!Object.values(RestoreCheckpoint).includes(s as RestoreCheckpoint)) {
+                throw new Error("Invalid checkpoint: " + s)
+            }
+            return s as RestoreCheckpoint
+        } catch (err: any) {
+            return RestoreCheckpoint.STARTED
+        }
+
+    }
+
     async RestoreFromSource(req: wizardTypes.RestoreRequest): Promise<wizardTypes.RestoreResponse> {
         try {
             this.log('RestoreFromSource request received', req.source.type)
-            const clean = await this.storage.IsDbClean()
-            if (!clean) {
+            const checkpoint = this.getCheckpoint()
+            const skipDb = checkpoint === RestoreCheckpoint.DB_COMMITTED ||
+                checkpoint === RestoreCheckpoint.LND_ACTIVE ||
+                checkpoint === RestoreCheckpoint.COMPLETED
+
+            if (checkpoint === RestoreCheckpoint.COMPLETED) {
+                this.log("Restore already completed, returning success")
                 return {
-                    tables_restored: 0,
+                    entries_restored: 0,
+                    scb_restored: false,
+                    success: true,
+                    error: '',
+                }
+            }
+            if (checkpoint === RestoreCheckpoint.LND_RECOVERED) {
+                throw new Error(`Restore currently in broken state, lnd was recovered, but DB was not committed, 
+                    Delete .restore_checkpoint, reset LND, and try again`)
+            }
+            const clean = await this.storage.IsDbClean()
+            if (!clean && !skipDb) {
+                return {
+                    entries_restored: 0,
+                    scb_restored: false,
                     success: false,
                     error: 'Database is not empty. Restore can only run against a freshly initialized database.',
                 }
             }
             if (!req.phrase || req.phrase.trim() === '') {
                 return {
-                    tables_restored: 0,
+                    entries_restored: 0,
+                    scb_restored: false,
                     success: false,
                     error: 'No phrase provided to restore',
                 }
             }
+            const seed = req.phrase.trim().split(' ')
             this.log("deriving backup keys")
             const keys = await deriveBackupKeys(req.phrase, LATEST_DERIVATION_VERSION)
 
@@ -138,41 +193,51 @@ export class RestoreManager {
             }
 
             this.log("All data needed for restore is available, starting restore process")
+            let restoredEntries = 0
+            let macaroon: string | undefined
+            if (!skipDb) {
+                const { entriesRestored, adminMacaroon } = await this.storage.StartTransaction(async tx => {
+                    this.log("importing dialtone")
+                    const entriesRestored = await this.importDialtone(backupData, tx)
+                    this.log("restoring LND wallet")
+                    const { adminMacaroon } = await this.unlocker.Restore(seed, recoveryWindow)
+                    this.updateCheckpoint(RestoreCheckpoint.LND_RECOVERED)
+                    return { entriesRestored, adminMacaroon }
+                })
+                this.updateCheckpoint(RestoreCheckpoint.DB_COMMITTED)
+                macaroon = adminMacaroon
+                restoredEntries = entriesRestored
+            } else {
+                this.log("LND already recovered and DB already committed, skipping to SCB restore")
+            }
 
-            const tablesRestored = await this.storage.StartTransaction(async tx => {
-                this.log("importing dialtone")
-                const entriesRestored = await this.importDialtone(backupData, tx)
-                await this.UnlockLnd(req, recoveryWindow)
-                return entriesRestored
-            })
 
+            this.log("waiting LND and restoring SCB")
+            await this.unlocker.PostRestore(seed, macaroon)
+            this.updateCheckpoint(RestoreCheckpoint.LND_ACTIVE)
+            let scbRestored = false
             try {
                 await this.restoreScb(decryptedScb)
+                this.updateCheckpoint(RestoreCheckpoint.COMPLETED)
+                scbRestored = true
             } catch (err: any) {
                 this.log("Skipping SCB restore: " + err.message || err)
             }
             this.log("RestoreFromSource completed")
             return {
-                tables_restored: tablesRestored,
+                entries_restored: restoredEntries,
+                scb_restored: scbRestored,
                 success: true,
                 error: '',
             }
         } catch (err: any) {
             this.log('RestoreFromSource failed', err.message || err)
             return {
-                tables_restored: 0,
+                entries_restored: 0,
+                scb_restored: false,
                 success: false,
                 error: err.message || 'restore failed',
             }
-        }
-    }
-
-    async UnlockLnd(req: wizardTypes.RestoreRequest, recoveryWindow: number) {
-        this.log("unlocking LND wallet with window: " + recoveryWindow)
-        const phrase = req.phrase.split(' ')
-        const unlockResult = await this.unlocker.Unlock({ seed: phrase, recoveryWindow })
-        if (unlockResult !== 'created') {
-            throw new Error('Failed to create LND wallet')
         }
     }
 
@@ -289,7 +354,12 @@ export class RestoreManager {
 
     private restoreScb = async (scb: Buffer) => {
         this.log("restoring SCB")
-        await this.unlocker.ApplyScb(scb)
+        try {
+            await this.unlocker.ApplyScb(scb)
+        } catch (err: any) {
+            this.log("Failed to restore SCB will retry once: " + err.message || err)
+            await this.unlocker.ApplyScb(scb)
+        }
     }
 
     private getRestoreRelay = (req: wizardTypes.RestoreRequest): string | null => {

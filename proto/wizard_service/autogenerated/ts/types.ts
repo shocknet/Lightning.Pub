@@ -184,29 +184,34 @@ export const RestoreRequestValidate = (o?: RestoreRequest, opts: RestoreRequestO
 }
 
 export type RestoreResponse = {
+    entries_restored: number
     error: string
+    scb_restored: boolean
     success: boolean
-    tables_restored: number
 }
 export const RestoreResponseOptionalFields: [] = []
 export type RestoreResponseOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
+    entries_restored_CustomCheck?: (v: number) => boolean
     error_CustomCheck?: (v: string) => boolean
+    scb_restored_CustomCheck?: (v: boolean) => boolean
     success_CustomCheck?: (v: boolean) => boolean
-    tables_restored_CustomCheck?: (v: number) => boolean
 }
 export const RestoreResponseValidate = (o?: RestoreResponse, opts: RestoreResponseOptions = {}, path: string = 'RestoreResponse::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
     if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
 
+    if (typeof o.entries_restored !== 'number') return new Error(`${path}.entries_restored: is not a number`)
+    if (opts.entries_restored_CustomCheck && !opts.entries_restored_CustomCheck(o.entries_restored)) return new Error(`${path}.entries_restored: custom check failed`)
+
     if (typeof o.error !== 'string') return new Error(`${path}.error: is not a string`)
     if (opts.error_CustomCheck && !opts.error_CustomCheck(o.error)) return new Error(`${path}.error: custom check failed`)
 
+    if (typeof o.scb_restored !== 'boolean') return new Error(`${path}.scb_restored: is not a boolean`)
+    if (opts.scb_restored_CustomCheck && !opts.scb_restored_CustomCheck(o.scb_restored)) return new Error(`${path}.scb_restored: custom check failed`)
+
     if (typeof o.success !== 'boolean') return new Error(`${path}.success: is not a boolean`)
     if (opts.success_CustomCheck && !opts.success_CustomCheck(o.success)) return new Error(`${path}.success: custom check failed`)
-
-    if (typeof o.tables_restored !== 'number') return new Error(`${path}.tables_restored: is not a number`)
-    if (opts.tables_restored_CustomCheck && !opts.tables_restored_CustomCheck(o.tables_restored)) return new Error(`${path}.tables_restored: custom check failed`)
 
     return null
 }
