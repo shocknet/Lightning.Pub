@@ -354,7 +354,12 @@ export class RestoreManager {
 
     private restoreScb = async (scb: Buffer) => {
         this.log("restoring SCB")
-        await this.unlocker.ApplyScb(scb)
+        try {
+            await this.unlocker.ApplyScb(scb)
+        } catch (err: any) {
+            this.log("Failed to restore SCB will retry once: " + err.message || err)
+            await this.unlocker.ApplyScb(scb)
+        }
     }
 
     private getRestoreRelay = (req: wizardTypes.RestoreRequest): string | null => {
