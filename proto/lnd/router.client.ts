@@ -4,6 +4,8 @@
 import type { RpcTransport } from "@protobuf-ts/runtime-rpc";
 import type { ServiceInfo } from "@protobuf-ts/runtime-rpc";
 import { Router } from "./router.js";
+import type { FindBaseAliasResponse } from "./router";
+import type { FindBaseAliasRequest } from "./router";
 import type { DeleteAliasesResponse } from "./router.js";
 import type { DeleteAliasesRequest } from "./router.js";
 import type { AddAliasesResponse } from "./router.js";
@@ -263,6 +265,14 @@ export interface IRouterClient {
      * @generated from protobuf rpc: XDeleteLocalChanAliases
      */
     xDeleteLocalChanAliases(input: DeleteAliasesRequest, options?: RpcOptions): UnaryCall<DeleteAliasesRequest, DeleteAliasesResponse>;
+    /**
+     *
+     * XFindBaseLocalChanAlias is an experimental API that looks up the base scid
+     * for a local chan alias that was registered during the current runtime.
+     *
+     * @generated from protobuf rpc: XFindBaseLocalChanAlias
+     */
+    xFindBaseLocalChanAlias(input: FindBaseAliasRequest, options?: RpcOptions): UnaryCall<FindBaseAliasRequest, FindBaseAliasResponse>;
 }
 // 
 // Comments in this file will be directly parsed into the API
@@ -548,5 +558,16 @@ export class RouterClient implements IRouterClient, ServiceInfo {
     xDeleteLocalChanAliases(input: DeleteAliasesRequest, options?: RpcOptions): UnaryCall<DeleteAliasesRequest, DeleteAliasesResponse> {
         const method = this.methods[19], opt = this._transport.mergeOptions(options);
         return stackIntercept<DeleteAliasesRequest, DeleteAliasesResponse>("unary", this._transport, method, opt, input);
+    }
+    /**
+     *
+     * XFindBaseLocalChanAlias is an experimental API that looks up the base scid
+     * for a local chan alias that was registered during the current runtime.
+     *
+     * @generated from protobuf rpc: XFindBaseLocalChanAlias
+     */
+    xFindBaseLocalChanAlias(input: FindBaseAliasRequest, options?: RpcOptions): UnaryCall<FindBaseAliasRequest, FindBaseAliasResponse> {
+        const method = this.methods[20], opt = this._transport.mergeOptions(options);
+        return stackIntercept<FindBaseAliasRequest, FindBaseAliasResponse>("unary", this._transport, method, opt, input);
     }
 }

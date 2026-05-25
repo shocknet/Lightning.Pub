@@ -1368,6 +1368,28 @@ export interface DeleteAliasesResponse {
     aliasMaps: AliasMap[];
 }
 /**
+ * @generated from protobuf message routerrpc.FindBaseAliasRequest
+ */
+export interface FindBaseAliasRequest {
+    /**
+     * The alias we want to look up the base scid for.
+     *
+     * @generated from protobuf field: uint64 alias = 1
+     */
+    alias: bigint;
+}
+/**
+ * @generated from protobuf message routerrpc.FindBaseAliasResponse
+ */
+export interface FindBaseAliasResponse {
+    /**
+     * The base scid that resulted from the base scid look up.
+     *
+     * @generated from protobuf field: uint64 base = 1
+     */
+    base: bigint;
+}
+/**
  * @generated from protobuf enum routerrpc.FailureDetail
  */
 export enum FailureDetail {
@@ -4535,6 +4557,100 @@ class DeleteAliasesResponse$Type extends MessageType<DeleteAliasesResponse> {
  * @generated MessageType for protobuf message routerrpc.DeleteAliasesResponse
  */
 export const DeleteAliasesResponse = new DeleteAliasesResponse$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class FindBaseAliasRequest$Type extends MessageType<FindBaseAliasRequest> {
+    constructor() {
+        super("routerrpc.FindBaseAliasRequest", [
+            { no: 1, name: "alias", kind: "scalar", T: 4 /*ScalarType.UINT64*/, L: 0 /*LongType.BIGINT*/ }
+        ]);
+    }
+    create(value?: PartialMessage<FindBaseAliasRequest>): FindBaseAliasRequest {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.alias = 0n;
+        if (value !== undefined)
+            reflectionMergePartial<FindBaseAliasRequest>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: FindBaseAliasRequest): FindBaseAliasRequest {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* uint64 alias */ 1:
+                    message.alias = reader.uint64().toBigInt();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: FindBaseAliasRequest, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* uint64 alias = 1; */
+        if (message.alias !== 0n)
+            writer.tag(1, WireType.Varint).uint64(message.alias);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message routerrpc.FindBaseAliasRequest
+ */
+export const FindBaseAliasRequest = new FindBaseAliasRequest$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class FindBaseAliasResponse$Type extends MessageType<FindBaseAliasResponse> {
+    constructor() {
+        super("routerrpc.FindBaseAliasResponse", [
+            { no: 1, name: "base", kind: "scalar", T: 4 /*ScalarType.UINT64*/, L: 0 /*LongType.BIGINT*/ }
+        ]);
+    }
+    create(value?: PartialMessage<FindBaseAliasResponse>): FindBaseAliasResponse {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.base = 0n;
+        if (value !== undefined)
+            reflectionMergePartial<FindBaseAliasResponse>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: FindBaseAliasResponse): FindBaseAliasResponse {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* uint64 base */ 1:
+                    message.base = reader.uint64().toBigInt();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: FindBaseAliasResponse, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* uint64 base = 1; */
+        if (message.base !== 0n)
+            writer.tag(1, WireType.Varint).uint64(message.base);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message routerrpc.FindBaseAliasResponse
+ */
+export const FindBaseAliasResponse = new FindBaseAliasResponse$Type();
 /**
  * @generated ServiceType for protobuf service routerrpc.Router
  */
@@ -4558,5 +4674,6 @@ export const Router = new ServiceType("routerrpc.Router", [
     { name: "HtlcInterceptor", serverStreaming: true, clientStreaming: true, options: {}, I: ForwardHtlcInterceptResponse, O: ForwardHtlcInterceptRequest },
     { name: "UpdateChanStatus", options: {}, I: UpdateChanStatusRequest, O: UpdateChanStatusResponse },
     { name: "XAddLocalChanAliases", options: {}, I: AddAliasesRequest, O: AddAliasesResponse },
-    { name: "XDeleteLocalChanAliases", options: {}, I: DeleteAliasesRequest, O: DeleteAliasesResponse }
+    { name: "XDeleteLocalChanAliases", options: {}, I: DeleteAliasesRequest, O: DeleteAliasesResponse },
+    { name: "XFindBaseLocalChanAlias", options: {}, I: FindBaseAliasRequest, O: FindBaseAliasResponse }
 ]);
