@@ -175,7 +175,7 @@ export class DebitManager {
 
     doNdebit = async (event: NostrEvent, pointerdata: NdebitData): Promise<HandleNdebitRes> => {
         const { appId, pub: requestorPub } = event
-        const { amount_sats, pointer, bolt11, frequency } = pointerdata
+        const { amount_sats, pointer, bolt11, frequency, k1 } = pointerdata
         if (!pointer) {
             // TODO: debit from app owner balance
             return { status: 'fail', debitRes: { res: 'GFY', error: nofferErrors[1], code: 1 } }
@@ -202,6 +202,7 @@ export class DebitManager {
                     status: 'authRequired', app, appUser, liveDebitReq: {
                         request_id: event.id,
                         npub: requestorPub,
+                        k1,
                         debit: {
                             type: Types.LiveDebitRequest_debit_type.FREQUENCY,
                             frequency: {
@@ -227,6 +228,7 @@ export class DebitManager {
                         status: 'authRequired', app, appUser, liveDebitReq: {
                             request_id: event.id,
                             npub: requestorPub,
+                            k1,
                             debit: {
                                 type: Types.LiveDebitRequest_debit_type.FULL_ACCESS,
                                 full_access: {}
@@ -256,6 +258,7 @@ export class DebitManager {
                 status: 'authRequired', app, appUser, liveDebitReq: {
                     request_id: event.id,
                     npub: requestorPub,
+                    k1,
                     debit: {
                         type: Types.LiveDebitRequest_debit_type.INVOICE,
                         invoice: bolt11

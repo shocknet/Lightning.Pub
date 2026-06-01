@@ -820,6 +820,7 @@ message LiveDebitRequest {
         FrequencyRule frequency = 4;
         Empty full_access = 5;
     }
+    optional string k1 = 20;
 }
 
 message LiveManageRequest {

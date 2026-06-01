@@ -434,6 +434,7 @@ type LiquidityAssetProvider struct {
 }
 type LiveDebitRequest struct {
 	Debit      *LiveDebitRequest_debit `json:"debit"`
+	K1         string                  `json:"k1"`
 	Npub       string                  `json:"npub"`
 	Request_id string                  `json:"request_id"`
 }
