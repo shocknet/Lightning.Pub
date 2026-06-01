@@ -99,6 +99,7 @@ export default class {
         this.paymentManager.Stop()
         this.utils.Stop()
         this.storage.Stop()
+        this.debitManager.Stop()
     }
 
     StartBeacons() {
