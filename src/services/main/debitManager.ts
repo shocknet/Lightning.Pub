@@ -69,19 +69,16 @@ export class DebitManager {
         }, 1000 * 60)
     }
 
-    DedupeK1 = (userId: string, k1: string | undefined) => {
+    DedupeK1 = (userId: string, k1: string | undefined): boolean => {
         if (!k1) {
-            return
+            return false
         }
         let d = this.k1Debouncers[userId]
         if (!d) {
             d = new K1Debouncer()
             this.k1Debouncers[userId] = d
         }
-        const alreadyProcessed = d.addK1(k1)
-        if (alreadyProcessed) {
-            throw new Error(k1AlreadyProcessedReason)
-        }
+        return d.addK1(k1) || false
     }
 
 
@@ -227,9 +224,6 @@ export class DebitManager {
         try {
             return await this.doNdebit(event, pointerdata)
         } catch (e: any) {
-            if (e?.message === k1AlreadyProcessedReason) {
-                return { status: 'fail', debitRes: { res: 'GFY', error: k1AlreadyProcessedReason, code: 1 } }
-            }
             this.logger("❌ [DEBIT ERROR] Error in debit request")
             this.logger(ERROR, e.message || e)
             return { status: 'fail', debitRes: { res: 'GFY', error: nofferErrors[1], code: 1 } }
@@ -247,7 +241,10 @@ export class DebitManager {
         // the k1 is used to identify the request, and to prevent duplicates
         // the k1 is ignored if not present, the duplication is only prevented if the k1 is present
         // k1 will persist in memory for up to 5 minutes before getting cleared
-        this.DedupeK1(appUserId, k1)
+        const alreadyUsed = this.DedupeK1(appUserId, k1)
+        if (alreadyUsed) {
+            return { status: 'fail', debitRes: { res: 'GFY', error: k1AlreadyProcessedReason, code: 1 } }
+        }
         const app = await this.storage.applicationStorage.GetApplication(appId)
         const appUser = await this.storage.applicationStorage.GetApplicationUser(app, appUserId)
         let decodedAmount = null
