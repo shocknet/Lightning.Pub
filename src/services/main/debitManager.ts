@@ -10,7 +10,7 @@ import { NostrEvent } from '../nostr/nostrPool.js';
 import { Ndebit, NdebitData, NdebitFailure, NdebitSuccess, RecurringDebitTimeUnit } from "@shocknet/clink-sdk";
 import {
     debitAccessRulesToDebitRules, newNdebitResponse, debitRulesToDebitAccessRules,
-    nofferErrors, AuthRequiredRes, HandleNdebitRes, expirationRuleName,
+    nofferErrors, k1AlreadyProcessedReason, AuthRequiredRes, HandleNdebitRes, expirationRuleName,
     frequencyRuleName, IntervalTypeToSeconds, unitToIntervalType
 } from "./debitTypes.js";
 
@@ -80,7 +80,7 @@ export class DebitManager {
         }
         const alreadyProcessed = d.addK1(k1)
         if (alreadyProcessed) {
-            throw new Error("K1 already processed for user " + userId)
+            throw new Error(k1AlreadyProcessedReason)
         }
     }
 
@@ -227,6 +227,9 @@ export class DebitManager {
         try {
             return await this.doNdebit(event, pointerdata)
         } catch (e: any) {
+            if (e?.message === k1AlreadyProcessedReason) {
+                return { status: 'fail', debitRes: { res: 'GFY', error: k1AlreadyProcessedReason, code: 1 } }
+            }
             this.logger("❌ [DEBIT ERROR] Error in debit request")
             this.logger(ERROR, e.message || e)
             return { status: 'fail', debitRes: { res: 'GFY', error: nofferErrors[1], code: 1 } }
@@ -241,7 +244,7 @@ export class DebitManager {
             return { status: 'fail', debitRes: { res: 'GFY', error: nofferErrors[1], code: 1 } }
         }
         const appUserId = pointer
-        // the k1 is used to identify the request, and to prevent duplcates
+        // the k1 is used to identify the request, and to prevent duplicates
         // the k1 is ignored if not present, the duplication is only prevented if the k1 is present
         // k1 will persist in memory for up to 5 minutes before getting cleared
         this.DedupeK1(appUserId, k1)

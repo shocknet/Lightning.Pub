@@ -94,6 +94,9 @@ export const nofferErrors = {
     5: "Invalid Amount",
     6: "Invalid Request",
 }
+
+export const k1AlreadyProcessedReason = "K1 already processed"
+
 export type AuthRequiredRes = { status: 'authRequired', liveDebitReq: Types.LiveDebitRequest, app: Application, appUser: ApplicationUser }
 export type HandleNdebitRes = { status: 'fail', debitRes: NdebitFailure }
     | { status: 'invoicePaid', app: Application, appUser: ApplicationUser, debitRes: NdebitSuccess }
