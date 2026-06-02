@@ -10,20 +10,77 @@ import { NostrEvent } from '../nostr/nostrPool.js';
 import { Ndebit, NdebitData, NdebitFailure, NdebitSuccess, RecurringDebitTimeUnit } from "@shocknet/clink-sdk";
 import {
     debitAccessRulesToDebitRules, newNdebitResponse, debitRulesToDebitAccessRules,
-    nofferErrors, AuthRequiredRes, HandleNdebitRes, expirationRuleName,
+    nofferErrors, k1AlreadyProcessedReason, AuthRequiredRes, HandleNdebitRes, expirationRuleName,
     frequencyRuleName, IntervalTypeToSeconds, unitToIntervalType
 } from "./debitTypes.js";
+
+type k1Info = {
+    k1: string
+    createdAt: number
+}
+const K1_MAX_AGE = 1000 * 60 * 5 // 5 minutes
+class K1Debouncer {
+    k1s: k1Info[] = []
+    addK1 = (k1: string) => {
+        const existing = this.k1s.find(k => k.k1 === k1)
+        if (existing) {
+            return true
+        }
+        this.k1s.push({ k1, createdAt: Date.now() })
+    }
+
+    clear = () => {
+        const now = Date.now()
+        this.k1s = this.k1s.filter(k => now - k.createdAt < K1_MAX_AGE)
+        return this.k1s.length === 0
+    }
+}
 
 export class DebitManager {
     applicationManager: ApplicationManager
     storage: Storage
     lnd: LND
+    k1Debouncers: Record<string, K1Debouncer> = {}
+    interval: NodeJS.Timer
     logger = getLogger({ component: 'DebitManager' })
     constructor(storage: Storage, lnd: LND, applicationManager: ApplicationManager) {
         this.storage = storage
         this.lnd = lnd
         this.applicationManager = applicationManager
+        this.StartDebounceCleaner()
     }
+
+    Stop = () => {
+        clearInterval(this.interval)
+    }
+
+    StartDebounceCleaner = () => {
+        this.interval = setInterval(() => {
+            const emptyBouncers: string[] = []
+            for (const [userId, debouncer] of Object.entries(this.k1Debouncers)) {
+                if (debouncer.clear()) {
+                    emptyBouncers.push(userId)
+                }
+            }
+            for (const userId of emptyBouncers) {
+                delete this.k1Debouncers[userId]
+            }
+            this.logger("Cleaned up", emptyBouncers.length, "empty k1 debouncers")
+        }, 1000 * 60)
+    }
+
+    DedupeK1 = (userId: string, k1: string | undefined): boolean => {
+        if (!k1) {
+            return false
+        }
+        let d = this.k1Debouncers[userId]
+        if (!d) {
+            d = new K1Debouncer()
+            this.k1Debouncers[userId] = d
+        }
+        return d.addK1(k1) || false
+    }
+
 
     GetDebitAuthorizations = async (ctx: Types.UserContext): Promise<Types.DebitAuthorizations> => {
         const allDebitsAccesses = await this.storage.debitStorage.GetAllUserDebitAccess(ctx.app_user_id)
@@ -175,12 +232,19 @@ export class DebitManager {
 
     doNdebit = async (event: NostrEvent, pointerdata: NdebitData): Promise<HandleNdebitRes> => {
         const { appId, pub: requestorPub } = event
-        const { amount_sats, pointer, bolt11, frequency } = pointerdata
+        const { amount_sats, pointer, bolt11, frequency, k1 } = pointerdata
         if (!pointer) {
             // TODO: debit from app owner balance
             return { status: 'fail', debitRes: { res: 'GFY', error: nofferErrors[1], code: 1 } }
         }
         const appUserId = pointer
+        // the k1 is used to identify the request, and to prevent duplicates
+        // the k1 is ignored if not present, the duplication is only prevented if the k1 is present
+        // k1 will persist in memory for up to 5 minutes before getting cleared
+        const alreadyUsed = this.DedupeK1(appUserId, k1)
+        if (alreadyUsed) {
+            return { status: 'fail', debitRes: { res: 'GFY', error: k1AlreadyProcessedReason, code: 1 } }
+        }
         const app = await this.storage.applicationStorage.GetApplication(appId)
         const appUser = await this.storage.applicationStorage.GetApplicationUser(app, appUserId)
         let decodedAmount = null
@@ -202,6 +266,7 @@ export class DebitManager {
                     status: 'authRequired', app, appUser, liveDebitReq: {
                         request_id: event.id,
                         npub: requestorPub,
+                        k1,
                         debit: {
                             type: Types.LiveDebitRequest_debit_type.FREQUENCY,
                             frequency: {
@@ -227,6 +292,7 @@ export class DebitManager {
                         status: 'authRequired', app, appUser, liveDebitReq: {
                             request_id: event.id,
                             npub: requestorPub,
+                            k1,
                             debit: {
                                 type: Types.LiveDebitRequest_debit_type.FULL_ACCESS,
                                 full_access: {}
@@ -256,6 +322,7 @@ export class DebitManager {
                 status: 'authRequired', app, appUser, liveDebitReq: {
                     request_id: event.id,
                     npub: requestorPub,
+                    k1,
                     debit: {
                         type: Types.LiveDebitRequest_debit_type.INVOICE,
                         invoice: bolt11

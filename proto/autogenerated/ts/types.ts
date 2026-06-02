@@ -2545,13 +2545,16 @@ export const LiquidityAssetProviderValidate = (o?: LiquidityAssetProvider, opts:
 
 export type LiveDebitRequest = {
     debit: LiveDebitRequest_debit
+    k1?: string
     npub: string
     request_id: string
 }
-export const LiveDebitRequestOptionalFields: [] = []
+export type LiveDebitRequestOptionalField = 'k1'
+export const LiveDebitRequestOptionalFields: LiveDebitRequestOptionalField[] = ['k1']
 export type LiveDebitRequestOptions = OptionsBaseMessage & {
-    checkOptionalsAreSet?: []
+    checkOptionalsAreSet?: LiveDebitRequestOptionalField[]
     debit_Options?: LiveDebitRequest_debitOptions
+    k1_CustomCheck?: (v?: string) => boolean
     npub_CustomCheck?: (v: string) => boolean
     request_id_CustomCheck?: (v: string) => boolean
 }
@@ -2562,6 +2565,9 @@ export const LiveDebitRequestValidate = (o?: LiveDebitRequest, opts: LiveDebitRe
     const debitErr = LiveDebitRequest_debitValidate(o.debit, opts.debit_Options, `${path}.debit`)
     if (debitErr !== null) return debitErr
     
+
+    if ((o.k1 || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('k1')) && typeof o.k1 !== 'string') return new Error(`${path}.k1: is not a string`)
+    if (opts.k1_CustomCheck && !opts.k1_CustomCheck(o.k1)) return new Error(`${path}.k1: custom check failed`)
 
     if (typeof o.npub !== 'string') return new Error(`${path}.npub: is not a string`)
     if (opts.npub_CustomCheck && !opts.npub_CustomCheck(o.npub)) return new Error(`${path}.npub: custom check failed`)

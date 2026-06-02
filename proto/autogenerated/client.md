@@ -1474,6 +1474,7 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### LiveDebitRequest
   - __debit__: _[LiveDebitRequest_debit](#LiveDebitRequest_debit)_
+  - __k1__: _string_ *this field is optional
   - __npub__: _string_
   - __request_id__: _string_
 
