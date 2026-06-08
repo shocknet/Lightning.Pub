@@ -97,20 +97,36 @@ export const assertCallbackUrlAllowed = (url: string): void => {
     validateCallbackUrlForEgress(parsed)
 }
 
-type LookupCallback = (err: NodeJS.ErrnoException | null, address: string, family: number) => void
-
-const safeLookup = (hostname: string, options: dns.LookupOneOptions, callback: LookupCallback) => {
+const safeLookup = (
+    hostname: string,
+    options: dns.LookupOptions,
+    callback: (...args: unknown[]) => void,
+) => {
+    const returnAll = (options as dns.LookupAllOptions).all === true
     dns.lookup(hostname, { ...options, all: true }, (err, addresses) => {
         if (err) {
-            callback(err, "", 4)
+            if (returnAll) {
+                callback(err, [])
+            } else {
+                callback(err, "", 4)
+            }
             return
         }
-        const records = addresses as dns.LookupAddress[]
-        for (const record of records) {
-            if (isMetadataIp(record.address)) {
-                callback(new SafeOutboundFetchError("callback url resolves to a blocked address"), "", 4)
-                return
+        const records = (addresses as dns.LookupAddress[]).filter(
+            record => !isMetadataIp(record.address)
+        )
+        if (records.length === 0) {
+            const blocked = new SafeOutboundFetchError("callback url resolves to a blocked address")
+            if (returnAll) {
+                callback(blocked, [])
+            } else {
+                callback(blocked, "", 4)
             }
+            return
+        }
+        if (returnAll) {
+            callback(null, records)
+            return
         }
         const first = records[0]
         callback(null, first.address, first.family)
@@ -119,9 +135,9 @@ const safeLookup = (hostname: string, options: dns.LookupOneOptions, callback: L
 
 const createAgent = (protocol: string, rejectUnauthorized: boolean): http.Agent | https.Agent => {
     if (protocol === "https:") {
-        return new https.Agent({ rejectUnauthorized, lookup: safeLookup })
+        return new https.Agent({ rejectUnauthorized, lookup: safeLookup as typeof dns.lookup })
     }
-    return new http.Agent({ lookup: safeLookup })
+    return new http.Agent({ lookup: safeLookup as typeof dns.lookup })
 }
 
 const drainResponseBody = (response: Response): void => {
