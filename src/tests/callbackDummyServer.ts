@@ -12,6 +12,7 @@ type RecordedHit = {
 const hits: RecordedHit[] = []
 
 const server = http.createServer((req, res) => {
+    console.log("callback dummy server request", req.method, req.url)
     const url = req.url || "/"
 
     if (url === "/__test__/health" && req.method === "GET") {
