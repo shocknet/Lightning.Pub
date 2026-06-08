@@ -1,7 +1,7 @@
 import { runSanityCheck, safelySetUserBalance, TestBase } from "./testBase.js"
 
 export const ignore = false
-export const dev = true
+export const dev = false
 
 const DEFAULT_PORT = 38473
 const POLL_INTERVAL_MS = 200
