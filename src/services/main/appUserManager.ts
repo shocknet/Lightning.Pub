@@ -28,7 +28,7 @@ export default class {
             t = token.substring("Bearer ".length)
         }
         if (!t) throw new Error("no user token provided")
-        const decoded = jwt.verify(token, this.settings.getStorageSettings().jwtSecret) as { user_id: string, app_id: string, app_user_id: string }
+        const decoded = jwt.verify(t, this.settings.getStorageSettings().jwtSecret) as { user_id: string, app_id: string, app_user_id: string }
         if (!decoded.user_id || !decoded.app_id || !decoded.app_user_id) {
             throw new Error("the provided token is not a valid app user token token")
         }
