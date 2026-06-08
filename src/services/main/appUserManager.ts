@@ -6,6 +6,7 @@ import ApplicationManager from './applicationManager.js'
 import { OfferPriceType, ndebitEncode, nmanageEncode, nofferEncode } from '@shocknet/clink-sdk'
 import { getLogger } from '../helpers/logger.js'
 import SettingsManager from './settingsManager.js'
+import { assertCallbackUrlAllowed } from '../helpers/safeOutboundFetch.js'
 export default class {
 
     storage: Storage
@@ -88,6 +89,7 @@ export default class {
     }
 
     async UpdateCallbackUrl(ctx: Types.UserContext, req: Types.CallbackUrl): Promise<Types.CallbackUrl> {
+        assertCallbackUrlAllowed(req.url)
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
         await this.storage.applicationStorage.UpdateUserCallbackUrl(app, ctx.app_user_id, req.url)
         return { url: req.url }

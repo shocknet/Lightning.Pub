@@ -7,6 +7,7 @@ import fetch, { RequestInit, Response } from "node-fetch"
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308])
 const DEFAULT_TIMEOUT_MS = 5_000
 const DEFAULT_MAX_REDIRECTS = 3
+const URI_TEMPLATE_PLACEHOLDER = "placeholder"
 
 export type SafeOutboundFetchOptions = {
     method?: string
@@ -28,51 +29,39 @@ export class SafeOutboundFetchError extends Error {
     }
 }
 
-export const isBlockedIPv4 = (ip: string): boolean => {
+const blockedHostnames = new Set([
+    "metadata.google.internal",
+    "metadata.goog",
+])
+
+export const isMetadataIPv4 = (ip: string): boolean => {
     const parts = ip.split(".").map(Number)
     if (parts.length !== 4 || parts.some(p => Number.isNaN(p) || p < 0 || p > 255)) {
-        return true
+        return false
     }
-    const [a, b, c] = parts
-    if (a === 127) return true
-    if (a === 10) return true
-    if (a === 172 && b >= 16 && b <= 31) return true
-    if (a === 192 && b === 168) return true
-    if (a === 169 && b === 254) return true
-    if (a === 0) return true
-    if (a === 100 && b >= 64 && b <= 127) return true
-    if (a === 192 && b === 0 && (c === 0 || c === 2)) return true
-    if (a === 198 && (b === 18 || b === 19)) return true
-    if (a >= 224) return true
+    const [a, b, c, d] = parts
+    if (a === 169 && b === 254 && c === 169 && d === 254) return true
+    if (a === 169 && b === 254 && c === 170 && d === 2) return true
     return false
 }
 
-export const isBlockedIPv6 = (ip: string): boolean => {
+export const isMetadataIPv6 = (ip: string): boolean => {
     const normalized = ip.toLowerCase()
-    if (normalized === "::1") return true
-    if (normalized.startsWith("fe80:")) return true
-    if (normalized.startsWith("fc") || normalized.startsWith("fd")) return true
     if (normalized.startsWith("::ffff:")) {
         const mapped = normalized.slice("::ffff:".length)
         if (mapped.includes(".")) {
-            return isBlockedIPv4(mapped)
+            return isMetadataIPv4(mapped)
         }
     }
     return false
 }
 
-export const isBlockedIp = (ip: string): boolean => {
+export const isMetadataIp = (ip: string): boolean => {
     const version = isIP(ip)
-    if (version === 4) return isBlockedIPv4(ip)
-    if (version === 6) return isBlockedIPv6(ip)
-    return true
+    if (version === 4) return isMetadataIPv4(ip)
+    if (version === 6) return isMetadataIPv6(ip)
+    return false
 }
-
-const blockedHostnames = new Set([
-    "localhost",
-    "metadata.google.internal",
-    "metadata.goog",
-])
 
 export const validateCallbackUrlForEgress = (url: URL): void => {
     if (url.protocol !== "http:" && url.protocol !== "https:") {
@@ -82,36 +71,30 @@ export const validateCallbackUrlForEgress = (url: URL): void => {
         throw new SafeOutboundFetchError("callback url must not include credentials")
     }
     const host = url.hostname.toLowerCase()
-    if (blockedHostnames.has(host) || host.endsWith(".localhost")) {
+    if (blockedHostnames.has(host)) {
         throw new SafeOutboundFetchError("callback url hostname is not allowed")
     }
     const ipVersion = isIP(host)
-    if (ipVersion === 4 && isBlockedIPv4(host)) {
+    if (ipVersion === 4 && isMetadataIPv4(host)) {
         throw new SafeOutboundFetchError("callback url resolves to a blocked address")
     }
-    if (ipVersion === 6 && isBlockedIPv6(host)) {
+    if (ipVersion === 6 && isMetadataIPv6(host)) {
         throw new SafeOutboundFetchError("callback url resolves to a blocked address")
     }
 }
 
-const assertResolvableToPublicHost = async (hostname: string): Promise<void> => {
-    if (isIP(hostname)) {
+export const assertCallbackUrlAllowed = (url: string): void => {
+    if (!url) {
         return
     }
-    let records: dns.LookupAddress[]
+    const forParse = url.replace(/\{[^}]+\}/g, URI_TEMPLATE_PLACEHOLDER)
+    let parsed: URL
     try {
-        records = await dns.promises.lookup(hostname, { all: true })
+        parsed = new URL(forParse)
     } catch {
-        throw new SafeOutboundFetchError("callback url hostname could not be resolved")
+        throw new SafeOutboundFetchError("callback url is invalid")
     }
-    if (!records.length) {
-        throw new SafeOutboundFetchError("callback url hostname could not be resolved")
-    }
-    for (const record of records) {
-        if (isBlockedIp(record.address)) {
-            throw new SafeOutboundFetchError("callback url resolves to a blocked address")
-        }
-    }
+    validateCallbackUrlForEgress(parsed)
 }
 
 type LookupCallback = (err: NodeJS.ErrnoException | null, address: string, family: number) => void
@@ -124,7 +107,7 @@ const safeLookup = (hostname: string, options: dns.LookupOneOptions, callback: L
         }
         const records = addresses as dns.LookupAddress[]
         for (const record of records) {
-            if (isBlockedIp(record.address)) {
+            if (isMetadataIp(record.address)) {
                 callback(new SafeOutboundFetchError("callback url resolves to a blocked address"), "", 4)
                 return
             }
@@ -178,7 +161,6 @@ export const safeOutboundFetch = async (
             throw new SafeOutboundFetchError("callback url is invalid")
         }
         validateCallbackUrlForEgress(parsedUrl)
-        await assertResolvableToPublicHost(parsedUrl.hostname)
 
         const response = await fetchWithTimeout(currentUrl, {
             method: options.method ?? "GET",

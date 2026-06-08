@@ -17,7 +17,7 @@ const serverOptions = (mainHandler: Main): ServerOptions => {
         metricsCallback: metrics => mainHandler.settings.getSettings().serviceSettings.recordPerformance ? mainHandler.metricsManager.AddMetrics(metrics) : null,
         allowCors: true,
         logMethod: true,
-        // logBody: true
+        logBody: true
         //throwErrors: true
     }
 }

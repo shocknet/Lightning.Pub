@@ -10,6 +10,7 @@ import { UserOffer } from '../storage/entity/UserOffer.js';
 import { LiquidityManager } from "./liquidityManager.js"
 import { NofferData, OfferPriceType, nofferEncode } from '@shocknet/clink-sdk';
 import SettingsManager from "./settingsManager.js";
+import { assertCallbackUrlAllowed } from "../helpers/safeOutboundFetch.js";
 
 const mapToOfferConfig = (appUserId: string, offer: UserOffer, { pubkey, relay }: { pubkey: string, relay: string }): Types.OfferConfig => {
     const offerStr = offer.offer_id
@@ -48,6 +49,7 @@ export class OfferManager {
     }
 
     async AddUserOffer(ctx: Types.UserContext, req: Types.OfferConfig): Promise<Types.OfferId> {
+        assertCallbackUrlAllowed(req.callback_url)
         const newOffer = await this.storage.offerStorage.AddUserOffer(ctx.app_user_id, {
             payer_data: req.payer_data,
             label: req.label,
@@ -65,6 +67,7 @@ export class OfferManager {
     }
 
     async UpdateUserOffer(ctx: Types.UserContext, req: Types.OfferConfig) {
+        assertCallbackUrlAllowed(req.callback_url)
         await this.storage.offerStorage.UpdateUserOffer(ctx.app_user_id, req.offer_id, {
             payer_data: req.payer_data,
             label: req.label,
