@@ -142,6 +142,16 @@ export class OfferManager {
     }
 
     async handleClinkOffer(offerReq: NofferData, event: NostrEvent) {
+        try {
+            await this.doHandleClinkOffer(offerReq, event)
+        } catch (e: any) {
+            this.logger(ERROR, "handleClinkOffer failed", e.message || e)
+            const errEvent = newNofferResponse(JSON.stringify(buildNofferError(2)), event)
+            this.storage.NostrSender().Send({ type: 'app', appId: event.appId }, { type: 'event', event: errEvent, encrypt: { toPub: event.pub } })
+        }
+    }
+
+    private async doHandleClinkOffer(offerReq: NofferData, event: NostrEvent) {
         this.logger("📥 [OFFER REQUEST] Received offer request", {
             fromPub: event.pub,
             appId: event.appId,
@@ -168,7 +178,7 @@ export class OfferManager {
                 error: codeToMessage(code),
                 max: offerInvoice.max
             })
-            const e = newNofferResponse(JSON.stringify({ code, error: codeToMessage(code), range: { min: 10, max: offerInvoice.max } }), event)
+            const e = newNofferResponse(JSON.stringify(buildNofferError(code, offerInvoice.max)), event)
             this.storage.NostrSender().Send({ type: 'app', appId: event.appId }, { type: 'event', event: e, encrypt: { toPub: event.pub } })
             return
         }
@@ -188,13 +198,18 @@ export class OfferManager {
             eventId: event.id,
             responseEventId: "generated"
         })
-        return
     }
 
     async HandleDefaultUserOffer(offerReq: NofferData, appId: string, remote: number, { memo, expiry }: { memo?: string, expiry?: number }, clinkRequester?: { pub: string, eventId: string }): Promise<{ success: true, invoice: string } | { success: false, code: number, max: number }> {
         const { amount_sats: amount, offer } = offerReq
         if (!amount || isNaN(amount) || amount < 10 || amount > remote) {
             return { success: false, code: 5, max: remote }
+        }
+        const app = await this.storage.applicationStorage.GetApplication(appId)
+        const receiver = await this.storage.applicationStorage.GetApplicationUserIfExists(app, offer)
+        if (!receiver) {
+            this.logger("user not found for default offer", offer)
+            return { success: false, code: 1, max: remote }
         }
         const res = await this.applicationManager.AddAppUserInvoice(appId, {
             http_callback_url: "", payer_identifier: offer, receiver_identifier: offer,
@@ -299,4 +314,15 @@ const codeToMessage = (code: number) => {
         case 5: return 'Invalid Amount'
         default: throw new Error("unknown error code" + code)
     }
+}
+
+const buildNofferError = (code: number, maxSats?: number) => {
+    const payload: { code: number, error: string, range?: { min: number, max: number } } = {
+        code,
+        error: codeToMessage(code),
+    }
+    if (code === 5 && maxSats !== undefined) {
+        payload.range = { min: 10, max: maxSats }
+    }
+    return payload
 }
