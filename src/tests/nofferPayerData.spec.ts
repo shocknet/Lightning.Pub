@@ -24,6 +24,23 @@ const offerCreate = (
     ...overrides,
 })
 
+const expectNofferFail = (
+    T: TestBase,
+    result: Awaited<ReturnType<TestBase["main"]["offerManager"]["getNofferInvoice"]>>,
+    code: number,
+    error: string,
+    opts?: { payer_data?: string[] },
+) => {
+    T.expect(result.success).to.equal(false)
+    if (!result.success) {
+        T.expect(result.code).to.equal(code)
+        T.expect(result.error).to.equal(error)
+        if (opts?.payer_data) {
+            T.expect(result.payer_data).to.deep.equal(opts.payer_data)
+        }
+    }
+}
+
 const mockNostrEvent = (T: TestBase, offerReq: NofferData): NostrEvent => ({
     id: "test-event-id",
     pub: "test-requester-pub",
@@ -88,10 +105,7 @@ const testMissingPayerDataRejected = async (T: TestBase) => {
 
     const result = await T.main.offerManager.getNofferInvoice({ offer: offer_id }, T.app.appId)
 
-    T.expect(result.success).to.equal(false)
-    if (!result.success) {
-        T.expect(result.code).to.equal(1)
-    }
+    expectNofferFail(T, result, 1, "Missing or invalid payer_data: order_id", { payer_data: ["order_id"] })
     T.d("missing payer_data rejected with code 1")
 }
 
@@ -108,11 +122,100 @@ const testInvalidPayerDataTypeRejected = async (T: TestBase) => {
         payer_data: { order_id: 123 as unknown as string },
     }, T.app.appId)
 
+    expectNofferFail(T, result, 1, "Missing or invalid payer_data: order_id", { payer_data: ["order_id"] })
+    T.d("non-string payer_data value rejected with code 1")
+}
+
+const testPartialPayerDataRejected = async (T: TestBase) => {
+    T.d("starting testPartialPayerDataRejected")
+    const ctx = userContext(T, T.user2)
+    const { offer_id } = await T.main.offerManager.AddUserOffer(ctx, offerCreate({
+        label: "offer requiring multiple payer fields",
+        payer_data: ["order_id", "customer_email"],
+    }))
+
+    const result = await T.main.offerManager.getNofferInvoice({
+        offer: offer_id,
+        payer_data: { order_id: "only-one" },
+    }, T.app.appId)
+
+    expectNofferFail(
+        T,
+        result,
+        1,
+        "Missing or invalid payer_data: order_id, customer_email",
+        { payer_data: ["order_id", "customer_email"] },
+    )
+    T.d("partial payer_data rejected with expected field list")
+}
+
+const testSpontaneousOfferMissingAmountRejected = async (T: TestBase) => {
+    T.d("starting testSpontaneousOfferMissingAmountRejected")
+    const ctx = userContext(T, T.user2)
+    const { offer_id } = await T.main.offerManager.AddUserOffer(ctx, offerCreate({
+        label: "spontaneous offer missing amount",
+        price_sats: 0,
+    }))
+
+    const result = await T.main.offerManager.getNofferInvoice({ offer: offer_id }, T.app.appId)
+
+    T.expect(result.success).to.equal(false)
+    if (!result.success) {
+        T.expect(result.code).to.equal(5)
+        T.expect(result.error).to.equal(undefined)
+    }
+    T.d("spontaneous offer without amount rejected with code 5")
+}
+
+const testSpontaneousOfferAmountTooLowRejected = async (T: TestBase) => {
+    T.d("starting testSpontaneousOfferAmountTooLowRejected")
+    const ctx = userContext(T, T.user2)
+    const { offer_id } = await T.main.offerManager.AddUserOffer(ctx, offerCreate({
+        label: "spontaneous offer amount too low",
+        price_sats: 0,
+    }))
+
+    const result = await T.main.offerManager.getNofferInvoice({
+        offer: offer_id,
+        amount_sats: 5,
+    }, T.app.appId)
+
+    T.expect(result.success).to.equal(false)
+    if (!result.success) {
+        T.expect(result.code).to.equal(5)
+        T.expect(result.error).to.equal(undefined)
+    }
+    T.d("spontaneous offer with amount below minimum rejected with code 5")
+}
+
+const testInvalidOfferFormatRejected = async (T: TestBase) => {
+    T.d("starting testInvalidOfferFormatRejected")
+    const result = await T.main.offerManager.getNofferInvoice({
+        offer: "bad:offer",
+    }, T.app.appId)
+
     T.expect(result.success).to.equal(false)
     if (!result.success) {
         T.expect(result.code).to.equal(1)
+        T.expect(result.error).to.equal(undefined)
     }
-    T.d("non-string payer_data value rejected with code 1")
+    T.d("invalid offer format rejected with code 1")
+}
+
+const testDescriptionTooLongRejected = async (T: TestBase) => {
+    T.d("starting testDescriptionTooLongRejected")
+    const ctx = userContext(T, T.user2)
+    const { offer_id } = await T.main.offerManager.AddUserOffer(ctx, offerCreate({
+        label: "offer with description limit",
+    }))
+
+    const result = await T.main.offerManager.getNofferInvoice({
+        offer: offer_id,
+        description: "x".repeat(101),
+    }, T.app.appId)
+
+    expectNofferFail(T, result, 1, "Description must be a string of 100 characters or less")
+    T.d("overlong description rejected with explicit error")
 }
 
 const testHandleClinkOfferWithPayerData = async (T: TestBase) => {
@@ -235,11 +338,56 @@ const testGetUserOfferInvoicesStoresPayerData = async (T: TestBase) => {
     T.d("GetUserOfferInvoices returns payer_data stored on invoice")
 }
 
+const testDefaultOfferPayerDataNotCleared = async (T: TestBase) => {
+    T.d("starting testDefaultOfferPayerDataNotCleared")
+    const ctx = userContext(T, T.user2)
+    const defaultOfferId = T.user2.appUserIdentifier
+    await T.main.offerManager.GetUserOffers(ctx)
+
+    await T.main.offerManager.UpdateUserOffer(ctx, {
+        offer_id: defaultOfferId,
+        ...offerCreate({
+            label: "Default CLINK Offer",
+            price_sats: 0,
+            payer_data: ["order_id"],
+        }),
+    })
+
+    const failResult = await T.main.offerManager.getNofferInvoice({
+        offer: defaultOfferId,
+        amount_sats: 1000,
+    }, T.app.appId)
+    expectNofferFail(T, failResult, 1, "Missing or invalid payer_data: order_id", { payer_data: ["order_id"] })
+
+    const afterFail = await T.main.offerManager.GetUserOffer(ctx, { offer_id: defaultOfferId })
+    T.expect(afterFail.payer_data).to.deep.equal(["order_id"])
+
+    const okResult = await T.main.offerManager.getNofferInvoice({
+        offer: defaultOfferId,
+        amount_sats: 1000,
+        payer_data: { order_id: "def-123" },
+    }, T.app.appId)
+    T.expect(okResult.success).to.equal(true)
+    if (okResult.success) {
+        T.expect(okResult.invoice).to.startWith("lnbcrt")
+    }
+
+    const afterOk = await T.main.offerManager.GetUserOffer(ctx, { offer_id: defaultOfferId })
+    T.expect(afterOk.payer_data).to.deep.equal(["order_id"])
+    T.d("default offer payer_data survives failed and successful invoice requests")
+}
+
 export default async (T: TestBase) => {
     await testFixedPriceOfferWithPayerData(T)
     await testSpontaneousOfferWithPayerData(T)
     await testMissingPayerDataRejected(T)
     await testInvalidPayerDataTypeRejected(T)
+    await testPartialPayerDataRejected(T)
+    await testSpontaneousOfferMissingAmountRejected(T)
+    await testSpontaneousOfferAmountTooLowRejected(T)
+    await testInvalidOfferFormatRejected(T)
+    await testDescriptionTooLongRejected(T)
+    await testDefaultOfferPayerDataNotCleared(T)
     await testHandleClinkOfferWithPayerData(T)
     await testCreateOfferWithPayerData(T)
     await testGetUserOffersIncludesPayerData(T)

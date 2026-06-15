@@ -26,7 +26,7 @@ const mapToOfferConfig = (appUserId: string, offer: UserOffer, { pubkey, relay }
         payer_data: offer.payer_data || [],
         offer_id: offer.offer_id,
         noffer: noffer,
-        default_offer: appUserId === offer.app_user_id,
+        default_offer: offer.app_user_id === offer.offer_id,
         createdAtUnix: offer.created_at.getTime(),
         updatedAtUnix: offer.updated_at.getTime(),
         token: offer.bearer_token,
@@ -243,14 +243,14 @@ export class OfferManager {
         if (!userOffer) {
             return this.HandleDefaultUserOffer(offerReq, appId, remote, { memo: offerReq.description, expiry }, clinkRequester)
         }
-        if (userOffer.app_user_id === userOffer.offer_id) {
+        /* if (userOffer.app_user_id === userOffer.offer_id) {
             if (userOffer.price_sats !== 0 || userOffer.payer_data) {
                 this.logger("default offer has custom price or expected data, resetting")
                 await this.storage.offerStorage.UpdateUserOffer(userOffer.app_user_id, userOffer.offer_id, { price_sats: 0, payer_data: null })
                 userOffer.price_sats = 0
                 userOffer.payer_data = null
             }
-        }
+        } */
         let amt = userOffer.price_sats
         if (userOffer.price_sats === 0) {
             if (!amount || isNaN(amount) || amount < 10 || amount > remote) {
