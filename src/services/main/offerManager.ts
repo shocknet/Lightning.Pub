@@ -243,14 +243,6 @@ export class OfferManager {
         if (!userOffer) {
             return this.HandleDefaultUserOffer(offerReq, appId, remote, { memo: offerReq.description, expiry }, clinkRequester)
         }
-        /* if (userOffer.app_user_id === userOffer.offer_id) {
-            if (userOffer.price_sats !== 0 || userOffer.payer_data) {
-                this.logger("default offer has custom price or expected data, resetting")
-                await this.storage.offerStorage.UpdateUserOffer(userOffer.app_user_id, userOffer.offer_id, { price_sats: 0, payer_data: null })
-                userOffer.price_sats = 0
-                userOffer.payer_data = null
-            }
-        } */
         let amt = userOffer.price_sats
         if (userOffer.price_sats === 0) {
             if (!amount || isNaN(amount) || amount < 10 || amount > remote) {
