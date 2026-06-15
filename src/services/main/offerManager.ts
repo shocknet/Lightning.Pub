@@ -48,7 +48,7 @@ export class OfferManager {
         this.liquidityManager = liquidityManager
     }
 
-    async AddUserOffer(ctx: Types.UserContext, req: Types.OfferConfig): Promise<Types.OfferId> {
+    async AddUserOffer(ctx: Types.UserContext, req: Types.OfferCreateRequest): Promise<Types.OfferId> {
         assertCallbackUrlAllowed(req.callback_url)
         const newOffer = await this.storage.offerStorage.AddUserOffer(ctx.app_user_id, {
             payer_data: req.payer_data,
@@ -56,6 +56,8 @@ export class OfferManager {
             price_sats: req.price_sats,
             callback_url: req.callback_url,
             blind: req.blind,
+            bearer_token: req.token,
+            rejectUnauthorized: req.rejectUnauthorized,
         })
         return {
             offer_id: newOffer.offer_id
@@ -66,7 +68,7 @@ export class OfferManager {
         await this.storage.offerStorage.DeleteUserOffer(ctx.app_user_id, req.offer_id)
     }
 
-    async UpdateUserOffer(ctx: Types.UserContext, req: Types.OfferConfig) {
+    async UpdateUserOffer(ctx: Types.UserContext, req: Types.OfferUpdateRequest) {
         assertCallbackUrlAllowed(req.callback_url)
         await this.storage.offerStorage.UpdateUserOffer(ctx.app_user_id, req.offer_id, {
             payer_data: req.payer_data,
@@ -74,6 +76,8 @@ export class OfferManager {
             price_sats: req.price_sats,
             callback_url: req.callback_url,
             blind: req.blind,
+            bearer_token: req.token,
+            rejectUnauthorized: req.rejectUnauthorized,
         })
     }
     async GetUserOfferInvoices(ctx: Types.UserContext, req: Types.GetUserOfferInvoicesReq): Promise<Types.OfferInvoices> {

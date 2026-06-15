@@ -453,7 +453,7 @@ export default (mainHandler: Main): Types.ServerMethods => {
             return mainHandler.debitManager.RespondToDebit(ctx, req);
         },
         AddUserOffer: async ({ ctx, req }) => {
-            const err = Types.OfferConfigValidate(req, {
+            const err = Types.OfferCreateRequestValidate(req, {
                 label_CustomCheck: label => label !== '',
             })
             if (err != null) throw new Error(err.message)
@@ -467,6 +467,10 @@ export default (mainHandler: Main): Types.ServerMethods => {
             return mainHandler.offerManager.DeleteUserOffer(ctx, req)
         },
         UpdateUserOffer: async ({ ctx, req }) => {
+            const err = Types.OfferUpdateRequestValidate(req, {
+                offer_id_CustomCheck: id => id !== '',
+            })
+            if (err != null) throw new Error(err.message)
             return mainHandler.offerManager.UpdateUserOffer(ctx, req)
         },
         GetUserOffers: async ({ ctx }) => {

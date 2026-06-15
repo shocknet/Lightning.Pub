@@ -177,7 +177,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             authCtx = authContext
             stats.guard = process.hrtime.bigint()
             const request = req.body
-            const error = Types.OfferConfigValidate(request)
+            const error = Types.OfferCreateRequestValidate(request)
             stats.validate = process.hrtime.bigint()
             if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
             const query = req.query
@@ -313,7 +313,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
                             if (!methods.AddUserOffer) {
                                 throw new Error('method AddUserOffer not found' )
                             } else {
-                                const error = Types.OfferConfigValidate(operation.req)
+                                const error = Types.OfferCreateRequestValidate(operation.req)
                                 opStats.validate = process.hrtime.bigint()
                                 if (error !== null) throw error
                                 const res = await methods.AddUserOffer({...operation, ctx}); responses.push({ status: 'OK', ...res  })
@@ -665,7 +665,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
                             if (!methods.UpdateUserOffer) {
                                 throw new Error('method UpdateUserOffer not found' )
                             } else {
-                                const error = Types.OfferConfigValidate(operation.req)
+                                const error = Types.OfferUpdateRequestValidate(operation.req)
                                 opStats.validate = process.hrtime.bigint()
                                 if (error !== null) throw error
                                 await methods.UpdateUserOffer({...operation, ctx}); responses.push({ status: 'OK' })
@@ -2323,7 +2323,7 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             authCtx = authContext
             stats.guard = process.hrtime.bigint()
             const request = req.body
-            const error = Types.OfferConfigValidate(request)
+            const error = Types.OfferUpdateRequestValidate(request)
             stats.validate = process.hrtime.bigint()
             if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)
             const query = req.query

@@ -87,7 +87,7 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     stats.guard = process.hrtime.bigint()
                     authCtx = authContext
                     const request = req.body
-                    const error = Types.OfferConfigValidate(request)
+                    const error = Types.OfferCreateRequestValidate(request)
                     stats.validate = process.hrtime.bigint()
                     if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
                     const response = await methods.AddUserOffer({rpcName:'AddUserOffer', ctx:authContext , req: request})
@@ -195,7 +195,7 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                                     if (!methods.AddUserOffer) {
                                         throw new Error('method not defined: AddUserOffer')
                                     } else {
-                                        const error = Types.OfferConfigValidate(operation.req)
+                                        const error = Types.OfferCreateRequestValidate(operation.req)
                                         opStats.validate = process.hrtime.bigint()
                                         if (error !== null) throw error
                                         const res = await methods.AddUserOffer({...operation, ctx}); responses.push({ status: 'OK', ...res  })
@@ -547,7 +547,7 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                                     if (!methods.UpdateUserOffer) {
                                         throw new Error('method not defined: UpdateUserOffer')
                                     } else {
-                                        const error = Types.OfferConfigValidate(operation.req)
+                                        const error = Types.OfferUpdateRequestValidate(operation.req)
                                         opStats.validate = process.hrtime.bigint()
                                         if (error !== null) throw error
                                         await methods.UpdateUserOffer({...operation, ctx}); responses.push({ status: 'OK' })
@@ -1521,7 +1521,7 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     stats.guard = process.hrtime.bigint()
                     authCtx = authContext
                     const request = req.body
-                    const error = Types.OfferConfigValidate(request)
+                    const error = Types.OfferUpdateRequestValidate(request)
                     stats.validate = process.hrtime.bigint()
                     if (error !== null) return logErrorAndReturnResponse(error, 'invalid request body', res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback)
                     await methods.UpdateUserOffer({rpcName:'UpdateUserOffer', ctx:authContext , req: request})
