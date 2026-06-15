@@ -8,7 +8,7 @@ import { k1AlreadyProcessedReason } from "../services/main/debitTypes.js"
 export const ignore = false
 export const dev = false
 
-const REQUESTOR_PUB = "b".repeat(64)
+const requestorPub = (n: number) => n.toString(16).padStart(64, "0")
 
 const userContext = (T: TestBase, user: TestBase["user2"]): Types.UserContext => ({
     app_id: T.app.appId,
@@ -26,11 +26,11 @@ const mockNostrEvent = (T: TestBase, pub: string, id?: string): NostrEvent => ({
     kind: 21002,
 })
 
-const authorizeDebit = async (T: TestBase, rules: Types.DebitRule[] = []) => {
+const authorizeDebit = async (T: TestBase, npub: string, rules: Types.DebitRule[] = []) => {
     const ctx = userContext(T, T.user2)
     await T.main.debitManager.RespondToDebit(ctx, {
-        npub: REQUESTOR_PUB,
-        request_id: "auth-req-1",
+        npub,
+        request_id: `auth-req-${npub.slice(0, 8)}`,
         response: {
             type: Types.DebitResponse_response_type.AUTHORIZE,
             authorize: { rules },
@@ -40,19 +40,21 @@ const authorizeDebit = async (T: TestBase, rules: Types.DebitRule[] = []) => {
 
 const testGetDebitAuthorizationsEmpty = async (T: TestBase) => {
     T.d("starting testGetDebitAuthorizationsEmpty")
+    const unknownPub = requestorPub(0)
     const ctx = userContext(T, T.user2)
     const { debits } = await T.main.debitManager.GetDebitAuthorizations(ctx)
-    const existing = debits.filter(d => d.npub === REQUESTOR_PUB)
+    const existing = debits.filter(d => d.npub === unknownPub)
     T.expect(existing).to.deep.equal([])
     T.d("GetDebitAuthorizations returns no entries for unknown requestor")
 }
 
 const testAuthorizeDebitViaRespondToDebit = async (T: TestBase) => {
     T.d("starting testAuthorizeDebitViaRespondToDebit")
-    await authorizeDebit(T)
+    const npub = requestorPub(1)
+    await authorizeDebit(T, npub)
     const ctx = userContext(T, T.user2)
     const { debits } = await T.main.debitManager.GetDebitAuthorizations(ctx)
-    const debit = debits.find(d => d.npub === REQUESTOR_PUB)
+    const debit = debits.find(d => d.npub === npub)
     T.expect(debit).to.not.equal(undefined)
     T.expect(debit!.authorized).to.equal(true)
     T.expect(debit!.rules).to.deep.equal([])
@@ -61,10 +63,11 @@ const testAuthorizeDebitViaRespondToDebit = async (T: TestBase) => {
 
 const testEditDebitRules = async (T: TestBase) => {
     T.d("starting testEditDebitRules")
+    const npub = requestorPub(1)
     const ctx = userContext(T, T.user2)
     const expiresAt = Date.now() + 60_000
     await T.main.debitManager.EditDebit(ctx, {
-        authorize_npub: REQUESTOR_PUB,
+        authorize_npub: npub,
         rules: [{
             rule: {
                 type: Types.DebitRule_rule_type.EXPIRATION_RULE,
@@ -73,7 +76,7 @@ const testEditDebitRules = async (T: TestBase) => {
         }],
     })
     const { debits } = await T.main.debitManager.GetDebitAuthorizations(ctx)
-    const debit = debits.find(d => d.npub === REQUESTOR_PUB)
+    const debit = debits.find(d => d.npub === npub)
     T.expect(debit).to.not.equal(undefined)
     T.expect(debit!.rules).to.have.length(1)
     T.expect(debit!.rules[0].rule.type).to.equal(Types.DebitRule_rule_type.EXPIRATION_RULE)
@@ -85,10 +88,11 @@ const testEditDebitRules = async (T: TestBase) => {
 
 const testBanDebit = async (T: TestBase) => {
     T.d("starting testBanDebit")
+    const npub = requestorPub(1)
     const ctx = userContext(T, T.user2)
-    await T.main.debitManager.BanDebit(ctx, { npub: REQUESTOR_PUB })
+    await T.main.debitManager.BanDebit(ctx, { npub })
     const { debits } = await T.main.debitManager.GetDebitAuthorizations(ctx)
-    const debit = debits.find(d => d.npub === REQUESTOR_PUB)
+    const debit = debits.find(d => d.npub === npub)
     T.expect(debit).to.not.equal(undefined)
     T.expect(debit!.authorized).to.equal(false)
     T.d("BanDebit marked debit authorization as unauthorized")
@@ -96,10 +100,11 @@ const testBanDebit = async (T: TestBase) => {
 
 const testResetDebit = async (T: TestBase) => {
     T.d("starting testResetDebit")
+    const npub = requestorPub(1)
     const ctx = userContext(T, T.user2)
-    await T.main.debitManager.ResetDebit(ctx, { npub: REQUESTOR_PUB })
+    await T.main.debitManager.ResetDebit(ctx, { npub })
     const { debits } = await T.main.debitManager.GetDebitAuthorizations(ctx)
-    const debit = debits.find(d => d.npub === REQUESTOR_PUB)
+    const debit = debits.find(d => d.npub === npub)
     T.expect(debit).to.equal(undefined)
     T.d("ResetDebit removed debit authorization")
 }
@@ -119,6 +124,7 @@ const testEditDebitThrowsWhenMissing = async (T: TestBase) => {
 
 const testPayNdebitInvoiceAuthRequired = async (T: TestBase) => {
     T.d("starting testPayNdebitInvoiceAuthRequired")
+    const npub = requestorPub(2)
     const invoice = await T.externalAccessToOtherLnd.NewInvoice(500, "debit auth required", defaultInvoiceExpiry, { from: 'system', useProvider: false })
     const pointerdata: NdebitData = {
         pointer: T.user2.appUserIdentifier,
@@ -126,7 +132,7 @@ const testPayNdebitInvoiceAuthRequired = async (T: TestBase) => {
         amount_sats: 500,
     }
     const result = await T.main.debitManager.payNdebitInvoice(
-        mockNostrEvent(T, REQUESTOR_PUB),
+        mockNostrEvent(T, npub),
         pointerdata,
     )
     T.expect(result.status).to.equal("authRequired")
@@ -135,8 +141,9 @@ const testPayNdebitInvoiceAuthRequired = async (T: TestBase) => {
 
 const testPayNdebitInvoiceK1Dedup = async (T: TestBase) => {
     T.d("starting testPayNdebitInvoiceK1Dedup")
+    const npub = requestorPub(3)
     const invoice = await T.externalAccessToOtherLnd.NewInvoice(500, "debit k1 dedup", defaultInvoiceExpiry, { from: 'system', useProvider: false })
-    const event = mockNostrEvent(T, REQUESTOR_PUB, "k1-dedup-event")
+    const event = mockNostrEvent(T, npub, "k1-dedup-event")
     const pointerdata: NdebitData = {
         pointer: T.user2.appUserIdentifier,
         bolt11: invoice.payRequest,
@@ -155,12 +162,13 @@ const testPayNdebitInvoiceK1Dedup = async (T: TestBase) => {
 
 const testPayNdebitInvoiceDeniedWhenBanned = async (T: TestBase) => {
     T.d("starting testPayNdebitInvoiceDeniedWhenBanned")
-    await authorizeDebit(T)
+    const npub = requestorPub(4)
+    await authorizeDebit(T, npub)
     const ctx = userContext(T, T.user2)
-    await T.main.debitManager.BanDebit(ctx, { npub: REQUESTOR_PUB })
+    await T.main.debitManager.BanDebit(ctx, { npub })
     const invoice = await T.externalAccessToOtherLnd.NewInvoice(500, "debit banned", defaultInvoiceExpiry, { from: 'system', useProvider: false })
     const result = await T.main.debitManager.payNdebitInvoice(
-        mockNostrEvent(T, REQUESTOR_PUB),
+        mockNostrEvent(T, npub),
         {
             pointer: T.user2.appUserIdentifier,
             bolt11: invoice.payRequest,
@@ -176,11 +184,12 @@ const testPayNdebitInvoiceDeniedWhenBanned = async (T: TestBase) => {
 
 const testPayNdebitInvoicePaysWithAuthorization = async (T: TestBase) => {
     T.d("starting testPayNdebitInvoicePaysWithAuthorization")
+    const npub = requestorPub(5)
     await safelySetUserBalance(T, T.user2, 2000)
-    await authorizeDebit(T)
+    await authorizeDebit(T, npub)
     const invoice = await T.externalAccessToOtherLnd.NewInvoice(500, "debit payment", defaultInvoiceExpiry, { from: 'system', useProvider: false })
     const result = await T.main.debitManager.payNdebitInvoice(
-        mockNostrEvent(T, REQUESTOR_PUB),
+        mockNostrEvent(T, npub),
         {
             pointer: T.user2.appUserIdentifier,
             bolt11: invoice.payRequest,
