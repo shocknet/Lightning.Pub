@@ -30,7 +30,7 @@ The nostr server will send back a message response, and inside the body there wi
 
 - AddUserOffer
   - auth type: __User__
-  - input: [OfferConfig](#OfferConfig)
+  - input: [OfferCreateRequest](#OfferCreateRequest)
   - output: [OfferId](#OfferId)
 
 - AuthApp
@@ -377,7 +377,7 @@ The nostr server will send back a message response, and inside the body there wi
 
 - UpdateUserOffer
   - auth type: __User__
-  - input: [OfferConfig](#OfferConfig)
+  - input: [OfferUpdateRequest](#OfferUpdateRequest)
   - This methods has an __empty__ __response__ body
 
 - UseInviteLink
@@ -476,7 +476,7 @@ The nostr server will send back a message response, and inside the body there wi
   - auth type: __User__
   - http method: __post__
   - http route: __/api/user/offer/add__
-  - input: [OfferConfig](#OfferConfig)
+  - input: [OfferCreateRequest](#OfferCreateRequest)
   - output: [OfferId](#OfferId)
 
 - AuthApp
@@ -1108,7 +1108,7 @@ The nostr server will send back a message response, and inside the body there wi
   - auth type: __User__
   - http method: __post__
   - http route: __/api/user/offer/update__
-  - input: [OfferConfig](#OfferConfig)
+  - input: [OfferUpdateRequest](#OfferUpdateRequest)
   - This methods has an __empty__ __response__ body
 
 - UseInviteLink
@@ -1620,6 +1620,15 @@ The nostr server will send back a message response, and inside the body there wi
   - __token__: _string_
   - __updatedAtUnix__: _number_
 
+### OfferCreateRequest
+  - __blind__: _boolean_ *this field is optional
+  - __callback_url__: _string_
+  - __label__: _string_
+  - __payer_data__: ARRAY of: _string_
+  - __price_sats__: _number_
+  - __rejectUnauthorized__: _boolean_
+  - __token__: _string_
+
 ### OfferId
   - __offer_id__: _string_
 
@@ -1632,6 +1641,16 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### OfferInvoices
   - __invoices__: ARRAY of: _[OfferInvoice](#OfferInvoice)_
+
+### OfferUpdateRequest
+  - __blind__: _boolean_ *this field is optional
+  - __callback_url__: _string_
+  - __label__: _string_
+  - __offer_id__: _string_
+  - __payer_data__: ARRAY of: _string_
+  - __price_sats__: _number_
+  - __rejectUnauthorized__: _boolean_
+  - __token__: _string_
 
 ### OpenChannel
   - __active__: _boolean_

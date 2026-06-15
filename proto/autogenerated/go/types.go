@@ -580,6 +580,15 @@ type OfferConfig struct {
 	Token              string   `json:"token"`
 	Updatedatunix      int64    `json:"updatedAtUnix"`
 }
+type OfferCreateRequest struct {
+	Blind              bool     `json:"blind"`
+	Callback_url       string   `json:"callback_url"`
+	Label              string   `json:"label"`
+	Payer_data         []string `json:"payer_data"`
+	Price_sats         int64    `json:"price_sats"`
+	Rejectunauthorized bool     `json:"rejectUnauthorized"`
+	Token              string   `json:"token"`
+}
 type OfferId struct {
 	Offer_id string `json:"offer_id"`
 }
@@ -592,6 +601,16 @@ type OfferInvoice struct {
 }
 type OfferInvoices struct {
 	Invoices []OfferInvoice `json:"invoices"`
+}
+type OfferUpdateRequest struct {
+	Blind              bool     `json:"blind"`
+	Callback_url       string   `json:"callback_url"`
+	Label              string   `json:"label"`
+	Offer_id           string   `json:"offer_id"`
+	Payer_data         []string `json:"payer_data"`
+	Price_sats         int64    `json:"price_sats"`
+	Rejectunauthorized bool     `json:"rejectUnauthorized"`
+	Token              string   `json:"token"`
 }
 type OpenChannel struct {
 	Active              bool           `json:"active"`
