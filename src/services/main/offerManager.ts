@@ -12,6 +12,9 @@ import { NofferData, OfferPriceType, nofferEncode } from '@shocknet/clink-sdk';
 import SettingsManager from "./settingsManager.js";
 import { assertCallbackUrlAllowed } from "../helpers/safeOutboundFetch.js";
 
+type NofferInvoiceFailure = { success: false, code: number, max: number, error?: string, payer_data?: string[] }
+type NofferInvoiceResult = { success: true, invoice: string } | NofferInvoiceFailure
+
 const mapToOfferConfig = (appUserId: string, offer: UserOffer, { pubkey, relay }: { pubkey: string, relay: string }): Types.OfferConfig => {
     const offerStr = offer.offer_id
     const priceType: OfferPriceType = offer.price_sats === 0 ? OfferPriceType.Spontaneous : OfferPriceType.Fixed
@@ -130,18 +133,18 @@ export class OfferManager {
         }
     }
 
-    ValidateExpectedData(userOffer: UserOffer, payerData: any): { passed: false, validated: undefined } | { passed: true, validated: Record<string, string> } {
+    ValidateExpectedData(userOffer: UserOffer, payerData: any): { passed: false, expected: string[] } | { passed: true, validated: Record<string, string> } {
         const expectedKeys = userOffer.payer_data
         if (!expectedKeys || expectedKeys.length === 0) {
             return { passed: true, validated: {} }
         }
         if (typeof payerData !== 'object' || payerData === null) {
-            return { passed: false, validated: undefined }
+            return { passed: false, expected: expectedKeys }
         }
         const validated: Record<string, string> = {}
         for (const key of expectedKeys) {
             if (typeof payerData[key] !== 'string') {
-                return { passed: false, validated: undefined }
+                return { passed: false, expected: expectedKeys }
             }
             validated[key] = payerData[key]
         }
@@ -149,6 +152,16 @@ export class OfferManager {
     }
 
     async handleClinkOffer(offerReq: NofferData, event: NostrEvent) {
+        try {
+            await this.doHandleClinkOffer(offerReq, event)
+        } catch (e: any) {
+            this.logger(ERROR, "handleClinkOffer failed", e.message || e)
+            const errEvent = newNofferResponse(JSON.stringify(buildNofferError(2)), event)
+            this.storage.NostrSender().Send({ type: 'app', appId: event.appId }, { type: 'event', event: errEvent, encrypt: { toPub: event.pub } })
+        }
+    }
+
+    private async doHandleClinkOffer(offerReq: NofferData, event: NostrEvent) {
         this.logger("📥 [OFFER REQUEST] Received offer request", {
             fromPub: event.pub,
             appId: event.appId,
@@ -168,14 +181,20 @@ export class OfferManager {
 
         if (!offerInvoice.success) {
             const code = offerInvoice.code
+            const errorMessage = offerInvoice.error ?? codeToMessage(code)
             this.logger("❌ [OFFER REJECTED] Offer request failed", {
                 fromPub: event.pub,
                 eventId: event.id,
                 code,
-                error: codeToMessage(code),
+                error: errorMessage,
+                payer_data: offerInvoice.payer_data,
                 max: offerInvoice.max
             })
-            const e = newNofferResponse(JSON.stringify({ code, error: codeToMessage(code), range: { min: 10, max: offerInvoice.max } }), event)
+            const e = newNofferResponse(JSON.stringify(buildNofferError(code, {
+                maxSats: offerInvoice.max,
+                error: errorMessage,
+                payer_data: offerInvoice.payer_data,
+            })), event)
             this.storage.NostrSender().Send({ type: 'app', appId: event.appId }, { type: 'event', event: e, encrypt: { toPub: event.pub } })
             return
         }
@@ -195,13 +214,18 @@ export class OfferManager {
             eventId: event.id,
             responseEventId: "generated"
         })
-        return
     }
 
-    async HandleDefaultUserOffer(offerReq: NofferData, appId: string, remote: number, { memo, expiry }: { memo?: string, expiry?: number }, clinkRequester?: { pub: string, eventId: string }): Promise<{ success: true, invoice: string } | { success: false, code: number, max: number }> {
+    async HandleDefaultUserOffer(offerReq: NofferData, appId: string, remote: number, { memo, expiry }: { memo?: string, expiry?: number }, clinkRequester?: { pub: string, eventId: string }): Promise<NofferInvoiceResult> {
         const { amount_sats: amount, offer } = offerReq
         if (!amount || isNaN(amount) || amount < 10 || amount > remote) {
             return { success: false, code: 5, max: remote }
+        }
+        const app = await this.storage.applicationStorage.GetApplication(appId)
+        const receiver = await this.storage.applicationStorage.GetApplicationUserIfExists(app, offer)
+        if (!receiver) {
+            this.logger("user not found for default offer", offer)
+            return { success: false, code: 1, max: remote, error: 'Offer recipient not found' }
         }
         const res = await this.applicationManager.AddAppUserInvoice(appId, {
             http_callback_url: "", payer_identifier: offer, receiver_identifier: offer,
@@ -211,7 +235,7 @@ export class OfferManager {
         return { success: true, invoice: res.invoice }
     }
 
-    async HandleUserOffer(offerReq: NofferData, appId: string, remote: number, clinkRequester?: { pub: string, eventId: string }): Promise<{ success: true, invoice: string } | { success: false, code: number, max: number }> {
+    async HandleUserOffer(offerReq: NofferData, appId: string, remote: number, clinkRequester?: { pub: string, eventId: string }): Promise<NofferInvoiceResult> {
         const { amount_sats: amount, offer } = offerReq
         const userOffer = await this.storage.offerStorage.GetOffer(offer)
         const expiry = offerReq.expires_in_seconds ? offerReq.expires_in_seconds : undefined
@@ -234,13 +258,19 @@ export class OfferManager {
             }
             amt = amount
         }
-        const { passed, validated } = this.ValidateExpectedData(userOffer, offerReq.payer_data)
-        if (!passed) {
-            this.logger("Invalid expected data", validated || {})
-            return { success: false, code: 1, max: remote }
+        const dataCheck = this.ValidateExpectedData(userOffer, offerReq.payer_data)
+        if (!dataCheck.passed) {
+            const expected = dataCheck.expected
+            this.logger("payer_data validation failed", { expected, received: offerReq.payer_data })
+            return {
+                success: false, code: 1, max: remote,
+                error: `Missing or invalid payer_data: ${expected.join(', ')}`,
+                payer_data: expected,
+            }
         }
+        const { validated } = dataCheck
         if (offerReq.description && (typeof offerReq.description !== 'string' || offerReq.description.length > 100)) {
-            return { success: false, code: 1, max: remote }
+            return { success: false, code: 1, max: remote, error: 'Description must be a string of 100 characters or less' }
         }
         const memo = offerReq.description || userOffer.label
         const res = await this.applicationManager.AddAppUserInvoice(appId, {
@@ -254,7 +284,7 @@ export class OfferManager {
         return { success: true, invoice: res.invoice }
     }
 
-    async getNofferInvoice(offerReq: NofferData, appId: string, clinkRequester?: { pub: string, eventId: string }): Promise<{ success: true, invoice: string } | { success: false, code: number, max: number }> {
+    async getNofferInvoice(offerReq: NofferData, appId: string, clinkRequester?: { pub: string, eventId: string }): Promise<NofferInvoiceResult> {
         try {
             // When bypass is enabled, use provider balance instead of LND channel balance
             let maxSendable = 0
@@ -306,4 +336,18 @@ const codeToMessage = (code: number) => {
         case 5: return 'Invalid Amount'
         default: throw new Error("unknown error code" + code)
     }
+}
+
+const buildNofferError = (code: number, opts?: { maxSats?: number, error?: string, payer_data?: string[] }) => {
+    const payload: { code: number, error: string, range?: { min: number, max: number }, payer_data?: string[] } = {
+        code,
+        error: opts?.error ?? codeToMessage(code),
+    }
+    if (code === 5 && opts?.maxSats !== undefined) {
+        payload.range = { min: 10, max: opts.maxSats }
+    }
+    if (opts?.payer_data?.length) {
+        payload.payer_data = opts.payer_data
+    }
+    return payload
 }
