@@ -266,13 +266,13 @@ const testPayNdebitInvoiceInsufficientBalance = async (T: TestBase) => {
     T.d("starting testPayNdebitInvoiceInsufficientBalance")
     const npub = requestorPub(10)
     await authorizeDebit(T, npub)
-    const invoice = await T.externalAccessToOtherLnd.NewInvoice(500, "debit insufficient balance", defaultInvoiceExpiry, { from: 'system', useProvider: false })
+    const invoice = await T.externalAccessToOtherLnd.NewInvoice(5000, "debit insufficient balance", defaultInvoiceExpiry, { from: 'system', useProvider: false })
     const result = await T.main.debitManager.payNdebitInvoice(
         mockNostrEvent(T, npub),
         {
             pointer: T.user2.appUserIdentifier,
             bolt11: invoice.payRequest,
-            amount_sats: 500,
+            amount_sats: 5000,
         },
     )
     expectDebitFail(T, result, 1, nofferErrors[1])
