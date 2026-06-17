@@ -195,7 +195,7 @@ export default (mainHandler: Main): Types.ServerMethods => {
         PayAddress: async ({ ctx, req }) => {
             const err = Types.PayAddressRequestValidate(req, {
                 address_CustomCheck: addr => addr !== '',
-                // amountSats_CustomCheck: amt => amt > 0,
+                amountSats_CustomCheck: amt => amt > 0,
                 // satsPerVByte_CustomCheck: spb => spb > 0
             })
             if (err != null) throw new Error(err.message)
@@ -207,13 +207,20 @@ export default (mainHandler: Main): Types.ServerMethods => {
         GetTransactionSwapQuotes: async ({ ctx, req }) => {
             return mainHandler.paymentManager.GetTransactionSwapQuotes(ctx, req)
         },
-        NewInvoice: ({ ctx, req }) => mainHandler.appUserManager.NewInvoice(ctx, req),
+        NewInvoice: ({ ctx, req }) => {
+            const err = Types.NewInvoiceRequestValidate(req, {
+                amountSats_CustomCheck: amount => amount >= 0
+            })
+            if (err != null) throw new Error(err.message)
+            return mainHandler.appUserManager.NewInvoice(ctx, req)
+        },
         DecodeInvoice: async ({ ctx, req }) => {
             return mainHandler.paymentManager.DecodeInvoice(req)
         },
         PayInvoice: async ({ ctx, req }) => {
             const err = Types.PayInvoiceRequestValidate(req, {
-                invoice_CustomCheck: invoice => invoice !== ''
+                invoice_CustomCheck: invoice => invoice !== '',
+                amount_CustomCheck: amount => amount >= 0
             })
             if (err != null) throw new Error(err.message)
             return mainHandler.appUserManager.PayInvoice(ctx, req)
@@ -308,6 +315,7 @@ export default (mainHandler: Main): Types.ServerMethods => {
         PayAppUserInvoice: async ({ ctx, req }) => {
             const err = Types.PayAppUserInvoiceRequestValidate(req, {
                 user_identifier_CustomCheck: id => id !== '',
+                amount_CustomCheck: amount => amount >= 0
             })
             if (err != null) throw new Error(err.message)
             return mainHandler.applicationManager.PayAppUserInvoice(ctx.app_id, req)
