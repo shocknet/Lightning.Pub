@@ -11,6 +11,7 @@ import { UnsignedEvent } from "nostr-tools";
 import { getLogger, PubLogger, ERROR } from "../helpers/logger.js";
 import SettingsManager from "./settingsManager.js";
 import { assertCallbackUrlAllowed, SafeOutboundFetchError } from "../helpers/safeOutboundFetch.js";
+import { assertValidOfferPriceSats } from "../helpers/offerValidation.js";
 type Result<T> = { state: 'success', result: T } | { state: 'error', err: NmanageFailure } | { state: 'authRequired' }
 
 export class ManagementManager {
@@ -199,8 +200,15 @@ export class ManagementManager {
         if (!fields.label || typeof fields.label !== 'string') {
             return { state: 'error', err: { res: 'GFY', code: 5, error: 'Invalid Field/Value', field: 'label' } }
         }
-        if (fields.price_sats && typeof fields.price_sats !== 'number') {
-            return { state: 'error', err: { res: 'GFY', code: 5, error: 'Invalid Field/Value', field: 'price_sats' } }
+        if (fields.price_sats !== undefined && fields.price_sats !== null) {
+            if (typeof fields.price_sats !== 'number') {
+                return { state: 'error', err: { res: 'GFY', code: 5, error: 'Invalid Field/Value', field: 'price_sats' } }
+            }
+            try {
+                assertValidOfferPriceSats(fields.price_sats)
+            } catch {
+                return { state: 'error', err: { res: 'GFY', code: 5, error: 'Invalid Field/Value', field: 'price_sats' } }
+            }
         }
         if (fields.callback_url && typeof fields.callback_url !== 'string') {
             return { state: 'error', err: { res: 'GFY', code: 5, error: 'Invalid Field/Value', field: 'callback_url' } }
