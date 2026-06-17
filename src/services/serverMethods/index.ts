@@ -213,7 +213,8 @@ export default (mainHandler: Main): Types.ServerMethods => {
         },
         PayInvoice: async ({ ctx, req }) => {
             const err = Types.PayInvoiceRequestValidate(req, {
-                invoice_CustomCheck: invoice => invoice !== ''
+                invoice_CustomCheck: invoice => invoice !== '',
+                amount_CustomCheck: amount => amount >= 0
             })
             if (err != null) throw new Error(err.message)
             return mainHandler.appUserManager.PayInvoice(ctx, req)
@@ -308,6 +309,7 @@ export default (mainHandler: Main): Types.ServerMethods => {
         PayAppUserInvoice: async ({ ctx, req }) => {
             const err = Types.PayAppUserInvoiceRequestValidate(req, {
                 user_identifier_CustomCheck: id => id !== '',
+                amount_CustomCheck: amount => amount >= 0
             })
             if (err != null) throw new Error(err.message)
             return mainHandler.applicationManager.PayAppUserInvoice(ctx.app_id, req)
