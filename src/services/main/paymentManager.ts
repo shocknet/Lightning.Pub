@@ -426,6 +426,9 @@ export default class {
         if (user.locked) {
             throw new Error("user is banned, cannot generate invoice")
         }
+        if (req.amountSats < 0) {
+            throw new Error("amount cannot be negative")
+        }
         const use = await this.liquidityManager.beforeInvoiceCreation(req.amountSats)
         const res = await this.lnd.NewInvoice(req.amountSats, req.memo, options.expiry, { useProvider: use === 'provider', from: 'user' }, req.blind, options.zapInfo?.description)
         const userInvoice = await this.storage.paymentStorage.AddUserInvoice(user, res.payRequest, options, res.providerPubkey)
@@ -477,6 +480,9 @@ export default class {
         }
         if (decoded.numSatoshis === 0 && req.amount === 0) {
             throw new Error("invoice has no value, an amount must be provided in the request")
+        }
+        if (decoded.numSatoshis < 0 || req.amount < 0) {
+            throw new Error("amount cannot be negative")
         }
         const payAmount = req.amount !== 0 ? req.amount : Number(decoded.numSatoshis)
         const isManagedUser = userId !== linkedApplication.owner.user_id
@@ -571,6 +577,9 @@ export default class {
     }
 
     async PayInternalInvoice(userId: string, internalInvoice: UserReceivingInvoice, amounts: { payAmount: number, serviceFee: number }, linkedApplication: Application, debitNpub?: string) {
+        if (amounts.payAmount < 0) {
+            throw new Error("amount cannot be negative")
+        }
         if (internalInvoice.paid_at_unix > 0) {
             throw new Error("this invoice was already paid")
         }
