@@ -161,7 +161,11 @@ export class DebitManager {
         try {
             const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
             const appUser = await this.storage.applicationStorage.GetApplicationUser(app, ctx.app_user_id)
-            this.validateAccessRules(access, app, appUser)
+            const validateResult = await this.validateAccessRules(access, app, appUser)
+            if (!validateResult) {
+                this.sendDebitResponse({ res: 'GFY', error: nofferErrors[1], code: 1 }, { pub: npub, id: request_id, appId: ctx.app_id })
+                return
+            }
             this.logger("🔍 [DEBIT REQUEST] Sending debit payment")
             const { payment } = await this.sendDebitPayment(ctx.app_id, ctx.app_user_id, npub, invoice)
             const debitRes: NdebitSuccess = { res: 'ok', preimage: payment.preimage }
@@ -333,7 +337,10 @@ export class DebitManager {
         if (!authorization.authorized) {
             return { status: 'fail', debitRes: { res: 'GFY', error: nofferErrors[1], code: 1 } }
         }
-        await this.validateAccessRules(authorization, app, appUser)
+        const validateResult = await this.validateAccessRules(authorization, app, appUser)
+        if (!validateResult) {
+            return { status: 'fail', debitRes: { res: 'GFY', error: nofferErrors[1], code: 1 } }
+        }
         this.logger("🔍 [DEBIT REQUEST] Sending requested debit payment")
         const { payment } = await this.sendDebitPayment(appId, appUserId, requestorPub, bolt11)
         return { status: 'invoicePaid', app, appUser, debitRes: { res: 'ok', preimage: payment.preimage } }
@@ -361,7 +368,7 @@ export class DebitManager {
             const [number, unit, max] = rules[frequencyRuleName]
             const intervalType = unitToIntervalType(unit as RecurringDebitTimeUnit)
             const seconds = IntervalTypeToSeconds(intervalType) * (+number)
-            const sinceUnix = Math.floor(Date.now() / 1000) * seconds
+            const sinceUnix = Math.floor(Date.now() / 1000) - seconds
             const payments = await this.storage.paymentStorage.GetUserDebitPayments(appUser.user.user_id, sinceUnix, access.npub)
             let total = 0
             for (const payment of payments) {
