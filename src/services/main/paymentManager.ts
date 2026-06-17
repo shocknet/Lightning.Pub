@@ -577,6 +577,9 @@ export default class {
     }
 
     async PayInternalInvoice(userId: string, internalInvoice: UserReceivingInvoice, amounts: { payAmount: number, serviceFee: number }, linkedApplication: Application, debitNpub?: string) {
+        if (amounts.payAmount < 0) {
+            throw new Error("amount cannot be negative")
+        }
         if (internalInvoice.paid_at_unix > 0) {
             throw new Error("this invoice was already paid")
         }
