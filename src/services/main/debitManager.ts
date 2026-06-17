@@ -13,6 +13,7 @@ import {
     nofferErrors, k1AlreadyProcessedReason, AuthRequiredRes, HandleNdebitRes, expirationRuleName,
     frequencyRuleName, IntervalTypeToSeconds, unitToIntervalType
 } from "./debitTypes.js";
+import { decode as decodeBolt11 } from "light-bolt11-decoder";
 
 type k1Info = {
     k1: string
@@ -161,7 +162,11 @@ export class DebitManager {
         try {
             const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
             const appUser = await this.storage.applicationStorage.GetApplicationUser(app, ctx.app_user_id)
-            this.validateAccessRules(access, app, appUser)
+            const validateResult = await this.validateAccessRules(access, app, appUser, invoice)
+            if (!validateResult) {
+                this.sendDebitResponse({ res: 'GFY', error: nofferErrors[1], code: 1 }, { pub: npub, id: request_id, appId: ctx.app_id })
+                return
+            }
             this.logger("🔍 [DEBIT REQUEST] Sending debit payment")
             const { payment } = await this.sendDebitPayment(ctx.app_id, ctx.app_user_id, npub, invoice)
             const debitRes: NdebitSuccess = { res: 'ok', preimage: payment.preimage }
@@ -333,7 +338,10 @@ export class DebitManager {
         if (!authorization.authorized) {
             return { status: 'fail', debitRes: { res: 'GFY', error: nofferErrors[1], code: 1 } }
         }
-        await this.validateAccessRules(authorization, app, appUser)
+        const validateResult = await this.validateAccessRules(authorization, app, appUser, bolt11)
+        if (!validateResult) {
+            return { status: 'fail', debitRes: { res: 'GFY', error: nofferErrors[1], code: 1 } }
+        }
         this.logger("🔍 [DEBIT REQUEST] Sending requested debit payment")
         const { payment } = await this.sendDebitPayment(appId, appUserId, requestorPub, bolt11)
         return { status: 'invoicePaid', app, appUser, debitRes: { res: 'ok', preimage: payment.preimage } }
@@ -345,7 +353,11 @@ export class DebitManager {
         return { payment }
     }
 
-    validateAccessRules = async (access: DebitAccess, app: Application, appUser: ApplicationUser): Promise<boolean> => {
+    validateAccessRules = async (access: DebitAccess, app: Application, appUser: ApplicationUser, bolt11: string): Promise<boolean> => {
+        const amt = decodeInvoiceAmount(bolt11)
+        if (amt === 0) {
+            return false
+        }
         const { rules } = access
         if (!rules) {
             return true
@@ -361,11 +373,11 @@ export class DebitManager {
             const [number, unit, max] = rules[frequencyRuleName]
             const intervalType = unitToIntervalType(unit as RecurringDebitTimeUnit)
             const seconds = IntervalTypeToSeconds(intervalType) * (+number)
-            const sinceUnix = Math.floor(Date.now() / 1000) * seconds
+            const sinceUnix = Math.floor(Date.now() / 1000) - seconds
             const payments = await this.storage.paymentStorage.GetUserDebitPayments(appUser.user.user_id, sinceUnix, access.npub)
-            let total = 0
+            let total = amt
             for (const payment of payments) {
-                total += payment.paid_amount
+                total += payment.paid_amount + payment.service_fees
             }
             if (total > +max) {
                 return false
@@ -375,3 +387,17 @@ export class DebitManager {
     }
 }
 
+const decodeInvoiceAmount = (bolt11: string): number => {
+    try {
+        const decoded = decodeBolt11(bolt11)
+        for (const section of decoded.sections) {
+            if (section.name === 'amount') {
+                // Amount is in millisatoshis
+                return Math.floor(Number(section.value) / 1000)
+            }
+        }
+        return 0
+    } catch (err: any) {
+        return 0
+    }
+}
