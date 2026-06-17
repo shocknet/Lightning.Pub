@@ -377,7 +377,7 @@ export class DebitManager {
             const payments = await this.storage.paymentStorage.GetUserDebitPayments(appUser.user.user_id, sinceUnix, access.npub)
             let total = amt
             for (const payment of payments) {
-                total += payment.paid_amount
+                total += payment.paid_amount + payment.service_fees
             }
             if (total > +max) {
                 return false
