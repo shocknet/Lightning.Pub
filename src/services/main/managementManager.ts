@@ -10,6 +10,7 @@ import { nofferEncode, OfferPointer, OfferPriceType, NmanageRequest, NmanageResp
 import { UnsignedEvent } from "nostr-tools";
 import { getLogger, PubLogger, ERROR } from "../helpers/logger.js";
 import SettingsManager from "./settingsManager.js";
+import { assertCallbackUrlAllowed, SafeOutboundFetchError } from "../helpers/safeOutboundFetch.js";
 type Result<T> = { state: 'success', result: T } | { state: 'error', err: NmanageFailure } | { state: 'authRequired' }
 
 export class ManagementManager {
@@ -203,6 +204,14 @@ export class ManagementManager {
         }
         if (fields.callback_url && typeof fields.callback_url !== 'string') {
             return { state: 'error', err: { res: 'GFY', code: 5, error: 'Invalid Field/Value', field: 'callback_url' } }
+        }
+        if (fields.callback_url) {
+            try {
+                assertCallbackUrlAllowed(fields.callback_url)
+            } catch (err) {
+                const message = err instanceof SafeOutboundFetchError ? err.message : 'callback url is invalid'
+                return { state: 'error', err: { res: 'GFY', code: 5, error: message, field: 'callback_url' } }
+            }
         }
         if (fields.payer_data && !Array.isArray(fields.payer_data)) {
             return { state: 'error', err: { res: 'GFY', code: 5, error: 'Invalid Field/Value', field: 'payer_data' } }

@@ -98,7 +98,7 @@ export default (params: ClientParams) => ({
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
-    AddUserOffer: async (request: Types.OfferConfig): Promise<ResultError | ({ status: 'OK' }& Types.OfferId)> => {
+    AddUserOffer: async (request: Types.OfferCreateRequest): Promise<ResultError | ({ status: 'OK' }& Types.OfferId)> => {
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
         let finalRoute = '/api/user/offer/add'
@@ -1210,7 +1210,7 @@ export default (params: ClientParams) => ({
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
-    UpdateUserOffer: async (request: Types.OfferConfig): Promise<ResultError | ({ status: 'OK' })> => {
+    UpdateUserOffer: async (request: Types.OfferUpdateRequest): Promise<ResultError | ({ status: 'OK' })> => {
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
         let finalRoute = '/api/user/offer/update'

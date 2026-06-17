@@ -1,12 +1,12 @@
 import WebSocket from 'ws'
 Object.assign(global, { WebSocket: WebSocket });
 import crypto from 'crypto'
-import { SimplePool, Event, UnsignedEvent, finalizeEvent, Relay, nip44, Filter } from 'nostr-tools'
+import { SimplePool, Event, UnsignedEvent, finalizeEvent, Relay, nip44, Filter, verifyEvent } from 'nostr-tools'
 import { ERROR, getLogger, PubLogger } from '../helpers/logger.js'
 import { nip19 } from 'nostr-tools'
 import { encrypt as encryptV1, decrypt as decryptV1, getSharedSecret as getConversationKeyV1 } from './nip44v1.js'
 import { Subscription } from 'nostr-tools/lib/types/abstract-relay.js';
-import { RelayConnection, RelaySettings } from './nostrRelayConnection.js'
+import { RelayConnection, RelaySettings, PartialFilter, EventsDeduper } from './nostrRelayConnection.js'
 const { nprofileEncode } = nip19
 const { v2 } = nip44
 const { encrypt: encryptV2, decrypt: decryptV2, utils } = v2
@@ -51,6 +51,8 @@ const splitContent = (content: string, maxLength: number) => {
 const actionKinds = [21000, 21001, 21002, 21003]
 const beaconKind = 30078
 const appTag = "Lightning.Pub"
+
+
 export class NostrPool {
     relays: Record<string, RelayConnection> = {}
     apps: Record<string /* app pubKey */, AppInfo> = {}
@@ -58,21 +60,15 @@ export class NostrPool {
     // providerDestinationPub: string | undefined
     eventCallback: RelayEventCallback
     log = getLogger({ component: "nostrMiddleware" })
-    handledEvents: Map<string, { handledAt: number }> = new Map()  // add expiration handler
+    eventsDeduper: EventsDeduper
     providerInfo: (LinkedProviderInfo & { appPub: string }) | undefined = undefined
-    cleanupInterval: NodeJS.Timeout | undefined = undefined
     constructor(eventCallback: RelayEventCallback) {
         this.eventCallback = eventCallback
+        this.eventsDeduper = new EventsDeduper()
     }
 
-    StartCleanupInterval() {
-        this.cleanupInterval = setInterval(() => {
-            this.handledEvents.forEach((value, key) => {
-                if (Date.now() - value.handledAt > 1000 * 60 * 60 * 2) {
-                    this.handledEvents.delete(key)
-                }
-            })
-        }, 1000 * 60 * 60 * 1)
+    Stop = () => {
+        this.eventsDeduper.Stop()
     }
 
     UpdateSettings(settings: NostrSettings) {
@@ -85,18 +81,22 @@ export class NostrPool {
         this.providerInfo = providerInfo
         this.apps = apps
         this.relays = {}
+        this.eventsDeduper.ResetStartTime()
         for (const r of rSettings) {
-            this.relays[r.relayUrl] = new RelayConnection(r, (e, r) => this.onEvent(e, r))
+            this.relays[r.relayUrl] = new RelayConnection(r, (e, r) => this.onEvent(e, r), this.eventsDeduper)
         }
 
     }
 
     private onEvent = (e: Event, relay: RelayConnection) => {
         const validated = this.validateEvent(e, relay)
-        if (!validated || this.handledEvents.has(e.id)) {
+        if (!validated) {
             return
         }
-        this.handledEvents.set(e.id, { handledAt: Date.now() })
+        const { alreadyHandled } = this.eventsDeduper.Dedupe(e.id)
+        if (alreadyHandled) {
+            return
+        }
         if (validated.type === 'beacon') {
             this.eventCallback({ type: 'beacon', content: e.content, pub: validated.pub })
             return
@@ -137,6 +137,9 @@ export class NostrPool {
         }
         const app = this.apps[pubTags[1]]
         if (!app) {
+            return null
+        }
+        if (!verifyEvent(e)) {
             return null
         }
         return { type: 'event', pub: e.pubkey, app }
@@ -302,26 +305,33 @@ const processApps = (settings: NostrSettings) => {
     return { apps, rSettings, providerInfo }
 }
 
-const getServiceFilter = (apps: Record<string, AppInfo>): Filter => {
+const getServiceFilter = (apps: Record<string, AppInfo>): PartialFilter => {
     return {
-        since: Math.ceil(Date.now() / 1000),
-        kinds: actionKinds,
-        '#p': Object.keys(apps),
+        f: {
+            kinds: actionKinds,
+            '#p': Object.keys(apps),
+        },
+        populateSince: true,
     }
 }
 
-const getProviderFilter = (appPub: string, providerPub: string): Filter => {
+const getProviderFilter = (appPub: string, providerPub: string): PartialFilter => {
     return {
-        since: Math.ceil(Date.now() / 1000),
-        kinds: actionKinds,
-        '#p': [appPub],
-        authors: [providerPub]
+        f: {
+            kinds: actionKinds,
+            '#p': [appPub],
+            authors: [providerPub]
+        },
+        populateSince: true,
     }
 }
 
-const getBeaconFilter = (providerPub: string): Filter => {
+const getBeaconFilter = (providerPub: string): PartialFilter => {
     return {
-        kinds: [beaconKind], '#d': [appTag],
-        authors: [providerPub]
+        f: {
+            kinds: [beaconKind], '#d': [appTag],
+            authors: [providerPub]
+        },
+        populateSince: false
     }
 }

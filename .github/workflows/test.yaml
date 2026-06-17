@@ -86,5 +86,17 @@ jobs:
         run: npm list
       - name: Install dependencies
         run: npm install
+      - name: Build
+        run: npm run clean && tsc --ignoreDeprecations 6.0
+      - name: Start callback dummy server
+        run: |
+          node build/src/tests/callbackDummyServer.js &
+          echo $! > /tmp/callback-dummy-server.pid
+          timeout 30 bash -c 'until curl -sf http://127.0.0.1:38473/__test__/health >/dev/null; do sleep 1; done'
       - name: Run tests
-        run: npm test
+        run: export NODE_TLS_REJECT_UNAUTHORIZED='0' && node build/src/tests/testRunner.js
+        env:
+          CALLBACK_TEST_PORT: "38473"
+      - name: Stop callback dummy server
+        if: always()
+        run: kill $(cat /tmp/callback-dummy-server.pid) 2>/dev/null || true

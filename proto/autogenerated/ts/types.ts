@@ -57,7 +57,7 @@ export type AddPeer_Output = ResultError | { status: 'OK' }
 export type AddProduct_Input = {rpcName:'AddProduct', req: AddProductRequest}
 export type AddProduct_Output = ResultError | ({ status: 'OK' } & Product)
 
-export type AddUserOffer_Input = {rpcName:'AddUserOffer', req: OfferConfig}
+export type AddUserOffer_Input = {rpcName:'AddUserOffer', req: OfferCreateRequest}
 export type AddUserOffer_Output = ResultError | ({ status: 'OK' } & OfferId)
 
 export type AuthApp_Input = {rpcName:'AuthApp', req: AuthAppRequest}
@@ -343,7 +343,7 @@ export type UpdateCallbackUrl_Output = ResultError | ({ status: 'OK' } & Callbac
 export type UpdateChannelPolicy_Input = {rpcName:'UpdateChannelPolicy', req: UpdateChannelPolicyRequest}
 export type UpdateChannelPolicy_Output = ResultError | { status: 'OK' }
 
-export type UpdateUserOffer_Input = {rpcName:'UpdateUserOffer', req: OfferConfig}
+export type UpdateUserOffer_Input = {rpcName:'UpdateUserOffer', req: OfferUpdateRequest}
 export type UpdateUserOffer_Output = ResultError | { status: 'OK' }
 
 export type UseInviteLink_Input = {rpcName:'UseInviteLink', req: UseInviteLinkRequest}
@@ -3445,6 +3445,58 @@ export const OfferConfigValidate = (o?: OfferConfig, opts: OfferConfigOptions = 
     return null
 }
 
+export type OfferCreateRequest = {
+    blind?: boolean
+    callback_url: string
+    label: string
+    payer_data: string[]
+    price_sats: number
+    rejectUnauthorized: boolean
+    token: string
+}
+export type OfferCreateRequestOptionalField = 'blind'
+export const OfferCreateRequestOptionalFields: OfferCreateRequestOptionalField[] = ['blind']
+export type OfferCreateRequestOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: OfferCreateRequestOptionalField[]
+    blind_CustomCheck?: (v?: boolean) => boolean
+    callback_url_CustomCheck?: (v: string) => boolean
+    label_CustomCheck?: (v: string) => boolean
+    payer_data_CustomCheck?: (v: string[]) => boolean
+    price_sats_CustomCheck?: (v: number) => boolean
+    rejectUnauthorized_CustomCheck?: (v: boolean) => boolean
+    token_CustomCheck?: (v: string) => boolean
+}
+export const OfferCreateRequestValidate = (o?: OfferCreateRequest, opts: OfferCreateRequestOptions = {}, path: string = 'OfferCreateRequest::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if ((o.blind || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('blind')) && typeof o.blind !== 'boolean') return new Error(`${path}.blind: is not a boolean`)
+    if (opts.blind_CustomCheck && !opts.blind_CustomCheck(o.blind)) return new Error(`${path}.blind: custom check failed`)
+
+    if (typeof o.callback_url !== 'string') return new Error(`${path}.callback_url: is not a string`)
+    if (opts.callback_url_CustomCheck && !opts.callback_url_CustomCheck(o.callback_url)) return new Error(`${path}.callback_url: custom check failed`)
+
+    if (typeof o.label !== 'string') return new Error(`${path}.label: is not a string`)
+    if (opts.label_CustomCheck && !opts.label_CustomCheck(o.label)) return new Error(`${path}.label: custom check failed`)
+
+    if (!Array.isArray(o.payer_data)) return new Error(`${path}.payer_data: is not an array`)
+    for (let index = 0; index < o.payer_data.length; index++) {
+        if (typeof o.payer_data[index] !== 'string') return new Error(`${path}.payer_data[${index}]: is not a string`)
+    }
+    if (opts.payer_data_CustomCheck && !opts.payer_data_CustomCheck(o.payer_data)) return new Error(`${path}.payer_data: custom check failed`)
+
+    if (typeof o.price_sats !== 'number') return new Error(`${path}.price_sats: is not a number`)
+    if (opts.price_sats_CustomCheck && !opts.price_sats_CustomCheck(o.price_sats)) return new Error(`${path}.price_sats: custom check failed`)
+
+    if (typeof o.rejectUnauthorized !== 'boolean') return new Error(`${path}.rejectUnauthorized: is not a boolean`)
+    if (opts.rejectUnauthorized_CustomCheck && !opts.rejectUnauthorized_CustomCheck(o.rejectUnauthorized)) return new Error(`${path}.rejectUnauthorized: custom check failed`)
+
+    if (typeof o.token !== 'string') return new Error(`${path}.token: is not a string`)
+    if (opts.token_CustomCheck && !opts.token_CustomCheck(o.token)) return new Error(`${path}.token: custom check failed`)
+
+    return null
+}
+
 export type OfferId = {
     offer_id: string
 }
@@ -3522,6 +3574,63 @@ export const OfferInvoicesValidate = (o?: OfferInvoices, opts: OfferInvoicesOpti
         if (invoicesErr !== null) return invoicesErr
     }
     if (opts.invoices_CustomCheck && !opts.invoices_CustomCheck(o.invoices)) return new Error(`${path}.invoices: custom check failed`)
+
+    return null
+}
+
+export type OfferUpdateRequest = {
+    blind?: boolean
+    callback_url: string
+    label: string
+    offer_id: string
+    payer_data: string[]
+    price_sats: number
+    rejectUnauthorized: boolean
+    token: string
+}
+export type OfferUpdateRequestOptionalField = 'blind'
+export const OfferUpdateRequestOptionalFields: OfferUpdateRequestOptionalField[] = ['blind']
+export type OfferUpdateRequestOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: OfferUpdateRequestOptionalField[]
+    blind_CustomCheck?: (v?: boolean) => boolean
+    callback_url_CustomCheck?: (v: string) => boolean
+    label_CustomCheck?: (v: string) => boolean
+    offer_id_CustomCheck?: (v: string) => boolean
+    payer_data_CustomCheck?: (v: string[]) => boolean
+    price_sats_CustomCheck?: (v: number) => boolean
+    rejectUnauthorized_CustomCheck?: (v: boolean) => boolean
+    token_CustomCheck?: (v: string) => boolean
+}
+export const OfferUpdateRequestValidate = (o?: OfferUpdateRequest, opts: OfferUpdateRequestOptions = {}, path: string = 'OfferUpdateRequest::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if ((o.blind || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('blind')) && typeof o.blind !== 'boolean') return new Error(`${path}.blind: is not a boolean`)
+    if (opts.blind_CustomCheck && !opts.blind_CustomCheck(o.blind)) return new Error(`${path}.blind: custom check failed`)
+
+    if (typeof o.callback_url !== 'string') return new Error(`${path}.callback_url: is not a string`)
+    if (opts.callback_url_CustomCheck && !opts.callback_url_CustomCheck(o.callback_url)) return new Error(`${path}.callback_url: custom check failed`)
+
+    if (typeof o.label !== 'string') return new Error(`${path}.label: is not a string`)
+    if (opts.label_CustomCheck && !opts.label_CustomCheck(o.label)) return new Error(`${path}.label: custom check failed`)
+
+    if (typeof o.offer_id !== 'string') return new Error(`${path}.offer_id: is not a string`)
+    if (opts.offer_id_CustomCheck && !opts.offer_id_CustomCheck(o.offer_id)) return new Error(`${path}.offer_id: custom check failed`)
+
+    if (!Array.isArray(o.payer_data)) return new Error(`${path}.payer_data: is not an array`)
+    for (let index = 0; index < o.payer_data.length; index++) {
+        if (typeof o.payer_data[index] !== 'string') return new Error(`${path}.payer_data[${index}]: is not a string`)
+    }
+    if (opts.payer_data_CustomCheck && !opts.payer_data_CustomCheck(o.payer_data)) return new Error(`${path}.payer_data: custom check failed`)
+
+    if (typeof o.price_sats !== 'number') return new Error(`${path}.price_sats: is not a number`)
+    if (opts.price_sats_CustomCheck && !opts.price_sats_CustomCheck(o.price_sats)) return new Error(`${path}.price_sats: custom check failed`)
+
+    if (typeof o.rejectUnauthorized !== 'boolean') return new Error(`${path}.rejectUnauthorized: is not a boolean`)
+    if (opts.rejectUnauthorized_CustomCheck && !opts.rejectUnauthorized_CustomCheck(o.rejectUnauthorized)) return new Error(`${path}.rejectUnauthorized: custom check failed`)
+
+    if (typeof o.token !== 'string') return new Error(`${path}.token: is not a string`)
+    if (opts.token_CustomCheck && !opts.token_CustomCheck(o.token)) return new Error(`${path}.token: custom check failed`)
 
     return null
 }
