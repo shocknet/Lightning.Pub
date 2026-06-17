@@ -97,6 +97,26 @@ export const nofferErrors = {
 
 export const k1AlreadyProcessedReason = "K1 already processed"
 
+export type NdebitFailureWithExtras = NdebitFailure & {
+    range?: { min: number, max: number }
+}
+
+export const ndebitFailure = (code: number, opts: { error?: string, max?: number } = {}): NdebitFailureWithExtras => {
+    const failure: NdebitFailureWithExtras = {
+        res: 'GFY',
+        code,
+        error: opts.error ?? nofferErrors[code as keyof typeof nofferErrors] ?? nofferErrors[1],
+    }
+    if (code === 5 && opts.max !== undefined) {
+        failure.range = { min: 1, max: opts.max }
+    }
+    return failure
+}
+
+export type ValidateAccessRulesResult =
+    | { ok: true }
+    | { ok: false, failure: NdebitFailureWithExtras }
+
 export type AuthRequiredRes = { status: 'authRequired', liveDebitReq: Types.LiveDebitRequest, app: Application, appUser: ApplicationUser }
 export type HandleNdebitRes = { status: 'fail', debitRes: NdebitFailure }
     | { status: 'invoicePaid', app: Application, appUser: ApplicationUser, debitRes: NdebitSuccess }

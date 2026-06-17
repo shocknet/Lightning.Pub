@@ -47,6 +47,17 @@ const authorizeDebit = async (T: TestBase, npub: string, rules: Types.DebitRule[
     })
 }
 
+const frequencyCapRules = (maxSats: number): Types.DebitRule[] => [{
+    rule: {
+        type: Types.DebitRule_rule_type.FREQUENCY_RULE,
+        frequency_rule: {
+            number_of_intervals: 1,
+            interval: Types.IntervalType.DAY,
+            amount: maxSats,
+        },
+    },
+}]
+
 const testGetDebitAuthorizationsEmpty = async (T: TestBase) => {
     T.d("starting testGetDebitAuthorizationsEmpty")
     const unknownPub = requestorPub(0)
@@ -262,6 +273,47 @@ const testPayNdebitInvoiceFrequencyWithoutAmount = async (T: TestBase) => {
     T.d("payNdebitInvoice fails when frequency is provided without amount")
 }
 
+const testPayNdebitInvoiceFrequencyCapExceeded = async (T: TestBase) => {
+    T.d("starting testPayNdebitInvoiceFrequencyCapExceeded")
+    const npub = requestorPub(12)
+    await safelySetUserBalance(T, T.user2, 5000)
+    await authorizeDebit(T, npub, frequencyCapRules(1000))
+    const invoice1 = await T.externalAccessToOtherLnd.NewInvoice(400, "debit cap 1", defaultInvoiceExpiry, { from: 'system', useProvider: false })
+    const first = await T.main.debitManager.payNdebitInvoice(
+        mockNostrEvent(T, npub, "cap-first"),
+        {
+            pointer: T.user2.appUserIdentifier,
+            bolt11: invoice1.payRequest,
+            amount_sats: 400,
+        },
+    )
+    T.expect(first.status).to.equal("invoicePaid")
+    const invoice2 = await T.externalAccessToOtherLnd.NewInvoice(500, "debit cap 2", defaultInvoiceExpiry, { from: 'system', useProvider: false })
+    const second = await T.main.debitManager.payNdebitInvoice(
+        mockNostrEvent(T, npub, "cap-second"),
+        {
+            pointer: T.user2.appUserIdentifier,
+            bolt11: invoice2.payRequest,
+            amount_sats: 500,
+        },
+    )
+    T.expect(second.status).to.equal("invoicePaid")
+    const invoice3 = await T.externalAccessToOtherLnd.NewInvoice(200, "debit cap 3", defaultInvoiceExpiry, { from: 'system', useProvider: false })
+    const third = await T.main.debitManager.payNdebitInvoice(
+        mockNostrEvent(T, npub, "cap-third"),
+        {
+            pointer: T.user2.appUserIdentifier,
+            bolt11: invoice3.payRequest,
+            amount_sats: 200,
+        },
+    )
+    expectDebitFail(T, third, 5, nofferErrors[5])
+    if (third.status === "fail") {
+        T.expect((third.debitRes as { range?: { max: number } }).range?.max).to.equal(1000)
+    }
+    T.d("payNdebitInvoice returns code 5 when frequency cap is exceeded")
+}
+
 const testPayNdebitInvoiceInsufficientBalance = async (T: TestBase) => {
     T.d("starting testPayNdebitInvoiceInsufficientBalance")
     const npub = requestorPub(10)
@@ -308,6 +360,7 @@ export default async (T: TestBase) => {
     await testPayNdebitInvoiceAmountMismatch(T)
     await testPayNdebitInvoiceAmountWithoutBolt11(T)
     await testPayNdebitInvoiceFrequencyWithoutAmount(T)
+    await testPayNdebitInvoiceFrequencyCapExceeded(T)
     await testPayNdebitInvoiceInsufficientBalance(T)
     await testRespondToDebitInvalidTypeThrows(T)
     await runSanityCheck(T)
