@@ -276,7 +276,6 @@ const testPayNdebitInvoiceFrequencyWithoutAmount = async (T: TestBase) => {
 const testPayNdebitInvoiceFrequencyCapExceeded = async (T: TestBase) => {
     T.d("starting testPayNdebitInvoiceFrequencyCapExceeded")
     const npub = requestorPub(12)
-    await safelySetUserBalance(T, T.user2, 5000)
     await authorizeDebit(T, npub, frequencyCapRules(1000))
     const invoice1 = await T.externalAccessToOtherLnd.NewInvoice(400, "debit cap 1", defaultInvoiceExpiry, { from: 'system', useProvider: false })
     const first = await T.main.debitManager.payNdebitInvoice(
