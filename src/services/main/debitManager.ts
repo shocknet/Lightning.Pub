@@ -14,7 +14,7 @@ import {
     frequencyRuleName, IntervalTypeToSeconds, unitToIntervalType, ndebitFailure,
     ValidateAccessRulesResult,
 } from "./debitTypes.js";
-import { decode as decodeBolt11 } from "light-bolt11-decoder";
+import PaymentManager from "./paymentManager.js";
 
 type k1Info = {
     k1: string
@@ -44,11 +44,13 @@ export class DebitManager {
     lnd: LND
     k1Debouncers: Record<string, K1Debouncer> = {}
     interval: NodeJS.Timer
+    paymentManager: PaymentManager
     logger = getLogger({ component: 'DebitManager' })
-    constructor(storage: Storage, lnd: LND, applicationManager: ApplicationManager) {
+    constructor(storage: Storage, lnd: LND, applicationManager: ApplicationManager, paymentManager: PaymentManager) {
         this.storage = storage
         this.lnd = lnd
         this.applicationManager = applicationManager
+        this.paymentManager = paymentManager
         this.StartDebounceCleaner()
     }
 
@@ -355,8 +357,9 @@ export class DebitManager {
     }
 
     validateAccessRules = async (access: DebitAccess, app: Application, appUser: ApplicationUser, bolt11: string): Promise<ValidateAccessRulesResult> => {
-        const amt = decodeInvoiceAmount(bolt11)
-        if (amt === 0) {
+        const decoded = await this.lnd.DecodeInvoice(bolt11)
+        const amt = decoded.numSatoshis
+        if (amt <= 0) {
             return { ok: false, failure: ndebitFailure(5) }
         }
         const { rules } = access
@@ -371,12 +374,14 @@ export class DebitManager {
             }
         }
         if (rules[frequencyRuleName]) {
+            const isManaged = app.owner.user_id !== appUser.user.user_id
+            const expectedFee = this.paymentManager.getSendServiceFee(Types.UserOperationType.OUTGOING_INVOICE, amt, isManaged)
             const [number, unit, max] = rules[frequencyRuleName]
             const intervalType = unitToIntervalType(unit as RecurringDebitTimeUnit)
             const seconds = IntervalTypeToSeconds(intervalType) * (+number)
             const sinceUnix = Math.floor(Date.now() / 1000) - seconds
             const payments = await this.storage.paymentStorage.GetUserDebitPayments(appUser.user.user_id, sinceUnix, access.npub)
-            let total = amt
+            let total = amt + expectedFee
             for (const payment of payments) {
                 total += payment.paid_amount + payment.service_fees
             }
@@ -388,19 +393,4 @@ export class DebitManager {
         }
         return { ok: true }
     }
-}
-
-const decodeInvoiceAmount = (bolt11: string): number => {
-    try {
-        const decoded = decodeBolt11(bolt11)
-        for (const section of decoded.sections) {
-            if (section.name === 'amount') {
-                // Amount is in millisatoshis
-                return Math.floor(Number(section.value) / 1000)
-            }
-        }
-        return 0
-    } catch (err: any) {
-        return 0
-    }
-}
+} 
