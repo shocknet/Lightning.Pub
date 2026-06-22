@@ -219,7 +219,7 @@ export default class {
         return this.dbs.Update<UserInvoicePayment>('UserInvoicePayment', invoicePaymentSerialId, up, txId)
     }
 
-    async AddInternalPayment(userId: string, invoice: string, amount: number, serviceFees: number, linkedApplication: Application, debitNpub?: string): Promise<UserInvoicePayment> {
+    async AddInternalPayment(userId: string, invoice: string, amount: number, serviceFees: number, linkedApplication: Application, debitNpub?: string, txId?: string): Promise<UserInvoicePayment> {
         const user = await this.userStorage.GetUser(userId)
         return this.dbs.CreateAndSave<UserInvoicePayment>('UserInvoicePayment', {
             user: await this.userStorage.GetUser(userId),
@@ -231,7 +231,7 @@ export default class {
             internal: true,
             linkedApplication,
             debit_to_pub: debitNpub
-        })
+        }, txId)
     }
 
     GetUserInvoicePayments(userId: string, fromIndex: number, take = 50, txId?: string): Promise<UserInvoicePayment[]> {

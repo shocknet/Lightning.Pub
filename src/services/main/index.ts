@@ -31,6 +31,7 @@ import { ApplicationUser } from '../storage/entity/ApplicationUser.js'
 import SettingsManager from './settingsManager.js'
 import { NostrSettings, AppInfo } from '../nostr/nostrPool.js'
 import { ShockPushNotification } from '../ShockPush/index.js'
+import { PaymentSideEffects } from "./paymentSideEffects.js"
 type UserOperationsSub = {
     id: string
     newIncomingInvoice: (operation: Types.UserOperation) => void
@@ -61,6 +62,7 @@ export default class {
     rugPullTracker: RugPullTracker
     unlocker: Unlocker
     notificationsManager: NotificationsManager
+    paymentSideEffects: PaymentSideEffects
     nostrProcessPing: (() => Promise<void>) | null = null
     nostrReset: (settings: NostrSettings) => void = () => { getLogger({})("nostr reset not initialized yet") }
     constructor(settings: SettingsManager, storage: Storage, adminManager: AdminManager, utils: Utils, unlocker: Unlocker) {
@@ -80,8 +82,8 @@ export default class {
         this.lnd = new LND(lndGetSettings, this.liquidityProvider, () => this.unlocker.Unlock(), this.utils, this.addressPaidCb, this.invoicePaidCb, this.newBlockCb, this.htlcCb, this.channelEventCb)
         this.liquidityManager = new LiquidityManager(this.settings, this.storage, this.utils, this.liquidityProvider, this.lnd, this.rugPullTracker)
         this.metricsManager = new MetricsManager(this.storage, this.lnd)
-
-        this.paymentManager = new PaymentManager(this.storage, this.metricsManager, this.lnd, adminManager.swaps, this.settings, this.liquidityManager, this.utils, this.addressPaidCb, this.invoicePaidCb, this.newBlockCb)
+        this.paymentSideEffects = new PaymentSideEffects(this.storage, this.utils, this.notificationsManager)
+        this.paymentManager = new PaymentManager(this.storage, this.metricsManager, this.lnd, adminManager.swaps, this.settings, this.liquidityManager, this.paymentSideEffects, this.utils, this.addressPaidCb, /* this.invoicePaidCb, */ this.newBlockCb)
         this.productManager = new ProductManager(this.storage, this.paymentManager, this.settings)
         this.applicationManager = new ApplicationManager(this.storage, this.settings, this.paymentManager)
         this.appUserManager = new AppUserManager(this.storage, this.settings, this.applicationManager)
@@ -187,7 +189,11 @@ export default class {
                 const { linkedApplication, user, address, paid_amount: amount, service_fees: serviceFee, serial_id: serialId, chain_fees } = c.tx;
                 const operationId = `${Types.UserOperationType.OUTGOING_TX}-${serialId}`
                 const op = { amount, paidAtUnix: Date.now() / 1000, inbound: false, type: Types.UserOperationType.OUTGOING_TX, identifier: address, operationId, network_fee: chain_fees, service_fee: serviceFee, confirmed: true, tx_hash: c.tx.tx_hash, internal: c.tx.internal }
-                this.sendOperationToNostr(linkedApplication!, user.user_id, op)
+                try {
+                    await this.paymentSideEffects.sendOperationToNostr(linkedApplication!, user.user_id, op)
+                } catch (err: any) {
+                    log(ERROR, "error sending operation to nostr for outgoing tx", err.message || "")
+                }
             } else {
                 this.storage.StartTransaction(async tx => {
                     const { user_address: userAddress, paid_amount: amount, service_fee: serviceFee, serial_id: serialId, tx_hash } = c.tx
@@ -207,7 +213,11 @@ export default class {
                     }
                     const operationId = `${Types.UserOperationType.INCOMING_TX}-${serialId}`
                     const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_TX, identifier: userAddress.address, operationId, network_fee: 0, service_fee: serviceFee, confirmed: true, tx_hash: c.tx.tx_hash, internal: c.tx.internal }
-                    this.sendOperationToNostr(userAddress.linkedApplication!, userAddress.user.user_id, op)
+                    try {
+                        await this.paymentSideEffects.sendOperationToNostr(userAddress.linkedApplication!, userAddress.user.user_id, op)
+                    } catch (err: any) {
+                        log(ERROR, "error sending operation to nostr for incoming tx", err.message || "")
+                    }
                 })
             }
         }))
@@ -255,7 +265,11 @@ export default class {
                 }
                 const operationId = `${Types.UserOperationType.INCOMING_TX}-${addedTx.serial_id}`
                 const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_TX, identifier: userAddress.address, operationId, network_fee: 0, service_fee: fee, confirmed: internal, tx_hash: txOutput.hash, internal: false }
-                this.sendOperationToNostr(userAddress.linkedApplication, userAddress.user.user_id, op)
+                try {
+                    await this.paymentSideEffects.sendOperationToNostr(userAddress.linkedApplication, userAddress.user.user_id, op)
+                } catch (err: any) {
+                    log(ERROR, "error sending operation to nostr for incoming tx", err.message || "")
+                }
                 this.utils.stateBundler.AddTxPoint('addressWasPaid', amount, { used, from: 'system', timeDiscount: true }, userAddress.linkedApplication.app_id)
             } catch (err: any) {
                 this.utils.stateBundler.AddTxPointFailed('addressWasPaid', amount, { used, from: 'system' }, userAddress.linkedApplication.app_id)
@@ -265,183 +279,31 @@ export default class {
     }
 
     invoicePaidCb: InvoicePaidCb = async (paymentRequest, amount, used) => {
-        let log = getLogger({})
-        if (amount < 0) {
-            log(ERROR, "amount cannot be negative")
+        const log = getLogger({})
+        const userInvoice = await this.storage.paymentStorage.GetInvoiceOwner(paymentRequest)
+        if (!userInvoice) {
+            /* If its not a user invoice, it is a root invoice, we dont need to credit it, or trigger any side effects, just add the metric */
+            await this.metricsManager.AddRootInvoicePaid(paymentRequest, amount)
+            log("invoice tracked successfully to root", used, amount, paymentRequest)
             return
         }
-        return this.storage.StartTransaction(async tx => {
-            const userInvoice = await this.storage.paymentStorage.GetInvoiceOwner(paymentRequest, tx)
-            if (!userInvoice) {
-                await this.metricsManager.AddRootInvoicePaid(paymentRequest, amount)
-                return
-            }
-            const internal = used === 'internal'
-            if (userInvoice.paid_at_unix > 0 && internal) { log("cannot pay internally, invoice already paid"); return }
-            if (userInvoice.paid_at_unix > 0 && !internal && userInvoice.paidByLnd) { log("invoice already paid by lnd"); return }
-            if (!userInvoice.linkedApplication) {
-                log(ERROR, "an invoice was paid, that has no linked application")
-                return
-            }
-            log = getLogger({ appName: userInvoice.linkedApplication.name })
-            const isManagedUser = userInvoice.user.user_id !== userInvoice.linkedApplication.owner.user_id
-            const fee = this.paymentManager.getReceiveServiceFee(Types.UserOperationType.INCOMING_INVOICE, amount, isManagedUser)
-            try {
-                const paidInvoice = await this.storage.paymentStorage.FlagInvoiceAsPaid(userInvoice, amount, fee, internal, tx)
-                this.storage.eventsLog.LogEvent({ type: 'invoice_paid', userId: paidInvoice.user.user_id, appId: paidInvoice.linkedApplication!.app_id, appUserId: "", balance: paidInvoice.user.balance_sats, data: paymentRequest, amount })
-                await this.storage.userStorage.IncrementUserBalance(paidInvoice.user.user_id, amount - fee, paidInvoice.invoice, tx)
-                if (fee > 0) {
-                    await this.storage.userStorage.IncrementUserBalance(paidInvoice.linkedApplication!.owner.user_id, fee, 'fees', tx)
-                }
-                this.triggerPaidCallback(log, paidInvoice.callbackUrl, { invoice: paymentRequest, amount, payerData: paidInvoice.payer_data, token: paidInvoice.bearer_token, rejectUnauthorized: paidInvoice.rejectUnauthorized })
-                const operationId = `${Types.UserOperationType.INCOMING_INVOICE}-${paidInvoice.serial_id}`
-                const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_INVOICE, identifier: paidInvoice.invoice, operationId, network_fee: 0, service_fee: fee, confirmed: true, tx_hash: "", internal }
-                this.sendOperationToNostr(paidInvoice.linkedApplication!, paidInvoice.user.user_id, op)
-                try {
-                    await this.createZapReceipt(log, paidInvoice)
-                } catch (err: any) {
-                    log(ERROR, "cannot create zap receipt", err.message || "")
-                }
-                // Send CLINK receipt if this invoice was from a noffer request
-                try {
-                    if (paidInvoice.clink_requester_pub && paidInvoice.clink_requester_event_id) {
-                        await this.createClinkReceipt(log, paidInvoice)
-                    }
-                } catch (err: any) {
-                    log(ERROR, "cannot create clink receipt", err.message || "")
-                }
-                this.liquidityManager.afterInInvoicePaid()
-                this.utils.stateBundler.AddTxPoint('invoiceWasPaid', amount, { used, from: 'system', timeDiscount: true }, paidInvoice.linkedApplication!.app_id)
-            } catch (err: any) {
-                this.utils.stateBundler.AddTxPointFailed('invoiceWasPaid', amount, { used, from: 'system' }, userInvoice.linkedApplication.app_id)
-                log(ERROR, "cannot process paid invoice", err.message || "")
-            }
-        })
-    }
-
-    async triggerPaidCallback(log: PubLogger, url: string,
-        { invoice, amount, payerData, token, rejectUnauthorized }:
-            {
-                invoice: string,
-                amount: number,
-                payerData?: Record<string, string>,
-                token?: string,
-                rejectUnauthorized?: boolean
-            }
-    ) {
-        if (!url) {
-            return
-        }
-        let finalUrl = "";
-        const payerDataToExpand = {
-            amount,
-            invoice,
-            ...(payerData !== undefined ? payerData : {})
-        };
+        let paidInvoice: UserReceivingInvoice
         try {
-            const parsed = parse(url);
-            finalUrl = parsed.expand(payerDataToExpand)
+            paidInvoice = await this.storage.StartTransaction(async tx => {
+                const internal = used === 'internal'
+                return this.paymentManager.CreditIncomingInvoice(paymentRequest, amount, internal, tx)
+            })
+
         } catch (err: any) {
-            log(ERROR, "error expanding callback url template for invoice", err?.message || "");
-            return;
-        }
-        const symbol = finalUrl.includes('?') ? "&" : "?"
-        finalUrl = finalUrl + symbol + "ok=true"
-
-        const headers = {
-            ...(token ? { Authorization: `Bearer ${token}` } : {})
-        }
-        try {
-            const hostname = new URL(finalUrl).hostname
-            log("sending paid callback to", hostname)
-            await safeOutboundFetch(finalUrl, { headers, rejectUnauthorized })
-        } catch (err: any) {
-            log(ERROR, "error sending paid callback for invoice", err.message || "")
-        }
-    }
-
-    async sendOperationToNostr(app: Application, userId: string, op: Types.UserOperation) {
-        const user = await this.storage.applicationStorage.GetAppUserFromUser(app, userId)
-        if (!user || !user.nostr_public_key) {
-            getLogger({ appName: app.name })("cannot notify user, not a nostr user")
-            return
-        }
-        const balance = user.user.balance_sats
-        const message: Types.LiveUserOperation & { requestId: string, status: 'OK' } =
-            { operation: op, requestId: "GetLiveUserOperations", status: 'OK', latest_balance: balance }
-        const j = JSON.stringify(message)
-        this.utils.nostrSender.Send({ type: 'app', appId: app.app_id }, { type: 'content', content: j, pub: user.nostr_public_key })
-
-        this.SendEncryptedNotification(app, user, op, this.getOperationMessage(op))
-    }
-
-    getOperationMessage = (op: Types.UserOperation) => {
-        switch (op.type) {
-            case Types.UserOperationType.INCOMING_TX:
-            case Types.UserOperationType.INCOMING_INVOICE:
-            case Types.UserOperationType.INCOMING_USER_TO_USER:
-                return {
-                    body: "You received a new payment",
-                    title: "Payment Received"
-                }
-            case Types.UserOperationType.OUTGOING_TX:
-            case Types.UserOperationType.OUTGOING_INVOICE:
-            case Types.UserOperationType.OUTGOING_USER_TO_USER:
-                return {
-                    body: "You sent a new payment",
-                    title: "Payment Sent"
-                }
-
-            default:
-                return {
-                    body: "Unknown operation",
-                    title: "Unknown Operation"
-                }
-        }
-    }
-
-    async SendEncryptedNotification(app: Application, appUser: ApplicationUser, op: Types.UserOperation, { body, title }: { body: string, title: string }) {
-        const devices = await this.storage.applicationStorage.GetAppUserDevices(appUser.identifier)
-        if (devices.length === 0 || !app.nostr_public_key || !app.nostr_private_key || !appUser.nostr_public_key) {
+            this.utils.stateBundler.AddTxPointFailed('invoiceWasPaid', amount, { used, from: 'system' }, userInvoice.linkedApplication!.app_id)
+            log(ERROR, "cannot process paid invoice", err.message || "")
             return
         }
 
-        const tokens = devices.map(d => d.firebase_messaging_token)
-        const ck = nip44.getConversationKey(Buffer.from(app.nostr_private_key, 'hex'), appUser.nostr_public_key)
-
-        let payloadToEncrypt: Types.PushNotificationPayload;
-        if (op.inbound) {
-            payloadToEncrypt = {
-                data: {
-                    type: Types.PushNotificationPayload_data_type.RECEIVED_OPERATION,
-                    received_operation: op
-                }
-            }
-        } else {
-            payloadToEncrypt = {
-                data: {
-                    type: Types.PushNotificationPayload_data_type.SENT_OPERATION,
-                    sent_operation: op
-                }
-            }
-        }
-        const j = JSON.stringify(payloadToEncrypt)
-        const encrypted = nip44.encrypt(j, ck)
-
-        const envelope: Types.PushNotificationEnvelope = {
-            topic_id: appUser.topic_id,
-            app_npub_hex: app.nostr_public_key,
-            encrypted_payload: encrypted
-        }
-        const notification: ShockPushNotification = {
-            message: JSON.stringify(envelope),
-            body,
-            title
-        }
-        await this.notificationsManager.SendNotification(notification, tokens, {
-            pubkey: app.nostr_public_key!,
-            privateKey: app.nostr_private_key!
-        })
+        this.liquidityManager.afterInInvoicePaid()
+        this.utils.stateBundler.AddTxPoint('invoiceWasPaid', amount, { used, from: 'system', timeDiscount: true }, paidInvoice.linkedApplication!.app_id)
+        log("invoice credited successfully to user", paidInvoice.user.user_id, used, amount, paymentRequest)
+        await this.paymentSideEffects.TriggerPaidInvoiceSideEffects(log, paidInvoice)
     }
 
     async UpdateBeacon(app: Application, content: Types.BeaconData) {
@@ -460,62 +322,7 @@ export default class {
         this.utils.nostrSender.Send({ type: 'app', appId: app.app_id }, { type: 'event', event })
     }
 
-    async createZapReceipt(log: PubLogger, invoice: UserReceivingInvoice) {
-        const zapInfo = invoice.zap_info
-        if (!zapInfo || !invoice.linkedApplication || !invoice.linkedApplication.nostr_public_key) {
-            return
-        }
-        const tags = [["p", zapInfo.pub]]
-        if (zapInfo.senderPub) {
-            tags.push(["P", zapInfo.senderPub])
-        }
-        if (zapInfo.eventId) {
-            tags.push(["e", zapInfo.eventId])
-        }
-        if (zapInfo.eventCoordinate) {
-            tags.push(["a", zapInfo.eventCoordinate])
-        }
-        if (zapInfo.eventKind) {
-            tags.push(["k", zapInfo.eventKind])
-        }
-        tags.push(["bolt11", invoice.invoice], ["description", zapInfo.description])
-        const event: UnsignedEvent = {
-            content: "",
-            created_at: invoice.paid_at_unix,
-            kind: 9735,
-            pubkey: invoice.linkedApplication.nostr_public_key,
-            tags,
-        }
-        log({ unsigned: event })
-        this.utils.nostrSender.Send({ type: 'app', appId: invoice.linkedApplication.app_id }, { type: 'event', event }, zapInfo.relays || undefined)
-    }
 
-    async createClinkReceipt(log: PubLogger, invoice: UserReceivingInvoice) {
-        if (!invoice.clink_requester_pub || !invoice.clink_requester_event_id || !invoice.linkedApplication) {
-            return
-        }
-        log("📤 [CLINK RECEIPT] Sending payment receipt", {
-            toPub: invoice.clink_requester_pub,
-            eventId: invoice.clink_requester_event_id
-        })
-        // Receipt payload - payer's wallet already has the preimage
-        const content = JSON.stringify({ res: 'ok' })
-        const event: UnsignedEvent = {
-            content,
-            created_at: Math.floor(Date.now() / 1000),
-            kind: 21001,
-            pubkey: "",
-            tags: [
-                ["p", invoice.clink_requester_pub],
-                ["e", invoice.clink_requester_event_id],
-                ["clink_version", "1"]
-            ],
-        }
-        this.utils.nostrSender.Send(
-            { type: 'app', appId: invoice.linkedApplication.app_id },
-            { type: 'event', event, encrypt: { toPub: invoice.clink_requester_pub } }
-        )
-    }
 
     async ResetNostr() {
         const apps = await this.storage.applicationStorage.GetApplications()

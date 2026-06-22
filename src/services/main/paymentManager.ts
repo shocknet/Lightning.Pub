@@ -23,6 +23,7 @@ import { Transaction, OutputDetail } from '../../../proto/lnd/lightning.js'
 import { LndAddress } from '../lnd/lnd.js'
 import Metrics from '../metrics/index.js'
 import { TxPointSettings } from '../storage/tlv/stateBundler.js'
+import { PaymentSideEffects } from './paymentSideEffects.js'
 interface UserOperationInfo {
     serial_id: number
     paid_amount: number
@@ -72,7 +73,6 @@ export default class {
     settings: SettingsManager
     lnd: LND
     addressPaidCb: AddressPaidCb
-    invoicePaidCb: InvoicePaidCb
     newBlockCb: NewBlockCb
     log = getLogger({ component: "PaymentManager" })
     watchDog: Watchdog
@@ -81,17 +81,18 @@ export default class {
     swaps: Swaps
     invoiceLock: InvoiceLock
     metrics: Metrics
-    constructor(storage: Storage, metrics: Metrics, lnd: LND, swaps: Swaps, settings: SettingsManager, liquidityManager: LiquidityManager, utils: Utils, addressPaidCb: AddressPaidCb, invoicePaidCb: InvoicePaidCb, newBlockCb: NewBlockCb) {
+    paymentSideEffects: PaymentSideEffects
+    constructor(storage: Storage, metrics: Metrics, lnd: LND, swaps: Swaps, settings: SettingsManager, liquidityManager: LiquidityManager, sideEffects: PaymentSideEffects, utils: Utils, addressPaidCb: AddressPaidCb, newBlockCb: NewBlockCb) {
         this.storage = storage
         this.metrics = metrics
         this.settings = settings
         this.lnd = lnd
         this.liquidityManager = liquidityManager
         this.utils = utils
+        this.paymentSideEffects = sideEffects
         this.watchDog = new Watchdog(settings, this.liquidityManager, this.lnd, this.storage, this.utils, this.liquidityManager.rugPullTracker)
         this.swaps = swaps
         this.addressPaidCb = addressPaidCb
-        this.invoicePaidCb = invoicePaidCb
         this.newBlockCb = newBlockCb
         this.invoiceLock = new InvoiceLock()
     }
@@ -585,20 +586,52 @@ export default class {
         }
         const { payAmount, serviceFee } = amounts
         const totalAmountToDecrement = payAmount + serviceFee
-        await this.storage.userStorage.DecrementUserBalance(userId, totalAmountToDecrement, internalInvoice.invoice)
+        let newPayment: UserInvoicePayment
         try {
-            await this.invoicePaidCb(internalInvoice.invoice, payAmount, 'internal')
-            const newPayment = await this.storage.paymentStorage.AddInternalPayment(userId, internalInvoice.invoice, payAmount, serviceFee, linkedApplication, debitNpub)
-            this.utils.stateBundler.AddTxPoint('paidAnInvoice', totalAmountToDecrement, { used: 'internal', from: 'user' }, linkedApplication.app_id)
-            return { preimage: "", amtPaid: payAmount, networkFee: 0, serialId: newPayment.serial_id }
+            newPayment = await this.storage.StartTransaction(async tx => {
+                await this.storage.userStorage.DecrementUserBalance(userId, totalAmountToDecrement, internalInvoice.invoice, tx)
+                const internal = true
+                const paidInvoice = await this.CreditIncomingInvoice(internalInvoice.invoice, payAmount, internal, tx)
+                return this.storage.paymentStorage.AddInternalPayment(userId, internalInvoice.invoice, payAmount, serviceFee, linkedApplication, debitNpub, tx)
+            })
         } catch (err) {
-            await this.storage.userStorage.IncrementUserBalance(userId, totalAmountToDecrement, "internal_payment_refund:" + internalInvoice.invoice)
             this.utils.stateBundler.AddTxPointFailed('paidAnInvoice', totalAmountToDecrement, { used: 'internal', from: 'user' }, linkedApplication.app_id)
             throw err
         }
+
+        this.utils.stateBundler.AddTxPoint('paidAnInvoice', totalAmountToDecrement, { used: 'internal', from: 'user' }, linkedApplication.app_id)
+        return { preimage: "", amtPaid: payAmount, networkFee: 0, serialId: newPayment.serial_id }
     }
 
 
+
+    async CreditIncomingInvoice(invoice: string, amount: number, internal: boolean, txId: string) {
+        if (amount < 0) {
+            throw new Error("amount cannot be negative")
+        }
+        const userInvoice = await this.storage.paymentStorage.GetInvoiceOwner(invoice, txId)
+        if (!userInvoice) {
+            throw new Error("invoice not found")
+        }
+        if (userInvoice.paid_at_unix > 0 && internal) {
+            throw new Error("cannot pay internally, invoice already paid")
+        }
+        if (userInvoice.paid_at_unix > 0 && !internal && userInvoice.paidByLnd) {
+            throw new Error("invoice already paid by lnd")
+        }
+        if (!userInvoice.linkedApplication) {
+            throw new Error("an invoice was paid, that has no linked application")
+        }
+        const isManagedUser = userInvoice.user.user_id !== userInvoice.linkedApplication.owner.user_id
+        const fee = this.getReceiveServiceFee(Types.UserOperationType.INCOMING_INVOICE, amount, isManagedUser)
+        const paidInvoice = await this.storage.paymentStorage.FlagInvoiceAsPaid(userInvoice, amount, fee, internal, txId)
+        this.storage.eventsLog.LogEvent({ type: 'invoice_paid', userId: paidInvoice.user.user_id, appId: paidInvoice.linkedApplication!.app_id, appUserId: "", balance: paidInvoice.user.balance_sats, data: invoice, amount })
+        await this.storage.userStorage.IncrementUserBalance(paidInvoice.user.user_id, amount - fee, paidInvoice.invoice, txId)
+        if (fee > 0) {
+            await this.storage.userStorage.IncrementUserBalance(paidInvoice.linkedApplication!.owner.user_id, fee, 'fees', txId)
+        }
+        return paidInvoice
+    }
 
     async GetTransactionSwapQuotes(ctx: Types.UserContext, req: Types.TransactionSwapRequest): Promise<Types.TransactionSwapQuoteList> {
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
