@@ -368,7 +368,7 @@ export class DebitManager {
         }
         if (rules[expirationRuleName]) {
             const [expiration] = rules[expirationRuleName]
-            if (+expiration < Date.now()) {
+            if (+expiration < Math.floor(Date.now() / 1000)) {
                 await this.storage.debitStorage.RemoveDebitAccess(access.app_user_id, access.npub)
                 return { ok: false, failure: ndebitFailure(3) }
             }

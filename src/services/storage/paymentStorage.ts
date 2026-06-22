@@ -68,6 +68,9 @@ export default class {
     }
 
     async FlagInvoiceAsPaid(invoice: UserReceivingInvoice, amount: number, serviceFee: number, internal: boolean, txId: string): Promise<UserReceivingInvoice> {
+        if (amount < 0) {
+            throw new Error("amount cannot be negative")
+        }
         const i: Partial<UserReceivingInvoice> = { paid_at_unix: Math.floor(Date.now() / 1000), paid_amount: amount, service_fee: serviceFee, internal }
         if (!internal) {
             i.paidByLnd = true

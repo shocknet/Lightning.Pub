@@ -264,9 +264,13 @@ export default class {
         })
     }
 
-    invoicePaidCb: InvoicePaidCb = (paymentRequest, amount, used) => {
+    invoicePaidCb: InvoicePaidCb = async (paymentRequest, amount, used) => {
+        let log = getLogger({})
+        if (amount < 0) {
+            log(ERROR, "amount cannot be negative")
+            return
+        }
         return this.storage.StartTransaction(async tx => {
-            let log = getLogger({})
             const userInvoice = await this.storage.paymentStorage.GetInvoiceOwner(paymentRequest, tx)
             if (!userInvoice) {
                 await this.metricsManager.AddRootInvoicePaid(paymentRequest, amount)

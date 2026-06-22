@@ -259,7 +259,7 @@ export class ManagementManager {
             return { state: 'authRequired' }
         }
 
-        if (grant.expires_at_unix > 0 && grant.expires_at_unix < Date.now()) {
+        if (grant.expires_at_unix > 0 && grant.expires_at_unix < Math.floor(Date.now() / 1000)) {
             this.logger(ERROR, "Grant expired", appUserId, requestorPub)
             return { state: 'authRequired' }
         }
