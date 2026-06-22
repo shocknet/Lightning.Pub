@@ -195,87 +195,86 @@ export default class {
                     log(ERROR, "error sending operation to nostr for outgoing tx", err.message || "")
                 }
             } else {
-                this.storage.StartTransaction(async tx => {
-                    const { user_address: userAddress, paid_amount: amount, service_fee: serviceFee, serial_id: serialId, tx_hash } = c.tx
-                    if (!userAddress.linkedApplication) {
-                        log(ERROR, "an address was paid, that has no linked application")
-                        return
-                    }
+                const { user_address: userAddress, paid_amount: amount, service_fee: serviceFee, serial_id: serialId, tx_hash } = c.tx
+                if (!userAddress.linkedApplication) {
+                    log(ERROR, "an address was paid, that has no linked application")
+                    return
+                }
+                await this.storage.StartTransaction(async tx => {
                     const affected = await this.storage.paymentStorage.UpdateAddressReceivingTransaction(serialId, { confs: c.confs }, tx)
                     if (!affected) {
                         throw new Error("unable to flag chain transaction as paid")
                     }
                     const addressData = `${userAddress.address}:${tx_hash}`
-                    this.storage.eventsLog.LogEvent({ type: 'address_paid', userId: userAddress.user.user_id, appId: userAddress.linkedApplication.app_id, appUserId: "", balance: userAddress.user.balance_sats, data: addressData, amount })
+                    this.storage.eventsLog.LogEvent({ type: 'address_paid', userId: userAddress.user.user_id, appId: userAddress.linkedApplication!.app_id, appUserId: "", balance: userAddress.user.balance_sats, data: addressData, amount })
                     await this.storage.userStorage.IncrementUserBalance(userAddress.user.user_id, amount - serviceFee, addressData, tx)
                     if (serviceFee > 0) {
-                        await this.storage.userStorage.IncrementUserBalance(userAddress.linkedApplication.owner.user_id, serviceFee, 'fees', tx)
-                    }
-                    const operationId = `${Types.UserOperationType.INCOMING_TX}-${serialId}`
-                    const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_TX, identifier: userAddress.address, operationId, network_fee: 0, service_fee: serviceFee, confirmed: true, tx_hash: c.tx.tx_hash, internal: c.tx.internal }
-                    try {
-                        await this.paymentSideEffects.sendOperationToNostr(userAddress.linkedApplication!, userAddress.user.user_id, op)
-                    } catch (err: any) {
-                        log(ERROR, "error sending operation to nostr for incoming tx", err.message || "")
+                        await this.storage.userStorage.IncrementUserBalance(userAddress.linkedApplication!.owner.user_id, serviceFee, 'fees', tx)
                     }
                 })
+                const operationId = `${Types.UserOperationType.INCOMING_TX}-${serialId}`
+                const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_TX, identifier: userAddress.address, operationId, network_fee: 0, service_fee: serviceFee, confirmed: true, tx_hash: c.tx.tx_hash, internal: c.tx.internal }
+                try {
+                    await this.paymentSideEffects.sendOperationToNostr(userAddress.linkedApplication!, userAddress.user.user_id, op)
+                } catch (err: any) {
+                    log(ERROR, "error sending operation to nostr for incoming tx", err.message || "")
+                }
             }
         }))
     }
 
-    addressPaidCb: AddressPaidCb = (txOutput, address, amount, used, broadcastHeight) => {
-        return this.storage.StartTransaction(async tx => {
-            getLogger({})("addressPaidCb called", JSON.stringify({ txOutput, address, amount, used, broadcastHeight }))
-            // On-chain payments not supported when bypass is enabled
-            if (this.liquidityProvider.getSettings().useOnlyLiquidityProvider) {
-                getLogger({})("addressPaidCb called but USE_ONLY_LIQUIDITY_PROVIDER is enabled, ignoring")
+    addressPaidCb: AddressPaidCb = async (txOutput, address, amount, used, broadcastHeight) => {
+        getLogger({})("addressPaidCb called", JSON.stringify({ txOutput, address, amount, used, broadcastHeight }))
+        if (this.liquidityProvider.getSettings().useOnlyLiquidityProvider) {
+            getLogger({})("addressPaidCb called but USE_ONLY_LIQUIDITY_PROVIDER is enabled, ignoring")
+            return
+        }
+        const { blockHeight } = await this.lnd.GetInfo()
+        const userAddress = await this.storage.paymentStorage.GetAddressOwner(address)
+        if (!userAddress) {
+            const isChange = await this.lnd.IsChangeAddress(address)
+            if (isChange) {
                 return
             }
-            const { blockHeight } = await this.lnd.GetInfo()
-            const userAddress = await this.storage.paymentStorage.GetAddressOwner(address, tx)
-            if (!userAddress) {
-                const isChange = await this.lnd.IsChangeAddress(address)
-                if (isChange) {
-                    return
-                }
-                await this.metricsManager.AddRootAddressPaid(address, txOutput, amount)
-                return
-            }
-            const internal = used === 'internal'
-            let log = getLogger({})
-            if (!userAddress.linkedApplication) {
-                log(ERROR, "an address was paid, that has no linked application")
-                return
-            }
-            log = getLogger({ appName: userAddress.linkedApplication.name })
-            const isManagedUser = userAddress.user.user_id !== userAddress.linkedApplication.owner.user_id
-            const fee = this.paymentManager.getReceiveServiceFee(Types.UserOperationType.INCOMING_TX, amount, isManagedUser)
-            try {
-                // This call will fail if the transaction is already registered
-                const txBroadcastHeight = broadcastHeight ? broadcastHeight : blockHeight
-                const addedTx = await this.storage.paymentStorage.AddAddressReceivingTransaction(userAddress, txOutput.hash, txOutput.index, amount, fee, internal, txBroadcastHeight, tx)
+            await this.metricsManager.AddRootAddressPaid(address, txOutput, amount)
+            return
+        }
+        if (!userAddress.linkedApplication) {
+            getLogger({})(ERROR, "an address was paid, that has no linked application")
+            return
+        }
+        const internal = used === 'internal'
+        const log = getLogger({ appName: userAddress.linkedApplication.name })
+        const isManagedUser = userAddress.user.user_id !== userAddress.linkedApplication.owner.user_id
+        const fee = this.paymentManager.getReceiveServiceFee(Types.UserOperationType.INCOMING_TX, amount, isManagedUser)
+        const txBroadcastHeight = broadcastHeight ? broadcastHeight : blockHeight
+        let addedTx
+        try {
+            addedTx = await this.storage.StartTransaction(async tx => {
+                const txRecord = await this.storage.paymentStorage.AddAddressReceivingTransaction(userAddress, txOutput.hash, txOutput.index, amount, fee, internal, txBroadcastHeight, tx)
                 if (internal) {
                     const addressData = `${address}:${txOutput.hash}`
-                    this.storage.eventsLog.LogEvent({ type: 'address_paid', userId: userAddress.user.user_id, appId: userAddress.linkedApplication.app_id, appUserId: "", balance: userAddress.user.balance_sats, data: addressData, amount })
-                    await this.storage.userStorage.IncrementUserBalance(userAddress.user.user_id, addedTx.paid_amount - fee, addressData, tx)
+                    this.storage.eventsLog.LogEvent({ type: 'address_paid', userId: userAddress.user.user_id, appId: userAddress.linkedApplication!.app_id, appUserId: "", balance: userAddress.user.balance_sats, data: addressData, amount })
+                    await this.storage.userStorage.IncrementUserBalance(userAddress.user.user_id, txRecord.paid_amount - fee, addressData, tx)
                     if (fee > 0) {
-                        await this.storage.userStorage.IncrementUserBalance(userAddress.linkedApplication.owner.user_id, fee, 'fees', tx)
+                        await this.storage.userStorage.IncrementUserBalance(userAddress.linkedApplication!.owner.user_id, fee, 'fees', tx)
                     }
-
                 }
-                const operationId = `${Types.UserOperationType.INCOMING_TX}-${addedTx.serial_id}`
-                const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_TX, identifier: userAddress.address, operationId, network_fee: 0, service_fee: fee, confirmed: internal, tx_hash: txOutput.hash, internal: false }
-                try {
-                    await this.paymentSideEffects.sendOperationToNostr(userAddress.linkedApplication, userAddress.user.user_id, op)
-                } catch (err: any) {
-                    log(ERROR, "error sending operation to nostr for incoming tx", err.message || "")
-                }
-                this.utils.stateBundler.AddTxPoint('addressWasPaid', amount, { used, from: 'system', timeDiscount: true }, userAddress.linkedApplication.app_id)
-            } catch (err: any) {
-                this.utils.stateBundler.AddTxPointFailed('addressWasPaid', amount, { used, from: 'system' }, userAddress.linkedApplication.app_id)
-                log(ERROR, "cannot process address paid transaction, already registered")
-            }
-        })
+                return txRecord
+            })
+        } catch (err: any) {
+            this.utils.stateBundler.AddTxPointFailed('addressWasPaid', amount, { used, from: 'system' }, userAddress.linkedApplication.app_id)
+            log(ERROR, "cannot process address paid transaction, already registered")
+            return
+        }
+        const operationId = `${Types.UserOperationType.INCOMING_TX}-${addedTx.serial_id}`
+        const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_TX, identifier: userAddress.address, operationId, network_fee: 0, service_fee: fee, confirmed: internal, tx_hash: txOutput.hash, internal: false }
+        try {
+            await this.paymentSideEffects.sendOperationToNostr(userAddress.linkedApplication, userAddress.user.user_id, op)
+        } catch (err: any) {
+            log(ERROR, "error sending operation to nostr for incoming tx", err.message || "")
+        }
+        this.utils.stateBundler.AddTxPoint('addressWasPaid', amount, { used, from: 'system', timeDiscount: true }, userAddress.linkedApplication.app_id)
     }
 
     invoicePaidCb: InvoicePaidCb = async (paymentRequest, amount, used) => {

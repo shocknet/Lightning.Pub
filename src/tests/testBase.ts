@@ -132,6 +132,27 @@ export const runSanityCheck = async (T: TestBase) => {
     await sanityChecker.VerifyEventsLog()
 }
 
+export const waitForUserBalance = async (T: TestBase, userId: string, expectedBalance: number, timeoutMs = 30000) => {
+    const deadline = Date.now() + timeoutMs
+    while (Date.now() < deadline) {
+        const { blockHeight } = await T.main.lnd.GetInfo()
+        await T.main.newBlockCb(blockHeight, true)
+        const user = await T.main.storage.userStorage.GetUser(userId)
+        if (user.balance_sats === expectedBalance) {
+            return user
+        }
+        await new Promise(resolve => setTimeout(resolve, 200))
+    }
+    const user = await T.main.storage.userStorage.GetUser(userId)
+    expect(user.balance_sats).to.equal(expectedBalance)
+    return user
+}
+
+export const mineAndWaitForUserBalance = async (T: TestBase, userId: string, expectedBalance: number, blocks = 1) => {
+    await T.chainTools.mine(blocks)
+    return waitForUserBalance(T, userId, expectedBalance)
+}
+
 export const expectThrowsAsync = async (promise: Promise<any>, errorMessage?: string) => {
     let error: Error | null = null
     try {
