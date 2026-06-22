@@ -587,18 +587,24 @@ export default class {
         const { payAmount, serviceFee } = amounts
         const totalAmountToDecrement = payAmount + serviceFee
         let newPayment: UserInvoicePayment
+        let paidInvoice: UserReceivingInvoice
         try {
-            newPayment = await this.storage.StartTransaction(async tx => {
+            ({ newPayment, paidInvoice } = await this.storage.StartTransaction(async tx => {
                 await this.storage.userStorage.DecrementUserBalance(userId, totalAmountToDecrement, internalInvoice.invoice, tx)
                 const internal = true
-                const paidInvoice = await this.CreditIncomingInvoice(internalInvoice.invoice, payAmount, internal, tx)
-                return this.storage.paymentStorage.AddInternalPayment(userId, internalInvoice.invoice, payAmount, serviceFee, linkedApplication, debitNpub, tx)
-            })
+                const credited = await this.CreditIncomingInvoice(internalInvoice.invoice, payAmount, internal, tx)
+                const payment = await this.storage.paymentStorage.AddInternalPayment(userId, internalInvoice.invoice, payAmount, serviceFee, linkedApplication, debitNpub, tx)
+                return { newPayment: payment, paidInvoice: credited }
+            }))
         } catch (err) {
             this.utils.stateBundler.AddTxPointFailed('paidAnInvoice', totalAmountToDecrement, { used: 'internal', from: 'user' }, linkedApplication.app_id)
             throw err
         }
 
+        this.liquidityManager.afterInInvoicePaid()
+        this.utils.stateBundler.AddTxPoint('invoiceWasPaid', payAmount, { used: 'internal', from: 'system', timeDiscount: true }, paidInvoice.linkedApplication!.app_id)
+        this.log("invoice credited successfully to user", paidInvoice.user.user_id, 'internal', payAmount, internalInvoice.invoice)
+        await this.paymentSideEffects.TriggerPaidInvoiceSideEffects(this.log, paidInvoice)
         this.utils.stateBundler.AddTxPoint('paidAnInvoice', totalAmountToDecrement, { used: 'internal', from: 'user' }, linkedApplication.app_id)
         return { preimage: "", amtPaid: payAmount, networkFee: 0, serialId: newPayment.serial_id }
     }
