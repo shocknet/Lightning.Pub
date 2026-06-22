@@ -754,6 +754,21 @@ export default class {
         }
     }
 
+    async GetMaxSendable() {
+        const { remote } = await this.lnd.ChannelBalance()
+        const ready = this.liquidityManager.liquidityProvider.IsReady()
+        if (remote === 0 && ready) {
+            return 10_000_000 * 1000
+        }
+        return remote * 1000
+    }
+
+    async GetMinAndMaxSendable() {
+        const minSendable = 10000
+        const maxSendable = await this.GetMaxSendable()
+        return { minSendable, maxSendable }
+    }
+
     async GetLnurlPayInfoFromUser(userId: string, linkedApplication: Application, opts: { baseUrl?: string, metadata?: string } = {}): Promise<Types.LnurlPayInfoResponse> {
         if (this.isDefaultServiceUrl()) {
             throw new Error("Lnurl not enabled. Make sure to set SERVICE_URL env variable")
@@ -761,16 +776,12 @@ export default class {
         const { baseUrl, metadata } = opts
         const payK1 = await this.storage.paymentStorage.AddUserEphemeralKey(userId, 'pay', linkedApplication)
         const url = baseUrl ? baseUrl : `${this.settings.getSettings().serviceSettings.serviceUrl}/api/guest/lnurl_pay/handle`
-        const { remote } = await this.lnd.ChannelBalance()
-        let maxSendable = remote * 1000
-        if (remote === 0 && (await this.liquidityManager.liquidityProvider.IsReady())) {
-            maxSendable = 10_000_000 * 1000
-        }
+        const { maxSendable, minSendable } = await this.GetMinAndMaxSendable()
         return {
             tag: 'payRequest',
             callback: `${url}?k1=${payK1.key}`,
             maxSendable: maxSendable,
-            minSendable: 10000,
+            minSendable: minSendable,
             metadata: metadata ? metadata : defaultLnurlPayMetadata(this.settings.getSettings().serviceSettings.lnurlMetaText),
             allowsNostr: !!linkedApplication.nostr_public_key,
             nostrPubkey: linkedApplication.nostr_public_key || ""
@@ -863,6 +874,10 @@ export default class {
         const amountMillis = +ctx.amount
         if (isNaN(amountMillis)) {
             throw new Error("invalid amount in lnurl pay to handle")
+        }
+        const { maxSendable, minSendable } = await this.GetMinAndMaxSendable()
+        if (amountMillis < minSendable || amountMillis > maxSendable) {
+            throw new Error("amount out of range")
         }
         let zapInfo: ZapInfo | undefined
         if (ctx.nostr) {
