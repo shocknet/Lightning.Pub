@@ -11,6 +11,7 @@ import { LiquidityManager } from "./liquidityManager.js"
 import { NofferData, OfferPriceType, nofferEncode } from '@shocknet/clink-sdk';
 import SettingsManager from "./settingsManager.js";
 import { assertCallbackUrlAllowed } from "../helpers/safeOutboundFetch.js";
+import { assertValidOfferPriceSats } from "../helpers/offerValidation.js";
 
 type NofferInvoiceFailure = { success: false, code: number, max: number, error?: string, payer_data?: string[] }
 type NofferInvoiceResult = { success: true, invoice: string } | NofferInvoiceFailure
@@ -52,6 +53,7 @@ export class OfferManager {
     }
 
     async AddUserOffer(ctx: Types.UserContext, req: Types.OfferCreateRequest): Promise<Types.OfferId> {
+        assertValidOfferPriceSats(req.price_sats)
         assertCallbackUrlAllowed(req.callback_url)
         const newOffer = await this.storage.offerStorage.AddUserOffer(ctx.app_user_id, {
             payer_data: req.payer_data,
@@ -72,6 +74,7 @@ export class OfferManager {
     }
 
     async UpdateUserOffer(ctx: Types.UserContext, req: Types.OfferUpdateRequest) {
+        assertValidOfferPriceSats(req.price_sats)
         assertCallbackUrlAllowed(req.callback_url)
         await this.storage.offerStorage.UpdateUserOffer(ctx.app_user_id, req.offer_id, {
             payer_data: req.payer_data,
@@ -249,6 +252,8 @@ export class OfferManager {
                 return { success: false, code: 5, max: remote }
             }
             amt = amount
+        } else if (userOffer.price_sats < 0) {
+            return { success: false, code: 5, max: remote }
         }
         const dataCheck = this.ValidateExpectedData(userOffer, offerReq.payer_data)
         if (!dataCheck.passed) {

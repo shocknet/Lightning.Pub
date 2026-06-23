@@ -1,6 +1,7 @@
 import {
     isMetadataIPv4,
     isMetadataIPv6,
+    isBlockedCallbackIp,
     validateCallbackUrlForEgress,
     assertCallbackUrlAllowed,
     SafeOutboundFetchError,
@@ -23,6 +24,17 @@ export default async (T: TestBase) => {
     T.expect(isMetadataIPv6("::ffff:169.254.169.254")).to.equal(true)
     T.expect(isMetadataIPv6("::1")).to.equal(false)
 
+    T.expect(isBlockedCallbackIp("127.0.0.1")).to.equal(false)
+    T.expect(isBlockedCallbackIp("::1")).to.equal(false)
+    T.expect(isBlockedCallbackIp("10.0.0.1")).to.equal(true)
+    T.expect(isBlockedCallbackIp("172.16.0.1")).to.equal(true)
+    T.expect(isBlockedCallbackIp("192.168.1.10")).to.equal(true)
+    T.expect(isBlockedCallbackIp("100.64.0.1")).to.equal(true)
+    T.expect(isBlockedCallbackIp("169.254.169.254")).to.equal(true)
+    T.expect(isBlockedCallbackIp("8.8.8.8")).to.equal(false)
+    T.expect(isBlockedCallbackIp("::ffff:192.168.1.1")).to.equal(true)
+    T.expect(isBlockedCallbackIp("::ffff:127.0.0.1")).to.equal(false)
+
     const assertBlocked = (url: string) => {
         try {
             validateCallbackUrlForEgress(new URL(url))
@@ -36,10 +48,12 @@ export default async (T: TestBase) => {
     assertBlocked("http://metadata.google.internal/computeMetadata/v1/")
     assertBlocked("http://user:pass@example.com/callback")
     assertBlocked("file:///etc/passwd")
+    assertBlocked("http://10.0.0.1/callback")
+    assertBlocked("http://172.16.0.1/callback")
+    assertBlocked("http://192.168.1.10/webhook")
 
     validateCallbackUrlForEgress(new URL("http://127.0.0.1/callback"))
     validateCallbackUrlForEgress(new URL("http://localhost/callback"))
-    validateCallbackUrlForEgress(new URL("http://192.168.1.10/webhook"))
     validateCallbackUrlForEgress(new URL("https://example.com/callback?invoice={invoice}"))
     assertCallbackUrlAllowed("http://127.0.0.1/callback?invoice={invoice}")
 

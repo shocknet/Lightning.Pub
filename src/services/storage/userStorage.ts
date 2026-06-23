@@ -80,7 +80,7 @@ export default class {
             throw new Error("increment cannot be negative")
         }
         const user = await this.GetUser(userId, txId)
-        const affected = await this.dbs.Increment<User>('User', { user_id: userId }, "balance_sats", increment, txId)
+        const affected = await this.dbs.Increment<User>('User', { user_id: userId, balance_sats: user.balance_sats }, "balance_sats", increment, txId)
         if (!affected) {
             getLogger({ userId: userId, component: "balanceUpdates" })("user unaffected by increment")
             throw new Error("unaffected balance increment")
@@ -108,7 +108,7 @@ export default class {
             getLogger({ userId: userId, component: "balanceUpdates" })("not enough balance to decrement")
             throw new Error("not enough balance to decrement")
         }
-        const affected = await this.dbs.Decrement<User>('User', { user_id: userId }, "balance_sats", decrement, txId)
+        const affected = await this.dbs.Decrement<User>('User', { user_id: userId, balance_sats: user.balance_sats }, "balance_sats", decrement, txId)
         if (!affected) {
             getLogger({ userId: userId, component: "balanceUpdates" })("user unaffected by decrement")
             throw new Error("unaffected balance decrement")

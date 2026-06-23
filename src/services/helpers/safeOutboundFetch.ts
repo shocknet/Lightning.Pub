@@ -63,6 +63,74 @@ export const isMetadataIp = (ip: string): boolean => {
     return false
 }
 
+export const isLoopbackIPv4 = (ip: string): boolean => {
+    const parts = ip.split(".").map(Number)
+    if (parts.length !== 4 || parts.some(p => Number.isNaN(p) || p < 0 || p > 255)) {
+        return false
+    }
+    return parts[0] === 127
+}
+
+export const isPrivateIPv4 = (ip: string): boolean => {
+    const parts = ip.split(".").map(Number)
+    if (parts.length !== 4 || parts.some(p => Number.isNaN(p) || p < 0 || p > 255)) {
+        return false
+    }
+    const [a, b] = parts
+    if (a === 10) return true
+    if (a === 172 && b >= 16 && b <= 31) return true
+    if (a === 192 && b === 168) return true
+    if (a === 169 && b === 254) return true
+    if (a === 100 && b >= 64 && b <= 127) return true
+    return false
+}
+
+export const isLoopbackIPv6 = (ip: string): boolean => {
+    const normalized = ip.toLowerCase().split("%")[0]
+    if (normalized === "::1") return true
+    if (normalized.startsWith("::ffff:")) {
+        const mapped = normalized.slice("::ffff:".length)
+        if (mapped.includes(".")) {
+            return isLoopbackIPv4(mapped)
+        }
+    }
+    return false
+}
+
+export const isPrivateIPv6 = (ip: string): boolean => {
+    const normalized = ip.toLowerCase().split("%")[0]
+    if (normalized.startsWith("::ffff:")) {
+        const mapped = normalized.slice("::ffff:".length)
+        if (mapped.includes(".")) {
+            return isPrivateIPv4(mapped)
+        }
+    }
+    const firstHextet = normalized.split(":")[0]
+    if (firstHextet.startsWith("fc") || firstHextet.startsWith("fd")) return true
+    if (
+        firstHextet.startsWith("fe8") ||
+        firstHextet.startsWith("fe9") ||
+        firstHextet.startsWith("fea") ||
+        firstHextet.startsWith("feb")
+    ) {
+        return true
+    }
+    return false
+}
+
+export const isBlockedCallbackIp = (ip: string): boolean => {
+    const version = isIP(ip)
+    if (version === 4) {
+        if (isLoopbackIPv4(ip)) return false
+        return isPrivateIPv4(ip) || isMetadataIPv4(ip)
+    }
+    if (version === 6) {
+        if (isLoopbackIPv6(ip)) return false
+        return isPrivateIPv6(ip) || isMetadataIPv6(ip)
+    }
+    return false
+}
+
 export const validateCallbackUrlForEgress = (url: URL): void => {
     if (url.protocol !== "http:" && url.protocol !== "https:") {
         throw new SafeOutboundFetchError("callback url protocol must be http or https")
@@ -74,11 +142,7 @@ export const validateCallbackUrlForEgress = (url: URL): void => {
     if (blockedHostnames.has(host)) {
         throw new SafeOutboundFetchError("callback url hostname is not allowed")
     }
-    const ipVersion = isIP(host)
-    if (ipVersion === 4 && isMetadataIPv4(host)) {
-        throw new SafeOutboundFetchError("callback url resolves to a blocked address")
-    }
-    if (ipVersion === 6 && isMetadataIPv6(host)) {
+    if (isIP(host) !== 0 && isBlockedCallbackIp(host)) {
         throw new SafeOutboundFetchError("callback url resolves to a blocked address")
     }
 }
@@ -113,7 +177,7 @@ const safeLookup = (
             return
         }
         const records = (addresses as dns.LookupAddress[]).filter(
-            record => !isMetadataIp(record.address)
+            record => !isBlockedCallbackIp(record.address)
         )
         if (records.length === 0) {
             const blocked = new SafeOutboundFetchError("callback url resolves to a blocked address")

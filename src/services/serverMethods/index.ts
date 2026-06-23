@@ -463,6 +463,7 @@ export default (mainHandler: Main): Types.ServerMethods => {
         AddUserOffer: async ({ ctx, req }) => {
             const err = Types.OfferCreateRequestValidate(req, {
                 label_CustomCheck: label => label !== '',
+                price_sats_CustomCheck: price => price >= 0,
             })
             if (err != null) throw new Error(err.message)
             return mainHandler.offerManager.AddUserOffer(ctx, req)
@@ -477,6 +478,7 @@ export default (mainHandler: Main): Types.ServerMethods => {
         UpdateUserOffer: async ({ ctx, req }) => {
             const err = Types.OfferUpdateRequestValidate(req, {
                 offer_id_CustomCheck: id => id !== '',
+                price_sats_CustomCheck: price => price >= 0,
             })
             if (err != null) throw new Error(err.message)
             return mainHandler.offerManager.UpdateUserOffer(ctx, req)

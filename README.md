@@ -67,7 +67,7 @@ By solving the networking and programability hurdles, Pub provides Lightning wit
 - [x] A management dashboard is actively being integrated into [ShockWallet](https://github.com/shocknet/wallet2)
 - [x] Nostr native [CLINK](https://clinkme.dev) "offers"
 - [x] Encrypted Push Notifications
-- [_] Swap integration (in progress)
+- [-] Swap integration (Partial, via admin dashboard only, quotes from Zeus LSP and Boltz)
 - [ ] P2P "LSP" coordination for channel batching over Nostr
 - [ ] High-Availabilty / Clustering
 
@@ -288,14 +288,16 @@ The wizard interface (coming soon for Start9/Umbrel) will make this graphical.
 
 ### Bootstrap Liquidity Provider
 
-By default, Lightning.Pub uses a bootstrap liquidity provider that provides initial channel funding as a service credit until you can afford your own channels. Pub compares rates from top LSPs and automatically requests a channel when needed.
+By default, Lightning.Pub connects to a bootstrap liquidity provider (another Pub over Nostr) for outbound routing when local LND channel liquidity is low. Pub compares rates from top LSPs and automatically requests a channel when needed.
+
+Settings are loaded from environment variables or the `admin_settings` database table (env wins if both are set). The relevant keys are **`PROVIDER_NPROFILE`** and **`DISABLE_LIQUIDITY_PROVIDER`**
 
 ```bash
-# Disable for full sovereignty
+# Disable upstream provider checks (LND only for outbound payments)
 DISABLE_LIQUIDITY_PROVIDER=true
 
-# Or point to a different Pub instance
-LIQUIDITY_PROVIDER_PUB=nprofile1...
+# Optional: point at a different Pub instance (pubkey + relay are in the nprofile)
+PROVIDER_NPROFILE=nprofile1qyd8wumn8ghj7um5wfn8y7fwwd5x7cmt9ehx2arhdaexkqpqwmk5tuqvafa6ckwc6zmaypyy3af3n4aeds2ql7m0ew42kzsn638q9s9z8p
 ```
 
 ### Custom Lightning Address Domain

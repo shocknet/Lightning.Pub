@@ -68,6 +68,9 @@ export default class {
     }
 
     async FlagInvoiceAsPaid(invoice: UserReceivingInvoice, amount: number, serviceFee: number, internal: boolean, txId: string): Promise<UserReceivingInvoice> {
+        if (amount < 0) {
+            throw new Error("amount cannot be negative")
+        }
         const i: Partial<UserReceivingInvoice> = { paid_at_unix: Math.floor(Date.now() / 1000), paid_amount: amount, service_fee: serviceFee, internal }
         if (!internal) {
             i.paidByLnd = true
@@ -216,10 +219,10 @@ export default class {
         return this.dbs.Update<UserInvoicePayment>('UserInvoicePayment', invoicePaymentSerialId, up, txId)
     }
 
-    async AddInternalPayment(userId: string, invoice: string, amount: number, serviceFees: number, linkedApplication: Application, debitNpub?: string): Promise<UserInvoicePayment> {
-        const user = await this.userStorage.GetUser(userId)
+    async AddInternalPayment(userId: string, invoice: string, amount: number, serviceFees: number, linkedApplication: Application, debitNpub?: string, txId?: string): Promise<UserInvoicePayment> {
+        const user = await this.userStorage.GetUser(userId, txId)
         return this.dbs.CreateAndSave<UserInvoicePayment>('UserInvoicePayment', {
-            user: await this.userStorage.GetUser(userId),
+            user,
             paid_amount: amount,
             invoice,
             routing_fees: 0,
@@ -228,7 +231,7 @@ export default class {
             internal: true,
             linkedApplication,
             debit_to_pub: debitNpub
-        })
+        }, txId)
     }
 
     GetUserInvoicePayments(userId: string, fromIndex: number, take = 50, txId?: string): Promise<UserInvoicePayment[]> {
