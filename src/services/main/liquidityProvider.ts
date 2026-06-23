@@ -36,6 +36,8 @@ export class LiquidityProvider {
     constructor(getSettings: () => LiquiditySettings, utils: Utils, invoicePaidCb: InvoicePaidCb, incrementProviderBalance: (balance: number) => Promise<any>) {
         this.utils = utils
         this.getSettings = getSettings
+        this.invoicePaidCb = invoicePaidCb
+        this.incrementProviderBalance = incrementProviderBalance
         const providerPubkey = getSettings().liquidityProviderPub
         const disableLiquidityProvider = getSettings().disableLiquidityProvider
         if (!providerPubkey) {
@@ -46,10 +48,25 @@ export class LiquidityProvider {
             this.log("Liquidity provider is disabled, will not be initialized")
             return
         }
-        this.log("connecting to liquidity provider:", providerPubkey)
         this.providerPubkey = providerPubkey
-        this.invoicePaidCb = invoicePaidCb
-        this.incrementProviderBalance = incrementProviderBalance
+    }
+
+    usesExternalProvider = () => {
+        const settings = this.getSettings()
+        if (!this.providerPubkey || settings.disableLiquidityProvider) {
+            return false
+        }
+        if (this.localPubkey && this.localPubkey === this.providerPubkey) {
+            return false
+        }
+        return true
+    }
+
+    initExternalProviderClient = () => {
+        if (this.client || !this.usesExternalProvider()) {
+            return
+        }
+        this.log("connecting to liquidity provider:", this.providerPubkey)
         this.client = newNostrClient({
             pubDestination: this.providerPubkey,
             retrieveNostrUserAuth: async () => this.localPubkey,
@@ -81,12 +98,15 @@ export class LiquidityProvider {
     }
 
     IsReady = () => {
+        if (!this.usesExternalProvider()) {
+            return false
+        }
         const seenInPast2Minutes = Date.now() - this.lastSeenBeacon < 1000 * 60 * 2
-        return this.ready && !this.getSettings().disableLiquidityProvider && seenInPast2Minutes
+        return this.ready && seenInPast2Minutes
     }
 
     AwaitProviderReady = async (): Promise<'inactive' | 'ready'> => {
-        if (!this.providerPubkey || this.getSettings().disableLiquidityProvider) {
+        if (!this.usesExternalProvider()) {
             return 'inactive'
         }
         if (this.IsReady()) {
@@ -316,6 +336,13 @@ export class LiquidityProvider {
     setNostrInfo = ({ localId, localPubkey }: { localPubkey: string, localId: string }) => {
         this.localId = localId
         this.localPubkey = localPubkey
+        if (!this.usesExternalProvider()) {
+            if (this.localPubkey === this.getSettings().liquidityProviderPub) {
+                this.log("local pub is the configured liquidity provider, skipping external provider connection")
+            }
+            return
+        }
+        this.initExternalProviderClient()
         this.setSetIfConfigured()
         // If nostrSender becomes ready after setNostrInfo, ensure we check again
         if (!this.configured && this.utils.nostrSender.IsReady()) {
@@ -332,6 +359,9 @@ export class LiquidityProvider {
         }
     }
     onBeaconEvent = async (beaconData: { content: string, pub: string }) => {
+        if (!this.usesExternalProvider()) {
+            return
+        }
         if (beaconData.pub !== this.providerPubkey) {
             this.log(ERROR, "got beacon from invalid pub", beaconData.pub, this.providerPubkey)
             return
@@ -353,6 +383,9 @@ export class LiquidityProvider {
     }
 
     onEvent = async (res: { requestId: string }, fromPub: string) => {
+        if (!this.usesExternalProvider()) {
+            return false
+        }
         if (fromPub !== this.providerPubkey) {
             this.log("got event from invalid pub", fromPub, this.providerPubkey)
             return false
