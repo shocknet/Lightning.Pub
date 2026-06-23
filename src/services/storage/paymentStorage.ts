@@ -512,6 +512,10 @@ export default class {
         }
     }
 
+    async GetUsersWithNegativeBalance(txId?: string) {
+        return this.dbs.Find<User>('User', { where: { balance_sats: LessThan(0) } }, txId)
+    }
+
     async GetTotalUsersBalance(excludeLocked?: boolean, txId?: string) {
         const where: { locked?: boolean } = {}
         if (excludeLocked) {
