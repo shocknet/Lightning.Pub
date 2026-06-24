@@ -732,7 +732,7 @@ export default class {
     }
 
     async CreditAddress(address: string, txOutput: TxOutput, amount: number, internal: boolean, broadcastHeight: number, dbTxId: string) {
-        const userAddress = await this.storage.paymentStorage.GetAddressOwner(address)
+        const userAddress = await this.storage.paymentStorage.GetAddressOwner(address, dbTxId)
         if (!userAddress) {
             throw new Error("address not found")
         }
