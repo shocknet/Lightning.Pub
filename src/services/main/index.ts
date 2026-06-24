@@ -32,6 +32,7 @@ import SettingsManager from './settingsManager.js'
 import { NostrSettings, AppInfo } from '../nostr/nostrPool.js'
 import { ShockPushNotification } from '../ShockPush/index.js'
 import { PaymentSideEffects } from "./paymentSideEffects.js"
+import { AddressReceivingTransaction } from '../storage/entity/AddressReceivingTransaction.js'
 type UserOperationsSub = {
     id: string
     newIncomingInvoice: (operation: Types.UserOperation) => void
@@ -229,7 +230,6 @@ export default class {
             getLogger({})("addressPaidCb called but USE_ONLY_LIQUIDITY_PROVIDER is enabled, ignoring")
             return
         }
-        const { blockHeight } = await this.lnd.GetInfo()
         const userAddress = await this.storage.paymentStorage.GetAddressOwner(address)
         if (!userAddress) {
             const isChange = await this.lnd.IsChangeAddress(address)
@@ -243,24 +243,12 @@ export default class {
             getLogger({})(ERROR, "an address was paid, that has no linked application")
             return
         }
-        const internal = used === 'internal'
+        const internal = false
         const log = getLogger({ appName: userAddress.linkedApplication.name })
-        const isManagedUser = userAddress.user.user_id !== userAddress.linkedApplication.owner.user_id
-        const fee = this.paymentManager.getReceiveServiceFee(Types.UserOperationType.INCOMING_TX, amount, isManagedUser)
-        const txBroadcastHeight = broadcastHeight ? broadcastHeight : blockHeight
-        let addedTx
+        let addedTx: AddressReceivingTransaction
         try {
             addedTx = await this.storage.StartTransaction(async tx => {
-                const txRecord = await this.storage.paymentStorage.AddAddressReceivingTransaction(userAddress, txOutput.hash, txOutput.index, amount, fee, internal, txBroadcastHeight, tx)
-                if (internal) {
-                    const addressData = `${address}:${txOutput.hash}`
-                    this.storage.eventsLog.LogEvent({ type: 'address_paid', userId: userAddress.user.user_id, appId: userAddress.linkedApplication!.app_id, appUserId: "", balance: userAddress.user.balance_sats, data: addressData, amount })
-                    await this.storage.userStorage.IncrementUserBalance(userAddress.user.user_id, txRecord.paid_amount - fee, addressData, tx)
-                    if (fee > 0) {
-                        await this.storage.userStorage.IncrementUserBalance(userAddress.linkedApplication!.owner.user_id, fee, 'fees', tx)
-                    }
-                }
-                return txRecord
+                return this.paymentManager.CreditAddress(address, txOutput, amount, internal, broadcastHeight || 0, tx)
             })
         } catch (err: any) {
             this.utils.stateBundler.AddTxPointFailed('addressWasPaid', amount, { used, from: 'system' }, userAddress.linkedApplication.app_id)
@@ -268,7 +256,7 @@ export default class {
             return
         }
         const operationId = `${Types.UserOperationType.INCOMING_TX}-${addedTx.serial_id}`
-        const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_TX, identifier: userAddress.address, operationId, network_fee: 0, service_fee: fee, confirmed: internal, tx_hash: txOutput.hash, internal: false }
+        const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_TX, identifier: userAddress.address, operationId, network_fee: 0, service_fee: addedTx.service_fee, confirmed: internal, tx_hash: txOutput.hash, internal: false }
         try {
             await this.paymentSideEffects.sendOperationToNostr(userAddress.linkedApplication, userAddress.user.user_id, op)
         } catch (err: any) {
@@ -289,7 +277,7 @@ export default class {
         let paidInvoice: UserReceivingInvoice
         try {
             paidInvoice = await this.storage.StartTransaction(async tx => {
-                const internal = used === 'internal'
+                const internal = false
                 return this.paymentManager.CreditIncomingInvoice(paymentRequest, amount, internal, tx)
             })
 

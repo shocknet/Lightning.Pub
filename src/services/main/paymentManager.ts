@@ -6,7 +6,7 @@ import { InboundOptionals, defaultInvoiceExpiry } from '../storage/paymentStorag
 import LND from '../lnd/lnd.js'
 import { Application } from '../storage/entity/Application.js'
 import { ERROR, getLogger, PubLogger } from '../helpers/logger.js'
-import { AddressPaidCb, InvoicePaidCb, NewBlockCb } from '../lnd/settings.js'
+import { AddressPaidCb, InvoicePaidCb, NewBlockCb, TxOutput } from '../lnd/settings.js'
 import { UserReceivingInvoice, ZapInfo } from '../storage/entity/UserReceivingInvoice.js'
 import { Payment_PaymentStatus } from '../../../proto/lnd/lightning.js'
 import { Event, verifiedSymbol, verifyEvent } from 'nostr-tools'
@@ -697,27 +697,62 @@ export default class {
         const { blockHeight } = await this.lnd.GetInfo()
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
         const isManagedUser = ctx.user_id !== app.owner.user_id
-        const serviceFee = this.getSendServiceFee(Types.UserOperationType.OUTGOING_USER_TO_USER, req.amountSats, isManagedUser)
+        const serviceFee = this.getSendServiceFee(Types.UserOperationType.OUTGOING_USER_TO_USER, amount, isManagedUser)
 
         const txId = crypto.randomBytes(32).toString("hex")
         const addressData = `${req.address}:${txId}`
-        await this.storage.userStorage.DecrementUserBalance(ctx.user_id, req.amountSats + serviceFee, addressData)
-        this.addressPaidCb({ hash: txId, index: 0 }, req.address, req.amountSats, 'internal')
-        if (isManagedUser && serviceFee > 0) {
-            await this.storage.userStorage.IncrementUserBalance(app.owner.user_id, serviceFee, 'fees')
+        const { newTx, receivingTx } = await this.storage.StartTransaction(async tx => {
+            await this.storage.userStorage.DecrementUserBalance(ctx.user_id, amount + serviceFee, addressData, tx)
+            const receivingTx = await this.CreditAddress(req.address, { hash: txId, index: 0 }, amount, true, blockHeight, tx)
+            if (isManagedUser && serviceFee > 0) {
+                await this.storage.userStorage.IncrementUserBalance(app.owner.user_id, serviceFee, 'fees', tx)
+            }
+            const chainFees = 0
+            const internalAddress = true
+            const newTx = await this.storage.paymentStorage.AddUserTransactionPayment(ctx.user_id, req.address, txId, 0, amount, chainFees, serviceFee, internalAddress, blockHeight, app, tx)
+            return { newTx, receivingTx }
+        })
+        const operationId = `${Types.UserOperationType.INCOMING_TX}-${receivingTx.serial_id}`
+        const op = { amount, paidAtUnix: Date.now() / 1000, inbound: true, type: Types.UserOperationType.INCOMING_TX, identifier: req.address, operationId, network_fee: 0, service_fee: receivingTx.service_fee, confirmed: true, tx_hash: txId, internal: true }
+        try {
+            await this.paymentSideEffects.sendOperationToNostr(receivingTx.user_address.linkedApplication!, receivingTx.user_address.user.user_id, op)
+        } catch (err: any) {
+            this.log(ERROR, "error sending operation to nostr for incoming tx", err.message || "")
         }
-        const chainFees = 0
-        const internalAddress = true
-        const newTx = await this.storage.paymentStorage.AddUserTransactionPayment(ctx.user_id, req.address, txId, 0, req.amountSats, chainFees, serviceFee, internalAddress, blockHeight, app)
+        this.utils.stateBundler.AddTxPoint('addressWasPaid', amount, { used: 'internal', from: 'system', timeDiscount: true }, receivingTx.user_address.linkedApplication!.app_id)
         const user = await this.storage.userStorage.GetUser(ctx.user_id)
         const txData = `${newTx.address}:${newTx.tx_hash}`
-        this.storage.eventsLog.LogEvent({ type: 'address_payment', userId: ctx.user_id, appId: app.app_id, appUserId: "", balance: user.balance_sats, data: txData, amount: req.amountSats })
+        this.storage.eventsLog.LogEvent({ type: 'address_payment', userId: ctx.user_id, appId: app.app_id, appUserId: "", balance: user.balance_sats, data: txData, amount })
         return {
             txId: txId,
             operation_id: `${Types.UserOperationType.OUTGOING_TX}-${newTx.serial_id}`,
-            network_fee: chainFees,
+            network_fee: 0,
             service_fee: serviceFee
         }
+    }
+
+    async CreditAddress(address: string, txOutput: TxOutput, amount: number, internal: boolean, broadcastHeight: number, dbTxId: string) {
+        const userAddress = await this.storage.paymentStorage.GetAddressOwner(address)
+        if (!userAddress) {
+            throw new Error("address not found")
+        }
+        if (!userAddress.linkedApplication) {
+            throw new Error("an address was paid, that has no linked application")
+        }
+        const { blockHeight } = await this.lnd.GetInfo()
+        const isManagedUser = userAddress.user.user_id !== userAddress.linkedApplication.owner.user_id
+        const fee = this.getReceiveServiceFee(Types.UserOperationType.INCOMING_TX, amount, isManagedUser)
+        const txBroadcastHeight = broadcastHeight ? broadcastHeight : blockHeight
+        const txRecord = await this.storage.paymentStorage.AddAddressReceivingTransaction(userAddress, txOutput.hash, txOutput.index, amount, fee, internal, txBroadcastHeight, dbTxId)
+        if (internal) {
+            const addressData = `${userAddress.address}:${txOutput.hash}`
+            this.storage.eventsLog.LogEvent({ type: 'address_paid', userId: userAddress.user.user_id, appId: userAddress.linkedApplication!.app_id, appUserId: "", balance: userAddress.user.balance_sats, data: addressData, amount })
+            await this.storage.userStorage.IncrementUserBalance(userAddress.user.user_id, txRecord.paid_amount - fee, addressData, dbTxId)
+            if (fee > 0) {
+                await this.storage.userStorage.IncrementUserBalance(userAddress.linkedApplication!.owner.user_id, fee, 'fees', dbTxId)
+            }
+        }
+        return txRecord
     }
 
     async ListTxSwaps(ctx: Types.UserContext): Promise<Types.TxSwapsList> {

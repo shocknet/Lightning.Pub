@@ -264,7 +264,7 @@ export default class {
         return this.dbs.Find<UserInvoicePayment>('UserInvoicePayment', { where: [pending, paid], order: { paid_at_unix: 'DESC' } }, txId)
     }
 
-    async AddUserTransactionPayment(userId: string, address: string, txHash: string, txOutput: number, amount: number, chainFees: number, serviceFees: number, internal: boolean, height: number, linkedApplication: Application): Promise<UserTransactionPayment> {
+    async AddUserTransactionPayment(userId: string, address: string, txHash: string, txOutput: number, amount: number, chainFees: number, serviceFees: number, internal: boolean, height: number, linkedApplication: Application, txId?: string): Promise<UserTransactionPayment> {
         const user = await this.userStorage.GetUser(userId)
         return this.dbs.CreateAndSave<UserTransactionPayment>('UserTransactionPayment', {
             user: await this.userStorage.GetUser(userId),
@@ -279,7 +279,7 @@ export default class {
             broadcast_height: height,
             confs: internal ? 10 : 0,
             linkedApplication
-        })
+        }, txId)
     }
 
     GetUserTransactionPayments(userId: string, fromIndex: number, take = 50, txId?: string): Promise<UserTransactionPayment[]> {
