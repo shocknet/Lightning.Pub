@@ -246,9 +246,14 @@ export default class {
         const internal = false
         const log = getLogger({ appName: userAddress.linkedApplication.name })
         let addedTx: AddressReceivingTransaction
+        let txBroadcastHeight = broadcastHeight
+        if (!broadcastHeight) {
+            const { blockHeight } = await this.lnd.GetInfo()
+            txBroadcastHeight = blockHeight
+        }
         try {
             addedTx = await this.storage.StartTransaction(async tx => {
-                return this.paymentManager.CreditAddress(address, txOutput, amount, internal, broadcastHeight || 0, tx)
+                return this.paymentManager.CreditAddress(address, txOutput, amount, internal, txBroadcastHeight || 0, tx)
             })
         } catch (err: any) {
             this.utils.stateBundler.AddTxPointFailed('addressWasPaid', amount, { used, from: 'system' }, userAddress.linkedApplication.app_id)

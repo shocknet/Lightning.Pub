@@ -612,8 +612,8 @@ export default class {
 
 
     async CreditIncomingInvoice(invoice: string, amount: number, internal: boolean, txId: string) {
-        if (amount < 0) {
-            throw new Error("amount cannot be negative")
+        if (amount <= 0) {
+            throw new Error("amount cannot be zero or negative")
         }
         const userInvoice = await this.storage.paymentStorage.GetInvoiceOwner(invoice, txId)
         if (!userInvoice) {
@@ -731,7 +731,7 @@ export default class {
         }
     }
 
-    async CreditAddress(address: string, txOutput: TxOutput, amount: number, internal: boolean, broadcastHeight: number, dbTxId: string) {
+    async CreditAddress(address: string, txOutput: TxOutput, amount: number, internal: boolean, txBroadcastHeight: number, dbTxId: string) {
         const userAddress = await this.storage.paymentStorage.GetAddressOwner(address, dbTxId)
         if (!userAddress) {
             throw new Error("address not found")
@@ -739,10 +739,9 @@ export default class {
         if (!userAddress.linkedApplication) {
             throw new Error("an address was paid, that has no linked application")
         }
-        const { blockHeight } = await this.lnd.GetInfo()
+
         const isManagedUser = userAddress.user.user_id !== userAddress.linkedApplication.owner.user_id
         const fee = this.getReceiveServiceFee(Types.UserOperationType.INCOMING_TX, amount, isManagedUser)
-        const txBroadcastHeight = broadcastHeight ? broadcastHeight : blockHeight
         const txRecord = await this.storage.paymentStorage.AddAddressReceivingTransaction(userAddress, txOutput.hash, txOutput.index, amount, fee, internal, txBroadcastHeight, dbTxId)
         if (internal) {
             const addressData = `${userAddress.address}:${txOutput.hash}`

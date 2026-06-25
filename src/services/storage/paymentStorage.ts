@@ -265,9 +265,8 @@ export default class {
     }
 
     async AddUserTransactionPayment(userId: string, address: string, txHash: string, txOutput: number, amount: number, chainFees: number, serviceFees: number, internal: boolean, height: number, linkedApplication: Application, txId?: string): Promise<UserTransactionPayment> {
-        const user = await this.userStorage.GetUser(userId)
         return this.dbs.CreateAndSave<UserTransactionPayment>('UserTransactionPayment', {
-            user: await this.userStorage.GetUser(userId),
+            user: await this.userStorage.GetUser(userId, txId),
             address,
             paid_amount: amount,
             chain_fees: chainFees,
