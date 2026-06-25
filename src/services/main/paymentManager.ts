@@ -688,8 +688,13 @@ export default class {
         let amount = req.amountSats
         if (req.swap_operation_id) {
             const swap = await this.storage.paymentStorage.GetTransactionSwap(req.swap_operation_id, ctx.app_user_id)
-            amount = amount > 0 ? amount : swap?.invoice_amount || 0
+            if (!swap) {
+                throw new Error("swap quote not found")
+            }
             await this.storage.paymentStorage.DeleteTransactionSwap(req.swap_operation_id)
+            if (amount <= 0) {
+                amount = swap.transaction_amount - swap.chain_fee_sats
+            }
         }
         if (amount <= 0) {
             throw new Error("invalid tx amount")
