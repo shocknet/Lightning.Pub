@@ -68,8 +68,8 @@ export default class {
     }
 
     async FlagInvoiceAsPaid(invoice: UserReceivingInvoice, amount: number, serviceFee: number, internal: boolean, txId: string): Promise<UserReceivingInvoice> {
-        if (amount < 0) {
-            throw new Error("amount cannot be negative")
+        if (amount <= 0) {
+            throw new Error("amount cannot be zero or negative")
         }
         const i: Partial<UserReceivingInvoice> = { paid_at_unix: Math.floor(Date.now() / 1000), paid_amount: amount, service_fee: serviceFee, internal }
         if (!internal) {
@@ -264,10 +264,9 @@ export default class {
         return this.dbs.Find<UserInvoicePayment>('UserInvoicePayment', { where: [pending, paid], order: { paid_at_unix: 'DESC' } }, txId)
     }
 
-    async AddUserTransactionPayment(userId: string, address: string, txHash: string, txOutput: number, amount: number, chainFees: number, serviceFees: number, internal: boolean, height: number, linkedApplication: Application): Promise<UserTransactionPayment> {
-        const user = await this.userStorage.GetUser(userId)
+    async AddUserTransactionPayment(userId: string, address: string, txHash: string, txOutput: number, amount: number, chainFees: number, serviceFees: number, internal: boolean, height: number, linkedApplication: Application, txId?: string): Promise<UserTransactionPayment> {
         return this.dbs.CreateAndSave<UserTransactionPayment>('UserTransactionPayment', {
-            user: await this.userStorage.GetUser(userId),
+            user: await this.userStorage.GetUser(userId, txId),
             address,
             paid_amount: amount,
             chain_fees: chainFees,
@@ -279,7 +278,7 @@ export default class {
             broadcast_height: height,
             confs: internal ? 10 : 0,
             linkedApplication
-        })
+        }, txId)
     }
 
     GetUserTransactionPayments(userId: string, fromIndex: number, take = 50, txId?: string): Promise<UserTransactionPayment[]> {
