@@ -23,9 +23,13 @@ const testPayInternalInvoiceRejectsNegativeAmount = async (T: TestBase) => {
     T.expect(internalInvoice).to.not.equal(null)
     await expectThrowsAsync(
         T.main.paymentManager.PayInternalInvoice(T.user1.userId, internalInvoice!, { payAmount: -100, serviceFee: 10 }, application),
-        "amount cannot be negative",
+        "amount cannot be zero or negative",
     )
-    T.d("PayInternalInvoice rejects negative payAmount")
+    await expectThrowsAsync(
+        T.main.paymentManager.PayInternalInvoice(T.user1.userId, internalInvoice!, { payAmount: 0, serviceFee: 10 }, application),
+        "amount cannot be zero or negative",
+    )
+    T.d("PayInternalInvoice rejects zero and negative payAmount")
 }
 
 const testIncrementUserBalanceRejectsNegativeAmount = async (T: TestBase) => {
