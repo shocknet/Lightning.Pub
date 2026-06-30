@@ -19,10 +19,24 @@ message EncryptionExchangeRequest {
     string deviceId = 2;
 }
 
+message LndProviderFilter {
+    string pubkey = 1;
+    optional int64 limit_invoices = 2;
+    optional int64 skip_invoices = 3;
+    optional int64 limit_payments = 4;
+    optional int64 skip_payments = 5;
+}
+
+message LiquidityProviderFilter {
+    string pubkey = 1;
+    optional OperationsCursor latestIncomingInvoice = 2;
+    optional OperationsCursor latestOutgoingInvoice = 3;
+    optional int64 limit = 4;
+}
+
 message AssetsAndLiabilitiesReq {
-    optional int64 limit_invoices = 1;
-    optional int64 limit_payments = 2;
-    optional int64 limit_providers = 4;
+    repeated LndProviderFilter lnd_providers = 1;
+    repeated LiquidityProviderFilter liquidity_providers = 2;
 }
 
 message BumpTx {
@@ -41,6 +55,7 @@ message TrackedOperation {
     int64 ts = 1;
     int64 amount = 2;
     TrackedOperationType type = 3;
+    optional string user_id = 4;
 }
 
 message AssetOperation {

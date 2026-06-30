@@ -630,20 +630,20 @@ export default class {
         return response
     }
 
-    async GetAllInvoices(max: number) {
+    async GetAllInvoices(max: number, startOffset = 0) {
         this.log(DEBUG, "Getting all paid invoices")
         if (this.liquidProvider.getSettings().useOnlyLiquidityProvider) {
             return { invoices: [] }
         }
-        const res = await this.lightning.listInvoices({ indexOffset: 0n, numMaxInvoices: BigInt(max), pendingOnly: false, reversed: true, creationDateEnd: 0n, creationDateStart: 0n }, DeadLineMetadata())
+        const res = await this.lightning.listInvoices({ indexOffset: BigInt(startOffset), numMaxInvoices: BigInt(max), pendingOnly: false, reversed: true, creationDateEnd: 0n, creationDateStart: 0n }, DeadLineMetadata())
         return res.response
     }
-    async GetAllPayments(max: number) {
+    async GetAllPayments(max: number, startOffset = 0) {
         this.log(DEBUG, "Getting all payments")
         if (this.liquidProvider.getSettings().useOnlyLiquidityProvider) {
             return { payments: [] }
         }
-        const res = await this.lightning.listPayments({ countTotalPayments: false, includeIncomplete: false, indexOffset: 0n, maxPayments: BigInt(max), reversed: true, creationDateEnd: 0n, creationDateStart: 0n })
+        const res = await this.lightning.listPayments({ countTotalPayments: false, includeIncomplete: false, indexOffset: BigInt(startOffset), maxPayments: BigInt(max), reversed: true, creationDateEnd: 0n, creationDateStart: 0n })
         return res.response
     }
 

@@ -1016,30 +1016,34 @@ export const AssetsAndLiabilitiesValidate = (o?: AssetsAndLiabilities, opts: Ass
 }
 
 export type AssetsAndLiabilitiesReq = {
-    limit_invoices?: number
-    limit_payments?: number
-    limit_providers?: number
+    liquidity_providers: LiquidityProviderFilter[]
+    lnd_providers: LndProviderFilter[]
 }
-export type AssetsAndLiabilitiesReqOptionalField = 'limit_invoices' | 'limit_payments' | 'limit_providers'
-export const AssetsAndLiabilitiesReqOptionalFields: AssetsAndLiabilitiesReqOptionalField[] = ['limit_invoices', 'limit_payments', 'limit_providers']
+export const AssetsAndLiabilitiesReqOptionalFields: [] = []
 export type AssetsAndLiabilitiesReqOptions = OptionsBaseMessage & {
-    checkOptionalsAreSet?: AssetsAndLiabilitiesReqOptionalField[]
-    limit_invoices_CustomCheck?: (v?: number) => boolean
-    limit_payments_CustomCheck?: (v?: number) => boolean
-    limit_providers_CustomCheck?: (v?: number) => boolean
+    checkOptionalsAreSet?: []
+    liquidity_providers_ItemOptions?: LiquidityProviderFilterOptions
+    liquidity_providers_CustomCheck?: (v: LiquidityProviderFilter[]) => boolean
+    lnd_providers_ItemOptions?: LndProviderFilterOptions
+    lnd_providers_CustomCheck?: (v: LndProviderFilter[]) => boolean
 }
 export const AssetsAndLiabilitiesReqValidate = (o?: AssetsAndLiabilitiesReq, opts: AssetsAndLiabilitiesReqOptions = {}, path: string = 'AssetsAndLiabilitiesReq::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
     if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
 
-    if ((o.limit_invoices || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('limit_invoices')) && typeof o.limit_invoices !== 'number') return new Error(`${path}.limit_invoices: is not a number`)
-    if (opts.limit_invoices_CustomCheck && !opts.limit_invoices_CustomCheck(o.limit_invoices)) return new Error(`${path}.limit_invoices: custom check failed`)
+    if (!Array.isArray(o.liquidity_providers)) return new Error(`${path}.liquidity_providers: is not an array`)
+    for (let index = 0; index < o.liquidity_providers.length; index++) {
+        const liquidity_providersErr = LiquidityProviderFilterValidate(o.liquidity_providers[index], opts.liquidity_providers_ItemOptions, `${path}.liquidity_providers[${index}]`)
+        if (liquidity_providersErr !== null) return liquidity_providersErr
+    }
+    if (opts.liquidity_providers_CustomCheck && !opts.liquidity_providers_CustomCheck(o.liquidity_providers)) return new Error(`${path}.liquidity_providers: custom check failed`)
 
-    if ((o.limit_payments || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('limit_payments')) && typeof o.limit_payments !== 'number') return new Error(`${path}.limit_payments: is not a number`)
-    if (opts.limit_payments_CustomCheck && !opts.limit_payments_CustomCheck(o.limit_payments)) return new Error(`${path}.limit_payments: custom check failed`)
-
-    if ((o.limit_providers || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('limit_providers')) && typeof o.limit_providers !== 'number') return new Error(`${path}.limit_providers: is not a number`)
-    if (opts.limit_providers_CustomCheck && !opts.limit_providers_CustomCheck(o.limit_providers)) return new Error(`${path}.limit_providers: custom check failed`)
+    if (!Array.isArray(o.lnd_providers)) return new Error(`${path}.lnd_providers: is not an array`)
+    for (let index = 0; index < o.lnd_providers.length; index++) {
+        const lnd_providersErr = LndProviderFilterValidate(o.lnd_providers[index], opts.lnd_providers_ItemOptions, `${path}.lnd_providers[${index}]`)
+        if (lnd_providersErr !== null) return lnd_providersErr
+    }
+    if (opts.lnd_providers_CustomCheck && !opts.lnd_providers_CustomCheck(o.lnd_providers)) return new Error(`${path}.lnd_providers: custom check failed`)
 
     return null
 }
@@ -2543,6 +2547,46 @@ export const LiquidityAssetProviderValidate = (o?: LiquidityAssetProvider, opts:
     return null
 }
 
+export type LiquidityProviderFilter = {
+    latestIncomingInvoice?: OperationsCursor
+    latestOutgoingInvoice?: OperationsCursor
+    limit?: number
+    pubkey: string
+}
+export type LiquidityProviderFilterOptionalField = 'latestIncomingInvoice' | 'latestOutgoingInvoice' | 'limit'
+export const LiquidityProviderFilterOptionalFields: LiquidityProviderFilterOptionalField[] = ['latestIncomingInvoice', 'latestOutgoingInvoice', 'limit']
+export type LiquidityProviderFilterOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: LiquidityProviderFilterOptionalField[]
+    latestIncomingInvoice_Options?: OperationsCursorOptions
+    latestOutgoingInvoice_Options?: OperationsCursorOptions
+    limit_CustomCheck?: (v?: number) => boolean
+    pubkey_CustomCheck?: (v: string) => boolean
+}
+export const LiquidityProviderFilterValidate = (o?: LiquidityProviderFilter, opts: LiquidityProviderFilterOptions = {}, path: string = 'LiquidityProviderFilter::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.latestIncomingInvoice === 'object' || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('latestIncomingInvoice')) {
+        const latestIncomingInvoiceErr = OperationsCursorValidate(o.latestIncomingInvoice, opts.latestIncomingInvoice_Options, `${path}.latestIncomingInvoice`)
+        if (latestIncomingInvoiceErr !== null) return latestIncomingInvoiceErr
+    }
+    
+
+    if (typeof o.latestOutgoingInvoice === 'object' || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('latestOutgoingInvoice')) {
+        const latestOutgoingInvoiceErr = OperationsCursorValidate(o.latestOutgoingInvoice, opts.latestOutgoingInvoice_Options, `${path}.latestOutgoingInvoice`)
+        if (latestOutgoingInvoiceErr !== null) return latestOutgoingInvoiceErr
+    }
+    
+
+    if ((o.limit || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('limit')) && typeof o.limit !== 'number') return new Error(`${path}.limit: is not a number`)
+    if (opts.limit_CustomCheck && !opts.limit_CustomCheck(o.limit)) return new Error(`${path}.limit: custom check failed`)
+
+    if (typeof o.pubkey !== 'string') return new Error(`${path}.pubkey: is not a string`)
+    if (opts.pubkey_CustomCheck && !opts.pubkey_CustomCheck(o.pubkey)) return new Error(`${path}.pubkey: custom check failed`)
+
+    return null
+}
+
 export type LiveDebitRequest = {
     debit: LiveDebitRequest_debit
     k1?: string
@@ -2943,6 +2987,45 @@ export const LndNodeMetricsValidate = (o?: LndNodeMetrics, opts: LndNodeMetricsO
         if (root_opsErr !== null) return root_opsErr
     }
     if (opts.root_ops_CustomCheck && !opts.root_ops_CustomCheck(o.root_ops)) return new Error(`${path}.root_ops: custom check failed`)
+
+    return null
+}
+
+export type LndProviderFilter = {
+    limit_invoices?: number
+    limit_payments?: number
+    pubkey: string
+    skip_invoices?: number
+    skip_payments?: number
+}
+export type LndProviderFilterOptionalField = 'limit_invoices' | 'limit_payments' | 'skip_invoices' | 'skip_payments'
+export const LndProviderFilterOptionalFields: LndProviderFilterOptionalField[] = ['limit_invoices', 'limit_payments', 'skip_invoices', 'skip_payments']
+export type LndProviderFilterOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: LndProviderFilterOptionalField[]
+    limit_invoices_CustomCheck?: (v?: number) => boolean
+    limit_payments_CustomCheck?: (v?: number) => boolean
+    pubkey_CustomCheck?: (v: string) => boolean
+    skip_invoices_CustomCheck?: (v?: number) => boolean
+    skip_payments_CustomCheck?: (v?: number) => boolean
+}
+export const LndProviderFilterValidate = (o?: LndProviderFilter, opts: LndProviderFilterOptions = {}, path: string = 'LndProviderFilter::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if ((o.limit_invoices || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('limit_invoices')) && typeof o.limit_invoices !== 'number') return new Error(`${path}.limit_invoices: is not a number`)
+    if (opts.limit_invoices_CustomCheck && !opts.limit_invoices_CustomCheck(o.limit_invoices)) return new Error(`${path}.limit_invoices: custom check failed`)
+
+    if ((o.limit_payments || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('limit_payments')) && typeof o.limit_payments !== 'number') return new Error(`${path}.limit_payments: is not a number`)
+    if (opts.limit_payments_CustomCheck && !opts.limit_payments_CustomCheck(o.limit_payments)) return new Error(`${path}.limit_payments: custom check failed`)
+
+    if (typeof o.pubkey !== 'string') return new Error(`${path}.pubkey: is not a string`)
+    if (opts.pubkey_CustomCheck && !opts.pubkey_CustomCheck(o.pubkey)) return new Error(`${path}.pubkey: custom check failed`)
+
+    if ((o.skip_invoices || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('skip_invoices')) && typeof o.skip_invoices !== 'number') return new Error(`${path}.skip_invoices: is not a number`)
+    if (opts.skip_invoices_CustomCheck && !opts.skip_invoices_CustomCheck(o.skip_invoices)) return new Error(`${path}.skip_invoices: custom check failed`)
+
+    if ((o.skip_payments || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('skip_payments')) && typeof o.skip_payments !== 'number') return new Error(`${path}.skip_payments: is not a number`)
+    if (opts.skip_payments_CustomCheck && !opts.skip_payments_CustomCheck(o.skip_payments)) return new Error(`${path}.skip_payments: custom check failed`)
 
     return null
 }
@@ -4667,13 +4750,16 @@ export type TrackedOperation = {
     amount: number
     ts: number
     type: TrackedOperationType
+    user_id?: string
 }
-export const TrackedOperationOptionalFields: [] = []
+export type TrackedOperationOptionalField = 'user_id'
+export const TrackedOperationOptionalFields: TrackedOperationOptionalField[] = ['user_id']
 export type TrackedOperationOptions = OptionsBaseMessage & {
-    checkOptionalsAreSet?: []
+    checkOptionalsAreSet?: TrackedOperationOptionalField[]
     amount_CustomCheck?: (v: number) => boolean
     ts_CustomCheck?: (v: number) => boolean
     type_CustomCheck?: (v: TrackedOperationType) => boolean
+    user_id_CustomCheck?: (v?: string) => boolean
 }
 export const TrackedOperationValidate = (o?: TrackedOperation, opts: TrackedOperationOptions = {}, path: string = 'TrackedOperation::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
@@ -4687,6 +4773,9 @@ export const TrackedOperationValidate = (o?: TrackedOperation, opts: TrackedOper
 
     if (!enumCheckTrackedOperationType(o.type)) return new Error(`${path}.type: is not a valid TrackedOperationType`)
     if (opts.type_CustomCheck && !opts.type_CustomCheck(o.type)) return new Error(`${path}.type: custom check failed`)
+
+    if ((o.user_id || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('user_id')) && typeof o.user_id !== 'string') return new Error(`${path}.user_id: is not a string`)
+    if (opts.user_id_CustomCheck && !opts.user_id_CustomCheck(o.user_id)) return new Error(`${path}.user_id: custom check failed`)
 
     return null
 }

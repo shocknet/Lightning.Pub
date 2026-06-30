@@ -317,14 +317,17 @@ export class LiquidityProvider {
         return res
     }
 
-    GetOperations = async (max = 200) => {
+    GetOperations = async (incoming: Types.OperationsCursor | undefined, outgoing: Types.OperationsCursor | undefined, limit: number | undefined) => {
         if (!this.IsReady()) {
             throw new Error("liquidity provider is not ready yet, disabled or unreachable")
         }
+        const latestIncomingInvoice = incoming || { ts: 0, id: 0 }
+        const latestOutgoingInvoice = outgoing || { ts: 0, id: 0 }
+        const maxSize = limit || 200
         const res = await this.client.GetUserOperations({
-            latestIncomingInvoice: { ts: 0, id: 0 }, latestOutgoingInvoice: { ts: 0, id: 0 },
+            latestIncomingInvoice, latestOutgoingInvoice,
             latestIncomingTx: { ts: 0, id: 0 }, latestOutgoingTx: { ts: 0, id: 0 }, latestIncomingUserToUserPayment: { ts: 0, id: 0 },
-            latestOutgoingUserToUserPayment: { ts: 0, id: 0 }, max_size: max
+            latestOutgoingUserToUserPayment: { ts: 0, id: 0 }, max_size: maxSize
         })
         if (res.status === 'ERROR') {
             this.log("error getting operations", res.reason)

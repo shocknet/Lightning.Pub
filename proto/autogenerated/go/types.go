@@ -181,9 +181,8 @@ type AssetsAndLiabilities struct {
 	Users_balance       int64                    `json:"users_balance"`
 }
 type AssetsAndLiabilitiesReq struct {
-	Limit_invoices  int64 `json:"limit_invoices"`
-	Limit_payments  int64 `json:"limit_payments"`
-	Limit_providers int64 `json:"limit_providers"`
+	Liquidity_providers []LiquidityProviderFilter `json:"liquidity_providers"`
+	Lnd_providers       []LndProviderFilter       `json:"lnd_providers"`
 }
 type AuthApp struct {
 	App        *Application `json:"app"`
@@ -432,6 +431,12 @@ type LiquidityAssetProvider struct {
 	Pubkey  string                    `json:"pubkey"`
 	Tracked *TrackedLiquidityProvider `json:"tracked"`
 }
+type LiquidityProviderFilter struct {
+	Latestincominginvoice *OperationsCursor `json:"latestIncomingInvoice"`
+	Latestoutgoinginvoice *OperationsCursor `json:"latestOutgoingInvoice"`
+	Limit                 int64             `json:"limit"`
+	Pubkey                string            `json:"pubkey"`
+}
 type LiveDebitRequest struct {
 	Debit      *LiveDebitRequest_debit `json:"debit"`
 	K1         string                  `json:"k1"`
@@ -494,6 +499,13 @@ type LndNodeMetrics struct {
 	Open_channels     []OpenChannel   `json:"open_channels"`
 	Pending_channels  int64           `json:"pending_channels"`
 	Root_ops          []RootOperation `json:"root_ops"`
+}
+type LndProviderFilter struct {
+	Limit_invoices int64  `json:"limit_invoices"`
+	Limit_payments int64  `json:"limit_payments"`
+	Pubkey         string `json:"pubkey"`
+	Skip_invoices  int64  `json:"skip_invoices"`
+	Skip_payments  int64  `json:"skip_payments"`
 }
 type LndSeed struct {
 	Seed []string `json:"seed"`
@@ -788,9 +800,10 @@ type TrackedLndProvider struct {
 	Unconfirmed_balance int64            `json:"unconfirmed_balance"`
 }
 type TrackedOperation struct {
-	Amount int64                `json:"amount"`
-	Ts     int64                `json:"ts"`
-	Type   TrackedOperationType `json:"type"`
+	Amount  int64                `json:"amount"`
+	Ts      int64                `json:"ts"`
+	Type    TrackedOperationType `json:"type"`
+	User_id string               `json:"user_id"`
 }
 type TransactionSwapQuote struct {
 	Chain_fee_sats          int64  `json:"chain_fee_sats"`

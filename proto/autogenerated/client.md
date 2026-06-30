@@ -1221,9 +1221,8 @@ The nostr server will send back a message response, and inside the body there wi
   - __users_balance__: _number_
 
 ### AssetsAndLiabilitiesReq
-  - __limit_invoices__: _number_ *this field is optional
-  - __limit_payments__: _number_ *this field is optional
-  - __limit_providers__: _number_ *this field is optional
+  - __liquidity_providers__: ARRAY of: _[LiquidityProviderFilter](#LiquidityProviderFilter)_
+  - __lnd_providers__: ARRAY of: _[LndProviderFilter](#LndProviderFilter)_
 
 ### AuthApp
   - __app__: _[Application](#Application)_
@@ -1472,6 +1471,12 @@ The nostr server will send back a message response, and inside the body there wi
   - __pubkey__: _string_
   - __tracked__: _[TrackedLiquidityProvider](#TrackedLiquidityProvider)_ *this field is optional
 
+### LiquidityProviderFilter
+  - __latestIncomingInvoice__: _[OperationsCursor](#OperationsCursor)_ *this field is optional
+  - __latestOutgoingInvoice__: _[OperationsCursor](#OperationsCursor)_ *this field is optional
+  - __limit__: _number_ *this field is optional
+  - __pubkey__: _string_
+
 ### LiveDebitRequest
   - __debit__: _[LiveDebitRequest_debit](#LiveDebitRequest_debit)_
   - __k1__: _string_ *this field is optional
@@ -1534,6 +1539,13 @@ The nostr server will send back a message response, and inside the body there wi
   - __open_channels__: ARRAY of: _[OpenChannel](#OpenChannel)_
   - __pending_channels__: _number_
   - __root_ops__: ARRAY of: _[RootOperation](#RootOperation)_
+
+### LndProviderFilter
+  - __limit_invoices__: _number_ *this field is optional
+  - __limit_payments__: _number_ *this field is optional
+  - __pubkey__: _string_
+  - __skip_invoices__: _number_ *this field is optional
+  - __skip_payments__: _number_ *this field is optional
 
 ### LndSeed
   - __seed__: ARRAY of: _string_
@@ -1831,6 +1843,7 @@ The nostr server will send back a message response, and inside the body there wi
   - __amount__: _number_
   - __ts__: _number_
   - __type__: _[TrackedOperationType](#TrackedOperationType)_
+  - __user_id__: _string_ *this field is optional
 
 ### TransactionSwapQuote
   - __chain_fee_sats__: _number_

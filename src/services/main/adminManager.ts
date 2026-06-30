@@ -406,7 +406,11 @@ export class AdminManager {
         if (this.liquidityProvider.GetProviderPubkey() !== provider.provider_pubkey) {
             return { pubkey: provider.provider_pubkey, tracked: undefined }
         }
-        const providerOps = await this.liquidityProvider.GetOperations(req.limit_providers || 100)
+        const filter = req.liquidity_providers.find(p => p.pubkey === provider.provider_pubkey)
+        const incoming = filter?.latestIncomingInvoice
+        const outgoing = filter?.latestOutgoingInvoice
+        const limit = filter?.limit
+        const providerOps = await this.liquidityProvider.GetOperations(incoming, outgoing, limit)
         // we only care about invoices cuz they are the only ops we can generate with a provider
         const invoices: Types.AssetOperation[] = []
         const payments: Types.AssetOperation[] = []
@@ -435,7 +439,10 @@ export class AdminManager {
         const invoice = op.identifier
         const userInvoice = await this.storage.paymentStorage.GetInvoiceOwner(invoice)
         if (userInvoice) {
-            const tracked: Types.TrackedOperation = { ts: userInvoice.paid_at_unix, amount: userInvoice.paid_amount, type: USER_OP }
+            const tracked: Types.TrackedOperation = {
+                ts: userInvoice.paid_at_unix, amount: userInvoice.paid_amount,
+                type: USER_OP, user_id: userInvoice.user.user_id
+            }
             return { ts, amount, tracked }
         }
         const rootOp = await this.storage.metricsStorage.GetRootOperation("invoice", invoice)
@@ -452,7 +459,10 @@ export class AdminManager {
         const invoice = op.identifier
         const userInvoice = await this.storage.paymentStorage.GetPaymentOwner(invoice)
         if (userInvoice) {
-            const tracked: Types.TrackedOperation = { ts: userInvoice.paid_at_unix, amount: userInvoice.paid_amount, type: USER_OP }
+            const tracked: Types.TrackedOperation = {
+                ts: userInvoice.paid_at_unix, amount: userInvoice.paid_amount,
+                type: USER_OP, user_id: userInvoice.user.user_id
+            }
             return { ts, amount, tracked }
         }
         const rootOp = await this.storage.metricsStorage.GetRootOperation("invoice_payment", invoice)
@@ -469,7 +479,11 @@ export class AdminManager {
             return { pubkey: provider.provider_pubkey, tracked: undefined }
         }
 
-        const latestLndPayments = await this.lnd.GetAllPayments(req.limit_payments || 50)
+        const filter = req.lnd_providers.find(p => p.pubkey === provider.provider_pubkey)
+        const startOffset = filter?.skip_payments || 0
+        const limit = filter?.limit_payments || 50
+
+        const latestLndPayments = await this.lnd.GetAllPayments(limit, startOffset)
         const payments: Types.AssetOperation[] = []
         for (const payment of latestLndPayments.payments) {
             if (payment.status !== Payment_PaymentStatus.SUCCEEDED) {
@@ -479,7 +493,7 @@ export class AdminManager {
             payments.push(assetOp)
         }
         const invoices: Types.AssetOperation[] = []
-        const paidInvoices = await this.lnd.GetAllInvoices(req.limit_invoices || 100)
+        const paidInvoices = await this.lnd.GetAllInvoices(limit, startOffset)
         for (const invoiceEntry of paidInvoices.invoices) {
             if (invoiceEntry.state !== Invoice_InvoiceState.SETTLED) {
                 continue
@@ -526,7 +540,10 @@ export class AdminManager {
         const ts = Number(payment.creationTimeNs / (BigInt(1000_000_000)))
         const amount = Number(payment.valueSat)
         if (userInvoice) {
-            const tracked: Types.TrackedOperation = { ts: userInvoice.paid_at_unix, amount: userInvoice.paid_amount, type: USER_OP }
+            const tracked: Types.TrackedOperation = {
+                ts: userInvoice.paid_at_unix, amount: userInvoice.paid_amount,
+                type: USER_OP, user_id: userInvoice.user.user_id
+            }
             return { ts, amount, tracked }
         }
         const rootOp = await this.storage.metricsStorage.GetRootOperation("invoice_payment", invoice)
@@ -543,7 +560,10 @@ export class AdminManager {
         const amount = Number(invoiceEntry.amtPaidSat)
         const userInvoice = await this.storage.paymentStorage.GetInvoiceOwner(invoice)
         if (userInvoice) {
-            const tracked: Types.TrackedOperation = { ts: userInvoice.paid_at_unix, amount: userInvoice.paid_amount, type: USER_OP }
+            const tracked: Types.TrackedOperation = {
+                ts: userInvoice.paid_at_unix, amount: userInvoice.paid_amount,
+                type: USER_OP, user_id: userInvoice.user.user_id
+            }
             return { ts, amount, tracked }
         }
         const rootOp = await this.storage.metricsStorage.GetRootOperation("invoice", invoice)
@@ -560,7 +580,10 @@ export class AdminManager {
         const userOp = await this.storage.paymentStorage.GetTxHashPaymentOwner(tx.txHash)
         if (userOp) {
             // user transaction payments are actually deprecated from lnd, but we keep this for consstency
-            const tracked: Types.TrackedOperation = { ts: userOp.paid_at_unix, amount: userOp.paid_amount, type: USER_OP }
+            const tracked: Types.TrackedOperation = {
+                ts: userOp.paid_at_unix, amount: userOp.paid_amount,
+                type: USER_OP, user_id: userOp.user.user_id
+            }
             return { ts, amount, tracked }
         }
         const rootOp = await this.storage.metricsStorage.GetRootOperation("chain_payment", tx.txHash)
@@ -577,7 +600,10 @@ export class AdminManager {
         const outputIndex = Number(output.outputIndex)
         const userOp = await this.storage.paymentStorage.GetAddressReceivingTransactionOwner(output.address, tx.txHash)
         if (userOp) {
-            const tracked: Types.TrackedOperation = { ts: userOp.paid_at_unix, amount: userOp.paid_amount, type: USER_OP }
+            const tracked: Types.TrackedOperation = {
+                ts: userOp.paid_at_unix, amount: userOp.paid_amount,
+                type: USER_OP, user_id: userOp.user_address.user.user_id
+            }
             return { ts, amount, tracked }
         }
         const rootOp = await this.storage.metricsStorage.GetRootAddressTransaction(output.address, tx.txHash, outputIndex)
