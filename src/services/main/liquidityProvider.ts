@@ -317,6 +317,15 @@ export class LiquidityProvider {
         return res
     }
 
+    newGetUserOperationsRequest = (incoming: Types.OperationsCursor, outgoing: Types.OperationsCursor, limit: number) => {
+        return {
+            latestIncomingInvoice: incoming,
+            latestOutgoingInvoice: outgoing,
+            latestIncomingTx: { ts: 0, id: 0 }, latestOutgoingTx: { ts: 0, id: 0 }, latestIncomingUserToUserPayment: { ts: 0, id: 0 },
+            latestOutgoingUserToUserPayment: { ts: 0, id: 0 }, max_size: limit
+        }
+    }
+
     GetOperations = async (incoming: Types.OperationsCursor | undefined, outgoing: Types.OperationsCursor | undefined, limit: number | undefined) => {
         if (!this.IsReady()) {
             throw new Error("liquidity provider is not ready yet, disabled or unreachable")
@@ -324,11 +333,13 @@ export class LiquidityProvider {
         const latestIncomingInvoice = incoming || { ts: 0, id: 0 }
         const latestOutgoingInvoice = outgoing || { ts: 0, id: 0 }
         const maxSize = limit || 200
-        const res = await this.client.GetUserOperations({
-            latestIncomingInvoice, latestOutgoingInvoice,
-            latestIncomingTx: { ts: 0, id: 0 }, latestOutgoingTx: { ts: 0, id: 0 }, latestIncomingUserToUserPayment: { ts: 0, id: 0 },
-            latestOutgoingUserToUserPayment: { ts: 0, id: 0 }, max_size: maxSize
-        })
+        const res = await Promise.race([
+            this.client.GetUserOperations(this.newGetUserOperationsRequest(latestIncomingInvoice, latestOutgoingInvoice, maxSize)),
+            new Promise<false>(res => setTimeout(() => res(false), 5 * 1000))
+        ])
+        if (res === false) {
+            throw new Error("timeout getting operations")
+        }
         if (res.status === 'ERROR') {
             this.log("error getting operations", res.reason)
             throw new Error(res.reason)
