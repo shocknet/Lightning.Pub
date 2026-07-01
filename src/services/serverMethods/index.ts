@@ -162,6 +162,13 @@ export default (mainHandler: Main): Types.ServerMethods => {
             if (err != null) throw new Error(err.message)
             return mainHandler.appUserManager.BanUser(req.user_id)
         },
+        GetUsersAdminInfo: async ({ ctx, req }) => {
+            return mainHandler.appUserManager.GetUsersAdminInfo(req)
+        },
+        GetUserOperationsFromAdmin: async ({ req }) => {
+            if (!req.user_id) throw new Error("user_id is required")
+            return mainHandler.paymentManager.GetUserOperations(req.user_id, req, true)
+        },
         GetSeed: async ({ ctx }) => {
             return mainHandler.unlocker.GetSeed()
         },
@@ -181,6 +188,7 @@ export default (mainHandler: Main): Types.ServerMethods => {
             return mainHandler.appUserManager.UpdateCallbackUrl(ctx, req)
         },
         GetUserOperations: async ({ ctx, req }) => {
+            if (req.user_id) delete req.user_id
             return mainHandler.paymentManager.GetUserOperations(ctx.user_id, req)
         },
 

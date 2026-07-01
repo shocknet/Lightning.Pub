@@ -112,6 +112,8 @@ type Client struct {
 	GetUserOfferInvoices          func(req GetUserOfferInvoicesReq) (*OfferInvoices, error)
 	GetUserOffers                 func() (*UserOffers, error)
 	GetUserOperations             func(req GetUserOperationsRequest) (*GetUserOperationsResponse, error)
+	GetUserOperationsFromAdmin    func(req GetUserOperationsRequest) (*GetUserOperationsResponse, error)
+	GetUsersAdminInfo             func(req UsersAdminInfoRequest) (*UsersAdminInfo, error)
 	HandleLnurlAddress            func(routeParams HandleLnurlAddress_RouteParams) (*LnurlPayInfoResponse, error)
 	HandleLnurlPay                func(query HandleLnurlPay_Query) (*HandleLnurlPayResponse, error)
 	HandleLnurlWithdraw           func(query HandleLnurlWithdraw_Query) error
@@ -1594,6 +1596,64 @@ func NewClient(params ClientParams) *Client {
 				return nil, fmt.Errorf(result.Reason)
 			}
 			res := GetUserOperationsResponse{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
+		},
+		GetUserOperationsFromAdmin: func(req GetUserOperationsRequest) (*GetUserOperationsResponse, error) {
+			auth, err := params.RetrieveAdminAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/admin/user/operations"
+			body, err := json.Marshal(req)
+			if err != nil {
+				return nil, err
+			}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return nil, err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := GetUserOperationsResponse{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
+		},
+		GetUsersAdminInfo: func(req UsersAdminInfoRequest) (*UsersAdminInfo, error) {
+			auth, err := params.RetrieveAdminAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/admin/users/info"
+			body, err := json.Marshal(req)
+			if err != nil {
+				return nil, err
+			}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return nil, err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := UsersAdminInfo{}
 			err = json.Unmarshal(resBody, &res)
 			if err != nil {
 				return nil, err

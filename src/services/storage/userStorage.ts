@@ -25,6 +25,11 @@ export default class {
         }, txId)
     }
 
+    async GetUsers(filter: { skip?: number, take?: number }): Promise<{ users: User[], total: number }> {
+        const [users, total] = await this.dbs.FindAndCount<User>('User', { skip: filter.skip, take: filter.take || 20, order: { updated_at: 'DESC' } })
+        return { users, total }
+    }
+
     /*     async AddBasicUser(name: string, secret: string): Promise<UserBasicAuth> {
             return this.DB.transaction(async tx => {
                 const user = await this.AddUser(0, tx)

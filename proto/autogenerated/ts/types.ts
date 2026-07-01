@@ -7,8 +7,8 @@ export type RequestMetric = AuthContext & RequestInfo & RequestStats & { error?:
 export type AdminContext = {
     admin_id: string
 }
-export type AdminMethodInputs = AddApp_Input | AddPeer_Input | AuthApp_Input | BanUser_Input | BumpTx_Input | CloseChannel_Input | CreateOneTimeInviteLink_Input | GetAdminInvoiceSwapQuotes_Input | GetAdminTransactionSwapQuotes_Input | GetAssetsAndLiabilities_Input | GetInviteLinkState_Input | GetSeed_Input | ListAdminInvoiceSwaps_Input | ListAdminTxSwaps_Input | ListChannels_Input | LndGetInfo_Input | OpenChannel_Input | PayAdminInvoiceSwap_Input | PayAdminTransactionSwap_Input | RefundAdminInvoiceSwap_Input | UpdateChannelPolicy_Input
-export type AdminMethodOutputs = AddApp_Output | AddPeer_Output | AuthApp_Output | BanUser_Output | BumpTx_Output | CloseChannel_Output | CreateOneTimeInviteLink_Output | GetAdminInvoiceSwapQuotes_Output | GetAdminTransactionSwapQuotes_Output | GetAssetsAndLiabilities_Output | GetInviteLinkState_Output | GetSeed_Output | ListAdminInvoiceSwaps_Output | ListAdminTxSwaps_Output | ListChannels_Output | LndGetInfo_Output | OpenChannel_Output | PayAdminInvoiceSwap_Output | PayAdminTransactionSwap_Output | RefundAdminInvoiceSwap_Output | UpdateChannelPolicy_Output
+export type AdminMethodInputs = AddApp_Input | AddPeer_Input | AuthApp_Input | BanUser_Input | BumpTx_Input | CloseChannel_Input | CreateOneTimeInviteLink_Input | GetAdminInvoiceSwapQuotes_Input | GetAdminTransactionSwapQuotes_Input | GetAssetsAndLiabilities_Input | GetInviteLinkState_Input | GetSeed_Input | GetUserOperationsFromAdmin_Input | GetUsersAdminInfo_Input | ListAdminInvoiceSwaps_Input | ListAdminTxSwaps_Input | ListChannels_Input | LndGetInfo_Input | OpenChannel_Input | PayAdminInvoiceSwap_Input | PayAdminTransactionSwap_Input | RefundAdminInvoiceSwap_Input | UpdateChannelPolicy_Input
+export type AdminMethodOutputs = AddApp_Output | AddPeer_Output | AuthApp_Output | BanUser_Output | BumpTx_Output | CloseChannel_Output | CreateOneTimeInviteLink_Output | GetAdminInvoiceSwapQuotes_Output | GetAdminTransactionSwapQuotes_Output | GetAssetsAndLiabilities_Output | GetInviteLinkState_Output | GetSeed_Output | GetUserOperationsFromAdmin_Output | GetUsersAdminInfo_Output | ListAdminInvoiceSwaps_Output | ListAdminTxSwaps_Output | ListChannels_Output | LndGetInfo_Output | OpenChannel_Output | PayAdminInvoiceSwap_Output | PayAdminTransactionSwap_Output | RefundAdminInvoiceSwap_Output | UpdateChannelPolicy_Output
 export type AppContext = {
     app_id: string
 }
@@ -219,6 +219,12 @@ export type GetUserOffers_Output = ResultError | ({ status: 'OK' } & UserOffers)
 export type GetUserOperations_Input = {rpcName:'GetUserOperations', req: GetUserOperationsRequest}
 export type GetUserOperations_Output = ResultError | ({ status: 'OK' } & GetUserOperationsResponse)
 
+export type GetUserOperationsFromAdmin_Input = {rpcName:'GetUserOperationsFromAdmin', req: GetUserOperationsRequest}
+export type GetUserOperationsFromAdmin_Output = ResultError | ({ status: 'OK' } & GetUserOperationsResponse)
+
+export type GetUsersAdminInfo_Input = {rpcName:'GetUsersAdminInfo', req: UsersAdminInfoRequest}
+export type GetUsersAdminInfo_Output = ResultError | ({ status: 'OK' } & UsersAdminInfo)
+
 export type HandleLnurlAddress_RouteParams = {
     address_name: string
 }
@@ -413,6 +419,8 @@ export type ServerMethods = {
     GetUserOfferInvoices?: (req: GetUserOfferInvoices_Input & {ctx: UserContext }) => Promise<OfferInvoices>
     GetUserOffers?: (req: GetUserOffers_Input & {ctx: UserContext }) => Promise<UserOffers>
     GetUserOperations?: (req: GetUserOperations_Input & {ctx: UserContext }) => Promise<GetUserOperationsResponse>
+    GetUserOperationsFromAdmin?: (req: GetUserOperationsFromAdmin_Input & {ctx: AdminContext }) => Promise<GetUserOperationsResponse>
+    GetUsersAdminInfo?: (req: GetUsersAdminInfo_Input & {ctx: AdminContext }) => Promise<UsersAdminInfo>
     HandleLnurlAddress?: (req: HandleLnurlAddress_Input & {ctx: GuestContext }) => Promise<LnurlPayInfoResponse>
     HandleLnurlPay?: (req: HandleLnurlPay_Input & {ctx: GuestContext }) => Promise<HandleLnurlPayResponse>
     HandleLnurlWithdraw?: (req: HandleLnurlWithdraw_Input & {ctx: GuestContext }) => Promise<void>
@@ -856,6 +864,39 @@ export const AppUserValidate = (o?: AppUser, opts: AppUserOptions = {}, path: st
 
     if (typeof o.max_withdrawable !== 'number') return new Error(`${path}.max_withdrawable: is not a number`)
     if (opts.max_withdrawable_CustomCheck && !opts.max_withdrawable_CustomCheck(o.max_withdrawable)) return new Error(`${path}.max_withdrawable: custom check failed`)
+
+    return null
+}
+
+export type AppUserAdminInfo = {
+    app_user_id: string
+    has_callback_url: boolean
+    has_topic_id: boolean
+    npub: string
+}
+export const AppUserAdminInfoOptionalFields: [] = []
+export type AppUserAdminInfoOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    app_user_id_CustomCheck?: (v: string) => boolean
+    has_callback_url_CustomCheck?: (v: boolean) => boolean
+    has_topic_id_CustomCheck?: (v: boolean) => boolean
+    npub_CustomCheck?: (v: string) => boolean
+}
+export const AppUserAdminInfoValidate = (o?: AppUserAdminInfo, opts: AppUserAdminInfoOptions = {}, path: string = 'AppUserAdminInfo::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.app_user_id !== 'string') return new Error(`${path}.app_user_id: is not a string`)
+    if (opts.app_user_id_CustomCheck && !opts.app_user_id_CustomCheck(o.app_user_id)) return new Error(`${path}.app_user_id: custom check failed`)
+
+    if (typeof o.has_callback_url !== 'boolean') return new Error(`${path}.has_callback_url: is not a boolean`)
+    if (opts.has_callback_url_CustomCheck && !opts.has_callback_url_CustomCheck(o.has_callback_url)) return new Error(`${path}.has_callback_url: custom check failed`)
+
+    if (typeof o.has_topic_id !== 'boolean') return new Error(`${path}.has_topic_id: is not a boolean`)
+    if (opts.has_topic_id_CustomCheck && !opts.has_topic_id_CustomCheck(o.has_topic_id)) return new Error(`${path}.has_topic_id: custom check failed`)
+
+    if (typeof o.npub !== 'string') return new Error(`${path}.npub: is not a string`)
+    if (opts.npub_CustomCheck && !opts.npub_CustomCheck(o.npub)) return new Error(`${path}.npub: custom check failed`)
 
     return null
 }
@@ -2100,10 +2141,12 @@ export type GetUserOperationsRequest = {
     latestOutgoingTx: OperationsCursor
     latestOutgoingUserToUserPayment: OperationsCursor
     max_size: number
+    user_id?: string
 }
-export const GetUserOperationsRequestOptionalFields: [] = []
+export type GetUserOperationsRequestOptionalField = 'user_id'
+export const GetUserOperationsRequestOptionalFields: GetUserOperationsRequestOptionalField[] = ['user_id']
 export type GetUserOperationsRequestOptions = OptionsBaseMessage & {
-    checkOptionalsAreSet?: []
+    checkOptionalsAreSet?: GetUserOperationsRequestOptionalField[]
     latestIncomingInvoice_Options?: OperationsCursorOptions
     latestIncomingTx_Options?: OperationsCursorOptions
     latestIncomingUserToUserPayment_Options?: OperationsCursorOptions
@@ -2111,6 +2154,7 @@ export type GetUserOperationsRequestOptions = OptionsBaseMessage & {
     latestOutgoingTx_Options?: OperationsCursorOptions
     latestOutgoingUserToUserPayment_Options?: OperationsCursorOptions
     max_size_CustomCheck?: (v: number) => boolean
+    user_id_CustomCheck?: (v?: string) => boolean
 }
 export const GetUserOperationsRequestValidate = (o?: GetUserOperationsRequest, opts: GetUserOperationsRequestOptions = {}, path: string = 'GetUserOperationsRequest::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
@@ -2143,6 +2187,9 @@ export const GetUserOperationsRequestValidate = (o?: GetUserOperationsRequest, o
     if (typeof o.max_size !== 'number') return new Error(`${path}.max_size: is not a number`)
     if (opts.max_size_CustomCheck && !opts.max_size_CustomCheck(o.max_size)) return new Error(`${path}.max_size: custom check failed`)
 
+    if ((o.user_id || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('user_id')) && typeof o.user_id !== 'string') return new Error(`${path}.user_id: is not a string`)
+    if (opts.user_id_CustomCheck && !opts.user_id_CustomCheck(o.user_id)) return new Error(`${path}.user_id: custom check failed`)
+
     return null
 }
 
@@ -2153,16 +2200,19 @@ export type GetUserOperationsResponse = {
     latestOutgoingInvoiceOperations: UserOperations
     latestOutgoingTxOperations: UserOperations
     latestOutgoingUserToUserPayemnts: UserOperations
+    user_id?: string
 }
-export const GetUserOperationsResponseOptionalFields: [] = []
+export type GetUserOperationsResponseOptionalField = 'user_id'
+export const GetUserOperationsResponseOptionalFields: GetUserOperationsResponseOptionalField[] = ['user_id']
 export type GetUserOperationsResponseOptions = OptionsBaseMessage & {
-    checkOptionalsAreSet?: []
+    checkOptionalsAreSet?: GetUserOperationsResponseOptionalField[]
     latestIncomingInvoiceOperations_Options?: UserOperationsOptions
     latestIncomingTxOperations_Options?: UserOperationsOptions
     latestIncomingUserToUserPayemnts_Options?: UserOperationsOptions
     latestOutgoingInvoiceOperations_Options?: UserOperationsOptions
     latestOutgoingTxOperations_Options?: UserOperationsOptions
     latestOutgoingUserToUserPayemnts_Options?: UserOperationsOptions
+    user_id_CustomCheck?: (v?: string) => boolean
 }
 export const GetUserOperationsResponseValidate = (o?: GetUserOperationsResponse, opts: GetUserOperationsResponseOptions = {}, path: string = 'GetUserOperationsResponse::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
@@ -2191,6 +2241,9 @@ export const GetUserOperationsResponseValidate = (o?: GetUserOperationsResponse,
     const latestOutgoingUserToUserPayemntsErr = UserOperationsValidate(o.latestOutgoingUserToUserPayemnts, opts.latestOutgoingUserToUserPayemnts_Options, `${path}.latestOutgoingUserToUserPayemnts`)
     if (latestOutgoingUserToUserPayemntsErr !== null) return latestOutgoingUserToUserPayemntsErr
     
+
+    if ((o.user_id || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('user_id')) && typeof o.user_id !== 'string') return new Error(`${path}.user_id: is not a string`)
+    if (opts.user_id_CustomCheck && !opts.user_id_CustomCheck(o.user_id)) return new Error(`${path}.user_id: custom check failed`)
 
     return null
 }
@@ -5118,6 +5171,50 @@ export const UseInviteLinkRequestValidate = (o?: UseInviteLinkRequest, opts: Use
     return null
 }
 
+export type UserAdminInfo = {
+    app_users: AppUserAdminInfo[]
+    balance: number
+    locked: boolean
+    owner_of_app_id?: string
+    user_id: string
+}
+export type UserAdminInfoOptionalField = 'owner_of_app_id'
+export const UserAdminInfoOptionalFields: UserAdminInfoOptionalField[] = ['owner_of_app_id']
+export type UserAdminInfoOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: UserAdminInfoOptionalField[]
+    app_users_ItemOptions?: AppUserAdminInfoOptions
+    app_users_CustomCheck?: (v: AppUserAdminInfo[]) => boolean
+    balance_CustomCheck?: (v: number) => boolean
+    locked_CustomCheck?: (v: boolean) => boolean
+    owner_of_app_id_CustomCheck?: (v?: string) => boolean
+    user_id_CustomCheck?: (v: string) => boolean
+}
+export const UserAdminInfoValidate = (o?: UserAdminInfo, opts: UserAdminInfoOptions = {}, path: string = 'UserAdminInfo::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (!Array.isArray(o.app_users)) return new Error(`${path}.app_users: is not an array`)
+    for (let index = 0; index < o.app_users.length; index++) {
+        const app_usersErr = AppUserAdminInfoValidate(o.app_users[index], opts.app_users_ItemOptions, `${path}.app_users[${index}]`)
+        if (app_usersErr !== null) return app_usersErr
+    }
+    if (opts.app_users_CustomCheck && !opts.app_users_CustomCheck(o.app_users)) return new Error(`${path}.app_users: custom check failed`)
+
+    if (typeof o.balance !== 'number') return new Error(`${path}.balance: is not a number`)
+    if (opts.balance_CustomCheck && !opts.balance_CustomCheck(o.balance)) return new Error(`${path}.balance: custom check failed`)
+
+    if (typeof o.locked !== 'boolean') return new Error(`${path}.locked: is not a boolean`)
+    if (opts.locked_CustomCheck && !opts.locked_CustomCheck(o.locked)) return new Error(`${path}.locked: custom check failed`)
+
+    if ((o.owner_of_app_id || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('owner_of_app_id')) && typeof o.owner_of_app_id !== 'string') return new Error(`${path}.owner_of_app_id: is not a string`)
+    if (opts.owner_of_app_id_CustomCheck && !opts.owner_of_app_id_CustomCheck(o.owner_of_app_id)) return new Error(`${path}.owner_of_app_id: custom check failed`)
+
+    if (typeof o.user_id !== 'string') return new Error(`${path}.user_id: is not a string`)
+    if (opts.user_id_CustomCheck && !opts.user_id_CustomCheck(o.user_id)) return new Error(`${path}.user_id: custom check failed`)
+
+    return null
+}
+
 export type UserHealthState = {
     downtime_reason: string
 }
@@ -5336,6 +5433,58 @@ export const UserOperationsValidate = (o?: UserOperations, opts: UserOperationsO
     const toIndexErr = OperationsCursorValidate(o.toIndex, opts.toIndex_Options, `${path}.toIndex`)
     if (toIndexErr !== null) return toIndexErr
     
+
+    return null
+}
+
+export type UsersAdminInfo = {
+    total: number
+    users: UserAdminInfo[]
+}
+export const UsersAdminInfoOptionalFields: [] = []
+export type UsersAdminInfoOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    total_CustomCheck?: (v: number) => boolean
+    users_ItemOptions?: UserAdminInfoOptions
+    users_CustomCheck?: (v: UserAdminInfo[]) => boolean
+}
+export const UsersAdminInfoValidate = (o?: UsersAdminInfo, opts: UsersAdminInfoOptions = {}, path: string = 'UsersAdminInfo::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.total !== 'number') return new Error(`${path}.total: is not a number`)
+    if (opts.total_CustomCheck && !opts.total_CustomCheck(o.total)) return new Error(`${path}.total: custom check failed`)
+
+    if (!Array.isArray(o.users)) return new Error(`${path}.users: is not an array`)
+    for (let index = 0; index < o.users.length; index++) {
+        const usersErr = UserAdminInfoValidate(o.users[index], opts.users_ItemOptions, `${path}.users[${index}]`)
+        if (usersErr !== null) return usersErr
+    }
+    if (opts.users_CustomCheck && !opts.users_CustomCheck(o.users)) return new Error(`${path}.users: custom check failed`)
+
+    return null
+}
+
+export type UsersAdminInfoRequest = {
+    skip?: number
+    take?: number
+}
+export type UsersAdminInfoRequestOptionalField = 'skip' | 'take'
+export const UsersAdminInfoRequestOptionalFields: UsersAdminInfoRequestOptionalField[] = ['skip', 'take']
+export type UsersAdminInfoRequestOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: UsersAdminInfoRequestOptionalField[]
+    skip_CustomCheck?: (v?: number) => boolean
+    take_CustomCheck?: (v?: number) => boolean
+}
+export const UsersAdminInfoRequestValidate = (o?: UsersAdminInfoRequest, opts: UsersAdminInfoRequestOptions = {}, path: string = 'UsersAdminInfoRequest::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if ((o.skip || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('skip')) && typeof o.skip !== 'number') return new Error(`${path}.skip: is not a number`)
+    if (opts.skip_CustomCheck && !opts.skip_CustomCheck(o.skip)) return new Error(`${path}.skip: custom check failed`)
+
+    if ((o.take || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('take')) && typeof o.take !== 'number') return new Error(`${path}.take: is not a number`)
+    if (opts.take_CustomCheck && !opts.take_CustomCheck(o.take)) return new Error(`${path}.take: custom check failed`)
 
     return null
 }

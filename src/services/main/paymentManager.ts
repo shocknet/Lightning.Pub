@@ -1074,9 +1074,9 @@ export default class {
         }
     }
 
-    async GetUserOperations(userId: string, req: Types.GetUserOperationsRequest): Promise<Types.GetUserOperationsResponse> {
+    async GetUserOperations(userId: string, req: Types.GetUserOperationsRequest, admin: boolean = false): Promise<Types.GetUserOperationsResponse> {
         const user = await this.storage.userStorage.GetUser(userId)
-        if (user.locked) {
+        if (user.locked && !admin) {
             throw new Error("user is banned, cannot retrieve operations")
         }
         const [outgoingInvoices, outgoingTransactions, incomingInvoices, incomingTransactions, incomingUserToUser, outgoingUserToUser] = await Promise.all([
@@ -1093,7 +1093,8 @@ export default class {
             latestOutgoingInvoiceOperations: this.mapOperations(outgoingInvoices, Types.UserOperationType.OUTGOING_INVOICE, false),
             latestOutgoingTxOperations: this.mapOperations(outgoingTransactions, Types.UserOperationType.OUTGOING_TX, false),
             latestIncomingUserToUserPayemnts: this.mapOperations(incomingUserToUser, Types.UserOperationType.INCOMING_USER_TO_USER, true),
-            latestOutgoingUserToUserPayemnts: this.mapOperations(outgoingUserToUser, Types.UserOperationType.OUTGOING_USER_TO_USER, false)
+            latestOutgoingUserToUserPayemnts: this.mapOperations(outgoingUserToUser, Types.UserOperationType.OUTGOING_USER_TO_USER, false),
+            user_id: userId
         }
     }
 

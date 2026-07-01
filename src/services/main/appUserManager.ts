@@ -120,6 +120,34 @@ export default class {
         await this.storage.applicationStorage.UpdateAppUserMessagingToken(user.identifier, req.device_id, req.firebase_messaging_token);
     }
 
+    async GetUsersAdminInfo(req: Types.UsersAdminInfoRequest): Promise<Types.UsersAdminInfo> {
+        const { users, total } = await this.storage.userStorage.GetUsers(req)
+        const applications = await this.storage.applicationStorage.GetApplications()
+
+        const apps: Record<string, string> = {}
+        applications.forEach(a => apps[a.owner.user_id] = a.app_id)
+
+        const usersInfo: Types.UserAdminInfo[] = []
+        for (const user of users) {
+            const appUsers = await this.storage.applicationStorage.GetAllAppUsersFromUser(user.user_id)
+            const appUsersInfo: Types.AppUserAdminInfo[] = appUsers.map(a => ({
+                app_user_id: a.identifier,
+                npub: a.nostr_public_key || "",
+                has_callback_url: a.callback_url !== "",
+                has_topic_id: a.topic_id !== "",
+            }))
+            usersInfo.push({
+                user_id: user.user_id,
+                balance: user.balance_sats,
+                locked: user.locked,
+                app_users: appUsersInfo,
+                owner_of_app_id: apps[user.user_id]
+            })
+        }
+
+        return { users: usersInfo, total }
+    }
+
     async CleanupInactiveUsers() {
         this.log("Cleaning up inactive users")
         const inactiveUsers = await this.storage.userStorage.GetInactiveUsers(365)

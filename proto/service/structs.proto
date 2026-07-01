@@ -45,6 +45,31 @@ message BumpTx {
     int64 sat_per_vbyte = 3;
 }
 
+message AppUserAdminInfo {
+    string app_user_id = 1;
+    string npub = 2;
+    bool has_callback_url = 3;
+    bool has_topic_id = 4;
+}
+
+message UserAdminInfo {
+    string user_id = 1;
+    int64 balance = 2;
+    bool locked = 3;
+    repeated AppUserAdminInfo app_users = 4;
+    optional string owner_of_app_id = 5;
+}
+
+message UsersAdminInfoRequest {
+    optional int64 skip = 1;
+    optional int64 take = 2;
+}
+
+message UsersAdminInfo {
+    repeated UserAdminInfo users = 1;
+    int64 total = 2;
+}
+
 
 enum TrackedOperationType {
     USER = 0;
@@ -636,6 +661,7 @@ message GetUserOperationsRequest{
     OperationsCursor latestIncomingUserToUserPayment = 5;
     OperationsCursor latestOutgoingUserToUserPayment = 6;
     int64 max_size = 7;
+    optional string user_id = 8;
 }
 enum UserOperationType {
     INCOMING_TX =0;
@@ -671,6 +697,7 @@ message GetUserOperationsResponse{
     UserOperations latestIncomingTxOperations=4;
     UserOperations latestOutgoingUserToUserPayemnts=5;
     UserOperations latestIncomingUserToUserPayemnts=6;
+    optional string user_id = 7;
 }
 
 message AddProductRequest {

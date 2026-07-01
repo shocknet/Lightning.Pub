@@ -253,6 +253,16 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [GetUserOperationsRequest](#GetUserOperationsRequest)
   - output: [GetUserOperationsResponse](#GetUserOperationsResponse)
 
+- GetUserOperationsFromAdmin
+  - auth type: __Admin__
+  - input: [GetUserOperationsRequest](#GetUserOperationsRequest)
+  - output: [GetUserOperationsResponse](#GetUserOperationsResponse)
+
+- GetUsersAdminInfo
+  - auth type: __Admin__
+  - input: [UsersAdminInfoRequest](#UsersAdminInfoRequest)
+  - output: [UsersAdminInfo](#UsersAdminInfo)
+
 - LinkNPubThroughToken
   - auth type: __GuestWithPub__
   - input: [LinkNPubThroughTokenRequest](#LinkNPubThroughTokenRequest)
@@ -840,6 +850,20 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [GetUserOperationsRequest](#GetUserOperationsRequest)
   - output: [GetUserOperationsResponse](#GetUserOperationsResponse)
 
+- GetUserOperationsFromAdmin
+  - auth type: __Admin__
+  - http method: __post__
+  - http route: __/api/admin/user/operations__
+  - input: [GetUserOperationsRequest](#GetUserOperationsRequest)
+  - output: [GetUserOperationsResponse](#GetUserOperationsResponse)
+
+- GetUsersAdminInfo
+  - auth type: __Admin__
+  - http method: __post__
+  - http route: __/api/admin/users/info__
+  - input: [UsersAdminInfoRequest](#UsersAdminInfoRequest)
+  - output: [UsersAdminInfo](#UsersAdminInfo)
+
 - HandleLnurlAddress
   - auth type: __Guest__
   - http method: __get__
@@ -1196,6 +1220,12 @@ The nostr server will send back a message response, and inside the body there wi
   - __info__: _[UserInfo](#UserInfo)_
   - __max_withdrawable__: _number_
 
+### AppUserAdminInfo
+  - __app_user_id__: _string_
+  - __has_callback_url__: _boolean_
+  - __has_topic_id__: _boolean_
+  - __npub__: _string_
+
 ### Application
   - __balance__: _number_
   - __id__: _string_
@@ -1404,6 +1434,7 @@ The nostr server will send back a message response, and inside the body there wi
   - __latestOutgoingTx__: _[OperationsCursor](#OperationsCursor)_
   - __latestOutgoingUserToUserPayment__: _[OperationsCursor](#OperationsCursor)_
   - __max_size__: _number_
+  - __user_id__: _string_ *this field is optional
 
 ### GetUserOperationsResponse
   - __latestIncomingInvoiceOperations__: _[UserOperations](#UserOperations)_
@@ -1412,6 +1443,7 @@ The nostr server will send back a message response, and inside the body there wi
   - __latestOutgoingInvoiceOperations__: _[UserOperations](#UserOperations)_
   - __latestOutgoingTxOperations__: _[UserOperations](#UserOperations)_
   - __latestOutgoingUserToUserPayemnts__: _[UserOperations](#UserOperations)_
+  - __user_id__: _string_ *this field is optional
 
 ### GraphPoint
   - __x__: _number_
@@ -1901,6 +1933,13 @@ The nostr server will send back a message response, and inside the body there wi
 ### UseInviteLinkRequest
   - __invite_token__: _string_
 
+### UserAdminInfo
+  - __app_users__: ARRAY of: _[AppUserAdminInfo](#AppUserAdminInfo)_
+  - __balance__: _number_
+  - __locked__: _boolean_
+  - __owner_of_app_id__: _string_ *this field is optional
+  - __user_id__: _string_
+
 ### UserHealthState
   - __downtime_reason__: _string_
 
@@ -1939,6 +1978,14 @@ The nostr server will send back a message response, and inside the body there wi
   - __fromIndex__: _[OperationsCursor](#OperationsCursor)_
   - __operations__: ARRAY of: _[UserOperation](#UserOperation)_
   - __toIndex__: _[OperationsCursor](#OperationsCursor)_
+
+### UsersAdminInfo
+  - __total__: _number_
+  - __users__: ARRAY of: _[UserAdminInfo](#UserAdminInfo)_
+
+### UsersAdminInfoRequest
+  - __skip__: _number_ *this field is optional
+  - __take__: _number_ *this field is optional
 
 ### UsersInfo
   - __always_been_inactive__: _number_

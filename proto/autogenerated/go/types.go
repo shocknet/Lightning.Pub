@@ -156,6 +156,12 @@ type AppUser struct {
 	Info             *UserInfo `json:"info"`
 	Max_withdrawable int64     `json:"max_withdrawable"`
 }
+type AppUserAdminInfo struct {
+	App_user_id      string `json:"app_user_id"`
+	Has_callback_url bool   `json:"has_callback_url"`
+	Has_topic_id     bool   `json:"has_topic_id"`
+	Npub             string `json:"npub"`
+}
 type Application struct {
 	Balance int64  `json:"balance"`
 	Id      string `json:"id"`
@@ -364,6 +370,7 @@ type GetUserOperationsRequest struct {
 	Latestoutgoingtx                *OperationsCursor `json:"latestOutgoingTx"`
 	Latestoutgoingusertouserpayment *OperationsCursor `json:"latestOutgoingUserToUserPayment"`
 	Max_size                        int64             `json:"max_size"`
+	User_id                         string            `json:"user_id"`
 }
 type GetUserOperationsResponse struct {
 	Latestincominginvoiceoperations  *UserOperations `json:"latestIncomingInvoiceOperations"`
@@ -372,6 +379,7 @@ type GetUserOperationsResponse struct {
 	Latestoutgoinginvoiceoperations  *UserOperations `json:"latestOutgoingInvoiceOperations"`
 	Latestoutgoingtxoperations       *UserOperations `json:"latestOutgoingTxOperations"`
 	Latestoutgoingusertouserpayemnts *UserOperations `json:"latestOutgoingUserToUserPayemnts"`
+	User_id                          string          `json:"user_id"`
 }
 type GraphPoint struct {
 	X int64 `json:"x"`
@@ -861,6 +869,13 @@ type UsageMetrics struct {
 type UseInviteLinkRequest struct {
 	Invite_token string `json:"invite_token"`
 }
+type UserAdminInfo struct {
+	App_users       []AppUserAdminInfo `json:"app_users"`
+	Balance         int64              `json:"balance"`
+	Locked          bool               `json:"locked"`
+	Owner_of_app_id string             `json:"owner_of_app_id"`
+	User_id         string             `json:"user_id"`
+}
 type UserHealthState struct {
 	Downtime_reason string `json:"downtime_reason"`
 }
@@ -899,6 +914,14 @@ type UserOperations struct {
 	Fromindex  *OperationsCursor `json:"fromIndex"`
 	Operations []UserOperation   `json:"operations"`
 	Toindex    *OperationsCursor `json:"toIndex"`
+}
+type UsersAdminInfo struct {
+	Total int64           `json:"total"`
+	Users []UserAdminInfo `json:"users"`
+}
+type UsersAdminInfoRequest struct {
+	Skip int64 `json:"skip"`
+	Take int64 `json:"take"`
 }
 type UsersInfo struct {
 	Always_been_inactive int64 `json:"always_been_inactive"`

@@ -238,6 +238,37 @@ service LightningPub {
         option (nostr) = true;
     }
 
+    rpc CreateOneTimeInviteLink(structs.CreateOneTimeInviteLinkRequest) returns (structs.CreateOneTimeInviteLinkResponse) {
+        option (auth_type) = "Admin";
+        option (http_method) = "post";
+        option (http_route) = "/api/admin/app/invite/create";
+        option (nostr) = true;
+    }
+
+    rpc GetInviteLinkState(structs.GetInviteTokenStateRequest) returns (structs.GetInviteTokenStateResponse) {
+        option (auth_type) = "Admin";
+        option (http_method) = "post";
+        option (http_route) = "/api/admin/app/invite/get";
+        option (nostr) = true;
+    }
+
+    rpc GetUsersAdminInfo(structs.UsersAdminInfoRequest) returns (structs.UsersAdminInfo) {
+        option (auth_type) = "Admin";
+        option (http_method) = "post";
+        option (http_route) = "/api/admin/users/info";
+        option (nostr) = true;
+    }
+
+    rpc GetUserOperationsFromAdmin(structs.GetUserOperationsRequest) returns (structs.GetUserOperationsResponse) {
+        option (auth_type) = "Admin";
+        option (http_method) = "post";
+        option (http_route) = "/api/admin/user/operations";
+        option (nostr) = true;
+    }
+
+        // </Admin>
+        // <Metrics>
+
     rpc GetUsageMetrics(structs.LatestUsageMetricReq) returns (structs.UsageMetrics) {
         option (auth_type)  = "Metrics";
         option (http_method) = "post";
@@ -333,22 +364,11 @@ service LightningPub {
         option (nostr) = true;
     }
 
-    rpc CreateOneTimeInviteLink(structs.CreateOneTimeInviteLinkRequest) returns (structs.CreateOneTimeInviteLinkResponse) {
-        option (auth_type) = "Admin";
-        option (http_method) = "post";
-        option (http_route) = "/api/admin/app/invite/create";
-        option (nostr) = true;
-    }
-
-    rpc GetInviteLinkState(structs.GetInviteTokenStateRequest) returns (structs.GetInviteTokenStateResponse) {
-        option (auth_type) = "Admin";
-        option (http_method) = "post";
-        option (http_route) = "/api/admin/app/invite/get";
-        option (nostr) = true;
-    }
 
 
-    // </Admin>
+
+    // </Metrics>
+
 
     // <Guest>
     rpc Health(structs.Empty) returns (structs.Empty){

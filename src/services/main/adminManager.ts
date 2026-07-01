@@ -480,10 +480,10 @@ export class AdminManager {
         }
 
         const filter = req.lnd_providers.find(p => p.pubkey === provider.provider_pubkey)
-        const startOffset = filter?.skip_payments || 0
-        const limit = filter?.limit_payments || 50
+        const paymentsStart = filter?.skip_payments || 0
+        const paymentsLimit = filter?.limit_payments || 50
 
-        const latestLndPayments = await this.lnd.GetAllPayments(limit, startOffset)
+        const latestLndPayments = await this.lnd.GetAllPayments(paymentsLimit, paymentsStart)
         const payments: Types.AssetOperation[] = []
         for (const payment of latestLndPayments.payments) {
             if (payment.status !== Payment_PaymentStatus.SUCCEEDED) {
@@ -493,7 +493,9 @@ export class AdminManager {
             payments.push(assetOp)
         }
         const invoices: Types.AssetOperation[] = []
-        const paidInvoices = await this.lnd.GetAllInvoices(limit, startOffset)
+        const invoicesStart = filter?.skip_invoices || 0
+        const invoicesLimit = filter?.limit_invoices || 50
+        const paidInvoices = await this.lnd.GetAllInvoices(invoicesLimit, invoicesStart)
         for (const invoiceEntry of paidInvoices.invoices) {
             if (invoiceEntry.state !== Invoice_InvoiceState.SETTLED) {
                 continue
