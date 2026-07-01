@@ -412,6 +412,10 @@ export class AdminManager {
         if (this.liquidityProvider.GetProviderPubkey() !== provider.provider_pubkey) {
             return { pubkey: provider.provider_pubkey, tracked: undefined }
         }
+        const userState = await this.liquidityProvider.GetUserState()
+        if (userState.status === 'ERROR') {
+            throw new Error("error getting provider user state " + userState.reason)
+        }
         const filter = req.liquidity_providers.find(p => p.pubkey === provider.provider_pubkey)
         const incoming = filter?.latestIncomingInvoice
         const outgoing = filter?.latestOutgoingInvoice
