@@ -380,7 +380,7 @@ export class AdminManager {
     async GetAssetsAndLiabilities(req: Types.AssetsAndLiabilitiesReq): Promise<Types.AssetsAndLiabilities> {
         this.log("Getting assets and liabilities")
         const providers = await this.storage.liquidityStorage.GetTrackedProviders()
-
+        this.log("Got providers", providers.map(p => p.provider_type + ": " + p.provider_pubkey).join(", "))
         const lnds: Types.LndAssetProvider[] = []
         const liquidityProviders: Types.LiquidityAssetProvider[] = []
         for (const provider of providers) {
