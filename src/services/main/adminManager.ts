@@ -378,6 +378,7 @@ export class AdminManager {
     }
 
     async GetAssetsAndLiabilities(req: Types.AssetsAndLiabilitiesReq): Promise<Types.AssetsAndLiabilities> {
+        this.log("Getting assets and liabilities")
         const providers = await this.storage.liquidityStorage.GetTrackedProviders()
 
         const lnds: Types.LndAssetProvider[] = []
@@ -392,6 +393,7 @@ export class AdminManager {
             }
         }
         const usersBalance = await this.storage.paymentStorage.GetTotalUsersBalance(true)
+        this.log("Got assets and liabilities")
         return {
             users_balance: usersBalance,
             lnds,
