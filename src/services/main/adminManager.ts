@@ -385,10 +385,14 @@ export class AdminManager {
         const liquidityProviders: Types.LiquidityAssetProvider[] = []
         for (const provider of providers) {
             if (provider.provider_type === 'lnd') {
+                this.log("Getting lnd assets and liabilities")
                 const lndEntry = await this.GetLndAssetsAndLiabilities(req, provider)
+                this.log("Got lnd assets and liabilities")
                 lnds.push(lndEntry)
             } else if (provider.provider_type === 'lnPub') {
+                this.log("Getting liquidity provider assets and liabilities")
                 const liquidityEntry = await this.GetProviderAssetsAndLiabilities(req, provider)
+                this.log("Got liquidity provider assets and liabilities")
                 liquidityProviders.push(liquidityEntry)
             }
         }

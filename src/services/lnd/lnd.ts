@@ -643,7 +643,7 @@ export default class {
         if (this.liquidProvider.getSettings().useOnlyLiquidityProvider) {
             return { payments: [] }
         }
-        const res = await this.lightning.listPayments({ countTotalPayments: false, includeIncomplete: false, indexOffset: BigInt(startOffset), maxPayments: BigInt(max), reversed: true, creationDateEnd: 0n, creationDateStart: 0n })
+        const res = await this.lightning.listPayments({ countTotalPayments: false, includeIncomplete: false, indexOffset: BigInt(startOffset), maxPayments: BigInt(max), reversed: true, creationDateEnd: 0n, creationDateStart: 0n }, DeadLineMetadata())
         return res.response
     }
 
