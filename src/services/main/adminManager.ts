@@ -378,21 +378,16 @@ export class AdminManager {
     }
 
     async GetAssetsAndLiabilities(req: Types.AssetsAndLiabilitiesReq): Promise<Types.AssetsAndLiabilities> {
-        this.log("Getting assets and liabilities")
         const providers = await this.storage.liquidityStorage.GetTrackedProviders()
         this.log("Got providers", providers.map(p => p.provider_type + ": " + p.provider_pubkey).join(", "))
         const lnds: Types.LndAssetProvider[] = []
         const liquidityProviders: Types.LiquidityAssetProvider[] = []
         for (const provider of providers) {
             if (provider.provider_type === 'lnd') {
-                this.log("Getting lnd assets and liabilities")
                 const lndEntry = await this.GetLndAssetsAndLiabilities(req, provider)
-                this.log("Got lnd assets and liabilities")
                 lnds.push(lndEntry)
             } else if (provider.provider_type === 'lnPub') {
-                this.log("Getting liquidity provider assets and liabilities")
                 const liquidityEntry = await this.GetProviderAssetsAndLiabilities(req, provider)
-                this.log("Got liquidity provider assets and liabilities")
                 liquidityProviders.push(liquidityEntry)
             }
         }
@@ -412,11 +407,6 @@ export class AdminManager {
         if (this.liquidityProvider.GetProviderPubkey() !== provider.provider_pubkey) {
             return { pubkey: provider.provider_pubkey, tracked: undefined }
         }
-        const userState = await this.liquidityProvider.GetUserState()
-        if (userState.status === 'ERROR') {
-            throw new Error("error getting provider user state " + userState.reason)
-        }
-        this.log("user state", userState)
         const filter = req.liquidity_providers.find(p => p.pubkey === provider.provider_pubkey)
         const incoming = filter?.latestIncomingInvoice
         const outgoing = filter?.latestOutgoingInvoice

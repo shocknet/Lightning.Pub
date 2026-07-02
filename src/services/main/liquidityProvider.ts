@@ -335,7 +335,7 @@ export class LiquidityProvider {
         const maxSize = limit || 20
         const res = await Promise.race([
             this.client.GetUserOperations(this.newGetUserOperationsRequest(latestIncomingInvoice, latestOutgoingInvoice, maxSize)),
-            new Promise<false>(res => setTimeout(() => res(false), 5 * 1000))
+            new Promise<false>(res => setTimeout(() => res(false), 10 * 1000))
         ])
         if (res === false) {
             throw new Error("timeout getting operations")
