@@ -416,6 +416,7 @@ export class AdminManager {
         if (userState.status === 'ERROR') {
             throw new Error("error getting provider user state " + userState.reason)
         }
+        this.log("user state", userState)
         const filter = req.liquidity_providers.find(p => p.pubkey === provider.provider_pubkey)
         const incoming = filter?.latestIncomingInvoice
         const outgoing = filter?.latestOutgoingInvoice
