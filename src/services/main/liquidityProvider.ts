@@ -332,7 +332,7 @@ export class LiquidityProvider {
         }
         const latestIncomingInvoice = incoming || { ts: 0, id: 0 }
         const latestOutgoingInvoice = outgoing || { ts: 0, id: 0 }
-        const maxSize = limit || 200
+        const maxSize = limit || 20
         const res = await Promise.race([
             this.client.GetUserOperations(this.newGetUserOperationsRequest(latestIncomingInvoice, latestOutgoingInvoice, maxSize)),
             new Promise<false>(res => setTimeout(() => res(false), 5 * 1000))
