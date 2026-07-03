@@ -60,7 +60,7 @@
     "rimraf": "^3.0.2",
     "tiny-secp256k1": "^2.2.4",
     "ts-node": "^10.7.0",
-    "typeorm": "^0.3.28",
+    "typeorm": "^1.0.0",
     "typescript": "^5.5.4",
     "uri-template": "^2.0.0",
     "uuid": "^8.3.2",
