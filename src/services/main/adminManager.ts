@@ -410,19 +410,18 @@ export class AdminManager {
         const filter = req.liquidity_providers.find(p => p.pubkey === provider.provider_pubkey)
         const incoming = filter?.latestIncomingInvoice
         const outgoing = filter?.latestOutgoingInvoice
-        const limit = filter?.limit
+        const limit = filter?.limit || 20
         const providerOps = await this.liquidityProvider.GetOperations(incoming, outgoing, limit)
-        // we only care about invoices cuz they are the only ops we can generate with a provider
-        const invoices: Types.AssetOperation[] = []
-        const payments: Types.AssetOperation[] = []
-        for (const op of providerOps.latestIncomingInvoiceOperations.operations) {
-            const assetOp = await this.GetProviderInvoiceAssetOperation(op)
-            invoices.push(assetOp)
-        }
-        for (const op of providerOps.latestOutgoingInvoiceOperations.operations) {
-            const assetOp = await this.GetProviderPaymentAssetOperation(op)
-            payments.push(assetOp)
-        }
+        const invoices = await this.BuildLiquidityAssetOperationsPage(
+            providerOps.latestIncomingInvoiceOperations,
+            limit,
+            op => this.GetProviderInvoiceAssetOperation(op)
+        )
+        const payments = await this.BuildLiquidityAssetOperationsPage(
+            providerOps.latestOutgoingInvoiceOperations,
+            limit,
+            op => this.GetProviderPaymentAssetOperation(op)
+        )
         const balance = await this.liquidityProvider.GetUserState()
         return {
             pubkey: provider.provider_pubkey,
@@ -431,6 +430,23 @@ export class AdminManager {
                 payments,
                 invoices,
             }
+        }
+    }
+
+    private async BuildLiquidityAssetOperationsPage(
+        userOps: Types.UserOperations,
+        limit: number,
+        mapper: (op: Types.UserOperation) => Promise<Types.AssetOperation>
+    ): Promise<Types.LiquidityAssetOperationsPage> {
+        const operations: Types.AssetOperation[] = []
+        for (const op of userOps.operations) {
+            operations.push(await mapper(op))
+        }
+        const hasMore = userOps.operations.length >= limit
+        return {
+            operations,
+            has_more: hasMore,
+            next_cursor: hasMore ? userOps.toIndex : undefined,
         }
     }
 
@@ -481,47 +497,19 @@ export class AdminManager {
         }
 
         const filter = req.lnd_providers.find(p => p.pubkey === provider.provider_pubkey)
-        const paymentsStart = filter?.skip_payments || 0
         const paymentsLimit = filter?.limit_payments || 50
-
-        const latestLndPayments = await this.lnd.GetAllPayments(paymentsLimit, paymentsStart)
-        const payments: Types.AssetOperation[] = []
-        for (const payment of latestLndPayments.payments) {
-            if (payment.status !== Payment_PaymentStatus.SUCCEEDED) {
-                continue
-            }
-            const assetOp = await this.GetPaymentAssetOperation(payment)
-            payments.push(assetOp)
-        }
-        const invoices: Types.AssetOperation[] = []
-        const invoicesStart = filter?.skip_invoices || 0
+        const paymentsOffset = filter?.payment_index_offset || 0
         const invoicesLimit = filter?.limit_invoices || 50
-        const paidInvoices = await this.lnd.GetAllInvoices(invoicesLimit, invoicesStart)
-        for (const invoiceEntry of paidInvoices.invoices) {
-            if (invoiceEntry.state !== Invoice_InvoiceState.SETTLED) {
-                continue
-            }
-            const assetOp = await this.GetInvoiceAssetOperation(invoiceEntry)
-            invoices.push(assetOp)
-        }
-        const latestLndTransactions = await this.lnd.GetTransactions(info.blockHeight)
-        const txOuts: Types.AssetOperation[] = []
-        const txIns: Types.AssetOperation[] = []
-        for (const transaction of latestLndTransactions.transactions) {
-            for (const output of transaction.outputDetails) {
-                if (output.isOurAddress) {
-                    const assetOp = await this.GetTxOutAssetOperation(transaction, output)
-                    txOuts.push(assetOp)
-                }
-            }
-            // we only produce TXs with a single output
-            const input = transaction.previousOutpoints.find(p => p.isOurOutput)
-            if (input) {
-                const assetOp = await this.GetTxInAssetOperation(transaction)
-                txIns.push(assetOp)
-            }
-        }
-        const balance = await this.lnd.GetBalance()
+        const invoicesOffset = filter?.invoice_index_offset || 0
+        const txLimit = filter?.limit_transactions || 50
+        const txOffset = filter?.tx_index_offset || 0
+
+        const [payments, invoices, txPages, balance] = await Promise.all([
+            this.FetchLndPaymentPage(paymentsLimit, paymentsOffset),
+            this.FetchLndInvoicePage(invoicesLimit, invoicesOffset),
+            this.FetchLndTransactionPages(info.blockHeight, txLimit, txOffset),
+            this.lnd.GetBalance(),
+        ])
         const channelsBalance = balance.channelsBalance.reduce((acc, c) => acc + Number(c.localBalanceSats), 0)
         return {
             pubkey: provider.provider_pubkey,
@@ -531,9 +519,87 @@ export class AdminManager {
                 channels_balance: channelsBalance,
                 payments,
                 invoices,
-                incoming_tx: txOuts, // tx outputs, are incoming sats
-                outgoing_tx: txIns, // tx inputs, are outgoing sats
+                incoming_tx: txPages.incoming_tx,
+                outgoing_tx: txPages.outgoing_tx,
             }
+        }
+    }
+
+    private async BuildLndAssetOperationsPage<T>(
+        limit: number,
+        batch: T[],
+        firstIndexOffset: number | undefined,
+        include: (item: T) => boolean,
+        toAssetOp: (item: T) => Promise<Types.AssetOperation>,
+    ): Promise<Types.LndAssetOperationsPage> {
+        const operations: Types.AssetOperation[] = []
+        for (const item of batch) {
+            if (!include(item)) {
+                continue
+            }
+            operations.push(await toAssetOp(item))
+        }
+        const hasMore = batch.length >= limit
+        return {
+            operations,
+            has_more: hasMore,
+            next_index_offset: hasMore ? firstIndexOffset : undefined,
+        }
+    }
+
+    private async FetchLndPaymentPage(limit: number, indexOffset: number): Promise<Types.LndAssetOperationsPage> {
+        const res = await this.lnd.GetAllPayments(limit, indexOffset)
+        const firstIndexOffset = Number(res.firstIndexOffset)
+        return this.BuildLndAssetOperationsPage(
+            limit,
+            res.payments,
+            firstIndexOffset,
+            payment => payment.status === Payment_PaymentStatus.SUCCEEDED,
+            payment => this.GetPaymentAssetOperation(payment),
+        )
+    }
+
+    private async FetchLndInvoicePage(limit: number, indexOffset: number): Promise<Types.LndAssetOperationsPage> {
+        const res = await this.lnd.GetAllInvoices(limit, indexOffset)
+        const firstIndexOffset = Number(res.firstIndexOffset)
+        return this.BuildLndAssetOperationsPage(
+            limit,
+            res.invoices,
+            firstIndexOffset,
+            invoice => invoice.state === Invoice_InvoiceState.SETTLED,
+            invoice => this.GetInvoiceAssetOperation(invoice),
+        )
+    }
+
+    private async FetchLndTransactionPages(
+        blockHeight: number,
+        limit: number,
+        indexOffset: number
+    ): Promise<{ incoming_tx: Types.LndAssetOperationsPage, outgoing_tx: Types.LndAssetOperationsPage }> {
+        const res = await this.lnd.GetTransactions(blockHeight, indexOffset, limit)
+        const incoming: Types.AssetOperation[] = []
+        const outgoing: Types.AssetOperation[] = []
+        for (const transaction of res.transactions) {
+            for (const output of transaction.outputDetails) {
+                if (output.isOurAddress) {
+                    incoming.push(await this.GetTxOutAssetOperation(transaction, output))
+                }
+            }
+            const input = transaction.previousOutpoints.find(p => p.isOurOutput)
+            if (input) {
+                outgoing.push(await this.GetTxInAssetOperation(transaction))
+            }
+        }
+        const hasMore = res.transactions.length >= limit
+        const nextIndexOffset = hasMore && res.transactions.length > 0 ? Number(res.firstIndex) : undefined
+        const toPage = (operations: Types.AssetOperation[]): Types.LndAssetOperationsPage => ({
+            operations,
+            has_more: hasMore,
+            next_index_offset: nextIndexOffset,
+        })
+        return {
+            incoming_tx: toPage(incoming),
+            outgoing_tx: toPage(outgoing),
         }
     }
 

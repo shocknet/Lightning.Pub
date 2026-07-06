@@ -2573,6 +2573,43 @@ export const LinkNPubThroughTokenRequestValidate = (o?: LinkNPubThroughTokenRequ
     return null
 }
 
+export type LiquidityAssetOperationsPage = {
+    has_more: boolean
+    next_cursor?: OperationsCursor
+    operations: AssetOperation[]
+}
+export type LiquidityAssetOperationsPageOptionalField = 'next_cursor'
+export const LiquidityAssetOperationsPageOptionalFields: LiquidityAssetOperationsPageOptionalField[] = ['next_cursor']
+export type LiquidityAssetOperationsPageOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: LiquidityAssetOperationsPageOptionalField[]
+    has_more_CustomCheck?: (v: boolean) => boolean
+    next_cursor_Options?: OperationsCursorOptions
+    operations_ItemOptions?: AssetOperationOptions
+    operations_CustomCheck?: (v: AssetOperation[]) => boolean
+}
+export const LiquidityAssetOperationsPageValidate = (o?: LiquidityAssetOperationsPage, opts: LiquidityAssetOperationsPageOptions = {}, path: string = 'LiquidityAssetOperationsPage::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.has_more !== 'boolean') return new Error(`${path}.has_more: is not a boolean`)
+    if (opts.has_more_CustomCheck && !opts.has_more_CustomCheck(o.has_more)) return new Error(`${path}.has_more: custom check failed`)
+
+    if (typeof o.next_cursor === 'object' || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('next_cursor')) {
+        const next_cursorErr = OperationsCursorValidate(o.next_cursor, opts.next_cursor_Options, `${path}.next_cursor`)
+        if (next_cursorErr !== null) return next_cursorErr
+    }
+    
+
+    if (!Array.isArray(o.operations)) return new Error(`${path}.operations: is not an array`)
+    for (let index = 0; index < o.operations.length; index++) {
+        const operationsErr = AssetOperationValidate(o.operations[index], opts.operations_ItemOptions, `${path}.operations[${index}]`)
+        if (operationsErr !== null) return operationsErr
+    }
+    if (opts.operations_CustomCheck && !opts.operations_CustomCheck(o.operations)) return new Error(`${path}.operations: custom check failed`)
+
+    return null
+}
+
 export type LiquidityAssetProvider = {
     pubkey: string
     tracked?: TrackedLiquidityProvider
@@ -2718,6 +2755,40 @@ export const LiveUserOperationValidate = (o?: LiveUserOperation, opts: LiveUserO
     const operationErr = UserOperationValidate(o.operation, opts.operation_Options, `${path}.operation`)
     if (operationErr !== null) return operationErr
     
+
+    return null
+}
+
+export type LndAssetOperationsPage = {
+    has_more: boolean
+    next_index_offset?: number
+    operations: AssetOperation[]
+}
+export type LndAssetOperationsPageOptionalField = 'next_index_offset'
+export const LndAssetOperationsPageOptionalFields: LndAssetOperationsPageOptionalField[] = ['next_index_offset']
+export type LndAssetOperationsPageOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: LndAssetOperationsPageOptionalField[]
+    has_more_CustomCheck?: (v: boolean) => boolean
+    next_index_offset_CustomCheck?: (v?: number) => boolean
+    operations_ItemOptions?: AssetOperationOptions
+    operations_CustomCheck?: (v: AssetOperation[]) => boolean
+}
+export const LndAssetOperationsPageValidate = (o?: LndAssetOperationsPage, opts: LndAssetOperationsPageOptions = {}, path: string = 'LndAssetOperationsPage::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.has_more !== 'boolean') return new Error(`${path}.has_more: is not a boolean`)
+    if (opts.has_more_CustomCheck && !opts.has_more_CustomCheck(o.has_more)) return new Error(`${path}.has_more: custom check failed`)
+
+    if ((o.next_index_offset || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('next_index_offset')) && typeof o.next_index_offset !== 'number') return new Error(`${path}.next_index_offset: is not a number`)
+    if (opts.next_index_offset_CustomCheck && !opts.next_index_offset_CustomCheck(o.next_index_offset)) return new Error(`${path}.next_index_offset: custom check failed`)
+
+    if (!Array.isArray(o.operations)) return new Error(`${path}.operations: is not an array`)
+    for (let index = 0; index < o.operations.length; index++) {
+        const operationsErr = AssetOperationValidate(o.operations[index], opts.operations_ItemOptions, `${path}.operations[${index}]`)
+        if (operationsErr !== null) return operationsErr
+    }
+    if (opts.operations_CustomCheck && !opts.operations_CustomCheck(o.operations)) return new Error(`${path}.operations: custom check failed`)
 
     return null
 }
@@ -3045,25 +3116,32 @@ export const LndNodeMetricsValidate = (o?: LndNodeMetrics, opts: LndNodeMetricsO
 }
 
 export type LndProviderFilter = {
+    invoice_index_offset?: number
     limit_invoices?: number
     limit_payments?: number
+    limit_transactions?: number
+    payment_index_offset?: number
     pubkey: string
-    skip_invoices?: number
-    skip_payments?: number
+    tx_index_offset?: number
 }
-export type LndProviderFilterOptionalField = 'limit_invoices' | 'limit_payments' | 'skip_invoices' | 'skip_payments'
-export const LndProviderFilterOptionalFields: LndProviderFilterOptionalField[] = ['limit_invoices', 'limit_payments', 'skip_invoices', 'skip_payments']
+export type LndProviderFilterOptionalField = 'invoice_index_offset' | 'limit_invoices' | 'limit_payments' | 'limit_transactions' | 'payment_index_offset' | 'tx_index_offset'
+export const LndProviderFilterOptionalFields: LndProviderFilterOptionalField[] = ['invoice_index_offset', 'limit_invoices', 'limit_payments', 'limit_transactions', 'payment_index_offset', 'tx_index_offset']
 export type LndProviderFilterOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: LndProviderFilterOptionalField[]
+    invoice_index_offset_CustomCheck?: (v?: number) => boolean
     limit_invoices_CustomCheck?: (v?: number) => boolean
     limit_payments_CustomCheck?: (v?: number) => boolean
+    limit_transactions_CustomCheck?: (v?: number) => boolean
+    payment_index_offset_CustomCheck?: (v?: number) => boolean
     pubkey_CustomCheck?: (v: string) => boolean
-    skip_invoices_CustomCheck?: (v?: number) => boolean
-    skip_payments_CustomCheck?: (v?: number) => boolean
+    tx_index_offset_CustomCheck?: (v?: number) => boolean
 }
 export const LndProviderFilterValidate = (o?: LndProviderFilter, opts: LndProviderFilterOptions = {}, path: string = 'LndProviderFilter::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
     if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if ((o.invoice_index_offset || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('invoice_index_offset')) && typeof o.invoice_index_offset !== 'number') return new Error(`${path}.invoice_index_offset: is not a number`)
+    if (opts.invoice_index_offset_CustomCheck && !opts.invoice_index_offset_CustomCheck(o.invoice_index_offset)) return new Error(`${path}.invoice_index_offset: custom check failed`)
 
     if ((o.limit_invoices || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('limit_invoices')) && typeof o.limit_invoices !== 'number') return new Error(`${path}.limit_invoices: is not a number`)
     if (opts.limit_invoices_CustomCheck && !opts.limit_invoices_CustomCheck(o.limit_invoices)) return new Error(`${path}.limit_invoices: custom check failed`)
@@ -3071,14 +3149,17 @@ export const LndProviderFilterValidate = (o?: LndProviderFilter, opts: LndProvid
     if ((o.limit_payments || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('limit_payments')) && typeof o.limit_payments !== 'number') return new Error(`${path}.limit_payments: is not a number`)
     if (opts.limit_payments_CustomCheck && !opts.limit_payments_CustomCheck(o.limit_payments)) return new Error(`${path}.limit_payments: custom check failed`)
 
+    if ((o.limit_transactions || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('limit_transactions')) && typeof o.limit_transactions !== 'number') return new Error(`${path}.limit_transactions: is not a number`)
+    if (opts.limit_transactions_CustomCheck && !opts.limit_transactions_CustomCheck(o.limit_transactions)) return new Error(`${path}.limit_transactions: custom check failed`)
+
+    if ((o.payment_index_offset || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('payment_index_offset')) && typeof o.payment_index_offset !== 'number') return new Error(`${path}.payment_index_offset: is not a number`)
+    if (opts.payment_index_offset_CustomCheck && !opts.payment_index_offset_CustomCheck(o.payment_index_offset)) return new Error(`${path}.payment_index_offset: custom check failed`)
+
     if (typeof o.pubkey !== 'string') return new Error(`${path}.pubkey: is not a string`)
     if (opts.pubkey_CustomCheck && !opts.pubkey_CustomCheck(o.pubkey)) return new Error(`${path}.pubkey: custom check failed`)
 
-    if ((o.skip_invoices || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('skip_invoices')) && typeof o.skip_invoices !== 'number') return new Error(`${path}.skip_invoices: is not a number`)
-    if (opts.skip_invoices_CustomCheck && !opts.skip_invoices_CustomCheck(o.skip_invoices)) return new Error(`${path}.skip_invoices: custom check failed`)
-
-    if ((o.skip_payments || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('skip_payments')) && typeof o.skip_payments !== 'number') return new Error(`${path}.skip_payments: is not a number`)
-    if (opts.skip_payments_CustomCheck && !opts.skip_payments_CustomCheck(o.skip_payments)) return new Error(`${path}.skip_payments: custom check failed`)
+    if ((o.tx_index_offset || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('tx_index_offset')) && typeof o.tx_index_offset !== 'number') return new Error(`${path}.tx_index_offset: is not a number`)
+    if (opts.tx_index_offset_CustomCheck && !opts.tx_index_offset_CustomCheck(o.tx_index_offset)) return new Error(`${path}.tx_index_offset: custom check failed`)
 
     return null
 }
@@ -4695,17 +4776,15 @@ export const SingleMetricReqValidate = (o?: SingleMetricReq, opts: SingleMetricR
 
 export type TrackedLiquidityProvider = {
     balance: number
-    invoices: AssetOperation[]
-    payments: AssetOperation[]
+    invoices: LiquidityAssetOperationsPage
+    payments: LiquidityAssetOperationsPage
 }
 export const TrackedLiquidityProviderOptionalFields: [] = []
 export type TrackedLiquidityProviderOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
     balance_CustomCheck?: (v: number) => boolean
-    invoices_ItemOptions?: AssetOperationOptions
-    invoices_CustomCheck?: (v: AssetOperation[]) => boolean
-    payments_ItemOptions?: AssetOperationOptions
-    payments_CustomCheck?: (v: AssetOperation[]) => boolean
+    invoices_Options?: LiquidityAssetOperationsPageOptions
+    payments_Options?: LiquidityAssetOperationsPageOptions
 }
 export const TrackedLiquidityProviderValidate = (o?: TrackedLiquidityProvider, opts: TrackedLiquidityProviderOptions = {}, path: string = 'TrackedLiquidityProvider::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
@@ -4714,19 +4793,13 @@ export const TrackedLiquidityProviderValidate = (o?: TrackedLiquidityProvider, o
     if (typeof o.balance !== 'number') return new Error(`${path}.balance: is not a number`)
     if (opts.balance_CustomCheck && !opts.balance_CustomCheck(o.balance)) return new Error(`${path}.balance: custom check failed`)
 
-    if (!Array.isArray(o.invoices)) return new Error(`${path}.invoices: is not an array`)
-    for (let index = 0; index < o.invoices.length; index++) {
-        const invoicesErr = AssetOperationValidate(o.invoices[index], opts.invoices_ItemOptions, `${path}.invoices[${index}]`)
-        if (invoicesErr !== null) return invoicesErr
-    }
-    if (opts.invoices_CustomCheck && !opts.invoices_CustomCheck(o.invoices)) return new Error(`${path}.invoices: custom check failed`)
+    const invoicesErr = LiquidityAssetOperationsPageValidate(o.invoices, opts.invoices_Options, `${path}.invoices`)
+    if (invoicesErr !== null) return invoicesErr
+    
 
-    if (!Array.isArray(o.payments)) return new Error(`${path}.payments: is not an array`)
-    for (let index = 0; index < o.payments.length; index++) {
-        const paymentsErr = AssetOperationValidate(o.payments[index], opts.payments_ItemOptions, `${path}.payments[${index}]`)
-        if (paymentsErr !== null) return paymentsErr
-    }
-    if (opts.payments_CustomCheck && !opts.payments_CustomCheck(o.payments)) return new Error(`${path}.payments: custom check failed`)
+    const paymentsErr = LiquidityAssetOperationsPageValidate(o.payments, opts.payments_Options, `${path}.payments`)
+    if (paymentsErr !== null) return paymentsErr
+    
 
     return null
 }
@@ -4734,10 +4807,10 @@ export const TrackedLiquidityProviderValidate = (o?: TrackedLiquidityProvider, o
 export type TrackedLndProvider = {
     channels_balance: number
     confirmed_balance: number
-    incoming_tx: AssetOperation[]
-    invoices: AssetOperation[]
-    outgoing_tx: AssetOperation[]
-    payments: AssetOperation[]
+    incoming_tx: LndAssetOperationsPage
+    invoices: LndAssetOperationsPage
+    outgoing_tx: LndAssetOperationsPage
+    payments: LndAssetOperationsPage
     unconfirmed_balance: number
 }
 export const TrackedLndProviderOptionalFields: [] = []
@@ -4745,14 +4818,10 @@ export type TrackedLndProviderOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: []
     channels_balance_CustomCheck?: (v: number) => boolean
     confirmed_balance_CustomCheck?: (v: number) => boolean
-    incoming_tx_ItemOptions?: AssetOperationOptions
-    incoming_tx_CustomCheck?: (v: AssetOperation[]) => boolean
-    invoices_ItemOptions?: AssetOperationOptions
-    invoices_CustomCheck?: (v: AssetOperation[]) => boolean
-    outgoing_tx_ItemOptions?: AssetOperationOptions
-    outgoing_tx_CustomCheck?: (v: AssetOperation[]) => boolean
-    payments_ItemOptions?: AssetOperationOptions
-    payments_CustomCheck?: (v: AssetOperation[]) => boolean
+    incoming_tx_Options?: LndAssetOperationsPageOptions
+    invoices_Options?: LndAssetOperationsPageOptions
+    outgoing_tx_Options?: LndAssetOperationsPageOptions
+    payments_Options?: LndAssetOperationsPageOptions
     unconfirmed_balance_CustomCheck?: (v: number) => boolean
 }
 export const TrackedLndProviderValidate = (o?: TrackedLndProvider, opts: TrackedLndProviderOptions = {}, path: string = 'TrackedLndProvider::root.'): Error | null => {
@@ -4765,33 +4834,21 @@ export const TrackedLndProviderValidate = (o?: TrackedLndProvider, opts: Tracked
     if (typeof o.confirmed_balance !== 'number') return new Error(`${path}.confirmed_balance: is not a number`)
     if (opts.confirmed_balance_CustomCheck && !opts.confirmed_balance_CustomCheck(o.confirmed_balance)) return new Error(`${path}.confirmed_balance: custom check failed`)
 
-    if (!Array.isArray(o.incoming_tx)) return new Error(`${path}.incoming_tx: is not an array`)
-    for (let index = 0; index < o.incoming_tx.length; index++) {
-        const incoming_txErr = AssetOperationValidate(o.incoming_tx[index], opts.incoming_tx_ItemOptions, `${path}.incoming_tx[${index}]`)
-        if (incoming_txErr !== null) return incoming_txErr
-    }
-    if (opts.incoming_tx_CustomCheck && !opts.incoming_tx_CustomCheck(o.incoming_tx)) return new Error(`${path}.incoming_tx: custom check failed`)
+    const incoming_txErr = LndAssetOperationsPageValidate(o.incoming_tx, opts.incoming_tx_Options, `${path}.incoming_tx`)
+    if (incoming_txErr !== null) return incoming_txErr
+    
 
-    if (!Array.isArray(o.invoices)) return new Error(`${path}.invoices: is not an array`)
-    for (let index = 0; index < o.invoices.length; index++) {
-        const invoicesErr = AssetOperationValidate(o.invoices[index], opts.invoices_ItemOptions, `${path}.invoices[${index}]`)
-        if (invoicesErr !== null) return invoicesErr
-    }
-    if (opts.invoices_CustomCheck && !opts.invoices_CustomCheck(o.invoices)) return new Error(`${path}.invoices: custom check failed`)
+    const invoicesErr = LndAssetOperationsPageValidate(o.invoices, opts.invoices_Options, `${path}.invoices`)
+    if (invoicesErr !== null) return invoicesErr
+    
 
-    if (!Array.isArray(o.outgoing_tx)) return new Error(`${path}.outgoing_tx: is not an array`)
-    for (let index = 0; index < o.outgoing_tx.length; index++) {
-        const outgoing_txErr = AssetOperationValidate(o.outgoing_tx[index], opts.outgoing_tx_ItemOptions, `${path}.outgoing_tx[${index}]`)
-        if (outgoing_txErr !== null) return outgoing_txErr
-    }
-    if (opts.outgoing_tx_CustomCheck && !opts.outgoing_tx_CustomCheck(o.outgoing_tx)) return new Error(`${path}.outgoing_tx: custom check failed`)
+    const outgoing_txErr = LndAssetOperationsPageValidate(o.outgoing_tx, opts.outgoing_tx_Options, `${path}.outgoing_tx`)
+    if (outgoing_txErr !== null) return outgoing_txErr
+    
 
-    if (!Array.isArray(o.payments)) return new Error(`${path}.payments: is not an array`)
-    for (let index = 0; index < o.payments.length; index++) {
-        const paymentsErr = AssetOperationValidate(o.payments[index], opts.payments_ItemOptions, `${path}.payments[${index}]`)
-        if (paymentsErr !== null) return paymentsErr
-    }
-    if (opts.payments_CustomCheck && !opts.payments_CustomCheck(o.payments)) return new Error(`${path}.payments: custom check failed`)
+    const paymentsErr = LndAssetOperationsPageValidate(o.payments, opts.payments_Options, `${path}.payments`)
+    if (paymentsErr !== null) return paymentsErr
+    
 
     if (typeof o.unconfirmed_balance !== 'number') return new Error(`${path}.unconfirmed_balance: is not a number`)
     if (opts.unconfirmed_balance_CustomCheck && !opts.unconfirmed_balance_CustomCheck(o.unconfirmed_balance)) return new Error(`${path}.unconfirmed_balance: custom check failed`)

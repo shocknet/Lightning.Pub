@@ -22,9 +22,11 @@ message EncryptionExchangeRequest {
 message LndProviderFilter {
     string pubkey = 1;
     optional int64 limit_invoices = 2;
-    optional int64 skip_invoices = 3;
+    optional int64 invoice_index_offset = 3;
     optional int64 limit_payments = 4;
-    optional int64 skip_payments = 5;
+    optional int64 payment_index_offset = 5;
+    optional int64 limit_transactions = 6;
+    optional int64 tx_index_offset = 7;
 }
 
 message LiquidityProviderFilter {
@@ -89,20 +91,32 @@ message AssetOperation {
     optional TrackedOperation tracked = 3;
 }
 
+message LndAssetOperationsPage {
+    repeated AssetOperation operations = 1;
+    bool has_more = 2;
+    optional int64 next_index_offset = 3;
+}
+
+message LiquidityAssetOperationsPage {
+    repeated AssetOperation operations = 1;
+    bool has_more = 2;
+    optional OperationsCursor next_cursor = 3;
+}
+
 message TrackedLndProvider {
     int64 confirmed_balance = 1;
     int64 unconfirmed_balance =  2;
     int64 channels_balance = 3;
-    repeated AssetOperation payments = 4;
-    repeated AssetOperation invoices = 5;
-    repeated AssetOperation incoming_tx = 6;
-    repeated AssetOperation outgoing_tx = 7;
+    LndAssetOperationsPage payments = 4;
+    LndAssetOperationsPage invoices = 5;
+    LndAssetOperationsPage incoming_tx = 6;
+    LndAssetOperationsPage outgoing_tx = 7;
 }
 
 message TrackedLiquidityProvider {
     int64 balance = 1;
-    repeated AssetOperation payments = 2;
-    repeated AssetOperation invoices = 3;
+    LiquidityAssetOperationsPage payments = 2;
+    LiquidityAssetOperationsPage invoices = 3;
 }
 
 message LndAssetProvider {

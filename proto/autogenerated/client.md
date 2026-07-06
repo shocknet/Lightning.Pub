@@ -1499,6 +1499,11 @@ The nostr server will send back a message response, and inside the body there wi
 ### LinkNPubThroughTokenRequest
   - __token__: _string_
 
+### LiquidityAssetOperationsPage
+  - __has_more__: _boolean_
+  - __next_cursor__: _[OperationsCursor](#OperationsCursor)_ *this field is optional
+  - __operations__: ARRAY of: _[AssetOperation](#AssetOperation)_
+
 ### LiquidityAssetProvider
   - __pubkey__: _string_
   - __tracked__: _[TrackedLiquidityProvider](#TrackedLiquidityProvider)_ *this field is optional
@@ -1522,6 +1527,11 @@ The nostr server will send back a message response, and inside the body there wi
 ### LiveUserOperation
   - __latest_balance__: _number_
   - __operation__: _[UserOperation](#UserOperation)_
+
+### LndAssetOperationsPage
+  - __has_more__: _boolean_
+  - __next_index_offset__: _number_ *this field is optional
+  - __operations__: ARRAY of: _[AssetOperation](#AssetOperation)_
 
 ### LndAssetProvider
   - __pubkey__: _string_
@@ -1573,11 +1583,13 @@ The nostr server will send back a message response, and inside the body there wi
   - __root_ops__: ARRAY of: _[RootOperation](#RootOperation)_
 
 ### LndProviderFilter
+  - __invoice_index_offset__: _number_ *this field is optional
   - __limit_invoices__: _number_ *this field is optional
   - __limit_payments__: _number_ *this field is optional
+  - __limit_transactions__: _number_ *this field is optional
+  - __payment_index_offset__: _number_ *this field is optional
   - __pubkey__: _string_
-  - __skip_invoices__: _number_ *this field is optional
-  - __skip_payments__: _number_ *this field is optional
+  - __tx_index_offset__: _number_ *this field is optional
 
 ### LndSeed
   - __seed__: ARRAY of: _string_
@@ -1859,16 +1871,16 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### TrackedLiquidityProvider
   - __balance__: _number_
-  - __invoices__: ARRAY of: _[AssetOperation](#AssetOperation)_
-  - __payments__: ARRAY of: _[AssetOperation](#AssetOperation)_
+  - __invoices__: _[LiquidityAssetOperationsPage](#LiquidityAssetOperationsPage)_
+  - __payments__: _[LiquidityAssetOperationsPage](#LiquidityAssetOperationsPage)_
 
 ### TrackedLndProvider
   - __channels_balance__: _number_
   - __confirmed_balance__: _number_
-  - __incoming_tx__: ARRAY of: _[AssetOperation](#AssetOperation)_
-  - __invoices__: ARRAY of: _[AssetOperation](#AssetOperation)_
-  - __outgoing_tx__: ARRAY of: _[AssetOperation](#AssetOperation)_
-  - __payments__: ARRAY of: _[AssetOperation](#AssetOperation)_
+  - __incoming_tx__: _[LndAssetOperationsPage](#LndAssetOperationsPage)_
+  - __invoices__: _[LndAssetOperationsPage](#LndAssetOperationsPage)_
+  - __outgoing_tx__: _[LndAssetOperationsPage](#LndAssetOperationsPage)_
+  - __payments__: _[LndAssetOperationsPage](#LndAssetOperationsPage)_
   - __unconfirmed_balance__: _number_
 
 ### TrackedOperation
