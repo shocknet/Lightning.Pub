@@ -7,6 +7,7 @@ import { OfferPriceType, ndebitEncode, nmanageEncode, nofferEncode } from '@shoc
 import { getLogger } from '../helpers/logger.js'
 import SettingsManager from './settingsManager.js'
 import { assertCallbackUrlAllowed } from '../helpers/safeOutboundFetch.js'
+import { clampPageLimit, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from '../helpers/pageLimit.js'
 export default class {
 
     storage: Storage
@@ -121,7 +122,10 @@ export default class {
     }
 
     async GetUsersAdminInfo(req: Types.UsersAdminInfoRequest): Promise<Types.UsersAdminInfo> {
-        const { users, total } = await this.storage.userStorage.GetUsers(req)
+        const { users, total } = await this.storage.userStorage.GetUsers({
+            skip: req.skip,
+            take: clampPageLimit(req.take, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE),
+        })
         const applications = await this.storage.applicationStorage.GetApplications()
 
         const apps: Record<string, string> = {}

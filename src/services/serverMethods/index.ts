@@ -188,8 +188,9 @@ export default (mainHandler: Main): Types.ServerMethods => {
             return mainHandler.appUserManager.UpdateCallbackUrl(ctx, req)
         },
         GetUserOperations: async ({ ctx, req }) => {
-            if (req.user_id) delete req.user_id
-            return mainHandler.paymentManager.GetUserOperations(ctx.user_id, req)
+            const sanitizedReq = { ...req }
+            delete sanitizedReq.user_id
+            return mainHandler.paymentManager.GetUserOperations(ctx.user_id, sanitizedReq)
         },
 
         GetPaymentState: async ({ ctx, req }) => {

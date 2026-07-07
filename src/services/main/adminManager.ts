@@ -11,6 +11,7 @@ import { TrackedProvider } from "../storage/entity/TrackedProvider.js";
 import { NodeInfo } from "../lnd/settings.js";
 import { Invoice, Payment, OutputDetail, Transaction, Payment_PaymentStatus, Invoice_InvoiceState } from "../../../proto/lnd/lightning.js";
 import { LiquidityProvider } from "./liquidityProvider.js";
+import { clampPageLimit, DEFAULT_LND_PAGE_SIZE, DEFAULT_PAGE_SIZE, MAX_LIQUIDITY_PAGE_SIZE, MAX_PAGE_SIZE } from "../helpers/pageLimit.js";
 /* type TrackedOperation = {
     ts: number
     amount: number
@@ -46,13 +47,6 @@ type ProviderAssetProvider = {
 } */
 const ROOT_OP = Types.TrackedOperationType.ROOT
 const USER_OP = Types.TrackedOperationType.USER
-const DEFAULT_LND_PAGE_SIZE = 50
-const MAX_LND_PAGE_SIZE = 100
-const DEFAULT_LIQUIDITY_PAGE_SIZE = 20
-const MAX_LIQUIDITY_PAGE_SIZE = 40
-
-const clampPageLimit = (value: number | undefined, defaultLimit: number, maxLimit: number): number =>
-    Math.min(Math.max(value ?? defaultLimit, 1), maxLimit)
 export class AdminManager {
     settings: SettingsManager
     liquidityProvider: LiquidityProvider | null = null
@@ -386,7 +380,6 @@ export class AdminManager {
 
     async GetAssetsAndLiabilities(req: Types.AssetsAndLiabilitiesReq): Promise<Types.AssetsAndLiabilities> {
         const providers = await this.storage.liquidityStorage.GetTrackedProviders()
-        this.log("Got providers", providers.map(p => p.provider_type + ": " + p.provider_pubkey).join(", "))
         const lnds: Types.LndAssetProvider[] = []
         const liquidityProviders: Types.LiquidityAssetProvider[] = []
         for (const provider of providers) {
@@ -399,7 +392,6 @@ export class AdminManager {
             }
         }
         const usersBalance = await this.storage.paymentStorage.GetTotalUsersBalance(true)
-        this.log("Got assets and liabilities")
         return {
             users_balance: usersBalance,
             lnds,
@@ -417,7 +409,7 @@ export class AdminManager {
         const filter = req.liquidity_providers.find(p => p.pubkey === provider.provider_pubkey)
         const incoming = filter?.latestIncomingInvoice
         const outgoing = filter?.latestOutgoingInvoice
-        const limit = clampPageLimit(filter?.limit, DEFAULT_LIQUIDITY_PAGE_SIZE, MAX_LIQUIDITY_PAGE_SIZE)
+        const limit = clampPageLimit(filter?.limit, DEFAULT_PAGE_SIZE, MAX_LIQUIDITY_PAGE_SIZE)
         const providerOps = await this.liquidityProvider.GetOperations(incoming, outgoing, limit)
         const invoices = await this.BuildLiquidityAssetOperationsPage(
             providerOps.latestIncomingInvoiceOperations,
@@ -504,11 +496,11 @@ export class AdminManager {
         }
 
         const filter = req.lnd_providers.find(p => p.pubkey === provider.provider_pubkey)
-        const paymentsLimit = clampPageLimit(filter?.limit_payments, DEFAULT_LND_PAGE_SIZE, MAX_LND_PAGE_SIZE)
+        const paymentsLimit = clampPageLimit(filter?.limit_payments, DEFAULT_LND_PAGE_SIZE, MAX_PAGE_SIZE)
         const paymentsOffset = filter?.payment_index_offset || 0
-        const invoicesLimit = clampPageLimit(filter?.limit_invoices, DEFAULT_LND_PAGE_SIZE, MAX_LND_PAGE_SIZE)
+        const invoicesLimit = clampPageLimit(filter?.limit_invoices, DEFAULT_LND_PAGE_SIZE, MAX_PAGE_SIZE)
         const invoicesOffset = filter?.invoice_index_offset || 0
-        const txLimit = clampPageLimit(filter?.limit_transactions, DEFAULT_LND_PAGE_SIZE, MAX_LND_PAGE_SIZE)
+        const txLimit = clampPageLimit(filter?.limit_transactions, DEFAULT_LND_PAGE_SIZE, MAX_PAGE_SIZE)
         const txOffset = filter?.tx_index_offset || 0
 
         const [payments, invoices, txPages, balance] = await Promise.all([
