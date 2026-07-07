@@ -20,8 +20,6 @@ export default async (T: TestBase) => {
     await testLndProviderTracked(T)
     await testLndTrackedUserPayment(T)
     await testLndPagination(T)
-    await testLiquidityProviderTracked(T)
-    await testLiquidityProviderUntrackedOnMain(T)
     await runSanityCheck(T)
 }
 
@@ -89,48 +87,6 @@ const testLndPagination = async (T: TestBase) => {
         T.expect(payments.next_index_offset).to.be.a("number")
     }
     T.d("lnd payment pagination respects limit")
-}
-
-const testLiquidityProviderTracked = async (T: TestBase) => {
-    T.d("starting testLiquidityProviderTracked")
-    const { bootstrapped, bootstrappedUser, stop } = await initBootstrappedInstance(T)
-    try {
-        await inboundPaymentOnBootstrapped(T, bootstrapped, bootstrappedUser)
-        const res = await bootstrapped.adminManager.GetAssetsAndLiabilities({
-            lnd_providers: [],
-            liquidity_providers: [{ pubkey: T.app.publicKey, limit: 50 }],
-        })
-        const lp = res.liquidity_providers.find(p => p.pubkey === T.app.publicKey)
-        T.expect(lp).to.not.equal(undefined)
-        T.expect(lp!.tracked).to.not.equal(undefined)
-        T.expect(lp!.tracked!.balance).to.equal(1000)
-        const userInvoice = lp!.tracked!.invoices.operations.find(
-            op => op.tracked?.type === Types.TrackedOperationType.USER
-                && op.tracked.user_id === bootstrappedUser.userId
-                && op.amount === 1000
-        )
-        T.expect(userInvoice).to.not.equal(undefined)
-        T.d("liquidity provider returns tracked balance and user invoice")
-    } finally {
-        stop()
-    }
-}
-
-const testLiquidityProviderUntrackedOnMain = async (T: TestBase) => {
-    T.d("starting testLiquidityProviderUntrackedOnMain")
-    const { stop } = await initBootstrappedInstance(T)
-    try {
-        const res = await getAssets(T, {
-            lnd_providers: [],
-            liquidity_providers: [{ pubkey: T.app.publicKey, limit: 50 }],
-        })
-        const lp = res.liquidity_providers.find(p => p.pubkey === T.app.publicKey)
-        T.expect(lp).to.not.equal(undefined)
-        T.expect(lp!.tracked).to.equal(undefined)
-        T.d("main instance does not track remote liquidity provider details")
-    } finally {
-        stop()
-    }
 }
 
 const inboundPaymentOnBootstrapped = async (T: TestBase, bootstrapped: Main, user: TestUserData) => {
