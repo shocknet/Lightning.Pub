@@ -134,30 +134,18 @@ const seedData = async (T: StorageTestBase): Promise<SeedData> => {
         service_fee: 8,
         paid_at_unix: 1_700_000_700,
     })
-    const rootInvoicePayment = await T.storage.dbs.CreateAndSave<RootOperation>('RootOperation', {
-        operation_type: 'invoice_payment',
-        operation_amount: 900,
-        operation_identifier: paymentA.invoice,
-        at_unix: 1_700_000_800,
-    })
-    const rootInvoice = await T.storage.dbs.CreateAndSave<RootOperation>('RootOperation', {
-        operation_type: 'invoice',
-        operation_amount: 1000,
-        operation_identifier: invoiceA.invoice,
-        at_unix: 1_700_000_900,
-    })
-    const rootChainPayment = await T.storage.dbs.CreateAndSave<RootOperation>('RootOperation', {
-        operation_type: 'chain_payment',
-        operation_amount: 1100,
-        operation_identifier: txHashA,
-        at_unix: 1_700_001_000,
-    })
-    const rootChain = await T.storage.dbs.CreateAndSave<RootOperation>('RootOperation', {
-        operation_type: 'chain',
-        operation_amount: 1200,
-        operation_identifier: `${addressA.address}:${txHashA}:0`,
-        at_unix: 1_700_001_100,
-    })
+    const rootInvoicePayment = await T.storage.metricsStorage.AddRootOperation(
+        'invoice_payment', paymentA.invoice, 900,
+    )
+    const rootInvoice = await T.storage.metricsStorage.AddRootOperation(
+        'invoice', invoiceA.invoice, 1000,
+    )
+    const rootChainPayment = await T.storage.metricsStorage.AddRootOperation(
+        'chain_payment', txHashA, 1100,
+    )
+    const rootChain = await T.storage.metricsStorage.AddRootOperation(
+        'chain', `${addressA.address}:${txHashA}:0`, 1200,
+    )
     return {
         userA,
         userB,
