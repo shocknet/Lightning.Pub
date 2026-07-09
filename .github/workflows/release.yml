@@ -68,17 +68,21 @@ jobs:
           # package.json may be unchanged when shipping an already-declared untagged version.
 
           NOTES_FILE=$(mktemp)
-          PR_BODY=$(echo "$PR_DATA" | jq -r '.body // empty')
+          # Prefer live PR body — commits API can lag / truncate; notes section is last in the template.
+          PR_BODY=$(gh pr view "$PR_NUMBER" --json body --jq '.body // empty')
+          if [ -z "$PR_BODY" ]; then
+            PR_BODY=$(echo "$PR_DATA" | jq -r '.body // empty')
+          fi
 
           if [ -n "$PR_BODY" ]; then
+            # Take everything after the heading — nested ##/### headings are part of the notes.
             printf '%s\n' "$PR_BODY" | awk '
-              /^## Release notes/ { capture=1; next }
-              capture && /^## / { exit }
+              /^## Release notes[[:space:]]*$/ { capture=1; next }
               capture { print }
             ' > "$NOTES_FILE"
           fi
 
-          if [ ! -s "$NOTES_FILE" ]; then
+          if ! grep -q '[^[:space:]]' "$NOTES_FILE"; then
             echo "Release notes are required in the merged release PR body under '## Release notes'"
             exit 1
           fi
@@ -88,8 +92,13 @@ jobs:
             --notes-file "$NOTES_FILE" \
             --target "${GITHUB_SHA}"
 
+          # Releases created with GITHUB_TOKEN do not fire release:published workflows.
+          # Explicitly dispatch Docker + StartOS packaging instead.
+          DEFAULT_BRANCH=$(gh repo view --json defaultBranchRef --jq .defaultBranchRef.name)
+          gh workflow run push.yml --ref "$DEFAULT_BRANCH"
+
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          echo "Published v${VERSION}"
+          echo "Published v${VERSION} and dispatched Docker/StartOS build"
 
   maintain-release-pr:
     name: Maintain release pull request
