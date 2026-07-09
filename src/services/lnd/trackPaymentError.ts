@@ -5,17 +5,17 @@ export type GrpcServiceError = {
     message?: string
 }
 
-export const getGrpcErrorCode = (err: unknown): number | undefined => {
+export const getGrpcErrorCode = (err: unknown): string | undefined => {
     if (!err || typeof err !== 'object' || !('code' in err)) {
         return undefined
     }
-    const code = (err as GrpcServiceError).code
-    return typeof code === 'number' ? code : undefined
+    const code = err.code as string
+    return code || undefined
 }
 
 export const isPaymentNotInitiatedError = (err: unknown): boolean => {
     const code = getGrpcErrorCode(err)
-    if (code !== status.NOT_FOUND) {
+    if (code !== 'NOT_FOUND') {
         return false
     }
     if (!err || typeof err !== 'object' || !('message' in err)) {
@@ -30,5 +30,5 @@ export const isLndConnectivityError = (err: unknown): boolean => {
     if (code === undefined) {
         return true
     }
-    return code === status.UNAVAILABLE || code === status.DEADLINE_EXCEEDED || code === status.CANCELLED
+    return code === 'UNAVAILABLE' || code === 'DEADLINE_EXCEEDED' || code === 'CANCELLED'
 }

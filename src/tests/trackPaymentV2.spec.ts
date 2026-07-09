@@ -23,6 +23,6 @@ const testTrackPaymentV2UnknownHashReturnsNotFound = async (T: TestBase) => {
     console.log(error)
     T.expect(error).to.exist
     const code = getGrpcErrorCode(error)
-    T.expect(code).to.equal(status.NOT_FOUND)
+    T.expect(code).to.equal('NOT_FOUND')
     T.expect(isPaymentNotInitiatedError(error)).to.equal(true)
 }
