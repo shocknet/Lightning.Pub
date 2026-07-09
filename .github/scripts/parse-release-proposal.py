@@ -64,52 +64,77 @@ def validate_proposal(proposal: dict, context: dict) -> dict:
     release_notes = str(proposal["release_notes"]).strip()
     warnings: list[str] = []
 
-    if bump not in {"major", "minor", "patch"}:
+    if bump not in {"major", "minor", "patch", "none"}:
         raise ValueError(f"Invalid bump type: {bump}")
 
     parse_version(version)
 
     current_version = str(context.get("current_version", "")).strip()
-    if current_version:
-        expected = bump_version(current_version, bump)
+    ship_current = bool(context.get("ship_current"))
+    target_version = str(context.get("target_version", "")).strip()
+
+    if ship_current:
+        expected = target_version or current_version
         if version != expected:
             raise ValueError(
-                f"Version {version} does not match {bump} bump from "
-                f"{current_version} (expected {expected})"
+                f"package.json version {expected} is untagged; "
+                f"release must ship that version (got {version})"
             )
-        if compare_versions(version, current_version) <= 0:
+        if bump != "none":
+            # Normalize agent output; shipping current is not a bump.
+            bump = "none"
+        if context.get("buf_breaking"):
+            warnings.append(
+                "buf reported breaking proto changes, but shipping the already-"
+                "declared untagged package.json version. Consider a higher "
+                "version in package.json if this should be a major."
+            )
+    else:
+        if bump == "none":
             raise ValueError(
-                f"Proposed version {version} must be greater than {current_version}"
+                "bump=none is only valid when shipping an untagged package.json version"
             )
+        if current_version:
+            expected = bump_version(current_version, bump)
+            if version != expected:
+                raise ValueError(
+                    f"Version {version} does not match {bump} bump from "
+                    f"{current_version} (expected {expected})"
+                )
+            if compare_versions(version, current_version) <= 0:
+                raise ValueError(
+                    f"Proposed version {version} must be greater than {current_version}"
+                )
 
-    if context.get("buf_breaking") and bump != "major":
-        raise ValueError(
-            "buf detected breaking proto changes; bump must be major"
-        )
-
-    min_bump = str(context.get("min_bump", "")).strip().lower()
-    if min_bump in {"major", "minor", "patch"}:
-        bump_rank = {"patch": 0, "minor": 1, "major": 2}
-        if bump_rank[bump] < bump_rank[min_bump]:
+        if context.get("buf_breaking") and bump != "major":
             raise ValueError(
-                f"Bump {bump} is below required minimum {min_bump}"
+                "buf detected breaking proto changes; bump must be major"
             )
 
-    if bump == "major" and not context.get("buf_breaking"):
-        warnings.append(
-            "Major bump proposed without buf breaking changes; verify manually."
-        )
+        min_bump = str(context.get("min_bump", "")).strip().lower()
+        if min_bump in {"major", "minor", "patch"}:
+            bump_rank = {"patch": 0, "minor": 1, "major": 2}
+            if bump_rank[bump] < bump_rank[min_bump]:
+                raise ValueError(
+                    f"Bump {bump} is below required minimum {min_bump}"
+                )
 
-    if context.get("proto_changed") and bump == "patch":
-        warnings.append(
-            "Proto files changed but bump is patch; confirm API compatibility."
-        )
+        if bump == "major" and not context.get("buf_breaking"):
+            warnings.append(
+                "Major bump proposed without buf breaking changes; verify manually."
+            )
+
+        if context.get("proto_changed") and bump == "patch":
+            warnings.append(
+                "Proto files changed but bump is patch; confirm API compatibility."
+            )
 
     return {
         "version": version,
         "bump": bump,
         "release_notes": release_notes,
         "warnings": warnings,
+        "ship_current": ship_current,
     }
 
 

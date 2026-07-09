@@ -58,31 +58,14 @@ jobs:
             exit 0
           fi
 
-          if ! git rev-parse HEAD^ >/dev/null 2>&1; then
-            echo "Root commit; not a release merge"
-            exit 0
-          fi
-
           VERSION=$(node -p "require('./package.json').version")
-
-          # Prefer parent of merge commit; fall back to first parent for squash merges.
-          PARENT_VERSION=$(git show HEAD^:package.json 2>/dev/null \
-            | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).version" \
-            || true)
-          if [ -z "${PARENT_VERSION:-}" ]; then
-            PARENT_VERSION=$(git show HEAD^1:package.json \
-              | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).version")
-          fi
-
-          if [ "$VERSION" = "$PARENT_VERSION" ]; then
-            echo "package.json unchanged on this commit (${VERSION}); not a release merge"
-            exit 0
-          fi
 
           if git rev-parse "v${VERSION}" >/dev/null 2>&1; then
             echo "Tag v${VERSION} already exists"
             exit 0
           fi
+
+          # package.json may be unchanged when shipping an already-declared untagged version.
 
           NOTES_FILE=$(mktemp)
           PR_BODY=$(echo "$PR_DATA" | jq -r '.body // empty')
@@ -238,10 +221,11 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add package.json
           if git diff --cached --quiet; then
-            echo "No package.json change to commit"
-            exit 1
+            # Shipping an already-declared untagged package.json version: empty commit is fine.
+            git commit --allow-empty -m "chore(release): v${VERSION}"
+          else
+            git commit -m "chore(release): v${VERSION}"
           fi
-          git commit -m "chore(release): v${VERSION}"
           git push --force origin "$BRANCH"
 
           EXISTING=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number // empty')
