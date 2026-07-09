@@ -492,16 +492,14 @@ export default class {
 
         while (true) {
             try {
-                const payment = await this.GetPaymentFromHash(decoded.paymentHash)
-                if (!payment) {
-                    this.log(ERROR, "payment not found in trackPayment")
-                    throw new Error("payment not found in trackPayment")
-                }
+                const payment = await this.trackPaymentV2(decoded.paymentHash)
                 switch (payment.status) {
                     case Payment_PaymentStatus.FAILED:
+                        this.utils.stateBundler.AddTxPointFailed('paidAnInvoice', decodedAmount, { from, used: 'lnd' })
                         paymentFailed = true
                         throw new Error(PaymentFailureReason[payment.failureReason])
                     case Payment_PaymentStatus.SUCCEEDED:
+                        this.utils.stateBundler.AddTxPoint('paidAnInvoice', Number(payment.valueSat), { from, used: 'lnd', timeDiscount: true })
                         return { feeSat: Math.ceil(Number(payment.feeMsat) / 1000), valueSat: Number(payment.valueSat), paymentPreimage: payment.paymentPreimage }
                 }
             } catch (err) {
@@ -541,6 +539,22 @@ export default class {
                         res({ ok: true, res: paidInvoice })
                         return
                 }
+            })
+        })
+    }
+
+    async trackPaymentV2(paymentHash: string): Promise<Payment> {
+        this.log(DEBUG, "Tracking payment")
+        const stream = this.router.trackPaymentV2({
+            paymentHash: Buffer.from(paymentHash, 'hex'),
+            noInflightUpdates: true
+        })
+        return new Promise((res, rej) => {
+            stream.responses.onError(error => {
+                rej(error)
+            })
+            stream.responses.onMessage(payment => {
+                res(payment)
             })
         })
     }
