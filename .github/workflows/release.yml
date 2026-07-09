@@ -25,6 +25,9 @@ jobs:
   publish:
     name: Publish merged release
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
     # Must NOT skip chore(release): — that is the merge commit message from the release PR.
     if: >-
       github.event_name == 'push' &&
