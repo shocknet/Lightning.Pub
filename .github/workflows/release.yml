@@ -209,13 +209,10 @@ jobs:
           git clean -fd
           git checkout -B "$BRANCH" "origin/${DEFAULT_BRANCH}"
 
-          node <<'NODE'
-          const fs = require('fs');
-          const proposal = JSON.parse(fs.readFileSync('/tmp/release-proposal.json', 'utf8'));
-          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-          pkg.version = proposal.version;
-          fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
-          NODE
+          # In-place version swap only — avoid JSON.stringify (rewrites CRLF → LF).
+          if ! grep -q "\"version\": \"${VERSION}\"" package.json; then
+            sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"${VERSION}\"/" package.json
+          fi
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
