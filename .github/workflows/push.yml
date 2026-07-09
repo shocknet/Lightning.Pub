@@ -80,6 +80,7 @@ jobs:
         env:
           STARTOS_BUILD_TRIGGER: ${{ secrets.STARTOS_BUILD_TRIGGER }}
           VERSION: ${{ steps.version.outputs.version }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
           DIGEST: ${{ steps.capture-digest.outputs.digest }}
           COMMIT: ${{ github.sha }}
           RELEASE_NOTES: ${{ github.event.release.body }}
@@ -91,10 +92,12 @@ jobs:
 
           PAYLOAD=$(python3 - <<'PY'
           import json, os
+          release_tag = os.environ.get("RELEASE_TAG") or f"v{os.environ['VERSION']}"
           print(json.dumps({
               "event_type": "docker-image-updated",
               "client_payload": {
                   "version": os.environ["VERSION"],
+                  "release_tag": release_tag,
                   "docker_tag": os.environ["VERSION"],
                   "digest": os.environ["DIGEST"],
                   "commit": os.environ["COMMIT"],

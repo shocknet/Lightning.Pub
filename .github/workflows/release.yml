@@ -43,20 +43,22 @@ jobs:
         run: |
           set -euo pipefail
 
-          VERSION=$(node -p "require('./package.json').version")
-          if git rev-parse "v${VERSION}" >/dev/null 2>&1; then
-            echo "Tag v${VERSION} already exists"
+          if ! git rev-parse HEAD^ >/dev/null 2>&1; then
+            echo "Root commit; not a release merge"
             exit 0
           fi
 
-          LAST_TAG=$(git tag -l 'v[0-9]*' --sort=-v:refname | head -1 || true)
-          if [ -n "$LAST_TAG" ]; then
-            LAST_VERSION="${LAST_TAG#v}"
-            HIGHER=$(printf '%s\n%s\n' "$LAST_VERSION" "$VERSION" | sort -V | tail -1)
-            if [ "$HIGHER" != "$VERSION" ] || [ "$LAST_VERSION" = "$VERSION" ]; then
-              echo "package.json version ${VERSION} is not ahead of ${LAST_TAG}"
-              exit 0
-            fi
+          VERSION=$(node -p "require('./package.json').version")
+          PARENT_VERSION=$(git show HEAD^:package.json | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).version")
+
+          if [ "$VERSION" = "$PARENT_VERSION" ]; then
+            echo "package.json unchanged on this commit (${VERSION}); not a release merge"
+            exit 0
+          fi
+
+          if git rev-parse "v${VERSION}" >/dev/null 2>&1; then
+            echo "Tag v${VERSION} already exists"
+            exit 0
           fi
 
           NOTES_FILE=$(mktemp)
@@ -98,33 +100,7 @@ jobs:
           TESTED_SHA: ${{ inputs.tested_sha }}
         run: |
           set -euo pipefail
-
-          git fetch --tags origin
-
-          LAST_TAG=$(git tag -l 'v[0-9]*' --sort=-v:refname | head -1 || true)
-          if [ -z "$LAST_TAG" ]; then
-            echo "No prior v* release tag; comparing from root"
-            if [ "$(git rev-list HEAD --count)" -eq 0 ]; then
-              echo "has_changes=false" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-            echo "base_ref=$(git rev-list --max-parents=0 HEAD | tail -1)" >> "$GITHUB_OUTPUT"
-            echo "last_tag=none" >> "$GITHUB_OUTPUT"
-            echo "has_changes=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          PENDING=$(git rev-list "${LAST_TAG}..HEAD" --count)
-          if [ "$PENDING" -eq 0 ]; then
-            echo "No commits since ${LAST_TAG}"
-            echo "has_changes=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          echo "base_ref=${LAST_TAG}" >> "$GITHUB_OUTPUT"
-          echo "last_tag=${LAST_TAG}" >> "$GITHUB_OUTPUT"
-          echo "has_changes=true" >> "$GITHUB_OUTPUT"
-          echo "${PENDING} commit(s) since ${LAST_TAG} on tested commit ${TESTED_SHA}"
+          bash .github/scripts/resolve-release-range.sh "$TESTED_SHA" "$GITHUB_OUTPUT"
 
       - uses: bufbuild/buf-setup-action@v1.1.0
         if: steps.pending.outputs.has_changes == 'true'
@@ -257,6 +233,7 @@ jobs:
             echo
             echo "**Checks used for this proposal**"
             echo "- Tests passed on commit \`${TESTED_SHA::7}\`"
+            echo "- Baseline tag: \`${{ steps.pending.outputs.last_tag }}\` (${{ steps.pending.outputs.pending }} commits)"
             echo "- Minimum bump from automation: \`${MIN_BUMP}\`"
             echo "- buf breaking: \`${BUF_BREAKING}\`"
             echo "- Agent model: \`${RELEASE_AGENT_MODEL}\`"
