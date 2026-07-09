@@ -471,40 +471,78 @@ export default class {
             return { feeSat: res.service_fee, valueSat: res.amount_paid, paymentPreimage: res.preimage, providerPubkey }
         }
         await this.Health()
+        let paymentFailed = false
         try {
-            const abortController = new AbortController()
-            const req = PayInvoiceReq(invoice, amount, routingFeeLimit)
-            const stream = this.router.sendPaymentV2(req, { abort: abortController.signal })
-            return new Promise((res, rej) => {
-                stream.responses.onError(error => {
-                    this.log(ERROR, "invoice payment failed", error)
-                    rej(error)
-                })
-                let indexSent = false
-                stream.responses.onMessage(payment => {
-                    const indexNum = Number(payment.paymentIndex)
-                    if (!indexSent && indexNum > 0) {
-                        indexSent = true
-                        paymentIndexCb?.(Number(payment.paymentIndex))
-                    }
-                    switch (payment.status) {
-                        case Payment_PaymentStatus.FAILED:
-                            this.log(ERROR, "invoice payment failed", payment.failureReason)
-                            this.utils.stateBundler.AddTxPointFailed('paidAnInvoice', decodedAmount, { from, used: 'lnd' })
-                            rej(PaymentFailureReason[payment.failureReason])
-                            return
-                        case Payment_PaymentStatus.SUCCEEDED:
-                            this.utils.stateBundler.AddTxPoint('paidAnInvoice', Number(payment.valueSat), { from, used: 'lnd', timeDiscount: true })
-                            res({ feeSat: Math.ceil(Number(payment.feeMsat) / 1000), valueSat: Number(payment.valueSat), paymentPreimage: payment.paymentPreimage })
-                            return
-                    }
-                })
-            })
+            const res = await this.sendPaymentV2({ invoice, amount, routingFeeLimit }, paymentIndexCb)
+            if (res.ok) {
+                this.utils.stateBundler.AddTxPoint('paidAnInvoice', res.res.valueSat, { from, used: 'lnd', timeDiscount: true })
+                return res.res
+            } else {
+                this.utils.stateBundler.AddTxPointFailed('paidAnInvoice', decodedAmount, { from, used: 'lnd' })
+                paymentFailed = true
+                throw new Error(res.error)
+            }
         } catch (err) {
-            this.utils.stateBundler.AddTxPointFailed('paidAnInvoice', decodedAmount, { from, used: 'lnd' })
-            throw err
+            if (paymentFailed) {
+                throw err
+            }
         }
+        this.log("Payment stream failed, fallingback to trackPayment")
+        const decoded = await this.DecodeInvoice(invoice)
 
+        while (true) {
+            try {
+                const payment = await this.GetPaymentFromHash(decoded.paymentHash)
+                if (!payment) {
+                    this.log(ERROR, "payment not found in trackPayment")
+                    throw new Error("payment not found in trackPayment")
+                }
+                switch (payment.status) {
+                    case Payment_PaymentStatus.FAILED:
+                        paymentFailed = true
+                        throw new Error(PaymentFailureReason[payment.failureReason])
+                    case Payment_PaymentStatus.SUCCEEDED:
+                        return { feeSat: Math.ceil(Number(payment.feeMsat) / 1000), valueSat: Number(payment.valueSat), paymentPreimage: payment.paymentPreimage }
+                }
+            } catch (err) {
+                if (paymentFailed) {
+                    throw err
+                }
+            }
+            this.log(ERROR, "failed to get payment status from hash, retrying in 5s: ")
+            await new Promise(resolve => setTimeout(resolve, 5 * 1000))
+        }
+    }
+
+    private async sendPaymentV2(payReq: { invoice: string, amount: number, routingFeeLimit: number }, paymentIndexCb?: (index: number) => void): Promise<{ ok: true, res: PaidInvoice } | { ok: false, error: string }> {
+        const { invoice, amount, routingFeeLimit } = payReq
+        const abortController = new AbortController()
+        const req = PayInvoiceReq(invoice, amount, routingFeeLimit)
+        const stream = this.router.sendPaymentV2(req, { abort: abortController.signal })
+        return new Promise((res, rej) => {
+            stream.responses.onError(error => {
+                this.log(ERROR, "invoice payment failed", error)
+                rej(error)
+            })
+            let indexSent = false
+            stream.responses.onMessage(payment => {
+                const indexNum = Number(payment.paymentIndex)
+                if (!indexSent && indexNum > 0) {
+                    indexSent = true
+                    paymentIndexCb?.(Number(payment.paymentIndex))
+                }
+                switch (payment.status) {
+                    case Payment_PaymentStatus.FAILED:
+                        this.log(ERROR, "invoice payment failed", payment.failureReason)
+                        res({ ok: false, error: PaymentFailureReason[payment.failureReason] })
+                        return
+                    case Payment_PaymentStatus.SUCCEEDED:
+                        const paidInvoice = { feeSat: Math.ceil(Number(payment.feeMsat) / 1000), valueSat: Number(payment.valueSat), paymentPreimage: payment.paymentPreimage }
+                        res({ ok: true, res: paidInvoice })
+                        return
+                }
+            })
+        })
     }
 
     async EstimateChainFees(address: string, amount: number, targetConf: number): Promise<EstimateFeeResponse> {
@@ -718,7 +756,6 @@ export default class {
                 abortController.abort()
             })
         })
-
     }
 
     async GetTx(txid: string) {
