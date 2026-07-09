@@ -43,6 +43,21 @@ jobs:
         run: |
           set -euo pipefail
 
+          PR_DATA=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls" --jq '.[0] // empty')
+          if [ -z "$PR_DATA" ] || [ "$PR_DATA" = "null" ]; then
+            echo "No associated pull request; not a release merge"
+            exit 0
+          fi
+
+          HEAD_REF=$(echo "$PR_DATA" | jq -r '.head.ref // empty')
+          PR_NUMBER=$(echo "$PR_DATA" | jq -r '.number')
+          HAS_RELEASE_LABEL=$(gh pr view "$PR_NUMBER" --json labels --jq '[.labels[].name] | any(. == "release")')
+
+          if [[ "$HEAD_REF" != autorelease/* ]] || [ "$HAS_RELEASE_LABEL" != "true" ]; then
+            echo "Commit is not from a merged release PR (head=${HEAD_REF}, release_label=${HAS_RELEASE_LABEL})"
+            exit 0
+          fi
+
           if ! git rev-parse HEAD^ >/dev/null 2>&1; then
             echo "Root commit; not a release merge"
             exit 0
@@ -74,7 +89,8 @@ jobs:
           fi
 
           if [ ! -s "$NOTES_FILE" ]; then
-            echo "Lightning.Pub v${VERSION}" > "$NOTES_FILE"
+            echo "Release notes are required in the merged release PR body"
+            exit 1
           fi
 
           gh release create "v${VERSION}" \
@@ -200,6 +216,11 @@ jobs:
           VERSION=$(jq -r .version /tmp/release-proposal.json)
           RELEASE_NOTES=$(jq -r .release_notes /tmp/release-proposal.json)
           BUMP=$(jq -r .bump /tmp/release-proposal.json)
+
+          if [ -z "$RELEASE_NOTES" ] || [ "$RELEASE_NOTES" = "null" ]; then
+            echo "Cursor did not produce release notes"
+            exit 1
+          fi
           MIN_BUMP=$(jq -r .min_bump /tmp/release-context.json)
           BUF_BREAKING=$(jq -r .buf_breaking /tmp/release-context.json)
           WARNINGS=$(jq -r '.warnings // [] | join("\n- ")' /tmp/release-proposal.json)
