@@ -24,6 +24,7 @@ import { WalletKitClient } from '../../../proto/lnd/walletkit.client.js';
 import SettingsManager from '../main/settingsManager.js';
 import { LndNodeSettings, LndSettings } from '../main/settings.js';
 import { ListAddressesResponse, PublishResponse } from '../../../proto/lnd/walletkit.js';
+import { isPaymentNotInitiatedError } from './trackPaymentError.js';
 
 const DeadLineMetadata = (deadline = 10 * 1000) => ({ deadline: Date.now() + deadline })
 const deadLndRetrySeconds = 20
@@ -472,9 +473,8 @@ export default class {
         }
         await this.Health()
         let paymentFailed = false
-        let gotIndex = false
         try {
-            const res = await this.sendPaymentV2({ invoice, amount, routingFeeLimit }, index => { gotIndex = true; paymentIndexCb?.(index) })
+            const res = await this.sendPaymentV2({ invoice, amount, routingFeeLimit }, paymentIndexCb)
             if (res.ok) {
                 this.utils.stateBundler.AddTxPoint('paidAnInvoice', res.res.valueSat, { from, used: 'lnd', timeDiscount: true })
                 return res.res
@@ -485,10 +485,6 @@ export default class {
             }
         } catch (err) {
             if (paymentFailed) {
-                throw err
-            }
-            if (!gotIndex) {
-                this.log("Payment stream failed before getting index, flagging payment as failed")
                 throw err
             }
         }
@@ -510,6 +506,10 @@ export default class {
             } catch (err) {
                 if (paymentFailed) {
                     throw err
+                }
+                if (isPaymentNotInitiatedError(err)) {
+                    this.utils.stateBundler.AddTxPointFailed('paidAnInvoice', decodedAmount, { from, used: 'lnd' })
+                    throw new Error("payment never initiated")
                 }
             }
             this.log(ERROR, "failed to get payment status from hash, retrying in 5s: ")
