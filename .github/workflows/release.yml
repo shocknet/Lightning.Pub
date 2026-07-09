@@ -1,0 +1,292 @@
+name: Release
+
+on:
+  push:
+    branches: [master, main]
+  workflow_dispatch:
+    inputs:
+      tested_sha:
+        description: Commit SHA that passed tests
+        required: true
+        type: string
+
+concurrency:
+  group: release-${{ github.event_name == 'workflow_dispatch' && format('proposal-{0}', inputs.tested_sha) || github.ref }}
+  cancel-in-progress: true
+
+env:
+  RELEASE_AGENT_MODEL: composer-2.5
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  publish:
+    name: Publish merged release
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'push' &&
+      !contains(github.event.head_commit.message, '[skip release]') &&
+      !startsWith(github.event.head_commit.message, 'chore(release):')
+    outputs:
+      published_version: ${{ steps.publish.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Publish GitHub release when version is untagged
+        id: publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          VERSION=$(node -p "require('./package.json').version")
+          if git rev-parse "v${VERSION}" >/dev/null 2>&1; then
+            echo "Tag v${VERSION} already exists"
+            exit 0
+          fi
+
+          LAST_TAG=$(git tag -l 'v[0-9]*' --sort=-v:refname | head -1 || true)
+          if [ -n "$LAST_TAG" ]; then
+            LAST_VERSION="${LAST_TAG#v}"
+            HIGHER=$(printf '%s\n%s\n' "$LAST_VERSION" "$VERSION" | sort -V | tail -1)
+            if [ "$HIGHER" != "$VERSION" ] || [ "$LAST_VERSION" = "$VERSION" ]; then
+              echo "package.json version ${VERSION} is not ahead of ${LAST_TAG}"
+              exit 0
+            fi
+          fi
+
+          NOTES_FILE=$(mktemp)
+          PR_BODY=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls" \
+            --jq '.[0].body // empty' || true)
+
+          if [ -n "$PR_BODY" ]; then
+            printf '%s\n' "$PR_BODY" | awk '
+              /^## Release notes/ { capture=1; next }
+              capture && /^## / { exit }
+              capture { print }
+            ' > "$NOTES_FILE"
+          fi
+
+          if [ ! -s "$NOTES_FILE" ]; then
+            echo "Lightning.Pub v${VERSION}" > "$NOTES_FILE"
+          fi
+
+          gh release create "v${VERSION}" \
+            --title "v${VERSION}" \
+            --notes-file "$NOTES_FILE"
+
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Published v${VERSION}"
+
+  maintain-release-pr:
+    name: Maintain release pull request
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tested_sha }}
+          fetch-depth: 0
+
+      - name: Skip when there is nothing new to release
+        id: pending
+        env:
+          TESTED_SHA: ${{ inputs.tested_sha }}
+        run: |
+          set -euo pipefail
+
+          git fetch --tags origin
+
+          LAST_TAG=$(git tag -l 'v[0-9]*' --sort=-v:refname | head -1 || true)
+          if [ -z "$LAST_TAG" ]; then
+            echo "No prior v* release tag; comparing from root"
+            if [ "$(git rev-list HEAD --count)" -eq 0 ]; then
+              echo "has_changes=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "base_ref=$(git rev-list --max-parents=0 HEAD | tail -1)" >> "$GITHUB_OUTPUT"
+            echo "last_tag=none" >> "$GITHUB_OUTPUT"
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          PENDING=$(git rev-list "${LAST_TAG}..HEAD" --count)
+          if [ "$PENDING" -eq 0 ]; then
+            echo "No commits since ${LAST_TAG}"
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "base_ref=${LAST_TAG}" >> "$GITHUB_OUTPUT"
+          echo "last_tag=${LAST_TAG}" >> "$GITHUB_OUTPUT"
+          echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          echo "${PENDING} commit(s) since ${LAST_TAG} on tested commit ${TESTED_SHA}"
+
+      - uses: bufbuild/buf-setup-action@v1.1.0
+        if: steps.pending.outputs.has_changes == 'true'
+
+      - name: Prepare release analysis context
+        if: steps.pending.outputs.has_changes == 'true'
+        run: |
+          bash .github/scripts/prepare-release-context.sh \
+            /tmp/release-context.json \
+            "${{ steps.pending.outputs.base_ref }}" \
+            "$(node -p "require('./package.json').version")" \
+            "${{ steps.pending.outputs.last_tag }}"
+
+      - name: Install Cursor CLI
+        if: steps.pending.outputs.has_changes == 'true'
+        run: |
+          curl https://cursor.com/install -fsS | bash
+          echo "$HOME/.cursor/bin" >> "$GITHUB_PATH"
+
+      - name: Propose next release with Cursor
+        if: steps.pending.outputs.has_changes == 'true'
+        env:
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+        run: |
+          set -euo pipefail
+
+          CONTEXT=/tmp/release-context.json
+          CURRENT_VERSION=$(jq -r .current_version "$CONTEXT")
+          LAST_TAG=$(jq -r .last_tag "$CONTEXT")
+          MIN_BUMP=$(jq -r .min_bump "$CONTEXT")
+          BUF_BREAKING=$(jq -r .buf_breaking "$CONTEXT")
+          BUF_OUTPUT=$(jq -r .buf_output "$CONTEXT")
+
+          PROMPT_FILE=$(mktemp)
+          {
+            echo "You are preparing the next Lightning.Pub release."
+            echo
+            echo "Current released version: ${CURRENT_VERSION}"
+            echo "Last git release tag: ${LAST_TAG}"
+            echo "Minimum required bump from automation: ${MIN_BUMP}"
+            echo "buf breaking detected: ${BUF_BREAKING}"
+            echo
+            echo "Public HTTP API lives in proto/service/*.proto."
+            echo "Generated route docs may change in proto/autogenerated/client.md."
+            echo
+            echo "=== buf breaking output ==="
+            echo "${BUF_OUTPUT}"
+            echo
+            echo "=== commits since last release ==="
+            cat "$(jq -r .commits_path "$CONTEXT")"
+            echo
+            echo "=== proto/service diff ==="
+            cat "$(jq -r .proto_diff_path "$CONTEXT")"
+            echo
+            echo "=== src diff stat ==="
+            cat "$(jq -r .src_stat_path "$CONTEXT")"
+            echo
+            echo "=== src diff (truncated) ==="
+            cat "$(jq -r .src_diff_path "$CONTEXT")"
+            echo
+            echo "=== client.md diff ==="
+            cat "$(jq -r .client_doc_diff_path "$CONTEXT")"
+            echo
+            echo 'Return ONLY JSON with keys: bump, version, release_notes.'
+            echo 'bump must be one of: patch, minor, major.'
+            echo "version must be exactly the semver resulting from the chosen bump."
+            echo "If buf_breaking is true, bump must be major."
+            echo "If methods.proto adds RPCs without breaking changes, bump must be at least minor."
+            echo "Release notes are for node operators; cite API/config/migration impact."
+          } > "$PROMPT_FILE"
+
+          agent -p --force \
+            --model "${RELEASE_AGENT_MODEL}" \
+            --output-format text \
+            "$(cat "$PROMPT_FILE")" > /tmp/agent-output.txt
+
+          python3 .github/scripts/parse-release-proposal.py \
+            /tmp/agent-output.txt \
+            /tmp/release-proposal.json \
+            "$CONTEXT"
+
+          jq -e '.warnings[]?' /tmp/release-proposal.json >/dev/null 2>&1 && {
+            echo "Validation warnings:"
+            jq -r '.warnings[]' /tmp/release-proposal.json
+          } || true
+
+          cat /tmp/release-proposal.json
+
+      - name: Update release pull request
+        if: steps.pending.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TESTED_SHA: ${{ inputs.tested_sha }}
+        run: |
+          set -euo pipefail
+
+          VERSION=$(jq -r .version /tmp/release-proposal.json)
+          RELEASE_NOTES=$(jq -r .release_notes /tmp/release-proposal.json)
+          BUMP=$(jq -r .bump /tmp/release-proposal.json)
+          MIN_BUMP=$(jq -r .min_bump /tmp/release-context.json)
+          BUF_BREAKING=$(jq -r .buf_breaking /tmp/release-context.json)
+          WARNINGS=$(jq -r '.warnings // [] | join("\n- ")' /tmp/release-proposal.json)
+          BRANCH="autorelease/v${VERSION}"
+          DEFAULT_BRANCH=$(gh repo view --json defaultBranchRef --jq .defaultBranchRef.name)
+
+          git fetch origin "${DEFAULT_BRANCH}"
+          git checkout "origin/${DEFAULT_BRANCH}"
+          git checkout -B "$BRANCH"
+
+          node <<'NODE'
+          const fs = require('fs');
+          const proposal = JSON.parse(fs.readFileSync('/tmp/release-proposal.json', 'utf8'));
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          pkg.version = proposal.version;
+          fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+          NODE
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json
+          git commit -m "chore(release): v${VERSION}"
+          git push --force origin "$BRANCH"
+
+          EXISTING=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number // empty')
+          BODY_FILE=$(mktemp)
+          {
+            echo "Automated release proposal for **v${VERSION}** (${BUMP} bump)."
+            echo
+            echo "Merge this pull request to tag the release and trigger Docker + StartOS builds."
+            echo
+            echo "**Checks used for this proposal**"
+            echo "- Tests passed on commit \`${TESTED_SHA::7}\`"
+            echo "- Minimum bump from automation: \`${MIN_BUMP}\`"
+            echo "- buf breaking: \`${BUF_BREAKING}\`"
+            echo "- Agent model: \`${RELEASE_AGENT_MODEL}\`"
+            if [ -n "$WARNINGS" ]; then
+              echo
+              echo "**Review warnings**"
+              echo "- ${WARNINGS}"
+            fi
+            echo
+            echo "## Release notes"
+            echo
+            echo "${RELEASE_NOTES}"
+          } > "$BODY_FILE"
+
+          if [ -n "$EXISTING" ]; then
+            gh pr edit "$EXISTING" \
+              --title "chore(release): v${VERSION}" \
+              --body-file "$BODY_FILE"
+            echo "Updated release PR #${EXISTING}"
+          else
+            for PR in $(gh pr list --label release --state open --json number --jq '.[].number'); do
+              gh pr close "$PR" --comment "Superseded by v${VERSION}" || true
+            done
+            gh label list --json name --jq '.[].name' | grep -qx release || \
+              gh label create release --description "Automated release PR" --color "FBCA04"
+            gh pr create \
+              --base "$DEFAULT_BRANCH" \
+              --head "$BRANCH" \
+              --title "chore(release): v${VERSION}" \
+              --body-file "$BODY_FILE" \
+              --label release
+            echo "Created release PR for v${VERSION}"
+          fi

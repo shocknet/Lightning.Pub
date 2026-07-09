@@ -1,9 +1,14 @@
 name: Docker Compose Actions Workflow
 on:
   push:
+    branches: [master, main]
     paths-ignore:
       - 'scripts/**'
       - 'README.md'
+permissions:
+  contents: read
+  actions: write
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -100,3 +105,21 @@ jobs:
       - name: Stop callback dummy server
         if: always()
         run: kill $(cat /tmp/callback-dummy-server.pid) 2>/dev/null || true
+
+  propose-release:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger release proposal workflow
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'release.yml',
+              ref: context.ref.replace('refs/heads/', ''),
+              inputs: {
+                tested_sha: context.sha,
+              },
+            });
