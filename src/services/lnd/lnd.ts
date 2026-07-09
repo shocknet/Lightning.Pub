@@ -472,8 +472,9 @@ export default class {
         }
         await this.Health()
         let paymentFailed = false
+        let gotIndex = false
         try {
-            const res = await this.sendPaymentV2({ invoice, amount, routingFeeLimit }, paymentIndexCb)
+            const res = await this.sendPaymentV2({ invoice, amount, routingFeeLimit }, index => { gotIndex = true; paymentIndexCb?.(index) })
             if (res.ok) {
                 this.utils.stateBundler.AddTxPoint('paidAnInvoice', res.res.valueSat, { from, used: 'lnd', timeDiscount: true })
                 return res.res
@@ -484,6 +485,10 @@ export default class {
             }
         } catch (err) {
             if (paymentFailed) {
+                throw err
+            }
+            if (!gotIndex) {
+                this.log("Payment stream failed before getting index, flagging payment as failed")
                 throw err
             }
         }
