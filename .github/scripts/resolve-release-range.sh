@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Resolve the baseline tag and pending commit count for release automation.
-# Ignores startos-v* tags and v* tags that point at HEAD (e.g. accidental releases).
+# Uses the nearest ancestor v* tag (git describe), ignoring startos-v*.
 
 set -euo pipefail
 
@@ -9,26 +9,29 @@ OUTPUT_FILE="${2:-}"
 
 git fetch --tags origin >/dev/null 2>&1 || true
 
-resolve_head_sha() {
-  git rev-parse "$HEAD_SHA"
-}
+head_sha="$(git rev-parse "$HEAD_SHA")"
 
 find_last_release_tag() {
   local head_sha="$1"
   local tag
 
-  while IFS= read -r tag; do
-    [ -n "$tag" ] || continue
-    if [ "$(git rev-parse "$tag")" != "$head_sha" ]; then
-      echo "$tag"
-      return 0
-    fi
-  done < <(git tag -l 'v[0-9]*' --sort=-v:refname)
+  tag="$(git describe --tags --abbrev=0 --match 'v[0-9]*' "$head_sha" 2>/dev/null || true)"
+  if [ -z "$tag" ]; then
+    return 1
+  fi
 
-  return 1
+  # If HEAD itself is tagged, step back one commit and describe again.
+  if [ "$(git rev-parse "$tag")" = "$head_sha" ]; then
+    tag="$(git describe --tags --abbrev=0 --match 'v[0-9]*' "${head_sha}^" 2>/dev/null || true)"
+  fi
+
+  if [ -z "$tag" ]; then
+    return 1
+  fi
+
+  echo "$tag"
 }
 
-head_sha="$(resolve_head_sha)"
 last_tag=""
 if last_tag="$(find_last_release_tag "$head_sha")"; then
   base_ref="$last_tag"
