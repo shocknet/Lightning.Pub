@@ -24,26 +24,16 @@ jobs:
 
       - name: Resolve release version
         id: version
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ "${{ github.event_name }}" = "release" ]; then
             VERSION="${{ github.event.release.tag_name }}"
-            RELEASE_TAG="$VERSION"
-            RELEASE_NOTES="${{ github.event.release.body }}"
           else
             VERSION=$(node -p "require('./package.json').version")
-            RELEASE_TAG="v${VERSION#v}"
-            RELEASE_NOTES=$(gh release view "$RELEASE_TAG" --json body --jq '.body // empty' 2>/dev/null || true)
           fi
           VERSION="${VERSION#v}"
-          RELEASE_TAG="v${VERSION}"
           {
             echo "version=${VERSION}"
-            echo "release_tag=${RELEASE_TAG}"
-            echo "release_notes<<EOF"
-            printf '%s\n' "$RELEASE_NOTES"
-            echo "EOF"
+            echo "release_tag=v${VERSION}"
           } >> "$GITHUB_OUTPUT"
           echo "Building release version ${VERSION}"
 
@@ -96,7 +86,6 @@ jobs:
           RELEASE_TAG: ${{ steps.version.outputs.release_tag }}
           DIGEST: ${{ steps.capture-digest.outputs.digest }}
           COMMIT: ${{ github.sha }}
-          RELEASE_NOTES: ${{ steps.version.outputs.release_notes }}
         run: |
           if [ -z "$STARTOS_BUILD_TRIGGER" ]; then
             echo "STARTOS_BUILD_TRIGGER not configured, skipping StartOS build trigger"
@@ -105,16 +94,16 @@ jobs:
 
           PAYLOAD=$(python3 - <<'PY'
           import json, os
-          release_tag = os.environ.get("RELEASE_TAG") or f"v{os.environ['VERSION']}"
+          version = os.environ["VERSION"]
+          release_tag = os.environ.get("RELEASE_TAG") or f"v{version}"
           print(json.dumps({
               "event_type": "docker-image-updated",
               "client_payload": {
-                  "version": os.environ["VERSION"],
+                  "version": version,
                   "release_tag": release_tag,
-                  "docker_tag": os.environ["VERSION"],
+                  "docker_tag": version,
                   "digest": os.environ["DIGEST"],
                   "commit": os.environ["COMMIT"],
-                  "changelog": os.environ.get("RELEASE_NOTES", ""),
               },
           }))
           PY
