@@ -490,6 +490,7 @@ export default class {
         }
         this.log("Payment stream failed, fallingback to trackPayment")
         const decoded = await this.DecodeInvoice(invoice)
+        let notFoundCounter = 0
 
         while (true) {
             try {
@@ -508,6 +509,11 @@ export default class {
                     throw err
                 }
                 if (isPaymentNotInitiatedError(err)) {
+                    notFoundCounter++
+                } else {
+                    notFoundCounter = 0
+                }
+                if (notFoundCounter > 2) {
                     this.utils.stateBundler.AddTxPointFailed('paidAnInvoice', decodedAmount, { from, used: 'lnd' })
                     throw new Error("payment never initiated")
                 }
