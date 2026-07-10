@@ -1,5 +1,4 @@
 import crypto from 'crypto'
-import { status } from '@grpc/grpc-js'
 import { getGrpcErrorCode, isPaymentNotInitiatedError } from '../services/lnd/trackPaymentError.js'
 import { TestBase } from './testBase.js'
 
@@ -20,7 +19,6 @@ const testTrackPaymentV2UnknownHashReturnsNotFound = async (T: TestBase) => {
     } catch (err) {
         error = err
     }
-    console.log(error)
     T.expect(error).to.exist
     const code = getGrpcErrorCode(error)
     T.expect(code).to.equal('NOT_FOUND')
