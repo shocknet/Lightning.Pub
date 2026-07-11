@@ -7,6 +7,7 @@ import { InvoicePaidCb } from '../lnd/settings.js'
 import Storage from '../storage/index.js'
 import SettingsManager from './settingsManager.js'
 import { LiquiditySettings } from './settings.js'
+import { TxPointSettings } from '../storage/tlv/stateBundler.js'
 export type nostrCallback<T> = { startedAtMillis: number, type: 'single' | 'stream', f: (res: T) => void }
 export class LiquidityProvider {
     getSettings: () => LiquiditySettings
@@ -25,15 +26,18 @@ export class LiquidityProvider {
     queue: ((state: 'ready') => void)[] = []
     utils: Utils
     pendingPayments: Record<string, number> = {}
+    recoveredPendingPayments: Record<string, { total: number, from: 'user' | 'system', processing?: true }> = {}
     feesCache: Types.CumulativeFees | null = null
     lastSeenBeacon = 0
     latestReceivedBalance = 0
-    incrementProviderBalance: (balance: number) => Promise<void>
+    incrementProviderBalance: (balance: number, tx?: string) => Promise<void>
     pendingPaymentsAck: Record<string, boolean> = {}
     // make the sub process accept client
     constructor(getSettings: () => LiquiditySettings, utils: Utils, invoicePaidCb: InvoicePaidCb, incrementProviderBalance: (balance: number) => Promise<any>) {
         this.utils = utils
         this.getSettings = getSettings
+        this.invoicePaidCb = invoicePaidCb
+        this.incrementProviderBalance = incrementProviderBalance
         const providerPubkey = getSettings().liquidityProviderPub
         const disableLiquidityProvider = getSettings().disableLiquidityProvider
         if (!providerPubkey) {
@@ -44,10 +48,25 @@ export class LiquidityProvider {
             this.log("Liquidity provider is disabled, will not be initialized")
             return
         }
-        this.log("connecting to liquidity provider:", providerPubkey)
         this.providerPubkey = providerPubkey
-        this.invoicePaidCb = invoicePaidCb
-        this.incrementProviderBalance = incrementProviderBalance
+    }
+
+    usesExternalProvider = () => {
+        const settings = this.getSettings()
+        if (!this.providerPubkey || settings.disableLiquidityProvider) {
+            return false
+        }
+        if (this.localPubkey && this.localPubkey === this.providerPubkey) {
+            return false
+        }
+        return true
+    }
+
+    initExternalProviderClient = () => {
+        if (this.client || !this.usesExternalProvider()) {
+            return
+        }
+        this.log("connecting to liquidity provider:", this.providerPubkey)
         this.client = newNostrClient({
             pubDestination: this.providerPubkey,
             retrieveNostrUserAuth: async () => this.localPubkey,
@@ -79,12 +98,15 @@ export class LiquidityProvider {
     }
 
     IsReady = () => {
+        if (!this.usesExternalProvider()) {
+            return false
+        }
         const seenInPast2Minutes = Date.now() - this.lastSeenBeacon < 1000 * 60 * 2
-        return this.ready && !this.getSettings().disableLiquidityProvider && seenInPast2Minutes
+        return this.ready && seenInPast2Minutes
     }
 
     AwaitProviderReady = async (): Promise<'inactive' | 'ready'> => {
-        if (!this.providerPubkey || this.getSettings().disableLiquidityProvider) {
+        if (!this.usesExternalProvider()) {
             return 'inactive'
         }
         if (this.IsReady()) {
@@ -126,6 +148,12 @@ export class LiquidityProvider {
                 }
             } else if (res.operation.type === Types.UserOperationType.OUTGOING_INVOICE) {
                 delete this.pendingPaymentsAck[res.operation.identifier]
+                // if a recovery pending payment exists, and the payment failed, delete it,
+                // if still pending, or success, leave it in the cache, to keep the balance consistent.
+                // the actual provider balance decrement is done by the pending payment checker on startup
+                if (res.operation.paidAtUnix < 0) {
+                    delete this.recoveredPendingPayments[res.operation.identifier]
+                }
             }
         })
     }
@@ -176,7 +204,8 @@ export class LiquidityProvider {
     }
 
     GetPendingBalance = async () => {
-        return Object.values(this.pendingPayments).reduce((a, b) => a + b, 0)
+        return Object.values(this.pendingPayments).reduce((a, b) => a + b, 0) +
+            Object.values(this.recoveredPendingPayments).reduce((a, b) => a + b.total, 0)
     }
 
     GetServiceFee = (amount: number, f?: Types.CumulativeFees) => {
@@ -206,12 +235,12 @@ export class LiquidityProvider {
         return true
     }
 
-    AddInvoice = async (amount: number, memo: string, from: 'user' | 'system', expiry: number) => {
+    AddInvoice = async (amount: number, memo: string, from: 'user' | 'system', expiry: number, zap?: string) => {
         try {
             if (!this.IsReady()) {
                 throw new Error("liquidity provider is not ready yet, disabled or unreachable")
             }
-            const res = await this.client.NewInvoice({ amountSats: amount, memo, expiry })
+            const res = await this.client.NewInvoice({ amountSats: amount, memo, expiry, zap })
             if (res.status === 'ERROR') {
                 this.log("error creating invoice", res.reason)
                 throw new Error(res.reason)
@@ -223,6 +252,17 @@ export class LiquidityProvider {
             throw err
         }
 
+    }
+
+    AddRecoveredPendingPayment = (invoice: string, amount: number, from: 'user' | 'system') => {
+        if (this.pendingPayments[invoice]) {
+            this.log("already have a pending payment for", invoice, "skipping recovery")
+            return
+        }
+        if (this.recoveredPendingPayments[invoice]) {
+            throw new Error("already have a recovered pending payment for " + invoice)
+        }
+        this.recoveredPendingPayments[invoice] = { total: amount, from }
     }
 
     PayInvoice = async (invoice: string, decodedAmount: number, from: 'user' | 'system', feeLimit?: number) => {
@@ -296,6 +336,13 @@ export class LiquidityProvider {
     setNostrInfo = ({ localId, localPubkey }: { localPubkey: string, localId: string }) => {
         this.localId = localId
         this.localPubkey = localPubkey
+        if (!this.usesExternalProvider()) {
+            if (this.localPubkey === this.getSettings().liquidityProviderPub) {
+                this.log("local pub is the configured liquidity provider, skipping external provider connection")
+            }
+            return
+        }
+        this.initExternalProviderClient()
         this.setSetIfConfigured()
         // If nostrSender becomes ready after setNostrInfo, ensure we check again
         if (!this.configured && this.utils.nostrSender.IsReady()) {
@@ -312,6 +359,9 @@ export class LiquidityProvider {
         }
     }
     onBeaconEvent = async (beaconData: { content: string, pub: string }) => {
+        if (!this.usesExternalProvider()) {
+            return
+        }
         if (beaconData.pub !== this.providerPubkey) {
             this.log(ERROR, "got beacon from invalid pub", beaconData.pub, this.providerPubkey)
             return
@@ -333,6 +383,9 @@ export class LiquidityProvider {
     }
 
     onEvent = async (res: { requestId: string }, fromPub: string) => {
+        if (!this.usesExternalProvider()) {
+            return false
+        }
         if (fromPub !== this.providerPubkey) {
             this.log("got event from invalid pub", fromPub, this.providerPubkey)
             return false

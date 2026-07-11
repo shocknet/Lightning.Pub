@@ -297,7 +297,7 @@ class StorageProcessor {
     private async handleStartTx(operation: StartTxOperation) {
         try {
             await this.txQueue.PushToQueue({
-                dbTx: false,
+                dbTx: true,
                 description: operation.description || "startTx",
                 exec: tx => {
                     this.sendResponse({

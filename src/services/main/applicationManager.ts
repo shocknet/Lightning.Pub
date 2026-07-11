@@ -11,6 +11,7 @@ import { ZapInfo } from '../storage/entity/UserReceivingInvoice.js'
 import { nofferEncode, ndebitEncode, OfferPriceType, nmanageEncode } from '@shocknet/clink-sdk'
 import SettingsManager from './settingsManager.js'
 import { BackupManager } from '../backup/backupManager.js'
+import { assertCallbackUrlAllowed } from '../helpers/safeOutboundFetch.js'
 const TOKEN_EXPIRY_TIME = 2 * 60 * 1000 // 2 minutes, in milliseconds
 
 type NsecLinkingData = {
@@ -194,6 +195,7 @@ export default class {
     }
 
     async AddAppInvoice(appId: string, req: Types.AddAppInvoiceRequest): Promise<Types.NewInvoiceResponse> {
+        assertCallbackUrlAllowed(req.http_callback_url)
         const app = await this.storage.applicationStorage.GetApplication(appId)
         const { user: payer } = await this.storage.applicationStorage.GetOrCreateApplicationUser(app, req.payer_identifier, 0)
         this.backupManager.notifyBackupTable('application_users', 'user_balances')
@@ -204,6 +206,7 @@ export default class {
     }
 
     async AddAppUserInvoice(appId: string, req: Types.AddAppUserInvoiceRequest, clinkRequester?: { pub: string, eventId: string }): Promise<Types.NewInvoiceResponse> {
+        assertCallbackUrlAllowed(req.http_callback_url)
         const app = await this.storage.applicationStorage.GetApplication(appId)
         const log = getLogger({ appName: app.name })
         const receiver = await this.storage.applicationStorage.GetApplicationUser(app, req.receiver_identifier)

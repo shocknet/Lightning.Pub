@@ -233,6 +233,12 @@ export class Watchdog {
             this.log("Error updating accumulated htlc fees", err.message || err)
             return
         }
+        const usersWithNegativeBalance = await this.storage.paymentStorage.GetUsersWithNegativeBalance()
+        if (usersWithNegativeBalance.length > 0) {
+            getLogger({ component: 'bark' })("Users with negative balance detected, locking outgoing operations", usersWithNegativeBalance.map(u => u.user_id))
+            this.lnd.LockOutgoingOperations()
+            return
+        }
         const totalUsersBalance = await this.storage.paymentStorage.GetTotalUsersBalance()
         this.utils.stateBundler.AddBalancePoint('usersBalance', totalUsersBalance)
         const { totalExternal } = await this.getAggregatedExternalBalance()

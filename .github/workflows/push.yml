@@ -1,11 +1,9 @@
 name: Create and publish a Docker image
 
 on:
-  push:
-    branches: [ main, master ]
   release:
-    types: [created, published, prereleased]
-  workflow_dispatch: # This allows manual triggering of the workflow
+    types: [published]
+  workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
@@ -24,6 +22,21 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Resolve release version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            VERSION="${{ github.event.release.tag_name }}"
+          else
+            VERSION=$(node -p "require('./package.json').version")
+          fi
+          VERSION="${VERSION#v}"
+          {
+            echo "version=${VERSION}"
+            echo "release_tag=v${VERSION}"
+          } >> "$GITHUB_OUTPUT"
+          echo "Building release version ${VERSION}"
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
@@ -37,18 +50,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@v4
-        with:
-          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/lightning-pub
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable={{is_default_branch}}
-
       - name: Build and push Docker image
         id: build-and-push
         uses: docker/build-push-action@v4
@@ -58,20 +59,18 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
+            ghcr.io/${{ github.repository_owner }}/lightning-pub:${{ steps.version.outputs.version }}
             ghcr.io/${{ github.repository_owner }}/lightning-pub:latest
-            ghcr.io/${{ github.repository_owner }}/lightning-pub:master
-          labels: ${{ steps.meta.outputs.labels }}
+          labels: |
+            org.opencontainers.image.version=${{ steps.version.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
 
       - name: Capture image digest
         id: capture-digest
         run: |
-          # For multi-arch builds, use the digest from build output
           DIGEST="${{ steps.build-and-push.outputs.digest }}"
           echo "Multi-arch manifest digest: $DIGEST"
-          echo "digest=$DIGEST" >> $GITHUB_OUTPUT
-
-      - name: Debug Print Digest
-        run: echo "Digest is ${{ steps.capture-digest.outputs.digest }}"
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
 
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v1
@@ -81,28 +80,39 @@ jobs:
           push-to-registry: true
 
       - name: Trigger StartOS package build
-        if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
         env:
           STARTOS_BUILD_TRIGGER: ${{ secrets.STARTOS_BUILD_TRIGGER }}
+          VERSION: ${{ steps.version.outputs.version }}
+          RELEASE_TAG: ${{ steps.version.outputs.release_tag }}
+          DIGEST: ${{ steps.capture-digest.outputs.digest }}
+          COMMIT: ${{ github.sha }}
         run: |
           if [ -z "$STARTOS_BUILD_TRIGGER" ]; then
-            echo "⚠️  STARTOS_BUILD_TRIGGER not configured, skipping StartOS build trigger"
+            echo "STARTOS_BUILD_TRIGGER not configured, skipping StartOS build trigger"
             exit 0
           fi
-          
-          echo "🚀 Triggering StartOS package build with digest: ${{ steps.capture-digest.outputs.digest }}"
-          
-          curl -X POST \
+
+          PAYLOAD=$(python3 - <<'PY'
+          import json, os
+          version = os.environ["VERSION"]
+          release_tag = os.environ.get("RELEASE_TAG") or f"v{version}"
+          print(json.dumps({
+              "event_type": "docker-image-updated",
+              "client_payload": {
+                  "version": version,
+                  "release_tag": release_tag,
+                  "docker_tag": version,
+                  "digest": os.environ["DIGEST"],
+                  "commit": os.environ["COMMIT"],
+              },
+          }))
+          PY
+          )
+
+          curl -fsS -X POST \
             -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer $STARTOS_BUILD_TRIGGER" \
+            -H "Authorization: Bearer ${STARTOS_BUILD_TRIGGER}" \
             https://api.github.com/repos/shocknet/start9-LightningPub/dispatches \
-            -d "{
-              \"event_type\": \"docker-image-updated\",
-              \"client_payload\": {
-                \"docker_tag\": \"latest\",
-                \"digest\": \"${{ steps.capture-digest.outputs.digest }}\",
-                \"commit\": \"${{ github.sha }}\"
-              }
-            }"
-          
-          echo "✓ StartOS build triggered"
+            -d "$PAYLOAD"
+
+          echo "StartOS build triggered for v${VERSION}"

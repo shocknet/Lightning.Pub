@@ -60,7 +60,7 @@ type Client struct {
 	AddAppUserInvoice func(req AddAppUserInvoiceRequest) (*NewInvoiceResponse, error)
 	AddPeer           func(req AddPeerRequest) error
 	AddProduct        func(req AddProductRequest) (*Product, error)
-	AddUserOffer      func(req OfferConfig) (*OfferId, error)
+	AddUserOffer      func(req OfferCreateRequest) (*OfferId, error)
 	AuthApp           func(req AuthAppRequest) (*AuthApp, error)
 	AuthorizeManage   func(req ManageAuthorizationRequest) (*ManageAuthorization, error)
 	BanDebit          func(req DebitOperation) error
@@ -148,7 +148,7 @@ type Client struct {
 	SubmitWebRtcMessage           func(req WebRtcMessage) (*WebRtcAnswer, error)
 	UpdateCallbackUrl             func(req CallbackUrl) (*CallbackUrl, error)
 	UpdateChannelPolicy           func(req UpdateChannelPolicyRequest) error
-	UpdateUserOffer               func(req OfferConfig) error
+	UpdateUserOffer               func(req OfferUpdateRequest) error
 	UseInviteLink                 func(req UseInviteLinkRequest) error
 	UserHealth                    func() (*UserHealthState, error)
 	ZipMetricsStorages            func() (*ZippedMetrics, error)
@@ -325,7 +325,7 @@ func NewClient(params ClientParams) *Client {
 			}
 			return &res, nil
 		},
-		AddUserOffer: func(req OfferConfig) (*OfferId, error) {
+		AddUserOffer: func(req OfferCreateRequest) (*OfferId, error) {
 			auth, err := params.RetrieveUserAuth()
 			if err != nil {
 				return nil, err
@@ -2526,7 +2526,7 @@ func NewClient(params ClientParams) *Client {
 			}
 			return nil
 		},
-		UpdateUserOffer: func(req OfferConfig) error {
+		UpdateUserOffer: func(req OfferUpdateRequest) error {
 			auth, err := params.RetrieveUserAuth()
 			if err != nil {
 				return err

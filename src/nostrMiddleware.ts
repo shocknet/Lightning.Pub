@@ -62,7 +62,7 @@ export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSett
                 eventId: event.id,
                 offer: offerReq.offer
             })
-            mainHandler.offerManager.handleClinkOffer(offerReq, event)
+            void mainHandler.offerManager.handleClinkOffer(offerReq, event).catch(err => log(ERROR, "handleClinkOffer failed", err.message || err))
             return
         } else if (event.kind === 21002) {
             if (event.relayConstraint === 'provider') {
@@ -70,7 +70,7 @@ export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSett
                 return
             }
             const debitReq = j as NdebitData
-            mainHandler.debitManager.handleNip68Debit(debitReq, event)
+            void mainHandler.debitManager.handleNip68Debit(debitReq, event).catch(err => log(ERROR, "handleNip68Debit failed", err.message || err))
             return
         } else if (event.kind === 21003) {
             if (event.relayConstraint === 'provider') {
@@ -78,7 +78,7 @@ export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSett
                 return
             }
             const nmanageReq = j as NmanageRequest
-            mainHandler.managementManager.handleRequest(nmanageReq, event);
+            void mainHandler.managementManager.handleRequest(nmanageReq, event).catch(err => log(ERROR, "handleRequest failed", err.message || err))
             return;
         }
         if (!j.rpcName) {
@@ -97,7 +97,10 @@ export default (serverMethods: Types.ServerMethods, mainHandler: Main, nostrSett
             return
         }
         nostrTransport({ ...j, appId: event.appId }, res => {
-            nostr.Send({ type: 'app', appId: event.appId }, { type: 'content', pub: event.pub, content: JSON.stringify({ ...res, requestId: j.requestId }) })
+            nostr.Send({ type: 'app', appId: event.appId },
+                { type: 'content', pub: event.pub, content: JSON.stringify({ ...res, requestId: j.requestId }) })
+
+
         }, event.startAtNano, event.startAtMs)
     }, beacon => mainHandler.liquidityProvider.onBeaconEvent(beacon))
 

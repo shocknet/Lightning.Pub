@@ -3,54 +3,85 @@ Object.assign(global, { WebSocket: WebSocket });
 import { Event, UnsignedEvent, Relay, Filter } from 'nostr-tools'
 import { ERROR, getLogger, PubLogger } from '../helpers/logger.js'
 import { Subscription } from 'nostr-tools/lib/types/abstract-relay.js';
-// const handledEvents: string[] = [] // TODO: - big memory leak here, add TTL
-/* export type SendDataContent = { type: "content", content: string, pub: string }
-export type SendDataEvent = { type: "event", event: UnsignedEvent, encrypt?: { toPub: string } }
-export type SendData = SendDataContent | SendDataEvent
-export type SendInitiator = { type: 'app', appId: string } | { type: 'client', clientId: string }
-export type NostrSend = (initiator: SendInitiator, data: SendData, relays?: string[] | undefined) => void */
-
-/* export type LinkedProviderInfo = { pubDestination: string, clientId: string, relayUrl: string }
-export type AppInfo = { appId: string, publicKey: string, privateKey: string, name: string, provider?: LinkedProviderInfo } */
-// export type ClientInfo = { clientId: string, publicKey: string, privateKey: string, name: string }
-/* export type NostrSettings = {
-    apps: AppInfo[]
-    relays: string[]
-    // clients: ClientInfo[]
-    maxEventContentLength: number
-    // providerDestinationPub: string
-}
-
-export type NostrEvent = {
-    id: string
-    pub: string
-    content: string
-    appId: string
-    startAtNano: string
-    startAtMs: number
-    kind: number
-    relayConstraint?: 'service' | 'provider'
-} */
 
 type RelayCallback = (event: Event, relay: RelayConnection) => void
-export type RelaySettings = { relayUrl: string, filters: Filter[], serviceRelay: boolean, providerRelay: boolean }
+export type RelaySettings = { relayUrl: string, filters: PartialFilter[], serviceRelay: boolean, providerRelay: boolean }
 
+export type PartialFilter = { f: Filter, populateSince: boolean }
+const completeFilter = (filter: PartialFilter, sinceMs: number): Filter => {
+    if (filter.populateSince) {
+        return { ...filter.f, since: Math.ceil(sinceMs / 1000) }
+    }
+    return filter.f
+}
+/* nostr events deduper will remove events older than NOSTR_EVENTS_TTL */
+const NOSTR_EVENTS_TTL = 1000 * 60 * 20 // 20 minutes
+/* interval used to trigger the cleanup check, */
+const INTERVAL_MS = NOSTR_EVENTS_TTL / 2 // 10 minutes
+/* Event age must be at least NOSTR_EVENTS_TTL ms old to be deduped (20min)
+IF uptime < INTERVAL_MS (10min):
+- since = startedAtMs (events can only be as old as uptime)
+ELSE:
+- since = now - INTERVAL_MS (events can be up to 10min old)
+*/
+export class EventsDeduper {
+    handledEvents: Map<string, { handledAt: number }> = new Map()
+    cleanupInterval: NodeJS.Timeout | undefined
+    startedAtMs = Date.now()
+    constructor() {
+        this.StartCleanupInterval()
+    }
+
+    ResetStartTime = () => {
+        this.startedAtMs = Date.now()
+    }
+
+    GetSinceMs = () => {
+        if (Date.now() - this.startedAtMs < INTERVAL_MS) {
+            return this.startedAtMs
+        }
+        return Date.now() - INTERVAL_MS
+    }
+
+    Dedupe = (eventId: string): { alreadyHandled: boolean } => {
+        if (this.handledEvents.has(eventId)) {
+            return { alreadyHandled: true }
+        }
+        this.handledEvents.set(eventId, { handledAt: Date.now() })
+        return { alreadyHandled: false }
+    }
+
+    Stop = () => {
+        if (this.cleanupInterval) {
+            clearInterval(this.cleanupInterval)
+        }
+    }
+
+    StartCleanupInterval() {
+        this.cleanupInterval = setInterval(() => {
+            const now = Date.now()
+            this.handledEvents.forEach((value, key) => {
+                if (now - value.handledAt > NOSTR_EVENTS_TTL) {
+                    this.handledEvents.delete(key)
+                }
+            })
+        }, INTERVAL_MS)
+    }
+}
 
 export class RelayConnection {
     eventCallback: RelayCallback
     log: PubLogger
     relay: Relay | null = null
     sub: Subscription | null = null
-    // relayUrl: string
     stopped = false
-    // filters: Filter[]
     settings: RelaySettings
-    constructor(settings: RelaySettings, eventCallback: RelayCallback, autoconnect = true) {
+    eventsDeduper: EventsDeduper
+    constructor(settings: RelaySettings, eventCallback: RelayCallback, deduper: EventsDeduper, autoconnect = true) {
         this.log = getLogger({ component: "relay:" + settings.relayUrl })
-        // this.relayUrl = relayUrl
-        // this.filters = filters
         this.settings = settings
         this.eventCallback = eventCallback
+        this.eventsDeduper = deduper
         if (autoconnect) {
             this.ConnectLoop()
         }
@@ -88,7 +119,7 @@ export class RelayConnection {
     async ConnectLoop() {
         let failures = 0
         while (!this.stopped) {
-            await this.ConnectPromise()
+            await this.ConnectPromise(() => failures = 0)
             const pow = Math.pow(2, failures)
             const delay = Math.min(pow, 900)
             this.log("connection failed, will try again in", delay, "seconds (failures:", failures, ")")
@@ -98,14 +129,14 @@ export class RelayConnection {
         this.log("nostr handler stopped")
     }
 
-    async ConnectPromise() {
+    async ConnectPromise(onReady: () => void) {
         return new Promise<void>(async (res) => {
             this.relay = await this.GetRelay()
             if (!this.relay) {
                 res()
                 return
             }
-            this.sub = this.Subscribe(this.relay)
+            this.sub = this.Subscribe(this.relay, onReady)
             this.relay.onclose = (() => {
                 this.log("disconnected")
                 this.sub?.close()
@@ -133,10 +164,16 @@ export class RelayConnection {
         }
     }
 
-    Subscribe(relay: Relay) {
+    Subscribe(relay: Relay, onReady: () => void) {
         this.log("🔍 subscribing...")
-        return relay.subscribe(this.settings.filters, {
-            oneose: () => this.log("is ready"),
+        const sinceMs = this.eventsDeduper.GetSinceMs()
+        const filters = this.settings.filters.map(f => completeFilter(f, sinceMs))
+        this.log("🔍 subscribing with filters:", filters)
+        return relay.subscribe(filters, {
+            oneose: () => {
+                this.log("is ready")
+                onReady()
+            },
             onevent: (e) => this.eventCallback(e, this)
         })
     }
@@ -147,6 +184,5 @@ export class RelayConnection {
         }
         return this.relay.publish(e)
     }
-
-
 }
+

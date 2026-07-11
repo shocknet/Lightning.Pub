@@ -24,6 +24,7 @@ import { WalletKitClient } from '../../../proto/lnd/walletkit.client.js';
 import SettingsManager from '../main/settingsManager.js';
 import { LndNodeSettings, LndSettings } from '../main/settings.js';
 import { ListAddressesResponse, PublishResponse } from '../../../proto/lnd/walletkit.js';
+import { isPaymentNotInitiatedError } from './trackPaymentError.js';
 
 const DeadLineMetadata = (deadline = 10 * 1000) => ({ deadline: Date.now() + deadline })
 const deadLndRetrySeconds = 20
@@ -415,18 +416,19 @@ export default class {
         }
     }
 
-    async NewInvoice(value: number, memo: string, expiry: number, { useProvider, from }: TxActionOptions, blind = false): Promise<Invoice> {
+    async NewInvoice(value: number, memo: string, expiry: number, { useProvider, from }: TxActionOptions, blind = false, zapDescription?: string): Promise<Invoice> {
         this.log(DEBUG, "Creating new invoice")
         // Force use of provider when bypass is enabled
         const mustUseProvider = this.liquidProvider.getSettings().useOnlyLiquidityProvider || useProvider
         if (mustUseProvider) {
             this.log(INFO, "using provider")
-            const invoice = await this.liquidProvider.AddInvoice(value, memo, from, expiry)
+            const invoice = await this.liquidProvider.AddInvoice(value, memo, from, expiry, zapDescription)
             const providerPubkey = this.liquidProvider.GetProviderPubkey()
             return { payRequest: invoice, providerPubkey }
         }
         try {
-            const res = await this.lightning.addInvoice(AddInvoiceReq(value, expiry, true, memo, blind), DeadLineMetadata())
+            const descriptionHash = zapDescription ? crypto.createHash('sha256').update(zapDescription).digest() : undefined
+            const res = await this.lightning.addInvoice(AddInvoiceReq(value, expiry, true, memo, blind, descriptionHash), DeadLineMetadata())
             this.utils.stateBundler.AddTxPoint('addedInvoice', value, { from, used: 'lnd' })
             return { payRequest: res.response.paymentRequest }
         } catch (err) {
@@ -489,39 +491,102 @@ export default class {
             return { feeSat: res.service_fee, valueSat: res.amount_paid, paymentPreimage: res.preimage, providerPubkey }
         }
         await this.Health()
+        let paymentFailed = false
         try {
-            const abortController = new AbortController()
-            const req = PayInvoiceReq(invoice, amount, routingFeeLimit)
-            const stream = this.router.sendPaymentV2(req, { abort: abortController.signal })
-            return new Promise((res, rej) => {
-                stream.responses.onError(error => {
-                    this.log(ERROR, "invoice payment failed", error)
-                    rej(error)
-                })
-                let indexSent = false
-                stream.responses.onMessage(payment => {
-                    const indexNum = Number(payment.paymentIndex)
-                    if (!indexSent && indexNum > 0) {
-                        indexSent = true
-                        paymentIndexCb?.(Number(payment.paymentIndex))
-                    }
-                    switch (payment.status) {
-                        case Payment_PaymentStatus.FAILED:
-                            this.log(ERROR, "invoice payment failed", payment.failureReason)
-                            rej(PaymentFailureReason[payment.failureReason])
-                            return
-                        case Payment_PaymentStatus.SUCCEEDED:
-                            this.utils.stateBundler.AddTxPoint('paidAnInvoice', Number(payment.valueSat), { from, used: 'lnd', timeDiscount: true })
-                            res({ feeSat: Math.ceil(Number(payment.feeMsat) / 1000), valueSat: Number(payment.valueSat), paymentPreimage: payment.paymentPreimage })
-                            return
-                    }
-                })
-            })
+            const res = await this.sendPaymentV2({ invoice, amount, routingFeeLimit }, paymentIndexCb)
+            if (res.ok) {
+                this.utils.stateBundler.AddTxPoint('paidAnInvoice', res.res.valueSat, { from, used: 'lnd', timeDiscount: true })
+                return res.res
+            } else {
+                this.utils.stateBundler.AddTxPointFailed('paidAnInvoice', decodedAmount, { from, used: 'lnd' })
+                paymentFailed = true
+                throw new Error(res.error)
+            }
         } catch (err) {
-            this.utils.stateBundler.AddTxPointFailed('paidAnInvoice', decodedAmount, { from, used: 'lnd' })
-            throw err
+            if (paymentFailed) {
+                throw err
+            }
         }
+        this.log("Payment stream failed, fallingback to trackPayment")
+        const decoded = await this.DecodeInvoice(invoice)
+        let notFoundCounter = 0
 
+        while (true) {
+            try {
+                const payment = await this.trackPaymentV2(decoded.paymentHash)
+                switch (payment.status) {
+                    case Payment_PaymentStatus.FAILED:
+                        this.utils.stateBundler.AddTxPointFailed('paidAnInvoice', decodedAmount, { from, used: 'lnd' })
+                        paymentFailed = true
+                        throw new Error(PaymentFailureReason[payment.failureReason])
+                    case Payment_PaymentStatus.SUCCEEDED:
+                        this.utils.stateBundler.AddTxPoint('paidAnInvoice', Number(payment.valueSat), { from, used: 'lnd', timeDiscount: true })
+                        return { feeSat: Math.ceil(Number(payment.feeMsat) / 1000), valueSat: Number(payment.valueSat), paymentPreimage: payment.paymentPreimage }
+                }
+            } catch (err) {
+                if (paymentFailed) {
+                    throw err
+                }
+                if (isPaymentNotInitiatedError(err)) {
+                    notFoundCounter++
+                } else {
+                    notFoundCounter = 0
+                }
+                if (notFoundCounter > 2) {
+                    this.utils.stateBundler.AddTxPointFailed('paidAnInvoice', decodedAmount, { from, used: 'lnd' })
+                    throw new Error("payment never initiated")
+                }
+            }
+            this.log(ERROR, "failed to get payment status from hash, retrying in 5s: ")
+            await new Promise(resolve => setTimeout(resolve, 5 * 1000))
+        }
+    }
+
+    private async sendPaymentV2(payReq: { invoice: string, amount: number, routingFeeLimit: number }, paymentIndexCb?: (index: number) => void): Promise<{ ok: true, res: PaidInvoice } | { ok: false, error: string }> {
+        const { invoice, amount, routingFeeLimit } = payReq
+        const abortController = new AbortController()
+        const req = PayInvoiceReq(invoice, amount, routingFeeLimit)
+        const stream = this.router.sendPaymentV2(req, { abort: abortController.signal })
+        return new Promise((res, rej) => {
+            stream.responses.onError(error => {
+                this.log(ERROR, "invoice payment failed", error)
+                rej(error)
+            })
+            let indexSent = false
+            stream.responses.onMessage(payment => {
+                const indexNum = Number(payment.paymentIndex)
+                if (!indexSent && indexNum > 0) {
+                    indexSent = true
+                    paymentIndexCb?.(Number(payment.paymentIndex))
+                }
+                switch (payment.status) {
+                    case Payment_PaymentStatus.FAILED:
+                        this.log(ERROR, "invoice payment failed", payment.failureReason)
+                        res({ ok: false, error: PaymentFailureReason[payment.failureReason] })
+                        return
+                    case Payment_PaymentStatus.SUCCEEDED:
+                        const paidInvoice = { feeSat: Math.ceil(Number(payment.feeMsat) / 1000), valueSat: Number(payment.valueSat), paymentPreimage: payment.paymentPreimage }
+                        res({ ok: true, res: paidInvoice })
+                        return
+                }
+            })
+        })
+    }
+
+    async trackPaymentV2(paymentHash: string): Promise<Payment> {
+        this.log(DEBUG, "Tracking payment")
+        const stream = this.router.trackPaymentV2({
+            paymentHash: Buffer.from(paymentHash, 'hex'),
+            noInflightUpdates: true
+        })
+        return new Promise((res, rej) => {
+            stream.responses.onError(error => {
+                rej(error)
+            })
+            stream.responses.onMessage(payment => {
+                res(payment)
+            })
+        })
     }
 
     async EstimateChainFees(address: string, amount: number, targetConf: number): Promise<EstimateFeeResponse> {
@@ -735,7 +800,6 @@ export default class {
                 abortController.abort()
             })
         })
-
     }
 
     async GetTx(txid: string) {

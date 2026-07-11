@@ -67,12 +67,20 @@ export default class {
         }, txId)
     }
 
-    async FlagInvoiceAsPaid(invoice: UserReceivingInvoice, amount: number, serviceFee: number, internal: boolean, txId: string) {
+    async FlagInvoiceAsPaid(invoice: UserReceivingInvoice, amount: number, serviceFee: number, internal: boolean, txId: string): Promise<UserReceivingInvoice> {
+        if (amount <= 0) {
+            throw new Error("amount cannot be zero or negative")
+        }
         const i: Partial<UserReceivingInvoice> = { paid_at_unix: Math.floor(Date.now() / 1000), paid_amount: amount, service_fee: serviceFee, internal }
         if (!internal) {
             i.paidByLnd = true
         }
-        return this.dbs.Update<UserReceivingInvoice>('UserReceivingInvoice', invoice.serial_id, i, txId)
+        await this.dbs.Update<UserReceivingInvoice>('UserReceivingInvoice', invoice.serial_id, i, txId)
+        const updated = await this.dbs.FindOne<UserReceivingInvoice>('UserReceivingInvoice', { where: { serial_id: invoice.serial_id } }, txId)
+        if (!updated) {
+            throw new Error('invoice row missing after FlagInvoiceAsPaid')
+        }
+        return updated
     }
 
     async GetUserInvoicesFlaggedAsPaid(userSerialId: number, fromIndex: number, fromPaidTimestamp: number, take = 50, txId?: string): Promise<UserReceivingInvoice[]> {
@@ -211,10 +219,10 @@ export default class {
         return this.dbs.Update<UserInvoicePayment>('UserInvoicePayment', invoicePaymentSerialId, up, txId)
     }
 
-    async AddInternalPayment(userId: string, invoice: string, amount: number, serviceFees: number, linkedApplication: Application, debitNpub?: string): Promise<UserInvoicePayment> {
-        const user = await this.userStorage.GetUser(userId)
+    async AddInternalPayment(userId: string, invoice: string, amount: number, serviceFees: number, linkedApplication: Application, debitNpub?: string, txId?: string): Promise<UserInvoicePayment> {
+        const user = await this.userStorage.GetUser(userId, txId)
         return this.dbs.CreateAndSave<UserInvoicePayment>('UserInvoicePayment', {
-            user: await this.userStorage.GetUser(userId),
+            user,
             paid_amount: amount,
             invoice,
             routing_fees: 0,
@@ -223,7 +231,7 @@ export default class {
             internal: true,
             linkedApplication,
             debit_to_pub: debitNpub
-        })
+        }, txId)
     }
 
     GetUserInvoicePayments(userId: string, fromIndex: number, take = 50, txId?: string): Promise<UserInvoicePayment[]> {
@@ -256,10 +264,9 @@ export default class {
         return this.dbs.Find<UserInvoicePayment>('UserInvoicePayment', { where: [pending, paid], order: { paid_at_unix: 'DESC' } }, txId)
     }
 
-    async AddUserTransactionPayment(userId: string, address: string, txHash: string, txOutput: number, amount: number, chainFees: number, serviceFees: number, internal: boolean, height: number, linkedApplication: Application): Promise<UserTransactionPayment> {
-        const user = await this.userStorage.GetUser(userId)
+    async AddUserTransactionPayment(userId: string, address: string, txHash: string, txOutput: number, amount: number, chainFees: number, serviceFees: number, internal: boolean, height: number, linkedApplication: Application, txId?: string): Promise<UserTransactionPayment> {
         return this.dbs.CreateAndSave<UserTransactionPayment>('UserTransactionPayment', {
-            user: await this.userStorage.GetUser(userId),
+            user: await this.userStorage.GetUser(userId, txId),
             address,
             paid_amount: amount,
             chain_fees: chainFees,
@@ -271,7 +278,7 @@ export default class {
             broadcast_height: height,
             confs: internal ? 10 : 0,
             linkedApplication
-        })
+        }, txId)
     }
 
     GetUserTransactionPayments(userId: string, fromIndex: number, take = 50, txId?: string): Promise<UserTransactionPayment[]> {
@@ -502,6 +509,10 @@ export default class {
             default:
                 break;
         }
+    }
+
+    async GetUsersWithNegativeBalance(txId?: string) {
+        return this.dbs.Find<User>('User', { where: { balance_sats: LessThan(0) } }, txId)
     }
 
     async GetTotalUsersBalance(excludeLocked?: boolean, txId?: string) {

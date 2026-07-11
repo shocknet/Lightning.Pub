@@ -642,7 +642,7 @@ service LightningPub {
         option (nostr) = true;
     }
 
-    rpc UpdateUserOffer(structs.OfferConfig) returns (structs.Empty){
+    rpc UpdateUserOffer(structs.OfferUpdateRequest) returns (structs.Empty){
         option (auth_type)  = "User";
         option (http_method) = "post";
         option (http_route) = "/api/user/offer/update";
@@ -656,7 +656,7 @@ service LightningPub {
         option (nostr) = true;
     }
 
-    rpc AddUserOffer(structs.OfferConfig) returns (structs.OfferId){
+    rpc AddUserOffer(structs.OfferCreateRequest) returns (structs.OfferId){
         option (auth_type)  = "User";
         option (http_method) = "post";
         option (http_route) = "/api/user/offer/add";

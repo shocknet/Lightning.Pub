@@ -1,7 +1,7 @@
 import { Channel, ChannelEventUpdate } from "../../../proto/lnd/lightning"
 import { HtlcEvent } from "../../../proto/lnd/router"
 
-type TxOutput = {
+export type TxOutput = {
     hash: string
     index: number
 }

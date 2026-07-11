@@ -84,11 +84,11 @@ export class LiquidityStorage {
         console.log("updating tracked balance:", latestBalance)
         return this.dbs.Update<TrackedProvider>('TrackedProvider', { provider_pubkey: pub, provider_type: providerType }, { latest_balance: latestBalance })
     }
-    async IncrementTrackedProviderBalance(providerType: 'lnd' | 'lnPub', pub: string, amount: number) {
+    async IncrementTrackedProviderBalance(providerType: 'lnd' | 'lnPub', pub: string, amount: number, tx?: string) {
         if (amount < 0) {
-            return this.dbs.Increment<TrackedProvider>('TrackedProvider', { provider_pubkey: pub, provider_type: providerType }, "latest_balance", amount)
+            return this.dbs.Increment<TrackedProvider>('TrackedProvider', { provider_pubkey: pub, provider_type: providerType }, "latest_balance", amount, tx)
         } else {
-            return this.dbs.Decrement<TrackedProvider>('TrackedProvider', { provider_pubkey: pub, provider_type: providerType }, "latest_balance", -amount)
+            return this.dbs.Decrement<TrackedProvider>('TrackedProvider', { provider_pubkey: pub, provider_type: providerType }, "latest_balance", -amount, tx)
         }
 
     }

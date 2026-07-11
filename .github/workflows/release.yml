@@ -1,0 +1,260 @@
+name: Release
+
+on:
+  push:
+    branches: [master, main]
+  workflow_dispatch:
+    inputs:
+      tested_sha:
+        description: Commit SHA that passed tests
+        required: true
+        type: string
+
+concurrency:
+  group: release-${{ github.event_name == 'workflow_dispatch' && format('proposal-{0}', inputs.tested_sha) || github.ref }}
+  cancel-in-progress: true
+
+env:
+  RELEASE_AGENT_MODEL: composer-2.5
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  publish:
+    name: Publish merged release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+    # Must NOT skip chore(release): — that is the merge commit message from the release PR.
+    if: >-
+      github.event_name == 'push' &&
+      !contains(github.event.head_commit.message, '[skip release]')
+    outputs:
+      published_version: ${{ steps.publish.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Publish GitHub release when version is untagged
+        id: publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          PR_DATA=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls" --jq '.[0] // empty')
+          if [ -z "$PR_DATA" ] || [ "$PR_DATA" = "null" ]; then
+            echo "No associated pull request; not a release merge"
+            exit 0
+          fi
+
+          HEAD_REF=$(echo "$PR_DATA" | jq -r '.head.ref // empty')
+          PR_NUMBER=$(echo "$PR_DATA" | jq -r '.number')
+          HAS_RELEASE_LABEL=$(gh pr view "$PR_NUMBER" --json labels --jq '[.labels[].name] | any(. == "release")')
+
+          if [[ "$HEAD_REF" != autorelease/* ]] || [ "$HAS_RELEASE_LABEL" != "true" ]; then
+            echo "Commit is not from a merged release PR (head=${HEAD_REF}, release_label=${HAS_RELEASE_LABEL})"
+            exit 0
+          fi
+
+          VERSION=$(node -p "require('./package.json').version")
+
+          if git rev-parse "v${VERSION}" >/dev/null 2>&1; then
+            echo "Tag v${VERSION} already exists"
+            exit 0
+          fi
+
+          # package.json may be unchanged when shipping an already-declared untagged version.
+
+          NOTES_FILE=$(mktemp)
+          # Prefer live PR body — commits API can lag / truncate; notes section is last in the template.
+          PR_BODY=$(gh pr view "$PR_NUMBER" --json body --jq '.body // empty')
+          if [ -z "$PR_BODY" ]; then
+            PR_BODY=$(echo "$PR_DATA" | jq -r '.body // empty')
+          fi
+
+          if [ -n "$PR_BODY" ]; then
+            # Take everything after the heading — nested ##/### headings are part of the notes.
+            printf '%s\n' "$PR_BODY" | awk '
+              /^## Release notes[[:space:]]*$/ { capture=1; next }
+              capture { print }
+            ' > "$NOTES_FILE"
+          fi
+
+          if ! grep -q '[^[:space:]]' "$NOTES_FILE"; then
+            echo "Release notes are required in the merged release PR body under '## Release notes'"
+            exit 1
+          fi
+
+          gh release create "v${VERSION}" \
+            --title "v${VERSION}" \
+            --notes-file "$NOTES_FILE" \
+            --target "${GITHUB_SHA}"
+
+          # Releases created with GITHUB_TOKEN do not fire release:published workflows.
+          # Explicitly dispatch Docker + StartOS packaging instead.
+          DEFAULT_BRANCH=$(gh repo view --json defaultBranchRef --jq .defaultBranchRef.name)
+          gh workflow run push.yml --ref "$DEFAULT_BRANCH"
+
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Published v${VERSION} and dispatched Docker/StartOS build"
+
+  maintain-release-pr:
+    name: Maintain release pull request
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tested_sha }}
+          fetch-depth: 0
+
+      - name: Skip when there is nothing new to release
+        id: pending
+        env:
+          TESTED_SHA: ${{ inputs.tested_sha }}
+        run: |
+          set -euo pipefail
+          bash .github/scripts/resolve-release-range.sh "$TESTED_SHA" "$GITHUB_OUTPUT"
+
+      - uses: bufbuild/buf-setup-action@v1.1.0
+        if: steps.pending.outputs.has_changes == 'true'
+
+      - name: Prepare release analysis context
+        if: steps.pending.outputs.has_changes == 'true'
+        run: |
+          bash .github/scripts/prepare-release-context.sh \
+            /tmp/release-context.json \
+            "${{ steps.pending.outputs.base_ref }}" \
+            "$(node -p "require('./package.json').version")" \
+            "${{ steps.pending.outputs.last_tag }}"
+
+      - name: Install Cursor CLI
+        if: steps.pending.outputs.has_changes == 'true'
+        run: |
+          curl https://cursor.com/install -fsS | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          echo "$HOME/.cursor/bin" >> "$GITHUB_PATH"
+          command -v agent
+          agent --version || true
+
+      - name: Propose next release with Cursor
+        if: steps.pending.outputs.has_changes == 'true'
+        timeout-minutes: 20
+        env:
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+        run: |
+          set -euo pipefail
+
+          bash .github/scripts/run-release-agent.sh \
+            /tmp/release-context.json \
+            /tmp/agent-output.txt \
+            "${RELEASE_AGENT_MODEL}"
+
+          python3 .github/scripts/parse-release-proposal.py \
+            /tmp/agent-output.txt \
+            /tmp/release-proposal.json \
+            /tmp/release-context.json
+
+          jq -e '.warnings[]?' /tmp/release-proposal.json >/dev/null 2>&1 && {
+            echo "Validation warnings:"
+            jq -r '.warnings[]' /tmp/release-proposal.json
+          } || true
+
+          cat /tmp/release-proposal.json
+
+      - name: Update release pull request
+        if: steps.pending.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TESTED_SHA: ${{ inputs.tested_sha }}
+        run: |
+          set -euo pipefail
+
+          VERSION=$(jq -r .version /tmp/release-proposal.json)
+          RELEASE_NOTES=$(jq -r .release_notes /tmp/release-proposal.json)
+          BUMP=$(jq -r .bump /tmp/release-proposal.json)
+
+          if [ -z "$RELEASE_NOTES" ] || [ "$RELEASE_NOTES" = "null" ]; then
+            echo "Cursor did not produce release notes"
+            exit 1
+          fi
+          MIN_BUMP=$(jq -r .min_bump /tmp/release-context.json)
+          BUF_BREAKING=$(jq -r .buf_breaking /tmp/release-context.json)
+          WARNINGS=$(jq -r '.warnings // [] | join("\n- ")' /tmp/release-proposal.json)
+          BRANCH="autorelease/v${VERSION}"
+          DEFAULT_BRANCH=$(gh repo view --json defaultBranchRef --jq .defaultBranchRef.name)
+
+          # Build PR body first so notes are never lost if git steps fail later.
+          BODY_FILE=$(mktemp)
+          {
+            echo "Automated release proposal for **v${VERSION}** (${BUMP} bump)."
+            echo
+            echo "Merge this pull request to tag the release and trigger Docker + StartOS builds."
+            echo
+            echo "**Do not squash-merge.** Use a normal merge commit so the release label and branch association are preserved."
+            echo
+            echo "**Checks used for this proposal**"
+            echo "- Tests passed on commit \`${TESTED_SHA::7}\`"
+            echo "- Baseline tag: \`${{ steps.pending.outputs.last_tag }}\` (${{ steps.pending.outputs.pending }} commits)"
+            echo "- Minimum bump from automation: \`${MIN_BUMP}\`"
+            echo "- buf breaking: \`${BUF_BREAKING}\`"
+            echo "- Agent model: \`${RELEASE_AGENT_MODEL}\`"
+            if [ -n "$WARNINGS" ]; then
+              echo
+              echo "**Review warnings**"
+              echo "- ${WARNINGS}"
+            fi
+            echo
+            echo "## Release notes"
+            echo
+            printf '%s\n' "$RELEASE_NOTES"
+          } > "$BODY_FILE"
+
+          git fetch origin "${DEFAULT_BRANCH}"
+          # Discard any working-tree changes the agent may have made.
+          git reset --hard
+          git clean -fd
+          git checkout -B "$BRANCH" "origin/${DEFAULT_BRANCH}"
+
+          # In-place version swap only — avoid JSON.stringify (rewrites CRLF → LF).
+          if ! grep -q "\"version\": \"${VERSION}\"" package.json; then
+            sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"${VERSION}\"/" package.json
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json
+          if git diff --cached --quiet; then
+            # Shipping an already-declared untagged package.json version: empty commit is fine.
+            git commit --allow-empty -m "chore(release): v${VERSION}"
+          else
+            git commit -m "chore(release): v${VERSION}"
+          fi
+          git push --force origin "$BRANCH"
+
+          EXISTING=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number // empty')
+
+          if [ -n "$EXISTING" ]; then
+            gh pr edit "$EXISTING" \
+              --title "chore(release): v${VERSION}" \
+              --body-file "$BODY_FILE"
+            echo "Updated release PR #${EXISTING}"
+          else
+            for PR in $(gh pr list --label release --state open --json number --jq '.[].number'); do
+              gh pr close "$PR" --comment "Superseded by v${VERSION}" || true
+            done
+            gh label list --json name --jq '.[].name' | grep -qx release || \
+              gh label create release --description "Automated release PR" --color "FBCA04"
+            gh pr create \
+              --base "$DEFAULT_BRANCH" \
+              --head "$BRANCH" \
+              --title "chore(release): v${VERSION}" \
+              --body-file "$BODY_FILE" \
+              --label release
+            echo "Created release PR for v${VERSION}"
+          fi

@@ -820,6 +820,7 @@ message LiveDebitRequest {
         FrequencyRule frequency = 4;
         Empty full_access = 5;
     }
+    optional string k1 = 20;
 }
 
 message LiveManageRequest {
@@ -845,6 +846,29 @@ message DebitResponse {
 
 message OfferId {
     string offer_id = 1;
+}
+
+message OfferCreateRequest {
+    string label = 1;
+    int64 price_sats = 2;
+    string callback_url = 3;
+    repeated string payer_data = 4;
+    optional bool blind = 5;
+
+    string token = 6;
+    bool rejectUnauthorized = 7;
+}
+
+message OfferUpdateRequest {
+    string offer_id = 1;
+    string label = 2;
+    int64 price_sats = 3;
+    string callback_url = 4;
+    repeated string payer_data = 5;
+    optional bool blind = 6;
+
+    string token = 7;
+    bool rejectUnauthorized = 8;
 }
 
 message OfferConfig {

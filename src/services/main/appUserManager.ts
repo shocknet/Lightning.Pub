@@ -7,6 +7,7 @@ import { OfferPriceType, ndebitEncode, nmanageEncode, nofferEncode } from '@shoc
 import { getLogger } from '../helpers/logger.js'
 import SettingsManager from './settingsManager.js'
 import { BackupManager } from '../backup/backupManager.js'
+import { assertCallbackUrlAllowed } from '../helpers/safeOutboundFetch.js'
 export default class {
 
     storage: Storage
@@ -31,7 +32,7 @@ export default class {
             t = token.substring("Bearer ".length)
         }
         if (!t) throw new Error("no user token provided")
-        const decoded = jwt.verify(token, this.settings.getStorageSettings().jwtSecret) as { user_id: string, app_id: string, app_user_id: string }
+        const decoded = jwt.verify(t, this.settings.getStorageSettings().jwtSecret) as { user_id: string, app_id: string, app_user_id: string }
         if (!decoded.user_id || !decoded.app_id || !decoded.app_user_id) {
             throw new Error("the provided token is not a valid app user token token")
         }
@@ -93,6 +94,7 @@ export default class {
     }
 
     async UpdateCallbackUrl(ctx: Types.UserContext, req: Types.CallbackUrl): Promise<Types.CallbackUrl> {
+        assertCallbackUrlAllowed(req.url)
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id)
         await this.storage.applicationStorage.UpdateUserCallbackUrl(app, ctx.app_user_id, req.url)
         void this.backupManager.notifyBackupTable('application_users')
