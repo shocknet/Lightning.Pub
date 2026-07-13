@@ -5,7 +5,14 @@ import { expectThrowsAsync, runSanityCheck, safelySetUserBalance, TestBase } fro
 export const ignore = false
 export const dev = false
 
+const USER1_FUNDING_SATS = 2000
+const USER2_FUNDING_SATS = 500
+const OUTGOING_PAYMENT_SATS = 500
+
 const emptyCursor = (): Types.OperationsCursor => ({ id: 0, ts: 0 })
+
+const outgoingInvoiceServiceFee = (T: TestBase, amount: number) =>
+    T.main.paymentManager.getSendServiceFee(Types.UserOperationType.OUTGOING_INVOICE, amount, true)
 
 const getUsersAdminInfo = (T: TestBase, req: Types.UsersAdminInfoRequest = {}) =>
     T.main.appUserManager.GetUsersAdminInfo(req)
@@ -23,6 +30,8 @@ const getUserOperationsFromAdmin = (T: TestBase, userId: string, maxSize = 50) =
     }, true)
 
 export default async (T: TestBase) => {
+    await safelySetUserBalance(T, T.user1, USER1_FUNDING_SATS)
+    await safelySetUserBalance(T, T.user2, USER2_FUNDING_SATS)
     await testGetUsersAdminInfo(T)
     await testGetUsersAdminInfoPagination(T)
     await testGetUserOperationsFromAdminOutgoingPayment(T)
@@ -32,8 +41,6 @@ export default async (T: TestBase) => {
 
 const testGetUsersAdminInfo = async (T: TestBase) => {
     T.d("starting testGetUsersAdminInfo")
-    await safelySetUserBalance(T, T.user1, 2000)
-    await safelySetUserBalance(T, T.user2, 500)
 
     const res = await getUsersAdminInfo(T)
     T.expect(Types.UsersAdminInfoValidate(res)).to.equal(null)
@@ -43,8 +50,8 @@ const testGetUsersAdminInfo = async (T: TestBase) => {
     const user2 = res.users.find(u => u.user_id === T.user2.userId)
     T.expect(user1).to.not.equal(undefined)
     T.expect(user2).to.not.equal(undefined)
-    T.expect(user1!.balance).to.equal(2000)
-    T.expect(user2!.balance).to.equal(500)
+    T.expect(user1!.balance).to.equal(USER1_FUNDING_SATS)
+    T.expect(user2!.balance).to.equal(USER2_FUNDING_SATS)
     T.expect(user1!.locked).to.equal(false)
 
     const user1AppUser = user1!.app_users.find(a => a.app_user_id === T.user1.appUserIdentifier)
@@ -71,24 +78,33 @@ const testGetUsersAdminInfoPagination = async (T: TestBase) => {
 
 const testGetUserOperationsFromAdminOutgoingPayment = async (T: TestBase) => {
     T.d("starting testGetUserOperationsFromAdminOutgoingPayment")
-    await safelySetUserBalance(T, T.user1, 2000)
+    const serviceFee = outgoingInvoiceServiceFee(T, OUTGOING_PAYMENT_SATS)
 
     const invoice = await T.externalAccessToOtherLnd.NewInvoice(
-        500, "admin-user-ops", defaultInvoiceExpiry, { from: "system", useProvider: false }
+        OUTGOING_PAYMENT_SATS, "admin-user-ops", defaultInvoiceExpiry, { from: "system", useProvider: false }
     )
     await T.main.appUserManager.PayInvoice(
         { app_id: T.user1.appId, user_id: T.user1.userId, app_user_id: T.user1.appUserIdentifier },
         { invoice: invoice.payRequest, amount: 0 }
     )
 
+    const user1 = await T.main.storage.userStorage.GetUser(T.user1.userId)
+    T.expect(user1.balance_sats).to.equal(USER1_FUNDING_SATS - OUTGOING_PAYMENT_SATS - serviceFee)
+
     const res = await getUserOperationsFromAdmin(T, T.user1.userId)
     T.expect(Types.GetUserOperationsResponseValidate(res)).to.equal(null)
     T.expect(res.user_id).to.equal(T.user1.userId)
 
+    const incomingFunding = res.latestIncomingInvoiceOperations.operations.find(op =>
+        op.type === Types.UserOperationType.INCOMING_INVOICE && op.amount === USER1_FUNDING_SATS
+    )
+    T.expect(incomingFunding).to.not.equal(undefined)
+
     const outgoingPayment = res.latestOutgoingInvoiceOperations.operations.find(op =>
-        op.type === Types.UserOperationType.OUTGOING_INVOICE && op.amount === 500
+        op.type === Types.UserOperationType.OUTGOING_INVOICE && op.amount === OUTGOING_PAYMENT_SATS
     )
     T.expect(outgoingPayment).to.not.equal(undefined)
+    T.expect(outgoingPayment!.service_fee).to.equal(serviceFee)
     T.d("GetUserOperationsFromAdmin returns outgoing invoice payments")
 }
 
@@ -112,6 +128,7 @@ const testGetUserOperationsFromAdminWorksForBannedUser = async (T: TestBase) => 
 
     const res = await getUserOperationsFromAdmin(T, T.user1.userId)
     T.expect(Types.GetUserOperationsResponseValidate(res)).to.equal(null)
-    T.expect(res.latestOutgoingInvoiceOperations.operations.length).to.be.at.least(1)
+    T.expect(res.latestOutgoingInvoiceOperations.operations).to.have.lengthOf(1)
+    T.expect(res.latestOutgoingInvoiceOperations.operations[0].amount).to.equal(OUTGOING_PAYMENT_SATS)
     T.d("GetUserOperationsFromAdmin still works for banned users")
 }
