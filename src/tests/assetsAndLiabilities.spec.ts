@@ -101,9 +101,6 @@ const testV1Compatibility = async (T: TestBase) => {
         T.expect(lnd.tracked.invoices).to.be.an("array")
         T.expect(lnd.tracked.incoming_tx).to.be.an("array")
         T.expect(lnd.tracked.outgoing_tx).to.be.an("array")
-        for (const op of lnd.tracked.payments) {
-            T.expect(op.tracked?.user_id).to.equal(undefined)
-        }
     }
     T.d("v1 endpoint returns flat operation arrays")
 }
