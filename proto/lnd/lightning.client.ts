@@ -64,6 +64,8 @@ import type { ListPaymentsResponse } from "./lightning.js";
 import type { ListPaymentsRequest } from "./lightning.js";
 import type { PayReq } from "./lightning";
 import type { PayReqString } from "./lightning";
+import type { DelCanceledInvoiceResp } from "./lightning";
+import type { DelCanceledInvoiceReq } from "./lightning";
 import type { InvoiceSubscription } from "./lightning.js";
 import type { PaymentHash } from "./lightning";
 import type { ListInvoiceResponse } from "./lightning.js";
@@ -540,6 +542,14 @@ export interface ILightningClient {
      */
     subscribeInvoices(input: InvoiceSubscription, options?: RpcOptions): ServerStreamingCall<InvoiceSubscription, Invoice>;
     /**
+     * lncli: `deletecanceledinvoice`
+     * DeleteCanceledInvoice removes a canceled invoice from the database. If the
+     * invoice is not in the canceled state, an error will be returned.
+     *
+     * @generated from protobuf rpc: DeleteCanceledInvoice
+     */
+    deleteCanceledInvoice(input: DelCanceledInvoiceReq, options?: RpcOptions): UnaryCall<DelCanceledInvoiceReq, DelCanceledInvoiceResp>;
+    /**
      * lncli: `decodepayreq`
      * DecodePayReq takes an encoded payment request string and attempts to decode
      * it, returning a full description of the conditions encoded within the
@@ -785,9 +795,10 @@ export interface ILightningClient {
     listPermissions(input: ListPermissionsRequest, options?: RpcOptions): UnaryCall<ListPermissionsRequest, ListPermissionsResponse>;
     /**
      *
-     * CheckMacaroonPermissions checks whether a request follows the constraints
-     * imposed on the macaroon and that the macaroon is authorized to follow the
-     * provided permissions.
+     * CheckMacaroonPermissions checks whether the provided macaroon contains all
+     * the provided permissions. If the macaroon is valid (e.g. all caveats are
+     * satisfied), and all permissions provided in the request are met, then
+     * this RPC returns true.
      *
      * @generated from protobuf rpc: CheckMacaroonPermissions
      */
@@ -1370,6 +1381,17 @@ export class LightningClient implements ILightningClient, ServiceInfo {
         return stackIntercept<InvoiceSubscription, Invoice>("serverStreaming", this._transport, method, opt, input);
     }
     /**
+     * lncli: `deletecanceledinvoice`
+     * DeleteCanceledInvoice removes a canceled invoice from the database. If the
+     * invoice is not in the canceled state, an error will be returned.
+     *
+     * @generated from protobuf rpc: DeleteCanceledInvoice
+     */
+    deleteCanceledInvoice(input: DelCanceledInvoiceReq, options?: RpcOptions): UnaryCall<DelCanceledInvoiceReq, DelCanceledInvoiceResp> {
+        const method = this.methods[37], opt = this._transport.mergeOptions(options);
+        return stackIntercept<DelCanceledInvoiceReq, DelCanceledInvoiceResp>("unary", this._transport, method, opt, input);
+    }
+    /**
      * lncli: `decodepayreq`
      * DecodePayReq takes an encoded payment request string and attempts to decode
      * it, returning a full description of the conditions encoded within the
@@ -1378,7 +1400,7 @@ export class LightningClient implements ILightningClient, ServiceInfo {
      * @generated from protobuf rpc: DecodePayReq
      */
     decodePayReq(input: PayReqString, options?: RpcOptions): UnaryCall<PayReqString, PayReq> {
-        const method = this.methods[37], opt = this._transport.mergeOptions(options);
+        const method = this.methods[38], opt = this._transport.mergeOptions(options);
         return stackIntercept<PayReqString, PayReq>("unary", this._transport, method, opt, input);
     }
     /**
@@ -1388,7 +1410,7 @@ export class LightningClient implements ILightningClient, ServiceInfo {
      * @generated from protobuf rpc: ListPayments
      */
     listPayments(input: ListPaymentsRequest, options?: RpcOptions): UnaryCall<ListPaymentsRequest, ListPaymentsResponse> {
-        const method = this.methods[38], opt = this._transport.mergeOptions(options);
+        const method = this.methods[39], opt = this._transport.mergeOptions(options);
         return stackIntercept<ListPaymentsRequest, ListPaymentsResponse>("unary", this._transport, method, opt, input);
     }
     /**
@@ -1399,7 +1421,7 @@ export class LightningClient implements ILightningClient, ServiceInfo {
      * @generated from protobuf rpc: DeletePayment
      */
     deletePayment(input: DeletePaymentRequest, options?: RpcOptions): UnaryCall<DeletePaymentRequest, DeletePaymentResponse> {
-        const method = this.methods[39], opt = this._transport.mergeOptions(options);
+        const method = this.methods[40], opt = this._transport.mergeOptions(options);
         return stackIntercept<DeletePaymentRequest, DeletePaymentResponse>("unary", this._transport, method, opt, input);
     }
     /**
@@ -1410,7 +1432,7 @@ export class LightningClient implements ILightningClient, ServiceInfo {
      * @generated from protobuf rpc: DeleteAllPayments
      */
     deleteAllPayments(input: DeleteAllPaymentsRequest, options?: RpcOptions): UnaryCall<DeleteAllPaymentsRequest, DeleteAllPaymentsResponse> {
-        const method = this.methods[40], opt = this._transport.mergeOptions(options);
+        const method = this.methods[41], opt = this._transport.mergeOptions(options);
         return stackIntercept<DeleteAllPaymentsRequest, DeleteAllPaymentsResponse>("unary", this._transport, method, opt, input);
     }
     /**
@@ -1425,7 +1447,7 @@ export class LightningClient implements ILightningClient, ServiceInfo {
      * @generated from protobuf rpc: DescribeGraph
      */
     describeGraph(input: ChannelGraphRequest, options?: RpcOptions): UnaryCall<ChannelGraphRequest, ChannelGraph> {
-        const method = this.methods[41], opt = this._transport.mergeOptions(options);
+        const method = this.methods[42], opt = this._transport.mergeOptions(options);
         return stackIntercept<ChannelGraphRequest, ChannelGraph>("unary", this._transport, method, opt, input);
     }
     /**
@@ -1436,7 +1458,7 @@ export class LightningClient implements ILightningClient, ServiceInfo {
      * @generated from protobuf rpc: GetNodeMetrics
      */
     getNodeMetrics(input: NodeMetricsRequest, options?: RpcOptions): UnaryCall<NodeMetricsRequest, NodeMetricsResponse> {
-        const method = this.methods[42], opt = this._transport.mergeOptions(options);
+        const method = this.methods[43], opt = this._transport.mergeOptions(options);
         return stackIntercept<NodeMetricsRequest, NodeMetricsResponse>("unary", this._transport, method, opt, input);
     }
     /**
@@ -1449,7 +1471,7 @@ export class LightningClient implements ILightningClient, ServiceInfo {
      * @generated from protobuf rpc: GetChanInfo
      */
     getChanInfo(input: ChanInfoRequest, options?: RpcOptions): UnaryCall<ChanInfoRequest, ChannelEdge> {
-        const method = this.methods[43], opt = this._transport.mergeOptions(options);
+        const method = this.methods[44], opt = this._transport.mergeOptions(options);
         return stackIntercept<ChanInfoRequest, ChannelEdge>("unary", this._transport, method, opt, input);
     }
     /**
@@ -1460,7 +1482,7 @@ export class LightningClient implements ILightningClient, ServiceInfo {
      * @generated from protobuf rpc: GetNodeInfo
      */
     getNodeInfo(input: NodeInfoRequest, options?: RpcOptions): UnaryCall<NodeInfoRequest, NodeInfo> {
-        const method = this.methods[44], opt = this._transport.mergeOptions(options);
+        const method = this.methods[45], opt = this._transport.mergeOptions(options);
         return stackIntercept<NodeInfoRequest, NodeInfo>("unary", this._transport, method, opt, input);
     }
     /**
@@ -1479,7 +1501,7 @@ export class LightningClient implements ILightningClient, ServiceInfo {
      * @generated from protobuf rpc: QueryRoutes
      */
     queryRoutes(input: QueryRoutesRequest, options?: RpcOptions): UnaryCall<QueryRoutesRequest, QueryRoutesResponse> {
-        const method = this.methods[45], opt = this._transport.mergeOptions(options);
+        const method = this.methods[46], opt = this._transport.mergeOptions(options);
         return stackIntercept<QueryRoutesRequest, QueryRoutesResponse>("unary", this._transport, method, opt, input);
     }
     /**
@@ -1490,7 +1512,7 @@ export class LightningClient implements ILightningClient, ServiceInfo {
      * @generated from protobuf rpc: GetNetworkInfo
      */
     getNetworkInfo(input: NetworkInfoRequest, options?: RpcOptions): UnaryCall<NetworkInfoRequest, NetworkInfo> {
-        const method = this.methods[46], opt = this._transport.mergeOptions(options);
+        const method = this.methods[47], opt = this._transport.mergeOptions(options);
         return stackIntercept<NetworkInfoRequest, NetworkInfo>("unary", this._transport, method, opt, input);
     }
     /**
@@ -1501,7 +1523,7 @@ export class LightningClient implements ILightningClient, ServiceInfo {
      * @generated from protobuf rpc: StopDaemon
      */
     stopDaemon(input: StopRequest, options?: RpcOptions): UnaryCall<StopRequest, StopResponse> {
-        const method = this.methods[47], opt = this._transport.mergeOptions(options);
+        const method = this.methods[48], opt = this._transport.mergeOptions(options);
         return stackIntercept<StopRequest, StopResponse>("unary", this._transport, method, opt, input);
     }
     /**
@@ -1516,7 +1538,7 @@ export class LightningClient implements ILightningClient, ServiceInfo {
      * @generated from protobuf rpc: SubscribeChannelGraph
      */
     subscribeChannelGraph(input: GraphTopologySubscription, options?: RpcOptions): ServerStreamingCall<GraphTopologySubscription, GraphTopologyUpdate> {
-        const method = this.methods[48], opt = this._transport.mergeOptions(options);
+        const method = this.methods[49], opt = this._transport.mergeOptions(options);
         return stackIntercept<GraphTopologySubscription, GraphTopologyUpdate>("serverStreaming", this._transport, method, opt, input);
     }
     /**
@@ -1529,7 +1551,7 @@ export class LightningClient implements ILightningClient, ServiceInfo {
      * @generated from protobuf rpc: DebugLevel
      */
     debugLevel(input: DebugLevelRequest, options?: RpcOptions): UnaryCall<DebugLevelRequest, DebugLevelResponse> {
-        const method = this.methods[49], opt = this._transport.mergeOptions(options);
+        const method = this.methods[50], opt = this._transport.mergeOptions(options);
         return stackIntercept<DebugLevelRequest, DebugLevelResponse>("unary", this._transport, method, opt, input);
     }
     /**
@@ -1540,7 +1562,7 @@ export class LightningClient implements ILightningClient, ServiceInfo {
      * @generated from protobuf rpc: FeeReport
      */
     feeReport(input: FeeReportRequest, options?: RpcOptions): UnaryCall<FeeReportRequest, FeeReportResponse> {
-        const method = this.methods[50], opt = this._transport.mergeOptions(options);
+        const method = this.methods[51], opt = this._transport.mergeOptions(options);
         return stackIntercept<FeeReportRequest, FeeReportResponse>("unary", this._transport, method, opt, input);
     }
     /**
@@ -1551,7 +1573,7 @@ export class LightningClient implements ILightningClient, ServiceInfo {
      * @generated from protobuf rpc: UpdateChannelPolicy
      */
     updateChannelPolicy(input: PolicyUpdateRequest, options?: RpcOptions): UnaryCall<PolicyUpdateRequest, PolicyUpdateResponse> {
-        const method = this.methods[51], opt = this._transport.mergeOptions(options);
+        const method = this.methods[52], opt = this._transport.mergeOptions(options);
         return stackIntercept<PolicyUpdateRequest, PolicyUpdateResponse>("unary", this._transport, method, opt, input);
     }
     /**
@@ -1571,7 +1593,7 @@ export class LightningClient implements ILightningClient, ServiceInfo {
      * @generated from protobuf rpc: ForwardingHistory
      */
     forwardingHistory(input: ForwardingHistoryRequest, options?: RpcOptions): UnaryCall<ForwardingHistoryRequest, ForwardingHistoryResponse> {
-        const method = this.methods[52], opt = this._transport.mergeOptions(options);
+        const method = this.methods[53], opt = this._transport.mergeOptions(options);
         return stackIntercept<ForwardingHistoryRequest, ForwardingHistoryResponse>("unary", this._transport, method, opt, input);
     }
     /**
@@ -1586,7 +1608,7 @@ export class LightningClient implements ILightningClient, ServiceInfo {
      * @generated from protobuf rpc: ExportChannelBackup
      */
     exportChannelBackup(input: ExportChannelBackupRequest, options?: RpcOptions): UnaryCall<ExportChannelBackupRequest, ChannelBackup> {
-        const method = this.methods[53], opt = this._transport.mergeOptions(options);
+        const method = this.methods[54], opt = this._transport.mergeOptions(options);
         return stackIntercept<ExportChannelBackupRequest, ChannelBackup>("unary", this._transport, method, opt, input);
     }
     /**
@@ -1600,7 +1622,7 @@ export class LightningClient implements ILightningClient, ServiceInfo {
      * @generated from protobuf rpc: ExportAllChannelBackups
      */
     exportAllChannelBackups(input: ChanBackupExportRequest, options?: RpcOptions): UnaryCall<ChanBackupExportRequest, ChanBackupSnapshot> {
-        const method = this.methods[54], opt = this._transport.mergeOptions(options);
+        const method = this.methods[55], opt = this._transport.mergeOptions(options);
         return stackIntercept<ChanBackupExportRequest, ChanBackupSnapshot>("unary", this._transport, method, opt, input);
     }
     /**
@@ -1612,7 +1634,7 @@ export class LightningClient implements ILightningClient, ServiceInfo {
      * @generated from protobuf rpc: VerifyChanBackup
      */
     verifyChanBackup(input: ChanBackupSnapshot, options?: RpcOptions): UnaryCall<ChanBackupSnapshot, VerifyChanBackupResponse> {
-        const method = this.methods[55], opt = this._transport.mergeOptions(options);
+        const method = this.methods[56], opt = this._transport.mergeOptions(options);
         return stackIntercept<ChanBackupSnapshot, VerifyChanBackupResponse>("unary", this._transport, method, opt, input);
     }
     /**
@@ -1625,7 +1647,7 @@ export class LightningClient implements ILightningClient, ServiceInfo {
      * @generated from protobuf rpc: RestoreChannelBackups
      */
     restoreChannelBackups(input: RestoreChanBackupRequest, options?: RpcOptions): UnaryCall<RestoreChanBackupRequest, RestoreBackupResponse> {
-        const method = this.methods[56], opt = this._transport.mergeOptions(options);
+        const method = this.methods[57], opt = this._transport.mergeOptions(options);
         return stackIntercept<RestoreChanBackupRequest, RestoreBackupResponse>("unary", this._transport, method, opt, input);
     }
     /**
@@ -1641,7 +1663,7 @@ export class LightningClient implements ILightningClient, ServiceInfo {
      * @generated from protobuf rpc: SubscribeChannelBackups
      */
     subscribeChannelBackups(input: ChannelBackupSubscription, options?: RpcOptions): ServerStreamingCall<ChannelBackupSubscription, ChanBackupSnapshot> {
-        const method = this.methods[57], opt = this._transport.mergeOptions(options);
+        const method = this.methods[58], opt = this._transport.mergeOptions(options);
         return stackIntercept<ChannelBackupSubscription, ChanBackupSnapshot>("serverStreaming", this._transport, method, opt, input);
     }
     /**
@@ -1653,7 +1675,7 @@ export class LightningClient implements ILightningClient, ServiceInfo {
      * @generated from protobuf rpc: BakeMacaroon
      */
     bakeMacaroon(input: BakeMacaroonRequest, options?: RpcOptions): UnaryCall<BakeMacaroonRequest, BakeMacaroonResponse> {
-        const method = this.methods[58], opt = this._transport.mergeOptions(options);
+        const method = this.methods[59], opt = this._transport.mergeOptions(options);
         return stackIntercept<BakeMacaroonRequest, BakeMacaroonResponse>("unary", this._transport, method, opt, input);
     }
     /**
@@ -1663,7 +1685,7 @@ export class LightningClient implements ILightningClient, ServiceInfo {
      * @generated from protobuf rpc: ListMacaroonIDs
      */
     listMacaroonIDs(input: ListMacaroonIDsRequest, options?: RpcOptions): UnaryCall<ListMacaroonIDsRequest, ListMacaroonIDsResponse> {
-        const method = this.methods[59], opt = this._transport.mergeOptions(options);
+        const method = this.methods[60], opt = this._transport.mergeOptions(options);
         return stackIntercept<ListMacaroonIDsRequest, ListMacaroonIDsResponse>("unary", this._transport, method, opt, input);
     }
     /**
@@ -1674,7 +1696,7 @@ export class LightningClient implements ILightningClient, ServiceInfo {
      * @generated from protobuf rpc: DeleteMacaroonID
      */
     deleteMacaroonID(input: DeleteMacaroonIDRequest, options?: RpcOptions): UnaryCall<DeleteMacaroonIDRequest, DeleteMacaroonIDResponse> {
-        const method = this.methods[60], opt = this._transport.mergeOptions(options);
+        const method = this.methods[61], opt = this._transport.mergeOptions(options);
         return stackIntercept<DeleteMacaroonIDRequest, DeleteMacaroonIDResponse>("unary", this._transport, method, opt, input);
     }
     /**
@@ -1685,19 +1707,20 @@ export class LightningClient implements ILightningClient, ServiceInfo {
      * @generated from protobuf rpc: ListPermissions
      */
     listPermissions(input: ListPermissionsRequest, options?: RpcOptions): UnaryCall<ListPermissionsRequest, ListPermissionsResponse> {
-        const method = this.methods[61], opt = this._transport.mergeOptions(options);
+        const method = this.methods[62], opt = this._transport.mergeOptions(options);
         return stackIntercept<ListPermissionsRequest, ListPermissionsResponse>("unary", this._transport, method, opt, input);
     }
     /**
      *
-     * CheckMacaroonPermissions checks whether a request follows the constraints
-     * imposed on the macaroon and that the macaroon is authorized to follow the
-     * provided permissions.
+     * CheckMacaroonPermissions checks whether the provided macaroon contains all
+     * the provided permissions. If the macaroon is valid (e.g. all caveats are
+     * satisfied), and all permissions provided in the request are met, then
+     * this RPC returns true.
      *
      * @generated from protobuf rpc: CheckMacaroonPermissions
      */
     checkMacaroonPermissions(input: CheckMacPermRequest, options?: RpcOptions): UnaryCall<CheckMacPermRequest, CheckMacPermResponse> {
-        const method = this.methods[62], opt = this._transport.mergeOptions(options);
+        const method = this.methods[63], opt = this._transport.mergeOptions(options);
         return stackIntercept<CheckMacPermRequest, CheckMacPermResponse>("unary", this._transport, method, opt, input);
     }
     /**
@@ -1718,7 +1741,7 @@ export class LightningClient implements ILightningClient, ServiceInfo {
      * @generated from protobuf rpc: RegisterRPCMiddleware
      */
     registerRPCMiddleware(options?: RpcOptions): DuplexStreamingCall<RPCMiddlewareResponse, RPCMiddlewareRequest> {
-        const method = this.methods[63], opt = this._transport.mergeOptions(options);
+        const method = this.methods[64], opt = this._transport.mergeOptions(options);
         return stackIntercept<RPCMiddlewareResponse, RPCMiddlewareRequest>("duplex", this._transport, method, opt);
     }
     /**
@@ -1728,7 +1751,7 @@ export class LightningClient implements ILightningClient, ServiceInfo {
      * @generated from protobuf rpc: SendCustomMessage
      */
     sendCustomMessage(input: SendCustomMessageRequest, options?: RpcOptions): UnaryCall<SendCustomMessageRequest, SendCustomMessageResponse> {
-        const method = this.methods[64], opt = this._transport.mergeOptions(options);
+        const method = this.methods[65], opt = this._transport.mergeOptions(options);
         return stackIntercept<SendCustomMessageRequest, SendCustomMessageResponse>("unary", this._transport, method, opt, input);
     }
     /**
@@ -1743,7 +1766,7 @@ export class LightningClient implements ILightningClient, ServiceInfo {
      * @generated from protobuf rpc: SubscribeCustomMessages
      */
     subscribeCustomMessages(input: SubscribeCustomMessagesRequest, options?: RpcOptions): ServerStreamingCall<SubscribeCustomMessagesRequest, CustomMessage> {
-        const method = this.methods[65], opt = this._transport.mergeOptions(options);
+        const method = this.methods[66], opt = this._transport.mergeOptions(options);
         return stackIntercept<SubscribeCustomMessagesRequest, CustomMessage>("serverStreaming", this._transport, method, opt, input);
     }
     /**
@@ -1755,7 +1778,7 @@ export class LightningClient implements ILightningClient, ServiceInfo {
      * @generated from protobuf rpc: ListAliases
      */
     listAliases(input: ListAliasesRequest, options?: RpcOptions): UnaryCall<ListAliasesRequest, ListAliasesResponse> {
-        const method = this.methods[66], opt = this._transport.mergeOptions(options);
+        const method = this.methods[67], opt = this._transport.mergeOptions(options);
         return stackIntercept<ListAliasesRequest, ListAliasesResponse>("unary", this._transport, method, opt, input);
     }
     /**
@@ -1767,7 +1790,7 @@ export class LightningClient implements ILightningClient, ServiceInfo {
      * @generated from protobuf rpc: LookupHtlcResolution
      */
     lookupHtlcResolution(input: LookupHtlcResolutionRequest, options?: RpcOptions): UnaryCall<LookupHtlcResolutionRequest, LookupHtlcResolutionResponse> {
-        const method = this.methods[67], opt = this._transport.mergeOptions(options);
+        const method = this.methods[68], opt = this._transport.mergeOptions(options);
         return stackIntercept<LookupHtlcResolutionRequest, LookupHtlcResolutionResponse>("unary", this._transport, method, opt, input);
     }
 }
