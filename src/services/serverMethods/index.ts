@@ -144,6 +144,9 @@ export default (mainHandler: Main): Types.ServerMethods => {
         GetAssetsAndLiabilities: async ({ ctx, req }) => {
             return mainHandler.adminManager.GetAssetsAndLiabilities(req)
         },
+        GetAssetsAndLiabilitiesV2: async ({ ctx, req }) => {
+            return mainHandler.adminManager.GetAssetsAndLiabilitiesV2(req)
+        },
         GetProvidersDisruption: async () => {
             return mainHandler.metricsManager.GetProvidersDisruption()
         },

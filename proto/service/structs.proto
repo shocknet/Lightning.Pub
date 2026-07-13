@@ -37,6 +37,12 @@ message LiquidityProviderFilter {
 }
 
 message AssetsAndLiabilitiesReq {
+    optional int64 limit_invoices = 1;
+    optional int64 limit_payments = 2;
+    optional int64 limit_providers = 4;
+}
+
+message AssetsAndLiabilitiesReqV2 {
     repeated LndProviderFilter lnd_providers = 1;
     repeated LiquidityProviderFilter liquidity_providers = 2;
 }
@@ -107,13 +113,29 @@ message TrackedLndProvider {
     int64 confirmed_balance = 1;
     int64 unconfirmed_balance =  2;
     int64 channels_balance = 3;
+    repeated AssetOperation payments = 4;
+    repeated AssetOperation invoices = 5;
+    repeated AssetOperation incoming_tx = 6;
+    repeated AssetOperation outgoing_tx = 7;
+}
+
+message TrackedLiquidityProvider {
+    int64 balance = 1;
+    repeated AssetOperation payments = 2;
+    repeated AssetOperation invoices = 3;
+}
+
+message TrackedLndProviderV2 {
+    int64 confirmed_balance = 1;
+    int64 unconfirmed_balance =  2;
+    int64 channels_balance = 3;
     LndAssetOperationsPage payments = 4;
     LndAssetOperationsPage invoices = 5;
     LndAssetOperationsPage incoming_tx = 6;
     LndAssetOperationsPage outgoing_tx = 7;
 }
 
-message TrackedLiquidityProvider {
+message TrackedLiquidityProviderV2 {
     int64 balance = 1;
     LiquidityAssetOperationsPage payments = 2;
     LiquidityAssetOperationsPage invoices = 3;
@@ -129,10 +151,26 @@ message LiquidityAssetProvider {
     optional TrackedLiquidityProvider tracked = 2;
 }
 
+message LndAssetProviderV2 {
+    string pubkey = 1;
+    optional TrackedLndProviderV2 tracked = 2;
+}
+
+message LiquidityAssetProviderV2 {
+    string pubkey = 1;
+    optional TrackedLiquidityProviderV2 tracked = 2;
+}
+
 message AssetsAndLiabilities {
     int64 users_balance = 1;
     repeated LndAssetProvider lnds = 2;
     repeated LiquidityAssetProvider liquidity_providers = 3;
+}
+
+message AssetsAndLiabilitiesV2 {
+    int64 users_balance = 1;
+    repeated LndAssetProviderV2 lnds = 2;
+    repeated LiquidityAssetProviderV2 liquidity_providers = 3;
 }
 
 message UserHealthState {

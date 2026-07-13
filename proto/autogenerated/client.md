@@ -118,6 +118,11 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [AssetsAndLiabilitiesReq](#AssetsAndLiabilitiesReq)
   - output: [AssetsAndLiabilities](#AssetsAndLiabilities)
 
+- GetAssetsAndLiabilitiesV2
+  - auth type: __Admin__
+  - input: [AssetsAndLiabilitiesReqV2](#AssetsAndLiabilitiesReqV2)
+  - output: [AssetsAndLiabilitiesV2](#AssetsAndLiabilitiesV2)
+
 - GetBundleMetrics
   - auth type: __Metrics__
   - input: [LatestBundleMetricReq](#LatestBundleMetricReq)
@@ -635,6 +640,13 @@ The nostr server will send back a message response, and inside the body there wi
   - http route: __/api/admin/assets/liabilities__
   - input: [AssetsAndLiabilitiesReq](#AssetsAndLiabilitiesReq)
   - output: [AssetsAndLiabilities](#AssetsAndLiabilities)
+
+- GetAssetsAndLiabilitiesV2
+  - auth type: __Admin__
+  - http method: __post__
+  - http route: __/api/admin/assets/liabilities/v2__
+  - input: [AssetsAndLiabilitiesReqV2](#AssetsAndLiabilitiesReqV2)
+  - output: [AssetsAndLiabilitiesV2](#AssetsAndLiabilitiesV2)
 
 - GetBundleMetrics
   - auth type: __Metrics__
@@ -1251,8 +1263,18 @@ The nostr server will send back a message response, and inside the body there wi
   - __users_balance__: _number_
 
 ### AssetsAndLiabilitiesReq
+  - __limit_invoices__: _number_ *this field is optional
+  - __limit_payments__: _number_ *this field is optional
+  - __limit_providers__: _number_ *this field is optional
+
+### AssetsAndLiabilitiesReqV2
   - __liquidity_providers__: ARRAY of: _[LiquidityProviderFilter](#LiquidityProviderFilter)_
   - __lnd_providers__: ARRAY of: _[LndProviderFilter](#LndProviderFilter)_
+
+### AssetsAndLiabilitiesV2
+  - __liquidity_providers__: ARRAY of: _[LiquidityAssetProviderV2](#LiquidityAssetProviderV2)_
+  - __lnds__: ARRAY of: _[LndAssetProviderV2](#LndAssetProviderV2)_
+  - __users_balance__: _number_
 
 ### AuthApp
   - __app__: _[Application](#Application)_
@@ -1508,6 +1530,10 @@ The nostr server will send back a message response, and inside the body there wi
   - __pubkey__: _string_
   - __tracked__: _[TrackedLiquidityProvider](#TrackedLiquidityProvider)_ *this field is optional
 
+### LiquidityAssetProviderV2
+  - __pubkey__: _string_
+  - __tracked__: _[TrackedLiquidityProviderV2](#TrackedLiquidityProviderV2)_ *this field is optional
+
 ### LiquidityProviderFilter
   - __latestIncomingInvoice__: _[OperationsCursor](#OperationsCursor)_ *this field is optional
   - __latestOutgoingInvoice__: _[OperationsCursor](#OperationsCursor)_ *this field is optional
@@ -1536,6 +1562,10 @@ The nostr server will send back a message response, and inside the body there wi
 ### LndAssetProvider
   - __pubkey__: _string_
   - __tracked__: _[TrackedLndProvider](#TrackedLndProvider)_ *this field is optional
+
+### LndAssetProviderV2
+  - __pubkey__: _string_
+  - __tracked__: _[TrackedLndProviderV2](#TrackedLndProviderV2)_ *this field is optional
 
 ### LndChannels
   - __open_channels__: ARRAY of: _[OpenChannel](#OpenChannel)_
@@ -1871,10 +1901,24 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### TrackedLiquidityProvider
   - __balance__: _number_
+  - __invoices__: ARRAY of: _[AssetOperation](#AssetOperation)_
+  - __payments__: ARRAY of: _[AssetOperation](#AssetOperation)_
+
+### TrackedLiquidityProviderV2
+  - __balance__: _number_
   - __invoices__: _[LiquidityAssetOperationsPage](#LiquidityAssetOperationsPage)_
   - __payments__: _[LiquidityAssetOperationsPage](#LiquidityAssetOperationsPage)_
 
 ### TrackedLndProvider
+  - __channels_balance__: _number_
+  - __confirmed_balance__: _number_
+  - __incoming_tx__: ARRAY of: _[AssetOperation](#AssetOperation)_
+  - __invoices__: ARRAY of: _[AssetOperation](#AssetOperation)_
+  - __outgoing_tx__: ARRAY of: _[AssetOperation](#AssetOperation)_
+  - __payments__: ARRAY of: _[AssetOperation](#AssetOperation)_
+  - __unconfirmed_balance__: _number_
+
+### TrackedLndProviderV2
   - __channels_balance__: _number_
   - __confirmed_balance__: _number_
   - __incoming_tx__: _[LndAssetOperationsPage](#LndAssetOperationsPage)_

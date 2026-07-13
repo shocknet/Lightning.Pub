@@ -384,9 +384,15 @@ export class AdminManager {
     }
 
     async GetAssetsAndLiabilities(req: Types.AssetsAndLiabilitiesReq): Promise<Types.AssetsAndLiabilities> {
+        const v2Req = await this.BuildV2ReqFromV1(req)
+        const v2Res = await this.GetAssetsAndLiabilitiesV2(v2Req)
+        return this.V2ToV1Response(v2Res)
+    }
+
+    async GetAssetsAndLiabilitiesV2(req: Types.AssetsAndLiabilitiesReqV2): Promise<Types.AssetsAndLiabilitiesV2> {
         const providers = await this.storage.liquidityStorage.GetTrackedProviders()
-        const lnds: Types.LndAssetProvider[] = []
-        const liquidityProviders: Types.LiquidityAssetProvider[] = []
+        const lnds: Types.LndAssetProviderV2[] = []
+        const liquidityProviders: Types.LiquidityAssetProviderV2[] = []
         for (const provider of providers) {
             if (provider.provider_type === 'lnd') {
                 const lndEntry = await this.GetLndAssetsAndLiabilities(req, provider)
@@ -404,7 +410,56 @@ export class AdminManager {
         }
     }
 
-    async GetProviderAssetsAndLiabilities(req: Types.AssetsAndLiabilitiesReq, provider: TrackedProvider): Promise<Types.LiquidityAssetProvider> {
+    private async BuildV2ReqFromV1(req: Types.AssetsAndLiabilitiesReq): Promise<Types.AssetsAndLiabilitiesReqV2> {
+        const providers = await this.storage.liquidityStorage.GetTrackedProviders()
+        const limitPayments = req.limit_payments ?? DEFAULT_LND_PAGE_SIZE
+        const limitInvoices = req.limit_invoices ?? 100
+        const limitProviders = req.limit_providers ?? 100
+        return {
+            lnd_providers: providers
+                .filter(p => p.provider_type === 'lnd')
+                .map(p => ({
+                    pubkey: p.provider_pubkey,
+                    limit_payments: limitPayments,
+                    limit_invoices: limitInvoices,
+                    limit_transactions: MAX_PAGE_SIZE,
+                })),
+            liquidity_providers: providers
+                .filter(p => p.provider_type === 'lnPub')
+                .map(p => ({
+                    pubkey: p.provider_pubkey,
+                    limit: limitProviders,
+                })),
+        }
+    }
+
+    private V2ToV1Response(res: Types.AssetsAndLiabilitiesV2): Types.AssetsAndLiabilities {
+        return {
+            users_balance: res.users_balance,
+            lnds: res.lnds.map(lnd => ({
+                pubkey: lnd.pubkey,
+                tracked: lnd.tracked ? {
+                    confirmed_balance: lnd.tracked.confirmed_balance,
+                    unconfirmed_balance: lnd.tracked.unconfirmed_balance,
+                    channels_balance: lnd.tracked.channels_balance,
+                    payments: lnd.tracked.payments.operations,
+                    invoices: lnd.tracked.invoices.operations,
+                    incoming_tx: lnd.tracked.incoming_tx.operations,
+                    outgoing_tx: lnd.tracked.outgoing_tx.operations,
+                } : undefined,
+            })),
+            liquidity_providers: res.liquidity_providers.map(provider => ({
+                pubkey: provider.pubkey,
+                tracked: provider.tracked ? {
+                    balance: provider.tracked.balance,
+                    payments: provider.tracked.payments.operations,
+                    invoices: provider.tracked.invoices.operations,
+                } : undefined,
+            })),
+        }
+    }
+
+    async GetProviderAssetsAndLiabilities(req: Types.AssetsAndLiabilitiesReqV2, provider: TrackedProvider): Promise<Types.LiquidityAssetProviderV2> {
         if (!this.liquidityProvider) {
             throw new Error("liquidity provider not attached")
         }
@@ -504,7 +559,7 @@ export class AdminManager {
         )
     }
 
-    async GetLndAssetsAndLiabilities(req: Types.AssetsAndLiabilitiesReq, provider: TrackedProvider): Promise<Types.LndAssetProvider> {
+    async GetLndAssetsAndLiabilities(req: Types.AssetsAndLiabilitiesReqV2, provider: TrackedProvider): Promise<Types.LndAssetProviderV2> {
         const info = await this.lnd.GetInfo()
         if (provider.provider_pubkey !== info.identityPubkey) {
             return { pubkey: provider.provider_pubkey, tracked: undefined }

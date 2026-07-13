@@ -7,19 +7,20 @@ import { initBootstrappedInstance } from "./setupBootstrapped.js"
 export const ignore = false
 export const dev = false
 
-const emptyReq = (): Types.AssetsAndLiabilitiesReq => ({
+const emptyReq = (): Types.AssetsAndLiabilitiesReqV2 => ({
     lnd_providers: [],
     liquidity_providers: [],
 })
 
 const getAssets = (T: TestBase, req = emptyReq()) =>
-    T.main.adminManager.GetAssetsAndLiabilities(req)
+    T.main.adminManager.GetAssetsAndLiabilitiesV2(req)
 
 export default async (T: TestBase) => {
     await testUsersBalance(T)
     await testLndProviderTracked(T)
     await testLndTrackedUserPayment(T)
     await testLndPagination(T)
+    await testV1Compatibility(T)
     await runSanityCheck(T)
 }
 
@@ -28,7 +29,7 @@ const testUsersBalance = async (T: TestBase) => {
     await safelySetUserBalance(T, T.user1, 2000)
     await safelySetUserBalance(T, T.user2, 500)
     const res = await getAssets(T)
-    T.expect(Types.AssetsAndLiabilitiesValidate(res)).to.equal(null)
+    T.expect(Types.AssetsAndLiabilitiesV2Validate(res)).to.equal(null)
     T.expect(res.users_balance).to.equal(2500)
     T.d("users_balance matches total user balances")
 }
@@ -87,6 +88,25 @@ const testLndPagination = async (T: TestBase) => {
         T.expect(payments.next_index_offset).to.be.a("number")
     }
     T.d("lnd payment pagination respects limit")
+}
+
+const testV1Compatibility = async (T: TestBase) => {
+    T.d("starting testV1Compatibility")
+    await safelySetUserBalance(T, T.user1, 1000)
+    const res = await T.main.adminManager.GetAssetsAndLiabilities({})
+    T.expect(Types.AssetsAndLiabilitiesValidate(res)).to.equal(null)
+    T.expect(res.users_balance).to.be.a("number")
+    const lnd = res.lnds.find(p => p.tracked !== undefined)
+    if (lnd?.tracked) {
+        T.expect(lnd.tracked.payments).to.be.an("array")
+        T.expect(lnd.tracked.invoices).to.be.an("array")
+        T.expect(lnd.tracked.incoming_tx).to.be.an("array")
+        T.expect(lnd.tracked.outgoing_tx).to.be.an("array")
+        for (const op of lnd.tracked.payments) {
+            T.expect(op.tracked?.user_id).to.equal(undefined)
+        }
+    }
+    T.d("v1 endpoint returns flat operation arrays")
 }
 
 const inboundPaymentOnBootstrapped = async (T: TestBase, bootstrapped: Main, user: TestUserData) => {

@@ -187,8 +187,18 @@ type AssetsAndLiabilities struct {
 	Users_balance       int64                    `json:"users_balance"`
 }
 type AssetsAndLiabilitiesReq struct {
+	Limit_invoices  int64 `json:"limit_invoices"`
+	Limit_payments  int64 `json:"limit_payments"`
+	Limit_providers int64 `json:"limit_providers"`
+}
+type AssetsAndLiabilitiesReqV2 struct {
 	Liquidity_providers []LiquidityProviderFilter `json:"liquidity_providers"`
 	Lnd_providers       []LndProviderFilter       `json:"lnd_providers"`
+}
+type AssetsAndLiabilitiesV2 struct {
+	Liquidity_providers []LiquidityAssetProviderV2 `json:"liquidity_providers"`
+	Lnds                []LndAssetProviderV2       `json:"lnds"`
+	Users_balance       int64                      `json:"users_balance"`
 }
 type AuthApp struct {
 	App        *Application `json:"app"`
@@ -444,6 +454,10 @@ type LiquidityAssetProvider struct {
 	Pubkey  string                    `json:"pubkey"`
 	Tracked *TrackedLiquidityProvider `json:"tracked"`
 }
+type LiquidityAssetProviderV2 struct {
+	Pubkey  string                      `json:"pubkey"`
+	Tracked *TrackedLiquidityProviderV2 `json:"tracked"`
+}
 type LiquidityProviderFilter struct {
 	Latestincominginvoice *OperationsCursor `json:"latestIncomingInvoice"`
 	Latestoutgoinginvoice *OperationsCursor `json:"latestOutgoingInvoice"`
@@ -472,6 +486,10 @@ type LndAssetOperationsPage struct {
 type LndAssetProvider struct {
 	Pubkey  string              `json:"pubkey"`
 	Tracked *TrackedLndProvider `json:"tracked"`
+}
+type LndAssetProviderV2 struct {
+	Pubkey  string                `json:"pubkey"`
+	Tracked *TrackedLndProviderV2 `json:"tracked"`
 }
 type LndChannels struct {
 	Open_channels []OpenChannel `json:"open_channels"`
@@ -806,11 +824,25 @@ type SingleMetricReq struct {
 	Request_id   int64            `json:"request_id"`
 }
 type TrackedLiquidityProvider struct {
+	Balance  int64            `json:"balance"`
+	Invoices []AssetOperation `json:"invoices"`
+	Payments []AssetOperation `json:"payments"`
+}
+type TrackedLiquidityProviderV2 struct {
 	Balance  int64                         `json:"balance"`
 	Invoices *LiquidityAssetOperationsPage `json:"invoices"`
 	Payments *LiquidityAssetOperationsPage `json:"payments"`
 }
 type TrackedLndProvider struct {
+	Channels_balance    int64            `json:"channels_balance"`
+	Confirmed_balance   int64            `json:"confirmed_balance"`
+	Incoming_tx         []AssetOperation `json:"incoming_tx"`
+	Invoices            []AssetOperation `json:"invoices"`
+	Outgoing_tx         []AssetOperation `json:"outgoing_tx"`
+	Payments            []AssetOperation `json:"payments"`
+	Unconfirmed_balance int64            `json:"unconfirmed_balance"`
+}
+type TrackedLndProviderV2 struct {
 	Channels_balance    int64                   `json:"channels_balance"`
 	Confirmed_balance   int64                   `json:"confirmed_balance"`
 	Incoming_tx         *LndAssetOperationsPage `json:"incoming_tx"`

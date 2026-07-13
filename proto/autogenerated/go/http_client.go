@@ -82,6 +82,7 @@ type Client struct {
 	GetAppUserLNURLInfo           func(req GetAppUserLNURLInfoRequest) (*LnurlPayInfoResponse, error)
 	GetAppsMetrics                func(req AppsMetricsRequest) (*AppsMetrics, error)
 	GetAssetsAndLiabilities       func(req AssetsAndLiabilitiesReq) (*AssetsAndLiabilities, error)
+	GetAssetsAndLiabilitiesV2     func(req AssetsAndLiabilitiesReqV2) (*AssetsAndLiabilitiesV2, error)
 	GetBundleMetrics              func(req LatestBundleMetricReq) (*BundleMetrics, error)
 	GetDebitAuthorizations        func() (*DebitAuthorizations, error)
 	GetErrorStats                 func() (*ErrorStats, error)
@@ -893,6 +894,35 @@ func NewClient(params ClientParams) *Client {
 				return nil, fmt.Errorf(result.Reason)
 			}
 			res := AssetsAndLiabilities{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
+		},
+		GetAssetsAndLiabilitiesV2: func(req AssetsAndLiabilitiesReqV2) (*AssetsAndLiabilitiesV2, error) {
+			auth, err := params.RetrieveAdminAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/admin/assets/liabilities/v2"
+			body, err := json.Marshal(req)
+			if err != nil {
+				return nil, err
+			}
+			resBody, err := doPostRequest(params.BaseURL+finalRoute, body, auth)
+			if err != nil {
+				return nil, err
+			}
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := AssetsAndLiabilitiesV2{}
 			err = json.Unmarshal(resBody, &res)
 			if err != nil {
 				return nil, err
