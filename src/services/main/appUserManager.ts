@@ -131,23 +131,30 @@ export default class {
         const apps: Record<string, string> = {}
         applications.forEach(a => apps[a.owner.user_id] = a.app_id)
 
-        const usersInfo: Types.UserAdminInfo[] = []
-        for (const user of users) {
-            const appUsers = await this.storage.applicationStorage.GetAllAppUsersFromUser(user.user_id)
-            const appUsersInfo: Types.AppUserAdminInfo[] = appUsers.map(a => ({
+        const appUsers = await this.storage.applicationStorage.GetAppUsersForUsers(users.map(u => u.user_id))
+        const appUsersByUserId = new Map<string, Types.AppUserAdminInfo[]>()
+        for (const a of appUsers) {
+            const userId = a.user.user_id
+            let appUsersInfo = appUsersByUserId.get(userId)
+            if (!appUsersInfo) {
+                appUsersInfo = []
+                appUsersByUserId.set(userId, appUsersInfo)
+            }
+            appUsersInfo.push({
                 app_user_id: a.identifier,
                 npub: a.nostr_public_key || "",
                 has_callback_url: a.callback_url !== "",
                 has_topic_id: a.topic_id !== "",
-            }))
-            usersInfo.push({
-                user_id: user.user_id,
-                balance: user.balance_sats,
-                locked: user.locked,
-                app_users: appUsersInfo,
-                owner_of_app_id: apps[user.user_id]
             })
         }
+
+        const usersInfo: Types.UserAdminInfo[] = users.map(user => ({
+            user_id: user.user_id,
+            balance: user.balance_sats,
+            locked: user.locked,
+            app_users: appUsersByUserId.get(user.user_id) ?? [],
+            owner_of_app_id: apps[user.user_id]
+        }))
 
         return { users: usersInfo, total }
     }
