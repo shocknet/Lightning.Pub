@@ -61,7 +61,7 @@
     "tiny-secp256k1": "^2.2.4",
     "ts-node": "^10.7.0",
     "typeorm": "^0.3.28",
-    "typescript": "^5.5.4",
+    "typescript": "^7.0.2",
     "uri-template": "^2.0.0",
     "why-is-node-running": "^3.2.0",
     "wrtc": "^0.4.7",
@@ -79,7 +79,7 @@
     "@types/websocket": "^1.0.10",
     "@types/ws": "^8.5.12",
     "ts-node": "10.7.0",
-    "typescript": "5.5.4"
+    "typescript": "7.0.2"
   },
   "overrides": {}
 }
