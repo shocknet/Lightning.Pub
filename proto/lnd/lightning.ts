@@ -2050,6 +2050,7 @@ export interface Peer {
     errors: TimestampedError[];
     /**
      *
+     * This field is populated when the peer has at least one channel with us.
      * The number of times we have recorded this peer going offline or coming
      * online, recorded across restarts. Note that this value is decreased over
      * time if the peer has not recently flapped, so that we can forgive peers
@@ -2060,6 +2061,7 @@ export interface Peer {
     flapCount: number;
     /**
      *
+     * This field is populated when the peer has at least one channel with us.
      * The timestamp of the last flap we observed for this peer. If this value is
      * zero, we have not observed any flaps for this peer.
      *
@@ -2389,23 +2391,6 @@ export interface Chain {
      * @generated from protobuf field: string network = 2
      */
     network: string;
-}
-/**
- * @generated from protobuf message lnrpc.ConfirmationUpdate
- */
-export interface ConfirmationUpdate {
-    /**
-     * @generated from protobuf field: bytes block_sha = 1
-     */
-    blockSha: Uint8Array;
-    /**
-     * @generated from protobuf field: int32 block_height = 2
-     */
-    blockHeight: number;
-    /**
-     * @generated from protobuf field: uint32 num_confs_left = 3
-     */
-    numConfsLeft: number;
 }
 /**
  * @generated from protobuf message lnrpc.ChannelOpenUpdate
@@ -3686,6 +3671,31 @@ export interface PendingChannelsResponse_PendingOpenChannel {
      * @generated from protobuf field: int32 funding_expiry_blocks = 3
      */
     fundingExpiryBlocks: number;
+    /**
+     * The number of blocks remaining until the channel status changes from
+     * pending to active. A value of 0 indicates that the channel is now
+     * active.
+     *
+     * "Active" here means both channel peers have the channel marked OPEN
+     * and can immediately start using it. For public channels, this does
+     * not imply a channel_announcement has been gossiped. It only becomes
+     * public on the network after 6 on‐chain confirmations.
+     * See BOLT07 "Routing Gossip":
+     * https://github.com/lightning/bolts/blob/master/07-routing-gossip.md
+     *
+     * ZeroConf channels bypass the pending state entirely: they are marked
+     * active immediately upon creation, so they never show up as "pending".
+     *
+     * @generated from protobuf field: uint32 confirmations_until_active = 7
+     */
+    confirmationsUntilActive: number;
+    /**
+     * The confirmation height records the block height at which the funding
+     * transaction was first confirmed.
+     *
+     * @generated from protobuf field: uint32 confirmation_height = 8
+     */
+    confirmationHeight: number;
 }
 /**
  * @generated from protobuf message lnrpc.PendingChannelsResponse.WaitingCloseChannel
@@ -4247,10 +4257,11 @@ export interface QueryRoutesRequest {
     };
     /**
      *
-     * The channel id of the channel that must be taken to the first hop. If zero,
-     * any channel may be used.
+     * Deprecated, use outgoing_chan_ids. The channel id of the channel that must
+     * be taken to the first hop. If zero, any channel may be used.
      *
-     * @generated from protobuf field: uint64 outgoing_chan_id = 14 [jstype = JS_STRING]
+     * @deprecated
+     * @generated from protobuf field: uint64 outgoing_chan_id = 14 [jstype = JS_STRING, deprecated = true]
      */
     outgoingChanId: string;
     /**
@@ -4297,6 +4308,14 @@ export interface QueryRoutesRequest {
      * @generated from protobuf field: double time_pref = 18
      */
     timePref: number;
+    /**
+     *
+     * The channel ids of the channels allowed for the first hop. If empty, any
+     * channel may be used.
+     *
+     * @generated from protobuf field: repeated uint64 outgoing_chan_ids = 20
+     */
+    outgoingChanIds: bigint[];
 }
 /**
  * @generated from protobuf message lnrpc.NodePair
@@ -4633,6 +4652,13 @@ export interface NodeInfoRequest {
      * @generated from protobuf field: bool include_channels = 2
      */
     includeChannels: boolean;
+    /**
+     * If true, will include announcements' signatures into ChannelEdge.
+     * Depends on include_channels.
+     *
+     * @generated from protobuf field: bool include_auth_proof = 3
+     */
+    includeAuthProof: boolean;
 }
 /**
  * @generated from protobuf message lnrpc.NodeInfo
@@ -4758,7 +4784,8 @@ export interface RoutingPolicy {
      */
     lastUpdate: number;
     /**
-     * Custom channel update tlv records.
+     * Custom channel update tlv records. These are customized fields that are
+     * not defined by LND and cannot be extracted.
      *
      * @generated from protobuf field: map<uint64, bytes> custom_records = 8
      */
@@ -4773,6 +4800,46 @@ export interface RoutingPolicy {
      * @generated from protobuf field: int32 inbound_fee_rate_milli_msat = 10
      */
     inboundFeeRateMilliMsat: number;
+}
+/**
+ *
+ * ChannelAuthProof is the authentication proof (the signature portion) for a
+ * channel. Using the four signatures contained in the struct, and some
+ * auxiliary knowledge (the funding script, node identities, and outpoint) nodes
+ * on the network are able to validate the authenticity and existence of a
+ * channel.
+ *
+ * @generated from protobuf message lnrpc.ChannelAuthProof
+ */
+export interface ChannelAuthProof {
+    /**
+     * node_sig1 are the raw bytes of the first node signature encoded
+     * in DER format.
+     *
+     * @generated from protobuf field: bytes node_sig1 = 1
+     */
+    nodeSig1: Uint8Array;
+    /**
+     * bitcoin_sig1 are the raw bytes of the first bitcoin signature of the
+     * MultiSigKey key of the channel encoded in DER format.
+     *
+     * @generated from protobuf field: bytes bitcoin_sig1 = 2
+     */
+    bitcoinSig1: Uint8Array;
+    /**
+     * node_sig2 are the raw bytes of the second node signature encoded
+     * in DER format.
+     *
+     * @generated from protobuf field: bytes node_sig2 = 3
+     */
+    nodeSig2: Uint8Array;
+    /**
+     * bitcoin_sig2 are the raw bytes of the second bitcoin signature of the
+     * MultiSigKey key of the channel encoded in DER format.
+     *
+     * @generated from protobuf field: bytes bitcoin_sig2 = 4
+     */
+    bitcoinSig2: Uint8Array;
 }
 /**
  *
@@ -4831,6 +4898,16 @@ export interface ChannelEdge {
     customRecords: {
         [key: string]: Uint8Array;
     };
+    /**
+     * Authentication proof for this channel. This proof contains a set of
+     * signatures binding four identities, which attests to the legitimacy of
+     * the advertised channel. This only is available for advertised channels.
+     * This field is not filled by default. Pass include_auth_proof flag to
+     * DescribeGraph, GetNodeInfo or GetChanInfo to get this data.
+     *
+     * @generated from protobuf field: lnrpc.ChannelAuthProof auth_proof = 10
+     */
+    authProof?: ChannelAuthProof;
 }
 /**
  * @generated from protobuf message lnrpc.ChannelGraphRequest
@@ -4845,6 +4922,12 @@ export interface ChannelGraphRequest {
      * @generated from protobuf field: bool include_unannounced = 1
      */
     includeUnannounced: boolean;
+    /**
+     * If true, will include announcements' signatures into ChannelEdge.
+     *
+     * @generated from protobuf field: bool include_auth_proof = 2
+     */
+    includeAuthProof: boolean;
 }
 /**
  * Returns a new instance of the directed channel graph.
@@ -4931,6 +5014,12 @@ export interface ChanInfoRequest {
      * @generated from protobuf field: string chan_point = 2
      */
     chanPoint: string;
+    /**
+     * If true, will include announcements' signatures into ChannelEdge.
+     *
+     * @generated from protobuf field: bool include_auth_proof = 3
+     */
+    includeAuthProof: boolean;
 }
 /**
  * @generated from protobuf message lnrpc.NetworkInfoRequest
@@ -5652,6 +5741,14 @@ export interface BlindedPathConfig {
      * @generated from protobuf field: repeated bytes node_omission_list = 4
      */
     nodeOmissionList: Uint8Array[];
+    /**
+     *
+     * The chained channels list specified via channel id (separated by commas),
+     * starting from a channel owned by the receiver node.
+     *
+     * @generated from protobuf field: repeated uint64 incoming_channel_list = 5
+     */
+    incomingChannelList: bigint[];
 }
 /**
  * Details of an HTLC that paid to an invoice
@@ -5939,6 +6036,28 @@ export interface InvoiceSubscription {
      * @generated from protobuf field: uint64 settle_index = 2
      */
     settleIndex: bigint;
+}
+/**
+ * @generated from protobuf message lnrpc.DelCanceledInvoiceReq
+ */
+export interface DelCanceledInvoiceReq {
+    /**
+     * Invoice payment hash to delete.
+     *
+     * @generated from protobuf field: string invoice_hash = 1
+     */
+    invoiceHash: string;
+}
+/**
+ * @generated from protobuf message lnrpc.DelCanceledInvoiceResp
+ */
+export interface DelCanceledInvoiceResp {
+    /**
+     * The status of the delete operation.
+     *
+     * @generated from protobuf field: string status = 1
+     */
+    status: string;
 }
 /**
  * @generated from protobuf message lnrpc.Payment
@@ -6737,6 +6856,20 @@ export interface ForwardingHistoryRequest {
      * @generated from protobuf field: bool peer_alias_lookup = 5
      */
     peerAliasLookup: boolean;
+    /**
+     * List of incoming channel ids to filter htlcs received from a
+     * particular channel
+     *
+     * @generated from protobuf field: repeated uint64 incoming_chan_ids = 6
+     */
+    incomingChanIds: bigint[];
+    /**
+     * List of outgoing channel ids to filter htlcs being forwarded to a
+     * particular channel
+     *
+     * @generated from protobuf field: repeated uint64 outgoing_chan_ids = 7
+     */
+    outgoingChanIds: bigint[];
 }
 /**
  * @generated from protobuf message lnrpc.ForwardingEvent
@@ -7462,17 +7595,49 @@ export interface Op {
  */
 export interface CheckMacPermRequest {
     /**
+     * The macaroon to check permissions for, serialized in binary format. For
+     * a macaroon to be valid, it must have been issued by lnd, must succeed all
+     * caveat conditions, and must contain all of the permissions specified in
+     * the permissions field.
+     *
      * @generated from protobuf field: bytes macaroon = 1
      */
     macaroon: Uint8Array;
     /**
+     * The list of permissions the macaroon should be checked against. Only if
+     * the macaroon contains all of these permissions, it is considered valid.
+     * If the list of permissions given is empty, then the macaroon is
+     * considered valid only based on issuance authority and caveat validity.
+     * An empty list of permissions is therefore equivalent to saying "skip
+     * checking permissions" (unless check_default_perms_from_full_method is
+     * specified).
+     *
      * @generated from protobuf field: repeated lnrpc.MacaroonPermission permissions = 2
      */
     permissions: MacaroonPermission[];
     /**
+     * The RPC method to check the macaroon against. This is only used if there
+     * are custom `uri:<rpcpackage>.<ServiceName>/<MethodName>` permissions in
+     * the permission list above. To check a macaroon against the list of
+     * permissions of a certain RPC method, query the `ListPermissions` RPC
+     * first, extract the permissions for the method, and then pass them in the
+     * `permissions` field above.
+     *
      * @generated from protobuf field: string fullMethod = 3
      */
     fullMethod: string;
+    /**
+     * If this field is set to true, then the permissions list above MUST be
+     * empty. The default permissions for the provided fullMethod will be used
+     * to check the macaroon. This is equivalent to looking up the permissions
+     * for a method in the `ListPermissions` RPC and then calling this RPC with
+     * the permission list returned from that call. Without this flag, the list
+     * of permissions must be non-empty for the check to actually perform a
+     * permission check.
+     *
+     * @generated from protobuf field: bool check_default_perms_from_full_method = 4
+     */
+    checkDefaultPermsFromFullMethod: boolean;
 }
 /**
  * @generated from protobuf message lnrpc.CheckMacPermResponse
@@ -13266,69 +13431,6 @@ class Chain$Type extends MessageType<Chain> {
  */
 export const Chain = new Chain$Type();
 // @generated message type with reflection information, may provide speed optimized methods
-class ConfirmationUpdate$Type extends MessageType<ConfirmationUpdate> {
-    constructor() {
-        super("lnrpc.ConfirmationUpdate", [
-            { no: 1, name: "block_sha", kind: "scalar", T: 12 /*ScalarType.BYTES*/ },
-            { no: 2, name: "block_height", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
-            { no: 3, name: "num_confs_left", kind: "scalar", T: 13 /*ScalarType.UINT32*/ }
-        ]);
-    }
-    create(value?: PartialMessage<ConfirmationUpdate>): ConfirmationUpdate {
-        const message = globalThis.Object.create((this.messagePrototype!));
-        message.blockSha = new Uint8Array(0);
-        message.blockHeight = 0;
-        message.numConfsLeft = 0;
-        if (value !== undefined)
-            reflectionMergePartial<ConfirmationUpdate>(this, message, value);
-        return message;
-    }
-    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: ConfirmationUpdate): ConfirmationUpdate {
-        let message = target ?? this.create(), end = reader.pos + length;
-        while (reader.pos < end) {
-            let [fieldNo, wireType] = reader.tag();
-            switch (fieldNo) {
-                case /* bytes block_sha */ 1:
-                    message.blockSha = reader.bytes();
-                    break;
-                case /* int32 block_height */ 2:
-                    message.blockHeight = reader.int32();
-                    break;
-                case /* uint32 num_confs_left */ 3:
-                    message.numConfsLeft = reader.uint32();
-                    break;
-                default:
-                    let u = options.readUnknownField;
-                    if (u === "throw")
-                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
-                    let d = reader.skip(wireType);
-                    if (u !== false)
-                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
-            }
-        }
-        return message;
-    }
-    internalBinaryWrite(message: ConfirmationUpdate, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
-        /* bytes block_sha = 1; */
-        if (message.blockSha.length)
-            writer.tag(1, WireType.LengthDelimited).bytes(message.blockSha);
-        /* int32 block_height = 2; */
-        if (message.blockHeight !== 0)
-            writer.tag(2, WireType.Varint).int32(message.blockHeight);
-        /* uint32 num_confs_left = 3; */
-        if (message.numConfsLeft !== 0)
-            writer.tag(3, WireType.Varint).uint32(message.numConfsLeft);
-        let u = options.writeUnknownFields;
-        if (u !== false)
-            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
-        return writer;
-    }
-}
-/**
- * @generated MessageType for protobuf message lnrpc.ConfirmationUpdate
- */
-export const ConfirmationUpdate = new ConfirmationUpdate$Type();
-// @generated message type with reflection information, may provide speed optimized methods
 class ChannelOpenUpdate$Type extends MessageType<ChannelOpenUpdate> {
     constructor() {
         super("lnrpc.ChannelOpenUpdate", [
@@ -15544,7 +15646,9 @@ class PendingChannelsResponse_PendingOpenChannel$Type extends MessageType<Pendin
             { no: 4, name: "commit_fee", kind: "scalar", T: 3 /*ScalarType.INT64*/, L: 0 /*LongType.BIGINT*/ },
             { no: 5, name: "commit_weight", kind: "scalar", T: 3 /*ScalarType.INT64*/, L: 0 /*LongType.BIGINT*/ },
             { no: 6, name: "fee_per_kw", kind: "scalar", T: 3 /*ScalarType.INT64*/, L: 0 /*LongType.BIGINT*/ },
-            { no: 3, name: "funding_expiry_blocks", kind: "scalar", T: 5 /*ScalarType.INT32*/ }
+            { no: 3, name: "funding_expiry_blocks", kind: "scalar", T: 5 /*ScalarType.INT32*/ },
+            { no: 7, name: "confirmations_until_active", kind: "scalar", T: 13 /*ScalarType.UINT32*/ },
+            { no: 8, name: "confirmation_height", kind: "scalar", T: 13 /*ScalarType.UINT32*/ }
         ]);
     }
     create(value?: PartialMessage<PendingChannelsResponse_PendingOpenChannel>): PendingChannelsResponse_PendingOpenChannel {
@@ -15553,6 +15657,8 @@ class PendingChannelsResponse_PendingOpenChannel$Type extends MessageType<Pendin
         message.commitWeight = 0n;
         message.feePerKw = 0n;
         message.fundingExpiryBlocks = 0;
+        message.confirmationsUntilActive = 0;
+        message.confirmationHeight = 0;
         if (value !== undefined)
             reflectionMergePartial<PendingChannelsResponse_PendingOpenChannel>(this, message, value);
         return message;
@@ -15576,6 +15682,12 @@ class PendingChannelsResponse_PendingOpenChannel$Type extends MessageType<Pendin
                     break;
                 case /* int32 funding_expiry_blocks */ 3:
                     message.fundingExpiryBlocks = reader.int32();
+                    break;
+                case /* uint32 confirmations_until_active */ 7:
+                    message.confirmationsUntilActive = reader.uint32();
+                    break;
+                case /* uint32 confirmation_height */ 8:
+                    message.confirmationHeight = reader.uint32();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -15604,6 +15716,12 @@ class PendingChannelsResponse_PendingOpenChannel$Type extends MessageType<Pendin
         /* int64 fee_per_kw = 6; */
         if (message.feePerKw !== 0n)
             writer.tag(6, WireType.Varint).int64(message.feePerKw);
+        /* uint32 confirmations_until_active = 7; */
+        if (message.confirmationsUntilActive !== 0)
+            writer.tag(7, WireType.Varint).uint32(message.confirmationsUntilActive);
+        /* uint32 confirmation_height = 8; */
+        if (message.confirmationHeight !== 0)
+            writer.tag(8, WireType.Varint).uint32(message.confirmationHeight);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -16526,7 +16644,8 @@ class QueryRoutesRequest$Type extends MessageType<QueryRoutesRequest> {
             { no: 16, name: "route_hints", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => RouteHint },
             { no: 19, name: "blinded_payment_paths", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => BlindedPaymentPath },
             { no: 17, name: "dest_features", kind: "enum", repeat: 1 /*RepeatType.PACKED*/, T: () => ["lnrpc.FeatureBit", FeatureBit] },
-            { no: 18, name: "time_pref", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ }
+            { no: 18, name: "time_pref", kind: "scalar", T: 1 /*ScalarType.DOUBLE*/ },
+            { no: 20, name: "outgoing_chan_ids", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 4 /*ScalarType.UINT64*/, L: 0 /*LongType.BIGINT*/ }
         ]);
     }
     create(value?: PartialMessage<QueryRoutesRequest>): QueryRoutesRequest {
@@ -16548,6 +16667,7 @@ class QueryRoutesRequest$Type extends MessageType<QueryRoutesRequest> {
         message.blindedPaymentPaths = [];
         message.destFeatures = [];
         message.timePref = 0;
+        message.outgoingChanIds = [];
         if (value !== undefined)
             reflectionMergePartial<QueryRoutesRequest>(this, message, value);
         return message;
@@ -16593,7 +16713,7 @@ class QueryRoutesRequest$Type extends MessageType<QueryRoutesRequest> {
                 case /* map<uint64, bytes> dest_custom_records */ 13:
                     this.binaryReadMap13(message.destCustomRecords, reader, options);
                     break;
-                case /* uint64 outgoing_chan_id = 14 [jstype = JS_STRING] */ 14:
+                case /* uint64 outgoing_chan_id = 14 [jstype = JS_STRING, deprecated = true] */ 14:
                     message.outgoingChanId = reader.uint64().toString();
                     break;
                 case /* bytes last_hop_pubkey */ 15:
@@ -16614,6 +16734,13 @@ class QueryRoutesRequest$Type extends MessageType<QueryRoutesRequest> {
                     break;
                 case /* double time_pref */ 18:
                     message.timePref = reader.double();
+                    break;
+                case /* repeated uint64 outgoing_chan_ids */ 20:
+                    if (wireType === WireType.LengthDelimited)
+                        for (let e = reader.int32() + reader.pos; reader.pos < e;)
+                            message.outgoingChanIds.push(reader.uint64().toBigInt());
+                    else
+                        message.outgoingChanIds.push(reader.uint64().toBigInt());
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -16679,7 +16806,7 @@ class QueryRoutesRequest$Type extends MessageType<QueryRoutesRequest> {
         /* map<uint64, bytes> dest_custom_records = 13; */
         for (let k of globalThis.Object.keys(message.destCustomRecords))
             writer.tag(13, WireType.LengthDelimited).fork().tag(1, WireType.Varint).uint64(k).tag(2, WireType.LengthDelimited).bytes(message.destCustomRecords[k]).join();
-        /* uint64 outgoing_chan_id = 14 [jstype = JS_STRING]; */
+        /* uint64 outgoing_chan_id = 14 [jstype = JS_STRING, deprecated = true]; */
         if (message.outgoingChanId !== "0")
             writer.tag(14, WireType.Varint).uint64(message.outgoingChanId);
         /* bytes last_hop_pubkey = 15; */
@@ -16701,6 +16828,13 @@ class QueryRoutesRequest$Type extends MessageType<QueryRoutesRequest> {
         /* repeated lnrpc.BlindedPaymentPath blinded_payment_paths = 19; */
         for (let i = 0; i < message.blindedPaymentPaths.length; i++)
             BlindedPaymentPath.internalBinaryWrite(message.blindedPaymentPaths[i], writer.tag(19, WireType.LengthDelimited).fork(), options).join();
+        /* repeated uint64 outgoing_chan_ids = 20; */
+        if (message.outgoingChanIds.length) {
+            writer.tag(20, WireType.LengthDelimited).fork();
+            for (let i = 0; i < message.outgoingChanIds.length; i++)
+                writer.uint64(message.outgoingChanIds[i]);
+            writer.join();
+        }
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -17283,13 +17417,15 @@ class NodeInfoRequest$Type extends MessageType<NodeInfoRequest> {
     constructor() {
         super("lnrpc.NodeInfoRequest", [
             { no: 1, name: "pub_key", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
-            { no: 2, name: "include_channels", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
+            { no: 2, name: "include_channels", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 3, name: "include_auth_proof", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
         ]);
     }
     create(value?: PartialMessage<NodeInfoRequest>): NodeInfoRequest {
         const message = globalThis.Object.create((this.messagePrototype!));
         message.pubKey = "";
         message.includeChannels = false;
+        message.includeAuthProof = false;
         if (value !== undefined)
             reflectionMergePartial<NodeInfoRequest>(this, message, value);
         return message;
@@ -17304,6 +17440,9 @@ class NodeInfoRequest$Type extends MessageType<NodeInfoRequest> {
                     break;
                 case /* bool include_channels */ 2:
                     message.includeChannels = reader.bool();
+                    break;
+                case /* bool include_auth_proof */ 3:
+                    message.includeAuthProof = reader.bool();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -17323,6 +17462,9 @@ class NodeInfoRequest$Type extends MessageType<NodeInfoRequest> {
         /* bool include_channels = 2; */
         if (message.includeChannels !== false)
             writer.tag(2, WireType.Varint).bool(message.includeChannels);
+        /* bool include_auth_proof = 3; */
+        if (message.includeAuthProof !== false)
+            writer.tag(3, WireType.Varint).bool(message.includeAuthProof);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -17725,6 +17867,77 @@ class RoutingPolicy$Type extends MessageType<RoutingPolicy> {
  */
 export const RoutingPolicy = new RoutingPolicy$Type();
 // @generated message type with reflection information, may provide speed optimized methods
+class ChannelAuthProof$Type extends MessageType<ChannelAuthProof> {
+    constructor() {
+        super("lnrpc.ChannelAuthProof", [
+            { no: 1, name: "node_sig1", kind: "scalar", T: 12 /*ScalarType.BYTES*/ },
+            { no: 2, name: "bitcoin_sig1", kind: "scalar", T: 12 /*ScalarType.BYTES*/ },
+            { no: 3, name: "node_sig2", kind: "scalar", T: 12 /*ScalarType.BYTES*/ },
+            { no: 4, name: "bitcoin_sig2", kind: "scalar", T: 12 /*ScalarType.BYTES*/ }
+        ]);
+    }
+    create(value?: PartialMessage<ChannelAuthProof>): ChannelAuthProof {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.nodeSig1 = new Uint8Array(0);
+        message.bitcoinSig1 = new Uint8Array(0);
+        message.nodeSig2 = new Uint8Array(0);
+        message.bitcoinSig2 = new Uint8Array(0);
+        if (value !== undefined)
+            reflectionMergePartial<ChannelAuthProof>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: ChannelAuthProof): ChannelAuthProof {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* bytes node_sig1 */ 1:
+                    message.nodeSig1 = reader.bytes();
+                    break;
+                case /* bytes bitcoin_sig1 */ 2:
+                    message.bitcoinSig1 = reader.bytes();
+                    break;
+                case /* bytes node_sig2 */ 3:
+                    message.nodeSig2 = reader.bytes();
+                    break;
+                case /* bytes bitcoin_sig2 */ 4:
+                    message.bitcoinSig2 = reader.bytes();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: ChannelAuthProof, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* bytes node_sig1 = 1; */
+        if (message.nodeSig1.length)
+            writer.tag(1, WireType.LengthDelimited).bytes(message.nodeSig1);
+        /* bytes bitcoin_sig1 = 2; */
+        if (message.bitcoinSig1.length)
+            writer.tag(2, WireType.LengthDelimited).bytes(message.bitcoinSig1);
+        /* bytes node_sig2 = 3; */
+        if (message.nodeSig2.length)
+            writer.tag(3, WireType.LengthDelimited).bytes(message.nodeSig2);
+        /* bytes bitcoin_sig2 = 4; */
+        if (message.bitcoinSig2.length)
+            writer.tag(4, WireType.LengthDelimited).bytes(message.bitcoinSig2);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message lnrpc.ChannelAuthProof
+ */
+export const ChannelAuthProof = new ChannelAuthProof$Type();
+// @generated message type with reflection information, may provide speed optimized methods
 class ChannelEdge$Type extends MessageType<ChannelEdge> {
     constructor() {
         super("lnrpc.ChannelEdge", [
@@ -17736,7 +17949,8 @@ class ChannelEdge$Type extends MessageType<ChannelEdge> {
             { no: 6, name: "capacity", kind: "scalar", T: 3 /*ScalarType.INT64*/, L: 0 /*LongType.BIGINT*/ },
             { no: 7, name: "node1_policy", kind: "message", T: () => RoutingPolicy },
             { no: 8, name: "node2_policy", kind: "message", T: () => RoutingPolicy },
-            { no: 9, name: "custom_records", kind: "map", K: 4 /*ScalarType.UINT64*/, V: { kind: "scalar", T: 12 /*ScalarType.BYTES*/ } }
+            { no: 9, name: "custom_records", kind: "map", K: 4 /*ScalarType.UINT64*/, V: { kind: "scalar", T: 12 /*ScalarType.BYTES*/ } },
+            { no: 10, name: "auth_proof", kind: "message", T: () => ChannelAuthProof }
         ]);
     }
     create(value?: PartialMessage<ChannelEdge>): ChannelEdge {
@@ -17783,6 +17997,9 @@ class ChannelEdge$Type extends MessageType<ChannelEdge> {
                     break;
                 case /* map<uint64, bytes> custom_records */ 9:
                     this.binaryReadMap9(message.customRecords, reader, options);
+                    break;
+                case /* lnrpc.ChannelAuthProof auth_proof */ 10:
+                    message.authProof = ChannelAuthProof.internalBinaryRead(reader, reader.uint32(), options, message.authProof);
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -17839,6 +18056,9 @@ class ChannelEdge$Type extends MessageType<ChannelEdge> {
         /* map<uint64, bytes> custom_records = 9; */
         for (let k of globalThis.Object.keys(message.customRecords))
             writer.tag(9, WireType.LengthDelimited).fork().tag(1, WireType.Varint).uint64(k).tag(2, WireType.LengthDelimited).bytes(message.customRecords[k]).join();
+        /* lnrpc.ChannelAuthProof auth_proof = 10; */
+        if (message.authProof)
+            ChannelAuthProof.internalBinaryWrite(message.authProof, writer.tag(10, WireType.LengthDelimited).fork(), options).join();
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -17853,12 +18073,14 @@ export const ChannelEdge = new ChannelEdge$Type();
 class ChannelGraphRequest$Type extends MessageType<ChannelGraphRequest> {
     constructor() {
         super("lnrpc.ChannelGraphRequest", [
-            { no: 1, name: "include_unannounced", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
+            { no: 1, name: "include_unannounced", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 2, name: "include_auth_proof", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
         ]);
     }
     create(value?: PartialMessage<ChannelGraphRequest>): ChannelGraphRequest {
         const message = globalThis.Object.create((this.messagePrototype!));
         message.includeUnannounced = false;
+        message.includeAuthProof = false;
         if (value !== undefined)
             reflectionMergePartial<ChannelGraphRequest>(this, message, value);
         return message;
@@ -17870,6 +18092,9 @@ class ChannelGraphRequest$Type extends MessageType<ChannelGraphRequest> {
             switch (fieldNo) {
                 case /* bool include_unannounced */ 1:
                     message.includeUnannounced = reader.bool();
+                    break;
+                case /* bool include_auth_proof */ 2:
+                    message.includeAuthProof = reader.bool();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -17886,6 +18111,9 @@ class ChannelGraphRequest$Type extends MessageType<ChannelGraphRequest> {
         /* bool include_unannounced = 1; */
         if (message.includeUnannounced !== false)
             writer.tag(1, WireType.Varint).bool(message.includeUnannounced);
+        /* bool include_auth_proof = 2; */
+        if (message.includeAuthProof !== false)
+            writer.tag(2, WireType.Varint).bool(message.includeAuthProof);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -18133,13 +18361,15 @@ class ChanInfoRequest$Type extends MessageType<ChanInfoRequest> {
     constructor() {
         super("lnrpc.ChanInfoRequest", [
             { no: 1, name: "chan_id", kind: "scalar", T: 4 /*ScalarType.UINT64*/ },
-            { no: 2, name: "chan_point", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+            { no: 2, name: "chan_point", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 3, name: "include_auth_proof", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
         ]);
     }
     create(value?: PartialMessage<ChanInfoRequest>): ChanInfoRequest {
         const message = globalThis.Object.create((this.messagePrototype!));
         message.chanId = "0";
         message.chanPoint = "";
+        message.includeAuthProof = false;
         if (value !== undefined)
             reflectionMergePartial<ChanInfoRequest>(this, message, value);
         return message;
@@ -18154,6 +18384,9 @@ class ChanInfoRequest$Type extends MessageType<ChanInfoRequest> {
                     break;
                 case /* string chan_point */ 2:
                     message.chanPoint = reader.string();
+                    break;
+                case /* bool include_auth_proof */ 3:
+                    message.includeAuthProof = reader.bool();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -18173,6 +18406,9 @@ class ChanInfoRequest$Type extends MessageType<ChanInfoRequest> {
         /* string chan_point = 2; */
         if (message.chanPoint !== "")
             writer.tag(2, WireType.LengthDelimited).string(message.chanPoint);
+        /* bool include_auth_proof = 3; */
+        if (message.includeAuthProof !== false)
+            writer.tag(3, WireType.Varint).bool(message.includeAuthProof);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -19585,12 +19821,14 @@ class BlindedPathConfig$Type extends MessageType<BlindedPathConfig> {
             { no: 1, name: "min_num_real_hops", kind: "scalar", opt: true, T: 13 /*ScalarType.UINT32*/ },
             { no: 2, name: "num_hops", kind: "scalar", opt: true, T: 13 /*ScalarType.UINT32*/ },
             { no: 3, name: "max_num_paths", kind: "scalar", opt: true, T: 13 /*ScalarType.UINT32*/ },
-            { no: 4, name: "node_omission_list", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 12 /*ScalarType.BYTES*/ }
+            { no: 4, name: "node_omission_list", kind: "scalar", repeat: 2 /*RepeatType.UNPACKED*/, T: 12 /*ScalarType.BYTES*/ },
+            { no: 5, name: "incoming_channel_list", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 4 /*ScalarType.UINT64*/, L: 0 /*LongType.BIGINT*/ }
         ]);
     }
     create(value?: PartialMessage<BlindedPathConfig>): BlindedPathConfig {
         const message = globalThis.Object.create((this.messagePrototype!));
         message.nodeOmissionList = [];
+        message.incomingChannelList = [];
         if (value !== undefined)
             reflectionMergePartial<BlindedPathConfig>(this, message, value);
         return message;
@@ -19611,6 +19849,13 @@ class BlindedPathConfig$Type extends MessageType<BlindedPathConfig> {
                     break;
                 case /* repeated bytes node_omission_list */ 4:
                     message.nodeOmissionList.push(reader.bytes());
+                    break;
+                case /* repeated uint64 incoming_channel_list */ 5:
+                    if (wireType === WireType.LengthDelimited)
+                        for (let e = reader.int32() + reader.pos; reader.pos < e;)
+                            message.incomingChannelList.push(reader.uint64().toBigInt());
+                    else
+                        message.incomingChannelList.push(reader.uint64().toBigInt());
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -19636,6 +19881,13 @@ class BlindedPathConfig$Type extends MessageType<BlindedPathConfig> {
         /* repeated bytes node_omission_list = 4; */
         for (let i = 0; i < message.nodeOmissionList.length; i++)
             writer.tag(4, WireType.LengthDelimited).bytes(message.nodeOmissionList[i]);
+        /* repeated uint64 incoming_channel_list = 5; */
+        if (message.incomingChannelList.length) {
+            writer.tag(5, WireType.LengthDelimited).fork();
+            for (let i = 0; i < message.incomingChannelList.length; i++)
+                writer.uint64(message.incomingChannelList[i]);
+            writer.join();
+        }
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -20206,6 +20458,100 @@ class InvoiceSubscription$Type extends MessageType<InvoiceSubscription> {
  * @generated MessageType for protobuf message lnrpc.InvoiceSubscription
  */
 export const InvoiceSubscription = new InvoiceSubscription$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class DelCanceledInvoiceReq$Type extends MessageType<DelCanceledInvoiceReq> {
+    constructor() {
+        super("lnrpc.DelCanceledInvoiceReq", [
+            { no: 1, name: "invoice_hash", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<DelCanceledInvoiceReq>): DelCanceledInvoiceReq {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.invoiceHash = "";
+        if (value !== undefined)
+            reflectionMergePartial<DelCanceledInvoiceReq>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: DelCanceledInvoiceReq): DelCanceledInvoiceReq {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string invoice_hash */ 1:
+                    message.invoiceHash = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: DelCanceledInvoiceReq, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string invoice_hash = 1; */
+        if (message.invoiceHash !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.invoiceHash);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message lnrpc.DelCanceledInvoiceReq
+ */
+export const DelCanceledInvoiceReq = new DelCanceledInvoiceReq$Type();
+// @generated message type with reflection information, may provide speed optimized methods
+class DelCanceledInvoiceResp$Type extends MessageType<DelCanceledInvoiceResp> {
+    constructor() {
+        super("lnrpc.DelCanceledInvoiceResp", [
+            { no: 1, name: "status", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+        ]);
+    }
+    create(value?: PartialMessage<DelCanceledInvoiceResp>): DelCanceledInvoiceResp {
+        const message = globalThis.Object.create((this.messagePrototype!));
+        message.status = "";
+        if (value !== undefined)
+            reflectionMergePartial<DelCanceledInvoiceResp>(this, message, value);
+        return message;
+    }
+    internalBinaryRead(reader: IBinaryReader, length: number, options: BinaryReadOptions, target?: DelCanceledInvoiceResp): DelCanceledInvoiceResp {
+        let message = target ?? this.create(), end = reader.pos + length;
+        while (reader.pos < end) {
+            let [fieldNo, wireType] = reader.tag();
+            switch (fieldNo) {
+                case /* string status */ 1:
+                    message.status = reader.string();
+                    break;
+                default:
+                    let u = options.readUnknownField;
+                    if (u === "throw")
+                        throw new globalThis.Error(`Unknown field ${fieldNo} (wire type ${wireType}) for ${this.typeName}`);
+                    let d = reader.skip(wireType);
+                    if (u !== false)
+                        (u === true ? UnknownFieldHandler.onRead : u)(this.typeName, message, fieldNo, wireType, d);
+            }
+        }
+        return message;
+    }
+    internalBinaryWrite(message: DelCanceledInvoiceResp, writer: IBinaryWriter, options: BinaryWriteOptions): IBinaryWriter {
+        /* string status = 1; */
+        if (message.status !== "")
+            writer.tag(1, WireType.LengthDelimited).string(message.status);
+        let u = options.writeUnknownFields;
+        if (u !== false)
+            (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
+        return writer;
+    }
+}
+/**
+ * @generated MessageType for protobuf message lnrpc.DelCanceledInvoiceResp
+ */
+export const DelCanceledInvoiceResp = new DelCanceledInvoiceResp$Type();
 // @generated message type with reflection information, may provide speed optimized methods
 class Payment$Type extends MessageType<Payment> {
     constructor() {
@@ -21859,7 +22205,9 @@ class ForwardingHistoryRequest$Type extends MessageType<ForwardingHistoryRequest
             { no: 2, name: "end_time", kind: "scalar", T: 4 /*ScalarType.UINT64*/, L: 0 /*LongType.BIGINT*/ },
             { no: 3, name: "index_offset", kind: "scalar", T: 13 /*ScalarType.UINT32*/ },
             { no: 4, name: "num_max_events", kind: "scalar", T: 13 /*ScalarType.UINT32*/ },
-            { no: 5, name: "peer_alias_lookup", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
+            { no: 5, name: "peer_alias_lookup", kind: "scalar", T: 8 /*ScalarType.BOOL*/ },
+            { no: 6, name: "incoming_chan_ids", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 4 /*ScalarType.UINT64*/, L: 0 /*LongType.BIGINT*/ },
+            { no: 7, name: "outgoing_chan_ids", kind: "scalar", repeat: 1 /*RepeatType.PACKED*/, T: 4 /*ScalarType.UINT64*/, L: 0 /*LongType.BIGINT*/ }
         ]);
     }
     create(value?: PartialMessage<ForwardingHistoryRequest>): ForwardingHistoryRequest {
@@ -21869,6 +22217,8 @@ class ForwardingHistoryRequest$Type extends MessageType<ForwardingHistoryRequest
         message.indexOffset = 0;
         message.numMaxEvents = 0;
         message.peerAliasLookup = false;
+        message.incomingChanIds = [];
+        message.outgoingChanIds = [];
         if (value !== undefined)
             reflectionMergePartial<ForwardingHistoryRequest>(this, message, value);
         return message;
@@ -21892,6 +22242,20 @@ class ForwardingHistoryRequest$Type extends MessageType<ForwardingHistoryRequest
                     break;
                 case /* bool peer_alias_lookup */ 5:
                     message.peerAliasLookup = reader.bool();
+                    break;
+                case /* repeated uint64 incoming_chan_ids */ 6:
+                    if (wireType === WireType.LengthDelimited)
+                        for (let e = reader.int32() + reader.pos; reader.pos < e;)
+                            message.incomingChanIds.push(reader.uint64().toBigInt());
+                    else
+                        message.incomingChanIds.push(reader.uint64().toBigInt());
+                    break;
+                case /* repeated uint64 outgoing_chan_ids */ 7:
+                    if (wireType === WireType.LengthDelimited)
+                        for (let e = reader.int32() + reader.pos; reader.pos < e;)
+                            message.outgoingChanIds.push(reader.uint64().toBigInt());
+                    else
+                        message.outgoingChanIds.push(reader.uint64().toBigInt());
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -21920,6 +22284,20 @@ class ForwardingHistoryRequest$Type extends MessageType<ForwardingHistoryRequest
         /* bool peer_alias_lookup = 5; */
         if (message.peerAliasLookup !== false)
             writer.tag(5, WireType.Varint).bool(message.peerAliasLookup);
+        /* repeated uint64 incoming_chan_ids = 6; */
+        if (message.incomingChanIds.length) {
+            writer.tag(6, WireType.LengthDelimited).fork();
+            for (let i = 0; i < message.incomingChanIds.length; i++)
+                writer.uint64(message.incomingChanIds[i]);
+            writer.join();
+        }
+        /* repeated uint64 outgoing_chan_ids = 7; */
+        if (message.outgoingChanIds.length) {
+            writer.tag(7, WireType.LengthDelimited).fork();
+            for (let i = 0; i < message.outgoingChanIds.length; i++)
+                writer.uint64(message.outgoingChanIds[i]);
+            writer.join();
+        }
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -23484,7 +23862,8 @@ class CheckMacPermRequest$Type extends MessageType<CheckMacPermRequest> {
         super("lnrpc.CheckMacPermRequest", [
             { no: 1, name: "macaroon", kind: "scalar", T: 12 /*ScalarType.BYTES*/ },
             { no: 2, name: "permissions", kind: "message", repeat: 2 /*RepeatType.UNPACKED*/, T: () => MacaroonPermission },
-            { no: 3, name: "fullMethod", kind: "scalar", T: 9 /*ScalarType.STRING*/ }
+            { no: 3, name: "fullMethod", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
+            { no: 4, name: "check_default_perms_from_full_method", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
         ]);
     }
     create(value?: PartialMessage<CheckMacPermRequest>): CheckMacPermRequest {
@@ -23492,6 +23871,7 @@ class CheckMacPermRequest$Type extends MessageType<CheckMacPermRequest> {
         message.macaroon = new Uint8Array(0);
         message.permissions = [];
         message.fullMethod = "";
+        message.checkDefaultPermsFromFullMethod = false;
         if (value !== undefined)
             reflectionMergePartial<CheckMacPermRequest>(this, message, value);
         return message;
@@ -23509,6 +23889,9 @@ class CheckMacPermRequest$Type extends MessageType<CheckMacPermRequest> {
                     break;
                 case /* string fullMethod */ 3:
                     message.fullMethod = reader.string();
+                    break;
+                case /* bool check_default_perms_from_full_method */ 4:
+                    message.checkDefaultPermsFromFullMethod = reader.bool();
                     break;
                 default:
                     let u = options.readUnknownField;
@@ -23531,6 +23914,9 @@ class CheckMacPermRequest$Type extends MessageType<CheckMacPermRequest> {
         /* string fullMethod = 3; */
         if (message.fullMethod !== "")
             writer.tag(3, WireType.LengthDelimited).string(message.fullMethod);
+        /* bool check_default_perms_from_full_method = 4; */
+        if (message.checkDefaultPermsFromFullMethod !== false)
+            writer.tag(4, WireType.Varint).bool(message.checkDefaultPermsFromFullMethod);
         let u = options.writeUnknownFields;
         if (u !== false)
             (u == true ? UnknownFieldHandler.onWrite : u)(this.typeName, message, writer);
@@ -24136,6 +24522,7 @@ export const Lightning = new ServiceType("lnrpc.Lightning", [
     { name: "ListInvoices", options: {}, I: ListInvoiceRequest, O: ListInvoiceResponse },
     { name: "LookupInvoice", options: {}, I: PaymentHash, O: Invoice },
     { name: "SubscribeInvoices", serverStreaming: true, options: {}, I: InvoiceSubscription, O: Invoice },
+    { name: "DeleteCanceledInvoice", options: {}, I: DelCanceledInvoiceReq, O: DelCanceledInvoiceResp },
     { name: "DecodePayReq", options: {}, I: PayReqString, O: PayReq },
     { name: "ListPayments", options: {}, I: ListPaymentsRequest, O: ListPaymentsResponse },
     { name: "DeletePayment", options: {}, I: DeletePaymentRequest, O: DeletePaymentResponse },
