@@ -7,8 +7,8 @@ export type RequestMetric = AuthContext & RequestInfo & RequestStats & { error?:
 export type AdminContext = {
     admin_id: string
 }
-export type AdminMethodInputs = AddApp_Input | AddPeer_Input | AuthApp_Input | BanUser_Input | BumpTx_Input | CloseChannel_Input | CreateOneTimeInviteLink_Input | GetAdminInvoiceSwapQuotes_Input | GetAdminTransactionSwapQuotes_Input | GetAssetsAndLiabilities_Input | GetInviteLinkState_Input | GetSeed_Input | ListAdminInvoiceSwaps_Input | ListAdminTxSwaps_Input | ListChannels_Input | LndGetInfo_Input | OpenChannel_Input | PayAdminInvoiceSwap_Input | PayAdminTransactionSwap_Input | RefundAdminInvoiceSwap_Input | UpdateChannelPolicy_Input
-export type AdminMethodOutputs = AddApp_Output | AddPeer_Output | AuthApp_Output | BanUser_Output | BumpTx_Output | CloseChannel_Output | CreateOneTimeInviteLink_Output | GetAdminInvoiceSwapQuotes_Output | GetAdminTransactionSwapQuotes_Output | GetAssetsAndLiabilities_Output | GetInviteLinkState_Output | GetSeed_Output | ListAdminInvoiceSwaps_Output | ListAdminTxSwaps_Output | ListChannels_Output | LndGetInfo_Output | OpenChannel_Output | PayAdminInvoiceSwap_Output | PayAdminTransactionSwap_Output | RefundAdminInvoiceSwap_Output | UpdateChannelPolicy_Output
+export type AdminMethodInputs = AddApp_Input | AddPeer_Input | AuthApp_Input | BanUser_Input | BumpTx_Input | CloseChannel_Input | CreateOneTimeInviteLink_Input | GetAdminInvoiceSwapQuotes_Input | GetAdminTransactionSwapQuotes_Input | GetAssetsAndLiabilities_Input | GetAssetsAndLiabilitiesV2_Input | GetInviteLinkState_Input | GetSeed_Input | GetUserOperationsFromAdmin_Input | GetUsersAdminInfo_Input | ListAdminInvoiceSwaps_Input | ListAdminTxSwaps_Input | ListChannels_Input | LndGetInfo_Input | OpenChannel_Input | PayAdminInvoiceSwap_Input | PayAdminTransactionSwap_Input | RefundAdminInvoiceSwap_Input | UpdateChannelPolicy_Input
+export type AdminMethodOutputs = AddApp_Output | AddPeer_Output | AuthApp_Output | BanUser_Output | BumpTx_Output | CloseChannel_Output | CreateOneTimeInviteLink_Output | GetAdminInvoiceSwapQuotes_Output | GetAdminTransactionSwapQuotes_Output | GetAssetsAndLiabilities_Output | GetAssetsAndLiabilitiesV2_Output | GetInviteLinkState_Output | GetSeed_Output | GetUserOperationsFromAdmin_Output | GetUsersAdminInfo_Output | ListAdminInvoiceSwaps_Output | ListAdminTxSwaps_Output | ListChannels_Output | LndGetInfo_Output | OpenChannel_Output | PayAdminInvoiceSwap_Output | PayAdminTransactionSwap_Output | RefundAdminInvoiceSwap_Output | UpdateChannelPolicy_Output
 export type AppContext = {
     app_id: string
 }
@@ -123,6 +123,9 @@ export type GetAppsMetrics_Output = ResultError | ({ status: 'OK' } & AppsMetric
 export type GetAssetsAndLiabilities_Input = {rpcName:'GetAssetsAndLiabilities', req: AssetsAndLiabilitiesReq}
 export type GetAssetsAndLiabilities_Output = ResultError | ({ status: 'OK' } & AssetsAndLiabilities)
 
+export type GetAssetsAndLiabilitiesV2_Input = {rpcName:'GetAssetsAndLiabilitiesV2', req: AssetsAndLiabilitiesReqV2}
+export type GetAssetsAndLiabilitiesV2_Output = ResultError | ({ status: 'OK' } & AssetsAndLiabilitiesV2)
+
 export type GetBundleMetrics_Input = {rpcName:'GetBundleMetrics', req: LatestBundleMetricReq}
 export type GetBundleMetrics_Output = ResultError | ({ status: 'OK' } & BundleMetrics)
 
@@ -218,6 +221,12 @@ export type GetUserOffers_Output = ResultError | ({ status: 'OK' } & UserOffers)
 
 export type GetUserOperations_Input = {rpcName:'GetUserOperations', req: GetUserOperationsRequest}
 export type GetUserOperations_Output = ResultError | ({ status: 'OK' } & GetUserOperationsResponse)
+
+export type GetUserOperationsFromAdmin_Input = {rpcName:'GetUserOperationsFromAdmin', req: GetUserOperationsRequest}
+export type GetUserOperationsFromAdmin_Output = ResultError | ({ status: 'OK' } & GetUserOperationsResponse)
+
+export type GetUsersAdminInfo_Input = {rpcName:'GetUsersAdminInfo', req: UsersAdminInfoRequest}
+export type GetUsersAdminInfo_Output = ResultError | ({ status: 'OK' } & UsersAdminInfo)
 
 export type HandleLnurlAddress_RouteParams = {
     address_name: string
@@ -383,6 +392,7 @@ export type ServerMethods = {
     GetAppUserLNURLInfo?: (req: GetAppUserLNURLInfo_Input & {ctx: AppContext }) => Promise<LnurlPayInfoResponse>
     GetAppsMetrics?: (req: GetAppsMetrics_Input & {ctx: MetricsContext }) => Promise<AppsMetrics>
     GetAssetsAndLiabilities?: (req: GetAssetsAndLiabilities_Input & {ctx: AdminContext }) => Promise<AssetsAndLiabilities>
+    GetAssetsAndLiabilitiesV2?: (req: GetAssetsAndLiabilitiesV2_Input & {ctx: AdminContext }) => Promise<AssetsAndLiabilitiesV2>
     GetBundleMetrics?: (req: GetBundleMetrics_Input & {ctx: MetricsContext }) => Promise<BundleMetrics>
     GetDebitAuthorizations?: (req: GetDebitAuthorizations_Input & {ctx: UserContext }) => Promise<DebitAuthorizations>
     GetErrorStats?: (req: GetErrorStats_Input & {ctx: MetricsContext }) => Promise<ErrorStats>
@@ -413,6 +423,8 @@ export type ServerMethods = {
     GetUserOfferInvoices?: (req: GetUserOfferInvoices_Input & {ctx: UserContext }) => Promise<OfferInvoices>
     GetUserOffers?: (req: GetUserOffers_Input & {ctx: UserContext }) => Promise<UserOffers>
     GetUserOperations?: (req: GetUserOperations_Input & {ctx: UserContext }) => Promise<GetUserOperationsResponse>
+    GetUserOperationsFromAdmin?: (req: GetUserOperationsFromAdmin_Input & {ctx: AdminContext }) => Promise<GetUserOperationsResponse>
+    GetUsersAdminInfo?: (req: GetUsersAdminInfo_Input & {ctx: AdminContext }) => Promise<UsersAdminInfo>
     HandleLnurlAddress?: (req: HandleLnurlAddress_Input & {ctx: GuestContext }) => Promise<LnurlPayInfoResponse>
     HandleLnurlPay?: (req: HandleLnurlPay_Input & {ctx: GuestContext }) => Promise<HandleLnurlPayResponse>
     HandleLnurlWithdraw?: (req: HandleLnurlWithdraw_Input & {ctx: GuestContext }) => Promise<void>
@@ -860,6 +872,39 @@ export const AppUserValidate = (o?: AppUser, opts: AppUserOptions = {}, path: st
     return null
 }
 
+export type AppUserAdminInfo = {
+    app_user_id: string
+    has_callback_url: boolean
+    has_topic_id: boolean
+    npub: string
+}
+export const AppUserAdminInfoOptionalFields: [] = []
+export type AppUserAdminInfoOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    app_user_id_CustomCheck?: (v: string) => boolean
+    has_callback_url_CustomCheck?: (v: boolean) => boolean
+    has_topic_id_CustomCheck?: (v: boolean) => boolean
+    npub_CustomCheck?: (v: string) => boolean
+}
+export const AppUserAdminInfoValidate = (o?: AppUserAdminInfo, opts: AppUserAdminInfoOptions = {}, path: string = 'AppUserAdminInfo::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.app_user_id !== 'string') return new Error(`${path}.app_user_id: is not a string`)
+    if (opts.app_user_id_CustomCheck && !opts.app_user_id_CustomCheck(o.app_user_id)) return new Error(`${path}.app_user_id: custom check failed`)
+
+    if (typeof o.has_callback_url !== 'boolean') return new Error(`${path}.has_callback_url: is not a boolean`)
+    if (opts.has_callback_url_CustomCheck && !opts.has_callback_url_CustomCheck(o.has_callback_url)) return new Error(`${path}.has_callback_url: custom check failed`)
+
+    if (typeof o.has_topic_id !== 'boolean') return new Error(`${path}.has_topic_id: is not a boolean`)
+    if (opts.has_topic_id_CustomCheck && !opts.has_topic_id_CustomCheck(o.has_topic_id)) return new Error(`${path}.has_topic_id: custom check failed`)
+
+    if (typeof o.npub !== 'string') return new Error(`${path}.npub: is not a string`)
+    if (opts.npub_CustomCheck && !opts.npub_CustomCheck(o.npub)) return new Error(`${path}.npub: custom check failed`)
+
+    return null
+}
+
 export type Application = {
     balance: number
     id: string
@@ -1040,6 +1085,77 @@ export const AssetsAndLiabilitiesReqValidate = (o?: AssetsAndLiabilitiesReq, opt
 
     if ((o.limit_providers || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('limit_providers')) && typeof o.limit_providers !== 'number') return new Error(`${path}.limit_providers: is not a number`)
     if (opts.limit_providers_CustomCheck && !opts.limit_providers_CustomCheck(o.limit_providers)) return new Error(`${path}.limit_providers: custom check failed`)
+
+    return null
+}
+
+export type AssetsAndLiabilitiesReqV2 = {
+    liquidity_providers: LiquidityProviderFilter[]
+    lnd_providers: LndProviderFilter[]
+}
+export const AssetsAndLiabilitiesReqV2OptionalFields: [] = []
+export type AssetsAndLiabilitiesReqV2Options = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    liquidity_providers_ItemOptions?: LiquidityProviderFilterOptions
+    liquidity_providers_CustomCheck?: (v: LiquidityProviderFilter[]) => boolean
+    lnd_providers_ItemOptions?: LndProviderFilterOptions
+    lnd_providers_CustomCheck?: (v: LndProviderFilter[]) => boolean
+}
+export const AssetsAndLiabilitiesReqV2Validate = (o?: AssetsAndLiabilitiesReqV2, opts: AssetsAndLiabilitiesReqV2Options = {}, path: string = 'AssetsAndLiabilitiesReqV2::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (!Array.isArray(o.liquidity_providers)) return new Error(`${path}.liquidity_providers: is not an array`)
+    for (let index = 0; index < o.liquidity_providers.length; index++) {
+        const liquidity_providersErr = LiquidityProviderFilterValidate(o.liquidity_providers[index], opts.liquidity_providers_ItemOptions, `${path}.liquidity_providers[${index}]`)
+        if (liquidity_providersErr !== null) return liquidity_providersErr
+    }
+    if (opts.liquidity_providers_CustomCheck && !opts.liquidity_providers_CustomCheck(o.liquidity_providers)) return new Error(`${path}.liquidity_providers: custom check failed`)
+
+    if (!Array.isArray(o.lnd_providers)) return new Error(`${path}.lnd_providers: is not an array`)
+    for (let index = 0; index < o.lnd_providers.length; index++) {
+        const lnd_providersErr = LndProviderFilterValidate(o.lnd_providers[index], opts.lnd_providers_ItemOptions, `${path}.lnd_providers[${index}]`)
+        if (lnd_providersErr !== null) return lnd_providersErr
+    }
+    if (opts.lnd_providers_CustomCheck && !opts.lnd_providers_CustomCheck(o.lnd_providers)) return new Error(`${path}.lnd_providers: custom check failed`)
+
+    return null
+}
+
+export type AssetsAndLiabilitiesV2 = {
+    liquidity_providers: LiquidityAssetProviderV2[]
+    lnds: LndAssetProviderV2[]
+    users_balance: number
+}
+export const AssetsAndLiabilitiesV2OptionalFields: [] = []
+export type AssetsAndLiabilitiesV2Options = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    liquidity_providers_ItemOptions?: LiquidityAssetProviderV2Options
+    liquidity_providers_CustomCheck?: (v: LiquidityAssetProviderV2[]) => boolean
+    lnds_ItemOptions?: LndAssetProviderV2Options
+    lnds_CustomCheck?: (v: LndAssetProviderV2[]) => boolean
+    users_balance_CustomCheck?: (v: number) => boolean
+}
+export const AssetsAndLiabilitiesV2Validate = (o?: AssetsAndLiabilitiesV2, opts: AssetsAndLiabilitiesV2Options = {}, path: string = 'AssetsAndLiabilitiesV2::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (!Array.isArray(o.liquidity_providers)) return new Error(`${path}.liquidity_providers: is not an array`)
+    for (let index = 0; index < o.liquidity_providers.length; index++) {
+        const liquidity_providersErr = LiquidityAssetProviderV2Validate(o.liquidity_providers[index], opts.liquidity_providers_ItemOptions, `${path}.liquidity_providers[${index}]`)
+        if (liquidity_providersErr !== null) return liquidity_providersErr
+    }
+    if (opts.liquidity_providers_CustomCheck && !opts.liquidity_providers_CustomCheck(o.liquidity_providers)) return new Error(`${path}.liquidity_providers: custom check failed`)
+
+    if (!Array.isArray(o.lnds)) return new Error(`${path}.lnds: is not an array`)
+    for (let index = 0; index < o.lnds.length; index++) {
+        const lndsErr = LndAssetProviderV2Validate(o.lnds[index], opts.lnds_ItemOptions, `${path}.lnds[${index}]`)
+        if (lndsErr !== null) return lndsErr
+    }
+    if (opts.lnds_CustomCheck && !opts.lnds_CustomCheck(o.lnds)) return new Error(`${path}.lnds: custom check failed`)
+
+    if (typeof o.users_balance !== 'number') return new Error(`${path}.users_balance: is not a number`)
+    if (opts.users_balance_CustomCheck && !opts.users_balance_CustomCheck(o.users_balance)) return new Error(`${path}.users_balance: custom check failed`)
 
     return null
 }
@@ -2096,10 +2212,12 @@ export type GetUserOperationsRequest = {
     latestOutgoingTx: OperationsCursor
     latestOutgoingUserToUserPayment: OperationsCursor
     max_size: number
+    user_id?: string
 }
-export const GetUserOperationsRequestOptionalFields: [] = []
+export type GetUserOperationsRequestOptionalField = 'user_id'
+export const GetUserOperationsRequestOptionalFields: GetUserOperationsRequestOptionalField[] = ['user_id']
 export type GetUserOperationsRequestOptions = OptionsBaseMessage & {
-    checkOptionalsAreSet?: []
+    checkOptionalsAreSet?: GetUserOperationsRequestOptionalField[]
     latestIncomingInvoice_Options?: OperationsCursorOptions
     latestIncomingTx_Options?: OperationsCursorOptions
     latestIncomingUserToUserPayment_Options?: OperationsCursorOptions
@@ -2107,6 +2225,7 @@ export type GetUserOperationsRequestOptions = OptionsBaseMessage & {
     latestOutgoingTx_Options?: OperationsCursorOptions
     latestOutgoingUserToUserPayment_Options?: OperationsCursorOptions
     max_size_CustomCheck?: (v: number) => boolean
+    user_id_CustomCheck?: (v?: string) => boolean
 }
 export const GetUserOperationsRequestValidate = (o?: GetUserOperationsRequest, opts: GetUserOperationsRequestOptions = {}, path: string = 'GetUserOperationsRequest::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
@@ -2139,6 +2258,9 @@ export const GetUserOperationsRequestValidate = (o?: GetUserOperationsRequest, o
     if (typeof o.max_size !== 'number') return new Error(`${path}.max_size: is not a number`)
     if (opts.max_size_CustomCheck && !opts.max_size_CustomCheck(o.max_size)) return new Error(`${path}.max_size: custom check failed`)
 
+    if ((o.user_id || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('user_id')) && typeof o.user_id !== 'string') return new Error(`${path}.user_id: is not a string`)
+    if (opts.user_id_CustomCheck && !opts.user_id_CustomCheck(o.user_id)) return new Error(`${path}.user_id: custom check failed`)
+
     return null
 }
 
@@ -2149,16 +2271,19 @@ export type GetUserOperationsResponse = {
     latestOutgoingInvoiceOperations: UserOperations
     latestOutgoingTxOperations: UserOperations
     latestOutgoingUserToUserPayemnts: UserOperations
+    user_id?: string
 }
-export const GetUserOperationsResponseOptionalFields: [] = []
+export type GetUserOperationsResponseOptionalField = 'user_id'
+export const GetUserOperationsResponseOptionalFields: GetUserOperationsResponseOptionalField[] = ['user_id']
 export type GetUserOperationsResponseOptions = OptionsBaseMessage & {
-    checkOptionalsAreSet?: []
+    checkOptionalsAreSet?: GetUserOperationsResponseOptionalField[]
     latestIncomingInvoiceOperations_Options?: UserOperationsOptions
     latestIncomingTxOperations_Options?: UserOperationsOptions
     latestIncomingUserToUserPayemnts_Options?: UserOperationsOptions
     latestOutgoingInvoiceOperations_Options?: UserOperationsOptions
     latestOutgoingTxOperations_Options?: UserOperationsOptions
     latestOutgoingUserToUserPayemnts_Options?: UserOperationsOptions
+    user_id_CustomCheck?: (v?: string) => boolean
 }
 export const GetUserOperationsResponseValidate = (o?: GetUserOperationsResponse, opts: GetUserOperationsResponseOptions = {}, path: string = 'GetUserOperationsResponse::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
@@ -2187,6 +2312,9 @@ export const GetUserOperationsResponseValidate = (o?: GetUserOperationsResponse,
     const latestOutgoingUserToUserPayemntsErr = UserOperationsValidate(o.latestOutgoingUserToUserPayemnts, opts.latestOutgoingUserToUserPayemnts_Options, `${path}.latestOutgoingUserToUserPayemnts`)
     if (latestOutgoingUserToUserPayemntsErr !== null) return latestOutgoingUserToUserPayemntsErr
     
+
+    if ((o.user_id || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('user_id')) && typeof o.user_id !== 'string') return new Error(`${path}.user_id: is not a string`)
+    if (opts.user_id_CustomCheck && !opts.user_id_CustomCheck(o.user_id)) return new Error(`${path}.user_id: custom check failed`)
 
     return null
 }
@@ -2516,6 +2644,43 @@ export const LinkNPubThroughTokenRequestValidate = (o?: LinkNPubThroughTokenRequ
     return null
 }
 
+export type LiquidityAssetOperationsPage = {
+    has_more: boolean
+    next_cursor?: OperationsCursor
+    operations: AssetOperation[]
+}
+export type LiquidityAssetOperationsPageOptionalField = 'next_cursor'
+export const LiquidityAssetOperationsPageOptionalFields: LiquidityAssetOperationsPageOptionalField[] = ['next_cursor']
+export type LiquidityAssetOperationsPageOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: LiquidityAssetOperationsPageOptionalField[]
+    has_more_CustomCheck?: (v: boolean) => boolean
+    next_cursor_Options?: OperationsCursorOptions
+    operations_ItemOptions?: AssetOperationOptions
+    operations_CustomCheck?: (v: AssetOperation[]) => boolean
+}
+export const LiquidityAssetOperationsPageValidate = (o?: LiquidityAssetOperationsPage, opts: LiquidityAssetOperationsPageOptions = {}, path: string = 'LiquidityAssetOperationsPage::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.has_more !== 'boolean') return new Error(`${path}.has_more: is not a boolean`)
+    if (opts.has_more_CustomCheck && !opts.has_more_CustomCheck(o.has_more)) return new Error(`${path}.has_more: custom check failed`)
+
+    if (typeof o.next_cursor === 'object' || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('next_cursor')) {
+        const next_cursorErr = OperationsCursorValidate(o.next_cursor, opts.next_cursor_Options, `${path}.next_cursor`)
+        if (next_cursorErr !== null) return next_cursorErr
+    }
+    
+
+    if (!Array.isArray(o.operations)) return new Error(`${path}.operations: is not an array`)
+    for (let index = 0; index < o.operations.length; index++) {
+        const operationsErr = AssetOperationValidate(o.operations[index], opts.operations_ItemOptions, `${path}.operations[${index}]`)
+        if (operationsErr !== null) return operationsErr
+    }
+    if (opts.operations_CustomCheck && !opts.operations_CustomCheck(o.operations)) return new Error(`${path}.operations: custom check failed`)
+
+    return null
+}
+
 export type LiquidityAssetProvider = {
     pubkey: string
     tracked?: TrackedLiquidityProvider
@@ -2539,6 +2704,73 @@ export const LiquidityAssetProviderValidate = (o?: LiquidityAssetProvider, opts:
         if (trackedErr !== null) return trackedErr
     }
     
+
+    return null
+}
+
+export type LiquidityAssetProviderV2 = {
+    pubkey: string
+    tracked?: TrackedLiquidityProviderV2
+}
+export type LiquidityAssetProviderV2OptionalField = 'tracked'
+export const LiquidityAssetProviderV2OptionalFields: LiquidityAssetProviderV2OptionalField[] = ['tracked']
+export type LiquidityAssetProviderV2Options = OptionsBaseMessage & {
+    checkOptionalsAreSet?: LiquidityAssetProviderV2OptionalField[]
+    pubkey_CustomCheck?: (v: string) => boolean
+    tracked_Options?: TrackedLiquidityProviderV2Options
+}
+export const LiquidityAssetProviderV2Validate = (o?: LiquidityAssetProviderV2, opts: LiquidityAssetProviderV2Options = {}, path: string = 'LiquidityAssetProviderV2::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.pubkey !== 'string') return new Error(`${path}.pubkey: is not a string`)
+    if (opts.pubkey_CustomCheck && !opts.pubkey_CustomCheck(o.pubkey)) return new Error(`${path}.pubkey: custom check failed`)
+
+    if (typeof o.tracked === 'object' || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('tracked')) {
+        const trackedErr = TrackedLiquidityProviderV2Validate(o.tracked, opts.tracked_Options, `${path}.tracked`)
+        if (trackedErr !== null) return trackedErr
+    }
+    
+
+    return null
+}
+
+export type LiquidityProviderFilter = {
+    latestIncomingInvoice?: OperationsCursor
+    latestOutgoingInvoice?: OperationsCursor
+    limit?: number
+    pubkey: string
+}
+export type LiquidityProviderFilterOptionalField = 'latestIncomingInvoice' | 'latestOutgoingInvoice' | 'limit'
+export const LiquidityProviderFilterOptionalFields: LiquidityProviderFilterOptionalField[] = ['latestIncomingInvoice', 'latestOutgoingInvoice', 'limit']
+export type LiquidityProviderFilterOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: LiquidityProviderFilterOptionalField[]
+    latestIncomingInvoice_Options?: OperationsCursorOptions
+    latestOutgoingInvoice_Options?: OperationsCursorOptions
+    limit_CustomCheck?: (v?: number) => boolean
+    pubkey_CustomCheck?: (v: string) => boolean
+}
+export const LiquidityProviderFilterValidate = (o?: LiquidityProviderFilter, opts: LiquidityProviderFilterOptions = {}, path: string = 'LiquidityProviderFilter::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.latestIncomingInvoice === 'object' || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('latestIncomingInvoice')) {
+        const latestIncomingInvoiceErr = OperationsCursorValidate(o.latestIncomingInvoice, opts.latestIncomingInvoice_Options, `${path}.latestIncomingInvoice`)
+        if (latestIncomingInvoiceErr !== null) return latestIncomingInvoiceErr
+    }
+    
+
+    if (typeof o.latestOutgoingInvoice === 'object' || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('latestOutgoingInvoice')) {
+        const latestOutgoingInvoiceErr = OperationsCursorValidate(o.latestOutgoingInvoice, opts.latestOutgoingInvoice_Options, `${path}.latestOutgoingInvoice`)
+        if (latestOutgoingInvoiceErr !== null) return latestOutgoingInvoiceErr
+    }
+    
+
+    if ((o.limit || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('limit')) && typeof o.limit !== 'number') return new Error(`${path}.limit: is not a number`)
+    if (opts.limit_CustomCheck && !opts.limit_CustomCheck(o.limit)) return new Error(`${path}.limit: custom check failed`)
+
+    if (typeof o.pubkey !== 'string') return new Error(`${path}.pubkey: is not a string`)
+    if (opts.pubkey_CustomCheck && !opts.pubkey_CustomCheck(o.pubkey)) return new Error(`${path}.pubkey: custom check failed`)
 
     return null
 }
@@ -2625,6 +2857,40 @@ export const LiveUserOperationValidate = (o?: LiveUserOperation, opts: LiveUserO
     return null
 }
 
+export type LndAssetOperationsPage = {
+    has_more: boolean
+    next_index_offset?: number
+    operations: AssetOperation[]
+}
+export type LndAssetOperationsPageOptionalField = 'next_index_offset'
+export const LndAssetOperationsPageOptionalFields: LndAssetOperationsPageOptionalField[] = ['next_index_offset']
+export type LndAssetOperationsPageOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: LndAssetOperationsPageOptionalField[]
+    has_more_CustomCheck?: (v: boolean) => boolean
+    next_index_offset_CustomCheck?: (v?: number) => boolean
+    operations_ItemOptions?: AssetOperationOptions
+    operations_CustomCheck?: (v: AssetOperation[]) => boolean
+}
+export const LndAssetOperationsPageValidate = (o?: LndAssetOperationsPage, opts: LndAssetOperationsPageOptions = {}, path: string = 'LndAssetOperationsPage::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.has_more !== 'boolean') return new Error(`${path}.has_more: is not a boolean`)
+    if (opts.has_more_CustomCheck && !opts.has_more_CustomCheck(o.has_more)) return new Error(`${path}.has_more: custom check failed`)
+
+    if ((o.next_index_offset || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('next_index_offset')) && typeof o.next_index_offset !== 'number') return new Error(`${path}.next_index_offset: is not a number`)
+    if (opts.next_index_offset_CustomCheck && !opts.next_index_offset_CustomCheck(o.next_index_offset)) return new Error(`${path}.next_index_offset: custom check failed`)
+
+    if (!Array.isArray(o.operations)) return new Error(`${path}.operations: is not an array`)
+    for (let index = 0; index < o.operations.length; index++) {
+        const operationsErr = AssetOperationValidate(o.operations[index], opts.operations_ItemOptions, `${path}.operations[${index}]`)
+        if (operationsErr !== null) return operationsErr
+    }
+    if (opts.operations_CustomCheck && !opts.operations_CustomCheck(o.operations)) return new Error(`${path}.operations: custom check failed`)
+
+    return null
+}
+
 export type LndAssetProvider = {
     pubkey: string
     tracked?: TrackedLndProvider
@@ -2645,6 +2911,33 @@ export const LndAssetProviderValidate = (o?: LndAssetProvider, opts: LndAssetPro
 
     if (typeof o.tracked === 'object' || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('tracked')) {
         const trackedErr = TrackedLndProviderValidate(o.tracked, opts.tracked_Options, `${path}.tracked`)
+        if (trackedErr !== null) return trackedErr
+    }
+    
+
+    return null
+}
+
+export type LndAssetProviderV2 = {
+    pubkey: string
+    tracked?: TrackedLndProviderV2
+}
+export type LndAssetProviderV2OptionalField = 'tracked'
+export const LndAssetProviderV2OptionalFields: LndAssetProviderV2OptionalField[] = ['tracked']
+export type LndAssetProviderV2Options = OptionsBaseMessage & {
+    checkOptionalsAreSet?: LndAssetProviderV2OptionalField[]
+    pubkey_CustomCheck?: (v: string) => boolean
+    tracked_Options?: TrackedLndProviderV2Options
+}
+export const LndAssetProviderV2Validate = (o?: LndAssetProviderV2, opts: LndAssetProviderV2Options = {}, path: string = 'LndAssetProviderV2::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.pubkey !== 'string') return new Error(`${path}.pubkey: is not a string`)
+    if (opts.pubkey_CustomCheck && !opts.pubkey_CustomCheck(o.pubkey)) return new Error(`${path}.pubkey: custom check failed`)
+
+    if (typeof o.tracked === 'object' || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('tracked')) {
+        const trackedErr = TrackedLndProviderV2Validate(o.tracked, opts.tracked_Options, `${path}.tracked`)
         if (trackedErr !== null) return trackedErr
     }
     
@@ -2943,6 +3236,55 @@ export const LndNodeMetricsValidate = (o?: LndNodeMetrics, opts: LndNodeMetricsO
         if (root_opsErr !== null) return root_opsErr
     }
     if (opts.root_ops_CustomCheck && !opts.root_ops_CustomCheck(o.root_ops)) return new Error(`${path}.root_ops: custom check failed`)
+
+    return null
+}
+
+export type LndProviderFilter = {
+    invoice_index_offset?: number
+    limit_invoices?: number
+    limit_payments?: number
+    limit_transactions?: number
+    payment_index_offset?: number
+    pubkey: string
+    tx_index_offset?: number
+}
+export type LndProviderFilterOptionalField = 'invoice_index_offset' | 'limit_invoices' | 'limit_payments' | 'limit_transactions' | 'payment_index_offset' | 'tx_index_offset'
+export const LndProviderFilterOptionalFields: LndProviderFilterOptionalField[] = ['invoice_index_offset', 'limit_invoices', 'limit_payments', 'limit_transactions', 'payment_index_offset', 'tx_index_offset']
+export type LndProviderFilterOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: LndProviderFilterOptionalField[]
+    invoice_index_offset_CustomCheck?: (v?: number) => boolean
+    limit_invoices_CustomCheck?: (v?: number) => boolean
+    limit_payments_CustomCheck?: (v?: number) => boolean
+    limit_transactions_CustomCheck?: (v?: number) => boolean
+    payment_index_offset_CustomCheck?: (v?: number) => boolean
+    pubkey_CustomCheck?: (v: string) => boolean
+    tx_index_offset_CustomCheck?: (v?: number) => boolean
+}
+export const LndProviderFilterValidate = (o?: LndProviderFilter, opts: LndProviderFilterOptions = {}, path: string = 'LndProviderFilter::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if ((o.invoice_index_offset || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('invoice_index_offset')) && typeof o.invoice_index_offset !== 'number') return new Error(`${path}.invoice_index_offset: is not a number`)
+    if (opts.invoice_index_offset_CustomCheck && !opts.invoice_index_offset_CustomCheck(o.invoice_index_offset)) return new Error(`${path}.invoice_index_offset: custom check failed`)
+
+    if ((o.limit_invoices || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('limit_invoices')) && typeof o.limit_invoices !== 'number') return new Error(`${path}.limit_invoices: is not a number`)
+    if (opts.limit_invoices_CustomCheck && !opts.limit_invoices_CustomCheck(o.limit_invoices)) return new Error(`${path}.limit_invoices: custom check failed`)
+
+    if ((o.limit_payments || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('limit_payments')) && typeof o.limit_payments !== 'number') return new Error(`${path}.limit_payments: is not a number`)
+    if (opts.limit_payments_CustomCheck && !opts.limit_payments_CustomCheck(o.limit_payments)) return new Error(`${path}.limit_payments: custom check failed`)
+
+    if ((o.limit_transactions || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('limit_transactions')) && typeof o.limit_transactions !== 'number') return new Error(`${path}.limit_transactions: is not a number`)
+    if (opts.limit_transactions_CustomCheck && !opts.limit_transactions_CustomCheck(o.limit_transactions)) return new Error(`${path}.limit_transactions: custom check failed`)
+
+    if ((o.payment_index_offset || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('payment_index_offset')) && typeof o.payment_index_offset !== 'number') return new Error(`${path}.payment_index_offset: is not a number`)
+    if (opts.payment_index_offset_CustomCheck && !opts.payment_index_offset_CustomCheck(o.payment_index_offset)) return new Error(`${path}.payment_index_offset: custom check failed`)
+
+    if (typeof o.pubkey !== 'string') return new Error(`${path}.pubkey: is not a string`)
+    if (opts.pubkey_CustomCheck && !opts.pubkey_CustomCheck(o.pubkey)) return new Error(`${path}.pubkey: custom check failed`)
+
+    if ((o.tx_index_offset || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('tx_index_offset')) && typeof o.tx_index_offset !== 'number') return new Error(`${path}.tx_index_offset: is not a number`)
+    if (opts.tx_index_offset_CustomCheck && !opts.tx_index_offset_CustomCheck(o.tx_index_offset)) return new Error(`${path}.tx_index_offset: custom check failed`)
 
     return null
 }
@@ -4595,6 +4937,36 @@ export const TrackedLiquidityProviderValidate = (o?: TrackedLiquidityProvider, o
     return null
 }
 
+export type TrackedLiquidityProviderV2 = {
+    balance: number
+    invoices: LiquidityAssetOperationsPage
+    payments: LiquidityAssetOperationsPage
+}
+export const TrackedLiquidityProviderV2OptionalFields: [] = []
+export type TrackedLiquidityProviderV2Options = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    balance_CustomCheck?: (v: number) => boolean
+    invoices_Options?: LiquidityAssetOperationsPageOptions
+    payments_Options?: LiquidityAssetOperationsPageOptions
+}
+export const TrackedLiquidityProviderV2Validate = (o?: TrackedLiquidityProviderV2, opts: TrackedLiquidityProviderV2Options = {}, path: string = 'TrackedLiquidityProviderV2::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.balance !== 'number') return new Error(`${path}.balance: is not a number`)
+    if (opts.balance_CustomCheck && !opts.balance_CustomCheck(o.balance)) return new Error(`${path}.balance: custom check failed`)
+
+    const invoicesErr = LiquidityAssetOperationsPageValidate(o.invoices, opts.invoices_Options, `${path}.invoices`)
+    if (invoicesErr !== null) return invoicesErr
+    
+
+    const paymentsErr = LiquidityAssetOperationsPageValidate(o.payments, opts.payments_Options, `${path}.payments`)
+    if (paymentsErr !== null) return paymentsErr
+    
+
+    return null
+}
+
 export type TrackedLndProvider = {
     channels_balance: number
     confirmed_balance: number
@@ -4663,17 +5035,72 @@ export const TrackedLndProviderValidate = (o?: TrackedLndProvider, opts: Tracked
     return null
 }
 
+export type TrackedLndProviderV2 = {
+    channels_balance: number
+    confirmed_balance: number
+    incoming_tx: LndAssetOperationsPage
+    invoices: LndAssetOperationsPage
+    outgoing_tx: LndAssetOperationsPage
+    payments: LndAssetOperationsPage
+    unconfirmed_balance: number
+}
+export const TrackedLndProviderV2OptionalFields: [] = []
+export type TrackedLndProviderV2Options = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    channels_balance_CustomCheck?: (v: number) => boolean
+    confirmed_balance_CustomCheck?: (v: number) => boolean
+    incoming_tx_Options?: LndAssetOperationsPageOptions
+    invoices_Options?: LndAssetOperationsPageOptions
+    outgoing_tx_Options?: LndAssetOperationsPageOptions
+    payments_Options?: LndAssetOperationsPageOptions
+    unconfirmed_balance_CustomCheck?: (v: number) => boolean
+}
+export const TrackedLndProviderV2Validate = (o?: TrackedLndProviderV2, opts: TrackedLndProviderV2Options = {}, path: string = 'TrackedLndProviderV2::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.channels_balance !== 'number') return new Error(`${path}.channels_balance: is not a number`)
+    if (opts.channels_balance_CustomCheck && !opts.channels_balance_CustomCheck(o.channels_balance)) return new Error(`${path}.channels_balance: custom check failed`)
+
+    if (typeof o.confirmed_balance !== 'number') return new Error(`${path}.confirmed_balance: is not a number`)
+    if (opts.confirmed_balance_CustomCheck && !opts.confirmed_balance_CustomCheck(o.confirmed_balance)) return new Error(`${path}.confirmed_balance: custom check failed`)
+
+    const incoming_txErr = LndAssetOperationsPageValidate(o.incoming_tx, opts.incoming_tx_Options, `${path}.incoming_tx`)
+    if (incoming_txErr !== null) return incoming_txErr
+    
+
+    const invoicesErr = LndAssetOperationsPageValidate(o.invoices, opts.invoices_Options, `${path}.invoices`)
+    if (invoicesErr !== null) return invoicesErr
+    
+
+    const outgoing_txErr = LndAssetOperationsPageValidate(o.outgoing_tx, opts.outgoing_tx_Options, `${path}.outgoing_tx`)
+    if (outgoing_txErr !== null) return outgoing_txErr
+    
+
+    const paymentsErr = LndAssetOperationsPageValidate(o.payments, opts.payments_Options, `${path}.payments`)
+    if (paymentsErr !== null) return paymentsErr
+    
+
+    if (typeof o.unconfirmed_balance !== 'number') return new Error(`${path}.unconfirmed_balance: is not a number`)
+    if (opts.unconfirmed_balance_CustomCheck && !opts.unconfirmed_balance_CustomCheck(o.unconfirmed_balance)) return new Error(`${path}.unconfirmed_balance: custom check failed`)
+
+    return null
+}
+
 export type TrackedOperation = {
     amount: number
     ts: number
     type: TrackedOperationType
+    user_id?: string
 }
-export const TrackedOperationOptionalFields: [] = []
+export type TrackedOperationOptionalField = 'user_id'
+export const TrackedOperationOptionalFields: TrackedOperationOptionalField[] = ['user_id']
 export type TrackedOperationOptions = OptionsBaseMessage & {
-    checkOptionalsAreSet?: []
+    checkOptionalsAreSet?: TrackedOperationOptionalField[]
     amount_CustomCheck?: (v: number) => boolean
     ts_CustomCheck?: (v: number) => boolean
     type_CustomCheck?: (v: TrackedOperationType) => boolean
+    user_id_CustomCheck?: (v?: string) => boolean
 }
 export const TrackedOperationValidate = (o?: TrackedOperation, opts: TrackedOperationOptions = {}, path: string = 'TrackedOperation::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
@@ -4687,6 +5114,9 @@ export const TrackedOperationValidate = (o?: TrackedOperation, opts: TrackedOper
 
     if (!enumCheckTrackedOperationType(o.type)) return new Error(`${path}.type: is not a valid TrackedOperationType`)
     if (opts.type_CustomCheck && !opts.type_CustomCheck(o.type)) return new Error(`${path}.type: custom check failed`)
+
+    if ((o.user_id || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('user_id')) && typeof o.user_id !== 'string') return new Error(`${path}.user_id: is not a string`)
+    if (opts.user_id_CustomCheck && !opts.user_id_CustomCheck(o.user_id)) return new Error(`${path}.user_id: custom check failed`)
 
     return null
 }
@@ -5029,6 +5459,50 @@ export const UseInviteLinkRequestValidate = (o?: UseInviteLinkRequest, opts: Use
     return null
 }
 
+export type UserAdminInfo = {
+    app_users: AppUserAdminInfo[]
+    balance: number
+    locked: boolean
+    owner_of_app_id?: string
+    user_id: string
+}
+export type UserAdminInfoOptionalField = 'owner_of_app_id'
+export const UserAdminInfoOptionalFields: UserAdminInfoOptionalField[] = ['owner_of_app_id']
+export type UserAdminInfoOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: UserAdminInfoOptionalField[]
+    app_users_ItemOptions?: AppUserAdminInfoOptions
+    app_users_CustomCheck?: (v: AppUserAdminInfo[]) => boolean
+    balance_CustomCheck?: (v: number) => boolean
+    locked_CustomCheck?: (v: boolean) => boolean
+    owner_of_app_id_CustomCheck?: (v?: string) => boolean
+    user_id_CustomCheck?: (v: string) => boolean
+}
+export const UserAdminInfoValidate = (o?: UserAdminInfo, opts: UserAdminInfoOptions = {}, path: string = 'UserAdminInfo::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (!Array.isArray(o.app_users)) return new Error(`${path}.app_users: is not an array`)
+    for (let index = 0; index < o.app_users.length; index++) {
+        const app_usersErr = AppUserAdminInfoValidate(o.app_users[index], opts.app_users_ItemOptions, `${path}.app_users[${index}]`)
+        if (app_usersErr !== null) return app_usersErr
+    }
+    if (opts.app_users_CustomCheck && !opts.app_users_CustomCheck(o.app_users)) return new Error(`${path}.app_users: custom check failed`)
+
+    if (typeof o.balance !== 'number') return new Error(`${path}.balance: is not a number`)
+    if (opts.balance_CustomCheck && !opts.balance_CustomCheck(o.balance)) return new Error(`${path}.balance: custom check failed`)
+
+    if (typeof o.locked !== 'boolean') return new Error(`${path}.locked: is not a boolean`)
+    if (opts.locked_CustomCheck && !opts.locked_CustomCheck(o.locked)) return new Error(`${path}.locked: custom check failed`)
+
+    if ((o.owner_of_app_id || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('owner_of_app_id')) && typeof o.owner_of_app_id !== 'string') return new Error(`${path}.owner_of_app_id: is not a string`)
+    if (opts.owner_of_app_id_CustomCheck && !opts.owner_of_app_id_CustomCheck(o.owner_of_app_id)) return new Error(`${path}.owner_of_app_id: custom check failed`)
+
+    if (typeof o.user_id !== 'string') return new Error(`${path}.user_id: is not a string`)
+    if (opts.user_id_CustomCheck && !opts.user_id_CustomCheck(o.user_id)) return new Error(`${path}.user_id: custom check failed`)
+
+    return null
+}
+
 export type UserHealthState = {
     downtime_reason: string
 }
@@ -5247,6 +5721,58 @@ export const UserOperationsValidate = (o?: UserOperations, opts: UserOperationsO
     const toIndexErr = OperationsCursorValidate(o.toIndex, opts.toIndex_Options, `${path}.toIndex`)
     if (toIndexErr !== null) return toIndexErr
     
+
+    return null
+}
+
+export type UsersAdminInfo = {
+    total: number
+    users: UserAdminInfo[]
+}
+export const UsersAdminInfoOptionalFields: [] = []
+export type UsersAdminInfoOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    total_CustomCheck?: (v: number) => boolean
+    users_ItemOptions?: UserAdminInfoOptions
+    users_CustomCheck?: (v: UserAdminInfo[]) => boolean
+}
+export const UsersAdminInfoValidate = (o?: UsersAdminInfo, opts: UsersAdminInfoOptions = {}, path: string = 'UsersAdminInfo::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.total !== 'number') return new Error(`${path}.total: is not a number`)
+    if (opts.total_CustomCheck && !opts.total_CustomCheck(o.total)) return new Error(`${path}.total: custom check failed`)
+
+    if (!Array.isArray(o.users)) return new Error(`${path}.users: is not an array`)
+    for (let index = 0; index < o.users.length; index++) {
+        const usersErr = UserAdminInfoValidate(o.users[index], opts.users_ItemOptions, `${path}.users[${index}]`)
+        if (usersErr !== null) return usersErr
+    }
+    if (opts.users_CustomCheck && !opts.users_CustomCheck(o.users)) return new Error(`${path}.users: custom check failed`)
+
+    return null
+}
+
+export type UsersAdminInfoRequest = {
+    skip?: number
+    take?: number
+}
+export type UsersAdminInfoRequestOptionalField = 'skip' | 'take'
+export const UsersAdminInfoRequestOptionalFields: UsersAdminInfoRequestOptionalField[] = ['skip', 'take']
+export type UsersAdminInfoRequestOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: UsersAdminInfoRequestOptionalField[]
+    skip_CustomCheck?: (v?: number) => boolean
+    take_CustomCheck?: (v?: number) => boolean
+}
+export const UsersAdminInfoRequestValidate = (o?: UsersAdminInfoRequest, opts: UsersAdminInfoRequestOptions = {}, path: string = 'UsersAdminInfoRequest::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if ((o.skip || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('skip')) && typeof o.skip !== 'number') return new Error(`${path}.skip: is not a number`)
+    if (opts.skip_CustomCheck && !opts.skip_CustomCheck(o.skip)) return new Error(`${path}.skip: custom check failed`)
+
+    if ((o.take || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('take')) && typeof o.take !== 'number') return new Error(`${path}.take: is not a number`)
+    if (opts.take_CustomCheck && !opts.take_CustomCheck(o.take)) return new Error(`${path}.take: custom check failed`)
 
     return null
 }

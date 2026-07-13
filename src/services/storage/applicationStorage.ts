@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { Between, FindOperator, IsNull, LessThanOrEqual, MoreThanOrEqual } from "typeorm"
+import { Between, FindOperator, In, IsNull, LessThanOrEqual, MoreThanOrEqual } from "typeorm"
 import { generateSecretKey, getPublicKey } from 'nostr-tools';
 import { Application } from "./entity/Application.js"
 import UserStorage from './userStorage.js';
@@ -140,6 +140,13 @@ export default class {
 
     async GetAllAppUsersFromUser(userId: string, txId?: string): Promise<ApplicationUser[]> {
         return this.dbs.Find<ApplicationUser>('ApplicationUser', { where: { user: { user_id: userId } } }, txId)
+    }
+
+    async GetAppUsersForUsers(userIds: string[], txId?: string): Promise<ApplicationUser[]> {
+        if (userIds.length === 0) {
+            return []
+        }
+        return this.dbs.Find<ApplicationUser>('ApplicationUser', { where: { user: { user_id: In(userIds) } } }, txId)
     }
 
     async IsApplicationOwner(userId: string, txId?: string) {

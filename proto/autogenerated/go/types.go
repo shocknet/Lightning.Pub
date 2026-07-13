@@ -156,6 +156,12 @@ type AppUser struct {
 	Info             *UserInfo `json:"info"`
 	Max_withdrawable int64     `json:"max_withdrawable"`
 }
+type AppUserAdminInfo struct {
+	App_user_id      string `json:"app_user_id"`
+	Has_callback_url bool   `json:"has_callback_url"`
+	Has_topic_id     bool   `json:"has_topic_id"`
+	Npub             string `json:"npub"`
+}
 type Application struct {
 	Balance int64  `json:"balance"`
 	Id      string `json:"id"`
@@ -184,6 +190,15 @@ type AssetsAndLiabilitiesReq struct {
 	Limit_invoices  int64 `json:"limit_invoices"`
 	Limit_payments  int64 `json:"limit_payments"`
 	Limit_providers int64 `json:"limit_providers"`
+}
+type AssetsAndLiabilitiesReqV2 struct {
+	Liquidity_providers []LiquidityProviderFilter `json:"liquidity_providers"`
+	Lnd_providers       []LndProviderFilter       `json:"lnd_providers"`
+}
+type AssetsAndLiabilitiesV2 struct {
+	Liquidity_providers []LiquidityAssetProviderV2 `json:"liquidity_providers"`
+	Lnds                []LndAssetProviderV2       `json:"lnds"`
+	Users_balance       int64                      `json:"users_balance"`
 }
 type AuthApp struct {
 	App        *Application `json:"app"`
@@ -365,6 +380,7 @@ type GetUserOperationsRequest struct {
 	Latestoutgoingtx                *OperationsCursor `json:"latestOutgoingTx"`
 	Latestoutgoingusertouserpayment *OperationsCursor `json:"latestOutgoingUserToUserPayment"`
 	Max_size                        int64             `json:"max_size"`
+	User_id                         string            `json:"user_id"`
 }
 type GetUserOperationsResponse struct {
 	Latestincominginvoiceoperations  *UserOperations `json:"latestIncomingInvoiceOperations"`
@@ -373,6 +389,7 @@ type GetUserOperationsResponse struct {
 	Latestoutgoinginvoiceoperations  *UserOperations `json:"latestOutgoingInvoiceOperations"`
 	Latestoutgoingtxoperations       *UserOperations `json:"latestOutgoingTxOperations"`
 	Latestoutgoingusertouserpayemnts *UserOperations `json:"latestOutgoingUserToUserPayemnts"`
+	User_id                          string          `json:"user_id"`
 }
 type GraphPoint struct {
 	X int64 `json:"x"`
@@ -428,9 +445,24 @@ type LatestUsageMetricReq struct {
 type LinkNPubThroughTokenRequest struct {
 	Token string `json:"token"`
 }
+type LiquidityAssetOperationsPage struct {
+	Has_more    bool              `json:"has_more"`
+	Next_cursor *OperationsCursor `json:"next_cursor"`
+	Operations  []AssetOperation  `json:"operations"`
+}
 type LiquidityAssetProvider struct {
 	Pubkey  string                    `json:"pubkey"`
 	Tracked *TrackedLiquidityProvider `json:"tracked"`
+}
+type LiquidityAssetProviderV2 struct {
+	Pubkey  string                      `json:"pubkey"`
+	Tracked *TrackedLiquidityProviderV2 `json:"tracked"`
+}
+type LiquidityProviderFilter struct {
+	Latestincominginvoice *OperationsCursor `json:"latestIncomingInvoice"`
+	Latestoutgoinginvoice *OperationsCursor `json:"latestOutgoingInvoice"`
+	Limit                 int64             `json:"limit"`
+	Pubkey                string            `json:"pubkey"`
 }
 type LiveDebitRequest struct {
 	Debit      *LiveDebitRequest_debit `json:"debit"`
@@ -446,9 +478,18 @@ type LiveUserOperation struct {
 	Latest_balance int64          `json:"latest_balance"`
 	Operation      *UserOperation `json:"operation"`
 }
+type LndAssetOperationsPage struct {
+	Has_more          bool             `json:"has_more"`
+	Next_index_offset int64            `json:"next_index_offset"`
+	Operations        []AssetOperation `json:"operations"`
+}
 type LndAssetProvider struct {
 	Pubkey  string              `json:"pubkey"`
 	Tracked *TrackedLndProvider `json:"tracked"`
+}
+type LndAssetProviderV2 struct {
+	Pubkey  string                `json:"pubkey"`
+	Tracked *TrackedLndProviderV2 `json:"tracked"`
 }
 type LndChannels struct {
 	Open_channels []OpenChannel `json:"open_channels"`
@@ -494,6 +535,15 @@ type LndNodeMetrics struct {
 	Open_channels     []OpenChannel   `json:"open_channels"`
 	Pending_channels  int64           `json:"pending_channels"`
 	Root_ops          []RootOperation `json:"root_ops"`
+}
+type LndProviderFilter struct {
+	Invoice_index_offset int64  `json:"invoice_index_offset"`
+	Limit_invoices       int64  `json:"limit_invoices"`
+	Limit_payments       int64  `json:"limit_payments"`
+	Limit_transactions   int64  `json:"limit_transactions"`
+	Payment_index_offset int64  `json:"payment_index_offset"`
+	Pubkey               string `json:"pubkey"`
+	Tx_index_offset      int64  `json:"tx_index_offset"`
 }
 type LndSeed struct {
 	Seed []string `json:"seed"`
@@ -778,6 +828,11 @@ type TrackedLiquidityProvider struct {
 	Invoices []AssetOperation `json:"invoices"`
 	Payments []AssetOperation `json:"payments"`
 }
+type TrackedLiquidityProviderV2 struct {
+	Balance  int64                         `json:"balance"`
+	Invoices *LiquidityAssetOperationsPage `json:"invoices"`
+	Payments *LiquidityAssetOperationsPage `json:"payments"`
+}
 type TrackedLndProvider struct {
 	Channels_balance    int64            `json:"channels_balance"`
 	Confirmed_balance   int64            `json:"confirmed_balance"`
@@ -787,10 +842,20 @@ type TrackedLndProvider struct {
 	Payments            []AssetOperation `json:"payments"`
 	Unconfirmed_balance int64            `json:"unconfirmed_balance"`
 }
+type TrackedLndProviderV2 struct {
+	Channels_balance    int64                   `json:"channels_balance"`
+	Confirmed_balance   int64                   `json:"confirmed_balance"`
+	Incoming_tx         *LndAssetOperationsPage `json:"incoming_tx"`
+	Invoices            *LndAssetOperationsPage `json:"invoices"`
+	Outgoing_tx         *LndAssetOperationsPage `json:"outgoing_tx"`
+	Payments            *LndAssetOperationsPage `json:"payments"`
+	Unconfirmed_balance int64                   `json:"unconfirmed_balance"`
+}
 type TrackedOperation struct {
-	Amount int64                `json:"amount"`
-	Ts     int64                `json:"ts"`
-	Type   TrackedOperationType `json:"type"`
+	Amount  int64                `json:"amount"`
+	Ts      int64                `json:"ts"`
+	Type    TrackedOperationType `json:"type"`
+	User_id string               `json:"user_id"`
 }
 type TransactionSwapQuote struct {
 	Chain_fee_sats          int64  `json:"chain_fee_sats"`
@@ -848,6 +913,13 @@ type UsageMetrics struct {
 type UseInviteLinkRequest struct {
 	Invite_token string `json:"invite_token"`
 }
+type UserAdminInfo struct {
+	App_users       []AppUserAdminInfo `json:"app_users"`
+	Balance         int64              `json:"balance"`
+	Locked          bool               `json:"locked"`
+	Owner_of_app_id string             `json:"owner_of_app_id"`
+	User_id         string             `json:"user_id"`
+}
 type UserHealthState struct {
 	Downtime_reason string `json:"downtime_reason"`
 }
@@ -886,6 +958,14 @@ type UserOperations struct {
 	Fromindex  *OperationsCursor `json:"fromIndex"`
 	Operations []UserOperation   `json:"operations"`
 	Toindex    *OperationsCursor `json:"toIndex"`
+}
+type UsersAdminInfo struct {
+	Total int64           `json:"total"`
+	Users []UserAdminInfo `json:"users"`
+}
+type UsersAdminInfoRequest struct {
+	Skip int64 `json:"skip"`
+	Take int64 `json:"take"`
 }
 type UsersInfo struct {
 	Always_been_inactive int64 `json:"always_been_inactive"`

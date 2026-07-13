@@ -118,6 +118,11 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [AssetsAndLiabilitiesReq](#AssetsAndLiabilitiesReq)
   - output: [AssetsAndLiabilities](#AssetsAndLiabilities)
 
+- GetAssetsAndLiabilitiesV2
+  - auth type: __Admin__
+  - input: [AssetsAndLiabilitiesReqV2](#AssetsAndLiabilitiesReqV2)
+  - output: [AssetsAndLiabilitiesV2](#AssetsAndLiabilitiesV2)
+
 - GetBundleMetrics
   - auth type: __Metrics__
   - input: [LatestBundleMetricReq](#LatestBundleMetricReq)
@@ -252,6 +257,16 @@ The nostr server will send back a message response, and inside the body there wi
   - auth type: __User__
   - input: [GetUserOperationsRequest](#GetUserOperationsRequest)
   - output: [GetUserOperationsResponse](#GetUserOperationsResponse)
+
+- GetUserOperationsFromAdmin
+  - auth type: __Admin__
+  - input: [GetUserOperationsRequest](#GetUserOperationsRequest)
+  - output: [GetUserOperationsResponse](#GetUserOperationsResponse)
+
+- GetUsersAdminInfo
+  - auth type: __Admin__
+  - input: [UsersAdminInfoRequest](#UsersAdminInfoRequest)
+  - output: [UsersAdminInfo](#UsersAdminInfo)
 
 - LinkNPubThroughToken
   - auth type: __GuestWithPub__
@@ -626,6 +641,13 @@ The nostr server will send back a message response, and inside the body there wi
   - input: [AssetsAndLiabilitiesReq](#AssetsAndLiabilitiesReq)
   - output: [AssetsAndLiabilities](#AssetsAndLiabilities)
 
+- GetAssetsAndLiabilitiesV2
+  - auth type: __Admin__
+  - http method: __post__
+  - http route: __/api/admin/assets/liabilities/v2__
+  - input: [AssetsAndLiabilitiesReqV2](#AssetsAndLiabilitiesReqV2)
+  - output: [AssetsAndLiabilitiesV2](#AssetsAndLiabilitiesV2)
+
 - GetBundleMetrics
   - auth type: __Metrics__
   - http method: __post__
@@ -839,6 +861,20 @@ The nostr server will send back a message response, and inside the body there wi
   - http route: __/api/user/operations__
   - input: [GetUserOperationsRequest](#GetUserOperationsRequest)
   - output: [GetUserOperationsResponse](#GetUserOperationsResponse)
+
+- GetUserOperationsFromAdmin
+  - auth type: __Admin__
+  - http method: __post__
+  - http route: __/api/admin/user/operations__
+  - input: [GetUserOperationsRequest](#GetUserOperationsRequest)
+  - output: [GetUserOperationsResponse](#GetUserOperationsResponse)
+
+- GetUsersAdminInfo
+  - auth type: __Admin__
+  - http method: __post__
+  - http route: __/api/admin/users/info__
+  - input: [UsersAdminInfoRequest](#UsersAdminInfoRequest)
+  - output: [UsersAdminInfo](#UsersAdminInfo)
 
 - HandleLnurlAddress
   - auth type: __Guest__
@@ -1196,6 +1232,12 @@ The nostr server will send back a message response, and inside the body there wi
   - __info__: _[UserInfo](#UserInfo)_
   - __max_withdrawable__: _number_
 
+### AppUserAdminInfo
+  - __app_user_id__: _string_
+  - __has_callback_url__: _boolean_
+  - __has_topic_id__: _boolean_
+  - __npub__: _string_
+
 ### Application
   - __balance__: _number_
   - __id__: _string_
@@ -1224,6 +1266,15 @@ The nostr server will send back a message response, and inside the body there wi
   - __limit_invoices__: _number_ *this field is optional
   - __limit_payments__: _number_ *this field is optional
   - __limit_providers__: _number_ *this field is optional
+
+### AssetsAndLiabilitiesReqV2
+  - __liquidity_providers__: ARRAY of: _[LiquidityProviderFilter](#LiquidityProviderFilter)_
+  - __lnd_providers__: ARRAY of: _[LndProviderFilter](#LndProviderFilter)_
+
+### AssetsAndLiabilitiesV2
+  - __liquidity_providers__: ARRAY of: _[LiquidityAssetProviderV2](#LiquidityAssetProviderV2)_
+  - __lnds__: ARRAY of: _[LndAssetProviderV2](#LndAssetProviderV2)_
+  - __users_balance__: _number_
 
 ### AuthApp
   - __app__: _[Application](#Application)_
@@ -1405,6 +1456,7 @@ The nostr server will send back a message response, and inside the body there wi
   - __latestOutgoingTx__: _[OperationsCursor](#OperationsCursor)_
   - __latestOutgoingUserToUserPayment__: _[OperationsCursor](#OperationsCursor)_
   - __max_size__: _number_
+  - __user_id__: _string_ *this field is optional
 
 ### GetUserOperationsResponse
   - __latestIncomingInvoiceOperations__: _[UserOperations](#UserOperations)_
@@ -1413,6 +1465,7 @@ The nostr server will send back a message response, and inside the body there wi
   - __latestOutgoingInvoiceOperations__: _[UserOperations](#UserOperations)_
   - __latestOutgoingTxOperations__: _[UserOperations](#UserOperations)_
   - __latestOutgoingUserToUserPayemnts__: _[UserOperations](#UserOperations)_
+  - __user_id__: _string_ *this field is optional
 
 ### GraphPoint
   - __x__: _number_
@@ -1468,9 +1521,24 @@ The nostr server will send back a message response, and inside the body there wi
 ### LinkNPubThroughTokenRequest
   - __token__: _string_
 
+### LiquidityAssetOperationsPage
+  - __has_more__: _boolean_
+  - __next_cursor__: _[OperationsCursor](#OperationsCursor)_ *this field is optional
+  - __operations__: ARRAY of: _[AssetOperation](#AssetOperation)_
+
 ### LiquidityAssetProvider
   - __pubkey__: _string_
   - __tracked__: _[TrackedLiquidityProvider](#TrackedLiquidityProvider)_ *this field is optional
+
+### LiquidityAssetProviderV2
+  - __pubkey__: _string_
+  - __tracked__: _[TrackedLiquidityProviderV2](#TrackedLiquidityProviderV2)_ *this field is optional
+
+### LiquidityProviderFilter
+  - __latestIncomingInvoice__: _[OperationsCursor](#OperationsCursor)_ *this field is optional
+  - __latestOutgoingInvoice__: _[OperationsCursor](#OperationsCursor)_ *this field is optional
+  - __limit__: _number_ *this field is optional
+  - __pubkey__: _string_
 
 ### LiveDebitRequest
   - __debit__: _[LiveDebitRequest_debit](#LiveDebitRequest_debit)_
@@ -1486,9 +1554,18 @@ The nostr server will send back a message response, and inside the body there wi
   - __latest_balance__: _number_
   - __operation__: _[UserOperation](#UserOperation)_
 
+### LndAssetOperationsPage
+  - __has_more__: _boolean_
+  - __next_index_offset__: _number_ *this field is optional
+  - __operations__: ARRAY of: _[AssetOperation](#AssetOperation)_
+
 ### LndAssetProvider
   - __pubkey__: _string_
   - __tracked__: _[TrackedLndProvider](#TrackedLndProvider)_ *this field is optional
+
+### LndAssetProviderV2
+  - __pubkey__: _string_
+  - __tracked__: _[TrackedLndProviderV2](#TrackedLndProviderV2)_ *this field is optional
 
 ### LndChannels
   - __open_channels__: ARRAY of: _[OpenChannel](#OpenChannel)_
@@ -1534,6 +1611,15 @@ The nostr server will send back a message response, and inside the body there wi
   - __open_channels__: ARRAY of: _[OpenChannel](#OpenChannel)_
   - __pending_channels__: _number_
   - __root_ops__: ARRAY of: _[RootOperation](#RootOperation)_
+
+### LndProviderFilter
+  - __invoice_index_offset__: _number_ *this field is optional
+  - __limit_invoices__: _number_ *this field is optional
+  - __limit_payments__: _number_ *this field is optional
+  - __limit_transactions__: _number_ *this field is optional
+  - __payment_index_offset__: _number_ *this field is optional
+  - __pubkey__: _string_
+  - __tx_index_offset__: _number_ *this field is optional
 
 ### LndSeed
   - __seed__: ARRAY of: _string_
@@ -1818,6 +1904,11 @@ The nostr server will send back a message response, and inside the body there wi
   - __invoices__: ARRAY of: _[AssetOperation](#AssetOperation)_
   - __payments__: ARRAY of: _[AssetOperation](#AssetOperation)_
 
+### TrackedLiquidityProviderV2
+  - __balance__: _number_
+  - __invoices__: _[LiquidityAssetOperationsPage](#LiquidityAssetOperationsPage)_
+  - __payments__: _[LiquidityAssetOperationsPage](#LiquidityAssetOperationsPage)_
+
 ### TrackedLndProvider
   - __channels_balance__: _number_
   - __confirmed_balance__: _number_
@@ -1827,10 +1918,20 @@ The nostr server will send back a message response, and inside the body there wi
   - __payments__: ARRAY of: _[AssetOperation](#AssetOperation)_
   - __unconfirmed_balance__: _number_
 
+### TrackedLndProviderV2
+  - __channels_balance__: _number_
+  - __confirmed_balance__: _number_
+  - __incoming_tx__: _[LndAssetOperationsPage](#LndAssetOperationsPage)_
+  - __invoices__: _[LndAssetOperationsPage](#LndAssetOperationsPage)_
+  - __outgoing_tx__: _[LndAssetOperationsPage](#LndAssetOperationsPage)_
+  - __payments__: _[LndAssetOperationsPage](#LndAssetOperationsPage)_
+  - __unconfirmed_balance__: _number_
+
 ### TrackedOperation
   - __amount__: _number_
   - __ts__: _number_
   - __type__: _[TrackedOperationType](#TrackedOperationType)_
+  - __user_id__: _string_ *this field is optional
 
 ### TransactionSwapQuote
   - __chain_fee_sats__: _number_
@@ -1888,6 +1989,13 @@ The nostr server will send back a message response, and inside the body there wi
 ### UseInviteLinkRequest
   - __invite_token__: _string_
 
+### UserAdminInfo
+  - __app_users__: ARRAY of: _[AppUserAdminInfo](#AppUserAdminInfo)_
+  - __balance__: _number_
+  - __locked__: _boolean_
+  - __owner_of_app_id__: _string_ *this field is optional
+  - __user_id__: _string_
+
 ### UserHealthState
   - __downtime_reason__: _string_
 
@@ -1926,6 +2034,14 @@ The nostr server will send back a message response, and inside the body there wi
   - __fromIndex__: _[OperationsCursor](#OperationsCursor)_
   - __operations__: ARRAY of: _[UserOperation](#UserOperation)_
   - __toIndex__: _[OperationsCursor](#OperationsCursor)_
+
+### UsersAdminInfo
+  - __total__: _number_
+  - __users__: ARRAY of: _[UserAdminInfo](#UserAdminInfo)_
+
+### UsersAdminInfoRequest
+  - __skip__: _number_ *this field is optional
+  - __take__: _number_ *this field is optional
 
 ### UsersInfo
   - __always_been_inactive__: _number_
