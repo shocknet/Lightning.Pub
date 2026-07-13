@@ -92,7 +92,6 @@ const testLndPagination = async (T: TestBase) => {
 
 const testV1Compatibility = async (T: TestBase) => {
     T.d("starting testV1Compatibility")
-    await safelySetUserBalance(T, T.user1, 1000)
     const res = await T.main.adminManager.GetAssetsAndLiabilities({})
     T.expect(Types.AssetsAndLiabilitiesValidate(res)).to.equal(null)
     T.expect(res.users_balance).to.be.a("number")
