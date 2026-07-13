@@ -128,6 +128,7 @@ export const safelySetUserBalance = async (T: TestBase, user: TestUserData, amou
     T.d(`user ${user.appUserIdentifier} balance is now ${amount}`)
 }
 
+
 export const runSanityCheck = async (T: TestBase) => {
     const sanityChecker = new SanityChecker(T.main.storage, T.main.lnd)
     await sanityChecker.VerifyEventsLog()
