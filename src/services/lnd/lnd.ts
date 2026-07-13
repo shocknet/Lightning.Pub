@@ -9,7 +9,7 @@ import { LightningClient } from '../../../proto/lnd/lightning.client.js'
 import { InvoicesClient } from '../../../proto/lnd/invoices.client.js'
 import { RouterClient } from '../../../proto/lnd/router.client.js'
 import { ChainNotifierClient } from '../../../proto/lnd/chainnotifier.client.js'
-import { GetInfoResponse, AddressType, NewAddressResponse, AddInvoiceResponse, Invoice_InvoiceState, PayReq, Payment_PaymentStatus, Payment, PaymentFailureReason, SendCoinsResponse, EstimateFeeResponse, ChannelBalanceResponse, TransactionDetails, ListChannelsResponse, ClosedChannelsResponse, PendingChannelsResponse, ForwardingHistoryResponse, CoinSelectionStrategy, OpenStatusUpdate, CloseStatusUpdate, PendingUpdate, ChannelEventUpdate_UpdateType } from '../../../proto/lnd/lightning.js'
+import { GetInfoResponse, AddressType, NewAddressResponse, AddInvoiceResponse, Invoice_InvoiceState, PayReq, Payment_PaymentStatus, Payment, PaymentFailureReason, SendCoinsResponse, EstimateFeeResponse, ChannelBalanceResponse, TransactionDetails, ListChannelsResponse, ClosedChannelsResponse, PendingChannelsResponse, ForwardingHistoryResponse, CoinSelectionStrategy, OpenStatusUpdate, CloseStatusUpdate, PendingUpdate, ChannelEventUpdate_UpdateType, ListPaymentsResponse, ListInvoiceResponse } from '../../../proto/lnd/lightning.js'
 import { OpenChannelReq } from './openChannelReq.js';
 import { AddInvoiceReq } from './addInvoiceReq.js';
 import { PayInvoiceReq } from './payInvoiceReq.js';
@@ -607,9 +607,9 @@ export default class {
         }
     }
 
-    async GetTransactions(startHeight: number): Promise<TransactionDetails> {
+    async GetTransactions(startHeight: number, indexOffset = 0, maxTransactions = 0): Promise<TransactionDetails> {
         this.log(DEBUG, "Getting transactions")
-        const res = await this.lightning.getTransactions({ startHeight, endHeight: 0, account: "", indexOffset: 0, maxTransactions: 0 }, DeadLineMetadata())
+        const res = await this.lightning.getTransactions({ startHeight, endHeight: 0, account: "", indexOffset, maxTransactions }, DeadLineMetadata())
         return res.response
     }
 
@@ -693,20 +693,20 @@ export default class {
         return response
     }
 
-    async GetAllInvoices(max: number) {
+    async GetAllInvoices(max: number, startOffset = 0): Promise<ListInvoiceResponse> {
         this.log(DEBUG, "Getting all paid invoices")
         if (this.liquidProvider.getSettings().useOnlyLiquidityProvider) {
-            return { invoices: [] }
+            return { invoices: [], firstIndexOffset: 0n, lastIndexOffset: 0n }
         }
-        const res = await this.lightning.listInvoices({ indexOffset: 0n, numMaxInvoices: BigInt(max), pendingOnly: false, reversed: true, creationDateEnd: 0n, creationDateStart: 0n }, DeadLineMetadata())
+        const res = await this.lightning.listInvoices({ indexOffset: BigInt(startOffset), numMaxInvoices: BigInt(max), pendingOnly: false, reversed: true, creationDateEnd: 0n, creationDateStart: 0n }, DeadLineMetadata())
         return res.response
     }
-    async GetAllPayments(max: number) {
+    async GetAllPayments(max: number, startOffset = 0): Promise<ListPaymentsResponse> {
         this.log(DEBUG, "Getting all payments")
         if (this.liquidProvider.getSettings().useOnlyLiquidityProvider) {
-            return { payments: [] }
+            return { payments: [], firstIndexOffset: 0n, lastIndexOffset: 0n, totalNumPayments: 0n }
         }
-        const res = await this.lightning.listPayments({ countTotalPayments: false, includeIncomplete: false, indexOffset: 0n, maxPayments: BigInt(max), reversed: true, creationDateEnd: 0n, creationDateStart: 0n })
+        const res = await this.lightning.listPayments({ countTotalPayments: false, includeIncomplete: false, indexOffset: BigInt(startOffset), maxPayments: BigInt(max), reversed: true, creationDateEnd: 0n, creationDateStart: 0n }, DeadLineMetadata())
         return res.response
     }
 

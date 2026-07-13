@@ -144,6 +144,9 @@ export default (mainHandler: Main): Types.ServerMethods => {
         GetAssetsAndLiabilities: async ({ ctx, req }) => {
             return mainHandler.adminManager.GetAssetsAndLiabilities(req)
         },
+        GetAssetsAndLiabilitiesV2: async ({ ctx, req }) => {
+            return mainHandler.adminManager.GetAssetsAndLiabilitiesV2(req)
+        },
         GetProvidersDisruption: async () => {
             return mainHandler.metricsManager.GetProvidersDisruption()
         },
@@ -161,6 +164,13 @@ export default (mainHandler: Main): Types.ServerMethods => {
             })
             if (err != null) throw new Error(err.message)
             return mainHandler.appUserManager.BanUser(req.user_id)
+        },
+        GetUsersAdminInfo: async ({ ctx, req }) => {
+            return mainHandler.appUserManager.GetUsersAdminInfo(req)
+        },
+        GetUserOperationsFromAdmin: async ({ req }) => {
+            if (!req.user_id) throw new Error("user_id is required")
+            return mainHandler.paymentManager.GetUserOperations(req.user_id, req, true)
         },
         GetSeed: async ({ ctx }) => {
             return mainHandler.unlocker.GetSeed()
@@ -181,7 +191,9 @@ export default (mainHandler: Main): Types.ServerMethods => {
             return mainHandler.appUserManager.UpdateCallbackUrl(ctx, req)
         },
         GetUserOperations: async ({ ctx, req }) => {
-            return mainHandler.paymentManager.GetUserOperations(ctx.user_id, req)
+            const sanitizedReq = { ...req }
+            delete sanitizedReq.user_id
+            return mainHandler.paymentManager.GetUserOperations(ctx.user_id, sanitizedReq)
         },
 
         GetPaymentState: async ({ ctx, req }) => {

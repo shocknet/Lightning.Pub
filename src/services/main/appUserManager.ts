@@ -7,6 +7,7 @@ import { OfferPriceType, ndebitEncode, nmanageEncode, nofferEncode } from '@shoc
 import { getLogger } from '../helpers/logger.js'
 import SettingsManager from './settingsManager.js'
 import { assertCallbackUrlAllowed } from '../helpers/safeOutboundFetch.js'
+import { clampPageLimit, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from '../helpers/pageLimit.js'
 export default class {
 
     storage: Storage
@@ -118,6 +119,44 @@ export default class {
         const app = await this.storage.applicationStorage.GetApplication(ctx.app_id);
         const user = await this.storage.applicationStorage.GetApplicationUser(app, ctx.app_user_id);
         await this.storage.applicationStorage.UpdateAppUserMessagingToken(user.identifier, req.device_id, req.firebase_messaging_token);
+    }
+
+    async GetUsersAdminInfo(req: Types.UsersAdminInfoRequest): Promise<Types.UsersAdminInfo> {
+        const { users, total } = await this.storage.userStorage.GetUsers({
+            skip: req.skip,
+            take: clampPageLimit(req.take, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE),
+        })
+        const applications = await this.storage.applicationStorage.GetApplications()
+
+        const apps: Record<string, string> = {}
+        applications.forEach(a => apps[a.owner.user_id] = a.app_id)
+
+        const appUsers = await this.storage.applicationStorage.GetAppUsersForUsers(users.map(u => u.user_id))
+        const appUsersByUserId = new Map<string, Types.AppUserAdminInfo[]>()
+        for (const a of appUsers) {
+            const userId = a.user.user_id
+            let appUsersInfo = appUsersByUserId.get(userId)
+            if (!appUsersInfo) {
+                appUsersInfo = []
+                appUsersByUserId.set(userId, appUsersInfo)
+            }
+            appUsersInfo.push({
+                app_user_id: a.identifier,
+                npub: a.nostr_public_key || "",
+                has_callback_url: a.callback_url !== "",
+                has_topic_id: a.topic_id !== "",
+            })
+        }
+
+        const usersInfo: Types.UserAdminInfo[] = users.map(user => ({
+            user_id: user.user_id,
+            balance: user.balance_sats,
+            locked: user.locked,
+            app_users: appUsersByUserId.get(user.user_id) ?? [],
+            owner_of_app_id: apps[user.user_id]
+        }))
+
+        return { users: usersInfo, total }
     }
 
     async CleanupInactiveUsers() {
