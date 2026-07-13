@@ -634,7 +634,7 @@ export default class {
 
     async GetChannelInfo(chanId: string) {
         this.log(DEBUG, "Getting channel info")
-        const res = await this.lightning.getChanInfo({ chanId, chanPoint: "" }, DeadLineMetadata())
+        const res = await this.lightning.getChanInfo({ chanId, chanPoint: "", includeAuthProof: false }, DeadLineMetadata())
         return res.response
     }
 
@@ -708,7 +708,7 @@ export default class {
         if (this.liquidProvider.getSettings().useOnlyLiquidityProvider) {
             return { forwardingEvents: [], lastOffsetIndex: indexOffset }
         }
-        const { response } = await this.lightning.forwardingHistory({ indexOffset, numMaxEvents: 0, startTime: BigInt(startTime), endTime: BigInt(endTime), peerAliasLookup: false }, DeadLineMetadata())
+        const { response } = await this.lightning.forwardingHistory({ indexOffset, numMaxEvents: 0, startTime: BigInt(startTime), endTime: BigInt(endTime), peerAliasLookup: false, incomingChanIds: [], outgoingChanIds: [] }, DeadLineMetadata())
         return response
     }
 

@@ -136,8 +136,8 @@ export const safelySetUserBalance = async (T: TestBase, user: TestUserData, amou
     const app = await T.main.storage.applicationStorage.GetApplication(user.appId)
     const invoice = await T.main.paymentManager.NewInvoice(user.userId, { amountSats: amount, memo: "test" }, { linkedApplication: app, expiry: defaultInvoiceExpiry })
     await T.externalAccessToOtherLnd.PayInvoice(invoice.invoice, 0, { routingFeeLimit: 100, serviceFee: 100 }, amount, { from: 'system', useProvider: false })
-    const u = await T.main.storage.userStorage.GetUser(user.userId)
-    expect(u.balance_sats).to.be.equal(amount)
+    // Credit is async via SubscribeInvoices; do not assume PayInvoice SUCCESS implies local balance yet.
+    await waitForUserBalance(T, user.userId, amount)
     T.d(`user ${user.appUserIdentifier} balance is now ${amount}`)
 }
 
