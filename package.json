@@ -79,7 +79,7 @@
     "@types/websocket": "^1.0.10",
     "@types/ws": "^8.5.12",
     "ts-node": "10.7.0",
-    "typescript": "5.5.4"
+    "typescript": "~6.0.3"
   },
   "overrides": {}
 }
