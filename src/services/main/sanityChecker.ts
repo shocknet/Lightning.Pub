@@ -18,6 +18,10 @@ export default class SanityChecker {
     events: LoggedEvent[] = []
     invoices: Invoice[] = []
     payments: Payment[] = []
+    oldestPaymentRequest: string | null = null
+    oldestInvoiceRequest: string | null = null
+    requireLndPayments = false
+    requireLndInvoices = false
     incrementSources: Record<string, boolean> = {}
     decrementSources: Record<string, boolean> = {}
     decrementEvents: Record<string, { userId: string, refund: number, failure: boolean, pending: boolean }> = {}
@@ -26,6 +30,48 @@ export default class SanityChecker {
     constructor(storage: Storage, lnd: LND) {
         this.storage = storage
         this.lnd = lnd
+    }
+
+    private oldestInvoice = (): Invoice | null => {
+        const withRequest = this.invoices.filter(i => i.paymentRequest)
+        if (withRequest.length === 0) {
+            return null
+        }
+        return withRequest.reduce((oldest, invoice) => invoice.addIndex < oldest.addIndex ? invoice : oldest)
+    }
+
+    private oldestPayment = (): Payment | null => {
+        const withRequest = this.payments.filter(p => p.paymentRequest)
+        if (withRequest.length === 0) {
+            return null
+        }
+        return withRequest.reduce((oldest, payment) => payment.paymentIndex < oldest.paymentIndex ? payment : oldest)
+    }
+
+    private shouldCheckLndPayment = (invoice: string) => {
+        if (this.requireLndPayments) {
+            return true
+        }
+        if (!this.oldestPaymentRequest) {
+            throw new Error("oldest payment request not set")
+        }
+        if (invoice === this.oldestPaymentRequest) {
+            this.requireLndPayments = true
+        }
+        return this.requireLndPayments
+    }
+
+    private shouldCheckLndInvoice = (invoice: string) => {
+        if (this.requireLndInvoices) {
+            return true
+        }
+        if (!this.oldestInvoiceRequest) {
+            throw new Error("oldest invoice request not set")
+        }
+        if (invoice === this.oldestInvoiceRequest) {
+            this.requireLndInvoices = true
+        }
+        return this.requireLndInvoices
     }
 
     parseDataField(data: string): { type: Reason, data: string, txHash?: string, serialId?: number } {
@@ -110,7 +156,7 @@ export default class SanityChecker {
         }
         const refund = amt - (entry.paid_amount + entry.routing_fees + entry.service_fees)
         this.decrementEvents[invoice] = { userId, refund, failure: false, pending: false }
-        if (!entry.internal && !entry.liquidityProvider) {
+        if (!entry.internal && !entry.liquidityProvider && this.shouldCheckLndPayment(invoice)) {
             const lndEntry = this.payments.find(i => i.paymentRequest === invoice)
             if (!lndEntry) {
                 throw new Error("payment not found in lnd for invoice " + invoice)
@@ -186,9 +232,9 @@ export default class SanityChecker {
         if (entry.paid_at_unix <= 0) {
             throw new Error("invoice not paid for invoice " + invoice)
         }
-        if (!entry.internal && !entry.liquidityProvider) {
-            const entry = this.invoices.find(i => i.paymentRequest === invoice)
-            if (!entry) {
+        if (!entry.internal && !entry.liquidityProvider && this.shouldCheckLndInvoice(invoice)) {
+            const lndInvoice = this.invoices.find(i => i.paymentRequest === invoice)
+            if (!lndInvoice) {
                 throw new Error("invoice not found in lnd " + invoice)
             }
         }
@@ -238,9 +284,17 @@ export default class SanityChecker {
         this.invoices = (await this.lnd.GetAllInvoices(1000)).invoices
         this.payments = (await this.lnd.GetAllPayments(1000)).payments
 
+        const oldestPayment = this.oldestPayment()
+        const oldestInvoice = this.oldestInvoice()
+        // Full LND history fits in the fetch: enforce from the start. Otherwise wait until the oldest fetched entry appears in the log.
+        this.requireLndPayments = this.payments.length < 1000
+        this.requireLndInvoices = this.invoices.length < 1000
+        this.oldestPaymentRequest = oldestPayment?.paymentRequest || null
+        this.oldestInvoiceRequest = oldestInvoice?.paymentRequest || null
+        this.log("lnd window: payments=", this.payments.length, "invoices=", this.invoices.length)
+
         this.incrementSources = {}
         this.decrementSources = {}
-        this.users = {}
         this.users = {}
         this.decrementEvents = {}
         for (let i = 0; i < this.events.length; i++) {
