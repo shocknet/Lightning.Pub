@@ -91,7 +91,7 @@ jobs:
       - name: Install dependencies
         run: npm install
       - name: Build
-        run: npm run clean && tsc --ignoreDeprecations 6.0
+        run: npm run build
       - name: Start callback dummy server
         run: |
           node build/src/tests/callbackDummyServer.js &
