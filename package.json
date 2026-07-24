@@ -62,7 +62,7 @@
     "rimraf": "^3.0.2",
     "tiny-secp256k1": "^2.2.4",
     "ts-node": "^10.7.0",
-    "typeorm": "^0.3.28",
+    "typeorm": "^0.3.31",
     "typescript": "~6.0.3",
     "uri-template": "^2.0.0",
     "why-is-node-running": "^3.2.0",
