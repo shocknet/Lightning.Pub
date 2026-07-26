@@ -1620,7 +1620,11 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     opts.metricsCallback([{ ...info, ...stats, ...authContext }])
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
-            default: logger.error('unknown rpc call name from nostr event:'+req.rpcName) 
+            default: {
+                const reason = 'unknown rpcName: ' + (req.rpcName || '')
+                logErrorAndReturnResponse(new Error(reason), reason, res, logger, { ...info, ...stats }, opts.metricsCallback)
+                break
+            }
         }
     }
 }
