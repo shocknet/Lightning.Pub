@@ -25,6 +25,9 @@ message LndProviderFilter {
     optional int64 invoice_index_offset = 3;
     optional int64 limit_payments = 4;
     optional int64 payment_index_offset = 5;
+    // Shared by incoming_tx and outgoing_tx: both pages are derived from one
+    // getTransactions window sized by these fields. Advance both with the same
+    // next_index_offset; do not paginate the streams independently.
     optional int64 limit_transactions = 6;
     optional int64 tx_index_offset = 7;
 }
@@ -131,6 +134,9 @@ message TrackedLndProviderV2 {
     int64 channels_balance = 3;
     LndAssetOperationsPage payments = 4;
     LndAssetOperationsPage invoices = 5;
+    // incoming_tx and outgoing_tx share one LndProviderFilter transaction cursor
+    // (limit_transactions / tx_index_offset). Both pages carry the same has_more
+    // and next_index_offset for that shared window.
     LndAssetOperationsPage incoming_tx = 6;
     LndAssetOperationsPage outgoing_tx = 7;
 }

@@ -655,6 +655,8 @@ export class AdminManager {
         )
     }
 
+    // incoming_tx and outgoing_tx are split views of one getTransactions page.
+    // They intentionally share has_more / next_index_offset from limit + indexOffset.
     private async FetchLndTransactionPages(
         blockHeight: number,
         limit: number,
@@ -732,7 +734,7 @@ class AssetOperationTracker {
         this.paymentOwnerMap = new Map(paymentOwners.map(p => [p.invoice, p]))
         this.invoiceOwnerMap = new Map(invoiceOwners.map(p => [p.invoice, p]))
         this.txHashOwnerMap = new Map(txHashOwners.map(p => [p.tx_hash, p]))
-        this.addressTxMap = new Map(addressTxs.map(p => [`${p.user_address.address}:${p.tx_hash}`, p]))
+        this.addressTxMap = new Map(addressTxs.map(p => [`${p.user_address.address}:${p.tx_hash}:${p.output_index}`, p]))
         this.rootInvoicePaymentMap = new Map(rootInvoicePayments.map(o => [o.operation_identifier, o]))
         this.rootInvoiceMap = new Map(rootInvoices.map(o => [o.operation_identifier, o]))
         this.rootChainPaymentMap = new Map(rootChainPayments.map(o => [o.operation_identifier, o]))
@@ -796,7 +798,8 @@ class AssetOperationTracker {
         const ts = Number(tx.timeStamp)
         const amount = Number(output.amount)
         const outputIndex = Number(output.outputIndex)
-        const userOp = this.addressTxMap.get(`${output.address}:${tx.txHash}`)
+        const opKey = `${output.address}:${tx.txHash}:${outputIndex}`
+        const userOp = this.addressTxMap.get(opKey)
         if (userOp) {
             return {
                 ts, amount, tracked: {
@@ -805,7 +808,7 @@ class AssetOperationTracker {
                 },
             }
         }
-        const rootOp = this.rootChainMap.get(`${output.address}:${tx.txHash}:${outputIndex}`)
+        const rootOp = this.rootChainMap.get(opKey)
         if (rootOp) {
             return { ts, amount, tracked: { ts: rootOp.at_unix, amount: rootOp.operation_amount, type: ROOT_OP } }
         }
