@@ -320,9 +320,9 @@ export class AdminManager {
             this.swaps.PayInvoiceSwap("admin", req.swap_operation_id, req.sat_per_v_byte, async (addr, amt) => {
                 const tx = await this.lnd.PayAddress(addr, amt, req.sat_per_v_byte, "", { useProvider: false, from: 'system' })
                 this.log("paid admin invoice swap", { swapOpId: req.swap_operation_id, txId: tx.txid })
-                await this.storage.metricsStorage.AddRootOperation("chain_payment", tx.txid, amt, true)
 
-                // Fetch the full transaction hex for potential refunds
+                // Fetch the full transaction hex for potential refunds, and include miner fees
+                // in the root op so watchdog can fully neutralize the on-chain spend.
                 let lockupTxHex: string | undefined
                 let chainFeeSats = 0
                 try {
@@ -333,6 +333,7 @@ export class AdminManager {
                     this.log("Warning: Could not fetch transaction hex for refund purposes:", err.message)
                 }
 
+                await this.storage.metricsStorage.AddRootOperation("chain_payment", tx.txid, amt + chainFeeSats, true)
                 await this.storage.paymentStorage.SetInvoiceSwapTxId(req.swap_operation_id, tx.txid, chainFeeSats, lockupTxHex)
                 this.log("saved admin swap txid", { swapOpId: req.swap_operation_id, txId: tx.txid })
                 res(tx.txid)
