@@ -6,7 +6,7 @@ type NostrResponse = (message: object) => void
 export type NostrRequest = {
     rpcName?: string
     params?: Record<string, string>
-    query?: Record<string, string>
+    query?: Record<string, string | string[]>
     body?: any
     authIdentifier?: string
     requestId?: string
@@ -24,6 +24,8 @@ export type NostrOptions = {
 const logErrorAndReturnResponse = (error: Error, response: string, res: NostrResponse, logger: Logger, metric: Types.RequestMetric, metricsCallback: (metrics: Types.RequestMetric[]) => void) => { 
     logger.error(error.message || error); metricsCallback([{ ...metric, error: response }]); res({ status: 'ERROR', reason: response })
 }
+const nostrSubClose = () => {throw new Error('nostr subs cannot be closed')}
+const nostrSubMore = () => {throw new Error('nostr subs always subbed to more')}
 export default (methods: Types.ServerMethods, opts: NostrOptions) => {
     const logger = opts.logger || { log: console.log, error: console.error }
     return async (req: NostrRequest, res: NostrResponse, startString: string, startMs: number) => {
@@ -877,7 +879,7 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     methods.GetLiveDebitRequests({rpcName:'GetLiveDebitRequests', ctx:authContext  , socket:{ send: (response, err) => {
                     stats.handle = process.hrtime.bigint()
                     if (err) { logErrorAndReturnResponse(err, err.message, res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)} else { res({status: 'OK', ...response});opts.metricsCallback([{ ...info, ...stats, ...authContext }])}
-                    },getState: () => 'OPEN'}})
+                    },getState: () => 'OPEN', close: nostrSubClose, subMore: nostrSubMore}})
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
             case 'GetLiveManageRequests':
@@ -890,7 +892,7 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     methods.GetLiveManageRequests({rpcName:'GetLiveManageRequests', ctx:authContext  , socket:{ send: (response, err) => {
                     stats.handle = process.hrtime.bigint()
                     if (err) { logErrorAndReturnResponse(err, err.message, res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)} else { res({status: 'OK', ...response});opts.metricsCallback([{ ...info, ...stats, ...authContext }])}
-                    },getState: () => 'OPEN'}})
+                    },getState: () => 'OPEN', close: nostrSubClose, subMore: nostrSubMore}})
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
             case 'GetLiveUserOperations':
@@ -903,7 +905,7 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     methods.GetLiveUserOperations({rpcName:'GetLiveUserOperations', ctx:authContext  , socket:{ send: (response, err) => {
                     stats.handle = process.hrtime.bigint()
                     if (err) { logErrorAndReturnResponse(err, err.message, res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)} else { res({status: 'OK', ...response});opts.metricsCallback([{ ...info, ...stats, ...authContext }])}
-                    },getState: () => 'OPEN'}})
+                    },getState: () => 'OPEN', close: nostrSubClose, subMore: nostrSubMore}})
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
             case 'GetLndForwardingMetrics':
@@ -987,7 +989,7 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     methods.GetMigrationUpdate({rpcName:'GetMigrationUpdate', ctx:authContext  , socket:{ send: (response, err) => {
                     stats.handle = process.hrtime.bigint()
                     if (err) { logErrorAndReturnResponse(err, err.message, res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)} else { res({status: 'OK', ...response});opts.metricsCallback([{ ...info, ...stats, ...authContext }])}
-                    },getState: () => 'OPEN'}})
+                    },getState: () => 'OPEN', close: nostrSubClose, subMore: nostrSubMore}})
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
             case 'GetPaymentState':
@@ -1511,7 +1513,7 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     methods.SubToWebRtcCandidates({rpcName:'SubToWebRtcCandidates', ctx:authContext  , socket:{ send: (response, err) => {
                     stats.handle = process.hrtime.bigint()
                     if (err) { logErrorAndReturnResponse(err, err.message, res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)} else { res({status: 'OK', ...response});opts.metricsCallback([{ ...info, ...stats, ...authContext }])}
-                    },getState: () => 'OPEN'}})
+                    },getState: () => 'OPEN', close: nostrSubClose, subMore: nostrSubMore}})
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
             case 'SubmitWebRtcMessage':

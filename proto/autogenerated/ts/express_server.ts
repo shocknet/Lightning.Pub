@@ -40,7 +40,8 @@ const parseBody = (req: Request) => new Promise<Buffer>((resolve, reject) => {
     })
 })
 const createRequestContext = (req: Request, res?: Response): Types.RequestContext => {
-    let requestLogger: Types.RequestLogger | undefined = req.log
+    // TODO: fix this, remove any
+    let requestLogger: Types.RequestLogger | undefined = 'log' in req ? (req.log as any) : undefined
     return {
     getIp: () => req.ip,
     getHeader: (name: string) => req.get(name) || undefined,

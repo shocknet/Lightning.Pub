@@ -959,8 +959,11 @@ export default class {
             throw new Error("amount out of range")
         }
         let zapInfo: ZapInfo | undefined
-        if (ctx.nostr) {
+        if (ctx.nostr && typeof ctx.nostr === 'string') {
             zapInfo = this.validateZapEvent(ctx.nostr, amountMillis)
+        }
+        if (typeof ctx.k1 !== 'string') {
+            throw new Error("invalid k1 in lnurl pay to handle")
         }
         const key = await this.storage.paymentStorage.UseUserEphemeralKey(ctx.k1, 'pay', true)
         const sats = amountMillis / 1000

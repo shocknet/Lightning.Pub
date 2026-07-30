@@ -239,20 +239,20 @@ export default (mainHandler: Main): Types.ServerMethods => {
         },
         GetLnurlWithdrawLink: ({ ctx }) => mainHandler.paymentManager.GetLnurlWithdrawLink(ctx),
         GetLnurlWithdrawInfo: async ({ ctx, query }) => {
-            if (!query.k1) {
+            if (!query.k1 || typeof query.k1 !== 'string') {
                 throw new Error("invalid lnurl withdraw to get info")
             }
             return mainHandler.paymentManager.GetLnurlWithdrawInfo(query.k1)
         },
         HandleLnurlWithdraw: async ({ query }) => {
-            if (!query.k1 || !query.pr) {
+            if (!query.k1 || !query.pr || typeof query.k1 !== 'string' || typeof query.pr !== 'string') {
                 throw new Error("invalid lnurl withdraw to handle")
             }
             return mainHandler.paymentManager.HandleLnurlWithdraw(query.k1, query.pr)
         },
         GetLnurlPayLink: ({ ctx }) => mainHandler.paymentManager.GetLnurlPayLink(ctx),
         GetLnurlPayInfo: async ({ ctx, query }) => {
-            if (!query.k1) {
+            if (!query.k1 || typeof query.k1 !== 'string') {
                 throw new Error("invalid lnurl pay to get info")
             }
             return mainHandler.paymentManager.GetLnurlPayInfo(query.k1)
@@ -270,7 +270,7 @@ export default (mainHandler: Main): Types.ServerMethods => {
             return mainHandler.productManager.AddProduct(ctx.user_id, req)
         },
         NewProductInvoice: async ({ query }) => {
-            if (!query.id) {
+            if (!query.id || typeof query.id !== 'string') {
                 throw new Error("product id must be non empty")
             }
             return mainHandler.productManager.NewProductInvoice(query.id)
@@ -368,9 +368,9 @@ export default (mainHandler: Main): Types.ServerMethods => {
         },
         GetLiveDebitRequests: async ({ ctx }) => { },
         GetLiveManageRequests: async ({ ctx }) => { },
-        GetLiveUserOperations: async ({ ctx, cb }) => {
+        GetLiveUserOperations: async ({ ctx }) => {
         },
-        GetMigrationUpdate: async ({ ctx, cb }) => {
+        GetMigrationUpdate: async ({ ctx }) => {
         },
         GetNPubLinkingState: async ({ ctx, req }) => {
             const err = Types.GetNPubLinkingValidate(req, {

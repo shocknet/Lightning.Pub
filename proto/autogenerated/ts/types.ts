@@ -13,11 +13,11 @@ export type ProtoSocket<T> = {
 }
 export interface RequestLogger {}
 export type RequestContext = {
-    getIp: () => string
+    getIp: () => string | undefined
     getHeader: (name: string) => string | undefined
     setHeader: (name: string, value: string) => void
     clearCookie: (name: string) => void
-    getRequestLogger: () => RequestLogger
+    getRequestLogger: () => RequestLogger | undefined
     setRequestLogger: (log: RequestLogger) => void
 }
 export type AdminContext = {
