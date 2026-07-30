@@ -572,11 +572,12 @@ export class AdminManager {
         const invoicesOffset = filter?.invoice_index_offset || 0
         const txLimit = clampPageLimit(filter?.limit_transactions, DEFAULT_LND_PAGE_SIZE, MAX_PAGE_SIZE)
         const txOffset = filter?.tx_index_offset || 0
+        const txStartHeight = filter?.tx_start_height ?? info.blockHeight
 
         const [payments, invoices, txPages, balance] = await Promise.all([
             this.FetchLndPaymentPage(paymentsLimit, paymentsOffset),
             this.FetchLndInvoicePage(invoicesLimit, invoicesOffset),
-            this.FetchLndTransactionPages(info.blockHeight, txLimit, txOffset),
+            this.FetchLndTransactionPages(txStartHeight, txLimit, txOffset),
             this.lnd.GetBalance(),
         ])
         const channelsBalance = balance.channelsBalance.reduce((acc, c) => acc + Number(c.localBalanceSats), 0)
@@ -657,13 +658,13 @@ export class AdminManager {
     
 
     // incoming_tx and outgoing_tx are split views of one getTransactions page.
-    // They intentionally share has_more / next_index_offset from limit + indexOffset.
+    // They intentionally share has_more / next_index_offset / start_height from limit + indexOffset.
     private async FetchLndTransactionPages(
-        blockHeight: number,
+        startHeight: number,
         limit: number,
         indexOffset: number
     ): Promise<{ incoming_tx: Types.LndAssetOperationsPage, outgoing_tx: Types.LndAssetOperationsPage }> {
-        const res = await this.lnd.GetTransactions(blockHeight, indexOffset, limit)
+        const res = await this.lnd.GetTransactions(startHeight, indexOffset, limit)
         const incomingItems: { transaction: Transaction, output: OutputDetail }[] = []
         const outgoingTxs: Transaction[] = []
         for (const transaction of res.transactions) {
@@ -699,6 +700,7 @@ export class AdminManager {
             operations,
             has_more: hasMore,
             next_index_offset: nextIndexOffset,
+            start_height: startHeight,
         })
         return {
             incoming_tx: toPage(incoming),

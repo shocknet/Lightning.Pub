@@ -18,10 +18,10 @@ export type ClientParams = {
 }
 export default (params: ClientParams) => ({
     AddApp: async (request: Types.AddAppRequest): Promise<ResultError | ({ status: 'OK' }& Types.AuthApp)> => {
+        let finalRoute = '/api/admin/app/add'
         const auth = await params.retrieveAdminAuth()
         if (auth === null) throw new Error('retrieveAdminAuth() returned null')
-        let finalRoute = '/api/admin/app/add'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -32,10 +32,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     AddAppInvoice: async (request: Types.AddAppInvoiceRequest): Promise<ResultError | ({ status: 'OK' }& Types.NewInvoiceResponse)> => {
+        let finalRoute = '/api/app/add/invoice'
         const auth = await params.retrieveAppAuth()
         if (auth === null) throw new Error('retrieveAppAuth() returned null')
-        let finalRoute = '/api/app/add/invoice'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -46,10 +46,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     AddAppUser: async (request: Types.AddAppUserRequest): Promise<ResultError | ({ status: 'OK' }& Types.AppUser)> => {
+        let finalRoute = '/api/app/user/add'
         const auth = await params.retrieveAppAuth()
         if (auth === null) throw new Error('retrieveAppAuth() returned null')
-        let finalRoute = '/api/app/user/add'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -60,10 +60,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     AddAppUserInvoice: async (request: Types.AddAppUserInvoiceRequest): Promise<ResultError | ({ status: 'OK' }& Types.NewInvoiceResponse)> => {
+        let finalRoute = '/api/app/user/add/invoice'
         const auth = await params.retrieveAppAuth()
         if (auth === null) throw new Error('retrieveAppAuth() returned null')
-        let finalRoute = '/api/app/user/add/invoice'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -74,10 +74,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     AddPeer: async (request: Types.AddPeerRequest): Promise<ResultError | ({ status: 'OK' })> => {
+        let finalRoute = '/api/admin/peer'
         const auth = await params.retrieveAdminAuth()
         if (auth === null) throw new Error('retrieveAdminAuth() returned null')
-        let finalRoute = '/api/admin/peer'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             return data
@@ -85,10 +85,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     AddProduct: async (request: Types.AddProductRequest): Promise<ResultError | ({ status: 'OK' }& Types.Product)> => {
+        let finalRoute = '/api/user/product/add'
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
-        let finalRoute = '/api/user/product/add'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -99,10 +99,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     AddUserOffer: async (request: Types.OfferCreateRequest): Promise<ResultError | ({ status: 'OK' }& Types.OfferId)> => {
+        let finalRoute = '/api/user/offer/add'
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
-        let finalRoute = '/api/user/offer/add'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -113,10 +113,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     AuthApp: async (request: Types.AuthAppRequest): Promise<ResultError | ({ status: 'OK' }& Types.AuthApp)> => {
+        let finalRoute = '/api/admin/app/auth'
         const auth = await params.retrieveAdminAuth()
         if (auth === null) throw new Error('retrieveAdminAuth() returned null')
-        let finalRoute = '/api/admin/app/auth'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -127,10 +127,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     AuthorizeManage: async (request: Types.ManageAuthorizationRequest): Promise<ResultError | ({ status: 'OK' }& Types.ManageAuthorization)> => {
+        let finalRoute = '/api/user/manage/authorize'
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
-        let finalRoute = '/api/user/manage/authorize'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -141,10 +141,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     BanDebit: async (request: Types.DebitOperation): Promise<ResultError | ({ status: 'OK' })> => {
+        let finalRoute = '/api/user/debit/ban'
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
-        let finalRoute = '/api/user/debit/ban'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             return data
@@ -152,10 +152,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     BanUser: async (request: Types.BanUserRequest): Promise<ResultError | ({ status: 'OK' }& Types.BanUserResponse)> => {
+        let finalRoute = '/api/admin/user/ban'
         const auth = await params.retrieveAdminAuth()
         if (auth === null) throw new Error('retrieveAdminAuth() returned null')
-        let finalRoute = '/api/admin/user/ban'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -177,10 +177,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     BumpTx: async (request: Types.BumpTx): Promise<ResultError | ({ status: 'OK' })> => {
+        let finalRoute = '/api/admin/tx/bump'
         const auth = await params.retrieveAdminAuth()
         if (auth === null) throw new Error('retrieveAdminAuth() returned null')
-        let finalRoute = '/api/admin/tx/bump'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             return data
@@ -188,10 +188,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     CloseChannel: async (request: Types.CloseChannelRequest): Promise<ResultError | ({ status: 'OK' }& Types.CloseChannelResponse)> => {
+        let finalRoute = '/api/admin/channel/close'
         const auth = await params.retrieveAdminAuth()
         if (auth === null) throw new Error('retrieveAdminAuth() returned null')
-        let finalRoute = '/api/admin/channel/close'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -202,10 +202,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     CreateOneTimeInviteLink: async (request: Types.CreateOneTimeInviteLinkRequest): Promise<ResultError | ({ status: 'OK' }& Types.CreateOneTimeInviteLinkResponse)> => {
+        let finalRoute = '/api/admin/app/invite/create'
         const auth = await params.retrieveAdminAuth()
         if (auth === null) throw new Error('retrieveAdminAuth() returned null')
-        let finalRoute = '/api/admin/app/invite/create'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -216,10 +216,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     DecodeInvoice: async (request: Types.DecodeInvoiceRequest): Promise<ResultError | ({ status: 'OK' }& Types.DecodeInvoiceResponse)> => {
+        let finalRoute = '/api/user/invoice/decode'
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
-        let finalRoute = '/api/user/invoice/decode'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -230,10 +230,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     DeleteUserOffer: async (request: Types.OfferId): Promise<ResultError | ({ status: 'OK' })> => {
+        let finalRoute = '/api/user/offer/delete'
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
-        let finalRoute = '/api/user/offer/delete'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             return data
@@ -241,10 +241,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     EditDebit: async (request: Types.DebitAuthorizationRequest): Promise<ResultError | ({ status: 'OK' })> => {
+        let finalRoute = '/api/user/debit/edit'
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
-        let finalRoute = '/api/user/debit/edit'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             return data
@@ -252,10 +252,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     EncryptionExchange: async (request: Types.EncryptionExchangeRequest): Promise<ResultError | ({ status: 'OK' })> => {
+        let finalRoute = '/api/encryption/exchange'
         const auth = await params.retrieveGuestAuth()
         if (auth === null) throw new Error('retrieveGuestAuth() returned null')
-        let finalRoute = '/api/encryption/exchange'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             return data
@@ -263,10 +263,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     EnrollAdminToken: async (request: Types.EnrollAdminTokenRequest): Promise<ResultError | ({ status: 'OK' })> => {
+        let finalRoute = '/api/guest/npub/enroll/admin'
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
-        let finalRoute = '/api/guest/npub/enroll/admin'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             return data
@@ -274,10 +274,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     EnrollMessagingToken: async (request: Types.MessagingToken): Promise<ResultError | ({ status: 'OK' })> => {
+        let finalRoute = '/api/user/messaging/enroll'
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
-        let finalRoute = '/api/user/messaging/enroll'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             return data
@@ -285,10 +285,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     GetAdminInvoiceSwapQuotes: async (request: Types.InvoiceSwapRequest): Promise<ResultError | ({ status: 'OK' }& Types.InvoiceSwapQuoteList)> => {
+        let finalRoute = '/api/admin/swap/invoice/quote'
         const auth = await params.retrieveAdminAuth()
         if (auth === null) throw new Error('retrieveAdminAuth() returned null')
-        let finalRoute = '/api/admin/swap/invoice/quote'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -299,10 +299,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     GetAdminTransactionSwapQuotes: async (request: Types.TransactionSwapRequest): Promise<ResultError | ({ status: 'OK' }& Types.TransactionSwapQuoteList)> => {
+        let finalRoute = '/api/admin/swap/transaction/quote'
         const auth = await params.retrieveAdminAuth()
         if (auth === null) throw new Error('retrieveAdminAuth() returned null')
-        let finalRoute = '/api/admin/swap/transaction/quote'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -313,10 +313,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     GetApp: async (): Promise<ResultError | ({ status: 'OK' }& Types.Application)> => {
+        let finalRoute = '/api/app/get'
         const auth = await params.retrieveAppAuth()
         if (auth === null) throw new Error('retrieveAppAuth() returned null')
-        let finalRoute = '/api/app/get'
-        const { data } = await axios.post(params.baseUrl + finalRoute, {}, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, {}, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -327,10 +327,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     GetAppUser: async (request: Types.GetAppUserRequest): Promise<ResultError | ({ status: 'OK' }& Types.AppUser)> => {
+        let finalRoute = '/api/app/user/get'
         const auth = await params.retrieveAppAuth()
         if (auth === null) throw new Error('retrieveAppAuth() returned null')
-        let finalRoute = '/api/app/user/get'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -341,10 +341,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     GetAppUserLNURLInfo: async (request: Types.GetAppUserLNURLInfoRequest): Promise<ResultError | ({ status: 'OK' }& Types.LnurlPayInfoResponse)> => {
+        let finalRoute = '/api/app/user/lnurl/pay/info'
         const auth = await params.retrieveAppAuth()
         if (auth === null) throw new Error('retrieveAppAuth() returned null')
-        let finalRoute = '/api/app/user/lnurl/pay/info'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -355,10 +355,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     GetAppsMetrics: async (request: Types.AppsMetricsRequest): Promise<ResultError | ({ status: 'OK' }& Types.AppsMetrics)> => {
+        let finalRoute = '/api/reports/apps'
         const auth = await params.retrieveMetricsAuth()
         if (auth === null) throw new Error('retrieveMetricsAuth() returned null')
-        let finalRoute = '/api/reports/apps'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -369,10 +369,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     GetAssetsAndLiabilities: async (request: Types.AssetsAndLiabilitiesReq): Promise<ResultError | ({ status: 'OK' }& Types.AssetsAndLiabilities)> => {
+        let finalRoute = '/api/admin/assets/liabilities'
         const auth = await params.retrieveAdminAuth()
         if (auth === null) throw new Error('retrieveAdminAuth() returned null')
-        let finalRoute = '/api/admin/assets/liabilities'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -383,10 +383,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     GetAssetsAndLiabilitiesV2: async (request: Types.AssetsAndLiabilitiesReqV2): Promise<ResultError | ({ status: 'OK' }& Types.AssetsAndLiabilitiesV2)> => {
+        let finalRoute = '/api/admin/assets/liabilities/v2'
         const auth = await params.retrieveAdminAuth()
         if (auth === null) throw new Error('retrieveAdminAuth() returned null')
-        let finalRoute = '/api/admin/assets/liabilities/v2'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -397,10 +397,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     GetBundleMetrics: async (request: Types.LatestBundleMetricReq): Promise<ResultError | ({ status: 'OK' }& Types.BundleMetrics)> => {
+        let finalRoute = '/api/reports/bundle'
         const auth = await params.retrieveMetricsAuth()
         if (auth === null) throw new Error('retrieveMetricsAuth() returned null')
-        let finalRoute = '/api/reports/bundle'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -411,10 +411,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     GetDebitAuthorizations: async (): Promise<ResultError | ({ status: 'OK' }& Types.DebitAuthorizations)> => {
+        let finalRoute = '/api/user/debit/get'
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
-        let finalRoute = '/api/user/debit/get'
-        const { data } = await axios.get(params.baseUrl + finalRoute, { headers: { 'authorization': auth } })
+        const { data } = await axios.get(params.baseUrl + finalRoute, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -425,10 +425,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     GetErrorStats: async (): Promise<ResultError | ({ status: 'OK' }& Types.ErrorStats)> => {
+        let finalRoute = '/api/reports/errors'
         const auth = await params.retrieveMetricsAuth()
         if (auth === null) throw new Error('retrieveMetricsAuth() returned null')
-        let finalRoute = '/api/reports/errors'
-        const { data } = await axios.post(params.baseUrl + finalRoute, {}, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, {}, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -439,10 +439,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     GetHttpCreds: async (): Promise<ResultError | ({ status: 'OK' }& Types.HttpCreds)> => {
+        let finalRoute = '/api/user/http_creds'
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
-        let finalRoute = '/api/user/http_creds'
-        const { data } = await axios.post(params.baseUrl + finalRoute, {}, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, {}, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -453,10 +453,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     GetInviteLinkState: async (request: Types.GetInviteTokenStateRequest): Promise<ResultError | ({ status: 'OK' }& Types.GetInviteTokenStateResponse)> => {
+        let finalRoute = '/api/admin/app/invite/get'
         const auth = await params.retrieveAdminAuth()
         if (auth === null) throw new Error('retrieveAdminAuth() returned null')
-        let finalRoute = '/api/admin/app/invite/get'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -467,10 +467,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     GetLNURLChannelLink: async (): Promise<ResultError | ({ status: 'OK' }& Types.LnurlLinkResponse)> => {
+        let finalRoute = '/api/user/lnurl_channel/url'
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
-        let finalRoute = '/api/user/lnurl_channel/url'
-        const { data } = await axios.post(params.baseUrl + finalRoute, {}, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, {}, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -480,14 +480,65 @@ export default (params: ClientParams) => ({
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
-    GetLiveDebitRequests: async (cb: (v:ResultError | ({ status: 'OK' }& Types.LiveDebitRequest)) => void): Promise<void> => { throw  new Error('http streams are not supported')},
-    GetLiveManageRequests: async (cb: (v:ResultError | ({ status: 'OK' }& Types.LiveManageRequest)) => void): Promise<void> => { throw  new Error('http streams are not supported')},
-    GetLiveUserOperations: async (cb: (v:ResultError | ({ status: 'OK' }& Types.LiveUserOperation)) => void): Promise<void> => { throw  new Error('http streams are not supported')},
+    GetLiveDebitRequests: async (cb: (v:ResultError | ({ status: 'OK' }& Types.LiveDebitRequest)) => void, abort?: AbortSignal, ws?: { onOpen?: () => void, onClose?: () => void }): Promise<{ close: () => void }> => { 
+        let finalRoute = '/api/user/debit/sub'
+        const auth = await params.retrieveUserAuth()
+        if (auth === null) throw new Error('retrieveUserAuth() returned null')
+        const socket = new WebSocket(params.baseUrl + finalRoute)
+        let closedByClient = false
+        abort?.addEventListener('abort', () => { closedByClient = true; socket.close() })
+        socket.addEventListener('close', () => { if (!closedByClient) ws?.onClose?.() })
+        socket.addEventListener('open', () => {
+            ws?.onOpen?.()
+            socket.send(JSON.stringify({ body:{}, _authorization: auth }))
+        })
+        socket.addEventListener('message', (event) => {
+            const data = JSON.parse(event.data) as ResultError | ({ status: 'OK' }& Types.LiveDebitRequest)
+            cb(data)
+        })
+		return { close: () => { closedByClient = true; socket.close() } }
+    },
+    GetLiveManageRequests: async (cb: (v:ResultError | ({ status: 'OK' }& Types.LiveManageRequest)) => void, abort?: AbortSignal, ws?: { onOpen?: () => void, onClose?: () => void }): Promise<{ close: () => void }> => { 
+        let finalRoute = '/api/user/manage/sub'
+        const auth = await params.retrieveUserAuth()
+        if (auth === null) throw new Error('retrieveUserAuth() returned null')
+        const socket = new WebSocket(params.baseUrl + finalRoute)
+        let closedByClient = false
+        abort?.addEventListener('abort', () => { closedByClient = true; socket.close() })
+        socket.addEventListener('close', () => { if (!closedByClient) ws?.onClose?.() })
+        socket.addEventListener('open', () => {
+            ws?.onOpen?.()
+            socket.send(JSON.stringify({ body:{}, _authorization: auth }))
+        })
+        socket.addEventListener('message', (event) => {
+            const data = JSON.parse(event.data) as ResultError | ({ status: 'OK' }& Types.LiveManageRequest)
+            cb(data)
+        })
+		return { close: () => { closedByClient = true; socket.close() } }
+    },
+    GetLiveUserOperations: async (cb: (v:ResultError | ({ status: 'OK' }& Types.LiveUserOperation)) => void, abort?: AbortSignal, ws?: { onOpen?: () => void, onClose?: () => void }): Promise<{ close: () => void }> => { 
+        let finalRoute = '/api/user/operations/sub'
+        const auth = await params.retrieveUserAuth()
+        if (auth === null) throw new Error('retrieveUserAuth() returned null')
+        const socket = new WebSocket(params.baseUrl + finalRoute)
+        let closedByClient = false
+        abort?.addEventListener('abort', () => { closedByClient = true; socket.close() })
+        socket.addEventListener('close', () => { if (!closedByClient) ws?.onClose?.() })
+        socket.addEventListener('open', () => {
+            ws?.onOpen?.()
+            socket.send(JSON.stringify({ body:{}, _authorization: auth }))
+        })
+        socket.addEventListener('message', (event) => {
+            const data = JSON.parse(event.data) as ResultError | ({ status: 'OK' }& Types.LiveUserOperation)
+            cb(data)
+        })
+		return { close: () => { closedByClient = true; socket.close() } }
+    },
     GetLndForwardingMetrics: async (request: Types.LndMetricsRequest): Promise<ResultError | ({ status: 'OK' }& Types.LndForwardingMetrics)> => {
+        let finalRoute = '/api/reports/lnd/forwarding'
         const auth = await params.retrieveMetricsAuth()
         if (auth === null) throw new Error('retrieveMetricsAuth() returned null')
-        let finalRoute = '/api/reports/lnd/forwarding'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -498,10 +549,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     GetLndMetrics: async (request: Types.LndMetricsRequest): Promise<ResultError | ({ status: 'OK' }& Types.LndMetrics)> => {
+        let finalRoute = '/api/reports/lnd'
         const auth = await params.retrieveMetricsAuth()
         if (auth === null) throw new Error('retrieveMetricsAuth() returned null')
-        let finalRoute = '/api/reports/lnd'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -512,12 +563,17 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     GetLnurlPayInfo: async (query: Types.GetLnurlPayInfo_Query): Promise<ResultError | ({ status: 'OK' }& Types.LnurlPayInfoResponse)> => {
+        let finalRoute = '/api/guest/lnurl_pay/info'
+        const initialQuery = query as Record<string, string | string[]>
+        const finalQuery: Record<string, string> = {}
+        for (const key in initialQuery)
+            if (Array.isArray(initialQuery[key]))
+                finalQuery[key] = initialQuery[key].join(',')
+        const q = (new URLSearchParams(finalQuery)).toString()
+        finalRoute = finalRoute + (q === '' ? '' : '?' + q)
         const auth = await params.retrieveGuestAuth()
         if (auth === null) throw new Error('retrieveGuestAuth() returned null')
-        let finalRoute = '/api/guest/lnurl_pay/info'
-        const q = (new URLSearchParams(query)).toString()
-        finalRoute = finalRoute + (q === '' ? '' : '?' + q)
-        const { data } = await axios.get(params.baseUrl + finalRoute, { headers: { 'authorization': auth } })
+        const { data } = await axios.get(params.baseUrl + finalRoute, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -528,10 +584,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     GetLnurlPayLink: async (): Promise<ResultError | ({ status: 'OK' }& Types.LnurlLinkResponse)> => {
+        let finalRoute = '/api/user/lnurl_pay/link'
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
-        let finalRoute = '/api/user/lnurl_pay/link'
-        const { data } = await axios.get(params.baseUrl + finalRoute, { headers: { 'authorization': auth } })
+        const { data } = await axios.get(params.baseUrl + finalRoute, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -542,12 +598,17 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     GetLnurlWithdrawInfo: async (query: Types.GetLnurlWithdrawInfo_Query): Promise<ResultError | ({ status: 'OK' }& Types.LnurlWithdrawInfoResponse)> => {
+        let finalRoute = '/api/guest/lnurl_withdraw/info'
+        const initialQuery = query as Record<string, string | string[]>
+        const finalQuery: Record<string, string> = {}
+        for (const key in initialQuery)
+            if (Array.isArray(initialQuery[key]))
+                finalQuery[key] = initialQuery[key].join(',')
+        const q = (new URLSearchParams(finalQuery)).toString()
+        finalRoute = finalRoute + (q === '' ? '' : '?' + q)
         const auth = await params.retrieveGuestAuth()
         if (auth === null) throw new Error('retrieveGuestAuth() returned null')
-        let finalRoute = '/api/guest/lnurl_withdraw/info'
-        const q = (new URLSearchParams(query)).toString()
-        finalRoute = finalRoute + (q === '' ? '' : '?' + q)
-        const { data } = await axios.get(params.baseUrl + finalRoute, { headers: { 'authorization': auth } })
+        const { data } = await axios.get(params.baseUrl + finalRoute, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -558,10 +619,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     GetLnurlWithdrawLink: async (): Promise<ResultError | ({ status: 'OK' }& Types.LnurlLinkResponse)> => {
+        let finalRoute = '/api/user/lnurl_withdraw/link'
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
-        let finalRoute = '/api/user/lnurl_withdraw/link'
-        const { data } = await axios.get(params.baseUrl + finalRoute, { headers: { 'authorization': auth } })
+        const { data } = await axios.get(params.baseUrl + finalRoute, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -572,10 +633,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     GetManageAuthorizations: async (): Promise<ResultError | ({ status: 'OK' }& Types.ManageAuthorizations)> => {
+        let finalRoute = '/api/user/manage/get'
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
-        let finalRoute = '/api/user/manage/get'
-        const { data } = await axios.get(params.baseUrl + finalRoute, { headers: { 'authorization': auth } })
+        const { data } = await axios.get(params.baseUrl + finalRoute, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -585,12 +646,29 @@ export default (params: ClientParams) => ({
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
-    GetMigrationUpdate: async (cb: (v:ResultError | ({ status: 'OK' }& Types.MigrationUpdate)) => void): Promise<void> => { throw  new Error('http streams are not supported')},
+    GetMigrationUpdate: async (cb: (v:ResultError | ({ status: 'OK' }& Types.MigrationUpdate)) => void, abort?: AbortSignal, ws?: { onOpen?: () => void, onClose?: () => void }): Promise<{ close: () => void }> => { 
+        let finalRoute = '/api/user/migrations/sub'
+        const auth = await params.retrieveUserAuth()
+        if (auth === null) throw new Error('retrieveUserAuth() returned null')
+        const socket = new WebSocket(params.baseUrl + finalRoute)
+        let closedByClient = false
+        abort?.addEventListener('abort', () => { closedByClient = true; socket.close() })
+        socket.addEventListener('close', () => { if (!closedByClient) ws?.onClose?.() })
+        socket.addEventListener('open', () => {
+            ws?.onOpen?.()
+            socket.send(JSON.stringify({ body:{}, _authorization: auth }))
+        })
+        socket.addEventListener('message', (event) => {
+            const data = JSON.parse(event.data) as ResultError | ({ status: 'OK' }& Types.MigrationUpdate)
+            cb(data)
+        })
+		return { close: () => { closedByClient = true; socket.close() } }
+    },
     GetNPubLinkingState: async (request: Types.GetNPubLinking): Promise<ResultError | ({ status: 'OK' }& Types.NPubLinking)> => {
+        let finalRoute = '/api/app/user/npub/state'
         const auth = await params.retrieveAppAuth()
         if (auth === null) throw new Error('retrieveAppAuth() returned null')
-        let finalRoute = '/api/app/user/npub/state'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -601,10 +679,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     GetPaymentState: async (request: Types.GetPaymentStateRequest): Promise<ResultError | ({ status: 'OK' }& Types.PaymentState)> => {
+        let finalRoute = '/api/user/payment/state'
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
-        let finalRoute = '/api/user/payment/state'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -615,10 +693,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     GetProvidersDisruption: async (): Promise<ResultError | ({ status: 'OK' }& Types.ProvidersDisruption)> => {
+        let finalRoute = '/api/metrics/providers/disruption'
         const auth = await params.retrieveMetricsAuth()
         if (auth === null) throw new Error('retrieveMetricsAuth() returned null')
-        let finalRoute = '/api/metrics/providers/disruption'
-        const { data } = await axios.post(params.baseUrl + finalRoute, {}, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, {}, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -629,10 +707,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     GetSeed: async (): Promise<ResultError | ({ status: 'OK' }& Types.LndSeed)> => {
+        let finalRoute = '/api/admin/seed'
         const auth = await params.retrieveAdminAuth()
         if (auth === null) throw new Error('retrieveAdminAuth() returned null')
-        let finalRoute = '/api/admin/seed'
-        const { data } = await axios.get(params.baseUrl + finalRoute, { headers: { 'authorization': auth } })
+        const { data } = await axios.get(params.baseUrl + finalRoute, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -643,10 +721,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     GetSingleBundleMetrics: async (request: Types.SingleMetricReq): Promise<ResultError | ({ status: 'OK' }& Types.BundleData)> => {
+        let finalRoute = '/api/reports/bundle/single'
         const auth = await params.retrieveMetricsAuth()
         if (auth === null) throw new Error('retrieveMetricsAuth() returned null')
-        let finalRoute = '/api/reports/bundle/single'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -657,10 +735,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     GetSingleUsageMetrics: async (request: Types.SingleMetricReq): Promise<ResultError | ({ status: 'OK' }& Types.UsageMetricTlv)> => {
+        let finalRoute = '/api/reports/usage/single'
         const auth = await params.retrieveMetricsAuth()
         if (auth === null) throw new Error('retrieveMetricsAuth() returned null')
-        let finalRoute = '/api/reports/usage/single'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -671,10 +749,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     GetTransactionSwapQuotes: async (request: Types.TransactionSwapRequest): Promise<ResultError | ({ status: 'OK' }& Types.TransactionSwapQuoteList)> => {
+        let finalRoute = '/api/user/swap/transaction/quote'
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
-        let finalRoute = '/api/user/swap/transaction/quote'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -685,10 +763,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     GetUsageMetrics: async (request: Types.LatestUsageMetricReq): Promise<ResultError | ({ status: 'OK' }& Types.UsageMetrics)> => {
+        let finalRoute = '/api/reports/usage'
         const auth = await params.retrieveMetricsAuth()
         if (auth === null) throw new Error('retrieveMetricsAuth() returned null')
-        let finalRoute = '/api/reports/usage'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -699,10 +777,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     GetUserInfo: async (): Promise<ResultError | ({ status: 'OK' }& Types.UserInfo)> => {
+        let finalRoute = '/api/user/info'
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
-        let finalRoute = '/api/user/info'
-        const { data } = await axios.post(params.baseUrl + finalRoute, {}, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, {}, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -713,10 +791,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     GetUserOffer: async (request: Types.OfferId): Promise<ResultError | ({ status: 'OK' }& Types.OfferConfig)> => {
+        let finalRoute = '/api/user/offer/get'
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
-        let finalRoute = '/api/user/offer/get'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -727,10 +805,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     GetUserOfferInvoices: async (request: Types.GetUserOfferInvoicesReq): Promise<ResultError | ({ status: 'OK' }& Types.OfferInvoices)> => {
+        let finalRoute = '/api/user/offer/get/invoices'
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
-        let finalRoute = '/api/user/offer/get/invoices'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -741,10 +819,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     GetUserOffers: async (): Promise<ResultError | ({ status: 'OK' }& Types.UserOffers)> => {
+        let finalRoute = '/api/user/offers/get'
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
-        let finalRoute = '/api/user/offers/get'
-        const { data } = await axios.get(params.baseUrl + finalRoute, { headers: { 'authorization': auth } })
+        const { data } = await axios.get(params.baseUrl + finalRoute, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -755,10 +833,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     GetUserOperations: async (request: Types.GetUserOperationsRequest): Promise<ResultError | ({ status: 'OK' }& Types.GetUserOperationsResponse)> => {
+        let finalRoute = '/api/user/operations'
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
-        let finalRoute = '/api/user/operations'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -769,10 +847,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     GetUserOperationsFromAdmin: async (request: Types.GetUserOperationsRequest): Promise<ResultError | ({ status: 'OK' }& Types.GetUserOperationsResponse)> => {
+        let finalRoute = '/api/admin/user/operations'
         const auth = await params.retrieveAdminAuth()
         if (auth === null) throw new Error('retrieveAdminAuth() returned null')
-        let finalRoute = '/api/admin/user/operations'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -783,10 +861,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     GetUsersAdminInfo: async (request: Types.UsersAdminInfoRequest): Promise<ResultError | ({ status: 'OK' }& Types.UsersAdminInfo)> => {
+        let finalRoute = '/api/admin/users/info'
         const auth = await params.retrieveAdminAuth()
         if (auth === null) throw new Error('retrieveAdminAuth() returned null')
-        let finalRoute = '/api/admin/users/info'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -797,11 +875,11 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     HandleLnurlAddress: async (routeParams: Types.HandleLnurlAddress_RouteParams): Promise<ResultError | ({ status: 'OK' }& Types.LnurlPayInfoResponse)> => {
-        const auth = await params.retrieveGuestAuth()
-        if (auth === null) throw new Error('retrieveGuestAuth() returned null')
         let finalRoute = '/.well-known/lnurlp/:address_name'
         finalRoute = finalRoute.replace(':address_name', routeParams['address_name'])
-        const { data } = await axios.get(params.baseUrl + finalRoute, { headers: { 'authorization': auth } })
+        const auth = await params.retrieveGuestAuth()
+        if (auth === null) throw new Error('retrieveGuestAuth() returned null')
+        const { data } = await axios.get(params.baseUrl + finalRoute, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -812,12 +890,17 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     HandleLnurlPay: async (query: Types.HandleLnurlPay_Query): Promise<ResultError | ({ status: 'OK' }& Types.HandleLnurlPayResponse)> => {
+        let finalRoute = '/api/guest/lnurl_pay/handle'
+        const initialQuery = query as Record<string, string | string[]>
+        const finalQuery: Record<string, string> = {}
+        for (const key in initialQuery)
+            if (Array.isArray(initialQuery[key]))
+                finalQuery[key] = initialQuery[key].join(',')
+        const q = (new URLSearchParams(finalQuery)).toString()
+        finalRoute = finalRoute + (q === '' ? '' : '?' + q)
         const auth = await params.retrieveGuestAuth()
         if (auth === null) throw new Error('retrieveGuestAuth() returned null')
-        let finalRoute = '/api/guest/lnurl_pay/handle'
-        const q = (new URLSearchParams(query)).toString()
-        finalRoute = finalRoute + (q === '' ? '' : '?' + q)
-        const { data } = await axios.get(params.baseUrl + finalRoute, { headers: { 'authorization': auth } })
+        const { data } = await axios.get(params.baseUrl + finalRoute, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -828,12 +911,17 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     HandleLnurlWithdraw: async (query: Types.HandleLnurlWithdraw_Query): Promise<ResultError | ({ status: 'OK' })> => {
+        let finalRoute = '/api/guest/lnurl_withdraw/handle'
+        const initialQuery = query as Record<string, string | string[]>
+        const finalQuery: Record<string, string> = {}
+        for (const key in initialQuery)
+            if (Array.isArray(initialQuery[key]))
+                finalQuery[key] = initialQuery[key].join(',')
+        const q = (new URLSearchParams(finalQuery)).toString()
+        finalRoute = finalRoute + (q === '' ? '' : '?' + q)
         const auth = await params.retrieveGuestAuth()
         if (auth === null) throw new Error('retrieveGuestAuth() returned null')
-        let finalRoute = '/api/guest/lnurl_withdraw/handle'
-        const q = (new URLSearchParams(query)).toString()
-        finalRoute = finalRoute + (q === '' ? '' : '?' + q)
-        const { data } = await axios.get(params.baseUrl + finalRoute, { headers: { 'authorization': auth } })
+        const { data } = await axios.get(params.baseUrl + finalRoute, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             return data
@@ -841,10 +929,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     Health: async (): Promise<ResultError | ({ status: 'OK' })> => {
+        let finalRoute = '/api/health'
         const auth = await params.retrieveGuestAuth()
         if (auth === null) throw new Error('retrieveGuestAuth() returned null')
-        let finalRoute = '/api/health'
-        const { data } = await axios.get(params.baseUrl + finalRoute, { headers: { 'authorization': auth } })
+        const { data } = await axios.get(params.baseUrl + finalRoute, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             return data
@@ -852,10 +940,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     LinkNPubThroughToken: async (request: Types.LinkNPubThroughTokenRequest): Promise<ResultError | ({ status: 'OK' })> => {
+        let finalRoute = '/api/guest/npub/link'
         const auth = await params.retrieveGuestWithPubAuth()
         if (auth === null) throw new Error('retrieveGuestWithPubAuth() returned null')
-        let finalRoute = '/api/guest/npub/link'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             return data
@@ -863,10 +951,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     ListAdminInvoiceSwaps: async (): Promise<ResultError | ({ status: 'OK' }& Types.InvoiceSwapsList)> => {
+        let finalRoute = '/api/admin/swap/invoice/list'
         const auth = await params.retrieveAdminAuth()
         if (auth === null) throw new Error('retrieveAdminAuth() returned null')
-        let finalRoute = '/api/admin/swap/invoice/list'
-        const { data } = await axios.post(params.baseUrl + finalRoute, {}, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, {}, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -877,10 +965,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     ListAdminTxSwaps: async (): Promise<ResultError | ({ status: 'OK' }& Types.TxSwapsList)> => {
+        let finalRoute = '/api/admin/swap/transaction/list'
         const auth = await params.retrieveAdminAuth()
         if (auth === null) throw new Error('retrieveAdminAuth() returned null')
-        let finalRoute = '/api/admin/swap/transaction/list'
-        const { data } = await axios.post(params.baseUrl + finalRoute, {}, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, {}, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -891,10 +979,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     ListChannels: async (): Promise<ResultError | ({ status: 'OK' }& Types.LndChannels)> => {
+        let finalRoute = '/api/admin/channels'
         const auth = await params.retrieveAdminAuth()
         if (auth === null) throw new Error('retrieveAdminAuth() returned null')
-        let finalRoute = '/api/admin/channels'
-        const { data } = await axios.get(params.baseUrl + finalRoute, { headers: { 'authorization': auth } })
+        const { data } = await axios.get(params.baseUrl + finalRoute, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -905,10 +993,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     ListTxSwaps: async (): Promise<ResultError | ({ status: 'OK' }& Types.TxSwapsList)> => {
+        let finalRoute = '/api/user/swap/transaction/list'
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
-        let finalRoute = '/api/user/swap/transaction/list'
-        const { data } = await axios.post(params.baseUrl + finalRoute, {}, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, {}, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -919,10 +1007,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     LndGetInfo: async (request: Types.LndGetInfoRequest): Promise<ResultError | ({ status: 'OK' }& Types.LndGetInfoResponse)> => {
+        let finalRoute = '/api/admin/lnd/getinfo'
         const auth = await params.retrieveAdminAuth()
         if (auth === null) throw new Error('retrieveAdminAuth() returned null')
-        let finalRoute = '/api/admin/lnd/getinfo'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -933,10 +1021,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     NewAddress: async (request: Types.NewAddressRequest): Promise<ResultError | ({ status: 'OK' }& Types.NewAddressResponse)> => {
+        let finalRoute = '/api/user/chain/new'
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
-        let finalRoute = '/api/user/chain/new'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -947,10 +1035,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     NewInvoice: async (request: Types.NewInvoiceRequest): Promise<ResultError | ({ status: 'OK' }& Types.NewInvoiceResponse)> => {
+        let finalRoute = '/api/user/invoice/new'
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
-        let finalRoute = '/api/user/invoice/new'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -961,12 +1049,17 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     NewProductInvoice: async (query: Types.NewProductInvoice_Query): Promise<ResultError | ({ status: 'OK' }& Types.NewInvoiceResponse)> => {
+        let finalRoute = '/api/user/product/get/invoice'
+        const initialQuery = query as Record<string, string | string[]>
+        const finalQuery: Record<string, string> = {}
+        for (const key in initialQuery)
+            if (Array.isArray(initialQuery[key]))
+                finalQuery[key] = initialQuery[key].join(',')
+        const q = (new URLSearchParams(finalQuery)).toString()
+        finalRoute = finalRoute + (q === '' ? '' : '?' + q)
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
-        let finalRoute = '/api/user/product/get/invoice'
-        const q = (new URLSearchParams(query)).toString()
-        finalRoute = finalRoute + (q === '' ? '' : '?' + q)
-        const { data } = await axios.get(params.baseUrl + finalRoute, { headers: { 'authorization': auth } })
+        const { data } = await axios.get(params.baseUrl + finalRoute, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -977,10 +1070,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     OpenChannel: async (request: Types.OpenChannelRequest): Promise<ResultError | ({ status: 'OK' }& Types.OpenChannelResponse)> => {
+        let finalRoute = '/api/admin/channel/open'
         const auth = await params.retrieveAdminAuth()
         if (auth === null) throw new Error('retrieveAdminAuth() returned null')
-        let finalRoute = '/api/admin/channel/open'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -991,10 +1084,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     PayAddress: async (request: Types.PayAddressRequest): Promise<ResultError | ({ status: 'OK' }& Types.PayAddressResponse)> => {
+        let finalRoute = '/api/user/chain/pay'
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
-        let finalRoute = '/api/user/chain/pay'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -1005,10 +1098,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     PayAdminInvoiceSwap: async (request: Types.PayAdminInvoiceSwapRequest): Promise<ResultError | ({ status: 'OK' }& Types.AdminInvoiceSwapResponse)> => {
+        let finalRoute = '/api/admin/swap/invoice/pay'
         const auth = await params.retrieveAdminAuth()
         if (auth === null) throw new Error('retrieveAdminAuth() returned null')
-        let finalRoute = '/api/admin/swap/invoice/pay'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -1019,10 +1112,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     PayAdminTransactionSwap: async (request: Types.PayAdminTransactionSwapRequest): Promise<ResultError | ({ status: 'OK' }& Types.AdminTxSwapResponse)> => {
+        let finalRoute = '/api/admin/swap/transaction/pay'
         const auth = await params.retrieveAdminAuth()
         if (auth === null) throw new Error('retrieveAdminAuth() returned null')
-        let finalRoute = '/api/admin/swap/transaction/pay'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -1033,10 +1126,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     PayAppUserInvoice: async (request: Types.PayAppUserInvoiceRequest): Promise<ResultError | ({ status: 'OK' }& Types.PayInvoiceResponse)> => {
+        let finalRoute = '/api/app/invoice/pay'
         const auth = await params.retrieveAppAuth()
         if (auth === null) throw new Error('retrieveAppAuth() returned null')
-        let finalRoute = '/api/app/invoice/pay'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -1047,10 +1140,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     PayInvoice: async (request: Types.PayInvoiceRequest): Promise<ResultError | ({ status: 'OK' }& Types.PayInvoiceResponse)> => {
+        let finalRoute = '/api/user/invoice/pay'
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
-        let finalRoute = '/api/user/invoice/pay'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -1061,10 +1154,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     PingSubProcesses: async (): Promise<ResultError | ({ status: 'OK' })> => {
+        let finalRoute = '/api/metrics/ping'
         const auth = await params.retrieveMetricsAuth()
         if (auth === null) throw new Error('retrieveMetricsAuth() returned null')
-        let finalRoute = '/api/metrics/ping'
-        const { data } = await axios.post(params.baseUrl + finalRoute, {}, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, {}, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             return data
@@ -1072,10 +1165,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     RefundAdminInvoiceSwap: async (request: Types.RefundAdminInvoiceSwapRequest): Promise<ResultError | ({ status: 'OK' }& Types.AdminInvoiceSwapResponse)> => {
+        let finalRoute = '/api/admin/swap/invoice/refund'
         const auth = await params.retrieveAdminAuth()
         if (auth === null) throw new Error('retrieveAdminAuth() returned null')
-        let finalRoute = '/api/admin/swap/invoice/refund'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -1086,10 +1179,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     RequestNPubLinkingToken: async (request: Types.RequestNPubLinkingTokenRequest): Promise<ResultError | ({ status: 'OK' }& Types.RequestNPubLinkingTokenResponse)> => {
+        let finalRoute = '/api/app/user/npub/token'
         const auth = await params.retrieveAppAuth()
         if (auth === null) throw new Error('retrieveAppAuth() returned null')
-        let finalRoute = '/api/app/user/npub/token'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -1100,10 +1193,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     ResetDebit: async (request: Types.DebitOperation): Promise<ResultError | ({ status: 'OK' })> => {
+        let finalRoute = '/api/user/debit/reset'
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
-        let finalRoute = '/api/user/debit/reset'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             return data
@@ -1111,10 +1204,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     ResetManage: async (request: Types.ManageOperation): Promise<ResultError | ({ status: 'OK' })> => {
+        let finalRoute = '/api/user/manage/reset'
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
-        let finalRoute = '/api/user/manage/reset'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             return data
@@ -1122,10 +1215,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     ResetMetricsStorages: async (): Promise<ResultError | ({ status: 'OK' })> => {
+        let finalRoute = '/api/metrics/reset'
         const auth = await params.retrieveMetricsAuth()
         if (auth === null) throw new Error('retrieveMetricsAuth() returned null')
-        let finalRoute = '/api/metrics/reset'
-        const { data } = await axios.post(params.baseUrl + finalRoute, {}, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, {}, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             return data
@@ -1133,10 +1226,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     ResetNPubLinkingToken: async (request: Types.RequestNPubLinkingTokenRequest): Promise<ResultError | ({ status: 'OK' }& Types.RequestNPubLinkingTokenResponse)> => {
+        let finalRoute = '/api/app/user/npub/token/reset'
         const auth = await params.retrieveAppAuth()
         if (auth === null) throw new Error('retrieveAppAuth() returned null')
-        let finalRoute = '/api/app/user/npub/token/reset'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -1147,10 +1240,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     RespondToDebit: async (request: Types.DebitResponse): Promise<ResultError | ({ status: 'OK' })> => {
+        let finalRoute = '/api/user/debit/finish'
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
-        let finalRoute = '/api/user/debit/finish'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             return data
@@ -1158,10 +1251,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     SendAppUserToAppPayment: async (request: Types.SendAppUserToAppPaymentRequest): Promise<ResultError | ({ status: 'OK' })> => {
+        let finalRoute = '/api/app/internal/pay'
         const auth = await params.retrieveAppAuth()
         if (auth === null) throw new Error('retrieveAppAuth() returned null')
-        let finalRoute = '/api/app/internal/pay'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             return data
@@ -1169,10 +1262,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     SendAppUserToAppUserPayment: async (request: Types.SendAppUserToAppUserPaymentRequest): Promise<ResultError | ({ status: 'OK' })> => {
+        let finalRoute = '/api/app/user/internal/pay'
         const auth = await params.retrieveAppAuth()
         if (auth === null) throw new Error('retrieveAppAuth() returned null')
-        let finalRoute = '/api/app/user/internal/pay'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             return data
@@ -1180,10 +1273,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     SetMockAppBalance: async (request: Types.SetMockAppBalanceRequest): Promise<ResultError | ({ status: 'OK' })> => {
+        let finalRoute = '/api/app/mock/blance/set'
         const auth = await params.retrieveAppAuth()
         if (auth === null) throw new Error('retrieveAppAuth() returned null')
-        let finalRoute = '/api/app/mock/blance/set'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             return data
@@ -1191,10 +1284,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     SetMockAppUserBalance: async (request: Types.SetMockAppUserBalanceRequest): Promise<ResultError | ({ status: 'OK' })> => {
+        let finalRoute = '/api/app/mock/user/blance/set'
         const auth = await params.retrieveAppAuth()
         if (auth === null) throw new Error('retrieveAppAuth() returned null')
-        let finalRoute = '/api/app/mock/user/blance/set'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             return data
@@ -1202,22 +1295,39 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     SetMockInvoiceAsPaid: async (request: Types.SetMockInvoiceAsPaidRequest): Promise<ResultError | ({ status: 'OK' })> => {
+        let finalRoute = '/api/lnd/mock/invoice/paid'
         const auth = await params.retrieveGuestAuth()
         if (auth === null) throw new Error('retrieveGuestAuth() returned null')
-        let finalRoute = '/api/lnd/mock/invoice/paid'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             return data
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
-    SubToWebRtcCandidates: async (cb: (v:ResultError | ({ status: 'OK' }& Types.WebRtcCandidate)) => void): Promise<void> => { throw  new Error('http streams are not supported')},
-    SubmitWebRtcMessage: async (request: Types.WebRtcMessage): Promise<ResultError | ({ status: 'OK' }& Types.WebRtcAnswer)> => {
+    SubToWebRtcCandidates: async (cb: (v:ResultError | ({ status: 'OK' }& Types.WebRtcCandidate)) => void, abort?: AbortSignal, ws?: { onOpen?: () => void, onClose?: () => void }): Promise<{ close: () => void }> => { 
+        let finalRoute = '/api/upgrade/wrtc/candidates'
         const auth = await params.retrieveMetricsAuth()
         if (auth === null) throw new Error('retrieveMetricsAuth() returned null')
+        const socket = new WebSocket(params.baseUrl + finalRoute)
+        let closedByClient = false
+        abort?.addEventListener('abort', () => { closedByClient = true; socket.close() })
+        socket.addEventListener('close', () => { if (!closedByClient) ws?.onClose?.() })
+        socket.addEventListener('open', () => {
+            ws?.onOpen?.()
+            socket.send(JSON.stringify({ body:{}, _authorization: auth }))
+        })
+        socket.addEventListener('message', (event) => {
+            const data = JSON.parse(event.data) as ResultError | ({ status: 'OK' }& Types.WebRtcCandidate)
+            cb(data)
+        })
+		return { close: () => { closedByClient = true; socket.close() } }
+    },
+    SubmitWebRtcMessage: async (request: Types.WebRtcMessage): Promise<ResultError | ({ status: 'OK' }& Types.WebRtcAnswer)> => {
         let finalRoute = '/api/upgrade/wrtc'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const auth = await params.retrieveMetricsAuth()
+        if (auth === null) throw new Error('retrieveMetricsAuth() returned null')
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -1228,10 +1338,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     UpdateCallbackUrl: async (request: Types.CallbackUrl): Promise<ResultError | ({ status: 'OK' }& Types.CallbackUrl)> => {
+        let finalRoute = '/api/user/cb/update'
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
-        let finalRoute = '/api/user/cb/update'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -1242,10 +1352,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     UpdateChannelPolicy: async (request: Types.UpdateChannelPolicyRequest): Promise<ResultError | ({ status: 'OK' })> => {
+        let finalRoute = '/api/admin/channel/policy/update'
         const auth = await params.retrieveAdminAuth()
         if (auth === null) throw new Error('retrieveAdminAuth() returned null')
-        let finalRoute = '/api/admin/channel/policy/update'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             return data
@@ -1253,10 +1363,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     UpdateUserOffer: async (request: Types.OfferUpdateRequest): Promise<ResultError | ({ status: 'OK' })> => {
+        let finalRoute = '/api/user/offer/update'
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
-        let finalRoute = '/api/user/offer/update'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             return data
@@ -1264,10 +1374,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     UseInviteLink: async (request: Types.UseInviteLinkRequest): Promise<ResultError | ({ status: 'OK' })> => {
+        let finalRoute = '/api/guest/invite'
         const auth = await params.retrieveGuestWithPubAuth()
         if (auth === null) throw new Error('retrieveGuestWithPubAuth() returned null')
-        let finalRoute = '/api/guest/invite'
-        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, request, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             return data
@@ -1275,10 +1385,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     UserHealth: async (): Promise<ResultError | ({ status: 'OK' }& Types.UserHealthState)> => {
+        let finalRoute = '/api/user/health'
         const auth = await params.retrieveUserAuth()
         if (auth === null) throw new Error('retrieveUserAuth() returned null')
-        let finalRoute = '/api/user/health'
-        const { data } = await axios.post(params.baseUrl + finalRoute, {}, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, {}, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data
@@ -1289,10 +1399,10 @@ export default (params: ClientParams) => ({
         return { status: 'ERROR', reason: 'invalid response' }
     },
     ZipMetricsStorages: async (): Promise<ResultError | ({ status: 'OK' }& Types.ZippedMetrics)> => {
+        let finalRoute = '/api/metrics/zip'
         const auth = await params.retrieveMetricsAuth()
         if (auth === null) throw new Error('retrieveMetricsAuth() returned null')
-        let finalRoute = '/api/metrics/zip'
-        const { data } = await axios.post(params.baseUrl + finalRoute, {}, { headers: { 'authorization': auth } })
+        const { data } = await axios.post(params.baseUrl + finalRoute, {}, { headers: { 'authorization': auth }})
         if (data.status === 'ERROR' && typeof data.reason === 'string') return data
         if (data.status === 'OK') { 
             const result = data

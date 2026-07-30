@@ -874,10 +874,10 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     stats.guard = process.hrtime.bigint()
                     authCtx = authContext
                     stats.validate = stats.guard
-                    methods.GetLiveDebitRequests({rpcName:'GetLiveDebitRequests', ctx:authContext  ,cb: (response, err) => {
+                    methods.GetLiveDebitRequests({rpcName:'GetLiveDebitRequests', ctx:authContext  , socket:{ send: (response, err) => {
                     stats.handle = process.hrtime.bigint()
                     if (err) { logErrorAndReturnResponse(err, err.message, res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)} else { res({status: 'OK', ...response});opts.metricsCallback([{ ...info, ...stats, ...authContext }])}
-                    }})
+                    },getState: () => 'OPEN'}})
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
             case 'GetLiveManageRequests':
@@ -887,10 +887,10 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     stats.guard = process.hrtime.bigint()
                     authCtx = authContext
                     stats.validate = stats.guard
-                    methods.GetLiveManageRequests({rpcName:'GetLiveManageRequests', ctx:authContext  ,cb: (response, err) => {
+                    methods.GetLiveManageRequests({rpcName:'GetLiveManageRequests', ctx:authContext  , socket:{ send: (response, err) => {
                     stats.handle = process.hrtime.bigint()
                     if (err) { logErrorAndReturnResponse(err, err.message, res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)} else { res({status: 'OK', ...response});opts.metricsCallback([{ ...info, ...stats, ...authContext }])}
-                    }})
+                    },getState: () => 'OPEN'}})
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
             case 'GetLiveUserOperations':
@@ -900,10 +900,10 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     stats.guard = process.hrtime.bigint()
                     authCtx = authContext
                     stats.validate = stats.guard
-                    methods.GetLiveUserOperations({rpcName:'GetLiveUserOperations', ctx:authContext  ,cb: (response, err) => {
+                    methods.GetLiveUserOperations({rpcName:'GetLiveUserOperations', ctx:authContext  , socket:{ send: (response, err) => {
                     stats.handle = process.hrtime.bigint()
                     if (err) { logErrorAndReturnResponse(err, err.message, res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)} else { res({status: 'OK', ...response});opts.metricsCallback([{ ...info, ...stats, ...authContext }])}
-                    }})
+                    },getState: () => 'OPEN'}})
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
             case 'GetLndForwardingMetrics':
@@ -984,10 +984,10 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     stats.guard = process.hrtime.bigint()
                     authCtx = authContext
                     stats.validate = stats.guard
-                    methods.GetMigrationUpdate({rpcName:'GetMigrationUpdate', ctx:authContext  ,cb: (response, err) => {
+                    methods.GetMigrationUpdate({rpcName:'GetMigrationUpdate', ctx:authContext  , socket:{ send: (response, err) => {
                     stats.handle = process.hrtime.bigint()
                     if (err) { logErrorAndReturnResponse(err, err.message, res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)} else { res({status: 'OK', ...response});opts.metricsCallback([{ ...info, ...stats, ...authContext }])}
-                    }})
+                    },getState: () => 'OPEN'}})
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
             case 'GetPaymentState':
@@ -1508,10 +1508,10 @@ export default (methods: Types.ServerMethods, opts: NostrOptions) => {
                     stats.guard = process.hrtime.bigint()
                     authCtx = authContext
                     stats.validate = stats.guard
-                    methods.SubToWebRtcCandidates({rpcName:'SubToWebRtcCandidates', ctx:authContext  ,cb: (response, err) => {
+                    methods.SubToWebRtcCandidates({rpcName:'SubToWebRtcCandidates', ctx:authContext  , socket:{ send: (response, err) => {
                     stats.handle = process.hrtime.bigint()
                     if (err) { logErrorAndReturnResponse(err, err.message, res, logger, { ...info, ...stats, ...authContext }, opts.metricsCallback)} else { res({status: 'OK', ...response});opts.metricsCallback([{ ...info, ...stats, ...authContext }])}
-                    }})
+                    },getState: () => 'OPEN'}})
                 }catch(ex){ const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
                 break
             case 'SubmitWebRtcMessage':

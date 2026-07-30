@@ -10,7 +10,7 @@ A nostr request will take the same parameter and give the same response as an ht
 
 The nostr server will send back a message response, and inside the body there will also be a __requestId__ to identify the request this response is answering
 
-## NOSTR Methods
+## LightningPub NOSTR Methods
 ### These are the nostr methods the client implements to communicate with the API via nostr
 
 - AddApp
@@ -410,9 +410,9 @@ The nostr server will send back a message response, and inside the body there wi
   - This methods has an __empty__ __request__ body
   - output: [ZippedMetrics](#ZippedMetrics)
 
-# HTTP API DEFINITION
+# LightningPub HTTP API DEFINITION
 
-## Supported HTTP Auths
+## LightningPub Supported HTTP Auths
 ### These are the supported http auth types, to give different type of access to the API users
 
 - __Admin__:
@@ -442,7 +442,7 @@ The nostr server will send back a message response, and inside the body there wi
     - __app_user_id__: _string_
     - __user_id__: _string_
 
-## HTTP Methods
+## LightningPub HTTP Methods
 ### These are the http methods the client implements to communicate with the API
 
 - AddApp
@@ -1558,6 +1558,7 @@ The nostr server will send back a message response, and inside the body there wi
   - __has_more__: _boolean_
   - __next_index_offset__: _number_ *this field is optional
   - __operations__: ARRAY of: _[AssetOperation](#AssetOperation)_
+  - __start_height__: _number_ *this field is optional
 
 ### LndAssetProvider
   - __pubkey__: _string_
@@ -1620,6 +1621,7 @@ The nostr server will send back a message response, and inside the body there wi
   - __payment_index_offset__: _number_ *this field is optional
   - __pubkey__: _string_
   - __tx_index_offset__: _number_ *this field is optional
+  - __tx_start_height__: _number_ *this field is optional
 
 ### LndSeed
   - __seed__: ARRAY of: _string_

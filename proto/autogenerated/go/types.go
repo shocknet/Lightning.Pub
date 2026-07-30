@@ -482,6 +482,7 @@ type LndAssetOperationsPage struct {
 	Has_more          bool             `json:"has_more"`
 	Next_index_offset int64            `json:"next_index_offset"`
 	Operations        []AssetOperation `json:"operations"`
+	Start_height      int64            `json:"start_height"`
 }
 type LndAssetProvider struct {
 	Pubkey  string              `json:"pubkey"`
@@ -544,6 +545,7 @@ type LndProviderFilter struct {
 	Payment_index_offset int64  `json:"payment_index_offset"`
 	Pubkey               string `json:"pubkey"`
 	Tx_index_offset      int64  `json:"tx_index_offset"`
+	Tx_start_height      int64  `json:"tx_start_height"`
 }
 type LndSeed struct {
 	Seed []string `json:"seed"`

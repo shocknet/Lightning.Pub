@@ -27,9 +27,14 @@ message LndProviderFilter {
     optional int64 payment_index_offset = 5;
     // Shared by incoming_tx and outgoing_tx: both pages are derived from one
     // getTransactions window sized by these fields. Advance both with the same
-    // next_index_offset; do not paginate the streams independently.
+    // next_index_offset and tx_start_height; do not paginate the streams independently.
     optional int64 limit_transactions = 6;
     optional int64 tx_index_offset = 7;
+    // Pin the getTransactions start_height for a pagination session. On the first
+    // page omit this (server uses the current tip and returns it as start_height).
+    // On subsequent pages echo back the start_height from the previous response
+    // so the offset window does not shift when the chain tip advances.
+    optional int64 tx_start_height = 8;
 }
 
 message LiquidityProviderFilter {
@@ -104,6 +109,9 @@ message LndAssetOperationsPage {
     repeated AssetOperation operations = 1;
     bool has_more = 2;
     optional int64 next_index_offset = 3;
+    // Set on incoming_tx / outgoing_tx: the getTransactions start_height used for
+    // this page. Echo back as LndProviderFilter.tx_start_height on the next request.
+    optional int64 start_height = 4;
 }
 
 message LiquidityAssetOperationsPage {
@@ -135,8 +143,8 @@ message TrackedLndProviderV2 {
     LndAssetOperationsPage payments = 4;
     LndAssetOperationsPage invoices = 5;
     // incoming_tx and outgoing_tx share one LndProviderFilter transaction cursor
-    // (limit_transactions / tx_index_offset). Both pages carry the same has_more
-    // and next_index_offset for that shared window.
+    // (limit_transactions / tx_index_offset / tx_start_height). Both pages carry
+    // the same has_more, next_index_offset, and start_height for that shared window.
     LndAssetOperationsPage incoming_tx = 6;
     LndAssetOperationsPage outgoing_tx = 7;
 }

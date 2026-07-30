@@ -4,6 +4,22 @@ export type ResultError = { status: 'ERROR', reason: string }
 export type RequestInfo = { rpcName: string, batch: boolean, nostr: boolean, batchSize: number }
 export type RequestStats = { startMs:number, start:bigint, parse: bigint, guard: bigint, validate: bigint, handle: bigint }
 export type RequestMetric = AuthContext & RequestInfo & RequestStats & { error?: string }
+export type ProtoSocketState = 'OPEN' | 'CLOSED' 
+export type ProtoSocket<T> = {
+    getState: () => ProtoSocketState
+    close: () => void
+    send: (res: T, err: Error | null, cb?: (err: Error | undefined) => void) => void
+    subMore: (cb: (bytes: Object | Buffer) => void) => void
+}
+export interface RequestLogger {}
+export type RequestContext = {
+    getIp: () => string
+    getHeader: (name: string) => string | undefined
+    setHeader: (name: string, value: string) => void
+    clearCookie: (name: string) => void
+    getRequestLogger: () => RequestLogger
+    setRequestLogger: (log: RequestLogger) => void
+}
 export type AdminContext = {
     admin_id: string
 }
@@ -28,15 +44,15 @@ export type MetricsContext = {
     app_id: string
     operator_id: string
 }
-export type MetricsMethodInputs = GetAppsMetrics_Input | GetBundleMetrics_Input | GetErrorStats_Input | GetLndForwardingMetrics_Input | GetLndMetrics_Input | GetProvidersDisruption_Input | GetSingleBundleMetrics_Input | GetSingleUsageMetrics_Input | GetUsageMetrics_Input | PingSubProcesses_Input | ResetMetricsStorages_Input | SubmitWebRtcMessage_Input | ZipMetricsStorages_Input
-export type MetricsMethodOutputs = GetAppsMetrics_Output | GetBundleMetrics_Output | GetErrorStats_Output | GetLndForwardingMetrics_Output | GetLndMetrics_Output | GetProvidersDisruption_Output | GetSingleBundleMetrics_Output | GetSingleUsageMetrics_Output | GetUsageMetrics_Output | PingSubProcesses_Output | ResetMetricsStorages_Output | SubmitWebRtcMessage_Output | ZipMetricsStorages_Output
+export type MetricsMethodInputs = GetAppsMetrics_Input | GetBundleMetrics_Input | GetErrorStats_Input | GetLndForwardingMetrics_Input | GetLndMetrics_Input | GetProvidersDisruption_Input | GetSingleBundleMetrics_Input | GetSingleUsageMetrics_Input | GetUsageMetrics_Input | PingSubProcesses_Input | ResetMetricsStorages_Input | SubToWebRtcCandidates_Input | SubmitWebRtcMessage_Input | ZipMetricsStorages_Input
+export type MetricsMethodOutputs = GetAppsMetrics_Output | GetBundleMetrics_Output | GetErrorStats_Output | GetLndForwardingMetrics_Output | GetLndMetrics_Output | GetProvidersDisruption_Output | GetSingleBundleMetrics_Output | GetSingleUsageMetrics_Output | GetUsageMetrics_Output | PingSubProcesses_Output | ResetMetricsStorages_Output | SubToWebRtcCandidates_Output | SubmitWebRtcMessage_Output | ZipMetricsStorages_Output
 export type UserContext = {
     app_id: string
     app_user_id: string
     user_id: string
 }
-export type UserMethodInputs = AddProduct_Input | AddUserOffer_Input | AuthorizeManage_Input | BanDebit_Input | DecodeInvoice_Input | DeleteUserOffer_Input | EditDebit_Input | EnrollAdminToken_Input | EnrollMessagingToken_Input | GetDebitAuthorizations_Input | GetHttpCreds_Input | GetLNURLChannelLink_Input | GetLnurlPayLink_Input | GetLnurlWithdrawLink_Input | GetManageAuthorizations_Input | GetPaymentState_Input | GetTransactionSwapQuotes_Input | GetUserInfo_Input | GetUserOffer_Input | GetUserOfferInvoices_Input | GetUserOffers_Input | GetUserOperations_Input | ListTxSwaps_Input | NewAddress_Input | NewInvoice_Input | NewProductInvoice_Input | PayAddress_Input | PayInvoice_Input | ResetDebit_Input | ResetManage_Input | RespondToDebit_Input | UpdateCallbackUrl_Input | UpdateUserOffer_Input | UserHealth_Input
-export type UserMethodOutputs = AddProduct_Output | AddUserOffer_Output | AuthorizeManage_Output | BanDebit_Output | DecodeInvoice_Output | DeleteUserOffer_Output | EditDebit_Output | EnrollAdminToken_Output | EnrollMessagingToken_Output | GetDebitAuthorizations_Output | GetHttpCreds_Output | GetLNURLChannelLink_Output | GetLnurlPayLink_Output | GetLnurlWithdrawLink_Output | GetManageAuthorizations_Output | GetPaymentState_Output | GetTransactionSwapQuotes_Output | GetUserInfo_Output | GetUserOffer_Output | GetUserOfferInvoices_Output | GetUserOffers_Output | GetUserOperations_Output | ListTxSwaps_Output | NewAddress_Output | NewInvoice_Output | NewProductInvoice_Output | PayAddress_Output | PayInvoice_Output | ResetDebit_Output | ResetManage_Output | RespondToDebit_Output | UpdateCallbackUrl_Output | UpdateUserOffer_Output | UserHealth_Output
+export type UserMethodInputs = AddProduct_Input | AddUserOffer_Input | AuthorizeManage_Input | BanDebit_Input | DecodeInvoice_Input | DeleteUserOffer_Input | EditDebit_Input | EnrollAdminToken_Input | EnrollMessagingToken_Input | GetDebitAuthorizations_Input | GetHttpCreds_Input | GetLNURLChannelLink_Input | GetLiveDebitRequests_Input | GetLiveManageRequests_Input | GetLiveUserOperations_Input | GetLnurlPayLink_Input | GetLnurlWithdrawLink_Input | GetManageAuthorizations_Input | GetMigrationUpdate_Input | GetPaymentState_Input | GetTransactionSwapQuotes_Input | GetUserInfo_Input | GetUserOffer_Input | GetUserOfferInvoices_Input | GetUserOffers_Input | GetUserOperations_Input | ListTxSwaps_Input | NewAddress_Input | NewInvoice_Input | NewProductInvoice_Input | PayAddress_Input | PayInvoice_Input | ResetDebit_Input | ResetManage_Input | RespondToDebit_Input | UpdateCallbackUrl_Input | UpdateUserOffer_Input | UserHealth_Input
+export type UserMethodOutputs = AddProduct_Output | AddUserOffer_Output | AuthorizeManage_Output | BanDebit_Output | DecodeInvoice_Output | DeleteUserOffer_Output | EditDebit_Output | EnrollAdminToken_Output | EnrollMessagingToken_Output | GetDebitAuthorizations_Output | GetHttpCreds_Output | GetLNURLChannelLink_Output | GetLiveDebitRequests_Output | GetLiveManageRequests_Output | GetLiveUserOperations_Output | GetLnurlPayLink_Output | GetLnurlWithdrawLink_Output | GetManageAuthorizations_Output | GetMigrationUpdate_Output | GetPaymentState_Output | GetTransactionSwapQuotes_Output | GetUserInfo_Output | GetUserOffer_Output | GetUserOfferInvoices_Output | GetUserOffers_Output | GetUserOperations_Output | ListTxSwaps_Output | NewAddress_Output | NewInvoice_Output | NewProductInvoice_Output | PayAddress_Output | PayInvoice_Output | ResetDebit_Output | ResetManage_Output | RespondToDebit_Output | UpdateCallbackUrl_Output | UpdateUserOffer_Output | UserHealth_Output
 export type AuthContext = AdminContext | AppContext | GuestContext | GuestWithPubContext | MetricsContext | UserContext
 
 export type AddApp_Input = {rpcName:'AddApp', req: AddAppRequest}
@@ -144,13 +160,13 @@ export type GetInviteLinkState_Output = ResultError | ({ status: 'OK' } & GetInv
 export type GetLNURLChannelLink_Input = {rpcName:'GetLNURLChannelLink'}
 export type GetLNURLChannelLink_Output = ResultError | ({ status: 'OK' } & LnurlLinkResponse)
 
-export type GetLiveDebitRequests_Input = {rpcName:'GetLiveDebitRequests',  cb:(res: LiveDebitRequest, err:Error|null)=> void}
+export type GetLiveDebitRequests_Input = {rpcName:'GetLiveDebitRequests',  socket: ProtoSocket<LiveDebitRequest> }
 export type GetLiveDebitRequests_Output = ResultError | { status: 'OK' }
 
-export type GetLiveManageRequests_Input = {rpcName:'GetLiveManageRequests',  cb:(res: LiveManageRequest, err:Error|null)=> void}
+export type GetLiveManageRequests_Input = {rpcName:'GetLiveManageRequests',  socket: ProtoSocket<LiveManageRequest> }
 export type GetLiveManageRequests_Output = ResultError | { status: 'OK' }
 
-export type GetLiveUserOperations_Input = {rpcName:'GetLiveUserOperations',  cb:(res: LiveUserOperation, err:Error|null)=> void}
+export type GetLiveUserOperations_Input = {rpcName:'GetLiveUserOperations',  socket: ProtoSocket<LiveUserOperation> }
 export type GetLiveUserOperations_Output = ResultError | { status: 'OK' }
 
 export type GetLndForwardingMetrics_Input = {rpcName:'GetLndForwardingMetrics', req: LndMetricsRequest}
@@ -160,7 +176,7 @@ export type GetLndMetrics_Input = {rpcName:'GetLndMetrics', req: LndMetricsReque
 export type GetLndMetrics_Output = ResultError | ({ status: 'OK' } & LndMetrics)
 
 export type GetLnurlPayInfo_Query = {
-    k1?: string
+    k1?: string[] | string
 }
 export type GetLnurlPayInfo_Input = {rpcName:'GetLnurlPayInfo', query: GetLnurlPayInfo_Query}
 export type GetLnurlPayInfo_Output = ResultError | ({ status: 'OK' } & LnurlPayInfoResponse)
@@ -169,7 +185,7 @@ export type GetLnurlPayLink_Input = {rpcName:'GetLnurlPayLink'}
 export type GetLnurlPayLink_Output = ResultError | ({ status: 'OK' } & LnurlLinkResponse)
 
 export type GetLnurlWithdrawInfo_Query = {
-    k1?: string
+    k1?: string[] | string
 }
 export type GetLnurlWithdrawInfo_Input = {rpcName:'GetLnurlWithdrawInfo', query: GetLnurlWithdrawInfo_Query}
 export type GetLnurlWithdrawInfo_Output = ResultError | ({ status: 'OK' } & LnurlWithdrawInfoResponse)
@@ -180,7 +196,7 @@ export type GetLnurlWithdrawLink_Output = ResultError | ({ status: 'OK' } & Lnur
 export type GetManageAuthorizations_Input = {rpcName:'GetManageAuthorizations'}
 export type GetManageAuthorizations_Output = ResultError | ({ status: 'OK' } & ManageAuthorizations)
 
-export type GetMigrationUpdate_Input = {rpcName:'GetMigrationUpdate',  cb:(res: MigrationUpdate, err:Error|null)=> void}
+export type GetMigrationUpdate_Input = {rpcName:'GetMigrationUpdate',  socket: ProtoSocket<MigrationUpdate> }
 export type GetMigrationUpdate_Output = ResultError | { status: 'OK' }
 
 export type GetNPubLinkingState_Input = {rpcName:'GetNPubLinkingState', req: GetNPubLinking}
@@ -235,17 +251,17 @@ export type HandleLnurlAddress_Input = {rpcName:'HandleLnurlAddress', params: Ha
 export type HandleLnurlAddress_Output = ResultError | ({ status: 'OK' } & LnurlPayInfoResponse)
 
 export type HandleLnurlPay_Query = {
-    amount?: string
-    k1?: string
-    lnurl?: string
-    nostr?: string
+    amount?: string[] | string
+    k1?: string[] | string
+    lnurl?: string[] | string
+    nostr?: string[] | string
 }
 export type HandleLnurlPay_Input = {rpcName:'HandleLnurlPay', query: HandleLnurlPay_Query}
 export type HandleLnurlPay_Output = ResultError | ({ status: 'OK' } & HandleLnurlPayResponse)
 
 export type HandleLnurlWithdraw_Query = {
-    k1?: string
-    pr?: string
+    k1?: string[] | string
+    pr?: string[] | string
 }
 export type HandleLnurlWithdraw_Input = {rpcName:'HandleLnurlWithdraw', query: HandleLnurlWithdraw_Query}
 export type HandleLnurlWithdraw_Output = ResultError | { status: 'OK' }
@@ -278,7 +294,7 @@ export type NewInvoice_Input = {rpcName:'NewInvoice', req: NewInvoiceRequest}
 export type NewInvoice_Output = ResultError | ({ status: 'OK' } & NewInvoiceResponse)
 
 export type NewProductInvoice_Query = {
-    id?: string
+    id?: string[] | string
 }
 export type NewProductInvoice_Input = {rpcName:'NewProductInvoice', query: NewProductInvoice_Query}
 export type NewProductInvoice_Output = ResultError | ({ status: 'OK' } & NewInvoiceResponse)
@@ -340,7 +356,7 @@ export type SetMockAppUserBalance_Output = ResultError | { status: 'OK' }
 export type SetMockInvoiceAsPaid_Input = {rpcName:'SetMockInvoiceAsPaid', req: SetMockInvoiceAsPaidRequest}
 export type SetMockInvoiceAsPaid_Output = ResultError | { status: 'OK' }
 
-export type SubToWebRtcCandidates_Input = {rpcName:'SubToWebRtcCandidates',  cb:(res: WebRtcCandidate, err:Error|null)=> void}
+export type SubToWebRtcCandidates_Input = {rpcName:'SubToWebRtcCandidates',  socket: ProtoSocket<WebRtcCandidate> }
 export type SubToWebRtcCandidates_Output = ResultError | { status: 'OK' }
 
 export type SubmitWebRtcMessage_Input = {rpcName:'SubmitWebRtcMessage', req: WebRtcMessage}
@@ -365,106 +381,106 @@ export type ZipMetricsStorages_Input = {rpcName:'ZipMetricsStorages'}
 export type ZipMetricsStorages_Output = ResultError | ({ status: 'OK' } & ZippedMetrics)
 
 export type ServerMethods = {
-    AddApp?: (req: AddApp_Input & {ctx: AdminContext }) => Promise<AuthApp>
-    AddAppInvoice?: (req: AddAppInvoice_Input & {ctx: AppContext }) => Promise<NewInvoiceResponse>
-    AddAppUser?: (req: AddAppUser_Input & {ctx: AppContext }) => Promise<AppUser>
-    AddAppUserInvoice?: (req: AddAppUserInvoice_Input & {ctx: AppContext }) => Promise<NewInvoiceResponse>
-    AddPeer?: (req: AddPeer_Input & {ctx: AdminContext }) => Promise<void>
-    AddProduct?: (req: AddProduct_Input & {ctx: UserContext }) => Promise<Product>
-    AddUserOffer?: (req: AddUserOffer_Input & {ctx: UserContext }) => Promise<OfferId>
-    AuthApp?: (req: AuthApp_Input & {ctx: AdminContext }) => Promise<AuthApp>
-    AuthorizeManage?: (req: AuthorizeManage_Input & {ctx: UserContext }) => Promise<ManageAuthorization>
-    BanDebit?: (req: BanDebit_Input & {ctx: UserContext }) => Promise<void>
-    BanUser?: (req: BanUser_Input & {ctx: AdminContext }) => Promise<BanUserResponse>
-    BumpTx?: (req: BumpTx_Input & {ctx: AdminContext }) => Promise<void>
-    CloseChannel?: (req: CloseChannel_Input & {ctx: AdminContext }) => Promise<CloseChannelResponse>
-    CreateOneTimeInviteLink?: (req: CreateOneTimeInviteLink_Input & {ctx: AdminContext }) => Promise<CreateOneTimeInviteLinkResponse>
-    DecodeInvoice?: (req: DecodeInvoice_Input & {ctx: UserContext }) => Promise<DecodeInvoiceResponse>
-    DeleteUserOffer?: (req: DeleteUserOffer_Input & {ctx: UserContext }) => Promise<void>
-    EditDebit?: (req: EditDebit_Input & {ctx: UserContext }) => Promise<void>
-    EncryptionExchange?: (req: EncryptionExchange_Input & {ctx: GuestContext }) => Promise<void>
-    EnrollAdminToken?: (req: EnrollAdminToken_Input & {ctx: UserContext }) => Promise<void>
-    EnrollMessagingToken?: (req: EnrollMessagingToken_Input & {ctx: UserContext }) => Promise<void>
-    GetAdminInvoiceSwapQuotes?: (req: GetAdminInvoiceSwapQuotes_Input & {ctx: AdminContext }) => Promise<InvoiceSwapQuoteList>
-    GetAdminTransactionSwapQuotes?: (req: GetAdminTransactionSwapQuotes_Input & {ctx: AdminContext }) => Promise<TransactionSwapQuoteList>
-    GetApp?: (req: GetApp_Input & {ctx: AppContext }) => Promise<Application>
-    GetAppUser?: (req: GetAppUser_Input & {ctx: AppContext }) => Promise<AppUser>
-    GetAppUserLNURLInfo?: (req: GetAppUserLNURLInfo_Input & {ctx: AppContext }) => Promise<LnurlPayInfoResponse>
-    GetAppsMetrics?: (req: GetAppsMetrics_Input & {ctx: MetricsContext }) => Promise<AppsMetrics>
-    GetAssetsAndLiabilities?: (req: GetAssetsAndLiabilities_Input & {ctx: AdminContext }) => Promise<AssetsAndLiabilities>
-    GetAssetsAndLiabilitiesV2?: (req: GetAssetsAndLiabilitiesV2_Input & {ctx: AdminContext }) => Promise<AssetsAndLiabilitiesV2>
-    GetBundleMetrics?: (req: GetBundleMetrics_Input & {ctx: MetricsContext }) => Promise<BundleMetrics>
-    GetDebitAuthorizations?: (req: GetDebitAuthorizations_Input & {ctx: UserContext }) => Promise<DebitAuthorizations>
-    GetErrorStats?: (req: GetErrorStats_Input & {ctx: MetricsContext }) => Promise<ErrorStats>
-    GetHttpCreds?: (req: GetHttpCreds_Input & {ctx: UserContext }) => Promise<HttpCreds>
-    GetInviteLinkState?: (req: GetInviteLinkState_Input & {ctx: AdminContext }) => Promise<GetInviteTokenStateResponse>
-    GetLNURLChannelLink?: (req: GetLNURLChannelLink_Input & {ctx: UserContext }) => Promise<LnurlLinkResponse>
-    GetLiveDebitRequests?: (req: GetLiveDebitRequests_Input & {ctx: UserContext }) => Promise<void>
-    GetLiveManageRequests?: (req: GetLiveManageRequests_Input & {ctx: UserContext }) => Promise<void>
-    GetLiveUserOperations?: (req: GetLiveUserOperations_Input & {ctx: UserContext }) => Promise<void>
-    GetLndForwardingMetrics?: (req: GetLndForwardingMetrics_Input & {ctx: MetricsContext }) => Promise<LndForwardingMetrics>
-    GetLndMetrics?: (req: GetLndMetrics_Input & {ctx: MetricsContext }) => Promise<LndMetrics>
-    GetLnurlPayInfo?: (req: GetLnurlPayInfo_Input & {ctx: GuestContext }) => Promise<LnurlPayInfoResponse>
-    GetLnurlPayLink?: (req: GetLnurlPayLink_Input & {ctx: UserContext }) => Promise<LnurlLinkResponse>
-    GetLnurlWithdrawInfo?: (req: GetLnurlWithdrawInfo_Input & {ctx: GuestContext }) => Promise<LnurlWithdrawInfoResponse>
-    GetLnurlWithdrawLink?: (req: GetLnurlWithdrawLink_Input & {ctx: UserContext }) => Promise<LnurlLinkResponse>
-    GetManageAuthorizations?: (req: GetManageAuthorizations_Input & {ctx: UserContext }) => Promise<ManageAuthorizations>
-    GetMigrationUpdate?: (req: GetMigrationUpdate_Input & {ctx: UserContext }) => Promise<void>
-    GetNPubLinkingState?: (req: GetNPubLinkingState_Input & {ctx: AppContext }) => Promise<NPubLinking>
-    GetPaymentState?: (req: GetPaymentState_Input & {ctx: UserContext }) => Promise<PaymentState>
-    GetProvidersDisruption?: (req: GetProvidersDisruption_Input & {ctx: MetricsContext }) => Promise<ProvidersDisruption>
-    GetSeed?: (req: GetSeed_Input & {ctx: AdminContext }) => Promise<LndSeed>
-    GetSingleBundleMetrics?: (req: GetSingleBundleMetrics_Input & {ctx: MetricsContext }) => Promise<BundleData>
-    GetSingleUsageMetrics?: (req: GetSingleUsageMetrics_Input & {ctx: MetricsContext }) => Promise<UsageMetricTlv>
-    GetTransactionSwapQuotes?: (req: GetTransactionSwapQuotes_Input & {ctx: UserContext }) => Promise<TransactionSwapQuoteList>
-    GetUsageMetrics?: (req: GetUsageMetrics_Input & {ctx: MetricsContext }) => Promise<UsageMetrics>
-    GetUserInfo?: (req: GetUserInfo_Input & {ctx: UserContext }) => Promise<UserInfo>
-    GetUserOffer?: (req: GetUserOffer_Input & {ctx: UserContext }) => Promise<OfferConfig>
-    GetUserOfferInvoices?: (req: GetUserOfferInvoices_Input & {ctx: UserContext }) => Promise<OfferInvoices>
-    GetUserOffers?: (req: GetUserOffers_Input & {ctx: UserContext }) => Promise<UserOffers>
-    GetUserOperations?: (req: GetUserOperations_Input & {ctx: UserContext }) => Promise<GetUserOperationsResponse>
-    GetUserOperationsFromAdmin?: (req: GetUserOperationsFromAdmin_Input & {ctx: AdminContext }) => Promise<GetUserOperationsResponse>
-    GetUsersAdminInfo?: (req: GetUsersAdminInfo_Input & {ctx: AdminContext }) => Promise<UsersAdminInfo>
-    HandleLnurlAddress?: (req: HandleLnurlAddress_Input & {ctx: GuestContext }) => Promise<LnurlPayInfoResponse>
-    HandleLnurlPay?: (req: HandleLnurlPay_Input & {ctx: GuestContext }) => Promise<HandleLnurlPayResponse>
-    HandleLnurlWithdraw?: (req: HandleLnurlWithdraw_Input & {ctx: GuestContext }) => Promise<void>
-    Health?: (req: Health_Input & {ctx: GuestContext }) => Promise<void>
-    LinkNPubThroughToken?: (req: LinkNPubThroughToken_Input & {ctx: GuestWithPubContext }) => Promise<void>
-    ListAdminInvoiceSwaps?: (req: ListAdminInvoiceSwaps_Input & {ctx: AdminContext }) => Promise<InvoiceSwapsList>
-    ListAdminTxSwaps?: (req: ListAdminTxSwaps_Input & {ctx: AdminContext }) => Promise<TxSwapsList>
-    ListChannels?: (req: ListChannels_Input & {ctx: AdminContext }) => Promise<LndChannels>
-    ListTxSwaps?: (req: ListTxSwaps_Input & {ctx: UserContext }) => Promise<TxSwapsList>
-    LndGetInfo?: (req: LndGetInfo_Input & {ctx: AdminContext }) => Promise<LndGetInfoResponse>
-    NewAddress?: (req: NewAddress_Input & {ctx: UserContext }) => Promise<NewAddressResponse>
-    NewInvoice?: (req: NewInvoice_Input & {ctx: UserContext }) => Promise<NewInvoiceResponse>
-    NewProductInvoice?: (req: NewProductInvoice_Input & {ctx: UserContext }) => Promise<NewInvoiceResponse>
-    OpenChannel?: (req: OpenChannel_Input & {ctx: AdminContext }) => Promise<OpenChannelResponse>
-    PayAddress?: (req: PayAddress_Input & {ctx: UserContext }) => Promise<PayAddressResponse>
-    PayAdminInvoiceSwap?: (req: PayAdminInvoiceSwap_Input & {ctx: AdminContext }) => Promise<AdminInvoiceSwapResponse>
-    PayAdminTransactionSwap?: (req: PayAdminTransactionSwap_Input & {ctx: AdminContext }) => Promise<AdminTxSwapResponse>
-    PayAppUserInvoice?: (req: PayAppUserInvoice_Input & {ctx: AppContext }) => Promise<PayInvoiceResponse>
-    PayInvoice?: (req: PayInvoice_Input & {ctx: UserContext }) => Promise<PayInvoiceResponse>
-    PingSubProcesses?: (req: PingSubProcesses_Input & {ctx: MetricsContext }) => Promise<void>
-    RefundAdminInvoiceSwap?: (req: RefundAdminInvoiceSwap_Input & {ctx: AdminContext }) => Promise<AdminInvoiceSwapResponse>
-    RequestNPubLinkingToken?: (req: RequestNPubLinkingToken_Input & {ctx: AppContext }) => Promise<RequestNPubLinkingTokenResponse>
-    ResetDebit?: (req: ResetDebit_Input & {ctx: UserContext }) => Promise<void>
-    ResetManage?: (req: ResetManage_Input & {ctx: UserContext }) => Promise<void>
-    ResetMetricsStorages?: (req: ResetMetricsStorages_Input & {ctx: MetricsContext }) => Promise<void>
-    ResetNPubLinkingToken?: (req: ResetNPubLinkingToken_Input & {ctx: AppContext }) => Promise<RequestNPubLinkingTokenResponse>
-    RespondToDebit?: (req: RespondToDebit_Input & {ctx: UserContext }) => Promise<void>
-    SendAppUserToAppPayment?: (req: SendAppUserToAppPayment_Input & {ctx: AppContext }) => Promise<void>
-    SendAppUserToAppUserPayment?: (req: SendAppUserToAppUserPayment_Input & {ctx: AppContext }) => Promise<void>
-    SetMockAppBalance?: (req: SetMockAppBalance_Input & {ctx: AppContext }) => Promise<void>
-    SetMockAppUserBalance?: (req: SetMockAppUserBalance_Input & {ctx: AppContext }) => Promise<void>
-    SetMockInvoiceAsPaid?: (req: SetMockInvoiceAsPaid_Input & {ctx: GuestContext }) => Promise<void>
-    SubToWebRtcCandidates?: (req: SubToWebRtcCandidates_Input & {ctx: MetricsContext }) => Promise<void>
-    SubmitWebRtcMessage?: (req: SubmitWebRtcMessage_Input & {ctx: MetricsContext }) => Promise<WebRtcAnswer>
-    UpdateCallbackUrl?: (req: UpdateCallbackUrl_Input & {ctx: UserContext }) => Promise<CallbackUrl>
-    UpdateChannelPolicy?: (req: UpdateChannelPolicy_Input & {ctx: AdminContext }) => Promise<void>
-    UpdateUserOffer?: (req: UpdateUserOffer_Input & {ctx: UserContext }) => Promise<void>
-    UseInviteLink?: (req: UseInviteLink_Input & {ctx: GuestWithPubContext }) => Promise<void>
-    UserHealth?: (req: UserHealth_Input & {ctx: UserContext }) => Promise<UserHealthState>
-    ZipMetricsStorages?: (req: ZipMetricsStorages_Input & {ctx: MetricsContext }) => Promise<ZippedMetrics>
+    AddApp?: (req: AddApp_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<AuthApp>
+    AddAppInvoice?: (req: AddAppInvoice_Input & {ctx: AppContext, requestContext?: RequestContext }) => Promise<NewInvoiceResponse>
+    AddAppUser?: (req: AddAppUser_Input & {ctx: AppContext, requestContext?: RequestContext }) => Promise<AppUser>
+    AddAppUserInvoice?: (req: AddAppUserInvoice_Input & {ctx: AppContext, requestContext?: RequestContext }) => Promise<NewInvoiceResponse>
+    AddPeer?: (req: AddPeer_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<void>
+    AddProduct?: (req: AddProduct_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<Product>
+    AddUserOffer?: (req: AddUserOffer_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<OfferId>
+    AuthApp?: (req: AuthApp_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<AuthApp>
+    AuthorizeManage?: (req: AuthorizeManage_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<ManageAuthorization>
+    BanDebit?: (req: BanDebit_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<void>
+    BanUser?: (req: BanUser_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<BanUserResponse>
+    BumpTx?: (req: BumpTx_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<void>
+    CloseChannel?: (req: CloseChannel_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<CloseChannelResponse>
+    CreateOneTimeInviteLink?: (req: CreateOneTimeInviteLink_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<CreateOneTimeInviteLinkResponse>
+    DecodeInvoice?: (req: DecodeInvoice_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<DecodeInvoiceResponse>
+    DeleteUserOffer?: (req: DeleteUserOffer_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<void>
+    EditDebit?: (req: EditDebit_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<void>
+    EncryptionExchange?: (req: EncryptionExchange_Input & {ctx: GuestContext, requestContext?: RequestContext }) => Promise<void>
+    EnrollAdminToken?: (req: EnrollAdminToken_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<void>
+    EnrollMessagingToken?: (req: EnrollMessagingToken_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<void>
+    GetAdminInvoiceSwapQuotes?: (req: GetAdminInvoiceSwapQuotes_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<InvoiceSwapQuoteList>
+    GetAdminTransactionSwapQuotes?: (req: GetAdminTransactionSwapQuotes_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<TransactionSwapQuoteList>
+    GetApp?: (req: GetApp_Input & {ctx: AppContext, requestContext?: RequestContext }) => Promise<Application>
+    GetAppUser?: (req: GetAppUser_Input & {ctx: AppContext, requestContext?: RequestContext }) => Promise<AppUser>
+    GetAppUserLNURLInfo?: (req: GetAppUserLNURLInfo_Input & {ctx: AppContext, requestContext?: RequestContext }) => Promise<LnurlPayInfoResponse>
+    GetAppsMetrics?: (req: GetAppsMetrics_Input & {ctx: MetricsContext, requestContext?: RequestContext }) => Promise<AppsMetrics>
+    GetAssetsAndLiabilities?: (req: GetAssetsAndLiabilities_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<AssetsAndLiabilities>
+    GetAssetsAndLiabilitiesV2?: (req: GetAssetsAndLiabilitiesV2_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<AssetsAndLiabilitiesV2>
+    GetBundleMetrics?: (req: GetBundleMetrics_Input & {ctx: MetricsContext, requestContext?: RequestContext }) => Promise<BundleMetrics>
+    GetDebitAuthorizations?: (req: GetDebitAuthorizations_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<DebitAuthorizations>
+    GetErrorStats?: (req: GetErrorStats_Input & {ctx: MetricsContext, requestContext?: RequestContext }) => Promise<ErrorStats>
+    GetHttpCreds?: (req: GetHttpCreds_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<HttpCreds>
+    GetInviteLinkState?: (req: GetInviteLinkState_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<GetInviteTokenStateResponse>
+    GetLNURLChannelLink?: (req: GetLNURLChannelLink_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<LnurlLinkResponse>
+    GetLiveDebitRequests?: (req: GetLiveDebitRequests_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<void>
+    GetLiveManageRequests?: (req: GetLiveManageRequests_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<void>
+    GetLiveUserOperations?: (req: GetLiveUserOperations_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<void>
+    GetLndForwardingMetrics?: (req: GetLndForwardingMetrics_Input & {ctx: MetricsContext, requestContext?: RequestContext }) => Promise<LndForwardingMetrics>
+    GetLndMetrics?: (req: GetLndMetrics_Input & {ctx: MetricsContext, requestContext?: RequestContext }) => Promise<LndMetrics>
+    GetLnurlPayInfo?: (req: GetLnurlPayInfo_Input & {ctx: GuestContext, requestContext?: RequestContext }) => Promise<LnurlPayInfoResponse>
+    GetLnurlPayLink?: (req: GetLnurlPayLink_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<LnurlLinkResponse>
+    GetLnurlWithdrawInfo?: (req: GetLnurlWithdrawInfo_Input & {ctx: GuestContext, requestContext?: RequestContext }) => Promise<LnurlWithdrawInfoResponse>
+    GetLnurlWithdrawLink?: (req: GetLnurlWithdrawLink_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<LnurlLinkResponse>
+    GetManageAuthorizations?: (req: GetManageAuthorizations_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<ManageAuthorizations>
+    GetMigrationUpdate?: (req: GetMigrationUpdate_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<void>
+    GetNPubLinkingState?: (req: GetNPubLinkingState_Input & {ctx: AppContext, requestContext?: RequestContext }) => Promise<NPubLinking>
+    GetPaymentState?: (req: GetPaymentState_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<PaymentState>
+    GetProvidersDisruption?: (req: GetProvidersDisruption_Input & {ctx: MetricsContext, requestContext?: RequestContext }) => Promise<ProvidersDisruption>
+    GetSeed?: (req: GetSeed_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<LndSeed>
+    GetSingleBundleMetrics?: (req: GetSingleBundleMetrics_Input & {ctx: MetricsContext, requestContext?: RequestContext }) => Promise<BundleData>
+    GetSingleUsageMetrics?: (req: GetSingleUsageMetrics_Input & {ctx: MetricsContext, requestContext?: RequestContext }) => Promise<UsageMetricTlv>
+    GetTransactionSwapQuotes?: (req: GetTransactionSwapQuotes_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<TransactionSwapQuoteList>
+    GetUsageMetrics?: (req: GetUsageMetrics_Input & {ctx: MetricsContext, requestContext?: RequestContext }) => Promise<UsageMetrics>
+    GetUserInfo?: (req: GetUserInfo_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<UserInfo>
+    GetUserOffer?: (req: GetUserOffer_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<OfferConfig>
+    GetUserOfferInvoices?: (req: GetUserOfferInvoices_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<OfferInvoices>
+    GetUserOffers?: (req: GetUserOffers_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<UserOffers>
+    GetUserOperations?: (req: GetUserOperations_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<GetUserOperationsResponse>
+    GetUserOperationsFromAdmin?: (req: GetUserOperationsFromAdmin_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<GetUserOperationsResponse>
+    GetUsersAdminInfo?: (req: GetUsersAdminInfo_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<UsersAdminInfo>
+    HandleLnurlAddress?: (req: HandleLnurlAddress_Input & {ctx: GuestContext, requestContext?: RequestContext }) => Promise<LnurlPayInfoResponse>
+    HandleLnurlPay?: (req: HandleLnurlPay_Input & {ctx: GuestContext, requestContext?: RequestContext }) => Promise<HandleLnurlPayResponse>
+    HandleLnurlWithdraw?: (req: HandleLnurlWithdraw_Input & {ctx: GuestContext, requestContext?: RequestContext }) => Promise<void>
+    Health?: (req: Health_Input & {ctx: GuestContext, requestContext?: RequestContext }) => Promise<void>
+    LinkNPubThroughToken?: (req: LinkNPubThroughToken_Input & {ctx: GuestWithPubContext, requestContext?: RequestContext }) => Promise<void>
+    ListAdminInvoiceSwaps?: (req: ListAdminInvoiceSwaps_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<InvoiceSwapsList>
+    ListAdminTxSwaps?: (req: ListAdminTxSwaps_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<TxSwapsList>
+    ListChannels?: (req: ListChannels_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<LndChannels>
+    ListTxSwaps?: (req: ListTxSwaps_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<TxSwapsList>
+    LndGetInfo?: (req: LndGetInfo_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<LndGetInfoResponse>
+    NewAddress?: (req: NewAddress_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<NewAddressResponse>
+    NewInvoice?: (req: NewInvoice_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<NewInvoiceResponse>
+    NewProductInvoice?: (req: NewProductInvoice_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<NewInvoiceResponse>
+    OpenChannel?: (req: OpenChannel_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<OpenChannelResponse>
+    PayAddress?: (req: PayAddress_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<PayAddressResponse>
+    PayAdminInvoiceSwap?: (req: PayAdminInvoiceSwap_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<AdminInvoiceSwapResponse>
+    PayAdminTransactionSwap?: (req: PayAdminTransactionSwap_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<AdminTxSwapResponse>
+    PayAppUserInvoice?: (req: PayAppUserInvoice_Input & {ctx: AppContext, requestContext?: RequestContext }) => Promise<PayInvoiceResponse>
+    PayInvoice?: (req: PayInvoice_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<PayInvoiceResponse>
+    PingSubProcesses?: (req: PingSubProcesses_Input & {ctx: MetricsContext, requestContext?: RequestContext }) => Promise<void>
+    RefundAdminInvoiceSwap?: (req: RefundAdminInvoiceSwap_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<AdminInvoiceSwapResponse>
+    RequestNPubLinkingToken?: (req: RequestNPubLinkingToken_Input & {ctx: AppContext, requestContext?: RequestContext }) => Promise<RequestNPubLinkingTokenResponse>
+    ResetDebit?: (req: ResetDebit_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<void>
+    ResetManage?: (req: ResetManage_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<void>
+    ResetMetricsStorages?: (req: ResetMetricsStorages_Input & {ctx: MetricsContext, requestContext?: RequestContext }) => Promise<void>
+    ResetNPubLinkingToken?: (req: ResetNPubLinkingToken_Input & {ctx: AppContext, requestContext?: RequestContext }) => Promise<RequestNPubLinkingTokenResponse>
+    RespondToDebit?: (req: RespondToDebit_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<void>
+    SendAppUserToAppPayment?: (req: SendAppUserToAppPayment_Input & {ctx: AppContext, requestContext?: RequestContext }) => Promise<void>
+    SendAppUserToAppUserPayment?: (req: SendAppUserToAppUserPayment_Input & {ctx: AppContext, requestContext?: RequestContext }) => Promise<void>
+    SetMockAppBalance?: (req: SetMockAppBalance_Input & {ctx: AppContext, requestContext?: RequestContext }) => Promise<void>
+    SetMockAppUserBalance?: (req: SetMockAppUserBalance_Input & {ctx: AppContext, requestContext?: RequestContext }) => Promise<void>
+    SetMockInvoiceAsPaid?: (req: SetMockInvoiceAsPaid_Input & {ctx: GuestContext, requestContext?: RequestContext }) => Promise<void>
+    SubToWebRtcCandidates?: (req: SubToWebRtcCandidates_Input & {ctx: MetricsContext, requestContext?: RequestContext }) => Promise<void>
+    SubmitWebRtcMessage?: (req: SubmitWebRtcMessage_Input & {ctx: MetricsContext, requestContext?: RequestContext }) => Promise<WebRtcAnswer>
+    UpdateCallbackUrl?: (req: UpdateCallbackUrl_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<CallbackUrl>
+    UpdateChannelPolicy?: (req: UpdateChannelPolicy_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<void>
+    UpdateUserOffer?: (req: UpdateUserOffer_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<void>
+    UseInviteLink?: (req: UseInviteLink_Input & {ctx: GuestWithPubContext, requestContext?: RequestContext }) => Promise<void>
+    UserHealth?: (req: UserHealth_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<UserHealthState>
+    ZipMetricsStorages?: (req: ZipMetricsStorages_Input & {ctx: MetricsContext, requestContext?: RequestContext }) => Promise<ZippedMetrics>
 }
 
 export enum AddressType {
@@ -2861,15 +2877,17 @@ export type LndAssetOperationsPage = {
     has_more: boolean
     next_index_offset?: number
     operations: AssetOperation[]
+    start_height?: number
 }
-export type LndAssetOperationsPageOptionalField = 'next_index_offset'
-export const LndAssetOperationsPageOptionalFields: LndAssetOperationsPageOptionalField[] = ['next_index_offset']
+export type LndAssetOperationsPageOptionalField = 'next_index_offset' | 'start_height'
+export const LndAssetOperationsPageOptionalFields: LndAssetOperationsPageOptionalField[] = ['next_index_offset', 'start_height']
 export type LndAssetOperationsPageOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: LndAssetOperationsPageOptionalField[]
     has_more_CustomCheck?: (v: boolean) => boolean
     next_index_offset_CustomCheck?: (v?: number) => boolean
     operations_ItemOptions?: AssetOperationOptions
     operations_CustomCheck?: (v: AssetOperation[]) => boolean
+    start_height_CustomCheck?: (v?: number) => boolean
 }
 export const LndAssetOperationsPageValidate = (o?: LndAssetOperationsPage, opts: LndAssetOperationsPageOptions = {}, path: string = 'LndAssetOperationsPage::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
@@ -2887,6 +2905,9 @@ export const LndAssetOperationsPageValidate = (o?: LndAssetOperationsPage, opts:
         if (operationsErr !== null) return operationsErr
     }
     if (opts.operations_CustomCheck && !opts.operations_CustomCheck(o.operations)) return new Error(`${path}.operations: custom check failed`)
+
+    if ((o.start_height || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('start_height')) && typeof o.start_height !== 'number') return new Error(`${path}.start_height: is not a number`)
+    if (opts.start_height_CustomCheck && !opts.start_height_CustomCheck(o.start_height)) return new Error(`${path}.start_height: custom check failed`)
 
     return null
 }
@@ -3248,9 +3269,10 @@ export type LndProviderFilter = {
     payment_index_offset?: number
     pubkey: string
     tx_index_offset?: number
+    tx_start_height?: number
 }
-export type LndProviderFilterOptionalField = 'invoice_index_offset' | 'limit_invoices' | 'limit_payments' | 'limit_transactions' | 'payment_index_offset' | 'tx_index_offset'
-export const LndProviderFilterOptionalFields: LndProviderFilterOptionalField[] = ['invoice_index_offset', 'limit_invoices', 'limit_payments', 'limit_transactions', 'payment_index_offset', 'tx_index_offset']
+export type LndProviderFilterOptionalField = 'invoice_index_offset' | 'limit_invoices' | 'limit_payments' | 'limit_transactions' | 'payment_index_offset' | 'tx_index_offset' | 'tx_start_height'
+export const LndProviderFilterOptionalFields: LndProviderFilterOptionalField[] = ['invoice_index_offset', 'limit_invoices', 'limit_payments', 'limit_transactions', 'payment_index_offset', 'tx_index_offset', 'tx_start_height']
 export type LndProviderFilterOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: LndProviderFilterOptionalField[]
     invoice_index_offset_CustomCheck?: (v?: number) => boolean
@@ -3260,6 +3282,7 @@ export type LndProviderFilterOptions = OptionsBaseMessage & {
     payment_index_offset_CustomCheck?: (v?: number) => boolean
     pubkey_CustomCheck?: (v: string) => boolean
     tx_index_offset_CustomCheck?: (v?: number) => boolean
+    tx_start_height_CustomCheck?: (v?: number) => boolean
 }
 export const LndProviderFilterValidate = (o?: LndProviderFilter, opts: LndProviderFilterOptions = {}, path: string = 'LndProviderFilter::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
@@ -3285,6 +3308,9 @@ export const LndProviderFilterValidate = (o?: LndProviderFilter, opts: LndProvid
 
     if ((o.tx_index_offset || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('tx_index_offset')) && typeof o.tx_index_offset !== 'number') return new Error(`${path}.tx_index_offset: is not a number`)
     if (opts.tx_index_offset_CustomCheck && !opts.tx_index_offset_CustomCheck(o.tx_index_offset)) return new Error(`${path}.tx_index_offset: custom check failed`)
+
+    if ((o.tx_start_height || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('tx_start_height')) && typeof o.tx_start_height !== 'number') return new Error(`${path}.tx_start_height: is not a number`)
+    if (opts.tx_start_height_CustomCheck && !opts.tx_start_height_CustomCheck(o.tx_start_height)) return new Error(`${path}.tx_start_height: custom check failed`)
 
     return null
 }
