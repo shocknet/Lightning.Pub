@@ -326,7 +326,7 @@ export class LiquidityProvider {
         }
     }
 
-    GetOperations = async (incoming: Types.OperationsCursor | undefined, outgoing: Types.OperationsCursor | undefined, limit: number | undefined) => {
+    GetOperations = async (incoming: Types.OperationsCursor | undefined, outgoing: Types.OperationsCursor | undefined, limit: number | undefined):Promise<{latestIncomingInvoiceOperations: Types.UserOperations, latestOutgoingInvoiceOperations: Types.UserOperations}> => {
         if (!this.IsReady()) {
             throw new Error("liquidity provider is not ready yet, disabled or unreachable")
         }
@@ -338,7 +338,8 @@ export class LiquidityProvider {
             new Promise<false>(res => setTimeout(() => res(false), 10 * 1000))
         ])
         if (res === false) {
-            throw new Error("timeout getting operations")
+            return { latestIncomingInvoiceOperations: { operations: [],fromIndex:{ts:0,id:0}, toIndex:{ts:0,id:0} }, 
+            latestOutgoingInvoiceOperations: { operations: [], fromIndex:{ts:0,id:0}, toIndex:{ts:0,id:0} } }
         }
         if (res.status === 'ERROR') {
             this.log("error getting operations", res.reason)
