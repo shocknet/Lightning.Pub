@@ -2664,6 +2664,7 @@ export type LiquidityAssetOperationsPage = {
     has_more: boolean
     next_cursor?: OperationsCursor
     operations: AssetOperation[]
+    timeout: boolean
 }
 export type LiquidityAssetOperationsPageOptionalField = 'next_cursor'
 export const LiquidityAssetOperationsPageOptionalFields: LiquidityAssetOperationsPageOptionalField[] = ['next_cursor']
@@ -2673,6 +2674,7 @@ export type LiquidityAssetOperationsPageOptions = OptionsBaseMessage & {
     next_cursor_Options?: OperationsCursorOptions
     operations_ItemOptions?: AssetOperationOptions
     operations_CustomCheck?: (v: AssetOperation[]) => boolean
+    timeout_CustomCheck?: (v: boolean) => boolean
 }
 export const LiquidityAssetOperationsPageValidate = (o?: LiquidityAssetOperationsPage, opts: LiquidityAssetOperationsPageOptions = {}, path: string = 'LiquidityAssetOperationsPage::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
@@ -2693,6 +2695,9 @@ export const LiquidityAssetOperationsPageValidate = (o?: LiquidityAssetOperation
         if (operationsErr !== null) return operationsErr
     }
     if (opts.operations_CustomCheck && !opts.operations_CustomCheck(o.operations)) return new Error(`${path}.operations: custom check failed`)
+
+    if (typeof o.timeout !== 'boolean') return new Error(`${path}.timeout: is not a boolean`)
+    if (opts.timeout_CustomCheck && !opts.timeout_CustomCheck(o.timeout)) return new Error(`${path}.timeout: custom check failed`)
 
     return null
 }

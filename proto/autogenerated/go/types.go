@@ -449,6 +449,7 @@ type LiquidityAssetOperationsPage struct {
 	Has_more    bool              `json:"has_more"`
 	Next_cursor *OperationsCursor `json:"next_cursor"`
 	Operations  []AssetOperation  `json:"operations"`
+	Timeout     bool              `json:"timeout"`
 }
 type LiquidityAssetProvider struct {
 	Pubkey  string                    `json:"pubkey"`

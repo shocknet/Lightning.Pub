@@ -118,6 +118,7 @@ message LiquidityAssetOperationsPage {
     repeated AssetOperation operations = 1;
     bool has_more = 2;
     optional OperationsCursor next_cursor = 3;
+    bool timeout = 4;
 }
 
 message TrackedLndProvider {

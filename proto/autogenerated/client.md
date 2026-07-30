@@ -1525,6 +1525,7 @@ The nostr server will send back a message response, and inside the body there wi
   - __has_more__: _boolean_
   - __next_cursor__: _[OperationsCursor](#OperationsCursor)_ *this field is optional
   - __operations__: ARRAY of: _[AssetOperation](#AssetOperation)_
+  - __timeout__: _boolean_
 
 ### LiquidityAssetProvider
   - __pubkey__: _string_

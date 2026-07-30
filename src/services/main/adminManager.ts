@@ -471,6 +471,22 @@ export class AdminManager {
         const outgoing = filter?.latestOutgoingInvoice
         const limit = clampPageLimit(filter?.limit, DEFAULT_PAGE_SIZE, MAX_LIQUIDITY_PAGE_SIZE)
         const providerOps = await this.liquidityProvider.GetOperations(incoming, outgoing, limit)
+        if (providerOps === 'timeout') {
+            const emptyPage: Types.LiquidityAssetOperationsPage = {
+                operations: [],
+                has_more: false,
+                timeout: true,
+            }
+            const balance = await this.liquidityProvider.GetUserState()
+            return {
+                pubkey: provider.provider_pubkey,
+                tracked: {
+                    balance: balance.status === 'OK' ? balance.balance : 0,
+                    payments: emptyPage,
+                    invoices: emptyPage,
+                }
+            }
+        }
         const invoices = await this.BuildLiquidityAssetOperationsPage(
             providerOps.latestIncomingInvoiceOperations,
             limit,
@@ -515,6 +531,7 @@ export class AdminManager {
             operations,
             has_more: hasMore,
             next_cursor: hasMore ? userOps.toIndex : undefined,
+            timeout: false,
         }
     }
 
