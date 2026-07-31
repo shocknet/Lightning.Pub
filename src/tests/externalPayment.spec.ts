@@ -73,9 +73,9 @@ const testSuccesfulReceivedExternalChainPayment = async (T: TestBase) => {
 const testEstimate = async (T: TestBase) => {
     T.d("starting testEstimate")
     const address = await T.externalAccessToOtherLnd.NewAddress(AddressType.WITNESS_PUBKEY_HASH, { from: 'system', useProvider: false })
-    const estimateWith0 = await T.externalAccessToOtherLnd.EstimateChainFees(address.address, 1000, 0)
+    //const estimateWith0 = await T.externalAccessToOtherLnd.EstimateChainFees(address.address, 1000, 0)
     const estimateWith1 = await T.externalAccessToOtherLnd.EstimateChainFees(address.address, 1000, 1)
-    console.log(estimateWith0)
+    //console.log(estimateWith0)
     console.log(estimateWith1)
     T.d("testEstimate completed")
 }
