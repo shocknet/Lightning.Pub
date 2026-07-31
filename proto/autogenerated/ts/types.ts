@@ -2325,6 +2325,7 @@ export type InvoiceSwapQuote = {
     invoice: string
     invoice_amount_sats: number
     paid_at_unix: number
+    sat_per_v_byte: number
     service_fee_sats: number
     service_url: string
     swap_fee_sats: number
@@ -2341,6 +2342,7 @@ export type InvoiceSwapQuoteOptions = OptionsBaseMessage & {
     invoice_CustomCheck?: (v: string) => boolean
     invoice_amount_sats_CustomCheck?: (v: number) => boolean
     paid_at_unix_CustomCheck?: (v: number) => boolean
+    sat_per_v_byte_CustomCheck?: (v: number) => boolean
     service_fee_sats_CustomCheck?: (v: number) => boolean
     service_url_CustomCheck?: (v: string) => boolean
     swap_fee_sats_CustomCheck?: (v: number) => boolean
@@ -2369,6 +2371,9 @@ export const InvoiceSwapQuoteValidate = (o?: InvoiceSwapQuote, opts: InvoiceSwap
 
     if (typeof o.paid_at_unix !== 'number') return new Error(`${path}.paid_at_unix: is not a number`)
     if (opts.paid_at_unix_CustomCheck && !opts.paid_at_unix_CustomCheck(o.paid_at_unix)) return new Error(`${path}.paid_at_unix: custom check failed`)
+
+    if (typeof o.sat_per_v_byte !== 'number') return new Error(`${path}.sat_per_v_byte: is not a number`)
+    if (opts.sat_per_v_byte_CustomCheck && !opts.sat_per_v_byte_CustomCheck(o.sat_per_v_byte)) return new Error(`${path}.sat_per_v_byte: custom check failed`)
 
     if (typeof o.service_fee_sats !== 'number') return new Error(`${path}.service_fee_sats: is not a number`)
     if (opts.service_fee_sats_CustomCheck && !opts.service_fee_sats_CustomCheck(o.service_fee_sats)) return new Error(`${path}.service_fee_sats: custom check failed`)
@@ -2416,11 +2421,14 @@ export const InvoiceSwapQuoteListValidate = (o?: InvoiceSwapQuoteList, opts: Inv
 
 export type InvoiceSwapRequest = {
     amount_sats: number
+    fees_req?: TxFeesReq
 }
-export const InvoiceSwapRequestOptionalFields: [] = []
+export type InvoiceSwapRequestOptionalField = 'fees_req'
+export const InvoiceSwapRequestOptionalFields: InvoiceSwapRequestOptionalField[] = ['fees_req']
 export type InvoiceSwapRequestOptions = OptionsBaseMessage & {
-    checkOptionalsAreSet?: []
+    checkOptionalsAreSet?: InvoiceSwapRequestOptionalField[]
     amount_sats_CustomCheck?: (v: number) => boolean
+    fees_req_Options?: TxFeesReqOptions
 }
 export const InvoiceSwapRequestValidate = (o?: InvoiceSwapRequest, opts: InvoiceSwapRequestOptions = {}, path: string = 'InvoiceSwapRequest::root.'): Error | null => {
     if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
@@ -2428,6 +2436,12 @@ export const InvoiceSwapRequestValidate = (o?: InvoiceSwapRequest, opts: Invoice
 
     if (typeof o.amount_sats !== 'number') return new Error(`${path}.amount_sats: is not a number`)
     if (opts.amount_sats_CustomCheck && !opts.amount_sats_CustomCheck(o.amount_sats)) return new Error(`${path}.amount_sats: custom check failed`)
+
+    if (typeof o.fees_req === 'object' || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('fees_req')) {
+        const fees_reqErr = TxFeesReqValidate(o.fees_req, opts.fees_req_Options, `${path}.fees_req`)
+        if (fees_reqErr !== null) return fees_reqErr
+    }
+    
 
     return null
 }
@@ -3851,15 +3865,15 @@ export const PayAddressResponseValidate = (o?: PayAddressResponse, opts: PayAddr
 
 export type PayAdminInvoiceSwapRequest = {
     no_claim?: boolean
-    sat_per_v_byte: number
+    sat_per_v_byte?: number
     swap_operation_id: string
 }
-export type PayAdminInvoiceSwapRequestOptionalField = 'no_claim'
-export const PayAdminInvoiceSwapRequestOptionalFields: PayAdminInvoiceSwapRequestOptionalField[] = ['no_claim']
+export type PayAdminInvoiceSwapRequestOptionalField = 'no_claim' | 'sat_per_v_byte'
+export const PayAdminInvoiceSwapRequestOptionalFields: PayAdminInvoiceSwapRequestOptionalField[] = ['no_claim', 'sat_per_v_byte']
 export type PayAdminInvoiceSwapRequestOptions = OptionsBaseMessage & {
     checkOptionalsAreSet?: PayAdminInvoiceSwapRequestOptionalField[]
     no_claim_CustomCheck?: (v?: boolean) => boolean
-    sat_per_v_byte_CustomCheck?: (v: number) => boolean
+    sat_per_v_byte_CustomCheck?: (v?: number) => boolean
     swap_operation_id_CustomCheck?: (v: string) => boolean
 }
 export const PayAdminInvoiceSwapRequestValidate = (o?: PayAdminInvoiceSwapRequest, opts: PayAdminInvoiceSwapRequestOptions = {}, path: string = 'PayAdminInvoiceSwapRequest::root.'): Error | null => {
@@ -3869,7 +3883,7 @@ export const PayAdminInvoiceSwapRequestValidate = (o?: PayAdminInvoiceSwapReques
     if ((o.no_claim || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('no_claim')) && typeof o.no_claim !== 'boolean') return new Error(`${path}.no_claim: is not a boolean`)
     if (opts.no_claim_CustomCheck && !opts.no_claim_CustomCheck(o.no_claim)) return new Error(`${path}.no_claim: custom check failed`)
 
-    if (typeof o.sat_per_v_byte !== 'number') return new Error(`${path}.sat_per_v_byte: is not a number`)
+    if ((o.sat_per_v_byte || opts.allOptionalsAreSet || opts.checkOptionalsAreSet?.includes('sat_per_v_byte')) && typeof o.sat_per_v_byte !== 'number') return new Error(`${path}.sat_per_v_byte: is not a number`)
     if (opts.sat_per_v_byte_CustomCheck && !opts.sat_per_v_byte_CustomCheck(o.sat_per_v_byte)) return new Error(`${path}.sat_per_v_byte: custom check failed`)
 
     if (typeof o.swap_operation_id !== 'string') return new Error(`${path}.swap_operation_id: is not a string`)
@@ -4795,6 +4809,25 @@ export const TransactionSwapRequestValidate = (o?: TransactionSwapRequest, opts:
     return null
 }
 
+export type TxFeesReq = {
+    fees: TxFeesReq_fees
+}
+export const TxFeesReqOptionalFields: [] = []
+export type TxFeesReqOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    fees_Options?: TxFeesReq_feesOptions
+}
+export const TxFeesReqValidate = (o?: TxFeesReq, opts: TxFeesReqOptions = {}, path: string = 'TxFeesReq::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    const feesErr = TxFeesReq_feesValidate(o.fees, opts.fees_Options, `${path}.fees`)
+    if (feesErr !== null) return feesErr
+    
+
+    return null
+}
+
 export type TxSwapOperation = {
     address_paid?: string
     failure_reason?: string
@@ -5569,6 +5602,41 @@ export const PushNotificationPayload_dataValidate = (o?: PushNotificationPayload
         const sent_operationErr = UserOperationValidate(o.sent_operation, opts.sent_operation_Options, `${path}.sent_operation`)
         if (sent_operationErr !== null) return sent_operationErr
         
+
+        break
+        default:
+            return new Error(path + ': unknown type '+ stringType)
+    }
+    return null
+}
+export enum TxFeesReq_fees_type {
+    SAT_PER_V_BYTE = 'sat_per_v_byte',
+    TARGET_CONF = 'target_conf',
+}
+export const enumCheckTxFeesReq_fees_type = (e?: TxFeesReq_fees_type): boolean => {
+    for (const v in TxFeesReq_fees_type) if (e === v) return true
+    return false
+}
+export type TxFeesReq_fees = 
+    {type:TxFeesReq_fees_type.SAT_PER_V_BYTE, sat_per_v_byte:number}|
+    {type:TxFeesReq_fees_type.TARGET_CONF, target_conf:number}
+
+export type TxFeesReq_feesOptions = {
+    sat_per_v_byte_CustomCheck?: (v: number) => boolean
+    target_conf_CustomCheck?: (v: number) => boolean
+}
+export const TxFeesReq_feesValidate = (o?: TxFeesReq_fees, opts:TxFeesReq_feesOptions = {}, path: string = 'TxFeesReq_fees::root.'): Error | null => {
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+    const stringType: string = o.type
+    switch (o.type) {
+        case TxFeesReq_fees_type.SAT_PER_V_BYTE:
+        if (typeof o.sat_per_v_byte !== 'number') return new Error(`${path}.sat_per_v_byte: is not a number`)
+        if (opts.sat_per_v_byte_CustomCheck && !opts.sat_per_v_byte_CustomCheck(o.sat_per_v_byte)) return new Error(`${path}.sat_per_v_byte: custom check failed`)
+
+        break
+        case TxFeesReq_fees_type.TARGET_CONF:
+        if (typeof o.target_conf !== 'number') return new Error(`${path}.target_conf: is not a number`)
+        if (opts.target_conf_CustomCheck && !opts.target_conf_CustomCheck(o.target_conf)) return new Error(`${path}.target_conf: custom check failed`)
 
         break
         default:

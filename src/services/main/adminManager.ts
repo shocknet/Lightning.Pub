@@ -311,14 +311,14 @@ export class AdminManager {
 
     async GetAdminInvoiceSwapQuotes(req: Types.InvoiceSwapRequest): Promise<Types.InvoiceSwapQuoteList> {
         const invoice = await this.lnd.NewInvoice(req.amount_sats, "Admin Swap", defaultInvoiceExpiry, { useProvider: false, from: 'system' })
-        const quotes = await this.swaps.GetInvoiceSwapQuotes("admin", invoice.payRequest)
+        const quotes = await this.swaps.GetInvoiceSwapQuotes("admin", invoice.payRequest, req.fees_req)
         return { quotes }
     }
 
     async PayAdminInvoiceSwap(req: Types.PayAdminInvoiceSwapRequest): Promise<Types.AdminInvoiceSwapResponse> {
         const resolvedTxId = await new Promise<string>(res => {
-            this.swaps.PayInvoiceSwap("admin", req.swap_operation_id, req.sat_per_v_byte, async (addr, amt) => {
-                const tx = await this.lnd.PayAddress(addr, amt, req.sat_per_v_byte, "", { useProvider: false, from: 'system' })
+            this.swaps.PayInvoiceSwap("admin", req.swap_operation_id, req.sat_per_v_byte, async (addr, amt, satPerVByte) => {
+                const tx = await this.lnd.PayAddress(addr, amt, satPerVByte, "", { useProvider: false, from: 'system' })
                 this.log("paid admin invoice swap", { swapOpId: req.swap_operation_id, txId: tx.txid })
 
                 // Fetch the full transaction hex for potential refunds, and include miner fees

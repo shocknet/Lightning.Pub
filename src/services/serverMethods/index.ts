@@ -119,7 +119,13 @@ export default (mainHandler: Main): Types.ServerMethods => {
         },
         GetAdminInvoiceSwapQuotes: async ({ ctx, req }) => {
             const err = Types.InvoiceSwapRequestValidate(req, {
-                amount_sats_CustomCheck: amt => amt > 0
+                amount_sats_CustomCheck: amt => amt > 0,
+                fees_req_Options: {
+                    fees_Options: {
+                        sat_per_v_byte_CustomCheck: spv => spv > 0,
+                        target_conf_CustomCheck: conf => conf > 0,
+                    }
+                }
             })
             if (err != null) throw new Error(err.message)
             return mainHandler.adminManager.GetAdminInvoiceSwapQuotes(req)
