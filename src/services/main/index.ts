@@ -66,6 +66,7 @@ export default class {
     paymentSideEffects: PaymentSideEffects
     nostrProcessPing: (() => Promise<void>) | null = null
     nostrReset: (settings: NostrSettings) => void = () => { getLogger({})("nostr reset not initialized yet") }
+    private newBlockInFlight: Promise<void> = Promise.resolve()
     constructor(settings: SettingsManager, storage: Storage, adminManager: AdminManager, utils: Utils, unlocker: Unlocker) {
         this.settings = settings
         this.storage = storage
@@ -159,7 +160,11 @@ export default class {
     }
 
     newBlockCb: NewBlockCb = (height, skipMetrics) => {
-        return this.NewBlockHandler(height, skipMetrics)
+        // Serialize block handling so concurrent callers (LND stream + tests/recovery)
+        // cannot ConfirmNewlyConfirmedTxs / credit the same pending tx twice.
+        const run = this.newBlockInFlight.then(() => this.NewBlockHandler(height, skipMetrics))
+        this.newBlockInFlight = run.catch(() => { })
+        return run
     }
 
     NewBlockHandler = async (height: number, skipMetrics?: boolean) => {
