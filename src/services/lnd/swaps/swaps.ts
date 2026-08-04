@@ -48,7 +48,7 @@ export class Swaps {
         return keys
     }
 
-    GetInvoiceSwapQuotes = async (appUserId: string, invoice: string): Promise<Types.InvoiceSwapQuote[]> => {
+    GetInvoiceSwapQuotes = async (appUserId: string, invoice: string, fees: Types.TxFeesReq|undefined): Promise<Types.InvoiceSwapQuote[]> => {
         if (!this.settings.getSettings().swapsSettings.enableSwaps) {
             throw new Error("Swaps are not enabled")
         }
@@ -56,7 +56,7 @@ export class Swaps {
         if (swappers.length === 0) {
             throw new Error("No swap services available")
         }
-        const res = await Promise.allSettled(swappers.map(sw => this.getInvoiceSwapQuote(sw, appUserId, invoice)))
+        const res = await Promise.allSettled(swappers.map(sw => this.getInvoiceSwapQuote(sw, appUserId, invoice, fees)))
         const failures: string[] = []
         const success: Types.InvoiceSwapQuote[] = []
         for (const r of res) {
@@ -86,6 +86,7 @@ export class Swaps {
             tx_id: s.tx_id,
             paid_at_unix: s.paid_at_unix || (s.tx_id ? 1 : 0),
             expires_at_block_height: s.timeout_block_height,
+            sat_per_v_byte: s.sat_per_v_byte,
         }
     }
 
@@ -143,20 +144,21 @@ export class Swaps {
 
     }
 
-    PayInvoiceSwap = async (appUserId: string, swapOpId: string, satPerVByte: number, payAddress: (address: string, amt: number) => Promise<{ txId: string }>): Promise<void> => {
-        this.log("paying invoice swap", { appUserId, swapOpId, satPerVByte })
+    PayInvoiceSwap = async (appUserId: string, swapOpId: string,satPerVByteOverride: number|undefined, payAddress: (address: string, amt: number, satPerVByte: number) => Promise<{ txId: string }>): Promise<void> => {
+        this.log("paying invoice swap", { appUserId, swapOpId })
         if (!this.settings.getSettings().swapsSettings.enableSwaps) {
             throw new Error("Swaps are not enabled")
         }
         if (!swapOpId) {
             throw new Error("swap operation id is required")
         }
-        if (!satPerVByte) {
-            throw new Error("sat per v byte is required")
-        }
         const swap = await this.storage.paymentStorage.GetInvoiceSwap(swapOpId, appUserId)
         if (!swap) {
             throw new Error("swap not found")
+        }
+        const satPerVByte = satPerVByteOverride ?? swap.sat_per_v_byte
+        if (!satPerVByte || satPerVByte <= 0) {
+            throw new Error("sat per v byte is required (set fees_req on quote or pass sat_per_v_byte on pay)")
         }
         const swapper = this.subSwappers[swap.service_url]
         if (!swapper) {
@@ -176,7 +178,7 @@ export class Swaps {
                 await this.storage.paymentStorage.FailInvoiceSwap(swapOpId, result.error)
                 this.log("invoice swap failed", { swapOpId, error: result.error })
             }
-        }, () => payAddress(swap.address, swap.transaction_amount)
+        }, () => payAddress(swap.address, swap.transaction_amount, satPerVByte)
             .then(res => { txId = res.txId })
             .catch(err => { close(); this.log("error paying address", err.message || err) }))
     }
@@ -233,7 +235,33 @@ export class Swaps {
         }
     }
 
-    private async getInvoiceSwapQuote(swapper: SubmarineSwaps, appUserId: string, invoice: string): Promise<Types.InvoiceSwapQuote> {
+    private async estimateChainFees(address: string, amount: number, feesReq?: Types.TxFeesReq): Promise<{ satPerVbyte: number, chainFeeSats: number }> {
+        if (!feesReq) {
+            return { satPerVbyte: 0, chainFeeSats: 0 }
+        }
+        const fees = feesReq.fees
+        if (fees.type === Types.TxFeesReq_fees_type.TARGET_CONF) {
+            const est = await this.lnd.EstimateChainFees(address, amount, fees.target_conf)
+            return { satPerVbyte: Number(est.satPerVbyte), chainFeeSats: Number(est.feeSat) }
+        }
+        if (fees.type === Types.TxFeesReq_fees_type.SAT_PER_V_BYTE) {
+            const est = await this.lnd.EstimateChainFees(address, amount, 1)
+            const estFeesSats = Number(est.feeSat)
+            const estRate = Number(est.satPerVbyte)
+            if (!estRate) {
+                throw new Error("unable to estimate chain fee rate")
+            }
+            if (estRate < fees.sat_per_v_byte) {
+                this.log("fee unecessarily high, estimate for next block: ", estRate, " requested: ", fees.sat_per_v_byte)
+            }
+            // NOTE: estimate calculated from rate can be inprecise around fee-bump boundaries
+            const estFee = Math.ceil(estFeesSats * fees.sat_per_v_byte / estRate)
+            return { satPerVbyte: fees.sat_per_v_byte, chainFeeSats: estFee }
+        }
+        throw new Error("invalid fees request")
+    }
+
+    private async getInvoiceSwapQuote(swapper: SubmarineSwaps, appUserId: string, invoice: string, fees: Types.TxFeesReq|undefined): Promise<Types.InvoiceSwapQuote> {
         const feesRes = await swapper.GetFees()
         if (!feesRes.ok) {
             throw new Error(feesRes.error)
@@ -245,6 +273,7 @@ export class Swaps {
         if (!res.ok) {
             throw new Error(res.error)
         }
+        const { satPerVbyte, chainFeeSats } = await this.estimateChainFees(res.createdResponse.address, res.createdResponse.expectedAmount, fees)
         const newSwap = await this.storage.paymentStorage.AddInvoiceSwap({
             app_user_id: appUserId,
             swap_quote_id: res.createdResponse.id,
@@ -256,7 +285,8 @@ export class Swaps {
             invoice_amount: amt,
             transaction_amount: res.createdResponse.expectedAmount,
             swap_fee_sats: fee,
-            chain_fee_sats: 0,
+            chain_fee_sats: chainFeeSats,
+            sat_per_v_byte: satPerVbyte,
             service_url: swapper.getHttpUrl(),
             address: res.createdResponse.address,
             claim_public_key: res.createdResponse.claimPublicKey,
@@ -268,7 +298,8 @@ export class Swaps {
             invoice_amount_sats: amt,
             address: res.createdResponse.address,
             transaction_amount_sats: res.createdResponse.expectedAmount,
-            chain_fee_sats: 0,
+            chain_fee_sats: chainFeeSats,
+            sat_per_v_byte: satPerVbyte,
             service_fee_sats: 0,
             service_url: swapper.getHttpUrl(),
             swap_fee_sats: fee,

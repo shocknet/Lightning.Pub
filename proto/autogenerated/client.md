@@ -1442,6 +1442,7 @@ The nostr server will send back a message response, and inside the body there wi
   - __invoice__: _string_
   - __invoice_amount_sats__: _number_
   - __paid_at_unix__: _number_
+  - __sat_per_v_byte__: _number_
   - __service_fee_sats__: _number_
   - __service_url__: _string_
   - __swap_fee_sats__: _number_
@@ -1454,6 +1455,7 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### InvoiceSwapRequest
   - __amount_sats__: _number_
+  - __fees_req__: _[TxFeesReq](#TxFeesReq)_ *this field is optional
 
 ### InvoiceSwapsList
   - __current_block_height__: _number_
@@ -1692,7 +1694,7 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### PayAdminInvoiceSwapRequest
   - __no_claim__: _boolean_ *this field is optional
-  - __sat_per_v_byte__: _number_
+  - __sat_per_v_byte__: _number_ *this field is optional
   - __swap_operation_id__: _string_
 
 ### PayAdminTransactionSwapRequest
@@ -1849,6 +1851,9 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### TransactionSwapRequest
   - __transaction_amount_sats__: _number_
+
+### TxFeesReq
+  - __fees__: _[TxFeesReq_fees](#TxFeesReq_fees)_
 
 ### TxSwapOperation
   - __address_paid__: _string_ *this field is optional
