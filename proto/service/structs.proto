@@ -1031,8 +1031,16 @@ message MessagingToken {
     string firebase_messaging_token = 2;
 }
 
+message TxFeesReq {
+    oneof fees {
+        int64 sat_per_v_byte = 1;
+        int64 target_conf = 2;
+    }
+}
+
 message InvoiceSwapRequest {
     int64 amount_sats = 1;
+    optional TxFeesReq fees_req = 2;
 }
 
 message InvoiceSwapQuote {
@@ -1048,6 +1056,7 @@ message InvoiceSwapQuote {
     string tx_id = 10;
     int64 paid_at_unix = 11;
     int64 expires_at_block_height = 12;
+    int64 sat_per_v_byte = 13;
 }
 
 message InvoiceSwapQuoteList {
@@ -1077,7 +1086,7 @@ message RefundAdminInvoiceSwapRequest {
 
 message PayAdminInvoiceSwapRequest {
     string swap_operation_id = 1;
-    int64 sat_per_v_byte = 2;
+    optional int64 sat_per_v_byte = 2;
     optional bool no_claim = 3;
 }
 

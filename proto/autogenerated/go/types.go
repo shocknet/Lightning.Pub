@@ -419,6 +419,7 @@ type InvoiceSwapQuote struct {
 	Invoice                 string `json:"invoice"`
 	Invoice_amount_sats     int64  `json:"invoice_amount_sats"`
 	Paid_at_unix            int64  `json:"paid_at_unix"`
+	Sat_per_v_byte          int64  `json:"sat_per_v_byte"`
 	Service_fee_sats        int64  `json:"service_fee_sats"`
 	Service_url             string `json:"service_url"`
 	Swap_fee_sats           int64  `json:"swap_fee_sats"`
@@ -430,7 +431,8 @@ type InvoiceSwapQuoteList struct {
 	Quotes []InvoiceSwapQuote `json:"quotes"`
 }
 type InvoiceSwapRequest struct {
-	Amount_sats int64 `json:"amount_sats"`
+	Amount_sats int64      `json:"amount_sats"`
+	Fees_req    *TxFeesReq `json:"fees_req"`
 }
 type InvoiceSwapsList struct {
 	Current_block_height int64                  `json:"current_block_height"`
@@ -878,6 +880,9 @@ type TransactionSwapQuoteList struct {
 type TransactionSwapRequest struct {
 	Transaction_amount_sats int64 `json:"transaction_amount_sats"`
 }
+type TxFeesReq struct {
+	Fees *TxFeesReq_fees `json:"fees"`
+}
 type TxSwapOperation struct {
 	Address_paid      string                `json:"address_paid"`
 	Failure_reason    string                `json:"failure_reason"`
@@ -1055,6 +1060,18 @@ type PushNotificationPayload_data struct {
 	Type               PushNotificationPayload_data_type `json:"type"`
 	Received_operation *UserOperation                    `json:"received_operation"`
 	Sent_operation     *UserOperation                    `json:"sent_operation"`
+}
+type TxFeesReq_fees_type string
+
+const (
+	SAT_PER_V_BYTE TxFeesReq_fees_type = "sat_per_v_byte"
+	TARGET_CONF    TxFeesReq_fees_type = "target_conf"
+)
+
+type TxFeesReq_fees struct {
+	Type           TxFeesReq_fees_type `json:"type"`
+	Sat_per_v_byte *int64              `json:"sat_per_v_byte"`
+	Target_conf    *int64              `json:"target_conf"`
 }
 type UpdateChannelPolicyRequest_update_type string
 
