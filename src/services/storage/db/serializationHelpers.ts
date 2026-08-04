@@ -10,7 +10,9 @@ type SerializedFindOperator = {
 export function serializeFindOperator(operator: FindOperator<any>): SerializedFindOperator {
     let value: any;
     if (Array.isArray(operator['value']) && operator['type'] !== 'between') {
-        value = operator['value'].map(serializeFindOperator);
+        value = operator['value'].map(item =>
+            item instanceof FindOperator ? serializeFindOperator(item) : item
+        );
     } else if ((operator as any).child !== undefined) {
         // Not(IsNull()) etc.: TypeORM's .value getter unwraps nested FindOperators, so we'd lose the inner operator. Use .child to serialize the nested operator.
         value = serializeFindOperator((operator as any).child);

@@ -45,7 +45,8 @@ export class InvoiceSwap {
     @Column()
     chain_fee_sats: number
 
-
+    @Column({ default: 0 })
+    sat_per_v_byte: number
 
     @Column()
     ephemeral_public_key: string

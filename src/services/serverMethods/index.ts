@@ -119,7 +119,13 @@ export default (mainHandler: Main): Types.ServerMethods => {
         },
         GetAdminInvoiceSwapQuotes: async ({ ctx, req }) => {
             const err = Types.InvoiceSwapRequestValidate(req, {
-                amount_sats_CustomCheck: amt => amt > 0
+                amount_sats_CustomCheck: amt => amt > 0,
+                fees_req_Options: {
+                    fees_Options: {
+                        sat_per_v_byte_CustomCheck: spv => spv > 0,
+                        target_conf_CustomCheck: conf => conf > 0,
+                    }
+                }
             })
             if (err != null) throw new Error(err.message)
             return mainHandler.adminManager.GetAdminInvoiceSwapQuotes(req)
@@ -144,6 +150,9 @@ export default (mainHandler: Main): Types.ServerMethods => {
         GetAssetsAndLiabilities: async ({ ctx, req }) => {
             return mainHandler.adminManager.GetAssetsAndLiabilities(req)
         },
+        GetAssetsAndLiabilitiesV2: async ({ ctx, req }) => {
+            return mainHandler.adminManager.GetAssetsAndLiabilitiesV2(req)
+        },
         GetProvidersDisruption: async () => {
             return mainHandler.metricsManager.GetProvidersDisruption()
         },
@@ -161,6 +170,13 @@ export default (mainHandler: Main): Types.ServerMethods => {
             })
             if (err != null) throw new Error(err.message)
             return mainHandler.appUserManager.BanUser(req.user_id)
+        },
+        GetUsersAdminInfo: async ({ ctx, req }) => {
+            return mainHandler.appUserManager.GetUsersAdminInfo(req)
+        },
+        GetUserOperationsFromAdmin: async ({ req }) => {
+            if (!req.user_id) throw new Error("user_id is required")
+            return mainHandler.paymentManager.GetUserOperations(req.user_id, req, true)
         },
         GetSeed: async ({ ctx }) => {
             return mainHandler.unlocker.GetSeed()
@@ -181,7 +197,9 @@ export default (mainHandler: Main): Types.ServerMethods => {
             return mainHandler.appUserManager.UpdateCallbackUrl(ctx, req)
         },
         GetUserOperations: async ({ ctx, req }) => {
-            return mainHandler.paymentManager.GetUserOperations(ctx.user_id, req)
+            const sanitizedReq = { ...req }
+            delete sanitizedReq.user_id
+            return mainHandler.paymentManager.GetUserOperations(ctx.user_id, sanitizedReq)
         },
 
         GetPaymentState: async ({ ctx, req }) => {
@@ -227,20 +245,20 @@ export default (mainHandler: Main): Types.ServerMethods => {
         },
         GetLnurlWithdrawLink: ({ ctx }) => mainHandler.paymentManager.GetLnurlWithdrawLink(ctx),
         GetLnurlWithdrawInfo: async ({ ctx, query }) => {
-            if (!query.k1) {
+            if (!query.k1 || typeof query.k1 !== 'string') {
                 throw new Error("invalid lnurl withdraw to get info")
             }
             return mainHandler.paymentManager.GetLnurlWithdrawInfo(query.k1)
         },
         HandleLnurlWithdraw: async ({ query }) => {
-            if (!query.k1 || !query.pr) {
+            if (!query.k1 || !query.pr || typeof query.k1 !== 'string' || typeof query.pr !== 'string') {
                 throw new Error("invalid lnurl withdraw to handle")
             }
             return mainHandler.paymentManager.HandleLnurlWithdraw(query.k1, query.pr)
         },
         GetLnurlPayLink: ({ ctx }) => mainHandler.paymentManager.GetLnurlPayLink(ctx),
         GetLnurlPayInfo: async ({ ctx, query }) => {
-            if (!query.k1) {
+            if (!query.k1 || typeof query.k1 !== 'string') {
                 throw new Error("invalid lnurl pay to get info")
             }
             return mainHandler.paymentManager.GetLnurlPayInfo(query.k1)
@@ -258,7 +276,7 @@ export default (mainHandler: Main): Types.ServerMethods => {
             return mainHandler.productManager.AddProduct(ctx.user_id, req)
         },
         NewProductInvoice: async ({ query }) => {
-            if (!query.id) {
+            if (!query.id || typeof query.id !== 'string') {
                 throw new Error("product id must be non empty")
             }
             return mainHandler.productManager.NewProductInvoice(query.id)
@@ -356,9 +374,9 @@ export default (mainHandler: Main): Types.ServerMethods => {
         },
         GetLiveDebitRequests: async ({ ctx }) => { },
         GetLiveManageRequests: async ({ ctx }) => { },
-        GetLiveUserOperations: async ({ ctx, cb }) => {
+        GetLiveUserOperations: async ({ ctx }) => {
         },
-        GetMigrationUpdate: async ({ ctx, cb }) => {
+        GetMigrationUpdate: async ({ ctx }) => {
         },
         GetNPubLinkingState: async ({ ctx, req }) => {
             const err = Types.GetNPubLinkingValidate(req, {

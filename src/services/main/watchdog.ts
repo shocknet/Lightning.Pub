@@ -146,7 +146,11 @@ export class Watchdog {
         const pb = await this.rugPullTracker.CheckProviderBalance()
         const providerBalance = pb.prevBalance || pb.balance
         const { newReceived, newSpent, pendingChange } = await this.handleRootOperations()
-        const opsTotal = newReceived + pendingChange - newSpent
+        // Root ops move LND without touching user balances. Neutralize them so watchdog
+        // doesn't treat admin spend/receive as unexplained drift vs users:
+        // LND already reflects the move, so add spent back and subtract received.
+        // pendingChange restores unconfirmed change outputs excluded from confirmed wallet balance.
+        const opsTotal = newSpent + pendingChange - newReceived
         return { totalExternal: totalLndBalance + providerBalance + feesPaidForLiquidity + opsTotal }
     }
 
