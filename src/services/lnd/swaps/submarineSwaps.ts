@@ -3,7 +3,7 @@ const zkpInit = (secp256k1ZkpModule as any).default || secp256k1ZkpModule;
 // import bolt11 from 'bolt11';
 import {
     Musig, SwapTreeSerializer, TaprootUtils, constructRefundTransaction,
-    detectSwap, OutputType, targetFee
+    detectSwap, OutputType, targetFee, swapTree, compareTrees, Scripts
 } from 'boltz-core';
 import { randomBytes, createHash } from 'crypto';
 import { ECPairFactory, ECPairInterface } from 'ecpair';
@@ -28,7 +28,7 @@ import { BTCNetwork } from '../../main/settings.js';
     }
 } */
 
-type InvoiceSwapFees = {
+export type InvoiceSwapFees = {
     percentage: number,
     minerFees: number,
 }
@@ -41,11 +41,17 @@ type InvoiceSwapFeesRes = {
     }
 }
 type InvoiceSwapResponse = {
-    id: string, claimPublicKey: string, swapTree: string, timeoutBlockHeight: number,
+    id: string, claimPublicKey: string, swapTree: string | { claimLeaf: { version: number, output: string }, refundLeaf: { version: number, output: string } }, timeoutBlockHeight: number,
     expectedAmount: number, address: string
 }
 type InvoiceSwapInfo = { paymentHash: string, keys: ECPairInterface }
 export type InvoiceSwapData = { createdResponse: InvoiceSwapResponse, info: InvoiceSwapInfo }
+
+/** Boltz submarine: amountToSend = invoice + ceil(invoice * pct) + claim miner fee */
+export const calculateSubmarineLockupAmount = (invoiceAmountSats: number, fees: InvoiceSwapFees): number => {
+    const percentageFee = Math.ceil((fees.percentage / 100) * invoiceAmountSats)
+    return invoiceAmountSats + percentageFee + fees.minerFees
+}
 
 export class SubmarineSwaps {
     private httpUrl: string
@@ -100,6 +106,98 @@ export class SubmarineSwaps {
             privKey: Buffer.from(keys.privateKey).toString('hex')
         }
 
+    }
+
+    /**
+     * Verify untrusted swap-service quote fields before any on-chain spend.
+     * Checks expectedAmount against a locally computed lockup amount, that
+     * swapTree matches a tree built from our payment hash / refund key, and
+     * that the lockup address derives from that tree.
+     */
+    VerifySubmarineQuote = async (params: {
+        paymentHashHex: string
+        refundPrivateKeyHex: string
+        expectedLockupAmount: number
+        created: InvoiceSwapResponse
+    }): Promise<{ ok: true } | { ok: false, error: string }> => {
+        const { paymentHashHex, refundPrivateKeyHex, expectedLockupAmount, created } = params
+
+        if (!Number.isFinite(created.expectedAmount) || created.expectedAmount <= 0) {
+            return { ok: false, error: 'invalid expectedAmount from swap service' }
+        }
+        if (created.expectedAmount !== expectedLockupAmount) {
+            return {
+                ok: false,
+                error: `expectedAmount mismatch: got ${created.expectedAmount}, want ${expectedLockupAmount}`,
+            }
+        }
+        if (!Number.isFinite(created.timeoutBlockHeight) || created.timeoutBlockHeight <= 0) {
+            return { ok: false, error: 'invalid timeoutBlockHeight from swap service' }
+        }
+        if (!created.claimPublicKey || !created.address || !created.swapTree) {
+            return { ok: false, error: 'incomplete swap quote from swap service' }
+        }
+
+        let refundKeys: ECPairInterface
+        try {
+            refundKeys = ECPairFactory(ecc).fromPrivateKey(Buffer.from(refundPrivateKeyHex, 'hex'))
+        } catch (err: any) {
+            return { ok: false, error: `invalid refund private key: ${err.message}` }
+        }
+
+        let claimPublicKey: Buffer
+        let paymentHash: Buffer
+        try {
+            claimPublicKey = Buffer.from(created.claimPublicKey, 'hex')
+            paymentHash = Buffer.from(paymentHashHex, 'hex')
+            if (claimPublicKey.length !== 33) {
+                return { ok: false, error: 'invalid claimPublicKey length' }
+            }
+            if (paymentHash.length !== 32) {
+                return { ok: false, error: 'invalid payment hash length' }
+            }
+        } catch (err: any) {
+            return { ok: false, error: `invalid hex in quote fields: ${err.message}` }
+        }
+
+        const localTree = swapTree(
+            false,
+            paymentHash,
+            claimPublicKey,
+            Buffer.from(refundKeys.publicKey),
+            created.timeoutBlockHeight,
+        )
+
+        let remoteTree
+        try {
+            remoteTree = SwapTreeSerializer.deserializeSwapTree(created.swapTree)
+        } catch (err: any) {
+            return { ok: false, error: `failed to deserialize swapTree: ${err.message}` }
+        }
+
+        if (!compareTrees(localTree, remoteTree)) {
+            return { ok: false, error: 'swapTree does not match locally derived tree' }
+        }
+
+        try {
+            const musig = new Musig(await zkpInit(), refundKeys, randomBytes(32), [
+                claimPublicKey,
+                Buffer.from(refundKeys.publicKey),
+            ])
+            const tweakedKey = TaprootUtils.tweakMusig(musig, localTree.tree)
+            const network = getNetwork(this.network)
+            const derivedAddress = address.fromOutputScript(Scripts.p2trOutput(tweakedKey), network)
+            if (derivedAddress !== created.address) {
+                return {
+                    ok: false,
+                    error: `address mismatch: got ${created.address}, derived ${derivedAddress}`,
+                }
+            }
+        } catch (err: any) {
+            return { ok: false, error: `failed to derive lockup address: ${err.message}` }
+        }
+
+        return { ok: true }
     }
 
     /**
@@ -431,9 +529,18 @@ export class SubmarineSwaps {
                 done('WebSocket closed before swap was done')
             }
         })
+        let txRequested = false
+        const requestTx = () => {
+            if (txRequested) {
+                this.log('Tx already requested')
+                return
+            }
+            txRequested = true
+            waitingTx()
+        }
         webSocket.on('message', async (rawMsg) => {
             try {
-                await this.handleSwapInvoiceMessage(rawMsg, data, done, waitingTx)
+                await this.handleSwapInvoiceMessage(rawMsg, data, done, requestTx)
             } catch (err: any) {
                 this.log(ERROR, 'Error handling invoice WebSocket message', err.message)
                 done(err.message)

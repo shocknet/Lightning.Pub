@@ -7,7 +7,7 @@ import Storage from '../../storage/index.js';
 import LND from '../lnd.js';
 import { UserInvoicePayment } from '../../storage/entity/UserInvoicePayment.js';
 import { ReverseSwaps, TransactionSwapData } from './reverseSwaps.js';
-import { SubmarineSwaps, InvoiceSwapData } from './submarineSwaps.js';
+import { SubmarineSwaps, calculateSubmarineLockupAmount } from './submarineSwaps.js';
 import { InvoiceSwap } from '../../storage/entity/InvoiceSwap.js';
 import { TransactionSwap } from '../../storage/entity/TransactionSwap.js';
 
@@ -164,11 +164,21 @@ export class Swaps {
         if (!swapper) {
             throw new Error("swapper service not found")
         }
+        const expectedLockupAmount = swap.invoice_amount + swap.swap_fee_sats
+        const data = this.getInvoiceSwapData(swap)
+        const verified = await swapper.VerifySubmarineQuote({
+            paymentHashHex: swap.payment_hash,
+            refundPrivateKeyHex: swap.ephemeral_private_key,
+            expectedLockupAmount,
+            created: data.createdResponse,
+        })
+        if (!verified.ok) {
+            throw new Error(`swap quote failed verification before pay: ${verified.error}`)
+        }
         if (this.waitingSwaps[swapOpId]) {
             throw new Error("swap already in progress")
         }
         this.waitingSwaps[swapOpId] = true
-        const data = this.getInvoiceSwapData(swap)
         let txId = ""
         const close = swapper.SubscribeToInvoiceSwap(data, async (result) => {
             if (result.ok) {
@@ -268,10 +278,20 @@ export class Swaps {
         }
         const decoded = await this.lnd.DecodeInvoice(invoice)
         const amt = decoded.numSatoshis
-        const fee = Math.ceil((feesRes.fees.percentage / 100) * amt) + feesRes.fees.minerFees
+        const expectedLockupAmount = calculateSubmarineLockupAmount(amt, feesRes.fees)
+        const fee = expectedLockupAmount - amt
         const res = await swapper.SwapInvoice(invoice)
         if (!res.ok) {
             throw new Error(res.error)
+        }
+        const verified = await swapper.VerifySubmarineQuote({
+            paymentHashHex: decoded.paymentHash,
+            refundPrivateKeyHex: res.privKey,
+            expectedLockupAmount,
+            created: res.createdResponse,
+        })
+        if (!verified.ok) {
+            throw new Error(verified.error)
         }
         const { satPerVbyte, chainFeeSats } = await this.estimateChainFees(res.createdResponse.address, res.createdResponse.expectedAmount, fees)
         const newSwap = await this.storage.paymentStorage.AddInvoiceSwap({
@@ -457,10 +477,11 @@ export class Swaps {
         try {
             await this.storage.paymentStorage.SetTransactionSwapPaid(swapOpId)
             await payInvoice(txSwap.invoice, txSwap.invoice_amount)
-            if (!swapResult.ok) {
+            if (!swapResult.ok || !swapResult.txId) {
+                const error = !swapResult.ok ? swapResult.error : "swap completed without claim txId"
                 this.log("invoice payment successful, but swap failed")
-                await this.storage.paymentStorage.FailTransactionSwap(swapOpId, address, swapResult.error)
-                throw new Error(swapResult.error)
+                await this.storage.paymentStorage.FailTransactionSwap(swapOpId, address, error)
+                throw new Error(error)
             }
             this.log("swap completed successfully")
             await this.storage.paymentStorage.FinalizeTransactionSwap(swapOpId, address, swapResult.txId)
