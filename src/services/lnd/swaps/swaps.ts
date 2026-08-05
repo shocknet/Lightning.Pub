@@ -7,7 +7,7 @@ import Storage from '../../storage/index.js';
 import LND from '../lnd.js';
 import { UserInvoicePayment } from '../../storage/entity/UserInvoicePayment.js';
 import { ReverseSwaps, TransactionSwapData } from './reverseSwaps.js';
-import { SubmarineSwaps, InvoiceSwapData, calculateSubmarineLockupAmount } from './submarineSwaps.js';
+import { SubmarineSwaps, calculateSubmarineLockupAmount } from './submarineSwaps.js';
 import { InvoiceSwap } from '../../storage/entity/InvoiceSwap.js';
 import { TransactionSwap } from '../../storage/entity/TransactionSwap.js';
 
