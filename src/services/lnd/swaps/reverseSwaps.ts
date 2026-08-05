@@ -131,6 +131,9 @@ export class ReverseSwaps {
             webSocket.close()
             if (failureReason) {
                 swapDone({ ok: false, error: failureReason })
+            } else if (!txId) {
+                // Never report success without a validated on-chain claim tx
+                swapDone({ ok: false, error: 'swap settled without a validated on-chain claim' })
             } else {
                 swapDone({ ok: true, txId })
             }
@@ -149,10 +152,10 @@ export class ReverseSwaps {
         })
         webSocket.on('message', async (rawMsg) => {
             try {
-                const result = await this.handleSwapTransactionMessage(rawMsg, data, done)
-                if (result) {
-                    txId = result
-                }
+                await this.handleSwapTransactionMessage(rawMsg, data, done, {
+                    getClaimTxId: () => txId,
+                    setClaimTxId: (id: string) => { txId = id },
+                })
             } catch (err: any) {
                 this.log(ERROR, 'Error handling transaction WebSocket message', err.message)
                 done(err.message)
@@ -161,7 +164,12 @@ export class ReverseSwaps {
         })
     }
 
-    handleSwapTransactionMessage = async (rawMsg: ws.RawData, data: TransactionSwapData, done: (failureReason?: string) => void) => {
+    handleSwapTransactionMessage = async (
+        rawMsg: ws.RawData,
+        data: TransactionSwapData,
+        done: (failureReason?: string) => void,
+        claim: { getClaimTxId: () => string, setClaimTxId: (txId: string) => void },
+    ) => {
         const msg = JSON.parse(rawMsg.toString('utf-8'));
         if (msg.event !== 'update') {
             return;
@@ -181,8 +189,14 @@ export class ReverseSwaps {
                 if (!txIdRes.ok) {
                     throw new Error(txIdRes.error)
                 }
-                return txIdRes.txId
+                // Record claim tx before any later invoice.settled can succeed
+                claim.setClaimTxId(txIdRes.txId)
+                return
             case 'invoice.settled':
+                if (!claim.getClaimTxId()) {
+                    done(`swap ${data.createdResponse.id} settled without a validated on-chain claim`)
+                    return
+                }
                 this.log('Transaction swap successful');
                 done()
                 return;

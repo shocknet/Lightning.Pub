@@ -12,7 +12,7 @@ import {
     debitAccessRulesToDebitRules, newNdebitResponse, debitRulesToDebitAccessRules,
     nofferErrors, k1AlreadyProcessedReason, AuthRequiredRes, HandleNdebitRes, expirationRuleName,
     frequencyRuleName, IntervalTypeToSeconds, unitToIntervalType, ndebitFailure,
-    ValidateAccessRulesResult,
+    ValidateAccessRulesResult, DebitFrequencyCapError, AssertDebitFrequency,
 } from "./debitTypes.js";
 import PaymentManager from "./paymentManager.js";
 
@@ -137,7 +137,7 @@ export class DebitManager {
             this.notifyPaymentSuccess(debitRes, { appId: ctx.app_id, pub: npub, id: request_id })
         } catch (e: any) {
             this.logger("❌ [DEBIT REQUEST] Error in single invoice payment")
-            this.sendDebitResponse({ res: 'GFY', error: nofferErrors[1], code: 1 }, { pub: npub, id: request_id, appId: ctx.app_id })
+            this.sendDebitResponse(this.debitFailureFromError(e), { pub: npub, id: request_id, appId: ctx.app_id })
             throw e
         }
     }
@@ -176,7 +176,7 @@ export class DebitManager {
             this.notifyPaymentSuccess(debitRes, { appId: ctx.app_id, pub: npub, id: request_id })
         } catch (e: any) {
             this.logger("❌ [DEBIT REQUEST] Error in debit authorization")
-            this.sendDebitResponse({ res: 'GFY', error: nofferErrors[1], code: 1 }, { pub: npub, id: request_id, appId: ctx.app_id })
+            this.sendDebitResponse(this.debitFailureFromError(e), { pub: npub, id: request_id, appId: ctx.app_id })
             throw e
         }
 
@@ -234,8 +234,15 @@ export class DebitManager {
         } catch (e: any) {
             this.logger("❌ [DEBIT ERROR] Error in debit request")
             this.logger(ERROR, e.message || e)
-            return { status: 'fail', debitRes: { res: 'GFY', error: nofferErrors[1], code: 1 } }
+            return { status: 'fail', debitRes: this.debitFailureFromError(e) }
         }
+    }
+
+    debitFailureFromError = (e: any) => {
+        if (e instanceof DebitFrequencyCapError) {
+            return ndebitFailure(5, { max: e.cap })
+        }
+        return { res: 'GFY' as const, error: nofferErrors[1], code: 1 }
     }
 
     doNdebit = async (event: NostrEvent, pointerdata: NdebitData): Promise<HandleNdebitRes> => {
@@ -351,9 +358,52 @@ export class DebitManager {
     }
 
     sendDebitPayment = async (appId: string, appUserId: string, requestorPub: string, bolt11: string) => {
-        const payment = await this.applicationManager.PayAppUserInvoice(appId, { amount: 0, invoice: bolt11, user_identifier: appUserId, debit_npub: requestorPub })
+        const assertDebitFrequency: AssertDebitFrequency = async ({ userId, payAmount, serviceFee, txId }) => {
+            const access = await this.storage.debitStorage.GetDebitAccess(appUserId, requestorPub, txId)
+            // One-off invoice payments may have no debit access / frequency rule
+            if (!access?.authorized || !access.rules?.[frequencyRuleName]) {
+                return
+            }
+            const result = await this.checkFrequencyCap(access, userId, payAmount, serviceFee, txId)
+            if (!result.ok) {
+                this.logger("frequency cap exceeded (in-tx)", { total: result.total, cap: result.cap, amt: payAmount })
+                throw new DebitFrequencyCapError(result.cap, result.total)
+            }
+        }
+        const payment = await this.applicationManager.PayAppUserInvoice(
+            appId,
+            { amount: 0, invoice: bolt11, user_identifier: appUserId, debit_npub: requestorPub },
+            { assertDebitFrequency },
+        )
         await this.storage.debitStorage.IncrementDebitAccess(appUserId, requestorPub, payment.amount_paid + payment.service_fee)
         return { payment }
+    }
+
+    checkFrequencyCap = async (
+        access: DebitAccess,
+        userId: string,
+        amountSats: number,
+        serviceFee: number,
+        txId?: string,
+    ): Promise<{ ok: true } | { ok: false, cap: number, total: number }> => {
+        const { rules } = access
+        if (!rules?.[frequencyRuleName]) {
+            return { ok: true }
+        }
+        const [number, unit, max] = rules[frequencyRuleName]
+        const intervalType = unitToIntervalType(unit as RecurringDebitTimeUnit)
+        const seconds = IntervalTypeToSeconds(intervalType) * (+number)
+        const sinceUnix = Math.floor(Date.now() / 1000) - seconds
+        const payments = await this.storage.paymentStorage.GetUserDebitPayments(userId, sinceUnix, access.npub, txId)
+        let total = amountSats + serviceFee
+        for (const payment of payments) {
+            total += payment.paid_amount + payment.service_fees
+        }
+        const cap = +max
+        if (total > cap) {
+            return { ok: false, cap, total }
+        }
+        return { ok: true }
     }
 
     validateAccessRules = async (access: DebitAccess, app: Application, appUser: ApplicationUser, bolt11: string): Promise<ValidateAccessRulesResult> => {
@@ -376,19 +426,10 @@ export class DebitManager {
         if (rules[frequencyRuleName]) {
             const isManaged = app.owner.user_id !== appUser.user.user_id
             const expectedFee = this.paymentManager.getSendServiceFee(Types.UserOperationType.OUTGOING_INVOICE, amt, isManaged)
-            const [number, unit, max] = rules[frequencyRuleName]
-            const intervalType = unitToIntervalType(unit as RecurringDebitTimeUnit)
-            const seconds = IntervalTypeToSeconds(intervalType) * (+number)
-            const sinceUnix = Math.floor(Date.now() / 1000) - seconds
-            const payments = await this.storage.paymentStorage.GetUserDebitPayments(appUser.user.user_id, sinceUnix, access.npub)
-            let total = amt + expectedFee
-            for (const payment of payments) {
-                total += payment.paid_amount + payment.service_fees
-            }
-            const cap = +max
-            if (total > cap) {
-                this.logger("frequency cap exceeded", { total, cap, amt, paymentCount: payments.length })
-                return { ok: false, failure: ndebitFailure(5, { max: cap }) }
+            const result = await this.checkFrequencyCap(access, appUser.user.user_id, amt, expectedFee)
+            if (!result.ok) {
+                this.logger("frequency cap exceeded", { total: result.total, cap: result.cap, amt })
+                return { ok: false, failure: ndebitFailure(5, { max: result.cap }) }
             }
         }
         return { ok: true }
