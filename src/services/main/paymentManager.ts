@@ -23,6 +23,7 @@ import { Transaction, OutputDetail } from '../../../proto/lnd/lightning.js'
 import { LndAddress } from '../lnd/lnd.js'
 import Metrics from '../metrics/index.js'
 import { TxPointSettings } from '../storage/tlv/stateBundler.js'
+import { clampPageLimit, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from '../helpers/pageLimit.js'
 import { PaymentSideEffects } from './paymentSideEffects.js'
 import { AssertDebitFrequency } from './debitTypes.js'
 
@@ -1003,8 +1004,11 @@ export default class {
             throw new Error("amount out of range")
         }
         let zapInfo: ZapInfo | undefined
-        if (ctx.nostr) {
+        if (ctx.nostr && typeof ctx.nostr === 'string') {
             zapInfo = this.validateZapEvent(ctx.nostr, amountMillis)
+        }
+        if (typeof ctx.k1 !== 'string') {
+            throw new Error("invalid k1 in lnurl pay to handle")
         }
         const key = await this.storage.paymentStorage.UseUserEphemeralKey(ctx.k1, 'pay', true)
         const sats = amountMillis / 1000
@@ -1119,18 +1123,19 @@ export default class {
         }
     }
 
-    async GetUserOperations(userId: string, req: Types.GetUserOperationsRequest): Promise<Types.GetUserOperationsResponse> {
+    async GetUserOperations(userId: string, req: Types.GetUserOperationsRequest, admin: boolean = false): Promise<Types.GetUserOperationsResponse> {
         const user = await this.storage.userStorage.GetUser(userId)
-        if (user.locked) {
+        if (user.locked && !admin) {
             throw new Error("user is banned, cannot retrieve operations")
         }
+        const maxSize = admin ? clampPageLimit(req.max_size, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE) : req.max_size
         const [outgoingInvoices, outgoingTransactions, incomingInvoices, incomingTransactions, incomingUserToUser, outgoingUserToUser] = await Promise.all([
-            this.storage.paymentStorage.GetUserInvoicePayments(userId, req.latestOutgoingInvoice.id, req.max_size), //
-            this.storage.paymentStorage.GetUserTransactionPayments(userId, req.latestOutgoingTx.id, req.max_size),
-            this.storage.paymentStorage.GetUserInvoicesFlaggedAsPaid(user.serial_id, req.latestIncomingInvoice.id, req.latestIncomingInvoice.ts, req.max_size),
-            this.storage.paymentStorage.GetUserReceivingTransactions(userId, req.latestIncomingTx.id, req.max_size),
-            this.storage.paymentStorage.GetUserToUserReceivedPayments(userId, req.latestIncomingUserToUserPayment.id, req.max_size),
-            this.storage.paymentStorage.GetUserToUserSentPayments(userId, req.latestOutgoingUserToUserPayment.id, req.max_size)
+            this.storage.paymentStorage.GetUserInvoicePayments(userId, req.latestOutgoingInvoice.id, maxSize), //
+            this.storage.paymentStorage.GetUserTransactionPayments(userId, req.latestOutgoingTx.id, maxSize),
+            this.storage.paymentStorage.GetUserInvoicesFlaggedAsPaid(user.serial_id, req.latestIncomingInvoice.id, req.latestIncomingInvoice.ts, maxSize),
+            this.storage.paymentStorage.GetUserReceivingTransactions(userId, req.latestIncomingTx.id, maxSize),
+            this.storage.paymentStorage.GetUserToUserReceivedPayments(userId, req.latestIncomingUserToUserPayment.id, maxSize),
+            this.storage.paymentStorage.GetUserToUserSentPayments(userId, req.latestOutgoingUserToUserPayment.id, maxSize)
         ])
         return {
             latestIncomingInvoiceOperations: this.mapOperations(incomingInvoices, Types.UserOperationType.INCOMING_INVOICE, true),
@@ -1138,7 +1143,8 @@ export default class {
             latestOutgoingInvoiceOperations: this.mapOperations(outgoingInvoices, Types.UserOperationType.OUTGOING_INVOICE, false),
             latestOutgoingTxOperations: this.mapOperations(outgoingTransactions, Types.UserOperationType.OUTGOING_TX, false),
             latestIncomingUserToUserPayemnts: this.mapOperations(incomingUserToUser, Types.UserOperationType.INCOMING_USER_TO_USER, true),
-            latestOutgoingUserToUserPayemnts: this.mapOperations(outgoingUserToUser, Types.UserOperationType.OUTGOING_USER_TO_USER, false)
+            latestOutgoingUserToUserPayemnts: this.mapOperations(outgoingUserToUser, Types.UserOperationType.OUTGOING_USER_TO_USER, false),
+            user_id: userId
         }
     }
 
