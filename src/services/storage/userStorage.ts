@@ -76,8 +76,8 @@ export default class {
     }
 
     async IncrementUserBalanceInTx(userId: string, increment: number, reason: string, txId: string) {
-        if (increment < 0) {
-            throw new Error("increment cannot be negative")
+        if (!Number.isSafeInteger(increment) || increment < 0) {
+            throw new Error("increment must be a non-negative integer number of sats")
         }
         const user = await this.GetUser(userId, txId)
         const affected = await this.dbs.Increment<User>('User', { user_id: userId, balance_sats: user.balance_sats }, "balance_sats", increment, txId)
@@ -100,8 +100,8 @@ export default class {
     }
 
     async DecrementUserBalanceInTx(userId: string, decrement: number, reason: string, txId: string) {
-        if (decrement < 0) {
-            throw new Error("decrement cannot be negative")
+        if (!Number.isSafeInteger(decrement) || decrement < 0) {
+            throw new Error("decrement must be a non-negative integer number of sats")
         }
         const user = await this.GetUser(userId, txId)
         if (!user || user.balance_sats < decrement) {
