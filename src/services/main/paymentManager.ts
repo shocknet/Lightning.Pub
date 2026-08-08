@@ -591,8 +591,10 @@ export default class {
         } catch (err: any) {
             const confirmedFailed = await this.isOutgoingPaymentConfirmedFailed(invoice, use === 'provider')
             if (confirmedFailed) {
-                await this.storage.userStorage.IncrementUserBalance(userId, totalAmountToDecrement, "payment_refund:" + invoice)
-                await this.storage.paymentStorage.UpdateExternalPayment(pendingPayment.serial_id, 0, 0, false)
+                await this.storage.StartTransaction(async tx => {
+                    await this.storage.userStorage.IncrementUserBalance(userId, totalAmountToDecrement, "payment_refund:" +invoice, tx)
+                    await this.storage.paymentStorage.UpdateExternalPayment(pendingPayment.serial_id, 0, 0, false, undefined, tx)
+                }, "refund failed pending payment")
             } else {
                 this.log(ERROR, "payment attempt errored without confirmed failure, leaving pending", pendingPayment.serial_id, err)
             }

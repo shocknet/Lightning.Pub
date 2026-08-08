@@ -12,7 +12,7 @@ import {
     debitAccessRulesToDebitRules, newNdebitResponse, debitRulesToDebitAccessRules,
     nofferErrors, k1AlreadyProcessedReason, AuthRequiredRes, HandleNdebitRes, expirationRuleName,
     frequencyRuleName, IntervalTypeToSeconds, unitToIntervalType, ndebitFailure,
-    ValidateAccessRulesResult, DebitFrequencyCapError, AssertDebitFrequency,
+    ValidateAccessRulesResult, DebitFrequencyCapError, DebitUnauthorizedError, AssertDebitFrequency,
 } from "./debitTypes.js";
 import PaymentManager from "./paymentManager.js";
 
@@ -132,7 +132,9 @@ export class DebitManager {
     paySingleInvoice = async (ctx: Types.UserContext, { invoice, npub, request_id }: { invoice: string, npub: string, request_id: string }) => {
         try {
             this.logger("🔍 [DEBIT REQUEST] Paying single invoice")
-            const { payment } = await this.sendDebitPayment(ctx.app_id, ctx.app_user_id, npub, invoice)
+            const { payment } = await this.sendDebitPayment(ctx.app_id, ctx.app_user_id, npub, invoice, {
+                requireAuthorizedAccess: false,
+            })
             const debitRes: NdebitSuccess = { res: 'ok', preimage: payment.preimage }
             this.notifyPaymentSuccess(debitRes, { appId: ctx.app_id, pub: npub, id: request_id })
         } catch (e: any) {
@@ -171,7 +173,9 @@ export class DebitManager {
                 return
             }
             this.logger("🔍 [DEBIT REQUEST] Sending debit payment")
-            const { payment } = await this.sendDebitPayment(ctx.app_id, ctx.app_user_id, npub, invoice)
+            const { payment } = await this.sendDebitPayment(ctx.app_id, ctx.app_user_id, npub, invoice, {
+                requireAuthorizedAccess: true,
+            })
             const debitRes: NdebitSuccess = { res: 'ok', preimage: payment.preimage }
             this.notifyPaymentSuccess(debitRes, { appId: ctx.app_id, pub: npub, id: request_id })
         } catch (e: any) {
@@ -241,6 +245,9 @@ export class DebitManager {
     debitFailureFromError = (e: any) => {
         if (e instanceof DebitFrequencyCapError) {
             return ndebitFailure(5, { max: e.cap })
+        }
+        if (e instanceof DebitUnauthorizedError) {
+            return ndebitFailure(1)
         }
         return { res: 'GFY' as const, error: nofferErrors[1], code: 1 }
     }
@@ -353,15 +360,32 @@ export class DebitManager {
             return { status: 'fail', debitRes: validateResult.failure }
         }
         this.logger("🔍 [DEBIT REQUEST] Sending requested debit payment")
-        const { payment } = await this.sendDebitPayment(appId, appUserId, requestorPub, bolt11)
+        const { payment } = await this.sendDebitPayment(appId, appUserId, requestorPub, bolt11, {
+            requireAuthorizedAccess: true,
+        })
         return { status: 'invoicePaid', app, appUser, debitRes: { res: 'ok', preimage: payment.preimage } }
     }
 
-    sendDebitPayment = async (appId: string, appUserId: string, requestorPub: string, bolt11: string) => {
+    sendDebitPayment = async (
+        appId: string,
+        appUserId: string,
+        requestorPub: string,
+        bolt11: string,
+        { requireAuthorizedAccess }: { requireAuthorizedAccess: boolean },
+    ) => {
         const assertDebitFrequency: AssertDebitFrequency = async ({ userId, payAmount, serviceFee, txId }) => {
             const access = await this.storage.debitStorage.GetDebitAccess(appUserId, requestorPub, txId)
-            // One-off invoice payments may have no debit access / frequency rule
-            if (!access?.authorized || !access.rules?.[frequencyRuleName]) {
+            if (requireAuthorizedAccess) {
+                if (!access?.authorized) {
+                    this.logger("debit access missing or unauthorized (in-tx)", { appUserId, requestorPub })
+                    throw new DebitUnauthorizedError()
+                }
+            } else if (access && !access.authorized) {
+                // Explicit one-off: still deny if a ban row exists
+                this.logger("debit access banned (in-tx)", { appUserId, requestorPub })
+                throw new DebitUnauthorizedError()
+            }
+            if (!access?.rules?.[frequencyRuleName]) {
                 return
             }
             const result = await this.checkFrequencyCap(access, userId, payAmount, serviceFee, txId)
