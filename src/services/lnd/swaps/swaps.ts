@@ -116,6 +116,11 @@ export class Swaps {
         if (!swap) {
             throw new Error("Swap not found or already used")
         }
+        // Idempotent: if a refund tx was already recorded, return it instead of rebuilding/broadcasting.
+        if (swap.refund_tx_id) {
+            this.log("invoice swap already refunded", { swapOperationId, refundTxId: swap.refund_tx_id })
+            return { published: true, txId: swap.refund_tx_id }
+        }
         const allowEarlyRefund = !!swap.failure_reason
         const swapper = this.subSwappers[swap.service_url]
         if (!swapper) {
@@ -136,8 +141,10 @@ export class Swaps {
         if (!result.ok) {
             throw new Error(result.error)
         }
-        await this.storage.paymentStorage.UpdateRefundInvoiceSwap(swapOperationId, refundAddress, result.publish.txId)
+        // Only persist after a successful broadcast. For uncooperative refunds the caller
+        // publishes via LND and must call UpdateRefundInvoiceSwap after that succeeds.
         if (result.publish.done) {
+            await this.storage.paymentStorage.UpdateRefundInvoiceSwap(swapOperationId, refundAddress, result.publish.txId)
             return { published: true, txId: result.publish.txId }
         }
         return { published: false, txHex: result.publish.txHex, txId: result.publish.txId }

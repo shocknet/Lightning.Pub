@@ -135,6 +135,13 @@ export class DebitFrequencyCapError extends Error {
     }
 }
 
+export class DebitUnauthorizedError extends Error {
+    constructor() {
+        super('debit access unauthorized or revoked')
+        this.name = 'DebitUnauthorizedError'
+    }
+}
+
 export type AuthRequiredRes = { status: 'authRequired', liveDebitReq: Types.LiveDebitRequest, app: Application, appUser: ApplicationUser }
 export type HandleNdebitRes = { status: 'fail', debitRes: NdebitFailure }
     | { status: 'invoicePaid', app: Application, appUser: ApplicationUser, debitRes: NdebitSuccess }
