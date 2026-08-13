@@ -358,6 +358,7 @@ export class AdminManager {
             return { tx_id: result.txId }
         }
         await this.lnd.PublishTransaction(result.txHex)
+        await this.storage.paymentStorage.UpdateRefundInvoiceSwap(req.swap_operation_id, address.address, result.txId)
         return { tx_id: result.txId }
     }
 

@@ -8,6 +8,7 @@ install_lightning_pub() {
   # 2: No-op (already up-to-date, skip services)
   # Other: Error
   local upgrade_status=0
+  local BACKUP_DIR=""
 
   if [ -z "$REPO_URL" ]; then
     log "REPO_URL missing"
@@ -115,14 +116,16 @@ install_lightning_pub() {
     done
     log "${PRIMARY_COLOR}Full log available in $INSTALL_DIR/npm_install.log${RESET_COLOR}"
 
-    log "Restoring previous installation due to upgrade failure..."
-    rm -rf "$INSTALL_DIR"
-    mv "$BACKUP_DIR" "$INSTALL_DIR"
-    log "Backup remnant at $BACKUP_DIR for manual review but may auto-clean on reboot."
-
-    if [ "$was_running" = true ]; then
-      log "Restarting Lightning.Pub service after restore."
-      $SYSTEMCTL_CMD start lightning_pub
+    if [ -n "$BACKUP_DIR" ]; then
+      log "Restoring previous installation due to upgrade failure..."
+      rm -rf "$INSTALL_DIR"
+      mv "$BACKUP_DIR" "$INSTALL_DIR"
+      if [ "$was_running" = true ]; then
+        log "Restarting Lightning.Pub service after restore."
+        $SYSTEMCTL_CMD start lightning_pub
+      fi
+    else
+      rm -rf "$INSTALL_DIR"
     fi
 
     return 1

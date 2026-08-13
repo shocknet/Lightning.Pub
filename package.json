@@ -1,6 +1,6 @@
 {
   "name": "lnpub",
-  "version": "0.0.33",
+  "version": "0.0.36",
   "description": "A Nostr based account system and management platform for nodes on Bitcoin's Lightning Network",
   "main": "index.js",
   "scripts": {
@@ -67,7 +67,6 @@
     "typescript": "~6.0.3",
     "uri-template": "^2.0.0",
     "why-is-node-running": "^3.2.0",
-    "wrtc": "^0.4.7",
     "ws": "^8.18.0",
     "zip-a-folder": "^3.1.9"
   },
@@ -85,5 +84,8 @@
     "ts-node": "10.7.0",
     "typescript": "~6.0.3"
   },
-  "overrides": {}
+  "overrides": {},
+  "optionalDependencies": {
+    "wrtc": "^0.4.7"
+  }
 }
