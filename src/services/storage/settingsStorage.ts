@@ -32,4 +32,11 @@ export default class SettingsStorage {
             }
         })
     }
+
+    async seedDbEnvIfMissing(envName: string, envValue: string): Promise<void> {
+        const existing = await this.getDbEnv(envName)
+        if (existing === undefined) {
+            await this.setDbEnvIFNeeded(envName, envValue)
+        }
+    }
 }

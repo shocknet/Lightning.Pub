@@ -50,9 +50,22 @@ export default class SettingsManager {
         for (const key in toAdd) {
             await this.storage.settingsStorage.setDbEnvIFNeeded(key, toAdd[key])
         }
+        await this.seedClinkSettings()
         // Validate fee configuration: routing fee limit must be <= service fee
         this.validateFeeSettings(this.settings)
         return this.settings
+    }
+
+    private async seedClinkSettings(): Promise<void> {
+        if (!this.settings) {
+            return
+        }
+        const nostr = this.settings.nostrRelaySettings
+        await this.storage.settingsStorage.seedDbEnvIfMissing("ENROLL_POW_BITS", String(nostr.enrollPowBits))
+        await this.storage.settingsStorage.seedDbEnvIfMissing("ENROLL_MAX_DELTA_MS", String(nostr.enrollMaxDeltaMs))
+        await this.storage.settingsStorage.seedDbEnvIfMissing("BEACON_WEBSITE", nostr.beaconWebsite)
+        await this.storage.settingsStorage.seedDbEnvIfMissing("BEACON_DESCRIPTION", nostr.beaconDescription)
+        await this.storage.settingsStorage.seedDbEnvIfMissing("OPERATOR_NPUB", nostr.operatorNpub)
     }
 
     private validateFeeSettings(settings: FullSettings): void {

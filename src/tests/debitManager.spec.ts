@@ -330,6 +330,62 @@ const testPayNdebitInvoiceInsufficientBalance = async (T: TestBase) => {
     T.d("payNdebitInvoice fails when user has insufficient balance")
 }
 
+const testOwnerPaysWithoutGrant = async (T: TestBase) => {
+    T.d("starting testOwnerPaysWithoutGrant")
+    const ownerPub = "c".repeat(64)
+    const app = await T.main.storage.applicationStorage.GetApplication(T.user2.appId)
+    const appUser = await T.main.storage.applicationStorage.GetApplicationUser(app, T.user2.appUserIdentifier)
+    await T.main.storage.applicationStorage.AddNPubToApplicationUser(appUser.serial_id, ownerPub)
+    await safelySetUserBalance(T, T.user2, 2000)
+    const invoice = await T.externalAccessToOtherLnd.NewInvoice(400, "owner self debit", defaultInvoiceExpiry, { from: 'system', useProvider: false })
+    const result = await T.main.debitManager.payNdebitInvoice(
+        mockNostrEvent(T, ownerPub),
+        {
+            pointer: T.user2.appUserIdentifier,
+            bolt11: invoice.payRequest,
+            amount_sats: 400,
+        },
+    )
+    T.expect(result.status).to.equal("invoicePaid")
+    T.d("account owner paid via ndebit without a third-party grant")
+}
+
+const testNonOwnerStillNeedsGrant = async (T: TestBase) => {
+    T.d("starting testNonOwnerStillNeedsGrant")
+    const stranger = requestorPub(12)
+    const invoice = await T.externalAccessToOtherLnd.NewInvoice(100, "stranger debit", defaultInvoiceExpiry, { from: 'system', useProvider: false })
+    const result = await T.main.debitManager.payNdebitInvoice(
+        mockNostrEvent(T, stranger),
+        {
+            pointer: T.user2.appUserIdentifier,
+            bolt11: invoice.payRequest,
+            amount_sats: 100,
+        },
+    )
+    T.expect(result.status).to.equal("authRequired")
+    T.d("non-owner ndebit still requires authorization")
+}
+
+const testOwnerOnlyClinkDeniesStranger = async (T: TestBase) => {
+    T.d("starting testOwnerOnlyClinkDeniesStranger")
+    const app = await T.main.storage.applicationStorage.GetApplication(T.user2.appId)
+    const appUser = await T.main.storage.applicationStorage.GetApplicationUser(app, T.user2.appUserIdentifier)
+    await T.main.storage.applicationStorage.SetOwnerOnlyClink(appUser.serial_id, true)
+    const stranger = requestorPub(13)
+    const invoice = await T.externalAccessToOtherLnd.NewInvoice(100, "owner-only stranger debit", defaultInvoiceExpiry, { from: 'system', useProvider: false })
+    const result = await T.main.debitManager.payNdebitInvoice(
+        mockNostrEvent(T, stranger),
+        {
+            pointer: T.user2.appUserIdentifier,
+            bolt11: invoice.payRequest,
+            amount_sats: 100,
+        },
+    )
+    expectDebitFail(T, result, 1, nofferErrors[1])
+    await T.main.storage.applicationStorage.SetOwnerOnlyClink(appUser.serial_id, false)
+    T.d("owner-only enroll ndebit denied stranger without live auth")
+}
+
 const testRespondToDebitInvalidTypeThrows = async (T: TestBase) => {
     T.d("starting testRespondToDebitInvalidTypeThrows")
     const ctx = userContext(T, T.user2)
@@ -361,6 +417,9 @@ export default async (T: TestBase) => {
     await testPayNdebitInvoiceFrequencyWithoutAmount(T)
     await testPayNdebitInvoiceFrequencyCapExceeded(T)
     await testPayNdebitInvoiceInsufficientBalance(T)
+    await testOwnerPaysWithoutGrant(T)
+    await testNonOwnerStillNeedsGrant(T)
+    await testOwnerOnlyClinkDeniesStranger(T)
     await testRespondToDebitInvalidTypeThrows(T)
     await runSanityCheck(T)
 }

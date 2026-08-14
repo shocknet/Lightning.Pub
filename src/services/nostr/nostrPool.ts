@@ -7,6 +7,7 @@ import { nip19 } from 'nostr-tools'
 import { encrypt as encryptV1, decrypt as decryptV1, getSharedSecret as getConversationKeyV1 } from './nip44v1.js'
 import { Subscription } from 'nostr-tools/lib/types/abstract-relay.js';
 import { RelayConnection, RelaySettings, PartialFilter, EventsDeduper } from './nostrRelayConnection.js'
+import { CLINK_ACTION_KINDS, CLINK_BEACON_KIND, LEGACY_BEACON_D_TAG } from '../helpers/clinkConstants.js'
 const { nprofileEncode } = nip19
 const { v2 } = nip44
 const { encrypt: encryptV2, decrypt: decryptV2, utils } = v2
@@ -38,6 +39,8 @@ export type NostrEvent = {
     startAtMs: number
     kind: number
     relayConstraint?: 'service' | 'provider'
+    tags?: string[][]
+    created_at?: number
 }
 type RelayEvent = { type: 'event', event: NostrEvent } | { type: 'beacon', content: string, pub: string }
 type RelayEventCallback = (event: RelayEvent) => void
@@ -48,9 +51,9 @@ const splitContent = (content: string, maxLength: number) => {
     }
     return parts
 }
-const actionKinds = [21000, 21001, 21002, 21003]
-const beaconKind = 30078
-const appTag = "Lightning.Pub"
+const actionKinds = CLINK_ACTION_KINDS
+const beaconKind = CLINK_BEACON_KIND
+const appTag = LEGACY_BEACON_D_TAG
 
 
 export class NostrPool {
@@ -117,7 +120,18 @@ export class NostrPool {
             return
         }
         const relayConstraint = relay.getConstraint()
-        const nostrEvent: NostrEvent = { id: e.id, content, pub: e.pubkey, appId: app.appId, startAtNano, startAtMs, kind: e.kind, relayConstraint }
+        const nostrEvent: NostrEvent = {
+            id: e.id,
+            content,
+            pub: e.pubkey,
+            appId: app.appId,
+            startAtNano,
+            startAtMs,
+            kind: e.kind,
+            relayConstraint,
+            tags: e.tags,
+            created_at: e.created_at,
+        }
         this.eventCallback({ type: 'event', event: nostrEvent })
     }
 
