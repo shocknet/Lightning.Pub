@@ -4,7 +4,7 @@ import { countLeadingZeroBits, enrollPowSatisfied, parseNip13Nonce } from "../se
 import { buildClinkBeaconContent, buildClinkBeaconEvent, buildLegacyBeaconEvent, operatorPubkeyHex } from "../services/helpers/clinkBeacon.js"
 import { CLINK_BEACON_D_TAG, CLINK_ENROLL_KIND, CLINK_VERSION, LEGACY_BEACON_D_TAG } from "../services/helpers/clinkConstants.js"
 import { EnrollManager } from "../services/main/enrollManager.js"
-import { EnrollRateLimiter } from "../services/helpers/enrollRateLimit.js"
+import { EnrollRateLimiter, EnrollReplyGate } from "../services/helpers/enrollRateLimit.js"
 import SettingsManager from "../services/main/settingsManager.js"
 import { StorageTestBase } from "./testBase.js"
 
@@ -76,16 +76,31 @@ const testNip13Helpers = (T: StorageTestBase) => {
     T.d("nip13 helpers count bits and enforce committed target")
 }
 
-const testEnrollRateLimiterEvictsIdlePubs = (T: StorageTestBase) => {
-    T.d("starting testEnrollRateLimiterEvictsIdlePubs")
+const testEnrollCreateLimiter = (T: StorageTestBase) => {
+    T.d("starting testEnrollCreateLimiter")
     let now = 1_000
-    const limiter = new EnrollRateLimiter(2, 10, 1_000, 2, () => now)
-    T.expect(limiter.tryRequest("aa".repeat(32)).ok).to.equal(true)
-    T.expect(limiter.tryRequest("bb".repeat(32)).ok).to.equal(true)
-    T.expect(limiter.tryRequest("cc".repeat(32)).ok).to.equal(false)
+    const limiter = new EnrollRateLimiter(2, 1_000, () => now)
+    T.expect(limiter.tryCreate().ok).to.equal(true)
+    T.expect(limiter.tryCreate().ok).to.equal(true)
+    T.expect(limiter.tryCreate().ok).to.equal(false)
     now += 1_001
-    T.expect(limiter.tryRequest("cc".repeat(32)).ok).to.equal(true)
-    T.d("idle per-pub windows are evicted and unique-key cap is enforced")
+    T.expect(limiter.tryCreate().ok).to.equal(true)
+    T.d("new account creates are capped per window")
+}
+
+const testEnrollReplyGateCapsPublishes = (T: StorageTestBase) => {
+    T.d("starting testEnrollReplyGateCapsPublishes")
+    let now = 1_000
+    const gate = new EnrollReplyGate(1_000, 2, () => now)
+    T.expect(gate.allow("aa".repeat(32))).to.equal(true)
+    T.expect(gate.allow("aa".repeat(32))).to.equal(true)
+    T.expect(gate.allow("aa".repeat(32))).to.equal(true)
+    T.expect(gate.allow("aa".repeat(32))).to.equal(false)
+    T.expect(gate.allow("bb".repeat(32))).to.equal(true)
+    T.expect(gate.allow("cc".repeat(32))).to.equal(false)
+    now += 1_001
+    T.expect(gate.allow("aa".repeat(32))).to.equal(true)
+    T.d("enroll publishes at most three per key per window including ok")
 }
 
 const testBeaconBuilders = (T: StorageTestBase) => {
@@ -277,7 +292,8 @@ const testClinkSettingsSeeded = async (h: Harness) => {
 
 export default async (T: StorageTestBase) => {
     testNip13Helpers(T)
-    testEnrollRateLimiterEvictsIdlePubs(T)
+    testEnrollCreateLimiter(T)
+    testEnrollReplyGateCapsPublishes(T)
     testBeaconBuilders(T)
     const h = await setupHarness(T)
     await testClinkSettingsSeeded(h)

@@ -6,7 +6,7 @@ import SettingsManager from "./settingsManager.js"
 import { encodeDefaultClinkPointers } from "../helpers/clinkPointers.js"
 import { enrollPowSatisfied } from "../helpers/nip13.js"
 import { clinkResponseTags, clinkVersionFromTags } from "../helpers/clinkTags.js"
-import { EnrollRateLimiter } from "../helpers/enrollRateLimit.js"
+import { EnrollRateLimiter, EnrollReplyGate } from "../helpers/enrollRateLimit.js"
 import { CLINK_ENROLL_KIND, CLINK_VERSION } from "../helpers/clinkConstants.js"
 import { Application } from "../storage/entity/Application.js"
 import { ApplicationUser } from "../storage/entity/ApplicationUser.js"
@@ -33,12 +33,16 @@ const enrollErrors: Record<number, string> = {
 
 export class EnrollManager {
     private log = getLogger({ component: "EnrollManager" })
-    private limiter = new EnrollRateLimiter(20, 60, 60_000)
+    private limiter = new EnrollRateLimiter(60, 60_000)
+    private replies = new EnrollReplyGate(60_000)
 
     constructor(private storage: Storage, private settings: SettingsManager) { }
 
     handleEnroll = async (payload: unknown, event: NostrEvent): Promise<void> => {
         const res = await this.doEnroll(payload, event)
+        if (!this.replies.allow(event.pub)) {
+            return
+        }
         const e = newNenrollResponse(JSON.stringify(res), event)
         this.storage.NostrSender().Send(
             { type: "app", appId: event.appId },
@@ -66,11 +70,6 @@ export class EnrollManager {
         const existing = await this.storage.applicationStorage.FindNostrAppUser(pub)
         if (existing) {
             return this.pointersForExisting(app, existing)
-        }
-
-        const rate = this.limiter.tryRequest(event.pub)
-        if (!rate.ok) {
-            return this.gfy(4, { retry_after: rate.retryAfterUnix })
         }
 
         const powBits = this.settings.getSettings().nostrRelaySettings.enrollPowBits
