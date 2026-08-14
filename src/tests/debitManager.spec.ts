@@ -330,18 +330,29 @@ const testPayNdebitInvoiceInsufficientBalance = async (T: TestBase) => {
     T.d("payNdebitInvoice fails when user has insufficient balance")
 }
 
+const addFundedOwnerUser = async (T: TestBase, ownerPub: string) => {
+    const created = await T.main.applicationManager.AddAppUser(T.app.appId, {
+        identifier: `owner-debit-${Date.now()}`,
+        balance: 0,
+        fail_if_exists: true,
+    })
+    const ownerUser = { userId: created.info.userId, appUserIdentifier: created.identifier, appId: T.app.appId }
+    const app = await T.main.storage.applicationStorage.GetApplication(ownerUser.appId)
+    const appUser = await T.main.storage.applicationStorage.GetApplicationUser(app, ownerUser.appUserIdentifier)
+    await T.main.storage.applicationStorage.AddNPubToApplicationUser(appUser.serial_id, ownerPub)
+    await safelySetUserBalance(T, ownerUser, 2000)
+    return ownerUser
+}
+
 const testOwnerPaysWithoutGrant = async (T: TestBase) => {
     T.d("starting testOwnerPaysWithoutGrant")
     const ownerPub = "c".repeat(64)
-    const app = await T.main.storage.applicationStorage.GetApplication(T.user2.appId)
-    const appUser = await T.main.storage.applicationStorage.GetApplicationUser(app, T.user2.appUserIdentifier)
-    await T.main.storage.applicationStorage.AddNPubToApplicationUser(appUser.serial_id, ownerPub)
-    await safelySetUserBalance(T, T.user2, 2000)
+    const ownerUser = await addFundedOwnerUser(T, ownerPub)
     const invoice = await T.externalAccessToOtherLnd.NewInvoice(400, "owner self debit", defaultInvoiceExpiry, { from: 'system', useProvider: false })
     const result = await T.main.debitManager.payNdebitInvoice(
         mockNostrEvent(T, ownerPub),
         {
-            pointer: T.user2.appUserIdentifier,
+            pointer: ownerUser.appUserIdentifier,
             bolt11: invoice.payRequest,
             amount_sats: 400,
         },
@@ -352,7 +363,7 @@ const testOwnerPaysWithoutGrant = async (T: TestBase) => {
 
 const testNonOwnerStillNeedsGrant = async (T: TestBase) => {
     T.d("starting testNonOwnerStillNeedsGrant")
-    const stranger = requestorPub(12)
+    const stranger = requestorPub(14)
     const invoice = await T.externalAccessToOtherLnd.NewInvoice(100, "stranger debit", defaultInvoiceExpiry, { from: 'system', useProvider: false })
     const result = await T.main.debitManager.payNdebitInvoice(
         mockNostrEvent(T, stranger),
