@@ -4,6 +4,7 @@ import { countLeadingZeroBits, enrollPowSatisfied, parseNip13Nonce } from "../se
 import { buildClinkBeaconContent, buildClinkBeaconEvent, buildLegacyBeaconEvent, operatorPubkeyHex } from "../services/helpers/clinkBeacon.js"
 import { CLINK_BEACON_D_TAG, CLINK_ENROLL_KIND, CLINK_VERSION, LEGACY_BEACON_D_TAG } from "../services/helpers/clinkConstants.js"
 import { EnrollManager } from "../services/main/enrollManager.js"
+import { EnrollRateLimiter } from "../services/helpers/enrollRateLimit.js"
 import SettingsManager from "../services/main/settingsManager.js"
 import { StorageTestBase } from "./testBase.js"
 
@@ -73,6 +74,18 @@ const testNip13Helpers = (T: StorageTestBase) => {
     T.expect(enrollPowSatisfied("0".repeat(64), [["nonce", "1", "8"]], 8)).to.equal(true)
     T.expect(enrollPowSatisfied("0".repeat(64), [["nonce", "1", "4"]], 8)).to.equal(false)
     T.d("nip13 helpers count bits and enforce committed target")
+}
+
+const testEnrollRateLimiterEvictsIdlePubs = (T: StorageTestBase) => {
+    T.d("starting testEnrollRateLimiterEvictsIdlePubs")
+    let now = 1_000
+    const limiter = new EnrollRateLimiter(2, 10, 1_000, 2, () => now)
+    T.expect(limiter.tryRequest("aa".repeat(32)).ok).to.equal(true)
+    T.expect(limiter.tryRequest("bb".repeat(32)).ok).to.equal(true)
+    T.expect(limiter.tryRequest("cc".repeat(32)).ok).to.equal(false)
+    now += 1_001
+    T.expect(limiter.tryRequest("cc".repeat(32)).ok).to.equal(true)
+    T.d("idle per-pub windows are evicted and unique-key cap is enforced")
 }
 
 const testBeaconBuilders = (T: StorageTestBase) => {
@@ -264,6 +277,7 @@ const testClinkSettingsSeeded = async (h: Harness) => {
 
 export default async (T: StorageTestBase) => {
     testNip13Helpers(T)
+    testEnrollRateLimiterEvictsIdlePubs(T)
     testBeaconBuilders(T)
     const h = await setupHarness(T)
     await testClinkSettingsSeeded(h)
