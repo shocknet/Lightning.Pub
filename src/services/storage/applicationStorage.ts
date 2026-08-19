@@ -65,7 +65,7 @@ export default class {
         return { privateKey: privString, publicKey: pub, appId: app.app_id, name: app.name }
     }
 
-    async AddApplicationUser(application: Application, userIdentifier: string, balance: number, nostrPub?: string) {
+    async AddApplicationUser(application: Application, userIdentifier: string, balance: number, nostrPub?: string, ownerOnlyClink = false) {
         return this.dbs.Tx(async txId => {
             const user = await this.userStorage.AddUser(balance, txId)
             return this.dbs.CreateAndSave<ApplicationUser>('ApplicationUser', {
@@ -73,7 +73,8 @@ export default class {
                 application,
                 identifier: userIdentifier,
                 nostr_public_key: nostrPub,
-                topic_id: crypto.randomBytes(32).toString('hex')
+                topic_id: crypto.randomBytes(32).toString('hex'),
+                owner_only_clink: ownerOnlyClink,
             }, txId)
         })
     }
@@ -82,18 +83,18 @@ export default class {
         return this.dbs.FindOne<ApplicationUser>('ApplicationUser', { where: { identifier: userIdentifier, application: { serial_id: application.serial_id } } }, txId)
     }
 
-    async GetOrCreateNostrAppUser(application: Application, nostrPub: string, txId?: string): Promise<ApplicationUser> {
+    async GetOrCreateNostrAppUser(application: Application, nostrPub: string, opts?: { txId?: string, ownerOnlyClink?: boolean }): Promise<ApplicationUser> {
         if (!nostrPub) {
             throw new Error("no nostrPub provided")
         }
-        const user = await this.dbs.FindOne<ApplicationUser>('ApplicationUser', { where: { nostr_public_key: nostrPub } }, txId)
+        const user = await this.dbs.FindOne<ApplicationUser>('ApplicationUser', { where: { nostr_public_key: nostrPub } }, opts?.txId)
         if (user) {
             return user
         }
         if (!application.allow_user_creation) {
             throw new Error("user creation by client is not allowed in this app")
         }
-        return this.AddApplicationUser(application, crypto.randomBytes(32).toString('hex'), 0, nostrPub)
+        return this.AddApplicationUser(application, crypto.randomBytes(32).toString('hex'), 0, nostrPub, opts?.ownerOnlyClink === true)
     }
 
     async FindNostrAppUser(nostrPub: string, txId?: string) {
@@ -156,6 +157,10 @@ export default class {
 
     async AddNPubToApplicationUser(serialId: number, nPub: string, txId?: string) {
         return this.dbs.Update<ApplicationUser>('ApplicationUser', serialId, { nostr_public_key: nPub }, txId)
+    }
+
+    async SetOwnerOnlyClink(serialId: number, ownerOnly: boolean, txId?: string) {
+        return this.dbs.Update<ApplicationUser>('ApplicationUser', serialId, { owner_only_clink: ownerOnly }, txId)
     }
 
     async UpdateUserCallbackUrl(application: Application, userIdentifier: string, callbackUrl: string, txId?: string) {

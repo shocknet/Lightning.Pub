@@ -4,6 +4,8 @@ import { Application } from '../storage/entity/Application.js';
 import { ApplicationUser } from '../storage/entity/ApplicationUser.js';
 import { UnsignedEvent } from 'nostr-tools';
 import { NdebitFailure, NdebitSuccess, RecurringDebitTimeUnit } from "@shocknet/clink-sdk";
+import { clinkResponseTags } from "../helpers/clinkTags.js";
+import { CLINK_DEBIT_KIND } from "../helpers/clinkConstants.js";
 
 export const expirationRuleName = 'expiration'
 export const frequencyRuleName = 'frequency'
@@ -152,11 +154,8 @@ export const newNdebitResponse = (content: string, event: { pub: string, id: str
     return {
         content,
         created_at: Math.floor(Date.now() / 1000),
-        kind: 21002,
+        kind: CLINK_DEBIT_KIND,
         pubkey: "",
-        tags: [
-            ['p', event.pub],
-            ['e', event.id],
-        ],
+        tags: clinkResponseTags(event.pub, event.id),
     }
 }

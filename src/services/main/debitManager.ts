@@ -14,6 +14,7 @@ import {
     frequencyRuleName, IntervalTypeToSeconds, unitToIntervalType, ndebitFailure,
     ValidateAccessRulesResult, DebitFrequencyCapError, DebitUnauthorizedError, AssertDebitFrequency,
 } from "./debitTypes.js";
+import { isAccountOwner, denyStrangerLiveAuth } from "../helpers/clinkOwner.js";
 import PaymentManager from "./paymentManager.js";
 
 type k1Info = {
@@ -187,9 +188,6 @@ export class DebitManager {
     }
 
     handleNip68Debit = async (pointerdata: NdebitData, event: NostrEvent) => {
-        if (!this.storage.NostrSender().IsReady()) {
-            throw new Error("Nostr sender not ready")
-        }
         this.logger("📥 [DEBIT REQUEST] Received debit request", {
             fromPub: event.pub,
             appId: event.appId,
@@ -275,6 +273,9 @@ export class DebitManager {
             const decoded = await this.lnd.DecodeInvoice(bolt11)
             decodedAmount = decoded.numSatoshis
         }
+        if (isAccountOwner(appUser, requestorPub)) {
+            return this.doOwnerNdebit(event, pointerdata, app, appUser, decodedAmount)
+        }
         if (frequency) {
             this.logger("🔍 [DEBIT REQUEST] Checking frequency")
             const amt = amount_sats || decodedAmount
@@ -284,21 +285,14 @@ export class DebitManager {
 
             const debitAccess = await this.storage.debitStorage.GetDebitAccess(appUserId, requestorPub)
             if (!debitAccess) {
-                return {
-                    status: 'authRequired', app, appUser, liveDebitReq: {
-                        request_id: event.id,
-                        npub: requestorPub,
-                        k1,
-                        debit: {
-                            type: Types.LiveDebitRequest_debit_type.FREQUENCY,
-                            frequency: {
-                                interval: unitToIntervalType(frequency.unit),
-                                number_of_intervals: frequency.number,
-                                amount: amt,
-                            }
-                        }
+                return this.strangerDebitAccess(event, pointerdata, app, appUser, {
+                    type: Types.LiveDebitRequest_debit_type.FREQUENCY,
+                    frequency: {
+                        interval: unitToIntervalType(frequency.unit),
+                        number_of_intervals: frequency.number,
+                        amount: amt,
                     }
-                }
+                })
             } else if (!debitAccess.authorized) {
                 return { status: 'fail', debitRes: { res: 'GFY', error: nofferErrors[1], code: 1 } }
             }
@@ -310,17 +304,10 @@ export class DebitManager {
                 this.logger("🔍 [DEBIT REQUEST] Checking full access")
                 const debitAccess = await this.storage.debitStorage.GetDebitAccess(appUserId, requestorPub)
                 if (!debitAccess) {
-                    return {
-                        status: 'authRequired', app, appUser, liveDebitReq: {
-                            request_id: event.id,
-                            npub: requestorPub,
-                            k1,
-                            debit: {
-                                type: Types.LiveDebitRequest_debit_type.FULL_ACCESS,
-                                full_access: {}
-                            }
-                        }
-                    }
+                    return this.strangerDebitAccess(event, pointerdata, app, appUser, {
+                        type: Types.LiveDebitRequest_debit_type.FULL_ACCESS,
+                        full_access: {}
+                    })
                 } else if (!debitAccess.authorized) {
                     return { status: 'fail', debitRes: { res: 'GFY', error: nofferErrors[1], code: 1 } }
                 }
@@ -340,17 +327,10 @@ export class DebitManager {
 
         const authorization = await this.storage.debitStorage.GetDebitAccess(appUserId, requestorPub)
         if (!authorization) {
-            return {
-                status: 'authRequired', app, appUser, liveDebitReq: {
-                    request_id: event.id,
-                    npub: requestorPub,
-                    k1,
-                    debit: {
-                        type: Types.LiveDebitRequest_debit_type.INVOICE,
-                        invoice: bolt11
-                    }
-                }
-            }
+            return this.strangerDebitAccess(event, pointerdata, app, appUser, {
+                type: Types.LiveDebitRequest_debit_type.INVOICE,
+                invoice: bolt11
+            })
         }
         if (!authorization.authorized) {
             return { status: 'fail', debitRes: { res: 'GFY', error: nofferErrors[1], code: 1 } }
@@ -366,12 +346,72 @@ export class DebitManager {
         return { status: 'invoicePaid', app, appUser, debitRes: { res: 'ok', preimage: payment.preimage } }
     }
 
+    private strangerDebitAccess(
+        event: NostrEvent,
+        pointerdata: NdebitData,
+        app: Application,
+        appUser: ApplicationUser,
+        debit: Types.LiveDebitRequest["debit"],
+    ): HandleNdebitRes {
+        if (denyStrangerLiveAuth(appUser)) {
+            return { status: 'fail', debitRes: ndebitFailure(1) }
+        }
+        return {
+            status: 'authRequired', app, appUser, liveDebitReq: {
+                request_id: event.id,
+                npub: event.pub,
+                k1: pointerdata.k1,
+                debit,
+            }
+        }
+    }
+
+    private doOwnerNdebit = async (
+        event: NostrEvent,
+        pointerdata: NdebitData,
+        app: Application,
+        appUser: ApplicationUser,
+        decodedAmount: number | null,
+    ): Promise<HandleNdebitRes> => {
+        const requestorPub = event.pub
+        const appUserId = pointerdata.pointer!
+        const access = await this.storage.debitStorage.GetDebitAccess(appUserId, requestorPub)
+        if (access && !access.authorized) {
+            return { status: 'fail', debitRes: { res: 'GFY', error: nofferErrors[1], code: 1 } }
+        }
+        const { amount_sats, bolt11, frequency } = pointerdata
+        if (frequency) {
+            const amt = amount_sats || decodedAmount
+            if (!amt) {
+                return { status: 'fail', debitRes: { res: 'GFY', error: nofferErrors[5], code: 5 } }
+            }
+            return { status: 'authOk', debitRes: { res: 'ok' } }
+        }
+        if (!bolt11) {
+            if (!amount_sats) {
+                return { status: 'authOk', debitRes: { res: 'ok' } }
+            }
+            return { status: 'fail', debitRes: { res: 'GFY', error: nofferErrors[6], code: 6 } }
+        }
+        if (!decodedAmount) {
+            return { status: 'fail', debitRes: { res: 'GFY', error: nofferErrors[6], code: 6 } }
+        }
+        if (amount_sats && amount_sats !== decodedAmount) {
+            return { status: 'fail', debitRes: { res: 'GFY', error: nofferErrors[5], code: 5 } }
+        }
+        const { payment } = await this.sendDebitPayment(event.appId, appUserId, requestorPub, bolt11, {
+            requireAuthorizedAccess: false,
+            skipAccessIncrement: true,
+        })
+        return { status: 'invoicePaid', app, appUser, debitRes: { res: 'ok', preimage: payment.preimage } }
+    }
+
     sendDebitPayment = async (
         appId: string,
         appUserId: string,
         requestorPub: string,
         bolt11: string,
-        { requireAuthorizedAccess }: { requireAuthorizedAccess: boolean },
+        { requireAuthorizedAccess, skipAccessIncrement }: { requireAuthorizedAccess: boolean, skipAccessIncrement?: boolean },
     ) => {
         const assertDebitFrequency: AssertDebitFrequency = async ({ userId, payAmount, serviceFee, txId }) => {
             const access = await this.storage.debitStorage.GetDebitAccess(appUserId, requestorPub, txId)
@@ -399,7 +439,9 @@ export class DebitManager {
             { amount: 0, invoice: bolt11, user_identifier: appUserId, debit_npub: requestorPub },
             { assertDebitFrequency },
         )
-        await this.storage.debitStorage.IncrementDebitAccess(appUserId, requestorPub, payment.amount_paid + payment.service_fee)
+        if (!skipAccessIncrement) {
+            await this.storage.debitStorage.IncrementDebitAccess(appUserId, requestorPub, payment.amount_paid + payment.service_fee)
+        }
         return { payment }
     }
 
