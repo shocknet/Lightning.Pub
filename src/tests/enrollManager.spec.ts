@@ -274,20 +274,16 @@ const testEnrollWalletUserKeepsLiveAuth = async (h: Harness) => {
     h.T.d("enroll of an existing wallet account did not flip owner-only")
 }
 
-const testClinkSettingsSeeded = async (h: Harness) => {
-    h.T.d("starting testClinkSettingsSeeded")
-    const storage = h.T.storage.settingsStorage
-    const pow = await storage.getDbEnv("ENROLL_POW_BITS")
-    const delta = await storage.getDbEnv("ENROLL_MAX_DELTA_MS")
-    h.T.expect(pow).to.not.equal(undefined)
-    h.T.expect(Number(pow)).to.be.at.least(0)
-    h.T.expect(Number(pow)).to.be.at.most(32)
-    h.T.expect(delta).to.not.equal(undefined)
-    h.T.expect(Number(delta)).to.be.at.least(1000)
-    h.T.expect(await storage.getDbEnv("BEACON_WEBSITE")).to.not.equal(undefined)
-    h.T.expect(await storage.getDbEnv("BEACON_DESCRIPTION")).to.not.equal(undefined)
-    h.T.expect(await storage.getDbEnv("OPERATOR_NPUB")).to.not.equal(undefined)
-    h.T.d("clink env defaults were seeded into admin_settings")
+const testClinkSettingsLoaded = async (h: Harness) => {
+    h.T.d("starting testClinkSettingsLoaded")
+    const nostr = h.settings.getSettings().nostrRelaySettings
+    h.T.expect(nostr.enrollPowBits).to.be.at.least(0)
+    h.T.expect(nostr.enrollPowBits).to.be.at.most(32)
+    h.T.expect(nostr.enrollMaxDeltaMs).to.be.at.least(1000)
+    h.T.expect(typeof nostr.beaconWebsite).to.equal("string")
+    h.T.expect(typeof nostr.beaconDescription).to.equal("string")
+    h.T.expect(typeof nostr.operatorNpub).to.equal("string")
+    h.T.d("clink env defaults were loaded via loadEnvs")
 }
 
 export default async (T: StorageTestBase) => {
@@ -296,7 +292,7 @@ export default async (T: StorageTestBase) => {
     testEnrollReplyGateCapsPublishes(T)
     testBeaconBuilders(T)
     const h = await setupHarness(T)
-    await testClinkSettingsSeeded(h)
+    await testClinkSettingsLoaded(h)
     await testEnrollCreatesAccountAndPointers(h)
     await testEnrollIdempotent(h)
     await testEnrollExistingSkipsPow(h)
