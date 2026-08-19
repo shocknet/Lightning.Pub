@@ -13,6 +13,7 @@ export default async (T: TestBase) => {
     await safelySetUserBalance(T, T.user1, 2000)
     await testSuccessfulInternalAddressPayment(T)
     await testFailedInternalAddressPayment(T)
+    await testSanityCheckAllowsDeletedUserAddress(T)
     await runSanityCheck(T)
 }
 
@@ -60,4 +61,22 @@ const testFailedInternalAddressPayment = async (T: TestBase) => {
         satsPerVByte: 1,
     }), "not enough balance to decrement")
     T.d("payment failed as expected, with the expected error message")
+}
+
+const testSanityCheckAllowsDeletedUserAddress = async (T: TestBase) => {
+    T.d("starting testSanityCheckAllowsDeletedUserAddress")
+    const created = await T.main.applicationManager.AddAppUser(T.app.appId, {
+        identifier: "sanity-cleanup-user",
+        balance: 0,
+        fail_if_exists: true
+    })
+    const ctx: Types.UserContext = { app_id: T.app.appId, app_user_id: created.identifier, user_id: created.info.userId }
+    const addr = await T.main.paymentManager.NewAddress(ctx, { addressType: Types.AddressType.WITNESS_PUBKEY_HASH })
+    await T.main.storage.paymentStorage.RemoveUserReceivingAddresses(created.info.userId)
+    await expectThrowsAsync(runSanityCheck(T), "address not found for live user " + created.info.userId + " " + addr.address)
+    T.d("missing address for a live user still trips sanity")
+
+    await T.main.appUserManager.RemoveUsers([{ userId: created.info.userId, appUserIds: [created.identifier] }])
+    await runSanityCheck(T)
+    T.d("same missing address is allowed after the user is deleted")
 }

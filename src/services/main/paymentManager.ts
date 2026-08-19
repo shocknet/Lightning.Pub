@@ -439,8 +439,8 @@ export default class {
         if (user.locked) {
             throw new Error("user is banned, cannot generate invoice")
         }
-        if (req.amountSats < 0) {
-            throw new Error("amount cannot be negative")
+        if (req.amountSats <= 0) {
+            throw new Error("amount cannot be zero or negative")
         }
         const use = await this.liquidityManager.beforeInvoiceCreation(req.amountSats)
         const res = await this.lnd.NewInvoice(req.amountSats, req.memo, options.expiry, { useProvider: use === 'provider', from: 'user' }, req.blind, options.zapInfo?.description)
@@ -488,16 +488,16 @@ export default class {
             }
         }
         const decoded = await this.lnd.DecodeInvoice(req.invoice)
-        if (decoded.numSatoshis !== 0 && req.amount !== 0) {
-            throw new Error("invoice has value, do not provide amount the the request")
-        }
-        if (decoded.numSatoshis === 0 && req.amount === 0) {
-            throw new Error("invoice has no value, an amount must be provided in the request")
-        }
         if (decoded.numSatoshis < 0 || req.amount < 0) {
             throw new Error("amount cannot be negative")
         }
-        const payAmount = req.amount !== 0 ? req.amount : Number(decoded.numSatoshis)
+        if (decoded.numSatoshis === 0) {
+            throw new Error("invoice has no amount")
+        }
+        if (req.amount !== 0) {
+            throw new Error("invoice has value, do not provide amount the the request")
+        }
+        const payAmount = Number(decoded.numSatoshis)
         const isManagedUser = userId !== linkedApplication.owner.user_id
         const serviceFee = this.getSendServiceFee(Types.UserOperationType.OUTGOING_INVOICE, payAmount, isManagedUser)
         const internalInvoice = await this.storage.paymentStorage.GetInvoiceOwner(req.invoice)

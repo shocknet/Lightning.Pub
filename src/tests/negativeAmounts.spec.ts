@@ -15,6 +15,35 @@ const testPayInvoiceRejectsNegativeAmount = async (T: TestBase) => {
     T.d("PayInvoice rejects negative amount on zero-value invoice")
 }
 
+const testPayInvoiceRejectsZeroAmountInvoice = async (T: TestBase) => {
+    T.d("starting testPayInvoiceRejectsZeroAmountInvoice")
+    const application = await T.main.storage.applicationStorage.GetApplication(T.app.appId)
+    const invoice = await T.externalAccessToOtherLnd.NewInvoice(0, "zero amount", defaultInvoiceExpiry, { from: "system", useProvider: false })
+    await expectThrowsAsync(
+        T.main.paymentManager.PayInvoice(T.user1.userId, { invoice: invoice.payRequest, amount: 0 }, application),
+        "invoice has no amount",
+    )
+    await expectThrowsAsync(
+        T.main.paymentManager.PayInvoice(T.user1.userId, { invoice: invoice.payRequest, amount: 15000 }, application),
+        "invoice has no amount",
+    )
+    T.d("PayInvoice rejects zero-amount invoices")
+}
+
+const testNewInvoiceRejectsZeroAmount = async (T: TestBase) => {
+    T.d("starting testNewInvoiceRejectsZeroAmount")
+    const application = await T.main.storage.applicationStorage.GetApplication(T.app.appId)
+    await expectThrowsAsync(
+        T.main.paymentManager.NewInvoice(T.user1.userId, { amountSats: 0, memo: "zero" }, { linkedApplication: application, expiry: defaultInvoiceExpiry }),
+        "amount cannot be zero or negative",
+    )
+    await expectThrowsAsync(
+        T.main.paymentManager.NewInvoice(T.user1.userId, { amountSats: -100, memo: "negative" }, { linkedApplication: application, expiry: defaultInvoiceExpiry }),
+        "amount cannot be zero or negative",
+    )
+    T.d("NewInvoice rejects zero and negative amount")
+}
+
 const testPayInternalInvoiceRejectsNegativeAmount = async (T: TestBase) => {
     T.d("starting testPayInternalInvoiceRejectsNegativeAmount")
     const application = await T.main.storage.applicationStorage.GetApplication(T.app.appId)
@@ -61,6 +90,8 @@ const testDecrementUserBalanceRejectsNegativeAmount = async (T: TestBase) => {
 export default async (T: TestBase) => {
     await safelySetUserBalance(T, T.user1, 2000)
     await testPayInvoiceRejectsNegativeAmount(T)
+    await testPayInvoiceRejectsZeroAmountInvoice(T)
+    await testNewInvoiceRejectsZeroAmount(T)
     await testPayInternalInvoiceRejectsNegativeAmount(T)
     await testIncrementUserBalanceRejectsNegativeAmount(T)
     await testDecrementUserBalanceRejectsNegativeAmount(T)

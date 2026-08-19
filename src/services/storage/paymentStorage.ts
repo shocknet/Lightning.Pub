@@ -488,24 +488,20 @@ export default class {
 
     async VerifyDbEvent(e: LoggedEvent) {
         switch (e.type) {
-            /*             case "new_invoice":
-                            return orFail(this.dbs.FindOne<UserReceivingInvoice>('UserReceivingInvoice', { where: { invoice: e.data, user: { user_id: e.userId } } })) */
-            case 'new_address':
-                return orFail(this.dbs.FindOne<UserReceivingAddress>('UserReceivingAddress', { where: { address: e.data, user: { user_id: e.userId } } }))
             case 'invoice_paid':
-                return orFail(this.dbs.FindOne<UserReceivingInvoice>('UserReceivingInvoice', { where: { invoice: e.data, user: { user_id: e.userId }, paid_at_unix: MoreThan(0) } }))
+                return orFail(this.dbs.FindOne<UserReceivingInvoice>('UserReceivingInvoice', { where: { invoice: e.data, user: { user_id: e.userId }, paid_at_unix: MoreThan(0) } }), "invoice_paid not found for " + e.data)
             case 'invoice_payment':
-                return orFail(this.dbs.FindOne<UserInvoicePayment>('UserInvoicePayment', { where: { invoice: e.data, user: { user_id: e.userId } } }))
+                return orFail(this.dbs.FindOne<UserInvoicePayment>('UserInvoicePayment', { where: { invoice: e.data, user: { user_id: e.userId } } }), "invoice_payment not found for " + e.data)
             case 'address_paid':
                 const [receivingAddress, receivedHash] = e.data.split(":")
-                return orFail(this.dbs.FindOne<AddressReceivingTransaction>('AddressReceivingTransaction', { where: { user_address: { address: receivingAddress }, tx_hash: receivedHash, confs: MoreThan(0) } }))
+                return orFail(this.dbs.FindOne<AddressReceivingTransaction>('AddressReceivingTransaction', { where: { user_address: { address: receivingAddress }, tx_hash: receivedHash, confs: MoreThan(0) } }), "address_paid not found for " + e.data)
             case 'address_payment':
                 const [sentAddress, sentHash] = e.data.split(":")
-                return orFail(this.dbs.FindOne<UserTransactionPayment>('UserTransactionPayment', { where: { address: sentAddress, tx_hash: sentHash, user: { user_id: e.userId } } }))
+                return orFail(this.dbs.FindOne<UserTransactionPayment>('UserTransactionPayment', { where: { address: sentAddress, tx_hash: sentHash, user: { user_id: e.userId } } }), "address_payment not found for " + e.data)
             case 'u2u_receiver':
-                return orFail(this.dbs.FindOne<UserToUserPayment>('UserToUserPayment', { where: { from_user: { user_id: e.data }, to_user: { user_id: e.userId } } }))
+                return orFail(this.dbs.FindOne<UserToUserPayment>('UserToUserPayment', { where: { from_user: { user_id: e.data }, to_user: { user_id: e.userId } } }), "u2u_receiver not found for " + e.data)
             case 'u2u_sender':
-                return orFail(this.dbs.FindOne<UserToUserPayment>('UserToUserPayment', { where: { to_user: { user_id: e.data }, from_user: { user_id: e.userId } } }))
+                return orFail(this.dbs.FindOne<UserToUserPayment>('UserToUserPayment', { where: { to_user: { user_id: e.data }, from_user: { user_id: e.userId } } }), "u2u_sender not found for " + e.data)
             default:
                 break;
         }
@@ -688,10 +684,10 @@ export default class {
 
 }
 
-const orFail = async <T>(resultPromise: Promise<T | null>) => {
+const orFail = async <T>(resultPromise: Promise<T | null>, message: string) => {
     const result = await resultPromise
     if (!result) {
-        throw new Error("the requested value was not found")
+        throw new Error(message)
     }
     return result
 }
