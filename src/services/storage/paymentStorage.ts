@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { And, Between, Equal, FindOperator, IsNull, LessThan, LessThanOrEqual, MoreThan, MoreThanOrEqual, Not } from "typeorm"
+import { And, Between, Equal, FindOperator, In, IsNull, LessThan, LessThanOrEqual, MoreThan, MoreThanOrEqual, Not } from "typeorm"
 import { User } from './entity/User.js';
 import { UserTransactionPayment } from './entity/UserTransactionPayment.js';
 import { EphemeralKeyType, UserEphemeralKey } from './entity/UserEphemeralKey.js';
@@ -171,12 +171,36 @@ export default class {
     async GetTxHashPaymentOwner(txHash: string, txId?: string): Promise<UserTransactionPayment | null> {
         return this.dbs.FindOne<UserTransactionPayment>('UserTransactionPayment', { where: { tx_hash: txHash } }, txId)
     }
+    async GetTxHashPaymentOwners(txHashes: string[], txId?: string): Promise<UserTransactionPayment[]> {
+        if (txHashes.length === 0) {
+            return []
+        }
+        return this.dbs.Find<UserTransactionPayment>('UserTransactionPayment', { where: { tx_hash: In(txHashes) } }, txId)
+    }
+    async GetAddressReceivingTransactionsByTxHashes(txHashes: string[], txId?: string): Promise<AddressReceivingTransaction[]> {
+        if (txHashes.length === 0) {
+            return []
+        }
+        return this.dbs.Find<AddressReceivingTransaction>('AddressReceivingTransaction', { where: { tx_hash: In(txHashes) } }, txId)
+    }
 
     async GetInvoiceOwner(paymentRequest: string, txId?: string): Promise<UserReceivingInvoice | null> {
         return this.dbs.FindOne<UserReceivingInvoice>('UserReceivingInvoice', { where: { invoice: paymentRequest } }, txId)
     }
+    async GetInvoiceOwners(paymentRequests: string[], txId?: string): Promise<UserReceivingInvoice[]> {
+        if (paymentRequests.length === 0) {
+            return []
+        }
+        return this.dbs.Find<UserReceivingInvoice>('UserReceivingInvoice', { where: { invoice: In(paymentRequests) } }, txId)
+    }
     async GetPaymentOwner(paymentRequest: string, txId?: string): Promise<UserInvoicePayment | null> {
         return this.dbs.FindOne<UserInvoicePayment>('UserInvoicePayment', { where: { invoice: paymentRequest } }, txId)
+    }
+    async GetPaymentOwners(paymentRequests: string[], txId?: string): Promise<UserInvoicePayment[]> {
+        if (paymentRequests.length === 0) {
+            return []
+        }
+        return this.dbs.Find<UserInvoicePayment>('UserInvoicePayment', { where: { invoice: In(paymentRequests) } }, txId)
     }
     async GetUser2UserPayment(serialId: number, txId?: string): Promise<UserToUserPayment | null> {
         return this.dbs.FindOne<UserToUserPayment>('UserToUserPayment', { where: { serial_id: serialId } }, txId)

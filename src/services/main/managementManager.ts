@@ -12,6 +12,9 @@ import { getLogger, PubLogger, ERROR } from "../helpers/logger.js";
 import SettingsManager from "./settingsManager.js";
 import { assertCallbackUrlAllowed, SafeOutboundFetchError } from "../helpers/safeOutboundFetch.js";
 import { assertValidOfferPriceSats } from "../helpers/offerValidation.js";
+import { isAccountOwner, denyStrangerLiveAuth } from "../helpers/clinkOwner.js";
+import { clinkResponseTags } from "../helpers/clinkTags.js";
+import { CLINK_MANAGE_KIND } from "../helpers/clinkConstants.js";
 type Result<T> = { state: 'success', result: T } | { state: 'error', err: NmanageFailure } | { state: 'authRequired' }
 
 export class ManagementManager {
@@ -115,19 +118,19 @@ export class ManagementManager {
         const action = nmanageReq.action
         switch (action) {
             case "create":
-                const createResult = await this.createOffer(nmanageReq, event.pub)
+                const createResult = await this.createOffer(nmanageReq, event.pub, event.appId)
                 return this.getNmanageResponse(event.appId, createResult)
             case "update":
-                const updateResult = await this.updateOffer(nmanageReq, event.pub);
+                const updateResult = await this.updateOffer(nmanageReq, event.pub, event.appId);
                 return this.getNmanageResponse(event.appId, updateResult)
             case "delete":
-                const deleteResult = await this.deleteOffer(nmanageReq, event.pub);
+                const deleteResult = await this.deleteOffer(nmanageReq, event.pub, event.appId);
                 return this.getNmanageResponse(event.appId, deleteResult)
             case "get":
-                const getResult = await this.getOffer(nmanageReq, event.pub);
+                const getResult = await this.getOffer(nmanageReq, event.pub, event.appId);
                 return this.getNmanageResponse(event.appId, getResult)
             case "list":
-                const listResult = await this.listOffers(nmanageReq, event.pub);
+                const listResult = await this.listOffers(nmanageReq, event.pub, event.appId);
                 return this.getNmanageResponse(event.appId, listResult)
             default:
                 return { state: 'error', err: { res: 'GFY', code: 1, error: `Request Denied: Unknown action: ${action}` } }
@@ -175,22 +178,26 @@ export class ManagementManager {
         }
     }
 
-    private async getOffer(nmanageReq: NmanageGetOffer, requestorPub: string): Promise<Result<UserOffer>> {
-        const offer = await this.validateOfferAccess(nmanageReq.offer.id, requestorPub)
+    private async getOffer(nmanageReq: NmanageGetOffer, requestorPub: string, appId: string): Promise<Result<UserOffer>> {
+        const offer = await this.validateOfferAccess(nmanageReq.offer.id, requestorPub, appId)
         if (offer.state !== 'success') {
             return offer
         }
         return { state: 'success', result: offer.result }
     }
 
-    private async listOffers(nmanageReq: NmanageListOffers, requestorPub: string): Promise<Result<UserOffer[]>> {
+    private async listOffers(nmanageReq: NmanageListOffers, requestorPub: string, appId: string): Promise<Result<UserOffer[]>> {
         const appUserId = nmanageReq.pointer
         if (!appUserId) {
             return { state: 'error', err: { res: 'GFY', code: 1, error: 'Request Denied: No pointer provided' } }
         }
-        const grantResult = await this.validateGrantAccess(appUserId, requestorPub)
+        const grantResult = await this.validateGrantAccess(appUserId, requestorPub, appId)
         if (grantResult.state !== 'success') {
             return grantResult
+        }
+        if (await this.isPointerOwner(appId, appUserId, requestorPub)) {
+            const offers = await this.storage.offerStorage.GetUserOffers(appUserId)
+            return { state: 'success', result: offers }
         }
         const offers = await this.storage.offerStorage.getManagedUserOffers(appUserId, requestorPub)
         return { state: 'success', result: offers }
@@ -228,12 +235,12 @@ export class ManagementManager {
         return { state: 'success', result: undefined }
     }
 
-    private async createOffer(nmanageReq: NmanageCreateOffer, requestorPub: string): Promise<Result<UserOffer>> {
+    private async createOffer(nmanageReq: NmanageCreateOffer, requestorPub: string, appId: string): Promise<Result<UserOffer>> {
         const appUserId = nmanageReq.pointer
         if (!appUserId) {
             return { state: 'error', err: { res: 'GFY', code: 1, error: 'Request Denied: No pointer provided' } }
         }
-        const grantResult = await this.validateGrantAccess(appUserId, requestorPub)
+        const grantResult = await this.validateGrantAccess(appUserId, requestorPub, appId)
         if (grantResult.state !== 'success') {
             return grantResult
         }
@@ -251,44 +258,67 @@ export class ManagementManager {
         return { state: 'success', result: offer }
     }
 
-    private async validateGrantAccess(appUserId: string, requestorPub: string): Promise<Result<void>> {
-        const grant = await this.storage.managementStorage.getGrant(appUserId, requestorPub)
-
-        if (!grant) {
-            this.logger(ERROR, "No grant found", appUserId, requestorPub)
-            return { state: 'authRequired' }
+    private async isPointerOwner(appId: string, appUserId: string, requestorPub: string): Promise<boolean> {
+        try {
+            const app = await this.storage.applicationStorage.GetApplication(appId)
+            const appUser = await this.storage.applicationStorage.GetApplicationUser(app, appUserId)
+            return isAccountOwner(appUser, requestorPub)
+        } catch {
+            return false
         }
-
-        if (grant.expires_at_unix > 0 && grant.expires_at_unix < Math.floor(Date.now() / 1000)) {
-            this.logger(ERROR, "Grant expired", appUserId, requestorPub)
-            return { state: 'authRequired' }
-        }
-
-        if (grant.banned) {
-            return { state: 'error', err: { res: 'GFY', code: 1, error: 'Request Denied: App is banned' } }
-        }
-
-
-        return { state: 'success', result: undefined }
     }
 
-    private async validateOfferAccess(offerId: string, requestorPub: string): Promise<Result<UserOffer>> {
+    private async validateGrantAccess(appUserId: string, requestorPub: string, appId: string): Promise<Result<void>> {
+        try {
+            const app = await this.storage.applicationStorage.GetApplication(appId)
+            const appUser = await this.storage.applicationStorage.GetApplicationUser(app, appUserId)
+            if (isAccountOwner(appUser, requestorPub)) {
+                return { state: 'success', result: undefined }
+            }
+            const grant = await this.storage.managementStorage.getGrant(appUserId, requestorPub)
+            if (!grant) {
+                if (denyStrangerLiveAuth(appUser)) {
+                    return { state: 'error', err: { res: 'GFY', code: 1, error: 'Request Denied' } }
+                }
+                this.logger(ERROR, "No grant found", appUserId, requestorPub)
+                return { state: 'authRequired' }
+            }
+            if (grant.expires_at_unix > 0 && grant.expires_at_unix < Math.floor(Date.now() / 1000)) {
+                this.logger(ERROR, "Grant expired", appUserId, requestorPub)
+                if (denyStrangerLiveAuth(appUser)) {
+                    return { state: 'error', err: { res: 'GFY', code: 1, error: 'Request Denied' } }
+                }
+                return { state: 'authRequired' }
+            }
+            if (grant.banned) {
+                return { state: 'error', err: { res: 'GFY', code: 1, error: 'Request Denied: App is banned' } }
+            }
+            return { state: 'success', result: undefined }
+        } catch {
+            return { state: 'error', err: { res: 'GFY', code: 1, error: 'Request Denied' } }
+        }
+    }
+
+    private async validateOfferAccess(offerId: string, requestorPub: string, appId: string): Promise<Result<UserOffer>> {
         const offer = await this.storage.offerStorage.GetOffer(offerId)
         if (!offer) {
             return { state: 'error', err: { res: 'GFY', code: 1, error: 'Request Denied: Offer not found' } }
         }
+        if (await this.isPointerOwner(appId, offer.app_user_id, requestorPub)) {
+            return { state: 'success', result: offer }
+        }
         if (offer.management_pubkey !== requestorPub) {
             return { state: 'error', err: { res: 'GFY', code: 1, error: 'Request Denied: App not authorized to update offer' } }
         }
-        const grantResult = await this.validateGrantAccess(offer.app_user_id, requestorPub)
+        const grantResult = await this.validateGrantAccess(offer.app_user_id, requestorPub, appId)
         if (grantResult.state !== 'success') {
             return grantResult
         }
         return { state: 'success', result: offer }
     }
 
-    private async updateOffer(nmanageReq: NmanageUpdateOffer, requestorPub: string): Promise<Result<UserOffer>> {
-        const offer = await this.validateOfferAccess(nmanageReq.offer.id, requestorPub)
+    private async updateOffer(nmanageReq: NmanageUpdateOffer, requestorPub: string, appId: string): Promise<Result<UserOffer>> {
+        const offer = await this.validateOfferAccess(nmanageReq.offer.id, requestorPub, appId)
         if (offer.state !== 'success') {
             return offer
         }
@@ -314,8 +344,8 @@ export class ManagementManager {
         return { state: 'success', result: updatedOffer }
     }
 
-    private async deleteOffer(nmanageReq: NmanageDeleteOffer, requestorPub: string): Promise<Result<void>> {
-        const offerResult = await this.validateOfferAccess(nmanageReq.offer.id, requestorPub)
+    private async deleteOffer(nmanageReq: NmanageDeleteOffer, requestorPub: string, appId: string): Promise<Result<void>> {
+        const offerResult = await this.validateOfferAccess(nmanageReq.offer.id, requestorPub, appId)
         if (offerResult.state !== 'success') {
             return offerResult
         }
@@ -328,12 +358,9 @@ const newNmanageResponse = (content: string, event: NostrEvent): UnsignedEvent =
     return {
         content,
         created_at: Math.floor(Date.now() / 1000),
-        kind: 21003,
+        kind: CLINK_MANAGE_KIND,
         pubkey: "",
-        tags: [
-            ['p', event.pub],
-            ['e', event.id],
-        ],
+        tags: clinkResponseTags(event.pub, event.id),
     }
 }
 const codeToMessage = (code: number, reason = "") => {

@@ -4,7 +4,7 @@ import { DbSettings, MainDbNames } from './db.js';
 import { DeepPartial, FindOptionsWhere } from 'typeorm';
 import {
     ConnectOperation, DeleteOperation, RemoveOperation, FindOneOperation,
-    FindOperation, UpdateOperation, CreateAndSaveOperation, StartTxOperation,
+    FindOperation, FindAndCountOperation, UpdateOperation, CreateAndSaveOperation, StartTxOperation,
     EndTxOperation, QueryOptions, OperationResponse,
     IStorageOperation,
     IncrementOperation,
@@ -109,6 +109,12 @@ export class StorageInterface extends EventEmitter {
         const opId = Math.random().toString()
         const findOp: FindOperation<T> = { type: 'find', entity, opId, q, txId, debug }
         return this.handleOp<T[]>(findOp)
+    }
+
+    FindAndCount<T>(entity: DBNames, q: QueryOptions<T>, txId?: string, debug = false): Promise<[T[], number]> {
+        const opId = Math.random().toString()
+        const findAndCountOp: FindAndCountOperation<T> = { type: 'findAndCount', entity, opId, q, txId, debug }
+        return this.handleOp<[T[], number]>(findAndCountOp)
     }
 
     Sum<T>(entity: DBNames, columnName: PickKeysByType<T, number>, q: WhereCondition<T>, txId?: string): Promise<number> {
