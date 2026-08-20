@@ -528,30 +528,110 @@ export default class {
         const abortController = new AbortController()
         const req = PayInvoiceReq(invoice, amount, routingFeeLimit)
         const stream = this.router.sendPaymentV2(req, { abort: abortController.signal })
+        const indexTimeoutMs = (req.timeoutSeconds || 50) * 1000
         return new Promise((res, rej) => {
-            stream.responses.onError(error => {
-                this.log(ERROR, "invoice payment failed", error)
-                rej(error)
-            })
+            let settled = false
             let indexSent = false
+            let indexTimer: ReturnType<typeof setTimeout> | undefined
+
+            const finish = (action: () => void) => {
+                if (settled) {
+                    return
+                }
+                settled = true
+                if (indexTimer !== undefined) {
+                    clearTimeout(indexTimer)
+                }
+                action()
+            }
+
+            const onNoIndexTimeout = async () => {
+                if (settled || indexSent) {
+                    return
+                }
+                this.log(ERROR, "no payment index within timeout, aborting client wait and checking LND")
+                abortController.abort()
+                try {
+                    const outcome = await this.resolvePaymentAfterIndexTimeout(invoice)
+                    if (outcome.kind === 'result') {
+                        finish(() => res(outcome.result))
+                        return
+                    }
+                    // IN_FLIGHT / unknown: reject so PayInvoice can keep tracking; do not treat as failed
+                    finish(() => rej(new Error(outcome.error)))
+                } catch (err) {
+                    finish(() => rej(err))
+                }
+            }
+
+            indexTimer = setTimeout(() => { void onNoIndexTimeout() }, indexTimeoutMs)
+
+            stream.responses.onError(error => {
+                if (abortController.signal.aborted && !indexSent) {
+                    return
+                }
+                this.log(ERROR, "invoice payment failed", error)
+                finish(() => rej(error))
+            })
             stream.responses.onMessage(payment => {
                 const indexNum = Number(payment.paymentIndex)
                 if (!indexSent && indexNum > 0) {
                     indexSent = true
-                    paymentIndexCb?.(Number(payment.paymentIndex))
+                    if (indexTimer !== undefined) {
+                        clearTimeout(indexTimer)
+                        indexTimer = undefined
+                    }
+                    paymentIndexCb?.(indexNum)
                 }
                 switch (payment.status) {
                     case Payment_PaymentStatus.FAILED:
                         this.log(ERROR, "invoice payment failed", payment.failureReason)
-                        res({ ok: false, error: PaymentFailureReason[payment.failureReason] })
+                        finish(() => res({ ok: false, error: PaymentFailureReason[payment.failureReason] }))
                         return
                     case Payment_PaymentStatus.SUCCEEDED:
-                        const paidInvoice = { feeSat: Math.ceil(Number(payment.feeMsat) / 1000), valueSat: Number(payment.valueSat), paymentPreimage: payment.paymentPreimage }
-                        res({ ok: true, res: paidInvoice })
+                        finish(() => res({
+                            ok: true,
+                            res: {
+                                feeSat: Math.ceil(Number(payment.feeMsat) / 1000),
+                                valueSat: Number(payment.valueSat),
+                                paymentPreimage: payment.paymentPreimage
+                            }
+                        }))
                         return
                 }
             })
         })
+    }
+
+    private async resolvePaymentAfterIndexTimeout(invoice: string): Promise<
+        | { kind: 'result', result: { ok: true, res: PaidInvoice } | { ok: false, error: string } }
+        | { kind: 'pending', error: string }
+    > {
+        const decoded = await this.DecodeInvoice(invoice)
+        const payment = await this.GetPaymentFromHash(decoded.paymentHash)
+        if (!payment) {
+            return { kind: 'pending', error: "payment never initiated after index timeout" }
+        }
+        switch (payment.status) {
+            case Payment_PaymentStatus.SUCCEEDED:
+                return {
+                    kind: 'result',
+                    result: {
+                        ok: true,
+                        res: {
+                            feeSat: Math.ceil(Number(payment.feeMsat) / 1000),
+                            valueSat: Number(payment.valueSat),
+                            paymentPreimage: payment.paymentPreimage
+                        }
+                    }
+                }
+            case Payment_PaymentStatus.FAILED:
+                return { kind: 'result', result: { ok: false, error: PaymentFailureReason[payment.failureReason] } }
+            case Payment_PaymentStatus.IN_FLIGHT:
+                return { kind: 'pending', error: "payment in flight after index timeout" }
+            default:
+                return { kind: 'pending', error: "payment status unknown after index timeout" }
+        }
     }
 
     async trackPaymentV2(paymentHash: string): Promise<Payment> {
@@ -770,15 +850,28 @@ export default class {
             noInflightUpdates: false
         }, { abort: abortController.signal })
         return new Promise((res, rej) => {
+            let settled = false
+            const finish = (action: () => void) => {
+                if (settled) {
+                    return
+                }
+                settled = true
+                action()
+            }
             stream.responses.onError(error => {
                 if (abortController.signal.aborted) {
-                    this.log(ERROR, "error with trackPaymentV2", error.message)
-                    rej(null)
+                    return
                 }
+                if (isPaymentNotInitiatedError(error)) {
+                    finish(() => res(null))
+                    return
+                }
+                this.log(ERROR, "error with trackPaymentV2", error instanceof Error ? error.message : error)
+                finish(() => rej(error))
             })
             stream.responses.onMessage(payment => {
-                res(payment)
                 abortController.abort()
+                finish(() => res(payment))
             })
         })
     }

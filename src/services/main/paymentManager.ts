@@ -186,10 +186,37 @@ export default class {
             return
         }
         const decoded = await this.lnd.DecodeInvoice(p.invoice)
-        const payment = await this.lnd.GetPaymentFromHash(decoded.paymentHash)
-        if (!payment || payment.paymentHash !== decoded.paymentHash) {
-            log(ERROR, "lnd payment not found for pending payment hash ", decoded.paymentHash)
+        let payment
+        try {
+            payment = await this.lnd.GetPaymentFromHash(decoded.paymentHash)
+        } catch (err: any) {
+            log(ERROR, "failed to lookup pending lnd payment, leaving pending", p.serial_id, err?.message || err)
             return
+        }
+        if (!payment) {
+            if (p.paymentIndex >0) {
+                log("lnd payment not found for pending payment hash, but payment index is greater than 0, leaving pending", p.serial_id)
+                return
+            }
+            for (let attempt = 0; attempt < 2 && !payment; attempt++) {
+                await new Promise(resolve => setTimeout(resolve, 5 * 1000))
+                try {
+                    payment = await this.lnd.GetPaymentFromHash(decoded.paymentHash)
+                } catch (err: any) {
+                    log(ERROR, "failed to lookup pending lnd payment, leaving pending", p.serial_id, err?.message || err)
+                    return
+                }
+            }
+            if (!payment) {
+                const fullAmount = p.paid_amount + p.service_fees
+                log("lnd payment not found for pending payment hash, refunding", decoded.paymentHash, fullAmount, "sats to user", p.user.user_id)
+                await this.storage.StartTransaction(async tx => {
+                    await this.storage.userStorage.IncrementUserBalance(p.user.user_id, fullAmount, "payment_refund:" + p.invoice, tx)
+                    await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, 0, 0, false, undefined, tx)
+                }, "refund failed pending payment")
+                this.utils.stateBundler.AddTxPointFailed('paidAnInvoice', fullAmount, { used: 'lnd', from: 'user' })
+                return
+            }
         }
         switch (payment.status) {
             case Payment_PaymentStatus.UNKNOWN:
@@ -577,9 +604,11 @@ export default class {
         const opId = `${Types.UserOperationType.OUTGOING_INVOICE}-${pendingPayment.serial_id}`
         const op = this.newInvoicePaymentOperation({ invoice, opId, amount: payAmount, networkFee: 0, serviceFee: serviceFee, confirmed: false, paidAtUnix: 0 })
         optionals.ack?.(op)
+        let gotIndex = false
         try {
             const payment = await this.lnd.PayInvoice(invoice, amountForLnd, { routingFeeLimit, serviceFee }, payAmount, { useProvider: use === 'provider', from: 'user' }, index => {
                 this.storage.paymentStorage.SetExternalPaymentIndex(pendingPayment.serial_id, index)
+                gotIndex = true
             })
             await this.storage.paymentStorage.UpdateExternalPayment(pendingPayment.serial_id, payment.feeSat, serviceFee, true, payment.providerPubkey)
             const feeDiff = serviceFee - payment.feeSat
@@ -589,7 +618,8 @@ export default class {
             return { preimage: payment.paymentPreimage, amtPaid: payment.valueSat, networkFee: payment.feeSat, serialId: pendingPayment.serial_id }
 
         } catch (err: any) {
-            const confirmedFailed = await this.isOutgoingPaymentConfirmedFailed(invoice, use === 'provider')
+            const {failed,found} = await this.isOutgoingPaymentConfirmedFailed(invoice, use === 'provider')
+            const confirmedFailed = failed && (found || !gotIndex) 
             if (confirmedFailed) {
                 await this.storage.StartTransaction(async tx => {
                     await this.storage.userStorage.IncrementUserBalance(userId, totalAmountToDecrement, "payment_refund:" +invoice, tx)
@@ -602,21 +632,21 @@ export default class {
         }
     }
 
-    isOutgoingPaymentConfirmedFailed = async (invoice: string, viaProvider: boolean): Promise<boolean> => {
+    isOutgoingPaymentConfirmedFailed = async (invoice: string, viaProvider: boolean): Promise<{found:boolean, failed:boolean}> => {
         try {
             if (viaProvider) {
                 const state = await this.lnd.liquidProvider.GetPaymentState(invoice)
-                return state.paid_at_unix < 0
+                return { found: true, failed: state.paid_at_unix < 0 }
             }
             const decoded = await this.lnd.DecodeInvoice(invoice)
             const payment = await this.lnd.GetPaymentFromHash(decoded.paymentHash)
-            if (!payment || payment.paymentHash !== decoded.paymentHash) {
-                return false
+            if (!payment) {
+                return { found: false, failed: true }
             }
-            return payment.status === Payment_PaymentStatus.FAILED
+            return { found: true, failed: payment.status === Payment_PaymentStatus.FAILED }
         } catch (err: any) {
             this.log(ERROR, "failed to confirm payment failure status, treating as ambiguous", err?.message || err)
-            return false
+            return { found: false, failed: false }
         }
     }
 

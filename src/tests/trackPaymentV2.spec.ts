@@ -7,6 +7,7 @@ export const dev = false
 
 export default async (T: TestBase) => {
     await testTrackPaymentV2UnknownHashReturnsNotFound(T)
+    await testGetPaymentFromHashUnknownHashReturnsNull(T)
 }
 
 const testTrackPaymentV2UnknownHashReturnsNotFound = async (T: TestBase) => {
@@ -23,4 +24,11 @@ const testTrackPaymentV2UnknownHashReturnsNotFound = async (T: TestBase) => {
     const code = getGrpcErrorCode(error)
     T.expect(code).to.equal('NOT_FOUND')
     T.expect(isPaymentNotInitiatedError(error)).to.equal(true)
+}
+
+const testGetPaymentFromHashUnknownHashReturnsNull = async (T: TestBase) => {
+    T.d("starting testGetPaymentFromHashUnknownHashReturnsNull")
+    const unknownHash = crypto.randomBytes(32).toString('hex')
+    const payment = await T.main.lnd.GetPaymentFromHash(unknownHash)
+    T.expect(payment).to.equal(null)
 }
