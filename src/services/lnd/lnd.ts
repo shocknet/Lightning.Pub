@@ -610,7 +610,7 @@ export default class {
         const decoded = await this.DecodeInvoice(invoice)
         const payment = await this.GetPaymentFromHash(decoded.paymentHash)
         if (!payment) {
-            return { kind: 'result', result: { ok: false, error: "payment never initiated" } }
+            return { kind: 'pending', error: "payment never initiated after index timeout" }
         }
         switch (payment.status) {
             case Payment_PaymentStatus.SUCCEEDED:

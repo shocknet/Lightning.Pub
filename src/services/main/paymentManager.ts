@@ -198,14 +198,25 @@ export default class {
                 log("lnd payment not found for pending payment hash, but payment index is greater than 0, leaving pending", p.serial_id)
                 return
             }
-            const fullAmount = p.paid_amount + p.service_fees
-            log("lnd payment not found for pending payment hash, refunding", decoded.paymentHash, fullAmount, "sats to user", p.user.user_id)
-            await this.storage.StartTransaction(async tx => {
-                await this.storage.userStorage.IncrementUserBalance(p.user.user_id, fullAmount, "payment_refund:" + p.invoice, tx)
-                await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, 0, 0, false, undefined, tx)
-            }, "refund failed pending payment")
-            this.utils.stateBundler.AddTxPointFailed('paidAnInvoice', fullAmount, { used: 'lnd', from: 'user' })
-            return
+            for (let attempt = 0; attempt < 2 && !payment; attempt++) {
+                await new Promise(resolve => setTimeout(resolve, 5 * 1000))
+                try {
+                    payment = await this.lnd.GetPaymentFromHash(decoded.paymentHash)
+                } catch (err: any) {
+                    log(ERROR, "failed to lookup pending lnd payment, leaving pending", p.serial_id, err?.message || err)
+                    return
+                }
+            }
+            if (!payment) {
+                const fullAmount = p.paid_amount + p.service_fees
+                log("lnd payment not found for pending payment hash, refunding", decoded.paymentHash, fullAmount, "sats to user", p.user.user_id)
+                await this.storage.StartTransaction(async tx => {
+                    await this.storage.userStorage.IncrementUserBalance(p.user.user_id, fullAmount, "payment_refund:" + p.invoice, tx)
+                    await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, 0, 0, false, undefined, tx)
+                }, "refund failed pending payment")
+                this.utils.stateBundler.AddTxPointFailed('paidAnInvoice', fullAmount, { used: 'lnd', from: 'user' })
+                return
+            }
         }
         switch (payment.status) {
             case Payment_PaymentStatus.UNKNOWN:
