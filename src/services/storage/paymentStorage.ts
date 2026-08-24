@@ -524,11 +524,6 @@ export default class {
         return this.dbs.Find<UserInvoicePayment>('UserInvoicePayment', { where: { paid_at_unix: 0 } })
     }
 
-    async GetUserIdsWithPendingOutgoingPayments(txId?: string) {
-        const pending = await this.GetPendingPayments(txId)
-        return new Set(pending.map(p => p.user.user_id))
-    }
-
     async GetOfferInvoices(offerId: string, includeUnpaid: boolean, txId?: string) {
         const where: { offer_id: string, paid_at_unix?: FindOperator<number> } = { offer_id: offerId }
         if (!includeUnpaid) {
