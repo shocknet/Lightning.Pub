@@ -1,4 +1,4 @@
-import { PubLogger, getLogger } from "../helpers/logger.js"
+import { PubLogger, getLogger, ERROR } from "../helpers/logger.js"
 import { LiquidityProvider } from "./liquidityProvider.js"
 import { Unlocker } from "./unlocker.js"
 import Storage, { StorageSettings } from "../storage/index.js"
@@ -74,7 +74,7 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
     if (stop) {
         return
     }
-    await mainHandler.paymentManager.checkPaymentStatus()
+    recoverPendingPaymentsInBackground(log, mainHandler)
     await mainHandler.paymentManager.checkMissedChainTxs()
     await mainHandler.paymentManager.CleanupOldUnpaidInvoices()
     await mainHandler.appUserManager.CleanupInactiveUsers()
@@ -82,6 +82,13 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
     await swaps.ResumeInvoiceSwaps()
     await mainHandler.paymentManager.watchDog.Start()
     return { mainHandler, apps, localProviderClient, wizard, adminManager }
+}
+
+const recoverPendingPaymentsInBackground = (log: PubLogger, mainHandler: Main) => {
+    log("recovering pending payments in background")
+    void mainHandler.paymentManager.checkPaymentStatus().catch(err => {
+        log(ERROR, "pending payment recovery failed", err instanceof Error ? err.message : String(err))
+    })
 }
 
 const processArgs = async (mainHandler: Main) => {
