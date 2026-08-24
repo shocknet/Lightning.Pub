@@ -866,6 +866,7 @@ export default class {
             let finish: (action: () => void) => void
             const timeout = setTimeout(() => {
                 this.log(ERROR, "trackPaymentV2 timed out after", GET_PAYMENT_FROM_HASH_TIMEOUT_MS, "ms")
+                // Must reject, not resolve null: null is the not-found refund path.
                 finish(() => rej(new Error("trackPaymentV2 timed out")))
             }, GET_PAYMENT_FROM_HASH_TIMEOUT_MS)
             finish = settleOnce(() => {

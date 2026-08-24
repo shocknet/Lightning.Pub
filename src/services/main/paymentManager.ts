@@ -102,7 +102,7 @@ export default class {
         this.liquidityManager = liquidityManager
         this.utils = utils
         this.paymentSideEffects = sideEffects
-        this.watchDog = new Watchdog(settings, this.liquidityManager, this.lnd, this.storage, this.utils, this.liquidityManager.rugPullTracker)
+        this.watchDog = new Watchdog(settings, this.liquidityManager, this.lnd, this.storage, this.utils, this.liquidityManager.rugPullTracker, this.checkPaymentStatus)
         this.swaps = swaps
         this.addressPaidCb = addressPaidCb
         this.newBlockCb = newBlockCb
