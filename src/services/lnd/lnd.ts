@@ -27,6 +27,19 @@ import { ListAddressesResponse, PublishResponse } from '../../../proto/lnd/walle
 import { isPaymentNotInitiatedError } from './trackPaymentError.js';
 
 const DeadLineMetadata = (deadline = 10 * 1000) => ({ deadline: Date.now() + deadline })
+const GET_PAYMENT_FROM_HASH_TIMEOUT_MS = 10 * 1000
+
+const settleOnce = (onSettle: () => void) => {
+    let settled = false
+    return (action: () => void) => {
+        if (settled) {
+            return
+        }
+        settled = true
+        onSettle()
+        action()
+    }
+}
 const deadLndRetrySeconds = 20
 type TxActionOptions = { useProvider: boolean, from: 'user' | 'system' }
 type NodeSettingsOverride = {
@@ -850,14 +863,16 @@ export default class {
             noInflightUpdates: false
         }, { abort: abortController.signal })
         return new Promise((res, rej) => {
-            let settled = false
-            const finish = (action: () => void) => {
-                if (settled) {
-                    return
-                }
-                settled = true
-                action()
-            }
+            let finish: (action: () => void) => void
+            const timeout = setTimeout(() => {
+                this.log(ERROR, "trackPaymentV2 timed out after", GET_PAYMENT_FROM_HASH_TIMEOUT_MS, "ms")
+                // Must reject, not resolve null: null is the not-found refund path.
+                finish(() => rej(new Error("trackPaymentV2 timed out")))
+            }, GET_PAYMENT_FROM_HASH_TIMEOUT_MS)
+            finish = settleOnce(() => {
+                clearTimeout(timeout)
+                abortController.abort()
+            })
             stream.responses.onError(error => {
                 if (abortController.signal.aborted) {
                     return
@@ -870,7 +885,6 @@ export default class {
                 finish(() => rej(error))
             })
             stream.responses.onMessage(payment => {
-                abortController.abort()
                 finish(() => res(payment))
             })
         })
