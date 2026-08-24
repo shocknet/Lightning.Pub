@@ -122,9 +122,14 @@ export default class {
 
     async CleanupInactiveUsers() {
         this.log("Cleaning up inactive users")
+        const pendingUserIds = await this.storage.paymentStorage.GetUserIdsWithPendingOutgoingPayments()
         const inactiveUsers = await this.storage.userStorage.GetInactiveUsers(365)
         const toDelete: { userId: string, appUserIds: string[] }[] = []
         for (const u of inactiveUsers) {
+            if (pendingUserIds.has(u.user_id)) {
+                this.log("Skipping user", u.user_id, "has pending outgoing payment")
+                continue
+            }
             const user = await this.storage.userStorage.GetUser(u.user_id)
             if (user.balance_sats > 10_000) {
                 continue
@@ -139,9 +144,14 @@ export default class {
 
     async CleanupNeverActiveUsers() {
         this.log("Cleaning up never active users")
+        const pendingUserIds = await this.storage.paymentStorage.GetUserIdsWithPendingOutgoingPayments()
         const inactiveUsers = await this.storage.userStorage.GetInactiveUsers(90)
         const toDelete: { userId: string, appUserIds: string[] }[] = []
         for (const u of inactiveUsers) {
+            if (pendingUserIds.has(u.user_id)) {
+                this.log("Skipping user", u.user_id, "has pending outgoing payment")
+                continue
+            }
             const user = await this.storage.userStorage.GetUser(u.user_id)
             if (user.balance_sats > 0) {
                 continue
