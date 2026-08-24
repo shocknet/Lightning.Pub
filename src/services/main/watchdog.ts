@@ -30,8 +30,7 @@ export class Watchdog {
     interval: NodeJS.Timer;
     lndPubKey: string;
     lastHandlerRootOpsAtUnix = 0
-    reconcilePendingPayments: () => Promise<void>
-    constructor(settings: SettingsManager, liquidityManager: LiquidityManager, lnd: LND, storage: Storage, utils: Utils, rugPullTracker: RugPullTracker, reconcilePendingPayments: () => Promise<void>) {
+    constructor(settings: SettingsManager, liquidityManager: LiquidityManager, lnd: LND, storage: Storage, utils: Utils, rugPullTracker: RugPullTracker) {
         this.lnd = lnd;
         this.settings = settings;
         this.storage = storage;
@@ -39,7 +38,6 @@ export class Watchdog {
         this.liquidityManager = liquidityManager
         this.utils = utils
         this.rugPullTracker = rugPullTracker
-        this.reconcilePendingPayments = reconcilePendingPayments
         this.queue = new FunctionQueue("watchdog_queue", () => this.StartCheck())
     }
 
@@ -57,8 +55,6 @@ export class Watchdog {
         }
     }
     StartWatching = async () => {
-        this.log("reconciling pending payments before snapshot")
-        await this.reconcilePendingPayments()
         // Skip watchdog if using only liquidity provider
         if (this.liquidProvider.getSettings().useOnlyLiquidityProvider) {
             this.log("USE_ONLY_LIQUIDITY_PROVIDER enabled, skipping watchdog")

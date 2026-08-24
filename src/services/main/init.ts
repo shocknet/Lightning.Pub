@@ -74,6 +74,7 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
     if (stop) {
         return
     }
+    await mainHandler.paymentManager.checkPaymentStatus()
     await mainHandler.paymentManager.checkMissedChainTxs()
     await mainHandler.paymentManager.CleanupOldUnpaidInvoices()
     await mainHandler.appUserManager.CleanupInactiveUsers()
