@@ -209,15 +209,10 @@ export default class SanityChecker {
         if (!txHash) {
             throw new Error("no tx hash provided to address " + address)
         }
-        const entry = await this.storage.paymentStorage.GetAddressReceivingTransactionOwner(address, txHash)
+        const entries = await this.storage.paymentStorage.GetAddressReceivingTransactionsByTxHash(address, txHash)
+        const entry = entries.find(e => e.user_address.user.user_id === userId && e.paid_at_unix > 0)
         if (!entry) {
             throw new Error("no tx found for tx hash " + txHash)
-        }
-        if (entry.user_address.user.user_id !== userId) {
-            throw new Error("tx user id mismatch for tx hash " + txHash)
-        }
-        if (entry.paid_at_unix <= 0) {
-            throw new Error("tx not paid for tx hash " + txHash)
         }
     }
 

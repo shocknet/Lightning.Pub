@@ -164,7 +164,7 @@ export default class {
                     await this.storage.userStorage.IncrementUserBalance(p.linkedApplication.owner.user_id, remainingFee, "fees", tx)
                 }
 
-                await this.lnd.liquidProvider.incrementProviderBalance(-fullAmount, tx)
+                await this.lnd.liquidProvider.SettleProviderPayment(p.invoice, fullAmount, tx)
 
             })
             const user = await this.storage.userStorage.GetUser(p.user.user_id)
@@ -359,17 +359,17 @@ export default class {
     }
 
     private async processUserAddressOutput(output: OutputDetail, tx: Transaction, log: PubLogger, startHeight: number) {
+        const amount = Number(output.amount)
+        const outputIndex = Number(output.outputIndex)
         const existingTx = await this.storage.paymentStorage.GetAddressReceivingTransactionOwner(
             output.address,
-            tx.txHash
+            tx.txHash,
+            outputIndex
         )
 
         if (existingTx) {
             return false
         }
-
-        const amount = Number(output.amount)
-        const outputIndex = Number(output.outputIndex)
         log(`processing missed chain tx: address=${output.address}, txHash=${tx.txHash}, amount=${amount}, outputIndex=${outputIndex}`)
         try {
             await this.addressPaidCb({ hash: tx.txHash, index: outputIndex }, output.address, amount, 'lnd', startHeight)
@@ -610,7 +610,15 @@ export default class {
                 this.storage.paymentStorage.SetExternalPaymentIndex(pendingPayment.serial_id, index)
                 gotIndex = true
             })
-            await this.storage.paymentStorage.UpdateExternalPayment(pendingPayment.serial_id, payment.feeSat, serviceFee, true, payment.providerPubkey)
+            if (use === 'provider') {
+                const providerTotal = payment.valueSat + payment.feeSat
+                await this.storage.StartTransaction(async tx => {
+                    await this.storage.paymentStorage.UpdateExternalPayment(pendingPayment.serial_id, payment.feeSat, serviceFee, true, payment.providerPubkey, tx)
+                    await this.lnd.liquidProvider.SettleProviderPayment(invoice, providerTotal, tx)
+                }, "finalize provider payment")
+            } else {
+                await this.storage.paymentStorage.UpdateExternalPayment(pendingPayment.serial_id, payment.feeSat, serviceFee, true, payment.providerPubkey)
+            }
             const feeDiff = serviceFee - payment.feeSat
             if (feeDiff < 0) { // should not happen to lnd beacuse of the fee limit, culd happen to provider if the fee used to calculate the provider fee are out of date
                 this.log("WARNING: network fee was higher than expected,", feeDiff, "were lost by", use === 'provider' ? "provider" : "lnd")
