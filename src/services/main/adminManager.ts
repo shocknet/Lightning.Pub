@@ -577,7 +577,7 @@ export class AdminManager {
         const ts = Number(tx.timeStamp)
         const amount = Number(output.amount)
         const outputIndex = Number(output.outputIndex)
-        const userOp = await this.storage.paymentStorage.GetAddressReceivingTransactionOwner(output.address, tx.txHash)
+        const userOp = await this.storage.paymentStorage.GetAddressReceivingTransactionOwner(output.address, tx.txHash, outputIndex)
         if (userOp) {
             const tracked: Types.TrackedOperation = { ts: userOp.paid_at_unix, amount: userOp.paid_amount, type: USER_OP }
             return { ts, amount, tracked }
