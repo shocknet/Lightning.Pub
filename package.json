@@ -1,6 +1,6 @@
 {
   "name": "lnpub",
-  "version": "0.0.36",
+  "version": "0.0.39",
   "description": "A Nostr based account system and management platform for nodes on Bitcoin's Lightning Network",
   "main": "index.js",
   "scripts": {
