@@ -153,7 +153,9 @@ export default class {
             log("provider payment succeeded", p.serial_id, "updating payment info")
             const serviceFee = p.service_fees
             const networkFee = state.service_fee
-            const fullAmount = p.paid_amount + p.service_fees
+            // Provider balance must debit what the provider actually charged (amount + its service fee),
+            // not the local service fee reserved from the user — same as live PayExternalInvoice finalize.
+            const providerTotal = state.amount + state.service_fee
             await this.storage.StartTransaction(async tx => {
                 await this.storage.paymentStorage.UpdateExternalPayment(p.serial_id, networkFee, serviceFee, true, undefined, tx)
                 const remainingFee = serviceFee - networkFee
@@ -164,13 +166,13 @@ export default class {
                     await this.storage.userStorage.IncrementUserBalance(p.linkedApplication.owner.user_id, remainingFee, "fees", tx)
                 }
 
-                await this.lnd.liquidProvider.SettleProviderPayment(p.invoice, fullAmount, tx)
+                await this.lnd.liquidProvider.SettleProviderPayment(p.invoice, providerTotal, tx)
 
             })
             const user = await this.storage.userStorage.GetUser(p.user.user_id)
             this.storage.eventsLog.LogEvent({ type: 'invoice_payment', userId: p.user.user_id, appId: p.linkedApplication?.app_id || "", appUserId: "", balance: user.balance_sats, data: p.invoice, amount: p.paid_amount })
             const txPoint: TxPointSettings = { used: 'provider', from: 'user', timeDiscount: true }
-            this.utils.stateBundler.AddTxPoint('paidAnInvoice', fullAmount, txPoint)
+            this.utils.stateBundler.AddTxPoint('paidAnInvoice', providerTotal, txPoint)
             return
         }
         log("provider payment still pending", p.serial_id, "no action will be performed")
