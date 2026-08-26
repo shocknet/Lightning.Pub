@@ -96,6 +96,9 @@ export const nofferErrors = {
 }
 
 export const k1AlreadyProcessedReason = "K1 already processed"
+export const invoiceAlreadyPaidReason = "invoice already paid"
+export const invoiceAlreadyFailedReason = "invoice already paid and failed"
+export const invoicePaymentInProgressReason = "invoice payment already in progress"
 
 export type NdebitFailureWithExtras = NdebitFailure & {
     range?: { min: number, max: number }
@@ -112,6 +115,9 @@ export const ndebitFailure = (code: number, opts: { error?: string, max?: number
     }
     return failure
 }
+
+export const ndebitInvalidRequest = (reason: string) =>
+    ndebitFailure(6, { error: `${nofferErrors[6]}: ${reason}` })
 
 export type ValidateAccessRulesResult =
     | { ok: true }

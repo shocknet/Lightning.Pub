@@ -11,9 +11,11 @@ import { Ndebit, NdebitData, NdebitFailure, NdebitSuccess, RecurringDebitTimeUni
 import {
     debitAccessRulesToDebitRules, newNdebitResponse, debitRulesToDebitAccessRules,
     nofferErrors, k1AlreadyProcessedReason, AuthRequiredRes, HandleNdebitRes, expirationRuleName,
-    frequencyRuleName, IntervalTypeToSeconds, unitToIntervalType, ndebitFailure,
+    frequencyRuleName, IntervalTypeToSeconds, unitToIntervalType, ndebitFailure, ndebitInvalidRequest,
     ValidateAccessRulesResult, DebitFrequencyCapError, DebitUnauthorizedError, AssertDebitFrequency,
+    invoiceAlreadyPaidReason, invoiceAlreadyFailedReason, invoicePaymentInProgressReason,
 } from "./debitTypes.js";
+import { InvoiceAlreadyFailedError, InvoiceAlreadyPaidError, InvoicePaymentInProgressError } from "./invoicePaymentErrors.js";
 import PaymentManager from "./paymentManager.js";
 
 type k1Info = {
@@ -249,7 +251,16 @@ export class DebitManager {
         if (e instanceof DebitUnauthorizedError) {
             return ndebitFailure(1)
         }
-        return { res: 'GFY' as const, error: nofferErrors[1], code: 1 }
+        if (e instanceof InvoiceAlreadyPaidError) {
+            return ndebitInvalidRequest(invoiceAlreadyPaidReason)
+        }
+        if (e instanceof InvoiceAlreadyFailedError) {
+            return ndebitInvalidRequest(invoiceAlreadyFailedReason)
+        }
+        if (e instanceof InvoicePaymentInProgressError) {
+            return ndebitInvalidRequest(invoicePaymentInProgressReason)
+        }
+        return ndebitFailure(1)
     }
 
     doNdebit = async (event: NostrEvent, pointerdata: NdebitData): Promise<HandleNdebitRes> => {
@@ -265,7 +276,7 @@ export class DebitManager {
         // k1 will persist in memory for up to 5 minutes before getting cleared
         const alreadyUsed = this.DedupeK1(appUserId, k1)
         if (alreadyUsed) {
-            return { status: 'fail', debitRes: { res: 'GFY', error: k1AlreadyProcessedReason, code: 1 } }
+            return { status: 'fail', debitRes: ndebitInvalidRequest(k1AlreadyProcessedReason) }
         }
         const app = await this.storage.applicationStorage.GetApplication(appId)
         const appUser = await this.storage.applicationStorage.GetApplicationUser(app, appUserId)

@@ -25,6 +25,7 @@ import Metrics from '../metrics/index.js'
 import { TxPointSettings } from '../storage/tlv/stateBundler.js'
 import { PaymentSideEffects } from './paymentSideEffects.js'
 import { AssertDebitFrequency } from './debitTypes.js'
+import { InvoiceAlreadyFailedError, InvoiceAlreadyPaidError, InvoicePaymentInProgressError } from './invoicePaymentErrors.js'
 
 type PayInvoiceOptionals = {
     swapOperationId?: string
@@ -529,15 +530,15 @@ export default class {
         const serviceFee = this.getSendServiceFee(Types.UserOperationType.OUTGOING_INVOICE, payAmount, isManagedUser)
         const internalInvoice = await this.storage.paymentStorage.GetInvoiceOwner(req.invoice)
         if (internalInvoice && internalInvoice.paid_at_unix > 0) {
-            throw new Error("this invoice was already paid")
+            throw new InvoiceAlreadyPaidError()
         }
         const invoiceAlreadyPaid = await this.storage.paymentStorage.GetPaymentOwner(req.invoice)
         if (invoiceAlreadyPaid && invoiceAlreadyPaid.paid_at_unix > 0) {
-            throw new Error("this invoice was already paid")
+            throw new InvoiceAlreadyPaidError()
         }
         let paymentInfo = { preimage: "", amtPaid: 0, networkFee: 0, serialId: 0 }
         if (this.invoiceLock.isLocked(req.invoice)) {
-            throw new Error("this invoice is already being paid")
+            throw new InvoicePaymentInProgressError()
         }
         this.invoiceLock.lock(req.invoice)
         try {
@@ -581,11 +582,11 @@ export default class {
         const existingPendingPayment = await this.storage.paymentStorage.GetPaymentOwner(invoice)
         if (existingPendingPayment) {
             if (existingPendingPayment.paid_at_unix > 0) {
-                throw new Error("this invoice was already paid")
+                throw new InvoiceAlreadyPaidError()
             } else if (existingPendingPayment.paid_at_unix < 0) {
-                throw new Error("this invoice was already paid and failed, try another invoice")
+                throw new InvoiceAlreadyFailedError()
             }
-            throw new Error("payment already in progress")
+            throw new InvoicePaymentInProgressError("payment already in progress")
         }
 
         const { amountForLnd, payAmount, serviceFee } = amounts
@@ -655,7 +656,7 @@ export default class {
             throw new Error("amount cannot be zero or negative")
         }
         if (internalInvoice.paid_at_unix > 0) {
-            throw new Error("this invoice was already paid")
+            throw new InvoiceAlreadyPaidError()
         }
         const { payAmount, serviceFee } = amounts
         const { debitNpub, assertDebitFrequency } = optionals
