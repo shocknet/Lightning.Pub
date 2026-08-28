@@ -1164,5 +1164,7 @@ message PushNotificationPayload {
   oneof data {
     UserOperation received_operation = 1;
     UserOperation sent_operation = 2;
+    LiveDebitRequest debit_auth_req = 3;
+    LiveManageRequest manage_auth_req = 4;
   }
 }
