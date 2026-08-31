@@ -312,7 +312,7 @@ export class OfferManager {
     }
 
 }
-const newNofferResponse = (content: string, event: NostrEvent): UnsignedEvent => {
+export const newNofferResponse = (content: string, event: NostrEvent): UnsignedEvent => {
     return {
         content,
         created_at: Math.floor(Date.now() / 1000),
@@ -321,6 +321,7 @@ const newNofferResponse = (content: string, event: NostrEvent): UnsignedEvent =>
         tags: [
             ['p', event.pub],
             ['e', event.id],
+            ['clink_version', '1'],
         ],
     }
 }

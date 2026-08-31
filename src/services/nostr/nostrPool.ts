@@ -38,6 +38,7 @@ export type NostrEvent = {
     startAtMs: number
     kind: number
     relayConstraint?: 'service' | 'provider'
+    tags?: string[][]
 }
 type RelayEvent = { type: 'event', event: NostrEvent } | { type: 'beacon', content: string, pub: string }
 type RelayEventCallback = (event: RelayEvent) => void
@@ -117,7 +118,7 @@ export class NostrPool {
             return
         }
         const relayConstraint = relay.getConstraint()
-        const nostrEvent: NostrEvent = { id: e.id, content, pub: e.pubkey, appId: app.appId, startAtNano, startAtMs, kind: e.kind, relayConstraint }
+        const nostrEvent: NostrEvent = { id: e.id, content, pub: e.pubkey, appId: app.appId, startAtNano, startAtMs, kind: e.kind, relayConstraint, tags: e.tags }
         this.eventCallback({ type: 'event', event: nostrEvent })
     }
 

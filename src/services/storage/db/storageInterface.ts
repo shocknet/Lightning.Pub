@@ -156,14 +156,15 @@ export class StorageInterface extends EventEmitter {
 
     async Tx<T>(exec: TX<T>, description?: string): Promise<T> {
         const txId = await this.StartTx(description)
+        let result: T
         try {
-            const res = await exec(txId)
-            await this.EndTx(txId, true, res)
-            return res
+            result = await exec(txId)
         } catch (err: any) {
-            await this.EndTx(txId, false, err.message)
+            await this.EndTx(txId, false, err.message).catch(() => undefined)
             throw err
         }
+        await this.EndTx(txId, true, result)
+        return result
     }
 
     private handleOp<T>(op: IStorageOperation): Promise<T> {
