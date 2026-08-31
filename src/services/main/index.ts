@@ -85,7 +85,7 @@ export default class {
         this.lnd = new LND(lndGetSettings, this.liquidityProvider, () => this.unlocker.Unlock(), this.utils, this.addressPaidCb, this.invoicePaidCb, this.newBlockCb, this.htlcCb, this.channelEventCb)
         this.liquidityManager = new LiquidityManager(this.settings, this.storage, this.utils, this.liquidityProvider, this.lnd, this.rugPullTracker)
         this.metricsManager = new MetricsManager(this.storage, this.lnd)
-        this.notificationsManager = new NotificationsManager(this.settings)
+        this.notificationsManager = new NotificationsManager(this.settings, this.storage)
         this.paymentSideEffects = new PaymentSideEffects(this.storage, this.utils, this.notificationsManager)
         this.paymentManager = new PaymentManager(this.storage, this.metricsManager, this.lnd, adminManager.swaps, this.settings, this.liquidityManager, this.paymentSideEffects, this.utils, this.addressPaidCb, /* this.invoicePaidCb, */ this.newBlockCb)
         this.productManager = new ProductManager(this.storage, this.paymentManager, this.settings)
