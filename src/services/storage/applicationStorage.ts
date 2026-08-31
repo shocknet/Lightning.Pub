@@ -201,7 +201,7 @@ export default class {
 
 
     async SetInviteTokenAsUsed(inviteToken: InviteToken) {
-        return this.dbs.Update<InviteToken>('InviteToken', inviteToken, { used: true })
+        return this.dbs.Update<InviteToken>('InviteToken', inviteToken.serial_id, { used: true })
 
     }
 
