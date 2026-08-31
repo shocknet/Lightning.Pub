@@ -15,6 +15,10 @@ import { assertValidOfferPriceSats } from "../helpers/offerValidation.js";
 import { isAccountOwner, denyStrangerLiveAuth } from "../helpers/clinkOwner.js";
 import { clinkResponseTags } from "../helpers/clinkTags.js";
 import { CLINK_MANAGE_KIND } from "../helpers/clinkConstants.js";
+import { NotificationsManager } from "./notificationsManager.js";
+import { Application } from "../storage/entity/Application.js";
+import { ApplicationUser } from "../storage/entity/ApplicationUser.js";
+
 type Result<T> = { state: 'success', result: T } | { state: 'error', err: NmanageFailure } | { state: 'authRequired' }
 
 export class ManagementManager {
@@ -22,9 +26,11 @@ export class ManagementManager {
     private settings: SettingsManager;
     private awaitingRequests: Record<string, { request: NmanageRequest, event: NostrEvent }> = {}
     private logger: PubLogger
-    constructor(storage: Storage, settings: SettingsManager) {
+    notificationsManager: NotificationsManager
+    constructor(storage: Storage, settings: SettingsManager, notificationsManager: NotificationsManager) {
         this.storage = storage;
         this.settings = settings;
+        this.notificationsManager = notificationsManager
         this.logger = getLogger({ component: 'ManagementManager' })
     }
 
@@ -59,10 +65,22 @@ export class ManagementManager {
         }
     }
 
-    private sendManageAuthorizationRequest = (appId: string, userPub: string, { requestId, npub }: { requestId: string, npub: string }) => {
-        const message: Types.LiveManageRequest & { requestId: string, status: 'OK' } = { requestId: "GetLiveManageRequests", status: 'OK', npub: npub, request_id: requestId }
-        this.logger("Sending manage authorization request to", npub, "for app", appId)
-        this.storage.NostrSender().Send({ type: 'app', appId: appId }, { type: 'content', content: JSON.stringify(message), pub: userPub })
+    private sendManageAuthorizationRequest = async (app: Application, appUser: ApplicationUser, { requestId, npub }: { requestId: string, npub: string }) => {
+        const userPub = appUser.nostr_public_key!
+        const liveManageRequest: Types.LiveManageRequest = { npub: npub, request_id: requestId }
+        const message: Types.LiveManageRequest & { requestId: string, status: 'OK' } = { requestId: "GetLiveManageRequests", status: 'OK', ...liveManageRequest }
+        this.logger("Sending manage authorization request to", npub, "for app", app.app_id)
+        this.storage.NostrSender().Send({ type: 'app', appId: app.app_id }, { type: 'content', content: JSON.stringify(message), pub: userPub })
+
+        await this.notificationsManager.SendEncryptedPayload(app, appUser, {
+            data: {
+                type: Types.PushNotificationPayload_data_type.MANAGE_AUTH_REQ,
+                manage_auth_req: liveManageRequest
+            }
+        }, {
+            title: "Manage request",
+            body: "You have a new manage authorization request"
+        })
     }
 
     private sendError(event: NostrEvent, err: NmanageFailure) {
@@ -89,7 +107,7 @@ export class ManagementManager {
             return
         }
         this.awaitingRequests[event.pub] = { request: nmanageReq, event }
-        this.sendManageAuthorizationRequest(event.appId, appUser.nostr_public_key, { requestId: event.id, npub: event.pub })
+        await this.sendManageAuthorizationRequest(app, appUser, { requestId: event.id, npub: event.pub })
     }
 
 

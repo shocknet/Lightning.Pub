@@ -16,6 +16,7 @@ import {
 } from "./debitTypes.js";
 import { isAccountOwner, denyStrangerLiveAuth } from "../helpers/clinkOwner.js";
 import PaymentManager from "./paymentManager.js";
+import { NotificationsManager } from "./notificationsManager.js";
 
 type k1Info = {
     k1: string
@@ -46,12 +47,14 @@ export class DebitManager {
     k1Debouncers: Record<string, K1Debouncer> = {}
     interval: NodeJS.Timer
     paymentManager: PaymentManager
+    notificationsManager: NotificationsManager
     logger = getLogger({ component: 'DebitManager' })
-    constructor(storage: Storage, lnd: LND, applicationManager: ApplicationManager, paymentManager: PaymentManager) {
+    constructor(storage: Storage, lnd: LND, applicationManager: ApplicationManager, paymentManager: PaymentManager, notificationsManager: NotificationsManager) {
         this.storage = storage
         this.lnd = lnd
         this.applicationManager = applicationManager
         this.paymentManager = paymentManager
+        this.notificationsManager = notificationsManager
         this.StartDebounceCleaner()
     }
 
@@ -203,20 +206,31 @@ export class DebitManager {
         }
         const { appUser } = res
         if (res.status === 'authRequired') {
-            this.handleAuthRequired(pointerdata, event, res)
+            await this.handleAuthRequired(pointerdata, event, res)
             return
         }
         const { debitRes } = res
         this.notifyPaymentSuccess(debitRes, event)
     }
 
-    handleAuthRequired = (data: NdebitData, event: NostrEvent, res: AuthRequiredRes) => {
-        if (!res.appUser.nostr_public_key) {
+    handleAuthRequired = async (data: NdebitData, event: NostrEvent, res: AuthRequiredRes) => {
+        const { app, appUser, liveDebitReq } = res;
+        if (!appUser.nostr_public_key) {
             this.sendDebitResponse({ res: 'GFY', error: nofferErrors[1], code: 1 }, { pub: event.pub, id: event.id, appId: event.appId })
             return
         }
-        const message: Types.LiveDebitRequest & { requestId: string, status: 'OK' } = { ...res.liveDebitReq, requestId: "GetLiveDebitRequests", status: 'OK' }
-        this.storage.NostrSender().Send({ type: 'app', appId: event.appId }, { type: 'content', content: JSON.stringify(message), pub: res.appUser.nostr_public_key })
+        const message: Types.LiveDebitRequest & { requestId: string, status: 'OK' } = { ...liveDebitReq, requestId: "GetLiveDebitRequests", status: 'OK' }
+        this.storage.NostrSender().Send({ type: 'app', appId: event.appId }, { type: 'content', content: JSON.stringify(message), pub: appUser.nostr_public_key })
+
+        await this.notificationsManager.SendEncryptedPayload(app, appUser, {
+            data: {
+                type: Types.PushNotificationPayload_data_type.DEBIT_AUTH_REQ,
+                debit_auth_req: liveDebitReq
+            }
+        }, {
+            title: "Debit request",
+            body: "You have a new debit authorization request"
+        })
     }
 
     notifyPaymentSuccess = (debitRes: NdebitSuccess, event: { pub: string, id: string, appId: string }) => {

@@ -6130,6 +6130,8 @@ export const NPubLinking_stateValidate = (o?: NPubLinking_state, opts:NPubLinkin
     return null
 }
 export enum PushNotificationPayload_data_type {
+    DEBIT_AUTH_REQ = 'debit_auth_req',
+    MANAGE_AUTH_REQ = 'manage_auth_req',
     RECEIVED_OPERATION = 'received_operation',
     SENT_OPERATION = 'sent_operation',
 }
@@ -6138,10 +6140,14 @@ export const enumCheckPushNotificationPayload_data_type = (e?: PushNotificationP
     return false
 }
 export type PushNotificationPayload_data = 
+    {type:PushNotificationPayload_data_type.DEBIT_AUTH_REQ, debit_auth_req:LiveDebitRequest}|
+    {type:PushNotificationPayload_data_type.MANAGE_AUTH_REQ, manage_auth_req:LiveManageRequest}|
     {type:PushNotificationPayload_data_type.RECEIVED_OPERATION, received_operation:UserOperation}|
     {type:PushNotificationPayload_data_type.SENT_OPERATION, sent_operation:UserOperation}
 
 export type PushNotificationPayload_dataOptions = {
+    debit_auth_req_Options?: LiveDebitRequestOptions
+    manage_auth_req_Options?: LiveManageRequestOptions
     received_operation_Options?: UserOperationOptions
     sent_operation_Options?: UserOperationOptions
 }
@@ -6149,6 +6155,18 @@ export const PushNotificationPayload_dataValidate = (o?: PushNotificationPayload
     if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
     const stringType: string = o.type
     switch (o.type) {
+        case PushNotificationPayload_data_type.DEBIT_AUTH_REQ:
+        const debit_auth_reqErr = LiveDebitRequestValidate(o.debit_auth_req, opts.debit_auth_req_Options, `${path}.debit_auth_req`)
+        if (debit_auth_reqErr !== null) return debit_auth_reqErr
+        
+
+        break
+        case PushNotificationPayload_data_type.MANAGE_AUTH_REQ:
+        const manage_auth_reqErr = LiveManageRequestValidate(o.manage_auth_req, opts.manage_auth_req_Options, `${path}.manage_auth_req`)
+        if (manage_auth_reqErr !== null) return manage_auth_reqErr
+        
+
+        break
         case PushNotificationPayload_data_type.RECEIVED_OPERATION:
         const received_operationErr = UserOperationValidate(o.received_operation, opts.received_operation_Options, `${path}.received_operation`)
         if (received_operationErr !== null) return received_operationErr

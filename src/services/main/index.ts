@@ -85,16 +85,17 @@ export default class {
         this.lnd = new LND(lndGetSettings, this.liquidityProvider, () => this.unlocker.Unlock(), this.utils, this.addressPaidCb, this.invoicePaidCb, this.newBlockCb, this.htlcCb, this.channelEventCb)
         this.liquidityManager = new LiquidityManager(this.settings, this.storage, this.utils, this.liquidityProvider, this.lnd, this.rugPullTracker)
         this.metricsManager = new MetricsManager(this.storage, this.lnd)
-        this.notificationsManager = new NotificationsManager(this.settings)
+        this.notificationsManager = new NotificationsManager(this.settings, this.storage)
         this.paymentSideEffects = new PaymentSideEffects(this.storage, this.utils, this.notificationsManager)
         this.paymentManager = new PaymentManager(this.storage, this.metricsManager, this.lnd, adminManager.swaps, this.settings, this.liquidityManager, this.paymentSideEffects, this.utils, this.addressPaidCb, /* this.invoicePaidCb, */ this.newBlockCb)
         this.productManager = new ProductManager(this.storage, this.paymentManager, this.settings)
         this.applicationManager = new ApplicationManager(this.storage, this.settings, this.paymentManager)
         this.appUserManager = new AppUserManager(this.storage, this.settings, this.applicationManager)
-        this.debitManager = new DebitManager(this.storage, this.lnd, this.applicationManager, this.paymentManager)
+        this.debitManager = new DebitManager(this.storage, this.lnd, this.applicationManager, this.paymentManager, this.notificationsManager)
         this.offerManager = new OfferManager(this.storage, this.settings, this.lnd, this.applicationManager, this.productManager, this.liquidityManager)
-        this.managementManager = new ManagementManager(this.storage, this.settings)
+        this.managementManager = new ManagementManager(this.storage, this.settings, this.notificationsManager)
         this.enrollManager = new EnrollManager(this.storage, this.settings)
+
         //this.webRTC = new webRTC(this.storage, this.utils)
     }
 

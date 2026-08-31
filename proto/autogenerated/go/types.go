@@ -1052,12 +1052,16 @@ type NPubLinking_state struct {
 type PushNotificationPayload_data_type string
 
 const (
+	DEBIT_AUTH_REQ     PushNotificationPayload_data_type = "debit_auth_req"
+	MANAGE_AUTH_REQ    PushNotificationPayload_data_type = "manage_auth_req"
 	RECEIVED_OPERATION PushNotificationPayload_data_type = "received_operation"
 	SENT_OPERATION     PushNotificationPayload_data_type = "sent_operation"
 )
 
 type PushNotificationPayload_data struct {
 	Type               PushNotificationPayload_data_type `json:"type"`
+	Debit_auth_req     *LiveDebitRequest                 `json:"debit_auth_req"`
+	Manage_auth_req    *LiveManageRequest                `json:"manage_auth_req"`
 	Received_operation *UserOperation                    `json:"received_operation"`
 	Sent_operation     *UserOperation                    `json:"sent_operation"`
 }
