@@ -18,3 +18,17 @@ export class InvoicePaymentInProgressError extends Error {
         this.name = "InvoicePaymentInProgressError"
     }
 }
+
+export class UserBannedError extends Error {
+    constructor() {
+        super("user is banned, cannot send payment")
+        this.name = "UserBannedError"
+    }
+}
+
+export class InsufficientBalanceError extends Error {
+    constructor() {
+        super("not enough balance to decrement")
+        this.name = "InsufficientBalanceError"
+    }
+}

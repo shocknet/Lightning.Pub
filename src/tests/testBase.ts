@@ -16,7 +16,14 @@ import { TlvStorageFactory } from '../services/storage/tlv/tlvFilesStorageFactor
 import { ChainTools } from './networkSetup.js'
 import { LiquiditySettings, LoadLndSettingsFromEnv, LoadSecondLndSettingsFromEnv, LoadThirdLndSettingsFromEnv } from '../services/main/settings.js'
 import { NostrSender } from '../services/nostr/sender.js'
+import { getPublicKey } from 'nostr-tools'
 chai.use(chaiString)
+
+const pubFromByte = (n: number) => {
+    const priv = new Uint8Array(32)
+    priv[31] = n
+    return getPublicKey(priv)
+}
 export const expect = chai.expect
 export type Describe = (message: string, failure?: boolean) => void
 export type TestUserData = {
@@ -79,6 +86,13 @@ export const SetupTest = async (d: Describe, chainTools: ChainTools): Promise<Te
     const app = initialized.apps[0]
     const u1 = await main.applicationManager.AddAppUser(app.appId, { identifier: "user1", balance: 0, fail_if_exists: true })
     const u2 = await main.applicationManager.AddAppUser(app.appId, { identifier: "user2", balance: 0, fail_if_exists: true })
+    const appEntity = await main.storage.applicationStorage.GetApplication(app.appId)
+    const linkTestUserNpub = async (identifier: string, npub: string) => {
+        const appUser = await main.storage.applicationStorage.GetApplicationUser(appEntity, identifier)
+        await main.storage.applicationStorage.AddNPubToApplicationUser(appUser.serial_id, npub)
+    }
+    await linkTestUserNpub(u1.identifier, pubFromByte(1))
+    await linkTestUserNpub(u2.identifier, pubFromByte(2))
     const user1 = { userId: u1.info.userId, appUserIdentifier: u1.identifier, appId: app.appId }
     const user2 = { userId: u2.info.userId, appUserIdentifier: u2.identifier, appId: app.appId }
     const nostrSender = new NostrSender()

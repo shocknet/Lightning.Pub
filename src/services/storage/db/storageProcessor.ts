@@ -157,6 +157,7 @@ class StorageProcessor {
     private txQueue: transactionsQueue
     //private locked: boolean = false
     private activeTransaction: ActiveTransaction | null = null
+    private pendingEndTx: { opId: string, commit: boolean } | null = null
     //private queue: StartTxOperation[] = []
     private mode: 'main' | 'metrics' | '' = ''
 
@@ -316,12 +317,25 @@ class StorageProcessor {
                     })
                 }
             })
+            this.replyEndTx(true)
         } catch (error: any) {
-            this.sendResponse({
-                success: false,
-                error: error instanceof Error ? error.message : 'Unknown error occurred',
-                opId: operation.opId
-            });
+            if (this.pendingEndTx?.commit) {
+                this.sendResponse({
+                    success: false,
+                    error: error instanceof Error ? error.message : String(error || 'transaction commit failed'),
+                    opId: this.pendingEndTx.opId
+                })
+            } else if (this.pendingEndTx) {
+                this.replyEndTx(false)
+            } else {
+                this.sendResponse({
+                    success: false,
+                    error: error instanceof Error ? error.message : 'Unknown error occurred',
+                    opId: operation.opId
+                });
+            }
+        } finally {
+            this.pendingEndTx = null
         }
     }
 
@@ -330,19 +344,26 @@ class StorageProcessor {
         if (!activeTx || activeTx.txId !== operation.txId) {
             throw new Error('Transaction to end not found');
         }
+        this.pendingEndTx = { opId: operation.opId, commit: operation.success }
+        this.activeTransaction = null
         if (operation.success) {
             activeTx.resolve(true)
         } else {
             activeTx.reject(new Error('Transaction failed'))
         }
-        this.activeTransaction = null
+    }
+
+    private replyEndTx(committed: boolean) {
+        const end = this.pendingEndTx
+        if (!end) {
+            return
+        }
         this.sendResponse({
             success: true,
             type: 'endTx',
-            data: operation.success,
-            opId: operation.opId
+            data: committed && end.commit,
+            opId: end.opId
         });
-
     }
 
     private getTx(txId: string) {

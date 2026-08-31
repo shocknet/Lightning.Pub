@@ -100,11 +100,21 @@ export const invoiceAlreadyPaidReason = "invoice already paid"
 export const invoiceAlreadyFailedReason = "invoice already paid and failed"
 export const invoicePaymentInProgressReason = "invoice payment already in progress"
 
+export const gfy6Reason = {
+    k1AlreadyProcessed: 'k1_already_processed',
+    invoiceInProgress: 'invoice_in_progress',
+    invoiceAlreadyFailed: 'invoice_already_failed',
+    invoiceAlreadyPaid: 'invoice_already_paid',
+} as const
+export type Gfy6Reason = typeof gfy6Reason[keyof typeof gfy6Reason]
+
 export type NdebitFailureWithExtras = NdebitFailure & {
     range?: { min: number, max: number }
+    reason?: Gfy6Reason
+    retry_after?: number
 }
 
-export const ndebitFailure = (code: number, opts: { error?: string, max?: number } = {}): NdebitFailureWithExtras => {
+export const ndebitFailure = (code: number, opts: { error?: string, max?: number, reason?: Gfy6Reason, retry_after?: number } = {}): NdebitFailureWithExtras => {
     const failure: NdebitFailureWithExtras = {
         res: 'GFY',
         code,
@@ -113,11 +123,17 @@ export const ndebitFailure = (code: number, opts: { error?: string, max?: number
     if (code === 5 && opts.max !== undefined) {
         failure.range = { min: 1, max: opts.max }
     }
+    if (opts.reason) {
+        failure.reason = opts.reason
+    }
+    if (opts.retry_after !== undefined) {
+        failure.retry_after = opts.retry_after
+    }
     return failure
 }
 
-export const ndebitInvalidRequest = (reason: string) =>
-    ndebitFailure(6, { error: `${nofferErrors[6]}: ${reason}` })
+export const ndebitInvalidRequest = (detail: string, reason?: Gfy6Reason) =>
+    ndebitFailure(6, { error: `${nofferErrors[6]}: ${detail}`, reason })
 
 export type ValidateAccessRulesResult =
     | { ok: true }
@@ -148,8 +164,24 @@ export class DebitUnauthorizedError extends Error {
     }
 }
 
+export class DebitK1AlreadyProcessedError extends Error {
+    constructor() {
+        super(k1AlreadyProcessedReason)
+        this.name = 'DebitK1AlreadyProcessedError'
+    }
+}
+
+export class DebitRateLimitedError extends Error {
+    retry_after: number
+    constructor(retryAfterUnix: number) {
+        super('rate limited')
+        this.name = 'DebitRateLimitedError'
+        this.retry_after = retryAfterUnix
+    }
+}
+
 export type AuthRequiredRes = { status: 'authRequired', liveDebitReq: Types.LiveDebitRequest, app: Application, appUser: ApplicationUser }
-export type HandleNdebitRes = { status: 'fail', debitRes: NdebitFailure }
+export type HandleNdebitRes = { status: 'fail', debitRes: NdebitFailureWithExtras }
     | { status: 'invoicePaid', app: Application, appUser: ApplicationUser, debitRes: NdebitSuccess }
     | AuthRequiredRes
     | { status: 'authOk', debitRes: NdebitSuccess }
@@ -163,6 +195,7 @@ export const newNdebitResponse = (content: string, event: { pub: string, id: str
         tags: [
             ['p', event.pub],
             ['e', event.id],
+            ['clink_version', '1'],
         ],
     }
 }
