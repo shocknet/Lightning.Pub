@@ -117,6 +117,31 @@ export type ValidateAccessRulesResult =
     | { ok: true }
     | { ok: false, failure: NdebitFailureWithExtras }
 
+export type AssertDebitFrequency = (args: {
+    userId: string
+    payAmount: number
+    serviceFee: number
+    txId: string
+}) => Promise<void>
+
+export class DebitFrequencyCapError extends Error {
+    cap: number
+    total: number
+    constructor(cap: number, total: number) {
+        super(`debit frequency cap exceeded: max ${cap}`)
+        this.name = 'DebitFrequencyCapError'
+        this.cap = cap
+        this.total = total
+    }
+}
+
+export class DebitUnauthorizedError extends Error {
+    constructor() {
+        super('debit access unauthorized or revoked')
+        this.name = 'DebitUnauthorizedError'
+    }
+}
+
 export type AuthRequiredRes = { status: 'authRequired', liveDebitReq: Types.LiveDebitRequest, app: Application, appUser: ApplicationUser }
 export type HandleNdebitRes = { status: 'fail', debitRes: NdebitFailure }
     | { status: 'invoicePaid', app: Application, appUser: ApplicationUser, debitRes: NdebitSuccess }

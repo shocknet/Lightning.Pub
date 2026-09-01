@@ -12,6 +12,7 @@ import { nofferEncode, ndebitEncode, OfferPriceType, nmanageEncode } from '@shoc
 import SettingsManager from './settingsManager.js'
 import { BackupManager } from '../backup/backupManager.js'
 import { assertCallbackUrlAllowed } from '../helpers/safeOutboundFetch.js'
+import { AssertDebitFrequency } from './debitTypes.js'
 const TOKEN_EXPIRY_TIME = 2 * 60 * 1000 // 2 minutes, in milliseconds
 
 type NsecLinkingData = {
@@ -255,12 +256,15 @@ export default class {
         }
     }
 
-    async PayAppUserInvoice(appId: string, req: Types.PayAppUserInvoiceRequest): Promise<Types.PayInvoiceResponse> {
+    async PayAppUserInvoice(appId: string, req: Types.PayAppUserInvoiceRequest, optionals: {
+        assertDebitFrequency?: AssertDebitFrequency
+    } = {}): Promise<Types.PayInvoiceResponse> {
         const app = await this.storage.applicationStorage.GetApplication(appId)
         const appUser = await this.storage.applicationStorage.GetApplicationUser(app, req.user_identifier)
         try {
             const paid = await this.paymentManager.PayInvoice(appUser.user.user_id, req, app, {
-                ack: pendingOp => { this.notifyAppUserPayment(appUser, pendingOp) }
+                ack: pendingOp => { this.notifyAppUserPayment(appUser, pendingOp) },
+                assertDebitFrequency: optionals.assertDebitFrequency,
             })
             this.notifyAppUserPayment(appUser, paid.operation)
             getLogger({ appName: app.name })(appUser.identifier, "invoice paid", paid.amount_paid, "sats")

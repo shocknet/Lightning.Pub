@@ -27,6 +27,8 @@ export class LiquidityProvider {
     utils: Utils
     pendingPayments: Record<string, number> = {}
     recoveredPendingPayments: Record<string, { total: number, from: 'user' | 'system', processing?: true }> = {}
+    /** In-process guard so live finalize and recovery cannot both debit the same invoice. */
+    settledProviderPayments: Record<string, true> = {}
     feesCache: Types.CumulativeFees | null = null
     lastSeenBeacon = 0
     latestReceivedBalance = 0
@@ -150,7 +152,8 @@ export class LiquidityProvider {
                 delete this.pendingPaymentsAck[res.operation.identifier]
                 // if a recovery pending payment exists, and the payment failed, delete it,
                 // if still pending, or success, leave it in the cache, to keep the balance consistent.
-                // the actual provider balance decrement is done by the pending payment checker on startup
+                // User payment provider balance debit is applied when the pending row is marked paid
+                // (PayExternalInvoice or checkPendingProviderPayment), not on this live stream event.
                 if (res.operation.paidAtUnix < 0) {
                     delete this.recoveredPendingPayments[res.operation.identifier]
                 }
@@ -255,6 +258,10 @@ export class LiquidityProvider {
     }
 
     AddRecoveredPendingPayment = (invoice: string, amount: number, from: 'user' | 'system') => {
+        if (this.settledProviderPayments[invoice]) {
+            this.log("already settled payment for", invoice, "skipping recovery")
+            return
+        }
         if (this.pendingPayments[invoice]) {
             this.log("already have a pending payment for", invoice, "skipping recovery")
             return
@@ -263,6 +270,25 @@ export class LiquidityProvider {
             throw new Error("already have a recovered pending payment for " + invoice)
         }
         this.recoveredPendingPayments[invoice] = { total: amount, from }
+    }
+
+    /**
+     * Apply the tracked provider-balance debit for a successful outbound payment.
+     * Call once when the local pending payment is marked paid (live finalize or crash recovery).
+     * Returns false if this invoice was already settled in-process.
+     */
+    SettleProviderPayment = async (invoice: string, amount: number, tx?: string): Promise<boolean> => {
+        if (this.settledProviderPayments[invoice]) {
+            this.log("provider payment already settled, skipping debit for", invoice)
+            delete this.pendingPayments[invoice]
+            delete this.recoveredPendingPayments[invoice]
+            return false
+        }
+        await this.incrementProviderBalance(-amount, tx)
+        delete this.pendingPayments[invoice]
+        delete this.recoveredPendingPayments[invoice]
+        this.settledProviderPayments[invoice] = true
+        return true
     }
 
     PayInvoice = async (invoice: string, decodedAmount: number, from: 'user' | 'system', feeLimit?: number) => {
@@ -294,7 +320,14 @@ export class LiquidityProvider {
                 throw new Error(res.reason)
             }
             const totalPaid = res.amount_paid + res.service_fee
-            this.incrementProviderBalance(-totalPaid).then(() => { delete this.pendingPayments[invoice] })
+            this.pendingPayments[invoice] = totalPaid
+            // User payments are finalized (balance decrement) only when the pending DB row is
+            // marked paid — either in PayExternalInvoice or checkPendingProviderPayment on
+            // startup. Decrementing here would double-count on crash recovery.
+            // System payments have no pending row / recovery path, so settle immediately.
+            if (from === 'system') {
+                await this.SettleProviderPayment(invoice, totalPaid)
+            }
             this.latestReceivedBalance = res.latest_balance
             this.utils.stateBundler.AddTxPoint('paidAnInvoice', decodedAmount, { used: 'provider', from, timeDiscount: true })
             return res
