@@ -161,8 +161,12 @@ export default class {
         return this.dbs.FindOne<UserReceivingAddress>('UserReceivingAddress', { where: { address } }, txId)
     }
 
-    async GetAddressReceivingTransactionOwner(address: string, txHash: string, txId?: string): Promise<AddressReceivingTransaction | null> {
-        return this.dbs.FindOne<AddressReceivingTransaction>('AddressReceivingTransaction', { where: { user_address: { address }, tx_hash: txHash } }, txId)
+    async GetAddressReceivingTransactionOwner(address: string, txHash: string, outputIndex: number, txId?: string): Promise<AddressReceivingTransaction | null> {
+        return this.dbs.FindOne<AddressReceivingTransaction>('AddressReceivingTransaction', { where: { user_address: { address }, tx_hash: txHash, output_index: outputIndex } }, txId)
+    }
+
+    async GetAddressReceivingTransactionsByTxHash(address: string, txHash: string, txId?: string): Promise<AddressReceivingTransaction[]> {
+        return this.dbs.Find<AddressReceivingTransaction>('AddressReceivingTransaction', { where: { user_address: { address }, tx_hash: txHash } }, txId)
     }
     async GetUserTransactionPaymentOwner(address: string, txHash: string, txId?: string): Promise<UserTransactionPayment | null> {
         return this.dbs.FindOne<UserTransactionPayment>('UserTransactionPayment', { where: { address, tx_hash: txHash } }, txId)
