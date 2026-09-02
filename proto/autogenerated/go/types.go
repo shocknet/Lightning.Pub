@@ -540,6 +540,16 @@ type LndNodeMetrics struct {
 	Pending_channels  int64           `json:"pending_channels"`
 	Root_ops          []RootOperation `json:"root_ops"`
 }
+type LndPeer struct {
+	Address   string `json:"address"`
+	Inbound   bool   `json:"inbound"`
+	Pubkey    string `json:"pubkey"`
+	Sats_recv int64  `json:"sats_recv"`
+	Sats_sent int64  `json:"sats_sent"`
+}
+type LndPeers struct {
+	Peers []LndPeer `json:"peers"`
+}
 type LndProviderFilter struct {
 	Invoice_index_offset int64  `json:"invoice_index_offset"`
 	Limit_invoices       int64  `json:"limit_invoices"`

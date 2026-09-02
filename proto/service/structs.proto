@@ -469,6 +469,18 @@ message AddPeerRequest {
     int64 port = 3;
 }
 
+message LndPeer {
+    string pubkey = 1;
+    string address = 2;
+    bool inbound = 3;
+    int64 sats_sent = 4;
+    int64 sats_recv = 5;
+}
+
+message LndPeers {
+    repeated LndPeer peers = 1;
+}
+
 message LndGetInfoRequest {
     int64 nodeId = 1;
 }

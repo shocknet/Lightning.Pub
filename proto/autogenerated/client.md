@@ -288,6 +288,11 @@ The nostr server will send back a message response, and inside the body there wi
   - This methods has an __empty__ __request__ body
   - output: [LndChannels](#LndChannels)
 
+- ListPeers
+  - auth type: __Admin__
+  - This methods has an __empty__ __request__ body
+  - output: [LndPeers](#LndPeers)
+
 - ListTxSwaps
   - auth type: __User__
   - This methods has an __empty__ __request__ body
@@ -941,6 +946,13 @@ The nostr server will send back a message response, and inside the body there wi
   - http route: __/api/admin/channels__
   - This methods has an __empty__ __request__ body
   - output: [LndChannels](#LndChannels)
+
+- ListPeers
+  - auth type: __Admin__
+  - http method: __get__
+  - http route: __/api/admin/peers__
+  - This methods has an __empty__ __request__ body
+  - output: [LndPeers](#LndPeers)
 
 - ListTxSwaps
   - auth type: __User__
@@ -1615,6 +1627,16 @@ The nostr server will send back a message response, and inside the body there wi
   - __open_channels__: ARRAY of: _[OpenChannel](#OpenChannel)_
   - __pending_channels__: _number_
   - __root_ops__: ARRAY of: _[RootOperation](#RootOperation)_
+
+### LndPeer
+  - __address__: _string_
+  - __inbound__: _boolean_
+  - __pubkey__: _string_
+  - __sats_recv__: _number_
+  - __sats_sent__: _number_
+
+### LndPeers
+  - __peers__: ARRAY of: _[LndPeer](#LndPeer)_
 
 ### LndProviderFilter
   - __invoice_index_offset__: _number_ *this field is optional

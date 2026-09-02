@@ -278,6 +278,19 @@ export class AdminManager {
         }
     }
 
+    ListPeers = async (): Promise<Types.LndPeers> => {
+        const res = await this.lnd.ListPeers()
+        return {
+            peers: (res.peers || []).map((peer) => ({
+                pubkey: peer.pubKey,
+                address: peer.address,
+                inbound: peer.inbound,
+                sats_sent: Number(peer.satSent),
+                sats_recv: Number(peer.satRecv),
+            }))
+        }
+    }
+
     async UpdateChannelPolicy(req: Types.UpdateChannelPolicyRequest): Promise<void> {
         const chanPoint = req.update.type === Types.UpdateChannelPolicyRequest_update_type.CHANNEL_POINT ? req.update.channel_point : ""
         const res = await this.lnd.UpdateChannelPolicy(chanPoint, req.policy)

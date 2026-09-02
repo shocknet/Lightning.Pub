@@ -1985,6 +1985,26 @@ export default (methods: Types.ServerMethods, opts: ServerOptions) => {
             opts.metricsCallback([{ ...info, ...stats, ...authContext }])
         } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
     })
+    if (!opts.allowNotImplementedMethods && !methods.ListPeers) throw new Error('method: ListPeers is not implemented')
+    app.get('/api/admin/peers', json(), urlencoded({ extended: true }), async (req, res) => {
+        const info: Types.RequestInfo = { rpcName: 'ListPeers', batch: false, nostr: false, batchSize: 0}
+        const stats: Types.RequestStats = { startMs:req.startTimeMs || 0, start:req.startTime || 0n, parse: process.hrtime.bigint(), guard: 0n, validate: 0n, handle: 0n }
+        let authCtx: Types.AuthContext = {}
+        const requestContext = createRequestContext(req, res)
+        try {
+            if (!methods.ListPeers) throw new Error('method: ListPeers is not implemented')
+            const authContext = await opts.AdminAuthGuard(req.headers['authorization'], requestContext)
+            authCtx = authContext
+            stats.guard = process.hrtime.bigint()
+            stats.validate = stats.guard
+            const query = req.query
+            const params = req.params
+            const response =  await methods.ListPeers({rpcName:'ListPeers', ctx:authContext , requestContext})
+            stats.handle = process.hrtime.bigint()
+            res.json({status: 'OK', ...response})
+            opts.metricsCallback([{ ...info, ...stats, ...authContext }])
+        } catch (ex) { const e = ex as any; logErrorAndReturnResponse(e, e.message || e, res, logger, { ...info, ...stats, ...authCtx }, opts.metricsCallback); if (opts.throwErrors) throw e }
+    })
     if (!opts.allowNotImplementedMethods && !methods.ListTxSwaps) throw new Error('method: ListTxSwaps is not implemented')
     app.post('/api/user/swap/transaction/list', json(), urlencoded({ extended: true }), async (req, res) => {
         const info: Types.RequestInfo = { rpcName: 'ListTxSwaps', batch: false, nostr: false, batchSize: 0}

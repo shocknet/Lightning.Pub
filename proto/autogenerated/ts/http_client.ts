@@ -992,6 +992,20 @@ export default (params: ClientParams) => ({
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
+    ListPeers: async (): Promise<ResultError | ({ status: 'OK' }& Types.LndPeers)> => {
+        let finalRoute = '/api/admin/peers'
+        const auth = await params.retrieveAdminAuth()
+        if (auth === null) throw new Error('retrieveAdminAuth() returned null')
+        const { data } = await axios.get(params.baseUrl + finalRoute, { headers: { 'authorization': auth }})
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.LndPeersValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
     ListTxSwaps: async (): Promise<ResultError | ({ status: 'OK' }& Types.TxSwapsList)> => {
         let finalRoute = '/api/user/swap/transaction/list'
         const auth = await params.retrieveUserAuth()

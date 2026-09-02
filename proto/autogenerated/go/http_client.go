@@ -123,6 +123,7 @@ type Client struct {
 	ListAdminInvoiceSwaps         func() (*InvoiceSwapsList, error)
 	ListAdminTxSwaps              func() (*TxSwapsList, error)
 	ListChannels                  func() (*LndChannels, error)
+	ListPeers                     func() (*LndPeers, error)
 	ListTxSwaps                   func() (*TxSwapsList, error)
 	LndGetInfo                    func(req LndGetInfoRequest) (*LndGetInfoResponse, error)
 	NewAddress                    func(req NewAddressRequest) (*NewAddressResponse, error)
@@ -1889,6 +1890,28 @@ func NewClient(params ClientParams) *Client {
 				return nil, fmt.Errorf(result.Reason)
 			}
 			res := LndChannels{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
+		},
+		ListPeers: func() (*LndPeers, error) {
+			auth, err := params.RetrieveAdminAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/admin/peers"
+			resBody, err := doGetRequest(params.BaseURL+finalRoute, auth)
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := LndPeers{}
 			err = json.Unmarshal(resBody, &res)
 			if err != nil {
 				return nil, err

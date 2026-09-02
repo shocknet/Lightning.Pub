@@ -61,6 +61,9 @@ export default (mainHandler: Main): Types.ServerMethods => {
         ListChannels: async ({ ctx }) => {
             return mainHandler.adminManager.ListChannels()
         },
+        ListPeers: async ({ ctx }) => {
+            return mainHandler.adminManager.ListPeers()
+        },
         AddPeer: async ({ ctx, req }) => {
             const err = Types.AddPeerRequestValidate(req, {
                 pubkey_CustomCheck: pubkey => pubkey !== '',
