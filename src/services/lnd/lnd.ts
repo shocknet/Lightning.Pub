@@ -914,6 +914,17 @@ export default class {
         return res.response
     }
 
+    async ListUnspent() {
+        this.log(DEBUG, "Listing unspent")
+        const res = await this.walletKit.listUnspent({
+            minConfs: 0,
+            maxConfs: 0,
+            account: "",
+            unconfirmedOnly: false,
+        }, DeadLineMetadata())
+        return res.response.utxos || []
+    }
+
     async GetNodeAlias(pubkey: string): Promise<string> {
         try {
             const { response } = await this.lightning.getNodeInfo({

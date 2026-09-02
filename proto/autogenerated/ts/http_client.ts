@@ -1020,6 +1020,20 @@ export default (params: ClientParams) => ({
         }
         return { status: 'ERROR', reason: 'invalid response' }
     },
+    ListUtxos: async (): Promise<ResultError | ({ status: 'OK' }& Types.LndUtxos)> => {
+        let finalRoute = '/api/admin/utxos'
+        const auth = await params.retrieveAdminAuth()
+        if (auth === null) throw new Error('retrieveAdminAuth() returned null')
+        const { data } = await axios.get(params.baseUrl + finalRoute, { headers: { 'authorization': auth }})
+        if (data.status === 'ERROR' && typeof data.reason === 'string') return data
+        if (data.status === 'OK') { 
+            const result = data
+            if(!params.checkResult) return { status: 'OK', ...result }
+            const error = Types.LndUtxosValidate(result)
+            if (error === null) { return { status: 'OK', ...result } } else return { status: 'ERROR', reason: error.message }
+        }
+        return { status: 'ERROR', reason: 'invalid response' }
+    },
     LndGetInfo: async (request: Types.LndGetInfoRequest): Promise<ResultError | ({ status: 'OK' }& Types.LndGetInfoResponse)> => {
         let finalRoute = '/api/admin/lnd/getinfo'
         const auth = await params.retrieveAdminAuth()

@@ -565,6 +565,16 @@ type LndProviderFilter struct {
 type LndSeed struct {
 	Seed []string `json:"seed"`
 }
+type LndUtxo struct {
+	Address       string `json:"address"`
+	Amount_sat    int64  `json:"amount_sat"`
+	Confirmations int64  `json:"confirmations"`
+	Output_index  int64  `json:"output_index"`
+	Txid          string `json:"txid"`
+}
+type LndUtxos struct {
+	Utxos []LndUtxo `json:"utxos"`
+}
 type LnurlLinkResponse struct {
 	K1    string `json:"k1"`
 	Lnurl string `json:"lnurl"`

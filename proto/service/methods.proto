@@ -182,6 +182,13 @@ service LightningPub {
         option (nostr) = true;
     }
 
+    rpc ListUtxos(structs.Empty) returns (structs.LndUtxos) {
+        option (auth_type)  = "Admin";
+        option (http_method) = "get";
+        option (http_route) = "/api/admin/utxos";
+        option (nostr) = true;
+    }
+
     rpc UpdateChannelPolicy (structs.UpdateChannelPolicyRequest) returns (structs.Empty) {
         option (auth_type)  = "Admin";
         option (http_method) = "post";

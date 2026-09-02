@@ -298,6 +298,11 @@ The nostr server will send back a message response, and inside the body there wi
   - This methods has an __empty__ __request__ body
   - output: [TxSwapsList](#TxSwapsList)
 
+- ListUtxos
+  - auth type: __Admin__
+  - This methods has an __empty__ __request__ body
+  - output: [LndUtxos](#LndUtxos)
+
 - LndGetInfo
   - auth type: __Admin__
   - input: [LndGetInfoRequest](#LndGetInfoRequest)
@@ -960,6 +965,13 @@ The nostr server will send back a message response, and inside the body there wi
   - http route: __/api/user/swap/transaction/list__
   - This methods has an __empty__ __request__ body
   - output: [TxSwapsList](#TxSwapsList)
+
+- ListUtxos
+  - auth type: __Admin__
+  - http method: __get__
+  - http route: __/api/admin/utxos__
+  - This methods has an __empty__ __request__ body
+  - output: [LndUtxos](#LndUtxos)
 
 - LndGetInfo
   - auth type: __Admin__
@@ -1652,6 +1664,16 @@ The nostr server will send back a message response, and inside the body there wi
 
 ### LndSeed
   - __seed__: ARRAY of: _string_
+
+### LndUtxo
+  - __address__: _string_
+  - __amount_sat__: _number_
+  - __confirmations__: _number_
+  - __output_index__: _number_
+  - __txid__: _string_
+
+### LndUtxos
+  - __utxos__: ARRAY of: _[LndUtxo](#LndUtxo)_
 
 ### LnurlLinkResponse
   - __k1__: _string_

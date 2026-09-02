@@ -23,8 +23,8 @@ export type RequestContext = {
 export type AdminContext = {
     admin_id: string
 }
-export type AdminMethodInputs = AddApp_Input | AddPeer_Input | AuthApp_Input | BanUser_Input | BumpTx_Input | CloseChannel_Input | CreateOneTimeInviteLink_Input | GetAdminInvoiceSwapQuotes_Input | GetAdminTransactionSwapQuotes_Input | GetAssetsAndLiabilities_Input | GetAssetsAndLiabilitiesV2_Input | GetInviteLinkState_Input | GetSeed_Input | GetUserOperationsFromAdmin_Input | GetUsersAdminInfo_Input | ListAdminInvoiceSwaps_Input | ListAdminTxSwaps_Input | ListChannels_Input | ListPeers_Input | LndGetInfo_Input | OpenChannel_Input | PayAdminInvoiceSwap_Input | PayAdminTransactionSwap_Input | RefundAdminInvoiceSwap_Input | UpdateChannelPolicy_Input
-export type AdminMethodOutputs = AddApp_Output | AddPeer_Output | AuthApp_Output | BanUser_Output | BumpTx_Output | CloseChannel_Output | CreateOneTimeInviteLink_Output | GetAdminInvoiceSwapQuotes_Output | GetAdminTransactionSwapQuotes_Output | GetAssetsAndLiabilities_Output | GetAssetsAndLiabilitiesV2_Output | GetInviteLinkState_Output | GetSeed_Output | GetUserOperationsFromAdmin_Output | GetUsersAdminInfo_Output | ListAdminInvoiceSwaps_Output | ListAdminTxSwaps_Output | ListChannels_Output | ListPeers_Output | LndGetInfo_Output | OpenChannel_Output | PayAdminInvoiceSwap_Output | PayAdminTransactionSwap_Output | RefundAdminInvoiceSwap_Output | UpdateChannelPolicy_Output
+export type AdminMethodInputs = AddApp_Input | AddPeer_Input | AuthApp_Input | BanUser_Input | BumpTx_Input | CloseChannel_Input | CreateOneTimeInviteLink_Input | GetAdminInvoiceSwapQuotes_Input | GetAdminTransactionSwapQuotes_Input | GetAssetsAndLiabilities_Input | GetAssetsAndLiabilitiesV2_Input | GetInviteLinkState_Input | GetSeed_Input | GetUserOperationsFromAdmin_Input | GetUsersAdminInfo_Input | ListAdminInvoiceSwaps_Input | ListAdminTxSwaps_Input | ListChannels_Input | ListPeers_Input | ListUtxos_Input | LndGetInfo_Input | OpenChannel_Input | PayAdminInvoiceSwap_Input | PayAdminTransactionSwap_Input | RefundAdminInvoiceSwap_Input | UpdateChannelPolicy_Input
+export type AdminMethodOutputs = AddApp_Output | AddPeer_Output | AuthApp_Output | BanUser_Output | BumpTx_Output | CloseChannel_Output | CreateOneTimeInviteLink_Output | GetAdminInvoiceSwapQuotes_Output | GetAdminTransactionSwapQuotes_Output | GetAssetsAndLiabilities_Output | GetAssetsAndLiabilitiesV2_Output | GetInviteLinkState_Output | GetSeed_Output | GetUserOperationsFromAdmin_Output | GetUsersAdminInfo_Output | ListAdminInvoiceSwaps_Output | ListAdminTxSwaps_Output | ListChannels_Output | ListPeers_Output | ListUtxos_Output | LndGetInfo_Output | OpenChannel_Output | PayAdminInvoiceSwap_Output | PayAdminTransactionSwap_Output | RefundAdminInvoiceSwap_Output | UpdateChannelPolicy_Output
 export type AppContext = {
     app_id: string
 }
@@ -287,6 +287,9 @@ export type ListPeers_Output = ResultError | ({ status: 'OK' } & LndPeers)
 export type ListTxSwaps_Input = {rpcName:'ListTxSwaps'}
 export type ListTxSwaps_Output = ResultError | ({ status: 'OK' } & TxSwapsList)
 
+export type ListUtxos_Input = {rpcName:'ListUtxos'}
+export type ListUtxos_Output = ResultError | ({ status: 'OK' } & LndUtxos)
+
 export type LndGetInfo_Input = {rpcName:'LndGetInfo', req: LndGetInfoRequest}
 export type LndGetInfo_Output = ResultError | ({ status: 'OK' } & LndGetInfoResponse)
 
@@ -454,6 +457,7 @@ export type ServerMethods = {
     ListChannels?: (req: ListChannels_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<LndChannels>
     ListPeers?: (req: ListPeers_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<LndPeers>
     ListTxSwaps?: (req: ListTxSwaps_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<TxSwapsList>
+    ListUtxos?: (req: ListUtxos_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<LndUtxos>
     LndGetInfo?: (req: LndGetInfo_Input & {ctx: AdminContext, requestContext?: RequestContext }) => Promise<LndGetInfoResponse>
     NewAddress?: (req: NewAddress_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<NewAddressResponse>
     NewInvoice?: (req: NewInvoice_Input & {ctx: UserContext, requestContext?: RequestContext }) => Promise<NewInvoiceResponse>
@@ -3426,6 +3430,67 @@ export const LndSeedValidate = (o?: LndSeed, opts: LndSeedOptions = {}, path: st
         if (typeof o.seed[index] !== 'string') return new Error(`${path}.seed[${index}]: is not a string`)
     }
     if (opts.seed_CustomCheck && !opts.seed_CustomCheck(o.seed)) return new Error(`${path}.seed: custom check failed`)
+
+    return null
+}
+
+export type LndUtxo = {
+    address: string
+    amount_sat: number
+    confirmations: number
+    output_index: number
+    txid: string
+}
+export const LndUtxoOptionalFields: [] = []
+export type LndUtxoOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    address_CustomCheck?: (v: string) => boolean
+    amount_sat_CustomCheck?: (v: number) => boolean
+    confirmations_CustomCheck?: (v: number) => boolean
+    output_index_CustomCheck?: (v: number) => boolean
+    txid_CustomCheck?: (v: string) => boolean
+}
+export const LndUtxoValidate = (o?: LndUtxo, opts: LndUtxoOptions = {}, path: string = 'LndUtxo::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (typeof o.address !== 'string') return new Error(`${path}.address: is not a string`)
+    if (opts.address_CustomCheck && !opts.address_CustomCheck(o.address)) return new Error(`${path}.address: custom check failed`)
+
+    if (typeof o.amount_sat !== 'number') return new Error(`${path}.amount_sat: is not a number`)
+    if (opts.amount_sat_CustomCheck && !opts.amount_sat_CustomCheck(o.amount_sat)) return new Error(`${path}.amount_sat: custom check failed`)
+
+    if (typeof o.confirmations !== 'number') return new Error(`${path}.confirmations: is not a number`)
+    if (opts.confirmations_CustomCheck && !opts.confirmations_CustomCheck(o.confirmations)) return new Error(`${path}.confirmations: custom check failed`)
+
+    if (typeof o.output_index !== 'number') return new Error(`${path}.output_index: is not a number`)
+    if (opts.output_index_CustomCheck && !opts.output_index_CustomCheck(o.output_index)) return new Error(`${path}.output_index: custom check failed`)
+
+    if (typeof o.txid !== 'string') return new Error(`${path}.txid: is not a string`)
+    if (opts.txid_CustomCheck && !opts.txid_CustomCheck(o.txid)) return new Error(`${path}.txid: custom check failed`)
+
+    return null
+}
+
+export type LndUtxos = {
+    utxos: LndUtxo[]
+}
+export const LndUtxosOptionalFields: [] = []
+export type LndUtxosOptions = OptionsBaseMessage & {
+    checkOptionalsAreSet?: []
+    utxos_ItemOptions?: LndUtxoOptions
+    utxos_CustomCheck?: (v: LndUtxo[]) => boolean
+}
+export const LndUtxosValidate = (o?: LndUtxos, opts: LndUtxosOptions = {}, path: string = 'LndUtxos::root.'): Error | null => {
+    if (opts.checkOptionalsAreSet && opts.allOptionalsAreSet) return new Error(path + ': only one of checkOptionalsAreSet or allOptionalNonDefault can be set for each message')
+    if (typeof o !== 'object' || o === null) return new Error(path + ': object is not an instance of an object or is null')
+
+    if (!Array.isArray(o.utxos)) return new Error(`${path}.utxos: is not an array`)
+    for (let index = 0; index < o.utxos.length; index++) {
+        const utxosErr = LndUtxoValidate(o.utxos[index], opts.utxos_ItemOptions, `${path}.utxos[${index}]`)
+        if (utxosErr !== null) return utxosErr
+    }
+    if (opts.utxos_CustomCheck && !opts.utxos_CustomCheck(o.utxos)) return new Error(`${path}.utxos: custom check failed`)
 
     return null
 }

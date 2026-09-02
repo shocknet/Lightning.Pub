@@ -288,6 +288,11 @@ export class AdminManager {
         return { peers }
     }
 
+    ListUtxos = async (): Promise<Types.LndUtxos> => {
+        const utxos = await this.lnd.ListUnspent()
+        return { utxos: utxos.map(toListedUtxo) }
+    }
+
     private toListedPeer = async (
         peer: { pubKey: string; address: string; inbound: boolean; satSent: bigint; satRecv: bigint },
         channelAlias: Map<string, string>,
@@ -881,4 +886,19 @@ function aliasByRemotePubkey(channels: { remotePubkey: string; peerAlias: string
         }
     }
     return map
+}
+
+function toListedUtxo(utxo: {
+    address: string
+    amountSat: bigint
+    confirmations: bigint
+    outpoint?: { txidStr: string; outputIndex: number }
+}): Types.LndUtxo {
+    return {
+        address: utxo.address,
+        amount_sat: Number(utxo.amountSat),
+        txid: utxo.outpoint?.txidStr || "",
+        output_index: utxo.outpoint?.outputIndex ?? 0,
+        confirmations: Number(utxo.confirmations),
+    }
 }

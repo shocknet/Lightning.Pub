@@ -125,6 +125,7 @@ type Client struct {
 	ListChannels                  func() (*LndChannels, error)
 	ListPeers                     func() (*LndPeers, error)
 	ListTxSwaps                   func() (*TxSwapsList, error)
+	ListUtxos                     func() (*LndUtxos, error)
 	LndGetInfo                    func(req LndGetInfoRequest) (*LndGetInfoResponse, error)
 	NewAddress                    func(req NewAddressRequest) (*NewAddressResponse, error)
 	NewInvoice                    func(req NewInvoiceRequest) (*NewInvoiceResponse, error)
@@ -1938,6 +1939,28 @@ func NewClient(params ClientParams) *Client {
 				return nil, fmt.Errorf(result.Reason)
 			}
 			res := TxSwapsList{}
+			err = json.Unmarshal(resBody, &res)
+			if err != nil {
+				return nil, err
+			}
+			return &res, nil
+		},
+		ListUtxos: func() (*LndUtxos, error) {
+			auth, err := params.RetrieveAdminAuth()
+			if err != nil {
+				return nil, err
+			}
+			finalRoute := "/api/admin/utxos"
+			resBody, err := doGetRequest(params.BaseURL+finalRoute, auth)
+			result := ResultError{}
+			err = json.Unmarshal(resBody, &result)
+			if err != nil {
+				return nil, err
+			}
+			if result.Status == "ERROR" {
+				return nil, fmt.Errorf(result.Reason)
+			}
+			res := LndUtxos{}
 			err = json.Unmarshal(resBody, &res)
 			if err != nil {
 				return nil, err
