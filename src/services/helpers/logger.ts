@@ -14,43 +14,52 @@ if (logLevel !== "DEBUG" && logLevel !== "INFO" && logLevel !== "ERROR") {
     throw new Error("Invalid log level " + logLevel + " must be one of (DEBUG, INFO, ERROR)")
 }
 const z = (n: number) => n < 10 ? `0${n}` : `${n}`
-// Sanitize filename to remove invalid characters for filesystem
 const sanitizeFileName = (fileName: string): string => {
-    // Replace invalid filename characters with underscores
-    // Invalid on most filesystems: / \ : * ? " < > |
     return fileName.replace(/[/\\:*?"<>|]/g, '_')
 }
-const openWriter = (fileName: string): Writer => {
+const todayStamp = () => {
     const now = new Date()
-    const date = `${now.getFullYear()}-${z(now.getMonth() + 1)}-${z(now.getDate())}`
-    const logPath = `${logsDir}/${fileName}_${date}.log`
-    // Ensure parent directory exists
-    const dirPath = logPath.substring(0, logPath.lastIndexOf('/'))
+    return `${now.getFullYear()}-${z(now.getMonth() + 1)}-${z(now.getDate())}`
+}
+const ensureDir = (dirPath: string) => {
     if (!fs.existsSync(dirPath)) {
         fs.mkdirSync(dirPath, { recursive: true })
     }
-    const logStream = fs.createWriteStream(logPath, { flags: 'a' });
-    return (message) => {
-        logStream.write(message + "\n")
+}
+type CachedStream = { date: string, stream: fs.WriteStream }
+const streamsByFileName = new Map<string, CachedStream>()
+const writersByFileName = new Map<string, Writer>()
+const getStream = (fileName: string): fs.WriteStream => {
+    const date = todayStamp()
+    const cached = streamsByFileName.get(fileName)
+    if (cached && cached.date === date) {
+        return cached.stream
     }
+    if (cached) {
+        cached.stream.end()
+    }
+    const logPath = `${logsDir}/${fileName}_${date}.log`
+    ensureDir(logPath.substring(0, logPath.lastIndexOf('/')))
+    const stream = fs.createWriteStream(logPath, { flags: 'a' })
+    streamsByFileName.set(fileName, { date, stream })
+    return stream
+}
+const openWriter = (fileName: string): Writer => {
+    const cached = writersByFileName.get(fileName)
+    if (cached) {
+        return cached
+    }
+    const writer: Writer = (message) => {
+        getStream(fileName).write(message + "\n")
+    }
+    writersByFileName.set(fileName, writer)
+    return writer
 }
 const rootWriter = openWriter("ROOT.log")
-if (!fs.existsSync(`${logsDir}/apps`)) {
-    fs.mkdirSync(`${logsDir}/apps`, { recursive: true });
-}
-if (!fs.existsSync(`${logsDir}/users`)) {
-    fs.mkdirSync(`${logsDir}/users`, { recursive: true });
-}
-if (!fs.existsSync(`${logsDir}/components`)) {
-    fs.mkdirSync(`${logsDir}/components`, { recursive: true });
-}
 export const getLogger = (params: LoggerParams): PubLogger => {
     const writers: Writer[] = []
     if (params.appName) {
         writers.push(openWriter(`apps/${sanitizeFileName(params.appName)}`))
-    }
-    if (params.userId) {
-        writers.push(openWriter(`users/${sanitizeFileName(params.userId)}`))
     }
     if (params.component) {
         writers.push(openWriter(`components/${sanitizeFileName(params.component)}`))
