@@ -180,6 +180,19 @@ export default class {
     }
 }
 
+export function resolveInactiveSince(
+    active: boolean,
+    chanId: string,
+    remotePubkey: string,
+    activity: Record<string, number>,
+    lastFlapByPub: Map<string, number>,
+): number {
+    if (active) return 0
+    const logged = activity[chanId] || 0
+    if (logged > 0) return logged
+    return lastFlapByPub.get(remotePubkey) || 0
+}
+
 const getTimeQuery = ({ from, to }: { from?: number, to?: number }): FindManyOptions<{ created_at: Date }> => {
     if (!!from && !!to) {
         const fromDate = new Date(from * 1000)

@@ -17,6 +17,7 @@ import { NodeInfo } from "../lnd/settings.js";
 import { Invoice, Payment, OutputDetail, Transaction, Payment_PaymentStatus, Invoice_InvoiceState } from "../../../proto/lnd/lightning.js";
 import { LiquidityProvider } from "./liquidityProvider.js";
 import { clampPageLimit, DEFAULT_LND_PAGE_SIZE, DEFAULT_PAGE_SIZE, MAX_LIQUIDITY_PAGE_SIZE, MAX_PAGE_SIZE } from "../helpers/pageLimit.js";
+import { resolveInactiveSince } from "../storage/metricsStorage.js";
 /* type TrackedOperation = {
     ts: number
     amount: number
@@ -247,7 +248,10 @@ export class AdminManager {
     ListChannels = async (): Promise<Types.LndChannels> => {
         const { channels } = await this.lnd.ListChannels(true)
         const { identityPubkey } = await this.lnd.GetInfo()
-        const activity = await this.storage.metricsStorage.GetChannelsActivity()
+        const [activity, lastFlapByPub] = await Promise.all([
+            this.storage.metricsStorage.GetChannelsActivity(),
+            this.lnd.PeerLastFlapUnix(),
+        ])
         const openChannels = await Promise.all(channels.map(async c => {
             const info = await this.lnd.GetChannelInfo(c.chanId)
             const policies = [{ pub: info.node1Pub, policy: info.node1Policy }, { pub: info.node2Pub, policy: info.node2Policy }]
@@ -270,7 +274,7 @@ export class AdminManager {
                 label: c.peerAlias || c.remotePubkey,
                 lifetime: Number(c.lifetime),
                 policy,
-                inactive_since_unix: activity[c.chanId] || 0
+                inactive_since_unix: resolveInactiveSince(c.active, c.chanId, c.remotePubkey, activity, lastFlapByPub),
             }
         }))
         return {

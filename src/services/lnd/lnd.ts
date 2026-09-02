@@ -914,6 +914,17 @@ export default class {
         return res.response
     }
 
+    async PeerLastFlapUnix(): Promise<Map<string, number>> {
+        const { peers } = await this.ListPeers()
+        const lastFlap = new Map<string, number>()
+        for (const peer of peers || []) {
+            if (!peer.lastFlapNs) continue
+            const unix = Number(peer.lastFlapNs / 1_000_000_000n)
+            if (unix > 0) lastFlap.set(peer.pubKey, unix)
+        }
+        return lastFlap
+    }
+
     async ListUnspent() {
         this.log(DEBUG, "Listing unspent")
         const res = await this.walletKit.listUnspent({
