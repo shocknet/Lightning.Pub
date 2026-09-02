@@ -44,6 +44,13 @@ export const initMainHandler = async (log: PubLogger, settingsManager: SettingsM
     const mainHandler = new Main(settingsManager, storageManager, adminManager, utils, unlocker)
     adminManager.setLND(mainHandler.lnd)
     await mainHandler.lnd.Warmup()
+    if (!settingsManager.getSettings().liquiditySettings.useOnlyLiquidityProvider) {
+        try {
+            await mainHandler.metricsManager.StampActiveChannels()
+        } catch (err: any) {
+            log("failed to stamp active channels", err.message || err)
+        }
+    }
     if (!settingsManager.getSettings().serviceSettings.skipSanityCheck && !settingsManager.getSettings().liquiditySettings.useOnlyLiquidityProvider) {
         const sanityChecker = new SanityChecker(storageManager, mainHandler.lnd)
         await sanityChecker.VerifyEventsLog()

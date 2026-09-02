@@ -248,37 +248,46 @@ export class AdminManager {
     ListChannels = async (): Promise<Types.LndChannels> => {
         const { channels } = await this.lnd.ListChannels(true)
         const { identityPubkey } = await this.lnd.GetInfo()
-        const [activity, lastFlapByPub] = await Promise.all([
-            this.storage.metricsStorage.GetChannelsActivity(),
-            this.lnd.PeerLastFlapUnix(),
-        ])
-        const openChannels = await Promise.all(channels.map(async c => {
-            const info = await this.lnd.GetChannelInfo(c.chanId)
-            const policies = [{ pub: info.node1Pub, policy: info.node1Policy }, { pub: info.node2Pub, policy: info.node2Policy }]
-            const myPolicy = policies.find(p => p.pub === identityPubkey)?.policy
-            const policy: Types.ChannelPolicy | undefined = myPolicy ? {
-                base_fee_msat: Number(myPolicy.feeBaseMsat),
-                fee_rate_ppm: Number(myPolicy.feeRateMilliMsat),
-                timelock_delta: Number(myPolicy.timeLockDelta),
-                max_htlc_msat: Number(myPolicy.maxHtlcMsat),
-                min_htlc_msat: Number(myPolicy.minHtlc),
-
-            } : undefined
-            return {
-                channel_point: c.channelPoint,
-                active: c.active,
-                capacity: Number(c.capacity),
-                local_balance: Number(c.localBalance),
-                remote_balance: Number(c.remoteBalance),
-                channel_id: c.chanId,
-                label: c.peerAlias || c.remotePubkey,
-                lifetime: Number(c.lifetime),
-                policy,
-                inactive_since_unix: resolveInactiveSince(c.active, c.chanId, c.remotePubkey, activity, lastFlapByPub),
-            }
-        }))
+        const activity = await this.storage.metricsStorage.GetChannelsActivity()
+        await this.storage.metricsStorage.MarkChannelsSeen(
+            channels.filter(c => c.active).map(c => c.chanId),
+            60,
+        )
+        const openChannels = await Promise.all(channels.map(async c => ({
+            channel_point: c.channelPoint,
+            active: c.active,
+            capacity: Number(c.capacity),
+            local_balance: Number(c.localBalance),
+            remote_balance: Number(c.remoteBalance),
+            channel_id: c.chanId,
+            label: c.peerAlias || c.remotePubkey,
+            lifetime: Number(c.lifetime),
+            policy: await this.policyForChannel(c.chanId, identityPubkey),
+            inactive_since_unix: resolveInactiveSince(c.active, c.chanId, activity),
+        })))
         return {
             open_channels: openChannels
+        }
+    }
+
+    private policyForChannel = async (chanId: string, identityPubkey: string): Promise<Types.ChannelPolicy | undefined> => {
+        try {
+            const info = await this.lnd.GetChannelInfo(chanId)
+            const mine = info.node1Pub === identityPubkey
+                ? info.node1Policy
+                : info.node2Pub === identityPubkey
+                    ? info.node2Policy
+                    : undefined
+            if (!mine) return undefined
+            return {
+                base_fee_msat: Number(mine.feeBaseMsat),
+                fee_rate_ppm: Number(mine.feeRateMilliMsat),
+                timelock_delta: Number(mine.timeLockDelta),
+                max_htlc_msat: Number(mine.maxHtlcMsat),
+                min_htlc_msat: Number(mine.minHtlc),
+            }
+        } catch {
+            return undefined
         }
     }
 

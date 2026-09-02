@@ -9,6 +9,7 @@ export type ChannelBalance = {
     channelId: string;
     localBalanceSats: number;
     remoteBalanceSats: number;
+    active: boolean;
     htlcs: { incoming: boolean, amount: number }[]
 }
 export type BalanceInfo = {

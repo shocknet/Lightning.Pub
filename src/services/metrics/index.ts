@@ -30,6 +30,14 @@ export default class Handler {
 
     }
 
+    async StampActiveChannels() {
+        const { channels } = await this.lnd.ListChannels()
+        await this.storage.metricsStorage.MarkChannelsSeen(
+            channels.filter(c => c.active).map(c => c.chanId),
+            60,
+        )
+    }
+
     async GetProvidersDisruption(): Promise<Types.ProvidersDisruption> {
         const providers = await this.storage.liquidityStorage.GetTrackedProviders()
         const disruptions = providers.filter(p => p.latest_distruption_at_unix > 0 && p.provider_type !== 'lnd').map(d => ({
@@ -103,6 +111,14 @@ export default class Handler {
         }))
         await this.storage.metricsStorage.SaveBalanceEvents(balanceEvent, channelsEvents)
         await this.FetchLatestForwardingEvents()
+        try {
+            await this.storage.metricsStorage.MarkChannelsSeen(
+                balanceInfo.channelsBalance.filter(c => c.active).map(c => c.channelId),
+                60,
+            )
+        } catch (err: any) {
+            this.logger("failed to stamp channel last seen", err.message || err)
+        }
     }
 
     async FetchLatestForwardingEvents() {
@@ -371,16 +387,19 @@ export default class Handler {
         if (cached && now - cached.createdAt < cacheTTL) {
             return cached.metrics
         }
-        const [chansInfo, pendingChansInfo, closedChansInfo, routing, rootOps, channelsActivity, lastFlapByPub] = await Promise.all([
+        const [chansInfo, pendingChansInfo, closedChansInfo, routing, rootOps, channelsActivity] = await Promise.all([
             this.GetChannelsInfo(),
             this.GetPendingChannelsInfo(),
             this.lnd.ListClosedChannels(),
             this.storage.metricsStorage.GetChannelRouting({ from: req.from_unix, to: req.to_unix }),
             this.storage.metricsStorage.GetRootOperations({ from: req.from_unix, to: req.to_unix }),
             this.storage.metricsStorage.GetChannelsActivity(),
-            this.lnd.PeerLastFlapUnix(),
         ])
         const { openChannels, totalActive, totalInactive } = chansInfo
+        await this.storage.metricsStorage.MarkChannelsSeen(
+            openChannels.filter(c => c.active).map(c => c.chanId),
+            60,
+        )
         const { totalPendingOpen, totalPendingClose } = pendingChansInfo
         const { channels: closedChannels } = closedChansInfo
         const rawRouting = routing
@@ -426,7 +445,7 @@ export default class Handler {
                 offline_channels: totalInactive,
                 online_channels: totalActive,
                 closed_channels: closed,
-                open_channels: openChannels.map(c => ({ channel_point: c.channelPoint, active: c.active, capacity: Number(c.capacity), channel_id: c.chanId, lifetime: Number(c.lifetime), local_balance: Number(c.localBalance), remote_balance: Number(c.remoteBalance), label: c.peerAlias, inactive_since_unix: resolveInactiveSince(c.active, c.chanId, c.remotePubkey, channelsActivity, lastFlapByPub) })),
+                open_channels: openChannels.map(c => ({ channel_point: c.channelPoint, active: c.active, capacity: Number(c.capacity), channel_id: c.chanId, lifetime: Number(c.lifetime), local_balance: Number(c.localBalance), remote_balance: Number(c.remoteBalance), label: c.peerAlias, inactive_since_unix: resolveInactiveSince(c.active, c.chanId, channelsActivity) })),
                 forwarding_events: totalEvents,
                 forwarding_fees: totalFees,
                 root_ops: rootOps.map(r => ({ amount: r.operation_amount, created_at_unix: r.at_unix || 0, op_id: r.operation_identifier, op_type: mapRootOpType(r.operation_type) })),

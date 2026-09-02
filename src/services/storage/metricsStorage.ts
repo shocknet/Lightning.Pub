@@ -1,4 +1,4 @@
-import { Between, DataSource, EntityManager, FindManyOptions, FindOperator, In, LessThanOrEqual, MoreThanOrEqual } from "typeorm"
+import { Between, FindManyOptions, In, LessThanOrEqual, MoreThanOrEqual } from "typeorm"
 import { BalanceEvent } from "./entity/BalanceEvent.js"
 import { ChannelBalanceEvent } from "./entity/ChannelsBalanceEvent.js"
 import TransactionsQueue from "./db/transactionsQueue.js";
@@ -8,7 +8,6 @@ import { ChannelRouting } from "./entity/ChannelRouting.js";
 import { RootOperation } from "./entity/RootOperation.js";
 import { StorageInterface } from "./db/storageInterface.js";
 import { Utils } from "../helpers/utilsWrapper.js";
-import { Channel, ChannelEventUpdate } from "../../../proto/lnd/lightning.js";
 import { ChannelEvent } from "./entity/ChannelEvent.js";
 export type RootOperationType = 'chain' | 'invoice' | 'chain_payment' | 'invoice_payment'
 export default class {
@@ -31,30 +30,36 @@ export default class {
     }
 
     async FlagActiveChannel(chanId: string) {
-        const existing = await this.dbs.FindOne<ChannelEvent>('ChannelEvent', { where: { channel_id: chanId, event_type: 'activity' } })
-        if (!existing) {
-            await this.dbs.CreateAndSave<ChannelEvent>('ChannelEvent', { channel_id: chanId, event_type: 'activity', inactive_since_unix: 0 })
-            return
-        }
-
-        if (existing.inactive_since_unix > 0) {
-            await this.dbs.Update<ChannelEvent>('ChannelEvent', existing.serial_id, { inactive_since_unix: 0 })
-            return
-        }
-        return
+        await this.MarkChannelsSeen([chanId])
     }
 
     async FlagInactiveChannel(chanId: string) {
-        const existing = await this.dbs.FindOne<ChannelEvent>('ChannelEvent', { where: { channel_id: chanId, event_type: 'activity' } })
+        await this.MarkChannelsSeen([chanId])
+    }
+
+    async MarkChannelsSeen(chanIds: string[], debounceSec = 0) {
+        const unique = [...new Set(chanIds.filter(id => !!id))]
+        if (unique.length === 0) return
+        const atUnix = Math.floor(Date.now() / 1000)
+        const existing = await this.dbs.Find<ChannelEvent>('ChannelEvent', { where: { event_type: 'activity' } })
+        const byId = new Map(existing.map(e => [e.channel_id, e]))
+        for (const chanId of unique) {
+            await this.touchLastSeen(chanId, atUnix, byId.get(chanId), debounceSec)
+        }
+    }
+
+    private async touchLastSeen(chanId: string, atUnix: number, existing: ChannelEvent | undefined, debounceSec: number) {
         if (!existing) {
-            await this.dbs.CreateAndSave<ChannelEvent>('ChannelEvent', { channel_id: chanId, event_type: 'activity', inactive_since_unix: Math.floor(Date.now() / 1000) })
+            await this.dbs.CreateAndSave<ChannelEvent>('ChannelEvent', { channel_id: chanId, event_type: 'activity', inactive_since_unix: atUnix })
             return
         }
-        if (existing.inactive_since_unix > 0) {
+        if (debounceSec > 0 && atUnix - existing.inactive_since_unix < debounceSec) {
             return
         }
-        await this.dbs.Update<ChannelEvent>('ChannelEvent', existing.serial_id, { inactive_since_unix: Math.floor(Date.now() / 1000) })
-        return
+        if (existing.inactive_since_unix >= atUnix) {
+            return
+        }
+        await this.dbs.Update<ChannelEvent>('ChannelEvent', existing.serial_id, { inactive_since_unix: atUnix })
     }
 
     async GetChannelsActivity(): Promise<Record<string, number>> {
@@ -183,14 +188,10 @@ export default class {
 export function resolveInactiveSince(
     active: boolean,
     chanId: string,
-    remotePubkey: string,
-    activity: Record<string, number>,
-    lastFlapByPub: Map<string, number>,
+    lastSeenByChan: Record<string, number>,
 ): number {
     if (active) return 0
-    const logged = activity[chanId] || 0
-    if (logged > 0) return logged
-    return lastFlapByPub.get(remotePubkey) || 0
+    return lastSeenByChan[chanId] || 0
 }
 
 const getTimeQuery = ({ from, to }: { from?: number, to?: number }): FindManyOptions<{ created_at: Date }> => {

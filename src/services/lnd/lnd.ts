@@ -772,6 +772,7 @@ export default class {
             channelId: c.chanId,
             localBalanceSats: Number(c.localBalance),
             remoteBalanceSats: Number(c.remoteBalance),
+            active: c.active,
             htlcs: c.pendingHtlcs.map(htlc => ({ incoming: htlc.incoming, amount: Number(htlc.amount), index: Number(htlc.htlcIndex), fwIndex: Number(htlc.forwardingHtlcIndex) }))
         }))
         return { confirmedBalance: Number(confirmedBalance), unconfirmedBalance: Number(unconfirmedBalance), totalBalance: Number(totalBalance), channelsBalance }
@@ -912,17 +913,6 @@ export default class {
         this.log(DEBUG, "Listing peers")
         const res = await this.lightning.listPeers({ latestError: true }, DeadLineMetadata())
         return res.response
-    }
-
-    async PeerLastFlapUnix(): Promise<Map<string, number>> {
-        const { peers } = await this.ListPeers()
-        const lastFlap = new Map<string, number>()
-        for (const peer of peers || []) {
-            if (!peer.lastFlapNs) continue
-            const unix = Number(peer.lastFlapNs / 1_000_000_000n)
-            if (unix > 0) lastFlap.set(peer.pubKey, unix)
-        }
-        return lastFlap
     }
 
     async ListUnspent() {
